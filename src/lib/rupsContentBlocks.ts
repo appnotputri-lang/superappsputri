@@ -115,10 +115,10 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
 
   function checkNotaryWording(name: string, title?: string, domicile?: string) {
     const norm = (name || "").toUpperCase().trim();
-    const t1 = "NUKANTINI PUTRI PARINCHA, SARJANA HUKUM, MAGISTER KENOTARIATAN";
-    const t2 = "RADEN AJENG NUKANTINI PUTRI PARINCHA, SARJANA HUKUM, MAGISTER KENOTARIATAN";
-    if (norm === t1 || norm === t2) {
-      return "saya,";
+    const t1 = "NUKANTINI PUTRI PARINCHA";
+    const t2 = "RADEN AJENG NUKANTINI PUTRI PARINCHA";
+    if (norm.startsWith(t1) || norm.startsWith(t2)) {
+      return `saya, Notaris berkedudukan di ${toTitleCase(domicile || "...")},`;
     }
     return `${name}${title ? `, ${title}` : ""}, Notaris di ${toTitleCase(domicile || "...")}`;
   }
@@ -170,7 +170,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
       type: "p",
       runs: [
         { text: `Berhadapan dengan saya, ` },
-        ...(data.notaryName === 'Nukantini Putri Parincha' ? [] : [
+        ...(data.notaryName === 'Nukantini Putri Parincha' || (data.notaryName || '').toUpperCase().startsWith('NUKANTINI PUTRI PARINCHA') ? [] : [
           {
             text:
               data.notaryName ||
@@ -180,7 +180,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
           { text: `, ` } as FormatToken
         ]),
         {
-          text: `Notaris di Kabupaten Bandung Barat, dengan di hadiri oleh saksi-saksi yang saya, Notaris kenal dan akan disebutkan nama-namanya pada bagian akhir akta ini :`,
+          text: `Notaris di ${toTitleCase(data.notaryDomicile || "Kabupaten Bandung Barat")}, dengan di hadiri oleh saksi-saksi yang saya, Notaris kenal dan akan disebutkan nama-namanya pada bagian akhir akta ini :`,
         },
       ],
     },
@@ -763,27 +763,55 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
 
     // DISMISSAL BLOCK
     if (managersToDismiss.length > 0) {
-      blocks.push({
-        type: "p",
-        number: resIdx++,
-        runs: [
-          {
-            text: `Menyetujui untuk memberhentikan dengan hormat ${changeType === "PARTIAL_CHANGE" ? "anggota" : "seluruh anggota"} Direksi dan Dewan Komisaris Perseroan${changeType === "PARTIAL_CHANGE" ? "" : " yang menjabat saat ini"}, yaitu :`,
-          },
-        ],
-      });
+      if (managersToDismiss.length === 1) {
+        const mgr = managersToDismiss[0];
+        let resignationHeading = "";
+        if (/direktur/i.test(mgr.position)) {
+          resignationHeading = `anggota Direksi`;
+        } else if (/komisaris/i.test(mgr.position)) {
+          resignationHeading = `Dewan Komisaris Perseroan`;
+        } else {
+          resignationHeading = `anggota Direksi dan Dewan Komisaris Perseroan`;
+        }
+        
+        const detailRuns = getPersonDetailRuns(mgr);
 
-      managersToDismiss.forEach((m) => {
         blocks.push({
-          type: "list",
-          bullet: "-",
-          indentTabs: 0.8, // → left=567, hanging=283 (sesuai XML contoh_6.docx)
+          type: "p",
+          number: resIdx++,
           runs: [
-            ...getPersonDetailRuns(m as any),
-            { text: ` selaku ${m.position} perseroan` },
+            {
+              text: `Menyetujui untuk memberhentikan dengan hormat ${resignationHeading}, Tuan `,
+            },
+            ...detailRuns,
+            { text: ` selaku ${mgr.position} perseroan.` },
           ],
         });
-      });
+      } else {
+        let dismissalText = `${changeType === "PARTIAL_CHANGE" ? "anggota" : "seluruh anggota"} Direksi dan Dewan Komisaris Perseroan${changeType === "PARTIAL_CHANGE" ? "" : " yang menjabat saat ini"}`;
+
+        blocks.push({
+          type: "p",
+          number: resIdx++,
+          runs: [
+            {
+              text: `Menyetujui untuk memberhentikan dengan hormat ${dismissalText}, yaitu :`,
+            },
+          ],
+        });
+
+        managersToDismiss.forEach((m) => {
+          blocks.push({
+            type: "list",
+            bullet: "-",
+            indentTabs: 0.8, // → left=567, hanging=283 (sesuai XML contoh_6.docx)
+            runs: [
+              ...getPersonDetailRuns(m as any),
+              { text: ` selaku ${m.position} perseroan` },
+            ],
+          });
+        });
+      }
 
       blocks.push({
         type: "p",
@@ -798,12 +826,22 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
 
     // APPOINTMENT BLOCK
     if (managersToAppoint.length > 0) {
+      const hasDirector = managersToAppoint.some(m => /direktur/i.test(m.position));
+      const hasCommissioner = managersToAppoint.some(m => /komisaris/i.test(m.position));
+      
+      let titleText = "anggota Direksi /Dewan Komisaris Perseroan";
+      if (hasDirector && !hasCommissioner) {
+        titleText = "anggota Direksi Perseroan";
+      } else if (!hasDirector && hasCommissioner) {
+        titleText = "Dewan Komisaris Perseroan";
+      }
+
       blocks.push({
         type: "p",
-        number: managersToDismiss.length === 0 ? resIdx++ : undefined,
+        number: resIdx++,
         runs: [
           {
-            text: `Selanjutnya menyetujui untuk mengangkat nama-nama tersebut di bawah ini sebagai anggota Direksi dan Dewan Komisaris Perseroan yang ${changeType === "PARTIAL_CHANGE" ? "baru" : "baru"} :`,
+            text: `Selanjutnya menyetujui untuk mengangkat sebagai ${titleText} yang baru :`,
           },
         ],
       });

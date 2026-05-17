@@ -176,6 +176,42 @@ export const FormContent: React.FC<FormContentProps> = ({ data, onChange, integr
           <FieldRow label="Jam">
             <Input name="jamAkta" type="time" value={data.jamAkta} onChange={onChange} />
           </FieldRow>
+          <FieldRow label="Notaris">
+            <div className="space-y-3">
+              <Select 
+                name="notarisSelection" 
+                value={data.notarisNama === 'Nukantini Putri Parincha' ? 'Saya' : (data.notarisNama === 'NUKANTINI PUTRI PARINCHA, Sarjana Hukum, Magister Kenotariatan' ? 'Saya' : 'Lainnya')} 
+                onChange={(e) => {
+                  if (e.target.value === 'Saya') {
+                    onChange({ target: { name: 'notarisNama', value: 'Nukantini Putri Parincha' } });
+                    onChange({ target: { name: 'notarisKedudukan', value: 'Kabupaten Bandung Barat' } });
+                  } else {
+                    onChange({ target: { name: 'notarisNama', value: '' } });
+                  }
+                }}
+              >
+                <option value="Saya">Saya (Nukantini Putri Parincha)</option>
+                <option value="Lainnya">Lainnya (Input Manual)</option>
+              </Select>
+              
+              {(data.notarisNama !== 'Nukantini Putri Parincha' && data.notarisNama !== 'NUKANTINI PUTRI PARINCHA, Sarjana Hukum, Magister Kenotariatan') && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <Input 
+                    name="notarisNama" 
+                    placeholder="Nama Notaris..." 
+                    value={data.notarisNama} 
+                    onChange={onChange} 
+                  />
+                  <Input 
+                    name="notarisKedudukan" 
+                    placeholder="Kedudukan Notaris..." 
+                    value={data.notarisKedudukan} 
+                    onChange={onChange} 
+                  />
+                </div>
+              )}
+            </div>
+          </FieldRow>
         </div>
       </Section>
 

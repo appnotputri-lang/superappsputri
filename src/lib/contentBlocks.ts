@@ -25,10 +25,10 @@ export const generateBlocks = (data: FormData): Block[] => {
 
   function checkNotaryWording(name: string, title?: string, domicile?: string) {
     const norm = (name || "").toUpperCase().trim();
-    const t1 = "NUKANTINI PUTRI PARINCHA, SARJANA HUKUM, MAGISTER KENOTARIATAN";
-    const t2 = "RADEN AJENG NUKANTINI PUTRI PARINCHA, SARJANA HUKUM, MAGISTER KENOTARIATAN";
-    if (norm === t1 || norm === t2) {
-      return "saya,";
+    const t1 = "NUKANTINI PUTRI PARINCHA";
+    const t2 = "RADEN AJENG NUKANTINI PUTRI PARINCHA";
+    if (norm.startsWith(t1) || norm.startsWith(t2)) {
+      return `saya, Notaris berkedudukan di ${toTitleCase(domicile || "...")},`;
     }
     return `${name}${title ? `, ${title}` : ''}, Notaris di ${toTitleCase(domicile || "...")}`;
   }
@@ -96,7 +96,7 @@ export const generateBlocks = (data: FormData): Block[] => {
     { type: 'p', runs: [{ text: `Pukul ${jamStr} (${jamHuruf}).` }] },
     { type: 'p', runs: [
        { text: `Berhadapan dengan saya, ` },
-       ...(data.notarisNama === 'Nukantini Putri Parincha' ? [] : [
+       ...(data.notarisNama === 'Nukantini Putri Parincha' || (data.notarisNama || '').toUpperCase().startsWith('NUKANTINI PUTRI PARINCHA') ? [] : [
          { text: data.notarisNama, bold: true } as FormatToken,
          { text: `, ` } as FormatToken
        ]),
