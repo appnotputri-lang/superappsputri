@@ -170,6 +170,8 @@ const INITIAL_STATE: CompanyData = {
   draftAktaRupsNumber: '',
   draftAktaRupsDate: '',
   notaryName: '',
+  notaryTitle: '',
+  notaryDomicile: '',
   notaryNumber: '',
   notaryDate: '',
   isReplacementNotary: false,
@@ -1059,6 +1061,37 @@ const App: React.FC = () => {
                       </div>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                      <AhuLabel label="Pilih Notaris" />
+                      <div className="md:col-span-3">
+                        <AhuSelect
+                          value={data.establishmentNotary === 'Nukantini Putri Parincha' ? 'saya' : (data.establishmentNotary ? 'manual' : '')}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            if (val === 'saya') {
+                              updateData({
+                                establishmentNotary: 'Nukantini Putri Parincha',
+                                establishmentNotaryTitle: 'Sarjana Hukum, Magister Kenotariatan',
+                                establishmentNotaryDomicile: 'Kabupaten Bandung Barat'
+                              });
+                            } else if (val === 'manual') {
+                              updateData({
+                                establishmentNotary: '',
+                                establishmentNotaryTitle: '',
+                                establishmentNotaryDomicile: ''
+                              });
+                            } else {
+                              updateData({ establishmentNotary: '', establishmentNotaryTitle: '', establishmentNotaryDomicile: '' });
+                            }
+                          }}
+                        >
+                          <option value="">-- Pilih Notaris --</option>
+                          <option value="saya">Saya (Nukantini Putri Parincha, SH., M.Kn.)</option>
+                          <option value="manual">Input Bebas</option>
+                        </AhuSelect>
+                      </div>
+                    </div>
+                    {data.establishmentNotary !== 'Nukantini Putri Parincha' && (
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
                       <AhuLabel label="Nama Notaris" />
                       <div className="md:col-span-3 flex gap-2">
                         <AhuInput 
@@ -1094,10 +1127,17 @@ const App: React.FC = () => {
                         </div>
                       </div>
                     </div>
+                    )}
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
                       <AhuLabel label="Kedudukan Notaris" />
                       <div className="md:col-span-3">
-                        <AhuInput value={data.establishmentNotaryDomicile || ''} onChange={e => updateData({ establishmentNotaryDomicile: e.target.value })} placeholder="Contoh: Kabupaten Bandung Barat" />
+                        <AhuInput 
+                          value={data.establishmentNotaryDomicile || ''} 
+                          onChange={e => updateData({ establishmentNotaryDomicile: e.target.value })} 
+                          placeholder="Contoh: Kabupaten Bandung Barat" 
+                          disabled={data.establishmentNotary === 'Nukantini Putri Parincha'}
+                          className={data.establishmentNotary === 'Nukantini Putri Parincha' ? 'bg-slate-100 font-bold' : ''}
+                        />
                       </div>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
@@ -1158,6 +1198,41 @@ const App: React.FC = () => {
                         </div>
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                        <AhuLabel label="Pilih Notaris" />
+                        <div className="md:col-span-3">
+                          <AhuSelect
+                            value={deed.notary === 'Nukantini Putri Parincha' ? 'saya' : (deed.notary ? 'manual' : '')}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              const newList = [...(data.amendmentDeeds || [])];
+                              if (val === 'saya') {
+                                newList[index] = { 
+                                  ...deed, 
+                                  notary: 'Nukantini Putri Parincha',
+                                  notaryTitle: 'Sarjana Hukum, Magister Kenotariatan',
+                                  notaryDomicile: 'Kabupaten Bandung Barat'
+                                };
+                              } else if (val === 'manual') {
+                                newList[index] = { 
+                                  ...deed, 
+                                  notary: '',
+                                  notaryTitle: '',
+                                  notaryDomicile: ''
+                                };
+                              } else {
+                                newList[index] = { ...deed, notary: '', notaryTitle: '', notaryDomicile: ' ' };
+                              }
+                              updateData({ amendmentDeeds: newList });
+                            }}
+                          >
+                            <option value="">-- Pilih Notaris --</option>
+                            <option value="saya">Saya (Nukantini Putri Parincha, SH., M.Kn.)</option>
+                            <option value="manual">Input Bebas</option>
+                          </AhuSelect>
+                        </div>
+                      </div>
+                      {deed.notary !== 'Nukantini Putri Parincha' && (
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
                         <AhuLabel label="Nama Notaris" />
                         <div className="md:col-span-3 flex gap-2">
                           <AhuInput 
@@ -1203,6 +1278,7 @@ const App: React.FC = () => {
                           </div>
                         </div>
                       </div>
+                      )}
                       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
                         <AhuLabel label="Kedudukan Notaris" />
                         <div className="md:col-span-3">
@@ -1214,6 +1290,8 @@ const App: React.FC = () => {
                               updateData({ amendmentDeeds: newList });
                             }} 
                             placeholder="Contoh: Kabupaten Bogor" 
+                            disabled={deed.notary === 'Nukantini Putri Parincha'}
+                            className={deed.notary === 'Nukantini Putri Parincha' ? 'bg-slate-100 font-bold' : ''}
                           />
                         </div>
                       </div>
@@ -1601,6 +1679,37 @@ const App: React.FC = () => {
                       </div>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                      <AhuLabel label="Pilih Notaris" />
+                      <div className="md:col-span-3">
+                        <AhuSelect
+                          value={data.establishmentNotary === 'Nukantini Putri Parincha' ? 'saya' : (data.establishmentNotary ? 'manual' : '')}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            if (val === 'saya') {
+                              updateData({
+                                establishmentNotary: 'Nukantini Putri Parincha',
+                                establishmentNotaryTitle: 'Sarjana Hukum, Magister Kenotariatan',
+                                establishmentNotaryDomicile: 'Kabupaten Bandung Barat'
+                              });
+                            } else if (val === 'manual') {
+                              updateData({
+                                establishmentNotary: '',
+                                establishmentNotaryTitle: '',
+                                establishmentNotaryDomicile: ''
+                              });
+                            } else {
+                              updateData({ establishmentNotary: '', establishmentNotaryTitle: '', establishmentNotaryDomicile: '' });
+                            }
+                          }}
+                        >
+                          <option value="">-- Pilih Notaris --</option>
+                          <option value="saya">Saya (Nukantini Putri Parincha, SH., M.Kn.)</option>
+                          <option value="manual">Input Bebas</option>
+                        </AhuSelect>
+                      </div>
+                    </div>
+                    {data.establishmentNotary !== 'Nukantini Putri Parincha' && (
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
                       <AhuLabel label="Nama Notaris" />
                       <div className="md:col-span-3 flex gap-2">
                         <AhuInput 
@@ -1636,10 +1745,17 @@ const App: React.FC = () => {
                         </div>
                       </div>
                     </div>
+                    )}
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
                       <AhuLabel label="Kedudukan Notaris" />
                       <div className="md:col-span-3">
-                        <AhuInput value={data.establishmentNotaryDomicile || ''} onChange={e => updateData({ establishmentNotaryDomicile: e.target.value })} placeholder="Contoh: Kabupaten Bandung Barat" />
+                        <AhuInput 
+                          value={data.establishmentNotaryDomicile || ''} 
+                          onChange={e => updateData({ establishmentNotaryDomicile: e.target.value })} 
+                          placeholder="Contoh: Kabupaten Bandung Barat" 
+                          disabled={data.establishmentNotary === 'Nukantini Putri Parincha'}
+                          className={data.establishmentNotary === 'Nukantini Putri Parincha' ? 'bg-slate-100 font-bold' : ''}
+                        />
                       </div>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
@@ -1700,6 +1816,41 @@ const App: React.FC = () => {
                         </div>
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                        <AhuLabel label="Pilih Notaris" />
+                        <div className="md:col-span-3">
+                          <AhuSelect
+                            value={deed.notary === 'Nukantini Putri Parincha' ? 'saya' : (deed.notary ? 'manual' : '')}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              const newList = [...(data.amendmentDeeds || [])];
+                              if (val === 'saya') {
+                                newList[index] = { 
+                                  ...deed, 
+                                  notary: 'Nukantini Putri Parincha',
+                                  notaryTitle: 'Sarjana Hukum, Magister Kenotariatan',
+                                  notaryDomicile: 'Kabupaten Bandung Barat'
+                                };
+                              } else if (val === 'manual') {
+                                newList[index] = { 
+                                  ...deed, 
+                                  notary: '',
+                                  notaryTitle: '',
+                                  notaryDomicile: ''
+                                };
+                              } else {
+                                newList[index] = { ...deed, notary: '', notaryTitle: '', notaryDomicile: ' ' };
+                              }
+                              updateData({ amendmentDeeds: newList });
+                            }}
+                          >
+                            <option value="">-- Pilih Notaris --</option>
+                            <option value="saya">Saya (Nukantini Putri Parincha, SH., M.Kn.)</option>
+                            <option value="manual">Input Bebas</option>
+                          </AhuSelect>
+                        </div>
+                      </div>
+                      {deed.notary !== 'Nukantini Putri Parincha' && (
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
                         <AhuLabel label="Nama Notaris" />
                         <div className="md:col-span-3 flex gap-2">
                           <AhuInput 
@@ -1745,6 +1896,7 @@ const App: React.FC = () => {
                           </div>
                         </div>
                       </div>
+                      )}
                       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
                         <AhuLabel label="Kedudukan Notaris" />
                         <div className="md:col-span-3">
@@ -1756,6 +1908,8 @@ const App: React.FC = () => {
                               updateData({ amendmentDeeds: newList });
                             }} 
                             placeholder="Contoh: Kabupaten Bogor" 
+                            disabled={deed.notary === 'Nukantini Putri Parincha'}
+                            className={deed.notary === 'Nukantini Putri Parincha' ? 'bg-slate-100 font-bold' : ''}
                           />
                         </div>
                       </div>

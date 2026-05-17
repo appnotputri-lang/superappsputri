@@ -118,9 +118,9 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
     const t1 = "NUKANTINI PUTRI PARINCHA, SARJANA HUKUM, MAGISTER KENOTARIATAN";
     const t2 = "RADEN AJENG NUKANTINI PUTRI PARINCHA, SARJANA HUKUM, MAGISTER KENOTARIATAN";
     if (norm === t1 || norm === t2) {
-      return "saya, Notaris";
+      return "saya,";
     }
-    return `${name}${title ? `, ${title}` : ""}, Notaris berkedudukan di ${toTitleCase(domicile || "...")}`;
+    return `${name}${title ? `, ${title}` : ""}, Notaris di ${toTitleCase(domicile || "...")}`;
   }
 
   const blocks: Block[] = [
@@ -170,14 +170,17 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
       type: "p",
       runs: [
         { text: `Berhadapan dengan saya, ` },
+        ...(data.notaryName === 'Nukantini Putri Parincha' ? [] : [
+          {
+            text:
+              data.notaryName ||
+              "NUKANTINI PUTRI PARINCHA, Sarjana Hukum, Magister Kenotariatan",
+            bold: true,
+          } as FormatToken,
+          { text: `, ` } as FormatToken
+        ]),
         {
-          text:
-            data.notaryName ||
-            "NUKANTINI PUTRI PARINCHA, Sarjana Hukum, Magister Kenotariatan",
-          bold: true,
-        },
-        {
-          text: `, Notaris di Kabupaten Bandung Barat, dengan di hadiri oleh saksi-saksi yang saya, Notaris kenal dan akan disebutkan nama-namanya pada bagian akhir akta ini :`,
+          text: `Notaris di Kabupaten Bandung Barat, dengan di hadiri oleh saksi-saksi yang saya, Notaris kenal dan akan disebutkan nama-namanya pada bagian akhir akta ini :`,
         },
       ],
     },
@@ -195,16 +198,16 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
       ],
     },
 
-    {
+    ...(rep?.address?.city?.toUpperCase() !== "KABUPATEN BANDUNG BARAT" && toTitleCase(rep?.address?.city || "").toUpperCase() !== "KABUPATEN BANDUNG BARAT" ? [{
       type: "list",
       bullet: "-",
       indentTabs: 1.5,
       runs: [
         {
-          text: `Untuk sementara berada di ${toTitleCase(data.newAddress?.city || data.domicile || "...")};`,
+          text: `Untuk sementara berada di ${toTitleCase(data.notaryDomicile || "Kabupaten Bandung Barat")};`,
         },
       ],
-    },
+    } as Block] : []),
     { type: "p", runs: [{ text: `Penghadap saya, Notaris kenal.` }] },
     {
       type: "p",

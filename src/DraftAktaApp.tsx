@@ -81,6 +81,8 @@ export default function DraftAktaApp({ companyData }: DraftAktaAppProps) {
         // Base structure from company
         const baseCompanyData = {
           ...initialData,
+          notarisNama: companyData.notaryName || initialData.notarisNama,
+          notarisKedudukan: companyData.notaryDomicile || initialData.notarisKedudukan,
           namaPT: companyData.targetCompanyName || companyData.companyName || initialData.namaPT,
           kedudukanPT: toTitleCase(companyData.newAddress?.city || companyData.domicile || initialData.kedudukanPT || ''),
           tglPendirianPT: companyData.establishmentDeedDate || initialData.tglPendirianPT,

@@ -193,7 +193,10 @@ export interface CompanyData {
   draftAktaRupsNumber?: string;
   draftAktaRupsDate?: string;
   
+  notarySelectionType?: 'saya' | 'manual';
   notaryName?: string;
+  notaryTitle?: string;
+  notaryDomicile?: string;
   notaryNumber?: string;
   notaryDate?: string;
   isReplacementNotary?: boolean;

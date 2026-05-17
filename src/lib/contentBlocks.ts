@@ -28,7 +28,7 @@ export const generateBlocks = (data: FormData): Block[] => {
     const t1 = "NUKANTINI PUTRI PARINCHA, SARJANA HUKUM, MAGISTER KENOTARIATAN";
     const t2 = "RADEN AJENG NUKANTINI PUTRI PARINCHA, SARJANA HUKUM, MAGISTER KENOTARIATAN";
     if (norm === t1 || norm === t2) {
-      return "saya, Notaris";
+      return "saya,";
     }
     return `${name}${title ? `, ${title}` : ''}, Notaris di ${toTitleCase(domicile || "...")}`;
   }
@@ -96,8 +96,11 @@ export const generateBlocks = (data: FormData): Block[] => {
     { type: 'p', runs: [{ text: `Pukul ${jamStr} (${jamHuruf}).` }] },
     { type: 'p', runs: [
        { text: `Berhadapan dengan saya, ` },
-       { text: data.notarisNama, bold: true },
-       { text: `, Notaris di ${toTitleCase(data.notarisKedudukan)}, dengan di hadiri oleh saksi-saksi yang saya, Notaris kenal dan akan disebutkan nama-namanya pada bagian akhir akta ini :` }
+       ...(data.notarisNama === 'Nukantini Putri Parincha' ? [] : [
+         { text: data.notarisNama, bold: true } as FormatToken,
+         { text: `, ` } as FormatToken
+       ]),
+       { text: `Notaris di ${toTitleCase(data.notarisKedudukan)}, dengan di hadiri oleh saksi-saksi yang saya, Notaris kenal dan akan disebutkan nama-namanya pada bagian akhir akta ini :` }
     ] },
 
     { type: 'p', runs: [
@@ -120,7 +123,7 @@ export const generateBlocks = (data: FormData): Block[] => {
       ] as FormatToken[] }
     ].map(item => ({ ...item, type: 'list' as const, bullet: '-' })) : []),
 
-    { type: 'list', bullet: '-', runs: [{ text: `Untuk sementara berada di ${toTitleCase(data.notarisKedudukan)}.` }], spaceAfter: true },
+    ...(data.pihak1Kota.trim().toUpperCase() !== "KABUPATEN BANDUNG BARAT" ? [{ type: 'list', bullet: '-', runs: [{ text: `Untuk sementara berada di ${toTitleCase(data.notarisKedudukan)}.` }], spaceAfter: true } as Block] : []),
 
     { type: 'p', runs: [{ text: `Untuk selanjutnya disebut :` }] },
     { type: 'divider', text: `PIHAK PERTAMA` },
@@ -132,7 +135,7 @@ export const generateBlocks = (data: FormData): Block[] => {
     ] },
 
     { type: 'list', bullet: '-', runs: [{ text: `Dalam melakukan tindakan hukum di bawah ini bertindak untuk dirinya sendiri.` }] },
-    { type: 'list', bullet: '-', runs: [{ text: `Untuk sementara berada di ${toTitleCase(data.notarisKedudukan)}.` }], spaceAfter: true },
+    ...(data.pihak2Kota.trim().toUpperCase() !== "KABUPATEN BANDUNG BARAT" ? [{ type: 'list', bullet: '-', runs: [{ text: `Untuk sementara berada di ${toTitleCase(data.notarisKedudukan)}.` }], spaceAfter: true } as Block] : []),
 
     { type: 'p', runs: [{ text: `Untuk selanjutnya disebut :` }] },
     { type: 'divider', text: `PIHAK KEDUA` },
