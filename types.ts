@@ -208,6 +208,10 @@ export interface CompanyData {
   finalShareholders: Shareholder[]; // Structure after change
   resolutions: ResolutionFlags;
 
+  createDraftAktaRups?: boolean;
+  draftAktaRupsNumber?: string;
+  draftAktaRupsDate?: string;
+  
   notaryName?: string;
   notaryNumber?: string;
   notaryDate?: string;

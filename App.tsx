@@ -162,6 +162,9 @@ const INITIAL_STATE: CompanyData = {
   shareTransfers: [],
   finalShareholders: [],
   resolutions: INITIAL_RESOLUTIONS,
+  createDraftAktaRups: false,
+  draftAktaRupsNumber: '',
+  draftAktaRupsDate: '',
   notaryName: '',
   notaryNumber: '',
   notaryDate: '',
@@ -710,8 +713,7 @@ const App: React.FC = () => {
           <div className="py-4 space-y-0 text-[13px] w-64">
             {[
               { label: 'Company Profile', id: 'company_profile' as const, icon: Building2 },
-              { label: 'Draft Notulen', id: 'notulen' as const, icon: FileText },
-              { label: 'Draft Akta RUPS', id: 'draft_akta_rups' as const, icon: FileCheck },
+              { label: 'Proyek', id: 'notulen' as const, icon: FileText },
               { label: 'Surat Perbaikan Data', id: 'perbaikan' as const, icon: Mail },
             ].map((item) => (
               <button key={item.id} onClick={() => setActiveSidebarTab(item.id)} className={`w-full text-left px-4 py-2.5 border-l-4 transition-all flex justify-between items-center ${activeSidebarTab === item.id ? 'bg-[#1e282c] text-white border-blue-500' : 'border-transparent hover:bg-black/10 hover:text-white'}`}>
@@ -1291,6 +1293,42 @@ const App: React.FC = () => {
                         <span>Berita Acara RUPS LB</span>
                       </label>
                     </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-start mt-4 pt-4 border-t border-slate-200">
+                  <AhuLabel label="Opsi Draft Akta" />
+                  <div className="md:col-span-3 space-y-3">
+                    <label className="flex items-center gap-2 text-[13px] text-slate-700 cursor-pointer font-bold">
+                      <input
+                        type="checkbox"
+                        checked={data.createDraftAktaRups}
+                        onChange={(e) => updateData({ createDraftAktaRups: e.target.checked })}
+                        className="w-4 h-4 text-[#3b5998] focus:ring-[#3b5998] border-[#ccc] rounded"
+                      />
+                      <span>Buat Draft Akta RUPS</span>
+                    </label>
+
+                    {data.createDraftAktaRups && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2 p-4 bg-slate-50 border border-slate-200 rounded-sm">
+                        <div>
+                          <AhuLabel label="Nomor Akta" />
+                          <AhuInput 
+                            value={data.draftAktaRupsNumber || ''} 
+                            onChange={(e) => updateData({ draftAktaRupsNumber: e.target.value })} 
+                            placeholder="Contoh: 12"
+                          />
+                        </div>
+                        <div>
+                          <AhuLabel label="Tanggal Akta" />
+                          <AhuInput 
+                            type="date"
+                            value={data.draftAktaRupsDate || ''} 
+                            onChange={(e) => updateData({ draftAktaRupsDate: e.target.value })} 
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1906,21 +1944,69 @@ const App: React.FC = () => {
                </div>
             </AhuSection>
 
-            {/* DRAFT AKTA PERALIHAN JUAL BELI / HIBAH */}
-            {data.resolutions.shareholders && (
-              <AhuSection title="DRAFT AKTA PERALIHAN SAHAM (JUAL BELI / HIBAH)">
-                <div className="space-y-4">
-                   <p className="text-[13px] text-slate-600 mb-4 font-normal">Terdapat agenda <strong>Perubahan Susunan Pemegang Saham</strong>, maka di bawah ini kami sediakan Form Pengisian Cepat untuk membuat Draft Akta Peralihan Hak Atas Saham.</p>
-                   <DraftAktaApp companyData={data} />
-                </div>
-              </AhuSection>
-            )}
-
-
             {/* Action Buttons */}
-            <div className="flex gap-2 py-8 pt-4 border-t border-slate-300">
+            <div className="flex flex-wrap gap-2 py-8 pt-4 border-t border-slate-300">
                <button onClick={resetData} className="px-5 py-2 bg-[#d9534f] text-white rounded-md text-[13px] font-bold transition-all hover:bg-[#c9302c] shadow-sm uppercase">RISET</button>
-               <button onClick={() => setIsPreviewOpen(true)} className="px-5 py-2 bg-[#5cb85c] text-white rounded-md text-[13px] font-bold transition-all hover:bg-[#449d44] shadow-sm uppercase">PREVIEW</button>
+               
+               <button onClick={() => {
+                  if (!data.companyName) return alert('Nama perseroan harus diisi');
+                  let newProfiles = [...profiles];
+                  const profileData = {
+                      id: editingProfileId && editingProfileId !== 'new' ? editingProfileId : crypto.randomUUID(),
+                      companyName: data.companyName,
+                      companyShortName: data.companyShortName,
+                      npwp: data.npwp,
+                      companyType: data.companyType,
+                      status: data.status,
+                      duration: data.duration,
+                      newAddress: data.newAddress,
+                      establishmentDeedNumber: data.establishmentDeedNumber,
+                      establishmentDeedDate: data.establishmentDeedDate,
+                      establishmentNotary: data.establishmentNotary,
+                      establishmentNotaryTitle: data.establishmentNotaryTitle,
+                      establishmentNotaryDomicile: data.establishmentNotaryDomicile,
+                      establishmentSkNumber: data.establishmentSkNumber,
+                      establishmentSkDate: data.establishmentSkDate,
+                      amendmentDeeds: data.amendmentDeeds,
+                      originalAuthorizedShares: data.originalAuthorizedShares,
+                      originalTotalShares: data.originalTotalShares,
+                      originalSharePrice: data.originalSharePrice,
+                      originalCapitalBase: data.originalCapitalBase,
+                      originalCapitalPaid: data.originalCapitalPaid,
+                      shareholders: data.shareholders
+                  };
+                  
+                  const idx = newProfiles.findIndex(p => p.companyName.toLowerCase() === data.companyName.toLowerCase() || p.id === editingProfileId);
+                  if (idx >= 0) {
+                      profileData.id = newProfiles[idx].id;
+                      newProfiles[idx] = profileData;
+                  } else {
+                      newProfiles.push(profileData);
+                  }
+                  setProfiles(newProfiles);
+                  setEditingProfileId(profileData.id);
+                  alert('Proyek / Profil berhasil disimpan!');
+               }} className="px-5 py-2 bg-[#40bdae] text-white rounded-md text-[13px] font-bold transition-all hover:bg-[#349c8f] shadow-sm uppercase">SIMPAN PROYEK</button>
+
+               <button onClick={() => setIsPreviewOpen(true)} className="px-5 py-2 bg-[#5cb85c] text-white rounded-md text-[13px] font-bold transition-all hover:bg-[#449d44] shadow-sm uppercase">PREVIEW NOTULEN</button>
+            </div>
+            
+            {/* Added Previews section at the bottom of the project */}
+            <div className="space-y-6 pb-12">
+               {data.createDraftAktaRups && (
+                 <AhuSection title="DRAFT AKTA RUPS">
+                   <DraftAktaRUPS companyData={data} />
+                 </AhuSection>
+               )}
+
+               {data.resolutions.shareholders && (
+                 <AhuSection title="DRAFT AKTA PERALIHAN SAHAM (JUAL BELI / HIBAH)">
+                   <div className="space-y-4">
+                      <p className="text-[13px] text-slate-600 mb-4 font-normal">Terdapat agenda <strong>Peralihan Saham</strong>. Anda dapat melihat dan mengunduh Akta Peralihan di bawah ini.</p>
+                      <DraftAktaApp companyData={data} />
+                   </div>
+                 </AhuSection>
+               )}
             </div>
           </div>
           )}

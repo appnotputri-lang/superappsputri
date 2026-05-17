@@ -49,9 +49,12 @@ export type Block =
   | { type: "static"; content: string };
 
 export const generateRupsBlocks = (data: CompanyData): Block[] => {
-  const tglAktaHari = getDayName(data.notaryDate || "");
-  const tglAktaHuruf = dateToWords(data.notaryDate || "");
-  const tglAktaAngka = formatDateStr(data.notaryDate || "");
+  const effectiveNotaryDate = data.draftAktaRupsDate || data.notaryDate || "";
+  const effectiveNotaryNumber = data.draftAktaRupsNumber || data.notaryNumber || "...";
+  
+  const tglAktaHari = getDayName(effectiveNotaryDate);
+  const tglAktaHuruf = dateToWords(effectiveNotaryDate);
+  const tglAktaAngka = formatDateStr(effectiveNotaryDate);
 
   const jamStr = data.meetingStartTime
     ? data.meetingStartTime.replace(":", ".") + " WIBB"
@@ -149,7 +152,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
     {
       type: "p",
       align: "center",
-      runs: [{ text: `Nomor : ${data.notaryNumber || "..."}`, bold: false }],
+      runs: [{ text: `Nomor : ${effectiveNotaryNumber}`, bold: false }],
     },
     { type: "p", runs: [{ text: `` }] },
     { type: "p", runs: [{ text: `` }] },
