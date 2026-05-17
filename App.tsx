@@ -184,7 +184,7 @@ const INITIAL_STATE: CompanyData = {
 };
 
 type TabId = 'general' | 'shareholders' | 'shareholders_new' | 'representative' | 'agenda' | 'kbli' | 'domicile' | 'address' | 'capitalBase' | 'capitalPaid' | 'management' | 'reappointment';
-type SidebarTabId = 'notulen' | 'perbaikan' | 'draft_akta_rups';
+type SidebarTabId = 'company_profile' | 'notulen' | 'perbaikan' | 'draft_akta_rups';
 
 // AHU Style Helper Components
 const AhuSection = ({ title, children, isOpen = true }: { title: string, children: React.ReactNode, isOpen?: boolean }) => {
@@ -257,7 +257,7 @@ const App: React.FC = () => {
   useEffect(() => {
     if (user) {
       const profilesRef = collection(db, 'profiles');
-      const unsub = onSnapshot(profilesRef, (snapshot) => {
+      const unsubProfiles = onSnapshot(profilesRef, (snapshot) => {
         const loaded: CompanyProfile[] = [];
         snapshot.forEach(doc => {
           loaded.push(doc.data() as CompanyProfile);
@@ -266,12 +266,27 @@ const App: React.FC = () => {
       }, (error) => {
         handleFirestoreError(error, OperationType.LIST, `profiles`);
       });
-      return unsub;
+
+      const projectsRef = collection(db, 'projects');
+      const unsubProjects = onSnapshot(projectsRef, (snapshot) => {
+        const loaded: CompanyData[] = [];
+        snapshot.forEach(doc => {
+          loaded.push(doc.data() as CompanyData);
+        });
+        setProjects(loaded);
+      }, (error) => {
+        handleFirestoreError(error, OperationType.LIST, `projects`);
+      });
+
+      return () => { unsubProfiles(); unsubProjects(); };
     } else {
       setProfiles([]);
+      setProjects([]);
     }
   }, [user]);
 
+  const [projects, setProjects] = useState<CompanyData[]>([]);
+  const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
   const [editingProfileId, setEditingProfileId] = useState<string | null>(null);
 
   const [editingShareholder, setEditingShareholder] = useState<Shareholder | null>(null);
@@ -280,7 +295,7 @@ const App: React.FC = () => {
   const [showPreview, setShowPreview] = useState(true);
   const [newKbliId, setNewKbliId] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [activeSidebarTab, setActiveSidebarTab] = useState<SidebarTabId>('company_profile');
+  const [activeSidebarTab, setActiveSidebarTab] = useState<SidebarTabId>('notulen');
   const [zoom, setZoom] = useState(1);
 
 
@@ -820,12 +835,7 @@ const App: React.FC = () => {
                 {!editingProfileId && (
                   <button onClick={() => {
                     setEditingProfileId('new');
-                    updateData({
-                      id: undefined, companyName: '', companyShortName: '', npwp: '', companyType: 'SWASTA NASIONAL',
-                      status: 'tertutup', duration: 'TIDAK TERBATAS', newAddress: { province: '', city: '', fullAddress: '', rt: '', rw: '', kelurahan: '', kecamatan: '' },
-                      originalAuthorizedShares: 0, originalTotalShares: 0, originalSharePrice: 0, 
-                      originalCapitalBase: 0, originalCapitalPaid: 0, shareholders: [], amendmentDeeds: []
-                    } as any);
+                    updateData({ ...INITIAL_STATE } as any);
                   }} className="bg-[#3b5998] hover:bg-[#2d4373] text-white px-4 py-2 rounded-sm font-bold text-[12px] flex items-center gap-2 transition-colors">
                     <Plus className="w-4 h-4" /> TAMBAH PROFIL
                   </button>
@@ -840,6 +850,7 @@ const App: React.FC = () => {
                   
                   <div className="space-y-4">
                     {/* DATA PERSEROAN */}
+            
             <AhuSection title="DATA PERSEROAN">
               <div className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
@@ -1248,32 +1259,31 @@ const App: React.FC = () => {
               </AhuSection>
 
             
-                  </div>
 
-                  <div className="flex justify-end gap-2 bg-white p-4 shadow-sm border border-slate-200 rounded-sm">
-                     <button onClick={async () => {
-                        if (!data.companyName) return alert('Nama perseroan harus diisi');
-                        let newProfiles = [...profiles];
-                        const profileData: CompanyProfile = {
-                            ...data,
-                            id: editingProfileId === 'new' || !editingProfileId ? crypto.randomUUID() : editingProfileId
-                        };
-                        if (!user) {
-                           alert('Anda harus login terlebih dahulu!');
-                           return;
-                        }
-                        try {
-                           await setDoc(doc(db, 'profiles', profileData.id), profileData);
-                           setEditingProfileId(null);
-                           alert('Profil berhasil disimpan!');
-                        } catch (e) {
-                           handleFirestoreError(e, OperationType.WRITE, `profiles/${profileData.id}`);
-                        }
-                     }} className="bg-[#40bdae] hover:bg-[#349c8f] text-white font-bold px-8 py-2.5 rounded-sm text-[13px] flex items-center gap-2 transition-colors uppercase tracking-tight shadow-md">
-                       <Save className="w-4 h-4"/> SIMPAN PROFIL
-                     </button>
-                  </div>
-                </div>
+{/* JENIS NOTULEN */}
+            
+            <div className="flex flex-wrap gap-2 py-8 pt-4 border-t border-slate-300">
+               <button onClick={resetData} className="px-5 py-2 bg-[#d9534f] text-white rounded-md text-[13px] font-bold transition-all hover:bg-[#c9302c] shadow-sm uppercase">RISET</button>
+               
+               <button onClick={async () => {
+                  if (!data.companyName) return alert('Nama perseroan harus diisi');
+                  const profileData = {
+                      ...data,
+                      id: editingProfileId && editingProfileId !== 'new' ? editingProfileId : crypto.randomUUID()
+                  };
+                  if (!user) return alert('Anda harus login terlebih dahulu!');
+                  
+                  try {
+                      await setDoc(doc(db, 'profiles', profileData.id), profileData);
+                      setEditingProfileId(null);
+                      alert('Profil berhasil disimpan!');
+                  } catch (e) {
+                      handleFirestoreError(e, OperationType.WRITE, `profiles/${profileData.id}`);
+                  }
+               }} className="px-5 py-2 bg-[#40bdae] text-white rounded-md text-[13px] font-bold transition-all hover:bg-[#349c8f] shadow-sm uppercase">SIMPAN PROFIL</button>
+            </div>
+          </div>
+          </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {profiles.length === 0 ? (
@@ -1294,16 +1304,16 @@ const App: React.FC = () => {
                         <div className="flex gap-2 mt-5">
                            <button onClick={() => {
                              setEditingProfileId(p.id);
-                             updateData({ ...data, ...p } as any);
+                             updateData({ ...INITIAL_STATE, ...p } as any);
                            }} className="bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-sm text-[11px] font-bold text-slate-700 flex items-center justify-center gap-1 transition-colors flex-1 uppercase">
-                             <Edit className="w-3 h-3" /> Detail
+                             <Edit className="w-3 h-3" /> Edit
                            </button>
                            <button onClick={async () => {
-                             if(confirm('Hapus profil ' + p.companyName + '?')) {
+                             if(confirm('Hapus proyek ' + p.companyName + '?')) {
                                if (!user) return alert('Anda harus login!');
                                try {
                                  await deleteDoc(doc(db, 'profiles', p.id));
-                                 alert('Profil berhasil dihapus');
+                                 alert('Proyek berhasil dihapus');
                                } catch (e) {
                                  handleFirestoreError(e, OperationType.DELETE, `profiles/${p.id}`);
                                }
@@ -1317,20 +1327,466 @@ const App: React.FC = () => {
                 </div>
               )}
             </div>
-          ) : activeSidebarTab === 'perbaikan' ? (
-            <DataCorrectionLetter />
-          ) : activeSidebarTab === 'draft_akta_rups' ? (
-            <div className="max-w-6xl mx-auto">
-              <DraftAktaRUPS companyData={data} />
-            </div>
-          ) : (
-            <div className="max-w-5xl mx-auto space-y-4">
-              <div className="text-center mb-6">
-              <h1 className="text-[24px] font-normal text-slate-800">Format Isian Notulen Perseroan Terbatas</h1>
-              <p className="text-red-500 text-[12px] mt-1">Kotak isian yang bertanda * wajib diisi</p>
-            </div>
 
-            {/* JENIS NOTULEN */}
+
+) : activeSidebarTab === 'notulen' ? (
+            <div className="max-w-5xl mx-auto space-y-4">
+              <div className="flex justify-between items-center bg-white p-4 rounded-sm shadow-sm border border-slate-200">
+                <div>
+                  <h2 className="text-[16px] font-bold flex items-center gap-2 text-slate-800 uppercase"><FileText className="w-5 h-5 text-[#3b5998]" /> Daftar Proyek</h2>
+                  <p className="text-[12px] text-slate-500">Kelola daftar proyek Notulen dan Akta RUPS</p>
+                </div>
+                {!editingProjectId && (
+                  <button onClick={() => {
+                    setEditingProjectId('new');
+                    updateData({ ...INITIAL_STATE } as any);
+                  }} className="bg-[#3b5998] hover:bg-[#2d4373] text-white px-4 py-2 rounded-sm font-bold text-[12px] flex items-center gap-2 transition-colors">
+                    <Plus className="w-4 h-4" /> TAMBAH PROYEK BARU
+                  </button>
+                )}
+              </div>
+
+              {editingProjectId ? (
+                <div className="space-y-4 pb-20">
+                  <button className="text-slate-500 hover:text-slate-800 flex items-center gap-1 font-bold text-[12px] uppercase bg-white px-3 py-2 rounded-sm border border-slate-200 shadow-sm" onClick={() => setEditingProjectId(null)}>
+                    <ArrowRight className="w-4 h-4 rotate-180" /> Kembali
+                  </button>
+                  
+                  <div className="space-y-4">
+                    {/* DATA PERSEROAN */}
+            
+            {/* DATA PERSEROAN (Pilihan dari Profil) */}
+            <AhuSection title="PILIH PROFIL">
+              <div className="space-y-4">
+                <label className="block text-[13px] font-medium text-slate-700 mb-1">Pilih Profil Perseroan untuk mengisi data otomatis</label>
+                <select 
+                  className="w-full border border-[#ccc] rounded-sm px-3 py-1.5 text-[13px] outline-none bg-white focus:border-[#66afe9]"
+                  onChange={(e) => {
+                     const selected = profiles.find(p => p.id === e.target.value);
+                     if (selected) {
+                         const {id, ...rest} = selected; // Merge without overriding project ID
+                         updateData({ ...rest } as any);
+                     }
+                  }}
+                >
+                  <option value="">-- Pilih PT --</option>
+                  {profiles.map(p => (
+                    <option key={p.id} value={p.id}>{p.companyName}</option>
+                  ))}
+                </select>
+              </div>
+            </AhuSection>
+
+            <AhuSection title="DATA PERSEROAN">
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                  <AhuLabel label="Nama Perseroan" />
+                  <div className="md:col-span-3"><AhuInput value={data.companyName || ''} onChange={e => updateData({ companyName: e.target.value })} /></div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                  <AhuLabel label="Kedudukan (Kab/Kota)" />
+                  <div className="md:col-span-3 flex gap-4 items-center">
+                    <div className="flex-1">
+                      <DomicileSelector 
+                        label="Pilih Kota/Kabupaten"
+                        value={data.newAddress?.city || ''}
+                        onChange={(val) => updateAddress('newAddress', { city: val })}
+                      />
+                    </div>
+                    <AhuSelect 
+                      className="w-40" 
+                      value={data.domicileStyle} 
+                      onChange={e => updateData({ domicileStyle: e.target.value as 'KOTA' | 'KABUPATEN' })}
+                    >
+                      <option value="KOTA">Kota</option>
+                      <option value="KABUPATEN">Kabupaten</option>
+                    </AhuSelect>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                  <AhuLabel label="Harga per Lembar" />
+                  <div className="md:col-span-3">
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[13px]">Rp.</span>
+                      <AhuInput 
+                        className="pl-10"
+                        value={data.originalSharePrice === 0 ? '' : formatInputNumber(data.originalSharePrice)} 
+                        onChange={e => updateData({ originalSharePrice: parseFormattedNumber(e.target.value) })} 
+                      />
+                    </div>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                  <AhuLabel label="Modal Dasar (Lembar)" required />
+                  <div className="md:col-span-3">
+                    <div className="flex items-center gap-4">
+                      <div className="flex-1">
+                        <AhuInput 
+                          value={data.originalAuthorizedShares === 0 ? '' : formatInputNumber(data.originalAuthorizedShares)} 
+                          onChange={e => updateData({ originalAuthorizedShares: parseFormattedNumber(e.target.value) })} 
+                        />
+                      </div>
+                      <div className="text-[13px] font-bold text-slate-500 w-48">
+                        Rp. {formatInputNumber(data.targetCapitalBase)}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                  <AhuLabel label="Modal Ditempatkan & Disetor (Lembar)" required />
+                  <div className="md:col-span-3">
+                    <div className="flex items-center gap-4">
+                      <div className="flex-1">
+                        <AhuInput 
+                          value={data.originalTotalShares === 0 ? '' : formatInputNumber(data.originalTotalShares)} 
+                          onChange={e => updateData({ originalTotalShares: parseFormattedNumber(e.target.value) })} 
+                        />
+                      </div>
+                      <div className="text-[13px] font-bold text-slate-500 w-48">
+                        Rp. {formatInputNumber(data.targetCapitalPaid)}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </AhuSection>
+
+            {/* PENGURUS DAN PEMEGANG SAHAM LAMA */}
+            <AhuSection title="PENGURUS DAN PEMEGANG SAHAM LAMA *">
+              <div className="space-y-4">
+                  <div className="flex justify-end gap-2">
+                    <button onClick={() => openShareholderEditor('lama')} className="bg-[#222d32] text-white px-3 py-1.5 rounded-sm text-[12px] font-bold shadow hover:bg-black transition-colors flex items-center gap-1"><Plus className="w-4 h-4" /> Tambah Data</button>
+                  </div>
+                  <div className="border border-slate-200 overflow-x-auto rounded-sm">
+                    <table className="w-full text-left text-[11px]">
+                      <thead className="bg-[#f9f9f9] border-b border-slate-200 font-bold uppercase">
+                        <tr>
+                          <th className="p-2 border-r border-slate-200">Nama</th>
+                          <th className="p-2 border-r border-slate-200">Klasifikasi Saham</th>
+                          <th className="p-2 border-r border-slate-200">Jumlah Lembar Saham</th>
+                          <th className="p-2 border-r border-slate-200">Jabatan</th>
+                          <th className="p-2 border-r border-slate-200">Total</th>
+                          <th className="p-2 text-center">Aksi</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {data.shareholders.map((s) => (
+                           <tr key={s.id} className="border-b border-slate-200 last:border-0 hover:bg-slate-50 transition-colors text-[10px]">
+                             <td className="p-2 border-r border-slate-200 font-bold uppercase">{s.name}</td>
+                             <td className="p-2 border-r border-slate-200">Tanpa Klasifikasi</td>
+                             <td className="p-2 border-r border-slate-200">{formatInputNumber(s.sharesOwned)}</td>
+                             <td className="p-2 border-r border-slate-200 font-bold uppercase">{s.isManagement ? (s.managementPosition || 'DIREKTUR') : '-'}</td>
+                             <td className="p-2 border-r border-slate-200">Rp. {formatInputNumber(s.sharesOwned * data.originalSharePrice)}</td>
+                             <td className="p-2 text-center text-blue-600 flex items-center justify-center gap-2">
+                               <button onClick={() => openShareholderEditor('lama', s)} className="hover:underline flex items-center gap-0.5"><Eye className="w-3 h-3" /> Edit</button>
+                               <span className="text-slate-300">|</span>
+                               <button onClick={() => deleteShareholder(s.id, 'lama')} className="hover:underline text-red-500 flex items-center gap-0.5"><Trash2 className="w-3 h-3" /> Hapus</button>
+                             </td>
+                           </tr>
+                        ))}
+                        {data.shareholders.length === 0 && (
+                          <tr>
+                            <td colSpan={6} className="p-4 text-center text-slate-400 italic">Belum ada data pengurus/pemegang saham lama.</td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div className="text-[13px] font-bold text-slate-800 space-y-1 uppercase">
+                    <div>TOTAL LEMBAR SAHAM {formatInputNumber(data.shareholders.reduce((sum, s) => sum + s.sharesOwned, 0))}</div>
+                    <div>TOTAL MODAL DITEMPATKAN DAN DISETOR Rp {formatInputNumber(data.shareholders.reduce((sum, s) => sum + s.sharesOwned, 0) * data.originalSharePrice)}</div>
+                    {data.shareholders.reduce((sum, s) => sum + s.sharesOwned, 0) < data.originalTotalShares && (
+                      <div className="text-red-500 font-normal text-xs normal-case mt-1 bg-red-50 p-2 rounded border border-red-100">
+                        * Total lembar saham ({formatInputNumber(data.shareholders.reduce((sum, s) => sum + s.sharesOwned, 0))}) kurang dari Modal Ditempatkan & Disetor Lama ({formatInputNumber(data.originalTotalShares)} lembar)
+                      </div>
+                    )}
+                  </div>
+               </div>
+            </AhuSection>
+
+            <AhuSection title="AKTA PENDIRIAN DAN PERUBAHAN">
+              <div className="space-y-4">
+                  <div className="border border-slate-200 rounded-sm p-4 space-y-4 bg-white/50">
+                    <h3 className="font-bold text-[13px] text-slate-800">Akta Pendirian</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                      <AhuLabel label="Nomor Akta" />
+                      <div className="md:col-span-3">
+                        <AhuInput value={data.establishmentDeedNumber || ''} onChange={e => updateData({ establishmentDeedNumber: e.target.value })} placeholder="Contoh: 12" />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                      <AhuLabel label="Tanggal Akta" />
+                      <div className="md:col-span-3">
+                        <AhuInput type="date" value={data.establishmentDeedDate || ''} onChange={e => updateData({ establishmentDeedDate: e.target.value })} />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                      <AhuLabel label="Nama Notaris" />
+                      <div className="md:col-span-3 flex gap-2">
+                        <AhuInput 
+                          className="flex-1"
+                          value={data.establishmentNotary || ''} 
+                          onChange={e => updateData({ establishmentNotary: e.target.value })} 
+                          placeholder="Nama notaris pendirian" 
+                        />
+                        <div className="w-48 flex flex-col gap-1">
+                          <AhuSelect
+                            value={['Sarjana Hukum', 'Sarjana Hukum, Magister Kenotariatan'].includes(data.establishmentNotaryTitle || '') ? data.establishmentNotaryTitle : (data.establishmentNotaryTitle ? 'manual' : '')}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (val === 'manual') {
+                                // Keep current title but allow editing
+                              } else {
+                                updateData({ establishmentNotaryTitle: val });
+                              }
+                            }}
+                          >
+                            <option value="">-- Pilih Gelar --</option>
+                            <option value="Sarjana Hukum">SH.</option>
+                            <option value="Sarjana Hukum, Magister Kenotariatan">SH., M.Kn.</option>
+                            <option value="manual">Manual</option>
+                          </AhuSelect>
+                          {( !['Sarjana Hukum', 'Sarjana Hukum, Magister Kenotariatan'].includes(data.establishmentNotaryTitle || '') || (data.establishmentNotaryTitle === 'manual')) && data.establishmentNotaryTitle !== undefined && (
+                             <AhuInput 
+                               placeholder="Gelar manual..." 
+                               value={data.establishmentNotaryTitle === 'manual' ? '' : data.establishmentNotaryTitle}
+                               onChange={e => updateData({ establishmentNotaryTitle: e.target.value })}
+                             />
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                      <AhuLabel label="Kedudukan Notaris" />
+                      <div className="md:col-span-3">
+                        <AhuInput value={data.establishmentNotaryDomicile || ''} onChange={e => updateData({ establishmentNotaryDomicile: e.target.value })} placeholder="Contoh: Kabupaten Bandung Barat" />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                      <AhuLabel label="Nomor SK" />
+                      <div className="md:col-span-3">
+                        <AhuInput value={data.establishmentSkNumber || ''} onChange={e => updateData({ establishmentSkNumber: e.target.value })} placeholder="Nomor SK Kemenkumham" />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                      <AhuLabel label="Tanggal SK" />
+                      <div className="md:col-span-3">
+                        <AhuInput type="date" value={data.establishmentSkDate || ''} onChange={e => updateData({ establishmentSkDate: e.target.value })} />
+                      </div>
+                    </div>
+                  </div>
+
+                  {(data.amendmentDeeds || []).map((deed, index) => (
+                    <div key={deed.id} className="border border-slate-200 rounded-sm p-4 space-y-4 bg-white/50 relative">
+                      <div className="flex justify-between items-center border-b border-slate-200 pb-2 mb-2">
+                        <h3 className="font-bold text-[13px] text-slate-800 uppercase tracking-tight">Akta Perubahan {index + 1}</h3>
+                        <button 
+                          onClick={() => {
+                            const newList = (data.amendmentDeeds || []).filter(d => d.id !== deed.id);
+                            updateData({ amendmentDeeds: newList });
+                          }}
+                          className="text-red-500 hover:text-red-700 p-1 transition-colors"
+                          title="Hapus Akta Perubahan"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                        <AhuLabel label="Nomor Akta" />
+                        <div className="md:col-span-3">
+                          <AhuInput 
+                            value={deed.number || ''} 
+                            onChange={e => {
+                              const newList = [...(data.amendmentDeeds || [])];
+                              newList[index] = { ...deed, number: e.target.value };
+                              updateData({ amendmentDeeds: newList });
+                            }} 
+                            placeholder="Contoh: 05" 
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                        <AhuLabel label="Tanggal Akta" />
+                        <div className="md:col-span-3">
+                          <AhuInput 
+                            type="date" 
+                            value={deed.date || ''} 
+                            onChange={e => {
+                              const newList = [...(data.amendmentDeeds || [])];
+                              newList[index] = { ...deed, date: e.target.value };
+                              updateData({ amendmentDeeds: newList });
+                            }} 
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                        <AhuLabel label="Nama Notaris" />
+                        <div className="md:col-span-3 flex gap-2">
+                          <AhuInput 
+                            className="flex-1"
+                            value={deed.notary || ''} 
+                            onChange={e => {
+                              const newList = [...(data.amendmentDeeds || [])];
+                              newList[index] = { ...deed, notary: e.target.value };
+                              updateData({ amendmentDeeds: newList });
+                            }} 
+                            placeholder="Nama notaris perubahan" 
+                          />
+                          <div className="w-48 flex flex-col gap-1">
+                            <AhuSelect
+                              value={['Sarjana Hukum', 'Sarjana Hukum, Magister Kenotariatan'].includes(deed.notaryTitle || '') ? deed.notaryTitle : (deed.notaryTitle ? 'manual' : '')}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                const newList = [...(data.amendmentDeeds || [])];
+                                if (val === 'manual') {
+                                   newList[index] = { ...deed, notaryTitle: deed.notaryTitle || ' ' };
+                                } else {
+                                   newList[index] = { ...deed, notaryTitle: val };
+                                }
+                                updateData({ amendmentDeeds: newList });
+                              }}
+                            >
+                              <option value="">-- Pilih Gelar --</option>
+                              <option value="Sarjana Hukum">SH.</option>
+                              <option value="Sarjana Hukum, Magister Kenotariatan">SH., M.Kn.</option>
+                              <option value="manual">Manual</option>
+                            </AhuSelect>
+                            {(!['Sarjana Hukum', 'Sarjana Hukum, Magister Kenotariatan'].includes(deed.notaryTitle || '') || (deed.notaryTitle === 'manual')) && deed.notaryTitle !== undefined && (
+                               <AhuInput 
+                                 placeholder="Gelar manual..." 
+                                 value={deed.notaryTitle === 'manual' ? '' : deed.notaryTitle}
+                                 onChange={e => {
+                                   const newList = [...(data.amendmentDeeds || [])];
+                                   newList[index] = { ...deed, notaryTitle: e.target.value };
+                                   updateData({ amendmentDeeds: newList });
+                                 }}
+                               />
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                        <AhuLabel label="Kedudukan Notaris" />
+                        <div className="md:col-span-3">
+                          <AhuInput 
+                            value={deed.notaryDomicile || ''} 
+                            onChange={e => {
+                              const newList = [...(data.amendmentDeeds || [])];
+                              newList[index] = { ...deed, notaryDomicile: e.target.value };
+                              updateData({ amendmentDeeds: newList });
+                            }} 
+                            placeholder="Contoh: Kabupaten Bogor" 
+                          />
+                        </div>
+                      </div>
+                      
+                      <div className="bg-slate-50/50 p-3 border border-slate-100 rounded-sm">
+                        <div className="flex justify-between items-center mb-3">
+                          <h4 className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">Daftar SK / SP Terkait</h4>
+                        </div>
+                        
+                        <div className="space-y-3">
+                          {(deed.skSpDocuments || []).map((doc, docIdx) => (
+                            <div key={doc.id} className="grid grid-cols-1 md:grid-cols-9 gap-2 items-end border-b border-slate-100 pb-3 last:border-0 last:pb-0">
+                              <div className="md:col-span-2">
+                                <AhuLabel label="Tipe" />
+                                <AhuSelect 
+                                  value={doc.type} 
+                                  onChange={e => {
+                                    const newList = [...(data.amendmentDeeds || [])];
+                                    const newDocs = [...(deed.skSpDocuments || [])];
+                                    newDocs[docIdx] = { ...doc, type: e.target.value as any };
+                                    newList[index] = { ...deed, skSpDocuments: newDocs };
+                                    updateData({ amendmentDeeds: newList });
+                                  }}
+                                >
+                                  <option value="SK">SK (Keputusan)</option>
+                                  <option value="SP_DATA_PERSEROAN">SP (Perubahan Data Perseroan)</option>
+                                  <option value="SP_ANGGARAN_DASAR">SP (Perubahan Anggaran Dasar)</option>
+                                  <option value="SP">SP (Lainnya)</option>
+                                </AhuSelect>
+                              </div>
+                              <div className="md:col-span-4">
+                                <AhuLabel label="Nomor" />
+                                <AhuInput 
+                                  value={doc.number || ''} 
+                                  onChange={e => {
+                                    const newList = [...(data.amendmentDeeds || [])];
+                                    const newDocs = [...(deed.skSpDocuments || [])];
+                                    newDocs[docIdx] = { ...doc, number: e.target.value };
+                                    newList[index] = { ...deed, skSpDocuments: newDocs };
+                                    updateData({ amendmentDeeds: newList });
+                                  }}
+                                  placeholder="Nomor SK/SP"
+                                />
+                              </div>
+                              <div className="md:col-span-2">
+                                <AhuLabel label="Tanggal" />
+                                <AhuInput 
+                                  type="date"
+                                  value={doc.date || ''} 
+                                  onChange={e => {
+                                    const newList = [...(data.amendmentDeeds || [])];
+                                    const newDocs = [...(deed.skSpDocuments || [])];
+                                    newDocs[docIdx] = { ...doc, date: e.target.value };
+                                    newList[index] = { ...deed, skSpDocuments: newDocs };
+                                    updateData({ amendmentDeeds: newList });
+                                  }}
+                                />
+                              </div>
+                              <div className="md:col-span-1 flex justify-center pb-1">
+                                <button 
+                                  onClick={() => {
+                                    const newList = [...(data.amendmentDeeds || [])];
+                                    const newDocs = (deed.skSpDocuments || []).filter(d => d.id !== doc.id);
+                                    newList[index] = { ...deed, skSpDocuments: newDocs };
+                                    updateData({ amendmentDeeds: newList });
+                                  }}
+                                  className="text-red-400 hover:text-red-600 p-1 transition-colors"
+                                  title="Hapus SK/SP"
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                          
+                          {(deed.skSpDocuments || []).length === 0 && (
+                            <div className="text-[11px] text-slate-400 italic mb-2">Belum ada SK/SP yang ditambahkan.</div>
+                          )}
+
+                          <button 
+                            onClick={() => {
+                              const newList = [...(data.amendmentDeeds || [])];
+                              const newDoc = { id: crypto.randomUUID(), type: 'SK' as const, number: '', date: '' };
+                              newList[index] = { ...deed, skSpDocuments: [...(deed.skSpDocuments || []), newDoc] };
+                              updateData({ amendmentDeeds: newList });
+                            }}
+                            className="bg-white border border-[#3b5998]/30 text-[#3b5998] hover:bg-[#3b5998] hover:text-white px-3 py-1 rounded-sm text-[11px] font-bold flex items-center gap-1 transition-all"
+                          >
+                            <Plus size={12} /> TAMBAH SK / SP
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+
+                  <button 
+                    onClick={() => {
+                      const newDeed = { id: crypto.randomUUID(), number: '', date: '', notary: '', skNumber: '', skDate: '', skSpDocuments: [] };
+                      updateData({ amendmentDeeds: [...(data.amendmentDeeds || []), newDeed] });
+                    }}
+                    className="w-full flex items-center justify-center gap-2 py-3 border-2 border-dashed border-slate-200 rounded-sm text-slate-400 hover:border-[#3b5998] hover:text-[#3b5998] hover:bg-slate-50 transition-all group"
+                  >
+                    <Plus size={16} className="group-hover:scale-110 transition-transform" />
+                    <span className="text-[13px] font-bold uppercase tracking-wider">Tambah Akta Perubahan (Opsional)</span>
+                  </button>
+                </div>
+              </AhuSection>
+
+            
+
+{/* JENIS NOTULEN */}
             <AhuSection title="JENIS DOKUMEN">
               <div className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
@@ -1402,48 +1858,7 @@ const App: React.FC = () => {
             </AhuSection>
 
             
-            {/* DATA PERSEROAN (Pilihan dari Profil) */}
-            <AhuSection title="DATA PERSEROAN">
-              <div className="space-y-4">
-                <label className="block text-[13px] font-medium text-slate-700 mb-1">Pilih Profil Perseroan</label>
-                <select 
-                  className="w-full border border-[#ccc] rounded-sm px-3 py-1.5 text-[13px] outline-none bg-white focus:border-[#66afe9] focus:shadow-[inset_0_1px_1px_rgba(0,0,0,.075),0_0_8px_rgba(102,175,233,.6)]"
-                  value={(data as any).id || ''}
-                  onChange={e => {
-                     const selected = profiles.find(p => p.id === e.target.value);
-                     if (selected) {
-                         // When selected, merge its properties
-                         updateData({ ...selected } as any);
-                     } else {
-                         // Reset
-                         updateData({ 
-                            id: undefined, companyName: '', companyShortName: '', npwp: '', companyType: 'SWASTA NASIONAL',
-                            status: 'tertutup', duration: 'TIDAK TERBATAS', newAddress: { province: '', city: '', fullAddress: '', rt: '', rw: '', kelurahan: '', kecamatan: '' },
-                            originalAuthorizedShares: 0, originalTotalShares: 0, originalSharePrice: 0, 
-                            originalCapitalBase: 0, originalCapitalPaid: 0, shareholders: [], amendmentDeeds: []
-                         } as any);
-                     }
-                  }}
-                >
-                  <option value="">-- Pilih PT --</option>
-                  {profiles.map(p => (
-                    <option key={p.id} value={p.id}>{p.companyName}</option>
-                  ))}
-                </select>
-                {data.companyName && (
-                   <div className="mt-4 p-4 bg-slate-50 border border-slate-200 rounded-sm text-[13px] text-slate-700 flex flex-col gap-2">
-                     <div className="flex items-center gap-2">
-                        <CheckCircle2 className="w-5 h-5 text-green-500" />
-                        <div>Data <strong>{data.companyName}</strong> siap digunakan.</div>
-                     </div>
-                     <div className="text-slate-500 pl-7">
-                        Abaikan jika Anda hanya ingin membuat Berita Acara / Akta tanpa perubahan.
-                     </div>
-                   </div>
-                )}
-              </div>
-            </AhuSection>
-{/* AGENDA PERUBAHAN */}
+            {/* AGENDA PERUBAHAN */}
             <AhuSection title="AGENDA PERUBAHAN">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {[
@@ -2017,26 +2432,26 @@ const App: React.FC = () => {
                
                <button onClick={async () => {
                   if (!data.companyName) return alert('Nama perseroan harus diisi');
-                  let newProfiles = [...profiles];
+                  let newProjects = [...projects];
                   const profileData: CompanyProfile = {
                       ...data,
-                      id: editingProfileId && editingProfileId !== 'new' ? editingProfileId : crypto.randomUUID()
+                      id: editingProjectId && editingProjectId !== 'new' ? editingProjectId : crypto.randomUUID()
                   };
                   
                   if (!user) {
                       return alert('Anda harus login terlebih dahulu!');
                   }
-                  const idx = newProfiles.findIndex(p => p.companyName.toLowerCase() === data.companyName.toLowerCase() || p.id === editingProfileId);
+                  const idx = newProjects.findIndex(p => p.id === editingProjectId);
                   if (idx >= 0) {
-                      profileData.id = newProfiles[idx].id;
+                      profileData.id = newProjects[idx].id;
                   }
                   
                   try {
-                      await setDoc(doc(db, 'profiles', profileData.id), profileData);
-                      setEditingProfileId(profileData.id);
-                      alert('Proyek / Profil berhasil disimpan!');
+                      await setDoc(doc(db, 'projects', profileData.id), profileData);
+                      setEditingProjectId(null);
+                      alert('Proyek berhasil disimpan!');
                   } catch (e) {
-                      handleFirestoreError(e, OperationType.WRITE, `profiles/${profileData.id}`);
+                      handleFirestoreError(e, OperationType.WRITE, `projects/${profileData.id}`);
                   }
                }} className="px-5 py-2 bg-[#40bdae] text-white rounded-md text-[13px] font-bold transition-all hover:bg-[#349c8f] shadow-sm uppercase">SIMPAN PROYEK</button>
 
@@ -2060,8 +2475,57 @@ const App: React.FC = () => {
                  </AhuSection>
                )}
             </div>
-          </div>
-          )}
+
+                  </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {projects.length === 0 ? (
+                    <div className="col-span-full bg-slate-50 text-center py-12 rounded-sm border border-dashed border-slate-300 text-slate-500 text-[13px]">
+                      Belum ada data proyek. Klik <strong>"TAMBAH PROYEK BARU"</strong> untuk membuat.
+                    </div>
+                  ) : projects.map(p => (
+                     <div key={p.id} className="bg-white p-5 rounded-sm shadow-sm border border-slate-200 hover:border-[#3b5998] transition-colors relative group">
+                        <div className="flex items-start gap-3">
+                           <div className="w-10 h-10 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center shrink-0">
+                             <Building2 className="w-5 h-5 text-indigo-500" />
+                           </div>
+                           <div>
+                              <h3 className="font-bold text-slate-800 text-[14px] leading-tight mb-1 pr-6">{p.companyName}</h3>
+                              <p className="text-[12px] text-slate-500 flex items-center gap-1 line-clamp-1"><MapPin className="w-3 h-3 text-slate-400 shrink-0"/> {p.newAddress?.city || 'Area belum diisi'}</p>
+                           </div>
+                        </div>
+                        <div className="flex gap-2 mt-5">
+                           <button onClick={() => {
+                             setEditingProjectId(p.id);
+                             updateData({ ...INITIAL_STATE, ...p } as any);
+                           }} className="bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-sm text-[11px] font-bold text-slate-700 flex items-center justify-center gap-1 transition-colors flex-1 uppercase">
+                             <Edit className="w-3 h-3" /> Edit
+                           </button>
+                           <button onClick={async () => {
+                             if(confirm('Hapus proyek ' + p.companyName + '?')) {
+                               if (!user) return alert('Anda harus login!');
+                               try {
+                                 await deleteDoc(doc(db, 'projects', p.id));
+                                 alert('Proyek berhasil dihapus');
+                               } catch (e) {
+                                 handleFirestoreError(e, OperationType.DELETE, `projects/${p.id}`);
+                               }
+                             }
+                           }} className="bg-red-50 hover:bg-red-500 text-red-500 hover:text-white px-3 py-1.5 rounded-sm text-[11px] font-bold flex items-center justify-center gap-1 transition-colors flex-1 uppercase">
+                             <Trash2 className="w-3 h-3" /> Hapus
+                           </button>
+                        </div>
+                     </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+
+          ) : activeSidebarTab === 'perbaikan' ? (
+            <DataCorrectionLetter />
+          ) : null}
         </main>
       </div>
 

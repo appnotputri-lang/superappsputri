@@ -14,6 +14,10 @@
     "profiles/{profileId}": {
       "schema": { "$ref": "#/entities/profile" },
       "description": "Contains global company profiles"
+    },
+    "projects/{projectId}": {
+      "schema": { "$ref": "#/entities/profile" },
+      "description": "Contains project-specific data"
     }
   }
 }

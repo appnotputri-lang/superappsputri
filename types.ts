@@ -114,6 +114,7 @@ export interface CompanyProfile extends Partial<CompanyData> {
 }
 
 export interface CompanyData {
+  id?: string;
   documentType: DocumentType;
   companyName: string;
   companyShortName?: string;
