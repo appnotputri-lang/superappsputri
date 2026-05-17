@@ -15,6 +15,7 @@
     "autoprefixer": "^10.5.0",
     "docx": "^9.1.0",
     "file-saver": "^2.0.5",
+    "firebase": "^12.13.0",
     "jszip": "^3.10.1",
     "lucide-react": "^0.563.0",
     "postcss": "^8.5.14",
@@ -23,6 +24,7 @@
     "tailwindcss": "^4.3.0"
   },
   "devDependencies": {
+    "@firebase/eslint-plugin-security-rules": "^0.0.2",
     "@types/file-saver": "^2.0.7",
     "@types/jszip": "^3.4.0",
     "@types/node": "^22.19.19",

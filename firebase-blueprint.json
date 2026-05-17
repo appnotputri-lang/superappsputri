@@ -1,0 +1,19 @@
+{
+  "entities": {
+    "profile": {
+      "title": "Company Profile",
+      "description": "Company profile draft for the user.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "companyName": { "type": "string" }
+      }
+    }
+  },
+  "firestore": {
+    "users/{userId}/profiles/{profileId}": {
+      "schema": { "$ref": "#/entities/profile" },
+      "description": "Contains user-specific company profiles"
+    }
+  }
+}

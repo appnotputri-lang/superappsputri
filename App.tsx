@@ -2,6 +2,9 @@ import { Modal } from './components/Modal';
 import { ChevronRight, RefreshCw } from 'lucide-react';
 
 import React, { useState, useEffect } from 'react';
+import { auth, db, loginWithGoogle, logout, handleFirestoreError, OperationType } from './src/lib/firebase';
+import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
+import { collection, onSnapshot, doc, setDoc, deleteDoc } from 'firebase/firestore';
 import { CompanyData, Shareholder, ResolutionFlags, KbliItem, ManagementItem, DocumentType, Address, ManagementChangeType, CompanyProfile, AmendmentDeed } from './types';
 import ShareholderForm from './components/ShareholderForm';
 import CompositionEditor from './components/CompositionEditor';
@@ -241,10 +244,34 @@ const App: React.FC = () => {
   });
 
   const [activeTab, setActiveTab] = useState<TabId | null>(null);
-  const [profiles, setProfiles] = useState<CompanyProfile[]>(() => {
-    const saved = localStorage.getItem('legal-draft-company-profiles');
-    return saved ? JSON.parse(saved) : [];
-  });
+  const [profiles, setProfiles] = useState<CompanyProfile[]>([]);
+  const [user, setUser] = useState<FirebaseUser | null>(null);
+
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+    });
+    return unsub;
+  }, []);
+
+  useEffect(() => {
+    if (user) {
+      const profilesRef = collection(db, 'users', user.uid, 'profiles');
+      const unsub = onSnapshot(profilesRef, (snapshot) => {
+        const loaded: CompanyProfile[] = [];
+        snapshot.forEach(doc => {
+          loaded.push(doc.data() as CompanyProfile);
+        });
+        setProfiles(loaded);
+      }, (error) => {
+        handleFirestoreError(error, OperationType.LIST, `users/${user.uid}/profiles`);
+      });
+      return unsub;
+    } else {
+      setProfiles([]);
+    }
+  }, [user]);
+
   const [editingProfileId, setEditingProfileId] = useState<string | null>(null);
 
   const [editingShareholder, setEditingShareholder] = useState<Shareholder | null>(null);
@@ -255,10 +282,6 @@ const App: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [activeSidebarTab, setActiveSidebarTab] = useState<SidebarTabId>('company_profile');
   const [zoom, setZoom] = useState(1);
-
-  useEffect(() => {
-    localStorage.setItem('legal-draft-company-profiles', JSON.stringify(profiles));
-  }, [profiles]);
 
 
   useEffect(() => {
@@ -703,7 +726,18 @@ const App: React.FC = () => {
           </div>
         </div>
         <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
-          {/* Header buttons removed as per user request */}
+          {user ? (
+            <div className="flex items-center gap-3">
+              <span className="text-[12px] opacity-90 hidden sm:inline">{user.email}</span>
+              <button onClick={() => logout()} className="bg-red-500 hover:bg-red-600 px-3 py-1.5 rounded-sm text-[12px] font-bold transition-colors">
+                LOGOUT
+              </button>
+            </div>
+          ) : (
+            <button onClick={() => loginWithGoogle()} className="bg-[#40bdae] hover:bg-[#349c8f] px-3 py-1.5 rounded-sm text-[12px] font-bold transition-colors flex items-center gap-1.5">
+               LOGIN
+            </button>
+          )}
         </div>
       </header>
 
@@ -1169,7 +1203,7 @@ const App: React.FC = () => {
                   </div>
 
                   <div className="flex justify-end gap-2 bg-white p-4 shadow-sm border border-slate-200 rounded-sm">
-                     <button onClick={() => {
+                     <button onClick={async () => {
                         if (!data.companyName) return alert('Nama perseroan harus diisi');
                         let newProfiles = [...profiles];
                         const profileData = {
@@ -1196,18 +1230,17 @@ const App: React.FC = () => {
                             originalCapitalPaid: data.originalCapitalPaid,
                             shareholders: data.shareholders
                         };
-                        
-                        if (editingProfileId === 'new') {
-                           newProfiles.push(profileData);
-                        } else {
-                           const idx = newProfiles.findIndex(p => p.id === editingProfileId);
-                           if (idx >= 0) {
-                             newProfiles[idx] = profileData;
-                           }
+                        if (!user) {
+                           alert('Anda harus login terlebih dahulu!');
+                           return;
                         }
-                        setProfiles(newProfiles);
-                        setEditingProfileId(null);
-                        alert('Profil berhasil disimpan!');
+                        try {
+                           await setDoc(doc(db, 'users', user.uid, 'profiles', profileData.id), profileData);
+                           setEditingProfileId(null);
+                           alert('Profil berhasil disimpan!');
+                        } catch (e) {
+                           handleFirestoreError(e, OperationType.WRITE, `users/${user.uid}/profiles/${profileData.id}`);
+                        }
                      }} className="bg-[#40bdae] hover:bg-[#349c8f] text-white font-bold px-8 py-2.5 rounded-sm text-[13px] flex items-center gap-2 transition-colors uppercase tracking-tight shadow-md">
                        <Save className="w-4 h-4"/> SIMPAN PROFIL
                      </button>
@@ -1237,9 +1270,15 @@ const App: React.FC = () => {
                            }} className="bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-sm text-[11px] font-bold text-slate-700 flex items-center justify-center gap-1 transition-colors flex-1 uppercase">
                              <Edit className="w-3 h-3" /> Detail
                            </button>
-                           <button onClick={() => {
+                           <button onClick={async () => {
                              if(confirm('Hapus profil ' + p.companyName + '?')) {
-                               setProfiles(profiles.filter(x => x.id !== p.id));
+                               if (!user) return alert('Anda harus login!');
+                               try {
+                                 await deleteDoc(doc(db, 'users', user.uid, 'profiles', p.id));
+                                 alert('Profil berhasil dihapus');
+                               } catch (e) {
+                                 handleFirestoreError(e, OperationType.DELETE, `users/${user.uid}/profiles/${p.id}`);
+                               }
                              }
                            }} className="bg-red-50 hover:bg-red-500 text-red-500 hover:text-white px-3 py-1.5 rounded-sm text-[11px] font-bold flex items-center justify-center gap-1 transition-colors flex-1 uppercase">
                              <Trash2 className="w-3 h-3" /> Hapus
@@ -1948,7 +1987,7 @@ const App: React.FC = () => {
             <div className="flex flex-wrap gap-2 py-8 pt-4 border-t border-slate-300">
                <button onClick={resetData} className="px-5 py-2 bg-[#d9534f] text-white rounded-md text-[13px] font-bold transition-all hover:bg-[#c9302c] shadow-sm uppercase">RISET</button>
                
-               <button onClick={() => {
+               <button onClick={async () => {
                   if (!data.companyName) return alert('Nama perseroan harus diisi');
                   let newProfiles = [...profiles];
                   const profileData = {
@@ -1976,16 +2015,21 @@ const App: React.FC = () => {
                       shareholders: data.shareholders
                   };
                   
+                  if (!user) {
+                      return alert('Anda harus login terlebih dahulu!');
+                  }
                   const idx = newProfiles.findIndex(p => p.companyName.toLowerCase() === data.companyName.toLowerCase() || p.id === editingProfileId);
                   if (idx >= 0) {
                       profileData.id = newProfiles[idx].id;
-                      newProfiles[idx] = profileData;
-                  } else {
-                      newProfiles.push(profileData);
                   }
-                  setProfiles(newProfiles);
-                  setEditingProfileId(profileData.id);
-                  alert('Proyek / Profil berhasil disimpan!');
+                  
+                  try {
+                      await setDoc(doc(db, 'users', user.uid, 'profiles', profileData.id), profileData);
+                      setEditingProfileId(profileData.id);
+                      alert('Proyek / Profil berhasil disimpan!');
+                  } catch (e) {
+                      handleFirestoreError(e, OperationType.WRITE, `users/${user.uid}/profiles/${profileData.id}`);
+                  }
                }} className="px-5 py-2 bg-[#40bdae] text-white rounded-md text-[13px] font-bold transition-all hover:bg-[#349c8f] shadow-sm uppercase">SIMPAN PROYEK</button>
 
                <button onClick={() => setIsPreviewOpen(true)} className="px-5 py-2 bg-[#5cb85c] text-white rounded-md text-[13px] font-bold transition-all hover:bg-[#449d44] shadow-sm uppercase">PREVIEW NOTULEN</button>
