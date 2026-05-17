@@ -184,6 +184,7 @@ export interface CompanyData {
   amendmentDeeds: AmendmentDeed[];
 
   shareholders: Shareholder[];
+  selectedProfileId?: string;
   shareTransfers: ShareTransfer[]; // <--- NEW!
   finalShareholders: Shareholder[]; // Structure after change
   resolutions: ResolutionFlags;

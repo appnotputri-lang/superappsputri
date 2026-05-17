@@ -1,7 +1,7 @@
 import { Modal } from './components/Modal';
 import { ChevronRight, RefreshCw } from 'lucide-react';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { auth, db, loginWithGoogle, logout, handleFirestoreError, OperationType } from './src/lib/firebase';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 import { collection, onSnapshot, doc, setDoc, deleteDoc } from 'firebase/firestore';
@@ -165,6 +165,7 @@ const INITIAL_STATE: CompanyData = {
   shareTransfers: [],
   finalShareholders: [],
   resolutions: INITIAL_RESOLUTIONS,
+  selectedProfileId: '',
   createDraftAktaRups: false,
   draftAktaRupsNumber: '',
   draftAktaRupsDate: '',
@@ -385,21 +386,21 @@ const App: React.FC = () => {
   };
 
   const handleExportWord = async () => {
-    if (!data.companyName) {
+    if (!mergedData.companyName) {
       alert("Harap isi Nama Perusahaan terlebih dahulu.");
       return;
     }
-    const totalInputted = data.finalShareholders.reduce((sum, s) => sum + s.sharesOwned, 0);
-    const targetShares = data.originalSharePrice > 0 ? (data.targetCapitalPaid / data.originalSharePrice) : 0;
-    const limit = data.resolutions.capitalPaid ? targetShares : data.originalTotalShares;
+    const totalInputted = mergedData.finalShareholders.reduce((sum, s) => sum + s.sharesOwned, 0);
+    const targetShares = mergedData.originalSharePrice > 0 ? (mergedData.targetCapitalPaid / mergedData.originalSharePrice) : 0;
+    const limit = mergedData.resolutions.capitalPaid ? targetShares : mergedData.originalTotalShares;
 
-    if (totalInputted !== limit && (data.resolutions.capitalPaid || data.resolutions.shareholders)) {
+    if (totalInputted !== limit && (mergedData.resolutions.capitalPaid || mergedData.resolutions.shareholders)) {
       if (!confirm(`⚠ Perhatian: Total saham komposisi akhir (${totalInputted.toLocaleString('id-ID')}) tidak sama dengan target modal disetor (${limit.toLocaleString('id-ID')}). Lanjutkan export?`)) {
         return;
       }
     }
     try {
-      await generateWordDoc(data);
+      await generateWordDoc(mergedData);
     } catch (error) {
       console.error("Export Word error:", error);
       alert("Gagal mengunduh dokumen Word.");
@@ -617,7 +618,15 @@ const App: React.FC = () => {
     // Explicit server-side-like limit check
     const currentList = editMode === 'lama' ? data.shareholders : data.finalShareholders;
     const limit = editMode === 'lama' ? data.originalTotalShares : ((data.resolutions.capitalPaid || data.resolutions.capitalPaidDecrease) ? currentTargetSharesPaid : data.originalTotalShares);
-    const otherAllocated = currentList.filter(s => s.id !== sanitizedShareholder.id).reduce((sum, s) => sum + s.sharesOwned, 0);
+    const otherAllocated = currentList.filter(s => s.id !== sanitizedShareholder.id).reduce((sum, s) => {
+      let shares = s.sharesOwned;
+      // If we are in final list and current person is receiving shares from 's', 
+      // we must subtract that from 's''s current shares for this limit check
+      if (editMode === 'baru' && sanitizedShareholder.isAcquisition && (sanitizedShareholder.acquisitionSourceId === s.id || (s.linkedPartyId && sanitizedShareholder.acquisitionSourceId === s.linkedPartyId))) {
+        shares = Math.max(0, shares - (sanitizedShareholder.acquisitionShares || 0));
+      }
+      return sum + shares;
+    }, 0);
     if (sanitizedShareholder.sharesOwned > limit - otherAllocated) {
         alert(`Batas terlampaui! Maksimal sisa lembar yang tersedia adalah ${(limit - otherAllocated).toLocaleString('id-ID')} lembar.`);
         return;
@@ -742,6 +751,42 @@ const App: React.FC = () => {
 
   const currentTargetSharesBase = data.originalSharePrice > 0 ? (data.targetCapitalBase / data.originalSharePrice) : 0;
   const currentTargetSharesPaid = data.originalSharePrice > 0 ? (data.targetCapitalPaid / data.originalSharePrice) : 0;
+
+  const mergedData = useMemo(() => {
+    if (activeSidebarTab === 'notulen' && data.selectedProfileId) {
+      const profile = profiles.find(p => p.id === data.selectedProfileId);
+      if (profile) {
+        return {
+          ...data,
+          companyName: profile.companyName,
+          companyShortName: profile.companyShortName,
+          companyType: profile.companyType,
+          npwp: profile.npwp,
+          duration: profile.duration,
+          status: profile.status,
+          oldDomicile: profile.oldDomicile,
+          oldAddress: profile.oldAddress,
+          oldFullAddress: profile.oldFullAddress,
+          shareholders: profile.shareholders || [],
+          oldManagementItems: profile.oldManagementItems || [],
+          establishmentDeedNumber: profile.establishmentDeedNumber,
+          establishmentDeedDate: profile.establishmentDeedDate,
+          establishmentNotary: profile.establishmentNotary,
+          establishmentNotaryTitle: profile.establishmentNotaryTitle,
+          establishmentNotaryDomicile: profile.establishmentNotaryDomicile,
+          establishmentSkNumber: profile.establishmentSkNumber,
+          establishmentSkDate: profile.establishmentSkDate,
+          amendmentDeeds: profile.amendmentDeeds || [],
+          originalTotalShares: profile.originalTotalShares,
+          originalAuthorizedShares: profile.originalAuthorizedShares,
+          originalSharePrice: profile.originalSharePrice,
+          originalCapitalBase: profile.originalCapitalBase,
+          originalCapitalPaid: profile.originalCapitalPaid,
+        };
+      }
+    }
+    return data;
+  }, [data, profiles, activeSidebarTab]);
 
   const effectiveBaseCapital = data.resolutions.capitalBase ? data.targetCapitalBase : data.originalCapitalBase;
   const effectivePaidCapital = data.resolutions.capitalPaid ? data.targetCapitalPaid : data.originalCapitalPaid;
@@ -1391,11 +1436,14 @@ const App: React.FC = () => {
                 <label className="block text-[13px] font-medium text-slate-700 mb-1">Pilih Profil Perseroan untuk mengisi data otomatis</label>
                 <select 
                   className="w-full border border-[#ccc] rounded-sm px-3 py-1.5 text-[13px] outline-none bg-white focus:border-[#66afe9]"
+                  value={data.selectedProfileId || ''}
                   onChange={(e) => {
                      const selected = profiles.find(p => p.id === e.target.value);
                      if (selected) {
                          const {id, ...rest} = selected; // Merge without overriding project ID
-                         updateData({ ...rest } as any);
+                         updateData({ ...rest, selectedProfileId: selected.id } as any);
+                     } else {
+                         updateData({ selectedProfileId: '' });
                      }
                   }}
                 >
@@ -1407,6 +1455,8 @@ const App: React.FC = () => {
               </div>
             </AhuSection>
 
+            {activeSidebarTab !== 'notulen' && (
+              <>
             <AhuSection title="DATA PERSEROAN">
               <div className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
@@ -1813,6 +1863,8 @@ const App: React.FC = () => {
                   </button>
                 </div>
               </AhuSection>
+              </>
+            )}
 
             
 
@@ -2499,17 +2551,17 @@ const App: React.FC = () => {
             
             {/* Added Previews section at the bottom of the project */}
             <div className="space-y-6 pb-12">
-               {data.createDraftAktaRups && (
+               {mergedData.createDraftAktaRups && (
                  <AhuSection title="DRAFT AKTA RUPS">
-                   <DraftAktaRUPS companyData={data} />
+                   <DraftAktaRUPS companyData={mergedData} />
                  </AhuSection>
                )}
 
-               {data.resolutions.shareholders && (
+               {mergedData.resolutions.shareholders && (
                  <AhuSection title="DRAFT AKTA PERALIHAN SAHAM (JUAL BELI / HIBAH)">
                    <div className="space-y-4">
                       <p className="text-[13px] text-slate-600 mb-4 font-normal">Terdapat agenda <strong>Peralihan Saham</strong>. Anda dapat melihat dan mengunduh Akta Peralihan di bawah ini.</p>
-                      <DraftAktaApp companyData={data} />
+                      <DraftAktaApp companyData={mergedData} />
                    </div>
                  </AhuSection>
                )}
@@ -2624,7 +2676,7 @@ const App: React.FC = () => {
           </div>
           
           <div className="flex-1 w-full overflow-auto p-4 sm:p-8 pt-4 custom-scrollbar bg-slate-200/50">
-            <DocumentPreview data={data} showHeader={false} zoom={zoom} />
+            <DocumentPreview data={mergedData} showHeader={false} zoom={zoom} />
           </div>
         </div>
       </Modal>
@@ -2645,7 +2697,13 @@ const App: React.FC = () => {
               totalSharesAllowed={editMode === 'lama' ? data.originalTotalShares : (data.resolutions.capitalPaid || data.resolutions.capitalPaidDecrease ? currentTargetSharesPaid : data.originalTotalShares)}
               otherAllocated={(editMode === 'lama' ? data.shareholders : data.finalShareholders)
                 .filter(s => s.id !== editingShareholder.id)
-                .reduce((sum, s) => sum + s.sharesOwned, 0)
+                .reduce((sum, s) => {
+                  let shares = s.sharesOwned;
+                  if (editMode === 'baru' && editingShareholder.isAcquisition && (editingShareholder.acquisitionSourceId === s.id || (s.linkedPartyId && editingShareholder.acquisitionSourceId === s.linkedPartyId))) {
+                    shares = Math.max(0, shares - (editingShareholder.acquisitionShares || 0));
+                  }
+                  return sum + shares;
+                }, 0)
               }
               existingData={editMode === 'lama' ? [] : [
                 ...data.shareholders,

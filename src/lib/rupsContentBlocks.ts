@@ -113,7 +113,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
   const tglSirkulerHuruf = dateToWords(data.signingDate);
   const tglSirkulerAngka = formatDateStr(data.signingDate);
 
-  const checkNotaryWording = (name: string, title?: string, domicile?: string) => {
+  function checkNotaryWording(name: string, title?: string, domicile?: string) {
     const norm = (name || "").toUpperCase().trim();
     const t1 = "NUKANTINI PUTRI PARINCHA, SARJANA HUKUM, MAGISTER KENOTARIATAN";
     const t2 = "RADEN AJENG NUKANTINI PUTRI PARINCHA, SARJANA HUKUM, MAGISTER KENOTARIATAN";
@@ -121,7 +121,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
       return "saya, Notaris";
     }
     return `${name}${title ? `, ${title}` : ""}, Notaris berkedudukan di ${toTitleCase(domicile || "...")}`;
-  };
+  }
 
   const blocks: Block[] = [
     {

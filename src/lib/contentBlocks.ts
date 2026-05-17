@@ -23,6 +23,16 @@ export const generateBlocks = (data: FormData): Block[] => {
   const tglSKPendirianHuruf = dateToWords(data.tglSKPengesahan);
   const tglSKPendirianAngka = formatDateStr(data.tglSKPengesahan);
 
+  function checkNotaryWording(name: string, title?: string, domicile?: string) {
+    const norm = (name || "").toUpperCase().trim();
+    const t1 = "NUKANTINI PUTRI PARINCHA, SARJANA HUKUM, MAGISTER KENOTARIATAN";
+    const t2 = "RADEN AJENG NUKANTINI PUTRI PARINCHA, SARJANA HUKUM, MAGISTER KENOTARIATAN";
+    if (norm === t1 || norm === t2) {
+      return "saya, Notaris";
+    }
+    return `${name}${title ? `, ${title}` : ''}, Notaris di ${toTitleCase(domicile || "...")}`;
+  }
+
   let aktaPerubahanRuns: FormatToken[] = [];
   if (data.aktaPerubahan && data.aktaPerubahan.length > 0) {
     aktaPerubahanRuns.push({ text: ` telah mengalami perubahan Anggaran Dasar ` });
@@ -68,16 +78,6 @@ export const generateBlocks = (data: FormData): Block[] => {
 
   const tglSirkulerHuruf = dateToWords(data.tglSirkuler);
   const tglSirkulerAngka = formatDateStr(data.tglSirkuler);
-
-  const checkNotaryWording = (name: string, title?: string, domicile?: string) => {
-    const norm = (name || "").toUpperCase().trim();
-    const t1 = "NUKANTINI PUTRI PARINCHA, SARJANA HUKUM, MAGISTER KENOTARIATAN";
-    const t2 = "RADEN AJENG NUKANTINI PUTRI PARINCHA, SARJANA HUKUM, MAGISTER KENOTARIATAN";
-    if (norm === t1 || norm === t2) {
-      return "saya, Notaris";
-    }
-    return `${name}${title ? `, ${title}` : ''}, Notaris di ${toTitleCase(domicile || "...")}`;
-  };
 
   const tglLahirPihak1Huruf = dateToWords(data.pihak1TanggalLahir);
   const tglLahirPihak1Angka = formatDateStr(data.pihak1TanggalLahir);
