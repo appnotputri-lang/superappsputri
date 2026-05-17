@@ -11,9 +11,9 @@
     }
   },
   "firestore": {
-    "users/{userId}/profiles/{profileId}": {
+    "profiles/{profileId}": {
       "schema": { "$ref": "#/entities/profile" },
-      "description": "Contains user-specific company profiles"
+      "description": "Contains global company profiles"
     }
   }
 }

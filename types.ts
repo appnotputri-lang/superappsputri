@@ -109,29 +109,8 @@ export interface AmendmentDeed {
   skSpDocuments: SkSpDocument[];
 }
 
-export interface CompanyProfile {
+export interface CompanyProfile extends Partial<CompanyData> {
   id: string;
-  companyName: string;
-  companyShortName?: string;
-  npwp?: string;
-  companyType?: string;
-  status?: string;
-  duration?: string;
-  newAddress: Address;
-  establishmentDeedNumber: string;
-  establishmentDeedDate: string;
-  establishmentNotary: string;
-  establishmentNotaryTitle?: string;
-  establishmentNotaryDomicile: string;
-  establishmentSkNumber: string;
-  establishmentSkDate: string;
-  amendmentDeeds: AmendmentDeed[];
-  originalTotalShares: number; // Paid-up share count
-  originalAuthorizedShares: number; // New: Total base share count
-  originalSharePrice: number;
-  originalCapitalBase: number; // Total Authorized IDR
-  originalCapitalPaid: number; // Total Paid-up IDR
-  shareholders: Shareholder[];
 }
 
 export interface CompanyData {

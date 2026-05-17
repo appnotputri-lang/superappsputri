@@ -256,7 +256,7 @@ const App: React.FC = () => {
 
   useEffect(() => {
     if (user) {
-      const profilesRef = collection(db, 'users', user.uid, 'profiles');
+      const profilesRef = collection(db, 'profiles');
       const unsub = onSnapshot(profilesRef, (snapshot) => {
         const loaded: CompanyProfile[] = [];
         snapshot.forEach(doc => {
@@ -264,7 +264,7 @@ const App: React.FC = () => {
         });
         setProfiles(loaded);
       }, (error) => {
-        handleFirestoreError(error, OperationType.LIST, `users/${user.uid}/profiles`);
+        handleFirestoreError(error, OperationType.LIST, `profiles`);
       });
       return unsub;
     } else {
@@ -714,6 +714,54 @@ const App: React.FC = () => {
   const paidUpPercentage = effectiveBaseCapital > 0 
     ? Math.round((effectivePaidCapital / effectiveBaseCapital) * 100) 
     : 0;
+
+  const ALLOWED_EMAILS = [
+    'appnotputri@gmail.com',
+    'rdyndi@gmail.com',
+    'notarisppatputri@gmail.com'
+  ];
+
+  if (!user) {
+    return (
+      <div className="h-screen flex flex-col items-center justify-center bg-[#ecf0f5] font-sans text-slate-900">
+        <div className="bg-white p-8 rounded-lg shadow-lg border border-slate-200 text-center max-w-sm w-full mx-4">
+          <div className="w-16 h-16 bg-[#3b5998] rounded-full flex items-center justify-center mx-auto mb-4">
+            <ShieldCheck className="w-8 h-8 text-white" />
+          </div>
+          <h1 className="text-xl font-bold mb-2 text-[#3b5998]">Sistem Draft Notaris Putri</h1>
+          <p className="text-[13px] text-slate-500 mb-6">Akses terbatas. Silakan login menggunakan akun Google Anda.</p>
+          <button 
+            onClick={() => loginWithGoogle()} 
+            className="w-full py-2.5 bg-[#40bdae] hover:bg-[#349c8f] text-white font-bold rounded text-[14px] shadow-sm transition-colors flex items-center justify-center gap-2"
+          >
+            LOGIN DENGAN GOOGLE
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (user && user.email && !ALLOWED_EMAILS.includes(user.email)) {
+    return (
+      <div className="h-screen flex flex-col items-center justify-center bg-[#ecf0f5] font-sans text-slate-900">
+        <div className="bg-white p-8 rounded-lg shadow-lg border border-slate-200 text-center max-w-sm w-full mx-4">
+          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <AlertCircle className="w-8 h-8 text-red-500" />
+          </div>
+          <h1 className="text-xl font-bold mb-2 text-slate-800">Akses Ditolak</h1>
+          <p className="text-[13px] text-slate-500 mb-6">
+            Akun <b>{user.email}</b> tidak memiliki izin untuk mengakses sistem ini.
+          </p>
+          <button 
+            onClick={() => logout()} 
+            className="w-full py-2.5 bg-[#d9534f] hover:bg-[#c9302c] text-white font-bold rounded text-[14px] shadow-sm transition-colors"
+          >
+            LOGOUT
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-screen flex flex-col bg-[#ecf0f5] font-sans text-slate-900 overflow-hidden">
@@ -1206,40 +1254,20 @@ const App: React.FC = () => {
                      <button onClick={async () => {
                         if (!data.companyName) return alert('Nama perseroan harus diisi');
                         let newProfiles = [...profiles];
-                        const profileData = {
-                            id: editingProfileId === 'new' ? crypto.randomUUID() : editingProfileId,
-                            companyName: data.companyName,
-                            companyShortName: data.companyShortName,
-                            npwp: data.npwp,
-                            companyType: data.companyType,
-                            status: data.status,
-                            duration: data.duration,
-                            newAddress: data.newAddress,
-                            establishmentDeedNumber: data.establishmentDeedNumber,
-                            establishmentDeedDate: data.establishmentDeedDate,
-                            establishmentNotary: data.establishmentNotary,
-                            establishmentNotaryTitle: data.establishmentNotaryTitle,
-                            establishmentNotaryDomicile: data.establishmentNotaryDomicile,
-                            establishmentSkNumber: data.establishmentSkNumber,
-                            establishmentSkDate: data.establishmentSkDate,
-                            amendmentDeeds: data.amendmentDeeds,
-                            originalAuthorizedShares: data.originalAuthorizedShares,
-                            originalTotalShares: data.originalTotalShares,
-                            originalSharePrice: data.originalSharePrice,
-                            originalCapitalBase: data.originalCapitalBase,
-                            originalCapitalPaid: data.originalCapitalPaid,
-                            shareholders: data.shareholders
+                        const profileData: CompanyProfile = {
+                            ...data,
+                            id: editingProfileId === 'new' || !editingProfileId ? crypto.randomUUID() : editingProfileId
                         };
                         if (!user) {
                            alert('Anda harus login terlebih dahulu!');
                            return;
                         }
                         try {
-                           await setDoc(doc(db, 'users', user.uid, 'profiles', profileData.id), profileData);
+                           await setDoc(doc(db, 'profiles', profileData.id), profileData);
                            setEditingProfileId(null);
                            alert('Profil berhasil disimpan!');
                         } catch (e) {
-                           handleFirestoreError(e, OperationType.WRITE, `users/${user.uid}/profiles/${profileData.id}`);
+                           handleFirestoreError(e, OperationType.WRITE, `profiles/${profileData.id}`);
                         }
                      }} className="bg-[#40bdae] hover:bg-[#349c8f] text-white font-bold px-8 py-2.5 rounded-sm text-[13px] flex items-center gap-2 transition-colors uppercase tracking-tight shadow-md">
                        <Save className="w-4 h-4"/> SIMPAN PROFIL
@@ -1274,10 +1302,10 @@ const App: React.FC = () => {
                              if(confirm('Hapus profil ' + p.companyName + '?')) {
                                if (!user) return alert('Anda harus login!');
                                try {
-                                 await deleteDoc(doc(db, 'users', user.uid, 'profiles', p.id));
+                                 await deleteDoc(doc(db, 'profiles', p.id));
                                  alert('Profil berhasil dihapus');
                                } catch (e) {
-                                 handleFirestoreError(e, OperationType.DELETE, `users/${user.uid}/profiles/${p.id}`);
+                                 handleFirestoreError(e, OperationType.DELETE, `profiles/${p.id}`);
                                }
                              }
                            }} className="bg-red-50 hover:bg-red-500 text-red-500 hover:text-white px-3 py-1.5 rounded-sm text-[11px] font-bold flex items-center justify-center gap-1 transition-colors flex-1 uppercase">
@@ -1990,29 +2018,9 @@ const App: React.FC = () => {
                <button onClick={async () => {
                   if (!data.companyName) return alert('Nama perseroan harus diisi');
                   let newProfiles = [...profiles];
-                  const profileData = {
-                      id: editingProfileId && editingProfileId !== 'new' ? editingProfileId : crypto.randomUUID(),
-                      companyName: data.companyName,
-                      companyShortName: data.companyShortName,
-                      npwp: data.npwp,
-                      companyType: data.companyType,
-                      status: data.status,
-                      duration: data.duration,
-                      newAddress: data.newAddress,
-                      establishmentDeedNumber: data.establishmentDeedNumber,
-                      establishmentDeedDate: data.establishmentDeedDate,
-                      establishmentNotary: data.establishmentNotary,
-                      establishmentNotaryTitle: data.establishmentNotaryTitle,
-                      establishmentNotaryDomicile: data.establishmentNotaryDomicile,
-                      establishmentSkNumber: data.establishmentSkNumber,
-                      establishmentSkDate: data.establishmentSkDate,
-                      amendmentDeeds: data.amendmentDeeds,
-                      originalAuthorizedShares: data.originalAuthorizedShares,
-                      originalTotalShares: data.originalTotalShares,
-                      originalSharePrice: data.originalSharePrice,
-                      originalCapitalBase: data.originalCapitalBase,
-                      originalCapitalPaid: data.originalCapitalPaid,
-                      shareholders: data.shareholders
+                  const profileData: CompanyProfile = {
+                      ...data,
+                      id: editingProfileId && editingProfileId !== 'new' ? editingProfileId : crypto.randomUUID()
                   };
                   
                   if (!user) {
@@ -2024,11 +2032,11 @@ const App: React.FC = () => {
                   }
                   
                   try {
-                      await setDoc(doc(db, 'users', user.uid, 'profiles', profileData.id), profileData);
+                      await setDoc(doc(db, 'profiles', profileData.id), profileData);
                       setEditingProfileId(profileData.id);
                       alert('Proyek / Profil berhasil disimpan!');
                   } catch (e) {
-                      handleFirestoreError(e, OperationType.WRITE, `users/${user.uid}/profiles/${profileData.id}`);
+                      handleFirestoreError(e, OperationType.WRITE, `profiles/${profileData.id}`);
                   }
                }} className="px-5 py-2 bg-[#40bdae] text-white rounded-md text-[13px] font-bold transition-all hover:bg-[#349c8f] shadow-sm uppercase">SIMPAN PROYEK</button>
 
