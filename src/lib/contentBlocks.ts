@@ -96,11 +96,14 @@ export const generateBlocks = (data: FormData): Block[] => {
     { type: 'p', runs: [{ text: `Pukul ${jamStr} (${jamHuruf}).` }] },
     { type: 'p', runs: [
        { text: `Berhadapan dengan saya, ` },
-       ...(data.notarisNama === 'Nukantini Putri Parincha' || (data.notarisNama || '').toUpperCase().startsWith('NUKANTINI PUTRI PARINCHA') ? [] : [
+       ...(data.notarisNama === 'Nukantini Putri Parincha' || (data.notarisNama || '').toUpperCase().startsWith('NUKANTINI PUTRI PARINCHA') ? [
+         { text: `NUKANTINI PUTRI PARINCHA, Sarjana Hukum, Magister Kenotariatan`, bold: true } as FormatToken,
+         { text: `, ` } as FormatToken
+       ] : [
          { text: data.notarisNama, bold: true } as FormatToken,
          { text: `, ` } as FormatToken
        ]),
-       { text: `Notaris di ${toTitleCase(data.notarisKedudukan)}, dengan di hadiri oleh saksi-saksi yang saya, Notaris kenal dan akan disebutkan nama-namanya pada bagian akhir akta ini :` }
+       { text: `Notaris di ${toTitleCase(data.notarisKedudukan || 'Kabupaten Bandung Barat')}, dengan di hadiri oleh saksi-saksi yang saya, Notaris kenal dan akan disebutkan nama-namanya pada bagian akhir akta ini :` }
     ] },
 
     { type: 'p', runs: [

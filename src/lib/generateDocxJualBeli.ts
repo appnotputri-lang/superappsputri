@@ -148,22 +148,7 @@ export const generateDocxBlob = async (data: FormData): Promise<Blob> => {
   };
 
   const blocks = generateBlocks(data);
-  const docxChildren: any[] = [
-    new Paragraph({
-      children: [
-        new TextRun({
-          text: data.tipeAkta === "Hibah" ? "HIBAH SAHAM" : "JUAL BELI SAHAM",
-          bold: true,
-        }),
-        new TextRun({ text: "\n", break: 1 }),
-        new TextRun({ text: "\n", break: 1 }),
-        new TextRun({ text: `Nomor : ${data.nomorAkta}` }),
-        new TextRun({ text: "\n", break: 1 }),
-        new TextRun({ text: "\n", break: 1 }),
-      ],
-      alignment: AlignmentType.CENTER,
-    }),
-  ];
+  const docxChildren: any[] = [];
 
   blocks.forEach((block, index) => {
     if (block.type === "p") {

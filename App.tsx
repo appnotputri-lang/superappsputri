@@ -2086,43 +2086,6 @@ const App: React.FC = () => {
                             onChange={(e) => updateData({ draftAktaRupsDate: e.target.value })} 
                           />
                         </div>
-                        <div className="md:col-span-2 border-t border-slate-200 pt-3 mt-1">
-                          <AhuLabel label="Notaris Pembuat Akta" />
-                          <div className="flex gap-2 mb-2">
-                             <AhuSelect 
-                               value={data.notaryName === 'Nukantini Putri Parincha' ? 'Saya' : (data.notaryName || '')} 
-                               onChange={(e) => {
-                                 if (e.target.value === 'Saya') {
-                                   updateData({ 
-                                     notaryName: 'Nukantini Putri Parincha',
-                                     notaryTitle: 'Sarjana Hukum, Magister Kenotariatan',
-                                     notaryDomicile: 'Kabupaten Bandung Barat'
-                                   });
-                                 } else {
-                                   updateData({ notaryName: e.target.value });
-                                 }
-                               }}
-                             >
-                               <option value="">-- Pilih Notaris --</option>
-                               <option value="Saya">Saya (Nukantini Putri Parincha)</option>
-                               <option value="Lainnya">Lainnya (Input Manual)</option>
-                             </ AhuSelect>
-                          </div>
-                          {data.notaryName !== 'Nukantini Putri Parincha' && data.notaryName !== '' && (
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
-                              <AhuInput 
-                                placeholder="Nama Notaris..." 
-                                value={data.notaryName} 
-                                onChange={e => updateData({ notaryName: e.target.value })} 
-                              />
-                              <AhuInput 
-                                placeholder="Kedudukan Notaris..." 
-                                value={data.notaryDomicile} 
-                                onChange={e => updateData({ notaryDomicile: e.target.value })} 
-                              />
-                            </div>
-                          )}
-                        </div>
                       </div>
                     )}
                   </div>

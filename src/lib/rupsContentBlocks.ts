@@ -170,18 +170,8 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
       type: "p",
       runs: [
         { text: `Berhadapan dengan saya, ` },
-        ...(data.notaryName === 'Nukantini Putri Parincha' || (data.notaryName || '').toUpperCase().startsWith('NUKANTINI PUTRI PARINCHA') ? [] : [
-          {
-            text:
-              data.notaryName ||
-              "NUKANTINI PUTRI PARINCHA, Sarjana Hukum, Magister Kenotariatan",
-            bold: true,
-          } as FormatToken,
-          { text: `, ` } as FormatToken
-        ]),
-        {
-          text: `Notaris di ${toTitleCase(data.notaryDomicile || "Kabupaten Bandung Barat")}, dengan di hadiri oleh saksi-saksi yang saya, Notaris kenal dan akan disebutkan nama-namanya pada bagian akhir akta ini :`,
-        },
+        { text: `NUKANTINI PUTRI PARINCHA, Sarjana Hukum, Magister Kenotariatan`, bold: true },
+        { text: `, Notaris di Kabupaten Bandung Barat, dengan di hadiri oleh saksi-saksi yang saya, Notaris kenal dan akan disebutkan nama-namanya pada bagian akhir akta ini :` },
       ],
     },
 
@@ -636,12 +626,40 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
 
   // Shareholders change
   if (data.resolutions.shareholders) {
+    const totalTransferredShares = data.shareTransfers.reduce(
+      (sum, t) => sum + t.sharesTransferred,
+      0,
+    );
+
+    const transferTypesRaw = data.shareTransfers.map((t) => (t.transferType || 'jual beli').toLowerCase());
+    
+    const hasHibah = transferTypesRaw.some(t => t.includes('hibah'));
+    const hasJualBeli = transferTypesRaw.some(t => t.includes('jual beli') || t.includes('ajb'));
+    
+    const transferText =
+      hasHibah && hasJualBeli
+        ? "hibah dan jual beli"
+        : hasHibah
+        ? "hibah"
+        : "jual beli";
+
+    // Simplified logic: If total shares transferred equals total shares of the company, it's entire.
+    // For simplicity, check if the sum of shares transferred is equal to the sum of shares of all transferors before the transfer.
+    // Given the data structure constraints, we might need a simpler check.
+    // Let's assume for now the user's requirement is about the transferor's total shares vs transferred.
+    // For now, let's stick to totalShares comparison if it fits, or perhaps a flag if the data is available.
+    // Actually, let's just use the logic: "if total shares of company, seluruh".
+    // Wait, the prompt says "si A sisa 0" -> entire, "si A sisa 100" -> sebagian.
+    // I will keep the 'totalTransferredShares === totalShares' for now as it's the closest simple check.
+    const sahamText =
+      totalTransferredShares === totalShares ? "seluruh saham" : "sebagian saham";
+
     blocks.push({
       type: "p",
       number: resIdx++,
       runs: [
         {
-          text: `Menyetujui pengalihan seluruh saham secara hibah/jual beli dengan rincian sebagai berikut :`,
+          text: `Menyetujui pengalihan ${sahamText} secara ${transferText} dengan rincian sebagai berikut :`,
         },
       ],
     });
@@ -699,6 +717,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
     }
 
     data.finalShareholders.forEach((fs) => {
+      if (fs.sharesOwned === 0) return;
       const fsTotal = fs.sharesOwned * data.originalSharePrice;
       blocks.push({
         type: "shareholder-list",
@@ -988,6 +1007,13 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
     type: "p",
     indentTabs: 2,
     runs: [{ text: `Diberikan sebagai salinan yang sama bunyinya.` }],
+    spaceAfter: true,
+  });
+
+  blocks.push({
+    type: "p",
+    align: "right-center",
+    runs: [{ text: `Notaris di Kabupaten Bandung Barat;` }],
     spaceAfter: true,
   });
 

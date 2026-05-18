@@ -77,14 +77,6 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({ data }) => {
   
   // Collect all lines
   const allLines: { element: React.ReactNode }[] = [];
-  
-  // Header
-  const headerContent = (
-    <div className="text-center font-bold mb-6 uppercase">
-      {data.tipeAkta === 'Hibah' ? 'HIBAH SAHAM' : 'JUAL BELI SAHAM'}<br/><br/>
-      Nomor : {data.nomorAkta}
-    </div>
-  );
 
   blocks.forEach((block, bIdx) => {
     if (block.type === 'p') {
@@ -263,7 +255,6 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({ data }) => {
                 textAlign: 'left'
               }}
             >
-              {pIdx === 0 && headerContent}
               <div className="space-y-0 relative">
                 {pageContent}
               </div>

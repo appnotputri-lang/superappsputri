@@ -32,6 +32,7 @@ import { generateRupsBlocks } from "./rupsContentBlocks";
 // Lebar konten: 8504 DXA
 // ──────────────────────────────────────────────────────────────────────────────
 
+const TAB_KANAN_NO_LEADER = { type: TabStopType.RIGHT, position: 8504, leader: LeaderType.NONE };
 const TAB_KANAN = { type: TabStopType.RIGHT, position: 8504, leader: LeaderType.HYPHEN };
 
 const W = {
@@ -60,7 +61,7 @@ const createP = (
 
   lines.forEach((lineTokens, i) => {
     lineTokens.forEach((t) => children.push(new TextRun({ text: t.text, bold: t.bold })));
-    if (!isCentered) children.push(new TextRun({ text: "\t" }));
+    if (!isCentered && !isRightCenter) children.push(new TextRun({ text: "\t" }));
     if (i < lines.length - 1) children.push(new TextRun({ break: 1 }));
   });
 
@@ -466,12 +467,12 @@ export const generateRUPSDocx = async (data: CompanyData) => {
     .replace(/Sarjana Hukum/gi, "SH.")
     .replace(/Magister Kenotariatan/gi, "M.Kn");
 
-  docxChildren.push(createNotarisLabelP(domicile));
-  docxChildren.push(createNotarisEmptyP());
-  docxChildren.push(createNotarisEmptyP());
-  docxChildren.push(createNotarisSignP());
-  docxChildren.push(createNotarisEmptyP());
-  docxChildren.push(createNotarisNameP(notaryDisplay));
+  // docxChildren.push(createNotarisLabelP(domicile));
+  // docxChildren.push(createNotarisEmptyP());
+  // docxChildren.push(createNotarisEmptyP());
+  // docxChildren.push(createNotarisSignP());
+  // docxChildren.push(createNotarisEmptyP());
+  // docxChildren.push(createNotarisNameP(notaryDisplay));
 
   // ── BUILD DOCUMENT
   const doc = new Document({

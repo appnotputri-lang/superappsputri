@@ -272,7 +272,18 @@ export const IndoRegionSelector: React.FC<{
     if (!ids.d) { setVillages([]); return; }
     fetch(`https://www.emsifa.com/api-wilayah-indonesia/api/villages/${ids.d}.json`)
       .then(res => res.json())
-      .then(data => setVillages(data.map((item: any) => ({ ...item, name: toTitleCase(item.name) }))));
+      .then(data => {
+         let vills = data.map((item: any) => ({ ...item, name: toTitleCase(item.name) }));
+         // HOTFIX for missing Srengseng
+         const districtName = districts.find(d => d.id === ids.d)?.name;
+         if (districtName?.toUpperCase() === 'KEMBANGAN' || ids.d === '3174010') {
+            if (!vills.find((v: any) => v.name.toUpperCase() === 'SRENGSENG')) {
+                vills.push({ id: '3174010002', name: 'Srengseng' });
+                vills.sort((a: any, b: any) => a.name.localeCompare(b.name));
+            }
+         }
+         setVillages(vills);
+      });
   }, [ids.d]);
 
   return (

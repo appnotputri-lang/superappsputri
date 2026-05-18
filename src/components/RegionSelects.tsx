@@ -70,7 +70,14 @@ export function RegionSelects({ prefix, data, onChange, FieldRow, Select }: Regi
     if (distId) {
       fetch(`${API_URL}/villages/${distId}.json`)
         .then(res => res.json())
-        .then(d => setVillages(d.map((item: any) => ({...item, name: toTitleCase(item.name)}))))
+        .then(d => {
+           let vills = d.map((item: any) => ({...item, name: toTitleCase(item.name)}));
+           if (valKecamatan.toUpperCase() === 'KEMBANGAN' && !vills.find((v: any) => v.name.toUpperCase() === 'SRENGSENG')) {
+               vills.push({ id: '3174010002', name: 'Srengseng' });
+               vills.sort((a: any, b: any) => a.name.localeCompare(b.name));
+           }
+           setVillages(vills);
+        })
         .catch(() => {});
     } else {
       setVillages([]);
