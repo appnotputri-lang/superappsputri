@@ -157,6 +157,7 @@ export interface CompanyData {
   signingPlace: string;
   signingDate: string;
   
+  aktaStartTime: string;
   meetingStartTime: string;
   meetingEndTime: string;
   meetingChair: string;

@@ -56,13 +56,19 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
   const tglAktaHuruf = dateToWords(effectiveNotaryDate);
   const tglAktaAngka = formatDateStr(effectiveNotaryDate);
 
-  const jamStr = data.meetingStartTime
-    ? data.meetingStartTime.replace(":", ".") + " WIBB"
-    : "12.00 WIBB";
-  const jamParts = (data.meetingStartTime || "12:00").split(":");
+  const jamStr = data.aktaStartTime
+    ? data.aktaStartTime.replace(":", ".") + " WIB"
+    : "10.00 WIB";
+  const jamParts = (data.aktaStartTime || "10:00").split(":");
   const h = parseInt(jamParts[0]);
   const m = parseInt(jamParts[1]);
-  const jamHuruf = `${terbilang(h)} lewat ${m === 0 ? "nol-nol" : terbilang(m)} menit Waktu Indonesia Bagian Barat`;
+  const jamHuruf = `${terbilang(h)} lewat ${m === 0 ? "nol-nol" : terbilang(m)} menit Waktu Indonesia Barat`;
+
+  const totalShares = data.shareholders.reduce(
+    (sum, s) => sum + s.sharesOwned,
+    0,
+  );
+  const totalSharesHuruf = terbilang(totalShares);
 
   // Rep details
   let rep: Shareholder | undefined;
@@ -123,27 +129,50 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
     return `${name}${title ? `, ${title}` : ""}, Notaris di ${toTitleCase(domicile || "...")}`;
   }
 
-  const blocks: Block[] = [
-    {
-      type: "p",
-      align: "center",
-      runs: [{ text: `PERNYATAAN KEPUTUSAN PARA PEMEGANG SAHAM`, bold: true }],
-    },
-    {
-      type: "p",
-      align: "center",
-      runs: [{ text: `YANG DIAMBIL DILUAR RAPAT`, bold: true }],
-    },
-    {
-      type: "p",
-      align: "center",
-      runs: [
-        {
-          text: `SEBAGAI PENGGANTI RAPAT UMUM PEMEGANG SAHAM LUAR BIASA`,
-          bold: true,
-        },
-      ],
-    },
+  const isCircular = data.documentType === "CIRCULAR";
+  const isMinutes = data.documentType === "MINUTES";
+
+  const blocks: Block[] = [];
+
+  if (isCircular) {
+    blocks.push(
+      {
+        type: "p",
+        align: "center",
+        runs: [{ text: `PERNYATAAN KEPUTUSAN PARA PEMEGANG SAHAM`, bold: true }],
+      },
+      {
+        type: "p",
+        align: "center",
+        runs: [{ text: `YANG DIAMBIL DILUAR RAPAT`, bold: true }],
+      },
+      {
+        type: "p",
+        align: "center",
+        runs: [
+          {
+            text: `SEBAGAI PENGGANTI RAPAT UMUM PEMEGANG SAHAM LUAR BIASA`,
+            bold: true,
+          },
+        ],
+      },
+    );
+  } else {
+    blocks.push(
+      {
+        type: "p",
+        align: "center",
+        runs: [{ text: `PERNYATAAN KEPUTUSAN`, bold: true }],
+      },
+      {
+        type: "p",
+        align: "center",
+        runs: [{ text: `RAPAT UMUM PEMEGANG SAHAM LUAR BIASA`, bold: true }],
+      },
+    );
+  }
+
+  blocks.push(
     {
       type: "p",
       align: "center",
@@ -187,8 +216,10 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
         },
       ],
     },
+  );
 
-    ...(rep?.address?.city?.toUpperCase() !== "KABUPATEN BANDUNG BARAT" && toTitleCase(rep?.address?.city || "").toUpperCase() !== "KABUPATEN BANDUNG BARAT" ? [{
+  if (rep?.address?.city?.toUpperCase() !== "KABUPATEN BANDUNG BARAT" && toTitleCase(rep?.address?.city || "").toUpperCase() !== "KABUPATEN BANDUNG BARAT") {
+    blocks.push({
       type: "list",
       bullet: "-",
       indentTabs: 1.5,
@@ -197,7 +228,23 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
           text: `Untuk sementara berada di ${toTitleCase(data.notaryDomicile || "Kabupaten Bandung Barat")};`,
         },
       ],
-    } as Block] : []),
+    });
+  }
+
+  if (isMinutes) {
+    blocks.push({
+      type: "list",
+      bullet: "-",
+      indentTabs: 0.5,
+      runs: [
+        {
+          text: `Dalam hal ini hadir selaku kuasa sebagaimana yang tertera dalam risalah Rapat Perseroan yang akan diuraikan di bawah ini.`,
+        },
+      ],
+    });
+  }
+
+  blocks.push(
     { type: "p", runs: [{ text: `Penghadap saya, Notaris kenal.` }] },
     {
       type: "p",
@@ -207,31 +254,52 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
         },
       ],
     },
-  ];
+  );
 
   const tglPendirianHuruf = dateToWords(data.establishmentDeedDate || "");
   const tglPendirianAngka = formatDateStr(data.establishmentDeedDate || "");
   const tglSKPendirianHuruf = dateToWords(data.establishmentSkDate || "");
   const tglSKPendirianAngka = formatDateStr(data.establishmentSkDate || "");
 
-  blocks.push({
-    type: "list",
-    bullet: "-",
-    indentTabs: 0.5,
-    runs: [
-      {
-        text: `Menurut keterangannya dalam hal ini bertindak berdasarkan kuasa yang diberikan dalam Keputusan Sirkuler Para Pemegang Saham `,
-      },
-      { text: `"PT. ${data.companyName.toUpperCase()}"`, bold: true },
-      {
-        text: ` sebagai pengganti Keputusan yang diambil pada Rapat Umum Pemegang Saham Luar Biasa yang ditandatangani terakhir tertanggal ${tglSirkulerHuruf} (${tglSirkulerAngka}), demikian sah mewakili untuk dan atas nama serta kepentingan `,
-      },
-      { text: `PT. ${data.companyName.toUpperCase()}`, bold: true },
-      {
-        text: `, perseroan berkedudukan ${toTitleCase(data.newAddress?.city || data.domicile || "...")}, demikian berdasarkan Akta Pendirian tertanggal ${tglPendirianHuruf} (${tglPendirianAngka}), Nomor ${data.establishmentDeedNumber}, telah mendapat pengesahan dari Menteri Hukum dan Hak Asasi Manusia Republik Indonesia tertanggal ${tglSKPendirianHuruf} (${tglSKPendirianAngka}), Nomor ${data.establishmentSkNumber}, dibuat di hadapan ${checkNotaryWording(data.establishmentNotary, data.establishmentNotaryTitle, data.establishmentNotaryDomicile)} dan telah mengalami perubahan berdasarkan akta sebagai berikut :-`,
-      },
-    ],
-  });
+  if (isMinutes) {
+    const meetingHari = getDayName(data.signingDate);
+    const meetingTglHuruf = dateToWords(data.signingDate);
+    const meetingTglAngka = formatDateStr(data.signingDate);
+    const meetingTimeStr = data.meetingStartTime ? data.meetingStartTime.replace(":", ".") : "13.00";
+    const meetingTimeWords = timeToWords(data.meetingStartTime || "13:00");
+
+    blocks.push({
+      type: "list",
+      bullet: "-",
+      indentTabs: 0.5,
+      runs: [
+        {
+          text: `Bahwa pada hari ${meetingHari}, tanggal ${meetingTglAngka} (${meetingTglHuruf}), bertempat di ${toTitleCase(data.signingPlace || "Kantor Perseroan")}, pukul ${meetingTimeStr} WIB (${meetingTimeWords} Waktu Indonesia Barat) telah diadakan Rapat Umum Pemegang Saham Luar Biasa Perseroan Terbatas `,
+        },
+        { text: `PT ${data.companyName.toUpperCase()}`, bold: true },
+        { text: ` (selanjutnya disebut sebagai “Rapat”) Perseroan berkedudukan di ${toTitleCase(data.newAddress?.city || data.domicile || "...")}, demikian berdasarkan Akta Pendirian tertanggal ${tglPendirianHuruf} (${tglPendirianAngka}), Nomor ${data.establishmentDeedNumber}, telah mendapat pengesahan dari Menteri Hukum dan Hak Asasi Manusia Republik Indonesia tertanggal ${tglSKPendirianHuruf} (${tglSKPendirianAngka}), Nomor ${data.establishmentSkNumber}, dibuat di hadapan ${checkNotaryWording(data.establishmentNotary, data.establishmentNotaryTitle, data.establishmentNotaryDomicile)} dan telah mengalami perubahan berdasarkan akta sebagai berikut :-` },
+      ],
+    });
+  } else {
+    blocks.push({
+      type: "list",
+      bullet: "-",
+      indentTabs: 0.5,
+      runs: [
+        {
+          text: `Menurut keterangannya dalam hal ini bertindak berdasarkan kuasa yang diberikan dalam Keputusan Sirkuler Para Pemegang Saham `,
+        },
+        { text: `"PT. ${data.companyName.toUpperCase()}"`, bold: true },
+        {
+          text: ` sebagai pengganti Keputusan yang diambil pada Rapat Umum Pemegang Saham Luar Biasa yang ditandatangani terakhir tertanggal ${tglSirkulerHuruf} (${tglSirkulerAngka}), demikian sah mewakili untuk dan atas nama serta kepentingan `,
+        },
+        { text: `PT. ${data.companyName.toUpperCase()}`, bold: true },
+        {
+          text: `, perseroan berkedudukan ${toTitleCase(data.newAddress?.city || data.domicile || "...")}, demikian berdasarkan Akta Pendirian tertanggal ${tglPendirianHuruf} (${tglPendirianAngka}), Nomor ${data.establishmentDeedNumber}, telah mendapat pengesahan dari Menteri Hukum dan Hak Asasi Manusia Republik Indonesia tertanggal ${tglSKPendirianHuruf} (${tglSKPendirianAngka}), Nomor ${data.establishmentSkNumber}, dibuat di hadapan ${checkNotaryWording(data.establishmentNotary, data.establishmentNotaryTitle, data.establishmentNotaryDomicile)} dan telah mengalami perubahan berdasarkan akta sebagai berikut :-`,
+        },
+      ],
+    });
+  }
 
   // Amendment deeds
   if (data.amendmentDeeds && data.amendmentDeeds.length > 0) {
@@ -293,107 +361,211 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
     });
   }
 
-  blocks.push({
-    type: "list",
-    bullet: "-",
-    indentTabs: 0.5,
-    runs: [
-      {
-        text: `Bahwa para pemegang saham perseroan telah mengambil keputusan berdasarkan Keputusan Sirkuler Para Pemegang Saham `,
-      },
-      { text: `PT. ${data.companyName.toUpperCase()}`, bold: true },
-      {
-        text: ` sebagai pengganti Keputusan yang diambil pada Rapat Umum Pemegang Saham Luar Biasa yang ditandatangani secara bersama-sama dan/atau dengan cara diedarkan, yang terakhir ditandatangani pada tanggal ${tglSirkulerAngka} (${tglSirkulerHuruf}) bermeterai cukup yang aslinya dilekatkan pada minuta akta ini (selanjutnya akan disebut “Keputusan Sirkuler”);`,
-      },
-    ],
-  });
+  if (isCircular) {
+    blocks.push({
+      type: "list",
+      bullet: "-",
+      indentTabs: 0.5,
+      runs: [
+        {
+          text: `Bahwa para pemegang saham perseroan telah mengambil keputusan berdasarkan Keputusan Sirkuler Para Pemegang Saham `,
+        },
+        { text: `PT. ${data.companyName.toUpperCase()}`, bold: true },
+        {
+          text: ` sebagai pengganti Keputusan yang diambil pada Rapat Umum Pemegang Saham Luar Biasa yang ditandatangani secara bersama-sama dan/atau dengan cara diedarkan, yang terakhir ditandatangani pada tanggal ${tglSirkulerAngka} (${tglSirkulerHuruf}) bermeterai cukup yang aslinya dilekatkan pada minuta akta ini (selanjutnya akan disebut “Keputusan Sirkuler”);`,
+        },
+      ],
+    });
 
-  const totalShares = data.shareholders.reduce(
-    (sum, s) => sum + s.sharesOwned,
-    0,
-  );
-  const totalSharesHuruf = terbilang(totalShares);
+    blocks.push({
+      type: "list",
+      bullet: "-",
+      indentTabs: 0.5,
+      runs: [
+        {
+          text: `Bahwa Keputusan Sirkuler mana telah ditandatangani dan mewakili seluruh saham yang telah dikeluarkan dan disetor penuh (“para pemegang saham”) sampai dengan hari ini, yaitu sebanyak ${formatNumber(totalShares)} (${totalSharesHuruf}) lembar saham atau 100 % (seratus persen) dari saham dalam Perseroan `,
+        },
+        { text: `PT. ${data.companyName.toUpperCase()}`, bold: true },
+        { text: ` telah memenuhi kuorum.` },
+      ],
+    });
+  } else {
+    // MINUTES specific Preamble
+    const totalCapPaid = data.originalCapitalPaid;
+    blocks.push({
+      type: "list",
+      bullet: "-",
+      indentTabs: 0.5,
+      runs: [
+        {
+          text: `Bahwa dari semua saham yang telah dikeluarkan tersebut di atas, yaitu ${formatNumber(totalShares)} (${totalSharesHuruf}) lembar saham perseroan atau dengan nominal seluruhnya sebesar Rp. ${formatNumber(totalCapPaid)},- (${terbilang(totalCapPaid)} rupiah) atau 100% telah hadir dalam rapat ini.`,
+        },
+      ],
+    });
 
-  blocks.push({
-    type: "list",
-    bullet: "-",
-    indentTabs: 0.5,
-    runs: [
-      {
-        text: `Bahwa Keputusan Sirkuler mana telah ditandatangani dan mewakili seluruh saham yang telah dikeluarkan dan disetor penuh (“para pemegang saham”) sampai dengan hari ini, yaitu sebanyak ${formatNumber(totalShares)} (${totalSharesHuruf}) lembar saham atau 100 % (seratus persen) dari saham dalam Perseroan `,
-      },
-      { text: `PT. ${data.companyName.toUpperCase()}`, bold: true },
-      { text: ` telah memenuhi kuorum.` },
-    ],
-  });
+    blocks.push({
+      type: "list",
+      bullet: "-",
+      indentTabs: 0.5,
+      runs: [
+        {
+          text: `Bahwa menurut Pasal 22 ayat 1 Anggaran Dasar Perseroan mengenai Kuorum, Rapat ini adalah sah sesuai dengan Kuorum dan berhak mengambil keputusan-keputusan yang sah serta mengikat mengenai hal-hal yang dibicarakan;`,
+        },
+      ],
+    });
+
+    blocks.push({
+      type: "list",
+      bullet: "-",
+      indentTabs: 0.5,
+      runs: [
+        {
+          text: `Berdasarkan ketentuan Pasal 21 ayat (1) Anggaran Dasar Perseroan, ${rep?.salutation || "Tuan"} `,
+        },
+        { text: (rep?.name || "...").toUpperCase(), bold: true },
+        { text: `, tersebut di atas, selaku ${toTitleCase(rep?.managementPosition || "Kuasa Direktur")} perseroan, bertindak sebagai Ketua Rapat.` },
+      ],
+    });
+  }
 
   data.shareholders.forEach((sh, i) => {
     const shTotalRp = sh.sharesOwned * data.originalSharePrice;
 
-    // Sesuai contoh_ke_2.docx: format numbered list "1." "2." dengan left=567, hanging=283
-    // (numId=3, ilvl=0 di XML contoh, diemulasi sebagai type 'list' dengan bullet nomor)
+    if (isCircular) {
+      blocks.push({
+        type: "list",
+        bullet: `${i + 1}.`,
+        indentTabs: 0.668,
+        runs: [
+          { text: `${sh.salutation} ` },
+          ...getPersonDetailRuns(sh),
+          {
+            text: `, selaku pemilik dan pemegang ${formatNumber(sh.sharesOwned)} (${terbilang(sh.sharesOwned)}) lembar saham atau senilai Rp. ${formatNumber(shTotalRp)},- (${terbilang(shTotalRp)} rupiah).`,
+          },
+        ],
+      });
+    } else {
+      // MINUTES format for shareholders (the "tetap begitu" multi-line format)
+      blocks.push({
+        type: "list",
+        bullet: `${i + 1}.`,
+        indentTabs: 0.668,
+        runs: [
+          { text: `${sh.salutation} ` },
+          ...getPersonDetailRuns(sh),
+          { text: ";" },
+        ],
+      });
+
+      blocks.push({
+        type: "list",
+        bullet: "-",
+        indentTabs: 1.0,
+        runs: [{ text: "dalam hal ini hadir selaku :" }],
+      });
+
+      if (sh.isManagement) {
+        blocks.push({
+          type: "list",
+          bullet: "a.",
+          indentTabs: 1.25,
+          runs: [{ text: `${toTitleCase(sh.managementPosition || "Direktur")} perseroan; dan` }],
+        });
+      }
+
+      blocks.push({
+        type: "list",
+        bullet: sh.isManagement ? "b." : "a.",
+        indentTabs: 1.25,
+        runs: [
+          { text: "Pemilik dan pemegang saham sebanyak " },
+          { text: formatNumber(sh.sharesOwned), bold: true },
+          { text: ` (${terbilang(sh.sharesOwned)}) lembar saham atau senilai ` },
+          { text: `Rp. ${formatNumber(shTotalRp)},-`, bold: true },
+          { text: ` (${terbilang(shTotalRp)} rupiah) berhak mengeluarkan suara ` },
+          { text: formatNumber(sh.sharesOwned), bold: true },
+          { text: ` (${terbilang(sh.sharesOwned)}) suara dalam rapat.` },
+        ],
+      });
+    }
+  });
+
+  if (isCircular) {
     blocks.push({
       type: "list",
-      bullet: `${i + 1}.`,
-      indentTabs: 0.668, // leftDxa ≈ 567 (0.668 * 850 ≈ 568)
+      bullet: "-",
+      indentTabs: 0.5,
       runs: [
-        { text: `${sh.salutation} ` },
-        ...getPersonDetailRuns(sh),
         {
-          text: `, selaku pemilik dan pemegang ${formatNumber(sh.sharesOwned)} (${terbilang(sh.sharesOwned)}) lembar saham perseroan atau senilai Rp ${formatNumber(shTotalRp)},- (${terbilang(shTotalRp)} rupiah).`,
+          text: `Bahwa Berdasarkan ketentuan dalam Pasal 91 Undang-Undang Republik Indonesia, Nomor 40 Tahun 2007, tentang perseroan terbatas, Juncto pasal 10 ayat 1 anggaran dasar perseroan, Para Pemegang Saham dapat juga mengambil keputusan yang sah tanpa mengadakan Rapat Umum Pemegang Saham, dengan ketentuan semua pemegang saham telah diberitahu secara tertulis dan semua pemegang saham memberikan persetujuan mengenai usul yang diajukan secara tertulis serta secara tertulis menandatangani persetujuan tersebut. Keputusan yang diambil dengan cara demikian mempunyai kekuatan yang sama dengan keputusan yang diambil dengan sah dalam Rapat Umum Pemegang Saham;`,
         },
       ],
     });
-  });
 
-  blocks.push({
-    type: "list",
-    bullet: "-",
-    indentTabs: 0.5,
-    runs: [
-      {
-        text: `Bahwa Berdasarkan ketentuan dalam Pasal 91 Undang-Undang Republik Indonesia, Nomor 40 Tahun 2007, tentang perseroan terbatas, Juncto pasal 10 ayat 1 anggaran dasar perseroan, Para Pemegang Saham dapat juga mengambil keputusan yang sah tanpa mengadakan Rapat Umum Pemegang Saham, dengan ketentuan semua pemegang saham telah diberitahu secara tertulis dan semua pemegang saham memberikan persetujuan mengenai usul yang diajukan secara tertulis serta secara tertulis menandatangani persetujuan tersebut. Keputusan yang diambil dengan cara demikian mempunyai kekuatan yang sama dengan keputusan yang diambil dengan sah dalam Rapat Umum Pemegang Saham;`,
-      },
-    ],
-  });
+    blocks.push({
+      type: "list",
+      bullet: "-",
+      indentTabs: 0.5,
+      runs: [
+        {
+          text: `Bahwa para pemegang saham telah menyetujui dan memutuskan untuk memberikan kuasa dengan hak substitusi kepada `,
+        },
+        { text: `${rep?.salutation || "Tuan"} ` },
+        { text: rep?.name.toUpperCase() || "...", bold: true },
+        {
+          text: `, tersebut diatas untuk melakukan tindakan-tindakan yang diperlukan sehubungan dengan keputusan Rapat di atas, termasuk memberi keterangan-keterangan, membuat, minta dibuatkan dan menandatangani segala surat dan akta dihadapan Notaris dan umumnya menjalankan segala tindakan yang dianggap perlu dan berguna.`,
+        },
+      ],
+    });
 
-  blocks.push({
-    type: "list",
-    bullet: "-",
-    indentTabs: 0.5,
-    runs: [
-      {
-        text: `Bahwa para pemegang saham telah menyetujui dan memutuskan untuk memberikan kuasa dengan hak substitusi kepada `,
-      },
-      { text: `${rep?.salutation || "Tuan"} ` },
-      { text: rep?.name.toUpperCase() || "...", bold: true },
-      {
-        text: `, tersebut diatas untuk melakukan tindakan-tindakan yang diperlukan sehubungan dengan keputusan Rapat di atas, termasuk memberi keterangan-keterangan, membuat, minta dibuatkan dan menandatangani segala surat dan akta dihadapan Notaris dan umumnya menjalankan segala tindakan yang dianggap perlu dan berguna.`,
-      },
-    ],
-  });
+    blocks.push({
+      type: "p",
+      runs: [
+        {
+          text: `Sehubungan dengan segala sesuatu yang diuraikan di atas, penghadap bertindak dalam kedudukannya tersebut di atas dengan ini menyatakan bahwa berdasarkan Keputusan Sirkuler para pemegang saham Perseroan dengan suara bulat, antara lain, telah setuju dan memutuskan untuk menyetujui hal-hal sebagai berikut:`,
+        },
+      ],
+    });
 
-  blocks.push({
-    type: "p",
-    runs: [
-      {
-        text: `Sehubungan dengan segala sesuatu yang diuraikan di atas, penghadap bertindak dalam kedudukannya tersebut di atas dengan ini menyatakan bahwa berdasarkan Keputusan Sirkuler para pemegang saham Perseroan dengan suara bulat, antara lain, telah setuju dan memutuskan untuk menyetujui hal-hal sebagai berikut:`,
-      },
-    ],
-  });
+    // RESOLUTIONS
+    blocks.push({
+      type: "p",
+      number: 1,
+      runs: [
+        {
+          text: `Pengambilan keputusan para pemegang saham dengan keputusan sirkuler para pemegang saham yang mempunyai kekuatan hukum yang sama dengan suatu keputusan yang diambil dalam Rapat Umum Pemegang Saham (“RUPS”).`,
+        },
+      ],
+    });
+  } else {
+    // MINUTES ending of preamble
+    blocks.push({
+      type: "list",
+      bullet: "-",
+      indentTabs: 0.5,
+      runs: [
+        { text: "Bahwa dalam acara Rapat telah diputuskan dengan suara bulat, sebagaimana tercantum dalam agenda rapat, yaitu mengenai :" },
+      ],
+    });
 
-  // RESOLUTIONS
-  blocks.push({
-    type: "p",
-    number: 1,
-    runs: [
-      {
-        text: `Pengambilan keputusan para pemegang saham dengan keputusan sirkuler para pemegang saham yang mempunyai kekuatan hukum yang sama dengan suatu keputusan yang diambil dalam Rapat Umum Pemegang Saham (“RUPS”).`,
-      },
-    ],
-  });
+    blocks.push({
+      type: "list",
+      bullet: "-",
+      indentTabs: 0.5,
+      runs: [
+        { text: "Persetujuan merubah susunan pengurus perseroan." },
+      ],
+    });
 
-  let resIdx = 2;
+    blocks.push({
+      type: "p",
+      runs: [
+        { text: `Sehubungan dengan apa yang diuraikan di atas, penghadap bertindak dalam kedudukannya sebagaimana tersebut di atas dengan ini menyatakan keputusan acara Rapat yang telah diputuskan dengan suara bulat memutuskan dan menetapkan sebagai berikut:` },
+      ],
+    });
+  }
+
+  let resIdx = isCircular ? 2 : 1;
 
   // Name and Domicile Changes (Pasal 1)
   if (data.resolutions.companyNameChange || data.resolutions.domicile) {
@@ -927,6 +1099,20 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
       },
     ],
   });
+
+  if (isMinutes) {
+    const meetingEndTimeStr = data.meetingEndTime ? data.meetingEndTime.replace(":", ".") : "14.00";
+    const meetingEndTimeWords = timeToWords(data.meetingEndTime || "14:00");
+
+    blocks.push({
+      type: "p",
+      runs: [
+        {
+          text: `Rapat ditutup pada pukul ${meetingEndTimeStr} WIB (${meetingEndTimeWords} Waktu Indonesia Barat) oleh Ketua Rapat, Setelah semua agenda rapat dibahas dan menghasilkan Keputusan sebagaimana telah diputuskan peserta rapat yang hadir.`,
+        },
+      ],
+    });
+  }
 
   blocks.push({
     type: "p",

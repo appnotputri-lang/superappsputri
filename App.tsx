@@ -143,8 +143,9 @@ const INITIAL_STATE: CompanyData = {
   manualRepresentative: { ...INITIAL_MANUAL_REP },
   signingPlace: '',
   signingDate: new Date().toISOString().split('T')[0],
-  meetingStartTime: '10:00',
-  meetingEndTime: '11:00',
+  aktaStartTime: '10:00',
+  meetingStartTime: '13:00',
+  meetingEndTime: '14:00',
   meetingChair: '',
   invitationNumber: '',
   invitationDate: '',
@@ -2051,6 +2052,43 @@ const App: React.FC = () => {
                         />
                         <span>Berita Acara RUPS LB</span>
                       </label>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                  <AhuLabel label="Waktu Akta (PKR)" />
+                  <div className="md:col-span-3">
+                    <div className="w-1/2">
+                      <AhuInput 
+                        type="time" 
+                        value={data.aktaStartTime || ''} 
+                        onChange={e => updateData({ aktaStartTime: e.target.value })} 
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                  <AhuLabel label="Waktu Rapat" />
+                  <div className="md:col-span-3">
+                    <div className="flex gap-4 items-center">
+                      <div className="flex-1">
+                        <AhuInput 
+                          type="time" 
+                          value={data.meetingStartTime || ''} 
+                          onChange={e => updateData({ meetingStartTime: e.target.value })} 
+                        />
+                        <div className="text-[10px] text-slate-400 mt-1">MULAI</div>
+                      </div>
+                      <div className="flex-1">
+                        <AhuInput 
+                          type="time" 
+                          value={data.meetingEndTime || ''} 
+                          onChange={e => updateData({ meetingEndTime: e.target.value })} 
+                        />
+                        <div className="text-[10px] text-slate-400 mt-1">SELESAI</div>
+                      </div>
                     </div>
                   </div>
                 </div>
