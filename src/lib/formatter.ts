@@ -111,8 +111,8 @@ export function formatAddress(address: string): string {
   if (!address) return "";
   let addr = address;
   
-  // Replace JL, Jl., Jln, Jln., JLN., JLN with Jalan (case-insensitive)
-  addr = addr.replace(/\bjl(?:n)?\.?\b/gi, "Jalan");
+  // Replace JL, Jl., Jln, Jln., JLN., JLN with Jl. (or Jl based on request, let's use Jl)
+  addr = addr.replace(/\bjl(?:n)?\.?\b/gi, "Jl");
   
   // Replace GG with Gang (case-insensitive)
   addr = addr.replace(/\bgg\.?\b/gi, "Gang");
@@ -125,5 +125,15 @@ export function formatAddress(address: string): string {
 
 export function toTitleCase(str: string): string {
   if (!str) return "";
-  return str.toLowerCase().replace(/\b\w/g, s => s.toUpperCase());
+  let res = str.toLowerCase().replace(/\b\w/g, s => s.toUpperCase());
+  
+  res = res.replace(/\b(I{1,3}|Iv|V|Vi{1,3}|Ix|X{1,3}|Xl|L|Xc|C|Cd|D|Cm|M)\b/gi, (match) => {
+      const romans = ['I', 'Ii', 'Iii', 'Iv', 'V', 'Vi', 'Vii', 'Viii', 'Ix', 'X', 'Xi', 'Xii', 'Xiii', 'Xiv', 'Xv'];
+      if (romans.includes(match)) {
+          return match.toUpperCase();
+      }
+      return match;
+  });
+
+  return res;
 }

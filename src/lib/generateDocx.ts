@@ -10,6 +10,7 @@ import {
   getMonthIndo,
   getYearIndo,
   toTitleCase,
+  formatAddress,
 } from "../../utils/formatters";
 
 const saveAsNative = (blob: Blob, fileName: string) => {
@@ -72,7 +73,7 @@ const formatFullAddressDoc = (addr?: Address): string => {
   const villagePrefix = isRegency ? "Desa" : "Kelurahan";
 
   const parts = [
-    addr.fullAddress,
+    formatAddress(toTitleCase(addr.fullAddress)),
     addr.rt && addr.rw ? `RT. ${addr.rt} RW. ${addr.rw}` : "",
     addr.kelurahan ? `${villagePrefix} ${toTitleCase(addr.kelurahan)}` : "",
     addr.kecamatan ? `Kecamatan ${toTitleCase(addr.kecamatan)}` : "",
@@ -289,92 +290,107 @@ export const generateWordDoc = async (data: CompanyData) => {
               font: FONT_FAMILY,
             }),
             new TextRun({
-              text: `, lahir di ${sh.birthCity || "................"}, pada tanggal ${getDayIndo(sh.birthDate) || ".."} ${getMonthIndo(sh.birthDate) || "........"} ${getYearIndo(sh.birthDate) || "...."}, ${getNationalityStr(sh)}, ${getOccupationStr(sh)}${getAddressStr(sh)}, ${getIdentificationStr(sh)};`,
+              text: `, lahir di ${toTitleCase(sh.birthCity || "................")}, pada tanggal ${getDayIndo(sh.birthDate) || ".."} ${getMonthIndo(sh.birthDate) || "........"} ${getYearIndo(sh.birthDate) || "...."}, ${getNationalityStr(sh)}, ${getOccupationStr(sh)}${getAddressStr(sh)}, ${getIdentificationStr(sh)};`,
               size: FONT_SIZE,
               font: FONT_FAMILY,
             }),
           ],
         }),
-        createBodyParagraph({
-          indent: { left: INDENT_STEP },
-          children: [
-            new TextRun({
-              text: "- dalam hal ini hadir selaku :",
-              size: FONT_SIZE,
-              font: FONT_FAMILY,
+        ...(isCircular 
+          ? [
+            createBodyParagraph({
+              indent: { left: INDENT_STEP },
+              children: [
+                new TextRun({ text: "- ", size: FONT_SIZE, font: FONT_FAMILY }),
+                new TextRun({ text: "Selaku pemilik dan pemegang ", size: FONT_SIZE, font: FONT_FAMILY }),
+                new TextRun({ text: sh.sharesOwned.toLocaleString('id-ID'), bold: true, size: FONT_SIZE, font: FONT_FAMILY }),
+                new TextRun({ text: ` (${numberToWords(sh.sharesOwned)}) lembar saham atau senilai `, size: FONT_SIZE, font: FONT_FAMILY }),
+                new TextRun({ text: formatRpDot(currentValue), bold: true, size: FONT_SIZE, font: FONT_FAMILY }),
+                new TextRun({ text: ` (${numberToWords(currentValue)} rupiah).`, size: FONT_SIZE, font: FONT_FAMILY }),
+              ],
+              spacing: { before: 60, after: 120 }
+            })
+          ]
+          : [
+            createBodyParagraph({
+              indent: { left: INDENT_STEP },
+              children: [
+                new TextRun({
+                  text: "- dalam hal ini hadir selaku :",
+                  size: FONT_SIZE,
+                  font: FONT_FAMILY,
+                }),
+              ],
+              spacing: { before: 60 },
             }),
-          ],
-          spacing: { before: 60 },
-        }),
-      );
-
-      if (sh.isManagement) {
-        children.push(
-          createBodyParagraph({
-            indent: { left: INDENT_STEP + HANGING_SIZE },
-            children: [
-              new TextRun({ text: "a. ", size: FONT_SIZE, font: FONT_FAMILY }),
-              new TextRun({
-                text: `${sh.managementPosition || "Direktur"} Perseroan; dan`,
-                size: FONT_SIZE,
-                font: FONT_FAMILY,
-              }),
-            ],
-            spacing: { after: 0 },
-          }),
-        );
-      }
-
-      children.push(
-        createBodyParagraph({
-          indent: { left: INDENT_STEP + HANGING_SIZE },
-          children: [
-            new TextRun({
-              text: `${sh.isManagement ? "b. " : "a. "}`,
-              size: FONT_SIZE,
-              font: FONT_FAMILY,
-            }),
-            new TextRun({
-              text: "Pemilik dan pemegang saham sebanyak ",
-              size: FONT_SIZE,
-              font: FONT_FAMILY,
-            }),
-            new TextRun({
-              text: sh.sharesOwned.toLocaleString("id-ID"),
-              bold: true,
-              size: FONT_SIZE,
-              font: FONT_FAMILY,
-            }),
-            new TextRun({
-              text: ` (${numberToWords(sh.sharesOwned)}) lembar saham atau senilai `,
-              size: FONT_SIZE,
-              font: FONT_FAMILY,
-            }),
-            new TextRun({
-              text: formatRpDot(currentValue),
-              bold: true,
-              size: FONT_SIZE,
-              font: FONT_FAMILY,
-            }),
-            new TextRun({
-              text: ` (${numberToWords(currentValue)} rupiah) berhak mengeluarkan suara `,
-              size: FONT_SIZE,
-              font: FONT_FAMILY,
-            }),
-            new TextRun({
-              text: sh.sharesOwned.toLocaleString("id-ID"),
-              bold: true,
-              size: FONT_SIZE,
-              font: FONT_FAMILY,
-            }),
-            new TextRun({
-              text: ` (${numberToWords(sh.sharesOwned)}) suara dalam rapat.`,
-              size: FONT_SIZE,
-              font: FONT_FAMILY,
-            }),
-          ],
-          spacing: { after: 120 },
-        }),
+            ...(sh.isManagement 
+              ? [
+                  createBodyParagraph({
+                    indent: { left: INDENT_STEP + HANGING_SIZE },
+                    children: [
+                      new TextRun({ text: "a. ", size: FONT_SIZE, font: FONT_FAMILY }),
+                      new TextRun({
+                        text: `${toTitleCase(sh.managementPosition || "Direktur")} Perseroan; dan`,
+                        size: FONT_SIZE,
+                        font: FONT_FAMILY,
+                      }),
+                    ],
+                    spacing: { after: 0 },
+                  })
+                ]
+              : []
+            ),
+            createBodyParagraph({
+              indent: { left: INDENT_STEP + HANGING_SIZE },
+              children: [
+                new TextRun({
+                  text: `${sh.isManagement ? "b. " : "a. "}`,
+                  size: FONT_SIZE,
+                  font: FONT_FAMILY,
+                }),
+                new TextRun({
+                  text: "Pemilik dan pemegang saham sebanyak ",
+                  size: FONT_SIZE,
+                  font: FONT_FAMILY,
+                }),
+                new TextRun({
+                  text: sh.sharesOwned.toLocaleString("id-ID"),
+                  bold: true,
+                  size: FONT_SIZE,
+                  font: FONT_FAMILY,
+                }),
+                new TextRun({
+                  text: ` (${numberToWords(sh.sharesOwned)}) lembar saham atau senilai `,
+                  size: FONT_SIZE,
+                  font: FONT_FAMILY,
+                }),
+                new TextRun({
+                  text: formatRpDot(currentValue),
+                  bold: true,
+                  size: FONT_SIZE,
+                  font: FONT_FAMILY,
+                }),
+                new TextRun({
+                  text: ` (${numberToWords(currentValue)} rupiah) berhak mengeluarkan suara `,
+                  size: FONT_SIZE,
+                  font: FONT_FAMILY,
+                }),
+                new TextRun({
+                  text: sh.sharesOwned.toLocaleString("id-ID"),
+                  bold: true,
+                  size: FONT_SIZE,
+                  font: FONT_FAMILY,
+                }),
+                new TextRun({
+                  text: ` (${numberToWords(sh.sharesOwned)}) suara dalam rapat.`,
+                  size: FONT_SIZE,
+                  font: FONT_FAMILY,
+                }),
+              ],
+              spacing: { after: 120 },
+            })
+          ]
+        )
       );
     });
 
@@ -1242,7 +1258,7 @@ export const generateWordDoc = async (data: CompanyData) => {
               font: FONT_FAMILY,
             }),
             new TextRun({
-              text: `, sebagai ${m.position} perseroan;`,
+              text: `, sebagai ${toTitleCase(m.position)} perseroan;`,
               size: FONT_SIZE,
               font: FONT_FAMILY,
             }),
@@ -1269,7 +1285,7 @@ export const generateWordDoc = async (data: CompanyData) => {
     const rep = data.manualRepresentative;
     if (rep) {
       repName = `${rep.salutation} ${rep.name.toUpperCase() || "................"}`;
-      const birthStr = `lahir di ${rep.birthCity || "................"}, pada tanggal ${getDayIndo(rep.birthDate) || ".."} ${getMonthIndo(rep.birthDate) || "........"} ${getYearIndo(rep.birthDate) || "...."}`;
+      const birthStr = `lahir di ${toTitleCase(rep.birthCity || "................")}, pada tanggal ${getDayIndo(rep.birthDate) || ".."} ${getMonthIndo(rep.birthDate) || "........"} ${getYearIndo(rep.birthDate) || "...."}`;
       repText = `${repName}, ${birthStr}, ${getNationalityStr(rep)}, ${getOccupationStr(rep)}${getAddressStr(rep)}, ${getIdentificationStr(rep)}`;
     } else {
       repText = "................";

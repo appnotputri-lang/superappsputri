@@ -39,9 +39,32 @@ export const numberToWords = (n: number): string => {
   return n.toString();
 };
 
+export function formatAddress(address?: string): string {
+  if (!address) return "";
+  let addr = address;
+  
+  // Replace JL, Jl., Jln, Jln., JLN., JLN with Jl.
+  addr = addr.replace(/\bjl(?:n)?\.?\b/gi, "Jl");
+  
+  // Replace GG with Gang
+  addr = addr.replace(/\bgg\.?\b/gi, "Gang");
+  
+  return addr;
+}
+
 export const toTitleCase = (str: string): string => {
   if (!str) return '';
-  return str.toLowerCase().split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+  let res = str.toLowerCase().replace(/\b\w/g, s => s.toUpperCase());
+  
+  res = res.replace(/\b(I{1,3}|Iv|V|Vi{1,3}|Ix|X{1,3}|Xl|L|Xc|C|Cd|D|Cm|M)\b/gi, (match) => {
+      const romans = ['I', 'Ii', 'Iii', 'Iv', 'V', 'Vi', 'Vii', 'Viii', 'Ix', 'X', 'Xi', 'Xii', 'Xiii', 'Xiv', 'Xv'];
+      if (romans.includes(match)) {
+          return match.toUpperCase();
+      }
+      return match;
+  });
+
+  return res;
 };
 
 export const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);

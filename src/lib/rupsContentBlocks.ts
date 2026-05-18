@@ -631,7 +631,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
       0,
     );
 
-    const transferTypesRaw = data.shareTransfers.map((t) => (t.transferType || 'jual beli').toLowerCase());
+    const transferTypesRaw = data.shareTransfers.map((t) => (t.type || 'jual beli').toLowerCase());
     
     const hasHibah = transferTypesRaw.some(t => t.includes('hibah'));
     const hasJualBeli = transferTypesRaw.some(t => t.includes('jual beli') || t.includes('ajb'));
@@ -955,7 +955,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
     runs: [
       { text: (data.saksi1Nama || "Nendi Suhendi").toUpperCase(), bold: true },
       {
-        text: `, lahir di ${data.saksi1Lahir || "Bandung, pada tanggal limabelas Juli seribu sembilan ratus sembilan puluh satu (15-07-1991)"}, Warga Negara Indonesia, bertempat tinggal di ${formatAddress(data.saksi1Alamat || "Jalan Sukaresmi Nomor 12, Rukun Tetangga 005, Rukun Warga 005, Kecamatan Lembang, Desa Mekarwangi")}, pemegang Kartu Tanda Penduduk Nomor ${data.saksi1NIK || "3217011507910016"};`,
+        text: `, lahir di ${toTitleCase(data.saksi1Lahir || "Bandung, pada tanggal limabelas Juli seribu sembilan ratus sembilan puluh satu (15-07-1991)")}, Warga Negara Indonesia, bertempat tinggal di ${formatAddress(toTitleCase(data.saksi1Alamat || "Jalan Sukaresmi Nomor 12, Rukun Tetangga 005, Rukun Warga 005, Kecamatan Lembang, Desa Mekarwangi"))}, pemegang Kartu Tanda Penduduk Nomor ${data.saksi1NIK || "3217011507910016"};`,
       },
     ],
   });
@@ -970,7 +970,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
         bold: true,
       },
       {
-        text: `, lahir di ${data.saksi2Lahir || "Bandung, pada tanggal tujuh belas Desember seribu sembilan ratus sembilan puluh sembilan (17-12-1999)"}, Warga Negara Indonesia, bertempat tinggal di ${formatAddress(data.saksi2Alamat || "Kabupaten Bandung, Jalan Lembah Pakar Timur II Kampung Sekebuluh Rukun Tetangga 001, Rukun Warga 004, Desa Ciburial, Kecamatan Cimenyan")}, pemegang Kartu Tanda Penduduk Nomor ${data.saksi2NIK || "3204065712990001"}.`,
+        text: `, lahir di ${toTitleCase(data.saksi2Lahir || "Bandung, pada tanggal tujuh belas Desember seribu sembilan ratus sembilan puluh sembilan (17-12-1999)")}, Warga Negara Indonesia, bertempat tinggal di ${formatAddress(toTitleCase(data.saksi2Alamat || "Kabupaten Bandung, Jalan Lembah Pakar Timur II Kampung Sekebuluh Rukun Tetangga 001, Rukun Warga 004, Desa Ciburial, Kecamatan Cimenyan"))}, pemegang Kartu Tanda Penduduk Nomor ${data.saksi2NIK || "3204065712990001"}.`,
       },
     ],
     spaceAfter: true,

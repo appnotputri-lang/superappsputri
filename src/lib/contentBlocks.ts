@@ -1,6 +1,6 @@
 import { FormData } from '../constants';
 import { FormatToken } from './notaryWrapper';
-import { getDayName, dateToWords, formatDateStr, timeToWords, formatTimeStr, terbilang, toTitleCase, formatNumber } from './formatter';
+import { getDayName, dateToWords, formatDateStr, timeToWords, formatTimeStr, terbilang, toTitleCase, formatNumber, formatAddress } from './formatter';
 
 export type Block = 
   | { type: 'p', runs: FormatToken[], align?: 'left' | 'center' | 'right' | 'right-center', indent?: boolean, indentTabs?: number, spaceAfter?: boolean, number?: number }
@@ -109,7 +109,7 @@ export const generateBlocks = (data: FormData): Block[] => {
     { type: 'p', runs: [
       { text: `${data.pihak1Gelar} ` },
       { text: data.pihak1Nama, bold: true },
-      { text: `, lahir di ${toTitleCase(data.pihak1TempatLahir)}, pada tanggal ${tglLahirPihak1Huruf} (${tglLahirPihak1Angka}), Warga Negara Indonesia, ${data.pihak1Pekerjaan}, bertempat tinggal di ${toTitleCase(data.pihak1Kota)}, ${toTitleCase(data.pihak1AlamatJalan)}, Rukun Tetangga ${data.pihak1RT}, Rukun Warga ${data.pihak1RW}, Kelurahan ${toTitleCase(data.pihak1Kelurahan)}, Kecamatan ${toTitleCase(data.pihak1Kecamatan)}, pemegang Kartu Tanda Penduduk Nomor ${data.pihak1NIK};` }
+      { text: `, lahir di ${toTitleCase(data.pihak1TempatLahir)}, pada tanggal ${tglLahirPihak1Huruf} (${tglLahirPihak1Angka}), Warga Negara Indonesia, ${toTitleCase(data.pihak1Pekerjaan)}, bertempat tinggal di ${toTitleCase(data.pihak1Kota)}, ${formatAddress(toTitleCase(data.pihak1AlamatJalan))}, Rukun Tetangga ${data.pihak1RT}, Rukun Warga ${data.pihak1RW}, Kelurahan ${toTitleCase(data.pihak1Kelurahan)}, Kecamatan ${toTitleCase(data.pihak1Kecamatan)}, pemegang Kartu Tanda Penduduk Nomor ${data.pihak1NIK};` }
     ] },
 
     ...(data.pihak1StatusPersetujuan === 'Suami' || data.pihak1StatusPersetujuan === 'Istri' ? [
@@ -117,10 +117,10 @@ export const generateBlocks = (data: FormData): Block[] => {
         { text: `Dalam melakukan tindakan hukum di bawah ini telah mendapat persetujuan dari ${data.pihak1StatusPersetujuan.toLowerCase()}nya yaitu ` },
         { text: data.pihak1StatusPersetujuan === 'Suami' ? 'Tuan ' : 'Nyonya ' },
         { text: data.suamiNama, bold: true },
-        { text: `, lahir di ${toTitleCase(data.suamiTempatLahir)}, pada tanggal ${tglLahirSuamiHuruf} (${tglLahirSuamiAngka}), Warga Negara Indonesia, ${data.suamiPekerjaan}, ` },
+        { text: `, lahir di ${toTitleCase(data.suamiTempatLahir)}, pada tanggal ${tglLahirSuamiHuruf} (${tglLahirSuamiAngka}), Warga Negara Indonesia, ${toTitleCase(data.suamiPekerjaan)}, ` },
         { text: data.suamiAlamatSama 
             ? `bertempat tinggal sama dengan ${data.pihak1StatusPersetujuan === 'Suami' ? 'istrinya' : 'suaminya'} tersebut`
-            : `bertempat tinggal di ${toTitleCase(data.suamiKota)}, ${toTitleCase(data.suamiAlamatJalan)}, Rukun Tetangga ${data.suamiRT}, Rukun Warga ${data.suamiRW}, Kelurahan ${toTitleCase(data.suamiKelurahan)}, Kecamatan ${toTitleCase(data.suamiKecamatan)}` 
+            : `bertempat tinggal di ${toTitleCase(data.suamiKota)}, ${formatAddress(toTitleCase(data.suamiAlamatJalan))}, Rukun Tetangga ${data.suamiRT}, Rukun Warga ${data.suamiRW}, Kelurahan ${toTitleCase(data.suamiKelurahan)}, Kecamatan ${toTitleCase(data.suamiKecamatan)}` 
         },
         { text: `, pemegang Kartu Tanda Penduduk Nomor ${data.suamiNIK} berdasarkan Surat Persetujuan dan Kuasa yang dibuat dibawah tangan tertanggal ${tglPersetujuanSuamiHuruf} (${tglPersetujuanSuamiAngka}) yang aslinya dilekatkan pada minuta akta ini.` }
       ] as FormatToken[] }
@@ -134,7 +134,7 @@ export const generateBlocks = (data: FormData): Block[] => {
     { type: 'p', runs: [
       { text: `${data.pihak2Gelar} ` },
       { text: data.pihak2Nama, bold: true },
-      { text: `, lahir di ${toTitleCase(data.pihak2TempatLahir)}, pada tanggal ${tglLahirPihak2Huruf} (${tglLahirPihak2Angka}), Warga Negara Indonesia, ${data.pihak2Pekerjaan}, bertempat tinggal di ${toTitleCase(data.pihak2Kota)}, ${toTitleCase(data.pihak2AlamatJalan)}, Rukun Tetangga ${data.pihak2RT}, Rukun Warga ${data.pihak2RW}, Kelurahan ${toTitleCase(data.pihak2Kelurahan)}, Kecamatan ${toTitleCase(data.pihak2Kecamatan)}, pemegang Kartu Tanda Penduduk Nomor ${data.pihak2NIK};` }
+      { text: `, lahir di ${toTitleCase(data.pihak2TempatLahir)}, pada tanggal ${tglLahirPihak2Huruf} (${tglLahirPihak2Angka}), Warga Negara Indonesia, ${toTitleCase(data.pihak2Pekerjaan)}, bertempat tinggal di ${toTitleCase(data.pihak2Kota)}, ${formatAddress(toTitleCase(data.pihak2AlamatJalan))}, Rukun Tetangga ${data.pihak2RT}, Rukun Warga ${data.pihak2RW}, Kelurahan ${toTitleCase(data.pihak2Kelurahan)}, Kecamatan ${toTitleCase(data.pihak2Kecamatan)}, pemegang Kartu Tanda Penduduk Nomor ${data.pihak2NIK};` }
     ] },
 
     { type: 'list', bullet: '-', runs: [{ text: `Dalam melakukan tindakan hukum di bawah ini bertindak untuk dirinya sendiri.` }] },
@@ -224,11 +224,11 @@ export const generateBlocks = (data: FormData): Block[] => {
 
     { type: 'p', number: 1, runs: [
       { text: (data.saksi1Nama || '').toUpperCase(), bold: true },
-      { text: `, lahir di ${toTitleCase(data.saksi1Lahir)}, Warga Negara Indonesia, bertempat tinggal di ${toTitleCase(data.saksi1Alamat)}, pemegang Kartu Tanda Penduduk Nomor ${data.saksi1NIK};` }
+      { text: `, lahir di ${toTitleCase(data.saksi1Lahir)}, Warga Negara Indonesia, bertempat tinggal di ${formatAddress(toTitleCase(data.saksi1Alamat))}, pemegang Kartu Tanda Penduduk Nomor ${data.saksi1NIK};` }
     ] },
     { type: 'p', number: 2, runs: [
       { text: (data.saksi2Nama || '').toUpperCase(), bold: true },
-      { text: `, lahir di ${toTitleCase(data.saksi2Lahir)}, Warga Negara Indonesia, bertempat tinggal di ${toTitleCase(data.saksi2Alamat)}, pemegang Kartu Tanda Penduduk Nomor ${data.saksi2NIK}.` }
+      { text: `, lahir di ${toTitleCase(data.saksi2Lahir)}, Warga Negara Indonesia, bertempat tinggal di ${formatAddress(toTitleCase(data.saksi2Alamat))}, pemegang Kartu Tanda Penduduk Nomor ${data.saksi2NIK}.` }
     ], spaceAfter: true },
     
     { type: 'p', runs: [{ text: `Keduanya karyawan kantor Notaris dan sebagai saksi-saksi.` }] },

@@ -9,7 +9,8 @@ import {
   getDayIndo, 
   getMonthIndo, 
   getYearIndo,
-  toTitleCase 
+  toTitleCase,
+  formatAddress
 } from '../utils/formatters';
 
 interface Props {
@@ -104,7 +105,7 @@ const DocumentPreview: React.FC<Props> = ({ data, showHeader = true, zoom = 1 })
     const villagePrefix = isRegency ? 'Desa' : 'Kelurahan';
 
     const parts = [
-      addr.fullAddress,
+      formatAddress(toTitleCase(addr.fullAddress)),
       addr.rt && addr.rw ? `RT. ${addr.rt} RW. ${addr.rw}` : '',
       addr.kelurahan ? `${villagePrefix} ${toTitleCase(addr.kelurahan)}` : '',
       addr.kecamatan ? `Kecamatan ${toTitleCase(addr.kecamatan)}` : '',
@@ -120,7 +121,7 @@ const DocumentPreview: React.FC<Props> = ({ data, showHeader = true, zoom = 1 })
 
   const renderOccupationDescription = (sh: { nationalityType?: string, occupation?: string }) => {
     if (sh.nationalityType === 'WNA') return '';
-    return `${sh.occupation || '................'}, `;
+    return `${toTitleCase(sh.occupation || '................')}, `;
   };
 
   let repName = '................';
@@ -135,14 +136,14 @@ const DocumentPreview: React.FC<Props> = ({ data, showHeader = true, zoom = 1 })
     repSuffix = isInPreamble ? ', tersebut di atas' : '';
     
     if (!isInPreamble && rep) {
-      const birthStr = `lahir di ${rep.birthCity || '................'}, pada tanggal ${getDayIndo(rep.birthDate) || '..'} ${getMonthIndo(rep.birthDate) || '........'} ${getYearIndo(rep.birthDate) || '....'}`;
+      const birthStr = `lahir di ${toTitleCase(rep.birthCity || '................')}, pada tanggal ${getDayIndo(rep.birthDate) || '..'} ${getMonthIndo(rep.birthDate) || '........'} ${getYearIndo(rep.birthDate) || '....'}`;
       repSuffix = `, ${birthStr}, ${renderNationalityDescription(rep)}, ${renderOccupationDescription(rep)}${renderAddressDescription(rep)}, ${renderIdentificationDescription(rep)}`;
     }
   } else {
     const rep = data.manualRepresentative;
     if (rep) {
       repName = `${rep.salutation} ${rep.name.toUpperCase() || '................'}`;
-      const birthStr = `lahir di ${rep.birthCity || '................'}, pada tanggal ${getDayIndo(rep.birthDate) || '..'} ${getMonthIndo(rep.birthDate) || '........'} ${getYearIndo(rep.birthDate) || '....'}`;
+      const birthStr = `lahir di ${toTitleCase(rep.birthCity || '................')}, pada tanggal ${getDayIndo(rep.birthDate) || '..'} ${getMonthIndo(rep.birthDate) || '........'} ${getYearIndo(rep.birthDate) || '....'}`;
       repSuffix = `, ${birthStr}, ${renderNationalityDescription(rep)}, ${renderOccupationDescription(rep)}${renderAddressDescription(rep)}, ${renderIdentificationDescription(rep)}`;
     }
   }
@@ -208,30 +209,39 @@ const DocumentPreview: React.FC<Props> = ({ data, showHeader = true, zoom = 1 })
               <div style={{ display: 'flex', alignItems: 'flex-start', paddingLeft: PREFIX_POS }}>
                 <div style={{ minWidth: PREFIX_POS }}>{idx + 1}.</div>
                 <div style={{ textAlign: 'justify', flex: 1 }}>
-                  {sh.salutation} <b>{sh.name || '................'}</b>, lahir di {sh.birthCity || '................'}, pada tanggal {getDayIndo(sh.birthDate) || '..'} {getMonthIndo(sh.birthDate) || '........'} {getYearIndo(sh.birthDate) || '....'}, {renderNationalityDescription(sh)}, {renderOccupationDescription(sh)}{renderAddressDescription(sh)}, {renderIdentificationDescription(sh)};
+                  {sh.salutation} <b>{sh.name || '................'}</b>, lahir di {toTitleCase(sh.birthCity || '................')}, pada tanggal {getDayIndo(sh.birthDate) || '..'} {getMonthIndo(sh.birthDate) || '........'} {getYearIndo(sh.birthDate) || '....'}, {renderNationalityDescription(sh)}, {renderOccupationDescription(sh)}{renderAddressDescription(sh)}, {renderIdentificationDescription(sh)};
                 </div>
               </div>
               
-              <div style={{ marginTop: '2pt' }}>
-                <div style={{ display: 'flex', alignItems: 'flex-start', paddingLeft: '0.5in' }}>
+              {isCircular ? (
+                <div style={{ display: 'flex', alignItems: 'flex-start', paddingLeft: '0.5in', marginTop: '2pt' }}>
                   <span style={{ minWidth: PREFIX_POS }}>-</span>
-                  <span style={{ textAlign: 'justify' }}>dalam hal ini hadir selaku :</span>
-                </div>
-                
-                {sh.isManagement && (
-                  <div style={{ display: 'flex', alignItems: 'flex-start', paddingLeft: '0.75in' }}>
-                    <span style={{ minWidth: PREFIX_POS }}>a.</span>
-                    <span style={{ textAlign: 'justify' }}>{sh.managementPosition || 'Direktur'} perseroan; dan</span>
-                  </div>
-                )}
-
-                <div style={{ display: 'flex', alignItems: 'flex-start', paddingLeft: '0.75in' }}>
-                  <span style={{ minWidth: PREFIX_POS }}>{sh.isManagement ? 'b.' : 'a.'}</span>
                   <span style={{ textAlign: 'justify' }}>
-                    Pemilik dan pemegang saham sebanyak <b>{sh.sharesOwned.toLocaleString('id-ID')}</b> ({numberToWords(sh.sharesOwned)}) lembar saham atau senilai <b>{formatRpDot(currentValue)}</b> ({numberToWords(currentValue)} rupiah) berhak mengeluarkan suara <b>{sh.sharesOwned.toLocaleString('id-ID')}</b> ({numberToWords(sh.sharesOwned)}) suara dalam rapat.
+                    Selaku pemilik dan pemegang <b>{sh.sharesOwned.toLocaleString('id-ID')}</b> ({numberToWords(sh.sharesOwned)}) lembar saham atau senilai <b>{formatRpDot(currentValue)}</b> ({numberToWords(currentValue)} rupiah).
                   </span>
                 </div>
-              </div>
+              ) : (
+                <div style={{ marginTop: '2pt' }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', paddingLeft: '0.5in' }}>
+                    <span style={{ minWidth: PREFIX_POS }}>-</span>
+                    <span style={{ textAlign: 'justify' }}>dalam hal ini hadir selaku :</span>
+                  </div>
+                  
+                  {sh.isManagement && (
+                    <div style={{ display: 'flex', alignItems: 'flex-start', paddingLeft: '0.75in' }}>
+                      <span style={{ minWidth: PREFIX_POS }}>a.</span>
+                      <span style={{ textAlign: 'justify' }}>{toTitleCase(sh.managementPosition || 'Direktur')} perseroan; dan</span>
+                    </div>
+                  )}
+
+                  <div style={{ display: 'flex', alignItems: 'flex-start', paddingLeft: '0.75in' }}>
+                    <span style={{ minWidth: PREFIX_POS }}>{sh.isManagement ? 'b.' : 'a.'}</span>
+                    <span style={{ textAlign: 'justify' }}>
+                      Pemilik dan pemegang saham sebanyak <b>{sh.sharesOwned.toLocaleString('id-ID')}</b> ({numberToWords(sh.sharesOwned)}) lembar saham atau senilai <b>{formatRpDot(currentValue)}</b> ({numberToWords(currentValue)} rupiah) berhak mengeluarkan suara <b>{sh.sharesOwned.toLocaleString('id-ID')}</b> ({numberToWords(sh.sharesOwned)}) suara dalam rapat.
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
           );
         })}
