@@ -266,13 +266,30 @@ export const generateWordDoc = async (data: CompanyData) => {
     );
   }
 
+  // Participants logic
+  const attendingShareholders = isCircular
+    ? data.shareholders.filter((sh) => (sh.sharesOwned || 0) > 0)
+    : data.shareholders.filter((sh) => (sh.sharesOwned || 0) > 0 && sh.isPresent);
+
+  const totalIssuedShares = data.shareholders.reduce(
+    (sum, sh) => sum + (sh.sharesOwned || 0),
+    0
+  );
+
+  const presentShares = attendingShareholders.reduce(
+    (sum, sh) => sum + (sh.sharesOwned || 0),
+    0
+  );
+
+  const attendingPercentage = totalIssuedShares > 0 
+    ? (presentShares / totalIssuedShares) * 100 
+    : 0;
+
   // Listing Participants
-  data.shareholders
-    .filter((sh) => sh.sharesOwned > 0)
-    .forEach((sh, idx) => {
-      const parValue = data.originalSharePrice || 0;
-      const currentShares = sh.sharesOwned || 0;
-      const currentValue = currentShares * parValue;
+  attendingShareholders.forEach((sh, idx) => {
+    const parValue = data.originalSharePrice || 0;
+    const currentShares = sh.sharesOwned || 0;
+    const currentValue = currentShares * parValue;
 
       children.push(
         createBodyParagraph({
@@ -395,29 +412,27 @@ export const generateWordDoc = async (data: CompanyData) => {
     });
 
   // Summary of Capital after Participants
-  const totalShares = data.shareholders.reduce(
-    (sum, sh) => sum + (sh.sharesOwned || 0),
-    0,
-  );
-  const totalValue = totalShares * (data.originalSharePrice || 0);
+  const totalValue = presentShares * (data.originalSharePrice || 0);
 
   children.push(
     createBodyParagraph({
       spacing: { before: 240, after: 120 },
       children: [
         new TextRun({
-          text: "Bahwa dari semua saham yang telah dikeluarkan, ditempatkan dan disetor tersebut di atas, yaitu sebanyak ",
+          text: isCircular 
+            ? "Bahwa dari semua saham yang telah dikeluarkan, ditempatkan dan disetor tersebut di atas, yaitu sebanyak "
+            : `Bahwa dari semua saham yang telah dikeluarkan, ditempatkan dan disetor tersebut di atas, yaitu sebanyak ${totalIssuedShares.toLocaleString("id-ID")} (${numberToWords(totalIssuedShares)}) lembar saham, telah hadir dan/atau diwakili dalam rapat ini sebanyak `,
           size: FONT_SIZE,
           font: FONT_FAMILY,
         }),
         new TextRun({
-          text: totalShares.toLocaleString("id-ID"),
+          text: presentShares.toLocaleString("id-ID"),
           bold: true,
           size: FONT_SIZE,
           font: FONT_FAMILY,
         }),
         new TextRun({
-          text: ` (${numberToWords(totalShares)}) lembar saham atau senilai `,
+          text: ` (${numberToWords(presentShares)}) lembar saham atau senilai `,
           size: FONT_SIZE,
           font: FONT_FAMILY,
         }),
@@ -428,7 +443,7 @@ export const generateWordDoc = async (data: CompanyData) => {
           font: FONT_FAMILY,
         }),
         new TextRun({
-          text: ` (${numberToWords(totalValue)} rupiah).`,
+          text: ` (${numberToWords(totalValue)} rupiah)${!isCircular ? ` atau setara dengan ${attendingPercentage === 100 ? "100%" : `${attendingPercentage.toFixed(2)}%`} dari seluruh saham yang telah dikeluarkan oleh Perseroan` : ""}.`,
           size: FONT_SIZE,
           font: FONT_FAMILY,
         }),
@@ -794,7 +809,7 @@ export const generateWordDoc = async (data: CompanyData) => {
     );
     children.push(
       createBodyParagraph({
-        text: `Ketua Rapat menyatakan bahwa dalam Rapat ini telah hadir dan/atau diwakili sebanyak ${totalShares.toLocaleString("id-ID")} (${numberToWords(totalShares)}) saham yang merupakan total seluruh saham yang telah dikeluarkan oleh Perseroan.`,
+        text: `Ketua Rapat menyatakan bahwa dalam Rapat ini telah hadir dan/atau diwakili sebanyak ${presentShares.toLocaleString("id-ID")} (${numberToWords(presentShares)}) saham yang merupakan ${attendingPercentage === 100 ? "seluruh" : `${attendingPercentage.toFixed(2)}%`} dari total seluruh saham yang telah dikeluarkan oleh Perseroan.`,
       }),
     );
     children.push(

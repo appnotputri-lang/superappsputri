@@ -316,8 +316,15 @@ const ShareholderForm: React.FC<Props> = ({
                   className="w-full px-3 py-2 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm disabled:bg-slate-100 disabled:opacity-50"
                 />
                 {!disableFinancials && (
-                <div className="mt-1 flex justify-between items-center text-xs">
-                  <span className="text-slate-800 font-bold italic">{formatCurrency(currentTotalValue)}</span>
+                <div className="mt-1 flex flex-col gap-1 text-[10px]">
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-800 font-bold italic">{formatCurrency(currentTotalValue)}</span>
+                  </div>
+                  {!isOld && (hasTransferAgenda || hasCapitalChange) && (
+                    <div className="text-blue-600 font-medium bg-blue-50 p-1.5 rounded border border-blue-100 flex items-center gap-1">
+                      <Zap className="w-3 h-3" /> Gunakan bagian <strong>Peralihan</strong> atau <strong>Setor Modal Baru</strong> di bawah untuk mengubah jumlah saham.
+                    </div>
+                  )}
                 </div>
                 )}
               </div>

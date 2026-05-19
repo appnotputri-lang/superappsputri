@@ -5,7 +5,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { auth, db, loginWithGoogle, logout, handleFirestoreError, OperationType } from './src/lib/firebase';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 import { collection, onSnapshot, doc, setDoc, deleteDoc } from 'firebase/firestore';
-import { CompanyData, Shareholder, ResolutionFlags, KbliItem, ManagementItem, DocumentType, Address, ManagementChangeType, CompanyProfile, AmendmentDeed } from './types';
+import { CompanyData, Shareholder, ResolutionFlags, KbliItem, ManagementItem, DocumentType, Address, ManagementChangeType, CompanyProfile, AmendmentDeed, Guest } from './types';
 import ShareholderForm from './components/ShareholderForm';
 import CompositionEditor from './components/CompositionEditor';
 import ManagementEditor from './components/ManagementEditor';
@@ -14,10 +14,12 @@ import DocumentPreview from './components/DocumentPreview';
 import { DataCorrectionLetter } from './components/DataCorrectionLetter';
 import DraftAktaApp from './src/DraftAktaApp';
 import DraftAktaRUPS from './src/DraftAktaRUPS';
+import ProxyInputModal from './components/ProxyInputModal';
 import { generateWordDoc } from './utils/docxGenerator';
 import { 
   Building2, 
   Users, 
+  UserPlus,
   Settings, 
   Printer, 
   Save, 
@@ -48,7 +50,6 @@ import {
   CheckCircle2,
   AlertCircle,
   UserCheck,
-  UserPlus,
   ShieldCheck,
   Award,
   Bell,
@@ -165,6 +166,7 @@ const INITIAL_STATE: CompanyData = {
   shareholders: [],
   shareTransfers: [],
   finalShareholders: [],
+  guests: [],
   resolutions: INITIAL_RESOLUTIONS,
   selectedProfileId: '',
   createDraftAktaRups: false,
@@ -320,6 +322,7 @@ const App: React.FC = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [activeSidebarTab, setActiveSidebarTab] = useState<SidebarTabId>('notulen');
   const [zoom, setZoom] = useState(1);
+  const [proxyModalOpenId, setProxyModalOpenId] = useState<string | null>(null);
 
 
   useEffect(() => {
@@ -378,9 +381,9 @@ const App: React.FC = () => {
   const handlePrint = () => {
     const totalInputted = data.finalShareholders.reduce((sum, s) => sum + s.sharesOwned, 0);
     const targetShares = data.originalSharePrice > 0 ? (data.targetCapitalPaid / data.originalSharePrice) : 0;
-    const limit = data.resolutions.capitalPaid ? targetShares : data.originalTotalShares;
+    const limit = (data.resolutions.capitalPaid || data.resolutions.capitalPaidDecrease) ? targetShares : data.originalTotalShares;
 
-    if (totalInputted !== limit && (data.resolutions.capitalPaid || data.resolutions.shareholders)) {
+    if (totalInputted !== limit && (data.resolutions.capitalPaid || data.resolutions.capitalPaidDecrease || data.resolutions.shareholders)) {
       if (!confirm(`⚠ Perhatian: Total saham komposisi akhir (${totalInputted.toLocaleString('id-ID')}) tidak sama dengan target modal disetor (${limit.toLocaleString('id-ID')}). Lanjutkan cetak?`)) {
         return;
       }
@@ -395,9 +398,9 @@ const App: React.FC = () => {
     }
     const totalInputted = mergedData.finalShareholders.reduce((sum, s) => sum + s.sharesOwned, 0);
     const targetShares = mergedData.originalSharePrice > 0 ? (mergedData.targetCapitalPaid / mergedData.originalSharePrice) : 0;
-    const limit = mergedData.resolutions.capitalPaid ? targetShares : mergedData.originalTotalShares;
+    const limit = (mergedData.resolutions.capitalPaid || mergedData.resolutions.capitalPaidDecrease) ? targetShares : mergedData.originalTotalShares;
 
-    if (totalInputted !== limit && (mergedData.resolutions.capitalPaid || mergedData.resolutions.shareholders)) {
+    if (totalInputted !== limit && (mergedData.resolutions.capitalPaid || mergedData.resolutions.capitalPaidDecrease || mergedData.resolutions.shareholders)) {
       if (!confirm(`⚠ Perhatian: Total saham komposisi akhir (${totalInputted.toLocaleString('id-ID')}) tidak sama dengan target modal disetor (${limit.toLocaleString('id-ID')}). Lanjutkan export?`)) {
         return;
       }
@@ -432,11 +435,15 @@ const App: React.FC = () => {
 
       if (updates.originalSharePrice !== undefined || updates.originalAuthorizedShares !== undefined) {
         newData.originalCapitalBase = (newData.originalSharePrice || 0) * (newData.originalAuthorizedShares || 0);
-        newData.targetCapitalBase = newData.originalCapitalBase;
+        if (!newData.resolutions.capitalBase && !newData.resolutions.capitalBaseDecrease) {
+          newData.targetCapitalBase = newData.originalCapitalBase;
+        }
       }
       if (updates.originalSharePrice !== undefined || updates.originalTotalShares !== undefined) {
         newData.originalCapitalPaid = (newData.originalSharePrice || 0) * (newData.originalTotalShares || 0);
-        newData.targetCapitalPaid = newData.originalCapitalPaid;
+        if (!newData.resolutions.capitalPaid && !newData.resolutions.capitalPaidDecrease) {
+          newData.targetCapitalPaid = newData.originalCapitalPaid;
+        }
       }
 
       if (updates.newAddress) {
@@ -770,8 +777,6 @@ const App: React.FC = () => {
           oldDomicile: profile.oldDomicile,
           oldAddress: profile.oldAddress,
           oldFullAddress: profile.oldFullAddress,
-          shareholders: profile.shareholders || [],
-          oldManagementItems: profile.oldManagementItems || [],
           establishmentDeedNumber: profile.establishmentDeedNumber,
           establishmentDeedDate: profile.establishmentDeedDate,
           establishmentNotary: profile.establishmentNotary,
@@ -779,7 +784,6 @@ const App: React.FC = () => {
           establishmentNotaryDomicile: profile.establishmentNotaryDomicile,
           establishmentSkNumber: profile.establishmentSkNumber,
           establishmentSkDate: profile.establishmentSkDate,
-          amendmentDeeds: profile.amendmentDeeds || [],
           originalTotalShares: profile.originalTotalShares,
           originalAuthorizedShares: profile.originalAuthorizedShares,
           originalSharePrice: profile.originalSharePrice,
@@ -1613,6 +1617,18 @@ const App: React.FC = () => {
             {/* PENGURUS DAN PEMEGANG SAHAM LAMA */}
             <AhuSection title="PENGURUS DAN PEMEGANG SAHAM LAMA *">
               <div className="space-y-4">
+                  {data.documentType === 'MINUTES' && (
+                    <div className="bg-blue-50 border border-blue-200 p-3 rounded-sm flex items-start gap-3">
+                      <div className="bg-blue-100 p-1.5 rounded-full"><FileText className="w-4 h-4 text-blue-600" /></div>
+                      <div>
+                        <div className="text-[12px] font-bold text-blue-800 uppercase">Petunjuk Kehadiran (Notulen)</div>
+                        <p className="text-[11px] text-blue-600 leading-tight mt-0.5">
+                          Silakan centang kolom <b>"Hadir"</b> di bawah ini untuk setiap pemegang saham yang menghadiri rapat. 
+                          Hanya pemegang saham yang dicentang yang akan muncul dalam daftar hadir di dokumen Berita Acara RUPS.
+                        </p>
+                      </div>
+                    </div>
+                  )}
                   <div className="flex justify-end gap-2">
                     <button onClick={() => openShareholderEditor('lama')} className="bg-[#222d32] text-white px-3 py-1.5 rounded-sm text-[12px] font-bold shadow hover:bg-black transition-colors flex items-center gap-1"><Plus className="w-4 h-4" /> Tambah Data</button>
                   </div>
@@ -2160,6 +2176,191 @@ const App: React.FC = () => {
                 ))}
               </div>
             </AhuSection>
+
+            {data.documentType === 'MINUTES' && (
+              <AhuSection title="DATA KEHADIRAN (DAFTAR HADIR)">
+                <div className="space-y-6">
+                  <div className="bg-blue-50 border border-blue-200 p-3 rounded-sm flex items-start gap-3">
+                    <div className="bg-blue-100 p-1.5 rounded-full"><FileText className="w-4 h-4 text-blue-600" /></div>
+                    <div>
+                      <div className="text-[12px] font-bold text-blue-800 uppercase">Petunjuk Kehadiran (Notulen)</div>
+                      <p className="text-[11px] text-blue-600 leading-tight mt-0.5">
+                        Silakan centang daftar pemegang saham yang hadir di bawah ini. 
+                        Anda juga dapat menambahkan tamu/undangan lain yang menghadiri rapat.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Shareholder Attendance */}
+                  <div>
+                    <div className="flex justify-between items-center mb-3">
+                      <h4 className="text-[12px] font-bold text-slate-500 uppercase flex items-center gap-2">
+                         <Users className="w-3 h-3" /> Kehadiran Pemegang Saham
+                      </h4>
+                      <button 
+                        onClick={() => {
+                          const newList = data.shareholders.map(s => ({ ...s, isPresent: true }));
+                          updateData({ shareholders: newList });
+                        }}
+                        className="text-[10px] bg-[#3b5998] text-white px-3 py-1 rounded-sm hover:bg-black transition-colors font-bold shadow-sm"
+                      >
+                        Tandai Semua Hadir
+                      </button>
+                    </div>
+                    <div className="border border-slate-200 rounded-sm overflow-hidden">
+                      <table className="w-full text-left text-[11px]">
+                        <thead className="bg-[#f9f9f9] border-b border-slate-200 font-bold uppercase">
+                          <tr>
+                            <th className="p-2 border-r border-slate-200">Nama Pemegang Saham</th>
+                            <th className="p-2 border-r border-slate-200">Jumlah Saham</th>
+                            <th className="p-2 border-r border-slate-200 text-center w-20">Hadir?</th>
+                            <th className="p-2 border-r border-slate-200 text-center w-28">Dikuasakan?</th>
+                            <th className="p-2 border-slate-200 text-center">Penerima Kuasa</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {data.shareholders.map(s => (
+                            <tr key={s.id} className="border-b border-slate-200 last:border-0 hover:bg-slate-50 transition-colors">
+                              <td className="p-2 border-r border-slate-200 font-medium uppercase">{s.name}</td>
+                              <td className="p-2 border-r border-slate-200">{formatInputNumber(s.sharesOwned)} Saham</td>
+                              <td className="p-2 text-center border-r border-slate-200">
+                                <input
+                                  type="checkbox"
+                                  className="w-4 h-4 cursor-pointer"
+                                  checked={s.isPresent || false}
+                                  onChange={e => {
+                                    const newList = data.shareholders.map(item =>
+                                      item.id === s.id
+                                        ? { ...item, isPresent: e.target.checked, isProxy: e.target.checked ? item.isProxy : false, proxyData: e.target.checked ? item.proxyData : undefined }
+                                        : item
+                                    );
+                                    updateData({ shareholders: newList });
+                                  }}
+                                />
+                              </td>
+                              <td className="p-2 text-center border-r border-slate-200">
+                                {s.isPresent && (
+                                  <input
+                                    type="checkbox"
+                                    className="w-4 h-4 cursor-pointer accent-orange-600"
+                                    checked={s.isProxy || false}
+                                    onChange={e => {
+                                      const newList = data.shareholders.map(item =>
+                                        item.id === s.id ? { ...item, isProxy: e.target.checked, proxyData: e.target.checked ? item.proxyData : undefined } : item
+                                      );
+                                      updateData({ shareholders: newList });
+                                    }}
+                                    title="Centang jika pemegang saham dikuasakan ke orang lain"
+                                  />
+                                )}
+                              </td>
+                              <td className="p-2 text-center">
+                                {s.isPresent && s.isProxy && (
+                                  s.proxyData?.name ? (
+                                    <div className="flex items-center justify-between gap-2 px-1">
+                                      <span className="text-[11px] font-bold text-slate-700 uppercase truncate">
+                                        {s.proxyData.salutation} {s.proxyData.name}
+                                      </span>
+                                      <button
+                                        onClick={() => {
+                                            setProxyModalOpenId(s.id);
+                                        }}
+                                        className="text-[9px] text-blue-600 hover:underline whitespace-nowrap"
+                                      >
+                                        Ubah
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <button
+                                      onClick={() => {
+                                        setProxyModalOpenId(s.id);
+                                      }}
+                                      className="text-[10px] bg-orange-500 text-white px-3 py-1 rounded hover:bg-orange-600 transition-colors font-bold"
+                                    >
+                                      + Isi Data Kuasa
+                                    </button>
+                                  )
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                          {data.shareholders.length === 0 && (
+                            <tr>
+                              <td colSpan={5} className="p-4 text-center text-slate-400 italic">Belum ada data pemegang saham. Silakan isi di bagian DATA PERSEROAN.</td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {/* Guests / Invitations */}
+                  <div>
+                    <div className="flex justify-between items-center mb-3">
+                      <h4 className="text-[12px] font-bold text-slate-500 uppercase flex items-center gap-2">
+                         <UserPlus className="w-3 h-3" /> Daftar Undangan / Pihak Lain
+                      </h4>
+                      <button 
+                        onClick={() => {
+                          const newGuest = { id: Math.random().toString(36).substr(2, 9), name: '', position: '' };
+                          updateData({ guests: [...(data.guests || []), newGuest] });
+                        }}
+                        className="bg-[#222d32] text-white px-3 py-1.5 rounded-sm text-[10px] font-bold hover:bg-black transition-colors flex items-center gap-1 shadow-sm uppercase"
+                      >
+                        <Plus className="w-3 h-3" /> Tambah Undangan
+                      </button>
+                    </div>
+                    <div className="space-y-2">
+                      {(data.guests || []).map((g, idx) => (
+                        <div key={g.id} className="flex gap-2 items-start bg-slate-50 p-2.5 rounded border border-slate-200 shadow-sm">
+                          <div className="flex-1">
+                            <AhuLabel label="Nama Undangan" />
+                            <AhuInput 
+                              placeholder="Ketik nama undangan..." 
+                              value={g.name} 
+                              onChange={e => {
+                                const newGuests = [...data.guests];
+                                newGuests[idx].name = e.target.value;
+                                updateData({ guests: newGuests });
+                              }}
+                            />
+                          </div>
+                          <div className="flex-1">
+                            <AhuLabel label="Jabatan/Keterangan" />
+                            <AhuInput 
+                              placeholder="Contoh: Notaris / Komisaris" 
+                              value={g.position} 
+                              onChange={e => {
+                                const newGuests = [...data.guests];
+                                newGuests[idx].position = e.target.value;
+                                updateData({ guests: newGuests });
+                              }}
+                            />
+                          </div>
+                          <div className="pt-7">
+                            <button 
+                              onClick={() => {
+                                const newGuests = data.guests.filter((_, i) => i !== idx);
+                                updateData({ guests: newGuests });
+                              }}
+                              className="p-2 text-red-500 hover:bg-red-50 rounded transition-colors"
+                              title="Hapus Undangan"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                      {(data.guests || []).length === 0 && (
+                        <div className="text-[11px] text-slate-400 italic text-center p-6 border border-dashed border-slate-200 rounded-sm bg-white">
+                          Belum ada undangan tambahan yang menghadiri rapat.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </AhuSection>
+            )}
 
             {data.documentType === 'MINUTES' && (
               <AhuSection title="DETAIL RAPAT">
@@ -2822,6 +3023,27 @@ const App: React.FC = () => {
         </button>
       </div>
 
+      {/* Proxy Input Modal */}
+      {proxyModalOpenId && (() => {
+        const sh = data.shareholders.find(s => s.id === proxyModalOpenId);
+        if (!sh) return null;
+        return (
+          <ProxyInputModal
+            isOpen={true}
+            shareholderName={`${sh.salutation} ${sh.name}`}
+            initialData={sh.proxyData}
+            onSave={(proxyData) => {
+              const newList = data.shareholders.map(item =>
+                item.id === proxyModalOpenId ? { ...item, proxyData } : item
+              );
+              updateData({ shareholders: newList });
+              setProxyModalOpenId(null);
+            }}
+            onClose={() => setProxyModalOpenId(null)}
+          />
+        );
+      })()}
+
       <Modal 
         isOpen={isPreviewOpen} 
         onClose={() => setIsPreviewOpen(false)} 
@@ -2880,38 +3102,40 @@ const App: React.FC = () => {
         maxWidth="max-w-4xl"
         headerColor="bg-white text-slate-800 border-b border-slate-200"
       >
-        <div className="p-6">
+        <div className="p-0 flex flex-col h-full bg-slate-50">
           {editingShareholder && (
-            <ShareholderForm 
-              shareholder={editingShareholder}
-              onChange={updates => setEditingShareholder({ ...editingShareholder, ...updates })}
-              globalSharePrice={data.originalSharePrice}
-              totalSharesAllowed={editMode === 'lama' ? data.originalTotalShares : (data.resolutions.capitalPaid || data.resolutions.capitalPaidDecrease ? currentTargetSharesPaid : data.originalTotalShares)}
-              otherAllocated={(editMode === 'lama' ? data.shareholders : data.finalShareholders)
-                .filter(s => s.id !== editingShareholder.id)
-                .reduce((sum, s) => {
-                  let shares = s.sharesOwned;
-                  if (editMode === 'baru' && editingShareholder.isAcquisition && (editingShareholder.acquisitionSourceId === s.id || (s.linkedPartyId && editingShareholder.acquisitionSourceId === s.linkedPartyId))) {
-                    shares = Math.max(0, shares - (editingShareholder.acquisitionShares || 0));
-                  }
-                  return sum + shares;
-                }, 0)
-              }
-              existingData={editMode === 'lama' ? [] : [
-                ...data.shareholders,
-                ...data.oldManagementItems.filter(m => !data.shareholders.some(s => (s.name || '').toUpperCase() === (m.name || '').toUpperCase()))
-              ]}
-              allShareholders={data.shareholders}
-              oldSharesOwned={data.shareholders.find(s => (s.name || '').trim().toUpperCase() === (editingShareholder.name || '').trim().toUpperCase())?.sharesOwned || 0}
-              isOld={editMode === 'lama'}
-              hasTransferAgenda={data.resolutions.shareholders}
-              hasManagementAgenda={data.resolutions.management}
-              hasCapitalChange={data.resolutions.capitalBase || data.resolutions.capitalPaid || data.resolutions.capitalBaseDecrease || data.resolutions.capitalPaidDecrease}
-            />
+            <div className="p-6 overflow-y-auto">
+              <ShareholderForm 
+                shareholder={editingShareholder}
+                onChange={updates => setEditingShareholder({ ...editingShareholder, ...updates })}
+                globalSharePrice={data.originalSharePrice}
+                totalSharesAllowed={editMode === 'lama' ? data.originalTotalShares : (data.resolutions.capitalPaid || data.resolutions.capitalPaidDecrease ? currentTargetSharesPaid : data.originalTotalShares)}
+                otherAllocated={(editMode === 'lama' ? data.shareholders : data.finalShareholders)
+                  .filter(s => s.id !== editingShareholder.id)
+                  .reduce((sum, s) => {
+                    let shares = s.sharesOwned;
+                    if (editMode === 'baru' && editingShareholder.isAcquisition && (editingShareholder.acquisitionSourceId === s.id || (s.linkedPartyId && editingShareholder.acquisitionSourceId === s.linkedPartyId))) {
+                      shares = Math.max(0, shares - (editingShareholder.acquisitionShares || 0));
+                    }
+                    return sum + shares;
+                  }, 0)
+                }
+                existingData={editMode === 'lama' ? [] : [
+                  ...data.shareholders,
+                  ...data.oldManagementItems.filter(m => !data.shareholders.some(s => (s.name || '').toUpperCase() === (m.name || '').toUpperCase()))
+                ]}
+                allShareholders={data.shareholders}
+                oldSharesOwned={data.shareholders.find(s => (s.name || '').trim().toUpperCase() === (editingShareholder.name || '').trim().toUpperCase())?.sharesOwned || 0}
+                isOld={editMode === 'lama'}
+                hasTransferAgenda={data.resolutions.shareholders}
+                hasManagementAgenda={data.resolutions.management}
+                hasCapitalChange={data.resolutions.capitalBase || data.resolutions.capitalPaid || data.resolutions.capitalBaseDecrease || data.resolutions.capitalPaidDecrease}
+              />
+            </div>
           )}
-          <div className="mt-6 flex justify-end gap-3 p-4 border-t border-slate-100">
+          <div className="mt-auto flex justify-end gap-3 p-4 px-6 border-t border-slate-200 bg-white sticky bottom-0 z-10 shrink-0">
             <button onClick={() => { setEditingShareholder(null); setEditMode(null); }} className="px-8 py-2 border border-slate-300 bg-white text-slate-700 rounded font-bold text-sm hover:bg-slate-50 transition-all">BATAL</button>
-            <button onClick={saveShareholder} className="px-8 py-2 bg-[#40bdae] text-white rounded font-bold text-sm hover:bg-[#349c8f] transition-all">SIMPAN</button>
+            <button onClick={saveShareholder} className="px-8 py-2 bg-[#40bdae] text-white rounded font-bold text-sm hover:bg-[#349c8f] transition-all shadow-sm">SIMPAN DATA</button>
           </div>
         </div>
       </Modal>

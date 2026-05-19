@@ -12,6 +12,7 @@ import {
   toTitleCase,
   formatAddress
 } from '../utils/formatters';
+import { formatDateStr } from '../src/lib/formatter';
 
 interface Props {
   data: CompanyData;
@@ -148,8 +149,19 @@ const DocumentPreview: React.FC<Props> = ({ data, showHeader = true, zoom = 1 })
     }
   }
 
-  const totalShares = data.shareholders.reduce((sum, sh) => sum + (sh.sharesOwned || 0), 0);
-  const totalValue = totalShares * (data.originalSharePrice || 0);
+  const totalIssuedShares = data.shareholders.reduce((sum, sh) => sum + (sh.sharesOwned || 0), 0);
+  
+  const attendingShareholders = isCircular
+    ? data.shareholders.filter((sh) => (sh.sharesOwned || 0) > 0)
+    : data.shareholders.filter((sh) => (sh.sharesOwned || 0) > 0 && sh.isPresent);
+
+  const presentShares = attendingShareholders.reduce((sum, sh) => sum + (sh.sharesOwned || 0), 0);
+  
+  const attendingPercentage = totalIssuedShares > 0 
+    ? (presentShares / totalIssuedShares) * 100 
+    : 0;
+
+  const totalValue = presentShares * (data.originalSharePrice || 0);
 
   return (
     <div className="flex flex-col items-center w-full min-h-screen bg-slate-200/50 py-12 px-4 shadow-inner">
@@ -202,52 +214,94 @@ const DocumentPreview: React.FC<Props> = ({ data, showHeader = true, zoom = 1 })
           )}
         </div>
 
-        {data.shareholders.filter(sh => sh.sharesOwned > 0).map((sh, idx) => {
+        {attendingShareholders.map((sh, idx) => {
           const currentValue = sh.sharesOwned * (data.originalSharePrice || 0);
           return (
             <div key={sh.id} style={{ marginTop: PARA_SPACING }}>
-              <div style={{ display: 'flex', alignItems: 'flex-start', paddingLeft: PREFIX_POS }}>
-                <div style={{ minWidth: PREFIX_POS }}>{idx + 1}.</div>
-                <div style={{ textAlign: 'justify', flex: 1 }}>
-                  {sh.salutation} <b>{sh.name || '................'}</b>, lahir di {toTitleCase(sh.birthCity || '................')}, pada tanggal {getDayIndo(sh.birthDate) || '..'} {getMonthIndo(sh.birthDate) || '........'} {getYearIndo(sh.birthDate) || '....'}, {renderNationalityDescription(sh)}, {renderOccupationDescription(sh)}{renderAddressDescription(sh)}, {renderIdentificationDescription(sh)};
-                </div>
-              </div>
-              
               {isCircular ? (
-                <div style={{ display: 'flex', alignItems: 'flex-start', paddingLeft: '0.5in', marginTop: '2pt' }}>
-                  <span style={{ minWidth: PREFIX_POS }}>-</span>
-                  <span style={{ textAlign: 'justify' }}>
-                    Selaku pemilik dan pemegang <b>{sh.sharesOwned.toLocaleString('id-ID')}</b> ({numberToWords(sh.sharesOwned)}) lembar saham atau senilai <b>{formatRpDot(currentValue)}</b> ({numberToWords(currentValue)} rupiah).
-                  </span>
-                </div>
-              ) : (
-                <div style={{ marginTop: '2pt' }}>
-                  <div style={{ display: 'flex', alignItems: 'flex-start', paddingLeft: '0.5in' }}>
-                    <span style={{ minWidth: PREFIX_POS }}>-</span>
-                    <span style={{ textAlign: 'justify' }}>dalam hal ini hadir selaku :</span>
-                  </div>
-                  
-                  {sh.isManagement && (
-                    <div style={{ display: 'flex', alignItems: 'flex-start', paddingLeft: '0.75in' }}>
-                      <span style={{ minWidth: PREFIX_POS }}>a.</span>
-                      <span style={{ textAlign: 'justify' }}>{toTitleCase(sh.managementPosition || 'Direktur')} perseroan; dan</span>
+                <>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', paddingLeft: PREFIX_POS }}>
+                    <div style={{ minWidth: PREFIX_POS }}>{idx + 1}.</div>
+                    <div style={{ textAlign: 'justify', flex: 1 }}>
+                      {sh.salutation} <b>{sh.name || '................'}</b>, lahir di {toTitleCase(sh.birthCity || '................')}, pada tanggal {getDayIndo(sh.birthDate) || '..'} {getMonthIndo(sh.birthDate) || '........'} {getYearIndo(sh.birthDate) || '....'}, {renderNationalityDescription(sh)}, {renderOccupationDescription(sh)}{renderAddressDescription(sh)}, {renderIdentificationDescription(sh)};
                     </div>
-                  )}
-
-                  <div style={{ display: 'flex', alignItems: 'flex-start', paddingLeft: '0.75in' }}>
-                    <span style={{ minWidth: PREFIX_POS }}>{sh.isManagement ? 'b.' : 'a.'}</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', paddingLeft: '0.5in', marginTop: '2pt' }}>
+                    <span style={{ minWidth: PREFIX_POS }}>-</span>
                     <span style={{ textAlign: 'justify' }}>
-                      Pemilik dan pemegang saham sebanyak <b>{sh.sharesOwned.toLocaleString('id-ID')}</b> ({numberToWords(sh.sharesOwned)}) lembar saham atau senilai <b>{formatRpDot(currentValue)}</b> ({numberToWords(currentValue)} rupiah) berhak mengeluarkan suara <b>{sh.sharesOwned.toLocaleString('id-ID')}</b> ({numberToWords(sh.sharesOwned)}) suara dalam rapat.
+                      Selaku pemilik dan pemegang <b>{sh.sharesOwned.toLocaleString('id-ID')}</b> ({numberToWords(sh.sharesOwned)}) lembar saham atau senilai <b>{formatRpDot(currentValue)}</b> ({numberToWords(currentValue)} rupiah).
                     </span>
                   </div>
-                </div>
+                </>
+              ) : sh.isProxy && sh.proxyData ? (
+                <>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', paddingLeft: PREFIX_POS }}>
+                    <div style={{ minWidth: PREFIX_POS }}>{idx + 1}.</div>
+                    <div style={{ textAlign: 'justify', flex: 1 }}>
+                      {sh.proxyData.salutation} <b>{sh.proxyData.name || '................'}</b>, lahir di {toTitleCase(sh.proxyData.birthCity || '................')}, pada tanggal {getDayIndo(sh.proxyData.birthDate) || '..'} {getMonthIndo(sh.proxyData.birthDate) || '........'} {getYearIndo(sh.proxyData.birthDate) || '....'}, Warga Negara Indonesia, {renderOccupationDescription({ occupation: sh.proxyData.occupation } as any)}{renderAddressDescription({ address: sh.proxyData.address } as any)}, Pemegang Kartu Tanda Penduduk dengan Nomor Induk Kependudukan (NIK) <b>{sh.proxyData.nik || '................'}</b>;
+                    </div>
+                  </div>
+                  <div style={{ marginTop: '2pt' }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', paddingLeft: '0.5in' }}>
+                      <span style={{ minWidth: PREFIX_POS }}>-</span>
+                      <span style={{ textAlign: 'justify' }}>dalam hal ini bertindak berdasarkan Akta Kuasa tertanggal <b>{sh.proxyData.proxyDeedDate ? getDayIndo(sh.proxyData.proxyDeedDate) + ' ' + getMonthIndo(sh.proxyData.proxyDeedDate) + ' ' + getYearIndo(sh.proxyData.proxyDeedDate) : '............'}</b> ({sh.proxyData.proxyDeedDate ? formatDateStr(sh.proxyData.proxyDeedDate) : '............'}), selaku Kuasa dari {sh.salutation} <b>{sh.name || '................'}</b>, lahir di {toTitleCase(sh.birthCity || '................')}, pada tanggal {getDayIndo(sh.birthDate) || '..'} {getMonthIndo(sh.birthDate) || '........'} {getYearIndo(sh.birthDate) || '....'}, {renderNationalityDescription(sh)}, {renderOccupationDescription(sh)}{renderAddressDescription(sh)}, {renderIdentificationDescription(sh)};</span>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'flex-start', paddingLeft: '0.5in' }}>
+                      <span style={{ minWidth: PREFIX_POS }}>-</span>
+                      <span style={{ textAlign: 'justify' }}>
+                        yang merupakan pemilik dan pemegang saham sebanyak <b>{sh.sharesOwned.toLocaleString('id-ID')}</b> ({numberToWords(sh.sharesOwned)}) lembar saham atau senilai <b>{formatRpDot(currentValue)}</b> ({numberToWords(currentValue)} rupiah) dan berhak mengeluarkan suara <b>{sh.sharesOwned.toLocaleString('id-ID')}</b> ({numberToWords(sh.sharesOwned)}) suara dalam rapat.
+                      </span>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', paddingLeft: PREFIX_POS }}>
+                    <div style={{ minWidth: PREFIX_POS }}>{idx + 1}.</div>
+                    <div style={{ textAlign: 'justify', flex: 1 }}>
+                      {sh.salutation} <b>{sh.name || '................'}</b>, lahir di {toTitleCase(sh.birthCity || '................')}, pada tanggal {getDayIndo(sh.birthDate) || '..'} {getMonthIndo(sh.birthDate) || '........'} {getYearIndo(sh.birthDate) || '....'}, {renderNationalityDescription(sh)}, {renderOccupationDescription(sh)}{renderAddressDescription(sh)}, {renderIdentificationDescription(sh)};
+                    </div>
+                  </div>
+                  <div style={{ marginTop: '2pt' }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', paddingLeft: '0.5in' }}>
+                      <span style={{ minWidth: PREFIX_POS }}>-</span>
+                      <span style={{ textAlign: 'justify' }}>dalam hal ini hadir selaku :</span>
+                    </div>
+                    
+                    {sh.isManagement && (
+                      <div style={{ display: 'flex', alignItems: 'flex-start', paddingLeft: '0.75in' }}>
+                        <span style={{ minWidth: PREFIX_POS }}>a.</span>
+                        <span style={{ textAlign: 'justify' }}>{toTitleCase(sh.managementPosition || 'Direktur')} perseroan; dan</span>
+                      </div>
+                    )}
+
+                    <div style={{ display: 'flex', alignItems: 'flex-start', paddingLeft: '0.75in' }}>
+                      <span style={{ minWidth: PREFIX_POS }}>{sh.isManagement ? 'b.' : 'a.'}</span>
+                      <span style={{ textAlign: 'justify' }}>
+                        Pemilik dan pemegang saham sebanyak <b>{sh.sharesOwned.toLocaleString('id-ID')}</b> ({numberToWords(sh.sharesOwned)}) lembar saham atau senilai <b>{formatRpDot(currentValue)}</b> ({numberToWords(currentValue)} rupiah) berhak mengeluarkan suara <b>{sh.sharesOwned.toLocaleString('id-ID')}</b> ({numberToWords(sh.sharesOwned)}) suara dalam rapat.
+                      </span>
+                    </div>
+                  </div>
+                </>
               )}
             </div>
           );
         })}
 
+        {!isCircular && data.guests && data.guests.length > 0 && data.guests.map((guest, idx) => (
+           <div key={guest.id} style={{ marginTop: PARA_SPACING }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', paddingLeft: PREFIX_POS }}>
+                <div style={{ minWidth: PREFIX_POS }}>{attendingShareholders.length + idx + 1}.</div>
+                <div style={{ textAlign: 'justify', flex: 1 }}>
+                  <b>{(guest.name || '................').toUpperCase()}</b>{guest.position ? `, ${toTitleCase(guest.position)}` : ''};
+                </div>
+              </div>
+           </div>
+        ))}
+
         <div style={{ marginTop: '12pt', textAlign: 'justify' }}>
-          Bahwa dari semua saham yang telah dikeluarkan, ditempatkan dan disetor tersebut di atas, yaitu sebanyak <b>{totalShares.toLocaleString('id-ID')}</b> ({numberToWords(totalShares)}) lembar saham atau senilai <b>{formatRpDot(totalValue)}</b> ({numberToWords(totalValue)} rupiah).
+          Bahwa dari semua saham yang telah dikeluarkan, ditempatkan dan disetor tersebut di atas, yaitu sebanyak <b>{totalIssuedShares.toLocaleString('id-ID')}</b> ({numberToWords(totalIssuedShares)}) lembar saham, telah hadir dan/atau diwakili dalam rapat ini sebanyak <b>{presentShares.toLocaleString('id-ID')}</b> ({numberToWords(presentShares)}) lembar saham atau senilai <b>{formatRpDot(totalValue)}</b> ({numberToWords(totalValue)} rupiah) atau setara dengan {attendingPercentage === 100 ? '100%' : `${attendingPercentage.toFixed(2)}%`} dari seluruh saham yang telah dikeluarkan oleh Perseroan.
         </div>
 
         <div style={{ textAlign: 'justify', display: 'flex', alignItems: 'flex-start', marginTop: PARA_SPACING, paddingLeft: '0.5in' }}>
@@ -352,7 +406,7 @@ const DocumentPreview: React.FC<Props> = ({ data, showHeader = true, zoom = 1 })
 
             <div style={{ fontWeight: 'bold', marginTop: '18pt', marginBottom: PARA_SPACING, textTransform: 'uppercase' }}>V. JALANNYA RAPAT</div>
             <div style={{ textAlign: 'justify' }}>
-              Ketua rapat membuka dan memimpin rapat dengan terlebih dahulu menjelaskan bahwa para pemegang saham perseroan telah diundang untuk menghadiri rapat melalui surat undangan dan dalam rapat ini telah hadir dan/atau diwakili oleh <b>{totalShares.toLocaleString('id-ID')}</b> ({numberToWords(totalShares)}) Saham perseroan yang telah ditempatkan dan diambil bagian-bagian hingga hari ini, oleh karena itu, sesuai dengan ketentuan yang termaktub dalam pasal 22 ayat (1) Anggaran dasar Perseroan mengenai Kuorum, Rapat ini adalah sah sesuai dengan Kuorum dan berhak mengambil keputusan-keputusan yang sah serta mengikat mengenai hal-hal yang dibicarakan.
+              Ketua rapat membuka dan memimpin rapat dengan terlebih dahulu menjelaskan bahwa para pemegang saham perseroan telah diundang untuk menghadiri rapat melalui surat undangan dan dalam rapat ini telah hadir dan/atau diwakili oleh <b>{presentShares.toLocaleString('id-ID')}</b> ({numberToWords(presentShares)}) Saham perseroan yang merupakan {attendingPercentage === 100 ? 'seluruh' : `${attendingPercentage.toFixed(2)}%`} dari total seluruh saham yang telah dikeluarkan oleh Perseroan, oleh karena itu, sesuai dengan ketentuan yang termaktub dalam pasal 22 ayat (1) Anggaran dasar Perseroan mengenai Kuorum, Rapat ini adalah sah sesuai dengan Kuorum dan berhak mengambil keputusan-keputusan yang sah serta mengikat mengenai hal-hal yang dibicarakan.
             </div>
           </>
         )}
@@ -524,7 +578,7 @@ const DocumentPreview: React.FC<Props> = ({ data, showHeader = true, zoom = 1 })
         <div style={{ fontWeight: 'bold', textTransform: 'uppercase', marginTop: '48pt' }}>TANDA TANGAN PARA PEMEGANG SAHAM,</div>
         <br />
 
-        {data.shareholders.filter(sh => sh.sharesOwned > 0).map((sh, idx) => (
+        {attendingShareholders.map((sh, idx) => (
           <div key={sh.id} style={{ marginBottom: '40pt', maxWidth: '3.5in' }}>
             {idx === 0 && (
               <div style={{ color: '#bfbfbf', fontSize: '8pt', textTransform: 'uppercase', marginBottom: '12pt' }}>Meterai 10.000 + Cap</div>

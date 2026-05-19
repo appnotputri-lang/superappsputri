@@ -1,4 +1,3 @@
-
 export interface Address {
   province: string;
   city: string;
@@ -40,6 +39,35 @@ export interface Shareholder {
 
   isNewDeposit?: boolean;
   newDepositShares?: number;
+  isPresent?: boolean;
+
+  // Proxy / Kuasa fields (for RUPS LB)
+  isProxy?: boolean;       // true = pemegang saham dikuasakan ke orang lain
+  proxyData?: {
+    salutation: 'Tuan' | 'Nyonya' | 'Nona';
+    name: string;
+    nik: string;
+    birthCity: string;
+    birthDate: string;
+    occupation: string;
+    address: {
+      fullAddress: string;
+      rt: string;
+      rw: string;
+      kelurahan: string;
+      kecamatan: string;
+      city: string;
+      province: string;
+      postalCode?: string;
+    };
+    proxyDeedDate: string;  // Tanggal Akta/Surat Kuasa
+  };
+}
+
+export interface Guest {
+  id: string;
+  name: string;
+  position?: string;
 }
 
 export interface KbliItem {
@@ -63,6 +91,7 @@ export interface ManagementItem {
   occupation?: string;
   address?: Address;
   nik?: string;
+  isPresent?: boolean;
 }
 
 export interface ResolutionFlags {
@@ -185,6 +214,7 @@ export interface CompanyData {
   amendmentDeeds: AmendmentDeed[];
 
   shareholders: Shareholder[];
+  guests: Guest[];
   selectedProfileId?: string;
   shareTransfers: ShareTransfer[]; // <--- NEW!
   finalShareholders: Shareholder[]; // Structure after change
