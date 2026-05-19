@@ -381,7 +381,7 @@ const createNotarisLabelP = (domicile: string): Paragraph =>
   new Paragraph({
     children: [
       new TextRun({ text: "\t" }),
-      new TextRun({ text: `Notaris di ${domicile} ;` }),
+      new TextRun({ text: `Notaris di ${domicile};` }),
     ],
     tabStops: NOTARIS_TAB_STOPS,
   });
@@ -389,7 +389,7 @@ const createNotarisLabelP = (domicile: string): Paragraph =>
 const createNotarisSignP = (): Paragraph =>
   new Paragraph({
     children: [
-      new TextRun({ text: "'" }),
+      new TextRun({ text: "\t" }),
     ],
     tabStops: NOTARIS_TAB_STOPS,
   });
@@ -464,15 +464,16 @@ export const generateRUPSDocx = async (data: CompanyData) => {
 
   const domicile = data.newAddress?.city || data.domicile || "Kabupaten Bandung Barat";
   const notaryDisplay = (data.notaryName || "NUKANTINI PUTRI PARINCHA, SH., M.Kn.")
-    .replace(/Sarjana Hukum/gi, "SH.")
-    .replace(/Magister Kenotariatan/gi, "M.Kn");
+    .toUpperCase()
+    .replace(/SARJANA HUKUM/gi, "SH.")
+    .replace(/MAGISTER KENOTARIATAN/gi, "M.Kn");
 
-  // docxChildren.push(createNotarisLabelP(domicile));
-  // docxChildren.push(createNotarisEmptyP());
-  // docxChildren.push(createNotarisEmptyP());
-  // docxChildren.push(createNotarisSignP());
-  // docxChildren.push(createNotarisEmptyP());
-  // docxChildren.push(createNotarisNameP(notaryDisplay));
+  docxChildren.push(createNotarisLabelP("Kabupaten Bandung Barat"));
+  docxChildren.push(createNotarisEmptyP());
+  docxChildren.push(createNotarisEmptyP());
+  docxChildren.push(createNotarisEmptyP());
+  docxChildren.push(createNotarisEmptyP());
+  docxChildren.push(createNotarisNameP(notaryDisplay));
 
   // ── BUILD DOCUMENT
   const doc = new Document({

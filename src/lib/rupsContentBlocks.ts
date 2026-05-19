@@ -410,60 +410,10 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
         { text: ` telah memenuhi kuorum.` },
       ],
     });
-  } else {
-    // MINUTES specific Preamble
-    let totalCapPaid = data.originalCapitalPaid;
-    if (data.resolutions.capitalPaid || data.resolutions.capitalPaidDecrease) {
-      totalCapPaid = data.targetCapitalPaid;
-    }
 
-    blocks.push({
-      type: "list",
-      bullet: "-",
-      indentTabs: 0.5,
-      runs: [
-        {
-          text: `Bahwa dari semua saham yang telah dikeluarkan tersebut di atas, yaitu ${formatNumber(totalShares)} (${totalSharesHuruf}) lembar saham perseroan atau dengan nominal seluruhnya sebesar Rp. ${formatNumber(totalCapPaid)},- (${terbilang(totalCapPaid)} rupiah) telah hadir dalam rapat ini sebanyak ${formatNumber(presentShares)} (${terbilang(presentShares)}) lembar saham atau senilai Rp. ${formatNumber(presentCapPaid)},- (${terbilang(presentCapPaid)} rupiah) atau setara dengan ${isAllPresent ? "100%" : `${formatNumber(attendancePercentage)}%`} dari seluruh saham yang telah dikeluarkan oleh Perseroan.`,
-        },
-      ],
-    });
-
-    blocks.push({
-      type: "list",
-      bullet: "-",
-      indentTabs: 0.5,
-      runs: [
-        {
-          text: `Bahwa menurut Pasal 22 ayat 1 Anggaran Dasar Perseroan mengenai Kuorum, Rapat ini adalah sah sesuai dengan Kuorum dan berhak mengambil keputusan-keputusan yang sah serta mengikat mengenai hal-hal yang dibicarakan;`,
-        },
-      ],
-    });
-
-    const chairIsProxy = data.shareholders.some(sh => sh.isPresent && sh.isProxy && sh.proxyData?.name === data.meetingChair);
-    const chairPerson: any = data.shareholders.find(sh => sh.name === data.meetingChair || sh.proxyData?.name === data.meetingChair) || 
-                             data.oldManagementItems.find(m => m.name === data.meetingChair);
-    const chairSalutation = chairIsProxy ? (chairPerson?.proxyData?.salutation || "Tuan") : (chairPerson?.salutation || "Tuan");
-    const chairName = data.meetingChair || "...";
-    let chairPosition = chairIsProxy ? "kuasa" : `selaku ${toTitleCase(chairPerson?.managementPosition || chairPerson?.position || "Direktur")} perseroan,`;
-
-    blocks.push({
-      type: "list",
-      bullet: "-",
-      indentTabs: 0.5,
-      runs: [
-        {
-          text: `Berdasarkan ketentuan Pasal 21 ayat (1) Anggaran Dasar Perseroan, ${chairSalutation} `,
-        },
-        { text: chairName.toUpperCase(), bold: true },
-        { text: `, ${chairIsProxy ? 'kuasa tersebut di atas, bertindak sebagai ketua rapat.' : `tersebut di atas, ${chairPosition} bertindak sebagai Ketua Rapat.`}` },
-      ],
-    });
-  }
-
-  attendingShareholders.forEach((sh, i) => {
-    const shTotalRp = sh.sharesOwned * data.originalSharePrice;
-
-    if (isCircular) {
+    // Output attending shareholders for circular
+    attendingShareholders.forEach((sh, i) => {
+      const shTotalRp = sh.sharesOwned * data.originalSharePrice;
       blocks.push({
         type: "list",
         bullet: `${i + 1}.`,
@@ -476,8 +426,32 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
           },
         ],
       });
-    } else {
-      // MINUTES format for shareholders (the "tetap begitu" multi-line format)
+    });
+
+  } else {
+    // MINUTES specific Preamble
+    let totalCapPaid = data.originalCapitalPaid;
+    if (data.resolutions.capitalPaid || data.resolutions.capitalPaidDecrease) {
+      totalCapPaid = data.targetCapitalPaid;
+    }
+
+    const meetingTglHuruf = dateToWords(data.signingDate);
+    const meetingTglAngka = formatDateStr(data.signingDate);
+
+    blocks.push({
+      type: "list",
+      bullet: "-",
+      indentTabs: 0.5,
+      runs: [
+        {
+          text: `Bahwa sesuai ketentuan Pasal 21 ayat 1 Anggaran Dasar Perseroan, pada tanggal ${meetingTglAngka} (${meetingTglHuruf}) seluruh pemegang saham telah menandatangani risalah rapat yang dimuat dalam ”Risalah rapat Pemegang Saham Luar Biasa” yang dibuat di bawah tangan, yang ditandatangani oleh:`,
+        },
+      ],
+    });
+
+    // Output attending shareholders for MINUTES
+    attendingShareholders.forEach((sh, i) => {
+      const shTotalRp = sh.sharesOwned * data.originalSharePrice;
       if (sh.isProxy && sh.proxyData) {
         const px = sh.proxyData;
         const deedDateWords = px.proxyDeedDate ? dateToWords(px.proxyDeedDate) : '____________';
@@ -569,8 +543,50 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
           ],
         });
       }
-    }
-  });
+    });
+
+    blocks.push({
+      type: "list",
+      bullet: "-",
+      indentTabs: 0.5,
+      runs: [
+        {
+          text: `Bahwa dari semua saham yang telah dikeluarkan tersebut di atas, yaitu ${formatNumber(totalShares)} (${totalSharesHuruf}) lembar saham perseroan atau dengan nominal seluruhnya sebesar Rp. ${formatNumber(totalCapPaid)},- (${terbilang(totalCapPaid)} rupiah) telah hadir dalam rapat ini sebanyak ${formatNumber(presentShares)} (${terbilang(presentShares)}) lembar saham atau senilai Rp. ${formatNumber(presentCapPaid)},- (${terbilang(presentCapPaid)} rupiah) atau setara dengan ${isAllPresent ? "100%" : `${formatNumber(attendancePercentage)}%`} dari seluruh saham yang telah dikeluarkan oleh Perseroan.`,
+        },
+      ],
+    });
+
+    blocks.push({
+      type: "list",
+      bullet: "-",
+      indentTabs: 0.5,
+      runs: [
+        {
+          text: `Bahwa menurut Pasal 22 ayat 1 Anggaran Dasar Perseroan mengenai Kuorum, Rapat ini adalah sah sesuai dengan Kuorum dan berhak mengambil keputusan-keputusan yang sah serta mengikat mengenai hal-hal yang dibicarakan;`,
+        },
+      ],
+    });
+
+    const chairIsProxy = data.shareholders.some(sh => sh.isPresent && sh.isProxy && sh.proxyData?.name === data.meetingChair);
+    const chairPerson: any = data.shareholders.find(sh => sh.name === data.meetingChair || sh.proxyData?.name === data.meetingChair) || 
+                             data.oldManagementItems.find(m => m.name === data.meetingChair);
+    const chairSalutation = chairIsProxy ? (chairPerson?.proxyData?.salutation || "Tuan") : (chairPerson?.salutation || "Tuan");
+    const chairName = data.meetingChair || "...";
+    let chairPosition = chairIsProxy ? "kuasa" : `selaku ${toTitleCase(chairPerson?.managementPosition || chairPerson?.position || "Direktur")} perseroan,`;
+
+    blocks.push({
+      type: "list",
+      bullet: "-",
+      indentTabs: 0.5,
+      runs: [
+        {
+          text: `Berdasarkan ketentuan Pasal 21 ayat (1) Anggaran Dasar Perseroan, ${chairSalutation} `,
+        },
+        { text: chairName.toUpperCase(), bold: true },
+        { text: `, ${chairIsProxy ? 'kuasa tersebut di atas, bertindak sebagai ketua rapat.' : `tersebut di atas, ${chairPosition} bertindak sebagai Ketua Rapat.`}` },
+      ],
+    });
+  }
 
   // GUESTS for Akta (MINUTES)
   if (isMinutes && data.guests && data.guests.length > 0) {
@@ -645,13 +661,28 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
       ],
     });
 
-    blocks.push({
-      type: "list",
-      bullet: "-",
-      indentTabs: 0.5,
-      runs: [
-        { text: "Persetujuan merubah susunan pengurus perseroan." },
-      ],
+    const agendaList: string[] = [];
+    if (data.resolutions.companyNameChange) agendaList.push('Persetujuan Perubahan Nama Perseroan.');
+    if (data.resolutions.domicile) agendaList.push('Persetujuan Perubahan Tempat Kedudukan Perseroan.');
+    if (data.resolutions.address) agendaList.push('Persetujuan Perubahan Alamat Lengkap Perseroan.');
+    if (data.resolutions.kbli) agendaList.push('Persetujuan Perubahan Maksud dan Tujuan (KBLI) Perseroan.');
+    if (data.resolutions.capitalBase) agendaList.push('Persetujuan Peningkatan Modal Dasar Perseroan.');
+    if (data.resolutions.capitalPaid) agendaList.push('Persetujuan Peningkatan Modal Ditempatkan dan Disetor Perseroan.');
+    if (data.resolutions.capitalBaseDecrease) agendaList.push('Persetujuan Penurunan Modal Dasar Perseroan.');
+    if (data.resolutions.capitalPaidDecrease) agendaList.push('Persetujuan Penurunan Modal Ditempatkan dan Disetor Perseroan.');
+    if (data.resolutions.shareholders) agendaList.push('Persetujuan Pengalihan Saham.');
+    if (data.resolutions.management) agendaList.push('Persetujuan Perubahan Susunan Pengurus Perseroan.');
+    if (data.resolutions.reappointment) agendaList.push('Persetujuan Pengangkatan Kembali Susunan Pengurus Perseroan.');
+
+    agendaList.forEach((agenda) => {
+      blocks.push({
+        type: "list",
+        bullet: "-",
+        indentTabs: 0.5,
+        runs: [
+          { text: agenda },
+        ],
+      });
     });
 
     blocks.push({
@@ -737,15 +768,17 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
       ],
     });
 
+    // 1) Maksud dan Tujuan → sesuai CONTOH11.docx: ind left=567, hanging=283 → subNumber, indentTabs=0
     blocks.push({
       type: "p",
       subNumber: 1,
-      indentTabs: 1,
+      indentTabs: 0,
       runs: [
         { text: `Maksud dan Tujuan Perseroan adalah berusaha dalam bidang :` },
       ],
     });
 
+    // Kategori KBLI → sesuai CONTOH11.docx: ind left=851, hanging=283 → list bullet '-', indentTabs=3 (else branch)
     const categories = Array.from(
       new Set(data.kbliItems.map((k) => k.categoryName)),
     ).filter(Boolean) as string[];
@@ -753,15 +786,16 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
       blocks.push({
         type: "list",
         bullet: "-",
-        indentTabs: 1,
+        indentTabs: 3,
         runs: [{ text: cat.toUpperCase() }],
       });
     });
 
+    // 2) Untuk mencapai → sesuai CONTOH11.docx: ind left=567, hanging=284 → subNumber, indentTabs=0
     blocks.push({
       type: "p",
       subNumber: 2,
-      indentTabs: 1,
+      indentTabs: 0,
       runs: [
         {
           text: `Untuk mencapai maksud dan tujuan tersebut diatas, perseroan dapat melaksanakan kegiatan usaha sebagai berikut :`,
@@ -770,18 +804,17 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
     });
 
     data.kbliItems.forEach((kbli) => {
-      // Nama KBLI: sesuai XML contoh_ke_2.docx menggunakan list dengan bullet '-'
-      // numId=4, ilvl=0 → indentTabs: 2 (leftDxa=1417, bullet di 1134)
+      // Nama KBLI → sesuai CONTOH11.docx: ind left=851, hanging=284, tab kiri 1560 → indentTabs=3 (else branch → left=851)
       blocks.push({
         type: "list",
         bullet: "-",
-        indentTabs: 2,
+        indentTabs: 3,
         runs: [{ text: `${kbli.code} - ${kbli.name};`, bold: true }],
       });
-      // Deskripsi KBLI: left=1417 DXA, tanpa bullet (tipe 'p')
+      // Deskripsi KBLI → sesuai CONTOH11.docx: ind left=851, tanpa bullet → kbliDesc (left=851 via createKbliDescP)
       blocks.push({
         type: "p",
-        indentTabs: 2,
+        indentTabs: 1,
         kbliDesc: true,
         runs: [{ text: kbli.description || "" }],
       });
@@ -1205,7 +1238,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
       type: "p",
       runs: [
         {
-          text: `Rapat ditutup pada pukul ${meetingEndTimeStr} WIB (${meetingEndTimeWords} Waktu Indonesia Barat) oleh Ketua Rapat, Setelah semua agenda rapat dibahas dan menghasilkan Keputusan sebagaimana telah diputuskan peserta rapat yang hadir.`,
+          text: `Rapat ditutup pada pukul ${meetingEndTimeStr} WIB (${meetingEndTimeWords} Waktu Indonesia Barat) oleh Ketua Rapat, setelah semua agenda rapat dibahas dan menghasilkan keputusan sebagaimana telah diputuskan peserta rapat yang hadir.`,
         },
       ],
     });
@@ -1226,7 +1259,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
     type: "p",
     runs: [
       {
-        text: `Dibuat sebagai minuta dan dilangsungkan di Kabupaten Bandung Barat, pada hari dan tanggal serta jam sebagaimana disebutkan pada awal akta ini, dengan di hadiri oleh :`,
+        text: `Dibuat sebagai minuta dan dilangsungkan di Kabupaten Bandung Barat, pada hari dan tanggal serta jam sebagaimana disebutkan pada kepala akta ini dengan dihadiri oleh :`,
       },
     ],
   });
@@ -1236,9 +1269,9 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
     type: "saksi",
     number: 1,
     runs: [
-      { text: (data.saksi1Nama || "Nendi Suhendi").toUpperCase(), bold: true },
+      { text: data.saksi1Nama || "Nendi Suhendi", bold: false },
       {
-        text: `, lahir di ${toTitleCase(data.saksi1Lahir || "Bandung, pada tanggal limabelas Juli seribu sembilan ratus sembilan puluh satu (15-07-1991)")}, Warga Negara Indonesia, bertempat tinggal di ${formatAddress(toTitleCase(data.saksi1Alamat || "Jalan Sukaresmi Nomor 12, Rukun Tetangga 005, Rukun Warga 005, Kecamatan Lembang, Desa Mekarwangi"))}, pemegang Kartu Tanda Penduduk Nomor ${data.saksi1NIK || "3217011507910016"};`,
+        text: `, lahir di ${data.saksi1Lahir || "Bandung, pada tanggal lima belas Juli seribu sembilan ratus sembilan puluh satu (15-07-1991)"}, Warga Negara Indonesia, bertempat tinggal di ${data.saksi1Alamat || "Jalan Sukaresmi Nomor 12, Rukun Tetangga 005, Rukun Warga 005, Kecamatan Lembang, Desa Mekarwangi"}, pemegang Kartu Tanda Penduduk Nomor ${data.saksi1NIK || "3217011507910016"};`,
       },
     ],
   });
@@ -1248,13 +1281,20 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
     type: "saksi",
     number: 2,
     runs: [
+      { text: data.saksi2Nama || "Siti Nur Azizah", bold: false },
       {
-        text: (data.saksi2Nama || "Siti Nur Azizah").toUpperCase(),
-        bold: true,
+        text: `, lahir di ${data.saksi2Lahir || "Bandung, pada tanggal tujuh belas Desember seribu sembilan ratus sembilan puluh sembilan (17-12-1999)"}, Warga Negara Indonesia, bertempat tinggal di ${data.saksi2Alamat || "Kabupaten Bandung, Jalan Lembah Pakar Timur II Kampung Sekebuluh Rukun Tetangga 001, Rukun Warga 004, Kecamatan Cimenyan, Desa Ciburial"}, pemegang Kartu Tanda Penduduk Nomor ${data.saksi2NIK || "3204065712990001"}.`,
       },
-      {
-        text: `, lahir di ${toTitleCase(data.saksi2Lahir || "Bandung, pada tanggal tujuh belas Desember seribu sembilan ratus sembilan puluh sembilan (17-12-1999)")}, Warga Negara Indonesia, bertempat tinggal di ${formatAddress(toTitleCase(data.saksi2Alamat || "Kabupaten Bandung, Jalan Lembah Pakar Timur II Kampung Sekebuluh Rukun Tetangga 001, Rukun Warga 004, Desa Ciburial, Kecamatan Cimenyan"))}, pemegang Kartu Tanda Penduduk Nomor ${data.saksi2NIK || "3204065712990001"}.`,
-      },
+    ],
+    spaceAfter: false,
+  });
+
+  blocks.push({
+    type: "list",
+    indentTabs: 0,
+    bullet: "-",
+    runs: [
+        { text: `Untuk sementara berada di Kabupaten Bandung Barat;` }
     ],
     spaceAfter: true,
   });
@@ -1262,7 +1302,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
   blocks.push({
     type: "p",
     runs: [
-      { text: `Keduanya karyawan kantor Notaris dan sebagai saksi-saksi.` },
+      { text: `Keduanya pegawai Kantor Notaris, sebagai saksi-saksi.` },
     ],
   });
 
@@ -1270,7 +1310,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
     type: "p",
     runs: [
       {
-        text: `Segera setelah akta ini dibacakan oleh saya, Notaris kepada penghadap dan saksi-saksi, maka ditanda-tanganilah akta ini oleh penghadap, saksi-saksi dan saya, Notaris, serta penghadap membubuhkan sidik jari sebelah kanan pada lembaran tersendiri di hadapan saya, Notaris dan saksi-saksi, yang dilekatkan pada minuta akta ini.`,
+        text: `Segera setelah akta ini dibacakan oleh saya, Notaris kepada penghadap dan saksi-saksi, maka ditanda-tanganilah akta ini oleh penghadap, saksi-saksi dan saya, Notaris. Serta penghadap membubuhkan sidik jari sebelah kanan pada lembaran tersendiri di hadapan saya, Notaris dan saksi-saksi, yang dilekatkan pada minuta akta ini.`,
       },
     ],
   });
@@ -1292,16 +1332,6 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
     runs: [{ text: `Diberikan sebagai salinan yang sama bunyinya.` }],
     spaceAfter: true,
   });
-
-  blocks.push({
-    type: "p",
-    align: "right-center",
-    runs: [{ text: `Notaris di Kabupaten Bandung Barat;` }],
-    spaceAfter: true,
-  });
-
-  // NOTE: "Notaris di ..." dan nama notaris di-generate langsung di generateRUPSDocx.ts
-  // untuk memastikan format (indent left=4252, center, border kiri tidak ada) benar.
 
   return blocks;
 };
