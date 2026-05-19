@@ -338,7 +338,7 @@ const DocumentPreview: React.FC<Props> = ({ data, showHeader = true, zoom = 1 })
           <>
             <div style={{ fontWeight: 'bold', marginTop: '18pt', marginBottom: PARA_SPACING, textTransform: 'uppercase' }}>II. KETUA RAPAT</div>
             <div style={{ textAlign: 'justify' }}>
-              Berdasarkan ketentuan pasal 21 ayat (1) anggaran dasar perseroan, maka <b>{data.meetingChair || '................'}</b>, tersebut di atas, bertindak sebagai ketua rapat.
+              Berdasarkan ketentuan pasal 21 ayat (1) anggaran dasar perseroan, maka <b>{data.meetingChair || '................'}</b>, {data.shareholders.some(sh => sh.isPresent && sh.isProxy && sh.proxyData?.name === data.meetingChair) ? 'kuasa ' : ''}tersebut di atas, bertindak sebagai ketua rapat.
             </div>
 
             <div style={{ fontWeight: 'bold', marginTop: '18pt', marginBottom: PARA_SPACING, textTransform: 'uppercase' }}>III. AGENDA RAPAT</div>

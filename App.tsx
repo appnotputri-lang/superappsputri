@@ -915,9 +915,42 @@ const App: React.FC = () => {
 
               {editingProfileId ? (
                 <div className="space-y-4 pb-20">
-                  <button className="text-slate-500 hover:text-slate-800 flex items-center gap-1 font-bold text-[12px] uppercase bg-white px-3 py-2 rounded-sm border border-slate-200 shadow-sm" onClick={() => setEditingProfileId(null)}>
-                    <ArrowRight className="w-4 h-4 rotate-180" /> Kembali
-                  </button>
+                  <div className="flex flex-wrap items-center gap-2 bg-slate-50/50 p-2 rounded-md border border-slate-200">
+                    <button className="text-slate-500 hover:text-slate-800 flex items-center gap-1 font-bold text-[12px] uppercase bg-white px-3 py-2 rounded-sm border border-slate-200 shadow-sm" onClick={() => setEditingProfileId(null)}>
+                      <ArrowRight className="w-4 h-4 rotate-180" /> Kembali
+                    </button>
+                    
+                    <div className="h-6 w-px bg-slate-300 mx-1"></div>
+
+                    <button onClick={resetData} className="px-5 py-2 bg-[#d9534f] text-white rounded-md text-[13px] font-bold transition-all hover:bg-[#c9302c] shadow-sm uppercase">RISET</button>
+                    <button 
+                      disabled={isSaving}
+                      onClick={async () => {
+                       if (!data.companyName) return alert('Nama perseroan harus diisi');
+                       setIsSaving(true);
+                       const newId = editingProfileId && editingProfileId !== 'new' ? editingProfileId : crypto.randomUUID();
+                       const profileData = {
+                           ...data,
+                           id: newId
+                       };
+                       if (!user) {
+                         setIsSaving(false);
+                         return alert('Anda harus login terlebih dahulu!');
+                       }
+                       
+                       try {
+                           await setDoc(doc(db, 'profiles', profileData.id), sanitizeForFirestore(profileData));
+                           setEditingProfileId(null);
+                           alert('Profil berhasil disimpan!');
+                       } catch (e) {
+                           handleFirestoreError(e, OperationType.WRITE, `profiles/${profileData.id}`);
+                       } finally {
+                           setIsSaving(false);
+                       }
+                    }} className="px-5 py-2 bg-[#40bdae] text-white rounded-md text-[13px] font-bold transition-all hover:bg-[#349c8f] shadow-sm uppercase disabled:opacity-50 disabled:cursor-not-allowed">
+                      {isSaving ? 'MENYIMPAN...' : 'SIMPAN PROFIL'}
+                    </button>
+                  </div>
                   
                   <div className="space-y-4">
                     {/* DATA PERSEROAN */}
@@ -1409,37 +1442,7 @@ const App: React.FC = () => {
 
 {/* JENIS NOTULEN */}
             
-            <div className="flex flex-wrap gap-2 py-8 pt-4 border-t border-slate-300">
-               <button onClick={resetData} className="px-5 py-2 bg-[#d9534f] text-white rounded-md text-[13px] font-bold transition-all hover:bg-[#c9302c] shadow-sm uppercase">RISET</button>
-               
-               <button 
-                 disabled={isSaving}
-                 onClick={async () => {
-                  if (!data.companyName) return alert('Nama perseroan harus diisi');
-                  setIsSaving(true);
-                  const newId = editingProfileId && editingProfileId !== 'new' ? editingProfileId : crypto.randomUUID();
-                  const profileData = {
-                      ...data,
-                      id: newId
-                  };
-                  if (!user) {
-                    setIsSaving(false);
-                    return alert('Anda harus login terlebih dahulu!');
-                  }
-                  
-                  try {
-                      await setDoc(doc(db, 'profiles', profileData.id), sanitizeForFirestore(profileData));
-                      setEditingProfileId(null);
-                      alert('Profil berhasil disimpan!');
-                  } catch (e) {
-                      handleFirestoreError(e, OperationType.WRITE, `profiles/${profileData.id}`);
-                  } finally {
-                      setIsSaving(false);
-                  }
-               }} className="px-5 py-2 bg-[#40bdae] text-white rounded-md text-[13px] font-bold transition-all hover:bg-[#349c8f] shadow-sm uppercase disabled:opacity-50 disabled:cursor-not-allowed">
-                 {isSaving ? 'MENYIMPAN...' : 'SIMPAN PROFIL'}
-               </button>
-            </div>
+
           </div>
           </div>
               ) : (
@@ -1506,9 +1509,51 @@ const App: React.FC = () => {
 
               {editingProjectId ? (
                 <div className="space-y-4 pb-20">
-                  <button className="text-slate-500 hover:text-slate-800 flex items-center gap-1 font-bold text-[12px] uppercase bg-white px-3 py-2 rounded-sm border border-slate-200 shadow-sm" onClick={() => setEditingProjectId(null)}>
-                    <ArrowRight className="w-4 h-4 rotate-180" /> Kembali
-                  </button>
+                  <div className="flex flex-wrap items-center gap-2 bg-slate-50/50 p-2 rounded-md border border-slate-200">
+                    <button className="text-slate-500 hover:text-slate-800 flex items-center gap-1 font-bold text-[12px] uppercase bg-white px-3 py-2 rounded-sm border border-slate-200 shadow-sm" onClick={() => setEditingProjectId(null)}>
+                      <ArrowRight className="w-4 h-4 rotate-180" /> Kembali
+                    </button>
+                    
+                    <div className="h-6 w-px bg-slate-300 mx-1"></div>
+
+                    <button onClick={resetData} className="px-5 py-2 bg-[#d9534f] text-white rounded-md text-[13px] font-bold transition-all hover:bg-[#c9302c] shadow-sm uppercase">RISET</button>
+                    <button 
+                      disabled={isSaving}
+                      onClick={async () => {
+                       if (!data.companyName) return alert('Nama perseroan harus diisi');
+                       setIsSaving(true);
+                       
+                       let newProjects = [...projects];
+                       const newId = editingProjectId && editingProjectId !== 'new' ? editingProjectId : crypto.randomUUID();
+                       const profileData: CompanyProfile = {
+                           ...data,
+                           id: newId
+                       };
+                       
+                       if (!user) {
+                           setIsSaving(false);
+                           return alert('Anda harus login terlebih dahulu!');
+                       }
+                       const idx = newProjects.findIndex(p => p.id === editingProjectId);
+                       if (idx >= 0) {
+                           profileData.id = newProjects[idx].id;
+                       }
+                       
+                       try {
+                           await setDoc(doc(db, 'projects', profileData.id), sanitizeForFirestore(profileData));
+                           setEditingProjectId(null);
+                           alert('Proyek berhasil disimpan!');
+                       } catch (e) {
+                           handleFirestoreError(e, OperationType.WRITE, `projects/${profileData.id}`);
+                       } finally {
+                           setIsSaving(false);
+                       }
+                    }} className="px-5 py-2 bg-[#40bdae] text-white rounded-md text-[13px] font-bold transition-all hover:bg-[#349c8f] shadow-sm uppercase disabled:opacity-50 disabled:cursor-not-allowed">
+                      {isSaving ? 'MENYIMPAN...' : 'SIMPAN PROYEK'}
+                    </button>
+
+                    <button onClick={() => setIsPreviewOpen(true)} className="px-5 py-2 bg-[#5cb85c] text-white rounded-md text-[13px] font-bold transition-all hover:bg-[#449d44] shadow-sm uppercase">PREVIEW NOTULEN</button>
+                  </div>
                   
                   <div className="space-y-4">
                     {/* DATA PERSEROAN */}
@@ -2405,11 +2450,14 @@ const App: React.FC = () => {
                         <option value="">-- Pilih Pimpinan Rapat --</option>
                         {Array.from(new Set([
                           ...data.shareholders
-                            .filter(sh => sh.isManagement && (sh.managementPosition || '').toLowerCase().includes('direktur'))
+                            .filter(sh => sh.isManagement && /direksi|direktur|komisaris/i.test(sh.managementPosition || ''))
                             .map(sh => JSON.stringify({ name: sh.name, position: sh.managementPosition })),
                           ...data.oldManagementItems
-                            .filter(m => (m.position || '').toLowerCase().includes('direktur'))
-                            .map(m => JSON.stringify({ name: m.name, position: m.position }))
+                            .filter(m => /direksi|direktur|komisaris/i.test(m.position || ''))
+                            .map(m => JSON.stringify({ name: m.name, position: m.position })),
+                          ...data.shareholders
+                            .filter(sh => sh.isPresent && sh.isProxy && sh.proxyData?.name)
+                            .map(sh => JSON.stringify({ name: sh.proxyData!.name, position: 'Kuasa Pemegang Saham' }))
                         ])).map(str => JSON.parse(str)).map((m: any, idx: number) => (
                           <option key={idx} value={m.name}>{m.name} - {m.position}</option>
                         ))}
@@ -2901,46 +2949,7 @@ const App: React.FC = () => {
                </div>
             </AhuSection>
 
-            {/* Action Buttons */}
-            <div className="flex flex-wrap gap-2 py-8 pt-4 border-t border-slate-300">
-               <button onClick={resetData} className="px-5 py-2 bg-[#d9534f] text-white rounded-md text-[13px] font-bold transition-all hover:bg-[#c9302c] shadow-sm uppercase">RISET</button>
-                           <button 
-                 disabled={isSaving}
-                 onClick={async () => {
-                  if (!data.companyName) return alert('Nama perseroan harus diisi');
-                  setIsSaving(true);
-                  
-                  let newProjects = [...projects];
-                  const newId = editingProjectId && editingProjectId !== 'new' ? editingProjectId : crypto.randomUUID();
-                  const profileData: CompanyProfile = {
-                      ...data,
-                      id: newId
-                  };
-                  
-                  if (!user) {
-                      setIsSaving(false);
-                      return alert('Anda harus login terlebih dahulu!');
-                  }
-                  const idx = newProjects.findIndex(p => p.id === editingProjectId);
-                  if (idx >= 0) {
-                      profileData.id = newProjects[idx].id;
-                  }
-                  
-                  try {
-                      await setDoc(doc(db, 'projects', profileData.id), sanitizeForFirestore(profileData));
-                      setEditingProjectId(null);
-                      alert('Proyek berhasil disimpan!');
-                  } catch (e) {
-                      handleFirestoreError(e, OperationType.WRITE, `projects/${profileData.id}`);
-                  } finally {
-                      setIsSaving(false);
-                  }
-               }} className="px-5 py-2 bg-[#40bdae] text-white rounded-md text-[13px] font-bold transition-all hover:bg-[#349c8f] shadow-sm uppercase disabled:opacity-50 disabled:cursor-not-allowed">
-                 {isSaving ? 'MENYIMPAN...' : 'SIMPAN PROYEK'}
-               </button>
 
-               <button onClick={() => setIsPreviewOpen(true)} className="px-5 py-2 bg-[#5cb85c] text-white rounded-md text-[13px] font-bold transition-all hover:bg-[#449d44] shadow-sm uppercase">PREVIEW NOTULEN</button>
-            </div>
             
             {/* Added Previews section at the bottom of the project */}
             <div className="space-y-6 pb-12">

@@ -384,11 +384,12 @@ export const generateWordDoc = async (data: CompanyData) => {
       spacing: { before: 480, after: 240 },
       children: [new TextRun({ text: "II. KETUA RAPAT", bold: true, size: FONT_SIZE, font: FONT_FAMILY })],
     }));
+    const isProxyChair = data.shareholders.some(sh => sh.isPresent && sh.isProxy && sh.proxyData?.name === data.meetingChair);
     children.push(createBodyParagraph({
       children: [
         new TextRun({ text: "Berdasarkan ketentuan pasal 21 ayat (1) anggaran dasar perseroan, maka ", size: FONT_SIZE, font: FONT_FAMILY }),
         new TextRun({ text: (data.meetingChair || '................').toUpperCase(), bold: true, size: FONT_SIZE, font: FONT_FAMILY }),
-        new TextRun({ text: ", tersebut di atas, bertindak sebagai ketua rapat.", size: FONT_SIZE, font: FONT_FAMILY })
+        new TextRun({ text: `, ${isProxyChair ? 'kuasa ' : ''}tersebut di atas, bertindak sebagai ketua rapat.`, size: FONT_SIZE, font: FONT_FAMILY })
       ]
     }));
 

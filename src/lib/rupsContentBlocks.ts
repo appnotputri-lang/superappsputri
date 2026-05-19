@@ -439,16 +439,23 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
       ],
     });
 
+    const chairIsProxy = data.shareholders.some(sh => sh.isPresent && sh.isProxy && sh.proxyData?.name === data.meetingChair);
+    const chairPerson: any = data.shareholders.find(sh => sh.name === data.meetingChair || sh.proxyData?.name === data.meetingChair) || 
+                             data.oldManagementItems.find(m => m.name === data.meetingChair);
+    const chairSalutation = chairIsProxy ? (chairPerson?.proxyData?.salutation || "Tuan") : (chairPerson?.salutation || "Tuan");
+    const chairName = data.meetingChair || "...";
+    let chairPosition = chairIsProxy ? "kuasa" : `selaku ${toTitleCase(chairPerson?.managementPosition || chairPerson?.position || "Direktur")} perseroan,`;
+
     blocks.push({
       type: "list",
       bullet: "-",
       indentTabs: 0.5,
       runs: [
         {
-          text: `Berdasarkan ketentuan Pasal 21 ayat (1) Anggaran Dasar Perseroan, ${rep?.salutation || "Tuan"} `,
+          text: `Berdasarkan ketentuan Pasal 21 ayat (1) Anggaran Dasar Perseroan, ${chairSalutation} `,
         },
-        { text: (rep?.name || "...").toUpperCase(), bold: true },
-        { text: `, tersebut di atas, selaku ${toTitleCase(rep?.managementPosition || "Kuasa Direktur")} perseroan, bertindak sebagai Ketua Rapat.` },
+        { text: chairName.toUpperCase(), bold: true },
+        { text: `, ${chairIsProxy ? 'kuasa tersebut di atas, bertindak sebagai ketua rapat.' : `tersebut di atas, ${chairPosition} bertindak sebagai Ketua Rapat.`}` },
       ],
     });
   }
