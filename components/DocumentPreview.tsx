@@ -11,6 +11,7 @@ import {
   toTitleCase,
   formatAddress
 } from '../utils/formatters';
+import { formatFullAddressData } from '../src/lib/formatter';
 
 interface Props {
   data: CompanyData;
@@ -409,13 +410,18 @@ const DocumentPreview: React.FC<Props> = ({ data, showHeader = true, zoom = 1 })
           {(data.resolutions.domicile || data.resolutions.address) && (
             <>
               {renderResolutionTitle("Persetujuan Perubahan Kedudukan/Alamat Perseroan")}
-              <div style={{ textAlign: 'justify', paddingLeft: '0.3in', marginBottom: PARA_SPACING }}>
-                {data.resolutions.domicile ? (
-                  <>Menyetujui dan memutuskan untuk mengubah tempat kedudukan Perseroan, yang semula berkedudukan di {data.oldDomicile || data.domicile || data.oldAddress?.city || ".........."} menjadi berkedudukan di {data.newAddress?.city || "..........."}. </>
-                ) : (
-                  <>Menyetujui dan memutuskan untuk mengubah alamat lengkap Perseroan, yang semula beralamat di {data.oldAddress?.fullAddress || ".........."} menjadi beralamat di {data.newAddress?.fullAddress || "..........."}.</>
-                )}
-              </div>
+              
+              {data.resolutions.domicile && (
+                <div style={{ textAlign: 'justify', paddingLeft: '0.3in', marginBottom: PARA_SPACING }}>
+                  Menyetujui dan memutuskan untuk mengubah tempat kedudukan Perseroan, yang semula berkedudukan di {data.domicile || ".........."} menjadi berkedudukan di {data.newAddress?.city || "..........."}.
+                </div>
+              )}
+
+              {data.resolutions.address && (
+                <div style={{ textAlign: 'justify', paddingLeft: '0.3in', marginBottom: PARA_SPACING }}>
+                  Menyetujui dan memutuskan untuk mengubah alamat lengkap Perseroan, yang semula beralamat di {formatFullAddressData(data.oldAddress)} menjadi beralamat di {formatFullAddressData(data.newAddress)}.
+                </div>
+              )}
             </>
           )}
 

@@ -766,6 +766,8 @@ const App: React.FC = () => {
     if (activeSidebarTab === 'notulen' && data.selectedProfileId) {
       const profile = profiles.find(p => p.id === data.selectedProfileId);
       if (profile) {
+        // We want to keep the current state from profile as the "Old" data
+        // but allow the draft (data) to control the "New/Target" states
         return {
           ...data,
           companyName: profile.companyName,
@@ -774,14 +776,14 @@ const App: React.FC = () => {
           npwp: profile.npwp,
           duration: profile.duration,
           status: profile.status,
-          oldDomicile: profile.oldDomicile,
+          // Preserve current domicile and address info from profile
           domicile: profile.domicile,
           domicileStyle: profile.domicileStyle,
           oldAddress: profile.oldAddress,
-          newAddress: profile.newAddress,
+          // Do NOT override newAddress or fullAddress from profile if we are in a resolution
+          // but we might want the profile's address as a starting point for 'oldFullAddress'
           oldFullAddress: profile.oldFullAddress,
-          fullAddress: profile.fullAddress,
-          kbliItems: profile.kbliItems,
+          
           establishmentDeedNumber: profile.establishmentDeedNumber,
           establishmentDeedDate: profile.establishmentDeedDate,
           establishmentNotary: profile.establishmentNotary,
@@ -1589,8 +1591,26 @@ const App: React.FC = () => {
                   onChange={(e) => {
                      const selected = profiles.find(p => p.id === e.target.value);
                      if (selected) {
-                         const {id, ...rest} = selected; // Merge without overriding project ID
-                         updateData({ ...rest, selectedProfileId: selected.id } as any);
+                         const { 
+                           id, 
+                           newAddress, 
+                           fullAddress, 
+                           oldFullAddress, 
+                           oldAddress, 
+                           oldDomicile,
+                           kbliItems,
+                           resolutions,
+                           targetCapitalBase,
+                           targetCapitalPaid,
+                           targetCompanyName,
+                           targetShareholders,
+                           newManagementItems,
+                           ...rest 
+                         } = selected; // Exclude resolution target fields
+                         updateData({ 
+                           ...rest, 
+                           selectedProfileId: selected.id 
+                         } as any);
                      } else {
                          updateData({ selectedProfileId: '' });
                      }
@@ -2512,7 +2532,7 @@ const App: React.FC = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <AhuLabel label="Kedudukan Lama" />
-                        <AhuInput value={data.domicile || ''} readOnly className="bg-slate-100 font-bold" />
+                        <AhuInput value={mergedData.domicile || ''} readOnly className="bg-slate-100 font-bold" />
                       </div>
                       <div className="md:col-span-1">
                         <AhuLabel label="Alamat Lama" />

@@ -1,3 +1,21 @@
+import { Address } from '../../types';
+
+export const formatFullAddressData = (addr?: Address): string => {
+  if (!addr || !addr.fullAddress) return "................";
+  const isRegency = addr.city?.toLowerCase().includes("kabupaten");
+  const villagePrefix = isRegency ? "Desa" : "Kelurahan";
+
+  const parts = [
+    addr.fullAddress,
+    addr.rt && addr.rw ? `Rukun Tetangga ${addr.rt}, Rukun Warga ${addr.rw}` : "",
+    addr.kelurahan ? `${villagePrefix} ${toTitleCase(addr.kelurahan)}` : "",
+    addr.kecamatan ? `Kecamatan ${toTitleCase(addr.kecamatan)}` : "",
+    addr.city ? toTitleCase(addr.city) : "",
+    addr.province ? toTitleCase(addr.province) : ""
+  ].filter(Boolean);
+  return parts.join(", ");
+};
+
 export function terbilang(angka: number): string {
   if (angka === 0) return "nol";
   

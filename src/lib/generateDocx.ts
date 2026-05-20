@@ -1,5 +1,6 @@
 import { Document, Packer, Paragraph, TextRun, Tab } from "docx";
 import { CompanyData, Shareholder, Address, ManagementItem } from "../../types";
+import { formatFullAddressData } from "./formatter";
 import {
   formatCurrency,
   formatInputNumber,
@@ -864,16 +865,23 @@ export const generateWordDoc = async (data: CompanyData) => {
   }
 
   if (data.resolutions.domicile || data.resolutions.address) {
-    const domicileText = data.resolutions.domicile
-      ? `Menyetujui dan memutuskan untuk mengubah tempat kedudukan Perseroan, yang semula berkedudukan di ${data.domicile || ".........."} menjadi berkedudukan di ${data.newAddress?.city || ".........."}.`
-      : `Menyetujui dan memutuskan untuk mengubah alamat lengkap Perseroan, yang semula beralamat di ${data.oldAddress.fullAddress || ".........."} menjadi beralamat di ${data.newAddress.fullAddress}.`;
-
-    addResolution("Persetujuan Perubahan Kedudukan/Alamat Perseroan", [
-      createBodyParagraph({
+    const resParas = [];
+    
+    if (data.resolutions.domicile) {
+      resParas.push(createBodyParagraph({
         indent: { left: INDENT_STEP },
-        text: domicileText,
-      }),
-    ]);
+        text: `Menyetujui dan memutuskan untuk mengubah tempat kedudukan Perseroan, yang semula berkedudukan di ${data.domicile || ".........."} menjadi berkedudukan di ${data.newAddress?.city || ".........."}.`,
+      }));
+    }
+    
+    if (data.resolutions.address) {
+      resParas.push(createBodyParagraph({
+        indent: { left: INDENT_STEP },
+        text: `Menyetujui dan memutuskan untuk mengubah alamat lengkap Perseroan, yang semula beralamat di ${formatFullAddressData(data.oldAddress)} menjadi beralamat di ${formatFullAddressData(data.newAddress)}.`,
+      }));
+    }
+
+    addResolution("Persetujuan Perubahan Kedudukan/Alamat Perseroan", resParas);
   }
 
   if (data.resolutions.kbli) {

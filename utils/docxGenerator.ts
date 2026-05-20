@@ -1,5 +1,6 @@
 import { Document, Packer, Paragraph, TextRun } from "docx";
 import { CompanyData, Shareholder, Address, ManagementItem } from "../types";
+import { formatFullAddressData } from "../src/lib/formatter";
 import {
   formatCurrency,
   formatInputNumber,
@@ -627,12 +628,23 @@ export const generateWordDoc = async (data: CompanyData) => {
 
   // Perubahan Kedudukan/Alamat
   if (data.resolutions.domicile || data.resolutions.address) {
-    const domicileText = data.resolutions.domicile
-      ? `Menyetujui dan memutuskan untuk mengubah tempat kedudukan Perseroan, yang semula berkedudukan di ${data.oldDomicile || data.domicile || data.oldAddress?.city || ".........."} menjadi berkedudukan di ${data.newAddress?.city || ".........."}. `
-      : `Menyetujui dan memutuskan untuk mengubah alamat lengkap Perseroan, yang semula beralamat di ${data.oldAddress.fullAddress || ".........."} menjadi beralamat di ${data.newAddress.fullAddress}.`;
-    addRes("Persetujuan Perubahan Kedudukan/Alamat Perseroan", [
-      bodyP({ indent: { left: 426 }, text: domicileText }),
-    ]);
+    const resBlocks = [];
+    
+    if (data.resolutions.domicile) {
+      resBlocks.push(bodyP({ 
+        indent: { left: 426 }, 
+        text: `Menyetujui dan memutuskan untuk mengubah tempat kedudukan Perseroan, yang semula berkedudukan di ${data.domicile || ".........."} menjadi berkedudukan di ${data.newAddress?.city || ".........."}.` 
+      }));
+    }
+    
+    if (data.resolutions.address) {
+      resBlocks.push(bodyP({ 
+        indent: { left: 426 }, 
+        text: `Menyetujui dan memutuskan untuk mengubah alamat lengkap Perseroan, yang semula beralamat di ${formatFullAddressData(data.oldAddress)} menjadi beralamat di ${formatFullAddressData(data.newAddress)}.` 
+      }));
+    }
+
+    addRes("Persetujuan Perubahan Kedudukan/Alamat Perseroan", resBlocks);
   }
 
   // KBLI

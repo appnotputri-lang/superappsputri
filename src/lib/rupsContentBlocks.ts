@@ -10,6 +10,7 @@ import {
   toTitleCase,
   formatNumber,
   formatAddress,
+  formatFullAddressData,
 } from "./formatter";
 
 export type Block =
@@ -703,7 +704,9 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
     const isDomicile = data.resolutions.domicile;
 
     const newName = (data.targetCompanyName || data.companyName).toUpperCase();
-    const areaNew = data.newAddress?.city || data.domicile || "...";
+    const areaNew = data.resolutions.domicile 
+      ? (data.newAddress?.city || "..........") 
+      : (data.domicile || "..........");
 
     let subject = "Nama dan Tempat Kedudukan Perseroan";
     if (isName && !isDomicile) subject = "Nama Perseroan";
@@ -739,7 +742,24 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
     });
   }
 
-  // Address Change
+  // Domicile Change Resolution (if not just Pasal 1 update)
+  if (data.resolutions.domicile) {
+    blocks.push({
+      type: "p",
+      number: resIdx++,
+      runs: [
+        {
+          text: `Menyetujui dan memutuskan untuk mengubah tempat kedudukan Perseroan, yang semula berkedudukan di `,
+        },
+        { text: toTitleCase(data.domicile || "..."), bold: true },
+        { text: ` menjadi berkedudukan di ` },
+        { text: toTitleCase(data.newAddress?.city || "..."), bold: true },
+        { text: `.` },
+      ],
+    });
+  }
+
+  // Address Change Resolution
   if (data.resolutions.address) {
     blocks.push({
       type: "p",
@@ -748,9 +768,9 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
         {
           text: `Menyetujui dan memutuskan untuk mengubah alamat lengkap Perseroan, yang semula beralamat di `,
         },
-        { text: formatAddress(data.oldFullAddress || "..."), bold: true },
+        { text: formatAddress(formatFullAddressData(data.oldAddress)), bold: true },
         { text: ` menjadi beralamat di ` },
-        { text: formatAddress(data.fullAddress || "..."), bold: true },
+        { text: formatAddress(formatFullAddressData(data.newAddress)), bold: true },
         { text: `.` },
       ],
     });
