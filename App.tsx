@@ -1559,7 +1559,7 @@ const App: React.FC = () => {
                       {isSaving ? 'MENYIMPAN...' : 'SIMPAN PROYEK'}
                     </button>
 
-                    <button onClick={() => setIsPreviewOpen(true)} className="px-5 py-2 bg-[#5cb85c] text-white rounded-md text-[13px] font-bold transition-all hover:bg-[#449d44] shadow-sm uppercase">PREVIEW NOTULEN</button>
+                    <button onClick={() => setIsPreviewOpen(true)} className="hidden md:inline-block px-5 py-2 bg-[#5cb85c] text-white rounded-md text-[13px] font-bold transition-all hover:bg-[#449d44] shadow-sm uppercase">PREVIEW NOTULEN</button>
                     {mergedData.createDraftAktaRups && (
                       <button 
                         onClick={async () => {
@@ -1571,7 +1571,7 @@ const App: React.FC = () => {
                             alert('Gagal menghasilkan Draft Akta DOCX.');
                           }
                         }}
-                        className="px-5 py-2 bg-[#3b5998] text-white rounded-md text-[13px] font-bold transition-all hover:bg-[#2c4073] shadow-sm uppercase flex items-center gap-2"
+                        className="hidden md:flex px-5 py-2 bg-[#3b5998] text-white rounded-md text-[13px] font-bold transition-all hover:bg-[#2c4073] shadow-sm uppercase items-center gap-2"
                       >
                          <FileCode className="w-4 h-4" /> DRAFT AKTA DOCX
                       </button>
@@ -3061,15 +3061,7 @@ const App: React.FC = () => {
         </main>
       </div>
 
-      {/* Floating Action Buttons for AHU Mobile Feel */}
-      <div className="fixed bottom-6 right-6 lg:hidden flex flex-col gap-3 z-40">
-        <button onClick={() => setIsPreviewOpen(true)} className="w-12 h-12 bg-[#3b5998] text-white rounded-full shadow-xl flex items-center justify-center hover:scale-110 active:scale-95 transition-all">
-          <Eye className="w-6 h-6" />
-        </button>
-        <button onClick={handleExportWord} className="w-12 h-12 bg-emerald-600 text-white rounded-full shadow-xl flex items-center justify-center hover:scale-110 active:scale-95 transition-all">
-          <FileCode className="w-6 h-6" />
-        </button>
-      </div>
+      {/* Floating Action Buttons removed as per request */}
 
       {/* Proxy Input Modal */}
       {proxyModalOpenId && (() => {
