@@ -155,6 +155,7 @@ export interface CompanyData {
   status?: string;
 
   oldDomicile: string;
+  kedudukanPT?: string;
   domicile: string;
   domicileStyle?: 'KABUPATEN' | 'KOTA';
   oldAddress: Address;

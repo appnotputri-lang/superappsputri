@@ -514,9 +514,9 @@ const App: React.FC = () => {
     }
 
     if (key === 'domicile' && newVal) {
-      if (!data.oldDomicile) updates.oldDomicile = data.newAddress.city;
+      if (!data.oldDomicile) updates.oldDomicile = data.domicile;
       if (!data.oldAddress.city) {
-        updates.oldAddress = { ...data.newAddress };
+        updates.oldAddress = { ...data.oldAddress, city: data.domicile };
       }
       setActiveTab('domicile');
     } else if (key === 'address' && newVal) {
@@ -775,8 +775,13 @@ const App: React.FC = () => {
           duration: profile.duration,
           status: profile.status,
           oldDomicile: profile.oldDomicile,
+          domicile: profile.domicile,
+          domicileStyle: profile.domicileStyle,
           oldAddress: profile.oldAddress,
+          newAddress: profile.newAddress,
           oldFullAddress: profile.oldFullAddress,
+          fullAddress: profile.fullAddress,
+          kbliItems: profile.kbliItems,
           establishmentDeedNumber: profile.establishmentDeedNumber,
           establishmentDeedDate: profile.establishmentDeedDate,
           establishmentNotary: profile.establishmentNotary,
@@ -967,8 +972,8 @@ const App: React.FC = () => {
                     <div className="flex-1">
                       <DomicileSelector 
                         label="Pilih Kota/Kabupaten"
-                        value={data.newAddress?.city || ''}
-                        onChange={(val) => updateAddress('newAddress', { city: val })}
+                        value={data.domicile || ''}
+                        onChange={(val) => updateData({ domicile: val })}
                       />
                     </div>
                     <AhuSelect 
@@ -1553,6 +1558,22 @@ const App: React.FC = () => {
                     </button>
 
                     <button onClick={() => setIsPreviewOpen(true)} className="px-5 py-2 bg-[#5cb85c] text-white rounded-md text-[13px] font-bold transition-all hover:bg-[#449d44] shadow-sm uppercase">PREVIEW NOTULEN</button>
+                    {mergedData.createDraftAktaRups && (
+                      <button 
+                        onClick={async () => {
+                          try {
+                            const { generateRUPSDocx } = await import('./src/lib/generateRUPSDocx');
+                            await generateRUPSDocx(mergedData);
+                          } catch (err) {
+                            console.error('Failed to generate Draft Akta DOCX:', err);
+                            alert('Gagal menghasilkan Draft Akta DOCX.');
+                          }
+                        }}
+                        className="px-5 py-2 bg-[#3b5998] text-white rounded-md text-[13px] font-bold transition-all hover:bg-[#2c4073] shadow-sm uppercase flex items-center gap-2"
+                      >
+                         <FileCode className="w-4 h-4" /> DRAFT AKTA DOCX
+                      </button>
+                    )}
                   </div>
                   
                   <div className="space-y-4">
@@ -1597,8 +1618,8 @@ const App: React.FC = () => {
                     <div className="flex-1">
                       <DomicileSelector 
                         label="Pilih Kota/Kabupaten"
-                        value={data.newAddress?.city || ''}
-                        onChange={(val) => updateAddress('newAddress', { city: val })}
+                        value={data.domicile || ''}
+                        onChange={(val) => updateData({ domicile: val })}
                       />
                     </div>
                     <AhuSelect 
@@ -2117,6 +2138,35 @@ const App: React.FC = () => {
                   </div>
                 </div>
 
+                {data.documentType === 'MINUTES' && (
+                  <>
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                      <AhuLabel label="Nomor Surat Undangan" />
+                      <div className="md:col-span-3">
+                        <AhuInput value={data.invitationNumber || ''} onChange={e => updateData({ invitationNumber: e.target.value })} placeholder="Nomor surat undangan..." />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                      <AhuLabel label="Tanggal Surat Undangan" />
+                      <div className="md:col-span-3">
+                        <AhuInput type="date" value={data.invitationDate || ''} onChange={e => updateData({ invitationDate: e.target.value })} />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                      <AhuLabel label="Tempat Rapat" />
+                      <div className="md:col-span-3">
+                        <AhuInput value={data.signingPlace || ''} onChange={e => updateData({ signingPlace: e.target.value })} placeholder="Contoh: Jakarta" />
+                      </div>
+                    </div>
+                  </>
+                )}
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                  <AhuLabel label="Tanggal Rapat / Penandatanganan" />
+                  <div className="md:col-span-3">
+                    <AhuInput type="date" value={data.signingDate || ''} onChange={e => updateData({ signingDate: e.target.value })} />
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
                   <AhuLabel label="Waktu Akta (PKR)" />
                   <div className="md:col-span-3">
@@ -2130,29 +2180,31 @@ const App: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
-                  <AhuLabel label="Waktu Rapat" />
-                  <div className="md:col-span-3">
-                    <div className="flex gap-4 items-center">
-                      <div className="flex-1">
-                        <AhuInput 
-                          type="time" 
-                          value={data.meetingStartTime || ''} 
-                          onChange={e => updateData({ meetingStartTime: e.target.value })} 
-                        />
-                        <div className="text-[10px] text-slate-400 mt-1">MULAI</div>
-                      </div>
-                      <div className="flex-1">
-                        <AhuInput 
-                          type="time" 
-                          value={data.meetingEndTime || ''} 
-                          onChange={e => updateData({ meetingEndTime: e.target.value })} 
-                        />
-                        <div className="text-[10px] text-slate-400 mt-1">SELESAI</div>
+                {data.documentType === 'MINUTES' && (
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                    <AhuLabel label="Waktu Rapat" />
+                    <div className="md:col-span-3">
+                      <div className="flex gap-4 items-center">
+                        <div className="flex-1">
+                          <AhuInput 
+                            type="time" 
+                            value={data.meetingStartTime || ''} 
+                            onChange={e => updateData({ meetingStartTime: e.target.value })} 
+                          />
+                          <div className="text-[10px] text-slate-400 mt-1">MULAI</div>
+                        </div>
+                        <div className="flex-1">
+                          <AhuInput 
+                            type="time" 
+                            value={data.meetingEndTime || ''} 
+                            onChange={e => updateData({ meetingEndTime: e.target.value })} 
+                          />
+                          <div className="text-[10px] text-slate-400 mt-1">SELESAI</div>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
+                )}
 
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-start mt-4 pt-4 border-t border-slate-200">
                   <AhuLabel label="Opsi Draft Akta" />
@@ -2411,39 +2463,6 @@ const App: React.FC = () => {
               <AhuSection title="DETAIL RAPAT">
                 <div className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
-                    <AhuLabel label="Tempat Rapat" />
-                    <div className="md:col-span-3">
-                      <AhuInput value={data.signingPlace || ''} onChange={e => updateData({ signingPlace: e.target.value })} placeholder="Contoh: Jakarta" />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
-                    <AhuLabel label="Tanggal Rapat" />
-                    <div className="md:col-span-3">
-                      <AhuInput type="date" value={data.signingDate || ''} onChange={e => updateData({ signingDate: e.target.value })} />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
-                    <AhuLabel label="Nomor Surat Undangan" />
-                    <div className="md:col-span-3">
-                      <AhuInput value={data.invitationNumber || ''} onChange={e => updateData({ invitationNumber: e.target.value })} placeholder="Nomor surat undangan..." />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
-                    <AhuLabel label="Tanggal Surat Undangan" />
-                    <div className="md:col-span-3">
-                      <AhuInput type="date" value={data.invitationDate || ''} onChange={e => updateData({ invitationDate: e.target.value })} />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
-                    <AhuLabel label="Waktu Rapat" />
-                    <div className="md:col-span-3 flex items-center gap-2">
-                      <AhuInput type="time" value={data.meetingStartTime || ''} onChange={e => updateData({ meetingStartTime: e.target.value })} className="w-32" />
-                      <span className="text-sm font-bold text-slate-500">s/d</span>
-                      <AhuInput type="time" value={data.meetingEndTime || ''} onChange={e => updateData({ meetingEndTime: e.target.value })} className="w-32" />
-                      <span className="text-sm font-bold text-slate-500">WIB</span>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
                     <AhuLabel label="Pimpinan Rapat" />
                     <div className="md:col-span-3">
                       <AhuSelect value={data.meetingChair || ''} onChange={e => updateData({ meetingChair: e.target.value })}>
@@ -2493,7 +2512,7 @@ const App: React.FC = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <AhuLabel label="Kedudukan Lama" />
-                        <AhuInput value={data.oldAddress?.city || data.newAddress?.city || ''} readOnly className="bg-slate-100 font-bold" />
+                        <AhuInput value={data.domicile || ''} readOnly className="bg-slate-100 font-bold" />
                       </div>
                       <div className="md:col-span-1">
                         <AhuLabel label="Alamat Lama" />
@@ -2954,13 +2973,13 @@ const App: React.FC = () => {
             {/* Added Previews section at the bottom of the project */}
             <div className="space-y-6 pb-12">
                {mergedData.createDraftAktaRups && (
-                 <AhuSection title="DRAFT AKTA RUPS">
+                 <AhuSection title="DRAFT AKTA RUPS" isOpen={false}>
                    <DraftAktaRUPS companyData={mergedData} />
                  </AhuSection>
                )}
 
                {mergedData.resolutions.shareholders && (
-                 <AhuSection title="DRAFT AKTA PERALIHAN SAHAM (JUAL BELI / HIBAH)">
+                 <AhuSection title="DRAFT AKTA PERALIHAN SAHAM (JUAL BELI / HIBAH)" isOpen={false}>
                    <div className="space-y-4">
                       <p className="text-[13px] text-slate-600 mb-4 font-normal">Terdapat agenda <strong>Peralihan Saham</strong>. Anda dapat melihat dan mengunduh Akta Peralihan di bawah ini.</p>
                       <DraftAktaApp companyData={mergedData} />

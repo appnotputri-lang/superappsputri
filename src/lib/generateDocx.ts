@@ -255,9 +255,7 @@ export const generateWordDoc = async (data: CompanyData) => {
     );
   } else {
     // Circular starts with preamble
-    const preambleDomicile = data.resolutions.domicile
-      ? data.oldAddress?.city || data.oldDomicile || "................"
-      : data.newAddress?.city || data.domicile || "................";
+    const preambleDomicile = data.domicile || "................";
 
     children.push(
       createBodyParagraph({
@@ -867,7 +865,7 @@ export const generateWordDoc = async (data: CompanyData) => {
 
   if (data.resolutions.domicile || data.resolutions.address) {
     const domicileText = data.resolutions.domicile
-      ? `Menyetujui dan memutuskan untuk mengubah tempat kedudukan Perseroan, yang semula berkedudukan di ${data.oldAddress.city || ".........."} menjadi berkedudukan di ${data.newAddress.city || ".........."}.`
+      ? `Menyetujui dan memutuskan untuk mengubah tempat kedudukan Perseroan, yang semula berkedudukan di ${data.domicile || ".........."} menjadi berkedudukan di ${data.newAddress?.city || ".........."}.`
       : `Menyetujui dan memutuskan untuk mengubah alamat lengkap Perseroan, yang semula beralamat di ${data.oldAddress.fullAddress || ".........."} menjadi beralamat di ${data.newAddress.fullAddress}.`;
 
     addResolution("Persetujuan Perubahan Kedudukan/Alamat Perseroan", [
