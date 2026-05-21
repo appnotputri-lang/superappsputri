@@ -29,13 +29,15 @@ const WrappedText = ({ runs, isList = false, indent = false, indentTabs = 0, ali
   return (
     <>
       {lines.map((line, i) => (
-        <div key={i} className={`flex relative w-full overflow-hidden leading-[1.5]`} style={{ textAlign: align as any, paddingLeft, marginLeft }}>
-           <span className="whitespace-pre-wrap shrink-0">
+        <div key={i} className={`flex relative w-full overflow-hidden leading-[2]`} style={{ textAlign: align as any, justifyContent: (align === 'center' || marginLeft === '50%') ? 'center' : 'flex-start', paddingLeft, marginLeft }}>
+           <span className="whitespace-pre-wrap shrink-0 flex">
              {line.map((t, j) => t.bold ? <strong key={j}>{t.text}</strong> : <span key={j}>{t.text}</span>)}
            </span>
-           <span className="flex-1 overflow-hidden select-none whitespace-nowrap opacity-60" style={{ letterSpacing: '0.5px' }}>
-             &nbsp;{Array(150).fill('-').join('')}
-           </span>
+           {align !== 'center' && marginLeft !== '50%' && (
+             <span className="flex-1 overflow-hidden select-none whitespace-nowrap opacity-60" style={{ letterSpacing: '0.5px' }}>
+               &nbsp;{Array(150).fill('-').join('')}
+             </span>
+           )}
         </div>
       ))}
     </>
@@ -109,24 +111,25 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({ data }) => {
                  <span className="w-6 shrink-0 whitespace-nowrap">{block.number}.</span>
                )}
                <div 
-                 className={`flex relative w-full overflow-hidden leading-[1.5] ${block.number && align !== 'right-center' && lIdx > 0 ? 'pl-6' : ''}`} 
+                 className={`flex relative w-full overflow-hidden leading-[2] ${block.number && align !== 'right-center' && lIdx > 0 ? 'pl-6' : ''}`} 
                  style={{ 
-                   textAlign: (align === 'right-center' ? 'center' : align) as any, 
+                   textAlign: (align === 'right-center' ? 'center' : align) as any, justifyContent: (align === 'center' || align === 'right-center') ? 'center' : 'flex-start', 
                    marginLeft 
                  }}
                >
                   <span className="whitespace-pre-wrap shrink-0">
                     {line.map((t, j) => t.bold ? <strong key={j}>{t.text}</strong> : <span key={j}>{t.text}</span>)}
                   </span>
-                  <span className="flex-1 overflow-hidden select-none whitespace-nowrap opacity-60" style={{ letterSpacing: '0.5px' }}>
+                  {align !== 'center' && align !== 'right-center' && <span className="flex-1 overflow-hidden select-none whitespace-nowrap opacity-60" style={{ letterSpacing: '0.5px' }}>
                     &nbsp;{Array(150).fill('-').join('')}
-                  </span>
+                   </span>}
                </div>
             </div>
           )
         });
       });
     } else if (block.type === 'list') {
+      const align: string = 'left';
       const runs = block.runs;
       const indentTabs = block.indentTabs || 0;
       const maxLine = 41.5 - (1.1 + (indentTabs * 2.2));
@@ -140,13 +143,13 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({ data }) => {
             <div key={`l-${bIdx}-${lIdx}`} className="flex relative items-start" style={{ paddingLeft: `${bulletLeft}cm` }}>
               <span className="shrink-0 whitespace-nowrap" style={{ width: '0.75cm' }}>{lIdx === 0 ? block.bullet : ""}</span>
               <div className="flex-1 min-w-0">
-                <div className="flex relative w-full overflow-hidden leading-[1.5]">
+                <div className="flex relative w-full overflow-hidden leading-[2]">
                   <span className="whitespace-pre-wrap shrink-0">
                     {line.map((t, j) => t.bold ? <strong key={j}>{t.text}</strong> : <span key={j}>{t.text}</span>)}
                   </span>
-                  <span className="flex-1 overflow-hidden select-none whitespace-nowrap opacity-60" style={{ letterSpacing: '0.5px' }}>
+                  {align !== 'center' && align !== 'right-center' && <span className="flex-1 overflow-hidden select-none whitespace-nowrap opacity-60" style={{ letterSpacing: '0.5px' }}>
                     &nbsp;{Array(150).fill('-').join('')}
-                  </span>
+                   </span>}
                 </div>
               </div>
             </div>
@@ -251,7 +254,7 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({ data }) => {
               style={{
                 fontFamily: "'Century Gothic', 'Tw Cen MT', 'Arial', sans-serif",
                 fontSize: '10pt',
-                lineHeight: '1.5',
+                lineHeight: '2',
                 textAlign: 'left'
               }}
             >

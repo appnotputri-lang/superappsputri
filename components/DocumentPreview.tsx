@@ -107,7 +107,7 @@ const DocumentPreview: React.FC<Props> = ({ data, showHeader = true, zoom = 1 })
   const totalValue = presentShares * (data.originalSharePrice || 0);
 
   const PARA_SPACING = '6pt';
-  const LINE_HEIGHT = '1.15';
+  const LINE_HEIGHT = '2';
 
   // State / Index for Resolutions numbering
   let resolutionIdx = 1;
@@ -419,7 +419,7 @@ const DocumentPreview: React.FC<Props> = ({ data, showHeader = true, zoom = 1 })
 
               {data.resolutions.address && (
                 <div style={{ textAlign: 'justify', paddingLeft: '0.3in', marginBottom: PARA_SPACING }}>
-                  Menyetujui dan memutuskan untuk mengubah alamat lengkap Perseroan, yang semula beralamat di {formatFullAddressData(data.oldAddress)} menjadi beralamat di {formatFullAddressData(data.newAddress)}.
+                  Menyetujui dan memutuskan untuk mengubah alamat lengkap Perseroan, yang semula beralamat di {formatFullAddressData(data.oldAddress, data.domicile)} menjadi beralamat di {formatFullAddressData(data.newAddress)}.
                 </div>
               )}
             </>

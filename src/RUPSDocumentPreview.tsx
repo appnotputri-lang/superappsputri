@@ -56,7 +56,7 @@ export const RUPSDocumentPreview: React.FC<RUPSDocumentPreviewProps> = ({ data }
                 <span className="w-6 shrink-0 whitespace-nowrap">{block.number}.</span>
               )}
               <div 
-                className={`flex relative w-full overflow-hidden leading-[1.5] ${block.number && align !== 'center' && lIdx > 0 ? 'pl-6' : ''}`} 
+                className={`flex relative w-full overflow-hidden leading-[2] ${block.number && align !== 'center' && lIdx > 0 ? 'pl-6' : ''}`} 
                 style={{ 
                   textAlign: (align === 'right-center' ? 'center' : align) as any, 
                   marginLeft, 
@@ -66,17 +66,18 @@ export const RUPSDocumentPreview: React.FC<RUPSDocumentPreviewProps> = ({ data }
                  <span className="whitespace-pre-wrap shrink-0">
                    {line.map((t, j) => t.bold ? <strong key={j}>{t.text}</strong> : <span key={j}>{t.text}</span>)}
                  </span>
-                 {align !== 'center' && (
-                   <span className="flex-1 overflow-hidden select-none whitespace-nowrap opacity-60" style={{ letterSpacing: '0.5px' }}>
-                     &nbsp;{Array(200).fill('-').join('')}
-                   </span>
-                 )}
+                  {align !== 'center' && (
+                    <span className="flex-1 overflow-hidden select-none whitespace-nowrap opacity-60" style={{ letterSpacing: '0.5px' }}>
+                      &nbsp;{Array(200).fill('-').join('')}
+                    </span>
+                  )}
               </div>
             </div>
           )
         });
       });
     } else if (block.type === 'list') {
+      const align: string = 'left';
       const runs = block.runs;
       const indentTabs = block.indentTabs || 0;
       const maxLine = 41.5 - (1.1 + (indentTabs * 2.2));
@@ -92,13 +93,13 @@ export const RUPSDocumentPreview: React.FC<RUPSDocumentPreviewProps> = ({ data }
             <div key={`l-${bIdx}-${lIdx}`} className="flex relative items-start" style={{ paddingLeft: `${bulletLeft}cm` }}>
               <span className="shrink-0 whitespace-nowrap" style={{ width: '0.75cm' }}>{lIdx === 0 ? block.bullet : ""}</span>
               <div className="flex-1 min-w-0">
-                <div className="flex relative w-full overflow-hidden leading-[1.5]">
+                <div className="flex relative w-full overflow-hidden leading-[2]">
                   <span className="whitespace-pre-wrap shrink-0">
                     {line.map((t, j) => t.bold ? <strong key={j}>{t.text}</strong> : <span key={j}>{t.text}</span>)}
                   </span>
-                  <span className="flex-1 overflow-hidden select-none whitespace-nowrap opacity-60" style={{ letterSpacing: '0.5px' }}>
+                  {align !== 'center' && align !== 'right-center' && <span className="flex-1 overflow-hidden select-none whitespace-nowrap opacity-60" style={{ letterSpacing: '0.5px' }}>
                     &nbsp;{Array(200).fill('-').join('')}
-                  </span>
+                  </span>}
                 </div>
               </div>
             </div>
@@ -106,6 +107,7 @@ export const RUPSDocumentPreview: React.FC<RUPSDocumentPreviewProps> = ({ data }
         });
       });
     } else if (block.type === 'shareholder-list') {
+      const align: string = 'left';
       const combinedText = `${block.sharesText} ${block.rpText}`;
       const tokens: FormatToken[] = [{ text: combinedText }];
       const lines = parseTextRuns(tokens, 28);
@@ -117,13 +119,13 @@ export const RUPSDocumentPreview: React.FC<RUPSDocumentPreviewProps> = ({ data }
                <span className="w-[0.75cm] shrink-0 whitespace-nowrap ml-[0.75cm]">{lIdx === 0 ? block.bullet : ""}</span>
                <span className="w-[3.43cm] shrink-0 whitespace-nowrap">{lIdx === 0 ? block.name : ""}</span>
                <div className="flex-1 min-w-0">
-                 <div className="flex relative w-full overflow-hidden leading-[1.5]">
+                 <div className="flex relative w-full overflow-hidden leading-[2]">
                    <span className="whitespace-pre-wrap shrink-0">
                      {line.map((t, j) => t.bold ? <strong key={j}>{t.text}</strong> : <span key={j}>{t.text}</span>)}
                    </span>
-                   <span className="flex-1 overflow-hidden select-none whitespace-nowrap opacity-60" style={{ letterSpacing: '0.5px' }}>
+                   {align !== 'center' && align !== 'right-center' && <span className="flex-1 overflow-hidden select-none whitespace-nowrap opacity-60" style={{ letterSpacing: '0.5px' }}>
                      &nbsp;{Array(200).fill('-').join('')}
-                   </span>
+                   </span>}
                  </div>
                </div>
              </div>
@@ -131,6 +133,7 @@ export const RUPSDocumentPreview: React.FC<RUPSDocumentPreviewProps> = ({ data }
         });
       });
     } else if (block.type === 'management-list') {
+      const align: string = 'left';
       const tokens: FormatToken[] = [{ text: `: ${block.name};` }];
       const lines = parseTextRuns(tokens, 28);
       
@@ -140,13 +143,13 @@ export const RUPSDocumentPreview: React.FC<RUPSDocumentPreviewProps> = ({ data }
              <div key={`ml-${bIdx}-${lIdx}`} className="flex relative items-start gap-1">
                <span className="w-[5cm] shrink-0 whitespace-nowrap">{lIdx === 0 ? block.position : ""}</span>
                <div className="flex-1 min-w-0">
-                 <div className="flex relative w-full overflow-hidden leading-[1.5]">
+                 <div className="flex relative w-full overflow-hidden leading-[2]">
                    <span className="whitespace-pre-wrap shrink-0">
                      {line.map((t, j) => t.bold ? <strong key={j}>{t.text}</strong> : <span key={j}>{t.text}</span>)}
                    </span>
-                   <span className="flex-1 overflow-hidden select-none whitespace-nowrap opacity-60" style={{ letterSpacing: '0.5px' }}>
+                   {align !== 'center' && align !== 'right-center' && <span className="flex-1 overflow-hidden select-none whitespace-nowrap opacity-60" style={{ letterSpacing: '0.5px' }}>
                      &nbsp;{Array(200).fill('-').join('')}
-                   </span>
+                   </span>}
                  </div>
                </div>
              </div>
@@ -215,7 +218,7 @@ export const RUPSDocumentPreview: React.FC<RUPSDocumentPreviewProps> = ({ data }
             style={{
               fontFamily: "'Century Gothic', 'Tw Cen MT', 'Arial', sans-serif",
               fontSize: '10pt',
-              lineHeight: '1.5',
+              lineHeight: '2',
               textAlign: 'left'
             }}
           >

@@ -263,7 +263,8 @@ const generatePermohonan = async (data: FormData) => {
   });
 
   const blob = await Packer.toBlob(doc);
-  saveAs(blob, `Permohonan_AHU_${namaPt.replace(/\s+/g, '_')}.docx`);
+  const safeName = namaPt ? namaPt.replace(/PT\.?\s*/i, "").trim() : "Draft";
+  saveAs(blob, `Permohonan AHU PT ${safeName}.docx`);
 };
 
 const generateKuasa = async (data: FormData) => {
@@ -379,7 +380,8 @@ const generateKuasa = async (data: FormData) => {
   });
 
   const blob = await Packer.toBlob(doc);
-  saveAs(blob, `Surat_Kuasa_AHU_${namaPt.replace(/\s+/g, '_')}.docx`);
+  const safeName = namaPt ? namaPt.replace(/PT\.?\s*/i, "").trim() : "Draft";
+  saveAs(blob, `Surat Kuasa AHU PT ${safeName}.docx`);
 };
 
 export const DataCorrectionLetter: React.FC = () => {

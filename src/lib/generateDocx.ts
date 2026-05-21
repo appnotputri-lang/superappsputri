@@ -27,7 +27,7 @@ const saveAsNative = (blob: Blob, fileName: string) => {
 
 const FONT_FAMILY = "Times New Roman";
 const FONT_SIZE = 24; // 12pt
-const LINE_SPACING = 276; // Approx 1.15 line spacing
+const LINE_SPACING = 480; // Approx 2.0 line spacing
 const AFTER_SPACING = 120; // 6pt
 
 const MARGIN_NORMAL = 1440; // 1 inch
@@ -877,7 +877,7 @@ export const generateWordDoc = async (data: CompanyData) => {
     if (data.resolutions.address) {
       resParas.push(createBodyParagraph({
         indent: { left: INDENT_STEP },
-        text: `Menyetujui dan memutuskan untuk mengubah alamat lengkap Perseroan, yang semula beralamat di ${formatFullAddressData(data.oldAddress)} menjadi beralamat di ${formatFullAddressData(data.newAddress)}.`,
+        text: `Menyetujui dan memutuskan untuk mengubah alamat lengkap Perseroan, yang semula beralamat di ${formatFullAddressData(data.oldAddress, data.domicile)} menjadi beralamat di ${formatFullAddressData(data.newAddress)}.`,
       }));
     }
 
@@ -1524,7 +1524,8 @@ export const generateWordDoc = async (data: CompanyData) => {
 
   try {
     const blob = await Packer.toBlob(doc);
-    const fileName = `Draft_${isCircular ? "Sirkuler" : "Notulen"}_PT_${(data.companyName || "Draft").replace(/\s+/g, "_")}.docx`;
+    const safeName = data.companyName ? data.companyName.replace(/PT\.?\s*/i, "").trim() : "Draft";
+    const fileName = `Draft ${isCircular ? "Sirkuler" : "Notulen"} PT ${safeName}.docx`;
     saveAsNative(blob, fileName);
   } catch (error) {
     console.error("docx error", error);

@@ -1,8 +1,9 @@
 import { Address } from '../../types';
 
-export const formatFullAddressData = (addr?: Address): string => {
+export const formatFullAddressData = (addr?: Address, fallbackCity?: string): string => {
   if (!addr || !addr.fullAddress) return "................";
-  const isRegency = addr.city?.toLowerCase().includes("kabupaten");
+  const city = addr.city || fallbackCity;
+  const isRegency = city?.toLowerCase().includes("kabupaten");
   const villagePrefix = isRegency ? "Desa" : "Kelurahan";
 
   const parts = [
@@ -10,7 +11,7 @@ export const formatFullAddressData = (addr?: Address): string => {
     addr.rt && addr.rw ? `Rukun Tetangga ${addr.rt}, Rukun Warga ${addr.rw}` : "",
     addr.kelurahan ? `${villagePrefix} ${toTitleCase(addr.kelurahan)}` : "",
     addr.kecamatan ? `Kecamatan ${toTitleCase(addr.kecamatan)}` : "",
-    addr.city ? toTitleCase(addr.city) : "",
+    city ? toTitleCase(city) : "",
     addr.province ? toTitleCase(addr.province) : ""
   ].filter(Boolean);
   return parts.join(", ");
@@ -129,8 +130,8 @@ export function formatAddress(address: string): string {
   if (!address) return "";
   let addr = address;
   
-  // Replace JL, Jl., Jln, Jln., JLN., JLN with Jl. (or Jl based on request, let's use Jl)
-  addr = addr.replace(/\bjl(?:n)?\.?\b/gi, "Jl");
+  // Replace JL, Jl., Jln, Jln., JLN., JLN with Jalan
+  addr = addr.replace(/\bjl(?:n)?\.?\b/gi, "Jalan");
   
   // Replace GG with Gang (case-insensitive)
   addr = addr.replace(/\bgg\.?\b/gi, "Gang");

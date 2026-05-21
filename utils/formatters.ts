@@ -43,11 +43,14 @@ export function formatAddress(address?: string): string {
   if (!address) return "";
   let addr = address;
   
-  // Replace JL, Jl., Jln, Jln., JLN., JLN with Jl.
-  addr = addr.replace(/\bjl(?:n)?\.?\b/gi, "Jl");
+  // Replace JL, Jl., Jln, Jln., JLN., JLN with Jalan
+  addr = addr.replace(/\bjl(?:n)?\.?\b/gi, "Jalan");
   
   // Replace GG with Gang
   addr = addr.replace(/\bgg\.?\b/gi, "Gang");
+
+  // Replace No, no, No., no. with Nomor
+  addr = addr.replace(/\bno\.?\b/gi, "Nomor");
   
   return addr;
 }

@@ -92,6 +92,10 @@ export const generateBlocks = (data: FormData): Block[] => {
   const tglPersetujuanSuamiAngka = formatDateStr(data.tglPersetujuanSuami);
 
   return [
+    { type: 'p', align: 'center', runs: [{ text: `${data.tipeAkta === "Hibah" ? "HIBAH SAHAM" : "JUAL BELI SAHAM"}`, bold: true }] },
+    { type: 'p', align: 'center', runs: [{ text: `Nomor : ${data.nomorAkta || '0'}` }] },
+    { type: 'p', runs: [] },
+    { type: 'p', runs: [] },
     { type: 'p', runs: [{ text: `Pada hari ini, ${tglAktaHari}, tanggal ${tglAktaHuruf} (${tglAktaAngka}).` }] },
     { type: 'p', runs: [{ text: `Pukul ${jamStr} (${jamHuruf}).` }] },
     { type: 'p', runs: [

@@ -482,7 +482,7 @@ export const generateRUPSDocx = async (data: CompanyData) => {
         document: {
           run: { font: "Century Gothic", size: 20 },
           paragraph: {
-            spacing: { line: 360, before: 0, after: 0 },
+            spacing: { line: 480, before: 0, after: 0 },
             indent: { left: 0, right: 0, firstLine: 0 },
             alignment: AlignmentType.LEFT,
           },
@@ -517,6 +517,7 @@ export const generateRUPSDocx = async (data: CompanyData) => {
   });
 
   const blob = await Packer.toBlob(doc);
-  const fileName = `Draft_Akta_RUPS_${data.companyName.replace(/\s+/g, "_")}`;
+  const safeName = data.companyName ? data.companyName.replace(/PT\.?\s*/i, "").trim() : "Draft";
+  const fileName = `Draft Akta RUPS PT ${safeName}`;
   saveAs(blob, `${fileName}.docx`);
 };

@@ -152,10 +152,9 @@ export const generateDocxBlob = async (data: FormData): Promise<Blob> => {
 
   blocks.forEach((block, index) => {
     if (block.type === "p") {
-      if (block.align === "center") return;
-
       let align: any = AlignmentType.LEFT;
       let isRightCenter = false;
+      if (block.align === "center") align = AlignmentType.CENTER;
       if (block.align === "right") align = AlignmentType.RIGHT;
       if (block.align === "right-center") isRightCenter = true;
 
@@ -246,7 +245,7 @@ export const generateDocxBlob = async (data: FormData): Promise<Blob> => {
           },
           paragraph: {
             spacing: {
-              line: 360,
+              line: 480,
               before: 0,
               after: 0,
             },
@@ -284,7 +283,7 @@ export const generateDocx = async (data: FormData) => {
   const blob = await generateDocxBlob(data);
   const fileName =
     data.tipeAkta === "Hibah"
-      ? `Akta_Hibah_Saham_${data.nomorAkta}`
-      : `Akta_Jual_Beli_Saham_${data.nomorAkta}`;
+      ? `Akta Hibah Saham ${data.nomorAkta || ""}`.trim()
+      : `Akta Jual Beli Saham ${data.nomorAkta || ""}`.trim();
   saveAs(blob, `${fileName}.docx`);
 };

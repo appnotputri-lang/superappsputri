@@ -779,7 +779,7 @@ const App: React.FC = () => {
           // Preserve current domicile and address info from profile
           domicile: profile.domicile,
           domicileStyle: profile.domicileStyle,
-          oldAddress: profile.oldAddress,
+          // oldAddress: profile.oldAddress, // Removed so user form input overrides profile for Draft
           // Do NOT override newAddress or fullAddress from profile if we are in a resolution
           // but we might want the profile's address as a starting point for 'oldFullAddress'
           oldFullAddress: profile.oldFullAddress,

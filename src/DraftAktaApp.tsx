@@ -203,13 +203,13 @@ export default function DraftAktaApp({ companyData }: DraftAktaAppProps) {
           
           const blob = await generateDocxBlob(transferData);
           const fileName = transferData.tipeAkta === "Hibah" 
-            ? `Akta_Hibah_Saham_${transferData.nomorAkta}_${transfer.id}.docx`
-            : `Akta_Jual_Beli_Saham_${transferData.nomorAkta}_${transfer.id}.docx`;
+            ? `Akta Hibah Saham ${transferData.nomorAkta || transfer.id}.docx`
+            : `Akta Jual Beli Saham ${transferData.nomorAkta || transfer.id}.docx`;
           zip.file(fileName, blob);
       }
       
       const content = await zip.generateAsync({type: "blob"});
-      saveAs(content, "semua_draft_akta.zip");
+      saveAs(content, "semua draft akta.zip");
   };
 
   const currentData = transferDataMap[selectedTransferId] || initialData;
