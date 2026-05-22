@@ -34,8 +34,8 @@ export const Section = ({ title, defaultOpen = true, children }: { title: string
 }
 
 export const FieldRow = ({ label, children, required = false }: { label: string, children: React.ReactNode, required?: boolean }) => (
-  <div className="grid grid-cols-1 md:grid-cols-[250px_1fr] gap-4 py-3 items-start border-b border-gray-100 last:border-0 last:pb-0 font-sans">
-    <label className="text-sm text-gray-700 font-medium py-2.5">
+  <div className="flex flex-col gap-1 py-3 border-b border-gray-100 last:border-0 last:pb-0 font-sans">
+    <label className="text-sm text-gray-700 font-medium">
       {label} {required && <span className="text-red-500">*</span>}
     </label>
     <div>{children}</div>

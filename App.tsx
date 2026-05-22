@@ -14,6 +14,10 @@ import DocumentPreview from './components/DocumentPreview';
 import { DataCorrectionLetter } from './components/DataCorrectionLetter';
 import DraftAktaApp from './src/DraftAktaApp';
 import DraftAktaRUPS from './src/DraftAktaRUPS';
+import DraftAktaPendirian from './src/DraftAktaPendirian';
+import PendirianDocumentPreview from './src/PendirianDocumentPreview';
+import { generatePendirianDocx } from './src/lib/generatePendirianDocx';
+import GuideMenu from './src/components/GuideMenu';
 import ProxyInputModal from './components/ProxyInputModal';
 import { generateWordDoc } from './utils/docxGenerator';
 import { 
@@ -190,7 +194,7 @@ const INITIAL_STATE: CompanyData = {
 };
 
 type TabId = 'general' | 'shareholders' | 'shareholders_new' | 'representative' | 'agenda' | 'kbli' | 'domicile' | 'address' | 'capitalBase' | 'capitalPaid' | 'management' | 'reappointment';
-type SidebarTabId = 'company_profile' | 'notulen' | 'perbaikan' | 'draft_akta_rups';
+type SidebarTabId = 'company_profile' | 'notulen' | 'pendirian' | 'perbaikan' | 'draft_akta_rups' | 'panduan';
 
 // AHU Style Helper Components
 const AhuSection = ({ title, children, isOpen = true }: { title: string, children: React.ReactNode, isOpen?: boolean }) => {
@@ -322,6 +326,21 @@ const App: React.FC = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [activeSidebarTab, setActiveSidebarTab] = useState<SidebarTabId>('notulen');
   const [zoom, setZoom] = useState(1);
+  const [showPendirianPreview, setShowPendirianPreview] = useState(false);
+  const [pendirianPreviewData, setPendirianPreviewData] = useState<any>(null);
+  const [isExportingPendirian, setIsExportingPendirian] = useState(false);
+
+  const handlePendirianExportWord = async (d: any) => {
+    setIsExportingPendirian(true);
+    try {
+      await generatePendirianDocx(d);
+    } catch (e) {
+      console.error(e);
+      alert("Error Exporting");
+    } finally {
+      setIsExportingPendirian(false);
+    }
+  };
   const [proxyModalOpenId, setProxyModalOpenId] = useState<string | null>(null);
 
 
@@ -889,7 +908,9 @@ const App: React.FC = () => {
             {[
               { label: 'Company Profile', id: 'company_profile' as const, icon: Building2 },
               { label: 'Proyek', id: 'notulen' as const, icon: FileText },
+              { label: 'Pendirian PT', id: 'pendirian' as const, icon: FileText },
               { label: 'Surat Perbaikan Data', id: 'perbaikan' as const, icon: Mail },
+              { label: 'Panduan Penggunaan', id: 'panduan' as const, icon: BookOpen },
             ].map((item) => (
               <button key={item.id} onClick={() => setActiveSidebarTab(item.id)} className={`w-full text-left px-4 py-2.5 border-l-4 transition-all flex justify-between items-center ${activeSidebarTab === item.id ? 'bg-[#1e282c] text-white border-blue-500' : 'border-transparent hover:bg-black/10 hover:text-white'}`}>
                 <span className="flex items-center gap-3">
@@ -3055,8 +3076,15 @@ const App: React.FC = () => {
             </div>
 
 
+          ) : activeSidebarTab === 'pendirian' ? (
+            <DraftAktaPendirian 
+              onShowPreview={(d) => { setPendirianPreviewData(d); setShowPendirianPreview(true); }}
+              onExportWord={(d) => { handlePendirianExportWord(d); }}
+            />
           ) : activeSidebarTab === 'perbaikan' ? (
             <DataCorrectionLetter />
+          ) : activeSidebarTab === 'panduan' ? (
+            <GuideMenu />
           ) : null}
         </main>
       </div>
@@ -3182,6 +3210,14 @@ const App: React.FC = () => {
 
       {/* Popup Editors for a cleaner AHU look */}
 
+      {showPendirianPreview && pendirianPreviewData && (
+        <PendirianDocumentPreview
+          data={pendirianPreviewData}
+          onExport={() => handlePendirianExportWord(pendirianPreviewData)}
+          onClose={() => setShowPendirianPreview(false)}
+          isExporting={isExportingPendirian}
+        />
+      )}
 
     </div>
   );

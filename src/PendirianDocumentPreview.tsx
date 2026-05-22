@@ -1,0 +1,123 @@
+import React from 'react';
+import { PendirianData } from './DraftAktaPendirian';
+import { generatePendirianBlocks } from './lib/pendirianContentBlocks';
+import { parseTextRuns, FormatToken } from './lib/notaryWrapper';
+import { Download, Loader2 } from 'lucide-react';
+
+interface PendirianDocumentPreviewProps {
+  data: PendirianData;
+  onExport: () => void;
+  onClose: () => void;
+  isExporting: boolean;
+}
+
+const WrappedText = ({ runs, isList = false, indent = false, indentTabs = 0, align = 'left' }: { runs: FormatToken[], isList?: boolean, indent?: boolean, indentTabs?: number, align?: 'left'|'center'|'right'|'right-center' }) => {
+  let indentReduction = 0;
+  if (isList || indent) indentReduction += 2.2;
+  if (indentTabs) indentReduction += indentTabs * 4.4;
+  if (align === 'right-center') indentReduction += 21;
+  
+  const maxLine = 41.5 - indentReduction; 
+  const lines = parseTextRuns(runs, maxLine);
+
+  let paddingLeft = '0';
+  let marginLeft = '0';
+  if (indentTabs) paddingLeft = `${indentTabs * 1.5}cm`;
+  if (align === 'right-center') {
+    marginLeft = '50%';
+    align = 'center';
+  }
+
+  return (
+    <>
+      {lines.map((line, i) => (
+        <div key={i} className={`flex relative w-full overflow-hidden leading-[2]`} style={{ textAlign: align as any, justifyContent: (align === 'center' || marginLeft === '50%') ? 'center' : 'flex-start', paddingLeft, marginLeft }}>
+           <span className="whitespace-pre-wrap shrink-0 flex">
+             {line.map((t, j) => t.bold ? <strong key={j}>{t.text}</strong> : <span key={j}>{t.text}</span>)}
+           </span>
+           {align !== 'center' && marginLeft !== '50%' && (
+             <span className="flex-1 overflow-hidden select-none whitespace-nowrap opacity-60" style={{ letterSpacing: '0.5px' }}>
+               &nbsp;{Array(150).fill('-').join('')}
+             </span>
+           )}
+        </div>
+      ))}
+    </>
+  );
+};
+
+export default function PendirianDocumentPreview({ data, onExport, onClose, isExporting }: PendirianDocumentPreviewProps) {
+  const blocks = generatePendirianBlocks(data);
+
+  return (
+    <div className="fixed inset-0 z-50 bg-slate-900/50 flex justify-end">
+      <div className="w-[800px] bg-white h-full shadow-2xl flex flex-col animate-slide-in">
+        <div className="p-4 bg-slate-800 text-white flex justify-between items-center shadow-md z-10 shrink-0">
+          <h2 className="font-bold flex items-center gap-2">
+            Preview Akta Pendirian
+          </h2>
+          <div className="flex gap-2">
+            <button 
+              type="button"
+              onClick={onExport}
+              disabled={isExporting} 
+              className="bg-[#00a65a] hover:bg-[#008d4c] px-4 py-1.5 rounded text-sm font-bold shadow-sm transition flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+            >
+              {isExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+              Export Word
+            </button>
+            <button className="bg-slate-600 hover:bg-slate-500 px-3 py-1.5 rounded text-sm transition" onClick={onClose}>
+              Tutup
+            </button>
+          </div>
+        </div>
+        
+        <div className="flex-1 overflow-y-auto p-8 bg-[#525659] flex flex-col items-center custom-scrollbar gap-8">
+          <div className="bg-white w-[210mm] min-h-[297mm] shadow-xl relative shrink-0" style={{ 
+              paddingTop: '2.5cm',
+              paddingBottom: '2.5cm',
+              paddingLeft: '4cm',
+              paddingRight: '2cm',
+              boxSizing: 'border-box'
+            }}>
+            {/* Margin Line (garis tepi notaris) */}
+            <div className="absolute top-0 bottom-0 left-[2cm] w-[1px] bg-red-400"></div>
+            
+            <div 
+              className="w-full relative z-10 overflow-hidden"
+              style={{
+                fontFamily: "'Century Gothic', 'Tw Cen MT', 'Arial', sans-serif",
+                fontSize: '10pt',
+                lineHeight: '2',
+                textAlign: 'left'
+              }}
+            >
+              <div className="space-y-0 relative">
+                {blocks.map((block, index) => {
+                  if (block.type === 'br') {
+                    return <div key={index} className="h-6 leading-[2] w-full flex items-center overflow-hidden"><span className="flex-1 overflow-hidden select-none whitespace-nowrap opacity-60" style={{ letterSpacing: '0.5px' }}>{Array(150).fill('-').join('')}</span></div>;
+                  }
+                  
+                  return (
+                    <div key={index} className="w-full relative">
+                       <WrappedText 
+                         runs={block.runs || []} 
+                         indentTabs={block.indentTabs} 
+                         align={block.align} 
+                       />
+                    </div>
+                  );
+                })}
+                
+                <div key="footer-space" className="h-20"></div>
+                <div key="footer-notary" className="w-1/2 ml-auto text-center font-bold">
+                  {data.notarisNamaSurat ? data.notarisNamaSurat.replace(/Sarjana Hukum/gi, 'SH.').replace(/Magister Kenotariatan/gi, 'M.Kn') : "NUKANTINI PUTRI PARINCHA, SH., M.Kn."}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
