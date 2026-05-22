@@ -47,11 +47,10 @@ const createP = (
     if (i < lines.length - 1) children.push(new TextRun({ break: 1 }));
   });
 
-  const finalOptions: POpts = { ...options };
-  if (isRightCenter) {
-    finalOptions.indent = { left: 4252 };
-    finalOptions.alignment = AlignmentType.CENTER;
-  }
+  const finalOptions: POpts = {
+    ...options,
+    ...(isRightCenter ? { indent: { left: 4252 }, alignment: AlignmentType.CENTER } : {}),
+  };
 
   return new Paragraph({
     children,
@@ -220,7 +219,20 @@ const createDividerP = (text: string): Paragraph =>
     alignment: AlignmentType.LEFT,
   });
 
-const createPasalDividerP = (text: string): Paragraph => createDividerP(text);
+const createPasalDividerP = (text: string): Paragraph =>
+  new Paragraph({
+    children: [
+      new TextRun({ text: "\t" }),
+      new TextRun({ text, bold: true }),
+      new TextRun({ text: "\t" }),
+    ],
+    tabStops: [
+      { type: TabStopType.CENTER, position: 3969, leader: LeaderType.HYPHEN },
+      { type: TabStopType.RIGHT, position: 8504, leader: LeaderType.HYPHEN },
+    ],
+    indent: { left: 284 },
+    alignment: AlignmentType.LEFT,
+  });
 
 const createManagementRoleListP = (
   position: string,

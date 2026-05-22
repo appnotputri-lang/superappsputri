@@ -98,12 +98,54 @@ export default function PendirianDocumentPreview({ data, onExport, onClose, isEx
                     return <div key={index} className="h-6 leading-[2] w-full flex items-center overflow-hidden"><span className="flex-1 overflow-hidden select-none whitespace-nowrap opacity-60" style={{ letterSpacing: '0.5px' }}>{Array(150).fill('-').join('')}</span></div>;
                   }
                   
+                  if (block.type === 'divider' || block.type === 'pasal-divider') {
+                    return (
+                      <div key={index} className="w-full relative py-1">
+                         <div className="flex items-center w-full overflow-hidden leading-[2]">
+                            <span className="flex-1 overflow-hidden select-none whitespace-nowrap opacity-60" style={{ letterSpacing: '0.5px' }}>
+                              {Array(150).fill('-').join('')}
+                            </span>
+                            <span className="px-4 font-bold uppercase shrink-0">
+                              {block.text}
+                            </span>
+                            <span className="flex-1 overflow-hidden select-none whitespace-nowrap opacity-60" style={{ letterSpacing: '0.5px' }}>
+                              {Array(150).fill('-').join('')}
+                            </span>
+                         </div>
+                      </div>
+                    );
+                  }
+
+                  let runs: any[] = [];
+                  let indentTabs = 0;
+                  let align: any = 'left';
+
+                  if (block.type === 'p') {
+                    runs = block.runs;
+                    indentTabs = block.indentTabs || 0;
+                    align = block.align || 'left';
+                  } else if (block.type === 'numbered') {
+                    runs = [{ text: `${block.num}. `, bold: false }, ...block.runs];
+                  } else if (block.type === 'sub-numbered') {
+                    runs = [{ text: `${block.num}) `, bold: false }, ...block.runs];
+                    indentTabs = block.indentTabs || 1;
+                  } else if (block.type === 'list') {
+                    runs = [{ text: `${block.bullet} `, bold: false }, ...block.runs];
+                    indentTabs = block.indentTabs || 1;
+                  } else if (block.type === 'management-role') {
+                    runs = [{ text: block.position, bold: false }, { text: ` : ${block.nameText}`, bold: false }];
+                  } else if (block.type === 'shareholder') {
+                    runs = [{ text: `- ${block.name} : ${block.sharesText}`, bold: false }];
+                  } else if (block.type === 'saksi') {
+                    runs = [{ text: `${block.num}. `, bold: false }, ...block.runs];
+                  }
+
                   return (
-                    <div key={index} className="w-full relative">
+                    <div key={index} className="w-full relative text-justify">
                        <WrappedText 
-                         runs={block.runs || []} 
-                         indentTabs={block.indentTabs} 
-                         align={block.align} 
+                         runs={runs} 
+                         indentTabs={indentTabs} 
+                         align={align} 
                        />
                     </div>
                   );
