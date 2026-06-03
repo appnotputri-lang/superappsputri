@@ -297,16 +297,41 @@ const App: React.FC = () => {
   const [projects, setProjects] = useState<CompanyData[]>([]);
   const [rupstProjects, setRupstProjects] = useState<CompanyData[]>([]);
   const [user, setUser] = useState<FirebaseUser | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [dataLoading, setDataLoading] = useState(true);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
+      setAuthLoading(false);
+      if (!currentUser) {
+        setDataLoading(false);
+      }
     });
     return unsub;
   }, []);
 
+  // Fail-safe to ensure loader disappears even with network failure
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setAuthLoading(false);
+      setDataLoading(false);
+    }, 4500);
+    return () => clearTimeout(timer);
+  }, []);
+
   useEffect(() => {
     if (user) {
+      let profilesReady = false;
+      let projectsReady = false;
+      let rupstReady = false;
+
+      const checkIfLoaded = () => {
+        if (profilesReady && projectsReady && rupstReady) {
+          setDataLoading(false);
+        }
+      };
+
       const profilesRef = collection(db, 'profiles');
       const unsubProfiles = onSnapshot(profilesRef, (snapshot) => {
         const loaded: CompanyProfile[] = [];
@@ -314,8 +339,12 @@ const App: React.FC = () => {
           loaded.push(doc.data() as CompanyProfile);
         });
         setProfiles(loaded);
+        profilesReady = true;
+        checkIfLoaded();
       }, (error) => {
         handleFirestoreError(error, OperationType.LIST, `profiles`);
+        profilesReady = true;
+        checkIfLoaded();
       });
 
       const projectsRef = collection(db, 'projects');
@@ -325,8 +354,12 @@ const App: React.FC = () => {
           loaded.push(doc.data() as CompanyData);
         });
         setProjects(loaded);
+        projectsReady = true;
+        checkIfLoaded();
       }, (error) => {
         handleFirestoreError(error, OperationType.LIST, `projects`);
+        projectsReady = true;
+        checkIfLoaded();
       });
 
       const rupstRef = collection(db, 'rupst_projects');
@@ -336,8 +369,12 @@ const App: React.FC = () => {
           loaded.push(doc.data() as CompanyData);
         });
         setRupstProjects(loaded);
+        rupstReady = true;
+        checkIfLoaded();
       }, (error) => {
         handleFirestoreError(error, OperationType.LIST, `rupst_projects`);
+        rupstReady = true;
+        checkIfLoaded();
       });
 
       return () => { unsubProfiles(); unsubProjects(); unsubRupst(); };
@@ -345,6 +382,7 @@ const App: React.FC = () => {
       setProfiles([]);
       setProjects([]);
       setRupstProjects([]);
+      setDataLoading(false);
     }
   }, [user]);
 
@@ -879,6 +917,28 @@ const App: React.FC = () => {
     'rdyndi@gmail.com',
     'notarisppatputri@gmail.com'
   ];
+
+  if (authLoading || (user && dataLoading)) {
+    return (
+      <div className="h-screen flex flex-col items-center justify-center bg-[#2c3b41] font-sans text-white">
+        <div className="text-center space-y-5 px-4 max-w-sm">
+          <div className="relative flex items-center justify-center mx-auto w-16 h-16">
+            <div className="absolute inset-0 rounded-full border-4 border-slate-700/60 border-t-[#40bdae] animate-spin"></div>
+            <ShieldCheck className="w-6 h-6 text-[#40bdae]" />
+          </div>
+          <div className="space-y-2">
+            <h2 className="text-lg font-bold tracking-tight text-white">Menginisialisasi Sistem</h2>
+            <p className="text-[12px] font-mono text-slate-400">
+              {authLoading ? "Memvalidasi kredensial..." : "Sinkronisasi profil & data draf..."}
+            </p>
+          </div>
+          <div className="w-32 h-1 bg-slate-850 rounded-full mx-auto overflow-hidden relative">
+            <div className="absolute top-0 bottom-0 left-0 bg-[#40bdae] rounded-full animate-[loading_1.5s_infinite_ease-in-out]" style={{ width: '40%' }}></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!user) {
     return (
