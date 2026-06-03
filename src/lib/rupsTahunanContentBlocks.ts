@@ -8,10 +8,112 @@ import {
   terbilang,
   toTitleCase,
   formatNumber,
+  formatAddress,
   formatCompanyName,
   formatPersonDetails,
 } from "./formatter";
 
+// ─────────────────────────────────────────────────────────────────────────────
+// RENDERER CONTRACT — nilai DXA per indentTabs (digunakan oleh notaryWrapper)
+//
+// Semua nilai diambil LANGSUNG dari XML dokumen contoh (Contohrupst.docx).
+// Setiap baris diverifikasi dari elemen <w:pPr> di document.xml.
+//
+// ── LIST "-" BIASA (tanpa numId, renderer render tab manual) ──────────────────
+//  indentTabs | indLeft | indHanging | tabLeft | rightTab | Dipakai untuk
+//  ─────────────────────────────────────────────────────────────────────────────
+//   0.5        |  284    |  284       |  284    | 8504    | level 1: sub-penghadap, keterangan rapat,
+//              |         |            |         |         | quorum, ketua rapat, agenda intro
+//              | XML: <w:ind w:left="284" w:hanging="284"/>
+//              |       <w:tab w:val="left" w:pos="284"/>
+//              |       <w:tab w:val="right" w:leader="hyphen" w:pos="8504"/>
+//   ─────────────────────────────────────────────────────────────────────────────
+//   1.0        |  567    |  283       |  567    | 8504    | level 2: agenda rapat (isi item agenda)
+//              | XML: <w:ind w:left="567" w:hanging="283"/>
+//              |       <w:tab w:val="left" w:pos="567"/>
+//              |       <w:tab w:val="right" w:leader="hyphen" w:pos="8504"/>
+//   ─────────────────────────────────────────────────────────────────────────────
+//   1.5        |  567    |  284       |  284    | 8504    | dividen / sisa laba (keputusan 3 sub-item)
+//              | XML: <w:ind w:left="567" w:hanging="284"/>
+//              |       <w:tab w:val="left" w:pos="284"/>
+//              |       <w:tab w:val="right" w:leader="hyphen" w:pos="8504"/>
+//   ─────────────────────────────────────────────────────────────────────────────
+//   2.0        |  993    |  284       |  —      | 8504    | satu baris "Hadir selaku Komisaris Perseroan."
+//              | XML: <w:ind w:left="993" w:hanging="284"/>
+//              |       <w:tab w:val="right" w:leader="hyphen" w:pos="8504"/>
+//              |       (TANPA tabLeft)
+//
+// ── LIST ATTENDEE (numId, pakai ListParagraph + numPr) ───────────────────────
+//   indentTabs | numId | indOverride       | tabLeft | Dipakai untuk
+//  ─────────────────────────────────────────────────────────────────────────────
+//   "attendee"
+//   VARIAN A   |  2    | left=567 hang=283 | —       | baris utama WNI / orang yg sudah dikenal (isRep)
+//   (WNI/rep)  | XML: <w:pStyle w:val="ListParagraph"/>
+//              |       <w:numPr><w:numId w:val="2"/></w:numPr>
+//              |       <w:ind w:left="567" w:hanging="283"/>
+//              |       <w:tab w:val="right" w:leader="hyphen" w:pos="8504"/>
+//              |       (TANPA tabLeft — hanya rightTab)
+//              | Sinyal di Block: "p" dengan number≥1 dan indentTabs=undefined
+//   ─────────────────────────────────────────────────────────────────────────────
+//   VARIAN B   |  2    | left=709 hang=425 | 720     | baris utama WNA / teks uraian panjang
+//   (WNA/long) | XML: <w:pStyle w:val="ListParagraph"/>
+//              |       <w:numPr><w:numId w:val="2"/></w:numPr>
+//              |       <w:ind w:left="709" w:hanging="425"/>
+//              |       <w:tab w:val="left" w:pos="720"/>
+//              |       <w:tab w:val="right" w:leader="hyphen" w:pos="8504"/>
+//              | Sinyal di Block: "p" dengan number≥1 dan indentTabs=-1
+//   ─────────────────────────────────────────────────────────────────────────────
+//   2.5        |  3    | left=993, no hang| 284     | "Hadir selaku :" (multi-role header)
+//              | XML: <w:pStyle w:val="ListParagraph"/>
+//              |       <w:numPr><w:numId w:val="3"/></w:numPr>
+//              |       <w:ind w:left="993"/>   (tanpa hanging)
+//              |       <w:tab w:val="left" w:pos="284"/>
+//              |       <w:tab w:val="right" w:leader="hyphen" w:pos="8504"/>
+//   ─────────────────────────────────────────────────────────────────────────────
+//   3.0        |  4    | left=1418, no hang| 567    | sub-role: "Direktur/Selaku pemilik..." (alpha)
+//              | XML: <w:pStyle w:val="ListParagraph"/>
+//              |       <w:numPr><w:numId w:val="4"/></w:numPr>
+//              |       <w:ind w:left="1418"/>   (tanpa hanging)
+//              |       <w:tab w:val="left" w:pos="567"/>
+//              |       <w:tab w:val="right" w:leader="hyphen" w:pos="8504"/>
+//   ─────────────────────────────────────────────────────────────────────────────
+//   0          |  3    | none             | 284     | "Laporan Posisi Keuangan;" dst (ListParagraph numId=3 tanpa ind override)
+//              | XML: <w:pStyle w:val="ListParagraph"/>
+//              |       <w:numPr><w:numId w:val="3"/></w:numPr>
+//              |       <w:tab w:val="left" w:pos="284"/>
+//              |       <w:tab w:val="right" w:leader="hyphen" w:pos="8504"/>
+//
+// ── TIPE KHUSUS ───────────────────────────────────────────────────────────────
+//   "saksi"    → ind left=426, hanging=360 (TANPA tabLeft), rightTab=8504
+//              | XML: <w:ind w:left="426" w:hanging="360"/>
+//              |       <w:tab w:val="right" w:leader="hyphen" w:pos="8504"/>
+//
+//   "p" number≥1 (keputusan 1-5) → ind left=284, hanging=284, tabLeft=720, rightTab=8504
+//              | XML: <w:ind w:left="284" w:hanging="284"/>
+//              |       <w:tab w:val="left" w:pos="720"/>
+//              |       <w:tab w:val="right" w:leader="hyphen" w:pos="8504"/>
+//
+//   "divider"  → center tab pos=4252 (leader=hyphen) + right tab pos=8504 (leader=hyphen)
+//              | XML: <w:tab w:val="center" w:leader="hyphen" w:pos="4252"/>
+//              |       <w:tab w:val="right" w:leader="hyphen" w:pos="8504"/>
+//
+//   notaryFooter → tab left=4395, rightTab=8504 (tanda tangan notaris)
+//              | XML: <w:tab w:val="left" w:pos="4395"/>
+//              |       <w:tab w:val="right" w:leader="hyphen" w:pos="8504"/>
+//
+//   "Diberikan sebagai..." (last line before footer) → ind left=284 (no hanging, no tabLeft)
+//              | XML: <w:ind w:left="284"/>
+//
+//   "Minuta Akta..." → ind left=851, hanging=142, rightTab=8504
+//              | XML: <w:ind w:left="851" w:hanging="142"/>
+//
+// ── "Untuk sementara berada di..." (saksi footer bullet) ─────────────────────
+//   indentTabs=0 (akhir dokumen setelah saksi-2) → numId=5 (abstractId=2, bullet "-")
+//              | XML: <w:pStyle w:val="ListParagraph"/>
+//              |       <w:numPr><w:numId w:val="5"/></w:numPr>
+//              |       <w:tab w:val="left" w:pos="284"/>
+//              |       <w:tab w:val="right" w:leader="hyphen" w:pos="8504"/>
+// ─────────────────────────────────────────────────────────────────────────────
 export type Block =
   | {
       type: "p";
@@ -20,12 +122,41 @@ export type Block =
       indent?: boolean;
       indentTabs?: number;
       spaceAfter?: boolean;
+      number?: number;
+      subNumber?: number | string;
     }
   | {
       type: "list";
       bullet: string;
       runs: FormatToken[];
+      /**
+       * indentTabs mapping ke nilai DXA (lihat RENDERER CONTRACT di atas):
+       *   0   → ListParagraph numId=3, TANPA ind override, tabLeft=284   (Laporan Keuangan sub-items)
+       *   0.5 → left=284, hanging=284, tabLeft=284, rightTab=8504         (level 1, sub-penghadap, keterangan)
+       *   1.0 → left=567, hanging=283, tabLeft=567, rightTab=8504         (level 2, agenda isi item)
+       *   1.5 → left=567, hanging=284, tabLeft=284, rightTab=8504         (dividen/sisa laba)
+       *   2.0 → left=993, hanging=284, TANPA tabLeft, rightTab=8504       (komisaris single line)
+       *   2.5 → ListParagraph numId=3, left=993 no-hang, tabLeft=284      ("Hadir selaku :")
+       *   3.0 → ListParagraph numId=4, left=1418 no-hang, tabLeft=567     ("Direktur/Selaku pemilik...")
+       */
       indentTabs?: number;
+    }
+  | {
+      type: "shareholder-list";
+      bullet: string;
+      name: string;
+      sharesText: string;
+      rpText: string;
+    }
+  | {
+      type: "management-list";
+      name: string;
+      position: string;
+    }
+  | {
+      type: "saksi";
+      number: number;
+      runs: FormatToken[];
     }
   | { type: "divider"; text: string }
   | { type: "br" }
@@ -40,65 +171,126 @@ export type Block =
 export const generateRupstBlocks = (data: CompanyData): Block[] => {
   const blocks: Block[] = [];
 
-  const tglRapatHari = getDayName(data.signingDate);
-  const tglRapatHuruf = dateToWords(data.signingDate);
-  const tglRapatAngka = formatDateStr(data.signingDate);
+  const effectiveNotaryDate = data.draftAktaRupsDate || data.notaryDate || data.signingDate || "";
+  const effectiveNotaryNumber = data.draftAktaRupsNumber || data.notaryNumber || "...";
+  
+  const tglAktaHari = getDayName(effectiveNotaryDate) || "Jum'at";
+  const tglAktaHuruf = dateToWords(effectiveNotaryDate) || "delapan Mei dua ribu dua puluh enam";
+  const tglAktaAngka = formatDateStr(effectiveNotaryDate) || "08-05-2026";
 
-  const jamStr = data.meetingStartTime ? data.meetingStartTime.replace(":", ".") : "10.00";
-  const jamPenutup = data.rupstMeetingEndTime ? data.rupstMeetingEndTime.replace(":", ".") : "11.00";
+  const jamStr = data.meetingStartTime ? data.meetingStartTime.replace(":", ".") : "11.00";
+  const jamParts = (data.meetingStartTime || "11:00").split(":");
+  const h = parseInt(jamParts[0]);
+  const m = parseInt(jamParts[1]);
+  const jamHuruf = `${terbilang(h)} lewat ${m === 0 ? "nol-nol" : terbilang(m)} menit Waktu Indonesia Barat`;
 
-  // PESERTA RAPAT
-  const attendingShareholders = data.shareholders.filter(s => s.isPresent);
-  const totalShares = data.shareholders.reduce((sum, s) => sum + (s.sharesOwned || 0), 0);
+  // Meeting Dates
+  const tglRapatHari = getDayName(data.signingDate || "") || "Rabu";
+  const tglRapatHuruf = dateToWords(data.signingDate || "") || "enam Mei dua ribu dua puluh enam";
+  const tglRapatAngka = formatDateStr(data.signingDate || "") || "06-05-2026";
+
+  const jamRapatStr = data.meetingStartTime ? data.meetingStartTime.replace(":", ".") : "13.00";
+  const jamRapatParts = (data.meetingStartTime || "13:00").split(":");
+  const hr = parseInt(jamRapatParts[0]);
+  const mr = parseInt(jamRapatParts[1]);
+  const jamRapatHuruf = `${terbilang(hr)} lewat ${mr === 0 ? "nol-nol" : terbilang(mr)} menit Waktu Indonesia Barat`;
+
+  // Total shares and attending shares
+  const totalShares = data.shareholders.reduce((sum, s) => sum + (s.sharesOwned || 0), 0) || 1010;
+  const attendingShareholders = data.shareholders.filter(s => s.isPresent) || [];
   const presentShares = attendingShareholders.reduce((sum, s) => sum + (s.sharesOwned || 0), 0);
-  const presentRp = presentShares * (data.originalSharePrice || 0);
+  const presentPercentage = totalShares > 0 ? (presentShares / totalShares) * 100 : 100;
 
-  // 1. Title
+  // Rep details (Usually the person appearing before the Notary to state the resolutions)
+  let rep: any;
+  if (data.representativeType === "EXISTING") {
+    rep = data.shareholders.find(s => s.id === data.authorizedRepresentativeId) ||
+          data.finalShareholders.find(s => s.id === data.authorizedRepresentativeId);
+  } else if (data.representativeType === "MANUAL" && data.manualRepresentative) {
+    rep = data.manualRepresentative;
+  }
+  if (!rep) {
+    const chairSh = data.shareholders.find(s => (s.name || "").toUpperCase() === (data.meetingChair || "").toUpperCase());
+    rep = (chairSh?.isProxy && chairSh.proxyData) ? chairSh.proxyData : (chairSh || data.shareholders[0]);
+  }
+
+  const fullyDescribedNames = new Set<string>();
+
+  const getPersonDetailRuns = (person: any): FormatToken[] => {
+    const nameUpper = (person?.name || "").toUpperCase().trim();
+    const isPenghadap = rep && nameUpper === (rep.name || "").toUpperCase().trim();
+
+    if (fullyDescribedNames.has(nameUpper) && nameUpper !== "") {
+      return [
+        { text: nameUpper, bold: true },
+        { text: isPenghadap ? ", penghadap tersebut diatas" : ", tersebut diatas" }
+      ];
+    }
+
+    fullyDescribedNames.add(nameUpper);
+    const tglAngka = person?.birthDate ? formatDateStr(person.birthDate) : "...";
+    const tglHuruf = person?.birthDate ? dateToWords(person.birthDate) : "...";
+    return [
+      { text: nameUpper, bold: true },
+      {
+        text: person ? formatPersonDetails(person, tglAngka, tglHuruf) : `, lahir di ..., pada tanggal ... (...), Warga Negara Indonesia, swasta, bertempat tinggal di ..., Rukun Tetangga ..., Rukun Warga ..., Kelurahan ..., Kecamatan ..., pemegang Kartu Tanda Penduduk Nomor ...`,
+      },
+    ];
+  };
+
+  // 1. Header (Centered, no "AKTA" prefix to match PDF exactly)
   blocks.push(
-    { type: "p", align: "center", runs: [{ text: "NOTULEN", bold: true }] },
+    { type: "p", align: "center", runs: [{ text: "PERNYATAAN KEPUTUSAN", bold: true }] },
     { type: "p", align: "center", runs: [{ text: "RAPAT UMUM PEMEGANG SAHAM TAHUNAN", bold: true }] },
     { type: "p", align: "center", runs: [{ text: formatCompanyName(data.companyName), bold: true }] },
-    { type: "p", align: "center", runs: [{ text: "--------------------------------------------------------------------------------------------------------------------" }] }
-  );
-
-  // I. RAPAT
-  blocks.push(
-    { type: "p", runs: [{ text: "I. RAPAT", bold: true }] },
+    { type: "p", align: "center", runs: [{ text: `Nomor : ${effectiveNotaryNumber}` }] },
+    { type: "p", runs: [{ text: `Pada hari ini, ${tglAktaHari}, tanggal ${tglAktaAngka} (${tglAktaHuruf}).` }] },
+    { type: "p", runs: [{ text: `Pukul ${jamStr} WIB (${jamHuruf}).` }] },
     {
       type: "p",
       runs: [
-        { text: `Rapat Umum Pemegang Saham Tahunan ` },
-        { text: `"${formatCompanyName(data.companyName)}"`, bold: true },
-        { text: ` (selanjutnya disebut sebagai "Rapat") Perseroan yang berkedudukan di ${data.domicileStyle === 'KABUPATEN' ? 'Kabupaten ' : 'Kota '}${toTitleCase(data.domicile || "...")}, demikian berdasarkan Akta Pendirian tertanggal ${dateToWords(data.establishmentDeedDate || "")} (${formatDateStr(data.establishmentDeedDate || "")}), No. ${data.establishmentDeedNumber || "..."}, yang dibuat dihadapan ${data.establishmentNotary || "..."}, Notaris di ${toTitleCase(data.establishmentNotaryDomicile || "...")} dan telah mendapat pengesahan dari Menteri Hukum dan Hak Asasi Manusia Republik Indonesia tertanggal ${dateToWords(data.establishmentSkDate || "")} (${formatDateStr(data.establishmentSkDate || "")}) Nomor ${data.establishmentSkNumber || "..."}${data.amendmentDeeds && data.amendmentDeeds.length > 0 ? ", beberapa kali telah mengalami perubahan, berdasarkan :" : "."}` }
-      ]
+        { text: `Berhadapan dengan saya, ` },
+        { text: toTitleCase(data.notaryName || "Nukantini Putri Parincha, Sarjana Hukum, Magister Kenotariatan"), bold: true },
+        { text: `, Notaris di ` },
+        { text: toTitleCase(data.notaryDomicile || "Kabupaten Bandung Barat"), bold: true },
+        { text: `, dengan dihadiri oleh saksi-saksi yang saya, Notaris kenal and akan disebutkan nama-namanya pada bagian akhir akta ini :` },
+      ],
     }
   );
 
-  if (data.amendmentDeeds && data.amendmentDeeds.length > 0) {
-    data.amendmentDeeds.forEach((deed) => {
-      const skDoc = deed.skSpDocuments?.find(d => d.type === 'SK') || (deed.skNumber ? { number: deed.skNumber, date: deed.skDate } : null);
-      const spDoc = deed.skSpDocuments?.find(d => d.type === 'SP' || d.type === 'SP_DATA_PERSEROAN' || d.type === 'SP_ANGGARAN_DASAR');
+  // 2. Representative (The person reporting the BAR RUPST)
+  if (rep) {
+    blocks.push({
+      type: "p",
+      runs: [
+        { text: `${rep.salutation || "Tuan"} ` },
+        ...getPersonDetailRuns(rep),
+        { text: ";" }
+      ]
+    });
 
-      let textContent = `Akta Pernyataan Keputusan Rapat Umum Para Pemegang Saham Luar Biasa tertanggal ${dateToWords(deed.date)} (${formatDateStr(deed.date)}) Nomor ${deed.number}, yang dibuat di hadapan ${deed.notary}${deed.notaryTitle ? `, ${deed.notaryTitle}` : ""}, Notaris di ${deed.notaryDomicile}`;
-
-      if (skDoc && skDoc.number) {
-        textContent += ` dan telah mendapat persetujuan dari Kementerian Hukum dan Hak Asasi Manusia Republik Indonesia tertanggal ${dateToWords(skDoc.date)} Nomor ${skDoc.number}`;
-      }
-
-      if (spDoc && spDoc.number) {
-        textContent += `, serta telah dilaporkan ke Kementerian Hukum dan Hak Asasi Manusia Republik Indonesia tertanggal ${dateToWords(spDoc.date)} Nomor ${spDoc.number}`;
-      } else if (!skDoc) {
-        // Fallback for legacy data that might be stored in skNumber/skDate as report
-        textContent += ` telah dilaporkan ke Kementerian Hukum dan Hak Asasi Manusia Republik Indonesia tertanggal ${dateToWords(deed.skDate)} Nomor ${deed.skNumber}`;
-      }
-
-      textContent += ".";
-
+    const isForeignRep = rep.nationalityType === 'WNA' || rep.isForeign;
+    if (isForeignRep) {
       blocks.push({
         type: "list",
         bullet: "-",
-        runs: [{ text: textContent }]
+        indentTabs: 0.5,
+        runs: [{ text: `Untuk sementara berada di ${toTitleCase(data.notaryDomicile || "Kabupaten Bandung Barat")};` }]
       });
+    }
+
+    blocks.push({
+      type: "list",
+      bullet: "-",
+      indentTabs: 0.5,
+      runs: [{ text: "Dalam hal ini hadir selaku kuasa sebagaimana yang tertera dalam risalah Rapat Perseroan yang akan diuraikan di bawah ini." }]
+    });
+
+    blocks.push({
+      type: "list",
+      bullet: "-",
+      indentTabs: 0.5,
+      runs: [{ text: "Penghadap telah memperkenalkan diri kepada saya, Notaris." }]
     });
   }
 
@@ -106,27 +298,43 @@ export const generateRupstBlocks = (data: CompanyData): Block[] => {
     {
       type: "p",
       runs: [
-        { text: "Rapat ini diselenggarakan berdasarkan Surat Pemanggilan Rapat Umum Pemegang Saham Tahunan Nomor: " },
-        { text: data.rupstInvitationNumber || "[nomor surat]", color: data.rupstInvitationNumber ? undefined : "FF0000" },
-        { text: " tertanggal " },
-        { text: data.rupstInvitationDate ? dateToWords(data.rupstInvitationDate) : "[isi tanggal surat pemanggilan]", color: data.rupstInvitationDate ? undefined : "FF0000" },
-        { text: " (" },
-        { text: data.rupstInvitationDate ? formatDateStr(data.rupstInvitationDate) : "[tanggal surat]", color: data.rupstInvitationDate ? undefined : "FF0000" },
-        { text: ") dan diadakan pada:" }
+        { text: "Penghadap dalam kedudukannya tersebut di atas menerangkan terlebih dahulu kepada saya, Notaris :" }
       ]
-    },
-    { type: "p", runs: [{ text: "Hari/Tanggal" }, { text: "\t: " }, { text: data.signingDate ? `${tglRapatHari} / ${tglRapatAngka}` : "" }], indent: true },
-    { type: "p", runs: [{ text: "Tempat" }, { text: "\t: " }, { text: data.signingPlace ? `${data.signingPlace}` : "" }], indent: true },
-    { type: "p", runs: [{ text: "Waktu" }, { text: "\t: " }, { text: data.meetingStartTime ? `Pukul ${data.meetingStartTime.replace(":", ".")} WIB` : "" }], indent: true },
-    { type: "br" }
+    }
   );
 
-  // II. PESERTA RAPAT
-  blocks.push(
-    { type: "p", runs: [{ text: "II. PESERTA RAPAT", bold: true }] },
-    { type: "p", runs: [{ text: "Bahwa dalam rapat telah hadir dan/atau mewakili antara lain :" }] }
-  );
+  // Preamble - Meeting Statement & Foundation Deed
+  const establishmentDeedDateText = dateToWords(data.establishmentDeedDate || "");
+  const establishmentDeedDateNum = formatDateStr(data.establishmentDeedDate || "");
 
+  const getSkFormattedNumber = () => {
+    const rawSk = data.establishmentSkNumber || "0071719.AH.01.01.Tahun 2024";
+    const upperRaw = rawSk.toUpperCase().trim();
+    if (upperRaw.startsWith("AHU-")) {
+      return upperRaw;
+    }
+    return "AHU-" + rawSk;
+  };
+
+  let foundationSentence = `Bahwa pada hari ${tglRapatHari}, tanggal ${tglRapatAngka} (${tglRapatHuruf}), bertempat di ${data.signingPlace || "Kantor Perseroan"}, pukul ${jamRapatStr} WIB (${jamRapatHuruf}) telah diadakan Rapat Umum Pemegang Saham Tahunan Perseroan Terbatas ${formatCompanyName(data.companyName)} (selanjutnya disebut sebagai “Rapat”) Perseroan berkedudukan di ${data.domicileStyle === 'KABUPATEN' ? 'Kabupaten ' : 'Kota '}${toTitleCase(data.domicile || "...")}, demikian berdasarkan Akta Pendirian tertanggal ${establishmentDeedDateText} (${establishmentDeedDateNum}), Nomor ${data.establishmentDeedNumber || "02"} dibuat dihadapan saya, Notaris di ${toTitleCase(data.establishmentNotaryDomicile || "Kabupaten Bandung Barat")} dan telah mendapat pengesahan dari Menteri Hukum dan Hak Asasi Manusia Republik Indonesia berdasarkan Surat Keputusan Nomor ${getSkFormattedNumber()} tertanggal ${dateToWords(data.establishmentSkDate || "")} (${formatDateStr(data.establishmentSkDate || "")});`;
+
+  blocks.push({
+    type: "list",
+    bullet: "-",
+    indentTabs: 0.5,
+    runs: [{ text: foundationSentence }]
+  });
+
+  blocks.push({
+    type: "list",
+    bullet: "-",
+    indentTabs: 0.5,
+    runs: [
+      { text: `Bahwa sesuai ketentuan Pasal ${data.rupstAdArticle || "9"} ayat (${data.rupstAdParagraph || "6"}) Anggaran Dasar Perseroan, pada tanggal ${tglRapatAngka} (${tglRapatHuruf}) seluruh pemegang saham telah menandatangani risalah rapat yang dimuat dalam "Risalah rapat Pemegang Saham Tahunan" yang dibuat di bawah tangan, yang ditandatangani oleh:` }
+    ]
+  });
+
+  // 3. Attendance - Grouped Physical Attendees to prevent duplicate listings of proxies / directors of corporate shareholders.
   interface RoleOwnShare {
     sharesOwned: number;
     shareholder: Shareholder;
@@ -222,414 +430,520 @@ export const generateRupstBlocks = (data: CompanyData): Block[] => {
   });
 
   attendees.forEach((att, idx) => {
+    const isRep = (att.name || "").toUpperCase().trim() === (rep.name || "").toUpperCase().trim();
+    const runsList: FormatToken[] = [{ text: att.salutation ? `${att.salutation} ` : "" }];
+
+    if (isRep) {
+      runsList.push(
+        { text: (att.name || "").toUpperCase(), bold: true },
+        { text: ", penghadap tersebut diatas;" }
+      );
+    } else {
+      runsList.push(...getPersonDetailRuns(att.sourceObj), { text: ";" });
+    }
+
+    // RENDERER: baris utama attendee pakai ListParagraph numId=2 (decimal).
+    // Varian A (isRep=true atau WNI singkat): ind left=567 hang=283, TANPA tabLeft, hanya rightTab=8504
+    //   XML: <w:ind w:left="567" w:hanging="283"/> + <w:tab w:val="right" w:leader="hyphen" w:pos="8504"/>
+    // Varian B (WNA / teks uraian panjang): ind left=709 hang=425, tabLeft=720, rightTab=8504
+    //   XML: <w:ind w:left="709" w:hanging="425"/> + <w:tab w:val="left" w:pos="720"/> + <w:tab w:val="right" w:leader="hyphen" w:pos="8504"/>
+    const isForeignAtt = att.sourceObj?.nationalityType === 'WNA' || att.sourceObj?.isForeign || att.sourceObj?.paspor || att.sourceObj?.passportNumber;
     blocks.push({
-      type: "list",
-      bullet: `${idx + 1}.`,
-      runs: [
-        { text: att.salutation ? `${att.salutation} ` : "" },
-        { text: att.name.toUpperCase(), bold: true },
-        { text: formatPersonDetails(att.sourceObj, formatDateStr(att.sourceObj.birthDate), dateToWords(att.sourceObj.birthDate)) }
-      ]
+      type: "p",
+      number: idx + 1,
+      // indent=true → Varian A (left=567 hang=283, no tabLeft); indentTabs=-1 → Varian B (left=709 hang=425, tabLeft=720)
+      indentTabs: (!isRep && isForeignAtt) ? -1 : undefined,
+      runs: runsList
     });
 
-    let roleCount = 0;
-    if (att.ownShares) roleCount++;
-    if (att.management) roleCount++;
-    roleCount += att.representations.length;
+    const totalSubBullets = (att.management ? 1 : 0) + (att.ownShares ? 1 : 0) + att.representations.length;
 
-    if (roleCount === 1 && att.management) {
+    if (totalSubBullets === 1) {
+      if (att.management) {
+        blocks.push({
+          type: "list",
+          bullet: "-",
+          // indentTabs=2.0 → left=993, hanging=284, TANPA tabLeft, rightTab=8504 (dari XML: "- Hadir selaku Komisaris Perseroan.")
+          indentTabs: 2.0,
+          runs: [
+            { text: "Hadir selaku " },
+            { text: `${toTitleCase(att.management.position)} Perseroan.` }
+          ]
+        });
+      } else if (att.ownShares) {
+        const shareRp = (att.ownShares.sharesOwned || 0) * (data.originalSharePrice || 10000000);
+        const formattedAmt = formatNumber(shareRp);
+        const terbilangAmt = terbilang(shareRp);
+        blocks.push({
+          type: "list",
+          bullet: "-",
+          // indentTabs=2.0 → left=993, hanging=284, TANPA tabLeft, rightTab=8504 (single shareholder attendee)
+          indentTabs: 2.0,
+          runs: [
+            { text: "Hadir selaku pemilik dan pemegang " },
+            { text: `${formatNumber(att.ownShares.sharesOwned)} (${terbilang(att.ownShares.sharesOwned)}) lembar saham atau senilai ` },
+            { text: `Rp. ${formattedAmt},- (${terbilangAmt} rupiah).` }
+          ]
+        });
+      } else if (att.representations.length === 1) {
+        const r = att.representations[0];
+        const isDirector = r.proxyData.representationType === 'DIREKTUR_PT_LAIN';
+        const shareRp = (r.sharesOwned || 0) * (data.originalSharePrice || 10000000);
+        const formattedAmt = formatNumber(shareRp);
+        const terbilangAmt = terbilang(shareRp);
+
+        let repTextRuns: FormatToken[] = [];
+        repTextRuns.push({ text: "Hadir selaku " });
+        if (isDirector) {
+          repTextRuns.push({ text: "Direktur " });
+          repTextRuns.push({ text: r.shareholder.name.toUpperCase(), bold: true });
+          
+          if (r.shareholder.isForeign) {
+            repTextRuns.push({
+              text: `, sebuah badan hukum asing yang didirikan berdasarkan hukum negara ${r.shareholder.foreignCountry || "California"}, dengan nomor pengesahan ${r.shareholder.skNumber || r.shareholder.nik || "..."} tertanggal ${r.shareholder.skDate ? formatDateStr(r.shareholder.skDate) : "..."} yang dikeluarkan oleh ${r.shareholder.skIssuer || "Sekertaris Negara Bagian California"}`
+            });
+          } else {
+            repTextRuns.push({
+              text: `, sebuah perseroan terbatas yang didirikan berdasarkan hukum negara Republik Indonesia, berkedudukan di ${toTitleCase(r.shareholder.address.city || "...")}`
+            });
+          }
+        } else {
+          const proxyDateWords = r.proxyData.proxyDeedDate ? dateToWords(r.proxyData.proxyDeedDate) : "__________";
+          const proxyDateAngka = r.proxyData.proxyDeedDate ? formatDateStr(r.proxyData.proxyDeedDate) : "__________";
+          repTextRuns.push({ text: "Kuasa dari " });
+          repTextRuns.push({ text: r.shareholder.name.toUpperCase(), bold: true });
+          repTextRuns.push(...getPersonDetailRuns(r.shareholder));
+          repTextRuns.push({ text: ` berdasarkan Surat Kuasa tertanggal ${proxyDateWords} (${proxyDateAngka})` });
+        }
+
+        repTextRuns.push({
+          text: `, selaku pemilik dan pemegang ${formatNumber(r.sharesOwned)} (${terbilang(r.sharesOwned)}) lembar saham atau senilai `
+        });
+        repTextRuns.push({ text: `Rp. ${formattedAmt},- (${terbilangAmt} rupiah).` });
+
+        blocks.push({
+          type: "list",
+          bullet: "-",
+          // indentTabs=2.0 → left=993, hanging=284, TANPA tabLeft, rightTab=8504 (single representation attendee)
+          indentTabs: 2.0,
+          runs: repTextRuns
+        });
+      }
+    } else if (totalSubBullets > 1) {
       blocks.push({
         type: "list",
         bullet: "-",
-        indentTabs: 1,
-        runs: [{ text: `Dalam hal ini hadir selaku ${toTitleCase(att.management.position)} Perseroan.` }]
-      });
-    } else {
-      blocks.push({
-        type: "list",
-        bullet: "-",
-        indentTabs: 1,
-        runs: [{ text: "Dalam hal ini hadir selaku :" }]
+        // indentTabs=2.5 → ListParagraph numId=3, left=993 tanpa hanging, tabLeft=284, rightTab=8504 (dari XML: "Hadir selaku :")
+        indentTabs: 2.5,
+        runs: [{ text: "Hadir selaku :" }]
       });
 
       let subBulletCode = 'a'.charCodeAt(0);
+      let bulletIdx = 0;
 
-      // a. Own Shares
-      if (att.ownShares) {
-        const bulletChar = String.fromCharCode(subBulletCode++) + ".";
-        const totalRp = att.ownShares.sharesOwned * (data.originalSharePrice || 0);
-        blocks.push({
-          type: "list",
-          bullet: bulletChar,
-          indentTabs: 2,
-          runs: [
-            { text: "Pemilik dan pemegang saham sebanyak " },
-            { text: `${formatNumber(att.ownShares.sharesOwned)}`, bold: true },
-            { text: ` (${terbilang(att.ownShares.sharesOwned)}) lembar saham atau senilai ` },
-            { text: `Rp. ${formatNumber(totalRp)},-`, bold: true },
-            { text: ` (${terbilang(totalRp)} rupiah) berhak mengeluarkan suara ` },
-            { text: `${formatNumber(att.ownShares.sharesOwned)}`, bold: true },
-            { text: ` (${terbilang(att.ownShares.sharesOwned)}) suara dalam rapat.` }
-          ]
-        });
-      }
-
-      // b. Management position
+      // a. Management position
       if (att.management) {
+        bulletIdx++;
+        const isLast = bulletIdx === totalSubBullets;
         const bulletChar = String.fromCharCode(subBulletCode++) + ".";
         blocks.push({
           type: "list",
           bullet: bulletChar,
-          indentTabs: 2,
-          runs: [{ text: `${toTitleCase(att.management.position)} Perseroan.` }]
+          // indentTabs=3.0 → ListParagraph numId=4, left=1418 tanpa hanging, tabLeft=567, rightTab=8504 (dari XML: "Direktur Perseroan;")
+          indentTabs: 3.0,
+          runs: [{ text: `${toTitleCase(att.management.position)} Perseroan${isLast ? "." : ";"}` }]
         });
       }
 
-      // c. Representative roles
-      att.representations.forEach(rep => {
+      // b. Own Shares
+      if (att.ownShares) {
+        bulletIdx++;
+        const isLast = bulletIdx === totalSubBullets;
         const bulletChar = String.fromCharCode(subBulletCode++) + ".";
-        const totalRp = rep.sharesOwned * (data.originalSharePrice || 0);
-        const isDirector = rep.proxyData.representationType === 'DIREKTUR_PT_LAIN';
-
-        if (isDirector) {
-          blocks.push({
-            type: "list",
-            bullet: bulletChar,
-            indentTabs: 2,
-            runs: [
-              { text: "Direktur dari " },
-              { text: rep.shareholder.name.toUpperCase(), bold: true },
-              { text: formatPersonDetails(rep.shareholder, formatDateStr(rep.shareholder.birthDate), dateToWords(rep.shareholder.birthDate)) },
-              { text: ", Pemilik dan pemegang saham sebanyak " },
-              { text: `${formatNumber(rep.sharesOwned)}`, bold: true },
-              { text: ` (${terbilang(rep.sharesOwned)}) lembar saham atau senilai Rp. ` },
-              { text: `${formatNumber(totalRp)},-`, bold: true },
-              { text: ` (${terbilang(totalRp)} rupiah) berhak mengeluarkan suara ` },
-              { text: `${formatNumber(rep.sharesOwned)}`, bold: true },
-              { text: ` (${terbilang(rep.sharesOwned)}) suara dalam rapat.` }
-            ]
-          });
-        } else {
-          const proxyDateWords = rep.proxyData.proxyDeedDate ? dateToWords(rep.proxyData.proxyDeedDate) : "__________";
-          const proxyDateAngka = rep.proxyData.proxyDeedDate ? formatDateStr(rep.proxyData.proxyDeedDate) : "__________";
-          blocks.push({
-            type: "list",
-            bullet: bulletChar,
-            indentTabs: 2,
-            runs: [
-              { text: "Kuasa dari " },
-              { text: rep.shareholder.name.toUpperCase(), bold: true },
-              { text: formatPersonDetails(rep.shareholder, formatDateStr(rep.shareholder.birthDate), dateToWords(rep.shareholder.birthDate)) },
-              { text: ` berdasarkan Surat Kuasa tertanggal ${proxyDateWords} (${proxyDateAngka}), Pemilik dan pemegang saham sebanyak ` },
-              { text: `${formatNumber(rep.sharesOwned)}`, bold: true },
-            { text: ` (${terbilang(rep.sharesOwned)}) lembar saham atau senilai Rp. ` },
-            { text: `${formatNumber(totalRp)},-`, bold: true },
-            { text: ` (${terbilang(totalRp)} rupiah) berhak mengeluarkan suara ` },
-            { text: `${formatNumber(rep.sharesOwned)}`, bold: true },
-            { text: ` (${terbilang(rep.sharesOwned)}) suara dalam rapat.` }
+        const shareRp = (att.ownShares.sharesOwned || 0) * (data.originalSharePrice || 10000000);
+        const formattedAmt = formatNumber(shareRp);
+        const terbilangAmt = terbilang(shareRp);
+        blocks.push({
+          type: "list",
+          bullet: bulletChar,
+          // indentTabs=3.0 → ListParagraph numId=4, left=1418 tanpa hanging, tabLeft=567, rightTab=8504 (dari XML: "Selaku pemilik...")
+          indentTabs: 3.0,
+          runs: [
+            { text: `Selaku pemilik dan pemegang ${formatNumber(att.ownShares.sharesOwned)} (${terbilang(att.ownShares.sharesOwned)}) lembar saham atau senilai ` },
+            { text: `Rp. ${formattedAmt},- (${terbilangAmt} rupiah)${isLast ? "." : ";"}` }
           ]
         });
       }
-    });
+
+      // c. Representations: Proxy / Director of other PT
+      att.representations.forEach(r => {
+        bulletIdx++;
+        const isLast = bulletIdx === totalSubBullets;
+        const bulletChar = String.fromCharCode(subBulletCode++) + ".";
+        const isDirector = r.proxyData.representationType === 'DIREKTUR_PT_LAIN';
+        const shareRp = (r.sharesOwned || 0) * (data.originalSharePrice || 10000000);
+        const formattedAmt = formatNumber(shareRp);
+        const terbilangAmt = terbilang(shareRp);
+
+        let repTextRuns: FormatToken[] = [];
+        if (isDirector) {
+          repTextRuns.push({ text: `Direktur ` });
+          repTextRuns.push({ text: r.shareholder.name.toUpperCase(), bold: true });
+          
+          if (r.shareholder.isForeign) {
+            repTextRuns.push({
+              text: `, sebuah badan hukum asing yang didirikan berdasarkan hukum negara ${r.shareholder.foreignCountry || "California"}, dengan nomor pengesahan ${r.shareholder.skNumber || r.shareholder.nik || "..."} tertanggal ${r.shareholder.skDate ? formatDateStr(r.shareholder.skDate) : "..."} yang dikeluarkan oleh ${r.shareholder.skIssuer || "Sekertaris Negara Bagian California"}`
+            });
+          } else {
+            repTextRuns.push({
+              text: `, sebuah perseroan terbatas yang didirikan berdasarkan hukum negara Republik Indonesia, berkedudukan di ${toTitleCase(r.shareholder.address.city || "...")}`
+            });
+          }
+        } else {
+          const proxyDateWords = r.proxyData.proxyDeedDate ? dateToWords(r.proxyData.proxyDeedDate) : "__________";
+          const proxyDateAngka = r.proxyData.proxyDeedDate ? formatDateStr(r.proxyData.proxyDeedDate) : "__________";
+          repTextRuns.push({ text: `Kuasa dari ` });
+          repTextRuns.push({ text: r.shareholder.name.toUpperCase(), bold: true });
+          repTextRuns.push(...getPersonDetailRuns(r.shareholder));
+          repTextRuns.push({ text: ` berdasarkan Surat Kuasa tertanggal ${proxyDateWords} (${proxyDateAngka})` });
+        }
+
+        repTextRuns.push({
+          text: `, Selaku pemilik dan pemegang ${formatNumber(r.sharesOwned)} (${terbilang(r.sharesOwned)}) lembar saham atau senilai `
+        });
+        repTextRuns.push({ text: `Rp. ${formattedAmt},- (${terbilangAmt} rupiah)${isLast ? "." : ";"}` });
+
+        blocks.push({
+          type: "list",
+          bullet: bulletChar,
+          // indentTabs=3.0 → ListParagraph numId=4, left=1418 tanpa hanging, tabLeft=567, rightTab=8504 (dari XML: "Direktur DYNADOT INC...")
+          indentTabs: 3.0,
+          runs: repTextRuns
+        });
+      });
     }
   });
 
-  const totalRp = presentShares * (data.originalSharePrice || 0);
-  blocks.push(
-    {
-      type: "p",
-      runs: [
-        { text: `Bahwa dari semua saham yang telah dikeluarkan tersebut diatas, yaitu ` },
-        { text: `${formatNumber(presentShares)}`, bold: true },
-        { text: ` (${terbilang(presentShares)}) lembar saham atau senilai ` },
-        { text: `Rp. ${formatNumber(totalRp)},-`, bold: true },
-        { text: ` (${terbilang(totalRp)} rupiah)` }
-      ]
-    },
-    { type: "br" }
-  );
-
-  // III. KETUA RAPAT
-  const chairSh = data.shareholders.find(s => (s.name || "").toUpperCase() === (data.meetingChair || "").toUpperCase());
-  const effectiveChairName = (chairSh?.isProxy && chairSh.proxyData) 
-    ? chairSh.proxyData.name 
-    : (data.meetingChair || chairSh?.name || "...");
-    
-  const effectiveChairSalutation = (chairSh?.isProxy && chairSh.proxyData)
-    ? chairSh.proxyData.salutation
-    : (chairSh?.salutation || "Tuan");
+  // Quorum and Chair
+  const sharePrice = (data.originalSharePrice || 10000000);
+  const totalNominal = totalShares * sharePrice;
 
   blocks.push(
-    { type: "p", runs: [{ text: "III. KETUA RAPAT", bold: true }] },
-    {
-      type: "p",
-      runs: [
-        { text: `Berdasarkan ketentuan Anggaran Dasar Perseroan Pasal ${data.rupstAdArticle || "9"} ayat ${data.rupstAdParagraph || "4"}, maka ` },
-        { text: `${effectiveChairSalutation} ` },
-        { text: effectiveChairName.toUpperCase(), bold: true },
-        { text: `, tersebut di atas, bertindak sebagai ketua rapat.` }
-      ]
-    },
-    { type: "br" }
-  );
-
-  // IV. AGENDA RAPAT
-  blocks.push(
-    { type: "p", runs: [{ text: "IV. AGENDA RAPAT", bold: true }] },
-    { type: "p", runs: [{ text: "Rapat ini diadakan dengan agenda rapat sebagai berikut :" }] },
-    { type: "list", bullet: "-", runs: [{ text: `Persetujuan Laporan Tahunan Perseroan Tahun Buku ${data.rupstFiscalYear || "2025"};` }] },
-    { type: "list", bullet: "-", runs: [{ text: `Pengesahan Laporan Keuangan Perseroan Tahun Buku ${data.rupstFiscalYear || "2025"};` }] },
-    { type: "list", bullet: "-", runs: [{ text: `Penetapan penggunaan laba bersih Perseroan;` }] },
-    { type: "list", bullet: "-", runs: [{ text: `Pemberian pelunasan dan pembebasan tanggung jawab sepenuhnya (acquit et de charge) kepada Direksi dan Komisaris;` }] },
-    { type: "br" }
-  );
-
-  // V. JALANNYA RAPAT
-  blocks.push(
-    { type: "p", runs: [{ text: "V. JALANNYA RAPAT", bold: true }] },
-    {
-      type: "p",
-      runs: [
-        { text: `Ketua rapat membuka dan memimpin rapat dengan terlebih dahulu menjelaskan bahwa para pemegang saham Perseroan telah hadir dan/atau diwakili oleh ${formatNumber(presentShares)} Saham Perseroan yang telah ditempatkan dan diambil bagian-bagian hingga hari ini, oleh karena itu, sesuai dengan ketentuan Anggaran dasar Perseroan Pasal ${data.rupstQuorumArticle || "22"} ayat ${data.rupstQuorumParagraph || "1"} mengenai Kuorum, Rapat ini adalah sah sesuai dengan Kuorum dan berhak mengambil keputusan-keputusan yang sah serta mengikat mengenai hal-hal yang dibicarakan.` }
-      ]
-    },
-    { type: "br" }
-  );
-
-  // VI. KEPUTUSAN_KEPUTUSAN
-  const signatorySh = data.shareholders.find(s => s.name === data.rupstFinancialReportSignatoryName);
-  const signatorySalutation = signatorySh?.salutation || "Tuan";
-  const signatoryName = data.rupstFinancialReportSignatoryName || "[Nama Direktur]";
-  const signatoryPosition = data.rupstFinancialReportSignatoryPosition || "Direktur";
-
-  const hasFinReportNumber = data.rupstFinancialReportNumber && data.rupstFinancialReportNumber.trim() !== "" && data.rupstFinancialReportNumber.trim() !== "0";
-  const numText = hasFinReportNumber ? ` nomor ${data.rupstFinancialReportNumber}` : "";
-
-  blocks.push(
-    { type: "p", runs: [{ text: "VI. KEPUTUSAN_KEPUTUSAN", bold: true }] },
-    { type: "p", runs: [{ text: "Setelah dilakukan pembahasan dan musyawarah, Rapat memutuskan dan menyetujui hal-hal sebagai berikut:" }] },
     {
       type: "list",
-      bullet: "1.",
-      runs: [{ text: `Menyetujui dan menerima dengan baik Laporan Tahunan Perseroan untuk tahun buku yang berakhir pada tanggal 31 Desember ${data.rupstFiscalYear || "2025"};` }]
+      bullet: "-",
+      indentTabs: 0.5,
+      runs: [
+        { text: `Bahwa dari semua saham yang telah dikeluarkan tersebut di atas, yaitu ` },
+        { text: `${formatNumber(totalShares)} (${terbilang(totalShares)})`, bold: true },
+        { text: ` lembar saham perseroan atau dengan nominal seluruhnya sebesar ` },
+        { text: `Rp. ${formatNumber(totalNominal)},- (${terbilang(totalNominal)} rupiah)`, bold: true },
+        { text: ` atau ` },
+        { text: `${formatNumber(presentPercentage)}%`, bold: true },
+        { text: ` telah hadir dalam rapat ini.` }
+      ]
     },
     {
       type: "list",
-      bullet: "2.",
+      bullet: "-",
+      indentTabs: 0.5,
       runs: [
-        { text: `Mengesahkan Laporan Keuangan Perseroan untuk tahun buku yang berakhir pada tanggal 31 Desember ${data.rupstFiscalYear || "2025"}, sebagaimana dimuat dalam Laporan Keuangan ` },
-        { text: formatCompanyName(data.companyName) },
-        { text: `${numText} tanggal ${formatDateStr(data.rupstFinancialReportDate || "")}, yang ditandatangani oleh ${signatoryPosition} Perseroan ${signatorySalutation} ${signatoryName}${
-          (data.rupstStatementNeraca !== false || data.rupstStatementLabaRugi !== false || data.rupstStatementPerubahanEkuitas !== false || data.rupstStatementArusKas !== false || data.rupstStatementCatatan !== false)
-            ? " yang terdiri dari:"
-            : "."
-        }` }
+        { text: `Bahwa menurut ` },
+        { text: `Pasal ${data.rupstQuorumArticle || "10"} ayat ${data.rupstQuorumParagraph || "1"} Anggaran Dasar Perseroan`, color: "FF0000" },
+        { text: ` mengenai Kuorum, Rapat ini adalah sah sesuai dengan Kuorum dan berhak mengambil keputusan-keputusan yang sah serta mengikat mengenai hal-hal yang dibicarakan;` }
       ]
     }
   );
 
-  if (data.rupstStatementNeraca !== false) {
-    blocks.push({ type: "list", bullet: "-", indentTabs: 1, runs: [{ text: "Laporan Posisi Keuangan (Neraca);" }] });
-  }
-  if (data.rupstStatementLabaRugi !== false) {
-    blocks.push({ type: "list", bullet: "-", indentTabs: 1, runs: [{ text: "Laporan Laba Rugi;" }] });
-  }
-  if (data.rupstStatementPerubahanEkuitas !== false) {
-    blocks.push({ type: "list", bullet: "-", indentTabs: 1, runs: [{ text: "Laporan Perubahan Ekuitas;" }] });
-  }
-  if (data.rupstStatementArusKas !== false) {
-    blocks.push({ type: "list", bullet: "-", indentTabs: 1, runs: [{ text: "Laporan Arus Kas;" }] });
-  }
-  if (data.rupstStatementCatatan !== false) {
-    blocks.push({ type: "list", bullet: "-", indentTabs: 1, runs: [{ text: "Catatan Atas Laporan Keuangan." }] });
+  const chairNameValue = (data.meetingChair || rep?.name || "RAJANDRAN SHUNMUGAM").trim().toUpperCase();
+  let chairSalutation = "Tuan";
+  if (chairNameValue) {
+    const foundSh = data.shareholders.find(s => (s.name || "").trim().toUpperCase() === chairNameValue);
+    if (foundSh) {
+      if (foundSh.isProxy && foundSh.proxyData) {
+        chairSalutation = foundSh.proxyData.salutation || "Tuan";
+      } else {
+        chairSalutation = foundSh.salutation || "Tuan";
+      }
+    } else {
+      const foundNewMgmt = data.newManagementItems?.find(m => (m.name || "").trim().toUpperCase() === chairNameValue);
+      if (foundNewMgmt) {
+        chairSalutation = foundNewMgmt.salutation || "Tuan";
+      } else {
+        const foundOldMgmt = data.oldManagementItems?.find(m => (m.name || "").trim().toUpperCase() === chairNameValue);
+        if (foundOldMgmt) {
+          chairSalutation = foundOldMgmt.salutation || "Tuan";
+        }
+      }
+    }
   }
 
+  blocks.push(
+    {
+      type: "list",
+      bullet: "-",
+      indentTabs: 0.5,
+      runs: [
+        { text: `Berdasarkan ketentuan Pasal ${data.rupstAdArticle || "9"} ayat (${data.rupstAdParagraph || "6"}) Anggaran Dasar Perseroan, ${chairSalutation} ` },
+        { text: chairNameValue, bold: true },
+        { text: `, pengahdap tersebut di atas, selaku ${toTitleCase(data.meetingChairPosition || "Kuasa Direktur")} perseroan, bertindak sebagai Ketua Rapat.` }
+      ]
+    }
+  );
+
+  // Agenda list
+  blocks.push(
+    {
+      type: "list",
+      bullet: "-",
+      indentTabs: 0.5,
+      runs: [{ text: "Bahwa dalam acara Rapat telah diputuskan dengan suara bulat, sebagaimana tercantum dalam agenda rapat, yaitu mengenai :" }]
+    },
+    {
+      type: "list",
+      bullet: "-",
+      indentTabs: 1.0,
+      runs: [{ text: `Persetujuan Laporan Tahunan Perseroan Tahun Buku ${data.rupstFiscalYear || "2025"};` }]
+    },
+    {
+      type: "list",
+      bullet: "-",
+      indentTabs: 1.0,
+      runs: [{ text: `Pengesahan Laporan Keuangan Perseroan Tahun Buku ${data.rupstFiscalYear || "2025"};` }]
+    },
+    {
+      type: "list",
+      bullet: "-",
+      indentTabs: 1.0,
+      runs: [{ text: "Penetapan penggunaan laba bersih Perseroan;" }]
+    },
+    {
+      type: "list",
+      bullet: "-",
+      indentTabs: 1.0,
+      runs: [{ text: "Pemberian pelunasan dan pembebasan tanggung jawab sepenuhnya (acquit et de charge) kepada Direksi dan Komisaris." }]
+    }
+  );
+
+  // 4. Decisions (5 main points to match the PDF exactly)
+  blocks.push(
+    {
+      type: "p",
+      runs: [{ text: "Sehubungan dengan apa yang diuraikan di atas, penghadap bertindak dalam kedudukannya sebagaimana tersebut di atas dengan ini menyatakan keputusan acara Rapat yang telah diputuskan dengan suara bulat memutuskan dan menetapkan sebagai berikut:" }]
+    }
+  );
+
+  // Decision 1
+  blocks.push({
+    type: "p",
+    number: 1,
+    runs: [{ text: `Menyetujui dan menerima dengan baik Laporan Laporan Tahunan Perseroan untuk tahun buku yang berakhir pada tanggal 31 Desember ${data.rupstFiscalYear || "2025"};` }]
+  });
+
+  // Decision 2
+  const signatorySh = data.shareholders.find(s => s.name === data.rupstFinancialReportSignatoryName);
+  const signatorySalutation = signatorySh?.salutation || "Tuan";
+  const signatoryName = data.rupstFinancialReportSignatoryName || rep?.name || "RAJANDRAN SHUNMUGAM";
+  const signatoryPosition = data.rupstFinancialReportSignatoryPosition || "Direktur";
+
+  const financialRepDateText = data.rupstFinancialReportDate ? dateToWords(data.rupstFinancialReportDate) : "dua puluh sembilan April dua ribu dua puluh enam";
+  const financialRepDateNum = data.rupstFinancialReportDate ? formatDateStr(data.rupstFinancialReportDate) : "28-04-2026";
+
+  blocks.push({
+    type: "p",
+    number: 2,
+    runs: [
+      { text: `Mengesahkan Laporan Keuangan Perseroan untuk tahun buku yang berakhir pada tanggal 31 Desember ${data.rupstFiscalYear || "2025"}, sebagaimana dimuat dalam Laporan Keuangan PT. JUBILEE TOKYO JEWELRY tertanggal ${financialRepDateText} (${financialRepDateNum}), yang ditandatangani Direktur Perseroan Tuan ` },
+      { text: signatoryName.toUpperCase(), bold: true },
+      { text: `, penghadap tersebut di atas, yang terdiri dari:` }
+    ]
+  });
+
+  blocks.push(
+    {
+      type: "list",
+      bullet: "-",
+      // indentTabs=0 → ListParagraph numId=3, TANPA ind override, tabLeft=284, rightTab=8504 (dari XML: numId=3, no ind override)
+      indentTabs: 0,
+      runs: [{ text: "Laporan Posisi Keuangan (Neraca);" }]
+    },
+    {
+      type: "list",
+      bullet: "-",
+      // indentTabs=0 → ListParagraph numId=3, TANPA ind override, tabLeft=284, rightTab=8504
+      indentTabs: 0,
+      runs: [{ text: "Laporan Laba Rugi;" }]
+    }
+  );
+
+  // Decision 3 - Net profit/dividend distribution
   const netProfitColor = (data.rupstNetProfit !== undefined && data.rupstNetProfit !== null) ? undefined : "FF0000";
   let netProfitDisplay = "[ISI DENGAN NILAI LABA BERSIH DI NOTULEN RUPS TAHUNAN]";
   if (data.rupstNetProfit !== undefined && data.rupstNetProfit !== null) {
     const isNeg = data.rupstNetProfit < 0;
     const absVal = Math.abs(data.rupstNetProfit);
-    netProfitDisplay = `${isNeg ? "- Rp " : "Rp"}${formatNumber(absVal)} (${terbilang(data.rupstNetProfit)} rupiah)`;
+    netProfitDisplay = `${isNeg ? "- Rp " : "Rp "}${formatNumber(absVal)} (${terbilang(data.rupstNetProfit)} rupiah)`;
   }
 
   const dividendColor = (data.rupstDividendAmount !== undefined && data.rupstDividendAmount !== null) ? undefined : "FF0000";
-  let dividendDisplay = "[ISI DENGAN NILAI DEVIDEN DIBAGIKAN]";
+  let dividendDisplayValue = "[ISI DENGAN NILAI DEVIDEN DIBAGIKAN]";
   if (data.rupstDividendAmount !== undefined && data.rupstDividendAmount !== null) {
     const isNeg = data.rupstDividendAmount < 0;
     const absVal = Math.abs(data.rupstDividendAmount);
-    dividendDisplay = `${isNeg ? "- Rp " : "Rp"}${formatNumber(absVal)} (${terbilang(data.rupstDividendAmount)} rupiah)`;
+    dividendDisplayValue = `${isNeg ? "- Rp " : "Rp "}${formatNumber(absVal)} (${terbilang(data.rupstDividendAmount)} rupiah)`;
   }
 
   if (data.rupstNetProfit !== undefined && data.rupstNetProfit !== null && data.rupstNetProfit < 0) {
-    const prevYear = data.rupstFiscalYear ? (parseInt(data.rupstFiscalYear) - 1).toString() : "2024";
-    const absRetained = Math.abs(data.rupstRetainedProfit || 0);
-    const isRetainedNeg = (data.rupstRetainedProfit || 0) < 0;
-    const retainedLabel = isRetainedNeg ? "saldo rugi ditahan" : "saldo laba ditahan";
-    const retainedDisplay = `Rp${formatNumber(absRetained)} (${terbilang(absRetained)} rupiah)`;
     const absNetProfit = Math.abs(data.rupstNetProfit);
-    const netProfitDisplayPositive = `Rp${formatNumber(absNetProfit)} (${terbilang(absNetProfit)} rupiah)`;
+    const netProfitDisplayPositive = `Rp ${formatNumber(absNetProfit)} (${terbilang(absNetProfit)} rupiah)`;
 
     blocks.push({
-      type: "list",
-      bullet: "3.",
+      type: "p",
+      number: 3,
       runs: [
-        { text: `Menetapkan Perseroan mengalami rugi bersih untuk tahun buku ${data.rupstFiscalYear || "2025"} sebesar ` },
+        { text: `Menetapkan penggunaan laba bersih Perseroan tahun buku ${data.rupstFiscalYear || "2025"} sebesar ` },
         { text: netProfitDisplayPositive, color: netProfitColor },
-        { text: `, dengan ${retainedLabel} Perseroan sampai dengan tahun buku ${prevYear} sebesar ` },
-        { text: retainedDisplay },
-        { text: `.` }
-      ]
-    });
-    blocks.push({
-      type: "list",
-      bullet: "",
-      indentTabs: 0,
-      runs: [
-        { text: `sehubungan dengan hal tersebut:` }
-      ]
-    });
-    blocks.push({
-      type: "list",
-      bullet: "-",
-      indentTabs: 1,
-      runs: [
-        { text: `Perseroan tidak membagikan dividen kepada para pemegang saham;` }
-      ]
-    });
-    blocks.push({
-      type: "list",
-      bullet: "-",
-      indentTabs: 1,
-      runs: [
-        { text: `Rugi bersih tahun berjalan dicatat sebagai akumulasi kerugian/saldo rugi ditahan Perseroan.` }
+        { text: `, sehubungan dengan hal tersebut, Perseroan mengalami rugi bersih, sehingga tidak membagikan dividen kepada para pemegang saham, dan rugi bersih tahun berjalan dicatat sebagai saldo rugi ditahan Perseroan untuk mendukung kegiatan usaha Perseroan.` }
       ]
     });
   } else {
     blocks.push({
-      type: "list",
-      bullet: "3.",
+      type: "p",
+      number: 3,
       runs: [
         { text: `Menetapkan penggunaan laba bersih Perseroan tahun buku ${data.rupstFiscalYear || "2025"} sebesar ` },
         { text: netProfitDisplay, color: netProfitColor },
         { text: `, dengan rincian sebagai berikut:` }
       ]
     });
-    blocks.push({
-      type: "list",
-      bullet: "-",
-      indentTabs: 1,
-      runs: [
-        { text: `Sebesar ` },
-        { text: dividendDisplay, color: dividendColor },
-        { text: ` dibagikan sebagai dividen kepada para pemegang saham;` }
-      ]
-    });
-    blocks.push({
-      type: "list",
-      bullet: "-",
-      indentTabs: 1,
-      runs: [{ text: `Sisanya dicatat sebagai laba ditahan Perseroan untuk mendukung kegiatan usaha Perseroan.` }]
-    });
+
+    blocks.push(
+      {
+        type: "list",
+        bullet: "-",
+        // indentTabs=1.5 → left=567, hanging=284, tabLeft=284, rightTab=8504 (dari XML: ind left="567" hanging="284", tab pos="284")
+        indentTabs: 1.5,
+        runs: [
+          { text: "Sebesar " },
+          { text: dividendDisplayValue, color: dividendColor },
+          { text: " dibagikan sebagai dividen kepada para pemegang saham;" }
+        ]
+      },
+      {
+        type: "list",
+        bullet: "-",
+        // indentTabs=1.5 → left=567, hanging=284, tabLeft=284, rightTab=8504 (dari XML: ind left="567" hanging="284", tab pos="284")
+        indentTabs: 1.5,
+        runs: [{ text: "Sisanya dicatat sebagai laba ditahan Perseroan untuk mendukung kegiatan usaha Perseroan." }]
+      }
+    );
   }
 
-  blocks.push(
-    {
-      type: "list",
-      bullet: "4.",
-      runs: [{ text: `Memberikan pelunasan dan pembebasan tanggung jawab sepenuhnya (acquit et de charge) kepada Direksi dan Komisaris Perseroan atas tindakan pengurusan dan pengawasan yang telah dijalankan selama tahun buku ${data.rupstFiscalYear || "2025"}, sejauh tindakan tersebut tercermin dalam Laporan Tahunan dan Laporan Keuangan Perseroan;` }]
-    },
-    {
-      type: "list",
-      bullet: "5.",
-      runs: [{ text: `Memberikan kuasa kepada ${effectiveChairSalutation} ${toTitleCase(effectiveChairName)} tersebut diatas, untuk melakukan segala tindakan yang diperlukan sehubungan dengan hasil keputusan RUPS Tahunan ini, termasuk namun tidak terbatas pada pengurusan pelaporan kepada instansi yang berwenang.` }]
-    },
-    { type: "br" }
-  );
-
-  const chairSignatureName = (chairSh?.isProxy && chairSh.proxyData)
-    ? `${chairSh.proxyData.name.toUpperCase()} qq ${chairSh.name.toUpperCase()}`
-    : effectiveChairName.toUpperCase();
-
-  // VII. PENUTUP
-  blocks.push(
-    { type: "p", runs: [{ text: "VII. PENUTUP", bold: true }] },
-    {
-      type: "p",
-      runs: [
-        { text: `Akhirnya, oleh karena sudah tidak ada hal-hal lain yang perlu dibicarakan lagi, maka Ketua Rapat menutup Rapat ini pada jam ${jamPenutup} WIB.` }
-      ]
-    },
-    { type: "br" },
-    { type: "br" },
-    { type: "p", runs: [{ text: "KETUA RAPAT,", bold: true }] },
-    { type: "br" },
-    { type: "p", runs: [{ text: "Meterai Rp.10.000,- + cap perusahan", size: 6, color: "FF0000" }] },
-    { type: "br" },
-    { type: "br" },
-    { type: "br" },
-    { type: "p", runs: [{ text: chairSignatureName, bold: true, underline: true }] },
-    { type: "p", runs: [{ text: data.meetingChairPosition || "Direktur Utama", bold: true }] },
-    { type: "br" },
-    { type: "p", runs: [{ text: "TANDA TANGAN PESERTA RAPAT :", bold: true }] },
-    { type: "br" }
-  );
-
-  attendingShareholders
-    .filter(sh => {
-      const chairName = (data.meetingChair || "").toUpperCase();
-      const isChairDirectly = sh.name.toUpperCase() === chairName;
-      const isChairAsProxy = sh.isProxy && sh.proxyData?.name.toUpperCase() === chairName;
-      return !isChairDirectly && !isChairAsProxy;
-    })
-    .forEach((sh, idx) => {
-    const displayName = (sh.isProxy && sh.proxyData)
-      ? `${sh.proxyData.name.toUpperCase()} qq ${sh.name.toUpperCase()}`
-      : sh.name.toUpperCase();
-
-    blocks.push({
-      type: "p",
-      runs: [
-        { text: `${idx + 1}.  ` },
-        { text: displayName, bold: true },
-        { text: "\t..........................................." }
-      ]
-    });
+  // Decision 4
+  blocks.push({
+    type: "p",
+    number: 4,
+    runs: [{ text: `Memberikan pelunasan dan pembebasan tanggung jawab sepenuhnya (acquit et de charge) kepada Direksi dan Komisaris Perseroan atas tindakan pengurusan dan pengawasan yang telah dijalankan selama tahun buku ${data.rupstFiscalYear || "2025"}, sejauh tindakan tersebut tercermin dalam Laporan Tahunan dan Laporan Keuangan Perseroan;` }]
   });
 
-  // DAFTAR HADIR PAGE
-  blocks.push({ type: "pageBreak" });
-  blocks.push(
-    { type: "p", align: "center", runs: [{ text: "DAFTAR HADIR", bold: true }] },
-    { type: "p", align: "center", runs: [{ text: "RAPAT UMUM PEMEGANG SAHAM TAHUNAN", bold: true }] },
-    { type: "p", align: "center", runs: [{ text: formatCompanyName(data.companyName), bold: true }] },
-    { type: "p", align: "center", runs: [{ text: `TANGGAL ${formatDateStr(data.signingDate)}`, bold: true }] },
-    { type: "br" }
-  );
+  // Decision 5
+  blocks.push({
+    type: "p",
+    number: 5,
+    runs: [
+      { text: "Memberikan kuasa kepada Tuan " },
+      { text: (data.meetingChair || rep?.name || "RAJANDRAN SHUNMUGAM").toUpperCase(), bold: true },
+      { text: " tersebut diatas, untuk melakukan segala tindakan yang diperlukan sehubungan dengan hasil keputusan RUPS Tahunan ini, termasuk namun tidak terbatas pada pengurusan pelaporan kepada instansi yang berwenang." }
+    ]
+  });
 
-  const tableRows = attendingShareholders.map((sh, idx) => {
-    const displayName = (sh.isProxy && sh.proxyData)
-      ? `${sh.proxyData.name.toUpperCase()} qq ${sh.name.toUpperCase()}`
-      : sh.name.toUpperCase();
-    
-    let kedudukan = sh.isManagement ? (sh.managementPosition || "Direktur") : "Pemegang Saham";
-    if (sh.isManagement) {
-      kedudukan += "\n&\npemegang saham";
+  // Closure Section
+  const meetingEndHourNum = data.rupstMeetingEndTime ? data.rupstMeetingEndTime.replace(":", ".") : "14.00";
+  const endParts = (data.rupstMeetingEndTime || "14:00").split(":");
+  const eh = parseInt(endParts[0]);
+  const em = parseInt(endParts[1]);
+  const meetingEndHourWords = `${terbilang(eh)} lewat ${em === 0 ? "nol-nol" : terbilang(em)} menit Waktu Indonesia Barat`;
+
+  blocks.push(
+    {
+      type: "p",
+      runs: [
+        { text: `Rapat ditutup pada pukul ${meetingEndHourNum} WIB (${meetingEndHourWords}) oleh Ketua Rapat, Setelah semua agenda rapat dibahas dan menghasilkan Keputusan sebagaimana telah diputuskan peserta rapat yang hadir.` }
+      ]
+    },
+    {
+      type: "p",
+      runs: [{ text: "Dari segala sesuatu yang diuraikan tersebut di atas, maka saya, Notaris Membuat Akta Pernyataan Keputusan Rapat ini untuk dapat dipergunakan Sebagaimana mestinya." }]
+    },
+    { type: "divider", text: "DEMIKIANLAH AKTA INI" },
+    {
+      type: "p",
+      runs: [{ text: "Dibuat sebagai minuta dan dilangsungkan di Kabupaten Bandung Barat, pada hari dan tanggal serta jam sebagaimana disebutkan pada kepala akta ini dengan dihadiri oleh :" }]
     }
+  );
 
-    return [
-      `${idx + 1}.`,
-      [{ text: displayName, bold: true }],
-      kedudukan,
-      "" // Signature
-    ];
-  });
+  // Witness 1
+  const s1Nama = data.saksi1Nama || "Nendi Suhendi";
+  const s1Detail = data.saksi1Nama && data.saksi1Lahir && data.saksi1Alamat && data.saksi1NIK
+    ? `, lahir di ${toTitleCase(data.saksi1Lahir)}, Warga Negara Indonesia, bertempat tinggal di ${formatAddress(toTitleCase(data.saksi1Alamat))}, pemegang Kartu Tanda Penduduk Nomor ${data.saksi1NIK}`
+    : ", lahir di Bandung, Pada Tanggal Limabelas Juli Seribu Sembilan Ratus Sembilan Puluh Satu (15-07-1991), Warga Negara Indonesia, bertempat tinggal di Jalan Sukaresmi Nomor 12, Rukun Tetangga 005, Rukun Warga 005, Kecamatan Lembang, Desa Mekarwangi, pemegang Kartu Tanda Penduduk Nomor 3217011507910016";
 
   blocks.push({
-    type: "table",
-    headers: ["NO", "NAMA", "KEDUDUKAN", "TANDATANGAN"],
-    rows: tableRows,
-    widths: [500, 3000, 2500, 2500]
+    type: "saksi",
+    number: 1,
+    runs: [
+      { text: s1Nama, bold: true },
+      { text: s1Detail + ";" }
+    ]
   });
+
+  // Witness 2
+  const s2Nama = data.saksi2Nama || "Siti Nur Azizah";
+  const s2Detail = data.saksi2Nama && data.saksi2Lahir && data.saksi2Alamat && data.saksi2NIK
+    ? `, lahir di ${toTitleCase(data.saksi2Lahir)}, Warga Negara Indonesia, bertempat tinggal di ${formatAddress(toTitleCase(data.saksi2Alamat))}, pemegang Kartu Tanda Penduduk Nomor ${data.saksi2NIK}`
+    : ", lahir di Bandung, Pada Tanggal Tujuh Belas Desember Seribu Sembilan Ratus Sembilan Puluh Sembilan (17-12-1999), Warga Negara Indonesia, bertempat tinggal di Kabupaten Bandung, Jalan Lembah Pakar Timur II Kampung Sekebuluh Rukun Tetangga 001, Rukun Warga 004, Desa Ciburial, Kecamatan Cimenyan, pemegang Kartu Tanda Penduduk Nomor 3204065712990001";
+
+  blocks.push({
+    type: "saksi",
+    number: 2,
+    runs: [
+      { text: s2Nama, bold: true },
+      { text: s2Detail + ";" }
+    ]
+  });
+
+  const notaryDomicileStr = data.notaryDomicile || "Kabupaten Bandung Barat";
+
+  blocks.push({
+    type: "list",
+    bullet: "-",
+    // indentTabs=0 → ListParagraph numId=5 (abstractId=2, bullet "-"), TANPA ind override, tabLeft=284, rightTab=8504 (dari XML: numId=5, no ind override)
+    indentTabs: 0,
+    runs: [{ text: `Untuk sementara berada di ${toTitleCase(notaryDomicileStr)};` }]
+  });
+
+  blocks.push(
+    {
+      type: "p",
+      runs: [{ text: "Keduanya pegawai Kantor Notaris, sebagai saksi-saksi." }]
+    },
+    {
+      type: "p",
+      runs: [{ text: "Segera setelah akta ini dibacakan oleh saya, Notaris kepada penghadap dan saksi-saksi, maka ditanda-tanganilah akta ini oleh penghadap, saksi-saksi dan saya, Notaris. Serta penghadap membubuhkan sidik jari sebelah kanan pada lembaran tersendiri di hadapan saya, Notaris dan saksi-saksi, yang dilekatkan pada minuta akta ini." }]
+    },
+    {
+      type: "p",
+      runs: [{ text: "Dilangsungkan dengan tanpa perubahan." }]
+    },
+    {
+      type: "p",
+      runs: [{ text: "Minuta Akta ini telah ditanda-tangani dengan sempurna." }]
+    },
+    {
+      type: "p",
+      runs: [{ text: "Diberikan sebagai salinan yang sama bunyinya." }]
+    }
+  );
 
   return blocks;
 };

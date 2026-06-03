@@ -42,6 +42,11 @@ export type Block =
       name: string;
       position: string;
     }
+  | {
+      type: "saksi";
+      number: number;
+      runs: FormatToken[];
+    }
   | { type: "divider"; text: string }
   | { type: "br" }
   | { type: "pageBreak" };
@@ -49,244 +54,601 @@ export type Block =
 export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
   const blocks: Block[] = [];
 
-  const effectiveNotaryDate = data.signingDate || "";
-  const effectiveNotaryNumber = "...";
+  const effectiveNotaryDate = data.draftAktaRupsDate || data.notaryDate || data.signingDate || "";
+  const effectiveNotaryNumber = data.draftAktaRupsNumber || data.notaryNumber || "...";
   
-  const tglAktaHari = getDayName(effectiveNotaryDate);
-  const tglAktaHuruf = dateToWords(effectiveNotaryDate);
-  const tglAktaAngka = formatDateStr(effectiveNotaryDate);
+  const tglAktaHari = getDayName(effectiveNotaryDate) || "Jum'at";
+  const tglAktaHuruf = dateToWords(effectiveNotaryDate) || "delapan Mei dua ribu dua puluh enam";
+  const tglAktaAngka = formatDateStr(effectiveNotaryDate) || "08-05-2026";
 
-  const jamStr = data.meetingStartTime ? data.meetingStartTime.replace(":", ".") : "10.00";
-  const jamParts = (data.meetingStartTime || "10:00").split(":");
+  const jamStr = data.meetingStartTime ? data.meetingStartTime.replace(":", ".") : "11.00";
+  const jamParts = (data.meetingStartTime || "11:00").split(":");
   const h = parseInt(jamParts[0]);
   const m = parseInt(jamParts[1]);
   const jamHuruf = `${terbilang(h)} lewat ${m === 0 ? "nol-nol" : terbilang(m)} menit Waktu Indonesia Barat`;
 
+  // Meeting Dates
+  const tglRapatHari = getDayName(data.signingDate || "") || "Rabu";
+  const tglRapatHuruf = dateToWords(data.signingDate || "") || "enam Mei dua ribu dua puluh enam";
+  const tglRapatAngka = formatDateStr(data.signingDate || "") || "06-05-2026";
+
+  const jamRapatStr = data.meetingStartTime ? data.meetingStartTime.replace(":", ".") : "13.00";
+  const jamRapatParts = (data.meetingStartTime || "13:00").split(":");
+  const hr = parseInt(jamRapatParts[0]);
+  const mr = parseInt(jamRapatParts[1]);
+  const jamRapatHuruf = `${terbilang(hr)} lewat ${mr === 0 ? "nol-nol" : terbilang(mr)} menit Waktu Indonesia Barat`;
+
   // Total shares and attending shares
-  const totalShares = data.shareholders.reduce((sum, s) => sum + (s.sharesOwned || 0), 0);
-  const attendingShareholders = data.shareholders.filter(s => s.isPresent);
+  const totalShares = data.shareholders.reduce((sum, s) => sum + (s.sharesOwned || 0), 0) || 1010;
+  const attendingShareholders = data.shareholders.filter(s => s.isPresent) || [];
   const presentShares = attendingShareholders.reduce((sum, s) => sum + (s.sharesOwned || 0), 0);
-  const presentPercentage = totalShares > 0 ? (presentShares / totalShares) * 100 : 0;
+  const presentPercentage = totalShares > 0 ? (presentShares / totalShares) * 100 : 100;
 
   // Rep details (Usually the person appearing before the Notary to state the resolutions)
-  // Based on the BAR RUPST template, this person is often the Chairman/Direktur
-  const chairSh = data.shareholders.find(s => (s.name || "").toUpperCase() === (data.meetingChair || "").toUpperCase());
-  const rep = (chairSh?.isProxy && chairSh.proxyData) ? chairSh.proxyData : chairSh;
+  let rep: any;
+  if (data.representativeType === "EXISTING") {
+    rep = data.shareholders.find(s => s.id === data.authorizedRepresentativeId) ||
+          data.finalShareholders.find(s => s.id === data.authorizedRepresentativeId);
+  } else if (data.representativeType === "MANUAL" && data.manualRepresentative) {
+    rep = data.manualRepresentative;
+  }
+  if (!rep) {
+    const chairSh = data.shareholders.find(s => (s.name || "").toUpperCase() === (data.meetingChair || "").toUpperCase());
+    rep = (chairSh?.isProxy && chairSh.proxyData) ? chairSh.proxyData : (chairSh || data.shareholders[0]);
+  }
+
+  const fullyDescribedNames = new Set<string>();
 
   const getPersonDetailRuns = (person: any): FormatToken[] => {
+    const nameUpper = (person?.name || "").toUpperCase().trim();
+    const isPenghadap = rep && nameUpper === (rep.name || "").toUpperCase().trim();
+
+    if (fullyDescribedNames.has(nameUpper) && nameUpper !== "") {
+      return [
+        { text: nameUpper, bold: true },
+        { text: isPenghadap ? ", penghadap tersebut diatas" : ", tersebut diatas" }
+      ];
+    }
+
+    fullyDescribedNames.add(nameUpper);
     const tglAngka = person?.birthDate ? formatDateStr(person.birthDate) : "...";
     const tglHuruf = person?.birthDate ? dateToWords(person.birthDate) : "...";
     return [
-      { text: (person?.name || "").toUpperCase(), bold: true },
+      { text: nameUpper, bold: true },
       {
         text: person ? formatPersonDetails(person, tglAngka, tglHuruf) : `, lahir di ..., pada tanggal ... (...), Warga Negara Indonesia, swasta, bertempat tinggal di ..., Rukun Tetangga ..., Rukun Warga ..., Kelurahan ..., Kecamatan ..., pemegang Kartu Tanda Penduduk Nomor ...`,
       },
     ];
   };
 
-  // 1. Header
+  // 1. Header (Centered, no "AKTA" prefix to match PDF exactly)
   blocks.push(
-    { type: "p", align: "center", runs: [{ text: "AKTA PERNYATAAN KEPUTUSAN", bold: true }] },
+    { type: "p", align: "center", runs: [{ text: "PERNYATAAN KEPUTUSAN", bold: true }] },
     { type: "p", align: "center", runs: [{ text: "RAPAT UMUM PEMEGANG SAHAM TAHUNAN", bold: true }] },
     { type: "p", align: "center", runs: [{ text: formatCompanyName(data.companyName), bold: true }] },
     { type: "p", align: "center", runs: [{ text: `Nomor : ${effectiveNotaryNumber}` }] },
-    { type: "br" },
-    { type: "br" },
     { type: "p", runs: [{ text: `Pada hari ini, ${tglAktaHari}, tanggal ${tglAktaAngka} (${tglAktaHuruf}).` }] },
-    { type: "p", runs: [{ text: `Jam ${jamStr} WIB (${jamHuruf}).` }] },
+    { type: "p", runs: [{ text: `Pukul ${jamStr} WIB (${jamHuruf}).` }] },
     {
       type: "p",
       runs: [
         { text: `Berhadapan dengan saya, ` },
-        { text: (data.notaryName || "NUKANTINI PUTRI PARINCHA, Sarjana Hukum, Magister Kenotariatan").toUpperCase(), bold: true },
-        { text: `, Notaris di Kabupaten Bandung Barat, dengan dihadiri oleh saksi-saksi yang telah dikenal oleh saya, Notaris dan akan disebutkan pada bagian akhir akta ini :` },
+        { text: toTitleCase(data.notaryName || "Nukantini Putri Parincha, Sarjana Hukum, Magister Kenotariatan"), bold: true },
+        { text: `, Notaris di ` },
+        { text: toTitleCase(data.notaryDomicile || "Kabupaten Bandung Barat"), bold: true },
+        { text: `, dengan dihadiri oleh saksi-saksi yang saya, Notaris kenal and akan disebutkan nama-namanya pada bagian akhir akta ini :` },
       ],
-    },
-    { type: "br" }
+    }
   );
 
   // 2. Representative (The person reporting the BAR RUPST)
   if (rep) {
     blocks.push({
-      type: "list",
-      bullet: "-",
-      indentTabs: 0.5,
+      type: "p",
       runs: [
         { text: `${rep.salutation || "Tuan"} ` },
         ...getPersonDetailRuns(rep),
-        { text: "." }
+        { text: ";" }
       ]
     });
 
-    blocks.push({
-      type: "list",
-      bullet: "-",
-      indentTabs: 0.5,
-      runs: [
-        { text: "Menurut keterangannya dalam hal ini bertindak dalam kapasitasnya sebagai penerima kuasa pemegang saham berdasarkan Berita Acara Rapat Umum Pemegang Saham Tahunan " },
-        { text: formatCompanyName(data.companyName), bold: true },
-        { text: `, suatu perseroan terbatas yang akan diterangkan di bawah ini, yang dibuat di bawah tangan bermeterai cukup, tertanggal ${formatDateStr(data.signingDate)} yang aslinya turut dilekatkan dalam minuta akta ini, selanjutnya disebut ("BAR RUPST").` }
-      ]
-    });
-
-    blocks.push({
-      type: "list",
-      bullet: "-",
-      indentTabs: 0.5,
-      runs: [
-        { text: "Dari dan untuk itu sah mewakili " },
-        { text: formatCompanyName(data.companyName), bold: true },
-        { text: `, suatu perseroan terbatas yang didirikan berdasarkan hukum negara Republik Indonesia, berkedudukan di ${toTitleCase(data.domicile || "...")}, yang anggaran dasarnya telah disesuaikan dengan Undang-undang Republik Indonesia nomor 40 Tahun 2007 tentang Perseroan Terbatas sebagaimana dimuat dalam :` }
-      ]
-    });
-  }
-
-  // Akta Details
-  blocks.push({
-    type: "list",
-    bullet: "-",
-    indentTabs: 1.5,
-    runs: [{ text: `Akta Pendirian tertanggal ${dateToWords(data.establishmentDeedDate || "")} Nomor ${data.establishmentDeedNumber} yang dibuat di hadapan ${data.establishmentNotary}, Notaris di ${data.establishmentNotaryDomicile}.` }]
-  });
-
-  if (data.amendmentDeeds && data.amendmentDeeds.length > 0) {
-    data.amendmentDeeds.forEach(deed => {
+    const isForeignRep = rep.nationalityType === 'WNA' || rep.isForeign;
+    if (isForeignRep) {
       blocks.push({
         type: "list",
         bullet: "-",
-        indentTabs: 1.5,
-        runs: [{ text: `Akta Perubahan tertanggal ${dateToWords(deed.date)} Nomor ${deed.number} yang dibuat di hadapan ${deed.notary}, Notaris di ${deed.notaryDomicile}.` }]
+        indentTabs: 0.5,
+        runs: [{ text: `Untuk sementara berada di ${toTitleCase(data.notaryDomicile || "Kabupaten Bandung Barat")};` }]
       });
+    }
+
+    blocks.push({
+      type: "list",
+      bullet: "-",
+      indentTabs: 0.5,
+      runs: [{ text: "Dalam hal ini hadir selaku kuasa sebagaimana yang tertera dalam risalah Rapat Perseroan yang akan diuraikan di bawah ini." }]
+    });
+
+    blocks.push({
+      type: "list",
+      bullet: "-",
+      indentTabs: 0.5,
+      runs: [{ text: "Penghadap telah memperkenalkan diri kepada saya, Notaris." }]
     });
   }
 
   blocks.push(
-    { type: "p", runs: [{ text: "Untuk selanjutnya disebut “Perseroan”." }] },
-    { type: "p", runs: [{ text: `Penghadap dikenal oleh saya, Notaris.` }] },
     {
       type: "p",
       runs: [
-        { text: `Penghadap menerangkan kepada saya, Notaris, bahwa sesuai dengan ketentuan dalam Pasal ${data.rupstAdArticle || "9"} ayat ${data.rupstAdParagraph || "4"} Anggaran Dasar Perseroan, untuk mengadakan Rapat Umum Pemegang Saham Tahunan Tahun Buku ${data.rupstFiscalYear || "2025"}, selanjutnya disebut (“RUPST”) ini Direksi Perseroan telah diadakan pemanggilan terlebih dahulu kepada para pemegang saham Perseroan dengan mengirimkan Surat Pemanggilan tertanggal ${formatDateStr(data.rupstInvitationDate)}.` }
+        { text: "Penghadap dalam kedudukannya tersebut di atas menerangkan terlebih dahulu kepada saya, Notaris :" }
       ]
-    },
-    { type: "br" },
-    {
-      type: "p",
-      runs: [
-        { text: "Bahwa RUPST Perseroan telah diselenggarakan pada :" }
-      ]
-    },
-    { type: "p", runs: [{ text: `Hari : ${tglAktaHari}` }] },
-    { type: "p", runs: [{ text: `Tanggal : ${tglAktaAngka}` }] },
-    { type: "p", runs: [{ text: `Bertempat di : ${data.signingPlace || "Kantor Perseroan"}` }] },
-    { type: "br" }
+    }
   );
 
-  // 3. Attendance
-  blocks.push(
-    { type: "p", runs: [{ text: "RUPST dihadiri oleh Para Pemegang Saham Perseroan atau kuasanya yang sah, yaitu :" }] }
-  );
+  // Preamble - Meeting Statement & Foundation Deed
+  const establishmentDeedDateText = dateToWords(data.establishmentDeedDate || "");
+  const establishmentDeedDateNum = formatDateStr(data.establishmentDeedDate || "");
 
-  attendingShareholders.forEach((sh, idx) => {
-    let KedudukanText = "";
-    if (sh.isManagement) {
-      KedudukanText = `dalam hal ini bertindak dalam jabatannya sebagai ${toTitleCase(sh.managementPosition || "Direktur")} Perseroan`;
+  const getSkFormattedNumber = () => {
+    const rawSk = data.establishmentSkNumber || "0071719.AH.01.01.Tahun 2024";
+    const upperRaw = rawSk.toUpperCase().trim();
+    if (upperRaw.startsWith("AHU-")) {
+      return upperRaw;
+    }
+    return "AHU-" + rawSk;
+  };
+
+  let foundationSentence = `Bahwa pada hari ${tglRapatHari}, tanggal ${tglRapatAngka} (${tglRapatHuruf}), bertempat di ${data.signingPlace || "Kantor Perseroan"}, pukul ${jamRapatStr} WIB (${jamRapatHuruf}) telah diadakan Rapat Umum Pemegang Saham Tahunan Perseroan Terbatas ${formatCompanyName(data.companyName)} (selanjutnya disebut sebagai “Rapat”) Perseroan berkedudukan di ${data.domicileStyle === 'KABUPATEN' ? 'Kabupaten ' : 'Kota '}${toTitleCase(data.domicile || "...")}, demikian berdasarkan Akta Pendirian tertanggal ${establishmentDeedDateText} (${establishmentDeedDateNum}), Nomor ${data.establishmentDeedNumber || "02"} dibuat dihadapan saya, Notaris di ${toTitleCase(data.establishmentNotaryDomicile || "Kabupaten Bandung Barat")} dan telah mendapat pengesahan dari Menteri Hukum dan Hak Asasi Manusia Republik Indonesia berdasarkan Surat Keputusan Nomor ${getSkFormattedNumber()} tertanggal ${dateToWords(data.establishmentSkDate || "")} (${formatDateStr(data.establishmentSkDate || "")});`;
+
+  blocks.push({
+    type: "list",
+    bullet: "-",
+    indentTabs: 0.5,
+    runs: [{ text: foundationSentence }]
+  });
+
+  blocks.push({
+    type: "list",
+    bullet: "-",
+    indentTabs: 0.5,
+    runs: [
+      { text: `Bahwa sesuai ketentuan Pasal ${data.rupstAdArticle || "9"} ayat (${data.rupstAdParagraph || "6"}) Anggaran Dasar Perseroan, pada tanggal ${tglRapatAngka} (${tglRapatHuruf}) seluruh pemegang saham telah menandatangani risalah rapat yang dimuat dalam "Risalah rapat Pemegang Saham Tahunan" yang dibuat di bawah tangan, yang ditandatangani oleh:` }
+    ]
+  });
+
+  // 3. Attendance - Grouped Physical Attendees to prevent duplicate listings of proxies / directors of corporate shareholders.
+  interface RoleOwnShare {
+    sharesOwned: number;
+    shareholder: Shareholder;
+  }
+
+  interface RoleManagement {
+    position: string;
+  }
+
+  interface RoleRepresentative {
+    sharesOwned: number;
+    shareholder: Shareholder;
+    proxyData: any;
+  }
+
+  interface PhysicalAttendee {
+    type: 'PERSON' | 'ENTITY_DIRECT';
+    name: string;
+    salutation: string;
+    sourceObj: any;
+    ownShares: RoleOwnShare | null;
+    management: RoleManagement | null;
+    representations: RoleRepresentative[];
+  }
+
+  const attendees: PhysicalAttendee[] = [];
+
+  attendingShareholders.forEach(sh => {
+    if (sh.isProxy && sh.proxyData) {
+      const pxName = (sh.proxyData.name || "").trim();
+      let att = attendees.find(a => a.name.toUpperCase() === pxName.toUpperCase());
+      if (!att) {
+        att = {
+          type: 'PERSON',
+          name: pxName,
+          salutation: sh.proxyData.salutation || "Tuan",
+          sourceObj: sh.proxyData,
+          ownShares: null,
+          management: null,
+          representations: []
+        };
+        attendees.push(att);
+      }
+      att.representations.push({
+        sharesOwned: sh.sharesOwned || 0,
+        shareholder: sh,
+        proxyData: sh.proxyData
+      });
+    } else {
+      const shName = (sh.name || "").trim();
+      if (sh.shareholderType === 'BADAN_HUKUM') {
+        attendees.push({
+          type: 'ENTITY_DIRECT',
+          name: shName,
+          salutation: '',
+          sourceObj: sh,
+          ownShares: sh.sharesOwned > 0 ? {
+            sharesOwned: sh.sharesOwned || 0,
+            shareholder: sh
+          } : null,
+          management: sh.isManagement ? { position: sh.managementPosition || "Direktur" } : null,
+          representations: []
+        });
+      } else {
+        let att = attendees.find(a => a.name.toUpperCase() === shName.toUpperCase());
+        if (!att) {
+          att = {
+            type: 'PERSON',
+            name: shName,
+            salutation: sh.salutation || "Tuan",
+            sourceObj: sh,
+            ownShares: sh.sharesOwned > 0 ? {
+              sharesOwned: sh.sharesOwned || 0,
+              shareholder: sh
+            } : null,
+            management: sh.isManagement ? { position: sh.managementPosition || "Direktur" } : null,
+            representations: []
+          };
+          attendees.push(att);
+        } else {
+          if (sh.sharesOwned > 0) {
+            att.ownShares = {
+              sharesOwned: sh.sharesOwned || 0,
+              shareholder: sh
+            };
+          }
+          if (sh.isManagement) {
+            att.management = { position: sh.managementPosition || "Direktur" };
+          }
+        }
+      }
+    }
+  });
+
+  attendees.forEach((att, idx) => {
+    const isRep = (att.name || "").toUpperCase().trim() === (rep.name || "").toUpperCase().trim();
+    const runsList: FormatToken[] = [{ text: att.salutation ? `${att.salutation} ` : "" }];
+
+    if (isRep) {
+      runsList.push(
+        { text: (att.name || "").toUpperCase(), bold: true },
+        { text: ", penghadap tersebut diatas;" }
+      );
+    } else {
+      runsList.push(...getPersonDetailRuns(att.sourceObj), { text: ";" });
     }
 
     blocks.push({
-      type: "list",
-      bullet: `${idx + 1}.`,
-      indentTabs: 0.5,
-      runs: [
-        { text: sh.shareholderType === 'BADAN_HUKUM' ? "" : `${sh.salutation || "Tuan"} ` },
-        ...getPersonDetailRuns(sh),
-        { text: idx === attendingShareholders.length - 1 ? "." : ";" }
-      ]
+      type: "p",
+      number: idx + 1,
+      runs: runsList
     });
 
-    if (sh.isManagement) {
+    const totalSubBullets = (att.management ? 1 : 0) + (att.ownShares ? 1 : 0) + att.representations.length;
+
+    if (totalSubBullets === 1) {
+      if (att.management) {
+        blocks.push({
+          type: "list",
+          bullet: "-",
+          indentTabs: 0.5,
+          runs: [
+            { text: "Hadir selaku " },
+            { text: `${toTitleCase(att.management.position)} Perseroan.` }
+          ]
+        });
+      } else if (att.ownShares) {
+        const shareRp = (att.ownShares.sharesOwned || 0) * (data.originalSharePrice || 10000000);
+        const formattedAmt = formatNumber(shareRp);
+        const terbilangAmt = terbilang(shareRp);
+        blocks.push({
+          type: "list",
+          bullet: "-",
+          indentTabs: 0.5,
+          runs: [
+            { text: "Hadir selaku pemilik dan pemegang " },
+            { text: `${formatNumber(att.ownShares.sharesOwned)} (${terbilang(att.ownShares.sharesOwned)}) lembar saham atau senilai ` },
+            { text: `Rp. ${formattedAmt},- (${terbilangAmt} rupiah).` }
+          ]
+        });
+      } else if (att.representations.length === 1) {
+        const r = att.representations[0];
+        const isDirector = r.proxyData.representationType === 'DIREKTUR_PT_LAIN';
+        const shareRp = (r.sharesOwned || 0) * (data.originalSharePrice || 10000000);
+        const formattedAmt = formatNumber(shareRp);
+        const terbilangAmt = terbilang(shareRp);
+
+        let repTextRuns: FormatToken[] = [];
+        repTextRuns.push({ text: "Hadir selaku " });
+        if (isDirector) {
+          repTextRuns.push({ text: "Direktur " });
+          repTextRuns.push({ text: r.shareholder.name.toUpperCase(), bold: true });
+          
+          if (r.shareholder.isForeign) {
+            repTextRuns.push({
+              text: `, sebuah badan hukum asing yang didirikan berdasarkan hukum negara ${r.shareholder.foreignCountry || "California"}, dengan nomor pengesahan ${r.shareholder.skNumber || r.shareholder.nik || "..."} tertanggal ${r.shareholder.skDate ? formatDateStr(r.shareholder.skDate) : "..."} yang dikeluarkan oleh ${r.shareholder.skIssuer || "Sekertaris Negara Bagian California"}`
+            });
+          } else {
+            repTextRuns.push({
+              text: `, sebuah perseroan terbatas yang didirikan berdasarkan hukum negara Republik Indonesia, berkedudukan di ${toTitleCase(r.shareholder.address.city || "...")}`
+            });
+          }
+        } else {
+          const proxyDateWords = r.proxyData.proxyDeedDate ? dateToWords(r.proxyData.proxyDeedDate) : "__________";
+          const proxyDateAngka = r.proxyData.proxyDeedDate ? formatDateStr(r.proxyData.proxyDeedDate) : "__________";
+          repTextRuns.push({ text: "Kuasa dari " });
+          repTextRuns.push({ text: r.shareholder.name.toUpperCase(), bold: true });
+          repTextRuns.push(...getPersonDetailRuns(r.shareholder));
+          repTextRuns.push({ text: ` berdasarkan Surat Kuasa tertanggal ${proxyDateWords} (${proxyDateAngka})` });
+        }
+
+        repTextRuns.push({
+          text: `, selaku pemilik dan pemegang ${formatNumber(r.sharesOwned)} (${terbilang(r.sharesOwned)}) lembar saham atau senilai `
+        });
+        repTextRuns.push({ text: `Rp. ${formattedAmt},- (${terbilangAmt} rupiah).` });
+
+        blocks.push({
+          type: "list",
+          bullet: "-",
+          indentTabs: 0.5,
+          runs: repTextRuns
+        });
+      }
+    } else if (totalSubBullets > 1) {
       blocks.push({
-        type: "p",
-        indent: true,
-        runs: [{ text: `— ${KedudukanText}.` }]
+        type: "list",
+        bullet: "-",
+        indentTabs: 0.5,
+        runs: [{ text: "Hadir selaku :" }]
+      });
+
+      let subBulletCode = 'a'.charCodeAt(0);
+      let bulletIdx = 0;
+
+      // a. Management position
+      if (att.management) {
+        bulletIdx++;
+        const isLast = bulletIdx === totalSubBullets;
+        const bulletChar = String.fromCharCode(subBulletCode++) + ".";
+        blocks.push({
+          type: "list",
+          bullet: bulletChar,
+          indentTabs: 1.0,
+          runs: [{ text: `${toTitleCase(att.management.position)} Perseroan${isLast ? "." : ";"}` }]
+        });
+      }
+
+      // b. Own Shares
+      if (att.ownShares) {
+        bulletIdx++;
+        const isLast = bulletIdx === totalSubBullets;
+        const bulletChar = String.fromCharCode(subBulletCode++) + ".";
+        const shareRp = (att.ownShares.sharesOwned || 0) * (data.originalSharePrice || 10000000);
+        const formattedAmt = formatNumber(shareRp);
+        const terbilangAmt = terbilang(shareRp);
+        blocks.push({
+          type: "list",
+          bullet: bulletChar,
+          indentTabs: 1.0,
+          runs: [
+            { text: `Selaku pemilik dan pemegang ${formatNumber(att.ownShares.sharesOwned)} (${terbilang(att.ownShares.sharesOwned)}) lembar saham atau senilai ` },
+            { text: `Rp. ${formattedAmt},- (${terbilangAmt} rupiah)${isLast ? "." : ";"}` }
+          ]
+        });
+      }
+
+      // c. Representations: Proxy / Director of other PT
+      att.representations.forEach(r => {
+        bulletIdx++;
+        const isLast = bulletIdx === totalSubBullets;
+        const bulletChar = String.fromCharCode(subBulletCode++) + ".";
+        const isDirector = r.proxyData.representationType === 'DIREKTUR_PT_LAIN';
+        const shareRp = (r.sharesOwned || 0) * (data.originalSharePrice || 10000000);
+        const formattedAmt = formatNumber(shareRp);
+        const terbilangAmt = terbilang(shareRp);
+
+        let repTextRuns: FormatToken[] = [];
+        if (isDirector) {
+          repTextRuns.push({ text: `Direktur ` });
+          repTextRuns.push({ text: r.shareholder.name.toUpperCase(), bold: true });
+          
+          if (r.shareholder.isForeign) {
+            repTextRuns.push({
+              text: `, sebuah badan hukum asing yang didirikan berdasarkan hukum negara ${r.shareholder.foreignCountry || "California"}, dengan nomor pengesahan ${r.shareholder.skNumber || r.shareholder.nik || "..."} tertanggal ${r.shareholder.skDate ? formatDateStr(r.shareholder.skDate) : "..."} yang dikeluarkan oleh ${r.shareholder.skIssuer || "Sekertaris Negara Bagian California"}`
+            });
+          } else {
+            repTextRuns.push({
+              text: `, sebuah perseroan terbatas yang didirikan berdasarkan hukum negara Republik Indonesia, berkedudukan di ${toTitleCase(r.shareholder.address.city || "...")}`
+            });
+          }
+        } else {
+          const proxyDateWords = r.proxyData.proxyDeedDate ? dateToWords(r.proxyData.proxyDeedDate) : "__________";
+          const proxyDateAngka = r.proxyData.proxyDeedDate ? formatDateStr(r.proxyData.proxyDeedDate) : "__________";
+          repTextRuns.push({ text: `Kuasa dari ` });
+          repTextRuns.push({ text: r.shareholder.name.toUpperCase(), bold: true });
+          repTextRuns.push(...getPersonDetailRuns(r.shareholder));
+          repTextRuns.push({ text: ` berdasarkan Surat Kuasa tertanggal ${proxyDateWords} (${proxyDateAngka})` });
+        }
+
+        repTextRuns.push({
+          text: `, Selaku pemilik dan pemegang ${formatNumber(r.sharesOwned)} (${terbilang(r.sharesOwned)}) lembar saham atau senilai `
+        });
+        repTextRuns.push({ text: `Rp. ${formattedAmt},- (${terbilangAmt} rupiah)${isLast ? "." : ";"}` });
+
+        blocks.push({
+          type: "list",
+          bullet: bulletChar,
+          indentTabs: 1.0,
+          runs: repTextRuns
+        });
       });
     }
+  });
 
-    const shareRp = (sh.sharesOwned || 0) * (data.originalSharePrice || 0);
-    const sharePct = totalShares > 0 ? ((sh.sharesOwned || 0) / totalShares) * 100 : 0;
+  // Quorum and Chair
+  const sharePrice = (data.originalSharePrice || 10000000);
+  const totalNominal = totalShares * sharePrice;
 
-    blocks.push({
-      type: "p",
-      indent: true,
+  blocks.push(
+    {
+      type: "list",
+      bullet: "-",
+      indentTabs: 0.5,
       runs: [
-        { text: `— Selaku pemilik dan pemegang hak yang sah atas ${formatNumber(sh.sharesOwned)} (${terbilang(sh.sharesOwned)}) saham atau dengan nilai nominal sebesar Rp${formatNumber(shareRp)} (${terbilang(shareRp)} modal) atau setara ${formatNumber(sharePct)}% (${terbilang(sharePct)} persen) dari seluruh saham yang telah ditempatkan dan disetor penuh dalam Perseroan.` }
+        { text: `Bahwa dari semua saham yang telah dikeluarkan tersebut di atas, yaitu ` },
+        { text: `${formatNumber(totalShares)} (${terbilang(totalShares)})`, bold: true },
+        { text: ` lembar saham perseroan atau dengan nominal seluruhnya sebesar ` },
+        { text: `Rp. ${formatNumber(totalNominal)},- (${terbilang(totalNominal)} rupiah)`, bold: true },
+        { text: ` atau ` },
+        { text: `${formatNumber(presentPercentage)}%`, bold: true },
+        { text: ` telah hadir dalam rapat ini.` }
       ]
-    });
+    },
+    {
+      type: "list",
+      bullet: "-",
+      indentTabs: 0.5,
+      runs: [
+        { text: `Bahwa menurut ` },
+        { text: `Pasal ${data.rupstQuorumArticle || "10"} ayat ${data.rupstQuorumParagraph || "1"} Anggaran Dasar Perseroan`, color: "FF0000" },
+        { text: ` mengenai Kuorum, Rapat ini adalah sah sesuai dengan Kuorum dan berhak mengambil keputusan-keputusan yang sah serta mengikat mengenai hal-hal yang dibicarakan;` }
+      ]
+    }
+  );
+
+  const chairNameValue = (data.meetingChair || rep?.name || "RAJANDRAN SHUNMUGAM").trim().toUpperCase();
+  let chairSalutation = "Tuan";
+  if (chairNameValue) {
+    const foundSh = data.shareholders.find(s => (s.name || "").trim().toUpperCase() === chairNameValue);
+    if (foundSh) {
+      if (foundSh.isProxy && foundSh.proxyData) {
+        chairSalutation = foundSh.proxyData.salutation || "Tuan";
+      } else {
+        chairSalutation = foundSh.salutation || "Tuan";
+      }
+    } else {
+      const foundNewMgmt = data.newManagementItems?.find(m => (m.name || "").trim().toUpperCase() === chairNameValue);
+      if (foundNewMgmt) {
+        chairSalutation = foundNewMgmt.salutation || "Tuan";
+      } else {
+        const foundOldMgmt = data.oldManagementItems?.find(m => (m.name || "").trim().toUpperCase() === chairNameValue);
+        if (foundOldMgmt) {
+          chairSalutation = foundOldMgmt.salutation || "Tuan";
+        }
+      }
+    }
+  }
+
+  blocks.push(
+    {
+      type: "list",
+      bullet: "-",
+      indentTabs: 0.5,
+      runs: [
+        { text: `Berdasarkan ketentuan Pasal ${data.rupstAdArticle || "9"} ayat (${data.rupstAdParagraph || "6"}) Anggaran Dasar Perseroan, ${chairSalutation} ` },
+        { text: chairNameValue, bold: true },
+        { text: `, pengahdap tersebut di atas, selaku ${toTitleCase(data.meetingChairPosition || "Kuasa Direktur")} perseroan, bertindak sebagai Ketua Rapat.` }
+      ]
+    }
+  );
+
+  // Agenda list
+  blocks.push(
+    {
+      type: "list",
+      bullet: "-",
+      indentTabs: 0.5,
+      runs: [{ text: "Bahwa dalam acara Rapat telah diputuskan dengan suara bulat, sebagaimana tercantum dalam agenda rapat, yaitu mengenai :" }]
+    },
+    {
+      type: "list",
+      bullet: "-",
+      indentTabs: 1.0,
+      runs: [{ text: `Persetujuan Laporan Tahunan Perseroan Tahun Buku ${data.rupstFiscalYear || "2025"};` }]
+    },
+    {
+      type: "list",
+      bullet: "-",
+      indentTabs: 1.0,
+      runs: [{ text: `Pengesahan Laporan Keuangan Perseroan Tahun Buku ${data.rupstFiscalYear || "2025"};` }]
+    },
+    {
+      type: "list",
+      bullet: "-",
+      indentTabs: 1.0,
+      runs: [{ text: "Penetapan penggunaan laba bersih Perseroan;" }]
+    },
+    {
+      type: "list",
+      bullet: "-",
+      indentTabs: 1.0,
+      runs: [{ text: "Pemberian pelunasan dan pembebasan tanggung jawab sepenuhnya (acquit et de charge) kepada Direksi dan Komisaris." }]
+    }
+  );
+
+  // 4. Decisions (5 main points to match the PDF exactly)
+  blocks.push(
+    {
+      type: "p",
+      runs: [{ text: "Sehubungan dengan apa yang diuraikan di atas, penghadap bertindak dalam kedudukannya sebagaimana tersebut di atas dengan ini menyatakan keputusan acara Rapat yang telah diputuskan dengan suara bulat memutuskan dan menetapkan sebagai berikut:" }]
+    }
+  );
+
+  // Decision 1
+  blocks.push({
+    type: "p",
+    number: 1,
+    runs: [{ text: `Menyetujui dan menerima dengan baik Laporan Laporan Tahunan Perseroan untuk tahun buku yang berakhir pada tanggal 31 Desember ${data.rupstFiscalYear || "2025"};` }]
+  });
+
+  // Decision 2
+  const signatorySh = data.shareholders.find(s => s.name === data.rupstFinancialReportSignatoryName);
+  const signatorySalutation = signatorySh?.salutation || "Tuan";
+  const signatoryName = data.rupstFinancialReportSignatoryName || rep?.name || "RAJANDRAN SHUNMUGAM";
+  const signatoryPosition = data.rupstFinancialReportSignatoryPosition || "Direktur";
+
+  const financialRepDateText = data.rupstFinancialReportDate ? dateToWords(data.rupstFinancialReportDate) : "dua puluh sembilan April dua ribu dua puluh enam";
+  const financialRepDateNum = data.rupstFinancialReportDate ? formatDateStr(data.rupstFinancialReportDate) : "28-04-2026";
+
+  blocks.push({
+    type: "p",
+    number: 2,
+    runs: [
+      { text: `Mengesahkan Laporan Keuangan Perseroan untuk tahun buku yang berakhir pada tanggal 31 Desember ${data.rupstFiscalYear || "2025"}, sebagaimana dimuat dalam Laporan Keuangan PT. JUBILEE TOKYO JEWELRY tertanggal ${financialRepDateText} (${financialRepDateNum}), yang ditandatangani Direktur Perseroan Tuan ` },
+      { text: signatoryName.toUpperCase(), bold: true },
+      { text: `, penghadap tersebut di atas, yang terdiri dari:` }
+    ]
   });
 
   blocks.push(
-    { type: "br" },
-    { type: "p", runs: [{ text: "Pemegang Saham dan Para Undangan selanjutnya secara bersama-sama disebut sebagai \"Peserta Rapat\"." }] },
-    { type: "p", runs: [{ text: "Asli daftar hadir dari RUPST adalah sebagaimana terlampir pada BAR RUPST." }] },
-    { type: "p", runs: [{ text: `RUPST dipimpin oleh ${data.meetingChair || "..."} tersebut, dalam jabatannya sebagai ${data.meetingChairPosition || "Direktur Utama"} Perseroan sesuai dengan ketentuan Pasal ${data.rupstAdArticle || "9"} ayat ${data.rupstAdParagraph || "4"} Anggaran Dasar Perseroan.` }] },
-    { type: "br" },
-    { type: "p", runs: [{ text: `Berdasarkan ketentuan-ketentuan Pasal ${data.rupstAdArticle || "9"} ayat ${data.rupstAdParagraph || "4"} Anggaran Dasar Perseroan dan hukum yang berlaku, Pemegang Saham mengambil keputusan-keputusan sebagai berikut :` }] },
-    { type: "br" }
-  );
-
-  // 4. Resolutions (I - VI)
-  const netProfit = data.rupstNetProfit || 0;
-  const dividend = data.rupstDividendAmount || 0;
-
-  // I. Persetujuan Laporan Tahunan
-  blocks.push(
-    { type: "p", align: "left", runs: [{ text: "I. PERSETUJUAN LAPORAN TAHUNAN PERSEROAN TAHUN BUKU " + (data.rupstFiscalYear || "2025") + ".", bold: true }] },
-    {
-      type: "p",
-      runs: [
-        { text: "MEMUTUSKAN", bold: true },
-        { text: ", bahwa Pemegang Saham menerima dan menyetujui Laporan Tahunan Perseroan untuk tahun buku " + (data.rupstFiscalYear || "2025") + ", yang salinannya telah diakui oleh masing-masing Pemegang Saham telah diterima." }
-      ]
-    },
-    { type: "br" }
-  );
-
-  const signatorySh = data.shareholders.find(s => s.name === data.rupstFinancialReportSignatoryName);
-  const signatorySalutation = signatorySh?.salutation || "Tuan";
-  const signatoryName = data.rupstFinancialReportSignatoryName || "[Nama Direktur]";
-  const signatoryPosition = data.rupstFinancialReportSignatoryPosition || "Direktur";
-
-  const hasFinReportNumber = data.rupstFinancialReportNumber && data.rupstFinancialReportNumber.trim() !== "" && data.rupstFinancialReportNumber.trim() !== "0";
-  const numText = hasFinReportNumber ? ` nomor ${data.rupstFinancialReportNumber}` : "";
-
-  // II. Pengesahan Laporan Keuangan
-  blocks.push(
-    { type: "p", align: "left", runs: [{ text: "II. PENGESAHAN LAPORAN KEUANGAN TAHUNAN PERSEROAN TAHUN BUKU " + (data.rupstFiscalYear || "2025") + ".", bold: true }] },
-    { type: "p", runs: [{ text: "MEMUTUSKAN", bold: true }, { text: ", bahwa Pemegang Saham :" }] },
     {
       type: "list",
-      bullet: "a.",
-      indentTabs: 0.5,
-      runs: [
-        { text: "Menerima dan mengesahkan Laporan Keuangan Tahunan Perseroan untuk tahun buku " + (data.rupstFiscalYear || "2025") + " sebagaimana dimuat dalam Laporan Keuangan" },
-        { text: `${numText} tanggal ${formatDateStr(data.rupstFinancialReportDate || "")}, yang ditandatangani oleh ${signatoryPosition} Perseroan ${signatorySalutation} ${signatoryName}, yang salinannya telah diakui oleh masing-masing Pemegang Saham telah diterima; dan` }
-      ]
+      bullet: "-",
+      indentTabs: 1.0,
+      runs: [{ text: "Laporan Posisi Keuangan (Neraca);" }]
     },
     {
       type: "list",
-      bullet: "b.",
-      indentTabs: 0.5,
-      runs: [{ text: "Memberikan pelunasan dan pembebasan tanggung jawab sepenuhnya kepada anggota Direksi Perseroan atas tanggung jawab pengurusannya dan anggota Dewan Komisaris Perseroan atas tanggung jawab pengawasannya, yang dilakukan selama tahun buku " + (data.rupstFiscalYear || "2025") + " sepanjang tindakannya tersebut termaktub dalam Laporan Tahunan Perseroan yang telah disetujui dan dalam Laporan Keuangan Tahunan yang telah disahkan." }]
-    },
-    { type: "br" }
+      bullet: "-",
+      indentTabs: 1.0,
+      runs: [{ text: "Laporan Laba Rugi;" }]
+    }
   );
 
+  // Decision 3 - Net profit/dividend distribution
   const netProfitColor = (data.rupstNetProfit !== undefined && data.rupstNetProfit !== null) ? undefined : "FF0000";
   let netProfitDisplay = "[ISI DENGAN NILAI LABA BERSIH DI NOTULEN RUPS TAHUNAN]";
   if (data.rupstNetProfit !== undefined && data.rupstNetProfit !== null) {
     const isNeg = data.rupstNetProfit < 0;
     const absVal = Math.abs(data.rupstNetProfit);
-    netProfitDisplay = `${isNeg ? "- Rp " : "Rp"}${formatNumber(absVal)} (${terbilang(data.rupstNetProfit)} rupiah)`;
+    netProfitDisplay = `${isNeg ? "- Rp " : "Rp "}${formatNumber(absVal)} (${terbilang(data.rupstNetProfit)} rupiah)`;
   }
 
   const dividendColor = (data.rupstDividendAmount !== undefined && data.rupstDividendAmount !== null) ? undefined : "FF0000";
@@ -294,100 +656,156 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
   if (data.rupstDividendAmount !== undefined && data.rupstDividendAmount !== null) {
     const isNeg = data.rupstDividendAmount < 0;
     const absVal = Math.abs(data.rupstDividendAmount);
-    dividendDisplayValue = `${isNeg ? "- Rp " : "Rp"}${formatNumber(absVal)} (${terbilang(data.rupstDividendAmount)} rupiah)`;
+    dividendDisplayValue = `${isNeg ? "- Rp " : "Rp "}${formatNumber(absVal)} (${terbilang(data.rupstDividendAmount)} rupiah)`;
   }
 
-  // III. Penetapan Laba
   if (data.rupstNetProfit !== undefined && data.rupstNetProfit !== null && data.rupstNetProfit < 0) {
-    const prevYear = data.rupstFiscalYear ? (parseInt(data.rupstFiscalYear) - 1).toString() : "2024";
-    const absRetained = Math.abs(data.rupstRetainedProfit || 0);
-    const isRetainedNeg = (data.rupstRetainedProfit || 0) < 0;
-    const retainedLabel = isRetainedNeg ? "saldo rugi ditahan" : "saldo laba ditahan";
-    const retainedDisplay = `Rp${formatNumber(absRetained)} (${terbilang(absRetained)} rupiah)`;
     const absNetProfit = Math.abs(data.rupstNetProfit);
-    const netProfitDisplayPositive = `Rp${formatNumber(absNetProfit)} (${terbilang(absNetProfit)} rupiah)`;
+    const netProfitDisplayPositive = `Rp ${formatNumber(absNetProfit)} (${terbilang(absNetProfit)} rupiah)`;
 
-    blocks.push(
-      { type: "p", align: "left", runs: [{ text: "III. PENETAPAN PENGGUNAAN LABA BERSIH PERSEROAN.", bold: true }] },
-      {
-        type: "p",
-        runs: [
-          { text: "MEMUTUSKAN", bold: true },
-          { text: `, bahwa Pemegang Saham menetapkan Perseroan mengalami rugi bersih untuk tahun buku ${data.rupstFiscalYear || "2025"} sebesar ` },
-          { text: netProfitDisplayPositive, color: netProfitColor },
-          { text: `, dengan ${retainedLabel} Perseroan sampai dengan tahun buku ${prevYear} sebesar ` },
-          { text: retainedDisplay },
-          { text: `. Sehubungan dengan hal tersebut, Perseroan tidak membagikan dividen kepada para pemegang saham, dan rugi bersih tahun berjalan dicatat sebagai akumulasi kerugian/saldo rugi ditahan Perseroan.` }
-        ]
-      }
-    );
+    blocks.push({
+      type: "p",
+      number: 3,
+      runs: [
+        { text: `Menetapkan penggunaan laba bersih Perseroan tahun buku ${data.rupstFiscalYear || "2025"} sebesar ` },
+        { text: netProfitDisplayPositive, color: netProfitColor },
+        { text: `, sehubungan dengan hal tersebut, Perseroan mengalami rugi bersih, sehingga tidak membagikan dividen kepada para pemegang saham, dan rugi bersih tahun berjalan dicatat sebagai saldo rugi ditahan Perseroan untuk mendukung kegiatan usaha Perseroan.` }
+      ]
+    });
   } else {
+    blocks.push({
+      type: "p",
+      number: 3,
+      runs: [
+        { text: `Menetapkan penggunaan laba bersih Perseroan tahun buku ${data.rupstFiscalYear || "2025"} sebesar ` },
+        { text: netProfitDisplay, color: netProfitColor },
+        { text: `, dengan rincian sebagai berikut:` }
+      ]
+    });
+
     blocks.push(
-      { type: "p", align: "left", runs: [{ text: "III. PENETAPAN PENGGUNAAN LABA BERSIH PERSEROAN.", bold: true }] },
       {
-        type: "p",
+        type: "list",
+        bullet: "-",
+        indentTabs: 1.0,
         runs: [
-          { text: "MEMUTUSKAN", bold: true },
-          { text: `, bahwa Pemegang Saham menerima dan menyetujui total laba bersih Perseroan untuk tahun buku ${data.rupstFiscalYear || "2025"} adalah sebesar ` },
-          { text: netProfitDisplay, color: netProfitColor },
-          { text: " dengan ketentuan " },
-          data.rupstDividendAmount === 0
-            ? { text: "tidak ada pembagian dividen kepada Pemegang Saham dan seluruh laba bersih menjadi laba ditahan." }
-            : { text: `sebesar ${dividendDisplayValue} dibagikan sebagai dividen dan sisanya dicatat sebagai laba ditahan.` }
+          { text: "Sebesar " },
+          { text: dividendDisplayValue, color: dividendColor },
+          { text: " dibagikan sebagai dividen kepada para pemegang saham;" }
         ]
+      },
+      {
+        type: "list",
+        bullet: "-",
+        indentTabs: 1.0,
+        runs: [{ text: "Sisanya dicatat sebagai laba ditahan Perseroan untuk mendukung kegiatan usaha Perseroan." }]
       }
     );
   }
 
-  if (data.rupstDividendAmount !== undefined && data.rupstDividendAmount !== null && data.rupstDividendAmount > 0) {
-    // No need to append more if already included in the ternary above
-  }
+  // Decision 4
+  blocks.push({
+    type: "p",
+    number: 4,
+    runs: [{ text: `Memberikan pelunasan dan pembebasan tanggung jawab sepenuhnya (acquit et de charge) kepada Direksi dan Komisaris Perseroan atas tindakan pengurusan dan pengawasan yang telah dijalankan selama tahun buku ${data.rupstFiscalYear || "2025"}, sejauh tindakan tersebut tercermin dalam Laporan Tahunan dan Laporan Keuangan Perseroan;` }]
+  });
 
-  // IV. Rencana Kerja
+  // Decision 5
+  blocks.push({
+    type: "p",
+    number: 5,
+    runs: [
+      { text: "Memberikan kuasa kepada Tuan " },
+      { text: (data.meetingChair || rep?.name || "RAJANDRAN SHUNMUGAM").toUpperCase(), bold: true },
+      { text: " tersebut diatas, untuk melakukan segala tindakan yang diperlukan sehubungan dengan hasil keputusan RUPS Tahunan ini, termasuk namun tidak terbatas pada pengurusan pelaporan kepada instansi yang berwenang." }
+    ]
+  });
+
+  // Closure Section
+  const meetingEndHourNum = data.rupstMeetingEndTime ? data.rupstMeetingEndTime.replace(":", ".") : "14.00";
+  const endParts = (data.rupstMeetingEndTime || "14:00").split(":");
+  const eh = parseInt(endParts[0]);
+  const em = parseInt(endParts[1]);
+  const meetingEndHourWords = `${terbilang(eh)} lewat ${em === 0 ? "nol-nol" : terbilang(em)} menit Waktu Indonesia Barat`;
+
   blocks.push(
-    { type: "p", align: "left", runs: [{ text: "IV. PERSETUJUAN RENCANA KERJA DAN ANGGARAN TAHUNAN PERSEROAN TAHUN BUKU " + (data.rupstFiscalYear || "2025") + ".", bold: true }] },
     {
       type: "p",
       runs: [
-        { text: "MEMUTUSKAN", bold: true },
-        { text: ", bahwa Pemegang Saham menerima dan menyetujui Rencana Kerja Dan Anggaran Tahunan Perseroan untuk tahun buku mendatang, yang salinannya telah diakui oleh masing-masing Pemegang Saham telah diterima." }
+        { text: `Rapat ditutup pada pukul ${meetingEndHourNum} WIB (${meetingEndHourWords}) oleh Ketua Rapat, Setelah semua agenda rapat dibahas dan menghasilkan Keputusan sebagaimana telah diputuskan peserta rapat yang hadir.` }
       ]
     },
-    { type: "br" }
-  );
-
-  // V. Remunerasi
-  blocks.push(
-    { type: "p", align: "left", runs: [{ text: "V. PENETAPAN PAKET REMUNERASI BAGI ANGGOTA DEWAN KOMISARIS DAN DIREKSI PERSEROAN.", bold: true }] },
     {
       type: "p",
-      runs: [
-        { text: "MEMUTUSKAN", bold: true },
-        { text: ", bahwa Pemegang Saham menetapkan bahwa tidak ada perubahan gaji/honor bagi anggota Direksi dan Dewan Komisaris Perseroan." }
-      ]
+      runs: [{ text: "Dari segala sesuatu yang diuraikan tersebut di atas, maka saya, Notaris Membuat Akta Pernyataan Keputusan Rapat ini untuk dapat dipergunakan Sebagaimana mestinya." }]
     },
-    { type: "br" }
-  );
-
-  // VI. Kuasa
-  blocks.push(
-    { type: "p", align: "left", runs: [{ text: "VI. DIREKSI UNTUK MENGIMPLEMENTASIKAN.", bold: true }] },
+    { type: "divider", text: "DEMIKIANLAH AKTA INI" },
     {
       type: "p",
-      runs: [
-        { text: "MEMUTUSKAN", bold: true },
-        { text: ", bahwa Pemegang Saham memberikan kuasa kepada Direksi Perseroan, dengan hak substitusi kepada pihak (-pihak) lain, untuk menyatakan keputusan-keputusan tersebut diatas dalam akta notaris dalam bahasa Indonesia (jika diperlukan), dan untuk tujuan tersebut hadir dihadapan notaris, untuk mempersiapkan dan menandatangani akta tersebut, dan kemudian menyampaikan permohonan kepada Menteri Hukum dan Hak Asasi Manusia Republik Indonesia." }
-      ]
-    },
-    { type: "br" }
+      runs: [{ text: "Dibuat sebagai minuta dan dilangsungkan di Kabupaten Bandung Barat, pada hari dan tanggal serta jam sebagaimana disebutkan pada kepala akta ini dengan dihadiri oleh :" }]
+    }
   );
 
+  // Witness 1
+  const s1Nama = data.saksi1Nama || "Nendi Suhendi";
+  const s1Detail = data.saksi1Nama && data.saksi1Lahir && data.saksi1Alamat && data.saksi1NIK
+    ? `, lahir di ${toTitleCase(data.saksi1Lahir)}, Warga Negara Indonesia, bertempat tinggal di ${formatAddress(toTitleCase(data.saksi1Alamat))}, pemegang Kartu Tanda Penduduk Nomor ${data.saksi1NIK}`
+    : ", lahir di Bandung, Pada Tanggal Limabelas Juli Seribu Sembilan Ratus Sembilan Puluh Satu (15-07-1991), Warga Negara Indonesia, bertempat tinggal di Jalan Sukaresmi Nomor 12, Rukun Tetangga 005, Rukun Warga 005, Kecamatan Lembang, Desa Mekarwangi, pemegang Kartu Tanda Penduduk Nomor 3217011507910016";
+
+  blocks.push({
+    type: "saksi",
+    number: 1,
+    runs: [
+      { text: s1Nama, bold: true },
+      { text: s1Detail + ";" }
+    ]
+  });
+
+  // Witness 2
+  const s2Nama = data.saksi2Nama || "Siti Nur Azizah";
+  const s2Detail = data.saksi2Nama && data.saksi2Lahir && data.saksi2Alamat && data.saksi2NIK
+    ? `, lahir di ${toTitleCase(data.saksi2Lahir)}, Warga Negara Indonesia, bertempat tinggal di ${formatAddress(toTitleCase(data.saksi2Alamat))}, pemegang Kartu Tanda Penduduk Nomor ${data.saksi2NIK}`
+    : ", lahir di Bandung, Pada Tanggal Tujuh Belas Desember Seribu Sembilan Ratus Sembilan Puluh Sembilan (17-12-1999), Warga Negara Indonesia, bertempat tinggal di Kabupaten Bandung, Jalan Lembah Pakar Timur II Kampung Sekebuluh Rukun Tetangga 001, Rukun Warga 004, Desa Ciburial, Kecamatan Cimenyan, pemegang Kartu Tanda Penduduk Nomor 3204065712990001";
+
+  blocks.push({
+    type: "saksi",
+    number: 2,
+    runs: [
+      { text: s2Nama, bold: true },
+      { text: s2Detail + ";" }
+    ]
+  });
+
+  const notaryDomicileStr = data.notaryDomicile || "Kabupaten Bandung Barat";
+
+  blocks.push({
+    type: "list",
+    bullet: "-",
+    indentTabs: 1.0,
+    runs: [{ text: `Untuk sementara berada di ${toTitleCase(notaryDomicileStr)};` }]
+  });
+
   blocks.push(
-    { type: "divider", text: "DEMIKIAN AKTA INI" },
-    { type: "p", runs: [{ text: "Dibuat sebagai minuta, dibacakan dan ditanda-tangani di Kabupaten Bandung Barat, pada hari dan tanggal tersebut dalam kepala akta ini dengan dihadiri oleh :" }] },
-    { type: "p", runs: [{ text: "1. ...................." }] },
-    { type: "p", runs: [{ text: "2. ...................." }] },
-    { type: "p", runs: [{ text: "Keduanya pegawai kantor saya, Notaris, sebagai saksi-saksi." }] }
+    {
+      type: "p",
+      runs: [{ text: "Keduanya pegawai Kantor Notaris, sebagai saksi-saksi." }]
+    },
+    {
+      type: "p",
+      runs: [{ text: "Segera setelah akta ini dibacakan oleh saya, Notaris kepada penghadap dan saksi-saksi, maka ditanda-tanganilah akta ini oleh penghadap, saksi-saksi dan saya, Notaris. Serta penghadap membubuhkan sidik jari sebelah kanan pada lembaran tersendiri di hadapan saya, Notaris dan saksi-saksi, yang dilekatkan pada minuta akta ini." }]
+    },
+    {
+      type: "p",
+      runs: [{ text: "Dilangsungkan dengan tanpa perubahan." }]
+    },
+    {
+      type: "p",
+      runs: [{ text: "Minuta Akta ini telah ditanda-tangani dengan sempurna." }]
+    },
+    {
+      type: "p",
+      runs: [{ text: "Diberikan sebagai salinan yang sama bunyinya." }]
+    }
   );
 
   return blocks;

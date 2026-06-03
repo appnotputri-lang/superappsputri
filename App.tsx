@@ -297,19 +297,47 @@ const App: React.FC = () => {
   const [projects, setProjects] = useState<CompanyData[]>([]);
   const [rupstProjects, setRupstProjects] = useState<CompanyData[]>([]);
   const [user, setUser] = useState<FirebaseUser | null>(null);
-  const [authLoading, setAuthLoading] = useState(true);
+  const [authLoading, setAuthLoading] = useState(() => {
+    return localStorage.getItem('notaris_user_is_logged_in') === 'true';
+  });
   const [dataLoading, setDataLoading] = useState(true);
 
   useEffect(() => {
+    let timeoutId: any;
     const unsub = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
-      setAuthLoading(false);
-      if (!currentUser) {
-        setDataLoading(false);
+      if (currentUser) {
+        localStorage.setItem('notaris_user_is_logged_in', 'true');
+        setUser(currentUser);
+        setAuthLoading(false);
+      } else {
+        const wasLoggedIn = localStorage.getItem('notaris_user_is_logged_in') === 'true';
+        if (wasLoggedIn) {
+          timeoutId = setTimeout(() => {
+            localStorage.removeItem('notaris_user_is_logged_in');
+            setUser(null);
+            setAuthLoading(false);
+            setDataLoading(false);
+          }, 1500);
+        } else {
+          setUser(null);
+          setAuthLoading(false);
+          setDataLoading(false);
+        }
       }
     });
-    return unsub;
+    return () => {
+      unsub();
+      if (timeoutId) clearTimeout(timeoutId);
+    };
   }, []);
+
+  const handleLogout = async () => {
+    localStorage.removeItem('notaris_user_is_logged_in');
+    setUser(null);
+    setAuthLoading(false);
+    setDataLoading(false);
+    await logout();
+  };
 
   // Fail-safe to ensure loader disappears even with network failure
   useEffect(() => {
@@ -972,7 +1000,7 @@ const App: React.FC = () => {
             Akun <b>{user.email}</b> tidak memiliki izin untuk mengakses sistem ini.
           </p>
           <button 
-            onClick={() => logout()} 
+            onClick={() => handleLogout()} 
             className="w-full py-2.5 bg-[#d9534f] hover:bg-[#c9302c] text-white font-bold rounded text-[14px] shadow-sm transition-colors"
           >
             LOGOUT
@@ -996,7 +1024,7 @@ const App: React.FC = () => {
           {user ? (
             <div className="flex items-center gap-3">
               <span className="text-[12px] opacity-90 hidden sm:inline">{user.email}</span>
-              <button onClick={() => logout()} className="bg-red-500 hover:bg-red-600 px-3 py-1.5 rounded-sm text-[12px] font-bold transition-colors">
+              <button onClick={() => handleLogout()} className="bg-red-500 hover:bg-red-600 px-3 py-1.5 rounded-sm text-[12px] font-bold transition-colors">
                 LOGOUT
               </button>
             </div>
@@ -3871,6 +3899,59 @@ const App: React.FC = () => {
                           </table>
                         </div>
                       </div>
+                    </AhuSection>
+
+                    {/* KUASA */}
+                    <AhuSection title="Kuasa">
+                       <div className="space-y-6">
+                          {/* Pemberian Kuasa Notaril */}
+                          <div>
+                            <AhuLabel label="Pemberian Kuasa Notaril" required />
+                            <div className="flex gap-4 mt-2">
+                               <label className="flex items-center gap-2 text-[13px] cursor-pointer">
+                                 <input 
+                                   type="radio" 
+                                   checked={data.representativeType === 'EXISTING'} 
+                                   onChange={() => updateData({ representativeType: 'EXISTING' })} 
+                                 />
+                                 <span>Dari Pemegang Saham</span>
+                               </label>
+                               <label className="flex items-center gap-2 text-[13px] cursor-pointer">
+                                 <input 
+                                   type="radio" 
+                                   checked={data.representativeType === 'MANUAL'} 
+                                   onChange={() => updateData({ representativeType: 'MANUAL' })} 
+                                 />
+                                 <span>Input Manual</span>
+                               </label>
+                            </div>
+
+                            {data.representativeType === 'EXISTING' ? (
+                              <div className="mt-3">
+                                <AhuLabel label="Pilih Pemegang Saham" />
+                                <AhuSelect 
+                                  value={data.authorizedRepresentativeId} 
+                                  onChange={e => updateData({ authorizedRepresentativeId: e.target.value })}
+                                >
+                                  <option value="">-- Pilih --</option>
+                                  {[...data.shareholders, ...data.finalShareholders.filter(fs => !data.shareholders.some(s => s.id === fs.id))].map(s => (
+                                    <option key={s.id} value={s.id}>{s.name}</option>
+                                  ))}
+                                </AhuSelect>
+                              </div>
+                            ) : (
+                              <div className="mt-4 p-4 border border-slate-200 rounded bg-slate-50">
+                                <h4 className="text-[12px] font-bold text-slate-500 uppercase mb-3">Data Kuasa (Manual)</h4>
+                                <ShareholderForm 
+                                  shareholder={data.manualRepresentative!}
+                                  onChange={updates => updateManualRep(updates)}
+                                  hideManagement
+                                  hideFinancials
+                                />
+                              </div>
+                            )}
+                          </div>
+                       </div>
                     </AhuSection>
                   </div>
                   
