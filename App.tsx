@@ -215,7 +215,7 @@ const INITIAL_STATE: CompanyData = {
 };
 
 type TabId = 'general' | 'shareholders' | 'shareholders_new' | 'representative' | 'agenda' | 'kbli' | 'domicile' | 'address' | 'capitalBase' | 'capitalPaid' | 'management' | 'reappointment';
-type SidebarTabId = 'company_profile' | 'notulen' | 'pendirian' | 'rupst' | 'perbaikan' | 'draft_akta_rups' | 'panduan';
+type SidebarTabId = 'beranda' | 'company_profile' | 'notulen' | 'pendirian' | 'rupst' | 'perbaikan' | 'draft_akta_rups' | 'panduan';
 
 // AHU Style Helper Components
 const AhuSection = ({ title, children, isOpen = true }: { title: string, children: React.ReactNode, isOpen?: boolean }) => {
@@ -357,9 +357,9 @@ const App: React.FC = () => {
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [showPreview, setShowPreview] = useState(true);
   const [newKbliId, setNewKbliId] = useState<string | null>(null);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [activeSidebarTab, setActiveSidebarTab] = useState<SidebarTabId>('notulen');
+  const [activeSidebarTab, setActiveSidebarTab] = useState<SidebarTabId>('beranda');
   const [zoom, setZoom] = useState(1);
   const [showPendirianPreview, setShowPendirianPreview] = useState(false);
   const [pendirianPreviewData, setPendirianPreviewData] = useState<any>(null);
@@ -953,6 +953,7 @@ const App: React.FC = () => {
         <aside className={`bg-[#2c3b41] text-slate-400 flex flex-col shrink-0 overflow-y-auto lg:flex transition-all duration-300 ease-in-out ${isSidebarOpen ? 'w-64' : 'w-0 overflow-hidden'}`}>
           <div className="py-4 space-y-0 text-[13px] w-64">
             {[
+              { label: 'Beranda', id: 'beranda' as const, icon: Home },
               { label: 'Company Profile', id: 'company_profile' as const, icon: Building2 },
               { label: 'RUPS LB', id: 'notulen' as const, icon: FileText },
               { label: 'RUPS Tahunan', id: 'rupst' as const, icon: History },
@@ -972,7 +973,260 @@ const App: React.FC = () => {
 
         <main className="flex-1 overflow-y-auto bg-[#ecf0f5] p-6 pb-20">
           
-          {activeSidebarTab === 'company_profile' ? (
+          {activeSidebarTab === 'beranda' ? (
+            <div className="max-w-6xl mx-auto space-y-6 animate-fade-in">
+              {/* Header Card */}
+              <div className="bg-[#3b5998] rounded-md text-white p-6 sm:p-8 relative overflow-hidden shadow-md">
+                <div className="absolute right-0 bottom-0 top-0 opacity-10 flex items-center pr-12 hidden md:flex pointer-events-none select-none">
+                  <Building2 size={180} />
+                </div>
+                <div className="relative z-10 space-y-2">
+                  <div className="inline-flex items-center gap-2 bg-white/20 px-3 py-1 rounded-full text-[11px] font-bold tracking-wider uppercase mb-1">
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-300" /> Dashboard Aktif
+                  </div>
+                  <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
+                    Sistem Draft Notaris Putri
+                  </h1>
+                  <p className="text-[13px] text-blue-100 max-w-2xl leading-relaxed">
+                    Selamat datang di sistem manajemen drafting terpadu. Gunakan platform ini untuk memproses notulen RUPS Luar Biasa (LB), RUPS Tahunan (RUPST), Pendirian PT, serta surat-surat perbaikan data AHU secara cepat, tepat, dan legal.
+                  </p>
+                  <div className="pt-2 text-[12px] text-blue-250 flex flex-wrap gap-x-6 gap-y-2 items-center">
+                    <span className="flex items-center gap-1.5 font-mono text-blue-100">
+                      <Clock className="w-4 h-4 text-emerald-300" /> {new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                    </span>
+                    <span className="flex items-center gap-1.5 font-medium text-blue-100">
+                      <User className="w-4 h-4 text-emerald-300" /> {user?.email || 'Guest User'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Stats Overview */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="bg-white p-5 rounded-md border border-slate-200 shadow-sm flex items-center justify-between hover:shadow transition-shadow">
+                  <div className="space-y-1">
+                    <span className="text-[11px] font-bold text-slate-500 uppercase tracking-tight">Profil Perusahaan</span>
+                    <h2 className="text-3xl font-bold text-slate-800">{profiles.length}</h2>
+                    <p className="text-[11px] text-slate-400">Database profil korporasi</p>
+                  </div>
+                  <div className="w-12 h-12 rounded-full bg-blue-50 border border-blue-100 flex items-center justify-center text-[#3b5998]">
+                    <Building2 className="w-6 h-6" />
+                  </div>
+                </div>
+
+                <div className="bg-white p-5 rounded-md border border-slate-200 shadow-sm flex items-center justify-between hover:shadow transition-shadow">
+                  <div className="space-y-1">
+                    <span className="text-[11px] font-bold text-slate-500 uppercase tracking-tight">Draft RUPS LB</span>
+                    <h2 className="text-3xl font-bold text-slate-800">{projects.length}</h2>
+                    <p className="text-[11px] text-slate-400">Keputusan Sirkuler & Berita Acara</p>
+                  </div>
+                  <div className="w-12 h-12 rounded-full bg-[#fcf8e3] border border-[#fbeed5] flex items-center justify-center text-[#c09853]">
+                    <FileText className="w-6 h-6" />
+                  </div>
+                </div>
+
+                <div className="bg-white p-5 rounded-md border border-slate-200 shadow-sm flex items-center justify-between hover:shadow transition-shadow">
+                  <div className="space-y-1">
+                    <span className="text-[11px] font-bold text-slate-500 uppercase tracking-tight">Draft RUPS Tahunan</span>
+                    <h2 className="text-3xl font-bold text-slate-800">{rupstProjects.length}</h2>
+                    <p className="text-[11px] text-slate-400">Pertanggungjawaban tahun buku</p>
+                  </div>
+                  <div className="w-12 h-12 rounded-full bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600">
+                    <History className="w-6 h-6" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Quick Actions Workflow (Bento) */}
+              <div className="bg-white p-6 rounded-md border border-slate-200 shadow-sm">
+                <h3 className="text-[14px] font-bold text-slate-700 uppercase tracking-tight mb-4 flex items-center gap-2">
+                  <span className="w-1.5 h-4 bg-[#3b5998]"></span> Alur Kerja Cepat (Quick Access)
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <button
+                    onClick={() => {
+                      setEditingProjectId('new');
+                      updateData({ ...INITIAL_STATE } as any);
+                      setActiveSidebarTab('notulen');
+                    }}
+                    className="group border border-slate-200 hover:border-[#3b5998] p-4 rounded-sm text-left bg-white transition-all hover:shadow-md flex flex-col justify-between h-36"
+                  >
+                    <div>
+                      <div className="w-8 h-8 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 group-hover:bg-[#3b5998] group-hover:text-white transition-all mb-3">
+                        <Plus className="w-4 h-4" />
+                      </div>
+                      <h4 className="font-bold text-slate-800 text-[13px] group-hover:text-[#3b5998] transition-colors">{`Buat RUPS LB`}</h4>
+                      <p className="text-[11px] text-slate-400 mt-1 leading-snug">Buat draft Notulen sirkuler RUPS Luar Biasa baru</p>
+                    </div>
+                    <span className="text-[11px] font-bold text-[#3b5998] uppercase flex items-center gap-1 mt-2">Mulai <ChevronRight size={14} className="group-hover:translate-x-1 transition-transform" /></span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setEditingRupstId('new');
+                      updateData({ 
+                        ...INITIAL_STATE, 
+                        rupstFiscalYear: '2025',
+                        rupstNetProfit: 90000000,
+                        rupstDividendAmount: 50000000,
+                        rupstRetainedProfit: 40000000,
+                      } as any);
+                      setActiveSidebarTab('rupst');
+                    }}
+                    className="group border border-slate-200 hover:border-[#3b5998] p-4 rounded-sm text-left bg-white transition-all hover:shadow-md flex flex-col justify-between h-36"
+                  >
+                    <div>
+                      <div className="w-8 h-8 rounded-full bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 group-hover:bg-[#3b5998] group-hover:text-white transition-all mb-3">
+                        <Plus className="w-4 h-4" />
+                      </div>
+                      <h4 className="font-bold text-slate-800 text-[13px] group-hover:text-[#3b5998] transition-colors">{`Buat RUPS Tahunan`}</h4>
+                      <p className="text-[11px] text-slate-400 mt-1 leading-snug">Buat risalah atau sirkuler RUPS laporan tahunan</p>
+                    </div>
+                    <span className="text-[11px] font-bold text-[#3b5998] uppercase flex items-center gap-1 mt-2">Mulai <ChevronRight size={14} className="group-hover:translate-x-1 transition-transform" /></span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setActiveSidebarTab('pendirian');
+                    }}
+                    className="group border border-slate-200 hover:border-[#3b5998] p-4 rounded-sm text-left bg-white transition-all hover:shadow-md flex flex-col justify-between h-36"
+                  >
+                    <div>
+                      <div className="w-8 h-8 rounded-full bg-teal-50 border border-teal-100 flex items-center justify-center text-teal-600 group-hover:bg-[#3b5998] group-hover:text-white transition-all mb-3">
+                        <FileCode className="w-4 h-4" />
+                      </div>
+                      <h4 className="font-bold text-slate-800 text-[13px] group-hover:text-[#3b5998] transition-colors">{`Pendirian PT`}</h4>
+                      <p className="text-[11px] text-slate-400 mt-1 leading-snug">Draft pendirian Perseroan Terbatas komplit</p>
+                    </div>
+                    <span className="text-[11px] font-bold text-[#3b5998] uppercase flex items-center gap-1 mt-2">Mulai <ChevronRight size={14} className="group-hover:translate-x-1 transition-transform" /></span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setActiveSidebarTab('perbaikan');
+                    }}
+                    className="group border border-slate-200 hover:border-[#3b5998] p-4 rounded-sm text-left bg-white transition-all hover:shadow-md flex flex-col justify-between h-36"
+                  >
+                    <div>
+                      <div className="w-8 h-8 rounded-full bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-600 group-hover:bg-[#3b5998] group-hover:text-white transition-all mb-3">
+                        <Mail className="w-4 h-4" />
+                      </div>
+                      <h4 className="font-bold text-slate-800 text-[13px] group-hover:text-[#3b5998] transition-colors">{`Perbaikan Data`}</h4>
+                      <p className="text-[11px] text-slate-400 mt-1 leading-snug">Permohonan penyesuaian data AHU Online</p>
+                    </div>
+                    <span className="text-[11px] font-bold text-[#3b5998] uppercase flex items-center gap-1 mt-2">Mulai <ChevronRight size={14} className="group-hover:translate-x-1 transition-transform" /></span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Grid: Recent Drafts & Shortcuts */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                
+                {/* Recent RUPS LB Drafts */}
+                <div className="bg-white p-6 rounded-md border border-slate-200 shadow-sm flex flex-col h-[400px]">
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-[14px] font-bold text-slate-700 uppercase tracking-tight flex items-center gap-2">
+                      <span className="w-1.5 h-4 bg-indigo-500 font-bold"></span> RUPS LB Terbaru
+                    </h3>
+                    <button onClick={() => setActiveSidebarTab('notulen')} className="text-[#3b5998] hover:underline text-[12px] font-bold uppercase">Semua RUPS LB</button>
+                  </div>
+                  
+                  <div className="flex-1 overflow-y-auto space-y-3 pr-1">
+                    {projects.length === 0 ? (
+                      <div className="h-full flex flex-col items-center justify-center text-slate-400 text-center p-6 border border-dashed border-slate-200 rounded">
+                        <FileText className="w-8 h-8 opacity-40 mb-2" />
+                        <span className="text-[12px]">Belum ada draft RUPS LB di sistem</span>
+                      </div>
+                    ) : (
+                      projects.slice(0, 5).map(p => (
+                        <div key={p.id} className="p-3 border border-slate-100 hover:border-indigo-300 rounded-sm bg-slate-50/50 hover:bg-slate-50 transition-all flex items-center justify-between gap-4">
+                          <div className="min-w-0 flex-1">
+                            <h4 className="font-bold text-[#3b5998] text-[13px] truncate">{p.companyName}</h4>
+                            <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1 text-[11px] text-slate-500">
+                              <span className="flex items-center gap-1"><MapPin className="w-3 h-3 text-slate-400 shrink-0"/> {p.newAddress?.city || p.domicile || 'Kota tidak diisi'}</span>
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => {
+                              setEditingProjectId(p.id);
+                              updateData({ ...INITIAL_STATE, ...p } as any);
+                              setActiveSidebarTab('notulen');
+                            }}
+                            className="bg-white hover:bg-indigo-50 border border-slate-200 hover:border-indigo-300 text-slate-700 hover:text-[#3b5998] px-3 py-1.5 rounded-sm font-bold text-[11px] uppercase transition-all shrink-0 shadow-sm"
+                          >
+                            Edit
+                          </button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                {/* Recent RUPS Tahunan (RUPST) Drafts */}
+                <div className="bg-white p-6 rounded-md border border-slate-200 shadow-sm flex flex-col h-[400px]">
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-[14px] font-bold text-slate-700 uppercase tracking-tight flex items-center gap-2">
+                      <span className="w-1.5 h-4 bg-emerald-500 font-bold"></span> RUPS Tahunan Terbaru
+                    </h3>
+                    <button onClick={() => setActiveSidebarTab('rupst')} className="text-[#3b5998] hover:underline text-[12px] font-bold uppercase">Semua RUPST</button>
+                  </div>
+                  
+                  <div className="flex-1 overflow-y-auto space-y-3 pr-1">
+                    {rupstProjects.length === 0 ? (
+                      <div className="h-full flex flex-col items-center justify-center text-slate-400 text-center p-6 border border-dashed border-slate-200 rounded">
+                        <History className="w-8 h-8 opacity-40 mb-2" />
+                        <span className="text-[12px]">Belum ada draft RUPS Tahunan di sistem</span>
+                      </div>
+                    ) : (
+                      rupstProjects.slice(0, 5).map(p => (
+                        <div key={p.id} className="p-3 border border-slate-100 hover:border-[#40bdae] rounded-sm bg-slate-50/50 hover:bg-slate-50 transition-all flex items-center justify-between gap-4">
+                          <div className="min-w-0 flex-1">
+                            <h4 className="font-bold text-[#3b5998] text-[13px] truncate">{p.companyName}</h4>
+                            <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1 text-[11px] text-slate-500">
+                              <span className="flex items-center gap-1 font-mono text-emerald-600 font-semibold bg-emerald-50 px-1.5 rounded-sm">Tahun Buku {p.rupstFiscalYear || '2025'}</span>
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => {
+                              setEditingRupstId(p.id);
+                              updateData({ ...INITIAL_STATE, ...p } as any);
+                              setActiveSidebarTab('rupst');
+                            }}
+                            className="bg-white hover:bg-emerald-50 border border-slate-200 hover:border-emerald-300 text-slate-700 hover:text-[#40bdae] px-3 py-1.5 rounded-sm font-bold text-[11px] uppercase transition-all shrink-0 shadow-sm"
+                          >
+                            Edit
+                          </button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+
+              </div>
+              
+              {/* Notary Quality & Integration Info Panel */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-white border border-slate-200 rounded-md p-5 shadow-sm overflow-hidden">
+                <div className="flex gap-4 items-start">
+                  <div className="w-10 h-10 rounded-full bg-amber-50 border border-amber-100 text-amber-600 flex items-center justify-center shrink-0">
+                    <Info className="w-5 h-5 font-bold" />
+                  </div>
+                  <div>
+                    <h4 className="text-[13px] font-bold text-slate-800">Regulasi AHU & UU No. 40/2007</h4>
+                    <p className="text-[11px] text-slate-500 leading-relaxed mt-1">Sistem ini mematuhi standar Akta Notaris di Indonesia yang mengacu pada Undang-Undang PT, mencakupi kuorum kehadiran, kuorum sirkuler, tata penambahan kapital, pemisahan saham lama dan baru secara hukum.</p>
+                  </div>
+                </div>
+                <div className="flex gap-4 items-start">
+                  <div className="w-10 h-10 rounded-full bg-indigo-50 border border-indigo-100 text-indigo-600 flex items-center justify-center shrink-0">
+                    <FileSignature className="w-5 h-5 font-bold" />
+                  </div>
+                  <div>
+                    <h4 className="text-[13px] font-bold text-slate-800">Cetak & Ekspor Langsung (.docx)</h4>
+                    <p className="text-[11px] text-slate-500 leading-relaxed mt-1">Drafting akta dapat disinkronkan langsung dengan data profil perusahaan, serta mendukung dokumen berkualitas tinggi yang dapat dicetak langsung atau diekspor ke Microsoft Word untuk kelancaran pendaftaran AHU online.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : activeSidebarTab === 'company_profile' ? (
             <div className="max-w-5xl mx-auto space-y-4">
               <div className="flex justify-between items-center bg-white p-4 rounded-sm shadow-sm border border-slate-200">
                 <div>
