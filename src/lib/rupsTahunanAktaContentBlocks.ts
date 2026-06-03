@@ -251,10 +251,13 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
     { type: "br" }
   );
 
-  const finReportNumberColor = (data.rupstFinancialReportNumber === "" || data.rupstFinancialReportNumber === "0") ? "FF0000" : undefined;
-  const finReportNumberDisplay = (data.rupstFinancialReportNumber === "" || data.rupstFinancialReportNumber === "0") 
-    ? "[ ISI DENGAN NOMOR LAPORAN KEUANGAN]" 
-    : (data.rupstFinancialReportNumber || "LP/25/2025");
+  const signatorySh = data.shareholders.find(s => s.name === data.rupstFinancialReportSignatoryName);
+  const signatorySalutation = signatorySh?.salutation || "Tuan";
+  const signatoryName = data.rupstFinancialReportSignatoryName || "[Nama Direktur]";
+  const signatoryPosition = data.rupstFinancialReportSignatoryPosition || "Direktur";
+
+  const hasFinReportNumber = data.rupstFinancialReportNumber && data.rupstFinancialReportNumber.trim() !== "" && data.rupstFinancialReportNumber.trim() !== "0";
+  const numText = hasFinReportNumber ? ` nomor ${data.rupstFinancialReportNumber}` : "";
 
   // II. Pengesahan Laporan Keuangan
   blocks.push(
@@ -265,9 +268,8 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
       bullet: "a.",
       indentTabs: 0.5,
       runs: [
-        { text: "Menerima dan mengesahkan Laporan Keuangan Tahunan Perseroan untuk tahun buku " + (data.rupstFiscalYear || "2025") + " sebagaimana dimuat dalam Laporan Keuangan nomor " },
-        { text: finReportNumberDisplay, color: finReportNumberColor },
-        { text: ", yang salinannya telah diakui oleh masing-masing Pemegang Saham telah diterima; dan" }
+        { text: "Menerima dan mengesahkan Laporan Keuangan Tahunan Perseroan untuk tahun buku " + (data.rupstFiscalYear || "2025") + " sebagaimana dimuat dalam Laporan Keuangan" },
+        { text: `${numText} tanggal ${formatDateStr(data.rupstFinancialReportDate || "")}, yang ditandatangani oleh ${signatoryPosition} Perseroan ${signatorySalutation} ${signatoryName}, yang salinannya telah diakui oleh masing-masing Pemegang Saham telah diterima; dan` }
       ]
     },
     {
@@ -279,32 +281,63 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
     { type: "br" }
   );
 
-  const netProfitColor = data.rupstNetProfit ? undefined : "FF0000";
-  const netProfitDisplay = data.rupstNetProfit 
-    ? `Rp${formatNumber(data.rupstNetProfit)} (${terbilang(data.rupstNetProfit)} rupiah)` 
-    : "[ISI DENGAN NILAI LABA BERSIH DI NOTULEN RUPS TAHUNAN]";
+  const netProfitColor = (data.rupstNetProfit !== undefined && data.rupstNetProfit !== null) ? undefined : "FF0000";
+  let netProfitDisplay = "[ISI DENGAN NILAI LABA BERSIH DI NOTULEN RUPS TAHUNAN]";
+  if (data.rupstNetProfit !== undefined && data.rupstNetProfit !== null) {
+    const isNeg = data.rupstNetProfit < 0;
+    const absVal = Math.abs(data.rupstNetProfit);
+    netProfitDisplay = `${isNeg ? "- Rp " : "Rp"}${formatNumber(absVal)} (${terbilang(data.rupstNetProfit)} rupiah)`;
+  }
 
-  const dividendColor = data.rupstDividendAmount ? undefined : "FF0000";
-  const dividendDisplayValue = data.rupstDividendAmount 
-    ? `Rp${formatNumber(data.rupstDividendAmount)} (${terbilang(data.rupstDividendAmount)} rupiah)`
-    : "[ISI DENGAN NILAI DEVIDEN DIBAGIKAN]";
+  const dividendColor = (data.rupstDividendAmount !== undefined && data.rupstDividendAmount !== null) ? undefined : "FF0000";
+  let dividendDisplayValue = "[ISI DENGAN NILAI DEVIDEN DIBAGIKAN]";
+  if (data.rupstDividendAmount !== undefined && data.rupstDividendAmount !== null) {
+    const isNeg = data.rupstDividendAmount < 0;
+    const absVal = Math.abs(data.rupstDividendAmount);
+    dividendDisplayValue = `${isNeg ? "- Rp " : "Rp"}${formatNumber(absVal)} (${terbilang(data.rupstDividendAmount)} rupiah)`;
+  }
 
   // III. Penetapan Laba
-  blocks.push(
-    { type: "p", align: "left", runs: [{ text: "III. PENETAPAN PENGGUNAAN LABA BERSIH PERSEROAN.", bold: true }] },
-    {
-      type: "p",
-      runs: [
-        { text: "MEMUTUSKAN", bold: true },
-        { text: `, bahwa Pemegang Saham menerima dan menyetujui total laba bersih Perseroan untuk tahun buku ${data.rupstFiscalYear || "2025"} adalah sebesar ` },
-        { text: netProfitDisplay, color: netProfitColor },
-        { text: " dengan ketentuan " },
-        data.rupstDividendAmount === 0
-          ? { text: "tidak ada pembagian dividen kepada Pemegang Saham dan seluruh laba bersih menjadi laba ditahan." }
-          : { text: `sebesar ${dividendDisplayValue} dibagikan sebagai dividen dan sisanya dicatat sebagai laba ditahan.` }
-      ]
-    }
-  );
+  if (data.rupstNetProfit !== undefined && data.rupstNetProfit !== null && data.rupstNetProfit < 0) {
+    const prevYear = data.rupstFiscalYear ? (parseInt(data.rupstFiscalYear) - 1).toString() : "2024";
+    const absRetained = Math.abs(data.rupstRetainedProfit || 0);
+    const isRetainedNeg = (data.rupstRetainedProfit || 0) < 0;
+    const retainedLabel = isRetainedNeg ? "saldo rugi ditahan" : "saldo laba ditahan";
+    const retainedDisplay = `Rp${formatNumber(absRetained)} (${terbilang(absRetained)} rupiah)`;
+    const absNetProfit = Math.abs(data.rupstNetProfit);
+    const netProfitDisplayPositive = `Rp${formatNumber(absNetProfit)} (${terbilang(absNetProfit)} rupiah)`;
+
+    blocks.push(
+      { type: "p", align: "left", runs: [{ text: "III. PENETAPAN PENGGUNAAN LABA BERSIH PERSEROAN.", bold: true }] },
+      {
+        type: "p",
+        runs: [
+          { text: "MEMUTUSKAN", bold: true },
+          { text: `, bahwa Pemegang Saham menetapkan Perseroan mengalami rugi bersih untuk tahun buku ${data.rupstFiscalYear || "2025"} sebesar ` },
+          { text: netProfitDisplayPositive, color: netProfitColor },
+          { text: `, dengan ${retainedLabel} Perseroan sampai dengan tahun buku ${prevYear} sebesar ` },
+          { text: retainedDisplay },
+          { text: `. Sehubungan dengan hal tersebut, Perseroan tidak membagikan dividen kepada para pemegang saham, dan rugi bersih tahun berjalan dicatat sebagai akumulasi kerugian/saldo rugi ditahan Perseroan.` }
+        ]
+      }
+    );
+  } else {
+    blocks.push(
+      { type: "p", align: "left", runs: [{ text: "III. PENETAPAN PENGGUNAAN LABA BERSIH PERSEROAN.", bold: true }] },
+      {
+        type: "p",
+        runs: [
+          { text: "MEMUTUSKAN", bold: true },
+          { text: `, bahwa Pemegang Saham menerima dan menyetujui total laba bersih Perseroan untuk tahun buku ${data.rupstFiscalYear || "2025"} adalah sebesar ` },
+          { text: netProfitDisplay, color: netProfitColor },
+          { text: " dengan ketentuan " },
+          data.rupstDividendAmount === 0
+            ? { text: "tidak ada pembagian dividen kepada Pemegang Saham dan seluruh laba bersih menjadi laba ditahan." }
+            : { text: `sebesar ${dividendDisplayValue} dibagikan sebagai dividen dan sisanya dicatat sebagai laba ditahan.` }
+        ]
+      }
+    );
+  }
 
   if (data.rupstDividendAmount !== undefined && data.rupstDividendAmount !== null && data.rupstDividendAmount > 0) {
     // No need to append more if already included in the ternary above

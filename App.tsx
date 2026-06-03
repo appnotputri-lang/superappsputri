@@ -191,7 +191,16 @@ const INITIAL_STATE: CompanyData = {
   rupstRetainedProfit: 0,
   rupstFinancialReportNumber: '',
   rupstFinancialReportDate: '',
+  rupstFinancialReportSignatoryName: '',
+  rupstFinancialReportSignatoryPosition: 'Direktur',
+  rupstStatementNeraca: true,
+  rupstStatementLabaRugi: true,
+  rupstStatementPerubahanEkuitas: true,
+  rupstStatementArusKas: true,
+  rupstStatementCatatan: true,
   rupstNotulenNumber: '',
+  rupstQuorumArticle: '22',
+  rupstQuorumParagraph: '1',
   rupstMeetingEndTime: '14:00',
   rupstInvitationNumber: '',
   rupstInvitationDate: '',
@@ -3253,6 +3262,86 @@ const App: React.FC = () => {
                             <AhuLabel label="Tanggal Laporan Keuangan" />
                             <AhuInput type="date" value={data.rupstFinancialReportDate || ''} onChange={e => updateData({ rupstFinancialReportDate: e.target.value })} />
                           </div>
+                          <div className="p-3 bg-blue-50/50 rounded border border-blue-100 space-y-3">
+                            <h5 className="text-[11px] font-bold text-blue-800 uppercase tracking-wider">Penandatangan Laporan Keuangan</h5>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                              <div>
+                                <AhuLabel label="Pilih Direksi" />
+                                <AhuSelect 
+                                  value={data.rupstFinancialReportSignatoryName || ''} 
+                                  onChange={e => {
+                                    const selectedName = e.target.value;
+                                    const sh = data.shareholders.find(s => s.name === selectedName);
+                                    updateData({ 
+                                      rupstFinancialReportSignatoryName: selectedName,
+                                      rupstFinancialReportSignatoryPosition: sh?.isManagement ? (sh.managementPosition || "Direktur") : "Direktur"
+                                    });
+                                  }}
+                                >
+                                  <option value="">-- Pilih --</option>
+                                  {data.shareholders.map(s => <option key={s.id} value={s.name}>{s.salutation || "Tuan"} {s.name}</option>)}
+                                </AhuSelect>
+                              </div>
+                              <div>
+                                <AhuLabel label="Jabatan Penandatangan" />
+                                <AhuInput 
+                                  value={data.rupstFinancialReportSignatoryPosition || ''} 
+                                  onChange={e => updateData({ rupstFinancialReportSignatoryPosition: e.target.value })} 
+                                  placeholder="Contoh: Direktur" 
+                                />
+                              </div>
+                            </div>
+                          </div>
+                          <div className="p-3 bg-slate-50 border border-slate-200 rounded space-y-2">
+                            <h5 className="text-[11px] font-bold text-slate-800 uppercase tracking-wider">Komponen Laporan Keuangan Yang Disahkan:</h5>
+                            <div className="space-y-1.5 pt-1">
+                              <label className="flex items-center gap-2 text-[12px] text-slate-700 cursor-pointer font-medium">
+                                <input
+                                  type="checkbox"
+                                  checked={data.rupstStatementNeraca !== false}
+                                  onChange={(e) => updateData({ rupstStatementNeraca: e.target.checked })}
+                                  className="w-4 h-4 text-[#3b5998] focus:ring-[#3b5998] border-[#ccc] rounded"
+                                />
+                                <span>Laporan Posisi Keuangan (Neraca)</span>
+                              </label>
+                              <label className="flex items-center gap-2 text-[12px] text-slate-700 cursor-pointer font-medium">
+                                <input
+                                  type="checkbox"
+                                  checked={data.rupstStatementLabaRugi !== false}
+                                  onChange={(e) => updateData({ rupstStatementLabaRugi: e.target.checked })}
+                                  className="w-4 h-4 text-[#3b5998] focus:ring-[#3b5998] border-[#ccc] rounded"
+                                />
+                                <span>Laporan Laba Rugi</span>
+                              </label>
+                              <label className="flex items-center gap-2 text-[12px] text-slate-700 cursor-pointer font-medium">
+                                <input
+                                  type="checkbox"
+                                  checked={data.rupstStatementPerubahanEkuitas !== false}
+                                  onChange={(e) => updateData({ rupstStatementPerubahanEkuitas: e.target.checked })}
+                                  className="w-4 h-4 text-[#3b5998] focus:ring-[#3b5998] border-[#ccc] rounded"
+                                />
+                                <span>Laporan Perubahan Ekuitas</span>
+                              </label>
+                              <label className="flex items-center gap-2 text-[12px] text-slate-700 cursor-pointer font-medium">
+                                <input
+                                  type="checkbox"
+                                  checked={data.rupstStatementArusKas !== false}
+                                  onChange={(e) => updateData({ rupstStatementArusKas: e.target.checked })}
+                                  className="w-4 h-4 text-[#3b5998] focus:ring-[#3b5998] border-[#ccc] rounded"
+                                />
+                                <span>Laporan Arus Kas</span>
+                              </label>
+                              <label className="flex items-center gap-2 text-[12px] text-slate-700 cursor-pointer font-medium">
+                                <input
+                                  type="checkbox"
+                                  checked={data.rupstStatementCatatan !== false}
+                                  onChange={(e) => updateData({ rupstStatementCatatan: e.target.checked })}
+                                  className="w-4 h-4 text-[#3b5998] focus:ring-[#3b5998] border-[#ccc] rounded"
+                                />
+                                <span>Catatan Atas Laporan Keuangan</span>
+                              </label>
+                            </div>
+                          </div>
                         </div>
                         <div className="space-y-4">
                           <div>
@@ -3264,9 +3353,13 @@ const App: React.FC = () => {
                             <AhuInput value={formatInputNumber(data.rupstDividendAmount || 0)} onChange={e => updateData({ rupstDividendAmount: parseFormattedNumber(e.target.value) })} />
                           </div>
                           <div>
-                            <AhuLabel label="Laba Ditahan (Rp)" />
+                            <AhuLabel label="Saldo Laba/Rugi Ditahan Tahun Sebelumnya (Rp)" />
+                            <AhuInput value={formatInputNumber(data.rupstRetainedProfit || 0)} onChange={e => updateData({ rupstRetainedProfit: parseFormattedNumber(e.target.value) })} />
+                          </div>
+                          <div>
+                            <AhuLabel label="Laba Ditahan / Rugi Berjalan (Rp)" />
                             <div className="px-3 py-1.5 bg-slate-50 border border-[#ccc] rounded-sm text-[13px] font-bold text-slate-700">
-                              Rp. {formatInputNumber((data.rupstNetProfit || 0) - (data.rupstDividendAmount || 0))}
+                              {((data.rupstNetProfit || 0) - (data.rupstDividendAmount || 0)) < 0 ? '- ' : ''}Rp. {formatInputNumber(Math.abs((data.rupstNetProfit || 0) - (data.rupstDividendAmount || 0)))}
                             </div>
                           </div>
                         </div>
@@ -3317,6 +3410,19 @@ const App: React.FC = () => {
                             <div className="flex-1">
                               <AhuLabel label="Nomor Ayat" />
                               <AhuInput value={data.rupstAdParagraph || ''} onChange={e => updateData({ rupstAdParagraph: e.target.value })} placeholder="Contoh: 4" />
+                            </div>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                          <AhuLabel label="Ketentuan Kuorum AD" />
+                          <div className="md:col-span-3 flex gap-4">
+                            <div className="flex-1">
+                              <AhuLabel label="Pasal Kuorum" />
+                              <AhuInput value={data.rupstQuorumArticle || ''} onChange={e => updateData({ rupstQuorumArticle: e.target.value })} placeholder="Contoh: 22" />
+                            </div>
+                            <div className="flex-1">
+                              <AhuLabel label="Ayat Kuorum" />
+                              <AhuInput value={data.rupstQuorumParagraph || ''} onChange={e => updateData({ rupstQuorumParagraph: e.target.value })} placeholder="Contoh: 1" />
                             </div>
                           </div>
                         </div>

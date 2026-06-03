@@ -508,10 +508,10 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
             name: shName,
             salutation: '',
             sourceObj: sh,
-            ownShares: {
+            ownShares: sh.sharesOwned > 0 ? {
               sharesOwned: sh.sharesOwned || 0,
               shareholder: sh
-            },
+            } : null,
             management: sh.isManagement ? { position: sh.managementPosition || "Direktur" } : null,
             representations: []
           });
@@ -523,19 +523,21 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
               name: shName,
               salutation: sh.salutation || "Tuan",
               sourceObj: sh,
-              ownShares: {
+              ownShares: sh.sharesOwned > 0 ? {
                 sharesOwned: sh.sharesOwned || 0,
                 shareholder: sh
-              },
+              } : null,
               management: sh.isManagement ? { position: sh.managementPosition || "Direktur" } : null,
               representations: []
             };
             attendees.push(att);
           } else {
-            att.ownShares = {
-              sharesOwned: sh.sharesOwned || 0,
-              shareholder: sh
-            };
+            if (sh.sharesOwned > 0) {
+              att.ownShares = {
+                sharesOwned: sh.sharesOwned || 0,
+                shareholder: sh
+              };
+            }
             if (sh.isManagement) {
               att.management = { position: sh.managementPosition || "Direktur" };
             }
@@ -556,90 +558,104 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
         ]
       });
 
-      blocks.push({
-        type: "list",
-        bullet: "-",
-        indentTabs: 1.0,
-        runs: [{ text: "dalam hal ini hadir selaku :" }]
-      });
+      let roleCount = 0;
+      if (att.ownShares) roleCount++;
+      if (att.management) roleCount++;
+      roleCount += att.representations.length;
 
-      let subBulletCode = 'a'.charCodeAt(0);
-
-      // a. Own Shares
-      if (att.ownShares) {
-        const bulletChar = String.fromCharCode(subBulletCode++) + ".";
-        const totalRp = att.ownShares.sharesOwned * data.originalSharePrice;
+      if (roleCount === 1 && att.management) {
         blocks.push({
           type: "list",
-          bullet: bulletChar,
-          indentTabs: 1.25,
-          runs: [
-            { text: "Pemilik dan pemegang saham sebanyak " },
-            { text: formatNumber(att.ownShares.sharesOwned), bold: true },
-            { text: ` (${terbilang(att.ownShares.sharesOwned)}) lembar saham atau senilai ` },
-            { text: `Rp. ${formatNumber(totalRp)},-`, bold: true },
-            { text: ` (${terbilang(totalRp)} rupiah) berhak mengeluarkan suara ` },
-            { text: formatNumber(att.ownShares.sharesOwned), bold: true },
-            { text: ` (${terbilang(att.ownShares.sharesOwned)}) suara dalam rapat.` }
-          ]
+          bullet: "-",
+          indentTabs: 1.0,
+          runs: [{ text: `dalam hal ini hadir selaku ${toTitleCase(att.management.position)} perseroan;` }]
         });
-      }
-
-      // b. Management position
-      if (att.management) {
-        const bulletChar = String.fromCharCode(subBulletCode++) + ".";
+      } else {
         blocks.push({
           type: "list",
-          bullet: bulletChar,
-          indentTabs: 1.25,
-          runs: [{ text: `${toTitleCase(att.management.position)} perseroan;` }]
+          bullet: "-",
+          indentTabs: 1.0,
+          runs: [{ text: "dalam hal ini hadir selaku :" }]
         });
-      }
 
-      // c. Representative roles
-      att.representations.forEach(rep => {
-        const bulletChar = String.fromCharCode(subBulletCode++) + ".";
-        const totalRp = rep.sharesOwned * data.originalSharePrice;
-        const isDirector = rep.proxyData.representationType === 'DIREKTUR_PT_LAIN';
+        let subBulletCode = 'a'.charCodeAt(0);
 
-        if (isDirector) {
+        // a. Own Shares
+        if (att.ownShares) {
+          const bulletChar = String.fromCharCode(subBulletCode++) + ".";
+          const totalRp = att.ownShares.sharesOwned * data.originalSharePrice;
           blocks.push({
             type: "list",
             bullet: bulletChar,
             indentTabs: 1.25,
             runs: [
-              { text: "Direktur dari " },
-              ...getPersonDetailRuns(rep.shareholder),
-              { text: ", Pemilik dan pemegang saham sebanyak " },
-              { text: formatNumber(rep.sharesOwned), bold: true },
-              { text: ` (${terbilang(rep.sharesOwned)}) lembar saham atau senilai Rp. ` },
-              { text: `${formatNumber(totalRp)},-`, bold: true },
+              { text: "Pemilik dan pemegang saham sebanyak " },
+              { text: formatNumber(att.ownShares.sharesOwned), bold: true },
+              { text: ` (${terbilang(att.ownShares.sharesOwned)}) lembar saham atau senilai ` },
+              { text: `Rp. ${formatNumber(totalRp)},-`, bold: true },
               { text: ` (${terbilang(totalRp)} rupiah) berhak mengeluarkan suara ` },
-              { text: formatNumber(rep.sharesOwned), bold: true },
-              { text: ` (${terbilang(rep.sharesOwned)}) suara dalam rapat.` }
-            ]
-          });
-        } else {
-          const proxyDateWords = rep.proxyData.proxyDeedDate ? dateToWords(rep.proxyData.proxyDeedDate) : "__________";
-          const proxyDateAngka = rep.proxyData.proxyDeedDate ? formatDateStr(rep.proxyData.proxyDeedDate) : "__________";
-          blocks.push({
-            type: "list",
-            bullet: bulletChar,
-            indentTabs: 1.25,
-            runs: [
-              { text: "Kuasa dari " },
-              ...getPersonDetailRuns(rep.shareholder),
-              { text: ` berdasarkan Surat Kuasa tertanggal ${proxyDateWords} (${proxyDateAngka}), Pemilik dan pemegang saham sebanyak ` },
-              { text: formatNumber(rep.sharesOwned), bold: true },
-              { text: ` (${terbilang(rep.sharesOwned)}) lembar saham atau senilai Rp. ` },
-              { text: `${formatNumber(totalRp)},-`, bold: true },
-              { text: ` (${terbilang(totalRp)} rupiah) berhak mengeluarkan suara ` },
-              { text: formatNumber(rep.sharesOwned), bold: true },
-              { text: ` (${terbilang(rep.sharesOwned)}) suara dalam rapat.` }
+              { text: formatNumber(att.ownShares.sharesOwned), bold: true },
+              { text: ` (${terbilang(att.ownShares.sharesOwned)}) suara dalam rapat.` }
             ]
           });
         }
-      });
+
+        // b. Management position
+        if (att.management) {
+          const bulletChar = String.fromCharCode(subBulletCode++) + ".";
+          blocks.push({
+            type: "list",
+            bullet: bulletChar,
+            indentTabs: 1.25,
+            runs: [{ text: `${toTitleCase(att.management.position)} perseroan;` }]
+          });
+        }
+
+        // c. Representative roles
+        att.representations.forEach(rep => {
+          const bulletChar = String.fromCharCode(subBulletCode++) + ".";
+          const totalRp = rep.sharesOwned * data.originalSharePrice;
+          const isDirector = rep.proxyData.representationType === 'DIREKTUR_PT_LAIN';
+
+          if (isDirector) {
+            blocks.push({
+              type: "list",
+              bullet: bulletChar,
+              indentTabs: 1.25,
+              runs: [
+                { text: "Direktur dari " },
+                ...getPersonDetailRuns(rep.shareholder),
+                { text: ", Pemilik dan pemegang saham sebanyak " },
+                { text: formatNumber(rep.sharesOwned), bold: true },
+                { text: ` (${terbilang(rep.sharesOwned)}) lembar saham atau senilai Rp. ` },
+                { text: `${formatNumber(totalRp)},-`, bold: true },
+                { text: ` (${terbilang(totalRp)} rupiah) berhak mengeluarkan suara ` },
+                { text: formatNumber(rep.sharesOwned), bold: true },
+                { text: ` (${terbilang(rep.sharesOwned)}) suara dalam rapat.` }
+              ]
+            });
+          } else {
+            const proxyDateWords = rep.proxyData.proxyDeedDate ? dateToWords(rep.proxyData.proxyDeedDate) : "__________";
+            const proxyDateAngka = rep.proxyData.proxyDeedDate ? formatDateStr(rep.proxyData.proxyDeedDate) : "__________";
+            blocks.push({
+              type: "list",
+              bullet: bulletChar,
+              indentTabs: 1.25,
+              runs: [
+                { text: "Kuasa dari " },
+                ...getPersonDetailRuns(rep.shareholder),
+                { text: ` berdasarkan Surat Kuasa tertanggal ${proxyDateWords} (${proxyDateAngka}), Pemilik dan pemegang saham sebanyak ` },
+                { text: formatNumber(rep.sharesOwned), bold: true },
+                { text: ` (${terbilang(rep.sharesOwned)}) lembar saham atau senilai Rp. ` },
+                { text: `${formatNumber(totalRp)},-`, bold: true },
+                { text: ` (${terbilang(totalRp)} rupiah) berhak mengeluarkan suara ` },
+                { text: formatNumber(rep.sharesOwned), bold: true },
+                { text: ` (${terbilang(rep.sharesOwned)}) suara dalam rapat.` }
+              ]
+            });
+          }
+        });
+      }
     });
 
     blocks.push({

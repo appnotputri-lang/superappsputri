@@ -20,6 +20,13 @@ export const formatFullAddressData = (addr?: Address, fallbackCity?: string): st
 export function terbilang(angka: number): string {
   if (angka === 0) return "nol";
   
+  let isNegative = false;
+  let val = angka;
+  if (val < 0) {
+    isNegative = true;
+    val = Math.abs(val);
+  }
+  
   const huruf = [
     "", "satu", "dua", "tiga", "empat", "lima", "enam", "tujuh", "delapan", "sembilan", 
     "sepuluh", "sebelas"
@@ -52,7 +59,7 @@ export function terbilang(angka: number): string {
     return res;
   }
   
-  return helper(angka).trim();
+  return (isNegative ? "minus " : "") + helper(val).trim();
 }
 
 const BULAN = [

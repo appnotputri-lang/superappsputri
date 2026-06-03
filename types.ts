@@ -262,12 +262,21 @@ export interface CompanyData {
   rupstRetainedProfit?: number;
   rupstFinancialReportNumber?: string;
   rupstFinancialReportDate?: string;
+  rupstFinancialReportSignatoryName?: string;
+  rupstFinancialReportSignatoryPosition?: string;
+  rupstStatementNeraca?: boolean;
+  rupstStatementLabaRugi?: boolean;
+  rupstStatementPerubahanEkuitas?: boolean;
+  rupstStatementArusKas?: boolean;
+  rupstStatementCatatan?: boolean;
   rupstNotulenNumber?: string;
   rupstMeetingEndTime?: string;
   rupstInvitationNumber?: string;
   rupstInvitationDate?: string;
   rupstAdArticle?: string;
   rupstAdParagraph?: string;
+  rupstQuorumArticle?: string;
+  rupstQuorumParagraph?: string;
 
   // Saksi
   saksi1Nama?: string;
