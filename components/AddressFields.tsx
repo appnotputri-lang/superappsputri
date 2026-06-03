@@ -238,9 +238,9 @@ export const IndoRegionSelector: React.FC<{
     const fetchProvinces = async () => {
       setLoading(prev => ({ ...prev, p: true }));
       try {
-        const res = await fetch('https://www.emsifa.com/api-wilayah-indonesia/api/provinces.json');
+        const res = await fetch('https://ibnux.github.io/data-indonesia/provinsi.json');
         const data = await res.json();
-        setProvinces(data.map((item: any) => ({ ...item, name: toTitleCase(item.name) })));
+        setProvinces(data.map((item: any) => ({ ...item, name: toTitleCase(item.nama) })));
       } catch (err) { console.error(err); } 
       finally { setLoading(prev => ({ ...prev, p: false })); }
     };
@@ -249,39 +249,39 @@ export const IndoRegionSelector: React.FC<{
 
   useEffect(() => {
     if (address.province && !ids.p && provinces.length > 0) {
-      const p = provinces.find(x => x.name === address.province);
+      const p = provinces.find(x => x.name.toUpperCase() === address.province?.toUpperCase());
       if (p) setIds(prev => ({ ...prev, p: p.id }));
     }
   }, [address.province, provinces]);
 
   useEffect(() => {
     if (!ids.p) { setRegencies([]); return; }
-    fetch(`https://www.emsifa.com/api-wilayah-indonesia/api/regencies/${ids.p}.json`)
+    fetch(`https://ibnux.github.io/data-indonesia/kabupaten/${ids.p}.json`)
       .then(res => res.json())
-      .then(data => setRegencies(data.map((item: any) => ({ ...item, name: toTitleCase(item.name) }))));
+      .then(data => setRegencies(data.map((item: any) => ({ ...item, name: toTitleCase(item.nama) }))));
   }, [ids.p]);
 
   useEffect(() => {
     if (!ids.r) { setDistricts([]); return; }
-    fetch(`https://www.emsifa.com/api-wilayah-indonesia/api/districts/${ids.r}.json`)
+    fetch(`https://ibnux.github.io/data-indonesia/kecamatan/${ids.r}.json`)
       .then(res => res.json())
-      .then(data => setDistricts(data.map((item: any) => ({ ...item, name: toTitleCase(item.name) }))));
+      .then(data => setDistricts(data.map((item: any) => ({ ...item, name: toTitleCase(item.nama) }))));
   }, [ids.r]);
 
   useEffect(() => {
     if (!ids.d) { setVillages([]); return; }
-    fetch(`https://www.emsifa.com/api-wilayah-indonesia/api/villages/${ids.d}.json`)
+    fetch(`https://ibnux.github.io/data-indonesia/kelurahan/${ids.d}.json`)
       .then(res => res.json())
       .then(data => {
-         let vills = data.map((item: any) => ({ ...item, name: toTitleCase(item.name) }));
+         let vills = data.map((item: any) => ({ ...item, name: toTitleCase(item.nama) }));
          // HOTFIX for missing Srengseng
          const districtName = districts.find(d => d.id === ids.d)?.name;
          if (districtName?.toUpperCase() === 'KEMBANGAN' || ids.d === '3174010') {
             if (!vills.find((v: any) => v.name.toUpperCase() === 'SRENGSENG')) {
                 vills.push({ id: '3174010002', name: 'Srengseng' });
-                vills.sort((a: any, b: any) => a.name.localeCompare(b.name));
             }
          }
+         vills.sort((a: any, b: any) => a.name.localeCompare(b.name));
          setVillages(vills);
       });
   }, [ids.d]);

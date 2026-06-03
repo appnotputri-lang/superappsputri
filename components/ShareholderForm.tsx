@@ -79,7 +79,8 @@ const ShareholderForm: React.FC<Props> = ({
   };
   const currentTotalValue = shareholder.sharesOwned * globalSharePrice;
   const canQuickFill = totalSharesAllowed > 0 && shareholder.sharesOwned < maxPossible && !disableFinancials;
-  const isWna = shareholder.nationalityType === 'WNA';
+  const isWna = shareholder.nationalityType === 'WNA' || shareholder.isForeign;
+  const isBadanHukum = shareholder.shareholderType === 'BADAN_HUKUM';
 
   const handleSharesChange = (inputValue: string) => {
     let val = parseFormattedNumber(inputValue);
@@ -145,32 +146,61 @@ const ShareholderForm: React.FC<Props> = ({
       <label className="flex items-center gap-2 cursor-pointer mt-4">
         <input 
           type="checkbox" 
-          checked={isWna}
-          onChange={e => onChange({ nationalityType: e.target.checked ? 'WNA' : 'WNI', nationality: e.target.checked ? '' : 'WNI' })}
+          checked={!!shareholder.isForeign || isWna}
+          onChange={e => onChange({ 
+            isForeign: e.target.checked,
+            nationalityType: e.target.checked ? 'WNA' : 'WNI', 
+            nationality: e.target.checked ? '' : 'WNI' 
+          })}
           className="rounded border-slate-300 text-teal-500 focus:ring-teal-500"
         />
-        <span className="text-sm text-slate-700 font-bold">Warga Negara Asing</span>
+        <span className="text-sm text-slate-700 font-bold">Asing</span>
       </label>
 
       <div>
         <label className="block text-xs font-bold text-slate-700 mb-1">Jenis Pemegang Saham</label>
-        <select className="w-full px-3 py-2 border border-slate-300 rounded text-sm bg-white outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500">
-          <option>PERORANGAN</option>
+        <select 
+          value={shareholder.shareholderType || 'PERORANGAN'}
+          onChange={e => onChange({ shareholderType: e.target.value as any })}
+          className="w-full px-3 py-2 border border-slate-300 rounded text-sm bg-white outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
+        >
+          <option value="PERORANGAN">PERORANGAN</option>
+          <option value="BADAN_HUKUM">BADAN HUKUM</option>
         </select>
       </div>
+
+      {isBadanHukum && (
+        <div className="mb-4">
+          <label className="block text-xs font-bold text-slate-700 mb-1">Jenis Badan Hukum</label>
+          <select 
+            value={shareholder.legalEntityType || 'PT Persekutuan Modal'} 
+            onChange={e => onChange({ legalEntityType: e.target.value })}
+            className="w-full px-3 py-2 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm bg-white"
+          >
+            <option value="PT Persekutuan Modal">PT Persekutuan Modal</option>
+            <option value="PT Perorangan">PT Perorangan</option>
+            <option value="Koperasi">Koperasi</option>
+            <option value="Yayasan">Yayasan</option>
+            <option value="CV">CV</option>
+            <option value="Lainnya">Lainnya</option>
+          </select>
+        </div>
+      )}
 
       <div>
         <label className="block text-xs font-bold text-slate-700 mb-1">Nama <span className="text-red-500">*</span></label>
         <div className="flex gap-2">
-          <select 
-            value={shareholder.salutation || 'Tuan'} 
-            onChange={e => onChange({ salutation: e.target.value as any })}
-            className="w-24 px-3 py-2 border border-slate-300 rounded text-sm bg-white outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
-          >
-            <option value="Tuan">Tuan</option>
-            <option value="Nyonya">Nyonya</option>
-            <option value="Nona">Nona</option>
-          </select>
+          {!isBadanHukum && (
+            <select 
+              value={shareholder.salutation || 'Tuan'} 
+              onChange={e => onChange({ salutation: e.target.value as any })}
+              className="w-24 px-3 py-2 border border-slate-300 rounded text-sm bg-white outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
+            >
+              <option value="Tuan">Tuan</option>
+              <option value="Nyonya">Nyonya</option>
+              <option value="Nona">Nona</option>
+            </select>
+          )}
           <input 
             type="text"
             value={shareholder.name || ''}
@@ -180,83 +210,150 @@ const ShareholderForm: React.FC<Props> = ({
         </div>
       </div>
 
-      <div className="flex items-center justify-end">
-        <label className="flex items-center gap-2 cursor-pointer">
-          <input type="checkbox" className="rounded border-slate-300 text-teal-500 focus:ring-teal-500" />
-          <span className="text-sm text-slate-600">Di bawah umur</span>
-        </label>
-      </div>
+      {!isBadanHukum && (
+        <div className="flex items-center justify-end">
+          <label className="flex items-center gap-2 cursor-pointer mt-2">
+            <input type="checkbox" className="rounded border-slate-300 text-teal-500 focus:ring-teal-500" />
+            <span className="text-sm text-slate-600">Di bawah umur</span>
+          </label>
+        </div>
+      )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {isWna ? (
-          <>
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">Nama Negara <span className="text-red-500">*</span></label>
-              <input 
-                type="text" 
-                value={shareholder.nationality || ''} 
-                onChange={e => onChange({ nationality: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">Nomor Passport <span className="text-red-500">*</span></label>
-              <input 
-                type="text" 
-                value={shareholder.passportNumber || ''} 
-                onChange={e => onChange({ passportNumber: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">Izin Tinggal (Kitas Nomor)</label>
-              <input 
-                type="text" 
-                value={shareholder.kitasNumber || ''} 
-                onChange={e => onChange({ kitasNumber: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm"
-                placeholder="Contoh: 24E28A410488"
-              />
-            </div>
-            <div className="md:col-span-2 grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+        {isBadanHukum ? (
+          isWna ? (
+            <>
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Tipe Izin Tinggal</label>
-                <select 
-                  value={shareholder.kitasType || 'NONE'}
-                  onChange={e => onChange({ 
-                    kitasType: e.target.value as any, 
-                    hasKitas: e.target.value !== 'NONE' 
-                  })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded text-sm bg-white outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
-                >
-                  <option value="NONE">-- Opsional --</option>
-                  <option value="KITAS">KITAS</option>
-                  <option value="KITAP">KITAP</option>
-                </select>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Negara <span className="text-red-500">*</span></label>
+                <input 
+                  type="text" 
+                  value={shareholder.foreignCountry || shareholder.nationality || ''} 
+                  onChange={e => onChange({ foreignCountry: e.target.value, nationality: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm"
+                />
               </div>
-              {shareholder.kitasType && shareholder.kitasType !== 'NONE' && (
-                <div>
-                   <label className="block text-xs font-bold text-slate-700 mb-1">Nomor {shareholder.kitasType}</label>
-                   <input 
-                    type="text" 
-                    value={shareholder.kitasNumber || ''} 
-                    onChange={e => onChange({ kitasNumber: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm"
-                  />
-                </div>
-              )}
-            </div>
-          </>
+              <div className="hidden"></div>
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Nomor Pengesahan</label>
+                <input 
+                  type="text" 
+                  value={shareholder.skNumber || ''} 
+                  onChange={e => onChange({ skNumber: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Pihak yang Mengeluarkan</label>
+                <input 
+                  type="text" 
+                  value={shareholder.skIssuer || ''} 
+                  onChange={e => onChange({ skIssuer: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm"
+                />
+              </div>
+            </>
+          ) : (
+            <>
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Nomor SK</label>
+                <input 
+                  type="text" 
+                  value={shareholder.skNumber || ''} 
+                  onChange={e => onChange({ skNumber: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Tanggal SK</label>
+                <input 
+                  type="date" 
+                  value={shareholder.skDate || ''} 
+                  onChange={e => onChange({ skDate: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm bg-slate-50"
+                />
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-xs font-bold text-slate-700 mb-1">NPWP <span className="text-red-500">*</span></label>
+                <input 
+                  type="text" 
+                  value={shareholder.npwp || ''} 
+                  onChange={e => onChange({ npwp: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm"
+                />
+              </div>
+            </>
+          )
         ) : (
-          <div className="md:col-span-1">
-            <label className="block text-xs font-bold text-slate-700 mb-1">NIK <span className="text-red-500">*</span></label>
-            <input 
-              type="text" 
-              value={shareholder.nik || ''} 
-              onChange={e => onChange({ nik: e.target.value })}
-              className="w-full px-3 py-2 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm"
-            />
-          </div>
+          isWna ? (
+            <>
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Nama Negara <span className="text-red-500">*</span></label>
+                <input 
+                  type="text" 
+                  value={shareholder.nationality || ''} 
+                  onChange={e => onChange({ nationality: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Nomor Passport <span className="text-red-500">*</span></label>
+                <input 
+                  type="text" 
+                  value={shareholder.passportNumber || ''} 
+                  onChange={e => onChange({ passportNumber: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Izin Tinggal (Kitas Nomor)</label>
+                <input 
+                  type="text" 
+                  value={shareholder.kitasNumber || ''} 
+                  onChange={e => onChange({ kitasNumber: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm"
+                  placeholder="Contoh: 24E28A410488"
+                />
+              </div>
+              <div className="md:col-span-2 grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Tipe Izin Tinggal</label>
+                  <select 
+                    value={shareholder.kitasType || 'NONE'}
+                    onChange={e => onChange({ 
+                      kitasType: e.target.value as any, 
+                      hasKitas: e.target.value !== 'NONE' 
+                    })}
+                    className="w-full px-3 py-2 border border-slate-300 rounded text-sm bg-white outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
+                  >
+                    <option value="NONE">-- Opsional --</option>
+                    <option value="KITAS">KITAS</option>
+                    <option value="KITAP">KITAP</option>
+                  </select>
+                </div>
+                {shareholder.kitasType && shareholder.kitasType !== 'NONE' && (
+                  <div>
+                     <label className="block text-xs font-bold text-slate-700 mb-1">Nomor {shareholder.kitasType}</label>
+                     <input 
+                      type="text" 
+                      value={shareholder.kitasNumber || ''} 
+                      onChange={e => onChange({ kitasNumber: e.target.value })}
+                      className="w-full px-3 py-2 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm"
+                    />
+                  </div>
+                )}
+              </div>
+            </>
+          ) : (
+            <div className="md:col-span-1">
+              <label className="block text-xs font-bold text-slate-700 mb-1">NIK <span className="text-red-500">*</span></label>
+              <input 
+                type="text" 
+                value={shareholder.nik || ''} 
+                onChange={e => onChange({ nik: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm"
+              />
+            </div>
+          )
         )}
       </div>
 
@@ -491,36 +588,38 @@ const ShareholderForm: React.FC<Props> = ({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
-        <div>
-          <label className="block text-xs font-bold text-slate-700 mb-1">Tempat Lahir <span className="text-red-500">*</span></label>
-          <input 
-            type="text" 
-            value={shareholder.birthCity || ''} 
-            onChange={e => onChange({ birthCity: e.target.value.toUpperCase() })}
-            className="w-full px-3 py-2 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm"
-          />
+      {!isBadanHukum && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1">Tempat Lahir <span className="text-red-500">*</span></label>
+            <input 
+              type="text" 
+              value={shareholder.birthCity || ''} 
+              onChange={e => onChange({ birthCity: e.target.value.toUpperCase() })}
+              className="w-full px-3 py-2 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1">Tanggal Lahir <span className="text-red-500">*</span></label>
+            <input 
+              type="date" 
+              value={shareholder.birthDate || ''} 
+              onChange={e => onChange({ birthDate: e.target.value })}
+              className="w-full px-3 py-2 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm bg-slate-50"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1">Pekerjaan <span className="text-red-500">*</span></label>
+            <input 
+              type="text" 
+              value={shareholder.occupation || ''} 
+              onChange={e => onChange({ occupation: e.target.value.toUpperCase() })}
+              placeholder="CONTOH: WIRASWASTA"
+              className="w-full px-3 py-2 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm"
+            />
+          </div>
         </div>
-        <div>
-          <label className="block text-xs font-bold text-slate-700 mb-1">Tanggal Lahir <span className="text-red-500">*</span></label>
-          <input 
-            type="date" 
-            value={shareholder.birthDate || ''} 
-            onChange={e => onChange({ birthDate: e.target.value })}
-            className="w-full px-3 py-2 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm bg-slate-50"
-          />
-        </div>
-        <div>
-          <label className="block text-xs font-bold text-slate-700 mb-1">Pekerjaan <span className="text-red-500">*</span></label>
-          <input 
-            type="text" 
-            value={shareholder.occupation || ''} 
-            onChange={e => onChange({ occupation: e.target.value.toUpperCase() })}
-            placeholder="CONTOH: WIRASWASTA"
-            className="w-full px-3 py-2 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm"
-          />
-        </div>
-      </div>
+      )}
 
       <div className="mt-4">
         <label className="block text-xs font-bold text-slate-700 mb-1">Alamat <span className="text-red-500">*</span></label>

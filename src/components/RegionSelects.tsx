@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 
 // Using emsifa API for regions
-const API_URL = 'https://www.emsifa.com/api-wilayah-indonesia/api';
+const API_URL = 'https://ibnux.github.io/data-indonesia';
 
-interface Province { id: string; name: string; }
-interface Regency { id: string; name: string; }
-interface District { id: string; name: string; }
-interface Village { id: string; name: string; }
+interface Province { id: string; nama: string; }
+interface Regency { id: string; nama: string; }
+interface District { id: string; nama: string; }
+interface Village { id: string; nama: string; }
 
 interface RegionSelectProps {
   prefix: string;
@@ -17,6 +17,7 @@ interface RegionSelectProps {
 }
 
 const toTitleCase = (str: string) => {
+  if (!str) return '';
   return str.replace(
     /\w\S*/g,
     (txt) => txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase()
@@ -35,53 +36,60 @@ export function RegionSelects({ prefix, data, onChange, FieldRow, Select }: Regi
   const valKelurahan = data[`${prefix}Kelurahan`] || '';
 
   useEffect(() => {
-    fetch(`${API_URL}/provinces.json`)
+    let active = true;
+    fetch(`${API_URL}/provinsi.json`)
       .then(res => res.json())
-      .then(d => setProvinces(d.map((item: any) => ({...item, name: toTitleCase(item.name)}))))
+      .then(d => { if (active) setProvinces(d.map((item: any) => ({...item, nama: toTitleCase(item.nama)}))) })
       .catch(() => {});
+    return () => { active = false; };
   }, []);
 
   useEffect(() => {
-    const provId = provinces.find(p => p.name === valProvinsi)?.id;
+    let active = true;
+    const provId = provinces.find(p => p.nama.toUpperCase() === valProvinsi.toUpperCase())?.id;
     if (provId) {
-      fetch(`${API_URL}/regencies/${provId}.json`)
+      fetch(`${API_URL}/kabupaten/${provId}.json`)
         .then(res => res.json())
-        .then(d => setRegencies(d.map((item: any) => ({...item, name: toTitleCase(item.name)}))))
+        .then(d => { if (active) setRegencies(d.map((item: any) => ({...item, nama: toTitleCase(item.nama)}))) })
         .catch(() => {});
     } else {
       setRegencies([]);
     }
+    return () => { active = false; };
   }, [valProvinsi, provinces]);
 
   useEffect(() => {
-    const regId = regencies.find(r => r.name === valKota)?.id;
+    let active = true;
+    const regId = regencies.find(r => r.nama.toUpperCase() === valKota.toUpperCase())?.id;
     if (regId) {
-      fetch(`${API_URL}/districts/${regId}.json`)
+      fetch(`${API_URL}/kecamatan/${regId}.json`)
         .then(res => res.json())
-        .then(d => setDistricts(d.map((item: any) => ({...item, name: toTitleCase(item.name)}))))
+        .then(d => { if (active) setDistricts(d.map((item: any) => ({...item, nama: toTitleCase(item.nama)}))) })
         .catch(() => {});
     } else {
       setDistricts([]);
     }
+    return () => { active = false; };
   }, [valKota, regencies]);
 
   useEffect(() => {
-    const distId = districts.find(d => d.name === valKecamatan)?.id;
+    let active = true;
+    const distId = districts.find(d => d.nama.toUpperCase() === valKecamatan.toUpperCase())?.id;
     if (distId) {
-      fetch(`${API_URL}/villages/${distId}.json`)
+      fetch(`${API_URL}/kelurahan/${distId}.json`)
         .then(res => res.json())
         .then(d => {
-           let vills = d.map((item: any) => ({...item, name: toTitleCase(item.name)}));
-           if (valKecamatan.toUpperCase() === 'KEMBANGAN' && !vills.find((v: any) => v.name.toUpperCase() === 'SRENGSENG')) {
-               vills.push({ id: '3174010002', name: 'Srengseng' });
-               vills.sort((a: any, b: any) => a.name.localeCompare(b.name));
+           if (active) {
+             let vills = d.map((item: any) => ({...item, nama: toTitleCase(item.nama)}));
+             vills.sort((a: any, b: any) => a.nama.localeCompare(b.nama));
+             setVillages(vills);
            }
-           setVillages(vills);
         })
         .catch(() => {});
     } else {
       setVillages([]);
     }
+    return () => { active = false; };
   }, [valKecamatan, districts]);
 
   return (
@@ -90,10 +98,15 @@ export function RegionSelects({ prefix, data, onChange, FieldRow, Select }: Regi
         <Select
           name={`${prefix}Provinsi`}
           value={valProvinsi}
-          onChange={onChange}
+          onChange={(e: any) => { 
+            onChange(e); 
+            onChange({ target: { name: `${prefix}Kota`, value: '' } });
+            onChange({ target: { name: `${prefix}Kecamatan`, value: '' } });
+            onChange({ target: { name: `${prefix}Kelurahan`, value: '' } });
+          }}
         >
           <option value="">Pilih Provinsi</option>
-          {provinces.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
+          {provinces.map(p => <option key={p.id} value={p.nama}>{p.nama}</option>)}
         </Select>
       </FieldRow>
 
@@ -101,11 +114,15 @@ export function RegionSelects({ prefix, data, onChange, FieldRow, Select }: Regi
         <Select
           name={`${prefix}Kota`}
           value={valKota}
-          onChange={onChange}
+          onChange={(e: any) => {
+            onChange(e);
+            onChange({ target: { name: `${prefix}Kecamatan`, value: '' } });
+            onChange({ target: { name: `${prefix}Kelurahan`, value: '' } });
+          }}
           disabled={!valProvinsi}
         >
           <option value="">Pilih Kota/Kabupaten</option>
-          {regencies.map(r => <option key={r.id} value={r.name}>{r.name}</option>)}
+          {regencies.map(r => <option key={r.id} value={r.nama}>{r.nama}</option>)}
         </Select>
       </FieldRow>
 
@@ -113,11 +130,14 @@ export function RegionSelects({ prefix, data, onChange, FieldRow, Select }: Regi
         <Select
           name={`${prefix}Kecamatan`}
           value={valKecamatan}
-          onChange={onChange}
+          onChange={(e: any) => {
+            onChange(e);
+            onChange({ target: { name: `${prefix}Kelurahan`, value: '' } });
+          }}
           disabled={!valKota}
         >
           <option value="">Pilih Kecamatan</option>
-          {districts.map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
+          {districts.map(d => <option key={d.id} value={d.nama}>{d.nama}</option>)}
         </Select>
       </FieldRow>
 
@@ -129,7 +149,7 @@ export function RegionSelects({ prefix, data, onChange, FieldRow, Select }: Regi
           disabled={!valKecamatan}
         >
           <option value="">Pilih Kelurahan/Desa</option>
-          {villages.map(v => <option key={v.id} value={v.name}>{v.name}</option>)}
+          {villages.map(v => <option key={v.id} value={v.nama}>{v.nama}</option>)}
         </Select>
       </FieldRow>
     </>

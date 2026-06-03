@@ -31,6 +31,16 @@ export interface Shareholder {
   isManagement?: boolean;
   managementPosition?: string;
   
+  // Shareholder Type details
+  shareholderType?: 'PERORANGAN' | 'BADAN_HUKUM';
+  isForeign?: boolean;
+  foreignCountry?: string;
+  legalEntityType?: string;
+  skNumber?: string;
+  skDate?: string;
+  skIssuer?: string;
+  npwp?: string;
+  
   // Acquisition details
   isAcquisition?: boolean;
   acquisitionType?: 'AJB' | 'HIBAH';
