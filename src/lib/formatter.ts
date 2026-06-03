@@ -180,14 +180,47 @@ export function formatPersonDetails(
     nik?: string;
     passportNumber?: string;
     kitasNumber?: string;
+    
+    // Legal Entity fields
+    shareholderType?: "PERORANGAN" | "BADAN_HUKUM";
+    isForeign?: boolean;
+    foreignCountry?: string;
+    legalEntityType?: string;
+    skNumber?: string;
+    skDate?: string;
+    skIssuer?: string;
+    npwp?: string;
+    name?: string;
   },
   tglLahirAngka: string,
   tglLahirHuruf: string
 ): string {
+  if (person.shareholderType === "BADAN_HUKUM") {
+    const isAsing = person.isForeign || person.nationalityType === "WNA";
+    if (isAsing) {
+      const countryStr = person.foreignCountry || person.nationality || "...";
+      const skNum = person.skNumber || "...";
+      const issuer = person.skIssuer || "...";
+      const skDateFormatted = person.skDate ? formatDateStr(person.skDate) : "";
+      const skDateWording = skDateFormatted ? ` tertanggal ${skDateFormatted}` : "";
+      return `, sebuah badan hukum asing yang didirikan berdasarkan hukum negara ${toTitleCase(countryStr)}, dengan nomor pengesahan ${skNum}${skDateWording} yang dikeluarkan oleh ${toTitleCase(issuer)}`;
+    } else {
+      const entityType = person.legalEntityType || "badan hukum";
+      const city = person.address?.city ? toTitleCase(person.address.city) : "...";
+      const fullAddr = formatFullAddressData(person.address, city);
+      const skNum = person.skNumber || "...";
+      const skDateFormatted = person.skDate ? formatDateStr(person.skDate) : "";
+      const skDateWording = skDateFormatted ? ` tertanggal ${skDateFormatted}` : "";
+      const npwpNum = person.npwp || "...";
+      
+      return `, suatu ${entityType.toLowerCase()} yang didirikan berdasarkan hukum Negara Republik Indonesia, berkedudukan di ${city}, bertempat tinggal di ${fullAddr}, berdasarkan Surat Keputusan/Akta Nomor ${skNum}${skDateWording}, dengan Nomor Pokok Wajib Pajak (NPWP) ${npwpNum}`;
+    }
+  }
+
   const birthCity = toTitleCase(person.birthCity || "...");
   const occupation = toTitleCase(person.occupation || "...");
 
-  if (person.nationalityType === "WNA") {
+  if (person.nationalityType === "WNA" || person.isForeign) {
     // For WNA: Warga Negara Asing, uses passport instead of NIK, and generic address without RT/RW.
     const addressStr = person.address?.fullAddress
       ? toTitleCase(person.address.fullAddress)

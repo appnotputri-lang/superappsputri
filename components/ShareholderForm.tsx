@@ -169,7 +169,7 @@ const ShareholderForm: React.FC<Props> = ({
         </select>
       </div>
 
-      {isBadanHukum && (
+      {isBadanHukum && !isWna && (
         <div className="mb-4">
           <label className="block text-xs font-bold text-slate-700 mb-1">Jenis Badan Hukum</label>
           <select 
@@ -232,7 +232,6 @@ const ShareholderForm: React.FC<Props> = ({
                   className="w-full px-3 py-2 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm"
                 />
               </div>
-              <div className="hidden"></div>
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">Nomor Pengesahan</label>
                 <input 
@@ -240,6 +239,15 @@ const ShareholderForm: React.FC<Props> = ({
                   value={shareholder.skNumber || ''} 
                   onChange={e => onChange({ skNumber: e.target.value })}
                   className="w-full px-3 py-2 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Tanggal Pengesahan</label>
+                <input 
+                  type="date" 
+                  value={shareholder.skDate || ''} 
+                  onChange={e => onChange({ skDate: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm bg-slate-50"
                 />
               </div>
               <div>
@@ -621,16 +629,18 @@ const ShareholderForm: React.FC<Props> = ({
         </div>
       )}
 
-      <div className="mt-4">
-        <label className="block text-xs font-bold text-slate-700 mb-1">Alamat <span className="text-red-500">*</span></label>
-        <textarea 
-          value={shareholder.address.fullAddress || ''} 
-          onChange={e => updateAddress({ fullAddress: e.target.value.toUpperCase() })}
-          className="w-full px-3 py-2 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm min-h-[80px]"
-        />
-      </div>
+      {!(isBadanHukum && isWna) && (
+        <div className="mt-4">
+          <label className="block text-xs font-bold text-slate-700 mb-1">Alamat <span className="text-red-500">*</span></label>
+          <textarea 
+            value={shareholder.address.fullAddress || ''} 
+            onChange={e => updateAddress({ fullAddress: e.target.value.toUpperCase() })}
+            className="w-full px-3 py-2 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm min-h-[80px]"
+          />
+        </div>
+      )}
 
-      {!isWna && (
+      {!(isBadanHukum && isWna) && !isWna && (
         <>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-2">
             <div>

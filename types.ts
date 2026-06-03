@@ -71,6 +71,14 @@ export interface Shareholder {
       postalCode?: string;
     };
     proxyDeedDate: string;  // Tanggal Akta/Surat Kuasa
+    representationType?: 'KUASA' | 'DIREKTUR_PT_LAIN';
+    nationalityType?: 'WNI' | 'WNA';
+    isForeign?: boolean;
+    nationality?: string;
+    passportNumber?: string;
+    kitasNumber?: string;
+    kitasType?: 'NONE' | 'KITAS' | 'KITAP';
+    hasKitas?: boolean;
   };
 }
 

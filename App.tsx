@@ -3536,11 +3536,70 @@ const App: React.FC = () => {
       {proxyModalOpenId && (() => {
         const sh = data.shareholders.find(s => s.id === proxyModalOpenId);
         if (!sh) return null;
+
+        const rawParties = [
+          ...data.shareholders.map(s => ({
+            name: s.name,
+            salutation: s.salutation || 'Tuan',
+            nik: s.nik || '',
+            birthCity: s.birthCity || '',
+            birthDate: s.birthDate || '',
+            occupation: s.occupation || '',
+            address: s.address,
+            nationalityType: s.nationalityType || 'WNI',
+            isForeign: s.isForeign || false,
+            nationality: s.nationality || '',
+            passportNumber: s.passportNumber || '',
+            kitasNumber: s.kitasNumber || '',
+            kitasType: s.kitasType || 'NONE',
+            hasKitas: s.hasKitas || false
+          })),
+          ...(data.newManagementItems || []).map(m => ({
+            name: m.name,
+            salutation: m.salutation || 'Tuan',
+            nik: m.nik || '',
+            birthCity: m.birthCity || '',
+            birthDate: m.birthDate || '',
+            occupation: m.occupation || '',
+            address: m.address,
+            nationalityType: (m as any).nationalityType || 'WNI',
+            isForeign: (m as any).isForeign || false,
+            nationality: (m as any).nationality || '',
+            passportNumber: (m as any).passportNumber || '',
+            kitasNumber: (m as any).kitasNumber || '',
+            kitasType: (m as any).kitasType || 'NONE',
+            hasKitas: (m as any).hasKitas || false
+          })),
+          ...(data.oldManagementItems || []).map(m => ({
+            name: m.name,
+            salutation: m.salutation || 'Tuan',
+            nik: m.nik || '',
+            birthCity: m.birthCity || '',
+            birthDate: m.birthDate || '',
+            occupation: m.occupation || '',
+            address: m.address,
+            nationalityType: (m as any).nationalityType || 'WNI',
+            isForeign: (m as any).isForeign || false,
+            nationality: (m as any).nationality || '',
+            passportNumber: (m as any).passportNumber || '',
+            kitasNumber: (m as any).kitasNumber || '',
+            kitasType: (m as any).kitasType || 'NONE',
+            hasKitas: (m as any).hasKitas || false
+          }))
+        ];
+
+        const availableParties = rawParties.filter((item, index, self) => 
+          item.name && 
+          item.name.trim() !== '' &&
+          self.findIndex(t => t.name.trim().toUpperCase() === item.name.trim().toUpperCase()) === index
+        );
+
         return (
           <ProxyInputModal
             isOpen={true}
             shareholderName={`${sh.salutation} ${sh.name}`}
             initialData={sh.proxyData}
+            availableParties={availableParties}
             onSave={(proxyData) => {
               const newList = data.shareholders.map(item =>
                 item.id === proxyModalOpenId ? { ...item, proxyData } : item

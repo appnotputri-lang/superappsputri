@@ -198,7 +198,7 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
       bullet: `${idx + 1}.`,
       indentTabs: 0.5,
       runs: [
-        { text: `${sh.salutation || "Tuan"} ` },
+        { text: sh.shareholderType === 'BADAN_HUKUM' ? "" : `${sh.salutation || "Tuan"} ` },
         ...getPersonDetailRuns(sh),
         { text: idx === attendingShareholders.length - 1 ? "." : ";" }
       ]
