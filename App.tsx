@@ -16,6 +16,7 @@ import DraftAktaApp from './src/DraftAktaApp';
 import DraftAktaRUPS from './src/DraftAktaRUPS';
 import DraftAktaPendirian from './src/DraftAktaPendirian';
 import PendirianDocumentPreview from './src/PendirianDocumentPreview';
+import { RUPSTDocumentPreview } from './src/RUPSTDocumentPreview';
 import { generatePendirianDocx } from './src/lib/generatePendirianDocx';
 import GuideMenu from './src/components/GuideMenu';
 import ProxyInputModal from './components/ProxyInputModal';
@@ -152,6 +153,7 @@ const INITIAL_STATE: CompanyData = {
   meetingStartTime: '13:00',
   meetingEndTime: '14:00',
   meetingChair: '',
+  meetingChairPosition: 'Direktur Utama',
   invitationNumber: '',
   invitationDate: '',
   meetingAgenda: '',
@@ -183,6 +185,16 @@ const INITIAL_STATE: CompanyData = {
   notaryDate: '',
   isReplacementNotary: false,
   beneficialOwnerConsent: false,
+  rupstFiscalYear: '2025',
+  rupstNetProfit: 0,
+  rupstDividendAmount: 0,
+  rupstRetainedProfit: 0,
+  rupstFinancialReportNumber: '',
+  rupstFinancialReportDate: '',
+  rupstNotulenNumber: '',
+  rupstMeetingEndTime: '14:00',
+  rupstInvitationNumber: '',
+  rupstInvitationDate: '',
   saksi1Nama: 'Nendi Suhendi',
   saksi1Lahir: 'Bandung, pada tanggal limabelas Juli seribu sembilan ratus sembilan puluh satu (15-07-1991)',
   saksi1Alamat: 'Jalan Sukaresmi Nomor 12, Rukun Tetangga 005, Rukun Warga 005, Kecamatan Lembang, Desa Mekarwangi',
@@ -194,7 +206,7 @@ const INITIAL_STATE: CompanyData = {
 };
 
 type TabId = 'general' | 'shareholders' | 'shareholders_new' | 'representative' | 'agenda' | 'kbli' | 'domicile' | 'address' | 'capitalBase' | 'capitalPaid' | 'management' | 'reappointment';
-type SidebarTabId = 'company_profile' | 'notulen' | 'pendirian' | 'perbaikan' | 'draft_akta_rups' | 'panduan';
+type SidebarTabId = 'company_profile' | 'notulen' | 'pendirian' | 'rupst' | 'perbaikan' | 'draft_akta_rups' | 'panduan';
 
 // AHU Style Helper Components
 const AhuSection = ({ title, children, isOpen = true }: { title: string, children: React.ReactNode, isOpen?: boolean }) => {
@@ -273,6 +285,8 @@ const App: React.FC = () => {
 
   const [activeTab, setActiveTab] = useState<TabId | null>(null);
   const [profiles, setProfiles] = useState<CompanyProfile[]>([]);
+  const [projects, setProjects] = useState<CompanyData[]>([]);
+  const [rupstProjects, setRupstProjects] = useState<CompanyData[]>([]);
   const [user, setUser] = useState<FirebaseUser | null>(null);
 
   useEffect(() => {
@@ -306,15 +320,27 @@ const App: React.FC = () => {
         handleFirestoreError(error, OperationType.LIST, `projects`);
       });
 
-      return () => { unsubProfiles(); unsubProjects(); };
+      const rupstRef = collection(db, 'rupst_projects');
+      const unsubRupst = onSnapshot(rupstRef, (snapshot) => {
+        const loaded: CompanyData[] = [];
+        snapshot.forEach(doc => {
+          loaded.push(doc.data() as CompanyData);
+        });
+        setRupstProjects(loaded);
+      }, (error) => {
+        handleFirestoreError(error, OperationType.LIST, `rupst_projects`);
+      });
+
+      return () => { unsubProfiles(); unsubProjects(); unsubRupst(); };
     } else {
       setProfiles([]);
       setProjects([]);
+      setRupstProjects([]);
     }
   }, [user]);
 
-  const [projects, setProjects] = useState<CompanyData[]>([]);
   const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
+  const [editingRupstId, setEditingRupstId] = useState<string | null>(null);
   const [editingProfileId, setEditingProfileId] = useState<string | null>(null);
 
   const [editingShareholder, setEditingShareholder] = useState<Shareholder | null>(null);
@@ -424,6 +450,18 @@ const App: React.FC = () => {
         return;
       }
     }
+
+    if (activeSidebarTab === 'rupst') {
+      try {
+        const { generateRUPSTDocx } = await import('./src/lib/generateRUPSTDocx');
+        await generateRUPSTDocx(mergedData);
+      } catch (error) {
+        console.error("RUPST Export Error:", error);
+        alert("Gagal mengunduh RUPST.");
+      }
+      return;
+    }
+
     try {
       await generateWordDoc(mergedData);
     } catch (error) {
@@ -782,7 +820,7 @@ const App: React.FC = () => {
   const currentTargetSharesPaid = data.originalSharePrice > 0 ? (data.targetCapitalPaid / data.originalSharePrice) : 0;
 
   const mergedData = useMemo(() => {
-    if (activeSidebarTab === 'notulen' && data.selectedProfileId) {
+    if ((activeSidebarTab === 'notulen' || activeSidebarTab === 'rupst') && data.selectedProfileId) {
       const profile = profiles.find(p => p.id === data.selectedProfileId);
       if (profile) {
         // We want to keep the current state from profile as the "Old" data
@@ -908,6 +946,7 @@ const App: React.FC = () => {
             {[
               { label: 'Company Profile', id: 'company_profile' as const, icon: Building2 },
               { label: 'Proyek', id: 'notulen' as const, icon: FileText },
+              { label: 'RUPS Tahunan', id: 'rupst' as const, icon: History },
               { label: 'Pendirian PT', id: 'pendirian' as const, icon: FileText },
               { label: 'Surat Perbaikan Data', id: 'perbaikan' as const, icon: Mail },
               { label: 'Panduan Penggunaan', id: 'panduan' as const, icon: BookOpen },
@@ -3076,6 +3115,429 @@ const App: React.FC = () => {
             </div>
 
 
+) : activeSidebarTab === 'rupst' ? (
+            <div className="max-w-5xl mx-auto space-y-4">
+              <div className="flex justify-between items-center bg-white p-4 rounded-sm shadow-sm border border-slate-200">
+                <div>
+                  <h2 className="text-[16px] font-bold flex items-center gap-2 text-slate-800 uppercase"><History className="w-5 h-5 text-[#3b5998]" /> RUPS Tahunan (RUPST)</h2>
+                  <p className="text-[12px] text-slate-500">Kelola daftar notulen RUPS Tahunan</p>
+                </div>
+                {!editingRupstId && (
+                  <button onClick={() => {
+                    setEditingRupstId('new');
+                    updateData({ 
+                      ...INITIAL_STATE, 
+                      rupstFiscalYear: '2025',
+                      rupstNetProfit: 90000000,
+                      rupstDividendAmount: 50000000,
+                      rupstRetainedProfit: 40000000,
+                    } as any);
+                  }} className="bg-[#3b5998] hover:bg-[#2d4373] text-white px-4 py-2 rounded-sm font-bold text-[12px] flex items-center gap-2 transition-colors">
+                    <Plus className="w-4 h-4" /> TAMBAH RUPST BARU
+                  </button>
+                )}
+              </div>
+
+              {editingRupstId ? (
+                <div className="space-y-4 pb-20">
+                  {/* ... editing form ... */}
+                  <div className="flex flex-wrap items-center gap-2 bg-slate-50/50 p-2 rounded-md border border-slate-200">
+                    <button className="text-slate-500 hover:text-slate-800 flex items-center gap-1 font-bold text-[12px] uppercase bg-white px-3 py-2 rounded-sm border border-slate-200 shadow-sm" onClick={() => setEditingRupstId(null)}>
+                      <ArrowRight className="w-4 h-4 rotate-180" /> Kembali
+                    </button>
+                    
+                    <div className="h-6 w-px bg-slate-300 mx-1"></div>
+
+                    <button onClick={resetData} className="px-5 py-2 bg-[#d9534f] text-white rounded-md text-[13px] font-bold transition-all hover:bg-[#c9302c] shadow-sm uppercase">RISET</button>
+                    <button 
+                      disabled={isSaving}
+                      onClick={async () => {
+                       if (!data.companyName) return alert('Nama perseroan harus diisi');
+                       setIsSaving(true);
+                       const newId = editingRupstId && editingRupstId !== 'new' ? editingRupstId : crypto.randomUUID();
+                       const profileData = {
+                           ...data,
+                           id: newId
+                       };
+                       if (!user) {
+                         setIsSaving(false);
+                         return alert('Anda harus login terlebih dahulu!');
+                       }
+                       
+                       try {
+                           await setDoc(doc(db, 'rupst_projects', profileData.id), sanitizeForFirestore(profileData));
+                           setEditingRupstId(null);
+                           alert('RUPST berhasil disimpan!');
+                       } catch (e) {
+                           handleFirestoreError(e, OperationType.WRITE, `rupst_projects/${profileData.id}`);
+                       } finally {
+                           setIsSaving(false);
+                       }
+                    }} className="px-5 py-2 bg-[#40bdae] text-white rounded-md text-[13px] font-bold transition-all hover:bg-[#349c8f] shadow-sm uppercase disabled:opacity-50 disabled:cursor-not-allowed">
+                      {isSaving ? 'MENYIMPAN...' : 'SIMPAN RUPST'}
+                    </button>
+
+                    <button onClick={() => setIsPreviewOpen(true)} className="hidden md:inline-block px-5 py-2 bg-[#5cb85c] text-white rounded-md text-[13px] font-bold transition-all hover:bg-[#449d44] shadow-sm uppercase">PREVIEW NOTULEN</button>
+                    <button 
+                      onClick={async () => {
+                        try {
+                          const { generateRUPSTDocx } = await import('./src/lib/generateRUPSTDocx');
+                          await generateRUPSTDocx(mergedData);
+                        } catch (err) {
+                          console.error('Failed to generate RUPST DOCX:', err);
+                          alert('Gagal menghasilkan RUPST DOCX.');
+                        }
+                      }}
+                      className="hidden md:flex px-5 py-2 bg-slate-500 text-white rounded-md text-[13px] font-bold transition-all hover:bg-slate-600 shadow-sm uppercase items-center gap-2"
+                    >
+                       <FileText className="w-4 h-4" /> NOTULEN RUPST DOCX
+                    </button>
+                    <button 
+                      onClick={async () => {
+                        try {
+                          const { generateRUPSTAktaDocx } = await import('./src/lib/generateRUPSTAktaDocx');
+                          await generateRUPSTAktaDocx(mergedData);
+                        } catch (err) {
+                          console.error('Failed to generate Draft Akta RUPST DOCX:', err);
+                          alert('Gagal menghasilkan Draft Akta RUPST DOCX.');
+                        }
+                      }}
+                      className="hidden md:flex px-5 py-2 bg-[#3b5998] text-white rounded-md text-[13px] font-bold transition-all hover:bg-[#2c4073] shadow-sm uppercase items-center gap-2"
+                    >
+                       <FileCode className="w-4 h-4" /> DRAFT AKTA RUPST DOCX
+                    </button>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    {/* PILIH PROFIL */}
+                    <AhuSection title="PILIH PROFIL">
+                      <div className="space-y-4">
+                        <label className="block text-[13px] font-medium text-slate-700 mb-1">Pilih Profil Perseroan untuk mengisi data otomatis</label>
+                        <select 
+                          className="w-full border border-[#ccc] rounded-sm px-3 py-1.5 text-[13px] outline-none bg-white focus:border-[#66afe9]"
+                          value={data.selectedProfileId || ''}
+                          onChange={(e) => {
+                             const selected = profiles.find(p => p.id === e.target.value);
+                             if (selected) {
+                                 const { id, ...rest } = selected;
+                                 updateData({ 
+                                   ...rest, 
+                                   selectedProfileId: selected.id 
+                                 } as any);
+                             } else {
+                                 updateData({ selectedProfileId: '' });
+                             }
+                          }}
+                        >
+                          <option value="">-- Pilih PT --</option>
+                          {profiles.map(p => (
+                            <option key={p.id} value={p.id}>{p.companyName}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </AhuSection>
+
+                    {/* DATA KHUSUS RUPST */}
+                    <AhuSection title="AGENDA DAN KEUANGAN RUPST">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-4">
+                          <div>
+                            <AhuLabel label="Tahun Buku" required />
+                            <AhuInput value={data.rupstFiscalYear || ''} onChange={e => updateData({ rupstFiscalYear: e.target.value })} placeholder="Contoh: 2025" />
+                          </div>
+                          <div>
+                            <AhuLabel label="Nomor Laporan Keuangan" />
+                            <AhuInput value={data.rupstFinancialReportNumber || ''} onChange={e => updateData({ rupstFinancialReportNumber: e.target.value })} placeholder="Contoh: LP/25/2025" />
+                          </div>
+                          <div>
+                            <AhuLabel label="Tanggal Laporan Keuangan" />
+                            <AhuInput type="date" value={data.rupstFinancialReportDate || ''} onChange={e => updateData({ rupstFinancialReportDate: e.target.value })} />
+                          </div>
+                        </div>
+                        <div className="space-y-4">
+                          <div>
+                            <AhuLabel label="Laba Bersih (Rp)" />
+                            <AhuInput value={formatInputNumber(data.rupstNetProfit || 0)} onChange={e => updateData({ rupstNetProfit: parseFormattedNumber(e.target.value) })} />
+                          </div>
+                          <div>
+                            <AhuLabel label="Dividen Dibagikan (Rp)" />
+                            <AhuInput value={formatInputNumber(data.rupstDividendAmount || 0)} onChange={e => updateData({ rupstDividendAmount: parseFormattedNumber(e.target.value) })} />
+                          </div>
+                          <div>
+                            <AhuLabel label="Laba Ditahan (Rp)" />
+                            <div className="px-3 py-1.5 bg-slate-50 border border-[#ccc] rounded-sm text-[13px] font-bold text-slate-700">
+                              Rp. {formatInputNumber((data.rupstNetProfit || 0) - (data.rupstDividendAmount || 0))}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </AhuSection>
+
+                    {/* DATA PENYELENGGARAAN RAPAT */}
+                    <AhuSection title="DATA PENYELENGGARAAN RAPAT">
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                          <AhuLabel label="Nomor Pemanggilan RUPST" />
+                          <div className="md:col-span-3"><AhuInput value={data.rupstInvitationNumber || ''} onChange={e => updateData({ rupstInvitationNumber: e.target.value })} /></div>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                          <AhuLabel label="Tanggal Pemanggilan RUPST" />
+                          <div className="md:col-span-3"><AhuInput type="date" value={data.rupstInvitationDate || ''} onChange={e => updateData({ rupstInvitationDate: e.target.value })} /></div>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                          <AhuLabel label="Tempat Penyelenggaraan" />
+                          <div className="md:col-span-3"><AhuInput value={data.signingPlace || ''} onChange={e => updateData({ signingPlace: e.target.value })} /></div>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                          <AhuLabel label="Hari/Tanggal Rapat" />
+                          <div className="md:col-span-3 flex gap-2">
+                             <AhuInput type="date" value={data.signingDate || ''} onChange={e => updateData({ signingDate: e.target.value })} />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                          <AhuLabel label="Waktu Rapat" />
+                          <div className="md:col-span-3 flex items-center gap-2">
+                            <div className="flex-1">
+                              <AhuLabel label="Mulai" />
+                              <AhuInput type="time" value={data.meetingStartTime || ''} onChange={e => updateData({ meetingStartTime: e.target.value })} />
+                            </div>
+                            <div className="flex-1">
+                              <AhuLabel label="Selesai" />
+                              <AhuInput type="time" value={data.rupstMeetingEndTime || ''} onChange={e => updateData({ rupstMeetingEndTime: e.target.value })} />
+                            </div>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                          <AhuLabel label="Ketua Rapat" />
+                          <div className="md:col-span-3 flex gap-4">
+                            <div className="flex-1">
+                              <AhuLabel label="Nama Ketua Rapat" />
+                              <AhuSelect value={data.meetingChair || ''} onChange={e => updateData({ meetingChair: e.target.value })}>
+                                <option value="">-- Pilih --</option>
+                                {data.shareholders.map(s => <option key={s.id} value={s.name}>{s.salutation} {s.name}</option>)}
+                              </AhuSelect>
+                            </div>
+                            <div className="flex-1">
+                              <AhuLabel label="Jabatan di PT" />
+                              <AhuInput value={data.meetingChairPosition || ''} onChange={e => updateData({ meetingChairPosition: e.target.value })} placeholder="Contoh: Direktur Utama" />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </AhuSection>
+
+                    <AhuSection title="KEHADIRAN PEMEGANG SAHAM">
+                      <div className="space-y-4">
+                        <div className="flex justify-between items-center">
+                          <h4 className="text-[12px] font-bold text-slate-500 uppercase flex items-center gap-2">
+                             <Users className="w-3 h-3" /> Kehadiran Pemegang Saham
+                          </h4>
+                          <button 
+                            onClick={() => {
+                              const newList = data.shareholders.map(s => ({ ...s, isPresent: true }));
+                              updateData({ shareholders: newList });
+                            }}
+                            className="text-[10px] bg-[#3b5998] text-white px-3 py-1 rounded-sm hover:bg-black transition-colors font-bold shadow-sm"
+                          >
+                            Tandai Semua Hadir
+                          </button>
+                        </div>
+                        <div className="border border-slate-200 rounded-sm overflow-hidden">
+                          <table className="w-full text-left text-[11px]">
+                            <thead className="bg-[#f9f9f9] border-b border-slate-200 font-bold uppercase">
+                              <tr>
+                                <th className="p-2 border-r border-slate-200">Nama Pemegang Saham</th>
+                                <th className="p-2 border-r border-slate-200">Jumlah Saham</th>
+                                <th className="p-2 border-r border-slate-200 text-center w-20">Hadir?</th>
+                                <th className="p-2 border-r border-slate-200 text-center w-28">Dikuasakan?</th>
+                                <th className="p-2 border-slate-200 text-center">Penerima Kuasa</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {data.shareholders.map(s => (
+                                <tr key={s.id} className="border-b border-slate-200 last:border-0 hover:bg-slate-50 transition-colors">
+                                  <td className="p-2 border-r border-slate-200 font-medium uppercase">{s.name}</td>
+                                  <td className="p-2 border-r border-slate-200">{formatInputNumber(s.sharesOwned)} Saham</td>
+                                  <td className="p-2 text-center border-r border-slate-200">
+                                    <input
+                                      type="checkbox"
+                                      className="w-4 h-4 cursor-pointer"
+                                      checked={s.isPresent || false}
+                                      onChange={e => {
+                                        const newList = data.shareholders.map(item =>
+                                          item.id === s.id 
+                                            ? { ...item, isPresent: e.target.checked, isProxy: e.target.checked ? item.isProxy : false, proxyData: e.target.checked ? item.proxyData : undefined } 
+                                            : item
+                                        );
+                                        updateData({ shareholders: newList });
+                                      }}
+                                    />
+                                  </td>
+                                  <td className="p-2 text-center border-r border-slate-200">
+                                    {s.isPresent && (
+                                      <input
+                                        type="checkbox"
+                                        className="w-4 h-4 cursor-pointer accent-orange-600"
+                                        checked={s.isProxy || false}
+                                        onChange={e => {
+                                          const newList = data.shareholders.map(item =>
+                                            item.id === s.id ? { ...item, isProxy: e.target.checked, proxyData: e.target.checked ? item.proxyData : undefined } : item
+                                          );
+                                          updateData({ shareholders: newList });
+                                        }}
+                                        title="Centang jika pemegang saham dikuasakan ke orang lain"
+                                      />
+                                    )}
+                                  </td>
+                                  <td className="p-2 text-center">
+                                    {s.isPresent && s.isProxy && (
+                                      s.proxyData?.name ? (
+                                        <div className="flex items-center justify-between gap-2 px-1">
+                                          <span className="text-[11px] font-bold text-slate-700 uppercase truncate">
+                                            {s.proxyData.salutation} {s.proxyData.name}
+                                          </span>
+                                          <button
+                                            onClick={() => {
+                                                setProxyModalOpenId(s.id);
+                                            }}
+                                            className="text-[9px] text-blue-600 hover:underline whitespace-nowrap"
+                                          >
+                                            Ubah
+                                          </button>
+                                        </div>
+                                      ) : (
+                                        <button
+                                          onClick={() => {
+                                            setProxyModalOpenId(s.id);
+                                          }}
+                                          className="text-[10px] bg-orange-500 text-white px-3 py-1 rounded hover:bg-orange-600 transition-colors font-bold"
+                                        >
+                                          + Isi Data Kuasa
+                                        </button>
+                                      )
+                                    )}
+                                  </td>
+                                </tr>
+                              ))}
+                              {data.shareholders.length === 0 && (
+                                <tr>
+                                  <td colSpan={5} className="p-4 text-center text-slate-400 italic">Belum ada data pemegang saham. Silakan isi di bagian DATA PERSEROAN.</td>
+                                </tr>
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </AhuSection>
+                  </div>
+                  
+                  {/* PREVIEW AREA (Bottom) */}
+                  <AhuSection title="PREVIEW NOTULEN RUPST" isOpen={false}>
+                     <div className="bg-slate-100 p-4 rounded min-h-[500px]">
+                        <RUPSTDocumentPreview data={mergedData} />
+                     </div>
+                  </AhuSection>
+                </div>
+              ) : (
+                <div className="space-y-8">
+                  {/* SAVED RUPST SECTION */}
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
+                      <History className="w-5 h-5 text-[#3b5998]" />
+                      <h3 className="text-[14px] font-bold text-slate-800 uppercase">Notulen RUPST Tersimpan</h3>
+                    </div>
+                    {rupstProjects.length === 0 ? (
+                      <div className="bg-slate-50 text-center py-6 rounded-sm border border-dashed border-slate-300 text-slate-500 text-[12px]">
+                        Belum ada notulen RUPST yang disimpan.
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {rupstProjects.map(p => (
+                          <div key={p.id} className="bg-white p-5 rounded-sm shadow-sm border border-slate-200 hover:border-[#3b5998] transition-colors relative group">
+                              <div className="flex items-start gap-3">
+                                <div className="w-10 h-10 rounded-full bg-blue-50 border border-blue-100 flex items-center justify-center shrink-0">
+                                  <History className="w-5 h-5 text-blue-500" />
+                                </div>
+                                <div>
+                                    <h3 className="font-bold text-slate-800 text-[14px] leading-tight mb-1 pr-6">{p.companyName}</h3>
+                                    <p className="text-[12px] text-slate-500 flex items-center gap-1 line-clamp-1"><Clock className="w-3 h-3 text-slate-400 shrink-0"/> RUPST Tahun {p.rupstFiscalYear || '....'}</p>
+                                </div>
+                              </div>
+                              <div className="flex gap-2 mt-5">
+                                <button onClick={() => {
+                                  setEditingRupstId(p.id);
+                                  updateData({ ...INITIAL_STATE, ...p } as any);
+                                }} className="bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-sm text-[11px] font-bold text-slate-700 flex items-center justify-center gap-1 transition-colors flex-1 uppercase">
+                                  <Edit className="w-3 h-3" /> Edit
+                                </button>
+                                <button onClick={async () => {
+                                  if(confirm('Hapus RUPST ' + p.companyName + '?')) {
+                                    if (!user) return alert('Anda harus login!');
+                                    try {
+                                      await deleteDoc(doc(db, 'rupst_projects', p.id));
+                                      alert('RUPST berhasil dihapus');
+                                    } catch (e) {
+                                      handleFirestoreError(e, OperationType.DELETE, `rupst_projects/${p.id}`);
+                                    }
+                                  }
+                                }} className="bg-red-50 hover:bg-red-500 text-red-500 hover:text-white px-3 py-1.5 rounded-sm text-[11px] font-bold flex items-center justify-center gap-1 transition-colors flex-1 uppercase">
+                                  <Trash2 className="w-3 h-3" /> Hapus
+                                </button>
+                              </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* START FROM PROFILE SECTION */}
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
+                      <Building2 className="w-5 h-5 text-[#3b5998]" />
+                      <h3 className="text-[14px] font-bold text-slate-800 uppercase">Mulai RUPST dari Profil PT</h3>
+                    </div>
+                    {profiles.length === 0 ? (
+                      <div className="bg-slate-50 text-center py-6 rounded-sm border border-dashed border-slate-300 text-slate-500 text-[12px]">
+                        Belum ada profil PT. Silakan tambah profil di menu <strong>"Company Profile"</strong>.
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {profiles.map(p => (
+                          <div key={p.id} className="bg-white p-4 rounded-sm shadow-sm border border-slate-200 hover:border-[#3b5998] transition-colors flex justify-between items-center group">
+                            <div className="flex items-center gap-3">
+                               <div className="w-8 h-8 rounded-full bg-slate-50 border border-slate-100 flex items-center justify-center group-hover:bg-blue-50 transition-colors">
+                                 <Building2 className="w-4 h-4 text-slate-400 group-hover:text-blue-500" />
+                               </div>
+                               <span className="font-bold text-slate-700 text-[13px] uppercase line-clamp-1">{p.companyName}</span>
+                            </div>
+                            <button 
+                              onClick={() => {
+                                setEditingRupstId('new');
+                                const { id, ...rest } = p;
+                                updateData({ 
+                                  ...INITIAL_STATE, 
+                                  ...rest, 
+                                  selectedProfileId: p.id,
+                                  rupstFiscalYear: '2025',
+                                  rupstNetProfit: 90000000,
+                                  rupstDividendAmount: 50000000,
+                                  rupstRetainedProfit: 40000000,
+                                } as any);
+                              }}
+                              className="text-[11px] font-bold text-[#3b5998] hover:text-[#2d4373] uppercase transition-colors"
+                            >
+                              Buat RUPST
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+
           ) : activeSidebarTab === 'pendirian' ? (
             <DraftAktaPendirian 
               onShowPreview={(d) => { setPendirianPreviewData(d); setShowPendirianPreview(true); }}
@@ -3158,7 +3620,11 @@ const App: React.FC = () => {
           </div>
           
           <div className="flex-1 w-full overflow-auto p-4 sm:p-8 pt-4 custom-scrollbar bg-slate-200/50">
-            <DocumentPreview data={mergedData} showHeader={false} zoom={zoom} />
+            {activeSidebarTab === 'rupst' ? (
+              <RUPSTDocumentPreview data={mergedData} />
+            ) : (
+              <DocumentPreview data={mergedData} showHeader={false} zoom={zoom} />
+            )}
           </div>
         </div>
       </Modal>

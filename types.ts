@@ -191,6 +191,7 @@ export interface CompanyData {
   meetingStartTime: string;
   meetingEndTime: string;
   meetingChair: string;
+  meetingChairPosition?: string;
   invitationNumber?: string;
   invitationDate?: string;
   meetingAgenda: string;
@@ -233,6 +234,18 @@ export interface CompanyData {
   notaryDate?: string;
   isReplacementNotary?: boolean;
   beneficialOwnerConsent?: boolean;
+
+  // RUPST Extra Fields
+  rupstFiscalYear?: string;
+  rupstNetProfit?: number;
+  rupstDividendAmount?: number;
+  rupstRetainedProfit?: number;
+  rupstFinancialReportNumber?: string;
+  rupstFinancialReportDate?: string;
+  rupstNotulenNumber?: string;
+  rupstMeetingEndTime?: string;
+  rupstInvitationNumber?: string;
+  rupstInvitationDate?: string;
 
   // Saksi
   saksi1Nama?: string;

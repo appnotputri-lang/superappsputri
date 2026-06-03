@@ -18,6 +18,10 @@
     "projects/{projectId}": {
       "schema": { "$ref": "#/entities/profile" },
       "description": "Contains project-specific data"
+    },
+    "rupst_projects/{rupstId}": {
+      "schema": { "$ref": "#/entities/profile" },
+      "description": "Contains RUPS Tahunan project-specific data"
     }
   }
 }

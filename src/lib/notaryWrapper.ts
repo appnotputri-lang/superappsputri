@@ -1,6 +1,10 @@
 export interface FormatToken {
   text: string;
   bold?: boolean;
+  italic?: boolean;
+  underline?: boolean;
+  color?: string;
+  size?: number;
   break?: number;
 }
 
@@ -32,7 +36,14 @@ export function parseTextRuns(runs: FormatToken[], maxWidth = 41.5): FormatToken
   runs.forEach(run => {
     const parts = run.text.match(/(\S+|\s+)/g) || [];
     parts.forEach(p => {
-       tokens.push({ text: p, bold: run.bold });
+       tokens.push({ 
+         text: p, 
+         bold: run.bold,
+         italic: run.italic,
+         underline: run.underline,
+         color: run.color,
+         size: run.size
+       });
     });
   });
 

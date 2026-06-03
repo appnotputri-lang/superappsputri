@@ -14,11 +14,15 @@ service cloud.firestore {
     }
 
     match /profiles/{profileId} {
-      allow read, write, list: if isAllowedUser();
+      allow read, write: if isAllowedUser();
     }
 
     match /projects/{projectId} {
-      allow read, write, list: if isAllowedUser();
+      allow read, write: if isAllowedUser();
+    }
+
+    match /rupst_projects/{rupstId} {
+      allow read, write: if isAllowedUser();
     }
   }
 }
