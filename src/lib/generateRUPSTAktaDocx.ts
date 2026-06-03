@@ -27,7 +27,13 @@ const createP = (
   const children: any[] = [];
 
   lines.forEach((lineTokens, i) => {
-    lineTokens.forEach((t) => children.push(new TextRun({ text: t.text, bold: t.bold })));
+    lineTokens.forEach((t) => children.push(new TextRun({ 
+      text: t.text, 
+      bold: t.bold,
+      color: t.color,
+      italics: t.italic,
+      underline: t.underline ? {} : undefined
+    })));
     if (!isCentered) children.push(new TextRun({ text: "\t" }));
     if (i < lines.length - 1) children.push(new TextRun({ break: 1 }));
   });
@@ -49,7 +55,13 @@ const createIndentP = (
   const children: any[] = [];
 
   lines.forEach((lineTokens, i) => {
-    lineTokens.forEach((t) => children.push(new TextRun({ text: t.text, bold: t.bold })));
+    lineTokens.forEach((t) => children.push(new TextRun({ 
+      text: t.text, 
+      bold: t.bold,
+      color: t.color,
+      italics: t.italic,
+      underline: t.underline ? {} : undefined
+    })));
     children.push(new TextRun({ text: "\t" }));
     if (i < lines.length - 1) children.push(new TextRun({ break: 1 }));
   });
@@ -80,7 +92,13 @@ const createListP = (
 
   lines.forEach((lineTokens, i) => {
     if (i === 0) children.push(new TextRun({ text: `${bulletText}\t` }));
-    lineTokens.forEach((t) => children.push(new TextRun({ text: t.text, bold: t.bold })));
+    lineTokens.forEach((t) => children.push(new TextRun({ 
+      text: t.text, 
+      bold: t.bold,
+      color: t.color,
+      italics: t.italic,
+      underline: t.underline ? {} : undefined
+    })));
     children.push(new TextRun({ text: "\t" }));
     if (i < lines.length - 1) children.push(new TextRun({ break: 1 }));
   });
@@ -104,7 +122,13 @@ const createNumberedP = (
 
   lines.forEach((lineTokens, i) => {
     if (i === 0) children.push(new TextRun({ text: `${num}.\t` }));
-    lineTokens.forEach((t) => children.push(new TextRun({ text: t.text, bold: t.bold })));
+    lineTokens.forEach((t) => children.push(new TextRun({ 
+      text: t.text, 
+      bold: t.bold,
+      color: t.color,
+      italics: t.italic,
+      underline: t.underline ? {} : undefined
+    })));
     children.push(new TextRun({ text: "\t" }));
     if (i < lines.length - 1) children.push(new TextRun({ break: 1 }));
   });

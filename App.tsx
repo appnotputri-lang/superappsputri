@@ -945,7 +945,7 @@ const App: React.FC = () => {
           <div className="py-4 space-y-0 text-[13px] w-64">
             {[
               { label: 'Company Profile', id: 'company_profile' as const, icon: Building2 },
-              { label: 'Proyek', id: 'notulen' as const, icon: FileText },
+              { label: 'RUPS LB', id: 'notulen' as const, icon: FileText },
               { label: 'RUPS Tahunan', id: 'rupst' as const, icon: History },
               { label: 'Pendirian PT', id: 'pendirian' as const, icon: FileText },
               { label: 'Surat Perbaikan Data', id: 'perbaikan' as const, icon: Mail },
@@ -1513,40 +1513,40 @@ const App: React.FC = () => {
           </div>
           </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="flex flex-col gap-3">
                   {profiles.length === 0 ? (
-                    <div className="col-span-full bg-slate-50 text-center py-12 rounded-sm border border-dashed border-slate-300 text-slate-500 text-[13px]">
+                    <div className="bg-slate-50 text-center py-12 rounded-sm border border-dashed border-slate-300 text-slate-500 text-[13px]">
                       Belum ada data profil perusahaan. Klik <strong>"TAMBAH PROFIL"</strong> untuk membuat.
                     </div>
                   ) : profiles.map(p => (
-                     <div key={p.id} className="bg-white p-5 rounded-sm shadow-sm border border-slate-200 hover:border-[#3b5998] transition-colors relative group">
-                        <div className="flex items-start gap-3">
+                     <div key={p.id} className="bg-white p-4 rounded-sm border border-slate-200 hover:border-[#3b5998] transition-colors relative group flex items-center justify-between">
+                        <div className="flex items-center gap-4">
                            <div className="w-10 h-10 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center shrink-0">
                              <Building2 className="w-5 h-5 text-indigo-500" />
                            </div>
                            <div>
-                              <h3 className="font-bold text-slate-800 text-[14px] leading-tight mb-1 pr-6">{p.companyName}</h3>
-                              <p className="text-[12px] text-slate-500 flex items-center gap-1 line-clamp-1"><MapPin className="w-3 h-3 text-slate-400 shrink-0"/> {p.newAddress?.city || 'Area belum diisi'}</p>
+                              <h3 className="font-bold text-slate-800 text-[14px] leading-tight mb-1">{p.companyName}</h3>
+                              <p className="text-[12px] text-slate-500 flex items-center gap-1"><MapPin className="w-3 h-3 text-slate-400 shrink-0"/> {p.newAddress?.city || 'Area belum diisi'}</p>
                            </div>
                         </div>
-                        <div className="flex gap-2 mt-5">
+                        <div className="flex gap-2">
                            <button onClick={() => {
                              setEditingProfileId(p.id);
                              updateData({ ...INITIAL_STATE, ...p } as any);
-                           }} className="bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-sm text-[11px] font-bold text-slate-700 flex items-center justify-center gap-1 transition-colors flex-1 uppercase">
+                           }} className="bg-slate-100 hover:bg-slate-200 px-4 py-2 rounded-sm text-[11px] font-bold text-slate-700 flex items-center justify-center gap-1 transition-colors uppercase">
                              <Edit className="w-3 h-3" /> Edit
                            </button>
                            <button onClick={async () => {
-                             if(confirm('Hapus proyek ' + p.companyName + '?')) {
+                             if(confirm('Hapus profil ' + p.companyName + '?')) {
                                if (!user) return alert('Anda harus login!');
                                try {
                                  await deleteDoc(doc(db, 'profiles', p.id));
-                                 alert('Proyek berhasil dihapus');
+                                 alert('Profil berhasil dihapus');
                                } catch (e) {
                                  handleFirestoreError(e, OperationType.DELETE, `profiles/${p.id}`);
                                }
                              }
-                           }} className="bg-red-50 hover:bg-red-500 text-red-500 hover:text-white px-3 py-1.5 rounded-sm text-[11px] font-bold flex items-center justify-center gap-1 transition-colors flex-1 uppercase">
+                           }} className="bg-red-50 hover:bg-red-500 text-red-500 hover:text-white px-4 py-2 rounded-sm text-[11px] font-bold flex items-center justify-center gap-1 transition-colors uppercase">
                              <Trash2 className="w-3 h-3" /> Hapus
                            </button>
                         </div>
@@ -1561,15 +1561,15 @@ const App: React.FC = () => {
             <div className="max-w-5xl mx-auto space-y-4">
               <div className="flex justify-between items-center bg-white p-4 rounded-sm shadow-sm border border-slate-200">
                 <div>
-                  <h2 className="text-[16px] font-bold flex items-center gap-2 text-slate-800 uppercase"><FileText className="w-5 h-5 text-[#3b5998]" /> Daftar Proyek</h2>
-                  <p className="text-[12px] text-slate-500">Kelola daftar proyek Notulen dan Akta RUPS</p>
+                  <h2 className="text-[16px] font-bold flex items-center gap-2 text-slate-800 uppercase"><FileText className="w-5 h-5 text-[#3b5998]" /> Daftar RUPS LB</h2>
+                  <p className="text-[12px] text-slate-500">Kelola daftar RUPS LB (Akta/Notulen/Sirkuler)</p>
                 </div>
                 {!editingProjectId && (
                   <button onClick={() => {
                     setEditingProjectId('new');
                     updateData({ ...INITIAL_STATE } as any);
                   }} className="bg-[#3b5998] hover:bg-[#2d4373] text-white px-4 py-2 rounded-sm font-bold text-[12px] flex items-center gap-2 transition-colors">
-                    <Plus className="w-4 h-4" /> TAMBAH PROYEK BARU
+                    <Plus className="w-4 h-4" /> TAMBAH RUPS LB BARU
                   </button>
                 )}
               </div>
@@ -1609,14 +1609,14 @@ const App: React.FC = () => {
                        try {
                            await setDoc(doc(db, 'projects', profileData.id), sanitizeForFirestore(profileData));
                            setEditingProjectId(null);
-                           alert('Proyek berhasil disimpan!');
+                           alert('RUPS LB berhasil disimpan!');
                        } catch (e) {
                            handleFirestoreError(e, OperationType.WRITE, `projects/${profileData.id}`);
                        } finally {
                            setIsSaving(false);
                        }
                     }} className="px-5 py-2 bg-[#40bdae] text-white rounded-md text-[13px] font-bold transition-all hover:bg-[#349c8f] shadow-sm uppercase disabled:opacity-50 disabled:cursor-not-allowed">
-                      {isSaving ? 'MENYIMPAN...' : 'SIMPAN PROYEK'}
+                      {isSaving ? 'MENYIMPAN...' : 'SIMPAN RUPS LB'}
                     </button>
 
                     <button onClick={() => setIsPreviewOpen(true)} className="hidden md:inline-block px-5 py-2 bg-[#5cb85c] text-white rounded-md text-[13px] font-bold transition-all hover:bg-[#449d44] shadow-sm uppercase">PREVIEW NOTULEN</button>
@@ -3071,14 +3071,14 @@ const App: React.FC = () => {
                   </div>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="flex flex-col gap-3">
                   {projects.length === 0 ? (
-                    <div className="col-span-full bg-slate-50 text-center py-12 rounded-sm border border-dashed border-slate-300 text-slate-500 text-[13px]">
-                      Belum ada data proyek. Klik <strong>"TAMBAH PROYEK BARU"</strong> untuk membuat.
+                    <div className="bg-slate-50 text-center py-12 rounded-sm border border-dashed border-slate-300 text-slate-500 text-[13px]">
+                      Belum ada data RUPS LB. Klik <strong>"TAMBAH RUPS LB BARU"</strong> untuk membuat.
                     </div>
                   ) : projects.map(p => (
-                     <div key={p.id} className="bg-white p-5 rounded-sm shadow-sm border border-slate-200 hover:border-[#3b5998] transition-colors relative group">
-                        <div className="flex items-start gap-3">
+                     <div key={p.id} className="bg-white p-4 rounded-sm border border-slate-200 hover:border-[#3b5998] transition-colors relative group flex flex-col md:flex-row md:justify-between md:items-center gap-4">
+                        <div className="flex items-center gap-4">
                            <div className="w-10 h-10 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center shrink-0">
                              <Building2 className="w-5 h-5 text-indigo-500" />
                            </div>
@@ -3087,24 +3087,24 @@ const App: React.FC = () => {
                               <p className="text-[12px] text-slate-500 flex items-center gap-1 line-clamp-1"><MapPin className="w-3 h-3 text-slate-400 shrink-0"/> {p.newAddress?.city || 'Area belum diisi'}</p>
                            </div>
                         </div>
-                        <div className="flex gap-2 mt-5">
+                        <div className="flex gap-2 w-full md:w-auto">
                            <button onClick={() => {
                              setEditingProjectId(p.id);
                              updateData({ ...INITIAL_STATE, ...p } as any);
-                           }} className="bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-sm text-[11px] font-bold text-slate-700 flex items-center justify-center gap-1 transition-colors flex-1 uppercase">
+                           }} className="bg-slate-100 hover:bg-slate-200 px-4 py-2 rounded-sm text-[11px] font-bold text-slate-700 flex items-center justify-center gap-1 transition-colors flex-1 uppercase">
                              <Edit className="w-3 h-3" /> Edit
                            </button>
                            <button onClick={async () => {
-                             if(confirm('Hapus proyek ' + p.companyName + '?')) {
+                             if(confirm('Hapus RUPS LB ' + p.companyName + '?')) {
                                if (!user) return alert('Anda harus login!');
                                try {
                                  await deleteDoc(doc(db, 'projects', p.id));
-                                 alert('Proyek berhasil dihapus');
+                                 alert('RUPS LB berhasil dihapus');
                                } catch (e) {
                                  handleFirestoreError(e, OperationType.DELETE, `projects/${p.id}`);
                                }
                              }
-                           }} className="bg-red-50 hover:bg-red-500 text-red-500 hover:text-white px-3 py-1.5 rounded-sm text-[11px] font-bold flex items-center justify-center gap-1 transition-colors flex-1 uppercase">
+                           }} className="bg-red-50 hover:bg-red-500 text-red-500 hover:text-white px-4 py-2 rounded-sm text-[11px] font-bold flex items-center justify-center gap-1 transition-colors flex-1 uppercase">
                              <Trash2 className="w-3 h-3" /> Hapus
                            </button>
                         </div>
@@ -3308,11 +3308,34 @@ const App: React.FC = () => {
                           </div>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                          <AhuLabel label="Ketentuan AD (Pasal)" />
+                          <div className="md:col-span-3 flex gap-4">
+                            <div className="flex-1">
+                              <AhuLabel label="Nomor Pasal" />
+                              <AhuInput value={data.rupstAdArticle || ''} onChange={e => updateData({ rupstAdArticle: e.target.value })} placeholder="Contoh: 9" />
+                            </div>
+                            <div className="flex-1">
+                              <AhuLabel label="Nomor Ayat" />
+                              <AhuInput value={data.rupstAdParagraph || ''} onChange={e => updateData({ rupstAdParagraph: e.target.value })} placeholder="Contoh: 4" />
+                            </div>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
                           <AhuLabel label="Ketua Rapat" />
                           <div className="md:col-span-3 flex gap-4">
                             <div className="flex-1">
                               <AhuLabel label="Nama Ketua Rapat" />
-                              <AhuSelect value={data.meetingChair || ''} onChange={e => updateData({ meetingChair: e.target.value })}>
+                              <AhuSelect 
+                                value={data.meetingChair || ''} 
+                                onChange={e => {
+                                  const selectedName = e.target.value;
+                                  const sh = data.shareholders.find(s => s.name === selectedName);
+                                  updateData({ 
+                                    meetingChair: selectedName,
+                                    meetingChairPosition: sh?.isManagement ? (sh.managementPosition || "Direktur") : "Pemegang Saham"
+                                  });
+                                }}
+                              >
                                 <option value="">-- Pilih --</option>
                                 {data.shareholders.map(s => <option key={s.id} value={s.name}>{s.salutation} {s.name}</option>)}
                               </AhuSelect>
@@ -3451,10 +3474,10 @@ const App: React.FC = () => {
                         Belum ada notulen RUPST yang disimpan.
                       </div>
                     ) : (
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      <div className="flex flex-col gap-3">
                         {rupstProjects.map(p => (
-                          <div key={p.id} className="bg-white p-5 rounded-sm shadow-sm border border-slate-200 hover:border-[#3b5998] transition-colors relative group">
-                              <div className="flex items-start gap-3">
+                          <div key={p.id} className="bg-white p-4 rounded-sm border border-slate-200 hover:border-[#3b5998] transition-colors relative group flex flex-col md:flex-row md:items-center justify-between gap-4">
+                              <div className="flex items-center gap-4">
                                 <div className="w-10 h-10 rounded-full bg-blue-50 border border-blue-100 flex items-center justify-center shrink-0">
                                   <History className="w-5 h-5 text-blue-500" />
                                 </div>
@@ -3463,11 +3486,11 @@ const App: React.FC = () => {
                                     <p className="text-[12px] text-slate-500 flex items-center gap-1 line-clamp-1"><Clock className="w-3 h-3 text-slate-400 shrink-0"/> RUPST Tahun {p.rupstFiscalYear || '....'}</p>
                                 </div>
                               </div>
-                              <div className="flex gap-2 mt-5">
+                              <div className="flex gap-2 w-full md:w-auto">
                                 <button onClick={() => {
                                   setEditingRupstId(p.id);
                                   updateData({ ...INITIAL_STATE, ...p } as any);
-                                }} className="bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-sm text-[11px] font-bold text-slate-700 flex items-center justify-center gap-1 transition-colors flex-1 uppercase">
+                                }} className="bg-slate-100 hover:bg-slate-200 px-4 py-2 rounded-sm text-[11px] font-bold text-slate-700 flex items-center justify-center gap-1 transition-colors flex-1 uppercase">
                                   <Edit className="w-3 h-3" /> Edit
                                 </button>
                                 <button onClick={async () => {
@@ -3480,54 +3503,10 @@ const App: React.FC = () => {
                                       handleFirestoreError(e, OperationType.DELETE, `rupst_projects/${p.id}`);
                                     }
                                   }
-                                }} className="bg-red-50 hover:bg-red-500 text-red-500 hover:text-white px-3 py-1.5 rounded-sm text-[11px] font-bold flex items-center justify-center gap-1 transition-colors flex-1 uppercase">
+                                }} className="bg-red-50 hover:bg-red-500 text-red-500 hover:text-white px-4 py-2 rounded-sm text-[11px] font-bold flex items-center justify-center gap-1 transition-colors flex-1 uppercase">
                                   <Trash2 className="w-3 h-3" /> Hapus
                                 </button>
                               </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* START FROM PROFILE SECTION */}
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
-                      <Building2 className="w-5 h-5 text-[#3b5998]" />
-                      <h3 className="text-[14px] font-bold text-slate-800 uppercase">Mulai RUPST dari Profil PT</h3>
-                    </div>
-                    {profiles.length === 0 ? (
-                      <div className="bg-slate-50 text-center py-6 rounded-sm border border-dashed border-slate-300 text-slate-500 text-[12px]">
-                        Belum ada profil PT. Silakan tambah profil di menu <strong>"Company Profile"</strong>.
-                      </div>
-                    ) : (
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {profiles.map(p => (
-                          <div key={p.id} className="bg-white p-4 rounded-sm shadow-sm border border-slate-200 hover:border-[#3b5998] transition-colors flex justify-between items-center group">
-                            <div className="flex items-center gap-3">
-                               <div className="w-8 h-8 rounded-full bg-slate-50 border border-slate-100 flex items-center justify-center group-hover:bg-blue-50 transition-colors">
-                                 <Building2 className="w-4 h-4 text-slate-400 group-hover:text-blue-500" />
-                               </div>
-                               <span className="font-bold text-slate-700 text-[13px] uppercase line-clamp-1">{p.companyName}</span>
-                            </div>
-                            <button 
-                              onClick={() => {
-                                setEditingRupstId('new');
-                                const { id, ...rest } = p;
-                                updateData({ 
-                                  ...INITIAL_STATE, 
-                                  ...rest, 
-                                  selectedProfileId: p.id,
-                                  rupstFiscalYear: '2025',
-                                  rupstNetProfit: 90000000,
-                                  rupstDividendAmount: 50000000,
-                                  rupstRetainedProfit: 40000000,
-                                } as any);
-                              }}
-                              className="text-[11px] font-bold text-[#3b5998] hover:text-[#2d4373] uppercase transition-colors"
-                            >
-                              Buat RUPST
-                            </button>
                           </div>
                         ))}
                       </div>

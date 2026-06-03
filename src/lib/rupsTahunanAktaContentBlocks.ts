@@ -9,6 +9,8 @@ import {
   toTitleCase,
   formatNumber,
   formatAddress,
+  formatCompanyName,
+  formatPersonDetails,
 } from "./formatter";
 
 export type Block =
@@ -72,10 +74,12 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
   const rep = (chairSh?.isProxy && chairSh.proxyData) ? chairSh.proxyData : chairSh;
 
   const getPersonDetailRuns = (person: any): FormatToken[] => {
+    const tglAngka = person?.birthDate ? formatDateStr(person.birthDate) : "...";
+    const tglHuruf = person?.birthDate ? dateToWords(person.birthDate) : "...";
     return [
       { text: (person?.name || "").toUpperCase(), bold: true },
       {
-        text: `, lahir di ${toTitleCase(person?.birthCity || "...")}, pada tanggal ${formatDateStr(person?.birthDate)} (${dateToWords(person?.birthDate)}), Warga Negara Indonesia, ${toTitleCase(person?.occupation || "swasta")}, bertempat tinggal di ${person?.address?.fullAddress || "..."}, Rukun Tetangga ${person?.address?.rt || "..."}, Rukun Warga ${person?.address?.rw || "..."}, Kelurahan ${toTitleCase(person?.address?.kelurahan || "...")}, Kecamatan ${toTitleCase(person?.address?.kecamatan || "...")}, pemegang Kartu Tanda Penduduk Nomor ${person?.nik || "..."}`,
+        text: person ? formatPersonDetails(person, tglAngka, tglHuruf) : `, lahir di ..., pada tanggal ... (...), Warga Negara Indonesia, swasta, bertempat tinggal di ..., Rukun Tetangga ..., Rukun Warga ..., Kelurahan ..., Kecamatan ..., pemegang Kartu Tanda Penduduk Nomor ...`,
       },
     ];
   };
@@ -84,7 +88,7 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
   blocks.push(
     { type: "p", align: "center", runs: [{ text: "AKTA PERNYATAAN KEPUTUSAN", bold: true }] },
     { type: "p", align: "center", runs: [{ text: "RAPAT UMUM PEMEGANG SAHAM TAHUNAN", bold: true }] },
-    { type: "p", align: "center", runs: [{ text: `PT. ${data.companyName.toUpperCase()}`, bold: true }] },
+    { type: "p", align: "center", runs: [{ text: formatCompanyName(data.companyName), bold: true }] },
     { type: "p", align: "center", runs: [{ text: `Nomor : ${effectiveNotaryNumber}` }] },
     { type: "br" },
     { type: "br" },
@@ -120,7 +124,7 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
       indentTabs: 0.5,
       runs: [
         { text: "Menurut keterangannya dalam hal ini bertindak dalam kapasitasnya sebagai penerima kuasa pemegang saham berdasarkan Berita Acara Rapat Umum Pemegang Saham Tahunan " },
-        { text: `PT. ${data.companyName.toUpperCase()}`, bold: true },
+        { text: formatCompanyName(data.companyName), bold: true },
         { text: `, suatu perseroan terbatas yang akan diterangkan di bawah ini, yang dibuat di bawah tangan bermeterai cukup, tertanggal ${formatDateStr(data.signingDate)} yang aslinya turut dilekatkan dalam minuta akta ini, selanjutnya disebut ("BAR RUPST").` }
       ]
     });
@@ -131,7 +135,7 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
       indentTabs: 0.5,
       runs: [
         { text: "Dari dan untuk itu sah mewakili " },
-        { text: `PT. ${data.companyName.toUpperCase()}`, bold: true },
+        { text: formatCompanyName(data.companyName), bold: true },
         { text: `, suatu perseroan terbatas yang didirikan berdasarkan hukum negara Republik Indonesia, berkedudukan di ${toTitleCase(data.domicile || "...")}, yang anggaran dasarnya telah disesuaikan dengan Undang-undang Republik Indonesia nomor 40 Tahun 2007 tentang Perseroan Terbatas sebagaimana dimuat dalam :` }
       ]
     });
@@ -162,7 +166,7 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
     {
       type: "p",
       runs: [
-        { text: `Penghadap menerangkan kepada saya, Notaris, bahwa sesuai dengan ketentuan dalam Anggaran Dasar Perseroan, untuk mengadakan Rapat Umum Pemegang Saham Tahunan Tahun Buku ${data.rupstFiscalYear || "2025"}, selanjutnya disebut (“RUPST”) ini Direksi Perseroan telah diadakan pemanggilan terlebih dahulu kepada para pemegang saham Perseroan dengan mengirimkan Surat Pemanggilan tertanggal ${formatDateStr(data.rupstInvitationDate)}.` }
+        { text: `Penghadap menerangkan kepada saya, Notaris, bahwa sesuai dengan ketentuan dalam Pasal ${data.rupstAdArticle || "9"} ayat ${data.rupstAdParagraph || "4"} Anggaran Dasar Perseroan, untuk mengadakan Rapat Umum Pemegang Saham Tahunan Tahun Buku ${data.rupstFiscalYear || "2025"}, selanjutnya disebut (“RUPST”) ini Direksi Perseroan telah diadakan pemanggilan terlebih dahulu kepada para pemegang saham Perseroan dengan mengirimkan Surat Pemanggilan tertanggal ${formatDateStr(data.rupstInvitationDate)}.` }
       ]
     },
     { type: "br" },
@@ -224,9 +228,9 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
     { type: "br" },
     { type: "p", runs: [{ text: "Pemegang Saham dan Para Undangan selanjutnya secara bersama-sama disebut sebagai \"Peserta Rapat\"." }] },
     { type: "p", runs: [{ text: "Asli daftar hadir dari RUPST adalah sebagaimana terlampir pada BAR RUPST." }] },
-    { type: "p", runs: [{ text: `RUPST dipimpin oleh ${data.meetingChair || "..."} tersebut, dalam jabatannya sebagai ${data.meetingChairPosition || "Direktur Utama"} Perseroan sesuai dengan ketentuan Anggaran Dasar Perseroan.` }] },
+    { type: "p", runs: [{ text: `RUPST dipimpin oleh ${data.meetingChair || "..."} tersebut, dalam jabatannya sebagai ${data.meetingChairPosition || "Direktur Utama"} Perseroan sesuai dengan ketentuan Pasal ${data.rupstAdArticle || "9"} ayat ${data.rupstAdParagraph || "4"} Anggaran Dasar Perseroan.` }] },
     { type: "br" },
-    { type: "p", runs: [{ text: "Berdasarkan ketentuan-ketentuan Anggaran Dasar Perseroan dan hukum yang berlaku, Pemegang Saham mengambil keputusan-keputusan sebagai berikut :" }] },
+    { type: "p", runs: [{ text: `Berdasarkan ketentuan-ketentuan Pasal ${data.rupstAdArticle || "9"} ayat ${data.rupstAdParagraph || "4"} Anggaran Dasar Perseroan dan hukum yang berlaku, Pemegang Saham mengambil keputusan-keputusan sebagai berikut :` }] },
     { type: "br" }
   );
 
@@ -247,6 +251,11 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
     { type: "br" }
   );
 
+  const finReportNumberColor = (data.rupstFinancialReportNumber === "" || data.rupstFinancialReportNumber === "0") ? "FF0000" : undefined;
+  const finReportNumberDisplay = (data.rupstFinancialReportNumber === "" || data.rupstFinancialReportNumber === "0") 
+    ? "[ ISI DENGAN NOMOR LAPORAN KEUANGAN]" 
+    : (data.rupstFinancialReportNumber || "LP/25/2025");
+
   // II. Pengesahan Laporan Keuangan
   blocks.push(
     { type: "p", align: "left", runs: [{ text: "II. PENGESAHAN LAPORAN KEUANGAN TAHUNAN PERSEROAN TAHUN BUKU " + (data.rupstFiscalYear || "2025") + ".", bold: true }] },
@@ -255,7 +264,11 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
       type: "list",
       bullet: "a.",
       indentTabs: 0.5,
-      runs: [{ text: "Menerima dan mengesahkan Laporan Keuangan Tahunan Perseroan untuk tahun buku " + (data.rupstFiscalYear || "2025") + ", yang salinannya telah diakui oleh masing-masing Pemegang Saham telah diterima; dan" }]
+      runs: [
+        { text: "Menerima dan mengesahkan Laporan Keuangan Tahunan Perseroan untuk tahun buku " + (data.rupstFiscalYear || "2025") + " sebagaimana dimuat dalam Laporan Keuangan nomor " },
+        { text: finReportNumberDisplay, color: finReportNumberColor },
+        { text: ", yang salinannya telah diakui oleh masing-masing Pemegang Saham telah diterima; dan" }
+      ]
     },
     {
       type: "list",
@@ -266,6 +279,16 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
     { type: "br" }
   );
 
+  const netProfitColor = data.rupstNetProfit ? undefined : "FF0000";
+  const netProfitDisplay = data.rupstNetProfit 
+    ? `Rp${formatNumber(data.rupstNetProfit)} (${terbilang(data.rupstNetProfit)} rupiah)` 
+    : "[ISI DENGAN NILAI LABA BERSIH DI NOTULEN RUPS TAHUNAN]";
+
+  const dividendColor = data.rupstDividendAmount ? undefined : "FF0000";
+  const dividendDisplayValue = data.rupstDividendAmount 
+    ? `Rp${formatNumber(data.rupstDividendAmount)} (${terbilang(data.rupstDividendAmount)} rupiah)`
+    : "[ISI DENGAN NILAI DEVIDEN DIBAGIKAN]";
+
   // III. Penetapan Laba
   blocks.push(
     { type: "p", align: "left", runs: [{ text: "III. PENETAPAN PENGGUNAAN LABA BERSIH PERSEROAN.", bold: true }] },
@@ -273,14 +296,19 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
       type: "p",
       runs: [
         { text: "MEMUTUSKAN", bold: true },
-        { text: `, bahwa Pemegang Saham menerima dan menyetujui total laba bersih Perseroan untuk tahun buku ${data.rupstFiscalYear || "2025"} adalah sebesar Rp${formatNumber(netProfit)} (${terbilang(netProfit)} rupiah) dengan ketentuan ` },
-        dividend > 0 
-          ? { text: `sebesar Rp${formatNumber(dividend)} (${terbilang(dividend)} rupiah) dibagikan sebagai dividen dan sisanya dicatat sebagai laba ditahan.` }
-          : { text: "tidak ada pembagian dividen kepada Pemegang Saham dan seluruh laba bersih menjadi laba ditahan." }
+        { text: `, bahwa Pemegang Saham menerima dan menyetujui total laba bersih Perseroan untuk tahun buku ${data.rupstFiscalYear || "2025"} adalah sebesar ` },
+        { text: netProfitDisplay, color: netProfitColor },
+        { text: " dengan ketentuan " },
+        data.rupstDividendAmount === 0
+          ? { text: "tidak ada pembagian dividen kepada Pemegang Saham dan seluruh laba bersih menjadi laba ditahan." }
+          : { text: `sebesar ${dividendDisplayValue} dibagikan sebagai dividen dan sisanya dicatat sebagai laba ditahan.` }
       ]
-    },
-    { type: "br" }
+    }
   );
+
+  if (data.rupstDividendAmount !== undefined && data.rupstDividendAmount !== null && data.rupstDividendAmount > 0) {
+    // No need to append more if already included in the ternary above
+  }
 
   // IV. Rencana Kerja
   blocks.push(

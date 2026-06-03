@@ -203,6 +203,17 @@ const RenderList: React.FC<RenderListProps> = ({
               {target === 'new' && expandedId === m.id && (
                 <div className="p-6 border-t border-slate-100 bg-slate-50/50 rounded-b-2xl space-y-6 animate-in slide-in-from-top duration-300">
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="md:col-span-1 lg:col-span-4">
+                      <label className="flex items-center gap-2 cursor-pointer mb-2">
+                        <input 
+                          type="checkbox" 
+                          checked={m.nationalityType === 'WNA'}
+                          onChange={e => onUpdate(target, m.id, { nationalityType: e.target.checked ? 'WNA' : 'WNI' })}
+                          className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                        />
+                        <span className="text-sm text-slate-700 font-bold uppercase tracking-tight">Warga Negara Asing</span>
+                      </label>
+                    </div>
                     <div className="md:col-span-1 lg:col-span-2">
                       <label className="block text-xs font-bold text-slate-400 uppercase mb-1.5">Tempat Lahir</label>
                       <input type="text" value={m.birthCity || ''} onChange={e => onUpdate(target, m.id, { birthCity: e.target.value.toUpperCase() })} className="w-full px-4 py-3 border border-slate-300 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-indigo-500 bg-white" placeholder="KOTA KELAHIRAN" />
@@ -211,10 +222,27 @@ const RenderList: React.FC<RenderListProps> = ({
                       <label className="block text-xs font-bold text-slate-400 uppercase mb-1.5 flex items-center gap-1"><Calendar className="w-3 h-3" /> Tanggal Lahir</label>
                       <input type="date" value={m.birthDate || ''} onChange={e => onUpdate(target, m.id, { birthDate: e.target.value })} className="w-full px-4 py-3 border border-slate-300 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-indigo-500 bg-white" />
                     </div>
-                    <div className="md:col-span-1 lg:col-span-2">
-                      <label className="block text-xs font-bold text-slate-400 uppercase mb-1.5 flex items-center gap-1"><CreditCard className="w-3 h-3" /> NIK (Nomor KTP)</label>
-                      <input type="text" value={m.nik || ''} onChange={e => onUpdate(target, m.id, { nik: e.target.value })} className="w-full px-4 py-3 border border-slate-300 rounded-2xl text-sm outline-none font-mono focus:ring-2 focus:ring-indigo-500 bg-white" placeholder="16 DIGIT NIK" />
-                    </div>
+                    {m.nationalityType === 'WNA' ? (
+                      <>
+                        <div className="md:col-span-1 lg:col-span-2">
+                          <label className="block text-xs font-bold text-slate-400 uppercase mb-1.5 flex items-center gap-1">Nama Negara</label>
+                          <input type="text" value={m.nationality || ''} onChange={e => onUpdate(target, m.id, { nationality: e.target.value.toUpperCase() })} className="w-full px-4 py-3 border border-slate-300 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-indigo-500 bg-white" placeholder="CONTOH: AMERIKA SERIKAT" />
+                        </div>
+                        <div className="md:col-span-1 lg:col-span-2">
+                          <label className="block text-xs font-bold text-slate-400 uppercase mb-1.5 flex items-center gap-1">Nomor Passport</label>
+                          <input type="text" value={(m as any).passportNumber || ''} onChange={e => onUpdate(target, m.id, { passportNumber: e.target.value } as any)} className="w-full px-4 py-3 border border-slate-300 rounded-2xl text-sm outline-none font-mono focus:ring-2 focus:ring-indigo-500 bg-white" placeholder="NOMOR PASSPORT" />
+                        </div>
+                        <div className="md:col-span-1 lg:col-span-4">
+                          <label className="block text-xs font-bold text-slate-400 uppercase mb-1.5 flex items-center gap-1">Izin Tinggal (Kitas Nomor)</label>
+                          <input type="text" value={m.kitasNumber || ''} onChange={e => onUpdate(target, m.id, { kitasNumber: e.target.value })} className="w-full px-4 py-3 border border-slate-300 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-indigo-500 bg-white" placeholder="CONTOH: 24E28A410488" />
+                        </div>
+                      </>
+                    ) : (
+                      <div className="md:col-span-1 lg:col-span-2">
+                        <label className="block text-xs font-bold text-slate-400 uppercase mb-1.5 flex items-center gap-1"><CreditCard className="w-3 h-3" /> NIK (Nomor KTP)</label>
+                        <input type="text" value={m.nik || ''} onChange={e => onUpdate(target, m.id, { nik: e.target.value })} className="w-full px-4 py-3 border border-slate-300 rounded-2xl text-sm outline-none font-mono focus:ring-2 focus:ring-indigo-500 bg-white" placeholder="16 DIGIT NIK" />
+                      </div>
+                    )}
                     <div className="md:col-span-1 lg:col-span-2">
                       <label className="block text-xs font-bold text-slate-400 uppercase mb-1.5 flex items-center gap-1"><Briefcase className="w-3 h-3" /> Pekerjaan</label>
                       <input type="text" value={m.occupation || ''} onChange={e => onUpdate(target, m.id, { occupation: e.target.value.toUpperCase() })} className="w-full px-4 py-3 border border-slate-300 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-indigo-500 bg-white" placeholder="CONTOH: KARYAWAN SWASTA" />
@@ -228,11 +256,27 @@ const RenderList: React.FC<RenderListProps> = ({
                       </div>
                       <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Alamat Domisili Lengkap</label>
                     </div>
-                    <IndoRegionSelector 
-                      address={m.address || INITIAL_ADDRESS} 
-                      onUpdate={(addr) => onUpdate(target, m.id, { address: { ...(m.address || INITIAL_ADDRESS), ...addr } })} 
-                      accentColor="indigo"
-                    />
+                    <div className="mb-4">
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1.5">Alamat / Jalan / No</label>
+                      <textarea 
+                        value={m.address?.fullAddress || ''} 
+                        onChange={e => onUpdate(target, m.id, { address: { ...(m.address || INITIAL_ADDRESS), fullAddress: e.target.value.toUpperCase() } })}
+                        className="w-full px-4 py-3 border border-slate-300 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-indigo-500 bg-white min-h-[80px]"
+                      />
+                    </div>
+                    {m.nationalityType !== 'WNA' ? (
+                      <IndoRegionSelector 
+                        address={m.address || INITIAL_ADDRESS} 
+                        onUpdate={(addr) => onUpdate(target, m.id, { address: { ...(m.address || INITIAL_ADDRESS), ...addr } })} 
+                        accentColor="indigo"
+                        hideStreetAndRT={true}
+                      />
+                    ) : (
+                       <div className="grid grid-cols-2 gap-4">
+                         {/* RT/RW also hidden if WNA? User said "hanya form alamat tidak ada provinsi kota kecamatan kelurahan" */}
+                         {/* Usually WNA doesn't have RT/RW in foreign addresses */}
+                       </div>
+                    )}
                   </div>
                 </div>
               )}

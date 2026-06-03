@@ -8,6 +8,8 @@ import {
   terbilang,
   toTitleCase,
   formatNumber,
+  formatCompanyName,
+  formatPersonDetails,
 } from "./formatter";
 
 export type Block =
@@ -55,7 +57,7 @@ export const generateRupstBlocks = (data: CompanyData): Block[] => {
   blocks.push(
     { type: "p", align: "center", runs: [{ text: "NOTULEN", bold: true }] },
     { type: "p", align: "center", runs: [{ text: "RAPAT UMUM PEMEGANG SAHAM TAHUNAN", bold: true }] },
-    { type: "p", align: "center", runs: [{ text: `PT. ${data.companyName.toUpperCase()}`, bold: true }] },
+    { type: "p", align: "center", runs: [{ text: formatCompanyName(data.companyName), bold: true }] },
     { type: "p", align: "center", runs: [{ text: "--------------------------------------------------------------------------------------------------------------------" }] }
   );
 
@@ -66,8 +68,8 @@ export const generateRupstBlocks = (data: CompanyData): Block[] => {
       type: "p",
       runs: [
         { text: `Rapat Umum Pemegang Saham Tahunan ` },
-        { text: `“PT. ${data.companyName.toUpperCase()}“`, bold: true },
-        { text: ` (selanjutnya disebut sebagai “Rapat”) perseroan yang berkedudukan di ${data.domicileStyle === 'KABUPATEN' ? 'Kabupaten ' : 'Kota '}${toTitleCase(data.domicile || "...")}, demikian berdasarkan Akta Pendirian tertanggal ${dateToWords(data.establishmentDeedDate || "")} (${formatDateStr(data.establishmentDeedDate || "")}), No. ${data.establishmentDeedNumber || "..."}, yang dibuat dihadapan ${data.establishmentNotary || "..."}, Notaris di ${toTitleCase(data.establishmentNotaryDomicile || "...")} dan telah mendapat pengesahan dari Menteri Hukum dan Hak Asasi Manusia Republik Indonesia tertanggal ${dateToWords(data.establishmentSkDate || "")} (${formatDateStr(data.establishmentSkDate || "")}) Nomor ${data.establishmentSkNumber || "..."}${data.amendmentDeeds && data.amendmentDeeds.length > 0 ? ", beberapa kali telah mengalami perubahan, berdasarkan :" : "."}` }
+        { text: `"${formatCompanyName(data.companyName)}"`, bold: true },
+        { text: ` (selanjutnya disebut sebagai "Rapat") perseroan yang berkedudukan di ${data.domicileStyle === 'KABUPATEN' ? 'Kabupaten ' : 'Kota '}${toTitleCase(data.domicile || "...")}, demikian berdasarkan Akta Pendirian tertanggal ${dateToWords(data.establishmentDeedDate || "")} (${formatDateStr(data.establishmentDeedDate || "")}), No. ${data.establishmentDeedNumber || "..."}, yang dibuat dihadapan ${data.establishmentNotary || "..."}, Notaris di ${toTitleCase(data.establishmentNotaryDomicile || "...")} dan telah mendapat pengesahan dari Menteri Hukum dan Hak Asasi Manusia Republik Indonesia tertanggal ${dateToWords(data.establishmentSkDate || "")} (${formatDateStr(data.establishmentSkDate || "")}) Nomor ${data.establishmentSkNumber || "..."}${data.amendmentDeeds && data.amendmentDeeds.length > 0 ? ", beberapa kali telah mengalami perubahan, berdasarkan :" : "."}` }
       ]
     }
   );
@@ -134,7 +136,7 @@ export const generateRupstBlocks = (data: CompanyData): Block[] => {
           runs: [
             { text: `${px.salutation} ` },
             { text: px.name.toUpperCase(), bold: true },
-            { text: `, lahir di ${toTitleCase(px.birthCity || "...")}, pada tanggal ${formatDateStr(px.birthDate)} (${dateToWords(px.birthDate)}), Warga Negara Indonesia, ${toTitleCase(px.occupation || "...")}, bertempat tinggal di ${px.address.fullAddress}, RT ${px.address.rt}, RW ${px.address.rw}, Kelurahan ${px.address.kelurahan}, Kecamatan ${px.address.kecamatan}, pemegang Kartu Tanda Penduduk.` }
+            { text: formatPersonDetails(px, formatDateStr(px.birthDate), dateToWords(px.birthDate)) }
           ]
         },
         {
@@ -154,7 +156,7 @@ export const generateRupstBlocks = (data: CompanyData): Block[] => {
           runs: [
             { text: `${sh.salutation} ` },
             { text: sh.name.toUpperCase(), bold: true },
-            { text: `, lahir di ${toTitleCase(sh.birthCity || "...")}, pada tanggal ${formatDateStr(sh.birthDate)} (${dateToWords(sh.birthDate)}), Warga Negara Indonesia, ${toTitleCase(sh.occupation || "...")}, bertempat tinggal di ${sh.address.fullAddress}, RT ${sh.address.rt}, RW ${sh.address.rw}, Kelurahan ${sh.address.kelurahan}, Kecamatan ${sh.address.kecamatan}, pemegang Kartu Tanda Penduduk.` }
+            { text: formatPersonDetails(sh, formatDateStr(sh.birthDate), dateToWords(sh.birthDate)) }
           ]
         },
         {
@@ -195,7 +197,7 @@ export const generateRupstBlocks = (data: CompanyData): Block[] => {
           runs: [
             { text: `${sh.salutation} ` },
             { text: sh.name.toUpperCase(), bold: true },
-            { text: `, lahir di ${toTitleCase(sh.birthCity || "...")}, pada tanggal ${formatDateStr(sh.birthDate)} (${dateToWords(sh.birthDate)}), Warga Negara Indonesia, ${toTitleCase(sh.occupation || "...")}, bertempat tinggal di ${sh.address.fullAddress}, RT ${sh.address.rt}, RW ${sh.address.rw}, Kelurahan ${sh.address.kelurahan}, Kecamatan ${sh.address.kecamatan}, pemegang Kartu Tanda Penduduk.` }
+            { text: formatPersonDetails(sh, formatDateStr(sh.birthDate), dateToWords(sh.birthDate)) }
           ]
         },
         { type: "list", bullet: "-", indentTabs: 1, runs: [{ text: "Dalam hal ini hadir selaku :" }] }
@@ -257,7 +259,7 @@ export const generateRupstBlocks = (data: CompanyData): Block[] => {
     {
       type: "p",
       runs: [
-        { text: `Berdasarkan ketentuan anggaran dasar perseroan, maka ` },
+        { text: `Berdasarkan ketentuan anggaran dasar perseroan Pasal ${data.rupstAdArticle || "9"} ayat ${data.rupstAdParagraph || "4"}, maka ` },
         { text: `${effectiveChairSalutation} ` },
         { text: effectiveChairName.toUpperCase(), bold: true },
         { text: `, tersebut di atas, bertindak sebagai ketua rapat.` }
@@ -290,6 +292,11 @@ export const generateRupstBlocks = (data: CompanyData): Block[] => {
   );
 
   // VI. KEPUTUSAN_KEPUTUSAN
+  const finReportNumberColor = (data.rupstFinancialReportNumber === "" || data.rupstFinancialReportNumber === "0") ? "FF0000" : undefined;
+  const finReportNumberDisplay = (data.rupstFinancialReportNumber === "" || data.rupstFinancialReportNumber === "0") 
+    ? "[ ISI DENGAN NOMOR LAPORAN KEUANGAN]" 
+    : (data.rupstFinancialReportNumber || "LP/25/2025");
+
   blocks.push(
     { type: "p", runs: [{ text: "VI. KEPUTUSAN_KEPUTUSAN", bold: true }] },
     { type: "p", runs: [{ text: "Setelah dilakukan pembahasan dan musyawarah, Rapat memutuskan dan menyetujui hal-hal sebagai berikut:" }] },
@@ -302,7 +309,11 @@ export const generateRupstBlocks = (data: CompanyData): Block[] => {
       type: "list",
       bullet: "2.",
       runs: [
-        { text: `Mengesahkan Laporan Keuangan Perseroan untuk tahun buku yang berakhir pada tanggal 31 Desember ${data.rupstFiscalYear || "2025"}, sebagaimana dimuat dalam Laporan Keuangan PT ${data.companyName.toUpperCase()} nomor ${data.rupstFinancialReportNumber || "LP/25/2025"} tanggal ${formatDateStr(data.rupstFinancialReportDate || "")} yang terdiri dari:` }
+        { text: `Mengesahkan Laporan Keuangan Perseroan untuk tahun buku yang berakhir pada tanggal 31 Desember ${data.rupstFiscalYear || "2025"}, sebagaimana dimuat dalam Laporan Keuangan ` },
+        { text: formatCompanyName(data.companyName) },
+        { text: ` nomor ` },
+        { text: finReportNumberDisplay, color: finReportNumberColor },
+        { text: ` tanggal ${formatDateStr(data.rupstFinancialReportDate || "")} yang terdiri dari:` }
       ]
     },
     { type: "list", bullet: "-", indentTabs: 1, runs: [{ text: "Laporan Posisi Keuangan (Neraca);" }] },
@@ -312,20 +323,34 @@ export const generateRupstBlocks = (data: CompanyData): Block[] => {
     { type: "list", bullet: "-", indentTabs: 1, runs: [{ text: "Catatan Atas Laporan Keuangan." }] }
   );
 
-  const netProfit = data.rupstNetProfit || 90000000;
-  const dividend = data.rupstDividendAmount || 50000000;
+  const netProfitColor = data.rupstNetProfit ? undefined : "FF0000";
+  const netProfitDisplay = data.rupstNetProfit 
+    ? `Rp${formatNumber(data.rupstNetProfit)} (${terbilang(data.rupstNetProfit)} rupiah)` 
+    : "[ISI DENGAN NILAI LABA BERSIH DI NOTULEN RUPS TAHUNAN]";
+
+  const dividendColor = data.rupstDividendAmount ? undefined : "FF0000";
+  const dividendDisplay = data.rupstDividendAmount 
+    ? `Rp${formatNumber(data.rupstDividendAmount)} (${terbilang(data.rupstDividendAmount)} rupiah)` 
+    : "[ISI DENGAN NILAI DEVIDEN DIBAGIKAN]";
+
   blocks.push({
     type: "list",
     bullet: "3.",
     runs: [
-      { text: `Menetapkan penggunaan laba bersih Perseroan tahun buku ${data.rupstFiscalYear || "2025"} sebesar Rp${formatNumber(netProfit)} (${terbilang(netProfit)} rupiah), dengan rincian sebagai berikut:` }
+      { text: `Menetapkan penggunaan laba bersih Perseroan tahun buku ${data.rupstFiscalYear || "2025"} sebesar ` },
+      { text: netProfitDisplay, color: netProfitColor },
+      { text: `, dengan rincian sebagai berikut:` }
     ]
   });
   blocks.push({
     type: "list",
     bullet: "-",
     indentTabs: 1,
-    runs: [{ text: `Sebesar Rp${formatNumber(dividend)} (${terbilang(dividend)} rupiah) dibagikan sebagai dividen kepada para pemegang saham;` }]
+    runs: [
+      { text: `Sebesar ` },
+      { text: dividendDisplay, color: dividendColor },
+      { text: ` dibagikan sebagai dividen kepada para pemegang saham;` }
+    ]
   });
   blocks.push({
     type: "list",
@@ -403,7 +428,7 @@ export const generateRupstBlocks = (data: CompanyData): Block[] => {
   blocks.push(
     { type: "p", align: "center", runs: [{ text: "DAFTAR HADIR", bold: true }] },
     { type: "p", align: "center", runs: [{ text: "RAPAT UMUM PEMEGANG SAHAM TAHUNAN", bold: true }] },
-    { type: "p", align: "center", runs: [{ text: `PT. ${data.companyName.toUpperCase()}`, bold: true }] },
+    { type: "p", align: "center", runs: [{ text: formatCompanyName(data.companyName), bold: true }] },
     { type: "p", align: "center", runs: [{ text: `TANGGAL ${formatDateStr(data.signingDate)}`, bold: true }] },
     { type: "br" }
   );

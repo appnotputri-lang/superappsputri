@@ -11,6 +11,8 @@ import {
   formatNumber,
   formatAddress,
   formatFullAddressData,
+  formatCompanyName,
+  formatPersonDetails,
 } from "./formatter";
 
 export type Block =
@@ -136,7 +138,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
     return [
       { text: nameUpper, bold: true },
       {
-        text: `, lahir di ${toTitleCase(person?.birthCity || "...")}, pada tanggal ${tglLahirAngka} (${tglLahirHuruf}), Warga Negara Indonesia, ${toTitleCase(person?.occupation || "...")}, bertempat tinggal di ${toTitleCase(person?.address?.city || "...")}, ${formatAddress(toTitleCase(person?.address?.fullAddress || "..."))}, Rukun Tetangga ${person?.address?.rt || "..."}, Rukun Warga ${person?.address?.rw || "..."}, Kelurahan ${toTitleCase(person?.address?.kelurahan || "...")}, Kecamatan ${toTitleCase(person?.address?.kecamatan || "...")}, pemegang Kartu Tanda Penduduk Nomor ${person?.nik || "..."}`,
+        text: person ? formatPersonDetails(person, tglLahirAngka, tglLahirHuruf) : `, lahir di ..., pada tanggal ... (...), Warga Negara Indonesia, ..., bertempat tinggal di ..., ..., Rukun Tetangga ..., Rukun Warga ..., Kelurahan ..., Kecamatan ..., pemegang Kartu Tanda Penduduk Nomor ...`,
       },
     ];
   };
@@ -198,7 +200,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
     {
       type: "p",
       align: "center",
-      runs: [{ text: `PT ${data.companyName.toUpperCase()}`, bold: true }],
+      runs: [{ text: formatCompanyName(data.companyName), bold: true }],
     },
     {
       type: "p",
@@ -234,7 +236,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
         { text: `${rep?.salutation || "Tuan"} ` },
         { text: (rep?.name || "...").toUpperCase(), bold: true },
         {
-          text: `, lahir di ${toTitleCase(rep?.birthCity || "...")}, pada tanggal ${tglLahirRepAngka} (${tglLahirRepHuruf}), Warga Negara Indonesia, ${toTitleCase(rep?.occupation || "...")}, bertempat tinggal di ${toTitleCase(rep?.address.city || "...")}, ${formatAddress(toTitleCase(rep?.address.fullAddress || "..."))}, Rukun Tetangga ${rep?.address.rt || "..."}, Rukun Warga ${rep?.address.rw || "..."}, Kelurahan ${toTitleCase(rep?.address.kelurahan || "...")}, Kecamatan ${toTitleCase(rep?.address.kecamatan || "...")}, pemegang Kartu Tanda Penduduk Nomor ${rep?.nik || "..."};`,
+          text: rep ? formatPersonDetails(rep, tglLahirRepAngka, tglLahirRepHuruf) : `, lahir di ..., pada tanggal ... (...), Warga Negara Indonesia, ..., bertempat tinggal di ..., ..., Rukun Tetangga ..., Rukun Warga ..., Kelurahan ..., Kecamatan ..., pemegang Kartu Tanda Penduduk Nomor ...;`,
         },
       ],
     },
@@ -298,7 +300,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
         {
           text: `Bahwa pada hari ${meetingHari}, tanggal ${meetingTglAngka} (${meetingTglHuruf}), bertempat di ${toTitleCase(data.signingPlace || "Kantor Perseroan")}, pukul ${meetingTimeStr} WIB (${meetingTimeWords} Waktu Indonesia Barat) telah diadakan Rapat Umum Pemegang Saham Luar Biasa Perseroan Terbatas `,
         },
-        { text: `PT ${data.companyName.toUpperCase()}`, bold: true },
+        { text: formatCompanyName(data.companyName), bold: true },
         { text: ` (selanjutnya disebut sebagai “Rapat”) Perseroan berkedudukan di ${toTitleCase(data.newAddress?.city || data.domicile || "...")}, demikian berdasarkan Akta Pendirian tertanggal ${tglPendirianHuruf} (${tglPendirianAngka}), Nomor ${data.establishmentDeedNumber}, telah mendapat pengesahan dari Menteri Hukum dan Hak Asasi Manusia Republik Indonesia tertanggal ${tglSKPendirianHuruf} (${tglSKPendirianAngka}), Nomor ${data.establishmentSkNumber}, dibuat di hadapan ${checkNotaryWording(data.establishmentNotary, data.establishmentNotaryTitle, data.establishmentNotaryDomicile)} dan telah mengalami perubahan berdasarkan akta sebagai berikut :-` },
       ],
     });
@@ -311,11 +313,11 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
         {
           text: `Menurut keterangannya dalam hal ini bertindak berdasarkan kuasa yang diberikan dalam Keputusan Sirkuler Para Pemegang Saham `,
         },
-        { text: `"PT. ${data.companyName.toUpperCase()}"`, bold: true },
+        { text: `"${formatCompanyName(data.companyName)}"`, bold: true },
         {
           text: ` sebagai pengganti Keputusan yang diambil pada Rapat Umum Pemegang Saham Luar Biasa yang ditandatangani terakhir tertanggal ${tglSirkulerHuruf} (${tglSirkulerAngka}), demikian sah mewakili untuk dan atas nama serta kepentingan `,
         },
-        { text: `PT. ${data.companyName.toUpperCase()}`, bold: true },
+        { text: formatCompanyName(data.companyName), bold: true },
         {
           text: `, perseroan berkedudukan ${toTitleCase(data.newAddress?.city || data.domicile || "...")}, demikian berdasarkan Akta Pendirian tertanggal ${tglPendirianHuruf} (${tglPendirianAngka}), Nomor ${data.establishmentDeedNumber}, telah mendapat pengesahan dari Menteri Hukum dan Hak Asasi Manusia Republik Indonesia tertanggal ${tglSKPendirianHuruf} (${tglSKPendirianAngka}), Nomor ${data.establishmentSkNumber}, dibuat di hadapan ${checkNotaryWording(data.establishmentNotary, data.establishmentNotaryTitle, data.establishmentNotaryDomicile)} dan telah mengalami perubahan berdasarkan akta sebagai berikut :-`,
         },
@@ -392,7 +394,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
         {
           text: `Bahwa para pemegang saham perseroan telah mengambil keputusan berdasarkan Keputusan Sirkuler Para Pemegang Saham `,
         },
-        { text: `PT. ${data.companyName.toUpperCase()}`, bold: true },
+        { text: formatCompanyName(data.companyName), bold: true },
         {
           text: ` sebagai pengganti Keputusan yang diambil pada Rapat Umum Pemegang Saham Luar Biasa yang ditandatangani secara bersama-sama dan/atau dengan cara diedarkan, yang terakhir ditandatangani pada tanggal ${tglSirkulerAngka} (${tglSirkulerHuruf}) bermeterai cukup yang aslinya dilekatkan pada minuta akta ini (selanjutnya akan disebut “Keputusan Sirkuler”);`,
         },
@@ -407,7 +409,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
         {
           text: `Bahwa Keputusan Sirkuler mana telah ditandatangani dan mewakili seluruh saham yang telah dikeluarkan dan disetor penuh (“para pemegang saham”) sampai dengan hari ini, yaitu sebanyak ${formatNumber(totalShares)} (${totalSharesHuruf}) lembar saham atau 100 % (seratus persen) dari saham dalam Perseroan `,
         },
-        { text: `PT. ${data.companyName.toUpperCase()}`, bold: true },
+        { text: formatCompanyName(data.companyName), bold: true },
         { text: ` telah memenuhi kuorum.` },
       ],
     });
@@ -732,7 +734,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
       subNumber: 1,
       runs: [
         { text: `Perseroan ini bernama ` },
-        { text: `"PT. ${newName}"`, bold: true },
+        { text: `"${formatCompanyName(newName)}"`, bold: true },
         {
           text: ` (selanjutnya dalam Anggaran Dasar ini cukup disebut dengan “Perseroan”), berkedudukan di `,
         },

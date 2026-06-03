@@ -156,3 +156,62 @@ export function toTitleCase(str: string): string {
 
   return res;
 }
+
+export function formatCompanyName(name: string): string {
+  if (!name) return "";
+  let cleanName = name.trim();
+  
+  // Remove any existing PT prefix recursively to handle "PT PT name"
+  while (/^pt\.?\b/i.test(cleanName)) {
+    cleanName = cleanName.replace(/^pt\.?\b\s*/i, "").trim();
+  }
+  
+  return `PT. ${cleanName}`.toUpperCase();
+}
+
+export function formatPersonDetails(
+  person: {
+    birthCity?: string;
+    birthDate?: string;
+    nationalityType?: "WNI" | "WNA";
+    nationality?: string;
+    occupation?: string;
+    address?: Address;
+    nik?: string;
+    passportNumber?: string;
+    kitasNumber?: string;
+  },
+  tglLahirAngka: string,
+  tglLahirHuruf: string
+): string {
+  const birthCity = toTitleCase(person.birthCity || "...");
+  const occupation = toTitleCase(person.occupation || "...");
+
+  if (person.nationalityType === "WNA") {
+    // For WNA: Warga Negara Asing, uses passport instead of NIK, and generic address without RT/RW.
+    const addressStr = person.address?.fullAddress
+      ? toTitleCase(person.address.fullAddress)
+      : "...";
+    const pass = person.passportNumber || "...";
+    const nat = person.nationality ? toTitleCase(person.nationality) : "...";
+    
+    let wnaDetails = `, lahir di ${birthCity}, pada tanggal ${tglLahirAngka} (${tglLahirHuruf}), Warga Negara ${nat}, ${occupation}, bertempat tinggal di ${addressStr}, pemegang Paspor Nomor ${pass}`;
+    
+    if (person.kitasNumber && person.kitasNumber.trim() !== "") {
+      wnaDetails += `, serta pemegang Kitas Nomor ${person.kitasNumber}`;
+    }
+    
+    return wnaDetails;
+  } else {
+    // For WNI (Default)
+    const city = toTitleCase(person.address?.city || "...");
+    const fullAddr = formatAddress(toTitleCase(person.address?.fullAddress || "..."));
+    const rt = person.address?.rt || "...";
+    const rw = person.address?.rw || "...";
+    const kel = toTitleCase(person.address?.kelurahan || "...");
+    const kec = toTitleCase(person.address?.kecamatan || "...");
+    const nik = person.nik || "...";
+
+    return `, lahir di ${birthCity}, pada tanggal ${tglLahirAngka} (${tglLahirHuruf}), Warga Negara Indonesia, ${occupation}, bertempat tinggal di ${city}, ${fullAddr}, Rukun Tetangga ${rt}, Rukun Warga ${rw}, Kelurahan ${kel}, Kecamatan ${kec}, pemegang Kartu Tanda Penduduk Nomor ${nik}`;
+  }
+}

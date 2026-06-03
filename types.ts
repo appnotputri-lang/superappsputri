@@ -91,6 +91,8 @@ export interface ManagementItem {
   occupation?: string;
   address?: Address;
   nik?: string;
+  passportNumber?: string;
+  kitasNumber?: string;
   isPresent?: boolean;
 }
 
@@ -246,6 +248,8 @@ export interface CompanyData {
   rupstMeetingEndTime?: string;
   rupstInvitationNumber?: string;
   rupstInvitationDate?: string;
+  rupstAdArticle?: string;
+  rupstAdParagraph?: string;
 
   // Saksi
   saksi1Nama?: string;

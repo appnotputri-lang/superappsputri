@@ -208,6 +208,16 @@ const ShareholderForm: React.FC<Props> = ({
                 className="w-full px-3 py-2 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm"
               />
             </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">Izin Tinggal (Kitas Nomor)</label>
+              <input 
+                type="text" 
+                value={shareholder.kitasNumber || ''} 
+                onChange={e => onChange({ kitasNumber: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm"
+                placeholder="Contoh: 24E28A410488"
+              />
+            </div>
             <div className="md:col-span-2 grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">Tipe Izin Tinggal</label>
@@ -521,34 +531,38 @@ const ShareholderForm: React.FC<Props> = ({
         />
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-2">
-        <div>
-          <label className="block text-xs font-bold text-slate-700 mb-1">Rt</label>
-          <input 
-            type="text" 
-            value={shareholder.address.rt || ''} 
-            onChange={e => updateAddress({ rt: e.target.value })}
-            className="w-full px-3 py-2 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm"
-          />
-        </div>
-        <div>
-          <label className="block text-xs font-bold text-slate-700 mb-1">Rw</label>
-          <input 
-            type="text" 
-            value={shareholder.address.rw || ''} 
-            onChange={e => updateAddress({ rw: e.target.value })}
-            className="w-full px-3 py-2 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm"
-          />
-        </div>
-      </div>
+      {!isWna && (
+        <>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-2">
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">Rt</label>
+              <input 
+                type="text" 
+                value={shareholder.address.rt || ''} 
+                onChange={e => updateAddress({ rt: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">Rw</label>
+              <input 
+                type="text" 
+                value={shareholder.address.rw || ''} 
+                onChange={e => updateAddress({ rw: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm"
+              />
+            </div>
+          </div>
 
-      <div className="mt-2">
-        <IndoRegionSelector 
-          address={shareholder.address} 
-          onUpdate={updateAddress} 
-          hideStreetAndRT={true}
-        />
-      </div>
+          <div className="mt-2">
+            <IndoRegionSelector 
+              address={shareholder.address} 
+              onUpdate={updateAddress} 
+              hideStreetAndRT={true}
+            />
+          </div>
+        </>
+      )}
     </div>
   );
 };

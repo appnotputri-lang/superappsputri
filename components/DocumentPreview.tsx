@@ -11,7 +11,7 @@ import {
   toTitleCase,
   formatAddress
 } from '../utils/formatters';
-import { formatFullAddressData } from '../src/lib/formatter';
+import { formatFullAddressData, formatCompanyName } from '../src/lib/formatter';
 
 interface Props {
   data: CompanyData;
@@ -401,7 +401,7 @@ const DocumentPreview: React.FC<Props> = ({ data, showHeader = true, zoom = 1 })
             <>
               {renderResolutionTitle("Persetujuan Perubahan Nama Perseroan")}
               <div style={{ textAlign: 'justify', paddingLeft: '0.3in', marginBottom: PARA_SPACING }}>
-                Menyetujui dan memutuskan untuk mengubah nama Perseroan, yang semula bernama : PT {data.companyName.toUpperCase()} menjadi bernama : PT {data.targetCompanyName.toUpperCase()}.
+                Menyetujui dan memutuskan untuk mengubah nama Perseroan, yang semula bernama : {formatCompanyName(data.companyName)} menjadi bernama : {formatCompanyName(data.targetCompanyName)}.
               </div>
             </>
           )}

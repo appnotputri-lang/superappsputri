@@ -1,6 +1,6 @@
 import { Document, Packer, Paragraph, TextRun, Tab } from "docx";
 import { CompanyData, Shareholder, Address, ManagementItem } from "../../types";
-import { formatFullAddressData } from "./formatter";
+import { formatFullAddressData, formatCompanyName } from "./formatter";
 import {
   formatCurrency,
   formatInputNumber,
@@ -60,8 +60,8 @@ const getIdentificationStr = (sh: {
 }) => {
   if (sh.nationalityType === "WNA") {
     let idStr = `pemegang Passport No ${sh.passportNumber || "................"}`;
-    if (sh.hasKitas && sh.kitasNumber) {
-      idStr += `, pemegang ${sh.kitasType || "KITAS/KITAP"} No ${sh.kitasNumber}`;
+    if (sh.kitasNumber) {
+      idStr += `, pemegang Kitas Nomor ${sh.kitasNumber}`;
     }
     return idStr;
   }
@@ -260,7 +260,7 @@ export const generateWordDoc = async (data: CompanyData) => {
 
     children.push(
       createBodyParagraph({
-        text: `Kami yang bertandatangan dibawah ini, para Pemegang Saham PT ${data.companyName || "................"}, berkedudukan di ${preambleDomicile} (“Perseroan”), terdiri dari:`,
+        text: `Kami yang bertandatangan dibawah ini, para Pemegang Saham ${formatCompanyName(data.companyName || "................")}, berkedudukan di ${preambleDomicile} (“Perseroan”), terdiri dari:`,
       }),
     );
   }
@@ -859,7 +859,7 @@ export const generateWordDoc = async (data: CompanyData) => {
     addResolution("Persetujuan Perubahan Nama Perseroan", [
       createBodyParagraph({
         indent: { left: INDENT_STEP },
-        text: `Menyetujui dan memutuskan untuk mengubah nama Perseroan, yang semula bernama : PT ${data.companyName.toUpperCase()} menjadi bernama : PT ${data.targetCompanyName.toUpperCase()}.`,
+        text: `Menyetujui dan memutuskan untuk mengubah nama Perseroan, yang semula bernama : ${formatCompanyName(data.companyName)} menjadi bernama : ${formatCompanyName(data.targetCompanyName)}.`,
       }),
     ]);
   }
