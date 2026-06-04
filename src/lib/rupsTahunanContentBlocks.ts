@@ -458,7 +458,7 @@ export const generateRupstBlocks = (data: CompanyData): Block[] => {
         { text: `Mengesahkan Laporan Keuangan Perseroan untuk tahun buku yang berakhir pada tanggal 31 Desember ${data.rupstFiscalYear || "2025"}, sebagaimana dimuat dalam Laporan Keuangan ` },
         { text: formatCompanyName(data.companyName) },
         { text: `${numText} tanggal ${formatDateStr(data.rupstFinancialReportDate || "")}, yang ditandatangani oleh ${signatoryPosition} Perseroan ${signatorySalutation} ${signatoryName}${
-          (data.rupstStatementNeraca !== false || data.rupstStatementLabaRugi !== false || data.rupstStatementPerubahanEkuitas !== false || data.rupstStatementArusKas !== false || data.rupstStatementCatatan !== false || data.rupstStatementNamaAnggota !== false || data.rupstStatementGaji !== false)
+          (data.rupstStatementNeraca === true || data.rupstStatementLabaRugi === true || data.rupstStatementPerubahanEkuitas === true || data.rupstStatementArusKas === true || data.rupstStatementCatatan === true || data.rupstStatementNamaAnggota === true || data.rupstStatementGaji === true)
             ? " yang terdiri dari:"
             : "."
         }` }
@@ -466,30 +466,30 @@ export const generateRupstBlocks = (data: CompanyData): Block[] => {
     }
   );
 
-  if (data.rupstStatementNeraca !== false) {
+  if (data.rupstStatementNeraca === true) {
     blocks.push({ type: "list", bullet: "-", indentTabs: 1, indentStyle: "keputusan", runs: [{ text: "Laporan Keuangan, terlampir dan dilekatkan pada Notulen Rapat Umum Pemegang Saham Tahunan ini." }] });
   }
-  if (data.rupstStatementLabaRugi !== false) {
+  if (data.rupstStatementLabaRugi === true) {
     blocks.push({ type: "list", bullet: "-", indentTabs: 1, indentStyle: "keputusan", runs: [{ text: "Laporan mengenai Kegiatan Perseroan, terlampir dan dilekatkan pada Notulen Rapat Umum Pemegang Saham Tahunan ini." }] });
   }
-  if (data.rupstStatementPerubahanEkuitas !== false) {
+  if (data.rupstStatementPerubahanEkuitas === true) {
     blocks.push({ type: "list", bullet: "-", indentTabs: 1, indentStyle: "keputusan", runs: [{ text: "Laporan Pelaksanaan Tanggung Jawab Sosial dan Lingkungan, terlampir dan dilekatkan pada Notulen Rapat Umum Pemegang Saham Tahunan ini." }] });
   }
-  if (data.rupstStatementArusKas !== false) {
+  if (data.rupstStatementArusKas === true) {
     blocks.push({ type: "list", bullet: "-", indentTabs: 1, indentStyle: "keputusan", runs: [{ text: "Rincian Masalah yang timbul selama tahun buku yang mempengaruhi kegiatan usaha perseroan, terlampir dan dilekatkan pada Notulen Rapat Umum Pemegang Saham Tahunan ini." }] });
   }
-  if (data.rupstStatementCatatan !== false) {
+  if (data.rupstStatementCatatan === true) {
     blocks.push({ type: "list", bullet: "-", indentTabs: 1, indentStyle: "keputusan", runs: [{ text: "Laporan mengenai tugas pengawasan yang telah dilaksanakan oleh Dewan Komisaris selama tahun buku yang baru lampau, terlampir dan dilekatkan pada Notulen Rapat Umum Pemegang Saham Tahunan ini." }] });
   }
-  if (data.rupstStatementNamaAnggota !== false) {
+  if (data.rupstStatementNamaAnggota === true) {
     blocks.push({ type: "list", bullet: "-", indentTabs: 1, indentStyle: "keputusan", runs: [{ text: "Nama Anggota Direksi dan Anggota Dewan Komisaris, terlampir dan dilekatkan pada Notulen Rapat Umum Pemegang Saham Tahunan ini." }] });
   }
-  if (data.rupstStatementGaji !== false) {
+  if (data.rupstStatementGaji === true) {
     blocks.push({ type: "list", bullet: "-", indentTabs: 1, indentStyle: "keputusan", runs: [{ text: "Gaji dan Tunjangan bagi Anggota Direksi dan Gaji atau Honorarium dan Tunjangan bagi Anggota Dewan Komisaris Perseroan untuk Tahun yang baru lampau, terlampir dan dilekatkan pada Notulen Rapat Umum Pemegang Saham Tahunan ini." }] });
   }
 
   // Moved following red block to the end of the sub-agenda list
-  if (data.rupstStatementNeraca !== false || data.rupstStatementLabaRugi !== false || data.rupstStatementPerubahanEkuitas !== false || data.rupstStatementArusKas !== false || data.rupstStatementCatatan !== false || data.rupstStatementNamaAnggota !== false || data.rupstStatementGaji !== false) {
+  if (data.rupstStatementNeraca === true || data.rupstStatementLabaRugi === true || data.rupstStatementPerubahanEkuitas === true || data.rupstStatementArusKas === true || data.rupstStatementCatatan === true || data.rupstStatementNamaAnggota === true || data.rupstStatementGaji === true) {
     blocks.push({
       type: "list",
       bullet: "",
