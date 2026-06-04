@@ -163,22 +163,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
       {
         type: "p",
         align: "center",
-        runs: [{ text: `PERNYATAAN KEPUTUSAN PARA PEMEGANG SAHAM`, bold: true }],
-      },
-      {
-        type: "p",
-        align: "center",
-        runs: [{ text: `YANG DIAMBIL DILUAR RAPAT`, bold: true }],
-      },
-      {
-        type: "p",
-        align: "center",
-        runs: [
-          {
-            text: `SEBAGAI PENGGANTI RAPAT UMUM PEMEGANG SAHAM LUAR BIASA`,
-            bold: true,
-          },
-        ],
+        runs: [{ text: `AKTA PERUBAHAN ANGGARAN DASAR`, bold: true }],
       },
     );
   } else {
@@ -186,12 +171,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
       {
         type: "p",
         align: "center",
-        runs: [{ text: `PERNYATAAN KEPUTUSAN`, bold: true }],
-      },
-      {
-        type: "p",
-        align: "center",
-        runs: [{ text: `RAPAT UMUM PEMEGANG SAHAM LUAR BIASA`, bold: true }],
+        runs: [{ text: `AKTA PERUBAHAN`, bold: true }],
       },
     );
   }

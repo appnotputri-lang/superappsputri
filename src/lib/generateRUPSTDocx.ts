@@ -241,7 +241,7 @@ export const generateRUPSTDocx = async (data: CompanyData) => {
       const border = { style: BorderStyle.SINGLE, size: 4, color: "000000" };
       const borders = {
         top: border, bottom: border, left: border, right: border,
-        insideH: border, insideV: border,
+        insideHorizontal: border, insideVertical: border,
       };
 
       const colCount = block.headers.length;
