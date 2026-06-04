@@ -184,7 +184,7 @@ const DocumentPreview: React.FC<Props> = ({ data, showHeader = true, zoom = 1 })
                 <div key={dIdx} style={{ display: 'flex', alignItems: 'flex-start', paddingLeft: '0.3in', textIndent: '-0.3in', textAlign: 'justify', marginBottom: PARA_SPACING }}>
                   <span style={{ minWidth: '0.3in' }}>-&nbsp;</span>
                   <span style={{ flex: 1 }}>
-                    Akta Pernyataan Keputusan Rapat Umum Para Pemegang Saham Luar Biasa tertanggal {formatDateIndo(deed.date) || '..........'} Nomor {deed.number || '..........'}, yang dibuat di hadapan {deed.notary || '..........'}{deed.notaryTitle ? `, ${deed.notaryTitle}` : ''}, Notaris di {deed.notaryDomicile || data.domicile || '..........'} {skSpParts}
+                    Akta Perubahan tertanggal {formatDateIndo(deed.date) || '..........'} Nomor {deed.number || '..........'}, yang dibuat di hadapan {deed.notary || '..........'}{deed.notaryTitle ? `, ${deed.notaryTitle}` : ''}, Notaris di {deed.notaryDomicile || data.domicile || '..........'} {skSpParts}
                   </span>
                 </div>
               );

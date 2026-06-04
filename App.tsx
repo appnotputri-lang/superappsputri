@@ -1405,20 +1405,12 @@ const App: React.FC = () => {
                   <AhuLabel label="Kedudukan (Kab/Kota)" />
                   <div className="md:col-span-3 flex gap-4 items-center">
                     <div className="flex-1">
-                      <DomicileSelector 
-                        label="Pilih Kota/Kabupaten"
+                      <AhuInput 
+                        placeholder="Contoh: Kota Bandung atau Kabupaten Bandung Barat"
                         value={data.domicile || ''}
-                        onChange={(val) => updateData({ domicile: val })}
+                        onChange={e => updateData({ domicile: e.target.value })}
                       />
                     </div>
-                    <AhuSelect 
-                      className="w-40" 
-                      value={data.domicileStyle} 
-                      onChange={e => updateData({ domicileStyle: e.target.value as 'KOTA' | 'KABUPATEN' })}
-                    >
-                      <option value="KOTA">Kota</option>
-                      <option value="KABUPATEN">Kabupaten</option>
-                    </AhuSelect>
                   </div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
@@ -2069,20 +2061,12 @@ const App: React.FC = () => {
                   <AhuLabel label="Kedudukan (Kab/Kota)" />
                   <div className="md:col-span-3 flex gap-4 items-center">
                     <div className="flex-1">
-                      <DomicileSelector 
-                        label="Pilih Kota/Kabupaten"
+                      <AhuInput 
+                        placeholder="Contoh: Kota Bandung atau Kabupaten Bandung Barat"
                         value={data.domicile || ''}
-                        onChange={(val) => updateData({ domicile: val })}
+                        onChange={e => updateData({ domicile: e.target.value })}
                       />
                     </div>
-                    <AhuSelect 
-                      className="w-40" 
-                      value={data.domicileStyle} 
-                      onChange={e => updateData({ domicileStyle: e.target.value as 'KOTA' | 'KABUPATEN' })}
-                    >
-                      <option value="KOTA">Kota</option>
-                      <option value="KABUPATEN">Kabupaten</option>
-                    </AhuSelect>
                   </div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
@@ -3612,7 +3596,6 @@ const App: React.FC = () => {
                       {isSaving ? 'MENYIMPAN...' : 'SIMPAN RUPST'}
                     </button>
 
-                    <button onClick={() => setIsPreviewOpen(true)} className="hidden md:inline-block px-5 py-2 bg-[#5cb85c] text-white rounded-md text-[13px] font-bold transition-all hover:bg-[#449d44] shadow-sm uppercase">PREVIEW NOTULEN</button>
                     <button 
                       onClick={async () => {
                         try {
@@ -3626,6 +3609,20 @@ const App: React.FC = () => {
                       className="hidden md:flex px-5 py-2 bg-slate-500 text-white rounded-md text-[13px] font-bold transition-all hover:bg-slate-600 shadow-sm uppercase items-center gap-2"
                     >
                        <FileText className="w-4 h-4" /> NOTULEN RUPST DOCX
+                    </button>
+                    <button 
+                      onClick={async () => {
+                        try {
+                          const { generateRUPSTPernyataanDocx } = await import('./src/lib/generateRUPSTPernyataanDocx');
+                          await generateRUPSTPernyataanDocx(mergedData);
+                        } catch (err) {
+                          console.error('Failed to generate Statement RUPST DOCX:', err);
+                          alert('Gagal menghasilkan Surat Pernyataan RUPST DOCX.');
+                        }
+                      }}
+                      className="hidden md:flex px-5 py-2 bg-amber-600 text-white rounded-md text-[13px] font-bold transition-all hover:bg-amber-700 shadow-sm uppercase items-center gap-2"
+                    >
+                       <FileCheck className="w-4 h-4" /> SURAT PERNYATAAN DOCX
                     </button>
                     <button 
                       onClick={async () => {
@@ -4208,12 +4205,12 @@ const App: React.FC = () => {
                     </AhuSection>
                   </div>
                   
-                  {/* PREVIEW AREA (Bottom) */}
-                  <AhuSection title="PREVIEW NOTULEN RUPST" isOpen={false}>
+                  {/* PREVIEW AREA (Bottom) - Removed as per request */}
+                  {/* <AhuSection title="PREVIEW NOTULEN RUPST" isOpen={false}>
                      <div className="bg-slate-100 p-4 rounded min-h-[500px]">
                         <RUPSTDocumentPreview data={mergedData} />
                      </div>
-                  </AhuSection>
+                  </AhuSection> */}
                 </div>
               ) : (
                 <div className="space-y-8">

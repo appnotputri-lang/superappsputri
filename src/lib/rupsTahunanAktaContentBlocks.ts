@@ -130,6 +130,7 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
     { type: "p", align: "center", runs: [{ text: formatCompanyName(data.companyName), bold: true }] },
     { type: "p", align: "center", runs: [{ text: `Nomor : ${effectiveNotaryNumber}` }] },
     { type: "p", runs: [] },
+    { type: "p", runs: [] },
     { type: "p", runs: [{ text: `Pada hari ini, ${tglAktaHari}, tanggal ${tglAktaAngka} (${tglAktaHuruf}).` }] },
     { type: "p", runs: [{ text: `Pukul ${jamStr} WIB (${jamHuruf}).` }] },
     {
@@ -202,7 +203,7 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
     return "AHU-" + rawSk;
   };
 
-  let foundationSentence = `Bahwa pada hari ${tglRapatHari}, tanggal ${tglRapatAngka} (${tglRapatHuruf}), bertempat di ${data.signingPlace || "Kantor Perseroan"}, pukul ${jamRapatStr} WIB (${jamRapatHuruf}) telah diadakan Rapat Umum Pemegang Saham Tahunan Perseroan Terbatas ${formatCompanyName(data.companyName)} (selanjutnya disebut sebagai “Rapat”) Perseroan berkedudukan di ${data.domicileStyle === 'KABUPATEN' ? 'Kabupaten ' : 'Kota '}${toTitleCase(data.domicile || "...")}, demikian berdasarkan Akta Pendirian tertanggal ${establishmentDeedDateText} (${establishmentDeedDateNum}), Nomor ${data.establishmentDeedNumber || "02"} dibuat dihadapan saya, Notaris di ${toTitleCase(data.establishmentNotaryDomicile || "Kabupaten Bandung Barat")} dan telah mendapat pengesahan dari Menteri Hukum dan Hak Asasi Manusia Republik Indonesia berdasarkan Surat Keputusan Nomor ${getSkFormattedNumber()} tertanggal ${dateToWords(data.establishmentSkDate || "")} (${formatDateStr(data.establishmentSkDate || "")});`;
+  let foundationSentence = `Bahwa pada hari ${tglRapatHari}, tanggal ${tglRapatAngka} (${tglRapatHuruf}), bertempat di ${data.signingPlace || "Kantor Perseroan"}, pukul ${jamRapatStr} WIB (${jamRapatHuruf}) telah diadakan Rapat Umum Pemegang Saham Tahunan Perseroan Terbatas ${formatCompanyName(data.companyName)} (selanjutnya disebut sebagai “Rapat”) Perseroan berkedudukan di ${toTitleCase(data.domicile || "...")}, demikian berdasarkan Akta Pendirian tertanggal ${establishmentDeedDateText} (${establishmentDeedDateNum}), Nomor ${data.establishmentDeedNumber || "02"} dibuat dihadapan saya, Notaris di ${toTitleCase(data.establishmentNotaryDomicile || "Kabupaten Bandung Barat")} dan telah mendapat pengesahan dari Menteri Hukum dan Hak Asasi Manusia Republik Indonesia berdasarkan Surat Keputusan Nomor ${getSkFormattedNumber()} tertanggal ${dateToWords(data.establishmentSkDate || "")} (${formatDateStr(data.establishmentSkDate || "")});`;
 
   blocks.push({
     type: "list",

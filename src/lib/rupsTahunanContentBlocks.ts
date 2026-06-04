@@ -70,7 +70,7 @@ export const generateRupstBlocks = (data: CompanyData): Block[] => {
       runs: [
         { text: `Rapat Umum Pemegang Saham Tahunan ` },
         { text: `"${formatCompanyName(data.companyName)}"`, bold: true },
-        { text: ` (selanjutnya disebut sebagai "Rapat") Perseroan yang berkedudukan di ${data.domicileStyle === 'KABUPATEN' ? 'Kabupaten ' : 'Kota '}${toTitleCase(data.domicile || "...")}, demikian berdasarkan Akta Pendirian tertanggal ${dateToWords(data.establishmentDeedDate || "")} (${formatDateStr(data.establishmentDeedDate || "")}), No. ${data.establishmentDeedNumber || "..."}, yang dibuat dihadapan ${data.establishmentNotary || "..."}, Notaris di ${toTitleCase(data.establishmentNotaryDomicile || "...")} dan telah mendapat pengesahan dari Menteri Hukum dan Hak Asasi Manusia Republik Indonesia tertanggal ${dateToWords(data.establishmentSkDate || "")} (${formatDateStr(data.establishmentSkDate || "")}) Nomor ${data.establishmentSkNumber || "..."}${data.amendmentDeeds && data.amendmentDeeds.length > 0 ? ", beberapa kali telah mengalami perubahan, berdasarkan :" : "."}` }
+        { text: ` (selanjutnya disebut sebagai "Rapat") Perseroan yang berkedudukan di ${toTitleCase(data.domicile || "...")}, demikian berdasarkan Akta Pendirian tertanggal ${dateToWords(data.establishmentDeedDate || "")} (${formatDateStr(data.establishmentDeedDate || "")}), No. ${data.establishmentDeedNumber || "..."}, yang dibuat dihadapan ${data.establishmentNotary || "..."}, Notaris di ${toTitleCase(data.establishmentNotaryDomicile || "...")} dan telah mendapat pengesahan dari Menteri Hukum dan Hak Asasi Manusia Republik Indonesia tertanggal ${dateToWords(data.establishmentSkDate || "")} (${formatDateStr(data.establishmentSkDate || "")}) Nomor ${data.establishmentSkNumber || "..."}${data.amendmentDeeds && data.amendmentDeeds.length > 0 ? ", beberapa kali telah mengalami perubahan, berdasarkan :" : "."}` }
       ]
     }
   );
@@ -80,7 +80,7 @@ export const generateRupstBlocks = (data: CompanyData): Block[] => {
       const skDoc = deed.skSpDocuments?.find(d => d.type === 'SK') || (deed.skNumber ? { number: deed.skNumber, date: deed.skDate } : null);
       const spDoc = deed.skSpDocuments?.find(d => d.type === 'SP' || d.type === 'SP_DATA_PERSEROAN' || d.type === 'SP_ANGGARAN_DASAR');
 
-      let textContent = `Akta Pernyataan Keputusan Rapat Umum Para Pemegang Saham Luar Biasa tertanggal ${dateToWords(deed.date)} (${formatDateStr(deed.date)}) Nomor ${deed.number}, yang dibuat di hadapan ${deed.notary}${deed.notaryTitle ? `, ${deed.notaryTitle}` : ""}, Notaris di ${deed.notaryDomicile}`;
+      let textContent = `Akta Perubahan tertanggal ${dateToWords(deed.date)} (${formatDateStr(deed.date)}) Nomor ${deed.number}, yang dibuat di hadapan ${deed.notary}${deed.notaryTitle ? `, ${deed.notaryTitle}` : ""}, Notaris di ${deed.notaryDomicile}`;
 
       if (skDoc && skDoc.number) {
         textContent += ` dan telah mendapat persetujuan dari Kementerian Hukum dan Hak Asasi Manusia Republik Indonesia tertanggal ${dateToWords(skDoc.date)} Nomor ${skDoc.number}`;

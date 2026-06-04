@@ -740,7 +740,7 @@ export const generateWordDoc = async (data: CompanyData) => {
             children: [
               new TextRun({ text: "- ", size: FONT_SIZE, font: FONT_FAMILY }),
               new TextRun({
-                text: "Akta Pernyataan Keputusan Rapat Umum Para Pemegang Saham Luar Biasa tertanggal ",
+                text: "Akta Perubahan tertanggal ",
                 size: FONT_SIZE,
                 font: FONT_FAMILY,
               }),

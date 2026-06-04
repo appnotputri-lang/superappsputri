@@ -254,7 +254,7 @@ export const generateWordDoc = async (data: CompanyData) => {
             numbering: { reference: "deed-num", level: 0 },
             indent: { left: 426 },
             children: [
-              mkRun(`Akta Pernyataan Keputusan Rapat Umum Para Pemegang Saham Luar Biasa tertanggal ${formatDateIndo(deed.date) || ".........."} Nomor ${deed.number || ".........."}, yang dibuat di hadapan ${deed.notary || ".........."}${deed.notaryTitle ? `, ${deed.notaryTitle}` : ""}, Notaris di ${deed.notaryDomicile || data.domicile || ".........."} ${skSpParts}`),
+              mkRun(`Akta Perubahan tertanggal ${formatDateIndo(deed.date) || ".........."} Nomor ${deed.number || ".........."}, yang dibuat di hadapan ${deed.notary || ".........."}${deed.notaryTitle ? `, ${deed.notaryTitle}` : ""}, Notaris di ${deed.notaryDomicile || data.domicile || ".........."} ${skSpParts}`),
             ],
           }),
         );
