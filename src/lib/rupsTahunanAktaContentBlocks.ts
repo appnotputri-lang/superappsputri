@@ -19,6 +19,7 @@ export type Block =
       runs: FormatToken[];
       align?: "left" | "center" | "right" | "right-center";
       indent?: boolean;
+      indentLeft?: number;
       indentTabs?: number;
       spaceAfter?: boolean;
       number?: number;
@@ -87,14 +88,15 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
   // Rep details (Usually the person appearing before the Notary to state the resolutions)
   let rep: any;
   if (data.representativeType === "EXISTING") {
-    rep = data.shareholders.find(s => s.id === data.authorizedRepresentativeId) ||
-          data.finalShareholders.find(s => s.id === data.authorizedRepresentativeId);
-  } else if (data.representativeType === "MANUAL" && data.manualRepresentative) {
+    const found = data.shareholders.find((s) => s.id === data.authorizedRepresentativeId);
+    if (found) {
+      rep = (found.isProxy && found.proxyData) ? found.proxyData : found;
+    } else {
+      const chairSh = data.shareholders.find(s => (s.name || "").toUpperCase() === (data.meetingChair || "").toUpperCase());
+      rep = (chairSh?.isProxy && chairSh.proxyData) ? chairSh.proxyData : (chairSh || data.shareholders[0]);
+    }
+  } else {
     rep = data.manualRepresentative;
-  }
-  if (!rep) {
-    const chairSh = data.shareholders.find(s => (s.name || "").toUpperCase() === (data.meetingChair || "").toUpperCase());
-    rep = (chairSh?.isProxy && chairSh.proxyData) ? chairSh.proxyData : (chairSh || data.shareholders[0]);
   }
 
   const fullyDescribedNames = new Set<string>();
@@ -157,7 +159,7 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
       blocks.push({
         type: "list",
         bullet: "-",
-        indentTabs: 0.5,
+        indentTabs: 0.3,
         runs: [{ text: `Untuk sementara berada di ${toTitleCase(data.notaryDomicile || "Kabupaten Bandung Barat")};` }]
       });
     }
@@ -165,14 +167,14 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
     blocks.push({
       type: "list",
       bullet: "-",
-      indentTabs: 0.5,
+      indentTabs: 0.3,
       runs: [{ text: "Dalam hal ini hadir selaku kuasa sebagaimana yang tertera dalam risalah Rapat Perseroan yang akan diuraikan di bawah ini." }]
     });
 
     blocks.push({
       type: "list",
       bullet: "-",
-      indentTabs: 0.5,
+      indentTabs: 0.3,
       runs: [{ text: "Penghadap telah memperkenalkan diri kepada saya, Notaris." }]
     });
   }
@@ -204,7 +206,7 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
   blocks.push({
     type: "list",
     bullet: "-",
-    indentTabs: 0.5,
+    indentTabs: 0.3,
     runs: [{ text: foundationSentence }]
   });
 
@@ -570,30 +572,36 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
     {
       type: "list",
       bullet: "-",
-      indentTabs: 1.0,
+      indentTabs: 0.9,
+      runs: [{ text: `Pernyataan Direksi dan Komisaris serta Para Pemegang Saham Perseroan mengenai status Perseroan yang Laporan Keuangannya tidak memenuhi ketentuan wajib audit oleh Akuntan Publik;` }]
+    },
+    {
+      type: "list",
+      bullet: "-",
+      indentTabs: 0.9,
       runs: [{ text: `Persetujuan Laporan Tahunan Perseroan Tahun Buku ${data.rupstFiscalYear || "2025"};` }]
     },
     {
       type: "list",
       bullet: "-",
-      indentTabs: 1.0,
+      indentTabs: 0.9,
       runs: [{ text: `Pengesahan Laporan Keuangan Perseroan Tahun Buku ${data.rupstFiscalYear || "2025"};` }]
     },
     {
       type: "list",
       bullet: "-",
-      indentTabs: 1.0,
+      indentTabs: 0.9,
       runs: [{ text: "Penetapan penggunaan laba bersih Perseroan;" }]
     },
     {
       type: "list",
       bullet: "-",
-      indentTabs: 1.0,
+      indentTabs: 0.9,
       runs: [{ text: "Pemberian pelunasan dan pembebasan tanggung jawab sepenuhnya (acquit et de charge) kepada Direksi dan Komisaris." }]
     }
   );
 
-  // 4. Decisions (5 main points to match the PDF exactly)
+  // 4. Decisions
   blocks.push(
     {
       type: "p",
@@ -605,10 +613,43 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
   blocks.push({
     type: "p",
     number: 1,
-    runs: [{ text: `Menyetujui dan menerima dengan baik Laporan Laporan Tahunan Perseroan untuk tahun buku yang berakhir pada tanggal 31 Desember ${data.rupstFiscalYear || "2025"};` }]
+    runs: [{ text: `Menyetujui Pernyataan Direksi dan Komisaris serta Para Pemegang Saham Perseroan ${formatCompanyName(data.companyName)} yang menyatakan bahwa status perseroan ini merupakan PT. Tertutup yang Laporan Keuangannya Tidak Memenuhi Ketentuan Wajib Audit oleh Akuntan Publik dengan alasan sebagai berikut:` }]
   });
 
+  let subBulletLetter = 97; // 'a'
+  const advanceLetter = () => {
+    const char = String.fromCharCode(subBulletLetter);
+    subBulletLetter++;
+    return char + ".";
+  };
+
+  if (data.rupstAlasanAuditA !== false) {
+    blocks.push({ type: "list", bullet: advanceLetter(), indentTabs: 1.0, runs: [{ text: "Kegiatan Usaha Perseroan tidak menghimpun dan/atau mengelola dana masyarakat." }] });
+  }
+  if (data.rupstAlasanAuditB !== false) {
+    blocks.push({ type: "list", bullet: advanceLetter(), indentTabs: 1.0, runs: [{ text: "Perseroan tidak menerbitkan surat pengakuan utang kepada masyarakat." }] });
+  }
+  if (data.rupstAlasanAuditC !== false) {
+    blocks.push({ type: "list", bullet: advanceLetter(), indentTabs: 1.0, runs: [{ text: "Perseroan tidak merupakan Perseroan Terbuka (Tbk)." }] });
+  }
+  if (data.rupstAlasanAuditD !== false) {
+    blocks.push({ type: "list", bullet: advanceLetter(), indentTabs: 1.0, runs: [{ text: "Perseroan tidak merupakan Persero." }] });
+  }
+  if (data.rupstAlasanAuditE !== false) {
+    blocks.push({ type: "list", bullet: advanceLetter(), indentTabs: 1.0, runs: [{ text: "Aset dan/atau jumlah peredaran usaha tidak lebih dari 50 Milyar, atau" }] });
+  }
+  if (data.rupstAlasanAuditF !== false) {
+    blocks.push({ type: "list", bullet: advanceLetter(), indentTabs: 1.0, runs: [{ text: "Tidak diwajibkan oleh peraturan perundang-undangan." }] });
+  }
+
   // Decision 2
+  blocks.push({
+    type: "p",
+    number: 2,
+    runs: [{ text: `Menyetujui dan menerima dengan baik Laporan Tahunan Perseroan untuk tahun buku yang berakhir pada tanggal 31 Desember ${data.rupstFiscalYear || "2025"};` }]
+  });
+
+  // Decision 3
   const signatorySh = data.shareholders.find(s => s.name === data.rupstFinancialReportSignatoryName);
   const signatorySalutation = signatorySh?.salutation || "Tuan";
   const signatoryName = data.rupstFinancialReportSignatoryName || rep?.name || "RAJANDRAN SHUNMUGAM";
@@ -619,30 +660,50 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
 
   blocks.push({
     type: "p",
-    number: 2,
+    number: 3,
     runs: [
-      { text: `Mengesahkan Laporan Keuangan Perseroan untuk tahun buku yang berakhir pada tanggal 31 Desember ${data.rupstFiscalYear || "2025"}, sebagaimana dimuat dalam Laporan Keuangan PT. JUBILEE TOKYO JEWELRY tertanggal ${financialRepDateText} (${financialRepDateNum}), yang ditandatangani Direktur Perseroan Tuan ` },
+      { text: `Mengesahkan Laporan Keuangan Perseroan untuk tahun buku yang berakhir pada tanggal 31 Desember ${data.rupstFiscalYear || "2025"}, sebagaimana dimuat dalam Laporan Keuangan ${formatCompanyName(data.companyName)} tertanggal ${financialRepDateText} (${financialRepDateNum}), yang ditandatangani ${signatoryPosition} Perseroan ${signatorySalutation} ` },
       { text: signatoryName.toUpperCase(), bold: true },
-      { text: `, penghadap tersebut di atas, yang terdiri dari:` }
+      { text: `${(data.rupstStatementNeraca !== false || data.rupstStatementLabaRugi !== false || data.rupstStatementPerubahanEkuitas !== false || data.rupstStatementArusKas !== false || data.rupstStatementCatatan !== false || data.rupstStatementNamaAnggota !== false || data.rupstStatementGaji !== false) ? " yang terdiri dari:" : "."}` }
     ]
   });
 
-  blocks.push(
-    {
-      type: "list",
-      bullet: "-",
-      indentTabs: 1.0,
-      runs: [{ text: "Laporan Posisi Keuangan (Neraca);" }]
-    },
-    {
-      type: "list",
-      bullet: "-",
-      indentTabs: 1.0,
-      runs: [{ text: "Laporan Laba Rugi;" }]
-    }
-  );
+  if (data.rupstStatementNeraca !== false) {
+    blocks.push({ type: "list", bullet: "-", indentTabs: 1.0, runs: [{ text: "Laporan Keuangan, terlampir dan dilekatkan pada Notulen Rapat Umum Pemegang Saham Tahunan ini." }] });
+  }
+  if (data.rupstStatementLabaRugi !== false) {
+    blocks.push({ type: "list", bullet: "-", indentTabs: 1.0, runs: [{ text: "Laporan mengenai Kegiatan Perseroan, terlampir dan dilekatkan pada Notulen Rapat Umum Pemegang Saham Tahunan ini." }] });
+  }
+  if (data.rupstStatementPerubahanEkuitas !== false) {
+    blocks.push({ type: "list", bullet: "-", indentTabs: 1.0, runs: [{ text: "Laporan Pelaksanaan Tanggung Jawab Sosial dan Lingkungan, terlampir dan dilekatkan pada Notulen Rapat Umum Pemegang Saham Tahunan ini." }] });
+  }
+  if (data.rupstStatementArusKas !== false) {
+    blocks.push({ type: "list", bullet: "-", indentTabs: 1.0, runs: [{ text: "Rincian Masalah yang timbul selama tahun buku yang mempengaruhi kegiatan usaha perseroan, terlampir dan dilekatkan pada Notulen Rapat Umum Pemegang Saham Tahunan ini." }] });
+  }
+  if (data.rupstStatementCatatan !== false) {
+    blocks.push({ type: "list", bullet: "-", indentTabs: 1.0, runs: [{ text: "Laporan mengenai tugas pengawasan yang telah dilaksanakan oleh Dewan Komisaris selama tahun buku yang baru lampau, terlampir dan dilekatkan pada Notulen Rapat Umum Pemegang Saham Tahunan ini." }] });
+  }
+  if (data.rupstStatementNamaAnggota !== false) {
+    blocks.push({ type: "list", bullet: "-", indentTabs: 1.0, runs: [{ text: "Nama Anggota Direksi dan Anggota Dewan Komisaris, terlampir dan dilekatkan pada Notulen Rapat Umum Pemegang Saham Tahunan ini." }] });
+  }
+  if (data.rupstStatementGaji !== false) {
+    blocks.push({ type: "list", bullet: "-", indentTabs: 1.0, runs: [{ text: "Gaji dan Tunjangan bagi Anggota Direksi dan Gaji atau Honorarium dan Tunjangan bagi Anggota Dewan Komisaris Perseroan untuk Tahun yang baru lampau, terlampir dan dilekatkan pada Notulen Rapat Umum Pemegang Saham Tahunan ini." }] });
+  }
 
-  // Decision 3 - Net profit/dividend distribution
+  // Moved following red block to the end of the sub-agenda list
+  if (data.rupstStatementNeraca !== false || data.rupstStatementLabaRugi !== false || data.rupstStatementPerubahanEkuitas !== false || data.rupstStatementArusKas !== false || data.rupstStatementCatatan !== false || data.rupstStatementNamaAnggota !== false || data.rupstStatementGaji !== false) {
+    blocks.push({
+      type: "list",
+      bullet: "",
+      indentTabs: 1.0,
+      runs: [{ 
+        text: "Direksi dan Komisaris serta Para Pemegang Saham Perseroan menyatakan bertanggung jawab penuh atas Kebenaran Informasi dan Tanda Tangan pada seluruh Lampiran Laporan terlampir dan dilekatkan pada Keputusan Para Pemegang Saham ini.",
+        color: "FF0000"
+      }]
+    });
+  }
+
+  // Decision 4 - Net profit/dividend distribution
   const netProfitColor = (data.rupstNetProfit !== undefined && data.rupstNetProfit !== null) ? undefined : "FF0000";
   let netProfitDisplay = "[ISI DENGAN NILAI LABA BERSIH DI NOTULEN RUPS TAHUNAN]";
   if (data.rupstNetProfit !== undefined && data.rupstNetProfit !== null) {
@@ -665,17 +726,26 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
 
     blocks.push({
       type: "p",
-      number: 3,
+      number: 4,
       runs: [
         { text: `Menetapkan penggunaan laba bersih Perseroan tahun buku ${data.rupstFiscalYear || "2025"} sebesar ` },
         { text: netProfitDisplayPositive, color: netProfitColor },
-        { text: `, sehubungan dengan hal tersebut, Perseroan mengalami rugi bersih, sehingga tidak membagikan dividen kepada para pemegang saham, dan rugi bersih tahun berjalan dicatat sebagai saldo rugi ditahan Perseroan untuk mendukung kegiatan usaha Perseroan.` }
+        { text: ";" }
+      ]
+    });
+
+    blocks.push({
+      type: "list",
+      bullet: "",
+      indentTabs: 1.0,
+      runs: [
+        { text: `sehubungan dengan hal tersebut, Perseroan mengalami rugi bersih, sehingga tidak membagikan dividen kepada para pemegang saham, dan rugi bersih tahun berjalan dicatat sebagai saldo rugi ditahan Perseroan untuk mendukung kegiatan usaha Perseroan.` }
       ]
     });
   } else {
     blocks.push({
       type: "p",
-      number: 3,
+      number: 4,
       runs: [
         { text: `Menetapkan penggunaan laba bersih Perseroan tahun buku ${data.rupstFiscalYear || "2025"} sebesar ` },
         { text: netProfitDisplay, color: netProfitColor },
@@ -703,17 +773,17 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
     );
   }
 
-  // Decision 4
-  blocks.push({
-    type: "p",
-    number: 4,
-    runs: [{ text: `Memberikan pelunasan dan pembebasan tanggung jawab sepenuhnya (acquit et de charge) kepada Direksi dan Komisaris Perseroan atas tindakan pengurusan dan pengawasan yang telah dijalankan selama tahun buku ${data.rupstFiscalYear || "2025"}, sejauh tindakan tersebut tercermin dalam Laporan Tahunan dan Laporan Keuangan Perseroan;` }]
-  });
-
   // Decision 5
   blocks.push({
     type: "p",
     number: 5,
+    runs: [{ text: `Memberikan pelunasan dan pembebasan tanggung jawab sepenuhnya (acquit et de charge) kepada Direksi dan Komisaris Perseroan atas tindakan pengurusan dan pengawasan yang telah dijalankan selama tahun buku ${data.rupstFiscalYear || "2025"}, sejauh tindakan tersebut tercermin dalam Laporan Tahunan dan Laporan Keuangan Perseroan;` }]
+  });
+
+  // Decision 6
+  blocks.push({
+    type: "p",
+    number: 6,
     runs: [
       { text: "Memberikan kuasa kepada Tuan " },
       { text: (data.meetingChair || rep?.name || "RAJANDRAN SHUNMUGAM").toUpperCase(), bold: true },
@@ -800,10 +870,12 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
     },
     {
       type: "p",
+      indentLeft: 426,
       runs: [{ text: "Minuta Akta ini telah ditanda-tangani dengan sempurna." }]
     },
     {
       type: "p",
+      indentLeft: 993,
       runs: [{ text: "Diberikan sebagai salinan yang sama bunyinya." }]
     }
   );

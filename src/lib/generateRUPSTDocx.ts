@@ -1,268 +1,211 @@
 import {
   Document, Packer, Paragraph, TextRun,
-  AlignmentType, TabStopType, LeaderType,
+  AlignmentType, TabStopType,
   IParagraphOptions, Footer, PageNumber,
-  Table, TableRow, TableCell, WidthType, PageBreak,
+  Table, TableRow, TableCell, WidthType, BorderStyle, PageBreak,
+  LevelFormat,
 } from "docx";
 import { saveAs } from "file-saver";
 import { CompanyData } from "../../types";
 import { FormatToken, parseTextRuns } from "./notaryWrapper";
 import { generateRupstBlocks } from "./rupsTahunanContentBlocks";
 
-// ─── Tab stop kanan dengan leader hyphen — dipakai di SEMUA paragraf ───────────
-// XML: <w:tab w:val="right" w:leader="hyphen" w:pos="8504"/>
-const TAB_KANAN = { type: TabStopType.RIGHT, position: 8504, leader: LeaderType.HYPHEN };
-
-// ─── Lebar teks (em) untuk word-wrap, disesuaikan per level indent ─────────────
+// Content widths in cm (for line-wrap estimation)
+// A4 margins left=2268 right=1134 → content = 11906-2268-1134 = 8504 DXA ≈ 14.97cm
 const W = {
-  normal:   41.5,  // paragraf normal (tanpa indent)
-  list05:   39.5,  // indentTabs=0.5 → left=284
-  list10:   37.5,  // indentTabs=1.0 → left=567
-  list15:   37.5,  // indentTabs=1.5 → left=567
-  list20:   36.0,  // indentTabs=2.0 → left=993
-  list25:   36.0,  // indentTabs=2.5 → left=993
-  list30:   34.0,  // indentTabs=3.0 → left=1418
-  numbered: 38.5,  // "p" number≥1   → left=284, tabLeft=720
-  saksi:    39.5,  // saksi          → left=426
+  normal: 41.5,
+  // Peserta rapat indent levels (567/1134/1701)
+  peserta0: 39.5,  // left=567
+  peserta1: 37.5,  // left=1134
+  peserta2: 35.5,  // left=1701
+  // Keputusan indent levels (426/851)
+  kep0: 40.0,      // left=426
+  kep1: 38.0,      // left=851
 };
 
-// ─── Helper: buat TextRun dari token ──────────────────────────────────────────
-const makeRun = (t: FormatToken) => new TextRun({
-  text: t.text,
-  bold: t.bold,
-  italics: t.italic,
-  underline: t.underline ? {} : undefined,
-  color: t.color,
-  size: t.size ? t.size * 2 : undefined,
-});
+// Indent levels for PESERTA RAPAT and AGENDA items (567-based)
+// level 0: "1." "2." "-"  → left=567, hanging=567
+// level 1: "-" "a." "b."  → left=1134, hanging=567
+// level 2: "a." "b."      → left=1701, hanging=567
+const INDENT_PESERTA = [
+  { left: 567,  hanging: 567 },
+  { left: 1134, hanging: 567 },
+  { left: 1701, hanging: 567 },
+];
 
-// ─── Paragraf normal (tanpa indent, dengan tab kanan) ─────────────────────────
-// XML: <w:tabs><w:tab w:val="right" w:leader="hyphen" w:pos="8504"/></w:tabs>
+// Indent levels for KEPUTUSAN items — use MS Word numbering (numId) to match reference exactly.
+// level 0: numbered "1." → numRef="kep-decimal", left=426, hanging=360
+// level 1 letter: "a."  → numRef="kep-letter",  left=851, hanging=360
+// level 1 dash: "-"     → numRef="kep-dash",    left=851, hanging=360
+const KEP_NUM = {
+  decimal: "kep-decimal",
+  letter:  "kep-letter",
+  dash:    "kep-dash",
+};
+
+// Numbering config matching reference document exactly:
+// - kep-decimal: 1. 2. 3.  left=426 hanging=360 (number at ~66, text at 426)
+// - kep-letter:  a. b. c.  left=851 hanging=360 (letter at ~491, text at 851)
+// - kep-dash:    -         left=851 hanging=360 (dash at ~491, text at 851)
+const NUMBERING_CONFIG = [
+  {
+    reference: KEP_NUM.decimal,
+    levels: [{
+      level: 0,
+      format: LevelFormat.DECIMAL,
+      text: "%1.",
+      alignment: AlignmentType.LEFT,
+      style: { paragraph: { indent: { left: 426, hanging: 426 } } },
+    }],
+  },
+  {
+    reference: KEP_NUM.letter,
+    levels: [{
+      level: 0,
+      format: LevelFormat.LOWER_LETTER,
+      text: "%1.",
+      alignment: AlignmentType.LEFT,
+      style: { paragraph: { indent: { left: 852, hanging: 426 } } },
+    }],
+  },
+  {
+    reference: KEP_NUM.dash,
+    levels: [{
+      level: 0,
+      format: LevelFormat.BULLET,
+      text: "-",
+      alignment: AlignmentType.LEFT,
+      style: { paragraph: { indent: { left: 852, hanging: 426 } } },
+    }],
+  },
+];
+
 const createP = (
   tokens: FormatToken[],
   options: Omit<IParagraphOptions, "children"> = {}
 ): Paragraph => {
-  const isCentered = options.alignment === AlignmentType.CENTER;
   const lines = parseTextRuns(tokens, W.normal);
   const children: any[] = [];
 
   lines.forEach((lineTokens, i) => {
-    lineTokens.forEach((t) => children.push(makeRun(t)));
-    if (!isCentered) children.push(new TextRun({ text: "\t" }));
+    lineTokens.forEach((t) => {
+      const runOptions = {
+        text: "",
+        bold: t.bold,
+        italics: t.italic,
+        underline: t.underline ? {} : undefined,
+        color: t.color,
+        size: t.size ? t.size * 2 : undefined,
+      };
+
+      if (t.text.includes("\t")) {
+        const parts = t.text.split("\t");
+        parts.forEach((part, pIdx) => {
+          children.push(new TextRun({ ...runOptions, text: part }));
+          if (pIdx < parts.length - 1) {
+            children.push(new TextRun({ text: "\t" }));
+          }
+        });
+      } else {
+        children.push(new TextRun({ ...runOptions, text: t.text }));
+      }
+    });
     if (i < lines.length - 1) children.push(new TextRun({ break: 1 }));
   });
 
-  return new Paragraph({
-    children,
-    tabStops: isCentered ? [] : [TAB_KANAN],
-    alignment: AlignmentType.LEFT,
-    ...options,
-  });
-};
-
-// ─── Paragraf bernomor (keputusan 1–5 dan attendee list) ─────────────────────
-// XML: <w:ind w:left="284" w:hanging="284"/>
-//      <w:tab w:val="left" w:pos="720"/>
-//      <w:tab w:val="right" w:leader="hyphen" w:pos="8504"/>
-const createNumberedP = (
-  num: number | string,
-  tokens: FormatToken[],
-  options: Omit<IParagraphOptions, "children"> = {}
-): Paragraph => {
-  const lines = parseTextRuns(tokens, W.numbered);
-  const children: any[] = [];
-
-  lines.forEach((lineTokens, i) => {
-    if (i === 0) children.push(new TextRun({ text: `${num}.\t` }));
-    lineTokens.forEach((t) => children.push(makeRun(t)));
-    children.push(new TextRun({ text: "\t" }));
-    if (i < lines.length - 1) children.push(new TextRun({ break: 1 }));
-  });
-
-  return new Paragraph({
-    children,
-    tabStops: [
-      { type: TabStopType.LEFT, position: 720 },
-      TAB_KANAN,
-    ],
-    alignment: AlignmentType.LEFT,
-    indent: { left: 284, hanging: 284 },
-    ...options,
-  });
-};
-
-// ─── Paragraf bernomor — varian B: WNA / teks uraian panjang ─────────────────
-// XML: <w:ind w:left="709" w:hanging="425"/>
-//      <w:tab w:val="left" w:pos="720"/>
-//      <w:tab w:val="right" w:leader="hyphen" w:pos="8504"/>
-const createNumberedPWna = (
-  num: number | string,
-  tokens: FormatToken[],
-  options: Omit<IParagraphOptions, "children"> = {}
-): Paragraph => {
-  const lines = parseTextRuns(tokens, W.numbered);
-  const children: any[] = [];
-
-  lines.forEach((lineTokens, i) => {
-    if (i === 0) children.push(new TextRun({ text: `${num}.\t` }));
-    lineTokens.forEach((t) => children.push(makeRun(t)));
-    children.push(new TextRun({ text: "\t" }));
-    if (i < lines.length - 1) children.push(new TextRun({ break: 1 }));
-  });
-
-  return new Paragraph({
-    children,
-    tabStops: [
-      { type: TabStopType.LEFT, position: 720 },
-      TAB_KANAN,
-    ],
-    alignment: AlignmentType.LEFT,
-    indent: { left: 709, hanging: 425 },
-    ...options,
-  });
-};
-
-// ─── List "-" dengan berbagai level indent ────────────────────────────────────
-// Mapping indentTabs → nilai DXA (100% dari XML Contohrupst.docx):
-//
-//  0.5 → left=284,  hanging=284, tabLeft=284,  rightTab=8504
-//  1.0 → left=567,  hanging=283, tabLeft=567,  rightTab=8504
-//  1.5 → left=567,  hanging=284, tabLeft=284,  rightTab=8504
-//  2.0 → left=993,  hanging=284, TANPA tabLeft, rightTab=8504
-//  2.5 → left=993,  no-hang,    tabLeft=284,   rightTab=8504  ("Hadir selaku :")
-//  3.0 → left=1418, no-hang,    tabLeft=567,   rightTab=8504  (a. b. c.)
-//  0   → left=720,  hanging=360, tabLeft=720,   rightTab=8504  (numId=3/5, Laporan Keuangan / saksi footer)
-const createListP = (
-  bulletText: string,
-  tokens: FormatToken[],
-  indentTabs: number = 0.5,
-  options: Omit<IParagraphOptions, "children"> = {}
-): Paragraph => {
-  let leftDxa: number;
-  let hangingDxa: number | undefined;
-  let tabLeftDxa: number | undefined;
-  let maxW: number;
-
-  if (indentTabs === 0) {
-    // numId=3/5 style: left=720, hanging=360, tabLeft=720
-    leftDxa = 720; hangingDxa = 360; tabLeftDxa = 720; maxW = W.list10;
-  } else if (indentTabs <= 0.6) {
-    // 0.5 → left=284, hanging=284, tabLeft=284
-    leftDxa = 284; hangingDxa = 284; tabLeftDxa = 284; maxW = W.list05;
-  } else if (indentTabs <= 1.1) {
-    // 1.0 → left=567, hanging=283, tabLeft=567
-    leftDxa = 567; hangingDxa = 283; tabLeftDxa = 567; maxW = W.list10;
-  } else if (indentTabs <= 1.6) {
-    // 1.5 → left=567, hanging=284, tabLeft=284
-    leftDxa = 567; hangingDxa = 284; tabLeftDxa = 284; maxW = W.list15;
-  } else if (indentTabs <= 2.1) {
-    // 2.0 → left=993, hanging=284, TANPA tabLeft
-    leftDxa = 993; hangingDxa = 284; tabLeftDxa = undefined; maxW = W.list20;
-  } else if (indentTabs <= 2.6) {
-    // 2.5 → left=993, no hanging, tabLeft=284  ("Hadir selaku :")
-    leftDxa = 993; hangingDxa = undefined; tabLeftDxa = 284; maxW = W.list25;
-  } else {
-    // 3.0 → left=1418, no hanging, tabLeft=567  (a. b. c.)
-    leftDxa = 1418; hangingDxa = undefined; tabLeftDxa = 567; maxW = W.list30;
+  // Single tab stop at 2400 for "Hari/Tanggal : ..." style paragraphs
+  const tabStops = [];
+  if (tokens.some((t) => t.text.includes("\t"))) {
+    tabStops.push({ type: TabStopType.LEFT, position: 2400 });
   }
-
-  const lines = parseTextRuns(tokens, maxW);
-  const children: any[] = [];
-
-  lines.forEach((lineTokens, i) => {
-    if (i === 0) children.push(new TextRun({ text: `${bulletText}\t` }));
-    lineTokens.forEach((t) => children.push(makeRun(t)));
-    children.push(new TextRun({ text: "\t" }));
-    if (i < lines.length - 1) children.push(new TextRun({ break: 1 }));
-  });
-
-  const tabStops: any[] = [];
-  if (tabLeftDxa !== undefined) {
-    tabStops.push({ type: TabStopType.LEFT, position: tabLeftDxa });
-  }
-  tabStops.push(TAB_KANAN);
 
   return new Paragraph({
     children,
     tabStops,
-    alignment: AlignmentType.LEFT,
-    indent: {
-      left: leftDxa,
-      ...(hangingDxa !== undefined ? { hanging: hangingDxa } : {}),
-    },
+    alignment: options.alignment || AlignmentType.JUSTIFIED,
     ...options,
   });
 };
 
-// ─── Saksi (witness) paragraf ─────────────────────────────────────────────────
-// XML: <w:ind w:left="426" w:hanging="360"/>
-//      <w:tab w:val="right" w:leader="hyphen" w:pos="8504"/>  (TANPA tabLeft)
-const createSaksiP = (
-  num: number,
-  tokens: FormatToken[]
+const createListP = (
+  bulletText: string,
+  tokens: FormatToken[],
+  indentTabs: number = 0,
+  indentStyle?: "keputusan",
+  options: Omit<IParagraphOptions, "children"> = {}
 ): Paragraph => {
-  const lines = parseTextRuns(tokens, W.saksi);
-  const children: any[] = [];
+  const isKeputusan = indentStyle === "keputusan";
+  const level = Math.min(indentTabs, isKeputusan ? 1 : 2);
 
-  lines.forEach((lineTokens, i) => {
-    if (i === 0) children.push(new TextRun({ text: `${num}.\t` }));
-    lineTokens.forEach((t) => children.push(makeRun(t)));
-    children.push(new TextRun({ text: "\t" }));
-    if (i < lines.length - 1) children.push(new TextRun({ break: 1 }));
-  });
+  // Helper: build flat TextRun children from tokens (no line-splitting — let Word wrap natively)
+  const buildRuns = (toks: FormatToken[]): TextRun[] =>
+    toks.map(t => new TextRun({
+      text: t.text,
+      bold: t.bold,
+      italics: t.italic,
+      underline: t.underline ? {} : undefined,
+      color: t.color,
+      size: t.size ? t.size * 2 : undefined,
+    }));
+
+  // KEPUTUSAN items: use MS Word numbering (numId) — matches reference exactly
+  if (isKeputusan) {
+    // Empty bullet = plain paragraph with same indent as bulleted item text, no numbering
+    if (!bulletText) {
+      const leftDxa = 426 * (level + 1);
+      return new Paragraph({
+        children: buildRuns(tokens),
+        alignment: AlignmentType.JUSTIFIED,
+        indent: { left: leftDxa },
+        ...options,
+      });
+    }
+
+    let numRef: string;
+    if (level === 0) {
+      numRef = KEP_NUM.decimal;
+    } else if (bulletText === "-") {
+      numRef = KEP_NUM.dash;
+    } else {
+      numRef = KEP_NUM.letter;
+    }
+
+    return new Paragraph({
+      children: buildRuns(tokens),
+      numbering: { reference: numRef, level: 0 },
+      alignment: AlignmentType.JUSTIFIED,
+      ...options,
+    });
+  }
+
+  // PESERTA / AGENDA items: matches reference XML exactly.
+  // Structure: run("1.") → run(w:tab + "Tuan ") → run("RAJANDRAN") → ...
+  // Tab stop at position=left, hanging indent so bullet starts at 0.
+  const { left: leftDxa, hanging: hangingDxa } = INDENT_PESERTA[level];
+  const children: TextRun[] = [];
+
+  // Run 1: bullet text only ("1." / "-" / "a.")
+  if (bulletText) children.push(new TextRun({ text: bulletText }));
+
+  // Run 2: tab character in its own run (separate from bullet AND from text)
+  children.push(new TextRun({ text: "\t" }));
+
+  // Run 3+: all content tokens as individual runs
+  children.push(...buildRuns(tokens));
 
   return new Paragraph({
     children,
-    tabStops: [TAB_KANAN],
-    alignment: AlignmentType.LEFT,
-    indent: { left: 426, hanging: 360 },
+    tabStops: [{ type: TabStopType.LEFT, position: leftDxa }],
+    alignment: AlignmentType.JUSTIFIED,
+    indent: { left: leftDxa, hanging: hangingDxa },
+    ...options,
   });
 };
 
-// ─── Divider "DEMIKIANLAH AKTA INI" ──────────────────────────────────────────
-// XML: <w:tab w:val="center" w:leader="hyphen" w:pos="4252"/>
-//      <w:tab w:val="right"  w:leader="hyphen" w:pos="8504"/>
 const createDividerP = (text: string): Paragraph =>
   new Paragraph({
-    children: [
-      new TextRun({ text: "\t" }),
-      new TextRun({ text, bold: true }),
-      new TextRun({ text: "\t" }),
-    ],
-    tabStops: [
-      { type: TabStopType.CENTER, position: 4252, leader: LeaderType.HYPHEN },
-      { type: TabStopType.RIGHT,  position: 8504, leader: LeaderType.HYPHEN },
-    ],
-    alignment: AlignmentType.LEFT,
-  });
-
-// ─── Tab stops untuk tanda tangan notaris ────────────────────────────────────
-// XML: <w:tab w:val="left" w:pos="4395"/>
-//      <w:tab w:val="right" w:leader="hyphen" w:pos="8504"/>
-const NOTARIS_TAB_STOPS = [
-  { type: TabStopType.LEFT, position: 4395 },
-  TAB_KANAN,
-];
-
-const createNotarisEmptyP = (): Paragraph =>
-  new Paragraph({ children: [], tabStops: NOTARIS_TAB_STOPS });
-
-const createNotarisLabelP = (domicile: string): Paragraph =>
-  new Paragraph({
-    children: [
-      new TextRun({ text: "\t" }),
-      new TextRun({ text: `Notaris di ${domicile};` }),
-    ],
-    tabStops: NOTARIS_TAB_STOPS,
-  });
-
-const createNotarisNameP = (name: string): Paragraph =>
-  new Paragraph({
-    children: [
-      new TextRun({ text: "\t" }),
-      new TextRun({ text: name, bold: true }),
-    ],
-    tabStops: NOTARIS_TAB_STOPS,
+    children: [new TextRun({ text, bold: true })],
+    alignment: AlignmentType.CENTER,
   });
 
 export const generateRUPSTDocx = async (data: CompanyData) => {
@@ -271,23 +214,21 @@ export const generateRUPSTDocx = async (data: CompanyData) => {
 
   blocks.forEach((block) => {
     if (block.type === "p") {
-      if (block.number) {
-        // indentTabs=-1 → Varian B: WNA/teks panjang (left=709, hang=425, tabLeft=720)
-        if (block.indentTabs === -1) {
-          docxChildren.push(createNumberedPWna(block.number, block.runs));
-        } else {
-          // Varian A: WNI/isRep (left=284, hang=284, tabLeft=720) — default keputusan & attendee WNI
-          docxChildren.push(createNumberedP(block.number, block.runs));
-        }
-      } else if (block.align === "center") {
-        docxChildren.push(createP(block.runs, { alignment: AlignmentType.CENTER }));
-      } else {
-        docxChildren.push(createP(block.runs));
-      }
+      const isCentered = block.align === "center";
+      docxChildren.push(
+        createP(block.runs, {
+          alignment: isCentered ? AlignmentType.CENTER : AlignmentType.JUSTIFIED,
+        })
+      );
     } else if (block.type === "list") {
-      docxChildren.push(createListP(block.bullet, block.runs, block.indentTabs ?? 0.5));
-    } else if (block.type === "saksi") {
-      docxChildren.push(createSaksiP((block as any).number, block.runs));
+      docxChildren.push(
+        createListP(
+          block.bullet,
+          block.runs,
+          block.indentTabs || 0,
+          (block as any).indentStyle
+        )
+      );
     } else if (block.type === "divider") {
       docxChildren.push(createDividerP(block.text));
     } else if (block.type === "br") {
@@ -295,61 +236,84 @@ export const generateRUPSTDocx = async (data: CompanyData) => {
     } else if (block.type === "pageBreak") {
       docxChildren.push(new Paragraph({ children: [new PageBreak()] }));
     } else if (block.type === "table") {
+      // Content width for A4 with reference margins: 11906-2268-1134 = 8504 DXA
+      const TABLE_WIDTH = 8504;
+      const border = { style: BorderStyle.SINGLE, size: 4, color: "000000" };
+      const borders = {
+        top: border, bottom: border, left: border, right: border,
+        insideH: border, insideV: border,
+      };
+
+      const colCount = block.headers.length;
+      const colWidths = block.widths
+        ? block.widths
+        : block.headers.map(() => Math.floor(TABLE_WIDTH / colCount));
+
       const headerRow = new TableRow({
-        children: block.headers.map((h, i) => new TableCell({
-          children: [new Paragraph({ children: [new TextRun({ text: h, bold: true })], alignment: AlignmentType.CENTER })],
-          width: block.widths ? { size: block.widths[i], type: WidthType.DXA } : undefined,
-        })),
+        children: block.headers.map((h, i) =>
+          new TableCell({
+            borders,
+            margins: { top: 80, bottom: 80, left: 120, right: 120 },
+            width: { size: colWidths[i], type: WidthType.DXA },
+            children: [
+              new Paragraph({
+                children: [new TextRun({ text: h, bold: true })],
+                alignment: AlignmentType.CENTER,
+              }),
+            ],
+          })
+        ),
       });
 
-      const bodyRows = block.rows.map((row) => new TableRow({
-        children: row.map((cell, i) => {
-          let cellChildren: Paragraph[] = [];
-          if (Array.isArray(cell)) {
-            cellChildren = [createP(cell, { alignment: AlignmentType.LEFT })];
-          } else {
-            const cellLines = cell.split("\n");
-            cellChildren = cellLines.map(line => new Paragraph({
-              children: [new TextRun({ text: line, size: 20 })],
-              alignment: AlignmentType.CENTER,
-            }));
-          }
-          return new TableCell({
-            children: cellChildren,
-            width: block.widths ? { size: block.widths[i], type: WidthType.DXA } : undefined,
-          });
-        }),
-      }));
+      const bodyRows = block.rows.map((row) =>
+        new TableRow({
+          children: row.map((cell, i) => {
+            let cellChildren: Paragraph[] = [];
+            if (Array.isArray(cell)) {
+              cellChildren = [createP(cell, { alignment: AlignmentType.LEFT })];
+            } else {
+              const cellLines = cell.split("\n");
+              cellChildren = cellLines.map(
+                (line) =>
+                  new Paragraph({
+                    children: [new TextRun({ text: line })],
+                    alignment: AlignmentType.CENTER,
+                  })
+              );
+            }
+            return new TableCell({
+              borders,
+              margins: { top: 80, bottom: 80, left: 120, right: 120 },
+              width: { size: colWidths[i], type: WidthType.DXA },
+              children: cellChildren,
+            });
+          }),
+        })
+      );
 
-      docxChildren.push(new Table({
-        rows: [headerRow, ...bodyRows],
-        width: { size: 100, type: WidthType.PERCENTAGE },
-      }));
+      docxChildren.push(
+        new Table({
+          rows: [headerRow, ...bodyRows],
+          width: { size: TABLE_WIDTH, type: WidthType.DXA },
+          columnWidths: colWidths,
+        })
+      );
     }
   });
 
-  // ─── Footer notaris ────────────────────────────────────────────────────────
-  const domicile = data.notaryDomicile || "Kabupaten Bandung Barat";
-  const notaryDisplay = (data.notaryName || "NUKANTINI PUTRI PARINCHA, SH., M.Kn.")
-    .toUpperCase()
-    .replace(/SARJANA HUKUM/gi, "SH.")
-    .replace(/MAGISTER KENOTARIATAN/gi, "M.Kn");
-
-  docxChildren.push(createNotarisLabelP(domicile));
-  docxChildren.push(createNotarisEmptyP());
-  docxChildren.push(createNotarisEmptyP());
-  docxChildren.push(createNotarisEmptyP());
-  docxChildren.push(createNotarisEmptyP());
-  docxChildren.push(createNotarisNameP(notaryDisplay));
-
   const doc = new Document({
+    numbering: {
+      config: NUMBERING_CONFIG,
+    },
     styles: {
       default: {
         document: {
-          run: { font: "Century Gothic", size: 20 },
+          // Font Arial, size 11pt (22 half-points)
+          run: { font: "Arial", size: 22 },
           paragraph: {
-            spacing: { line: 480, before: 0, after: 0 },
-            alignment: AlignmentType.LEFT,
+            // 1.5× line spacing (line=360) matching reference docPrDefault
+            spacing: { line: 360, lineRule: "auto", before: 0, after: 0 },
+            alignment: AlignmentType.JUSTIFIED,
           },
         },
       },
@@ -358,7 +322,9 @@ export const generateRUPSTDocx = async (data: CompanyData) => {
       {
         properties: {
           page: {
+            // A4: 11906 × 16838 twips
             size: { width: 11906, height: 16838 },
+            // Margins matching reference: top=1417 right=1134 bottom=1417 left=2268
             margin: { top: 1417, bottom: 1417, left: 2268, right: 1134 },
           },
         },
@@ -367,7 +333,9 @@ export const generateRUPSTDocx = async (data: CompanyData) => {
             children: [
               new Paragraph({
                 alignment: AlignmentType.CENTER,
-                children: [new TextRun({ children: ["- ", PageNumber.CURRENT, " -"] })],
+                children: [
+                  new TextRun({ children: ["- ", PageNumber.CURRENT, " -"] }),
+                ],
               }),
             ],
           }),

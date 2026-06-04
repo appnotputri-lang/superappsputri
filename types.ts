@@ -269,6 +269,8 @@ export interface CompanyData {
   rupstStatementPerubahanEkuitas?: boolean;
   rupstStatementArusKas?: boolean;
   rupstStatementCatatan?: boolean;
+  rupstStatementNamaAnggota?: boolean;
+  rupstStatementGaji?: boolean;
   rupstNotulenNumber?: string;
   rupstMeetingEndTime?: string;
   rupstInvitationNumber?: string;
@@ -277,6 +279,25 @@ export interface CompanyData {
   rupstAdParagraph?: string;
   rupstQuorumArticle?: string;
   rupstQuorumParagraph?: string;
+  rupstAlasanAuditA?: boolean;
+  rupstAlasanAuditB?: boolean;
+  rupstAlasanAuditC?: boolean;
+  rupstAlasanAuditD?: boolean;
+  rupstAlasanAuditE?: boolean;
+  rupstAlasanAuditF?: boolean;
+
+  // Sirkuler Laporan Tahunan Extra Fields
+  slHari?: string;
+  slTanggalHuruf?: string;
+  slAlasanAuditA?: boolean;
+  slAlasanAuditB?: boolean;
+  slAlasanAuditC?: boolean;
+  slAlasanAuditD?: boolean;
+  slAlasanAuditE?: boolean;
+  slAlasanAuditF?: boolean;
+  slLaporanNomor?: string;
+  slLaporanTanggalHuruf?: string;
+  slTahunBukuAkhirHuruf?: string;
 
   // Saksi
   saksi1Nama?: string;

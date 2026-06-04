@@ -17,6 +17,8 @@ import DraftAktaRUPS from './src/DraftAktaRUPS';
 import DraftAktaPendirian from './src/DraftAktaPendirian';
 import PendirianDocumentPreview from './src/PendirianDocumentPreview';
 import { RUPSTDocumentPreview } from './src/RUPSTDocumentPreview';
+import { SirkulerLaporanDocumentPreview } from './components/SirkulerLaporanDocumentPreview';
+import { SirkulerLaporanFormContent } from './components/SirkulerLaporanFormContent';
 import { generatePendirianDocx } from './src/lib/generatePendirianDocx';
 import GuideMenu from './src/components/GuideMenu';
 import ProxyInputModal from './components/ProxyInputModal';
@@ -194,16 +196,35 @@ const INITIAL_STATE: CompanyData = {
   rupstFinancialReportSignatoryName: '',
   rupstFinancialReportSignatoryPosition: 'Direktur',
   rupstStatementNeraca: true,
-  rupstStatementLabaRugi: true,
-  rupstStatementPerubahanEkuitas: true,
-  rupstStatementArusKas: true,
-  rupstStatementCatatan: true,
+  rupstStatementLabaRugi: false,
+  rupstStatementPerubahanEkuitas: false,
+  rupstStatementArusKas: false,
+  rupstStatementCatatan: false,
+  rupstStatementNamaAnggota: false,
+  rupstStatementGaji: false,
+  rupstAlasanAuditA: true,
+  rupstAlasanAuditB: true,
+  rupstAlasanAuditC: true,
+  rupstAlasanAuditD: true,
+  rupstAlasanAuditE: true,
+  rupstAlasanAuditF: true,
   rupstNotulenNumber: '',
   rupstQuorumArticle: '22',
   rupstQuorumParagraph: '1',
   rupstMeetingEndTime: '14:00',
   rupstInvitationNumber: '',
   rupstInvitationDate: '',
+  slHari: '',
+  slTanggalHuruf: '',
+  slAlasanAuditA: false,
+  slAlasanAuditB: false,
+  slAlasanAuditC: true,
+  slAlasanAuditD: true,
+  slAlasanAuditE: false,
+  slAlasanAuditF: false,
+  slLaporanNomor: '',
+  slLaporanTanggalHuruf: 'dua puluh sembilan April dua ribu dua puluh enam (26-04-2026)',
+  slTahunBukuAkhirHuruf: 'tiga puluh satu Desember dua ribu dua puluh lima (31-12-2025)',
   saksi1Nama: 'Nendi Suhendi',
   saksi1Lahir: 'Bandung, pada tanggal limabelas Juli seribu sembilan ratus sembilan puluh satu (15-07-1991)',
   saksi1Alamat: 'Jalan Sukaresmi Nomor 12, Rukun Tetangga 005, Rukun Warga 005, Kecamatan Lembang, Desa Mekarwangi',
@@ -215,7 +236,7 @@ const INITIAL_STATE: CompanyData = {
 };
 
 type TabId = 'general' | 'shareholders' | 'shareholders_new' | 'representative' | 'agenda' | 'kbli' | 'domicile' | 'address' | 'capitalBase' | 'capitalPaid' | 'management' | 'reappointment';
-type SidebarTabId = 'beranda' | 'company_profile' | 'notulen' | 'pendirian' | 'rupst' | 'perbaikan' | 'draft_akta_rups' | 'panduan';
+type SidebarTabId = 'beranda' | 'company_profile' | 'notulen' | 'pendirian' | 'rupst' | 'perbaikan' | 'draft_akta_rups' | 'panduan' | 'sirkuler_laporan';
 
 // AHU Style Helper Components
 const AhuSection = ({ title, children, isOpen = true }: { title: string, children: React.ReactNode, isOpen?: boolean }) => {
@@ -1045,6 +1066,7 @@ const App: React.FC = () => {
               { label: 'Company Profile', id: 'company_profile' as const, icon: Building2 },
               { label: 'RUPS LB', id: 'notulen' as const, icon: FileText },
               { label: 'RUPS Tahunan', id: 'rupst' as const, icon: History },
+              { label: 'Sirkuler Lap Tahunan', id: 'sirkuler_laporan' as const, icon: FileSignature },
               { label: 'Pendirian PT', id: 'pendirian' as const, icon: FileText },
               { label: 'Surat Perbaikan Data', id: 'perbaikan' as const, icon: Mail },
               { label: 'Panduan Penggunaan', id: 'panduan' as const, icon: BookOpen },
@@ -3466,6 +3488,72 @@ const App: React.FC = () => {
             </div>
 
 
+) : activeSidebarTab === 'sirkuler_laporan' ? (
+            <div className="max-w-5xl mx-auto space-y-4">
+              <div className="flex justify-between items-center bg-white p-4 rounded-sm shadow-sm border border-slate-200">
+                <div>
+                  <h2 className="text-[16px] font-bold flex items-center gap-2 text-slate-800 uppercase"><FileSignature className="w-5 h-5 text-[#3b5998]" /> Sirkuler Laporan Tahunan</h2>
+                  <p className="text-[12px] text-slate-500">Draft Keputusan Pemegang Saham (Sirkuler) untuk Laporan Tahunan</p>
+                </div>
+                <button 
+                  disabled={isExportingPendirian}
+                  onClick={async () => {
+                     setIsExportingPendirian(true);
+                     try {
+                        const { generateSirkulerLaporanDocx } = await import('./src/lib/generateSirkulerLaporanDocx');
+                        await generateSirkulerLaporanDocx(mergedData);
+                      } catch (error) {
+                        console.error('Failed to export DOCX:', error);
+                        alert('Gagal mengekspor DOCX, silakan coba lagi.');
+                      } finally {
+                        setIsExportingPendirian(false);
+                      }
+                  }} 
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-sm font-bold text-[12px] flex items-center gap-2 transition-colors disabled:opacity-50"
+                >
+                  <FileCode className="w-4 h-4" /> {isExportingPendirian ? 'MEMPROSES...' : 'UNDUH DOCX'}
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pb-20">
+                 <div>
+                    <AhuSection title="PILIH PROFIL">
+                      <div className="space-y-4">
+                        <label className="block text-[13px] font-medium text-slate-700 mb-1">Pilih Profil Perseroan (Wajib)</label>
+                        <select 
+                          className="w-full border border-[#ccc] rounded-sm px-3 py-1.5 text-[13px] outline-none bg-white focus:border-[#66afe9]"
+                          value={data.selectedProfileId || ''}
+                          onChange={(e) => {
+                             const selected = profiles.find(p => p.id === e.target.value);
+                             if (selected) {
+                                 const { id, ...rest } = selected;
+                                 updateData({ 
+                                   ...rest, 
+                                   selectedProfileId: selected.id 
+                                 } as any);
+                             } else {
+                                 updateData({ selectedProfileId: '' });
+                             }
+                          }}
+                        >
+                          <option value="">-- Pilih PT --</option>
+                          {profiles.map(p => (
+                            <option key={p.id} value={p.id}>{p.companyName}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </AhuSection>
+                    
+                    <SirkulerLaporanFormContent data={mergedData} updateData={updateData} />
+                 </div>
+                 <div className="bg-slate-200 overflow-x-auto p-4 rounded shadow-inner flex justify-center h-[calc(100vh-250px)] relative">
+                    <div className="transform scale-90 sm:scale-75 xl:scale-100 origin-top h-max">
+                      <SirkulerLaporanDocumentPreview data={mergedData} />
+                    </div>
+                 </div>
+              </div>
+            </div>
+
 ) : activeSidebarTab === 'rupst' ? (
             <div className="max-w-5xl mx-auto space-y-4">
               <div className="flex justify-between items-center bg-white p-4 rounded-sm shadow-sm border border-slate-200">
@@ -3635,53 +3723,134 @@ const App: React.FC = () => {
                             </div>
                           </div>
                           <div className="p-3 bg-slate-50 border border-slate-200 rounded space-y-2">
-                            <h5 className="text-[11px] font-bold text-slate-800 uppercase tracking-wider">Komponen Laporan Keuangan Yang Disahkan:</h5>
+                            <h5 className="text-[11px] font-bold text-slate-800 uppercase tracking-wider">Alasan Tidak Wajib Audit:</h5>
                             <div className="space-y-1.5 pt-1">
                               <label className="flex items-center gap-2 text-[12px] text-slate-700 cursor-pointer font-medium">
                                 <input
                                   type="checkbox"
-                                  checked={data.rupstStatementNeraca !== false}
+                                  checked={data.rupstAlasanAuditA !== false}
+                                  onChange={(e) => updateData({ rupstAlasanAuditA: e.target.checked })}
+                                  className="w-4 h-4 text-[#3b5998] focus:ring-[#3b5998] border-[#ccc] rounded"
+                                />
+                                <span className="flex-1">a. Kegiatan Usaha Perseroan tidak menghimpun dan/atau mengelola dana masyarakat.</span>
+                              </label>
+                              <label className="flex items-center gap-2 text-[12px] text-slate-700 cursor-pointer font-medium">
+                                <input
+                                  type="checkbox"
+                                  checked={data.rupstAlasanAuditB !== false}
+                                  onChange={(e) => updateData({ rupstAlasanAuditB: e.target.checked })}
+                                  className="w-4 h-4 text-[#3b5998] focus:ring-[#3b5998] border-[#ccc] rounded"
+                                />
+                                <span className="flex-1">b. Perseroan tidak menerbitkan surat pengakuan utang kepada masyarakat.</span>
+                              </label>
+                              <label className="flex items-center gap-2 text-[12px] text-slate-700 cursor-pointer font-medium">
+                                <input
+                                  type="checkbox"
+                                  checked={data.rupstAlasanAuditC !== false}
+                                  onChange={(e) => updateData({ rupstAlasanAuditC: e.target.checked })}
+                                  className="w-4 h-4 text-[#3b5998] focus:ring-[#3b5998] border-[#ccc] rounded"
+                                />
+                                <span className="flex-1">c. Perseroan tidak merupakan Perseroan Terbuka (Tbk).</span>
+                              </label>
+                              <label className="flex items-center gap-2 text-[12px] text-slate-700 cursor-pointer font-medium">
+                                <input
+                                  type="checkbox"
+                                  checked={data.rupstAlasanAuditD !== false}
+                                  onChange={(e) => updateData({ rupstAlasanAuditD: e.target.checked })}
+                                  className="w-4 h-4 text-[#3b5998] focus:ring-[#3b5998] border-[#ccc] rounded"
+                                />
+                                <span className="flex-1">d. Perseroan tidak merupakan Persero.</span>
+                              </label>
+                              <label className="flex items-center gap-2 text-[12px] text-slate-700 cursor-pointer font-medium">
+                                <input
+                                  type="checkbox"
+                                  checked={data.rupstAlasanAuditE !== false}
+                                  onChange={(e) => updateData({ rupstAlasanAuditE: e.target.checked })}
+                                  className="w-4 h-4 text-[#3b5998] focus:ring-[#3b5998] border-[#ccc] rounded"
+                                />
+                                <span className="flex-1">e. Aset dan/atau jumlah peredaran usaha tidak lebih dari 50 Milyar, atau</span>
+                              </label>
+                              <label className="flex items-center gap-2 text-[12px] text-slate-700 cursor-pointer font-medium">
+                                <input
+                                  type="checkbox"
+                                  checked={data.rupstAlasanAuditF !== false}
+                                  onChange={(e) => updateData({ rupstAlasanAuditF: e.target.checked })}
+                                  className="w-4 h-4 text-[#3b5998] focus:ring-[#3b5998] border-[#ccc] rounded"
+                                />
+                                <span className="flex-1">f. Tidak diwajibkan oleh peraturan perundang-undangan.</span>
+                              </label>
+                            </div>
+                          </div>
+                          
+                          <div className="p-3 bg-slate-50 border border-slate-200 rounded space-y-2">
+                            <h5 className="text-[11px] font-bold text-slate-800 uppercase tracking-wider">Komponen Laporan Keuangan Yang Disahkan:</h5>
+                            <div className="space-y-1.5 pt-1">
+                              <label className="flex items-start gap-2 text-[12px] text-slate-700 cursor-pointer font-medium">
+                                <input
+                                  type="checkbox"
+                                  checked={data.rupstStatementNeraca}
                                   onChange={(e) => updateData({ rupstStatementNeraca: e.target.checked })}
-                                  className="w-4 h-4 text-[#3b5998] focus:ring-[#3b5998] border-[#ccc] rounded"
+                                  className="w-4 h-4 mt-0.5 text-[#3b5998] focus:ring-[#3b5998] border-[#ccc] rounded"
                                 />
-                                <span>Laporan Posisi Keuangan (Neraca)</span>
+                                <span className="leading-tight">Laporan Keuangan, terlampir dan dilekatkan pada Notulen Rapat Umum Pemegang Saham Tahunan ini.</span>
                               </label>
-                              <label className="flex items-center gap-2 text-[12px] text-slate-700 cursor-pointer font-medium">
+                              <label className="flex items-start gap-2 text-[12px] text-slate-700 cursor-pointer font-medium">
                                 <input
                                   type="checkbox"
-                                  checked={data.rupstStatementLabaRugi !== false}
+                                  checked={data.rupstStatementLabaRugi}
                                   onChange={(e) => updateData({ rupstStatementLabaRugi: e.target.checked })}
-                                  className="w-4 h-4 text-[#3b5998] focus:ring-[#3b5998] border-[#ccc] rounded"
+                                  className="w-4 h-4 mt-0.5 text-[#3b5998] focus:ring-[#3b5998] border-[#ccc] rounded"
                                 />
-                                <span>Laporan Laba Rugi</span>
+                                <span className="leading-tight">Laporan mengenai Kegiatan Perseroan, terlampir dan dilekatkan pada Notulen Rapat Umum Pemegang Saham Tahunan ini.</span>
                               </label>
-                              <label className="flex items-center gap-2 text-[12px] text-slate-700 cursor-pointer font-medium">
+                              <label className="flex items-start gap-2 text-[12px] text-slate-700 cursor-pointer font-medium">
                                 <input
                                   type="checkbox"
-                                  checked={data.rupstStatementPerubahanEkuitas !== false}
+                                  checked={data.rupstStatementPerubahanEkuitas}
                                   onChange={(e) => updateData({ rupstStatementPerubahanEkuitas: e.target.checked })}
-                                  className="w-4 h-4 text-[#3b5998] focus:ring-[#3b5998] border-[#ccc] rounded"
+                                  className="w-4 h-4 mt-0.5 text-[#3b5998] focus:ring-[#3b5998] border-[#ccc] rounded"
                                 />
-                                <span>Laporan Perubahan Ekuitas</span>
+                                <span className="leading-tight">Laporan Pelaksanaan Tanggung Jawab Sosial dan Lingkungan, terlampir dan dilekatkan pada Notulen Rapat Umum Pemegang Saham Tahunan ini.</span>
                               </label>
-                              <label className="flex items-center gap-2 text-[12px] text-slate-700 cursor-pointer font-medium">
+                              <label className="flex items-start gap-2 text-[12px] text-slate-700 cursor-pointer font-medium">
                                 <input
                                   type="checkbox"
-                                  checked={data.rupstStatementArusKas !== false}
+                                  checked={data.rupstStatementArusKas}
                                   onChange={(e) => updateData({ rupstStatementArusKas: e.target.checked })}
-                                  className="w-4 h-4 text-[#3b5998] focus:ring-[#3b5998] border-[#ccc] rounded"
+                                  className="w-4 h-4 mt-0.5 text-[#3b5998] focus:ring-[#3b5998] border-[#ccc] rounded"
                                 />
-                                <span>Laporan Arus Kas</span>
+                                <span className="leading-tight">Rincian Masalah yang timbul selama tahun buku yang mempengaruhi kegiatan usaha perseroan, terlampir dan dilekatkan pada Notulen Rapat Umum Pemegang Saham Tahunan ini.</span>
                               </label>
-                              <label className="flex items-center gap-2 text-[12px] text-slate-700 cursor-pointer font-medium">
+                              <label className="flex items-start gap-2 text-[12px] text-slate-700 cursor-pointer font-medium">
                                 <input
                                   type="checkbox"
-                                  checked={data.rupstStatementCatatan !== false}
+                                  checked={data.rupstStatementCatatan}
                                   onChange={(e) => updateData({ rupstStatementCatatan: e.target.checked })}
-                                  className="w-4 h-4 text-[#3b5998] focus:ring-[#3b5998] border-[#ccc] rounded"
+                                  className="w-4 h-4 mt-0.5 text-[#3b5998] focus:ring-[#3b5998] border-[#ccc] rounded"
                                 />
-                                <span>Catatan Atas Laporan Keuangan</span>
+                                <span className="leading-tight">Laporan mengenai tugas pengawasan yang telah dilaksanakan oleh Dewan Komisaris selama tahun buku yang baru lampau, terlampir dan dilekatkan pada Notulen Rapat Umum Pemegang Saham Tahunan ini.</span>
                               </label>
+                              <label className="flex items-start gap-2 text-[12px] text-slate-700 cursor-pointer font-medium">
+                                <input
+                                  type="checkbox"
+                                  checked={data.rupstStatementNamaAnggota}
+                                  onChange={(e) => updateData({ rupstStatementNamaAnggota: e.target.checked })}
+                                  className="w-4 h-4 mt-0.5 text-[#3b5998] focus:ring-[#3b5998] border-[#ccc] rounded"
+                                />
+                                <span className="leading-tight">Nama Anggota Direksi dan Anggota Dewan Komisaris, terlampir dan dilekatkan pada Notulen Rapat Umum Pemegang Saham Tahunan ini.</span>
+                              </label>
+                              <label className="flex items-start gap-2 text-[12px] text-slate-700 cursor-pointer font-medium">
+                                <input
+                                  type="checkbox"
+                                  checked={data.rupstStatementGaji}
+                                  onChange={(e) => updateData({ rupstStatementGaji: e.target.checked })}
+                                  className="w-4 h-4 mt-0.5 text-[#3b5998] focus:ring-[#3b5998] border-[#ccc] rounded"
+                                />
+                                <span className="leading-tight">Gaji dan Tunjangan bagi Anggota Direksi dan Gaji atau Honorarium dan Tunjangan bagi Anggota Dewan Komisaris Perseroan untuk Tahun yang baru lampau, terlampir dan dilekatkan pada Notulen Rapat Umum Pemegang Saham Tahunan ini.</span>
+                              </label>
+                              <div className="mt-3 p-2 bg-blue-50 border border-blue-100 rounded text-[11px] text-[#3b5998] leading-normal italic">
+                                * Catatan: Pernyataan tanggung jawab penuh Direksi, Komisaris, dan Pemegang Saham akan selalu ditambahkan secara otomatis pada dokumen setelah rincian komponen laporan keuangan.
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -3900,7 +4069,7 @@ const App: React.FC = () => {
                         </div>
                       </div>
                     </AhuSection>
-
+                    
                     {/* KUASA */}
                     <AhuSection title="Kuasa">
                        <div className="space-y-6">
@@ -3934,7 +4103,7 @@ const App: React.FC = () => {
                                   onChange={e => updateData({ authorizedRepresentativeId: e.target.value })}
                                 >
                                   <option value="">-- Pilih --</option>
-                                  {[...data.shareholders, ...data.finalShareholders.filter(fs => !data.shareholders.some(s => s.id === fs.id))].map(s => (
+                                  {data.shareholders.map(s => (
                                     <option key={s.id} value={s.id}>{s.name}</option>
                                   ))}
                                 </AhuSelect>

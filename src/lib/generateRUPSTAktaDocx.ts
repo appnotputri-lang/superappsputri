@@ -12,9 +12,10 @@ const TAB_KANAN = { type: TabStopType.RIGHT, position: 8504, leader: LeaderType.
 
 const W = {
   normal:   41.5,
-  list1:    39.0,
-  list2:    36.5,
-  list3:    34.0,
+  list0:    40.0,  // dash (-) left=284: bullet di margin, teks di 284 (paling dangkal)
+  list1:    37.5,  // dash (-) left=568: bullet di 284, teks di 568
+  list2:    35.0,  // sub-list (a.,b.) left=850
+  list3:    33.0,  // deep sub-list left=851+
   numbered: 38.0,
 };
 
@@ -78,45 +79,28 @@ const createIndentP = (
 const createListP = (
   bulletText: string,
   tokens: FormatToken[],
-  indentTabs: number = 0.5,
+  indentTabs: number = 0,
   options: Omit<IParagraphOptions, "children"> = {}
 ): Paragraph => {
-  // Nilai DXA 100% dari XML Contohrupst.docx
-  let leftDxa: number;
-  let hangingDxa: number | undefined;
-  let tabLeftDxa: number | undefined;
-  let maxW: number;
+  let leftDxa: number, hangingDxa: number, maxW: number;
 
-  if (indentTabs === 0) {
-    // numId=3/5: left=720, hanging=360, tabLeft=720 (Laporan Keuangan / saksi footer)
-    leftDxa = 720; hangingDxa = 360; tabLeftDxa = 720; maxW = W.list2;
-  } else if (indentTabs <= 0.6) {
-    // 0.5 → left=284, hanging=284, tabLeft=284
-    leftDxa = 284; hangingDxa = 284; tabLeftDxa = 284; maxW = W.list1;
-  } else if (indentTabs <= 1.1) {
-    // 1.0 → left=567, hanging=283, tabLeft=567
-    leftDxa = 567; hangingDxa = 283; tabLeftDxa = 567; maxW = W.list2;
-  } else if (indentTabs <= 1.6) {
-    // 1.5 → left=567, hanging=284, tabLeft=284
-    leftDxa = 567; hangingDxa = 284; tabLeftDxa = 284; maxW = W.list2;
-  } else if (indentTabs <= 2.1) {
-    // 2.0 → left=993, hanging=284, TANPA tabLeft
-    leftDxa = 993; hangingDxa = 284; tabLeftDxa = undefined; maxW = W.list3;
-  } else if (indentTabs <= 2.6) {
-    // 2.5 → left=993, tanpa hanging, tabLeft=284 ("Hadir selaku :")
-    leftDxa = 993; hangingDxa = undefined; tabLeftDxa = 284; maxW = W.list3;
-  } else {
-    // 3.0 → left=1418, tanpa hanging, tabLeft=567 (a. b. c.)
-    leftDxa = 1418; hangingDxa = undefined; tabLeftDxa = 567; maxW = W.list3;
-  }
+  // Match exact docx structure:
+  // Level 0a (dash "-", indentTabs≤0.3): left=284, hanging=284 → bullet di 0 (margin), teks di 284
+  // Level 0b (dash "-", indentTabs≤0.6): left=568, hanging=284 → bullet di 284, teks di 568
+  // Level 1 (a., b., indentTabs≤1.0):   left=850, hanging=283 → bullet di 567, teks di 850
+  // Level 2+:                            left=851, hanging=284
+  if (indentTabs <= 0.3)      { leftDxa = 284;  hangingDxa = 284; maxW = W.list0; }
+  else if (indentTabs <= 0.6) { leftDxa = 568;  hangingDxa = 284; maxW = W.list1; }
+  else if (indentTabs <= 1.0) { leftDxa = 850;  hangingDxa = 283; maxW = W.list2; }
+  else                        { leftDxa = 851;  hangingDxa = 284; maxW = W.list3; }
 
   const lines = parseTextRuns(tokens, maxW);
   const children: any[] = [];
 
   lines.forEach((lineTokens, i) => {
-    if (i === 0) children.push(new TextRun({ text: `${bulletText}\t` }));
-    lineTokens.forEach((t) => children.push(new TextRun({
-      text: t.text,
+    if (i === 0 && bulletText) children.push(new TextRun({ text: `${bulletText}\t` }));
+    lineTokens.forEach((t) => children.push(new TextRun({ 
+      text: t.text, 
       bold: t.bold,
       color: t.color,
       italics: t.italic,
@@ -126,20 +110,14 @@ const createListP = (
     if (i < lines.length - 1) children.push(new TextRun({ break: 1 }));
   });
 
-  const tabStops: any[] = [];
-  if (tabLeftDxa !== undefined) {
-    tabStops.push({ type: TabStopType.LEFT, position: tabLeftDxa });
-  }
-  tabStops.push(TAB_KANAN);
+  // Tab stop kiri di leftDxa: bullet snap ke (leftDxa-hanging), lalu \t snap ke leftDxa
+  const leftTabPos = leftDxa;
 
   return new Paragraph({
     children,
-    tabStops,
+    tabStops: [{ type: TabStopType.LEFT, position: leftTabPos }, TAB_KANAN],
     alignment: AlignmentType.LEFT,
-    indent: {
-      left: leftDxa,
-      ...(hangingDxa !== undefined ? { hanging: hangingDxa } : {}),
-    },
+    indent: { left: leftDxa, hanging: bulletText ? hangingDxa : 0 },
     ...options,
   });
 };
@@ -170,40 +148,6 @@ const createNumberedP = (
     tabStops: [{ type: TabStopType.LEFT, position: 720 }, TAB_KANAN],
     alignment: AlignmentType.LEFT,
     indent: { left: 284, hanging: 284 },
-    ...options,
-  });
-};
-
-// Varian B: WNA / teks uraian panjang
-// XML: <w:ind w:left="709" w:hanging="425"/>
-//      <w:tab w:val="left" w:pos="720"/>
-//      <w:tab w:val="right" w:leader="hyphen" w:pos="8504"/>
-const createNumberedPWna = (
-  num: number | string,
-  tokens: FormatToken[],
-  options: Omit<IParagraphOptions, "children"> = {}
-): Paragraph => {
-  const lines = parseTextRuns(tokens, W.numbered);
-  const children: any[] = [];
-
-  lines.forEach((lineTokens, i) => {
-    if (i === 0) children.push(new TextRun({ text: `${num}.\t` }));
-    lineTokens.forEach((t) => children.push(new TextRun({
-      text: t.text,
-      bold: t.bold,
-      color: t.color,
-      italics: t.italic,
-      underline: t.underline ? {} : undefined
-    })));
-    children.push(new TextRun({ text: "\t" }));
-    if (i < lines.length - 1) children.push(new TextRun({ break: 1 }));
-  });
-
-  return new Paragraph({
-    children,
-    tabStops: [{ type: TabStopType.LEFT, position: 720 }, TAB_KANAN],
-    alignment: AlignmentType.LEFT,
-    indent: { left: 709, hanging: 425 },
     ...options,
   });
 };
@@ -279,6 +223,38 @@ const createNotarisNameP = (name: string): Paragraph =>
     tabStops: NOTARIS_TAB_STOPS,
   });
 
+// Dash "-" di level sub (indentTabs 1.0): struktur sesuai numId=3 di docx
+// abstractNum left=720, hanging=360 → bullet di pos 360, teks di 720
+// left tab di 720, tanpa w:ind override (pakai nilai dari numbering)
+const createDashSubP = (
+  tokens: FormatToken[],
+  options: Omit<IParagraphOptions, "children"> = {}
+): Paragraph => {
+  const lines = parseTextRuns(tokens, W.numbered);
+  const children: any[] = [];
+
+  lines.forEach((lineTokens, i) => {
+    if (i === 0) children.push(new TextRun({ text: "-\t" }));
+    lineTokens.forEach((t) => children.push(new TextRun({ 
+      text: t.text, 
+      bold: t.bold,
+      color: t.color,
+      italics: t.italic,
+      underline: t.underline ? {} : undefined
+    })));
+    children.push(new TextRun({ text: "\t" }));
+    if (i < lines.length - 1) children.push(new TextRun({ break: 1 }));
+  });
+
+  return new Paragraph({
+    children,
+    tabStops: [{ type: TabStopType.LEFT, position: 720 }, TAB_KANAN],
+    alignment: AlignmentType.LEFT,
+    indent: { left: 720, hanging: 360 },
+    ...options,
+  });
+};
+
 export const generateRUPSTAktaDocx = async (data: CompanyData) => {
   const blocks = generateRupstAktaBlocks(data);
   const docxChildren: any[] = [];
@@ -286,21 +262,32 @@ export const generateRUPSTAktaDocx = async (data: CompanyData) => {
   blocks.forEach((block) => {
     if (block.type === "p") {
       if (block.number) {
-        // indentTabs=-1 → Varian B WNA (left=709, hang=425)
-        if (block.indentTabs === -1) {
-          docxChildren.push(createNumberedPWna(block.number, block.runs));
-        } else {
-          docxChildren.push(createNumberedP(block.number, block.runs));
-        }
+        docxChildren.push(createNumberedP(block.number, block.runs));
       } else if (block.align === "center") {
         docxChildren.push(createP(block.runs, { alignment: AlignmentType.CENTER }));
+      } else if ((block as any).indentLeft !== undefined) {
+        // Paragraf dengan indent kiri spesifik (tanpa hanging): Minuta=426, Diberikan=993
+        docxChildren.push(createIndentP(block.runs, (block as any).indentLeft));
       } else if (block.indent) {
         docxChildren.push(createIndentP(block.runs, 284));
       } else {
         docxChildren.push(createP(block.runs));
       }
     } else if (block.type === "list") {
-      docxChildren.push(createListP(block.bullet, block.runs, block.indentTabs ?? 0.5));
+      const indentTabs = block.indentTabs || 0;
+      const bullet = block.bullet;
+
+      if (bullet === "" && indentTabs >= 1.0) {
+        // Bullet kosong di level 1 → paragraf indent left=284 tanpa hanging
+        // (contoh: "Direksi dan Komisaris...", "sehubungan dengan hal tersebut...")
+        docxChildren.push(createIndentP(block.runs, 284));
+      } else if (bullet === "-" && indentTabs >= 1.0) {
+        // Dash di level 1 → left=720, hanging=360 sesuai numId=3 abstractNum=1
+        // (contoh: "Laporan Keuangan...", "Laporan mengenai...")
+        docxChildren.push(createDashSubP(block.runs));
+      } else {
+        docxChildren.push(createListP(bullet, block.runs, indentTabs));
+      }
     } else if (block.type === "saksi") {
       docxChildren.push(createSaksiP((block as any).number, block.runs));
     } else if (block.type === "divider") {

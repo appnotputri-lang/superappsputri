@@ -148,8 +148,8 @@ export const RUPSTDocumentPreview: React.FC<RUPSTDocumentPreviewProps> = ({ data
           <div 
             className="w-full relative z-10 overflow-hidden"
             style={{
-              fontFamily: "'Century Gothic', 'Tw Cen MT', 'Arial', sans-serif",
-              fontSize: '10pt',
+              fontFamily: "'Arial', sans-serif",
+              fontSize: '11pt',
               lineHeight: '1.8',
               textAlign: 'left'
             }}
