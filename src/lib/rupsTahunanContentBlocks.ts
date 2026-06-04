@@ -413,7 +413,7 @@ export const generateRupstBlocks = (data: CompanyData): Block[] => {
       type: "list",
       bullet: "1.",
       indentStyle: "keputusan",
-      runs: [{ text: `Menyetujui Pernyataan Direksi dan Komisaris serta Para Pemegang Saham Perseroan ${formatCompanyName(data.companyName)} yang menyatakan bahwa status perseroan ini merupakan PT. Tertutup yang Laporan Keuangannya Tidak Memenuhi Ketentuan Wajib Audit oleh Akuntan Publik dengan alasan sebagai berikut:` }]
+      runs: [{ text: `Menyetujui Pernyataan Direksi dan Komisaris serta Para Pemegang Saham Perseroan ${formatCompanyName(data.companyName)} yang menyatakan bahwa status perseroan ini merupakan PT. Tertutup yang Laporan Keuangannya ${data.rupstIsAudited ? "Memenuhi" : "Tidak Memenuhi"} Ketentuan Wajib Audit oleh Akuntan Publik dengan alasan sebagai berikut:` }]
     }
   );
 
@@ -425,22 +425,58 @@ export const generateRupstBlocks = (data: CompanyData): Block[] => {
   };
 
   if (data.rupstAlasanAuditA !== false) {
-    blocks.push({ type: "list", bullet: advanceLetter(), indentTabs: 1, indentStyle: "keputusan", runs: [{ text: "Kegiatan Usaha Perseroan tidak menghimpun dan/atau mengelola dana masyarakat." }] });
+    blocks.push({ 
+      type: "list", 
+      bullet: advanceLetter(), 
+      indentTabs: 1, 
+      indentStyle: "keputusan", 
+      runs: [{ text: `Kegiatan Usaha Perseroan ${data.rupstIsAudited ? "" : "tidak "}menghimpun dan/atau mengelola dana masyarakat.` }] 
+    });
   }
   if (data.rupstAlasanAuditB !== false) {
-    blocks.push({ type: "list", bullet: advanceLetter(), indentTabs: 1, indentStyle: "keputusan", runs: [{ text: "Perseroan tidak menerbitkan surat pengakuan utang kepada masyarakat." }] });
+    blocks.push({ 
+      type: "list", 
+      bullet: advanceLetter(), 
+      indentTabs: 1, 
+      indentStyle: "keputusan", 
+      runs: [{ text: `Perseroan ${data.rupstIsAudited ? "" : "tidak "}menerbitan surat pengakuan utang kepada masyarakat.` }] 
+    });
   }
   if (data.rupstAlasanAuditC !== false) {
-    blocks.push({ type: "list", bullet: advanceLetter(), indentTabs: 1, indentStyle: "keputusan", runs: [{ text: "Perseroan tidak merupakan Perseroan Terbuka (Tbk)." }] });
+    blocks.push({ 
+      type: "list", 
+      bullet: advanceLetter(), 
+      indentTabs: 1, 
+      indentStyle: "keputusan", 
+      runs: [{ text: `Perseroan ${data.rupstIsAudited ? "merupakan" : "tidak merupakan"} Perseroan Terbuka (Tbk).` }] 
+    });
   }
   if (data.rupstAlasanAuditD !== false) {
-    blocks.push({ type: "list", bullet: advanceLetter(), indentTabs: 1, indentStyle: "keputusan", runs: [{ text: "Perseroan tidak merupakan Persero." }] });
+    blocks.push({ 
+      type: "list", 
+      bullet: advanceLetter(), 
+      indentTabs: 1, 
+      indentStyle: "keputusan", 
+      runs: [{ text: `Perseroan ${data.rupstIsAudited ? "merupakan" : "tidak merupakan"} Persero.` }] 
+    });
   }
   if (data.rupstAlasanAuditE !== false) {
-    blocks.push({ type: "list", bullet: advanceLetter(), indentTabs: 1, indentStyle: "keputusan", runs: [{ text: "Aset dan/atau jumlah peredaran usaha tidak lebih dari 50 Milyar, atau" }] });
+    blocks.push({ 
+      type: "list", 
+      bullet: advanceLetter(), 
+      indentTabs: 1, 
+      indentStyle: "keputusan", 
+      runs: [{ text: `Aset dan/atau jumlah peredaran usaha ${data.rupstIsAudited ? "lebih" : "tidak lebih"} dari 50 Milyar, atau` }] 
+    });
   }
   if (data.rupstAlasanAuditF !== false) {
-    blocks.push({ type: "list", bullet: advanceLetter(), indentTabs: 1, indentStyle: "keputusan", runs: [{ text: "Tidak diwajibkan oleh peraturan perundang-undangan." }] });
+    blocks.push({ 
+      type: "list", 
+      bullet: advanceLetter(), 
+      indentTabs: 1, 
+      indentStyle: "keputusan", 
+      runs: [{ text: `${data.rupstIsAudited ? "" : "Tidak "}diwajibkan oleh peraturan perundang-undangan.` }] 
+    });
   }
 
   blocks.push(
@@ -467,7 +503,21 @@ export const generateRupstBlocks = (data: CompanyData): Block[] => {
   );
 
   if (data.rupstStatementNeraca === true) {
-    blocks.push({ type: "list", bullet: "-", indentTabs: 1, indentStyle: "keputusan", runs: [{ text: "Laporan Keuangan, terlampir dan dilekatkan pada Notulen Rapat Umum Pemegang Saham Tahunan ini." }] });
+    if (data.rupstIsAudited && data.rupstKapName) {
+      blocks.push({
+        type: "list",
+        bullet: "-",
+        indentTabs: 1,
+        indentStyle: "keputusan",
+        runs: [
+          { text: `Laporan Keuangan yang telah diaudit oleh Kantor Akuntan Publik ` },
+          { text: data.rupstKapName.toUpperCase(), bold: true },
+          { text: ` No. Izin KAP: ${data.rupstKapLicenseNumber || "-"} yang berlaku sampai dengan tanggal ${data.rupstKapExpiryDate ? formatDateStr(data.rupstKapExpiryDate) : "-"}, terlampir dan dilekatkan pada Notulen Rapat Umum Pemegang Saham Tahunan ini.` }
+        ]
+      });
+    } else {
+      blocks.push({ type: "list", bullet: "-", indentTabs: 1, indentStyle: "keputusan", runs: [{ text: "Laporan Keuangan, terlampir dan dilekatkan pada Notulen Rapat Umum Pemegang Saham Tahunan ini." }] });
+    }
   }
   if (data.rupstStatementLabaRugi === true) {
     blocks.push({ type: "list", bullet: "-", indentTabs: 1, indentStyle: "keputusan", runs: [{ text: "Laporan mengenai Kegiatan Perseroan, terlampir dan dilekatkan pada Notulen Rapat Umum Pemegang Saham Tahunan ini." }] });

@@ -129,6 +129,7 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
     { type: "p", align: "center", runs: [{ text: "RAPAT UMUM PEMEGANG SAHAM TAHUNAN", bold: true }] },
     { type: "p", align: "center", runs: [{ text: formatCompanyName(data.companyName), bold: true }] },
     { type: "p", align: "center", runs: [{ text: `Nomor : ${effectiveNotaryNumber}` }] },
+    { type: "p", runs: [] },
     { type: "p", runs: [{ text: `Pada hari ini, ${tglAktaHari}, tanggal ${tglAktaAngka} (${tglAktaHuruf}).` }] },
     { type: "p", runs: [{ text: `Pukul ${jamStr} WIB (${jamHuruf}).` }] },
     {
@@ -573,7 +574,7 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
       type: "list",
       bullet: "-",
       indentTabs: 0.9,
-      runs: [{ text: `Pernyataan Direksi dan Komisaris serta Para Pemegang Saham Perseroan mengenai status Perseroan yang Laporan Keuangannya tidak memenuhi ketentuan wajib audit oleh Akuntan Publik;` }]
+      runs: [{ text: `${data.rupstIsAudited ? "Pernyataan Direksi dan Komisaris serta Para Pemegang Saham Perseroan mengenai status Perseroan yang Laporan Keuangannya memenuhi ketentuan wajib audit oleh Akuntan Publik;" : "Pernyataan Direksi dan Komisaris serta Para Pemegang Saham Perseroan mengenai status Perseroan yang Laporan Keuangannya tidak memenuhi ketentuan wajib audit oleh Akuntan Publik;"}` }]
     },
     {
       type: "list",
@@ -613,7 +614,7 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
   blocks.push({
     type: "p",
     number: 1,
-    runs: [{ text: `Menyetujui Pernyataan Direksi dan Komisaris serta Para Pemegang Saham Perseroan ${formatCompanyName(data.companyName)} yang menyatakan bahwa status perseroan ini merupakan PT. Tertutup yang Laporan Keuangannya Tidak Memenuhi Ketentuan Wajib Audit oleh Akuntan Publik dengan alasan sebagai berikut:` }]
+    runs: [{ text: `Menyetujui Pernyataan Direksi dan Komisaris serta Para Pemegang Saham Perseroan ${formatCompanyName(data.companyName)} yang menyatakan bahwa status perseroan ini merupakan PT. Tertutup yang Laporan Keuangannya ${data.rupstIsAudited ? "Memenuhi" : "Tidak Memenuhi"} Ketentuan Wajib Audit oleh Akuntan Publik dengan alasan sebagai berikut:` }]
   });
 
   let subBulletLetter = 97; // 'a'
@@ -624,22 +625,52 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
   };
 
   if (data.rupstAlasanAuditA !== false) {
-    blocks.push({ type: "list", bullet: advanceLetter(), indentTabs: 1.0, runs: [{ text: "Kegiatan Usaha Perseroan tidak menghimpun dan/atau mengelola dana masyarakat." }] });
+    blocks.push({ 
+      type: "list", 
+      bullet: advanceLetter(), 
+      indentTabs: 1.0, 
+      runs: [{ text: `Kegiatan Usaha Perseroan ${data.rupstIsAudited ? "" : "tidak "}menghimpun dan/atau mengelola dana masyarakat.` }] 
+    });
   }
   if (data.rupstAlasanAuditB !== false) {
-    blocks.push({ type: "list", bullet: advanceLetter(), indentTabs: 1.0, runs: [{ text: "Perseroan tidak menerbitkan surat pengakuan utang kepada masyarakat." }] });
+    blocks.push({ 
+      type: "list", 
+      bullet: advanceLetter(), 
+      indentTabs: 1.0, 
+      runs: [{ text: `Perseroan ${data.rupstIsAudited ? "" : "tidak "}menerbitkan surat pengakuan utang kepada masyarakat.` }] 
+    });
   }
   if (data.rupstAlasanAuditC !== false) {
-    blocks.push({ type: "list", bullet: advanceLetter(), indentTabs: 1.0, runs: [{ text: "Perseroan tidak merupakan Perseroan Terbuka (Tbk)." }] });
+    blocks.push({ 
+      type: "list", 
+      bullet: advanceLetter(), 
+      indentTabs: 1.0, 
+      runs: [{ text: `Perseroan ${data.rupstIsAudited ? "merupakan" : "tidak merupakan"} Perseroan Terbuka (Tbk).` }] 
+    });
   }
   if (data.rupstAlasanAuditD !== false) {
-    blocks.push({ type: "list", bullet: advanceLetter(), indentTabs: 1.0, runs: [{ text: "Perseroan tidak merupakan Persero." }] });
+    blocks.push({ 
+      type: "list", 
+      bullet: advanceLetter(), 
+      indentTabs: 1.0, 
+      runs: [{ text: `Perseroan ${data.rupstIsAudited ? "merupakan" : "tidak merupakan"} Persero.` }] 
+    });
   }
   if (data.rupstAlasanAuditE !== false) {
-    blocks.push({ type: "list", bullet: advanceLetter(), indentTabs: 1.0, runs: [{ text: "Aset dan/atau jumlah peredaran usaha tidak lebih dari 50 Milyar, atau" }] });
+    blocks.push({ 
+      type: "list", 
+      bullet: advanceLetter(), 
+      indentTabs: 1.0, 
+      runs: [{ text: `Aset dan/atau jumlah peredaran usaha ${data.rupstIsAudited ? "lebih" : "tidak lebih"} dari 50 Milyar, atau` }] 
+    });
   }
   if (data.rupstAlasanAuditF !== false) {
-    blocks.push({ type: "list", bullet: advanceLetter(), indentTabs: 1.0, runs: [{ text: "Tidak diwajibkan oleh peraturan perundang-undangan." }] });
+    blocks.push({ 
+      type: "list", 
+      bullet: advanceLetter(), 
+      indentTabs: 1.0, 
+      runs: [{ text: `${data.rupstIsAudited ? "" : "Tidak "}diwajibkan oleh peraturan perundang-undangan.` }] 
+    });
   }
 
   // Decision 2
@@ -669,7 +700,20 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
   });
 
   if (data.rupstStatementNeraca === true) {
-    blocks.push({ type: "list", bullet: "-", indentTabs: 1.0, runs: [{ text: "Laporan Keuangan, terlampir dan dilekatkan pada Notulen Rapat Umum Pemegang Saham Tahunan ini." }] });
+    if (data.rupstIsAudited && data.rupstKapName) {
+      blocks.push({
+        type: "list",
+        bullet: "-",
+        indentTabs: 1.0,
+        runs: [
+          { text: `Laporan Keuangan yang telah diaudit oleh Kantor Akuntan Publik ` },
+          { text: data.rupstKapName.toUpperCase(), bold: true },
+          { text: ` No. Izin KAP: ${data.rupstKapLicenseNumber || "-"} yang berlaku sampai dengan tanggal ${data.rupstKapExpiryDate ? formatDateStr(data.rupstKapExpiryDate) : "-"}, terlampir dan dilekatkan pada Notulen Rapat Umum Pemegang Saham Tahunan ini.` }
+        ]
+      });
+    } else {
+      blocks.push({ type: "list", bullet: "-", indentTabs: 1.0, runs: [{ text: "Laporan Keuangan, terlampir dan dilekatkan pada Notulen Rapat Umum Pemegang Saham Tahunan ini." }] });
+    }
   }
   if (data.rupstStatementLabaRugi === true) {
     blocks.push({ type: "list", bullet: "-", indentTabs: 1.0, runs: [{ text: "Laporan mengenai Kegiatan Perseroan, terlampir dan dilekatkan pada Notulen Rapat Umum Pemegang Saham Tahunan ini." }] });

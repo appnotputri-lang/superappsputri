@@ -285,6 +285,10 @@ export interface CompanyData {
   rupstAlasanAuditD?: boolean;
   rupstAlasanAuditE?: boolean;
   rupstAlasanAuditF?: boolean;
+  rupstIsAudited?: boolean;
+  rupstKapName?: string;
+  rupstKapLicenseNumber?: string;
+  rupstKapExpiryDate?: string;
 
   // Sirkuler Laporan Tahunan Extra Fields
   slHari?: string;

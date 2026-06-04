@@ -208,6 +208,10 @@ const INITIAL_STATE: CompanyData = {
   rupstAlasanAuditD: true,
   rupstAlasanAuditE: true,
   rupstAlasanAuditF: true,
+  rupstIsAudited: false,
+  rupstKapName: '',
+  rupstKapLicenseNumber: '',
+  rupstKapExpiryDate: '',
   rupstNotulenNumber: '',
   rupstQuorumArticle: '10',
   rupstQuorumParagraph: '1',
@@ -3670,6 +3674,43 @@ const App: React.FC = () => {
 
                     {/* DATA KHUSUS RUPST */}
                     <AhuSection title="AGENDA DAN KEUANGAN RUPST">
+                      <div className="mb-6 p-3 bg-slate-50 border border-slate-200 rounded flex items-center gap-6">
+                        <span className="text-[12px] font-bold text-slate-700">Status Audit Laporan Keuangan:</span>
+                        <div className="flex gap-4">
+                          <label className="flex items-center gap-2 text-[12px] text-slate-700 cursor-pointer">
+                            <input 
+                              type="radio" 
+                              checked={data.rupstIsAudited === false} 
+                              onChange={() => {
+                                updateData({ rupstIsAudited: false });
+                              }}
+                              className="w-4 h-4 text-[#3b5998]"
+                            />
+                            <span>Tidak Wajib Audit</span>
+                          </label>
+                          <label className="flex items-center gap-2 text-[12px] text-slate-700 cursor-pointer">
+                            <input 
+                              type="radio" 
+                              checked={data.rupstIsAudited === true} 
+                              onChange={() => {
+                                updateData({ 
+                                  rupstIsAudited: true,
+                                  rupstStatementNeraca: true,
+                                  rupstStatementLabaRugi: true,
+                                  rupstStatementPerubahanEkuitas: true,
+                                  rupstStatementArusKas: true,
+                                  rupstStatementCatatan: true,
+                                  rupstStatementNamaAnggota: true,
+                                  rupstStatementGaji: true
+                                });
+                              }}
+                              className="w-4 h-4 text-[#3b5998]"
+                            />
+                            <span>Wajib Audit</span>
+                          </label>
+                        </div>
+                      </div>
+
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                         <div className="space-y-4">
                           <div>
@@ -3714,6 +3755,40 @@ const App: React.FC = () => {
                               </div>
                             </div>
                           </div>
+
+                          {data.rupstIsAudited && (
+                            <div className="p-3 bg-slate-50 border border-slate-200 rounded space-y-3">
+                              <h5 className="text-[11px] font-bold text-slate-800 uppercase tracking-wider">Informasi KAP / Auditor</h5>
+                              <div className="space-y-3">
+                                <div>
+                                  <AhuLabel label="Nama Kantor Akuntan Publik (KAP)" />
+                                  <AhuInput 
+                                    value={data.rupstKapName || ''} 
+                                    onChange={e => updateData({ rupstKapName: e.target.value })} 
+                                    placeholder="Contoh: KAP Tanudiredja, Wibisana, Rintis & Rekan" 
+                                  />
+                                </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                  <div>
+                                    <AhuLabel label="Nomor Izin KAP" />
+                                    <AhuInput 
+                                      value={data.rupstKapLicenseNumber || ''} 
+                                      onChange={e => updateData({ rupstKapLicenseNumber: e.target.value })} 
+                                      placeholder="Contoh: KEP-442/KM.1/2023" 
+                                    />
+                                  </div>
+                                  <div>
+                                    <AhuLabel label="Izin Berakhir Tanggal" />
+                                    <AhuInput 
+                                      type="date"
+                                      value={data.rupstKapExpiryDate || ''} 
+                                      onChange={e => updateData({ rupstKapExpiryDate: e.target.value })} 
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          )}
                         </div>
                         <div className="space-y-4">
                           <div>
@@ -3737,18 +3812,22 @@ const App: React.FC = () => {
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-                        <div className="p-3 bg-slate-50 border border-slate-200 rounded space-y-2">
-                          <h5 className="text-[11px] font-bold text-slate-800 uppercase tracking-wider">Alasan Tidak Wajib Audit:</h5>
-                          <div className="space-y-1.5 pt-1">
-                            <label className="flex items-center gap-2 text-[12px] text-slate-700 cursor-pointer font-medium">
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                        <div className="p-4 bg-slate-50 border border-slate-200 rounded space-y-3 shadow-sm">
+                          <h5 className="text-[11px] font-bold text-slate-800 uppercase tracking-wider border-b border-slate-200 pb-2">
+                            {data.rupstIsAudited ? "Alasan Wajib Audit:" : "Alasan Tidak Wajib Audit:"}
+                          </h5>
+                          <div className="space-y-2 pt-1">
+                            <label className="flex items-start gap-2 text-[12px] text-slate-700 cursor-pointer font-medium hover:text-blue-600 transition-colors">
                               <input
                                 type="checkbox"
                                 checked={data.rupstAlasanAuditA !== false}
                                 onChange={(e) => updateData({ rupstAlasanAuditA: e.target.checked })}
-                                className="w-4 h-4 text-[#3b5998] focus:ring-[#3b5998] border-[#ccc] rounded"
+                                className="w-4 h-4 mt-0.5 text-[#3b5998] focus:ring-[#3b5998] border-[#ccc] rounded"
                               />
-                              <span className="flex-1">a. Kegiatan Usaha Perseroan tidak menghimpun dan/atau mengelola dana masyarakat.</span>
+                              <span className="flex-1 leading-tight">
+                                a. Kegiatan Usaha Perseroan {data.rupstIsAudited ? "" : "tidak"} menghimpun dan/atau mengelola dana masyarakat.
+                              </span>
                             </label>
                             <label className="flex items-center gap-2 text-[12px] text-slate-700 cursor-pointer font-medium">
                               <input
@@ -3757,7 +3836,9 @@ const App: React.FC = () => {
                                 onChange={(e) => updateData({ rupstAlasanAuditB: e.target.checked })}
                                 className="w-4 h-4 text-[#3b5998] focus:ring-[#3b5998] border-[#ccc] rounded"
                               />
-                              <span className="flex-1">b. Perseroan tidak menerbitkan surat pengakuan utang kepada masyarakat.</span>
+                              <span className="flex-1">
+                                b. Perseroan {data.rupstIsAudited ? "" : "tidak"} menerbitkan surat pengakuan utang kepada masyarakat.
+                              </span>
                             </label>
                             <label className="flex items-center gap-2 text-[12px] text-slate-700 cursor-pointer font-medium">
                               <input
@@ -3766,7 +3847,9 @@ const App: React.FC = () => {
                                 onChange={(e) => updateData({ rupstAlasanAuditC: e.target.checked })}
                                 className="w-4 h-4 text-[#3b5998] focus:ring-[#3b5998] border-[#ccc] rounded"
                               />
-                              <span className="flex-1">c. Perseroan tidak merupakan Perseroan Terbuka (Tbk).</span>
+                              <span className="flex-1">
+                                c. Perseroan {data.rupstIsAudited ? "merupakan" : "tidak merupakan"} Perseroan Terbuka (Tbk).
+                              </span>
                             </label>
                             <label className="flex items-center gap-2 text-[12px] text-slate-700 cursor-pointer font-medium">
                               <input
@@ -3775,7 +3858,9 @@ const App: React.FC = () => {
                                 onChange={(e) => updateData({ rupstAlasanAuditD: e.target.checked })}
                                 className="w-4 h-4 text-[#3b5998] focus:ring-[#3b5998] border-[#ccc] rounded"
                               />
-                              <span className="flex-1">d. Perseroan tidak merupakan Persero.</span>
+                              <span className="flex-1">
+                                d. Perseroan {data.rupstIsAudited ? "merupakan" : "tidak merupakan"} Persero.
+                              </span>
                             </label>
                             <label className="flex items-center gap-2 text-[12px] text-slate-700 cursor-pointer font-medium">
                               <input
@@ -3784,7 +3869,9 @@ const App: React.FC = () => {
                                 onChange={(e) => updateData({ rupstAlasanAuditE: e.target.checked })}
                                 className="w-4 h-4 text-[#3b5998] focus:ring-[#3b5998] border-[#ccc] rounded"
                               />
-                              <span className="flex-1">e. Aset dan/atau jumlah peredaran usaha tidak lebih dari 50 Milyar, atau</span>
+                              <span className="flex-1">
+                                e. Aset dan/atau jumlah peredaran usaha {data.rupstIsAudited ? "lebih" : "tidak lebih"} dari 50 Milyar, atau
+                              </span>
                             </label>
                             <label className="flex items-center gap-2 text-[12px] text-slate-700 cursor-pointer font-medium">
                               <input
@@ -3793,14 +3880,16 @@ const App: React.FC = () => {
                                 onChange={(e) => updateData({ rupstAlasanAuditF: e.target.checked })}
                                 className="w-4 h-4 text-[#3b5998] focus:ring-[#3b5998] border-[#ccc] rounded"
                               />
-                              <span className="flex-1">f. Tidak diwajibkan oleh peraturan perundang-undangan.</span>
+                              <span className="flex-1">
+                                f. {data.rupstIsAudited ? "" : "Tidak"} diwajibkan oleh peraturan perundang-undangan.
+                              </span>
                             </label>
                           </div>
                         </div>
                         
-                        <div className="p-3 bg-slate-50 border border-slate-200 rounded space-y-2">
-                          <h5 className="text-[11px] font-bold text-slate-800 uppercase tracking-wider">Komponen Laporan Keuangan Yang Disahkan:</h5>
-                          <div className="space-y-1.5 pt-1">
+                        <div className="p-4 bg-slate-50 border border-slate-200 rounded space-y-3 shadow-sm">
+                          <h5 className="text-[11px] font-bold text-slate-800 uppercase tracking-wider border-b border-slate-200 pb-2">Komponen Laporan Keuangan Yang Disahkan:</h5>
+                          <div className="space-y-2 pt-1">
                             <label className="flex items-start gap-2 text-[12px] text-slate-700 cursor-pointer font-medium">
                               <input
                                 type="checkbox"
@@ -3924,7 +4013,7 @@ const App: React.FC = () => {
                           <div className="md:col-span-3 flex gap-4">
                             <div className="flex-1">
                               <AhuLabel label="Pasal Kuorum" />
-                              <AhuInput value={data.rupstQuorumArticle || ''} onChange={e => updateData({ rupstQuorumArticle: e.target.value })} placeholder="Contoh: 22" />
+                              <AhuInput value={data.rupstQuorumArticle || ''} onChange={e => updateData({ rupstQuorumArticle: e.target.value })} placeholder="Contoh: 10" />
                             </div>
                             <div className="flex-1">
                               <AhuLabel label="Ayat Kuorum" />
