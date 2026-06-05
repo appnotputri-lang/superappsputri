@@ -1,14 +1,24 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Basic helpers
+    function isSignedIn() {
+      return request.auth != null && request.auth.token.email_verified == true;
+    }
+
     function isAllowedUser() {
-      return request.auth != null && request.auth.token.email_verified == true && (
+      return isSignedIn() && (
         request.auth.token.email == 'appnotputri@gmail.com' ||
         request.auth.token.email == 'rdyndi@gmail.com' ||
         request.auth.token.email == 'notarisppatputri@gmail.com'
       );
     }
 
+    function isOwner(data) {
+      return isSignedIn() && data.userId == request.auth.uid;
+    }
+
+    // Default deny
     match /{document=**} {
       allow read, write: if false;
     }
@@ -23,6 +33,12 @@ service cloud.firestore {
 
     match /rupst_projects/{rupstId} {
       allow read, write: if isAllowedUser();
+    }
+
+    match /rupst_public_projects/{rupstId} {
+      // Allow public access to public projects
+      allow read: if true;
+      allow write: if true;
     }
 
     match /pendirian_projects/{pendirianId} {

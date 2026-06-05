@@ -23,6 +23,10 @@
       "schema": { "$ref": "#/entities/profile" },
       "description": "Contains RUPS Tahunan project-specific data"
     },
+    "rupst_public_projects/{rupstId}": {
+      "schema": { "$ref": "#/entities/profile" },
+      "description": "Contains RUPS Tahunan Public project-specific data"
+    },
     "pendirian_projects/{pendirianId}": {
       "schema": { "$ref": "#/entities/profile" },
       "description": "Contains RUPS Pendirian project-specific data"

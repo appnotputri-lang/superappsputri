@@ -19,6 +19,8 @@ import PendirianDocumentPreview from './src/PendirianDocumentPreview';
 import { RUPSTDocumentPreview } from './src/RUPSTDocumentPreview';
 import { SirkulerLaporanDocumentPreview } from './components/SirkulerLaporanDocumentPreview';
 import { SirkulerLaporanFormContent } from './components/SirkulerLaporanFormContent';
+import { RupstInteractiveAssistant } from './src/components/RupstInteractiveAssistant';
+import { Sparkles, Bot } from 'lucide-react';
 import { generatePendirianDocx } from './src/lib/generatePendirianDocx';
 import GuideMenu from './src/components/GuideMenu';
 import ProxyInputModal from './components/ProxyInputModal';
@@ -240,7 +242,7 @@ const INITIAL_STATE: CompanyData = {
 };
 
 type TabId = 'general' | 'shareholders' | 'shareholders_new' | 'representative' | 'agenda' | 'kbli' | 'domicile' | 'address' | 'capitalBase' | 'capitalPaid' | 'management' | 'reappointment';
-type SidebarTabId = 'beranda' | 'company_profile' | 'notulen' | 'pendirian' | 'rupst' | 'perbaikan' | 'draft_akta_rups' | 'panduan' | 'sirkuler_laporan';
+type SidebarTabId = 'beranda' | 'company_profile' | 'notulen' | 'pendirian' | 'rupst' | 'perbaikan' | 'draft_akta_rups' | 'panduan' | 'sirkuler_laporan' | 'rupst_public';
 
 // AHU Style Helper Components
 const AhuSection = ({ title, children, isOpen = true }: { title: string, children: React.ReactNode, isOpen?: boolean }) => {
@@ -321,6 +323,7 @@ const App: React.FC = () => {
   const [profiles, setProfiles] = useState<CompanyProfile[]>([]);
   const [projects, setProjects] = useState<CompanyData[]>([]);
   const [rupstProjects, setRupstProjects] = useState<CompanyData[]>([]);
+  const [rupstPublicProjects, setRupstPublicProjects] = useState<CompanyData[]>([]);
   const [pendirianProjects, setPendirianProjects] = useState<CompanyData[]>([]);
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [authLoading, setAuthLoading] = useState(() => {
@@ -375,6 +378,18 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    // Public projects listener - always active
+    const rupstPublicRef = collection(db, 'rupst_public_projects');
+    const unsubRupstPublic = onSnapshot(rupstPublicRef, (snapshot) => {
+      const loaded: CompanyData[] = [];
+      snapshot.forEach(doc => {
+        loaded.push(doc.data() as CompanyData);
+      });
+      setRupstPublicProjects(loaded);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, `rupst_public_projects`);
+    });
+
     if (user) {
       let profilesReady = false;
       let projectsReady = false;
@@ -447,29 +462,42 @@ const App: React.FC = () => {
         checkIfLoaded();
       });
 
-      return () => { unsubProfiles(); unsubProjects(); unsubRupst(); unsubPendirian(); };
+      return () => { 
+        unsubProfiles(); 
+        unsubProjects(); 
+        unsubRupst(); 
+        unsubRupstPublic(); 
+        unsubPendirian(); 
+      };
     } else {
       setProfiles([]);
       setProjects([]);
       setRupstProjects([]);
       setPendirianProjects([]);
       setDataLoading(false);
+      return () => unsubRupstPublic();
     }
   }, [user]);
 
   const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
   const [editingRupstId, setEditingRupstId] = useState<string | null>(null);
+  const [editingRupstPublicId, setEditingRupstPublicId] = useState<string | null>(null);
   const [editingPendirianId, setEditingPendirianId] = useState<string | null>(null);
   const [editingProfileId, setEditingProfileId] = useState<string | null>(null);
 
   const [editingShareholder, setEditingShareholder] = useState<Shareholder | null>(null);
+  const [rupstInputMode, setRupstInputMode] = useState<'form' | 'assistant'>('assistant');
+  const [assistantStep, setAssistantStep] = useState<number>(1);
   const [editMode, setEditMode] = useState<'lama' | 'baru' | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [showPreview, setShowPreview] = useState(true);
   const [newKbliId, setNewKbliId] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [activeSidebarTab, setActiveSidebarTab] = useState<SidebarTabId>('beranda');
+  const [activeSidebarTab, setActiveSidebarTab] = useState<SidebarTabId>(() => {
+    if (window.location.pathname === '/rupst') return 'rupst_public';
+    return 'beranda';
+  });
   const [zoom, setZoom] = useState(1);
   const [showPendirianPreview, setShowPendirianPreview] = useState(false);
   const [pendirianPreviewData, setPendirianPreviewData] = useState<any>(null);
@@ -570,7 +598,7 @@ const App: React.FC = () => {
       }
     }
 
-    if (activeSidebarTab === 'rupst') {
+    if (activeSidebarTab === 'rupst' || activeSidebarTab === 'rupst_public') {
       try {
         const { generateRUPSTDocx } = await import('./src/lib/generateRUPSTDocx');
         await generateRUPSTDocx(mergedData);
@@ -628,6 +656,28 @@ const App: React.FC = () => {
       if (updates.oldAddress) {
         newData.oldFullAddress = formatFullAddress(newData.oldAddress);
       }
+      if (
+        updates.rupstStreet !== undefined ||
+        updates.rupstRt !== undefined ||
+        updates.rupstRw !== undefined ||
+        updates.rupstKelurahan !== undefined ||
+        updates.rupstKecamatan !== undefined
+      ) {
+        const street = updates.rupstStreet !== undefined ? updates.rupstStreet : (prev.rupstStreet || '');
+        const rt = updates.rupstRt !== undefined ? updates.rupstRt : (prev.rupstRt || '');
+        const rw = updates.rupstRw !== undefined ? updates.rupstRw : (prev.rupstRw || '');
+        const kelurahan = updates.rupstKelurahan !== undefined ? updates.rupstKelurahan : (prev.rupstKelurahan || '');
+        const kecamatan = updates.rupstKecamatan !== undefined ? updates.rupstKecamatan : (prev.rupstKecamatan || '');
+
+        const parts = [
+          street,
+          rt && rw ? `RT. ${rt} RW. ${rw}` : (rt ? `RT. ${rt}` : (rw ? `RW. ${rw}` : '')),
+          kelurahan ? `Kelurahan/Desa ${kelurahan}` : '',
+          kecamatan ? `Kecamatan ${kecamatan}` : ''
+        ].filter(Boolean);
+
+        newData.fullAddress = parts.join(', ');
+      }
       return newData;
     });
   };
@@ -636,6 +686,43 @@ const App: React.FC = () => {
     updateData({
       [property]: { ...data[property], ...updates }
     } as any);
+  };
+
+  const handleQuestionChange = (questionKey: 'rupstQuestionA' | 'rupstQuestionB' | 'rupstQuestionC' | 'rupstQuestionD' | 'rupstQuestionE' | 'rupstQuestionF', answer: 'ya' | 'tidak') => {
+    const updatedAnswers = {
+      rupstQuestionA: data.rupstQuestionA,
+      rupstQuestionB: data.rupstQuestionB,
+      rupstQuestionC: data.rupstQuestionC,
+      rupstQuestionD: data.rupstQuestionD,
+      rupstQuestionE: data.rupstQuestionE,
+      rupstQuestionF: data.rupstQuestionF,
+      [questionKey]: answer
+    };
+
+    const isAudited = Object.values(updatedAnswers).some(val => val === 'ya');
+
+    const updates: Partial<CompanyData> = {
+      [questionKey]: answer,
+      rupstIsAudited: isAudited,
+      rupstAlasanAuditA: isAudited ? (updatedAnswers.rupstQuestionA === 'ya') : true,
+      rupstAlasanAuditB: isAudited ? (updatedAnswers.rupstQuestionB === 'ya') : true,
+      rupstAlasanAuditC: isAudited ? (updatedAnswers.rupstQuestionC === 'ya') : true,
+      rupstAlasanAuditD: isAudited ? (updatedAnswers.rupstQuestionD === 'ya') : true,
+      rupstAlasanAuditE: isAudited ? (updatedAnswers.rupstQuestionE === 'ya') : true,
+      rupstAlasanAuditF: isAudited ? (updatedAnswers.rupstQuestionF === 'ya') : true,
+    };
+
+    if (isAudited) {
+      updates.rupstStatementNeraca = true;
+      updates.rupstStatementLabaRugi = true;
+      updates.rupstStatementPerubahanEkuitas = true;
+      updates.rupstStatementArusKas = true;
+      updates.rupstStatementCatatan = true;
+      updates.rupstStatementNamaAnggota = true;
+      updates.rupstStatementGaji = true;
+    }
+
+    updateData(updates);
   };
 
   const updateManualRep = (updates: Partial<Shareholder>) => {
@@ -990,6 +1077,8 @@ const App: React.FC = () => {
     'notarisppatputri@gmail.com'
   ];
 
+  const isPublicRoute = window.location.pathname === '/rupst';
+
   if (authLoading || (user && dataLoading)) {
     return (
       <div className="h-screen flex flex-col items-center justify-center bg-[#2c3b41] font-sans text-white">
@@ -1012,7 +1101,7 @@ const App: React.FC = () => {
     );
   }
 
-  if (!user) {
+  if (!isPublicRoute && !user) {
     return (
       <div className="h-screen flex flex-col items-center justify-center bg-[#ecf0f5] font-sans text-slate-900">
         <div className="bg-white p-8 rounded-lg shadow-lg border border-slate-200 text-center max-w-sm w-full mx-4">
@@ -1032,7 +1121,7 @@ const App: React.FC = () => {
     );
   }
 
-  if (user && user.email && !ALLOWED_EMAILS.includes(user.email)) {
+  if (!isPublicRoute && user && user.email && !ALLOWED_EMAILS.includes(user.email)) {
     return (
       <div className="h-screen flex flex-col items-center justify-center bg-[#ecf0f5] font-sans text-slate-900">
         <div className="bg-white p-8 rounded-lg shadow-lg border border-slate-200 text-center max-w-sm w-full mx-4">
@@ -1089,11 +1178,18 @@ const App: React.FC = () => {
               { label: 'Company Profile', id: 'company_profile' as const, icon: Building2 },
               { label: 'RUPS LB', id: 'notulen' as const, icon: FileText },
               { label: 'RUPS Tahunan', id: 'rupst' as const, icon: History },
+              { label: 'RUPST Public', id: 'rupst_public' as const, icon: History },
               { label: 'Sirkuler Lap Tahunan', id: 'sirkuler_laporan' as const, icon: FileSignature },
               { label: 'Pendirian PT', id: 'pendirian' as const, icon: FileText },
               { label: 'Surat Perbaikan Data', id: 'perbaikan' as const, icon: Mail },
               { label: 'Panduan Penggunaan', id: 'panduan' as const, icon: BookOpen },
-            ].map((item) => (
+            ].filter(item => {
+              if (!user && !isPublicRoute) return false; // Should not happen due to wall
+              if (!user && isPublicRoute) {
+                return ['rupst_public', 'panduan'].includes(item.id);
+              }
+              return true;
+            }).map((item) => (
               <button key={item.id} onClick={() => setActiveSidebarTab(item.id)} className={`w-full text-left px-4 py-2.5 border-l-4 transition-all flex justify-between items-center ${activeSidebarTab === item.id ? 'bg-[#1e282c] text-white border-blue-500' : 'border-transparent hover:bg-black/10 hover:text-white'}`}>
                 <span className="flex items-center gap-3">
                   <item.icon size={18} />
@@ -1135,7 +1231,7 @@ const App: React.FC = () => {
               </div>
 
               {/* Stats Overview */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
                 <div className="bg-white p-5 rounded-md border border-slate-200 shadow-sm flex items-center justify-between hover:shadow transition-shadow">
                   <div className="space-y-1">
                     <span className="text-[11px] font-bold text-slate-500 uppercase tracking-tight">Profil Perusahaan</span>
@@ -1169,25 +1265,14 @@ const App: React.FC = () => {
                   </div>
                 </div>
 
-<div className="bg-white p-5 rounded-md border border-slate-200 shadow-sm flex items-center justify-between hover:shadow transition-shadow">
-                  <div className="space-y-1">
-                    <span className="text-[11px] font-bold text-slate-500 uppercase tracking-tight">Profil Perusahaan</span>
-                    <h2 className="text-3xl font-bold text-slate-800">{profiles.length}</h2>
-                    <p className="text-[11px] text-slate-400">Database profil korporasi</p>
-                  </div>
-                  <div className="w-12 h-12 rounded-full bg-blue-50 border border-blue-100 flex items-center justify-center text-[#3b5998]">
-                    <Building2 className="w-6 h-6" />
-                  </div>
-                </div>
-
                 <div className="bg-white p-5 rounded-md border border-slate-200 shadow-sm flex items-center justify-between hover:shadow transition-shadow">
                   <div className="space-y-1">
-                    <span className="text-[11px] font-bold text-slate-500 uppercase tracking-tight">Draft RUPS LB</span>
-                    <h2 className="text-3xl font-bold text-slate-800">{projects.length}</h2>
-                    <p className="text-[11px] text-slate-400">Keputusan Sirkuler & Berita Acara</p>
+                    <span className="text-[11px] font-bold text-slate-500 uppercase tracking-tight">Draft RUPST Public</span>
+                    <h2 className="text-3xl font-bold text-slate-800">{rupstPublicProjects.length}</h2>
+                    <p className="text-[11px] text-slate-400">RUPST Public tersimpan</p>
                   </div>
-                  <div className="w-12 h-12 rounded-full bg-[#fcf8e3] border border-[#fbeed5] flex items-center justify-center text-[#c09853]">
-                    <FileText className="w-6 h-6" />
+                  <div className="w-12 h-12 rounded-full bg-[#e8f5e9] border border-[#c8e6c9] flex items-center justify-center text-[#2e7d32]">
+                    <History className="w-6 h-6" />
                   </div>
                 </div>
 
@@ -1197,7 +1282,7 @@ const App: React.FC = () => {
                     <h2 className="text-3xl font-bold text-slate-800">{pendirianProjects.length}</h2>
                     <p className="text-[11px] text-slate-400">Draft akta pendirian</p>
                   </div>
-                  <div className="w-12 h-12 rounded-full bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600">
+                  <div className="w-12 h-12 rounded-full bg-purple-50 border border-purple-100 flex items-center justify-center text-purple-600">
                     <FileCode className="w-6 h-6" />
                   </div>
                 </div>
@@ -2992,7 +3077,7 @@ const App: React.FC = () => {
               <AhuSection title="DETAIL RAPAT">
                 <div className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
-                    <AhuLabel label="Ketentuan AD (Pasal)" />
+                    <AhuLabel label="Ketentuan Anggaran Dasar Pimpinan rapat" />
                     <div className="md:col-span-3 flex gap-4">
                       <div className="flex-1">
                         <AhuLabel label="Nomor Pasal" />
@@ -3657,62 +3742,74 @@ const App: React.FC = () => {
               </div>
             </div>
 
-) : activeSidebarTab === 'rupst' ? (
-            <div className="max-w-5xl mx-auto space-y-4">
-              <div className="flex justify-between items-center bg-white p-4 rounded-sm shadow-sm border border-slate-200">
-                <div>
-                  <h2 className="text-[16px] font-bold flex items-center gap-2 text-slate-800 uppercase"><History className="w-5 h-5 text-[#3b5998]" /> RUPS Tahunan (RUPST)</h2>
-                  <p className="text-[12px] text-slate-500">Kelola daftar notulen RUPS Tahunan</p>
-                </div>
-                {!editingRupstId && (
-                  <button onClick={() => {
-                    setEditingRupstId('new');
-                    updateData({ 
-                      ...INITIAL_STATE, 
-                    } as any);
-                  }} className="bg-[#3b5998] hover:bg-[#2d4373] text-white px-4 py-2 rounded-sm font-bold text-[12px] flex items-center gap-2 transition-colors">
-                    <Plus className="w-4 h-4" /> TAMBAH RUPST BARU
-                  </button>
-                )}
-              </div>
+) : (activeSidebarTab === 'rupst' || activeSidebarTab === 'rupst_public') ? (() => {
+            const isPublicMenu = activeSidebarTab === 'rupst_public';
+            const currentEditingRupstId = isPublicMenu ? editingRupstPublicId : editingRupstId;
+            const setCurrentEditingRupstId = isPublicMenu ? setEditingRupstPublicId : setEditingRupstId;
+            const currentRupstProjects = isPublicMenu ? rupstPublicProjects : rupstProjects;
+            const currentCollectionName = isPublicMenu ? 'rupst_public_projects' : 'rupst_projects';
 
-              {editingRupstId ? (
+            return (
+              <div className="max-w-5xl mx-auto space-y-4">
+                <div className="flex justify-between items-center bg-white p-4 rounded-sm shadow-sm border border-slate-200">
+                  <div>
+                    <h2 className="text-[16px] font-bold flex items-center gap-2 text-slate-800 uppercase">
+                      <History className="w-5 h-5 text-[#3b5998]" /> 
+                      {isPublicMenu ? 'RUPST Public (RUPST Public)' : 'RUPS Tahunan (RUPST)'}
+                    </h2>
+                    <p className="text-[12px] text-slate-500">
+                      {isPublicMenu ? 'Kelola daftar notulen RUPST Public' : 'Kelola daftar notulen RUPS Tahunan'}
+                    </p>
+                  </div>
+                  {!currentEditingRupstId && (
+                    <button onClick={() => {
+                      setCurrentEditingRupstId('new');
+                      updateData({ 
+                        ...INITIAL_STATE, 
+                      } as any);
+                    }} className="bg-[#3b5998] hover:bg-[#2d4373] text-white px-4 py-2 rounded-sm font-bold text-[12px] flex items-center gap-2 transition-colors">
+                      <Plus className="w-4 h-4" /> {isPublicMenu ? 'TAMBAH RUPST PUBLIC BARU' : 'TAMBAH RUPST BARU'}
+                    </button>
+                  )}
+                </div>
+
+              {currentEditingRupstId ? (
                 <div className="space-y-4 pb-20">
                   {/* ... editing form ... */}
                   <div className="flex flex-wrap items-center gap-2 bg-slate-50/50 p-2 rounded-md border border-slate-200">
-                    <button className="text-slate-500 hover:text-slate-800 flex items-center gap-1 font-bold text-[12px] uppercase bg-white px-3 py-2 rounded-sm border border-slate-200 shadow-sm" onClick={() => setEditingRupstId(null)}>
+                    <button className="text-slate-500 hover:text-slate-800 flex items-center gap-1 font-bold text-[12px] uppercase bg-white px-3 py-2 rounded-sm border border-slate-200 shadow-sm" onClick={() => setCurrentEditingRupstId(null)}>
                       <ArrowRight className="w-4 h-4 rotate-180" /> Kembali
                     </button>
                     
                     <div className="h-6 w-px bg-slate-300 mx-1"></div>
-
+ 
                     <button onClick={resetData} className="px-5 py-2 bg-[#d9534f] text-white rounded-md text-[13px] font-bold transition-all hover:bg-[#c9302c] shadow-sm uppercase">RISET</button>
                     <button 
                       disabled={isSaving}
                       onClick={async () => {
                        if (!data.companyName) return alert('Nama perseroan harus diisi');
                        setIsSaving(true);
-                       const newId = editingRupstId && editingRupstId !== 'new' ? editingRupstId : crypto.randomUUID();
+                       const newId = currentEditingRupstId && currentEditingRupstId !== 'new' ? currentEditingRupstId : crypto.randomUUID();
                        const profileData = {
                            ...data,
                            id: newId
                        };
-                       if (!user) {
+                       if (!user && !isPublicMenu) {
                          setIsSaving(false);
                          return alert('Anda harus login terlebih dahulu!');
                        }
                        
                        try {
-                           await setDoc(doc(db, 'rupst_projects', profileData.id), sanitizeForFirestore(profileData));
-                           setEditingRupstId(null);
-                           alert('RUPST berhasil disimpan!');
+                           await setDoc(doc(db, currentCollectionName, profileData.id), sanitizeForFirestore(profileData));
+                           setCurrentEditingRupstId(null);
+                           alert(isPublicMenu ? 'RUPST Public berhasil disimpan!' : 'RUPST berhasil disimpan!');
                        } catch (e) {
-                           handleFirestoreError(e, OperationType.WRITE, `rupst_projects/${profileData.id}`);
+                           handleFirestoreError(e, OperationType.WRITE, `${currentCollectionName}/${profileData.id}`);
                        } finally {
                            setIsSaving(false);
                        }
                     }} className="px-5 py-2 bg-[#40bdae] text-white rounded-md text-[13px] font-bold transition-all hover:bg-[#349c8f] shadow-sm uppercase disabled:opacity-50 disabled:cursor-not-allowed">
-                      {isSaving ? 'MENYIMPAN...' : 'SIMPAN RUPST'}
+                      {isSaving ? 'MENYIMPAN...' : (isPublicMenu ? 'SIMPAN RUPST PUBLIC' : 'SIMPAN RUPST')}
                     </button>
 
                     <button 
@@ -3743,25 +3840,640 @@ const App: React.FC = () => {
                     >
                        <FileCheck className="w-4 h-4" /> SURAT PERNYATAAN DOCX
                     </button>
-                    <button 
-                      onClick={async () => {
-                        try {
-                          const { generateRUPSTAktaDocx } = await import('./src/lib/generateRUPSTAktaDocx');
-                          await generateRUPSTAktaDocx(mergedData);
-                        } catch (err) {
-                          console.error('Failed to generate Draft Akta RUPST DOCX:', err);
-                          alert('Gagal menghasilkan Draft Akta RUPST DOCX.');
-                        }
-                      }}
-                      className="hidden md:flex px-5 py-2 bg-[#3b5998] text-white rounded-md text-[13px] font-bold transition-all hover:bg-[#2c4073] shadow-sm uppercase items-center gap-2"
-                    >
-                       <FileCode className="w-4 h-4" /> DRAFT AKTA RUPST DOCX
-                    </button>
+                    {!isPublicMenu && (
+                      <button 
+                        onClick={async () => {
+                          try {
+                            const { generateRUPSTAktaDocx } = await import('./src/lib/generateRUPSTAktaDocx');
+                            await generateRUPSTAktaDocx(mergedData);
+                          } catch (err) {
+                            console.error('Failed to generate Draft Akta RUPST DOCX:', err);
+                            alert('Gagal menghasilkan Draft Akta RUPST DOCX.');
+                          }
+                        }}
+                        className="hidden md:flex px-5 py-2 bg-[#3b5998] text-white rounded-md text-[13px] font-bold transition-all hover:bg-[#2c4073] shadow-sm uppercase items-center gap-2"
+                      >
+                         <FileCode className="w-4 h-4" /> DRAFT AKTA RUPST DOCX
+                      </button>
+                    )}
                   </div>
                   
                   <div className="space-y-4">
                     {/* PILIH PROFIL */}
-                    <AhuSection title="PILIH PROFIL">
+                    {isPublicMenu && (
+                      <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center bg-white p-3.5 rounded-lg border border-slate-200 shadow-sm gap-2 mt-2">
+                        <div className="flex items-center gap-2">
+                          <div className="bg-blue-50 text-[#3b5998] p-1.5 rounded">
+                            <Sparkles className="w-4 h-4 animate-pulse text-blue-500" />
+                          </div>
+                          <div>
+                            <span className="text-[10px] sm:text-[12px] font-bold text-slate-800 uppercase block leading-none">Format Pengisian Data RUPST</span>
+                            <span className="text-[10px] text-slate-500 mt-1 block">Pilih mode pengisian yang paling nyaman untuk Anda</span>
+                          </div>
+                        </div>
+                        <div className="flex bg-slate-100 p-0.5 rounded-md border border-slate-200">
+                          <button
+                            type="button"
+                            onClick={() => setRupstInputMode('assistant')}
+                            className={`px-3 py-1.5 rounded-md text-[11px] font-bold uppercase transition-all flex items-center gap-1.5 cursor-pointer ${
+                              rupstInputMode === 'assistant'
+                                ? 'bg-white text-[#3b5998] shadow-sm font-extrabold'
+                                : 'text-slate-600 hover:text-slate-800'
+                            }`}
+                          >
+                            <Bot className="w-3.5 h-3.5" /> Asisten Interaktif
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setRupstInputMode('form')}
+                            className={`px-3 py-1.5 rounded-md text-[11px] font-bold uppercase transition-all flex items-center gap-1.5 cursor-pointer ${
+                              rupstInputMode === 'form'
+                                ? 'bg-white text-[#3b5998] shadow-sm font-extrabold'
+                                : 'text-[#3b5998] hover:text-blue-800'
+                            }`}
+                          >
+                            <FileText className="w-3.5 h-3.5" /> Formulir Lengkap
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {isPublicMenu && rupstInputMode === 'assistant' ? (
+                      <RupstInteractiveAssistant
+                        data={data}
+                        updateData={updateData}
+                        openShareholderEditor={openShareholderEditor}
+                        deleteShareholder={deleteShareholder}
+                      />
+                    ) : isPublicMenu ? (
+                      <>
+                      <AhuSection title="DATA UTAMA PERSEROAN">
+                        <div className="space-y-4">
+                          <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                            <AhuLabel label="Nama PT (Perseroan)" required />
+                            <div className="md:col-span-3">
+                              <AhuInput 
+                                placeholder="Contoh: PT SARANA MAKMUR SEJAHTERA"
+                                value={data.companyName || ''} 
+                                onChange={e => updateData({ companyName: e.target.value.toUpperCase() })} 
+                              />
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                            <AhuLabel label="Kedudukan PT (Kab/Kota)" required />
+                            <div className="md:col-span-3">
+                              <AhuInput 
+                                placeholder="Contoh: KOTA BANDUNG atau KABUPATEN INDRAMAYU"
+                                value={data.domicile || ''} 
+                                onChange={e => updateData({ domicile: e.target.value.toUpperCase() })} 
+                              />
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-start mt-2">
+                            <AhuLabel label="Detail Alamat PT" required />
+                            <div className="md:col-span-3 space-y-3">
+                              <div>
+                                <span className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Nama Jalan / Blok / Nomor Rumah</span>
+                                <AhuInput 
+                                  placeholder="Contoh: Jalan Asia Afrika Nomor 123"
+                                  value={data.rupstStreet || ''} 
+                                  onChange={e => updateData({ rupstStreet: e.target.value })} 
+                                />
+                              </div>
+                              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                <div>
+                                  <span className="text-[10px] font-bold text-slate-500 uppercase block mb-1">RT</span>
+                                  <AhuInput 
+                                    placeholder="Contoh: 001"
+                                    value={data.rupstRt || ''} 
+                                    onChange={e => updateData({ rupstRt: e.target.value })} 
+                                  />
+                                </div>
+                                <div>
+                                  <span className="text-[10px] font-bold text-slate-500 uppercase block mb-1">RW</span>
+                                  <AhuInput 
+                                    placeholder="Contoh: 005"
+                                    value={data.rupstRw || ''} 
+                                    onChange={e => updateData({ rupstRw: e.target.value })} 
+                                  />
+                                </div>
+                                <div>
+                                  <span className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Kelurahan / Desa</span>
+                                  <AhuInput 
+                                    placeholder="Contoh: Braga"
+                                    value={data.rupstKelurahan || ''} 
+                                    onChange={e => updateData({ rupstKelurahan: e.target.value })} 
+                                  />
+                                </div>
+                                <div>
+                                  <span className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Kecamatan</span>
+                                  <AhuInput 
+                                    placeholder="Contoh: Sumur Bandung"
+                                    value={data.rupstKecamatan || ''} 
+                                    onChange={e => updateData({ rupstKecamatan: e.target.value })} 
+                                  />
+                                </div>
+                              </div>
+                              <div className="bg-slate-50 p-3 rounded border border-slate-200">
+                                <span className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Pratinjau Alamat Lengkap:</span>
+                                <p className="text-[12px] font-semibold text-[#3b5998] italic">
+                                  {data.fullAddress || <span className="text-slate-400">Harap lengkapi komponen alamat di atas...</span>}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                            <AhuLabel label="Nilai Nominal Per Saham" required />
+                            <div className="md:col-span-3">
+                              <div className="relative">
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[13px]">Rp.</span>
+                                <AhuInput 
+                                  className="pl-10"
+                                  placeholder="Contoh: 100.000"
+                                  value={data.originalSharePrice === 0 ? '' : formatInputNumber(data.originalSharePrice)} 
+                                  onChange={e => updateData({ originalSharePrice: parseFormattedNumber(e.target.value) })} 
+                                />
+                              </div>
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                            <AhuLabel label="Total Modal Dasar (Lembar)" required />
+                            <div className="md:col-span-3">
+                              <div className="flex items-center gap-4">
+                                <div className="flex-1">
+                                  <AhuInput 
+                                    placeholder="Contoh: 10.000"
+                                    value={data.originalAuthorizedShares === 0 ? '' : formatInputNumber(data.originalAuthorizedShares)} 
+                                    onChange={e => updateData({ originalAuthorizedShares: parseFormattedNumber(e.target.value) })} 
+                                  />
+                                </div>
+                                <div className="text-[13px] font-bold text-slate-500 w-48">
+                                  Rp. {formatInputNumber(data.originalCapitalBase || 0)}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                            <AhuLabel label="Total Modal Disetor (Lembar)" required />
+                            <div className="md:col-span-3">
+                              <div className="flex items-center gap-4">
+                                <div className="flex-1">
+                                  <AhuInput 
+                                    placeholder="Contoh: 2.500"
+                                    value={data.originalTotalShares === 0 ? '' : formatInputNumber(data.originalTotalShares)} 
+                                    onChange={e => updateData({ originalTotalShares: parseFormattedNumber(e.target.value) })} 
+                                  />
+                                </div>
+                                <div className="text-[13px] font-bold text-slate-500 w-48">
+                                  Rp. {formatInputNumber(data.originalCapitalPaid || 0)}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          {/* Alert: check latest Akta & SK AHU */}
+                          <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-start mt-1">
+                            <div className="hidden md:block"></div>
+                            <div className="md:col-span-3">
+                              <div className="p-3 bg-yellow-50 border border-yellow-200 rounded text-[11.5px] text-yellow-800 leading-relaxed">
+                                <span className="font-bold uppercase tracking-wider block mb-1 flex items-center gap-1.5 text-[11px]">
+                                  <span className="animate-pulse">💡</span> Rekomendasi Terpenting:
+                                </span>
+                                Harap pastikan nilai nominal saham modal dasar, dan modal disetor ini sesuai dengan records pada <strong>Akta Perubahan terakhir</strong> dan <strong>SK AHU (Persetujuan Kemenkumham) terbaru</strong> untuk menjaga kecocokan data hukum PT Anda saat ini!
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </AhuSection>
+
+                      <AhuSection title="AKTA PENDIRIAN DAN PERUBAHAN">
+                        <div className="space-y-4">
+                            <div className="border border-slate-200 rounded-sm p-4 space-y-4 bg-white/50">
+                              <h3 className="font-bold text-[13px] text-slate-800">Akta Pendirian</h3>
+                              <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                                <AhuLabel label="Nomor Akta" />
+                                <div className="md:col-span-3">
+                                  <AhuInput value={data.establishmentDeedNumber || ''} onChange={e => updateData({ establishmentDeedNumber: e.target.value })} placeholder="Contoh: 12" />
+                                </div>
+                              </div>
+                              <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                                <AhuLabel label="Tanggal Akta" />
+                                <div className="md:col-span-3">
+                                  <AhuInput type="date" value={data.establishmentDeedDate || ''} onChange={e => updateData({ establishmentDeedDate: e.target.value })} />
+                                </div>
+                              </div>
+                              <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                                <AhuLabel label="Pilih Notaris" />
+                                <div className="md:col-span-3">
+                                  <AhuSelect
+                                    value={data.establishmentNotary === 'Nukantini Putri Parincha' ? 'saya' : (data.establishmentNotary ? 'manual' : '')}
+                                    onChange={(e) => {
+                                      const val = e.target.value;
+                                      if (val === 'saya') {
+                                        updateData({
+                                          establishmentNotary: 'Nukantini Putri Parincha',
+                                          establishmentNotaryTitle: 'Sarjana Hukum, Magister Kenotariatan',
+                                          establishmentNotaryDomicile: 'Kabupaten Bandung Barat'
+                                        });
+                                      } else if (val === 'manual') {
+                                        updateData({
+                                          establishmentNotary: '',
+                                          establishmentNotaryTitle: '',
+                                          establishmentNotaryDomicile: ''
+                                        });
+                                      } else {
+                                        updateData({ establishmentNotary: '', establishmentNotaryTitle: '', establishmentNotaryDomicile: '' });
+                                      }
+                                    }}
+                                  >
+                                    <option value="">-- Pilih Notaris --</option>
+                                    <option value="saya">Saya (Nukantini Putri Parincha, SH., M.Kn.)</option>
+                                    <option value="manual">Input Bebas</option>
+                                  </AhuSelect>
+                                </div>
+                              </div>
+                              {data.establishmentNotary !== 'Nukantini Putri Parincha' && (
+                              <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                                <AhuLabel label="Nama Notaris" />
+                                <div className="md:col-span-3 flex gap-2">
+                                  <AhuInput 
+                                    className="flex-1"
+                                    value={data.establishmentNotary || ''} 
+                                    onChange={e => updateData({ establishmentNotary: e.target.value })} 
+                                    placeholder="Nama notaris pendirian" 
+                                  />
+                                  <div className="w-48 flex flex-col gap-1">
+                                    <AhuSelect
+                                      value={['Sarjana Hukum', 'Sarjana Hukum, Magister Kenotariatan'].includes(data.establishmentNotaryTitle || '') ? data.establishmentNotaryTitle : (data.establishmentNotaryTitle ? 'manual' : '')}
+                                      onChange={(e) => {
+                                        const val = e.target.value;
+                                        if (val === 'manual') {
+                                          // Keep current title but allow editing
+                                        } else {
+                                          updateData({ establishmentNotaryTitle: val });
+                                        }
+                                      }}
+                                    >
+                                      <option value="">-- Pilih Gelar --</option>
+                                      <option value="Sarjana Hukum">SH.</option>
+                                      <option value="Sarjana Hukum, Magister Kenotariatan">SH., M.Kn.</option>
+                                      <option value="manual">Manual</option>
+                                    </AhuSelect>
+                                    {( !['Sarjana Hukum', 'Sarjana Hukum, Magister Kenotariatan'].includes(data.establishmentNotaryTitle || '') || (data.establishmentNotaryTitle === 'manual')) && data.establishmentNotaryTitle !== undefined && (
+                                       <AhuInput 
+                                         placeholder="Gelar manual..." 
+                                         value={data.establishmentNotaryTitle === 'manual' ? '' : data.establishmentNotaryTitle}
+                                         onChange={e => updateData({ establishmentNotaryTitle: e.target.value })}
+                                       />
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                              )}
+                              <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                                <AhuLabel label="Kedudukan Notaris" />
+                                <div className="md:col-span-3">
+                                  <AhuInput 
+                                    value={data.establishmentNotaryDomicile || ''} 
+                                    onChange={e => updateData({ establishmentNotaryDomicile: e.target.value })} 
+                                    placeholder="Contoh: Kabupaten Bandung Barat" 
+                                    disabled={data.establishmentNotary === 'Nukantini Putri Parincha'}
+                                    className={data.establishmentNotary === 'Nukantini Putri Parincha' ? 'bg-slate-100 font-bold' : ''}
+                                  />
+                                </div>
+                              </div>
+                              <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                                <AhuLabel label="Nomor SK" />
+                                <div className="md:col-span-3">
+                                  <AhuInput value={data.establishmentSkNumber || ''} onChange={e => updateData({ establishmentSkNumber: e.target.value })} placeholder="Nomor SK Kemenkumham" />
+                                </div>
+                              </div>
+                              <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                                <AhuLabel label="Tanggal SK" />
+                                <div className="md:col-span-3">
+                                  <AhuInput type="date" value={data.establishmentSkDate || ''} onChange={e => updateData({ establishmentSkDate: e.target.value })} />
+                                </div>
+                              </div>
+                            </div>
+
+                            {(data.amendmentDeeds || []).map((deed, index) => (
+                              <div key={deed.id} className="border border-slate-200 rounded-sm p-4 space-y-4 bg-white/50 relative">
+                                <div className="flex justify-between items-center border-b border-slate-200 pb-2 mb-2">
+                                  <h3 className="font-bold text-[13px] text-slate-800 uppercase tracking-tight">Akta Perubahan {index + 1}</h3>
+                                  <button 
+                                    onClick={() => {
+                                      const newList = (data.amendmentDeeds || []).filter(d => d.id !== deed.id);
+                                      updateData({ amendmentDeeds: newList });
+                                    }}
+                                    className="text-red-500 hover:text-red-700 p-1 transition-colors"
+                                    title="Hapus Akta Perubahan"
+                                  >
+                                    <Trash2 size={14} />
+                                  </button>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                                  <AhuLabel label="Nomor Akta" />
+                                  <div className="md:col-span-3">
+                                    <AhuInput 
+                                      value={deed.number || ''} 
+                                      onChange={e => {
+                                        const newList = [...(data.amendmentDeeds || [])];
+                                        newList[index] = { ...deed, number: e.target.value };
+                                        updateData({ amendmentDeeds: newList });
+                                      }} 
+                                      placeholder="Contoh: 05" 
+                                    />
+                                  </div>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                                  <AhuLabel label="Tanggal Akta" />
+                                  <div className="md:col-span-3">
+                                    <AhuInput 
+                                      type="date" 
+                                      value={deed.date || ''} 
+                                      onChange={e => {
+                                        const newList = [...(data.amendmentDeeds || [])];
+                                        newList[index] = { ...deed, date: e.target.value };
+                                        updateData({ amendmentDeeds: newList });
+                                      }} 
+                                    />
+                                  </div>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                                  <AhuLabel label="Pilih Notaris" />
+                                  <div className="md:col-span-3">
+                                    <AhuSelect
+                                      value={deed.notary === 'Nukantini Putri Parincha' ? 'saya' : (deed.notary ? 'manual' : '')}
+                                      onChange={(e) => {
+                                        const val = e.target.value;
+                                        const newList = [...(data.amendmentDeeds || [])];
+                                        if (val === 'saya') {
+                                          newList[index] = { 
+                                            ...deed, 
+                                            notary: 'Nukantini Putri Parincha',
+                                            notaryTitle: 'Sarjana Hukum, Magister Kenotariatan',
+                                            notaryDomicile: 'Kabupaten Bandung Barat'
+                                          };
+                                        } else if (val === 'manual') {
+                                          newList[index] = { 
+                                            ...deed, 
+                                            notary: '',
+                                            notaryTitle: '',
+                                            notaryDomicile: ''
+                                          };
+                                        } else {
+                                          newList[index] = { ...deed, notary: '', notaryTitle: '', notaryDomicile: ' ' };
+                                        }
+                                        updateData({ amendmentDeeds: newList });
+                                      }}
+                                    >
+                                      <option value="">-- Pilih Notaris --</option>
+                                      <option value="saya">Saya (Nukantini Putri Parincha, SH., M.Kn.)</option>
+                                      <option value="manual">Input Bebas</option>
+                                    </AhuSelect>
+                                  </div>
+                                </div>
+                                {deed.notary !== 'Nukantini Putri Parincha' && (
+                                <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                                  <AhuLabel label="Nama Notaris" />
+                                  <div className="md:col-span-3 flex gap-2">
+                                    <AhuInput 
+                                      className="flex-1"
+                                      value={deed.notary || ''} 
+                                      onChange={e => {
+                                        const newList = [...(data.amendmentDeeds || [])];
+                                        newList[index] = { ...deed, notary: e.target.value };
+                                        updateData({ amendmentDeeds: newList });
+                                      }} 
+                                      placeholder="Nama notaris perubahan" 
+                                    />
+                                    <div className="w-48 flex flex-col gap-1">
+                                      <AhuSelect
+                                        value={['Sarjana Hukum', 'Sarjana Hukum, Magister Kenotariatan'].includes(deed.notaryTitle || '') ? deed.notaryTitle : (deed.notaryTitle ? 'manual' : '')}
+                                        onChange={(e) => {
+                                          const val = e.target.value;
+                                          const newList = [...(data.amendmentDeeds || [])];
+                                          if (val === 'manual') {
+                                             newList[index] = { ...deed, notaryTitle: deed.notaryTitle || ' ' };
+                                          } else {
+                                             newList[index] = { ...deed, notaryTitle: val };
+                                          }
+                                          updateData({ amendmentDeeds: newList });
+                                        }}
+                                      >
+                                        <option value="">-- Pilih Gelar --</option>
+                                        <option value="Sarjana Hukum">SH.</option>
+                                        <option value="Sarjana Hukum, Magister Kenotariatan">SH., M.Kn.</option>
+                                        <option value="manual">Manual</option>
+                                      </AhuSelect>
+                                      {(!['Sarjana Hukum', 'Sarjana Hukum, Magister Kenotariatan'].includes(deed.notaryTitle || '') || (deed.notaryTitle === 'manual')) && deed.notaryTitle !== undefined && (
+                                         <AhuInput 
+                                           placeholder="Gelar manual..." 
+                                           value={deed.notaryTitle === 'manual' ? '' : deed.notaryTitle}
+                                           onChange={e => {
+                                             const newList = [...(data.amendmentDeeds || [])];
+                                             newList[index] = { ...deed, notaryTitle: e.target.value };
+                                             updateData({ amendmentDeeds: newList });
+                                           }}
+                                         />
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                                )}
+                                <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                                  <AhuLabel label="Kedudukan Notaris" />
+                                  <div className="md:col-span-3">
+                                    <AhuInput 
+                                      value={deed.notaryDomicile || ''} 
+                                      onChange={e => {
+                                        const newList = [...(data.amendmentDeeds || [])];
+                                        newList[index] = { ...deed, notaryDomicile: e.target.value };
+                                        updateData({ amendmentDeeds: newList });
+                                      }} 
+                                      placeholder="Contoh: Kabupaten Bogor" 
+                                      disabled={deed.notary === 'Nukantini Putri Parincha'}
+                                      className={deed.notary === 'Nukantini Putri Parincha' ? 'bg-slate-100 font-bold' : ''}
+                                    />
+                                  </div>
+                                </div>
+                                
+                                <div className="bg-slate-50/50 p-3 border border-slate-100 rounded-sm">
+                                  <div className="flex justify-between items-center mb-3">
+                                    <h4 className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">Daftar SK / SP Terkait</h4>
+                                  </div>
+                                  
+                                  <div className="space-y-3">
+                                    {(deed.skSpDocuments || []).map((doc, docIdx) => (
+                                      <div key={doc.id} className="grid grid-cols-1 md:grid-cols-9 gap-2 items-end border-b border-slate-100 pb-3 last:border-0 last:pb-0">
+                                        <div className="md:col-span-2">
+                                          <AhuLabel label="Tipe" />
+                                          <AhuSelect 
+                                            value={doc.type} 
+                                            onChange={e => {
+                                              const newList = [...(data.amendmentDeeds || [])];
+                                              const newDocs = [...(deed.skSpDocuments || [])];
+                                              newDocs[docIdx] = { ...doc, type: e.target.value as any };
+                                              newList[index] = { ...deed, skSpDocuments: newDocs };
+                                              updateData({ amendmentDeeds: newList });
+                                            }}
+                                          >
+                                            <option value="SK">SK (Keputusan)</option>
+                                            <option value="SP_DATA_PERSEROAN">SP (Perubahan Data Perseroan)</option>
+                                            <option value="SP_ANGGARAN_DASAR">SP (Perubahan Anggaran Dasar)</option>
+                                            <option value="SP">SP (Lainnya)</option>
+                                          </AhuSelect>
+                                        </div>
+                                        <div className="md:col-span-4">
+                                          <AhuLabel label="Nomor" />
+                                          <AhuInput 
+                                            value={doc.number || ''} 
+                                            onChange={e => {
+                                              const newList = [...(data.amendmentDeeds || [])];
+                                              const newDocs = [...(deed.skSpDocuments || [])];
+                                              newDocs[docIdx] = { ...doc, number: e.target.value };
+                                              newList[index] = { ...deed, skSpDocuments: newDocs };
+                                              updateData({ amendmentDeeds: newList });
+                                            }}
+                                            placeholder="Nomor SK/SP"
+                                          />
+                                        </div>
+                                        <div className="md:col-span-2">
+                                          <AhuLabel label="Tanggal" />
+                                          <AhuInput 
+                                            type="date"
+                                            value={doc.date || ''} 
+                                            onChange={e => {
+                                              const newList = [...(data.amendmentDeeds || [])];
+                                              const newDocs = [...(deed.skSpDocuments || [])];
+                                              newDocs[docIdx] = { ...doc, date: e.target.value };
+                                              newList[index] = { ...deed, skSpDocuments: newDocs };
+                                              updateData({ amendmentDeeds: newList });
+                                            }}
+                                          />
+                                        </div>
+                                        <div className="md:col-span-1 flex justify-center pb-1">
+                                          <button 
+                                            onClick={() => {
+                                              const newList = [...(data.amendmentDeeds || [])];
+                                              const newDocs = (deed.skSpDocuments || []).filter(d => d.id !== doc.id);
+                                              newList[index] = { ...deed, skSpDocuments: newDocs };
+                                              updateData({ amendmentDeeds: newList });
+                                            }}
+                                            className="text-red-400 hover:text-red-600 p-1 transition-colors"
+                                            title="Hapus SK/SP"
+                                          >
+                                            <Trash2 size={14} />
+                                          </button>
+                                        </div>
+                                      </div>
+                                    ))}
+                                    
+                                    {(deed.skSpDocuments || []).length === 0 && (
+                                      <div className="text-[11px] text-slate-400 italic mb-2">Belum ada SK/SP yang ditambahkan.</div>
+                                    )}
+
+                                    <button 
+                                      onClick={() => {
+                                        const newList = [...(data.amendmentDeeds || [])];
+                                        const newDoc = { id: crypto.randomUUID(), type: 'SK' as const, number: '', date: '' };
+                                        newList[index] = { ...deed, skSpDocuments: [...(deed.skSpDocuments || []), newDoc] };
+                                        updateData({ amendmentDeeds: newList });
+                                      }}
+                                      className="bg-white border border-[#3b5998]/30 text-[#3b5998] hover:bg-[#3b5998] hover:text-white px-3 py-1 rounded-sm text-[11px] font-bold flex items-center gap-1 transition-all"
+                                    >
+                                      <Plus size={12} /> TAMBAH SK / SP
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+
+                            <button 
+                              onClick={() => {
+                                const newDeed = { id: crypto.randomUUID(), number: '', date: '', notary: '', skNumber: '', skDate: '', skSpDocuments: [] };
+                                updateData({ amendmentDeeds: [...(data.amendmentDeeds || []), newDeed] });
+                              }}
+                              className="w-full flex items-center justify-center gap-2 py-3 border-2 border-dashed border-slate-200 rounded-sm text-slate-400 hover:border-[#3b5998] hover:text-[#3b5998] hover:bg-slate-50 transition-all group"
+                            >
+                              <Plus size={16} className="group-hover:scale-110 transition-transform" />
+                              <span className="text-[13px] font-bold uppercase tracking-wider">Tambah Akta Perubahan (Opsional)</span>
+                            </button>
+                          </div>
+                      </AhuSection>
+
+                      <AhuSection title="PESERTA RAPAT (PEMEGANG SAHAM & PENGURUS)">
+                        <div className="space-y-4">
+                          <div className="flex justify-between items-center bg-slate-50 p-2.5 rounded border border-slate-200">
+                            <div>
+                              <div className="text-[12px] font-bold text-[#3b5998] uppercase">Silakan Masukkan Data Peserta Rapat</div>
+                              <p className="text-[11px] text-slate-500 leading-tight mt-0.5">
+                                Khusus RUPST Public, Anda dapat menyalin atau mengisi pemegang saham, direksi, dan komisaris secara manual di bawah ini.
+                              </p>
+                            </div>
+                            <button 
+                              onClick={() => openShareholderEditor('lama')} 
+                              className="bg-[#3b5998] text-white px-3 py-1.5 rounded-sm text-[11px] font-bold shadow hover:bg-black transition-all flex items-center gap-1 shrink-0"
+                            >
+                              <Plus className="w-3.5 h-3.5" /> TAMBAH PESERTA
+                            </button>
+                          </div>
+                          
+                          <div className="border border-slate-200 overflow-x-auto rounded-sm">
+                            <table className="w-full text-left text-[11px]">
+                              <thead className="bg-[#f9f9f9] border-b border-slate-200 font-bold uppercase">
+                                <tr>
+                                  <th className="p-2 border-r border-slate-200">Nama</th>
+                                  <th className="p-2 border-r border-slate-200">Klasifikasi Saham</th>
+                                  <th className="p-2 border-r border-slate-200">Jumlah Lembar Saham</th>
+                                  <th className="p-2 border-r border-slate-200">Jabatan</th>
+                                  <th className="p-2 border-r border-slate-200">Total Nominal</th>
+                                  <th className="p-2 text-center">Aksi</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {data.shareholders.map((s) => (
+                                   <tr key={s.id} className="border-b border-slate-200 last:border-0 hover:bg-slate-50 transition-colors text-[10px]">
+                                     <td className="p-2 border-r border-slate-200 font-bold uppercase">{s.name}</td>
+                                     <td className="p-2 border-r border-slate-200">Tanpa Klasifikasi</td>
+                                     <td className="p-2 border-r border-slate-200">{formatInputNumber(s.sharesOwned)}</td>
+                                     <td className="p-2 border-r border-slate-200 font-bold uppercase">{s.isManagement ? (s.managementPosition || 'DIREKTUR') : '-'}</td>
+                                     <td className="p-2 border-r border-slate-200">Rp. {formatInputNumber(s.sharesOwned * data.originalSharePrice)}</td>
+                                     <td className="p-2 text-center text-blue-600 flex items-center justify-center gap-2">
+                                       <button onClick={() => openShareholderEditor('lama', s)} className="hover:underline flex items-center gap-0.5"><Eye className="w-3.5 h-3.5" /> Edit</button>
+                                       <span className="text-slate-300">|</span>
+                                       <button onClick={() => deleteShareholder(s.id, 'lama')} className="hover:underline text-red-500 flex items-center gap-0.5"><Trash2 className="w-3.5 h-3.5" /> Hapus</button>
+                                     </td>
+                                   </tr>
+                                ))}
+                                {data.shareholders.length === 0 && (
+                                  <tr>
+                                    <td colSpan={6} className="p-4 text-center text-slate-400 italic">Belum ada data pengurus/pemegang saham. Silakan klik tombol "TAMBAH PESERTA" untuk memulai.</td>
+                                  </tr>
+                                )}
+                              </tbody>
+                            </table>
+                          </div>
+                          <div className="text-[12px] font-bold text-slate-800 space-y-1 uppercase bg-slate-50 p-3 rounded border border-slate-200">
+                            <div className="flex justify-between">
+                              <span>TOTAL LEMBAR SAHAM DIINPUT:</span>
+                              <span>{formatInputNumber(data.shareholders.reduce((sum, s) => sum + s.sharesOwned, 0))} lembar</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>TOTAL NOMINAL DIINPUT:</span>
+                              <span>Rp {formatInputNumber(data.shareholders.reduce((sum, s) => sum + s.sharesOwned, 0) * data.originalSharePrice)}</span>
+                            </div>
+                            {data.shareholders.reduce((sum, s) => sum + s.sharesOwned, 0) !== data.originalTotalShares && (
+                              <div className="text-orange-600 font-normal text-xs normal-case mt-1 bg-orange-50 p-2 rounded border border-orange-100">
+                                * Catatan: Total lembar saham yang diinput ({formatInputNumber(data.shareholders.reduce((sum, s) => sum + s.sharesOwned, 0))} lembar) berbeda dengan Total Modal Disetor ({formatInputNumber(data.originalTotalShares)} lembar).
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </AhuSection>
+                      </>
+                    ) : (
+                      <AhuSection title="PILIH PROFIL">
                       <div className="space-y-4">
                         <label className="block text-[13px] font-medium text-slate-700 mb-1">Pilih Profil Perseroan untuk mengisi data otomatis</label>
                         <select 
@@ -3787,45 +4499,270 @@ const App: React.FC = () => {
                         </select>
                       </div>
                     </AhuSection>
+                    )}
 
                     {/* DATA KHUSUS RUPST */}
-                    <AhuSection title="AGENDA DAN KEUANGAN RUPST">
-                      <div className="mb-6 p-3 bg-slate-50 border border-slate-200 rounded flex items-center gap-6">
-                        <span className="text-[12px] font-bold text-slate-700">Status Audit Laporan Keuangan:</span>
-                        <div className="flex gap-4">
-                          <label className="flex items-center gap-2 text-[12px] text-slate-700 cursor-pointer">
-                            <input 
-                              type="radio" 
-                              checked={data.rupstIsAudited === false} 
-                              onChange={() => {
-                                updateData({ rupstIsAudited: false });
-                              }}
-                              className="w-4 h-4 text-[#3b5998]"
-                            />
-                            <span>Tidak Wajib Audit</span>
-                          </label>
-                          <label className="flex items-center gap-2 text-[12px] text-slate-700 cursor-pointer">
-                            <input 
-                              type="radio" 
-                              checked={data.rupstIsAudited === true} 
-                              onChange={() => {
-                                updateData({ 
-                                  rupstIsAudited: true,
-                                  rupstStatementNeraca: true,
-                                  rupstStatementLabaRugi: true,
-                                  rupstStatementPerubahanEkuitas: true,
-                                  rupstStatementArusKas: true,
-                                  rupstStatementCatatan: true,
-                                  rupstStatementNamaAnggota: true,
-                                  rupstStatementGaji: true
-                                });
-                              }}
-                              className="w-4 h-4 text-[#3b5998]"
-                            />
-                            <span>Wajib Audit</span>
-                          </label>
+                    {!(isPublicMenu && rupstInputMode === 'assistant') && (
+                      <>
+                        <AhuSection title="AGENDA DAN KEUANGAN RUPST">
+                      {isPublicMenu ? (
+                        <div className="mb-6 p-4 bg-slate-50 border border-slate-200 rounded space-y-4">
+                          <div className="border-b border-slate-200 pb-2">
+                            <span className="text-[12px] font-bold text-[#3b5998] uppercase tracking-wider flex items-center gap-1.5">
+                              📋 KUESIONER KEWAJIBAN AUDIT LAPORAN KEUANGAN (UU PT NO. 40/2007 PASAL 68)
+                            </span>
+                            <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">
+                              Silakan isi kuesioner berikut untuk menentukan status wajib audit secara otomatis. Apabila seluruh pilihan di bawah dijawab <b>"TIDAK"</b>, maka Laporan Keuangan dikategorikan sebagai <b>Tidak Wajib Audit</b>. Apabila terdapat minimal salah satu jawaban <b>"YA"</b>, maka Laporan Keuangan menjadi <b>Wajib Audit</b>.
+                            </p>
+                          </div>
+
+                          <div className="space-y-3.5 pt-1">
+                            {/* Question A */}
+                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 text-[12px] border-b border-dashed border-slate-200 pb-3 last:border-b-0 last:pb-0">
+                              <span className="font-medium text-slate-700 flex-1 leading-relaxed">
+                                <b className="text-[#3b5998] mr-1">a.</b> Apakah Kegiatan Usaha Perseroan menghimpun dan/atau mengelola dana masyarakat?
+                              </span>
+                              <div className="flex gap-2 shrink-0">
+                                <button
+                                  type="button"
+                                  onClick={() => handleQuestionChange('rupstQuestionA', 'ya')}
+                                  className={`px-3 py-1 text-[11px] font-bold uppercase rounded border transition-all ${
+                                    data.rupstQuestionA === 'ya'
+                                      ? 'bg-red-500 text-white border-red-500 shadow-sm'
+                                      : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'
+                                  }`}
+                                >
+                                  Ya
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleQuestionChange('rupstQuestionA', 'tidak')}
+                                  className={`px-3 py-1 text-[11px] font-bold uppercase rounded border transition-all ${
+                                    data.rupstQuestionA === 'tidak'
+                                      ? 'bg-slate-700 text-white border-slate-700 shadow-sm'
+                                      : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'
+                                  }`}
+                                >
+                                  Tidak
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Question B */}
+                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 text-[12px] border-b border-dashed border-slate-200 pb-3 last:border-b-0 last:pb-0">
+                              <span className="font-medium text-slate-700 flex-1 leading-relaxed">
+                                <b className="text-[#3b5998] mr-1">b.</b> Apakah Perseroan menerbitkan surat pengakuan utang kepada masyarakat?
+                              </span>
+                              <div className="flex gap-2 shrink-0">
+                                <button
+                                  type="button"
+                                  onClick={() => handleQuestionChange('rupstQuestionB', 'ya')}
+                                  className={`px-3 py-1 text-[11px] font-bold uppercase rounded border transition-all ${
+                                    data.rupstQuestionB === 'ya'
+                                      ? 'bg-red-500 text-white border-red-500 shadow-sm'
+                                      : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'
+                                  }`}
+                                >
+                                  Ya
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleQuestionChange('rupstQuestionB', 'tidak')}
+                                  className={`px-3 py-1 text-[11px] font-bold uppercase rounded border transition-all ${
+                                    data.rupstQuestionB === 'tidak'
+                                      ? 'bg-slate-700 text-white border-slate-700 shadow-sm'
+                                      : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'
+                                  }`}
+                                >
+                                  Tidak
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Question C */}
+                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 text-[12px] border-b border-dashed border-slate-200 pb-3 last:border-b-0 last:pb-0">
+                              <span className="font-medium text-slate-700 flex-1 leading-relaxed">
+                                <b className="text-[#3b5998] mr-1">c.</b> Apakah Perseroan merupakan Perseroan Terbuka (Tbk)?
+                              </span>
+                              <div className="flex gap-2 shrink-0">
+                                <button
+                                  type="button"
+                                  onClick={() => handleQuestionChange('rupstQuestionC', 'ya')}
+                                  className={`px-3 py-1 text-[11px] font-bold uppercase rounded border transition-all ${
+                                    data.rupstQuestionC === 'ya'
+                                      ? 'bg-red-500 text-white border-red-500 shadow-sm'
+                                      : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'
+                                  }`}
+                                >
+                                  Ya
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleQuestionChange('rupstQuestionC', 'tidak')}
+                                  className={`px-3 py-1 text-[11px] font-bold uppercase rounded border transition-all ${
+                                    data.rupstQuestionC === 'tidak'
+                                      ? 'bg-slate-700 text-white border-slate-700 shadow-sm'
+                                      : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'
+                                  }`}
+                                >
+                                  Tidak
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Question D */}
+                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 text-[12px] border-b border-dashed border-slate-200 pb-3 last:border-b-0 last:pb-0">
+                              <span className="font-medium text-slate-700 flex-1 leading-relaxed">
+                                <b className="text-[#3b5998] mr-1">d.</b> Apakah Perseroan merupakan Persero?
+                              </span>
+                              <div className="flex gap-2 shrink-0">
+                                <button
+                                  type="button"
+                                  onClick={() => handleQuestionChange('rupstQuestionD', 'ya')}
+                                  className={`px-3 py-1 text-[11px] font-bold uppercase rounded border transition-all ${
+                                    data.rupstQuestionD === 'ya'
+                                      ? 'bg-red-500 text-white border-red-500 shadow-sm'
+                                      : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'
+                                  }`}
+                                >
+                                  Ya
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleQuestionChange('rupstQuestionD', 'tidak')}
+                                  className={`px-3 py-1 text-[11px] font-bold uppercase rounded border transition-all ${
+                                    data.rupstQuestionD === 'tidak'
+                                      ? 'bg-slate-700 text-white border-slate-700 shadow-sm'
+                                      : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'
+                                  }`}
+                                >
+                                  Tidak
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Question E */}
+                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 text-[12px] border-b border-dashed border-slate-200 pb-3 last:border-b-0 last:pb-0">
+                              <span className="font-medium text-slate-700 flex-1 leading-relaxed">
+                                <b className="text-[#3b5998] mr-1">e.</b> Apakah nilai Aset dan/atau jumlah peredaran usaha Perseroan lebih dari Rp 50 Milyar?
+                              </span>
+                              <div className="flex gap-2 shrink-0">
+                                <button
+                                  type="button"
+                                  onClick={() => handleQuestionChange('rupstQuestionE', 'ya')}
+                                  className={`px-3 py-1 text-[11px] font-bold uppercase rounded border transition-all ${
+                                    data.rupstQuestionE === 'ya'
+                                      ? 'bg-red-500 text-white border-red-500 shadow-sm'
+                                      : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'
+                                  }`}
+                                >
+                                  Ya
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleQuestionChange('rupstQuestionE', 'tidak')}
+                                  className={`px-3 py-1 text-[11px] font-bold uppercase rounded border transition-all ${
+                                    data.rupstQuestionE === 'tidak'
+                                      ? 'bg-slate-700 text-white border-slate-700 shadow-sm'
+                                      : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'
+                                  }`}
+                                >
+                                  Tidak
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Question F */}
+                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 text-[12px] border-b border-dashed border-slate-200 pb-3 last:border-b-0 last:pb-0">
+                              <span className="font-medium text-slate-700 flex-1 leading-relaxed">
+                                <b className="text-[#3b5998] mr-1">f.</b> Apakah Perseroan diwajibkan audit oleh peraturan perundang-undangan?
+                              </span>
+                              <div className="flex gap-2 shrink-0">
+                                <button
+                                  type="button"
+                                  onClick={() => handleQuestionChange('rupstQuestionF', 'ya')}
+                                  className={`px-3 py-1 text-[11px] font-bold uppercase rounded border transition-all ${
+                                    data.rupstQuestionF === 'ya'
+                                      ? 'bg-red-500 text-white border-red-500 shadow-sm'
+                                      : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'
+                                  }`}
+                                >
+                                  Ya
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleQuestionChange('rupstQuestionF', 'tidak')}
+                                  className={`px-3 py-1 text-[11px] font-bold uppercase rounded border transition-all ${
+                                    data.rupstQuestionF === 'tidak'
+                                      ? 'bg-slate-700 text-white border-slate-700 shadow-sm'
+                                      : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'
+                                  }`}
+                                >
+                                  Tidak
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Computed Status Audit display */}
+                          <div className={`mt-4 p-3 rounded border flex items-center justify-between transition-all ${
+                            data.rupstIsAudited 
+                              ? 'bg-red-50 border-red-200 text-red-800' 
+                              : 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                          }`}>
+                            <div className="flex items-center gap-2">
+                              <span className="text-[12px] font-bold">HASIL VALIDASI:</span>
+                              <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase text-white ${
+                                data.rupstIsAudited ? 'bg-red-600' : 'bg-emerald-600'
+                              }`}>
+                                {data.rupstIsAudited ? 'Wajib Audit' : 'Tidak Wajib Audit'}
+                              </span>
+                            </div>
+                            <span className="text-[11px] font-medium hidden sm:inline">
+                              {data.rupstIsAudited 
+                                ? '⚠️ Memenuhi kriteria wajib audit. Laporan akuntan publik diperlukan.' 
+                                : '✅ Laporan Keuangan tidak wajib audit oleh Akuntan Publik.'}
+                            </span>
+                          </div>
                         </div>
-                      </div>
+                      ) : (
+                        <div className="mb-6 p-3 bg-slate-50 border border-slate-200 rounded flex items-center gap-6">
+                          <span className="text-[12px] font-bold text-slate-700">Status Audit Laporan Keuangan:</span>
+                          <div className="flex gap-4">
+                            <label className="flex items-center gap-2 text-[12px] text-slate-700 cursor-pointer">
+                              <input 
+                                type="radio" 
+                                checked={data.rupstIsAudited === false} 
+                                onChange={() => {
+                                  updateData({ rupstIsAudited: false });
+                                }}
+                                className="w-4 h-4 text-[#3b5998]"
+                              />
+                              <span>Tidak Wajib Audit</span>
+                            </label>
+                            <label className="flex items-center gap-2 text-[12px] text-slate-700 cursor-pointer">
+                              <input 
+                                type="radio" 
+                                checked={data.rupstIsAudited === true} 
+                                onChange={() => {
+                                  updateData({ 
+                                    rupstIsAudited: true,
+                                    rupstStatementNeraca: true,
+                                    rupstStatementLabaRugi: true,
+                                    rupstStatementPerubahanEkuitas: true,
+                                    rupstStatementArusKas: true,
+                                    rupstStatementCatatan: true,
+                                    rupstStatementNamaAnggota: true,
+                                    rupstStatementGaji: true
+                                  });
+                                }}
+                                className="w-4 h-4 text-[#3b5998]"
+                              />
+                              <span>Wajib Audit</span>
+                            </label>
+                          </div>
+                        </div>
+                      )}
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                         <div className="space-y-4">
@@ -4112,7 +5049,7 @@ const App: React.FC = () => {
                           </div>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
-                          <AhuLabel label="Ketentuan AD (Pasal)" />
+                          <AhuLabel label="Ketentuan Anggaran Dasar Pimpinan rapat" />
                           <div className="md:col-span-3 flex gap-4">
                             <div className="flex-1">
                               <AhuLabel label="Nomor Pasal" />
@@ -4323,6 +5260,8 @@ const App: React.FC = () => {
                           </div>
                        </div>
                     </AhuSection>
+                    </>
+                    )}
                   </div>
                   
                   {/* PREVIEW AREA (Bottom) - Removed as per request */}
@@ -4338,15 +5277,17 @@ const App: React.FC = () => {
                   <div className="space-y-4">
                     <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
                       <History className="w-5 h-5 text-[#3b5998]" />
-                      <h3 className="text-[14px] font-bold text-slate-800 uppercase">Notulen RUPST Tersimpan</h3>
+                      <h3 className="text-[14px] font-bold text-slate-800 uppercase">
+                        {isPublicMenu ? 'Notulen RUPST Public Tersimpan' : 'Notulen RUPST Tersimpan'}
+                      </h3>
                     </div>
-                    {rupstProjects.length === 0 ? (
+                    {currentRupstProjects.length === 0 ? (
                       <div className="bg-slate-50 text-center py-6 rounded-sm border border-dashed border-slate-300 text-slate-500 text-[12px]">
-                        Belum ada notulen RUPST yang disimpan.
+                        {isPublicMenu ? 'Belum ada notulen RUPST Public yang disimpan.' : 'Belum ada notulen RUPST yang disimpan.'}
                       </div>
                     ) : (
                       <div className="flex flex-col gap-3">
-                        {rupstProjects.map(p => (
+                        {currentRupstProjects.map(p => (
                           <div key={p.id} className="bg-white p-4 rounded-sm border border-slate-200 hover:border-[#3b5998] transition-colors relative group flex flex-col md:flex-row md:items-center justify-between gap-4">
                               <div className="flex items-center gap-4">
                                 <div className="w-10 h-10 rounded-full bg-blue-50 border border-blue-100 flex items-center justify-center shrink-0">
@@ -4354,24 +5295,24 @@ const App: React.FC = () => {
                                 </div>
                                 <div>
                                     <h3 className="font-bold text-slate-800 text-[14px] leading-tight mb-1 pr-6">{p.companyName}</h3>
-                                    <p className="text-[12px] text-slate-500 flex items-center gap-1 line-clamp-1"><Clock className="w-3 h-3 text-slate-400 shrink-0"/> RUPST Tahun {p.rupstFiscalYear || '....'}</p>
+                                    <p className="text-[12px] text-slate-500 flex items-center gap-1 line-clamp-1"><Clock className="w-3 h-3 text-slate-400 shrink-0"/> {isPublicMenu ? 'RUPST Public' : 'RUPST'} Tahun {p.rupstFiscalYear || '....'}</p>
                                 </div>
                               </div>
                               <div className="flex gap-2 w-full md:w-auto">
                                 <button onClick={() => {
-                                  setEditingRupstId(p.id);
+                                  setCurrentEditingRupstId(p.id);
                                   updateData({ ...INITIAL_STATE, ...p } as any);
                                 }} className="bg-slate-100 hover:bg-slate-200 px-4 py-2 rounded-sm text-[11px] font-bold text-slate-700 flex items-center justify-center gap-1 transition-colors flex-1 uppercase">
                                   <Edit className="w-3 h-3" /> Edit
                                 </button>
                                 <button onClick={async () => {
-                                  if(confirm('Hapus RUPST ' + p.companyName + '?')) {
+                                  if(confirm((isPublicMenu ? 'Hapus RUPST Public ' : 'Hapus RUPST ') + p.companyName + '?')) {
                                     if (!user) return alert('Anda harus login!');
                                     try {
-                                      await deleteDoc(doc(db, 'rupst_projects', p.id));
-                                      alert('RUPST berhasil dihapus');
+                                      await deleteDoc(doc(db, currentCollectionName, p.id));
+                                      alert(isPublicMenu ? 'RUPST Public berhasil dihapus' : 'RUPST berhasil dihapus');
                                     } catch (e) {
-                                      handleFirestoreError(e, OperationType.DELETE, `rupst_projects/${p.id}`);
+                                      handleFirestoreError(e, OperationType.DELETE, `${currentCollectionName}/${p.id}`);
                                     }
                                   }
                                 }} className="bg-red-50 hover:bg-red-500 text-red-500 hover:text-white px-4 py-2 rounded-sm text-[11px] font-bold flex items-center justify-center gap-1 transition-colors flex-1 uppercase">
@@ -4386,9 +5327,8 @@ const App: React.FC = () => {
                 </div>
               )}
             </div>
-
-
-          ) : activeSidebarTab === 'pendirian' ? (
+            );
+          })() : activeSidebarTab === 'pendirian' ? (
             <DraftAktaPendirian 
               onShowPreview={(d) => { setPendirianPreviewData(d); setShowPendirianPreview(true); }}
               onExportWord={(d) => { handlePendirianExportWord(d); }}

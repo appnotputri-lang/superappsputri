@@ -265,6 +265,11 @@ export interface CompanyData {
   beneficialOwnerConsent?: boolean;
 
   // RUPST Extra Fields
+  rupstStreet?: string;
+  rupstRt?: string;
+  rupstRw?: string;
+  rupstKelurahan?: string;
+  rupstKecamatan?: string;
   rupstFiscalYear?: string;
   rupstNetProfit?: number;
   rupstDividendAmount?: number;
@@ -295,6 +300,12 @@ export interface CompanyData {
   rupstAlasanAuditE?: boolean;
   rupstAlasanAuditF?: boolean;
   rupstIsAudited?: boolean;
+  rupstQuestionA?: 'ya' | 'tidak';
+  rupstQuestionB?: 'ya' | 'tidak';
+  rupstQuestionC?: 'ya' | 'tidak';
+  rupstQuestionD?: 'ya' | 'tidak';
+  rupstQuestionE?: 'ya' | 'tidak';
+  rupstQuestionF?: 'ya' | 'tidak';
   rupstKapName?: string;
   rupstKapLicenseNumber?: string;
   rupstKapExpiryDate?: string;
