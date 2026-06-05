@@ -25,6 +25,7 @@ export interface Pendiri {
 export interface PendirianData {
   namaPt: string;
   kotaKedudukan: string;
+  alamatLengkapPT: string;
   kuotaWaktuDireksi: string; // misal "5 (lima) tahun"
   tanggal: string;
   waktu: string;
@@ -35,6 +36,18 @@ export interface PendirianData {
   nilaiPerLembar: number;
   modalDisetorPersen: number;
   pendiri: Pendiri[];
+  saksi1Nama: string;
+  saksi1LahirTempat: string;
+  saksi1LahirTanggal: string;
+  saksi1Pekerjaan: string;
+  saksi1Alamat: string;
+  saksi1NIK: string;
+  saksi2Nama: string;
+  saksi2LahirTempat: string;
+  saksi2LahirTanggal: string;
+  saksi2Pekerjaan: string;
+  saksi2Alamat: string;
+  saksi2NIK: string;
 }
 
 interface DraftAktaPendirianProps {
@@ -67,6 +80,7 @@ export default function DraftAktaPendirian({ onShowPreview, onExportWord }: Draf
   const [data, setData] = useState<PendirianData>({
     namaPt: '',
     kotaKedudukan: '',
+    alamatLengkapPT: '',
     kuotaWaktuDireksi: '5',
     tanggal: new Date().toISOString().split('T')[0],
     waktu: '10:00',
@@ -79,6 +93,18 @@ export default function DraftAktaPendirian({ onShowPreview, onExportWord }: Draf
     modalDasar: 52000000,
     modalDisetorPersen: 25,
     nilaiPerLembar: 50000,
+    saksi1Nama: 'Nendi Suhendi',
+    saksi1LahirTempat: 'Bandung',
+    saksi1LahirTanggal: '1991-07-15',
+    saksi1Pekerjaan: 'Karyawan Swasta',
+    saksi1Alamat: 'Jalan Sukaresmi Nomor 12, Rukun Tetangga 005, Rukun Warga 005, Kecamatan Lembang, Desa Mekarwangi',
+    saksi1NIK: '3217011507910016',
+    saksi2Nama: 'Siti Nur Azizah',
+    saksi2LahirTempat: 'Bandung',
+    saksi2LahirTanggal: '1999-12-17',
+    saksi2Pekerjaan: 'Karyawan Swasta',
+    saksi2Alamat: 'Jalan Lembah Pakar Timur II Kampung Sekebuluh Rukun Tetangga 001, Rukun Warga 004, Kecamatan Cimenyan, Desa Ciburial',
+    saksi2NIK: '3204065712990001',
     pendiri: [
       {
         id: crypto.randomUUID(),
@@ -167,6 +193,10 @@ export default function DraftAktaPendirian({ onShowPreview, onExportWord }: Draf
               <div>
                 <label className="block text-xs font-bold text-[#333] mb-1">Tempat Kedudukan (Kota/Kabupaten)</label>
                 <input type="text" value={data.kotaKedudukan} onChange={e => updateData('kotaKedudukan', e.target.value)} className="w-full text-sm p-1.5 border border-slate-300 rounded focus:border-blue-500 outline-none" placeholder="Jakarta Selatan" />
+                <div className="mt-2">
+                  <label className="block text-xs text-slate-600 mb-1">Alamat Lengkap PT (Opsional)</label>
+                  <textarea value={data.alamatLengkapPT || ''} onChange={e => updateData('alamatLengkapPT', e.target.value)} className="w-full text-sm p-1.5 border border-slate-300 rounded focus:border-blue-500 outline-none" rows={2} placeholder="Jalan R.A. Kartini Nomor Kav 8 Tower A..." />
+                </div>
               </div>
               <div>
                 <label className="block text-xs font-bold text-[#333] mb-1">Masa Jabatan Direksi & Komisaris (Tahun)</label>
@@ -279,6 +309,29 @@ export default function DraftAktaPendirian({ onShowPreview, onExportWord }: Draf
                 </div>
              </div>
           </AhuSection>
+        </div>
+
+        <div>
+           <AhuSection title="Saksi Notaris (Saksi Akta)">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                 <div className="space-y-2 border border-slate-200 p-3 rounded">
+                    <h4 className="font-bold text-xs text-slate-700">Saksi 1</h4>
+                    <input type="text" placeholder="Nama Lengkap" value={data.saksi1Nama || ''} onChange={e => updateData('saksi1Nama', e.target.value)} className="w-full text-xs p-1.5 border rounded" />
+                    <input type="text" placeholder="Tempat Lahir" value={data.saksi1LahirTempat || ''} onChange={e => updateData('saksi1LahirTempat', e.target.value)} className="w-full text-xs p-1.5 border rounded" />
+                    <input type="date" value={data.saksi1LahirTanggal || ''} onChange={e => updateData('saksi1LahirTanggal', e.target.value)} className="w-full text-xs p-1.5 border rounded" />
+                    <input type="text" placeholder="NIK" value={data.saksi1NIK || ''} onChange={e => updateData('saksi1NIK', e.target.value)} className="w-full text-xs p-1.5 border rounded" />
+                    <textarea placeholder="Alamat Lengkap" value={data.saksi1Alamat || ''} onChange={e => updateData('saksi1Alamat', e.target.value)} className="w-full text-xs p-1.5 border rounded" rows={3} />
+                 </div>
+                 <div className="space-y-2 border border-slate-200 p-3 rounded">
+                    <h4 className="font-bold text-xs text-slate-700">Saksi 2</h4>
+                    <input type="text" placeholder="Nama Lengkap" value={data.saksi2Nama || ''} onChange={e => updateData('saksi2Nama', e.target.value)} className="w-full text-xs p-1.5 border rounded" />
+                    <input type="text" placeholder="Tempat Lahir" value={data.saksi2LahirTempat || ''} onChange={e => updateData('saksi2LahirTempat', e.target.value)} className="w-full text-xs p-1.5 border rounded" />
+                    <input type="date" value={data.saksi2LahirTanggal || ''} onChange={e => updateData('saksi2LahirTanggal', e.target.value)} className="w-full text-xs p-1.5 border rounded" />
+                    <input type="text" placeholder="NIK" value={data.saksi2NIK || ''} onChange={e => updateData('saksi2NIK', e.target.value)} className="w-full text-xs p-1.5 border rounded" />
+                    <textarea placeholder="Alamat Lengkap" value={data.saksi2Alamat || ''} onChange={e => updateData('saksi2Alamat', e.target.value)} className="w-full text-xs p-1.5 border rounded" rows={3} />
+                 </div>
+              </div>
+           </AhuSection>
         </div>
 
         <div>

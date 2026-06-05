@@ -41,7 +41,7 @@ export function generatePendirianBlocks(data: PendirianData): Block[] {
   blocks.push(
     { type: 'p', runs: [{ text: `Pada hari ini, ${hariArr[hDate.getDay()]}, ${tglHuruf}.` }] },
     { type: 'p', runs: [{ text: `Pukul ${data.waktu} WIB Waktu Indonesia Barat.` }] },
-    { type: 'p', runs: [{ text: `Telah hadir di hadapan saya Notaris di ${data.notarisTempat || 'Kabupaten Bandung Barat'}, dengan dihadiri oleh saksi-saksi yang saya, Notaris kenal dan akan disebutkan nama-namanya pada bagian akhir akta ini :` }] }
+    { type: 'p', runs: [{ text: `Telah hadir di hadapan saya ${data.notarisNamaSurat ? data.notarisNamaSurat + ', ' : ''}Notaris di ${data.notarisTempat || 'Kabupaten Bandung Barat'}, dengan dihadiri oleh saksi-saksi yang saya, Notaris kenal dan akan disebutkan nama-namanya pada bagian akhir akta ini :` }] }
   );
 
   (data.pendiri || []).forEach((p, idx) => {
@@ -59,7 +59,7 @@ export function generatePendirianBlocks(data: PendirianData): Block[] {
     { type: 'pasal-divider', text: 'NAMA DAN TEMPAT KEDUDUKAN' },
     { type: 'pasal-divider', text: 'PASAL' },
     { type: 'pasal-divider', text: ' 1' },
-    { type: 'numbered', num: 1, runs: [{ text: `Perseroan Terbatas ini bernama Perseroan Terbatas : PT. ${data.namaPt.toUpperCase()} (selanjutnya dalam Anggaran Dasar ini cukup disingkat dengan "Perseroan"), berkedudukan di ${data.kotaKedudukan}.` }] },
+    { type: 'numbered', num: 1, runs: [{ text: `Perseroan Terbatas ini bernama Perseroan Terbatas : PT. ${data.namaPt.toUpperCase()} (selanjutnya dalam Anggaran Dasar ini cukup disingkat dengan "Perseroan"), berkedudukan di ${toTitleCase(data.kotaKedudukan || "")}${data.alamatLengkapPT ? ", " + data.alamatLengkapPT : ""}.` }] },
     { type: 'numbered', num: 2, runs: [{ text: 'Perseroan dapat membuka kantor cabang atau kantor perwakilan, baik di dalam maupun di luar wilayah Republik Indonesia sebagaimana ditetapkan oleh Direksi, dengan persetujuan Rapat Umum Pemegang Saham.' }] },
     { type: 'pasal-divider', text: 'JANGKA WAKTU BERDIRINYA PERSEROAN' },
     { type: 'pasal-divider', text: 'PASAL' },
@@ -305,12 +305,12 @@ export function generatePendirianBlocks(data: PendirianData): Block[] {
   });
 
   blocks.push(
-    { type: 'p', runs: [{ text: 'Para Pihak menyatakan dengan ini menjamin akan kebenaran identitas para pihak sesuai dengan tanda pengenal yang disampaikan kepada saya, Notaris dan tanggungjawab penuh atas seluruh dokumen yang diberikan.' }] },
+    { type: 'p', runs: [{ text: 'Para Pihak menyatakan dengan ini menjamin akan kebenaran identitas para pihak sesuai dengan tanda pengenal yang disampaikan kepada saya, Notaris dan termasuk dengan seluruh dokumen yang diperlihatkan dan fotokopinya dilekatkan pada minuta akta ini para pihak bertanggung jawab sepenuhnya atas hal tersebut sehingga membebaskan Notaris dari segala tanggungjawab dan selanjutnya para pihak juga menyatakan telah mengerti dan memahami isi akta ini.' }] },
     { type: 'divider', text: 'DEMIKIANLAH AKTA INI' },
     { type: 'p', runs: [{ text: `Dibuat sebagai minuta dan dilangsungkan di ${data.notarisTempat || 'Kabupaten Bandung Barat'}, pada hari dan tanggal serta jam sebagaimana disebutkan pada kepala akta ini dengan dihadiri oleh :` }] },
-    { type: 'saksi', num: 1, runs: [{ text: 'Nendi Suhendi, lahir di Bandung, pada tanggal lima belas Juli seribu sembilan ratus sembilan puluh satu (15-07-1991), Warga Negara Indonesia, bertempat tinggal di Jalan Sukaresmi Nomor 12, Rukun Tetangga 005, Rukun Warga 005, Kecamatan Lembang, Desa Mekarwangi, pemegang Kartu Tanda Penduduk Nomor 3217011507910016;' }] },
-    { type: 'saksi', num: 2, runs: [{ text: 'Siti Nur Azizah, lahir di Bandung, pada tanggal tujuh belas Desember seribu sembilan ratus sembilan puluh sembilan (17-12-1999), Warga Negara Indonesia, bertempat tinggal di Kabupaten Bandung, Jalan Lembah Pakar Timur II Kampung Sekebuluh Rukun Tetangga 001, Rukun Warga 004, Kecamatan Cimenyan, Desa Ciburial, pemegang Kartu Tanda Penduduk Nomor 3204065712990001;' }] },
-    { type: 'p', runs: [{ text: 'Keduanya pegawai Kantor Notaris dan sebagai saksi-saksi.' }] },
+    { type: 'saksi', num: 1, runs: [{ text: `${data.saksi1Nama || 'Nendi Suhendi'}, lahir di ${toTitleCase(data.saksi1LahirTempat || 'Bandung')}, pada tanggal ${formatDateIndo(data.saksi1LahirTanggal || '1991-07-15')}, Warga Negara Indonesia, ${toTitleCase(data.saksi1Pekerjaan || 'Karyawan Swasta')}, bertempat tinggal di ${formatAddress(data.saksi1Alamat || 'Jalan Sukaresmi Nomor 12, Rukun Tetangga 005, Rukun Warga 005, Kecamatan Lembang, Desa Mekarwangi')}, pemegang Kartu Tanda Penduduk Nomor ${data.saksi1NIK || '3217011507910016'};`} ] },
+    { type: 'saksi', num: 2, runs: [{ text: `${data.saksi2Nama || 'Siti Nur Azizah'}, lahir di ${toTitleCase(data.saksi2LahirTempat || 'Bandung')}, pada tanggal ${formatDateIndo(data.saksi2LahirTanggal || '1999-12-17')}, Warga Negara Indonesia, ${toTitleCase(data.saksi2Pekerjaan || 'Karyawan Swasta')}, bertempat tinggal di ${formatAddress(data.saksi2Alamat || 'Jalan Lembah Pakar Timur II Kampung Sekebuluh Rukun Tetangga 001, Rukun Warga 004, Kecamatan Cimenyan, Desa Ciburial')}, pemegang Kartu Tanda Penduduk Nomor ${data.saksi2NIK || '3204065712990001'};`} ] },
+    { type: 'p', runs: [{ text: 'Keduanya pegawai Kantor Notaris, sebagai saksi-saksi.' }] },
     { type: 'p', runs: [{ text: 'Segera setelah akta ini dibacakan oleh saya, Notaris kepada penghadap dan saksi-saksi maka ditanda-tanganilah akta ini oleh penghadap, saksi-saksi dan saya, Notaris. Serta penghadap membubuhkan sidik jari sebelah kanan pada lembaran tersendiri di hadapan saya, Notaris dan saksi-saksi, yang dilekatkan pada minuta akta ini.' }] },
     { type: 'p', runs: [{ text: 'Dilangsungkan dengan tanpa perubahan.' }] },
     { type: 'br' },
@@ -318,7 +318,7 @@ export function generatePendirianBlocks(data: PendirianData): Block[] {
     { type: 'p', indentTabs: 2, runs: [{ text: 'Diberikan sebagai salinan yang sama bunyinya.' }] },
     { type: 'br' },
     { type: 'p', align: 'right-center', runs: [{ text: `Notaris di ${toTitleCase(data.notarisTempat || 'Kabupaten Bandung Barat')};` }] },
-    { type: 'p', align: 'right-center', runs: [{ text: 'NUKANTINI PUTRI PARINCHA, SH., M.KN.', bold: true }] }
+    { type: 'p', align: 'right-center', runs: [{ text: 'NUKANTINI PUTRI PARINCHA, SH., M.Kn.', bold: true }] }
   );
 
   return blocks;

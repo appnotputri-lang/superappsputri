@@ -66,27 +66,34 @@ export const generateRupstBlocks = (data: CompanyData): Block[] => {
   blocks.push({ type: "br" });
 
   // 2. Opening
+  blocks.push({ type: "p", runs: [{ text: "I. RAPAT", bold: true }] });
   blocks.push({
     type: "p",
     runs: [
-      { text: `Pada hari ini, ${tglRapatHari}, tanggal ${tglRapatAngka} (${tglRapatHuruf}), bertempat di ${data.signingPlace || "Kantor Perseroan"}, telah diselenggarakan Rapat Umum Pemegang Saham Tahunan (selanjutnya disebut "Rapat") dari Perseroan Terbatas ` },
-      { text: formatCompanyName(data.companyName), bold: true },
-      { text: `, berkedudukan di ${toTitleCase(data.domicile || "...")}.` }
+      { text: `Rapat Umum Pemegang Saham Tahunan "` },
+      { text: formatCompanyName(data.companyName).toUpperCase(), bold: true },
+      { text: `" (selanjutnya disebut sebagai "Rapat") perseroan yang berkedudukan di ${data.domicile || "..."}, demikian berdasarkan Akta Pendirian tertanggal ${dateToWords(data.establishmentDeedDate || "")} (${formatDateStr(data.establishmentDeedDate || "")}), No. ${data.establishmentDeedNumber || "..."}, yang dibuat dihadapan ${data.establishmentNotary || "..."}, Notaris di ${data.establishmentNotaryDomicile || "..."} dan telah mendapat pengesahan dari Menteri Hukum dan Hak Asasi Manusia Republik Indonesia tertanggal ${dateToWords(data.establishmentSkDate || "")} (${formatDateStr(data.establishmentSkDate || "")}) Nomor ${data.establishmentSkNumber || "..."}.` }
     ]
   });
 
   blocks.push({
     type: "p",
-    runs: [{ text: `Rapat dimulai pada pukul ${jamRapatStr} WIB (${jamRapatWords} Waktu Indonesia Barat).` }]
+    runs: [{ text: `Rapat ini diselenggarakan berdasarkan Surat Pemanggilan Rapat Umum Pemegang Saham Tahunan Nomor: ${data.rupstInvitationNumber || "[nomor surat]"} tertanggal ${dateToWords(data.rupstInvitationDate || "")} (${formatDateStr(data.rupstInvitationDate || "")}) dan diadakan pada:` }]
   });
+
+  blocks.push(
+    { type: "p", runs: [{ text: `Hari/Tanggal\t: ${tglRapatHari}, ${tglRapatAngka}` }] },
+    { type: "p", runs: [{ text: `Tempat\t: ${data.signingPlace || "Kantor Perseroan"}` }] },
+    { type: "p", runs: [{ text: `Waktu\t: ${jamRapatStr} WIB` }] }
+  );
 
   blocks.push({ type: "br" });
 
   // 3. Attendance
-  blocks.push({ type: "p", runs: [{ text: "I. HADIR DALAM RAPAT", bold: true }] });
+  blocks.push({ type: "p", runs: [{ text: "II. PESERTA RAPAT", bold: true }] });
   blocks.push({
     type: "p",
-    runs: [{ text: `Dalam Rapat ini telah hadir atau diwakili pemegang saham yang mewakili ${formatNumber(presentShares)} (${terbilang(presentShares)}) saham, atau setara dengan ${formatNumber(presentPercentage)}% dari seluruh saham yang telah ditempatkan dan disetor penuh dalam Perseroan, yaitu sebanyak ${formatNumber(totalShares)} (${terbilang(totalShares)}) saham.` }]
+    runs: [{ text: "Bahwa dalam rapat telah hadir dan/atau mewakili antara lain :" }]
   });
 
   const fullyDescribedNames = new Set<string>();
@@ -107,54 +114,93 @@ export const generateRupstBlocks = (data: CompanyData): Block[] => {
 
   attendingShareholders.forEach((sh, idx) => {
     const shareRp = sh.sharesOwned * (data.originalSharePrice || 0);
+    // 1. Tuan/Nyonya ...
     blocks.push({
       type: "list",
       bullet: `${idx + 1}.`,
-      runs: [
-        ...getPersonDetailRuns(sh),
-        { text: `, pemilik dan pemegang ${formatNumber(sh.sharesOwned)} (${terbilang(sh.sharesOwned)}) lembar saham dengan total nilai nominal sebesar Rp. ${formatNumber(shareRp)},- (${terbilang(shareRp)} rupiah).` }
-      ]
+      indentTabs: 0,
+      runs: getPersonDetailRuns(sh)
     });
+    // - Dalam hal ini hadir selaku :
+    blocks.push({
+      type: "list",
+      bullet: "-",
+      indentTabs: 1,
+      runs: [{ text: "Dalam hal ini hadir selaku :" }]
+    });
+    // a. Pemilik dan pemegang saham ...
+    blocks.push({
+      type: "list",
+      bullet: "a.",
+      indentTabs: 2,
+      runs: [{ text: `Pemilik dan pemegang saham sebanyak ${formatNumber(sh.sharesOwned)} (${terbilang(sh.sharesOwned)}) lembar saham atau senilai Rp. ${formatNumber(shareRp)},- (${terbilang(shareRp)} rupiah) berhak mengeluarkan suara ${formatNumber(sh.sharesOwned)} (${terbilang(sh.sharesOwned)}) suara dalam rapat.` }]
+    });
+    // b. Jabatan pengurus ...
+    if (sh.isManagement && sh.managementPosition) {
+       blocks.push({
+        type: "list",
+        bullet: "b.",
+        indentTabs: 2,
+        runs: [{ text: `${sh.managementPosition} perseroan.` }]
+      });
+    }
+  });
+
+  const totalValue = totalShares * (data.originalSharePrice || 0);
+  blocks.push({
+    type: "p",
+    runs: [{ text: `Bahwa dari semua saham yang telah dikeluarkan tersebut diatas, yaitu ${formatNumber(totalShares)} (${terbilang(totalShares)}) lembar saham atau senilai Rp. ${formatNumber(totalValue)},- (${terbilang(totalValue)} rupiah).` }]
   });
 
   blocks.push({ type: "br" });
 
   // 4. Chair
   const chairName = (data.meetingChair || "...").toUpperCase();
-  const chairSalutation = data.shareholders.find(s => s.name === data.meetingChair)?.salutation || "Tuan";
+  // const chairSalutation = data.shareholders.find(s => s.name === data.meetingChair)?.salutation || "Tuan";
+  blocks.push({ type: "p", runs: [{ text: "III. KETUA RAPAT", bold: true }] });
   blocks.push({
     type: "p",
     runs: [
-      { text: `Rapat dipimpin oleh ${chairSalutation} ` },
+      { text: `Berdasarkan ketentuan anggaran dasar perseroan Pasal ${data.rupstQuorumArticle || "9"} ayat ${data.rupstQuorumParagraph || "6"}, maka ` },
       { text: chairName, bold: true },
-      { text: `, dalam jabatannya selaku ${data.meetingChairPosition || "Ketua Rapat"} (selanjutnya disebut "Ketua Rapat").` }
+      { text: `, tersebut di atas, bertindak sebagai ketua rapat.` }
     ]
   });
 
   blocks.push({ type: "br" });
 
   // 5. Agenda
-  blocks.push({ type: "p", runs: [{ text: "II. ACARA RAPAT", bold: true }] });
+  blocks.push({ type: "p", runs: [{ text: "IV. AGENDA RAPAT", bold: true }] });
+  blocks.push({ type: "p", runs: [{ text: "Rapat ini diadakan dengan agenda rapat sebagai berikut :" }] });
   const agendas = [
     `Persetujuan Laporan Tahunan Perseroan Tahun Buku ${fiscalYear};`,
     `Pengesahan Laporan Keuangan Perseroan Tahun Buku ${fiscalYear};`,
     "Penetapan penggunaan laba bersih Perseroan;",
-    "Pemberian pelunasan dan pembebasan tanggung jawab sepenuhnya (acquit et de charge) kepada Direksi dan Komisaris.",
-    `Pernyataan bahwa Laporan Keuangan Perseroan ${data.rupstIsAudited ? "Memenuhi" : "Tidak Memenuhi"} ketentuan wajib audit.`
+    "Pemberian pelunasan dan pembebasan tanggung jawab sepenuhnya (acquit et de charge) kepada Direksi dan Komisaris;",
+    "Memberikan kuasa kepada Ketua Rapat untuk melakukan segala tindakan yang diperlukan sehubungan dengan hasil keputusan Rapat."
   ];
 
   agendas.forEach((agenda, idx) => {
     blocks.push({
       type: "list",
-      bullet: `${idx + 1}.`,
+      bullet: "-",
       runs: [{ text: agenda }]
     });
   });
 
   blocks.push({ type: "br" });
 
+  // V. JALANNYA RAPAT
+  blocks.push({ type: "p", runs: [{ text: "V. JALANNYA RAPAT", bold: true }] });
+  blocks.push({
+    type: "p",
+    runs: [{ text: `Ketua rapat membuka dan memimpin rapat dengan terlebih dahulu menjelaskan bahwa para pemegang saham perseroan telah hadir dan/atau diwakili oleh ${formatNumber(presentShares)} Saham perseroan yang telah ditempatkan dan diambil bagian-bagian hingga hari ini, oleh karena itu, sesuai dengan ketentuan Anggaran dasar Perseroan Pasal ${data.rupstQuorumArticle || "10"} ayat ${data.rupstQuorumParagraph || "1"} mengenai Kuorum, Rapat ini adalah sah sesuai dengan Kuorum dan berhak mengambil keputusan-keputusan yang sah serta mengikat mengenai hal-hal yang dibicarakan.` }]
+  });
+
+  blocks.push({ type: "br" });
+
   // 6. Resolutions
-  blocks.push({ type: "p", runs: [{ text: "III. KEPUTUSAN RAPAT", bold: true }] });
+  blocks.push({ type: "p", runs: [{ text: "VI. KEPUTUSAN_KEPUTUSAN", bold: true }] });
   blocks.push({
     type: "p",
     runs: [{ text: "Setelah laporan-laporan dan usul-usul tersebut dibicarakan dan dibahas dalam Rapat, maka Rapat dengan suara bulat memutuskan hal-hal sebagai berikut:" }]

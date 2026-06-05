@@ -321,6 +321,7 @@ const App: React.FC = () => {
   const [profiles, setProfiles] = useState<CompanyProfile[]>([]);
   const [projects, setProjects] = useState<CompanyData[]>([]);
   const [rupstProjects, setRupstProjects] = useState<CompanyData[]>([]);
+  const [pendirianProjects, setPendirianProjects] = useState<CompanyData[]>([]);
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [authLoading, setAuthLoading] = useState(() => {
     return localStorage.getItem('notaris_user_is_logged_in') === 'true';
@@ -378,9 +379,10 @@ const App: React.FC = () => {
       let profilesReady = false;
       let projectsReady = false;
       let rupstReady = false;
+      let pendirianReady = false;
 
       const checkIfLoaded = () => {
-        if (profilesReady && projectsReady && rupstReady) {
+        if (profilesReady && projectsReady && rupstReady && pendirianReady) {
           setDataLoading(false);
         }
       };
@@ -415,6 +417,21 @@ const App: React.FC = () => {
         checkIfLoaded();
       });
 
+      const pendirianRef = collection(db, 'pendirian_projects');
+      const unsubPendirian = onSnapshot(pendirianRef, (snapshot) => {
+        const loaded: CompanyData[] = [];
+        snapshot.forEach(doc => {
+          loaded.push(doc.data() as CompanyData);
+        });
+        setPendirianProjects(loaded);
+        pendirianReady = true;
+        checkIfLoaded();
+      }, (error) => {
+        handleFirestoreError(error, OperationType.LIST, 'pendirian_projects');
+        pendirianReady = true;
+        checkIfLoaded();
+      });
+
       const rupstRef = collection(db, 'rupst_projects');
       const unsubRupst = onSnapshot(rupstRef, (snapshot) => {
         const loaded: CompanyData[] = [];
@@ -430,17 +447,19 @@ const App: React.FC = () => {
         checkIfLoaded();
       });
 
-      return () => { unsubProfiles(); unsubProjects(); unsubRupst(); };
+      return () => { unsubProfiles(); unsubProjects(); unsubRupst(); unsubPendirian(); };
     } else {
       setProfiles([]);
       setProjects([]);
       setRupstProjects([]);
+      setPendirianProjects([]);
       setDataLoading(false);
     }
   }, [user]);
 
   const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
   const [editingRupstId, setEditingRupstId] = useState<string | null>(null);
+  const [editingPendirianId, setEditingPendirianId] = useState<string | null>(null);
   const [editingProfileId, setEditingProfileId] = useState<string | null>(null);
 
   const [editingShareholder, setEditingShareholder] = useState<Shareholder | null>(null);
@@ -1116,7 +1135,7 @@ const App: React.FC = () => {
               </div>
 
               {/* Stats Overview */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div className="bg-white p-5 rounded-md border border-slate-200 shadow-sm flex items-center justify-between hover:shadow transition-shadow">
                   <div className="space-y-1">
                     <span className="text-[11px] font-bold text-slate-500 uppercase tracking-tight">Profil Perusahaan</span>
@@ -1147,6 +1166,39 @@ const App: React.FC = () => {
                   </div>
                   <div className="w-12 h-12 rounded-full bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600">
                     <History className="w-6 h-6" />
+                  </div>
+                </div>
+
+<div className="bg-white p-5 rounded-md border border-slate-200 shadow-sm flex items-center justify-between hover:shadow transition-shadow">
+                  <div className="space-y-1">
+                    <span className="text-[11px] font-bold text-slate-500 uppercase tracking-tight">Profil Perusahaan</span>
+                    <h2 className="text-3xl font-bold text-slate-800">{profiles.length}</h2>
+                    <p className="text-[11px] text-slate-400">Database profil korporasi</p>
+                  </div>
+                  <div className="w-12 h-12 rounded-full bg-blue-50 border border-blue-100 flex items-center justify-center text-[#3b5998]">
+                    <Building2 className="w-6 h-6" />
+                  </div>
+                </div>
+
+                <div className="bg-white p-5 rounded-md border border-slate-200 shadow-sm flex items-center justify-between hover:shadow transition-shadow">
+                  <div className="space-y-1">
+                    <span className="text-[11px] font-bold text-slate-500 uppercase tracking-tight">Draft RUPS LB</span>
+                    <h2 className="text-3xl font-bold text-slate-800">{projects.length}</h2>
+                    <p className="text-[11px] text-slate-400">Keputusan Sirkuler & Berita Acara</p>
+                  </div>
+                  <div className="w-12 h-12 rounded-full bg-[#fcf8e3] border border-[#fbeed5] flex items-center justify-center text-[#c09853]">
+                    <FileText className="w-6 h-6" />
+                  </div>
+                </div>
+
+                <div className="bg-white p-5 rounded-md border border-slate-200 shadow-sm flex items-center justify-between hover:shadow transition-shadow">
+                  <div className="space-y-1">
+                    <span className="text-[11px] font-bold text-slate-500 uppercase tracking-tight">Draft Pendirian PT</span>
+                    <h2 className="text-3xl font-bold text-slate-800">{pendirianProjects.length}</h2>
+                    <p className="text-[11px] text-slate-400">Draft akta pendirian</p>
+                  </div>
+                  <div className="w-12 h-12 rounded-full bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600">
+                    <FileCode className="w-6 h-6" />
                   </div>
                 </div>
               </div>
@@ -1230,7 +1282,7 @@ const App: React.FC = () => {
               </div>
 
               {/* Grid: Recent Drafts & Shortcuts */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 
                 {/* Recent RUPS LB Drafts */}
                 <div className="bg-white p-6 rounded-md border border-slate-200 shadow-sm flex flex-col h-[400px]">
@@ -1303,6 +1355,46 @@ const App: React.FC = () => {
                               setActiveSidebarTab('rupst');
                             }}
                             className="bg-white hover:bg-emerald-50 border border-slate-200 hover:border-emerald-300 text-slate-700 hover:text-[#40bdae] px-3 py-1.5 rounded-sm font-bold text-[11px] uppercase transition-all shrink-0 shadow-sm"
+                          >
+                            Edit
+                          </button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                {/* Recent Pendirian PT Drafts */}
+                <div className="bg-white p-6 rounded-md border border-slate-200 shadow-sm flex flex-col h-[400px]">
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-[14px] font-bold text-slate-700 uppercase tracking-tight flex items-center gap-2">
+                      <span className="w-1.5 h-4 bg-teal-500 font-bold"></span> Pendirian PT Terbaru
+                    </h3>
+                    <button onClick={() => setActiveSidebarTab('pendirian')} className="text-[#3b5998] hover:underline text-[12px] font-bold uppercase">Semua Pendirian</button>
+                  </div>
+                  
+                  <div className="flex-1 overflow-y-auto space-y-3 pr-1">
+                    {pendirianProjects.length === 0 ? (
+                      <div className="h-full flex flex-col items-center justify-center text-slate-400 text-center p-6 border border-dashed border-slate-200 rounded">
+                        <FileCode className="w-8 h-8 opacity-40 mb-2" />
+                        <span className="text-[12px]">Belum ada draft Pendirian PT di sistem</span>
+                      </div>
+                    ) : (
+                      pendirianProjects.slice(0, 5).map(p => (
+                        <div key={p.id} className="p-3 border border-slate-100 hover:border-teal-300 rounded-sm bg-slate-50/50 hover:bg-slate-50 transition-all flex items-center justify-between gap-4">
+                          <div className="min-w-0 flex-1">
+                            <h4 className="font-bold text-[#3b5998] text-[13px] truncate">{p.companyName}</h4>
+                            <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1 text-[11px] text-slate-500">
+                              <span className="flex items-center gap-1 font-mono text-teal-600 font-semibold bg-teal-50 px-1.5 rounded-sm">Draft {p.companyName || 'PT'}</span>
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => {
+                              setEditingPendirianId(p.id);
+                              updateData({ ...INITIAL_STATE, ...p } as any);
+                              setActiveSidebarTab('pendirian');
+                            }}
+                            className="bg-white hover:bg-teal-50 border border-slate-200 hover:border-teal-300 text-slate-700 hover:text-teal-600 px-3 py-1.5 rounded-sm font-bold text-[11px] uppercase transition-all shrink-0 shadow-sm"
                           >
                             Edit
                           </button>
