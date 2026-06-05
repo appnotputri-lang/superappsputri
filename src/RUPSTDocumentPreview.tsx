@@ -116,6 +116,27 @@ export const RUPSTDocumentPreview: React.FC<RUPSTDocumentPreviewProps> = ({ data
       });
     } else if (block.type === 'br') {
       allLines.push({ element: <div key={`br-${bIdx}`} className="h-6"></div> });
+    } else if (block.type === 'participantSigs') {
+      const formatParticipantName = (sh: any) => {
+        if (sh.isProxy && sh.proxyData && sh.proxyData.name) {
+          return `${sh.proxyData.name.toUpperCase()} qq ${sh.name.toUpperCase()}`;
+        }
+        return sh.name.toUpperCase();
+      };
+      block.participants.forEach((sh: any, idx: number) => {
+        allLines.push({
+          element: (
+            <div key={`sig-row-${bIdx}-${idx}`} className="flex w-full items-start" style={{ lineHeight: '1.8', marginBottom: '12px' }}>
+              <div style={{ width: '60%' }}>
+                {idx + 1}. {formatParticipantName(sh)}
+              </div>
+              <div style={{ width: '40%', color: '#94a3b8' }}>
+                ........................................................
+              </div>
+            </div>
+          )
+        });
+      });
     }
   });
 

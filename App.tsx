@@ -2992,6 +2992,32 @@ const App: React.FC = () => {
               <AhuSection title="DETAIL RAPAT">
                 <div className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                    <AhuLabel label="Ketentuan AD (Pasal)" />
+                    <div className="md:col-span-3 flex gap-4">
+                      <div className="flex-1">
+                        <AhuLabel label="Nomor Pasal" />
+                        <AhuInput value={data.rupstAdArticle || ''} onChange={e => updateData({ rupstAdArticle: e.target.value })} placeholder="Contoh: 21" />
+                      </div>
+                      <div className="flex-1">
+                        <AhuLabel label="Nomor Ayat" />
+                        <AhuInput value={data.rupstAdParagraph || ''} onChange={e => updateData({ rupstAdParagraph: e.target.value })} placeholder="Contoh: 1" />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                    <AhuLabel label="Ketentuan Kuorum AD" />
+                    <div className="md:col-span-3 flex gap-4">
+                      <div className="flex-1">
+                        <AhuLabel label="Pasal Kuorum" />
+                        <AhuInput value={data.rupstQuorumArticle || ''} onChange={e => updateData({ rupstQuorumArticle: e.target.value })} placeholder="Contoh: 22" />
+                      </div>
+                      <div className="flex-1">
+                        <AhuLabel label="Ayat Kuorum" />
+                        <AhuInput value={data.rupstQuorumParagraph || ''} onChange={e => updateData({ rupstQuorumParagraph: e.target.value })} placeholder="Contoh: 1" />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
                     <AhuLabel label="Pimpinan Rapat" />
                     <div className="md:col-span-3">
                       <AhuSelect value={data.meetingChair || ''} onChange={e => updateData({ meetingChair: e.target.value })}>
@@ -3489,6 +3515,7 @@ const App: React.FC = () => {
                           onChange={updates => updateManualRep(updates)}
                           hideManagement
                           hideFinancials
+                          profiles={profiles}
                         />
                       </div>
                     )}
@@ -4289,6 +4316,7 @@ const App: React.FC = () => {
                                   onChange={updates => updateManualRep(updates)}
                                   hideManagement
                                   hideFinancials
+                                  profiles={profiles}
                                 />
                               </div>
                             )}
@@ -4443,6 +4471,8 @@ const App: React.FC = () => {
             shareholderName={`${sh.salutation} ${sh.name}`}
             initialData={sh.proxyData}
             availableParties={availableParties}
+            shareholder={sh}
+            profiles={profiles}
             onSave={(proxyData) => {
               const newList = data.shareholders.map(item =>
                 item.id === proxyModalOpenId ? { ...item, proxyData } : item
@@ -4545,6 +4575,7 @@ const App: React.FC = () => {
                 hasTransferAgenda={data.resolutions.shareholders}
                 hasManagementAgenda={data.resolutions.management}
                 hasCapitalChange={data.resolutions.capitalBase || data.resolutions.capitalPaid || data.resolutions.capitalBaseDecrease || data.resolutions.capitalPaidDecrease}
+                profiles={profiles}
               />
             </div>
           )}

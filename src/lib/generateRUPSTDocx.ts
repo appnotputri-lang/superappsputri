@@ -181,7 +181,8 @@ const createListP = (
   // PESERTA / AGENDA items: matches reference XML exactly.
   // Structure: run("1.") → run(w:tab + "Tuan ") → run("RAJANDRAN") → ...
   // Tab stop at position=left, hanging indent so bullet starts at 0.
-  const { left: leftDxa, hanging: hangingDxa } = INDENT_PESERTA[level];
+  const levelIdx = Math.max(0, Math.min(Math.floor(level), INDENT_PESERTA.length - 1));
+  const { left: leftDxa, hanging: hangingDxa } = INDENT_PESERTA[levelIdx];
   const children: TextRun[] = [];
 
   // Run 1: bullet text only ("1." / "-" / "a.")
@@ -215,9 +216,12 @@ export const generateRUPSTDocx = async (data: CompanyData) => {
   blocks.forEach((block) => {
     if (block.type === "p") {
       const isCentered = block.align === "center";
+      const isLeft = block.align === "left";
       docxChildren.push(
         createP(block.runs, {
-          alignment: isCentered ? AlignmentType.CENTER : AlignmentType.JUSTIFIED,
+          alignment: isCentered 
+            ? AlignmentType.CENTER 
+            : (isLeft ? AlignmentType.LEFT : AlignmentType.JUSTIFIED),
         })
       );
     } else if (block.type === "list") {
@@ -233,6 +237,63 @@ export const generateRUPSTDocx = async (data: CompanyData) => {
       docxChildren.push(createDividerP(block.text));
     } else if (block.type === "br") {
       docxChildren.push(new Paragraph({ children: [] }));
+    } else if (block.type === "participantSigs") {
+      const TABLE_WIDTH = 8504;
+      const borderNone = { style: BorderStyle.NONE, size: 0, color: "auto" };
+      const borders = {
+        top: borderNone, bottom: borderNone, left: borderNone, right: borderNone,
+        insideHorizontal: borderNone, insideVertical: borderNone,
+      };
+
+      const columnsWidth = [5300, 3204];
+
+      const formatParticipantName = (sh: any) => {
+        if (sh.isProxy && sh.proxyData && sh.proxyData.name) {
+          return `${sh.proxyData.name.toUpperCase()} qq ${sh.name.toUpperCase()}`;
+        }
+        return sh.name.toUpperCase();
+      };
+
+      const rows = block.participants.map((sh: any, idx: number) => {
+        const numAndName = `${idx + 1}. ${formatParticipantName(sh)}`;
+        return new TableRow({
+          children: [
+            new TableCell({
+              borders,
+              margins: { top: 120, bottom: 120, left: 0, right: 120 },
+              width: { size: columnsWidth[0], type: WidthType.DXA },
+              children: [
+                new Paragraph({
+                  children: [new TextRun({ text: numAndName, bold: false })],
+                  alignment: AlignmentType.LEFT,
+                  spacing: { line: 360, after: 240 },
+                }),
+              ],
+            }),
+            new TableCell({
+              borders,
+              margins: { top: 120, bottom: 120, left: 120, right: 0 },
+              width: { size: columnsWidth[1], type: WidthType.DXA },
+              children: [
+                new Paragraph({
+                  children: [new TextRun({ text: "........................................................", bold: false })],
+                  alignment: AlignmentType.LEFT,
+                  spacing: { line: 360, after: 240 },
+                }),
+              ],
+            }),
+          ],
+        });
+      });
+
+      docxChildren.push(
+        new Table({
+          rows: rows,
+          width: { size: TABLE_WIDTH, type: WidthType.DXA },
+          columnWidths: columnsWidth,
+          borders,
+        })
+      );
     } else if (block.type === "pageBreak") {
       docxChildren.push(new Paragraph({ children: [new PageBreak()] }));
     } else if (block.type === "table") {

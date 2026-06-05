@@ -539,7 +539,7 @@ export const generateWordDoc = async (data: CompanyData) => {
       createBodyParagraph({
         children: [
           new TextRun({
-            text: "Berdasarkan ketentuan pasal 21 ayat (1) anggaran dasar perseroan, maka ",
+            text: `Berdasarkan ketentuan pasal ${data.rupstAdArticle || "21"} ayat (${data.rupstAdParagraph || "1"}) anggaran dasar perseroan, maka `,
             size: FONT_SIZE,
             font: FONT_FAMILY,
           }),
@@ -1430,7 +1430,9 @@ export const generateWordDoc = async (data: CompanyData) => {
           spacing: { after: 0, line: LINE_SPACING },
           children: [
             new TextRun({
-              text: (sh.name || "................").toUpperCase(),
+              text: (sh.isProxy && sh.proxyData && sh.proxyData.name)
+                ? `${sh.proxyData.name.toUpperCase()} qq ${sh.name.toUpperCase()}`
+                : (sh.name || "................").toUpperCase(),
               bold: true,
               underline: { type: "single" },
               size: FONT_SIZE,

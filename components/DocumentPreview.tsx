@@ -319,7 +319,7 @@ const DocumentPreview: React.FC<Props> = ({ data, showHeader = true, zoom = 1 })
             {/* III. KETUA RAPAT */}
             <div style={{ fontWeight: 'bold', marginTop: '18pt', marginBottom: '6pt', textTransform: 'uppercase', textAlign: 'left' }}>III. KETUA RAPAT</div>
             <div style={{ textAlign: 'justify', marginBottom: '12pt' }}>
-              Berdasarkan ketentuan pasal 21 ayat (1) anggaran dasar perseroan, maka <strong>{(data.meetingChair || '................').toUpperCase()}</strong>, tersebut di atas, bertindak sebagai ketua rapat.
+              Berdasarkan ketentuan pasal {data.rupstAdArticle || '21'} ayat ({data.rupstAdParagraph || '1'}) anggaran dasar perseroan, maka <strong>{(data.meetingChair || '................').toUpperCase()}</strong>, tersebut di atas, bertindak sebagai ketua rapat.
             </div>
 
             {/* IV. AGENDA RAPAT */}
@@ -662,7 +662,12 @@ const DocumentPreview: React.FC<Props> = ({ data, showHeader = true, zoom = 1 })
                 <div style={{ color: '#bfbfbf', fontSize: '8pt', textTransform: 'uppercase', marginBottom: '12pt' }}>Meterai 10.000 + Cap</div>
               )}
               <div style={{ fontWeight: 'bold', textTransform: 'uppercase', textDecoration: 'underline', marginTop: idx > 0 ? '30pt' : '0' }}>
-                {(sh.name || "................").toUpperCase()}
+                {(() => {
+                  if (sh.isProxy && sh.proxyData && sh.proxyData.name) {
+                    return `${sh.proxyData.name.toUpperCase()} qq ${sh.name.toUpperCase()}`;
+                  }
+                  return (sh.name || "................").toUpperCase();
+                })()}
               </div>
               <div style={{ fontSize: '10pt', marginTop: '4pt' }}>Tanggal : ............................</div>
             </div>

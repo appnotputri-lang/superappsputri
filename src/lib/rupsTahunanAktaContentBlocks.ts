@@ -4,6 +4,7 @@ import {
   getDayName,
   dateToWords,
   formatDateStr,
+  formatDateSimple,
   timeToWords,
   terbilang,
   toTitleCase,
@@ -11,6 +12,7 @@ import {
   formatAddress,
   formatCompanyName,
   formatPersonDetails,
+  cleanDegrees,
 } from "./formatter";
 
 export type Block =
@@ -203,7 +205,21 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
     return "AHU-" + rawSk;
   };
 
-  let foundationSentence = `Bahwa pada hari ${tglRapatHari}, tanggal ${tglRapatAngka} (${tglRapatHuruf}), bertempat di ${data.signingPlace || "Kantor Perseroan"}, pukul ${jamRapatStr} WIB (${jamRapatHuruf}) telah diadakan Rapat Umum Pemegang Saham Tahunan Perseroan Terbatas ${formatCompanyName(data.companyName)} (selanjutnya disebut sebagai “Rapat”) Perseroan berkedudukan di ${toTitleCase(data.domicile || "...")}, demikian berdasarkan Akta Pendirian tertanggal ${establishmentDeedDateText} (${establishmentDeedDateNum}), Nomor ${data.establishmentDeedNumber || "02"} dibuat dihadapan saya, Notaris di ${toTitleCase(data.establishmentNotaryDomicile || "Kabupaten Bandung Barat")} dan telah mendapat pengesahan dari Menteri Hukum dan Hak Asasi Manusia Republik Indonesia berdasarkan Surat Keputusan Nomor ${getSkFormattedNumber()} tertanggal ${dateToWords(data.establishmentSkDate || "")} (${formatDateStr(data.establishmentSkDate || "")});`;
+  function checkNotaryWording(name: string, title?: string, domicile?: string) {
+    const norm = (name || "").toUpperCase().trim();
+    const t1 = "NUKANTINI PUTRI PARINCHA";
+    const t2 = "RADEN AJENG NUKANTINI PUTRI PARINCHA";
+    if (norm.startsWith(t1) || norm.startsWith(t2)) {
+      return `saya, Notaris berkedudukan di ${toTitleCase(domicile || "...")},`;
+    }
+    const cleanName = cleanDegrees(name || "");
+    const cleanTitle = cleanDegrees(title || "");
+    return `${cleanName}${cleanTitle ? `, ${cleanTitle}` : ""}, Notaris di ${toTitleCase(domicile || "...")}`;
+  }
+
+  const hasAmendments = data.amendmentDeeds && data.amendmentDeeds.length > 0;
+
+  let foundationSentence = `Bahwa pada hari ${tglRapatHari}, tanggal ${tglRapatAngka} (${tglRapatHuruf}), bertempat di ${data.signingPlace || "Kantor Perseroan"}, pukul ${jamRapatStr} WIB (${jamRapatHuruf}) telah diadakan Rapat Umum Pemegang Saham Tahunan Perseroan Terbatas ${formatCompanyName(data.companyName)} (selanjutnya disebut sebagai “Rapat”) Perseroan berkedudukan di ${toTitleCase(data.domicile || "...")}, demikian berdasarkan Akta Pendirian tertanggal ${establishmentDeedDateText} (${establishmentDeedDateNum}), Nomor ${data.establishmentDeedNumber || "02"} dibuat dihadapan ${checkNotaryWording(data.establishmentNotary || "............................", data.establishmentNotaryTitle, data.establishmentNotaryDomicile)} dan telah mendapat pengesahan dari Menteri Hukum dan Hak Asasi Manusia Republik Indonesia berdasarkan Surat Keputusan Nomor ${getSkFormattedNumber()} tertanggal ${dateToWords(data.establishmentSkDate || "")} (${formatDateStr(data.establishmentSkDate || "")})${hasAmendments ? " dan telah mengalami beberapa kali perubahan berdasarkan akta-akta sebagai berikut : -" : ";"}`;
 
   blocks.push({
     type: "list",
@@ -211,6 +227,66 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
     indentTabs: 0.3,
     runs: [{ text: foundationSentence }]
   });
+
+  // Amendment deeds
+  if (hasAmendments) {
+    data.amendmentDeeds!.forEach((deed, i) => {
+      const isLast = i === data.amendmentDeeds!.length - 1;
+      const tglDeedHuruf = dateToWords(deed.date);
+      const tglDeedAngka = formatDateStr(deed.date);
+
+      let skText = "";
+      if (deed.skSpDocuments && deed.skSpDocuments.length > 0) {
+        const sks = deed.skSpDocuments.filter((d) => d.type === "SK");
+        const sps = deed.skSpDocuments.filter((d) => d.type !== "SK");
+
+        const skParts: string[] = [];
+        sks.forEach((sk) => {
+          skParts.push(
+            `telah mendapat pengesahan dari Menteri Hukum dan Hak Asasi Manusia Republik Indonesia tertanggal ${dateToWords(sk.date)} (${formatDateStr(sk.date)}), Nomor ${sk.number}`,
+          );
+        });
+
+        const spParts: string[] = [];
+        if (sps.length > 0) {
+          const spDescParts = sps.map((sp) => {
+            if (sp.type === "SP_DATA_PERSEROAN")
+              return `Surat Penerimaan Pemberitahuan Perubahan Data Perseroan Nomor ${sp.number}`;
+            if (sp.type === "SP_ANGGARAN_DASAR")
+              return `Surat Penerimaan Pemberitahuan Perubahan Anggaran Dasar Nomor ${sp.number}`;
+            return `Surat Penerimaan Pemberitahuan Nomor ${sp.number}`;
+          });
+
+          const spDates = Array.from(new Set(sps.map((s) => s.date)));
+          let spDateText = "";
+          if (spDates.length === 1) {
+            spDateText = ` ${sps.length > 1 ? (sks.length > 0 ? "ketiganya " : "keduanya ") : ""}tertanggal ${formatDateStr(spDates[0])} (${dateToWords(spDates[0])})`;
+          } else {
+            spDateText = ` masing-masing tertanggal sebagaimana tercantum dalam surat tersebut`;
+          }
+
+          spParts.push(
+            `Pemberitahuannya telah diterima dan dicatat dalam Sistem Administrasi Badan Hukum Kementerian Hukum Republik Indonesia berdasarkan ${spDescParts.join(" dan ")}${spDateText}`,
+          );
+        }
+
+        skText = [...skParts, ...spParts].join(" dan ");
+      } else {
+        skText = `telah mendapat pengesahan berdasarkan Surat Keputusan Nomor ${deed.skNumber} tanggal ${formatDateStr(deed.skDate)} (${dateToWords(deed.skDate)})`;
+      }
+
+      blocks.push({
+        type: "list",
+        bullet: "-",
+        indentTabs: 1.0,
+        runs: [
+          {
+            text: `Akta Perubahan tertanggal ${tglDeedHuruf} (${tglDeedAngka}) Nomor ${deed.number} yang dibuat di hadapan ${checkNotaryWording(deed.notary, deed.notaryTitle, deed.notaryDomicile)} yang ${skText}${isLast ? ";" : ";"}`,
+          },
+        ],
+      });
+    });
+  }
 
   blocks.push({
     type: "list",
@@ -865,7 +941,7 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
   const s1Nama = data.saksi1Nama || "Nendi Suhendi";
   const s1Detail = data.saksi1Nama && data.saksi1Lahir && data.saksi1Alamat && data.saksi1NIK
     ? `, lahir di ${toTitleCase(data.saksi1Lahir)}, Warga Negara Indonesia, bertempat tinggal di ${formatAddress(toTitleCase(data.saksi1Alamat))}, pemegang Kartu Tanda Penduduk Nomor ${data.saksi1NIK}`
-    : ", lahir di Bandung, Pada Tanggal Limabelas Juli Seribu Sembilan Ratus Sembilan Puluh Satu (15-07-1991), Warga Negara Indonesia, bertempat tinggal di Jalan Sukaresmi Nomor 12, Rukun Tetangga 005, Rukun Warga 005, Kecamatan Lembang, Desa Mekarwangi, pemegang Kartu Tanda Penduduk Nomor 3217011507910016";
+    : ", lahir di Bandung, Pada Tanggal Limabelas Juli Seribu Sembilan Ratus Sembilan Puluh Satu (15-07-1991), Warga Negara Indonesia, bertempat tinggal di Jalan Sukaresmi Nomor 12, RT. 005 RW. 005, Kecamatan Lembang, Desa Mekarwangi, pemegang Kartu Tanda Penduduk Nomor 3217011507910016";
 
   blocks.push({
     type: "saksi",
@@ -880,7 +956,7 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
   const s2Nama = data.saksi2Nama || "Siti Nur Azizah";
   const s2Detail = data.saksi2Nama && data.saksi2Lahir && data.saksi2Alamat && data.saksi2NIK
     ? `, lahir di ${toTitleCase(data.saksi2Lahir)}, Warga Negara Indonesia, bertempat tinggal di ${formatAddress(toTitleCase(data.saksi2Alamat))}, pemegang Kartu Tanda Penduduk Nomor ${data.saksi2NIK}`
-    : ", lahir di Bandung, Pada Tanggal Tujuh Belas Desember Seribu Sembilan Ratus Sembilan Puluh Sembilan (17-12-1999), Warga Negara Indonesia, bertempat tinggal di Kabupaten Bandung, Jalan Lembah Pakar Timur II Kampung Sekebuluh Rukun Tetangga 001, Rukun Warga 004, Desa Ciburial, Kecamatan Cimenyan, pemegang Kartu Tanda Penduduk Nomor 3204065712990001";
+    : ", lahir di Bandung, Pada Tanggal Tujuh Belas Desember Seribu Sembilan Ratus Sembilan Puluh Sembilan (17-12-1999), Warga Negara Indonesia, bertempat tinggal di Kabupaten Bandung, Jalan Lembah Pakar Timur II Kampung Sekebuluh RT. 001 RW. 004, Desa Ciburial, Kecamatan Cimenyan, pemegang Kartu Tanda Penduduk Nomor 3204065712990001";
 
   blocks.push({
     type: "saksi",

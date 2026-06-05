@@ -40,6 +40,15 @@ export interface Shareholder {
   skDate?: string;
   skIssuer?: string;
   npwp?: string;
+  linkedProfileId?: string;
+  establishmentDeedNumber?: string;
+  establishmentDeedDate?: string;
+  establishmentNotary?: string;
+  establishmentNotaryTitle?: string;
+  establishmentNotaryDomicile?: string;
+  establishmentSkNumber?: string;
+  establishmentSkDate?: string;
+  amendmentDeeds?: AmendmentDeed[];
   
   // Acquisition details
   isAcquisition?: boolean;

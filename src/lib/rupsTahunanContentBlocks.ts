@@ -4,6 +4,7 @@ import {
   getDayName,
   dateToWords,
   formatDateStr,
+  formatDateSimple,
   timeToWords,
   terbilang,
   toTitleCase,
@@ -11,6 +12,7 @@ import {
   formatAddress,
   formatCompanyName,
   formatPersonDetails,
+  cleanDegrees,
 } from "./formatter";
 
 export type Block =
@@ -37,6 +39,10 @@ export type Block =
       headers: string[];
       rows: (FormatToken[] | string)[][];
       widths?: number[];
+    }
+  | {
+      type: "participantSigs";
+      participants: any[];
     };
 
 export const generateRupstBlocks = (data: CompanyData): Block[] => {
@@ -67,24 +73,102 @@ export const generateRupstBlocks = (data: CompanyData): Block[] => {
 
   // 2. Opening
   blocks.push({ type: "p", runs: [{ text: "I. RAPAT", bold: true }] });
+
+  function checkNotaryWording(name: string, title?: string, domicile?: string) {
+    const cleanName = cleanDegrees(name || "");
+    const cleanTitle = cleanDegrees(title || "");
+    return `${cleanName}${cleanTitle ? `, ${cleanTitle}` : ""}, Notaris di ${toTitleCase(domicile || "...")}`;
+  }
+
+  const hasAmendments = data.amendmentDeeds && data.amendmentDeeds.length > 0;
+
+  const tglPendirianHuruf = dateToWords(data.establishmentDeedDate || "");
+  const tglPendirianAngka = formatDateStr(data.establishmentDeedDate || "");
+  const tglSKPendirianHuruf = dateToWords(data.establishmentSkDate || "");
+  const tglSKPendirianAngka = formatDateStr(data.establishmentSkDate || "");
+
   blocks.push({
     type: "p",
     runs: [
       { text: `Rapat Umum Pemegang Saham Tahunan "` },
       { text: formatCompanyName(data.companyName).toUpperCase(), bold: true },
-      { text: `" (selanjutnya disebut sebagai "Rapat") perseroan yang berkedudukan di ${data.domicile || "..."}, demikian berdasarkan Akta Pendirian tertanggal ${dateToWords(data.establishmentDeedDate || "")} (${formatDateStr(data.establishmentDeedDate || "")}), No. ${data.establishmentDeedNumber || "..."}, yang dibuat dihadapan ${data.establishmentNotary || "..."}, Notaris di ${data.establishmentNotaryDomicile || "..."} dan telah mendapat pengesahan dari Menteri Hukum dan Hak Asasi Manusia Republik Indonesia tertanggal ${dateToWords(data.establishmentSkDate || "")} (${formatDateStr(data.establishmentSkDate || "")}) Nomor ${data.establishmentSkNumber || "..."}.` }
+      {
+        text: `" (selanjutnya disebut sebagai "Rapat") perseroan yang berkedudukan di ${data.domicile || "..."}, demikian berdasarkan Akta Pendirian tertanggal ${tglPendirianHuruf} (${tglPendirianAngka}), Nomor ${data.establishmentDeedNumber || "..."}, yang dibuat dihadapan ${checkNotaryWording(data.establishmentNotary || "............................", data.establishmentNotaryTitle, data.establishmentNotaryDomicile)} dan telah mendapat pengesahan dari Menteri Hukum dan Hak Asasi Manusia Republik Indonesia tertanggal ${tglSKPendirianHuruf} (${tglSKPendirianAngka}), Nomor ${data.establishmentSkNumber || "..."}${hasAmendments ? " dan telah mengalami beberapa kali perubahan berdasarkan akta-akta sebagai berikut : -" : "."}`
+      }
     ]
   });
 
+  // Amendment deeds
+  if (hasAmendments) {
+    data.amendmentDeeds!.forEach((deed, i) => {
+      const isLast = i === data.amendmentDeeds!.length - 1;
+      const tglDeedSimple = formatDateSimple(deed.date);
+
+      let skText = "";
+      if (deed.skSpDocuments && deed.skSpDocuments.length > 0) {
+        const sks = deed.skSpDocuments.filter((d) => d.type === "SK");
+        const sps = deed.skSpDocuments.filter((d) => d.type !== "SK");
+
+        const skParts: string[] = [];
+        sks.forEach((sk) => {
+          skParts.push(
+            `telah mendapat pengesahan dari Menteri Hukum dan Hak Asasi Manusia Republik Indonesia tertanggal ${dateToWords(sk.date)} (${formatDateStr(sk.date)}), Nomor ${sk.number}`,
+          );
+        });
+
+        const spParts: string[] = [];
+        if (sps.length > 0) {
+          const spDescParts = sps.map((sp) => {
+            if (sp.type === "SP_DATA_PERSEROAN")
+              return `Surat Penerimaan Pemberitahuan Perubahan Data Perseroan Nomor ${sp.number}`;
+            if (sp.type === "SP_ANGGARAN_DASAR")
+              return `Surat Penerimaan Pemberitahuan Perubahan Anggaran Dasar Nomor ${sp.number}`;
+            return `Surat Penerimaan Pemberitahuan Nomor ${sp.number}`;
+          });
+
+          const spDates = Array.from(new Set(sps.map((s) => s.date)));
+          let spDateText = "";
+          if (spDates.length === 1) {
+            spDateText = ` ${sps.length > 1 ? (sks.length > 0 ? "ketiganya " : "keduanya ") : ""}tertanggal ${formatDateStr(spDates[0])} (${dateToWords(spDates[0])})`;
+          } else {
+            spDateText = ` masing-masing tertanggal sebagaimana tercantum dalam surat tersebut`;
+          }
+
+          spParts.push(
+            `Pemberitahuannya telah diterima dan dicatat dalam Sistem Administrasi Badan Hukum Kementerian Hukum Republik Indonesia berdasarkan ${spDescParts.join(" dan ")}${spDateText}`,
+          );
+        }
+
+        skText = [...skParts, ...spParts].join(" dan ");
+      } else {
+        skText = `telah mendapat pengesahan berdasarkan Surat Keputusan Nomor ${deed.skNumber} tanggal ${formatDateStr(deed.skDate)} (${dateToWords(deed.skDate)})`;
+      }
+
+      blocks.push({
+        type: "list",
+        bullet: "-",
+        indentTabs: 0.5,
+        runs: [
+          {
+            text: `Akta Perubahan tertanggal ${tglDeedSimple} Nomor ${deed.number} yang dibuat di hadapan ${checkNotaryWording(deed.notary, deed.notaryTitle, deed.notaryDomicile)} yang ${skText}${isLast ? "." : ";"}`,
+          },
+        ],
+      });
+    });
+  }
+
+  const tglUndanganHuruf = dateToWords(data.rupstInvitationDate || "");
+  const tglUndanganAngka = formatDateStr(data.rupstInvitationDate || "");
+
   blocks.push({
     type: "p",
-    runs: [{ text: `Rapat ini diselenggarakan berdasarkan Surat Pemanggilan Rapat Umum Pemegang Saham Tahunan Nomor: ${data.rupstInvitationNumber || "[nomor surat]"} tertanggal ${dateToWords(data.rupstInvitationDate || "")} (${formatDateStr(data.rupstInvitationDate || "")}) dan diadakan pada:` }]
+    runs: [{ text: `Rapat ini diselenggarakan berdasarkan Surat Pemanggilan Rapat Umum Pemegang Saham Tahunan Nomor: ${data.rupstInvitationNumber || "[nomor surat]"} tertanggal ${tglUndanganHuruf} (${tglUndanganAngka}) dan diadakan pada:` }]
   });
 
   blocks.push(
-    { type: "p", runs: [{ text: `Hari/Tanggal\t: ${tglRapatHari}, ${tglRapatAngka}` }] },
+    { type: "p", runs: [{ text: `Hari/Tanggal\t: ${tglRapatHari}, tanggal ${tglRapatAngka} (${tglRapatHuruf})` }] },
     { type: "p", runs: [{ text: `Tempat\t: ${data.signingPlace || "Kantor Perseroan"}` }] },
-    { type: "p", runs: [{ text: `Waktu\t: ${jamRapatStr} WIB` }] }
+    { type: "p", runs: [{ text: `Waktu\t: ${jamRapatStr} WIB (${jamRapatWords})` }] }
   );
 
   blocks.push({ type: "br" });
@@ -100,13 +184,15 @@ export const generateRupstBlocks = (data: CompanyData): Block[] => {
 
   const getPersonDetailRuns = (person: any): FormatToken[] => {
     const nameUpper = (person?.name || "").toUpperCase().trim();
+    const sal = person?.salutation ? `${person.salutation} ` : "";
     if (fullyDescribedNames.has(nameUpper)) {
-      return [{ text: nameUpper, bold: true }, { text: ", tersebut diatas" }];
+      return [{ text: sal }, { text: nameUpper, bold: true }, { text: ", tersebut diatas" }];
     }
     fullyDescribedNames.add(nameUpper);
     const tglAngka = person?.birthDate ? formatDateStr(person.birthDate) : "...";
     const tglHuruf = person?.birthDate ? dateToWords(person.birthDate) : "...";
     return [
+      { text: sal },
       { text: nameUpper, bold: true },
       { text: formatPersonDetails(person, tglAngka, tglHuruf) }
     ];
@@ -114,35 +200,102 @@ export const generateRupstBlocks = (data: CompanyData): Block[] => {
 
   attendingShareholders.forEach((sh, idx) => {
     const shareRp = sh.sharesOwned * (data.originalSharePrice || 0);
-    // 1. Tuan/Nyonya ...
-    blocks.push({
-      type: "list",
-      bullet: `${idx + 1}.`,
-      indentTabs: 0,
-      runs: getPersonDetailRuns(sh)
-    });
-    // - Dalam hal ini hadir selaku :
-    blocks.push({
-      type: "list",
-      bullet: "-",
-      indentTabs: 1,
-      runs: [{ text: "Dalam hal ini hadir selaku :" }]
-    });
-    // a. Pemilik dan pemegang saham ...
-    blocks.push({
-      type: "list",
-      bullet: "a.",
-      indentTabs: 2,
-      runs: [{ text: `Pemilik dan pemegang saham sebanyak ${formatNumber(sh.sharesOwned)} (${terbilang(sh.sharesOwned)}) lembar saham atau senilai Rp. ${formatNumber(shareRp)},- (${terbilang(shareRp)} rupiah) berhak mengeluarkan suara ${formatNumber(sh.sharesOwned)} (${terbilang(sh.sharesOwned)}) suara dalam rapat.` }]
-    });
-    // b. Jabatan pengurus ...
-    if (sh.isManagement && sh.managementPosition) {
-       blocks.push({
+    
+    if (sh.isProxy && sh.proxyData) {
+      const proxy = sh.proxyData;
+      const isDirector = proxy.representationType === 'DIREKTUR_PT_LAIN';
+      
+      // 1. Tuan/Nyonya [Nama Kuasa/Direktur]
+      blocks.push({
+        type: "list",
+        bullet: `${idx + 1}.`,
+        indentTabs: 0,
+        runs: getPersonDetailRuns(proxy)
+      });
+      
+      // - Dalam hal ini hadir selaku :
+      blocks.push({
+        type: "list",
+        bullet: "-",
+        indentTabs: 1,
+        runs: [{ text: "Dalam hal ini hadir selaku :" }]
+      });
+      
+      // a. Kuasa / Direktur dari PT ...
+      const shObj = {
+        ...sh,
+        shareholderType: sh.shareholderType || ((sh as any).isCompany ? "BADAN_HUKUM" : "PERORANGAN") as any
+      };
+      const companyDetail = formatPersonDetails(shObj, "...", "...");
+      
+      let capacityText = "";
+      if (isDirector) {
+        capacityText = `selaku Direktur dari dan oleh karena itu sah bertindak untuk dan atas nama `;
+      } else {
+        const proxyDateWords = proxy.proxyDeedDate ? dateToWords(proxy.proxyDeedDate) : "__________";
+        const proxyDateAngka = proxy.proxyDeedDate ? formatDateStr(proxy.proxyDeedDate) : "__________";
+        capacityText = `selaku penerima kuasa berdasarkan Surat Kuasa tertanggal ${proxyDateWords} (${proxyDateAngka}), dari dan oleh karena itu sah bertindak untuk dan atas nama `;
+      }
+      
+      blocks.push({
+        type: "list",
+        bullet: "a.",
+        indentTabs: 2,
+        runs: [
+          { text: capacityText },
+          { text: sh.name.toUpperCase(), bold: true },
+          { text: companyDetail }
+        ]
+      });
+      
+      // b. Pemilik dan pemegang saham ...
+      blocks.push({
         type: "list",
         bullet: "b.",
         indentTabs: 2,
-        runs: [{ text: `${sh.managementPosition} perseroan.` }]
+        runs: [{ text: `yang dalam hal ini merupakan pemilik dan pemegang saham sebanyak ${formatNumber(sh.sharesOwned)} (${terbilang(sh.sharesOwned)}) lembar saham atau senilai Rp. ${formatNumber(shareRp)},- (${terbilang(shareRp)} rupiah) berhak mengeluarkan suara ${formatNumber(sh.sharesOwned)} (${terbilang(sh.sharesOwned)}) suara dalam rapat.` }]
       });
+      
+      // c. Jabatan pengurus ...
+      if (sh.isManagement && sh.managementPosition) {
+         blocks.push({
+          type: "list",
+          bullet: "c.",
+          indentTabs: 2,
+          runs: [{ text: `${sh.managementPosition} perseroan.` }]
+        });
+      }
+    } else {
+      // 1. Tuan/Nyonya ...
+      blocks.push({
+        type: "list",
+        bullet: `${idx + 1}.`,
+        indentTabs: 0,
+        runs: getPersonDetailRuns(sh)
+      });
+      // - Dalam hal ini hadir selaku :
+      blocks.push({
+        type: "list",
+        bullet: "-",
+        indentTabs: 1,
+        runs: [{ text: "Dalam hal ini hadir selaku :" }]
+      });
+      // a. Pemilik dan pemegang saham ...
+      blocks.push({
+        type: "list",
+        bullet: "a.",
+        indentTabs: 2,
+        runs: [{ text: `Pemilik dan pemegang saham sebanyak ${formatNumber(sh.sharesOwned)} (${terbilang(sh.sharesOwned)}) lembar saham atau senilai Rp. ${formatNumber(shareRp)},- (${terbilang(shareRp)} rupiah) berhak mengeluarkan suara ${formatNumber(sh.sharesOwned)} (${terbilang(sh.sharesOwned)}) suara dalam rapat.` }]
+      });
+      // b. Jabatan pengurus ...
+      if (sh.isManagement && sh.managementPosition) {
+         blocks.push({
+          type: "list",
+          bullet: "b.",
+          indentTabs: 2,
+          runs: [{ text: `${sh.managementPosition} perseroan.` }]
+        });
+      }
     }
   });
 
@@ -161,7 +314,7 @@ export const generateRupstBlocks = (data: CompanyData): Block[] => {
   blocks.push({
     type: "p",
     runs: [
-      { text: `Berdasarkan ketentuan anggaran dasar perseroan Pasal ${data.rupstQuorumArticle || "9"} ayat ${data.rupstQuorumParagraph || "6"}, maka ` },
+      { text: `Berdasarkan ketentuan anggaran dasar perseroan Pasal ${data.rupstAdArticle || "9"} ayat ${data.rupstAdParagraph || "6"}, maka ` },
       { text: chairName, bold: true },
       { text: `, tersebut di atas, bertindak sebagai ketua rapat.` }
     ]
@@ -255,6 +408,44 @@ export const generateRupstBlocks = (data: CompanyData): Block[] => {
     runs: [{ text: `Menyatakan bahwa Laporan Keuangan Perseroan untuk tahun buku tersebut ${data.rupstIsAudited ? "telah diaudit oleh Akuntan Publik" : "tidak memenuhi kriteria wajib audit berdasarkan ketentuan yang berlaku"}.` }]
   });
 
+  // Resolution 6 (Kuasa)
+  const rep = data.representativeType === "MANUAL" ? data.manualRepresentative : data.shareholders.find((s) => s.id === data.authorizedRepresentativeId);
+  let repRuns: FormatToken[] = [];
+
+  if (data.representativeType === "MANUAL" && rep) {
+    const repName = (rep.name || "").toUpperCase();
+    const salutation = rep.salutation || "Tuan";
+    const tglAngka = rep.birthDate ? formatDateStr(rep.birthDate) : "...";
+    const tglHuruf = rep.birthDate ? dateToWords(rep.birthDate) : "...";
+    const details = formatPersonDetails(rep, tglAngka, tglHuruf);
+
+    repRuns = [
+      { text: `Memberikan kuasa kepada ` },
+      { text: `${salutation} ` },
+      { text: repName, bold: true },
+      { text: `${details}, ` },
+      { text: `untuk melakukan segala tindakan yang diperlukan sehubungan dengan hasil keputusan RUPS Tahunan ini, termasuk namun tidak terbatas pada pengurusan pelaporan kepada instansi yang berwenang.` }
+    ];
+  } else {
+    const repName = rep ? rep.name.toUpperCase() : (data.meetingChair || "RAJANDRAN SHUNMUGAM").toUpperCase();
+    const foundSh = data.shareholders.find(s => s.name.toUpperCase() === repName);
+    const salutation = foundSh?.salutation || "Tuan";
+
+    repRuns = [
+      { text: `Memberikan kuasa kepada ` },
+      { text: `${salutation} ` },
+      { text: repName, bold: true },
+      { text: ` tersebut diatas, untuk melakukan segala tindakan yang diperlukan sehubungan dengan hasil keputusan RUPS Tahunan ini, termasuk namun tidak terbatas pada pengurusan pelaporan kepada instansi yang berwenang.` }
+    ];
+  }
+
+  blocks.push({
+    type: "list",
+    bullet: "5.",
+    indentStyle: "keputusan",
+    runs: repRuns
+  });
+
   // 7. Closing
   blocks.push({ type: "br" });
   blocks.push({
@@ -307,16 +498,17 @@ export const generateRupstBlocks = (data: CompanyData): Block[] => {
   blocks.push({ type: "br" });
 
   const tandaTanganChairName = (data.meetingChair || "").toUpperCase();
-  const participants = data.shareholders.filter(sh => (sh.sharesOwned > 0 || sh.isPresent) && sh.name.toUpperCase() !== tandaTanganChairName);
-  participants.forEach((sh, idx) => {
-    blocks.push({
-      type: "p",
-      runs: [{ text: `${idx + 1}. ${sh.name.toUpperCase()} \t........................................................` }]
-    });
-    if (idx !== participants.length - 1) {
-      blocks.push({ type: "br" });
-      blocks.push({ type: "br" });
+  const formatParticipantName = (sh: any) => {
+    if (sh.isProxy && sh.proxyData && sh.proxyData.name) {
+      return `${sh.proxyData.name.toUpperCase()} qq ${sh.name.toUpperCase()}`;
     }
+    return sh.name.toUpperCase();
+  };
+
+  const participants = data.shareholders.filter(sh => (sh.sharesOwned > 0 || sh.isPresent) && sh.name.toUpperCase() !== tandaTanganChairName);
+  blocks.push({
+    type: "participantSigs",
+    participants
   });
 
   // Daftar Hadir
@@ -361,7 +553,7 @@ export const generateRupstBlocks = (data: CompanyData): Block[] => {
 
       return [
         `${idx + 1}.`,
-        sh.name.toUpperCase(),
+        formatParticipantName(sh),
         kedudukanLines,
         ""
       ];

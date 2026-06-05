@@ -24,5 +24,9 @@ service cloud.firestore {
     match /rupst_projects/{rupstId} {
       allow read, write: if isAllowedUser();
     }
+
+    match /pendirian_projects/{pendirianId} {
+      allow read, write: if isAllowedUser();
+    }
   }
 }

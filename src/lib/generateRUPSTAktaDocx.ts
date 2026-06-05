@@ -296,10 +296,10 @@ export const generateRUPSTAktaDocx = async (data: CompanyData) => {
   });
 
   const domicile = data.notaryDomicile || "Kabupaten Bandung Barat";
-  const notaryDisplay = (data.notaryName || "NUKANTINI PUTRI PARINCHA, SH., M.Kn.")
+  const notaryDisplay = (data.notaryName || "NUKANTINI PUTRI PARINCHA, S.H., M.Kn.")
     .toUpperCase()
-    .replace(/SARJANA HUKUM/gi, "SH.")
-    .replace(/MAGISTER KENOTARIATAN/gi, "M.Kn");
+    .replace(/SARJANA HUKUM/gi, "S.H.")
+    .replace(/MAGISTER KENOTARIATAN/gi, "M.Kn.");
 
   docxChildren.push(createNotarisLabelP(domicile));
   docxChildren.push(createNotarisEmptyP());

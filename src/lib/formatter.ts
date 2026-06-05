@@ -8,7 +8,7 @@ export const formatFullAddressData = (addr?: Address, fallbackCity?: string): st
 
   const parts = [
     addr.fullAddress,
-    addr.rt && addr.rw ? `Rukun Tetangga ${addr.rt}, Rukun Warga ${addr.rw}` : "",
+    addr.rt && addr.rw ? `RT. ${addr.rt} RW. ${addr.rw}` : "",
     addr.kelurahan ? `${villagePrefix} ${toTitleCase(addr.kelurahan)}` : "",
     addr.kecamatan ? `Kecamatan ${toTitleCase(addr.kecamatan)}` : "",
     city ? toTitleCase(city) : "",
@@ -93,6 +93,16 @@ export function formatDateStr(dateStr: string): string {
   return `${dd}-${mm}-${yyyy}`;
 }
 
+export function formatDateSimple(dateStr: string): string {
+  if (!dateStr) return "";
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return "";
+  const dd = d.getDate();
+  const mm = d.getMonth();
+  const yyyy = d.getFullYear();
+  return `${dd} ${BULAN[mm]} ${yyyy}`;
+}
+
 export function getDayName(dateStr: string): string {
   if (!dateStr) return "";
   const d = new Date(dateStr);
@@ -164,6 +174,16 @@ export function toTitleCase(str: string): string {
   return res;
 }
 
+export function cleanDegrees(str: string): string {
+  if (!str) return "";
+  let res = str;
+  // Replace Sarjana Hukum/magister kenotariatan (case insensitive)
+  res = res.replace(/Sarjana\s+Hukum/gi, "S.H.");
+  res = res.replace(/Magister\s+Kenotariatan/gi, "M.Kn.");
+  // Add other known degrees if needed in future
+  return res;
+}
+
 export function formatCompanyName(name: string): string {
   if (!name) return "";
   let cleanName = name.trim();
@@ -198,6 +218,15 @@ export function formatPersonDetails(
     skIssuer?: string;
     npwp?: string;
     name?: string;
+    linkedProfileId?: string;
+    establishmentDeedNumber?: string;
+    establishmentDeedDate?: string;
+    establishmentNotary?: string;
+    establishmentNotaryTitle?: string;
+    establishmentNotaryDomicile?: string;
+    establishmentSkNumber?: string;
+    establishmentSkDate?: string;
+    amendmentDeeds?: any[];
   },
   tglLahirAngka: string,
   tglLahirHuruf: string
@@ -220,12 +249,49 @@ export function formatPersonDetails(
       const skDateWording = skDateFormatted ? ` tertanggal ${skDateFormatted}` : "";
       const npwpNum = person.npwp || "...";
       
-      return `, suatu ${entityType.toLowerCase()} yang didirikan berdasarkan hukum Negara Republik Indonesia, berkedudukan di ${city}, bertempat tinggal di ${fullAddr}, berdasarkan Surat Keputusan/Akta Nomor ${skNum}${skDateWording}, dengan Nomor Pokok Wajib Pajak (NPWP) ${npwpNum}`;
+      const lowerEntity = entityType.toLowerCase();
+      let entityWording = `suatu ${lowerEntity}`;
+      if (
+        lowerEntity.includes("pt") ||
+        lowerEntity.includes("perseroan") ||
+        lowerEntity.includes("swasta") ||
+        lowerEntity === "badan hukum"
+      ) {
+        entityWording = "sebuah perseroan terbatas";
+      }
+
+      let baseString = `, ${entityWording} yang didirikan berdasarkan hukum negara Republik Indonesia, berkedudukan di ${city}, bertempat tinggal di ${fullAddr}`;
+      
+      if (person.establishmentDeedNumber) {
+        const estDateStr = person.establishmentDeedDate ? formatDateStr(person.establishmentDeedDate) : "...";
+        const estNotary = person.establishmentNotary || "...";
+        const estNotaryTitle = person.establishmentNotaryTitle ? `, ${person.establishmentNotaryTitle}` : "";
+        const estNotaryDomicile = person.establishmentNotaryDomicile ? toTitleCase(person.establishmentNotaryDomicile) : "...";
+        const estSkNumber = person.establishmentSkNumber || person.skNumber || "...";
+        const estSkDateStr = person.establishmentSkDate ? formatDateStr(person.establishmentSkDate) : (person.skDate ? formatDateStr(person.skDate) : "...");
+        
+        baseString += `, yang didirikan berdasarkan Akta Pendirian Nomor ${person.establishmentDeedNumber} tertanggal ${estDateStr}, dibuat dihadapan ${estNotary}${estNotaryTitle}, Notaris di ${estNotaryDomicile}, dan telah memperoleh pengesahan dari Menteri Hukum dan Hak Asasi Manusia Republik Indonesia berdasarkan Surat Keputusan Nomor ${estSkNumber} tertanggal ${estSkDateStr}`;
+        
+        if (person.amendmentDeeds && person.amendmentDeeds.length > 0) {
+          const lastAmd = person.amendmentDeeds[person.amendmentDeeds.length - 1];
+          const amdDateStr = lastAmd.date ? formatDateStr(lastAmd.date) : "...";
+          const amdNotary = lastAmd.notary || "...";
+          const amdNotaryTitle = lastAmd.notaryTitle ? `, ${lastAmd.notaryTitle}` : "";
+          const amdNotaryDomicile = lastAmd.notaryDomicile ? toTitleCase(lastAmd.notaryDomicile) : "...";
+          const amdSkNumber = lastAmd.skNumber || (lastAmd.skSpDocuments && lastAmd.skSpDocuments[0]?.skNumber) || person.skNumber || "...";
+          const amdSkDateStr = lastAmd.skDate ? formatDateStr(lastAmd.skDate) : (lastAmd.skSpDocuments && lastAmd.skSpDocuments[0]?.skDate ? formatDateStr(lastAmd.skSpDocuments[0].skDate) : (person.skDate ? formatDateStr(person.skDate) : "..."));
+          
+          baseString += `, dan anggaran dasarnya telah mengalami beberapa kali perubahan, terakhir dengan Akta Nomor ${lastAmd.number} tertanggal ${amdDateStr}, dibuat dihadapan ${amdNotary}${amdNotaryTitle}, Notaris di ${amdNotaryDomicile}, yang pemberitahuannya telah diterima dan dicatat dalam Sistem Administrasi Badan Hukum Kementerian Hukum dan Hak Asasi Manusia Republik Indonesia berdasarkan Surat Keputusan/Penerimaan Surat Pemberitahuan Nomor ${amdSkNumber} tertanggal ${amdSkDateStr}`;
+        }
+      } else {
+        baseString += `, berdasarkan Surat Keputusan/Akta Nomor ${skNum}${skDateWording}`;
+      }
+      return baseString;
     }
   }
 
   const birthCity = toTitleCase(person.birthCity || "...");
-  const occupation = toTitleCase(person.occupation || "...");
+  const occupation = cleanDegrees(toTitleCase(person.occupation || "..."));
 
   if (person.nationalityType === "WNA" || person.isForeign) {
     // For WNA: Warga Negara Asing, uses passport instead of NIK, and generic address without RT/RW.
@@ -252,6 +318,6 @@ export function formatPersonDetails(
     const kec = toTitleCase(person.address?.kecamatan || "...");
     const nik = person.nik || "...";
 
-    return `, lahir di ${birthCity}, pada tanggal ${tglLahirAngka} (${tglLahirHuruf}), Warga Negara Indonesia, ${occupation}, bertempat tinggal di ${city}, ${fullAddr}, Rukun Tetangga ${rt}, Rukun Warga ${rw}, Kelurahan ${kel}, Kecamatan ${kec}, pemegang Kartu Tanda Penduduk Nomor ${nik}`;
+    return `, lahir di ${birthCity}, pada tanggal ${tglLahirAngka} (${tglLahirHuruf}), Warga Negara Indonesia, ${occupation}, bertempat tinggal di ${city}, ${fullAddr}, RT. ${rt} RW. ${rw}, Kelurahan ${kel}, Kecamatan ${kec}, pemegang Kartu Tanda Penduduk Nomor ${nik}`;
   }
 }

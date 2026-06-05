@@ -13,6 +13,7 @@ import {
   formatFullAddressData,
   formatCompanyName,
   formatPersonDetails,
+  cleanDegrees,
 } from "./formatter";
 
 export type Block =
@@ -153,7 +154,9 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
     if (norm.startsWith(t1) || norm.startsWith(t2)) {
       return `saya, Notaris berkedudukan di ${toTitleCase(domicile || "...")},`;
     }
-    return `${name}${title ? `, ${title}` : ""}, Notaris di ${toTitleCase(domicile || "...")}`;
+    const cleanName = cleanDegrees(name || "");
+    const cleanTitle = cleanDegrees(title || "");
+    return `${cleanName}${cleanTitle ? `, ${cleanTitle}` : ""}, Notaris di ${toTitleCase(domicile || "...")}`;
   }
 
   const blocks: Block[] = [];
@@ -427,7 +430,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
       indentTabs: 0.5,
       runs: [
         {
-          text: `Bahwa sesuai ketentuan Pasal 21 ayat 1 Anggaran Dasar Perseroan, pada tanggal ${meetingTglAngka} (${meetingTglHuruf}) seluruh pemegang saham telah menandatangani risalah rapat yang dimuat dalam ”Risalah rapat Pemegang Saham Luar Biasa” yang dibuat di bawah tangan, yang ditandatangani oleh:`,
+          text: `Bahwa sesuai ketentuan Pasal ${data.rupstAdArticle || "21"} ayat ${data.rupstAdParagraph || "1"} Anggaran Dasar Perseroan, pada tanggal ${meetingTglAngka} (${meetingTglHuruf}) seluruh pemegang saham telah menandatangani risalah rapat yang dimuat dalam ”Risalah rapat Pemegang Saham Luar Biasa” yang dibuat di bawah tangan, yang ditandatangani oleh:`,
         },
       ],
     });
@@ -655,7 +658,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
       indentTabs: 0.5,
       runs: [
         {
-          text: `Bahwa menurut Pasal 22 ayat 1 Anggaran Dasar Perseroan mengenai Kuorum, Rapat ini adalah sah sesuai dengan Kuorum dan berhak mengambil keputusan-keputusan yang sah serta mengikat mengenai hal-hal yang dibicarakan;`,
+          text: `Bahwa menurut Pasal ${data.rupstQuorumArticle || "22"} ayat ${data.rupstQuorumParagraph || "1"} Anggaran Dasar Perseroan mengenai Kuorum, Rapat ini adalah sah sesuai dengan Kuorum dan berhak mengambil keputusan-keputusan yang sah serta mengikat mengenai hal-hal yang dibicarakan;`,
         },
       ],
     });
@@ -673,7 +676,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
       indentTabs: 0.5,
       runs: [
         {
-          text: `Berdasarkan ketentuan Pasal 21 ayat (1) Anggaran Dasar Perseroan, ${chairSalutation} `,
+          text: `Berdasarkan ketentuan Pasal ${data.rupstAdArticle || "21"} ayat (${data.rupstAdParagraph || "1"}) Anggaran Dasar Perseroan, ${chairSalutation} `,
         },
         { text: chairName.toUpperCase(), bold: true },
         { text: `, ${chairIsProxy ? 'kuasa tersebut di atas, bertindak sebagai ketua rapat.' : `tersebut di atas, ${chairPosition} bertindak sebagai Ketua Rapat.`}` },
@@ -1383,7 +1386,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
     runs: [
       { text: data.saksi1Nama || "Nendi Suhendi", bold: false },
       {
-        text: `, lahir di ${data.saksi1Lahir || "Bandung, pada tanggal lima belas Juli seribu sembilan ratus sembilan puluh satu (15-07-1991)"}, Warga Negara Indonesia, bertempat tinggal di ${data.saksi1Alamat || "Jalan Sukaresmi Nomor 12, Rukun Tetangga 005, Rukun Warga 005, Kecamatan Lembang, Desa Mekarwangi"}, pemegang Kartu Tanda Penduduk Nomor ${data.saksi1NIK || "3217011507910016"};`,
+        text: `, lahir di ${data.saksi1Lahir || "Bandung, pada tanggal lima belas Juli seribu sembilan ratus sembilan puluh satu (15-07-1991)"}, Warga Negara Indonesia, bertempat tinggal di ${data.saksi1Alamat || "Jalan Sukaresmi Nomor 12, RT. 005 RW. 005, Kecamatan Lembang, Desa Mekarwangi"}, pemegang Kartu Tanda Penduduk Nomor ${data.saksi1NIK || "3217011507910016"};`,
       },
     ],
   });
@@ -1395,7 +1398,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
     runs: [
       { text: data.saksi2Nama || "Siti Nur Azizah", bold: false },
       {
-        text: `, lahir di ${data.saksi2Lahir || "Bandung, pada tanggal tujuh belas Desember seribu sembilan ratus sembilan puluh sembilan (17-12-1999)"}, Warga Negara Indonesia, bertempat tinggal di ${data.saksi2Alamat || "Kabupaten Bandung, Jalan Lembah Pakar Timur II Kampung Sekebuluh Rukun Tetangga 001, Rukun Warga 004, Kecamatan Cimenyan, Desa Ciburial"}, pemegang Kartu Tanda Penduduk Nomor ${data.saksi2NIK || "3204065712990001"}.`,
+        text: `, lahir di ${data.saksi2Lahir || "Bandung, pada tanggal tujuh belas Desember seribu sembilan ratus sembilan puluh sembilan (17-12-1999)"}, Warga Negara Indonesia, bertempat tinggal di ${data.saksi2Alamat || "Kabupaten Bandung, Jalan Lembah Pakar Timur II Kampung Sekebuluh RT. 001 RW. 004, Kecamatan Cimenyan, Desa Ciburial"}, pemegang Kartu Tanda Penduduk Nomor ${data.saksi2NIK || "3204065712990001"}.`,
       },
     ],
     spaceAfter: false,

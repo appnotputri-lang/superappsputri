@@ -1,5 +1,5 @@
 import React from 'react';
-import { Shareholder } from '../types';
+import { Shareholder, CompanyProfile } from '../types';
 import { User, Banknote, Globe, ShieldCheck, MapPin, Coins, History, Zap, Info, Briefcase, UserPlus, ArrowRightLeft, Users } from 'lucide-react';
 import { formatCurrency, numberToWords, formatInputNumber, parseFormattedNumber } from '../utils/formatters';
 import { IndoRegionSelector } from './AddressFields';
@@ -19,6 +19,7 @@ interface Props {
   hasTransferAgenda?: boolean;
   hasManagementAgenda?: boolean;
   hasCapitalChange?: boolean;
+  profiles?: CompanyProfile[];
 }
 
 const ShareholderForm: React.FC<Props> = ({ 
@@ -35,7 +36,8 @@ const ShareholderForm: React.FC<Props> = ({
   isOld = false,
   hasTransferAgenda = false,
   hasManagementAgenda = false,
-  hasCapitalChange = false
+  hasCapitalChange = false,
+  profiles = []
 }) => {
   const [showLookup, setShowLookup] = React.useState(false);
   const maxPossible = totalSharesAllowed - otherAllocated;
@@ -101,6 +103,36 @@ const ShareholderForm: React.FC<Props> = ({
 
   const updateAddress = (updates: Partial<Shareholder['address']>) => {
     onChange({ address: { ...shareholder.address, ...updates } });
+  };
+
+  const handleProfileSelect = (p: CompanyProfile) => {
+    const targetAddress = p.newAddress && p.newAddress.fullAddress ? { ...p.newAddress } : (p.oldAddress && p.oldAddress.fullAddress ? { ...p.oldAddress } : {
+      fullAddress: '',
+      rt: '',
+      rw: '',
+      kelurahan: '',
+      kecamatan: '',
+      city: '',
+      province: ''
+    });
+
+    onChange({
+      name: (p.companyName || '').toUpperCase(),
+      legalEntityType: p.companyType || 'PT Persekutuan Modal',
+      npwp: p.npwp || '',
+      address: targetAddress,
+      skNumber: p.establishmentSkNumber || '',
+      skDate: p.establishmentSkDate || '',
+      establishmentDeedNumber: p.establishmentDeedNumber || '',
+      establishmentDeedDate: p.establishmentDeedDate || '',
+      establishmentNotary: p.establishmentNotary || '',
+      establishmentNotaryTitle: p.establishmentNotaryTitle || '',
+      establishmentNotaryDomicile: p.establishmentNotaryDomicile || '',
+      establishmentSkNumber: p.establishmentSkNumber || '',
+      establishmentSkDate: p.establishmentSkDate || '',
+      amendmentDeeds: p.amendmentDeeds || [],
+      linkedProfileId: p.id
+    });
   };
 
   return (
@@ -170,21 +202,49 @@ const ShareholderForm: React.FC<Props> = ({
       </div>
 
       {isBadanHukum && !isWna && (
-        <div className="mb-4">
-          <label className="block text-xs font-bold text-slate-700 mb-1">Jenis Badan Hukum</label>
-          <select 
-            value={shareholder.legalEntityType || 'PT Persekutuan Modal'} 
-            onChange={e => onChange({ legalEntityType: e.target.value })}
-            className="w-full px-3 py-2 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm bg-white"
-          >
-            <option value="PT Persekutuan Modal">PT Persekutuan Modal</option>
-            <option value="PT Perorangan">PT Perorangan</option>
-            <option value="Koperasi">Koperasi</option>
-            <option value="Yayasan">Yayasan</option>
-            <option value="CV">CV</option>
-            <option value="Lainnya">Lainnya</option>
-          </select>
-        </div>
+        <>
+          <div className="mb-4">
+            <label className="block text-xs font-bold text-slate-700 mb-1">Jenis Badan Hukum</label>
+            <select 
+              value={shareholder.legalEntityType || 'PT Persekutuan Modal'} 
+              onChange={e => onChange({ legalEntityType: e.target.value })}
+              className="w-full px-3 py-2 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm bg-white"
+            >
+              <option value="PT Persekutuan Modal">PT Persekutuan Modal</option>
+              <option value="PT Perorangan">PT Perorangan</option>
+              <option value="Koperasi">Koperasi</option>
+              <option value="Yayasan">Yayasan</option>
+              <option value="CV">CV</option>
+              <option value="Lainnya">Lainnya</option>
+            </select>
+          </div>
+
+          {profiles && profiles.length > 0 && (
+            <div className="mb-4 p-3 bg-blue-50/50 rounded border border-blue-200">
+              <label className="block text-xs font-bold text-blue-700 mb-1">Hubungkan / Ambil dari Profil Perusahaan</label>
+              <select
+                value={shareholder.linkedProfileId || ''}
+                onChange={e => {
+                  const profileId = e.target.value;
+                  if (profileId) {
+                    const selectedProf = profiles.find(p => p.id === profileId);
+                    if (selectedProf) {
+                      handleProfileSelect(selectedProf);
+                    }
+                  } else {
+                    onChange({ linkedProfileId: undefined });
+                  }
+                }}
+                className="w-full px-3 py-2 border border-blue-300 rounded text-sm bg-white outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 font-medium"
+              >
+                <option value="">-- Pilih Profil Perusahaan --</option>
+                {profiles.map(p => (
+                  <option key={p.id} value={p.id}>{p.companyName}</option>
+                ))}
+              </select>
+            </div>
+          )}
+        </>
       )}
 
       <div>
@@ -263,16 +323,17 @@ const ShareholderForm: React.FC<Props> = ({
           ) : (
             <>
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Nomor SK</label>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Nomor SK Terbaru / Terakhir</label>
                 <input 
                   type="text" 
                   value={shareholder.skNumber || ''} 
                   onChange={e => onChange({ skNumber: e.target.value })}
                   className="w-full px-3 py-2 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm"
+                  placeholder="Contoh: AHU-00123.AH.01.01.Tahun 2024"
                 />
               </div>
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Tanggal SK</label>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Tanggal SK Terbaru</label>
                 <input 
                   type="date" 
                   value={shareholder.skDate || ''} 
@@ -287,7 +348,96 @@ const ShareholderForm: React.FC<Props> = ({
                   value={shareholder.npwp || ''} 
                   onChange={e => onChange({ npwp: e.target.value })}
                   className="w-full px-3 py-2 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm"
+                  placeholder="00.000.000.0-000.000"
                 />
+              </div>
+
+              {/* Akta Pendirian expander */}
+              <div className="md:col-span-2 border border-slate-200 rounded p-4 bg-white mt-2">
+                <h4 className="text-xs font-bold text-slate-800 flex items-center gap-1.5 mb-3 uppercase">
+                  <ShieldCheck className="w-4 h-4 text-slate-500" /> Detail Akta Pendirian Badan Hukum Sh. (Opsional)
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-600 mb-1">Nomor Akta Pendirian</label>
+                    <input 
+                      type="text" 
+                      value={shareholder.establishmentDeedNumber || ''} 
+                      onChange={e => onChange({ establishmentDeedNumber: e.target.value })}
+                      className="w-full px-2 py-1.5 border border-slate-300 rounded text-xs outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-600 mb-1">Tanggal Akta Pendirian</label>
+                    <input 
+                      type="date" 
+                      value={shareholder.establishmentDeedDate || ''} 
+                      onChange={e => onChange({ establishmentDeedDate: e.target.value })}
+                      className="w-full px-2 py-1.5 border border-slate-300 rounded text-xs outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-600 mb-1">Nama Notaris Pendirian</label>
+                    <input 
+                      type="text" 
+                      value={shareholder.establishmentNotary || ''} 
+                      onChange={e => onChange({ establishmentNotary: e.target.value })}
+                      className="w-full px-2 py-1.5 border border-slate-300 rounded text-xs outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-600 mb-1">Gelar Notaris (Contoh: S.H., M.Kn.)</label>
+                    <input 
+                      type="text" 
+                      value={shareholder.establishmentNotaryTitle || ''} 
+                      onChange={e => onChange({ establishmentNotaryTitle: e.target.value })}
+                      className="w-full px-2 py-1.5 border border-slate-300 rounded text-xs outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-[11px] font-bold text-slate-600 mb-1">Kedudukan Notaris Pendirian</label>
+                    <input 
+                      type="text" 
+                      value={shareholder.establishmentNotaryDomicile || ''} 
+                      onChange={e => onChange({ establishmentNotaryDomicile: e.target.value })}
+                      className="w-full px-2 py-1.5 border border-slate-300 rounded text-xs outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-600 mb-1">Nomor SK Pendirian</label>
+                    <input 
+                      type="text" 
+                      value={shareholder.establishmentSkNumber || ''} 
+                      onChange={e => onChange({ establishmentSkNumber: e.target.value })}
+                      className="w-full px-2 py-1.5 border border-slate-300 rounded text-xs outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-600 mb-1">Tanggal SK Pendirian</label>
+                    <input 
+                      type="date" 
+                      value={shareholder.establishmentSkDate || ''} 
+                      onChange={e => onChange({ establishmentSkDate: e.target.value })}
+                      className="w-full px-2 py-1.5 border border-slate-300 rounded text-xs outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
+                    />
+                  </div>
+                </div>
+
+                {shareholder.amendmentDeeds && shareholder.amendmentDeeds.length > 0 && (
+                  <div className="mt-4 p-3 bg-slate-50 border border-slate-200 rounded text-[11px] text-slate-700">
+                    <div className="font-bold flex items-center gap-1 mb-1 text-slate-800">
+                      <History className="w-3.5 h-3.5 text-blue-500" /> Histori Perubahan Anggaran Dasar ({shareholder.amendmentDeeds.length} Akta):
+                    </div>
+                    <ul className="list-decimal pl-4 space-y-1.5 mt-1 font-medium text-slate-600">
+                      {shareholder.amendmentDeeds.map((amd, i) => (
+                        <li key={amd.id || i}>
+                          Akta Perubahan No. <span className="font-semibold text-slate-800">{amd.number}</span> tanggal <span className="font-semibold text-slate-800">{amd.date ? new Date(amd.date).toLocaleDateString('id-ID') : '...'}</span> oleh Notaris {amd.notary} di {amd.notaryDomicile} 
+                          {amd.skNumber && <span> (SK Menkumham Nomor: <span className="text-slate-800 font-semibold">{amd.skNumber}</span>{amd.skDate ? ` tertanggal ${new Date(amd.skDate).toLocaleDateString('id-ID')}` : ''})</span>}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </div>
             </>
           )
