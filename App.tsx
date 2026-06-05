@@ -38,6 +38,7 @@ import {
   ListChecks,
   MapPin,
   Clock,
+  Gavel,
   FileText,
   Plus,
   Trash2,
@@ -492,7 +493,9 @@ const App: React.FC = () => {
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [showPreview, setShowPreview] = useState(true);
   const [newKbliId, setNewKbliId] = useState<string | null>(null);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
+    return window.location.pathname !== '/rupst';
+  });
   const [isSaving, setIsSaving] = useState(false);
   const [activeSidebarTab, setActiveSidebarTab] = useState<SidebarTabId>(() => {
     if (window.location.pathname === '/rupst') return 'rupst_public';
@@ -1144,63 +1147,64 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className="h-screen flex flex-col bg-[#ecf0f5] font-sans text-slate-900 overflow-hidden">
+    <div className="h-screen flex flex-col bg-[#ecf0f5] font-sans text-slate-900 overflow-hidden relative">
       {/* Header AHU Style */}
       <header className="bg-[#3b5998] text-white flex justify-between items-center px-4 py-2 sticky top-0 z-50 shadow-sm text-sm border-b border-black/10 h-[50px] shrink-0">
         <div className="flex items-center gap-3 sm:gap-6 flex-1 min-w-0">
-          <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-1 hover:bg-white/10 rounded transition-colors shrink-0"><Menu className="w-5 h-5" /></button>
+          {user && (
+            <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-1 hover:bg-white/10 rounded transition-colors shrink-0"><Menu className="w-5 h-5" /></button>
+          )}
           <div className="flex items-center gap-2 font-bold tracking-tight truncate">
-            <span className="text-[13px] sm:text-[14px] truncate">SISTEM DRAFT NOTARIS PUTRI</span>
+            <Gavel className="w-5 h-5 text-blue-200 hidden sm:block" />
+            <span className="text-[13px] sm:text-[14px] truncate uppercase font-bold">SISTEM DRAFT NOTARIS PUTRI</span>
           </div>
         </div>
         <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
           {user ? (
             <div className="flex items-center gap-3">
               <span className="text-[12px] opacity-90 hidden sm:inline">{user.email}</span>
-              <button onClick={() => handleLogout()} className="bg-red-500 hover:bg-red-600 px-3 py-1.5 rounded-sm text-[12px] font-bold transition-colors">
+              <button onClick={() => handleLogout()} className="bg-red-500 hover:bg-red-600 px-3 py-1.5 rounded-sm text-[12px] font-bold transition-colors shadow-sm">
                 LOGOUT
               </button>
             </div>
           ) : (
-            <button onClick={() => loginWithGoogle()} className="bg-[#40bdae] hover:bg-[#349c8f] px-3 py-1.5 rounded-sm text-[12px] font-bold transition-colors flex items-center gap-1.5">
-               LOGIN
-            </button>
+            !isPublicRoute && (
+              <button onClick={() => loginWithGoogle()} className="bg-[#40bdae] hover:bg-[#349c8f] px-3 py-1.5 rounded-sm text-[12px] font-bold transition-colors flex items-center gap-1.5 shadow-sm">
+                 LOGIN
+              </button>
+            )
           )}
         </div>
       </header>
 
       <div className="flex-1 flex overflow-hidden">
         {/* Sidebar AHU Style */}
-        <aside className={`bg-[#2c3b41] text-slate-400 flex flex-col shrink-0 overflow-y-auto lg:flex transition-all duration-300 ease-in-out ${isSidebarOpen ? 'w-64' : 'w-0 overflow-hidden'}`}>
-          <div className="py-4 space-y-0 text-[13px] w-64">
-            {[
-              { label: 'Beranda', id: 'beranda' as const, icon: Home },
-              { label: 'Company Profile', id: 'company_profile' as const, icon: Building2 },
-              { label: 'RUPS LB', id: 'notulen' as const, icon: FileText },
-              { label: 'RUPS Tahunan', id: 'rupst' as const, icon: History },
-              { label: 'RUPST Public', id: 'rupst_public' as const, icon: History },
-              { label: 'Sirkuler Lap Tahunan', id: 'sirkuler_laporan' as const, icon: FileSignature },
-              { label: 'Pendirian PT', id: 'pendirian' as const, icon: FileText },
-              { label: 'Surat Perbaikan Data', id: 'perbaikan' as const, icon: Mail },
-              { label: 'Panduan Penggunaan', id: 'panduan' as const, icon: BookOpen },
-            ].filter(item => {
-              if (!user && !isPublicRoute) return false; // Should not happen due to wall
-              if (!user && isPublicRoute) {
-                return ['rupst_public', 'panduan'].includes(item.id);
-              }
-              return true;
-            }).map((item) => (
-              <button key={item.id} onClick={() => setActiveSidebarTab(item.id)} className={`w-full text-left px-4 py-2.5 border-l-4 transition-all flex justify-between items-center ${activeSidebarTab === item.id ? 'bg-[#1e282c] text-white border-blue-500' : 'border-transparent hover:bg-black/10 hover:text-white'}`}>
-                <span className="flex items-center gap-3">
-                  <item.icon size={18} />
-                  {item.label}
-                </span>
-              </button>
-            ))}
-          </div>
-        </aside>
+        {user && (
+          <aside className={`bg-[#2c3b41] text-slate-400 flex flex-col shrink-0 overflow-y-auto lg:flex transition-all duration-300 ease-in-out ${isSidebarOpen ? 'w-64' : 'w-0 overflow-hidden'}`}>
+            <div className="py-4 space-y-0 text-[13px] w-64">
+              {[
+                { label: 'Beranda', id: 'beranda' as const, icon: Home },
+                { label: 'Company Profile', id: 'company_profile' as const, icon: Building2 },
+                { label: 'RUPS LB', id: 'notulen' as const, icon: FileText },
+                { label: 'RUPS Tahunan', id: 'rupst' as const, icon: History },
+                { label: 'RUPST Public', id: 'rupst_public' as const, icon: History },
+                { label: 'Sirkuler Lap Tahunan', id: 'sirkuler_laporan' as const, icon: FileSignature },
+                { label: 'Pendirian PT', id: 'pendirian' as const, icon: FileText },
+                { label: 'Surat Perbaikan Data', id: 'perbaikan' as const, icon: Mail },
+                { label: 'Panduan Penggunaan', id: 'panduan' as const, icon: BookOpen },
+              ].map((item) => (
+                <button key={item.id} onClick={() => setActiveSidebarTab(item.id)} className={`w-full text-left px-4 py-2.5 border-l-4 transition-all flex justify-between items-center ${activeSidebarTab === item.id ? 'bg-[#1e282c] text-white border-blue-500' : 'border-transparent hover:bg-black/10 hover:text-white'}`}>
+                  <span className="flex items-center gap-3">
+                    <item.icon size={18} />
+                    {item.label}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </aside>
+        )}
 
-        <main className="flex-1 overflow-y-auto bg-[#ecf0f5] p-6 pb-20">
+        <main className={`flex-1 overflow-y-auto bg-[#ecf0f5] ${!user && isPublicRoute ? 'p-2 md:p-6' : 'p-4 md:p-6'} pb-20 scroll-smooth shadow-inner`}>
           
           {activeSidebarTab === 'beranda' ? (
             <div className="max-w-6xl mx-auto space-y-6 animate-fade-in">

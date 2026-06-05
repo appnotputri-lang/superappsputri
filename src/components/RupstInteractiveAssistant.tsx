@@ -224,7 +224,7 @@ export const RupstInteractiveAssistant: React.FC<RupstInteractiveAssistantProps>
         }
         return "Keren! Di langkah ini, kita daftarkan siapa saja pengurus (Direksi / Komisaris) dan Pemegang Saham yang menghadiri rapat. Klik tombol 'TAMBAH PESERTA' di bawah ini untuk mengisinya!";
       case 6:
-        return "Sekarang, beritahu saya Pasal dalam Anggaran Dasar PT kamu yang mengatur tentang Kuorum kehadiran Rapat ya! Biasanya ada di bagian Rapat Umum Pemegang Saham.";
+        return "Sekarang, beritahu saya Pasal dalam Anggaran Dasar PT kamu yang mengatur tentang Kuorum kehadiran Rapat ya! Biasanya ada di Akta Pendirian bagian Rapat Umum Pemegang Saham.";
       case 7:
         return "Selanjutnya, Pasal berapa dalam Anggaran Dasar yang mengatur tentang siapa yang berhak atau diutamakan untuk memimpin Rapat?";
       case 8:
@@ -241,36 +241,38 @@ export const RupstInteractiveAssistant: React.FC<RupstInteractiveAssistantProps>
   };
 
   return (
-    <div className="bg-gradient-to-br from-slate-50 to-blue-50/40 p-4 sm:p-5 rounded-lg border border-blue-100 shadow-md">
+    <div className="bg-gradient-to-br from-slate-50 to-blue-50/40 p-3 sm:p-5 rounded-lg border border-blue-100 shadow-md">
       
       {/* Upper Area: Character with Speech Bubble */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-center mb-6 border-b border-blue-100/70 pb-5">
         <div className="md:col-span-1 flex justify-center">
-          {renderMascot()}
+          <div className="scale-90 sm:scale-100">
+            {renderMascot()}
+          </div>
         </div>
-        <div className="md:col-span-4 relative bg-white p-4 rounded-xl border border-blue-100 shadow-sm">
+        <div className="md:col-span-4 relative bg-white p-4 rounded-xl border border-blue-100 shadow-sm mx-1 sm:mx-0">
           {/* Talk bubble triangle for MD screen */}
           <div className="hidden md:block absolute left-0 top-1/2 -translate-x-2 -translate-y-2 w-4 h-4 bg-white border-l border-b border-blue-100 rotate-45"></div>
           {/* Talk bubble triangle for Mobile screen */}
           <div className="block md:hidden absolute top-0 left-1/2 -translate-x-2 -translate-y-2 w-4 h-4 bg-white border-t border-l border-blue-100 rotate-45"></div>
           
-          <div className="text-[12.5px] text-slate-700 leading-relaxed font-medium">
+          <div className="text-[13px] sm:text-[12.5px] text-slate-700 leading-relaxed font-medium">
             "{getMascotSpeech()}"
           </div>
         </div>
       </div>
 
       {/* Progress Bar with steps indicator */}
-      <div className="mb-6">
+      <div className="mb-6 px-1">
         <div className="flex justify-between items-center mb-1.5">
           <span className="text-[11px] font-bold text-[#3b5998] uppercase tracking-wider flex items-center gap-1">
-            <Sparkles size={12} className="text-yellow-500 animate-spin" /> Langkah {currentStep} dari {totalSteps}
+            <Sparkles size={12} className="text-yellow-500 animate-spin" /> Langkah {currentStep} <span className="hidden sm:inline">dari {totalSteps}</span>
           </span>
           <span className="text-[11px] font-bold text-slate-500">
-            {Math.floor((currentStep / totalSteps) * 100)}% Selesai
+            {Math.floor((currentStep / totalSteps) * 100)}% <span className="hidden sm:inline">Selesai</span>
           </span>
         </div>
-        <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
+        <div className="w-full bg-slate-200 h-2.5 rounded-full overflow-hidden border border-slate-100 shadow-inner">
           <div 
             className="bg-gradient-to-r from-blue-500 to-[#3b5998] h-full transition-all duration-300 rounded-full"
             style={{ width: `${(currentStep / totalSteps) * 100}%` }}
@@ -279,7 +281,7 @@ export const RupstInteractiveAssistant: React.FC<RupstInteractiveAssistantProps>
       </div>
 
       {/* Interactive Form Field Cards according to active steps */}
-      <div className="bg-white p-5 rounded-md border border-slate-200 shadow-sm min-h-[250px] flex flex-col justify-between">
+      <div className="bg-white p-3.5 sm:p-5 rounded-md border border-slate-200 shadow-sm min-h-[300px] flex flex-col justify-between">
         
         <AnimatePresence mode="wait">
           <motion.div
@@ -965,53 +967,86 @@ export const RupstInteractiveAssistant: React.FC<RupstInteractiveAssistantProps>
 
                 <div className="space-y-3 pt-2">
                   <div className="border border-slate-200 overflow-hidden rounded-md bg-slate-50/50">
-                    <table className="w-full text-left text-[11px]">
-                      <thead className="bg-[#f1f5f9] border-b border-slate-200 font-bold uppercase text-slate-600">
-                        <tr>
-                          <th className="p-2 border-r border-slate-200">Nama</th>
-                          <th className="p-2 border-r border-slate-200">Klasifikasi</th>
-                          <th className="p-2 border-r border-slate-200 text-right">Shares Owned</th>
-                          <th className="p-2 border-r border-slate-200">Jabatan Pengurus</th>
-                          <th className="p-2 text-center">Aksi</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {(data.shareholders || []).map((s: any) => (
-                           <tr key={s.id} className="border-b border-slate-200 bg-white last:border-0 hover:bg-slate-50 transition-colors text-[10.5px]">
-                             <td className="p-2 border-r border-slate-200 font-bold uppercase">{s.name}</td>
-                             <td className="p-2 border-r border-slate-200">Tanpa Klasifikasi</td>
-                             <td className="p-2 border-r border-slate-200 font-bold text-right text-slate-700">{formatNumber(s.sharesOwned)} lembar</td>
-                             <td className="p-2 border-r border-slate-200 font-bold uppercase text-blue-600">
-                               {s.isManagement ? (s.managementPosition || 'DIREKTUR') : '-'}
-                             </td>
-                             <td className="p-2 text-center">
-                               <div className="flex items-center justify-center gap-2">
-                                 <button 
-                                   onClick={() => openShareholderEditor('lama', s)} 
-                                   className="text-blue-500 hover:underline flex items-center gap-0.5 font-bold"
-                                 >
-                                   <Eye size={12} /> Edit
-                                 </button>
-                                 <span className="text-slate-200">|</span>
-                                 <button 
-                                   onClick={() => deleteShareholder(s.id, 'lama')} 
-                                   className="text-red-500 hover:underline flex items-center gap-0.5 font-bold"
-                                 >
-                                   <Trash2 size={12} /> Hapus
-                                 </button>
-                                </div>
-                             </td>
-                           </tr>
-                        ))}
-                        {(data.shareholders || []).length === 0 && (
+                    <div className="hidden md:block">
+                      <table className="w-full text-left text-[11px]">
+                        <thead className="bg-[#f1f5f9] border-b border-slate-200 font-bold uppercase text-slate-600">
                           <tr>
-                            <td colSpan={5} className="p-6 text-center text-slate-400 italic bg-white">
-                              Belum ada data pengurus atau pemegang saham. Klik tombol "Tambah Peserta Rapat" untuk mulai mendata.
-                            </td>
+                            <th className="p-2 border-r border-slate-200">Nama</th>
+                            <th className="p-2 border-r border-slate-200">Klasifikasi</th>
+                            <th className="p-2 border-r border-slate-200 text-right">Shares Owned</th>
+                            <th className="p-2 border-r border-slate-200">Jabatan Pengurus</th>
+                            <th className="p-2 text-center">Aksi</th>
                           </tr>
-                        )}
-                      </tbody>
-                    </table>
+                        </thead>
+                        <tbody>
+                          {(data.shareholders || []).map((s: any) => (
+                             <tr key={s.id} className="border-b border-slate-200 bg-white last:border-0 hover:bg-slate-50 transition-colors text-[10.5px]">
+                               <td className="p-2 border-r border-slate-200 font-bold uppercase">{s.name}</td>
+                               <td className="p-2 border-r border-slate-200">Tanpa Klasifikasi</td>
+                               <td className="p-2 border-r border-slate-200 font-bold text-right text-slate-700">{formatNumber(s.sharesOwned)} lembar</td>
+                               <td className="p-2 border-r border-slate-200 font-bold uppercase text-blue-600">
+                                 {s.isManagement ? (s.managementPosition || 'DIREKTUR') : '-'}
+                               </td>
+                               <td className="p-2 text-center">
+                                 <div className="flex items-center justify-center gap-2">
+                                   <button 
+                                     onClick={() => openShareholderEditor('lama', s)} 
+                                     className="text-blue-500 hover:underline flex items-center gap-0.5 font-bold cursor-pointer"
+                                   >
+                                     <Eye size={12} /> Edit
+                                   </button>
+                                   <span className="text-slate-200">|</span>
+                                   <button 
+                                     onClick={() => deleteShareholder(s.id, 'lama')} 
+                                     className="text-red-500 hover:underline flex items-center gap-0.5 font-bold cursor-pointer"
+                                   >
+                                     <Trash2 size={12} /> Hapus
+                                   </button>
+                                  </div>
+                               </td>
+                             </tr>
+                          ))}
+                          {(data.shareholders || []).length === 0 && (
+                            <tr>
+                              <td colSpan={5} className="p-6 text-center text-slate-400 italic bg-white">
+                                Belum ada data pengurus atau pemegang saham. Klik tombol "Tambah Peserta Rapat" untuk mulai mendata.
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                    
+                    {/* Mobile Card Layout for Shareholders */}
+                    <div className="md:hidden divide-y divide-slate-200">
+                      {(data.shareholders || []).map((s: any) => (
+                        <div key={s.id} className="p-3 bg-white space-y-2">
+                          <div className="flex justify-between items-start">
+                            <div className="font-bold text-[12px] text-slate-800 uppercase">{s.name}</div>
+                            <div className="text-[10px] font-bold text-blue-600 uppercase bg-blue-50 px-2 py-0.5 rounded border border-blue-100">
+                              {s.isManagement ? (s.managementPosition || 'DIREKTUR') : 'PEMEGANG SAHAM'}
+                            </div>
+                          </div>
+                          <div className="flex justify-between text-[11px]">
+                            <span className="text-slate-500 font-medium">Kepemilikan Saham:</span>
+                            <span className="font-bold text-slate-700">{formatNumber(s.sharesOwned)} Lembar</span>
+                          </div>
+                          <div className="flex items-center justify-end gap-4 pt-1 border-t border-slate-50">
+                            <button onClick={() => openShareholderEditor('lama', s)} className="text-blue-600 text-[11px] font-bold flex items-center gap-1 active:scale-95">
+                              <Eye size={13} /> Edit Data
+                            </button>
+                            <button onClick={() => deleteShareholder(s.id, 'lama')} className="text-red-600 text-[11px] font-bold flex items-center gap-1 active:scale-95">
+                              <Trash2 size={13} /> Hapus
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                      {(data.shareholders || []).length === 0 && (
+                        <div className="p-8 text-center text-slate-400 italic bg-white text-[11px]">
+                          Belum ada data pengurus atau pemegang saham.
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   {/* Stats & Validation warning inside current step */}
@@ -1561,47 +1596,48 @@ export const RupstInteractiveAssistant: React.FC<RupstInteractiveAssistantProps>
         </AnimatePresence>
 
         {/* Lower Navigation Controls inside Wizard Card */}
-        <div className="flex justify-between items-center border-t border-slate-100 pt-4 mt-6">
+        <div className="flex flex-col sm:flex-row justify-between items-center gap-4 border-t border-slate-100 pt-4 mt-6">
           <button
             type="button"
             onClick={handlePrev}
             disabled={currentStep === 1}
-            className={`px-4 py-2 text-[12px] font-bold rounded-md flex items-center gap-1 transition-all ${
+            className={`w-full sm:w-auto px-6 py-2.5 text-[12px] font-bold rounded-md flex items-center justify-center gap-1 transition-all ${
               currentStep === 1 
-                ? 'text-slate-300 cursor-not-allowed bg-slate-50' 
-                : 'text-slate-600 bg-slate-100 hover:bg-slate-200/80 active:scale-95'
+                ? 'text-slate-300 cursor-not-allowed bg-slate-50 border border-slate-100' 
+                : 'text-slate-600 bg-slate-100 hover:bg-slate-200/80 active:scale-95 border border-slate-200'
             }`}
           >
-            <ChevronLeft size={15} /> Sebelumnya
+            <ChevronLeft size={16} /> Sebelumnya
           </button>
           
-          <div className="text-[11px] text-slate-400 font-bold">
-            LANGKAH {currentStep} DARI {totalSteps}
+          <div className="hidden sm:block text-[11px] text-slate-400 font-bold uppercase tracking-widest">
+            PROGRES: {currentStep} / {totalSteps}
           </div>
-
+          <div className="sm:hidden text-[10px] text-slate-400 font-bold uppercase tracking-widest -mt-2">
+            Langkah {currentStep} dari {totalSteps}
+          </div>
+ 
           <button
             type="button"
             onClick={currentStep === totalSteps ? undefined : handleNext}
-            className={`px-5 py-2 text-[12px] font-black rounded-md flex items-center gap-1 transition-all active:scale-95 ${
+            className={`w-full sm:w-auto px-8 py-2.5 text-[12px] font-black rounded-md flex items-center justify-center gap-1 transition-all active:scale-95 shadow-sm ${
               currentStep === totalSteps
                 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 cursor-default font-extrabold'
-                : 'bg-blue-600 text-white hover:bg-blue-700 shadow-sm shadow-blue-200'
+                : 'bg-blue-600 text-white hover:bg-blue-700 shadow-blue-200'
             }`}
           >
             {currentStep === totalSteps ? (
               <>
-                <CheckCircle2 size={15} className="text-emerald-600 animate-bounce" /> Berhasil Diisi!
+                <CheckCircle2 size={16} className="text-emerald-600" /> SIAP DOWNLOAD!
               </>
             ) : (
               <>
-                Selanjutnya <ChevronRight size={15} />
+                Selanjutnya <ChevronRight size={16} />
               </>
             )}
           </button>
         </div>
-
       </div>
-
     </div>
   );
 };
