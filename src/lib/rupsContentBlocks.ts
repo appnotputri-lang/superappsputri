@@ -895,7 +895,14 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
 
     // Kategori KBLI → sesuai CONTOH11.docx: ind left=851, hanging=283 → list bullet '-', indentTabs=3 (else branch)
     const categories = Array.from(
-      new Set(data.kbliItems.map((k) => k.categoryName)),
+      new Set(
+        data.kbliItems.map((k) => {
+          if (k.categoryLetter && k.categoryName) {
+            return `${k.categoryLetter} - ${k.categoryName}`;
+          }
+          return k.categoryName;
+        }),
+      ),
     ).filter(Boolean) as string[];
     categories.forEach((cat) => {
       blocks.push({

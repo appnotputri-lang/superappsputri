@@ -910,7 +910,12 @@ export const generateWordDoc = async (data: CompanyData) => {
 
     // Daftar kategori bidang usaha (unik berdasarkan categoryName)
     const categories = Array.from(
-      new Set((data.kbliItems || []).map((k: any) => k.categoryName)),
+      new Set((data.kbliItems || []).map((k: any) => {
+        if (k.categoryLetter && k.categoryName) {
+          return `${k.categoryLetter} - ${k.categoryName}`;
+        }
+        return k.categoryName;
+      })),
     ).filter(Boolean) as string[];
     categories.forEach((cat) => {
       kbliElements.push(
