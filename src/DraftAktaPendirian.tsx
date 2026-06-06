@@ -120,7 +120,7 @@ export default function DraftAktaPendirian({ onShowPreview, onExportWord }: Draf
     ? KBLI_DATA.filter(k => 
         k.code.includes(kbliSearchTerm) || 
         k.name.toLowerCase().includes(kbliSearchTerm.toLowerCase())
-      ).slice(0, 5)
+      ).slice(0, 50)
     : [];
 
   const updateData = (field: keyof PendirianData, value: any) => {

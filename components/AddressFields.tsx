@@ -82,7 +82,7 @@ export const SearchableSelect: React.FC<{
 
   const filteredOptions = options.filter(opt => 
     opt.name.toLowerCase().includes(search.toLowerCase())
-  ).slice(0, 100);
+  ).slice(0, 500);
 
   return (
     <div className="relative" ref={wrapperRef}>

@@ -31,6 +31,9 @@ interface RupstInteractiveAssistantProps {
   updateData: (newData: Partial<any>) => void;
   openShareholderEditor: (type: 'lama' | 'baru', sh?: Shareholder) => void;
   deleteShareholder: (id: string, mode: 'lama' | 'baru') => void;
+  externalStep?: number;
+  setExternalStep?: (step: number | ((prev: number) => number)) => void;
+  hideHeader?: boolean;
 }
 
 // Format numbers nicely
@@ -48,9 +51,14 @@ export const RupstInteractiveAssistant: React.FC<RupstInteractiveAssistantProps>
   data,
   updateData,
   openShareholderEditor,
-  deleteShareholder
+  deleteShareholder,
+  externalStep,
+  setExternalStep,
+  hideHeader
 }) => {
-  const [currentStep, setCurrentStep] = useState<number>(1);
+  const [internalStep, setInternalStep] = useState<number>(1);
+  const currentStep = externalStep !== undefined ? externalStep : internalStep;
+  const setCurrentStep = setExternalStep !== undefined ? setExternalStep : setInternalStep;
   const [mascotState, setMascotState] = useState<'welcome' | 'happy' | 'thinking' | 'warning' | 'done'>('welcome');
 
   const totalSteps = 11;
@@ -241,47 +249,51 @@ export const RupstInteractiveAssistant: React.FC<RupstInteractiveAssistantProps>
   };
 
   return (
-    <div className="bg-gradient-to-br from-slate-50 to-blue-50/40 p-3 sm:p-5 rounded-lg border border-blue-100 shadow-md">
+    <div className={hideHeader ? "" : "bg-gradient-to-br from-slate-50 to-blue-50/40 p-3 sm:p-5 rounded-lg border border-blue-100 shadow-md"}>
       
       {/* Upper Area: Character with Speech Bubble */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-center mb-6 border-b border-blue-100/70 pb-5">
-        <div className="md:col-span-1 flex justify-center">
-          <div className="scale-90 sm:scale-100">
-            {renderMascot()}
+      {!hideHeader && (
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-center mb-6 border-b border-blue-100/70 pb-5">
+          <div className="md:col-span-1 flex justify-center">
+            <div className="scale-90 sm:scale-100">
+              {renderMascot()}
+            </div>
+          </div>
+          <div className="md:col-span-4 relative bg-white p-4 rounded-xl border border-blue-100 shadow-sm mx-1 sm:mx-0">
+            {/* Talk bubble triangle for MD screen */}
+            <div className="hidden md:block absolute left-0 top-1/2 -translate-x-2 -translate-y-2 w-4 h-4 bg-white border-l border-b border-blue-100 rotate-45"></div>
+            {/* Talk bubble triangle for Mobile screen */}
+            <div className="block md:hidden absolute top-0 left-1/2 -translate-x-2 -translate-y-2 w-4 h-4 bg-white border-t border-l border-blue-100 rotate-45"></div>
+            
+            <div className="text-[13px] sm:text-[12.5px] text-slate-700 leading-relaxed font-medium">
+              "{getMascotSpeech()}"
+            </div>
           </div>
         </div>
-        <div className="md:col-span-4 relative bg-white p-4 rounded-xl border border-blue-100 shadow-sm mx-1 sm:mx-0">
-          {/* Talk bubble triangle for MD screen */}
-          <div className="hidden md:block absolute left-0 top-1/2 -translate-x-2 -translate-y-2 w-4 h-4 bg-white border-l border-b border-blue-100 rotate-45"></div>
-          {/* Talk bubble triangle for Mobile screen */}
-          <div className="block md:hidden absolute top-0 left-1/2 -translate-x-2 -translate-y-2 w-4 h-4 bg-white border-t border-l border-blue-100 rotate-45"></div>
-          
-          <div className="text-[13px] sm:text-[12.5px] text-slate-700 leading-relaxed font-medium">
-            "{getMascotSpeech()}"
-          </div>
-        </div>
-      </div>
+      )}
 
       {/* Progress Bar with steps indicator */}
-      <div className="mb-6 px-1">
-        <div className="flex justify-between items-center mb-1.5">
-          <span className="text-[11px] font-bold text-[#3b5998] uppercase tracking-wider flex items-center gap-1">
-            <Sparkles size={12} className="text-yellow-500 animate-spin" /> Langkah {currentStep} <span className="hidden sm:inline">dari {totalSteps}</span>
-          </span>
-          <span className="text-[11px] font-bold text-slate-500">
-            {Math.floor((currentStep / totalSteps) * 100)}% <span className="hidden sm:inline">Selesai</span>
-          </span>
+      {!hideHeader && (
+        <div className="mb-6 px-1">
+          <div className="flex justify-between items-center mb-1.5">
+            <span className="text-[11px] font-bold text-[#3b5998] uppercase tracking-wider flex items-center gap-1">
+              <Sparkles size={12} className="text-yellow-500 animate-spin" /> Langkah {currentStep} <span className="hidden sm:inline">dari {totalSteps}</span>
+            </span>
+            <span className="text-[11px] font-bold text-slate-500">
+              {Math.floor((currentStep / totalSteps) * 100)}% <span className="hidden sm:inline">Selesai</span>
+            </span>
+          </div>
+          <div className="w-full bg-slate-200 h-2.5 rounded-full overflow-hidden border border-slate-100 shadow-inner">
+            <div 
+              className="bg-gradient-to-r from-blue-500 to-[#3b5998] h-full transition-all duration-300 rounded-full"
+              style={{ width: `${(currentStep / totalSteps) * 100}%` }}
+            />
+          </div>
         </div>
-        <div className="w-full bg-slate-200 h-2.5 rounded-full overflow-hidden border border-slate-100 shadow-inner">
-          <div 
-            className="bg-gradient-to-r from-blue-500 to-[#3b5998] h-full transition-all duration-300 rounded-full"
-            style={{ width: `${(currentStep / totalSteps) * 100}%` }}
-          />
-        </div>
-      </div>
+      )}
 
       {/* Interactive Form Field Cards according to active steps */}
-      <div className="bg-white p-3.5 sm:p-5 rounded-md border border-slate-200 shadow-sm min-h-[300px] flex flex-col justify-between">
+      <div className={hideHeader ? "min-h-[300px] flex flex-col justify-between" : "bg-white p-3.5 sm:p-5 rounded-md border border-slate-200 shadow-sm min-h-[300px] flex flex-col justify-between"}>
         
         <AnimatePresence mode="wait">
           <motion.div

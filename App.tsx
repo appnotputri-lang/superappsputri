@@ -20,6 +20,7 @@ import { RUPSTDocumentPreview } from './src/RUPSTDocumentPreview';
 import { SirkulerLaporanDocumentPreview } from './components/SirkulerLaporanDocumentPreview';
 import { SirkulerLaporanFormContent } from './components/SirkulerLaporanFormContent';
 import { RupstInteractiveAssistant } from './src/components/RupstInteractiveAssistant';
+import { RupstPublicWizard } from './src/components/RupstPublicWizard';
 import { Sparkles, Bot } from 'lucide-react';
 import { generatePendirianDocx } from './src/lib/generatePendirianDocx';
 import GuideMenu from './src/components/GuideMenu';
@@ -1146,40 +1147,43 @@ const App: React.FC = () => {
     );
   }
 
+  const showPublicWizard = isPublicRoute && !user && activeSidebarTab === 'rupst_public';
+
   return (
     <div className="h-screen flex flex-col bg-[#ecf0f5] font-sans text-slate-900 overflow-hidden relative">
-      {/* Header AHU Style */}
-      <header className="bg-[#3b5998] text-white flex justify-between items-center px-4 py-2 sticky top-0 z-50 shadow-sm text-sm border-b border-black/10 h-[50px] shrink-0">
-        <div className="flex items-center gap-3 sm:gap-6 flex-1 min-w-0">
-          {user && (
-            <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-1 hover:bg-white/10 rounded transition-colors shrink-0"><Menu className="w-5 h-5" /></button>
-          )}
-          <div className="flex items-center gap-2 font-bold tracking-tight truncate">
-            <Gavel className="w-5 h-5 text-blue-200 hidden sm:block" />
-            <span className="text-[13px] sm:text-[14px] truncate uppercase font-bold">SISTEM DRAFT NOTARIS PUTRI</span>
-          </div>
-        </div>
-        <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
-          {user ? (
-            <div className="flex items-center gap-3">
-              <span className="text-[12px] opacity-90 hidden sm:inline">{user.email}</span>
-              <button onClick={() => handleLogout()} className="bg-red-500 hover:bg-red-600 px-3 py-1.5 rounded-sm text-[12px] font-bold transition-colors shadow-sm">
-                LOGOUT
-              </button>
+      {!showPublicWizard && (
+        <header className="bg-[#3b5998] text-white flex justify-between items-center px-4 py-2 sticky top-0 z-50 shadow-sm text-sm border-b border-black/10 h-[50px] shrink-0">
+          <div className="flex items-center gap-3 sm:gap-6 flex-1 min-w-0">
+            {user && (
+              <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-1 hover:bg-white/10 rounded transition-colors shrink-0"><Menu className="w-5 h-5" /></button>
+            )}
+            <div className="flex items-center gap-2 font-bold tracking-tight truncate">
+              <Gavel className="w-5 h-5 text-blue-200 hidden sm:block" />
+              <span className="text-[13px] sm:text-[14px] truncate uppercase font-bold">SISTEM DRAFT NOTARIS PUTRI</span>
             </div>
-          ) : (
-            !isPublicRoute && (
-              <button onClick={() => loginWithGoogle()} className="bg-[#40bdae] hover:bg-[#349c8f] px-3 py-1.5 rounded-sm text-[12px] font-bold transition-colors flex items-center gap-1.5 shadow-sm">
-                 LOGIN
-              </button>
-            )
-          )}
-        </div>
-      </header>
+          </div>
+          <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
+            {user ? (
+              <div className="flex items-center gap-3">
+                <span className="text-[12px] opacity-90 hidden sm:inline">{user.email}</span>
+                <button onClick={() => handleLogout()} className="bg-red-500 hover:bg-red-600 px-3 py-1.5 rounded-sm text-[12px] font-bold transition-colors shadow-sm">
+                  LOGOUT
+                </button>
+              </div>
+            ) : (
+              !isPublicRoute && (
+                <button onClick={() => loginWithGoogle()} className="bg-[#40bdae] hover:bg-[#349c8f] px-3 py-1.5 rounded-sm text-[12px] font-bold transition-colors flex items-center gap-1.5 shadow-sm">
+                   LOGIN
+                </button>
+              )
+            )}
+          </div>
+        </header>
+      )}
 
       <div className="flex-1 flex overflow-hidden">
         {/* Sidebar AHU Style */}
-        {user && (
+        {!showPublicWizard && user && (
           <aside className={`bg-[#2c3b41] text-slate-400 flex flex-col shrink-0 overflow-y-auto lg:flex transition-all duration-300 ease-in-out ${isSidebarOpen ? 'w-64' : 'w-0 overflow-hidden'}`}>
             <div className="py-4 space-y-0 text-[13px] w-64">
               {[
@@ -1204,7 +1208,38 @@ const App: React.FC = () => {
           </aside>
         )}
 
-        <main className={`flex-1 overflow-y-auto bg-[#ecf0f5] ${!user && isPublicRoute ? 'p-2 md:p-6' : 'p-4 md:p-6'} pb-20 scroll-smooth shadow-inner`}>
+        {showPublicWizard ? (
+          <RupstPublicWizard
+            data={data}
+            updateData={updateData}
+            isSaving={isSaving}
+            openShareholderEditor={openShareholderEditor}
+            deleteShareholder={deleteShareholder}
+            handleSave={async () => {
+              if (!data.companyName) return alert('Nama perseroan harus diisi');
+              setIsSaving(true);
+              const newId = crypto.randomUUID();
+              const profileData = {
+                  ...data,
+                  id: newId
+              };
+              try {
+                  await setDoc(doc(db, 'rupst_public_projects', profileData.id), sanitizeForFirestore(profileData));
+                  alert('RUPST Public berhasil disimpan dan dikirim ke Notaris!');
+                  updateData({ ...INITIAL_STATE } as any);
+              } catch (e) {
+                  handleFirestoreError(e, OperationType.WRITE, `rupst_public_projects/${profileData.id}`);
+              } finally {
+                  setIsSaving(false);
+              }
+            }}
+            goBack={() => {
+                alert('Silakan login di pojok kanan atas untuk melihat Notulen Anda sebelumnya.');
+                window.location.href = '/';
+            }}
+          />
+        ) : (
+          <main className={`flex-1 overflow-y-auto bg-[#ecf0f5] ${!user && isPublicRoute ? 'p-2 md:p-6' : 'p-4 md:p-6'} pb-20 scroll-smooth shadow-inner`}>
           
           {activeSidebarTab === 'beranda' ? (
             <div className="max-w-6xl mx-auto space-y-6 animate-fade-in">
@@ -3293,7 +3328,20 @@ const App: React.FC = () => {
                             <td className="p-2 border-r border-slate-200 text-center">{idx + 1}</td>
                             <td className="p-2 border-r border-slate-200">{item.code}</td>
                             <td className="p-2 border-r border-slate-200">{item.name}</td>
-                            <td className="p-2 border-r border-slate-200 text-slate-600 leading-relaxed">{item.description}</td>
+                            <td className="p-2 border-r border-slate-200 text-slate-600 leading-relaxed">
+                              <textarea
+                                value={item.description || ''}
+                                onChange={(e) => {
+                                  updateData({
+                                    kbliItems: data.kbliItems.map(k =>
+                                      k.id === item.id ? { ...k, description: e.target.value } : k
+                                    )
+                                  });
+                                }}
+                                className="w-full text-xs p-1 border border-slate-200 rounded focus:border-[#3b5998] outline-none resize-y min-h-[60px]"
+                                placeholder="Edit uraian kegiatan jika diperlukan..."
+                              />
+                            </td>
                             <td className="p-2 text-center text-[10px]">
                               <button onClick={() => updateData({ kbliItems: data.kbliItems.filter(k => k.id !== item.id) })} className="text-slate-400 hover:text-red-500">
                                 <Trash2 className="w-4 h-4 mx-auto" />
@@ -5343,6 +5391,7 @@ const App: React.FC = () => {
             <GuideMenu />
           ) : null}
         </main>
+        )}
       </div>
 
       {/* Floating Action Buttons removed as per request */}
