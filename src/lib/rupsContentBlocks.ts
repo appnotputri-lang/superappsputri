@@ -1,4 +1,5 @@
 import { CompanyData, Shareholder, AmendmentDeed } from "../../types";
+import { formatKbliCategory } from "./kbliConstants";
 import { FormatToken } from "./notaryWrapper";
 import {
   getDayName,
@@ -896,12 +897,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
     // Kategori KBLI → sesuai CONTOH11.docx: ind left=851, hanging=283 → list bullet '-', indentTabs=3 (else branch)
     const categories = Array.from(
       new Set(
-        data.kbliItems.map((k) => {
-          if (k.categoryLetter && k.categoryName) {
-            return `${k.categoryLetter} - ${k.categoryName}`;
-          }
-          return k.categoryName;
-        }),
+        data.kbliItems.map((k) => formatKbliCategory(k.categoryLetter, k.categoryName))
       ),
     ).filter(Boolean) as string[];
     categories.forEach((cat) => {
@@ -909,7 +905,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
         type: "list",
         bullet: "-",
         indentTabs: 3,
-        runs: [{ text: cat.toUpperCase() }],
+        runs: [{ text: cat }],
       });
     });
 

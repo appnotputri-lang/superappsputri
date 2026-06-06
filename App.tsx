@@ -21,6 +21,7 @@ import { SirkulerLaporanDocumentPreview } from './components/SirkulerLaporanDocu
 import { SirkulerLaporanFormContent } from './components/SirkulerLaporanFormContent';
 import { RupstInteractiveAssistant } from './src/components/RupstInteractiveAssistant';
 import { RupstPublicWizard } from './src/components/RupstPublicWizard';
+import KBLIMapping from './src/components/KBLIMapping';
 import { Sparkles, Bot } from 'lucide-react';
 import { generatePendirianDocx } from './src/lib/generatePendirianDocx';
 import GuideMenu from './src/components/GuideMenu';
@@ -244,7 +245,7 @@ const INITIAL_STATE: CompanyData = {
 };
 
 type TabId = 'general' | 'shareholders' | 'shareholders_new' | 'representative' | 'agenda' | 'kbli' | 'domicile' | 'address' | 'capitalBase' | 'capitalPaid' | 'management' | 'reappointment';
-type SidebarTabId = 'beranda' | 'company_profile' | 'notulen' | 'pendirian' | 'rupst' | 'perbaikan' | 'draft_akta_rups' | 'panduan' | 'sirkuler_laporan' | 'rupst_public';
+type SidebarTabId = 'beranda' | 'company_profile' | 'notulen' | 'pendirian' | 'rupst' | 'perbaikan' | 'draft_akta_rups' | 'panduan' | 'sirkuler_laporan' | 'rupst_public' | 'kbli_mapping';
 
 // AHU Style Helper Components
 const AhuSection = ({ title, children, isOpen = true }: { title: string, children: React.ReactNode, isOpen?: boolean }) => {
@@ -1193,6 +1194,7 @@ const App: React.FC = () => {
                 { label: 'RUPS Tahunan', id: 'rupst' as const, icon: History },
                 { label: 'RUPST Public', id: 'rupst_public' as const, icon: History },
                 { label: 'Sirkuler Lap Tahunan', id: 'sirkuler_laporan' as const, icon: FileSignature },
+                { label: 'Mapping KBLI 2020-2025', id: 'kbli_mapping' as const, icon: BookOpen },
                 { label: 'Pendirian PT', id: 'pendirian' as const, icon: FileText },
                 { label: 'Surat Perbaikan Data', id: 'perbaikan' as const, icon: Mail },
                 { label: 'Panduan Penggunaan', id: 'panduan' as const, icon: BookOpen },
@@ -5380,7 +5382,9 @@ const App: React.FC = () => {
               )}
             </div>
             );
-          })() : activeSidebarTab === 'pendirian' ? (
+          })() : activeSidebarTab === 'kbli_mapping' ? (
+            <KBLIMapping />
+          ) : activeSidebarTab === 'pendirian' ? (
             <DraftAktaPendirian 
               onShowPreview={(d) => { setPendirianPreviewData(d); setShowPendirianPreview(true); }}
               onExportWord={(d) => { handlePendirianExportWord(d); }}

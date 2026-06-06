@@ -1,6 +1,7 @@
 import { Document, Packer, Paragraph, TextRun, Tab } from "docx";
 import { CompanyData, Shareholder, Address, ManagementItem } from "../../types";
 import { formatFullAddressData, formatCompanyName } from "./formatter";
+import { formatKbliCategory } from "./kbliConstants";
 import {
   formatCurrency,
   formatInputNumber,
@@ -910,12 +911,7 @@ export const generateWordDoc = async (data: CompanyData) => {
 
     // Daftar kategori bidang usaha (unik berdasarkan categoryName)
     const categories = Array.from(
-      new Set((data.kbliItems || []).map((k: any) => {
-        if (k.categoryLetter && k.categoryName) {
-          return `${k.categoryLetter} - ${k.categoryName}`;
-        }
-        return k.categoryName;
-      })),
+      new Set((data.kbliItems || []).map((k: any) => formatKbliCategory(k.categoryLetter, k.categoryName))),
     ).filter(Boolean) as string[];
     categories.forEach((cat) => {
       kbliElements.push(
@@ -927,7 +923,7 @@ export const generateWordDoc = async (data: CompanyData) => {
           children: [
             new TextRun({ text: "-\t", size: FONT_SIZE, font: FONT_FAMILY }),
             new TextRun({
-              text: cat.toUpperCase(),
+              text: cat,
               size: FONT_SIZE,
               font: FONT_FAMILY,
             }),

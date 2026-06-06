@@ -25,6 +25,8 @@ function formatDateIndo(dateStr: string) {
   return `${terbilang(day).toLowerCase()} ${month} dua ribu ${terbilang(year % 2000).toLowerCase()} (${String(day).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${year})`;
 }
 
+import { formatKbliCategory } from './kbliConstants';
+
 export function generatePendirianBlocks(data: PendirianData): Block[] {
   const blocks: Block[] = [];
   const hDate = new Date(data.tanggal);
@@ -72,9 +74,21 @@ export function generatePendirianBlocks(data: PendirianData): Block[] {
     { type: 'numbered', num: 2, runs: [{ text: 'Untuk mencapai maksud dan tujuan tersebut diatas, perseroan dapat melaksanakan kegiatan usaha sebagai berikut :' }] }
   );
 
-  (data.kbliItems || []).forEach((kbli: KbliItem) => {
-    blocks.push({ type: 'list', bullet: '-', indentTabs: 1, runs: [{ text: `${kbli.code} - ${kbli.name};`, bold: true }] });
-    if (kbli.description) blocks.push({ type: 'p', kbliDesc: true, indentTabs: 1, runs: [{ text: kbli.description }] });
+  // Group KBLIs by category
+  const kbliGroups: { [key: string]: KbliItem[] } = {};
+  (data.kbliItems || []).forEach(item => {
+    const groupKey = formatKbliCategory(item.categoryLetter, item.categoryName) || 'LAIN-LAIN';
+    if (!kbliGroups[groupKey]) kbliGroups[groupKey] = [];
+    kbliGroups[groupKey].push(item);
+  });
+
+  Object.entries(kbliGroups).forEach(([groupName, items]) => {
+    blocks.push({ type: 'list', bullet: '-', runs: [{ text: groupName, bold: true }] });
+    items.forEach((kbli: KbliItem) => {
+      blocks.push({ type: 'list', bullet: '-', indentTabs: 1, runs: [{ text: `${kbli.code} - ${kbli.name};`, bold: true }] });
+      if (kbli.description) blocks.push({ type: 'p', kbliDesc: true, indentTabs: 1, runs: [{ text: kbli.description }] });
+    });
+    blocks.push({ type: 'br' });
   });
 
   blocks.push(
