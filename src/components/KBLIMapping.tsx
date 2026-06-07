@@ -69,19 +69,37 @@ const KBLIMapping: React.FC = () => {
   const [showHistoryModal, setShowHistoryModal] = useState(false);
 
   useEffect(() => {
+    let localRecs: any[] = [];
+    try {
+      const stored = localStorage.getItem('kbli_mapping_local_records');
+      if (stored) {
+        localRecs = JSON.parse(stored);
+      }
+    } catch (e) {
+      console.warn("Storage reading error:", e);
+    }
+
     const q = query(
       collection(db, 'kbli_saved_records'),
       where('type', '==', 'mapping')
     );
     const unsub = onSnapshot(q, (snapshot) => {
-      const records: any[] = [];
+      const dbRecords: any[] = [];
       snapshot.forEach((doc) => {
-        records.push({ id: doc.id, ...doc.data() });
+        dbRecords.push({ id: doc.id, ...doc.data() });
       });
+      
+      const combinedMap = new Map();
+      localRecs.forEach(r => combinedMap.set(r.id, r));
+      dbRecords.forEach(r => combinedMap.set(r.id, r));
+      
+      const records = Array.from(combinedMap.values());
       records.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
       setSavedRecords(records);
     }, (error) => {
       console.error("Error listening to saved mappings:", error);
+      localRecs.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+      setSavedRecords(localRecs);
     });
     return () => unsub();
   }, []);
@@ -104,11 +122,28 @@ const KBLIMapping: React.FC = () => {
     };
 
     try {
+      const stored = localStorage.getItem('kbli_mapping_local_records');
+      const currentLocals = stored ? JSON.parse(stored) : [];
+      const updatedLocals = [payload, ...currentLocals.filter((item: any) => item.id !== recordId)];
+      localStorage.setItem('kbli_mapping_local_records', JSON.stringify(updatedLocals));
+    } catch (e) {
+      console.warn('Error saving to localStorage:', e);
+    }
+
+    try {
       await setDoc(doc(db, 'kbli_saved_records', recordId), payload);
       alert('Data Pemetaan KBLI berhasil disimpan ke database!');
     } catch (error) {
       console.error('Error saving mapping:', error);
-      alert('Gagal menyimpan data ke database. Silakan masuk akun terlebih dahulu atau hubungi admin.');
+      alert('Data Pemetaan KBLI disimpan secara lokal di perangkat ini (Gagal sinkronisasi awan, silakan hubungi admin atau periksa koneksi Anda jika ingin menyimpan ke cloud database).');
+      try {
+        const stored = localStorage.getItem('kbli_mapping_local_records');
+        if (stored) {
+          const recs = JSON.parse(stored);
+          recs.sort((a: any, b: any) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+          setSavedRecords(recs);
+        }
+      } catch (err) {}
     } finally {
       setIsSavingRecord(false);
     }
@@ -117,12 +152,30 @@ const KBLIMapping: React.FC = () => {
   const handleDeleteRecord = async (recordId: string, e: React.MouseEvent) => {
     e.stopPropagation();
     if (!confirm('Apakah Anda yakin ingin menghapus riwayat pemetaan ini?')) return;
+    
+    try {
+      const stored = localStorage.getItem('kbli_mapping_local_records');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        const filtered = parsed.filter((item: any) => item.id !== recordId);
+        localStorage.setItem('kbli_mapping_local_records', JSON.stringify(filtered));
+      }
+    } catch (err) {
+      console.warn('LocalStorage delete error:', err);
+    }
+
     try {
       await deleteDoc(doc(db, 'kbli_saved_records', recordId));
       alert('Riwayat pemetaan berhasil dihapus.');
     } catch (error) {
       console.error('Error deleting record:', error);
-      alert('Gagal menghapus riwayat.');
+      alert('Riwayat pemetaan dihapus secara lokal dari perangkat ini.');
+      try {
+        const stored = localStorage.getItem('kbli_mapping_local_records');
+        const recs = stored ? JSON.parse(stored) : [];
+        recs.sort((a: any, b: any) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+        setSavedRecords(recs);
+      } catch (err) {}
     }
   };
 
