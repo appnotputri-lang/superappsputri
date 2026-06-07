@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Info, AlertTriangle, ArrowRight, BookOpen, Plus, FileDown, Trash2, Loader2, Save, History } from 'lucide-react';
 import mappingData from '../../KBLI_2020_vs_2025.json';
+import kbli2025Data from '../../kbli_2025.json';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { db, auth } from '../lib/firebase';
@@ -52,6 +53,36 @@ const getAutoIzin = (tingkatRisiko: string) => {
   if (norm === 'menengah tinggi') return 'SERTIFIKAT STANDAR PEMENUHAN KOMITMEN';
   if (norm === 'tinggi') return 'IZIN';
   return '-';
+};
+
+const expandKblis = (items: KBLIMappingItem[]): KBLIMappingItem[] => {
+  const expanded: KBLIMappingItem[] = [];
+  for (const item of items) {
+    const targetKode = item.kbli_2025?.kode;
+    if (targetKode && targetKode.length === 4) {
+      // Cari KBLI 5 digit di kbli_2025.json yang diawali dengan targetKode
+      const match5Digits = ((kbli2025Data as any).data || []).filter(
+        (k: any) => k.kode && k.kode.startsWith(targetKode) && k.kode.length === 5
+      );
+      if (match5Digits.length > 0) {
+        match5Digits.forEach((matchKbli: any) => {
+          expanded.push({
+            kbli_2020: item.kbli_2020,
+            kbli_2025: {
+              kode: matchKbli.kode,
+              judul: matchKbli.judul
+            },
+            jenis_perubahan: item.jenis_perubahan
+          });
+        });
+      } else {
+        expanded.push(item);
+      }
+    } else {
+      expanded.push(item);
+    }
+  }
+  return expanded;
 };
 
 const KBLIMapping: React.FC = () => {
@@ -303,7 +334,7 @@ const KBLIMapping: React.FC = () => {
     );
 
     const matchingKodes = new Set(filtered.map(item => item.kbli_2020.kode));
-    const fullGroupedResults = allData.filter(item => matchingKodes.has(item.kbli_2020.kode));
+    const fullGroupedResults = expandKblis(allData.filter(item => matchingKodes.has(item.kbli_2020.kode)));
 
     setResults(fullGroupedResults);
     setHasSearched(true);
@@ -312,8 +343,9 @@ const KBLIMapping: React.FC = () => {
   const addMappingGroup = async (kode2020: string) => {
     const allData = (mappingData as any).data as KBLIMappingItem[];
     const group = allData.filter(item => item.kbli_2020.kode === kode2020);
+    const expandedGroup = expandKblis(group);
     
-    const newItemsToProcess = group.filter(item => 
+    const newItemsToProcess = expandedGroup.filter(item => 
       !selectedMappings.some(m => m.kbli_2020.kode === item.kbli_2020.kode && m.kbli_2025.kode === item.kbli_2025.kode)
     );
 

@@ -16,10 +16,12 @@ export default defineConfig(({ mode }) => {
       ],
       resolve: {
         alias: {
-          '@': path.resolve(process.cwd(), '.'),
+          '@': path.resolve(__dirname, '.'),
         }
       },
       build: {
+        outDir: 'dist',
+        emptyOutDir: true,
         rollupOptions: {
           output: {
             manualChunks(id) {

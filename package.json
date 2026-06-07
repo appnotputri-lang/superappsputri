@@ -13,6 +13,7 @@
   "dependencies": {
     "@google/genai": "^1.41.0",
     "@tailwindcss/vite": "^4.3.0",
+    "@vitejs/plugin-react": "^5.0.0",
     "autoprefixer": "^10.5.0",
     "axios": "^1.17.0",
     "cheerio": "^1.2.0",
@@ -30,7 +31,9 @@
     "postcss": "^8.5.14",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
-    "tailwindcss": "^4.3.0"
+    "tailwindcss": "^4.3.0",
+    "typescript": "~5.8.2",
+    "vite": "^6.2.0"
   },
   "devDependencies": {
     "@firebase/eslint-plugin-security-rules": "^0.0.2",
@@ -38,9 +41,6 @@
     "@types/jsdom": "^28.0.3",
     "@types/jszip": "^3.4.0",
     "@types/node": "^22.19.19",
-    "@vitejs/plugin-react": "^5.0.0",
-    "jsdom": "^29.1.1",
-    "typescript": "~5.8.2",
-    "vite": "^6.2.0"
+    "jsdom": "^29.1.1"
   }
 }
