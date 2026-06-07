@@ -27,9 +27,27 @@
         "ketentuan_khusus": { "type": "string" },
         "updated_at": { "type": "string", "format": "date-time" }
       }
+    },
+    "kbli_saved_record": {
+      "title": "Saved KBLI Record",
+      "description": "Saved KBLI mappings and suggestions for clients",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "nama": { "type": "string" },
+        "type": { "type": "string" },
+        "kelompokUsaha": { "type": "string" },
+        "selectedItems": { "type": "array" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "userId": { "type": "string" }
+      }
     }
   },
   "firestore": {
+    "kbli_saved_records/{recordId}": {
+      "schema": { "$ref": "#/entities/kbli_saved_record" },
+      "description": "Contains saved KBLI mappings and suggestions based on name"
+    },
     "profiles/{profileId}": {
       "schema": { "$ref": "#/entities/profile" },
       "description": "Contains global company profiles"

@@ -15,6 +15,7 @@ import { DataCorrectionLetter } from './components/DataCorrectionLetter';
 import DraftAktaApp from './src/DraftAktaApp';
 import DraftAktaRUPS from './src/DraftAktaRUPS';
 import DraftAktaPendirian from './src/DraftAktaPendirian';
+import ImportKBLI from './src/components/ImportKBLI';
 import PendirianDocumentPreview from './src/PendirianDocumentPreview';
 import { RUPSTDocumentPreview } from './src/RUPSTDocumentPreview';
 import { SirkulerLaporanDocumentPreview } from './components/SirkulerLaporanDocumentPreview';
@@ -246,7 +247,7 @@ const INITIAL_STATE: CompanyData = {
 };
 
 type TabId = 'general' | 'shareholders' | 'shareholders_new' | 'representative' | 'agenda' | 'kbli' | 'domicile' | 'address' | 'capitalBase' | 'capitalPaid' | 'management' | 'reappointment';
-type SidebarTabId = 'beranda' | 'company_profile' | 'notulen' | 'pendirian' | 'rupst' | 'perbaikan' | 'draft_akta_rups' | 'panduan' | 'sirkuler_laporan' | 'rupst_public' | 'kbli_mapping' | 'saran_kbli';
+type SidebarTabId = 'beranda' | 'company_profile' | 'notulen' | 'pendirian' | 'rupst' | 'perbaikan' | 'draft_akta_rups' | 'panduan' | 'sirkuler_laporan' | 'rupst_public' | 'kbli_mapping' | 'saran_kbli' | 'import_kbli';
 
 // AHU Style Helper Components
 const AhuSection = ({ title, children, isOpen = true }: { title: string, children: React.ReactNode, isOpen?: boolean }) => {
@@ -1208,6 +1209,18 @@ const App: React.FC = () => {
                   </span>
                 </button>
               ))}
+
+              {user?.email === 'appnotputri@gmail.com' && (
+                <button 
+                  onClick={() => setActiveSidebarTab('import_kbli')} 
+                  className={`w-full text-left px-4 py-2.5 border-l-4 transition-all flex justify-between items-center ${activeSidebarTab === 'import_kbli' ? 'bg-[#1e282c] text-white border-blue-500' : 'border-transparent hover:bg-black/10 hover:text-white'}`}
+                >
+                  <span className="flex items-center gap-3 text-emerald-300">
+                    <RefreshCw size={18} />
+                    Import KBLI 2025
+                  </span>
+                </button>
+              )}
             </div>
           </aside>
         )}
@@ -5419,6 +5432,8 @@ const App: React.FC = () => {
             <KBLIMapping />
           ) : activeSidebarTab === 'saran_kbli' ? (
             <KBLISuggestions />
+          ) : activeSidebarTab === 'import_kbli' ? (
+            <ImportKBLI />
           ) : activeSidebarTab === 'pendirian' ? (
             <DraftAktaPendirian 
               onShowPreview={(d) => { setPendirianPreviewData(d); setShowPendirianPreview(true); }}
