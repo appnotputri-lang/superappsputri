@@ -32,14 +32,15 @@ if (fs.existsSync('kbli_2025.json')) {
   process.exit(1);
 }
 
+const COLLECTION_NAME = 'kbli_2025';
+
 async function seed() {
-  console.log('Fetching existing KBLI documents to clear the collection...');
+  console.log(`Fetching existing documents to clear the collection: ${COLLECTION_NAME}...`);
   try {
-    const querySnapshot = await getDocs(collection(db, 'kblis'));
+    const querySnapshot = await getDocs(collection(db, COLLECTION_NAME));
     const docSize = querySnapshot.size;
-    console.log(`Found ${docSize} existing KBLI documents. Deleting them...`);
+    console.log(`Found ${docSize} existing documents. Deleting them...`);
     
-    // We can delete using writeBatch in groups of 100 for safety and speed
     let batch = writeBatch(db);
     let count = 0;
     
@@ -55,35 +56,38 @@ async function seed() {
     if (count % 100 !== 0) {
       await batch.commit();
     }
-    console.log(`Deleted all ${count} old KBLI items from Firestore.`);
+    console.log(`Deleted all ${count} old items from Firestore.`);
   } catch (error) {
-    console.error('Error while clearing old KBLI documents (continuing anyway):', error.message);
+    console.error('Error while clearing old documents (continuing anyway):', error.message);
   }
 
-  console.log(`Seeding ${kblis.length} KBLI items directly to Firestore collection 'kblis'...`);
+  const sliceToSeed = kblis.slice(0, 1);
+  console.log(`TEST: Seeding ONE item: ${sliceToSeed[0].kode} to '${COLLECTION_NAME}'...`);
 
   let writeCount = 0;
   let batch = writeBatch(db);
 
-  for (const item of kblis) {
+  for (const item of sliceToSeed) {
     const code = item.kode || item.Kode;
-    const name = item.judul || item.Judul;
-    const description = item.uraian || item.Keterangan || '';
+    const judul = item.judul || item.Judul;
+    const uraian = item.uraian || item.Keterangan || '';
+    const level = item.level || '';
     
     if (!code) continue;
 
-    const docRef = doc(db, 'kblis', code);
+    const docRef = doc(db, COLLECTION_NAME, code);
     batch.set(docRef, {
-      code,
-      name,
-      description,
+      kode: code,
+      judul,
+      uraian,
+      level,
       updatedAt: new Date().toISOString()
     });
     
     writeCount++;
-    if (writeCount % 100 === 0) {
+    if (writeCount % 10 === 0) {
       await batch.commit();
-      console.log(`Seeded ${writeCount} / ${kblis.length} items...`);
+      console.log(`PROGRESS: Seeded ${writeCount} / ${sliceToSeed.length} items...`);
       batch = writeBatch(db);
     }
   }
@@ -92,7 +96,7 @@ async function seed() {
     await batch.commit();
   }
 
-  console.log(`Successfully seeded all ${writeCount} KBLI items into Firestore collection 'kblis'!`);
+  console.log(`Successfully seeded all ${writeCount} KBLI items into Firestore collection '${COLLECTION_NAME}'!`);
 }
 
 seed().catch(err => {

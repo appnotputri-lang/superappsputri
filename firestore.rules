@@ -3,46 +3,46 @@ service cloud.firestore {
   match /databases/{database}/documents {
     // Basic helpers
     function isSignedIn() {
-      return request.auth != null && request.auth.token.email_verified == true;
+      return request.auth != null;
     }
 
     function isAllowedUser() {
-      return isSignedIn() && (
-        request.auth.token.email == 'appnotputri@gmail.com' ||
-        request.auth.token.email == 'rdyndi@gmail.com' ||
-        request.auth.token.email == 'notarisppatputri@gmail.com'
-      );
+      return isSignedIn() && request.auth.token.email in [
+        'appnotputri@gmail.com',
+        'putrinabillar@gmail.com',
+        'appnotlegal@gmail.com',
+        'rdyndi@gmail.com',
+        'notarisppatputri@gmail.com'
+      ];
     }
 
-    function isOwner(data) {
-      return isSignedIn() && data.userId == request.auth.uid;
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_-]+$');
     }
 
-    // Default deny
-    match /{document=**} {
-      allow read, write: if false;
+    // KBLI 2025 Details - Reference data should be readable by any signed in user
+    match /kbli_2025/{kbliKode} {
+      allow read, write: if isSignedIn();
     }
 
     match /profiles/{profileId} {
-      allow read, write: if isAllowedUser();
+      allow read, write: if isSignedIn();
     }
 
     match /projects/{projectId} {
-      allow read, write: if isAllowedUser();
+      allow read, write: if isSignedIn();
     }
 
     match /rupst_projects/{rupstId} {
-      allow read, write: if isAllowedUser();
+      allow read, write: if isSignedIn();
     }
 
     match /rupst_public_projects/{rupstId} {
-      // Allow public access to public projects
-      allow read: if true;
-      allow write: if true;
+      allow read, write: if true;
     }
 
     match /pendirian_projects/{pendirianId} {
-      allow read, write: if isAllowedUser();
+      allow read, write: if isSignedIn();
     }
   }
 }

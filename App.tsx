@@ -22,7 +22,8 @@ import { SirkulerLaporanFormContent } from './components/SirkulerLaporanFormCont
 import { RupstInteractiveAssistant } from './src/components/RupstInteractiveAssistant';
 import { RupstPublicWizard } from './src/components/RupstPublicWizard';
 import KBLIMapping from './src/components/KBLIMapping';
-import { Sparkles, Bot } from 'lucide-react';
+import KBLISuggestions from './src/components/KBLISuggestions';
+import { Sparkles, Bot, Lightbulb } from 'lucide-react';
 import { generatePendirianDocx } from './src/lib/generatePendirianDocx';
 import GuideMenu from './src/components/GuideMenu';
 import ProxyInputModal from './components/ProxyInputModal';
@@ -245,7 +246,7 @@ const INITIAL_STATE: CompanyData = {
 };
 
 type TabId = 'general' | 'shareholders' | 'shareholders_new' | 'representative' | 'agenda' | 'kbli' | 'domicile' | 'address' | 'capitalBase' | 'capitalPaid' | 'management' | 'reappointment';
-type SidebarTabId = 'beranda' | 'company_profile' | 'notulen' | 'pendirian' | 'rupst' | 'perbaikan' | 'draft_akta_rups' | 'panduan' | 'sirkuler_laporan' | 'rupst_public' | 'kbli_mapping';
+type SidebarTabId = 'beranda' | 'company_profile' | 'notulen' | 'pendirian' | 'rupst' | 'perbaikan' | 'draft_akta_rups' | 'panduan' | 'sirkuler_laporan' | 'rupst_public' | 'kbli_mapping' | 'saran_kbli';
 
 // AHU Style Helper Components
 const AhuSection = ({ title, children, isOpen = true }: { title: string, children: React.ReactNode, isOpen?: boolean }) => {
@@ -1195,6 +1196,7 @@ const App: React.FC = () => {
                 { label: 'RUPST Public', id: 'rupst_public' as const, icon: History },
                 { label: 'Sirkuler Lap Tahunan', id: 'sirkuler_laporan' as const, icon: FileSignature },
                 { label: 'Mapping KBLI 2020-2025', id: 'kbli_mapping' as const, icon: BookOpen },
+                { label: 'Saran KBLI', id: 'saran_kbli' as const, icon: Lightbulb },
                 { label: 'Pendirian PT', id: 'pendirian' as const, icon: FileText },
                 { label: 'Surat Perbaikan Data', id: 'perbaikan' as const, icon: Mail },
                 { label: 'Panduan Penggunaan', id: 'panduan' as const, icon: BookOpen },
@@ -1263,10 +1265,41 @@ const App: React.FC = () => {
                   <div className="pt-2 text-[12px] text-blue-250 flex flex-wrap gap-x-6 gap-y-2 items-center">
                     <span className="flex items-center gap-1.5 font-mono text-blue-100">
                       <Clock className="w-4 h-4 text-emerald-300" /> {new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-                    </span>
+    </span>
                     <span className="flex items-center gap-1.5 font-medium text-blue-100">
                       <User className="w-4 h-4 text-emerald-300" /> {user?.email || 'Guest User'}
                     </span>
+                    {user?.email === 'appnotputri@gmail.com' && (
+                      <button 
+                        onClick={async () => {
+                          if (!window.confirm('Sinkronisasi Kamus KBLI 2025 ke Firestore?')) return;
+                          try {
+                            const { writeBatch, doc } = await import('firebase/firestore');
+                            const batch = writeBatch(db);
+                            let count = 0;
+                            // Seed first 300 to avoid batch limits or timeouts
+                            const toSeed = KBLI_DATA.slice(0, 300); 
+                            toSeed.forEach((item) => {
+                              const docRef = doc(db, 'kbli_2025', item.code);
+                              batch.set(docRef, {
+                                kode: item.code,
+                                judul: item.name,
+                                uraian: item.description,
+                                updatedAt: new Date().toISOString()
+                              });
+                              count++;
+                            });
+                            await batch.commit();
+                            alert(`Sinkronisasi ${count} data pertama berhasil.`);
+                          } catch (e: any) {
+                            alert('Error: ' + e.message);
+                          }
+                        }}
+                        className="flex items-center gap-1.5 px-2 py-0.5 bg-white/10 hover:bg-white/20 rounded border border-white/20 transition-all text-emerald-300 hover:text-emerald-200"
+                      >
+                        <RefreshCw className="w-3 h-3" /> Sync KBLI
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -5384,6 +5417,8 @@ const App: React.FC = () => {
             );
           })() : activeSidebarTab === 'kbli_mapping' ? (
             <KBLIMapping />
+          ) : activeSidebarTab === 'saran_kbli' ? (
+            <KBLISuggestions />
           ) : activeSidebarTab === 'pendirian' ? (
             <DraftAktaPendirian 
               onShowPreview={(d) => { setPendirianPreviewData(d); setShowPendirianPreview(true); }}

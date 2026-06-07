@@ -1,6 +1,6 @@
 {
   "name": "superappsputri",
-  "description": "A professional application to generate legal draft circular resolutions (Keputusan Sirkuler) for Indonesian limited liability companies (PT), featuring real-time preview and dynamic shareholder management.",
+  "description": "A professional legal drafting application for Indonesian companies (PT). Features circular resolution generation, real-time document preview, and KBLI 2025 search with enriched details and PDF reporting.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

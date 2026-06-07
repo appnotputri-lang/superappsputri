@@ -8,6 +8,25 @@
         "id": { "type": "string" },
         "companyName": { "type": "string" }
       }
+    },
+    "kbli_item": {
+      "title": "KBLI 2025 Item",
+      "description": "Details of a KBLI 2025 classification.",
+      "type": "object",
+      "properties": {
+        "kode": { "type": "string" },
+        "judul": { "type": "string" },
+        "uraian": { "type": "string" },
+        "ruang_lingkup": { "type": "string" },
+        "tingkat_risiko": { "type": "string" },
+        "perizinan_berusaha": { "type": "string" },
+        "skala_usaha": { "type": "string" },
+        "jangka_waktu": { "type": "string" },
+        "kewajiban": { "type": "string" },
+        "kewenangan": { "type": "string" },
+        "ketentuan_khusus": { "type": "string" },
+        "updated_at": { "type": "string", "format": "date-time" }
+      }
     }
   },
   "firestore": {
@@ -30,6 +49,10 @@
     "pendirian_projects/{pendirianId}": {
       "schema": { "$ref": "#/entities/profile" },
       "description": "Contains RUPS Pendirian project-specific data"
+    },
+    "kbli_2025/{kbliKode}": {
+      "schema": { "$ref": "#/entities/kbli_item" },
+      "description": "Contains KBLI 2025 enriched details"
     }
   }
 }
