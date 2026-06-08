@@ -85,6 +85,13 @@ const getAutoIzin = (tingkatRisiko: string) => {
   return "-";
 };
 
+const getKbli2025Judul = (kode: string): string => {
+  const match = ((kbli2025Data as any).data || []).find(
+    (k: any) => k.kode === kode,
+  );
+  return match ? match.judul || "" : "";
+};
+
 const getKbli2025Uraian = (kode: string): string => {
   const match = ((kbli2025Data as any).data || []).find(
     (k: any) => k.kode === kode,
@@ -96,7 +103,38 @@ const expandKblis = (items: KBLIMappingItem[]): KBLIMappingItem[] => {
   const expanded: KBLIMappingItem[] = [];
   for (const item of items) {
     const targetKode = item.kbli_2025?.kode;
-    if (targetKode && targetKode.length === 4) {
+    if (targetKode && (targetKode.includes(",") || targetKode.includes(";"))) {
+      const parts = targetKode
+        .split(/[,;]+/)
+        .map((k) => k.trim())
+        .filter(Boolean);
+      parts.forEach((part) => {
+        const matchKbli = ((kbli2025Data as any).data || []).find(
+          (k: any) => k.kode === part,
+        );
+        if (matchKbli) {
+          expanded.push({
+            kbli_2020: item.kbli_2020,
+            kbli_2025: {
+              kode: matchKbli.kode,
+              judul: matchKbli.judul,
+              uraian: matchKbli.uraian,
+            },
+            jenis_perubahan: item.jenis_perubahan,
+          });
+        } else {
+          expanded.push({
+            kbli_2020: item.kbli_2020,
+            kbli_2025: {
+              kode: part,
+              judul: getKbli2025Judul(part) || "Dihapus/Dialihkan",
+              uraian: getKbli2025Uraian(part),
+            },
+            jenis_perubahan: item.jenis_perubahan,
+          });
+        }
+      });
+    } else if (targetKode && targetKode.length === 4) {
       // Cari KBLI 5 digit di kbli_2025.json yang diawali dengan targetKode
       const match5Digits = ((kbli2025Data as any).data || []).filter(
         (k: any) =>
@@ -119,6 +157,7 @@ const expandKblis = (items: KBLIMappingItem[]): KBLIMappingItem[] => {
           ...item,
           kbli_2025: {
             ...item.kbli_2025,
+            judul: item.kbli_2025?.judul || getKbli2025Judul(targetKode),
             uraian: getKbli2025Uraian(targetKode),
           },
         });
@@ -128,6 +167,7 @@ const expandKblis = (items: KBLIMappingItem[]): KBLIMappingItem[] => {
         ...item,
         kbli_2025: {
           ...item.kbli_2025,
+          judul: item.kbli_2025?.judul || getKbli2025Judul(targetKode),
           uraian: getKbli2025Uraian(targetKode),
         },
       });
@@ -878,27 +918,26 @@ const KBLIMapping: React.FC = () => {
       const pageCount = doc.getNumberOfPages();
       for (let i = 1; i <= pageCount; i++) {
         doc.setPage(i);
-        doc.setFontSize(9);
+        doc.setFontSize(8.5);
         doc.setTextColor(100);
         doc.setFont("helvetica", "italic");
 
         doc.setDrawColor(180, 180, 180);
         doc.setLineWidth(0.5);
-        doc.line(14, pageHeight - 20, pageWidth - 14, pageHeight - 20);
-
-        const runningTitle = isEn
-          ? "* KBLI 2020 to KBLI 2025 Mapping"
-          : "* Pemetaan KBLI 2020 ke KBLI 2025";
-        const pageText = isEn ? `Page ${i}` : `Halaman ${i}`;
-
-        doc.text(`${runningTitle} ${pageText}`, 14, pageHeight - 15);
+        doc.line(14, pageHeight - 21, pageWidth - 14, pageHeight - 21);
 
         const disclaimer = isEn
           ? "Notes: Data compiled based on oss.go.id, if there are discrepancies in the future due to new regulations, it is not the responsibility of the Notary Office."
-          : "Catatan: Data di susun berdasarkan data oss.go.id, apabila ada perbedaan di kemudian hari dikarenakan ada pertaturan baru,  bukan menjadi tanggung jawab Kantor Notaris";
+          : "Catatan: Data disusun berdasarkan data oss.go.id. Apabila ada perbedaan di kemudian hari dikarenakan ada peraturan baru, bukan menjadi tanggung jawab Kantor Notaris.";
 
         const splitDisclaimer = doc.splitTextToSize(disclaimer, pageWidth - 28);
-        doc.text(splitDisclaimer, 14, pageHeight - 11);
+        doc.text(splitDisclaimer, 14, pageHeight - 16);
+
+        const runningContact = `Notaris/PPAT: Nukantini Putri Parincha, SH., M.Kn. — Komp. PPR-ITB Kav. F-5 Dago Giri, Lembang, Kab. Bandung Barat`;
+        doc.setFontSize(7.5);
+        doc.setTextColor(120, 120, 120);
+        doc.setFont("helvetica", "normal");
+        doc.text(runningContact, 14, pageHeight - 8);
       }
     };
 
@@ -911,8 +950,8 @@ const KBLIMapping: React.FC = () => {
     doc.setFont("helvetica", "bold");
     doc.text(
       isEn
-        ? "LIST OF KBLI 2020 - 2025 MAPPINGS"
-        : "DAFTAR PEMETAAN KBLI 2020 - 2025",
+        ? "RECOMMENDED KBLI 2020 - 2025 MAPPINGS"
+        : "SARAN PEMETAAN KBLI 2020 - 2025",
       pageWidth / 2,
       currentY,
       { align: "center" },
@@ -943,17 +982,196 @@ const KBLIMapping: React.FC = () => {
         ],
       ],
       styles: {
-        fontSize: 11,
+        fontSize: 10,
         textColor: [0, 0, 0],
-        minCellHeight: 6,
-        cellPadding: 1,
+        minCellHeight: 5,
+        cellPadding: 0.5,
       },
       margin: { left: 14, right: 14 },
     });
 
     // @ts-ignore
-    currentY = doc.lastAutoTable.finalY + 10;
+    currentY = doc.lastAutoTable.finalY + 8;
 
+    // 1. RINGKASAN PEMETAAN SECTION
+    autoTable(doc, {
+      startY: currentY,
+      theme: "plain",
+      body: [
+        [
+          {
+            content: isEn ? "MAPPING SUMMARY" : "RINGKASAN PEMETAAN",
+            styles: {
+              fillColor: [15, 118, 110], // Teal
+              textColor: [255, 255, 255], // White
+              fontStyle: "bold",
+              fontSize: 11,
+              cellPadding: { top: 3.5, bottom: 3.5, left: 6, right: 6 },
+              halign: "left",
+            }
+          }
+        ]
+      ],
+      margin: { left: 14, right: 14, bottom: 25, top: 20 },
+    });
+    // @ts-ignore
+    currentY = doc.lastAutoTable.finalY + 4;
+
+    // Compile Summary Rows Data
+    const summaryRows: any[] = [];
+    const unique2020Kodes = Array.from(new Set(selectedMappings.map(s => s.kbli_2020.kode)));
+    
+    unique2020Kodes.forEach(kode2020 => {
+      const mappingsFor2020 = selectedMappings.filter(s => s.kbli_2020.kode === kode2020);
+      const firstMappingItem = mappingsFor2020[0];
+      const name2020 = firstMappingItem.kbli_2020.judul;
+      
+      const targetKodes = mappingsFor2020
+        .map(s => s.kbli_2025?.kode)
+        .filter(Boolean);
+      
+      const isDeleted = targetKodes.length === 0 || 
+        mappingsFor2020.some(s => s.jenis_perubahan?.toLowerCase() === "dihapus") || 
+        mappingsFor2020.every(s => !s.kbli_2025?.kode);
+      
+      let kbli2025Str = "";
+      let jumlahStr = "";
+      
+      if (isDeleted) {
+        kbli2025Str = isEn ? "DELETED" : "DIHAPUS";
+        jumlahStr = "—";
+      } else {
+        kbli2025Str = targetKodes.join(", ");
+        const count = targetKodes.length;
+        if (count > 1) {
+          jumlahStr = isEn 
+            ? `${count} KBLI\n*can choose any suitable one`
+            : `${count} KBLI\n*dapat dipilih salah satu yang sesuai`;
+        } else {
+          jumlahStr = `${count} KBLI`;
+        }
+      }
+      
+      summaryRows.push([
+        kode2020,
+        name2020,
+        kbli2025Str,
+        jumlahStr
+      ]);
+    });
+
+    // Summary AutoTable
+    autoTable(doc, {
+      startY: currentY,
+      theme: "grid",
+      head: [
+        isEn
+          ? ["KBLI 2020", "Name", "KBLI 2025", "Total"]
+          : ["KBLI 2020", "Nama", "KBLI 2025", "Jumlah"]
+      ],
+      body: summaryRows,
+      headStyles: {
+        fillColor: [30, 41, 59], // Slate-800
+        textColor: [255, 255, 255],
+        fontStyle: "bold",
+        halign: "center",
+        valign: "middle",
+        lineColor: [150, 150, 150],
+        lineWidth: 0.2,
+      },
+      styles: {
+        fontSize: 9,
+        cellPadding: 4,
+        lineColor: [226, 232, 240], // Light gray grid lines
+        lineWidth: 0.2,
+        textColor: [0, 0, 0],
+        valign: "middle",
+      },
+      columnStyles: {
+        0: { cellWidth: 20, halign: "center", fontStyle: "bold" },
+        1: { cellWidth: 90, halign: "left" },
+        2: { cellWidth: 35, halign: "center" },
+        3: { cellWidth: 37, halign: "left" },
+      },
+      alternateRowStyles: { fillColor: [248, 250, 252] },
+      margin: { left: 14, right: 14, bottom: 25, top: 20 },
+      willDrawCell: (data) => {
+        if (data.section === "body") {
+          if (data.column.index === 2) {
+            const val = data.cell.text.join("").trim();
+            if (val === "DIHAPUS" || val === "DELETED") {
+              data.cell.styles.textColor = [220, 38, 38]; // Red
+              data.cell.styles.fontStyle = "bold";
+            }
+          }
+          if (data.column.index === 3) {
+            const val = data.cell.text.join("\n");
+            if (val.includes("*")) {
+              data.cell.text = []; // Clear for hand-rolled rendering in didDrawCell
+            }
+          }
+        }
+      },
+      didDrawCell: (data) => {
+        if (data.section === "body" && data.column.index === 3) {
+          const rawRow = summaryRows[data.row.index];
+          const text = rawRow[3];
+          if (text && text.includes("*")) {
+            const parts = text.split("\n");
+            const mainText = parts[0];
+            const subText = parts[1];
+            
+            // Bold standard count
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(9);
+            doc.setTextColor(0, 0, 0);
+            doc.text(mainText, data.cell.x + 4, data.cell.y + 6);
+            
+            // Orange warning below
+            doc.setFont("helvetica", "italic");
+            doc.setFontSize(7.5);
+            doc.setTextColor(217, 119, 6); // Amber
+            const limitWidth = data.column.width - 7;
+            const splitSubText = doc.splitTextToSize(subText, limitWidth);
+            doc.text(splitSubText, data.cell.x + 4, data.cell.y + 10.5);
+          }
+        }
+      }
+    });
+
+    // @ts-ignore
+    currentY = doc.lastAutoTable.finalY + 8;
+
+    // 2. DETAIL PEMETAAN SECTION (Must have enough space)
+    if (currentY > pageHeight - 40) {
+      doc.addPage();
+      addLetterhead(false);
+    }
+
+    autoTable(doc, {
+      startY: currentY,
+      theme: "plain",
+      body: [
+        [
+          {
+            content: isEn ? "MAPPING DETAILS" : "DETAIL PEMETAAN",
+            styles: {
+              fillColor: [15, 118, 110], // Teal
+              textColor: [255, 255, 255],
+              fontStyle: "bold",
+              fontSize: 11,
+              cellPadding: { top: 3.5, bottom: 3.5, left: 6, right: 6 },
+              halign: "left",
+            }
+          }
+        ]
+      ],
+      margin: { left: 14, right: 14, bottom: 25, top: 20 },
+    });
+    // @ts-ignore
+    currentY = doc.lastAutoTable.finalY + 8;
+
+    // Detail Items render loop
     const groupedMappings: { [key: string]: SelectedMappingItem[] } = {};
     selectedMappings.forEach((s) => {
       const g = s.kbli_2020.kode;
@@ -966,21 +1184,20 @@ const KBLIMapping: React.FC = () => {
     Object.values(groupedMappings).forEach((items) => {
       const kbli2020 = items[0].kbli_2020;
 
-      if (currentY > pageHeight - 60) {
+      if (currentY > pageHeight - 35) {
         doc.addPage();
         addLetterhead(false);
+        currentY = 20;
       }
 
-      // Plain Bold Text: KBLI 2020 Header
+      // Plain Bold Text: KBLI 2020 Header (Wrapped to prevent overflow)
       doc.setFont("helvetica", "bold");
       doc.setFontSize(11);
-      doc.setTextColor(0, 0, 0);
-      doc.text(
-        `KBLI 2020: ${kbli2020.kode} - ${kbli2020.judul.toUpperCase()}`,
-        14,
-        currentY,
-      );
-      currentY += 6;
+      doc.setTextColor(30, 41, 59);
+      const text2020 = `KBLI 2020: ${kbli2020.kode} — ${kbli2020.judul.toUpperCase()}`;
+      const lines2020 = doc.splitTextToSize(text2020, pageWidth - 28);
+      doc.text(lines2020, 14, currentY);
+      currentY += (lines2020.length * 5) + 1;
 
       let blockY = currentY;
 
@@ -988,87 +1205,91 @@ const KBLIMapping: React.FC = () => {
       items.forEach((kbli2025Item) => {
         const kbli2025 = kbli2025Item.kbli_2025;
 
-        if (blockY > pageHeight - 85) {
+        if (blockY > pageHeight - 35) {
           doc.addPage();
           addLetterhead(false);
-          blockY = currentY;
+          blockY = 20;
         }
 
-        // Plain Bold Text: PEMETAAN KBLI 2025
+        // Bold Teal Text: KBLI 2025 (Wrapped to prevent overflow, drawn teal square)
         doc.setFont("helvetica", "bold");
         doc.setFontSize(10.5);
-        doc.setTextColor(0, 0, 0);
-        doc.text(
-          `${isEn ? "KBLI 2025 MAPPING" : "PEMETAAN KBLI 2025"}: ${kbli2025.kode || "-"} - ${(kbli2025.judul || (isEn ? "Deleted" : "Dihapus")).toUpperCase()}`,
-          14,
-          blockY,
-        );
-        blockY += 5;
+        doc.setTextColor(15, 118, 110); // Teal
 
+        const targetKodeStr = kbli2025.kode || "-";
+        const isTargetDeleted = !kbli2025.kode || kbli2025Item.jenis_perubahan?.toLowerCase() === "dihapus";
+        const targetJudulStr = isTargetDeleted
+          ? (isEn ? "DELETED" : "DIHAPUS")
+          : (kbli2025.judul || "").toUpperCase();
+
+        const subHeaderString = `KBLI 2025: ${targetKodeStr} — ${targetJudulStr}`;
+        const lines2025 = doc.splitTextToSize(subHeaderString, pageWidth - 33);
+        
+        // Draw physical colored teal square instead of '■' to avoid encoding / standard PDF fonts corruption (rendering as %)
+        doc.setFillColor(15, 118, 110);
+        doc.rect(14, blockY - 3.2, 3, 3, "F");
+
+        doc.text(lines2025, 19, blockY);
+        blockY += (lines2025.length * 4.8) + 1.2;
+
+        // Paragraph Wrapped description
         if (kbli2025.kode && kbli2025.uraian) {
-          if (blockY > pageHeight - 60) {
+          if (blockY > pageHeight - 30) {
             doc.addPage();
             addLetterhead(false);
-            blockY = currentY;
+            blockY = 20;
           }
           autoTable(doc, {
             startY: blockY,
-            theme: "grid",
-            head: [],
-            body: [
-              [
-                {
-                  content: isEn ? "Description:" : "Uraian:",
-                  styles: {
-                    fontStyle: "bold",
-                    textColor: [0, 0, 0],
-                    cellPadding: { top: 4, left: 4, right: 4, bottom: 2 },
-                  },
-                },
-              ],
-              [
-                {
-                  content: kbli2025.uraian,
-                  styles: {
-                    halign: "justify",
-                    cellPadding: { top: 0, left: 4, right: 4, bottom: 4 },
-                  },
-                },
-              ],
-            ],
+            theme: "plain",
+            body: [[kbli2025.uraian]],
             styles: {
               fontSize: 9,
-              textColor: [30, 30, 30],
-              fillColor: [248, 249, 250],
-              lineColor: [150, 150, 150],
-              lineWidth: 0.2,
+              textColor: [100, 116, 139], // Slate-500
+              fontStyle: "normal",
+              cellPadding: { top: 1, bottom: 2, left: 0, right: 0 },
+              halign: "justify",
             },
-            margin: { left: 14, right: 14, bottom: 25, top: 20 },
+            margin: { left: 14, right: 14 },
           });
           // @ts-ignore
-          blockY = doc.lastAutoTable.finalY + 6;
+          blockY = doc.lastAutoTable.finalY + 4;
         }
 
+        // Scopes table (No, Ruang Lingkup Usaha, Tingkat Risiko, Jenis Izin)
         if (
           kbli2025Item.scopes &&
           kbli2025Item.scopes.length > 0 &&
           kbli2025Item.kbli_2025.kode
         ) {
-          if (blockY > pageHeight - 55) {
+          if (blockY > pageHeight - 35) {
             doc.addPage();
             addLetterhead(false);
-            blockY = currentY;
+            blockY = 20;
           }
 
-          const scopeBody = kbli2025Item.scopes.map((s, index) => [
-            index + 1,
-            s.ruangLingkup || "-",
-            translateRiskLevel(s.tingkatResiko, isEn),
-            isEn
-              ? getEnAutoIzin(s.tingkatResiko)
-              : getAutoIzin(s.tingkatResiko),
-            translateIzinValue(s.izin, isEn),
-          ]);
+          const scopeBody = kbli2025Item.scopes.map((s, index) => {
+            const autoIzin = isEn ? getEnAutoIzin(s.tingkatResiko) : getAutoIzin(s.tingkatResiko);
+            const manualIzin = s.izin && s.izin !== "-" ? translateIzinValue(s.izin, isEn) : "";
+            
+            // Format to title case or nice values if empty
+            let displayIzin = manualIzin || autoIzin;
+            if (displayIzin && displayIzin.toUpperCase() === "SERTIFIKAT STANDAR SELEF DECLARE") {
+              displayIzin = "Sertifikat Standar Self Declare";
+            }
+            if (displayIzin && displayIzin.toUpperCase() === "SERTIFIKAT STANDAR PEMENUHAN KOMITMEN") {
+              displayIzin = "Sertifikat Standar Pemenuhan Komitmen";
+            }
+
+            return [
+              index + 1,
+              s.ruangLingkup || "-",
+              translateRiskLevel(s.tingkatResiko, isEn),
+              displayIzin || "—",
+            ];
+          });
+
+          const countScopes = kbli2025Item.scopes.length;
 
           autoTable(doc, {
             startY: blockY,
@@ -1076,90 +1297,115 @@ const KBLIMapping: React.FC = () => {
               isEn
                 ? [
                     "No",
-                    "Business Scope",
+                    countScopes > 1
+                      ? "Business Scope\n* please choose one suitable business activity when inputting on OSS"
+                      : "Business Scope",
                     "Risk Level",
-                    "License",
                     "License Type",
                   ]
                 : [
                     "No",
-                    "Ruang Lingkup Usaha",
+                    countScopes > 1
+                      ? "Ruang Lingkup Usaha\n* pilih salah satu sesuai kegiatan usaha yang dijalankan saat input OSS"
+                      : "Ruang Lingkup Usaha",
                     "Tingkat Risiko",
-                    "Izin",
                     "Jenis Izin",
                   ],
             ],
             body: scopeBody,
             theme: "grid",
             headStyles: {
-              fillColor: [225, 228, 232],
-              textColor: [0, 0, 0],
+              fillColor: [15, 118, 110], // Teal [15,118,110]
+              textColor: [255, 255, 255],
               fontStyle: "bold",
               halign: "center",
               valign: "middle",
-              lineColor: [150, 150, 150],
+              lineColor: [226, 232, 240],
               lineWidth: 0.2,
             },
             styles: {
               fontSize: 9,
               cellPadding: 4,
-              lineColor: [150, 150, 150],
+              lineColor: [226, 232, 240], // Gray grid border
               lineWidth: 0.2,
               textColor: [0, 0, 0],
+              valign: "middle",
             },
             columnStyles: {
               0: { cellWidth: 12, halign: "center" },
-              1: { cellWidth: 80 },
-              2: { cellWidth: 30, halign: "center" },
-              3: { cellWidth: 30, halign: "center" },
-              4: { cellWidth: 30, halign: "center" },
+              1: { cellWidth: 85, halign: "left" },
+              2: { cellWidth: 35, halign: "center" },
+              3: { cellWidth: 50, halign: "left" },
             },
-            alternateRowStyles: { fillColor: [255, 255, 255] },
+            alternateRowStyles: { fillColor: [248, 250, 252] },
             margin: { left: 14, right: 14, bottom: 25, top: 20 },
+            willDrawCell: (data) => {
+              // Clear default text for header column index 1 ONLY when there is subtitle
+              if (data.section === "head" && data.column.index === 1 && countScopes > 1) {
+                data.cell.text = [];
+              }
+            },
+            didDrawCell: (data) => {
+              if (data.section === "head" && data.column.index === 1 && countScopes > 1) {
+                doc.setFont("helvetica", "bold");
+                doc.setFontSize(9.5);
+                doc.setTextColor(255, 255, 255);
+                doc.text(isEn ? "Business Scope" : "Ruang Lingkup Usaha", data.cell.x + 4, data.cell.y + 6);
+                
+                doc.setFont("helvetica", "italic");
+                doc.setFontSize(7.5);
+                doc.setTextColor(209, 250, 229); // Beautiful light emerald mint
+                const warningMsg = isEn 
+                  ? "* please choose one suitable business activity when inputting on OSS" 
+                  : "* pilih salah satu sesuai kegiatan usaha yang dijalankan saat input OSS";
+                const limitWidth = data.column.width - 8;
+                const splitMsg = doc.splitTextToSize(warningMsg, limitWidth);
+                doc.text(splitMsg, data.cell.x + 4, data.cell.y + 11);
+              }
+            }
           });
 
           // @ts-ignore
           blockY = doc.lastAutoTable.finalY + 6;
         }
 
+        // Catatan KBLI 25
         if (kbli2025Item.catatan) {
-          if (blockY > pageHeight - 45) {
+          if (blockY > pageHeight - 35) {
             doc.addPage();
             addLetterhead(false);
-            blockY = currentY;
+            blockY = 20;
           }
           autoTable(doc, {
             startY: blockY,
             theme: "grid",
-            head: [],
             body: [
               [
                 {
-                  content: isEn
-                    ? "Notes for this KBLI 2025:"
-                    : "Catatan KBLI 2025 Ini:",
+                  content: isEn ? "Notes KBLI 2025:" : "Catatan KBLI 2025 Ini:",
                   styles: {
                     fontStyle: "bold",
-                    textColor: [0, 0, 0],
-                    cellPadding: { top: 4, left: 4, right: 4, bottom: 2 },
-                  },
-                },
+                    textColor: [30, 41, 59],
+                    cellPadding: { top: 4, left: 4, right: 4, bottom: 1 },
+                  }
+                }
               ],
               [
                 {
                   content: kbli2025Item.catatan,
                   styles: {
+                    fontStyle: "normal",
+                    textColor: [71, 85, 105],
+                    cellPadding: { top: 1, left: 4, right: 4, bottom: 4 },
                     halign: "justify",
-                    cellPadding: { top: 0, left: 4, right: 4, bottom: 4 },
-                  },
-                },
-              ],
+                  }
+                }
+              ]
             ],
             styles: {
               fontSize: 9,
-              textColor: [30, 30, 30],
-              fillColor: [248, 249, 250],
-              lineColor: [150, 150, 150],
+              fillColor: [248, 250, 252],
+              lineColor: [226, 232, 240],
               lineWidth: 0.2,
             },
             margin: { left: 14, right: 14, bottom: 25, top: 20 },
