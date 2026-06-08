@@ -56,9 +56,57 @@ const getAutoIzin = (tingkatRisiko: string) => {
   return '-';
 };
 
+const translateBusinessScale = (scale: string, isEn: boolean) => {
+  if (!isEn) return scale || '-';
+  const norm = (scale || '').toLowerCase().trim();
+  if (norm === 'mikro') return 'Micro';
+  if (norm === 'kecil') return 'Small';
+  if (norm === 'menengah') return 'Medium';
+  if (norm === 'besar') return 'Large';
+  return scale || '-';
+};
+
+const translateRiskLevel = (risk: string, isEn: boolean) => {
+  if (!isEn) return risk || '-';
+  const norm = (risk || '').toLowerCase().trim();
+  if (norm === 'rendah') return 'Low';
+  if (norm === 'menengah rendah') return 'Medium Low';
+  if (norm === 'menengah tinggi') return 'Medium High';
+  if (norm === 'tinggi') return 'High';
+  return risk || '-';
+};
+
+const translateIzinValue = (izin: string, isEn: boolean) => {
+  if (!isEn) return izin || '-';
+  const norm = (izin || '').toLowerCase().trim();
+  if (norm === 'nib') return 'NIB';
+  if (norm === 'sertifikat standar') return 'Standard Certificate';
+  if (norm === 'izin') return 'License';
+  if (norm === 'sertifikat standar dan izin') return 'Standard Certificate and License';
+  
+  let translated = izin || '-';
+  translated = translated.replace(/sertifikat standar/gi, 'Standard Certificate');
+  translated = translated.replace(/izin/gi, 'License');
+  translated = translated.replace(/menengah tinggi/gi, 'Medium-High');
+  translated = translated.replace(/menengah rendah/gi, 'Medium-Low');
+  translated = translated.replace(/tinggi/gi, 'High');
+  translated = translated.replace(/rendah/gi, 'Low');
+  return translated;
+};
+
+const getEnAutoIzin = (tingkatRisiko: string) => {
+  const norm = (tingkatRisiko || '').toLowerCase().trim();
+  if (norm === 'rendah') return 'NIB';
+  if (norm === 'menengah rendah') return 'STANDARD CERTIFICATE (SELF-DECLARE)';
+  if (norm === 'menengah tinggi') return 'STANDARD CERTIFICATE (COMMITMENT)';
+  if (norm === 'tinggi') return 'LICENSE';
+  return '-';
+};
+
 const KBLISuggestions: React.FC = () => {
   const [namaPT, setNamaPT] = useState('');
   const [kelompokUsaha, setKelompokUsaha] = useState('Mikro');
+  const [pdfLang, setPdfLang] = useState<'id' | 'en'>('id');
   const [kbliSearch, setKbliSearch] = useState('');
   const [selectedKblis, setSelectedKblis] = useState<SelectedKbli[]>([]);
   const [kbliResults, setKbliResults] = useState<KbliItem[]>([]);
@@ -551,47 +599,64 @@ const KBLISuggestions: React.FC = () => {
     }));
   };
 
-  const handlePrint = () => {
+  const handlePrint = (lang: 'id' | 'en' = 'id') => {
+    const isEn = lang === 'en';
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.width;
     const pageHeight = doc.internal.pageSize.height;
     
-    // Colors
-    const darkBlue: [number, number, number] = [26, 42, 85];
-    const gold: [number, number, number] = [184, 134, 11];
-
     let currentY = 0;
 
-    const addLetterhead = () => {
-       // Dark blue background
-       doc.setFillColor(darkBlue[0], darkBlue[1], darkBlue[2]);
-       doc.rect(0, 0, pageWidth, 40, 'F');
-       
-       // Gold line
-       doc.setFillColor(gold[0], gold[1], gold[2]);
-       doc.rect(0, 40, pageWidth, 3, 'F');
-
-       // Text
-       doc.setTextColor(gold[0], gold[1], gold[2]);
-       doc.setFontSize(10);
-       doc.setFont('helvetica', 'normal');
-       doc.text('KANTOR NOTARIS', pageWidth / 2, 12, { align: 'center' });
-
-       doc.setTextColor(255, 255, 255);
-       doc.setFontSize(16);
-       doc.setFont('helvetica', 'bold');
-       doc.text('NUKANTINI PUTRI PARINCHA, S.H., M.Kn', pageWidth / 2, 20, { align: 'center' });
-
-       doc.setFontSize(8);
-       doc.setFont('helvetica', 'normal');
-       doc.text('Komplek PPR ITB F5, Dago Giri, Mekarwangi, Lembang Bandung Barat', pageWidth / 2, 26, { align: 'center' });
-       doc.text('08112007061  |  notarisppatputri@gmail.com', pageWidth / 2, 31, { align: 'center' });
-       
-       // Little dots
-       doc.setTextColor(gold[0], gold[1], gold[2]);
-       doc.text('•      •      •      •      •      •', pageWidth / 2, 36, { align: 'center' });
-       
-       currentY = 55;
+    const addLetterhead = (isFirstPage: boolean = false) => {
+       if (isFirstPage) {
+          doc.setTextColor(0, 0, 0);
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(14);
+          doc.text('NOTARIS/PPAT', 14, 15);
+          
+          doc.setLineWidth(0.5);
+          doc.setDrawColor(0, 0, 0);
+          doc.line(14, 17, pageWidth - 14, 17);
+          
+          doc.setFontSize(11);
+          doc.text('NUKANTINI PUTRI PARINCHA, SH., M.Kn.', 14, 22);
+          
+          doc.setFontSize(8.5);
+          doc.text('SK MENTERI HUKUM DAN HAK ASASI MANUSIA REPUBLIK INDONESIA', 14, 26.5);
+          doc.text('NO. C-309.HT 03.01-Th. 2007, Tanggal 23 Agustus 2007', 14, 30.5);
+          doc.text('SK. KEPALA BADAN PERTANAHAN NASIONAL REPUBLIK INDONESIA', 14, 34.5);
+          doc.text('NO. 1 - XVI I- PPAT - 2009, Tanggal 12 Februari 2009', 14, 38.5);
+          
+          doc.setFont('helvetica', 'normal');
+          doc.text('Kantor', 14, 43.5);
+          doc.text(':', 32, 43.5);
+          doc.text('Komp. PPR-ITB Kav. F-5 Dago Giri, Lembang, Kab. Bandung Barat', 34, 43.5);
+          
+          doc.text('Telp/Fax', 14, 47.5);
+          doc.text(':', 32, 47.5);
+          doc.text('08112007061', 34, 47.5);
+          
+          // Double lines under letterhead
+          doc.setDrawColor(0, 0, 0);
+          doc.setLineWidth(1.0);
+          doc.line(14, 51, pageWidth - 14, 51);
+          doc.setLineWidth(0.3);
+          doc.line(14, 52, pageWidth - 14, 52);
+          
+          currentY = 60;
+       } else {
+          // Minimal header running line for pages after page 1
+          doc.setLineWidth(0.3);
+          doc.setDrawColor(180, 180, 180);
+          doc.line(14, 12, pageWidth - 14, 12);
+          
+          doc.setFont('helvetica', 'italic');
+          doc.setFontSize(8);
+          doc.setTextColor(100, 100, 100);
+          doc.text('NOTARIS/PPAT NUKANTINI PUTRI PARINCHA, SH., M.Kn.', 14, 9);
+          
+          currentY = 20;
+       }
     };
 
     const addFooter = () => {
@@ -599,178 +664,196 @@ const KBLISuggestions: React.FC = () => {
        for (let i = 1; i <= pageCount; i++) {
          doc.setPage(i);
          doc.setFontSize(9);
-         doc.setTextColor(120);
+         doc.setTextColor(100);
          doc.setFont('helvetica', 'italic');
          
-         // Top line
-         doc.setDrawColor(gold[0], gold[1], gold[2]);
+         doc.setDrawColor(180, 180, 180);
          doc.setLineWidth(0.5);
-         doc.line(14, pageHeight - 15, pageWidth - 14, pageHeight - 15);
+         doc.line(14, pageHeight - 20, pageWidth - 14, pageHeight - 20);
          
-         doc.text('* Disusun berdasarkan data dari oss.go.id — dapat berubah apabila ada aturan perubahan di OSS', 14, pageHeight - 10);
-         doc.text(`Halaman ${i}`, pageWidth - 14, pageHeight - 10, { align: 'right' });
+         const runningTitle = isEn 
+           ? '* Recommended KBLI (Indonesia Standard Industrial Classification)' 
+           : '* Saran KBLI (Klasifikasi Baku Lapangan Usaha Indonesia)';
+         const pageText = isEn ? `Page ${i}` : `Halaman ${i}`;
+         
+         doc.text(`${runningTitle} ${pageText}`, 14, pageHeight - 15);
+         
+         const disclaimer = isEn
+           ? 'Notes: Data compiled based on oss.go.id, if there are discrepancies in the future due to new regulations, it is not the responsibility of the Notary Office.'
+           : 'Catatan: Data di susun berdasarkan data oss.go.id, apabila ada perbedaan di kemudian hari dikarenakan ada pertaturan baru,  bukan menjadi tanggung jawab Kantor Notaris';
+         
+         const splitDisclaimer = doc.splitTextToSize(disclaimer, pageWidth - 28);
+         doc.text(splitDisclaimer, 14, pageHeight - 11);
        }
     };
 
-    addLetterhead();
+    // Full letterhead on page 1
+    addLetterhead(true);
 
     // Title
-    doc.setTextColor(darkBlue[0], darkBlue[1], darkBlue[2]);
-    doc.setFontSize(16);
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(12);
     doc.setFont('helvetica', 'bold');
-    doc.text('DAFTAR SARAN KBLI', pageWidth / 2, currentY, { align: 'center' });
-    currentY += 6;
+    doc.text(isEn ? 'RECOMMENDED KBLI LIST' : 'DAFTAR SARAN KBLI', pageWidth / 2, currentY, { align: 'center' });
+    currentY += 5;
     
-    doc.setFontSize(11);
+    doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
-    doc.text('Klasifikasi Baku Lapangan Usaha Indonesia', pageWidth / 2, currentY, { align: 'center' });
-    currentY += 10;
+    doc.text(isEn ? 'Indonesia Standard Industrial Classification' : 'Klasifikasi Baku Lapangan Usaha Indonesia', pageWidth / 2, currentY, { align: 'center' });
+    currentY += 8;
 
+    // Nama & Skala Usaha Block (Plain text layout with perfect alignment)
     autoTable(doc, {
       startY: currentY,
-      theme: 'grid',
-      head: [],
+      theme: 'plain',
       body: [
         [
-          { content: 'Nama:', styles: { fontStyle: 'bold', cellWidth: 35 } },
-          { content: namaPT || '–' },
-          { content: 'Kelompok Usaha:', styles: { fontStyle: 'bold', cellWidth: 35 } },
-          { content: kelompokUsaha || '-' },
-          { content: 'Tanggal Cetak:', styles: { fontStyle: 'bold', cellWidth: 30 } },
-          { content: new Date().toLocaleDateString('id-ID') }
+          { content: isEn ? 'Name' : 'Nama', styles: { fontStyle: 'normal', cellWidth: 30 } },
+          { content: `: ${namaPT || '–'}`, styles: { fontStyle: 'bold' } }
+        ],
+        [
+          { content: isEn ? 'Business Scale' : 'Skala Usaha', styles: { fontStyle: 'normal', cellWidth: 30 } },
+          { content: `: ${translateBusinessScale(kelompokUsaha, isEn)}`, styles: { fontStyle: 'bold' } }
         ]
       ],
-      styles: { fontSize: 9, fillColor: [235, 239, 245], textColor: [0, 0, 0], minCellHeight: 10, valign: 'middle', lineColor: [150, 160, 180], lineWidth: 0.2 },
+      styles: { fontSize: 11, textColor: [0, 0, 0], minCellHeight: 6, cellPadding: 1 },
       margin: { left: 14, right: 14 },
     });
+    
     // @ts-ignore
     currentY = doc.lastAutoTable.finalY + 10;
 
     selectedKblis.forEach((kbli) => {
       if (currentY > pageHeight - 80) {
         doc.addPage();
-        addLetterhead();
+        addLetterhead(false);
       }
 
-      // KBLI Header Box
-      autoTable(doc, {
-         startY: currentY,
-         theme: 'plain',
-         head: [],
-         body: [
-           [
-             { content: `KBLI ${kbli.kode}`, styles: { fontStyle: 'bold', textColor: [255, 255, 255], cellWidth: 35 } },
-             { content: kbli.judul.toUpperCase(), styles: { fontStyle: 'bold', textColor: [255, 255, 255] } }
-           ]
-         ],
-         styles: { fillColor: [26, 42, 85], minCellHeight: 12, valign: 'middle', cellPadding: 3 },
-         margin: { left: 14, right: 14 },
-      });
-      // @ts-ignore
-      let blockY = doc.lastAutoTable.finalY;
+      // Plain Bold Text: KBLI Header
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(11);
+      doc.setTextColor(0, 0, 0);
+      doc.text(`KBLI ${kbli.kode}: ${kbli.judul.toUpperCase()}`, 14, currentY);
+      currentY += 5;
+
+      let blockY = currentY;
 
       const bodyData: any[] = [
-        [{ content: 'Uraian:', styles: { fontStyle: 'bold', textColor: [26, 42, 85], cellPadding: { top: 4, left: 4, right: 4, bottom: 2 } } }],
+        [{ content: isEn ? 'Description:' : 'Uraian:', styles: { fontStyle: 'bold', textColor: [0, 0, 0], cellPadding: { top: 4, left: 4, right: 4, bottom: 2 } } }],
         [{ content: kbli.uraian || '-', styles: { halign: 'justify', cellPadding: { top: 0, left: 4, right: 4, bottom: 4 } } }]
       ];
       
       if (kbli.tingkat_risiko) {
-          bodyData.push([{ content: 'Tingkat Risiko:', styles: { fontStyle: 'bold', textColor: [26, 42, 85], cellPadding: { top: 4, left: 4, right: 4, bottom: 2 } } }]);
-          bodyData.push([{ content: kbli.tingkat_risiko, styles: { halign: 'justify', cellPadding: { top: 0, left: 4, right: 4, bottom: 4 } } }]);
+          bodyData.push([{ content: isEn ? 'Risk Level:' : 'Tingkat Risiko:', styles: { fontStyle: 'bold', textColor: [0, 0, 0], cellPadding: { top: 4, left: 4, right: 4, bottom: 2 } } }]);
+          bodyData.push([{ content: translateRiskLevel(kbli.tingkat_risiko, isEn), styles: { halign: 'justify', cellPadding: { top: 0, left: 4, right: 4, bottom: 4 } } }]);
       }
       
       if (kbli.perizinan_berusaha) {
-          bodyData.push([{ content: 'Perizinan Berusaha:', styles: { fontStyle: 'bold', textColor: [26, 42, 85], cellPadding: { top: 4, left: 4, right: 4, bottom: 2 } } }]);
-          bodyData.push([{ content: kbli.perizinan_berusaha, styles: { halign: 'justify', cellPadding: { top: 0, left: 4, right: 4, bottom: 4 } } }]);
+          bodyData.push([{ content: isEn ? 'Business Licensing:' : 'Perizinan Berusaha:', styles: { fontStyle: 'bold', textColor: [0, 0, 0], cellPadding: { top: 4, left: 4, right: 4, bottom: 2 } } }]);
+          bodyData.push([{ content: translateIzinValue(kbli.perizinan_berusaha, isEn), styles: { halign: 'justify', cellPadding: { top: 0, left: 4, right: 4, bottom: 4 } } }]);
       }
 
-      // Uraian Box
+      // Uraian Box (Styled as structured grid with warm grey fill)
       autoTable(doc, {
          startY: blockY,
-         theme: 'plain', 
+         theme: 'grid', 
          head: [],
          body: bodyData,
-         styles: { fontSize: 9, textColor: [50, 50, 50], fillColor: [255, 255, 255] },
-         tableLineColor: [150, 160, 180],
-         tableLineWidth: 0.2,
-         margin: { left: 14, right: 14 }
+         styles: { fontSize: 9, textColor: [0, 0, 0], fillColor: [248, 249, 250], lineColor: [150, 150, 150], lineWidth: 0.2 },
+         margin: { left: 14, right: 14, bottom: 25, top: 20 }
       });
       
       // @ts-ignore
       blockY = doc.lastAutoTable.finalY + 8;
 
-      if (blockY > pageHeight - 50) {
+      if (blockY > pageHeight - 55) {
          doc.addPage();
-         addLetterhead();
+         addLetterhead(false);
          blockY = currentY;
       }
 
-      doc.setFontSize(11);
+      // Label "Business Scope" as simple elegant header
+      doc.setFontSize(10.5);
       doc.setFont('helvetica', 'bold');
-      doc.setTextColor(26, 42, 85);
-      doc.text('Ruang Lingkup Usaha', 14, blockY);
-      blockY += 4;
+      doc.setTextColor(0, 0, 0);
+      doc.text(isEn ? 'Business Scope' : 'Ruang Lingkup Usaha', 14, blockY);
+      blockY += 5;
 
       const body = kbli.scopes.map((s, index) => [
         index + 1,
         s.ruangLingkup || '-',
-        s.tingkatResiko,
-        getAutoIzin(s.tingkatResiko),
-        s.izin
+        translateRiskLevel(s.tingkatResiko, isEn),
+        isEn ? getEnAutoIzin(s.tingkatResiko) : getAutoIzin(s.tingkatResiko),
+        translateIzinValue(s.izin, isEn)
       ]);
 
       autoTable(doc, {
         startY: blockY,
-        head: [['No', 'Ruang Lingkup Usaha', 'Tingkat Risiko', 'Izin', 'Jenis Izin']],
+        head: [isEn ? ['No', 'Business Scope', 'Risk Level', 'License', 'License Type'] : ['No', 'Ruang Lingkup Usaha', 'Tingkat Risiko', 'Izin', 'Jenis Izin']],
         body: body,
         theme: 'grid',
-        headStyles: { fillColor: [26, 42, 85], textColor: 255, fontStyle: 'bold', halign: 'center', valign: 'middle' },
-        styles: { fontSize: 9, cellPadding: 4, lineColor: [150, 160, 180], lineWidth: 0.2, textColor: [20, 20, 20] },
+        headStyles: { 
+          fillColor: [225, 228, 232], 
+          textColor: [0, 0, 0], 
+          fontStyle: 'bold', 
+          halign: 'center', 
+          valign: 'middle',
+          lineColor: [150, 150, 150],
+          lineWidth: 0.2
+        },
+        styles: { 
+          fontSize: 9, 
+          cellPadding: 4, 
+          lineColor: [150, 150, 150], 
+          lineWidth: 0.2, 
+          textColor: [0, 0, 0] 
+        },
         columnStyles: {
-          0: { cellWidth: 10, halign: 'center' },
-          1: { cellWidth: 66 },
+          0: { cellWidth: 12, halign: 'center' },
+          1: { cellWidth: 80 },
           2: { cellWidth: 30, halign: 'center' },
-          3: { cellWidth: 46 },
-          4: { cellWidth: 30 },
+          3: { cellWidth: 30, halign: 'center' },
+          4: { cellWidth: 30, halign: 'center' },
         },
         alternateRowStyles: { fillColor: [255, 255, 255] },
-        margin: { left: 14, right: 14 },
+        margin: { left: 14, right: 14, bottom: 25, top: 20 },
       });
 
       // @ts-ignore
       let tableEndY = doc.lastAutoTable.finalY + 8;
 
       if (kbli.catatan) {
-        if (tableEndY > pageHeight - 40) {
+        if (tableEndY > pageHeight - 45) {
           doc.addPage();
-          addLetterhead();
+          addLetterhead(false);
           tableEndY = currentY;
         }
         
         autoTable(doc, {
           startY: tableEndY,
-          theme: 'plain',
+          theme: 'grid',
           head: [],
           body: [
-            [{ content: 'Catatan:', styles: { fontStyle: 'bold', textColor: [26, 42, 85], cellPadding: { top: 4, left: 4, right: 4, bottom: 2 } } }],
+            [{ content: isEn ? 'Notes:' : 'Catatan:', styles: { fontStyle: 'bold', textColor: [0, 0, 0], cellPadding: { top: 4, left: 4, right: 4, bottom: 2 } } }],
             [{ content: kbli.catatan, styles: { halign: 'justify', cellPadding: { top: 0, left: 4, right: 4, bottom: 4 } } }]
           ],
-           styles: { fontSize: 9, textColor: [50, 50, 50], fillColor: [249, 250, 251] },
-           tableLineColor: [150, 160, 180],
-           tableLineWidth: 0.2,
-           margin: { left: 14, right: 14 }
+           styles: { fontSize: 9, textColor: [30, 30, 30], fillColor: [248, 249, 250], lineColor: [150, 150, 150], lineWidth: 0.2 },
+           margin: { left: 14, right: 14, bottom: 25, top: 20 }
         });
         
         // @ts-ignore
-        currentY = doc.lastAutoTable.finalY + 15;
+        currentY = doc.lastAutoTable.finalY + 12;
       } else {
-        currentY = tableEndY + 7;
+        currentY = tableEndY + 4;
       }
     });
     
     addFooter();
 
-    doc.save(`KBLI_${namaPT.replace(/\s+/g, '_') || 'Saran'}.pdf`);
+    const filename = isEn 
+      ? `KBLI_Suggestions_${namaPT.replace(/\s+/g, '_') || 'Saran'}.pdf`
+      : `Saran_KBLI_${namaPT.replace(/\s+/g, '_') || 'Saran'}.pdf`;
+    doc.save(filename);
   };
 
   return (
@@ -902,13 +985,23 @@ const KBLISuggestions: React.FC = () => {
           <h2 className="text-lg font-bold text-slate-800">Daftar KBLI & Ruang Lingkup Terpilih</h2>
           <div className="flex items-center gap-3">
              {selectedKblis.length > 0 && (
-                <button 
-                  onClick={handlePrint}
-                  className="flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-lg text-sm font-bold transition-all border border-indigo-100 shadow-sm"
-                >
-                  <FileDown className="w-4 h-4" />
-                  Cetak PDF
-                </button>
+                <div className="flex items-center gap-2">
+                  <select 
+                    value={pdfLang} 
+                    onChange={(e) => setPdfLang(e.target.value as 'id' | 'en')}
+                    className="px-2 py-2 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-600 focus:outline-none cursor-pointer hover:border-slate-300 transition-colors shadow-sm"
+                  >
+                    <option value="id">Bahasa Indonesia</option>
+                    <option value="en">English (PDF)</option>
+                  </select>
+                  <button 
+                    onClick={() => handlePrint(pdfLang)}
+                    className="flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-lg text-sm font-bold transition-all border border-indigo-100 shadow-sm"
+                  >
+                    <FileDown className="w-4 h-4" />
+                    Cetak PDF
+                  </button>
+                </div>
              )}
             <span className="bg-slate-100 px-2 py-1 rounded text-xs font-bold text-slate-500">{selectedKblis.length} KBLI</span>
           </div>
