@@ -845,7 +845,7 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
       runs: [
         { text: `Menetapkan Perseroan mengalami rugi bersih untuk tahun buku ${data.rupstFiscalYear || "2025"} sebesar ` },
         { text: netProfitDisplayPositive, color: netProfitColor },
-        { text: ". Seluruh saldo rugi tersebut akan dicatat sebagai akumulasi rugi Perseroan sesuai ketentuan peraturan perundang-undangan yang berlaku." }
+        { text: `, dan oleh karenanya memutuskan bahwa tidak terdapat laba bersih yang dapat dibagikan sebagai dividen kepada para pemegang saham untuk Tahun Buku ${data.rupstFiscalYear || "2025"}. Seluruh saldo rugi tersebut akan dicatat sebagai akumulasi rugi Perseroan sesuai ketentuan peraturan perundang-undangan yang berlaku.` }
       ]
     });
   } else {
