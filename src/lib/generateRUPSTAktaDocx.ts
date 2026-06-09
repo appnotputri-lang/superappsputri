@@ -92,7 +92,9 @@ const createListP = (
   if (indentTabs <= 0.3)      { leftDxa = 284;  hangingDxa = 284; maxW = W.list0; }
   else if (indentTabs <= 0.6) { leftDxa = 568;  hangingDxa = 284; maxW = W.list1; }
   else if (indentTabs <= 1.0) { leftDxa = 850;  hangingDxa = 283; maxW = W.list2; }
-  else                        { leftDxa = 851;  hangingDxa = 284; maxW = W.list3; }
+  else if (indentTabs <= 1.5) { leftDxa = 1134; hangingDxa = 284; maxW = W.list3; }
+  else if (indentTabs <= 2.0) { leftDxa = 1418; hangingDxa = 284; maxW = W.list3; }
+  else                        { leftDxa = 1702; hangingDxa = 284; maxW = W.list3; }
 
   const lines = parseTextRuns(tokens, maxW);
   const children: any[] = [];

@@ -288,7 +288,7 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
   blocks.push({
     type: "list",
     bullet: "-",
-    indentTabs: 0.5,
+    indentTabs: 0.3,
     runs: [
       { text: `Bahwa sesuai ketentuan Pasal ${data.rupstAdArticle || "9"} ayat (${data.rupstAdParagraph || "6"}) Anggaran Dasar Perseroan, pada tanggal ${tglRapatRupst} seluruh pemegang saham telah menandatangani risalah rapat yang dimuat dalam "Risalah rapat Pemegang Saham Tahunan" yang dibuat di bawah tangan, yang ditandatangani oleh:` }
     ]
@@ -403,18 +403,86 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
     }
 
     blocks.push({
-      type: "p",
-      number: idx + 1,
+      type: "list",
+      bullet: `${idx + 1}.`,
+      indentTabs: 0.6,
       runs: runsList
     });
 
     const totalSubBullets = (att.management ? 1 : 0) + (att.ownShares ? 1 : 0) + att.representations.length;
 
-    if (totalSubBullets >= 1) {
+    if (totalSubBullets === 1) {
+      if (att.management) {
+        blocks.push({
+          type: "list",
+          bullet: "-",
+          indentTabs: 1.0,
+          runs: [
+            { text: "Hadir selaku " },
+            { text: `${toTitleCase(att.management.position)} Perseroan.` }
+          ]
+        });
+      } else if (att.ownShares) {
+        const shareRp = (att.ownShares.sharesOwned || 0) * (data.originalSharePrice || 10000000);
+        const formattedAmt = formatNumber(shareRp);
+        const terbilangAmt = terbilang(shareRp);
+        blocks.push({
+          type: "list",
+          bullet: "-",
+          indentTabs: 1.0,
+          runs: [
+            { text: "Hadir selaku pemilik dan pemegang " },
+            { text: `${formatNumber(att.ownShares.sharesOwned)} (${terbilang(att.ownShares.sharesOwned)}) lembar saham atau senilai ` },
+            { text: `Rp. ${formattedAmt},- (${terbilangAmt} rupiah).` }
+          ]
+        });
+      } else if (att.representations.length === 1) {
+        const r = att.representations[0];
+        const isDirector = r.proxyData.representationType === 'DIREKTUR_PT_LAIN';
+        const shareRp = (r.sharesOwned || 0) * (data.originalSharePrice || 10000000);
+        const formattedAmt = formatNumber(shareRp);
+        const terbilangAmt = terbilang(shareRp);
+
+        let repTextRuns: FormatToken[] = [];
+        repTextRuns.push({ text: "Hadir selaku " });
+        if (isDirector) {
+          repTextRuns.push({ text: "Direktur " });
+          repTextRuns.push({ text: r.shareholder.name.toUpperCase(), bold: true });
+          
+          if (r.shareholder.isForeign) {
+            repTextRuns.push({
+              text: `, sebuah badan hukum asing yang didirikan berdasarkan hukum negara ${r.shareholder.foreignCountry || "California"}, dengan nomor pengesahan ${r.shareholder.skNumber || r.shareholder.nik || "..."} tertanggal ${r.shareholder.skDate ? formatDateStr(r.shareholder.skDate) : "..."} yang dikeluarkan oleh ${r.shareholder.skIssuer || "Sekertaris Negara Bagian California"}`
+            });
+          } else {
+            repTextRuns.push({
+              text: `, sebuah perseroan terbatas yang didirikan berdasarkan hukum negara Republik Indonesia, berkedudukan di ${toTitleCase(r.shareholder.address.city || "...")}`
+            });
+          }
+        } else {
+          const proxyDate = r.proxyData.proxyDeedDate ? formatDateRupst(r.proxyData.proxyDeedDate) : "__________";
+          repTextRuns.push({ text: "Kuasa dari " });
+          repTextRuns.push({ text: r.shareholder.name.toUpperCase(), bold: true });
+          repTextRuns.push(...getPersonDetailRuns(r.shareholder));
+          repTextRuns.push({ text: ` berdasarkan Surat Kuasa tertanggal ${proxyDate}` });
+        }
+
+        repTextRuns.push({
+          text: `, selaku pemilik dan pemegang ${formatNumber(r.sharesOwned)} (${terbilang(r.sharesOwned)}) lembar saham atau senilai `
+        });
+        repTextRuns.push({ text: `Rp. ${formattedAmt},- (${terbilangAmt} rupiah).` });
+
+        blocks.push({
+          type: "list",
+          bullet: "-",
+          indentTabs: 1.0,
+          runs: repTextRuns
+        });
+      }
+    } else if (totalSubBullets > 1) {
       blocks.push({
         type: "list",
         bullet: "-",
-        indentTabs: 0.5,
+        indentTabs: 1.0,
         runs: [{ text: "Hadir selaku :" }]
       });
 
@@ -429,7 +497,7 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
         blocks.push({
           type: "list",
           bullet: bulletChar,
-          indentTabs: 1.0,
+          indentTabs: 1.5,
           runs: [{ text: `${toTitleCase(att.management.position)} Perseroan${isLast ? "." : ";"}` }]
         });
       }
@@ -445,7 +513,7 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
         blocks.push({
           type: "list",
           bullet: bulletChar,
-          indentTabs: 1.0,
+          indentTabs: 1.5,
           runs: [
             { text: `Selaku pemilik dan pemegang ${formatNumber(att.ownShares.sharesOwned)} (${terbilang(att.ownShares.sharesOwned)}) lembar saham atau senilai ` },
             { text: `Rp. ${formattedAmt},- (${terbilangAmt} rupiah)${isLast ? "." : ";"}` }
@@ -493,7 +561,7 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
         blocks.push({
           type: "list",
           bullet: bulletChar,
-          indentTabs: 1.0,
+          indentTabs: 1.5,
           runs: repTextRuns
         });
       });
