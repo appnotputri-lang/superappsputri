@@ -181,10 +181,9 @@ export function toTitleCase(str: string): string {
 export function cleanDegrees(str: string): string {
   if (!str) return "";
   let res = str;
-  // Replace Sarjana Hukum/magister kenotariatan (case insensitive)
-  res = res.replace(/Sarjana\s+Hukum/gi, "S.H.");
-  res = res.replace(/Magister\s+Kenotariatan/gi, "M.Kn.");
-  // Add other known degrees if needed in future
+  // Expand degrees to long form for Akta
+  res = res.replace(/\bS\.H\b\.?/gi, "Sarjana Hukum");
+  res = res.replace(/\bM\.Kn\b\.?/gi, "Magister Kenotariatan");
   return res;
 }
 

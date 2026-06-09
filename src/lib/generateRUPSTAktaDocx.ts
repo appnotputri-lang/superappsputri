@@ -1,4 +1,3 @@
-```typescript
 import {
   AlignmentType,
   Document,
@@ -301,147 +300,44 @@ const createNotarisNameP = (name: string): Paragraph =>
     tabStops: NOTARIS_TAB_STOPS,
   });
 
-const buildNumberingConfig = () => ({
-  config: [
-    {
-      reference: NUMBERING.introDash,
-      levels: [
-        {
-          level: 0,
-          format: LevelFormat.BULLET,
-          text: "-",
-          alignment: AlignmentType.LEFT,
-          style: { paragraph: { indent: { left: 720, hanging: 360 } } },
-        },
-      ],
-    },
-    {
-      reference: NUMBERING.amendmentDash,
-      levels: [
-        {
-          level: 0,
-          format: LevelFormat.BULLET,
-          text: "-",
-          alignment: AlignmentType.LEFT,
-          style: { paragraph: { indent: { left: 720, hanging: 360 } } },
-        },
-      ],
-    },
-    {
-      reference: NUMBERING.bodyDash,
-      levels: [
-        {
-          level: 0,
-          format: LevelFormat.BULLET,
-          text: "-",
-          alignment: AlignmentType.LEFT,
-          style: { paragraph: { indent: { left: 1636, hanging: 360 } } },
-        },
-      ],
-    },
-    {
-      reference: NUMBERING.agendaDash,
-      levels: [
-        {
-          level: 0,
-          format: LevelFormat.BULLET,
-          text: "-",
-          alignment: AlignmentType.LEFT,
-          style: { paragraph: { indent: { left: 1636, hanging: 360 } } },
-        },
-      ],
-    },
-    {
-      reference: NUMBERING.attendeeNumber,
-      levels: [
-        {
-          level: 0,
-          format: LevelFormat.DECIMAL,
-          text: "%1.",
-          alignment: AlignmentType.LEFT,
-          style: { paragraph: { indent: { left: 720, hanging: 360 } } },
-        },
-      ],
-    },
-    {
-      reference: NUMBERING.attendeeDash,
-      levels: [
-        {
-          level: 0,
-          format: LevelFormat.BULLET,
-          text: "-",
-          alignment: AlignmentType.LEFT,
-          style: { paragraph: { indent: { left: 1636, hanging: 360 } } },
-        },
-      ],
-    },
-    {
-      reference: NUMBERING.attendeeLetter,
-      levels: [
-        {
-          level: 0,
-          format: LevelFormat.LOWER_LETTER,
-          text: "%1.",
-          alignment: AlignmentType.LEFT,
-          style: { paragraph: { indent: { left: 1570, hanging: 360 } } },
-        },
-      ],
-    },
-    {
-      reference: NUMBERING.decisionNumber,
-      levels: [
-        {
-          level: 0,
-          format: LevelFormat.DECIMAL,
-          text: "%1.",
-          alignment: AlignmentType.LEFT,
-          style: { paragraph: { indent: { left: 720, hanging: 360 } } },
-        },
-      ],
-    },
-    {
-      reference: NUMBERING.decisionLetter,
-      levels: [
-        {
-          level: 0,
-          format: LevelFormat.LOWER_LETTER,
-          text: "%1.",
-          alignment: AlignmentType.LEFT,
-          style: { paragraph: { indent: { left: 1004, hanging: 360 } } },
-        },
-      ],
-    },
-    {
-      reference: NUMBERING.attachmentDash,
-      levels: [
-        {
-          level: 0,
-          format: LevelFormat.BULLET,
-          text: "-",
-          alignment: AlignmentType.LEFT,
-          style: { paragraph: { indent: { left: 720, hanging: 360 } } },
-        },
-      ],
-    },
-    {
-      reference: NUMBERING.saksiNumber,
-      levels: [
-        {
-          level: 0,
-          format: LevelFormat.DECIMAL,
-          text: "%1.",
-          alignment: AlignmentType.LEFT,
-          style: { paragraph: { indent: { left: 720, hanging: 360 } } },
-        },
-      ],
-    },
-  ],
+const buildNumberingConfig = (refs: string[]) => ({
+  config: refs.map(ref => ({
+    reference: ref,
+    levels: [
+      {
+        level: 0,
+        format: LevelFormat.DECIMAL,
+        text: "%1.",
+        alignment: AlignmentType.LEFT,
+        style: { paragraph: { indent: { left: 720, hanging: 360 } } },
+      },
+      {
+        level: 1,
+        format: LevelFormat.LOWER_LETTER,
+        text: "%2.",
+        alignment: AlignmentType.LEFT,
+        style: { paragraph: { indent: { left: 1080, hanging: 360 } } },
+      },
+      {
+        level: 2,
+        format: LevelFormat.BULLET,
+        text: "-",
+        alignment: AlignmentType.LEFT,
+        style: { paragraph: { indent: { left: 1440, hanging: 360 } } },
+      }
+    ],
+  })),
 });
 
 export const generateRUPSTAktaDocx = async (data: CompanyData) => {
   const blocks = generateRupstAktaBlocks(data);
   const docxChildren: Paragraph[] = [];
   let phase: RenderPhase = "preamble";
+
+  // Dynamic numbering instances for restarts
+  const usedRefs: string[] = ["main-list"];
+  let currentNumRef = "main-list";
+  let listCounter = 0;
 
   const blockText = (block: Block): string => {
     if ("runs" in block) return block.runs.map((run) => run.text).join("");
@@ -452,8 +348,14 @@ export const generateRUPSTAktaDocx = async (data: CompanyData) => {
   blocks.forEach((block) => {
     const text = blockText(block);
 
+    // Section Phase Detection
     if (block.type === "list" && /^\d+\.$/.test(block.bullet)) {
-      phase = "attendance";
+      if (phase !== "attendance") {
+        phase = "attendance";
+        listCounter++;
+        currentNumRef = `list-${listCounter}`;
+        usedRefs.push(currentNumRef);
+      }
     }
 
     if (text.startsWith("Bahwa dari semua saham")) {
@@ -462,6 +364,18 @@ export const generateRUPSTAktaDocx = async (data: CompanyData) => {
 
     if (text.startsWith("Sehubungan dengan apa yang diuraikan")) {
       phase = "decisions";
+      listCounter++;
+      currentNumRef = `list-${listCounter}`;
+      usedRefs.push(currentNumRef);
+    }
+
+    if (block.type === "p" && block.number !== undefined) {
+      if (phase !== "decisions") {
+        phase = "decisions";
+        listCounter++;
+        currentNumRef = `list-${listCounter}`;
+        usedRefs.push(currentNumRef);
+      }
     }
 
     if (text.startsWith("Rapat ditutup") || text.startsWith("Dari segala sesuatu") || block.type === "divider") {
@@ -470,8 +384,13 @@ export const generateRUPSTAktaDocx = async (data: CompanyData) => {
 
     if (block.type === "p") {
       if (block.number) {
-        phase = "decisions";
-        docxChildren.push(createNumberedP(block.runs));
+        docxChildren.push(new Paragraph({
+          children: wrappedRuns(block.runs, W.decisionNumber),
+          numbering: { reference: currentNumRef, level: 0 },
+          tabStops: [TAB_KANAN],
+          alignment: AlignmentType.LEFT,
+          indent: { left: 720, hanging: 360 },
+        }));
       } else if (block.align === "center") {
         docxChildren.push(createP(block.runs, { alignment: AlignmentType.CENTER }));
       } else if (block.indentLeft !== undefined) {
@@ -485,7 +404,21 @@ export const generateRUPSTAktaDocx = async (data: CompanyData) => {
     }
 
     if (block.type === "list") {
-      docxChildren.push(createListP(block, phase));
+      let level = 1; // Default dash
+      if (block.bullet && block.bullet.match(/^\d+\.$/)) level = 0;
+      else if (block.bullet && block.bullet.match(/^[a-z]\.$/i)) level = 1;
+      else if (block.bullet === "-") level = 2;
+
+      // Special case: sub-lists of shareholders often need to restart a. b. c.
+      // The currentNumRef update in "attendance" phase handles this if 1. triggers restart.
+
+      docxChildren.push(new Paragraph({
+        children: wrappedRuns(block.runs, W.attendeeNumber), // Approximated
+        numbering: { reference: currentNumRef, level },
+        tabStops: [TAB_KANAN],
+        alignment: AlignmentType.LEFT,
+        // Indents are handled by numbering levels in buildNumberingConfig
+      }));
       return;
     }
 
@@ -500,10 +433,9 @@ export const generateRUPSTAktaDocx = async (data: CompanyData) => {
   });
 
   const domicile = data.notaryDomicile || "Kabupaten Bandung Barat";
-  const notaryDisplay = (data.notaryName || "NUKANTINI PUTRI PARINCHA, S.H., M.Kn.")
-    .toUpperCase()
-    .replace(/SARJANA HUKUM/gi, "S.H.")
-    .replace(/MAGISTER KENOTARIATAN/gi, "M.Kn.");
+  const rawNotaryName = (data.notaryName || "NUKANTINI PUTRI PARINCHA, S.H., M.Kn.");
+  const expandedNotaryName = rawNotaryName.replace(/\bS\.H\b\.?/gi, "Sarjana Hukum").replace(/\bM\.Kn\b\.?/gi, "Magister Kenotariatan");
+  const notaryDisplay = expandedNotaryName.toUpperCase();
 
   docxChildren.push(createNotarisLabelP(domicile));
   docxChildren.push(createNotarisEmptyP());
@@ -513,7 +445,7 @@ export const generateRUPSTAktaDocx = async (data: CompanyData) => {
   docxChildren.push(createNotarisNameP(notaryDisplay));
 
   const doc = new Document({
-    numbering: buildNumberingConfig(),
+    numbering: buildNumberingConfig(usedRefs),
     styles: {
       default: {
         document: {
@@ -555,4 +487,3 @@ export const generateRUPSTAktaDocx = async (data: CompanyData) => {
   const blob = await Packer.toBlob(doc);
   saveAs(blob, `Draft Akta RUPST ${data.companyName}.docx`);
 };
-```

@@ -106,20 +106,23 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
   const fullyDescribedNames = new Set<string>();
 
   const expandAbbreviations = (str: string) => {
+    if (!str) return "";
     let res = str;
     res = res.replace(/RT\.\s*(\d+)\s*RW\.\s*(\d+)/gi, 'Rukun Tetangga $1, Rukun Warga $2');
     res = res.replace(/RT\s+(\d+)\s*RW\s+(\d+)/gi, 'Rukun Tetangga $1, Rukun Warga $2');
     res = res.replace(/RT\.\s*(\d+)/gi, 'Rukun Tetangga $1');
     res = res.replace(/RW\.\s*(\d+)/gi, 'Rukun Warga $1');
-    res = res.replace(/S\.H\./g, 'Sarjana Hukum');
-    res = res.replace(/M\.Kn\./g, 'Magister Kenotariatan');
+    res = res.replace(/\bS\.H\b\.?/gi, 'Sarjana Hukum');
+    res = res.replace(/\bM\.Kn\b\.?/gi, 'Magister Kenotariatan');
     res = res.replace(/\bjl(?:n)?\.?\b/gi, "Jalan");
     res = res.replace(/\bgg\.?\b/gi, "Gang");
     return res;
   };
 
   const getPersonDetailRuns = (person: any): FormatToken[] => {
-    const nameUpper = (person?.name || "").toUpperCase().trim();
+    const rawName = (person?.name || "").trim();
+    const expandedName = expandAbbreviations(rawName);
+    const nameUpper = expandedName.toUpperCase();
     const isPenghadap = rep && nameUpper === (rep.name || "").toUpperCase().trim();
 
     if (fullyDescribedNames.has(nameUpper) && nameUpper !== "") {
@@ -234,69 +237,87 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
   }
 
   const hasAmendments = data.amendmentDeeds && data.amendmentDeeds.length > 0;
+  const isSingleAmendment = data.amendmentDeeds && data.amendmentDeeds.length === 1;
 
-  let foundationSentence = `Bahwa pada hari ${tglRapatHari}, tanggal ${formatAktaDate(data.signingDate || "")}, bertempat di ${data.signingPlace || "Kantor Perseroan"}, pukul ${jamRapatStr} WIB (${jamRapatHuruf}) telah diadakan Rapat Umum Pemegang Saham Tahunan Perseroan Terbatas ${formatCompanyName(data.companyName)} (selanjutnya disebut sebagai “Rapat”) Perseroan berkedudukan di ${toTitleCase(data.domicile || "...")}, demikian berdasarkan Akta Pendirian tertanggal ${establishmentDeedDateText}, Nomor ${data.establishmentDeedNumber || "02"} dibuat dihadapan ${checkNotaryWording(data.establishmentNotary || "............................", data.establishmentNotaryTitle, data.establishmentNotaryDomicile)} dan telah mendapat pengesahan dari Menteri Hukum dan Hak Asasi Manusia Republik Indonesia berdasarkan Surat Keputusan Nomor ${getSkFormattedNumber()} tertanggal ${formatAktaDate(data.establishmentSkDate || "")}${hasAmendments ? " dan telah mengalami beberapa kali perubahan berdasarkan akta-akta sebagai berikut : -" : ";"}`;
+  const getDeedSkText = (deed: any) => {
+    if (deed.skSpDocuments && deed.skSpDocuments.length > 0) {
+      const sks = deed.skSpDocuments.filter((d: any) => d.type === "SK");
+      const sps = deed.skSpDocuments.filter((d: any) => d.type !== "SK");
 
-  blocks.push({
-    type: "list",
-    bullet: "-",
-    indentTabs: 0.3,
-    runs: [{ text: foundationSentence }]
-  });
+      const skParts: string[] = [];
+      sks.forEach((sk: any) => {
+        skParts.push(
+          `telah mendapat pengesahan dari Menteri Hukum dan Hak Asasi Manusia Republik Indonesia tertanggal ${formatAktaDate(sk.date)}, Nomor ${sk.number}`,
+        );
+      });
 
-  // Amendment deeds
-  if (hasAmendments) {
-    data.amendmentDeeds!.forEach((deed, i) => {
-      const isLast = i === data.amendmentDeeds!.length - 1;
-      const tglDeedAkta = formatAktaDate(deed.date);
-
-      let skText = "";
-      if (deed.skSpDocuments && deed.skSpDocuments.length > 0) {
-        const sks = deed.skSpDocuments.filter((d) => d.type === "SK");
-        const sps = deed.skSpDocuments.filter((d) => d.type !== "SK");
-
-        const skParts: string[] = [];
-        sks.forEach((sk) => {
-          skParts.push(
-            `telah mendapat pengesahan dari Menteri Hukum dan Hak Asasi Manusia Republik Indonesia tertanggal ${formatAktaDate(sk.date)}, Nomor ${sk.number}`,
-          );
+      const spParts: string[] = [];
+      if (sps.length > 0) {
+        const spDescParts = sps.map((sp: any) => {
+          if (sp.type === "SP_DATA_PERSEROAN")
+            return `Surat Penerimaan Pemberitahuan Perubahan Data Perseroan Nomor ${sp.number}`;
+          if (sp.type === "SP_ANGGARAN_DASAR")
+            return `Surat Penerimaan Pemberitahuan Perubahan Anggaran Dasar Nomor ${sp.number}`;
+          return `Surat Penerimaan Pemberitahuan Nomor ${sp.number}`;
         });
 
-        const spParts: string[] = [];
-        if (sps.length > 0) {
-          const spDescParts = sps.map((sp) => {
-            if (sp.type === "SP_DATA_PERSEROAN")
-              return `Surat Penerimaan Pemberitahuan Perubahan Data Perseroan Nomor ${sp.number}`;
-            if (sp.type === "SP_ANGGARAN_DASAR")
-              return `Surat Penerimaan Pemberitahuan Perubahan Anggaran Dasar Nomor ${sp.number}`;
-            return `Surat Penerimaan Pemberitahuan Nomor ${sp.number}`;
-          });
-
-          const spDates = Array.from(new Set(sps.map((s) => s.date)));
-          let spDateText = "";
-          if (spDates.length === 1) {
-            spDateText = ` ${sps.length > 1 ? (sks.length > 0 ? "ketiganya " : "keduanya ") : ""}tertanggal ${formatAktaDate(spDates[0])}`;
-          } else {
-            spDateText = ` masing-masing tertanggal sebagaimana tercantum dalam surat tersebut`;
-          }
-
-          spParts.push(
-            `Pemberitahuannya telah diterima dan dicatat dalam Sistem Administrasi Badan Hukum Kementerian Hukum Republik Indonesia berdasarkan ${spDescParts.join(" dan ")}${spDateText}`,
-          );
+        const spDates = Array.from(new Set(sps.map((s: any) => s.date)));
+        let spDateText = "";
+        if (spDates.length === 1) {
+          spDateText = ` ${sps.length > 1 ? (sks.length > 0 ? (sks.length + sps.length === 3 ? "ketiganya " : "keduanya ") : (sps.length === 2 ? "keduanya " : "")) : ""}tertanggal ${formatAktaDate(spDates[0] as string)}`;
+        } else {
+          spDateText = ` masing-masing tertanggal sebagaimana tercantum dalam surat tersebut`;
         }
 
-        skText = [...skParts, ...spParts].join(" dan ");
-      } else {
-        skText = `telah mendapat pengesahan berdasarkan Surat Keputusan Nomor ${deed.skNumber} tanggal ${formatAktaDate(deed.skDate)}`;
+        spParts.push(
+          `Pemberitahuannya telah diterima dan dicatat dalam Sistem Administrasi Badan Hukum Kementerian Hukum Republik Indonesia berdasarkan ${spDescParts.join(" dan ")}${spDateText}`,
+        );
       }
 
+      return [...skParts, ...spParts].join(" dan ");
+    } else {
+      return `telah mendapat pengesahan berdasarkan Surat Keputusan Nomor ${deed.skNumber} tanggal ${formatAktaDate(deed.skDate)}`;
+    }
+  };
+
+  let foundationSentence = `Bahwa pada hari ${tglRapatHari}, tanggal ${formatAktaDate(data.signingDate || "")}, bertempat di ${data.signingPlace || "Kantor Perseroan"}, pukul ${jamRapatStr} WIB (${jamRapatHuruf}) telah diadakan Rapat Umum Pemegang Saham Tahunan Perseroan Terbatas ${formatCompanyName(data.companyName)} (selanjutnya disebut sebagai “Rapat”) Perseroan berkedudukan di ${toTitleCase(data.domicile || "...")}, demikian berdasarkan Akta Pendirian tertanggal ${establishmentDeedDateText}, Nomor ${data.establishmentDeedNumber || "02"} dibuat dihadapan ${checkNotaryWording(data.establishmentNotary || "............................", data.establishmentNotaryTitle, data.establishmentNotaryDomicile)} dan telah mendapat pengesahan dari Menteri Hukum dan Hak Asasi Manusia Republik Indonesia berdasarkan Surat Keputusan Nomor ${getSkFormattedNumber()} tertanggal ${formatAktaDate(data.establishmentSkDate || "")}`;
+
+  if (!hasAmendments) {
+    blocks.push({
+      type: "list",
+      bullet: "-",
+      indentTabs: 0.3,
+      runs: [{ text: `${foundationSentence};` }]
+    });
+  } else if (isSingleAmendment) {
+    const deed = data.amendmentDeeds![0];
+    const skText = getDeedSkText(deed);
+    const amendmentSentence = ` dan telah mengalami perubahan berdasarkan Akta Perubahan tertanggal ${formatAktaDate(deed.date)} Nomor ${deed.number} yang dibuat di hadapan ${checkNotaryWording(deed.notary, deed.notaryTitle, deed.notaryDomicile)} yang ${skText};`;
+    
+    blocks.push({
+      type: "list",
+      bullet: "-",
+      indentTabs: 0.3,
+      runs: [{ text: `${foundationSentence}${amendmentSentence}` }]
+    });
+  } else {
+    blocks.push({
+      type: "list",
+      bullet: "-",
+      indentTabs: 0.3,
+      runs: [{ text: `${foundationSentence} dan telah mengalami beberapa kali perubahan berdasarkan akta-akta sebagai berikut : -` }]
+    });
+
+    data.amendmentDeeds!.forEach((deed, i) => {
+      const isLast = i === data.amendmentDeeds!.length - 1;
+      const skText = getDeedSkText(deed);
       blocks.push({
         type: "list",
         bullet: "-",
         indentTabs: 1.0,
         runs: [
           {
-            text: `Akta Perubahan tertanggal ${tglDeedAkta} Nomor ${deed.number} yang dibuat di hadapan ${checkNotaryWording(deed.notary, deed.notaryTitle, deed.notaryDomicile)} yang ${skText}${isLast ? ";" : ";"}`,
+            text: `Akta Perubahan tertanggal ${formatAktaDate(deed.date)} Nomor ${deed.number} yang dibuat di hadapan ${checkNotaryWording(deed.notary, deed.notaryTitle, deed.notaryDomicile)} yang ${skText}${isLast ? ";" : ";"}`,
           },
         ],
       });
