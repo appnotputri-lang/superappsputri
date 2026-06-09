@@ -288,7 +288,7 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
   blocks.push({
     type: "list",
     bullet: "-",
-    indentTabs: 0.3,
+    indentTabs: 0.5,
     runs: [
       { text: `Bahwa sesuai ketentuan Pasal ${data.rupstAdArticle || "9"} ayat (${data.rupstAdParagraph || "6"}) Anggaran Dasar Perseroan, pada tanggal ${tglRapatRupst} seluruh pemegang saham telah menandatangani risalah rapat yang dimuat dalam "Risalah rapat Pemegang Saham Tahunan" yang dibuat di bawah tangan, yang ditandatangani oleh:` }
     ]
@@ -405,7 +405,7 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
     blocks.push({
       type: "list",
       bullet: `${idx + 1}.`,
-      indentTabs: 0.6,
+      indentTabs: 1.0,
       runs: runsList
     });
 
@@ -701,7 +701,7 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
     blocks.push({ 
       type: "list", 
       bullet: advanceLetter(), 
-      indentTabs: 1.0, 
+      indentTabs: 0.5, 
       runs: [{ text: `Kegiatan Usaha Perseroan ${data.rupstIsAudited ? "" : "tidak "}menghimpun dan/atau mengelola dana masyarakat.` }] 
     });
   }
@@ -709,7 +709,7 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
     blocks.push({ 
       type: "list", 
       bullet: advanceLetter(), 
-      indentTabs: 1.0, 
+      indentTabs: 0.5, 
       runs: [{ text: `Perseroan ${data.rupstIsAudited ? "" : "tidak "}menerbitkan surat pengakuan utang kepada masyarakat.` }] 
     });
   }
@@ -717,7 +717,7 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
     blocks.push({ 
       type: "list", 
       bullet: advanceLetter(), 
-      indentTabs: 1.0, 
+      indentTabs: 0.5, 
       runs: [{ text: `Perseroan ${data.rupstIsAudited ? "merupakan" : "tidak merupakan"} Perseroan Terbuka (Tbk).` }] 
     });
   }
@@ -725,7 +725,7 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
     blocks.push({ 
       type: "list", 
       bullet: advanceLetter(), 
-      indentTabs: 1.0, 
+      indentTabs: 0.5, 
       runs: [{ text: `Perseroan ${data.rupstIsAudited ? "merupakan" : "tidak merupakan"} Persero.` }] 
     });
   }
@@ -733,7 +733,7 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
     blocks.push({ 
       type: "list", 
       bullet: advanceLetter(), 
-      indentTabs: 1.0, 
+      indentTabs: 0.5, 
       runs: [{ text: `Aset dan/atau jumlah peredaran usaha ${data.rupstIsAudited ? "lebih" : "tidak lebih"} dari 50 Milyar, atau` }] 
     });
   }
@@ -741,7 +741,7 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
     blocks.push({ 
       type: "list", 
       bullet: advanceLetter(), 
-      indentTabs: 1.0, 
+      indentTabs: 0.5, 
       runs: [{ text: `${data.rupstIsAudited ? "" : "Tidak "}diwajibkan oleh peraturan perundang-undangan.` }] 
     });
   }
