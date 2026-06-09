@@ -1,45 +1,101 @@
 import {
-  Document, Packer, Paragraph, TextRun,
-  AlignmentType, TabStopType, LeaderType,
-  IParagraphOptions, Footer, PageNumber,
+  AlignmentType,
+  Document,
+  Footer,
+  IParagraphOptions,
+  LeaderType,
+  LevelFormat,
+  PageNumber,
+  Packer,
+  Paragraph,
+  TabStopType,
+  TextRun,
 } from "docx";
 import { saveAs } from "file-saver";
 import { CompanyData } from "../../types";
 import { FormatToken, parseTextRuns } from "./notaryWrapper";
-import { generateRupstAktaBlocks } from "./rupsTahunanAktaContentBlocks";
+import { Block, generateRupstAktaBlocks } from "./rupsTahunanAktaContentBlocks";
 
-const TAB_KANAN = { type: TabStopType.RIGHT, position: 8504, leader: LeaderType.HYPHEN };
+const TAB_KANAN = {
+  type: TabStopType.RIGHT,
+  position: 8504,
+  leader: LeaderType.HYPHEN,
+};
+
+const NOTARIS_TAB_STOPS = [
+  { type: TabStopType.LEFT, position: 4395 },
+  TAB_KANAN,
+];
+
+const FONT_NAME = "Century Gothic";
+const FONT_SIZE = 20;
 
 const W = {
-  normal:   41.5,
-  level0:   39.5, // Text starts at 567
-  level1:   37.5, // Text starts at 1134
-  level2:   35.5, // Text starts at 1701
-  level3:   33.5,
+  normal: 41.5,
+  indent284: 40.8,
+  indent426: 40.2,
+  introDash: 39.8,
+  amendmentDash: 38.8,
+  bodyDash: 38.6,
+  agendaDash: 36.5,
+  attendeeNumber: 36.2,
+  attendeeDash: 34.8,
+  attendeeLetter: 33.0,
+  decisionNumber: 38.0,
+  decisionLetter: 37.2,
+  saksi: 39.5,
+};
+
+const NUMBERING = {
+  introDash: "akta-intro-dash",
+  amendmentDash: "akta-amendment-dash",
+  bodyDash: "akta-body-dash",
+  agendaDash: "akta-agenda-dash",
+  attendeeNumber: "akta-attendee-number",
+  attendeeDash: "akta-attendee-dash",
+  attendeeLetter: "akta-attendee-letter",
+  decisionNumber: "akta-decision-number",
+  decisionLetter: "akta-decision-letter",
+  attachmentDash: "akta-attachment-dash",
+  saksiNumber: "akta-saksi-number",
+};
+
+type RenderPhase = "preamble" | "attendance" | "general" | "decisions" | "closing";
+
+const makeRun = (t: FormatToken): TextRun =>
+  new TextRun({
+    text: t.text,
+    bold: t.bold,
+    color: t.color,
+    italics: t.italic,
+    underline: t.underline ? {} : undefined,
+  });
+
+const wrappedRuns = (
+  tokens: FormatToken[],
+  maxWidth: number,
+  withRightTab = true,
+): TextRun[] => {
+  const lines = parseTextRuns(tokens, maxWidth);
+  const children: TextRun[] = [];
+
+  lines.forEach((lineTokens, i) => {
+    lineTokens.forEach((t) => children.push(makeRun(t)));
+    if (withRightTab) children.push(new TextRun({ text: "\t" }));
+    if (i < lines.length - 1) children.push(new TextRun({ break: 1 }));
+  });
+
+  return children;
 };
 
 const createP = (
   tokens: FormatToken[],
-  options: Omit<IParagraphOptions, "children"> = {}
+  options: Omit<IParagraphOptions, "children"> = {},
 ): Paragraph => {
   const isCentered = options.alignment === AlignmentType.CENTER;
-  const lines = parseTextRuns(tokens, W.normal);
-  const children: any[] = [];
-
-  lines.forEach((lineTokens, i) => {
-    lineTokens.forEach((t) => children.push(new TextRun({ 
-      text: t.text, 
-      bold: t.bold,
-      color: t.color,
-      italics: t.italic,
-      underline: t.underline ? {} : undefined
-    })));
-    if (!isCentered) children.push(new TextRun({ text: "\t" }));
-    if (i < lines.length - 1) children.push(new TextRun({ break: 1 }));
-  });
 
   return new Paragraph({
-    children,
+    children: wrappedRuns(tokens, W.normal, !isCentered),
     tabStops: isCentered ? [] : [TAB_KANAN],
     alignment: AlignmentType.LEFT,
     ...options,
@@ -49,25 +105,12 @@ const createP = (
 const createIndentP = (
   tokens: FormatToken[],
   leftDxa: number,
-  options: Omit<IParagraphOptions, "children"> = {}
+  options: Omit<IParagraphOptions, "children"> = {},
 ): Paragraph => {
-  const lines = parseTextRuns(tokens, W.normal - (leftDxa / 567) * 2.0);
-  const children: any[] = [];
-
-  lines.forEach((lineTokens, i) => {
-    lineTokens.forEach((t) => children.push(new TextRun({ 
-      text: t.text, 
-      bold: t.bold,
-      color: t.color,
-      italics: t.italic,
-      underline: t.underline ? {} : undefined
-    })));
-    children.push(new TextRun({ text: "\t" }));
-    if (i < lines.length - 1) children.push(new TextRun({ break: 1 }));
-  });
+  const maxWidth = leftDxa >= 993 ? 36.5 : leftDxa >= 426 ? W.indent426 : W.indent284;
 
   return new Paragraph({
-    children,
+    children: wrappedRuns(tokens, maxWidth),
     tabStops: [TAB_KANAN],
     alignment: AlignmentType.LEFT,
     indent: { left: leftDxa },
@@ -75,73 +118,134 @@ const createIndentP = (
   });
 };
 
-const createListP = (
-  bulletText: string,
+const createNumberedP = (
   tokens: FormatToken[],
-  indentTabs: number = 0,
-  options: Omit<IParagraphOptions, "children"> = {}
-): Paragraph => {
-  let leftDxa: number, hangingDxa: number, maxW: number;
-
-  if (indentTabs <= 0.4)      { leftDxa = 567;  hangingDxa = 567; maxW = W.level0; }
-  else if (indentTabs <= 1.0) { leftDxa = 1134; hangingDxa = 567; maxW = W.level1; }
-  else if (indentTabs <= 1.6) { leftDxa = 1701; hangingDxa = 567; maxW = W.level2; }
-  else                        { leftDxa = 2268; hangingDxa = 567; maxW = W.level3; }
-
-  const lines = parseTextRuns(tokens, maxW);
-  const children: any[] = [];
-
-  lines.forEach((lineTokens, i) => {
-    if (i === 0 && bulletText) children.push(new TextRun({ text: `${bulletText}\t` }));
-    lineTokens.forEach((t) => children.push(new TextRun({ 
-      text: t.text, 
-      bold: t.bold,
-      color: t.color,
-      italics: t.italic,
-      underline: t.underline ? {} : undefined
-    })));
-    children.push(new TextRun({ text: "\t" }));
-    if (i < lines.length - 1) children.push(new TextRun({ break: 1 }));
-  });
-
-  // Tab stop kiri di leftDxa: bullet snap ke (leftDxa-hanging), lalu \t snap ke leftDxa
-  const leftTabPos = leftDxa;
-
-  return new Paragraph({
-    children,
-    tabStops: [{ type: TabStopType.LEFT, position: leftTabPos }, TAB_KANAN],
+  options: Omit<IParagraphOptions, "children"> = {},
+): Paragraph =>
+  new Paragraph({
+    children: wrappedRuns(tokens, W.decisionNumber),
+    numbering: { reference: NUMBERING.decisionNumber, level: 0 },
+    tabStops: [TAB_KANAN],
     alignment: AlignmentType.LEFT,
-    indent: { left: leftDxa, hanging: bulletText ? hangingDxa : 0 },
+    indent: { left: 284, hanging: 284 },
     ...options,
   });
-};
 
-const createNumberedP = (
-  num: number | string,
-  tokens: FormatToken[],
-  options: Omit<IParagraphOptions, "children"> = {}
+const createListP = (
+  block: Extract<Block, { type: "list" }>,
+  phase: RenderPhase,
+  options: Omit<IParagraphOptions, "children"> = {},
 ): Paragraph => {
-  const lines = parseTextRuns(tokens, W.level0);
-  const children: any[] = [];
+  const indentTabs = block.indentTabs || 0;
+  const bullet = block.bullet || "";
 
-  lines.forEach((lineTokens, i) => {
-    if (i === 0) children.push(new TextRun({ text: `${num}.\t` }));
-    lineTokens.forEach((t) => children.push(new TextRun({ 
-      text: t.text, 
-      bold: t.bold,
-      color: t.color,
-      italics: t.italic,
-      underline: t.underline ? {} : undefined
-    })));
-    children.push(new TextRun({ text: "\t" }));
-    if (i < lines.length - 1) children.push(new TextRun({ break: 1 }));
-  });
+  if (!bullet) {
+    return createIndentP(block.runs, 284, options);
+  }
+
+  if (/^\d+\.$/.test(bullet)) {
+    return new Paragraph({
+      children: wrappedRuns(block.runs, W.attendeeNumber),
+      numbering: { reference: NUMBERING.attendeeNumber, level: 0 },
+      tabStops: [{ type: TabStopType.LEFT, position: 850 }, TAB_KANAN],
+      alignment: AlignmentType.LEFT,
+      indent: { left: 851 },
+      ...options,
+    });
+  }
+
+  if (/^[a-z]\.$/i.test(bullet)) {
+    if (indentTabs >= 1.5) {
+      return new Paragraph({
+        children: wrappedRuns(block.runs, W.attendeeLetter),
+        numbering: { reference: NUMBERING.attendeeLetter, level: 0 },
+        tabStops: [TAB_KANAN],
+        alignment: AlignmentType.LEFT,
+        indent: { left: 1560, hanging: 284 },
+        ...options,
+      });
+    }
+
+    return new Paragraph({
+      children: wrappedRuns(block.runs, W.decisionLetter),
+      numbering: { reference: NUMBERING.decisionLetter, level: 0 },
+      tabStops: [TAB_KANAN],
+      alignment: AlignmentType.LEFT,
+      indent: { left: 709 },
+      ...options,
+    });
+  }
+
+  if (bullet === "-" && phase === "preamble" && indentTabs >= 1.0) {
+    return new Paragraph({
+      children: wrappedRuns(block.runs, W.amendmentDash),
+      numbering: { reference: NUMBERING.amendmentDash, level: 0 },
+      tabStops: [TAB_KANAN],
+      alignment: AlignmentType.LEFT,
+      indent: { hanging: 294 },
+      ...options,
+    });
+  }
+
+  if (bullet === "-" && phase === "attendance" && indentTabs >= 1.0) {
+    return new Paragraph({
+      children: wrappedRuns(block.runs, W.attendeeDash),
+      numbering: { reference: NUMBERING.attendeeDash, level: 0 },
+      tabStops: [TAB_KANAN],
+      alignment: AlignmentType.LEFT,
+      indent: { left: 1276 },
+      ...options,
+    });
+  }
+
+  if (bullet === "-" && phase === "decisions" && indentTabs >= 1.0) {
+    return new Paragraph({
+      children: wrappedRuns(block.runs, W.bodyDash),
+      numbering: { reference: NUMBERING.attachmentDash, level: 0 },
+      tabStops: [TAB_KANAN],
+      alignment: AlignmentType.LEFT,
+      ...options,
+    });
+  }
+
+  if (bullet === "-" && phase === "closing" && indentTabs >= 1.0) {
+    return new Paragraph({
+      children: wrappedRuns(block.runs, W.bodyDash),
+      numbering: { reference: NUMBERING.attachmentDash, level: 0 },
+      tabStops: [TAB_KANAN],
+      alignment: AlignmentType.LEFT,
+      ...options,
+    });
+  }
+
+  if (bullet === "-" && indentTabs >= 0.85) {
+    return new Paragraph({
+      children: wrappedRuns(block.runs, W.agendaDash),
+      numbering: { reference: NUMBERING.agendaDash, level: 0 },
+      tabStops: [TAB_KANAN],
+      alignment: AlignmentType.LEFT,
+      indent: { left: 1134, hanging: 425 },
+      ...options,
+    });
+  }
+
+  if (bullet === "-" && indentTabs >= 0.5) {
+    return new Paragraph({
+      children: wrappedRuns(block.runs, W.bodyDash),
+      numbering: { reference: NUMBERING.bodyDash, level: 0 },
+      tabStops: [TAB_KANAN],
+      alignment: AlignmentType.LEFT,
+      indent: { left: 709 },
+      ...options,
+    });
+  }
 
   return new Paragraph({
-    children,
-    tabStops: [{ type: TabStopType.LEFT, position: 567 }, TAB_KANAN],
+    children: wrappedRuns(block.runs, W.introDash),
+    numbering: { reference: NUMBERING.introDash, level: 0 },
+    tabStops: [TAB_KANAN],
     alignment: AlignmentType.LEFT,
-    indent: { left: 567, hanging: 567 },
+    indent: { left: 426 },
     ...options,
   });
 };
@@ -155,43 +259,22 @@ const createDividerP = (text: string): Paragraph =>
     ],
     tabStops: [
       { type: TabStopType.CENTER, position: 4252, leader: LeaderType.HYPHEN },
-      { type: TabStopType.RIGHT,  position: 8504, leader: LeaderType.HYPHEN },
+      TAB_KANAN,
     ],
     alignment: AlignmentType.LEFT,
   });
 
 const createSaksiP = (
-  num: number,
-  tokens: FormatToken[]
-): Paragraph => {
-  const lines = parseTextRuns(tokens, 39.5);
-  const children: any[] = [];
-
-  lines.forEach((lineTokens, i) => {
-    if (i === 0) children.push(new TextRun({ text: `${num}.\t` }));
-    lineTokens.forEach((t) => children.push(new TextRun({ 
-      text: t.text, 
-      bold: t.bold,
-      color: t.color,
-      italics: t.italic,
-      underline: t.underline ? {} : undefined
-    })));
-    children.push(new TextRun({ text: "\t" }));
-    if (i < lines.length - 1) children.push(new TextRun({ break: 1 }));
-  });
-
-  return new Paragraph({
-    children,
-    tabStops: [{ type: TabStopType.LEFT, position: 567 }, TAB_KANAN],
+  _num: number,
+  tokens: FormatToken[],
+): Paragraph =>
+  new Paragraph({
+    children: wrappedRuns(tokens, W.saksi),
+    numbering: { reference: NUMBERING.saksiNumber, level: 0 },
+    tabStops: [TAB_KANAN],
     alignment: AlignmentType.LEFT,
-    indent: { left: 567, hanging: 567 },
+    indent: { left: 284, hanging: 284 },
   });
-};
-
-const NOTARIS_TAB_STOPS = [
-  { type: TabStopType.LEFT, position: 4395 },
-  TAB_KANAN,
-];
 
 const createNotarisEmptyP = (): Paragraph =>
   new Paragraph({
@@ -217,74 +300,200 @@ const createNotarisNameP = (name: string): Paragraph =>
     tabStops: NOTARIS_TAB_STOPS,
   });
 
-// Dash "-" di level sub (indentTabs 1.0): struktur sesuai numId=3 di docx
-// abstractNum left=720, hanging=360 → bullet di pos 360, teks di 720
-// left tab di 720, tanpa w:ind override (pakai nilai dari numbering)
-const createDashSubP = (
-  tokens: FormatToken[],
-  options: Omit<IParagraphOptions, "children"> = {}
-): Paragraph => {
-  const lines = parseTextRuns(tokens, W.level1);
-  const children: any[] = [];
-
-  lines.forEach((lineTokens, i) => {
-    if (i === 0) children.push(new TextRun({ text: "-\t" }));
-    lineTokens.forEach((t) => children.push(new TextRun({ 
-      text: t.text, 
-      bold: t.bold,
-      color: t.color,
-      italics: t.italic,
-      underline: t.underline ? {} : undefined
-    })));
-    children.push(new TextRun({ text: "\t" }));
-    if (i < lines.length - 1) children.push(new TextRun({ break: 1 }));
-  });
-
-  return new Paragraph({
-    children,
-    tabStops: [{ type: TabStopType.LEFT, position: 1134 }, TAB_KANAN],
-    alignment: AlignmentType.LEFT,
-    indent: { left: 1134, hanging: 567 },
-    ...options,
-  });
-};
+const buildNumberingConfig = () => ({
+  config: [
+    {
+      reference: NUMBERING.introDash,
+      levels: [
+        {
+          level: 0,
+          format: LevelFormat.BULLET,
+          text: "-",
+          alignment: AlignmentType.LEFT,
+          style: { paragraph: { indent: { left: 720, hanging: 360 } } },
+        },
+      ],
+    },
+    {
+      reference: NUMBERING.amendmentDash,
+      levels: [
+        {
+          level: 0,
+          format: LevelFormat.BULLET,
+          text: "-",
+          alignment: AlignmentType.LEFT,
+          style: { paragraph: { indent: { left: 720, hanging: 360 } } },
+        },
+      ],
+    },
+    {
+      reference: NUMBERING.bodyDash,
+      levels: [
+        {
+          level: 0,
+          format: LevelFormat.BULLET,
+          text: "-",
+          alignment: AlignmentType.LEFT,
+          style: { paragraph: { indent: { left: 1636, hanging: 360 } } },
+        },
+      ],
+    },
+    {
+      reference: NUMBERING.agendaDash,
+      levels: [
+        {
+          level: 0,
+          format: LevelFormat.BULLET,
+          text: "-",
+          alignment: AlignmentType.LEFT,
+          style: { paragraph: { indent: { left: 1636, hanging: 360 } } },
+        },
+      ],
+    },
+    {
+      reference: NUMBERING.attendeeNumber,
+      levels: [
+        {
+          level: 0,
+          format: LevelFormat.DECIMAL,
+          text: "%1.",
+          alignment: AlignmentType.LEFT,
+          style: { paragraph: { indent: { left: 720, hanging: 360 } } },
+        },
+      ],
+    },
+    {
+      reference: NUMBERING.attendeeDash,
+      levels: [
+        {
+          level: 0,
+          format: LevelFormat.BULLET,
+          text: "-",
+          alignment: AlignmentType.LEFT,
+          style: { paragraph: { indent: { left: 1636, hanging: 360 } } },
+        },
+      ],
+    },
+    {
+      reference: NUMBERING.attendeeLetter,
+      levels: [
+        {
+          level: 0,
+          format: LevelFormat.LOWER_LETTER,
+          text: "%1.",
+          alignment: AlignmentType.LEFT,
+          style: { paragraph: { indent: { left: 1570, hanging: 360 } } },
+        },
+      ],
+    },
+    {
+      reference: NUMBERING.decisionNumber,
+      levels: [
+        {
+          level: 0,
+          format: LevelFormat.DECIMAL,
+          text: "%1.",
+          alignment: AlignmentType.LEFT,
+          style: { paragraph: { indent: { left: 720, hanging: 360 } } },
+        },
+      ],
+    },
+    {
+      reference: NUMBERING.decisionLetter,
+      levels: [
+        {
+          level: 0,
+          format: LevelFormat.LOWER_LETTER,
+          text: "%1.",
+          alignment: AlignmentType.LEFT,
+          style: { paragraph: { indent: { left: 1004, hanging: 360 } } },
+        },
+      ],
+    },
+    {
+      reference: NUMBERING.attachmentDash,
+      levels: [
+        {
+          level: 0,
+          format: LevelFormat.BULLET,
+          text: "-",
+          alignment: AlignmentType.LEFT,
+          style: { paragraph: { indent: { left: 720, hanging: 360 } } },
+        },
+      ],
+    },
+    {
+      reference: NUMBERING.saksiNumber,
+      levels: [
+        {
+          level: 0,
+          format: LevelFormat.DECIMAL,
+          text: "%1.",
+          alignment: AlignmentType.LEFT,
+          style: { paragraph: { indent: { left: 720, hanging: 360 } } },
+        },
+      ],
+    },
+  ],
+});
 
 export const generateRUPSTAktaDocx = async (data: CompanyData) => {
   const blocks = generateRupstAktaBlocks(data);
-  const docxChildren: any[] = [];
+  const docxChildren: Paragraph[] = [];
+  let phase: RenderPhase = "preamble";
+
+  const blockText = (block: Block): string => {
+    if ("runs" in block) return block.runs.map((run) => run.text).join("");
+    if (block.type === "divider") return block.text;
+    return "";
+  };
 
   blocks.forEach((block) => {
+    const text = blockText(block);
+
+    if (block.type === "list" && /^\d+\.$/.test(block.bullet)) {
+      phase = "attendance";
+    }
+
+    if (text.startsWith("Bahwa dari semua saham")) {
+      phase = "general";
+    }
+
+    if (text.startsWith("Sehubungan dengan apa yang diuraikan")) {
+      phase = "decisions";
+    }
+
+    if (text.startsWith("Rapat ditutup") || text.startsWith("Dari segala sesuatu") || block.type === "divider") {
+      phase = "closing";
+    }
+
     if (block.type === "p") {
       if (block.number) {
-        docxChildren.push(createNumberedP(block.number, block.runs));
+        phase = "decisions";
+        docxChildren.push(createNumberedP(block.runs));
       } else if (block.align === "center") {
         docxChildren.push(createP(block.runs, { alignment: AlignmentType.CENTER }));
-      } else if ((block as any).indentLeft !== undefined) {
-        // Paragraf dengan indent kiri spesifik (tanpa hanging): Minuta=426, Diberikan=993
-        docxChildren.push(createIndentP(block.runs, (block as any).indentLeft));
+      } else if (block.indentLeft !== undefined) {
+        docxChildren.push(createIndentP(block.runs, block.indentLeft));
       } else if (block.indent) {
         docxChildren.push(createIndentP(block.runs, 284));
       } else {
         docxChildren.push(createP(block.runs));
       }
-    } else if (block.type === "list") {
-      const indentTabs = block.indentTabs || 0;
-      const bullet = block.bullet;
+      return;
+    }
 
-      if (bullet === "" && indentTabs >= 1.0) {
-        // Bullet kosong di level 1 → paragraf indent left=284 tanpa hanging
-        // (contoh: "Direksi dan Komisaris...", "sehubungan dengan hal tersebut...")
-        docxChildren.push(createIndentP(block.runs, 284));
-      } else if (bullet === "-" && indentTabs >= 1.0) {
-        // Dash di level 1 → left=720, hanging=360 sesuai numId=3 abstractNum=1
-        // (contoh: "Laporan Keuangan...", "Laporan mengenai...")
-        docxChildren.push(createDashSubP(block.runs));
-      } else {
-        docxChildren.push(createListP(bullet, block.runs, indentTabs));
-      }
-    } else if (block.type === "saksi") {
-      docxChildren.push(createSaksiP((block as any).number, block.runs));
-    } else if (block.type === "divider") {
+    if (block.type === "list") {
+      docxChildren.push(createListP(block, phase));
+      return;
+    }
+
+    if (block.type === "saksi") {
+      docxChildren.push(createSaksiP(block.number, block.runs));
+      return;
+    }
+
+    if (block.type === "divider") {
       docxChildren.push(createDividerP(block.text));
     }
   });
@@ -303,10 +512,11 @@ export const generateRUPSTAktaDocx = async (data: CompanyData) => {
   docxChildren.push(createNotarisNameP(notaryDisplay));
 
   const doc = new Document({
+    numbering: buildNumberingConfig(),
     styles: {
       default: {
         document: {
-          run: { font: "Century Gothic", size: 20 },
+          run: { font: FONT_NAME, size: FONT_SIZE },
           paragraph: {
             spacing: { line: 480, before: 0, after: 0 },
             alignment: AlignmentType.LEFT,

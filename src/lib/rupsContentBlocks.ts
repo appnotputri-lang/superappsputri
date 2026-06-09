@@ -242,18 +242,25 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
     });
   }
 
-  if (isMinutes) {
-    blocks.push({
-      type: "list",
-      bullet: "-",
-      indentTabs: 0.5,
-      runs: [
-        {
-          text: `Dalam hal ini hadir selaku kuasa sebagaimana yang tertera dalam risalah Rapat Perseroan yang akan diuraikan di bawah ini.`,
-        },
-      ],
-    });
-  }
+    if (isMinutes) {
+      blocks.push({
+        type: "list",
+        bullet: "-",
+        indentTabs: 0.5,
+        runs: [
+          {
+            text: `Dalam hal ini hadir selaku kuasa sebagaimana yang tertera dalam risalah Rapat Perseroan yang akan diuraikan di bawah ini.`,
+          },
+        ],
+      });
+    } else {
+      blocks.push({
+        type: "list",
+        bullet: "-",
+        indentTabs: 0.5,
+        runs: [{ text: "Hadir selaku :" }, { text: " kuasa sebagaimana yang tertera dalam risalah Rapat Perseroan yang akan diuraikan di bawah ini." }]
+      });
+    }
 
   blocks.push(
     { type: "p", runs: [{ text: `Penghadap saya, Notaris kenal.` }] },
@@ -560,14 +567,17 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
           type: "list",
           bullet: "-",
           indentTabs: 1.0,
-          runs: [{ text: `dalam hal ini hadir selaku ${toTitleCase(att.management.position)} perseroan;` }]
+          runs: [
+            { text: isMinutes ? "dalam hal ini hadir selaku " : "Hadir selaku :" },
+            { text: `${isMinutes ? "" : " "}${toTitleCase(att.management.position)} perseroan;` }
+          ]
         });
       } else {
         blocks.push({
           type: "list",
           bullet: "-",
           indentTabs: 1.0,
-          runs: [{ text: "dalam hal ini hadir selaku :" }]
+          runs: [{ text: isMinutes ? "dalam hal ini hadir selaku :" : "Hadir selaku :" }]
         });
 
         let subBulletCode = 'a'.charCodeAt(0);
@@ -678,7 +688,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
                              data.oldManagementItems.find(m => m.name === data.meetingChair);
     const chairSalutation = chairIsProxy ? (chairPerson?.proxyData?.salutation || "Tuan") : (chairPerson?.salutation || "Tuan");
     const chairName = data.meetingChair || "...";
-    let chairPosition = chairIsProxy ? "kuasa" : `selaku ${toTitleCase(chairPerson?.managementPosition || chairPerson?.position || "Direktur")} perseroan,`;
+    let chairPosition = chairIsProxy ? "kuasa" : `${isMinutes ? "selaku " : "Hadir selaku : "}${toTitleCase(chairPerson?.managementPosition || chairPerson?.position || "Direktur")} perseroan,`;
 
     blocks.push({
       type: "list",
@@ -689,7 +699,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
           text: `Berdasarkan ketentuan Pasal ${data.rupstAdArticle || "21"} ayat (${data.rupstAdParagraph || "1"}) Anggaran Dasar Perseroan, ${chairSalutation} `,
         },
         { text: chairName.toUpperCase(), bold: true },
-        { text: `, ${chairIsProxy ? 'kuasa tersebut di atas, bertindak sebagai ketua rapat.' : `tersebut di atas, ${chairPosition} bertindak sebagai Ketua Rapat.`}` },
+        { text: `, ${chairIsProxy ? (isMinutes ? 'kuasa tersebut di atas, bertindak sebagai ketua rapat.' : 'penghadap tersebut di atas, Hadir selaku : kuasa tersebut di atas, bertindak sebagai ketua rapat.') : `tersebut di atas, ${chairPosition} bertindak sebagai Ketua Rapat.`}` },
       ],
     });
   }

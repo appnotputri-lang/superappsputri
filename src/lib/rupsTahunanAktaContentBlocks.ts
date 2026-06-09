@@ -150,7 +150,7 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
     { type: "p", align: "center", runs: [{ text: `Nomor : ${effectiveNotaryNumber}` }] },
     { type: "p", runs: [] },
     { type: "p", runs: [] },
-    { type: "p", runs: [{ text: `Pada hari ini, ${tglAktaHari}, tanggal ${tglAktaHuruf} (${tglAktaAngka}).` }] },
+    { type: "p", runs: [{ text: `Pada hari ini, ${tglAktaHari}, tanggal ${formatAktaDate(effectiveNotaryDate)}.` }] },
     { type: "p", runs: [{ text: `Pukul ${jamStr} WIB (${jamHuruf}).` }] },
     {
       type: "p",
@@ -189,7 +189,7 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
       type: "list",
       bullet: "-",
       indentTabs: 0.3,
-      runs: [{ text: "Dalam hal ini hadir selaku kuasa sebagaimana yang tertera dalam risalah Rapat Perseroan yang akan diuraikan di bawah ini." }]
+      runs: [{ text: "Hadir selaku :" }, { text: " kuasa sebagaimana yang tertera dalam risalah Rapat Perseroan yang akan diuraikan di bawah ini." }]
     });
 
     blocks.push({
@@ -423,7 +423,7 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
     blocks.push({
       type: "list",
       bullet: `${idx + 1}.`,
-      indentTabs: 0,
+      indentTabs: 1.0,
       runs: runsList
     });
 
@@ -436,8 +436,8 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
           bullet: "-",
           indentTabs: 1.0,
           runs: [
-            { text: "Hadir selaku " },
-            { text: `${toTitleCase(att.management.position)} Perseroan.` }
+            { text: "Hadir selaku :" },
+            { text: ` ${toTitleCase(att.management.position)} Perseroan.` }
           ]
         });
       } else if (att.ownShares) {
@@ -449,8 +449,8 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
           bullet: "-",
           indentTabs: 1.0,
           runs: [
-            { text: "Hadir selaku pemilik dan pemegang " },
-            { text: `${formatNumber(att.ownShares.sharesOwned)} (${terbilang(att.ownShares.sharesOwned)}) lembar saham atau senilai ` },
+            { text: "Hadir selaku :" },
+            { text: ` pemilik dan pemegang ${formatNumber(att.ownShares.sharesOwned)} (${terbilang(att.ownShares.sharesOwned)}) lembar saham atau senilai ` },
             { text: `Rp. ${formattedAmt},- (${terbilangAmt} rupiah).` }
           ]
         });
@@ -462,14 +462,14 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
         const terbilangAmt = terbilang(shareRp);
 
         let repTextRuns: FormatToken[] = [];
-        repTextRuns.push({ text: "Hadir selaku " });
+        repTextRuns.push({ text: "Hadir selaku :" });
         if (isDirector) {
-          repTextRuns.push({ text: "Direktur " });
+          repTextRuns.push({ text: " Direktur " });
           repTextRuns.push({ text: r.shareholder.name.toUpperCase(), bold: true });
           
           if (r.shareholder.isForeign) {
             repTextRuns.push({
-              text: `, sebuah badan hukum asing yang didirikan berdasarkan hukum negara ${r.shareholder.foreignCountry || "California"}, dengan nomor pengesahan ${r.shareholder.skNumber || r.shareholder.nik || "..."} tertanggal ${r.shareholder.skDate ? formatDateStr(r.shareholder.skDate) : "..."} yang dikeluarkan oleh ${r.shareholder.skIssuer || "Sekertaris Negara Bagian California"}`
+              text: `, sebuah badan hukum asing yang didirikan berdasarkan hukum negara ${r.shareholder.foreignCountry || "California"}, dengan nomor pengesahan ${r.shareholder.skNumber || r.shareholder.nik || "..."} tertanggal ${r.shareholder.skDate ? formatAktaDate(r.shareholder.skDate) : "..."} yang dikeluarkan oleh ${r.shareholder.skIssuer || "Sekertaris Negara Bagian California"}`
             });
           } else {
             repTextRuns.push({
@@ -477,8 +477,8 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
             });
           }
         } else {
-          const proxyDate = r.proxyData.proxyDeedDate ? formatDateRupst(r.proxyData.proxyDeedDate) : "__________";
-          repTextRuns.push({ text: "Kuasa dari " });
+          const proxyDate = r.proxyData.proxyDeedDate ? formatAktaDate(r.proxyData.proxyDeedDate) : "__________ (__________)";
+          repTextRuns.push({ text: " Kuasa dari " });
           repTextRuns.push({ text: r.shareholder.name.toUpperCase(), bold: true });
           repTextRuns.push(...getPersonDetailRuns(r.shareholder));
           repTextRuns.push({ text: ` berdasarkan Surat Kuasa tertanggal ${proxyDate}` });
@@ -511,10 +511,9 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
       if (att.management) {
         bulletIdx++;
         const isLast = bulletIdx === totalSubBullets;
-        const bulletChar = String.fromCharCode(subBulletCode++) + ".";
         blocks.push({
           type: "list",
-          bullet: bulletChar,
+          bullet: "a.",
           indentTabs: 1.5,
           runs: [{ text: `${toTitleCase(att.management.position)} Perseroan${isLast ? "." : ";"}` }]
         });
@@ -524,13 +523,12 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
       if (att.ownShares) {
         bulletIdx++;
         const isLast = bulletIdx === totalSubBullets;
-        const bulletChar = String.fromCharCode(subBulletCode++) + ".";
         const shareRp = (att.ownShares.sharesOwned || 0) * (data.originalSharePrice || 10000000);
         const formattedAmt = formatNumber(shareRp);
         const terbilangAmt = terbilang(shareRp);
         blocks.push({
           type: "list",
-          bullet: bulletChar,
+          bullet: "a.",
           indentTabs: 1.5,
           runs: [
             { text: `Selaku pemilik dan pemegang ${formatNumber(att.ownShares.sharesOwned)} (${terbilang(att.ownShares.sharesOwned)}) lembar saham atau senilai ` },
@@ -543,7 +541,6 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
       att.representations.forEach(r => {
         bulletIdx++;
         const isLast = bulletIdx === totalSubBullets;
-        const bulletChar = String.fromCharCode(subBulletCode++) + ".";
         const isDirector = r.proxyData.representationType === 'DIREKTUR_PT_LAIN';
         const shareRp = (r.sharesOwned || 0) * (data.originalSharePrice || 10000000);
         const formattedAmt = formatNumber(shareRp);
@@ -556,7 +553,7 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
           
           if (r.shareholder.isForeign) {
             repTextRuns.push({
-              text: `, sebuah badan hukum asing yang didirikan berdasarkan hukum negara ${r.shareholder.foreignCountry || "California"}, dengan nomor pengesahan ${r.shareholder.skNumber || r.shareholder.nik || "..."} tertanggal ${r.shareholder.skDate ? formatDateStr(r.shareholder.skDate) : "..."} yang dikeluarkan oleh ${r.shareholder.skIssuer || "Sekertaris Negara Bagian California"}`
+              text: `, sebuah badan hukum asing yang didirikan berdasarkan hukum negara ${r.shareholder.foreignCountry || "California"}, dengan nomor pengesahan ${r.shareholder.skNumber || r.shareholder.nik || "..."} tertanggal ${r.shareholder.skDate ? formatAktaDate(r.shareholder.skDate) : "..."} yang dikeluarkan oleh ${r.shareholder.skIssuer || "Sekertaris Negara Bagian California"}`
             });
           } else {
             repTextRuns.push({
@@ -564,7 +561,7 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
             });
           }
         } else {
-          const proxyDate = r.proxyData.proxyDeedDate ? formatDateRupst(r.proxyData.proxyDeedDate) : "__________";
+          const proxyDate = r.proxyData.proxyDeedDate ? formatAktaDate(r.proxyData.proxyDeedDate) : "__________ (__________)";
           repTextRuns.push({ text: `Kuasa dari ` });
           repTextRuns.push({ text: r.shareholder.name.toUpperCase(), bold: true });
           repTextRuns.push(...getPersonDetailRuns(r.shareholder));
@@ -578,7 +575,7 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
 
         blocks.push({
           type: "list",
-          bullet: bulletChar,
+          bullet: "a.",
           indentTabs: 1.5,
           runs: repTextRuns
         });
@@ -648,7 +645,9 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
       runs: [
         { text: `Berdasarkan ketentuan Pasal ${data.rupstAdArticle || "9"} ayat (${data.rupstAdParagraph || "6"}) Anggaran Dasar Perseroan, ${chairSalutation} ` },
         { text: chairNameValue, bold: true },
-        { text: `, pengahdap tersebut di atas, selaku ${toTitleCase(data.meetingChairPosition || "Kuasa Direktur")} perseroan, bertindak sebagai Ketua Rapat.` }
+        { text: `, penghadap tersebut di atas, ` },
+        { text: "Hadir selaku :" },
+        { text: ` ${toTitleCase(data.meetingChairPosition || "Kuasa Direktur")} perseroan, bertindak sebagai Ketua Rapat.` }
       ]
     }
   );
@@ -708,58 +707,51 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
     runs: [{ text: `Menyetujui Pernyataan Direksi dan Komisaris serta Para Pemegang Saham Perseroan ${formatCompanyName(data.companyName)} yang menyatakan bahwa status perseroan ini merupakan PT. Tertutup yang Laporan Keuangannya ${data.rupstIsAudited ? "Memenuhi" : "Tidak Memenuhi"} Ketentuan Wajib Audit oleh Akuntan Publik dengan alasan sebagai berikut:` }]
   });
 
-  let subBulletLetter = 97; // 'a'
-  const advanceLetter = () => {
-    const char = String.fromCharCode(subBulletLetter);
-    subBulletLetter++;
-    return char + ".";
-  };
-
   if (data.rupstAlasanAuditA !== false) {
     blocks.push({ 
       type: "list", 
-      bullet: advanceLetter(), 
-      indentTabs: 0.5, 
+      bullet: "a.", 
+      indentTabs: 1.5, 
       runs: [{ text: `Kegiatan Usaha Perseroan ${data.rupstIsAudited ? "" : "tidak "}menghimpun dan/atau mengelola dana masyarakat.` }] 
     });
   }
   if (data.rupstAlasanAuditB !== false) {
     blocks.push({ 
       type: "list", 
-      bullet: advanceLetter(), 
-      indentTabs: 0.5, 
+      bullet: "a.", 
+      indentTabs: 1.5, 
       runs: [{ text: `Perseroan ${data.rupstIsAudited ? "" : "tidak "}menerbitkan surat pengakuan utang kepada masyarakat.` }] 
     });
   }
   if (data.rupstAlasanAuditC !== false) {
     blocks.push({ 
       type: "list", 
-      bullet: advanceLetter(), 
-      indentTabs: 0.5, 
+      bullet: "a.", 
+      indentTabs: 1.5, 
       runs: [{ text: `Perseroan ${data.rupstIsAudited ? "merupakan" : "tidak merupakan"} Perseroan Terbuka (Tbk).` }] 
     });
   }
   if (data.rupstAlasanAuditD !== false) {
     blocks.push({ 
       type: "list", 
-      bullet: advanceLetter(), 
-      indentTabs: 0.5, 
+      bullet: "a.", 
+      indentTabs: 1.5, 
       runs: [{ text: `Perseroan ${data.rupstIsAudited ? "merupakan" : "tidak merupakan"} Persero.` }] 
     });
   }
   if (data.rupstAlasanAuditE !== false) {
     blocks.push({ 
       type: "list", 
-      bullet: advanceLetter(), 
-      indentTabs: 0.5, 
+      bullet: "a.", 
+      indentTabs: 1.5, 
       runs: [{ text: `Aset dan/atau jumlah peredaran usaha ${data.rupstIsAudited ? "lebih" : "tidak lebih"} dari 50 Milyar, atau` }] 
     });
   }
   if (data.rupstAlasanAuditF !== false) {
     blocks.push({ 
       type: "list", 
-      bullet: advanceLetter(), 
-      indentTabs: 0.5, 
+      bullet: "a.", 
+      indentTabs: 1.5, 
       runs: [{ text: `${data.rupstIsAudited ? "" : "Tidak "}diwajibkan oleh peraturan perundang-undangan.` }] 
     });
   }
@@ -807,7 +799,7 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
         runs: [
           { text: `Laporan Keuangan yang telah diaudit oleh Kantor Akuntan Publik ` },
           { text: data.rupstKapName.toUpperCase(), bold: true },
-          { text: ` No. Izin KAP: ${data.rupstKapLicenseNumber || "-"} yang berlaku sampai dengan tanggal ${data.rupstKapExpiryDate ? formatDateStr(data.rupstKapExpiryDate) : "-"}, terlampir dan dilekatkan pada Notulen Rapat Umum Pemegang Saham Tahunan ini.` }
+          { text: ` No. Izin KAP: ${data.rupstKapLicenseNumber || "-"} yang berlaku sampai dengan tanggal ${data.rupstKapExpiryDate ? formatAktaDate(data.rupstKapExpiryDate) : "-"}, terlampir dan dilekatkan pada Notulen Rapat Umum Pemegang Saham Tahunan ini.` }
         ]
       });
     } else {
