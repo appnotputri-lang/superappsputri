@@ -63,6 +63,8 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
   
   const tglAktaHari = getDayName(effectiveNotaryDate) || "Jum'at";
   const tglAktaRupst = formatDateRupst(effectiveNotaryDate) || "08 Mei 2026";
+  const tglAktaHuruf = dateToWords(effectiveNotaryDate);
+  const tglAktaAngka = formatDateStr(effectiveNotaryDate);
 
   const jamStr = data.meetingStartTime ? data.meetingStartTime.replace(":", ".") : "11.00";
   const jamParts = (data.meetingStartTime || "11:00").split(":");
@@ -102,6 +104,19 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
 
   const fullyDescribedNames = new Set<string>();
 
+  const expandAbbreviations = (str: string) => {
+    let res = str;
+    res = res.replace(/RT\.\s*(\d+)\s*RW\.\s*(\d+)/gi, 'Rukun Tetangga $1, Rukun Warga $2');
+    res = res.replace(/RT\s+(\d+)\s*RW\s+(\d+)/gi, 'Rukun Tetangga $1, Rukun Warga $2');
+    res = res.replace(/RT\.\s*(\d+)/gi, 'Rukun Tetangga $1');
+    res = res.replace(/RW\.\s*(\d+)/gi, 'Rukun Warga $1');
+    res = res.replace(/S\.H\./g, 'Sarjana Hukum');
+    res = res.replace(/M\.Kn\./g, 'Magister Kenotariatan');
+    res = res.replace(/\bjl(?:n)?\.?\b/gi, "Jalan");
+    res = res.replace(/\bgg\.?\b/gi, "Gang");
+    return res;
+  };
+
   const getPersonDetailRuns = (person: any): FormatToken[] => {
     const nameUpper = (person?.name || "").toUpperCase().trim();
     const isPenghadap = rep && nameUpper === (rep.name || "").toUpperCase().trim();
@@ -114,13 +129,15 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
     }
 
     fullyDescribedNames.add(nameUpper);
-    const tglAngka = person?.birthDate ? formatDateRupst(person.birthDate) : "...";
-    const tglHuruf = "";
+    const tglAngka = person?.birthDate ? formatDateStr(person.birthDate) : "...";
+    const tglHuruf = person?.birthDate ? dateToWords(person.birthDate) : "";
+    
+    let detailText = person ? formatPersonDetails(person, tglAngka, tglHuruf) : `, lahir di ..., pada tanggal ... (...), Warga Negara Indonesia, swasta, bertempat tinggal di ..., Rukun Tetangga ..., Rukun Warga ..., Kelurahan ..., Kecamatan ..., pemegang Kartu Tanda Penduduk Nomor ...`;
+    detailText = expandAbbreviations(detailText);
+
     return [
       { text: nameUpper, bold: true },
-      {
-        text: person ? formatPersonDetails(person, tglAngka, tglHuruf) : `, lahir di ..., pada tanggal ... (...), Warga Negara Indonesia, swasta, bertempat tinggal di ..., Rukun Tetangga ..., Rukun Warga ..., Kelurahan ..., Kecamatan ..., pemegang Kartu Tanda Penduduk Nomor ...`,
-      },
+      { text: detailText },
     ];
   };
 
@@ -132,7 +149,7 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
     { type: "p", align: "center", runs: [{ text: `Nomor : ${effectiveNotaryNumber}` }] },
     { type: "p", runs: [] },
     { type: "p", runs: [] },
-    { type: "p", runs: [{ text: `Pada hari ini, ${tglAktaHari}, tanggal ${tglAktaRupst}.` }] },
+    { type: "p", runs: [{ text: `Pada hari ini, ${tglAktaHari}, tanggal ${tglAktaHuruf} (${tglAktaAngka}).` }] },
     { type: "p", runs: [{ text: `Pukul ${jamStr} WIB (${jamHuruf}).` }] },
     {
       type: "p",
@@ -917,9 +934,7 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
   blocks.push(
     {
       type: "p",
-      runs: [
-        { text: `Rapat ditutup pada pukul ${meetingEndHourNum} WIB (${meetingEndHourWords}) oleh Ketua Rapat, Setelah semua agenda rapat dibahas dan menghasilkan Keputusan sebagaimana telah diputuskan peserta rapat yang hadir.` }
-      ]
+      runs: [{ text: `Rapat ditutup pada pukul ${meetingEndHourNum} WIB (${meetingEndHourWords}) oleh Ketua Rapat, Setelah semua agenda rapat dibahas dan menghasilkan Keputusan sebagaimana telah diputuskan peserta rapat yang hadir.` }]
     },
     {
       type: "p",
@@ -934,9 +949,10 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
 
   // Witness 1
   const s1Nama = data.saksi1Nama || "Nendi Suhendi";
-  const s1Detail = data.saksi1Nama && data.saksi1Lahir && data.saksi1Alamat && data.saksi1NIK
+  const s1DetailRaw = data.saksi1Nama && data.saksi1Lahir && data.saksi1Alamat && data.saksi1NIK
     ? `, lahir di ${toTitleCase(data.saksi1Lahir)}, Warga Negara Indonesia, bertempat tinggal di ${formatAddress(toTitleCase(data.saksi1Alamat))}, pemegang Kartu Tanda Penduduk Nomor ${data.saksi1NIK}`
     : ", lahir di Bandung, Pada Tanggal Limabelas Juli Seribu Sembilan Ratus Sembilan Puluh Satu (15-07-1991), Warga Negara Indonesia, bertempat tinggal di Jalan Sukaresmi Nomor 12, RT. 005 RW. 005, Kecamatan Lembang, Desa Mekarwangi, pemegang Kartu Tanda Penduduk Nomor 3217011507910016";
+  const s1Detail = expandAbbreviations(s1DetailRaw);
 
   blocks.push({
     type: "saksi",
@@ -949,16 +965,17 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
 
   // Witness 2
   const s2Nama = data.saksi2Nama || "Siti Nur Azizah";
-  const s2Detail = data.saksi2Nama && data.saksi2Lahir && data.saksi2Alamat && data.saksi2NIK
+  const s2DetailRaw = data.saksi2Nama && data.saksi2Lahir && data.saksi2Alamat && data.saksi2NIK
     ? `, lahir di ${toTitleCase(data.saksi2Lahir)}, Warga Negara Indonesia, bertempat tinggal di ${formatAddress(toTitleCase(data.saksi2Alamat))}, pemegang Kartu Tanda Penduduk Nomor ${data.saksi2NIK}`
     : ", lahir di Bandung, Pada Tanggal Tujuh Belas Desember Seribu Sembilan Ratus Sembilan Puluh Sembilan (17-12-1999), Warga Negara Indonesia, bertempat tinggal di Kabupaten Bandung, Jalan Lembah Pakar Timur II Kampung Sekebuluh RT. 001 RW. 004, Desa Ciburial, Kecamatan Cimenyan, pemegang Kartu Tanda Penduduk Nomor 3204065712990001";
+  const s2Detail = expandAbbreviations(s2DetailRaw);
 
   blocks.push({
     type: "saksi",
     number: 2,
     runs: [
       { text: s2Nama, bold: true },
-      { text: s2Detail + ";" }
+      { text: s2Detail + "." }
     ]
   });
 
