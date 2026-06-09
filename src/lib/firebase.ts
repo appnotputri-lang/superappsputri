@@ -1,10 +1,13 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithPopup, GoogleAuthProvider, signOut } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import { initializeFirestore } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
 
 const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+export const db = initializeFirestore(app, {
+  ignoreUndefinedProperties: true,
+  experimentalForceLongPolling: true
+}, firebaseConfig.firestoreDatabaseId);
 export const auth = getAuth(app);
 
 export const loginWithGoogle = async () => {
@@ -60,4 +63,28 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
   }
   console.error('Firestore Error: ', JSON.stringify(errInfo));
   throw new Error(JSON.stringify(errInfo));
+}
+
+export function cleanUndefined(obj: any): any {
+  if (obj === undefined) return null;
+  if (obj === null) return null;
+  if (Array.isArray(obj)) {
+    return obj.map(cleanUndefined);
+  }
+  if (typeof obj === 'object') {
+    if (obj.constructor && obj.constructor !== Object) {
+      return obj;
+    }
+    const cleanObj: any = {};
+    for (const key in obj) {
+      if (Object.prototype.hasOwnProperty.call(obj, key)) {
+        const val = obj[key];
+        if (val !== undefined) {
+          cleanObj[key] = cleanUndefined(val);
+        }
+      }
+    }
+    return cleanObj;
+  }
+  return obj;
 }
