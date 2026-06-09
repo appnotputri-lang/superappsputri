@@ -745,6 +745,15 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
     });
   }
 
+  if (!data.rupstIsAudited) {
+    blocks.push({
+      type: "list",
+      bullet: "",
+      indentTabs: 1.0,
+      runs: [{ text: "Direksi dan Komisaris serta Para Pemegang Saham Perseroan menyatakan bertanggung jawab penuh atas Kebenaran Informasi dan Tanda Tangan pada seluruh Lampiran Laporan terlampir dan dilekatkan pada Keputusan Para Pemegang Saham ini." }]
+    });
+  }
+
   // Decision 2
   blocks.push({
     type: "p",

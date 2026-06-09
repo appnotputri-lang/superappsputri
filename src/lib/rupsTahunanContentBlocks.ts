@@ -325,8 +325,7 @@ export const generateRupstBlocks = (data: CompanyData): Block[] => {
     `Persetujuan Laporan Tahunan Perseroan Tahun Buku ${fiscalYear};`,
     `Pengesahan Laporan Keuangan Perseroan Tahun Buku ${fiscalYear};`,
     "Penetapan penggunaan laba bersih Perseroan;",
-    "Pemberian pelunasan dan pembebasan tanggung jawab sepenuhnya (acquit et de charge) kepada Direksi dan Komisaris;",
-    "Memberikan kuasa kepada Ketua Rapat untuk melakukan segala tindakan yang diperlukan sehubungan dengan hasil keputusan Rapat."
+    "Pemberian pelunasan dan pembebasan tanggung jawab sepenuhnya (acquit et de charge) kepada Direksi dan Komisaris;"
   ];
 
   agendas.forEach((agenda, idx) => {
@@ -418,6 +417,13 @@ export const generateRupstBlocks = (data: CompanyData): Block[] => {
         indentStyle: "keputusan",
         runs: [{ text: reason }]
       });
+    });
+
+    blocks.push({
+      type: "list",
+      bullet: "",
+      indentStyle: "keputusan",
+      runs: [{ text: "Direksi dan Komisaris serta Para Pemegang Saham Perseroan menyatakan bertanggung jawab penuh atas Kebenaran Informasi dan Tanda Tangan pada seluruh Lampiran Laporan terlampir dan dilekatkan pada Keputusan Para Pemegang Saham ini." }]
     });
 
     blocks.push({
