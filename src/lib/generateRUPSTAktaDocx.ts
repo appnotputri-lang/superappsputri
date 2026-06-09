@@ -46,20 +46,6 @@ const W = {
   saksi: 39.5,
 };
 
-const NUMBERING = {
-  introDash: "akta-intro-dash",
-  amendmentDash: "akta-amendment-dash",
-  bodyDash: "akta-body-dash",
-  agendaDash: "akta-agenda-dash",
-  attendeeNumber: "akta-attendee-number",
-  attendeeDash: "akta-attendee-dash",
-  attendeeLetter: "akta-attendee-letter",
-  decisionNumber: "akta-decision-number",
-  decisionLetter: "akta-decision-letter",
-  attachmentDash: "akta-attachment-dash",
-  saksiNumber: "akta-saksi-number",
-};
-
 type RenderPhase = "preamble" | "attendance" | "general" | "decisions" | "closing";
 
 const makeRun = (t: FormatToken): TextRun =>
@@ -118,138 +104,6 @@ const createIndentP = (
   });
 };
 
-const createNumberedP = (
-  tokens: FormatToken[],
-  options: Omit<IParagraphOptions, "children"> = {},
-): Paragraph =>
-  new Paragraph({
-    children: wrappedRuns(tokens, W.decisionNumber),
-    numbering: { reference: NUMBERING.decisionNumber, level: 0 },
-    tabStops: [TAB_KANAN],
-    alignment: AlignmentType.LEFT,
-    indent: { left: 284, hanging: 284 },
-    ...options,
-  });
-
-const createListP = (
-  block: Extract<Block, { type: "list" }>,
-  phase: RenderPhase,
-  options: Omit<IParagraphOptions, "children"> = {},
-): Paragraph => {
-  const indentTabs = block.indentTabs || 0;
-  const bullet = block.bullet || "";
-
-  if (!bullet) {
-    return createIndentP(block.runs, 284, options);
-  }
-
-  if (/^\d+\.$/.test(bullet)) {
-    return new Paragraph({
-      children: wrappedRuns(block.runs, W.attendeeNumber),
-      numbering: { reference: NUMBERING.attendeeNumber, level: 0 },
-      tabStops: [{ type: TabStopType.LEFT, position: 850 }, TAB_KANAN],
-      alignment: AlignmentType.LEFT,
-      indent: { left: 851 },
-      ...options,
-    });
-  }
-
-  if (/^[a-z]\.$/i.test(bullet)) {
-    if (indentTabs >= 1.5) {
-      return new Paragraph({
-        children: wrappedRuns(block.runs, W.attendeeLetter),
-        numbering: { reference: NUMBERING.attendeeLetter, level: 0 },
-        tabStops: [TAB_KANAN],
-        alignment: AlignmentType.LEFT,
-        indent: { left: 1560, hanging: 284 },
-        ...options,
-      });
-    }
-
-    return new Paragraph({
-      children: wrappedRuns(block.runs, W.decisionLetter),
-      numbering: { reference: NUMBERING.decisionLetter, level: 0 },
-      tabStops: [TAB_KANAN],
-      alignment: AlignmentType.LEFT,
-      indent: { left: 709 },
-      ...options,
-    });
-  }
-
-  if (bullet === "-" && phase === "preamble" && indentTabs >= 1.0) {
-    return new Paragraph({
-      children: wrappedRuns(block.runs, W.amendmentDash),
-      numbering: { reference: NUMBERING.amendmentDash, level: 0 },
-      tabStops: [TAB_KANAN],
-      alignment: AlignmentType.LEFT,
-      indent: { hanging: 294 },
-      ...options,
-    });
-  }
-
-  if (bullet === "-" && phase === "attendance" && indentTabs >= 1.0) {
-    return new Paragraph({
-      children: wrappedRuns(block.runs, W.attendeeDash),
-      numbering: { reference: NUMBERING.attendeeDash, level: 0 },
-      tabStops: [TAB_KANAN],
-      alignment: AlignmentType.LEFT,
-      indent: { left: 1276 },
-      ...options,
-    });
-  }
-
-  if (bullet === "-" && phase === "decisions" && indentTabs >= 1.0) {
-    return new Paragraph({
-      children: wrappedRuns(block.runs, W.bodyDash),
-      numbering: { reference: NUMBERING.attachmentDash, level: 0 },
-      tabStops: [TAB_KANAN],
-      alignment: AlignmentType.LEFT,
-      ...options,
-    });
-  }
-
-  if (bullet === "-" && phase === "closing" && indentTabs >= 1.0) {
-    return new Paragraph({
-      children: wrappedRuns(block.runs, W.bodyDash),
-      numbering: { reference: NUMBERING.attachmentDash, level: 0 },
-      tabStops: [TAB_KANAN],
-      alignment: AlignmentType.LEFT,
-      ...options,
-    });
-  }
-
-  if (bullet === "-" && indentTabs >= 0.85) {
-    return new Paragraph({
-      children: wrappedRuns(block.runs, W.agendaDash),
-      numbering: { reference: NUMBERING.agendaDash, level: 0 },
-      tabStops: [TAB_KANAN],
-      alignment: AlignmentType.LEFT,
-      indent: { left: 1134, hanging: 425 },
-      ...options,
-    });
-  }
-
-  if (bullet === "-" && indentTabs >= 0.5) {
-    return new Paragraph({
-      children: wrappedRuns(block.runs, W.bodyDash),
-      numbering: { reference: NUMBERING.bodyDash, level: 0 },
-      tabStops: [TAB_KANAN],
-      alignment: AlignmentType.LEFT,
-      indent: { left: 709 },
-      ...options,
-    });
-  }
-
-  return new Paragraph({
-    children: wrappedRuns(block.runs, W.introDash),
-    numbering: { reference: NUMBERING.introDash, level: 0 },
-    tabStops: [TAB_KANAN],
-    alignment: AlignmentType.LEFT,
-    indent: { left: 426 },
-    ...options,
-  });
-};
-
 const createDividerP = (text: string): Paragraph =>
   new Paragraph({
     children: [
@@ -262,18 +116,6 @@ const createDividerP = (text: string): Paragraph =>
       TAB_KANAN,
     ],
     alignment: AlignmentType.LEFT,
-  });
-
-const createSaksiP = (
-  _num: number,
-  tokens: FormatToken[],
-): Paragraph =>
-  new Paragraph({
-    children: wrappedRuns(tokens, W.saksi),
-    numbering: { reference: NUMBERING.saksiNumber, level: 0 },
-    tabStops: [TAB_KANAN],
-    alignment: AlignmentType.LEFT,
-    indent: { left: 284, hanging: 284 },
   });
 
 const createNotarisEmptyP = (): Paragraph =>
@@ -335,9 +177,15 @@ export const generateRUPSTAktaDocx = async (data: CompanyData) => {
   let phase: RenderPhase = "preamble";
 
   // Dynamic numbering instances for restarts
-  const usedRefs: string[] = ["main-list"];
-  let currentNumRef = "main-list";
-  let listCounter = 0;
+  let listCounter = 1;
+  let currentNumRef = `list-${listCounter}`;
+  const usedRefs: string[] = [currentNumRef];
+
+  const nextList = () => {
+    listCounter++;
+    currentNumRef = `list-${listCounter}`;
+    usedRefs.push(currentNumRef);
+  };
 
   const blockText = (block: Block): string => {
     if ("runs" in block) return block.runs.map((run) => run.text).join("");
@@ -348,33 +196,28 @@ export const generateRUPSTAktaDocx = async (data: CompanyData) => {
   blocks.forEach((block) => {
     const text = blockText(block);
 
-    // Section Phase Detection
+    // Section Phase Detection & Restarts
     if (block.type === "list" && /^\d+\.$/.test(block.bullet)) {
       if (phase !== "attendance") {
         phase = "attendance";
-        listCounter++;
-        currentNumRef = `list-${listCounter}`;
-        usedRefs.push(currentNumRef);
+        nextList();
       }
     }
 
     if (text.startsWith("Bahwa dari semua saham")) {
       phase = "general";
+      nextList();
     }
 
     if (text.startsWith("Sehubungan dengan apa yang diuraikan")) {
       phase = "decisions";
-      listCounter++;
-      currentNumRef = `list-${listCounter}`;
-      usedRefs.push(currentNumRef);
+      nextList();
     }
 
     if (block.type === "p" && block.number !== undefined) {
       if (phase !== "decisions") {
         phase = "decisions";
-        listCounter++;
-        currentNumRef = `list-${listCounter}`;
-        usedRefs.push(currentNumRef);
+        nextList();
       }
     }
 
@@ -405,25 +248,29 @@ export const generateRUPSTAktaDocx = async (data: CompanyData) => {
 
     if (block.type === "list") {
       let level = 1; // Default dash
-      if (block.bullet && block.bullet.match(/^\d+\.$/)) level = 0;
-      else if (block.bullet && block.bullet.match(/^[a-z]\.$/i)) level = 1;
-      else if (block.bullet === "-") level = 2;
-
-      // Special case: sub-lists of shareholders often need to restart a. b. c.
-      // The currentNumRef update in "attendance" phase handles this if 1. triggers restart.
+      const bullet = block.bullet || "";
+      if (/^\d+\.$/.test(bullet)) level = 0;
+      else if (/^[a-z]\.$/i.test(bullet)) level = 1;
+      else if (bullet === "-") level = 2;
 
       docxChildren.push(new Paragraph({
-        children: wrappedRuns(block.runs, W.attendeeNumber), // Approximated
+        children: wrappedRuns(block.runs, W.attendeeNumber),
         numbering: { reference: currentNumRef, level },
         tabStops: [TAB_KANAN],
         alignment: AlignmentType.LEFT,
-        // Indents are handled by numbering levels in buildNumberingConfig
+        // Numbering level styling in buildNumberingConfig handles indents
       }));
       return;
     }
 
     if (block.type === "saksi") {
-      docxChildren.push(createSaksiP(block.number, block.runs));
+      docxChildren.push(new Paragraph({
+        children: wrappedRuns(block.runs, W.saksi),
+        numbering: { reference: currentNumRef, level: 0 },
+        tabStops: [TAB_KANAN],
+        alignment: AlignmentType.LEFT,
+        indent: { left: 720, hanging: 360 },
+      }));
       return;
     }
 
