@@ -1,3 +1,4 @@
+```typescript
 import {
   AlignmentType,
   Document,
@@ -554,3 +555,4 @@ export const generateRUPSTAktaDocx = async (data: CompanyData) => {
   const blob = await Packer.toBlob(doc);
   saveAs(blob, `Draft Akta RUPST ${data.companyName}.docx`);
 };
+```
