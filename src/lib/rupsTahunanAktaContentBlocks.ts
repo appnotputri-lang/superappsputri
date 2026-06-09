@@ -410,74 +410,7 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
 
     const totalSubBullets = (att.management ? 1 : 0) + (att.ownShares ? 1 : 0) + att.representations.length;
 
-    if (totalSubBullets === 1) {
-      if (att.management) {
-        blocks.push({
-          type: "list",
-          bullet: "-",
-          indentTabs: 0.5,
-          runs: [
-            { text: "Hadir selaku " },
-            { text: `${toTitleCase(att.management.position)} Perseroan.` }
-          ]
-        });
-      } else if (att.ownShares) {
-        const shareRp = (att.ownShares.sharesOwned || 0) * (data.originalSharePrice || 10000000);
-        const formattedAmt = formatNumber(shareRp);
-        const terbilangAmt = terbilang(shareRp);
-        blocks.push({
-          type: "list",
-          bullet: "-",
-          indentTabs: 0.5,
-          runs: [
-            { text: "Hadir selaku pemilik dan pemegang " },
-            { text: `${formatNumber(att.ownShares.sharesOwned)} (${terbilang(att.ownShares.sharesOwned)}) lembar saham atau senilai ` },
-            { text: `Rp. ${formattedAmt},- (${terbilangAmt} rupiah).` }
-          ]
-        });
-      } else if (att.representations.length === 1) {
-        const r = att.representations[0];
-        const isDirector = r.proxyData.representationType === 'DIREKTUR_PT_LAIN';
-        const shareRp = (r.sharesOwned || 0) * (data.originalSharePrice || 10000000);
-        const formattedAmt = formatNumber(shareRp);
-        const terbilangAmt = terbilang(shareRp);
-
-        let repTextRuns: FormatToken[] = [];
-        repTextRuns.push({ text: "Hadir selaku " });
-        if (isDirector) {
-          repTextRuns.push({ text: "Direktur " });
-          repTextRuns.push({ text: r.shareholder.name.toUpperCase(), bold: true });
-          
-          if (r.shareholder.isForeign) {
-            repTextRuns.push({
-              text: `, sebuah badan hukum asing yang didirikan berdasarkan hukum negara ${r.shareholder.foreignCountry || "California"}, dengan nomor pengesahan ${r.shareholder.skNumber || r.shareholder.nik || "..."} tertanggal ${r.shareholder.skDate ? formatDateStr(r.shareholder.skDate) : "..."} yang dikeluarkan oleh ${r.shareholder.skIssuer || "Sekertaris Negara Bagian California"}`
-            });
-          } else {
-            repTextRuns.push({
-              text: `, sebuah perseroan terbatas yang didirikan berdasarkan hukum negara Republik Indonesia, berkedudukan di ${toTitleCase(r.shareholder.address.city || "...")}`
-            });
-          }
-        } else {
-          const proxyDate = r.proxyData.proxyDeedDate ? formatDateRupst(r.proxyData.proxyDeedDate) : "__________";
-          repTextRuns.push({ text: "Kuasa dari " });
-          repTextRuns.push({ text: r.shareholder.name.toUpperCase(), bold: true });
-          repTextRuns.push(...getPersonDetailRuns(r.shareholder));
-          repTextRuns.push({ text: ` berdasarkan Surat Kuasa tertanggal ${proxyDate}` });
-        }
-
-        repTextRuns.push({
-          text: `, selaku pemilik dan pemegang ${formatNumber(r.sharesOwned)} (${terbilang(r.sharesOwned)}) lembar saham atau senilai `
-        });
-        repTextRuns.push({ text: `Rp. ${formattedAmt},- (${terbilangAmt} rupiah).` });
-
-        blocks.push({
-          type: "list",
-          bullet: "-",
-          indentTabs: 0.5,
-          runs: repTextRuns
-        });
-      }
-    } else if (totalSubBullets > 1) {
+    if (totalSubBullets >= 1) {
       blocks.push({
         type: "list",
         bullet: "-",
@@ -553,7 +486,7 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
         }
 
         repTextRuns.push({
-          text: `, Selaku pemilik dan pemegang ${formatNumber(r.sharesOwned)} (${terbilang(r.sharesOwned)}) lembar saham atau senilai `
+          text: `, selaku pemilik dan pemegang ${formatNumber(r.sharesOwned)} (${terbilang(r.sharesOwned)}) lembar saham atau senilai `
         });
         repTextRuns.push({ text: `Rp. ${formattedAmt},- (${terbilangAmt} rupiah)${isLast ? "." : ";"}` });
 
