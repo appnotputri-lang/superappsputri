@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
     FileText, ArrowLeft, HeadphonesIcon, HelpCircle, 
     CheckCircle2, Navigation, LogOut, Lock, ShieldCheck, 
@@ -82,6 +82,13 @@ export const RupstPublicWizard = ({ data, updateData, isSaving, handleSave, goBa
     const [currentStep, setCurrentStep] = useState<number>(0); // 0 = welcome screen
     const [rupstInputMode, setRupstInputMode] = useState<'form' | 'assistant'>('assistant');
     const [proxyModalOpenId, setProxyModalOpenId] = useState<string | null>(null);
+    const [isReadyToDownload, setIsReadyToDownload] = useState<boolean>(false);
+
+    useEffect(() => {
+        if (rupstInputMode === 'assistant' && currentStep < 11) {
+            setIsReadyToDownload(false);
+        }
+    }, [currentStep, rupstInputMode]);
 
     const calculateProgress = () => {
         if (currentStep === 0) return 0;
@@ -901,23 +908,52 @@ export const RupstPublicWizard = ({ data, updateData, isSaving, handleSave, goBa
                                     <h3 className="font-extrabold text-[13px] text-slate-800 uppercase tracking-tight">Unduh Dokumen Mandiri</h3>
                                 </div>
                                 <div className="p-4 space-y-3.5">
-                                    <p className="text-[11.5px] text-slate-500 leading-normal">
-                                        Tanpa harus login, Anda dipersilakan mengunduh draft resmi dari Nukantini Putri, SH., M.Kn secara langsung:
-                                    </p>
-                                    
-                                    <button 
-                                        onClick={handleDownloadNotulen}
-                                        className="w-full flex items-center gap-2.5 px-4 py-2.5 bg-sky-600 hover:bg-sky-700 text-white rounded font-bold text-[12px] shadow-sm transition-all uppercase"
-                                    >
-                                        <FileCode size={16} /> Unduh Notulen RUPST (.doc)
-                                    </button>
+                                    {!isReadyToDownload ? (
+                                        <div className="text-center py-2 space-y-3">
+                                            <p className="text-[12px] text-slate-500 leading-normal">
+                                                {rupstInputMode === 'assistant' && currentStep < 11 
+                                                    ? "Selesaikan pengisiar asisten interaktif hingga Langkah 11 untuk membuka tombol unduh." 
+                                                    : "Jika semua data telah lengkap diisi, silakan klik tombol di bawah untuk bersiap mengunduh."}
+                                            </p>
+                                            {(rupstInputMode === 'form' || currentStep === 11) && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setIsReadyToDownload(true)}
+                                                    className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded font-bold text-[12px] shadow-sm transition-all uppercase flex items-center justify-center gap-2 cursor-pointer"
+                                                >
+                                                    <CheckCircle2 size={15} /> Siap Download (.docx)
+                                                </button>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <p className="text-[11.5px] text-slate-500 leading-normal">
+                                                Tanpa harus login, Anda dipersilakan mengunduh draft resmi dari Nukantini Putri, SH., M.Kn secara langsung:
+                                            </p>
+                                            
+                                            <button 
+                                                onClick={handleDownloadNotulen}
+                                                className="w-full flex items-center gap-2.5 px-4 py-2.5 bg-sky-600 hover:bg-sky-700 text-white rounded font-bold text-[12px] shadow-sm transition-all uppercase"
+                                            >
+                                                <FileCode size={16} /> Unduh Notulen RUPST (.doc)
+                                            </button>
 
-                                    <button 
-                                        onClick={handleDownloadPernyataan}
-                                        className="w-full flex items-center gap-2.5 px-4 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded font-bold text-[12px] shadow-sm transition-all uppercase"
-                                    >
-                                        <FileCheck size={16} /> Unduh Surat Pernyataan (.doc)
-                                    </button>
+                                            <button 
+                                                onClick={handleDownloadPernyataan}
+                                                className="w-full flex items-center gap-2.5 px-4 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded font-bold text-[12px] shadow-sm transition-all uppercase"
+                                            >
+                                                <FileCheck size={16} /> Unduh Surat Pernyataan (.doc)
+                                            </button>
+
+                                            <button
+                                                type="button"
+                                                onClick={() => setIsReadyToDownload(false)}
+                                                className="w-full py-2 border border-slate-200 text-slate-500 hover:bg-slate-50 rounded font-semibold text-[11px] transition-all uppercase text-center mt-1 cursor-pointer block"
+                                            >
+                                                Ubah Data / Kembali
+                                            </button>
+                                        </>
+                                    )}
 
                                     <div className="p-3 bg-blue-50 rounded text-[11px] text-blue-800 leading-normal border border-blue-100/50">
                                         💡 <b>Saran:</b> Pastikan semua isian PT dan Kuorum pemegang saham terisi dengan lengkap sebelum mengunduh.

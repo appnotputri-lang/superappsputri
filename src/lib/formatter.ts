@@ -288,8 +288,8 @@ export function formatPersonDetails(
           const amdNotary = lastAmd.notary || "...";
           const amdNotaryTitle = lastAmd.notaryTitle ? `, ${lastAmd.notaryTitle}` : "";
           const amdNotaryDomicile = lastAmd.notaryDomicile ? toTitleCase(lastAmd.notaryDomicile) : "...";
-          const amdSkNumber = lastAmd.skNumber || (lastAmd.skSpDocuments && lastAmd.skSpDocuments[0]?.skNumber) || person.skNumber || "...";
-          const amdSkDateStr = lastAmd.skDate ? formatDateStr(lastAmd.skDate) : (lastAmd.skSpDocuments && lastAmd.skSpDocuments[0]?.skDate ? formatDateStr(lastAmd.skSpDocuments[0].skDate) : (person.skDate ? formatDateStr(person.skDate) : "..."));
+          const amdSkNumber = lastAmd.skNumber || (lastAmd.skSpDocuments && (lastAmd.skSpDocuments[0]?.number || lastAmd.skSpDocuments[0]?.skNumber)) || person.skNumber || "...";
+          const amdSkDateStr = lastAmd.skDate ? formatDateStr(lastAmd.skDate) : (lastAmd.skSpDocuments && (lastAmd.skSpDocuments[0]?.date || lastAmd.skSpDocuments[0]?.skDate) ? formatDateStr(lastAmd.skSpDocuments[0].date || lastAmd.skSpDocuments[0].skDate) : (person.skDate ? formatDateStr(person.skDate) : "..."));
           
           baseString += `, dan anggaran dasarnya telah mengalami beberapa kali perubahan, terakhir dengan Akta Nomor ${lastAmd.number} tertanggal ${amdDateStr}, dibuat dihadapan ${amdNotary}${amdNotaryTitle}, Notaris di ${amdNotaryDomicile}, yang pemberitahuannya telah diterima dan dicatat dalam Sistem Administrasi Badan Hukum Kementerian Hukum dan Hak Asasi Manusia Republik Indonesia berdasarkan Surat Keputusan/Penerimaan Surat Pemberitahuan Nomor ${amdSkNumber} tertanggal ${amdSkDateStr}`;
         }

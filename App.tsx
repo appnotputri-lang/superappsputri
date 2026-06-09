@@ -1278,7 +1278,7 @@ const App: React.FC = () => {
     );
   }
 
-  const showPublicWizard = false;
+  const showPublicWizard = isPublicRoute && !user && activeSidebarTab === 'rupst_public';
 
   return (
     <div className="h-screen flex flex-col bg-[#ecf0f5] font-sans text-slate-900 overflow-hidden relative">

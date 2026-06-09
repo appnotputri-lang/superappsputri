@@ -1,6 +1,6 @@
 import React from 'react';
 import { Shareholder, CompanyProfile } from '../types';
-import { User, Banknote, Globe, ShieldCheck, MapPin, Coins, History, Zap, Info, Briefcase, UserPlus, ArrowRightLeft, Users } from 'lucide-react';
+import { User, Banknote, Globe, ShieldCheck, MapPin, Coins, History, Zap, Info, Briefcase, UserPlus, ArrowRightLeft, Users, Plus, Trash2 } from 'lucide-react';
 import { formatCurrency, numberToWords, formatInputNumber, parseFormattedNumber } from '../utils/formatters';
 import { IndoRegionSelector } from './AddressFields';
 
@@ -423,21 +423,203 @@ const ShareholderForm: React.FC<Props> = ({
                   </div>
                 </div>
 
-                {shareholder.amendmentDeeds && shareholder.amendmentDeeds.length > 0 && (
-                  <div className="mt-4 p-3 bg-slate-50 border border-slate-200 rounded text-[11px] text-slate-700">
-                    <div className="font-bold flex items-center gap-1 mb-1 text-slate-800">
-                      <History className="w-3.5 h-3.5 text-blue-500" /> Histori Perubahan Anggaran Dasar ({shareholder.amendmentDeeds.length} Akta):
-                    </div>
-                    <ul className="list-decimal pl-4 space-y-1.5 mt-1 font-medium text-slate-600">
-                      {shareholder.amendmentDeeds.map((amd, i) => (
-                        <li key={amd.id || i}>
-                          Akta Perubahan No. <span className="font-semibold text-slate-800">{amd.number}</span> tanggal <span className="font-semibold text-slate-800">{amd.date ? new Date(amd.date).toLocaleDateString('id-ID') : '...'}</span> oleh Notaris {amd.notary} di {amd.notaryDomicile} 
-                          {amd.skNumber && <span> (SK Menkumham Nomor: <span className="text-slate-800 font-semibold">{amd.skNumber}</span>{amd.skDate ? ` tertanggal ${new Date(amd.skDate).toLocaleDateString('id-ID')}` : ''})</span>}
-                        </li>
-                      ))}
-                    </ul>
+                {/* Histori Perubahan Anggaran Dasar Editor */}
+                <div className="mt-6 border-t border-slate-200 pt-4">
+                  <h5 className="text-[11px] font-extrabold text-slate-700 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                    <History className="w-4 h-4 text-slate-500" /> Histori Perubahan Anggaran Dasar Badan Hukum Pemegang Saham:
+                  </h5>
+                  
+                  <div className="space-y-4">
+                    {(shareholder.amendmentDeeds || []).map((deed, index) => (
+                      <div key={deed.id || index} className="p-3.5 bg-slate-50 border border-slate-200 rounded relative space-y-3">
+                        <div className="flex justify-between items-center border-b border-slate-200 pb-2 mb-2">
+                          <span className="text-[11px] font-bold text-slate-700">AKTA PERUBAHAN #{index + 1}</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const newList = (shareholder.amendmentDeeds || []).filter((_, idx) => idx !== index);
+                              onChange({ amendmentDeeds: newList });
+                            }}
+                            className="text-red-500 hover:text-red-700 p-1 transition-colors"
+                            title="Hapus Akta Perubahan"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-[10px] font-bold text-slate-600 mb-1">Nomor Akta</label>
+                            <input 
+                              type="text"
+                              value={deed.number || ''} 
+                              onChange={e => {
+                                const newList = [...(shareholder.amendmentDeeds || [])];
+                                newList[index] = { ...deed, number: e.target.value };
+                                onChange({ amendmentDeeds: newList });
+                              }} 
+                              className="w-full px-2 py-1.5 border border-slate-300 rounded text-xs outline-none focus:border-teal-500 bg-white"
+                              placeholder="Contoh: 05" 
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-bold text-slate-600 mb-1">Tanggal Akta</label>
+                            <input 
+                              type="date" 
+                              value={deed.date || ''} 
+                              onChange={e => {
+                                const newList = [...(shareholder.amendmentDeeds || [])];
+                                newList[index] = { ...deed, date: e.target.value };
+                                onChange({ amendmentDeeds: newList });
+                              }} 
+                              className="w-full px-2 py-1.5 border border-slate-300 rounded text-xs outline-none focus:border-teal-500 bg-white"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-bold text-slate-600 mb-1">Nama Notaris Perubahan</label>
+                            <input 
+                              type="text" 
+                              value={deed.notary || ''} 
+                              onChange={e => {
+                                const newList = [...(shareholder.amendmentDeeds || [])];
+                                newList[index] = { ...deed, notary: e.target.value };
+                                onChange({ amendmentDeeds: newList });
+                              }} 
+                              className="w-full px-2 py-1.5 border border-slate-300 rounded text-xs outline-none focus:border-teal-500 bg-white"
+                              placeholder="Nama Notaris"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-bold text-slate-600 mb-1">Kedudukan Notaris Perubahan</label>
+                            <input 
+                              type="text" 
+                              value={deed.notaryDomicile || ''} 
+                              onChange={e => {
+                                const newList = [...(shareholder.amendmentDeeds || [])];
+                                newList[index] = { ...deed, notaryDomicile: e.target.value };
+                                onChange({ amendmentDeeds: newList });
+                              }} 
+                              className="w-full px-2 py-1.5 border border-slate-300 rounded text-xs outline-none focus:border-teal-500 bg-white"
+                              placeholder="Contoh: Jakarta Selatan"
+                            />
+                          </div>
+                        </div>
+
+                        {/* SK/SP child documents list */}
+                        <div className="bg-white p-3 border border-slate-200 rounded space-y-2 mt-2">
+                          <div className="flex justify-between items-center mb-1">
+                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">SK / SP Penerimaan Perubahan</span>
+                          </div>
+
+                          <div className="space-y-2">
+                            {(deed.skSpDocuments || []).map((doc, docIdx) => (
+                              <div key={doc.id || docIdx} className="grid grid-cols-1 md:grid-cols-10 gap-2 items-end border-b border-slate-100 pb-2 last:border-0 last:pb-0 font-medium font-sans">
+                                <div className="md:col-span-3">
+                                  <label className="block text-[9px] font-bold text-slate-500 mb-0.5">Tipe</label>
+                                  <select 
+                                    value={doc.type} 
+                                    onChange={e => {
+                                      const newList = [...(shareholder.amendmentDeeds || [])];
+                                      const newDocs = [...(deed.skSpDocuments || [])];
+                                      newDocs[docIdx] = { ...doc, type: e.target.value as any };
+                                      newList[index] = { ...deed, skSpDocuments: newDocs };
+                                      onChange({ amendmentDeeds: newList });
+                                    }}
+                                    className="w-full px-1.5 py-1 border border-slate-300 rounded text-[11px] outline-none focus:border-teal-500 bg-white"
+                                  >
+                                    <option value="SK">SK (Keputusan)</option>
+                                    <option value="SP_DATA_PERSEROAN">SP (Perubahan Data Perseroan)</option>
+                                    <option value="SP_ANGGARAN_DASAR">SP (Perubahan Anggaran Dasar)</option>
+                                    <option value="SP">SP (Lainnya)</option>
+                                  </select>
+                                </div>
+                                <div className="md:col-span-4">
+                                  <label className="block text-[9px] font-bold text-slate-500 mb-0.5">Nomor</label>
+                                  <input 
+                                    type="text"
+                                    value={doc.number || ''} 
+                                    onChange={e => {
+                                      const newList = [...(shareholder.amendmentDeeds || [])];
+                                      const newDocs = [...(deed.skSpDocuments || [])];
+                                      newDocs[docIdx] = { ...doc, number: e.target.value };
+                                      newList[index] = { ...deed, skSpDocuments: newDocs };
+                                      onChange({ amendmentDeeds: newList });
+                                    }}
+                                    className="w-full px-1.5 py-0.5 border border-slate-300 rounded text-[11px] outline-none focus:border-teal-500 bg-white font-semibold text-slate-800"
+                                    placeholder="Nomor Dokumen"
+                                  />
+                                </div>
+                                <div className="md:col-span-2">
+                                  <label className="block text-[9px] font-bold text-slate-500 mb-0.5">Tanggal</label>
+                                  <input 
+                                    type="date"
+                                    value={doc.date || ''} 
+                                    onChange={e => {
+                                      const newList = [...(shareholder.amendmentDeeds || [])];
+                                      const newDocs = [...(deed.skSpDocuments || [])];
+                                      newDocs[docIdx] = { ...doc, date: e.target.value };
+                                      newList[index] = { ...deed, skSpDocuments: newDocs };
+                                      onChange({ amendmentDeeds: newList });
+                                    }}
+                                    className="w-full px-1.5 py-0.5 border border-slate-300 rounded text-[11px] outline-none focus:border-teal-500 bg-white"
+                                  />
+                                </div>
+                                <div className="md:col-span-1 flex justify-center pb-1">
+                                  <button 
+                                    type="button"
+                                    onClick={() => {
+                                      const newList = [...(shareholder.amendmentDeeds || [])];
+                                      const newDocs = (deed.skSpDocuments || []).filter((_, dIdx) => dIdx !== docIdx);
+                                      newList[index] = { ...deed, skSpDocuments: newDocs };
+                                      onChange({ amendmentDeeds: newList });
+                                    }}
+                                    className="text-red-400 hover:text-red-600 p-1 transition-colors"
+                                    title="Hapus SK/SP"
+                                  >
+                                    <Trash2 size={12} />
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+
+                            {(!deed.skSpDocuments || deed.skSpDocuments.length === 0) && (
+                              <div className="text-[10px] text-slate-400 italic py-1">Belum ada SK atau SP yang ditambahkan.</div>
+                            )}
+
+                            <button 
+                              type="button"
+                              onClick={() => {
+                                const newList = [...(shareholder.amendmentDeeds || [])];
+                                const newDoc = { id: crypto.randomUUID(), type: 'SK' as const, number: '', date: '' };
+                                newList[index] = { ...deed, skSpDocuments: [...(deed.skSpDocuments || []), newDoc] };
+                                onChange({ amendmentDeeds: newList });
+                              }}
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-bold rounded-sm mt-1 transition-colors uppercase"
+                            >
+                              <Plus size={10} /> TAMBAH SK / SP
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+
+                    {(!shareholder.amendmentDeeds || shareholder.amendmentDeeds.length === 0) && (
+                      <p className="text-xs text-slate-400 italic">Belum ada detail Akta Perubahan untuk Badan Hukum ini.</p>
+                    )}
+
+                    <button 
+                      type="button"
+                      onClick={() => {
+                        const newDeed = { id: crypto.randomUUID(), number: '', date: '', notary: '', skNumber: '', skDate: '', skSpDocuments: [] };
+                        onChange({ amendmentDeeds: [...(shareholder.amendmentDeeds || []), newDeed] });
+                      }}
+                      className="w-full flex items-center justify-center gap-1.5 py-2 border border-dashed border-slate-300 rounded text-slate-500 hover:border-[#3b5998] hover:text-[#3b5998] hover:bg-slate-10/50 transition-all text-xs font-bold uppercase mt-1"
+                    >
+                      <Plus size={14} /> Tambah Akta Perubahan Badan Hukum S.H.
+                    </button>
                   </div>
-                )}
+                </div>
+                {/* End Histori Perubahan Editor */}
               </div>
             </>
           )
