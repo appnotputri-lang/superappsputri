@@ -24,7 +24,9 @@ import { RupstInteractiveAssistant } from './src/components/RupstInteractiveAssi
 import { RupstPublicWizard } from './src/components/RupstPublicWizard';
 import KBLIMapping from './src/components/KBLIMapping';
 import KBLISuggestions from './src/components/KBLISuggestions';
-import { Sparkles, Bot, Lightbulb } from 'lucide-react';
+import kbli2025Data from './kbli_2025.json';
+import { KBLI_2025_CATEGORIES } from './src/lib/kbliConstants';
+import { Sparkles, Bot, Lightbulb, Lock } from 'lucide-react';
 import { generatePendirianDocx } from './src/lib/generatePendirianDocx';
 import GuideMenu from './src/components/GuideMenu';
 import ProxyInputModal from './components/ProxyInputModal';
@@ -497,9 +499,135 @@ const App: React.FC = () => {
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [showPreview, setShowPreview] = useState(true);
   const [newKbliId, setNewKbliId] = useState<string | null>(null);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
-    return window.location.pathname !== '/rupst';
-  });
+
+  // States for "Saran KBLI"-style modal search inside RUPS LB
+  const [isAddKbliModalOpen, setIsAddKbliModalOpen] = useState(false);
+  const [kbliModalSearchTerm, setKbliModalSearchTerm] = useState('');
+  const [kbliModalSearchResults, setKbliModalSearchResults] = useState<any[]>([]);
+  const [kbliCurrentPage, setKbliCurrentPage] = useState(1);
+  const [kbliCheckedKblis, setKbliCheckedKblis] = useState<string[]>([]);
+
+  // Initialize KBLI 2025 search results
+  useEffect(() => {
+    if (kbli2025Data?.data) {
+      const sorted = [...kbli2025Data.data].sort((a: any, b: any) => a.kode.localeCompare(b.kode));
+      setKbliModalSearchResults(sorted);
+    }
+  }, []);
+
+  const performKbliModalSearch = () => {
+    setKbliCurrentPage(1);
+    if (!kbliModalSearchTerm.trim()) {
+      if (kbli2025Data?.data) {
+        const sorted = [...kbli2025Data.data].sort((a: any, b: any) => a.kode.localeCompare(b.kode));
+        setKbliModalSearchResults(sorted);
+      }
+      return;
+    }
+
+    const searchStr = kbliModalSearchTerm.toLowerCase().trim();
+    const keywords = searchStr.split(/\s+/).filter(k => k.length > 0);
+
+    const filtered = (kbli2025Data.data as any[]).filter(item => {
+      const kodeMatch = item.kode.includes(searchStr);
+      const judul = (item.judul || '').toLowerCase();
+      const uraian = (item.uraian || '').toLowerCase();
+
+      if (/^\d+$/.test(searchStr)) {
+        return item.kode.startsWith(searchStr);
+      }
+
+      return kodeMatch || keywords.every(kw => judul.includes(kw) || uraian.includes(kw));
+    });
+
+    const sortedFiltered = [...filtered].sort((a: any, b: any) => a.kode.localeCompare(b.kode));
+    setKbliModalSearchResults(sortedFiltered);
+  };
+
+  const handleKbliModalKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      performKbliModalSearch();
+    }
+  };
+
+  const kbliItemsPerPage = 10;
+  const kbliTotalPages = Math.ceil(kbliModalSearchResults.length / kbliItemsPerPage);
+  
+  const kbliPaginatedResults = useMemo(() => {
+    return kbliModalSearchResults.slice(
+      (kbliCurrentPage - 1) * kbliItemsPerPage,
+      kbliCurrentPage * kbliItemsPerPage
+    );
+  }, [kbliCurrentPage, kbliModalSearchResults]);
+
+  const handleToggleKbliChecked = (kode: string) => {
+    setKbliCheckedKblis((prev) =>
+      prev.includes(kode) ? prev.filter((k) => k !== kode) : [...prev, kode]
+    );
+  };
+
+  const handleToggleAllKbliOnPage = () => {
+    const pageKodes = kbliPaginatedResults.map(r => r.kode);
+    const allChecked = pageKodes.every(k => kbliCheckedKblis.includes(k));
+    if (allChecked) {
+      setKbliCheckedKblis(prev => prev.filter(k => !pageKodes.includes(k)));
+    } else {
+      setKbliCheckedKblis(prev => {
+        const next = [...prev];
+        pageKodes.forEach(k => {
+          if (!next.includes(k)) next.push(k);
+        });
+        return next;
+      });
+    }
+  };
+
+  const getKbliPageNumbers = () => {
+    const pages: number[] = [];
+    const maxVisible = 10;
+    let start = Math.max(1, kbliCurrentPage - Math.floor(maxVisible / 2));
+    let end = start + maxVisible - 1;
+    if (end > kbliTotalPages) {
+      end = kbliTotalPages;
+      start = Math.max(1, end - maxVisible + 1);
+    }
+    for (let i = start; i <= end; i++) {
+      pages.push(i);
+    }
+    return pages;
+  };
+
+  const handleAddKbliBatch = () => {
+    const itemsToAdd = (kbli2025Data.data as any[]).filter(item =>
+      kbliCheckedKblis.includes(item.kode) && !data.kbliItems.some(i => i.code === item.kode)
+    );
+
+    if (itemsToAdd.length === 0) {
+      setIsAddKbliModalOpen(false);
+      return;
+    }
+
+    const newKbliItems: KbliItem[] = itemsToAdd.map(item => {
+      // Find category info
+      const existingKbli = KBLI_DATA.find((k: any) => k.code === item.kode);
+      const categoryLetter = existingKbli?.categoryLetter || '';
+      const categoryName = existingKbli?.categoryName || KBLI_2025_CATEGORIES[categoryLetter] || '';
+
+      return {
+        id: crypto.randomUUID(),
+        code: item.kode,
+        name: item.judul,
+        description: item.uraian,
+        categoryLetter,
+        categoryName
+      };
+    });
+
+    updateData({ kbliItems: [...newKbliItems, ...data.kbliItems] });
+    setKbliCheckedKblis([]);
+    setIsAddKbliModalOpen(false);
+  };
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [activeSidebarTab, setActiveSidebarTab] = useState<SidebarTabId>(() => {
     if (window.location.pathname === '/rupst') return 'rupst_public';
@@ -1150,7 +1278,7 @@ const App: React.FC = () => {
     );
   }
 
-  const showPublicWizard = isPublicRoute && !user && activeSidebarTab === 'rupst_public';
+  const showPublicWizard = false;
 
   return (
     <div className="h-screen flex flex-col bg-[#ecf0f5] font-sans text-slate-900 overflow-hidden relative">
@@ -1174,11 +1302,9 @@ const App: React.FC = () => {
                 </button>
               </div>
             ) : (
-              !isPublicRoute && (
-                <button onClick={() => loginWithGoogle()} className="bg-[#40bdae] hover:bg-[#349c8f] px-3 py-1.5 rounded-sm text-[12px] font-bold transition-colors flex items-center gap-1.5 shadow-sm">
-                   LOGIN
-                </button>
-              )
+              <button onClick={() => loginWithGoogle()} className="bg-[#40bdae] hover:bg-[#349c8f] px-3 py-1.5 rounded-sm text-[12px] font-bold transition-colors flex items-center gap-1.5 shadow-sm">
+                 LOGIN
+              </button>
             )}
           </div>
         </header>
@@ -1186,7 +1312,7 @@ const App: React.FC = () => {
 
       <div className="flex-1 flex overflow-hidden">
         {/* Sidebar AHU Style */}
-        {!showPublicWizard && user && (
+        {user && (
           <aside className={`bg-[#2c3b41] text-slate-400 flex flex-col shrink-0 overflow-y-auto lg:flex transition-all duration-300 ease-in-out ${isSidebarOpen ? 'w-64' : 'w-0 overflow-hidden'}`}>
             <div className="py-4 space-y-0 text-[13px] w-64">
               {[
@@ -1202,11 +1328,26 @@ const App: React.FC = () => {
                 { label: 'Surat Perbaikan Data', id: 'perbaikan' as const, icon: Mail },
                 { label: 'Panduan Penggunaan', id: 'panduan' as const, icon: BookOpen },
               ].map((item) => (
-                <button key={item.id} onClick={() => setActiveSidebarTab(item.id)} className={`w-full text-left px-4 py-2.5 border-l-4 transition-all flex justify-between items-center ${activeSidebarTab === item.id ? 'bg-[#1e282c] text-white border-blue-500' : 'border-transparent hover:bg-black/10 hover:text-white'}`}>
+                <button 
+                  key={item.id} 
+                  onClick={() => {
+                    if (!user && item.id !== 'rupst_public') {
+                      if (confirm(`Anda harus login terlebih dahulu untuk mengakses menu "${item.label}". Apakah Anda ingin login sekarang?`)) {
+                        loginWithGoogle();
+                      }
+                      return;
+                    }
+                    setActiveSidebarTab(item.id);
+                  }} 
+                  className={`w-full text-left px-4 py-2.5 border-l-4 transition-all flex justify-between items-center ${activeSidebarTab === item.id ? 'bg-[#1e282c] text-white border-blue-500' : 'border-transparent hover:bg-black/10 hover:text-white'}`}
+                >
                   <span className="flex items-center gap-3">
                     <item.icon size={18} />
                     {item.label}
                   </span>
+                  {!user && item.id !== 'rupst_public' && (
+                    <Lock size={14} className="text-slate-500/60 shrink-0" />
+                  )}
                 </button>
               ))}
 
@@ -1256,7 +1397,7 @@ const App: React.FC = () => {
             }}
           />
         ) : (
-          <main className={`flex-1 overflow-y-auto bg-[#ecf0f5] ${!user && isPublicRoute ? 'p-2 md:p-6' : 'p-4 md:p-6'} pb-20 scroll-smooth shadow-inner`}>
+          <main className="flex-1 overflow-y-auto bg-[#ecf0f5] p-4 md:p-6 pb-20 scroll-smooth shadow-inner">
           
           {activeSidebarTab === 'beranda' ? (
             <div className="max-w-6xl mx-auto space-y-6 animate-fade-in">
@@ -3319,86 +3460,73 @@ const App: React.FC = () => {
             {/* MAKSUD DAN TUJUAN */}
             {data.resolutions.kbli && (
               <AhuSection title="Maksud dan Tujuan">
-                <div className="space-y-6">
-                  <div className="bg-indigo-50 p-4 rounded-xl border border-indigo-100 flex flex-col sm:flex-row sm:items-end gap-3">
-                    <div className="flex-1 w-full">
-                      <SearchableSelect
-                        label="Pilih dari Katalog"
-                        value={newKbliId ? `${KBLI_DATA.find(k => k.id === newKbliId)?.code} - ${KBLI_DATA.find(k => k.id === newKbliId)?.name}` : ''}
-                        options={KBLI_DATA.map(k => ({ id: k.id, name: `${k.code} - ${k.name}` }))}
-                        onChange={(opt) => setNewKbliId(opt ? opt.id : null)}
-                        placeholder="Cari KBLI..."
-                      />
-                    </div>
+                <div className="space-y-4">
+                  {/* Tambah KBLI Button */}
+                  <div className="mb-2">
                     <button
-                      onClick={() => {
-                        if (newKbliId) {
-                          const selected = KBLI_DATA.find(k => k.id === newKbliId);
-                          if (selected) {
-                            if (data.kbliItems.some(i => i.code === selected.code)) {
-                              alert(`KBLI ${selected.code} sudah ada di daftar.`);
-                              return;
-                            }
-                            const newItem: KbliItem = {
-                              id: crypto.randomUUID(),
-                              code: selected.code,
-                              name: selected.name,
-                              description: selected.description,
-                              categoryLetter: selected.categoryLetter,
-                              categoryName: selected.categoryName
-                            };
-                            updateData({ kbliItems: [newItem, ...data.kbliItems] });
-                            setNewKbliId(null);
-                          }
-                        }
-                      }}
-                      disabled={!newKbliId}
-                      className="w-full sm:w-auto px-6 py-3 bg-indigo-600 text-white rounded-xl text-xs font-bold hover:bg-slate-900 transition-all disabled:opacity-50"
+                      type="button"
+                      onClick={() => setIsAddKbliModalOpen(true)}
+                      className="px-4 py-2 bg-[#0c2444] hover:bg-[#16365f] text-white text-[13px] font-bold rounded-sm transition-all focus:outline-none flex items-center gap-1.5"
                     >
-                      + Tambah KBLI
+                      <Plus className="w-4 h-4" />
+                      Tambah Data
                     </button>
                   </div>
 
-                  <div className="border border-slate-200 overflow-x-auto rounded-sm">
-                    <table className="w-full text-left text-[11px]">
-                      <thead className="bg-[#f9f9f9] border-b border-slate-200 uppercase">
-                        <tr>
-                          <th className="p-2 border-r border-slate-200 w-10 text-center">No</th>
-                          <th className="p-2 border-r border-slate-200 w-20">Kode KBLI</th>
-                          <th className="p-2 border-r border-slate-200 w-40">Judul KBLI</th>
-                          <th className="p-2 border-r border-slate-200">Uraian KBLI</th>
-                          <th className="p-2 w-10 text-center">Aksi</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {data.kbliItems.map((item, idx) => (
-                          <tr key={item.id} className="border-b border-slate-200 last:border-0 hover:bg-slate-50 transition-colors">
-                            <td className="p-2 border-r border-slate-200 text-center">{idx + 1}</td>
-                            <td className="p-2 border-r border-slate-200">{item.code}</td>
-                            <td className="p-2 border-r border-slate-200">{item.name}</td>
-                            <td className="p-2 border-r border-slate-200 text-slate-600 leading-relaxed">
-                              <textarea
-                                value={item.description || ''}
-                                onChange={(e) => {
-                                  updateData({
-                                    kbliItems: data.kbliItems.map(k =>
-                                      k.id === item.id ? { ...k, description: e.target.value } : k
-                                    )
-                                  });
-                                }}
-                                className="w-full text-xs p-1 border border-slate-200 rounded focus:border-[#3b5998] outline-none resize-y min-h-[60px]"
-                                placeholder="Edit uraian kegiatan jika diperlukan..."
-                              />
-                            </td>
-                            <td className="p-2 text-center text-[10px]">
-                              <button onClick={() => updateData({ kbliItems: data.kbliItems.filter(k => k.id !== item.id) })} className="text-slate-400 hover:text-red-500">
-                                <Trash2 className="w-4 h-4 mx-auto" />
-                              </button>
-                            </td>
+                  {/* Selected KBLIs List Table */}
+                  <div className="w-full bg-white border border-slate-200 rounded-sm overflow-hidden shadow-sm">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse text-[13px]">
+                        <thead>
+                          <tr className="bg-[#fcfcfc] border-b border-slate-200">
+                            <th className="px-4 py-2.5 font-bold text-slate-700 text-center w-12 border-r border-slate-200">No</th>
+                            <th className="px-4 py-2.5 font-bold text-slate-700 text-center w-24 border-r border-slate-200">Kode KBLI</th>
+                            <th className="px-4 py-2.5 font-bold text-slate-700 text-left w-64 border-r border-slate-200">Judul KBLI</th>
+                            <th className="px-4 py-2.5 font-bold text-slate-700 text-left border-r border-slate-200">Uraian KBLI</th>
+                            <th className="px-4 py-2.5 font-bold text-slate-700 text-center w-20">Aksi</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                        </thead>
+                        <tbody className="divide-y divide-slate-200">
+                          {data.kbliItems.map((item, idx) => (
+                            <tr key={item.id} className="hover:bg-slate-50/40">
+                              <td className="px-4 py-3 text-center border-r border-slate-200 text-slate-600 align-top">{idx + 1}</td>
+                              <td className="px-4 py-3 text-center border-r border-slate-200 font-mono text-slate-800 font-semibold align-top">{item.code}</td>
+                              <td className="px-4 py-3 border-r border-slate-200 font-bold text-slate-800 align-top">{item.name}</td>
+                              <td className="px-4 py-3 border-r border-slate-200 text-slate-600 leading-relaxed align-top">
+                                <textarea
+                                  value={item.description || ''}
+                                  onChange={(e) => {
+                                    updateData({
+                                      kbliItems: data.kbliItems.map(k =>
+                                        k.id === item.id ? { ...k, description: e.target.value } : k
+                                      )
+                                    });
+                                  }}
+                                  className="w-full text-xs p-2 border border-slate-200 rounded focus:border-[#3b5998] outline-none resize-y min-h-[90px]"
+                                  placeholder="Edit uraian kegiatan jika diperlukan..."
+                                />
+                              </td>
+                              <td className="px-4 py-3 text-center align-top whitespace-nowrap">
+                                <button 
+                                  onClick={() => updateData({ kbliItems: data.kbliItems.filter(k => k.id !== item.id) })}
+                                  className="p-1.5 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded transition-all"
+                                  title="Hapus KBLI"
+                                >
+                                  <Trash2 className="w-4 h-4 mx-auto" />
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                          {data.kbliItems.length === 0 && (
+                            <tr>
+                              <td colSpan={5} className="text-center py-10 text-slate-400 italic">
+                                Belum ada data KBLI terpilih. Silakan klik tombol "Tambah Data" di atas.
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 </div>
               </AhuSection>
@@ -5642,6 +5770,148 @@ const App: React.FC = () => {
           onClose={() => setShowPendirianPreview(false)}
           isExporting={isExportingPendirian}
         />
+      )}
+
+      {/* KBLI Modal inside RUPS LB */}
+      {isAddKbliModalOpen && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white w-full max-w-4xl rounded-sm shadow-2xl border border-slate-200 flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="bg-[#0c2444] px-5 py-3 flex justify-between items-center text-white rounded-t-sm">
+              <h3 className="text-sm font-bold tracking-wider text-white">TAMBAH DATA KBLI (RUPS LB)</h3>
+              <button 
+                onClick={() => setIsAddKbliModalOpen(false)}
+                className="text-white hover:text-slate-200 text-2xl font-semibold focus:outline-none transition-colors"
+              >
+                &times;
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 overflow-y-auto space-y-6 flex-1">
+              {/* Center Banner text */}
+              <div className="text-center space-y-1 py-1">
+                <h4 className="text-[18px] font-bold text-slate-800 uppercase tracking-widest leading-none">MAKSUD DAN TUJUAN</h4>
+                <p className="text-[14px] font-bold text-slate-500 tracking-wide leading-none pt-1">(KBLI 2025)</p>
+                <div className="border-b border-slate-300 w-full pt-3"></div>
+              </div>
+
+              {/* Search Bar */}
+              <div className="max-w-md mx-auto">
+                <div className="flex items-center border border-slate-300 rounded-md overflow-hidden shadow-sm focus-within:ring-2 focus-within:ring-[#0c2444]/30 focus-within:border-[#0c2444] transition-all bg-white">
+                  <input
+                    type="text"
+                    placeholder="Cari KBLI..."
+                    className="w-full px-3 py-2 text-[14px] font-medium text-slate-700 outline-none"
+                    value={kbliModalSearchTerm}
+                    onChange={(e) => setKbliModalSearchTerm(e.target.value)}
+                    onKeyDown={handleKbliModalKeyDown}
+                  />
+                  <button 
+                    onClick={performKbliModalSearch}
+                    className="p-2.5 bg-slate-50 hover:bg-slate-100 border-l border-slate-300 text-slate-600 transition-colors focus:outline-none flex items-center justify-center shrink-0"
+                  >
+                    <Search className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Results Table */}
+              <div className="border border-slate-200 rounded-sm overflow-hidden shadow-sm bg-white">
+                <div className="max-h-[350px] overflow-y-auto">
+                  <table className="w-full text-left border-collapse text-[12px]">
+                    <thead className="sticky top-0 bg-slate-100 border-b border-slate-200 z-10">
+                      <tr>
+                        <th className="px-4 py-2 text-center w-12 border-r border-slate-200">
+                          <input
+                            type="checkbox"
+                            className="w-4 h-4 text-[#0c2444] border-slate-300 rounded cursor-pointer"
+                            checked={kbliPaginatedResults.length > 0 && kbliPaginatedResults.every(r => kbliCheckedKblis.includes(r.kode))}
+                            onChange={handleToggleAllKbliOnPage}
+                          />
+                        </th>
+                        <th className="px-4 py-2 font-bold text-slate-700 text-center w-24 border-r border-slate-200">Kode KBLI</th>
+                        <th className="px-4 py-2 font-bold text-slate-700 text-left w-52 border-r border-slate-200">Judul KBLI</th>
+                        <th className="px-4 py-2 font-bold text-slate-700 text-left">Uraian KBLI</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {kbliPaginatedResults.map((item) => {
+                        const isChecked = kbliCheckedKblis.includes(item.kode);
+                        return (
+                          <tr 
+                            key={item.kode} 
+                            onClick={() => handleToggleKbliChecked(item.kode)}
+                            className={`hover:bg-slate-50 cursor-pointer transition-colors ${
+                              isChecked ? 'bg-indigo-50/50 hover:bg-indigo-100/50' : ''
+                            }`}
+                          >
+                            <td className="px-4 py-2 text-center border-r border-slate-200" onClick={(e) => e.stopPropagation()}>
+                              <input
+                                type="checkbox"
+                                className="w-4 h-4 text-[#0c2444] border-slate-300 rounded cursor-pointer"
+                                checked={isChecked}
+                                onChange={() => handleToggleKbliChecked(item.kode)}
+                              />
+                            </td>
+                            <td className="px-4 py-2 text-center border-r border-slate-200 font-mono font-bold text-slate-700">{item.kode}</td>
+                            <td className="px-4 py-2 border-r border-slate-200 font-bold text-slate-800">{item.judul}</td>
+                            <td className="px-4 py-2 text-slate-600 leading-relaxed text-justify">{item.uraian}</td>
+                          </tr>
+                        );
+                      })}
+                      {kbliPaginatedResults.length === 0 && (
+                        <tr>
+                          <td colSpan={4} className="text-center py-10 text-slate-400 italic">
+                            Hasil pencarian tidak ditemukan. Silakan masukkan kata kunci lain.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Pagination */}
+              {kbliTotalPages > 1 && (
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-2 pt-2 border-t border-slate-100 text-[11px] text-slate-600">
+                  <span className="font-bold">Pergi ke halaman:</span>
+                  <div className="flex flex-wrap items-center gap-1">
+                    {getKbliPageNumbers().map(pageNum => (
+                      <button
+                        key={pageNum}
+                        onClick={() => setKbliCurrentPage(pageNum)}
+                        className={`px-2.5 py-1 border rounded-sm font-bold transition-all ${
+                          kbliCurrentPage === pageNum 
+                            ? 'bg-[#0c2444] border-[#0c2444] text-white' 
+                            : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                        }`}
+                      >
+                        {pageNum}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="border-t border-slate-200 bg-slate-50 px-6 py-4 flex justify-end gap-3 rounded-b-sm">
+              <button 
+                onClick={() => setIsAddKbliModalOpen(false)}
+                className="px-4 py-2 bg-white border border-slate-350 rounded-sm text-xs font-bold text-slate-700 hover:bg-slate-50 transition-all"
+              >
+                BATAL
+              </button>
+              <button 
+                onClick={handleAddKbliBatch}
+                className="px-4 py-2 bg-[#0c2444] text-white rounded-sm text-xs font-bold hover:bg-[#16365f] transition-all"
+              >
+                TAMBAH TERPILIH ({kbliCheckedKblis.length})
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
     </div>

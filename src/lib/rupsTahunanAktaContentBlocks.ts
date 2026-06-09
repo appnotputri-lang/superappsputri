@@ -5,6 +5,7 @@ import {
   dateToWords,
   formatDateStr,
   formatDateSimple,
+  formatDateRupst,
   timeToWords,
   terbilang,
   toTitleCase,
@@ -61,8 +62,7 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
   const effectiveNotaryNumber = data.draftAktaRupsNumber || data.notaryNumber || "...";
   
   const tglAktaHari = getDayName(effectiveNotaryDate) || "Jum'at";
-  const tglAktaHuruf = dateToWords(effectiveNotaryDate) || "delapan Mei dua ribu dua puluh enam";
-  const tglAktaAngka = formatDateStr(effectiveNotaryDate) || "08-05-2026";
+  const tglAktaRupst = formatDateRupst(effectiveNotaryDate) || "08 Mei 2026";
 
   const jamStr = data.meetingStartTime ? data.meetingStartTime.replace(":", ".") : "11.00";
   const jamParts = (data.meetingStartTime || "11:00").split(":");
@@ -72,8 +72,7 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
 
   // Meeting Dates
   const tglRapatHari = getDayName(data.signingDate || "") || "Rabu";
-  const tglRapatHuruf = dateToWords(data.signingDate || "") || "enam Mei dua ribu dua puluh enam";
-  const tglRapatAngka = formatDateStr(data.signingDate || "") || "06-05-2026";
+  const tglRapatRupst = formatDateRupst(data.signingDate || "") || "06 Mei 2026";
 
   const jamRapatStr = data.meetingStartTime ? data.meetingStartTime.replace(":", ".") : "13.00";
   const jamRapatParts = (data.meetingStartTime || "13:00").split(":");
@@ -115,8 +114,8 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
     }
 
     fullyDescribedNames.add(nameUpper);
-    const tglAngka = person?.birthDate ? formatDateStr(person.birthDate) : "...";
-    const tglHuruf = person?.birthDate ? dateToWords(person.birthDate) : "...";
+    const tglAngka = person?.birthDate ? formatDateRupst(person.birthDate) : "...";
+    const tglHuruf = "";
     return [
       { text: nameUpper, bold: true },
       {
@@ -133,7 +132,7 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
     { type: "p", align: "center", runs: [{ text: `Nomor : ${effectiveNotaryNumber}` }] },
     { type: "p", runs: [] },
     { type: "p", runs: [] },
-    { type: "p", runs: [{ text: `Pada hari ini, ${tglAktaHari}, tanggal ${tglAktaAngka} (${tglAktaHuruf}).` }] },
+    { type: "p", runs: [{ text: `Pada hari ini, ${tglAktaHari}, tanggal ${tglAktaRupst}.` }] },
     { type: "p", runs: [{ text: `Pukul ${jamStr} WIB (${jamHuruf}).` }] },
     {
       type: "p",
@@ -193,8 +192,7 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
   );
 
   // Preamble - Meeting Statement & Foundation Deed
-  const establishmentDeedDateText = dateToWords(data.establishmentDeedDate || "");
-  const establishmentDeedDateNum = formatDateStr(data.establishmentDeedDate || "");
+  const establishmentDeedDateText = formatDateRupst(data.establishmentDeedDate || "");
 
   const getSkFormattedNumber = () => {
     const rawSk = data.establishmentSkNumber || "0071719.AH.01.01.Tahun 2024";
@@ -219,7 +217,7 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
 
   const hasAmendments = data.amendmentDeeds && data.amendmentDeeds.length > 0;
 
-  let foundationSentence = `Bahwa pada hari ${tglRapatHari}, tanggal ${tglRapatAngka} (${tglRapatHuruf}), bertempat di ${data.signingPlace || "Kantor Perseroan"}, pukul ${jamRapatStr} WIB (${jamRapatHuruf}) telah diadakan Rapat Umum Pemegang Saham Tahunan Perseroan Terbatas ${formatCompanyName(data.companyName)} (selanjutnya disebut sebagai “Rapat”) Perseroan berkedudukan di ${toTitleCase(data.domicile || "...")}, demikian berdasarkan Akta Pendirian tertanggal ${establishmentDeedDateText} (${establishmentDeedDateNum}), Nomor ${data.establishmentDeedNumber || "02"} dibuat dihadapan ${checkNotaryWording(data.establishmentNotary || "............................", data.establishmentNotaryTitle, data.establishmentNotaryDomicile)} dan telah mendapat pengesahan dari Menteri Hukum dan Hak Asasi Manusia Republik Indonesia berdasarkan Surat Keputusan Nomor ${getSkFormattedNumber()} tertanggal ${dateToWords(data.establishmentSkDate || "")} (${formatDateStr(data.establishmentSkDate || "")})${hasAmendments ? " dan telah mengalami beberapa kali perubahan berdasarkan akta-akta sebagai berikut : -" : ";"}`;
+  let foundationSentence = `Bahwa pada hari ${tglRapatHari}, tanggal ${tglRapatRupst}, bertempat di ${data.signingPlace || "Kantor Perseroan"}, pukul ${jamRapatStr} WIB (${jamRapatHuruf}) telah diadakan Rapat Umum Pemegang Saham Tahunan Perseroan Terbatas ${formatCompanyName(data.companyName)} (selanjutnya disebut sebagai “Rapat”) Perseroan berkedudukan di ${toTitleCase(data.domicile || "...")}, demikian berdasarkan Akta Pendirian tertanggal ${establishmentDeedDateText}, Nomor ${data.establishmentDeedNumber || "02"} dibuat dihadapan ${checkNotaryWording(data.establishmentNotary || "............................", data.establishmentNotaryTitle, data.establishmentNotaryDomicile)} dan telah mendapat pengesahan dari Menteri Hukum dan Hak Asasi Manusia Republik Indonesia berdasarkan Surat Keputusan Nomor ${getSkFormattedNumber()} tertanggal ${formatDateRupst(data.establishmentSkDate || "")}${hasAmendments ? " dan telah mengalami beberapa kali perubahan berdasarkan akta-akta sebagai berikut : -" : ";"}`;
 
   blocks.push({
     type: "list",
@@ -232,8 +230,7 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
   if (hasAmendments) {
     data.amendmentDeeds!.forEach((deed, i) => {
       const isLast = i === data.amendmentDeeds!.length - 1;
-      const tglDeedHuruf = dateToWords(deed.date);
-      const tglDeedAngka = formatDateStr(deed.date);
+      const tglDeedRupst = formatDateRupst(deed.date);
 
       let skText = "";
       if (deed.skSpDocuments && deed.skSpDocuments.length > 0) {
@@ -243,7 +240,7 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
         const skParts: string[] = [];
         sks.forEach((sk) => {
           skParts.push(
-            `telah mendapat pengesahan dari Menteri Hukum dan Hak Asasi Manusia Republik Indonesia tertanggal ${dateToWords(sk.date)} (${formatDateStr(sk.date)}), Nomor ${sk.number}`,
+            `telah mendapat pengesahan dari Menteri Hukum dan Hak Asasi Manusia Republik Indonesia tertanggal ${formatDateRupst(sk.date)}, Nomor ${sk.number}`,
           );
         });
 
@@ -260,7 +257,7 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
           const spDates = Array.from(new Set(sps.map((s) => s.date)));
           let spDateText = "";
           if (spDates.length === 1) {
-            spDateText = ` ${sps.length > 1 ? (sks.length > 0 ? "ketiganya " : "keduanya ") : ""}tertanggal ${formatDateStr(spDates[0])} (${dateToWords(spDates[0])})`;
+            spDateText = ` ${sps.length > 1 ? (sks.length > 0 ? "ketiganya " : "keduanya ") : ""}tertanggal ${formatDateRupst(spDates[0])}`;
           } else {
             spDateText = ` masing-masing tertanggal sebagaimana tercantum dalam surat tersebut`;
           }
@@ -272,7 +269,7 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
 
         skText = [...skParts, ...spParts].join(" dan ");
       } else {
-        skText = `telah mendapat pengesahan berdasarkan Surat Keputusan Nomor ${deed.skNumber} tanggal ${formatDateStr(deed.skDate)} (${dateToWords(deed.skDate)})`;
+        skText = `telah mendapat pengesahan berdasarkan Surat Keputusan Nomor ${deed.skNumber} tanggal ${formatDateRupst(deed.skDate)}`;
       }
 
       blocks.push({
@@ -281,7 +278,7 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
         indentTabs: 1.0,
         runs: [
           {
-            text: `Akta Perubahan tertanggal ${tglDeedHuruf} (${tglDeedAngka}) Nomor ${deed.number} yang dibuat di hadapan ${checkNotaryWording(deed.notary, deed.notaryTitle, deed.notaryDomicile)} yang ${skText}${isLast ? ";" : ";"}`,
+            text: `Akta Perubahan tertanggal ${tglDeedRupst} Nomor ${deed.number} yang dibuat di hadapan ${checkNotaryWording(deed.notary, deed.notaryTitle, deed.notaryDomicile)} yang ${skText}${isLast ? ";" : ";"}`,
           },
         ],
       });
@@ -293,7 +290,7 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
     bullet: "-",
     indentTabs: 0.5,
     runs: [
-      { text: `Bahwa sesuai ketentuan Pasal ${data.rupstAdArticle || "9"} ayat (${data.rupstAdParagraph || "6"}) Anggaran Dasar Perseroan, pada tanggal ${tglRapatAngka} (${tglRapatHuruf}) seluruh pemegang saham telah menandatangani risalah rapat yang dimuat dalam "Risalah rapat Pemegang Saham Tahunan" yang dibuat di bawah tangan, yang ditandatangani oleh:` }
+      { text: `Bahwa sesuai ketentuan Pasal ${data.rupstAdArticle || "9"} ayat (${data.rupstAdParagraph || "6"}) Anggaran Dasar Perseroan, pada tanggal ${tglRapatRupst} seluruh pemegang saham telah menandatangani risalah rapat yang dimuat dalam "Risalah rapat Pemegang Saham Tahunan" yang dibuat di bawah tangan, yang ditandatangani oleh:` }
     ]
   });
 
@@ -461,12 +458,11 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
             });
           }
         } else {
-          const proxyDateWords = r.proxyData.proxyDeedDate ? dateToWords(r.proxyData.proxyDeedDate) : "__________";
-          const proxyDateAngka = r.proxyData.proxyDeedDate ? formatDateStr(r.proxyData.proxyDeedDate) : "__________";
+          const proxyDate = r.proxyData.proxyDeedDate ? formatDateRupst(r.proxyData.proxyDeedDate) : "__________";
           repTextRuns.push({ text: "Kuasa dari " });
           repTextRuns.push({ text: r.shareholder.name.toUpperCase(), bold: true });
           repTextRuns.push(...getPersonDetailRuns(r.shareholder));
-          repTextRuns.push({ text: ` berdasarkan Surat Kuasa tertanggal ${proxyDateWords} (${proxyDateAngka})` });
+          repTextRuns.push({ text: ` berdasarkan Surat Kuasa tertanggal ${proxyDate}` });
         }
 
         repTextRuns.push({
@@ -549,12 +545,11 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
             });
           }
         } else {
-          const proxyDateWords = r.proxyData.proxyDeedDate ? dateToWords(r.proxyData.proxyDeedDate) : "__________";
-          const proxyDateAngka = r.proxyData.proxyDeedDate ? formatDateStr(r.proxyData.proxyDeedDate) : "__________";
+          const proxyDate = r.proxyData.proxyDeedDate ? formatDateRupst(r.proxyData.proxyDeedDate) : "__________";
           repTextRuns.push({ text: `Kuasa dari ` });
           repTextRuns.push({ text: r.shareholder.name.toUpperCase(), bold: true });
           repTextRuns.push(...getPersonDetailRuns(r.shareholder));
-          repTextRuns.push({ text: ` berdasarkan Surat Kuasa tertanggal ${proxyDateWords} (${proxyDateAngka})` });
+          repTextRuns.push({ text: ` berdasarkan Surat Kuasa tertanggal ${proxyDate}` });
         }
 
         repTextRuns.push({
@@ -763,14 +758,13 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
   const signatoryName = data.rupstFinancialReportSignatoryName || rep?.name || "RAJANDRAN SHUNMUGAM";
   const signatoryPosition = data.rupstFinancialReportSignatoryPosition || "Direktur";
 
-  const financialRepDateText = data.rupstFinancialReportDate ? dateToWords(data.rupstFinancialReportDate) : "dua puluh sembilan April dua ribu dua puluh enam";
-  const financialRepDateNum = data.rupstFinancialReportDate ? formatDateStr(data.rupstFinancialReportDate) : "28-04-2026";
+  const financialRepDate = data.rupstFinancialReportDate ? formatDateRupst(data.rupstFinancialReportDate) : "29 April 2026";
 
   blocks.push({
     type: "p",
     number: 3,
     runs: [
-      { text: `Mengesahkan Laporan Keuangan Perseroan untuk tahun buku yang berakhir pada tanggal 31 Desember ${data.rupstFiscalYear || "2025"}, sebagaimana dimuat dalam Laporan Keuangan ${formatCompanyName(data.companyName)} tertanggal ${financialRepDateText} (${financialRepDateNum}), yang ditandatangani ${signatoryPosition} Perseroan ${signatorySalutation} ` },
+      { text: `Mengesahkan Laporan Keuangan Perseroan untuk tahun buku yang berakhir pada tanggal 31 Desember ${data.rupstFiscalYear || "2025"}, sebagaimana dimuat dalam Laporan Keuangan ${formatCompanyName(data.companyName)} tertanggal ${financialRepDate}, yang ditandatangani ${signatoryPosition} Perseroan ${signatorySalutation} ` },
       { text: signatoryName.toUpperCase(), bold: true },
       { text: `${(data.rupstStatementNeraca === true || data.rupstStatementLabaRugi === true || data.rupstStatementPerubahanEkuitas === true || data.rupstStatementArusKas === true || data.rupstStatementCatatan === true || data.rupstStatementNamaAnggota === true || data.rupstStatementGaji === true) ? " yang terdiri dari:" : "."}` }
     ]

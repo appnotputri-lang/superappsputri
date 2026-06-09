@@ -1,6 +1,7 @@
 import { CompanyData } from "../../types";
 import {
   formatDateStr,
+  formatDateRupst,
   formatCompanyName,
   toTitleCase,
 } from "./formatter";
@@ -204,12 +205,12 @@ export const generateRupstPernyataanBlocks = (data: CompanyData): Block[] => {
 
   if (data.rupstIsAudited && data.rupstKapName) {
     const auditDateStr = data.rupstFinancialReportDate
-      ? formatDateStr(data.rupstFinancialReportDate)
+      ? formatDateRupst(data.rupstFinancialReportDate)
       : "31 Desember " + fiscalYear;
-    // Split date: "31 Desember 2025" — month+year part is red in DOCX
+    // Split date: "31 Desember 2022" — month+year part is red in DOCX
     const dateparts = auditDateStr.split(" ");
     const dayPart = dateparts[0]; // "31"
-    const rest = dateparts.slice(1).join(" "); // "Desember 2025"
+    const rest = dateparts.slice(1).join(" "); // "Desember 2022"
     point3Runs.push({
       text: `telah diaudit oleh Kantor Akuntan Publik ${data.rupstKapName.toUpperCase()} sebagaimana dimuat dalam laporan audit tertanggal ${dayPart} `,
     });
@@ -246,7 +247,7 @@ export const generateRupstPernyataanBlocks = (data: CompanyData): Block[] => {
 
   // 7. Signing block — city, company name, materai, then table, then solo komisaris
   const signingDateStr = data.signingDate
-    ? formatDateStr(data.signingDate).split("-").slice(1).join(" ")
+    ? formatDateRupst(data.signingDate)
     : "................................ 2026";
   const city = toTitleCase(data.domicile || "Bandung");
 

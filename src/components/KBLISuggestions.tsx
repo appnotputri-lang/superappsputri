@@ -1330,7 +1330,7 @@ const KBLISuggestions: React.FC = () => {
               {/* Center Banner text */}
               <div className="text-center space-y-1 py-1">
                 <h4 className="text-[18px] font-bold text-slate-800 uppercase tracking-widest leading-none">MAKSUD DAN TUJUAN</h4>
-                <p className="text-[14px] font-bold text-slate-500 tracking-wide leading-none pt-1">( KBLI 2020 )</p>
+                <p className="text-[14px] font-bold text-slate-500 tracking-wide leading-none pt-1">(KBLI 2025)</p>
                 <div className="border-b border-slate-350 w-full pt-3"></div>
               </div>
 

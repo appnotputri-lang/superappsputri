@@ -103,6 +103,16 @@ export function formatDateSimple(dateStr: string): string {
   return `${dd} ${BULAN[mm]} ${yyyy}`;
 }
 
+export function formatDateRupst(dateStr: string): string {
+  if (!dateStr) return "";
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return dateStr;
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mm = BULAN[d.getMonth()];
+  const yyyy = d.getFullYear();
+  return `${dd} ${mm} ${yyyy}`;
+}
+
 export function getDayName(dateStr: string): string {
   if (!dateStr) return "";
   const d = new Date(dateStr);
@@ -301,7 +311,7 @@ export function formatPersonDetails(
     const pass = person.passportNumber || "...";
     const nat = person.nationality ? toTitleCase(person.nationality) : "...";
     
-    let wnaDetails = `, lahir di ${birthCity}, pada tanggal ${tglLahirAngka} (${tglLahirHuruf}), Warga Negara ${nat}, ${occupation}, bertempat tinggal di ${addressStr}, pemegang Paspor Nomor ${pass}`;
+    let wnaDetails = `, lahir di ${birthCity}, pada tanggal ${tglLahirAngka}${tglLahirHuruf ? ` (${tglLahirHuruf})` : ""}, Warga Negara ${nat}, ${occupation}, bertempat tinggal di ${addressStr}, pemegang Paspor Nomor ${pass}`;
     
     if (person.kitasNumber && person.kitasNumber.trim() !== "") {
       wnaDetails += `, serta pemegang Kitas Nomor ${person.kitasNumber}`;
@@ -318,6 +328,6 @@ export function formatPersonDetails(
     const kec = toTitleCase(person.address?.kecamatan || "...");
     const nik = person.nik || "...";
 
-    return `, lahir di ${birthCity}, pada tanggal ${tglLahirAngka} (${tglLahirHuruf}), Warga Negara Indonesia, ${occupation}, bertempat tinggal di ${city}, ${fullAddr}, RT. ${rt} RW. ${rw}, Kelurahan ${kel}, Kecamatan ${kec}, pemegang Kartu Tanda Penduduk Nomor ${nik}`;
+    return `, lahir di ${birthCity}, pada tanggal ${tglLahirAngka}${tglLahirHuruf ? ` (${tglLahirHuruf})` : ""}, Warga Negara Indonesia, ${occupation}, bertempat tinggal di ${city}, ${fullAddr}, RT. ${rt} RW. ${rw}, Kelurahan ${kel}, Kecamatan ${kec}, pemegang Kartu Tanda Penduduk Nomor ${nik}`;
   }
 }
