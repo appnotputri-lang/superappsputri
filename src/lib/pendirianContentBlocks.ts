@@ -1,5 +1,5 @@
 import { PendirianData } from '../DraftAktaPendirian';
-import { terbilang, toTitleCase, formatNumber, formatAddress } from './formatter';
+import { terbilang, toTitleCase, formatNumber, formatAddress, formatAktaDate } from './formatter';
 import { KbliItem } from '../../types';
 
 type Block =
@@ -17,12 +17,7 @@ type Block =
 const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
 
 function formatDateIndo(dateStr: string) {
-  if (!dateStr) return '';
-  const d = new Date(dateStr);
-  const day = d.getDate();
-  const month = months[d.getMonth()];
-  const year = d.getFullYear();
-  return `${terbilang(day).toLowerCase()} ${month} dua ribu ${terbilang(year % 2000).toLowerCase()} (${String(day).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${year})`;
+  return formatAktaDate(dateStr);
 }
 
 import { formatKbliCategory } from './kbliConstants';

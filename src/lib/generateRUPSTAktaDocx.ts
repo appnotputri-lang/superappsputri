@@ -12,11 +12,10 @@ const TAB_KANAN = { type: TabStopType.RIGHT, position: 8504, leader: LeaderType.
 
 const W = {
   normal:   41.5,
-  list0:    40.0,  // dash (-) left=284: bullet di margin, teks di 284 (paling dangkal)
-  list1:    37.5,  // dash (-) left=568: bullet di 284, teks di 568
-  list2:    35.0,  // sub-list (a.,b.) left=850
-  list3:    33.0,  // deep sub-list left=851+
-  numbered: 38.0,
+  level0:   39.5, // Text starts at 567
+  level1:   37.5, // Text starts at 1134
+  level2:   35.5, // Text starts at 1701
+  level3:   33.5,
 };
 
 const createP = (
@@ -52,7 +51,7 @@ const createIndentP = (
   leftDxa: number,
   options: Omit<IParagraphOptions, "children"> = {}
 ): Paragraph => {
-  const lines = parseTextRuns(tokens, W.normal - (leftDxa / 850) * 2.2);
+  const lines = parseTextRuns(tokens, W.normal - (leftDxa / 567) * 2.0);
   const children: any[] = [];
 
   lines.forEach((lineTokens, i) => {
@@ -84,17 +83,10 @@ const createListP = (
 ): Paragraph => {
   let leftDxa: number, hangingDxa: number, maxW: number;
 
-  // Match exact docx structure:
-  // Level 0a (dash "-", indentTabs≤0.3): left=284, hanging=284 → bullet di 0 (margin), teks di 284
-  // Level 0b (dash "-", indentTabs≤0.6): left=568, hanging=284 → bullet di 284, teks di 568
-  // Level 1 (a., b., indentTabs≤1.0):   left=850, hanging=283 → bullet di 567, teks di 850
-  // Level 2+:                            left=851, hanging=284
-  if (indentTabs <= 0.3)      { leftDxa = 284;  hangingDxa = 284; maxW = W.list0; }
-  else if (indentTabs <= 0.6) { leftDxa = 568;  hangingDxa = 284; maxW = W.list1; }
-  else if (indentTabs <= 1.0) { leftDxa = 850;  hangingDxa = 283; maxW = W.list2; }
-  else if (indentTabs <= 1.5) { leftDxa = 1134; hangingDxa = 284; maxW = W.list3; }
-  else if (indentTabs <= 2.0) { leftDxa = 1418; hangingDxa = 284; maxW = W.list3; }
-  else                        { leftDxa = 1702; hangingDxa = 284; maxW = W.list3; }
+  if (indentTabs <= 0.4)      { leftDxa = 567;  hangingDxa = 567; maxW = W.level0; }
+  else if (indentTabs <= 1.0) { leftDxa = 1134; hangingDxa = 567; maxW = W.level1; }
+  else if (indentTabs <= 1.6) { leftDxa = 1701; hangingDxa = 567; maxW = W.level2; }
+  else                        { leftDxa = 2268; hangingDxa = 567; maxW = W.level3; }
 
   const lines = parseTextRuns(tokens, maxW);
   const children: any[] = [];
@@ -129,7 +121,7 @@ const createNumberedP = (
   tokens: FormatToken[],
   options: Omit<IParagraphOptions, "children"> = {}
 ): Paragraph => {
-  const lines = parseTextRuns(tokens, W.numbered);
+  const lines = parseTextRuns(tokens, W.level0);
   const children: any[] = [];
 
   lines.forEach((lineTokens, i) => {
@@ -147,9 +139,9 @@ const createNumberedP = (
 
   return new Paragraph({
     children,
-    tabStops: [{ type: TabStopType.LEFT, position: 720 }, TAB_KANAN],
+    tabStops: [{ type: TabStopType.LEFT, position: 567 }, TAB_KANAN],
     alignment: AlignmentType.LEFT,
-    indent: { left: 284, hanging: 284 },
+    indent: { left: 567, hanging: 567 },
     ...options,
   });
 };
@@ -190,9 +182,9 @@ const createSaksiP = (
 
   return new Paragraph({
     children,
-    tabStops: [TAB_KANAN],
+    tabStops: [{ type: TabStopType.LEFT, position: 567 }, TAB_KANAN],
     alignment: AlignmentType.LEFT,
-    indent: { left: 426, hanging: 360 },
+    indent: { left: 567, hanging: 567 },
   });
 };
 
@@ -232,7 +224,7 @@ const createDashSubP = (
   tokens: FormatToken[],
   options: Omit<IParagraphOptions, "children"> = {}
 ): Paragraph => {
-  const lines = parseTextRuns(tokens, W.numbered);
+  const lines = parseTextRuns(tokens, W.level1);
   const children: any[] = [];
 
   lines.forEach((lineTokens, i) => {
@@ -250,9 +242,9 @@ const createDashSubP = (
 
   return new Paragraph({
     children,
-    tabStops: [{ type: TabStopType.LEFT, position: 720 }, TAB_KANAN],
+    tabStops: [{ type: TabStopType.LEFT, position: 1134 }, TAB_KANAN],
     alignment: AlignmentType.LEFT,
-    indent: { left: 720, hanging: 360 },
+    indent: { left: 1134, hanging: 567 },
     ...options,
   });
 };

@@ -200,6 +200,14 @@ export function formatCompanyName(name: string): string {
   return `PT. ${cleanName}`.toUpperCase();
 }
 
+export function formatAktaDate(dateStr: string): string {
+  if (!dateStr) return "";
+  const words = dateToWords(dateStr);
+  const numeric = formatDateStr(dateStr);
+  if (!words || !numeric) return dateStr;
+  return `${words} (${numeric})`;
+}
+
 export function formatPersonDetails(
   person: {
     birthCity?: string;
@@ -233,15 +241,20 @@ export function formatPersonDetails(
     amendmentDeeds?: any[];
   },
   tglLahirAngka: string,
-  tglLahirHuruf: string
+  tglLahirHuruf: string,
+  useAktaFormat: boolean = false
 ): string {
+  const birthDateWording = useAktaFormat 
+    ? (tglLahirHuruf && tglLahirAngka ? `${tglLahirHuruf} (${tglLahirAngka})` : tglLahirAngka || tglLahirHuruf || "...")
+    : `${tglLahirAngka}${tglLahirHuruf ? ` (${tglLahirHuruf})` : ""}`;
+
   if (person.shareholderType === "BADAN_HUKUM") {
     const isAsing = person.isForeign || person.nationalityType === "WNA";
     if (isAsing) {
       const countryStr = person.foreignCountry || person.nationality || "...";
       const skNum = person.skNumber || "...";
       const issuer = person.skIssuer || "...";
-      const skDateFormatted = person.skDate ? formatDateStr(person.skDate) : "";
+      const skDateFormatted = person.skDate ? (useAktaFormat ? formatAktaDate(person.skDate) : formatDateStr(person.skDate)) : "";
       const skDateWording = skDateFormatted ? ` tertanggal ${skDateFormatted}` : "";
       return `, sebuah badan hukum asing yang didirikan berdasarkan hukum negara ${toTitleCase(countryStr)}, dengan nomor pengesahan ${skNum}${skDateWording} yang dikeluarkan oleh ${toTitleCase(issuer)}`;
     } else {
@@ -249,7 +262,7 @@ export function formatPersonDetails(
       const city = person.address?.city ? toTitleCase(person.address.city) : "...";
       const fullAddr = formatFullAddressData(person.address, city);
       const skNum = person.skNumber || "...";
-      const skDateFormatted = person.skDate ? formatDateStr(person.skDate) : "";
+      const skDateFormatted = person.skDate ? (useAktaFormat ? formatAktaDate(person.skDate) : formatDateStr(person.skDate)) : "";
       const skDateWording = skDateFormatted ? ` tertanggal ${skDateFormatted}` : "";
       const npwpNum = person.npwp || "...";
       
@@ -267,23 +280,23 @@ export function formatPersonDetails(
       let baseString = `, ${entityWording} yang didirikan berdasarkan hukum negara Republik Indonesia, berkedudukan di ${city}, bertempat tinggal di ${fullAddr}`;
       
       if (person.establishmentDeedNumber) {
-        const estDateStr = person.establishmentDeedDate ? formatDateStr(person.establishmentDeedDate) : "...";
+        const estDateStr = person.establishmentDeedDate ? (useAktaFormat ? formatAktaDate(person.establishmentDeedDate) : formatDateStr(person.establishmentDeedDate)) : "...";
         const estNotary = person.establishmentNotary || "...";
         const estNotaryTitle = person.establishmentNotaryTitle ? `, ${person.establishmentNotaryTitle}` : "";
         const estNotaryDomicile = person.establishmentNotaryDomicile ? toTitleCase(person.establishmentNotaryDomicile) : "...";
         const estSkNumber = person.establishmentSkNumber || person.skNumber || "...";
-        const estSkDateStr = person.establishmentSkDate ? formatDateStr(person.establishmentSkDate) : (person.skDate ? formatDateStr(person.skDate) : "...");
+        const estSkDateStr = person.establishmentSkDate ? (useAktaFormat ? formatAktaDate(person.establishmentSkDate) : formatDateStr(person.establishmentSkDate)) : (person.skDate ? (useAktaFormat ? formatAktaDate(person.skDate) : formatDateStr(person.skDate)) : "...");
         
         baseString += `, yang didirikan berdasarkan Akta Pendirian Nomor ${person.establishmentDeedNumber} tertanggal ${estDateStr}, dibuat dihadapan ${estNotary}${estNotaryTitle}, Notaris di ${estNotaryDomicile}, dan telah memperoleh pengesahan dari Menteri Hukum dan Hak Asasi Manusia Republik Indonesia berdasarkan Surat Keputusan Nomor ${estSkNumber} tertanggal ${estSkDateStr}`;
         
         if (person.amendmentDeeds && person.amendmentDeeds.length > 0) {
           const lastAmd = person.amendmentDeeds[person.amendmentDeeds.length - 1];
-          const amdDateStr = lastAmd.date ? formatDateStr(lastAmd.date) : "...";
+          const amdDateStr = lastAmd.date ? (useAktaFormat ? formatAktaDate(lastAmd.date) : formatDateStr(lastAmd.date)) : "...";
           const amdNotary = lastAmd.notary || "...";
           const amdNotaryTitle = lastAmd.notaryTitle ? `, ${lastAmd.notaryTitle}` : "";
           const amdNotaryDomicile = lastAmd.notaryDomicile ? toTitleCase(lastAmd.notaryDomicile) : "...";
           const amdSkNumber = lastAmd.skNumber || (lastAmd.skSpDocuments && (lastAmd.skSpDocuments[0]?.number || lastAmd.skSpDocuments[0]?.skNumber)) || person.skNumber || "...";
-          const amdSkDateStr = lastAmd.skDate ? formatDateStr(lastAmd.skDate) : (lastAmd.skSpDocuments && (lastAmd.skSpDocuments[0]?.date || lastAmd.skSpDocuments[0]?.skDate) ? formatDateStr(lastAmd.skSpDocuments[0].date || lastAmd.skSpDocuments[0].skDate) : (person.skDate ? formatDateStr(person.skDate) : "..."));
+          const amdSkDateStr = lastAmd.skDate ? (useAktaFormat ? formatAktaDate(lastAmd.skDate) : formatDateStr(lastAmd.skDate)) : (lastAmd.skSpDocuments && (lastAmd.skSpDocuments[0]?.date || lastAmd.skSpDocuments[0]?.skDate) ? (useAktaFormat ? formatAktaDate(lastAmd.skSpDocuments[0].date || lastAmd.skSpDocuments[0].skDate) : formatDateStr(lastAmd.skSpDocuments[0].date || lastAmd.skSpDocuments[0].skDate)) : (person.skDate ? (useAktaFormat ? formatAktaDate(person.skDate) : formatDateStr(person.skDate)) : "..."));
           
           baseString += `, dan anggaran dasarnya telah mengalami beberapa kali perubahan, terakhir dengan Akta Nomor ${lastAmd.number} tertanggal ${amdDateStr}, dibuat dihadapan ${amdNotary}${amdNotaryTitle}, Notaris di ${amdNotaryDomicile}, yang pemberitahuannya telah diterima dan dicatat dalam Sistem Administrasi Badan Hukum Kementerian Hukum dan Hak Asasi Manusia Republik Indonesia berdasarkan Surat Keputusan/Penerimaan Surat Pemberitahuan Nomor ${amdSkNumber} tertanggal ${amdSkDateStr}`;
         }
@@ -305,7 +318,7 @@ export function formatPersonDetails(
     const pass = person.passportNumber || "...";
     const nat = person.nationality ? toTitleCase(person.nationality) : "...";
     
-    let wnaDetails = `, lahir di ${birthCity}, pada tanggal ${tglLahirAngka}${tglLahirHuruf ? ` (${tglLahirHuruf})` : ""}, Warga Negara ${nat}, ${occupation}, bertempat tinggal di ${addressStr}, pemegang Paspor Nomor ${pass}`;
+    let wnaDetails = `, lahir di ${birthCity}, pada tanggal ${birthDateWording}, Warga Negara ${nat}, ${occupation}, bertempat tinggal di ${addressStr}, pemegang Paspor Nomor ${pass}`;
     
     if (person.kitasNumber && person.kitasNumber.trim() !== "") {
       wnaDetails += `, serta pemegang Kitas Nomor ${person.kitasNumber}`;
@@ -322,6 +335,6 @@ export function formatPersonDetails(
     const kec = toTitleCase(person.address?.kecamatan || "...");
     const nik = person.nik || "...";
 
-    return `, lahir di ${birthCity}, pada tanggal ${tglLahirAngka}${tglLahirHuruf ? ` (${tglLahirHuruf})` : ""}, Warga Negara Indonesia, ${occupation}, bertempat tinggal di ${city}, ${fullAddr}, RT. ${rt} RW. ${rw}, Kelurahan ${kel}, Kecamatan ${kec}, pemegang Kartu Tanda Penduduk Nomor ${nik}`;
+    return `, lahir di ${birthCity}, pada tanggal ${birthDateWording}, Warga Negara Indonesia, ${occupation}, bertempat tinggal di ${city}, ${fullAddr}, RT. ${rt} RW. ${rw}, Kelurahan ${kel}, Kecamatan ${kec}, pemegang Kartu Tanda Penduduk Nomor ${nik}`;
   }
 }
