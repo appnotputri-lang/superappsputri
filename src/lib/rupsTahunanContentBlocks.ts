@@ -455,7 +455,7 @@ export const generateRupstBlocks = (data: CompanyData): Block[] => {
     const retProfStr = `Rp. ${formatNumber(Math.abs(data.rupstRetainedProfit || 0))},- (${terbilang(Math.abs(data.rupstRetainedProfit || 0))} rupiah)`;
 
     if (isNeg) {
-      netProfitText1 = `Menetapkan Perseroan mengalami rugi bersih untuk tahun buku ${fiscalYear} sebesar ${amtStr}, dengan saldo rugi ditahan Perseroan sampai dengan tahun buku ${Number(fiscalYear)-1} sebesar ${retProfStr}.\nsehubungan dengan hal tersebut:`;
+      netProfitText1 = `Menetapkan Perseroan mengalami rugi bersih untuk tahun buku ${fiscalYear} sebesar ${amtStr}. Seluruh saldo rugi tersebut akan dicatat sebagai akumulasi rugi Perseroan sesuai ketentuan peraturan perundang-undangan yang berlaku.`;
     } else {
       netProfitText1 = `Menetapkan Perseroan mengalami laba bersih untuk tahun buku ${fiscalYear} sebesar ${amtStr}, dengan saldo laba ditahan Perseroan sampai dengan tahun buku ${Number(fiscalYear)-1} sebesar ${retProfStr}.\nsehubungan dengan hal tersebut:`;
     }
@@ -467,22 +467,7 @@ export const generateRupstBlocks = (data: CompanyData): Block[] => {
       runs: [{ text: netProfitText1 }]
     });
 
-    if (isNeg) {
-      blocks.push({
-        type: "list",
-        bullet: "-",
-        indentTabs: 1,
-        indentStyle: "keputusan",
-        runs: [{ text: "Perseroan tidak membagikan dividen kepada para pemegang saham;" }]
-      });
-      blocks.push({
-        type: "list",
-        bullet: "-",
-        indentTabs: 1,
-        indentStyle: "keputusan",
-        runs: [{ text: "Rugi bersih tahun berjalan dicatat sebagai pengurang saldo laba ditahan Perseroan." }]
-      });
-    } else {
+    if (!isNeg) {
       if (data.rupstDividendAmount && data.rupstDividendAmount > 0) {
         blocks.push({
           type: "list",
@@ -547,7 +532,7 @@ export const generateRupstBlocks = (data: CompanyData): Block[] => {
       const absVal = Math.abs(data.rupstNetProfit);
       const amtStr = `Rp. ${formatNumber(absVal)},- (${terbilang(absVal)} rupiah)`;
       if (isNeg) {
-        netProfitText = `Menetapkan bahwa Perseroan mengalami rugi bersih sebesar ${amtStr}, sehingga tidak ada pembagian dividen.`;
+        netProfitText = `Menetapkan Perseroan mengalami rugi bersih untuk tahun buku ${fiscalYear} sebesar ${amtStr}. Seluruh saldo rugi tersebut akan dicatat sebagai akumulasi rugi Perseroan sesuai ketentuan peraturan perundang-undangan yang berlaku.`;
       } else {
         const divAmt = data.rupstDividendAmount || 0;
         netProfitText = `Menetapkan penggunaan laba bersih sebesar ${amtStr}, dimana sebesar Rp. ${formatNumber(divAmt)},- dibagikan sebagai dividen dan sisanya sebagai laba ditahan.`;

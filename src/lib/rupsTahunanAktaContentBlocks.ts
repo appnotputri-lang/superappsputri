@@ -843,18 +843,9 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
       type: "p",
       number: 4,
       runs: [
-        { text: `Menetapkan penggunaan laba bersih Perseroan tahun buku ${data.rupstFiscalYear || "2025"} sebesar ` },
+        { text: `Menetapkan Perseroan mengalami rugi bersih untuk tahun buku ${data.rupstFiscalYear || "2025"} sebesar ` },
         { text: netProfitDisplayPositive, color: netProfitColor },
-        { text: ";" }
-      ]
-    });
-
-    blocks.push({
-      type: "list",
-      bullet: "",
-      indentTabs: 1.0,
-      runs: [
-        { text: `sehubungan dengan hal tersebut, Perseroan mengalami rugi bersih, sehingga tidak membagikan dividen kepada para pemegang saham, dan rugi bersih tahun berjalan dicatat sebagai saldo rugi ditahan Perseroan untuk mendukung kegiatan usaha Perseroan.` }
+        { text: ". Seluruh saldo rugi tersebut akan dicatat sebagai akumulasi rugi Perseroan sesuai ketentuan peraturan perundang-undangan yang berlaku." }
       ]
     });
   } else {
