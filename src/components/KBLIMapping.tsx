@@ -733,7 +733,7 @@ const KBLIMapping: React.FC = () => {
         newScopes = [
           {
             id: Math.random().toString(36).substr(2, 9),
-            ruangLingkup: "",
+            ruangLingkup: "Belum tersedia data baru dari OSS",
             tingkatResiko: "Rendah",
             izin: "NIB",
           },
@@ -995,7 +995,7 @@ const KBLIMapping: React.FC = () => {
         minCellHeight: 5,
         cellPadding: 0.5,
       },
-      margin: { left: 14, right: 14 },
+      margin: { left: 14, right: 14, top: 20, bottom: 25 },
     });
 
     // @ts-ignore
@@ -1154,30 +1154,14 @@ const KBLIMapping: React.FC = () => {
     if (currentY > pageHeight - 40) {
       doc.addPage();
       addLetterhead(false);
+      currentY = 20;
     }
 
-    autoTable(doc, {
-      startY: currentY,
-      theme: "plain",
-      body: [
-        [
-          {
-            content: isEn ? "MAPPING DETAILS" : "DETAIL PEMETAAN",
-            styles: {
-              fillColor: [15, 118, 110], // Teal
-              textColor: [255, 255, 255],
-              fontStyle: "bold",
-              fontSize: 11,
-              cellPadding: { top: 3.5, bottom: 3.5, left: 6, right: 6 },
-              halign: "left",
-            }
-          }
-        ]
-      ],
-      margin: { left: 14, right: 14, bottom: 25, top: 20 },
-    });
-    // @ts-ignore
-    currentY = doc.lastAutoTable.finalY + 8;
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(0, 0, 0);
+    doc.text(isEn ? "MAPPING DETAILS" : "DETAIL PEMETAAN", pageWidth / 2, currentY, { align: "center" });
+    currentY += 8;
 
     // Detail Items render loop
     const groupedMappings: { [key: string]: SelectedMappingItem[] } = {};
@@ -1231,14 +1215,27 @@ const KBLIMapping: React.FC = () => {
           : (kbli2025.judul || "").toUpperCase();
 
         const subHeaderString = `KBLI 2025: ${targetKodeStr} — ${targetJudulStr}`;
+        const statusText = isEn 
+          ? `Mapping Status: ${kbli2025Item.jenis_perubahan || "-"}`
+          : `Keterangan Pemetaan: ${kbli2025Item.jenis_perubahan || "-"}`;
         const lines2025 = doc.splitTextToSize(subHeaderString, pageWidth - 33);
         
-        // Draw physical colored teal square instead of '■' to avoid encoding / standard PDF fonts corruption (rendering as %)
-        doc.setFillColor(15, 118, 110);
-        doc.rect(14, blockY - 3.2, 3, 3, "F");
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(10.5);
+        doc.setTextColor(0, 0, 0);
 
-        doc.text(lines2025, 19, blockY);
-        blockY += (lines2025.length * 4.8) + 1.2;
+        doc.text(lines2025, 14, blockY);
+        blockY += (lines2025.length * 4.8) + 1;
+
+        // Draw Status text in smaller italic font
+        doc.setFont("helvetica", "bolditalic");
+        doc.setFontSize(9);
+        doc.setTextColor(220, 38, 38); // Red-600
+        doc.text(statusText, 14, blockY);
+        blockY += 5;
+
+        doc.setFont("helvetica", "bold"); // Reset font
+        doc.setTextColor(0, 0, 0); // Reset color
 
         // Paragraph Wrapped description
         if (kbli2025.kode && kbli2025.uraian) {
@@ -1258,7 +1255,7 @@ const KBLIMapping: React.FC = () => {
               cellPadding: { top: 1, bottom: 2, left: 0, right: 0 },
               halign: "justify",
             },
-            margin: { left: 14, right: 14 },
+            margin: { left: 14, right: 14, top: 20, bottom: 25 },
           });
           // @ts-ignore
           blockY = doc.lastAutoTable.finalY + 4;
@@ -1276,45 +1273,56 @@ const KBLIMapping: React.FC = () => {
             blockY = 20;
           }
 
-           const scopeBody = kbli2025Item.scopes.map((s, index) => {
-             const isFailedScope = s.ruangLingkup && (s.ruangLingkup.includes("Gagal membaca") || s.ruangLingkup.includes("Belum tersedia"));
-             
-             let displayRuangLingkup = s.ruangLingkup || "-";
-             if (isFailedScope) {
-               displayRuangLingkup = isEn 
-                 ? "New data from OSS is not yet available" 
-                 : "Belum tersedia data baru dari OSS";
-             }
+          const scopeBody = kbli2025Item.scopes.map((s, index) => {
+            const isFailedScope =
+              !s.ruangLingkup ||
+              s.ruangLingkup.includes("Gagal membaca") ||
+              s.ruangLingkup.includes("Belum tersedia") ||
+              s.ruangLingkup === "-";
 
-             let displayRisiko = translateRiskLevel(s.tingkatResiko, isEn);
-             if (isFailedScope) {
-               displayRisiko = "N/A";
-             }
+            let displayRuangLingkup = s.ruangLingkup || "-";
+            if (isFailedScope) {
+              displayRuangLingkup = isEn
+                ? "New data from OSS is not yet available"
+                : "Belum tersedia data baru dari OSS";
+            }
 
-             let displayIzin = "N/A";
-             if (!isFailedScope) {
-               const autoIzin = isEn ? getEnAutoIzin(s.tingkatResiko) : getAutoIzin(s.tingkatResiko);
-               const manualIzin = s.izin && s.izin !== "-" ? translateIzinValue(s.izin, isEn) : "";
-               
-               displayIzin = manualIzin || autoIzin;
-               if (displayIzin && displayIzin.toUpperCase() === "SERTIFIKAT STANDAR SELEF DECLARE") {
-                 displayIzin = "Sertifikat Standar Self Declare";
-               }
-               if (displayIzin && displayIzin.toUpperCase() === "SERTIFIKAT STANDAR PEMENUHAN KOMITMEN") {
-                 displayIzin = "Sertifikat Standar Pemenuhan Komitmen";
-               }
-               if (!displayIzin) {
-                 displayIzin = "—";
-               }
-             }
+            let displayRisiko = translateRiskLevel(s.tingkatResiko, isEn);
+            if (isFailedScope) {
+              displayRisiko = "N/A";
+            }
 
-             return [
-               index + 1,
-               displayRuangLingkup,
-               displayRisiko,
-               displayIzin,
-             ];
-           });
+            let autoIzin = "N/A";
+            let manualIzin = "N/A";
+            
+            if (!isFailedScope) {
+              autoIzin = isEn
+                ? getEnAutoIzin(s.tingkatResiko)
+                : getAutoIzin(s.tingkatResiko);
+              manualIzin =
+                s.izin && s.izin !== "-" ? translateIzinValue(s.izin, isEn) : "";
+
+              if (
+                manualIzin &&
+                manualIzin.toUpperCase() === "SERTIFIKAT STANDAR SELEF DECLARE"
+              ) {
+                manualIzin = "Sertifikat Standar Self Declare";
+              }
+              if (
+                manualIzin &&
+                manualIzin.toUpperCase() ===
+                  "SERTIFIKAT STANDAR PEMENUHAN KOMITMEN"
+              ) {
+                manualIzin = "Sertifikat Standar Pemenuhan Komitmen";
+              }
+            }
+
+            if (!manualIzin || manualIzin === "-") {
+              manualIzin = "—";
+            }
+
+            return [index + 1, displayRuangLingkup, displayRisiko, autoIzin, manualIzin];
+          });
 
           const countScopes = kbli2025Item.scopes.length;
 
@@ -1328,6 +1336,7 @@ const KBLIMapping: React.FC = () => {
                       ? "Business Scope\n* please choose one suitable business activity when inputting on OSS"
                       : "Business Scope",
                     "Risk Level",
+                    "License",
                     "License Type",
                   ]
                 : [
@@ -1336,36 +1345,38 @@ const KBLIMapping: React.FC = () => {
                       ? "Ruang Lingkup Usaha\n* pilih salah satu sesuai kegiatan usaha yang dijalankan saat input OSS"
                       : "Ruang Lingkup Usaha",
                     "Tingkat Risiko",
+                    "Izin",
                     "Jenis Izin",
                   ],
             ],
             body: scopeBody,
             theme: "grid",
             headStyles: {
-              fillColor: [15, 118, 110], // Teal [15,118,110]
-              textColor: [255, 255, 255],
+              fillColor: [225, 228, 232], // Gray matching saran
+              textColor: [0, 0, 0],
               fontStyle: "bold",
               halign: "center",
               valign: "middle",
-              lineColor: [226, 232, 240],
+              lineColor: [150, 150, 150],
               lineWidth: 0.2,
             },
             styles: {
               fontSize: 9,
               cellPadding: 4,
-              lineColor: [226, 232, 240], // Gray grid border
+              lineColor: [150, 150, 150],
               lineWidth: 0.2,
               textColor: [0, 0, 0],
               valign: "middle",
             },
             columnStyles: {
-              0: { cellWidth: 12, halign: "center" },
-              1: { cellWidth: 85, halign: "left" },
-              2: { cellWidth: 35, halign: "center" },
-              3: { cellWidth: 50, halign: "left" },
+              0: { cellWidth: 10, halign: "center" },
+              1: { cellWidth: 70, halign: "left" },
+              2: { cellWidth: 25, halign: "center" },
+              3: { cellWidth: 25, halign: "center" },
+              4: { cellWidth: 52, halign: "left" },
             },
-            alternateRowStyles: { fillColor: [248, 250, 252] },
-            margin: { left: 14, right: 14, bottom: 25, top: 20 },
+            alternateRowStyles: { fillColor: [255, 255, 255] },
+            margin: { left: 14, right: 14, top: 20, bottom: 25 },
             willDrawCell: (data) => {
               // Clear default text for header column index 1 ONLY when there is subtitle
               if (data.section === "head" && data.column.index === 1 && countScopes > 1) {
@@ -1801,7 +1812,11 @@ const KBLIMapping: React.FC = () => {
                             </thead>
                             <tbody className="divide-y divide-slate-50">
                               {sub.scopes?.map((scope, index) => {
-                                const isFailedScope = scope.ruangLingkup && (scope.ruangLingkup.includes("Gagal membaca") || scope.ruangLingkup.includes("Belum tersedia"));
+                                const isFailedScope =
+                                  !scope.ruangLingkup ||
+                                  scope.ruangLingkup.includes("Gagal membaca") ||
+                                  scope.ruangLingkup.includes("Belum tersedia") ||
+                                  scope.ruangLingkup === "-";
                                 return (
                                   <tr
                                     key={scope.id}

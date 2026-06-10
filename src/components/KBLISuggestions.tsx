@@ -994,7 +994,7 @@ const KBLISuggestions: React.FC = () => {
         ]
       ],
       styles: { fontSize: 11, textColor: [0, 0, 0], minCellHeight: 6, cellPadding: 1 },
-      margin: { left: 14, right: 14 },
+      margin: { left: 14, right: 14, top: 20, bottom: 25 },
     });
     
     // @ts-ignore
@@ -1072,7 +1072,7 @@ const KBLISuggestions: React.FC = () => {
         ]
       ],
       styles: { fontSize: 11, textColor: [0, 0, 0], minCellHeight: 6, cellPadding: 1 },
-      margin: { left: 14, right: 14 },
+      margin: { left: 14, right: 14, top: 20, bottom: 25 },
     });
 
     // @ts-ignore
@@ -1094,7 +1094,11 @@ const KBLISuggestions: React.FC = () => {
       currentY += (splitHeader.length * 5) + 3;
 
       const body = kbli.scopes.map((s, index) => {
-        const isFailedScope = s.ruangLingkup && (s.ruangLingkup.includes("Gagal membaca") || s.ruangLingkup.includes("Belum tersedia"));
+        const isFailedScope =
+          !s.ruangLingkup ||
+          s.ruangLingkup.includes("Gagal membaca") ||
+          s.ruangLingkup.includes("Belum tersedia") ||
+          s.ruangLingkup === "-";
         const displayRuangLingkup = s.ruangLingkup || '-';
         const displayRisiko = isFailedScope ? "N/A" : translateRiskLevel(s.tingkatResiko, isEn);
         const autoIzin = isFailedScope ? "N/A" : (isEn ? getEnAutoIzin(s.tingkatResiko) : getAutoIzin(s.tingkatResiko));
@@ -1608,7 +1612,11 @@ const KBLISuggestions: React.FC = () => {
                       </thead>
                       <tbody className="divide-y divide-slate-150">
                         {kbli.scopes.map((scope, index) => {
-                          const isFailedScope = scope.ruangLingkup && (scope.ruangLingkup.includes("Gagal membaca") || scope.ruangLingkup.includes("Belum tersedia"));
+                          const isFailedScope =
+                            !scope.ruangLingkup ||
+                            scope.ruangLingkup.includes("Gagal membaca") ||
+                            scope.ruangLingkup.includes("Belum tersedia") ||
+                            scope.ruangLingkup === "-";
                           return (
                             <tr key={scope.id} className="hover:bg-slate-50/30">
                               <td className="px-4 py-3 text-center border-r border-slate-150 text-slate-400 font-mono align-top">
