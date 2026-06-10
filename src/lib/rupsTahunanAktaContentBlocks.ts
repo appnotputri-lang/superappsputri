@@ -486,21 +486,10 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
         repTextRuns.push({ text: "Hadir selaku :" });
         if (isDirector) {
           repTextRuns.push({ text: " Direktur " });
-          repTextRuns.push({ text: r.shareholder.name.toUpperCase(), bold: true });
-          
-          if (r.shareholder.isForeign) {
-            repTextRuns.push({
-              text: `, sebuah badan hukum asing yang didirikan berdasarkan hukum negara ${r.shareholder.foreignCountry || "California"}, dengan nomor pengesahan ${r.shareholder.skNumber || r.shareholder.nik || "..."} tertanggal ${r.shareholder.skDate ? formatAktaDate(r.shareholder.skDate) : "..."} yang dikeluarkan oleh ${r.shareholder.skIssuer || "Sekertaris Negara Bagian California"}`
-            });
-          } else {
-            repTextRuns.push({
-              text: `, sebuah perseroan terbatas yang didirikan berdasarkan hukum negara Republik Indonesia, berkedudukan di ${toTitleCase(r.shareholder.address.city || "...")}`
-            });
-          }
+          repTextRuns.push(...getPersonDetailRuns(r.shareholder));
         } else {
           const proxyDate = r.proxyData.proxyDeedDate ? formatAktaDate(r.proxyData.proxyDeedDate) : "__________ (__________)";
           repTextRuns.push({ text: " Kuasa dari " });
-          repTextRuns.push({ text: r.shareholder.name.toUpperCase(), bold: true });
           repTextRuns.push(...getPersonDetailRuns(r.shareholder));
           repTextRuns.push({ text: ` berdasarkan Surat Kuasa tertanggal ${proxyDate}` });
         }
@@ -534,7 +523,7 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
         const isLast = bulletIdx === totalSubBullets;
         blocks.push({
           type: "list",
-          bullet: "a.",
+          bullet: String.fromCharCode(subBulletCode + bulletIdx - 1) + ".",
           indentTabs: 1.5,
           runs: [{ text: `${toTitleCase(att.management.position)} Perseroan${isLast ? "." : ";"}` }]
         });
@@ -549,7 +538,7 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
         const terbilangAmt = terbilang(shareRp);
         blocks.push({
           type: "list",
-          bullet: "a.",
+          bullet: String.fromCharCode(subBulletCode + bulletIdx - 1) + ".",
           indentTabs: 1.5,
           runs: [
             { text: `Selaku pemilik dan pemegang ${formatNumber(att.ownShares.sharesOwned)} (${terbilang(att.ownShares.sharesOwned)}) lembar saham atau senilai ` },
@@ -570,21 +559,10 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
         let repTextRuns: FormatToken[] = [];
         if (isDirector) {
           repTextRuns.push({ text: `Direktur ` });
-          repTextRuns.push({ text: r.shareholder.name.toUpperCase(), bold: true });
-          
-          if (r.shareholder.isForeign) {
-            repTextRuns.push({
-              text: `, sebuah badan hukum asing yang didirikan berdasarkan hukum negara ${r.shareholder.foreignCountry || "California"}, dengan nomor pengesahan ${r.shareholder.skNumber || r.shareholder.nik || "..."} tertanggal ${r.shareholder.skDate ? formatAktaDate(r.shareholder.skDate) : "..."} yang dikeluarkan oleh ${r.shareholder.skIssuer || "Sekertaris Negara Bagian California"}`
-            });
-          } else {
-            repTextRuns.push({
-              text: `, sebuah perseroan terbatas yang didirikan berdasarkan hukum negara Republik Indonesia, berkedudukan di ${toTitleCase(r.shareholder.address.city || "...")}`
-            });
-          }
+          repTextRuns.push(...getPersonDetailRuns(r.shareholder));
         } else {
           const proxyDate = r.proxyData.proxyDeedDate ? formatAktaDate(r.proxyData.proxyDeedDate) : "__________ (__________)";
           repTextRuns.push({ text: `Kuasa dari ` });
-          repTextRuns.push({ text: r.shareholder.name.toUpperCase(), bold: true });
           repTextRuns.push(...getPersonDetailRuns(r.shareholder));
           repTextRuns.push({ text: ` berdasarkan Surat Kuasa tertanggal ${proxyDate}` });
         }
@@ -596,7 +574,7 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
 
         blocks.push({
           type: "list",
-          bullet: "a.",
+          bullet: String.fromCharCode(subBulletCode + bulletIdx - 1) + ".",
           indentTabs: 1.5,
           runs: repTextRuns
         });

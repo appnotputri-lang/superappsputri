@@ -31,19 +31,26 @@ export function measureTextWidth(text: string, bold: boolean = false): number {
 }
 
 export function parseTextRuns(runs: FormatToken[], maxWidth = 41.5): FormatToken[][] {
-  const tokens: FormatToken[] = [];
+  const tokens: (FormatToken & { isNewline?: boolean })[] = [];
   
   runs.forEach(run => {
-    const parts = run.text.match(/(\S+|\s+)/g) || [];
-    parts.forEach(p => {
-       tokens.push({ 
-         text: p, 
-         bold: run.bold,
-         italic: run.italic,
-         underline: run.underline,
-         color: run.color,
-         size: run.size
-       });
+    const rawParts = run.text.split(/(\r?\n)/);
+    rawParts.forEach(part => {
+      if (part === "\n" || part === "\r\n") {
+        tokens.push({ text: "\n", isNewline: true });
+      } else {
+        const parts = part.match(/(\S+|\s+)/g) || [];
+        parts.forEach(p => {
+           tokens.push({ 
+             text: p, 
+             bold: run.bold,
+             italic: run.italic,
+             underline: run.underline,
+             color: run.color,
+             size: run.size
+           });
+        });
+      }
     });
   });
 
@@ -53,6 +60,12 @@ export function parseTextRuns(runs: FormatToken[], maxWidth = 41.5): FormatToken
 
   for (let i = 0; i < tokens.length; i++) {
     const token = tokens[i];
+    if (token.isNewline) {
+      lines.push(currentLine);
+      currentLine = [];
+      currentLength = 0;
+      continue;
+    }
     const tokWidth = measureTextWidth(token.text, !!token.bold);
     
     if (token.text.match(/^\s+$/)) {

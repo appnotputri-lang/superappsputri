@@ -17,6 +17,7 @@ import {
 import { saveAs } from "file-saver";
 import { CompanyData } from "../../types";
 import { generateRupstPernyataanBlocks, RunToken } from "./rupsTahunanPernyataanBlocks";
+import { preprocessBlocksForWordBullets } from "./formatter";
 
 // ─── Constants (matching the DOCX exactly) ───────────────────────────────────
 const FONT = "Times New Roman";
@@ -240,7 +241,8 @@ const makeSigSingle = (name: string, position: string): Paragraph[] => [
 
 // ─── Main export ──────────────────────────────────────────────────────────────
 export const generateRUPSTPernyataanDocx = async (data: CompanyData) => {
-  const blocks = generateRupstPernyataanBlocks(data);
+  const rawBlocks = generateRupstPernyataanBlocks(data);
+  const blocks = preprocessBlocksForWordBullets(rawBlocks);
   const docxChildren: any[] = [];
 
   for (const block of blocks) {

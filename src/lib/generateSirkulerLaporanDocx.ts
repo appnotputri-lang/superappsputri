@@ -18,7 +18,7 @@ import {
 import { saveAs } from "file-saver";
 import { CompanyData } from "../../types";
 import { generateSirkulerLaporanBlocks, Block } from "./sirkulerLaporanContentBlocks";
-import { toTitleCase } from "./formatter";
+import { toTitleCase, preprocessBlocksForWordBullets } from "./formatter";
 
 const FONT_FAMILY = "Times New Roman";
 const FONT_SIZE = 24; // 12pt
@@ -42,7 +42,8 @@ const createDocxRun = (runs: { text: string; bold?: boolean; underline?: boolean
 };
 
 export const generateSirkulerLaporanDocx = async (data: CompanyData) => {
-  const blocks = generateSirkulerLaporanBlocks(data);
+  const rawBlocks = generateSirkulerLaporanBlocks(data);
+  const blocks = preprocessBlocksForWordBullets(rawBlocks);
   const elements: any[] = [];
 
   for (const block of blocks) {

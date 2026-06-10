@@ -24,6 +24,7 @@ import { saveAs } from "file-saver";
 import { CompanyData, Shareholder } from "../../types";
 import { FormatToken, parseTextRuns } from "./notaryWrapper";
 import { generateRupsBlocks } from "./rupsContentBlocks";
+import { preprocessBlocksForWordBullets } from "./formatter";
 
 // ──────────────────────────────────────────────────────────────────────────────
 // LAYOUT CONSTANTS (dari XML contoh_6.docx)
@@ -408,7 +409,8 @@ const createNotarisNameP = (name: string): Paragraph =>
 // ──────────────────────────────────────────────────────────────────────────────
 
 export const generateRUPSDocx = async (data: CompanyData) => {
-  const blocks = generateRupsBlocks(data);
+  const rawBlocks = generateRupsBlocks(data);
+  const blocks = preprocessBlocksForWordBullets(rawBlocks);
   const docxChildren: any[] = [];
 
   blocks.forEach((block) => {

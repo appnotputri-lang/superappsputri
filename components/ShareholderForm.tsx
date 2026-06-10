@@ -105,6 +105,35 @@ const ShareholderForm: React.FC<Props> = ({
     onChange({ address: { ...shareholder.address, ...updates } });
   };
 
+  // Automatically pull 'Kedudukan' (city) from company profile if shareholder is BADAN_HUKUM
+  React.useEffect(() => {
+    if (isBadanHukum && profiles && profiles.length > 0) {
+      const matchedProfile = profiles.find(p => 
+        (shareholder.linkedProfileId && p.id === shareholder.linkedProfileId) ||
+        (shareholder.name && p.companyName && p.companyName.trim().toUpperCase() === shareholder.name.trim().toUpperCase())
+      );
+
+      if (matchedProfile) {
+        const profileCity = (matchedProfile.domicile || matchedProfile.oldDomicile || matchedProfile.newAddress?.city || matchedProfile.oldAddress?.city || '').toUpperCase();
+        if (profileCity && (!shareholder.address || shareholder.address.city !== profileCity)) {
+          onChange({
+            address: {
+              ...(shareholder.address || {
+                fullAddress: '',
+                rt: '',
+                rw: '',
+                kelurahan: '',
+                kecamatan: '',
+                province: ''
+              }),
+              city: profileCity
+            }
+          });
+        }
+      }
+    }
+  }, [isBadanHukum, shareholder.linkedProfileId, shareholder.name, profiles]);
+
   const handleProfileSelect = (p: CompanyProfile) => {
     const targetAddress = p.newAddress && p.newAddress.fullAddress ? { ...p.newAddress } : (p.oldAddress && p.oldAddress.fullAddress ? { ...p.oldAddress } : {
       fullAddress: '',
@@ -115,6 +144,9 @@ const ShareholderForm: React.FC<Props> = ({
       city: '',
       province: ''
     });
+
+    const profileCity = (p.domicile || p.oldDomicile || p.newAddress?.city || p.oldAddress?.city || targetAddress.city || '').toUpperCase();
+    targetAddress.city = profileCity;
 
     onChange({
       name: (p.companyName || '').toUpperCase(),
@@ -961,7 +993,7 @@ const ShareholderForm: React.FC<Props> = ({
         </div>
       )}
 
-      {!(isBadanHukum && isWna) && (
+      {!isBadanHukum && (
         <div className="mt-4">
           <label className="block text-xs font-bold text-slate-700 mb-1">Alamat <span className="text-red-500">*</span></label>
           <textarea 
@@ -972,7 +1004,20 @@ const ShareholderForm: React.FC<Props> = ({
         </div>
       )}
 
-      {!(isBadanHukum && isWna) && !isWna && (
+      {isBadanHukum && !isWna && (
+        <div className="mt-4">
+          <label className="block text-xs font-bold text-slate-700 mb-1">Kedudukan <span className="text-red-500">*</span></label>
+          <input 
+            type="text" 
+            value={shareholder.address.city || ''} 
+            onChange={e => updateAddress({ city: e.target.value.toUpperCase() })}
+            placeholder="CONTOH: JAKARTA SELATAN"
+            className="w-full px-3 py-2 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm"
+          />
+        </div>
+      )}
+
+      {!isBadanHukum && !isWna && (
         <>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-2">
             <div>

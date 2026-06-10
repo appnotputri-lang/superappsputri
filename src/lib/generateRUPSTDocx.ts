@@ -9,6 +9,7 @@ import { saveAs } from "file-saver";
 import { CompanyData } from "../../types";
 import { FormatToken, parseTextRuns } from "./notaryWrapper";
 import { generateRupstBlocks } from "./rupsTahunanContentBlocks";
+import { preprocessBlocksForWordBullets } from "./formatter";
 
 // Content widths in cm (for line-wrap estimation)
 // A4 margins left=2268 right=1134 → content = 11906-2268-1134 = 8504 DXA ≈ 14.97cm
@@ -210,7 +211,8 @@ const createDividerP = (text: string): Paragraph =>
   });
 
 export const generateRUPSTDocx = async (data: CompanyData) => {
-  const blocks = generateRupstBlocks(data);
+  const rawBlocks = generateRupstBlocks(data);
+  const blocks = preprocessBlocksForWordBullets(rawBlocks);
   const docxChildren: any[] = [];
 
   blocks.forEach((block) => {

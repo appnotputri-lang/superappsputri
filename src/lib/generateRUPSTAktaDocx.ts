@@ -15,6 +15,7 @@ import { saveAs } from "file-saver";
 import { CompanyData } from "../../types";
 import { FormatToken, parseTextRuns } from "./notaryWrapper";
 import { Block, generateRupstAktaBlocks } from "./rupsTahunanAktaContentBlocks";
+import { preprocessBlocksForWordBullets } from "./formatter";
 
 // ─── Tab stop & font constants ────────────────────────────────────────────────
 const TAB_KANAN = {
@@ -295,7 +296,7 @@ const mkPreambleDash = (t: FormatToken[]) =>
   });
 
 /** ATTENDANCE NUMBER  numId=3 ilvl=0 */
-const mkAttendanceNum = (t: FormatToken[]) =>
+const mkAttendanceNum = (t: FormatToken[], bulletStr: string) =>
   new Paragraph({
     style: "ListParagraph",
     numbering: { reference: NUM.ATTENDANCE, level: 0 },
@@ -313,14 +314,15 @@ const mkAttendanceDash = (t: FormatToken[]) =>
     children: wrappedRuns(t, W.attendeeDash),
   });
 
-/** ATTENDANCE LETTER  numId=7 ilvl=0 ind.left=1418 */
-const mkAttendanceLetter = (t: FormatToken[]) =>
+/** ATTENDANCE LETTER  manual hanging indent */
+const mkAttendanceLetter = (t: FormatToken[], bulletStr: string) =>
   new Paragraph({
-    style: "ListParagraph",
-    numbering: { reference: NUM.ATTENDANCE_LTR, level: 0 },
     tabStops: [TAB_KANAN],
-    indent: { left: 1418 },
-    children: wrappedRuns(t, W.attendeeLetter),
+    indent: { left: 1418, hanging: 284 }, // matching docx indentation roughly (1418 - 284 = 1134)
+    children: [
+      new TextRun({ text: `${bulletStr}\t` }),
+      ...wrappedRuns(t, W.attendeeLetter)
+    ],
   });
 
 // ── General zone: 4 distinct builders matching corrected docx XML ─────────────
@@ -422,7 +424,8 @@ const mkSaksiDash = (t: FormatToken[]) =>
 // ─── Main render function ─────────────────────────────────────────────────────
 
 export const generateRUPSTAktaDocx = async (data: CompanyData) => {
-  const blocks = generateRupstAktaBlocks(data);
+  const rawBlocks = generateRupstAktaBlocks(data);
+  const blocks = preprocessBlocksForWordBullets(rawBlocks);
   const docxChildren: Paragraph[] = [];
 
   const blockText = (block: Block): string => {
@@ -528,9 +531,11 @@ export const generateRUPSTAktaDocx = async (data: CompanyData) => {
 
       if (zone === "attendance") {
         if (isNumbered) {
-          docxChildren.push(mkAttendanceNum(b.runs));
+          // @ts-ignore
+          docxChildren.push(mkAttendanceNum(b.runs, b.bullet));
         } else if (isLetter) {
-          docxChildren.push(mkAttendanceLetter(b.runs));
+          // @ts-ignore
+          docxChildren.push(mkAttendanceLetter(b.runs, b.bullet));
         } else {
           docxChildren.push(mkAttendanceDash(b.runs));
         }

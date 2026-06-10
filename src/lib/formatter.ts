@@ -258,7 +258,8 @@ export function formatPersonDetails(
       return `, sebuah badan hukum asing yang didirikan berdasarkan hukum negara ${toTitleCase(countryStr)}, dengan nomor pengesahan ${skNum}${skDateWording} yang dikeluarkan oleh ${toTitleCase(issuer)}`;
     } else {
       const entityType = person.legalEntityType || "badan hukum";
-      const city = person.address?.city ? toTitleCase(person.address.city) : "...";
+      let rawCity = person.address?.city || (person as any).domicile || (person as any).oldDomicile || (person as any).city || (person as any).birthCity || (person as any).kedudukanPT || "";
+      const city = rawCity ? toTitleCase(rawCity) : "...";
       const fullAddr = formatFullAddressData(person.address, city);
       const skNum = person.skNumber || "...";
       const skDateFormatted = person.skDate ? (useAktaFormat ? formatAktaDate(person.skDate) : formatDateStr(person.skDate)) : "";
@@ -276,7 +277,7 @@ export function formatPersonDetails(
         entityWording = "sebuah perseroan terbatas";
       }
 
-      let baseString = `, ${entityWording} yang didirikan berdasarkan hukum negara Republik Indonesia, berkedudukan di ${city}, bertempat tinggal di ${fullAddr}`;
+      let baseString = `, ${entityWording} yang didirikan berdasarkan hukum negara Republik Indonesia, berkedudukan di ${city}`;
       
       if (person.establishmentDeedNumber) {
         const estDateStr = person.establishmentDeedDate ? (useAktaFormat ? formatAktaDate(person.establishmentDeedDate) : formatDateStr(person.establishmentDeedDate)) : "...";
@@ -289,15 +290,38 @@ export function formatPersonDetails(
         baseString += `, yang didirikan berdasarkan Akta Pendirian Nomor ${person.establishmentDeedNumber} tertanggal ${estDateStr}, dibuat dihadapan ${estNotary}${estNotaryTitle}, Notaris di ${estNotaryDomicile}, dan telah memperoleh pengesahan dari Menteri Hukum dan Hak Asasi Manusia Republik Indonesia berdasarkan Surat Keputusan Nomor ${estSkNumber} tertanggal ${estSkDateStr}`;
         
         if (person.amendmentDeeds && person.amendmentDeeds.length > 0) {
-          const lastAmd = person.amendmentDeeds[person.amendmentDeeds.length - 1];
-          const amdDateStr = lastAmd.date ? (useAktaFormat ? formatAktaDate(lastAmd.date) : formatDateStr(lastAmd.date)) : "...";
-          const amdNotary = lastAmd.notary || "...";
-          const amdNotaryTitle = lastAmd.notaryTitle ? `, ${lastAmd.notaryTitle}` : "";
-          const amdNotaryDomicile = lastAmd.notaryDomicile ? toTitleCase(lastAmd.notaryDomicile) : "...";
-          const amdSkNumber = lastAmd.skNumber || (lastAmd.skSpDocuments && (lastAmd.skSpDocuments[0]?.number || lastAmd.skSpDocuments[0]?.skNumber)) || person.skNumber || "...";
-          const amdSkDateStr = lastAmd.skDate ? (useAktaFormat ? formatAktaDate(lastAmd.skDate) : formatDateStr(lastAmd.skDate)) : (lastAmd.skSpDocuments && (lastAmd.skSpDocuments[0]?.date || lastAmd.skSpDocuments[0]?.skDate) ? (useAktaFormat ? formatAktaDate(lastAmd.skSpDocuments[0].date || lastAmd.skSpDocuments[0].skDate) : formatDateStr(lastAmd.skSpDocuments[0].date || lastAmd.skSpDocuments[0].skDate)) : (person.skDate ? (useAktaFormat ? formatAktaDate(person.skDate) : formatDateStr(person.skDate)) : "..."));
-          
-          baseString += `, dan anggaran dasarnya telah mengalami beberapa kali perubahan, terakhir dengan Akta Nomor ${lastAmd.number} tertanggal ${amdDateStr}, dibuat dihadapan ${amdNotary}${amdNotaryTitle}, Notaris di ${amdNotaryDomicile}, yang pemberitahuannya telah diterima dan dicatat dalam Sistem Administrasi Badan Hukum Kementerian Hukum dan Hak Asasi Manusia Republik Indonesia berdasarkan Surat Keputusan/Penerimaan Surat Pemberitahuan Nomor ${amdSkNumber} tertanggal ${amdSkDateStr}`;
+          if (useAktaFormat) {
+            baseString += `, dan anggaran dasarnya telah mengalami beberapa kali perubahan berdasarkan akta-akta\nsebagai berikut:`;
+            person.amendmentDeeds.forEach((amd) => {
+              const amdDateStr = amd.date ? formatAktaDate(amd.date) : "...";
+              const amdNotary = amd.notary || "...";
+              const amdNotaryTitle = amd.notaryTitle ? `, ${amd.notaryTitle}` : "";
+              const amdNotaryDomicile = amd.notaryDomicile ? toTitleCase(amd.notaryDomicile) : "...";
+              const amdSkNumber = amd.skNumber || (amd.skSpDocuments && (amd.skSpDocuments[0]?.number || amd.skSpDocuments[0]?.skNumber)) || person.skNumber || "...";
+              const amdSkDateStr = amd.skDate ? formatAktaDate(amd.skDate) : (amd.skSpDocuments && (amd.skSpDocuments[0]?.date || amd.skSpDocuments[0]?.skDate) ? formatAktaDate(amd.skSpDocuments[0].date || amd.skSpDocuments[0].skDate) : (person.skDate ? formatAktaDate(person.skDate) : "..."));
+              
+              baseString += `\n- Akta Nomor ${amd.number} tertanggal ${amdDateStr}, dibuat dihadapan ${amdNotary}${amdNotaryTitle}, Notaris di ${amdNotaryDomicile}, yang pemberitahuannya telah diterima dan dicatat dalam Sistem Administrasi Badan Hukum Kementerian Hukum dan Hak Asasi Manusia Republik Indonesia berdasarkan Surat Keputusan/Penerimaan Surat Pemberitahuan Nomor ${amdSkNumber} tertanggal ${amdSkDateStr}`;
+            });
+          } else {
+            baseString += `, dan anggaran dasarnya telah mengalami beberapa kali perubahan`;
+            const totalAmd = person.amendmentDeeds.length;
+            const formattedAmds = person.amendmentDeeds.map((amd) => {
+              const amdDateStr = amd.date ? formatDateStr(amd.date) : "...";
+              const amdNotary = amd.notary || "...";
+              const amdNotaryTitle = amd.notaryTitle ? `, ${amd.notaryTitle}` : "";
+              const amdNotaryDomicile = amd.notaryDomicile ? toTitleCase(amd.notaryDomicile) : "...";
+              const amdSkNumber = amd.skNumber || (amd.skSpDocuments && (amd.skSpDocuments[0]?.number || amd.skSpDocuments[0]?.skNumber)) || person.skNumber || "...";
+              const amdSkDateStr = amd.skDate ? formatDateStr(amd.skDate) : (amd.skSpDocuments && (amd.skSpDocuments[0]?.date || amd.skSpDocuments[0]?.skDate) ? formatDateStr(amd.skSpDocuments[0].date || amd.skSpDocuments[0].skDate) : (person.skDate ? formatDateStr(person.skDate) : "..."));
+              
+              return `Akta Nomor ${amd.number} tertanggal ${amdDateStr}, dibuat dihadapan ${amdNotary}${amdNotaryTitle}, Notaris di ${amdNotaryDomicile}, yang pemberitahuannya telah diterima dan dicatat dalam Sistem Administrasi Badan Hukum Kementerian Hukum dan Hak Asasi Manusia Republik Indonesia berdasarkan Surat Keputusan/Penerimaan Surat Pemberitahuan Nomor ${amdSkNumber} tertanggal ${amdSkDateStr}`;
+            });
+            
+            if (totalAmd === 1) {
+              baseString += `, yaitu berdasarkan ${formattedAmds[0]}`;
+            } else {
+              baseString += ` berdasarkan akta-akta sebagai berikut: - ${formattedAmds.join("; - ")}`;
+            }
+          }
         }
       } else {
         baseString += `, berdasarkan Surat Keputusan/Akta Nomor ${skNum}${skDateWording}`;
@@ -337,3 +361,77 @@ export function formatPersonDetails(
     return `, lahir di ${birthCity}, pada tanggal ${birthDateWording}, Warga Negara Indonesia, ${occupation}, bertempat tinggal di ${city}, ${fullAddr}, RT. ${rt} RW. ${rw}, Kelurahan ${kel}, Kecamatan ${kec}, pemegang Kartu Tanda Penduduk Nomor ${nik}`;
   }
 }
+
+/**
+ * Preprocesses flat blocks array for MS Office Word DOCX generation.
+ * Any block run containing manual bullet list (e.g. newline followed by dash "\n-")
+ * is split into distinct native list blocks so that they render as native MS Word bullets.
+ */
+export function preprocessBlocksForWordBullets(blocks: any[]): any[] {
+  const result: any[] = [];
+  for (const block of blocks) {
+    if (!block || !block.runs || block.runs.length === 0) {
+      result.push(block);
+      continue;
+    }
+
+    const hasManualBullets = block.runs.some((run: any) => run && run.text && run.text.includes("\n-"));
+
+    if (!hasManualBullets) {
+      result.push(block);
+      continue;
+    }
+
+    // Clone the block structure but clear the runs to start fresh
+    let currentBlock = { ...block, runs: [] as any[] };
+    result.push(currentBlock);
+
+    for (const run of block.runs) {
+      const text = run.text || "";
+      if (!text.includes("\n-")) {
+        currentBlock.runs.push(run);
+        continue;
+      }
+
+      // Split the text of this run!
+      const parts = text.split(/\r?\n-\s*/);
+      
+      // Clean up parent run's trailing manual hyphens when splitting
+      let firstPart = parts[0];
+      if (parts.length > 1) {
+        firstPart = firstPart.replace(/\s*:\s*-\s*$/, ":");
+        firstPart = firstPart.replace(/\s*;\s*-\s*$/, ";");
+        firstPart = firstPart.replace(/\s*-\s*$/, "");
+      }
+
+      if (firstPart) {
+        currentBlock.runs.push({ ...run, text: firstPart });
+      }
+
+      for (let i = 1; i < parts.length; i++) {
+        const cleanText = parts[i].trim();
+        if (!cleanText) continue;
+
+        // Determine the next block's indentTabs or standard levels.
+        const nextBlockIndent = block.type === "list"
+          ? (block.indentTabs || 0.5) + (block.indentStyle ? 0.3 : 0.5)
+          : 1.0; // standard bullet indented slightly inside paragraph
+
+        currentBlock = {
+          type: "list",
+          bullet: "-",
+          indentTabs: nextBlockIndent,
+          runs: [{ ...run, text: cleanText }]
+        };
+        
+        if (block.type === "list" && (block as any).indentStyle) {
+          (currentBlock as any).indentStyle = (block as any).indentStyle;
+        }
+
+        result.push(currentBlock);
+      }
+    }
+  }
+  return result;
+}
+

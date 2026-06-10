@@ -13,6 +13,7 @@ import {
 import { saveAs } from "file-saver";
 import { FormatToken, parseTextRuns } from "./notaryWrapper";
 import { generatePendirianBlocks } from "./pendirianContentBlocks";
+import { preprocessBlocksForWordBullets } from "./formatter";
 
 const TAB_KANAN = { type: TabStopType.RIGHT, position: 8504, leader: LeaderType.HYPHEN };
 const TAB_KANAN_NO_LEADER = { type: TabStopType.RIGHT, position: 8504, leader: LeaderType.NONE };
@@ -335,7 +336,8 @@ const createNotarisNameP = (name: string): Paragraph =>
   });
 
 export const generatePendirianDocx = async (data: any) => {
-  const blocks = generatePendirianBlocks(data);
+  const rawBlocks = generatePendirianBlocks(data);
+  const blocks = preprocessBlocksForWordBullets(rawBlocks);
   const docxChildren: Paragraph[] = [];
 
   blocks.forEach((block: any) => {
