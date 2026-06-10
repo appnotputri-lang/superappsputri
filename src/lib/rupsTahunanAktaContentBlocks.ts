@@ -924,18 +924,7 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
   blocks.push({
     type: "p",
     number: 5,
-    runs: [{ text: `Memberikan pelunasan dan pembebasan tanggung jawab sepenuhnya (acquit et de charge) kepada Direksi dan Komisaris Perseroan atas tindakan pengurusan dan pengawasan yang telah dijalankan selama tahun buku ${data.rupstFiscalYear || "2025"}, sejauh tindakan tersebut tercermin dalam Laporan Tahunan dan Laporan Keuangan Perseroan;` }]
-  });
-
-  // Decision 6
-  blocks.push({
-    type: "p",
-    number: 6,
-    runs: [
-      { text: "Memberikan kuasa kepada Tuan " },
-      { text: (data.meetingChair || rep?.name || "RAJANDRAN SHUNMUGAM").toUpperCase(), bold: true },
-      { text: " tersebut diatas, untuk melakukan segala tindakan yang diperlukan sehubungan dengan hasil keputusan RUPS Tahunan ini, termasuk namun tidak terbatas pada pengurusan pelaporan kepada instansi yang berwenang." }
-    ]
+    runs: [{ text: `Memberikan pelunasan dan pembebasan tanggung jawab sepenuhnya (acquit et de charge) kepada Direksi dan Komisaris Perseroan atas tindakan pengurusan dan pengawasan yang telah dijalankan selama tahun buku ${data.rupstFiscalYear || "2025"}, sejauh tindakan tersebut tercermin dalam Laporan Tahunan dan Laporan Keuangan Perseroan.` }]
   });
 
   // Closure Section

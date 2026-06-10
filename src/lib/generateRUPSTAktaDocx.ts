@@ -16,6 +16,7 @@ import { CompanyData } from "../../types";
 import { FormatToken, parseTextRuns } from "./notaryWrapper";
 import { Block, generateRupstAktaBlocks } from "./rupsTahunanAktaContentBlocks";
 
+// ─── Tab stop & font constants ────────────────────────────────────────────────
 const TAB_KANAN = {
   type: TabStopType.RIGHT,
   position: 8504,
@@ -30,24 +31,176 @@ const NOTARIS_TAB_STOPS = [
 const FONT_NAME = "Century Gothic";
 const FONT_SIZE = 20;
 
+// ─── Text-wrap widths ─────────────────────────────────────────────────────────
+// Calculated from: available = (8504 - ind.left) / (8504/41.5)
+// Content width = 11906 - 2268 - 1134 = 8504 DXA ; 1 char ≈ 204.9 DXA
 const W = {
-  normal: 41.5,
-  indent284: 40.8,
-  indent426: 40.2,
-  introDash: 39.8,
-  amendmentDash: 38.8,
-  bodyDash: 38.6,
-  agendaDash: 36.5,
-  attendeeNumber: 36.2,
-  attendeeDash: 34.8,
-  attendeeLetter: 33.0,
-  decisionNumber: 38.0,
-  decisionLetter: 37.2,
-  saksi: 39.5,
+  normal:         41.5,
+  indent284:      40.8,
+  indent426:      40.2,
+  // Preamble dashes  (numId2 ilvl2 ind=426)
+  preambleDash:   38.6,   // (8504-426)/204.9 = 39.4 → use slightly less for safety
+  // Attendance
+  attendeeNum:    36.2,   // numId3 ilvl0  no extra ind
+  attendeeDash:   34.8,   // numId3 ilvl2 ind=1134
+  attendeeLetter: 33.0,   // numId7 ilvl0 ind=1418
+  // General zone — 4 distinct variants (from corrected docx XML)
+  generalBahwaDari:   36.0,   // numId4 ilvl2 ind.left=1134  (Bahwa dari semua saham)
+  generalMenurut:     38.0,   // numId4 ilvl2 ind.left=709 hanging=425  (Bahwa menurut)
+  generalBerdasarkan: 38.0,   // numId4 ilvl2 ind.left=709  (Berdasarkan ketentuan)
+  generalDalamAcara:  38.0,   // numId4 ilvl2 ind.left=709  (Bahwa dalam acara)
+  agendaItem:         36.0,   // numId4 ilvl2 ind.left=1134  (agenda sub-items)
+  // Decisions
+  decisionNum:    38.0,   // numId5 ilvl0 ind=426 hanging=426
+  decisionLetter: 37.2,   // numId5 ilvl1 ind=851
+  decisionDash:   37.2,   // numId5 ilvl2 ind=851 hanging=425
+  // Saksi
+  saksiNum:       39.5,   // numId9 ilvl0 ind=426
+  saksiDash:      38.0,   // numId9 ilvl2 ind=709 hanging=283
 };
 
-type RenderPhase = "preamble" | "attendance" | "general" | "decisions" | "closing";
+// ─── Numbering references ─────────────────────────────────────────────────────
+const NUM = {
+  PREAMBLE_DASH:  "num-2",   // abstractNum 5
+  ATTENDANCE:     "num-3",   // abstractNum 1
+  ATTENDANCE_LTR: "num-7",   // abstractNum 0
+  GENERAL:        "num-4",   // abstractNum 2
+  DECISIONS:      "num-5",   // abstractNum 3
+  SAKSI:          "num-9",   // abstractNum 4
+};
 
+const DASH_LEVEL = {
+  level: 2,
+  format: LevelFormat.BULLET,
+  text: "-",
+  alignment: AlignmentType.LEFT,
+  style: { paragraph: { indent: { left: 1440, hanging: 360 } } },
+};
+
+const buildNumberingConfig = () => ({
+  config: [
+    {
+      // abstractNum 0 → NUM.ATTENDANCE_LTR
+      reference: NUM.ATTENDANCE_LTR,
+      levels: [
+        {
+          level: 0,
+          format: LevelFormat.LOWER_LETTER,
+          text: "%1.",
+          alignment: AlignmentType.LEFT,
+          style: { paragraph: { indent: { left: 1080, hanging: 360 } } },
+        },
+      ],
+    },
+    {
+      // abstractNum 1 → NUM.ATTENDANCE
+      reference: NUM.ATTENDANCE,
+      levels: [
+        {
+          level: 0,
+          format: LevelFormat.DECIMAL,
+          text: "%1.",
+          alignment: AlignmentType.LEFT,
+          style: { paragraph: { indent: { left: 720, hanging: 360 } } },
+        },
+        {
+          level: 1,
+          format: LevelFormat.LOWER_LETTER,
+          text: "%2.",
+          alignment: AlignmentType.LEFT,
+          style: { paragraph: { indent: { left: 1080, hanging: 360 } } },
+        },
+        DASH_LEVEL,
+      ],
+    },
+    {
+      // abstractNum 2 → NUM.GENERAL
+      reference: NUM.GENERAL,
+      levels: [
+        {
+          level: 0,
+          format: LevelFormat.DECIMAL,
+          text: "%1.",
+          alignment: AlignmentType.LEFT,
+          style: { paragraph: { indent: { left: 720, hanging: 360 } } },
+        },
+        {
+          level: 1,
+          format: LevelFormat.LOWER_LETTER,
+          text: "%2.",
+          alignment: AlignmentType.LEFT,
+          style: { paragraph: { indent: { left: 1080, hanging: 360 } } },
+        },
+        DASH_LEVEL,
+      ],
+    },
+    {
+      // abstractNum 3 → NUM.DECISIONS
+      reference: NUM.DECISIONS,
+      levels: [
+        {
+          level: 0,
+          format: LevelFormat.DECIMAL,
+          text: "%1.",
+          alignment: AlignmentType.LEFT,
+          style: { paragraph: { indent: { left: 720, hanging: 360 } } },
+        },
+        {
+          level: 1,
+          format: LevelFormat.LOWER_LETTER,
+          text: "%2.",
+          alignment: AlignmentType.LEFT,
+          style: { paragraph: { indent: { left: 1080, hanging: 360 } } },
+        },
+        DASH_LEVEL,
+      ],
+    },
+    {
+      // abstractNum 4 → NUM.SAKSI
+      reference: NUM.SAKSI,
+      levels: [
+        {
+          level: 0,
+          format: LevelFormat.DECIMAL,
+          text: "%1.",
+          alignment: AlignmentType.LEFT,
+          style: { paragraph: { indent: { left: 720, hanging: 360 } } },
+        },
+        {
+          level: 1,
+          format: LevelFormat.LOWER_LETTER,
+          text: "%2.",
+          alignment: AlignmentType.LEFT,
+          style: { paragraph: { indent: { left: 1080, hanging: 360 } } },
+        },
+        DASH_LEVEL,
+      ],
+    },
+    {
+      // abstractNum 5 → NUM.PREAMBLE_DASH
+      reference: NUM.PREAMBLE_DASH,
+      levels: [
+        {
+          level: 0,
+          format: LevelFormat.DECIMAL,
+          text: "%1.",
+          alignment: AlignmentType.LEFT,
+          style: { paragraph: { indent: { left: 720, hanging: 360 } } },
+        },
+        {
+          level: 1,
+          format: LevelFormat.LOWER_LETTER,
+          text: "%2.",
+          alignment: AlignmentType.LEFT,
+          style: { paragraph: { indent: { left: 1080, hanging: 360 } } },
+        },
+        DASH_LEVEL,
+      ],
+    },
+  ],
+});
+
+// ─── Text-run helpers ─────────────────────────────────────────────────────────
 const makeRun = (t: FormatToken): TextRun =>
   new TextRun({
     text: t.text,
@@ -64,22 +217,20 @@ const wrappedRuns = (
 ): TextRun[] => {
   const lines = parseTextRuns(tokens, maxWidth);
   const children: TextRun[] = [];
-
   lines.forEach((lineTokens, i) => {
     lineTokens.forEach((t) => children.push(makeRun(t)));
     if (withRightTab) children.push(new TextRun({ text: "\t" }));
     if (i < lines.length - 1) children.push(new TextRun({ break: 1 }));
   });
-
   return children;
 };
 
+// ─── Paragraph factory helpers ────────────────────────────────────────────────
 const createP = (
   tokens: FormatToken[],
   options: Omit<IParagraphOptions, "children"> = {},
 ): Paragraph => {
   const isCentered = options.alignment === AlignmentType.CENTER;
-
   return new Paragraph({
     children: wrappedRuns(tokens, W.normal, !isCentered),
     tabStops: isCentered ? [] : [TAB_KANAN],
@@ -94,7 +245,6 @@ const createIndentP = (
   options: Omit<IParagraphOptions, "children"> = {},
 ): Paragraph => {
   const maxWidth = leftDxa >= 993 ? 36.5 : leftDxa >= 426 ? W.indent426 : W.indent284;
-
   return new Paragraph({
     children: wrappedRuns(tokens, maxWidth),
     tabStops: [TAB_KANAN],
@@ -119,180 +269,338 @@ const createDividerP = (text: string): Paragraph =>
   });
 
 const createNotarisEmptyP = (): Paragraph =>
-  new Paragraph({
-    children: [],
-    tabStops: NOTARIS_TAB_STOPS,
-  });
-
+  new Paragraph({ children: [], tabStops: NOTARIS_TAB_STOPS });
 const createNotarisLabelP = (domicile: string): Paragraph =>
   new Paragraph({
-    children: [
-      new TextRun({ text: "\t" }),
-      new TextRun({ text: `Notaris di ${domicile};` }),
-    ],
+    children: [new TextRun({ text: "\t" }), new TextRun({ text: `Notaris di ${domicile};` })],
     tabStops: NOTARIS_TAB_STOPS,
   });
-
 const createNotarisNameP = (name: string): Paragraph =>
   new Paragraph({
-    children: [
-      new TextRun({ text: "\t" }),
-      new TextRun({ text: name, bold: true }),
-    ],
+    children: [new TextRun({ text: "\t" }), new TextRun({ text: name, bold: true })],
     tabStops: NOTARIS_TAB_STOPS,
   });
 
-const buildNumberingConfig = (refs: string[]) => ({
-  config: refs.map(ref => ({
-    reference: ref,
-    levels: [
-      {
-        level: 0,
-        format: LevelFormat.DECIMAL,
-        text: "%1.",
-        alignment: AlignmentType.LEFT,
-        style: { paragraph: { indent: { left: 720, hanging: 360 } } },
-      },
-      {
-        level: 1,
-        format: LevelFormat.LOWER_LETTER,
-        text: "%2.",
-        alignment: AlignmentType.LEFT,
-        style: { paragraph: { indent: { left: 1080, hanging: 360 } } },
-      },
-      {
-        level: 2,
-        format: LevelFormat.BULLET,
-        text: "-",
-        alignment: AlignmentType.LEFT,
-        style: { paragraph: { indent: { left: 1440, hanging: 360 } } },
-      }
-    ],
-  })),
-});
+// ─── Zone-specific paragraph builders ────────────────────────────────────────
+// Each builder maps 1:1 to the exact XML in the corrected source document.
+
+/** PREAMBLE DASH  numId=2 ilvl=2 ind.left=426 */
+const mkPreambleDash = (t: FormatToken[]) =>
+  new Paragraph({
+    style: "ListParagraph",
+    numbering: { reference: NUM.PREAMBLE_DASH, level: 2 },
+    tabStops: [TAB_KANAN],
+    indent: { left: 426 },
+    children: wrappedRuns(t, W.preambleDash),
+  });
+
+/** ATTENDANCE NUMBER  numId=3 ilvl=0 */
+const mkAttendanceNum = (t: FormatToken[]) =>
+  new Paragraph({
+    style: "ListParagraph",
+    numbering: { reference: NUM.ATTENDANCE, level: 0 },
+    tabStops: [TAB_KANAN],
+    children: wrappedRuns(t, W.attendeeNum),
+  });
+
+/** ATTENDANCE DASH  numId=3 ilvl=2 ind.left=1134 */
+const mkAttendanceDash = (t: FormatToken[]) =>
+  new Paragraph({
+    style: "ListParagraph",
+    numbering: { reference: NUM.ATTENDANCE, level: 2 },
+    tabStops: [TAB_KANAN],
+    indent: { left: 1134 },
+    children: wrappedRuns(t, W.attendeeDash),
+  });
+
+/** ATTENDANCE LETTER  numId=7 ilvl=0 ind.left=1418 */
+const mkAttendanceLetter = (t: FormatToken[]) =>
+  new Paragraph({
+    style: "ListParagraph",
+    numbering: { reference: NUM.ATTENDANCE_LTR, level: 0 },
+    tabStops: [TAB_KANAN],
+    indent: { left: 1418 },
+    children: wrappedRuns(t, W.attendeeLetter),
+  });
+
+// ── General zone: 4 distinct builders matching corrected docx XML ─────────────
+
+/** GENERAL: "Bahwa dari semua saham..."
+ *  numId=4 ilvl=2 ind.left=1134 */
+const mkGeneralBahwaDari = (t: FormatToken[]) =>
+  new Paragraph({
+    style: "ListParagraph",
+    numbering: { reference: NUM.GENERAL, level: 2 },
+    tabStops: [TAB_KANAN],
+    indent: { left: 1134 },
+    children: wrappedRuns(t, W.generalBahwaDari),
+  });
+
+/** GENERAL: "Bahwa menurut..."
+ *  numId=4 ilvl=2 ind.left=709 hanging=425 */
+const mkGeneralMenurut = (t: FormatToken[]) =>
+  new Paragraph({
+    style: "ListParagraph",
+    numbering: { reference: NUM.GENERAL, level: 2 },
+    tabStops: [TAB_KANAN],
+    indent: { left: 709, hanging: 425 },
+    children: wrappedRuns(t, W.generalMenurut),
+  });
+
+/** GENERAL: "Berdasarkan ketentuan..." and "Bahwa dalam acara..."
+ *  numId=4 ilvl=2 ind.left=709 (no hanging) */
+const mkGeneralInd709 = (t: FormatToken[]) =>
+  new Paragraph({
+    style: "ListParagraph",
+    numbering: { reference: NUM.GENERAL, level: 2 },
+    tabStops: [TAB_KANAN],
+    indent: { left: 709 },
+    children: wrappedRuns(t, W.generalBerdasarkan),
+  });
+
+/** GENERAL: agenda sub-items (Pernyataan Direksi, Persetujuan, Pengesahan, etc.)
+ *  numId=4 ilvl=2 ind.left=1134 */
+const mkAgendaItem = (t: FormatToken[]) =>
+  new Paragraph({
+    style: "ListParagraph",
+    numbering: { reference: NUM.GENERAL, level: 2 },
+    tabStops: [TAB_KANAN],
+    indent: { left: 1134 },
+    children: wrappedRuns(t, W.agendaItem),
+  });
+
+/** DECISION NUMBER  numId=5 ilvl=0 ind.left=426 hanging=426 */
+const mkDecisionNum = (t: FormatToken[]) =>
+  new Paragraph({
+    style: "ListParagraph",
+    numbering: { reference: NUM.DECISIONS, level: 0 },
+    tabStops: [TAB_KANAN],
+    indent: { left: 426, hanging: 426 },
+    children: wrappedRuns(t, W.decisionNum),
+  });
+
+/** DECISION LETTER  numId=5 ilvl=1 ind.left=851 */
+const mkDecisionLetter = (t: FormatToken[]) =>
+  new Paragraph({
+    style: "ListParagraph",
+    numbering: { reference: NUM.DECISIONS, level: 1 },
+    tabStops: [TAB_KANAN],
+    indent: { left: 851 },
+    children: wrappedRuns(t, W.decisionLetter),
+  });
+
+/** DECISION DASH  numId=5 ilvl=2 ind.left=851 hanging=425 */
+const mkDecisionDash = (t: FormatToken[]) =>
+  new Paragraph({
+    style: "ListParagraph",
+    numbering: { reference: NUM.DECISIONS, level: 2 },
+    tabStops: [TAB_KANAN],
+    indent: { left: 851, hanging: 425 },
+    children: wrappedRuns(t, W.decisionDash),
+  });
+
+/** SAKSI NUMBER  numId=9 ilvl=0 ind.left=426 */
+const mkSaksiNum = (t: FormatToken[]) =>
+  new Paragraph({
+    style: "ListParagraph",
+    numbering: { reference: NUM.SAKSI, level: 0 },
+    tabStops: [TAB_KANAN],
+    indent: { left: 426 },
+    children: wrappedRuns(t, W.saksiNum),
+  });
+
+/** SAKSI DASH  numId=9 ilvl=2 ind.left=709 hanging=283 */
+const mkSaksiDash = (t: FormatToken[]) =>
+  new Paragraph({
+    style: "ListParagraph",
+    numbering: { reference: NUM.SAKSI, level: 2 },
+    tabStops: [TAB_KANAN],
+    indent: { left: 709, hanging: 283 },
+    children: wrappedRuns(t, W.saksiDash),
+  });
+
+// ─── Main render function ─────────────────────────────────────────────────────
 
 export const generateRUPSTAktaDocx = async (data: CompanyData) => {
   const blocks = generateRupstAktaBlocks(data);
   const docxChildren: Paragraph[] = [];
-  let phase: RenderPhase = "preamble";
-
-  // Dynamic numbering instances for restarts
-  let listCounter = 1;
-  let currentNumRef = `list-${listCounter}`;
-  const usedRefs: string[] = [currentNumRef];
-
-  const nextList = () => {
-    listCounter++;
-    currentNumRef = `list-${listCounter}`;
-    usedRefs.push(currentNumRef);
-  };
 
   const blockText = (block: Block): string => {
-    if ("runs" in block) return block.runs.map((run) => run.text).join("");
+    if ("runs" in block) return block.runs.map((r) => r.text).join("");
     if (block.type === "divider") return block.text;
     return "";
   };
 
+  // ── Zone tracker ──────────────────────────────────────────────────────────
+  type Zone = "preamble" | "attendance" | "general" | "decisions" | "saksi";
+  let zone: Zone = "preamble";
+
+  // Within general zone, track which sub-type to render
+  // Order of items as they appear in contentBlocks:
+  //   1. Bahwa dari semua saham   → ind=1134
+  //   2. Bahwa menurut            → ind=709 hanging=425
+  //   3. Berdasarkan ketentuan    → ind=709
+  //   4. Bahwa dalam acara Rapat  → ind=709
+  //   5. agenda sub-items         → ind=1134 (Pernyataan, Persetujuan, etc.)
+  type GeneralSubtype = "bahwaDari" | "menurut" | "ind709" | "agendaItem";
+  let generalSubtype: GeneralSubtype = "bahwaDari";
+
   blocks.forEach((block) => {
     const text = blockText(block);
 
-    // Section Phase Detection & Restarts
-    if (block.type === "list" && /^\d+\.$/.test(block.bullet)) {
-      if (phase !== "attendance") {
-        phase = "attendance";
-        nextList();
-      }
+    // ── Zone transitions ────────────────────────────────────────────────────
+    if (block.type === "list" && /^\d+\.$/.test((block as any).bullet ?? "")) {
+      zone = "attendance";
     }
 
     if (text.startsWith("Bahwa dari semua saham")) {
-      phase = "general";
-      nextList();
+      zone = "general";
+      generalSubtype = "bahwaDari";
+    }
+    if (zone === "general") {
+      if (text.startsWith("Bahwa menurut")) {
+        generalSubtype = "menurut";
+      } else if (
+        text.startsWith("Berdasarkan ketentuan") ||
+        text.startsWith("Bahwa dalam acara Rapat")
+      ) {
+        generalSubtype = "ind709";
+      } else if (
+        text.startsWith("Pernyataan Direksi") ||
+        text.startsWith("Persetujuan Laporan") ||
+        text.startsWith("Pengesahan Laporan") ||
+        text.startsWith("Penetapan penggunaan") ||
+        text.startsWith("Pemberian pelunasan")
+      ) {
+        generalSubtype = "agendaItem";
+      }
     }
 
     if (text.startsWith("Sehubungan dengan apa yang diuraikan")) {
-      phase = "decisions";
-      nextList();
+      zone = "decisions";
+    }
+    if (block.type === "p" && (block as any).number !== undefined && zone !== "decisions") {
+      zone = "decisions";
+    }
+    if (block.type === "saksi") {
+      zone = "saksi";
     }
 
-    if (block.type === "p" && block.number !== undefined) {
-      if (phase !== "decisions") {
-        phase = "decisions";
-        nextList();
-      }
-    }
-
-    if (text.startsWith("Rapat ditutup") || text.startsWith("Dari segala sesuatu") || block.type === "divider") {
-      phase = "closing";
-    }
+    // ── Render ──────────────────────────────────────────────────────────────
 
     if (block.type === "p") {
-      if (block.number) {
-        docxChildren.push(new Paragraph({
-          children: wrappedRuns(block.runs, W.decisionNumber),
-          numbering: { reference: currentNumRef, level: 0 },
-          tabStops: [TAB_KANAN],
-          alignment: AlignmentType.LEFT,
-          indent: { left: 720, hanging: 360 },
-        }));
-      } else if (block.align === "center") {
-        docxChildren.push(createP(block.runs, { alignment: AlignmentType.CENTER }));
-      } else if (block.indentLeft !== undefined) {
-        docxChildren.push(createIndentP(block.runs, block.indentLeft));
-      } else if (block.indent) {
-        docxChildren.push(createIndentP(block.runs, 284));
-      } else {
-        docxChildren.push(createP(block.runs));
+      const b = block as Extract<Block, { type: "p" }>;
+      if (b.number !== undefined) {
+        docxChildren.push(mkDecisionNum(b.runs));
+        return;
       }
+      if (b.align === "center") {
+        docxChildren.push(createP(b.runs, { alignment: AlignmentType.CENTER }));
+        return;
+      }
+      if (b.indentLeft !== undefined) {
+        docxChildren.push(createIndentP(b.runs, b.indentLeft));
+        return;
+      }
+      if (b.indent) {
+        docxChildren.push(createIndentP(b.runs, 284));
+        return;
+      }
+      // Red "Direksi dan Komisaris..." plain paragraph in decisions zone
+      if (zone === "decisions" && b.runs.some((r) => r.color === "FF0000")) {
+        docxChildren.push(createIndentP(b.runs, 426));
+        return;
+      }
+      docxChildren.push(createP(b.runs));
       return;
     }
 
     if (block.type === "list") {
-      let level = 1; // Default dash
-      const bullet = block.bullet || "";
-      if (/^\d+\.$/.test(bullet)) level = 0;
-      else if (/^[a-z]\.$/i.test(bullet)) level = 1;
-      else if (bullet === "-") level = 2;
+      const b = block as Extract<Block, { type: "list" }>;
+      const bullet = b.bullet ?? "";
+      const isNumbered = /^\d+\.$/.test(bullet);
+      const isLetter   = /^[a-z]\.$/i.test(bullet) && !isNumbered;
 
-      docxChildren.push(new Paragraph({
-        children: wrappedRuns(block.runs, W.attendeeNumber),
-        numbering: { reference: currentNumRef, level },
-        tabStops: [TAB_KANAN],
-        alignment: AlignmentType.LEFT,
-        // Numbering level styling in buildNumberingConfig handles indents
-      }));
+      if (zone === "preamble") {
+        docxChildren.push(mkPreambleDash(b.runs));
+        return;
+      }
+
+      if (zone === "attendance") {
+        if (isNumbered) {
+          docxChildren.push(mkAttendanceNum(b.runs));
+        } else if (isLetter) {
+          docxChildren.push(mkAttendanceLetter(b.runs));
+        } else {
+          docxChildren.push(mkAttendanceDash(b.runs));
+        }
+        return;
+      }
+
+      if (zone === "general") {
+        switch (generalSubtype) {
+          case "bahwaDari":
+            docxChildren.push(mkGeneralBahwaDari(b.runs));
+            break;
+          case "menurut":
+            docxChildren.push(mkGeneralMenurut(b.runs));
+            break;
+          case "ind709":
+            docxChildren.push(mkGeneralInd709(b.runs));
+            break;
+          case "agendaItem":
+            docxChildren.push(mkAgendaItem(b.runs));
+            break;
+        }
+        return;
+      }
+
+      if (zone === "decisions") {
+        if (isLetter) {
+          docxChildren.push(mkDecisionLetter(b.runs));
+        } else {
+          docxChildren.push(mkDecisionDash(b.runs));
+        }
+        return;
+      }
+
+      if (zone === "saksi") {
+        docxChildren.push(mkSaksiDash(b.runs));
+        return;
+      }
       return;
     }
 
     if (block.type === "saksi") {
-      docxChildren.push(new Paragraph({
-        children: wrappedRuns(block.runs, W.saksi),
-        numbering: { reference: currentNumRef, level: 0 },
-        tabStops: [TAB_KANAN],
-        alignment: AlignmentType.LEFT,
-        indent: { left: 720, hanging: 360 },
-      }));
+      docxChildren.push(mkSaksiNum(block.runs));
       return;
     }
 
     if (block.type === "divider") {
       docxChildren.push(createDividerP(block.text));
+      return;
     }
   });
 
+  // ── Notary signature block ─────────────────────────────────────────────────
   const domicile = data.notaryDomicile || "Kabupaten Bandung Barat";
-  const rawNotaryName = (data.notaryName || "NUKANTINI PUTRI PARINCHA, S.H., M.Kn.");
-  const expandedNotaryName = rawNotaryName.replace(/\bS\.H\b\.?/gi, "Sarjana Hukum").replace(/\bM\.Kn\b\.?/gi, "Magister Kenotariatan");
-  const notaryDisplay = expandedNotaryName.toUpperCase();
+  const rawNotaryName = data.notaryName || "NUKANTINI PUTRI PARINCHA, S.H., M.Kn.";
+  const expandedNotaryName = rawNotaryName
+    .replace(/\bS\.H\b\.?/gi, "Sarjana Hukum")
+    .replace(/\bM\.Kn\b\.?/gi, "Magister Kenotariatan");
 
-  docxChildren.push(createNotarisLabelP(domicile));
-  docxChildren.push(createNotarisEmptyP());
-  docxChildren.push(createNotarisEmptyP());
-  docxChildren.push(createNotarisEmptyP());
-  docxChildren.push(createNotarisEmptyP());
-  docxChildren.push(createNotarisNameP(notaryDisplay));
+  docxChildren.push(
+    createNotarisLabelP(domicile),
+    createNotarisEmptyP(),
+    createNotarisEmptyP(),
+    createNotarisEmptyP(),
+    createNotarisEmptyP(),
+    createNotarisNameP(expandedNotaryName.toUpperCase()),
+  );
 
+  // ── Document assembly ──────────────────────────────────────────────────────
   const doc = new Document({
-    numbering: buildNumberingConfig(usedRefs),
+    numbering: buildNumberingConfig(),
     styles: {
       default: {
         document: {
@@ -318,9 +626,7 @@ export const generateRUPSTAktaDocx = async (data: CompanyData) => {
               new Paragraph({
                 alignment: AlignmentType.CENTER,
                 children: [
-                  new TextRun({
-                    children: ["- ", PageNumber.CURRENT, " -"],
-                  }),
+                  new TextRun({ children: ["- ", PageNumber.CURRENT, " -"] }),
                 ],
               }),
             ],
