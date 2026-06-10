@@ -1031,16 +1031,37 @@ const KBLIMapping: React.FC = () => {
     
     unique2020Kodes.forEach(kode2020 => {
       const mappingsFor2020 = selectedMappings.filter(s => s.kbli_2020.kode === kode2020);
-      const firstMappingItem = mappingsFor2020[0];
-      const name2020 = firstMappingItem.kbli_2020.judul;
       
-      const targetKodes = mappingsFor2020
-        .map(s => s.kbli_2025?.kode)
-        .filter(Boolean);
+      // Robust Name 2020 extraction (find the longest/first non-empty title)
+      let name2020 = "";
+      for (const m of mappingsFor2020) {
+        if (m.kbli_2020.judul && m.kbli_2020.judul.length > name2020.length) {
+          name2020 = m.kbli_2020.judul;
+        }
+      }
+      
+      // Robust Target Kodes extraction (handles swapped kode/judul fields in messy source data)
+      const targetCodesSet = new Set<string>();
+      mappingsFor2020.forEach(s => {
+        const k = (s.kbli_2025?.kode || "").trim();
+        const j = (s.kbli_2025?.judul || "").trim();
+        
+        // Detect swapped fields: KBLI codes are typically numeric and short. Titles are usually long.
+        const kIsTitle = k.length > 7 || (k && !/^\d+$/.test(k));
+        const jIsCode = j && /^\d+$/.test(j) && j.length <= 7;
+        
+        if (kIsTitle && jIsCode) {
+          targetCodesSet.add(j);
+        } else if (k && !kIsTitle) {
+          targetCodesSet.add(k);
+        }
+      });
+      
+      const targetKodes = Array.from(targetCodesSet).filter(Boolean);
       
       const isDeleted = targetKodes.length === 0 || 
         mappingsFor2020.some(s => s.jenis_perubahan?.toLowerCase() === "dihapus") || 
-        mappingsFor2020.every(s => !s.kbli_2025?.kode);
+        mappingsFor2020.every(s => !s.kbli_2025?.kode && !s.kbli_2025?.judul);
       
       let kbli2025Str = "";
       let jumlahStr = "";
@@ -1097,8 +1118,8 @@ const KBLIMapping: React.FC = () => {
       },
       columnStyles: {
         0: { cellWidth: 20, halign: "center", fontStyle: "bold" },
-        1: { cellWidth: 90, halign: "left" },
-        2: { cellWidth: 35, halign: "center" },
+        1: { cellWidth: 70, halign: "left" },
+        2: { cellWidth: 55, halign: "center" },
         3: { cellWidth: 37, halign: "left" },
       },
       alternateRowStyles: { fillColor: [248, 250, 252] },
@@ -1208,11 +1229,23 @@ const KBLIMapping: React.FC = () => {
         doc.setFontSize(10.5);
         doc.setTextColor(15, 118, 110); // Teal
 
-        const targetKodeStr = kbli2025.kode || "-";
-        const isTargetDeleted = !kbli2025.kode || kbli2025Item.jenis_perubahan?.toLowerCase() === "dihapus";
+        let targetKodeStr = (kbli2025.kode || "").trim();
+        let targetJudulText = (kbli2025.judul || "").trim();
+
+        // Heuristic to detect swapped Kode/Judul fields in messy source data
+        const kIsTitle = targetKodeStr.length > 7 || (targetKodeStr && !/^\d+$/.test(targetKodeStr));
+        const jIsCode = targetJudulText && /^\d+$/.test(targetJudulText) && targetJudulText.length <= 7;
+
+        if (kIsTitle && jIsCode) {
+          const temp = targetKodeStr;
+          targetKodeStr = targetJudulText;
+          targetJudulText = temp;
+        }
+
+        const isTargetDeleted = !targetKodeStr || targetKodeStr === "-" || kbli2025Item.jenis_perubahan?.toLowerCase() === "dihapus";
         const targetJudulStr = isTargetDeleted
           ? (isEn ? "DELETED" : "DIHAPUS")
-          : (kbli2025.judul || "").toUpperCase();
+          : (targetJudulText || "").toUpperCase();
 
         const subHeaderString = `KBLI 2025: ${targetKodeStr} — ${targetJudulStr}`;
         const statusText = isEn 
