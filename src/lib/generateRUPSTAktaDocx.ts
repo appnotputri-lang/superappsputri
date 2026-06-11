@@ -285,15 +285,17 @@ const createNotarisNameP = (name: string): Paragraph =>
 // ─── Zone-specific paragraph builders ────────────────────────────────────────
 // Each builder maps 1:1 to the exact XML in the corrected source document.
 
-/** PREAMBLE DASH  numId=2 ilvl=2 ind.left=426 hanging=426 */
-const mkPreambleDash = (t: FormatToken[]) =>
-  new Paragraph({
+/** PREAMBLE DASH  numId=2 ilvl=2 ind.left=426 hanging=426 or deeper */
+const mkPreambleDash = (t: FormatToken[], indentTabs?: number) => {
+  const isDeep = indentTabs !== undefined && indentTabs >= 0.8;
+  return new Paragraph({
     style: "ListParagraph",
     numbering: { reference: NUM.PREAMBLE_DASH, level: 2 },
     tabStops: [TAB_KANAN],
-    indent: { left: 426, hanging: 426 },
-    children: wrappedRuns(t, W.preambleDash),
+    indent: isDeep ? { left: 850, hanging: 425 } : { left: 426, hanging: 426 },
+    children: wrappedRuns(t, isDeep ? 36.5 : W.preambleDash),
   });
+};
 
 /** ATTENDANCE NUMBER  numId=3 ilvl=0 */
 const mkAttendanceNum = (t: FormatToken[], bulletStr: string) =>
@@ -527,7 +529,7 @@ export const generateRUPSTAktaDocx = async (data: CompanyData) => {
       const isLetter   = /^[a-z]\.$/i.test(bullet) && !isNumbered;
 
       if (zone === "preamble") {
-        docxChildren.push(mkPreambleDash(b.runs));
+        docxChildren.push(mkPreambleDash(b.runs, b.indentTabs));
         return;
       }
 
