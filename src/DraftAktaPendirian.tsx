@@ -788,43 +788,6 @@ export default function DraftAktaPendirian({ onShowPreview, onExportWord, profil
              </div>
           </div>
         </AhuSection>
-
-        {/* SAKSI-SAKSI */}
-        <AhuSection title="Para Saksi Notaris (Saksi Akta)">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-             <div className="space-y-4 p-5 bg-slate-50 border border-slate-200 rounded-sm shadow-[inset_0_1px_3px_rgba(0,0,0,0.05)]">
-                <h4 className="font-bold text-[12px] text-slate-600 uppercase border-b pb-1 flex items-center gap-2">
-                  <IdCard className="w-4 h-4" /> Saksi Akta Utama (1)
-                </h4>
-                <div className="space-y-3">
-                   <div><AhuLabel label="Nama Lengkap"/><AhuInput value={data.saksi1Nama} onChange={e => updateData('saksi1Nama', e.target.value)}/></div>
-                   <div className="flex gap-2">
-                      <div className="flex-1"><AhuLabel label="Tempat Lahir"/><AhuInput value={data.saksi1LahirTempat} onChange={e => updateData('saksi1LahirTempat', e.target.value)}/></div>
-                      <div className="flex-1"><AhuLabel label="Tanggal Lahir"/><AhuInput type="date" value={data.saksi1LahirTanggal} onChange={e => updateData('saksi1LahirTanggal', e.target.value)}/></div>
-                   </div>
-                   <div><AhuLabel label="NIK KTP"/><AhuInput value={data.saksi1NIK} onChange={e => updateData('saksi1NIK', e.target.value)}/></div>
-                   <div><AhuLabel label="Pekerjaan"/><AhuInput value={data.saksi1Pekerjaan} onChange={e => updateData('saksi1Pekerjaan', e.target.value)}/></div>
-                   <div><AhuLabel label="Alamat Tetap"/><textarea value={data.saksi1Alamat} onChange={e => updateData('saksi1Alamat', e.target.value)} className="w-full text-xs p-2 border border-slate-300 rounded focus:border-[#66afe9] outline-none h-20" /></div>
-                </div>
-             </div>
-
-             <div className="space-y-4 p-5 bg-slate-50 border border-slate-200 rounded-sm shadow-[inset_0_1px_3px_rgba(0,0,0,0.05)]">
-                <h4 className="font-bold text-[12px] text-slate-600 uppercase border-b pb-1 flex items-center gap-2">
-                  <IdCard className="w-4 h-4" /> Saksi Akta Kedua (2)
-                </h4>
-                <div className="space-y-3">
-                   <div><AhuLabel label="Nama Lengkap"/><AhuInput value={data.saksi2Nama} onChange={e => updateData('saksi2Nama', e.target.value)}/></div>
-                   <div className="flex gap-2">
-                      <div className="flex-1"><AhuLabel label="Tempat Lahir"/><AhuInput value={data.saksi2LahirTempat} onChange={e => updateData('saksi2LahirTempat', e.target.value)}/></div>
-                      <div className="flex-1"><AhuLabel label="Tanggal Lahir"/><AhuInput type="date" value={data.saksi2LahirTanggal} onChange={e => updateData('saksi2LahirTanggal', e.target.value)}/></div>
-                   </div>
-                   <div><AhuLabel label="NIK KTP"/><AhuInput value={data.saksi2NIK} onChange={e => updateData('saksi2NIK', e.target.value)}/></div>
-                   <div><AhuLabel label="Pekerjaan"/><AhuInput value={data.saksi2Pekerjaan} onChange={e => updateData('saksi2Pekerjaan', e.target.value)}/></div>
-                   <div><AhuLabel label="Alamat Tetap"/><textarea value={data.saksi2Alamat} onChange={e => updateData('saksi2Alamat', e.target.value)} className="w-full text-xs p-2 border border-slate-300 rounded focus:border-[#66afe9] outline-none h-20" /></div>
-                </div>
-             </div>
-          </div>
-        </AhuSection>
       </div>
 
       {/* KBLI Modal */}

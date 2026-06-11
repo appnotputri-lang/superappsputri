@@ -22,27 +22,7 @@ export default defineConfig(({ mode }) => {
       build: {
         outDir: 'dist',
         emptyOutDir: true,
-        rollupOptions: {
-          output: {
-            manualChunks(id) {
-              if (id.includes('node_modules')) {
-                if (id.includes('firebase')) {
-                  return 'vendor-firebase';
-                }
-                if (id.includes('docx') || id.includes('jspdf') || id.includes('html2canvas') || id.includes('purify')) {
-                  return 'vendor-doc-helpers';
-                }
-                return 'vendor';
-              }
-              if (id.includes('.json')) {
-                // Parse the directory / file name to name the chunk appropriately
-                const name = path.basename(id, '.json');
-                return `data-json-${name.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
-              }
-            }
-          }
-        },
-        chunkSizeWarningLimit: 1500
+        chunkSizeWarningLimit: 2000
       }
     };
 });
