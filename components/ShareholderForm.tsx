@@ -114,7 +114,7 @@ const ShareholderForm: React.FC<Props> = ({
       );
 
       if (matchedProfile) {
-        const profileCity = (matchedProfile.domicile || matchedProfile.oldDomicile || matchedProfile.newAddress?.city || matchedProfile.oldAddress?.city || '').toUpperCase();
+        const profileCity = (matchedProfile.domicile || matchedProfile.oldDomicile || matchedProfile.newAddress?.city || matchedProfile.oldAddress?.city || matchedProfile.kedudukanPT || (matchedProfile as any).city || '').toUpperCase();
         if (profileCity && (!shareholder.address || shareholder.address.city !== profileCity)) {
           onChange({
             address: {
@@ -145,7 +145,7 @@ const ShareholderForm: React.FC<Props> = ({
       province: ''
     });
 
-    const profileCity = (p.domicile || p.oldDomicile || p.newAddress?.city || p.oldAddress?.city || targetAddress.city || '').toUpperCase();
+    const profileCity = (p.domicile || p.oldDomicile || p.newAddress?.city || p.oldAddress?.city || p.kedudukanPT || (p as any).city || targetAddress.city || '').toUpperCase();
     targetAddress.city = profileCity;
 
     onChange({

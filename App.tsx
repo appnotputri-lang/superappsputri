@@ -332,6 +332,28 @@ const App: React.FC = () => {
   const [rupstProjects, setRupstProjects] = useState<CompanyData[]>([]);
   const [rupstPublicProjects, setRupstPublicProjects] = useState<CompanyData[]>([]);
   const [pendirianProjects, setPendirianProjects] = useState<CompanyData[]>([]);
+  const [rupstSearchQuery, setRupstSearchQuery] = useState("");
+  const [notulenSearchQuery, setNotulenSearchQuery] = useState("");
+  const [profileSearchQuery, setProfileSearchQuery] = useState("");
+
+  const filteredProjects = projects.filter(p => {
+    if (!notulenSearchQuery) return true;
+    const q = notulenSearchQuery.toLowerCase();
+    return (
+      (p.companyName && p.companyName.toLowerCase().includes(q)) ||
+      (p.newAddress?.city && p.newAddress.city.toLowerCase().includes(q))
+    );
+  });
+
+  const filteredProfiles = profiles.filter(p => {
+    if (!profileSearchQuery) return true;
+    const q = profileSearchQuery.toLowerCase();
+    return (
+      (p.companyName && p.companyName.toLowerCase().includes(q)) ||
+      (p.newAddress?.city && p.newAddress.city.toLowerCase().includes(q))
+    );
+  });
+
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [authLoading, setAuthLoading] = useState(() => {
     return localStorage.getItem('notaris_user_is_logged_in') === 'true';
@@ -1161,12 +1183,13 @@ const App: React.FC = () => {
   const currentTargetSharesPaid = data.originalSharePrice > 0 ? (data.targetCapitalPaid / data.originalSharePrice) : 0;
 
   const mergedData = useMemo(() => {
+    let baseData = data;
     if ((activeSidebarTab === 'notulen' || activeSidebarTab === 'rupst') && data.selectedProfileId) {
       const profile = profiles.find(p => p.id === data.selectedProfileId);
       if (profile) {
         // We want to keep the current state from profile as the "Old" data
         // but allow the draft (data) to control the "New/Target" states
-        return {
+        baseData = {
           ...data,
           companyName: profile.companyName,
           companyShortName: profile.companyShortName,
@@ -1197,7 +1220,40 @@ const App: React.FC = () => {
         };
       }
     }
-    return data;
+
+    // Patch shareholders and proxyData to automatically pull missing city from matching profiles
+    if (baseData.shareholders && profiles.length > 0) {
+      baseData = {
+        ...baseData,
+        shareholders: baseData.shareholders.map(sh => {
+          let patchedSh = { ...sh };
+          if (patchedSh.shareholderType === 'BADAN_HUKUM') {
+            const prof = profiles.find(p => 
+              (patchedSh.linkedProfileId && p.id === patchedSh.linkedProfileId) ||
+              (p.companyName && patchedSh.name && p.companyName.trim().toUpperCase() === patchedSh.name.trim().toUpperCase())
+            );
+            if (prof) {
+              const fallbackCity = (prof.domicile || prof.oldDomicile || prof.newAddress?.city || prof.oldAddress?.city || prof.kedudukanPT || (prof as any).city || '').toUpperCase();
+              if (fallbackCity && (!patchedSh.address || !patchedSh.address.city)) {
+                patchedSh.address = {
+                  ...(patchedSh.address || {}),
+                  city: fallbackCity,
+                  fullAddress: patchedSh.address?.fullAddress || '',
+                  rt: patchedSh.address?.rt || '',
+                  rw: patchedSh.address?.rw || '',
+                  kelurahan: patchedSh.address?.kelurahan || '',
+                  kecamatan: patchedSh.address?.kecamatan || '',
+                  province: patchedSh.address?.province || '',
+                };
+              }
+            }
+          }
+          return patchedSh;
+        })
+      };
+    }
+
+    return baseData;
   }, [data, profiles, activeSidebarTab]);
 
   const effectiveBaseCapital = data.resolutions.capitalBase ? data.targetCapitalBase : data.originalCapitalBase;
@@ -2283,45 +2339,82 @@ const App: React.FC = () => {
           </div>
           </div>
               ) : (
-                <div className="flex flex-col gap-3">
+                <div className="space-y-4">
+                  {profiles.length > 0 && (
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-sm border border-slate-200 shadow-sm">
+                      <div className="flex items-center gap-2">
+                        <Building2 className="w-5 h-5 text-[#3b5998]" />
+                        <h3 className="text-[14px] font-bold text-slate-800 uppercase">
+                          Daftar Profil Perusahaan
+                        </h3>
+                      </div>
+                      <div className="relative w-full sm:w-80">
+                        <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                        <input
+                          type="text"
+                          placeholder="Cari berdasarkan nama PT..."
+                          value={profileSearchQuery}
+                          onChange={(e) => setProfileSearchQuery(e.target.value)}
+                          className="w-full pl-9 pr-8 py-1.5 border border-slate-300 rounded-sm text-[12px] outline-none focus:border-[#3b5998] bg-white text-slate-800 placeholder-slate-400 transition-all shadow-sm"
+                        />
+                        {profileSearchQuery && (
+                          <button
+                            onClick={() => setProfileSearchQuery("")}
+                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 font-bold text-[14px]"
+                          >
+                            ×
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
                   {profiles.length === 0 ? (
                     <div className="bg-slate-50 text-center py-12 rounded-sm border border-dashed border-slate-300 text-slate-500 text-[13px]">
                       Belum ada data profil perusahaan. Klik <strong>"TAMBAH PROFIL"</strong> untuk membuat.
                     </div>
-                  ) : profiles.map(p => (
-                     <div key={p.id} className="bg-white p-4 rounded-sm border border-slate-200 hover:border-[#3b5998] transition-colors relative group flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                           <div className="w-10 h-10 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center shrink-0">
-                             <Building2 className="w-5 h-5 text-indigo-500" />
-                           </div>
-                           <div>
-                              <h3 className="font-bold text-slate-800 text-[14px] leading-tight mb-1">{p.companyName}</h3>
-                              <p className="text-[12px] text-slate-500 flex items-center gap-1"><MapPin className="w-3 h-3 text-slate-400 shrink-0"/> {p.newAddress?.city || 'Area belum diisi'}</p>
-                           </div>
-                        </div>
-                        <div className="flex gap-2">
-                           <button onClick={() => {
-                             setEditingProfileId(p.id);
-                             updateData({ ...INITIAL_STATE, ...p } as any);
-                           }} className="bg-slate-100 hover:bg-slate-200 px-4 py-2 rounded-sm text-[11px] font-bold text-slate-700 flex items-center justify-center gap-1 transition-colors uppercase">
-                             <Edit className="w-3 h-3" /> Edit
-                           </button>
-                           <button onClick={async () => {
-                             if(confirm('Hapus profil ' + p.companyName + '?')) {
-                               if (!user) return alert('Anda harus login!');
-                               try {
-                                 await deleteDoc(doc(db, 'profiles', p.id));
-                                 alert('Profil berhasil dihapus');
-                               } catch (e) {
-                                 handleFirestoreError(e, OperationType.DELETE, `profiles/${p.id}`);
-                               }
-                             }
-                           }} className="bg-red-50 hover:bg-red-500 text-red-500 hover:text-white px-4 py-2 rounded-sm text-[11px] font-bold flex items-center justify-center gap-1 transition-colors uppercase">
-                             <Trash2 className="w-3 h-3" /> Hapus
-                           </button>
-                        </div>
-                     </div>
-                  ))}
+                  ) : filteredProfiles.length === 0 ? (
+                    <div className="bg-slate-50 text-center py-8 rounded-sm border border-dashed border-slate-300 text-slate-500 text-[12px]">
+                      Tidak ada data profil perusahaan yang cocok dengan pencarian "{profileSearchQuery}".
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-3">
+                      {filteredProfiles.map(p => (
+                         <div key={p.id} className="bg-white p-4 rounded-sm border border-slate-200 hover:border-[#3b5998] transition-colors relative group flex items-center justify-between">
+                            <div className="flex items-center gap-4">
+                               <div className="w-10 h-10 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center shrink-0">
+                                 <Building2 className="w-5 h-5 text-indigo-500" />
+                               </div>
+                               <div>
+                                  <h3 className="font-bold text-slate-800 text-[14px] leading-tight mb-1">{p.companyName}</h3>
+                                  <p className="text-[12px] text-slate-500 flex items-center gap-1"><MapPin className="w-3 h-3 text-slate-400 shrink-0"/> {p.newAddress?.city || 'Area belum diisi'}</p>
+                               </div>
+                            </div>
+                            <div className="flex gap-2">
+                               <button onClick={() => {
+                                 setEditingProfileId(p.id);
+                                 updateData({ ...INITIAL_STATE, ...p } as any);
+                               }} className="bg-slate-100 hover:bg-slate-200 px-4 py-2 rounded-sm text-[11px] font-bold text-slate-700 flex items-center justify-center gap-1 transition-colors uppercase">
+                                 <Edit className="w-3 h-3" /> Edit
+                               </button>
+                               <button onClick={async () => {
+                                 if(confirm('Hapus profil ' + p.companyName + '?')) {
+                                   if (!user) return alert('Anda harus login!');
+                                   try {
+                                     await deleteDoc(doc(db, 'profiles', p.id));
+                                     alert('Profil berhasil dihapus');
+                                   } catch (e) {
+                                     handleFirestoreError(e, OperationType.DELETE, `profiles/${p.id}`);
+                                   }
+                                 }
+                               }} className="bg-red-50 hover:bg-red-500 text-red-500 hover:text-white px-4 py-2 rounded-sm text-[11px] font-bold flex items-center justify-center gap-1 transition-colors uppercase">
+                                 <Trash2 className="w-3 h-3" /> Hapus
+                               </button>
+                            </div>
+                         </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -3860,45 +3953,82 @@ const App: React.FC = () => {
                   </div>
                 </div>
               ) : (
-                <div className="flex flex-col gap-3">
+                <div className="space-y-4">
+                  {projects.length > 0 && (
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-sm border border-slate-200 shadow-sm">
+                      <div className="flex items-center gap-2">
+                        <FileText className="w-5 h-5 text-[#3b5998]" />
+                        <h3 className="text-[14px] font-bold text-slate-800 uppercase">
+                          Daftar RUPS LB Tersimpan
+                        </h3>
+                      </div>
+                      <div className="relative w-full sm:w-80">
+                        <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                        <input
+                          type="text"
+                          placeholder="Cari berdasarkan nama PT..."
+                          value={notulenSearchQuery}
+                          onChange={(e) => setNotulenSearchQuery(e.target.value)}
+                          className="w-full pl-9 pr-8 py-1.5 border border-slate-300 rounded-sm text-[12px] outline-none focus:border-[#3b5998] bg-white text-slate-800 placeholder-slate-400 transition-all shadow-sm"
+                        />
+                        {notulenSearchQuery && (
+                          <button
+                            onClick={() => setNotulenSearchQuery("")}
+                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 font-bold text-[14px]"
+                          >
+                            ×
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
                   {projects.length === 0 ? (
                     <div className="bg-slate-50 text-center py-12 rounded-sm border border-dashed border-slate-300 text-slate-500 text-[13px]">
                       Belum ada data RUPS LB. Klik <strong>"TAMBAH RUPS LB BARU"</strong> untuk membuat.
                     </div>
-                  ) : projects.map(p => (
-                     <div key={p.id} className="bg-white p-4 rounded-sm border border-slate-200 hover:border-[#3b5998] transition-colors relative group flex flex-col md:flex-row md:justify-between md:items-center gap-4">
-                        <div className="flex items-center gap-4">
-                           <div className="w-10 h-10 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center shrink-0">
-                             <Building2 className="w-5 h-5 text-indigo-500" />
-                           </div>
-                           <div>
-                              <h3 className="font-bold text-slate-800 text-[14px] leading-tight mb-1 pr-6">{p.companyName}</h3>
-                              <p className="text-[12px] text-slate-500 flex items-center gap-1 line-clamp-1"><MapPin className="w-3 h-3 text-slate-400 shrink-0"/> {p.newAddress?.city || 'Area belum diisi'}</p>
-                           </div>
-                        </div>
-                        <div className="flex gap-2 w-full md:w-auto">
-                           <button onClick={() => {
-                             setEditingProjectId(p.id);
-                             updateData({ ...INITIAL_STATE, ...p } as any);
-                           }} className="bg-slate-100 hover:bg-slate-200 px-4 py-2 rounded-sm text-[11px] font-bold text-slate-700 flex items-center justify-center gap-1 transition-colors flex-1 uppercase">
-                             <Edit className="w-3 h-3" /> Edit
-                           </button>
-                           <button onClick={async () => {
-                             if(confirm('Hapus RUPS LB ' + p.companyName + '?')) {
-                               if (!user) return alert('Anda harus login!');
-                               try {
-                                 await deleteDoc(doc(db, 'projects', p.id));
-                                 alert('RUPS LB berhasil dihapus');
-                               } catch (e) {
-                                 handleFirestoreError(e, OperationType.DELETE, `projects/${p.id}`);
-                               }
-                             }
-                           }} className="bg-red-50 hover:bg-red-500 text-red-500 hover:text-white px-4 py-2 rounded-sm text-[11px] font-bold flex items-center justify-center gap-1 transition-colors flex-1 uppercase">
-                             <Trash2 className="w-3 h-3" /> Hapus
-                           </button>
-                        </div>
-                     </div>
-                  ))}
+                  ) : filteredProjects.length === 0 ? (
+                    <div className="bg-slate-50 text-center py-8 rounded-sm border border-dashed border-slate-300 text-slate-500 text-[12px]">
+                      Tidak ada data RUPS LB yang cocok dengan pencarian "{notulenSearchQuery}".
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-3">
+                      {filteredProjects.map(p => (
+                         <div key={p.id} className="bg-white p-4 rounded-sm border border-slate-200 hover:border-[#3b5998] transition-colors relative group flex flex-col md:flex-row md:justify-between md:items-center gap-4">
+                            <div className="flex items-center gap-4">
+                               <div className="w-10 h-10 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center shrink-0">
+                                 <Building2 className="w-5 h-5 text-indigo-500" />
+                               </div>
+                               <div>
+                                  <h3 className="font-bold text-slate-800 text-[14px] leading-tight mb-1 pr-6">{p.companyName}</h3>
+                                  <p className="text-[12px] text-slate-500 flex items-center gap-1 line-clamp-1"><MapPin className="w-3 h-3 text-slate-400 shrink-0"/> {p.newAddress?.city || 'Area belum diisi'}</p>
+                               </div>
+                            </div>
+                            <div className="flex gap-2 w-full md:w-auto">
+                               <button onClick={() => {
+                                 setEditingProjectId(p.id);
+                                 updateData({ ...INITIAL_STATE, ...p } as any);
+                               }} className="bg-slate-100 hover:bg-slate-200 px-4 py-2 rounded-sm text-[11px] font-bold text-slate-700 flex items-center justify-center gap-1 transition-colors flex-1 uppercase">
+                                 <Edit className="w-3 h-3" /> Edit
+                               </button>
+                               <button onClick={async () => {
+                                 if(confirm('Hapus RUPS LB ' + p.companyName + '?')) {
+                                   if (!user) return alert('Anda harus login!');
+                                   try {
+                                     await deleteDoc(doc(db, 'projects', p.id));
+                                     alert('RUPS LB berhasil dihapus');
+                                   } catch (e) {
+                                     handleFirestoreError(e, OperationType.DELETE, `projects/${p.id}`);
+                                   }
+                                 }
+                               }} className="bg-red-50 hover:bg-red-500 text-red-500 hover:text-white px-4 py-2 rounded-sm text-[11px] font-bold flex items-center justify-center gap-1 transition-colors flex-1 uppercase">
+                                 <Trash2 className="w-3 h-3" /> Hapus
+                               </button>
+                            </div>
+                         </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -3976,6 +4106,15 @@ const App: React.FC = () => {
             const setCurrentEditingRupstId = isPublicMenu ? setEditingRupstPublicId : setEditingRupstId;
             const currentRupstProjects = isPublicMenu ? rupstPublicProjects : rupstProjects;
             const currentCollectionName = isPublicMenu ? 'rupst_public_projects' : 'rupst_projects';
+
+            const filteredRupstProjects = currentRupstProjects.filter(p => {
+              if (!rupstSearchQuery) return true;
+              const q = rupstSearchQuery.toLowerCase();
+              return (
+                (p.companyName && p.companyName.toLowerCase().includes(q)) ||
+                (p.rupstFiscalYear && p.rupstFiscalYear.toString().toLowerCase().includes(q))
+              );
+            });
 
             return (
               <div className="max-w-5xl mx-auto space-y-4">
@@ -5503,19 +5642,43 @@ const App: React.FC = () => {
                 <div className="space-y-8">
                   {/* SAVED RUPST SECTION */}
                   <div className="space-y-4">
-                    <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
-                      <History className="w-5 h-5 text-[#3b5998]" />
-                      <h3 className="text-[14px] font-bold text-slate-800 uppercase">
-                        {isPublicMenu ? 'Notulen RUPST Public Tersimpan' : 'Notulen RUPST Tersimpan'}
-                      </h3>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 pb-3">
+                      <div className="flex items-center gap-2">
+                        <History className="w-5 h-5 text-[#3b5998]" />
+                        <h3 className="text-[14px] font-bold text-slate-800 uppercase">
+                          {isPublicMenu ? 'Notulen RUPST Public Tersimpan' : 'Notulen RUPST Tersimpan'}
+                        </h3>
+                      </div>
+                      <div className="relative w-full sm:w-80">
+                        <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                        <input
+                          type="text"
+                          placeholder="Cari berdasarkan nama PT..."
+                          value={rupstSearchQuery}
+                          onChange={(e) => setRupstSearchQuery(e.target.value)}
+                          className="w-full pl-9 pr-8 py-1.5 border border-slate-300 rounded-sm text-[12px] outline-none focus:border-[#3b5998] bg-white text-slate-800 placeholder-slate-400 transition-all shadow-sm"
+                        />
+                        {rupstSearchQuery && (
+                          <button
+                            onClick={() => setRupstSearchQuery("")}
+                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 font-bold text-[14px]"
+                          >
+                            ×
+                          </button>
+                        )}
+                      </div>
                     </div>
                     {currentRupstProjects.length === 0 ? (
                       <div className="bg-slate-50 text-center py-6 rounded-sm border border-dashed border-slate-300 text-slate-500 text-[12px]">
                         {isPublicMenu ? 'Belum ada notulen RUPST Public yang disimpan.' : 'Belum ada notulen RUPST yang disimpan.'}
                       </div>
+                    ) : filteredRupstProjects.length === 0 ? (
+                      <div className="bg-slate-50 text-center py-8 rounded-sm border border-dashed border-slate-300 text-slate-500 text-[12px]">
+                        Tidak ada notulen RUPST yang cocok dengan pencarian "{rupstSearchQuery}".
+                      </div>
                     ) : (
                       <div className="flex flex-col gap-3">
-                        {currentRupstProjects.map(p => (
+                        {filteredRupstProjects.map(p => (
                           <div key={p.id} className="bg-white p-4 rounded-sm border border-slate-200 hover:border-[#3b5998] transition-colors relative group flex flex-col md:flex-row md:items-center justify-between gap-4">
                               <div className="flex items-center gap-4">
                                 <div className="w-10 h-10 rounded-full bg-blue-50 border border-blue-100 flex items-center justify-center shrink-0">

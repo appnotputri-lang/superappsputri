@@ -124,6 +124,7 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
     const expandedName = expandAbbreviations(rawName);
     const nameUpper = expandedName.toUpperCase();
     const isPenghadap = rep && nameUpper === (rep.name || "").toUpperCase().trim();
+    const isBadanHukum = person?.shareholderType === 'BADAN_HUKUM' || person?.legalEntityType;
 
     if (fullyDescribedNames.has(nameUpper) && nameUpper !== "") {
       return [
@@ -192,7 +193,7 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
       type: "list",
       bullet: "-",
       indentTabs: 0.3,
-      runs: [{ text: "Hadir selaku :" }, { text: " kuasa sebagaimana yang tertera dalam risalah Rapat Perseroan yang akan diuraikan di bawah ini." }]
+      runs: [{ text: "Hadir selaku" }, { text: " kuasa sebagaimana yang tertera dalam risalah Rapat Perseroan yang akan diuraikan di bawah ini." }]
     });
 
     blocks.push({
@@ -457,7 +458,7 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
           bullet: "-",
           indentTabs: 1.0,
           runs: [
-            { text: "Hadir selaku :" },
+            { text: "Hadir selaku" },
             { text: ` ${toTitleCase(att.management.position)} Perseroan.` }
           ]
         });
@@ -470,7 +471,7 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
           bullet: "-",
           indentTabs: 1.0,
           runs: [
-            { text: "Hadir selaku :" },
+            { text: "Hadir selaku" },
             { text: ` pemilik dan pemegang ${formatNumber(att.ownShares.sharesOwned)} (${terbilang(att.ownShares.sharesOwned)}) lembar saham atau senilai ` },
             { text: `Rp. ${formattedAmt},- (${terbilangAmt} rupiah).` }
           ]
@@ -483,9 +484,9 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
         const terbilangAmt = terbilang(shareRp);
 
         let repTextRuns: FormatToken[] = [];
-        repTextRuns.push({ text: "Hadir selaku :" });
+        repTextRuns.push({ text: "Hadir selaku" });
         if (isDirector) {
-          repTextRuns.push({ text: " Direktur " });
+          repTextRuns.push({ text: " Direktur dari " });
           repTextRuns.push(...getPersonDetailRuns(r.shareholder));
         } else {
           const proxyDate = r.proxyData.proxyDeedDate ? formatAktaDate(r.proxyData.proxyDeedDate) : "__________ (__________)";
@@ -511,7 +512,7 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
         type: "list",
         bullet: "-",
         indentTabs: 1.0,
-        runs: [{ text: "Hadir selaku :" }]
+        runs: [{ text: "Hadir selaku" }]
       });
 
       let subBulletCode = 'a'.charCodeAt(0);
@@ -558,7 +559,7 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
 
         let repTextRuns: FormatToken[] = [];
         if (isDirector) {
-          repTextRuns.push({ text: `Direktur ` });
+          repTextRuns.push({ text: `Direktur dari ` });
           repTextRuns.push(...getPersonDetailRuns(r.shareholder));
         } else {
           const proxyDate = r.proxyData.proxyDeedDate ? formatAktaDate(r.proxyData.proxyDeedDate) : "__________ (__________)";
@@ -645,7 +646,7 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
         { text: `Berdasarkan ketentuan Pasal ${data.rupstAdArticle || "9"} ayat (${data.rupstAdParagraph || "6"}) Anggaran Dasar Perseroan, ${chairSalutation} ` },
         { text: chairNameValue, bold: true },
         { text: `, penghadap tersebut di atas, ` },
-        { text: "Hadir selaku :" },
+        { text: "Hadir selaku" },
         { text: ` ${toTitleCase(data.meetingChairPosition || "Kuasa Direktur")} perseroan, bertindak sebagai Ketua Rapat.` }
       ]
     }
@@ -930,9 +931,10 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
 
   // Witness 1
   const s1Nama = data.saksi1Nama || "Nendi Suhendi";
+  const overrideS1Alamat = (data.saksi1Alamat || "Jalan Sukaresmi Nomor 17, RT. 005 RW. 005, Kecamatan Lembang, Desa Mekarwangi").replace(/Sukaresmi Nomor 12/gi, "Sukaresmi Nomor 17");
   const s1DetailRaw = data.saksi1Nama && data.saksi1Lahir && data.saksi1Alamat && data.saksi1NIK
-    ? `, lahir di ${toTitleCase(data.saksi1Lahir)}, Warga Negara Indonesia, bertempat tinggal di ${formatAddress(toTitleCase(data.saksi1Alamat))}, pemegang Kartu Tanda Penduduk Nomor ${data.saksi1NIK}`
-    : ", lahir di Bandung, Pada Tanggal Limabelas Juli Seribu Sembilan Ratus Sembilan Puluh Satu (15-07-1991), Warga Negara Indonesia, bertempat tinggal di Jalan Sukaresmi Nomor 12, RT. 005 RW. 005, Kecamatan Lembang, Desa Mekarwangi, pemegang Kartu Tanda Penduduk Nomor 3217011507910016";
+    ? `, lahir di ${toTitleCase(data.saksi1Lahir)}, Warga Negara Indonesia, bertempat tinggal di ${formatAddress(toTitleCase(overrideS1Alamat))}, pemegang Kartu Tanda Penduduk Nomor ${data.saksi1NIK}`
+    : ", lahir di Bandung, Pada Tanggal Limabelas Juli Seribu Sembilan Ratus Sembilan Puluh Satu (15-07-1991), Warga Negara Indonesia, bertempat tinggal di Jalan Sukaresmi Nomor 17, RT. 005 RW. 005, Kecamatan Lembang, Desa Mekarwangi, pemegang Kartu Tanda Penduduk Nomor 3217011507910016";
   const s1Detail = expandAbbreviations(s1DetailRaw);
 
   blocks.push({

@@ -285,13 +285,13 @@ const createNotarisNameP = (name: string): Paragraph =>
 // ─── Zone-specific paragraph builders ────────────────────────────────────────
 // Each builder maps 1:1 to the exact XML in the corrected source document.
 
-/** PREAMBLE DASH  numId=2 ilvl=2 ind.left=426 */
+/** PREAMBLE DASH  numId=2 ilvl=2 ind.left=426 hanging=426 */
 const mkPreambleDash = (t: FormatToken[]) =>
   new Paragraph({
     style: "ListParagraph",
     numbering: { reference: NUM.PREAMBLE_DASH, level: 2 },
     tabStops: [TAB_KANAN],
-    indent: { left: 426 },
+    indent: { left: 426, hanging: 426 },
     children: wrappedRuns(t, W.preambleDash),
   });
 
@@ -304,15 +304,17 @@ const mkAttendanceNum = (t: FormatToken[], bulletStr: string) =>
     children: wrappedRuns(t, W.attendeeNum),
   });
 
-/** ATTENDANCE DASH  numId=3 ilvl=2 ind.left=1134 */
-const mkAttendanceDash = (t: FormatToken[]) =>
-  new Paragraph({
+/** ATTENDANCE DASH  numId=3 ilvl=2 ind.left=1134 or deep */
+const mkAttendanceDash = (t: FormatToken[], indentTabs?: number) => {
+  const isDeep = indentTabs !== undefined && indentTabs >= 1.5;
+  return new Paragraph({
     style: "ListParagraph",
     numbering: { reference: NUM.ATTENDANCE, level: 2 },
     tabStops: [TAB_KANAN],
-    indent: { left: 1134 },
-    children: wrappedRuns(t, W.attendeeDash),
+    indent: isDeep ? { left: 1701, hanging: 283 } : { left: 1134 },
+    children: wrappedRuns(t, isDeep ? 33.0 : W.attendeeDash),
   });
+};
 
 /** ATTENDANCE LETTER  manual hanging indent */
 const mkAttendanceLetter = (t: FormatToken[], bulletStr: string) =>
@@ -537,7 +539,7 @@ export const generateRUPSTAktaDocx = async (data: CompanyData) => {
           // @ts-ignore
           docxChildren.push(mkAttendanceLetter(b.runs, b.bullet));
         } else {
-          docxChildren.push(mkAttendanceDash(b.runs));
+          docxChildren.push(mkAttendanceDash(b.runs, b.indentTabs));
         }
         return;
       }
@@ -590,9 +592,10 @@ export const generateRUPSTAktaDocx = async (data: CompanyData) => {
   // ── Notary signature block ─────────────────────────────────────────────────
   const domicile = data.notaryDomicile || "Kabupaten Bandung Barat";
   const rawNotaryName = data.notaryName || "NUKANTINI PUTRI PARINCHA, S.H., M.Kn.";
-  const expandedNotaryName = rawNotaryName
-    .replace(/\bS\.H\b\.?/gi, "Sarjana Hukum")
-    .replace(/\bM\.Kn\b\.?/gi, "Magister Kenotariatan");
+  const ttdNotaryName = rawNotaryName
+    .toUpperCase()
+    .replace(/SARJANA HUKUM/gi, "S.H.")
+    .replace(/MAGISTER KENOTARIATAN/gi, "M.Kn.");
 
   docxChildren.push(
     createNotarisLabelP(domicile),
@@ -600,7 +603,7 @@ export const generateRUPSTAktaDocx = async (data: CompanyData) => {
     createNotarisEmptyP(),
     createNotarisEmptyP(),
     createNotarisEmptyP(),
-    createNotarisNameP(expandedNotaryName.toUpperCase()),
+    createNotarisNameP(ttdNotaryName),
   );
 
   // ── Document assembly ──────────────────────────────────────────────────────

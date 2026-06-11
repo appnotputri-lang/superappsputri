@@ -97,7 +97,7 @@ export default function DraftAktaPendirian({ onShowPreview, onExportWord }: Draf
     saksi1LahirTempat: 'Bandung',
     saksi1LahirTanggal: '1991-07-15',
     saksi1Pekerjaan: 'Karyawan Swasta',
-    saksi1Alamat: 'Jalan Sukaresmi Nomor 12, Rukun Tetangga 005, Rukun Warga 005, Kecamatan Lembang, Desa Mekarwangi',
+    saksi1Alamat: 'Jalan Sukaresmi Nomor 17, Rukun Tetangga 005, Rukun Warga 005, Kecamatan Lembang, Desa Mekarwangi',
     saksi1NIK: '3217011507910016',
     saksi2Nama: 'Siti Nur Azizah',
     saksi2LahirTempat: 'Bandung',

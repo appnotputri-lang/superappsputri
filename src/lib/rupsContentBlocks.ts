@@ -122,6 +122,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
   const getPersonDetailRuns = (person: any): FormatToken[] => {
     const nameUpper = (person?.name || "").toUpperCase();
     const isPenghadap = rep && nameUpper === rep.name.toUpperCase();
+    const isBadanHukum = person?.shareholderType === 'BADAN_HUKUM' || person?.legalEntityType;
 
     if (fullyDescribedNames.has(nameUpper)) {
       return [
@@ -258,7 +259,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
         type: "list",
         bullet: "-",
         indentTabs: 0.5,
-        runs: [{ text: "Hadir selaku :" }, { text: " kuasa sebagaimana yang tertera dalam risalah Rapat Perseroan yang akan diuraikan di bawah ini." }]
+        runs: [{ text: "Hadir selaku" }, { text: " kuasa sebagaimana yang tertera dalam risalah Rapat Perseroan yang akan diuraikan di bawah ini." }]
       });
     }
 
@@ -568,7 +569,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
           bullet: "-",
           indentTabs: 1.0,
           runs: [
-            { text: isMinutes ? "dalam hal ini hadir selaku " : "Hadir selaku :" },
+            { text: isMinutes ? "dalam hal ini hadir selaku " : "Hadir selaku" },
             { text: `${isMinutes ? "" : " "}${toTitleCase(att.management.position)} perseroan;` }
           ]
         });
@@ -577,7 +578,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
           type: "list",
           bullet: "-",
           indentTabs: 1.0,
-          runs: [{ text: isMinutes ? "dalam hal ini hadir selaku :" : "Hadir selaku :" }]
+          runs: [{ text: isMinutes ? "dalam hal ini hadir selaku" : "Hadir selaku" }]
         });
 
         let subBulletCode = 'a'.charCodeAt(0);
@@ -688,7 +689,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
                              data.oldManagementItems.find(m => m.name === data.meetingChair);
     const chairSalutation = chairIsProxy ? (chairPerson?.proxyData?.salutation || "Tuan") : (chairPerson?.salutation || "Tuan");
     const chairName = data.meetingChair || "...";
-    let chairPosition = chairIsProxy ? "kuasa" : `${isMinutes ? "selaku " : "Hadir selaku : "}${toTitleCase(chairPerson?.managementPosition || chairPerson?.position || "Direktur")} perseroan,`;
+    let chairPosition = chairIsProxy ? "kuasa" : `${isMinutes ? "selaku " : "Hadir selaku "}${toTitleCase(chairPerson?.managementPosition || chairPerson?.position || "Direktur")} perseroan,`;
 
     blocks.push({
       type: "list",
@@ -699,7 +700,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
           text: `Berdasarkan ketentuan Pasal ${data.rupstAdArticle || "21"} ayat (${data.rupstAdParagraph || "1"}) Anggaran Dasar Perseroan, ${chairSalutation} `,
         },
         { text: chairName.toUpperCase(), bold: true },
-        { text: `, ${chairIsProxy ? (isMinutes ? 'kuasa tersebut di atas, bertindak sebagai ketua rapat.' : 'penghadap tersebut di atas, Hadir selaku : kuasa tersebut di atas, bertindak sebagai ketua rapat.') : `tersebut di atas, ${chairPosition} bertindak sebagai Ketua Rapat.`}` },
+        { text: `, ${chairIsProxy ? (isMinutes ? 'kuasa tersebut di atas, bertindak sebagai ketua rapat.' : 'penghadap tersebut di atas, Hadir selaku kuasa tersebut di atas, bertindak sebagai ketua rapat.') : `tersebut di atas, ${chairPosition} bertindak sebagai Ketua Rapat.`}` },
       ],
     });
   }
@@ -1239,7 +1240,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
           number: resIdx++,
           runs: [
             {
-              text: `Menyetujui untuk memberhentikan dengan hormat ${resignationHeading}, Tuan `,
+              text: `Menyetujui untuk memberhentikan dengan hormat ${resignationHeading}, ${mgr.salutation || "Tuan"} `,
             },
             ...detailRuns,
             { text: ` selaku ${mgr.position} perseroan.` },
@@ -1408,7 +1409,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
     runs: [
       { text: data.saksi1Nama || "Nendi Suhendi", bold: false },
       {
-        text: `, lahir di ${data.saksi1Lahir || "Bandung, pada tanggal lima belas Juli seribu sembilan ratus sembilan puluh satu (15-07-1991)"}, Warga Negara Indonesia, bertempat tinggal di ${data.saksi1Alamat || "Jalan Sukaresmi Nomor 12, RT. 005 RW. 005, Kecamatan Lembang, Desa Mekarwangi"}, pemegang Kartu Tanda Penduduk Nomor ${data.saksi1NIK || "3217011507910016"};`,
+        text: `, lahir di ${data.saksi1Lahir || "Bandung, pada tanggal lima belas Juli seribu sembilan ratus sembilan puluh satu (15-07-1991)"}, Warga Negara Indonesia, bertempat tinggal di ${(data.saksi1Alamat || "Jalan Sukaresmi Nomor 17, RT. 005 RW. 005, Kecamatan Lembang, Desa Mekarwangi").replace("Sukaresmi Nomor 12", "Sukaresmi Nomor 17")}, pemegang Kartu Tanda Penduduk Nomor ${data.saksi1NIK || "3217011507910016"};`,
       },
     ],
   });

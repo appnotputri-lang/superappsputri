@@ -181,10 +181,13 @@ export const generateRupstBlocks = (data: CompanyData): Block[] => {
 
   const getPersonDetailRuns = (person: any): FormatToken[] => {
     const nameUpper = (person?.name || "").toUpperCase().trim();
-    const sal = person?.salutation ? `${person.salutation} ` : "";
+    const isBadanHukum = person?.shareholderType === 'BADAN_HUKUM' || person?.legalEntityType;
+    const sal = (person?.salutation && !isBadanHukum) ? `${person.salutation} ` : "";
+    
     if (fullyDescribedNames.has(nameUpper)) {
       return [{ text: sal }, { text: nameUpper, bold: true }, { text: ", tersebut diatas" }];
     }
+    
     fullyDescribedNames.add(nameUpper);
     const tglAngka = person?.birthDate ? formatDateRupst(person.birthDate) : "...";
     const tglHuruf = "";
@@ -336,7 +339,7 @@ export const generateRupstBlocks = (data: CompanyData): Block[] => {
 
         let repTextRuns: FormatToken[] = [];
         if (isDirector) {
-          repTextRuns.push({ text: `selaku Direktur dari dan oleh karena itu sah bertindak untuk dan atas nama ` });
+          repTextRuns.push({ text: `selaku Direktur dari ` });
           repTextRuns.push(...getPersonDetailRuns(r.shareholder));
         } else {
           const proxyDate = r.proxyData.proxyDeedDate ? formatDateRupst(r.proxyData.proxyDeedDate) : "__________";
@@ -390,7 +393,7 @@ export const generateRupstBlocks = (data: CompanyData): Block[] => {
 
         let repTextRuns: FormatToken[] = [];
         if (isDirector) {
-          repTextRuns.push({ text: `selaku Direktur dari dan oleh karena itu sah bertindak untuk dan atas nama ` });
+          repTextRuns.push({ text: `selaku Direktur dari ` });
           repTextRuns.push(...getPersonDetailRuns(r.shareholder));
         } else {
           const proxyDate = r.proxyData.proxyDeedDate ? formatDateRupst(r.proxyData.proxyDeedDate) : "__________";
@@ -553,12 +556,14 @@ export const generateRupstBlocks = (data: CompanyData): Block[] => {
     const financialDateStr = data.rupstFinancialReportDate ? formatDateRupst(data.rupstFinancialReportDate) : '............................';
     const financialPos = data.rupstFinancialReportSignatoryPosition || 'Direktur';
     const financialSignatory = data.rupstFinancialReportSignatoryName ? data.rupstFinancialReportSignatoryName.toUpperCase() : '............................';
+    const signatorySh = data.shareholders?.find(s => s.name?.toUpperCase() === financialSignatory || s.name === data.rupstFinancialReportSignatoryName);
+    const signatorySalutation = signatorySh?.salutation || "Tuan";
 
     blocks.push({
       type: "list",
       bullet: "3.",
       indentStyle: "keputusan",
-      runs: [{ text: `Mengesahkan Laporan Keuangan Perseroan untuk tahun buku yang berakhir pada tanggal 31 Desember ${fiscalYear}, sebagaimana dimuat dalam Laporan Keuangan ${formatCompanyName(data.companyName)} tanggal ${financialDateStr}, yang ditandatangani oleh ${financialPos} Perseroan Tuan ${financialSignatory} yang terdiri dari:` }]
+      runs: [{ text: `Mengesahkan Laporan Keuangan Perseroan untuk tahun buku yang berakhir pada tanggal 31 Desember ${fiscalYear}, sebagaimana dimuat dalam Laporan Keuangan ${formatCompanyName(data.companyName)} tanggal ${financialDateStr}, yang ditandatangani oleh ${financialPos} Perseroan ${signatorySalutation} ${financialSignatory} yang terdiri dari:` }]
     });
 
     blocks.push({
