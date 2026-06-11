@@ -1,6 +1,7 @@
 import { PendirianData } from '../DraftAktaPendirian';
-import { terbilang, toTitleCase, formatNumber, formatAddress, formatAktaDate } from './formatter';
+import { terbilang, toTitleCase, formatNumber, formatAddress, formatAktaDate, dateToWords, formatDateStr, formatPersonDetails } from './formatter';
 import { KbliItem } from '../../types';
+import { formatKbliCategory } from './kbliConstants';
 
 type Block =
   | { type: 'p'; runs: { text: string; bold?: boolean }[]; align?: 'center' | 'right-center'; indentTabs?: number; kbliDesc?: boolean }
@@ -16,17 +17,11 @@ type Block =
 
 const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
 
-function formatDateIndo(dateStr: string) {
-  return formatAktaDate(dateStr);
-}
-
-import { formatKbliCategory } from './kbliConstants';
-
 export function generatePendirianBlocks(data: PendirianData): Block[] {
   const blocks: Block[] = [];
   const hDate = new Date(data.tanggal);
   const hariArr = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
-  const tglHuruf = formatDateIndo(data.tanggal);
+  const tglHuruf = formatAktaDate(data.tanggal);
 
   blocks.push(
     { type: 'p', align: 'center', runs: [{ text: 'PENDIRIAN PERSEROAN TERBATAS', bold: true }] },
@@ -41,13 +36,17 @@ export function generatePendirianBlocks(data: PendirianData): Block[] {
     { type: 'p', runs: [{ text: `Telah hadir di hadapan saya ${data.notarisNamaSurat ? data.notarisNamaSurat + ', ' : ''}Notaris di ${data.notarisTempat || 'Kabupaten Bandung Barat'}, dengan dihadiri oleh saksi-saksi yang saya, Notaris kenal dan akan disebutkan nama-namanya pada bagian akhir akta ini :` }] }
   );
 
-  (data.pendiri || []).forEach((p, idx) => {
-    const tglLahirHuruf = formatDateIndo(p.tanggalLahir);
-    const alamat = `${p.alamatJalan}, RT ${p.rt}, RW ${p.rw}, Kel. ${toTitleCase(p.kelurahan)}, Kec. ${toTitleCase(p.kecamatan)}`;
+  (data.shareholders || []).forEach((p, idx) => {
+    const tglLahirHuruf = dateToWords(p.birthDate);
+    const tglLahirAngka = formatDateStr(p.birthDate);
+    
     blocks.push({
       type: 'numbered',
       num: idx + 1,
-      runs: [{ text: `Tuan ${p.nama}, lahir di ${toTitleCase(p.tempatLahir)}, pada tanggal ${tglLahirHuruf}, Warga Negara Indonesia, ${toTitleCase(p.pekerjaan)}, bertempat tinggal di ${toTitleCase(p.kota)}, ${formatAddress(alamat)}, pemegang Kartu Tanda Penduduk Nomor ${p.nik}.` }],
+      runs: [
+        { text: `${p.shareholderType === 'BADAN_HUKUM' ? "" : p.salutation + " "}${p.name}`, bold: true },
+        { text: formatPersonDetails(p, tglLahirAngka, tglLahirHuruf, true) + "." }
+      ],
     });
   });
 
@@ -287,14 +286,14 @@ export function generatePendirianBlocks(data: PendirianData): Block[] {
 
   const charCodeA = 97;
   let tSaham = 0;
-  (data.pendiri || []).forEach((p, i) => {
-    tSaham += p.sahamSaham;
-    const nominal = p.sahamSaham * data.nilaiPerLembar;
+  (data.shareholders || []).forEach((p, i) => {
+    tSaham += p.sharesOwned;
+    const nominal = p.sharesOwned * data.nilaiPerLembar;
     blocks.push({
       type: 'sub-numbered',
       num: String.fromCharCode(charCodeA + i),
       indentTabs: 1,
-      runs: [{ text: `Tuan ${p.nama.toUpperCase()}, tersebut diatas, sejumlah ${formatNumber(p.sahamSaham)} ${terbilang(p.sahamSaham)} lembar saham, dengan nilai nominal seluruhnya sebesar Rp. ${formatNumber(nominal)} (${terbilang(nominal)} rupiah);` }],
+      runs: [{ text: `${p.salutation} ${p.name.toUpperCase()}, tersebut diatas, sejumlah ${formatNumber(p.sharesOwned)} ${terbilang(p.sharesOwned)} lembar saham, dengan nilai nominal seluruhnya sebesar Rp. ${formatNumber(nominal)} (${terbilang(nominal)} rupiah);` }],
     });
   });
 
@@ -305,20 +304,20 @@ export function generatePendirianBlocks(data: PendirianData): Block[] {
   );
 
   blocks.push({ type: 'p', runs: [{ text: '1. Anggota Direksi :' }] });
-  (data.pendiri || []).filter(p => String(p.jabatan || '').includes('Direktur')).forEach(p => {
-    blocks.push({ type: 'management-role', position: p.jabatan, nameText: `Tuan ${p.nama}, tersebut di atas` });
+  (data.shareholders || []).filter(p => p.isManagement && String(p.managementPosition || '').includes('Direktur')).forEach(p => {
+    blocks.push({ type: 'management-role', position: p.managementPosition || 'Direktur', nameText: `${p.salutation} ${p.name}, tersebut di atas` });
   });
   blocks.push({ type: 'p', runs: [{ text: '2. Anggota Komisaris :' }] });
-  (data.pendiri || []).filter(p => !String(p.jabatan || '').includes('Direktur') && p.jabatan !== 'N/A').forEach(p => {
-    blocks.push({ type: 'management-role', position: p.jabatan, nameText: `Tuan ${p.nama}, tersebut di atas` });
+  (data.shareholders || []).filter(p => p.isManagement && String(p.managementPosition || '').includes('Komisaris')).forEach(p => {
+    blocks.push({ type: 'management-role', position: p.managementPosition || 'Komisaris', nameText: `${p.salutation} ${p.name}, tersebut di atas` });
   });
 
   blocks.push(
     { type: 'p', runs: [{ text: 'Para Pihak menyatakan dengan ini menjamin akan kebenaran identitas para pihak sesuai dengan tanda pengenal yang disampaikan kepada saya, Notaris dan termasuk dengan seluruh dokumen yang diperlihatkan dan fotokopinya dilekatkan pada minuta akta ini para pihak bertanggung jawab sepenuhnya atas hal tersebut sehingga membebaskan Notaris dari segala tanggungjawab dan selanjutnya para pihak juga menyatakan telah mengerti dan memahami isi akta ini.' }] },
     { type: 'divider', text: 'DEMIKIANLAH AKTA INI' },
     { type: 'p', runs: [{ text: `Dibuat sebagai minuta dan dilangsungkan di ${data.notarisTempat || 'Kabupaten Bandung Barat'}, pada hari dan tanggal serta jam sebagaimana disebutkan pada kepala akta ini dengan dihadiri oleh :` }] },
-    { type: 'saksi', num: 1, runs: [{ text: `${data.saksi1Nama || 'Nendi Suhendi'}, lahir di ${toTitleCase(data.saksi1LahirTempat || 'Bandung')}, pada tanggal ${formatDateIndo(data.saksi1LahirTanggal || '1991-07-15')}, Warga Negara Indonesia, ${toTitleCase(data.saksi1Pekerjaan || 'Karyawan Swasta')}, bertempat tinggal di ${formatAddress(data.saksi1Alamat || 'Jalan Sukaresmi Nomor 17, Rukun Tetangga 005, Rukun Warga 005, Kecamatan Lembang, Desa Mekarwangi')}, pemegang Kartu Tanda Penduduk Nomor ${data.saksi1NIK || '3217011507910016'};`} ] },
-    { type: 'saksi', num: 2, runs: [{ text: `${data.saksi2Nama || 'Siti Nur Azizah'}, lahir di ${toTitleCase(data.saksi2LahirTempat || 'Bandung')}, pada tanggal ${formatDateIndo(data.saksi2LahirTanggal || '1999-12-17')}, Warga Negara Indonesia, ${toTitleCase(data.saksi2Pekerjaan || 'Karyawan Swasta')}, bertempat tinggal di ${formatAddress(data.saksi2Alamat || 'Jalan Lembah Pakar Timur II Kampung Sekebuluh Rukun Tetangga 001, Rukun Warga 004, Kecamatan Cimenyan, Desa Ciburial')}, pemegang Kartu Tanda Penduduk Nomor ${data.saksi2NIK || '3204065712990001'};`} ] },
+    { type: 'saksi', num: 1, runs: [{ text: `${data.saksi1Nama || 'Nendi Suhendi'}, lahir di ${toTitleCase(data.saksi1LahirTempat || 'Bandung')}, pada tanggal ${formatAktaDate(data.saksi1LahirTanggal || '1991-07-15')}, Warga Negara Indonesia, ${toTitleCase(data.saksi1Pekerjaan || 'Karyawan Swasta')}, bertempat tinggal di ${formatAddress(data.saksi1Alamat || 'Jalan Sukaresmi Nomor 17, Rukun Tetangga 005, Rukun Warga 005, Kecamatan Lembang, Desa Mekarwangi')}, pemegang Kartu Tanda Penduduk Nomor ${data.saksi1NIK || '3217011507910016'};`} ] },
+    { type: 'saksi', num: 2, runs: [{ text: `${data.saksi2Nama || 'Siti Nur Azizah'}, lahir di ${toTitleCase(data.saksi2LahirTempat || 'Bandung')}, pada tanggal ${formatAktaDate(data.saksi2LahirTanggal || '1999-12-17')}, Warga Negara Indonesia, ${toTitleCase(data.saksi2Pekerjaan || 'Karyawan Swasta')}, bertempat tinggal di ${formatAddress(data.saksi2Alamat || 'Jalan Lembah Pakar Timur II Kampung Sekebuluh Rukun Tetangga 001, Rukun Warga 004, Kecamatan Cimenyan, Desa Ciburial')}, pemegang Kartu Tanda Penduduk Nomor ${data.saksi2NIK || '3204065712990001'};`} ] },
     { type: 'p', runs: [{ text: 'Keduanya pegawai Kantor Notaris, sebagai saksi-saksi.' }] },
     { type: 'p', runs: [{ text: 'Segera setelah akta ini dibacakan oleh saya, Notaris kepada penghadap dan saksi-saksi maka ditanda-tanganilah akta ini oleh penghadap, saksi-saksi dan saya, Notaris. Serta penghadap membubuhkan sidik jari sebelah kanan pada lembaran tersendiri di hadapan saya, Notaris dan saksi-saksi, yang dilekatkan pada minuta akta ini.' }] },
     { type: 'p', runs: [{ text: 'Dilangsungkan dengan tanpa perubahan.' }] },
