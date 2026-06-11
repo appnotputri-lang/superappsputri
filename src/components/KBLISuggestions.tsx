@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Plus, Trash2, Info, LayoutGrid, Printer, FileDown, Loader2, Save, History, Eye } from 'lucide-react';
+import { Search, Plus, Trash2, Info, LayoutGrid, Printer, FileDown, Loader2, Save, History, Eye, ArrowLeft, Edit } from 'lucide-react';
 import kbli2025Data from '../../kbli_2025.json';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -104,6 +104,10 @@ const getEnAutoIzin = (tingkatRisiko: string) => {
 };
 
 const KBLISuggestions: React.FC = () => {
+  const [viewMode, setViewMode] = useState<'list' | 'form'>('list');
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [listSearch, setListSearch] = useState('');
+
   const [namaPT, setNamaPT] = useState('');
   const [kelompokUsaha, setKelompokUsaha] = useState('Mikro');
   const [pdfLang, setPdfLang] = useState<'id' | 'en'>('id');
@@ -169,7 +173,7 @@ const KBLISuggestions: React.FC = () => {
       return;
     }
     setIsSavingRecord(true);
-    const recordId = `suggestion-${namaPT.toUpperCase().trim().replace(/[^A-Z0-9_-]/g, '_')}`;
+    const recordId = editingId || `suggestion-${namaPT.toUpperCase().trim().replace(/[^A-Z0-9_-]/g, '_')}-${Date.now().toString(36)}`;
     const rawPayload = {
       id: recordId,
       nama: namaPT.toUpperCase().trim(),
@@ -193,10 +197,21 @@ const KBLISuggestions: React.FC = () => {
 
     try {
       await setDoc(doc(db, 'kbli_saved_records', recordId), payload);
-      alert('Data Saran KBLI berhasil disimpan ke database!');
+      alert('Data Saran KBLI berhasil disimpan!');
+      // Reset and go back to list
+      setNamaPT('');
+      setKelompokUsaha('Mikro');
+      setSelectedKblis([]);
+      setEditingId(null);
+      setViewMode('list');
     } catch (error) {
       console.error('Error saving suggestion:', error);
-      alert('Data Saran KBLI disimpan secara lokal di perangkat ini (Gagal sinkronisasi awan, silakan hubungi admin atau periksa koneksi Anda jika ingin menyimpan ke cloud database).');
+      alert('Data Saran KBLI disimpan secara lokal di perangkat ini.');
+      setNamaPT('');
+      setKelompokUsaha('Mikro');
+      setSelectedKblis([]);
+      setEditingId(null);
+      setViewMode('list');
       try {
         const stored = localStorage.getItem('kbli_suggestions_local_records');
         if (stored) {
@@ -250,8 +265,9 @@ const KBLISuggestions: React.FC = () => {
     setNamaPT(record.nama || '');
     setKelompokUsaha(record.kelompokUsaha || 'Mikro');
     setSelectedKblis(record.selectedItems || []);
+    setEditingId(record.id || null);
     setShowHistoryModal(false);
-    alert(`Data saran untuk "${record.nama}" berhasil dimuat!`);
+    setViewMode('form');
   };
 
   const getDpbScopeOptions = (kbliKode: string): string[] => {
@@ -870,8 +886,12 @@ const KBLISuggestions: React.FC = () => {
     }));
   };
 
-  const handlePrint = (lang: 'id' | 'en' = 'id') => {
+  const handlePrint = (lang: 'id' | 'en' = 'id', customRecord?: any) => {
     const isEn = lang === 'en';
+    const activeNamaPT = customRecord ? (customRecord.nama || '') : namaPT;
+    const activeKelompokUsaha = customRecord ? (customRecord.kelompokUsaha || 'Mikro') : kelompokUsaha;
+    const activeSelectedKblis = customRecord ? (customRecord.selectedItems || []) : selectedKblis;
+
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.width;
     const pageHeight = doc.internal.pageSize.height;
@@ -986,11 +1006,11 @@ const KBLISuggestions: React.FC = () => {
       body: [
         [
           { content: isEn ? 'Name' : 'Nama', styles: { fontStyle: 'normal', cellWidth: 30 } },
-          { content: `: ${namaPT || '–'}`, styles: { fontStyle: 'bold' } }
+          { content: `: ${activeNamaPT || '–'}`, styles: { fontStyle: 'bold' } }
         ],
         [
           { content: isEn ? 'Business Scale' : 'Skala Usaha', styles: { fontStyle: 'normal', cellWidth: 30 } },
-          { content: `: ${translateBusinessScale(kelompokUsaha, isEn)}`, styles: { fontStyle: 'bold' } }
+          { content: `: ${translateBusinessScale(activeKelompokUsaha, isEn)}`, styles: { fontStyle: 'bold' } }
         ]
       ],
       styles: { fontSize: 11, textColor: [0, 0, 0], minCellHeight: 6, cellPadding: 1 },
@@ -1005,7 +1025,7 @@ const KBLISuggestions: React.FC = () => {
       ? [['No. KBLI', 'Group Name', 'Description']] 
       : [['No. KBLI', 'Nama Kelompok', 'Uraian']];
 
-    const summaryBody = selectedKblis.map((kbli) => [
+    const summaryBody = activeSelectedKblis.map((kbli) => [
       kbli.kode,
       kbli.judul.toUpperCase(),
       kbli.uraian || '-'
@@ -1064,11 +1084,11 @@ const KBLISuggestions: React.FC = () => {
       body: [
         [
           { content: isEn ? 'Name' : 'Nama', styles: { fontStyle: 'normal', cellWidth: 30 } },
-          { content: `: ${namaPT || '–'}`, styles: { fontStyle: 'bold' } }
+          { content: `: ${activeNamaPT || '–'}`, styles: { fontStyle: 'bold' } }
         ],
         [
           { content: isEn ? 'Business Scale' : 'Skala Usaha', styles: { fontStyle: 'normal', cellWidth: 30 } },
-          { content: `: ${translateBusinessScale(kelompokUsaha, isEn)}`, styles: { fontStyle: 'bold' } }
+          { content: `: ${translateBusinessScale(activeKelompokUsaha, isEn)}`, styles: { fontStyle: 'bold' } }
         ]
       ],
       styles: { fontSize: 11, textColor: [0, 0, 0], minCellHeight: 6, cellPadding: 1 },
@@ -1078,7 +1098,7 @@ const KBLISuggestions: React.FC = () => {
     // @ts-ignore
     currentY = doc.lastAutoTable.finalY + 10;
 
-    selectedKblis.forEach((kbli, kbliIndex) => {
+    activeSelectedKblis.forEach((kbli, kbliIndex) => {
       if (currentY > pageHeight - 65) {
         doc.addPage();
         addLetterhead(false);
@@ -1151,168 +1171,324 @@ const KBLISuggestions: React.FC = () => {
     addFooter();
 
     const filename = isEn 
-      ? `KBLI_Suggestions_${namaPT.replace(/\s+/g, '_') || 'Saran'}.pdf`
-      : `Saran_KBLI_${namaPT.replace(/\s+/g, '_') || 'Saran'}.pdf`;
+      ? `KBLI_Suggestions_${activeNamaPT.replace(/\s+/g, '_') || 'Saran'}.pdf`
+      : `Saran_KBLI_${activeNamaPT.replace(/\s+/g, '_') || 'Saran'}.pdf`;
     doc.save(filename);
   };
 
   return (
     <div className="max-w-5xl mx-auto space-y-8 pb-20 animate-in fade-in duration-500">
-      {/* compact configurations header */}
-      <div className="text-center py-6 space-y-4">
-        <div className="flex flex-col items-center gap-2">
-          <div className="bg-indigo-600 p-2.5 rounded-2xl shadow-md shadow-indigo-150">
-            <LayoutGrid className="w-7 h-7 text-white" />
-          </div>
-          <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight font-sans">Saran KBLI 2025</h1>
-          <p className="text-slate-500 text-sm max-w-md mx-auto">Tentukan klasifikasi lapangan usaha PT Anda dengan mudah.</p>
-        </div>
-
-        {/* PT Configs bar */}
-        <div className="flex flex-wrap justify-center gap-4 pt-2">
-          <div className="flex items-center gap-2 bg-white px-4 py-2 border border-slate-200 rounded-lg shadow-sm">
-            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Nama PT:</span>
-            <input
-              type="text"
-              placeholder="MASUKKAN NAMA"
-              className="text-sm font-bold text-slate-700 outline-none border-b border-transparent focus:border-indigo-500 uppercase min-w-[200px]"
-              value={namaPT}
-              onChange={(e) => setNamaPT(e.target.value)}
-            />
-          </div>
-          <div className="flex items-center gap-2 bg-white px-4 py-2 border border-slate-200 rounded-lg shadow-sm">
-            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Skala:</span>
-            <select
-              className="text-sm font-bold text-slate-700 outline-none bg-transparent cursor-pointer"
-              value={kelompokUsaha}
-              onChange={(e) => setKelompokUsaha(e.target.value)}
-            >
-              <option value="Mikro">Mikro</option>
-              <option value="Kecil">Kecil</option>
-              <option value="Menengah">Menengah</option>
-              <option value="Besar">Besar</option>
-            </select>
-          </div>
-          <div className="flex gap-2">
-            <button
-              onClick={handleSaveToFirestore}
-              disabled={isSavingRecord || !namaPT.trim() || selectedKblis.length === 0}
-              className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg text-xs font-bold transition-all border border-emerald-755 shadow-sm uppercase shrink-0"
-            >
-              {isSavingRecord ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-              Simpan
-            </button>
-            <button
-              onClick={() => setShowHistoryModal(true)}
-              className="flex items-center gap-1.5 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition-all border border-slate-200 shadow-sm uppercase shrink-0"
-            >
-              <History className="w-3.5 h-3.5" />
-              Riwayat ({savedRecords.length})
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Main Selected List Card based on Screenshot 1 */}
-      <div className="bg-white border border-slate-200 rounded-sm p-6 shadow-sm">
-        {/* Tab-like Pill Header */}
-        <div className="flex items-center mb-6">
-          <div className="bg-white border border-slate-300 rounded-full px-5 py-1 text-[13px] font-bold text-slate-700 shadow-sm">
-            Maksud dan Tujuan
-          </div>
-        </div>
-
-        {/* Tambah KBLI Button and Actions */}
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <button
-            onClick={() => setIsAddModalOpen(true)}
-            className="px-4 py-2 bg-[#0c2444] hover:bg-[#16365f] text-white text-[13px] font-bold rounded-sm transition-all focus:outline-none flex items-center gap-1.5"
-          >
-            <Plus className="w-4 h-4" />
-            Tambah Data
-          </button>
-
-          {selectedKblis.length > 0 && (
-            <div className="flex items-center gap-2">
-              <select 
-                value={pdfLang} 
-                onChange={(e) => setPdfLang(e.target.value as 'id' | 'en')}
-                className="px-3 py-2 bg-white border border-slate-200 rounded-sm text-xs font-bold text-slate-600 focus:outline-none cursor-pointer hover:border-slate-300 transition-colors shadow-sm h-9"
-              >
-                <option value="id">Bahasa Indonesia</option>
-                <option value="en">English (PDF)</option>
-              </select>
-              <button 
-                onClick={() => handlePrint(pdfLang)}
-                className="flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-sm text-xs font-bold transition-all border border-indigo-100 shadow-sm h-9"
-              >
-                <FileDown className="w-4 h-4" />
-                Cetak PDF
-              </button>
+      {viewMode === 'list' ? (
+        <div className="space-y-6">
+          {/* List Mode Header */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between bg-white border border-slate-200 rounded-sm p-6 shadow-sm gap-4">
+            <div className="flex items-center gap-4">
+              <div className="bg-[#0c2444] p-3 rounded-2xl shadow-md">
+                <LayoutGrid className="w-8 h-8 text-white" />
+              </div>
+              <div>
+                <h1 className="text-xl font-extrabold text-slate-900 tracking-tight font-sans">Daftar Saran KBLI 2025</h1>
+                <p className="text-slate-500 text-xs">Kelola saran klasifikasi KBLI untuk klien PT secara terstruktur.</p>
+              </div>
             </div>
-          )}
-        </div>
+            <button
+              onClick={() => {
+                setNamaPT('');
+                setKelompokUsaha('Mikro');
+                setSelectedKblis([]);
+                setEditingId(null);
+                setViewMode('form');
+              }}
+              className="px-5 py-2.5 bg-[#0c2444] hover:bg-[#16365f] text-white text-[13px] font-bold rounded-sm shadow-sm transition-all flex items-center justify-center gap-2 uppercase tracking-wide shrink-0"
+            >
+              <Plus className="w-4 h-4" />
+              Tambah Saran KBLI
+            </button>
+          </div>
 
-        {/* Selected KBLIs List Table */}
-        <div className="w-full bg-white border border-slate-200 rounded-sm overflow-hidden mb-2">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse text-[13px]">
-              <thead>
-                <tr className="bg-[#fcfcfc] border-b border-slate-200">
-                  <th className="px-4 py-2.5 font-bold text-slate-700 text-center w-12 border-r border-slate-200">No</th>
-                  <th className="px-4 py-2.5 font-bold text-slate-700 text-center w-24 border-r border-slate-200">Kode KBLI</th>
-                  <th className="px-4 py-2.5 font-bold text-slate-700 text-left w-64 border-r border-slate-200">Judul KBLI</th>
-                  <th className="px-4 py-2.5 font-bold text-slate-700 text-left border-r border-slate-200">Uraian KBLI</th>
-                  <th className="px-4 py-2.5 font-bold text-slate-700 text-center w-24">Aksi</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200">
-                {selectedKblis.map((kbli, idx) => (
-                  <tr key={kbli.kode} className="hover:bg-slate-50/40">
-                    <td className="px-4 py-3 text-center border-r border-slate-200 text-slate-600 align-top">{idx + 1}</td>
-                    <td className="px-4 py-3 text-center border-r border-slate-200 font-mono text-slate-800 font-semibold align-top">{kbli.kode}</td>
-                    <td className="px-4 py-3 border-r border-slate-200 font-bold text-slate-800 align-top">{kbli.judul}</td>
-                    <td className="px-4 py-3 border-r border-slate-200 text-slate-600 text-[12px] leading-relaxed text-justify align-top">{kbli.uraian}</td>
-                    <td className="px-4 py-3 text-center align-top whitespace-nowrap">
-                      <button 
-                        onClick={() => setViewingKbliKode(kbli.kode)}
-                        className="p-1.5 hover:bg-teal-50 text-slate-400 hover:text-[#17a2b8] rounded transition-all mr-1.5"
-                        title="Lihat Rincian Ruang Lingkup"
-                      >
-                        <Eye className="w-4 h-4" />
-                      </button>
-                      <button 
-                        onClick={() => removeKbli(kbli.kode)}
-                        className="p-1.5 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded transition-all"
-                        title="Hapus KBLI"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-                {selectedKblis.length === 0 && (
-                  <tr>
-                    <td colSpan={5} className="text-center py-10 text-slate-400 italic">
-                      Belum ada data KBLI terpilih. Silakan klik tombol "Tambah Data" di atas.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+          {/* Search Table Block */}
+          <div className="bg-white border border-slate-200 rounded-sm p-6 shadow-sm space-y-4 animate-in fade-in slide-in-from-top-4 duration-300">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pb-2 border-b border-slate-100">
+              <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wider">Tabel Data Klien PT</h2>
+              
+              <div className="relative w-full sm:w-64">
+                <input
+                  type="text"
+                  placeholder="Cari nama klien / PT..."
+                  value={listSearch}
+                  onChange={(e) => setListSearch(e.target.value)}
+                  className="w-full pl-9 pr-4 py-2 border border-slate-250 rounded-md text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 outline-none placeholder:text-slate-400"
+                />
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+              </div>
+            </div>
+
+            <div className="w-full bg-white border border-slate-100 rounded-sm overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse text-[13px]">
+                  <thead>
+                    <tr className="bg-[#fcfcfc] border-b border-slate-200 text-slate-500 text-xs uppercase font-bold">
+                      <th className="px-4 py-3 text-center w-12 border-r border-slate-200">No</th>
+                      <th className="px-4 py-3 border-r border-slate-200">Nama Klien / PT</th>
+                      <th className="px-4 py-3 border-r border-slate-200 w-32">Skala Usaha</th>
+                      <th className="px-4 py-3 border-r border-slate-200 text-center w-36">KBLI Terpilih</th>
+                      <th className="px-4 py-3 border-r border-slate-200 text-center w-40">Terakhir Diubah</th>
+                      <th className="px-4 py-3 text-center w-[200px]">Aksi</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200">
+                    {(() => {
+                      const filtered = savedRecords.filter(rec => 
+                        !listSearch.trim() || rec.nama?.toLowerCase().includes(listSearch.toLowerCase())
+                      );
+                      
+                      if (filtered.length === 0) {
+                        return (
+                          <tr>
+                            <td colSpan={6} className="text-center py-12 text-slate-400 italic font-medium">
+                              {listSearch.trim() ? 'Data klien tidak ditemukan untuk pencarian ini.' : 'Belum ada data saran KBLI. Silakan klik tombol "Tambah Saran KBLI" untuk memulai.'}
+                            </td>
+                          </tr>
+                        );
+                      }
+
+                      return filtered.map((rec, idx) => {
+                        return (
+                          <tr key={rec.id} className="hover:bg-slate-50/50 transition-colors">
+                            <td className="px-4 py-3.5 text-center border-r border-slate-200 text-slate-500 font-bold font-mono text-[12px]">{idx + 1}</td>
+                            <td className="px-4 py-3.5 border-r border-slate-200 font-bold text-[#0c2444] uppercase tracking-wide">{rec.nama}</td>
+                            <td className="px-4 py-3.5 border-r border-slate-200">
+                              <span className={`inline-block px-2.5 py-1 rounded-full text-[10px] font-bold uppercase ${
+                                rec.kelompokUsaha === 'Mikro' 
+                                  ? 'bg-sky-50 text-sky-700 border border-sky-105'
+                                  : rec.kelompokUsaha === 'Kecil'
+                                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-100'
+                                    : rec.kelompokUsaha === 'Menengah'
+                                      ? 'bg-amber-50 text-amber-700 border border-amber-100'
+                                      : 'bg-rose-50 text-rose-700 border border-rose-100'
+                              }`}>
+                                {rec.kelompokUsaha}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3.5 border-r border-slate-200 text-center text-slate-605 font-bold font-mono">
+                              {rec.selectedItems?.length || 0} KBLI
+                            </td>
+                            <td className="px-4 py-3.5 border-r border-slate-200 text-center text-slate-400 font-mono text-[11px]">
+                              {rec.updatedAt ? new Date(rec.updatedAt).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' }) : '–'}
+                            </td>
+                            <td className="px-4 py-3.5 text-center whitespace-nowrap">
+                              <div className="flex items-center justify-center gap-1.5">
+                                <button
+                                  onClick={() => handleLoadRecord(rec)}
+                                  className="p-1 px-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-md text-xs font-bold transition-all border border-indigo-100 flex items-center gap-1 cursor-pointer"
+                                  title="Edit Saran KBLI"
+                                >
+                                  <Edit className="w-3.5 h-3.5" />
+                                  Edit
+                                </button>
+                                <button
+                                  onClick={() => handlePrint('id', rec)}
+                                  className="p-1 px-2.5 bg-slate-50 hover:bg-slate-100 text-slate-700 rounded-md text-xs font-bold transition-all border border-slate-200 flex items-center gap-1 cursor-pointer"
+                                  title="Cetak PDF (ID)"
+                                >
+                                  <FileDown className="w-3.5 h-3.5" />
+                                  ID
+                                </button>
+                                <button
+                                  onClick={() => handlePrint('en', rec)}
+                                  className="p-1 px-2.5 bg-slate-50 hover:bg-slate-100 text-slate-700 rounded-md text-xs font-bold transition-all border border-slate-200 flex items-center gap-1 cursor-pointer"
+                                  title="Cetak PDF (EN)"
+                                >
+                                  <FileDown className="w-3.5 h-3.5" />
+                                  EN
+                                </button>
+                                <button
+                                  onClick={(e) => handleDeleteRecord(rec.id, e)}
+                                  className="p-1.5 bg-red-50 hover:bg-red-105 text-red-650 rounded-md transition-all border border-red-100 flex items-center cursor-pointer"
+                                  title="Hapus Data"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      });
+                    })()}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
+      ) : (
+        <>
+          {/* Back Navigation Bar inside Form Mode */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between bg-white border border-slate-200 rounded-sm p-4 shadow-sm gap-3">
+            <button
+              onClick={() => setViewMode('list')}
+              className="px-4 py-2 bg-slate-105 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-sm border border-slate-200 shadow-sm transition-all flex items-center justify-center gap-1.5 uppercase shrink-0 cursor-pointer"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              Kembali ke Daftar Klien
+            </button>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50 px-2 py-1 rounded border">Form Mode</span>
+              {editingId && (
+                <span className="text-[10px] font-bold text-amber-600 uppercase tracking-widest bg-amber-50 px-2 py-1 rounded border border-amber-200">Sedang Mengedit</span>
+              )}
+            </div>
+          </div>
 
+          {/* compact configurations header */}
+          <div className="text-center py-6 space-y-4">
+            <div className="flex flex-col items-center gap-2">
+              <div className="bg-indigo-600 p-2.5 rounded-2xl shadow-md shadow-indigo-150">
+                <LayoutGrid className="w-7 h-7 text-white" />
+              </div>
+              <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight font-sans">Saran KBLI 2025</h1>
+              <p className="text-slate-500 text-sm max-w-md mx-auto">Tentukan klasifikasi lapangan usaha PT Anda dengan mudah.</p>
+            </div>
 
-      {/* Verification footer notice */}
-      <div className="bg-amber-50 border border-amber-100 p-4 rounded-sm flex gap-3 items-start shadow-sm mt-6">
-        <Info className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
-        <div className="text-[12px] text-amber-800 leading-relaxed font-sans">
-          <p className="font-bold mb-1 uppercase tracking-tight">Catatan Verifikasi:</p>
-          Simulasi ini mengacu pada aturan **OSS RBA**. Pastikan Ruang Lingkup yang diketik sesuai dengan kegiatan usaha yang akan dijalankan. Penentuan tingkat resiko ditetapkan secara sistem oleh OSS berdasarkan KBLI dan parameter skala usaha.
-        </div>
-      </div>
+            {/* PT Configs bar */}
+            <div className="flex flex-wrap justify-center gap-4 pt-2">
+              <div className="flex items-center gap-2 bg-white px-4 py-2 border border-slate-200 rounded-lg shadow-sm">
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Nama PT:</span>
+                <input
+                  type="text"
+                  placeholder="MASUKKAN NAMA"
+                  className="text-sm font-bold text-slate-700 outline-none border-b border-transparent focus:border-indigo-500 uppercase min-w-[200px]"
+                  value={namaPT}
+                  onChange={(e) => setNamaPT(e.target.value)}
+                />
+              </div>
+              <div className="flex items-center gap-2 bg-white px-4 py-2 border border-slate-200 rounded-lg shadow-sm">
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Skala:</span>
+                <select
+                  className="text-sm font-bold text-slate-700 outline-none bg-transparent cursor-pointer"
+                  value={kelompokUsaha}
+                  onChange={(e) => setKelompokUsaha(e.target.value)}
+                >
+                  <option value="Mikro">Mikro</option>
+                  <option value="Kecil">Kecil</option>
+                  <option value="Menengah">Menengah</option>
+                  <option value="Besar">Besar</option>
+                </select>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleSaveToFirestore}
+                  disabled={isSavingRecord || !namaPT.trim() || selectedKblis.length === 0}
+                  className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg text-xs font-bold transition-all border border-emerald-755 shadow-sm uppercase shrink-0 cursor-pointer"
+                >
+                  {isSavingRecord ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                  Simpan
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Main Selected List Card based on Screenshot 1 */}
+          <div className="bg-white border border-slate-200 rounded-sm p-6 shadow-sm">
+            {/* Tab-like Pill Header */}
+            <div className="flex items-center mb-6">
+              <div className="bg-white border border-slate-300 rounded-full px-5 py-1 text-[13px] font-bold text-slate-700 shadow-sm">
+                Maksud dan Tujuan
+              </div>
+            </div>
+
+            {/* Tambah KBLI Button and Actions */}
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <button
+                onClick={() => setIsAddModalOpen(true)}
+                className="px-4 py-2 bg-[#0c2444] hover:bg-[#16365f] text-white text-[13px] font-bold rounded-sm transition-all focus:outline-none flex items-center gap-1.5 cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                Tambah Data
+              </button>
+
+              {selectedKblis.length > 0 && (
+                <div className="flex items-center gap-2">
+                  <select 
+                    value={pdfLang} 
+                    onChange={(e) => setPdfLang(e.target.value as 'id' | 'en')}
+                    className="px-3 py-2 bg-white border border-slate-200 rounded-sm text-xs font-bold text-slate-600 focus:outline-none cursor-pointer hover:border-slate-300 transition-colors shadow-sm h-9"
+                  >
+                    <option value="id">Bahasa Indonesia</option>
+                    <option value="en">English (PDF)</option>
+                  </select>
+                  <button 
+                    onClick={() => handlePrint(pdfLang)}
+                    className="flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-sm text-xs font-bold transition-all border border-indigo-100 shadow-sm h-9 cursor-pointer"
+                  >
+                    <FileDown className="w-4 h-4" />
+                    Cetak PDF
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Selected KBLIs List Table */}
+            <div className="w-full bg-white border border-slate-200 rounded-sm overflow-hidden mb-2">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse text-[13px]">
+                  <thead>
+                    <tr className="bg-[#fcfcfc] border-b border-slate-200">
+                      <th className="px-4 py-2.5 font-bold text-slate-700 text-center w-12 border-r border-slate-200">No</th>
+                      <th className="px-4 py-2.5 font-bold text-slate-700 text-center w-24 border-r border-slate-200">Kode KBLI</th>
+                      <th className="px-4 py-2.5 font-bold text-slate-700 text-left w-64 border-r border-slate-200">Judul KBLI</th>
+                      <th className="px-4 py-2.5 font-bold text-slate-700 text-left border-r border-slate-200">Uraian KBLI</th>
+                      <th className="px-4 py-2.5 font-bold text-slate-700 text-center w-24">Aksi</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200">
+                    {selectedKblis.map((kbli, idx) => (
+                      <tr key={kbli.kode} className="hover:bg-slate-50/40">
+                        <td className="px-4 py-3 text-center border-r border-slate-200 text-slate-600 align-top">{idx + 1}</td>
+                        <td className="px-4 py-3 text-center border-r border-slate-200 font-mono text-slate-800 font-semibold align-top">{kbli.kode}</td>
+                        <td className="px-4 py-3 border-r border-slate-200 font-bold text-slate-800 align-top">{kbli.judul}</td>
+                        <td className="px-4 py-3 border-r border-slate-200 text-slate-600 text-[12px] leading-relaxed text-justify align-top">{kbli.uraian}</td>
+                        <td className="px-4 py-3 text-center align-top whitespace-nowrap">
+                          <button 
+                            onClick={() => setViewingKbliKode(kbli.kode)}
+                            className="p-1.5 hover:bg-teal-50 text-slate-400 hover:text-[#17a2b8] rounded transition-all mr-1.5 cursor-pointer"
+                            title="Lihat Rincian Ruang Lingkup"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
+                          <button 
+                            onClick={() => removeKbli(kbli.kode)}
+                            className="p-1.5 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded transition-all cursor-pointer"
+                            title="Hapus KBLI"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                    {selectedKblis.length === 0 && (
+                      <tr>
+                        <td colSpan={5} className="text-center py-10 text-slate-400 italic">
+                          Belum ada data KBLI terpilih. Silakan klik tombol "Tambah Data" di atas.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          {/* Verification footer notice */}
+          <div className="bg-amber-50 border border-amber-100 p-4 rounded-sm flex gap-3 items-start shadow-sm mt-6">
+            <Info className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+            <div className="text-[12px] text-amber-800 leading-relaxed font-sans">
+              <p className="font-bold mb-1 uppercase tracking-tight">Catatan Verifikasi:</p>
+              Simulasi ini mengacu pada aturan **OSS RBA**. Pastikan Ruang Lingkup yang diketik sesuai dengan kegiatan usaha yang akan dijalankan. Penentuan tingkat resiko ditetapkan secara sistem oleh OSS berdasarkan KBLI dan parameter skala usaha.
+            </div>
+          </div>
+        </>
+      )}
 
       {/* "TAMBAH DATA" Modal based on Screenshot 2 */}
       {isAddModalOpen && (

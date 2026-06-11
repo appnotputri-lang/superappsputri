@@ -1,41 +1,84 @@
 import React, { useState } from 'react';
 import { KbliItem } from '../types';
 import { KBLI_DATA } from '../utils/kbliData';
-import { Eye, Printer, Users, Building2, Banknote, HelpCircle, Save } from 'lucide-react';
+import { Eye, Printer, Users, Building2, Banknote, HelpCircle, Save, ChevronDown, ChevronRight } from 'lucide-react';
 import { AddressSelects } from './components/AddressSelects';
+
+const AhuSection = ({ title, children, isOpen = true }: { title: string, children: React.ReactNode, isOpen?: boolean }) => {
+  const [open, setOpen] = useState(isOpen);
+  return (
+    <div className="bg-white border border-slate-200 rounded-sm mb-4 shadow-sm">
+      <div 
+        onClick={() => setOpen(!open)}
+        className="bg-[#f5f5f5] px-4 py-2 flex justify-between items-center cursor-pointer border-b border-slate-200 group"
+      >
+        <h3 className="text-[14px] font-bold text-slate-700 uppercase tracking-tight flex items-center gap-2">
+          <span className="w-1.5 h-4 bg-[#3b5998]"></span>
+          {title}
+        </h3>
+        {open ? <ChevronDown className="w-4 h-4 text-slate-400" /> : <ChevronRight className="w-4 h-4 text-slate-400" />}
+      </div>
+      {open && <div className="p-5">{children}</div>}
+    </div>
+  );
+};
+
+const AhuLabel = ({ label, required = false }: { label: string, required?: boolean }) => (
+  <label className="block text-[13px] font-medium text-slate-700 mb-1">
+    {label} {required && <span className="text-red-500">*</span>}
+  </label>
+);
+
+const AhuInput = ({ className = "", ...props }: React.InputHTMLAttributes<HTMLInputElement>) => (
+  <input 
+    {...props} 
+    className={`w-full border border-[#ccc] rounded-sm px-3 py-1.5 text-[13px] outline-none focus:border-[#66afe9] focus:shadow-[inset_0_1px_1px_rgba(0,0,0,.075),0_0_8px_rgba(102,175,233,.6)] transition-all bg-white text-slate-800 ${className}`} 
+  />
+);
+
+const AhuSelect = ({ children, className = "", ...props }: React.SelectHTMLAttributes<HTMLSelectElement>) => (
+  <select 
+    {...props} 
+    className={`w-full border border-[#ccc] rounded-sm px-3 py-1.5 text-[13px] outline-none focus:border-[#66afe9] focus:shadow-[inset_0_1px_1px_rgba(0,0,0,.075),0_0_8px_rgba(102,175,233,.6)] transition-all bg-white text-slate-800 appearance-none ${className}`}
+  >
+    {children}
+  </select>
+);
 
 export interface Pendiri {
   id: string;
-  nama: string;
-  tempatLahir: string;
-  tanggalLahir: string;
-  pekerjaan: string;
-  alamatJalan: string;
-  kota: string;
-  rt: string;
-  rw: string;
-  kelurahan: string;
-  kecamatan: string;
-  provinsi: string;
+  name: string;
+  birthCity: string;
+  birthDate: string;
+  occupation: string;
+  address: {
+    fullAddress: string;
+    rt: string;
+    rw: string;
+    kelurahan: string;
+    kecamatan: string;
+    city: string;
+    province: string;
+  };
   nik: string;
-  sahamSaham: number;
-  jabatan: string; // misal "Direktur Utama", "Direktur", "Komisaris Utama", "Komisaris"
+  sharesOwned: number;
+  jabatan: string; 
 }
 
 export interface PendirianData {
   namaPt: string;
   kotaKedudukan: string;
   alamatLengkapPT: string;
-  kuotaWaktuDireksi: string; // misal "5 (lima) tahun"
+  kuotaWaktuDireksi: string; 
   tanggal: string;
   waktu: string;
-  notarisTempat: string; // misal "Kabupaten Bandung Barat"
+  notarisTempat: string;
   notarisNamaSurat: string;
   kbliItems: KbliItem[];
   modalDasar: number;
   nilaiPerLembar: number;
   modalDisetorPersen: number;
-  pendiri: Pendiri[];
+  shareholders: Pendiri[];
   saksi1Nama: string;
   saksi1LahirTempat: string;
   saksi1LahirTanggal: string;
@@ -53,30 +96,10 @@ export interface PendirianData {
 interface DraftAktaPendirianProps {
   onShowPreview: (data: any, type: string) => void;
   onExportWord: (data: any, type: string) => void;
+  profiles: any[];
 }
 
-const AhuSection = ({ title, children, isOpen = true }: { title: string, children: React.ReactNode, isOpen?: boolean }) => {
-  const [open, setOpen] = useState(isOpen);
-  return (
-    <div className="bg-white border border-slate-200 rounded-sm mb-4 shadow-sm">
-      <div 
-        onClick={() => setOpen(!open)}
-        className="bg-[#f5f5f5] px-4 py-2 flex justify-between items-center cursor-pointer border-b border-slate-200 group"
-      >
-        <h3 className="text-[14px] font-bold text-slate-700 uppercase tracking-tight flex items-center gap-2">
-          <span className="w-1.5 h-4 bg-[#3b5998]"></span>
-          {title}
-        </h3>
-        <span className="text-slate-400 group-hover:text-slate-600 font-bold font-mono text-[16px]">
-          {open ? '[-]' : '[+]'}
-        </span>
-      </div>
-      {open && <div className="p-5">{children}</div>}
-    </div>
-  );
-};
-
-export default function DraftAktaPendirian({ onShowPreview, onExportWord }: DraftAktaPendirianProps) {
+export default function DraftAktaPendirian({ onShowPreview, onExportWord, profiles }: DraftAktaPendirianProps) {
   const [data, setData] = useState<PendirianData>({
     namaPt: '',
     kotaKedudukan: '',
@@ -105,12 +128,25 @@ export default function DraftAktaPendirian({ onShowPreview, onExportWord }: Draf
     saksi2Pekerjaan: 'Karyawan Swasta',
     saksi2Alamat: 'Jalan Lembah Pakar Timur II Kampung Sekebuluh Rukun Tetangga 001, Rukun Warga 004, Kecamatan Cimenyan, Desa Ciburial',
     saksi2NIK: '3204065712990001',
-    pendiri: [
+    shareholders: [
       {
         id: crypto.randomUUID(),
-        nama: '', tempatLahir: '', tanggalLahir: '', pekerjaan: '',
-        alamatJalan: '', kota: '', rt: '', rw: '', kelurahan: '', kecamatan: '', provinsi: '',
-        nik: '', sahamSaham: 130, jabatan: 'Direktur'
+        name: '',
+        birthCity: '',
+        birthDate: '',
+        occupation: '',
+        address: {
+          fullAddress: '',
+          rt: '',
+          rw: '',
+          kelurahan: '',
+          kecamatan: '',
+          city: '',
+          province: '',
+        },
+        nik: '',
+        sharesOwned: 130,
+        jabatan: 'Direktur'
       }
     ]
   });
@@ -127,23 +163,43 @@ export default function DraftAktaPendirian({ onShowPreview, onExportWord }: Draf
     setData(prev => ({ ...prev, [field]: value }));
   };
 
-  const handlePendiriChange = (id: string, field: keyof Pendiri, value: any) => {
+  const handlePendiriChange = (id: string, field: string, value: any) => {
     setData(prev => ({
       ...prev,
-      pendiri: prev.pendiri.map(p => p.id === id ? { ...p, [field]: value } : p)
+      shareholders: prev.shareholders.map(p => {
+          if (p.id !== id) return p;
+          if (field.startsWith('address.')) {
+              const addressField = field.split('.')[1];
+              return { ...p, address: { ...p.address, [addressField]: value } };
+          }
+          return { ...p, [field]: value };
+      })
     }));
   };
 
   const addPendiri = () => {
     setData(prev => ({
       ...prev,
-      pendiri: [
-        ...prev.pendiri,
+      shareholders: [
+        ...prev.shareholders,
         {
           id: crypto.randomUUID(),
-          nama: '', tempatLahir: '', tanggalLahir: '', pekerjaan: '',
-          alamatJalan: '', kota: '', rt: '', rw: '', kelurahan: '', kecamatan: '', provinsi: '',
-          nik: '', sahamSaham: 130, jabatan: 'Komisaris'
+          name: '',
+          birthCity: '',
+          birthDate: '',
+          occupation: '',
+          address: {
+            fullAddress: '',
+            rt: '',
+            rw: '',
+            kelurahan: '',
+            kecamatan: '',
+            city: '',
+            province: '',
+          },
+          nik: '',
+          sharesOwned: 130,
+          jabatan: 'Komisaris'
         }
       ]
     }));
@@ -152,7 +208,7 @@ export default function DraftAktaPendirian({ onShowPreview, onExportWord }: Draf
   const removePendiri = (id: string) => {
     setData(prev => ({
       ...prev,
-      pendiri: prev.pendiri.filter(p => p.id !== id)
+      shareholders: prev.shareholders.filter(p => p.id !== id)
     }));
   }
 
@@ -186,38 +242,109 @@ export default function DraftAktaPendirian({ onShowPreview, onExportWord }: Draf
         <div>
           <AhuSection title="Informasi Pendirian">
             <div className="space-y-3">
-              <div>
-                <label className="block text-xs font-bold text-[#333] mb-1">Nama Perseroan Terbatas (PT)</label>
-                <input type="text" value={data.namaPt} onChange={e => updateData('namaPt', e.target.value)} className="w-full text-sm p-1.5 border border-slate-300 rounded focus:border-blue-500 outline-none" placeholder="Contoh: MAJU BERSAMA" />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-[#333] mb-1">Tempat Kedudukan (Kota/Kabupaten)</label>
-                <input type="text" value={data.kotaKedudukan} onChange={e => updateData('kotaKedudukan', e.target.value)} className="w-full text-sm p-1.5 border border-slate-300 rounded focus:border-blue-500 outline-none" placeholder="Jakarta Selatan" />
-                <div className="mt-2">
-                  <label className="block text-xs text-slate-600 mb-1">Alamat Lengkap PT (Opsional)</label>
-                  <textarea value={data.alamatLengkapPT || ''} onChange={e => updateData('alamatLengkapPT', e.target.value)} className="w-full text-sm p-1.5 border border-slate-300 rounded focus:border-blue-500 outline-none" rows={2} placeholder="Jalan R.A. Kartini Nomor Kav 8 Tower A..." />
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+  <AhuLabel label="Pilih Klien PT (Opsional)" />
+  <div className="md:col-span-3">
+    <AhuSelect 
+        onChange={(e) => {
+            const profile = profiles.find(p => p.id === e.target.value);
+            if (profile) {
+                const mappedShareholders = (profile.shareholders || []).map((s: any) => ({
+                    id: crypto.randomUUID(),
+                    name: s.name,
+                    birthCity: s.birthCity || '',
+                    birthDate: s.birthDate || '',
+                    occupation: s.occupation || '',
+                    address: {
+                        fullAddress: s.address?.fullAddress || '',
+                        rt: s.address?.rt || '',
+                        rw: s.address?.rw || '',
+                        kelurahan: s.address?.kelurahan || '',
+                        kecamatan: s.address?.kecamatan || '',
+                        city: s.address?.city || '',
+                        province: s.address?.province || '',
+                    },
+                    nik: s.nik || '',
+                    sharesOwned: s.sharesOwned || 0,
+                    jabatan: s.managementPosition || 'Direktur'
+                }));
+                setData(prev => ({
+                    ...prev,
+                    namaPt: profile.companyName || prev.namaPt,
+                    kotaKedudukan: profile.newAddress?.city || profile.domicile || prev.kotaKedudukan,
+                    alamatLengkapPT: profile.fullAddress || (profile.newAddress?.fullAddress ? 
+                        `${profile.newAddress.fullAddress}, RT ${profile.newAddress.rt}/${profile.newAddress.rw}, Kel. ${profile.newAddress.kelurahan}, Kec. ${profile.newAddress.kecamatan}` 
+                        : prev.alamatLengkapPT),
+                    shareholders: mappedShareholders.length > 0 ? mappedShareholders : prev.shareholders
+                }));
+            }
+        }}
+    >
+        <option value="">-- Pilih PT --</option>
+        {profiles.map(p => <option key={p.id} value={p.id}>{p.companyName}</option>)}
+    </AhuSelect>
+  </div>
+</div>
+
+<div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+  <AhuLabel label="Nama Perseroan Terbatas" />
+  <div className="md:col-span-3">
+     <AhuInput type="text" value={data.namaPt} onChange={e => updateData('namaPt', e.target.value)} placeholder="Contoh: MAJU BERSAMA" />
+  </div>
+</div>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                  <AhuLabel label="Tempat Kedudukan (Kota/Kabupaten)" />
+                  <div className="md:col-span-3">
+                    <AhuInput type="text" value={data.kotaKedudukan} onChange={e => updateData('kotaKedudukan', e.target.value)} placeholder="Jakarta Selatan" />
+                  </div>
                 </div>
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-[#333] mb-1">Masa Jabatan Direksi & Komisaris (Tahun)</label>
-                <input type="text" value={data.kuotaWaktuDireksi} onChange={e => updateData('kuotaWaktuDireksi', e.target.value)} className="w-full text-sm p-1.5 border border-slate-300 rounded focus:border-blue-500 outline-none" />
-              </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                  <AhuLabel label="Alamat Lengkap PT" />
+                  <div className="md:col-span-3">
+                    <textarea value={data.alamatLengkapPT || ''} onChange={e => updateData('alamatLengkapPT', e.target.value)} className="w-full border border-[#ccc] rounded-sm px-3 py-1.5 text-[13px] outline-none focus:border-[#66afe9] focus:shadow-[inset_0_1px_1px_rgba(0,0,0,.075),0_0_8px_rgba(102,175,233,.6)] transition-all bg-white text-slate-800" rows={2} placeholder="Jalan R.A. Kartini Nomor Kav 8 Tower A..." />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                  <AhuLabel label="Masa Jabatan Direksi & Komisaris (Tahun)" />
+                  <div className="md:col-span-3">
+                    <AhuInput type="text" value={data.kuotaWaktuDireksi} onChange={e => updateData('kuotaWaktuDireksi', e.target.value)} />
+                  </div>
+                </div>
+
+                <div className="mt-4">
+                  <h4 className="flex items-center gap-2 text-sm font-bold text-[#333] mb-3"><Banknote className="w-4 h-4 text-[#3b5998]" /> Modal Perseroan</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div>
+                      <AhuLabel label="Modal Dasar (Rp)" />
+                      <AhuInput type="number" value={data.modalDasar} onChange={e => updateData('modalDasar', parseInt(e.target.value) || 0)} />
+                    </div>
+                    <div>
+                      <AhuLabel label="Nilai per Saham (Rp)" />
+                      <AhuInput type="number" value={data.nilaiPerLembar} onChange={e => updateData('nilaiPerLembar', parseInt(e.target.value) || 0)} />
+                    </div>
+                    <div>
+                      <AhuLabel label="Ditempatkan & Disetor (%)" />
+                      <AhuInput type="number" min="0" max="100" value={data.modalDisetorPersen || 25} onChange={e => updateData('modalDisetorPersen', parseInt(e.target.value) || 0)} />
+                    </div>
+                  </div>
+                </div>
             </div>
           </AhuSection>
           
           <AhuSection title="Jadwal & Notaris">
             <div className="space-y-3">
-              <div className="grid grid-cols-1 gap-2">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                  <div>
-                    <label className="block text-xs font-bold text-[#333] mb-1">Tanggal Akta</label>
-                    <input type="date" value={data.tanggal} onChange={e => updateData('tanggal', e.target.value)} className="w-full text-sm p-1.5 border border-slate-300 rounded" />
+                    <AhuLabel label="Tanggal Akta" />
+                    <AhuInput type="date" value={data.tanggal} onChange={e => updateData('tanggal', e.target.value)} />
                  </div>
                  <div>
-                    <label className="block text-xs font-bold text-[#333] mb-1">Waktu</label>
-                    <input type="time" value={data.waktu} onChange={e => updateData('waktu', e.target.value)} className="w-full text-sm p-1.5 border border-slate-300 rounded" />
+                    <AhuLabel label="Waktu" />
+                    <AhuInput type="time" value={data.waktu} onChange={e => updateData('waktu', e.target.value)} />
                  </div>
               </div>
-
             </div>
           </AhuSection>
 
@@ -226,12 +353,12 @@ export default function DraftAktaPendirian({ onShowPreview, onExportWord }: Draf
                 <div className="relative">
                    <div className="flex bg-white border border-slate-300 rounded shadow-sm focus-within:border-[#3b5998] focus-within:ring-1 focus-within:ring-[#3b5998] overflow-hidden">
                      <span className="flex items-center pl-3 text-slate-400">🔍</span>
-                     <input 
+                     <AhuInput 
+                       className="border-none focus:shadow-none"
                        type="text" 
                        placeholder="Cari Kode KBLI (misal: 47911 atau eceran)..." 
                        value={kbliSearchTerm}
                        onChange={e => setKbliSearchTerm(e.target.value)}
-                       className="w-full text-sm p-3 outline-none" 
                      />
                    </div>
                    
@@ -286,12 +413,12 @@ export default function DraftAktaPendirian({ onShowPreview, onExportWord }: Draf
                                 <span className="text-slate-800">{item.name}</span>
                               </h4>
                            </div>
-                           <button onClick={() => updateData('kbliItems', data.kbliItems.filter(k => k.id !== item.id))} className="text-slate-400 hover:text-red-500 bg-slate-100 hover:bg-red-50 p-1.5 rounded transition-colors">
+                           <button type="button" onClick={() => updateData('kbliItems', data.kbliItems.filter(k => k.id !== item.id))} className="text-slate-400 hover:text-red-500 bg-slate-100 hover:bg-red-50 p-1.5 rounded transition-colors">
                               Hapus
                            </button>
                         </div>
                         <div className="mt-3 bg-slate-50 p-3 rounded border border-slate-100">
-                          <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Deskripsi Tambahan / Penjelasan</label>
+                          <AhuLabel label="Deskripsi Tambahan / Penjelasan" />
                           <textarea 
                             value={item.description || ''} 
                             onChange={(e) => {
@@ -310,25 +437,24 @@ export default function DraftAktaPendirian({ onShowPreview, onExportWord }: Draf
              </div>
           </AhuSection>
         </div>
-
         <div>
            <AhuSection title="Saksi Notaris (Saksi Akta)">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                  <div className="space-y-2 border border-slate-200 p-3 rounded">
                     <h4 className="font-bold text-xs text-slate-700">Saksi 1</h4>
-                    <input type="text" placeholder="Nama Lengkap" value={data.saksi1Nama || ''} onChange={e => updateData('saksi1Nama', e.target.value)} className="w-full text-xs p-1.5 border rounded" />
-                    <input type="text" placeholder="Tempat Lahir" value={data.saksi1LahirTempat || ''} onChange={e => updateData('saksi1LahirTempat', e.target.value)} className="w-full text-xs p-1.5 border rounded" />
-                    <input type="date" value={data.saksi1LahirTanggal || ''} onChange={e => updateData('saksi1LahirTanggal', e.target.value)} className="w-full text-xs p-1.5 border rounded" />
-                    <input type="text" placeholder="NIK" value={data.saksi1NIK || ''} onChange={e => updateData('saksi1NIK', e.target.value)} className="w-full text-xs p-1.5 border rounded" />
-                    <textarea placeholder="Alamat Lengkap" value={data.saksi1Alamat || ''} onChange={e => updateData('saksi1Alamat', e.target.value)} className="w-full text-xs p-1.5 border rounded" rows={3} />
+                    <AhuInput type="text" placeholder="Nama Lengkap" value={data.saksi1Nama || ''} onChange={e => updateData('saksi1Nama', e.target.value)} />
+                    <AhuInput type="text" placeholder="Tempat Lahir" value={data.saksi1LahirTempat || ''} onChange={e => updateData('saksi1LahirTempat', e.target.value)} />
+                    <AhuInput type="date" value={data.saksi1LahirTanggal || ''} onChange={e => updateData('saksi1LahirTanggal', e.target.value)} />
+                    <AhuInput type="text" placeholder="NIK" value={data.saksi1NIK || ''} onChange={e => updateData('saksi1NIK', e.target.value)} />
+                    <textarea placeholder="Alamat Lengkap" value={data.saksi1Alamat || ''} onChange={e => updateData('saksi1Alamat', e.target.value)} className="w-full text-xs p-2 border border-slate-300 rounded focus:border-[#66afe9] outline-none" rows={3} />
                  </div>
                  <div className="space-y-2 border border-slate-200 p-3 rounded">
                     <h4 className="font-bold text-xs text-slate-700">Saksi 2</h4>
-                    <input type="text" placeholder="Nama Lengkap" value={data.saksi2Nama || ''} onChange={e => updateData('saksi2Nama', e.target.value)} className="w-full text-xs p-1.5 border rounded" />
-                    <input type="text" placeholder="Tempat Lahir" value={data.saksi2LahirTempat || ''} onChange={e => updateData('saksi2LahirTempat', e.target.value)} className="w-full text-xs p-1.5 border rounded" />
-                    <input type="date" value={data.saksi2LahirTanggal || ''} onChange={e => updateData('saksi2LahirTanggal', e.target.value)} className="w-full text-xs p-1.5 border rounded" />
-                    <input type="text" placeholder="NIK" value={data.saksi2NIK || ''} onChange={e => updateData('saksi2NIK', e.target.value)} className="w-full text-xs p-1.5 border rounded" />
-                    <textarea placeholder="Alamat Lengkap" value={data.saksi2Alamat || ''} onChange={e => updateData('saksi2Alamat', e.target.value)} className="w-full text-xs p-1.5 border rounded" rows={3} />
+                    <AhuInput type="text" placeholder="Nama Lengkap" value={data.saksi2Nama || ''} onChange={e => updateData('saksi2Nama', e.target.value)} />
+                    <AhuInput type="text" placeholder="Tempat Lahir" value={data.saksi2LahirTempat || ''} onChange={e => updateData('saksi2LahirTempat', e.target.value)} />
+                    <AhuInput type="date" value={data.saksi2LahirTanggal || ''} onChange={e => updateData('saksi2LahirTanggal', e.target.value)} />
+                    <AhuInput type="text" placeholder="NIK" value={data.saksi2NIK || ''} onChange={e => updateData('saksi2NIK', e.target.value)} />
+                    <textarea placeholder="Alamat Lengkap" value={data.saksi2Alamat || ''} onChange={e => updateData('saksi2Alamat', e.target.value)} className="w-full text-xs p-2 border border-slate-300 rounded focus:border-[#66afe9] outline-none" rows={3} />
                  </div>
               </div>
            </AhuSection>
@@ -337,96 +463,74 @@ export default function DraftAktaPendirian({ onShowPreview, onExportWord }: Draf
         <div>
           <AhuSection title="Struktur Pendirian">
             <div className="space-y-4">
-              <div>
-                 <h4 className="flex items-center gap-2 text-sm font-bold text-[#333] mb-2"><Banknote className="w-4 h-4 text-[#3b5998]" /> Modal Perseroan</h4>
-                 <div className="grid grid-cols-1 gap-3">
-                   <div>
-                     <label className="block text-xs text-slate-600 mb-1">Modal Dasar (Rp)</label>
-                     <input type="number" value={data.modalDasar} onChange={e => updateData('modalDasar', parseInt(e.target.value) || 0)} className="w-full text-sm p-1.5 border border-slate-300 rounded" />
-                   </div>
-                   <div>
-                     <label className="block text-xs text-slate-600 mb-1">Nilai per Saham (Rp)</label>
-                     <input type="number" value={data.nilaiPerLembar} onChange={e => updateData('nilaiPerLembar', parseInt(e.target.value) || 0)} className="w-full text-sm p-1.5 border border-slate-300 rounded" />
-                   </div>
-                   <div>
-                     <label className="flex items-center justify-between text-xs text-slate-600 mb-1">
-                        <span>Ditempatkan & Disetor (%)</span>
-                        <span className="text-blue-700 font-bold">{Math.floor((data.modalDasar / data.nilaiPerLembar) * ((data.modalDisetorPersen || 25) / 100)) || 0} Lembar</span>
-                     </label>
-                     <input type="number" min="0" max="100" value={data.modalDisetorPersen || 25} onChange={e => updateData('modalDisetorPersen', parseInt(e.target.value) || 0)} className="w-full text-sm p-1.5 border border-slate-300 rounded" />
-                   </div>
-                 </div>
-              </div>
               <div className="border-t border-slate-200 pt-3">
                  <h4 className="flex justify-between items-center text-sm font-bold text-[#333] mb-2">
                     <div className="flex items-center gap-2">
                       <Users className="w-4 h-4 text-[#3b5998]" /> Para Pendiri / Pemegang Saham Pertama
                     </div>
-                    <button onClick={addPendiri} className="text-xs bg-[#3b5998] text-white px-2 py-1 rounded hover:bg-[#2c3b41]">
+                    <button type="button" onClick={addPendiri} className="text-xs bg-[#3b5998] text-white px-2 py-1 rounded hover:bg-[#2c3b41]">
                         + Tambah
                     </button>
                  </h4>
                  <div className="space-y-3">
-                    {data.pendiri.map((p, index) => (
+                    {data.shareholders.map((p, index) => (
                       <div key={p.id} className="border border-slate-200 rounded p-3 bg-slate-50 relative">
                         <div className="flex justify-between items-center mb-2 border-b border-slate-300 pb-1">
                           <span className="text-xs font-bold">Pendiri {index + 1}</span>
-                          <button onClick={() => removePendiri(p.id)} className="text-xs text-red-500 hover:text-red-700">Hapus</button>
+                          <button type="button" onClick={() => removePendiri(p.id)} className="text-xs text-red-500 hover:text-red-700">Hapus</button>
                         </div>
-                        <div className="grid grid-cols-1 gap-2 text-xs">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
                            <div>
-                             <label className="block text-slate-500 mb-0.5">Nama Lengkap</label>
-                             <input type="text" value={p.nama} onChange={e => handlePendiriChange(p.id, 'nama', e.target.value)} className="w-full p-1 border rounded" />
-                           </div>
-                           <div>
-                             <label className="block text-slate-500 mb-0.5">NIK / KTP</label>
-                             <input type="text" value={p.nik} onChange={e => handlePendiriChange(p.id, 'nik', e.target.value)} className="w-full p-1 border rounded" />
-                           </div>
-                           <div className="grid grid-cols-1 gap-1 col-span-1">
-                             <div>
-                                <label className="block text-slate-500 mb-0.5">Tempat Lahir</label>
-                                <input type="text" value={p.tempatLahir} onChange={e => handlePendiriChange(p.id, 'tempatLahir', e.target.value)} className="w-full p-1 border rounded" />
-                             </div>
-                             <div>
-                                <label className="block text-slate-500 mb-0.5">Tanggal Lahir</label>
-                                <input type="date" value={p.tanggalLahir} onChange={e => handlePendiriChange(p.id, 'tanggalLahir', e.target.value)} className="w-full p-1 border rounded" />
-                             </div>
+                             <AhuLabel label="Nama Lengkap" />
+                             <AhuInput type="text" value={p.name} onChange={e => handlePendiriChange(p.id, 'name', e.target.value)} />
                            </div>
                            <div>
-                             <label className="block text-slate-500 mb-0.5">Pekerjaan</label>
-                             <input type="text" value={p.pekerjaan} onChange={e => handlePendiriChange(p.id, 'pekerjaan', e.target.value)} className="w-full p-1 border rounded w-full" />
+                             <AhuLabel label="NIK / KTP" />
+                             <AhuInput type="text" value={p.nik} onChange={e => handlePendiriChange(p.id, 'nik', e.target.value)} />
                            </div>
-                           <div className="col-span-1">
-                             <label className="block text-slate-500 mb-0.5">Alamat Jalan</label>
-                             <input type="text" value={p.alamatJalan} onChange={e => handlePendiriChange(p.id, 'alamatJalan', e.target.value)} className="w-full p-1 border rounded" />
+                           <div>
+                              <AhuLabel label="Tempat Lahir" />
+                              <AhuInput type="text" value={p.birthCity} onChange={e => handlePendiriChange(p.id, 'birthCity', e.target.value)} />
                            </div>
-                           <div className="grid grid-cols-1 gap-2">
-                              <div><label className="block text-slate-500 mb-0.5">RT</label><input type="text" value={p.rt} onChange={e => handlePendiriChange(p.id, 'rt', e.target.value)} className="w-full p-1 border rounded" /></div>
-                              <div><label className="block text-slate-500 mb-0.5">RW</label><input type="text" value={p.rw} onChange={e => handlePendiriChange(p.id, 'rw', e.target.value)} className="w-full p-1 border rounded" /></div>
+                           <div>
+                              <AhuLabel label="Tanggal Lahir" />
+                              <AhuInput type="date" value={p.birthDate} onChange={e => handlePendiriChange(p.id, 'birthDate', e.target.value)} />
                            </div>
-                           <div className="col-span-1">
+                           <div className="md:col-span-2">
+                             <AhuLabel label="Pekerjaan" />
+                             <AhuInput type="text" value={p.occupation} onChange={e => handlePendiriChange(p.id, 'occupation', e.target.value)} />
+                           </div>
+                           <div className="md:col-span-2">
+                             <AhuLabel label="Alamat Lengkap" />
+                             <AhuInput type="text" value={p.address.fullAddress} onChange={e => handlePendiriChange(p.id, 'address.fullAddress', e.target.value)} />
+                           </div>
+                           <div className="grid grid-cols-2 gap-2">
+                              <div><AhuLabel label="RT" /><AhuInput type="text" value={p.address.rt} onChange={e => handlePendiriChange(p.id, 'address.rt', e.target.value)} /></div>
+                              <div><AhuLabel label="RW" /><AhuInput type="text" value={p.address.rw} onChange={e => handlePendiriChange(p.id, 'address.rw', e.target.value)} /></div>
+                           </div>
+                           <div className="md:col-span-2">
                              <AddressSelects 
-                               provinsi={p.provinsi || ''}
-                               kota={p.kota}
-                               kecamatan={p.kecamatan}
-                               kelurahan={p.kelurahan}
-                               onChange={(field, value) => handlePendiriChange(p.id, field as keyof Pendiri, value)}
+                                provinsi={p.address.province || ''}
+                                kota={p.address.city}
+                                kecamatan={p.address.kecamatan}
+                                kelurahan={p.address.kelurahan}
+                                onChange={(field, value) => handlePendiriChange(p.id, `address.${field}`, value)}
                              />
                            </div>
                            
-                           <div className="col-span-1 border-t mt-2 pt-2 grid grid-cols-1 gap-2">
+                           <div className="md:col-span-2 border-t mt-2 pt-2 grid grid-cols-1 md:grid-cols-2 gap-2">
                              <div>
-                               <label className="block text-slate-500 mb-0.5 font-bold text-blue-700">Jumlah Saham Diambil</label>
-                               <input type="number" value={p.sahamSaham} onChange={e => handlePendiriChange(p.id, 'sahamSaham', parseInt(e.target.value) || 0)} className="w-full p-1 border border-blue-300 rounded focus:border-blue-500" />
+                               <AhuLabel label="Jumlah Saham Diambil" />
+                               <AhuInput type="number" value={p.sharesOwned} onChange={e => handlePendiriChange(p.id, 'sharesOwned', parseInt(e.target.value) || 0)} />
                              </div>
                              <div>
-                               <label className="block text-slate-500 mb-0.5 font-bold text-blue-700">Jabatan Pengurus</label>
-                               <select value={p.jabatan} onChange={e => handlePendiriChange(p.id, 'jabatan', e.target.value)} className="w-full p-1.5 border border-blue-300 rounded focus:border-blue-500">
+                               <AhuLabel label="Jabatan Pengurus" />
+                               <AhuSelect value={p.jabatan} onChange={e => handlePendiriChange(p.id, 'jabatan', e.target.value)}>
                                  <option value="Direktur Utama">Direktur Utama</option>
                                  <option value="Direktur">Direktur</option>
                                  <option value="Komisaris Utama">Komisaris Utama</option>
                                  <option value="Komisaris">Komisaris</option>
-                               </select>
+                               </AhuSelect>
                              </div>
                            </div>
                         </div>

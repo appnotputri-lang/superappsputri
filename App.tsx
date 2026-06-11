@@ -14,6 +14,7 @@ import DocumentPreview from './components/DocumentPreview';
 import { DataCorrectionLetter } from './components/DataCorrectionLetter';
 import DraftAktaApp from './src/DraftAktaApp';
 import DraftAktaRUPS from './src/DraftAktaRUPS';
+import PendirianList from './src/components/PendirianList';
 import DraftAktaPendirian from './src/DraftAktaPendirian';
 import ImportKBLI from './src/components/ImportKBLI';
 import PendirianDocumentPreview from './src/PendirianDocumentPreview';
@@ -80,7 +81,9 @@ import {
   HelpCircle,
   ZoomIn,
   ZoomOut,
-  Edit
+  Edit,
+  Filter,
+  SlidersHorizontal
 } from 'lucide-react';
 import { IndoRegionSelector, DomicileSelector, SearchableSelect } from './components/AddressFields';
 import { formatCurrency, formatInputNumber, parseFormattedNumber, numberToWords, toTitleCase } from './utils/formatters';
@@ -333,8 +336,23 @@ const App: React.FC = () => {
   const [rupstPublicProjects, setRupstPublicProjects] = useState<CompanyData[]>([]);
   const [pendirianProjects, setPendirianProjects] = useState<CompanyData[]>([]);
   const [rupstSearchQuery, setRupstSearchQuery] = useState("");
+  const [selectedRupstYear, setSelectedRupstYear] = useState<string>("all");
+  const [rupstSortField, setRupstSortField] = useState<string>("updatedAt");
+  const [rupstSortOrder, setRupstSortOrder] = useState<"asc" | "desc">("desc");
+  const [rupstCurrentPage, setRupstCurrentPage] = useState<number>(1);
+  const [isRupstFilterOpen, setIsRupstFilterOpen] = useState<boolean>(false);
   const [notulenSearchQuery, setNotulenSearchQuery] = useState("");
+  const [selectedRupslbYear, setSelectedRupslbYear] = useState<string>("all");
+  const [rupslbSortField, setRupslbSortField] = useState<string>("updatedAt");
+  const [rupslbSortOrder, setRupslbSortOrder] = useState<"asc" | "desc">("desc");
+  const [rupslbCurrentPage, setRupslbCurrentPage] = useState<number>(1);
+  const [isRupslbFilterOpen, setIsRupslbFilterOpen] = useState<boolean>(false);
   const [profileSearchQuery, setProfileSearchQuery] = useState("");
+  const [profileSortField, setProfileSortField] = useState<string>("updatedAt");
+  const [profileSortOrder, setProfileSortOrder] = useState<"asc" | "desc">("desc");
+  const [profileCurrentPage, setProfileCurrentPage] = useState<number>(1);
+  const [selectedProfileYear, setSelectedProfileYear] = useState<string>("all");
+  const [isProfileFilterOpen, setIsProfileFilterOpen] = useState<boolean>(false);
 
   const filteredProjects = projects.filter(p => {
     if (!notulenSearchQuery) return true;
@@ -513,6 +531,7 @@ const App: React.FC = () => {
   const [editingRupstPublicId, setEditingRupstPublicId] = useState<string | null>(null);
   const [editingPendirianId, setEditingPendirianId] = useState<string | null>(null);
   const [editingProfileId, setEditingProfileId] = useState<string | null>(null);
+  const [isPtGroupOpen, setIsPtGroupOpen] = useState(true);
 
   const [editingShareholder, setEditingShareholder] = useState<Shareholder | null>(null);
   const [rupstInputMode, setRupstInputMode] = useState<'form' | 'assistant'>('assistant');
@@ -1371,28 +1390,13 @@ const App: React.FC = () => {
         {user && (
           <aside className={`bg-[#2c3b41] text-slate-400 flex flex-col shrink-0 overflow-y-auto lg:flex transition-all duration-300 ease-in-out ${isSidebarOpen ? 'w-64' : 'w-0 overflow-hidden'}`}>
             <div className="py-4 space-y-0 text-[13px] w-64">
+              {/* General Top Level Menu */}
               {[
                 { label: 'Beranda', id: 'beranda' as const, icon: Home },
-                { label: 'Company Profile', id: 'company_profile' as const, icon: Building2 },
-                { label: 'RUPS LB', id: 'notulen' as const, icon: FileText },
-                { label: 'RUPS Tahunan', id: 'rupst' as const, icon: History },
-                { label: 'RUPST Public', id: 'rupst_public' as const, icon: History },
-                { label: 'Sirkuler Lap Tahunan', id: 'sirkuler_laporan' as const, icon: FileSignature },
-                { label: 'Mapping KBLI 2020-2025', id: 'kbli_mapping' as const, icon: BookOpen },
-                { label: 'Saran KBLI', id: 'saran_kbli' as const, icon: Lightbulb },
-                { label: 'Pendirian PT', id: 'pendirian' as const, icon: FileText },
-                { label: 'Surat Perbaikan Data', id: 'perbaikan' as const, icon: Mail },
-                { label: 'Panduan Penggunaan', id: 'panduan' as const, icon: BookOpen },
               ].map((item) => (
                 <button 
                   key={item.id} 
                   onClick={() => {
-                    if (!user && item.id !== 'rupst_public') {
-                      if (confirm(`Anda harus login terlebih dahulu untuk mengakses menu "${item.label}". Apakah Anda ingin login sekarang?`)) {
-                        loginWithGoogle();
-                      }
-                      return;
-                    }
                     setActiveSidebarTab(item.id);
                   }} 
                   className={`w-full text-left px-4 py-2.5 border-l-4 transition-all flex justify-between items-center ${activeSidebarTab === item.id ? 'bg-[#1e282c] text-white border-blue-500' : 'border-transparent hover:bg-black/10 hover:text-white'}`}
@@ -1401,11 +1405,89 @@ const App: React.FC = () => {
                     <item.icon size={18} />
                     {item.label}
                   </span>
-                  {!user && item.id !== 'rupst_public' && (
-                    <Lock size={14} className="text-slate-500/60 shrink-0" />
-                  )}
                 </button>
               ))}
+
+              {/* Group Menu: Perseroan Terbatas */}
+              <div className="mt-2 text-[13px]">
+                <button
+                  onClick={() => setIsPtGroupOpen(!isPtGroupOpen)}
+                  className="w-full text-left px-4 py-3 hover:bg-black/15 text-slate-300 hover:text-white font-bold uppercase text-[11px] tracking-wider flex items-center justify-between transition-all select-none border-y border-white/5 bg-black/10"
+                >
+                  <span className="flex items-center gap-2.5">
+                    <Building2 size={16} className="text-blue-400" />
+                    Perseroan Terbatas
+                  </span>
+                  {isPtGroupOpen ? <ChevronDown size={14} className="text-slate-400" /> : <ChevronRight size={14} className="text-slate-400" />}
+                </button>
+
+                {isPtGroupOpen && (
+                  <div className="bg-black/5 py-1 border-b border-white/5 space-y-0.5">
+                    {[
+                      { label: 'Klien PT', id: 'company_profile' as const, icon: Building2 },
+                      { label: 'RUPS LB', id: 'notulen' as const, icon: FileText },
+                      { label: 'RUPS Tahunan', id: 'rupst' as const, icon: History },
+                      { label: 'RUPST Public', id: 'rupst_public' as const, icon: History },
+                      { label: 'Sirkuler Lap Tahunan', id: 'sirkuler_laporan' as const, icon: FileSignature },
+                      { label: 'Pendirian PT', id: 'pendirian' as const, icon: FileText },
+                    ].map((item) => (
+                      <button 
+                        key={item.id} 
+                        onClick={() => {
+                          if (!user && item.id !== 'rupst_public') {
+                            if (confirm(`Anda harus login terlebih dahulu untuk mengakses menu "${item.label}". Apakah Anda ingin login sekarang?`)) {
+                              loginWithGoogle();
+                            }
+                            return;
+                          }
+                          setActiveSidebarTab(item.id);
+                        }} 
+                        className={`w-full text-left pl-8 pr-4 py-2 border-l-4 transition-all flex justify-between items-center ${activeSidebarTab === item.id ? 'bg-[#1e282c] text-white border-blue-500' : 'border-transparent hover:bg-black/10 hover:text-white'}`}
+                      >
+                        <span className="flex items-center gap-2.5">
+                          <item.icon size={16} className={`${activeSidebarTab === item.id ? 'text-blue-400' : 'text-slate-400/80'}`} />
+                          {item.label}
+                        </span>
+                        {!user && item.id !== 'rupst_public' && (
+                          <Lock size={12} className="text-slate-400/50 shrink-0" />
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Other Menus Section */}
+              <div className="mt-2">
+                {[
+                  { label: 'Mapping KBLI 2020-2025', id: 'kbli_mapping' as const, icon: BookOpen },
+                  { label: 'Saran KBLI', id: 'saran_kbli' as const, icon: Lightbulb },
+                  { label: 'Surat Perbaikan Data', id: 'perbaikan' as const, icon: Mail },
+                  { label: 'Panduan Penggunaan', id: 'panduan' as const, icon: BookOpen },
+                ].map((item) => (
+                  <button 
+                    key={item.id} 
+                    onClick={() => {
+                      if (!user) {
+                        if (confirm(`Anda harus login terlebih dahulu untuk mengakses menu "${item.label}". Apakah Anda ingin login sekarang?`)) {
+                          loginWithGoogle();
+                        }
+                        return;
+                      }
+                      setActiveSidebarTab(item.id);
+                    }} 
+                    className={`w-full text-left px-4 py-2.5 border-l-4 transition-all flex justify-between items-center ${activeSidebarTab === item.id ? 'bg-[#1e282c] text-white border-blue-500' : 'border-transparent hover:bg-black/10 hover:text-white'}`}
+                  >
+                    <span className="flex items-center gap-3">
+                      <item.icon size={18} />
+                      {item.label}
+                    </span>
+                    {!user && (
+                      <Lock size={14} className="text-slate-500/60 shrink-0" />
+                    )}
+                  </button>
+                ))}
+              </div>
 
               {user?.email === 'appnotputri@gmail.com' && (
                 <button 
@@ -1518,9 +1600,9 @@ const App: React.FC = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
                 <div className="bg-white p-5 rounded-md border border-slate-200 shadow-sm flex items-center justify-between hover:shadow transition-shadow">
                   <div className="space-y-1">
-                    <span className="text-[11px] font-bold text-slate-500 uppercase tracking-tight">Profil Perusahaan</span>
+                    <span className="text-[11px] font-bold text-slate-500 uppercase tracking-tight">Klien PT</span>
                     <h2 className="text-3xl font-bold text-slate-800">{profiles.length}</h2>
-                    <p className="text-[11px] text-slate-400">Database profil korporasi</p>
+                    <p className="text-[11px] text-slate-400">Database klien perusahaan</p>
                   </div>
                   <div className="w-12 h-12 rounded-full bg-blue-50 border border-blue-100 flex items-center justify-center text-[#3b5998]">
                     <Building2 className="w-6 h-6" />
@@ -1801,15 +1883,15 @@ const App: React.FC = () => {
             <div className="max-w-5xl mx-auto space-y-4">
               <div className="flex justify-between items-center bg-white p-4 rounded-sm shadow-sm border border-slate-200">
                 <div>
-                  <h2 className="text-[16px] font-bold flex items-center gap-2 text-slate-800 uppercase"><Building2 className="w-5 h-5 text-[#3b5998]" /> Profil Perusahaan</h2>
-                  <p className="text-[12px] text-slate-500">Kelola daftar profil perusahaan untuk digunakan pada notulen dan akta</p>
+                  <h2 className="text-[16px] font-bold flex items-center gap-2 text-slate-800 uppercase"><Building2 className="w-5 h-5 text-[#3b5998]" /> Klien PT</h2>
+                  <p className="text-[12px] text-slate-500">Kelola daftar profil klien PT untuk digunakan pada notulen dan akta</p>
                 </div>
                 {!editingProfileId && (
                   <button onClick={() => {
                     setEditingProfileId('new');
                     updateData({ ...INITIAL_STATE } as any);
                   }} className="bg-[#3b5998] hover:bg-[#2d4373] text-white px-4 py-2 rounded-sm font-bold text-[12px] flex items-center gap-2 transition-colors">
-                    <Plus className="w-4 h-4" /> TAMBAH PROFIL
+                    <Plus className="w-4 h-4" /> TAMBAH KLIEN PT
                   </button>
                 )}
               </div>
@@ -1832,7 +1914,8 @@ const App: React.FC = () => {
                        const newId = editingProfileId && editingProfileId !== 'new' ? editingProfileId : crypto.randomUUID();
                        const profileData = {
                            ...data,
-                           id: newId
+                           id: newId,
+                           updatedAt: new Date().toISOString()
                        };
                        if (!user) {
                          setIsSaving(false);
@@ -2331,6 +2414,79 @@ const App: React.FC = () => {
                 </div>
               </AhuSection>
 
+              {/* MAKSUD DAN TUJUAN (KBLI) PERSEROAN */}
+              <AhuSection title="MAKSUD DAN TUJUAN (KBLI) PERSEROAN">
+                <div className="space-y-4">
+                  {/* Tambah KBLI Button */}
+                  <div className="mb-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsAddKbliModalOpen(true)}
+                      className="px-4 py-2 bg-[#3b5998] hover:bg-[#2d4373] text-white text-[12px] font-bold rounded-sm transition-all focus:outline-none flex items-center gap-1.5 uppercase shadow-sm"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Tambah Data KBLI
+                    </button>
+                  </div>
+
+                  {/* Selected KBLIs List Table */}
+                  <div className="w-full bg-white border border-slate-200 rounded-sm overflow-hidden shadow-sm">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse text-[12px]">
+                        <thead>
+                          <tr className="bg-[#f8fafc] border-b border-slate-200 uppercase font-semibold text-slate-600 text-[11px] tracking-wider">
+                            <th className="px-4 py-3 text-center w-12 border-r border-slate-200 text-[#3b5998]">No</th>
+                            <th className="px-4 py-3 text-center w-24 border-r border-slate-200">Kode KBLI</th>
+                            <th className="px-4 py-3 text-left w-64 border-r border-slate-200">Judul KBLI</th>
+                            <th className="px-4 py-3 text-left border-r border-slate-200">Uraian / Deskripsi Kegiatan</th>
+                            <th className="px-4 py-3 text-center w-20 text-[#3b5998]">Aksi</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {(data.kbliItems || []).map((item, idx) => (
+                            <tr key={item.id} className="hover:bg-slate-50/40">
+                              <td className="px-4 py-3 text-center border-r border-slate-100 text-slate-500 font-bold align-top">{idx + 1}</td>
+                              <td className="px-4 py-3 text-center border-r border-slate-100 font-mono text-slate-800 font-semibold align-top">{item.code}</td>
+                              <td className="px-4 py-3 border-r border-slate-100 font-bold text-slate-800 align-top uppercase leading-tight">{item.name}</td>
+                              <td className="px-4 py-3 border-r border-slate-100 text-slate-600 align-top">
+                                <textarea
+                                  value={item.description || ''}
+                                  onChange={(e) => {
+                                    updateData({
+                                      kbliItems: (data.kbliItems || []).map(k =>
+                                        k.id === item.id ? { ...k, description: e.target.value } : k
+                                      )
+                                    });
+                                  }}
+                                  className="w-full text-[11px] p-2 border border-slate-200 rounded font-medium focus:border-[#3b5998] outline-none bg-white text-slate-800 resize-y min-h-[90px]"
+                                  placeholder="Edit uraian kegiatan jika diperlukan..."
+                                />
+                              </td>
+                              <td className="px-4 py-3 text-center align-top whitespace-nowrap">
+                                <button 
+                                  onClick={() => updateData({ kbliItems: (data.kbliItems || []).filter(k => k.id !== item.id) })}
+                                  className="p-1.5 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded transition-all"
+                                  title="Hapus KBLI"
+                                >
+                                  <Trash2 className="w-4 h-4 mx-auto" />
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                          {(!data.kbliItems || data.kbliItems.length === 0) && (
+                            <tr>
+                              <td colSpan={5} className="text-center py-10 text-slate-400 italic">
+                                Belum ada data KBLI terpilih. Silakan klik tombol "Tambah Data KBLI" di atas.
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              </AhuSection>
+
             
 
 {/* JENIS NOTULEN */}
@@ -2338,104 +2494,556 @@ const App: React.FC = () => {
 
           </div>
           </div>
-              ) : (
-                <div className="space-y-4">
-                  {profiles.length > 0 && (
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-sm border border-slate-200 shadow-sm">
-                      <div className="flex items-center gap-2">
-                        <Building2 className="w-5 h-5 text-[#3b5998]" />
-                        <h3 className="text-[14px] font-bold text-slate-800 uppercase">
-                          Daftar Profil Perusahaan
-                        </h3>
-                      </div>
-                      <div className="relative w-full sm:w-80">
-                        <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                        <input
-                          type="text"
-                          placeholder="Cari berdasarkan nama PT..."
-                          value={profileSearchQuery}
-                          onChange={(e) => setProfileSearchQuery(e.target.value)}
-                          className="w-full pl-9 pr-8 py-1.5 border border-slate-300 rounded-sm text-[12px] outline-none focus:border-[#3b5998] bg-white text-slate-800 placeholder-slate-400 transition-all shadow-sm"
-                        />
-                        {profileSearchQuery && (
-                          <button
-                            onClick={() => setProfileSearchQuery("")}
-                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 font-bold text-[14px]"
-                          >
-                            ×
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  )}
+              ) : (() => {
+                  // 1. Initial filter by search query (PT Name or Domicile or City)
+                  let filteredProfileResults = profiles.filter(p => {
+                    if (!profileSearchQuery) return true;
+                    const q = profileSearchQuery.toLowerCase();
+                    return (
+                      (p.companyName || '').toLowerCase().includes(q) ||
+                      (p.domicile || '').toLowerCase().includes(q) ||
+                      (p.newAddress?.city || '').toLowerCase().includes(q)
+                    );
+                  });
 
-                  {profiles.length === 0 ? (
-                    <div className="bg-slate-50 text-center py-12 rounded-sm border border-dashed border-slate-300 text-slate-500 text-[13px]">
-                      Belum ada data profil perusahaan. Klik <strong>"TAMBAH PROFIL"</strong> untuk membuat.
-                    </div>
-                  ) : filteredProfiles.length === 0 ? (
-                    <div className="bg-slate-50 text-center py-8 rounded-sm border border-dashed border-slate-300 text-slate-500 text-[12px]">
-                      Tidak ada data profil perusahaan yang cocok dengan pencarian "{profileSearchQuery}".
-                    </div>
-                  ) : (
-                    <div className="flex flex-col gap-3">
-                      {filteredProfiles.map(p => (
-                         <div key={p.id} className="bg-white p-4 rounded-sm border border-slate-200 hover:border-[#3b5998] transition-colors relative group flex items-center justify-between">
-                            <div className="flex items-center gap-4">
-                               <div className="w-10 h-10 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center shrink-0">
-                                 <Building2 className="w-5 h-5 text-indigo-500" />
-                               </div>
-                               <div>
-                                  <h3 className="font-bold text-slate-800 text-[14px] leading-tight mb-1">{p.companyName}</h3>
-                                  <p className="text-[12px] text-slate-500 flex items-center gap-1"><MapPin className="w-3 h-3 text-slate-400 shrink-0"/> {p.newAddress?.city || 'Area belum diisi'}</p>
-                               </div>
+                  // 2. Filter by Year Dropdown Selection (via establishmentDeedDate)
+                  if (selectedProfileYear !== "all") {
+                    filteredProfileResults = filteredProfileResults.filter(p => {
+                      const year = p.establishmentDeedDate ? new Date(p.establishmentDeedDate).getFullYear().toString() : "";
+                      return year === selectedProfileYear;
+                    });
+                  }
+
+                  // 3. Extract unique years
+                  const uniqueProfileYears = Array.from(new Set(
+                    profiles
+                      .map(p => p.establishmentDeedDate ? new Date(p.establishmentDeedDate).getFullYear().toString() : "")
+                      .filter(Boolean)
+                  )).sort((a, b) => Number(b) - Number(a));
+
+                  // 4. Sort results
+                  const sortedProfileResults = [...filteredProfileResults].sort((a, b) => {
+                    let valA = "";
+                    let valB = "";
+
+                    if (profileSortField === "companyName") {
+                      valA = a.companyName || "";
+                      valB = b.companyName || "";
+                    } else if (profileSortField === "domicile") {
+                      valA = a.domicile || a.newAddress?.city || "";
+                      valB = b.domicile || b.newAddress?.city || "";
+                    } else if (profileSortField === "establishmentDeedDate") {
+                      valA = a.establishmentDeedDate || "";
+                      valB = b.establishmentDeedDate || "";
+                    } else if (profileSortField === "updatedAt") {
+                      valA = a.updatedAt || a.establishmentDeedDate || "";
+                      valB = b.updatedAt || b.establishmentDeedDate || "";
+                    }
+
+                    if (valA < valB) return profileSortOrder === "asc" ? -1 : 1;
+                    if (valA > valB) return profileSortOrder === "asc" ? 1 : -1;
+                    return 0;
+                  });
+
+                  // 5. Pagination calculation
+                  const profileItemsPerPage = 10;
+                  const totalProfileItems = sortedProfileResults.length;
+                  const totalProfilePages = Math.ceil(totalProfileItems / profileItemsPerPage) || 1;
+                  
+                  // Adjust current page if out of range
+                  const safeProfileCurrentPage = Math.min(profileCurrentPage, totalProfilePages);
+                  const profileStartIndex = (safeProfileCurrentPage - 1) * profileItemsPerPage;
+                  const paginatedProfileResults = sortedProfileResults.slice(profileStartIndex, profileStartIndex + profileItemsPerPage);
+
+                  const formatProfileLastUpdated = (dateStr?: string, establishmentDate?: string) => {
+                    const dateToFormat = dateStr || establishmentDate;
+                    if (!dateToFormat) return "-";
+                    try {
+                      const d = new Date(dateToFormat);
+                      if (isNaN(d.getTime())) return dateToFormat;
+                      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+                      const day = String(d.getDate()).padStart(2, '0');
+                      const month = months[d.getMonth()];
+                      const year = d.getFullYear();
+                      const hours = String(d.getHours()).padStart(2, '0');
+                      const minutes = String(d.getMinutes()).padStart(2, '0');
+                      return `${day} ${month} ${year} ${hours}:${minutes}`;
+                    } catch (e) {
+                      return dateToFormat;
+                    }
+                  };
+
+                  const handleProfileSort = (field: string) => {
+                    if (profileSortField === field) {
+                      setProfileSortOrder(profileSortOrder === "asc" ? "desc" : "asc");
+                    } else {
+                      setProfileSortField(field);
+                      setProfileSortOrder("asc");
+                    }
+                    setProfileCurrentPage(1);
+                  };
+
+                  const renderProfileSortArrows = (field: string) => {
+                    const isActive = profileSortField === field;
+                    return (
+                      <span className="inline-flex flex-col text-[8px] text-slate-400 shrink-0 ml-1.5 leading-none select-none">
+                        <span className={`${isActive && profileSortOrder === "asc" ? "text-blue-600 font-bold" : "text-slate-300"}`}>▲</span>
+                        <span className={`${isActive && profileSortOrder === "desc" ? "text-blue-600 font-bold" : "text-slate-300"}`}>▼</span>
+                      </span>
+                    );
+                  };
+
+                  const getProfilePageRange = () => {
+                    const pages: (number | string)[] = [];
+                    if (totalProfilePages <= 5) {
+                      for (let i = 1; i <= totalProfilePages; i++) pages.push(i);
+                    } else {
+                      pages.push(1);
+                      if (safeProfileCurrentPage > 3) {
+                        pages.push("...");
+                      }
+                      const start = Math.max(2, safeProfileCurrentPage - 1);
+                      const end = Math.min(totalProfilePages - 1, safeProfileCurrentPage + 1);
+                      for (let i = start; i <= end; i++) {
+                        pages.push(i);
+                      }
+                      if (safeProfileCurrentPage < totalProfilePages - 2) {
+                        pages.push("...");
+                      }
+                      pages.push(totalProfilePages);
+                    }
+                    return pages;
+                  };
+
+                  const handleSearchChange = (val: string) => {
+                    setProfileSearchQuery(val);
+                    setProfileCurrentPage(1);
+                  };
+
+                  return (
+                    <div className="space-y-6">
+                      {profiles.length > 0 && (
+                        <div className="bg-white p-5 rounded-md shadow-sm border border-slate-200">
+                          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                            <div className="flex items-center gap-2">
+                              <SlidersHorizontal className="w-5 h-5 text-[#3b5998]" />
+                              <h3 className="text-[14px] font-bold text-slate-800 uppercase tracking-tight">
+                                Saring & Cari Klien
+                              </h3>
                             </div>
-                            <div className="flex gap-2">
-                               <button onClick={() => {
-                                 setEditingProfileId(p.id);
-                                 updateData({ ...INITIAL_STATE, ...p } as any);
-                               }} className="bg-slate-100 hover:bg-slate-200 px-4 py-2 rounded-sm text-[11px] font-bold text-slate-700 flex items-center justify-center gap-1 transition-colors uppercase">
-                                 <Edit className="w-3 h-3" /> Edit
-                               </button>
-                               <button onClick={async () => {
-                                 if(confirm('Hapus profil ' + p.companyName + '?')) {
-                                   if (!user) return alert('Anda harus login!');
-                                   try {
-                                     await deleteDoc(doc(db, 'profiles', p.id));
-                                     alert('Profil berhasil dihapus');
-                                   } catch (e) {
-                                     handleFirestoreError(e, OperationType.DELETE, `profiles/${p.id}`);
-                                   }
-                                 }
-                               }} className="bg-red-50 hover:bg-red-500 text-red-500 hover:text-white px-4 py-2 rounded-sm text-[11px] font-bold flex items-center justify-center gap-1 transition-colors uppercase">
-                                 <Trash2 className="w-3 h-3" /> Hapus
-                               </button>
+                            <div className="flex flex-col sm:flex-row gap-3 items-center w-full md:w-auto">
+                              {/* Search */}
+                              <div className="relative w-full sm:w-80">
+                                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                                <input
+                                  type="text"
+                                  placeholder="Cari berdasarkan nama PT atau Kedudukan..."
+                                  value={profileSearchQuery}
+                                  onChange={(e) => handleSearchChange(e.target.value)}
+                                  className="w-full pl-9 pr-8 py-2 border border-slate-300 rounded-md text-[12px] outline-none focus:border-[#3b5998] bg-white text-slate-800 placeholder-slate-400 transition-all shadow-sm"
+                                />
+                                {profileSearchQuery && (
+                                  <button
+                                    onClick={() => handleSearchChange("")}
+                                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 font-bold text-[14px]"
+                                  >
+                                    ×
+                                  </button>
+                                )}
+                              </div>
+
+                              {/* Year Filter */}
+                              <div className="w-full sm:w-44">
+                                <select
+                                  value={selectedProfileYear}
+                                  onChange={(e) => {
+                                    setSelectedProfileYear(e.target.value);
+                                    setProfileCurrentPage(1);
+                                  }}
+                                  className="w-full py-2 px-3 border border-slate-300 rounded-md text-[12px] text-slate-700 font-medium outline-none focus:border-[#3b5998] transition-all bg-white"
+                                >
+                                  <option value="all">Semua Tahun Pendirian</option>
+                                  {uniqueProfileYears.map((y) => (
+                                    <option key={y} value={y}>{y}</option>
+                                  ))}
+                                </select>
+                              </div>
+
+                              {/* Reset Button */}
+                              {(profileSearchQuery !== "" || selectedProfileYear !== "all") && (
+                                <button
+                                  onClick={() => {
+                                    setProfileSearchQuery("");
+                                    setSelectedProfileYear("all");
+                                    setProfileCurrentPage(1);
+                                  }}
+                                  className="py-2 px-4 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-md text-[12px] font-bold transition-all border border-slate-200 uppercase tracking-wider"
+                                >
+                                  Reset
+                                </button>
+                              )}
                             </div>
-                         </div>
-                      ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {profiles.length === 0 ? (
+                        <div className="bg-slate-50 text-center py-12 rounded-sm border border-dashed border-slate-300 text-slate-500 text-[13px]">
+                          Belum ada data klien PT. Klik <strong>"TAMBAH KLIEN PT"</strong> untuk membuat.
+                        </div>
+                      ) : filteredProfileResults.length === 0 ? (
+                        <div className="bg-slate-50 text-center py-8 rounded-sm border border-dashed border-slate-300 text-slate-500 text-[12px]">
+                          Tidak ada data klien PT yang cocok dengan pencarian / penyaringan saat ini.
+                        </div>
+                      ) : (
+                        <div className="bg-white rounded-md shadow-sm border border-slate-200 overflow-hidden">
+                          {/* List count header */}
+                          <div className="px-5 py-4 border-b border-slate-200 flex justify-between items-center bg-slate-50/50">
+                            <span className="text-[12px] font-semibold text-slate-500">
+                              Menampilkan <span className="text-slate-800 font-bold">{profileStartIndex + 1}</span> - <span className="text-slate-800 font-bold">{Math.min(profileStartIndex + paginatedProfileResults.length, totalProfileItems)}</span> dari <span className="text-slate-800 font-bold">{totalProfileItems}</span> Klien PT
+                            </span>
+                          </div>
+
+                          {/* Table structure */}
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-left text-[12px] border-collapse">
+                              <thead className="bg-[#f8fafc] border-b border-slate-200 font-bold uppercase text-slate-600 text-[11px] tracking-wider select-none">
+                                <tr>
+                                  <th className="p-4 text-center border-r border-slate-200 w-12 text-[#3b5998]">No</th>
+                                  <th 
+                                    className="p-4 border-r border-slate-200 cursor-pointer hover:bg-slate-100/80 transition-colors"
+                                    onClick={() => handleProfileSort("companyName")}
+                                  >
+                                    <div className="flex items-center justify-between">
+                                      <span>NAMA PERSEROAN</span>
+                                      {renderProfileSortArrows("companyName")}
+                                    </div>
+                                  </th>
+                                  <th 
+                                    className="p-4 border-r border-slate-200 cursor-pointer hover:bg-slate-100/80 transition-colors"
+                                    onClick={() => handleProfileSort("domicile")}
+                                  >
+                                    <div className="flex items-center justify-between">
+                                      <span>KEDUDUKAN (KAB/KOTA)</span>
+                                      {renderProfileSortArrows("domicile")}
+                                    </div>
+                                  </th>
+                                  <th 
+                                    className="p-4 border-r border-slate-200 cursor-pointer hover:bg-slate-100/80 transition-colors"
+                                    onClick={() => handleProfileSort("establishmentDeedDate")}
+                                  >
+                                    <div className="flex items-center justify-between">
+                                      <span>TANGGAL AKTA PENDIRIAN</span>
+                                      {renderProfileSortArrows("establishmentDeedDate")}
+                                    </div>
+                                  </th>
+                                  <th 
+                                    className="p-4 border-r border-slate-200 cursor-pointer hover:bg-slate-100/80 transition-colors"
+                                    onClick={() => handleProfileSort("updatedAt")}
+                                  >
+                                    <div className="flex items-center justify-between">
+                                      <span>TERAKHIR DIUBAH</span>
+                                      {renderProfileSortArrows("updatedAt")}
+                                    </div>
+                                  </th>
+                                  <th className="p-4 text-center text-[#3b5998]">Aksi</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-slate-100">
+                                {paginatedProfileResults.map((p, idx) => {
+                                  const currentNo = profileStartIndex + idx + 1;
+                                  const city = p.domicile || p.newAddress?.city || '-';
+                                  const deedDate = p.establishmentDeedDate ? new Date(p.establishmentDeedDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) : "-";
+                                  const lastUpdated = formatProfileLastUpdated(p.updatedAt, p.establishmentDeedDate);
+
+                                  return (
+                                    <tr key={p.id} className="hover:bg-slate-50/50 transition-colors">
+                                      <td className="p-4 font-bold text-center border-r border-slate-100 text-slate-500 w-12">{currentNo}</td>
+                                      <td className="p-4 font-bold text-slate-800 border-r border-slate-100 uppercase tracking-tight">
+                                        <div className="flex items-center gap-2">
+                                          <Building2 className="w-4 h-4 text-slate-400 shrink-0" />
+                                          <span>{p.companyName}</span>
+                                        </div>
+                                        {p.kbliItems && p.kbliItems.length > 0 && (
+                                          <div className="mt-1.5 flex flex-wrap gap-1 items-center">
+                                            <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider bg-slate-100 px-1 py-0.5 rounded leading-none shrink-0" style={{ color: '#3b5998', backgroundColor: '#eef2f7' }}>KBLI:</span>
+                                            {p.kbliItems.map(item => (
+                                              <span key={item.id || item.code} className="text-[9px] font-mono font-bold bg-slate-50 text-slate-600 px-1.5 py-0.5 rounded border border-slate-200 leading-none" title={item.name}>
+                                                {item.code}
+                                              </span>
+                                            ))}
+                                          </div>
+                                        )}
+                                      </td>
+                                      <td className="p-4 text-slate-600 border-r border-slate-100 uppercase font-medium">{city}</td>
+                                      <td className="p-4 text-slate-600 border-r border-slate-100 uppercase font-medium">{deedDate}</td>
+                                      <td className="p-4 text-slate-500 border-r border-slate-100 text-[11px] font-mono">{lastUpdated}</td>
+                                      <td className="p-4 text-center">
+                                        <div className="flex items-center justify-center gap-2.5">
+                                          <button 
+                                            onClick={() => {
+                                              setEditingProfileId(p.id);
+                                              updateData({ ...INITIAL_STATE, ...p } as any);
+                                            }} 
+                                            className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md font-bold text-[11px] flex items-center gap-1 transition-colors uppercase border border-slate-200"
+                                          >
+                                            <Edit className="w-3.5 h-3.5" /> Edit
+                                          </button>
+                                          <button 
+                                            onClick={async () => {
+                                              if(confirm('Hapus profil ' + p.companyName + '?')) {
+                                                if (!user) return alert('Anda harus login!');
+                                                try {
+                                                  await deleteDoc(doc(db, 'profiles', p.id));
+                                                  alert('Profil berhasil dihapus');
+                                                } catch (e) {
+                                                  handleFirestoreError(e, OperationType.DELETE, `profiles/${p.id}`);
+                                                }
+                                              }
+                                            }} 
+                                            className="px-3.5 py-1.5 bg-red-50 hover:bg-red-500 hover:text-white text-red-600 rounded-md font-bold text-[11px] flex items-center gap-1 transition-colors uppercase border border-red-100 hover:border-red-500"
+                                          >
+                                            <Trash2 className="w-3.5 h-3.5" /> Hapus
+                                          </button>
+                                        </div>
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+
+                          {/* Pagination block */}
+                          {totalProfilePages > 1 && (
+                            <div className="px-5 py-4 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4 bg-[#f8fafc]">
+                              <div className="text-[12px] text-slate-500 font-medium">
+                                Halaman <span className="text-slate-800 font-bold">{safeProfileCurrentPage}</span> dari <span className="text-slate-800 font-bold">{totalProfilePages}</span>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                {/* First */}
+                                <button
+                                  disabled={safeProfileCurrentPage === 1}
+                                  onClick={() => setProfileCurrentPage(1)}
+                                  className="w-8 h-8 flex items-center justify-center rounded-md border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 text-[12px] disabled:opacity-40 disabled:cursor-not-allowed transition-all font-bold"
+                                  title="Halaman Pertama"
+                                >
+                                  «
+                                </button>
+                                {/* Prev */}
+                                <button
+                                  disabled={safeProfileCurrentPage === 1}
+                                  onClick={() => setProfileCurrentPage(safeProfileCurrentPage - 1)}
+                                  className="w-8 h-8 flex items-center justify-center rounded-md border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 text-[12px] disabled:opacity-40 disabled:cursor-not-allowed transition-all font-bold"
+                                  title="Halaman Sebelumnya"
+                                >
+                                  ‹
+                                </button>
+
+                                {/* Numbers */}
+                                {getProfilePageRange().map((page, idx) => {
+                                  if (page === "...") {
+                                    return (
+                                      <span key={`dots-${idx}`} className="w-8 h-8 flex items-center justify-center text-slate-400 text-[12px]">
+                                        ...
+                                      </span>
+                                    );
+                                  }
+                                  return (
+                                    <button
+                                      key={`page-${page}`}
+                                      onClick={() => setProfileCurrentPage(Number(page))}
+                                      className={`w-8 h-8 flex items-center justify-center rounded-md text-[12px] font-bold transition-all ${
+                                        safeProfileCurrentPage === page
+                                          ? "bg-[#3b5998] text-white"
+                                          : "border border-slate-200 bg-white hover:bg-slate-50 text-slate-600"
+                                      }`}
+                                    >
+                                      {page}
+                                    </button>
+                                  );
+                                })}
+
+                                {/* Next */}
+                                <button
+                                  disabled={safeProfileCurrentPage === totalProfilePages}
+                                  onClick={() => setProfileCurrentPage(safeProfileCurrentPage + 1)}
+                                  className="w-8 h-8 flex items-center justify-center rounded-md border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 text-[12px] disabled:opacity-40 disabled:cursor-not-allowed transition-all font-bold"
+                                  title="Halaman Selanjutnya"
+                                >
+                                  ›
+                                </button>
+                                {/* Last */}
+                                <button
+                                  disabled={safeProfileCurrentPage === totalProfilePages}
+                                  onClick={() => setProfileCurrentPage(totalProfilePages)}
+                                  className="w-8 h-8 flex items-center justify-center rounded-md border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 text-[12px] disabled:opacity-40 disabled:cursor-not-allowed transition-all font-bold"
+                                  title="Halaman Terakhir"
+                                >
+                                  »
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-              )}
+                  );
+              })()}
             </div>
 
 
-) : activeSidebarTab === 'notulen' ? (
-            <div className="max-w-5xl mx-auto space-y-4">
-              <div className="flex justify-between items-center bg-white p-4 rounded-sm shadow-sm border border-slate-200">
-                <div>
-                  <h2 className="text-[16px] font-bold flex items-center gap-2 text-slate-800 uppercase"><FileText className="w-5 h-5 text-[#3b5998]" /> Daftar RUPS LB</h2>
-                  <p className="text-[12px] text-slate-500">Kelola daftar RUPS LB (Akta/Notulen/Sirkuler)</p>
+) : activeSidebarTab === 'notulen' ? (() => {
+            // 1. Initial filter by search query (PT Name or Year/City)
+            let filteredRupslbResults = projects.filter(p => {
+              if (!notulenSearchQuery) return true;
+              const q = notulenSearchQuery.toLowerCase();
+              return (
+                (p.companyName || '').toLowerCase().includes(q) ||
+                (p.newAddress?.city || '').toLowerCase().includes(q) ||
+                (p.signingDate || '').toLowerCase().includes(q)
+              );
+            });
+
+            // 2. Filter by Year Dropdown Selection
+            if (selectedRupslbYear !== "all") {
+              filteredRupslbResults = filteredRupslbResults.filter(p => {
+                const year = p.signingDate ? new Date(p.signingDate).getFullYear().toString() : "";
+                return year === selectedRupslbYear;
+              });
+            }
+
+            // 3. Extract unique years for the dropdown
+            const uniqueRupslbYears = Array.from(new Set(
+              projects
+                .map(p => p.signingDate ? new Date(p.signingDate).getFullYear().toString() : "")
+                .filter(Boolean)
+            )).sort((a, b) => Number(b) - Number(a));
+
+            // 4. Sort results
+            const sortedRupslbResults = [...filteredRupslbResults].sort((a, b) => {
+              let valA = "";
+              let valB = "";
+
+              if (rupslbSortField === "companyName") {
+                valA = a.companyName || "";
+                valB = b.companyName || "";
+              } else if (rupslbSortField === "signingDate") {
+                valA = a.signingDate || "";
+                valB = b.signingDate || "";
+              } else if (rupslbSortField === "status") {
+                valA = a.rupslbStatus || "Draft";
+                valB = b.rupslbStatus || "Draft";
+              } else if (rupslbSortField === "updatedAt") {
+                valA = a.updatedAt || a.signingDate || "";
+                valB = b.updatedAt || b.signingDate || "";
+              }
+
+              if (valA < valB) return rupslbSortOrder === "asc" ? -1 : 1;
+              if (valA > valB) return rupslbSortOrder === "asc" ? 1 : -1;
+              return 0;
+            });
+
+            // 5. Pagination calculation
+            const rupslbItemsPerPage = 10;
+            const totalRupslbItems = sortedRupslbResults.length;
+            const totalRupslbPages = Math.ceil(totalRupslbItems / rupslbItemsPerPage) || 1;
+            
+            // Adjust current page if it's out of range
+            const safeRupslbCurrentPage = Math.min(rupslbCurrentPage, totalRupslbPages);
+            const rupslbStartIndex = (safeRupslbCurrentPage - 1) * rupslbItemsPerPage;
+            const paginatedRupslbResults = sortedRupslbResults.slice(rupslbStartIndex, rupslbStartIndex + rupslbItemsPerPage);
+
+            const formatRupslbLastUpdated = (dateStr?: string, signingDate?: string) => {
+              const dateToFormat = dateStr || signingDate;
+              if (!dateToFormat) return "-";
+              try {
+                const d = new Date(dateToFormat);
+                if (isNaN(d.getTime())) return dateToFormat;
+                const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+                const day = String(d.getDate()).padStart(2, '0');
+                const month = months[d.getMonth()];
+                const year = d.getFullYear();
+                const hours = String(d.getHours()).padStart(2, '0');
+                const minutes = String(d.getMinutes()).padStart(2, '0');
+                return `${day} ${month} ${year} ${hours}:${minutes}`;
+              } catch (e) {
+                return dateToFormat;
+              }
+            };
+
+            const handleRupslbSort = (field: string) => {
+              if (rupslbSortField === field) {
+                setRupslbSortOrder(rupslbSortOrder === "asc" ? "desc" : "asc");
+              } else {
+                setRupslbSortField(field);
+                setRupslbSortOrder("asc");
+              }
+              setRupslbCurrentPage(1);
+            };
+
+            const renderRupslbSortArrows = (field: string) => {
+              const isActive = rupslbSortField === field;
+              return (
+                <span className="inline-flex flex-col text-[8px] text-slate-400 shrink-0 ml-1.5 leading-none select-none">
+                  <span className={`${isActive && rupslbSortOrder === "asc" ? "text-blue-600 font-bold" : "text-slate-300"}`}>▲</span>
+                  <span className={`${isActive && rupslbSortOrder === "desc" ? "text-blue-600 font-bold" : "text-slate-300"}`}>▼</span>
+                </span>
+              );
+            };
+
+            const getRupslbPageRange = () => {
+              const pages: (number | string)[] = [];
+              if (totalRupslbPages <= 5) {
+                for (let i = 1; i <= totalRupslbPages; i++) pages.push(i);
+              } else {
+                pages.push(1);
+                if (safeRupslbCurrentPage > 3) {
+                  pages.push("...");
+                }
+                const start = Math.max(2, safeRupslbCurrentPage - 1);
+                const end = Math.min(totalRupslbPages - 1, safeRupslbCurrentPage + 1);
+                for (let i = start; i <= end; i++) {
+                  pages.push(i);
+                }
+                if (safeRupslbCurrentPage < totalRupslbPages - 2) {
+                  pages.push("...");
+                }
+                pages.push(totalRupslbPages);
+              }
+              return pages;
+            };
+
+            const handleSearchChange = (val: string) => {
+              setNotulenSearchQuery(val);
+              setRupslbCurrentPage(1);
+            };
+
+            return (
+              <div className="max-w-7xl mx-auto space-y-6 px-2 sm:px-4 py-4">
+                <div className="flex justify-between items-center bg-white p-5 rounded-md shadow-sm border border-slate-200">
+                  <div className="flex items-center gap-3">
+                    <div className="bg-blue-50 p-2.5 rounded-full border border-blue-100 flex items-center justify-center shrink-0">
+                      <FileText className="w-6 h-6 text-[#1b449c]" />
+                    </div>
+                    <div>
+                      <h2 className="text-[18px] font-extrabold flex items-center gap-2 text-slate-800 tracking-tight leading-snug">
+                        RUPS LUAR BIASA (RUPS LB)
+                      </h2>
+                      <p className="text-[13px] text-slate-500 font-medium">
+                        Kelola daftar RUPS LB (Akta/Notulen/Sirkuler)
+                      </p>
+                    </div>
+                  </div>
+                  {!editingProjectId && (
+                    <button onClick={() => {
+                      setEditingProjectId('new');
+                      updateData({ ...INITIAL_STATE } as any);
+                    }} className="bg-[#1b449c] hover:bg-[#13327d] text-white px-5 py-2.5 rounded-md font-bold text-[12px] flex items-center gap-2 transition-all shadow-sm shrink-0 hover:scale-[1.01] active:scale-[0.99]">
+                      <Plus className="w-4 h-4" /> TAMBAH RUPS LB BARU
+                    </button>
+                  )}
                 </div>
-                {!editingProjectId && (
-                  <button onClick={() => {
-                    setEditingProjectId('new');
-                    updateData({ ...INITIAL_STATE } as any);
-                  }} className="bg-[#3b5998] hover:bg-[#2d4373] text-white px-4 py-2 rounded-sm font-bold text-[12px] flex items-center gap-2 transition-colors">
-                    <Plus className="w-4 h-4" /> TAMBAH RUPS LB BARU
-                  </button>
-                )}
-              </div>
 
               {editingProjectId ? (
                 <div className="space-y-4 pb-20">
@@ -2457,7 +3065,8 @@ const App: React.FC = () => {
                        const newId = editingProjectId && editingProjectId !== 'new' ? editingProjectId : crypto.randomUUID();
                        const profileData: CompanyProfile = {
                            ...data,
-                           id: newId
+                           id: newId,
+                           updatedAt: new Date().toISOString()
                        };
                        
                        if (!user) {
@@ -3043,6 +3652,35 @@ const App: React.FC = () => {
 {/* JENIS NOTULEN */}
             <AhuSection title="JENIS DOKUMEN">
               <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                  <AhuLabel label="Status Dokumen" required />
+                  <div className="md:col-span-3">
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => updateData({ rupslbStatus: 'Draft' })}
+                        className={`px-3 py-1.5 rounded text-xs font-bold transition-all ${
+                          (data.rupslbStatus || 'Draft') === 'Draft'
+                            ? 'bg-amber-100 text-amber-800 border border-amber-300 shadow-sm'
+                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200 border border-slate-200'
+                        }`}
+                      >
+                        DRAFT
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => updateData({ rupslbStatus: 'Final' })}
+                        className={`px-3 py-1.5 rounded text-xs font-bold transition-all ${
+                          data.rupslbStatus === 'Final'
+                            ? 'bg-emerald-100 text-emerald-800 border border-emerald-300 shadow-sm'
+                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200 border border-slate-200'
+                        }`}
+                      >
+                        FINAL
+                      </button>
+                    </div>
+                  </div>
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
                   <AhuLabel label="Jenis Notulen" />
                   <div className="md:col-span-3">
@@ -3952,89 +4590,280 @@ const App: React.FC = () => {
 
                   </div>
                 </div>
-              ) : (
-                <div className="space-y-4">
-                  {projects.length > 0 && (
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-sm border border-slate-200 shadow-sm">
-                      <div className="flex items-center gap-2">
-                        <FileText className="w-5 h-5 text-[#3b5998]" />
-                        <h3 className="text-[14px] font-bold text-slate-800 uppercase">
-                          Daftar RUPS LB Tersimpan
+                            ) : (
+                <div className="space-y-6">
+                  {/* SAVED RUPS LB CARD CONTAINER */}
+                  <div className="bg-white p-6 rounded-md shadow-sm border border-slate-200">
+                    
+                    {/* TITLE AND SEARCH/FITLER SECTION */}
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-150 pb-5 mb-5">
+                      <div className="flex items-center gap-2.5">
+                        <History className="w-5 h-5 text-[#1b449c]" />
+                        <h3 className="text-[15px] font-bold text-slate-800 tracking-tight uppercase">
+                          DAFTAR RUPS LB TERSIMPAN
                         </h3>
                       </div>
-                      <div className="relative w-full sm:w-80">
-                        <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                        <input
-                          type="text"
-                          placeholder="Cari berdasarkan nama PT..."
-                          value={notulenSearchQuery}
-                          onChange={(e) => setNotulenSearchQuery(e.target.value)}
-                          className="w-full pl-9 pr-8 py-1.5 border border-slate-300 rounded-sm text-[12px] outline-none focus:border-[#3b5998] bg-white text-slate-800 placeholder-slate-400 transition-all shadow-sm"
-                        />
-                        {notulenSearchQuery && (
-                          <button
-                            onClick={() => setNotulenSearchQuery("")}
-                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 font-bold text-[14px]"
+                      
+                      <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+                        {/* Search Input */}
+                        <div className="relative flex-1 sm:flex-initial sm:w-72">
+                          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                          <input
+                            type="text"
+                            placeholder="Cari berdasarkan nama PT..."
+                            value={notulenSearchQuery}
+                            onChange={(e) => handleSearchChange(e.target.value)}
+                            className="w-full pl-9 pr-8 py-2 border border-slate-250 rounded-md text-[13px] outline-none focus:border-[#1b449c] focus:ring-1 focus:ring-[#1b449c]/20 bg-white text-slate-800 placeholder-slate-400 transition-all font-medium"
+                          />
+                          {notulenSearchQuery && (
+                            <button
+                              onClick={() => handleSearchChange("")}
+                              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 font-extrabold text-[15px]"
+                              type="button"
+                            >
+                              ×
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Year Filter Dropdown */}
+                        <div className="relative">
+                          <select
+                            value={selectedRupslbYear}
+                            onChange={(e) => {
+                              setSelectedRupslbYear(e.target.value);
+                              setRupslbCurrentPage(1);
+                            }}
+                            className="appearance-none pl-3 pr-8 py-2 border border-slate-250 rounded-md text-[13px] outline-none focus:border-[#1b449c] bg-white text-slate-800 font-medium cursor-pointer"
                           >
-                            ×
-                          </button>
-                        )}
+                            <option value="all">Semua Tahun</option>
+                            {uniqueRupslbYears.map(year => (
+                              <option key={year} value={year}>{year}</option>
+                            ))}
+                          </select>
+                          <ChevronDown className="w-4 h-4 text-slate-500 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                        </div>
+
+                        {/* Filter Toggle Button */}
+                        <button
+                          type="button"
+                          onClick={() => setIsRupslbFilterOpen(!isRupslbFilterOpen)}
+                          className={`p-2 border rounded-md transition-all flex items-center justify-center hover:bg-slate-50 ${isRupslbFilterOpen ? 'bg-blue-50 text-[#1b449c] border-[#1b449c]' : 'bg-white text-slate-600 border-slate-250'}`}
+                          title="Toggle Quick Filter"
+                        >
+                          <SlidersHorizontal className="w-4 h-4" />
+                        </button>
                       </div>
                     </div>
-                  )}
 
-                  {projects.length === 0 ? (
-                    <div className="bg-slate-50 text-center py-12 rounded-sm border border-dashed border-slate-300 text-slate-500 text-[13px]">
-                      Belum ada data RUPS LB. Klik <strong>"TAMBAH RUPS LB BARU"</strong> untuk membuat.
-                    </div>
-                  ) : filteredProjects.length === 0 ? (
-                    <div className="bg-slate-50 text-center py-8 rounded-sm border border-dashed border-slate-300 text-slate-500 text-[12px]">
-                      Tidak ada data RUPS LB yang cocok dengan pencarian "{notulenSearchQuery}".
-                    </div>
-                  ) : (
-                    <div className="flex flex-col gap-3">
-                      {filteredProjects.map(p => (
-                         <div key={p.id} className="bg-white p-4 rounded-sm border border-slate-200 hover:border-[#3b5998] transition-colors relative group flex flex-col md:flex-row md:justify-between md:items-center gap-4">
-                            <div className="flex items-center gap-4">
-                               <div className="w-10 h-10 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center shrink-0">
-                                 <Building2 className="w-5 h-5 text-indigo-500" />
-                               </div>
-                               <div>
-                                  <h3 className="font-bold text-slate-800 text-[14px] leading-tight mb-1 pr-6">{p.companyName}</h3>
-                                  <p className="text-[12px] text-slate-500 flex items-center gap-1 line-clamp-1"><MapPin className="w-3 h-3 text-slate-400 shrink-0"/> {p.newAddress?.city || 'Area belum diisi'}</p>
-                               </div>
-                            </div>
-                            <div className="flex gap-2 w-full md:w-auto">
-                               <button onClick={() => {
-                                 setEditingProjectId(p.id);
-                                 updateData({ ...INITIAL_STATE, ...p } as any);
-                               }} className="bg-slate-100 hover:bg-slate-200 px-4 py-2 rounded-sm text-[11px] font-bold text-slate-700 flex items-center justify-center gap-1 transition-colors flex-1 uppercase">
-                                 <Edit className="w-3 h-3" /> Edit
-                               </button>
-                               <button onClick={async () => {
-                                 if(confirm('Hapus RUPS LB ' + p.companyName + '?')) {
-                                   if (!user) return alert('Anda harus login!');
-                                   try {
-                                     await deleteDoc(doc(db, 'projects', p.id));
-                                     alert('RUPS LB berhasil dihapus');
-                                   } catch (e) {
-                                     handleFirestoreError(e, OperationType.DELETE, `projects/${p.id}`);
-                                   }
-                                 }
-                               }} className="bg-red-50 hover:bg-red-500 text-red-500 hover:text-white px-4 py-2 rounded-sm text-[11px] font-bold flex items-center justify-center gap-1 transition-colors flex-1 uppercase">
-                                 <Trash2 className="w-3 h-3" /> Hapus
-                               </button>
-                            </div>
-                         </div>
-                      ))}
-                    </div>
-                  )}
+                    {/* QUICK FILTER EXPANSION PANEL */}
+                    {isRupslbFilterOpen && (
+                      <div className="bg-slate-50 p-4 rounded-md border border-slate-200 mb-5 flex flex-wrap gap-2.5 items-center animate-fadeIn">
+                        <span className="text-[12px] font-bold text-slate-500 uppercase">Filter Status:</span>
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setNotulenSearchQuery("");
+                              setSelectedRupslbYear("all");
+                              setRupslbSortField("updatedAt");
+                              setRupslbSortOrder("desc");
+                              setRupslbCurrentPage(1);
+                              setIsRupslbFilterOpen(false);
+                            }}
+                            className="bg-white hover:bg-slate-100 text-[11px] font-semibold text-slate-600 px-2.5 py-1.5 border border-slate-200 rounded"
+                          >
+                            Reset Semua
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* TABLE AREA */}
+                    {projects.length === 0 ? (
+                      <div className="bg-slate-50 text-center py-10 rounded-md border border-dashed border-slate-350 text-slate-500 text-[13px] font-medium">
+                        Belum ada data RUPS LB. Klik <strong>"TAMBAH RUPS LB BARU"</strong> untuk membuat.
+                      </div>
+                    ) : sortedRupslbResults.length === 0 ? (
+                      <div className="bg-slate-50 text-center py-12 rounded-md border border-dashed border-slate-350 text-slate-500 text-[13px] font-medium">
+                        Tidak ada data RUPS LB yang cocok dengan pencarian atau filter Anda.
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto border border-slate-200 rounded-md shadow-inner bg-white">
+                        <table className="w-full text-left border-collapse text-[13px] font-sans">
+                          <thead>
+                            <tr className="bg-[#F8FAFC] border-b border-slate-200">
+                              <th className="px-4 py-3.5 text-slate-600 font-bold text-[12px] uppercase w-[60px] text-center">NO</th>
+                              <th 
+                                onClick={() => handleRupslbSort("companyName")}
+                                className="px-4 py-3.5 text-slate-600 font-bold text-[12px] uppercase cursor-pointer hover:bg-slate-100/85 transition-colors select-none"
+                              >
+                                <div className="flex items-center">
+                                  <span>NAMA PT</span>
+                                  {renderRupslbSortArrows("companyName")}
+                                </div>
+                              </th>
+                              <th 
+                                onClick={() => handleRupslbSort("signingDate")}
+                                className="px-4 py-3.5 text-slate-600 font-bold text-[12px] uppercase cursor-pointer hover:bg-slate-100/85 transition-colors select-none w-[180px]"
+                              >
+                                <div className="flex items-center">
+                                  <span>TANGGAL ACARA</span>
+                                  {renderRupslbSortArrows("signingDate")}
+                                </div>
+                              </th>
+                              <th 
+                                onClick={() => handleRupslbSort("status")}
+                                className="px-4 py-3.5 text-slate-600 font-bold text-[12px] uppercase cursor-pointer hover:bg-slate-100/85 transition-colors select-none w-[120px]"
+                              >
+                                <div className="flex items-center">
+                                  <span>STATUS</span>
+                                  {renderRupslbSortArrows("status")}
+                                </div>
+                              </th>
+                              <th 
+                                onClick={() => handleRupslbSort("updatedAt")}
+                                className="px-4 py-3.5 text-slate-600 font-bold text-[12px] uppercase cursor-pointer hover:bg-slate-100/85 transition-colors select-none w-[180px]"
+                              >
+                                <div className="flex items-center">
+                                  <span>TERAKHIR DIUBAH</span>
+                                  {renderRupslbSortArrows("updatedAt")}
+                                </div>
+                              </th>
+                              <th className="px-4 py-3.5 text-slate-600 font-bold text-[12px] uppercase w-[190px] text-center">AKSI</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-150">
+                            {paginatedRupslbResults.map((p, idx) => {
+                              const overallIdx = rupslbStartIndex + idx + 1;
+                              const statusVal = p.rupslbStatus || "Draft";
+                              return (
+                                <tr key={p.id} className="hover:bg-slate-50 transition-colors duration-150 odd:bg-white even:bg-slate-50/40">
+                                  <td className="px-4 py-3.5 text-center font-semibold text-slate-500 text-[12px]">{overallIdx}</td>
+                                  <td className="px-4 py-3.5">
+                                    <div className="font-bold text-slate-800 tracking-tight">{p.companyName}</div>
+                                    <div className="text-[11px] text-slate-400 mt-0.5 font-medium flex items-center gap-1">
+                                      <MapPin className="w-3 h-3 text-slate-350 shrink-0" />
+                                      {p.newAddress?.city || 'Area belum diisi'}
+                                    </div>
+                                  </td>
+                                  <td className="px-4 py-3.5 text-slate-600 font-semibold text-[12.5px]">
+                                    {p.signingDate || "-"}
+                                  </td>
+                                  <td className="px-4 py-3.5">
+                                    {statusVal === "Final" ? (
+                                      <span className="px-2 py-1 text-[11px] font-bold bg-emerald-150 text-emerald-800 rounded-md border border-emerald-250 inline-block uppercase">
+                                        FINAL
+                                      </span>
+                                    ) : (
+                                      <span className="px-2 py-1 text-[11px] font-bold bg-amber-150 text-amber-800 rounded-md border border-amber-250 inline-block uppercase">
+                                        DRAFT
+                                      </span>
+                                    )}
+                                  </td>
+                                  <td className="px-4 py-3.5 text-slate-500 font-medium">
+                                    {formatRupslbLastUpdated(p.updatedAt, p.signingDate)}
+                                  </td>
+                                  <td className="px-4 py-3.5">
+                                    <div className="flex justify-center items-center gap-2">
+                                      <button 
+                                        type="button"
+                                        onClick={() => {
+                                          setEditingProjectId(p.id!);
+                                          updateData({ ...INITIAL_STATE, ...p } as any);
+                                        }} 
+                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-50 text-[11px] font-extrabold text-blue-600 rounded-md border border-slate-250 shadow-sm transition-all uppercase"
+                                      >
+                                        <Edit size={13} className="text-blue-500" />
+                                        EDIT
+                                      </button>
+                                      <button 
+                                        type="button"
+                                        onClick={async () => {
+                                          if (confirm('Hapus RUPS LB ' + p.companyName + '?')) {
+                                            if (!user) return alert('Anda harus login!');
+                                            try {
+                                              await deleteDoc(doc(db, 'projects', p.id!));
+                                              alert('RUPS LB berhasil dihapus');
+                                            } catch (e) {
+                                              handleFirestoreError(e, OperationType.DELETE, `projects/${p.id}`);
+                                            }
+                                          }
+                                        }} 
+                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-50 hover:bg-red-100 text-[11px] font-extrabold text-red-600 rounded-md border border-red-150 shadow-sm transition-all uppercase"
+                                      >
+                                        <Trash2 size={13} className="text-red-500" />
+                                        HAPUS
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+
+                    {/* PAGINATION SECTION */}
+                    {totalRupslbItems > 0 && (
+                      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mt-5 pt-4 border-t border-slate-150 text-slate-500 text-[12.5px] font-medium">
+                        <div>
+                          Menampilkan <span className="font-semibold text-slate-700">{rupslbStartIndex + 1}</span> sampai <span className="font-semibold text-slate-700">{Math.min(rupslbStartIndex + rupslbItemsPerPage, totalRupslbItems)}</span> dari <span className="font-semibold text-slate-700">{totalRupslbItems}</span> data
+                        </div>
+                        
+                        <div className="flex items-center gap-1">
+                          {/* Previous Button */}
+                          <button
+                            type="button"
+                            disabled={safeRupslbCurrentPage === 1}
+                            onClick={() => setRupslbCurrentPage(Math.max(1, safeRupslbCurrentPage - 1))}
+                            className="px-2.5 py-1.5 border border-slate-200 rounded text-[12px] font-semibold text-slate-600 bg-white hover:bg-slate-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed uppercase"
+                          >
+                            Sebelumnya
+                          </button>
+                          
+                          {/* Page Numbers */}
+                          {getRupslbPageRange().map((p, idx) => {
+                            const isEllipsis = p === "...";
+                            const isActive = p === safeRupslbCurrentPage;
+                            return (
+                              <button
+                                key={idx}
+                                type="button"
+                                disabled={isEllipsis}
+                                onClick={() => setRupslbCurrentPage(Number(p))}
+                                className={`px-3 py-1.5 border rounded text-[12px] font-semibold transition-colors ${
+                                  isActive 
+                                    ? "bg-blue-600 border-blue-600 text-white font-bold" 
+                                    : isEllipsis 
+                                      ? "border-transparent bg-transparent text-slate-400 cursor-default" 
+                                      : "border-slate-200 bg-white hover:bg-slate-50 text-slate-600"
+                                }`}
+                              >
+                                {p}
+                              </button>
+                            );
+                          })}
+
+                          {/* Next Button */}
+                          <button
+                            type="button"
+                            disabled={safeRupslbCurrentPage === totalRupslbPages}
+                            onClick={() => setRupslbCurrentPage(Math.min(totalRupslbPages, safeRupslbCurrentPage + 1))}
+                            className="px-2.5 py-1.5 border border-slate-200 rounded text-[12px] font-semibold text-slate-600 bg-white hover:bg-slate-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed uppercase"
+                          >
+                            Selanjutnya
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
-
-
-) : activeSidebarTab === 'sirkuler_laporan' ? (
+            );
+          })() : activeSidebarTab === 'sirkuler_laporan' ? (
             <div className="max-w-5xl mx-auto space-y-4">
               <div className="flex justify-between items-center bg-white p-4 rounded-sm shadow-sm border border-slate-200">
                 <div>
@@ -4107,7 +4936,8 @@ const App: React.FC = () => {
             const currentRupstProjects = isPublicMenu ? rupstPublicProjects : rupstProjects;
             const currentCollectionName = isPublicMenu ? 'rupst_public_projects' : 'rupst_projects';
 
-            const filteredRupstProjects = currentRupstProjects.filter(p => {
+            // 1. Initial filter by search query (PT Name or Year)
+            let filteredResults = currentRupstProjects.filter(p => {
               if (!rupstSearchQuery) return true;
               const q = rupstSearchQuery.toLowerCase();
               return (
@@ -4116,17 +4946,133 @@ const App: React.FC = () => {
               );
             });
 
+            // 2. Filter by Year Dropdown Selection
+            if (selectedRupstYear !== "all") {
+              filteredResults = filteredResults.filter(p => (p.rupstFiscalYear || '').toString() === selectedRupstYear);
+            }
+
+            // 3. Extract unique years for the dropdown
+            const uniqueYears = Array.from(new Set(
+              currentRupstProjects
+                .map(p => (p.rupstFiscalYear || '').toString())
+                .filter(Boolean)
+            )).sort((a, b) => Number(b) - Number(a));
+
+            // 4. Sort results
+            const sortedResults = [...filteredResults].sort((a, b) => {
+              let valA = "";
+              let valB = "";
+
+              if (rupstSortField === "companyName") {
+                valA = a.companyName || "";
+                valB = b.companyName || "";
+              } else if (rupstSortField === "rupstFiscalYear") {
+                valA = (a.rupstFiscalYear || "").toString();
+                valB = (b.rupstFiscalYear || "").toString();
+              } else if (rupstSortField === "status") {
+                valA = a.rupstStatus || "Draft";
+                valB = b.rupstStatus || "Draft";
+              } else if (rupstSortField === "updatedAt") {
+                valA = a.updatedAt || a.signingDate || "";
+                valB = b.updatedAt || b.signingDate || "";
+              }
+
+              if (valA < valB) return rupstSortOrder === "asc" ? -1 : 1;
+              if (valA > valB) return rupstSortOrder === "asc" ? 1 : -1;
+              return 0;
+            });
+
+            // 5. Pagination calculation
+            const itemsPerPage = 10;
+            const totalItems = sortedResults.length;
+            const totalPages = Math.ceil(totalItems / itemsPerPage) || 1;
+            
+            // Adjust current page if it's out of range
+            const safeCurrentPage = Math.min(rupstCurrentPage, totalPages);
+            const startIndex = (safeCurrentPage - 1) * itemsPerPage;
+            const paginatedResults = sortedResults.slice(startIndex, startIndex + itemsPerPage);
+
+            // Helpers
+            const handleSearchChange = (val: string) => {
+              setRupstSearchQuery(val);
+              setRupstCurrentPage(1);
+            };
+
+            const formatLastUpdated = (dateStr?: string, signingDate?: string) => {
+              const dateToFormat = dateStr || signingDate;
+              if (!dateToFormat) return "-";
+              try {
+                const d = new Date(dateToFormat);
+                if (isNaN(d.getTime())) return dateToFormat;
+                const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+                const day = String(d.getDate()).padStart(2, '0');
+                const month = months[d.getMonth()];
+                const year = d.getFullYear();
+                const hours = String(d.getHours()).padStart(2, '0');
+                const minutes = String(d.getMinutes()).padStart(2, '0');
+                return `${day} ${month} ${year} ${hours}:${minutes}`;
+              } catch (e) {
+                return dateToFormat;
+              }
+            };
+
+            const handleSort = (field: string) => {
+              if (rupstSortField === field) {
+                setRupstSortOrder(rupstSortOrder === "asc" ? "desc" : "asc");
+              } else {
+                setRupstSortField(field);
+                setRupstSortOrder("asc");
+              }
+              setRupstCurrentPage(1);
+            };
+
+            const renderSortArrows = (field: string) => {
+              const isActive = rupstSortField === field;
+              return (
+                <span className="inline-flex flex-col text-[8px] text-slate-400 shrink-0 ml-1.5 leading-none select-none">
+                  <span className={`${isActive && rupstSortOrder === "asc" ? "text-blue-600 font-bold" : "text-slate-300"}`}>▲</span>
+                  <span className={`${isActive && rupstSortOrder === "desc" ? "text-blue-600 font-bold" : "text-slate-300"}`}>▼</span>
+                </span>
+              );
+            };
+
+            const getPageRange = () => {
+              const pages: (number | string)[] = [];
+              if (totalPages <= 5) {
+                for (let i = 1; i <= totalPages; i++) pages.push(i);
+              } else {
+                pages.push(1);
+                if (safeCurrentPage > 3) {
+                  pages.push("...");
+                }
+                const start = Math.max(2, safeCurrentPage - 1);
+                const end = Math.min(totalPages - 1, safeCurrentPage + 1);
+                for (let i = start; i <= end; i++) {
+                  pages.push(i);
+                }
+                if (safeCurrentPage < totalPages - 2) {
+                  pages.push("...");
+                }
+                pages.push(totalPages);
+              }
+              return pages;
+            };
+
             return (
-              <div className="max-w-5xl mx-auto space-y-4">
-                <div className="flex justify-between items-center bg-white p-4 rounded-sm shadow-sm border border-slate-200">
-                  <div>
-                    <h2 className="text-[16px] font-bold flex items-center gap-2 text-slate-800 uppercase">
-                      <History className="w-5 h-5 text-[#3b5998]" /> 
-                      {isPublicMenu ? 'RUPST Public (RUPST Public)' : 'RUPS Tahunan (RUPST)'}
-                    </h2>
-                    <p className="text-[12px] text-slate-500">
-                      {isPublicMenu ? 'Kelola daftar notulen RUPST Public' : 'Kelola daftar notulen RUPS Tahunan'}
-                    </p>
+              <div className="max-w-7xl mx-auto space-y-6 px-2 sm:px-4 py-4">
+                <div className="flex justify-between items-center bg-white p-5 rounded-md shadow-sm border border-slate-200">
+                  <div className="flex items-center gap-3">
+                    <div className="bg-blue-50 p-2.5 rounded-full border border-blue-100 flex items-center justify-center shrink-0">
+                      <History className="w-6 h-6 text-[#1b449c]" />
+                    </div>
+                    <div>
+                      <h2 className="text-[18px] font-extrabold flex items-center gap-2 text-slate-800 tracking-tight leading-snug">
+                        {isPublicMenu ? 'RUPS TAHUNAN PUBLIC' : 'RUPS TAHUNAN (RUPST)'}
+                      </h2>
+                      <p className="text-[13px] text-slate-500 font-medium">
+                        {isPublicMenu ? 'Kelola daftar notulen RUPST Public' : 'Kelola daftar notulen RUPS Tahunan'}
+                      </p>
+                    </div>
                   </div>
                   {!currentEditingRupstId && (
                     <button onClick={() => {
@@ -4134,7 +5080,7 @@ const App: React.FC = () => {
                       updateData({ 
                         ...INITIAL_STATE, 
                       } as any);
-                    }} className="bg-[#3b5998] hover:bg-[#2d4373] text-white px-4 py-2 rounded-sm font-bold text-[12px] flex items-center gap-2 transition-colors">
+                    }} className="bg-[#1b449c] hover:bg-[#13327d] text-white px-5 py-2.5 rounded-md font-bold text-[12px] flex items-center gap-2 transition-all shadow-sm shrink-0 hover:scale-[1.01] active:scale-[0.99]">
                       <Plus className="w-4 h-4" /> {isPublicMenu ? 'TAMBAH RUPST PUBLIC BARU' : 'TAMBAH RUPST BARU'}
                     </button>
                   )}
@@ -4159,7 +5105,8 @@ const App: React.FC = () => {
                        const newId = currentEditingRupstId && currentEditingRupstId !== 'new' ? currentEditingRupstId : crypto.randomUUID();
                        const profileData = {
                            ...data,
-                           id: newId
+                           id: newId,
+                           updatedAt: new Date().toISOString()
                        };
                        if (!user && !isPublicMenu) {
                          setIsSaving(false);
@@ -4276,6 +5223,35 @@ const App: React.FC = () => {
                       <>
                       <AhuSection title="DATA UTAMA PERSEROAN">
                         <div className="space-y-4">
+                          <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                            <AhuLabel label="Status Dokumen" required />
+                            <div className="md:col-span-3">
+                              <div className="flex gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => updateData({ rupstStatus: 'Draft' })}
+                                  className={`px-3 py-1.5 rounded text-xs font-bold transition-all ${
+                                    (data.rupstStatus || 'Draft') === 'Draft'
+                                      ? 'bg-amber-150 text-amber-800 border border-amber-300 shadow-sm'
+                                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200 border border-slate-200'
+                                  }`}
+                                >
+                                  DRAFT
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => updateData({ rupstStatus: 'Final' })}
+                                  className={`px-3 py-1.5 rounded text-xs font-bold transition-all ${
+                                    data.rupstStatus === 'Final'
+                                      ? 'bg-emerald-100 text-emerald-800 border border-emerald-300 shadow-sm'
+                                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200 border border-slate-200'
+                                  }`}
+                                >
+                                  FINAL
+                                </button>
+                              </div>
+                            </div>
+                          </div>
                           <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
                             <AhuLabel label="Nama PT (Perseroan)" required />
                             <div className="md:col-span-3">
@@ -5639,79 +6615,267 @@ const App: React.FC = () => {
                   </AhuSection> */}
                 </div>
               ) : (
-                <div className="space-y-8">
-                  {/* SAVED RUPST SECTION */}
-                  <div className="space-y-4">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 pb-3">
-                      <div className="flex items-center gap-2">
-                        <History className="w-5 h-5 text-[#3b5998]" />
-                        <h3 className="text-[14px] font-bold text-slate-800 uppercase">
-                          {isPublicMenu ? 'Notulen RUPST Public Tersimpan' : 'Notulen RUPST Tersimpan'}
+                <div className="space-y-6">
+                  {/* SAVED RUPST CARD CONTAINER */}
+                  <div className="bg-white p-6 rounded-md shadow-sm border border-slate-200">
+                    
+                    {/* TITLE AND SEARCH/FITLER SECTION */}
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-150 pb-5 mb-5">
+                      <div className="flex items-center gap-2.5">
+                        <History className="w-5 h-5 text-[#1b449c]" />
+                        <h3 className="text-[15px] font-bold text-slate-800 tracking-tight uppercase">
+                          {isPublicMenu ? 'NOTULEN RUPST PUBLIC TERSIMPAN' : 'NOTULEN RUPST TERSIMPAN'}
                         </h3>
                       </div>
-                      <div className="relative w-full sm:w-80">
-                        <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                        <input
-                          type="text"
-                          placeholder="Cari berdasarkan nama PT..."
-                          value={rupstSearchQuery}
-                          onChange={(e) => setRupstSearchQuery(e.target.value)}
-                          className="w-full pl-9 pr-8 py-1.5 border border-slate-300 rounded-sm text-[12px] outline-none focus:border-[#3b5998] bg-white text-slate-800 placeholder-slate-400 transition-all shadow-sm"
-                        />
-                        {rupstSearchQuery && (
-                          <button
-                            onClick={() => setRupstSearchQuery("")}
-                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 font-bold text-[14px]"
+                      
+                      <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+                        {/* Search Input */}
+                        <div className="relative flex-1 sm:flex-initial sm:w-72">
+                          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                          <input
+                            type="text"
+                            placeholder="Cari berdasarkan nama PT..."
+                            value={rupstSearchQuery}
+                            onChange={(e) => handleSearchChange(e.target.value)}
+                            className="w-full pl-9 pr-8 py-2 border border-slate-250 rounded-md text-[13px] outline-none focus:border-[#1b449c] focus:ring-1 focus:ring-[#1b449c]/20 bg-white text-slate-800 placeholder-slate-400 transition-all font-medium"
+                          />
+                          {rupstSearchQuery && (
+                            <button
+                              onClick={() => handleSearchChange("")}
+                              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 font-extrabold text-[15px]"
+                              type="button"
+                            >
+                              ×
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Year Filter Dropdown */}
+                        <div className="relative">
+                          <select
+                            value={selectedRupstYear}
+                            onChange={(e) => {
+                              setSelectedRupstYear(e.target.value);
+                              setRupstCurrentPage(1);
+                            }}
+                            className="appearance-none pl-3 pr-8 py-2 border border-slate-250 rounded-md text-[13px] outline-none focus:border-[#1b449c] bg-white text-slate-800 font-medium cursor-pointer"
                           >
-                            ×
-                          </button>
-                        )}
+                            <option value="all">Semua Tahun</option>
+                            {uniqueYears.map(year => (
+                              <option key={year} value={year}>{year}</option>
+                            ))}
+                          </select>
+                          <ChevronDown className="w-4 h-4 text-slate-500 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                        </div>
+
+                        {/* Filter Toggle Button */}
+                        <button
+                          type="button"
+                          onClick={() => setIsRupstFilterOpen(!isRupstFilterOpen)}
+                          className={`p-2 border rounded-md transition-all flex items-center justify-center hover:bg-slate-50 ${isRupstFilterOpen ? 'bg-blue-50 text-[#1b449c] border-[#1b449c]' : 'bg-white text-slate-600 border-slate-250'}`}
+                          title="Toggle Quick Filter"
+                        >
+                          <SlidersHorizontal className="w-4 h-4" />
+                        </button>
                       </div>
                     </div>
+
+                    {/* QUICK FILTER EXPANSION PANEL */}
+                    {isRupstFilterOpen && (
+                      <div className="bg-slate-50 p-4 rounded-md border border-slate-200 mb-5 flex flex-wrap gap-2.5 items-center animate-fadeIn">
+                        <span className="text-[12px] font-bold text-slate-500 uppercase">Filter Status:</span>
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setRupstSearchQuery("");
+                              setSelectedRupstYear("all");
+                              setRupstSortField("updatedAt");
+                              setRupstSortOrder("desc");
+                              setRupstCurrentPage(1);
+                              setIsRupstFilterOpen(false);
+                            }}
+                            className="bg-white hover:bg-slate-100 text-[11px] font-semibold text-slate-600 px-2.5 py-1.5 border border-slate-200 rounded"
+                          >
+                            Reset Semua
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* TABLE AREA */}
                     {currentRupstProjects.length === 0 ? (
-                      <div className="bg-slate-50 text-center py-6 rounded-sm border border-dashed border-slate-300 text-slate-500 text-[12px]">
+                      <div className="bg-slate-50 text-center py-10 rounded-md border border-dashed border-slate-350 text-slate-500 text-[13px] font-medium">
                         {isPublicMenu ? 'Belum ada notulen RUPST Public yang disimpan.' : 'Belum ada notulen RUPST yang disimpan.'}
                       </div>
-                    ) : filteredRupstProjects.length === 0 ? (
-                      <div className="bg-slate-50 text-center py-8 rounded-sm border border-dashed border-slate-300 text-slate-500 text-[12px]">
-                        Tidak ada notulen RUPST yang cocok dengan pencarian "{rupstSearchQuery}".
+                    ) : sortedResults.length === 0 ? (
+                      <div className="bg-slate-50 text-center py-12 rounded-md border border-dashed border-slate-350 text-slate-500 text-[13px] font-medium">
+                        Tidak ada notulen RUPST yang cocok dengan pencarian atau filter Anda.
                       </div>
                     ) : (
-                      <div className="flex flex-col gap-3">
-                        {filteredRupstProjects.map(p => (
-                          <div key={p.id} className="bg-white p-4 rounded-sm border border-slate-200 hover:border-[#3b5998] transition-colors relative group flex flex-col md:flex-row md:items-center justify-between gap-4">
-                              <div className="flex items-center gap-4">
-                                <div className="w-10 h-10 rounded-full bg-blue-50 border border-blue-100 flex items-center justify-center shrink-0">
-                                  <History className="w-5 h-5 text-blue-500" />
+                      <div className="overflow-x-auto border border-slate-200 rounded-md shadow-inner bg-white">
+                        <table className="w-full text-left border-collapse text-[13px] font-sans">
+                          <thead>
+                            <tr className="bg-[#F8FAFC] border-b border-slate-200">
+                              <th className="px-4 py-3.5 text-slate-600 font-bold text-[12px] uppercase w-[60px] text-center">NO</th>
+                              <th 
+                                onClick={() => handleSort("companyName")}
+                                className="px-4 py-3.5 text-slate-600 font-bold text-[12px] uppercase cursor-pointer hover:bg-slate-100/85 transition-colors select-none"
+                              >
+                                <div className="flex items-center">
+                                  <span>NAMA PT</span>
+                                  {renderSortArrows("companyName")}
                                 </div>
-                                <div>
-                                    <h3 className="font-bold text-slate-800 text-[14px] leading-tight mb-1 pr-6">{p.companyName}</h3>
-                                    <p className="text-[12px] text-slate-500 flex items-center gap-1 line-clamp-1"><Clock className="w-3 h-3 text-slate-400 shrink-0"/> {isPublicMenu ? 'RUPST Public' : 'RUPST'} Tahun {p.rupstFiscalYear || '....'}</p>
+                              </th>
+                              <th 
+                                onClick={() => handleSort("rupstFiscalYear")}
+                                className="px-4 py-3.5 text-slate-600 font-bold text-[12px] uppercase cursor-pointer hover:bg-slate-100/85 transition-colors select-none w-[110px]"
+                              >
+                                <div className="flex items-center">
+                                  <span>TAHUN</span>
+                                  {renderSortArrows("rupstFiscalYear")}
                                 </div>
-                              </div>
-                              <div className="flex gap-2 w-full md:w-auto">
-                                <button onClick={() => {
-                                  setCurrentEditingRupstId(p.id);
-                                  updateData({ ...INITIAL_STATE, ...p } as any);
-                                }} className="bg-slate-100 hover:bg-slate-200 px-4 py-2 rounded-sm text-[11px] font-bold text-slate-700 flex items-center justify-center gap-1 transition-colors flex-1 uppercase">
-                                  <Edit className="w-3 h-3" /> Edit
-                                </button>
-                                <button onClick={async () => {
-                                  if(confirm((isPublicMenu ? 'Hapus RUPST Public ' : 'Hapus RUPST ') + p.companyName + '?')) {
-                                    if (!user) return alert('Anda harus login!');
-                                    try {
-                                      await deleteDoc(doc(db, currentCollectionName, p.id));
-                                      alert(isPublicMenu ? 'RUPST Public berhasil dihapus' : 'RUPST berhasil dihapus');
-                                    } catch (e) {
-                                      handleFirestoreError(e, OperationType.DELETE, `${currentCollectionName}/${p.id}`);
-                                    }
-                                  }
-                                }} className="bg-red-50 hover:bg-red-500 text-red-500 hover:text-white px-4 py-2 rounded-sm text-[11px] font-bold flex items-center justify-center gap-1 transition-colors flex-1 uppercase">
-                                  <Trash2 className="w-3 h-3" /> Hapus
-                                </button>
-                              </div>
-                          </div>
-                        ))}
+                              </th>
+                              <th 
+                                onClick={() => handleSort("status")}
+                                className="px-4 py-3.5 text-slate-600 font-bold text-[12px] uppercase cursor-pointer hover:bg-slate-100/85 transition-colors select-none w-[120px]"
+                              >
+                                <div className="flex items-center">
+                                  <span>STATUS</span>
+                                  {renderSortArrows("status")}
+                                </div>
+                              </th>
+                              <th 
+                                onClick={() => handleSort("updatedAt")}
+                                className="px-4 py-3.5 text-slate-600 font-bold text-[12px] uppercase cursor-pointer hover:bg-slate-100/85 transition-colors select-none w-[180px]"
+                              >
+                                <div className="flex items-center">
+                                  <span>TERAKHIR DIUBAH</span>
+                                  {renderSortArrows("updatedAt")}
+                                </div>
+                              </th>
+                              <th className="px-4 py-3.5 text-slate-600 font-bold text-[12px] uppercase w-[190px] text-center">AKSI</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-150">
+                            {paginatedResults.map((p, idx) => {
+                              const overallIdx = startIndex + idx + 1;
+                              const statusVal = p.rupstStatus || "Draft";
+                              return (
+                                <tr key={p.id} className="hover:bg-slate-50 transition-colors duration-150 odd:bg-white even:bg-slate-50/40">
+                                  <td className="px-4 py-3.5 text-center font-semibold text-slate-500 text-[12px]">{overallIdx}</td>
+                                  <td className="px-4 py-3.5">
+                                    <div className="font-bold text-slate-800 tracking-tight">{p.companyName}</div>
+                                  </td>
+                                  <td className="px-4 py-3.5">
+                                    <div className="font-semibold text-slate-700">{p.rupstFiscalYear || '-'}</div>
+                                  </td>
+                                  <td className="px-4 py-3.5">
+                                    {statusVal === "Final" ? (
+                                      <span className="px-2 py-1 text-[11px] font-bold bg-emerald-150 text-emerald-800 rounded-md border border-emerald-250 inline-block uppercase">
+                                        FINAL
+                                      </span>
+                                    ) : (
+                                      <span className="px-2 py-1 text-[11px] font-bold bg-amber-150 text-amber-800 rounded-md border border-amber-250 inline-block uppercase">
+                                        DRAFT
+                                      </span>
+                                    )}
+                                  </td>
+                                  <td className="px-4 py-3.5 text-slate-500 font-medium">
+                                    {formatLastUpdated(p.updatedAt, p.signingDate)}
+                                  </td>
+                                  <td className="px-4 py-3.5">
+                                    <div className="flex justify-center items-center gap-2">
+                                      <button 
+                                        type="button"
+                                        onClick={() => {
+                                          setCurrentEditingRupstId(p.id);
+                                          updateData({ ...INITIAL_STATE, ...p } as any);
+                                        }} 
+                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-50 text-[11px] font-extrabold text-blue-600 rounded-md border border-slate-250 shadow-sm transition-all uppercase"
+                                      >
+                                        <Edit size={13} className="text-blue-500" />
+                                        EDIT
+                                      </button>
+                                      <button 
+                                        type="button"
+                                        onClick={async () => {
+                                          if (confirm((isPublicMenu ? 'Hapus RUPST Public ' : 'Hapus RUPST ') + p.companyName + '?')) {
+                                            if (!user) return alert('Anda harus login!');
+                                            try {
+                                              await deleteDoc(doc(db, currentCollectionName, p.id));
+                                              alert(isPublicMenu ? 'RUPST Public berhasil dihapus' : 'RUPST berhasil dihapus');
+                                            } catch (e) {
+                                              handleFirestoreError(e, OperationType.DELETE, `${currentCollectionName}/${p.id}`);
+                                            }
+                                          }
+                                        }} 
+                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-50 hover:bg-red-100 text-[11px] font-extrabold text-red-600 rounded-md border border-red-150 shadow-sm transition-all uppercase"
+                                      >
+                                        <Trash2 size={13} className="text-red-500" />
+                                        HAPUS
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+
+                    {/* PAGINATION SECTION */}
+                    {totalItems > 0 && (
+                      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mt-5 pt-4 border-t border-slate-150 text-slate-500 text-[12.5px] font-medium">
+                        <div>
+                          Menampilkan <span className="font-semibold text-slate-700">{startIndex + 1}</span> sampai <span className="font-semibold text-slate-700">{Math.min(startIndex + itemsPerPage, totalItems)}</span> dari <span className="font-semibold text-slate-700">{totalItems}</span> data
+                        </div>
+                        
+                        <div className="flex items-center gap-1">
+                          {/* Previous Button */}
+                          <button
+                            type="button"
+                            disabled={safeCurrentPage === 1}
+                            onClick={() => setRupstCurrentPage(Math.max(1, safeCurrentPage - 1))}
+                            className="px-2.5 py-1.5 border border-slate-200 rounded text-[12px] font-semibold text-slate-600 bg-white hover:bg-slate-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed uppercase"
+                          >
+                            Sebelumnya
+                          </button>
+                          
+                          {/* Page Numbers */}
+                          {getPageRange().map((p, idx) => {
+                            const isEllipsis = p === "...";
+                            const isActive = p === safeCurrentPage;
+                            return (
+                              <button
+                                key={idx}
+                                type="button"
+                                disabled={isEllipsis}
+                                onClick={() => setRupstCurrentPage(Number(p))}
+                                className={`px-3 py-1.5 border rounded text-[12px] font-semibold transition-colors ${
+                                  isActive 
+                                    ? "bg-blue-600 border-blue-600 text-white font-bold" 
+                                    : isEllipsis 
+                                      ? "border-transparent bg-transparent text-slate-400 cursor-default" 
+                                      : "border-slate-200 bg-white hover:bg-slate-50 text-slate-600"
+                                }`}
+                              >
+                                {p}
+                              </button>
+                            );
+                          })}
+
+                          {/* Next Button */}
+                          <button
+                            type="button"
+                            disabled={safeCurrentPage === totalPages}
+                            onClick={() => setRupstCurrentPage(Math.min(totalPages, safeCurrentPage + 1))}
+                            className="px-2.5 py-1.5 border border-slate-200 rounded text-[12px] font-semibold text-slate-600 bg-white hover:bg-slate-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed uppercase"
+                          >
+                            Selanjutnya
+                          </button>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -5726,10 +6890,24 @@ const App: React.FC = () => {
           ) : activeSidebarTab === 'import_kbli' ? (
             <ImportKBLI />
           ) : activeSidebarTab === 'pendirian' ? (
-            <DraftAktaPendirian 
-              onShowPreview={(d) => { setPendirianPreviewData(d); setShowPendirianPreview(true); }}
-              onExportWord={(d) => { handlePendirianExportWord(d); }}
-            />
+            editingPendirianId ? (
+              <DraftAktaPendirian 
+                profiles={profiles}
+                onShowPreview={(d) => { setPendirianPreviewData(d); setShowPendirianPreview(true); }}
+                onExportWord={(d) => { handlePendirianExportWord(d); }}
+              />
+            ) : (
+              <PendirianList 
+                onEdit={(rec) => {
+                  setEditingPendirianId(rec.id);
+                  updateData({ ...INITIAL_STATE, ...rec } as any);
+                }}
+                onAdd={() => {
+                  setEditingPendirianId('new');
+                  updateData({ ...INITIAL_STATE } as any);
+                }}
+              />
+            )
           ) : activeSidebarTab === 'perbaikan' ? (
             <DataCorrectionLetter />
           ) : activeSidebarTab === 'panduan' ? (

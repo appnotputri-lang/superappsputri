@@ -166,6 +166,11 @@ export const RUPSTDocumentPreview: React.FC<RUPSTDocumentPreviewProps> = ({ data
             Page {pIdx + 1}
           </div>
           
+          {/* Header Office */}
+          <div className="absolute top-[1cm] left-[3.5cm] right-[1.5cm] text-center font-bold tracking-wide" style={{ color: '#FF0000', fontFamily: 'Arial, sans-serif', fontSize: '12pt' }}>
+            KOP SURAT
+          </div>
+          
           <div 
             className="w-full relative z-10 overflow-hidden"
             style={{

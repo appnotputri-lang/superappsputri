@@ -1,7 +1,7 @@
 import {
   Document, Packer, Paragraph, TextRun,
   AlignmentType, TabStopType,
-  IParagraphOptions, Footer, PageNumber,
+  IParagraphOptions, Footer, PageNumber, Header,
   Table, TableRow, TableCell, WidthType, BorderStyle, PageBreak,
   LevelFormat,
 } from "docx";
@@ -390,6 +390,24 @@ export const generateRUPSTDocx = async (data: CompanyData) => {
             // Margins matching reference: top=1417 right=1134 bottom=1417 left=2268
             margin: { top: 1417, bottom: 1417, left: 2268, right: 1134 },
           },
+        },
+        headers: {
+          default: new Header({
+            children: [
+              new Paragraph({
+                alignment: AlignmentType.CENTER,
+                children: [
+                  new TextRun({
+                    text: "KOP SURAT",
+                    bold: true,
+                    color: "FF0000",
+                    font: "Arial",
+                    size: 24,
+                  }),
+                ],
+              }),
+            ],
+          }),
         },
         footers: {
           default: new Footer({

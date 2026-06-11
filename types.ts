@@ -173,6 +173,7 @@ export interface CompanyProfile extends Partial<CompanyData> {
 
 export interface CompanyData {
   id?: string;
+  updatedAt?: string;
   documentType: DocumentType;
   companyName: string;
   companyShortName?: string;
@@ -265,6 +266,8 @@ export interface CompanyData {
   beneficialOwnerConsent?: boolean;
 
   // RUPST Extra Fields
+  rupslbStatus?: 'Draft' | 'Final';
+  rupstStatus?: 'Draft' | 'Final';
   rupstStreet?: string;
   rupstRt?: string;
   rupstRw?: string;

@@ -226,7 +226,7 @@ export const generateWordDoc = async (data: CompanyData) => {
       alignment: "center" as any,
       children: [
         new TextRun({
-          text: `PT ${data.companyName.toUpperCase() || "................"}`,
+          text: formatCompanyName(data.companyName || "................"),
           bold: true,
           underline: { type: "single" },
           size: FONT_SIZE,
@@ -613,7 +613,7 @@ export const generateWordDoc = async (data: CompanyData) => {
       createBodyParagraph({
         children: [
           new TextRun({
-            text: `Rapat ini diselenggarakan berdasarkan Surat Undangan Direksi PT. ${data.companyName.toUpperCase()} Nomor : `,
+            text: `Rapat ini diselenggarakan berdasarkan Surat Undangan Direksi ${formatCompanyName(data.companyName)} Nomor : `,
             size: FONT_SIZE,
             font: FONT_FAMILY,
           }),

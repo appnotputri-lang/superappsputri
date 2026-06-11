@@ -777,7 +777,7 @@ export const generateRupstBlocks = (data: CompanyData): Block[] => {
   blocks.push({
     type: "p",
     align: "center",
-    runs: [{ text: `PT. ${data.companyName.toUpperCase()}`, bold: true }]
+    runs: [{ text: formatCompanyName(data.companyName), bold: true }]
   });
   blocks.push({
     type: "p",
