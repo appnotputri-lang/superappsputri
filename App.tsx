@@ -6893,6 +6893,33 @@ const App: React.FC = () => {
             editingPendirianId ? (
               <DraftAktaPendirian 
                 profiles={profiles}
+                initialData={editingPendirianId === 'new' ? null : pendirianProjects.find(p => p.id === editingPendirianId) as any}
+                isSaving={isSaving}
+                onSave={async (pendirianData) => {
+                  setIsSaving(true);
+                  if (!user) {
+                    setIsSaving(false);
+                    return alert('Anda harus login terlebih dahulu!');
+                  }
+                  
+                  const id = editingPendirianId === 'new' ? crypto.randomUUID() : editingPendirianId;
+                  const finalData = {
+                    ...pendirianData,
+                    id,
+                    updatedAt: new Date().toISOString()
+                  };
+
+                  try {
+                    await setDoc(doc(db, 'pendirian_projects', id), sanitizeForFirestore(finalData));
+                    setEditingPendirianId(null);
+                    alert('Data pendirian berhasil disimpan!');
+                  } catch (e) {
+                    handleFirestoreError(e, OperationType.WRITE, `pendirian_projects/${id}`);
+                  } finally {
+                    setIsSaving(false);
+                  }
+                }}
+                onCancel={() => setEditingPendirianId(null)}
                 onShowPreview={(d) => { setPendirianPreviewData(d); setShowPendirianPreview(true); }}
                 onExportWord={(d) => { handlePendirianExportWord(d); }}
               />

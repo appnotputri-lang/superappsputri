@@ -29,7 +29,7 @@ const PendirianList: React.FC<{
   };
 
   const filtered = records.filter(rec => 
-    !listSearch.trim() || rec.companyName?.toLowerCase().includes(listSearch.toLowerCase())
+    !listSearch.trim() || (rec.namaPt || rec.companyName)?.toLowerCase().includes(listSearch.toLowerCase())
   );
 
   return (
@@ -91,8 +91,8 @@ const PendirianList: React.FC<{
                   filtered.map((rec, idx) => (
                     <tr key={rec.id} className="hover:bg-slate-50/50">
                       <td className="px-4 py-3.5 text-center border-r border-slate-200 text-slate-500 font-bold">{idx + 1}</td>
-                      <td className="px-4 py-3.5 border-r border-slate-200 font-bold text-[#0c2444] uppercase">{rec.companyName}</td>
-                      <td className="px-4 py-3.5 border-r border-slate-200">{rec.domicile || '-'}</td>
+                      <td className="px-4 py-3.5 border-r border-slate-200 font-bold text-[#0c2444] uppercase">{rec.namaPt || rec.companyName || '-'}</td>
+                      <td className="px-4 py-3.5 border-r border-slate-200">{rec.kotaKedudukan || rec.domicile || '-'}</td>
                       <td className="px-4 py-3.5 border-r border-slate-200 text-center text-slate-400 font-mono text-[11px]">
                         {rec.updatedAt ? new Date(rec.updatedAt).toLocaleDateString('id-ID') : '-'}
                       </td>

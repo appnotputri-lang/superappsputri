@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { KbliItem, Shareholder, Address } from '../types';
 import { KBLI_DATA } from '../utils/kbliData';
-import { Eye, Printer, Users, Building2, Banknote, ChevronDown, ChevronRight, Search, Trash2, Plus, User, MapPin, Briefcase, IdCard, ShieldCheck } from 'lucide-react';
+import { Eye, Printer, Users, Building2, Banknote, ChevronDown, ChevronRight, Search, Trash2, Plus, User, MapPin, Briefcase, IdCard, ShieldCheck, ArrowRight, Save } from 'lucide-react';
 import { IndoRegionSelector } from '../components/AddressFields';
 
 const AhuSection = ({ title, children, isOpen = true }: { title: string, children: React.ReactNode, isOpen?: boolean }) => {
@@ -87,53 +87,68 @@ interface DraftAktaPendirianProps {
   onShowPreview: (data: any, type: string) => void;
   onExportWord: (data: any, type: string) => void;
   profiles: any[];
+  initialData?: PendirianData | null;
+  onSave?: (data: PendirianData) => void;
+  onCancel?: () => void;
+  isSaving?: boolean;
 }
 
-export default function DraftAktaPendirian({ onShowPreview, onExportWord, profiles }: DraftAktaPendirianProps) {
-  const [data, setData] = useState<PendirianData>({
-    namaPt: '',
-    kotaKedudukan: '',
-    alamatLengkapPT: '',
-    kuotaWaktuDireksi: '5',
-    tanggal: new Date().toISOString().split('T')[0],
-    waktu: '10:00',
-    notarisTempat: 'Kabupaten Bandung Barat',
-    notarisNamaSurat: '',
-    kbliItems: [],
-    modalDasar: 50000000,
-    modalDisetorPersen: 25,
-    nilaiPerLembar: 50000,
-    saksi1Nama: 'Nendi Suhendi',
-    saksi1LahirTempat: 'Bandung',
-    saksi1LahirTanggal: '1991-07-15',
-    saksi1Pekerjaan: 'Karyawan Swasta',
-    saksi1Alamat: 'Jalan Sukaresmi Nomor 17, Rukun Tetangga 005, Rukun Warga 005, Kecamatan Lembang, Desa Mekarwangi',
-    saksi1NIK: '3217011507910016',
-    saksi2Nama: 'Siti Nur Azizah',
-    saksi2LahirTempat: 'Bandung',
-    saksi2LahirTanggal: '1999-12-17',
-    saksi2Pekerjaan: 'Karyawan Swasta',
-    saksi2Alamat: 'Jalan Lembah Pakar Timur II Kampung Sekebuluh Rukun Tetangga 001, Rukun Warga 004, Kecamatan Cimenyan, Desa Ciburial',
-    saksi2NIK: '3204065712990001',
-    shareholders: [
-      {
-        id: crypto.randomUUID(),
-        salutation: 'Tuan',
-        name: '',
-        birthCity: '',
-        birthDate: '',
-        occupation: '',
-        nationality: 'WNI',
-        nationalityType: 'WNI',
-        address: { ...INITIAL_ADDRESS },
-        nik: '',
-        sharesOwned: 100,
-        managementPosition: 'Direktur',
-        isManagement: true,
-        shareholderType: 'PERORANGAN',
-        isForeign: false
-      }
-    ]
+export default function DraftAktaPendirian({ 
+  onShowPreview, 
+  onExportWord, 
+  profiles, 
+  initialData, 
+  onSave, 
+  onCancel,
+  isSaving = false 
+}: DraftAktaPendirianProps) {
+  const [data, setData] = useState<PendirianData>(() => {
+    if (initialData) return { ...initialData };
+    return {
+      namaPt: '',
+      kotaKedudukan: '',
+      alamatLengkapPT: '',
+      kuotaWaktuDireksi: '5',
+      tanggal: new Date().toISOString().split('T')[0],
+      waktu: '10:00',
+      notarisTempat: 'Kabupaten Bandung Barat',
+      notarisNamaSurat: '',
+      kbliItems: [],
+      modalDasar: 50000000,
+      modalDisetorPersen: 25,
+      nilaiPerLembar: 50000,
+      saksi1Nama: 'Nendi Suhendi',
+      saksi1LahirTempat: 'Bandung',
+      saksi1LahirTanggal: '1991-07-15',
+      saksi1Pekerjaan: 'Karyawan Swasta',
+      saksi1Alamat: 'Jalan Sukaresmi Nomor 17, Rukun Tetangga 005, Rukun Warga 005, Kecamatan Lembang, Desa Mekarwangi',
+      saksi1NIK: '3217011507910016',
+      saksi2Nama: 'Siti Nur Azizah',
+      saksi2LahirTempat: 'Bandung',
+      saksi2LahirTanggal: '1999-12-17',
+      saksi2Pekerjaan: 'Karyawan Swasta',
+      saksi2Alamat: 'Jalan Lembah Pakar Timur II Kampung Sekebuluh Rukun Tetangga 001, Rukun Warga 004, Kecamatan Cimenyan, Desa Ciburial',
+      saksi2NIK: '3204065712990001',
+      shareholders: [
+        {
+          id: crypto.randomUUID(),
+          salutation: 'Tuan',
+          name: '',
+          birthCity: '',
+          birthDate: '',
+          occupation: '',
+          nationality: 'WNI',
+          nationalityType: 'WNI',
+          address: { ...INITIAL_ADDRESS },
+          nik: '',
+          sharesOwned: 100,
+          managementPosition: 'Direktur',
+          isManagement: true,
+          shareholderType: 'PERORANGAN',
+          isForeign: false
+        }
+      ]
+    };
   });
 
   const [isAddKbliModalOpen, setIsAddKbliModalOpen] = useState(false);
@@ -301,6 +316,27 @@ export default function DraftAktaPendirian({ onShowPreview, onExportWord, profil
           </h2>
         </div>
         <div className="flex gap-2">
+          {onCancel && (
+            <button 
+              type="button" 
+              onClick={onCancel}
+              className="px-3 py-1.5 bg-slate-100 text-slate-700 text-sm font-bold rounded shadow hover:bg-slate-200 flex items-center gap-2"
+            >
+              <ArrowRight className="w-4 h-4 rotate-180" /> Kembali
+            </button>
+          )}
+
+          {onSave && (
+            <button 
+              type="button" 
+              disabled={isSaving}
+              onClick={() => onSave(data)}
+              className="px-3 py-1.5 bg-[#3b5998] text-white text-sm font-bold rounded shadow hover:bg-[#2d4373] flex items-center gap-2 disabled:opacity-50"
+            >
+              <Save className="w-4 h-4" /> {isSaving ? 'Menyimpan...' : 'Simpan'}
+            </button>
+          )}
+
           <button 
             type="button" 
             onClick={() => onShowPreview(data, 'pendirian')}
