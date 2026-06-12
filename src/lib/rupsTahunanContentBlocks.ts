@@ -227,11 +227,13 @@ export const generateRupstBlocks = (data: CompanyData): Block[] => {
   const getPersonDetailRuns = (person: any): FormatToken[] => {
     let nameUpper = (person?.name || "").toUpperCase().trim();
     const isBadanHukum = person?.shareholderType === 'BADAN_HUKUM' || person?.legalEntityType;
-    let salutation = person?.salutation || "Tuan";
-    const salUpper = `${salutation.toUpperCase()} `;
+    let salutation = (person?.salutation || "Tuan").trim();
     
-    if (nameUpper.startsWith(salUpper)) {
-      nameUpper = nameUpper.substring(salUpper.length);
+    // Improved salutation stripping (handles multiple spaces and common variations)
+    const salUpper = salutation.toUpperCase();
+    const stripRegex = new RegExp(`^(${salUpper}|TUAN|NYONYA|NONA|NY|TN|NY\\.|TN\\.|NYONYA\\.|TUAN\\.)\\s+`, "i");
+    if (stripRegex.test(nameUpper)) {
+      nameUpper = nameUpper.replace(stripRegex, "").trim();
     }
 
     const sal = (!isBadanHukum) ? `${salutation} ` : "";

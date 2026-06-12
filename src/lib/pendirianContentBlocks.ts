@@ -40,11 +40,23 @@ export function generatePendirianBlocks(data: PendirianData): Block[] {
     const tglLahirHuruf = dateToWords(p.birthDate);
     const tglLahirAngka = formatDateStr(p.birthDate);
     
+    const currentSal = (p.salutation || "Tuan").trim();
+    const salUpper = currentSal.toUpperCase();
+    let nameText = p.name.toUpperCase().trim();
+    
+    const stripRegex = new RegExp(`^(${salUpper}|TUAN|NYONYA|NONA|NY|TN|NY\\.|TN\\.|NYONYA\\.|TUAN\\.)\\s+`, "i");
+    if (nameText.startsWith(salUpper + " ") || stripRegex.test(nameText)) {
+      nameText = nameText.replace(stripRegex, "").trim();
+      if (nameText.startsWith(salUpper + " ")) {
+        nameText = nameText.substring(salUpper.length + 1).trim();
+      }
+    }
+
     blocks.push({
       type: 'numbered',
       num: idx + 1,
       runs: [
-        { text: `${p.shareholderType === 'BADAN_HUKUM' ? "" : p.salutation + " "}${p.name}`, bold: true },
+        { text: `${p.shareholderType === 'BADAN_HUKUM' ? "" : p.salutation + " "}${nameText}`, bold: true },
         { text: formatPersonDetails(p, tglLahirAngka, tglLahirHuruf, true) + "." }
       ],
     });

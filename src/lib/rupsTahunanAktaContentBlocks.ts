@@ -127,10 +127,15 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
     const isBadanHukum = person?.shareholderType === 'BADAN_HUKUM' || person?.legalEntityType;
     
     // Avoid double salutations if name already starts with the salutation
-    const currentSal = person?.salutation || "Tuan";
-    const salUpper = `${currentSal.toUpperCase()} `;
-    if (nameUpper.startsWith(salUpper)) {
-      nameUpper = nameUpper.substring(salUpper.length);
+    const currentSal = (person?.salutation || "Tuan").trim();
+    const salUpper = currentSal.toUpperCase();
+    const stripRegex = new RegExp(`^(${salUpper}|TUAN|NYONYA|NONA|NY|TN|NY\\.|TN\\.|NYONYA\\.|TUAN\\.)\\s+`, "i");
+    if (nameUpper.startsWith(salUpper + " ") || stripRegex.test(nameUpper)) {
+      nameUpper = nameUpper.replace(stripRegex, "").trim();
+      // Handle the simple startsWith case if regex didn't catch specific boundary
+      if (nameUpper.startsWith(salUpper + " ")) {
+        nameUpper = nameUpper.substring(salUpper.length + 1).trim();
+      }
     }
     
     const isPenghadap = rep && nameUpper === (rep.name || "").toUpperCase().trim();
@@ -150,6 +155,7 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
     detailText = expandAbbreviations(detailText);
 
     return [
+      { text: sal },
       { text: nameUpper, bold: true },
       { text: detailText },
     ];
@@ -462,11 +468,16 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
 
   attendees.forEach((att, idx) => {
     const isRep = (att.name || "").toUpperCase().trim() === (rep.name || "").toUpperCase().trim();
-    const currentSal = att.salutation || "Tuan";
-    const salUpper = `${currentSal.toUpperCase()} `;
-    let displayName = (att.name || "").toUpperCase();
-    if (displayName.startsWith(salUpper)) {
-      displayName = displayName.substring(salUpper.length);
+    const currentSal = (att.salutation || "Tuan").trim();
+    const salUpper = currentSal.toUpperCase();
+    let displayName = (att.name || "").toUpperCase().trim();
+    
+    const stripRegex = new RegExp(`^(${salUpper}|TUAN|NYONYA|NONA|NY|TN|NY\\.|TN\\.|NYONYA\\.|TUAN\\.)\\s+`, "i");
+    if (displayName.startsWith(salUpper + " ") || stripRegex.test(displayName)) {
+      displayName = displayName.replace(stripRegex, "").trim();
+      if (displayName.startsWith(salUpper + " ")) {
+        displayName = displayName.substring(salUpper.length + 1).trim();
+      }
     }
 
     const runsList: FormatToken[] = [{ text: att.salutation ? `${att.salutation} ` : "" }];

@@ -1,5 +1,5 @@
 import { CompanyData } from "../../types";
-import { formatNumber, toTitleCase } from "./formatter";
+import { formatNumber, toTitleCase, formatPersonDetails, formatDateStr } from "./formatter";
 
 // Helper for formatting blocks for DOCX
 export type Block =
@@ -71,15 +71,22 @@ export function generateSirkulerLaporanBlocks(data: CompanyData): Block[] {
   );
 
   shareholders.forEach((sh, index) => {
-    let textInfo = `${sh.salutation} `;
-    let nameText = `${sh.name}`;
-    let afterName = `, lahir di ${sh.birthCity}, pada tanggal ${sh.birthDate}, Warga Negara ${sh.nationality === 'WNI' ? 'Indonesia' : sh.nationality}, ${sh.occupation}, bertempat tinggal di Kota ${toTitleCase(sh.address?.city || '...........')}, ${sh.address?.fullAddress}, Rukun Tetangga ${sh.address?.rt}, Rukun Warga ${sh.address?.rw}, Kelurahan ${sh.address?.kelurahan}, Kecamatan ${sh.address?.kecamatan}, `;
-    if (sh.nationality === 'WNA' && sh.passportNumber) afterName += `pemegang Paspor Nomor ${sh.passportNumber}, `;
-    if (sh.hasKitas && sh.kitasNumber) afterName += `pemegang Kitas Nomor ${sh.kitasNumber}, `;
-    afterName += `pemegang Kartu Tanda Penduduk Nomor ${sh.nik}.`;
+    const currentSal = (sh.salutation || "Tuan").trim();
+    const salUpper = currentSal.toUpperCase();
+    let nameText = sh.name.toUpperCase().trim();
+    
+    const stripRegex = new RegExp(`^(${salUpper}|TUAN|NYONYA|NONA|NY|TN|NY\\.|TN\\.|NYONYA\\.|TUAN\\.)\\s+`, "i");
+    if (nameText.startsWith(salUpper + " ") || stripRegex.test(nameText)) {
+      nameText = nameText.replace(stripRegex, "").trim();
+      if (nameText.startsWith(salUpper + " ")) {
+        nameText = nameText.substring(salUpper.length + 1).trim();
+      }
+    }
+    
+    const personDetails = formatPersonDetails(sh, sh.birthDate ? formatDateStr(sh.birthDate) : "................", "", false);
 
     blocks.push(
-      { type: "numbered", num: `${index + 1}.`, indentLeft: 720, indentHanging: 360, runs: [{ text: textInfo }, { text: nameText, bold: true }, { text: afterName }] },
+      { type: "numbered", num: `${index + 1}.`, indentLeft: 720, indentHanging: 360, runs: [{ text: sh.shareholderType === 'BADAN_HUKUM' ? "" : `${sh.salutation} ` }, { text: nameText, bold: true }, { text: personDetails + "." }] },
       { type: "p", indentLeft: 720, runs: [{ text: "Dalam hal ini hadir selaku :" }] },
       { type: "list", bullet: "-", indentLeft: 1080, indentHanging: 360, runs: [{ text: `Pemilik dan pemegang saham sebanyak ` }, { text: `${formatNumber(sh.sharesOwned)}`, bold: true }, { text: ` (${sh.sharesOwned || "..."}) lembar saham perseroan` }] }
     );

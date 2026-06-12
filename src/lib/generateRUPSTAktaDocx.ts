@@ -314,7 +314,7 @@ const mkAttendanceDash = (t: FormatToken[], indentTabs?: number) => {
     style: "ListParagraph",
     numbering: { reference: NUM.ATTENDANCE, level: 2 },
     tabStops: [TAB_KANAN],
-    indent: isDeep ? { left: 1701, hanging: 283 } : { left: 1134 },
+    indent: isDeep ? { left: 1701, hanging: 283 } : { left: 1134, hanging: 284 },
     children: wrappedRuns(t, isDeep ? 33.0 : W.attendeeDash),
   });
 };

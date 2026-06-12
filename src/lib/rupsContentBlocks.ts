@@ -124,10 +124,14 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
     const isPenghadap = rep && nameUpper === rep.name.toUpperCase();
     const isBadanHukum = person?.shareholderType === 'BADAN_HUKUM' || person?.legalEntityType;
 
-    const salutation = person?.salutation || "Tuan";
-    const salUpper = `${salutation.toUpperCase()} `;
-    if (nameUpper.startsWith(salUpper)) {
-      nameUpper = nameUpper.substring(salUpper.length);
+    const salutation = (person?.salutation || "Tuan").trim();
+    const salUpper = salutation.toUpperCase();
+    const stripRegex = new RegExp(`^(${salUpper}|TUAN|NYONYA|NONA|NY|TN|NY\\.|TN\\.|NYONYA\\.|TUAN\\.)\\s+`, "i");
+    if (nameUpper.startsWith(salUpper + " ") || stripRegex.test(nameUpper)) {
+      nameUpper = nameUpper.replace(stripRegex, "").trim();
+      if (nameUpper.startsWith(salUpper + " ")) {
+        nameUpper = nameUpper.substring(salUpper.length + 1).trim();
+      }
     }
 
     if (fullyDescribedNames.has(nameUpper)) {

@@ -1,6 +1,6 @@
 import { Document, Packer, Paragraph, TextRun, Tab } from "docx";
 import { CompanyData, Shareholder, Address, ManagementItem } from "../../types";
-import { formatFullAddressData, formatCompanyName } from "./formatter";
+import { formatFullAddressData, formatCompanyName, formatPersonDetails, formatDateStr } from "./formatter";
 import { formatKbliCategory } from "./kbliConstants";
 import {
   formatCurrency,
@@ -290,13 +290,17 @@ export const generateWordDoc = async (data: CompanyData) => {
     const parValue = data.originalSharePrice || 0;
     const currentShares = sh.sharesOwned || 0;
     const currentValue = currentShares * parValue;
+    const isBadanHukum = sh.shareholderType === 'BADAN_HUKUM';
+
+    const tglAngka = sh.birthDate ? formatDateStr(sh.birthDate) : "...";
+    const personDetails = formatPersonDetails(sh, tglAngka, "", false);
 
       children.push(
         createBodyParagraph({
           numbering: { reference: "sh-num", level: 0 },
           children: [
             new TextRun({
-              text: `${sh.salutation} `,
+              text: isBadanHukum ? "" : `${sh.salutation} `,
               size: FONT_SIZE,
               font: FONT_FAMILY,
             }),
@@ -307,7 +311,7 @@ export const generateWordDoc = async (data: CompanyData) => {
               font: FONT_FAMILY,
             }),
             new TextRun({
-              text: `, lahir di ${toTitleCase(sh.birthCity || "................")}, pada tanggal ${getDayIndo(sh.birthDate) || ".."} ${getMonthIndo(sh.birthDate) || "........"} ${getYearIndo(sh.birthDate) || "...."}, ${getNationalityStr(sh)}, ${getOccupationStr(sh)}${getAddressStr(sh)}, ${getIdentificationStr(sh)};`,
+              text: personDetails + ";",
               size: FONT_SIZE,
               font: FONT_FAMILY,
             }),
