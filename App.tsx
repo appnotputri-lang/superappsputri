@@ -6202,7 +6202,7 @@ const App: React.FC = () => {
                           <div>
                             <AhuLabel label="Laba Ditahan / Rugi Berjalan (Rp)" />
                             <div className="px-3 py-1.5 bg-slate-50 border border-[#ccc] rounded-sm text-[13px] font-bold text-slate-700">
-                              {((data.rupstNetProfit || 0) - (data.rupstDividendAmount || 0)) < 0 ? '- ' : ''}Rp. {formatInputNumber(Math.abs((data.rupstNetProfit || 0) - (data.rupstDividendAmount || 0)))}
+                              {((data.rupstNetProfit || 0) + (data.rupstRetainedProfit || 0) - (data.rupstDividendAmount || 0)) < 0 ? '- ' : ''}Rp. {formatInputNumber(Math.abs((data.rupstNetProfit || 0) + (data.rupstRetainedProfit || 0) - (data.rupstDividendAmount || 0)))}
                             </div>
                           </div>
                         </div>

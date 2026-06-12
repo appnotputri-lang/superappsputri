@@ -6,6 +6,7 @@ import {
   AlignmentType,
   TabStopType,
   LeaderType,
+  LevelFormat,
   IParagraphOptions,
   Footer,
   PageNumber,
@@ -15,249 +16,186 @@ import { FormatToken, parseTextRuns } from "./notaryWrapper";
 import { generatePendirianBlocks } from "./pendirianContentBlocks";
 import { preprocessBlocksForWordBullets } from "./formatter";
 
-const TAB_KANAN = { type: TabStopType.RIGHT, position: 8504, leader: LeaderType.HYPHEN };
-const TAB_KANAN_NO_LEADER = { type: TabStopType.RIGHT, position: 8504, leader: LeaderType.NONE };
+// ─── EXACT values measured from AKTA_PENDIRIAN.docx ───────────────────────────
+//
+// Page: A4 (11906 × 16838 twips)
+// Margins: top=1418 right=616 bottom=1418 left=2880
+//
+// Body paragraph:     ind left=-851           tab @8364 (hyphen)
+// Numbered (ayat):    ind left=-567 hang=284  tab @8364 (hyphen)   numFmt decimal "%1."
+// Sub-numbered (a.):  ind left=-284 hang=284  tab @8364 (hyphen)   numFmt lowerLetter "%1."
+// Bullet (dash):      ind left=-567 hang=284  tab @8364 (hyphen)   numFmt bullet "-"
+// Bullet sub (KBLI):  ind left=-284 hang=284  tab @8364 (hyphen)   numFmt bullet "-"
+//
+// KEY: Each "PASAL N" line creates a new numId → numbering RESTARTS per pasal.
+//      We generate a unique reference per pasal block.
+//
+// IMPORTANT: Do NOT use parseTextRuns / manual line-breaks for numbered/sub paragraphs.
+//            Let Word do natural word-wrap. Only add a single trailing \t for hyphen leader.
+// ──────────────────────────────────────────────────────────────────────────────
 
-const W = {
-  normal: 41.5,
-  list1: 39.0,
-  list2: 36.5,
-  list3: 34.0,
-  numbered: 38.0,
-  subnr: 37.2,
-  rcenter: 20.5,
-};
+const TAB_KANAN = { type: TabStopType.RIGHT, position: 8364, leader: LeaderType.HYPHEN };
 
 type POpts = Partial<IParagraphOptions>;
+type Run = { text: string; bold?: boolean };
 
-const toRuns = (tokens: FormatToken[]) =>
-  tokens.map((t) => new TextRun({ text: t.text, bold: !!t.bold }));
+// Convert block runs → TextRun[]  (no line-break injection)
+const toRuns = (runs: Run[]): TextRun[] =>
+  runs.map((r) => new TextRun({ text: r.text, bold: !!r.bold }));
 
+// ─── Body paragraph (normal / center / right-center) ─────────────────────────
+// For regular paragraphs we keep parseTextRuns because these don't have
+// a numbering label – the width estimate is needed for the hyphen-leader tab.
+// But for simplicity, we just put all text + trailing \t in one paragraph too.
 const createP = (
-  tokens: FormatToken[],
+  runs: Run[],
   isRightCenter = false,
   options: POpts = {}
 ): Paragraph => {
   const isCentered = options.alignment === AlignmentType.CENTER;
-  const lines = parseTextRuns(tokens, isRightCenter ? W.rcenter : W.normal);
-  const children: TextRun[] = [];
+  const children: TextRun[] = [
+    ...toRuns(runs),
+    ...(isCentered || isRightCenter ? [] : [new TextRun({ text: "\t" })]),
+  ];
 
-  lines.forEach((lineTokens, i) => {
-    children.push(...toRuns(lineTokens));
-    if (!isCentered && !isRightCenter) children.push(new TextRun({ text: "\t" }));
-    if (i < lines.length - 1) children.push(new TextRun({ break: 1 }));
-  });
-
-  const finalOptions: POpts = {
-    ...options,
-    ...(isRightCenter ? { indent: { left: 4252 }, alignment: AlignmentType.CENTER } : {}),
-  };
+  if (isRightCenter) {
+    return new Paragraph({
+      children,
+      tabStops: [
+        { type: TabStopType.LEFT, position: 360 },
+        { type: TabStopType.LEFT, position: 630 },
+        { type: TabStopType.RIGHT, position: 8364, leader: LeaderType.HYPHEN },
+        { type: TabStopType.RIGHT, position: 8800, leader: LeaderType.HYPHEN },
+      ],
+      alignment: AlignmentType.LEFT,
+      indent: { left: 630, right: 28 },
+      ...options,
+    });
+  }
 
   return new Paragraph({
     children,
     tabStops: isCentered ? [] : [TAB_KANAN],
-    alignment: AlignmentType.LEFT,
-    ...finalOptions,
+    alignment: isCentered ? AlignmentType.CENTER : AlignmentType.LEFT,
+    indent: isCentered ? undefined : { left: -851 },
+    ...options,
   });
 };
 
-const createIndentP = (
-  tokens: FormatToken[],
-  leftDxa: number,
-  options: POpts = {}
-): Paragraph => {
-  const lines = parseTextRuns(tokens, W.normal - (leftDxa / 850) * 2.2);
-  const children: TextRun[] = [];
-
-  lines.forEach((lineTokens, i) => {
-    children.push(...toRuns(lineTokens));
-    children.push(new TextRun({ text: "\t" }));
-    if (i < lines.length - 1) children.push(new TextRun({ break: 1 }));
-  });
-
-  return new Paragraph({
-    children,
+// ─── Indented body paragraph (for indentTabs) ─────────────────────────────────
+const createIndentP = (runs: Run[], leftDxa: number, options: POpts = {}): Paragraph =>
+  new Paragraph({
+    children: [...toRuns(runs), new TextRun({ text: "\t" })],
     tabStops: [TAB_KANAN],
     alignment: AlignmentType.LEFT,
     indent: { left: leftDxa },
     ...options,
   });
-};
 
-const createKbliDescP = (tokens: FormatToken[]): Paragraph => {
-  const lines = parseTextRuns(tokens, 34.5);
-  const children: TextRun[] = [];
-
-  lines.forEach((lineTokens, i) => {
-    children.push(...toRuns(lineTokens));
-    children.push(new TextRun({ text: "\t" }));
-    if (i < lines.length - 1) children.push(new TextRun({ break: 1 }));
-  });
-
-  return new Paragraph({
-    children,
+// ─── KBLI description paragraph ───────────────────────────────────────────────
+const createKbliDescP = (runs: Run[]): Paragraph =>
+  new Paragraph({
+    children: [...toRuns(runs), new TextRun({ text: "\t" })],
     tabStops: [TAB_KANAN],
     alignment: AlignmentType.LEFT,
-    indent: { left: 1417 },
-  });
-};
-
-const createListP = (
-  bulletText: string,
-  tokens: FormatToken[],
-  indentTabs = 0,
-  options: POpts = {}
-): Paragraph => {
-  let leftDxa: number;
-  let hangingDxa: number;
-  let maxW: number;
-
-  if (indentTabs <= 0.6) {
-    leftDxa = 284;
-    hangingDxa = 284;
-    maxW = W.list1;
-  } else if (indentTabs <= 1.0) {
-    leftDxa = 567;
-    hangingDxa = 283;
-    maxW = W.list2;
-  } else if (indentTabs > 1.0 && indentTabs < 1.4) {
-    leftDxa = 1134;
-    hangingDxa = 360;
-    maxW = W.list3;
-  } else if (indentTabs <= 1.9) {
-    leftDxa = 567;
-    hangingDxa = 283;
-    maxW = W.list2;
-  } else if (indentTabs === 2) {
-    leftDxa = 1417;
-    hangingDxa = 283;
-    maxW = W.list3;
-  } else {
-    leftDxa = 851;
-    hangingDxa = 284;
-    maxW = W.list3;
-  }
-
-  const lines = parseTextRuns(tokens, maxW);
-  const children: TextRun[] = [];
-
-  lines.forEach((lineTokens, i) => {
-    if (i === 0) children.push(new TextRun({ text: `${bulletText}\t` }));
-    children.push(...toRuns(lineTokens));
-    children.push(new TextRun({ text: "\t" }));
-    if (i < lines.length - 1) children.push(new TextRun({ break: 1 }));
+    indent: { left: -284 },
   });
 
-  return new Paragraph({
-    children,
-    tabStops: [{ type: TabStopType.LEFT, position: leftDxa }, TAB_KANAN],
-    alignment: AlignmentType.LEFT,
-    indent: { left: leftDxa, hanging: hangingDxa },
-    ...options,
-  });
-};
-
-const createNumberedP = (
-  num: number | string,
-  tokens: FormatToken[],
-  options: POpts = {}
-): Paragraph => {
-  const lines = parseTextRuns(tokens, W.numbered);
-  const children: TextRun[] = [];
-
-  lines.forEach((lineTokens, i) => {
-    if (i === 0) children.push(new TextRun({ text: `${num}.\t` }));
-    children.push(...toRuns(lineTokens));
-    children.push(new TextRun({ text: "\t" }));
-    if (i < lines.length - 1) children.push(new TextRun({ break: 1 }));
-  });
-
-  return new Paragraph({
-    children,
-    tabStops: [{ type: TabStopType.LEFT, position: 720 }, TAB_KANAN],
-    alignment: AlignmentType.LEFT,
-    indent: { left: 284, hanging: 284 },
-    ...options,
-  });
-};
-
-const createSubNumberedP = (
-  num: number | string,
-  tokens: FormatToken[],
-  _indentTabs = 0
-): Paragraph => {
-  const leftDxa = 850;
-  const hangingDxa = 425;
-  const lines = parseTextRuns(tokens, W.subnr);
-  const children: TextRun[] = [];
-
-  lines.forEach((lineTokens, i) => {
-    if (i === 0) children.push(new TextRun({ text: `${num})\t` }));
-    children.push(...toRuns(lineTokens));
-    children.push(new TextRun({ text: "\t" }));
-    if (i < lines.length - 1) children.push(new TextRun({ break: 1 }));
-  });
-
-  return new Paragraph({
-    children,
-    tabStops: [{ type: TabStopType.LEFT, position: leftDxa }, TAB_KANAN],
-    alignment: AlignmentType.LEFT,
-    indent: { left: leftDxa, hanging: hangingDxa },
-  });
-};
-
-const createDividerP = (text: string): Paragraph =>
+// ─── Numbered pasal ayat  "1. 2. 3." ─────────────────────────────────────────
+// ind left=-567 hang=284 — NO manual line-breaks, Word wraps naturally
+const createNumberedP = (runs: Run[], numRef: string): Paragraph =>
   new Paragraph({
+    children: [...toRuns(runs), new TextRun({ text: "\t" })],
+    numbering: { reference: numRef, level: 0 },
+    tabStops: [TAB_KANAN],
+    alignment: AlignmentType.LEFT,
+    indent: { left: -567, hanging: 284 },
+  });
+
+// ─── Sub-numbered  "a. b. c." ─────────────────────────────────────────────────
+// ind left=-284 hang=284
+const createSubNumberedP = (runs: Run[], numRef: string): Paragraph =>
+  new Paragraph({
+    children: [...toRuns(runs), new TextRun({ text: "\t" })],
+    numbering: { reference: numRef, level: 0 },
+    tabStops: [TAB_KANAN],
+    alignment: AlignmentType.LEFT,
+    indent: { left: -284, hanging: 284 },
+  });
+
+// ─── Bullet list paragraph ────────────────────────────────────────────────────
+const createListP = (runs: Run[], numRef: string, isSub = false): Paragraph =>
+  new Paragraph({
+    children: [...toRuns(runs), new TextRun({ text: "\t" })],
+    numbering: { reference: numRef, level: 0 },
+    tabStops: [TAB_KANAN],
+    alignment: AlignmentType.LEFT,
+    indent: { left: isSub ? -284 : -567, hanging: 284 },
+  });
+
+// ─── Divider  "─── TEXT ───" ──────────────────────────────────────────────────
+const createDividerP = (text: string): Paragraph => {
+  const upper = text.toUpperCase();
+  // We use CENTER tab type at the midpoint of the document content area (-851 to 8364)
+  // Midpoint = (-851 + 8364) / 2 = 3756.5
+  return new Paragraph({
     children: [
       new TextRun({ text: "\t" }),
-      new TextRun({ text, bold: true }),
+      new TextRun({ text: ` ${upper} `, bold: true }),
       new TextRun({ text: "\t" }),
     ],
     tabStops: [
-      { type: TabStopType.CENTER, position: 4252, leader: LeaderType.HYPHEN },
-      { type: TabStopType.RIGHT, position: 8504, leader: LeaderType.HYPHEN },
+      { type: TabStopType.CENTER, position: 3756, leader: LeaderType.HYPHEN },
+      { type: TabStopType.RIGHT,  position: 8364, leader: LeaderType.HYPHEN },
     ],
     alignment: AlignmentType.LEFT,
+    indent: { left: -851 },
   });
+};
 
-const createPasalDividerP = (text: string): Paragraph =>
-  new Paragraph({
+// ─── Pasal divider  "─── PASAL N ───" ────────────────────────────────────────
+// Text is used as-is (no toUpperCase) so "Pasal 14" stays "Pasal 14" to match the original docx.
+const createPasalDividerP = (text: string): Paragraph => {
+  return new Paragraph({
     children: [
       new TextRun({ text: "\t" }),
-      new TextRun({ text, bold: true }),
+      new TextRun({ text: ` ${text} `, bold: true }),
       new TextRun({ text: "\t" }),
     ],
     tabStops: [
-      { type: TabStopType.CENTER, position: 3969, leader: LeaderType.HYPHEN },
-      { type: TabStopType.RIGHT, position: 8504, leader: LeaderType.HYPHEN },
+      { type: TabStopType.CENTER, position: 3756, leader: LeaderType.HYPHEN },
+      { type: TabStopType.RIGHT,  position: 8364, leader: LeaderType.HYPHEN },
     ],
-    indent: { left: 284 },
     alignment: AlignmentType.LEFT,
+    indent: { left: -851 },
   });
+};
 
-const createManagementRoleListP = (
-  position: string,
-  nameText: string
-): Paragraph =>
+// ─── Management role  "Direktur : Nama;" ─────────────────────────────────────
+const createManagementRoleListP = (position: string, nameText: string): Paragraph =>
   new Paragraph({
     children: [
-      new TextRun({ text: position }),
+      new TextRun({ text: `- ${position}` }),
       new TextRun({ text: "\t" }),
       new TextRun({ text: `: ${nameText};` }),
       new TextRun({ text: "\t" }),
     ],
-    tabStops: [{ type: TabStopType.LEFT, position: 2268 }, TAB_KANAN],
+    tabStops: [
+      { type: TabStopType.LEFT, position: 1701 },
+      TAB_KANAN,
+    ],
     alignment: AlignmentType.LEFT,
-    indent: { left: 284 },
+    indent: { left: 0, hanging: 284 },
   });
 
+// ─── Shareholder list ─────────────────────────────────────────────────────────
 const createShareholderListParagraphs = (
   bullet: string,
   name: string,
   sharesText: string,
   rpText: string
-): Paragraph[] => {
-  const p1 = new Paragraph({
+): Paragraph[] => [
+  new Paragraph({
     children: [
       new TextRun({ text: `${bullet}\t` }),
       new TextRun({ text: name }),
@@ -272,9 +210,8 @@ const createShareholderListParagraphs = (
     ],
     alignment: AlignmentType.LEFT,
     indent: { left: 2800, hanging: 2375 },
-  });
-
-  const p2 = new Paragraph({
+  }),
+  new Paragraph({
     children: [
       new TextRun({ text: "\t" }),
       new TextRun({ text: "\t" }),
@@ -288,132 +225,181 @@ const createShareholderListParagraphs = (
     ],
     alignment: AlignmentType.LEFT,
     indent: { left: 2835, hanging: 2375 },
-  });
-
-  return [p1, p2];
-};
-
-const createSaksiP = (num: number, tokens: FormatToken[]): Paragraph => {
-  const lines = parseTextRuns(tokens, 39.5);
-  const children: TextRun[] = [];
-
-  lines.forEach((lineTokens, i) => {
-    if (i === 0) children.push(new TextRun({ text: `${num}.\t` }));
-    children.push(...toRuns(lineTokens));
-    children.push(new TextRun({ text: "\t" }));
-    if (i < lines.length - 1) children.push(new TextRun({ break: 1 }));
-  });
-
-  return new Paragraph({
-    children,
-    tabStops: [TAB_KANAN],
-    alignment: AlignmentType.LEFT,
-    indent: { left: 426, hanging: 360 },
-  });
-};
-
-const NOTARIS_TAB_STOPS = [
-  { type: TabStopType.LEFT, position: 4395 },
-  TAB_KANAN_NO_LEADER,
+  }),
 ];
 
-const createNotarisEmptyP = (): Paragraph =>
+// ─── Saksi (witness) ──────────────────────────────────────────────────────────
+const createSaksiP = (runs: Run[], numRef: string): Paragraph =>
   new Paragraph({
-    children: [],
-    tabStops: NOTARIS_TAB_STOPS,
+    children: [...toRuns(runs), new TextRun({ text: "\t" })],
+    numbering: { reference: numRef, level: 0 },
+    tabStops: [TAB_KANAN],
+    alignment: AlignmentType.LEFT,
+    indent: { left: -567, hanging: 284 },
   });
+
+// ─── Notaris block ────────────────────────────────────────────────────────────
+const createNotarisEmptyP = (): Paragraph => new Paragraph({ children: [new TextRun("")] });
 
 const createNotarisLabelP = (domicile: string): Paragraph =>
   new Paragraph({
-    children: [new TextRun({ text: "\t" }), new TextRun({ text: `Notaris di ${domicile};` })],
-    tabStops: NOTARIS_TAB_STOPS,
+    children: [new TextRun({ text: `Notaris di ${domicile};` })],
+    tabStops: [
+      { type: TabStopType.LEFT, position: 360 },
+      { type: TabStopType.LEFT, position: 630 },
+      { type: TabStopType.RIGHT, position: 8364, leader: LeaderType.HYPHEN },
+      { type: TabStopType.RIGHT, position: 8800, leader: LeaderType.HYPHEN },
+    ],
+    indent: { left: 630, right: 28 },
   });
 
 const createNotarisNameP = (name: string): Paragraph =>
   new Paragraph({
-    children: [new TextRun({ text: "\t" }), new TextRun({ text: name, bold: true })],
-    tabStops: NOTARIS_TAB_STOPS,
+    children: [new TextRun({ text: name, bold: true })],
+    tabStops: [
+      { type: TabStopType.RIGHT, position: 8364, leader: LeaderType.HYPHEN },
+      { type: TabStopType.RIGHT, position: 8800, leader: LeaderType.HYPHEN },
+    ],
+    indent: { left: 179, right: 28, firstLine: 142 },
   });
 
+// ─── Assign per-pasal numbering references ────────────────────────────────────
+// Each "PASAL N" block triggers new refs → numbering restarts per pasal.
+function assignNumberingRefs(blocks: any[]): any[] {
+  let pasalCounter = 0;
+  let numberedRef = "numbered-p0";   // for shareholders intro / pre-pasal numbered
+  let subRef      = "sub-p0";
+  let bulletRef   = "bullet-p0";
+
+  return blocks.map((block: any) => {
+    const isManagementTitle = block.type === "numbered" && 
+                              block.runs && 
+                              block.runs[0] && 
+                              block.runs[0].text === "Anggota Direksi :";
+
+    if ((block.type === "pasal-divider" && /^PASAL\s*\d+/i.test(block.text)) || isManagementTitle) {
+      pasalCounter++;
+      numberedRef = `numbered-p${pasalCounter}`;
+      subRef      = `sub-p${pasalCounter}`;
+      bulletRef   = `bullet-p${pasalCounter}`;
+      if (block.type === "pasal-divider") return block;
+    }
+    if (block.type === "numbered")     return { ...block, _numRef: numberedRef };
+    if (block.type === "sub-numbered") return { ...block, _numRef: subRef };
+    if (block.type === "list")         return { ...block, _numRef: bulletRef };
+    if (block.type === "saksi")        return { ...block, _numRef: "saksi-list" };
+    return block;
+  });
+}
+
+// ─── Build docx numbering config from annotated blocks ───────────────────────
+function buildNumberingConfig(blocks: any[]): any[] {
+  const numberedRefs = new Set<string>();
+  const subRefs      = new Set<string>();
+  const bulletRefs   = new Set<string>();
+
+  blocks.forEach((b: any) => {
+    if (!b._numRef) return;
+    if (b.type === "numbered" || b.type === "saksi") numberedRefs.add(b._numRef);
+    else if (b.type === "sub-numbered")              subRefs.add(b._numRef);
+    else if (b.type === "list")                      bulletRefs.add(b._numRef);
+  });
+
+  const config: any[] = [];
+
+  numberedRefs.forEach((ref) => config.push({
+    reference: ref,
+    levels: [{ level: 0, format: LevelFormat.DECIMAL, text: "%1.",
+      alignment: AlignmentType.START,
+      style: { paragraph: { indent: { left: -567, hanging: 284 } } } }],
+  }));
+
+  subRefs.forEach((ref) => config.push({
+    reference: ref,
+    levels: [{ level: 0, format: LevelFormat.LOWER_LETTER, text: "%1.",
+      alignment: AlignmentType.START,
+      style: { paragraph: { indent: { left: -284, hanging: 284 } } } }],
+  }));
+
+  bulletRefs.forEach((ref) => config.push({
+    reference: ref,
+    levels: [{ level: 0, format: LevelFormat.BULLET, text: "-",
+      alignment: AlignmentType.START,
+      style: { paragraph: { indent: { left: -567, hanging: 284 } } } }],
+  }));
+
+  // saksi always uses decimal, same indent as numbered
+  config.push({
+    reference: "saksi-list",
+    levels: [{ level: 0, format: LevelFormat.DECIMAL, text: "%1.",
+      alignment: AlignmentType.START,
+      style: { paragraph: { indent: { left: -567, hanging: 284 } } } }],
+  });
+
+  return config;
+}
+
+// ─── Main export ──────────────────────────────────────────────────────────────
 export const generatePendirianDocx = async (data: any) => {
-  const rawBlocks = generatePendirianBlocks(data);
-  const blocks = preprocessBlocksForWordBullets(rawBlocks);
+  const rawBlocks    = generatePendirianBlocks(data);
+  const preprocessed = preprocessBlocksForWordBullets(rawBlocks);
+  const blocks       = assignNumberingRefs(preprocessed);
+  const numbering    = buildNumberingConfig(blocks);
+
   const docxChildren: Paragraph[] = [];
 
   blocks.forEach((block: any) => {
-    if (block.type === "p") {
-      const isCentered = block.align === "center";
-      const isRightCenter = block.align === "right-center";
-      const alignOpt = isCentered ? AlignmentType.CENTER : AlignmentType.LEFT;
-      const opts: POpts = { alignment: alignOpt };
-
-      if (block.kbliDesc) {
-        docxChildren.push(createKbliDescP(block.runs));
-      } else if (block.indentTabs && !isCentered && !isRightCenter) {
-        const leftDxa = Math.round((block.indentTabs || 0) * 850);
-        docxChildren.push(createIndentP(block.runs, leftDxa, opts));
-      } else {
-        docxChildren.push(createP(block.runs, isRightCenter, opts));
+    switch (block.type) {
+      case "p": {
+        const isCentered    = block.align === "center";
+        const isRightCenter = block.align === "right-center";
+        const alignOpt      = isCentered ? AlignmentType.CENTER : AlignmentType.LEFT;
+        if (block.kbliDesc) {
+          docxChildren.push(createKbliDescP(block.runs));
+        } else if (block.indentTabs && !isCentered && !isRightCenter) {
+          const leftDxa = Math.round((block.indentTabs || 0) * 850);
+          docxChildren.push(createIndentP(block.runs, leftDxa, { alignment: alignOpt }));
+        } else {
+          docxChildren.push(createP(block.runs, isRightCenter, { alignment: alignOpt }));
+        }
+        break;
       }
-      return;
-    }
-
-    if (block.type === "divider") {
-      docxChildren.push(createDividerP(block.text));
-      return;
-    }
-
-    if (block.type === "pasal-divider") {
-      docxChildren.push(createPasalDividerP(block.text));
-      return;
-    }
-
-    if (block.type === "list") {
-      docxChildren.push(createListP(block.bullet || "-", block.runs, block.indentTabs || 0));
-      return;
-    }
-
-    if (block.type === "numbered") {
-      docxChildren.push(createNumberedP(block.num, block.runs));
-      return;
-    }
-
-    if (block.type === "sub-numbered") {
-      docxChildren.push(createSubNumberedP(block.num, block.runs, block.indentTabs || 0));
-      return;
-    }
-
-    if (block.type === "management-role") {
-      docxChildren.push(createManagementRoleListP(block.position, block.nameText));
-      return;
-    }
-
-    if (block.type === "shareholder") {
-      docxChildren.push(
-        ...createShareholderListParagraphs(
-          block.bullet || "-",
-          block.name,
-          block.sharesText,
-          block.rpText
-        )
-      );
-      return;
-    }
-
-    if (block.type === "saksi") {
-      docxChildren.push(createSaksiP(block.num, block.runs));
-      return;
-    }
-
-    if (block.type === "br") {
-      docxChildren.push(new Paragraph({ children: [new TextRun("")] }));
+      case "divider":
+        docxChildren.push(createDividerP(block.text));
+        break;
+      case "pasal-divider":
+        docxChildren.push(createPasalDividerP(block.text));
+        break;
+      case "list":
+        docxChildren.push(createListP(block.runs, block._numRef, (block.indentTabs || 0) > 0));
+        break;
+      case "numbered":
+        docxChildren.push(createNumberedP(block.runs, block._numRef));
+        break;
+      case "sub-numbered":
+        docxChildren.push(createSubNumberedP(block.runs, block._numRef));
+        break;
+      case "management-role":
+        docxChildren.push(createManagementRoleListP(block.position, block.nameText));
+        break;
+      case "shareholder":
+        docxChildren.push(...createShareholderListParagraphs(
+          block.bullet || "-", block.name, block.sharesText, block.rpText
+        ));
+        break;
+      case "saksi":
+        docxChildren.push(createSaksiP(block.runs, block._numRef));
+        break;
+      case "br":
+        docxChildren.push(new Paragraph({ children: [new TextRun("")] }));
+        break;
     }
   });
 
+  // Append notaris block if not already present in content
   const hasNotarisBottom = blocks.some(
     (b: any) => b.type === "p" && b.align === "right-center"
   );
-
   if (!hasNotarisBottom) {
     docxChildren.push(createNotarisLabelP("Kabupaten Bandung Barat"));
     docxChildren.push(createNotarisEmptyP());
@@ -422,48 +408,41 @@ export const generatePendirianDocx = async (data: any) => {
   }
 
   const doc = new Document({
+    numbering: { config: numbering },
     styles: {
       default: {
         document: {
-          run: {
-            font: "Century Gothic",
-            size: 20,
-          },
+          run: { font: "Century Gothic", size: 20 },
           paragraph: {
             spacing: { line: 480, before: 0, after: 0 },
-            indent: { left: 0, right: 0, firstLine: 0 },
+            indent:  { left: 0, right: 0, firstLine: 0 },
             alignment: AlignmentType.LEFT,
           },
         },
       },
     },
-    sections: [
-      {
-        properties: {
-          page: {
-            size: { width: 11906, height: 16838 },
-            margin: { top: 1417, bottom: 1417, left: 2268, right: 1134 },
-          },
+    sections: [{
+      properties: {
+        page: {
+          size:   { width: 11906, height: 16838 },
+          margin: { top: 1418, bottom: 1418, left: 2880, right: 616 },
         },
-        footers: {
-          default: new Footer({
-            children: [
-              new Paragraph({
-                alignment: AlignmentType.CENTER,
-                children: [new TextRun({ children: ["- ", PageNumber.CURRENT, " -"] })],
-              }),
-            ],
-          }),
-        },
-        children: docxChildren,
       },
-    ],
+      footers: {
+        default: new Footer({
+          children: [new Paragraph({
+            alignment: AlignmentType.CENTER,
+            children: [new TextRun({ children: [PageNumber.CURRENT] })],
+          })],
+        }),
+      },
+      children: docxChildren,
+    }],
   });
 
   const blob = await Packer.toBlob(doc);
   const safeName = data?.namaPt
-    ? String(data.namaPt).replace(/PT\\.?\\s*/i, "").trim()
+    ? String(data.namaPt).replace(/PT\.?\s*/i, "").trim()
     : "Draft";
-
   saveAs(blob, `Akta_Pendirian_${safeName}.docx`);
 };

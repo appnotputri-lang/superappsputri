@@ -729,6 +729,12 @@ export const RupstPublicWizard = ({ data, updateData, isSaving, handleSave, goBa
                                                         <AhuLabel label="Saldo Laba/Rugi Ditahan Tahun Sebelumnya (Rp)" />
                                                         <AhuInput value={formatInputNumber(data.rupstRetainedProfit)} onChange={e => updateData({ rupstRetainedProfit: parseFormattedNumber(e.target.value) })} />
                                                     </div>
+                                                    <div>
+                                                        <AhuLabel label="Laba Ditahan / Rugi Berjalan (Rp)" />
+                                                        <div className="px-3 py-1.5 bg-slate-50 border border-[#ccc] rounded-sm text-[12px] font-bold text-slate-700">
+                                                            {((data.rupstNetProfit || 0) + (data.rupstRetainedProfit || 0) - (data.rupstDividendAmount || 0)) < 0 ? '- ' : ''}Rp. {formatInputNumber(Math.abs((data.rupstNetProfit || 0) + (data.rupstRetainedProfit || 0) - (data.rupstDividendAmount || 0)))}
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>

@@ -595,20 +595,23 @@ export const generateRupstBlocks = (data: CompanyData): Block[] => {
 
     if (!isNeg) {
       if (data.rupstDividendAmount && data.rupstDividendAmount > 0) {
+        const divAmt = data.rupstDividendAmount || 0;
         blocks.push({
           type: "list",
           bullet: "-",
           indentTabs: 1,
           indentStyle: "keputusan",
-          runs: [{ text: `Sebesar Rp. ${formatNumber(data.rupstDividendAmount)},- dibagikan sebagai dividen.` }]
+          runs: [{ text: `Sebesar Rp. ${formatNumber(divAmt)},- (${terbilang(divAmt)} rupiah) dibagikan sebagai dividen.` }]
         });
-        const sisa = Math.max(0, (data.rupstNetProfit || 0) - data.rupstDividendAmount);
+        const netProfit = data.rupstNetProfit || 0;
+        const previousRetained = data.rupstRetainedProfit || 0;
+        const totalLabaDitahan = netProfit + previousRetained - divAmt;
         blocks.push({
           type: "list",
           bullet: "-",
           indentTabs: 1,
           indentStyle: "keputusan",
-          runs: [{ text: `Laba bersih sebesar Rp. ${formatNumber(sisa)},- dicatat sebagai saldo laba ditahan Perseroan.` }]
+          runs: [{ text: `Laba bersih tahun berjalan sebesar Rp. ${formatNumber(netProfit)},- (${terbilang(netProfit)} rupiah) ditambah saldo laba ditahan tahun sebelumnya sebesar Rp. ${formatNumber(previousRetained)},- (${terbilang(previousRetained)} rupiah) setelah dikurangi dividen, maka total saldo laba ditahan Perseroan menjadi sebesar Rp. ${formatNumber(totalLabaDitahan)},- (${terbilang(totalLabaDitahan)} rupiah).` }]
         });
       } else {
         blocks.push({
@@ -623,7 +626,7 @@ export const generateRupstBlocks = (data: CompanyData): Block[] => {
           bullet: "-",
           indentTabs: 1,
           indentStyle: "keputusan",
-          runs: [{ text: "Laba bersih tahun berjalan dicatat sebagai saldo laba ditahan Perseroan." }]
+          runs: [{ text: `Laba bersih tahun berjalan sebesar Rp. ${formatNumber(data.rupstNetProfit || 0)},- (${terbilang(data.rupstNetProfit || 0)} rupiah) ditambah saldo laba ditahan tahun sebelumnya sebesar Rp. ${formatNumber(data.rupstRetainedProfit || 0)},- (${terbilang(data.rupstRetainedProfit || 0)} rupiah) sehingga total saldo laba ditahan Perseroan menjadi sebesar Rp. ${formatNumber((data.rupstNetProfit || 0) + (data.rupstRetainedProfit || 0))},- (${terbilang((data.rupstNetProfit || 0) + (data.rupstRetainedProfit || 0))} rupiah).` }]
         });
       }
     }
@@ -660,8 +663,11 @@ export const generateRupstBlocks = (data: CompanyData): Block[] => {
       if (isNeg) {
         netProfitText = `Menetapkan Perseroan mengalami rugi bersih untuk tahun buku ${fiscalYear} sebesar ${amtStr}, dan oleh karenanya memutuskan bahwa tidak terdapat laba bersih yang dapat dibagikan sebagai dividen kepada para pemegang saham untuk Tahun Buku ${fiscalYear}. Seluruh saldo rugi tersebut akan dicatat sebagai akumulasi rugi Perseroan sesuai ketentuan peraturan perundang-undangan yang berlaku.`;
       } else {
+        const netProfit = data.rupstNetProfit || 0;
+        const previousRetained = data.rupstRetainedProfit || 0;
         const divAmt = data.rupstDividendAmount || 0;
-        netProfitText = `Menetapkan penggunaan laba bersih sebesar ${amtStr}, dimana sebesar Rp. ${formatNumber(divAmt)},- dibagikan sebagai dividen dan sisanya sebagai laba ditahan.`;
+        const totalLabaDitahan = netProfit + previousRetained - divAmt;
+        netProfitText = `Menetapkan penggunaan laba bersih sebesar ${amtStr}, dimana sebesar Rp. ${formatNumber(divAmt)},- (${terbilang(divAmt)} rupiah) dibagikan sebagai dividen dan sisanya setelah ditambah saldo laba ditahan tahun sebelumnya sebesar Rp. ${formatNumber(previousRetained)},- (${terbilang(previousRetained)} rupiah) menjadi sebesar Rp. ${formatNumber(totalLabaDitahan)},- (${terbilang(totalLabaDitahan)} rupiah) ditetapkan sebagai saldo laba ditahan Perseroan.`;
       }
     } else {
       netProfitText = "Menetapkan penggunaan laba bersih Perseroan sebagaimana diusulkan dalam Rapat.";

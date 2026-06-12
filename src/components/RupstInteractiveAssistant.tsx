@@ -1269,11 +1269,15 @@ export const RupstInteractiveAssistant: React.FC<RupstInteractiveAssistantProps>
                         <span>Dikurangi Dividen:</span>
                         <span className="font-bold text-red-650">- Rp. {formatNumber(data.rupstDividendAmount || 0)}</span>
                       </div>
+                      <div className="flex justify-between text-[11px] text-slate-600">
+                        <span>Saldo Laba Tahun Lalu:</span>
+                        <span className="font-bold text-slate-800">Rp. {formatNumber(data.rupstRetainedProfit || 0)}</span>
+                      </div>
                       <div className="h-px bg-slate-200 my-1"></div>
                       <div className="flex justify-between text-[12px] font-extrabold text-[#3b5998]">
-                        <span>Tambahan Laba Ditahan:</span>
+                        <span>Total Laba Ditahan:</span>
                         <span>Rp. {formatNumber(
-                          (data.rupstNetProfit || 0) - (data.rupstDividendAmount || 0)
+                          (data.rupstNetProfit || 0) + (data.rupstRetainedProfit || 0) - (data.rupstDividendAmount || 0)
                         )}</span>
                       </div>
                     </div>
