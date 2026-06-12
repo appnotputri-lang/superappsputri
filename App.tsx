@@ -163,7 +163,7 @@ const INITIAL_STATE: CompanyData = {
   manualRepresentative: { ...INITIAL_MANUAL_REP },
   signingPlace: '',
   signingDate: '',
-  aktaStartTime: '00:00',
+  aktaStartTime: '10:00',
   meetingStartTime: '',
   meetingEndTime: '',
   meetingChair: '',
@@ -1280,28 +1280,6 @@ const App: React.FC = () => {
   const paidUpPercentage = effectiveBaseCapital > 0 
     ? Math.round((effectivePaidCapital / effectiveBaseCapital) * 100) 
     : 0;
-
-  // Keep data in sync with profiles if a profile is selected
-  useEffect(() => {
-    if (data.selectedProfileId && profiles.length > 0) {
-      const currentProfile = profiles.find(p => p.id === data.selectedProfileId);
-      if (currentProfile) {
-        // Only update if there are differences to avoid unnecessary state updates
-        const keysToCheck = ['companyName', 'domicile', 'fullAddress', 'shareholders', 'originalCapitalPaid'];
-        const hasChanges = keysToCheck.some(key => 
-          JSON.stringify((data as any)[key]) !== JSON.stringify((currentProfile as any)[key])
-        );
-        
-        if (hasChanges) {
-          const { id, updatedAt, selectedProfileId: _, resolutions, ...rest } = currentProfile;
-          updateData({ 
-            ...rest,
-            selectedProfileId: currentProfile.id
-          } as any);
-        }
-      }
-    }
-  }, [profiles, data.selectedProfileId]);
 
   const ALLOWED_EMAILS = [
     'appnotputri@gmail.com',
@@ -3145,11 +3123,25 @@ const App: React.FC = () => {
                   onChange={(e) => {
                      const selected = profiles.find(p => p.id === e.target.value);
                      if (selected) {
-                         const { id, updatedAt, selectedProfileId: _, resolutions, ...rest } = selected;
+                         const { 
+                           id, 
+                           newAddress, 
+                           fullAddress, 
+                           oldFullAddress, 
+                           oldAddress, 
+                           oldDomicile,
+                           kbliItems,
+                           resolutions,
+                           targetCapitalBase,
+                           targetCapitalPaid,
+                           targetCompanyName,
+                           targetShareholders,
+                           newManagementItems,
+                           ...rest 
+                         } = selected; // Exclude resolution target fields
                          updateData({ 
                            ...rest, 
-                           selectedProfileId: selected.id,
-                           resolutions: resolutions || INITIAL_STATE.resolutions
+                           selectedProfileId: selected.id 
                          } as any);
                      } else {
                          updateData({ selectedProfileId: '' });

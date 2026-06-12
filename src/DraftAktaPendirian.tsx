@@ -110,7 +110,7 @@ export default function DraftAktaPendirian({
       alamatLengkapPT: '',
       kuotaWaktuDireksi: '5',
       tanggal: new Date().toISOString().split('T')[0],
-      waktu: '00:00',
+      waktu: '10:00',
       notarisTempat: 'Kabupaten Bandung Barat',
       notarisNamaSurat: '',
       kbliItems: [],

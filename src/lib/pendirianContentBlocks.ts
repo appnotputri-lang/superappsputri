@@ -4,13 +4,13 @@ import { KbliItem } from '../../types';
 import { formatKbliCategory } from './kbliConstants';
 
 type Block =
-  | { type: 'p'; runs: { text: string; bold?: boolean; highlight?: string }[]; align?: 'center' | 'right-center'; indentTabs?: number; kbliDesc?: boolean }
+  | { type: 'p'; runs: { text: string; bold?: boolean }[]; align?: 'center' | 'right-center'; indentTabs?: number; kbliDesc?: boolean }
   | { type: 'divider'; text: string }
   | { type: 'pasal-divider'; text: string }
-  | { type: 'numbered'; num: number | string; runs: { text: string; bold?: boolean; highlight?: string }[] }
-  | { type: 'sub-numbered'; num: number | string; runs: { text: string; bold?: boolean; highlight?: string }[]; indentTabs?: number }
-  | { type: 'list'; bullet: string; runs: { text: string; bold?: boolean; highlight?: string }[]; indentTabs?: number }
-  | { type: 'saksi'; num: number | string; runs: { text: string; bold?: boolean; highlight?: string }[] }
+  | { type: 'numbered'; num: number | string; runs: { text: string; bold?: boolean }[] }
+  | { type: 'sub-numbered'; num: number | string; runs: { text: string; bold?: boolean }[]; indentTabs?: number }
+  | { type: 'list'; bullet: string; runs: { text: string; bold?: boolean }[]; indentTabs?: number }
+  | { type: 'saksi'; num: number | string; runs: { text: string; bold?: boolean }[] }
   | { type: 'shareholder'; name: string; sharesText: string; rpText: string; bullet?: string }
   | { type: 'management-role'; position: string; nameText: string }
   | { type: 'br' };
@@ -30,10 +30,9 @@ export function generatePendirianBlocks(data: PendirianData): Block[] {
     { type: 'br' }
   );
 
-  const isWaktuDefault = data.waktu === '00:00' || !data.waktu;
   blocks.push(
     { type: 'p', runs: [{ text: `Pada hari ini, ${hariArr[hDate.getDay()]}, ${tglHuruf}.` }] },
-    { type: 'p', runs: [{ text: `Pukul ${data.waktu} WIB Waktu Indonesia Barat.`, highlight: isWaktuDefault ? 'yellow' : undefined }] },
+    { type: 'p', runs: [{ text: `Pukul ${data.waktu} WIB Waktu Indonesia Barat.` }] },
     { type: 'p', runs: [{ text: `Telah hadir di hadapan saya ${data.notarisNamaSurat ? data.notarisNamaSurat + ', ' : ''}Notaris di ${data.notarisTempat || 'Kabupaten Bandung Barat'}, dengan dihadiri oleh saksi-saksi yang saya, Notaris kenal dan akan disebutkan nama-namanya pada bagian akhir akta ini :` }] }
   );
 

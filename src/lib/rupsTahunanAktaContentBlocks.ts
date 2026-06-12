@@ -15,7 +15,6 @@ import {
   formatPersonDetails,
   formatAktaDate,
   cleanDegrees,
-  cleanSalutation,
 } from "./formatter";
 
 export type Block =
@@ -123,17 +122,21 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
   };
 
   const getPersonDetailRuns = (person: any): FormatToken[] => {
-    let nameUpper = cleanSalutation(person?.name);
+    const rawName = (person?.name || "").trim();
+    let nameUpper = expandAbbreviations(rawName).toUpperCase();
     const isBadanHukum = person?.shareholderType === 'BADAN_HUKUM' || person?.legalEntityType;
     
-    const salutation = person?.salutation || "Tuan";
-    const sal = (!isBadanHukum) ? `${salutation} ` : "";
+    // Avoid double salutations if name already starts with the salutation
+    const currentSal = person?.salutation || "Tuan";
+    const salUpper = `${currentSal.toUpperCase()} `;
+    if (nameUpper.startsWith(salUpper)) {
+      nameUpper = nameUpper.substring(salUpper.length);
+    }
     
-    const isPenghadap = rep && nameUpper === cleanSalutation(rep.name);
+    const isPenghadap = rep && nameUpper === (rep.name || "").toUpperCase().trim();
 
     if (fullyDescribedNames.has(nameUpper) && nameUpper !== "") {
       return [
-        { text: sal },
         { text: nameUpper, bold: true },
         { text: isPenghadap ? ", penghadap tersebut diatas" : ", tersebut diatas" }
       ];
@@ -147,7 +150,6 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
     detailText = expandAbbreviations(detailText);
 
     return [
-      { text: sal },
       { text: nameUpper, bold: true },
       { text: detailText },
     ];

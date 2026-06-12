@@ -16,7 +16,6 @@ import {
   formatPersonDetails,
   formatAktaDate,
   cleanDegrees,
-  cleanSalutation,
 } from "./formatter";
 
 export type Block =
@@ -65,12 +64,11 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
 
   const jamStr = data.aktaStartTime
     ? data.aktaStartTime.replace(":", ".") + " WIB"
-    : "00.00 WIB";
-  const jamParts = (data.aktaStartTime || "00:00").split(":");
+    : "10.00 WIB";
+  const jamParts = (data.aktaStartTime || "10:00").split(":");
   const h = parseInt(jamParts[0]);
   const m = parseInt(jamParts[1]);
   const jamHuruf = `${terbilang(h)} lewat ${m === 0 ? "nol-nol" : terbilang(m)} menit Waktu Indonesia Barat`;
-  const isTimeDefault = !data.aktaStartTime;
 
   let totalShares = data.shareholders.reduce(
     (sum, s) => sum + s.sharesOwned,
@@ -122,16 +120,18 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
   if (rep) fullyDescribedNames.add(rep.name.toUpperCase());
 
   const getPersonDetailRuns = (person: any): FormatToken[] => {
-    let nameUpper = cleanSalutation(person?.name);
-    const isPenghadap = rep && nameUpper === cleanSalutation(rep.name);
+    let nameUpper = (person?.name || "").toUpperCase().trim();
+    const isPenghadap = rep && nameUpper === rep.name.toUpperCase();
     const isBadanHukum = person?.shareholderType === 'BADAN_HUKUM' || person?.legalEntityType;
 
     const salutation = person?.salutation || "Tuan";
-    const sal = (!isBadanHukum) ? `${salutation} ` : "";
+    const salUpper = `${salutation.toUpperCase()} `;
+    if (nameUpper.startsWith(salUpper)) {
+      nameUpper = nameUpper.substring(salUpper.length);
+    }
 
     if (fullyDescribedNames.has(nameUpper)) {
       return [
-        { text: sal },
         { text: nameUpper, bold: true },
         {
           text: isPenghadap
@@ -146,7 +146,6 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
     const tglLahirAngka = person ? formatDateStr(person.birthDate) : "";
 
     return [
-      { text: sal },
       { text: nameUpper, bold: true },
       {
         text: person ? formatPersonDetails(person, tglLahirAngka, tglLahirHuruf, !isMinutes) : `, lahir di ..., pada tanggal ... (...), Warga Negara Indonesia, ..., bertempat tinggal di ..., ..., Rukun Tetangga ..., Rukun Warga ..., Kelurahan ..., Kecamatan ..., pemegang Kartu Tanda Penduduk Nomor ...`,
@@ -213,7 +212,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
         },
       ],
     },
-    { type: "p", runs: [{ text: `Pukul ${jamStr} (${jamHuruf}).`, highlight: isTimeDefault ? "yellow" : undefined }] },
+    { type: "p", runs: [{ text: `Pukul ${jamStr} (${jamHuruf}).` }] },
     {
       type: "p",
       runs: [
