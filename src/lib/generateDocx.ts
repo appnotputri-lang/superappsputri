@@ -741,7 +741,7 @@ export const generateWordDoc = async (data: CompanyData) => {
             children: [
               new TextRun({ text: "- ", size: FONT_SIZE, font: FONT_FAMILY }),
               new TextRun({
-                text: "Akta Perubahan tertanggal ",
+                text: "Akta tertanggal ",
                 size: FONT_SIZE,
                 font: FONT_FAMILY,
               }),

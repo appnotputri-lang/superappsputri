@@ -207,6 +207,7 @@ const makeRun = (t: FormatToken): TextRun =>
     text: t.text,
     bold: t.bold,
     color: t.color,
+    highlight: t.highlight as any,
     italics: t.italic,
     underline: t.underline ? {} : undefined,
   });

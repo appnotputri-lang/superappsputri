@@ -17,6 +17,23 @@ export const formatFullAddressData = (addr?: Address, fallbackCity?: string): st
   return parts.join(", ");
 };
 
+export function cleanSalutation(name: string): string {
+  if (!name) return "";
+  let nameUpper = name.trim().toUpperCase();
+  const salutations = ["TUAN ", "NYONYA ", "NONA ", "PT. ", "PT ", "DRS. ", "DRA. ", "DR. "];
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const sal of salutations) {
+      if (nameUpper.startsWith(sal)) {
+        nameUpper = nameUpper.substring(sal.length).trim();
+        changed = true;
+      }
+    }
+  }
+  return nameUpper;
+}
+
 export function terbilang(angka: number): string {
   if (angka === 0) return "nol";
   

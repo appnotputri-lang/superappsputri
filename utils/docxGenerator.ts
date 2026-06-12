@@ -233,8 +233,8 @@ export const generateWordDoc = async (data: CompanyData) => {
             !hasAmendments 
               ? "." 
               : data.amendmentDeeds!.length === 1 
-                ? " telah mengalami perubahan, berdasarkan :" 
-                : " beberapa kali telah mengalami perubahan, berdasarkan :"
+                ? " dan telah mengalami perubahan berdasarkan akta sebagai berikut :" 
+                : " dan telah mengalami beberapa kali perubahan berdasarkan akta-akta sebagai berikut :"
           ),
         ],
       })
@@ -254,7 +254,7 @@ export const generateWordDoc = async (data: CompanyData) => {
             numbering: { reference: "deed-num", level: 0 },
             indent: { left: 426 },
             children: [
-              mkRun(`Akta Perubahan tertanggal ${formatDateIndo(deed.date) || ".........."} Nomor ${deed.number || ".........."}, yang dibuat di hadapan ${deed.notary || ".........."}${deed.notaryTitle ? `, ${deed.notaryTitle}` : ""}, Notaris di ${deed.notaryDomicile || data.domicile || ".........."} ${skSpParts}`),
+              mkRun(`Akta tertanggal ${formatDateIndo(deed.date) || ".........."} Nomor ${deed.number || ".........."}, yang dibuat di hadapan ${deed.notary || ".........."}${deed.notaryTitle ? `, ${deed.notaryTitle}` : ""}, Notaris di ${deed.notaryDomicile || data.domicile || ".........."} ${skSpParts}`),
             ],
           }),
         );
@@ -267,10 +267,12 @@ export const generateWordDoc = async (data: CompanyData) => {
         spacing: { line: LINE_SPACING, after: 120 },
         children: [
           mkRun(`Rapat ini diselenggarakan berdasarkan Surat Undangan Direksi PT. ${companyName} Nomor : `),
-          mkRun(data.invitationNumber || "................", false),
+          mkRun(data.invitationNumber || "[nomor surat]", false, { highlight: data.invitationNumber ? undefined : "yellow" }),
           mkRun(" tanggal "),
-          mkRun(invDateText2, false),
-          mkRun(`, dan diadakan pada ${dayName2} tanggal, ${dateText2} bertempat di ${data.signingPlace || "................"}, pukul ${data.meetingStartTime ? data.meetingStartTime.replace(':', '.') : "09.00"} WIB.`),
+          mkRun(data.invitationDate ? invDateText2 : "[tanggal surat]", false, { highlight: data.invitationDate ? undefined : "yellow" }),
+          mkRun(`, dan diadakan pada ${dayName2} tanggal, ${dateText2} bertempat di ${data.signingPlace || "................"}, pukul `),
+          mkRun(data.meetingStartTime ? data.meetingStartTime.replace(':', '.') : "00.00", false, { highlight: data.meetingStartTime ? undefined : "yellow" }),
+          mkRun(" WIB."),
         ],
       })
     );
@@ -299,6 +301,17 @@ export const generateWordDoc = async (data: CompanyData) => {
   const attendingPercentage = totalIssuedShares > 0 ? (presentShares / totalIssuedShares) * 100 : 0;
 
   // Listing peserta
+  const getDisplayNameForDocx = (person: any) => {
+    let name = (person.name || "................").toUpperCase();
+    if (person.salutation) {
+      const salUpper = `${person.salutation.toUpperCase()} `;
+      if (name.startsWith(salUpper)) {
+        name = name.substring(salUpper.length);
+      }
+    }
+    return name;
+  };
+
   if (isCircular) {
     attendingShareholders.forEach((sh, idx) => {
       const parValue = data.originalSharePrice || 0;
@@ -314,7 +327,7 @@ export const generateWordDoc = async (data: CompanyData) => {
           indent: { left: 426 },
           children: [
             mkRun(`${sh.salutation} `),
-            mkRun((sh.name || "................").toUpperCase(), true),
+            mkRun(getDisplayNameForDocx(sh), true),
             mkRun(`, lahir di ${toTitleCase(sh.birthCity || "................")}, pada tanggal ${getDayIndo(sh.birthDate) || ".."} ${getMonthIndo(sh.birthDate) || "........"} ${getYearIndo(sh.birthDate) || "...."}, ${getNationalityStr(sh)}, ${getOccupationStr(sh)}${getAddressStr(sh)}, ${getIdentificationStr(sh)};`),
           ],
         }),
@@ -354,7 +367,7 @@ export const generateWordDoc = async (data: CompanyData) => {
           children: [
             mkRun(`${idx + 1}. `, false),
             mkRun(`${sh.salutation} `),
-            mkRun((sh.name || "................").toUpperCase(), true),
+            mkRun(getDisplayNameForDocx(sh), true),
             mkRun(`, lahir di ${toTitleCase(sh.birthCity || "................")}, pada tanggal ${getDayIndo(sh.birthDate) || ".."} ${getMonthIndo(sh.birthDate) || "........"} ${getYearIndo(sh.birthDate) || "...."}, ${getNationalityStr(sh)}, ${getOccupationStr(sh)}${getAddressStr(sh)}, ${getIdentificationStr(sh)};`),
           ],
         })

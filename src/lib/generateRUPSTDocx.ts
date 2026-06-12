@@ -96,6 +96,7 @@ const createP = (
         italics: t.italic,
         underline: t.underline ? {} : undefined,
         color: t.color,
+        highlight: t.highlight as any,
         size: t.size ? t.size * 2 : undefined,
       };
 
@@ -146,6 +147,7 @@ const createListP = (
       italics: t.italic,
       underline: t.underline ? {} : undefined,
       color: t.color,
+      highlight: t.highlight as any,
       size: t.size ? t.size * 2 : undefined,
     }));
 

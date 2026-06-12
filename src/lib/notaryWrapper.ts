@@ -4,6 +4,7 @@ export interface FormatToken {
   italic?: boolean;
   underline?: boolean;
   color?: string;
+  highlight?: string;
   size?: number;
   break?: number;
 }
@@ -47,6 +48,7 @@ export function parseTextRuns(runs: FormatToken[], maxWidth = 41.5): FormatToken
              italic: run.italic,
              underline: run.underline,
              color: run.color,
+             highlight: run.highlight,
              size: run.size
            });
         });

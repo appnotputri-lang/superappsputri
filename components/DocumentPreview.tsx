@@ -184,14 +184,14 @@ const DocumentPreview: React.FC<Props> = ({ data, showHeader = true, zoom = 1 })
                 <div key={dIdx} style={{ display: 'flex', alignItems: 'flex-start', paddingLeft: '0.3in', textIndent: '-0.3in', textAlign: 'justify', marginBottom: PARA_SPACING }}>
                   <span style={{ minWidth: '0.3in' }}>-&nbsp;</span>
                   <span style={{ flex: 1 }}>
-                    Akta Perubahan tertanggal {formatDateIndo(deed.date) || '..........'} Nomor {deed.number || '..........'}, yang dibuat di hadapan {deed.notary || '..........'}{deed.notaryTitle ? `, ${deed.notaryTitle}` : ''}, Notaris di {deed.notaryDomicile || data.domicile || '..........'} {skSpParts}
+                    Akta tertanggal {formatDateIndo(deed.date) || '..........'} Nomor {deed.number || '..........'}, yang dibuat di hadapan {deed.notary || '..........'}{deed.notaryTitle ? `, ${deed.notaryTitle}` : ''}, Notaris di {deed.notaryDomicile || data.domicile || '..........'} {skSpParts}
                   </span>
                 </div>
               );
             })}
 
             <div style={{ textAlign: 'justify', marginBottom: PARA_SPACING }}>
-              Rapat ini diselenggarakan berdasarkan Surat Undangan Direksi PT. {companyName} Nomor : {data.invitationNumber || '................'} tanggal {formatDateIndo(data.invitationDate) || '................'}, dan diadakan pada {getDayNameIndo(data.signingDate)} tanggal, {formatDateIndo(data.signingDate) || '................'} bertempat di {data.signingPlace || '................'}, pukul {data.meetingStartTime ? data.meetingStartTime.replace(':', '.') : '09.00'} WIB.
+              Rapat ini diselenggarakan berdasarkan Surat Undangan Direksi PT. {companyName} Nomor : <span style={{ backgroundColor: data.invitationNumber ? 'transparent' : 'yellow' }}>{data.invitationNumber || '[nomor surat]'}</span> tanggal <span style={{ backgroundColor: data.invitationDate ? 'transparent' : 'yellow' }}>{formatDateIndo(data.invitationDate) || '[tanggal surat]'}</span>, dan diadakan pada {getDayNameIndo(data.signingDate)} tanggal, {formatDateIndo(data.signingDate) || '................'} bertempat di {data.signingPlace || '................'}, pukul <span style={{ backgroundColor: data.meetingStartTime ? 'transparent' : 'yellow' }}>{data.meetingStartTime ? data.meetingStartTime.replace(':', '.') : '00.00'}</span> WIB.
             </div>
 
             {/* Section II. PESERTA RAPAT */}
@@ -214,13 +214,24 @@ const DocumentPreview: React.FC<Props> = ({ data, showHeader = true, zoom = 1 })
 
             const currentValue = sh.sharesOwned * (data.originalSharePrice || 0);
 
+            const getDisplayName = (person: any) => {
+              let name = (person.name || '................').toUpperCase();
+              if (person.salutation) {
+                const salUpper = `${person.salutation.toUpperCase()} `;
+                if (name.startsWith(salUpper)) {
+                  name = name.substring(salUpper.length);
+                }
+              }
+              return name;
+            };
+
             if (isCircular) {
               return (
                 <div key={sh.id} style={{ marginBottom: '12pt' }}>
                   <div style={{ display: 'flex', alignItems: 'flex-start', paddingLeft: '0.3in', textIndent: '-0.3in', textAlign: 'justify' }}>
                     <span style={{ minWidth: '0.3in' }}>-&nbsp;</span>
                     <span style={{ flex: 1 }}>
-                      {sh.salutation} <strong>{(sh.name || '................').toUpperCase()}</strong>, lahir di {toTitleCase(sh.birthCity || '................')}, pada tanggal {getDayIndo(sh.birthDate) || '..'} {getMonthIndo(sh.birthDate) || '........'} {getYearIndo(sh.birthDate) || '....'}, {getNationalityStr(sh)}, {getOccupationStr(sh)}{getAddressStr(sh)}, {getIdentificationStr(sh)};
+                      {sh.salutation} <strong>{getDisplayName(sh)}</strong>, lahir di {toTitleCase(sh.birthCity || '................')}, pada tanggal {getDayIndo(sh.birthDate) || '..'} {getMonthIndo(sh.birthDate) || '........'} {getYearIndo(sh.birthDate) || '....'}, {getNationalityStr(sh)}, {getOccupationStr(sh)}{getAddressStr(sh)}, {getIdentificationStr(sh)};
                     </span>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'flex-start', paddingLeft: '0.5in', textIndent: '-0.2in', marginTop: '2pt', textAlign: 'justify' }}>
@@ -238,7 +249,7 @@ const DocumentPreview: React.FC<Props> = ({ data, showHeader = true, zoom = 1 })
                   <div style={{ display: 'flex', alignItems: 'flex-start', paddingLeft: '0.3in', textIndent: '-0.3in', textAlign: 'justify' }}>
                     <span style={{ minWidth: '0.3in' }}>{idx + 1}.&nbsp;</span>
                     <span style={{ flex: 1 }}>
-                      {sh.salutation} <strong>{(sh.name || '................').toUpperCase()}</strong>, lahir di {toTitleCase(sh.birthCity || '................')}, pada tanggal {getDayIndo(sh.birthDate) || '..'} {getMonthIndo(sh.birthDate) || '........'} {getYearIndo(sh.birthDate) || '....'}, {getNationalityStr(sh)}, {getOccupationStr(sh)}{getAddressStr(sh)}, {getIdentificationStr(sh)};
+                      {sh.salutation} <strong>{getDisplayName(sh)}</strong>, lahir di {toTitleCase(sh.birthCity || '................')}, pada tanggal {getDayIndo(sh.birthDate) || '..'} {getMonthIndo(sh.birthDate) || '........'} {getYearIndo(sh.birthDate) || '....'}, {getNationalityStr(sh)}, {getOccupationStr(sh)}{getAddressStr(sh)}, {getIdentificationStr(sh)};
                     </span>
                   </div>
                   

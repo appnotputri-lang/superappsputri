@@ -15,6 +15,7 @@ import {
   formatPersonDetails,
   formatAktaDate,
   cleanDegrees,
+  cleanSalutation,
 } from "./formatter";
 
 export type Block =
@@ -77,11 +78,13 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
   const tglRapatHari = getDayName(data.signingDate || "") || "Rabu";
   const tglRapatRupst = formatDateRupst(data.signingDate || "") || "06 Mei 2026";
 
-  const jamRapatStr = data.meetingStartTime ? data.meetingStartTime.replace(":", ".") : "13.00";
-  const jamRapatParts = (data.meetingStartTime || "13:00").split(":");
+  const stTime = data.meetingStartTime;
+  const jamRapatStr = stTime ? stTime.replace(":", ".") : "00.00";
+  const jamRapatParts = (stTime || "00:00").split(":");
   const hr = parseInt(jamRapatParts[0]);
   const mr = parseInt(jamRapatParts[1]);
   const jamRapatHuruf = `${terbilang(hr)} lewat ${mr === 0 ? "nol-nol" : terbilang(mr)} menit Waktu Indonesia Barat`;
+  const isTimeDefault = !stTime;
 
   // Total shares and attending shares
   const totalShares = data.shareholders.reduce((sum, s) => sum + (s.sharesOwned || 0), 0) || 1010;
@@ -120,14 +123,17 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
   };
 
   const getPersonDetailRuns = (person: any): FormatToken[] => {
-    const rawName = (person?.name || "").trim();
-    const expandedName = expandAbbreviations(rawName);
-    const nameUpper = expandedName.toUpperCase();
-    const isPenghadap = rep && nameUpper === (rep.name || "").toUpperCase().trim();
+    let nameUpper = cleanSalutation(person?.name);
     const isBadanHukum = person?.shareholderType === 'BADAN_HUKUM' || person?.legalEntityType;
+    
+    const salutation = person?.salutation || "Tuan";
+    const sal = (!isBadanHukum) ? `${salutation} ` : "";
+    
+    const isPenghadap = rep && nameUpper === cleanSalutation(rep.name);
 
     if (fullyDescribedNames.has(nameUpper) && nameUpper !== "") {
       return [
+        { text: sal },
         { text: nameUpper, bold: true },
         { text: isPenghadap ? ", penghadap tersebut diatas" : ", tersebut diatas" }
       ];
@@ -141,6 +147,7 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
     detailText = expandAbbreviations(detailText);
 
     return [
+      { text: sal },
       { text: nameUpper, bold: true },
       { text: detailText },
     ];
@@ -170,14 +177,23 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
 
   // 2. Representative (The person reporting the BAR RUPST)
   if (rep) {
+    const currentSal = rep.salutation || "Tuan";
+    const salUpper = `${currentSal.toUpperCase()} `;
+    let displayName = (rep.name || "").toUpperCase();
+    if (displayName.startsWith(salUpper)) {
+      displayName = displayName.substring(salUpper.length);
+    }
+
     blocks.push({
       type: "p",
       runs: [
-        { text: `${rep.salutation || "Tuan"} ` },
-        ...getPersonDetailRuns(rep),
+        { text: `${currentSal} ` },
+        { text: displayName, bold: true },
+        { text: expandAbbreviations(formatPersonDetails(rep, rep.birthDate ? formatDateStr(rep.birthDate) : "...", rep.birthDate ? dateToWords(rep.birthDate) : "", true)) },
         { text: ";" }
       ]
     });
+    fullyDescribedNames.add(displayName);
 
     const isForeignRep = rep.nationalityType === 'WNA' || rep.isForeign;
     if (isForeignRep) {
@@ -281,32 +297,45 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
     }
   };
 
-  let foundationSentence = `Bahwa pada hari ${tglRapatHari}, tanggal ${formatAktaDate(data.signingDate || "")}, bertempat di ${data.signingPlace || "Kantor Perseroan"}, pukul ${jamRapatStr} WIB (${jamRapatHuruf}) telah diadakan Rapat Umum Pemegang Saham Tahunan Perseroan Terbatas ${formatCompanyName(data.companyName)} (selanjutnya disebut sebagai “Rapat”) Perseroan berkedudukan di ${toTitleCase(data.domicile || "...")}, demikian berdasarkan Akta Pendirian tertanggal ${establishmentDeedDateText}, Nomor ${data.establishmentDeedNumber || "02"} dibuat dihadapan ${checkNotaryWording(data.establishmentNotary || "............................", data.establishmentNotaryTitle, data.establishmentNotaryDomicile)} dan telah mendapat pengesahan dari Menteri Hukum dan Hak Asasi Manusia Republik Indonesia berdasarkan Surat Keputusan Nomor ${getSkFormattedNumber()} tertanggal ${formatAktaDate(data.establishmentSkDate || "")}`;
+  const isVenueDefault = !data.signingPlace;
+  const isDateDefault = !data.signingDate;
+
+  const getFoundationRuns = (suffix: string = ""): FormatToken[] => [
+    { text: `Bahwa pada hari ` },
+    { text: tglRapatHari, highlight: isDateDefault ? "yellow" : undefined },
+    { text: `, tanggal ` },
+    { text: formatAktaDate(data.signingDate || ""), highlight: isDateDefault ? "yellow" : undefined },
+    { text: `, bertempat di ` },
+    { text: data.signingPlace || "Kantor Perseroan", highlight: isVenueDefault ? "yellow" : undefined },
+    { text: `, pukul ` },
+    { text: isTimeDefault ? `${jamRapatStr} WIB` : `${jamRapatStr} WIB (${jamRapatHuruf})`, highlight: isTimeDefault ? "yellow" : undefined },
+    { text: ` telah diadakan Rapat Umum Pemegang Saham Tahunan Perseroan Terbatas ${formatCompanyName(data.companyName)} (selanjutnya disebut sebagai “Rapat”) Perseroan berkedudukan di ${toTitleCase(data.domicile || "...")}, demikian berdasarkan Akta Pendirian tertanggal ${establishmentDeedDateText}, Nomor ${data.establishmentDeedNumber || "02"} dibuat dihadapan ${checkNotaryWording(data.establishmentNotary || "............................", data.establishmentNotaryTitle, data.establishmentNotaryDomicile)} dan telah mendapat pengesahan dari Menteri Hukum dan Hak Asasi Manusia Republik Indonesia berdasarkan Surat Keputusan Nomor ${getSkFormattedNumber()} tertanggal ${formatAktaDate(data.establishmentSkDate || "")}${suffix}` }
+  ];
 
   if (!hasAmendments) {
     blocks.push({
       type: "list",
       bullet: "-",
       indentTabs: 0.3,
-      runs: [{ text: `${foundationSentence};` }]
+      runs: getFoundationRuns(";")
     });
   } else if (isSingleAmendment) {
     const deed = data.amendmentDeeds![0];
     const skText = getDeedSkText(deed);
-    const amendmentSentence = ` dan telah mengalami perubahan berdasarkan Akta Perubahan tertanggal ${formatAktaDate(deed.date)} Nomor ${deed.number} yang dibuat di hadapan ${checkNotaryWording(deed.notary, deed.notaryTitle, deed.notaryDomicile)} yang ${skText};`;
+    const amendmentSentence = ` dan telah mengalami perubahan berdasarkan Akta tertanggal ${formatAktaDate(deed.date)} Nomor ${deed.number} yang dibuat di hadapan ${checkNotaryWording(deed.notary, deed.notaryTitle, deed.notaryDomicile)} yang ${skText};`;
     
     blocks.push({
       type: "list",
       bullet: "-",
       indentTabs: 0.3,
-      runs: [{ text: `${foundationSentence}${amendmentSentence}` }]
+      runs: getFoundationRuns(amendmentSentence)
     });
   } else {
     blocks.push({
       type: "list",
       bullet: "-",
       indentTabs: 0.3,
-      runs: [{ text: `${foundationSentence} dan telah mengalami beberapa kali perubahan berdasarkan akta-akta sebagai berikut : -` }]
+      runs: getFoundationRuns(" dan telah mengalami beberapa kali perubahan berdasarkan akta-akta sebagai berikut :")
     });
 
     data.amendmentDeeds!.forEach((deed, i) => {
@@ -318,7 +347,7 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
         indentTabs: 1.0,
         runs: [
           {
-            text: `Akta Perubahan tertanggal ${formatAktaDate(deed.date)} Nomor ${deed.number} yang dibuat di hadapan ${checkNotaryWording(deed.notary, deed.notaryTitle, deed.notaryDomicile)} yang ${skText}${isLast ? ";" : ";"}`,
+            text: `Akta tertanggal ${formatAktaDate(deed.date)} Nomor ${deed.number} yang dibuat di hadapan ${checkNotaryWording(deed.notary, deed.notaryTitle, deed.notaryDomicile)} yang ${skText}${isLast ? ";" : ";"}`,
           },
         ],
       });
@@ -431,11 +460,18 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
 
   attendees.forEach((att, idx) => {
     const isRep = (att.name || "").toUpperCase().trim() === (rep.name || "").toUpperCase().trim();
+    const currentSal = att.salutation || "Tuan";
+    const salUpper = `${currentSal.toUpperCase()} `;
+    let displayName = (att.name || "").toUpperCase();
+    if (displayName.startsWith(salUpper)) {
+      displayName = displayName.substring(salUpper.length);
+    }
+
     const runsList: FormatToken[] = [{ text: att.salutation ? `${att.salutation} ` : "" }];
 
     if (isRep) {
       runsList.push(
-        { text: (att.name || "").toUpperCase(), bold: true },
+        { text: displayName, bold: true },
         { text: ", penghadap tersebut diatas;" }
       );
     } else {
@@ -614,7 +650,7 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
     }
   );
 
-  const chairNameValue = (data.meetingChair || rep?.name || "RAJANDRAN SHUNMUGAM").trim().toUpperCase();
+  let chairNameValue = (data.meetingChair || rep?.name || "RAJANDRAN SHUNMUGAM").trim().toUpperCase();
   let chairSalutation = "Tuan";
   if (chairNameValue) {
     const foundSh = data.shareholders.find(s => (s.name || "").trim().toUpperCase() === chairNameValue);
@@ -635,6 +671,11 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
         }
       }
     }
+  }
+
+  const chairSalUpper = `${chairSalutation.toUpperCase()} `;
+  if (chairNameValue.startsWith(chairSalUpper)) {
+    chairNameValue = chairNameValue.substring(chairSalUpper.length);
   }
 
   blocks.push(
@@ -775,8 +816,13 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
   // Decision 3
   const signatorySh = data.shareholders.find(s => s.name === data.rupstFinancialReportSignatoryName);
   const signatorySalutation = signatorySh?.salutation || "Tuan";
-  const signatoryName = data.rupstFinancialReportSignatoryName || rep?.name || "RAJANDRAN SHUNMUGAM";
+  let signatoryName = (data.rupstFinancialReportSignatoryName || rep?.name || "RAJANDRAN SHUNMUGAM").toUpperCase();
   const signatoryPosition = data.rupstFinancialReportSignatoryPosition || "Direktur";
+
+  const sigSalUpper = `${signatorySalutation.toUpperCase()} `;
+  if (signatoryName.startsWith(sigSalUpper)) {
+    signatoryName = signatoryName.substring(sigSalUpper.length);
+  }
 
   const financialRepDate = data.rupstFinancialReportDate ? formatDateRupst(data.rupstFinancialReportDate) : "29 April 2026";
 
@@ -785,7 +831,7 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
     number: 3,
     runs: [
       { text: `Mengesahkan Laporan Keuangan Perseroan untuk tahun buku yang berakhir pada tanggal 31 Desember ${data.rupstFiscalYear || "2025"}, sebagaimana dimuat dalam Laporan Keuangan ${formatCompanyName(data.companyName)} tertanggal ${financialRepDate}, yang ditandatangani ${signatoryPosition} Perseroan ${signatorySalutation} ` },
-      { text: signatoryName.toUpperCase(), bold: true },
+      { text: signatoryName, bold: true },
       { text: `${(data.rupstStatementNeraca === true || data.rupstStatementLabaRugi === true || data.rupstStatementPerubahanEkuitas === true || data.rupstStatementArusKas === true || data.rupstStatementCatatan === true || data.rupstStatementNamaAnggota === true || data.rupstStatementGaji === true) ? " yang terdiri dari:" : "."}` }
     ]
   });
@@ -907,16 +953,22 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
   });
 
   // Closure Section
-  const meetingEndHourNum = data.rupstMeetingEndTime ? data.rupstMeetingEndTime.replace(":", ".") : "14.00";
-  const endParts = (data.rupstMeetingEndTime || "14:00").split(":");
+  const endStTime = data.rupstMeetingEndTime;
+  const meetingEndHourNum = endStTime ? endStTime.replace(":", ".") : "00.00";
+  const endParts = (endStTime || "00:00").split(":");
   const eh = parseInt(endParts[0]);
   const em = parseInt(endParts[1]);
   const meetingEndHourWords = `${terbilang(eh)} lewat ${em === 0 ? "nol-nol" : terbilang(em)} menit Waktu Indonesia Barat`;
+  const isEndDefault = !endStTime;
 
   blocks.push(
     {
       type: "p",
-      runs: [{ text: `Rapat ditutup pada pukul ${meetingEndHourNum} WIB (${meetingEndHourWords}) oleh Ketua Rapat, Setelah semua agenda rapat dibahas dan menghasilkan Keputusan sebagaimana telah diputuskan peserta rapat yang hadir.` }]
+      runs: [
+        { text: "Rapat ditutup pada pukul " },
+        { text: isEndDefault ? `${meetingEndHourNum} WIB` : `${meetingEndHourNum} WIB (${meetingEndHourWords})`, highlight: isEndDefault ? "yellow" : undefined },
+        { text: " oleh Ketua Rapat, Setelah semua agenda rapat dibahas dan menghasilkan Keputusan sebagaimana telah diputuskan peserta rapat yang hadir." }
+      ]
     },
     {
       type: "p",

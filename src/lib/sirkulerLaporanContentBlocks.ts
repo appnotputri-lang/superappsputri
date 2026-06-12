@@ -53,7 +53,7 @@ export function generateSirkulerLaporanBlocks(data: CompanyData): Block[] {
     const lastNum = data.amendmentDeeds.length - 1;
     blocks.push(
       { type: "p", runs: [
-          { text: `Akta Perubahan terakhir tertanggal ${data.amendmentDeeds[lastNum]?.date}, No. ${data.amendmentDeeds[lastNum]?.number}, yang dibuat dihadapan ${(data.amendmentDeeds[lastNum]?.notaryTitle && data.amendmentDeeds[lastNum]?.notaryTitle?.includes('Notaris di')) ? `${data.amendmentDeeds[lastNum]?.notary}, ${data.amendmentDeeds[lastNum]?.notaryTitle} ${data.amendmentDeeds[lastNum]?.notaryDomicile}` : `${data.amendmentDeeds[lastNum]?.notary}, Notaris di ${data.amendmentDeeds[lastNum]?.notaryDomicile}`} dan telah mendapat persetujuan Kementerian Hukum dan Hak Asasi Manusia Nomor ${data.amendmentDeeds[lastNum]?.skSpDocuments?.[0]?.number || '...........'}.` }
+          { text: `Akta terakhir tertanggal ${data.amendmentDeeds[lastNum]?.date}, No. ${data.amendmentDeeds[lastNum]?.number}, yang dibuat dihadapan ${(data.amendmentDeeds[lastNum]?.notaryTitle && data.amendmentDeeds[lastNum]?.notaryTitle?.includes('Notaris di')) ? `${data.amendmentDeeds[lastNum]?.notary}, ${data.amendmentDeeds[lastNum]?.notaryTitle} ${data.amendmentDeeds[lastNum]?.notaryDomicile}` : `${data.amendmentDeeds[lastNum]?.notary}, Notaris di ${data.amendmentDeeds[lastNum]?.notaryDomicile}`} dan telah mendapat persetujuan Kementerian Hukum dan Hak Asasi Manusia Nomor ${data.amendmentDeeds[lastNum]?.skSpDocuments?.[0]?.number || '...........'}.` }
         ]
       }
     );

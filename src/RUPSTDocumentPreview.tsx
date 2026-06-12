@@ -25,6 +25,7 @@ const renderToken = (t: any, j: number) => {
     textDecoration: t.underline ? 'underline' : 'none',
     color: t.color ? (t.color.startsWith('#') ? t.color : `#${t.color}`) : 'inherit',
     fontSize: t.size ? `${t.size}pt` : 'inherit',
+    backgroundColor: t.highlight === 'yellow' ? '#ffff00' : (t.highlight || 'transparent'),
   };
 
   if (t.text.includes('\t')) {

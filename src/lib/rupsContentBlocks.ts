@@ -16,6 +16,7 @@ import {
   formatPersonDetails,
   formatAktaDate,
   cleanDegrees,
+  cleanSalutation,
 } from "./formatter";
 
 export type Block =
@@ -64,11 +65,12 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
 
   const jamStr = data.aktaStartTime
     ? data.aktaStartTime.replace(":", ".") + " WIB"
-    : "10.00 WIB";
-  const jamParts = (data.aktaStartTime || "10:00").split(":");
+    : "00.00 WIB";
+  const jamParts = (data.aktaStartTime || "00:00").split(":");
   const h = parseInt(jamParts[0]);
   const m = parseInt(jamParts[1]);
   const jamHuruf = `${terbilang(h)} lewat ${m === 0 ? "nol-nol" : terbilang(m)} menit Waktu Indonesia Barat`;
+  const isTimeDefault = !data.aktaStartTime;
 
   let totalShares = data.shareholders.reduce(
     (sum, s) => sum + s.sharesOwned,
@@ -120,12 +122,16 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
   if (rep) fullyDescribedNames.add(rep.name.toUpperCase());
 
   const getPersonDetailRuns = (person: any): FormatToken[] => {
-    const nameUpper = (person?.name || "").toUpperCase();
-    const isPenghadap = rep && nameUpper === rep.name.toUpperCase();
+    let nameUpper = cleanSalutation(person?.name);
+    const isPenghadap = rep && nameUpper === cleanSalutation(rep.name);
     const isBadanHukum = person?.shareholderType === 'BADAN_HUKUM' || person?.legalEntityType;
+
+    const salutation = person?.salutation || "Tuan";
+    const sal = (!isBadanHukum) ? `${salutation} ` : "";
 
     if (fullyDescribedNames.has(nameUpper)) {
       return [
+        { text: sal },
         { text: nameUpper, bold: true },
         {
           text: isPenghadap
@@ -140,6 +146,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
     const tglLahirAngka = person ? formatDateStr(person.birthDate) : "";
 
     return [
+      { text: sal },
       { text: nameUpper, bold: true },
       {
         text: person ? formatPersonDetails(person, tglLahirAngka, tglLahirHuruf, !isMinutes) : `, lahir di ..., pada tanggal ... (...), Warga Negara Indonesia, ..., bertempat tinggal di ..., ..., Rukun Tetangga ..., Rukun Warga ..., Kelurahan ..., Kecamatan ..., pemegang Kartu Tanda Penduduk Nomor ...`,
@@ -206,7 +213,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
         },
       ],
     },
-    { type: "p", runs: [{ text: `Pukul ${jamStr} (${jamHuruf}).` }] },
+    { type: "p", runs: [{ text: `Pukul ${jamStr} (${jamHuruf}).`, highlight: isTimeDefault ? "yellow" : undefined }] },
     {
       type: "p",
       runs: [
@@ -222,7 +229,12 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
       indentTabs: 0.5,
       runs: [
         { text: `${rep?.salutation || "Tuan"} ` },
-        { text: (rep?.name || "...").toUpperCase(), bold: true },
+        { text: (() => {
+            let n = (rep?.name || "...").toUpperCase();
+            const s = `${(rep?.salutation || "Tuan").toUpperCase()} `;
+            if (n.startsWith(s)) n = n.substring(s.length);
+            return n;
+          })(), bold: true },
         {
           text: rep ? formatPersonDetails(rep, tglLahirRepAngka, tglLahirRepHuruf) : `, lahir di ..., pada tanggal ... (...), Warga Negara Indonesia, ..., bertempat tinggal di ..., ..., Rukun Tetangga ..., Rukun Warga ..., Kelurahan ..., Kecamatan ..., pemegang Kartu Tanda Penduduk Nomor ...;`,
         },
@@ -377,7 +389,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
         indentTabs: 1.5,
         runs: [
           {
-            text: `Akta Perubahan tertanggal ${formattedDeedDate} Nomor ${deed.number} yang dibuat di hadapan ${checkNotaryWording(deed.notary, deed.notaryTitle, deed.notaryDomicile)} yang ${skText}${isLast ? "." : ";"}`,
+            text: `Akta tertanggal ${formattedDeedDate} Nomor ${deed.number} yang dibuat di hadapan ${checkNotaryWording(deed.notary, deed.notaryTitle, deed.notaryDomicile)} yang ${skText}${isLast ? "." : ";"}`,
           },
         ],
       });
@@ -688,7 +700,12 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
     const chairPerson: any = data.shareholders.find(sh => sh.name === data.meetingChair || sh.proxyData?.name === data.meetingChair) || 
                              data.oldManagementItems.find(m => m.name === data.meetingChair);
     const chairSalutation = chairIsProxy ? (chairPerson?.proxyData?.salutation || "Tuan") : (chairPerson?.salutation || "Tuan");
-    const chairName = data.meetingChair || "...";
+    let chairName = (data.meetingChair || "...").toUpperCase();
+    const chairSalUpper = `${chairSalutation.toUpperCase()} `;
+    if (chairName.startsWith(chairSalUpper)) {
+      chairName = chairName.substring(chairSalUpper.length);
+    }
+    
     let chairPosition = chairIsProxy ? "kuasa" : `${isMinutes ? "selaku " : "Hadir selaku "}${toTitleCase(chairPerson?.managementPosition || chairPerson?.position || "Direktur")} perseroan,`;
 
     blocks.push({
@@ -699,7 +716,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
         {
           text: `Berdasarkan ketentuan Pasal ${data.rupstAdArticle || "21"} ayat (${data.rupstAdParagraph || "1"}) Anggaran Dasar Perseroan, ${chairSalutation} `,
         },
-        { text: chairName.toUpperCase(), bold: true },
+        { text: chairName, bold: true },
         { text: `, ${chairIsProxy ? (isMinutes ? 'kuasa tersebut di atas, bertindak sebagai ketua rapat.' : 'penghadap tersebut di atas, Hadir selaku kuasa tersebut di atas, bertindak sebagai ketua rapat.') : `tersebut di atas, ${chairPosition} bertindak sebagai Ketua Rapat.`}` },
       ],
     });
