@@ -127,14 +127,16 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
     const isBadanHukum = person?.shareholderType === 'BADAN_HUKUM' || person?.legalEntityType;
     
     // Avoid double salutations if name already starts with the salutation
-    const currentSal = (person?.salutation || "Tuan").trim();
+    const currentSal = (!isBadanHukum) ? (person?.salutation || "Tuan").trim() : "";
     const salUpper = currentSal.toUpperCase();
-    const stripRegex = new RegExp(`^(${salUpper}|TUAN|NYONYA|NONA|NY|TN|NY\\.|TN\\.|NYONYA\\.|TUAN\\.)\\s+`, "i");
-    if (nameUpper.startsWith(salUpper + " ") || stripRegex.test(nameUpper)) {
-      nameUpper = nameUpper.replace(stripRegex, "").trim();
-      // Handle the simple startsWith case if regex didn't catch specific boundary
-      if (nameUpper.startsWith(salUpper + " ")) {
-        nameUpper = nameUpper.substring(salUpper.length + 1).trim();
+    if (currentSal) {
+      const stripRegex = new RegExp(`^(${salUpper}|TUAN|NYONYA|NONA|NY|TN|NY\\.|TN\\.|NYONYA\\.|TUAN\\.)\\s+`, "i");
+      if (nameUpper.startsWith(salUpper + " ") || stripRegex.test(nameUpper)) {
+        nameUpper = nameUpper.replace(stripRegex, "").trim();
+        // Handle the simple startsWith case if regex didn't catch specific boundary
+        if (nameUpper.startsWith(salUpper + " ")) {
+          nameUpper = nameUpper.substring(salUpper.length + 1).trim();
+        }
       }
     }
     
@@ -142,6 +144,7 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
 
     if (fullyDescribedNames.has(nameUpper) && nameUpper !== "") {
       return [
+        { text: currentSal ? currentSal + " " : "" },
         { text: nameUpper, bold: true },
         { text: isPenghadap ? ", penghadap tersebut diatas" : ", tersebut diatas" }
       ];
@@ -155,7 +158,7 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
     detailText = expandAbbreviations(detailText);
 
     return [
-      { text: sal },
+      { text: currentSal ? currentSal + " " : "" },
       { text: nameUpper, bold: true },
       { text: detailText },
     ];
