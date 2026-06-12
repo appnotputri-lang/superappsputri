@@ -858,6 +858,46 @@ const App: React.FC = () => {
     });
   };
 
+  const syncCompanyDataToRupst = () => {
+    if (!data.selectedProfileId) {
+      alert("Pilih Klien PT terlebih dahulu.");
+      return;
+    }
+    
+    if (!confirm("Sinkronkan data terbaru dari Klien PT?\n\nData manual RUPST tidak akan diubah.")) {
+      return;
+    }
+
+    const latestProfile = profiles.find(p => p.id === data.selectedProfileId);
+    if (!latestProfile) {
+      alert("Gagal mengambil data terbaru dari Klien PT.");
+      return;
+    }
+
+    try {
+      updateData({
+        companyName: latestProfile.companyName,
+        domicile: latestProfile.domicile,
+        establishmentDeedNumber: latestProfile.establishmentDeedNumber,
+        establishmentDeedDate: latestProfile.establishmentDeedDate,
+        establishmentNotary: latestProfile.establishmentNotary,
+        establishmentNotaryTitle: latestProfile.establishmentNotaryTitle,
+        establishmentNotaryDomicile: latestProfile.establishmentNotaryDomicile,
+        establishmentSkNumber: latestProfile.establishmentSkNumber,
+        establishmentSkDate: latestProfile.establishmentSkDate,
+        amendmentDeeds: latestProfile.amendmentDeeds || [],
+        shareholders: latestProfile.shareholders || [],
+        originalSharePrice: latestProfile.originalSharePrice,
+        authorizedRepresentativeId: latestProfile.authorizedRepresentativeId,
+        manualRepresentative: latestProfile.manualRepresentative,
+        representativeType: latestProfile.representativeType,
+      });
+      alert("Data PT berhasil disinkronkan.");
+    } catch (e) {
+      alert("Gagal mengambil data terbaru dari Klien PT.");
+    }
+  };
+
   const updateAddress = (property: 'newAddress' | 'oldAddress', updates: Partial<Address>) => {
     updateData({
       [property]: { ...data[property], ...updates }
@@ -5819,27 +5859,37 @@ const App: React.FC = () => {
                       <AhuSection title="PILIH PROFIL">
                       <div className="space-y-4">
                         <label className="block text-[13px] font-medium text-slate-700 mb-1">Pilih Profil Perseroan untuk mengisi data otomatis</label>
-                        <select 
-                          className="w-full border border-[#ccc] rounded-sm px-3 py-1.5 text-[13px] outline-none bg-white focus:border-[#66afe9]"
-                          value={data.selectedProfileId || ''}
-                          onChange={(e) => {
-                             const selected = profiles.find(p => p.id === e.target.value);
-                             if (selected) {
-                                 const { id, ...rest } = selected;
-                                 updateData({ 
-                                   ...rest, 
-                                   selectedProfileId: selected.id 
-                                 } as any);
-                             } else {
-                                 updateData({ selectedProfileId: '' });
-                             }
-                          }}
-                        >
-                          <option value="">-- Pilih PT --</option>
-                          {profiles.map(p => (
-                            <option key={p.id} value={p.id}>{p.companyName}</option>
-                          ))}
-                        </select>
+                        <div className="flex flex-col sm:flex-row gap-2">
+                          <select 
+                            className="flex-1 border border-[#ccc] rounded-sm px-3 py-1.5 text-[13px] outline-none bg-white focus:border-[#66afe9]"
+                            value={data.selectedProfileId || ''}
+                            onChange={(e) => {
+                               const selected = profiles.find(p => p.id === e.target.value);
+                               if (selected) {
+                                   const { id, ...rest } = selected;
+                                   updateData({ 
+                                     ...rest, 
+                                     selectedProfileId: selected.id 
+                                   } as any);
+                               } else {
+                                   updateData({ selectedProfileId: '' });
+                               }
+                            }}
+                          >
+                            <option value="">-- Pilih PT --</option>
+                            {profiles.map(p => (
+                              <option key={p.id} value={p.id}>{p.companyName}</option>
+                            ))}
+                          </select>
+                          {data.selectedProfileId && (
+                            <button
+                              onClick={syncCompanyDataToRupst}
+                              className="bg-blue-50 text-[#3b5998] hover:bg-[#3b5998] hover:text-white px-4 py-1.5 rounded-sm text-[12px] font-bold uppercase transition-colors shrink-0"
+                            >
+                              Sinkronkan Data PT
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </AhuSection>
                     )}
