@@ -255,6 +255,7 @@ export interface CompanyData {
   createDraftAktaRups?: boolean;
   draftAktaRupsNumber?: string;
   draftAktaRupsDate?: string;
+  draftAktaRupsTime?: string;
   
   notarySelectionType?: 'saya' | 'manual';
   notaryName?: string;

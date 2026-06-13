@@ -594,11 +594,15 @@ export const generateRUPSTAktaDocx = async (data: CompanyData) => {
 
   // ── Notary signature block ─────────────────────────────────────────────────
   const domicile = data.notaryDomicile || "Kabupaten Bandung Barat";
-  const rawNotaryName = data.notaryName || "NUKANTINI PUTRI PARINCHA, S.H., M.Kn.";
+  const rawNotaryName = data.notaryName || "NUKANTINI PUTRI PARINCHA, SH., M.Kn";
   const ttdNotaryName = rawNotaryName
     .toUpperCase()
-    .replace(/SARJANA HUKUM/gi, "S.H.")
-    .replace(/MAGISTER KENOTARIATAN/gi, "M.Kn.");
+    .replace(/SARJANA HUKUM/gi, "SH.")
+    .replace(/S\.H\./g, "SH.")
+    .replace(/MAGISTER KENOTARIATAN/gi, "M.Kn")
+    .replace(/M\.KN\./g, "M.Kn")
+    .replace(/M\.KN/g, "M.Kn")
+    .trim();
 
   docxChildren.push(
     createNotarisLabelP(domicile),

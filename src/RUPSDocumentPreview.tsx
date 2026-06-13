@@ -176,7 +176,7 @@ export const RUPSDocumentPreview: React.FC<RUPSDocumentPreviewProps> = ({ data }
   allLines.push({
     element: (
       <div key="footer-notary" className="w-1/2 ml-auto text-center font-bold">
-        NUKANTINI PUTRI PARINCHA, SH., M.Kn.
+        NUKANTINI PUTRI PARINCHA, SH., M.Kn
       </div>
     )
   });

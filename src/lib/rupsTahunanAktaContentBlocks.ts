@@ -59,19 +59,29 @@ export type Block =
 export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
   const blocks: Block[] = [];
 
-  const effectiveNotaryDate = data.draftAktaRupsDate || data.notaryDate || data.signingDate || "";
-  const effectiveNotaryNumber = data.draftAktaRupsNumber || data.notaryNumber || "...";
+  const hasCustomDeedDate = !!(data.draftAktaRupsDate || data.notaryDate);
+  const effectiveNotaryDate = data.draftAktaRupsDate || data.notaryDate || "";
   
-  const tglAktaHari = getDayName(effectiveNotaryDate) || "Jum'at";
-  const tglAktaRupst = formatDateRupst(effectiveNotaryDate) || "08 Mei 2026";
-  const tglAktaHuruf = dateToWords(effectiveNotaryDate);
-  const tglAktaAngka = formatDateStr(effectiveNotaryDate);
+  let effectiveNotaryNumber = (data.draftAktaRupsNumber || data.notaryNumber || "").trim();
+  if (effectiveNotaryNumber === "" || effectiveNotaryNumber === "...") {
+    effectiveNotaryNumber = "0";
+  }
+  
+  const tglAktaHari = hasCustomDeedDate && effectiveNotaryDate ? (getDayName(effectiveNotaryDate) || "Jum'at") : "............................";
+  const tglAktaRupst = hasCustomDeedDate && effectiveNotaryDate ? (formatDateRupst(effectiveNotaryDate) || "08 Mei 2026") : "............................";
+  const tglAktaHuruf = hasCustomDeedDate && effectiveNotaryDate ? dateToWords(effectiveNotaryDate) : "............................";
+  const tglAktaAngka = hasCustomDeedDate && effectiveNotaryDate ? formatDateStr(effectiveNotaryDate) : "............................";
 
-  const jamStr = data.meetingStartTime ? data.meetingStartTime.replace(":", ".") : "11.00";
-  const jamParts = (data.meetingStartTime || "11:00").split(":");
-  const h = parseInt(jamParts[0]);
-  const m = parseInt(jamParts[1]);
-  const jamHuruf = `${terbilang(h)} lewat ${m === 0 ? "nol-nol" : terbilang(m)} menit Waktu Indonesia Barat`;
+  const hasCustomDeedTime = !!data.draftAktaRupsTime;
+  const effectiveNotaryTime = data.draftAktaRupsTime || "";
+  
+  const jamStr = hasCustomDeedTime && effectiveNotaryTime ? effectiveNotaryTime.replace(":", ".") : "............................";
+  const jamParts = (effectiveNotaryTime || "11:00").split(":");
+  const h = parseInt(jamParts[0]) || 0;
+  const m = parseInt(jamParts[1]) || 0;
+  const jamHuruf = hasCustomDeedTime && effectiveNotaryTime 
+    ? `${terbilang(h)} lewat ${m === 0 ? "nol-nol" : terbilang(m)} menit Waktu Indonesia Barat`
+    : "............................";
 
   // Meeting Dates
   const tglRapatHari = getDayName(data.signingDate || "") || "Rabu";
@@ -128,16 +138,11 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
     
     // Avoid double salutations if name already starts with the salutation
     const currentSal = (!isBadanHukum) ? (person?.salutation || "Tuan").trim() : "";
-    const salUpper = currentSal.toUpperCase();
-    if (currentSal) {
-      const stripRegex = new RegExp(`^(${salUpper}|TUAN|NYONYA|NONA|NY|TN|NY\\.|TN\\.|NYONYA\\.|TUAN\\.)\\s+`, "i");
-      if (nameUpper.startsWith(salUpper + " ") || stripRegex.test(nameUpper)) {
-        nameUpper = nameUpper.replace(stripRegex, "").trim();
-        // Handle the simple startsWith case if regex didn't catch specific boundary
-        if (nameUpper.startsWith(salUpper + " ")) {
-          nameUpper = nameUpper.substring(salUpper.length + 1).trim();
-        }
-      }
+    
+    // Clean nameUpper of any leading salutations completely!
+    const cleanPrefixRegex = /^(TUAN|NYONYA|NONA|NY|TN|NY\.|TN\.|NYONYA\.|TUAN\.)\s+/i;
+    while (cleanPrefixRegex.test(nameUpper)) {
+      nameUpper = nameUpper.replace(cleanPrefixRegex, "").trim();
     }
     
     const isPenghadap = rep && nameUpper === (rep.name || "").toUpperCase().trim();
@@ -172,7 +177,14 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
     { type: "p", align: "center", runs: [{ text: `Nomor : ${effectiveNotaryNumber}` }] },
     { type: "p", runs: [] },
     { type: "p", runs: [] },
-    { type: "p", runs: [{ text: `Pada hari ini, ${tglAktaHari}, tanggal ${formatAktaDate(effectiveNotaryDate)}.` }] },
+    {
+      type: "p",
+      runs: [{
+        text: hasCustomDeedDate && effectiveNotaryDate
+          ? `Pada hari ini, ${tglAktaHari}, tanggal ${formatAktaDate(effectiveNotaryDate)}.`
+          : `Pada hari ini, hari ${tglAktaHari}, tanggal ${tglAktaHuruf}.`
+      }]
+    },
     { type: "p", runs: [{ text: `Pukul ${jamStr} WIB (${jamHuruf}).` }] },
     {
       type: "p",
@@ -472,20 +484,20 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
   attendees.forEach((att, idx) => {
     const isRep = (att.name || "").toUpperCase().trim() === (rep.name || "").toUpperCase().trim();
     const currentSal = (att.salutation || "Tuan").trim();
-    const salUpper = currentSal.toUpperCase();
     let displayName = (att.name || "").toUpperCase().trim();
     
-    const stripRegex = new RegExp(`^(${salUpper}|TUAN|NYONYA|NONA|NY|TN|NY\\.|TN\\.|NYONYA\\.|TUAN\\.)\\s+`, "i");
-    if (displayName.startsWith(salUpper + " ") || stripRegex.test(displayName)) {
-      displayName = displayName.replace(stripRegex, "").trim();
-      if (displayName.startsWith(salUpper + " ")) {
-        displayName = displayName.substring(salUpper.length + 1).trim();
-      }
+    // Clean displayName of any leading salutations completely!
+    const cleanPrefixRegex = /^(TUAN|NYONYA|NONA|NY|TN|NY\.|TN\.|NYONYA\.|TUAN\.)\s+/i;
+    while (cleanPrefixRegex.test(displayName)) {
+      displayName = displayName.replace(cleanPrefixRegex, "").trim();
     }
 
-    const runsList: FormatToken[] = [{ text: att.salutation ? `${att.salutation} ` : "" }];
+    const runsList: FormatToken[] = [];
 
     if (isRep) {
+      if (att.salutation) {
+        runsList.push({ text: `${att.salutation} ` });
+      }
       runsList.push(
         { text: displayName, bold: true },
         { text: ", penghadap tersebut diatas;" }
@@ -902,24 +914,11 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
 
   // Decision 4 - Net profit/dividend distribution
   const netProfitColor = (data.rupstNetProfit !== undefined && data.rupstNetProfit !== null) ? undefined : "FF0000";
-  let netProfitDisplay = "[ISI DENGAN NILAI LABA BERSIH DI NOTULEN RUPS TAHUNAN]";
-  if (data.rupstNetProfit !== undefined && data.rupstNetProfit !== null) {
-    const isNeg = data.rupstNetProfit < 0;
-    const absVal = Math.abs(data.rupstNetProfit);
-    netProfitDisplay = `${isNeg ? "- Rp " : "Rp "}${formatNumber(absVal)} (${terbilang(data.rupstNetProfit)} rupiah)`;
-  }
-
   const dividendColor = (data.rupstDividendAmount !== undefined && data.rupstDividendAmount !== null) ? undefined : "FF0000";
-  let dividendDisplayValue = "[ISI DENGAN NILAI DEVIDEN DIBAGIKAN]";
-  if (data.rupstDividendAmount !== undefined && data.rupstDividendAmount !== null) {
-    const isNeg = data.rupstDividendAmount < 0;
-    const absVal = Math.abs(data.rupstDividendAmount);
-    dividendDisplayValue = `${isNeg ? "- Rp " : "Rp "}${formatNumber(absVal)} (${terbilang(data.rupstDividendAmount)} rupiah)`;
-  }
 
   if (data.rupstNetProfit !== undefined && data.rupstNetProfit !== null && data.rupstNetProfit < 0) {
     const absNetProfit = Math.abs(data.rupstNetProfit);
-    const netProfitDisplayPositive = `Rp ${formatNumber(absNetProfit)} (${terbilang(absNetProfit)} rupiah)`;
+    const netProfitDisplayPositive = `Rp. ${formatNumber(absNetProfit)},- (${terbilang(absNetProfit)} rupiah)`;
 
     blocks.push({
       type: "p",
@@ -931,34 +930,82 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
       ]
     });
   } else {
+    const netProfit = data.rupstNetProfit || 0;
+    const previousRetained = data.rupstRetainedProfit || 0;
+    const divAmt = data.rupstDividendAmount || 0;
+    const totalLabaDitahan = netProfit + previousRetained - divAmt;
+
+    const amtStr = `Rp. ${formatNumber(netProfit)},- (${terbilang(netProfit)} rupiah)`;
+    const divAmtStr = `Rp. ${formatNumber(divAmt)},- (${terbilang(divAmt)} rupiah)`;
+    const previousRetainedStr = `Rp. ${formatNumber(previousRetained)},- (${terbilang(previousRetained)} rupiah)`;
+    const totalLabaDitahanStr = `Rp. ${formatNumber(Math.abs(totalLabaDitahan))},- (${terbilang(Math.abs(totalLabaDitahan))} rupiah)`;
+
+    const fiscalYear = data.rupstFiscalYear || "2025";
+    const prevYear = String(Number(fiscalYear) - 1);
+
     blocks.push({
       type: "p",
       number: 4,
       runs: [
-        { text: `Menetapkan penggunaan laba bersih Perseroan tahun buku ${data.rupstFiscalYear || "2025"} sebesar ` },
-        { text: netProfitDisplay, color: netProfitColor },
-        { text: `, dengan rincian sebagai berikut:` }
+        { text: `Menetapkan Perseroan mengalami laba bersih untuk tahun buku ${fiscalYear} sebesar ` },
+        { text: amtStr, color: netProfitColor },
+        { text: `, dengan saldo laba ditahan Perseroan sampai dengan tahun buku ${prevYear} sebesar ` },
+        { text: previousRetainedStr },
+        { text: `. sehubungan dengan hal tersebut:` }
       ]
     });
 
-    blocks.push(
-      {
-        type: "list",
-        bullet: "-",
-        indentTabs: 1.0,
-        runs: [
-          { text: "Sebesar " },
-          { text: dividendDisplayValue, color: dividendColor },
-          { text: " dibagikan sebagai dividen kepada para pemegang saham;" }
-        ]
-      },
-      {
-        type: "list",
-        bullet: "-",
-        indentTabs: 1.0,
-        runs: [{ text: "Sisanya dicatat sebagai laba ditahan Perseroan untuk mendukung kegiatan usaha Perseroan." }]
-      }
-    );
+    if (divAmt > 0) {
+      blocks.push(
+        {
+          type: "list",
+          bullet: "-",
+          indentTabs: 1.0,
+          runs: [
+            { text: "Sebesar " },
+            { text: divAmtStr, color: dividendColor },
+            { text: " dibagikan sebagai dividen kepada para pemegang saham;" }
+          ]
+        },
+        {
+          type: "list",
+          bullet: "-",
+          indentTabs: 1.0,
+          runs: [
+            { text: "Laba bersih tahun berjalan sebesar " },
+            { text: amtStr, color: netProfitColor },
+            { text: " ditambah saldo laba ditahan tahun sebelumnya sebesar " },
+            { text: previousRetainedStr },
+            { text: " setelah dikurangi dividen, maka total saldo laba ditahan Perseroan menjadi sebesar " },
+            { text: totalLabaDitahanStr },
+            { text: " ditetapkan sebagai saldo laba ditahan Perseroan." }
+          ]
+        }
+      );
+    } else {
+      blocks.push(
+        {
+          type: "list",
+          bullet: "-",
+          indentTabs: 1.0,
+          runs: [{ text: "Perseroan tidak membagikan dividen kepada para pemegang saham;" }]
+        },
+        {
+          type: "list",
+          bullet: "-",
+          indentTabs: 1.0,
+          runs: [
+            { text: "Laba bersih tahun berjalan sebesar " },
+            { text: amtStr, color: netProfitColor },
+            { text: " ditambah saldo laba ditahan tahun sebelumnya sebesar " },
+            { text: previousRetainedStr },
+            { text: " sehingga total saldo laba ditahan Perseroan menjadi sebesar " },
+            { text: totalLabaDitahanStr },
+            { text: "." }
+          ]
+        }
+      );
+    }
   }
 
   // Decision 5

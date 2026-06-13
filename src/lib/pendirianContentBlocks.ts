@@ -320,7 +320,7 @@ export function generatePendirianBlocks(data: PendirianData): Block[] {
     { type: 'p', indentTabs: 2, runs: [{ text: 'Diberikan sebagai salinan yang sama bunyinya.' }] },
     { type: 'br' },
     { type: 'p', align: 'right-center', runs: [{ text: `Notaris di ${toTitleCase(data.notarisTempat || 'Kabupaten Bandung Barat')};` }] },
-    { type: 'p', align: 'right-center', runs: [{ text: 'NUKANTINI PUTRI PARINCHA, SH., M.Kn.', bold: true }] }
+    { type: 'p', align: 'right-center', runs: [{ text: 'NUKANTINI PUTRI PARINCHA, SH., M.Kn', bold: true }] }
   );
 
   return blocks;

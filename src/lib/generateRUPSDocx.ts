@@ -465,10 +465,14 @@ export const generateRUPSDocx = async (data: CompanyData) => {
   });
 
   const domicile = data.newAddress?.city || data.domicile || "Kabupaten Bandung Barat";
-  const notaryDisplay = (data.notaryName || "NUKANTINI PUTRI PARINCHA, SH., M.Kn.")
+  const notaryDisplay = (data.notaryName || "NUKANTINI PUTRI PARINCHA, SH., M.Kn")
     .toUpperCase()
     .replace(/SARJANA HUKUM/gi, "SH.")
-    .replace(/MAGISTER KENOTARIATAN/gi, "M.Kn");
+    .replace(/S\.H\./g, "SH.")
+    .replace(/MAGISTER KENOTARIATAN/gi, "M.Kn")
+    .replace(/M\.KN\./g, "M.Kn")
+    .replace(/M\.KN/g, "M.Kn")
+    .trim();
 
   docxChildren.push(createNotarisLabelP("Kabupaten Bandung Barat"));
   docxChildren.push(createNotarisEmptyP());

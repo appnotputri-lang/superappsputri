@@ -192,6 +192,7 @@ const INITIAL_STATE: CompanyData = {
   createDraftAktaRups: false,
   draftAktaRupsNumber: '',
   draftAktaRupsDate: '',
+  draftAktaRupsTime: '',
   notaryName: '',
   notaryTitle: '',
   notaryDomicile: '',
@@ -531,6 +532,8 @@ const App: React.FC = () => {
   const [editingRupstPublicId, setEditingRupstPublicId] = useState<string | null>(null);
   const [editingPendirianId, setEditingPendirianId] = useState<string | null>(null);
   const [editingProfileId, setEditingProfileId] = useState<string | null>(null);
+  const [isProfilePreview, setIsProfilePreview] = useState<boolean>(false);
+  const [isRupstPreview, setIsRupstPreview] = useState<boolean>(false);
   const [isPtGroupOpen, setIsPtGroupOpen] = useState(true);
 
   const [editingShareholder, setEditingShareholder] = useState<Shareholder | null>(null);
@@ -1929,6 +1932,7 @@ const App: React.FC = () => {
                 {!editingProfileId && (
                   <button onClick={() => {
                     setEditingProfileId('new');
+                    setIsProfilePreview(false);
                     updateData({ ...INITIAL_STATE } as any);
                   }} className="bg-[#3b5998] hover:bg-[#2d4373] text-white px-4 py-2 rounded-sm font-bold text-[12px] flex items-center gap-2 transition-colors">
                     <Plus className="w-4 h-4" /> TAMBAH KLIEN PT
@@ -1945,38 +1949,67 @@ const App: React.FC = () => {
                     
                     <div className="h-6 w-px bg-slate-300 mx-1"></div>
 
-                    <button onClick={resetData} className="px-5 py-2 bg-[#d9534f] text-white rounded-md text-[13px] font-bold transition-all hover:bg-[#c9302c] shadow-sm uppercase">RISET</button>
-                    <button 
-                      disabled={isSaving}
-                      onClick={async () => {
-                       if (!data.companyName) return alert('Nama perseroan harus diisi');
-                       setIsSaving(true);
-                       const newId = editingProfileId && editingProfileId !== 'new' ? editingProfileId : crypto.randomUUID();
-                       const profileData = {
-                           ...data,
-                           id: newId,
-                           updatedAt: new Date().toISOString()
-                       };
-                       if (!user) {
-                         setIsSaving(false);
-                         return alert('Anda harus login terlebih dahulu!');
-                       }
-                       
-                       try {
-                           await setDoc(doc(db, 'profiles', profileData.id), sanitizeForFirestore(profileData));
-                           setEditingProfileId(null);
-                           alert('Profil berhasil disimpan!');
-                       } catch (e) {
-                           handleFirestoreError(e, OperationType.WRITE, `profiles/${profileData.id}`);
-                       } finally {
-                           setIsSaving(false);
-                       }
-                    }} className="px-5 py-2 bg-[#40bdae] text-white rounded-md text-[13px] font-bold transition-all hover:bg-[#349c8f] shadow-sm uppercase disabled:opacity-50 disabled:cursor-not-allowed">
-                      {isSaving ? 'MENYIMPAN...' : 'SIMPAN PROFIL'}
-                    </button>
+                    {isProfilePreview ? (
+                      <>
+                        <button 
+                          onClick={(e) => { e.preventDefault(); setIsProfilePreview(false); }}
+                          className="px-5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md text-[13px] font-bold transition-all border border-slate-200 shadow-sm flex items-center gap-2 uppercase">
+                          <Edit className="w-4 h-4" /> Edit
+                        </button>
+                        <button 
+                          onClick={async (e) => {
+                            e.preventDefault();
+                            if(confirm('Hapus profil ' + data.companyName + '?')) {
+                              if (!user) return alert('Anda harus login!');
+                              try {
+                                await deleteDoc(doc(db, 'profiles', editingProfileId));
+                                alert('Profil berhasil dihapus');
+                                setEditingProfileId(null);
+                              } catch (err) {
+                                handleFirestoreError(err, OperationType.DELETE, `profiles/${editingProfileId}`);
+                              }
+                            }
+                          }}
+                          className="px-5 py-2 bg-red-50 hover:bg-red-500 hover:text-white text-red-600 rounded-md font-bold transition-all text-[13px] border border-red-100 hover:border-red-500 shadow-sm flex items-center gap-2 uppercase">
+                          <Trash2 className="w-4 h-4" /> Hapus
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button onClick={resetData} className="px-5 py-2 bg-[#d9534f] text-white rounded-md text-[13px] font-bold transition-all hover:bg-[#c9302c] shadow-sm uppercase">RISET</button>
+                        <button 
+                          disabled={isSaving}
+                          onClick={async () => {
+                           if (!data.companyName) return alert('Nama perseroan harus diisi');
+                           setIsSaving(true);
+                           const newId = editingProfileId && editingProfileId !== 'new' ? editingProfileId : crypto.randomUUID();
+                           const profileData = {
+                               ...data,
+                               id: newId,
+                               updatedAt: new Date().toISOString()
+                           };
+                           if (!user) {
+                             setIsSaving(false);
+                             return alert('Anda harus login terlebih dahulu!');
+                           }
+                           
+                           try {
+                               await setDoc(doc(db, 'profiles', profileData.id), sanitizeForFirestore(profileData));
+                               setEditingProfileId(null);
+                               alert('Profil berhasil disimpan!');
+                           } catch (e) {
+                               handleFirestoreError(e, OperationType.WRITE, `profiles/${profileData.id}`);
+                           } finally {
+                               setIsSaving(false);
+                           }
+                        }} className="px-5 py-2 bg-[#40bdae] text-white rounded-md text-[13px] font-bold transition-all hover:bg-[#349c8f] shadow-sm uppercase disabled:opacity-50 disabled:cursor-not-allowed">
+                          {isSaving ? 'MENYIMPAN...' : 'SIMPAN PROFIL'}
+                        </button>
+                      </>
+                    )}
                   </div>
                   
-                  <div className="space-y-4">
+                  <fieldset disabled={isProfilePreview} className="space-y-4">
                     {/* DATA PERSEROAN */}
             
             <AhuSection title="DATA PERSEROAN">
@@ -2532,8 +2565,8 @@ const App: React.FC = () => {
 {/* JENIS NOTULEN */}
             
 
-          </div>
-          </div>
+                  </fieldset>
+                </div>
               ) : (() => {
                   // 1. Initial filter by search query (PT Name or Domicile or City)
                   let filteredProfileResults = profiles.filter(p => {
@@ -2786,7 +2819,6 @@ const App: React.FC = () => {
                                       {renderProfileSortArrows("updatedAt")}
                                     </div>
                                   </th>
-                                  <th className="p-4 text-center text-[#3b5998]">Aksi</th>
                                 </tr>
                               </thead>
                               <tbody className="divide-y divide-slate-100">
@@ -2797,7 +2829,15 @@ const App: React.FC = () => {
                                   const lastUpdated = formatProfileLastUpdated(p.updatedAt, p.establishmentDeedDate);
 
                                   return (
-                                    <tr key={p.id} className="hover:bg-slate-50/50 transition-colors">
+                                    <tr 
+                                      key={p.id} 
+                                      className="hover:bg-slate-50/50 transition-colors cursor-pointer"
+                                      onClick={() => {
+                                        setEditingProfileId(p.id);
+                                        setIsProfilePreview(true);
+                                        updateData({ ...INITIAL_STATE, ...p } as any);
+                                      }}
+                                    >
                                       <td className="p-4 font-bold text-center border-r border-slate-100 text-slate-500 w-12">{currentNo}</td>
                                       <td className="p-4 font-bold text-slate-800 border-r border-slate-100 uppercase tracking-tight">
                                         <div className="flex items-center gap-2">
@@ -2818,35 +2858,6 @@ const App: React.FC = () => {
                                       <td className="p-4 text-slate-600 border-r border-slate-100 uppercase font-medium">{city}</td>
                                       <td className="p-4 text-slate-600 border-r border-slate-100 uppercase font-medium">{deedDate}</td>
                                       <td className="p-4 text-slate-500 border-r border-slate-100 text-[11px] font-mono">{lastUpdated}</td>
-                                      <td className="p-4 text-center">
-                                        <div className="flex items-center justify-center gap-2.5">
-                                          <button 
-                                            onClick={() => {
-                                              setEditingProfileId(p.id);
-                                              updateData({ ...INITIAL_STATE, ...p } as any);
-                                            }} 
-                                            className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md font-bold text-[11px] flex items-center gap-1 transition-colors uppercase border border-slate-200"
-                                          >
-                                            <Edit className="w-3.5 h-3.5" /> Edit
-                                          </button>
-                                          <button 
-                                            onClick={async () => {
-                                              if(confirm('Hapus profil ' + p.companyName + '?')) {
-                                                if (!user) return alert('Anda harus login!');
-                                                try {
-                                                  await deleteDoc(doc(db, 'profiles', p.id));
-                                                  alert('Profil berhasil dihapus');
-                                                } catch (e) {
-                                                  handleFirestoreError(e, OperationType.DELETE, `profiles/${p.id}`);
-                                                }
-                                              }
-                                            }} 
-                                            className="px-3.5 py-1.5 bg-red-50 hover:bg-red-500 hover:text-white text-red-600 rounded-md font-bold text-[11px] flex items-center gap-1 transition-colors uppercase border border-red-100 hover:border-red-500"
-                                          >
-                                            <Trash2 className="w-3.5 h-3.5" /> Hapus
-                                          </button>
-                                        </div>
-                                      </td>
                                     </tr>
                                   );
                                 })}
@@ -3833,22 +3844,37 @@ const App: React.FC = () => {
                     </label>
 
                     {data.createDraftAktaRups && (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2 p-4 bg-slate-50 border border-slate-200 rounded-sm">
-                        <div>
-                          <AhuLabel label="Nomor Akta" />
-                          <AhuInput 
-                            value={data.draftAktaRupsNumber || ''} 
-                            onChange={(e) => updateData({ draftAktaRupsNumber: e.target.value })} 
-                            placeholder="Contoh: 12"
-                          />
+                      <div className="mt-2 p-4 bg-slate-50 border border-slate-200 rounded-sm space-y-3">
+                        <div className="border-b border-slate-200 pb-1.5 mb-2">
+                          <span className="text-[12px] font-bold text-[#3b5998] uppercase tracking-wider">
+                            📝 DRAF AKTA NOTARIS
+                          </span>
                         </div>
-                        <div>
-                          <AhuLabel label="Tanggal Akta" />
-                          <AhuInput 
-                            type="date"
-                            value={data.draftAktaRupsDate || ''} 
-                            onChange={(e) => updateData({ draftAktaRupsDate: e.target.value })} 
-                          />
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div>
+                            <AhuLabel label="Nomor Akta" />
+                            <AhuInput 
+                              value={data.draftAktaRupsNumber || ''} 
+                              onChange={(e) => updateData({ draftAktaRupsNumber: e.target.value })} 
+                              placeholder="Contoh: 12"
+                            />
+                          </div>
+                          <div>
+                            <AhuLabel label="Tanggal Akta" />
+                            <AhuInput 
+                              type="date"
+                              value={data.draftAktaRupsDate || ''} 
+                              onChange={(e) => updateData({ draftAktaRupsDate: e.target.value })} 
+                            />
+                          </div>
+                          <div>
+                            <AhuLabel label="Jam Akta" />
+                            <AhuInput 
+                              type="time"
+                              value={data.draftAktaRupsTime || ''} 
+                              onChange={(e) => updateData({ draftAktaRupsTime: e.target.value })} 
+                            />
+                          </div>
                         </div>
                       </div>
                     )}
@@ -4120,6 +4146,39 @@ const App: React.FC = () => {
                           <option key={idx} value={m.name}>{m.name} - {m.position}</option>
                         ))}
                       </AhuSelect>
+                    </div>
+                  </div>
+                  <div className="border border-slate-200 bg-slate-50 rounded p-4 space-y-3 mt-2">
+                    <div className="border-b border-slate-200 pb-1.5 mb-2">
+                      <span className="text-[12px] font-bold text-[#3b5998] uppercase tracking-wider">
+                        📝 DRAF AKTA RUPST
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <AhuLabel label="Nomor Akta RUPST" />
+                        <AhuInput 
+                          value={data.draftAktaRupsNumber || ''} 
+                          onChange={e => updateData({ draftAktaRupsNumber: e.target.value })} 
+                          placeholder="Contoh: 08" 
+                        />
+                      </div>
+                      <div>
+                        <AhuLabel label="Tanggal Akta RUPST" />
+                        <AhuInput 
+                          type="date"
+                          value={data.draftAktaRupsDate || ''} 
+                          onChange={e => updateData({ draftAktaRupsDate: e.target.value })} 
+                        />
+                      </div>
+                      <div>
+                        <AhuLabel label="Jam Akta RUPST" />
+                        <AhuInput 
+                          type="time"
+                          value={data.draftAktaRupsTime || ''} 
+                          onChange={e => updateData({ draftAktaRupsTime: e.target.value })} 
+                        />
+                      </div>
                     </div>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
@@ -5117,6 +5176,7 @@ const App: React.FC = () => {
                   {!currentEditingRupstId && (
                     <button onClick={() => {
                       setCurrentEditingRupstId('new');
+                      setIsRupstPreview(false);
                       updateData({ 
                         ...INITIAL_STATE, 
                       } as any);
@@ -5128,7 +5188,6 @@ const App: React.FC = () => {
 
               {currentEditingRupstId ? (
                 <div className="space-y-4 pb-20">
-                  {/* ... editing form ... */}
                   <div className="flex flex-wrap items-center gap-2 bg-slate-50/50 p-2 rounded-md border border-slate-200">
                     <button className="text-slate-500 hover:text-slate-800 flex items-center gap-1 font-bold text-[12px] uppercase bg-white px-3 py-2 rounded-sm border border-slate-200 shadow-sm" onClick={() => setCurrentEditingRupstId(null)}>
                       <ArrowRight className="w-4 h-4 rotate-180" /> Kembali
@@ -5136,35 +5195,64 @@ const App: React.FC = () => {
                     
                     <div className="h-6 w-px bg-slate-300 mx-1"></div>
  
-                    <button onClick={resetData} className="px-5 py-2 bg-[#d9534f] text-white rounded-md text-[13px] font-bold transition-all hover:bg-[#c9302c] shadow-sm uppercase">RISET</button>
-                    <button 
-                      disabled={isSaving}
-                      onClick={async () => {
-                       if (!data.companyName) return alert('Nama perseroan harus diisi');
-                       setIsSaving(true);
-                       const newId = currentEditingRupstId && currentEditingRupstId !== 'new' ? currentEditingRupstId : crypto.randomUUID();
-                       const profileData = {
-                           ...data,
-                           id: newId,
-                           updatedAt: new Date().toISOString()
-                       };
-                       if (!user && !isPublicMenu) {
-                         setIsSaving(false);
-                         return alert('Anda harus login terlebih dahulu!');
-                       }
-                       
-                       try {
-                           await setDoc(doc(db, currentCollectionName, profileData.id), sanitizeForFirestore(profileData));
-                           setCurrentEditingRupstId(null);
-                           alert(isPublicMenu ? 'RUPST Public berhasil disimpan!' : 'RUPST berhasil disimpan!');
-                       } catch (e) {
-                           handleFirestoreError(e, OperationType.WRITE, `${currentCollectionName}/${profileData.id}`);
-                       } finally {
-                           setIsSaving(false);
-                       }
-                    }} className="px-5 py-2 bg-[#40bdae] text-white rounded-md text-[13px] font-bold transition-all hover:bg-[#349c8f] shadow-sm uppercase disabled:opacity-50 disabled:cursor-not-allowed">
-                      {isSaving ? 'MENYIMPAN...' : (isPublicMenu ? 'SIMPAN RUPST PUBLIC' : 'SIMPAN RUPST')}
-                    </button>
+                    {isRupstPreview ? (
+                      <>
+                        <button 
+                          onClick={(e) => { e.preventDefault(); setIsRupstPreview(false); }}
+                          className="px-5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md text-[13px] font-bold transition-all border border-slate-200 shadow-sm flex items-center gap-2 uppercase">
+                          <Edit className="w-4 h-4" /> Edit
+                        </button>
+                        <button 
+                          onClick={async (e) => {
+                            e.preventDefault();
+                            if(confirm('Hapus ' + (isPublicMenu ? 'RUPST Public ' : 'RUPST ') + data.companyName + '?')) {
+                              if (!user) return alert('Anda harus login!');
+                              try {
+                                await deleteDoc(doc(db, currentCollectionName, currentEditingRupstId));
+                                alert(isPublicMenu ? 'RUPST Public berhasil dihapus' : 'RUPST berhasil dihapus');
+                                setCurrentEditingRupstId(null);
+                              } catch (err) {
+                                handleFirestoreError(err, OperationType.DELETE, `${currentCollectionName}/${currentEditingRupstId}`);
+                              }
+                            }
+                          }}
+                          className="px-5 py-2 bg-red-50 hover:bg-red-500 hover:text-white text-red-600 rounded-md font-bold transition-all text-[13px] border border-red-100 hover:border-red-500 shadow-sm flex items-center gap-2 uppercase">
+                          <Trash2 className="w-4 h-4" /> Hapus
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button onClick={resetData} className="px-5 py-2 bg-[#d9534f] text-white rounded-md text-[13px] font-bold transition-all hover:bg-[#c9302c] shadow-sm uppercase">RISET</button>
+                        <button 
+                          disabled={isSaving}
+                          onClick={async () => {
+                           if (!data.companyName) return alert('Nama perseroan harus diisi');
+                           setIsSaving(true);
+                           const newId = currentEditingRupstId && currentEditingRupstId !== 'new' ? currentEditingRupstId : crypto.randomUUID();
+                           const profileData = {
+                               ...data,
+                               id: newId,
+                               updatedAt: new Date().toISOString()
+                           };
+                           if (!user && !isPublicMenu) {
+                             setIsSaving(false);
+                             return alert('Anda harus login terlebih dahulu!');
+                           }
+                           
+                           try {
+                               await setDoc(doc(db, currentCollectionName, profileData.id), sanitizeForFirestore(profileData));
+                               setCurrentEditingRupstId(null);
+                               alert(isPublicMenu ? 'RUPST Public berhasil disimpan!' : 'RUPST berhasil disimpan!');
+                           } catch (e) {
+                               handleFirestoreError(e, OperationType.WRITE, `${currentCollectionName}/${profileData.id}`);
+                           } finally {
+                               setIsSaving(false);
+                           }
+                        }} className="px-5 py-2 bg-[#40bdae] text-white rounded-md text-[13px] font-bold transition-all hover:bg-[#349c8f] shadow-sm uppercase disabled:opacity-50 disabled:cursor-not-allowed">
+                          {isSaving ? 'MENYIMPAN...' : (isPublicMenu ? 'SIMPAN RUPST PUBLIC' : 'SIMPAN RUPST')}
+                        </button>
+                      </>
+                    )}
 
                     <button 
                       onClick={async () => {
@@ -5212,7 +5300,7 @@ const App: React.FC = () => {
                     )}
                   </div>
                   
-                  <div className="space-y-4">
+                  <fieldset disabled={isRupstPreview} className="space-y-4">
                     {/* PILIH PROFIL */}
                     {isPublicMenu && (
                       <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center bg-white p-3.5 rounded-lg border border-slate-200 shadow-sm gap-2 mt-2">
@@ -6157,6 +6245,40 @@ const App: React.FC = () => {
                         </div>
                       )}
 
+                      <div className="mb-6 p-4 bg-slate-50 border border-slate-200 rounded-sm space-y-3">
+                        <div className="border-b border-slate-200 pb-1.5 mb-2">
+                          <span className="text-[12px] font-bold text-[#3b5998] uppercase tracking-wider">
+                            📝 DRAF AKTA RUPST
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div>
+                            <AhuLabel label="Nomor Akta RUPST" />
+                            <AhuInput 
+                              value={data.draftAktaRupsNumber || ''} 
+                              onChange={e => updateData({ draftAktaRupsNumber: e.target.value })} 
+                              placeholder="Contoh: 08" 
+                            />
+                          </div>
+                          <div>
+                            <AhuLabel label="Tanggal Akta RUPST" />
+                            <AhuInput 
+                              type="date"
+                              value={data.draftAktaRupsDate || ''} 
+                              onChange={e => updateData({ draftAktaRupsDate: e.target.value })} 
+                            />
+                          </div>
+                          <div>
+                            <AhuLabel label="Jam Akta RUPST" />
+                            <AhuInput 
+                              type="time"
+                              value={data.draftAktaRupsTime || ''} 
+                              onChange={e => updateData({ draftAktaRupsTime: e.target.value })} 
+                            />
+                          </div>
+                        </div>
+                      </div>
+
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                         <div className="space-y-4">
                           <div>
@@ -6655,14 +6777,7 @@ const App: React.FC = () => {
                     </AhuSection>
                     </>
                     )}
-                  </div>
-                  
-                  {/* PREVIEW AREA (Bottom) - Removed as per request */}
-                  {/* <AhuSection title="PREVIEW NOTULEN RUPST" isOpen={false}>
-                     <div className="bg-slate-100 p-4 rounded min-h-[500px]">
-                        <RUPSTDocumentPreview data={mergedData} />
-                     </div>
-                  </AhuSection> */}
+                  </fieldset>
                 </div>
               ) : (
                 <div className="space-y-6">
@@ -6804,7 +6919,6 @@ const App: React.FC = () => {
                                   {renderSortArrows("updatedAt")}
                                 </div>
                               </th>
-                              <th className="px-4 py-3.5 text-slate-600 font-bold text-[12px] uppercase w-[190px] text-center">AKSI</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-slate-150">
@@ -6812,7 +6926,15 @@ const App: React.FC = () => {
                               const overallIdx = startIndex + idx + 1;
                               const statusVal = p.rupstStatus || "Draft";
                               return (
-                                <tr key={p.id} className="hover:bg-slate-50 transition-colors duration-150 odd:bg-white even:bg-slate-50/40">
+                                <tr 
+                                  key={p.id} 
+                                  className="hover:bg-slate-50 transition-colors duration-150 odd:bg-white even:bg-slate-50/40 cursor-pointer"
+                                  onClick={() => {
+                                    setCurrentEditingRupstId(p.id);
+                                    setIsRupstPreview(true);
+                                    updateData({ ...INITIAL_STATE, ...p } as any);
+                                  }}
+                                >
                                   <td className="px-4 py-3.5 text-center font-semibold text-slate-500 text-[12px]">{overallIdx}</td>
                                   <td className="px-4 py-3.5">
                                     <div className="font-bold text-slate-800 tracking-tight">{p.companyName}</div>
@@ -6833,39 +6955,6 @@ const App: React.FC = () => {
                                   </td>
                                   <td className="px-4 py-3.5 text-slate-500 font-medium">
                                     {formatLastUpdated(p.updatedAt, p.signingDate)}
-                                  </td>
-                                  <td className="px-4 py-3.5">
-                                    <div className="flex justify-center items-center gap-2">
-                                      <button 
-                                        type="button"
-                                        onClick={() => {
-                                          setCurrentEditingRupstId(p.id);
-                                          updateData({ ...INITIAL_STATE, ...p } as any);
-                                        }} 
-                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-50 text-[11px] font-extrabold text-blue-600 rounded-md border border-slate-250 shadow-sm transition-all uppercase"
-                                      >
-                                        <Edit size={13} className="text-blue-500" />
-                                        EDIT
-                                      </button>
-                                      <button 
-                                        type="button"
-                                        onClick={async () => {
-                                          if (confirm((isPublicMenu ? 'Hapus RUPST Public ' : 'Hapus RUPST ') + p.companyName + '?')) {
-                                            if (!user) return alert('Anda harus login!');
-                                            try {
-                                              await deleteDoc(doc(db, currentCollectionName, p.id));
-                                              alert(isPublicMenu ? 'RUPST Public berhasil dihapus' : 'RUPST berhasil dihapus');
-                                            } catch (e) {
-                                              handleFirestoreError(e, OperationType.DELETE, `${currentCollectionName}/${p.id}`);
-                                            }
-                                          }
-                                        }} 
-                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-50 hover:bg-red-100 text-[11px] font-extrabold text-red-600 rounded-md border border-red-150 shadow-sm transition-all uppercase"
-                                      >
-                                        <Trash2 size={13} className="text-red-500" />
-                                        HAPUS
-                                      </button>
-                                    </div>
                                   </td>
                                 </tr>
                               );

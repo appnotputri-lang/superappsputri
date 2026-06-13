@@ -404,7 +404,7 @@ export const generatePendirianDocx = async (data: any) => {
     docxChildren.push(createNotarisLabelP("Kabupaten Bandung Barat"));
     docxChildren.push(createNotarisEmptyP());
     docxChildren.push(createNotarisEmptyP());
-    docxChildren.push(createNotarisNameP("NUKANTINI PUTRI PARINCHA, SH., M.KN."));
+    docxChildren.push(createNotarisNameP("NUKANTINI PUTRI PARINCHA, SH., M.Kn"));
   }
 
   const doc = new Document({

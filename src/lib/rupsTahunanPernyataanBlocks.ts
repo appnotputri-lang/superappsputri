@@ -31,7 +31,7 @@ export const generateRupstPernyataanBlocks = (data: CompanyData): Block[] => {
   const blocks: Block[] = [];
 
   const fiscalYear = data.rupstFiscalYear || "2025";
-  const notaryName = data.notaryName || "NUKANTINI PUTRI PARINCHA, S.H., M.Kn.";
+  const notaryName = data.notaryName || "NUKANTINI PUTRI PARINCHA, SH., M.Kn";
   const domicile =
     data.domicileStyle === "KABUPATEN"
       ? `Kabupaten ${toTitleCase(data.domicile || "")}`

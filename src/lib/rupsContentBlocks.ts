@@ -55,20 +55,28 @@ export type Block =
   | { type: "static"; content: string };
 
 export const generateRupsBlocks = (data: CompanyData): Block[] => {
+  const hasCustomDeedDate = !!(data.draftAktaRupsDate || data.notaryDate);
   const effectiveNotaryDate = data.draftAktaRupsDate || data.notaryDate || "";
-  const effectiveNotaryNumber = data.draftAktaRupsNumber || data.notaryNumber || "...";
   
-  const tglAktaHari = getDayName(effectiveNotaryDate);
-  const tglAktaHuruf = dateToWords(effectiveNotaryDate);
-  const tglAktaAngka = formatDateStr(effectiveNotaryDate);
+  let effectiveNotaryNumber = (data.draftAktaRupsNumber || data.notaryNumber || "").trim();
+  if (effectiveNotaryNumber === "" || effectiveNotaryNumber === "...") {
+    effectiveNotaryNumber = "0";
+  }
+  
+  const tglAktaHari = hasCustomDeedDate && effectiveNotaryDate ? (getDayName(effectiveNotaryDate) || "Jum'at") : "............................";
+  const tglAktaHuruf = hasCustomDeedDate && effectiveNotaryDate ? dateToWords(effectiveNotaryDate) : "............................";
+  const tglAktaAngka = hasCustomDeedDate && effectiveNotaryDate ? formatDateStr(effectiveNotaryDate) : "............................";
 
-  const jamStr = data.aktaStartTime
-    ? data.aktaStartTime.replace(":", ".") + " WIB"
-    : "10.00 WIB";
-  const jamParts = (data.aktaStartTime || "10:00").split(":");
-  const h = parseInt(jamParts[0]);
-  const m = parseInt(jamParts[1]);
-  const jamHuruf = `${terbilang(h)} lewat ${m === 0 ? "nol-nol" : terbilang(m)} menit Waktu Indonesia Barat`;
+  const hasCustomDeedTime = !!(data.draftAktaRupsTime || data.aktaStartTime);
+  const effectiveNotaryTime = data.draftAktaRupsTime || data.aktaStartTime || "";
+  
+  const jamStr = hasCustomDeedTime && effectiveNotaryTime ? effectiveNotaryTime.replace(":", ".") + " WIB" : "............................ WIB";
+  const jamParts = (effectiveNotaryTime || "10:00").split(":");
+  const h = parseInt(jamParts[0]) || 0;
+  const m = parseInt(jamParts[1]) || 0;
+  const jamHuruf = hasCustomDeedTime && effectiveNotaryTime 
+    ? `${terbilang(h)} lewat ${m === 0 ? "nol-nol" : terbilang(m)} menit Waktu Indonesia Barat`
+    : "............................";
 
   let totalShares = data.shareholders.reduce(
     (sum, s) => sum + s.sharesOwned,
@@ -210,9 +218,11 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
       type: "p",
       runs: [
         {
-          text: isMinutes 
-            ? `Pada hari ini, ${tglAktaHari}, tanggal ${tglAktaHuruf} (${tglAktaAngka}).`
-            : `Pada hari ini, ${tglAktaHari}, tanggal ${formatAktaDate(effectiveNotaryDate)}.`,
+          text: hasCustomDeedDate && effectiveNotaryDate
+            ? (isMinutes 
+                ? `Pada hari ini, ${tglAktaHari}, tanggal ${tglAktaHuruf} (${tglAktaAngka}).`
+                : `Pada hari ini, ${tglAktaHari}, tanggal ${formatAktaDate(effectiveNotaryDate)}.`)
+            : `Pada hari ini, hari ${tglAktaHari}, tanggal ${tglAktaHuruf}.`,
         },
       ],
     },

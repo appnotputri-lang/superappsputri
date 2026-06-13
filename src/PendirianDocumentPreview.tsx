@@ -153,7 +153,14 @@ export default function PendirianDocumentPreview({ data, onExport, onClose, isEx
                 
                 <div key="footer-space" className="h-20"></div>
                 <div key="footer-notary" className="w-1/2 ml-auto text-center font-bold">
-                  {data.notarisNamaSurat ? data.notarisNamaSurat.replace(/Sarjana Hukum/gi, 'SH.').replace(/Magister Kenotariatan/gi, 'M.Kn') : "NUKANTINI PUTRI PARINCHA, SH., M.Kn."}
+                  {data.notarisNamaSurat 
+                    ? data.notarisNamaSurat
+                        .replace(/Sarjana Hukum/gi, 'SH')
+                        .replace(/S\.H\./gi, 'SH')
+                        .replace(/Magister Kenotariatan/gi, 'M.Kn')
+                        .replace(/M\.KN\./gi, 'M.Kn')
+                        .replace(/M\.KN/gi, 'M.Kn')
+                    : "NUKANTINI PUTRI PARINCHA, SH., M.Kn"}
                 </div>
               </div>
             </div>
