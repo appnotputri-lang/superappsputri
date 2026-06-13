@@ -1,5 +1,19 @@
 {
   "entities": {
+    "notification": {
+      "title": "Notification",
+      "description": "System-wide notification for project changes, creations, or deletions.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "read": { "type": "boolean" },
+        "type": { "type": "string" },
+        "userId": { "type": "string" }
+      }
+    },
     "profile": {
       "title": "Company Profile",
       "description": "Company profile draft for the user.",
@@ -44,6 +58,10 @@
     }
   },
   "firestore": {
+    "notifications/{notificationId}": {
+      "schema": { "$ref": "#/entities/notification" },
+      "description": "System-wide real-time notifications"
+    },
     "kbli_saved_records/{recordId}": {
       "schema": { "$ref": "#/entities/kbli_saved_record" },
       "description": "Contains saved KBLI mappings and suggestions based on name"

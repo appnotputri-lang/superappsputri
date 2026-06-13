@@ -212,7 +212,7 @@ const createDividerP = (text: string): Paragraph =>
     alignment: AlignmentType.CENTER,
   });
 
-export const generateRUPSTDocx = async (data: CompanyData) => {
+export const generateRUPSTDocx = async (data: CompanyData, returnBlob?: boolean) => {
   const rawBlocks = generateRupstBlocks(data);
   const blocks = preprocessBlocksForWordBullets(rawBlocks);
   const docxChildren: any[] = [];
@@ -429,5 +429,9 @@ export const generateRUPSTDocx = async (data: CompanyData) => {
   });
 
   const blob = await Packer.toBlob(doc);
-  saveAs(blob, `Notulen RUPST ${data.companyName}.docx`);
+  const filename = `Notulen RUPST ${data.companyName || 'PT Baru'}.docx`;
+  if (returnBlob) {
+    return { blob, filename };
+  }
+  saveAs(blob, filename);
 };

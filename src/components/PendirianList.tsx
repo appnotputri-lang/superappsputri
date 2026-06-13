@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Plus, Trash2, LayoutGrid, FileText, ArrowLeft, Edit, FileDown } from 'lucide-react';
-import { collection, onSnapshot, query, doc, deleteDoc, updateDoc } from 'firebase/firestore';
+import { collection, onSnapshot, query, doc, deleteDoc, updateDoc, setDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase'; // Adjust if path is different
 
 const PendirianList: React.FC<{
@@ -24,7 +24,23 @@ const PendirianList: React.FC<{
 
   const handleDelete = async (id: string) => {
     if (confirm('Yakin ingin menghapus data ini?')) {
+      const record = records.find(r => r.id === id);
+      const targetCompanyName = record?.companyName || record?.namaPt || 'PT Baru';
       await deleteDoc(doc(db, 'pendirian_projects', id));
+      
+      try {
+        const notifId = crypto.randomUUID();
+        await setDoc(doc(db, 'notifications', notifId), {
+          id: notifId,
+          title: 'Pendirian PT Dihapus',
+          description: `Data Pendirian PT untuk perusahaan "${targetCompanyName}" telah berhasil dihapus.`,
+          timestamp: new Date().toISOString(),
+          read: false,
+          type: 'delete_pendirian'
+        });
+      } catch (err) {
+        console.error("Gagal membuat notifikasi hapus pendirian PT:", err);
+      }
     }
   };
 

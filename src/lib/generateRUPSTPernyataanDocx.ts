@@ -240,7 +240,7 @@ const makeSigSingle = (name: string, position: string): Paragraph[] => [
 ];
 
 // ─── Main export ──────────────────────────────────────────────────────────────
-export const generateRUPSTPernyataanDocx = async (data: CompanyData) => {
+export const generateRUPSTPernyataanDocx = async (data: CompanyData, returnBlob?: boolean) => {
   const rawBlocks = generateRupstPernyataanBlocks(data);
   const blocks = preprocessBlocksForWordBullets(rawBlocks);
   const docxChildren: any[] = [];
@@ -399,5 +399,9 @@ export const generateRUPSTPernyataanDocx = async (data: CompanyData) => {
   });
 
   const blob = await Packer.toBlob(doc);
-  saveAs(blob, `Surat Pernyataan RUPST ${data.companyName}.docx`);
+  const filename = `Surat Pernyataan RUPST ${data.companyName || 'PT Baru'}.docx`;
+  if (returnBlob) {
+    return { blob, filename };
+  }
+  saveAs(blob, filename);
 };

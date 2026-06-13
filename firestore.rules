@@ -48,5 +48,9 @@ service cloud.firestore {
     match /pendirian_projects/{pendirianId} {
       allow read, write: if isSignedIn();
     }
+
+    match /notifications/{notificationId} {
+      allow read, write: if isSignedIn();
+    }
   }
 }

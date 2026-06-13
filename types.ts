@@ -169,6 +169,7 @@ export interface AmendmentDeed {
 
 export interface CompanyProfile extends Partial<CompanyData> {
   id: string;
+  isArchived?: boolean;
 }
 
 export interface CompanyData {

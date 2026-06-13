@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { initialData, FormData } from './constants';
 import { FormContent } from './FormContent';
 import { DocumentPreview } from './DocumentPreview';
@@ -13,7 +13,13 @@ interface DraftAktaAppProps {
   companyData?: CompanyData;
 }
 
-const getTransferData = (transfer: ShareTransfer, companyData: CompanyData, baseData: FormData): FormData => {
+export interface DraftAktaAppRef {
+  handleDownloadAll: () => Promise<void>;
+  handleDownloadSingle: (transferId: string) => Promise<void>;
+  hasTransfers: boolean;
+}
+
+export const getTransferData = (transfer: ShareTransfer, companyData: CompanyData, baseData: FormData): FormData => {
   const nextData = { ...baseData };
   if (transfer.type) {
       nextData.tipeAkta = transfer.type === 'Hibah' ? 'Hibah' : 'Jual Beli';
@@ -67,10 +73,9 @@ const getTransferData = (transfer: ShareTransfer, companyData: CompanyData, base
   return nextData;
 };
 
-export default function DraftAktaApp({ companyData }: DraftAktaAppProps) {
+const DraftAktaApp = forwardRef<DraftAktaAppRef, DraftAktaAppProps>(({ companyData }, ref) => {
   const [transferDataMap, setTransferDataMap] = useState<Record<string, FormData>>({});
-  const [selectedTransferId, setSelectedTransferId] = useState<string>('');
-  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [previewTransferId, setPreviewTransferId] = useState<string | null>(null);
 
   useEffect(() => {
     if (companyData && companyData.shareTransfers) {
@@ -150,21 +155,9 @@ export default function DraftAktaApp({ companyData }: DraftAktaAppProps) {
     }
   }, [companyData]);
 
-  useEffect(() => {
-    if (companyData?.shareTransfers && companyData.shareTransfers.length > 0) {
-      if (!selectedTransferId || !companyData.shareTransfers.find(t => t.id === selectedTransferId)) {
-        setSelectedTransferId(companyData.shareTransfers[0].id);
-      }
-    } else {
-      setSelectedTransferId('');
-    }
-  }, [companyData, selectedTransferId]);
-
-  const handleChange = (e: { target: { name: string; value: any } }) => {
-    if (!selectedTransferId) return;
-
+  const handleChange = (transferId: string, e: { target: { name: string; value: any } }) => {
     setTransferDataMap(prev => {
-      const currentData = prev[selectedTransferId];
+      const currentData = prev[transferId];
       if (!currentData) return prev;
 
       const nextData = {
@@ -181,20 +174,28 @@ export default function DraftAktaApp({ companyData }: DraftAktaAppProps) {
 
       return {
         ...prev,
-        [selectedTransferId]: nextData
+        [transferId]: nextData
       };
     });
   };
 
-  const handleDownload = async () => {
-    if (selectedTransferId && transferDataMap[selectedTransferId]) {
-      await generateDocx(transferDataMap[selectedTransferId]);
+  const handleDownloadSingle = async (transferId: string) => {
+    if (transferDataMap[transferId]) {
+      await generateDocx(transferDataMap[transferId]);
     }
   };
 
   const handleDownloadAll = async () => {
-      if (!companyData || !companyData.shareTransfers) return;
+      if (!companyData || !companyData.shareTransfers || companyData.shareTransfers.length === 0) return;
       
+      if (companyData.shareTransfers.length === 1) {
+          const transferId = companyData.shareTransfers[0].id;
+          if (transferDataMap[transferId]) {
+             await generateDocx(transferDataMap[transferId]);
+          }
+          return;
+      }
+
       const zip = new JSZip();
       
       for (const transfer of companyData.shareTransfers) {
@@ -209,76 +210,70 @@ export default function DraftAktaApp({ companyData }: DraftAktaAppProps) {
       }
       
       const content = await zip.generateAsync({type: "blob"});
-      saveAs(content, "semua draft akta.zip");
+      saveAs(content, "Sebagian Draft Akta Peralihan Saham.zip");
   };
 
-  const currentData = transferDataMap[selectedTransferId] || initialData;
+  useImperativeHandle(ref, () => ({
+    handleDownloadAll,
+    handleDownloadSingle,
+    hasTransfers: !!(companyData?.shareTransfers && companyData.shareTransfers.length > 0)
+  }));
+
+  if (!companyData?.shareTransfers || companyData.shareTransfers.length === 0) {
+    return <div className="text-sm text-slate-500 italic p-4">Tidak ada data peralihan saham.</div>;
+  }
+
+  const previewData = previewTransferId ? transferDataMap[previewTransferId] : null;
 
   return (
-    <div className="w-full flex flex-col items-center">
-      <div className="w-full flex justify-between items-center mb-6">
-        {companyData?.shareTransfers && companyData.shareTransfers.length > 0 ? (
-           <div className="flex items-center gap-3">
-             <label className="text-sm font-semibold text-slate-700">Pilih Peralihan Saham:</label>
-             <select 
-               className="border border-slate-300 rounded-md px-3 py-1.5 text-sm outline-none focus:border-blue-500 bg-white min-w-[250px]"
-               value={selectedTransferId}
-               onChange={(e) => setSelectedTransferId(e.target.value)}
-             >
-               {companyData.shareTransfers.map(t => {
-                 const fromName = companyData.shareholders.find(s => s.id === t.fromShareholderId)?.name || 'Unknown';
-                 const toName = companyData.shareholders.find(s => s.id === t.toShareholderId)?.name || companyData.finalShareholders?.find(s => s.id === t.toShareholderId)?.name || 'Unknown';
-                 return (
-                   <option key={t.id} value={t.id}>
-                     {t.type} - {fromName} kepada {toName} ({t.sharesTransferred} saham)
-                   </option>
-                 );
-               })}
-             </select>
-           </div>
-        ) : (
-           <div />
-        )}
-
-        <div className="flex gap-3">
-          <button onClick={() => setIsPreviewOpen(true)} className="bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 transition-colors px-4 py-2 rounded-md flex items-center gap-2 text-sm font-semibold shadow-sm">
-            <Eye size={16} className="text-blue-600" /> Pratinjau Dokumen
-          </button>
-          
-          {companyData?.shareTransfers && companyData.shareTransfers.length > 1 && (
-            <button onClick={handleDownloadAll} className="bg-[#3b5998] hover:bg-[#2c4073] text-white transition-colors px-4 py-2 rounded-md flex items-center gap-2 text-sm font-semibold shadow-sm">
-              <Download size={16} /> Download Semua (.zip)
-            </button>
-          )}
-
-          <button onClick={handleDownload} className="bg-[#3b5998] hover:bg-[#2c4073] text-white transition-colors px-4 py-2 rounded-md flex items-center gap-2 text-sm font-semibold shadow-sm">
-            <Download size={16} /> Download DOCX
-          </button>
-        </div>
-      </div>
-
-      <div className="w-full max-w-4xl mx-auto">
-        <FormContent data={currentData} onChange={handleChange} integrated={true} />
-      </div>
+    <div className="w-full flex flex-col gap-8">
+      {companyData.shareTransfers.map((transfer, index) => {
+        const currentData = transferDataMap[transfer.id] || initialData;
+        const fromName = companyData.shareholders.find(s => s.id === transfer.fromShareholderId)?.name || 'Unknown';
+        const toName = companyData.shareholders.find(s => s.id === transfer.toShareholderId)?.name || companyData.finalShareholders?.find(s => s.id === transfer.toShareholderId)?.name || 'Unknown';
+        
+        return (
+          <div key={transfer.id} className="w-full pb-8 border-b border-slate-200 last:border-b-0">
+            <div className="flex justify-between items-center mb-4 bg-slate-50 p-4 rounded-xl border border-slate-200 shadow-sm">
+              <h3 className="font-bold text-slate-700 text-[14px] flex items-center gap-2">
+                 <span className="bg-[#3b5998] text-white w-6 h-6 rounded-full flex items-center justify-center text-xs">{index + 1}</span>
+                 {transfer.type} - {fromName} kepada {toName}
+              </h3>
+              <div className="flex gap-2">
+                <button onClick={() => setPreviewTransferId(transfer.id)} className="bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 transition-colors px-3 py-1.5 rounded-lg flex items-center gap-2 text-[12px] font-bold shadow-sm">
+                  <Eye size={14} className="text-blue-600" /> Pratinjau
+                </button>
+                <button onClick={() => handleDownloadSingle(transfer.id)} className="bg-[#3b5998] hover:bg-[#2c4073] text-white transition-colors px-3 py-1.5 rounded-lg flex items-center gap-2 text-[12px] font-bold shadow-sm">
+                  <Download size={14} /> Download DOCX
+                </button>
+              </div>
+            </div>
+            
+            <div className="w-full max-w-4xl mx-auto pl-4">
+              <FormContent data={currentData} onChange={(e) => handleChange(transfer.id, e)} integrated={true} />
+            </div>
+          </div>
+        );
+      })}
 
       {/* Modal Pratinjau */}
-      {isPreviewOpen && (
+      {previewTransferId && previewData && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 flex items-center justify-center p-4 backdrop-blur-sm">
           <div className="bg-gray-100 w-full max-w-5xl h-[90vh] rounded-xl shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
             <div className="bg-white px-6 py-4 border-b flex justify-between items-center shrink-0">
               <h2 className="font-bold text-lg text-slate-800 flex items-center gap-2">
-                 <Eye size={20} className="text-blue-600"/> Pratinjau Dokumen
+                 <Eye size={20} className="text-blue-600"/> Pratinjau Dokumen 
               </h2>
-              <button onClick={() => setIsPreviewOpen(false)} className="p-2 hover:bg-gray-100 rounded-full transition-colors text-slate-500 hover:text-slate-900">
+              <button onClick={() => setPreviewTransferId(null)} className="p-2 hover:bg-gray-100 rounded-full transition-colors text-slate-500 hover:text-slate-900">
                 <X size={20} />
               </button>
             </div>
             <div className="flex-1 overflow-auto p-4 md:p-0 flex justify-center bg-slate-200">
-               <DocumentPreview data={currentData} />
+               <DocumentPreview data={previewData} />
             </div>
             <div className="bg-white border-t p-4 flex justify-end px-6 shrink-0 gap-3">
-               <button onClick={() => setIsPreviewOpen(false)} className="px-5 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">Tutup</button>
-               <button onClick={handleDownload} className="px-5 py-2.5 text-sm font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center gap-2 shadow-sm transition-colors">
+               <button onClick={() => setPreviewTransferId(null)} className="px-5 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">Tutup</button>
+               <button onClick={() => handleDownloadSingle(previewTransferId)} className="px-5 py-2.5 text-sm font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center gap-2 shadow-sm transition-colors">
                   <Download size={16}/> Download DOCX
                </button>
             </div>
@@ -287,4 +282,6 @@ export default function DraftAktaApp({ companyData }: DraftAktaAppProps) {
       )}
     </div>
   );
-}
+});
+
+export default DraftAktaApp;

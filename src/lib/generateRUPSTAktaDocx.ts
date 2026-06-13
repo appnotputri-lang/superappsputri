@@ -428,7 +428,7 @@ const mkSaksiDash = (t: FormatToken[]) =>
 
 // ─── Main render function ─────────────────────────────────────────────────────
 
-export const generateRUPSTAktaDocx = async (data: CompanyData) => {
+export const generateRUPSTAktaDocx = async (data: CompanyData, returnBlob?: boolean) => {
   const rawBlocks = generateRupstAktaBlocks(data);
   const blocks = preprocessBlocksForWordBullets(rawBlocks);
   const docxChildren: Paragraph[] = [];
@@ -653,5 +653,9 @@ export const generateRUPSTAktaDocx = async (data: CompanyData) => {
   });
 
   const blob = await Packer.toBlob(doc);
-  saveAs(blob, `Draft Akta RUPST ${data.companyName}.docx`);
+  const filename = `Draft Akta RUPST ${data.companyName || 'PT Baru'}.docx`;
+  if (returnBlob) {
+    return { blob, filename };
+  }
+  saveAs(blob, filename);
 };
