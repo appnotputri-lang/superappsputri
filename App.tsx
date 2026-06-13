@@ -2,6 +2,7 @@ import { Modal } from './components/Modal';
 import { ChevronRight, RefreshCw } from 'lucide-react';
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { auth, db, loginWithGoogle, logout, handleFirestoreError, OperationType } from './src/lib/firebase';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 import { collection, onSnapshot, doc, setDoc, deleteDoc, updateDoc } from 'firebase/firestore';
@@ -1170,10 +1171,37 @@ const App: React.FC = () => {
   };
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [activeSidebarTab, setActiveSidebarTab] = useState<SidebarTabId>(() => {
-    if (window.location.pathname === '/rupst') return 'rupst_public';
-    return 'beranda';
-  });
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const TAB_TO_PATH: Record<string, string> = useMemo(() => ({
+    'beranda': '/',
+    'company_profile': '/profile',
+    'notulen': '/rupslb',
+    'pendirian': '/pendirian',
+    'rupst': '/rupst',
+    'perbaikan': '/perbaikan',
+    'draft_akta_rups': '/draft-akta',
+    'panduan': '/panduan',
+    'sirkuler_laporan': '/sirkuler',
+    'rupst_public': '/rupst-public',
+    'kbli_mapping': '/kbli-mapping',
+    'saran_kbli': '/saran-kbli',
+    'import_kbli': '/import-kbli'
+  }), []);
+
+  const PATH_TO_TAB: Record<string, SidebarTabId> = useMemo(() => 
+    Object.fromEntries(Object.entries(TAB_TO_PATH).map(([tab, path]) => [path, tab as SidebarTabId])),
+  [TAB_TO_PATH]);
+
+  const activeSidebarTab = useMemo(() => {
+    return PATH_TO_TAB[location.pathname] || 'beranda';
+  }, [location.pathname, PATH_TO_TAB]);
+
+  const setActiveSidebarTab = (tab: SidebarTabId) => {
+    const path = TAB_TO_PATH[tab] || '/';
+    navigate(path);
+  };
   const [zoom, setZoom] = useState(1);
   const [showPendirianPreview, setShowPendirianPreview] = useState(false);
   const [pendirianPreviewData, setPendirianPreviewData] = useState<any>(null);
