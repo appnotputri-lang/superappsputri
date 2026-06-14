@@ -3,6 +3,7 @@ import { KbliItem, Shareholder, Address } from '../types';
 import { KBLI_DATA } from '../utils/kbliData';
 import { Eye, Printer, Users, Building2, Banknote, ChevronDown, ChevronRight, Search, Trash2, Plus, User, MapPin, Briefcase, IdCard, ShieldCheck, ArrowRight, Save } from 'lucide-react';
 import { IndoRegionSelector } from '../components/AddressFields';
+import { searchShareholderByNIKClient } from './lib/firebase';
 
 const AhuSection = ({ title, children, isOpen = true }: { title: string, children: React.ReactNode, isOpen?: boolean }) => {
   const [open, setOpen] = useState(isOpen);
@@ -275,6 +276,25 @@ export default function DraftAktaPendirian({
     }));
   };
 
+  const searchShareholderByNIK = async (id: string, nik: string) => {
+    if (nik.length !== 16) return;
+    try {
+       const found = await searchShareholderByNIKClient(nik);
+      if (found) {
+        handleShareholderChange(id, {
+          nik: found.nik || nik,
+          name: found.name,
+          birthCity: found.birthCity,
+          birthDate: found.birthDate,
+          occupation: found.occupation,
+          address: found.address,
+        });
+      }
+    } catch (e) {
+      console.error("Error searching shareholder:", e);
+    }
+  };
+
   const addShareholder = () => {
     setData(prev => ({
       ...prev,
@@ -291,6 +311,7 @@ export default function DraftAktaPendirian({
           address: { ...INITIAL_ADDRESS },
           nik: '',
           sharesOwned: 0,
+          occupation: '',
           managementPosition: 'Komisaris',
           isManagement: true,
           shareholderType: 'PERORANGAN',
@@ -656,6 +677,24 @@ export default function DraftAktaPendirian({
                                </AhuSelect>
                              </div>
 
+                             {p.shareholderType !== 'BADAN_HUKUM' && (
+                               <div>
+                                  <AhuLabel label={p.isForeign ? "Nomor Passport" : "NIK (KTP)"} />
+                                  <AhuInput 
+                                    placeholder={p.isForeign ? "NOMOR PASSPORT" : "16 DIGIT NIK"} 
+                                    className="rounded-xl border-slate-200 bg-white"
+                                    value={p.isForeign ? (p.passportNumber || '') : (p.nik || '')} 
+                                    onChange={e => {
+                                      const nik = e.target.value;
+                                      handleShareholderChange(p.id, p.isForeign ? { passportNumber: nik } : { nik: nik });
+                                      if (!p.isForeign && nik.length === 16) {
+                                        searchShareholderByNIK(p.id, nik);
+                                      }
+                                    }}
+                                  />
+                               </div>
+                             )}
+
                              <div>
                                <AhuLabel label="Nama Lengkap" />
                                <div className="flex gap-2">
@@ -712,17 +751,23 @@ export default function DraftAktaPendirian({
                                  </div>
                                </div>
                              ) : (
-                               <div className="space-y-4 animate-in fade-in slide-in-from-top-1">
-                                 <div className="grid grid-cols-2 gap-4">
-                                   <div>
+                                <div className="space-y-4 animate-in fade-in slide-in-from-top-1">
+                                  <div className="grid grid-cols-1 gap-4">
+                                    <div>
                                       <AhuLabel label={p.isForeign ? "Nomor Passport" : "NIK (KTP)"} />
                                       <AhuInput 
-                                        placeholder={p.isForeign ? "NOMOR PASSPORT" : "16 DIGIT NIK"} 
+                                        placeholder={p.isForeign ? "NOMOR PASSPORT" : "16 DIGIT NIK"}
                                         className="rounded-xl border-slate-200 bg-white"
-                                        value={p.isForeign ? (p.passportNumber || '') : (p.nik || '')} 
-                                        onChange={e => handleShareholderChange(p.id, p.isForeign ? { passportNumber: e.target.value } : { nik: e.target.value })} 
+                                        value={p.isForeign ? (p.passportNumber || "") : (p.nik || "")}
+                                        onChange={e => {
+                                          const nik = e.target.value;
+                                          handleShareholderChange(p.id, p.isForeign ? { passportNumber: nik } : { nik: nik });
+                                          if (!p.isForeign && nik.length === 16) {
+                                            searchShareholderByNIK(p.id, nik);
+                                          }
+                                        }}
                                       />
-                                   </div>
+                                    </div>
                                    <div>
                                       <AhuLabel label="Pekerjaan" />
                                       <AhuInput 

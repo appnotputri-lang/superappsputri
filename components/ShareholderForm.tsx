@@ -3,6 +3,7 @@ import { Shareholder, CompanyProfile } from '../types';
 import { User, Banknote, Globe, ShieldCheck, MapPin, Coins, History, Zap, Info, Briefcase, UserPlus, ArrowRightLeft, Users, Plus, Trash2 } from 'lucide-react';
 import { formatCurrency, numberToWords, formatInputNumber, parseFormattedNumber } from '../utils/formatters';
 import { IndoRegionSelector } from './AddressFields';
+import { searchShareholderByNIKClient } from '../src/lib/firebase';
 
 interface Props {
   shareholder: Shareholder;
@@ -40,7 +41,34 @@ const ShareholderForm: React.FC<Props> = ({
   profiles = []
 }) => {
   const [showLookup, setShowLookup] = React.useState(false);
+  const [searchStatus, setSearchStatus] = React.useState('');
   const maxPossible = totalSharesAllowed - otherAllocated;
+  
+  const searchShareholderByNIK = async (nik: string) => {
+    if (nik.length !== 16) return;
+    try {
+      setSearchStatus('Mencari...');
+      const found = await searchShareholderByNIKClient(nik);
+      if (found) {
+        onChange({
+          nik: found.nik || nik,
+          name: found.name,
+          birthCity: found.birthCity,
+          birthDate: found.birthDate,
+          occupation: found.occupation,
+          address: found.address,
+          // Assuming npwp and other fields might be available
+          npwp: found.npwp || shareholder.npwp
+        });
+        setSearchStatus('Data ditemukan dari database');
+      } else {
+        setSearchStatus('');
+      }
+    } catch (e) {
+      console.error("Error searching shareholder:", e);
+      setSearchStatus('');
+    }
+  };
   
   const currentShares = shareholder.sharesOwned || 0;
   const transferAmount = Math.max(0, currentShares - oldSharesOwned);
@@ -277,6 +305,30 @@ const ShareholderForm: React.FC<Props> = ({
             </div>
           )}
         </>
+      )}
+
+      {!isBadanHukum && !isWna && (
+        <div className="mb-4">
+          <label className="block text-xs font-bold text-slate-700 mb-1">NIK <span className="text-red-500">*</span></label>
+          <input 
+            type="text" 
+            value={shareholder.nik || ''} 
+            onChange={e => {
+              const nik = e.target.value;
+              onChange({ nik });
+              if (nik.length === 16) {
+                searchShareholderByNIK(nik);
+              } else {
+                setSearchStatus('');
+              }
+            }}
+            className="w-full px-3 py-2 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm"
+            maxLength={16}
+          />
+          {searchStatus && (
+            <div className="text-[10px] text-teal-600 font-bold mt-1">{searchStatus}</div>
+          )}
+        </div>
       )}
 
       <div>
@@ -642,7 +694,7 @@ const ShareholderForm: React.FC<Props> = ({
                     <button 
                       type="button"
                       onClick={() => {
-                        const newDeed = { id: crypto.randomUUID(), number: '', date: '', notary: '', skNumber: '', skDate: '', skSpDocuments: [] };
+                        const newDeed = { id: crypto.randomUUID(), number: '', date: '', notary: '', notaryDomicile: '', skNumber: '', skDate: '', skSpDocuments: [] };
                         onChange({ amendmentDeeds: [...(shareholder.amendmentDeeds || []), newDeed] });
                       }}
                       className="w-full flex items-center justify-center gap-1.5 py-2 border border-dashed border-slate-300 rounded text-slate-500 hover:border-[#3b5998] hover:text-[#3b5998] hover:bg-slate-10/50 transition-all text-xs font-bold uppercase mt-1"
@@ -656,7 +708,7 @@ const ShareholderForm: React.FC<Props> = ({
             </>
           )
         ) : (
-          isWna ? (
+          isWna && (
             <>
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">Nama Negara <span className="text-red-500">*</span></label>
@@ -715,16 +767,6 @@ const ShareholderForm: React.FC<Props> = ({
                 )}
               </div>
             </>
-          ) : (
-            <div className="md:col-span-1">
-              <label className="block text-xs font-bold text-slate-700 mb-1">NIK <span className="text-red-500">*</span></label>
-              <input 
-                type="text" 
-                value={shareholder.nik || ''} 
-                onChange={e => onChange({ nik: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm"
-              />
-            </div>
           )
         )}
       </div>

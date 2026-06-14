@@ -72,7 +72,10 @@ import {
   ShieldCheck,
   Award,
   Bell,
+  BellOff,
+  AlertTriangle,
   Mail,
+  Moon,
   User,
   Search,
   Menu,
@@ -265,7 +268,7 @@ const INITIAL_STATE: CompanyData = {
 };
 
 type TabId = 'general' | 'shareholders' | 'shareholders_new' | 'representative' | 'agenda' | 'kbli' | 'domicile' | 'address' | 'capitalBase' | 'capitalPaid' | 'management' | 'reappointment';
-type SidebarTabId = 'beranda' | 'company_profile' | 'notulen' | 'pendirian' | 'rupst' | 'perbaikan' | 'draft_akta_rups' | 'panduan' | 'sirkuler_laporan' | 'rupst_public' | 'kbli_mapping' | 'saran_kbli' | 'import_kbli';
+type SidebarTabId = 'beranda' | 'company_profile' | 'notulen' | 'pendirian' | 'rupst' | 'perbaikan' | 'draft_akta_rups' | 'panduan' | 'kbli_mapping' | 'saran_kbli' | 'import_kbli';
 
 // AHU Style Helper Components
 const AhuSection = ({ title, children, isOpen = true }: { title: string, children: React.ReactNode, isOpen?: boolean }) => {
@@ -364,20 +367,6 @@ const TAB_ACCENTS: Record<SidebarTabId, {
     bgColor: 'bg-green-50/70',
     hoverBg: 'hover:bg-green-50/40 hover:text-green-950',
     indicatorBg: 'bg-green-600'
-  },
-  rupst_public: {
-    iconColor: 'text-cyan-600',
-    textColor: 'text-cyan-900',
-    bgColor: 'bg-cyan-50/70',
-    hoverBg: 'hover:bg-cyan-50/40 hover:text-cyan-950',
-    indicatorBg: 'bg-cyan-600'
-  },
-  sirkuler_laporan: {
-    iconColor: 'text-purple-600',
-    textColor: 'text-purple-900',
-    bgColor: 'bg-purple-50/70',
-    hoverBg: 'hover:bg-purple-50/40 hover:text-purple-950',
-    indicatorBg: 'bg-purple-600'
   },
   pendirian: {
     iconColor: 'text-pink-600',
@@ -717,8 +706,6 @@ const App: React.FC = () => {
       { id: 'm-kp', title: 'Menu: Klien PT', subtitle: 'Kelola profile klien PT', type: 'menu', tabId: 'company_profile' as const },
       { id: 'm-rlb', title: 'Menu: RUPS LB', subtitle: 'Keputusan Sirkuler & Berita Acara', type: 'menu', tabId: 'notulen' as const },
       { id: 'm-rt', title: 'Menu: RUPS Tahunan', subtitle: 'Pertanggungjawaban tahun buku', type: 'menu', tabId: 'rupst' as const },
-      { id: 'm-rp', title: 'Menu: RUPST Public', subtitle: 'Akses RUPST Public', type: 'menu', tabId: 'rupst_public' as const },
-      { id: 'm-slt', title: 'Menu: Sirkuler Laporan Tahunan', subtitle: 'Sirkuler pertanggungjawaban', type: 'menu', tabId: 'sirkuler_laporan' as const },
       { id: 'm-pp', title: 'Menu: Pendirian PT', subtitle: 'Draft akta pendirian', type: 'menu', tabId: 'pendirian' as const },
       { id: 'm-kbli', title: 'Menu: Mapping KBLI', subtitle: 'Klasifikasi Baku Lapangan Usaha', type: 'menu', tabId: 'kbli_mapping' as const },
       { id: 'm-sar', title: 'Menu: Saran KBLI', subtitle: 'Bantuan pemilihan KBLI', type: 'menu', tabId: 'saran_kbli' as const },
@@ -1302,7 +1289,7 @@ const App: React.FC = () => {
       }
     }
 
-    if (activeSidebarTab === 'rupst' || activeSidebarTab === 'rupst_public') {
+    if (activeSidebarTab === 'rupst') {
       try {
         const { generateRUPSTDocx } = await import('./src/lib/generateRUPSTDocx');
         await generateRUPSTDocx(mergedData);
@@ -1921,7 +1908,7 @@ const App: React.FC = () => {
     );
   }
 
-  const showPublicWizard = isPublicRoute && !user && activeSidebarTab === 'rupst_public';
+  const showPublicWizard = false;
 
   return (
     <div className="h-screen flex bg-slate-50 font-sans text-slate-800 overflow-hidden relative">
@@ -1980,8 +1967,6 @@ const App: React.FC = () => {
               { label: 'Klien PT', id: 'company_profile' as const, icon: Building2 },
               { label: 'RUPS LB', id: 'notulen' as const, icon: FileText },
               { label: 'RUPS Tahunan', id: 'rupst' as const, icon: CalendarCheck },
-              { label: 'RUPST Public', id: 'rupst_public' as const, icon: Globe },
-              { label: 'Sirkuler Lap Tahunan', id: 'sirkuler_laporan' as const, icon: ScrollText },
               { label: 'Pendirian PT', id: 'pendirian' as const, icon: FilePlus },
             ].map((item) => {
               const isActive = activeSidebarTab === item.id;
@@ -1990,7 +1975,7 @@ const App: React.FC = () => {
                 <button 
                   key={item.id} 
                   onClick={() => {
-                    if (!user && item.id !== 'rupst_public') {
+                    if (!user) {
                       if (confirm(`Anda harus login terlebih dahulu untuk mengakses menu "${item.label}".`)) {
                         loginWithGoogle();
                       }
@@ -2015,7 +2000,7 @@ const App: React.FC = () => {
                     />
                     <span>{item.label}</span>
                   </span>
-                  {!user && item.id !== 'rupst_public' && (
+                  {!user && (
                     <Lock size={12} className="text-slate-400/50 shrink-0" />
                   )}
                 </button>
@@ -2104,76 +2089,30 @@ const App: React.FC = () => {
         {/* Dynamic Nav Header next to the Sidebar */}
         {!showPublicWizard && (
           <header className="bg-white border-b border-slate-200/80 flex justify-between items-center px-6 sticky top-0 z-50 h-16 shrink-0 shadow-sm">
-            <div className="flex items-center gap-4 flex-1 min-w-0">
+            {/* Left: Greeting + Sidebar toggle */}
+            <div className="flex items-center gap-4">
               {user && (
                 <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-1.5 hover:bg-slate-100/90 text-slate-500 hover:text-slate-800 rounded transition-colors shrink-0">
                   <Menu className="w-5 h-5" />
                 </button>
               )}
-              
-              {/* Polished Interactive Search bar inside Header */}
-              {user ? (
-                <div className="relative max-w-md w-full hidden md:block">
-                  <div className="relative">
-                    <Search className="w-5 h-5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                    <input 
-                      type="text"
-                      placeholder="Cari menu, data, atau dokumen... (⌘ K)"
-                      className="w-full pl-10 pr-14 py-2 border border-slate-200 hover:border-slate-300 focus:border-blue-400 focus:bg-white rounded-lg text-xs outline-none bg-slate-50 transition-all text-slate-800"
-                      value={globalSearchQuery}
-                      onChange={(e) => {
-                        setGlobalSearchQuery(e.target.value);
-                        setShowGlobalSearchResults(true);
-                      }}
-                      onFocus={() => setShowGlobalSearchResults(true)}
-                    />
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2 border border-slate-205 bg-white text-[10px] px-1.5 py-0.5 rounded text-slate-400 select-none font-mono">
-                      ⌘ K
-                    </div>
-                  </div>
-
-                  {/* Search Results Dropdown overlay */}
-                  {showGlobalSearchResults && globalSearchQuery && (
-                    <div className="absolute top-11 left-0 right-0 max-h-80 bg-white border border-slate-200 rounded-xl shadow-xl overflow-y-auto z-[9999] p-1.5">
-                      <div className="flex justify-between items-center px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100">
-                        <span>Hasil Pencarian ({matchesGlobalSearch.length})</span>
-                        <button onClick={() => setShowGlobalSearchResults(false)} className="text-slate-400 hover:text-slate-600 font-bold select-none text-[11px]">Tutup</button>
-                      </div>
-                      {matchesGlobalSearch.length === 0 ? (
-                        <div className="text-center py-4 text-xs text-slate-400">Tidak ada draf atau menu yang cocok</div>
-                      ) : (
-                        matchesGlobalSearch.map(item => (
-                          <button
-                            key={item.id}
-                            className="w-full text-left px-3 py-2 hover:bg-slate-50 rounded-lg flex flex-col transition-all border border-transparent hover:border-slate-100 mt-0.5"
-                            onClick={() => {
-                              setActiveSidebarTab(item.tabId);
-                              if (item.action) item.action();
-                              setShowGlobalSearchResults(false);
-                              setGlobalSearchQuery("");
-                            }}
-                          >
-                            <span className="font-bold text-slate-800 text-xs">{item.title}</span>
-                            <span className="text-[11px] text-slate-400 leading-tight mt-0.5">{item.subtitle}</span>
-                          </button>
-                        ))
-                      )}
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="flex items-center gap-2 font-bold tracking-tight text-[#001529]">
-                  <Gavel className="w-5 h-5 text-blue-500" />
-                  <span className="text-[14px] font-black uppercase">SISTEM DRAFT NOTARIS PUTRI</span>
-                </div>
-              )}
+              <div className="flex flex-col">
+                <span className="font-semibold text-sm text-slate-800">Selamat siang, Azizah 👋</span>
+                <span className="text-[10px] text-slate-500 font-medium tracking-tight">PUSAT KENDALI KANTOR</span>
+              </div>
             </div>
+            
+            {/* Right: Date/Time + Notifications + Profile */}
+            <div className="flex items-center gap-4">
+                <div className="hidden md:flex items-center gap-2 text-[11px] text-slate-500 border border-slate-200 px-3 py-1.5 rounded-lg font-medium">
+                  <CalendarCheck className="w-3.5 h-3.5" />
+                  <span>Minggu, 14 Juni 2026</span>
+                  <span className="text-slate-300">•</span>
+                  <span>13:34</span>
+                </div>
 
-            <div className="flex items-center gap-4 shrink-0">
-              {user ? (
-                <div className="flex items-center gap-4">
-                  
-                  {/* Notification Icon */}
+                <div className="flex items-center gap-2 pr-4 border-r border-slate-200">
+                  {/* Notification Logic */}
                   {(() => {
                     const unreadCount = notifications.filter(n => !n.read).length;
                     return (
@@ -2183,183 +2122,217 @@ const App: React.FC = () => {
                             setIsNotificationOpen(!isNotificationOpen);
                             setIsUserDropdownOpen(false);
                           }}
-                          className={`relative p-2 rounded-full transition-all shrink-0 cursor-pointer outline-none ${
+                          className={`p-2 rounded-full transition-all shrink-0 cursor-pointer outline-none relative ${
                             isNotificationOpen 
                               ? 'text-blue-600 bg-blue-50' 
                               : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'
                           }`}
                         >
                           <Bell className="w-5 h-5" />
-                          {unreadCount > 0 && (
-                            <span className="absolute top-1 right-1 min-w-[16px] h-4 bg-red-500 text-[8px] font-bold text-white rounded-full flex items-center justify-center border border-white px-1">
-                              {unreadCount}
-                            </span>
-                          )}
+                          {unreadCount > 0 && <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border border-white"></span>}
                         </button>
-
+                        
+                        {/* Notification Dropdown */}
                         {isNotificationOpen && (
-                          <div className="absolute right-0 mt-2.5 w-80 sm:w-96 bg-white rounded-lg shadow-xl border border-slate-200 py-1 z-50 animate-in fade-in slide-in-from-top-3 duration-200">
-                            {/* Dropdown Header */}
-                            <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-100 bg-slate-50/50 rounded-t-lg">
-                              <span className="text-[12px] font-bold text-slate-800 flex items-center gap-2 uppercase tracking-wider">
-                                <Bell className="w-4 h-4 text-[#1b449c]" /> Notifikasi {unreadCount > 0 && <span className="bg-red-500 text-white font-black text-[9px] px-1.5 py-0.5 rounded-full">{unreadCount} baru</span>}
+                          <div className="absolute right-0 mt-2.5 w-80 md:w-96 bg-white rounded-xl shadow-2xl border border-slate-100 py-1.5 z-50 animate-in fade-in slide-in-from-top-1">
+                            <div className="flex items-center justify-between px-4 py-2 border-b border-slate-100">
+                              <span className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                                <Bell className="w-3.5 h-3.5 text-blue-600" /> Notifikasi
                               </span>
-                              {notifications.length > 0 && (
+                              {unreadCount > 0 && (
                                 <button 
                                   onClick={async () => {
                                     try {
-                                      const unread = notifications.filter(n => !n.read);
-                                      const promises = unread.map(n => updateDoc(doc(db, 'notifications', n.id), { read: true }));
-                                      await Promise.all(promises);
-                                    } catch (e) {
-                                      console.error("Gagal menandai semua dibaca:", e);
+                                      const unreadNotifs = notifications.filter(n => !n.read);
+                                      await Promise.all(
+                                        unreadNotifs.map(n => updateDoc(doc(db, 'notifications', n.id), { read: true }))
+                                      );
+                                    } catch (err) {
+                                      console.error("Gagal tandai semua dibaca:", err);
                                     }
                                   }}
-                                  className="text-[10px] font-extrabold text-[#1b449c] hover:text-[#13327d] transition-colors uppercase cursor-pointer"
+                                  className="text-[10px] text-blue-600 hover:text-blue-800 font-bold hover:underline cursor-pointer"
                                 >
-                                  Tandai Semua Dibaca
+                                  Tandai semua dibaca
                                 </button>
                               )}
                             </div>
-
-                            {/* Dropdown Scrollable Content */}
-                            <div className="max-h-80 overflow-y-auto divide-y divide-slate-100">
+                            
+                            <div className="max-h-72 overflow-y-auto divide-y divide-slate-50">
                               {notifications.length === 0 ? (
-                                <div className="flex flex-col items-center justify-center py-8 px-4 text-center">
-                                  <Bell className="w-8 h-8 text-slate-300 stroke-[1.5] mb-2" />
-                                  <p className="text-xs font-bold text-slate-500 uppercase tracking-tight">Belum ada notifikasi</p>
-                                  <p className="text-[10px] text-slate-400 mt-0.5">Seluruh perubahan aktivitas di dalam sistem akan muncul di sini.</p>
+                                <div className="flex flex-col items-center justify-center py-8 text-center px-4">
+                                  <BellOff className="w-8 h-8 text-slate-300 mb-2" />
+                                  <p className="text-xs text-slate-500 font-medium">Tidak ada notifikasi baru</p>
+                                  <p className="text-[10px] text-slate-400 mt-0.5">Semua info terbaru dari sistem akan muncul di sini</p>
                                 </div>
                               ) : (
-                                notifications.map((n) => (
-                                  <div 
-                                    key={n.id} 
-                                    onClick={async () => {
-                                      if (!n.read) {
-                                        try {
-                                          await updateDoc(doc(db, 'notifications', n.id), { read: true });
-                                        } catch (e) {
-                                          console.error("Gagal menandai dibaca:", e);
-                                        }
-                                      }
-                                    }}
-                                    className={`relative flex gap-3 p-3 hover:bg-slate-50/85 transition-colors cursor-pointer group ${!n.read ? 'bg-blue-50/10' : ''}`}
-                                  >
-                                    <div className={`w-1.5 h-1.5 rounded-full absolute left-2 top-4 ${!n.read ? 'bg-red-500' : 'bg-transparent'}`} />
-
-                                    <div className="flex-1 min-w-0 pl-1.5">
-                                      <div className="flex items-start justify-between gap-1">
-                                        <p className="text-[11px] font-extrabold text-slate-800 tracking-tight leading-tight uppercase">
-                                          {n.title}
-                                        </p>
-                                        <span className="text-[9px] font-bold text-slate-400 whitespace-nowrap">
-                                          {formatIndonesianTime(n.timestamp)}
-                                        </span>
-                                      </div>
-                                      <p className="text-[11px] text-slate-500 leading-normal mt-0.5 break-words">
-                                        {n.description}
-                                      </p>
+                                [...notifications].sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).map((notif) => (
+                                  <div key={notif.id} className={`p-3 transition-colors hover:bg-slate-50/50 flex gap-2.5 items-start text-left ${!notif.read ? 'bg-blue-50/20' : ''}`}>
+                                    {/* Status Type Icon */}
+                                    <div className={`mt-0.5 p-1 rounded-lg shrink-0 ${
+                                      notif.type === 'SUCCESS' ? 'bg-emerald-50 text-emerald-600' :
+                                      notif.type === 'ERROR' ? 'bg-rose-50 text-rose-600' :
+                                      notif.type === 'WARNING' ? 'bg-amber-50 text-amber-600' :
+                                      'bg-blue-50 text-blue-600'
+                                    }`}>
+                                      {notif.type === 'SUCCESS' ? <CheckCircle2 className="w-3.5 h-3.5" /> :
+                                       notif.type === 'ERROR' ? <AlertCircle className="w-3.5 h-3.5" /> :
+                                       notif.type === 'WARNING' ? <AlertTriangle className="w-3.5 h-3.5" /> :
+                                       <Info className="w-3.5 h-3.5" />}
                                     </div>
 
-                                    <button 
-                                      onClick={async (e) => {
-                                        e.stopPropagation();
-                                        try {
-                                          await deleteDoc(doc(db, 'notifications', n.id));
-                                        } catch (err) {
-                                          console.error("Gagal menghapus notifikasi:", err);
-                                        }
-                                      }}
-                                      className="opacity-0 group-hover:opacity-100 p-1 text-slate-350 hover:text-red-500 rounded hover:bg-red-50 transition-all shrink-0 cursor-pointer"
-                                      title="Hapus"
-                                    >
-                                      <Trash2 className="w-3.5 h-3.5" />
-                                    </button>
+                                    {/* Notification content */}
+                                    <div className="flex-1 space-y-0.5 min-w-0">
+                                      <div className="flex items-start justify-between gap-1.5">
+                                        <span className={`text-xs block leading-tight truncate ${!notif.read ? 'font-semibold text-slate-900' : 'text-slate-700'}`}>
+                                          {notif.title}
+                                        </span>
+                                        <span className="text-[9px] text-slate-400 font-mono whitespace-nowrap shrink-0">
+                                          {(() => {
+                                            try {
+                                              const diffMs = Date.now() - new Date(notif.timestamp).getTime();
+                                              const diffMins = Math.floor(diffMs / 60000);
+                                              if (diffMins < 1) return 'Baru saja';
+                                              if (diffMins < 60) return `${diffMins}m lalu`;
+                                              const diffHours = Math.floor(diffMins / 60);
+                                              if (diffHours < 24) return `${diffHours}j lalu`;
+                                              return new Date(notif.timestamp).toLocaleDateString('id-ID', {day: 'numeric', month: 'short'});
+                                            } catch {
+                                              return 'Baru saja';
+                                            }
+                                          })()}
+                                        </span>
+                                      </div>
+                                      <p className="text-[11px] text-slate-500 leading-normal break-words">{notif.description}</p>
+                                      
+                                      {/* Actions row */}
+                                      <div className="flex gap-2.5 pt-1">
+                                        {!notif.read && (
+                                          <button 
+                                            onClick={async () => {
+                                              try {
+                                                await updateDoc(doc(db, 'notifications', notif.id), { read: true });
+                                              } catch (err) {
+                                                console.error("Gagal tandai dibaca:", err);
+                                              }
+                                            }}
+                                            className="text-[10px] text-blue-600 hover:text-blue-800 font-bold hover:underline cursor-pointer"
+                                          >
+                                            Tandai Dibaca
+                                          </button>
+                                        )}
+                                        <button 
+                                          onClick={async () => {
+                                            try {
+                                              await deleteDoc(doc(db, 'notifications', notif.id));
+                                            } catch (err) {
+                                              console.error("Gagal menghapus notifikasi:", err);
+                                            }
+                                          }}
+                                          className="text-[10px] text-slate-400 hover:text-red-600 font-medium hover:underline cursor-pointer"
+                                        >
+                                          Hapus
+                                        </button>
+                                      </div>
+                                    </div>
                                   </div>
                                 ))
                               )}
                             </div>
-
-                            {/* Dropdown Footer */}
-                            {notifications.length > 0 && (
-                              <div className="flex items-center justify-between px-3 py-1.5 border-t border-slate-100 bg-slate-50/30 rounded-b-lg">
-                                <button 
-                                  onClick={async () => {
-                                    if (confirm('Hapus seluruh riwayat notifikasi?')) {
-                                      try {
-                                        const promises = notifications.map(n => deleteDoc(doc(db, 'notifications', n.id)));
-                                        await Promise.all(promises);
-                                        setIsNotificationOpen(false);
-                                      } catch (e) {
-                                        console.error("Gagal membersihkan notifikasi:", e);
-                                      }
-                                    }
-                                  }}
-                                  className="text-[9px] font-bold text-slate-400 hover:text-red-500 transition-colors uppercase cursor-pointer"
-                                >
-                                  Hapus Semua
-                                </button>
-                                <span className="text-[9px] font-bold text-slate-400 tracking-wider">NOTIFIKASI AKTIVITAS</span>
-                              </div>
-                            )}
                           </div>
                         )}
                       </div>
                     );
                   })()}
-
-                  <div className="h-6 w-[1px] bg-slate-250 shrink-0"></div>
-
-                  {/* Redesigned User profile dropdown box */}
-                  <div className="relative">
-                    <button 
-                      onClick={() => setIsUserDropdownOpen(!isUserDropdownOpen)}
-                      className="flex items-center gap-3 text-left hover:bg-slate-50/10 p-1.5 rounded-lg active:scale-95 transition-all outline-none"
-                    >
-                      <div className="w-8 h-8 rounded-full bg-blue-600 font-bold text-white flex items-center justify-center text-xs shadow-md shrink-0">
-                        {user.email ? user.email.substring(0, 2).toUpperCase() : 'AD'}
-                      </div>
-                      <div className="hidden sm:flex flex-col min-w-0 pr-1">
-                        <span className="text-xs font-bold text-slate-800 truncate leading-tight">{user.email}</span>
-                        <span className="text-[10px] text-slate-400 font-medium leading-none mt-0.5">Administrator</span>
-                      </div>
-                      <ChevronDown className="w-5 h-5 text-slate-400 shrink-0" />
-                    </button>
-
-                    {/* Toggleable Action Dropdown */}
-                    {isUserDropdownOpen && (
-                      <div className="absolute right-0 top-12 w-48 bg-white border border-slate-200 rounded-xl shadow-2xl z-[9999] py-1 text-slate-700 animate-fade-in divide-y divide-slate-100">
-                        <div className="px-4 py-2.5 min-w-0">
-                          <p className="text-xs font-medium text-slate-400">Masuk sebagai</p>
-                          <p className="text-xs font-bold text-slate-800 truncate mt-0.5">{user.email}</p>
-                        </div>
-                        <div className="p-1">
-                          <button 
-                            onClick={() => {
-                              setIsUserDropdownOpen(false);
-                              handleLogout();
-                            }} 
-                            className="w-full text-left px-3 py-2 hover:bg-red-50 hover:text-red-600 text-xs font-bold transition-all rounded-lg flex items-center gap-2"
-                          >
-                            <User className="w-3.5 h-3.5 shrink-0" /> Logout Akun
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
+                  
+                  <button className="p-2 rounded-full hover:bg-slate-100 transition-colors">
+                    <Mail className="w-5 h-5 text-slate-500" />
+                  </button>
+                  <button className="p-2 rounded-full hover:bg-slate-100 transition-colors">
+                    <Moon className="w-5 h-5 text-slate-500" />
+                  </button>
                 </div>
-              ) : (
-                <button 
-                  onClick={() => loginWithGoogle()} 
-                  className="bg-[#1890ff] hover:bg-[#40a9ff] text-white px-5 py-2 rounded-lg text-xs font-bold transition-all shadow-md active:scale-95"
-                >
-                  LOGIN DENGAN GOOGLE
-                </button>
-              )}
+
+                {/* Profile Logic */}
+                <div className="relative">
+                   <button 
+                     onClick={() => {
+                       setIsUserDropdownOpen(!isUserDropdownOpen);
+                       setIsNotificationOpen(false);
+                     }}
+                     className="flex items-center gap-3 text-left hover:bg-slate-50 p-1 rounded-lg transition-all cursor-pointer"
+                   >
+                     <div className="w-8 h-8 rounded-full bg-teal-500 text-white flex items-center justify-center text-xs font-bold shadow-inner">AZ</div>
+                     <div className="flex flex-col">
+                         <span className="text-xs font-semibold text-slate-800">{user?.displayName || 'Azizah'}</span>
+                         <span className="text-[10px] text-slate-500 leading-none">{user?.email || 'Staff Kantor'}</span>
+                     </div>
+                     <ChevronDown className="w-4 h-4 text-slate-400" />
+                   </button>
+                   
+                   {/* User Profile Dropdown Menu */}
+                   {isUserDropdownOpen && (
+                     <div className="absolute right-0 mt-2.5 w-60 bg-white rounded-xl shadow-2xl border border-slate-100 py-1.5 z-50 animate-in fade-in slide-in-from-top-1 divide-y divide-slate-100">
+                       <div className="px-4 py-2.5">
+                         <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Masuk Sebagai</p>
+                         <p className="text-xs font-bold text-slate-800 truncate mt-1">{user?.displayName || 'Azizah'}</p>
+                         <p className="text-[10px] text-slate-505 truncate font-mono mt-0.5">{user?.email || 'admin@legalnotaris.id'}</p>
+                       </div>
+                       
+                       <div className="py-1 text-left row">
+                         <button 
+                           onClick={() => {
+                             setActiveSidebarTab('beranda');
+                             setIsUserDropdownOpen(false);
+                           }}
+                           className="w-full px-4 py-2 text-left text-xs text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-2 cursor-pointer"
+                         >
+                           <Home className="w-3.5 h-3.5 text-slate-400" />
+                           <span>Dashboard Utama</span>
+                         </button>
+
+                         <button 
+                           onClick={() => {
+                             if (!user) {
+                               if (confirm('Anda harus login terlebih dahulu untuk mengakses menu "Klien PT".')) {
+                                 loginWithGoogle();
+                               }
+                             } else {
+                               setActiveSidebarTab('company_profile');
+                             }
+                             setIsUserDropdownOpen(false);
+                           }}
+                           className="w-full px-4 py-2 text-left text-xs text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-2 cursor-pointer"
+                         >
+                           <Building2 className="w-3.5 h-3.5 text-slate-400" />
+                           <span>Database Klien PT</span>
+                         </button>
+                       </div>
+
+                       <div className="py-1 text-left">
+                         <button 
+                           onClick={() => {
+                             if (user) {
+                               logout();
+                             } else {
+                               loginWithGoogle();
+                             }
+                             setIsUserDropdownOpen(false);
+                           }}
+                           className={`w-full px-4 py-2 text-left text-xs font-bold transition-colors flex items-center gap-2 cursor-pointer ${
+                             user ? 'text-red-600 hover:bg-red-50/50' : 'text-blue-600 hover:bg-blue-50/55'
+                           }`}
+                         >
+                           <Lock className="w-3.5 h-3.5" />
+                           <span>{user ? 'Keluar Aplikasi' : 'Login / Masuk Google'}</span>
+                         </button>
+                       </div>
+                     </div>
+                   )}
+                </div>
             </div>
           </header>
         )}
-
         {showPublicWizard ? (
           <RupstPublicWizard
             data={data}
@@ -2437,13 +2410,12 @@ const App: React.FC = () => {
                 </div>
               </div>
 
-              {/* Stats Card Row - 5 beautiful cards matching screenshot */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5">
+              {/* Stats Card Row - 4 beautiful cards matching screenshot */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
                 {[
                   { label: "Klien PT", val: profiles.length, desc: "Database klien perusahaan", icon: Building2, color: "text-[#1890ff] bg-blue-50/80 border-blue-100", tab: "company_profile" as const },
                   { label: "Draft RUPS LB", val: projects.length, desc: "Keputusan Sirkuler & Berita Acara", icon: FileText, color: "text-amber-600 bg-amber-50/85 border-amber-100/80", tab: "notulen" as const },
                   { label: "Draft RUPS Tahunan", val: rupstProjects.length, desc: "Pertanggungjawaban tahun buku", icon: History, color: "text-emerald-600 bg-emerald-50/80 border-emerald-100/70", tab: "rupst" as const },
-                  { label: "Draft RUPST Public", val: rupstPublicProjects.length, desc: "RUPST Public tersimpan", icon: History, color: "text-cyan-600 bg-cyan-50/80 border-cyan-100/60", tab: "rupst_public" as const },
                   { label: "Draft Pendirian PT", val: pendirianProjects.length, desc: "Draft akta pendirian", icon: FileCode, color: "text-purple-600 bg-purple-50/80 border-purple-100/60", tab: "pendirian" as const }
                 ].map((st, i) => (
                   <div 
@@ -2463,18 +2435,16 @@ const App: React.FC = () => {
                 ))}
               </div>
 
-              {/* Quick Actions (QUICK ACCESS) workflow rows - 5 Elegant Columns */}
+              {/* Quick Actions (QUICK ACCESS) workflow rows - 3 Elegant Columns */}
               <div className="space-y-3.5">
                 <h3 className="text-slate-500 text-[10px] font-bold uppercase tracking-wider pl-2.5 border-l-4 border-blue-600 select-none">
                   Quick Access
                 </h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {[
                     { title: "Daftar Klien PT", sub: "Kelola dan lihat seluruh data klien perusahaan.", color: "text-blue-600 bg-blue-50 border-blue-104", icon: Building2, tab: "company_profile" as const },
                     { title: "RUPS Tahunan", sub: "Lihat dan kelola draf RUPS Tahunan terbaru.", color: "text-amber-600 bg-amber-50 border-amber-104", icon: History, tab: "rupst" as const },
-                    { title: "RUPST Public", sub: "Kelola dokumen RUPST Public yang tersimpan.", color: "text-emerald-600 bg-emerald-50 border-emerald-104", icon: History, tab: "rupst_public" as const },
-                    { title: "Sirkuler Lap Tahunan", sub: "Buat dan kelola sirkuler laporan keuangan.", color: "text-purple-600 bg-purple-50 border-purple-104", icon: FileSignature, tab: "sirkuler_laporan" as const },
-                    { title: "Dokumen & Arsip", sub: "Akses semua dokumen draf dan arsip legalitas.", color: "text-teal-600 bg-teal-50 border-teal-104", icon: BookOpen, tab: "notulen" as const }
+                    { title: "Dokumen & Arsip", sub: "Akses semua draf dokumen dan arsip legalitas.", color: "text-teal-600 bg-teal-50 border-teal-104", icon: BookOpen, tab: "notulen" as const }
                   ].map((x, i) => (
                     <button
                       key={i}
@@ -3173,7 +3143,7 @@ const App: React.FC = () => {
 
                   <button 
                     onClick={() => {
-                      const newDeed = { id: crypto.randomUUID(), number: '', date: '', notary: '', skNumber: '', skDate: '', skSpDocuments: [] };
+                      const newDeed = { id: crypto.randomUUID(), number: '', date: '', notary: '', notaryDomicile: '', skNumber: '', skDate: '', skSpDocuments: [] };
                       updateData({ amendmentDeeds: [...(data.amendmentDeeds || []), newDeed] });
                     }}
                     className="w-full flex items-center justify-center gap-2 py-3 border-2 border-dashed border-slate-200 rounded-sm text-slate-400 hover:border-[#3b5998] hover:text-[#3b5998] hover:bg-slate-50 transition-all group"
@@ -4135,7 +4105,7 @@ const App: React.FC = () => {
                            targetShareholders,
                            newManagementItems,
                            ...rest 
-                         } = selected; // Exclude resolution target fields
+                         } = selected as any; // Exclude resolution target fields
                          updateData({ 
                            ...rest, 
                            selectedProfileId: selected.id 
@@ -4631,7 +4601,7 @@ const App: React.FC = () => {
 
                   <button 
                     onClick={() => {
-                      const newDeed = { id: crypto.randomUUID(), number: '', date: '', notary: '', skNumber: '', skDate: '', skSpDocuments: [] };
+                      const newDeed = { id: crypto.randomUUID(), number: '', date: '', notary: '', notaryDomicile: '', skNumber: '', skDate: '', skSpDocuments: [] };
                       updateData({ amendmentDeeds: [...(data.amendmentDeeds || []), newDeed] });
                     }}
                     className="w-full flex items-center justify-center gap-2 py-3 border-2 border-dashed border-slate-200 rounded-sm text-slate-400 hover:border-[#3b5998] hover:text-[#3b5998] hover:bg-slate-50 transition-all group"
@@ -5593,6 +5563,9 @@ const App: React.FC = () => {
                           hideManagement
                           hideFinancials
                           profiles={profiles}
+                          globalSharePrice={0}
+                          totalSharesAllowed={0}
+                          otherAllocated={0}
                         />
                       </div>
                     )}
@@ -5967,78 +5940,12 @@ const App: React.FC = () => {
               )}
             </div>
             );
-          })() : activeSidebarTab === 'sirkuler_laporan' ? (
-            <div className="max-w-5xl mx-auto space-y-4">
-              <div className="flex justify-between items-center bg-white p-4 rounded-sm shadow-sm border border-slate-200">
-                <div>
-                  <h2 className="text-[16px] font-bold flex items-center gap-2 text-slate-800 uppercase"><FileSignature className="w-5 h-5 text-[#3b5998]" /> Sirkuler Laporan Tahunan</h2>
-                  <p className="text-[12px] text-slate-500">Draft Keputusan Pemegang Saham (Sirkuler) untuk Laporan Tahunan</p>
-                </div>
-                <button 
-                  disabled={isExportingPendirian}
-                  onClick={async () => {
-                     setIsExportingPendirian(true);
-                     try {
-                        const { generateSirkulerLaporanDocx } = await import('./src/lib/generateSirkulerLaporanDocx');
-                        await generateSirkulerLaporanDocx(mergedData);
-                      } catch (error) {
-                        console.error('Failed to export DOCX:', error);
-                        alert('Gagal mengekspor DOCX, silakan coba lagi.');
-                      } finally {
-                        setIsExportingPendirian(false);
-                      }
-                  }} 
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-sm font-bold text-[12px] flex items-center gap-2 transition-colors disabled:opacity-50"
-                >
-                  <FileCode className="w-4 h-4" /> {isExportingPendirian ? 'MEMPROSES...' : 'UNDUH DOCX'}
-                </button>
-              </div>
-
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pb-20">
-                 <div>
-                    <AhuSection title="PILIH PROFIL">
-                      <div className="space-y-4">
-                        <label className="block text-[13px] font-medium text-slate-700 mb-1">Pilih Profil Perseroan (Wajib)</label>
-                        <select 
-                          className="w-full border border-[#ccc] rounded-sm px-3 py-1.5 text-[13px] outline-none bg-white focus:border-[#66afe9]"
-                          value={data.selectedProfileId || ''}
-                          onChange={(e) => {
-                             const selected = profiles.find(p => p.id === e.target.value);
-                             if (selected) {
-                                 const { id, ...rest } = selected;
-                                 updateData({ 
-                                   ...rest, 
-                                   selectedProfileId: selected.id 
-                                 } as any);
-                             } else {
-                                 updateData({ selectedProfileId: '' });
-                             }
-                          }}
-                        >
-                          <option value="">-- Pilih PT --</option>
-                          {profiles.map(p => (
-                            <option key={p.id} value={p.id}>{p.companyName}</option>
-                          ))}
-                        </select>
-                      </div>
-                    </AhuSection>
-                    
-                    <SirkulerLaporanFormContent data={mergedData} updateData={updateData} />
-                 </div>
-                 <div className="bg-slate-200 overflow-x-auto p-4 rounded shadow-inner flex justify-center h-[calc(100vh-250px)] relative">
-                    <div className="transform scale-90 sm:scale-75 xl:scale-100 origin-top h-max">
-                      <SirkulerLaporanDocumentPreview data={mergedData} />
-                    </div>
-                 </div>
-              </div>
-            </div>
-
-) : (activeSidebarTab === 'rupst' || activeSidebarTab === 'rupst_public') ? (() => {
-            const isPublicMenu = activeSidebarTab === 'rupst_public';
-            const currentEditingRupstId = isPublicMenu ? editingRupstPublicId : editingRupstId;
-            const setCurrentEditingRupstId = isPublicMenu ? setEditingRupstPublicId : setEditingRupstId;
-            const currentRupstProjects = isPublicMenu ? rupstPublicProjects : rupstProjects;
-            const currentCollectionName = isPublicMenu ? 'rupst_public_projects' : 'rupst_projects';
+          })() : activeSidebarTab === 'rupst' ? (() => {
+            const isPublicMenu = false;
+            const currentEditingRupstId = editingRupstId;
+            const setCurrentEditingRupstId = setEditingRupstId;
+            const currentRupstProjects = rupstProjects;
+            const currentCollectionName = 'rupst_projects';
 
             // 1. Initial filter by search query (PT Name or Year)
             let filteredResults = currentRupstProjects.filter(p => {
@@ -6990,7 +6897,7 @@ const App: React.FC = () => {
 
                             <button 
                               onClick={() => {
-                                const newDeed = { id: crypto.randomUUID(), number: '', date: '', notary: '', skNumber: '', skDate: '', skSpDocuments: [] };
+                                const newDeed = { id: crypto.randomUUID(), number: '', date: '', notary: '', notaryDomicile: '', skNumber: '', skDate: '', skSpDocuments: [] };
                                 updateData({ amendmentDeeds: [...(data.amendmentDeeds || []), newDeed] });
                               }}
                               className="w-full flex items-center justify-center gap-2 py-3 border-2 border-dashed border-slate-200 rounded-sm text-slate-400 hover:border-[#3b5998] hover:text-[#3b5998] hover:bg-slate-50 transition-all group"
@@ -7897,6 +7804,9 @@ const App: React.FC = () => {
                                   hideManagement
                                   hideFinancials
                                   profiles={profiles}
+                                  globalSharePrice={0}
+                                  totalSharesAllowed={0}
+                                  otherAllocated={0}
                                 />
                               </div>
                             )}

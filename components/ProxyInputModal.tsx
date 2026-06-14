@@ -167,7 +167,7 @@ const ProxyInputModal: React.FC<Props> = ({
     // 2. Gather from shareholders list who are marked as management or are individuals
     const shItems = parentProfile.shareholders || [];
     shItems.forEach(s => {
-      if (s && s.name && s.name.trim() !== '' && !s.isCompany) {
+      if (s && s.name && s.name.trim() !== '' && s.shareholderType !== 'BADAN_HUKUM') {
         const isMgr = s.isManagement || !!s.managementPosition;
         list.push({
           name: s.name,

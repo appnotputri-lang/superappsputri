@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithPopup, GoogleAuthProvider, signOut } from 'firebase/auth';
-import { initializeFirestore } from 'firebase/firestore';
+import { initializeFirestore, collection, getDocs } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
 
 const app = initializeApp(firebaseConfig);
@@ -9,6 +9,28 @@ export const db = initializeFirestore(app, {
   experimentalForceLongPolling: true
 }, firebaseConfig.firestoreDatabaseId);
 export const auth = getAuth(app);
+
+export const searchShareholderByNIKClient = async (nik: string): Promise<any | null> => {
+  if (!nik || nik.length !== 16) return null;
+  const collections = ['profiles', 'projects', 'rupst_projects', 'pendirian_projects'];
+  try {
+    for (const col of collections) {
+      const querySnapshot = await getDocs(collection(db, col));
+      for (const doc of querySnapshot.docs) {
+        const data = doc.data();
+        if (data.shareholders && Array.isArray(data.shareholders)) {
+          const shareholder = data.shareholders.find((s: any) => s.nik === nik);
+          if (shareholder) {
+            return shareholder;
+          }
+        }
+      }
+    }
+  } catch (error) {
+    console.error("Error in searchShareholderByNIKClient:", error);
+  }
+  return null;
+};
 
 export const loginWithGoogle = async () => {
   const provider = new GoogleAuthProvider();
