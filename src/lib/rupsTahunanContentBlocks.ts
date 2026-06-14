@@ -13,6 +13,7 @@ import {
   formatAddress,
   formatCompanyName,
   formatPersonDetails,
+  checkIsBadanHukum,
   cleanDegrees,
 } from "./formatter";
 
@@ -59,8 +60,30 @@ export const generateRupstBlocks = (data: CompanyData): Block[] => {
   const jamRapatWords = timeToWords(stTime || "00:00");
   const isTimeDefault = !stTime;
 
+  const getPosRank = (pos: string | undefined): number => {
+    if (!pos) return 99;
+    const p = pos.trim().toUpperCase();
+    if (p === "DIREKTUR UTAMA") return 1;
+    if (p === "WAKIL DIREKTUR UTAMA") return 2;
+    if (p === "DIREKTUR") return 3;
+    if (p === "WAKIL DIREKTUR") return 4;
+    if (p === "KOMISARIS UTAMA") return 5;
+    if (p === "WAKIL KOMISARIS UTAMA") return 6;
+    if (p === "KOMISARIS") return 7;
+    if (p === "WAKIL KOMISARIS") return 8;
+    return 10;
+  };
+
   const totalShares = data.shareholders.reduce((sum, s) => sum + (s.sharesOwned || 0), 0);
   const attendingShareholders = data.shareholders.filter(s => s.isPresent);
+
+  attendingShareholders.sort((a, b) => {
+    const rankA = a.isManagement ? getPosRank(a.managementPosition) : 99;
+    const rankB = b.isManagement ? getPosRank(b.managementPosition) : 99;
+    if (rankA !== rankB) return rankA - rankB;
+    return (b.sharesOwned || 0) - (a.sharesOwned || 0);
+  });
+
   const presentShares = attendingShareholders.reduce((sum, s) => sum + (s.sharesOwned || 0), 0);
   const presentPercentage = totalShares > 0 ? (presentShares / totalShares) * 100 : 100;
 
@@ -226,7 +249,7 @@ export const generateRupstBlocks = (data: CompanyData): Block[] => {
 
   const getPersonDetailRuns = (person: any): FormatToken[] => {
     let nameUpper = (person?.name || "").toUpperCase().trim();
-    const isBadanHukum = person?.shareholderType === 'BADAN_HUKUM' || person?.legalEntityType;
+    const isBadanHukum = checkIsBadanHukum(person);
     let salutation = (person?.salutation || "Tuan").trim();
     
     // Improved salutation stripping (handles multiple spaces and common variations)
@@ -302,7 +325,7 @@ export const generateRupstBlocks = (data: CompanyData): Block[] => {
       });
     } else {
       const shName = (sh.name || "").trim();
-      if (sh.shareholderType === 'BADAN_HUKUM') {
+      if (checkIsBadanHukum(sh)) {
         attendees.push({
           type: 'ENTITY_DIRECT',
           name: shName,
@@ -346,7 +369,37 @@ export const generateRupstBlocks = (data: CompanyData): Block[] => {
     }
   });
 
+  attendees.sort((a, b) => {
+    const rankA = a.management ? getPosRank(a.management.position) : 99;
+    const rankB = b.management ? getPosRank(b.management.position) : 99;
+    if (rankA !== rankB) return rankA - rankB;
+    const aShares = a.ownShares ? a.ownShares.sharesOwned : 0;
+    const bShares = b.ownShares ? b.ownShares.sharesOwned : 0;
+    return bShares - aShares;
+  });
+
   attendees.forEach((att, idx) => {
+    // Lookup and attach company management role if they are a person and don't have one set yet
+    if (att.type === 'PERSON' && !att.management) {
+      const pxNameUpper = att.name.toUpperCase().trim();
+      const matchedMgmt = data.shareholders.find(s => s.name.toUpperCase().trim() === pxNameUpper && s.isManagement);
+      if (matchedMgmt) {
+        att.management = { position: matchedMgmt.managementPosition || "Direktur" };
+      }
+      if (!att.management && data.newManagementItems) {
+        const matchedMgmtNew = data.newManagementItems.find(m => m.name.toUpperCase().trim() === pxNameUpper);
+        if (matchedMgmtNew) {
+          att.management = { position: matchedMgmtNew.position };
+        }
+      }
+      if (!att.management && data.oldManagementItems) {
+        const matchedMgmtOld = data.oldManagementItems.find(m => m.name.toUpperCase().trim() === pxNameUpper);
+        if (matchedMgmtOld) {
+          att.management = { position: matchedMgmtOld.position };
+        }
+      }
+    }
+
     const runsList: FormatToken[] = [];
     runsList.push(...getPersonDetailRuns(att.sourceObj));
 

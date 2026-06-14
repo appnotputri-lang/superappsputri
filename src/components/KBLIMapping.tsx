@@ -11,6 +11,9 @@ import {
   Loader2,
   Save,
   History,
+  ArrowLeft,
+  Edit,
+  LayoutGrid,
 } from "lucide-react";
 import mappingData from "../../KBLI_2020_vs_2025.json";
 import kbli2025Data from "../../kbli_2025.json";
@@ -245,6 +248,9 @@ const KBLIMapping: React.FC = () => {
   const [isSavingRecord, setIsSavingRecord] = useState(false);
   const [savedRecords, setSavedRecords] = useState<any[]>([]);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [viewMode, setViewMode] = useState<"list" | "form">("list");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [listSearch, setListSearch] = useState("");
 
   useEffect(() => {
     let localRecs: any[] = [];
@@ -298,10 +304,10 @@ const KBLIMapping: React.FC = () => {
       return;
     }
     setIsSavingRecord(true);
-    const recordId = `mapping-${namaPT
+    const recordId = editingId || `mapping-${namaPT
       .toUpperCase()
       .trim()
-      .replace(/[^A-Z0-9_-]/g, "_")}`;
+      .replace(/[^A-Z0-9_-]/g, "_")}-${Date.now().toString(36)}`;
     const rawPayload = {
       id: recordId,
       nama: namaPT.toUpperCase().trim(),
@@ -331,12 +337,22 @@ const KBLIMapping: React.FC = () => {
 
     try {
       await setDoc(doc(db, "kbli_saved_records", recordId), payload);
-      alert("Data Pemetaan KBLI berhasil disimpan ke database!");
+      alert("Data Pemetaan KBLI berhasil disimpan!");
+      setNamaPT("");
+      setKelompokUsaha("Mikro");
+      setSelectedMappings([]);
+      setEditingId(null);
+      setViewMode("list");
     } catch (error) {
       console.error("Error saving mapping:", error);
       alert(
-        "Data Pemetaan KBLI disimpan secara lokal di perangkat ini (Gagal sinkronisasi awan, silakan hubungi admin atau periksa koneksi Anda jika ingin menyimpan ke cloud database).",
+        "Data Pemetaan KBLI disimpan secara lokal di perangkat ini.",
       );
+      setNamaPT("");
+      setKelompokUsaha("Mikro");
+      setSelectedMappings([]);
+      setEditingId(null);
+      setViewMode("list");
       try {
         const stored = localStorage.getItem("kbli_mapping_local_records");
         if (stored) {
@@ -400,8 +416,9 @@ const KBLIMapping: React.FC = () => {
     setNamaPT(record.nama || "");
     setKelompokUsaha(record.kelompokUsaha || "Mikro");
     setSelectedMappings(record.selectedItems || []);
+    setEditingId(record.id || null);
     setShowHistoryModal(false);
-    alert(`Data pemetaan untuk "${record.nama}" berhasil dimuat!`);
+    setViewMode("form");
   };
 
   const parseScaleProperty = (
@@ -842,8 +859,11 @@ const KBLIMapping: React.FC = () => {
     );
   };
 
-  const handlePrint = (lang: "id" | "en" = "id") => {
+  const handlePrint = (lang: "id" | "en" = "id", customRecord?: any) => {
     const isEn = lang === "en";
+    const activeNamaPT = customRecord ? (customRecord.nama || "") : namaPT;
+    const activeKelompokUsaha = customRecord ? (customRecord.kelompokUsaha || "Mikro") : kelompokUsaha;
+    const activeSelectedMappings = customRecord ? (customRecord.selectedItems || []) : selectedMappings;
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.width;
     const pageHeight = doc.internal.pageSize.height;
@@ -976,7 +996,7 @@ const KBLIMapping: React.FC = () => {
             content: isEn ? "Name" : "Nama",
             styles: { fontStyle: "normal", cellWidth: 30 },
           },
-          { content: `: ${namaPT || "–"}`, styles: { fontStyle: "bold" } },
+          { content: `: ${activeNamaPT || "–"}`, styles: { fontStyle: "bold" } },
         ],
         [
           {
@@ -984,7 +1004,7 @@ const KBLIMapping: React.FC = () => {
             styles: { fontStyle: "normal", cellWidth: 30 },
           },
           {
-            content: `: ${translateBusinessScale(kelompokUsaha, isEn)}`,
+            content: `: ${translateBusinessScale(activeKelompokUsaha, isEn)}`,
             styles: { fontStyle: "bold" },
           },
         ],
@@ -1027,10 +1047,10 @@ const KBLIMapping: React.FC = () => {
 
     // Compile Summary Rows Data
     const summaryRows: any[] = [];
-    const unique2020Kodes = Array.from(new Set(selectedMappings.map(s => s.kbli_2020.kode)));
+    const unique2020Kodes = Array.from(new Set(activeSelectedMappings.map(s => s.kbli_2020.kode)));
     
     unique2020Kodes.forEach(kode2020 => {
-      const mappingsFor2020 = selectedMappings.filter(s => s.kbli_2020.kode === kode2020);
+      const mappingsFor2020 = activeSelectedMappings.filter(s => s.kbli_2020.kode === kode2020);
       
       // Robust Name 2020 extraction (find the longest/first non-empty title)
       let name2020 = "";
@@ -1186,7 +1206,7 @@ const KBLIMapping: React.FC = () => {
 
     // Detail Items render loop
     const groupedMappings: { [key: string]: SelectedMappingItem[] } = {};
-    selectedMappings.forEach((s) => {
+    activeSelectedMappings.forEach((s) => {
       const g = s.kbli_2020.kode;
       if (!groupedMappings[g]) {
         groupedMappings[g] = [];
@@ -1492,14 +1512,176 @@ const KBLIMapping: React.FC = () => {
 
     addFooter();
     const filename = isEn
-      ? `KBLI_Mapping_${namaPT.replace(/\s+/g, "_") || "Suggestions"}.pdf`
-      : `Pemetaan_KBLI_${namaPT.replace(/\s+/g, "_") || "Saran"}.pdf`;
+      ? `KBLI_Mapping_${activeNamaPT.replace(/\s+/g, "_") || "Suggestions"}.pdf`
+      : `Pemetaan_KBLI_${activeNamaPT.replace(/\s+/g, "_") || "Saran"}.pdf`;
     doc.save(filename);
   };
 
   return (
     <div className="max-w-5xl mx-auto space-y-8 pb-20 animate-in fade-in duration-500">
-      <div className="bg-white p-6 sm:p-8 rounded-sm shadow-sm border border-slate-200">
+      {viewMode === "list" ? (
+        <div className="space-y-6">
+          {/* List Mode Header */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between bg-white border border-slate-200 rounded-sm p-6 shadow-sm gap-4">
+            <div className="flex items-center gap-4">
+              <div className="bg-[#0c2444] p-3 rounded-2xl shadow-md">
+                <LayoutGrid className="w-8 h-8 text-white" />
+              </div>
+              <div>
+                <h1 className="text-xl font-extrabold text-slate-900 tracking-tight font-sans">Daftar Pemetaan KBLI 2020 - 2025</h1>
+                <p className="text-slate-500 text-xs">Kelola pemetaan klasifikasi KBLI untuk klien PT secara terstruktur.</p>
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                setNamaPT("");
+                setKelompokUsaha("Mikro");
+                setSelectedMappings([]);
+                setEditingId(null);
+                setViewMode("form");
+              }}
+              className="px-5 py-2.5 bg-[#0c2444] hover:bg-[#16365f] text-white text-[13px] font-bold rounded-sm shadow-sm transition-all flex items-center justify-center gap-2 uppercase tracking-wide shrink-0 cursor-pointer"
+            >
+              <Plus className="w-4 h-4" />
+              Tambah Pemetaan KBLI
+            </button>
+          </div>
+
+          {/* Search Table Block */}
+          <div className="bg-white border border-slate-200 rounded-sm p-6 shadow-sm space-y-4 animate-in fade-in slide-in-from-top-4 duration-300">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pb-2 border-b border-slate-100">
+              <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wider">Tabel Data Klien PT</h2>
+              
+              <div className="relative w-full sm:w-64">
+                <input
+                  type="text"
+                  placeholder="Cari nama klien / PT..."
+                  value={listSearch}
+                  onChange={(e) => setListSearch(e.target.value)}
+                  className="w-full pl-9 pr-4 py-2 border border-slate-250 rounded-md text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 outline-none placeholder:text-slate-400"
+                />
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+              </div>
+            </div>
+
+            <div className="w-full bg-white border border-slate-100 rounded-sm overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse text-[13px]">
+                  <thead>
+                    <tr className="bg-[#fcfcfc] border-b border-slate-200 text-slate-500 text-xs uppercase font-bold">
+                      <th className="px-4 py-3 text-center w-12 border-r border-slate-200">No</th>
+                      <th className="px-4 py-3 border-r border-slate-200">Nama Klien / PT</th>
+                      <th className="px-4 py-3 border-r border-slate-200 w-32">Skala Usaha</th>
+                      <th className="px-4 py-3 border-r border-slate-200 text-center w-36">KBLI Terpilih</th>
+                      <th className="px-4 py-3 border-r border-slate-200 text-center w-40">Terakhir Diubah</th>
+                      <th className="px-4 py-3 text-center w-[200px]">Aksi</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200">
+                    {(() => {
+                      const filtered = savedRecords.filter(rec => 
+                        !listSearch.trim() || rec.nama?.toLowerCase().includes(listSearch.toLowerCase())
+                      );
+                      
+                      if (filtered.length === 0) {
+                        return (
+                          <tr>
+                            <td colSpan={6} className="text-center py-12 text-slate-400 italic font-medium">
+                              {listSearch.trim() ? "Data klien tidak ditemukan untuk pencarian ini." : "Belum ada data pemetaan KBLI. Silakan klik tombol \"Tambah Pemetaan KBLI\" untuk memulai."}
+                            </td>
+                          </tr>
+                        );
+                      }
+
+                      return filtered.map((rec, idx) => {
+                        return (
+                          <tr key={rec.id} className="hover:bg-slate-50/50 transition-colors">
+                            <td className="px-4 py-3.5 text-center border-r border-slate-200 text-slate-500 font-bold font-mono text-[12px]">{idx + 1}</td>
+                            <td className="px-4 py-3.5 border-r border-slate-200 font-bold text-[#0c2444] uppercase tracking-wide">{rec.nama}</td>
+                            <td className="px-4 py-3.5 border-r border-slate-200">
+                              <span className={`inline-block px-2.5 py-1 rounded-full text-[10px] font-bold uppercase ${
+                                rec.kelompokUsaha === "Mikro" 
+                                  ? "bg-sky-50 text-sky-700 border border-sky-105"
+                                  : rec.kelompokUsaha === "Kecil"
+                                    ? "bg-emerald-50 text-emerald-700 border border-emerald-100"
+                                    : rec.kelompokUsaha === "Menengah"
+                                      ? "bg-amber-50 text-amber-700 border border-amber-100"
+                                      : "bg-rose-50 text-rose-700 border border-rose-100"
+                              }`}>
+                                {rec.kelompokUsaha}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3.5 border-r border-slate-200 text-center text-slate-605 font-bold font-mono">
+                              {rec.selectedItems?.length || 0} KBLI
+                            </td>
+                            <td className="px-4 py-3.5 border-r border-slate-200 text-center text-slate-400 font-mono text-[11px]">
+                              {rec.updatedAt ? new Date(rec.updatedAt).toLocaleString("id-ID", { dateStyle: "medium", timeStyle: "short" }) : "–"}
+                            </td>
+                            <td className="px-4 py-3.5 text-center whitespace-nowrap">
+                              <div className="flex items-center justify-center gap-1.5">
+                                <button
+                                  onClick={() => handleLoadRecord(rec)}
+                                  className="p-1 px-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-md text-xs font-bold transition-all border border-indigo-100 flex items-center gap-1 cursor-pointer"
+                                  title="Edit Pemetaan KBLI"
+                                >
+                                  <Edit className="w-3.5 h-3.5" />
+                                  Edit
+                                </button>
+                                <button
+                                  onClick={() => handlePrint("id", rec)}
+                                  className="p-1 px-2.5 bg-slate-50 hover:bg-slate-100 text-slate-700 rounded-md text-xs font-bold transition-all border border-slate-200 flex items-center gap-1 cursor-pointer"
+                                  title="Cetak PDF (ID)"
+                                >
+                                  <FileDown className="w-3.5 h-3.5" />
+                                  ID
+                                </button>
+                                <button
+                                  onClick={() => handlePrint("en", rec)}
+                                  className="p-1 px-2.5 bg-slate-50 hover:bg-slate-100 text-slate-700 rounded-md text-xs font-bold transition-all border border-slate-200 flex items-center gap-1 cursor-pointer"
+                                  title="Cetak PDF (EN)"
+                                >
+                                  <FileDown className="w-3.5 h-3.5" />
+                                  EN
+                                </button>
+                                <button
+                                  onClick={(e) => handleDeleteRecord(rec.id, e)}
+                                  className="p-1.5 bg-red-50 hover:bg-red-105 text-red-650 rounded-md transition-all border border-red-100 flex items-center cursor-pointer"
+                                  title="Hapus Data"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      });
+                    })()}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* Back Navigation Bar inside Form Mode */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between bg-white border border-slate-200 rounded-sm p-4 shadow-sm gap-3">
+            <button
+              onClick={() => setViewMode("list")}
+              className="px-4 py-2 bg-slate-105 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-sm border border-slate-200 shadow-sm transition-all flex items-center justify-center gap-1.5 uppercase shrink-0 cursor-pointer"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              Kembali ke Daftar Klien
+            </button>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50 px-2 py-1 rounded border">Form Mode</span>
+              {editingId && (
+                <span className="text-[10px] font-bold text-amber-600 uppercase tracking-widest bg-amber-50 px-2 py-1 rounded border border-amber-200">Sedang Mengedit</span>
+              )}
+            </div>
+          </div>
+
+          <div className="bg-white p-6 sm:p-8 rounded-sm shadow-sm border border-slate-200">
         <div className="text-center mb-8">
           <div className="bg-indigo-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
             <BookOpen className="w-8 h-8 text-indigo-600" />
@@ -1942,6 +2124,8 @@ const KBLIMapping: React.FC = () => {
             ))}
           </div>
         </div>
+      )}
+        </>
       )}
 
       <div className="bg-blue-50/50 border border-blue-100 p-4 rounded-sm flex gap-3 items-start max-w-5xl mx-auto">

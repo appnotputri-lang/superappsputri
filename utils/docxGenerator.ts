@@ -1,6 +1,6 @@
 import { Document, Packer, Paragraph, TextRun } from "docx";
 import { CompanyData, Shareholder, Address, ManagementItem } from "../types";
-import { formatFullAddressData } from "../src/lib/formatter";
+import { formatFullAddressData, checkIsBadanHukum, formatPersonDetails, dateToWords, formatDateStr } from "../src/lib/formatter";
 import {
   formatCurrency,
   formatInputNumber,
@@ -312,11 +312,126 @@ export const generateWordDoc = async (data: CompanyData) => {
     return name;
   };
 
+  interface PhysicalAttendee {
+    type: 'PERSON' | 'ENTITY_DIRECT';
+    name: string;
+    salutation: string;
+    sourceObj: any;
+    ownShares: { sharesOwned: number; shareholder: Shareholder } | null;
+    management: { position: string } | null;
+    representations: { sharesOwned: number; shareholder: Shareholder; proxyData: any }[];
+  }
+
+  const attendees: PhysicalAttendee[] = [];
+
+  attendingShareholders.forEach(sh => {
+    if (sh.isProxy && sh.proxyData) {
+      const pxName = (sh.proxyData.name || "").trim();
+      let att = attendees.find(a => a.name.toUpperCase() === pxName.toUpperCase());
+      if (!att) {
+        att = {
+          type: 'PERSON',
+          name: pxName,
+          salutation: sh.proxyData.salutation || "Tuan",
+          sourceObj: sh.proxyData,
+          ownShares: null,
+          management: null,
+          representations: []
+        };
+        attendees.push(att);
+      }
+      att.representations.push({
+        sharesOwned: sh.sharesOwned || 0,
+        shareholder: sh,
+        proxyData: sh.proxyData
+      });
+    } else {
+      const shName = (sh.name || "").trim();
+      if (checkIsBadanHukum(sh)) {
+        attendees.push({
+          type: 'ENTITY_DIRECT',
+          name: shName,
+          salutation: '',
+          sourceObj: sh,
+          ownShares: sh.sharesOwned > 0 ? {
+            sharesOwned: sh.sharesOwned || 0,
+            shareholder: sh
+          } : null,
+          management: sh.isManagement ? { position: sh.managementPosition || "Direktur" } : null,
+          representations: []
+        });
+      } else {
+        let att = attendees.find(a => a.name.toUpperCase() === shName.toUpperCase());
+        if (!att) {
+          att = {
+            type: 'PERSON',
+            name: shName,
+            salutation: sh.salutation || "Tuan",
+            sourceObj: sh,
+            ownShares: sh.sharesOwned > 0 ? {
+              sharesOwned: sh.sharesOwned || 0,
+              shareholder: sh
+            } : null,
+            management: sh.isManagement ? { position: sh.managementPosition || "Direktur" } : null,
+            representations: []
+          };
+          attendees.push(att);
+        } else {
+          if (sh.sharesOwned > 0) {
+            att.ownShares = {
+              sharesOwned: sh.sharesOwned || 0,
+              shareholder: sh
+            };
+          }
+          if (sh.isManagement) {
+            att.management = { position: sh.managementPosition || "Direktur" };
+          }
+        }
+      }
+    }
+  });
+
+  // Apply management role lookups for physical persons
+  attendees.forEach(att => {
+    if (att.type === 'PERSON' && !att.management) {
+      const pxNameUpper = att.name.toUpperCase().trim();
+      const matchedMgmt = data.shareholders.find(s => s.name.toUpperCase().trim() === pxNameUpper && s.isManagement);
+      if (matchedMgmt) {
+        att.management = { position: matchedMgmt.managementPosition || "Direktur" };
+      }
+      if (!att.management && data.newManagementItems) {
+        const matchedMgmtNew = data.newManagementItems.find(m => m.name.toUpperCase().trim() === pxNameUpper);
+        if (matchedMgmtNew) {
+          att.management = { position: matchedMgmtNew.position };
+        }
+      }
+      if (!att.management && data.oldManagementItems) {
+        const matchedMgmtOld = data.oldManagementItems.find(m => m.name.toUpperCase().trim() === pxNameUpper);
+        if (matchedMgmtOld) {
+          att.management = { position: matchedMgmtOld.position };
+        }
+      }
+    }
+  });
+
   if (isCircular) {
-    attendingShareholders.forEach((sh, idx) => {
-      const parValue = data.originalSharePrice || 0;
-      const currentShares = sh.sharesOwned || 0;
-      const currentValue = currentShares * parValue;
+    attendees.forEach((att, idx) => {
+      const isBadanHukum = att.type === 'ENTITY_DIRECT';
+      
+      let details = "";
+      if (isBadanHukum) {
+        details = formatPersonDetails(att.sourceObj, "", "", false, true);
+      } else {
+        const tglAngka = att.sourceObj.birthDate ? formatDateStr(att.sourceObj.birthDate) : "...";
+        const tglHuruf = att.sourceObj.birthDate ? dateToWords(att.sourceObj.birthDate) : "...";
+        details = formatPersonDetails(att.sourceObj, tglAngka, tglHuruf, false, true);
+      }
+
+      const cleanPrefixRegex = /^(TUAN|NYONYA|NONA|NY|TN|NY\.|TN\.|NYONYA\.|TUAN\.)\s+/i;
+      let displayName = att.name.toUpperCase();
+      while (cleanPrefixRegex.test(displayName)) {
+        displayName = displayName.replace(cleanPrefixRegex, "").trim();
+      }
 
       // Circular: bullet dash sh-dash
       children.push(
@@ -326,37 +441,142 @@ export const generateWordDoc = async (data: CompanyData) => {
           numbering: { reference: "sh-dash", level: 0 },
           indent: { left: 426 },
           children: [
-            mkRun(`${sh.salutation} `),
-            mkRun(getDisplayNameForDocx(sh), true),
-            mkRun(`, lahir di ${toTitleCase(sh.birthCity || "................")}, pada tanggal ${getDayIndo(sh.birthDate) || ".."} ${getMonthIndo(sh.birthDate) || "........"} ${getYearIndo(sh.birthDate) || "...."}, ${getNationalityStr(sh)}, ${getOccupationStr(sh)}${getAddressStr(sh)}, ${getIdentificationStr(sh)};`),
+            mkRun(isBadanHukum ? "" : `${att.salutation} `),
+            mkRun(displayName, true),
+            mkRun(details + ";"),
           ],
-        }),
-        mkP({
-          numbering: { reference: "sh-dash", level: 0 },
-          indent: { left: INDENT_STEP },
-          spacing: { before: 60, after: 120 },
-          children: [
-            mkRun("Selaku pemilik dan pemegang "),
-            mkRun(currentShares.toLocaleString("id-ID"), true),
-            mkRun(` (${numberToWords(currentShares)}) lembar saham atau senilai `),
-            mkRun(formatRpDot(currentValue), true),
-            mkRun(` (${numberToWords(currentValue)} rupiah).`),
-          ],
-        }),
+        })
       );
+
+      // Sub bullets "Selaku pemilik/pemegang shares..."
+      const totalSub = (att.ownShares ? 1 : 0) + att.representations.length;
+
+      if (totalSub === 1) {
+        if (att.ownShares) {
+          const parValue = data.originalSharePrice || 0;
+          const currentShares = att.ownShares.sharesOwned || 0;
+          const currentValue = currentShares * parValue;
+          children.push(
+            mkP({
+              numbering: { reference: "sh-dash", level: 0 },
+              indent: { left: INDENT_STEP },
+              spacing: { before: 60, after: 120 },
+              children: [
+                mkRun("Selaku pemilik dan pemegang saham sebanyak "),
+                mkRun(currentShares.toLocaleString("id-ID"), true),
+                mkRun(` (${numberToWords(currentShares)}) lembar saham atau senilai `),
+                mkRun(formatRpDot(currentValue), true),
+                mkRun(` (${numberToWords(currentValue)} rupiah).`),
+              ],
+            })
+          );
+        } else {
+          const r = att.representations[0];
+          const isDirector = r.proxyData.representationType === 'DIREKTUR_PT_LAIN';
+          const parValue = data.originalSharePrice || 0;
+          const currentShares = r.sharesOwned || 0;
+          const currentValue = currentShares * parValue;
+
+          let repText = "";
+          if (isDirector) {
+            repText = `Selaku Direktur dari PT ${getDisplayNameForDocx(r.shareholder)}${formatPersonDetails(r.shareholder, "", "", false, true)}`;
+          } else {
+            const proxyDate = r.proxyData.proxyDeedDate ? formatDateIndo(r.proxyData.proxyDeedDate) : "__________";
+            repText = `Selaku kuasa dari ${r.shareholder.salutation || "Tuan"} ${getDisplayNameForDocx(r.shareholder)}${formatPersonDetails(r.shareholder, "", "", false, true)} berdasarkan surat kuasa tertanggal ${proxyDate}`;
+          }
+
+          children.push(
+            mkP({
+              numbering: { reference: "sh-dash", level: 0 },
+              indent: { left: INDENT_STEP },
+              spacing: { before: 60, after: 120 },
+              children: [
+                mkRun(`${repText}, yang dalam hal ini selaku pemilik dan pemegang `),
+                mkRun(currentShares.toLocaleString("id-ID"), true),
+                mkRun(` (${numberToWords(currentShares)}) lembar saham atau senilai `),
+                mkRun(formatRpDot(currentValue), true),
+                mkRun(` (${numberToWords(currentValue)} rupiah).`),
+              ],
+            })
+          );
+        }
+      } else if (totalSub > 1) {
+        let subCode = 97; // 'a'
+        if (att.ownShares) {
+          const parValue = data.originalSharePrice || 0;
+          const currentShares = att.ownShares.sharesOwned || 0;
+          const currentValue = currentShares * parValue;
+          const letter = String.fromCharCode(subCode++);
+
+          children.push(
+            mkP({
+              numbering: { reference: "sh-dash", level: 0 },
+              indent: { left: INDENT_STEP },
+              spacing: { before: 60, after: 60 },
+              children: [
+                mkRun(`${letter}. `),
+                mkRun("Selaku pemilik dan pemegang saham sebanyak "),
+                mkRun(currentShares.toLocaleString("id-ID"), true),
+                mkRun(` (${numberToWords(currentShares)}) lembar saham atau senilai `),
+                mkRun(formatRpDot(currentValue), true),
+                mkRun(` (${numberToWords(currentValue)} rupiah);`),
+              ]
+            })
+          );
+        }
+
+        att.representations.forEach(r => {
+          const isDirector = r.proxyData.representationType === 'DIREKTUR_PT_LAIN';
+          const parValue = data.originalSharePrice || 0;
+          const currentShares = r.sharesOwned || 0;
+          const currentValue = currentShares * parValue;
+          const letter = String.fromCharCode(subCode++);
+
+          let repText = "";
+          if (isDirector) {
+            repText = `Selaku Direktur dari PT ${getDisplayNameForDocx(r.shareholder)}${formatPersonDetails(r.shareholder, "", "", false, true)}`;
+          } else {
+            const proxyDate = r.proxyData.proxyDeedDate ? formatDateIndo(r.proxyData.proxyDeedDate) : "__________";
+            repText = `Selaku kuasa dari ${r.shareholder.salutation || "Tuan"} ${getDisplayNameForDocx(r.shareholder)}${formatPersonDetails(r.shareholder, "", "", false, true)} berdasarkan surat kuasa tertanggal ${proxyDate}`;
+          }
+
+          children.push(
+            mkP({
+              numbering: { reference: "sh-dash", level: 0 },
+              indent: { left: INDENT_STEP },
+              spacing: { before: 60, after: 60 },
+              children: [
+                mkRun(`${letter}. `),
+                mkRun(`${repText}, yang dalam hal ini selaku pemilik dan pemegang `),
+                mkRun(currentShares.toLocaleString("id-ID"), true),
+                mkRun(` (${numberToWords(currentShares)}) lembar saham atau senilai `),
+                mkRun(formatRpDot(currentValue), true),
+                mkRun(` (${numberToWords(currentValue)} rupiah);`),
+              ]
+            })
+          );
+        });
+      }
     });
   } else {
     // Notulen: 1., 2. list — sub-letters a., b. reset per shareholder
-    attendingShareholders.forEach((sh, idx) => {
-      let shLetterCode = 97; // reset 'a' for each shareholder
-      const getNextShLetter = () => {
-        const char = String.fromCharCode(shLetterCode);
-        shLetterCode++;
-        return char;
-      };
-      const parValue = data.originalSharePrice || 0;
-      const currentShares = sh.sharesOwned || 0;
-      const currentValue = currentShares * parValue;
+    attendees.forEach((att, idx) => {
+      const isBadanHukum = att.type === 'ENTITY_DIRECT';
+      
+      let details = "";
+      if (isBadanHukum) {
+        details = formatPersonDetails(att.sourceObj, "", "", false, true);
+      } else {
+        const tglAngka = att.sourceObj.birthDate ? formatDateStr(att.sourceObj.birthDate) : "...";
+        const tglHuruf = att.sourceObj.birthDate ? dateToWords(att.sourceObj.birthDate) : "...";
+        details = formatPersonDetails(att.sourceObj, tglAngka, tglHuruf, false, true);
+      }
+
+      const cleanPrefixRegex = /^(TUAN|NYONYA|NONA|NY|TN|NY\.|TN\.|NYONYA\.|TUAN\.)\s+/i;
+      let displayName = att.name.toUpperCase();
+      while (cleanPrefixRegex.test(displayName)) {
+        displayName = displayName.replace(cleanPrefixRegex, "").trim();
+      }
 
       // Decimal number index (1. Tuan RENDY)
       children.push(
@@ -366,9 +586,9 @@ export const generateWordDoc = async (data: CompanyData) => {
           indent: { left: 426, hanging: 426 },
           children: [
             mkRun(`${idx + 1}. `, false),
-            mkRun(`${sh.salutation} `),
-            mkRun(getDisplayNameForDocx(sh), true),
-            mkRun(`, lahir di ${toTitleCase(sh.birthCity || "................")}, pada tanggal ${getDayIndo(sh.birthDate) || ".."} ${getMonthIndo(sh.birthDate) || "........"} ${getYearIndo(sh.birthDate) || "...."}, ${getNationalityStr(sh)}, ${getOccupationStr(sh)}${getAddressStr(sh)}, ${getIdentificationStr(sh)};`),
+            mkRun(isBadanHukum ? "" : `${att.salutation} `),
+            mkRun(displayName, true),
+            mkRun(details + ";"),
           ],
         })
       );
@@ -386,8 +606,16 @@ export const generateWordDoc = async (data: CompanyData) => {
         })
       );
 
-      // Lettered sub items: a., b., c. continuing
-      if (sh.isManagement) {
+      // Sub letters code reset
+      let shLetterCode = 97; // reset 'a' for each shareholder
+      const getNextShLetter = () => {
+        const char = String.fromCharCode(shLetterCode);
+        shLetterCode++;
+        return char;
+      };
+
+      // management position
+      if (att.management) {
         const letter = getNextShLetter();
         children.push(
           new Paragraph({
@@ -396,30 +624,82 @@ export const generateWordDoc = async (data: CompanyData) => {
             indent: { left: 993, hanging: 284 },
             children: [
               mkRun(`${letter}. `),
-              mkRun(`${toTitleCase(sh.managementPosition || "Direktur")} Perseroan; dan`),
+              mkRun(`selaku ${toTitleCase(att.management.position || "Direktur")} Perseroan; dan`),
             ],
           })
         );
       }
 
-      const letterShares = getNextShLetter();
-      children.push(
-        new Paragraph({
-          alignment: "both" as any,
-          spacing: { line: LINE_SPACING, before: 0, after: 120 },
-          indent: { left: 993, hanging: 284 },
-          children: [
-            mkRun(`${letterShares}. `),
-            mkRun("Pemilik dan pemegang saham sebanyak "),
-            mkRun(currentShares.toLocaleString("id-ID"), true),
-            mkRun(` (${numberToWords(currentShares)}) lembar saham atau senilai `),
-            mkRun(formatRpDot(currentValue), true),
-            mkRun(` (${numberToWords(currentValue)} rupiah) berhak mengeluarkan suara `),
-            mkRun(currentShares.toLocaleString("id-ID"), true),
-            mkRun(` (${numberToWords(currentShares)}) suara dalam rapat.`),
-          ],
-        })
-      );
+      // own shares
+      if (att.ownShares) {
+        const letter = getNextShLetter();
+        const parValue = data.originalSharePrice || 0;
+        const currentShares = att.ownShares.sharesOwned || 0;
+        const currentValue = currentShares * parValue;
+
+        children.push(
+          new Paragraph({
+            alignment: "both" as any,
+            spacing: { line: LINE_SPACING, before: 0, after: 120 },
+            indent: { left: 993, hanging: 284 },
+            children: [
+              mkRun(`${letter}. `),
+              mkRun("selaku Pemilik dan pemegang saham sebanyak "),
+              mkRun(currentShares.toLocaleString("id-ID"), true),
+              mkRun(` (${numberToWords(currentShares)}) lembar saham atau senilai `),
+              mkRun(formatRpDot(currentValue), true),
+              mkRun(` (${numberToWords(currentValue)} rupiah) berhak mengeluarkan suara `),
+              mkRun(currentShares.toLocaleString("id-ID"), true),
+              mkRun(` (${numberToWords(currentShares)}) suara dalam rapat.`),
+            ],
+          })
+        );
+      }
+
+      // representations (proxy / director PT lain)
+      att.representations.forEach(r => {
+        const letter = getNextShLetter();
+        const isDirector = r.proxyData.representationType === 'DIREKTUR_PT_LAIN';
+        const parValue = data.originalSharePrice || 0;
+        const currentShares = r.sharesOwned || 0;
+        const currentValue = currentShares * parValue;
+
+        let repTextRuns: any[] = [];
+        if (isDirector) {
+          // selaku Direktur dari PT ... [and legal details]
+          repTextRuns.push(
+            mkRun(`selaku Direktur dari `),
+            mkRun(`PT ${getDisplayNameForDocx(r.shareholder)}`, true),
+            mkRun(formatPersonDetails(r.shareholder, "", "", false, true))
+          );
+        } else {
+          const proxyDate = r.proxyData.proxyDeedDate ? formatDateIndo(r.proxyData.proxyDeedDate) : "__________";
+          repTextRuns.push(
+            mkRun(`selaku penerima kuasa berdasarkan Surat Kuasa tertanggal ${proxyDate}, dari dan oleh karena itu sah bertindak untuk dan atas nama `),
+            mkRun(`${r.shareholder.salutation || "Tuan"} ${getDisplayNameForDocx(r.shareholder)}`, true),
+            mkRun(formatPersonDetails(r.shareholder, "", "", false, true))
+          );
+        }
+
+        children.push(
+          new Paragraph({
+            alignment: "both" as any,
+            spacing: { line: LINE_SPACING, before: 0, after: 60 },
+            indent: { left: 993, hanging: 284 },
+            children: [
+              mkRun(`${letter}. `),
+              ...repTextRuns,
+              mkRun(`, yang dalam hal ini merupakan pemilik dan pemegang saham sebanyak `),
+              mkRun(currentShares.toLocaleString("id-ID"), true),
+              mkRun(` (${numberToWords(currentShares)}) lembar saham atau senilai `),
+              mkRun(formatRpDot(currentValue), true),
+              mkRun(` (${numberToWords(currentValue)} rupiah) berhak mengeluarkan suara `),
+              mkRun(currentShares.toLocaleString("id-ID"), true),
+              mkRun(` (${numberToWords(currentShares)}) suara dalam rapat.`),
+            ],
+          })
+        );
+      });
     });
   }
 

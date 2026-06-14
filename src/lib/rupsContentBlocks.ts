@@ -14,6 +14,7 @@ import {
   formatFullAddressData,
   formatCompanyName,
   formatPersonDetails,
+  checkIsBadanHukum,
   formatAktaDate,
   cleanDegrees,
 } from "./formatter";
@@ -94,10 +95,31 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
   const isCircular = data.documentType === "CIRCULAR";
   const isMinutes = data.documentType === "MINUTES";
 
+  const getPosRank = (pos: string | undefined): number => {
+    if (!pos) return 99;
+    const p = pos.trim().toUpperCase();
+    if (p === "DIREKTUR UTAMA") return 1;
+    if (p === "WAKIL DIREKTUR UTAMA") return 2;
+    if (p === "DIREKTUR") return 3;
+    if (p === "WAKIL DIREKTUR") return 4;
+    if (p === "KOMISARIS UTAMA") return 5;
+    if (p === "WAKIL KOMISARIS UTAMA") return 6;
+    if (p === "KOMISARIS") return 7;
+    if (p === "WAKIL KOMISARIS") return 8;
+    return 10;
+  };
+
   // Filter attendees for Minutes
   const attendingShareholders = isMinutes
     ? data.shareholders.filter((s) => s.isPresent && (s.sharesOwned || 0) > 0)
     : data.shareholders.filter((s) => (s.sharesOwned || 0) > 0);
+
+  attendingShareholders.sort((a, b) => {
+    const rankA = a.isManagement ? getPosRank(a.managementPosition) : 99;
+    const rankB = b.isManagement ? getPosRank(b.managementPosition) : 99;
+    if (rankA !== rankB) return rankA - rankB;
+    return (b.sharesOwned || 0) - (a.sharesOwned || 0);
+  });
 
   const presentShares = attendingShareholders.reduce(
     (sum, s) => sum + s.sharesOwned,
@@ -129,21 +151,22 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
 
   const getPersonDetailRuns = (person: any): FormatToken[] => {
     let nameUpper = (person?.name || "").toUpperCase().trim();
-    const isPenghadap = rep && nameUpper === rep.name.toUpperCase();
-    const isBadanHukum = person?.shareholderType === 'BADAN_HUKUM' || person?.legalEntityType;
+    const isPenghadap = rep && nameUpper === (rep.name || "").toUpperCase().trim();
+    
+    const isBadanHukum = checkIsBadanHukum(person);
 
     const salutation = (person?.salutation || "Tuan").trim();
     const salUpper = salutation.toUpperCase();
     const stripRegex = new RegExp(`^(${salUpper}|TUAN|NYONYA|NONA|NY|TN|NY\\.|TN\\.|NYONYA\\.|TUAN\\.)\\s+`, "i");
-    if (nameUpper.startsWith(salUpper + " ") || stripRegex.test(nameUpper)) {
+    if (stripRegex.test(nameUpper)) {
       nameUpper = nameUpper.replace(stripRegex, "").trim();
-      if (nameUpper.startsWith(salUpper + " ")) {
-        nameUpper = nameUpper.substring(salUpper.length + 1).trim();
-      }
     }
+
+    const sal = (!isBadanHukum) ? `${salutation} ` : "";
 
     if (fullyDescribedNames.has(nameUpper)) {
       return [
+        { text: sal },
         { text: nameUpper, bold: true },
         {
           text: isPenghadap
@@ -158,6 +181,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
     const tglLahirAngka = person ? formatDateStr(person.birthDate) : "";
 
     return [
+      { text: sal },
       { text: nameUpper, bold: true },
       {
         text: person ? formatPersonDetails(person, tglLahirAngka, tglLahirHuruf, !isMinutes) : `, lahir di ..., pada tanggal ... (...), Warga Negara Indonesia, ..., bertempat tinggal di ..., ..., Rukun Tetangga ..., Rukun Warga ..., Kelurahan ..., Kecamatan ..., pemegang Kartu Tanda Penduduk Nomor ...`,
@@ -446,7 +470,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
         bullet: `${i + 1}.`,
         indentTabs: 0.668,
         runs: [
-          { text: sh.shareholderType === 'BADAN_HUKUM' ? "" : `${sh.salutation} ` },
+          { text: checkIsBadanHukum(sh) ? "" : `${sh.salutation} ` },
           ...getPersonDetailRuns(sh),
           {
             text: `, selaku pemilik dan pemegang ${formatNumber(sh.sharesOwned)} (${terbilang(sh.sharesOwned)}) lembar saham atau senilai Rp. ${formatNumber(shTotalRp)},- (${terbilang(shTotalRp)} rupiah).`,
@@ -527,7 +551,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
         });
       } else {
         const shName = (sh.name || "").trim();
-        if (sh.shareholderType === 'BADAN_HUKUM') {
+        if (checkIsBadanHukum(sh)) {
           attendees.push({
             type: 'ENTITY_DIRECT',
             name: shName,
@@ -571,118 +595,203 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
       }
     });
 
+    attendees.sort((a, b) => {
+      const rankA = a.management ? getPosRank(a.management.position) : 99;
+      const rankB = b.management ? getPosRank(b.management.position) : 99;
+      if (rankA !== rankB) return rankA - rankB;
+      const aShares = a.ownShares ? a.ownShares.sharesOwned : 0;
+      const bShares = b.ownShares ? b.ownShares.sharesOwned : 0;
+      return bShares - aShares;
+    });
+
     attendees.forEach((att, idx) => {
+      // Lookup and attach company management role if they are a person and don't have one set yet
+      if (att.type === 'PERSON' && !att.management) {
+        const pxNameUpper = att.name.toUpperCase().trim();
+        const matchedMgmt = data.shareholders.find(s => s.name.toUpperCase().trim() === pxNameUpper && s.isManagement);
+        if (matchedMgmt) {
+          att.management = { position: matchedMgmt.managementPosition || "Direktur" };
+        }
+        if (!att.management && data.newManagementItems) {
+          const matchedMgmtNew = data.newManagementItems.find(m => m.name.toUpperCase().trim() === pxNameUpper);
+          if (matchedMgmtNew) {
+            att.management = { position: matchedMgmtNew.position };
+          }
+        }
+        if (!att.management && data.oldManagementItems) {
+          const matchedMgmtOld = data.oldManagementItems.find(m => m.name.toUpperCase().trim() === pxNameUpper);
+          if (matchedMgmtOld) {
+            att.management = { position: matchedMgmtOld.position };
+          }
+        }
+      }
+
+      const isRep = rep && (att.name || "").toUpperCase().trim() === (rep.name || "").toUpperCase().trim();
+      let displayName = (att.name || "").toUpperCase().trim();
+      const cleanPrefixRegex = /^(TUAN|NYONYA|NONA|NY|TN|NY\.|TN\.|NYONYA\.|TUAN\.)\s+/i;
+      while (cleanPrefixRegex.test(displayName)) {
+        displayName = displayName.replace(cleanPrefixRegex, "").trim();
+      }
+
+      const runsList: FormatToken[] = [];
+      runsList.push(...getPersonDetailRuns(att.sourceObj), { text: ";" });
+
       blocks.push({
         type: "list",
         bullet: `${idx + 1}.`,
-        indentTabs: 0.668,
-        runs: [
-          { text: att.salutation ? `${att.salutation} ` : "" },
-          ...getPersonDetailRuns(att.sourceObj),
-          { text: ";" }
-        ]
+        indentTabs: isMinutes ? 0.668 : 1.0,
+        runs: runsList
       });
 
-      let roleCount = 0;
-      if (att.ownShares) roleCount++;
-      if (att.management) roleCount++;
-      roleCount += att.representations.length;
+      const totalSubBullets = (att.management ? 1 : 0) + (att.ownShares ? 1 : 0) + att.representations.length;
+      
+      const selakuText = isMinutes ? "Dalam hal ini hadir selaku :" : " Dalam hal ini hadir selaku :";
 
-      if (roleCount === 1 && att.management) {
+      if (totalSubBullets === 1) {
         blocks.push({
           type: "list",
           bullet: "-",
-          indentTabs: 1.0,
-          runs: [
-            { text: isMinutes ? "dalam hal ini hadir selaku " : "Hadir selaku" },
-            { text: `${isMinutes ? "" : " "}${toTitleCase(att.management.position)} perseroan;` }
-          ]
+          indentTabs: isMinutes ? 1.0 : 0.5,
+          runs: [{ text: selakuText }]
         });
-      } else {
+        
+        if (att.management) {
+          blocks.push({
+            type: "list",
+            bullet: "-",
+            indentTabs: isMinutes ? 1.0 : 0.5,
+            runs: isMinutes 
+               ? [{ text: `selaku ${att.management.position} Perseroan.` }]
+               : [{ text: ` ${toTitleCase(att.management.position)} Perseroan.` }]
+          });
+        } else if (att.ownShares) {
+          const shareRp = (att.ownShares.sharesOwned || 0) * (data.originalSharePrice || 0);
+          blocks.push({
+            type: "list",
+            bullet: "-",
+            indentTabs: isMinutes ? 1.0 : 0.5,
+            runs: isMinutes
+               ? [{ text: `selaku Pemilik dan pemegang saham sebanyak ${formatNumber(att.ownShares.sharesOwned)} (${terbilang(att.ownShares.sharesOwned)}) lembar saham atau senilai Rp. ${formatNumber(shareRp)},- (${terbilang(shareRp)} rupiah) berhak mengeluarkan suara ${formatNumber(att.ownShares.sharesOwned)} (${terbilang(att.ownShares.sharesOwned)}) suara dalam rapat.` }]
+               : [{ text: ` Selaku pemilik dan pemegang ${formatNumber(att.ownShares.sharesOwned)} (${terbilang(att.ownShares.sharesOwned)}) lembar saham atau senilai Rp. ${formatNumber(shareRp)},- (${terbilang(shareRp)} rupiah).` }]
+          });
+        } else if (att.representations.length === 1) {
+          const r = att.representations[0];
+          const isDirector = r.proxyData.representationType === 'DIREKTUR_PT_LAIN';
+          const shareRp = (r.sharesOwned || 0) * (data.originalSharePrice || 0);
+
+          let repTextRuns: FormatToken[] = [];
+          if (!isMinutes) repTextRuns.push({ text: " " });
+          
+          if (isDirector) {
+            repTextRuns.push({ text: isMinutes ? `selaku Direktur dari ` : `Direktur dari ` });
+            repTextRuns.push(...getPersonDetailRuns(r.shareholder));
+          } else {
+            const proxyDateWords = r.proxyData.proxyDeedDate ? dateToWords(r.proxyData.proxyDeedDate) : "__________";
+            const proxyDateAngka = r.proxyData.proxyDeedDate ? formatDateStr(r.proxyData.proxyDeedDate) : "__________";
+            const proxyDate = r.proxyData.proxyDeedDate ? (isMinutes ? `${proxyDateWords} (${proxyDateAngka})` : formatAktaDate(r.proxyData.proxyDeedDate)) : "__________ (__________)";
+            
+            repTextRuns.push({ text: isMinutes ? `selaku penerima kuasa berdasarkan Surat Kuasa tertanggal ${proxyDate}, dari dan oleh karena itu sah bertindak untuk dan atas nama ` : `Kuasa dari ` });
+            if (!isMinutes) repTextRuns.push(...getPersonDetailRuns(r.shareholder));
+            if (!isMinutes) repTextRuns.push({ text: ` berdasarkan Surat Kuasa tertanggal ${proxyDate}` });
+            if (isMinutes) repTextRuns.push(...getPersonDetailRuns(r.shareholder));
+          }
+
+          if (isMinutes) {
+            repTextRuns.push({
+              text: `, yang dalam hal ini merupakan pemilik dan pemegang saham sebanyak ${formatNumber(r.sharesOwned)} (${terbilang(r.sharesOwned)}) lembar saham atau senilai Rp. ${formatNumber(shareRp)},- (${terbilang(shareRp)} rupiah) berhak mengeluarkan suara ${formatNumber(r.sharesOwned)} (${terbilang(r.sharesOwned)}) suara dalam rapat.`
+            });
+          } else {
+            repTextRuns.push({
+              text: `, selaku pemilik dan pemegang ${formatNumber(r.sharesOwned)} (${terbilang(r.sharesOwned)}) lembar saham atau senilai Rp. ${formatNumber(shareRp)},- (${terbilang(shareRp)} rupiah).`
+            });
+          }
+
+          blocks.push({
+            type: "list",
+            bullet: "-",
+            indentTabs: isMinutes ? 1.0 : 0.5,
+            runs: repTextRuns
+          });
+        }
+      } else if (totalSubBullets > 1) {
         blocks.push({
           type: "list",
           bullet: "-",
-          indentTabs: 1.0,
-          runs: [{ text: isMinutes ? "dalam hal ini hadir selaku" : "Hadir selaku" }]
+          indentTabs: isMinutes ? 1.0 : 0.5,
+          runs: [{ text: selakuText }]
         });
 
         let subBulletCode = 'a'.charCodeAt(0);
+        let bulletIdx = 0;
 
-        // a. Own Shares
-        if (att.ownShares) {
-          const bulletChar = String.fromCharCode(subBulletCode++) + ".";
-          const totalRp = att.ownShares.sharesOwned * data.originalSharePrice;
+        // a. Management position
+        if (att.management) {
+          bulletIdx++;
+          const isLast = bulletIdx === totalSubBullets;
           blocks.push({
             type: "list",
-            bullet: bulletChar,
-            indentTabs: 1.25,
+            bullet: String.fromCharCode(subBulletCode + bulletIdx - 1) + ".",
+            indentTabs: isMinutes ? 2.0 : 1.5,
+            runs: [{ text: isMinutes ? `selaku ${att.management.position} Perseroan.` : `${toTitleCase(att.management.position)} Perseroan${isLast ? "." : ";"}` }]
+          });
+        }
+
+        // b. Own Shares
+        if (att.ownShares) {
+          bulletIdx++;
+          const isLast = bulletIdx === totalSubBullets;
+          const shareRp = (att.ownShares.sharesOwned || 0) * (data.originalSharePrice || 0);
+          blocks.push({
+            type: "list",
+            bullet: String.fromCharCode(subBulletCode + bulletIdx - 1) + ".",
+            indentTabs: isMinutes ? 2.0 : 1.5,
             runs: [
-              { text: "Pemilik dan pemegang saham sebanyak " },
-              { text: formatNumber(att.ownShares.sharesOwned), bold: true },
-              { text: ` (${terbilang(att.ownShares.sharesOwned)}) lembar saham atau senilai ` },
-              { text: `Rp. ${formatNumber(totalRp)},-`, bold: true },
-              { text: ` (${terbilang(totalRp)} rupiah) berhak mengeluarkan suara ` },
-              { text: formatNumber(att.ownShares.sharesOwned), bold: true },
-              { text: ` (${terbilang(att.ownShares.sharesOwned)}) suara dalam rapat.` }
+              { text: isMinutes 
+                 ? `selaku Pemilik dan pemegang saham sebanyak ${formatNumber(att.ownShares.sharesOwned)} (${terbilang(att.ownShares.sharesOwned)}) lembar saham atau senilai Rp. ${formatNumber(shareRp)},- (${terbilang(shareRp)} rupiah) berhak mengeluarkan suara ${formatNumber(att.ownShares.sharesOwned)} (${terbilang(att.ownShares.sharesOwned)}) suara dalam rapat.` 
+                 : `Selaku pemilik dan pemegang ${formatNumber(att.ownShares.sharesOwned)} (${terbilang(att.ownShares.sharesOwned)}) lembar saham atau senilai Rp. ${formatNumber(shareRp)},- (${terbilang(shareRp)} rupiah)${isLast ? "." : ";"}` 
+              }
             ]
           });
         }
 
-        // b. Management position
-        if (att.management) {
-          const bulletChar = String.fromCharCode(subBulletCode++) + ".";
-          blocks.push({
-            type: "list",
-            bullet: bulletChar,
-            indentTabs: 1.25,
-            runs: [{ text: `${toTitleCase(att.management.position)} perseroan;` }]
-          });
-        }
+        // c. Representations: Proxy / Director of other PT
+        att.representations.forEach(r => {
+          bulletIdx++;
+          const isLast = bulletIdx === totalSubBullets;
+          const isDirector = r.proxyData.representationType === 'DIREKTUR_PT_LAIN';
+          const shareRp = (r.sharesOwned || 0) * (data.originalSharePrice || 0);
 
-        // c. Representative roles
-        att.representations.forEach(rep => {
-          const bulletChar = String.fromCharCode(subBulletCode++) + ".";
-          const totalRp = rep.sharesOwned * data.originalSharePrice;
-          const isDirector = rep.proxyData.representationType === 'DIREKTUR_PT_LAIN';
-
+          let repTextRuns: FormatToken[] = [];
           if (isDirector) {
-            blocks.push({
-              type: "list",
-              bullet: bulletChar,
-              indentTabs: 1.25,
-              runs: [
-                { text: "Direktur dari " },
-                ...getPersonDetailRuns(rep.shareholder),
-                { text: ", Pemilik dan pemegang saham sebanyak " },
-                { text: formatNumber(rep.sharesOwned), bold: true },
-                { text: ` (${terbilang(rep.sharesOwned)}) lembar saham atau senilai Rp. ` },
-                { text: `${formatNumber(totalRp)},-`, bold: true },
-                { text: ` (${terbilang(totalRp)} rupiah) berhak mengeluarkan suara ` },
-                { text: formatNumber(rep.sharesOwned), bold: true },
-                { text: ` (${terbilang(rep.sharesOwned)}) suara dalam rapat.` }
-              ]
+            repTextRuns.push({ text: isMinutes ? `selaku Direktur dari ` : `Direktur dari ` });
+            repTextRuns.push(...getPersonDetailRuns(r.shareholder));
+          } else {
+            const proxyDateWords = r.proxyData.proxyDeedDate ? dateToWords(r.proxyData.proxyDeedDate) : "__________";
+            const proxyDateAngka = r.proxyData.proxyDeedDate ? formatDateStr(r.proxyData.proxyDeedDate) : "__________";
+            const proxyDate = r.proxyData.proxyDeedDate ? (isMinutes ? `${proxyDateWords} (${proxyDateAngka})` : formatAktaDate(r.proxyData.proxyDeedDate)) : "__________ (__________)";
+            
+            repTextRuns.push({ text: isMinutes ? `selaku penerima kuasa berdasarkan Surat Kuasa tertanggal ${proxyDate}, dari dan oleh karena itu sah bertindak untuk dan atas nama ` : `Kuasa dari ` });
+            if (!isMinutes) repTextRuns.push(...getPersonDetailRuns(r.shareholder));
+            if (!isMinutes) repTextRuns.push({ text: ` berdasarkan Surat Kuasa tertanggal ${proxyDate}` });
+            if (isMinutes) repTextRuns.push(...getPersonDetailRuns(r.shareholder));
+          }
+
+          if (isMinutes) {
+            repTextRuns.push({
+              text: `, yang dalam hal ini merupakan pemilik dan pemegang saham sebanyak ${formatNumber(r.sharesOwned)} (${terbilang(r.sharesOwned)}) lembar saham atau senilai Rp. ${formatNumber(shareRp)},- (${terbilang(shareRp)} rupiah) berhak mengeluarkan suara ${formatNumber(r.sharesOwned)} (${terbilang(r.sharesOwned)}) suara dalam rapat.`
             });
           } else {
-            const proxyDateWords = rep.proxyData.proxyDeedDate ? dateToWords(rep.proxyData.proxyDeedDate) : "__________";
-            const proxyDateAngka = rep.proxyData.proxyDeedDate ? formatDateStr(rep.proxyData.proxyDeedDate) : "__________";
-            const formattedProxyDate = isMinutes ? `${proxyDateWords} (${proxyDateAngka})` : (rep.proxyData.proxyDeedDate ? formatAktaDate(rep.proxyData.proxyDeedDate) : "__________ (__________)");
-            blocks.push({
-              type: "list",
-              bullet: bulletChar,
-              indentTabs: 1.25,
-              runs: [
-                { text: "Kuasa dari " },
-                ...getPersonDetailRuns(rep.shareholder),
-                { text: ` berdasarkan Surat Kuasa tertanggal ${formattedProxyDate}, Pemilik dan pemegang saham sebanyak ` },
-                { text: formatNumber(rep.sharesOwned), bold: true },
-                { text: ` (${terbilang(rep.sharesOwned)}) lembar saham atau senilai Rp. ` },
-                { text: `${formatNumber(totalRp)},-`, bold: true },
-                { text: ` (${terbilang(totalRp)} rupiah) berhak mengeluarkan suara ` },
-                { text: formatNumber(rep.sharesOwned), bold: true },
-                { text: ` (${terbilang(rep.sharesOwned)}) suara dalam rapat.` }
-              ]
+            repTextRuns.push({
+              text: `, selaku pemilik dan pemegang ${formatNumber(r.sharesOwned)} (${terbilang(r.sharesOwned)}) lembar saham atau senilai Rp. ${formatNumber(shareRp)},- (${terbilang(shareRp)} rupiah)${isLast ? "." : ";"}`
             });
           }
+
+          blocks.push({
+            type: "list",
+            bullet: String.fromCharCode(subBulletCode + bulletIdx - 1) + ".",
+            indentTabs: isMinutes ? 2.0 : 1.5,
+            runs: repTextRuns
+          });
         });
       }
     });
@@ -1145,10 +1254,10 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
         type: "list",
         bullet: "-",
         runs: [
-          { text: from?.shareholderType === 'BADAN_HUKUM' ? "" : `${from?.salutation} ` },
+          { text: checkIsBadanHukum(from) ? "" : `${from?.salutation} ` },
           ...getPersonDetailRuns(from),
           {
-            text: ` mengalihkan ${formatNumber(t.sharesTransferred)} (${terbilang(t.sharesTransferred)}) lembar saham perseroan atau senilai Rp ${formatNumber(valRp)},- (${terbilang(valRp)} rupiah) kepada ${to?.shareholderType === 'BADAN_HUKUM' ? "" : `${to?.salutation} `}`,
+            text: ` mengalihkan ${formatNumber(t.sharesTransferred)} (${terbilang(t.sharesTransferred)}) lembar saham perseroan atau senilai Rp ${formatNumber(valRp)},- (${terbilang(valRp)} rupiah) kepada ${checkIsBadanHukum(to) ? "" : `${to?.salutation} `}`,
           },
           ...getPersonDetailRuns(to),
           { text: `.` },

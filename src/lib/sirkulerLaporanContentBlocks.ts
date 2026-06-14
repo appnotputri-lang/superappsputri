@@ -1,5 +1,5 @@
 import { CompanyData } from "../../types";
-import { formatNumber, toTitleCase, formatPersonDetails, formatDateStr } from "./formatter";
+import { formatNumber, toTitleCase, formatPersonDetails, formatDateStr, checkIsBadanHukum } from "./formatter";
 
 // Helper for formatting blocks for DOCX
 export type Block =
@@ -86,7 +86,7 @@ export function generateSirkulerLaporanBlocks(data: CompanyData): Block[] {
     const personDetails = formatPersonDetails(sh, sh.birthDate ? formatDateStr(sh.birthDate) : "................", "", false);
 
     blocks.push(
-      { type: "numbered", num: `${index + 1}.`, indentLeft: 720, indentHanging: 360, runs: [{ text: sh.shareholderType === 'BADAN_HUKUM' ? "" : `${sh.salutation} ` }, { text: nameText, bold: true }, { text: personDetails + "." }] },
+      { type: "numbered", num: `${index + 1}.`, indentLeft: 720, indentHanging: 360, runs: [{ text: checkIsBadanHukum(sh) ? "" : `${sh.salutation} ` }, { text: nameText, bold: true }, { text: personDetails + "." }] },
       { type: "p", indentLeft: 720, runs: [{ text: "Dalam hal ini hadir selaku :" }] },
       { type: "list", bullet: "-", indentLeft: 1080, indentHanging: 360, runs: [{ text: `Pemilik dan pemegang saham sebanyak ` }, { text: `${formatNumber(sh.sharesOwned)}`, bold: true }, { text: ` (${sh.sharesOwned || "..."}) lembar saham perseroan` }] }
     );

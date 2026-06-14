@@ -1,6 +1,6 @@
 import { Document, Packer, Paragraph, TextRun, Tab } from "docx";
 import { CompanyData, Shareholder, Address, ManagementItem } from "../../types";
-import { formatFullAddressData, formatCompanyName, formatPersonDetails, formatDateStr } from "./formatter";
+import { formatFullAddressData, formatCompanyName, formatPersonDetails, formatDateStr, checkIsBadanHukum, dateToWords } from "./formatter";
 import { formatKbliCategory } from "./kbliConstants";
 import {
   formatCurrency,
@@ -290,7 +290,7 @@ export const generateWordDoc = async (data: CompanyData) => {
     const parValue = data.originalSharePrice || 0;
     const currentShares = sh.sharesOwned || 0;
     const currentValue = currentShares * parValue;
-    const isBadanHukum = sh.shareholderType === 'BADAN_HUKUM';
+    const isBadanHukum = checkIsBadanHukum(sh);
 
     const tglAngka = sh.birthDate ? formatDateStr(sh.birthDate) : "...";
     const personDetails = formatPersonDetails(sh, tglAngka, "", false);

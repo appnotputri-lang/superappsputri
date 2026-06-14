@@ -42,6 +42,8 @@ const ShareholderForm: React.FC<Props> = ({
 }) => {
   const [showLookup, setShowLookup] = React.useState(false);
   const [searchStatus, setSearchStatus] = React.useState('');
+  const [isProfileDropdownOpen, setIsProfileDropdownOpen] = React.useState(false);
+  const [profileSearchQuery, setProfileSearchQuery] = React.useState('');
   const maxPossible = totalSharesAllowed - otherAllocated;
   
   const searchShareholderByNIK = async (nik: string) => {
@@ -111,6 +113,33 @@ const ShareholderForm: React.FC<Props> = ({
   const canQuickFill = totalSharesAllowed > 0 && shareholder.sharesOwned < maxPossible && !disableFinancials;
   const isWna = shareholder.nationalityType === 'WNA' || shareholder.isForeign;
   const isBadanHukum = shareholder.shareholderType === 'BADAN_HUKUM';
+
+  // Helper to remove PT prefix variation for sorting/filtering
+  const cleanPT = (name: string): string => {
+    if (!name) return "";
+    const regex = /^(PT|PT\.|P\.T\.|P\.T)\s*/i;
+    return name.replace(regex, "").trim().toLowerCase();
+  };
+
+  // Sort profiles alphabetically ignoring "PT" prefix and filter based on search query
+  const sortedAndFilteredProfiles = React.useMemo(() => {
+    const sorted = [...profiles].sort((a, b) => {
+      const nameA = cleanPT(a.companyName || "");
+      const nameB = cleanPT(b.companyName || "");
+      return nameA.localeCompare(nameB, "id", { sensitivity: "base" });
+    });
+
+    if (!profileSearchQuery.trim()) {
+      return sorted;
+    }
+    const q = profileSearchQuery.toLowerCase();
+    return sorted.filter(p => (p.companyName || '').toLowerCase().includes(q));
+  }, [profiles, profileSearchQuery]);
+
+  const selectedProfile = React.useMemo(() => {
+    if (!shareholder.linkedProfileId) return null;
+    return profiles.find(p => p.id === shareholder.linkedProfileId);
+  }, [shareholder.linkedProfileId, profiles]);
 
   const handleSharesChange = (inputValue: string) => {
     let val = parseFormattedNumber(inputValue);
@@ -280,28 +309,117 @@ const ShareholderForm: React.FC<Props> = ({
           </div>
 
           {profiles && profiles.length > 0 && (
-            <div className="mb-4 p-3 bg-blue-50/50 rounded border border-blue-200">
-              <label className="block text-xs font-bold text-blue-700 mb-1">Hubungkan / Ambil dari Profil Perusahaan</label>
-              <select
-                value={shareholder.linkedProfileId || ''}
-                onChange={e => {
-                  const profileId = e.target.value;
-                  if (profileId) {
-                    const selectedProf = profiles.find(p => p.id === profileId);
-                    if (selectedProf) {
-                      handleProfileSelect(selectedProf);
-                    }
-                  } else {
-                    onChange({ linkedProfileId: undefined });
-                  }
-                }}
-                className="w-full px-3 py-2 border border-blue-300 rounded text-sm bg-white outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 font-medium"
-              >
-                <option value="">-- Pilih Profil Perusahaan --</option>
-                {profiles.map(p => (
-                  <option key={p.id} value={p.id}>{p.companyName}</option>
-                ))}
-              </select>
+            <div className="mb-4 p-4 bg-blue-50/50 rounded border border-blue-200">
+              <label className="block text-xs font-bold text-blue-700 mb-1 flex items-center justify-between">
+                <span>Hubungkan / Ambil dari Profil Perusahaan</span>
+                {shareholder.linkedProfileId && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onChange({ linkedProfileId: undefined });
+                      setProfileSearchQuery('');
+                    }}
+                    className="text-[11px] text-red-650 hover:text-red-800 font-extrabold uppercase transition-colors cursor-pointer"
+                  >
+                    Putuskan Hubungan
+                  </button>
+                )}
+              </label>
+              
+              <div className="relative mt-1">
+                {/* Visual Select Button */}
+                <button
+                  type="button"
+                  onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
+                  className="w-full flex items-center justify-between px-3 py-2 border border-blue-300 rounded text-sm bg-white outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 font-medium text-left shadow-sm transition-all cursor-pointer min-h-[38px]"
+                >
+                  <span className={selectedProfile ? "text-slate-850 font-bold uppercase" : "text-slate-400"}>
+                    {selectedProfile ? selectedProfile.companyName : "-- Cari & Pilih Profil Perusahaan --"}
+                  </span>
+                  <span className="text-slate-500 ml-2 text-xs">▼</span>
+                </button>
+
+                {/* Dropdown Popover */}
+                {isProfileDropdownOpen && (
+                  <>
+                    {/* Fixed full-screen transparent overlay to close on outside click */}
+                    <div 
+                      className="fixed inset-0 z-[90] bg-transparent" 
+                      onClick={() => setIsProfileDropdownOpen(false)}
+                    />
+                    <div className="absolute top-full left-0 right-0 z-[100] mt-1 bg-white border border-slate-200 rounded shadow-xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
+                      {/* Search Input Box */}
+                      <div className="p-2 border-b border-slate-100 bg-slate-50 flex items-center gap-2">
+                        <input
+                          type="text"
+                          placeholder="Ketik untuk mencari profil PT..."
+                          value={profileSearchQuery}
+                          onChange={e => setProfileSearchQuery(e.target.value)}
+                          className="w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs font-medium outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-white"
+                          autoFocus
+                          onClick={e => e.stopPropagation()}
+                        />
+                        {profileSearchQuery && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setProfileSearchQuery('');
+                            }}
+                            className="p-1 text-slate-400 hover:text-slate-600 text-xs font-bold cursor-pointer"
+                          >
+                            Clear
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Options List */}
+                      <div className="max-h-60 overflow-y-auto">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onChange({ linkedProfileId: undefined });
+                            setIsProfileDropdownOpen(false);
+                            setProfileSearchQuery('');
+                          }}
+                          className="w-full px-4 py-2 text-left text-xs font-bold text-red-650 hover:bg-slate-50 border-b border-slate-100 uppercase transition-colors cursor-pointer"
+                        >
+                          -- Kosongkan Pilihan / Lewati --
+                        </button>
+
+                        {sortedAndFilteredProfiles.length === 0 ? (
+                          <div className="px-4 py-3 text-xs text-slate-400 italic text-center">
+                            Profil perusahaan tidak ditemukan
+                          </div>
+                        ) : (
+                          sortedAndFilteredProfiles.map(p => {
+                            const isSelected = p.id === shareholder.linkedProfileId;
+                            return (
+                              <button
+                                key={p.id}
+                                type="button"
+                                onClick={() => {
+                                  handleProfileSelect(p);
+                                  setIsProfileDropdownOpen(false);
+                                  setProfileSearchQuery('');
+                                }}
+                                className={`w-full px-4 py-2.5 text-left text-xs uppercase font-extrabold transition-colors border-b border-slate-50 last:border-0 flex items-center justify-between cursor-pointer ${
+                                  isSelected 
+                                    ? 'bg-blue-50 text-blue-700 font-extrabold shadow-sm' 
+                                    : 'text-slate-700 hover:bg-slate-50'
+                                }`}
+                              >
+                                <span className="truncate">{p.companyName}</span>
+                                {isSelected && <span className="text-blue-600 text-xs font-bold">✓ Terpilih</span>}
+                              </button>
+                            );
+                          })
+                        )}
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
           )}
         </>

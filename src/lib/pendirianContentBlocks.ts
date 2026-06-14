@@ -1,5 +1,5 @@
 import { PendirianData } from '../DraftAktaPendirian';
-import { terbilang, toTitleCase, formatNumber, formatAddress, formatAktaDate, dateToWords, formatDateStr, formatPersonDetails } from './formatter';
+import { terbilang, toTitleCase, formatNumber, formatAddress, formatAktaDate, dateToWords, formatDateStr, formatPersonDetails, checkIsBadanHukum } from './formatter';
 import { KbliItem } from '../../types';
 import { formatKbliCategory } from './kbliConstants';
 
@@ -56,7 +56,7 @@ export function generatePendirianBlocks(data: PendirianData): Block[] {
       type: 'numbered',
       num: idx + 1,
       runs: [
-        { text: `${p.shareholderType === 'BADAN_HUKUM' ? "" : p.salutation + " "}${nameText}`, bold: true },
+        { text: `${checkIsBadanHukum(p) ? "" : p.salutation + " "}${nameText}`, bold: true },
         { text: formatPersonDetails(p, tglLahirAngka, tglLahirHuruf, true) + "." }
       ],
     });

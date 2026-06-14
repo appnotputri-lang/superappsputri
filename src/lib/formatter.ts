@@ -192,9 +192,9 @@ export function formatCompanyName(name: string): string {
   if (!name) return "";
   let cleanName = name.trim();
   
-  // Remove any existing PT prefix recursively to handle "PT PT name"
-  while (/^pt\.?\b/i.test(cleanName)) {
-    cleanName = cleanName.replace(/^pt\.?\b\s*/i, "").trim();
+  // Remove any existing PT prefix recursively to handle "PT PT name" or "PT. PT name"
+  while (/^(pt\b\.?|perseroan\s+terbatas\b)\s*/i.test(cleanName)) {
+    cleanName = cleanName.replace(/^(pt\b\.?|perseroan\s+terbatas\b)\s*/i, "").trim();
   }
   
   return `PT. ${cleanName}`.toUpperCase();
@@ -206,6 +206,13 @@ export function formatAktaDate(dateStr: string): string {
   const numeric = formatDateStr(dateStr);
   if (!words || !numeric) return dateStr;
   return `${words} (${numeric})`;
+}
+
+export function checkIsBadanHukum(person: any): boolean {
+  if (!person) return false;
+  const nameUpper = (person.name || "").toUpperCase().trim();
+  const looksLikePT = nameUpper.startsWith("PT ") || nameUpper.startsWith("PT.") || nameUpper.startsWith("PERSEROAN TERBATAS") || nameUpper.startsWith("KOPERASI ") || nameUpper.startsWith("YAYASAN ") || nameUpper.startsWith("CV ") || nameUpper.startsWith("CV.");
+  return person.shareholderType === "BADAN_HUKUM" || looksLikePT || !!person.legalEntityType;
 }
 
 export function formatPersonDetails(
@@ -249,7 +256,9 @@ export function formatPersonDetails(
     ? (tglLahirHuruf && tglLahirAngka ? `${tglLahirHuruf} (${tglLahirAngka})` : tglLahirAngka || tglLahirHuruf || "...")
     : `${tglLahirAngka}${tglLahirHuruf ? ` (${tglLahirHuruf})` : ""}`;
 
-  if (person.shareholderType === "BADAN_HUKUM") {
+  const isBadanHukum = checkIsBadanHukum(person);
+
+  if (isBadanHukum) {
     const isAsing = person.isForeign || person.nationalityType === "WNA";
     if (isAsing) {
       const countryStr = person.foreignCountry || person.nationality || "...";
