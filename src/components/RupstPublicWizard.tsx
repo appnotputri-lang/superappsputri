@@ -700,40 +700,6 @@ export const RupstPublicWizard = ({ data, updateData, isSaving, handleSave, goBa
                                                 </div>
                                             </div>
 
-                                            {/* DRAF AKTA RUPST GROUP */}
-                                            <div className="mb-4 p-4 bg-slate-50 border border-slate-200 rounded-sm space-y-3">
-                                                <div className="border-b border-slate-200 pb-1.5 mb-2">
-                                                    <span className="text-[12px] font-bold text-[#3b5998] uppercase tracking-wider">
-                                                        📝 DRAF AKTA RUPST
-                                                    </span>
-                                                </div>
-                                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                                    <div>
-                                                        <AhuLabel label="Nomor Akta RUPST" />
-                                                        <AhuInput 
-                                                            value={data.draftAktaRupsNumber || ''} 
-                                                            onChange={e => updateData({ draftAktaRupsNumber: e.target.value })} 
-                                                            placeholder="Contoh: 08" 
-                                                        />
-                                                    </div>
-                                                    <div>
-                                                        <AhuLabel label="Tanggal Akta RUPST" />
-                                                        <AhuInput 
-                                                            type="date"
-                                                            value={data.draftAktaRupsDate || ''} 
-                                                            onChange={e => updateData({ draftAktaRupsDate: e.target.value })} 
-                                                        />
-                                                    </div>
-                                                    <div>
-                                                        <AhuLabel label="Jam Akta RUPST" />
-                                                        <AhuInput 
-                                                            type="time"
-                                                            value={data.draftAktaRupsTime || ''} 
-                                                            onChange={e => updateData({ draftAktaRupsTime: e.target.value })} 
-                                                        />
-                                                    </div>
-                                                </div>
-                                            </div>
 
                                             {/* FINANCIAL YEARS & COGNATES */}
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

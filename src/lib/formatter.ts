@@ -307,9 +307,9 @@ export function formatPersonDetails(
           if (person.amendmentDeeds.length === 1) {
             const amd = person.amendmentDeeds[0];
             const amdDateStr = amd.date ? formatAktaDate(amd.date) : "...";
-            baseString += `, dan anggaran dasarnya telah mengalami perubahan berdasarkan akta Nomor ${amd.number || "..."} tertanggal ${amdDateStr}`;
+            baseString += `, dan anggaran dasarnya telah mengalami perubahan berdasarkan akta Nomor ${amd.number || "..."} tertanggal ${amdDateStr} dibuat dihadapan ${amd.notary || "..."}, Notaris di ${amd.notaryDomicile ? toTitleCase(amd.notaryDomicile) : "..."}`;
           } else {
-            baseString += `, dan anggaran dasarnya telah mengalami beberapa kali perubahan berdasarkan akta-akta sebagai berikut:`;
+            baseString += `, dan anggaran dasarnya telah mengalami beberapa kali perubahan, terakhir dengan akta Nomor ${person.amendmentDeeds[person.amendmentDeeds.length - 1].number || "..."} tertanggal ${person.amendmentDeeds[person.amendmentDeeds.length - 1].date ? formatAktaDate(person.amendmentDeeds[person.amendmentDeeds.length - 1].date) : "..."} dibuat dihadapan ${person.amendmentDeeds[person.amendmentDeeds.length - 1].notary || "..."}, Notaris di ${person.amendmentDeeds[person.amendmentDeeds.length - 1].notaryDomicile ? toTitleCase(person.amendmentDeeds[person.amendmentDeeds.length - 1].notaryDomicile) : "..."} berdasarkan akta-akta sebagai berikut:`;
             person.amendmentDeeds.forEach((amd) => {
               const amdDateStr = amd.date ? formatAktaDate(amd.date) : "...";
               const amdNotary = amd.notary || "...";
@@ -326,9 +326,9 @@ export function formatPersonDetails(
           if (totalAmd === 1) {
             const amd = person.amendmentDeeds[0];
             const amdDateStr = amd.date ? formatDateStr(amd.date) : "...";
-            baseString += `, dan anggaran dasarnya telah mengalami perubahan berdasarkan Akta Nomor ${amd.number || "..."} tertanggal ${amdDateStr}`;
+            baseString += `, dan anggaran dasarnya telah mengalami perubahan berdasarkan Akta Nomor ${amd.number || "..."} tertanggal ${amdDateStr} dibuat dihadapan ${amd.notary || "..."}, Notaris di ${amd.notaryDomicile ? toTitleCase(amd.notaryDomicile) : "..."}`;
           } else {
-            baseString += `, dan anggaran dasarnya telah mengalami beberapa kali perubahan berdasarkan akta-akta sebagai berikut :`;
+            baseString += `, dan anggaran dasarnya telah mengalami beberapa kali perubahan, terakhir dengan Akta Nomor ${person.amendmentDeeds[person.amendmentDeeds.length - 1].number || "..."} tertanggal ${person.amendmentDeeds[person.amendmentDeeds.length - 1].date ? formatDateStr(person.amendmentDeeds[person.amendmentDeeds.length - 1].date) : "..."} dibuat dihadapan ${person.amendmentDeeds[person.amendmentDeeds.length - 1].notary || "..."}, Notaris di ${person.amendmentDeeds[person.amendmentDeeds.length - 1].notaryDomicile ? toTitleCase(person.amendmentDeeds[person.amendmentDeeds.length - 1].notaryDomicile) : "..."} berdasarkan akta-akta sebagai berikut:`;
             person.amendmentDeeds.forEach((amd) => {
               const amdDateStr = amd.date ? formatDateStr(amd.date) : "...";
               const amdNotary = amd.notary || "...";

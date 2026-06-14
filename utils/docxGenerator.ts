@@ -120,7 +120,7 @@ const mkP = (opts: {
 
 export const generateWordDoc = async (data: CompanyData) => {
   const isCircular = data.documentType === "CIRCULAR";
-  const companyName = data.companyName.toUpperCase();
+  const companyName = data.companyName.replace(/PT\.?\s*/i, "").trim().toUpperCase();
 
   const getResolutionSummary = () => {
     const agendaOrder = [
@@ -303,6 +303,9 @@ export const generateWordDoc = async (data: CompanyData) => {
   // Listing peserta
   const getDisplayNameForDocx = (person: any) => {
     let name = (person.name || "................").toUpperCase();
+    // Strip PT prefix if it exists
+    name = name.replace(/^PT\.?\s+/i, '').trim();
+
     if (person.salutation) {
       const salUpper = `${person.salutation.toUpperCase()} `;
       if (name.startsWith(salUpper)) {
@@ -414,17 +417,28 @@ export const generateWordDoc = async (data: CompanyData) => {
     }
   });
 
+  // Sort attendees by management role to ensure Direktur Utama is first
+  attendees.sort((a, b) => {
+    const getRank = (att: PhysicalAttendee) => {
+      const pos = (att.management?.position || "").toLowerCase();
+      if (pos.includes("direktur utama")) return 1;
+      if (pos.includes("direktur")) return 2;
+      return 3;
+    };
+    return getRank(a) - getRank(b);
+  });
+
   if (isCircular) {
     attendees.forEach((att, idx) => {
       const isBadanHukum = att.type === 'ENTITY_DIRECT';
       
       let details = "";
       if (isBadanHukum) {
-        details = formatPersonDetails(att.sourceObj, "", "", false, true);
+        details = formatPersonDetails(att.sourceObj, "", "", false, false);
       } else {
         const tglAngka = att.sourceObj.birthDate ? formatDateStr(att.sourceObj.birthDate) : "...";
         const tglHuruf = att.sourceObj.birthDate ? dateToWords(att.sourceObj.birthDate) : "...";
-        details = formatPersonDetails(att.sourceObj, tglAngka, tglHuruf, false, true);
+        details = formatPersonDetails(att.sourceObj, tglAngka, tglHuruf, false, false);
       }
 
       const cleanPrefixRegex = /^(TUAN|NYONYA|NONA|NY|TN|NY\.|TN\.|NYONYA\.|TUAN\.)\s+/i;
@@ -479,10 +493,10 @@ export const generateWordDoc = async (data: CompanyData) => {
 
           let repText = "";
           if (isDirector) {
-            repText = `Selaku Direktur dari PT ${getDisplayNameForDocx(r.shareholder)}${formatPersonDetails(r.shareholder, "", "", false, true)}`;
+            repText = `Selaku Direktur dari PT ${getDisplayNameForDocx(r.shareholder)}${formatPersonDetails(r.shareholder, "", "", false, false)}`;
           } else {
             const proxyDate = r.proxyData.proxyDeedDate ? formatDateIndo(r.proxyData.proxyDeedDate) : "__________";
-            repText = `Selaku kuasa dari ${r.shareholder.salutation || "Tuan"} ${getDisplayNameForDocx(r.shareholder)}${formatPersonDetails(r.shareholder, "", "", false, true)} berdasarkan surat kuasa tertanggal ${proxyDate}`;
+            repText = `Selaku kuasa dari ${r.shareholder.salutation || "Tuan"} ${getDisplayNameForDocx(r.shareholder)}${formatPersonDetails(r.shareholder, "", "", false, false)} berdasarkan surat kuasa tertanggal ${proxyDate}`;
           }
 
           children.push(
@@ -534,10 +548,10 @@ export const generateWordDoc = async (data: CompanyData) => {
 
           let repText = "";
           if (isDirector) {
-            repText = `Selaku Direktur dari PT ${getDisplayNameForDocx(r.shareholder)}${formatPersonDetails(r.shareholder, "", "", false, true)}`;
+            repText = `Selaku Direktur dari PT ${getDisplayNameForDocx(r.shareholder)}${formatPersonDetails(r.shareholder, "", "", false, false)}`;
           } else {
             const proxyDate = r.proxyData.proxyDeedDate ? formatDateIndo(r.proxyData.proxyDeedDate) : "__________";
-            repText = `Selaku kuasa dari ${r.shareholder.salutation || "Tuan"} ${getDisplayNameForDocx(r.shareholder)}${formatPersonDetails(r.shareholder, "", "", false, true)} berdasarkan surat kuasa tertanggal ${proxyDate}`;
+            repText = `Selaku kuasa dari ${r.shareholder.salutation || "Tuan"} ${getDisplayNameForDocx(r.shareholder)}${formatPersonDetails(r.shareholder, "", "", false, false)} berdasarkan surat kuasa tertanggal ${proxyDate}`;
           }
 
           children.push(
