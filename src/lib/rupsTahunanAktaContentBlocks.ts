@@ -339,6 +339,7 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
 
       return [...skParts, ...spParts].join(" dan ");
     } else {
+      if (!deed.skNumber) return "";
       return `telah mendapat pengesahan berdasarkan Surat Keputusan Nomor ${deed.skNumber} tanggal ${formatAktaDate(deed.skDate)}`;
     }
   };
@@ -368,7 +369,7 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
   } else if (isSingleAmendment) {
     const deed = data.amendmentDeeds![0];
     const skText = getDeedSkText(deed);
-    const amendmentSentence = ` dan telah mengalami perubahan berdasarkan Akta tertanggal ${formatAktaDate(deed.date)} Nomor ${deed.number} yang dibuat di hadapan ${checkNotaryWording(deed.notary, deed.notaryTitle, deed.notaryDomicile)} yang ${skText};`;
+    const amendmentSentence = ` dan telah mengalami perubahan berdasarkan Akta tertanggal ${formatAktaDate(deed.date)} Nomor ${deed.number} yang dibuat di hadapan ${checkNotaryWording(deed.notary, deed.notaryTitle, deed.notaryDomicile)}${skText ? " yang " + skText : ""};`;
     
     blocks.push({
       type: "list",
@@ -880,15 +881,6 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
     });
   }
 
-  if (!data.rupstIsAudited) {
-    blocks.push({
-      type: "list",
-      bullet: "",
-      indentTabs: 1.0,
-      runs: [{ text: "Direksi dan Komisaris serta Para Pemegang Saham Perseroan menyatakan bertanggung jawab penuh atas Kebenaran Informasi dan Tanda Tangan pada seluruh Lampiran Laporan terlampir dan dilekatkan pada Keputusan Para Pemegang Saham ini." }]
-    });
-  }
-
   // Decision 2
   blocks.push({
     type: "p",
@@ -1049,15 +1041,7 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
           type: "list",
           bullet: "-",
           indentTabs: 1.0,
-          runs: [
-            { text: "Laba bersih tahun berjalan sebesar " },
-            { text: amtStr, color: netProfitColor },
-            { text: " ditambah saldo laba ditahan tahun sebelumnya sebesar " },
-            { text: previousRetainedStr },
-            { text: " sehingga total saldo laba ditahan Perseroan menjadi sebesar " },
-            { text: totalLabaDitahanStr },
-            { text: "." }
-          ]
+          runs: [{ text: "Seluruh laba bersih Perseroan dibukukan sebagai laba ditahan Perseroan." }]
         }
       );
     }
