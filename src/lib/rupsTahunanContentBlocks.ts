@@ -525,20 +525,27 @@ export const generateRupstBlocks = (data: CompanyData): Block[] => {
   const totalValue = totalShares * (data.originalSharePrice || 0);
   blocks.push({
     type: "p",
-    runs: [{ text: `Bahwa dari semua saham yang telah dikeluarkan tersebut diatas, yaitu ${formatNumber(totalShares)} (${terbilang(totalShares)}) lembar saham atau senilai Rp. ${formatNumber(totalValue)},- (${terbilang(totalValue)} rupiah).` }]
+    runs: [{ text: `Bahwa dari semua saham yang telah dikeluarkan tersebut di atas, yaitu ${formatNumber(totalShares)} (${terbilang(totalShares)}) lembar saham atau senilai Rp. ${formatNumber(totalValue)},- (${terbilang(totalValue)} rupiah).` }]
   });
 
   blocks.push({ type: "br" });
 
   // 4. Chair
-  const chairName = (data.meetingChair || "...").toUpperCase();
-  // const chairSalutation = data.shareholders.find(s => s.name === data.meetingChair)?.salutation || "Tuan";
+  const chairNameRaw = (data.meetingChair || "...");
+  const chairNameUpper = chairNameRaw.toUpperCase();
+
+  const stripSalutation = (name: string) => name.replace(/^(TUAN|NYONYA|NONA|NY|TN|NY\.|TN\.|NYONYA\.|TUAN\.)\s+/i, "").trim();
+
+  const chairSh = data.shareholders.find(s => stripSalutation((s.name || "").toUpperCase()) === stripSalutation(chairNameUpper));
+  const chairSalutation = chairSh?.salutation || "Tuan";
+  
   blocks.push({ type: "p", runs: [{ text: "III. KETUA RAPAT", bold: true }] });
   blocks.push({
     type: "p",
     runs: [
       { text: `Berdasarkan ketentuan anggaran dasar perseroan Pasal ${data.rupstAdArticle || "9"} ayat ${data.rupstAdParagraph || "6"}, maka ` },
-      { text: chairName, bold: true },
+      { text: `${chairSalutation} ` },
+      { text: stripSalutation(chairNameUpper), bold: true },
       { text: `, tersebut di atas, bertindak sebagai ketua rapat.` }
     ]
   });
@@ -648,13 +655,6 @@ export const generateRupstBlocks = (data: CompanyData): Block[] => {
 
     blocks.push({
       type: "list",
-      bullet: "",
-      indentStyle: "keputusan",
-      runs: [{ text: "Direksi dan Komisaris serta Para Pemegang Saham Perseroan menyatakan bertanggung jawab penuh atas Kebenaran Informasi dan Tanda Tangan pada seluruh Lampiran Laporan terlampir dan dilekatkan pada Keputusan Para Pemegang Saham ini." }]
-    });
-
-    blocks.push({
-      type: "list",
       bullet: "2.",
       indentStyle: "keputusan",
       runs: [{ text: `Menyetujui dan menerima dengan baik Laporan Tahunan Perseroan untuk tahun buku yang berakhir pada tanggal 31 Desember ${fiscalYear}.` }]
@@ -684,6 +684,13 @@ export const generateRupstBlocks = (data: CompanyData): Block[] => {
       indentTabs: 1,
       indentStyle: "keputusan",
       runs: [{ text: "Laporan Keuangan, terlampir dan dilekatkan pada Notulen Rapat Umum Pemegang Saham Tahunan ini." }]
+    });
+
+    blocks.push({
+      type: "list",
+      bullet: "",
+      indentStyle: "keputusan",
+      runs: [{ text: "Direksi dan Komisaris serta Para Pemegang Saham Perseroan menyatakan bertanggung jawab penuh atas Kebenaran Informasi dan Tanda Tangan pada seluruh Lampiran Laporan terlampir dan dilekatkan pada Keputusan Para Pemegang Saham ini." }]
     });
 
     let netProfitText1 = "";

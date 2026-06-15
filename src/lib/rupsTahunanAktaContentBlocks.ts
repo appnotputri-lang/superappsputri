@@ -731,10 +731,12 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
     }
   );
 
+  const stripSalutation = (name: string) => name.replace(/^(TUAN|NYONYA|NONA|NY|TN|NY\.|TN\.|NYONYA\.|TUAN\.)\s+/i, "").trim();
+
   let chairNameValue = (data.meetingChair || rep?.name || "RAJANDRAN SHUNMUGAM").trim().toUpperCase();
   let chairSalutation = "Tuan";
   if (chairNameValue) {
-    const foundSh = data.shareholders.find(s => (s.name || "").trim().toUpperCase() === chairNameValue);
+    const foundSh = data.shareholders.find(s => stripSalutation((s.name || "").toUpperCase()) === stripSalutation(chairNameValue));
     if (foundSh) {
       if (foundSh.isProxy && foundSh.proxyData) {
         chairSalutation = foundSh.proxyData.salutation || "Tuan";
@@ -742,11 +744,11 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
         chairSalutation = foundSh.salutation || "Tuan";
       }
     } else {
-      const foundNewMgmt = data.newManagementItems?.find(m => (m.name || "").trim().toUpperCase() === chairNameValue);
+      const foundNewMgmt = data.newManagementItems?.find(m => stripSalutation((m.name || "").toUpperCase()) === stripSalutation(chairNameValue));
       if (foundNewMgmt) {
         chairSalutation = foundNewMgmt.salutation || "Tuan";
       } else {
-        const foundOldMgmt = data.oldManagementItems?.find(m => (m.name || "").trim().toUpperCase() === chairNameValue);
+        const foundOldMgmt = data.oldManagementItems?.find(m => stripSalutation((m.name || "").toUpperCase()) === stripSalutation(chairNameValue));
         if (foundOldMgmt) {
           chairSalutation = foundOldMgmt.salutation || "Tuan";
         }
@@ -754,10 +756,10 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
     }
   }
 
+  const chairNameStripped = stripSalutation(chairNameValue);
   const chairSalUpper = `${chairSalutation.toUpperCase()} `;
-  if (chairNameValue.startsWith(chairSalUpper)) {
-    chairNameValue = chairNameValue.substring(chairSalUpper.length);
-  }
+  // Only strip the salutation if it exactly matches the one found (or if it was already part of the name)
+  let chairNameDisplay = chairNameStripped; 
 
   blocks.push(
     {
@@ -766,7 +768,7 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
       indentTabs: 0.5,
       runs: [
         { text: `Berdasarkan ketentuan Pasal ${data.rupstAdArticle || "9"} ayat (${data.rupstAdParagraph || "6"}) Anggaran Dasar Perseroan, ${chairSalutation} ` },
-        { text: chairNameValue, bold: true },
+        { text: chairNameDisplay, bold: true },
         { text: `, penghadap tersebut di atas, ` },
         { text: "Hadir selaku" },
         { text: ` ${toTitleCase(data.meetingChairPosition || "Kuasa Direktur")} perseroan, bertindak sebagai Ketua Rapat.` }
