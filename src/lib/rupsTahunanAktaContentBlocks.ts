@@ -354,7 +354,7 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
     { text: `, bertempat di ` },
     { text: data.signingPlace || "Kantor Perseroan", highlight: isVenueDefault ? "yellow" : undefined },
     { text: `, pukul ` },
-    { text: isTimeDefault ? `${jamRapatStr} WIB` : `${jamRapatStr} WIB (${jamRapatHuruf})`, highlight: isTimeDefault ? "yellow" : undefined },
+    { text: `${jamRapatStr} WIB`, highlight: isTimeDefault ? "yellow" : undefined },
     { text: ` telah diadakan Rapat Umum Pemegang Saham Tahunan Perseroan Terbatas ${formatCompanyName(data.companyName)} (selanjutnya disebut sebagai “Rapat”) Perseroan berkedudukan di ${toTitleCase(data.domicile || "...")}, demikian berdasarkan Akta Pendirian tertanggal ${establishmentDeedDateText}, Nomor ${data.establishmentDeedNumber || "02"} dibuat dihadapan ${checkNotaryWording(data.establishmentNotary || "............................", data.establishmentNotaryTitle, data.establishmentNotaryDomicile)} dan telah mendapat pengesahan dari Menteri Hukum dan Hak Asasi Manusia Republik Indonesia berdasarkan Surat Keputusan Nomor ${getSkFormattedNumber()} tertanggal ${formatAktaDate(data.establishmentSkDate || "")}${suffix}` }
   ];
 
@@ -1084,7 +1084,7 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
       type: "p",
       runs: [
         { text: "Rapat ditutup pada pukul " },
-        { text: isEndDefault ? `${meetingEndHourNum} WIB` : `${meetingEndHourNum} WIB (${meetingEndHourWords})`, highlight: isEndDefault ? "yellow" : undefined },
+        { text: `${meetingEndHourNum} WIB`, highlight: isEndDefault ? "yellow" : undefined },
         { text: " oleh Ketua Rapat, Setelah semua agenda rapat dibahas dan menghasilkan Keputusan sebagaimana telah diputuskan peserta rapat yang hadir." }
       ]
     },
