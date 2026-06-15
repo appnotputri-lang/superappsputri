@@ -94,6 +94,14 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
 
   const isCircular = data.documentType === "CIRCULAR";
   const isMinutes = data.documentType === "MINUTES";
+  const w = (num: number, tipe: "shares" | "rupiah") => {
+    const t = terbilang(num).toLowerCase();
+    if (tipe === "shares") {
+      return ` (${t})`;
+    } else {
+      return ` (${t} Rupiah)`;
+    }
+  };
 
   const getPosRank = (pos: string | undefined): number => {
     if (!pos) return 99;
@@ -149,6 +157,20 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
   const fullyDescribedNames = new Set<string>();
   if (rep) fullyDescribedNames.add(rep.name.toUpperCase());
 
+  const expandAbbreviations = (str: string) => {
+    if (!str) return "";
+    let res = str;
+    res = res.replace(/RT\.\s*(\d+)\s*RW\.\s*(\d+)/gi, 'Rukun Tetangga $1, Rukun Warga $2');
+    res = res.replace(/RT\s+(\d+)\s*RW\s+(\d+)/gi, 'Rukun Tetangga $1, Rukun Warga $2');
+    res = res.replace(/RT\.\s*(\d+)/gi, 'Rukun Tetangga $1');
+    res = res.replace(/RW\.\s*(\d+)/gi, 'Rukun Warga $1');
+    res = res.replace(/\bS\.H\b\.?/gi, 'Sarjana Hukum');
+    res = res.replace(/\bM\.Kn\b\.?/gi, 'Magister Kenotariatan');
+    res = res.replace(/\bjl(?:n)?\.?\b/gi, "Jalan");
+    res = res.replace(/\bgg\.?\b/gi, "Gang");
+    return res;
+  };
+
   const getPersonDetailRuns = (person: any): FormatToken[] => {
     let nameUpper = (person?.name || "").toUpperCase().trim();
     const isPenghadap = rep && nameUpper === (rep.name || "").toUpperCase().trim();
@@ -164,10 +186,12 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
 
     const sal = (!isBadanHukum) ? `${salutation} ` : "";
 
-    if (fullyDescribedNames.has(nameUpper)) {
+    const cleanName = expandAbbreviations(nameUpper);
+
+    if (fullyDescribedNames.has(cleanName)) {
       return [
         { text: sal },
-        { text: nameUpper, bold: true },
+        { text: cleanName, bold: true },
         {
           text: isPenghadap
             ? ", penghadap tersebut diatas"
@@ -176,15 +200,19 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
       ];
     }
 
-    fullyDescribedNames.add(nameUpper);
+    fullyDescribedNames.add(cleanName);
     const tglLahirHuruf = person ? dateToWords(person.birthDate) : "";
     const tglLahirAngka = person ? formatDateStr(person.birthDate) : "";
 
+    const detailText = person 
+      ? formatPersonDetails(person, tglLahirAngka, tglLahirHuruf, true) 
+      : `, lahir di ..., pada tanggal ... (...), Warga Negara Indonesia, ..., bertempat tinggal di ..., ..., Rukun Tetangga ..., Rukun Warga ..., Kelurahan ..., Kecamatan ..., pemegang Kartu Tanda Penduduk Nomor ...`;
+
     return [
       { text: sal },
-      { text: nameUpper, bold: true },
+      { text: cleanName, bold: true },
       {
-        text: person ? formatPersonDetails(person, tglLahirAngka, tglLahirHuruf, !isMinutes) : `, lahir di ..., pada tanggal ... (...), Warga Negara Indonesia, ..., bertempat tinggal di ..., ..., Rukun Tetangga ..., Rukun Warga ..., Kelurahan ..., Kecamatan ..., pemegang Kartu Tanda Penduduk Nomor ...`,
+        text: expandAbbreviations(detailText),
       },
     ];
   };
@@ -243,9 +271,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
       runs: [
         {
           text: hasCustomDeedDate && effectiveNotaryDate
-            ? (isMinutes 
-                ? `Pada hari ini, ${tglAktaHari}, tanggal ${tglAktaHuruf} (${tglAktaAngka}).`
-                : `Pada hari ini, ${tglAktaHari}, tanggal ${formatAktaDate(effectiveNotaryDate)}.`)
+            ? `Pada hari ini, ${tglAktaHari}, tanggal ${formatAktaDate(effectiveNotaryDate)}.`
             : `Pada hari ini, hari ${tglAktaHari}, tanggal ${tglAktaHuruf}.`,
         },
       ],
@@ -270,10 +296,10 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
             let n = (rep?.name || "...").toUpperCase();
             const s = `${(rep?.salutation || "Tuan").toUpperCase()} `;
             if (n.startsWith(s)) n = n.substring(s.length);
-            return n;
+            return expandAbbreviations(n);
           })(), bold: true },
         {
-          text: rep ? formatPersonDetails(rep, tglLahirRepAngka, tglLahirRepHuruf) : `, lahir di ..., pada tanggal ... (...), Warga Negara Indonesia, ..., bertempat tinggal di ..., ..., Rukun Tetangga ..., Rukun Warga ..., Kelurahan ..., Kecamatan ..., pemegang Kartu Tanda Penduduk Nomor ...;`,
+          text: expandAbbreviations(rep ? formatPersonDetails(rep, tglLahirRepAngka, tglLahirRepHuruf, true) : `, lahir di ..., pada tanggal ... (...), Warga Negara Indonesia, ..., bertempat tinggal di ..., ..., Rukun Tetangga ..., Rukun Warga ..., Kelurahan ..., Kecamatan ..., pemegang Kartu Tanda Penduduk Nomor ...;`),
         },
       ],
     },
@@ -455,7 +481,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
       indentTabs: 0.5,
       runs: [
         {
-          text: `Bahwa Keputusan Sirkuler mana telah ditandatangani dan mewakili seluruh saham yang telah dikeluarkan dan disetor penuh (“para pemegang saham”) sampai dengan hari ini, yaitu sebanyak ${formatNumber(totalShares)} (${totalSharesHuruf}) lembar saham atau 100 % (seratus persen) dari saham dalam Perseroan `,
+          text: `Bahwa Keputusan Sirkuler mana telah ditandatangani dan mewakili seluruh saham yang telah dikeluarkan dan disetor penuh (“para pemegang saham”) sampai dengan hari ini, yaitu sebanyak ${formatNumber(totalShares)}${w(totalShares, "shares")} lembar saham atau 100 % (seratus persen) dari saham dalam Perseroan `,
         },
         { text: formatCompanyName(data.companyName), bold: true },
         { text: ` telah memenuhi kuorum.` },
@@ -473,7 +499,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
           { text: checkIsBadanHukum(sh) ? "" : `${sh.salutation} ` },
           ...getPersonDetailRuns(sh),
           {
-            text: `, selaku pemilik dan pemegang ${formatNumber(sh.sharesOwned)} (${terbilang(sh.sharesOwned)}) lembar saham atau senilai Rp. ${formatNumber(shTotalRp)},- (${terbilang(shTotalRp)} rupiah).`,
+            text: `, selaku pemilik dan pemegang ${formatNumber(sh.sharesOwned)}${w(sh.sharesOwned, "shares")} lembar saham atau senilai Rp. ${formatNumber(shTotalRp)},-${w(shTotalRp, "rupiah")}.`,
           },
         ],
       });
@@ -671,8 +697,8 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
             bullet: "-",
             indentTabs: isMinutes ? 1.0 : 0.5,
             runs: isMinutes
-               ? [{ text: `selaku Pemilik dan pemegang saham sebanyak ${formatNumber(att.ownShares.sharesOwned)} (${terbilang(att.ownShares.sharesOwned)}) lembar saham atau senilai Rp. ${formatNumber(shareRp)},- (${terbilang(shareRp)} rupiah) berhak mengeluarkan suara ${formatNumber(att.ownShares.sharesOwned)} (${terbilang(att.ownShares.sharesOwned)}) suara dalam rapat.` }]
-               : [{ text: ` Selaku pemilik dan pemegang ${formatNumber(att.ownShares.sharesOwned)} (${terbilang(att.ownShares.sharesOwned)}) lembar saham atau senilai Rp. ${formatNumber(shareRp)},- (${terbilang(shareRp)} rupiah).` }]
+               ? [{ text: `selaku Pemilik dan pemegang saham sebanyak ${formatNumber(att.ownShares.sharesOwned)}${w(att.ownShares.sharesOwned, "shares")} lembar saham atau senilai Rp. ${formatNumber(shareRp)},-${w(shareRp, "rupiah")} berhak mengeluarkan suara ${formatNumber(att.ownShares.sharesOwned)}${w(att.ownShares.sharesOwned, "shares")} suara dalam rapat.` }]
+               : [{ text: ` Selaku pemilik dan pemegang ${formatNumber(att.ownShares.sharesOwned)}${w(att.ownShares.sharesOwned, "shares")} lembar saham atau senilai Rp. ${formatNumber(shareRp)},-${w(shareRp, "rupiah")}.` }]
           });
         } else if (att.representations.length === 1) {
           const r = att.representations[0];
@@ -698,11 +724,11 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
 
           if (isMinutes) {
             repTextRuns.push({
-              text: `, yang dalam hal ini merupakan pemilik dan pemegang saham sebanyak ${formatNumber(r.sharesOwned)} (${terbilang(r.sharesOwned)}) lembar saham atau senilai Rp. ${formatNumber(shareRp)},- (${terbilang(shareRp)} rupiah) berhak mengeluarkan suara ${formatNumber(r.sharesOwned)} (${terbilang(r.sharesOwned)}) suara dalam rapat.`
+              text: `, yang dalam hal ini merupakan pemilik dan pemegang saham sebanyak ${formatNumber(r.sharesOwned)}${w(r.sharesOwned, "shares")} lembar saham atau senilai Rp. ${formatNumber(shareRp)},-${w(shareRp, "rupiah")} berhak mengeluarkan suara ${formatNumber(r.sharesOwned)}${w(r.sharesOwned, "shares")} suara dalam rapat.`
             });
           } else {
             repTextRuns.push({
-              text: `, selaku pemilik dan pemegang ${formatNumber(r.sharesOwned)} (${terbilang(r.sharesOwned)}) lembar saham atau senilai Rp. ${formatNumber(shareRp)},- (${terbilang(shareRp)} rupiah).`
+              text: `, selaku pemilik dan pemegang ${formatNumber(r.sharesOwned)}${w(r.sharesOwned, "shares")} lembar saham atau senilai Rp. ${formatNumber(shareRp)},-${w(shareRp, "rupiah")}.`
             });
           }
 
@@ -747,8 +773,8 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
             indentTabs: isMinutes ? 2.0 : 1.5,
             runs: [
               { text: isMinutes 
-                 ? `selaku Pemilik dan pemegang saham sebanyak ${formatNumber(att.ownShares.sharesOwned)} (${terbilang(att.ownShares.sharesOwned)}) lembar saham atau senilai Rp. ${formatNumber(shareRp)},- (${terbilang(shareRp)} rupiah) berhak mengeluarkan suara ${formatNumber(att.ownShares.sharesOwned)} (${terbilang(att.ownShares.sharesOwned)}) suara dalam rapat.` 
-                 : `Selaku pemilik dan pemegang ${formatNumber(att.ownShares.sharesOwned)} (${terbilang(att.ownShares.sharesOwned)}) lembar saham atau senilai Rp. ${formatNumber(shareRp)},- (${terbilang(shareRp)} rupiah)${isLast ? "." : ";"}` 
+                 ? `selaku Pemilik dan pemegang saham sebanyak ${formatNumber(att.ownShares.sharesOwned)}${w(att.ownShares.sharesOwned, "shares")} lembar saham atau senilai Rp. ${formatNumber(shareRp)},-${w(shareRp, "rupiah")} berhak mengeluarkan suara ${formatNumber(att.ownShares.sharesOwned)}${w(att.ownShares.sharesOwned, "shares")} suara dalam rapat.` 
+                 : `Selaku pemilik dan pemegang ${formatNumber(att.ownShares.sharesOwned)}${w(att.ownShares.sharesOwned, "shares")} lembar saham atau senilai Rp. ${formatNumber(shareRp)},-${w(shareRp, "rupiah")}${isLast ? "." : ";"}` 
               }
             ]
           });
@@ -778,11 +804,11 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
 
           if (isMinutes) {
             repTextRuns.push({
-              text: `, yang dalam hal ini merupakan pemilik dan pemegang saham sebanyak ${formatNumber(r.sharesOwned)} (${terbilang(r.sharesOwned)}) lembar saham atau senilai Rp. ${formatNumber(shareRp)},- (${terbilang(shareRp)} rupiah) berhak mengeluarkan suara ${formatNumber(r.sharesOwned)} (${terbilang(r.sharesOwned)}) suara dalam rapat.`
+              text: `, yang dalam hal ini merupakan pemilik dan pemegang saham sebanyak ${formatNumber(r.sharesOwned)}${w(r.sharesOwned, "shares")} lembar saham atau senilai Rp. ${formatNumber(shareRp)},-${w(shareRp, "rupiah")} berhak mengeluarkan suara ${formatNumber(r.sharesOwned)}${w(r.sharesOwned, "shares")} suara dalam rapat.`
             });
           } else {
             repTextRuns.push({
-              text: `, selaku pemilik dan pemegang ${formatNumber(r.sharesOwned)} (${terbilang(r.sharesOwned)}) lembar saham atau senilai Rp. ${formatNumber(shareRp)},- (${terbilang(shareRp)} rupiah)${isLast ? "." : ";"}`
+              text: `, selaku pemilik dan pemegang ${formatNumber(r.sharesOwned)}${w(r.sharesOwned, "shares")} lembar saham atau senilai Rp. ${formatNumber(shareRp)},-${w(shareRp, "rupiah")}${isLast ? "." : ";"}`
             });
           }
 
@@ -802,7 +828,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
       indentTabs: 0.5,
       runs: [
         {
-          text: `Bahwa dari semua saham yang telah dikeluarkan tersebut di atas, yaitu ${formatNumber(totalShares)} (${totalSharesHuruf}) lembar saham perseroan atau dengan nominal seluruhnya sebesar Rp. ${formatNumber(totalCapPaid)},- (${terbilang(totalCapPaid)} rupiah) telah hadir dalam rapat ini sebanyak ${formatNumber(presentShares)} (${terbilang(presentShares)}) lembar saham atau senilai Rp. ${formatNumber(presentCapPaid)},- (${terbilang(presentCapPaid)} rupiah) atau setara dengan ${isAllPresent ? "100%" : `${formatNumber(attendancePercentage)}%`} dari seluruh saham yang telah dikeluarkan oleh Perseroan.`,
+          text: `Bahwa dari semua saham yang telah dikeluarkan tersebut di atas, yaitu ${formatNumber(totalShares)}${w(totalShares, "shares")} lembar saham perseroan atau dengan nominal seluruhnya sebesar Rp. ${formatNumber(totalCapPaid)},-${w(totalCapPaid, "rupiah")} telah hadir dalam rapat ini sebanyak ${formatNumber(presentShares)}${w(presentShares, "shares")} lembar saham atau senilai Rp. ${formatNumber(presentCapPaid)},-${w(presentCapPaid, "rupiah")} atau setara dengan ${isAllPresent ? "100%" : `${formatNumber(attendancePercentage)}%`} dari seluruh saham yang telah dikeluarkan oleh Perseroan.`,
         },
       ],
     });
@@ -1114,7 +1140,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
       number: resIdx++,
       runs: [
         {
-          text: `Menyetujui untuk ${isIncrease ? "meningkatkan" : "menurunkan"} Modal Dasar Perseroan, yang semula sebesar Rp. ${formatNumber(oldBase)},- (${terbilang(oldBase)} rupiah) terbagi atas ${formatNumber(oldShares)} (${terbilang(oldShares)}) lembar saham, masing-masing saham bernilai nominal Rp. ${formatNumber(data.originalSharePrice)},- (${terbilang(data.originalSharePrice)} rupiah), menjadi sebesar Rp. ${formatNumber(newBase)},- (${terbilang(newBase)} rupiah) terbagi atas ${formatNumber(newShares)} (${terbilang(newShares)}) lembar saham, masing-masing saham bernilai nominal Rp. ${formatNumber(data.originalSharePrice)},- (${terbilang(data.originalSharePrice)} rupiah).`,
+          text: `Menyetujui untuk ${isIncrease ? "meningkatkan" : "menurunkan"} Modal Dasar Perseroan, yang semula sebesar Rp. ${formatNumber(oldBase)},-${w(oldBase, "rupiah")} terbagi atas ${formatNumber(oldShares)}${w(oldShares, "shares")} lembar saham, masing-masing saham bernilai nominal Rp. ${formatNumber(data.originalSharePrice)},-${w(data.originalSharePrice, "rupiah")}, menjadi sebesar Rp. ${formatNumber(newBase)},-${w(newBase, "rupiah")} terbagi atas ${formatNumber(newShares)}${w(newShares, "shares")} lembar saham, masing-masing saham bernilai nominal Rp. ${formatNumber(data.originalSharePrice)},-${w(data.originalSharePrice, "rupiah")}.`,
         },
       ],
     });
@@ -1135,7 +1161,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
       number: resIdx++,
       runs: [
         {
-          text: `Menyetujui untuk ${isIncrease ? "meningkatkan" : "menurunkan"} Modal Ditempatkan dan Disetor dalam Perseroan, yang semula sebesar Rp. ${formatNumber(oldPaid)},- (${terbilang(oldPaid)} rupiah) yang terbagi menjadi sejumlah ${formatNumber(oldShares)} (${terbilang(oldShares)}) lembar saham, menjadi sebesar Rp. ${formatNumber(newPaid)},- (${terbilang(newPaid)} rupiah) yang terbagi menjadi sejumlah ${formatNumber(newShares)} (${terbilang(newShares)}) lembar saham.`,
+          text: `Menyetujui untuk ${isIncrease ? "meningkatkan" : "menurunkan"} Modal Ditempatkan dan Disetor dalam Perseroan, yang semula sebesar Rp. ${formatNumber(oldPaid)},-${w(oldPaid, "rupiah")} yang terbagi menjadi sejumlah ${formatNumber(oldShares)}${w(oldShares, "shares")} lembar saham, menjadi sebesar Rp. ${formatNumber(newPaid)},-${w(newPaid, "rupiah")} yang terbagi menjadi sejumlah ${formatNumber(newShares)}${w(newShares, "shares")} lembar saham.`,
         },
       ],
     });
@@ -1195,8 +1221,8 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
             type: "shareholder-list",
             bullet: "-",
             name: d.fs.name.toUpperCase(),
-            sharesText: `: ${formatNumber(d.depositedShares)} (${terbilang(d.depositedShares)}) lembar saham`,
-            rpText: `atau senilai Rp. ${formatNumber(d.valueRp)},- (${terbilang(d.valueRp)} rupiah);`,
+            sharesText: `: ${formatNumber(d.depositedShares)}${w(d.depositedShares, "shares")} lembar saham`,
+            rpText: `atau senilai Rp. ${formatNumber(d.valueRp)},-${w(d.valueRp, "rupiah")};`,
           });
         });
       }
@@ -1257,7 +1283,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
           { text: checkIsBadanHukum(from) ? "" : `${from?.salutation} ` },
           ...getPersonDetailRuns(from),
           {
-            text: ` mengalihkan ${formatNumber(t.sharesTransferred)} (${terbilang(t.sharesTransferred)}) lembar saham perseroan atau senilai Rp ${formatNumber(valRp)},- (${terbilang(valRp)} rupiah) kepada ${checkIsBadanHukum(to) ? "" : `${to?.salutation} `}`,
+            text: ` mengalihkan ${formatNumber(t.sharesTransferred)}${w(t.sharesTransferred, "shares")} lembar saham perseroan atau senilai Rp ${formatNumber(valRp)},-${w(valRp, "rupiah")} kepada ${checkIsBadanHukum(to) ? "" : `${to?.salutation} `}`,
           },
           ...getPersonDetailRuns(to),
           { text: `.` },
@@ -1302,8 +1328,8 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
         type: "shareholder-list",
         bullet: "-",
         name: fs.name.toUpperCase(),
-        sharesText: `: ${formatNumber(fs.sharesOwned)} (${terbilang(fs.sharesOwned)}) lembar saham`,
-        rpText: `atau senilai Rp. ${formatNumber(fsTotal)},- (${terbilang(fsTotal)} rupiah);`,
+        sharesText: `: ${formatNumber(fs.sharesOwned)}${w(fs.sharesOwned, "shares")} lembar saham`,
+        rpText: `atau senilai Rp. ${formatNumber(fsTotal)},-${w(fsTotal, "rupiah")};`,
       });
     });
   }
@@ -1546,9 +1572,9 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
     type: "saksi",
     number: 1,
     runs: [
-      { text: data.saksi1Nama || "Nendi Suhendi", bold: false },
+      { text: expandAbbreviations(data.saksi1Nama || "Nendi Suhendi"), bold: false },
       {
-        text: `, lahir di ${data.saksi1Lahir || "Bandung, pada tanggal lima belas Juli seribu sembilan ratus sembilan puluh satu (15-07-1991)"}, Warga Negara Indonesia, bertempat tinggal di ${(data.saksi1Alamat || "Jalan Sukaresmi Nomor 17, RT. 005 RW. 005, Kecamatan Lembang, Desa Mekarwangi").replace("Sukaresmi Nomor 12", "Sukaresmi Nomor 17")}, pemegang Kartu Tanda Penduduk Nomor ${data.saksi1NIK || "3217011507910016"};`,
+        text: expandAbbreviations(`, lahir di ${data.saksi1Lahir || "Bandung, pada tanggal lima belas Juli seribu sembilan ratus sembilan puluh satu (15-07-1991)"}, Warga Negara Indonesia, bertempat tinggal di ${(data.saksi1Alamat || "Jalan Sukaresmi Nomor 17, RT. 005 RW. 005, Kecamatan Lembang, Desa Mekarwangi").replace("Sukaresmi Nomor 12", "Sukaresmi Nomor 17")}, pemegang Kartu Tanda Penduduk Nomor ${data.saksi1NIK || "3217011507910016"};`),
       },
     ],
   });
@@ -1558,9 +1584,9 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
     type: "saksi",
     number: 2,
     runs: [
-      { text: data.saksi2Nama || "Siti Nur Azizah", bold: false },
+      { text: expandAbbreviations(data.saksi2Nama || "Siti Nur Azizah"), bold: false },
       {
-        text: `, lahir di ${data.saksi2Lahir || "Bandung, pada tanggal tujuh belas Desember seribu sembilan ratus sembilan puluh sembilan (17-12-1999)"}, Warga Negara Indonesia, bertempat tinggal di ${data.saksi2Alamat || "Kabupaten Bandung, Jalan Lembah Pakar Timur II Kampung Sekebuluh RT. 001 RW. 004, Kecamatan Cimenyan, Desa Ciburial"}, pemegang Kartu Tanda Penduduk Nomor ${data.saksi2NIK || "3204065712990001"}.`,
+        text: expandAbbreviations(`, lahir di ${data.saksi2Lahir || "Bandung, pada tanggal tujuh belas Desember seribu sembilan ratus sembilan puluh sembilan (17-12-1999)"}, Warga Negara Indonesia, bertempat tinggal di ${data.saksi2Alamat || "Kabupaten Bandung, Jalan Lembah Pakar Timur II Kampung Sekebuluh RT. 001 RW. 004, Kecamatan Cimenyan, Desa Ciburial"}, pemegang Kartu Tanda Penduduk Nomor ${data.saksi2NIK || "3204065712990001"}.`),
       },
     ],
     spaceAfter: false,

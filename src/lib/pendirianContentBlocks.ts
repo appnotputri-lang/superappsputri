@@ -1,7 +1,7 @@
 import { PendirianData } from '../DraftAktaPendirian';
 import { terbilang, toTitleCase, formatNumber, formatAddress, formatAktaDate, dateToWords, formatDateStr, formatPersonDetails, checkIsBadanHukum } from './formatter';
 import { KbliItem } from '../../types';
-import { formatKbliCategory } from './kbliConstants';
+import { formatKbliCategory, KBLI_2025_CATEGORIES } from './kbliConstants';
 
 type Block =
   | { type: 'p'; runs: { text: string; bold?: boolean }[]; align?: 'center' | 'right-center'; indentTabs?: number; kbliDesc?: boolean }
@@ -62,6 +62,22 @@ export function generatePendirianBlocks(data: PendirianData): Block[] {
     });
   });
 
+  const uniqLetters = Array.from(new Set((data.kbliItems || []).map(item => item.categoryLetter?.toUpperCase()).filter(Boolean)));
+  const sectors = uniqLetters.map(letter => {
+    if (letter === 'G') return 'Perdagangan';
+    const catName = KBLI_2025_CATEGORIES[letter] || '';
+    if (!catName) return '';
+    return toTitleCase(catName)
+      .replace(/\bDan\b/g, 'dan')
+      .replace(/\bAtau\b/g, 'atau')
+      .replace(/\bDengan\b/g, 'dengan')
+      .replace(/\bUntuk\b/g, 'untuk');
+  }).filter(Boolean);
+
+  if (sectors.length === 0) {
+    sectors.push('Perdagangan');
+  }
+
   blocks.push(
     { type: 'p', runs: [{ text: 'Para Penghadap bertindak dalam kedudukannya tersebut di atas, menerangkan, bahwa dengan tidak mengurangi izin dari pihak yang berwenang telah sepakat dan setuju untuk bersama-sama mendirikan suatu perseroan terbatas dengan anggaran dasar sebagaimana yang termuat dalam akta pendirian ini, (untuk selanjutnya cukup disingkat dengan "Anggaran Dasar") sebagai berikut :' }] },
     { type: 'pasal-divider', text: 'NAMA DAN TEMPAT KEDUDUKAN' },
@@ -73,7 +89,16 @@ export function generatePendirianBlocks(data: PendirianData): Block[] {
     { type: 'p', runs: [{ text: 'Perseroan didirikan untuk jangka waktu yang tidak terbatas.' }] },
     { type: 'pasal-divider', text: 'MAKSUD DAN TUJUAN SERTA KEGIATAN USAHA' },
     { type: 'pasal-divider', text: 'PASAL 3' },
-    { type: 'numbered', num: 1, runs: [{ text: 'Maksud dan Tujuan Perseroan adalah berusaha dalam bidang : Perdagangan;' }] },
+    { type: 'numbered', num: 1, runs: [{ text: 'Maksud dan Tujuan Perseroan adalah berusaha dalam bidang : ' }] }
+  );
+
+  sectors.forEach(sec => {
+    blocks.push(
+      { type: 'p', runs: [{ text: `${sec};` }] }
+    );
+  });
+
+  blocks.push(
     { type: 'numbered', num: 2, runs: [{ text: 'Untuk mencapai maksud dan tujuan tersebut diatas, perseroan dapat melaksanakan kegiatan usaha sebagai berikut :' }] }
   );
 
@@ -105,8 +130,8 @@ export function generatePendirianBlocks(data: PendirianData): Block[] {
   const disetorLembar = (totalLembar * modalDisetorPersen) / 100;
 
   blocks.push(
-    { type: 'numbered', num: 1, runs: [{ text: `Modal Dasar Perseroan berjumlah Rp. ${formatNumber(data.modalDasar)} (${terbilang(data.modalDasar)} rupiah), terbagi atas ${formatNumber(totalLembar)} (${terbilang(totalLembar)}) lembar saham, masing-masing saham bernilai nominal Rp. ${formatNumber(data.nilaiPerLembar)} (${terbilang(data.nilaiPerLembar)} rupiah).` }] },
-    { type: 'numbered', num: 2, runs: [{ text: `Dari modal dasar tersebut telah ditempatkan dan disetor ${modalDisetorPersen}% (${terbilang(modalDisetorPersen)} persen) atau sejumlah ${formatNumber(disetorLembar)} (${terbilang(disetorLembar)}) lembar saham dengan nilai nominal seluruhnya sebesar Rp. ${formatNumber(modalDisetor)} (${terbilang(modalDisetor)} rupiah), oleh Para Pendiri yang telah mengambil bagian saham dan rincian serta nilai nominal saham yang disebutkan pada bagian akhir sebelum penutup akta.` }] },
+    { type: 'numbered', num: 1, runs: [{ text: `Modal Dasar Perseroan berjumlah Rp. ${formatNumber(data.modalDasar)},- (${terbilang(data.modalDasar)} rupiah), terbagi atas ${formatNumber(totalLembar)} (${terbilang(totalLembar)}) lembar saham, masing-masing saham bernilai nominal Rp. ${formatNumber(data.nilaiPerLembar)},- (${terbilang(data.nilaiPerLembar)} rupiah).` }] },
+    { type: 'numbered', num: 2, runs: [{ text: `Dari modal dasar tersebut telah ditempatkan dan disetor ${modalDisetorPersen}% (${terbilang(modalDisetorPersen)} persen) atau sejumlah ${formatNumber(disetorLembar)} (${terbilang(disetorLembar)}) lembar saham dengan nilai nominal seluruhnya sebesar Rp. ${formatNumber(modalDisetor)},- (${terbilang(modalDisetor)} rupiah), oleh Para Pendiri yang telah mengambil bagian saham dan rincian serta nilai nominal saham yang disebutkan pada bagian akhir sebelum penutup akta.` }] },
     { type: 'numbered', num: 3, runs: [{ text: 'Saham-saham yang masih dalam simpanan akan dikeluarkan oleh Perseroan menurut keperluan modal kerja Perseroan, dengan persetujuan Rapat Umum Pemegang Saham.' }] },
     { type: 'pasal-divider', text: 'S A H A M' },
     { type: 'pasal-divider', text: 'PASAL 5' },
@@ -287,14 +312,21 @@ export function generatePendirianBlocks(data: PendirianData): Block[] {
       type: 'sub-numbered',
       num: String.fromCharCode(charCodeA + i),
       indentTabs: 1,
-      runs: [{ text: `${p.salutation} ${p.name.toUpperCase()}, tersebut diatas, sejumlah ${formatNumber(p.sharesOwned)} ${terbilang(p.sharesOwned)} lembar saham, dengan nilai nominal seluruhnya sebesar Rp. ${formatNumber(nominal)} (${terbilang(nominal)} rupiah);` }],
+      runs: [{ text: `${p.salutation} ${p.name.toUpperCase()}, tersebut di atas, sejumlah ${formatNumber(p.sharesOwned)} (${terbilang(p.sharesOwned)}) lembar saham, dengan nilai nominal seluruhnya sebesar Rp. ${formatNumber(nominal)},- (${terbilang(nominal)} rupiah);` }],
     });
   });
 
   const totNominal = tSaham * data.nilaiPerLembar;
+  
+  // Calculate exact end date of term of office dynamically
+  const termYears = parseInt(data.kuotaWaktuDireksi) || 5;
+  const docDate = new Date(data.tanggal);
+  const endDocDate = new Date(docDate.setFullYear(docDate.getFullYear() + termYears));
+  const endTglHuruf = formatAktaDate(formatDateStr(endDocDate.toISOString()));
+
   blocks.push(
-    { type: 'p', indentTabs: 1, runs: [{ text: `Sehingga seluruhnya berjumlah ${formatNumber(tSaham)} (${terbilang(tSaham)}) lembar saham, dengan nilai nominal seluruhnya sebesar Rp. ${formatNumber(totNominal)} (${terbilang(totNominal)} rupiah).` }] },
-    { type: 'numbered', num: 2, runs: [{ text: `Menyimpang dari ketentuan dalam pasal 11 ayat 3 dan pasal 14 ayat 3 Anggaran Dasar ini mengenai tata cara pengangkatan Anggota Direksi dan Dewan Komisaris, telah diangkat anggota Direksi dan Dewan Komisaris Perseroan dengan masa jabatan ${data.kuotaWaktuDireksi} tahun, terhitung sejak tanggal akta ini, adalah sebagai berikut :` }] }
+    { type: 'p', indentTabs: 1, runs: [{ text: `Sehingga seluruhnya berjumlah ${formatNumber(tSaham)} (${terbilang(tSaham)}) lembar saham, dengan nilai nominal seluruhnya sebesar Rp. ${formatNumber(totNominal)},- (${terbilang(totNominal)} rupiah).` }] },
+    { type: 'numbered', num: 2, runs: [{ text: `Menyimpang dari ketentuan dalam pasal 11 ayat 3 dan pasal 14 ayat 3 Anggaran Dasar ini mengenai tata cara pengangkatan Anggota Direksi dan Dewan Komisaris, telah diangkat anggota Direksi dan Dewan Komisaris Perseroan dengan masa jabatan ${termYears} (${terbilang(termYears)}) tahun, terhitung sejak tanggal ${tglHuruf} sampai dengan tanggal ${endTglHuruf}, adalah sebagai berikut :` }] }
   );
 
   blocks.push({ type: 'numbered', num: 1, runs: [{ text: 'Anggota Direksi :' }] });
@@ -306,12 +338,16 @@ export function generatePendirianBlocks(data: PendirianData): Block[] {
     blocks.push({ type: 'management-role', position: p.managementPosition || 'Komisaris', nameText: `${p.salutation} ${p.name}, tersebut di atas` });
   });
 
+  const saksi1DefaultAlamat = 'Jalan Sukaresmi Nomor 12, Rukun Tetangga 005, Rukun Warga 005, Kecamatan Lembang, Desa Mekarwangi';
+  const saksi2DefaultAlamat = 'Kabupaten Bandung, Jalan Lembah Pakar Timur II Kampung Sekebuluh Rukun Tetangga 001, Rukun Warga 004, Kecamatan Cimenyan, Desa Ciburial';
+
   blocks.push(
+    { type: 'p', runs: [{ text: 'Para penghadap telah memperkenalkan diri kepada saya, Notaris.' }] },
     { type: 'p', runs: [{ text: 'Para Pihak menyatakan dengan ini menjamin akan kebenaran identitas para pihak sesuai dengan tanda pengenal yang disampaikan kepada saya, Notaris dan termasuk dengan seluruh dokumen yang diperlihatkan dan fotokopinya dilekatkan pada minuta akta ini para pihak bertanggung jawab sepenuhnya atas hal tersebut sehingga membebaskan Notaris dari segala tanggungjawab dan selanjutnya para pihak juga menyatakan telah mengerti dan memahami isi akta ini.' }] },
     { type: 'divider', text: 'DEMIKIANLAH AKTA INI' },
     { type: 'p', runs: [{ text: `Dibuat sebagai minuta dan dilangsungkan di ${data.notarisTempat || 'Kabupaten Bandung Barat'}, pada hari dan tanggal serta jam sebagaimana disebutkan pada kepala akta ini dengan dihadiri oleh :` }] },
-    { type: 'saksi', num: 1, runs: [{ text: `${data.saksi1Nama || 'Nendi Suhendi'}, lahir di ${toTitleCase(data.saksi1LahirTempat || 'Bandung')}, pada tanggal ${formatAktaDate(data.saksi1LahirTanggal || '1991-07-15')}, Warga Negara Indonesia, ${toTitleCase(data.saksi1Pekerjaan || 'Karyawan Swasta')}, bertempat tinggal di ${formatAddress(data.saksi1Alamat || 'Jalan Sukaresmi Nomor 17, Rukun Tetangga 005, Rukun Warga 005, Kecamatan Lembang, Desa Mekarwangi')}, pemegang Kartu Tanda Penduduk Nomor ${data.saksi1NIK || '3217011507910016'};`} ] },
-    { type: 'saksi', num: 2, runs: [{ text: `${data.saksi2Nama || 'Siti Nur Azizah'}, lahir di ${toTitleCase(data.saksi2LahirTempat || 'Bandung')}, pada tanggal ${formatAktaDate(data.saksi2LahirTanggal || '1999-12-17')}, Warga Negara Indonesia, ${toTitleCase(data.saksi2Pekerjaan || 'Karyawan Swasta')}, bertempat tinggal di ${formatAddress(data.saksi2Alamat || 'Jalan Lembah Pakar Timur II Kampung Sekebuluh Rukun Tetangga 001, Rukun Warga 004, Kecamatan Cimenyan, Desa Ciburial')}, pemegang Kartu Tanda Penduduk Nomor ${data.saksi2NIK || '3204065712990001'};`} ] },
+    { type: 'saksi', num: 1, runs: [{ text: `${data.saksi1Nama || 'Nendi Suhendi'}, lahir di ${toTitleCase(data.saksi1LahirTempat || 'Bandung')}, pada tanggal ${formatAktaDate(data.saksi1LahirTanggal || '1991-07-15')}, Warga Negara Indonesia, bertempat tinggal di ${formatAddress(data.saksi1Alamat || saksi1DefaultAlamat)}, pemegang Kartu Tanda Penduduk Nomor ${data.saksi1NIK || '3217011507910016'};`} ] },
+    { type: 'saksi', num: 2, runs: [{ text: `${data.saksi2Nama || 'Siti Nur Azizah'}, lahir di ${toTitleCase(data.saksi2LahirTempat || 'Bandung')}, pada tanggal ${formatAktaDate(data.saksi2LahirTanggal || '1999-12-17')}, Warga Negara Indonesia, bertempat tinggal di ${formatAddress(data.saksi2Alamat || saksi2DefaultAlamat)}, pemegang Kartu Tanda Penduduk Nomor ${data.saksi2NIK || '3204065712990001'};`} ] },
     { type: 'p', runs: [{ text: 'Keduanya pegawai Kantor Notaris, sebagai saksi-saksi.' }] },
     { type: 'p', runs: [{ text: 'Segera setelah akta ini dibacakan oleh saya, Notaris kepada penghadap dan saksi-saksi maka ditanda-tanganilah akta ini oleh penghadap, saksi-saksi dan saya, Notaris. Serta penghadap membubuhkan sidik jari sebelah kanan pada lembaran tersendiri di hadapan saya, Notaris dan saksi-saksi, yang dilekatkan pada minuta akta ini.' }] },
     { type: 'p', runs: [{ text: 'Dilangsungkan dengan tanpa perubahan.' }] },

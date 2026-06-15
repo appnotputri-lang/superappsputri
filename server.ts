@@ -21,6 +21,10 @@ async function startServer() {
     res.json({ status: "ok" });
   });
 
+  app.get("/api/template-pendirian", (req, res) => {
+    res.sendFile(path.join(process.cwd(), "PT. pendirian.docx"));
+  });
+
   app.get("/api/search-by-nik", async (req, res) => {
     const { nik } = req.query;
     if (!nik || typeof nik !== 'string') {

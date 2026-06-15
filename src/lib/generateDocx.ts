@@ -1,12 +1,12 @@
 import { Document, Packer, Paragraph, TextRun, Tab } from "docx";
 import { CompanyData, Shareholder, Address, ManagementItem } from "../../types";
-import { formatFullAddressData, formatCompanyName, formatPersonDetails, formatDateStr, checkIsBadanHukum, dateToWords } from "./formatter";
+import { formatFullAddressData, formatCompanyName, formatPersonDetails, formatDateStr, checkIsBadanHukum, dateToWords, formatDateRupst } from "./formatter";
 import { formatKbliCategory } from "./kbliConstants";
 import {
   formatCurrency,
   formatInputNumber,
   numberToWords,
-  formatDateIndo,
+  
   getDayNameIndo,
   getDayIndo,
   getMonthIndo,
@@ -26,9 +26,9 @@ const saveAsNative = (blob: Blob, fileName: string) => {
   window.URL.revokeObjectURL(url);
 };
 
-const FONT_FAMILY = "Times New Roman";
-const FONT_SIZE = 24; // 12pt
-const LINE_SPACING = 480; // Approx 2.0 line spacing
+const FONT_FAMILY = "Arial";
+const FONT_SIZE = 22; 
+const LINE_SPACING = 360; // Approx 1.5 line spacing
 const AFTER_SPACING = 120; // 6pt
 
 const MARGIN_NORMAL = 1440; // 1 inch
@@ -76,7 +76,7 @@ const formatFullAddressDoc = (addr?: Address): string => {
 
   const parts = [
     formatAddress(toTitleCase(addr.fullAddress)),
-    addr.rt && addr.rw ? `RT. ${addr.rt} RW. ${addr.rw}` : "",
+    addr.rt && addr.rw ? `Rukun Tetangga ${addr.rt}, Rukun Warga ${addr.rw}` : "",
     addr.kelurahan ? `${villagePrefix} ${toTitleCase(addr.kelurahan)}` : "",
     addr.kecamatan ? `Kecamatan ${toTitleCase(addr.kecamatan)}` : "",
     addr.city ? toTitleCase(addr.city) : "",
@@ -116,6 +116,7 @@ const createBodyParagraph = (options: {
     alignment: (options.alignment as any) || "both",
     spacing: {
       line: LINE_SPACING,
+      lineRule: "auto",
       after: options.spacing?.after ?? (options.numbering ? 0 : AFTER_SPACING),
       before: options.spacing?.before ?? 0,
     },
@@ -137,6 +138,9 @@ const createBodyParagraph = (options: {
 
 export const generateWordDoc = async (data: CompanyData) => {
   const isCircular = data.documentType === "CIRCULAR";
+  const w = (num: number, tipe: "shares" | "rupiah") => {
+    return "";
+  };
   const companyName = data.companyName.toUpperCase();
 
   const getResolutionSummary = () => {
@@ -198,7 +202,7 @@ export const generateWordDoc = async (data: CompanyData) => {
   children.push(
     new Paragraph({
       alignment: "center" as any,
-      spacing: { after: 0, line: LINE_SPACING },
+      spacing: { after: 0, line: LINE_SPACING, lineRule: "auto" },
       children: [
         new TextRun({
           text: isCircular
@@ -212,7 +216,7 @@ export const generateWordDoc = async (data: CompanyData) => {
     }),
     new Paragraph({
       alignment: "center" as any,
-      spacing: { after: 0, line: LINE_SPACING },
+      spacing: { after: 0, line: LINE_SPACING, lineRule: "auto" },
       children: [
         new TextRun({
           text: "RAPAT UMUM PEMEGANG SAHAM LUAR BIASA",
@@ -233,7 +237,7 @@ export const generateWordDoc = async (data: CompanyData) => {
           font: FONT_FAMILY,
         }),
       ],
-      spacing: { after: 480, line: LINE_SPACING },
+      spacing: { after: 480, line: LINE_SPACING, lineRule: "auto" },
     }),
   );
 
@@ -325,9 +329,9 @@ export const generateWordDoc = async (data: CompanyData) => {
                 new TextRun({ text: "- ", size: FONT_SIZE, font: FONT_FAMILY }),
                 new TextRun({ text: "Selaku pemilik dan pemegang ", size: FONT_SIZE, font: FONT_FAMILY }),
                 new TextRun({ text: sh.sharesOwned.toLocaleString('id-ID'), bold: true, size: FONT_SIZE, font: FONT_FAMILY }),
-                new TextRun({ text: ` (${numberToWords(sh.sharesOwned)}) lembar saham atau senilai `, size: FONT_SIZE, font: FONT_FAMILY }),
+                new TextRun({ text: `${w(sh.sharesOwned, "shares")} lembar saham atau senilai `, size: FONT_SIZE, font: FONT_FAMILY }),
                 new TextRun({ text: formatRpDot(currentValue), bold: true, size: FONT_SIZE, font: FONT_FAMILY }),
-                new TextRun({ text: ` (${numberToWords(currentValue)} rupiah).`, size: FONT_SIZE, font: FONT_FAMILY }),
+                new TextRun({ text: `${w(currentValue, "rupiah")}.`, size: FONT_SIZE, font: FONT_FAMILY }),
               ],
               spacing: { before: 60, after: 120 }
             })
@@ -381,7 +385,7 @@ export const generateWordDoc = async (data: CompanyData) => {
                   font: FONT_FAMILY,
                 }),
                 new TextRun({
-                  text: ` (${numberToWords(sh.sharesOwned)}) lembar saham atau senilai `,
+                  text: `${w(sh.sharesOwned, "shares")} lembar saham atau senilai `,
                   size: FONT_SIZE,
                   font: FONT_FAMILY,
                 }),
@@ -392,7 +396,7 @@ export const generateWordDoc = async (data: CompanyData) => {
                   font: FONT_FAMILY,
                 }),
                 new TextRun({
-                  text: ` (${numberToWords(currentValue)} rupiah) berhak mengeluarkan suara `,
+                  text: `${w(currentValue, "rupiah")} berhak mengeluarkan suara `,
                   size: FONT_SIZE,
                   font: FONT_FAMILY,
                 }),
@@ -403,7 +407,7 @@ export const generateWordDoc = async (data: CompanyData) => {
                   font: FONT_FAMILY,
                 }),
                 new TextRun({
-                  text: ` (${numberToWords(sh.sharesOwned)}) suara dalam rapat.`,
+                  text: `${w(sh.sharesOwned, "shares")} suara dalam rapat.`,
                   size: FONT_SIZE,
                   font: FONT_FAMILY,
                 }),
@@ -425,7 +429,7 @@ export const generateWordDoc = async (data: CompanyData) => {
         new TextRun({
           text: isCircular 
             ? "Bahwa dari semua saham yang telah dikeluarkan, ditempatkan dan disetor tersebut di atas, yaitu sebanyak "
-            : `Bahwa dari semua saham yang telah dikeluarkan, ditempatkan dan disetor tersebut di atas, yaitu sebanyak ${totalIssuedShares.toLocaleString("id-ID")} (${numberToWords(totalIssuedShares)}) lembar saham, telah hadir dan/atau diwakili dalam rapat ini sebanyak `,
+            : `Bahwa dari semua saham yang telah dikeluarkan, ditempatkan dan disetor tersebut di atas, yaitu sebanyak ${totalIssuedShares.toLocaleString("id-ID")}${w(totalIssuedShares, "shares")} lembar saham, telah hadir dan/atau diwakili dalam rapat ini sebanyak `,
           size: FONT_SIZE,
           font: FONT_FAMILY,
         }),
@@ -436,7 +440,7 @@ export const generateWordDoc = async (data: CompanyData) => {
           font: FONT_FAMILY,
         }),
         new TextRun({
-          text: ` (${numberToWords(presentShares)}) lembar saham atau senilai `,
+          text: `${w(presentShares, "shares")} lembar saham atau senilai `,
           size: FONT_SIZE,
           font: FONT_FAMILY,
         }),
@@ -447,7 +451,7 @@ export const generateWordDoc = async (data: CompanyData) => {
           font: FONT_FAMILY,
         }),
         new TextRun({
-          text: ` (${numberToWords(totalValue)} rupiah)${!isCircular ? ` atau setara dengan ${attendingPercentage === 100 ? "100%" : `${attendingPercentage.toFixed(2)}%`} dari seluruh saham yang telah dikeluarkan oleh Perseroan` : ""}.`,
+          text: `${w(totalValue, "rupiah")}${!isCircular ? ` atau setara dengan ${attendingPercentage === 100 ? "100%" : `${attendingPercentage.toFixed(2)}%`} dari seluruh saham yang telah dikeluarkan oleh Perseroan` : ""}.`,
           size: FONT_SIZE,
           font: FONT_FAMILY,
         }),
@@ -494,7 +498,7 @@ export const generateWordDoc = async (data: CompanyData) => {
     children.push(
       createBodyParagraph({
         numbering: { reference: "decl-num", level: 0 },
-        text: `Bahwa sampai saat ini jumlah saham yang telah ditempatkan dan disetor penuh dalam perseroan sebanyak ${data.originalTotalShares.toLocaleString("id-ID")} (${numberToWords(data.originalTotalShares)}) lembar saham;`,
+        text: `Bahwa sampai saat ini jumlah saham yang telah ditempatkan dan disetor penuh dalam perseroan sebanyak ${data.originalTotalShares.toLocaleString("id-ID")}${w(data.originalTotalShares, "shares")} lembar saham;`,
       }),
       createBodyParagraph({
         numbering: { reference: "decl-num", level: 0 },
@@ -612,7 +616,7 @@ export const generateWordDoc = async (data: CompanyData) => {
     );
 
     const invitationDateText =
-      formatDateIndo(data.invitationDate) || "................";
+      formatDateRupst(data.invitationDate) || "................";
     children.push(
       createBodyParagraph({
         children: [
@@ -648,7 +652,7 @@ export const generateWordDoc = async (data: CompanyData) => {
     );
 
     const dayName = getDayNameIndo(data.signingDate);
-    const dateText = formatDateIndo(data.signingDate) || "................";
+    const dateText = formatDateRupst(data.signingDate) || "................";
 
     // Simple table-like layout using tabs or separate paragraphs
     children.push(
@@ -684,7 +688,7 @@ export const generateWordDoc = async (data: CompanyData) => {
             font: FONT_FAMILY,
           }),
           new TextRun({
-            text: formatDateIndo(data.establishmentDeedDate) || "..........",
+            text: formatDateRupst(data.establishmentDeedDate) || "..........",
             bold: true,
             size: FONT_SIZE,
             font: FONT_FAMILY,
@@ -713,7 +717,7 @@ export const generateWordDoc = async (data: CompanyData) => {
             font: FONT_FAMILY,
           }),
           new TextRun({
-            text: formatDateIndo(data.establishmentSkDate) || "..........",
+            text: formatDateRupst(data.establishmentSkDate) || "..........",
             bold: true,
             size: FONT_SIZE,
             font: FONT_FAMILY,
@@ -750,7 +754,7 @@ export const generateWordDoc = async (data: CompanyData) => {
                 font: FONT_FAMILY,
               }),
               new TextRun({
-                text: formatDateIndo(deed.date) || "..........",
+                text: formatDateRupst(deed.date) || "..........",
                 bold: true,
                 size: FONT_SIZE,
                 font: FONT_FAMILY,
@@ -785,7 +789,7 @@ export const generateWordDoc = async (data: CompanyData) => {
               ...(deed.skSpDocuments || []).map(
                 (doc, dIdx) =>
                   new TextRun({
-                    text: `${dIdx === 0 ? "dan " : ", serta "}${doc.type === "SK" ? "telah mendapat persetujuan dari Kementrian Hukum dan Hak Asasi Manusia Republik Indonesia tertanggal " : "telah dilaporkan ke Kementerian Hukum dan Hak Asasi Manusia Republik Indonesia tertanggal "} ${formatDateIndo(doc.date) || ".........."} Nomor ${doc.number || ".........."}`,
+                    text: `${dIdx === 0 ? "dan " : ", serta "}${doc.type === "SK" ? "telah mendapat persetujuan dari Kementrian Hukum dan Hak Asasi Manusia Republik Indonesia tertanggal " : "telah dilaporkan ke Kementerian Hukum dan Hak Asasi Manusia Republik Indonesia tertanggal "} ${formatDateRupst(doc.date) || ".........."} Nomor ${doc.number || ".........."}`,
                     bold: true,
                     size: FONT_SIZE,
                     font: FONT_FAMILY,
@@ -813,7 +817,7 @@ export const generateWordDoc = async (data: CompanyData) => {
     );
     children.push(
       createBodyParagraph({
-        text: `Ketua Rapat menyatakan bahwa dalam Rapat ini telah hadir dan/atau diwakili sebanyak ${presentShares.toLocaleString("id-ID")} (${numberToWords(presentShares)}) saham yang merupakan ${attendingPercentage === 100 ? "seluruh" : `${attendingPercentage.toFixed(2)}%`} dari total seluruh saham yang telah dikeluarkan oleh Perseroan.`,
+        text: `Ketua Rapat menyatakan bahwa dalam Rapat ini telah hadir dan/atau diwakili sebanyak ${presentShares.toLocaleString("id-ID")}${w(presentShares, "shares")} saham yang merupakan ${attendingPercentage === 100 ? "seluruh" : `${attendingPercentage.toFixed(2)}%`} dari total seluruh saham yang telah dikeluarkan oleh Perseroan.`,
       }),
     );
     children.push(
@@ -1004,7 +1008,7 @@ export const generateWordDoc = async (data: CompanyData) => {
       [
         createBodyParagraph({
           indent: { left: INDENT_STEP },
-          text: `Menyetujui untuk ${data.resolutions.capitalBaseDecrease ? "menurunkan" : "meningkatkan"} Modal Dasar Perseroan, yang semula sebesar Rp. ${formatInputNumber(data.originalCapitalBase)},- (${numberToWords(data.originalCapitalBase)} rupiah) terbagi atas ${formatInputNumber(originalShares)} (${numberToWords(originalShares)}) lembar saham, masing-masing saham bernilai nominal Rp. ${formatInputNumber(data.originalSharePrice)},- (${numberToWords(data.originalSharePrice)} rupiah), menjadi sebesar Rp. ${formatInputNumber(data.targetCapitalBase)},- (${numberToWords(data.targetCapitalBase)} rupiah) terbagi atas ${formatInputNumber(targetShares)} (${numberToWords(targetShares)}) lembar saham, masing-masing saham bernilai nominal Rp. ${formatInputNumber(data.originalSharePrice)},- (${numberToWords(data.originalSharePrice)} rupiah).`,
+          text: `Menyetujui untuk ${data.resolutions.capitalBaseDecrease ? "menurunkan" : "meningkatkan"} Modal Dasar Perseroan, yang semula sebesar Rp. ${formatInputNumber(data.originalCapitalBase)},-${w(data.originalCapitalBase, "rupiah")} terbagi atas ${formatInputNumber(originalShares)}${w(originalShares, "shares")} lembar saham, masing-masing saham bernilai nominal Rp. ${formatInputNumber(data.originalSharePrice)},-${w(data.originalSharePrice, "rupiah")}, menjadi sebesar Rp. ${formatInputNumber(data.targetCapitalBase)},-${w(data.targetCapitalBase, "rupiah")} terbagi atas ${formatInputNumber(targetShares)}${w(targetShares, "shares")} lembar saham, masing-masing saham bernilai nominal Rp. ${formatInputNumber(data.originalSharePrice)},-${w(data.originalSharePrice, "rupiah")}.`,
         }),
       ],
     );
@@ -1018,7 +1022,7 @@ export const generateWordDoc = async (data: CompanyData) => {
     const elements: any[] = [
       createBodyParagraph({
         indent: { left: INDENT_STEP },
-        text: `Menyetujui untuk ${data.resolutions.capitalPaidDecrease ? "menurunkan" : "meningkatkan"} Modal Ditempatkan dan Disetor dalam Perseroan, yang semula sebesar Rp. ${formatInputNumber(data.originalCapitalPaid)},- (${numberToWords(data.originalCapitalPaid)} rupiah) yang terbagi menjadi sejumlah ${formatInputNumber(originalShares)} (${numberToWords(originalShares)}) lembar saham, menjadi sebesar Rp. ${formatInputNumber(data.targetCapitalPaid)},- (${numberToWords(data.targetCapitalPaid)} rupiah) yang terbagi menjadi sejumlah ${formatInputNumber(targetShares)} (${numberToWords(targetShares)}) lembar saham.`,
+        text: `Menyetujui untuk ${data.resolutions.capitalPaidDecrease ? "menurunkan" : "meningkatkan"} Modal Ditempatkan dan Disetor dalam Perseroan, yang semula sebesar Rp. ${formatInputNumber(data.originalCapitalPaid)},-${w(data.originalCapitalPaid, "rupiah")} yang terbagi menjadi sejumlah ${formatInputNumber(originalShares)}${w(originalShares, "shares")} lembar saham, menjadi sebesar Rp. ${formatInputNumber(data.targetCapitalPaid)},-${w(data.targetCapitalPaid, "rupiah")} yang terbagi menjadi sejumlah ${formatInputNumber(targetShares)}${w(targetShares, "shares")} lembar saham.`,
       }),
     ];
 
@@ -1058,7 +1062,7 @@ export const generateWordDoc = async (data: CompanyData) => {
                 font: FONT_FAMILY,
               }),
               new TextRun({
-                text: `: ${formatInputNumber(dep.addedShares)} (${numberToWords(dep.addedShares)}) lembar saham atau senilai Rp. ${formatInputNumber(dep.addedValue)},- (${numberToWords(dep.addedValue)} rupiah);`,
+                text: `: ${formatInputNumber(dep.addedShares)}${w(dep.addedShares, "shares")} lembar saham atau senilai Rp. ${formatInputNumber(dep.addedValue)},-${w(dep.addedValue, "rupiah")};`,
                 size: FONT_SIZE,
                 font: FONT_FAMILY,
               }),
@@ -1110,7 +1114,7 @@ export const generateWordDoc = async (data: CompanyData) => {
                 font: FONT_FAMILY,
               }),
               new TextRun({
-                text: ` mengalihkan sejumlah ${t.sharesTransferred.toLocaleString("id-ID")} (${numberToWords(t.sharesTransferred)}) saham perseroan atau senilai Rp. ${formatInputNumber(t.sharesTransferred * data.originalSharePrice)},- (${numberToWords(t.sharesTransferred * data.originalSharePrice)} rupiah) kepada `,
+                text: ` mengalihkan sejumlah ${t.sharesTransferred.toLocaleString("id-ID")}${w(t.sharesTransferred, "shares")} saham perseroan atau senilai Rp. ${formatInputNumber(t.sharesTransferred * data.originalSharePrice)},-${w(t.sharesTransferred * data.originalSharePrice, "rupiah")} kepada `,
                 size: FONT_SIZE,
                 font: FONT_FAMILY,
               }),
@@ -1177,7 +1181,7 @@ export const generateWordDoc = async (data: CompanyData) => {
                 font: FONT_FAMILY,
               }),
               new TextRun({
-                text: ` (${numberToWords(s.sharesOwned)}) lembar saham atau senilai Rp. `,
+                text: `${w(s.sharesOwned, "shares")} lembar saham atau senilai Rp. `,
                 size: FONT_SIZE,
                 font: FONT_FAMILY,
               }),
@@ -1188,7 +1192,7 @@ export const generateWordDoc = async (data: CompanyData) => {
                 font: FONT_FAMILY,
               }),
               new TextRun({
-                text: `,- (${numberToWords(currentValue)} rupiah);`,
+                text: `,-${w(currentValue, "rupiah")};`,
                 size: FONT_SIZE,
                 font: FONT_FAMILY,
               }),
@@ -1389,7 +1393,7 @@ export const generateWordDoc = async (data: CompanyData) => {
   children.push(
     new Paragraph({
       alignment: "left" as any,
-      spacing: { after: 480, line: LINE_SPACING },
+      spacing: { after: 480, line: LINE_SPACING, lineRule: "auto" },
       children: [
         new TextRun({
           text: "TANDA TANGAN PARA PEMEGANG SAHAM,",
@@ -1408,7 +1412,7 @@ export const generateWordDoc = async (data: CompanyData) => {
         children.push(
           new Paragraph({
             alignment: "left" as any,
-            spacing: { after: 480, line: LINE_SPACING },
+            spacing: { after: 480, line: LINE_SPACING, lineRule: "auto" },
             children: [
               new TextRun({
                 text: "Meterai 10.000 + Cap",
@@ -1432,7 +1436,7 @@ export const generateWordDoc = async (data: CompanyData) => {
       children.push(
         new Paragraph({
           alignment: "left" as any,
-          spacing: { after: 0, line: LINE_SPACING },
+          spacing: { after: 0, line: LINE_SPACING, lineRule: "auto" },
           children: [
             new TextRun({
               text: (sh.isProxy && sh.proxyData && sh.proxyData.name)
@@ -1447,7 +1451,7 @@ export const generateWordDoc = async (data: CompanyData) => {
         }),
         new Paragraph({
           alignment: "left" as any,
-          spacing: { after: 1200, line: LINE_SPACING },
+          spacing: { after: 1200, line: LINE_SPACING, lineRule: "auto" },
           children: [
             new TextRun({
               text: "Tanggal: ....................",
@@ -1511,6 +1515,16 @@ export const generateWordDoc = async (data: CompanyData) => {
           ],
         },
       ],
+    },
+    styles: {
+      default: {
+        document: {
+          run: { font: FONT_FAMILY, size: FONT_SIZE },
+          paragraph: {
+            spacing: { line: LINE_SPACING, lineRule: "auto", before: 0, after: 0 },
+          },
+        },
+      },
     },
     sections: [
       {

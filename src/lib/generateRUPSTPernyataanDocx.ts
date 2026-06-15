@@ -20,7 +20,8 @@ import { generateRupstPernyataanBlocks, RunToken } from "./rupsTahunanPernyataan
 import { preprocessBlocksForWordBullets } from "./formatter";
 
 // ─── Constants (matching the DOCX exactly) ───────────────────────────────────
-const FONT = "Times New Roman";
+const FONT = "Century Gothic";
+const FONT_SIZE = 20;
 
 // Margins: top=1440, right=1800, bottom=1440, left=1800 (from <w:pgMar> in XML)
 const PAGE_MARGIN_LEFT = 1800;
@@ -358,7 +359,7 @@ export const generateRUPSTPernyataanDocx = async (data: CompanyData, returnBlob?
         document: {
           run: {
             font: FONT,
-            size: 22, // 11pt default body — DOCX uses ~22 (11pt) for body, title uses explicit 28
+            size: FONT_SIZE,
           },
           paragraph: {
             // line: 360 = exact 1.5× at 12pt; matches <w:docGrid w:linePitch="360"/>

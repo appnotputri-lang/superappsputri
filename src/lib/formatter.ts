@@ -159,7 +159,6 @@ export function formatAddress(address: string): string {
   
   // Replace No, no, No., no. with Nomor (case-insensitive)
   addr = addr.replace(/\bno\.?\b/gi, "Nomor");
-  addr = addr.replace(/Sukaresmi Nomor 12/i, "Sukaresmi Nomor 17");
   
   return addr;
 }

@@ -20,8 +20,8 @@ import { CompanyData } from "../../types";
 import { generateSirkulerLaporanBlocks, Block } from "./sirkulerLaporanContentBlocks";
 import { toTitleCase, preprocessBlocksForWordBullets } from "./formatter";
 
-const FONT_FAMILY = "Times New Roman";
-const FONT_SIZE = 24; // 12pt
+const FONT_FAMILY = "Arial";
+const FONT_SIZE = 22; 
 const LINE_SPACING = 360; // 1.5 spacing roughly
 
 const TAB_KANAN = { type: TabStopType.RIGHT, position: 8504, leader: LeaderType.NONE };
@@ -193,6 +193,16 @@ export const generateSirkulerLaporanDocx = async (data: CompanyData) => {
   }
 
   const doc = new Document({
+    styles: {
+      default: {
+        document: {
+          run: { font: FONT_FAMILY, size: FONT_SIZE },
+          paragraph: {
+            spacing: { line: LINE_SPACING, lineRule: "auto", before: 0, after: 0 },
+          },
+        },
+      },
+    },
     sections: [
       {
         properties: {

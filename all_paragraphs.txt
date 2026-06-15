@@ -1,0 +1,1524 @@
+Index: 0
+Text: "PENDIRIAN PERSEROAN TERBATAS"
+pPr: <w:pPr><w:keepNext/><w:widowControl w:val="0"/><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-851"/><w:jc w:val="center"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:b/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 1
+Text: "PT. GEMURUH MAJU MAKMUR"
+pPr: <w:pPr><w:keepNext/><w:widowControl w:val="0"/><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-851"/><w:jc w:val="center"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:b/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 2
+Text: "Nomor : 10"
+pPr: <w:pPr><w:keepNext/><w:widowControl w:val="0"/><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-851"/><w:jc w:val="center"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/><w:lang w:val="en-US"/></w:rPr></w:pPr>
+
+Index: 3
+Text: ""
+pPr: <w:pPr><w:keepNext/><w:widowControl w:val="0"/><w:spacing w:after="0" w:line="360" w:lineRule="auto"/><w:ind w:hanging="993"/><w:jc w:val="center"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 4
+Text: "Pada hari ini, Senin, delapan belas Mei dua ribu dua puluh enam (18-05-2026)."
+pPr: <w:pPr><w:widowControl w:val="0"/><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-851"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic" w:cs="Courier New"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 5
+Text: "Pukul 11.00 WIB (sebelas lewat nol-nol Waktu Indonesia Barat)."
+pPr: <w:pPr><w:widowControl w:val="0"/><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-851"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic" w:cs="Courier New"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 6
+Text: "Telah hadir di hadapan saya NUKANTINI PUTRI PARINCHA, Sarjana Hukum, Magister Kenotariatan, Notaris di Kabupaten Bandung Barat, dengan dihadiri oleh saksi-saksi yang saya, Notaris kenal dan akan disebutkan nama-namanya pada bagian akhir akta ini :"
+pPr: <w:pPr><w:widowControl w:val="0"/><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-851"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic" w:cs="Courier New"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 7
+Text: "Tuan VICTORY HENDRIO, lahir di Panjang Lampung, pada tanggal tiga belas Mei seribu"
+pPr: <w:pPr><w:pStyle w:val="ListParagraph"/><w:numPr><w:ilvl w:val="0"/><w:numId w:val="7"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic" w:cs="Tahoma"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/><w:lang w:val="id-ID"/></w:rPr></w:pPr>
+
+Index: 8
+Text: "sembilan ratus delapan puluh sembilan (13-05-1989), Warga Negara Indonesia, Karyawan Swasta, bertempat tinggal di Kota Tangerang, Ruko Metrogarden Jalan Parung Jaya Nomor 39 Unit A28, Rukun Tetangga 001, Rukun Warga 001, Kelurahan Parung Jaya, Kecamatan Karang Tengah, pemegang Kartu Tanda Penduduk Nomor 1971031305890003;"
+pPr: <w:pPr><w:pStyle w:val="ListParagraph"/><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic" w:cs="Tahoma"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/><w:lang w:val="id-ID"/></w:rPr></w:pPr>
+
+Index: 9
+Text: "Tuan DONI MALVINO, lahir di Jakarta, pada tanggal dua belas Juni seribu sembilan ratus"
+pPr: <w:pPr><w:pStyle w:val="ListParagraph"/><w:numPr><w:ilvl w:val="0"/><w:numId w:val="7"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic" w:cs="Tahoma"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/><w:lang w:val="id-ID"/></w:rPr></w:pPr>
+
+Index: 10
+Text: "delapan puluh dua (12-06-1982), Warga Negara Indonesia, Karyawan Swasta, bertempat tinggal di Jakarta Pusat, Jalan Petojo Enclek XIII/26, Rukun Tetangga 016, Rukun Warga 007, Kelurahan Petojo Selatan, Kecamatan Gambir, pemegang Kartu Tanda Penduduk Nomor 3171011206820002."
+pPr: <w:pPr><w:pStyle w:val="ListParagraph"/><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic" w:cs="Tahoma"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/><w:lang w:val="en-ID"/></w:rPr></w:pPr>
+
+Index: 11
+Text: "Untuk sementara berada di Kabupaten Bandung Barat;"
+pPr: <w:pPr><w:pStyle w:val="ListParagraph"/><w:numPr><w:ilvl w:val="0"/><w:numId w:val="42"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:line="480" w:lineRule="auto"/><w:ind w:left="-284" w:hanging="283"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic" w:cs="Arial"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 12
+Text: "Para Penghadap bertindak dalam kedudukannya tersebut di atas, menerangkan, bahwa dengan tidak mengurangi izin dari pihak yang berwenang telah sepakat dan setuju untuk"
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-851"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 13
+Text: "bersama-sama mendirikan suatu perseroan terbatas dengan anggaran dasar sebagaimana yang termuat dalam akta pendirian ini, (untuk selanjutnya cukup disingkat dengan “Anggaran Dasar”) sebagai berikut :"
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-851"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 14
+Text: "NAMA DAN TEMPAT KEDUDUKAN"
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="1985"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-851"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:b/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 15
+Text: "PASAL 1"
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="3119"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-851"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:b/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 16
+Text: "Perseroan Terbatas ini bernama Perseroan Terbatas :"
+pPr: <w:pPr><w:pStyle w:val="ListParagraph"/><w:numPr><w:ilvl w:val="0"/><w:numId w:val="27"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 17
+Text: ""
+pPr: <w:pPr><w:pStyle w:val="ListParagraph"/><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 18
+Text: "PT. GEMURUH MAJU MAKMUR"
+pPr: <w:pPr><w:pStyle w:val="ListParagraph"/><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="2127"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:b/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 19
+Text: "(selanjutnya dalam Anggaran Dasar ini cukup disingkat dengan “Perseroan”),"
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:pos="360"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-426"/><w:jc w:val="both"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 20
+Text: "berkedudukan di Jakarta Selatan, South Quarter, Jakarta, Jalan R.A. Kartini Nomor Kav 8 Tower A, 18th Floor, Rukun Tetangga 010, Rukun Warga 004, Cilandak Barat, Kecamatan Cilandak, Daerah Khusus Ibukota Jakarta, 12430;"
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:pos="360"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-426"/><w:jc w:val="both"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/><w:lang w:val="en-US"/></w:rPr></w:pPr>
+
+Index: 21
+Text: "Perseroan dapat membuka kantor cabang atau kantor perwakilan, baik di dalam"
+pPr: <w:pPr><w:pStyle w:val="ListParagraph"/><w:numPr><w:ilvl w:val="0"/><w:numId w:val="27"/></w:numPr><w:tabs><w:tab w:val="left" w:pos="360"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:line="480" w:lineRule="auto"/><w:ind w:left="-426" w:hanging="284"/><w:jc w:val="both"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 22
+Text: "maupun di luar wilayah Republik Indonesia sebagaimana ditetapkan oleh Direksi, dengan persetujuan Rapat Umum Pemegang Saham."
+pPr: <w:pPr><w:pStyle w:val="ListParagraph"/><w:tabs><w:tab w:val="left" w:pos="360"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:line="480" w:lineRule="auto"/><w:ind w:left="-426"/><w:jc w:val="both"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 23
+Text: "JANGKA WAKTU BERDIRINYA PERSEROAN"
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="1560"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-851"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:b/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 24
+Text: "PASAL 2"
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="3119"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-851"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:b/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 25
+Text: "Perseroan didirikan untuk jangka waktu yang tidak terbatas."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="3870"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-851"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 26
+Text: "MAKSUD DAN TUJUAN SERTA KEGIATAN USAHA"
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="1418"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-851"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:b/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 27
+Text: "PASAL 3"
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="3119"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-851"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:b/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 28
+Text: "Maksud dan Tujuan Perseroan adalah berusaha dalam bidang :"
+pPr: <w:pPr><w:pStyle w:val="ListParagraph"/><w:numPr><w:ilvl w:val="0"/><w:numId w:val="34"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 29
+Text: "Perdagangan;"
+pPr: <w:pPr><w:pStyle w:val="ListParagraph"/><w:numPr><w:ilvl w:val="0"/><w:numId w:val="42"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:line="480" w:lineRule="auto"/><w:ind w:left="-284" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/><w:lang w:val="id-ID"/></w:rPr></w:pPr>
+
+Index: 30
+Text: "Aktivitas Keuangan dan Asuransi;"
+pPr: <w:pPr><w:pStyle w:val="ListParagraph"/><w:numPr><w:ilvl w:val="0"/><w:numId w:val="42"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:line="480" w:lineRule="auto"/><w:ind w:left="-284" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/><w:lang w:val="id-ID"/></w:rPr></w:pPr>
+
+Index: 31
+Text: "Untuk mencapai maksud dan tujuan tersebut diatas, perseroan dapat melaksanakan"
+pPr: <w:pPr><w:pStyle w:val="ListParagraph"/><w:numPr><w:ilvl w:val="0"/><w:numId w:val="34"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/><w:lang w:val="id-ID"/></w:rPr></w:pPr>
+
+Index: 32
+Text: "kegiatan usaha sebagai berikut :"
+pPr: <w:pPr><w:pStyle w:val="ListParagraph"/><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/><w:lang w:val="id-ID"/></w:rPr></w:pPr>
+
+Index: 33
+Text: "47914 - Perdagangan Eceran Melalui Media Untuk Barang Campuran Sebagaimana"
+pPr: <w:pPr><w:pStyle w:val="ListParagraph"/><w:numPr><w:ilvl w:val="0"/><w:numId w:val="42"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:line="480" w:lineRule="auto"/><w:ind w:left="-284" w:hanging="283"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:b/><w:bCs/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/><w:lang w:val="id-ID"/></w:rPr></w:pPr>
+
+Index: 34
+Text: "Tersebut Dalam 47911 S.D. 47913;"
+pPr: <w:pPr><w:pStyle w:val="ListParagraph"/><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:line="480" w:lineRule="auto"/><w:ind w:left="-284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:b/><w:bCs/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/><w:lang w:val="id-ID"/></w:rPr></w:pPr>
+
+Index: 35
+Text: "Kelompok ini mencakup usaha perdagangan eceran berbagai jenis barang campuran sebagaimana tersebut dalam 47911 s.d. 47913 melalui pesanan (surat, telepon atau internet) dan barang akan dikirim kepada pembeli sesuai dengan barang yang diinginkan berdasarkan katalog, iklan, model, telepon, radio, televisi, internet, media massa dan sejenisnya."
+pPr: <w:pPr><w:pStyle w:val="ListParagraph"/><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:line="480" w:lineRule="auto"/><w:ind w:left="-284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/><w:lang w:val="id-ID"/></w:rPr></w:pPr>
+
+Index: 36
+Text: "47919 - Perdagangan Eceran Melalui Media Untuk Berbagai Macam Barang Lainnya"
+pPr: <w:pPr><w:pStyle w:val="ListParagraph"/><w:numPr><w:ilvl w:val="0"/><w:numId w:val="42"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:line="480" w:lineRule="auto"/><w:ind w:left="-284" w:hanging="283"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:b/><w:bCs/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/><w:lang w:val="id-ID"/></w:rPr></w:pPr>
+
+Index: 37
+Text: "Kelompok ini mencakup usaha perdagangan eceran berbagai barang lainnya melalui pesanan dan barang akan dikirim kepada pembeli sesuai dengan barang yang diinginkan berdasarkan katalog, model, telepon, tv, internet, media massa, dan sejenisnya."
+pPr: <w:pPr><w:pStyle w:val="ListParagraph"/><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:line="480" w:lineRule="auto"/><w:ind w:left="-284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/><w:lang w:val="id-ID"/></w:rPr></w:pPr>
+
+Index: 38
+Text: "66194 - Perusahaan Pemeringkat Efek."
+pPr: <w:pPr><w:pStyle w:val="ListParagraph"/><w:numPr><w:ilvl w:val="0"/><w:numId w:val="42"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:line="480" w:lineRule="auto"/><w:ind w:left="-284" w:hanging="283"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:b/><w:bCs/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/><w:lang w:val="id-ID"/></w:rPr></w:pPr>
+
+Index: 39
+Text: "Kelompok ini mencakup kegiatan usaha pihak yang memeringkat efek bersifat utang, sukuk, efek beragun aset atau efek lain yang dapat diperingkat serta pihak sebagai entitas (company rating), termasuk reksa dana dan dana investasi real estat berbentuk kontrak investasi kolektif. Pemeringkatan ini dilakukan untuk memberikan informasi kepada investor untuk mengetahui kemampuan suatu pihak untuk memenuhi kewajiban pembayaran secara penuh dan tepat waktu, yang dinyatakan dengan suatu sistem peringkat yang telah ditentukan."
+pPr: <w:pPr><w:pStyle w:val="ListParagraph"/><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:line="480" w:lineRule="auto"/><w:ind w:left="-284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/><w:lang w:val="id-ID"/></w:rPr></w:pPr>
+
+Index: 40
+Text: "M O D A L"
+pPr: <w:pPr><w:pStyle w:val="ListParagraph"/><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="2977"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:line="480" w:lineRule="auto"/><w:ind w:left="-851"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:b/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 41
+Text: "PASAL 4"
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="3119"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-851"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:b/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 42
+Text: "Modal Dasar Perseroan berjumlah Rp. 52.000.000,- (lima puluh dua juta rupiah), terbagi"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="3"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 43
+Text: "atas 1.040 (seribu empat puluh) lembar saham, masing-masing saham bernilai nominal Rp. 50.000,- (lima puluh ribu rupiah)."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 44
+Text: "Dari modal dasar tersebut telah ditempatkan dan disetor 25% (dua puluh lima persen)"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="3"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/><w:lang w:val="en-US"/></w:rPr></w:pPr>
+
+Index: 45
+Text: "atau sejumlah 260 (dua ratus enam puluh) lembar saham dengan nilai nominal seluruhnya sebesar Rp. 13.000.000,- (tiga belas juta rupiah), oleh Para Pendiri yang telah mengambil bagian saham dan rincian serta nilai nominal saham yang disebutkan pada bagian akhir sebelum penutup akta."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/><w:lang w:val="en-US"/></w:rPr></w:pPr>
+
+Index: 46
+Text: "Saham-saham yang masih dalam simpanan akan dikeluarkan oleh Perseroan menurut"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="3"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="270"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 47
+Text: "keperluan modal kerja Perseroan, dengan persetujuan Rapat Umum Pemegang Saham."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 48
+Text: "Para pemegang saham yang namanya tercatat dalam Daftar Pemegang Saham"
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 49
+Text: "mempunyai hak terlebih dahulu untuk mengambil bagian atas saham yang hendak dikeluarkan itu dalam jangka waktu 14 (empatbelas) hari sejak tanggal penawaran dilakukan dan masing-masing pemegang saham berhak mengambil bagian seimbang dengan jumlah saham yang mereka miliki (proporsional) baik terhadap saham yang menjadi bagiannya maupun terhadap sisa saham yang tidak diambil oleh pemegang"
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 50
+Text: "saham lainnya."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 51
+Text: "Apabila jangka waktu penawaran 14 (empatbelas) hari tersebut telah lewat dan ternyata masih ada sisa saham yang belum diambil bagian maka Direksi berhak menawarkan sisa"
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:pos="990"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 52
+Text: "saham tersebut kepada Pihak Lain."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:pos="990"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 53
+Text: "S A H A M"
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="3119"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-851"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:b/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 54
+Text: "PASAL 5"
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="3119"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-851"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:b/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 55
+Text: "Semua saham yang dikeluarkan oleh Perseroan adalah saham atas nama, dan harus"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="18"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 56
+Text: "sesuai dengan ketentuan perundang-undangan yang berlaku bagi perseroan."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 57
+Text: "Yang boleh memiliki dan mempergunakan hak atas saham hanyalah Warga Negara"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="18"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 58
+Text: "Indonesia atau Badan Hukum Indonesia."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 59
+Text: "Perseroan hanya mengakui seorang atau satu badan hukum sebagai pemilik satu saham."
+pPr: <w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="18"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 60
+Text: "Apabila saham karena sebab apapun menjadi milik beberapa orang, maka mereka yang"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="18"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 61
+Text: "memiliki bersama-sama itu diwajibkan untuk menunjuk seorang diantara mereka atau seorang lain sebagai kuasa mereka bersama dan yang ditunjuk atau diberi kuasa itu sajalah yang berhak mempergunakan hak yang diberikan oleh hukum atas saham tersebut."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 62
+Text: "Selama ketentuan dalam ayat (3) pasal ini belum dilaksanakan, maka para pemegang"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="18"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 63
+Text: "saham tersebut tidak berhak mengeluarkan suara dalam Rapat Umum Pemegang"
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 64
+Text: "Saham, sedangkan pembayaran dividen untuk saham itu ditangguhkan."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 65
+Text: "Jika dikeluarkan surat saham, maka untuk setiap surat saham diberi sehelai surat saham."
+pPr: <w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="18"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 66
+Text: "Surat Kolektif saham dapat dikeluarkan sebagai bukti pemilikan 2 (dua) atau lebih saham"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="18"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 67
+Text: "yang dimiliki oleh seorang pemegang saham."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 68
+Text: "Pada surat saham harus dicantumkan sekurang-kurangnya :"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="18"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 69
+Text: "Nama dan alamat pemegang saham;"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="23"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-284" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 70
+Text: "Nomor surat saham;"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="23"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-284" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 71
+Text: "Nilai nominal saham;"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="23"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-284" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 72
+Text: "Tanggal pengeluaran surat saham."
+pPr: <w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="23"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-284" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 73
+Text: "Pada surat kolektif saham harus dicantumkan sekurang-kurangnya :"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="18"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 74
+Text: "nama dan alamat pemegang saham;"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="25"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-284" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 75
+Text: "nomor surat kolektif saham;"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="25"/></w:numPr><w:tabs><w:tab w:val="left" w:pos="630"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-284" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 76
+Text: "nomor surat saham dan jumlah saham;"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="25"/></w:numPr><w:tabs><w:tab w:val="left" w:pos="630"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-284" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 77
+Text: "nilai nominal saham;"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="25"/></w:numPr><w:tabs><w:tab w:val="left" w:pos="630"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-284" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 78
+Text: "tanggal pengeluaran surat kolektif saham."
+pPr: <w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="25"/></w:numPr><w:tabs><w:tab w:val="left" w:pos="630"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-284" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 79
+Text: "Surat saham dan surat kolektif saham harus ditandatangani oleh Direksi dan Dewan"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="18"/></w:numPr><w:tabs><w:tab w:val="left" w:pos="990"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 80
+Text: "Komisaris Perseroan."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:pos="990"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 81
+Text: "Dalam hal perseroan tidak menerbitkan surat saham, pemilikan saham dapat"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="18"/></w:numPr><w:tabs><w:tab w:val="left" w:pos="990"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 82
+Text: "dibuktikan dengan surat daftar pemegang saham yang dikeluarkan oleh perseroan."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:pos="990"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 83
+Text: "PENGGANTI SURAT SAHAM"
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="2127"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-851"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:b/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 84
+Text: "PASAL 6"
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="2977"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-851"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:b/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 85
+Text: "Jika surat saham rusak atau tidak dapat dipakai, atas permintaan mereka yang"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="12"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 86
+Text: "berkepentingan, Direksi akan mengeluarkan surat saham pengganti, setelah surat saham"
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 87
+Text: "yang rusak atau tidak dapat dipakai tersebut diserahkan kembali kepada Direksi."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 88
+Text: "Surat saham sebagaimana dimaksud dalam ayat (1) harus dimusnahkan dan dibuat berita"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="12"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 89
+Text: "acara oleh Direksi untuk dilaporkan dalam Rapat Umum Pemegang Saham berikutnya."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 90
+Text: "Jika surat saham hilang, atas permintaan mereka yang berkepentingan, Direksi"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="12"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 91
+Text: "mengeluarkan surat saham pengganti setelah menurut pendapat Direksi kehilangan tersebut cukup dibuktikan dan disertai jaminan yang dipandang perlu oleh Direksi untuk tiap peristiwa yang khusus."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 92
+Text: "Setelah surat saham pengganti dikeluarkan, surat saham yang dinyatakan hilang tersebut,"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="12"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 93
+Text: "tidak berlaku lagi terhadap Perseroan."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 94
+Text: "Semua biaya yang berhubungan dengan pengeluaran surat saham pengganti ditanggung"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="12"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 95
+Text: "oleh pemegang saham yang berkepentingan."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 96
+Text: "Ketentuan sebagaimana dimaksud pada ayat (1) sampai dengan ayat (5) mutatis"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="12"/></w:numPr><w:tabs><w:tab w:val="left" w:pos="360"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 97
+Text: "mutandis berlaku bagi pengeluaran surat kolektif saham pengganti."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:pos="360"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 98
+Text: "PEMINDAHAN HAK ATAS SAHAM"
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="1985"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-851"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:b/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 99
+Text: "PASAL 7"
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="3119"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-851"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:b/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 100
+Text: "Pemindahan hak atas saham, harus berdasarkan akta pemindahan hak yang"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="6"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 101
+Text: "ditandatangani oleh yang memindahkan dan yang menerima pemindahan atau wakil mereka yang sah."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 102
+Text: "Pemindahan hak atas saham hanya diperkenankan dengan persetujuan Rapat Umum"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="6"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 103
+Text: "Pemegang Saham."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 104
+Text: "Pemegang saham yang hendak memindahkan hak atas saham, harus mengajukan"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="6"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 105
+Text: "Permohonan secara tertulis tentang maksudnya kepada Rapat Umum Pemegang Saham melalui Direksi."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 106
+Text: "Rapat Umum Pemegang Saham wajib memberikan persetujuannya atau menolak"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="6"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 107
+Text: "permohonan sebagaimana dimaksud ayat (3) pasal ini secara tertulis dalam jangka waktu paling lama 90 (sembilanpuluh) hari kerja terhitung sejak diterimanya permohonan."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 108
+Text: "Dalam hal jangka waktu sebagaimana dimaksud pada ayat (4) pasal ini telah lewat,"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="6"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 109
+Text: "dan dari Rapat Umum Pemegang Saham tidak memberikan pernyataan tertulis, maka permohonan atas pemindahan hak atas saham tersebut dianggap disetujui."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 110
+Text: "Pemindahan hak atas saham harus mendapat persetujuan dari instansi yang berwenang,"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="6"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 111
+Text: "jika peraturan perundang-undangan mensyaratkan hal tersebut."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 112
+Text: "Mulai hari panggilan Rapat Umum Pemegang Saham sampai dengan hari dilaksanakan"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="12"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 113
+Text: "Rapat Umum Pemegang Saham pemindahan hak atas saham tidak diperkenankan."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 114
+Text: "Apabila karena warisan, perkawinan atau sebab lain saham tidak lagi menjadi milik"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="12"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 115
+Text: "warga negara Indonesia, atau badan hukum Indonesia, maka dalam jangka waktu 1"
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 116
+Text: "(satu) tahun orang atau badan hukum yang bersangkutan wajib memindahkan hak atas sahamnya kepada Warga Negara Indonesia atau badan hukum Indonesia, sesuai"
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 117
+Text: "ketentuan Anggaran Dasar."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 118
+Text: "RAPAT UMUM PEMEGANG SAHAM"
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="1985"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-851"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:b/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 119
+Text: "PASAL 8"
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="3119"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-851"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:b/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 120
+Text: "Rapat Umum Pemegang Saham yang selanjutnya disebut juga RUPS adalah :"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="1"/><w:numId w:val="25"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 121
+Text: "Rapat Umum Pemegang Saham Tahunan;"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="1"/><w:numId w:val="15"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-284" w:hanging="270"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 122
+Text: "Rapat Umum Pemegang Saham lainnya, yang dalam Anggaran Dasar ini disebut"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="1"/><w:numId w:val="15"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-284" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 123
+Text: "juga Rapat Umum Pemegang Saham Luar Biasa."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 124
+Text: "Istilah Rapat Umum Pemegang Saham dalam Anggaran Dasar ini berarti keduanya,"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="1"/><w:numId w:val="25"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="270"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 125
+Text: "yaitu :"
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 126
+Text: "Rapat Umum Pemegang Saham tahunan dan Rapat Umum Pemegang Saham luar biasa kecuali dengan tegas ditentukan lain."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 127
+Text: "Dalam Rapat Umum Pemegang Saham tahunan :"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="1"/><w:numId w:val="25"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 128
+Text: "Direksi menyampaikan :"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="1"/><w:numId w:val="19"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-284" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 129
+Text: "Laporan tahunan yang telah ditelaah oleh Dewan Komisaris untuk mendapat"
+pPr: <w:pPr><w:pStyle w:val="ListParagraph"/><w:numPr><w:ilvl w:val="0"/><w:numId w:val="5"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:line="480" w:lineRule="auto"/><w:ind w:left="0" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 130
+Text: "persetujuan Rapat Umum Pemegang Saham;"
+pPr: <w:pPr><w:pStyle w:val="ListParagraph"/><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:line="480" w:lineRule="auto"/><w:ind w:left="0"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 131
+Text: "Laporan keuangan untuk mendapat pengesahan Rapat."
+pPr: <w:pPr><w:pStyle w:val="ListParagraph"/><w:numPr><w:ilvl w:val="0"/><w:numId w:val="5"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:line="480" w:lineRule="auto"/><w:ind w:left="0" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 132
+Text: "Ditetapkan penggunaan laba, jika Perseroan mempunyai saldo laba yang positif."
+pPr: <w:pPr><w:pStyle w:val="ListParagraph"/><w:numPr><w:ilvl w:val="0"/><w:numId w:val="19"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:line="480" w:lineRule="auto"/><w:ind w:left="-284" w:hanging="283"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 133
+Text: "Diputuskan mata acara Rapat Umum Pemegang Saham lainnya yang telah diajukan"
+pPr: <w:pPr><w:pStyle w:val="ListParagraph"/><w:numPr><w:ilvl w:val="0"/><w:numId w:val="19"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:line="480" w:lineRule="auto"/><w:ind w:left="-284" w:hanging="283"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 134
+Text: "sebagaimana mestinya dengan memperhatikan Ketentuan Anggaran Dasar."
+pPr: <w:pPr><w:pStyle w:val="ListParagraph"/><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:line="480" w:lineRule="auto"/><w:ind w:left="-284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 135
+Text: "Persetujuan laporan tahunan dan pengesahan laporan keuangan oleh Rapat Umum"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="1"/><w:numId w:val="25"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="270"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 136
+Text: "Pemegang Saham tahunan berarti memberikan pelunasan dan pembebasan tanggung"
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 137
+Text: "jawab sepenuhnya kepada anggota Direksi dan Dewan Komisaris atas pengurusan dan pengawasan yang telah dijalankan selama tahun buku yang lalu, sejauh tindakan tersebut tercermin dalam Laporan Tahunan dan Laporan Keuangan."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 138
+Text: "Rapat Umum Pemegang Saham Luar Biasa dapat diselenggarakan sewaktu-waktu"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="1"/><w:numId w:val="25"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="270"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 139
+Text: "berdasarkan kebutuhan untuk membicarakan dan memutuskan mata acara rapat kecuali"
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 140
+Text: "mata acara rapat yang dimaksud pada ayat (3) huruf a dan huruf b pasal ini, dengan memperhatikan peraturan perundang-undangan dan Anggaran Dasar."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 141
+Text: "TEMPAT, PEMANGGILAN DAN PIMPINAN RAPAT UMUM"
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="1134"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-851"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:b/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 142
+Text: "PEMEGANG SAHAM"
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="2552"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-851"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:b/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 143
+Text: "PASAL 9"
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="3119"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-851"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:b/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 144
+Text: "Rapat Umum Pemegang Saham diadakan di tempat kedudukan Perseroan."
+pPr: <w:pPr><w:numPr><w:ilvl w:val="3"/><w:numId w:val="15"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 145
+Text: "Rapat Umum Pemegang Saham diselenggarakan dengan melakukan pemanggilan"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="3"/><w:numId w:val="15"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 146
+Text: "terlebih dahulu kepada para pemegang saham dengan surat tercatat dan/atau dengan"
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 147
+Text: "iklan dalam surat kabar."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 148
+Text: "Pemanggilan dilakukan paling lambat 14 (empatbelas) hari kerja sebelum tanggal"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="3"/><w:numId w:val="15"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 149
+Text: "diselenggarakan Rapat Umum Pemegang Saham dengan tidak memperhitungkan tanggal panggilan dan tanggal Rapat Umum Pemegang Saham diadakan."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 150
+Text: "Dalam pemanggilan itu harus dicantumkan acara, waktu dan tempat penyelenggaraan"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="3"/><w:numId w:val="15"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 151
+Text: "Rapat Umum Pemegang Saham."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 152
+Text: "Dalam hal pemanggilan tidak sesuai dengan ketentuan ayat 2, 3 dan 4 diatas, keputusan"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="3"/><w:numId w:val="15"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 153
+Text: "Rapat Umum Pemegang Saham tetap sah jika semua pemegang saham dengan hak"
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 154
+Text: "suara hadir atau diwakili oleh Rapat Umum Pemegang Saham dan keputusan tersebut disetujui dengan suara bulat."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 155
+Text: "Rapat Umum Pemegang Saham dipimpin oleh Direktur Utama."
+pPr: <w:pPr><w:numPr><w:ilvl w:val="3"/><w:numId w:val="15"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 156
+Text: "Jika Direktur Utama tidak ada atau berhalangan karena sebab apapun yang tidak perlu"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="3"/><w:numId w:val="15"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 157
+Text: "dibuktikan kepada pihak ketiga, Rapat Umum Pemegang Saham dipimpin oleh seorang anggota Direktur lainnya."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 158
+Text: "Jika semua Direktur tidak hadir atau berhalangan karena sebab apapun yang tidak perlu"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="3"/><w:numId w:val="15"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 159
+Text: "dibuktikan kepada pihak ketiga, Rapat Umum Pemegang Saham dipimpin oleh salah"
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 160
+Text: "seorang anggota Dewan Komisaris."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 161
+Text: "Jika semua anggota Dewan Komisaris tidak hadir atau berhalangan karena sebab apapun"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="3"/><w:numId w:val="15"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 162
+Text: "yang tidak perlu dibuktikan kepada pihak ketiga, Rapat Umum Pemegang Saham dipimpin oleh seorang yang dipilih oleh dan diantara mereka yang hadir dalam rapat."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 163
+Text: "Rapat Umum Pemegang Saham dapat juga diselenggarakan melalui media video"
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 164
+Text: "konferensi atau media elektronik lainnya yang memungkinkan semua peserta Rapat Umum Pemegang Saham saling melihat dan mendengar secara langsung serta"
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 165
+Text: "berpartisipasi dalam rapat, dengan persyaratan kourum dan persyaratan pengambilan keputusan adalah persyaratan sebagaimana diatur dalam ketentuan peraturan perundang-undangan yang berlaku bagi perseroan atau Anggaran Dasar."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 166
+Text: "KUORUM, HAK SUARA, DAN KEPUTUSAN RAPAT UMUM"
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="851"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-851"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:b/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 167
+Text: "PEMEGANG SAHAM"
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="2552"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-851"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:b/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 168
+Text: "PASAL10"
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="3119"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-851"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:b/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 169
+Text: "Rapat Umum Pemegang Saham dapat dilangsungkan apabila kuorum kehadiransesuai"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="1"/><w:numId w:val="23"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 170
+Text: "dengan ketentuan Pasal 86, Pasal 88, dan Pasal 89 Undang undang Perseroan Terbatas"
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 171
+Text: "(UUPT) telah dipenuhi."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 172
+Text: "Rapat Umum Pemegang Saham dapat mengambil keputusan sesuai dengan ketentuan"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="1"/><w:numId w:val="23"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 173
+Text: "Pasal 87, Pasal 88, dan Pasal 89 Undang-undang Perseroan Terbatas (UUPT)."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 174
+Text: "Pemungutan suara mengenai diri orang dilakukan dengan surat tertutup yang tidak"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="1"/><w:numId w:val="23"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 175
+Text: "ditandatangani dan mengenai hal lain secara lisan, kecuali apabila ketua Rapat Umum Pemegang Saham menentukan lain tanpa ada keberatan dari pemegang saham yang"
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 176
+Text: "hadir dalam Rapat Umum Pemegang Saham."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 177
+Text: "Suara blanko atau suara yang tidak sah dianggap tidak ada dan tidak dihitung dalam"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="1"/><w:numId w:val="23"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="270"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 178
+Text: "menentukan jumlah suara yang dikeluarkan dalam Rapat Umum Pemegang Saham."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 179
+Text: "Pemegang saham dapat mengambil keputusan di luar Rapat Umum Pemegang Saham"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="1"/><w:numId w:val="23"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="270"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 180
+Text: "dan dilakukan sesuai dengan ketentuan Pasal 91 Undang-undang Perseroan Terbatas (UUPT)."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 181
+Text: "D I R E K S I"
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="3119"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-851"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:b/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 182
+Text: "PASAL 11"
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="3119"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-851"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:b/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 183
+Text: "Perseroan diurus dan dipimpin oleh Direksi yang terdiri dari seorang anggota Direksi"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="9"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 184
+Text: "atau lebih."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 185
+Text: "2.Jika diangkat lebih dari seorang Anggota Direksi, maka seorang diantaranya menjabat"
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 186
+Text: "sebagai Direktur Utama."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 187
+Text: "3.Anggota Direksi diangkat oleh Rapat Umum Pemegang Saham, untuk jangka waktu"
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 188
+Text: "5 (lima) tahun dengan tidak mengurangi hak Rapat Umum Pemegang Saham untuk memberhentikannya sewaktu-waktu."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 189
+Text: "Jika oleh sebab apapun suatu jabatan anggota Direksi lowong, maka dalam jangka"
+pPr: <w:pPr><w:pStyle w:val="ListParagraph"/><w:numPr><w:ilvl w:val="0"/><w:numId w:val="3"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 190
+Text: "waktu 30 (tigapuluh) hari sejak terjadi lowongan harus diselenggarakan Rapat Umum Pemegang Saham, untuk mengisi lowongan itu dengan memperhatikan ketentuan peraturan perundang-undangan dan Anggaran Dasar."
+pPr: <w:pPr><w:pStyle w:val="ListParagraph"/><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 191
+Text: ""
+pPr: <w:pPr><w:pStyle w:val="ListParagraph"/><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:line="480" w:lineRule="auto"/><w:ind w:left="-709"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 192
+Text: "Jika oleh suatu sebab apapun semua jabatan anggota Direksi lowong, Untuk sementara"
+pPr: <w:pPr><w:pStyle w:val="ListParagraph"/><w:numPr><w:ilvl w:val="0"/><w:numId w:val="3"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 193
+Text: "Perseroan diurus oleh anggota Dewan Komisaris yang ditunjuk oleh rapat Dewan Komisaris."
+pPr: <w:pPr><w:pStyle w:val="ListParagraph"/><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 194
+Text: "Anggota direksi berhak mengundurkan diri dari jabatannya dengan memberitahukan"
+pPr: <w:pPr><w:pStyle w:val="ListParagraph"/><w:numPr><w:ilvl w:val="0"/><w:numId w:val="3"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 195
+Text: "secara tertulis kepada Perseroan paling lambat 30 (tigapuluh) hari kerja sebelum tanggal pengunduran dirinya."
+pPr: <w:pPr><w:pStyle w:val="ListParagraph"/><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 196
+Text: "7.Jabatan anggota Direksi berakhir, dalam hal:"
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 197
+Text: "Mengundurkan diri sesuai ketentuan pada ayat (6);"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="1"/><w:numId w:val="28"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-284" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 198
+Text: "Tidak lagi memenuhi persyaratan peraturan perundang-undangan;"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="1"/><w:numId w:val="28"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-284" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 199
+Text: "Meninggal dunia;"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="1"/><w:numId w:val="28"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-284" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 200
+Text: "Diberhentikan berdasarkan keputusan Rapat Umum Pemegang Saham."
+pPr: <w:pPr><w:numPr><w:ilvl w:val="1"/><w:numId w:val="28"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-284" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 201
+Text: "TUGAS DAN WEWENANG DIREKSI"
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="1843"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-851"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:b/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 202
+Text: "PASAL 12"
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="3119"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-851"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:b/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 203
+Text: "Direksi berhak mewakili Perseroan didalam dan diluar Pengadilan tentang segala hal dan"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="4"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 204
+Text: "dalam segala kejadian, mengikat Perseroan dengan pihak lain dan pihak lain dengan Perseroan, serta menjalankan segala tindakan, baik mengenai kepengurusan maupun kepemilikan, dengan pembatasan bahwa untuk :"
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 205
+Text: "Meminjam atau meminjamkan uang atas nama Perseroan (tidak termasuk mengambil"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="1"/><w:numId w:val="8"/></w:numPr><w:tabs><w:tab w:val="left" w:pos="1170"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-284" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 206
+Text: "uang perseroan di Bank);"
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:pos="1170"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 207
+Text: "Mendirikan suatu usaha atau turut serta pada perusahaan lain baik didalam maupun"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="8"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-284" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 208
+Text: "di luar negeri;"
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 209
+Text: "Menyewakan, mejaminkan atau menjual asset perusahaan, harus dengan persetujuan"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="8"/></w:numPr><w:tabs><w:tab w:val="left" w:pos="1170"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-284" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 210
+Text: "dari Rapat Dewan Komisaris."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:pos="1170"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 211
+Text: "Perbuatan hukum untuk mengalihkan, melepaskan hak atas tanah, menjadikan jaminan"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="4"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 212
+Text: "hutang seluruh atau sebagian besar harta kekayaan Perseroan dalam satu tahun buku, baik dalam 1 (satu) transaksi atau beberapa transaksi yang berdiri sendiri ataupun yang berkaitan satu sama lain harus mendapat persetujuan Rapat Umum Pemegang Saham yang dihadiri atau diwakili para pemegang saham yang memiliki paling sedikit ¾  (tiga per empat) bagian dari jumlah seluruh saham dengan hak suara yang sah dan disetujui oleh paling sedikit ¾  (tiga per empat) bagian dari jumlah seluruh suara yang dikeluarkan secara sah dalam rapat."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 213
+Text: "Dalam hal kourum kehadiran sebagaimana dimaksud dalam ayat 2 tidak tercapai,"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="4"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 214
+Text: "dapat diadakan Rapat Umum Pemegang Saham Kedua."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 215
+Text: "Rapat Umum Pemegang Saham Kedua sebagaimana dimaksud pada ayat 3 Sah dan"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="4"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 216
+Text: "berhak mengambil keputusan jika rapat paling sedikit 2/3 (dua per tiga) bagian dari jumlah seluruh saham dengan hak suara hadir atau diwakili dalam Rapat Umum Pemegang Saham dan Keputusan adalah sah jika disetujui oleh paling sedikit ¾  (tiga per empat) bagian dari jumlah suara yang dikeluarkan kecuali Anggaran Dasar  menentukan kourum kehadiran/atau ketentuan tentang persyaratan pengambilan"
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 217
+Text: "keputusan Rapat Umum Pemegang Saham yang lebih besar."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 218
+Text: "a.  Direktur Utama berhak dan berwenang bertindak untuk dan atas nama Direksi serta"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="4"/></w:numPr><w:tabs><w:tab w:val="left" w:pos="360"/><w:tab w:val="left" w:pos="1170"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 219
+Text: "mewakili Perseroan."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:pos="-284"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 220
+Text: "b.Dalam hal Direktur Utama tidak hadir atau berhalangan karena sebab apapun"
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:pos="360"/><w:tab w:val="left" w:pos="1170"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-284" w:hanging="283"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 221
+Text: "juga, yang tidak perlu dibuktikan kepada pihak ketiga, maka salah seorang"
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:pos="360"/><w:tab w:val="left" w:pos="1170"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 222
+Text: "anggota Direksi lainnya berhak dan berwenang bertindak untuk dan atas  nama"
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:pos="360"/><w:tab w:val="left" w:pos="1170"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 223
+Text: "Direksi serta mewakili Perseroan."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:pos="360"/><w:tab w:val="left" w:pos="1170"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 224
+Text: "RAPAT DIREKSI"
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="2835"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-851"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:b/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 225
+Text: "PASAL 13"
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="3119"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-851"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:b/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 226
+Text: "Penyelenggaraan Rapat Direksi dapat dilakukan setiap waktu apabila dipandang perlu :"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="30"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 227
+Text: "Oleh seorang atau lebih anggota Direksi;"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="1"/><w:numId w:val="10"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-284" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 228
+Text: "Atas permintaan tertulis dari seorang atau lebih anggota Dewan Komisaris, atau;"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="1"/><w:numId w:val="10"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-284" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 229
+Text: "Atas permintaan tertulis dari 1 (satu) orang atau lebih pemegang saham yang"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="1"/><w:numId w:val="10"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-284" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 230
+Text: "bersama-Sama mewakili 1/10 (satu per sepuluh) atau lebih dari jumlah seluruh saham dengan hak suara."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 231
+Text: "Pemanggilan Rapat Direksi dilakukan oleh anggota Direksi yang berhak bertindak"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="9"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 232
+Text: "untuk dan atas nama Direksi menurut ketentuan Pasal 11 Anggaran Dasar."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 233
+Text: ""
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-426"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 234
+Text: "Panggilan Rapat Direksi dilakukan dengan surat tercatat yang disampaikan langsung"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="9"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 235
+Text: "kepada setiap anggota Direksi dengan mendapat tanda terima paling singkat 3 (tiga) hari sebelum rapat diadakan, tanpa memperhitungkan tanggal panggilan dan tanggal rapat."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 236
+Text: "Panggilan Rapat Direksi harus mencantumkan mata acara, tanggal, waktu dan tempat"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="9"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 237
+Text: "rapat."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 238
+Text: "Rapat Direksi diadakan ditempat kedudukan Perseroan atau tempat Kegiatan Usaha"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="9"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 239
+Text: "Perseroan. Apabila semua anggota Direksi hadir atau diwakili, pemanggilan terlebih dahulu tersebut tidak disyaratkan dan Rapat Direksi dapat diadakan dimanapun juga"
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 240
+Text: "dan berhak mengambil keputusan yang sah serta mengikat."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 241
+Text: "Rapat Direksi dipimpin oleh Direktur Utama dalam hal Direktur Utama tidak dapat hadir"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="9"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 242
+Text: "atau berhalangan yang tidak perlu dibuktikan kepada Pihak Ketiga, Rapat Direksi dipimpin oleh seorang anggota Direksi yang dipilih oleh dan dari antara anggota Direksi yang hadir."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 243
+Text: "Seorang anggota Direksi dapat diwakili dalam Rapat Direksi hanya oleh anggota Direksi"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="9"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 244
+Text: "lainnya berdasarkan surat kuasa."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 245
+Text: "Rapat Direksi adalah sah dan berhak mengambil keputusan yang mengikat jika lebih dari ½"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="9"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 246
+Text: "(satu per dua) dari jumlah anggota Direksi hadir atau diwakili dalam rapat."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 247
+Text: "Keputusan Rapat Direksi harus diambil berdasarkan musyawarah untuk mufakat."
+pPr: <w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="9"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 248
+Text: "Dalam hal keputusan berdasarkan musyawarah untuk mufakat tidak tercapai maka keputusan diambil dengan pemungutan suara berdasarkan suara setuju paling sedikit lebih dari ½ (satu per dua) dari jumlah suara yang dikeluarkan dalam rapat."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 249
+Text: "Apabila suara yang setuju dan yang tidak setuju berimbang, Ketua Rapat Direksi yang"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="9"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 250
+Text: "akan menentukan."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 251
+Text: "Rapat Direksi dapat juga dilakukan melalui media video konferensi atau sarana media"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="9"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 252
+Text: "elektronik lainnya yang memungkinkan semua peserta rapat Direksi saling melihat dan mendengar secara langsung serta berpartisipasi dalam rapat, dengan persyaratan kourum dan persyaratan pengambilan keputusan adalah sesuai dengan persyaratan sebagaimana diatur dalam Anggaran Dasar."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 253
+Text: ""
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-426"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 254
+Text: "a.Setiap anggota Direksi yang hadir dalam Rapat berhak mengeluarkan 1 (satu) suara"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="9"/></w:numPr><w:tabs><w:tab w:val="left" w:pos="-284"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 255
+Text: "dan tambahan 1 (satu) suara untuk setiap anggota Direksi lain yang diwakilinya."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:pos="-284"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 256
+Text: "Pemungutan suara mengenai diri orang dilakukan dengan surat tertutup tanpa"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="10"/></w:numPr><w:tabs><w:tab w:val="left" w:pos="142"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-284" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 257
+Text: "tanda tangan sedangkan mengenai hal-hal lain  dilakukan secara lisan kecuali"
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:pos="142"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 258
+Text: "ketua rapat menentukan lain tanpa ada keberatan dari yang hadir."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:pos="142"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 259
+Text: "Suara blanko dan suara yang tidak sah dianggap tidak dikeluarkan secara sah dan"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="10"/></w:numPr><w:tabs><w:tab w:val="left" w:pos="142"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-284" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 260
+Text: "dianggap tidak ada serta tidak dihitung dalam menentukan jumlah suara yang"
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:pos="142"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 261
+Text: "dikeluarkan."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:pos="142"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 262
+Text: "Direksi dapat juga mengambil keputusan yang sah tanpa mengadakan Rapat Direksi,"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="9"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 263
+Text: "dengan ketentuan semua anggota Direksi telah diberitahu secara tertulis dan semua anggota Direksi memberikan persetujuan mengenai usul yang diajukan secara tertulis dengan menandatangani persetujuan tersebut."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 264
+Text: "Keputusan yang diambil dengan cara demikian mempunyai kekuatan yang sama dengan keputusan yang diambil dengan sah dalam Rapat Direksi."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 265
+Text: "DEWAN KOMISARIS"
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="2552"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-851"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:b/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 266
+Text: "Pasal 14"
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="3119"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-851"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:b/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 267
+Text: "Dewan Komisaris terdiri dari seorang atau lebih anggota Komisaris, apabila diangkat lebih"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="22"/></w:numPr><w:tabs><w:tab w:val="clear" w:pos="720"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 268
+Text: "dari seorang anggota Dewan Komisaris, maka seorang di antaranya dapat diangkat sebagai Komisaris  Utama."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 269
+Text: "Yang boleh diangkat sebagai anggota Komisaris hanya Warga Negara Indonesia yang"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="22"/></w:numPr><w:tabs><w:tab w:val="clear" w:pos="720"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/><w:lang w:val="en-US"/></w:rPr></w:pPr>
+
+Index: 270
+Text: "menurut persyaratan yang ditentukan peraturan perundang-undangan yang berlaku."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:pos="720"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/><w:lang w:val="en-US"/></w:rPr></w:pPr>
+
+Index: 271
+Text: "Anggota Dewan Komisaris diangkat oleh Rapat Umum Pemegang Saham untuk jangka"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="22"/></w:numPr><w:tabs><w:tab w:val="clear" w:pos="720"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 272
+Text: "waktu 5 (lima) tahun, dengan tidak  mengurangi hak Rapat Umum Pemegang Saham"
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 273
+Text: "untuk  memberhentikan sewaktu-waktu."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 274
+Text: "Jika oleh suatu sebab jabatan anggota Dewan Komisaris kosong, maka dalam jangka"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="22"/></w:numPr><w:tabs><w:tab w:val="clear" w:pos="720"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/><w:lang w:val="en-US"/></w:rPr></w:pPr>
+
+Index: 275
+Text: "waktu 30 (tigapuluh) hari kerja setelah terjadinya kekosongan, harus diselenggarakan"
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:pos="720"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 276
+Text: "Rapat Umum Pemegang Saham untuk mengisi lowongan itu dengan memperhatikan ketentuan ayat 2 (dua) pasal ini."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:pos="720"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/><w:lang w:val="en-US"/></w:rPr></w:pPr>
+
+Index: 277
+Text: "Seorang anggota Dewan Komisaris berhak mengundurkan diri dari jabatannya dengan"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="22"/></w:numPr><w:tabs><w:tab w:val="clear" w:pos="720"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 278
+Text: "memberitahukan secara tertulis mengenai maksud tersebut kepada Perseroan sekurangnya"
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 279
+Text: "30 (tiga puluh) hari kerja sebelum tanggal pengunduran dirinya."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 280
+Text: "Jabatan anggota Dewan Komisaris berakhir apabila :"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="22"/></w:numPr><w:tabs><w:tab w:val="clear" w:pos="720"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 281
+Text: "Kehilangan Kewarganegaraan Indonesia ;"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="2"/></w:numPr><w:tabs><w:tab w:val="clear" w:pos="1080"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-284" w:hanging="283"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 282
+Text: "Mengundurkan diri sesuai dengan ketentuan ayat 5 (lima) pasal ini ;"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="2"/></w:numPr><w:tabs><w:tab w:val="clear" w:pos="1080"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-284" w:hanging="283"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 283
+Text: "Tidak lagi memenuhi persyaratan perundang-undangan yang berlaku;"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="2"/></w:numPr><w:tabs><w:tab w:val="clear" w:pos="1080"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-284" w:hanging="283"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 284
+Text: "Meninggal dunia ;"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="2"/></w:numPr><w:tabs><w:tab w:val="clear" w:pos="1080"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-284" w:hanging="283"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 285
+Text: "Diberhentikan berdasarkan keputusan Rapat Umum Pemegang Saham."
+pPr: <w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="2"/></w:numPr><w:tabs><w:tab w:val="clear" w:pos="1080"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-284" w:hanging="283"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 286
+Text: "TUGAS DAN WEWENANG DEWAN KOMISARIS"
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="1418"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-851"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:b/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 287
+Text: "Pasal 15"
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="3119"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-851"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:b/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 288
+Text: "Dewan Komisaris setiap waktu dalam jam kerja kantor Perseroan berhak memasuki"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="11"/></w:numPr><w:tabs><w:tab w:val="clear" w:pos="1140"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 289
+Text: "bangunan dan halaman atau tempat lain yang dipergunakan atau yang dikuasai oleh Perseroan dan berhak memeriksa semua pembukuan, surat dan alat bukti lainnya, memeriksa dan mencocokkan keadaan uang kas dan lain-lain serta berhak untuk mengetahui segala tindakan yang telah dijalankan oleh Direksi."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 290
+Text: "Direksi dan setiap anggota Direksi wajib untuk memberikan penjelasan tentang segala hal"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="11"/></w:numPr><w:tabs><w:tab w:val="clear" w:pos="1140"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/><w:lang w:val="en-US"/></w:rPr></w:pPr>
+
+Index: 291
+Text: "yang ditanyakan oleh Dewan Komisaris."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:pos="1140"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/><w:lang w:val="en-US"/></w:rPr></w:pPr>
+
+Index: 292
+Text: "Apabila seluruh anggota Direksi diberhentikan sementara dan Perseroan tidak mempunyai"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="11"/></w:numPr><w:tabs><w:tab w:val="clear" w:pos="1140"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 293
+Text: "seorangpun anggota Direksi, maka untuk sementara Dewan Komisaris diwajibkan untuk mengurus  Perseroan. Dalam hal demikian Dewan Komisaris berhak untuk memberikan kekuasaan sementara kepada seorang atau lebih diantara anggota Dewan Komisaris atas tanggungan Dewan Komisaris."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:pos="1140"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 294
+Text: "Dalam hal hanya ada seorang anggota Dewan Komisaris, segala tugas dan wewenang"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="11"/></w:numPr><w:tabs><w:tab w:val="clear" w:pos="1140"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 295
+Text: "yang diberikan kepada Komisaris Utama atau anggota Dewan Komisaris dalam Anggaraan Dasar ini pula berlaku pula baginya."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:pos="1140"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 296
+Text: "RAPAT DEWAN KOMISARIS"
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="2410"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-851"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:b/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 297
+Text: "Pasal 16"
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="3119"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-851"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:b/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 298
+Text: "Ketentuan sebagaimana dimaksud dalam Pasal 10 mutatis mutandis berlaku bagi rapat Dewan Komisaris."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-851"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 299
+Text: "RENCANA KERJA, TAHUN BUKU DAN LAPORAN TAHUNAN"
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="1710"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-851"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:b/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/><w:lang w:val="en-US"/></w:rPr></w:pPr>
+
+Index: 300
+Text: "Pasal 17"
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="3402"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-851"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/><w:lang w:val="en-US"/></w:rPr></w:pPr>
+
+Index: 301
+Text: "Direksi wajib menyampaikan rencana kerja yang memuat juga anggaran tahunan"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="13"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 302
+Text: "Perseroan kepada Dewan Komisaris untuk mendapat persetujuan, sebelum tahun"
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 303
+Text: "buku dimulai."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 304
+Text: "Rencana kerja sebagaimana dimaksud pada ayat (1) harus  disampaikan paling lambat"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="13"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="270"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/><w:lang w:val="en-US"/></w:rPr></w:pPr>
+
+Index: 305
+Text: "30 (tiga puluh) hari  kerja  sebelum dimulainya tahun buku yang akan datang."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/><w:lang w:val="en-US"/></w:rPr></w:pPr>
+
+Index: 306
+Text: "Tahun buku Perseroan berjalan dari tanggal 1 (satu) Januari  sampai dengan tanggal 31"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="13"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 307
+Text: "(tiga puluh satu) Desember. Pada akhir bulan Desember tiap tahun, buku Perseroan ditutup. Untuk pertama kalinya buku Perseroan ini dimulai pada tanggal dari Akta Pendirian ini dan ditutup pada tanggal tiga puluh satu Desember dua ribu dua puluh enam (31-12-2026)."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 308
+Text: "Direksi menyusun laporan tahunan dan menyediakannya di Perseroan untuk dapat"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="13"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 309
+Text: "diperiksa oleh para pemegang saham  terhitung sejak tanggal panggilan Rapat Umum Pemegang Saham tahunan."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 310
+Text: "PENGGUNAAN LABA DAN PEMBAGIAN DEVIDEN"
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="1560"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-851"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:b/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 311
+Text: "PASAL 18"
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="3119"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-851"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:b/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 312
+Text: "Laba bersih Perseroan dalam suatu tahun buku seperti tercantum dalam neraca dan"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="26"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 313
+Text: "perhitungan laba rugi yang telah disahkan oleh Rapat Umum Pemegang Saham tahunan dan merupakan saldo laba yang positif, dibagi menurut cara penggunaannya yang ditentukan oleh Rapat Umum Pemegang Saham tersebut."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 314
+Text: "Dalam hal Rapat Umum Pemegang Saham tidak menentukan cara penggunaanya, laba"
+pPr: <w:pPr><w:pStyle w:val="ListParagraph"/><w:numPr><w:ilvl w:val="0"/><w:numId w:val="26"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 315
+Text: "bersih tersebut seteleh dikurangi penyisihan untuk cadangan yang diwajibkan dalam"
+pPr: <w:pPr><w:pStyle w:val="ListParagraph"/><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 316
+Text: "Undang-Undang dan Anggaran Dasar, dibagikan kepada Pemegang Saham sebagai dividen."
+pPr: <w:pPr><w:pStyle w:val="ListParagraph"/><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 317
+Text: "Jika perhitungan laba rugi pada tahun buku menunjukan kerugian yang tidak dapat"
+pPr: <w:pPr><w:pStyle w:val="ListParagraph"/><w:numPr><w:ilvl w:val="0"/><w:numId w:val="26"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 318
+Text: "ditutup dengan dana cadangan, maka kerugian itu akan tetap dicatat dan dimasukan"
+pPr: <w:pPr><w:pStyle w:val="ListParagraph"/><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 319
+Text: "dalam perhitungan laba rugi dan dalam tahun buku selanjutnya perseroan dianggap tidak"
+pPr: <w:pPr><w:pStyle w:val="ListParagraph"/><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 320
+Text: "mendapat laba selama kerugian yang tercatat dan dimasukan dalam perhitungan laba"
+pPr: <w:pPr><w:pStyle w:val="ListParagraph"/><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 321
+Text: "rugi itu belum sama sekali ditutup."
+pPr: <w:pPr><w:pStyle w:val="ListParagraph"/><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 322
+Text: "Perseroan dapat membagikan dividen interim sebelum tahun buku Perseroan berakhir"
+pPr: <w:pPr><w:pStyle w:val="ListParagraph"/><w:numPr><w:ilvl w:val="0"/><w:numId w:val="26"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 323
+Text: "sesuai dengan ketentuan peraturan perundang- undangan yang berlaku bagi perseroan."
+pPr: <w:pPr><w:pStyle w:val="ListParagraph"/><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 324
+Text: "PENGGUNAAN CADANGAN"
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="2268"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-851"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:b/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 325
+Text: "PASAL 19"
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="3119"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-851"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:b/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 326
+Text: "Penyisihan laba bersih untuk cadangan dilakukan sampai mencapai 20% (dua puluh"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="16"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 327
+Text: "persen) dari jumlah modal ditempatkan dan disetor hanya boleh dipergunakan untuk"
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 328
+Text: "menutup kerugian yang tidak dipenuhi oleh cadangan lain."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 329
+Text: "Jika jumlah cadangan telah melebihi jumlah 20% (dua puluh persen), Rapat Umum"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="16"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 330
+Text: "Pemegang Saham dapat memutuskan agar jumlah kelebihannya digunakan bagi keperluan Perseroan."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 331
+Text: "Cadangan sebagaimana dimaksud pada ayat (1) yang belum digunakan untuk menutup"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="16"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 332
+Text: "kerugian dan jumlah cadangan yang melebihi jumlah sebagaimana dimaksud pada ayat (2) yang penggunaannya belum ditentukan oleh Rapat Umum Pemegang Saham harus dikelola dengan cara yang tepat menurut pertimbagan Direksi setelah memperoleh persetujuan Dewan Komisaris serta dengan memperhatikan peraturan perundang undangan agar memperoleh laba."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 333
+Text: "KETENTUAN PENUTUP"
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="2410"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-851"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:b/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 334
+Text: "PASAL 20"
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="3119"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-851"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:b/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 335
+Text: "Sepanjang tidak diatur tersendiri dalam Anggaran Dasar ini berlaku Undang-Undang tentang Perseroan Terbatas dan peraturan Perundang-undangan lainnya."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-851"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 336
+Text: "Segala sesuatu yang tidak atau belum cukup diatur dalam Anggaran Dasar ini, akan"
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-851"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 337
+Text: "diputuskan dalam Rapat Umum Pemegang Saham dengan memperhatikan peraturan"
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-851"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 338
+Text: "perundang-undangan."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-851"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 339
+Text: "Akhirnya, para penghadap bertindak dalam kedudukannya sebagaimana tersebut di atas  menerangkan bahwa :"
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-851"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 340
+Text: "Modal ditempatkan sebagaimana dimaksud dalam pasal 4 ayat 2 telah diambil bagian"
+pPr: <w:pPr><w:pStyle w:val="ListParagraph"/><w:numPr><w:ilvl w:val="0"/><w:numId w:val="1"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 341
+Text: "dan disetor penuh dengan uang tunai melalui kas Perseroan oleh para pendiri :"
+pPr: <w:pPr><w:pStyle w:val="ListParagraph"/><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 342
+Text: "Tuan VICTORY HENDRIO, tersebut di atas, sejumlah 130 (seratus tiga puluh) lembar"
+pPr: <w:pPr><w:pStyle w:val="ListParagraph"/><w:numPr><w:ilvl w:val="1"/><w:numId w:val="8"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:line="480" w:lineRule="auto"/><w:ind w:left="-284" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 343
+Text: "saham, dengan nilai nominal seluruhnya sebesar Rp. 6.500.000,- (enam juta lima ratus ribu rupiah);"
+pPr: <w:pPr><w:pStyle w:val="ListParagraph"/><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:line="480" w:lineRule="auto"/><w:ind w:left="-284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 344
+Text: "Tuan DONI MALVINO, tersebut diatas, sejumlah 130 (seratus tiga puluh) lembar saham,"
+pPr: <w:pPr><w:pStyle w:val="ListParagraph"/><w:numPr><w:ilvl w:val="1"/><w:numId w:val="8"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:line="480" w:lineRule="auto"/><w:ind w:left="-284" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 345
+Text: "dengan nilai nominal seluruhnya sebesar Rp. 6.500.000,- (enam juta lima ratus ribu rupiah);"
+pPr: <w:pPr><w:pStyle w:val="ListParagraph"/><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:line="480" w:lineRule="auto"/><w:ind w:left="-284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 346
+Text: "Sehingga seluruhnya berjumlah 260 (dua ratus enam puluh) lembar saham, dengan"
+pPr: <w:pPr><w:pStyle w:val="ListParagraph"/><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 347
+Text: "nilai nominal seluruhnya sebesar Rp. 13.000.000,- (tiga belas juta rupiah)."
+pPr: <w:pPr><w:pStyle w:val="ListParagraph"/><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:line="480" w:lineRule="auto"/><w:ind w:left="-567"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:bCs/><w:sz w:val="20"/><w:szCs w:val="20"/><w:lang w:val="id-ID"/></w:rPr></w:pPr>
+
+Index: 348
+Text: "Menyimpang dari ketentuan dalam pasal 11 ayat 3 dan pasal 14 ayat 3 Anggaran Dasar"
+pPr: <w:pPr><w:pStyle w:val="ListParagraph"/><w:numPr><w:ilvl w:val="0"/><w:numId w:val="1"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:right="46" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 349
+Text: "ini mengenai tata cara pengangkatan Anggota Direksi dan Dewan Komisaris, telah diangkat anggota Direksi dan Dewan Komisaris Perseroan dengan masa jabatan 5 (lima) tahun, terhitung sejak tanggal delapan belas Mei dua ribu dua puluh enam (18-05-2026) sampai dengan tanggal delapan belas Mei dua ribu tiga puluh satu (18-05-2031), adalah sebagai berikut :"
+pPr: <w:pPr><w:pStyle w:val="ListParagraph"/><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:right="46"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 350
+Text: "Anggota Direksi :"
+pPr: <w:pPr><w:pStyle w:val="ListParagraph"/><w:numPr><w:ilvl w:val="0"/><w:numId w:val="46"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:line="480" w:lineRule="auto"/><w:ind w:left="-284" w:right="46" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/><w:lang w:val="id-ID"/></w:rPr></w:pPr>
+
+Index: 351
+Text: "Direktur: Tuan VICTORY HENDRIO, tersebut di atas;"
+pPr: <w:pPr><w:pStyle w:val="ListParagraph"/><w:numPr><w:ilvl w:val="0"/><w:numId w:val="17"/></w:numPr><w:tabs><w:tab w:val="left" w:pos="1701"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:line="480" w:lineRule="auto"/><w:ind w:left="0" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic" w:cs="Arial"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/><w:lang w:val="id-ID"/></w:rPr></w:pPr>
+
+Index: 352
+Text: "Anggota Komisaris :"
+pPr: <w:pPr><w:pStyle w:val="ListParagraph"/><w:numPr><w:ilvl w:val="0"/><w:numId w:val="46"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:line="480" w:lineRule="auto"/><w:ind w:left="-284" w:hanging="283"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic" w:cs="Arial"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 353
+Text: "Komisaris: Tuan DONI MALVINO, tersebut diatas;"
+pPr: <w:pPr><w:pStyle w:val="ListParagraph"/><w:numPr><w:ilvl w:val="0"/><w:numId w:val="20"/></w:numPr><w:tabs><w:tab w:val="left" w:pos="1701"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:line="480" w:lineRule="auto"/><w:ind w:left="0" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic" w:cs="Arial"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 354
+Text: "Para penghadap telah memperkenalkan diri kepada saya, Notaris."
+pPr: <w:pPr><w:pStyle w:val="ListParagraph"/><w:numPr><w:ilvl w:val="0"/><w:numId w:val="20"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:line="480" w:lineRule="auto"/><w:ind w:left="-284" w:hanging="283"/><w:jc w:val="both"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:color w:val="000000" w:themeColor="text1"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 355
+Text: "Para Pihak menyatakan dengan ini menjamin akan kebenaran identitas para pihak sesuai dengan tanda pengenal yang disampaikan kepada saya, Notaris dan termasuk dengan seluruh dokumen yang diperlihatkan dan fotokopinya dilekatkan pada minuta akta ini para pihak bertanggung jawab sepenuhnya atas hal tersebut sehingga membebaskan Notaris dari segala tanggungjawab dan selanjutnya para pihak juga menyatakan telah mengerti dan memahami isi akta ini."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-851"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic" w:cs="Tahoma"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 356
+Text: ""
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-709"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic" w:cs="Tahoma"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 357
+Text: "DEMIKIANLAH AKTA INI"
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="2835"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-851" w:right="-1"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic" w:cs="Arial"/><w:b/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 358
+Text: "Dibuat sebagai minuta dan dilangsungkan di Kabupaten Bandung Barat, pada hari dan"
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/><w:tab w:val="left" w:leader="hyphen" w:pos="8612"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-851" w:right="28"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic" w:cs="Arial"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 359
+Text: "tanggal serta jam sebagaimana disebutkan pada kepala akta ini dengan dihadiri oleh :"
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/><w:tab w:val="left" w:leader="hyphen" w:pos="8612"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-851" w:right="28"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic" w:cs="Arial"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 360
+Text: "Nendi Suhendi, lahir di Bandung, pada tanggal lima belas Juli seribu sembilan ratus"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="14"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/><w:tab w:val="left" w:leader="hyphen" w:pos="8612"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:right="28" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic" w:cs="Arial"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 361
+Text: "sembilan puluh satu (15-07-1991), Warga Negara Indonesia, bertempat tinggal di Jalan Sukaresmi Nomor 12, Rukun Tetangga 005, Rukun Warga 005, Kecamatan Lembang, Desa Mekarwangi, pemegang Kartu Tanda Penduduk Nomor 3217011507910016;"
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/><w:tab w:val="left" w:leader="hyphen" w:pos="8612"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:right="28"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic" w:cs="Arial"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 362
+Text: "Siti Nur Azizah, lahir di Bandung, pada tanggal tujuh belas Desember seribu sembilan ratus"
+pPr: <w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="14"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/><w:tab w:val="left" w:leader="hyphen" w:pos="8612"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:right="28" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic" w:cs="Arial"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 363
+Text: "sembilan puluh sembilan (17-12-1999), Warga Negara Indonesia, bertempat tinggal di Kabupaten Bandung, Jalan Lembah Pakar Timur II Kampung Sekebuluh  Rukun Tetangga 001, Rukun Warga 004, Kecamatan Cimenyan, Desa Ciburial, pemegang Kartu Tanda"
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/><w:tab w:val="left" w:leader="hyphen" w:pos="8612"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:right="28"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic" w:cs="Arial"/><w:sz w:val="20"/></w:rPr></w:pPr>
+
+Index: 364
+Text: "Penduduk Nomor 3204065712990001."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/><w:tab w:val="left" w:leader="hyphen" w:pos="8612"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:right="28"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic" w:cs="Arial"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 365
+Text: "Untuk sementara berada di Kabupaten Bandung Barat."
+pPr: <w:pPr><w:pStyle w:val="ListParagraph"/><w:numPr><w:ilvl w:val="0"/><w:numId w:val="20"/></w:numPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:line="480" w:lineRule="auto"/><w:ind w:left="-284" w:right="28" w:hanging="284"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic" w:cs="Arial"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 366
+Text: "Keduanya pegawai Kantor Notaris, sebagai saksi-saksi."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/><w:tab w:val="left" w:leader="hyphen" w:pos="8612"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-851" w:right="28"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic" w:cs="Arial"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 367
+Text: "Segera setelah akta ini dibacakan oleh saya, Notaris kepada penghadap dan saksi-saksi"
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/><w:tab w:val="left" w:leader="hyphen" w:pos="8612"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-851" w:right="28"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic" w:cs="Arial"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 368
+Text: "maka ditanda-tanganilah akta ini oleh penghadap, saksi-saksi dan saya, Notaris. Serta"
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/><w:tab w:val="left" w:leader="hyphen" w:pos="8612"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-851" w:right="28"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic" w:cs="Arial"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 369
+Text: "penghadap membubuhkan sidik jari sebelah kanan pada lembaran tersendiri di hadapan"
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/><w:tab w:val="left" w:leader="hyphen" w:pos="8612"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-851" w:right="28"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic" w:cs="Arial"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 370
+Text: "saya, Notaris dan saksi-saksi, yang dilekatkan pada minuta akta ini."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/><w:tab w:val="left" w:leader="hyphen" w:pos="8612"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-851" w:right="28"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic" w:cs="Arial"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 371
+Text: "Dilangsungkan dengan tanpa perubahan."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/><w:tab w:val="left" w:leader="hyphen" w:pos="8612"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-851" w:right="28"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic" w:cs="Arial"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 372
+Text: "Minuta Akta ini telah ditanda-tangani dengan sempurna."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/><w:tab w:val="left" w:leader="hyphen" w:pos="8612"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-567" w:right="28"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic" w:cs="Arial"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 373
+Text: "Diberikan sebagai salinan yang sama bunyinya."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/><w:tab w:val="left" w:leader="hyphen" w:pos="8612"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="-284" w:right="28"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic" w:cs="Arial"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 374
+Text: "Notaris di Kabupaten Bandung Barat;"
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:pos="360"/><w:tab w:val="left" w:pos="630"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/><w:tab w:val="left" w:leader="hyphen" w:pos="8730"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="630" w:right="28"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic" w:cs="Arial"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 375
+Text: ""
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:pos="360"/><w:tab w:val="left" w:pos="630"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/><w:tab w:val="left" w:leader="hyphen" w:pos="8730"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="630" w:right="28"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic" w:cs="Arial"/><w:b/><w:bCs/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 376
+Text: ""
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:pos="360"/><w:tab w:val="left" w:pos="630"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/><w:tab w:val="left" w:leader="hyphen" w:pos="8730"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="630" w:right="28"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic" w:cs="Arial"/><w:b/><w:bCs/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 377
+Text: ""
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/><w:tab w:val="left" w:leader="hyphen" w:pos="8730"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="37" w:right="28"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic" w:cs="Arial"/><w:b/><w:bCs/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 378
+Text: "NUKANTINI PUTRI PARINCHA, SH., M.Kn."
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/><w:tab w:val="left" w:leader="hyphen" w:pos="8730"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="179" w:right="28" w:firstLine="142"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic" w:cs="Arial"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 379
+Text: ""
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:pos="630"/><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0" w:line="480" w:lineRule="auto"/><w:ind w:left="630"/><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:b/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr>
+
+Index: 380
+Text: ""
+pPr: <w:pPr><w:tabs><w:tab w:val="left" w:leader="hyphen" w:pos="8364"/></w:tabs><w:spacing w:after="0"/></w:pPr>
+
