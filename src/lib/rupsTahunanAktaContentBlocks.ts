@@ -394,7 +394,7 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
         indentTabs: 1.0,
         runs: [
           {
-            text: `Akta tertanggal ${formatAktaDate(deed.date)} Nomor ${deed.number} yang dibuat di hadapan ${checkNotaryWording(deed.notary, deed.notaryTitle, deed.notaryDomicile)} yang ${skText}${isLast ? ";" : ";"}`,
+            text: `Akta tertanggal ${formatAktaDate(deed.date)} Nomor ${deed.number} yang dibuat di hadapan ${checkNotaryWording(deed.notary, deed.notaryTitle, deed.notaryDomicile)}${skText ? " yang " + skText : ""};`,
           },
         ],
       });
@@ -944,19 +944,6 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
   }
   if (data.rupstStatementGaji === true) {
     blocks.push({ type: "list", bullet: "-", indentTabs: 1.0, runs: [{ text: "Gaji dan Tunjangan bagi Anggota Direksi dan Gaji atau Honorarium dan Tunjangan bagi Anggota Dewan Komisaris Perseroan untuk Tahun yang baru lampau, terlampir dan dilekatkan pada Notulen Rapat Umum Pemegang Saham Tahunan ini." }] });
-  }
-
-  // Moved following red block to the end of the sub-agenda list
-  if (data.rupstStatementNeraca === true || data.rupstStatementLabaRugi === true || data.rupstStatementPerubahanEkuitas === true || data.rupstStatementArusKas === true || data.rupstStatementCatatan === true || data.rupstStatementNamaAnggota === true || data.rupstStatementGaji === true) {
-    blocks.push({
-      type: "list",
-      bullet: "",
-      indentTabs: 1.0,
-      runs: [{ 
-        text: "Direksi dan Komisaris serta Para Pemegang Saham Perseroan menyatakan bertanggung jawab penuh atas Kebenaran Informasi dan Tanda Tangan pada seluruh Lampiran Laporan terlampir dan dilekatkan pada Keputusan Para Pemegang Saham ini.",
-        color: "FF0000"
-      }]
-    });
   }
 
   // Decision 4 - Net profit/dividend distribution

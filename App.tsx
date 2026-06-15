@@ -1390,7 +1390,7 @@ const App: React.FC = () => {
     }
 
     try {
-      updateData({
+      const updates: any = {
         companyName: latestProfile.companyName,
         domicile: latestProfile.domicile,
         establishmentDeedNumber: latestProfile.establishmentDeedNumber,
@@ -1403,10 +1403,16 @@ const App: React.FC = () => {
         amendmentDeeds: latestProfile.amendmentDeeds || [],
         shareholders: latestProfile.shareholders || [],
         originalSharePrice: latestProfile.originalSharePrice,
-        authorizedRepresentativeId: latestProfile.authorizedRepresentativeId,
-        manualRepresentative: latestProfile.manualRepresentative,
-        representativeType: latestProfile.representativeType,
-      });
+      };
+
+      // Only sync representative data if the current form is NOT set to manual input
+      if (data.representativeType !== 'MANUAL') {
+        updates.authorizedRepresentativeId = latestProfile.authorizedRepresentativeId || '';
+        updates.manualRepresentative = latestProfile.manualRepresentative || { ...INITIAL_MANUAL_REP };
+        updates.representativeType = latestProfile.representativeType || 'EXISTING';
+      }
+
+      updateData(updates);
       alert("Data PT berhasil disinkronkan.");
     } catch (e) {
       alert("Gagal mengambil data terbaru dari Klien PT.");
