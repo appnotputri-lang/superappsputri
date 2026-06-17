@@ -118,25 +118,8 @@ export const generateRupstPernyataanBlocks = (data: CompanyData): Block[] => {
     runs: [{ text: "Dengan ini menyatakan sebagai berikut:" }],
   });
 
-  // 5. Point 1 — ListNumber
-  blocks.push({
-    type: "listNumber",
-    runs: [
-      { text: "Bahwa status perseroan " },
-      { text: formatCompanyName(data.companyName) },
-      { text: " merupakan PT. Tertutup yang Laporan Keuangannya " },
-      {
-        text: data.rupstIsAudited ? "Memenuhi" : "Tidak Memenuhi",
-        bold: true,
-      },
-      {
-        text: " Ketentuan Wajib Audit oleh Akuntan Publik dengan alasan sebagai berikut:",
-      },
-    ],
-  });
-
   // Sub-items a. b. c. etc. — ListBullet (from DOCX these are simple bullet paragraphs)
-  const reasons = [
+  const reasonsRaw = [
     {
       key: "rupstAlasanAuditA",
       text: `Kegiatan Usaha Perseroan ${data.rupstIsAudited ? "" : "tidak "}menghimpun dan/atau mengelola dana masyarakat.`,
@@ -163,64 +146,116 @@ export const generateRupstPernyataanBlocks = (data: CompanyData): Block[] => {
     },
   ];
 
-  reasons.forEach((r) => {
-    if ((data as any)[r.key] !== false) {
+  const selectedReasons = reasonsRaw.filter((r) => (data as any)[r.key] !== false);
+  
+  if (selectedReasons.length === 0) {
+    if (data.rupstIsAudited) {
+      selectedReasons.push({ key: "rupstAlasanAuditE", text: "Aset dan/atau jumlah peredaran usaha lebih dari 50 Milyar." });
+    } else {
+      selectedReasons.push(
+        { key: "rupstAlasanAuditA", text: "Kegiatan Usaha Perseroan tidak menghimpun dan/atau mengelola dana masyarakat." },
+        { key: "rupstAlasanAuditB", text: "Perseroan tidak menerbitkan surat pengakuan utang kepada masyarakat." },
+        { key: "rupstAlasanAuditC", text: "Perseroan tidak merupakan Perseroan Terbuka (Tbk)." },
+        { key: "rupstAlasanAuditD", text: "Perseroan tidak merupakan Persero." },
+        { key: "rupstAlasanAuditE", text: "Aset dan/atau jumlah peredaran usaha tidak lebih dari 50 Milyar, atau" },
+        { key: "rupstAlasanAuditF", text: "Tidak diwajibkan oleh peraturan perundang-undangan." }
+      );
+    }
+  }
+
+  if (selectedReasons.length === 1) {
+    // 5. Point 1 — ListNumber
+    blocks.push({
+      type: "listNumber",
+      runs: [
+        { text: "Bahwa status perseroan " },
+        { text: formatCompanyName(data.companyName) },
+        { text: " merupakan PT. Tertutup yang Laporan Keuangannya " },
+        {
+          text: data.rupstIsAudited ? "Memenuhi" : "Tidak Memenuhi",
+          bold: true,
+        },
+        {
+          text: ` Ketentuan Wajib Audit oleh Akuntan Publik dengan alasan ${selectedReasons[0].text.replace(", atau", "")}`,
+        },
+      ],
+    });
+  } else {
+    // 5. Point 1 — ListNumber
+    blocks.push({
+      type: "listNumber",
+      runs: [
+        { text: "Bahwa status perseroan " },
+        { text: formatCompanyName(data.companyName) },
+        { text: " merupakan PT. Tertutup yang Laporan Keuangannya " },
+        {
+          text: data.rupstIsAudited ? "Memenuhi" : "Tidak Memenuhi",
+          bold: true,
+        },
+        {
+          text: " Ketentuan Wajib Audit oleh Akuntan Publik dengan alasan sebagai berikut:",
+        },
+      ],
+    });
+
+    selectedReasons.forEach((r) => {
       blocks.push({
         type: "listBullet",
         runs: [{ text: r.text }],
       });
-    }
-  });
-
-  blocks.push({
-    type: "listNumber",
-    runs: [
-      { text: "Bahwa Laporan Tahunan " },
-      { text: formatCompanyName(data.companyName) },
-      { text: ` tahun buku ${fiscalYear} ` },
-      {
-        text:
-          'dibuat oleh Direksi dan telah ditelaah oleh Dewan Komisaris dengan sebenar-benarnya sesuai dengan ketentuan dalam Undang-Undang Nomor 40 Tahun 2007 tentang Perseroan Terbatas sebagaimana telah diubah dengan Undang-Undang Nomor 6 Tahun 2023 tentang Penetapan Peraturan Pemerintah Pengganti Undang-Undang Nomor 2 Tahun 2022 tentang Cipta Kerja menjadi Undang-Undang (\u201cUUPT\u201d), Pasal 66 juncto Peraturan Menteri Hukum Republik Indonesia Nomor 49 Tahun 2025 tentang Syarat dan Tata Cara Pendirian, Perubahan, dan Pembubaran Badan Hukum Perseroan Terbatas.',
-      },
-    ],
-  });
-
-  const kapPart =
-    data.rupstIsAudited && data.rupstKapName
-      ? `telah diaudit oleh Kantor Akuntan Publik ${data.rupstKapName.toUpperCase()} sebagaimana dimuat dalam laporan audit tertanggal ${
-          data.rupstFinancialReportDate
-            ? formatDateStr(data.rupstFinancialReportDate)
-            : "31 Desember " + fiscalYear
-        }`
-      : `disusun berdasarkan standar akuntansi keuangan yang berlaku`;
-
-  // Parse kapPart into runs: if audited, the date at end should be red
-  const point3Runs: RunToken[] = [
-    { text: "Bahwa laporan keuangan " },
-    { text: `tahun buku ${fiscalYear} ` },
-    {
-      text: `yang menjadi salah satu bagian dari Laporan Tahunan disusun berdasarkan standar akuntansi keuangan yang berlaku and `,
-    },
-  ];
-
-  if (data.rupstIsAudited && data.rupstKapName) {
-    const auditDateStr = data.rupstFinancialReportDate
-      ? formatDateRupst(data.rupstFinancialReportDate)
-      : "31 Desember " + fiscalYear;
-    // Split date: "31 Desember 2022" — month+year part is red in DOCX
-    const dateparts = auditDateStr.split(" ");
-    const dayPart = dateparts[0]; // "31"
-    const rest = dateparts.slice(1).join(" "); // "Desember 2022"
-    point3Runs.push({
-      text: `telah diaudit oleh Kantor Akuntan Publik ${data.rupstKapName.toUpperCase()} sebagaimana dimuat dalam laporan audit tertanggal ${dayPart} `,
     });
-    point3Runs.push({ text: rest });
-    point3Runs.push({ text: "." });
-  } else {
-    point3Runs.push({ text: `${kapPart}.` });
   }
 
-  blocks.push({ type: "listNumber", runs: point3Runs });
+  if (data.rupstIsAudited) {
+    blocks.push({
+      type: "listNumber",
+      runs: [
+        { text: "Bahwa Laporan Tahunan " },
+        { text: formatCompanyName(data.companyName) },
+        { text: ` Tahun Buku ${fiscalYear} telah disusun oleh Direksi dan ditelaah oleh Dewan Komisaris sesuai dengan ketentuan Pasal 66 Undang-Undang Nomor 40 Tahun 2007 tentang Perseroan Terbatas sebagaimana telah diubah dengan Undang-Undang Nomor 6 Tahun 2023 tentang Penetapan Peraturan Pemerintah Pengganti Undang-Undang Nomor 2 Tahun 2022 tentang Cipta Kerja menjadi Undang-Undang, serta Peraturan Menteri Hukum Republik Indonesia Nomor 49 Tahun 2025 tentang Syarat dan Tata Cara Pendirian, Perubahan, dan Pembubaran Badan Hukum Perseroan Terbatas.` }
+      ],
+    });
+
+    const kapName = (data.rupstKapName || "[NAMA KAP]").toUpperCase();
+    const kapLicense = data.rupstKapLicenseNumber || "[NOMOR IZIN KAP]";
+    const kapExpiryDate = data.rupstKapExpiryDate ? formatDateRupst(data.rupstKapExpiryDate) : "[TANGGAL BERAKHIR IZIN]";
+
+    blocks.push({
+      type: "listNumber",
+      runs: [
+        { text: "Bahwa Laporan Keuangan Perseroan untuk Tahun Buku yang berakhir pada tanggal 31 Desember " },
+        { text: fiscalYear },
+        { text: " telah diaudit oleh Kantor Akuntan Publik " },
+        { text: kapName },
+        { text: ", yang telah memperoleh izin usaha dari Menteri Keuangan Republik Indonesia dengan Nomor Izin " },
+        { text: kapLicense },
+        { text: " yang berlaku sampai dengan tanggal " },
+        { text: kapExpiryDate }
+      ],
+    });
+  } else {
+    blocks.push({
+      type: "listNumber",
+      runs: [
+        { text: "Bahwa Laporan Tahunan " },
+        { text: formatCompanyName(data.companyName) },
+        { text: ` tahun buku ${fiscalYear} ` },
+        {
+          text:
+            'dibuat oleh Direksi dan telah ditelaah oleh Dewan Komisaris dengan sebenar-benarnya sesuai dengan ketentuan dalam Undang-Undang Nomor 40 Tahun 2007 tentang Perseroan Terbatas sebagaimana telah diubah dengan Undang-Undang Nomor 6 Tahun 2023 tentang Penetapan Peraturan Pemerintah Pengganti Undang-Undang Nomor 2 Tahun 2022 tentang Cipta Kerja menjadi Undang-Undang (\u201cUUPT\u201d), Pasal 66 juncto Peraturan Menteri Hukum Republik Indonesia Nomor 49 Tahun 2025 tentang Syarat dan Tata Cara Pendirian, Perubahan, dan Pembubaran Badan Hukum Perseroan Terbatas.',
+        },
+      ],
+    });
+
+    blocks.push({
+      type: "listNumber",
+      runs: [
+        { text: "Bahwa laporan keuangan " },
+        { text: `tahun buku ${fiscalYear} ` },
+        { text: "yang menjadi salah satu bagian dari Laporan Tahunan disusun berdasarkan standar akuntansi keuangan yang berlaku." }
+      ],
+    });
+  }
 
   blocks.push({
     type: "listNumber",

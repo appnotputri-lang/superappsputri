@@ -95,6 +95,18 @@ export interface Guest {
   id: string;
   name: string;
   position?: string;
+  salutation?: 'Tuan' | 'Nyonya' | 'Nona';
+  birthCity?: string;
+  birthDate?: string;
+  nationalityType?: 'WNI' | 'WNA';
+  nationality?: string;
+  occupation?: string;
+  address?: Address;
+  nik?: string;
+  passportNumber?: string;
+  hasKitas?: boolean;
+  kitasType?: 'KITAS' | 'KITAP' | 'NONE';
+  kitasNumber?: string;
 }
 
 export interface KbliItem {
@@ -314,6 +326,8 @@ export interface CompanyData {
   rupstKapName?: string;
   rupstKapLicenseNumber?: string;
   rupstKapExpiryDate?: string;
+  rupstAuditReportNumber?: string;
+  rupstAuditReportDate?: string;
 
   // Sirkuler Laporan Tahunan Extra Fields
   slHari?: string;
@@ -337,4 +351,44 @@ export interface CompanyData {
   saksi2Lahir?: string;
   saksi2Alamat?: string;
   saksi2NIK?: string;
+
+  managementDismissals?: ManagementDismissal[];
+  shareTransfersNew?: ShareTransferItem[];
+  capitalSubscriptionsNew?: CapitalSubscriptionItem[];
+  rupstDividends?: RupstDividendDistribution[];
+  rupstDividendPaymentDate?: string;
+}
+
+export interface RupstDividendDistribution {
+  id: string;
+  shareholderName: string;
+  percentage: number;
+  amount: number;
+  paymentDate?: string;
+}
+
+export interface ManagementDismissal {
+  id: string;
+  salutation: 'Tuan' | 'Nyonya' | 'Nona';
+  name: string;
+  position: string;
+  reason: 'DIBERHENTIKAN_DENGAN_HORMAT' | 'MENGUNDURKAN_DIRI';
+  resignationDate?: string;
+  replacedByName?: string;
+  replacedByPosition?: string;
+  replacedBySalutation?: 'Tuan' | 'Nyonya' | 'Nona';
+}
+
+export interface ShareTransferItem {
+  id: string;
+  fromName: string;
+  transferType: 'AJB' | 'HIBAH';
+  toName: string;
+  sharesTransferred: number;
+}
+
+export interface CapitalSubscriptionItem {
+  id: string;
+  subscriberName: string;
+  sharesCount: number;
 }

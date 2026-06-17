@@ -119,7 +119,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
 
   // Filter attendees for Minutes
   const attendingShareholders = isMinutes
-    ? data.shareholders.filter((s) => s.isPresent && (s.sharesOwned || 0) > 0)
+    ? data.shareholders.filter((s) => s.isPresent)
     : data.shareholders.filter((s) => (s.sharesOwned || 0) > 0);
 
   attendingShareholders.sort((a, b) => {
@@ -130,7 +130,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
   });
 
   const presentShares = attendingShareholders.reduce(
-    (sum, s) => sum + s.sharesOwned,
+    (sum, s) => sum + (s.sharesOwned || 0),
     0,
   );
   const presentCapPaid = presentShares * data.originalSharePrice;
@@ -673,7 +673,22 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
       
       const selakuText = isMinutes ? "Dalam hal ini hadir selaku :" : " Dalam hal ini hadir selaku :";
 
-      if (totalSubBullets === 1) {
+      if (totalSubBullets === 0) {
+        blocks.push({
+          type: "list",
+          bullet: "-",
+          indentTabs: isMinutes ? 1.0 : 0.5,
+          runs: [{ text: selakuText }]
+        });
+        blocks.push({
+          type: "list",
+          bullet: "-",
+          indentTabs: isMinutes ? 1.0 : 0.5,
+          runs: isMinutes 
+             ? [{ text: "selaku Undangan Rapat." }]
+             : [{ text: " Selaku Undangan Rapat." }]
+        });
+      } else if (totalSubBullets === 1) {
         blocks.push({
           type: "list",
           bullet: "-",
@@ -873,14 +888,35 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
   // GUESTS for Akta (MINUTES)
   if (isMinutes && data.guests && data.guests.length > 0) {
     data.guests.forEach((guest, i) => {
+      const hasFullDetails = !!(guest.nik || guest.passportNumber || guest.birthDate || (guest.address && guest.address.fullAddress));
+      
+      let runs: any[] = [];
+      if (hasFullDetails) {
+        const sal = guest.salutation || "Tuan";
+        const cleanName = guest.name.toUpperCase();
+        const tglLahirHuruf = guest.birthDate ? dateToWords(guest.birthDate) : "";
+        const tglLahirAngka = guest.birthDate ? formatDateStr(guest.birthDate) : "";
+        
+        const detailText = formatPersonDetails(guest as any, tglLahirAngka, tglLahirHuruf, true);
+        
+        runs = [
+          { text: `${sal} ` },
+          { text: cleanName, bold: true },
+          { text: expandAbbreviations(detailText) },
+          { text: guest.position ? `, hadir dalam rapat selaku ${toTitleCase(guest.position)};` : ";" }
+        ];
+      } else {
+        runs = [
+          { text: guest.name.toUpperCase(), bold: true },
+          { text: guest.position ? `, ${toTitleCase(guest.position)};` : ";" }
+        ];
+      }
+
       blocks.push({
         type: "list",
         bullet: `${attendingShareholders.length + i + 1}.`,
         indentTabs: 0.668,
-        runs: [
-          { text: guest.name.toUpperCase(), bold: true },
-          { text: guest.position ? `, ${toTitleCase(guest.position)};` : ";" }
-        ],
+        runs: runs,
       });
     });
   }
@@ -1376,7 +1412,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
             (om) =>
               om.name.toUpperCase().trim() === nm.name.toUpperCase().trim() &&
               om.position.toUpperCase().trim() ===
-                om.position.toUpperCase().trim(),
+                nm.position.toUpperCase().trim(),
           ),
       );
     } else {

@@ -42,6 +42,8 @@ const KEP_NUM = {
   decimal: "kep-decimal",
   letter:  "kep-letter",
   dash:    "kep-dash",
+  dash_inner: "kep-dash-inner",
+  bullet:  "kep-bullet",
 };
 
 // Numbering config matching reference document exactly:
@@ -77,6 +79,26 @@ const NUMBERING_CONFIG = [
       text: "-",
       alignment: AlignmentType.LEFT,
       style: { paragraph: { indent: { left: 852, hanging: 426 } } },
+    }],
+  },
+  {
+    reference: KEP_NUM.dash_inner,
+    levels: [{
+      level: 0,
+      format: LevelFormat.BULLET,
+      text: "-",
+      alignment: AlignmentType.LEFT,
+      style: { paragraph: { indent: { left: 1278, hanging: 426 } } },
+    }],
+  },
+  {
+    reference: KEP_NUM.bullet,
+    levels: [{
+      level: 0,
+      format: LevelFormat.BULLET,
+      text: "•",
+      alignment: AlignmentType.LEFT,
+      style: { paragraph: { indent: { left: 1278, hanging: 426 } } },
     }],
   },
 ];
@@ -168,7 +190,9 @@ const createListP = (
     if (level === 0) {
       numRef = KEP_NUM.decimal;
     } else if (bulletText === "-") {
-      numRef = KEP_NUM.dash;
+      numRef = indentTabs >= 2 ? KEP_NUM.dash_inner : KEP_NUM.dash;
+    } else if (bulletText === "•") {
+      numRef = KEP_NUM.bullet;
     } else {
       numRef = KEP_NUM.letter;
     }

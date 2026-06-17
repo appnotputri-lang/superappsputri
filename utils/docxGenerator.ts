@@ -49,6 +49,14 @@ const INDENT_STEP = 720; // 0.5 inch
 
 const formatRpDot = (val: number) => formatCurrency(val).replace("Rp ", "Rp. ");
 
+const getFormattedDateIndo = (dateStr?: string) => {
+  if (!dateStr) return "...........";
+  const day = getDayIndo(dateStr) || "..";
+  const month = getMonthIndo(dateStr) || "........";
+  const year = getYearIndo(dateStr) || "....";
+  return `${day} ${month} ${year}`;
+};
+
 const getNationalityStr = (sh: { nationalityType?: string; nationality?: string }) => {
   if (sh.nationalityType === "WNA") return `Warga Negara ${sh.nationality || "................"}`;
   return sh.nationality || "WNI";
@@ -334,7 +342,7 @@ export const generateWordDoc = async (data: CompanyData) => {
   // Hitung saham dan persiapkan data peserta
   const attendingShareholders = isCircular
     ? data.shareholders.filter((sh) => (sh.sharesOwned || 0) > 0)
-    : data.shareholders.filter((sh) => (sh.sharesOwned || 0) > 0 && sh.isPresent);
+    : data.shareholders.filter((sh) => sh.isPresent);
   const totalIssuedShares = data.shareholders.reduce((sum, sh) => sum + (sh.sharesOwned || 0), 0);
   const presentShares = attendingShareholders.reduce((sum, sh) => sum + (sh.sharesOwned || 0), 0);
   const attendingPercentage = totalIssuedShares > 0 ? (presentShares / totalIssuedShares) * 100 : 0;
@@ -659,100 +667,117 @@ export const generateWordDoc = async (data: CompanyData) => {
         })
       );
 
-      // Sub letters code reset
-      let shLetterCode = 97; // reset 'a' for each shareholder
-      const getNextShLetter = () => {
-        const char = String.fromCharCode(shLetterCode);
-        shLetterCode++;
-        return char;
-      };
+      const isUndangan = !att.management && !att.ownShares && att.representations.length === 0;
 
-      // management position
-      if (att.management) {
-        const letter = getNextShLetter();
-        children.push(
-          new Paragraph({
-            alignment: "both" as any,
-            spacing: { line: LINE_SPACING, lineRule: "auto", before: 0, after: 60 },
-            indent: { left: 993, hanging: 284 },
-            children: [
-              mkRun(`${letter}. `),
-              mkRun(`selaku ${toTitleCase(att.management.position || "Direktur")} Perseroan; dan`),
-            ],
-          })
-        );
-      }
-
-      // own shares
-      if (att.ownShares) {
-        const letter = getNextShLetter();
-        const parValue = data.originalSharePrice || 0;
-        const currentShares = att.ownShares.sharesOwned || 0;
-        const currentValue = currentShares * parValue;
-
+      if (isUndangan) {
         children.push(
           new Paragraph({
             alignment: "both" as any,
             spacing: { line: LINE_SPACING, lineRule: "auto", before: 0, after: 120 },
             indent: { left: 993, hanging: 284 },
             children: [
-              mkRun(`${letter}. `),
-              mkRun("selaku Pemilik dan pemegang saham sebanyak "),
-              mkRun(currentShares.toLocaleString("id-ID"), true),
-              mkRun(`${w(currentShares, "shares")} lembar saham atau senilai `),
-              mkRun(formatRpDot(currentValue), true),
-              mkRun(`${w(currentValue, "rupiah")} berhak mengeluarkan suara `),
-              mkRun(currentShares.toLocaleString("id-ID"), true),
-              mkRun(`${w(currentShares, "shares")} suara dalam rapat.`),
+              mkRun("- ", false),
+              mkRun("Undangan Rapat."),
             ],
           })
         );
-      }
+      } else {
+        // Sub letters code reset
+        let shLetterCode = 97; // reset 'a' for each shareholder
+        const getNextShLetter = () => {
+          const char = String.fromCharCode(shLetterCode);
+          shLetterCode++;
+          return char;
+        };
 
-      // representations (proxy / director PT lain)
-      att.representations.forEach(r => {
-        const letter = getNextShLetter();
-        const isDirector = r.proxyData.representationType === 'DIREKTUR_PT_LAIN';
-        const parValue = data.originalSharePrice || 0;
-        const currentShares = r.sharesOwned || 0;
-        const currentValue = currentShares * parValue;
-
-        let repTextRuns: any[] = [];
-        if (isDirector) {
-          // selaku Direktur dari PT ... [and legal details]
-          repTextRuns.push(
-            mkRun(`selaku Direktur dari `),
-            mkRun(`PT ${getDisplayNameForDocx(r.shareholder)}`, true),
-            mkRun(formatPersonDetails(r.shareholder, "", "", false, true))
-          );
-        } else {
-          const proxyDate = r.proxyData.proxyDeedDate ? formatDateRupst(r.proxyData.proxyDeedDate) : "__________";
-          repTextRuns.push(
-            mkRun(`selaku penerima kuasa berdasarkan Surat Kuasa tertanggal ${proxyDate}, dari dan oleh karena itu sah bertindak untuk dan atas nama `),
-            mkRun(`${r.shareholder.salutation || "Tuan"} ${getDisplayNameForDocx(r.shareholder)}`, true),
-            mkRun(formatPersonDetails(r.shareholder, "", "", false, true))
+        // management position
+        if (att.management) {
+          const letter = getNextShLetter();
+          const suffix = (att.ownShares || att.representations.length > 0) ? "; dan" : ";";
+          children.push(
+            new Paragraph({
+              alignment: "both" as any,
+              spacing: { line: LINE_SPACING, lineRule: "auto", before: 0, after: 60 },
+              indent: { left: 993, hanging: 284 },
+              children: [
+                mkRun(`${letter}. `),
+                mkRun(`selaku ${toTitleCase(att.management.position || "Direktur")} Perseroan${suffix}`),
+              ],
+            })
           );
         }
 
-        children.push(
-          new Paragraph({
-            alignment: "both" as any,
-            spacing: { line: LINE_SPACING, lineRule: "auto", before: 0, after: 60 },
-            indent: { left: 993, hanging: 284 },
-            children: [
-              mkRun(`${letter}. `),
-              ...repTextRuns,
-              mkRun(`, yang dalam hal ini merupakan pemilik dan pemegang saham sebanyak `),
-              mkRun(currentShares.toLocaleString("id-ID"), true),
-              mkRun(`${w(currentShares, "shares")} lembar saham atau senilai `),
-              mkRun(formatRpDot(currentValue), true),
-              mkRun(`${w(currentValue, "rupiah")} berhak mengeluarkan suara `),
-              mkRun(currentShares.toLocaleString("id-ID"), true),
-              mkRun(`${w(currentShares, "shares")} suara dalam rapat.`),
-            ],
-          })
-        );
-      });
+        // own shares
+        if (att.ownShares) {
+          const letter = getNextShLetter();
+          const parValue = data.originalSharePrice || 0;
+          const currentShares = att.ownShares.sharesOwned || 0;
+          const currentValue = currentShares * parValue;
+
+          children.push(
+            new Paragraph({
+              alignment: "both" as any,
+              spacing: { line: LINE_SPACING, lineRule: "auto", before: 0, after: 120 },
+              indent: { left: 993, hanging: 284 },
+              children: [
+                mkRun(`${letter}. `),
+                mkRun("selaku Pemilik dan pemegang saham sebanyak "),
+                mkRun(currentShares.toLocaleString("id-ID"), true),
+                mkRun(`${w(currentShares, "shares")} lembar saham atau senilai `),
+                mkRun(formatRpDot(currentValue), true),
+                mkRun(`${w(currentValue, "rupiah")} berhak mengeluarkan suara `),
+                mkRun(currentShares.toLocaleString("id-ID"), true),
+                mkRun(`${w(currentShares, "shares")} suara dalam rapat.`),
+              ],
+            })
+          );
+        }
+
+        // representations (proxy / director PT lain)
+        att.representations.forEach(r => {
+          const letter = getNextShLetter();
+          const isDirector = r.proxyData.representationType === 'DIREKTUR_PT_LAIN';
+          const parValue = data.originalSharePrice || 0;
+          const currentShares = r.sharesOwned || 0;
+          const currentValue = currentShares * parValue;
+
+          let repTextRuns: any[] = [];
+          if (isDirector) {
+            // selaku Direktur dari PT ... [and legal details]
+            repTextRuns.push(
+              mkRun(`selaku Direktur dari `),
+              mkRun(`PT ${getDisplayNameForDocx(r.shareholder)}`, true),
+              mkRun(formatPersonDetails(r.shareholder, "", "", false, true))
+            );
+          } else {
+            const proxyDate = r.proxyData.proxyDeedDate ? formatDateRupst(r.proxyData.proxyDeedDate) : "__________";
+            repTextRuns.push(
+              mkRun(`selaku penerima kuasa berdasarkan Surat Kuasa tertanggal ${proxyDate}, dari dan oleh karena itu sah bertindak untuk dan atas nama `),
+              mkRun(`${r.shareholder.salutation || "Tuan"} ${getDisplayNameForDocx(r.shareholder)}`, true),
+              mkRun(formatPersonDetails(r.shareholder, "", "", false, true))
+            );
+          }
+
+          children.push(
+            new Paragraph({
+              alignment: "both" as any,
+              spacing: { line: LINE_SPACING, lineRule: "auto", before: 0, after: 60 },
+              indent: { left: 993, hanging: 284 },
+              children: [
+                mkRun(`${letter}. `),
+                ...repTextRuns,
+                mkRun(`, yang dalam hal ini merupakan pemilik dan pemegang saham sebanyak `),
+                mkRun(currentShares.toLocaleString("id-ID"), true),
+                mkRun(`${w(currentShares, "shares")} lembar saham atau senilai `),
+                mkRun(formatRpDot(currentValue), true),
+                mkRun(`${w(currentValue, "rupiah")} berhak mengeluarkan suara `),
+                mkRun(currentShares.toLocaleString("id-ID"), true),
+                mkRun(`${w(currentShares, "shares")} suara dalam rapat.`),
+              ],
+            })
+          );
+        });
+      }
     });
   }
 
@@ -1216,12 +1241,31 @@ export const generateWordDoc = async (data: CompanyData) => {
     }
 
     // 6. Pengalihan Saham (Hibah / Jual beli)
-    if (data.resolutions.shareholders && data.shareTransfers && data.shareTransfers.length > 0) {
-      const totalTransferredShares = data.shareTransfers.reduce((sum, t) => sum + t.sharesTransferred, 0);
-      const transferTypesRaw = data.shareTransfers.map((t) => (t.type || 'jual beli').toLowerCase());
-      
-      const hasHibah = transferTypesRaw.some(t => t.includes('hibah'));
-      const hasJualBeli = transferTypesRaw.some(t => t.includes('jual beli') || t.includes('ajb'));
+    const hasOrigTransfers = data.shareTransfers && data.shareTransfers.length > 0;
+    const hasNTransfers = data.shareTransfersNew && data.shareTransfersNew.length > 0;
+
+    if (data.resolutions.shareholders && (hasOrigTransfers || hasNTransfers)) {
+      const transferList = hasNTransfers 
+        ? data.shareTransfersNew!.map(t => ({
+            fromName: t.fromName,
+            toName: t.toName,
+            transferType: t.transferType,
+            sharesTransferred: t.sharesTransferred
+          }))
+        : data.shareTransfers.map(t => {
+            const fromSh = data.shareholders.find((s) => s.id === t.fromShareholderId);
+            const toSh = data.shareholders.find((s) => s.id === t.toShareholderId) || data.finalShareholders.find((s) => s.id === t.toShareholderId);
+            return {
+              fromName: fromSh?.name || ".....",
+              toName: toSh?.name || ".....",
+              transferType: (t.type || "Jual Beli").toLowerCase().includes("hibah") ? "HIBAH" as const : "AJB" as const,
+              sharesTransferred: t.sharesTransferred
+            };
+          });
+
+      const totalTransferredShares = transferList.reduce((sum, t) => sum + t.sharesTransferred, 0);
+      const hasHibah = transferList.some(t => t.transferType === 'HIBAH');
+      const hasJualBeli = transferList.some(t => t.transferType === 'AJB');
       
       const transferText = hasHibah && hasJualBeli ? "hibah dan jual beli" : (hasHibah ? "hibah" : "jual beli");
       
@@ -1239,42 +1283,28 @@ export const generateWordDoc = async (data: CompanyData) => {
         })
       ];
 
-      data.shareTransfers.forEach((t) => {
-        const fromSh = data.shareholders.find((s) => s.id === t.fromShareholderId);
-        const toSh = data.shareholders.find((s) => s.id === t.toShareholderId) || data.finalShareholders.find((s) => s.id === t.toShareholderId);
-        if (fromSh && toSh) {
-          const valueRp = t.sharesTransferred * data.originalSharePrice;
-          
-          const fromSalutation = checkIsBadanHukum(fromSh) ? "" : `${fromSh.salutation || "Tuan"} `;
-          const toSalutation = checkIsBadanHukum(toSh) ? "" : `${toSh.salutation || "Tuan"} `;
-          
-          const fromDetails = getPersonDetailCircular_text(fromSh);
-          const toDetails = getPersonDetailCircular_text(toSh);
+      transferList.forEach((t) => {
+        const valueRp = t.sharesTransferred * data.originalSharePrice;
+        const typeLabel = t.transferType === 'HIBAH' ? 'hibah' : 'jual beli (AJB)';
 
-          transferBody.push(
-            new Paragraph({
-              alignment: "both" as any,
-              spacing: { line: LINE_SPACING, lineRule: "auto", after: 120 },
-              indent: { left: 709, hanging: 283 },
-              children: [
-                mkRun("- "),
-                mkRun(fromSalutation),
-                mkRun((fromSh.name || ".....").toUpperCase(), true),
-                mkRun(fromDetails),
-                mkRun(` mengalihkan sejumlah ${formatInputNumber(t.sharesTransferred)}${w(t.sharesTransferred, "shares")} lembar saham perseroan atau senilai Rp. ${formatInputNumber(valueRp)},-${w(valueRp, "rupiah")} kepada `),
-                mkRun(toSalutation),
-                mkRun((toSh.name || ".....").toUpperCase(), true),
-                mkRun(toDetails),
-                mkRun("."),
-              ],
-            })
-          );
-        }
+        transferBody.push(
+          new Paragraph({
+            alignment: "both" as any,
+            spacing: { line: LINE_SPACING, lineRule: "auto", after: 120 },
+            indent: { left: 709, hanging: 283 },
+            children: [
+              mkRun("- "),
+              mkRun((t.fromName || ".....").toUpperCase(), true),
+              mkRun(` mengalihkan sejumlah ${formatInputNumber(t.sharesTransferred)}${w(t.sharesTransferred, "shares")} lembar saham perseroan atau senilai Rp. ${formatInputNumber(valueRp)},-${w(valueRp, "rupiah")} secara ${typeLabel} kepada `),
+              mkRun((t.toName || ".....").toUpperCase(), true),
+              mkRun("."),
+            ],
+          })
+        );
       });
 
-      const isHibahTotal = data.shareTransfers.every((t) => (t.type || "").toLowerCase().includes("hibah"));
       let resTitle = "Persetujuan Penjualan dan Pengalihan Saham";
-      if (isHibahTotal) resTitle = "Persetujuan Hibah Saham";
+      if (hasHibah && !hasJualBeli) resTitle = "Persetujuan Hibah Saham";
       else if (hasHibah && hasJualBeli) resTitle = "Persetujuan Hibah dan Penjualan Saham";
       
       addRes(resTitle, transferBody);
@@ -1344,52 +1374,43 @@ export const generateWordDoc = async (data: CompanyData) => {
 
       const mgmtBody: any[] = [];
 
-      // Dismissal
-      if (managersToDismiss.length > 0) {
-        if (managersToDismiss.length === 1) {
-          const m = managersToDismiss[0];
-          let resignationHeading = "anggota Direksi dan Dewan Komisaris Perseroan";
-          if (/direktur/i.test(m.position)) resignationHeading = "anggota Direksi perseroan";
-          else if (/komisaris/i.test(m.position)) resignationHeading = "Dewan Komisaris perseroan";
+      if (data.managementDismissals && data.managementDismissals.length > 0) {
+        // Direct custom list filled by user!
+        mgmtBody.push(
+          bodyP({ indent: { left: 426 }, text: "Menyetujui perubahan susunan Direksi dan Dewan Komisaris Perseroan, dengan rincian sebagai berikut :" })
+        );
 
-          const details = getPersonDetailCircular_text(m);
+        data.managementDismissals.forEach((d, idx) => {
+          const detailResignStr = d.reason === 'MENGUNDURKAN_DIRI' 
+            ? `mengundurkan diri sesuai surat pengunduran diri tertanggal ${getFormattedDateIndo(d.resignationDate)}` 
+            : 'diberhentikan dengan hormat oleh rapat';
+
+          const itemChildren = [
+            mkRun("- "),
+            mkRun(`Memberhentikan selaku ${d.position} yaitu `),
+            mkRun(`${d.salutation} ${(d.name || ".....").toUpperCase()}`, true),
+            mkRun(`, karena ${detailResignStr}.`),
+          ];
+
+          if (d.replacedByName) {
+            itemChildren.push(
+              mkRun(` Dan mengangkat penggantinya selaku ${d.replacedByPosition || d.position} yaitu `),
+              mkRun(`${d.replacedBySalutation || 'Tuan'} ${(d.replacedByName || ".....").toUpperCase()}`, true),
+              mkRun(".")
+            );
+          }
+
           mgmtBody.push(
-            bodyP({
-              indent: { left: 426 },
-              children: [
-                mkRun(`Menyetujui untuk memberhentikan dengan hormat ${resignationHeading}, `),
-                mkRun(`${m.salutation || "Tuan"} `),
-                mkRun((m.name || ".....").toUpperCase(), true),
-                mkRun(details),
-                mkRun(` selaku ${m.position} perseroan.`),
-              ]
+            new Paragraph({
+              alignment: "both" as any,
+              spacing: { line: LINE_SPACING, lineRule: "auto", after: 120 },
+              indent: { left: 709, hanging: 283 },
+              children: itemChildren
             })
           );
-        } else {
-          let dismissalText = `${changeType === "PARTIAL_CHANGE" ? "anggota" : "seluruh anggota"} Direksi dan Dewan Komisaris Perseroan${changeType === "PARTIAL_CHANGE" ? "" : " yang menjabat saat ini"}`;
-          mgmtBody.push(
-            bodyP({ indent: { left: 426 }, text: `Menyetujui untuk memberhentikan dengan hormat ${dismissalText}, yaitu :` })
-          );
+        });
 
-          managersToDismiss.forEach((m) => {
-            const details = getPersonDetailCircular_text(m);
-            mgmtBody.push(
-              new Paragraph({
-                alignment: "both" as any,
-                spacing: { line: LINE_SPACING, lineRule: "auto", after: 60 },
-                indent: { left: 709, hanging: 283 },
-                children: [
-                  mkRun("- "),
-                  mkRun((m.salutation || "Tuan") + " "),
-                  mkRun((m.name || ".....").toUpperCase(), true),
-                  mkRun(details),
-                  mkRun(` selaku ${m.position} perseroan;`),
-                ],
-              })
-            );
-          });
-        }
-
+        // Add thank you message
         mgmtBody.push(
           bodyP({
             indent: { left: 426 },
@@ -1397,45 +1418,100 @@ export const generateWordDoc = async (data: CompanyData) => {
             spacing: { before: 120 }
           })
         );
-      }
+      } else {
+        // Dismissal
+        if (managersToDismiss.length > 0) {
+          if (managersToDismiss.length === 1) {
+            const m = managersToDismiss[0];
+            let resignationHeading = "anggota Direksi dan Dewan Komisaris Perseroan";
+            if (/direktur/i.test(m.position)) resignationHeading = "anggota Direksi perseroan";
+            else if (/komisaris/i.test(m.position)) resignationHeading = "Dewan Komisaris perseroan";
 
-      // Appointment
-      if (managersToAppoint.length > 0) {
-        const hasDirector = managersToAppoint.some(m => /direktur/i.test(m.position));
-        const hasCommissioner = managersToAppoint.some(m => /komisaris/i.test(m.position));
-        
-        let titleText = "anggota Direksi / Dewan Komisaris Perseroan";
-        if (hasDirector && !hasCommissioner) {
-          titleText = "anggota Direksi Perseroan";
-        } else if (!hasDirector && hasCommissioner) {
-          titleText = "Dewan Komisaris Perseroan";
-        }
+            const details = getPersonDetailCircular_text(m);
+            mgmtBody.push(
+              bodyP({
+                indent: { left: 426 },
+                children: [
+                  mkRun(`Menyetujui untuk memberhentikan dengan hormat ${resignationHeading}, `),
+                  mkRun(`${m.salutation || "Tuan"} `),
+                  mkRun((m.name || ".....").toUpperCase(), true),
+                  mkRun(details),
+                  mkRun(` selaku ${m.position} perseroan.`),
+                ]
+              })
+            );
+          } else {
+            let dismissalText = `${changeType === "PARTIAL_CHANGE" ? "anggota" : "seluruh anggota"} Direksi dan Dewan Komisaris Perseroan${changeType === "PARTIAL_CHANGE" ? "" : " yang menjabat saat ini"}`;
+            mgmtBody.push(
+              bodyP({ indent: { left: 426 }, text: `Menyetujui untuk memberhentikan dengan hormat ${dismissalText}, yaitu :` })
+            );
 
-        mgmtBody.push(
-          bodyP({
-            indent: { left: 426 },
-            text: `Selanjutnya menyetujui untuk mengangkat sebagai ${titleText} yang baru :`,
-            spacing: { before: 120 }
-          })
-        );
+            managersToDismiss.forEach((m) => {
+              const details = getPersonDetailCircular_text(m);
+              mgmtBody.push(
+                new Paragraph({
+                  alignment: "both" as any,
+                  spacing: { line: LINE_SPACING, lineRule: "auto", after: 60 },
+                  indent: { left: 709, hanging: 283 },
+                  children: [
+                    mkRun("- "),
+                    mkRun((m.salutation || "Tuan") + " "),
+                    mkRun((m.name || ".....").toUpperCase(), true),
+                    mkRun(details),
+                    mkRun(` selaku ${m.position} perseroan;`),
+                  ],
+                })
+              );
+            });
+          }
 
-        managersToAppoint.forEach((m) => {
-          const details = getPersonDetailCircular_text(m);
           mgmtBody.push(
-            new Paragraph({
-              alignment: "both" as any,
-              spacing: { line: LINE_SPACING, lineRule: "auto", before: 60, after: 60 },
-              indent: { left: 709, hanging: 283 },
-              children: [
-                mkRun("- "),
-                mkRun((m.salutation || "Tuan") + " "),
-                mkRun((m.name || ".....").toUpperCase(), true),
-                mkRun(details),
-                mkRun(`, sebagai ${toTitleCase(m.position)} perseroan;`),
-              ],
+            bodyP({
+              indent: { left: 426 },
+              text: "dengan ucapan terima kasih atas jasa-jasa dan pengabdian yang telah diberikan selama masa jabatannya dalam Perseroan, serta memberikan pelunasan dan pembebasan tanggung jawab sepenuhnya (acquit et de charge) atas tindakan pengurusan dan pengawasan yang telah dijalankan, sepanjang tindakan-tindakan tersebut tercermin dalam buku-buku serta laporan tahunan Perseroan.",
+              spacing: { before: 120 }
             })
           );
-        });
+        }
+
+        // Appointment
+        if (managersToAppoint.length > 0) {
+          const hasDirector = managersToAppoint.some(m => /direktur/i.test(m.position));
+          const hasCommissioner = managersToAppoint.some(m => /komisaris/i.test(m.position));
+          
+          let titleText = "anggota Direksi / Dewan Komisaris Perseroan";
+          if (hasDirector && !hasCommissioner) {
+            titleText = "anggota Direksi Perseroan";
+          } else if (!hasDirector && hasCommissioner) {
+            titleText = "Dewan Komisaris Perseroan";
+          }
+
+          mgmtBody.push(
+            bodyP({
+              indent: { left: 426 },
+              text: `Selanjutnya menyetujui untuk mengangkat sebagai ${titleText} yang baru :`,
+              spacing: { before: 120 }
+            })
+          );
+
+          managersToAppoint.forEach((m) => {
+            const details = getPersonDetailCircular_text(m);
+            mgmtBody.push(
+              new Paragraph({
+                alignment: "both" as any,
+                spacing: { line: LINE_SPACING, lineRule: "auto", before: 60, after: 60 },
+                indent: { left: 709, hanging: 283 },
+                children: [
+                  mkRun("- "),
+                  mkRun((m.salutation || "Tuan") + " "),
+                  mkRun((m.name || ".....").toUpperCase(), true),
+                  mkRun(details),
+                  mkRun(`, sebagai ${toTitleCase(m.position)} perseroan;`),
+                ],
+              })
+            );
+          });
+        }
       }
 
       // Final Composition Structure
@@ -1636,9 +1712,15 @@ export const generateWordDoc = async (data: CompanyData) => {
       if (data.resolutions.capitalPaid) {
         capitalBody.push(bodyP({ indent: { left: 426 }, text: "Bahwa pengeluaran saham-saham baru tersebut di atas, telah diambil bagian dan disetor penuh secara tunai melalui kas Perseroan oleh masing - masing pemegang saham dengan rincian sebagai berikut :", spacing: { before: 120 } }));
 
-        const newDeposits = data.finalShareholders
-          .filter((fs) => fs.isNewDeposit && fs.newDepositShares && fs.newDepositShares > 0)
-          .map((fs) => ({ name: fs.name, addedShares: fs.newDepositShares!, addedValue: fs.newDepositShares! * (data.originalSharePrice || 0) }));
+        const newDeposits = data.capitalSubscriptionsNew && data.capitalSubscriptionsNew.length > 0
+          ? data.capitalSubscriptionsNew.map((item) => ({
+              name: item.subscriberName,
+              addedShares: item.sharesCount,
+              addedValue: item.sharesCount * (data.originalSharePrice || 0)
+            }))
+          : data.finalShareholders
+              .filter((fs) => fs.isNewDeposit && fs.newDepositShares && fs.newDepositShares > 0)
+              .map((fs) => ({ name: fs.name, addedShares: fs.newDepositShares!, addedValue: fs.newDepositShares! * (data.originalSharePrice || 0) }));
 
         newDeposits.forEach((dep) => {
           capitalBody.push(
@@ -1663,37 +1745,58 @@ export const generateWordDoc = async (data: CompanyData) => {
     }
 
     // Hibah / Transfer saham
-    if (data.resolutions.shareholders && data.shareTransfers && data.shareTransfers.length > 0) {
+    const hasOrigTransfers2 = data.shareTransfers && data.shareTransfers.length > 0;
+    const hasNTransfers2 = data.shareTransfersNew && data.shareTransfersNew.length > 0;
+
+    if (data.resolutions.shareholders && (hasOrigTransfers2 || hasNTransfers2)) {
+      const transferList = hasNTransfers2 
+        ? data.shareTransfersNew!.map(t => ({
+            fromName: t.fromName,
+            toName: t.toName,
+            transferType: t.transferType,
+            sharesTransferred: t.sharesTransferred
+          }))
+        : data.shareTransfers.map(t => {
+            const fromSh = data.shareholders.find((s) => s.id === t.fromShareholderId);
+            const toSh = data.shareholders.find((s) => s.id === t.toShareholderId) || data.finalShareholders.find((s) => s.id === t.toShareholderId);
+            return {
+              fromName: fromSh?.name || ".....",
+              toName: toSh?.name || ".....",
+              transferType: (t.type || "Jual Beli").toLowerCase().includes("hibah") ? "HIBAH" as const : "AJB" as const,
+              sharesTransferred: t.sharesTransferred
+            };
+          });
+
+      const totalTransferredShares = transferList.reduce((sum, t) => sum + t.sharesTransferred, 0);
+      const hasHibah = transferList.some(t => t.transferType === 'HIBAH');
+      const hasJualBeli = transferList.some(t => t.transferType === 'AJB');
+      
       const transferBody: any[] = [
         bodyP({ indent: { left: 426 }, text: "Menyetujui pengalihan seluruh saham secara hibah/jual beli dengan rincian sebagai berikut :" }),
       ];
 
-      data.shareTransfers.forEach((t) => {
-        const fromSh = data.shareholders.find((s) => s.id === t.fromShareholderId);
-        const toSh = data.shareholders.find((s) => s.id === t.toShareholderId) || data.finalShareholders.find((s) => s.id === t.toShareholderId);
-        if (fromSh && toSh) {
-          transferBody.push(
-            new Paragraph({
-              alignment: "both" as any,
-              spacing: { line: LINE_SPACING, lineRule: "auto", after: 120 },
-              indent: { left: 709, hanging: 283 },
-              children: [
-                mkRun("- "),
-                mkRun((fromSh.name || ".....").toUpperCase(), true),
-                mkRun(` mengalihkan sejumlah ${t.sharesTransferred.toLocaleString("id-ID")}${w(t.sharesTransferred, "shares")} saham perseroan atau senilai Rp. ${formatInputNumber(t.sharesTransferred * data.originalSharePrice)},-${w(t.sharesTransferred * data.originalSharePrice, "rupiah")} kepada `),
-                mkRun((toSh.name || ".....").toUpperCase(), true),
-                mkRun(";"),
-              ],
-            }),
-          );
-        }
+      transferList.forEach((t) => {
+        const valueRp = t.sharesTransferred * data.originalSharePrice;
+        const typeLabel = t.transferType === 'HIBAH' ? 'hibah' : 'jual beli (AJB)';
+
+        transferBody.push(
+          new Paragraph({
+            alignment: "both" as any,
+            spacing: { line: LINE_SPACING, lineRule: "auto", after: 120 },
+            indent: { left: 709, hanging: 283 },
+            children: [
+              mkRun("- "),
+              mkRun((t.fromName || ".....").toUpperCase(), true),
+              mkRun(` mengalihkan sejumlah ${t.sharesTransferred.toLocaleString("id-ID")}${w(t.sharesTransferred, "shares")} saham perseroan atau senilai Rp. ${formatInputNumber(valueRp)},-${w(valueRp, "rupiah")} secara ${typeLabel} kepada `),
+              mkRun((t.toName || ".....").toUpperCase(), true),
+              mkRun(";"),
+            ],
+          }),
+        );
       });
 
-      const isHibahTotal = data.shareTransfers.every((t) => t.type === "Hibah");
-      const hasHibah = data.shareTransfers.some((t) => t.type === "Hibah");
-      const hasJualBeli = data.shareTransfers.some((t) => t.type === "Jual Beli");
       let resTitle = "Persetujuan Penjualan dan Pengalihan Saham";
-      if (isHibahTotal) resTitle = "Persetujuan Hibah Saham";
+      if (hasHibah && !hasJualBeli) resTitle = "Persetujuan Hibah Saham";
       else if (hasHibah && hasJualBeli) resTitle = "Persetujuan Hibah dan Penjualan Saham";
       addRes(resTitle, transferBody);
     }
@@ -1740,44 +1843,102 @@ export const generateWordDoc = async (data: CompanyData) => {
         ...(data.newManagementItems || []),
       ];
 
-      const mgmtBody: any[] = [
-        bodyP({ indent: { left: 426 }, text: "Menyetujui untuk memberhentikan dengan hormat seluruh anggota Direksi dan Dewan Komisaris Perseroan yang menjabat saat ini, yaitu :" }),
-      ];
+      const mgmtBody: any[] = [];
 
-      oldManagers.forEach((m) => {
+      if (data.managementDismissals && data.managementDismissals.length > 0) {
         mgmtBody.push(
-          new Paragraph({
-            alignment: "both" as any,
-            spacing: { line: LINE_SPACING, lineRule: "auto", after: 0 },
-            indent: { left: 709, hanging: 283 },
-            children: [
-              mkRun("- "),
-              mkRun((m.name || "..........").toUpperCase(), true),
-              mkRun(`, selaku ${m.position} perseroan;`),
-            ],
-          }),
+          bodyP({ indent: { left: 426 }, text: "Menyetujui perubahan susunan Direksi dan Dewan Komisaris Perseroan, dengan rincian sebagai berikut :" })
         );
-      });
 
-      mgmtBody.push(
-        bodyP({ indent: { left: 426 }, text: "Dengan ucapan terima kasih atas jasa-jasa dan pengabdian yang telah diberikan selama masa jabatannya dalam Perseroan, serta memberikan pelunasan dan pembebasan tanggung jawab sepenuhnya (acquit et de charge) atas tindakan pengurusan dan pengawasan yang telah dijalankan, sepanjang tindakan-tindakan tersebut tercermin dalam buku-buku serta laporan tahunan Perseroan.", spacing: { before: 120 } }),
-        bodyP({ indent: { left: 426 }, text: "Selanjutnya menyetujui untuk mengangkat nama-nama tersebut di bawah ini sebagai anggota Direksi dan Dewan Komisaris Perseroan yang baru :", spacing: { before: 120 } }),
-      );
+        data.managementDismissals.forEach((d) => {
+          const detailResignStr = d.reason === 'MENGUNDURKAN_DIRI' 
+            ? `mengundurkan diri sesuai surat pengunduran diri tertanggal ${getFormattedDateIndo(d.resignationDate)}` 
+            : 'diberhentikan dengan hormat oleh rapat';
 
-      newManagers.forEach((m) => {
+          const itemChildren = [
+            mkRun("- "),
+            mkRun(`Memberhentikan selaku ${d.position} yaitu `),
+            mkRun(`${d.salutation} ${(d.name || ".....").toUpperCase()}`, true),
+            mkRun(`, karena ${detailResignStr}.`),
+          ];
+
+          if (d.replacedByName) {
+            itemChildren.push(
+              mkRun(` Dan mengangkat penggantinya selaku ${d.replacedByPosition || d.position} yaitu `),
+              mkRun(`${d.replacedBySalutation || 'Tuan'} ${(d.replacedByName || ".....").toUpperCase()}`, true),
+              mkRun(".")
+            );
+          }
+
+          mgmtBody.push(
+            new Paragraph({
+              alignment: "both" as any,
+              spacing: { line: LINE_SPACING, lineRule: "auto", after: 120 },
+              indent: { left: 709, hanging: 283 },
+              children: itemChildren
+            })
+          );
+        });
+
         mgmtBody.push(
-          new Paragraph({
-            alignment: "both" as any,
-            spacing: { line: LINE_SPACING, lineRule: "auto", before: 60, after: 60 },
-            indent: { left: 709, hanging: 283 },
-            children: [
-              mkRun("- "),
-              mkRun((m.name || "..........").toUpperCase(), true),
-              mkRun(`, sebagai ${toTitleCase(m.position)} perseroan;`),
-            ],
-          }),
+          bodyP({ indent: { left: 426 }, text: "Dengan ucapan terima kasih atas jasa-jasa dan pengabdian yang telah diberikan selama masa jabatannya dalam Perseroan, serta memberikan pelunasan dan pembebasan tanggung jawab sepenuhnya (acquit et de charge) atas tindakan pengurusan dan pengawasan yang telah dijalankan, sepanjang tindakan-tindakan tersebut tercermin dalam buku-buku serta laporan tahunan Perseroan.", spacing: { before: 120 } }),
+          bodyP({ indent: { left: 426 }, text: "Sehingga susunan anggota Direksi dan Dewan Komisaris Perseroan yang baru menjadi sebagai berikut :", spacing: { before: 120 } })
         );
-      });
+
+        newManagers.forEach((m) => {
+          mgmtBody.push(
+            new Paragraph({
+              alignment: "both" as any,
+              spacing: { line: LINE_SPACING, lineRule: "auto", before: 60, after: 60 },
+              indent: { left: 709, hanging: 283 },
+              children: [
+                mkRun("- "),
+                mkRun((m.name || "..........").toUpperCase(), true),
+                mkRun(`, sebagai ${toTitleCase(m.position)} perseroan;`),
+              ],
+            }),
+          );
+        });
+      } else {
+        mgmtBody.push(
+          bodyP({ indent: { left: 426 }, text: "Menyetujui untuk memberhentikan dengan hormat seluruh anggota Direksi dan Dewan Komisaris Perseroan yang menjabat saat ini, yaitu :" })
+        );
+
+        oldManagers.forEach((m) => {
+          mgmtBody.push(
+            new Paragraph({
+              alignment: "both" as any,
+              spacing: { line: LINE_SPACING, lineRule: "auto", after: 0 },
+              indent: { left: 709, hanging: 283 },
+              children: [
+                mkRun("- "),
+                mkRun((m.name || "..........").toUpperCase(), true),
+                mkRun(`, selaku ${m.position} perseroan;`),
+              ],
+            }),
+          );
+        });
+
+        mgmtBody.push(
+          bodyP({ indent: { left: 426 }, text: "Dengan ucapan terima kasih atas jasa-jasa dan pengabdian yang telah diberikan selama masa jabatannya dalam Perseroan, serta memberikan pelunasan dan pembebasan tanggung jawab sepenuhnya (acquit et de charge) atas tindakan pengurusan dan pengawasan yang telah dijalankan, sepanjang tindakan-tindakan tersebut tercermin dalam buku-buku serta laporan tahunan Perseroan.", spacing: { before: 120 } }),
+          bodyP({ indent: { left: 426 }, text: "Selanjutnya menyetujui untuk mengangkat nama-nama tersebut di bawah ini sebagai anggota Direksi dan Dewan Komisaris Perseroan yang baru :", spacing: { before: 120 } }),
+        );
+
+        newManagers.forEach((m) => {
+          mgmtBody.push(
+            new Paragraph({
+              alignment: "both" as any,
+              spacing: { line: LINE_SPACING, lineRule: "auto", before: 60, after: 60 },
+              indent: { left: 709, hanging: 283 },
+              children: [
+                mkRun("- "),
+                mkRun((m.name || "..........").toUpperCase(), true),
+                mkRun(`, sebagai ${toTitleCase(m.position)} perseroan;`),
+              ],
+            }),
+          );
+        });
+      }
 
       addRes("Persetujuan Perubahan/Pengangkatan Pengurus", mgmtBody);
     }

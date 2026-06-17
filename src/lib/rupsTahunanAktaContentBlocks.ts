@@ -18,6 +18,8 @@ import {
   cleanDegrees,
 } from "./formatter";
 
+import { buildDividendBlocks } from "./rupsTahunanContentBlocks";
+
 export type Block =
   | {
       type: "p";
@@ -216,7 +218,7 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
         { text: toTitleCase(data.notaryName || "Nukantini Putri Parincha, Sarjana Hukum, Magister Kenotariatan"), bold: true },
         { text: `, Notaris di ` },
         { text: toTitleCase(data.notaryDomicile || "Kabupaten Bandung Barat"), bold: true },
-        { text: `, dengan dihadiri oleh saksi-saksi yang saya, Notaris kenal and akan disebutkan nama-namanya pada bagian akhir akta ini :` },
+        { text: `, dengan dihadiri oleh saksi-saksi yang saya, Notaris kenal dan akan disebutkan nama-namanya pada bagian akhir akta ini :` },
       ],
     }
   );
@@ -826,220 +828,339 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
   );
 
   // Decision 1
-  blocks.push({
-    type: "p",
-    number: 1,
-    runs: [{ text: `Menyetujui Pernyataan Direksi dan Komisaris serta Para Pemegang Saham Perseroan ${formatCompanyName(data.companyName)} yang menyatakan bahwa status perseroan ini merupakan PT. Tertutup yang Laporan Keuangannya ${data.rupstIsAudited ? "Memenuhi" : "Tidak Memenuhi"} Ketentuan Wajib Audit oleh Akuntan Publik dengan alasan sebagai berikut:` }]
-  });
+  const reasonsAudit = [];
+  if (data.rupstAlasanAuditA !== false) reasonsAudit.push(`Kegiatan Usaha Perseroan ${data.rupstIsAudited ? "" : "tidak "}menghimpun dan/atau mengelola dana masyarakat.`);
+  if (data.rupstAlasanAuditB !== false) reasonsAudit.push(`Perseroan ${data.rupstIsAudited ? "" : "tidak "}menerbitkan surat pengakuan utang kepada masyarakat.`);
+  if (data.rupstAlasanAuditC !== false) reasonsAudit.push(`Perseroan ${data.rupstIsAudited ? "merupakan" : "tidak merupakan"} Perseroan Terbuka (Tbk).`);
+  if (data.rupstAlasanAuditD !== false) reasonsAudit.push(`Perseroan ${data.rupstIsAudited ? "merupakan" : "tidak merupakan"} Persero.`);
+  if (data.rupstAlasanAuditE !== false) reasonsAudit.push(`Aset dan/atau jumlah peredaran usaha ${data.rupstIsAudited ? "lebih" : "tidak lebih"} dari 50 Milyar, atau`);
+  if (data.rupstAlasanAuditF !== false) reasonsAudit.push(`${data.rupstIsAudited ? "" : "Tidak "}diwajibkan oleh peraturan perundang-undangan.`);
 
-  if (data.rupstAlasanAuditA !== false) {
-    blocks.push({ 
-      type: "list", 
-      bullet: "a.", 
-      indentTabs: 1.5, 
-      runs: [{ text: `Kegiatan Usaha Perseroan ${data.rupstIsAudited ? "" : "tidak "}menghimpun dan/atau mengelola dana masyarakat.` }] 
-    });
+  if (reasonsAudit.length === 0) {
+    if (data.rupstIsAudited) {
+      reasonsAudit.push("Aset dan/atau jumlah peredaran usaha lebih dari 50 Milyar.");
+    } else {
+      reasonsAudit.push(
+        "Kegiatan Usaha Perseroan tidak menghimpun dan/atau mengelola dana masyarakat.",
+        "Perseroan tidak menerbitkan surat pengakuan utang kepada masyarakat.",
+        "Perseroan tidak merupakan Perseroan Terbuka (Tbk).",
+        "Perseroan tidak merupakan Persero.",
+        "Aset dan/atau jumlah peredaran usaha tidak lebih dari 50 Milyar, atau",
+        "Tidak diwajibkan oleh peraturan perundang-undangan."
+      );
+    }
   }
-  if (data.rupstAlasanAuditB !== false) {
-    blocks.push({ 
-      type: "list", 
-      bullet: "a.", 
-      indentTabs: 1.5, 
-      runs: [{ text: `Perseroan ${data.rupstIsAudited ? "" : "tidak "}menerbitkan surat pengakuan utang kepada masyarakat.` }] 
+
+  if (reasonsAudit.length === 1) {
+    const formattedReason = reasonsAudit[0].replace(", atau", "");
+    blocks.push({
+      type: "p",
+      number: 1,
+      runs: [{ text: `Menyetujui Pernyataan Direksi dan Komisaris serta Para Pemegang Saham Perseroan ${formatCompanyName(data.companyName)} yang menyatakan bahwa status perseroan ini merupakan PT. Tertutup yang Laporan Keuangannya ${data.rupstIsAudited ? "Memenuhi" : "Tidak Memenuhi"} Ketentuan Wajib Audit oleh Akuntan Publik dengan alasan ${formattedReason}` }]
     });
-  }
-  if (data.rupstAlasanAuditC !== false) {
-    blocks.push({ 
-      type: "list", 
-      bullet: "a.", 
-      indentTabs: 1.5, 
-      runs: [{ text: `Perseroan ${data.rupstIsAudited ? "merupakan" : "tidak merupakan"} Perseroan Terbuka (Tbk).` }] 
+  } else {
+    blocks.push({
+      type: "p",
+      number: 1,
+      runs: [{ text: `Menyetujui Pernyataan Direksi dan Komisaris serta Para Pemegang Saham Perseroan ${formatCompanyName(data.companyName)} yang menyatakan bahwa status perseroan ini merupakan PT. Tertutup yang Laporan Keuangannya ${data.rupstIsAudited ? "Memenuhi" : "Tidak Memenuhi"} Ketentuan Wajib Audit oleh Akuntan Publik dengan alasan sebagai berikut:` }]
     });
-  }
-  if (data.rupstAlasanAuditD !== false) {
-    blocks.push({ 
-      type: "list", 
-      bullet: "a.", 
-      indentTabs: 1.5, 
-      runs: [{ text: `Perseroan ${data.rupstIsAudited ? "merupakan" : "tidak merupakan"} Persero.` }] 
-    });
-  }
-  if (data.rupstAlasanAuditE !== false) {
-    blocks.push({ 
-      type: "list", 
-      bullet: "a.", 
-      indentTabs: 1.5, 
-      runs: [{ text: `Aset dan/atau jumlah peredaran usaha ${data.rupstIsAudited ? "lebih" : "tidak lebih"} dari 50 Milyar, atau` }] 
-    });
-  }
-  if (data.rupstAlasanAuditF !== false) {
-    blocks.push({ 
-      type: "list", 
-      bullet: "a.", 
-      indentTabs: 1.5, 
-      runs: [{ text: `${data.rupstIsAudited ? "" : "Tidak "}diwajibkan oleh peraturan perundang-undangan.` }] 
+
+    reasonsAudit.forEach((reason, idx) => {
+      blocks.push({ 
+        type: "list", 
+        bullet: String.fromCharCode(97 + idx) + ".", 
+        indentTabs: 1.5, 
+        runs: [{ text: reason }] 
+      });
     });
   }
 
-  // Decision 2
-  blocks.push({
-    type: "p",
-    number: 2,
-    runs: [{ text: `Menyetujui dan menerima dengan baik Laporan Tahunan Perseroan untuk tahun buku yang berakhir pada tanggal 31 Desember ${data.rupstFiscalYear || "2025"};` }]
-  });
+  const kapName = data.rupstKapName || "[NAMA KAP]";
+  const kapLicense = data.rupstKapLicenseNumber || "[NOMOR IZIN KAP]";
+  const kapExpiryDate = data.rupstKapExpiryDate ? formatDateRupst(data.rupstKapExpiryDate) : "[TANGGAL BERAKHIR IZIN]";
+  const auditReportNum = data.rupstAuditReportNumber || "[NOMOR LAPORAN AUDIT]";
+  const auditReportDate = data.rupstAuditReportDate ? formatDateRupst(data.rupstAuditReportDate) : "[TANGGAL LAPORAN AUDIT]";
 
-  // Decision 3
-  const signatorySh = data.shareholders.find(s => s.name === data.rupstFinancialReportSignatoryName);
-  const signatorySalutation = signatorySh?.salutation || "Tuan";
-  let signatoryName = (data.rupstFinancialReportSignatoryName || rep?.name || "RAJANDRAN SHUNMUGAM").toUpperCase();
-  const signatoryPosition = data.rupstFinancialReportSignatoryPosition || "Direktur";
+  let decisionIndex = 2;
 
-  const sigSalUpper = `${signatorySalutation.toUpperCase()} `;
-  if (signatoryName.startsWith(sigSalUpper)) {
-    signatoryName = signatoryName.substring(sigSalUpper.length);
-  }
+  if (data.rupstIsAudited) {
+    blocks.push({
+      type: "p",
+      number: decisionIndex,
+      runs: [{ text: `Menyetujui Laporan Tahunan Perseroan untuk Tahun Buku ${data.rupstFiscalYear || "2025"} dan Mengesahkan Laporan Keuangan Perseroan untuk Tahun Buku yang berakhir pada tanggal 31 Desember ${data.rupstFiscalYear || "2025"} yang telah diajukan oleh Direksi dan diaudit oleh Kantor Akuntan Publik ${kapName}, yang telah memperoleh izin usaha dari Menteri Keuangan Republik Indonesia dengan Nomor Izin ${kapLicense} yang berlaku sampai dengan tanggal ${kapExpiryDate}, sebagaimana dimuat dalam laporannya Nomor ${auditReportNum} tanggal ${auditReportDate}.` }]
+    });
 
-  const financialRepDate = data.rupstFinancialReportDate ? formatDateRupst(data.rupstFinancialReportDate) : "29 April 2026";
+    blocks.push({
+      type: "p",
+      indentLeft: 426,
+      runs: [{ text: "yang terdiri dari:" }]
+    });
 
-  blocks.push({
-    type: "p",
-    number: 3,
-    runs: [
-      { text: `Mengesahkan Laporan Keuangan Perseroan untuk tahun buku yang berakhir pada tanggal 31 Desember ${data.rupstFiscalYear || "2025"}, sebagaimana dimuat dalam Laporan Keuangan ${formatCompanyName(data.companyName)} tertanggal ${financialRepDate}, yang ditandatangani ${signatoryPosition} Perseroan ${signatorySalutation} ` },
-      { text: signatoryName, bold: true },
-      { text: `${(data.rupstStatementNeraca === true || data.rupstStatementLabaRugi === true || data.rupstStatementPerubahanEkuitas === true || data.rupstStatementArusKas === true || data.rupstStatementCatatan === true || data.rupstStatementNamaAnggota === true || data.rupstStatementGaji === true) ? " yang terdiri dari:" : "."}` }
-    ]
-  });
+    const consistOf = [
+      "Laporan Keuangan, terlampir dan dilekatkan pada Notulen Rapat Umum Pemegang Saham Tahunan ini.",
+      "Laporan mengenai Kegiatan Perseroan, terlampir dan dilekatkan pada Notulen Rapat Umum Pemegang Saham Tahunan ini.",
+      "Laporan Pelaksanaan Tanggung Jawab Sosial dan Lingkungan, terlampir dan dilekatkan pada Notulen Rapat Umum Pemegang Saham Tahunan ini.",
+      "Rincian Masalah yang timbul selama tahun buku yang mempengaruhi kegiatan usaha perseroan, terlampir dan dilekatkan pada Notulen Rapat Umum Pemegang Saham Tahunan ini.",
+      "Laporan mengenai tugas pengawasan yang telah dilaksanakan oleh Dewan Komisaris selama tahun buku yang baru lampau, terlampir dan dilekatkan pada Notulen Rapat Umum Pemegang Saham Tahunan ini.",
+      "Nama Anggota Direksi dan Anggota Dewan Komisaris, terlampir dan dilekatkan pada Notulen Rapat Umum Pemegang Saham Tahunan ini.",
+      "Gaji dan Tunjangan bagi Anggota Direksi dan Gaji atau Honorarium dan Tunjangan bagi Anggota Dewan Komisaris Perseroan untuk Tahun yang baru lampau, terlampir dan dilekatkan pada Notulen Rapat Umum Pemegang Saham Tahunan ini."
+    ];
 
-  if (data.rupstStatementNeraca === true) {
-    if (data.rupstIsAudited && data.rupstKapName) {
+    consistOf.forEach((item) => {
       blocks.push({
         type: "list",
         bullet: "-",
         indentTabs: 1.0,
-        runs: [
-          { text: `Laporan Keuangan yang telah diaudit oleh Kantor Akuntan Publik ` },
-          { text: data.rupstKapName.toUpperCase(), bold: true },
-          { text: ` No. Izin KAP: ${data.rupstKapLicenseNumber || "-"} yang berlaku sampai dengan tanggal ${data.rupstKapExpiryDate ? formatAktaDate(data.rupstKapExpiryDate) : "-"}, terlampir dan dilekatkan pada Notulen Rapat Umum Pemegang Saham Tahunan ini.` }
-        ]
+        runs: [{ text: item }]
       });
-    } else {
+    });
+    decisionIndex++;
+  } else {
+    // Decision 2
+    blocks.push({
+      type: "p",
+      number: decisionIndex,
+      runs: [{ text: `Menyetujui dan menerima dengan baik Laporan Tahunan Perseroan untuk tahun buku yang berakhir pada tanggal 31 Desember ${data.rupstFiscalYear || "2025"};` }]
+    });
+    decisionIndex++;
+
+    // Decision 3
+    const signatorySh = data.shareholders.find(s => s.name === data.rupstFinancialReportSignatoryName);
+    const signatorySalutation = signatorySh?.salutation || "Tuan";
+    let signatoryName = (data.rupstFinancialReportSignatoryName || rep?.name || "RAJANDRAN SHUNMUGAM").toUpperCase();
+    const signatoryPosition = data.rupstFinancialReportSignatoryPosition || "Direktur";
+
+    const sigSalUpper = `${signatorySalutation.toUpperCase()} `;
+    if (signatoryName.startsWith(sigSalUpper)) {
+      signatoryName = signatoryName.substring(sigSalUpper.length);
+    }
+
+    const financialRepDate = data.rupstFinancialReportDate ? formatDateRupst(data.rupstFinancialReportDate) : "29 April 2026";
+
+    blocks.push({
+      type: "p",
+      number: decisionIndex,
+      runs: [
+        { text: `Mengesahkan Laporan Keuangan Perseroan untuk tahun buku yang berakhir pada tanggal 31 Desember ${data.rupstFiscalYear || "2025"}, sebagaimana dimuat dalam Laporan Keuangan ${formatCompanyName(data.companyName)} tertanggal ${financialRepDate}, yang ditandatangani ${signatoryPosition} Perseroan ${signatorySalutation} ` },
+        { text: signatoryName, bold: true },
+        { text: `${(data.rupstStatementNeraca === true || data.rupstStatementLabaRugi === true || data.rupstStatementPerubahanEkuitas === true || data.rupstStatementArusKas === true || data.rupstStatementCatatan === true || data.rupstStatementNamaAnggota === true || data.rupstStatementGaji === true) ? " yang terdiri dari:" : "."}` }
+      ]
+    });
+    decisionIndex++;
+
+    if (data.rupstStatementNeraca === true) {
       blocks.push({ type: "list", bullet: "-", indentTabs: 1.0, runs: [{ text: "Laporan Keuangan, terlampir dan dilekatkan pada Notulen Rapat Umum Pemegang Saham Tahunan ini." }] });
     }
-  }
-  if (data.rupstStatementLabaRugi === true) {
-    blocks.push({ type: "list", bullet: "-", indentTabs: 1.0, runs: [{ text: "Laporan mengenai Kegiatan Perseroan, terlampir dan dilekatkan pada Notulen Rapat Umum Pemegang Saham Tahunan ini." }] });
-  }
-  if (data.rupstStatementPerubahanEkuitas === true) {
-    blocks.push({ type: "list", bullet: "-", indentTabs: 1.0, runs: [{ text: "Laporan Pelaksanaan Tanggung Jawab Sosial dan Lingkungan, terlampir dan dilekatkan pada Notulen Rapat Umum Pemegang Saham Tahunan ini." }] });
-  }
-  if (data.rupstStatementArusKas === true) {
-    blocks.push({ type: "list", bullet: "-", indentTabs: 1.0, runs: [{ text: "Rincian Masalah yang timbul selama tahun buku yang mempengaruhi kegiatan usaha perseroan, terlampir dan dilekatkan pada Notulen Rapat Umum Pemegang Saham Tahunan ini." }] });
-  }
-  if (data.rupstStatementCatatan === true) {
-    blocks.push({ type: "list", bullet: "-", indentTabs: 1.0, runs: [{ text: "Laporan mengenai tugas pengawasan yang telah dilaksanakan oleh Dewan Komisaris selama tahun buku yang baru lampau, terlampir dan dilekatkan pada Notulen Rapat Umum Pemegang Saham Tahunan ini." }] });
-  }
-  if (data.rupstStatementNamaAnggota === true) {
-    blocks.push({ type: "list", bullet: "-", indentTabs: 1.0, runs: [{ text: "Nama Anggota Direksi dan Anggota Dewan Komisaris, terlampir dan dilekatkan pada Notulen Rapat Umum Pemegang Saham Tahunan ini." }] });
-  }
-  if (data.rupstStatementGaji === true) {
-    blocks.push({ type: "list", bullet: "-", indentTabs: 1.0, runs: [{ text: "Gaji dan Tunjangan bagi Anggota Direksi dan Gaji atau Honorarium dan Tunjangan bagi Anggota Dewan Komisaris Perseroan untuk Tahun yang baru lampau, terlampir dan dilekatkan pada Notulen Rapat Umum Pemegang Saham Tahunan ini." }] });
-  }
-
-  // Decision 4 - Net profit/dividend distribution
-  const netProfitColor = (data.rupstNetProfit !== undefined && data.rupstNetProfit !== null) ? undefined : "FF0000";
-  const dividendColor = (data.rupstDividendAmount !== undefined && data.rupstDividendAmount !== null) ? undefined : "FF0000";
-
-  if (data.rupstNetProfit !== undefined && data.rupstNetProfit !== null && data.rupstNetProfit < 0) {
-    const absNetProfit = Math.abs(data.rupstNetProfit);
-    const netProfitDisplayPositive = `Rp. ${formatNumber(absNetProfit)},- (${terbilang(absNetProfit)} rupiah)`;
-
-    blocks.push({
-      type: "p",
-      number: 4,
-      runs: [
-        { text: `Menetapkan Perseroan mengalami rugi bersih untuk tahun buku ${data.rupstFiscalYear || "2025"} sebesar ` },
-        { text: netProfitDisplayPositive, color: netProfitColor },
-        { text: `, dan oleh karenanya memutuskan bahwa tidak terdapat laba bersih yang dapat dibagikan sebagai dividen kepada para pemegang saham untuk Tahun Buku ${data.rupstFiscalYear || "2025"}. Seluruh saldo rugi tersebut akan dicatat sebagai akumulasi rugi Perseroan sesuai ketentuan peraturan perundang-undangan yang berlaku.` }
-      ]
-    });
-  } else {
-    const netProfit = data.rupstNetProfit || 0;
-    const previousRetained = data.rupstRetainedProfit || 0;
-    const divAmt = data.rupstDividendAmount || 0;
-    const totalLabaDitahan = netProfit + previousRetained - divAmt;
-
-    const amtStr = `Rp. ${formatNumber(netProfit)},- (${terbilang(netProfit)} rupiah)`;
-    const divAmtStr = `Rp. ${formatNumber(divAmt)},- (${terbilang(divAmt)} rupiah)`;
-    const previousRetainedStr = `Rp. ${formatNumber(previousRetained)},- (${terbilang(previousRetained)} rupiah)`;
-    const totalLabaDitahanStr = `Rp. ${formatNumber(Math.abs(totalLabaDitahan))},- (${terbilang(Math.abs(totalLabaDitahan))} rupiah)`;
-
-    const fiscalYear = data.rupstFiscalYear || "2025";
-    const prevYear = String(Number(fiscalYear) - 1);
-
-    blocks.push({
-      type: "p",
-      number: 4,
-      runs: [
-        { text: `Menetapkan Perseroan mengalami laba bersih untuk tahun buku ${fiscalYear} sebesar ` },
-        { text: amtStr, color: netProfitColor },
-        { text: `, dengan saldo laba ditahan Perseroan sampai dengan tahun buku ${prevYear} sebesar ` },
-        { text: previousRetainedStr },
-        { text: `. sehubungan dengan hal tersebut:` }
-      ]
-    });
-
-    if (divAmt > 0) {
-      blocks.push(
-        {
-          type: "list",
-          bullet: "-",
-          indentTabs: 1.0,
-          runs: [
-            { text: "Sebesar " },
-            { text: divAmtStr, color: dividendColor },
-            { text: " dibagikan sebagai dividen kepada para pemegang saham;" }
-          ]
-        },
-        {
-          type: "list",
-          bullet: "-",
-          indentTabs: 1.0,
-          runs: [
-            { text: "Laba bersih tahun berjalan sebesar " },
-            { text: amtStr, color: netProfitColor },
-            { text: " ditambah saldo laba ditahan tahun sebelumnya sebesar " },
-            { text: previousRetainedStr },
-            { text: " setelah dikurangi dividen, maka total saldo laba ditahan Perseroan menjadi sebesar " },
-            { text: totalLabaDitahanStr },
-            { text: " ditetapkan sebagai saldo laba ditahan Perseroan." }
-          ]
-        }
-      );
-    } else {
-      blocks.push(
-        {
-          type: "list",
-          bullet: "-",
-          indentTabs: 1.0,
-          runs: [{ text: "Perseroan tidak membagikan dividen kepada para pemegang saham;" }]
-        },
-        {
-          type: "list",
-          bullet: "-",
-          indentTabs: 1.0,
-          runs: [{ text: "Seluruh laba bersih Perseroan dibukukan sebagai laba ditahan Perseroan." }]
-        }
-      );
+    if (data.rupstStatementLabaRugi === true) {
+      blocks.push({ type: "list", bullet: "-", indentTabs: 1.0, runs: [{ text: "Laporan mengenai Kegiatan Perseroan, terlampir dan dilekatkan pada Notulen Rapat Umum Pemegang Saham Tahunan ini." }] });
+    }
+    if (data.rupstStatementPerubahanEkuitas === true) {
+      blocks.push({ type: "list", bullet: "-", indentTabs: 1.0, runs: [{ text: "Laporan Pelaksanaan Tanggung Jawab Sosial dan Lingkungan, terlampir dan dilekatkan pada Notulen Rapat Umum Pemegang Saham Tahunan ini." }] });
+    }
+    if (data.rupstStatementArusKas === true) {
+      blocks.push({ type: "list", bullet: "-", indentTabs: 1.0, runs: [{ text: "Rincian Masalah yang timbul selama tahun buku yang mempengaruhi kegiatan usaha perseroan, terlampir dan dilekatkan pada Notulen Rapat Umum Pemegang Saham Tahunan ini." }] });
+    }
+    if (data.rupstStatementCatatan === true) {
+      blocks.push({ type: "list", bullet: "-", indentTabs: 1.0, runs: [{ text: "Laporan mengenai tugas pengawasan yang telah dilaksanakan oleh Dewan Komisaris selama tahun buku yang baru lampau, terlampir dan dilekatkan pada Notulen Rapat Umum Pemegang Saham Tahunan ini." }] });
+    }
+    if (data.rupstStatementNamaAnggota === true) {
+      blocks.push({ type: "list", bullet: "-", indentTabs: 1.0, runs: [{ text: "Nama Anggota Direksi dan Anggota Dewan Komisaris, terlampir dan dilekatkan pada Notulen Rapat Umum Pemegang Saham Tahunan ini." }] });
+    }
+    if (data.rupstStatementGaji === true) {
+      blocks.push({ type: "list", bullet: "-", indentTabs: 1.0, runs: [{ text: "Gaji dan Tunjangan bagi Anggota Direksi dan Gaji atau Honorarium dan Tunjangan bagi Anggota Dewan Komisaris Perseroan untuk Tahun yang baru lampau, terlampir dan dilekatkan pada Notulen Rapat Umum Pemegang Saham Tahunan ini." }] });
     }
   }
 
-  // Decision 5
-  blocks.push({
-    type: "p",
-    number: 5,
-    runs: [{ text: `Memberikan pelunasan dan pembebasan tanggung jawab sepenuhnya (acquit et de charge) kepada Direksi dan Komisaris Perseroan atas tindakan pengurusan dan pengawasan yang telah dijalankan selama tahun buku ${data.rupstFiscalYear || "2025"}, sejauh tindakan tersebut tercermin dalam Laporan Tahunan dan Laporan Keuangan Perseroan.` }]
-  });
+  if (data.rupstIsAudited) {
+    // === AUDITED PROFIT / LOSS LOGIC (From Notulen) ===
+    const isNeg = (data.rupstNetProfit !== undefined && data.rupstNetProfit !== null) && (data.rupstNetProfit < 0);
+    const fiscalYear = data.rupstFiscalYear || "2025";
+    
+    if (!isNeg && data.rupstDividendAmount && data.rupstDividendAmount > 0) {
+      const divBlocks = buildDividendBlocks(`${decisionIndex}.`, data, fiscalYear);
+      // Convert list items from Notulen format to Akta list formats
+      const aktaDivBlocks: Block[] = divBlocks.map(b => {
+        if (b.type === "list") {
+          // The main number (e.g. 4. or 6.) should become a paragraph numbered decision in Akta
+          if (/^\d+\.$/.test(b.bullet)) {
+             return {
+               type: "p",
+               number: parseInt((b.bullet || "0").replace(".", "")),
+               runs: b.runs
+             } as Block;
+          }
+          // The children bullets (a., b., -, •) can stay a list but ensure indentTabs matches
+          if (b.runs.length > 0 && b.runs[0].text.includes("Memberikan persetujuan dan pengesahan atas tindakan Direksi")) {
+             return {
+               type: "p",
+               indentLeft: 426,
+               runs: b.runs
+             } as Block;
+          }
+
+          let newIndent = b.indentTabs || 1.0;
+          if (/^[a-z]\.$/i.test(b.bullet)) {
+             newIndent = 1.0; // a., b.
+          } else if (b.bullet === "•") {
+             newIndent = 2.0; // • inside a.
+             b.bullet = "-"; // Word might prefer dash for Akta RUPST
+          } else if (b.bullet === "") {
+             b.bullet = "-";  // Convert the "Memberikan persetujuan..." into a dash bullet
+             newIndent = 1.0; // Same indent level as a. and b. as per screenshot
+          }
+
+          return {
+            type: "list",
+            bullet: b.bullet,
+            indentTabs: newIndent,
+            runs: b.runs
+          } as Block;
+        }
+        return b as Block;
+      });
+      blocks.push(...aktaDivBlocks);
+      decisionIndex++;
+    } else {
+      let netProfitText = "";
+      if (data.rupstNetProfit !== undefined && data.rupstNetProfit !== null) {
+        const absVal = Math.abs(data.rupstNetProfit);
+        const amtStr = `Rp. ${formatNumber(absVal)},- (${terbilang(absVal)} rupiah)`;
+        if (isNeg) {
+          netProfitText = `Menetapkan Perseroan mengalami rugi bersih untuk tahun buku ${fiscalYear} sebesar ${amtStr}, dan oleh karenanya memutuskan bahwa tidak terdapat laba bersih yang dapat dibagikan sebagai dividen kepada para pemegang saham untuk Tahun Buku ${fiscalYear}. Seluruh saldo rugi tersebut akan dicatat sebagai akumulasi rugi Perseroan sesuai ketentuan peraturan perundang-undangan yang berlaku.`;
+        } else {
+          const netProfit = data.rupstNetProfit || 0;
+          const previousRetained = data.rupstRetainedProfit || 0;
+          const divAmt = data.rupstDividendAmount || 0;
+          const totalLabaDitahan = netProfit + previousRetained - divAmt;
+          netProfitText = `Menetapkan penggunaan laba bersih sebesar ${amtStr}, dimana sebesar Rp. ${formatNumber(divAmt)},- (${terbilang(divAmt)} rupiah) dibagikan sebagai dividen dan sisanya setelah ditambah saldo laba ditahan tahun sebelumnya sebesar Rp. ${formatNumber(previousRetained)},- (${terbilang(previousRetained)} rupiah) menjadi sebesar Rp. ${formatNumber(totalLabaDitahan)},- (${terbilang(totalLabaDitahan)} rupiah) ditetapkan sebagai saldo laba ditahan Perseroan.`;
+        }
+      } else {
+        netProfitText = "Menetapkan penggunaan laba bersih Perseroan sebagaimana diusulkan dalam Rapat.";
+      }
+
+      blocks.push({
+        type: "p",
+        number: decisionIndex,
+        runs: [{ text: netProfitText }]
+      });
+      decisionIndex++;
+    }
+
+    blocks.push({
+      type: "p",
+      number: decisionIndex,
+      runs: [{ text: `Memberikan pembebasan tanggung jawab sepenuhnya (acquit et de charge) kepada para anggota Direksi dan Dewan Komisaris atas tindakan pengurusan dan pengawasan yang telah mereka lakukan selama tahun buku tersebut, sepanjang tindakan tersebut tercermin dalam Laporan Tahunan dan Laporan Keuangan.` }]
+    });
+    decisionIndex++;
+
+    let auditText = `Menyatakan bahwa Laporan Keuangan Perseroan untuk tahun buku tersebut telah diaudit oleh Akuntan Publik ${kapName}, yang telah memperoleh izin usaha dari Menteri Keuangan Republik Indonesia dengan Nomor Izin ${kapLicense} yang berlaku sampai dengan tanggal ${kapExpiryDate}.`;
+
+    blocks.push({
+      type: "p",
+      number: decisionIndex,
+      runs: [{ text: auditText }]
+    });
+    decisionIndex++;
+
+  } else {
+    // === NON-AUDITED PROFIT / LOSS LOGIC (Original Akta) ===
+    const netProfitColor = (data.rupstNetProfit !== undefined && data.rupstNetProfit !== null) ? undefined : "FF0000";
+    const dividendColor = (data.rupstDividendAmount !== undefined && data.rupstDividendAmount !== null) ? undefined : "FF0000";
+  
+    if (data.rupstNetProfit !== undefined && data.rupstNetProfit !== null && data.rupstNetProfit < 0) {
+      const absNetProfit = Math.abs(data.rupstNetProfit);
+      const netProfitDisplayPositive = `Rp. ${formatNumber(absNetProfit)},- (${terbilang(absNetProfit)} rupiah)`;
+  
+      blocks.push({
+        type: "p",
+        number: decisionIndex,
+        runs: [
+          { text: `Menetapkan Perseroan mengalami rugi bersih untuk tahun buku ${data.rupstFiscalYear || "2025"} sebesar ` },
+          { text: netProfitDisplayPositive, color: netProfitColor },
+          { text: `, dan oleh karenanya memutuskan bahwa tidak terdapat laba bersih yang dapat dibagikan sebagai dividen kepada para pemegang saham untuk Tahun Buku ${data.rupstFiscalYear || "2025"}. Seluruh saldo rugi tersebut akan dicatat sebagai akumulasi rugi Perseroan sesuai ketentuan peraturan perundang-undangan yang berlaku.` }
+        ]
+      });
+      decisionIndex++;
+    } else {
+      const netProfit = data.rupstNetProfit || 0;
+      const previousRetained = data.rupstRetainedProfit || 0;
+      const divAmt = data.rupstDividendAmount || 0;
+      const totalLabaDitahan = netProfit + previousRetained - divAmt;
+  
+      const amtStr = `Rp. ${formatNumber(netProfit)},- (${terbilang(netProfit)} rupiah)`;
+      const divAmtStr = `Rp. ${formatNumber(divAmt)},- (${terbilang(divAmt)} rupiah)`;
+      const previousRetainedStr = `Rp. ${formatNumber(previousRetained)},- (${terbilang(previousRetained)} rupiah)`;
+      const totalLabaDitahanStr = `Rp. ${formatNumber(Math.abs(totalLabaDitahan))},- (${terbilang(Math.abs(totalLabaDitahan))} rupiah)`;
+  
+      const fiscalYear = data.rupstFiscalYear || "2025";
+      const prevYear = String(Number(fiscalYear) - 1);
+  
+      blocks.push({
+        type: "p",
+        number: decisionIndex,
+        runs: [
+          { text: `Menetapkan Perseroan mengalami laba bersih untuk tahun buku ${fiscalYear} sebesar ` },
+          { text: amtStr, color: netProfitColor },
+          { text: `, dengan saldo laba ditahan Perseroan sampai dengan tahun buku ${prevYear} sebesar ` },
+          { text: previousRetainedStr },
+          { text: `. sehubungan dengan hal tersebut:` }
+        ]
+      });
+      decisionIndex++;
+  
+      if (divAmt > 0) {
+        blocks.push(
+          {
+            type: "list",
+            bullet: "-",
+            indentTabs: 1.0,
+            runs: [
+              { text: "Sebesar " },
+              { text: divAmtStr, color: dividendColor },
+              { text: " dibagikan sebagai dividen kepada para pemegang saham;" }
+            ]
+          },
+          {
+            type: "list",
+            bullet: "-",
+            indentTabs: 1.0,
+            runs: [
+              { text: "Laba bersih tahun berjalan sebesar " },
+              { text: amtStr, color: netProfitColor },
+              { text: " ditambah saldo laba ditahan tahun sebelumnya sebesar " },
+              { text: previousRetainedStr },
+              { text: " setelah dikurangi dividen, maka total saldo laba ditahan Perseroan menjadi sebesar " },
+              { text: totalLabaDitahanStr },
+              { text: " ditetapkan sebagai saldo laba ditahan Perseroan." }
+            ]
+          }
+        );
+      } else {
+        blocks.push(
+          {
+            type: "list",
+            bullet: "-",
+            indentTabs: 1.0,
+            runs: [{ text: "Perseroan tidak membagikan dividen kepada para pemegang saham;" }]
+          },
+          {
+            type: "list",
+            bullet: "-",
+            indentTabs: 1.0,
+            runs: [{ text: "Seluruh laba bersih Perseroan dibukukan sebagai laba ditahan Perseroan." }]
+          }
+        );
+      }
+    }
+  
+    // Decision 5 (Non-Audited)
+    blocks.push({
+      type: "p",
+      number: decisionIndex,
+      runs: [{ text: `Memberikan pelunasan dan pembebasan tanggung jawab sepenuhnya (acquit et de charge) kepada Direksi dan Komisaris Perseroan atas tindakan pengurusan dan pengawasan yang telah dijalankan selama tahun buku ${data.rupstFiscalYear || "2025"}, sejauh tindakan tersebut tercermin dalam Laporan Tahunan dan Laporan Keuangan Perseroan.` }]
+    });
+    decisionIndex++;
+  }
 
   // Closure Section
   const endStTime = data.rupstMeetingEndTime;

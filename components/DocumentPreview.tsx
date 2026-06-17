@@ -99,7 +99,7 @@ const DocumentPreview: React.FC<Props> = ({ data, showHeader = true, zoom = 1 })
 
   const attendingShareholders = isCircular
     ? data.shareholders.filter((sh) => (sh.sharesOwned || 0) > 0)
-    : data.shareholders.filter((sh) => (sh.sharesOwned || 0) > 0 && sh.isPresent);
+    : data.shareholders.filter((sh) => sh.isPresent);
   const totalIssuedShares = data.shareholders.reduce((sum, sh) => sum + (sh.sharesOwned || 0), 0);
   const presentShares = attendingShareholders.reduce((sum, sh) => sum + (sh.sharesOwned || 0), 0);
   const attendingPercentage = totalIssuedShares > 0 ? (presentShares / totalIssuedShares) * 100 : 0;
@@ -212,7 +212,7 @@ const DocumentPreview: React.FC<Props> = ({ data, showHeader = true, zoom = 1 })
               return char;
             };
 
-            const currentValue = sh.sharesOwned * (data.originalSharePrice || 0);
+            const currentValue = (sh.sharesOwned || 0) * (data.originalSharePrice || 0);
 
             const getDisplayName = (person: any) => {
               let name = (person.name || '................').toUpperCase();
@@ -223,6 +223,44 @@ const DocumentPreview: React.FC<Props> = ({ data, showHeader = true, zoom = 1 })
                 }
               }
               return name;
+            };
+
+            const isUndangan = () => {
+              if ((sh.sharesOwned || 0) > 0) return false;
+              if (sh.isManagement) return false;
+              
+              const nameUpper = (sh.name || '').toUpperCase().trim();
+              if (data.newManagementItems) {
+                const matched = data.newManagementItems.some((m: any) => (m.name || '').toUpperCase().trim() === nameUpper);
+                if (matched) return false;
+              }
+              if (data.oldManagementItems) {
+                const matched = data.oldManagementItems.some((m: any) => (m.name || '').toUpperCase().trim() === nameUpper);
+                if (matched) return false;
+              }
+              return true;
+            };
+
+            const hasManagementRole = () => {
+              if (sh.isManagement) return true;
+              const nameUpper = (sh.name || '').toUpperCase().trim();
+              if (data.newManagementItems && data.newManagementItems.some((m: any) => (m.name || '').toUpperCase().trim() === nameUpper)) return true;
+              if (data.oldManagementItems && data.oldManagementItems.some((m: any) => (m.name || '').toUpperCase().trim() === nameUpper)) return true;
+              return false;
+            };
+
+            const getManagementRoleName = () => {
+              if (sh.isManagement) return sh.managementPosition || "Direktur";
+              const nameUpper = (sh.name || '').toUpperCase().trim();
+              if (data.newManagementItems) {
+                const matched = data.newManagementItems.find((m: any) => (m.name || '').toUpperCase().trim() === nameUpper);
+                if (matched) return matched.position || "Direktur";
+              }
+              if (data.oldManagementItems) {
+                const matched = data.oldManagementItems.find((m: any) => (m.name || '').toUpperCase().trim() === nameUpper);
+                if (matched) return matched.position || "Direktur";
+              }
+              return "Direktur";
             };
 
             if (isCircular) {
@@ -237,13 +275,17 @@ const DocumentPreview: React.FC<Props> = ({ data, showHeader = true, zoom = 1 })
                   <div style={{ display: 'flex', alignItems: 'flex-start', paddingLeft: '0.5in', textIndent: '-0.2in', marginTop: '2pt', textAlign: 'justify' }}>
                     <span style={{ minWidth: '0.2in' }}>-&nbsp;</span>
                     <span style={{ flex: 1 }}>
-                      Selaku pemilik dan pemegang <strong>{sh.sharesOwned.toLocaleString('id-ID')}</strong> ({numberToWords(sh.sharesOwned)}) lembar saham atau senilai <strong>{formatRpDot(currentValue)}</strong> ({numberToWords(currentValue)} rupiah).
+                      Selaku pemilik dan pemegang <strong>{(sh.sharesOwned || 0).toLocaleString('id-ID')}</strong> ({numberToWords(sh.sharesOwned || 0)}) lembar saham atau senilai <strong>{formatRpDot(currentValue)}</strong> ({numberToWords(currentValue)} rupiah).
                     </span>
                   </div>
                 </div>
               );
             } else {
               // Notulen (decimal list with sub-letters)
+              const undangan = isUndangan();
+              const mgmt = hasManagementRole();
+              const hasShares = (sh.sharesOwned || 0) > 0;
+
               return (
                 <div key={sh.id} style={{ marginBottom: '12pt' }}>
                   <div style={{ display: 'flex', alignItems: 'flex-start', paddingLeft: '0.3in', textIndent: '-0.3in', textAlign: 'justify' }}>
@@ -259,22 +301,34 @@ const DocumentPreview: React.FC<Props> = ({ data, showHeader = true, zoom = 1 })
                     <span style={{ flex: 1 }}>Dalam hal ini hadir selaku :</span>
                   </div>
 
-                  {/* Lettered sub items continues */}
-                  {sh.isManagement && (
+                  {undangan ? (
                     <div style={{ display: 'flex', alignItems: 'flex-start', paddingLeft: '0.7in', textIndent: '-0.2in', marginTop: '2pt', textAlign: 'justify' }}>
-                      <span style={{ minWidth: '0.2in' }}>{getNextShLetter()}.&nbsp;</span>
+                      <span style={{ minWidth: '0.2in' }}>-&nbsp;</span>
                       <span style={{ flex: 1 }}>
-                        {toTitleCase(sh.managementPosition || "Direktur")} Perseroan; dan
+                        Undangan Rapat.
                       </span>
                     </div>
-                  )}
+                  ) : (
+                    <>
+                      {mgmt && (
+                        <div style={{ display: 'flex', alignItems: 'flex-start', paddingLeft: '0.7in', textIndent: '-0.2in', marginTop: '2pt', textAlign: 'justify' }}>
+                          <span style={{ minWidth: '0.2in' }}>{getNextShLetter()}.&nbsp;</span>
+                          <span style={{ flex: 1 }}>
+                            {toTitleCase(getManagementRoleName())} Perseroan; {hasShares ? "dan" : ""}
+                          </span>
+                        </div>
+                      )}
 
-                  <div style={{ display: 'flex', alignItems: 'flex-start', paddingLeft: '0.7in', textIndent: '-0.2in', marginTop: '2pt', textAlign: 'justify' }}>
-                    <span style={{ minWidth: '0.2in' }}>{getNextShLetter()}.&nbsp;</span>
-                    <span style={{ flex: 1 }}>
-                      Pemilik dan pemegang saham sebanyak <strong>{sh.sharesOwned.toLocaleString('id-ID')}</strong> ({numberToWords(sh.sharesOwned)}) lembar saham atau senilai <strong>{formatRpDot(currentValue)}</strong> ({numberToWords(currentValue)} rupiah) berhak mengeluarkan suara <strong>{sh.sharesOwned.toLocaleString('id-ID')}</strong> ({numberToWords(sh.sharesOwned)}) suara dalam rapat.
-                    </span>
-                  </div>
+                      {hasShares && (
+                        <div style={{ display: 'flex', alignItems: 'flex-start', paddingLeft: '0.7in', textIndent: '-0.2in', marginTop: '2pt', textAlign: 'justify' }}>
+                          <span style={{ minWidth: '0.15in' }}>{getNextShLetter()}.&nbsp;</span>
+                          <span style={{ flex: 1 }}>
+                            Pemilik dan pemegang saham sebanyak <strong>{sh.sharesOwned.toLocaleString('id-ID')}</strong> ({numberToWords(sh.sharesOwned)}) lembar saham atau senilai <strong>{formatRpDot(currentValue)}</strong> ({numberToWords(currentValue)} rupiah) berhak mengeluarkan suara <strong>{sh.sharesOwned.toLocaleString('id-ID')}</strong> ({numberToWords(sh.sharesOwned)}) suara dalam rapat.
+                          </span>
+                        </div>
+                      )}
+                    </>
+                  )}
                 </div>
               );
             }
@@ -539,9 +593,20 @@ const DocumentPreview: React.FC<Props> = ({ data, showHeader = true, zoom = 1 })
                 else if (hasHibah && hasJualBeli) resTitle = "Persetujuan Hibah dan Penjualan Saham";
                 return renderResolutionTitle(resTitle);
               })()}
-              <div style={{ textAlign: 'justify', paddingLeft: '0.3in', marginBottom: PARA_SPACING }}>
-                Menyetujui pengalihan seluruh saham secara hibah/jual beli dengan rincian sebagai berikut :
-              </div>
+              {(() => {
+                const totalTransferredShares = data.shareTransfers.reduce((sum, t) => sum + t.sharesTransferred, 0);
+                const transferTypesRaw = data.shareTransfers.map((t) => (t.type || 'jual beli').toLowerCase());
+                const hasHibah = transferTypesRaw.some(t => t.includes('hibah'));
+                const hasJualBeli = transferTypesRaw.some(t => t.includes('jual beli') || t.includes('ajb'));
+                const transferText = hasHibah && hasJualBeli ? "hibah dan jual beli" : (hasHibah ? "hibah" : "jual beli");
+                const totalCompanyShares = data.originalTotalShares || 0;
+                const sahamText = totalTransferredShares >= totalCompanyShares && totalCompanyShares > 0 ? "seluruh saham" : "sebagian saham";
+                return (
+                  <div style={{ textAlign: 'justify', paddingLeft: '0.3in', marginBottom: PARA_SPACING }}>
+                    Menyetujui pengalihan {sahamText} secara {transferText} dengan rincian sebagai berikut :
+                  </div>
+                );
+              })()}
               {data.shareTransfers.map((t, idx) => {
                 const fromSh = data.shareholders.find((s) => s.id === t.fromShareholderId);
                 const toSh = data.shareholders.find((s) => s.id === t.toShareholderId) || data.finalShareholders.find((s) => s.id === t.toShareholderId);
@@ -581,40 +646,119 @@ const DocumentPreview: React.FC<Props> = ({ data, showHeader = true, zoom = 1 })
           {(data.resolutions.management || data.resolutions.reappointment) && (
             <>
               {renderResolutionTitle("Persetujuan Perubahan/Pengangkatan Pengurus")}
-              <div style={{ textAlign: 'justify', paddingLeft: '0.3in', marginBottom: PARA_SPACING }}>
-                Menyetujui untuk memberhentikan dengan hormat seluruh anggota Direksi dan Dewan Komisaris Perseroan yang menjabat saat ini, yaitu :
-              </div>
               {(() => {
                 const oldManagers = [
-                  ...data.shareholders.filter((s) => s.isManagement).map((s) => ({ ...s, position: s.managementPosition || "Pengurus" })),
+                  ...data.shareholders.filter((s) => s.isManagement).map((s) => ({ ...s, position: s.managementPosition || "Pengurus", salutation: s.salutation || "Tuan" })),
                   ...(data.oldManagementItems || []),
                 ];
                 const newManagers = [
                   ...(data.finalShareholders && data.finalShareholders.length > 0 ? data.finalShareholders : data.shareholders)
                     .filter((s) => s.isManagement)
-                    .map((s) => ({ ...s, position: s.managementPosition || "Pengurus" })),
+                    .map((s) => ({ ...s, position: s.managementPosition || "Pengurus", salutation: s.salutation || "Tuan" })),
                   ...(data.newManagementItems || []),
                 ];
+
+                const changeType = data.managementChangeType || "ALL_DISMISSED";
+                let managersToDismiss = [];
+                let managersToAppoint = [];
+
+                if (changeType === "PARTIAL_CHANGE") {
+                  managersToDismiss = oldManagers.filter(
+                    (om) =>
+                      !newManagers.some(
+                        (nm) =>
+                          (nm.name || "").toUpperCase().trim() === (om.name || "").toUpperCase().trim() &&
+                          (nm.position || "").toUpperCase().trim() === (om.position || "").toUpperCase().trim()
+                      )
+                  );
+                  managersToAppoint = newManagers.filter(
+                    (nm) =>
+                      !oldManagers.some(
+                        (om) =>
+                          (om.name || "").toUpperCase().trim() === (nm.name || "").toUpperCase().trim() &&
+                          (om.position || "").toUpperCase().trim() === (nm.position || "").toUpperCase().trim()
+                      )
+                  );
+                } else {
+                  managersToDismiss = oldManagers;
+                  managersToAppoint = newManagers;
+                }
+
+                const hasDirector = managersToAppoint.some(m => /direktur/i.test(m.position || ""));
+                const hasCommissioner = managersToAppoint.some(m => /komisaris/i.test(m.position || ""));
+                
+                let appointmentTitleText = "anggota Direksi / Dewan Komisaris Perseroan";
+                if (hasDirector && !hasCommissioner) {
+                  appointmentTitleText = "anggota Direksi Perseroan";
+                } else if (!hasDirector && hasCommissioner) {
+                  appointmentTitleText = "Dewan Komisaris Perseroan";
+                }
+
                 return (
                   <>
-                    {oldManagers.map((m, mIdx) => (
-                      <div key={mIdx} style={{ textAlign: 'justify', paddingLeft: '0.5in', textIndent: '-0.2in', marginBottom: '2pt' }}>
-                        <span>-&nbsp;&nbsp;</span>
-                        <strong>{m.name.toUpperCase()}</strong>, selaku {m.position} perseroan;
-                      </div>
-                    ))}
-                    <div style={{ textAlign: 'justify', paddingLeft: '0.3in', marginTop: '6pt', marginBottom: PARA_SPACING }}>
-                      Dengan ucapan terima kasih atas jasa-jasa dan pengabdian yang telah diberikan selama masa jabatannya dalam Perseroan, serta memberikan pelunasan dan pembebasan tanggung jawab sepenuhnya (acquit et de charge) atas tindakan pengurusan dan pengawasan yang telah dijalankan, sepanjang tindakan-tindakan tersebut tercermin dalam buku-buku serta laporan tahunan Perseroan.
-                    </div>
-                    <div style={{ textAlign: 'justify', paddingLeft: '0.3in', marginTop: '6pt', marginBottom: PARA_SPACING }}>
-                      Selanjutnya menyetujui untuk mengangkat nama-nama tersebut di bawah ini sebagai anggota Direksi dan Dewan Komisaris Perseroan yang baru :
-                    </div>
-                    {newManagers.map((m, mIdx) => (
-                      <div key={mIdx} style={{ textAlign: 'justify', paddingLeft: '0.5in', textIndent: '-0.2in', marginBottom: '2pt' }}>
-                        <span>-&nbsp;&nbsp;</span>
-                        <strong>{m.name.toUpperCase()}</strong>, sebagai {toTitleCase(m.position)} perseroan;
-                      </div>
-                    ))}
+                    {managersToDismiss.length > 0 && (
+                      <>
+                        <div style={{ textAlign: 'justify', paddingLeft: '0.3in', marginBottom: PARA_SPACING }}>
+                          {managersToDismiss.length === 1 ? (
+                            (() => {
+                              const mgr = managersToDismiss[0];
+                              let resignationHeading = "anggota Direksi dan Dewan Komisaris Perseroan";
+                              if (/direktur/i.test(mgr.position || "")) {
+                                resignationHeading = "anggota Direksi";
+                              } else if (/komisaris/i.test(mgr.position || "")) {
+                                resignationHeading = "Dewan Komisaris Perseroan";
+                              }
+                              return (
+                                <span>
+                                  Menyetujui untuk memberhentikan dengan hormat {resignationHeading}, <strong>{(mgr.name || "").toUpperCase()}</strong> selaku {mgr.position} perseroan.
+                                </span>
+                              );
+                            })()
+                          ) : (
+                            <span>
+                              Menyetujui untuk memberhentikan dengan hormat {changeType === "PARTIAL_CHANGE" ? "anggota" : "seluruh anggota"} Direksi dan Dewan Komisaris Perseroan{changeType === "PARTIAL_CHANGE" ? "" : " yang menjabat saat ini"}, yaitu :
+                            </span>
+                          )}
+                        </div>
+                        {managersToDismiss.length > 1 && managersToDismiss.map((m, mIdx) => (
+                          <div key={mIdx} style={{ textAlign: 'justify', paddingLeft: '0.5in', textIndent: '-0.2in', marginBottom: '2pt' }}>
+                            <span>-&nbsp;&nbsp;</span>
+                            <strong>{(m.name || "").toUpperCase()}</strong>, selaku {m.position} perseroan;
+                          </div>
+                        ))}
+                        <div style={{ textAlign: 'justify', paddingLeft: '0.3in', marginTop: '6pt', marginBottom: PARA_SPACING }}>
+                          Dengan ucapan terima kasih atas jasa-jasa dan pengabdian yang telah diberikan selama masa jabatannya dalam Perseroan, serta memberikan pelunasan dan pembebasan tanggung jawab sepenuhnya (acquit et de charge) atas tindakan pengurusan dan pengawasan yang telah dijalankan, sepanjang tindakan-tindakan tersebut tercermin dalam buku-buku serta laporan tahunan Perseroan.
+                        </div>
+                      </>
+                    )}
+
+                    {managersToAppoint.length > 0 && (
+                      <>
+                        <div style={{ textAlign: 'justify', paddingLeft: '0.3in', marginTop: '6pt', marginBottom: PARA_SPACING }}>
+                          Selanjutnya menyetujui untuk mengangkat sebagai {appointmentTitleText} yang baru :
+                        </div>
+                        {managersToAppoint.map((m, mIdx) => (
+                          <div key={mIdx} style={{ textAlign: 'justify', paddingLeft: '0.5in', textIndent: '-0.2in', marginBottom: '2pt' }}>
+                            <span>-&nbsp;&nbsp;</span>
+                            <strong>{(m.name || "").toUpperCase()}</strong>, sebagai {toTitleCase(m.position)} perseroan;
+                          </div>
+                        ))}
+                      </>
+                    )}
+
+                    {(managersToDismiss.length > 0 || managersToAppoint.length > 0) && (
+                      <>
+                        <div style={{ textAlign: 'justify', paddingLeft: '0.3in', marginTop: '6pt', marginBottom: PARA_SPACING }}>
+                          Sehingga susunan anggota Direksi dan Dewan Komisaris Perseroan menjadi sebagai berikut :
+                        </div>
+                        {newManagers.map((m, mIdx) => (
+                          <div key={mIdx} style={{ textAlign: 'justify', paddingLeft: '0.5in', textIndent: '-0.2in', marginBottom: '2pt' }}>
+                            <span>-&nbsp;&nbsp;</span>
+                            <strong>{(m.name || "").toUpperCase()}</strong> ditetapkan selaku {toTitleCase(m.position)} perseroan;
+                          </div>
+                        ))}
+                      </>
+                    )}
                   </>
                 );
               })()}

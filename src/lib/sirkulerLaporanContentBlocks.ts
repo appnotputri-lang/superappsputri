@@ -114,20 +114,35 @@ export function generateSirkulerLaporanBlocks(data: CompanyData): Block[] {
   if (data.slAlasanAuditE) alasanAuditOptions.push("Aset dan/atau jumlah peredaran usaha tidak lebih dari 50 Milyar, atau");
   if (data.slAlasanAuditF) alasanAuditOptions.push("Tidak diwajibkan oleh peraturan perundang-undangan.");
 
-  blocks.push(
-    {
-      type: "numbered", num: "1.", indentLeft: 720, indentHanging: 360, runs: [
-        { text: `Menyetujui Pernyataan Direksi dan Komisaris serta Para Pemegang Saham Perseroan ${finalCompanyName} yang menyatakan bahwa status perseroan ini merupakan PT. Tertutup yang Laporan Keuangannya Tidak Memenuhi Ketentuan Wajib Audit oleh Akuntan Publik dengan alasan sebagai berikut:` }
-      ]
-    }
-  );
+  if (alasanAuditOptions.length === 0) {
+    alasanAuditOptions.push("Aset dan/atau jumlah peredaran usaha tidak lebih dari 50 Milyar.");
+  }
 
-  const letters = ["a.", "b.", "c.", "d.", "e.", "f."];
-  alasanAuditOptions.forEach((opt, idx) => {
+  if (alasanAuditOptions.length === 1) {
+    const formattedReason = alasanAuditOptions[0].replace(", atau", "");
     blocks.push(
-      { type: "numbered", num: letters[idx], indentLeft: 1080, indentHanging: 360, runs: [{ text: opt }] }
+      {
+        type: "numbered", num: "1.", indentLeft: 720, indentHanging: 360, runs: [
+          { text: `Menyetujui Pernyataan Direksi dan Komisaris serta Para Pemegang Saham Perseroan ${finalCompanyName} yang menyatakan bahwa status perseroan ini merupakan PT. Tertutup yang Laporan Keuangannya Tidak Memenuhi Ketentuan Wajib Audit oleh Akuntan Publik dengan alasan ${formattedReason}` }
+        ]
+      }
     );
-  });
+  } else {
+    blocks.push(
+      {
+        type: "numbered", num: "1.", indentLeft: 720, indentHanging: 360, runs: [
+          { text: `Menyetujui Pernyataan Direksi dan Komisaris serta Para Pemegang Saham Perseroan ${finalCompanyName} yang menyatakan bahwa status perseroan ini merupakan PT. Tertutup yang Laporan Keuangannya Tidak Memenuhi Ketentuan Wajib Audit oleh Akuntan Publik dengan alasan sebagai berikut:` }
+        ]
+      }
+    );
+
+    const letters = ["a.", "b.", "c.", "d.", "e.", "f."];
+    alasanAuditOptions.forEach((opt, idx) => {
+      blocks.push(
+        { type: "numbered", num: letters[idx], indentLeft: 1080, indentHanging: 360, runs: [{ text: opt }] }
+      );
+    });
+  }
 
   const lapNoText = data.slLaporanNomor || "................................";
   const lapTglText = data.slLaporanTanggalHuruf || "................................";

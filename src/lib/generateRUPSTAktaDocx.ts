@@ -406,6 +406,16 @@ const mkDecisionDash = (t: FormatToken[]) =>
     children: wrappedRuns(t, W.decisionDash),
   });
 
+/** DECISION DASH INNER  numId=5 ilvl=2 ind.left=1276 hanging=425 */
+const mkDecisionDashInner = (t: FormatToken[]) =>
+  new Paragraph({
+    style: "ListParagraph",
+    numbering: { reference: NUM.DECISIONS, level: 2 },
+    tabStops: [TAB_KANAN],
+    indent: { left: 1276, hanging: 425 },
+    children: wrappedRuns(t, W.decisionDash),
+  });
+
 /** SAKSI NUMBER  numId=9 ilvl=0 ind.left=426 */
 const mkSaksiNum = (t: FormatToken[]) =>
   new Paragraph({
@@ -569,7 +579,12 @@ export const generateRUPSTAktaDocx = async (data: CompanyData, returnBlob?: bool
         if (isLetter) {
           docxChildren.push(mkDecisionLetter(b.runs));
         } else {
-          docxChildren.push(mkDecisionDash(b.runs));
+          // indentTabs determines if it's an inner dash (indent 2) or outer dash (indent 1)
+          if ((b.indentTabs || 0) >= 2) {
+            docxChildren.push(mkDecisionDashInner(b.runs));
+          } else {
+            docxChildren.push(mkDecisionDash(b.runs));
+          }
         }
         return;
       }
