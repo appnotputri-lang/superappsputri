@@ -626,7 +626,7 @@ export const generateWordDoc = async (data: CompanyData) => {
             font: FONT_FAMILY,
           }),
           new TextRun({
-            text: data.invitationNumber || "................",
+            text: data.invitationNumber || "[nomor surat]",
             bold: true,
             size: FONT_SIZE,
             font: FONT_FAMILY,

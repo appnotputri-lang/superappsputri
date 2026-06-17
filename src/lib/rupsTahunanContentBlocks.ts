@@ -187,13 +187,13 @@ export const generateRupstBlocks = (data: CompanyData): Block[] => {
   const tglUndanganValue = formatDateRupst(invitationDate || "");
 
   const invitationRuns: FormatToken[] = [
-    { text: "Rapat Umum Pemegang Saham Tahunan Nomor: " }
+    { text: "Rapat ini diselenggarakan berdasarkan Surat Pemanggilan Rapat Umum Pemegang Saham Tahunan Nomor: " }
   ];
 
   if (invitationNum) {
     invitationRuns.push({ text: invitationNum });
   } else {
-    invitationRuns.push({ text: "[nomor surat]", highlight: "yellow" });
+    invitationRuns.push({ text: "[nomor]", highlight: "yellow" });
   }
 
   invitationRuns.push({ text: " tertanggal " });
@@ -201,10 +201,10 @@ export const generateRupstBlocks = (data: CompanyData): Block[] => {
   if (invitationDate) {
     invitationRuns.push({ text: tglUndanganValue });
   } else {
-    invitationRuns.push({ text: "[tanggal surat]", highlight: "yellow" });
+    invitationRuns.push({ text: "[tanggal]", highlight: "yellow" });
   }
 
-  invitationRuns.push({ text: " dan diadakan pada:" });
+  invitationRuns.push({ text: " dan diadakan pada :" });
 
   blocks.push({
     type: "p",
