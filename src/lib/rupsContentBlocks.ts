@@ -247,7 +247,12 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
       {
         type: "p",
         align: "center",
-        runs: [{ text: `AKTA PERUBAHAN`, bold: true }],
+        runs: [{ text: `PERNYATAAN KEPUTUSAN`, bold: true }],
+      },
+      {
+        type: "p",
+        align: "center",
+        runs: [{ text: `RAPAT UMUM PEMEGANG SAHAM LUAR BIASA`, bold: true }],
       },
     );
   }
