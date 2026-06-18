@@ -690,7 +690,7 @@ export const generatePendirianDocx = async (data: any): Promise<void> => {
   // 6. Assign numId values for independent numbered lists
   // We cycle through a pool of decimal-at-lvl0, lowerLetter-at-lvl1 numIds defined in the template's numbering.xml
   const DECIMAL_NUM_ID_POOL = [
-    "3", "4", "6", "7", "9", "12", "13", "16", "18", "26", "27", "29", "30", "33", "34", "37", "46"
+    "3", "4", "6", "7", "9", "12", "13", "16", "18", "26", "27", "29", "30", "34", "37", "46"
   ];
 
   let poolIndex = -1;
