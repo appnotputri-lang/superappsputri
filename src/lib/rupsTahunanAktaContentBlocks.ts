@@ -1146,12 +1146,14 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
           ...(
             !data.rupstIsAudited && (netProfit === 0 || netProfit === undefined)
               ? []
-              : [{
-                  type: "list",
-                  bullet: "-",
-                  indentTabs: 1.0,
-                  runs: [{ text: "Seluruh laba bersih Perseroan dibukukan sebagai laba ditahan Perseroan." }]
-                } as any] 
+              : [
+                  {
+                    type: "list" as const,
+                    bullet: "-",
+                    indentTabs: 1.0,
+                    runs: [{ text: "Seluruh laba bersih Perseroan dibukukan sebagai laba ditahan Perseroan." }]
+                  }
+                ]
           )
         );
       }

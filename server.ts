@@ -22,7 +22,7 @@ async function startServer() {
   });
 
   app.get("/api/template-pendirian", (req, res) => {
-    res.sendFile(path.join(process.cwd(), "PT. pendirian.docx"));
+    res.sendFile(path.join(process.cwd(), "DRAFT PENDIRIAN PT.docx"));
   });
 
   app.get("/api/search-by-nik", async (req, res) => {

@@ -17,9 +17,6 @@ import DraftAktaApp, { DraftAktaAppRef } from './src/DraftAktaApp';
 import DraftAktaRUPS from './src/DraftAktaRUPS';
 import PendirianList from './src/components/PendirianList';
 import DraftAktaPendirian from './src/DraftAktaPendirian';
-import PendirianNewList from './src/components/PendirianNewList';
-import DraftAktaPendirianNew from './src/DraftAktaPendirianNew';
-import { TemplateAktaManager } from './src/components/TemplateAktaManager';
 import ImportKBLI from './src/components/ImportKBLI';
 import PendirianDocumentPreview from './src/PendirianDocumentPreview';
 import { RUPSTDocumentPreview } from './src/RUPSTDocumentPreview';
@@ -279,7 +276,7 @@ const INITIAL_STATE: CompanyData = {
 };
 
 type TabId = 'general' | 'shareholders' | 'shareholders_new' | 'representative' | 'agenda' | 'kbli' | 'domicile' | 'address' | 'capitalBase' | 'capitalPaid' | 'management' | 'reappointment';
-type SidebarTabId = 'beranda' | 'company_profile' | 'notulen' | 'pendirian' | 'pendirian_new' | 'template_akta' | 'rupst' | 'perbaikan' | 'draft_akta_rups' | 'panduan' | 'kbli_mapping' | 'saran_kbli' | 'import_kbli';
+type SidebarTabId = 'beranda' | 'company_profile' | 'notulen' | 'pendirian' | 'rupst' | 'perbaikan' | 'draft_akta_rups' | 'panduan' | 'kbli_mapping' | 'saran_kbli' | 'import_kbli';
 
 // AHU Style Helper Components
 const AhuSection = ({ title, children, isOpen = true }: { title: string, children: React.ReactNode, isOpen?: boolean }) => {
@@ -385,20 +382,6 @@ const TAB_ACCENTS: Record<SidebarTabId, {
     bgColor: 'bg-pink-50/70',
     hoverBg: 'hover:bg-pink-50/40 hover:text-pink-950',
     indicatorBg: 'bg-pink-600'
-  },
-  pendirian_new: {
-    iconColor: 'text-rose-600',
-    textColor: 'text-rose-900',
-    bgColor: 'bg-rose-50/70',
-    hoverBg: 'hover:bg-rose-50/40 hover:text-rose-950',
-    indicatorBg: 'bg-rose-600'
-  },
-  template_akta: {
-    iconColor: 'text-cyan-600',
-    textColor: 'text-cyan-900',
-    bgColor: 'bg-cyan-50/70',
-    hoverBg: 'hover:bg-cyan-50/40 hover:text-cyan-950',
-    indicatorBg: 'bg-cyan-600'
   },
   kbli_mapping: {
     iconColor: 'text-blue-900',
@@ -510,7 +493,6 @@ const App: React.FC = () => {
   const [rupstProjects, setRupstProjects] = useState<CompanyData[]>([]);
   const [rupstPublicProjects, setRupstPublicProjects] = useState<CompanyData[]>([]);
   const [pendirianProjects, setPendirianProjects] = useState<CompanyData[]>([]);
-  const [pendirianNewProjects, setPendirianNewProjects] = useState<CompanyData[]>([]);
   const [rupstSearchQuery, setRupstSearchQuery] = useState("");
   const [selectedRupstYear, setSelectedRupstYear] = useState<string>("all");
   const [rupstSortField, setRupstSortField] = useState<string>("updatedAt");
@@ -1007,17 +989,6 @@ const App: React.FC = () => {
         checkIfLoaded();
       });
 
-      const pendirianNewRef = collection(db, 'pendirian_new_projects');
-      const unsubPendirianNew = onSnapshot(pendirianNewRef, (snapshot) => {
-        const loaded: CompanyData[] = [];
-        snapshot.forEach(doc => {
-          loaded.push(doc.data() as CompanyData);
-        });
-        setPendirianNewProjects(loaded);
-      }, (error) => {
-        handleFirestoreError(error, OperationType.LIST, 'pendirian_new_projects');
-      });
-
       const rupstRef = collection(db, 'rupst_projects');
       const unsubRupst = onSnapshot(rupstRef, (snapshot) => {
         const loaded: CompanyData[] = [];
@@ -1052,7 +1023,6 @@ const App: React.FC = () => {
         unsubRupst(); 
         unsubRupstPublic(); 
         unsubPendirian(); 
-        unsubPendirianNew();
         unsubNotifications();
       };
     } else {
@@ -1060,7 +1030,6 @@ const App: React.FC = () => {
       setProjects([]);
       setRupstProjects([]);
       setPendirianProjects([]);
-      setPendirianNewProjects([]);
       setDataLoading(false);
       return () => unsubRupstPublic();
     }
@@ -1070,7 +1039,6 @@ const App: React.FC = () => {
   const [editingRupstId, setEditingRupstId] = useState<string | null>(null);
   const [editingRupstPublicId, setEditingRupstPublicId] = useState<string | null>(null);
   const [editingPendirianId, setEditingPendirianId] = useState<string | null>(null);
-  const [editingPendirianNewId, setEditingPendirianNewId] = useState<string | null>(null);
   const [editingProfileId, setEditingProfileId] = useState<string | null>(null);
   const [isProfilePreview, setIsProfilePreview] = useState<boolean>(false);
   const [isRupstPreview, setIsRupstPreview] = useState<boolean>(false);
@@ -1226,8 +1194,6 @@ const App: React.FC = () => {
     'company_profile': '/profile',
     'notulen': '/rupslb',
     'pendirian': '/pendirian',
-    'pendirian_new': '/pendirian-new',
-    'template_akta': '/template-akta',
     'rupst': '/rupst',
     'perbaikan': '/perbaikan',
     'draft_akta_rups': '/draft-akta',
@@ -2036,8 +2002,6 @@ const App: React.FC = () => {
               { label: 'RUPS LB', id: 'notulen' as const, icon: FileText },
               { label: 'RUPS Tahunan', id: 'rupst' as const, icon: CalendarCheck },
               { label: 'Pendirian PT', id: 'pendirian' as const, icon: FilePlus },
-              { label: 'Pendirian NEW', id: 'pendirian_new' as const, icon: FileText },
-              { label: 'Template Akta', id: 'template_akta' as const, icon: FileSignature },
             ].map((item) => {
               const isActive = activeSidebarTab === item.id;
               const acc = TAB_ACCENTS[item.id] || TAB_ACCENTS.beranda;
@@ -8956,56 +8920,6 @@ const App: React.FC = () => {
                 }}
               />
             )
-          ) : activeSidebarTab === 'pendirian_new' ? (
-            editingPendirianNewId ? (
-              <DraftAktaPendirianNew 
-                profiles={profiles}
-                initialData={editingPendirianNewId === 'new' ? null : pendirianNewProjects.find(p => p.id === editingPendirianNewId) as any}
-                isSaving={isSaving}
-                onSave={async (pendirianData) => {
-                  setIsSaving(true);
-                  if (!user) {
-                    setIsSaving(false);
-                    return alert('Anda harus login terlebih dahulu!');
-                  }
-                  
-                  const id = editingPendirianNewId === 'new' ? crypto.randomUUID() : editingPendirianNewId;
-                  const finalData = {
-                    ...pendirianData,
-                    id,
-                    updatedAt: new Date().toISOString()
-                  };
-
-                  try {
-                    const isNewPendirian = editingPendirianNewId === 'new';
-                     await setDoc(doc(db, 'pendirian_new_projects', id), sanitizeForFirestore(finalData));
-                     recordNotification(
-                       isNewPendirian ? 'Pendirian PT (NEW) Baru Dibuat' : 'Pendirian PT (NEW) Diubah',
-                       `Data Pendirian PT (NEW) untuk perusahaan "${finalData.namaPt || 'PT Baru'}" telah ${isNewPendirian ? 'berhasil didaftarkan' : 'diperbarui'} oleh ${user?.email || 'Admin'}.`,
-                       isNewPendirian ? 'create_pendirian' : 'update_pendirian'
-                     );
-                    setEditingPendirianNewId(null);
-                    alert('Data pendirian (NEW) berhasil disimpan!');
-                  } catch (e) {
-                    handleFirestoreError(e, OperationType.WRITE, `pendirian_new_projects/${id}`);
-                  } finally {
-                    setIsSaving(false);
-                  }
-                }}
-                onCancel={() => setEditingPendirianNewId(null)}
-              />
-            ) : (
-              <PendirianNewList 
-                onEdit={(rec) => {
-                  setEditingPendirianNewId(rec.id);
-                }}
-                onAdd={() => {
-                  setEditingPendirianNewId('new');
-                }}
-              />
-            )
-          ) : activeSidebarTab === 'template_akta' ? (
-             <TemplateAktaManager />
           ) : activeSidebarTab === 'perbaikan' ? (
             <DataCorrectionLetter />
           ) : activeSidebarTab === 'panduan' ? (

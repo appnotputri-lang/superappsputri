@@ -154,16 +154,21 @@ function getSectors(kbliItems: KbliItem[]): string[] {
 export function generatePendirianBlocks(data: PendirianData): Block[] {
   const blocks: Block[] = [];
   const hDate = new Date(data.tanggal);
-  const hari = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"][hDate.getDay()];
-  const tglHuruf = formatAktaDate(data.tanggal);
+  const isDateValid = !isNaN(hDate.getTime());
+  const hari = isDateValid
+    ? ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"][hDate.getDay()]
+    : "............................";
+  const tglHuruf = data.tanggal ? formatAktaDate(data.tanggal) : "............................";
   const shareholders = data.shareholders || [];
   const kbliItems = data.kbliItems || [];
   const termYears = parseInt(data.kuotaWaktuDireksi || "5") || 5;
 
+  const cleanNamaPt = (data.namaPt || "").replace(/^PT\.?\s*/i, "").trim().toUpperCase();
+
   // ── HEADER ──────────────────────────────────────────────────────────────
   blocks.push(
     { type: "p", align: "center", runs: [{ text: "PENDIRIAN PERSEROAN TERBATAS", bold: true }] },
-    { type: "p", align: "center", runs: [{ text: `PT. ${data.namaPt.toUpperCase()}`, bold: true }] },
+    { type: "p", align: "center", runs: [{ text: `PT. ${cleanNamaPt}`, bold: true }] },
     { type: "p", align: "center", runs: [{ text: "Nomor : " }] },
     { type: "br" },
   );
@@ -218,7 +223,7 @@ export function generatePendirianBlocks(data: PendirianData): Block[] {
     {
       type: "numbered", num: 1,
       runs: [{
-        text: `Perseroan Terbatas ini bernama Perseroan Terbatas : PT. ${data.namaPt.toUpperCase()} (selanjutnya dalam Anggaran Dasar ini cukup disingkat dengan "Perseroan"), berkedudukan di ${toTitleCase(data.kotaKedudukan || "")}${data.alamatLengkapPT ? ", " + data.alamatLengkapPT : ""}.`
+        text: `Perseroan Terbatas ini bernama Perseroan Terbatas : PT. ${cleanNamaPt} (selanjutnya dalam Anggaran Dasar ini cukup disingkat dengan "Perseroan"), berkedudukan di ${toTitleCase(data.kotaKedudukan || "")}${data.alamatLengkapPT ? ", " + data.alamatLengkapPT : ""}.`
       }],
     },
     {
@@ -489,16 +494,26 @@ export function generatePendirianBlocks(data: PendirianData): Block[] {
 
   // ── PASAL 17 – RENCANA KERJA ─────────────────────────────────────────────
   const docDate = new Date(data.tanggal);
-  const endDate = new Date(docDate);
-  endDate.setFullYear(endDate.getFullYear() + termYears);
-  const endTglHuruf = formatAktaDate(formatDateStr(endDate.toISOString()));
+  const isDocDateValid = !isNaN(docDate.getTime());
+  let endTglHuruf = "............................";
+  let firstYearTitle = "............";
+  let firstYearNumber = "............";
+
+  if (isDocDateValid) {
+    const endDate = new Date(docDate);
+    endDate.setFullYear(endDate.getFullYear() + termYears);
+    endTglHuruf = formatAktaDate(formatDateStr(endDate.toISOString()));
+    const fullYear = docDate.getFullYear();
+    firstYearTitle = terbilang(fullYear);
+    firstYearNumber = String(fullYear);
+  }
 
   blocks.push(
     { type: "pasal-divider", text: "RENCANA KERJA, TAHUN BUKU DAN LAPORAN TAHUNAN" },
     { type: "pasal-divider", text: "Pasal 17" },
     { type: "numbered", num: 1, runs: [{ text: "Direksi wajib menyampaikan rencana kerja yang memuat juga anggaran tahunan Perseroan kepada Dewan Komisaris untuk mendapat persetujuan, sebelum tahun buku dimulai." }] },
     { type: "numbered", num: 2, runs: [{ text: "Rencana kerja sebagaimana dimaksud pada ayat (1) harus disampaikan paling lambat 30 (tiga puluh) hari kerja sebelum dimulainya tahun buku yang akan datang." }] },
-    { type: "numbered", num: 3, runs: [{ text: `Tahun buku Perseroan berjalan dari tanggal 1 (satu) Januari sampai dengan tanggal 31 (tiga puluh satu) Desember. Pada akhir bulan Desember tiap tahun, buku Perseroan ditutup. Untuk pertama kalinya buku Perseroan ini dimulai pada tanggal dari Akta Pendirian ini dan ditutup pada tanggal tiga puluh satu Desember ${terbilang(new Date(data.tanggal).getFullYear())} (31-12-${new Date(data.tanggal).getFullYear()}).` }] },
+    { type: "numbered", num: 3, runs: [{ text: `Tahun buku Perseroan berjalan dari tanggal 1 (satu) Januari sampai dengan tanggal 31 (tiga puluh satu) Desember. Pada akhir bulan Desember tiap tahun, buku Perseroan ditutup. Untuk pertama kalinya buku Perseroan ini dimulai pada tanggal dari Akta Pendirian ini dan ditutup pada tanggal tiga puluh satu Desember ${firstYearTitle} (31-12-${firstYearNumber}).` }] },
     { type: "numbered", num: 4, runs: [{ text: "Direksi menyusun laporan tahunan dan menyediakannya di Perseroan untuk dapat diperiksa oleh para pemegang saham terhitung sejak tanggal panggilan Rapat Umum Pemegang Saham tahunan." }] },
   );
 

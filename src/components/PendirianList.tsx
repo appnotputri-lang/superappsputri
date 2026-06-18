@@ -110,7 +110,7 @@ const PendirianList: React.FC<{
                       <td className="px-4 py-3.5 border-r border-slate-200 font-bold text-[#0c2444] uppercase">{rec.namaPt || rec.companyName || '-'}</td>
                       <td className="px-4 py-3.5 border-r border-slate-200">{rec.kotaKedudukan || rec.domicile || '-'}</td>
                       <td className="px-4 py-3.5 border-r border-slate-200 text-center text-slate-400 font-mono text-[11px]">
-                        {rec.updatedAt ? new Date(rec.updatedAt).toLocaleDateString('id-ID') : '-'}
+                        {rec.updatedAt && !isNaN(new Date(rec.updatedAt).getTime()) ? new Date(rec.updatedAt).toLocaleDateString('id-ID') : '-'}
                       </td>
                       <td className="px-4 py-3.5 text-center flex items-center justify-center gap-2">
                         <button onClick={() => onEdit(rec)} className="p-1 px-2 bg-indigo-50 text-indigo-700 rounded text-xs font-bold border border-indigo-100 flex items-center gap-1">
