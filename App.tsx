@@ -732,7 +732,7 @@ const App: React.FC = () => {
 
     const menus = [
       { id: 'm-kp', title: 'Menu: Klien PT', subtitle: 'Kelola profile klien PT', type: 'menu', tabId: 'company_profile' as const },
-      { id: 'm-rlb', title: 'Menu: RUPS LB', subtitle: 'Keputusan Sirkuler & Berita Acara', type: 'menu', tabId: 'notulen' as const },
+      { id: 'm-rlb', title: 'Menu: RUPS LB', subtitle: 'Keputusan Sirkuler & PKR LB', type: 'menu', tabId: 'notulen' as const },
       { id: 'm-rt', title: 'Menu: RUPS Tahunan', subtitle: 'Pertanggungjawaban tahun buku', type: 'menu', tabId: 'rupst' as const },
       { id: 'm-pp', title: 'Menu: Pendirian PT', subtitle: 'Draft akta pendirian', type: 'menu', tabId: 'pendirian' as const },
       { id: 'm-kbli', title: 'Menu: Mapping KBLI', subtitle: 'Klasifikasi Baku Lapangan Usaha', type: 'menu', tabId: 'kbli_mapping' as const },
@@ -2448,7 +2448,7 @@ const App: React.FC = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
                 {[
                   { label: "Klien PT", val: profiles.length, desc: "Database klien perusahaan", icon: Building2, color: "text-[#1890ff] bg-blue-50/80 border-blue-100", tab: "company_profile" as const },
-                  { label: "Draft RUPS LB", val: projects.length, desc: "Keputusan Sirkuler & Berita Acara", icon: FileText, color: "text-amber-600 bg-amber-50/85 border-amber-100/80", tab: "notulen" as const },
+                  { label: "Draft RUPS LB", val: projects.length, desc: "Keputusan Sirkuler & PKR LB", icon: FileText, color: "text-amber-600 bg-amber-50/85 border-amber-100/80", tab: "notulen" as const },
                   { label: "Draft RUPS Tahunan", val: rupstProjects.length, desc: "Pertanggungjawaban tahun buku", icon: History, color: "text-emerald-600 bg-emerald-50/80 border-emerald-100/70", tab: "rupst" as const },
                   { label: "Draft Pendirian PT", val: pendirianProjects.length, desc: "Draft akta pendirian", icon: FileCode, color: "text-purple-600 bg-purple-50/80 border-purple-100/60", tab: "pendirian" as const }
                 ].map((st, i) => (
@@ -4070,7 +4070,7 @@ const App: React.FC = () => {
                             >
                               <FileCode className="w-[18px] h-[18px] text-blue-600 stroke-[2.25px] shrink-0" />
                               <div className="flex flex-col text-left">
-                                <span className="font-bold text-slate-800 leading-tight">Draft Akta RUPS LB</span>
+                                <span className="font-bold text-slate-800 leading-tight">Draft Akta PKR LB</span>
                                 <span className="text-[10px] text-slate-400 lowercase mt-0.5 font-medium">format dokumen (.docx)</span>
                               </div>
                             </button>
@@ -4235,7 +4235,7 @@ const App: React.FC = () => {
                         <div className="text-[12px] font-bold text-blue-800 uppercase">Petunjuk Kehadiran (Notulen)</div>
                         <p className="text-[11px] text-blue-600 leading-tight mt-0.5">
                           Silakan centang kolom <b>"Hadir"</b> di bawah ini untuk setiap pemegang saham yang menghadiri rapat. 
-                          Hanya pemegang saham yang dicentang yang akan muncul dalam daftar hadir di dokumen Berita Acara RUPS.
+                          Hanya pemegang saham yang dicentang yang akan muncul dalam daftar hadir di dokumen PKR LB.
                         </p>
                       </div>
                     </div>
@@ -4706,7 +4706,7 @@ const App: React.FC = () => {
                           onChange={() => updateData({ documentType: 'MINUTES' })}
                           className="w-4 h-4 text-[#3b5998] focus:ring-[#3b5998] border-[#ccc]"
                         />
-                        <span>Berita Acara RUPS LB</span>
+                        <span>PKR LB</span>
                       </label>
                     </div>
                   </div>
@@ -6290,14 +6290,14 @@ const App: React.FC = () => {
                                                 await generateRUPSDocx({ ...INITIAL_STATE, ...p } as any);
                                               } catch (err) {
                                                 console.error('Failed to generate Draft Akta:', err);
-                                                alert('Gagal mengunduh Draft Akta RUPS LB.');
+                                                alert('Gagal mengunduh Draft Akta PKR LB.');
                                               }
                                             }}
                                             className="w-full px-4 py-2 text-slate-700 hover:bg-slate-50 text-[11px] font-bold flex items-center gap-2.5 uppercase tracking-wide border-b border-slate-100"
                                           >
                                             <FileCode className="w-[15px] h-[15px] text-blue-500 shrink-0" />
                                             <div className="flex flex-col text-left">
-                                              <span className="leading-tight">Draft Akta RUPS LB</span>
+                                              <span className="leading-tight">Draft Akta PKR LB</span>
                                               <span className="text-[9px] text-slate-400 lowercase font-medium mt-0.5">.docx</span>
                                             </div>
                                           </button>

@@ -857,13 +857,21 @@ export const generateRupstBlocks = (data: CompanyData): Block[] => {
           indentStyle: "keputusan",
           runs: [{ text: "Perseroan tidak membagikan dividen kepada para pemegang saham;" }]
         });
-        blocks.push({
-          type: "list",
-          bullet: "-",
-          indentTabs: 1,
-          indentStyle: "keputusan",
-          runs: [{ text: "Seluruh laba bersih Perseroan dibukukan sebagai laba ditahan Perseroan." }]
-        });
+        if (
+          !(
+            !data.rupstIsAudited &&
+            ((typeof data.rupstNetProfit === "number" && data.rupstNetProfit === 0) ||
+              data.rupstNetProfit === undefined)
+          )
+        ) {
+          blocks.push({
+            type: "list",
+            bullet: "-",
+            indentTabs: 1,
+            indentStyle: "keputusan",
+            runs: [{ text: "Seluruh laba bersih Perseroan dibukukan sebagai laba ditahan Perseroan." }]
+          });
+        }
       }
     }
 
@@ -996,8 +1004,13 @@ export const generateRupstBlocks = (data: CompanyData): Block[] => {
           const netProfit = data.rupstNetProfit || 0;
           const previousRetained = data.rupstRetainedProfit || 0;
           const divAmt = data.rupstDividendAmount || 0;
-          const totalLabaDitahan = netProfit + previousRetained - divAmt;
-          netProfitText = `Menetapkan penggunaan laba bersih sebesar ${amtStr}, dimana sebesar Rp. ${formatNumber(divAmt)},- (${terbilang(divAmt)} rupiah) dibagikan sebagai dividen dan sisanya setelah ditambah saldo laba ditahan tahun sebelumnya sebesar Rp. ${formatNumber(previousRetained)},- (${terbilang(previousRetained)} rupiah) menjadi sebesar Rp. ${formatNumber(totalLabaDitahan)},- (${terbilang(totalLabaDitahan)} rupiah) ditetapkan sebagai saldo laba ditahan Perseroan.`;
+
+          if (!data.rupstIsAudited && netProfit === 0 && previousRetained === 0 && divAmt === 0) {
+            netProfitText = `Menyetujui dan mengesahkan Laporan Laba Rugi Perseroan untuk Tahun Buku yang berakhir pada tanggal 31 Desember ${fiscalYear} yang menunjukkan bahwa Perseroan tidak memperoleh laba maupun menderita kerugian, sehingga laba bersih Perseroan untuk Tahun Buku ${fiscalYear} adalah sebesar Rp0,00 (nol Rupiah), dan oleh karenanya memutuskan bahwa tidak terdapat laba bersih yang dapat dibagikan sebagai dividen kepada para pemegang saham untuk Tahun Buku ${fiscalYear}.`;
+          } else {
+            const totalLabaDitahan = netProfit + previousRetained - divAmt;
+            netProfitText = `Menetapkan penggunaan laba bersih sebesar ${amtStr}, dimana sebesar Rp. ${formatNumber(divAmt)},- (${terbilang(divAmt)} rupiah) dibagikan sebagai dividen dan sisanya setelah ditambah saldo laba ditahan tahun sebelumnya sebesar Rp. ${formatNumber(previousRetained)},- (${terbilang(previousRetained)} rupiah) menjadi sebesar Rp. ${formatNumber(totalLabaDitahan)},- (${terbilang(totalLabaDitahan)} rupiah) ditetapkan sebagai saldo laba ditahan Perseroan.`;
+          }
         }
       } else {
         netProfitText = "Menetapkan penggunaan laba bersih Perseroan sebagaimana diusulkan dalam Rapat.";

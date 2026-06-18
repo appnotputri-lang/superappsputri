@@ -26,7 +26,7 @@ const GuideMenu = () => {
           Panduan Penggunaan Aplikasi
         </h1>
         <p className="text-slate-600">
-          Ikuti langkah-langkah di bawah ini untuk memulai membuat draft Notulen, Berita Acara RUPS, Peralihan Saham, dan Surat Kuasa dengan sistem yang terotomatisasi.
+          Ikuti langkah-langkah di bawah ini untuk memulai membuat draft Notulen, PKR LB, Peralihan Saham, dan Surat Kuasa dengan sistem yang terotomatisasi.
         </p>
       </div>
 
@@ -80,7 +80,7 @@ const GuideMenu = () => {
                   <p><b>A. Jenis Dokumen Dasar (Akta)</b></p>
                   <ul className="list-disc pl-5 space-y-1">
                      <li><b>Pernyataan Keputusan Rapat (PKR)</b> = Berdasar pada Notulen RUPS bawah tangan.</li>
-                     <li><b>Berita Acara RUPS</b> = Jika RUPS dilakukan di hadapan Notaris.</li>
+                     <li><b>PKR LB</b> = Jika RUPS dilakukan di hadapan Notaris.</li>
                      <li><b>Jual Beli Saham / Hibah Saham</b> = Akta Peralihan Saham (akan muncul jika Anda mencentang agenda Peralihan Saham).</li>
                      <li><b>Surat Kuasa</b> = Anda bisa men-generate form kuasa secara otomatis dari menu di sebelah Proyek.</li>
                   </ul>
@@ -107,7 +107,7 @@ const GuideMenu = () => {
             <div className="flex-1 space-y-4">
               <h2 className="text-lg font-bold text-slate-800">Data Kehadiran & Detail Rapat</h2>
               <p className="text-sm text-slate-600 leading-relaxed">
-                Jika Anda membuat Akta Berita Acara RUPS Luar Biasa, pastikan mengisi form <b>Detail Rapat</b> (Tanggal RUPS, Waktu, Tempat).<br/>
+                Jika Anda membuat Akta PKR LB, pastikan mengisi form <b>Detail Rapat</b> (Tanggal RUPS, Waktu, Tempat).<br/>
                 Sistem juga otomatis menyediakan input <b>Data Kehadiran (Daftar Hadir)</b> untuk memastikan kuorum RUPS telah terpenuhi. 
                 Anda cukup memilih siapa saja pemegang saham yang hadir atau diwakili oleh kuasa.
               </p>

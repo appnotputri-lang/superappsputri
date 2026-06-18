@@ -1143,12 +1143,18 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
             indentTabs: 1.0,
             runs: [{ text: "Perseroan tidak membagikan dividen kepada para pemegang saham;" }]
           },
-          {
-            type: "list",
-            bullet: "-",
-            indentTabs: 1.0,
-            runs: [{ text: "Seluruh laba bersih Perseroan dibukukan sebagai laba ditahan Perseroan." }]
-          }
+          ...(
+            !data.rupstIsAudited && (netProfit === 0 || netProfit === undefined)
+              ? []
+              : [
+                  {
+                    type: "list",
+                    bullet: "-",
+                    indentTabs: 1.0,
+                    runs: [{ text: "Seluruh laba bersih Perseroan dibukukan sebagai laba ditahan Perseroan." }]
+                  }
+                ]
+          )
         );
       }
     }
