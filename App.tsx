@@ -32,6 +32,8 @@ import { KBLI_2025_CATEGORIES } from './src/lib/kbliConstants';
 import { Sparkles, Bot, Lightbulb, Lock } from 'lucide-react';
 import { generatePendirianDocx } from './src/lib/generatePendirianDocx';
 import GuideMenu from './src/components/GuideMenu';
+import { LaporanList } from './src/components/LaporanList';
+import { WhatsAppSettings } from './src/components/WhatsAppSettings';
 import ProxyInputModal from './components/ProxyInputModal';
 import { generateWordDoc } from './utils/docxGenerator';
 import { 
@@ -99,7 +101,8 @@ import {
   Archive,
   Undo,
   FileBadge,
-  Download
+  Download,
+  Smartphone
 } from 'lucide-react';
 import { IndoRegionSelector, DomicileSelector, SearchableSelect } from './components/AddressFields';
 import { formatCurrency, formatInputNumber, parseFormattedNumber, numberToWords, toTitleCase } from './utils/formatters';
@@ -276,7 +279,7 @@ const INITIAL_STATE: CompanyData = {
 };
 
 type TabId = 'general' | 'shareholders' | 'shareholders_new' | 'representative' | 'agenda' | 'kbli' | 'domicile' | 'address' | 'capitalBase' | 'capitalPaid' | 'management' | 'reappointment';
-type SidebarTabId = 'beranda' | 'company_profile' | 'notulen' | 'pendirian' | 'rupst' | 'perbaikan' | 'draft_akta_rups' | 'panduan' | 'kbli_mapping' | 'saran_kbli' | 'import_kbli';
+type SidebarTabId = 'beranda' | 'company_profile' | 'notulen' | 'pendirian' | 'rupst' | 'perbaikan' | 'draft_akta_rups' | 'panduan' | 'kbli_mapping' | 'saran_kbli' | 'import_kbli' | 'laporan' | 'whatsapp_settings';
 
 // AHU Style Helper Components
 const AhuSection = ({ title, children, isOpen = true }: { title: string, children: React.ReactNode, isOpen?: boolean }) => {
@@ -424,6 +427,20 @@ const TAB_ACCENTS: Record<SidebarTabId, {
     bgColor: 'bg-slate-100',
     hoverBg: 'hover:bg-slate-100 hover:text-slate-905',
     indicatorBg: 'bg-slate-500'
+  },
+  laporan: {
+    iconColor: 'text-fuchsia-600',
+    textColor: 'text-fuchsia-900',
+    bgColor: 'bg-fuchsia-50/70',
+    hoverBg: 'hover:bg-fuchsia-50/40 hover:text-fuchsia-950',
+    indicatorBg: 'bg-fuchsia-600'
+  },
+  whatsapp_settings: {
+    iconColor: 'text-rose-600',
+    textColor: 'text-rose-900',
+    bgColor: 'bg-rose-50/70',
+    hoverBg: 'hover:bg-rose-50/40 hover:text-rose-950',
+    indicatorBg: 'bg-rose-600'
   }
 };
 
@@ -442,6 +459,8 @@ const getCompanyInitials = (name: string): string => {
   }
   return cleanName.slice(0, 2).toUpperCase();
 };
+
+import { DocumentStatusBadge, documentStatusOptions } from './components/DocumentStatusBadge';
 
 const getPastelColor = (name: string) => {
   const hash = Array.from(name).reduce((acc, char) => acc + char.charCodeAt(0), 0);
@@ -1202,7 +1221,9 @@ const App: React.FC = () => {
     'rupst_public': '/rupst-public',
     'kbli_mapping': '/kbli-mapping',
     'saran_kbli': '/saran-kbli',
-    'import_kbli': '/import-kbli'
+    'import_kbli': '/import-kbli',
+    'laporan': '/laporan',
+    'whatsapp_settings': '/whatsapp-gateway'
   }), []);
 
   const PATH_TO_TAB: Record<string, SidebarTabId> = useMemo(() => 
@@ -2002,6 +2023,7 @@ const App: React.FC = () => {
               { label: 'RUPS LB', id: 'notulen' as const, icon: FileText },
               { label: 'RUPS Tahunan', id: 'rupst' as const, icon: CalendarCheck },
               { label: 'Pendirian PT', id: 'pendirian' as const, icon: FilePlus },
+              { label: 'Laporan', id: 'laporan' as const, icon: FileText },
             ].map((item) => {
               const isActive = activeSidebarTab === item.id;
               const acc = TAB_ACCENTS[item.id] || TAB_ACCENTS.beranda;
@@ -2113,6 +2135,52 @@ const App: React.FC = () => {
                 </div>
               );
             })()}
+
+            {/* Menu Header: PENGATURAN */}
+            <div className="px-5 pt-6 pb-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest select-none">
+              Pengaturan
+            </div>
+
+            {[
+              { label: 'WhatsApp Gateway', id: 'whatsapp_settings' as const, icon: Smartphone },
+            ].map((item) => {
+              const isActive = activeSidebarTab === item.id;
+              const acc = TAB_ACCENTS[item.id] || TAB_ACCENTS.beranda;
+              return (
+                <button 
+                  key={item.id} 
+                  onClick={() => {
+                    if (!user) {
+                      if (confirm(`Anda harus login terlebih dahulu untuk mengakses menu "${item.label}".`)) {
+                        loginWithGoogle();
+                      }
+                      return;
+                    }
+                    setActiveSidebarTab(item.id);
+                  }} 
+                  className={`relative w-full text-left px-5 py-2.5 transition-all flex items-center justify-between select-none ${
+                    isActive 
+                      ? `${acc.bgColor} ${acc.textColor} font-semibold` 
+                      : `text-slate-600 ${acc.hoverBg}`
+                  }`}
+                >
+                  {isActive && (
+                    <div className={`absolute left-0 top-1.5 bottom-1.5 w-[4.5px] rounded-r-md ${acc.indicatorBg}`} />
+                  )}
+                  <span className="flex items-center gap-3">
+                    <item.icon 
+                      size={20} 
+                      strokeWidth={isActive ? 2.25 : 2.0}
+                      className={`shrink-0 transition-colors ${isActive ? acc.iconColor : 'text-slate-400'}`} 
+                    />
+                    <span>{item.label}</span>
+                  </span>
+                  {!user && (
+                    <Lock size={12} className="text-slate-400/55 shrink-0" />
+                  )}
+                </button>
+              );
+            })}
           </div>
         </aside>
       )}
@@ -4112,8 +4180,26 @@ const App: React.FC = () => {
                   </div>
                   
                   <fieldset disabled={isRupsPreview} className="space-y-4">
-                    {/* DATA PERSEROAN */}
-            
+
+            <AhuSection title="STATUS DOKUMEN">
+              <div className="space-y-4">
+                 <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                    <AhuLabel label="Status Saat Ini" />
+                    <div className="md:col-span-3">
+                      <select
+                        className="w-full border border-[#ccc] rounded-sm px-3 py-1.5 text-[13px] outline-none bg-white focus:border-[#66afe9]"
+                        value={data.documentStatus || "DRAFTING"}
+                        onChange={e => updateData({ documentStatus: e.target.value as any })}
+                      >
+                        {documentStatusOptions.map(opt => (
+                          <option key={opt} value={opt}>{opt}</option>
+                        ))}
+                      </select>
+                    </div>
+                 </div>
+              </div>
+            </AhuSection>
+
             {/* DATA PERSEROAN (Pilihan dari Profil) */}
             <AhuSection title="PILIH PROFIL">
               <div className="space-y-4">
@@ -6227,15 +6313,7 @@ const App: React.FC = () => {
                                     {p.signingDate || "-"}
                                   </td>
                                   <td className="px-4 py-3.5">
-                                    {statusVal === "Final" ? (
-                                      <span className="px-2 py-1 text-[11px] font-bold bg-emerald-150 text-emerald-800 rounded-md border border-emerald-250 inline-block uppercase">
-                                        FINAL
-                                      </span>
-                                    ) : (
-                                      <span className="px-2 py-1 text-[11px] font-bold bg-amber-150 text-amber-800 rounded-md border border-amber-250 inline-block uppercase">
-                                        DRAFT
-                                      </span>
-                                    )}
+                                    <DocumentStatusBadge status={p.documentStatus || p.rupslbStatus || "DRAFTING"} />
                                   </td>
                                   <td className="px-4 py-3.5 text-slate-500 font-medium">
                                     {formatRupslbLastUpdated(p.updatedAt, p.signingDate)}
@@ -6854,30 +6932,15 @@ const App: React.FC = () => {
                           <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
                             <AhuLabel label="Status Dokumen" required />
                             <div className="md:col-span-3">
-                              <div className="flex gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() => updateData({ rupstStatus: 'Draft' })}
-                                  className={`px-3 py-1.5 rounded text-xs font-bold transition-all ${
-                                    (data.rupstStatus || 'Draft') === 'Draft'
-                                      ? 'bg-amber-150 text-amber-800 border border-amber-300 shadow-sm'
-                                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200 border border-slate-200'
-                                  }`}
-                                >
-                                  DRAFT
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => updateData({ rupstStatus: 'Final' })}
-                                  className={`px-3 py-1.5 rounded text-xs font-bold transition-all ${
-                                    data.rupstStatus === 'Final'
-                                      ? 'bg-emerald-100 text-emerald-800 border border-emerald-300 shadow-sm'
-                                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200 border border-slate-200'
-                                  }`}
-                                >
-                                  FINAL
-                                </button>
-                              </div>
+                              <select
+                                className="w-full border border-[#ccc] rounded-sm px-3 py-1.5 text-[13px] outline-none bg-white focus:border-[#66afe9]"
+                                value={data.documentStatus || data.rupstStatus || "DRAFTING"}
+                                onChange={e => updateData({ documentStatus: e.target.value as any, rupstStatus: (e.target.value === 'SELESAI' ? 'Final' : 'Draft') })}
+                              >
+                                {documentStatusOptions.map(opt => (
+                                  <option key={opt} value={opt}>{opt}</option>
+                                ))}
+                              </select>
                             </div>
                           </div>
                           <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
@@ -7444,7 +7507,26 @@ const App: React.FC = () => {
                       </AhuSection>
                       </>
                     ) : (
-                      <AhuSection title="PILIH PROFIL">
+                      <>
+                        <AhuSection title="STATUS DOKUMEN">
+                          <div className="space-y-4">
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                              <AhuLabel label="Status Saat Ini" />
+                              <div className="md:col-span-3">
+                                <select
+                                  className="w-full border border-[#ccc] rounded-sm px-3 py-1.5 text-[13px] outline-none bg-white focus:border-[#66afe9]"
+                                  value={data.documentStatus || data.rupstStatus || "DRAFTING"}
+                                  onChange={e => updateData({ documentStatus: e.target.value as any, rupstStatus: (e.target.value === 'SELESAI' ? 'Final' : 'Draft') })}
+                                >
+                                  {documentStatusOptions.map(opt => (
+                                    <option key={opt} value={opt}>{opt}</option>
+                                  ))}
+                                </select>
+                              </div>
+                            </div>
+                          </div>
+                        </AhuSection>
+                        <AhuSection title="PILIH PROFIL">
                       <div className="space-y-4">
                         <label className="block text-[13px] font-medium text-slate-700 mb-1">Pilih Profil Perseroan untuk mengisi data otomatis</label>
                         <div className="flex flex-col sm:flex-row gap-2">
@@ -7480,6 +7562,7 @@ const App: React.FC = () => {
                         </div>
                       </div>
                     </AhuSection>
+                    </>
                     )}
 
                     {/* DATA KHUSUS RUPST */}
@@ -8659,15 +8742,7 @@ const App: React.FC = () => {
                                     <div className="font-semibold text-slate-700">{p.rupstFiscalYear || '-'}</div>
                                   </td>
                                   <td className="px-4 py-3.5">
-                                    {statusVal === "Final" ? (
-                                      <span className="px-2 py-1 text-[11px] font-bold bg-emerald-150 text-emerald-800 rounded-md border border-emerald-250 inline-block uppercase">
-                                        FINAL
-                                      </span>
-                                    ) : (
-                                      <span className="px-2 py-1 text-[11px] font-bold bg-amber-150 text-amber-800 rounded-md border border-amber-250 inline-block uppercase">
-                                        DRAFT
-                                      </span>
-                                    )}
+                                    <DocumentStatusBadge status={p.documentStatus || p.rupstStatus || "DRAFTING"} />
                                   </td>
                                   <td className="px-4 py-3.5 text-slate-500 font-medium">
                                     {formatLastUpdated(p.updatedAt, p.signingDate)}
@@ -8924,6 +8999,10 @@ const App: React.FC = () => {
             <DataCorrectionLetter />
           ) : activeSidebarTab === 'panduan' ? (
             <GuideMenu />
+          ) : activeSidebarTab === 'laporan' ? (
+            <LaporanList projects={projects} rupstProjects={rupstProjects} pendirianProjects={pendirianProjects} />
+          ) : activeSidebarTab === 'whatsapp_settings' ? (
+            <WhatsAppSettings />
           ) : null}
         </main>
         )}

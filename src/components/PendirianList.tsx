@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Search, Plus, Trash2, LayoutGrid, FileText, ArrowLeft, Edit, FileDown } from 'lucide-react';
 import { collection, onSnapshot, query, doc, deleteDoc, updateDoc, setDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase'; // Adjust if path is different
+import { DocumentStatusBadge } from '../../components/DocumentStatusBadge';
 
 const PendirianList: React.FC<{
   onEdit: (record: any) => void;
@@ -92,6 +93,7 @@ const PendirianList: React.FC<{
                   <th className="px-4 py-3 text-center w-12 border-r border-slate-200">No</th>
                   <th className="px-4 py-3 border-r border-slate-200">Nama PT</th>
                   <th className="px-4 py-3 border-r border-slate-200">Kedudukan</th>
+                  <th className="px-4 py-3 border-r border-slate-200 text-center">Status</th>
                   <th className="px-4 py-3 border-r border-slate-200 text-center">Tanggal Dibuat</th>
                   <th className="px-4 py-3 text-center w-[150px]">Aksi</th>
                 </tr>
@@ -99,7 +101,7 @@ const PendirianList: React.FC<{
               <tbody className="divide-y divide-slate-200">
                 {filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="text-center py-12 text-slate-400 italic">
+                    <td colSpan={6} className="text-center py-12 text-slate-400 italic">
                       {listSearch ? 'Data tidak ditemukan.' : 'Belum ada data pendirian.'}
                     </td>
                   </tr>
@@ -109,6 +111,9 @@ const PendirianList: React.FC<{
                       <td className="px-4 py-3.5 text-center border-r border-slate-200 text-slate-500 font-bold">{idx + 1}</td>
                       <td className="px-4 py-3.5 border-r border-slate-200 font-bold text-[#0c2444] uppercase">{rec.namaPt || rec.companyName || '-'}</td>
                       <td className="px-4 py-3.5 border-r border-slate-200">{rec.kotaKedudukan || rec.domicile || '-'}</td>
+                      <td className="px-4 py-3.5 border-r border-slate-200 text-center">
+                        <DocumentStatusBadge status={rec.documentStatus || "DRAFTING"} />
+                      </td>
                       <td className="px-4 py-3.5 border-r border-slate-200 text-center text-slate-400 font-mono text-[11px]">
                         {rec.updatedAt && !isNaN(new Date(rec.updatedAt).getTime()) ? new Date(rec.updatedAt).toLocaleDateString('id-ID') : '-'}
                       </td>

@@ -387,18 +387,71 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
       runs: getFoundationRuns(" dan telah mengalami beberapa kali perubahan berdasarkan akta-akta sebagai berikut :")
     });
 
-    data.amendmentDeeds!.forEach((deed, i) => {
-      const isLast = i === data.amendmentDeeds!.length - 1;
-      const skText = getDeedSkText(deed);
-      blocks.push({
-        type: "list",
-        bullet: "-",
-        indentTabs: 1.0,
-        runs: [
-          {
-            text: `Akta tertanggal ${formatAktaDate(deed.date)} Nomor ${deed.number} yang dibuat di hadapan ${checkNotaryWording(deed.notary, deed.notaryTitle, deed.notaryDomicile)}${skText ? " yang " + skText : ""};`,
-          },
-        ],
+    const groupedDeeds: any[][] = [];
+    for (const deed of data.amendmentDeeds!) {
+      if (groupedDeeds.length === 0) {
+        groupedDeeds.push([deed]);
+      } else {
+        const lastGroup = groupedDeeds[groupedDeeds.length - 1];
+        const lastDeed = lastGroup[0];
+        if (
+          deed.notary === lastDeed.notary &&
+          deed.notaryTitle === lastDeed.notaryTitle &&
+          deed.notaryDomicile === lastDeed.notaryDomicile
+        ) {
+          lastGroup.push(deed);
+        } else {
+          groupedDeeds.push([deed]);
+        }
+      }
+    }
+
+    const keWord = ["", "", "kedua", "ketiga", "keempat", "kelima", "keenam", "ketujuh", "kedelapan", "kesembilan", "kesepuluh"];
+
+    groupedDeeds.forEach((group, gIdx) => {
+      const isLastGroup = gIdx === groupedDeeds.length - 1;
+
+      group.forEach((deed, dIdx) => {
+        const skText = getDeedSkText(deed);
+        const isLastInOverall = isLastGroup && dIdx === group.length - 1;
+
+        if (group.length === 1) {
+          blocks.push({
+            type: "list",
+            bullet: "-",
+            indentTabs: 1.0,
+            runs: [
+              {
+                text: `Akta tertanggal ${formatAktaDate(deed.date)} Nomor ${deed.number} yang dibuat di hadapan ${checkNotaryWording(deed.notary, deed.notaryTitle, deed.notaryDomicile)}${skText ? " yang " + skText : ""};`,
+              },
+            ],
+          });
+        } else {
+          blocks.push({
+            type: "list",
+            bullet: "-",
+            indentTabs: 1.0,
+            runs: [
+              {
+                text: `Akta tertanggal ${formatAktaDate(deed.date)} Nomor ${deed.number}${skText ? " yang " + skText : ""};`,
+              },
+            ],
+          });
+
+          if (dIdx === group.length - 1) {
+            const prefix = keWord[group.length] || `ke-${group.length}`;
+            blocks.push({
+              type: "list",
+              bullet: "-",
+              indentTabs: 1.5,
+              runs: [
+                {
+                  text: `${prefix} aktanya dibuat di hadapan ${checkNotaryWording(deed.notary, deed.notaryTitle, deed.notaryDomicile)};`,
+                },
+              ],
+            });
+          }
+        }
       });
     });
   }

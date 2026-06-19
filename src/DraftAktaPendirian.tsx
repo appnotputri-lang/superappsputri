@@ -4,6 +4,7 @@ import { KBLI_DATA } from '../utils/kbliData';
 import { Eye, Printer, Users, Building2, Banknote, ChevronDown, ChevronRight, Search, Trash2, Plus, User, MapPin, Briefcase, IdCard, ShieldCheck, ArrowRight, Save } from 'lucide-react';
 import { IndoRegionSelector } from '../components/AddressFields';
 import { searchShareholderByNIKClient } from './lib/firebase';
+import { documentStatusOptions } from '../components/DocumentStatusBadge';
 
 const AhuSection = ({ title, children, isOpen = true }: { title: string, children: React.ReactNode, isOpen?: boolean }) => {
   const [open, setOpen] = useState(isOpen);
@@ -57,6 +58,7 @@ const INITIAL_ADDRESS: Address = {
 };
 
 export interface PendirianData {
+  documentStatus?: 'DRAFTING' | 'DRAFT NOTULEN DI KIRIM' | 'DRAFT AKTA DIKIRIM' | 'SUDAH CETAK AKTA' | 'SUDAH INPUT AHU' | 'SELESAI';
   namaPt: string;
   kotaKedudukan: string;
   alamatLengkapPT: string;
@@ -376,6 +378,23 @@ export default function DraftAktaPendirian({
       </div>
 
       <div className="grid grid-cols-1 gap-4">
+        {/* STATUS DOKUMEN */}
+        <AhuSection title="Status Dokumen">
+           <div className="space-y-4">
+               <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                  <AhuLabel label="Status Saat Ini" />
+                  <div className="md:col-span-3">
+                    <AhuSelect 
+                      value={data.documentStatus || 'DRAFTING'}
+                      onChange={e => setData(prev => ({ ...prev, documentStatus: e.target.value as any }))}
+                    >
+                      {documentStatusOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                    </AhuSelect>
+                  </div>
+               </div>
+           </div>
+        </AhuSection>
+
         {/* INFORMASI UTAMA */}
         <AhuSection title="Informasi Pendirian PT">
           <div className="space-y-4">

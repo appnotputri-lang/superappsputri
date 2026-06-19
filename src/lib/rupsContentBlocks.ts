@@ -405,61 +405,113 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
 
   // Amendment deeds
   if (data.amendmentDeeds && data.amendmentDeeds.length > 0) {
-    data.amendmentDeeds.forEach((deed, i) => {
-      const isLast = i === data.amendmentDeeds.length - 1;
-      const tglDeedHuruf = dateToWords(deed.date);
-      const tglDeedAngka = formatDateStr(deed.date);
-      const formattedDeedDate = isMinutes ? `${tglDeedAngka} (${tglDeedHuruf})` : formatAktaDate(deed.date);
+    const groupedDeeds: any[][] = [];
+    for (const deed of data.amendmentDeeds) {
+      if (groupedDeeds.length === 0) {
+        groupedDeeds.push([deed]);
+      } else {
+        const lastGroup = groupedDeeds[groupedDeeds.length - 1];
+        const lastDeed = lastGroup[0];
+        if (
+          deed.notary === lastDeed.notary &&
+          deed.notaryTitle === lastDeed.notaryTitle &&
+          deed.notaryDomicile === lastDeed.notaryDomicile
+        ) {
+          lastGroup.push(deed);
+        } else {
+          groupedDeeds.push([deed]);
+        }
+      }
+    }
 
-      let skText = "";
-      if (deed.skSpDocuments && deed.skSpDocuments.length > 0) {
-        const sks = deed.skSpDocuments.filter((d) => d.type === "SK");
-        const sps = deed.skSpDocuments.filter((d) => d.type !== "SK");
+    const keWord = ["", "", "kedua", "ketiga", "keempat", "kelima", "keenam", "ketujuh", "kedelapan", "kesembilan", "kesepuluh"];
 
-        const skParts: string[] = [];
-        sks.forEach((sk) => {
-          skParts.push(
-            `telah mendapat pengesahan dari Menteri Hukum dan Hak Asasi Manusia Republik Indonesia tertanggal ${isMinutes ? `${dateToWords(sk.date)} (${formatDateStr(sk.date)})` : formatAktaDate(sk.date)}, Nomor ${sk.number}`,
-          );
-        });
+    groupedDeeds.forEach((group, gIdx) => {
+      const isLastGroup = gIdx === groupedDeeds.length - 1;
 
-        const spParts: string[] = [];
-        if (sps.length > 0) {
-          const spDescParts = sps.map((sp) => {
-            if (sp.type === "SP_DATA_PERSEROAN")
-              return `Surat Penerimaan Pemberitahuan Perubahan Data Perseroan Nomor ${sp.number}`;
-            if (sp.type === "SP_ANGGARAN_DASAR")
-              return `Surat Penerimaan Pemberitahuan Perubahan Anggaran Dasar Nomor ${sp.number}`;
-            return `Surat Penerimaan Pemberitahuan Nomor ${sp.number}`;
+      group.forEach((deed, dIdx) => {
+        const isLastInOverall = isLastGroup && dIdx === group.length - 1;
+        const tglDeedHuruf = dateToWords(deed.date);
+        const tglDeedAngka = formatDateStr(deed.date);
+        const formattedDeedDate = isMinutes ? `${tglDeedAngka} (${tglDeedHuruf})` : formatAktaDate(deed.date);
+
+        let skText = "";
+        if (deed.skSpDocuments && deed.skSpDocuments.length > 0) {
+          const sks = deed.skSpDocuments.filter((d: any) => d.type === "SK");
+          const sps = deed.skSpDocuments.filter((d: any) => d.type !== "SK");
+
+          const skParts: string[] = [];
+          sks.forEach((sk: any) => {
+            skParts.push(
+              `telah mendapat pengesahan dari Menteri Hukum dan Hak Asasi Manusia Republik Indonesia tertanggal ${isMinutes ? `${dateToWords(sk.date)} (${formatDateStr(sk.date)})` : formatAktaDate(sk.date)}, Nomor ${sk.number}`,
+            );
           });
 
-          const spDates = Array.from(new Set(sps.map((s) => s.date)));
-          let spDateText = "";
-          if (spDates.length === 1) {
-            spDateText = ` ${sps.length > 1 ? (sks.length > 0 ? "ketiganya " : "keduanya ") : ""}tertanggal ${isMinutes ? `${formatDateStr(spDates[0])} (${dateToWords(spDates[0])})` : formatAktaDate(spDates[0])}`;
-          } else {
-            spDateText = ` masing-masing tertanggal sebagaimana tercantum dalam surat tersebut`;
+          const spParts: string[] = [];
+          if (sps.length > 0) {
+            const spDescParts = sps.map((sp: any) => {
+              if (sp.type === "SP_DATA_PERSEROAN")
+                return `Surat Penerimaan Pemberitahuan Perubahan Data Perseroan Nomor ${sp.number}`;
+              if (sp.type === "SP_ANGGARAN_DASAR")
+                return `Surat Penerimaan Pemberitahuan Perubahan Anggaran Dasar Nomor ${sp.number}`;
+              return `Surat Penerimaan Pemberitahuan Nomor ${sp.number}`;
+            });
+
+            const spDates = Array.from(new Set(sps.map((s: any) => s.date)));
+            let spDateText = "";
+            if (spDates.length === 1) {
+              spDateText = ` ${sps.length > 1 ? (sks.length > 0 ? "ketiganya " : "keduanya ") : ""}tertanggal ${isMinutes ? `${formatDateStr(spDates[0] as string)} (${dateToWords(spDates[0] as string)})` : formatAktaDate(spDates[0] as string)}`;
+            } else {
+              spDateText = ` masing-masing tertanggal sebagaimana tercantum dalam surat tersebut`;
+            }
+
+            spParts.push(
+              `Pemberitahuannya telah diterima dan dicatat dalam Sistem Administrasi Badan Hukum Kementerian Hukum Republik Indonesia berdasarkan ${spDescParts.join(" dan ")}${spDateText}`,
+            );
           }
 
-          spParts.push(
-            `Pemberitahuannya telah diterima dan dicatat dalam Sistem Administrasi Badan Hukum Kementerian Hukum Republik Indonesia berdasarkan ${spDescParts.join(" dan ")}${spDateText}`,
-          );
+          skText = [...skParts, ...spParts].join(" dan ");
+        } else {
+          skText = `telah mendapat pengesahan berdasarkan Surat Keputusan Nomor ${deed.skNumber} tanggal ${isMinutes ? `${formatDateStr(deed.skDate)} (${dateToWords(deed.skDate)})` : formatAktaDate(deed.skDate)}`;
         }
 
-        skText = [...skParts, ...spParts].join(" dan ");
-      } else {
-        skText = `telah mendapat pengesahan berdasarkan Surat Keputusan Nomor ${deed.skNumber} tanggal ${isMinutes ? `${formatDateStr(deed.skDate)} (${dateToWords(deed.skDate)})` : formatAktaDate(deed.skDate)}`;
-      }
+        if (group.length === 1) {
+          blocks.push({
+            type: "list",
+            bullet: "-",
+            indentTabs: 1.5,
+            runs: [
+              {
+                text: `Akta tertanggal ${formattedDeedDate} Nomor ${deed.number} yang dibuat di hadapan ${checkNotaryWording(deed.notary, deed.notaryTitle, deed.notaryDomicile)} yang ${skText}${isLastInOverall ? "." : ";"}`,
+              },
+            ],
+          });
+        } else {
+          blocks.push({
+            type: "list",
+            bullet: "-",
+            indentTabs: 1.5,
+            runs: [
+              {
+                text: `Akta tertanggal ${formattedDeedDate} Nomor ${deed.number} yang ${skText};`,
+              },
+            ],
+          });
 
-      blocks.push({
-        type: "list",
-        bullet: "-",
-        indentTabs: 1.5,
-        runs: [
-          {
-            text: `Akta tertanggal ${formattedDeedDate} Nomor ${deed.number} yang dibuat di hadapan ${checkNotaryWording(deed.notary, deed.notaryTitle, deed.notaryDomicile)} yang ${skText}${isLast ? "." : ";"}`,
-          },
-        ],
+          if (dIdx === group.length - 1) {
+            const prefix = keWord[group.length] || `ke-${group.length}`;
+            blocks.push({
+              type: "list",
+              bullet: "-",
+              indentTabs: 2.0,
+              runs: [
+                {
+                  text: `${prefix} aktanya dibuat di hadapan ${checkNotaryWording(deed.notary, deed.notaryTitle, deed.notaryDomicile)}${isLastInOverall ? "." : ";"}`,
+                },
+              ],
+            });
+          }
+        }
       });
     });
   }

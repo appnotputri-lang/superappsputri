@@ -302,43 +302,58 @@ export function formatPersonDetails(
       }
 
       if (!excludeAmendmentDeeds && person.amendmentDeeds && person.amendmentDeeds.length > 0) {
-        if (useAktaFormat) {
-          if (person.amendmentDeeds.length === 1) {
-            const amd = person.amendmentDeeds[0];
-            const amdDateStr = amd.date ? formatAktaDate(amd.date) : "...";
-            baseString += `, dan anggaran dasarnya telah mengalami perubahan berdasarkan akta Nomor ${amd.number || "..."} tertanggal ${amdDateStr} dibuat dihadapan ${amd.notary || "..."}, Notaris di ${amd.notaryDomicile ? toTitleCase(amd.notaryDomicile) : "..."}`;
-          } else {
-            baseString += `, dan anggaran dasarnya telah mengalami beberapa kali perubahan, terakhir dengan akta Nomor ${person.amendmentDeeds[person.amendmentDeeds.length - 1].number || "..."} tertanggal ${person.amendmentDeeds[person.amendmentDeeds.length - 1].date ? formatAktaDate(person.amendmentDeeds[person.amendmentDeeds.length - 1].date) : "..."} dibuat dihadapan ${person.amendmentDeeds[person.amendmentDeeds.length - 1].notary || "..."}, Notaris di ${person.amendmentDeeds[person.amendmentDeeds.length - 1].notaryDomicile ? toTitleCase(person.amendmentDeeds[person.amendmentDeeds.length - 1].notaryDomicile) : "..."} berdasarkan akta-akta sebagai berikut:`;
-            person.amendmentDeeds.forEach((amd) => {
-              const amdDateStr = amd.date ? formatAktaDate(amd.date) : "...";
-              const amdNotary = amd.notary || "...";
-              const amdNotaryTitle = amd.notaryTitle ? `, ${amd.notaryTitle}` : "";
-              const amdNotaryDomicile = amd.notaryDomicile ? toTitleCase(amd.notaryDomicile) : "...";
-              const amdSkNumber = amd.skNumber || (amd.skSpDocuments && (amd.skSpDocuments[0]?.number || amd.skSpDocuments[0]?.skNumber)) || person.skNumber || "...";
-              const amdSkDateStr = amd.skDate ? formatAktaDate(amd.skDate) : (amd.skSpDocuments && (amd.skSpDocuments[0]?.date || amd.skSpDocuments[0]?.skDate) ? formatAktaDate(amd.skSpDocuments[0].date || amd.skSpDocuments[0].skDate) : (person.skDate ? formatAktaDate(person.skDate) : "..."));
-              
-              baseString += `\n- Akta Nomor ${amd.number || "..."} tertanggal ${amdDateStr}, dibuat dihadapan ${amdNotary}${amdNotaryTitle}, Notaris di ${amdNotaryDomicile}, yang pemberitahuannya telah diterima dan dicatat dalam Sistem Administrasi Badan Hukum Kementerian Hukum dan Hak Asasi Manusia Republik Indonesia berdasarkan Surat Keputusan/Penerimaan Surat Pemberitahuan Nomor ${amdSkNumber} tertanggal ${amdSkDateStr}`;
-            });
-          }
+        if (person.amendmentDeeds.length === 1) {
+          const amd = person.amendmentDeeds[0];
+          const amdDateStr = amd.date ? (useAktaFormat ? formatAktaDate(amd.date) : formatDateStr(amd.date)) : "...";
+          const actaNumWord = useAktaFormat ? "akta Nomor" : "Akta Nomor";
+          baseString += `, dan anggaran dasarnya telah mengalami perubahan berdasarkan ${actaNumWord} ${amd.number || "..."} tertanggal ${amdDateStr} dibuat dihadapan ${amd.notary || "..."}, Notaris di ${amd.notaryDomicile ? toTitleCase(amd.notaryDomicile) : "..."}`;
         } else {
-          const totalAmd = person.amendmentDeeds.length;
-          if (totalAmd === 1) {
-            const amd = person.amendmentDeeds[0];
-            const amdDateStr = amd.date ? formatDateStr(amd.date) : "...";
-            baseString += `, dan anggaran dasarnya telah mengalami perubahan berdasarkan Akta Nomor ${amd.number || "..."} tertanggal ${amdDateStr} dibuat dihadapan ${amd.notary || "..."}, Notaris di ${amd.notaryDomicile ? toTitleCase(amd.notaryDomicile) : "..."}`;
-          } else {
-            baseString += `, dan anggaran dasarnya telah mengalami beberapa kali perubahan, terakhir dengan Akta Nomor ${person.amendmentDeeds[person.amendmentDeeds.length - 1].number || "..."} tertanggal ${person.amendmentDeeds[person.amendmentDeeds.length - 1].date ? formatDateStr(person.amendmentDeeds[person.amendmentDeeds.length - 1].date) : "..."} dibuat dihadapan ${person.amendmentDeeds[person.amendmentDeeds.length - 1].notary || "..."}, Notaris di ${person.amendmentDeeds[person.amendmentDeeds.length - 1].notaryDomicile ? toTitleCase(person.amendmentDeeds[person.amendmentDeeds.length - 1].notaryDomicile) : "..."} berdasarkan akta-akta sebagai berikut:`;
-            person.amendmentDeeds.forEach((amd) => {
-              const amdDateStr = amd.date ? formatDateStr(amd.date) : "...";
+          const actaNumWord = useAktaFormat ? "akta Nomor" : "Akta Nomor";
+          const lastDeed = person.amendmentDeeds[person.amendmentDeeds.length - 1];
+          const lastDateStr = lastDeed.date ? (useAktaFormat ? formatAktaDate(lastDeed.date) : formatDateStr(lastDeed.date)) : "...";
+          baseString += `, dan anggaran dasarnya telah mengalami beberapa kali perubahan, terakhir dengan ${actaNumWord} ${lastDeed.number || "..."} tertanggal ${lastDateStr} dibuat dihadapan ${lastDeed.notary || "..."}, Notaris di ${lastDeed.notaryDomicile ? toTitleCase(lastDeed.notaryDomicile) : "..."} berdasarkan akta-akta sebagai berikut:`;
+
+          const groupedDeeds: any[][] = [];
+          for (const deed of person.amendmentDeeds) {
+            if (groupedDeeds.length === 0) {
+              groupedDeeds.push([deed]);
+            } else {
+              const lastGroup = groupedDeeds[groupedDeeds.length - 1];
+              const lastDeedInGroup = lastGroup[0];
+              if (
+                deed.notary === lastDeedInGroup.notary &&
+                deed.notaryTitle === lastDeedInGroup.notaryTitle &&
+                deed.notaryDomicile === lastDeedInGroup.notaryDomicile
+              ) {
+                lastGroup.push(deed);
+              } else {
+                groupedDeeds.push([deed]);
+              }
+            }
+          }
+
+          const keWord = ["", "", "kedua", "ketiga", "keempat", "kelima", "keenam", "ketujuh", "kedelapan", "kesembilan", "kesepuluh"];
+
+          groupedDeeds.forEach((group) => {
+            group.forEach((amd, dIdx) => {
+              const amdDateStr = amd.date ? (useAktaFormat ? formatAktaDate(amd.date) : formatDateStr(amd.date)) : "...";
               const amdNotary = amd.notary || "...";
               const amdNotaryTitle = amd.notaryTitle ? `, ${amd.notaryTitle}` : "";
               const amdNotaryDomicile = amd.notaryDomicile ? toTitleCase(amd.notaryDomicile) : "...";
               const amdSkNumber = amd.skNumber || (amd.skSpDocuments && (amd.skSpDocuments[0]?.number || amd.skSpDocuments[0]?.skNumber)) || person.skNumber || "...";
-              const amdSkDateStr = amd.skDate ? formatDateStr(amd.skDate) : (amd.skSpDocuments && (amd.skSpDocuments[0]?.date || amd.skSpDocuments[0]?.skDate) ? formatDateStr(amd.skSpDocuments[0].date || amd.skSpDocuments[0].skDate) : (person.skDate ? formatDateStr(person.skDate) : "..."));
+              const amdSkDateStr = amd.skDate ? (useAktaFormat ? formatAktaDate(amd.skDate) : formatDateStr(amd.skDate)) : (amd.skSpDocuments && (amd.skSpDocuments[0]?.date || amd.skSpDocuments[0]?.skDate) ? (useAktaFormat ? formatAktaDate(amd.skSpDocuments[0].date || amd.skSpDocuments[0].skDate) : formatDateStr(amd.skSpDocuments[0].date || amd.skSpDocuments[0].skDate)) : (person.skDate ? (useAktaFormat ? formatAktaDate(person.skDate) : formatDateStr(person.skDate)) : "..."));
               
-              baseString += `\n- Akta Nomor ${amd.number || "..."} tertanggal ${amdDateStr}, dibuat dihadapan ${amdNotary}${amdNotaryTitle}, Notaris di ${amdNotaryDomicile}, yang pemberitahuannya telah diterima dan dicatat dalam Sistem Administrasi Badan Hukum Kementerian Hukum dan Hak Asasi Manusia Republik Indonesia berdasarkan Surat Keputusan/Penerimaan Surat Pemberitahuan Nomor ${amdSkNumber} tertanggal ${amdSkDateStr}`;
+              if (group.length === 1) {
+                baseString += `\n- Akta Nomor ${amd.number || "..."} tertanggal ${amdDateStr}, dibuat dihadapan ${amdNotary}${amdNotaryTitle}, Notaris di ${amdNotaryDomicile}, yang pemberitahuannya telah diterima dan dicatat dalam Sistem Administrasi Badan Hukum Kementerian Hukum dan Hak Asasi Manusia Republik Indonesia berdasarkan Surat Keputusan/Penerimaan Surat Pemberitahuan Nomor ${amdSkNumber} tertanggal ${amdSkDateStr}`;
+              } else {
+                baseString += `\n- Akta Nomor ${amd.number || "..."} tertanggal ${amdDateStr}, yang pemberitahuannya telah diterima dan dicatat dalam Sistem Administrasi Badan Hukum Kementerian Hukum dan Hak Asasi Manusia Republik Indonesia berdasarkan Surat Keputusan/Penerimaan Surat Pemberitahuan Nomor ${amdSkNumber} tertanggal ${amdSkDateStr}`;
+                if (dIdx === group.length - 1) {
+                  const prefix = keWord[group.length] || `ke-${group.length}`;
+                  baseString += `\n  - ${prefix} aktanya dibuat dihadapan ${amdNotary}${amdNotaryTitle}, Notaris di ${amdNotaryDomicile}`;
+                }
+              }
             });
-          }
+          });
         }
       }
       return baseString;

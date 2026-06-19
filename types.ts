@@ -278,6 +278,8 @@ export interface CompanyData {
   notaryDate?: string;
   isReplacementNotary?: boolean;
   beneficialOwnerConsent?: boolean;
+  
+  documentStatus?: 'DRAFTING' | 'DRAFT NOTULEN DI KIRIM' | 'DRAFT AKTA DIKIRIM' | 'SUDAH CETAK AKTA' | 'SUDAH INPUT AHU' | 'SELESAI';
 
   // RUPST Extra Fields
   rupslbStatus?: 'Draft' | 'Final';

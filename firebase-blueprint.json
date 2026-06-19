@@ -42,6 +42,16 @@
         "updated_at": { "type": "string", "format": "date-time" }
       }
     },
+    "whatsapp_gateway_config": {
+      "title": "WhatsApp Gateway Config",
+      "description": "Settings for Fonnte WhatsApp API integration",
+      "type": "object",
+      "properties": {
+        "token": { "type": "string" },
+        "nomorAdmin": { "type": "string" },
+        "nomorTujuanDefault": { "type": "string" }
+      }
+    },
     "kbli_saved_record": {
       "title": "Saved KBLI Record",
       "description": "Saved KBLI mappings and suggestions for clients",
@@ -89,6 +99,10 @@
     "kbli_2025/{kbliKode}": {
       "schema": { "$ref": "#/entities/kbli_item" },
       "description": "Contains KBLI 2025 enriched details"
+    },
+    "settings/{settingsId}": {
+      "schema": { "$ref": "#/entities/whatsapp_gateway_config" },
+      "description": "Contains system wide configurations such as WhatsApp Gateway integration settings"
     }
   }
 }
