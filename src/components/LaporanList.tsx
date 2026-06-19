@@ -1,10 +1,11 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import { Search, FileText, Download, Smartphone, Send, SendHorizontal, AlertCircle, CheckCircle2, RefreshCw, X } from 'lucide-react';
+import { Search, FileText, Download, Smartphone, Send, SendHorizontal, AlertCircle, CheckCircle2, RefreshCw, X, Image } from 'lucide-react';
 import { DocumentStatusBadge } from '../../components/DocumentStatusBadge';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
+import { toJpeg } from 'html-to-image';
 
 interface LaporanListProps {
   projects: any[];
@@ -31,6 +32,7 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects, rupstProject
   const [selectedGroupId, setSelectedGroupId] = useState('');
   const [loadingGroups, setLoadingGroups] = useState(false);
   const [syncingGroups, setSyncingGroups] = useState(false);
+  const [isExportingJpg, setIsExportingJpg] = useState(false);
   
   // Toast Notification States
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
@@ -126,7 +128,13 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects, rupstProject
         method: 'POST',
         headers: { 'Content-Type': 'application/json' }
       });
-      const resData = await response.json();
+      const resText = await response.text();
+      let resData;
+      try {
+        resData = JSON.parse(resText);
+      } catch (e) {
+        throw new Error("Respon server tidak valid atau format data API terganggu. Pastikan integrasi Fonnte Anda aktif.");
+      }
       if (response.ok && resData.groups) {
         const fetchedGroups = resData.groups;
         setGroups(fetchedGroups);
@@ -147,8 +155,10 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects, rupstProject
         } else {
           setSendMode('NUMBER');
         }
+      } else {
+        console.warn("Gagal mendapatkan grup WhatsApp:", resData.error || "Format tidak sesuai.");
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Gagal memuat daftar grup WhatsApp:", err);
     } finally {
       setLoadingGroups(false);
@@ -169,7 +179,13 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects, rupstProject
         method: 'POST',
         headers: { 'Content-Type': 'application/json' }
       });
-      const resData = await response.json();
+      const resText = await response.text();
+      let resData;
+      try {
+        resData = JSON.parse(resText);
+      } catch (e) {
+        throw new Error("Respon sinkronisasi tidak valid dari server backend.");
+      }
       if (response.ok && resData.success) {
         showToast('success', resData.message || 'Sinkronisasi berhasil! Memuat ulang...');
         await fetchGroups();
@@ -177,7 +193,7 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects, rupstProject
         showToast('error', resData.error || 'Sinkronisasi gagal.');
       }
     } catch (err: any) {
-      showToast('error', err.message || 'Koneksi error.');
+      showToast('error', err.message || 'Koneksi error saat menyinkronkan grup.');
     } finally {
       setSyncingGroups(false);
     }
@@ -282,7 +298,14 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects, rupstProject
         })
       });
 
-      const resData = await response.json();
+      const resText = await response.text();
+      let resData;
+      try {
+        resData = JSON.parse(resText);
+      } catch (e) {
+        throw new Error("Respon server tidak valid atau format data API terganggu ketika mengirim WhatsApp.");
+      }
+
       if (response.ok && resData.success) {
         showToast('success', `Laporan berhasil dikirim ke ${targetLabel}!`);
         setModalOpen(false);
@@ -319,7 +342,14 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects, rupstProject
         })
       });
 
-      const resData = await response.json();
+      const resText = await response.text();
+      let resData;
+      try {
+        resData = JSON.parse(resText);
+      } catch (e) {
+        throw new Error("Respon server tidak valid saat mencoba pengiriman uji coba WhatsApp.");
+      }
+
       if (response.ok && resData.success) {
         showToast('success', `Koneksi sehat! Pesan uji coba dikirim ke nomor Admin (${adminNumber}) dengan sukses!`);
       } else {
@@ -408,6 +438,53 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects, rupstProject
     doc.save(`Laporan_Dokumen_PT_${new Date().toISOString().slice(0, 10)}.pdf`);
   };
 
+  // Export report to high-resolution JPG Document using html-to-image
+  const handleExportJPG = async () => {
+    if (filteredReports.length === 0) {
+      showToast('error', 'Tidak ada data laporan untuk diekspor.');
+      return;
+    }
+    
+    setIsExportingJpg(true);
+    showToast('success', 'Mempersiapkan pembuatan gambar laporan resolusi tinggi...');
+
+    // Wait for the DOM to render the high-res template
+    setTimeout(async () => {
+      try {
+        const element = document.getElementById('high-res-jpg-capture-target');
+        if (!element) {
+          showToast('error', 'Gagal menemukan penampung gambar laporan.');
+          setIsExportingJpg(false);
+          return;
+        }
+
+        // Render high-res JPEG using browser SVG ForeignObject rendering (natively supports oklch, grid, fonts, etc.)
+        const dataUrl = await toJpeg(element, {
+          quality: 0.95,
+          pixelRatio: 3, // Premium ultra-high resolution (3x density rendering)
+          cacheBust: true,
+          style: {
+            transform: 'scale(1)',
+            transformOrigin: 'top left',
+          },
+          backgroundColor: '#ffffff'
+        });
+
+        const link = document.createElement('a');
+        link.download = `Laporan_Pekerjaan_Notaris_${new Date().toISOString().slice(0, 10)}.jpg`;
+        link.href = dataUrl;
+        link.click();
+
+        showToast('success', 'Laporan berhasil diekspor menjadi JPG resolusi tinggi!');
+      } catch (err: any) {
+        console.error("Gagal melakukan ekspor gambar:", err);
+        showToast('error', `Gagal mengekspor gambar: ${err.message || 'Error tidak diketahui'}`);
+      } finally {
+        setIsExportingJpg(false);
+      }
+    }, 200);
+  };
+
   return (
     <div className="space-y-4">
       {/* TOAST NOTIFICATION BANNER */}
@@ -472,6 +549,20 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects, rupstProject
           >
             <Download size={15} className="stroke-[2.5]" />
             Ekspor PDF
+          </button>
+
+          {/* HIGH RES JPG EXPORT */}
+          <button
+            onClick={handleExportJPG}
+            disabled={isExportingJpg || filteredReports.length === 0}
+            className="w-full sm:w-auto flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 text-white font-bold text-xs px-4 py-2.5 rounded-lg border border-indigo-700 shadow-sm transition-all duration-200 hover:-translate-y-0.5 cursor-pointer uppercase tracking-wider disabled:-translate-y-0"
+          >
+            {isExportingJpg ? (
+              <RefreshCw className="animate-spin w-4 h-4" />
+            ) : (
+              <Image size={15} className="stroke-[2.5]" />
+            )}
+            {isExportingJpg ? 'Grup Gambar HD...' : 'Ekspor JPG (HD)'}
           </button>
         </div>
       </div>
@@ -720,6 +811,160 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects, rupstProject
           </div>
         </div>
       )}
+
+      {/* Target capture container for JPG exports - permanently in DOM and fully painted, but invisible to user */}
+      <div 
+        id="high-res-jpg-capture-target"
+        className="absolute top-0 left-0 w-[1200px] bg-white text-slate-800 p-12 space-y-8 flex flex-col pointer-events-none opacity-0 -z-[9999] overflow-hidden"
+        style={{ fontFamily: 'Inter, system-ui, sans-serif' }}
+      >
+        {/* Letterhead Header */}
+        <div className="border-b-4 border-slate-900 pb-6 flex justify-between items-end">
+          <div>
+            <div className="text-[11px] font-black text-fuchsia-600 tracking-widest uppercase">
+              Kantor Notaris & PPAT
+            </div>
+            <div className="text-3xl font-black text-[#0c2444] tracking-tight leading-none mt-1.5">
+              NUKANTINI PUTRI PARINCHA SH., M.Kn
+            </div>
+            <div className="text-[11px] text-slate-500 font-bold tracking-wide mt-2 uppercase">
+              Gedung Menara Office, Lt. 12 • Jakarta Selatan • Telp: (021) 500-1234 • Email: info@notarisputri.id
+            </div>
+          </div>
+          <div className="text-right">
+            <div className="text-[22px] font-black text-slate-900 tracking-tight leading-none uppercase">
+              Laporan Status Pekerjaan
+            </div>
+            <div className="text-[11px] text-slate-500 font-bold tracking-wider uppercase mt-2">
+              Sistem Notariatan Terintegrasi
+            </div>
+          </div>
+        </div>
+
+        {/* Metadata Infobox Grid */}
+        <div className="grid grid-cols-4 gap-4 bg-slate-50 border border-slate-200 rounded-xl p-5">
+          <div>
+            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+              Kategori Filter
+            </div>
+            <div className="text-sm font-black text-slate-800 mt-1 uppercase">
+              {selectedGroup === 'ALL' ? 'Semua Pekerjaan' : selectedGroup}
+            </div>
+          </div>
+          <div>
+            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+              Tanggal Ekspor Gambar
+            </div>
+            <div className="text-sm font-black text-slate-800 mt-1">
+              {new Date().toLocaleDateString('id-ID', { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric'
+              })}
+            </div>
+          </div>
+          <div>
+            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+              Kriteria Pencarian
+            </div>
+            <div className="text-sm font-black text-slate-800 mt-1 truncate">
+              {search ? `"${search}"` : 'Tidak ada (Semua)'}
+            </div>
+          </div>
+          <div>
+            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+              Jumlah Pekerjaan
+            </div>
+            <div className="text-sm font-black text-slate-800 mt-1">
+              {filteredReports.length} Berkas Aktif
+            </div>
+          </div>
+        </div>
+
+        {/* Table list */}
+        <table className="w-full text-left border-collapse border border-slate-300">
+          <thead>
+            <tr className="bg-[#0c2444] text-white text-[11px] font-bold uppercase tracking-wider">
+              <th className="px-4 py-4 text-center w-16 border border-slate-300">No</th>
+              <th className="px-6 py-4 border border-slate-300">Nama Badan Hukum / PT</th>
+              <th className="px-5 py-4 border border-slate-300 text-center w-60">Jenis Layanan Pekerjaan</th>
+              <th className="px-5 py-4 border border-slate-300 text-center w-52">Status Berkas</th>
+              <th className="px-5 py-4 border border-slate-300 text-center w-48">Tanggal Diperbarui</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-300 bg-white">
+            {filteredReports.length === 0 ? (
+              <tr>
+                <td colSpan={5} className="text-center py-12 text-slate-400 italic font-semibold">
+                  Tidak ada laporan dokumen pekerjaan yang ditemukan.
+                </td>
+              </tr>
+            ) : (
+              filteredReports.map((rec, idx) => {
+                // Determine status styling for static canvas layout
+                let statusBg = 'bg-slate-100 text-slate-800 border-slate-300';
+                let statusLabel = rec.status;
+                
+                const cleanStatus = (rec.status || '').toUpperCase();
+                if (cleanStatus.includes('SELESAI') || cleanStatus.includes('COMPLETE') || cleanStatus.includes('SIAP_KIRIM')) {
+                  statusBg = 'bg-emerald-100 text-emerald-900 border-emerald-300';
+                  statusLabel = 'SELESAI';
+                } else if (cleanStatus.includes('PERBAIKAN') || cleanStatus.includes('REVISION') || cleanStatus.includes('DIKEMBALIKAN')) {
+                  statusBg = 'bg-rose-100 text-rose-900 border-rose-300';
+                  statusLabel = 'PERBAIKAN';
+                } else if (cleanStatus.includes('DRAFTING') || cleanStatus.includes('PROSES') || cleanStatus.includes('KOREKSI')) {
+                  statusBg = 'bg-blue-100 text-blue-900 border-blue-300';
+                  statusLabel = 'PROSES DRAFTING';
+                } else {
+                  statusBg = 'bg-violet-100 text-violet-900 border-violet-300';
+                }
+
+                return (
+                  <tr key={'highres-' + idx} className="text-slate-800 text-[12.5px]">
+                    <td className="px-4 py-4 text-center border border-slate-300 font-bold bg-slate-50/50">{idx + 1}</td>
+                    <td className="px-6 py-4 border border-slate-300 font-black text-[#0c2444] uppercase tracking-wide">{rec.namaPt}</td>
+                    <td className="px-5 py-4 border border-slate-300 text-center font-bold">
+                      <span className="inline-block px-3 py-1.5 text-[11px] font-bold rounded-md bg-slate-100 text-slate-700 border border-slate-200 uppercase whitespace-nowrap min-w-[160px]">
+                        {rec.pekerjaan}
+                      </span>
+                    </td>
+                    <td className="px-5 py-4 border border-slate-300 text-center font-extrabold">
+                      <span className={`inline-block px-4 py-1.5 text-[10.5px] font-bold rounded-lg border uppercase whitespace-nowrap tracking-wider min-w-[140px] text-center ${statusBg}`}>
+                        {statusLabel}
+                      </span>
+                    </td>
+                    <td className="px-5 py-4 border border-slate-300 text-center text-slate-500 font-mono text-[11px] font-bold">
+                      {rec.updatedAt && !isNaN(new Date(rec.updatedAt).getTime()) 
+                        ? new Date(rec.updatedAt).toLocaleDateString('id-ID', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) 
+                        : '-'}
+                    </td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
+
+        {/* Signature and Approval Area */}
+        <div className="flex justify-between items-end pt-12 mt-auto">
+          <div>
+            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Diunduh Melalui</div>
+            <div className="text-[11px] font-bold text-[#0c2444] mt-1">PORTAL INTEGRASI ADMINISTRASI NOTARIS PUTRI</div>
+          </div>
+          <div className="text-center w-72">
+            <div className="text-[11px] text-slate-500 font-bold uppercase tracking-wider mb-12">
+              Jakarta, {new Date().toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' })}
+            </div>
+            <div className="text-xs font-black text-slate-900 border-b border-slate-400 pb-1 uppercase">
+              Nukantini Putri Parincha S.H., M.Kn
+            </div>
+            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">
+              Notaris & PPAT Jakarta Selatan
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };

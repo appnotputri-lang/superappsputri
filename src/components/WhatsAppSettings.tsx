@@ -81,7 +81,13 @@ export function WhatsAppSettings() {
         },
         body: JSON.stringify({ token })
       });
-      const data = await response.json();
+      const resText = await response.text();
+      let data;
+      try {
+        data = JSON.parse(resText);
+      } catch (e) {
+        throw new Error("Respon server bukan format JSON yang valid. Pastikan server backend Anda terdeploy dengan benar.");
+      }
       if (data.connected) {
         setStatus('CONNECTED');
         setStatusMessage(data.device_status || 'Koneksi Sukses!');
