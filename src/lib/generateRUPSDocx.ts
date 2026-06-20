@@ -199,7 +199,6 @@ const createSubNumberedP = (
   indentTabs: number = 0
 ): Paragraph => {
   const leftDxa = 568 + Math.round(indentTabs * 425);
-  const hangingDxa = 284;
   const lines = parseTextRuns(tokens, W.subnr - (indentTabs * 2.2));
   const children: any[] = [];
 
@@ -210,16 +209,19 @@ const createSubNumberedP = (
     if (i < lines.length - 1) children.push(new TextRun({ break: 1 }));
   });
 
+  // Use left=284, firstLine=0 (no hanging) to avoid Word auto-applying List Paragraph style
+  // Visually identical for first line: "1)" appears at 284 DXA, text at leftDxa via tab
   return new Paragraph({
     children,
     tabStops: [{ type: TabStopType.LEFT, position: leftDxa }, TAB_KANAN],
     alignment: AlignmentType.LEFT,
-    indent: { left: leftDxa, hanging: hangingDxa },
+    indent: { left: 284, firstLine: 0 },
   });
 };
 
 /**
- * "Pasal X" divider — tab center di 3969, tab kanan 8504, indent left=284
+ * "Pasal X" divider — tab center di 4252, tab kanan 8504
+ * No indent to avoid Word auto-applying List Paragraph numbering
  */
 const createPasalDividerP = (text: string): Paragraph =>
   new Paragraph({
@@ -229,10 +231,9 @@ const createPasalDividerP = (text: string): Paragraph =>
       new TextRun({ text: "\t" }),
     ],
     tabStops: [
-      { type: TabStopType.CENTER, position: 3969, leader: LeaderType.HYPHEN },
+      { type: TabStopType.CENTER, position: 4252, leader: LeaderType.HYPHEN },
       { type: TabStopType.RIGHT,  position: 8504, leader: LeaderType.HYPHEN },
     ],
-    indent: { left: 284 },
     alignment: AlignmentType.LEFT,
   });
 
