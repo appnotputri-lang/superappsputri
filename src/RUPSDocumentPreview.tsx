@@ -29,7 +29,34 @@ export const RUPSDocumentPreview: React.FC<RUPSDocumentPreviewProps> = ({ data }
     const allLines: { element: React.ReactNode }[] = [];
 
     blocks.forEach((block, bIdx) => {
-      if (block.type === 'p') {
+      if (block.type === 'p' && (block as any).subNumber) {
+        // Sub-numbered paragraphs: "1)" style — left=1cm, hanging=0.5cm
+        const subNum = (block as any).subNumber;
+        const indentTabs = block.indentTabs || 0;
+        const maxLine = 38.5 - (indentTabs * 2.2);
+        const lines = parseTextRuns(block.runs, maxLine);
+        const extraPad = indentTabs * 0.75;
+
+        lines.forEach((line, lIdx) => {
+          allLines.push({
+            element: (
+              <div key={`p-${bIdx}-${lIdx}`} className="flex relative items-start" style={{ paddingLeft: `${0.5 + extraPad}cm` }}>
+                <span className="shrink-0 whitespace-nowrap" style={{ width: '0.5cm' }}>{lIdx === 0 ? `${subNum})` : ''}</span>
+                <div className="flex-1 min-w-0">
+                  <div className="flex relative w-full overflow-hidden leading-[2]">
+                    <span className="whitespace-pre-wrap shrink-0">
+                      {line.map((t, j) => t.bold ? <strong key={j}>{t.text}</strong> : <span key={j}>{t.text}</span>)}
+                    </span>
+                    <span className="flex-1 overflow-hidden select-none whitespace-nowrap opacity-60" style={{ letterSpacing: '0.5px' }}>
+                      &nbsp;{DASH_LINE}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )
+          });
+        });
+      } else if (block.type === 'p') {
         const runs = block.runs;
         const indent = block.indent;
         const indentTabs = block.indentTabs || 0;
