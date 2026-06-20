@@ -1,7 +1,9 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { CompanyData } from '../types';
 import { parseTextRuns } from './lib/notaryWrapper';
 import { generateRupstBlocks } from './lib/rupsTahunanContentBlocks';
+
+const DASH_DIVIDER = Array(300).fill('-').join('');
 
 interface RUPSTDocumentPreviewProps {
   data: CompanyData;
@@ -10,11 +12,11 @@ interface RUPSTDocumentPreviewProps {
 const DashedDivider = ({ text, className = "" }: { text: string, className?: string }) => (
   <div className={`flex w-full items-center overflow-hidden ${className}`}>
     <div className="flex-1 overflow-hidden select-none font-normal whitespace-nowrap flex justify-end opacity-60" style={{ letterSpacing: '0.5px' }}>
-      <span>{Array(300).fill('-').join('')}</span>
+      <span>{DASH_DIVIDER}</span>
     </div>
     <div className="px-1 font-bold whitespace-nowrap tracking-wider">{text}</div>
     <div className="flex-1 overflow-hidden select-none font-normal whitespace-nowrap flex justify-start opacity-60" style={{ letterSpacing: '0.5px' }}>
-      <span>{Array(300).fill('-').join('')}</span>
+      <span>{DASH_DIVIDER}</span>
     </div>
   </div>
 );
@@ -50,107 +52,110 @@ const renderToken = (t: any, j: number) => {
 };
 
 export const RUPSTDocumentPreview: React.FC<RUPSTDocumentPreviewProps> = ({ data }) => {
-  const blocks = generateRupstBlocks(data);
-  
-  const allLines: { element: React.ReactNode }[] = [];
-  
-  blocks.forEach((block, bIdx) => {
-    if (block.type === 'p') {
-      const runs = block.runs;
-      const align = block.align || 'left';
-      
-      const maxLine = align === 'center' ? 44 : 41.5; 
-      const lines = parseTextRuns(runs, maxLine);
+  const blocks = useMemo(() => generateRupstBlocks(data), [data]);
 
-      lines.forEach((line, lIdx) => {
-        allLines.push({
-          element: (
-            <div key={`p-${bIdx}-${lIdx}`} className="flex relative items-start gap-1">
-              <div 
-                className={`flex relative w-full overflow-hidden leading-[1.8]`} 
-                style={{ 
-                  textAlign: align === 'center' ? 'center' : 'justify',
-                  width: '100%'
-                }}
-              >
-                 <span className={`whitespace-pre-wrap ${align === 'center' ? 'shrink-0' : 'w-full'}`}>
-                   {line.map((t, j) => renderToken(t, j))}
-                   {align !== 'center' && lIdx < lines.length - 1 && <span className="inline-block w-full" />}
-                 </span>
-              </div>
-            </div>
-          )
-        });
-      });
-    } else if (block.type === 'list') {
-      const runs = block.runs;
-      const indentTabs = block.indentTabs || 0;
-      const maxLine = 38 - (indentTabs * 2.2);
-      const lines = parseTextRuns(runs, maxLine);
-      
-      const bulletLeft = indentTabs * 1; 
+  const pages = useMemo(() => {
+    const allLines: { element: React.ReactNode }[] = [];
 
-      lines.forEach((line, lIdx) => {
-        allLines.push({
-          element: (
-            <div key={`l-${bIdx}-${lIdx}`} className="flex relative items-start" style={{ paddingLeft: `${bulletLeft}cm` }}>
-              <span className="shrink-0 whitespace-nowrap" style={{ width: '1cm' }}>{lIdx === 0 ? block.bullet : ""}</span>
-              <div className="flex-1 min-w-0">
-                <div className="flex relative w-full overflow-hidden leading-[1.8]" style={{ textAlign: 'justify' }}>
-                  <span className="whitespace-pre-wrap w-full">
-                    {line.map((t, j) => renderToken(t, j))}
-                    {lIdx < lines.length - 1 && <span className="inline-block w-full" />}
-                  </span>
+    blocks.forEach((block, bIdx) => {
+      if (block.type === 'p') {
+        const runs = block.runs;
+        const align = block.align || 'left';
+
+        const maxLine = align === 'center' ? 44 : 41.5;
+        const lines = parseTextRuns(runs, maxLine);
+
+        lines.forEach((line, lIdx) => {
+          allLines.push({
+            element: (
+              <div key={`p-${bIdx}-${lIdx}`} className="flex relative items-start gap-1">
+                <div
+                  className={`flex relative w-full overflow-hidden leading-[1.8]`}
+                  style={{
+                    textAlign: align === 'center' ? 'center' : 'justify',
+                    width: '100%'
+                  }}
+                >
+                   <span className={`whitespace-pre-wrap ${align === 'center' ? 'shrink-0' : 'w-full'}`}>
+                     {line.map((t, j) => renderToken(t, j))}
+                     {align !== 'center' && lIdx < lines.length - 1 && <span className="inline-block w-full" />}
+                   </span>
                 </div>
               </div>
-            </div>
-          )
+            )
+          });
         });
-      });
-    } else if (block.type === 'divider') {
-      allLines.push({
-        element: (
-          <div key={`d-${bIdx}`} className="py-2">
-            <DashedDivider text={block.text} />
-          </div>
-        )
-      });
-    } else if (block.type === 'br') {
-      allLines.push({ element: <div key={`br-${bIdx}`} className="h-6"></div> });
-    } else if (block.type === 'participantSigs') {
-      const formatParticipantName = (sh: any) => {
-        if (sh.isProxy && sh.proxyData && sh.proxyData.name) {
-          return `${sh.proxyData.name.toUpperCase()} qq ${sh.name.toUpperCase()}`;
-        }
-        return sh.name.toUpperCase();
-      };
-      block.participants.forEach((sh: any, idx: number) => {
+      } else if (block.type === 'list') {
+        const runs = block.runs;
+        const indentTabs = block.indentTabs || 0;
+        const maxLine = 38 - (indentTabs * 2.2);
+        const lines = parseTextRuns(runs, maxLine);
+
+        const bulletLeft = indentTabs * 1;
+
+        lines.forEach((line, lIdx) => {
+          allLines.push({
+            element: (
+              <div key={`l-${bIdx}-${lIdx}`} className="flex relative items-start" style={{ paddingLeft: `${bulletLeft}cm` }}>
+                <span className="shrink-0 whitespace-nowrap" style={{ width: '1cm' }}>{lIdx === 0 ? block.bullet : ""}</span>
+                <div className="flex-1 min-w-0">
+                  <div className="flex relative w-full overflow-hidden leading-[1.8]" style={{ textAlign: 'justify' }}>
+                    <span className="whitespace-pre-wrap w-full">
+                      {line.map((t, j) => renderToken(t, j))}
+                      {lIdx < lines.length - 1 && <span className="inline-block w-full" />}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )
+          });
+        });
+      } else if (block.type === 'divider') {
         allLines.push({
           element: (
-            <div key={`sig-row-${bIdx}-${idx}`} className="flex w-full items-start" style={{ lineHeight: '1.8', marginBottom: '12px' }}>
-              <div style={{ width: '60%' }}>
-                {idx + 1}. {formatParticipantName(sh)}
-              </div>
-              <div style={{ width: '40%', color: '#94a3b8' }}>
-                ........................................................
-              </div>
+            <div key={`d-${bIdx}`} className="py-2">
+              <DashedDivider text={block.text} />
             </div>
           )
         });
-      });
-    }
-  });
+      } else if (block.type === 'br') {
+        allLines.push({ element: <div key={`br-${bIdx}`} className="h-6"></div> });
+      } else if (block.type === 'participantSigs') {
+        const formatParticipantName = (sh: any) => {
+          if (sh.isProxy && sh.proxyData && sh.proxyData.name) {
+            return `${sh.proxyData.name.toUpperCase()} qq ${sh.name.toUpperCase()}`;
+          }
+          return sh.name.toUpperCase();
+        };
+        block.participants.forEach((sh: any, idx: number) => {
+          allLines.push({
+            element: (
+              <div key={`sig-row-${bIdx}-${idx}`} className="flex w-full items-start" style={{ lineHeight: '1.8', marginBottom: '12px' }}>
+                <div style={{ width: '60%' }}>
+                  {idx + 1}. {formatParticipantName(sh)}
+                </div>
+                <div style={{ width: '40%', color: '#94a3b8' }}>
+                  ........................................................
+                </div>
+              </div>
+            )
+          });
+        });
+      }
+    });
 
-  const LINES_PER_PAGE = 46; 
-  const pages: React.ReactNode[][] = [];
-  for (let i = 0; i < allLines.length; i += LINES_PER_PAGE) {
-    pages.push(allLines.slice(i, i + LINES_PER_PAGE).map(l => l.element));
-  }
+    const LINES_PER_PAGE = 46;
+    const result: React.ReactNode[][] = [];
+    for (let i = 0; i < allLines.length; i += LINES_PER_PAGE) {
+      result.push(allLines.slice(i, i + LINES_PER_PAGE).map(l => l.element));
+    }
+    return result;
+  }, [blocks]);
 
   return (
     <div className="flex flex-col gap-8 print:gap-0 items-center py-8 bg-slate-300/30 min-h-max w-full">
       {pages.map((pageContent, pIdx) => (
-        <div 
+        <div
           key={pIdx}
           className="bg-white shadow-2xl shrink-0 border border-slate-200 transform origin-top print:shadow-none print:m-0 print:border-none relative"
           style={{
@@ -166,13 +171,13 @@ export const RUPSTDocumentPreview: React.FC<RUPSTDocumentPreviewProps> = ({ data
           <div className="absolute top-4 right-8 text-slate-300 text-xs font-mono select-none print:hidden">
             Page {pIdx + 1}
           </div>
-          
+
           {/* Header Office */}
           <div className="absolute top-[1cm] left-[3.5cm] right-[1.5cm] text-center font-bold tracking-wide" style={{ color: '#FF0000', fontFamily: 'Arial, sans-serif', fontSize: '12pt' }}>
             KOP SURAT
           </div>
-          
-          <div 
+
+          <div
             className="w-full relative z-10 overflow-hidden"
             style={{
               fontFamily: "'Arial', sans-serif",

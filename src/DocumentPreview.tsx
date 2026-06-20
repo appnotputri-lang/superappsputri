@@ -1,9 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { FormData } from './constants';
-import { Printer, Download, Loader2 } from 'lucide-react';
+import { Printer, Download, Loader as Loader2 } from 'lucide-react';
 import { generateDocx } from './lib/generateDocxJualBeli';
 import { parseTextRuns, FormatToken } from './lib/notaryWrapper';
 import { generateBlocks } from './lib/contentBlocks';
+
+const DASH_LINE = Array(150).fill('-').join('');
+const DASH_DIVIDER = Array(300).fill('-').join('');
 
 interface DocumentPreviewProps {
   data: FormData;
@@ -35,7 +38,7 @@ const WrappedText = ({ runs, isList = false, indent = false, indentTabs = 0, ali
            </span>
            {align !== 'center' && marginLeft !== '50%' && (
              <span className="flex-1 overflow-hidden select-none whitespace-nowrap opacity-60" style={{ letterSpacing: '0.5px' }}>
-               &nbsp;{Array(150).fill('-').join('')}
+               &nbsp;{DASH_LINE}
              </span>
            )}
         </div>
@@ -47,11 +50,11 @@ const WrappedText = ({ runs, isList = false, indent = false, indentTabs = 0, ali
 const DashedDivider = ({ text, className = "" }: { text: string, className?: string }) => (
   <div className={`flex w-full items-center overflow-hidden ${className}`}>
     <div className="flex-1 overflow-hidden select-none font-normal whitespace-nowrap flex justify-end opacity-60" style={{ letterSpacing: '0.5px' }}>
-      <span>{Array(300).fill('-').join('')}</span>
+      <span>{DASH_DIVIDER}</span>
     </div>
     <div className="px-1 font-bold whitespace-nowrap tracking-wider">{text}</div>
     <div className="flex-1 overflow-hidden select-none font-normal whitespace-nowrap flex justify-start opacity-60" style={{ letterSpacing: '0.5px' }}>
-      <span>{Array(300).fill('-').join('')}</span>
+      <span>{DASH_DIVIDER}</span>
     </div>
   </div>
 );
@@ -75,118 +78,121 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({ data }) => {
     }
   };
 
-  const blocks = generateBlocks(data);
-  
+  const blocks = useMemo(() => generateBlocks(data), [data]);
+
   // Collect all lines
-  const allLines: { element: React.ReactNode }[] = [];
+  const pages = useMemo(() => {
+    const allLines: { element: React.ReactNode }[] = [];
 
-  blocks.forEach((block, bIdx) => {
-    if (block.type === 'p') {
-      const runs = block.runs;
-      const isList = false;
-      const indent = block.indent;
-      const indentTabs = block.indentTabs || 0;
-      const align = block.align || 'left';
-      
-      let indentReduction = 0;
-      if (isList || indent) indentReduction += 2.2;
-      if (indentTabs) indentReduction += indentTabs * 4.4;
-      if (align === 'right-center') indentReduction += 21;
-      
-      const maxLine = 41.5 - indentReduction; 
-      const lines = parseTextRuns(runs, maxLine);
+    blocks.forEach((block, bIdx) => {
+      if (block.type === 'p') {
+        const runs = block.runs;
+        const isList = false;
+        const indent = block.indent;
+        const indentTabs = block.indentTabs || 0;
+        const align = block.align || 'left';
 
-      let paddingLeft = '0';
-      let marginLeft = '0';
-      if (indentTabs) paddingLeft = `${indentTabs * 1.5}cm`;
-      if (align === 'right-center') {
-        marginLeft = '50%';
-      }
+        let indentReduction = 0;
+        if (isList || indent) indentReduction += 2.2;
+        if (indentTabs) indentReduction += indentTabs * 4.4;
+        if (align === 'right-center') indentReduction += 21;
 
-      lines.forEach((line, lIdx) => {
-        allLines.push({
-          element: (
-            <div key={`p-${bIdx}-${lIdx}`} className="flex relative items-start gap-1" style={{ paddingLeft }}>
-               {block.number && align !== 'right-center' && lIdx === 0 && (
-                 <span className="w-6 shrink-0 whitespace-nowrap">{block.number}.</span>
-               )}
-               <div 
-                 className={`flex relative w-full overflow-hidden leading-[2] ${block.number && align !== 'right-center' && lIdx > 0 ? 'pl-6' : ''}`} 
-                 style={{ 
-                   textAlign: (align === 'right-center' ? 'center' : align) as any, justifyContent: (align === 'center' || align === 'right-center') ? 'center' : 'flex-start', 
-                   marginLeft 
-                 }}
-               >
-                  <span className="whitespace-pre-wrap shrink-0">
-                    {line.map((t, j) => t.bold ? <strong key={j}>{t.text}</strong> : <span key={j}>{t.text}</span>)}
-                  </span>
-                  {align !== 'center' && align !== 'right-center' && <span className="flex-1 overflow-hidden select-none whitespace-nowrap opacity-60" style={{ letterSpacing: '0.5px' }}>
-                    &nbsp;{Array(150).fill('-').join('')}
-                   </span>}
-               </div>
-            </div>
-          )
+        const maxLine = 41.5 - indentReduction;
+        const lines = parseTextRuns(runs, maxLine);
+
+        let paddingLeft = '0';
+        let marginLeft = '0';
+        if (indentTabs) paddingLeft = `${indentTabs * 1.5}cm`;
+        if (align === 'right-center') {
+          marginLeft = '50%';
+        }
+
+        lines.forEach((line, lIdx) => {
+          allLines.push({
+            element: (
+              <div key={`p-${bIdx}-${lIdx}`} className="flex relative items-start gap-1" style={{ paddingLeft }}>
+                 {block.number && align !== 'right-center' && lIdx === 0 && (
+                   <span className="w-6 shrink-0 whitespace-nowrap">{block.number}.</span>
+                 )}
+                 <div
+                   className={`flex relative w-full overflow-hidden leading-[2] ${block.number && align !== 'right-center' && lIdx > 0 ? 'pl-6' : ''}`}
+                   style={{
+                     textAlign: (align === 'right-center' ? 'center' : align) as any, justifyContent: (align === 'center' || align === 'right-center') ? 'center' : 'flex-start',
+                     marginLeft
+                   }}
+                 >
+                    <span className="whitespace-pre-wrap shrink-0">
+                      {line.map((t, j) => t.bold ? <strong key={j}>{t.text}</strong> : <span key={j}>{t.text}</span>)}
+                    </span>
+                    {align !== 'center' && align !== 'right-center' && <span className="flex-1 overflow-hidden select-none whitespace-nowrap opacity-60" style={{ letterSpacing: '0.5px' }}>
+                      &nbsp;{DASH_LINE}
+                     </span>}
+                 </div>
+              </div>
+            )
+          });
         });
-      });
-    } else if (block.type === 'list') {
-      const align: string = 'left';
-      const runs = block.runs;
-      const indentTabs = block.indentTabs || 0;
-      const maxLine = 41.5 - (1.1 + (indentTabs * 2.2));
-      const lines = parseTextRuns(runs, maxLine);
-      
-      const bulletLeft = indentTabs * 0.75;
+      } else if (block.type === 'list') {
+        const align: string = 'left';
+        const runs = block.runs;
+        const indentTabs = block.indentTabs || 0;
+        const maxLine = 41.5 - (1.1 + (indentTabs * 2.2));
+        const lines = parseTextRuns(runs, maxLine);
 
-      lines.forEach((line, lIdx) => {
-        allLines.push({
-          element: (
-            <div key={`l-${bIdx}-${lIdx}`} className="flex relative items-start" style={{ paddingLeft: `${bulletLeft}cm` }}>
-              <span className="shrink-0 whitespace-nowrap" style={{ width: '0.75cm' }}>{lIdx === 0 ? block.bullet : ""}</span>
-              <div className="flex-1 min-w-0">
-                <div className="flex relative w-full overflow-hidden leading-[2]">
-                  <span className="whitespace-pre-wrap shrink-0">
-                    {line.map((t, j) => t.bold ? <strong key={j}>{t.text}</strong> : <span key={j}>{t.text}</span>)}
-                  </span>
-                  {align !== 'center' && align !== 'right-center' && <span className="flex-1 overflow-hidden select-none whitespace-nowrap opacity-60" style={{ letterSpacing: '0.5px' }}>
-                    &nbsp;{Array(150).fill('-').join('')}
-                   </span>}
+        const bulletLeft = indentTabs * 0.75;
+
+        lines.forEach((line, lIdx) => {
+          allLines.push({
+            element: (
+              <div key={`l-${bIdx}-${lIdx}`} className="flex relative items-start" style={{ paddingLeft: `${bulletLeft}cm` }}>
+                <span className="shrink-0 whitespace-nowrap" style={{ width: '0.75cm' }}>{lIdx === 0 ? block.bullet : ""}</span>
+                <div className="flex-1 min-w-0">
+                  <div className="flex relative w-full overflow-hidden leading-[2]">
+                    <span className="whitespace-pre-wrap shrink-0">
+                      {line.map((t, j) => t.bold ? <strong key={j}>{t.text}</strong> : <span key={j}>{t.text}</span>)}
+                    </span>
+                    {align !== 'center' && align !== 'right-center' && <span className="flex-1 overflow-hidden select-none whitespace-nowrap opacity-60" style={{ letterSpacing: '0.5px' }}>
+                      &nbsp;{DASH_LINE}
+                     </span>}
+                  </div>
                 </div>
               </div>
+            )
+          });
+        });
+      } else if (block.type === 'divider') {
+        allLines.push({
+          element: (
+            <div key={`d-${bIdx}`} className="py-2">
+              <DashedDivider text={block.text} />
             </div>
           )
         });
-      });
-    } else if (block.type === 'divider') {
-      allLines.push({
-        element: (
-          <div key={`d-${bIdx}`} className="py-2">
-            <DashedDivider text={block.text} />
-          </div>
-        )
-      });
+      }
+    });
+
+    // Footer / Notary Name
+    allLines.push({
+      element: (
+        <div key="footer-space" className="h-20"></div>
+      )
+    });
+    allLines.push({
+      element: (
+        <div key="footer-notary" className="w-1/2 ml-auto text-center font-bold">
+          {data.notarisNama.replace(/Sarjana Hukum/gi, 'SH.').replace(/Magister Kenotariatan/gi, 'M.Kn')}
+        </div>
+      )
+    });
+
+    // Chunk lines into pages
+    const LINES_PER_PAGE = 44;
+    const result: React.ReactNode[][] = [];
+    for (let i = 0; i < allLines.length; i += LINES_PER_PAGE) {
+      result.push(allLines.slice(i, i + LINES_PER_PAGE).map(l => l.element));
     }
-  });
-
-  // Footer / Notary Name
-  allLines.push({
-    element: (
-      <div key="footer-space" className="h-20"></div>
-    )
-  });
-  allLines.push({
-    element: (
-      <div key="footer-notary" className="w-1/2 ml-auto text-center font-bold">
-        {data.notarisNama.replace(/Sarjana Hukum/gi, 'SH.').replace(/Magister Kenotariatan/gi, 'M.Kn')}
-      </div>
-    )
-  });
-
-  // Chunk lines into pages
-  const LINES_PER_PAGE = 44; 
-  const pages: React.ReactNode[][] = [];
-  for (let i = 0; i < allLines.length; i += LINES_PER_PAGE) {
-    pages.push(allLines.slice(i, i + LINES_PER_PAGE).map(l => l.element));
-  }
+    return result;
+  }, [blocks, data.notarisNama]);
 
   return (
     <section className="w-full bg-slate-300/50 pt-8 pb-32 px-8 flex flex-col items-center border border-white/30 relative print:bg-white print:p-0 print:border-none print:shadow-none print:rounded-none min-h-max">
