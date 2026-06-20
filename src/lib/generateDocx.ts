@@ -1,4 +1,4 @@
-import { Document, Packer, Paragraph, TextRun, Tab } from "docx";
+import { Document, Packer, Paragraph, TextRun, Tab, TabStopType } from "docx";
 import { CompanyData, Shareholder, Address, ManagementItem } from "../../types";
 import { formatFullAddressData, formatCompanyName, formatPersonDetails, formatDateStr, checkIsBadanHukum, dateToWords, formatDateRupst } from "./formatter";
 import { formatKbliCategory } from "./kbliConstants";
@@ -1180,6 +1180,9 @@ export const generateWordDoc = async (data: CompanyData) => {
         finalCompBody.push(
           createBodyParagraph({
             indent: { left: INDENT_STEP * 2, hanging: HANGING_SIZE },
+            tabStops: [
+              { type: TabStopType.LEFT, position: 2835 },
+            ],
             children: [
               new TextRun({ text: "- ", size: FONT_SIZE, font: FONT_FAMILY }),
               new TextRun({
@@ -1188,7 +1191,7 @@ export const generateWordDoc = async (data: CompanyData) => {
                 size: FONT_SIZE,
                 font: FONT_FAMILY,
               }),
-              new TextRun({ text: ` : `, size: FONT_SIZE, font: FONT_FAMILY }),
+              new TextRun({ text: `\t: `, size: FONT_SIZE, font: FONT_FAMILY }),
               new TextRun({
                 text: s.sharesOwned.toLocaleString("id-ID"),
                 bold: true,
@@ -1243,7 +1246,17 @@ export const generateWordDoc = async (data: CompanyData) => {
           position: s.managementPosition || "Pengurus",
         })),
       ...(data.newManagementItems || []),
-    ];
+    ].sort((a, b) => {
+      const getPriority = (pos: string) => {
+        const p = (pos || "").toUpperCase();
+        if (p.includes("DIREKTUR UTAMA") || p.includes("PRESIDEN DIREKTUR")) return 1;
+        if (p.includes("DIREKTUR")) return 2;
+        if (p.includes("KOMISARIS UTAMA") || p.includes("PRESIDEN KOMISARIS")) return 3;
+        if (p.includes("KOMISARIS")) return 4;
+        return 5;
+      };
+      return getPriority(a.position) - getPriority(b.position);
+    });
 
     const changeType = data.managementChangeType || "ALL_DISMISSED";
     let managersToDismiss: any[] = [];
@@ -1277,23 +1290,20 @@ export const generateWordDoc = async (data: CompanyData) => {
     if (managersToDismiss.length > 0) {
       if (managersToDismiss.length === 1) {
         const m = managersToDismiss[0];
-        let resignationHeading = "anggota Direksi dan Dewan Komisaris Perseroan";
-        if (/direktur/i.test(m.position || "")) resignationHeading = "anggota Direksi";
-        else if (/komisaris/i.test(m.position || "")) resignationHeading = "Dewan Komisaris Perseroan";
-
         body.push(
           createBodyParagraph({
-            indent: { left: INDENT_STEP },
+            indent: { left: INDENT_STEP * 2, hanging: HANGING_SIZE },
             children: [
-              new TextRun({ text: `Menyetujui untuk memberhentikan dengan hormat ${resignationHeading}, `, size: FONT_SIZE, font: FONT_FAMILY }),
+              new TextRun({ text: "- ", size: FONT_SIZE, font: FONT_FAMILY }),
+              new TextRun({ text: `Memberhentikan selaku ${toTitleCase(m.position)} yaitu `, size: FONT_SIZE, font: FONT_FAMILY }),
               new TextRun({
-                text: (m.name || "..........").toUpperCase(),
+                text: `${m.salutation || "Tuan"} ${(m.name || "..........").toUpperCase()}`,
                 bold: true,
                 size: FONT_SIZE,
                 font: FONT_FAMILY,
               }),
               new TextRun({
-                text: `, selaku ${m.position} perseroan.`,
+                text: `, karena diberhentikan dengan hormat oleh rapat.`,
                 size: FONT_SIZE,
                 font: FONT_FAMILY,
               }),
@@ -1316,13 +1326,13 @@ export const generateWordDoc = async (data: CompanyData) => {
               children: [
                 new TextRun({ text: "- ", size: FONT_SIZE, font: FONT_FAMILY }),
                 new TextRun({
-                  text: (m.name || "..........").toUpperCase(),
+                  text: `${m.salutation || "Tuan"} ${(m.name || "..........").toUpperCase()}`,
                   bold: true,
                   size: FONT_SIZE,
                   font: FONT_FAMILY,
                 }),
                 new TextRun({
-                  text: `, selaku ${m.position} perseroan;`,
+                  text: `, selaku ${toTitleCase(m.position)} perseroan;`,
                   size: FONT_SIZE,
                   font: FONT_FAMILY,
                 }),
@@ -1335,53 +1345,88 @@ export const generateWordDoc = async (data: CompanyData) => {
       body.push(
         createBodyParagraph({
           indent: { left: INDENT_STEP },
-          text: "dengan ucapan terima kasih atas jasa-jasa dan pengabdian yang telah diberikan selama masa jabatannya dalam Perseroan, serta memberikan pelunasan dan pembebasan tanggung jawab sepenuhnya (acquit et de charge) atas tindakan pengurusan dan pengawasan yang telah dijalankan, sepanjang tindakan-tindakan tersebut tercermin dalam buku-buku serta laporan tahunan Perseroan.",
-          spacing: { before: 120 },
+          text: "Dengan ucapan terima kasih atas jasa-jasa dan pengabdian yang telah diberikan selama masa jabatannya dalam Perseroan, serta memberikan pelunasan dan pembebasan tanggung jawab sepenuhnya (acquit et de charge) atas tindakan pengurusan dan pengawasan yang telah dijalankan, sepanjang tindakan-tindakan tersebut tercermin dalam buku-buku serta laporan tahunan Perseroan.",
+          spacing: { before: 120, after: 120 },
         })
       );
     }
 
     // Appointments
     if (managersToAppoint.length > 0) {
-      const hasDirector = managersToAppoint.some(m => /direktur/i.test(m.position || ""));
-      const hasCommissioner = managersToAppoint.some(m => /komisaris/i.test(m.position || ""));
-      
-      let titleText = "anggota Direksi / Dewan Komisaris Perseroan";
-      if (hasDirector && !hasCommissioner) {
-        titleText = "anggota Direksi Perseroan";
-      } else if (!hasDirector && hasCommissioner) {
-        titleText = "Dewan Komisaris Perseroan";
-      }
-
-      body.push(
-        createBodyParagraph({
-          indent: { left: INDENT_STEP },
-          text: `Selanjutnya menyetujui untuk mengangkat sebagai ${titleText} yang baru :`,
-          spacing: { before: 120 },
-        })
-      );
-
-      managersToAppoint.forEach((m) => {
+      if (managersToAppoint.length === 1 && managersToDismiss.length === 1) {
+        const m = managersToAppoint[0];
+        const bioStr = formatPersonDetails(m, "", "", false, true);
         body.push(
           createBodyParagraph({
             indent: { left: INDENT_STEP * 2, hanging: HANGING_SIZE },
             children: [
               new TextRun({ text: "- ", size: FONT_SIZE, font: FONT_FAMILY }),
+              new TextRun({ text: `Mengangkat penggantinya selaku ${toTitleCase(m.position)} yaitu `, size: FONT_SIZE, font: FONT_FAMILY }),
               new TextRun({
-                text: (m.name || "..........").toUpperCase(),
+                text: `${m.salutation || "Tuan"} ${(m.name || "..........").toUpperCase()}`,
                 bold: true,
                 size: FONT_SIZE,
                 font: FONT_FAMILY,
               }),
               new TextRun({
-                text: `, sebagai ${toTitleCase(m.position)} perseroan;`,
+                text: `, ${bioStr}.`,
                 size: FONT_SIZE,
                 font: FONT_FAMILY,
               }),
             ],
+            spacing: { before: 120 },
           })
         );
-      });
+      } else {
+        const hasDirector = managersToAppoint.some(m => /direktur/i.test(m.position || ""));
+        const hasCommissioner = managersToAppoint.some(m => /komisaris/i.test(m.position || ""));
+        
+        let titleText = "anggota Direksi / Dewan Komisaris Perseroan";
+        if (hasDirector && !hasCommissioner) {
+          titleText = "anggota Direksi Perseroan";
+        } else if (!hasDirector && hasCommissioner) {
+          titleText = "Dewan Komisaris Perseroan";
+        }
+
+        body.push(
+          createBodyParagraph({
+            indent: { left: INDENT_STEP },
+            text: `Selanjutnya menyetujui untuk mengangkat sebagai ${titleText} yang baru :`,
+            spacing: { before: 120 },
+          })
+        );
+
+        managersToAppoint.forEach((m) => {
+          const bioStr = formatPersonDetails(m, "", "", false, true);
+          body.push(
+            createBodyParagraph({
+              indent: { left: INDENT_STEP * 2, hanging: HANGING_SIZE },
+              children: [
+                new TextRun({ text: "- ", size: FONT_SIZE, font: FONT_FAMILY }),
+                new TextRun({
+                  text: `${m.salutation || "Tuan"} ${(m.name || "..........").toUpperCase()}`,
+                  bold: true,
+                  size: FONT_SIZE,
+                  font: FONT_FAMILY,
+                }),
+                new TextRun({
+                  text: `, sebagai ${toTitleCase(m.position)} perseroan, ${bioStr};`,
+                  size: FONT_SIZE,
+                  font: FONT_FAMILY,
+                }),
+              ],
+            })
+          );
+        });
+
+        body.push(
+          createBodyParagraph({
+            indent: { left: INDENT_STEP },
+            text: `Masa jabatan anggota Direksi dan Dewan Komisaris tersebut di atas berlaku efektif terhitung sejak tanggal Keputusan ini ditetapkan, untuk jangka waktu sebagaimana yang ditentukan dalam Anggaran Dasar Perseroan, dengan tidak mengurangi hak Rapat Umum Pemegang Saham untuk memberhentikan sewaktu-waktu sesuai dengan ketentuan peraturan perundang-undangan yang berlaku.`,
+            spacing: { before: 120 },
+          })
+        );
+      }
     }
 
     // Final Composition Structure
@@ -1398,16 +1443,24 @@ export const generateWordDoc = async (data: CompanyData) => {
         body.push(
           createBodyParagraph({
             indent: { left: INDENT_STEP * 2, hanging: HANGING_SIZE },
+            tabStops: [
+              { type: TabStopType.LEFT, position: 2126 },
+            ],
             children: [
               new TextRun({ text: "- ", size: FONT_SIZE, font: FONT_FAMILY }),
               new TextRun({
-                text: (m.name || "..........").toUpperCase(),
-                bold: true,
+                text: toTitleCase(m.position),
                 size: FONT_SIZE,
                 font: FONT_FAMILY,
               }),
               new TextRun({
-                text: `, selaku ${toTitleCase(m.position)} perseroan;`,
+                text: `\t: `,
+                size: FONT_SIZE,
+                font: FONT_FAMILY,
+              }),
+              new TextRun({
+                text: (m.name || "..........").toUpperCase(),
+                bold: true,
                 size: FONT_SIZE,
                 font: FONT_FAMILY,
               }),

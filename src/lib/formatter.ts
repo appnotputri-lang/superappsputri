@@ -251,9 +251,19 @@ export function formatPersonDetails(
   useAktaFormat: boolean = false,
   excludeAmendmentDeeds: boolean = false
 ): string {
+  let finalAngka = tglLahirAngka;
+  let finalHuruf = tglLahirHuruf;
+
+  if ((!finalAngka || finalAngka.trim() === "") && person.birthDate) {
+    finalAngka = formatDateStr(person.birthDate);
+  }
+  if ((!finalHuruf || finalHuruf.trim() === "") && person.birthDate) {
+    finalHuruf = dateToWords(person.birthDate);
+  }
+
   const birthDateWording = useAktaFormat 
-    ? (tglLahirHuruf && tglLahirAngka ? `${tglLahirHuruf} (${tglLahirAngka})` : tglLahirAngka || tglLahirHuruf || "...")
-    : `${tglLahirAngka}${tglLahirHuruf ? ` (${tglLahirHuruf})` : ""}`;
+    ? (finalHuruf && finalAngka ? `${finalHuruf} (${finalAngka})` : finalAngka || finalHuruf || "...")
+    : `${finalAngka}${finalHuruf ? ` (${finalHuruf})` : ""}`;
 
   const isBadanHukum = checkIsBadanHukum(person);
 
@@ -388,7 +398,23 @@ export function formatPersonDetails(
     const kec = toTitleCase(person.address?.kecamatan || "...");
     const nik = person.nik || "...";
 
-    return `, lahir di ${birthCity}, pada tanggal ${birthDateWording}, Warga Negara Indonesia, ${occupation}, bertempat tinggal di ${city}, ${fullAddr}, RT. ${rt} RW. ${rw}, Kelurahan ${kel}, Kecamatan ${kec}, pemegang Kartu Tanda Penduduk Nomor ${nik}`;
+    let details = `, lahir di ${birthCity}, pada tanggal ${birthDateWording}, Warga Negara Indonesia, ${occupation}, bertempat tinggal di ${city}, ${fullAddr}, RT. ${rt} RW. ${rw}, Kelurahan ${kel}, Kecamatan ${kec}`;
+
+    if ((person as any).isUnderage) {
+      const gSal = (person as any).guardianSalutation || "Tuan/Nyonya";
+      const gName = ((person as any).guardianName || "................").toUpperCase();
+      const gNik = (person as any).guardianNik || "................";
+      const gRel = (person as any).guardianRelationship || "orang tua";
+      let gAddrStr = "alamat yang sama";
+      if ((person as any).guardianAddress?.fullAddress) {
+        gAddrStr = formatFullAddressData((person as any).guardianAddress, toTitleCase((person as any).guardianAddress.city || "..."));
+      }
+      details += ` - anak di bawah umur yang dalam hal ini diwakili oleh kekuasaan orang tua oleh ${gRel.toLowerCase()}nya, yaitu ${gSal} ${gName}, pemegang Kartu Tanda Penduduk Nomor ${gNik}, bertempat tinggal di ${gAddrStr}`;
+    } else {
+      details += `, pemegang Kartu Tanda Penduduk Nomor ${nik}`;
+    }
+
+    return details;
   }
 }
 

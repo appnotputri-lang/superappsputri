@@ -94,6 +94,8 @@ interface DraftAktaPendirianProps {
   onSave?: (data: PendirianData) => void;
   onCancel?: () => void;
   isSaving?: boolean;
+  onChange?: (data: PendirianData) => void;
+  autoSaveIndicator?: React.ReactNode;
 }
 
 export default function DraftAktaPendirian({ 
@@ -103,7 +105,9 @@ export default function DraftAktaPendirian({
   initialData, 
   onSave, 
   onCancel,
-  isSaving = false 
+  isSaving = false,
+  onChange,
+  autoSaveIndicator
 }: DraftAktaPendirianProps) {
   const [data, setData] = useState<PendirianData>(() => {
     if (initialData) return { ...initialData };
@@ -153,6 +157,12 @@ export default function DraftAktaPendirian({
       ]
     };
   });
+
+  React.useEffect(() => {
+    if (onChange) {
+      onChange(data);
+    }
+  }, [data, onChange]);
 
   const [isAddKbliModalOpen, setIsAddKbliModalOpen] = useState(false);
   const [kbliModalSearchTerm, setKbliModalSearchTerm] = useState('');
@@ -338,7 +348,8 @@ export default function DraftAktaPendirian({
             <Building2 className="w-5 h-5 text-[#3b5998]" /> Form Pendirian Perseroan Terbatas
           </h2>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-3 items-center flex-wrap">
+          {autoSaveIndicator}
           {onCancel && (
             <button 
               type="button" 

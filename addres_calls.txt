@@ -1,0 +1,238 @@
+950-    }),
+951-  );
+952-
+953-  // Helper: judul keputusan → manual numbering, body → indent left=426
+954-  let resolutionIdx = 1;
+955:  const addRes = (title: string, body: any[]) => {
+956-    children.push(
+957-      new Paragraph({
+958-        alignment: "both" as any,
+959-        spacing: { line: LINE_SPACING, lineRule: "auto", before: 120, after: 60 },
+960-        numbering: { reference: "keputusan-num", level: 0 },
+--
+978-    children: opts.children ?? [mkRun(opts.text ?? "")],
+979-  });
+980-
+981-  if (isCircular) {
+982-    // 1. Pengambilan Keputusan Sirkuler
+983:    addRes("Pengambilan keputusan para pemegang saham", [
+984-      bodyP({
+985-        indent: { left: 426 },
+986-        text: `Pengambilan keputusan para pemegang saham dengan keputusan sirkuler para pemegang saham yang mempunyai kekuatan hukum yang sama dengan suatu keputusan yang diambil dalam Rapat Umum Pemegang Saham (“RUPS”).`
+987-      })
+988-    ]);
+--
+1022-            mkRun(`.`),
+1023-          ]
+1024-        })
+1025-      ];
+1026-
+1027:      addRes(isBoth ? "Persetujuan Perubahan Nama dan Tempat Kedudukan Perseroan" : (isName ? "Persetujuan Perubahan Nama Perseroan" : "Persetujuan Perubahan Tempat Kedudukan Perseroan"), nameDomicileBody);
+1028-    }
+1029-
+1030-    // Standalone Domicile Change (Pasal 1 details)
+1031-    if (data.resolutions.domicile) {
+1032:      addRes("Persetujuan Perubahan Tempat Kedudukan Perseroan", [
+1033-        bodyP({
+1034-          indent: { left: 426 },
+1035-          children: [
+1036-            mkRun("Menyetujui dan memutuskan untuk mengubah tempat kedudukan Perseroan, yang semula berkedudukan di "),
+1037-            mkRun(toTitleCase(data.domicile || "..."), true),
+--
+1043-      ]);
+1044-    }
+1045-
+1046-    // Standalone Address Change
+1047-    if (data.resolutions.address) {
+1048:      addRes("Persetujuan Perubahan Alamat Lengkap Perseroan", [
+1049-        bodyP({
+1050-          indent: { left: 426 },
+1051-          children: [
+1052-            mkRun("Menyetujui dan memutuskan untuk mengubah alamat lengkap Perseroan, yang semula beralamat di "),
+1053-            mkRun(expandAbbreviations(formatAddress(formatFullAddressData(data.oldAddress)))),
+--
+1123-            })
+1124-          );
+1125-        }
+1126-      });
+1127-
+1128:      addRes("Persetujuan Perubahan Maksud dan Tujuan Perseroan", kbliBody);
+1129-    }
+1130-
+1131-    // 4. Modal Dasar (Modal Dasar)
+1132-    if (data.resolutions.capitalBase || data.resolutions.capitalBaseDecrease) {
+1133-      const isIncrease = data.resolutions.capitalBase;
+1134-      const oldBase = data.originalCapitalBase;
+1135-      const newBase = data.targetCapitalBase;
+1136-      const oldShares = data.originalAuthorizedShares;
+1137-      const newShares = data.originalSharePrice > 0 ? data.targetCapitalBase / data.originalSharePrice : 0;
+1138-      
+1139:      addRes(
+1140-        isIncrease ? "Persetujuan Peningkatan Modal Dasar Perseroan" : "Persetujuan Penurunan Modal Dasar Perseroan",
+1141-        [
+1142-          bodyP({
+1143-            indent: { left: 426 },
+1144-            text: `Menyetujui untuk ${isIncrease ? "meningkatkan" : "menurunkan"} Modal Dasar Perseroan, yang semula sebesar Rp. ${formatInputNumber(oldBase)},-${w(oldBase, "rupiah")} terbagi atas ${formatInputNumber(oldShares)}${w(oldShares, "shares")} lembar saham, masing-masing saham bernilai nominal Rp. ${formatInputNumber(data.originalSharePrice)},-${w(data.originalSharePrice, "rupiah")}, menjadi sebesar Rp. ${formatInputNumber(newBase)},-${w(newBase, "rupiah")} terbagi atas ${formatInputNumber(newShares)}${w(newShares, "shares")} lembar saham, masing-masing saham bernilai nominal Rp. ${formatInputNumber(data.originalSharePrice)},-${w(data.originalSharePrice, "rupiah")}.`
+--
+1216-            );
+1217-          });
+1218-        }
+1219-      }
+1220-
+1221:      addRes(
+1222-        isIncrease ? "Persetujuan Peningkatan Modal Ditempatkan dan Disetor Perseroan" : "Persetujuan Penurunan Modal Ditempatkan dan Disetor Perseroan",
+1223-        capitalBody
+1224-      );
+1225-    }
+1226-
+--
+1288-
+1289-      let resTitle = "Persetujuan Penjualan dan Pengalihan Saham";
+1290-      if (hasHibah && !hasJualBeli) resTitle = "Persetujuan Hibah Saham";
+1291-      else if (hasHibah && hasJualBeli) resTitle = "Persetujuan Hibah dan Penjualan Saham";
+1292-      
+1293:      addRes(resTitle, transferBody);
+1294-    }
+1295-
+1296-    // 7. Susunan Pemegang Saham final
+1297-    if (data.resolutions.capitalBase || data.resolutions.capitalPaid || data.resolutions.capitalBaseDecrease || data.resolutions.capitalPaidDecrease || data.resolutions.shareholders) {
+1298-      const shBody: any[] = [
+--
+1316-            ],
+1317-          }),
+1318-        );
+1319-      });
+1320-
+1321:      addRes("Persetujuan Susunan Pemegang Saham", shBody);
+1322-    }
+1323-
+1324-    // 8. Perubahan/Pengangkatan Pengurus
+1325-    if (data.resolutions.management || data.resolutions.reappointment) {
+1326-      const oldManagers = [
+--
+1524-            spacing: { before: 120 }
+1525-          })
+1526-        );
+1527-      }
+1528-
+1529:      addRes("Persetujuan Perubahan/Pengangkatan Pengurus", mgmtBody);
+1530-    }
+1531-
+1532-    // 9. Pemberian Kuasa
+1533-    let repText = "................";
+1534-    if (data.representativeType === "EXISTING") {
+--
+1543-      }
+1544-    }
+1545-    
+1546-    repText = expandAbbreviations(repText);
+1547-
+1548:    addRes("Pemberian Kuasa", [
+1549-      new Paragraph({
+1550-        alignment: "both" as any,
+1551-        spacing: { line: LINE_SPACING, lineRule: "auto", after: AFTER_SPACING },
+1552-        indent: { left: 426 },
+1553-        children: [
+--
+1559-    ]);
+1560-  } else {
+1561-    // MINUTES (Non-circular) - Standard simples
+1562-    // Perubahan Nama
+1563-    if (data.resolutions.companyNameChange) {
+1564:      addRes("Persetujuan Perubahan Nama Perseroan", [
+1565-        bodyP({ indent: { left: 426 }, text: `Menyetujui dan memutuskan untuk mengubah nama Perseroan, yang semula bernama : PT ${data.companyName.toUpperCase()} menjadi bernama : PT ${data.targetCompanyName.toUpperCase()}.` }),
+1566-      ]);
+1567-    }
+1568-
+1569-    // Perubahan Kedudukan/Alamat
+--
+1582-          indent: { left: 426 }, 
+1583-          text: `Menyetujui dan memutuskan untuk mengubah alamat lengkap Perseroan, yang semula beralamat di ${formatFullAddressData(data.oldAddress, data.domicile)} menjadi beralamat di ${formatFullAddressData(data.newAddress)}.` 
+1584-        }));
+1585-      }
+1586-
+1587:      addRes("Persetujuan Perubahan Kedudukan/Alamat Perseroan", resBlocks);
+1588-    }
+1589-
+1590-    // KBLI
+1591-    if (data.resolutions.kbli) {
+1592-      const kbliBody: any[] = [];
+--
+1661-            })
+1662-          );
+1663-        }
+1664-      });
+1665-
+1666:      addRes("Persetujuan Perubahan Maksud dan Tujuan Perseroan", kbliBody);
+1667-    }
+1668-
+1669-    // Modal Dasar
+1670-    if (data.resolutions.capitalBase || data.resolutions.capitalBaseDecrease) {
+1671-      const originalShares = data.originalAuthorizedShares || 0;
+1672-      const targetShares = data.targetCapitalBase / (data.originalSharePrice || 1);
+1673:      addRes(
+1674-        data.resolutions.capitalBaseDecrease ? "Persetujuan Penurunan Modal Dasar Perseroan" : "Persetujuan Peningkatan Modal Dasar Perseroan",
+1675-        [bodyP({ indent: { left: 426 }, text: `Menyetujui untuk ${data.resolutions.capitalBaseDecrease ? "menurunkan" : "meningkatkan"} Modal Dasar Perseroan, yang semula sebesar Rp. ${formatInputNumber(data.originalCapitalBase)},-${w(data.originalCapitalBase, "rupiah")} terbagi atas ${formatInputNumber(originalShares)}${w(originalShares, "shares")} lembar saham, masing-masing saham bernilai nominal Rp. ${formatInputNumber(data.originalSharePrice)},-${w(data.originalSharePrice, "rupiah")}, menjadi sebesar Rp. ${formatInputNumber(data.targetCapitalBase)},-${w(data.targetCapitalBase, "rupiah")} terbagi atas ${formatInputNumber(targetShares)}${w(targetShares, "shares")} lembar saham, masing-masing saham bernilai nominal Rp. ${formatInputNumber(data.originalSharePrice)},-${w(data.originalSharePrice, "rupiah")}.` })],
+1676-      );
+1677-    }
+1678-
+--
+1710-            }),
+1711-          );
+1712-        });
+1713-      }
+1714-
+1715:      addRes(
+1716-        data.resolutions.capitalPaidDecrease ? "Persetujuan Penurunan Modal Ditempatkan dan Disetor Perseroan" : "Persetujuan Peningkatan Modal Ditempatkan dan Disetor Perseroan",
+1717-        capitalBody,
+1718-      );
+1719-    }
+1720-
+--
+1769-      });
+1770-
+1771-      let resTitle = "Persetujuan Penjualan dan Pengalihan Saham";
+1772-      if (hasHibah && !hasJualBeli) resTitle = "Persetujuan Hibah Saham";
+1773-      else if (hasHibah && hasJualBeli) resTitle = "Persetujuan Hibah dan Penjualan Saham";
+1774:      addRes(resTitle, transferBody);
+1775-    }
+1776-
+1777-    // Susunan Pemegang Saham final
+1778-    if (data.resolutions.capitalBase || data.resolutions.capitalPaid || data.resolutions.capitalBaseDecrease || data.resolutions.capitalPaidDecrease || data.resolutions.shareholders) {
+1779-      const shBody: any[] = [
+--
+1797-            ],
+1798-          }),
+1799-        );
+1800-      });
+1801-
+1802:      addRes("Persetujuan Susunan Pemegang Saham", shBody);
+1803-    }
+1804-
+1805-    // Perubahan/Pengangkatan Pengurus
+1806-    if (data.resolutions.management || data.resolutions.reappointment) {
+1807-      const oldManagers = [
+--
+1906-            }),
+1907-          );
+1908-        });
+1909-      }
+1910-
+1911:      addRes("Persetujuan Perubahan/Pengangkatan Pengurus", mgmtBody);
+1912-    }
+1913-
+1914-    // Pemberian Kuasa
+1915-    let repText = "................";
+1916-    if (data.representativeType === "EXISTING") {
+--
+1922-      if (rep) {
+1923-        const birthStr = `lahir di ${toTitleCase(rep.birthCity || "................")}, pada tanggal ${getDayIndo(rep.birthDate) || ".."} ${getMonthIndo(rep.birthDate) || "........"} ${getYearIndo(rep.birthDate) || "...."}`;
+1924-        repText = `${rep.salutation} ${rep.name.toUpperCase() || "................"}, ${birthStr}, ${getNationalityStr(rep)}, ${getOccupationStr(rep)}${getAddressStr(rep)}, ${getIdentificationStr(rep)}`;
+1925-      }
+1926-    }
+1927:    addRes("Pemberian Kuasa", [
+1928-      new Paragraph({
+1929-        alignment: "both" as any,
+1930-        spacing: { line: LINE_SPACING, lineRule: "auto", after: AFTER_SPACING },
+1931-        indent: { left: 426 },
+1932-        children: [

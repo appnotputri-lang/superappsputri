@@ -475,9 +475,119 @@ const ShareholderForm: React.FC<Props> = ({
       {!isBadanHukum && (
         <div className="flex items-center justify-end">
           <label className="flex items-center gap-2 cursor-pointer mt-2">
-            <input type="checkbox" className="rounded border-slate-300 text-teal-500 focus:ring-teal-500" />
-            <span className="text-sm text-slate-600">Di bawah umur</span>
+            <input 
+              type="checkbox" 
+              checked={!!shareholder.isUnderage}
+              onChange={e => {
+                const checked = e.target.checked;
+                onChange({ 
+                  isUnderage: checked,
+                  guardianSalutation: checked ? (shareholder.guardianSalutation || 'Tuan') : undefined,
+                  guardianRelationship: checked ? (shareholder.guardianRelationship || 'AYAH KANDUNG') : undefined,
+                  guardianName: checked ? (shareholder.guardianName || '') : undefined,
+                  guardianNik: checked ? (shareholder.guardianNik || '') : undefined,
+                  guardianAddress: checked ? (shareholder.guardianAddress || { province: '', city: '', fullAddress: '', rt: '', rw: '', kelurahan: '', kecamatan: '' }) : undefined
+                });
+              }}
+              className="rounded border-slate-300 text-teal-500 focus:ring-teal-500" 
+            />
+            <span className="text-sm text-slate-700 font-bold">Di bawah umur</span>
           </label>
+        </div>
+      )}
+
+      {!isBadanHukum && shareholder.isUnderage && (
+        <div className="mt-3 p-4 bg-orange-50/60 rounded border border-orange-200 space-y-3">
+          <div className="text-xs font-bold text-orange-850 uppercase tracking-wider flex items-center gap-1.5">
+            <Users className="w-3.5 h-3.5 text-orange-650" /> DATA ORANG TUA / WALI (MEWAKILI ANAK DI BAWAH UMUR)
+          </div>
+          <p className="text-[11px] text-slate-500 leading-normal">
+            Anak di bawah umur belum sah melakukan perbuatan hukum secara mandiri. Harap isi identitas orang tua kandung atau wali yang sah yang bertindak selaku perwakilan di bawah ini.
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">Hubungan dengan Anak <span className="text-red-500">*</span></label>
+              <select 
+                value={shareholder.guardianRelationship || 'AYAH KANDUNG'} 
+                onChange={e => onChange({ guardianRelationship: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-300 rounded text-sm bg-white outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 cursor-pointer"
+              >
+                <option value="AYAH KANDUNG">AYAH KANDUNG</option>
+                <option value="IBU KANDUNG">IBU KANDUNG</option>
+                <option value="WALI">WALI / WALI HAKIM</option>
+                <option value="LAINNYA">LAINNYA</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">NIK Orang Tua / Wali <span className="text-red-500">*</span></label>
+              <input 
+                type="text" 
+                maxLength={16}
+                value={shareholder.guardianNik || ''} 
+                onChange={e => onChange({ guardianNik: e.target.value })}
+                placeholder="CONTOH: 320123XXXXXXXXXX"
+                className="w-full px-3 py-2 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm font-medium"
+              />
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-xs font-bold text-slate-700 mb-1">Nama Lengkap Orang Tua / Wali <span className="text-red-500">*</span></label>
+              <div className="flex gap-2">
+                <select 
+                  value={shareholder.guardianSalutation || 'Tuan'} 
+                  onChange={e => onChange({ guardianSalutation: e.target.value as any })}
+                  className="w-24 px-3 py-2 border border-slate-300 rounded text-sm bg-white outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 cursor-pointer"
+                >
+                  <option value="Tuan">Tuan</option>
+                  <option value="Nyonya">Nyonya</option>
+                  <option value="Nona">Nona</option>
+                </select>
+                <input 
+                  type="text" 
+                  value={shareholder.guardianName || ''} 
+                  onChange={e => onChange({ guardianName: e.target.value.toUpperCase() })}
+                  placeholder="NAMA WALI SESUAI KTP"
+                  className="flex-1 px-3 py-2 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm font-bold uppercase"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="pt-2 border-t border-orange-100/80">
+            <div className="flex justify-between items-center mb-1">
+              <label className="block text-xs font-bold text-slate-700">Alamat Orang Tua / Wali <span className="text-red-500">*</span></label>
+              <button
+                type="button"
+                className="text-[10px] text-teal-600 hover:text-teal-800 font-extrabold cursor-pointer select-none"
+                onClick={() => {
+                  onChange({
+                    guardianAddress: {
+                      fullAddress: shareholder.address.fullAddress || '',
+                      rt: shareholder.address.rt || '',
+                      rw: shareholder.address.rw || '',
+                      kelurahan: shareholder.address.kelurahan || '',
+                      kecamatan: shareholder.address.kecamatan || '',
+                      city: shareholder.address.city || '',
+                      province: shareholder.address.province || '',
+                      postalCode: shareholder.address.postalCode || ''
+                    }
+                  });
+                }}
+              >
+                (Salin Alamat Dari Anak)
+              </button>
+            </div>
+            <textarea 
+              value={shareholder.guardianAddress?.fullAddress || ''} 
+              onChange={e => onChange({
+                guardianAddress: {
+                  ...(shareholder.guardianAddress || { province: '', city: '', fullAddress: '', rt: '', rw: '', kelurahan: '', kecamatan: '' }),
+                  fullAddress: e.target.value.toUpperCase()
+                }
+              })}
+              placeholder="CONTOH: JALAN MEWAR NO. 10"
+              className="w-full px-3 py-2 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm min-h-[50px] font-medium"
+            />
+          </div>
         </div>
       )}
 

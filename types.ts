@@ -60,6 +60,14 @@ export interface Shareholder {
   newDepositShares?: number;
   isPresent?: boolean;
 
+  // Underage & Guardian details
+  isUnderage?: boolean;
+  guardianName?: string;
+  guardianNik?: string;
+  guardianSalutation?: 'Tuan' | 'Nyonya' | 'Nona';
+  guardianRelationship?: 'AYAH KANDUNG' | 'IBU KANDUNG' | 'WALI' | string;
+  guardianAddress?: Address;
+
   // Proxy / Kuasa fields (for RUPS LB)
   isProxy?: boolean;       // true = pemegang saham dikuasakan ke orang lain
   proxyData?: {
@@ -376,9 +384,12 @@ export interface ManagementDismissal {
   position: string;
   reason: 'DIBERHENTIKAN_DENGAN_HORMAT' | 'MENGUNDURKAN_DIRI';
   resignationDate?: string;
+  replacementType?: 'PRESENT' | 'MANUAL';
   replacedByName?: string;
   replacedByPosition?: string;
   replacedBySalutation?: 'Tuan' | 'Nyonya' | 'Nona';
+  replacedByNik?: string;
+  replacedByDetail?: Shareholder;
 }
 
 export interface ShareTransferItem {
@@ -387,6 +398,10 @@ export interface ShareTransferItem {
   transferType: 'AJB' | 'HIBAH';
   toName: string;
   sharesTransferred: number;
+  toType?: 'EXISTING' | 'PRESENT' | 'NEW';
+  toSalutation?: 'Tuan' | 'Nyonya' | 'Nona';
+  toNik?: string;
+  toDetail?: Shareholder;
 }
 
 export interface CapitalSubscriptionItem {
