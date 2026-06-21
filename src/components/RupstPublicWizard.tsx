@@ -698,6 +698,17 @@ export const RupstPublicWizard = ({ data, updateData, isSaving, handleSave, goBa
                                                         </span>
                                                     </span>
                                                 </div>
+                                                {data.rupstIsAudited === false && (
+                                                    <label className="flex items-start gap-2 text-[11px] text-slate-600 cursor-pointer mt-3 font-medium bg-blue-50/50 p-2 rounded border border-blue-100">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={data.rupstNonAuditedUseKAP || false}
+                                                            onChange={(e) => updateData({ rupstNonAuditedUseKAP: e.target.checked })}
+                                                            className="w-3.5 h-3.5 mt-0.5 text-blue-600 focus:ring-blue-500 border-slate-300 rounded shrink-0"
+                                                        />
+                                                        <span className="leading-tight">Namun untuk laporan keuangan yang akurat perseroan memilih dan memutuskan untuk menggunakan Kantor Akuntan Publik</span>
+                                                    </label>
+                                                )}
                                             </div>
 
 
@@ -735,6 +746,15 @@ export const RupstPublicWizard = ({ data, updateData, isSaving, handleSave, goBa
                                                         <div className="px-3 py-1.5 bg-slate-50 border border-[#ccc] rounded-sm text-[12px] font-bold text-slate-700">
                                                             {((data.rupstNetProfit || 0) + (data.rupstRetainedProfit || 0) - (data.rupstDividendAmount || 0)) < 0 ? '- ' : ''}Rp. {formatInputNumber(Math.abs((data.rupstNetProfit || 0) + (data.rupstRetainedProfit || 0) - (data.rupstDividendAmount || 0)))}
                                                         </div>
+                                                        <label className="flex items-center text-[10px] text-slate-600 gap-1.5 cursor-pointer mt-2 font-medium">
+                                                            <input
+                                                                type="checkbox"
+                                                                className="w-3.5 h-3.5 rounded border-slate-300 text-blue-600 focus:ring-blue-500 focus:ring-offset-0"
+                                                                checked={data.rupstShowRetainedProfit ?? (data.rupstRetainedProfit !== 0 && data.rupstRetainedProfit !== undefined)}
+                                                                onChange={e => updateData({ rupstShowRetainedProfit: e.target.checked })}
+                                                            />
+                                                            <span className="mt-[2px]">Tampilkan Saldo Ditahan Tahun Sebelumnya di Akta dan Notulen (Meskipun nilainya 0)</span>
+                                                        </label>
                                                     </div>
                                                 </div>
                                             </div>

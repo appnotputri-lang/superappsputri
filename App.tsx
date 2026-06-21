@@ -8588,41 +8588,54 @@ const App: React.FC = () => {
                           </div>
                         </div>
                       ) : (
-                        <div className="mb-6 p-3 bg-slate-50 border border-slate-200 rounded flex items-center gap-6">
-                          <span className="text-[12px] font-bold text-slate-700">Status Audit Laporan Keuangan:</span>
-                          <div className="flex gap-4">
-                            <label className="flex items-center gap-2 text-[12px] text-slate-700 cursor-pointer">
-                              <input 
-                                type="radio" 
-                                checked={data.rupstIsAudited === false} 
-                                onChange={() => {
-                                  updateData({ rupstIsAudited: false });
-                                }}
-                                className="w-4 h-4 text-[#3b5998]"
-                              />
-                              <span>Tidak Wajib Audit</span>
-                            </label>
-                            <label className="flex items-center gap-2 text-[12px] text-slate-700 cursor-pointer">
-                              <input 
-                                type="radio" 
-                                checked={data.rupstIsAudited === true} 
-                                onChange={() => {
-                                  updateData({ 
-                                    rupstIsAudited: true,
-                                    rupstStatementNeraca: true,
-                                    rupstStatementLabaRugi: true,
-                                    rupstStatementPerubahanEkuitas: true,
-                                    rupstStatementArusKas: true,
-                                    rupstStatementCatatan: true,
-                                    rupstStatementNamaAnggota: true,
-                                    rupstStatementGaji: true
-                                  });
-                                }}
-                                className="w-4 h-4 text-[#3b5998]"
-                              />
-                              <span>Wajib Audit</span>
-                            </label>
+                        <div className="mb-6 space-y-3">
+                          <div className="p-3 bg-slate-50 border border-slate-200 rounded flex items-center gap-6">
+                            <span className="text-[12px] font-bold text-slate-700">Status Audit Laporan Keuangan:</span>
+                            <div className="flex gap-4">
+                              <label className="flex items-center gap-2 text-[12px] text-slate-700 cursor-pointer">
+                                <input 
+                                  type="radio" 
+                                  checked={data.rupstIsAudited === false} 
+                                  onChange={() => {
+                                    updateData({ rupstIsAudited: false });
+                                  }}
+                                  className="w-4 h-4 text-[#3b5998]"
+                                />
+                                <span>Tidak Wajib Audit</span>
+                              </label>
+                              <label className="flex items-center gap-2 text-[12px] text-slate-700 cursor-pointer">
+                                <input 
+                                  type="radio" 
+                                  checked={data.rupstIsAudited === true} 
+                                  onChange={() => {
+                                    updateData({ 
+                                      rupstIsAudited: true,
+                                      rupstStatementNeraca: true,
+                                      rupstStatementLabaRugi: true,
+                                      rupstStatementPerubahanEkuitas: true,
+                                      rupstStatementArusKas: true,
+                                      rupstStatementCatatan: true,
+                                      rupstStatementNamaAnggota: true,
+                                      rupstStatementGaji: true
+                                    });
+                                  }}
+                                  className="w-4 h-4 text-[#3b5998]"
+                                />
+                                <span>Wajib Audit</span>
+                              </label>
+                            </div>
                           </div>
+                          {data.rupstIsAudited === false && (
+                            <label className="flex items-start gap-2 text-[11px] text-slate-600 cursor-pointer font-medium bg-blue-50/50 p-2 rounded border border-blue-100">
+                              <input
+                                type="checkbox"
+                                checked={data.rupstNonAuditedUseKAP || false}
+                                onChange={(e) => updateData({ rupstNonAuditedUseKAP: e.target.checked })}
+                                className="w-3.5 h-3.5 mt-0.5 text-blue-600 focus:ring-blue-500 border-slate-300 rounded shrink-0"
+                              />
+                              <span className="leading-tight">Namun untuk laporan keuangan yang akurat perseroan memilih dan memutuskan untuk menggunakan Kantor Akuntan Publik</span>
+                            </label>
+                          )}
                         </div>
                       )}
 
@@ -8705,7 +8718,7 @@ const App: React.FC = () => {
                             </div>
                           </div>
 
-                          {data.rupstIsAudited && (
+                          {(data.rupstIsAudited || data.rupstNonAuditedUseKAP) && (
                             <div className="p-3 bg-slate-50 border border-slate-200 rounded space-y-3">
                               <h5 className="text-[11px] font-bold text-slate-800 uppercase tracking-wider">Informasi KAP / Auditor</h5>
                               <div className="space-y-3">
@@ -8775,6 +8788,15 @@ const App: React.FC = () => {
                             <div className="px-3 py-1.5 bg-slate-50 border border-[#ccc] rounded-sm text-[13px] font-bold text-slate-700">
                               {((data.rupstNetProfit || 0) + (data.rupstRetainedProfit || 0) - (data.rupstDividendAmount || 0)) < 0 ? '- ' : ''}Rp. {formatInputNumber(Math.abs((data.rupstNetProfit || 0) + (data.rupstRetainedProfit || 0) - (data.rupstDividendAmount || 0)))}
                             </div>
+                            <label className="flex items-center text-[10px] text-slate-600 gap-1.5 cursor-pointer mt-2 font-medium">
+                              <input
+                                type="checkbox"
+                                className="w-3.5 h-3.5 rounded border-slate-300 text-blue-600 focus:ring-blue-500 focus:ring-offset-0"
+                                checked={data.rupstShowRetainedProfit ?? (data.rupstRetainedProfit !== 0 && data.rupstRetainedProfit !== undefined)}
+                                onChange={e => updateData({ rupstShowRetainedProfit: e.target.checked })}
+                              />
+                              <span className="mt-[2px]">Tampilkan Saldo Ditahan Tahun Sebelumnya di Akta dan Notulen (Meskipun nilainya 0)</span>
+                            </label>
                           </div>
                         </div>
                       </div>

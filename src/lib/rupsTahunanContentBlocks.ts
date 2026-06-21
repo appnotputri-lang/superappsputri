@@ -88,14 +88,16 @@ export const terbilangPersen = (pct: number): string => {
 export const buildDividendBlocks = (bulletNum: string, data: CompanyData, fiscalYear: string): Block[] => {
   const netProfit = data.rupstNetProfit || 0;
   const divAmt = data.rupstDividendAmount || 0;
-  const hasRetainedProfit = data.rupstRetainedProfit !== undefined && data.rupstRetainedProfit > 0;
+  const previousRetained = data.rupstRetainedProfit || 0;
+  const showRetained = data.rupstShowRetainedProfit ?? (data.rupstRetainedProfit !== 0 && data.rupstRetainedProfit !== undefined);
+  const isRetainedNeg = previousRetained < 0;
+  const retainedLabel = isRetainedNeg ? "rugi" : "laba";
   
   const blocksList: Block[] = [];
   
   // Main item (e.g. 2. or 4.)
-  const previousRetained = data.rupstRetainedProfit || 0;
-  const mainText = hasRetainedProfit
-    ? `Menetapkan penggunaan laba Perseroan yang tersedia, yang terdiri dari laba bersih Tahun Buku ${fiscalYear} sebesar Rp${formatNumber(netProfit)},- (${terbilang(netProfit)} rupiah) dan saldo laba ditahan tahun-tahun sebelumnya sebesar Rp${formatNumber(previousRetained)},- (${terbilang(previousRetained)} rupiah), dengan penggunaan sebagai berikut:`
+  const mainText = showRetained
+    ? `Menetapkan penggunaan laba Perseroan yang tersedia, yang terdiri dari laba bersih Tahun Buku ${fiscalYear} sebesar Rp${formatNumber(netProfit)},- (${terbilang(netProfit)} rupiah) dan saldo ${retainedLabel} ditahan tahun-tahun sebelumnya sebesar Rp${formatNumber(Math.abs(previousRetained))},- (${terbilang(Math.abs(previousRetained))} rupiah), dengan penggunaan sebagai berikut:`
     : `Menetapkan penggunaan laba bersih Perseroan Tahun Buku ${fiscalYear} sebesar Rp${formatNumber(netProfit)},- (${terbilang(netProfit)} rupiah), dengan penggunaan sebagai berikut:`;
   
   blocksList.push({
@@ -143,12 +145,23 @@ export const buildDividendBlocks = (bulletNum: string, data: CompanyData, fiscal
   }
   
   // Sub-item b
+  let remainderText = "Sisa laba yang tersedia setelah pembagian dividen tersebut ditetapkan sebagai saldo laba ditahan Perseroan.";
+  if (showRetained) {
+    const totalLabaDitahan = netProfit + previousRetained - divAmt;
+    const isTotalRetainedNeg = totalLabaDitahan < 0;
+    const totalRetainedLabel = isTotalRetainedNeg ? "rugi" : "laba";
+
+    const amtStr = `Rp. ${formatNumber(Math.abs(netProfit))},- (${terbilang(Math.abs(netProfit))} rupiah)`;
+
+    remainderText = `Laba bersih tahun berjalan sebesar ${amtStr} ditambah saldo ${retainedLabel} ditahan tahun sebelumnya sebesar Rp${formatNumber(Math.abs(previousRetained))},- (${terbilang(Math.abs(previousRetained))} rupiah) menjadi sebesar Rp${formatNumber(Math.abs(totalLabaDitahan))},- (${terbilang(Math.abs(totalLabaDitahan))} rupiah) ditetapkan sebagai saldo ${totalRetainedLabel} ditahan Perseroan.`;
+  }
+
   blocksList.push({
     type: "list",
     bullet: "b.",
     indentTabs: 1,
     indentStyle: "keputusan",
-    runs: [{ text: "Sisa laba yang tersedia setelah pembagian dividen tersebut ditetapkan sebagai saldo laba ditahan Perseroan." }]
+    runs: [{ text: remainderText }]
   });
   
   // Approval paragraph
@@ -807,7 +820,7 @@ export const generateRupstBlocks = (data: CompanyData): Block[] => {
     }
 
     if (reasonsAudit.length === 1) {
-      const formattedReason = reasonsAudit[0].replace(", atau", "");
+      const formattedReason = reasonsAudit[0].replace(", atau", "") + (data.rupstNonAuditedUseKAP ? ". Namun untuk laporan keuangan yang akurat perseroan memilih dan memutuskan untuk menggunakan Kantor Akuntan Publik." : ".");
       blocks.push({
         type: "list",
         bullet: "1.",
@@ -831,6 +844,16 @@ export const generateRupstBlocks = (data: CompanyData): Block[] => {
           runs: [{ text: reason }]
         });
       });
+
+      if (data.rupstNonAuditedUseKAP) {
+        blocks.push({
+          type: "list",
+          bullet: "",
+          indentTabs: 1,
+          indentStyle: "keputusan",
+          runs: [{ text: "Namun untuk laporan keuangan yang akurat perseroan memilih dan memutuskan untuk menggunakan Kantor Akuntan Publik." }]
+        });
+      }
     }
 
     blocks.push({
@@ -877,14 +900,15 @@ export const generateRupstBlocks = (data: CompanyData): Block[] => {
     const isNeg = (data.rupstNetProfit !== undefined) && (data.rupstNetProfit < 0);
     const absVal = Math.abs(data.rupstNetProfit || 0);
     const amtStr = `Rp. ${formatNumber(absVal)},- (${terbilang(absVal)} rupiah)`;
-    const retProfStr = `Rp. ${formatNumber(Math.abs(data.rupstRetainedProfit || 0))},- (${terbilang(Math.abs(data.rupstRetainedProfit || 0))} rupiah)`;
+    const retProfStr = `Rp${formatNumber(Math.abs(data.rupstRetainedProfit || 0))},- (${terbilang(Math.abs(data.rupstRetainedProfit || 0))} rupiah)`;
 
     if (isNeg) {
       netProfitText1 = `Menetapkan Perseroan mengalami rugi bersih untuk tahun buku ${fiscalYear} sebesar ${amtStr}, dan oleh karenanya memutuskan bahwa tidak terdapat laba bersih yang dapat dibagikan sebagai dividen kepada para pemegang saham untuk Tahun Buku ${fiscalYear}. Seluruh saldo rugi tersebut akan dicatat sebagai akumulasi rugi Perseroan sesuai ketentuan peraturan perundang-undangan yang berlaku.`;
     } else {
-      const hasRetained = (data.rupstRetainedProfit !== undefined) && (data.rupstRetainedProfit !== 0);
-      if (hasRetained) {
-        netProfitText1 = `Menetapkan Perseroan mengalami laba bersih untuk tahun buku ${fiscalYear} sebesar ${amtStr}, dengan saldo laba ditahan Perseroan sampai dengan tahun buku ${Number(fiscalYear) - 1} sebesar ${retProfStr}. sehubungan dengan hal tersebut:`;
+      const showRetained = data.rupstShowRetainedProfit ?? ((data.rupstRetainedProfit !== undefined) && (data.rupstRetainedProfit !== 0));
+      if (showRetained) {
+        const retainedLabel = (data.rupstRetainedProfit || 0) < 0 ? "rugi" : "laba";
+        netProfitText1 = `Menetapkan Perseroan mengalami laba bersih untuk tahun buku ${fiscalYear} sebesar ${amtStr}, dengan saldo ${retainedLabel} ditahan Perseroan sampai dengan tahun buku ${Number(fiscalYear) - 1} sebesar ${retProfStr}. Sehubungan dengan hal tersebut:`;
       } else {
         netProfitText1 = `Menetapkan penggunaan laba bersih Perseroan untuk tahun buku ${fiscalYear} sebesar ${amtStr}, dengan ketentuan sebagai berikut:`;
       }
@@ -916,12 +940,26 @@ export const generateRupstBlocks = (data: CompanyData): Block[] => {
               data.rupstNetProfit === undefined)
           )
         ) {
+          const previousRetained = data.rupstRetainedProfit || 0;
+          const showRetained = data.rupstShowRetainedProfit ?? (previousRetained !== 0);
+          
+          let retainedText = "Seluruh laba bersih Perseroan dibukukan sebagai laba ditahan Perseroan.";
+          if (showRetained) {
+            const netProfit = data.rupstNetProfit || 0;
+            const totalLabaDitahan = netProfit + previousRetained;
+            const isTotalRetainedNeg = totalLabaDitahan < 0;
+            const totalRetainedLabel = isTotalRetainedNeg ? "rugi" : "laba";
+            const previousLabel = previousRetained < 0 ? "rugi" : "laba";
+            
+            retainedText = `Laba bersih tahun berjalan sebesar ${amtStr} ditambah saldo ${previousLabel} ditahan tahun sebelumnya sebesar Rp${formatNumber(Math.abs(previousRetained))},- (${terbilang(Math.abs(previousRetained))} rupiah) menjadi sebesar Rp${formatNumber(Math.abs(totalLabaDitahan))},- (${terbilang(Math.abs(totalLabaDitahan))} rupiah) ditetapkan sebagai saldo ${totalRetainedLabel} ditahan Perseroan.`;
+          }
+
           blocks.push({
             type: "list",
             bullet: "-",
             indentTabs: 1,
             indentStyle: "keputusan",
-            runs: [{ text: "Seluruh laba bersih Perseroan dibukukan sebagai laba ditahan Perseroan." }]
+            runs: [{ text: retainedText }]
           });
         }
       }
@@ -1061,7 +1099,20 @@ export const generateRupstBlocks = (data: CompanyData): Block[] => {
             netProfitText = `Menyetujui dan mengesahkan Laporan Laba Rugi Perseroan untuk Tahun Buku yang berakhir pada tanggal 31 Desember ${fiscalYear} yang menunjukkan bahwa Perseroan tidak memperoleh laba maupun menderita kerugian, sehingga laba bersih Perseroan untuk Tahun Buku ${fiscalYear} adalah sebesar Rp0,00 (nol Rupiah), dan oleh karenanya memutuskan bahwa tidak terdapat laba bersih yang dapat dibagikan sebagai dividen kepada para pemegang saham untuk Tahun Buku ${fiscalYear}.`;
           } else {
             const totalLabaDitahan = netProfit + previousRetained - divAmt;
-            netProfitText = `Menetapkan penggunaan laba bersih sebesar ${amtStr}, dimana sebesar Rp. ${formatNumber(divAmt)},- (${terbilang(divAmt)} rupiah) dibagikan sebagai dividen dan sisanya setelah ditambah saldo laba ditahan tahun sebelumnya sebesar Rp. ${formatNumber(previousRetained)},- (${terbilang(previousRetained)} rupiah) menjadi sebesar Rp. ${formatNumber(totalLabaDitahan)},- (${terbilang(totalLabaDitahan)} rupiah) ditetapkan sebagai saldo laba ditahan Perseroan.`;
+            const isRetainedNeg = previousRetained < 0;
+            const retainedLabel = isRetainedNeg ? "rugi" : "laba";
+            const isTotalRetainedNeg = totalLabaDitahan < 0;
+            const totalRetainedLabel = isTotalRetainedNeg ? "rugi" : "laba";
+            const showRetainedInfo = data.rupstShowRetainedProfit ?? (previousRetained !== 0);
+
+            if (showRetainedInfo) {
+              netProfitText = `Menetapkan penggunaan laba bersih sebesar ${amtStr}, dimana sebesar Rp${formatNumber(divAmt)},- (${terbilang(divAmt)} rupiah) dibagikan sebagai dividen dan sisanya setelah ditambah saldo ${retainedLabel} ditahan tahun sebelumnya sebesar Rp${formatNumber(Math.abs(previousRetained))},- (${terbilang(Math.abs(previousRetained))} rupiah) menjadi sebesar Rp${formatNumber(Math.abs(totalLabaDitahan))},- (${terbilang(Math.abs(totalLabaDitahan))} rupiah) ditetapkan sebagai saldo ${totalRetainedLabel} ditahan Perseroan.`;
+            } else {
+              const sisanya = netProfit - divAmt;
+              const isSisanyaNeg = sisanya < 0;
+              const sisanyaLabel = isSisanyaNeg ? "rugi" : "laba";
+              netProfitText = `Menetapkan penggunaan laba bersih sebesar ${amtStr}, dimana sebesar Rp${formatNumber(divAmt)},- (${terbilang(divAmt)} rupiah) dibagikan sebagai dividen dan sisanya sebesar Rp${formatNumber(Math.abs(sisanya))},- (${terbilang(Math.abs(sisanya))} rupiah) ditetapkan sebagai saldo ${sisanyaLabel} ditahan Perseroan.`;
+            }
           }
         }
       } else {
@@ -1086,6 +1137,10 @@ export const generateRupstBlocks = (data: CompanyData): Block[] => {
     decisionIndex++;
 
     let auditText = `Menyatakan bahwa Laporan Keuangan Perseroan untuk tahun buku tersebut ${data.rupstIsAudited ? `telah diaudit oleh Akuntan Publik ${kapName}, yang telah memperoleh izin usaha dari Menteri Keuangan Republik Indonesia dengan Nomor Izin ${kapLicense} yang berlaku sampai dengan tanggal ${kapExpiryDate}` : "tidak memenuhi kriteria wajib audit berdasarkan ketentuan yang berlaku"}.`;
+    
+    if (!data.rupstIsAudited && data.rupstNonAuditedUseKAP) {
+      auditText += " Namun untuk laporan keuangan yang akurat perseroan memilih dan memutuskan untuk menggunakan Kantor Akuntan Publik.";
+    }
 
     blocks.push({
       type: "list",

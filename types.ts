@@ -117,6 +117,23 @@ export interface Guest {
   kitasNumber?: string;
 }
 
+export interface RuangLingkupSkala {
+  risiko: string;
+  perizinan: string;
+}
+
+export interface RuangLingkupSkalaGroup {
+  mikro: RuangLingkupSkala;
+  kecil: RuangLingkupSkala;
+  menengah: RuangLingkupSkala;
+  besar: RuangLingkupSkala;
+}
+
+export interface RuangLingkup {
+  deskripsi: string;
+  skala: RuangLingkupSkalaGroup;
+}
+
 export interface KbliItem {
   id: string;
   code: string;
@@ -124,6 +141,9 @@ export interface KbliItem {
   description?: string;
   categoryLetter?: string;
   categoryName?: string;
+  // New fields
+  uraian?: string;
+  ruangLingkup?: RuangLingkup[];
 }
 
 export interface ManagementItem {
@@ -301,6 +321,7 @@ export interface CompanyData {
   rupstNetProfit?: number;
   rupstDividendAmount?: number;
   rupstRetainedProfit?: number;
+  rupstShowRetainedProfit?: boolean;
   rupstFinancialReportNumber?: string;
   rupstFinancialReportDate?: string;
   rupstFinancialReportSignatoryName?: string;
@@ -327,6 +348,7 @@ export interface CompanyData {
   rupstAlasanAuditE?: boolean;
   rupstAlasanAuditF?: boolean;
   rupstIsAudited?: boolean;
+  rupstNonAuditedUseKAP?: boolean;
   rupstQuestionA?: 'ya' | 'tidak';
   rupstQuestionB?: 'ya' | 'tidak';
   rupstQuestionC?: 'ya' | 'tidak';

@@ -1162,11 +1162,6 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
       ],
     });
 
-    blocks.push({
-      type: "divider",
-      text: "Pasal 3",
-    });
-
     // 1) Maksud dan Tujuan → sesuai CONTOH11.docx: ind left=567, hanging=283 → subNumber, indentTabs=0
     blocks.push({
       type: "p",

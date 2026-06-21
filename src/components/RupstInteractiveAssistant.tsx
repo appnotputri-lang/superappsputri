@@ -1244,7 +1244,7 @@ export const RupstInteractiveAssistant: React.FC<RupstInteractiveAssistantProps>
 
                     <div>
                       <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">Saldo Laba Tahun Sebelumnya (Rupiah)</label>
-                      <div className="relative">
+                      <div className="relative mb-2">
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-[12px] font-bold">Rp.</span>
                         <input 
                           type="text"
@@ -1282,6 +1282,16 @@ export const RupstInteractiveAssistant: React.FC<RupstInteractiveAssistantProps>
                       </div>
                     </div>
                     
+                    <label className="flex items-center text-[10px] text-slate-600 gap-1.5 cursor-pointer mt-3 font-medium">
+                      <input
+                        type="checkbox"
+                        className="w-3.5 h-3.5 rounded border-slate-300 text-blue-600 focus:ring-blue-500 focus:ring-offset-0"
+                        checked={data.rupstShowRetainedProfit ?? (data.rupstRetainedProfit !== 0 && data.rupstRetainedProfit !== undefined)}
+                        onChange={e => updateData({ rupstShowRetainedProfit: e.target.checked })}
+                      />
+                      <span className="mt-[2px]">Tampilkan Saldo Ditahan Tahun Sebelumnya di Akta dan Notulen (Meskipun nilainya 0)</span>
+                    </label>
+
                     <p className="text-[9px] text-slate-400 mt-2.5">
                       * Selisih antara Laba Bersih dan Dividen akan dimasukkan sebagai Laba Ditahan yang memperkuat ekuitas perseroan.
                     </p>

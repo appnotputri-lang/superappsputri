@@ -6,37 +6,31 @@ import autoTable from 'jspdf-autotable';
 import { db, auth, handleFirestoreError, OperationType, cleanUndefined } from '../lib/firebase';
 import { doc, getDoc, collection, query, where, onSnapshot, setDoc, deleteDoc } from 'firebase/firestore';
 
+interface RuangLingkupSkala {
+  risiko: string;
+  perizinan: string;
+}
+
+interface RuangLingkupSkalaGroup {
+  mikro: RuangLingkupSkala;
+  kecil: RuangLingkupSkala;
+  menengah: RuangLingkupSkala;
+  besar: RuangLingkupSkala;
+}
+
+interface RuangLingkup {
+  deskripsi: string;
+  skala: RuangLingkupSkalaGroup;
+}
+
 interface KbliItem {
   kode: string;
   judul: string;
   uraian: string;
-  ruang_lingkup?: string;
-  tingkat_risiko?: string;
-  perizinan_berusaha?: string;
-  skala_usaha?: string;
-  jangka_waktu?: string;
-  kewajiban?: string;
-  kewenangan?: string;
-  ketentuan_khusus?: string;
-}
-
-interface ScopeItem {
-  id: string;
-  ruangLingkup: string;
-  tingkatResiko: string;
-  izin: string;
-}
-
-interface DpbScopeData {
-  ruangLingkup: string;
-  skalaUsaha: string;
-  tingkatRisiko: string;
-  izin: string;
+  ruangLingkup?: RuangLingkup[];
 }
 
 interface SelectedKbli extends KbliItem {
-  scopes: ScopeItem[];
-  dpbScopes?: DpbScopeData[];
   catatan?: string;
 }
 
@@ -116,7 +110,7 @@ const KBLISuggestions: React.FC = () => {
   const [kbliResults, setKbliResults] = useState<KbliItem[]>([]);
   const [hasSearched, setHasSearched] = useState(false);
   const [isLoadingDetails, setIsLoadingDetails] = useState<string | null>(null);
-  const [dpbCache, setDpbCache] = useState<Record<string, DpbScopeData[]>>({});
+  const [dpbCache, setDpbCache] = useState<Record<string, RuangLingkup[]>>({});
 
   // states for "TAMBAH DATA" modal according to screenshot requirements
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -461,52 +455,43 @@ const KBLISuggestions: React.FC = () => {
 
             if (rlSection) {
                 const accordions = Array.from(rlSection.querySelectorAll('.dpb-oss-accordion-item'));
-                const cards = Array.from(rlSection.querySelectorAll('.dpb-oss-scope-card'));
+                
+                accordions.forEach(acc => {
+                    const titleSpan = acc.querySelector('.dpb-oss-accordion-head span');
+                    const deskripsi = titleSpan ? titleSpan.textContent?.trim() || '' : '';
 
-                if (accordions.length > 0) {
-                    accordions.forEach(acc => {
-                        const titleSpan = acc.querySelector('.dpb-oss-accordion-head span');
-                        const ruangLingkup = titleSpan ? titleSpan.textContent?.trim() || '' : '';
+                    const panels = acc.querySelectorAll('.dpb-oss-tab-panel');
+                    const skalaData: any = {
+                       mikro: { risiko: 'Rendah', perizinan: '-' },
+                       kecil: { risiko: 'Rendah', perizinan: '-' },
+                       menengah: { risiko: 'Rendah', perizinan: '-' },
+                       besar: { risiko: 'Rendah', perizinan: '-' }
+                    };
 
-                        const panels = acc.querySelectorAll('.dpb-oss-tab-panel');
-                        if (panels.length > 0) {
-                            panels.forEach(panel => {
-                               let skala = 'Semua';
-                               const dataPanel = panel.getAttribute('data-panel') || '';
-                               if (dataPanel.includes('mikro')) skala = 'Mikro';
-                               else if (dataPanel.includes('kecil')) skala = 'Kecil';
-                               else if (dataPanel.includes('menengah')) skala = 'Menengah';
-                               else if (dataPanel.includes('besar')) skala = 'Besar';
+                    panels.forEach(panel => {
+                        let skala = 'mikro';
+                        const dataPanel = panel.getAttribute('data-panel') || '';
+                        if (dataPanel.includes('mikro')) skala = 'mikro';
+                        else if (dataPanel.includes('kecil')) skala = 'kecil';
+                        else if (dataPanel.includes('menengah')) skala = 'menengah';
+                        else if (dataPanel.includes('besar')) skala = 'besar';
 
-                               const infoItems = panel.querySelectorAll('.dpb-oss-info-item');
-                               let risiko = '';
-                               let izin = '';
+                        const infoItems = panel.querySelectorAll('.dpb-oss-info-item');
+                        let risiko = '';
+                        let perizinan = '';
 
-                               infoItems.forEach(item => {
-                                   const label = item.querySelector('.dpb-oss-info-label')?.textContent?.trim();
-                                   const value = item.querySelector('.dpb-oss-info-value')?.textContent?.trim();
-                                   if (label === 'Tingkat Risiko') risiko = value || '';
-                                   if (label === 'Perizinan Berusaha') izin = value || '';
-                               });
-
-                               if (ruangLingkup) {
-                                 rawScopes.push({ ruangLingkup, skalaUsaha: skala, tingkatRisiko: risiko, izin });
-                               }
-                            });
-                        } else {
-                           if (ruangLingkup) {
-                             rawScopes.push({ ruangLingkup, skalaUsaha: "Semua", tingkatRisiko: "", izin: "" });
-                           }
-                        }
+                        infoItems.forEach(item => {
+                           const label = item.querySelector('.dpb-oss-info-label')?.textContent?.trim();
+                           const value = item.querySelector('.dpb-oss-info-value')?.textContent?.trim();
+                           if (label === 'Tingkat Risiko') risiko = value || '';
+                           if (label === 'Perizinan Berusaha') perizinan = value || '';
+                        });
+                        
+                        skalaData[skala] = { risiko, perizinan };
                     });
-                } else if (cards.length > 0) {
-                    cards.forEach(card => {
-                        const ruangLingkup = card.textContent?.trim();
-                        if (ruangLingkup) {
-                            rawScopes.push({ ruangLingkup, skalaUsaha: "Semua", tingkatRisiko: "", izin: "" });
-                        }
-                    });
-                }
+
+                    rawScopes.push({ deskripsi, skala: skalaData });
+                });
             }
             
             console.log(`[Hasil Parsing DPB Scopes] HTML KBLI ${item.kode}:`, rawScopes);
@@ -528,33 +513,37 @@ const KBLISuggestions: React.FC = () => {
     console.log(`[Status Aktif] Skala Usaha (Kelompok Usaha): ${kelompokUsaha}`);
 
     const availableDpb = currentFetchedScopes || dpbCache[item.kode];
-    let newScopes: ScopeItem[] = [];
+    let newRuangLingkup: RuangLingkup[] = [];
 
     if (availableDpb && availableDpb.length > 0) {
-       const uniqueScopes = Array.from(new Set<string>(availableDpb.map(s => s.ruangLingkup)));
-       console.log("Ruang Lingkup ditemukan:", uniqueScopes);
-       newScopes = uniqueScopes.map(scopeName => {
-         const match = availableDpb.find(d => d.ruangLingkup === scopeName && d.skalaUsaha.toLowerCase() === kelompokUsaha.toLowerCase());
-         const defaultMatch = match || availableDpb.find(d => d.ruangLingkup === scopeName);
-         
-         const riskLevel = RISK_LEVELS.find(r => r.value === calculateRisk('', kelompokUsaha));
+       const uniqueDomains = Array.from(new Set<string>(availableDpb.map(s => s.ruangLingkup)));
+       
+       newRuangLingkup = uniqueDomains.map(deskripsi => {
+         const getScopeForScale = (scale: string) => {
+           const match = availableDpb.find(d => d.ruangLingkup === deskripsi && d.skalaUsaha.toLowerCase() === scale.toLowerCase());
+           if (match) return { risiko: match.tingkatRisiko || 'Rendah', perizinan: match.izin || 'NIB' };
+           return { risiko: 'Rendah', perizinan: 'NIB' };
+         };
          
          return {
-           id: Math.random().toString(36).substr(2, 9),
-           ruangLingkup: scopeName,
-           tingkatResiko: defaultMatch ? defaultMatch.tingkatRisiko : calculateRisk('', kelompokUsaha),
-           izin: defaultMatch ? defaultMatch.izin : (riskLevel?.permit || 'NIB')
+           deskripsi,
+           skala: {
+             mikro: getScopeForScale('Mikro'),
+             kecil: getScopeForScale('Kecil'),
+             menengah: getScopeForScale('Menengah'),
+             besar: getScopeForScale('Besar')
+           }
          };
        });
     } else {
-       console.warn("Gagal membaca ruang lingkup dari DPB, falling back to Belum tersedia...");
-       const defaultRisk = calculateRisk(enrichedData.tingkat_risiko, kelompokUsaha);
-       const riskLevel = RISK_LEVELS.find(r => r.value === defaultRisk);
-       newScopes = [{ 
-          id: Math.random().toString(36).substr(2, 9), 
-          ruangLingkup: "Belum tersedia data baru dari OSS", 
-          tingkatResiko: defaultRisk, 
-          izin: riskLevel?.permit || enrichedData.perizinan_berusaha || 'NIB' 
+       newRuangLingkup = [{ 
+          deskripsi: "Belum tersedia data baru dari OSS", 
+          skala: {
+             mikro: { risiko: 'Rendah', perizinan: 'NIB' },
+             kecil: { risiko: 'Rendah', perizinan: 'NIB' },
+             menengah: { risiko: 'Rendah', perizinan: 'NIB' },
+             besar: { risiko: 'Rendah', perizinan: 'NIB' }
+          }
        }];
     }
 
@@ -562,8 +551,7 @@ const KBLISuggestions: React.FC = () => {
       if (prev.find(k => k.kode === item.kode)) return prev;
       return [...prev, { 
         ...enrichedData, 
-        scopes: newScopes,
-        dpbScopes: availableDpb
+        ruangLingkup: newRuangLingkup
       }];
     });
 
@@ -671,7 +659,7 @@ const KBLISuggestions: React.FC = () => {
     try {
       const results = await Promise.all(itemsToAdd.map(async (item) => {
         let enrichedData = { ...item };
-        let currentFetchedScopes: DpbScopeData[] | undefined = undefined;
+        let currentFetchedScopes: RuangLingkup[] | undefined = undefined;
 
         try {
           if (dpbCache[item.kode]) {
@@ -690,7 +678,7 @@ const KBLISuggestions: React.FC = () => {
               if (data.success && data.html) {
                 const parser = new DOMParser();
                 const doc = parser.parseFromString(data.html, 'text/html');
-                const rawScopes: DpbScopeData[] = [];
+                const rawScopes: RuangLingkup[] = [];
                 const sections = Array.from(doc.querySelectorAll('.dpb-oss-section'));
                 const rlSection = sections.find(sec => {
                   const title = sec.querySelector('.dpb-oss-section-title');
@@ -759,37 +747,43 @@ const KBLISuggestions: React.FC = () => {
         }
 
         const availableDpb = currentFetchedScopes || dpbCache[item.kode];
-        let newScopes: ScopeItem[] = [];
+        let newRuangLingkup: RuangLingkup[] = [];
 
         if (availableDpb && availableDpb.length > 0) {
-          const uniqueScopes = Array.from(new Set<string>(availableDpb.map(s => s.ruangLingkup)));
-          newScopes = uniqueScopes.map(scopeName => {
-            const match = availableDpb.find(d => d.ruangLingkup === scopeName && d.skalaUsaha.toLowerCase() === kelompokUsaha.toLowerCase());
-            const defaultMatch = match || availableDpb.find(d => d.ruangLingkup === scopeName);
-            const riskLevel = RISK_LEVELS.find(r => r.value === calculateRisk('', kelompokUsaha));
-
+          const uniqueDomains = Array.from(new Set<string>(availableDpb.map(s => s.ruangLingkup)));
+          
+          newRuangLingkup = uniqueDomains.map(deskripsi => {
+            const getScopeForScale = (scale: string) => {
+              const match = availableDpb.find(d => d.ruangLingkup === deskripsi && d.skalaUsaha.toLowerCase() === scale.toLowerCase());
+              if (match) return { risiko: match.tingkatRisiko || 'Rendah', perizinan: match.izin || 'NIB' };
+              return { risiko: 'Rendah', perizinan: 'NIB' };
+            };
+            
             return {
-              id: Math.random().toString(36).substr(2, 9),
-              ruangLingkup: scopeName,
-              tingkatResiko: defaultMatch ? defaultMatch.tingkatRisiko : calculateRisk('', kelompokUsaha),
-              izin: defaultMatch ? defaultMatch.izin : (riskLevel?.permit || 'NIB')
+              deskripsi,
+              skala: {
+                mikro: getScopeForScale('Mikro'),
+                kecil: getScopeForScale('Kecil'),
+                menengah: getScopeForScale('Menengah'),
+                besar: getScopeForScale('Besar')
+              }
             };
           });
         } else {
-          const defaultRisk = calculateRisk(enrichedData.tingkat_risiko, kelompokUsaha);
-          const riskLevel = RISK_LEVELS.find(r => r.value === defaultRisk);
-          newScopes = [{
-            id: Math.random().toString(36).substr(2, 9),
-            ruangLingkup: "Belum tersedia data baru dari OSS",
-            tingkatResiko: defaultRisk,
-            izin: riskLevel?.permit || enrichedData.perizinan_berusaha || 'NIB'
+          newRuangLingkup = [{ 
+             deskripsi: "Belum tersedia data baru dari OSS", 
+             skala: {
+                mikro: { risiko: 'Rendah', perizinan: 'NIB' },
+                kecil: { risiko: 'Rendah', perizinan: 'NIB' },
+                menengah: { risiko: 'Rendah', perizinan: 'NIB' },
+                besar: { risiko: 'Rendah', perizinan: 'NIB' }
+             }
           }];
         }
 
         return {
           ...enrichedData,
-          scopes: newScopes,
-          dpbScopes: availableDpb
+          ruangLingkup: newRuangLingkup
         };
       }));
 
@@ -819,62 +813,6 @@ const KBLISuggestions: React.FC = () => {
 
   const removeKbli = (kode: string) => {
     setSelectedKblis(selectedKblis.filter(k => k.kode !== kode));
-  };
-
-  const updateKbliScopes = (kode: string, num: number) => {
-    setSelectedKblis(prev => prev.map(kbli => {
-      if (kbli.kode === kode) {
-        const currentScopes = kbli.scopes;
-        const defaultRisk = calculateRisk(kbli.tingkat_risiko, kelompokUsaha);
-        const riskLevel = RISK_LEVELS.find(r => r.value === defaultRisk);
-
-        if (num > currentScopes.length) {
-          const newScopes = [...currentScopes];
-          for (let i = currentScopes.length; i < num; i++) {
-            newScopes.push({
-              id: Math.random().toString(36).substr(2, 9),
-              ruangLingkup: '',
-              tingkatResiko: defaultRisk,
-              izin: riskLevel?.permit || 'NIB'
-            });
-          }
-          return { ...kbli, scopes: newScopes };
-        } else if (num < currentScopes.length && num >= 1) {
-          return { ...kbli, scopes: currentScopes.slice(0, num) };
-        }
-      }
-      return kbli;
-    }));
-  };
-
-  const updateScope = (kbliKode: string, scopeId: string, field: keyof ScopeItem, value: string) => {
-    setSelectedKblis(prev => prev.map(kbli => {
-      if (kbli.kode === kbliKode) {
-        return {
-          ...kbli,
-          scopes: kbli.scopes.map(s => {
-            if (s.id === scopeId) {
-              if (field === 'tingkatResiko') {
-                const riskLevel = RISK_LEVELS.find(r => r.value === value);
-                return { ...s, [field]: value, izin: riskLevel?.permit || '' };
-              }
-              if (field === 'ruangLingkup') {
-                const autoData = calculateScopeData(value, kelompokUsaha, kbliKode);
-                return { 
-                  ...s, 
-                  [field]: value, 
-                  tingkatResiko: autoData.tingkatResiko, 
-                  izin: autoData.izin 
-                };
-              }
-              return { ...s, [field]: value };
-            }
-            return s;
-          })
-        };
-      }
-      return kbli;
-    }));
   };
 
   const updateKbliCatatan = (kbliKode: string, value: string) => {
@@ -1759,14 +1697,8 @@ const KBLISuggestions: React.FC = () => {
                   
                   <div className="bg-indigo-50/40 border border-indigo-100 rounded-sm p-3 flex flex-col items-center shrink-0 min-w-[150px]">
                     <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Jumlah Ruang Lingkup</span>
-                    <div className="flex items-center gap-2 mt-1">
-                      <input
-                        type="number"
-                        min="1"
-                        className="w-12 text-center text-base font-bold text-indigo-600 bg-white border border-indigo-200 rounded-sm py-0.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/30"
-                        value={kbli.scopes.length}
-                        onChange={(e) => updateKbliScopes(kbli.kode, parseInt(e.target.value) || 1)}
-                      />
+                    <div className="mt-1 text-lg font-bold text-indigo-600">
+                      {kbli.ruangLingkup?.length || 0}
                     </div>
                   </div>
                 </div>
@@ -1774,7 +1706,9 @@ const KBLISuggestions: React.FC = () => {
                 {/* Scopes Table of this KBLI */}
                 <div className="bg-white border border-slate-200 rounded-sm overflow-hidden shadow-sm">
                   <div className="px-5 py-3.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
-                    <span className="text-[12px] font-bold text-slate-800 uppercase tracking-wider">Tabel Ruang Lingkup Usaha ({kbli.scopes.length} Baris)</span>
+                    <span className="text-[12px] font-bold text-slate-800 uppercase tracking-wider">
+                      Tabel Ruang Lingkup Usaha ({kbli.ruangLingkup?.length || 0} Baris)
+                    </span>
                   </div>
                   <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse text-[13px]">
@@ -1787,74 +1721,31 @@ const KBLISuggestions: React.FC = () => {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-150">
-                        {kbli.scopes.map((scope, index) => {
-                          const isFailedScope =
-                            !scope.ruangLingkup ||
-                            scope.ruangLingkup.includes("Gagal membaca") ||
-                            scope.ruangLingkup.includes("Belum tersedia") ||
-                            scope.ruangLingkup === "-";
+                        {kbli.ruangLingkup?.map((scope, index) => {
+                          const scaleKey = kelompokUsaha.toLowerCase() as keyof RuangLingkupSkalaGroup;
+                          const scopeData = scope.skala[scaleKey];
+                          const risk = scopeData.risiko;
+                          const perizinan = scopeData.perizinan;
+
+                          let riskColor = "bg-slate-100 text-slate-800 border-slate-200";
+                          if (risk === "Rendah") riskColor = "bg-emerald-50 text-emerald-800 border-emerald-100";
+                          else if (risk === "Menengah Rendah") riskColor = "bg-sky-50 text-sky-800 border-sky-100";
+                          else if (risk === "Menengah Tinggi") riskColor = "bg-amber-50 text-amber-800 border-amber-100";
+                          else if (risk === "Tinggi") riskColor = "bg-rose-50 text-rose-800 border-rose-100";
+
+                          const isSelfDeclare = risk === "Menengah Rendah" && perizinan.includes("Sertifikat Standar");
+
                           return (
-                            <tr key={scope.id} className="hover:bg-slate-50/30">
-                              <td className="px-4 py-3 text-center border-r border-slate-150 text-slate-400 font-mono align-top">
-                                {index + 1}
-                              </td>
+                            <tr key={index} className="hover:bg-slate-50/30">
+                              <td className="px-4 py-3 text-center border-r border-slate-150 text-slate-400 font-mono align-top text-xs pt-4">{index + 1}</td>
+                              <td className="px-5 py-3 border-r border-slate-150 align-top text-slate-700 text-xs leading-relaxed">{scope.deskripsi}</td>
                               <td className="px-5 py-3 border-r border-slate-150 align-top">
-                                {getDpbScopeOptions(kbli.kode).length > 0 ? (
-                                  <div className="relative">
-                                    <select
-                                      className="w-full px-3 py-2 border border-indigo-200 rounded-sm text-[13px] font-medium text-slate-700 focus:ring-1 focus:ring-indigo-500/30 focus:border-indigo-500 outline-none transition-all cursor-pointer hover:border-indigo-300 appearance-none bg-indigo-50/30"
-                                      value={scope.ruangLingkup}
-                                      onChange={(e) => updateScope(kbli.kode, scope.id, 'ruangLingkup', e.target.value)}
-                                    >
-                                      <option value="">-- Pilih Ruang Lingkup --</option>
-                                      {getDpbScopeOptions(kbli.kode).map(opt => (
-                                        <option key={opt} value={opt}>{opt}</option>
-                                      ))}
-                                    </select>
-                                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-indigo-500">
-                                      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
-                                    </div>
-                                  </div>
-                                ) : (
-                                  <textarea
-                                    placeholder="Input manual ruang lingkup..."
-                                    className="w-full px-3 py-2 border border-slate-200 rounded-sm text-[13px] focus:ring-1 focus:ring-indigo-500/30 focus:border-indigo-500 outline-none transition-all resize-none h-20"
-                                    value={scope.ruangLingkup}
-                                    onChange={(e) => updateScope(kbli.kode, scope.id, 'ruangLingkup', e.target.value)}
-                                  />
-                                )}
-                              </td>
-                              <td className="px-5 py-3 border-r border-slate-150 align-top">
-                                {isFailedScope ? (
-                                  <div className="px-3 py-1.5 bg-slate-50 border border-slate-100 rounded-sm text-[13px] text-slate-400 min-h-[38px] flex items-center">
-                                    N/A
-                                  </div>
-                                ) : (
-                                  <select
-                                    className="w-full px-2.5 py-1.5 border border-slate-200 rounded-sm text-[13px] focus:ring-1 focus:ring-indigo-500/30 focus:border-indigo-500 outline-none transition-all bg-white"
-                                    value={scope.tingkatResiko}
-                                    onChange={(e) => updateScope(kbli.kode, scope.id, 'tingkatResiko', e.target.value)}
-                                  >
-                                    {RISK_LEVELS.map(level => (
-                                      <option key={level.value} value={level.value}>{level.label}</option>
-                                    ))}
-                                  </select>
-                                )}
-                              </td>
-                              <td className="px-4 py-3 align-top text-center">
-                                <span className={`inline-block px-2.5 py-1.5 rounded-sm text-[11px] font-bold border uppercase leading-tight ${
-                                  isFailedScope 
-                                    ? "bg-slate-100 text-slate-400 border-slate-200" 
-                                    : scope.tingkatResiko === 'Rendah'
-                                      ? "bg-emerald-50 text-emerald-800 border-emerald-100"
-                                      : scope.tingkatResiko === 'Menengah Rendah'
-                                        ? "bg-sky-50 text-sky-800 border-sky-100"
-                                        : scope.tingkatResiko === 'Menengah Tinggi'
-                                          ? "bg-amber-50 text-amber-800 border-amber-100"
-                                          : "bg-rose-50 text-rose-800 border-rose-100"
-                                }`}>
-                                  {isFailedScope ? "N/A" : getAutoIzin(scope.tingkatResiko)}
+                                <span className={`inline-block px-2.5 py-1 rounded-sm text-[11px] font-bold border uppercase leading-tight ${riskColor}`}>
+                                  {risk}
                                 </span>
+                              </td>
+                              <td className="px-4 py-3 align-top text-center text-xs text-slate-700">
+                                {isSelfDeclare ? "Sertifikat Standar (Self Declare)" : perizinan}
                               </td>
                             </tr>
                           );

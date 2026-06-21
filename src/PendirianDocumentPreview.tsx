@@ -1,10 +1,8 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import { PendirianData } from './DraftAktaPendirian';
 import { generatePendirianBlocks } from './lib/pendirianContentBlocks';
 import { parseTextRuns, FormatToken } from './lib/notaryWrapper';
-import { Download, Loader as Loader2 } from 'lucide-react';
-
-const DASH_LINE = Array(150).fill('-').join('');
+import { Download, Loader2 } from 'lucide-react';
 
 interface PendirianDocumentPreviewProps {
   data: PendirianData;
@@ -39,7 +37,7 @@ const WrappedText = ({ runs, isList = false, indent = false, indentTabs = 0, ali
            </span>
            {align !== 'center' && marginLeft !== '50%' && (
              <span className="flex-1 overflow-hidden select-none whitespace-nowrap opacity-60" style={{ letterSpacing: '0.5px' }}>
-               &nbsp;{DASH_LINE}
+               &nbsp;{Array(150).fill('-').join('')}
              </span>
            )}
         </div>
@@ -49,7 +47,7 @@ const WrappedText = ({ runs, isList = false, indent = false, indentTabs = 0, ali
 };
 
 export default function PendirianDocumentPreview({ data, onExport, onClose, isExporting }: PendirianDocumentPreviewProps) {
-  const blocks = useMemo(() => generatePendirianBlocks(data), [data]);
+  const blocks = generatePendirianBlocks(data);
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/50 flex justify-end">
@@ -97,21 +95,21 @@ export default function PendirianDocumentPreview({ data, onExport, onClose, isEx
               <div className="space-y-0 relative">
                 {blocks.map((block, index) => {
                   if (block.type === 'br') {
-                    return <div key={index} className="h-6 leading-[2] w-full flex items-center overflow-hidden"><span className="flex-1 overflow-hidden select-none whitespace-nowrap opacity-60" style={{ letterSpacing: '0.5px' }}>{DASH_LINE}</span></div>;
+                    return <div key={index} className="h-6 leading-[2] w-full flex items-center overflow-hidden"><span className="flex-1 overflow-hidden select-none whitespace-nowrap opacity-60" style={{ letterSpacing: '0.5px' }}>{Array(150).fill('-').join('')}</span></div>;
                   }
-
+                  
                   if (block.type === 'divider' || block.type === 'pasal-divider') {
                     return (
                       <div key={index} className="w-full relative py-1">
                          <div className="flex items-center w-full overflow-hidden leading-[2]">
                             <span className="flex-1 overflow-hidden select-none whitespace-nowrap opacity-60" style={{ letterSpacing: '0.5px' }}>
-                              {DASH_LINE}
+                              {Array(150).fill('-').join('')}
                             </span>
                             <span className="px-4 font-bold uppercase shrink-0">
                               {block.text}
                             </span>
                             <span className="flex-1 overflow-hidden select-none whitespace-nowrap opacity-60" style={{ letterSpacing: '0.5px' }}>
-                              {DASH_LINE}
+                              {Array(150).fill('-').join('')}
                             </span>
                          </div>
                       </div>

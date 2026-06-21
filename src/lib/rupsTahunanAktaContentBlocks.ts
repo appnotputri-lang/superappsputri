@@ -905,7 +905,7 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
   }
 
   if (reasonsAudit.length === 1) {
-    const formattedReason = reasonsAudit[0].replace(", atau", "");
+    const formattedReason = reasonsAudit[0].replace(", atau", "") + (!data.rupstIsAudited && data.rupstNonAuditedUseKAP ? ". Namun untuk laporan keuangan yang akurat perseroan memilih dan memutuskan untuk menggunakan Kantor Akuntan Publik." : ".");
     blocks.push({
       type: "p",
       number: 1,
@@ -926,6 +926,14 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
         runs: [{ text: reason }] 
       });
     });
+
+    if (!data.rupstIsAudited && data.rupstNonAuditedUseKAP) {
+      blocks.push({
+        type: "p",
+        indentLeft: 426,
+        runs: [{ text: "Namun untuk laporan keuangan yang akurat perseroan memilih dan memutuskan untuk menggunakan Kantor Akuntan Publik." }]
+      });
+    }
   }
 
   const kapName = data.rupstKapName || "[NAMA KAP]";
@@ -1085,7 +1093,21 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
           const previousRetained = data.rupstRetainedProfit || 0;
           const divAmt = data.rupstDividendAmount || 0;
           const totalLabaDitahan = netProfit + previousRetained - divAmt;
-          netProfitText = `Menetapkan penggunaan laba bersih sebesar ${amtStr}, dimana sebesar Rp. ${formatNumber(divAmt)},- (${terbilang(divAmt)} rupiah) dibagikan sebagai dividen dan sisanya setelah ditambah saldo laba ditahan tahun sebelumnya sebesar Rp. ${formatNumber(previousRetained)},- (${terbilang(previousRetained)} rupiah) menjadi sebesar Rp. ${formatNumber(totalLabaDitahan)},- (${terbilang(totalLabaDitahan)} rupiah) ditetapkan sebagai saldo laba ditahan Perseroan.`;
+          
+          const isRetainedNeg = previousRetained < 0;
+          const retainedLabel = isRetainedNeg ? "rugi" : "laba";
+          const isTotalRetainedNeg = totalLabaDitahan < 0;
+          const totalRetainedLabel = isTotalRetainedNeg ? "rugi" : "laba";
+          const showRetainedInfo = data.rupstShowRetainedProfit ?? (previousRetained !== 0);
+          
+          if (showRetainedInfo) {
+            netProfitText = `Menetapkan penggunaan laba bersih sebesar ${amtStr}, dimana sebesar Rp${formatNumber(divAmt)},- (${terbilang(divAmt)} rupiah) dibagikan sebagai dividen dan sisanya setelah ditambah saldo ${retainedLabel} ditahan tahun sebelumnya sebesar Rp${formatNumber(Math.abs(previousRetained))},- (${terbilang(Math.abs(previousRetained))} rupiah) menjadi sebesar Rp${formatNumber(Math.abs(totalLabaDitahan))},- (${terbilang(Math.abs(totalLabaDitahan))} rupiah) ditetapkan sebagai saldo ${totalRetainedLabel} ditahan Perseroan.`;
+          } else {
+            const sisanya = netProfit - divAmt;
+            const isSisanyaNeg = sisanya < 0;
+            const sisanyaLabel = isSisanyaNeg ? "rugi" : "laba";
+            netProfitText = `Menetapkan penggunaan laba bersih sebesar ${amtStr}, dimana sebesar Rp${formatNumber(divAmt)},- (${terbilang(divAmt)} rupiah) dibagikan sebagai dividen dan sisanya sebesar Rp${formatNumber(Math.abs(sisanya))},- (${terbilang(Math.abs(sisanya))} rupiah) ditetapkan sebagai saldo ${sisanyaLabel} ditahan Perseroan.`;
+          }
         }
       } else {
         netProfitText = "Menetapkan penggunaan laba bersih Perseroan sebagaimana diusulkan dalam Rapat.";
@@ -1142,26 +1164,59 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
   
       const amtStr = `Rp. ${formatNumber(netProfit)},- (${terbilang(netProfit)} rupiah)`;
       const divAmtStr = `Rp. ${formatNumber(divAmt)},- (${terbilang(divAmt)} rupiah)`;
-      const previousRetainedStr = `Rp. ${formatNumber(previousRetained)},- (${terbilang(previousRetained)} rupiah)`;
+      const previousRetainedStr = `Rp${formatNumber(Math.abs(previousRetained))},- (${terbilang(Math.abs(previousRetained))} rupiah)`;
       const totalLabaDitahanStr = `Rp. ${formatNumber(Math.abs(totalLabaDitahan))},- (${terbilang(Math.abs(totalLabaDitahan))} rupiah)`;
   
       const fiscalYear = data.rupstFiscalYear || "2025";
       const prevYear = String(Number(fiscalYear) - 1);
-  
+      
+      const isRetainedNeg = previousRetained < 0;
+      const retainedLabel = isRetainedNeg ? "rugi" : "laba";
+      const showRetainedInfo = data.rupstShowRetainedProfit ?? (previousRetained !== 0);
+
+      const introRuns = showRetainedInfo
+        ? [
+            { text: `Menetapkan Perseroan mengalami laba bersih untuk tahun buku ${fiscalYear} sebesar ` },
+            { text: amtStr, color: netProfitColor },
+            { text: `, dengan saldo ${retainedLabel} ditahan Perseroan sampai dengan tahun buku ${prevYear} sebesar ` },
+            { text: previousRetainedStr },
+            { text: `. Sehubungan dengan hal tersebut:` }
+          ]
+        : [
+            { text: `Menetapkan penggunaan laba bersih Perseroan Tahun Buku ${fiscalYear} sebesar ` },
+            { text: amtStr, color: netProfitColor },
+            { text: `, dengan penggunaan sebagai berikut:` }
+          ];
+
       blocks.push({
         type: "p",
         number: decisionIndex,
-        runs: [
-          { text: `Menetapkan Perseroan mengalami laba bersih untuk tahun buku ${fiscalYear} sebesar ` },
-          { text: amtStr, color: netProfitColor },
-          { text: `, dengan saldo laba ditahan Perseroan sampai dengan tahun buku ${prevYear} sebesar ` },
-          { text: previousRetainedStr },
-          { text: `. sehubungan dengan hal tersebut:` }
-        ]
+        runs: introRuns
       });
       decisionIndex++;
   
+      const isTotalRetainedNeg = totalLabaDitahan < 0;
+      const totalRetainedLabel = isTotalRetainedNeg ? "rugi" : "laba";
+
       if (divAmt > 0) {
+        const afterDivRuns = showRetainedInfo
+          ? [
+              { text: "Laba bersih tahun berjalan sebesar " },
+              { text: amtStr, color: netProfitColor },
+              { text: ` ditambah saldo ${retainedLabel} ditahan tahun sebelumnya sebesar ` },
+              { text: previousRetainedStr },
+              { text: ` setelah dikurangi dividen, maka total saldo ${totalRetainedLabel} ditahan Perseroan menjadi sebesar ` },
+              { text: totalLabaDitahanStr },
+              { text: ` ditetapkan sebagai saldo ${totalRetainedLabel} ditahan Perseroan.` }
+            ]
+          : [
+              { text: "Laba bersih tahun berjalan sebesar " },
+              { text: amtStr, color: netProfitColor },
+              { text: ` setelah dikurangi dividen, sisanya sebesar ` },
+              { text: `Rp. ${formatNumber(Math.abs(netProfit - divAmt))},- (${terbilang(Math.abs(netProfit - divAmt))} rupiah)` },
+              { text: ` ditetapkan sebagai saldo laba ditahan Perseroan.` }
+            ];
+
         blocks.push(
           {
             type: "list",
@@ -1177,15 +1232,7 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
             type: "list",
             bullet: "-",
             indentTabs: 1.0,
-            runs: [
-              { text: "Laba bersih tahun berjalan sebesar " },
-              { text: amtStr, color: netProfitColor },
-              { text: " ditambah saldo laba ditahan tahun sebelumnya sebesar " },
-              { text: previousRetainedStr },
-              { text: " setelah dikurangi dividen, maka total saldo laba ditahan Perseroan menjadi sebesar " },
-              { text: totalLabaDitahanStr },
-              { text: " ditetapkan sebagai saldo laba ditahan Perseroan." }
-            ]
+            runs: afterDivRuns
           }
         );
       } else {
@@ -1204,7 +1251,17 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
                     type: "list" as const,
                     bullet: "-",
                     indentTabs: 1.0,
-                    runs: [{ text: "Seluruh laba bersih Perseroan dibukukan sebagai laba ditahan Perseroan." }]
+                    runs: showRetainedInfo
+                      ? [
+                          { text: "Laba bersih tahun berjalan sebesar " },
+                          { text: amtStr, color: netProfitColor },
+                          { text: ` ditambah saldo ${retainedLabel} ditahan tahun sebelumnya sebesar ` },
+                          { text: previousRetainedStr },
+                          { text: ` menjadi sebesar ` },
+                          { text: totalLabaDitahanStr },
+                          { text: ` ditetapkan sebagai saldo ${totalRetainedLabel} ditahan Perseroan.` }
+                        ]
+                      : [{ text: "Seluruh laba bersih Perseroan dibukukan sebagai laba ditahan Perseroan." }]
                   }
                 ]
           )
