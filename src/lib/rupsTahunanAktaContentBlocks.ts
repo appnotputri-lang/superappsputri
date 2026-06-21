@@ -998,14 +998,25 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
 
     const financialRepDate = data.rupstFinancialReportDate ? formatDateRupst(data.rupstFinancialReportDate) : "29 April 2026";
 
+    let financialApprovalRuns: any[] = [
+      { text: `Mengesahkan Laporan Keuangan Perseroan untuk tahun buku yang berakhir pada tanggal 31 Desember ${data.rupstFiscalYear || "2025"}, sebagaimana dimuat dalam Laporan Keuangan ${formatCompanyName(data.companyName)} tertanggal ${financialRepDate}, yang ditandatangani ${signatoryPosition} Perseroan ${signatorySalutation} ` },
+      { text: signatoryName, bold: true }
+    ];
+
+    if (data.rupstNonAuditedUseKAP) {
+      financialApprovalRuns.push({
+        text: ` dan diaudit oleh Kantor Akuntan Publik ${kapName}, yang telah memperoleh izin usaha dari Menteri Keuangan Republik Indonesia dengan Nomor Izin ${kapLicense} yang berlaku sampai dengan tanggal ${kapExpiryDate}, sebagaimana dimuat dalam laporannya Nomor ${auditReportNum} tanggal ${auditReportDate}`
+      });
+    }
+
+    financialApprovalRuns.push({
+      text: `${(data.rupstStatementNeraca === true || data.rupstStatementLabaRugi === true || data.rupstStatementPerubahanEkuitas === true || data.rupstStatementArusKas === true || data.rupstStatementCatatan === true || data.rupstStatementNamaAnggota === true || data.rupstStatementGaji === true) ? " yang terdiri dari:" : "."}`
+    });
+
     blocks.push({
       type: "p",
       number: decisionIndex,
-      runs: [
-        { text: `Mengesahkan Laporan Keuangan Perseroan untuk tahun buku yang berakhir pada tanggal 31 Desember ${data.rupstFiscalYear || "2025"}, sebagaimana dimuat dalam Laporan Keuangan ${formatCompanyName(data.companyName)} tertanggal ${financialRepDate}, yang ditandatangani ${signatoryPosition} Perseroan ${signatorySalutation} ` },
-        { text: signatoryName, bold: true },
-        { text: `${(data.rupstStatementNeraca === true || data.rupstStatementLabaRugi === true || data.rupstStatementPerubahanEkuitas === true || data.rupstStatementArusKas === true || data.rupstStatementCatatan === true || data.rupstStatementNamaAnggota === true || data.rupstStatementGaji === true) ? " yang terdiri dari:" : "."}` }
-      ]
+      runs: financialApprovalRuns
     });
     decisionIndex++;
 

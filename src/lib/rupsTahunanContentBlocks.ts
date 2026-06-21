@@ -874,11 +874,25 @@ export const generateRupstBlocks = (data: CompanyData): Block[] => {
       financialSignatory = financialSignatory.substring(sigSalUpper.length);
     }
 
+    let baseApprovalText = `Mengesahkan Laporan Keuangan Perseroan untuk tahun buku yang berakhir pada tanggal 31 Desember ${fiscalYear}, sebagaimana dimuat dalam Laporan Keuangan ${formatCompanyName(data.companyName)} tanggal ${financialDateStr}, yang ditandatangani oleh ${financialPos} Perseroan ${signatorySalutation} ${financialSignatory}`;
+    
+    if (data.rupstNonAuditedUseKAP) {
+      const kapName = data.rupstKapName || "[NAMA KAP]";
+      const kapLicense = data.rupstKapLicenseNumber || "[NOMOR IZIN KAP]";
+      const kapExpiryDate = data.rupstKapExpiryDate ? formatDateRupst(data.rupstKapExpiryDate) : "[TANGGAL BERAKHIR IZIN]";
+      const auditReportNum = data.rupstAuditReportNumber || "[NOMOR LAPORAN AUDIT]";
+      const auditReportDate = data.rupstAuditReportDate ? formatDateRupst(data.rupstAuditReportDate) : "[TANGGAL LAPORAN AUDIT]";
+      
+      baseApprovalText += ` dan diaudit oleh Kantor Akuntan Publik ${kapName}, yang telah memperoleh izin usaha dari Menteri Keuangan Republik Indonesia dengan Nomor Izin ${kapLicense} yang berlaku sampai dengan tanggal ${kapExpiryDate}, sebagaimana dimuat dalam laporannya Nomor ${auditReportNum} tanggal ${auditReportDate}`;
+    }
+    
+    baseApprovalText += " yang terdiri dari:";
+
     blocks.push({
       type: "list",
       bullet: "3.",
       indentStyle: "keputusan",
-      runs: [{ text: `Mengesahkan Laporan Keuangan Perseroan untuk tahun buku yang berakhir pada tanggal 31 Desember ${fiscalYear}, sebagaimana dimuat dalam Laporan Keuangan ${formatCompanyName(data.companyName)} tanggal ${financialDateStr}, yang ditandatangani oleh ${financialPos} Perseroan ${signatorySalutation} ${financialSignatory} yang terdiri dari:` }]
+      runs: [{ text: baseApprovalText }]
     });
 
     blocks.push({
