@@ -201,6 +201,52 @@ export const generateWordDoc = async (data: CompanyData) => {
     return false;
   };
 
+  const findPersonDetailsByName = (name: string): any => {
+    if (!name) return null;
+    const targetName = name.trim().toUpperCase();
+
+    // 1. Check data.shareholders
+    const fromSh = (data.shareholders || []).find((s: any) => s.name && s.name.trim().toUpperCase() === targetName);
+    if (fromSh && (fromSh.birthCity || fromSh.nik || fromSh.address?.fullAddress)) {
+      return fromSh;
+    }
+
+    // 2. Check data.finalShareholders
+    const fromFs = (data.finalShareholders || []).find((s: any) => s.name && s.name.trim().toUpperCase() === targetName);
+    if (fromFs && (fromFs.birthCity || fromFs.nik || fromFs.address?.fullAddress)) {
+      return fromFs;
+    }
+
+    // 3. Check data.guests
+    const fromGuest = (data.guests || []).find((g: any) => g.name && g.name.trim().toUpperCase() === targetName);
+    if (fromGuest && (fromGuest.birthCity || fromGuest.nik || fromGuest.address?.fullAddress)) {
+      return fromGuest;
+    }
+
+    // 4. Check data.shareTransfersNew toDetail
+    if (data.shareTransfersNew) {
+      for (const t of data.shareTransfersNew) {
+        if (t.toName && t.toName.trim().toUpperCase() === targetName && t.toDetail) {
+          return t.toDetail;
+        }
+      }
+    }
+
+    // 5. Check data.managementDismissals replacedByDetail
+    if (data.managementDismissals) {
+      for (const d of data.managementDismissals) {
+        if (d.replacedByName && d.replacedByName.trim().toUpperCase() === targetName && d.replacedByDetail) {
+          return d.replacedByDetail;
+        }
+      }
+    }
+
+    if (fromSh) return fromSh;
+    if (fromFs) return fromFs;
+
+    return null;
+  };
+
   const getResolutionSummary = () => {
     const agendaOrder = [
       "companyNameChange","domicile","address","kbli","capitalBase","capitalPaid",
@@ -1266,13 +1312,24 @@ export const generateWordDoc = async (data: CompanyData) => {
           );
 
           newDeposits.forEach((dep) => {
+            const person = findPersonDetailsByName(dep.name);
+            let boldName = dep.name.toUpperCase();
+            let detailsText = "";
+            if (person) {
+              detailsText = formatPersonDetails(person, "", "", false, true);
+              const sal = (person.salutation || "Tuan").trim();
+              const salUpper = sal.toUpperCase().includes("TUAN") ? "TUAN" : sal.toUpperCase().includes("NYONYA") ? "NYONYA" : sal.toUpperCase().includes("NONA") ? "NONA" : sal;
+              boldName = `${salUpper} ${dep.name.toUpperCase()}`;
+            }
+
             capitalBody.push(
               new Paragraph({
                 alignment: "both" as any,
                 spacing: { line: LINE_SPACING, lineRule: "auto", before: 60, after: 60 },
                 numbering: { reference: "hadir-dash", level: 0 },
-          children: [
-            mkRun(`${dep.name} `, true),
+                children: [
+                  mkRun(boldName, true),
+                  mkRun(detailsText, false),
                   mkRun(`: ${formatInputNumber(dep.depositedShares)}${w(dep.depositedShares, "shares")} lembar saham atau senilai Rp. ${formatInputNumber(dep.valueRp)},-${w(dep.valueRp, "rupiah")};`),
                 ],
               })
@@ -1316,6 +1373,14 @@ export const generateWordDoc = async (data: CompanyData) => {
 
       const getRecipientSuffix = (t: any) => {
         if (t.toType === 'NEW' && t.toDetail) {
+          const isCapitalPaidActive = data.resolutions.capitalPaid;
+          const inNewDeposits = isCapitalPaidActive && (
+            (data.capitalSubscriptionsNew || []).some((d: any) => d.subscriberName && d.subscriberName.trim().toUpperCase() === t.toName.toUpperCase().trim()) ||
+            (data.finalShareholders || []).some((fs: any) => fs.isNewDeposit && fs.newDepositShares > 0 && fs.name && fs.name.trim().toUpperCase() === t.toName.toUpperCase().trim())
+          );
+          if (inNewDeposits) {
+            return "";
+          }
           return formatPersonDetails(t.toDetail, "", "", false, true);
         }
         return "";
@@ -2014,13 +2079,24 @@ export const generateWordDoc = async (data: CompanyData) => {
               .map((fs) => ({ name: fs.name, addedShares: fs.newDepositShares!, addedValue: fs.newDepositShares! * (data.originalSharePrice || 0) }));
 
         newDeposits.forEach((dep) => {
+          const person = findPersonDetailsByName(dep.name);
+          let boldName = dep.name.toUpperCase();
+          let detailsText = "";
+          if (person) {
+            detailsText = formatPersonDetails(person, "", "", false, true);
+            const sal = (person.salutation || "Tuan").trim();
+            const salUpper = sal.toUpperCase().includes("TUAN") ? "TUAN" : sal.toUpperCase().includes("NYONYA") ? "NYONYA" : sal.toUpperCase().includes("NONA") ? "NONA" : sal;
+            boldName = `${salUpper} ${dep.name.toUpperCase()}`;
+          }
+
           capitalBody.push(
             new Paragraph({
               alignment: "both" as any,
               spacing: { line: LINE_SPACING, lineRule: "auto", before: 60, after: 60 },
               numbering: { reference: "hadir-dash", level: 0 },
-          children: [
-            mkRun(`${dep.name.toUpperCase()} `, true),
+              children: [
+                mkRun(boldName, true),
+                mkRun(detailsText, false),
                 mkRun(`: ${formatInputNumber(dep.addedShares)}${w(dep.addedShares, "shares")} lembar saham atau senilai Rp. ${formatInputNumber(dep.addedValue)},-${w(dep.addedValue, "rupiah")};`),
               ],
             }),
@@ -2060,6 +2136,14 @@ export const generateWordDoc = async (data: CompanyData) => {
 
       const getRecipientSuffix = (t: any) => {
         if (t.toType === 'NEW' && t.toDetail) {
+          const isCapitalPaidActive = data.resolutions.capitalPaid;
+          const inNewDeposits = isCapitalPaidActive && (
+            (data.capitalSubscriptionsNew || []).some((d: any) => d.subscriberName && d.subscriberName.trim().toUpperCase() === t.toName.toUpperCase().trim()) ||
+            (data.finalShareholders || []).some((fs: any) => fs.isNewDeposit && fs.newDepositShares > 0 && fs.name && fs.name.trim().toUpperCase() === t.toName.toUpperCase().trim())
+          );
+          if (inNewDeposits) {
+            return "";
+          }
           return formatPersonDetails(t.toDetail, "", "", false, true);
         }
         return "";

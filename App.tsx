@@ -5271,8 +5271,8 @@ const App: React.FC = () => {
                   {/* Shareholder & Management & Guest Attendance */}
                   <div>
                     <div className="flex justify-between items-center mb-3">
-                      <h4 className="text-[12px] font-bold text-slate-500 uppercase flex items-center gap-2">
-                         <Users className="w-3 h-3" /> Kehadiran Pemegang Saham, Pengurus, & Undangan Rapat
+                      <h4 className="text-[12px] font-bold text-slate-500 flex items-center gap-2">
+                         <Users className="w-3 h-3" /> PARA PIHAK
                       </h4>
                       <div className="flex items-center gap-2">
                         <button 
@@ -5649,11 +5649,11 @@ const App: React.FC = () => {
               const presentNamesSeen = new Set<string>();
 
               data.shareholders.forEach(s => {
-                if (s.isPresent && s.name && !presentNamesSeen.has(s.name.toUpperCase().trim())) {
+                if (s.name && !presentNamesSeen.has(s.name.toUpperCase().trim())) {
                   presentNamesSeen.add(s.name.toUpperCase().trim());
                   presentAttendeesList.push({ name: s.name, nik: s.nik || '', salutation: s.salutation || 'Tuan' });
                 }
-                if (s.isPresent && s.isProxy && s.proxyData?.name && !presentNamesSeen.has(s.proxyData.name.toUpperCase().trim())) {
+                if (s.isProxy && s.proxyData?.name && !presentNamesSeen.has(s.proxyData.name.toUpperCase().trim())) {
                   presentNamesSeen.add(s.proxyData.name.toUpperCase().trim());
                   presentAttendeesList.push({ name: s.proxyData.name, nik: s.proxyData.nik || '', salutation: s.proxyData.salutation || 'Tuan' });
                 }
@@ -5876,256 +5876,61 @@ const App: React.FC = () => {
                               {/* REPLACEMENT CONFIG */}
                               <div className="p-4 bg-blue-50/50 rounded border border-blue-100/50 space-y-4">
                                 <div className="text-[11px] font-bold text-slate-700 uppercase flex justify-between items-center pb-2 border-b border-blue-100/50">
-                                  <span>PILIH ATAU INPUT PENGGANTI PENGURUS (OPSIONAL)</span>
-                                  <div className="flex gap-3">
-                                    <label className="flex items-center gap-1.5 cursor-pointer text-slate-600 normal-case font-medium">
-                                      <input
-                                        type="radio"
-                                        name={`repl-type-${item.id}`}
-                                        checked={(item.replacementType || 'PRESENT') === 'PRESENT'}
-                                        onChange={() => {
-                                          updateData({
-                                            managementDismissals: (data.managementDismissals || []).map(t =>
-                                              t.id === item.id ? { ...t, replacementType: 'PRESENT', replacedByName: '', replacedByNik: '' } : t
-                                            )
-                                          });
-                                        }}
-                                      />
-                                      <span>Dari Hadir Rapat</span>
-                                    </label>
-                                    <label className="flex items-center gap-1.5 cursor-pointer text-slate-600 normal-case font-medium">
-                                      <input
-                                        type="radio"
-                                        name={`repl-type-${item.id}`}
-                                        checked={(item.replacementType || 'PRESENT') === 'MANUAL'}
-                                        onChange={() => {
-                                          updateData({
-                                            managementDismissals: (data.managementDismissals || []).map(t =>
-                                              t.id === item.id ? { ...t, replacementType: 'MANUAL', replacedByName: '', replacedByNik: '' } : t
-                                            )
-                                          });
-                                        }}
-                                      />
-                                      <span>Input Manual</span>
-                                    </label>
-                                  </div>
+                                  <span>PILIH PENGGANTI PENGURUS (OPSIONAL) DARI PARA PIHAK</span>
                                 </div>
 
-                                {(!item.replacementType || item.replacementType === 'PRESENT') ? (
-                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div>
-                                      <AhuLabel label="Pilih dari Orang Yang Hadir Rapat" />
-                                      <select
-                                        className="w-full text-[12px] border border-slate-300 rounded p-1.5 bg-white font-medium focus:border-indigo-500 focus:outline-none"
-                                        value={item.replacedByName || ''}
-                                        onChange={e => {
-                                          const selName = e.target.value;
-                                          const found = presentAttendeesList.find(p => p.name === selName);
-                                          updateData({
-                                            managementDismissals: (data.managementDismissals || []).map(t =>
-                                              t.id === item.id ? {
-                                                ...t,
-                                                replacedByName: selName,
-                                                replacedBySalutation: found ? (found.salutation as any) : 'Tuan',
-                                                replacedByNik: found ? found.nik : ''
-                                              } : t
-                                            )
-                                          });
-                                        }}
-                                      >
-                                        <option value="">-- Pilih dari Kehadiran Rapat --</option>
-                                        {presentAttendeesList.map((p, pIdx) => (
-                                          <option key={pIdx} value={p.name}>
-                                            {p.salutation || 'Tuan'} {p.name} {p.nik ? `(NIK: ${p.nik})` : ''}
-                                          </option>
-                                        ))}
-                                      </select>
-                                    </div>
-
-                                    <div>
-                                      <AhuLabel label="Jabatan Baru Pengganti" />
-                                      <select
-                                        className="w-full text-[12px] border border-slate-300 rounded p-1.5 bg-white font-medium focus:border-indigo-500 focus:outline-none"
-                                        value={item.replacedByPosition || ''}
-                                        onChange={e => {
-                                          updateData({
-                                            managementDismissals: (data.managementDismissals || []).map(t =>
-                                              t.id === item.id ? { ...t, replacedByPosition: e.target.value } : t
-                                            )
-                                          });
-                                        }}
-                                      >
-                                        <option value="">Sama dengan Jabatan Lama ({item.position})</option>
-                                        <option value="DIREKTUR">DIREKTUR</option>
-                                        <option value="KOMISARIS">KOMISARIS</option>
-                                        <option value="DIREKTUR UTAMA">DIREKTUR UTAMA</option>
-                                        <option value="KOMISARIS UTAMA">KOMISARIS UTAMA</option>
-                                      </select>
-                                    </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                  <div>
+                                    <AhuLabel label="Pilih dari Para Pihak" />
+                                    <select
+                                      className="w-full text-[12px] border border-slate-300 rounded p-1.5 bg-white font-medium focus:border-indigo-500 focus:outline-none uppercase"
+                                      value={item.replacedByName || ''}
+                                      onChange={e => {
+                                        const selName = e.target.value;
+                                        const found = presentAttendeesList.find(p => p.name === selName);
+                                        updateData({
+                                          managementDismissals: (data.managementDismissals || []).map(t =>
+                                            t.id === item.id ? {
+                                              ...t,
+                                              replacedByName: selName,
+                                              replacedBySalutation: found ? (found.salutation as any) : 'Tuan',
+                                              replacedByNik: found ? found.nik : '',
+                                              replacementType: 'PRESENT'
+                                            } : t
+                                          )
+                                        });
+                                      }}
+                                    >
+                                      <option value="">-- Pilih dari Para Pihak --</option>
+                                      {presentAttendeesList.map((p, pIdx) => (
+                                        <option key={`${p.name}-${pIdx}`} value={p.name}>
+                                          {p.salutation || 'Tuan'} {p.name} {p.nik ? `(NIK: ${p.nik})` : ''}
+                                        </option>
+                                      ))}
+                                    </select>
                                   </div>
-                                ) : (
-                                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                                    <div>
-                                      <AhuLabel label="Panggilan" required />
-                                      <select
-                                        className="w-full text-[12px] border border-slate-300 rounded p-1.5 bg-white font-medium focus:border-indigo-500 focus:outline-none"
-                                        value={item.replacedBySalutation || 'Tuan'}
-                                        onChange={e => {
-                                          const sal = e.target.value as any;
-                                          updateData({
-                                            managementDismissals: (data.managementDismissals || []).map(t =>
-                                              t.id === item.id ? { 
-                                                ...t, 
-                                                replacedBySalutation: sal,
-                                                replacedByDetail: t.replacedByDetail ? { ...t.replacedByDetail, salutation: sal } : undefined
-                                              } : t
-                                            )
-                                          });
-                                        }}
-                                      >
-                                        <option value="Tuan">Tuan</option>
-                                        <option value="Nyonya">Nyonya</option>
-                                        <option value="Nona">Nona</option>
-                                      </select>
-                                    </div>
 
-                                    <div>
-                                      <AhuLabel label="Nama Lengkap Pengganti" required />
-                                      <input
-                                        type="text"
-                                        readOnly
-                                        placeholder="Klik untuk mengisi formulir lengkap..."
-                                        className="w-full text-[12px] border border-slate-300 rounded p-1.5 bg-slate-100 cursor-pointer text-emerald-900 font-extrabold focus:outline-none uppercase"
-                                        value={item.replacedByName || ''}
-                                        onClick={() => {
-                                          const currentDetail = item.replacedByDetail || {
-                                            id: crypto.randomUUID(),
-                                            salutation: item.replacedBySalutation || 'Tuan',
-                                            name: item.replacedByName || '',
-                                            nik: item.replacedByNik || '',
-                                            isManagement: true,
-                                            managementPosition: item.replacedByPosition || 'DIREKTUR',
-                                            sharesOwned: 0,
-                                            birthCity: '',
-                                            birthDate: '',
-                                            nationality: 'WNI',
-                                            nationalityType: 'WNI',
-                                            occupation: '',
-                                            address: { province: '', city: '', fullAddress: '', rt: '', rw: '', kelurahan: '', kecamatan: '' },
-                                            kitasType: 'NONE'
-                                          };
-                                          openShareholderEditor('pengganti', currentDetail, item.id);
-                                        }}
-                                      />
-                                    </div>
-
-                                    <div>
-                                      <AhuLabel label="NIK Pengganti" required />
-                                      <input
-                                        type="text"
-                                        readOnly
-                                        placeholder="Klik untuk mengisi NIK..."
-                                        className="w-full text-[12px] border border-slate-300 rounded p-1.5 bg-slate-100 cursor-pointer text-emerald-900 font-extrabold focus:outline-none font-mono"
-                                        value={item.replacedByNik || ''}
-                                        onClick={() => {
-                                          const currentDetail = item.replacedByDetail || {
-                                            id: crypto.randomUUID(),
-                                            salutation: item.replacedBySalutation || 'Tuan',
-                                            name: item.replacedByName || '',
-                                            nik: item.replacedByNik || '',
-                                            isManagement: true,
-                                            managementPosition: item.replacedByPosition || 'DIREKTUR',
-                                            sharesOwned: 0,
-                                            birthCity: '',
-                                            birthDate: '',
-                                            nationality: 'WNI',
-                                            nationalityType: 'WNI',
-                                            occupation: '',
-                                            address: { province: '', city: '', fullAddress: '', rt: '', rw: '', kelurahan: '', kecamatan: '' },
-                                            kitasType: 'NONE'
-                                          };
-                                          openShareholderEditor('pengganti', currentDetail, item.id);
-                                        }}
-                                      />
-                                    </div>
-
-                                    <div>
-                                      <AhuLabel label="Jabatan Baru Pengganti" required />
-                                      <select
-                                        className="w-full text-[12px] border border-slate-300 rounded p-1.5 bg-white font-medium focus:border-indigo-500 focus:outline-none"
-                                        value={item.replacedByPosition || 'DIREKTUR'}
-                                        onChange={e => {
-                                          const pos = e.target.value;
-                                          updateData({
-                                            managementDismissals: (data.managementDismissals || []).map(t =>
-                                              t.id === item.id ? { 
-                                                ...t, 
-                                                replacedByPosition: pos,
-                                                replacedByDetail: t.replacedByDetail ? { ...t.replacedByDetail, managementPosition: pos } : undefined
-                                              } : t
-                                            )
-                                          });
-                                        }}
-                                      >
-                                        <option value="DIREKTUR">DIREKTUR</option>
-                                        <option value="KOMISARIS">KOMISARIS</option>
-                                        <option value="DIREKTUR UTAMA">DIREKTUR UTAMA</option>
-                                        <option value="KOMISARIS UTAMA">KOMISARIS UTAMA</option>
-                                      </select>
-                                    </div>
-
-                                    <div className="md:col-span-4 mt-2 border border-slate-200 bg-white p-3 rounded shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3">
-                                      <div>
-                                        <div className="text-[12px] font-bold text-slate-700 flex items-center gap-1">
-                                          <FileText className="w-4 h-4 text-[#3b5998]" />
-                                          <span>Formulir Lengkap Pengganti / Pengurus Baru</span>
-                                        </div>
-                                        <p className="text-[10.5px] text-slate-500 mt-0.5 leading-normal">
-                                          Isi formulir lengkap (Tempat/Tanggal Lahir, Pekerjaan, Alamat, Status Asing/Pribadi, dll.) agar data pengurus pengganti tersinkronisasi sempurna dalam draf akta.
-                                        </p>
-                                      </div>
-                                      <div>
-                                        <button
-                                          type="button"
-                                          onClick={() => {
-                                            const currentDetail = item.replacedByDetail || {
-                                              id: crypto.randomUUID(),
-                                              salutation: item.replacedBySalutation || 'Tuan',
-                                              name: item.replacedByName || '',
-                                              nik: item.replacedByNik || '',
-                                              isManagement: true,
-                                              managementPosition: item.replacedByPosition || 'DIREKTUR',
-                                              sharesOwned: 0,
-                                              birthCity: '',
-                                              birthDate: '',
-                                              nationality: 'WNI',
-                                              nationalityType: 'WNI',
-                                              occupation: '',
-                                              address: { province: '', city: '', fullAddress: '', rt: '', rw: '', kelurahan: '', kecamatan: '' },
-                                              kitasType: 'NONE'
-                                            };
-                                            openShareholderEditor('pengganti', currentDetail, item.id);
-                                          }}
-                                          className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold px-3 py-2 rounded shadow-xs flex items-center gap-1.5 cursor-pointer uppercase select-none transition-colors"
-                                        >
-                                          <FileText className="w-3.5 h-3.5" /> 📝 Isi / Edit Formulir Lengkap
-                                        </button>
-                                      </div>
-                                    </div>
-
-                                    {item.replacedByDetail ? (
-                                      <div className="md:col-span-4 text-[11px] text-emerald-800 bg-emerald-50 border border-emerald-200 rounded px-2.5 py-1.5 flex items-center gap-1.5 font-medium">
-                                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                                        <span>Data detail sudah diisi: <strong>{item.replacedByDetail.birthCity || '...'}</strong>, <strong>{item.replacedByDetail.birthDate || '...'}</strong>, Pekerjaan: <strong>{item.replacedByDetail.occupation || '...'}</strong>, Alamat: <strong>{item.replacedByDetail.address?.fullAddress || '...'}</strong></span>
-                                      </div>
-                                    ) : (
-                                      <div className="md:col-span-4 text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2.5 py-1.5 flex items-center gap-1.5 font-medium animate-pulse">
-                                        <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
-                                        <span>Data detail belum lengkap. Klik tombol di atas untuk mengisi Tempat/Tanggal Lahir, Pekerjaan, Alamat, dll. agar tidak kosong di dokumen akta!</span>
-                                      </div>
-                                    )}
+                                  <div>
+                                    <AhuLabel label="Jabatan Baru Pengganti" />
+                                    <select
+                                      className="w-full text-[12px] border border-slate-300 rounded p-1.5 bg-white font-medium focus:border-indigo-500 focus:outline-none"
+                                      value={item.replacedByPosition || ''}
+                                      onChange={e => {
+                                        updateData({
+                                          managementDismissals: (data.managementDismissals || []).map(t =>
+                                            t.id === item.id ? { ...t, replacedByPosition: e.target.value as any } : t
+                                          )
+                                        });
+                                      }}
+                                    >
+                                      <option value="">Sama dengan Jabatan Lama ({item.position})</option>
+                                      <option value="DIREKTUR">DIREKTUR</option>
+                                      <option value="KOMISARIS">KOMISARIS</option>
+                                      <option value="DIREKTUR UTAMA">DIREKTUR UTAMA</option>
+                                      <option value="KOMISARIS UTAMA">KOMISARIS UTAMA</option>
+                                    </select>
                                   </div>
-                                )}
+                                </div>
                               </div>
                             </div>
                           );
@@ -6325,11 +6130,11 @@ const App: React.FC = () => {
               const presentNamesSeen = new Set<string>();
 
               data.shareholders.forEach(s => {
-                if (s.isPresent && s.name && !presentNamesSeen.has(s.name.toUpperCase().trim())) {
+                if (s.name && !presentNamesSeen.has(s.name.toUpperCase().trim())) {
                   presentNamesSeen.add(s.name.toUpperCase().trim());
                   presentAttendeesList.push({ name: s.name, nik: s.nik || '', salutation: s.salutation || 'Tuan' });
                 }
-                if (s.isPresent && s.isProxy && s.proxyData?.name && !presentNamesSeen.has(s.proxyData.name.toUpperCase().trim())) {
+                if (s.isProxy && s.proxyData?.name && !presentNamesSeen.has(s.proxyData.name.toUpperCase().trim())) {
                   presentNamesSeen.add(s.proxyData.name.toUpperCase().trim());
                   presentAttendeesList.push({ name: s.proxyData.name, nik: s.proxyData.nik || '', salutation: s.proxyData.salutation || 'Tuan' });
                 }
@@ -6465,253 +6270,40 @@ const App: React.FC = () => {
                               </div>
                             </div>
 
-                            {/* TO (Peralihan Saham Kepada - Pemilik Saham Lama / Undangan Rapat / Input Baru) */}
+                            {/* TO (Peralihan Saham Kepada) */}
                             <div className="p-4 bg-blue-50/50 rounded border border-blue-100/50 space-y-4 mt-2">
                               <div className="text-[12px] font-bold text-slate-700 uppercase flex flex-col md:flex-row md:items-center justify-between gap-2 pb-2 border-b border-blue-100/50">
                                 <span className="flex items-center gap-1"><ArrowRightLeft className="w-3.5 h-3.5 text-blue-600" /> Peralihan Saham Kepada</span>
-                                <div className="flex flex-wrap gap-3 mt-1 md:mt-0">
-                                  <label className="flex items-center gap-1.5 cursor-pointer text-slate-600 normal-case font-medium text-[11px]">
-                                    <input
-                                      type="radio"
-                                      name={`transfer-to-type-${item.id}`}
-                                      checked={(item.toType || 'EXISTING') === 'EXISTING'}
-                                      onChange={() => {
-                                        updateData({
-                                          shareTransfersNew: (data.shareTransfersNew || []).map(t =>
-                                            t.id === item.id ? { ...t, toType: 'EXISTING', toName: '', toNik: '', toDetail: undefined } : t
-                                          )
-                                        });
-                                      }}
-                                    />
-                                    <span>Pemilik Saham Lama</span>
-                                  </label>
-                                  <label className="flex items-center gap-1.5 cursor-pointer text-slate-600 normal-case font-medium text-[11px]">
-                                    <input
-                                      type="radio"
-                                      name={`transfer-to-type-${item.id}`}
-                                      checked={(item.toType || 'EXISTING') === 'PRESENT'}
-                                      onChange={() => {
-                                        updateData({
-                                          shareTransfersNew: (data.shareTransfersNew || []).map(t =>
-                                            t.id === item.id ? { ...t, toType: 'PRESENT', toName: '', toNik: '', toDetail: undefined } : t
-                                          )
-                                        });
-                                      }}
-                                    />
-                                    <span>Undangan Rapat / Hadir Rapat</span>
-                                  </label>
-                                  <label className="flex items-center gap-1.5 cursor-pointer text-slate-600 normal-case font-medium text-[11px]">
-                                    <input
-                                      type="radio"
-                                      name={`transfer-to-type-${item.id}`}
-                                      checked={(item.toType || 'EXISTING') === 'NEW'}
-                                      onChange={() => {
-                                        updateData({
-                                          shareTransfersNew: (data.shareTransfersNew || []).map(t =>
-                                            t.id === item.id ? { ...t, toType: 'NEW', toName: '', toNik: '', toDetail: undefined } : t
-                                          )
-                                        });
-                                      }}
-                                    />
-                                    <span>Input Baru (Detail)</span>
-                                  </label>
-                                </div>
                               </div>
 
-                              {/* RENDER KEPADA INPUT FIELD ACCORDING TO toType */}
-                              {item.toType === 'EXISTING' && (
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                  <div>
-                                    <AhuLabel label="Pilih Penerima dari Pemegang Saham Lama" required />
-                                    <select
-                                      className="w-full text-[12px] border border-slate-300 rounded p-1.5 bg-white font-medium focus:border-indigo-500 focus:outline-none uppercase"
-                                      value={item.toName || ''}
-                                      onChange={e => {
-                                        const selName = e.target.value;
-                                        updateData({
-                                          shareTransfersNew: (data.shareTransfersNew || []).map(t =>
-                                            t.id === item.id ? { ...t, toName: selName } : t
-                                          )
-                                        });
-                                      }}
-                                    >
-                                      <option value="">-- PILIH PEMILIK SAHAM LAMA --</option>
-                                      {(data.shareholders || []).map(sh => (
-                                        <option key={sh.id} value={sh.name}>{sh.name?.toUpperCase()}</option>
-                                      ))}
-                                    </select>
-                                  </div>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                  <AhuLabel label="Pilih Penerima dari Para Pihak" required />
+                                  <select
+                                    className="w-full text-[12px] border border-slate-300 rounded p-1.5 bg-white font-medium focus:border-indigo-500 focus:outline-none uppercase"
+                                    value={item.toName || ''}
+                                    onChange={e => {
+                                      const selName = e.target.value;
+                                      const found = presentAttendeesList.find(p => p.name === selName);
+                                      updateData({
+                                        shareTransfersNew: (data.shareTransfersNew || []).map(t =>
+                                          t.id === item.id ? {
+                                            ...t,
+                                            toName: selName,
+                                            toSalutation: found ? found.salutation : 'Tuan',
+                                            toNik: found ? found.nik : ''
+                                          } : t
+                                        )
+                                      });
+                                    }}
+                                  >
+                                    <option value="">-- PILIH ORANG DARI PARA PIHAK --</option>
+                                    {presentAttendeesList.map((p, pIdx) => (
+                                      <option key={`${p.name}-${pIdx}`} value={p.name}>{p.name?.toUpperCase()}</option>
+                                    ))}
+                                  </select>
                                 </div>
-                              )}
-
-                              {item.toType === 'PRESENT' && (
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                  <div>
-                                    <AhuLabel label="Pilih Penerima dari Undangan Rapat / Hadir Rapat" required />
-                                    <select
-                                      className="w-full text-[12px] border border-slate-300 rounded p-1.5 bg-white font-medium focus:border-indigo-500 focus:outline-none uppercase"
-                                      value={item.toName || ''}
-                                      onChange={e => {
-                                        const selName = e.target.value;
-                                        const found = presentAttendeesList.find(p => p.name === selName);
-                                        updateData({
-                                          shareTransfersNew: (data.shareTransfersNew || []).map(t =>
-                                            t.id === item.id ? {
-                                              ...t,
-                                              toName: selName,
-                                              toSalutation: found ? found.salutation : 'Tuan',
-                                              toNik: found ? found.nik : ''
-                                            } : t
-                                          )
-                                        });
-                                      }}
-                                    >
-                                      <option value="">-- PILIH ORANG HADIR RAPAT --</option>
-                                      {presentAttendeesList.map((p, pIdx) => (
-                                        <option key={`${p.name}-${pIdx}`} value={p.name}>{p.name?.toUpperCase()}</option>
-                                      ))}
-                                    </select>
-                                  </div>
-                                </div>
-                              )}
-
-                              {item.toType === 'NEW' && (
-                                <div className="space-y-4">
-                                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                    <div>
-                                      <AhuLabel label="Panggilan" required />
-                                      <select
-                                        className="w-full text-[12px] border border-slate-300 rounded p-1.5 bg-white font-medium focus:border-indigo-500 focus:outline-none"
-                                        value={item.toSalutation || 'Tuan'}
-                                        onChange={e => {
-                                          const sal = e.target.value as any;
-                                          updateData({
-                                            shareTransfersNew: (data.shareTransfersNew || []).map(t =>
-                                              t.id === item.id ? {
-                                                ...t,
-                                                toSalutation: sal,
-                                                toDetail: t.toDetail ? { ...t.toDetail, salutation: sal } : undefined
-                                              } : t
-                                            )
-                                          });
-                                        }}
-                                      >
-                                        <option value="Tuan font-semibold">Tuan</option>
-                                        <option value="Nyonya font-semibold">Nyonya</option>
-                                        <option value="Nona font-semibold">Nona</option>
-                                      </select>
-                                    </div>
-
-                                    <div>
-                                      <AhuLabel label="Nama Lengkap Penerima Baru" required />
-                                      <input
-                                        type="text"
-                                        readOnly
-                                        placeholder="Klik untuk mengisi formulir lengkap..."
-                                        className="w-full text-[12px] border border-slate-300 rounded p-1.5 bg-slate-100 cursor-pointer text-emerald-900 font-extrabold focus:outline-none uppercase"
-                                        value={item.toName || ''}
-                                        onClick={() => {
-                                          const currentDetail = item.toDetail || {
-                                            id: crypto.randomUUID(),
-                                            salutation: item.toSalutation || 'Tuan',
-                                            name: item.toName || '',
-                                            nik: item.toNik || '',
-                                            isManagement: false,
-                                            sharesOwned: 0,
-                                            birthCity: '',
-                                            birthDate: '',
-                                            nationality: 'WNI',
-                                            nationalityType: 'WNI',
-                                            occupation: '',
-                                            address: { province: '', city: '', fullAddress: '', rt: '', rw: '', kelurahan: '', kecamatan: '' },
-                                            kitasType: 'NONE'
-                                          };
-                                          openShareholderEditor('pengganti_saham', currentDetail, item.id);
-                                        }}
-                                      />
-                                    </div>
-
-                                    <div>
-                                      <AhuLabel label="NIK Penerima Baru" required />
-                                      <input
-                                        type="text"
-                                        readOnly
-                                        placeholder="Klik untuk mengisi NIK..."
-                                        className="w-full text-[12px] border border-slate-300 rounded p-1.5 bg-slate-100 cursor-pointer text-emerald-900 font-extrabold focus:outline-none font-mono"
-                                        value={item.toNik || ''}
-                                        onClick={() => {
-                                          const currentDetail = item.toDetail || {
-                                            id: crypto.randomUUID(),
-                                            salutation: item.toSalutation || 'Tuan',
-                                            name: item.toName || '',
-                                            nik: item.toNik || '',
-                                            isManagement: false,
-                                            sharesOwned: 0,
-                                            birthCity: '',
-                                            birthDate: '',
-                                            nationality: 'WNI',
-                                            nationalityType: 'WNI',
-                                            occupation: '',
-                                            address: { province: '', city: '', fullAddress: '', rt: '', rw: '', kelurahan: '', kecamatan: '' },
-                                            kitasType: 'NONE'
-                                          };
-                                          openShareholderEditor('pengganti_saham', currentDetail, item.id);
-                                        }}
-                                      />
-                                    </div>
-                                  </div>
-
-                                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-3 bg-emerald-50 rounded border border-emerald-200 mt-2">
-                                    <div className="space-y-0.5">
-                                      <div className="text-[11px] font-bold text-emerald-800 uppercase flex items-center gap-1">
-                                        <UserCheck className="w-3.5 h-3.5 text-emerald-600" />
-                                        <span>Formulir Lengkap Penerima Baru</span>
-                                      </div>
-                                      <p className="text-[10.5px] text-slate-500 leading-normal">
-                                        Lengkapi data detail biodata (Tempat/Tanggal Lahir, Alamat, Pekerjaan, dll.) agar tercetak lengkap dan tanpa "....." di dokumen RUPS.
-                                      </p>
-                                    </div>
-                                    <div>
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          const currentDetail = item.toDetail || {
-                                            id: crypto.randomUUID(),
-                                            salutation: item.toSalutation || 'Tuan',
-                                            name: item.toName || '',
-                                            nik: item.toNik || '',
-                                            isManagement: false,
-                                            sharesOwned: 0,
-                                            birthCity: '',
-                                            birthDate: '',
-                                            nationality: 'WNI',
-                                            nationalityType: 'WNI',
-                                            occupation: '',
-                                            address: { province: '', city: '', fullAddress: '', rt: '', rw: '', kelurahan: '', kecamatan: '' },
-                                            kitasType: 'NONE'
-                                          };
-                                          openShareholderEditor('pengganti_saham', currentDetail, item.id);
-                                        }}
-                                        className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold px-3 py-2 rounded shadow-xs flex items-center gap-1.5 cursor-pointer uppercase select-none transition-colors"
-                                      >
-                                        <FileText className="w-3.5 h-3.5" /> 📝 Isi / Edit Formulir Lengkap
-                                      </button>
-                                    </div>
-                                  </div>
-
-                                  {item.toDetail ? (
-                                    <div className="text-[11px] text-emerald-800 bg-emerald-50 border border-emerald-200 rounded px-2.5 py-1.5 flex items-center gap-1.5 font-medium">
-                                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                                      <span>Data detail sudah diisi: <strong>{item.toDetail.birthCity || '...'}</strong>, <strong>{item.toDetail.birthDate || '...'}</strong>, Pekerjaan: <strong>{item.toDetail.occupation || '...'}</strong>, Alamat: <strong>{item.toDetail.address?.fullAddress || '...'}</strong></span>
-                                    </div>
-                                  ) : (
-                                    <div className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2.5 py-1.5 flex items-center gap-1.5 font-medium animate-pulse">
-                                      <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
-                                      <span>Data detail belum lengkap. Silakan klik tombol di atas untuk mengisi Tempat/Tanggal Lahir, Alamat, Pekerjaan agar tidak kosong di dokumen akta!</span>
-                                    </div>
-                                  )}
-                                </div>
-                              )}
+                              </div>
                             </div>
                           </div>
                         ))}
@@ -6723,72 +6315,90 @@ const App: React.FC = () => {
             })()}
 
             {/* DETAIL PENINGKATAN MODAL (SUBSCRIPTION/SAHAM DIAMBIL OLEH) */}
-            {data.resolutions.capitalPaid && (
-              <AhuSection title="DATA PENINGKATAN MODAL / PENGAMBILAN SAHAM BARU">
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center mb-4">
-                    <div>
-                      <h4 className="text-[13px] font-bold text-[#3b5998] uppercase flex items-center gap-1.5">
-                        <TrendingUp className="w-4 h-4 text-[#3b5998]" /> Form Pengambilan Saham Yang Diambil Oleh Siapa
-                      </h4>
-                      <p className="text-[11px] text-slate-500 mt-1">
-                        Pilih nama pemegang saham yang mengambil/menyerap bagian modal peningkatan saham baru serta jumlah saham yang diambil.
-                      </p>
+            {data.resolutions.capitalPaid && (() => {
+              const presentAttendeesList: { name: string; nik?: string; salutation?: 'Tuan' | 'Nyonya' | 'Nona' }[] = [];
+              const presentNamesSeen = new Set<string>();
+
+              data.shareholders.forEach(s => {
+                if (s.name && !presentNamesSeen.has(s.name.toUpperCase().trim())) {
+                  presentNamesSeen.add(s.name.toUpperCase().trim());
+                  presentAttendeesList.push({ name: s.name, nik: s.nik || '', salutation: s.salutation || 'Tuan' });
+                }
+                if (s.isProxy && s.proxyData?.name && !presentNamesSeen.has(s.proxyData.name.toUpperCase().trim())) {
+                  presentNamesSeen.add(s.proxyData.name.toUpperCase().trim());
+                  presentAttendeesList.push({ name: s.proxyData.name, nik: s.proxyData.nik || '', salutation: s.proxyData.salutation || 'Tuan' });
+                }
+              });
+
+              (data.guests || []).forEach(g => {
+                if (g.name && !presentNamesSeen.has(g.name.toUpperCase().trim())) {
+                  presentNamesSeen.add(g.name.toUpperCase().trim());
+                  presentAttendeesList.push({ name: g.name, nik: g.nik || '', salutation: g.salutation || 'Tuan' });
+                }
+              });
+
+              return (
+                <AhuSection title="DATA PENINGKATAN MODAL / PENGAMBILAN SAHAM BARU">
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center mb-4">
+                      <div>
+                        <h4 className="text-[13px] font-bold text-[#3b5998] uppercase flex items-center gap-1.5">
+                          <TrendingUp className="w-4 h-4 text-[#3b5998]" /> Form Pengambilan Saham Yang Diambil Oleh Siapa
+                        </h4>
+                        <p className="text-[11px] text-slate-500 mt-1">
+                          Pilih nama pemegang saham yang mengambil/menyerap bagian modal peningkatan saham baru serta jumlah saham yang diambil.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const id = Math.random().toString(36).substring(2);
+                          const item = {
+                            id,
+                            subscriberName: '',
+                            sharesCount: 0,
+                          };
+                          updateData({
+                            capitalSubscriptionsNew: [...(data.capitalSubscriptionsNew || []), item]
+                          });
+                        }}
+                        className="text-[11px] bg-[#3b5998] text-white px-3 py-1.5 rounded hover:bg-slate-900 transition-colors font-bold shadow-sm uppercase flex items-center gap-1.5"
+                      >
+                        <Plus className="w-3.5 h-3.5" /> Tambah Pengambil Saham
+                      </button>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const id = Math.random().toString(36).substring(2);
-                        const item = {
-                          id,
-                          subscriberName: '',
-                          sharesCount: 0,
-                        };
-                        updateData({
-                          capitalSubscriptionsNew: [...(data.capitalSubscriptionsNew || []), item]
-                        });
-                      }}
-                      className="text-[11px] bg-[#3b5998] text-white px-3 py-1.5 rounded hover:bg-slate-900 transition-colors font-bold shadow-sm uppercase flex items-center gap-1.5"
-                    >
-                      <Plus className="w-3.5 h-3.5" /> Tambah Pengambil Saham
-                    </button>
-                  </div>
 
-                  {(data.capitalSubscriptionsNew || []).length === 0 ? (
-                    <div className="text-center py-8 border border-dashed border-slate-200 rounded text-slate-500 text-[12px] bg-slate-50">
-                      Belum ada data pengambilan saham baru. Silakan klik "Tambah Pengambil Saham" untuk menampilkan form peningkatan modal.
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      {(data.capitalSubscriptionsNew || []).map((item, idx) => (
-                        <div key={item.id} className="p-4 border border-slate-200 rounded bg-[#fcfcfc] shadow-xs relative space-y-4">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              updateData({
-                                capitalSubscriptionsNew: (data.capitalSubscriptionsNew || []).filter(c => c.id !== item.id)
-                              });
-                            }}
-                            className="absolute top-3 right-3 text-red-500 hover:text-red-700 p-1"
-                            title="Hapus"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                    {(data.capitalSubscriptionsNew || []).length === 0 ? (
+                      <div className="text-center py-8 border border-dashed border-slate-200 rounded text-slate-500 text-[12px] bg-slate-50">
+                        Belum ada data pengambilan saham baru. Silakan klik "Tambah Pengambil Saham" untuk menampilkan form peningkatan modal.
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {(data.capitalSubscriptionsNew || []).map((item, idx) => (
+                          <div key={item.id} className="p-4 border border-slate-200 rounded bg-[#fcfcfc] shadow-xs relative space-y-4">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                updateData({
+                                  capitalSubscriptionsNew: (data.capitalSubscriptionsNew || []).filter(c => c.id !== item.id)
+                                });
+                              }}
+                              className="absolute top-3 right-3 text-red-500 hover:text-red-700 p-1"
+                              title="Hapus"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
 
-                          <div className="text-[12px] font-bold text-[#3b5998] border-b border-slate-200 pb-1 flex items-center gap-1.5">
-                            <span>PENGAMBILAN SAHAM BARU #{idx + 1}</span>
-                          </div>
+                            <div className="text-[12px] font-bold text-[#3b5998] border-b border-slate-200 pb-1 flex items-center gap-1.5">
+                              <span>PENGAMBILAN SAHAM BARU #{idx + 1}</span>
+                            </div>
 
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                              <AhuLabel label="Saham Diambil Oleh (Pilih Nama)" required />
-                              <div className="relative">
-                                <input
-                                  type="text"
-                                  list={`subscription-names-${item.id}`}
-                                  placeholder="Ketik atau pilih nama pengambil saham baru..."
-                                  className="w-full text-[12px] border border-slate-300 rounded p-1.5 bg-white font-medium focus:border-sky-500 focus:outline-none uppercase"
-                                  value={item.subscriberName}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div>
+                                <AhuLabel label="Saham Diambil Oleh (Pilih dari Para Pihak)" required />
+                                <select
+                                  className="w-full text-[12px] border border-slate-300 rounded p-1.5 bg-white font-medium focus:border-indigo-500 focus:outline-none uppercase"
+                                  value={item.subscriberName || ''}
                                   onChange={e => {
                                     updateData({
                                       capitalSubscriptionsNew: (data.capitalSubscriptionsNew || []).map(c =>
@@ -6796,39 +6406,41 @@ const App: React.FC = () => {
                                       )
                                     });
                                   }}
-                                />
-                                <datalist id={`subscription-names-${item.id}`}>
-                                  {getDeduplicatedNames().map(n => (
-                                    <option key={n} value={n} />
+                                >
+                                  <option value="">-- PILIH ORANG DARI PARA PIHAK --</option>
+                                  {presentAttendeesList.map((p, pIdx) => (
+                                    <option key={`${p.name}-${pIdx}`} value={p.name}>
+                                      {p.salutation || 'Tuan'} {p.name?.toUpperCase()} {p.nik ? `(NIK: ${p.nik})` : ''}
+                                    </option>
                                   ))}
-                                </datalist>
+                                </select>
+                              </div>
+
+                              <div>
+                                <AhuLabel label="Jumlah Saham Diambil (Lembar)" required />
+                                <AhuInput
+                                  type="text"
+                                  placeholder="Masukkan jumlah saham..."
+                                  value={item.sharesCount === 0 ? '' : formatInputNumber(item.sharesCount)}
+                                  onChange={e => {
+                                    const parsedVal = parseFormattedNumber(e.target.value);
+                                    updateData({
+                                      capitalSubscriptionsNew: (data.capitalSubscriptionsNew || []).map(c =>
+                                        c.id === item.id ? { ...c, sharesCount: parsedVal } : c
+                                      )
+                                    });
+                                  }}
+                                />
                               </div>
                             </div>
-
-                            <div>
-                              <AhuLabel label="Jumlah Saham Diambil (Lembar)" required />
-                              <AhuInput
-                                type="text"
-                                placeholder="Masukkan jumlah saham..."
-                                value={item.sharesCount === 0 ? '' : formatInputNumber(item.sharesCount)}
-                                onChange={e => {
-                                  const parsedVal = parseFormattedNumber(e.target.value);
-                                  updateData({
-                                    capitalSubscriptionsNew: (data.capitalSubscriptionsNew || []).map(c =>
-                                      c.id === item.id ? { ...c, sharesCount: parsedVal } : c
-                                    )
-                                  });
-                                }}
-                              />
-                            </div>
                           </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </AhuSection>
-            )}
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </AhuSection>
+              );
+            })()}
 
 
 
@@ -6839,11 +6451,11 @@ const App: React.FC = () => {
               
               if (!hasCapitalChange && !hasShareholderChange) return null;
               
-              let title = "PENGURUS DAN PEMEGANG SAHAM BARU *";
+              let title = "Data calon Pemegang saham/Direksi/Komisaris *";
               if (hasCapitalChange && !hasShareholderChange) {
                 title = "PEMEGANG SAHAM SETELAH PERUBAHAN MODAL *";
               } else if (hasCapitalChange && hasShareholderChange) {
-                title = "PENGURUS DAN PEMEGANG SAHAM BARU / SETELAH PERUBAHAN MODAL *";
+                title = "Data calon Pemegang saham/Direksi/Komisaris / SETELAH PERUBAHAN MODAL *";
               }
 
               return (
@@ -6857,21 +6469,13 @@ const App: React.FC = () => {
                         <thead className="bg-[#f9f9f9] border-b border-slate-200 font-bold uppercase">
                           <tr>
                             <th className="p-2 border-r border-slate-200">Nama</th>
-                            <th className="p-2 border-r border-slate-200">Klasifikasi Saham</th>
-                            <th className="p-2 border-r border-slate-200">Jumlah Lembar Saham</th>
-                            <th className="p-2 border-r border-slate-200">Jabatan</th>
-                            <th className="p-2 border-r border-slate-200">Total</th>
-                            <th className="p-2 text-center">Aksi</th>
+                            <th className="p-2 border-r border-slate-200 text-center">Aksi</th>
                           </tr>
                         </thead>
                         <tbody>
                           {data.finalShareholders.map((s) => (
                             <tr key={s.id} className="border-b border-slate-200 last:border-0 hover:bg-slate-50 transition-colors text-[10px]">
                               <td className="p-2 border-r border-slate-200 font-bold uppercase">{s.name}</td>
-                              <td className="p-2 border-r border-slate-200">Tanpa Klasifikasi</td>
-                              <td className="p-2 border-r border-slate-200">{formatInputNumber(s.sharesOwned)}</td>
-                              <td className="p-2 border-r border-slate-200 font-bold uppercase">{s.isManagement ? (s.managementPosition || 'DIREKTUR') : '-'}</td>
-                              <td className="p-2 border-r border-slate-200">Rp. {formatInputNumber(s.sharesOwned * data.originalSharePrice)}</td>
                               <td className="p-2 text-center text-blue-600 flex items-center justify-center gap-2">
                                 <button onClick={() => openShareholderEditor('baru', s)} className="hover:underline flex items-center gap-0.5"><Eye className="w-3 h-3" /> Edit</button>
                                 <span className="text-slate-300">|</span>
@@ -6881,20 +6485,11 @@ const App: React.FC = () => {
                           ))}
                           {data.finalShareholders.length === 0 && (
                             <tr>
-                              <td colSpan={6} className="p-4 text-center text-slate-400 italic">Belum ada data pengurus/pemegang saham baru.</td>
+                              <td colSpan={2} className="p-4 text-center text-slate-400 italic">Belum ada data pengurus/pemegang saham baru.</td>
                             </tr>
                           )}
                         </tbody>
                       </table>
-                    </div>
-                    <div className="text-[13px] font-bold text-slate-800 space-y-1 uppercase">
-                      <div>TOTAL LEMBAR SAHAM {formatInputNumber(data.finalShareholders.reduce((sum, s) => sum + s.sharesOwned, 0))}</div>
-                      <div>TOTAL MODAL DITEMPATKAN DAN DISETOR Rp {formatInputNumber(data.finalShareholders.reduce((sum, s) => sum + s.sharesOwned, 0) * data.originalSharePrice)}</div>
-                      {data.finalShareholders.reduce((sum, s) => sum + s.sharesOwned, 0) < (data.resolutions.capitalPaid || data.resolutions.capitalPaidDecrease ? currentTargetSharesPaid : data.originalTotalShares) && (
-                        <div className="text-red-500 font-normal text-xs normal-case mt-1 bg-red-50 p-2 rounded border border-red-100">
-                          * Total lembar saham ({formatInputNumber(data.finalShareholders.reduce((sum, s) => sum + s.sharesOwned, 0))}) kurang dari Modal Disetor {(data.resolutions.capitalPaid || data.resolutions.capitalPaidDecrease) ? 'Baru' : 'Lama'} ({formatInputNumber(data.resolutions.capitalPaid || data.resolutions.capitalPaidDecrease ? currentTargetSharesPaid : data.originalTotalShares)} lembar)
-                        </div>
-                      )}
                     </div>
                 </div>
               </AhuSection>
@@ -10042,7 +9637,9 @@ const App: React.FC = () => {
                 hasTransferAgenda={(editMode === 'pengganti' || editMode === 'pengganti_saham') ? false : data.resolutions.shareholders}
                 hasManagementAgenda={(editMode === 'pengganti' || editMode === 'pengganti_saham') ? true : data.resolutions.management}
                 hasCapitalChange={(editMode === 'pengganti' || editMode === 'pengganti_saham') ? false : (data.resolutions.capitalBase || data.resolutions.capitalPaid || data.resolutions.capitalBaseDecrease || data.resolutions.capitalPaidDecrease)}
-                hideFinancials={editMode === 'pengganti' || editMode === 'pengganti_saham'}
+                hideFinancials={editMode === 'pengganti' || editMode === 'pengganti_saham' || editMode === 'baru'}
+                hideManagement={editMode === 'baru'}
+                availableParties={(editMode === 'pengganti' || editMode === 'pengganti_saham' || editMode === 'baru') ? data.shareholders : undefined}
                 profiles={profiles}
               />
             </div>

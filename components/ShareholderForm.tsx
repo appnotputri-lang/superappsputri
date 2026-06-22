@@ -21,6 +21,7 @@ interface Props {
   hasManagementAgenda?: boolean;
   hasCapitalChange?: boolean;
   profiles?: CompanyProfile[];
+  availableParties?: Shareholder[];
 }
 
 const ShareholderForm: React.FC<Props> = ({ 
@@ -38,7 +39,8 @@ const ShareholderForm: React.FC<Props> = ({
   hasTransferAgenda = false,
   hasManagementAgenda = false,
   hasCapitalChange = false,
-  profiles = []
+  profiles = [],
+  availableParties
 }) => {
   const [showLookup, setShowLookup] = React.useState(false);
   const [searchStatus, setSearchStatus] = React.useState('');
@@ -226,8 +228,37 @@ const ShareholderForm: React.FC<Props> = ({
 
   return (
     <div className="space-y-4">
-      {/* Quick Lookup Button */}
-      {existingData.length > 0 && (
+      {availableParties ? (
+        <div>
+          <label className="block text-xs font-bold text-slate-700 mb-1">Pilih dari Daftar Hadir <span className="text-red-500">*</span></label>
+          <select
+            value={shareholder.name || ''}
+            onChange={e => {
+              const selected = availableParties.find(p => p.name === e.target.value);
+              if (selected) {
+                const copy = { ...selected };
+                delete copy.isManagement;
+                delete copy.managementPosition;
+                delete copy.sharesOwned;
+                delete copy.id;
+                delete copy.isAcquisition;
+                onChange({ ...copy, name: selected.name?.toUpperCase() });
+              } else {
+                onChange({ name: e.target.value });
+              }
+            }}
+            className="w-full px-3 py-2 border border-slate-300 rounded text-sm bg-white outline-none focus:border-teal-500 font-bold uppercase transition-colors hover:border-teal-400 focus:ring-2 focus:ring-teal-100"
+          >
+            <option value="">-- Pilih Nama --</option>
+            {availableParties.map(p => (
+              <option key={p.id || p.name} value={p.name}>{p.name} {p.shareholderType === 'BADAN_HUKUM' ? '(BADAN HUKUM)' : ''}</option>
+            ))}
+          </select>
+        </div>
+      ) : (
+        <>
+          {/* Quick Lookup Button */}
+          {existingData.length > 0 && (
         <div className="relative mb-4">
           <button 
             type="button"
@@ -998,43 +1029,47 @@ const ShareholderForm: React.FC<Props> = ({
           )
         )}
       </div>
+      </>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
-        <div>
-          <label className="block text-xs font-bold text-slate-700 mb-2">Sebagai <span className="text-red-500">*</span></label>
-          <div className="space-y-3 pl-2">
-            {!hideFinancials && (
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input 
-                  type="checkbox" 
-                  disabled={disableFinancials}
-                  checked={disableFinancials ? false : (shareholder.sharesOwned > 0)} 
-                  onChange={e => {
-                    if (!e.target.checked) {
-                      onChange({ sharesOwned: 0 });
-                    } else if (shareholder.sharesOwned <= 0) {
-                      onChange({ sharesOwned: 1 });
-                    }
-                  }}
-                  className="rounded border-slate-300 text-teal-500 focus:ring-teal-500 disabled:opacity-50"
-                />
-                <span className={`text-sm ${disableFinancials ? 'text-slate-400' : 'text-slate-700'}`}>Pemegang Saham</span>
-              </label>
-            )}
-            {!hideManagement && (
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input 
-                  type="checkbox" 
-                  disabled={disableManagement}
-                  checked={shareholder.isManagement || false}
-                  onChange={e => onChange({ isManagement: e.target.checked, managementPosition: e.target.checked ? (shareholder.managementPosition || 'Direktur') : undefined })}
-                  className="rounded border-slate-300 text-teal-500 focus:ring-teal-500 disabled:opacity-50"
-                />
-                <span className={`text-sm ${disableManagement ? 'text-slate-400' : 'text-slate-700'}`}>Direksi/Komisaris</span>
-              </label>
-            )}
+        {(!hideFinancials || !hideManagement) && (
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-2">Sebagai <span className="text-red-500">*</span></label>
+            <div className="space-y-3 pl-2">
+              {!hideFinancials && (
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input 
+                    type="checkbox" 
+                    disabled={disableFinancials}
+                    checked={disableFinancials ? false : (shareholder.sharesOwned > 0)} 
+                    onChange={e => {
+                      if (!e.target.checked) {
+                        onChange({ sharesOwned: 0 });
+                      } else if (shareholder.sharesOwned <= 0) {
+                        onChange({ sharesOwned: 1 });
+                      }
+                    }}
+                    className="rounded border-slate-300 text-teal-500 focus:ring-teal-500 disabled:opacity-50"
+                  />
+                  <span className={`text-sm ${disableFinancials ? 'text-slate-400' : 'text-slate-700'}`}>Pemegang Saham</span>
+                </label>
+              )}
+              {!hideManagement && (
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input 
+                    type="checkbox" 
+                    disabled={disableManagement}
+                    checked={shareholder.isManagement || false}
+                    onChange={e => onChange({ isManagement: e.target.checked, managementPosition: e.target.checked ? (shareholder.managementPosition || 'Direktur') : undefined })}
+                    className="rounded border-slate-300 text-teal-500 focus:ring-teal-500 disabled:opacity-50"
+                  />
+                  <span className={`text-sm ${disableManagement ? 'text-slate-400' : 'text-slate-700'}`}>Direksi/Komisaris</span>
+                </label>
+              )}
+            </div>
           </div>
-        </div>
+        )}
 
         <div className="space-y-4">
           {!hideFinancials && (shareholder.sharesOwned > 0 || disableFinancials) && (
