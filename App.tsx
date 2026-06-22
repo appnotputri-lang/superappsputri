@@ -1485,61 +1485,147 @@ const App: React.FC = () => {
   };
 
   // Synchronize new shareholders initially if completely empty
-  // Also calculate final composition automatically when share transfers are filled
+  // Also calculate final composition automatically when share transfers or capital subscriptions are filled
   useEffect(() => {
-    if (data.resolutions.shareholders && data.shareTransfersNew && data.shareTransfersNew.length > 0) {
-      const transfersNew = data.shareTransfersNew || [];
-      
-      // Calculate final shareholders list based on transfers
+    const hasShareholderChange = !!data.resolutions.shareholders;
+    const hasCapitalChange = !!(data.resolutions.capitalPaid || data.resolutions.capitalPaidDecrease);
+
+    if (hasShareholderChange || hasCapitalChange) {
+      // Start with original shareholders
       const calculated: Shareholder[] = data.shareholders.map(s => ({
         ...s,
-        sharesOwned: s.sharesOwned
+        sharesOwned: s.sharesOwned,
+        isNewDeposit: false,
+        newDepositShares: 0
       }));
 
-      transfersNew.forEach(t => {
-        if (!t.fromName || !t.toName || t.sharesTransferred <= 0) return;
+      // Apply share transfers if any
+      if (hasShareholderChange && data.shareTransfersNew && data.shareTransfersNew.length > 0) {
+        data.shareTransfersNew.forEach(t => {
+          if (!t.fromName || !t.toName || t.sharesTransferred <= 0) return;
 
-        // Deduct from sender
-        const sender = calculated.find(s => s.name?.toUpperCase().trim() === t.fromName.toUpperCase().trim());
-        if (sender) {
-          sender.sharesOwned = Math.max(0, sender.sharesOwned - t.sharesTransferred);
-        }
-
-        // Add to recipient
-        const recipientNameUpper = t.toName.toUpperCase().trim();
-        const recipient = calculated.find(s => s.name?.toUpperCase().trim() === recipientNameUpper);
-        if (recipient) {
-          recipient.sharesOwned += t.sharesTransferred;
-        } else {
-          let newSh: Shareholder;
-          if (t.toType === 'NEW' && t.toDetail) {
-            newSh = {
-              ...t.toDetail,
-              sharesOwned: t.sharesTransferred
-            };
-          } else {
-            newSh = {
-              id: t.id + '-to',
-              name: t.toName,
-              nik: t.toNik || '',
-              salutation: t.toSalutation || 'Tuan',
-              sharesOwned: t.sharesTransferred,
-              isManagement: false,
-              birthCity: '',
-              birthDate: '',
-              nationality: 'WNI',
-              nationalityType: 'WNI',
-              occupation: '',
-              address: { province: '', city: '', fullAddress: '', rt: '', rw: '', kelurahan: '', kecamatan: '' }
-            };
+          // Deduct from sender
+          const sender = calculated.find(s => s.name?.toUpperCase().trim() === t.fromName.toUpperCase().trim());
+          if (sender) {
+            sender.sharesOwned = Math.max(0, sender.sharesOwned - t.sharesTransferred);
           }
-          calculated.push(newSh);
-        }
-      });
+
+          // Add to recipient
+          const recipientNameUpper = t.toName.toUpperCase().trim();
+          const recipient = calculated.find(s => s.name?.toUpperCase().trim() === recipientNameUpper);
+          if (recipient) {
+            recipient.sharesOwned += t.sharesTransferred;
+          } else {
+            let newSh: Shareholder;
+            if (t.toType === 'NEW' && t.toDetail) {
+              newSh = {
+                ...t.toDetail,
+                sharesOwned: t.sharesTransferred
+              };
+            } else {
+              newSh = {
+                id: t.id + '-to',
+                name: t.toName,
+                nik: t.toNik || '',
+                salutation: t.toSalutation || 'Tuan',
+                sharesOwned: t.sharesTransferred,
+                isManagement: false,
+                birthCity: '',
+                birthDate: '',
+                nationality: 'WNI',
+                nationalityType: 'WNI',
+                occupation: '',
+                address: { province: '', city: '', fullAddress: '', rt: '', rw: '', kelurahan: '', kecamatan: '' }
+              };
+            }
+            calculated.push(newSh);
+          }
+        });
+      }
+
+      // Apply capital subscriptions if any
+      if (hasCapitalChange && data.capitalSubscriptionsNew && data.capitalSubscriptionsNew.length > 0) {
+        // Implement finding person details by name
+        const findPersonDetailsByName = (name: string): any => {
+          if (!name) return null;
+          const targetName = name.trim().toUpperCase();
+
+          const fromSh = (data.shareholders || []).find((s: any) => s.name && s.name.trim().toUpperCase() === targetName);
+          if (fromSh && (fromSh.birthCity || fromSh.nik || fromSh.address?.fullAddress)) {
+            return fromSh;
+          }
+
+          const fromGuest = (data.guests || []).find((g: any) => g.name && g.name.trim().toUpperCase() === targetName);
+          if (fromGuest && (fromGuest.birthCity || fromGuest.nik || fromGuest.address?.fullAddress)) {
+            return fromGuest;
+          }
+
+          if (data.shareTransfersNew) {
+            for (const t of data.shareTransfersNew) {
+              if (t.toName && t.toName.trim().toUpperCase() === targetName && t.toDetail) {
+                return t.toDetail;
+              }
+            }
+          }
+
+          if (data.managementDismissals) {
+            for (const d of data.managementDismissals) {
+              if (d.replacedByName && d.replacedByName.trim().toUpperCase() === targetName && d.replacedByDetail) {
+                return d.replacedByDetail;
+              }
+            }
+          }
+
+          if (fromSh) return fromSh;
+          return null;
+        };
+
+        data.capitalSubscriptionsNew.forEach(item => {
+          if (!item.subscriberName || item.sharesCount <= 0) return;
+          const nameUpper = item.subscriberName.toUpperCase().trim();
+          const existing = calculated.find(s => s.name?.toUpperCase().trim() === nameUpper);
+
+          if (existing) {
+            existing.sharesOwned += item.sharesCount;
+            existing.isNewDeposit = true;
+            existing.newDepositShares = (existing.newDepositShares || 0) + item.sharesCount;
+          } else {
+            const personDetail = findPersonDetailsByName(item.subscriberName);
+            let newSh: Shareholder;
+            if (personDetail) {
+              newSh = {
+                ...personDetail,
+                sharesOwned: item.sharesCount,
+                isNewDeposit: true,
+                newDepositShares: item.sharesCount
+              };
+            } else {
+              newSh = {
+                id: item.id + '-sub',
+                name: item.subscriberName,
+                nik: '',
+                salutation: 'Tuan',
+                sharesOwned: item.sharesCount,
+                isNewDeposit: true,
+                newDepositShares: item.sharesCount,
+                isManagement: false,
+                birthCity: '',
+                birthDate: '',
+                nationality: 'WNI',
+                nationalityType: 'WNI',
+                occupation: '',
+                address: { province: '', city: '', fullAddress: '', rt: '', rw: '', kelurahan: '', kecamatan: '' }
+              };
+            }
+            calculated.push(newSh);
+          }
+        });
+      }
 
       // Filter out people with 0 shares who are not management in the new state, to keep table neat
       const filteredCalculated = calculated.filter(s => s.sharesOwned > 0 || s.isManagement);
 
+      const transfersNew = data.shareTransfersNew || [];
       const generatedTransfers: ShareTransfer[] = transfersNew.map(t => {
         const fromSh = data.shareholders.find(s => s.name?.toUpperCase().trim() === t.fromName.toUpperCase().trim());
         const toSh = filteredCalculated.find(s => s.name?.toUpperCase().trim() === t.toName.toUpperCase().trim());
@@ -1565,10 +1651,26 @@ const App: React.FC = () => {
           shareTransfers: generatedTransfers
         });
       }
-    } else if (data.finalShareholders.length === 0 && data.shareholders.length > 0) {
-      updateData({ finalShareholders: [...data.shareholders] });
+    } else {
+      const initialShString = JSON.stringify(data.shareholders.map(f => ({ id: f.id, name: f.name, sharesOwned: f.sharesOwned, birthCity: f.birthCity, occupation: f.occupation })));
+      const existingFinalShString = JSON.stringify(data.finalShareholders.map(f => ({ id: f.id, name: f.name, sharesOwned: f.sharesOwned, birthCity: f.birthCity, occupation: f.occupation })));
+      
+      if (initialShString !== existingFinalShString) {
+        updateData({ finalShareholders: [...data.shareholders] });
+      }
     }
-  }, [data.resolutions.shareholders, data.shareholders, data.shareTransfersNew, data.finalShareholders, data.shareTransfers]);
+  }, [
+    data.resolutions.shareholders,
+    data.resolutions.capitalPaid,
+    data.resolutions.capitalPaidDecrease,
+    data.shareholders,
+    data.shareTransfersNew,
+    data.capitalSubscriptionsNew,
+    data.finalShareholders,
+    data.shareTransfers,
+    data.guests,
+    data.managementDismissals
+  ]);
 
   const handlePrint = () => {
     if (!validateFormCompleteness()) {
