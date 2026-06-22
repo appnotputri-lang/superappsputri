@@ -219,7 +219,7 @@ const createSubNumberedP = (
 };
 
 /**
- * "Pasal X" divider — tab center di 3969, tab kanan 8504, indent left=284
+ * "Pasal X" divider — tab center di 4252, tab kanan 8504
  */
 const createPasalDividerP = (text: string): Paragraph =>
   new Paragraph({
@@ -229,10 +229,9 @@ const createPasalDividerP = (text: string): Paragraph =>
       new TextRun({ text: "\t" }),
     ],
     tabStops: [
-      { type: TabStopType.CENTER, position: 3969, leader: LeaderType.HYPHEN },
+      { type: TabStopType.CENTER, position: 4252, leader: LeaderType.HYPHEN },
       { type: TabStopType.RIGHT,  position: 8504, leader: LeaderType.HYPHEN },
     ],
-    indent: { left: 284 },
     alignment: AlignmentType.LEFT,
   });
 

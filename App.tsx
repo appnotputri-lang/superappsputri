@@ -168,6 +168,9 @@ const INITIAL_STATE: CompanyData = {
   oldManagementItems: [],
   newManagementItems: [],
   managementEffectiveUntil: '',
+  reappointmentOldExpiredDate: '',
+  reappointmentStartDate: '',
+  reappointmentEndDate: '',
   originalTotalShares: 0,
   originalAuthorizedShares: 0,
   originalSharePrice: 0,
@@ -6138,6 +6141,41 @@ const App: React.FC = () => {
             {data.resolutions.reappointment && (
               <AhuSection title="Pengangkatan Kembali Pengurus">
                 <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pb-4 border-b border-slate-100">
+                    <div>
+                      <AhuLabel label="Tanggal Berakhir Masa Jabatan Sebelumnya" />
+                      <AhuInput 
+                        type="date"
+                        value={data.reappointmentOldExpiredDate || ''}
+                        onChange={(e) => updateData({ reappointmentOldExpiredDate: e.target.value })}
+                        className="mt-1"
+                      />
+                      <p className="text-[11px] text-slate-400 mt-1">Kosongkan untuk default otomatis (e.g. 16 November 2025 atau sesuai tanggal RUPSLB).</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pb-4 border-b border-slate-100">
+                    <div>
+                      <AhuLabel label="Tanggal Mulai Masa Jabatan Baru" />
+                      <AhuInput 
+                        type="date"
+                        value={data.reappointmentStartDate || ''}
+                        onChange={(e) => updateData({ reappointmentStartDate: e.target.value })}
+                        className="mt-1"
+                      />
+                      <p className="text-[11px] text-slate-400 mt-1">Kosongkan untuk default otomatis sesuai tanggal berakhir sebelumnya.</p>
+                    </div>
+                    <div>
+                      <AhuLabel label="Tanggal Berakhir Masa Jabatan Baru" />
+                      <AhuInput 
+                        type="date"
+                        value={data.reappointmentEndDate || ''}
+                        onChange={(e) => updateData({ reappointmentEndDate: e.target.value })}
+                        className="mt-1"
+                      />
+                      <p className="text-[11px] text-slate-400 mt-1">Kosongkan untuk default otomatis 5 tahun berikutnya.</p>
+                    </div>
+                  </div>
                   <div>
                     <AhuLabel label="Pilihan Akhir Masa Jabatan" required />
                     <div className="space-y-3 mt-2">

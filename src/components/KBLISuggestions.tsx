@@ -23,6 +23,13 @@ interface RuangLingkup {
   skala: RuangLingkupSkalaGroup;
 }
 
+interface DpbScopeData {
+  ruangLingkup: string;
+  skalaUsaha: string;
+  tingkatRisiko: string;
+  izin: string;
+}
+
 interface KbliItem {
   kode: string;
   judul: string;
@@ -32,6 +39,7 @@ interface KbliItem {
 
 interface SelectedKbli extends KbliItem {
   catatan?: string;
+  scopes: any[];
 }
 
 const RISK_LEVELS = [
@@ -110,7 +118,7 @@ const KBLISuggestions: React.FC = () => {
   const [kbliResults, setKbliResults] = useState<KbliItem[]>([]);
   const [hasSearched, setHasSearched] = useState(false);
   const [isLoadingDetails, setIsLoadingDetails] = useState<string | null>(null);
-  const [dpbCache, setDpbCache] = useState<Record<string, RuangLingkup[]>>({});
+  const [dpbCache, setDpbCache] = useState<Record<string, DpbScopeData[]>>({});
 
   // states for "TAMBAH DATA" modal according to screenshot requirements
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -420,7 +428,7 @@ const KBLISuggestions: React.FC = () => {
     // Check inside state functional update to prevent safe concurrency race condition
     setIsLoadingDetails(item.kode);
     let enrichedData = { ...item };
-    let currentFetchedScopes: DpbScopeData[] | undefined = undefined;
+    let currentFetchedScopes: any[] | undefined = undefined;
     
     try {
       if (dpbCache[item.kode]) {
@@ -446,7 +454,7 @@ const KBLISuggestions: React.FC = () => {
             const parser = new DOMParser();
             const doc = parser.parseFromString(data.html, 'text/html');
             
-            const rawScopes: DpbScopeData[] = [];
+            const rawScopes: any[] = [];
             const sections = Array.from(doc.querySelectorAll('.dpb-oss-section'));
             const rlSection = sections.find(sec => {
                 const title = sec.querySelector('.dpb-oss-section-title');
@@ -516,25 +524,29 @@ const KBLISuggestions: React.FC = () => {
     let newRuangLingkup: RuangLingkup[] = [];
 
     if (availableDpb && availableDpb.length > 0) {
-       const uniqueDomains = Array.from(new Set<string>(availableDpb.map(s => s.ruangLingkup)));
-       
-       newRuangLingkup = uniqueDomains.map(deskripsi => {
-         const getScopeForScale = (scale: string) => {
-           const match = availableDpb.find(d => d.ruangLingkup === deskripsi && d.skalaUsaha.toLowerCase() === scale.toLowerCase());
-           if (match) return { risiko: match.tingkatRisiko || 'Rendah', perizinan: match.izin || 'NIB' };
-           return { risiko: 'Rendah', perizinan: 'NIB' };
-         };
+       if ('deskripsi' in availableDpb[0]) {
+         newRuangLingkup = availableDpb as any[];
+       } else {
+         const uniqueDomains = Array.from(new Set<string>(availableDpb.map((s: any) => s.ruangLingkup)));
          
-         return {
-           deskripsi,
-           skala: {
-             mikro: getScopeForScale('Mikro'),
-             kecil: getScopeForScale('Kecil'),
-             menengah: getScopeForScale('Menengah'),
-             besar: getScopeForScale('Besar')
-           }
-         };
-       });
+         newRuangLingkup = uniqueDomains.map(deskripsi => {
+           const getScopeForScale = (scale: string) => {
+             const match = availableDpb.find((d: any) => d.ruangLingkup === deskripsi && d.skalaUsaha.toLowerCase() === scale.toLowerCase());
+             if (match) return { risiko: match.tingkatRisiko || 'Rendah', perizinan: match.izin || 'NIB' };
+             return { risiko: 'Rendah', perizinan: 'NIB' };
+           };
+           
+           return {
+             deskripsi,
+             skala: {
+               mikro: getScopeForScale('Mikro'),
+               kecil: getScopeForScale('Kecil'),
+               menengah: getScopeForScale('Menengah'),
+               besar: getScopeForScale('Besar')
+             }
+           };
+         });
+       }
     } else {
        newRuangLingkup = [{ 
           deskripsi: "Belum tersedia data baru dari OSS", 
@@ -547,11 +559,21 @@ const KBLISuggestions: React.FC = () => {
        }];
     }
 
+    const initialScopes = newRuangLingkup.map(rl => {
+      const s = rl.skala[kelompokUsaha.toLowerCase() as keyof RuangLingkupSkalaGroup] || { risiko: 'Rendah', perizinan: 'NIB' };
+      return {
+        ruangLingkup: rl.deskripsi,
+        tingkatResiko: s.risiko,
+        izin: s.perizinan
+      };
+    });
+
     setSelectedKblis(prev => {
       if (prev.find(k => k.kode === item.kode)) return prev;
       return [...prev, { 
         ...enrichedData, 
-        ruangLingkup: newRuangLingkup
+        ruangLingkup: newRuangLingkup,
+        scopes: initialScopes
       }];
     });
 
@@ -659,7 +681,7 @@ const KBLISuggestions: React.FC = () => {
     try {
       const results = await Promise.all(itemsToAdd.map(async (item) => {
         let enrichedData = { ...item };
-        let currentFetchedScopes: RuangLingkup[] | undefined = undefined;
+        let currentFetchedScopes: DpbScopeData[] | undefined = undefined;
 
         try {
           if (dpbCache[item.kode]) {
@@ -678,7 +700,7 @@ const KBLISuggestions: React.FC = () => {
               if (data.success && data.html) {
                 const parser = new DOMParser();
                 const doc = parser.parseFromString(data.html, 'text/html');
-                const rawScopes: RuangLingkup[] = [];
+                const rawScopes: DpbScopeData[] = [];
                 const sections = Array.from(doc.querySelectorAll('.dpb-oss-section'));
                 const rlSection = sections.find(sec => {
                   const title = sec.querySelector('.dpb-oss-section-title');
@@ -781,9 +803,19 @@ const KBLISuggestions: React.FC = () => {
           }];
         }
 
+        const initialScopes = newRuangLingkup.map(rl => {
+          const s = rl.skala[kelompokUsaha.toLowerCase() as keyof RuangLingkupSkalaGroup] || { risiko: 'Rendah', perizinan: 'NIB' };
+          return {
+            ruangLingkup: rl.deskripsi,
+            tingkatResiko: s.risiko,
+            izin: s.perizinan
+          };
+        });
+
         return {
           ...enrichedData,
-          ruangLingkup: newRuangLingkup
+          ruangLingkup: newRuangLingkup,
+          scopes: initialScopes
         };
       }));
 

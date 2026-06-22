@@ -239,6 +239,9 @@ export interface CompanyData {
   oldManagementItems: ManagementItem[];
   newManagementItems: ManagementItem[];
   managementEffectiveUntil: string;
+  reappointmentOldExpiredDate?: string;
+  reappointmentStartDate?: string;
+  reappointmentEndDate?: string;
   
   originalTotalShares: number; // Paid-up share count
   originalAuthorizedShares: number; // New: Total base share count

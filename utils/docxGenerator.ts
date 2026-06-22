@@ -12,6 +12,7 @@ import {
   getYearIndo,
   toTitleCase,
   formatAddress,
+  formatDateIndo,
 } from "./formatters";
 
 const saveAsNative = (blob: Blob, fileName: string) => {
@@ -1062,17 +1063,16 @@ export const generateWordDoc = async (data: CompanyData) => {
 
       // Banner Pasal 1 - Tab Line Leader
       resBlocks.push(new Paragraph({
-        alignment: AlignmentType.CENTER,
+        alignment: AlignmentType.LEFT,
         spacing: { before: 240, after: 120 },
         children: [
-          new TextRun({
-            children: [new Tab(), " Pasal 1 ", new Tab()],
-            bold: true,
-          }),
+          new TextRun({ text: "\t", font: FONT_FAMILY, size: FONT_SIZE }),
+          new TextRun({ text: " Pasal 1 ", bold: true, font: FONT_FAMILY, size: FONT_SIZE }),
+          new TextRun({ text: "\t", font: FONT_FAMILY, size: FONT_SIZE }),
         ],
         tabStops: [
-          { type: TabStopType.LEFT, position: 0, leader: LeaderType.HYPHEN },
-          { type: TabStopType.RIGHT, position: 9070, leader: LeaderType.HYPHEN },
+          { type: TabStopType.CENTER, position: 4513, leader: LeaderType.HYPHEN },
+          { type: TabStopType.RIGHT, position: 9026, leader: LeaderType.HYPHEN },
         ]
       }));
       // Article 1 Content
@@ -1113,6 +1113,19 @@ export const generateWordDoc = async (data: CompanyData) => {
     if (data.resolutions.kbli) {
       const kbliBody: any[] = [
         bodyP({ indent: { left: 426 }, text: "Menyetujui dan memutuskan untuk mengubah ketentuan Pasal 3 ayat (1) dan ayat (2) Anggaran Dasar Perseroan mengenai Maksud dan Tujuan serta Kegiatan Usaha, sehingga selanjutnya menjadi berbunyi sebagai berikut :" }),
+        new Paragraph({
+          alignment: AlignmentType.LEFT,
+          spacing: { before: 240, after: 120 },
+          children: [
+            new TextRun({ text: "\t", font: FONT_FAMILY, size: FONT_SIZE }),
+            new TextRun({ text: " Pasal 3 ", bold: true, font: FONT_FAMILY, size: FONT_SIZE }),
+            new TextRun({ text: "\t", font: FONT_FAMILY, size: FONT_SIZE }),
+          ],
+          tabStops: [
+            { type: TabStopType.CENTER, position: 4513, leader: LeaderType.HYPHEN },
+            { type: TabStopType.RIGHT, position: 9026, leader: LeaderType.HYPHEN },
+          ]
+        }),
         new Paragraph({
           alignment: "both" as any,
           spacing: { line: LINE_SPACING, lineRule: "auto", after: 60 },
@@ -1166,7 +1179,7 @@ export const generateWordDoc = async (data: CompanyData) => {
             new Paragraph({
               alignment: "both" as any,
               spacing: { line: LINE_SPACING, lineRule: "auto", after: 120 },
-              indent: { left: 1418 },
+              indent: { left: 1134 },
               children: [
                 mkRun(kbli.description),
               ],
@@ -1458,7 +1471,81 @@ export const generateWordDoc = async (data: CompanyData) => {
 
       const mgmtBody: any[] = [];
 
-      if (data.managementDismissals && data.managementDismissals.length > 0) {
+      if (data.resolutions.reappointment) {
+        let oldExpiredDateStr = "16 November 2025";
+        if (data.reappointmentOldExpiredDate) {
+          oldExpiredDateStr = formatDateIndo(data.reappointmentOldExpiredDate);
+        } else if (data.signingDate) {
+          oldExpiredDateStr = formatDateIndo(data.signingDate);
+        }
+
+        mgmtBody.push(
+          bodyP({
+            numbering: { reference: "keputusan-num", level: 0 },
+            text: `Menyetujui dan memutuskan untuk menerima kinerja pengurus perseroan yang telah habis masa jabatannya pada tanggal ${oldExpiredDateStr} serta membebaskan semua tanggung jawab selama kinerja dalam perseroan (acquit et de change), dan mengangkat kembali pengurus yaitu:`
+          })
+        );
+
+        const getPriorityR = (pos: string) => {
+          const p = (pos || "").toUpperCase();
+          if (p.includes("DIREKTUR UTAMA") || p.includes("PRESIDEN DIREKTUR")) return 1;
+          if (p.includes("DIREKTUR")) return 2;
+          if (p.includes("KOMISARIS UTAMA") || p.includes("PRESIDEN KOMISARIS")) return 3;
+          if (p.includes("KOMISARIS")) return 4;
+          return 5;
+        };
+        const sortedManagersR = [...newManagers].sort((a, b) => getPriorityR(a.position) - getPriorityR(b.position));
+
+        sortedManagersR.forEach((m) => {
+          mgmtBody.push(
+            new Paragraph({
+              alignment: "both" as any,
+              spacing: { line: LINE_SPACING, lineRule: "auto", before: 60, after: 60 },
+              numbering: { reference: "hadir-dash", level: 0 },
+              tabStops: [
+                { type: TabStopType.LEFT, position: 3968 },
+              ],
+              children: [
+                mkRun(toTitleCase(m.position)),
+                mkRun("\t: "),
+                mkRun((m.name || "..........").toUpperCase(), true),
+              ],
+            })
+          );
+        });
+
+        let startDateStr = oldExpiredDateStr;
+        if (data.reappointmentStartDate) {
+          startDateStr = formatDateIndo(data.reappointmentStartDate);
+        }
+
+        let endDateStr = "16 November 2030";
+        if (data.reappointmentEndDate) {
+          endDateStr = formatDateIndo(data.reappointmentEndDate);
+        } else {
+          const baseDate = data.reappointmentStartDate || data.reappointmentOldExpiredDate || data.signingDate;
+          if (baseDate) {
+            const d = new Date(baseDate);
+            if (!isNaN(d.getTime())) {
+              d.setFullYear(d.getFullYear() + 5);
+              const mm = String(d.getMonth() + 1).padStart(2, '0');
+              const dd = String(d.getDate()).padStart(2, '0');
+              endDateStr = formatDateIndo(`${d.getFullYear()}-${mm}-${dd}`);
+            }
+          }
+        }
+
+        mgmtBody.push(
+          new Paragraph({
+            alignment: "both" as any,
+            spacing: { line: LINE_SPACING, lineRule: "auto", before: 120, after: 120 },
+            indent: { left: 709 },
+            children: [
+              mkRun(`Susunan pengurus perseroan tersebut berlaku mulai tanggal ${startDateStr} sampai dengan ${endDateStr}.`),
+            ],
+          })
+        );
+      } else if (data.managementDismissals && data.managementDismissals.length > 0) {
         mgmtBody.push(
           bodyP({ indent: { left: 426 }, text: "Menyetujui perubahan susunan Direksi dan Dewan Komisaris Perseroan, dengan rincian sebagai berikut :" })
         );
@@ -1529,7 +1616,7 @@ export const generateWordDoc = async (data: CompanyData) => {
               spacing: { line: LINE_SPACING, lineRule: "auto", before: 60, after: 60 },
               numbering: { reference: "hadir-dash", level: 0 },
               tabStops: [
-                { type: TabStopType.LEFT, position: 2835 },
+                { type: TabStopType.LEFT, position: 3968 },
               ],
               children: [
                 mkRun(toTitleCase(m.position)),
@@ -1662,7 +1749,7 @@ export const generateWordDoc = async (data: CompanyData) => {
                 spacing: { line: LINE_SPACING, lineRule: "auto", before: 60, after: 60 },
                 numbering: { reference: "hadir-dash", level: 0 },
                 tabStops: [
-                  { type: TabStopType.LEFT, position: 2835 },
+                  { type: TabStopType.LEFT, position: 3968 },
                 ],
                 children: [
                   mkRun(toTitleCase(m.position)),
@@ -1758,17 +1845,16 @@ export const generateWordDoc = async (data: CompanyData) => {
 
       // Banner Pasal 1 - Tab Line Leader
       resBlocks.push(new Paragraph({
-        alignment: AlignmentType.CENTER,
+        alignment: AlignmentType.LEFT,
         spacing: { before: 240, after: 120 },
         children: [
-          new TextRun({
-            children: [new Tab(), " Pasal 1 ", new Tab()],
-            bold: true,
-          }),
+          new TextRun({ text: "\t", font: FONT_FAMILY, size: FONT_SIZE }),
+          new TextRun({ text: " Pasal 1 ", bold: true, font: FONT_FAMILY, size: FONT_SIZE }),
+          new TextRun({ text: "\t", font: FONT_FAMILY, size: FONT_SIZE }),
         ],
         tabStops: [
-          { type: TabStopType.LEFT, position: 0, leader: LeaderType.HYPHEN },
-          { type: TabStopType.RIGHT, position: 9070, leader: LeaderType.HYPHEN },
+          { type: TabStopType.CENTER, position: 4513, leader: LeaderType.HYPHEN },
+          { type: TabStopType.RIGHT, position: 9026, leader: LeaderType.HYPHEN },
         ]
       }));
 
@@ -1812,17 +1898,16 @@ export const generateWordDoc = async (data: CompanyData) => {
 
       addRes([
         new Paragraph({
-          alignment: AlignmentType.CENTER,
+          alignment: AlignmentType.LEFT,
           spacing: { before: 240, after: 120 },
           children: [
-            new TextRun({
-              children: [new Tab(), " Pasal 3 ", new Tab()],
-              bold: true,
-            }),
+            new TextRun({ text: "\t", font: FONT_FAMILY, size: FONT_SIZE }),
+            new TextRun({ text: " Pasal 3 ", bold: true, font: FONT_FAMILY, size: FONT_SIZE }),
+            new TextRun({ text: "\t", font: FONT_FAMILY, size: FONT_SIZE }),
           ],
           tabStops: [
-            { type: TabStopType.LEFT, position: 0, leader: LeaderType.HYPHEN },
-            { type: TabStopType.RIGHT, position: 9070, leader: LeaderType.HYPHEN },
+            { type: TabStopType.CENTER, position: 4513, leader: LeaderType.HYPHEN },
+            { type: TabStopType.RIGHT, position: 9026, leader: LeaderType.HYPHEN },
           ]
         })
       ]);
@@ -1832,7 +1917,7 @@ export const generateWordDoc = async (data: CompanyData) => {
       // "1) Maksud dan Tujuan Perseroan adalah berusaha dalam bidang :"
       kbliBody.push(
         bodyP({
-          numbering: { reference: "kbli-sub", level: 0 },
+          numbering: { reference: "kbli-sub-1", level: 0 },
           text: "Maksud dan Tujuan Perseroan adalah berusaha dalam bidang :",
         })
       );
@@ -1882,7 +1967,7 @@ export const generateWordDoc = async (data: CompanyData) => {
             new Paragraph({
               alignment: "both" as any,
               spacing: { line: LINE_SPACING, lineRule: "auto", after: 120 },
-              indent: { left: 1418 },
+              indent: { left: 1134 },
               children: [
                 mkRun(kbli.description),
               ],
@@ -2115,7 +2200,80 @@ export const generateWordDoc = async (data: CompanyData) => {
 
       const mgmtBody: any[] = [];
 
-      if (data.managementDismissals && data.managementDismissals.length > 0) {
+      if (data.resolutions.reappointment) {
+        let oldExpiredDateStr = "16 November 2025";
+        if (data.reappointmentOldExpiredDate) {
+          oldExpiredDateStr = formatDateIndo(data.reappointmentOldExpiredDate);
+        } else if (data.signingDate) {
+          oldExpiredDateStr = formatDateIndo(data.signingDate);
+        }
+
+        children.push(bodyP({ 
+          numbering: { reference: "keputusan-num", level: 0 }, 
+          text: `Menyetujui dan memutuskan untuk menerima kinerja pengurus perseroan yang telah habis masa jabatannya pada tanggal ${oldExpiredDateStr} serta membebaskan semua tanggung jawab selama kinerja dalam perseroan (acquit et de change), dan mengangkat kembali pengurus yaitu:` 
+        }));
+        resolutionIdx++;
+
+        const getPriorityR = (pos: string) => {
+          const p = (pos || "").toUpperCase();
+          if (p.includes("DIREKTUR UTAMA") || p.includes("PRESIDEN DIREKTUR")) return 1;
+          if (p.includes("DIREKTUR")) return 2;
+          if (p.includes("KOMISARIS UTAMA") || p.includes("PRESIDEN KOMISARIS")) return 3;
+          if (p.includes("KOMISARIS")) return 4;
+          return 5;
+        };
+        const sortedManagersR = [...newManagers].sort((a, b) => getPriorityR(a.position) - getPriorityR(b.position));
+
+        sortedManagersR.forEach((m) => {
+          mgmtBody.push(
+            new Paragraph({
+              alignment: "both" as any,
+              spacing: { line: LINE_SPACING, lineRule: "auto", before: 60, after: 60 },
+              numbering: { reference: "hadir-dash", level: 0 },
+              tabStops: [
+                { type: TabStopType.LEFT, position: 3968 },
+              ],
+              children: [
+                mkRun(toTitleCase(m.position)),
+                mkRun("\t: "),
+                mkRun((m.name || "..........").toUpperCase(), true),
+              ],
+            })
+          );
+        });
+
+        let startDateStr = oldExpiredDateStr;
+        if (data.reappointmentStartDate) {
+          startDateStr = formatDateIndo(data.reappointmentStartDate);
+        }
+
+        let endDateStr = "16 November 2030";
+        if (data.reappointmentEndDate) {
+          endDateStr = formatDateIndo(data.reappointmentEndDate);
+        } else {
+          const baseDate = data.reappointmentStartDate || data.reappointmentOldExpiredDate || data.signingDate;
+          if (baseDate) {
+            const d = new Date(baseDate);
+            if (!isNaN(d.getTime())) {
+              d.setFullYear(d.getFullYear() + 5);
+              const mm = String(d.getMonth() + 1).padStart(2, '0');
+              const dd = String(d.getDate()).padStart(2, '0');
+              endDateStr = formatDateIndo(`${d.getFullYear()}-${mm}-${dd}`);
+            }
+          }
+        }
+
+        mgmtBody.push(
+          new Paragraph({
+            alignment: "both" as any,
+            spacing: { line: LINE_SPACING, lineRule: "auto", before: 120, after: 120 },
+            indent: { left: 709 },
+            children: [
+              mkRun(`Susunan pengurus perseroan tersebut berlaku mulai tanggal ${startDateStr} sampai dengan ${endDateStr}.`),
+            ],
+          })
+        );
+      } else if (data.managementDismissals && data.managementDismissals.length > 0) {
         children.push(bodyP({ numbering: { reference: "keputusan-num", level: 0 }, text: "Menyetujui perubahan susunan Direksi dan Dewan Komisaris Perseroan, dengan rincian sebagai berikut :" }));
         resolutionIdx++;
 
@@ -2189,7 +2347,7 @@ export const generateWordDoc = async (data: CompanyData) => {
               spacing: { line: LINE_SPACING, lineRule: "auto", before: 60, after: 60 },
               numbering: { reference: "hadir-dash", level: 0 },
               tabStops: [
-                { type: TabStopType.LEFT, position: 2126 }, // Aligned to approx 1.5 inch
+                { type: TabStopType.LEFT, position: 3968 },
               ],
               children: [
                 mkRun(toTitleCase(m.position)),
@@ -2272,7 +2430,7 @@ export const generateWordDoc = async (data: CompanyData) => {
               spacing: { line: LINE_SPACING, lineRule: "auto", before: 60, after: 60 },
               numbering: { reference: "hadir-dash", level: 0 },
               tabStops: [
-                { type: TabStopType.LEFT, position: 2835 },
+                { type: TabStopType.LEFT, position: 3968 },
               ],
               children: [
                 mkRun(toTitleCase(m.position)),
@@ -2501,7 +2659,10 @@ export const generateWordDoc = async (data: CompanyData) => {
           levels: [{
             level: 0, format: "decimal" as any, text: "1)",
             alignment: "left" as any,
-            style: { paragraph: { indent: { left: 851, hanging: 426 } } },
+            style: {
+              run: { size: FONT_SIZE, font: FONT_FAMILY },
+              paragraph: { indent: { left: 851, hanging: 426 } },
+            },
           }],
         },
         // kbli-sub-2: decimal
@@ -2510,10 +2671,13 @@ export const generateWordDoc = async (data: CompanyData) => {
           levels: [{
             level: 0, format: "decimal" as any, text: "2)",
             alignment: "left" as any,
-            style: { paragraph: { indent: { left: 851, hanging: 426 } } },
+            style: {
+              run: { size: FONT_SIZE, font: FONT_FAMILY },
+              paragraph: { indent: { left: 851, hanging: 426 } },
+            },
           }],
         },
-        // kbli-sub: decimal "%1)" left=1429 hang=360 — pasal 3 (1) (2)
+        // kbli-sub: decimal "%1)" left=851 hang=426 — pasal 3 (1) (2)
         {
           reference: "kbli-sub",
           levels: [{
@@ -2521,7 +2685,7 @@ export const generateWordDoc = async (data: CompanyData) => {
             alignment: "left" as any,
             style: {
               run: { size: FONT_SIZE, font: FONT_FAMILY },
-              paragraph: { indent: { left: 1429, hanging: 360 } },
+              paragraph: { indent: { left: 851, hanging: 426 } },
             },
           }],
         },

@@ -239,7 +239,17 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
       {
         type: "p",
         align: "center",
-        runs: [{ text: `AKTA PERUBAHAN ANGGARAN DASAR`, bold: true }],
+        runs: [{ text: `PERNYATAAN KEPUTUSAN PARA PEMEGANG SAHAM`, bold: true }],
+      },
+      {
+        type: "p",
+        align: "center",
+        runs: [{ text: `YANG DIAMBIL DILUAR RAPAT`, bold: true }],
+      },
+      {
+        type: "p",
+        align: "center",
+        runs: [{ text: `SEBAGAI PENGGANTI RAPAT UMUM PEMEGANG SAHAM LUAR BIASA`, bold: true }],
       },
     );
   } else {
@@ -1448,109 +1458,39 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
       ...(data.newManagementItems || []),
     ];
 
-    const changeType = data.managementChangeType || "ALL_DISMISSED";
-    let managersToDismiss = [];
-    let managersToAppoint = [];
-
-    if (changeType === "PARTIAL_CHANGE") {
-      // Logic from user: only dismiss those who leave or change position
-      managersToDismiss = oldManagers.filter(
-        (om) =>
-          !newManagers.some(
-            (nm) =>
-              nm.name.toUpperCase().trim() === om.name.toUpperCase().trim() &&
-              nm.position.toUpperCase().trim() ===
-                om.position.toUpperCase().trim(),
-          ),
-      );
-      managersToAppoint = newManagers.filter(
-        (nm) =>
-          !oldManagers.some(
-            (om) =>
-              om.name.toUpperCase().trim() === nm.name.toUpperCase().trim() &&
-              om.position.toUpperCase().trim() ===
-                nm.position.toUpperCase().trim(),
-          ),
-      );
-    } else {
-      // ALL_DISMISSED or REAPPOINTMENT
-      managersToDismiss = oldManagers;
-      managersToAppoint = newManagers;
-    }
-
-    // DISMISSAL BLOCK
-    if (managersToDismiss.length > 0) {
-      if (managersToDismiss.length === 1) {
-        const mgr = managersToDismiss[0];
-        let resignationHeading = "";
-        if (/direktur/i.test(mgr.position)) {
-          resignationHeading = `anggota Direksi`;
-        } else if (/komisaris/i.test(mgr.position)) {
-          resignationHeading = `Dewan Komisaris Perseroan`;
-        } else {
-          resignationHeading = `anggota Direksi dan Dewan Komisaris Perseroan`;
-        }
-        
-        const detailRuns = getPersonDetailRuns(mgr);
-
-        blocks.push({
-          type: "p",
-          number: resIdx++,
-          runs: [
-            {
-              text: `Menyetujui untuk memberhentikan dengan hormat ${resignationHeading}, ${mgr.salutation || "Tuan"} `,
-            },
-            ...detailRuns,
-            { text: ` selaku ${mgr.position} perseroan.` },
-          ],
-        });
-      } else {
-        let dismissalText = `${changeType === "PARTIAL_CHANGE" ? "anggota" : "seluruh anggota"} Direksi dan Dewan Komisaris Perseroan${changeType === "PARTIAL_CHANGE" ? "" : " yang menjabat saat ini"}`;
-
-        blocks.push({
-          type: "p",
-          number: resIdx++,
-          runs: [
-            {
-              text: `Menyetujui untuk memberhentikan dengan hormat ${dismissalText}, yaitu :`,
-            },
-          ],
-        });
-
-        managersToDismiss.forEach((m) => {
-          blocks.push({
-            type: "list",
-            bullet: "-",
-            indentTabs: 0.8, // → left=567, hanging=283 (sesuai XML contoh_6.docx)
-            runs: [
-              ...getPersonDetailRuns(m as any),
-              { text: ` selaku ${m.position} perseroan` },
-            ],
-          });
-        });
+    if (isReappointment) {
+      let oldExpiredDateStr = "16 Juni 2026";
+      let oldExpiredDateHuruf = "enam belas Juni dua ribu dua puluh enam";
+      if (data.reappointmentOldExpiredDate) {
+         const tgl = formatDateStr(data.reappointmentOldExpiredDate);
+         oldExpiredDateStr = tgl !== "..." ? tgl : "16 Juni 2026";
+      } else if (data.signingDate) {
+         const tgl = formatDateStr(data.signingDate);
+         oldExpiredDateStr = tgl !== "..." ? tgl : "16 Juni 2026";
       }
-
-      blocks.push({
-        type: "p",
-        indentTabs: 0.334, // → left=284 (sesuai XML: indent paragraf setelah list direksi)
-        runs: [
-          {
-            text: `dengan ucapan terima kasih atas jasa-jasa dan pengabdian yang telah diberikan selama masa jabatannya dalam Perseroan, serta memberikan pelunasan dan pembebasan tanggung jawab sepenuhnya (acquit et de charge) atas tindakan pengurusan dan pengawasan yang telah dijalankan, sepanjang tindakan-tindakan tersebut tercermin dalam buku-buku serta laporan tahunan Perseroan.`,
-          },
-        ],
-      });
-    }
-
-    // APPOINTMENT BLOCK
-    if (managersToAppoint.length > 0) {
-      const hasDirector = managersToAppoint.some(m => /direktur/i.test(m.position));
-      const hasCommissioner = managersToAppoint.some(m => /komisaris/i.test(m.position));
       
-      let titleText = "anggota Direksi /Dewan Komisaris Perseroan";
-      if (hasDirector && !hasCommissioner) {
-        titleText = "anggota Direksi Perseroan";
-      } else if (!hasDirector && hasCommissioner) {
-        titleText = "Dewan Komisaris Perseroan";
+      let startDateStr = oldExpiredDateStr;
+      if (data.reappointmentStartDate) {
+         const tgl = formatDateStr(data.reappointmentStartDate);
+         if (tgl !== "...") startDateStr = tgl;
+      }
+      
+      let endDateStr = "16 Juni 2031";
+      if (data.reappointmentEndDate) {
+         const tgl = formatDateStr(data.reappointmentEndDate);
+         if (tgl !== "...") endDateStr = tgl;
+      } else {
+         const baseDate = data.reappointmentStartDate || data.reappointmentOldExpiredDate || data.signingDate;
+         if (baseDate) {
+            const d = new Date(baseDate);
+            if (!isNaN(d.getTime())) {
+               d.setFullYear(d.getFullYear() + 5);
+               const mm = String(d.getMonth() + 1).padStart(2, '0');
+               const dd = String(d.getDate()).padStart(2, '0');
+               const tgl = formatDateStr(`${d.getFullYear()}-${mm}-${dd}`);
+               if (tgl !== "...") endDateStr = tgl;
+            }
+         }
       }
 
       blocks.push({
@@ -1558,36 +1498,11 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
         number: resIdx++,
         runs: [
           {
-            text: `Selanjutnya menyetujui untuk mengangkat sebagai ${titleText} yang baru :`,
-          },
-        ],
+             text: `Menyetujui dan memutuskan untuk menerima kinerja pengurus perseroan yang telah habis masa jabatannya pada tanggal ${oldExpiredDateStr} serta membebaskan semua tanggung jawab selama kinerja dalam perseroan (acquit et de change), dan mengangkat kembali pengurus yaitu:`
+          }
+        ]
       });
 
-      managersToAppoint.forEach((m) => {
-        blocks.push({
-          type: "list",
-          bullet: "-",
-          indentTabs: 0.8, // → left=567, hanging=283 (sesuai XML contoh_6.docx)
-          runs: [
-            { text: `${m.salutation} ` },
-            ...getPersonDetailRuns(m as any),
-            { text: `, sebagai ${m.position} Perseroan;` },
-          ],
-        });
-      });
-    }
-
-    // FINAL COMPOSITION BLOCK
-    if (managersToDismiss.length > 0 || managersToAppoint.length > 0) {
-      blocks.push({
-        type: "p",
-        indentTabs: 0.334, // → left=284
-        runs: [
-          {
-            text: `Sehingga susunan anggota Direksi dan Dewan Komisaris Perseroan menjadi sebagai berikut :`,
-          },
-        ],
-      });
       newManagers.forEach((m) => {
         blocks.push({
           type: "management-list",
@@ -1598,13 +1513,170 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
 
       blocks.push({
         type: "p",
-        indentTabs: 0.334, // → left=284
+        indentTabs: 0.334,
         runs: [
-          {
-            text: `Masa jabatan anggota Direksi dan Dewan Komisaris tersebut di atas berlaku efektif terhitung sejak tanggal Keputusan ini ditetapkan, ${data.managementEffectiveUntil || "untuk jangka waktu sebagaimana yang ditentukan dalam Anggaran Dasar Perseroan"}, dengan tidak mengurangi hak Rapat Umum Pemegang Saham untuk memberhentikan sewaktu-waktu sesuai dengan ketentuan peraturan perundang-undangan yang berlaku.`,
-          },
+          { text: `Susunan pengurus perseroan tersebut berlaku mulai tanggal ${startDateStr} sampai dengan ${endDateStr}.` }
         ],
       });
+    } else {
+      const changeType = data.managementChangeType || "ALL_DISMISSED";
+      let managersToDismiss = [];
+      let managersToAppoint = [];
+
+      if (changeType === "PARTIAL_CHANGE") {
+        // Logic from user: only dismiss those who leave or change position
+        managersToDismiss = oldManagers.filter(
+          (om) =>
+            !newManagers.some(
+              (nm) =>
+                nm.name.toUpperCase().trim() === om.name.toUpperCase().trim() &&
+                nm.position.toUpperCase().trim() ===
+                  om.position.toUpperCase().trim(),
+            ),
+        );
+        managersToAppoint = newManagers.filter(
+          (nm) =>
+            !oldManagers.some(
+              (om) =>
+                om.name.toUpperCase().trim() === nm.name.toUpperCase().trim() &&
+                om.position.toUpperCase().trim() ===
+                  nm.position.toUpperCase().trim(),
+            ),
+        );
+      } else {
+        // ALL_DISMISSED
+        managersToDismiss = oldManagers;
+        managersToAppoint = newManagers;
+      }
+
+      // DISMISSAL BLOCK
+      if (managersToDismiss.length > 0) {
+        if (managersToDismiss.length === 1) {
+          const mgr = managersToDismiss[0];
+          let resignationHeading = "";
+          if (/direktur/i.test(mgr.position)) {
+            resignationHeading = `anggota Direksi`;
+          } else if (/komisaris/i.test(mgr.position)) {
+            resignationHeading = `Dewan Komisaris Perseroan`;
+          } else {
+            resignationHeading = `anggota Direksi dan Dewan Komisaris Perseroan`;
+          }
+          
+          const detailRuns = getPersonDetailRuns(mgr);
+
+          blocks.push({
+            type: "p",
+            number: resIdx++,
+            runs: [
+              {
+                text: `Menyetujui untuk memberhentikan dengan hormat ${resignationHeading}, ${mgr.salutation || "Tuan"} `,
+              },
+              ...detailRuns,
+              { text: ` selaku ${mgr.position} perseroan.` },
+            ],
+          });
+        } else {
+          let dismissalText = `${changeType === "PARTIAL_CHANGE" ? "anggota" : "seluruh anggota"} Direksi dan Dewan Komisaris Perseroan${changeType === "PARTIAL_CHANGE" ? "" : " yang menjabat saat ini"}`;
+
+          blocks.push({
+            type: "p",
+            number: resIdx++,
+            runs: [
+              {
+                text: `Menyetujui untuk memberhentikan dengan hormat ${dismissalText}, yaitu :`,
+              },
+            ],
+          });
+
+          managersToDismiss.forEach((m) => {
+            blocks.push({
+              type: "list",
+              bullet: "-",
+              indentTabs: 0.8, // → left=567, hanging=283 (sesuai XML contoh_6.docx)
+              runs: [
+                ...getPersonDetailRuns(m as any),
+                { text: ` selaku ${m.position} perseroan` },
+              ],
+            });
+          });
+        }
+
+        blocks.push({
+          type: "p",
+          indentTabs: 0.334, // → left=284 (sesuai XML: indent paragraf setelah list direksi)
+          runs: [
+            {
+              text: `dengan ucapan terima kasih atas jasa-jasa dan pengabdian yang telah diberikan selama masa jabatannya dalam Perseroan, serta memberikan pelunasan dan pembebasan tanggung jawab sepenuhnya (acquit et de charge) atas tindakan pengurusan dan pengawasan yang telah dijalankan, sepanjang tindakan-tindakan tersebut tercermin dalam buku-buku serta laporan tahunan Perseroan.`,
+            },
+          ],
+        });
+      }
+
+      // APPOINTMENT BLOCK
+      if (managersToAppoint.length > 0) {
+        const hasDirector = managersToAppoint.some(m => /direktur/i.test(m.position));
+        const hasCommissioner = managersToAppoint.some(m => /komisaris/i.test(m.position));
+        
+        let titleText = "anggota Direksi /Dewan Komisaris Perseroan";
+        if (hasDirector && !hasCommissioner) {
+          titleText = "anggota Direksi Perseroan";
+        } else if (!hasDirector && hasCommissioner) {
+          titleText = "Dewan Komisaris Perseroan";
+        }
+
+        blocks.push({
+          type: "p",
+          number: resIdx++,
+          runs: [
+            {
+              text: `Selanjutnya menyetujui untuk mengangkat sebagai ${titleText} yang baru :`,
+            },
+          ],
+        });
+
+        managersToAppoint.forEach((m) => {
+          blocks.push({
+            type: "list",
+            bullet: "-",
+            indentTabs: 0.8, // → left=567, hanging=283 (sesuai XML contoh_6.docx)
+            runs: [
+              { text: `${m.salutation} ` },
+              ...getPersonDetailRuns(m as any),
+              { text: `, sebagai ${m.position} Perseroan;` },
+            ],
+          });
+        });
+      }
+
+      // FINAL COMPOSITION BLOCK
+      if (managersToDismiss.length > 0 || managersToAppoint.length > 0) {
+        blocks.push({
+          type: "p",
+          indentTabs: 0.334, // → left=284
+          runs: [
+            {
+              text: `Sehingga susunan anggota Direksi dan Dewan Komisaris Perseroan menjadi sebagai berikut :`,
+            },
+          ],
+        });
+        newManagers.forEach((m) => {
+          blocks.push({
+            type: "management-list",
+            position: m.position,
+            name: m.name.toUpperCase(),
+          });
+        });
+
+        blocks.push({
+          type: "p",
+          indentTabs: 0.334, // → left=284
+          runs: [
+            {
+              text: `Masa jabatan anggota Direksi dan Dewan Komisaris tersebut di atas berlaku efektif terhitung sejak tanggal Keputusan ini ditetapkan, ${data.managementEffectiveUntil || "untuk jangka waktu sebagaimana yang ditentukan dalam Anggaran Dasar Perseroan"}, dengan tidak mengurangi hak Rapat Umum Pemegang Saham untuk memberhentikan sewaktu-waktu sesuai dengan ketentuan peraturan perundang-undangan yang berlaku.`,
+            },
+          ],
+        });
+      }
     }
   }
 
