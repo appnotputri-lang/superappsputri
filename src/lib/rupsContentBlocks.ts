@@ -157,6 +157,15 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
   const fullyDescribedNames = new Set<string>();
   if (rep) fullyDescribedNames.add(rep.name.toUpperCase());
 
+  const stripSalutation = (name: string): string => {
+    let nameUpper = (name || "").toUpperCase().trim();
+    const prefixRegex = /^(TUAN|NYONYA|NONA|NY|TN|NY\.|TN\.|NYONYA\.|TUAN\.)\s+/i;
+    while (prefixRegex.test(nameUpper)) {
+      nameUpper = nameUpper.replace(prefixRegex, "").trim();
+    }
+    return expandAbbreviations(nameUpper);
+  };
+
   const expandAbbreviations = (str: string) => {
     if (!str) return "";
     let res = str;
@@ -563,7 +572,6 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
         bullet: `${i + 1}.`,
         indentTabs: 0.668,
         runs: [
-          { text: checkIsBadanHukum(sh) ? "" : `${sh.salutation} ` },
           ...getPersonDetailRuns(sh),
           {
             text: `, selaku pemilik dan pemegang ${formatNumber(sh.sharesOwned)}${w(sh.sharesOwned, "shares")} lembar saham atau senilai Rp. ${formatNumber(shTotalRp)},-${w(shTotalRp, "rupiah")}.`,
@@ -910,7 +918,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
       indentTabs: 0.5,
       runs: [
         {
-          text: `Bahwa dari semua saham yang telah dikeluarkan tersebut di atas, yaitu ${formatNumber(totalShares)}${w(totalShares, "shares")} lembar saham perseroan atau dengan nominal seluruhnya sebesar Rp. ${formatNumber(totalCapPaid)},-${w(totalCapPaid, "rupiah")} telah hadir dalam rapat ini sebanyak ${formatNumber(presentShares)}${w(presentShares, "shares")} lembar saham atau senilai Rp. ${formatNumber(presentCapPaid)},-${w(presentCapPaid, "rupiah")} atau setara dengan ${isAllPresent ? "100%" : `${formatNumber(attendancePercentage)}%`} dari seluruh saham yang telah dikeluarkan oleh Perseroan.`,
+          text: `Bahwa dari semua saham yang telah dikeluarkan perseroan, yaitu ${formatNumber(totalShares)}${w(totalShares, "shares")} lembar saham perseroan atau dengan nominal seluruhnya sebesar Rp. ${formatNumber(totalCapPaid)},-${w(totalCapPaid, "rupiah")} telah hadir dalam rapat ini sebanyak ${formatNumber(presentShares)}${w(presentShares, "shares")} lembar saham atau senilai Rp. ${formatNumber(presentCapPaid)},-${w(presentCapPaid, "rupiah")} atau setara dengan ${isAllPresent ? "100%" : `${attendancePercentage.toFixed(2)}%`} dari seluruh saham yang telah dikeluarkan oleh Perseroan.`,
         },
       ],
     });
@@ -960,7 +968,11 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
       let runs: any[] = [];
       if (hasFullDetails) {
         const sal = guest.salutation || "Tuan";
-        const cleanName = guest.name.toUpperCase();
+        let cleanName = guest.name.toUpperCase().trim();
+        const prefixRegex = /^(TUAN|NYONYA|NONA|NY|TN|NY\.|TN\.|NYONYA\.|TUAN\.)\s+/i;
+        while (prefixRegex.test(cleanName)) {
+          cleanName = cleanName.replace(prefixRegex, "").trim();
+        }
         const tglLahirHuruf = guest.birthDate ? dateToWords(guest.birthDate) : "";
         const tglLahirAngka = guest.birthDate ? formatDateStr(guest.birthDate) : "";
         
@@ -973,8 +985,13 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
           { text: guest.position ? `, hadir dalam rapat selaku ${toTitleCase(guest.position)};` : ";" }
         ];
       } else {
+        let cleanName = guest.name.toUpperCase().trim();
+        const prefixRegex = /^(TUAN|NYONYA|NONA|NY|TN|NY\.|TN\.|NYONYA\.|TUAN\.)\s+/i;
+        while (prefixRegex.test(cleanName)) {
+          cleanName = cleanName.replace(prefixRegex, "").trim();
+        }
         runs = [
-          { text: guest.name.toUpperCase(), bold: true },
+          { text: cleanName, bold: true },
           { text: guest.position ? `, ${toTitleCase(guest.position)};` : ";" }
         ];
       }
@@ -1270,43 +1287,58 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
     });
 
     if (isIncrease) {
-      const newDeposits = data.finalShareholders
-        .map((fs) => {
-          const originalFs = data.shareholders.find(
-            (s) => s.id === fs.linkedPartyId || s.name === fs.name,
-          );
-          const originalShares = originalFs ? originalFs.sharesOwned : 0;
+      const newDeposits = data.capitalSubscriptionsNew && data.capitalSubscriptionsNew.length > 0
+        ? data.capitalSubscriptionsNew.map((item) => {
+            const fs = data.finalShareholders?.find(
+              (s) => s.name?.toUpperCase().trim() === item.subscriberName?.toUpperCase().trim()
+            ) || data.shareholders?.find(
+              (s) => s.name?.toUpperCase().trim() === item.subscriberName?.toUpperCase().trim()
+            );
+            return {
+              name: item.subscriberName,
+              depositedShares: item.sharesCount,
+              valueRp: item.sharesCount * (data.originalSharePrice || 0),
+              fs,
+            };
+          })
+        : data.finalShareholders
+            .map((fs) => {
+              const originalFs = data.shareholders.find(
+                (s) => s.id === fs.linkedPartyId || s.name === fs.name,
+              );
+              const originalShares = originalFs ? originalFs.sharesOwned : 0;
 
-          let sharesFromTransfer = 0;
-          let sharesToTransfer = 0;
+              let sharesFromTransfer = 0;
+              let sharesToTransfer = 0;
 
-          if (data.shareTransfers) {
-            data.shareTransfers.forEach((t) => {
-              if (
-                t.toShareholderId === fs.id ||
-                t.toShareholderId === fs.linkedPartyId
-              )
-                sharesFromTransfer += t.sharesTransferred;
-              if (
-                t.fromShareholderId === fs.id ||
-                t.fromShareholderId === fs.linkedPartyId
-              )
-                sharesToTransfer += t.sharesTransferred;
-            });
-          }
+              if (data.shareTransfers) {
+                data.shareTransfers.forEach((t) => {
+                  if (
+                    t.toShareholderId === fs.id ||
+                    t.toShareholderId === fs.linkedPartyId
+                  )
+                    sharesFromTransfer += t.sharesTransferred;
+                  if (
+                    t.fromShareholderId === fs.id ||
+                    t.fromShareholderId === fs.linkedPartyId
+                  )
+                    sharesToTransfer += t.sharesTransferred;
+                });
+              }
 
-          const expectedShares =
-            originalShares + sharesFromTransfer - sharesToTransfer;
-          const newlyDepositedShares = fs.sharesOwned - expectedShares;
-          const valueRp = newlyDepositedShares * data.originalSharePrice;
+              const expectedShares =
+                originalShares + sharesFromTransfer - sharesToTransfer;
+              const newlyDepositedShares = fs.sharesOwned - expectedShares;
+              const valueRp = newlyDepositedShares * data.originalSharePrice;
 
-          return {
-            fs,
-            depositedShares: newlyDepositedShares,
-            valueRp,
-          };
-        })
-        .filter((d) => d.depositedShares > 0);
+              return {
+                name: fs.name,
+                depositedShares: newlyDepositedShares,
+                valueRp,
+                fs,
+              };
+            })
+            .filter((d) => d.depositedShares > 0);
 
       if (newDeposits.length > 0) {
         blocks.push({
@@ -1320,11 +1352,34 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
         });
 
         newDeposits.forEach((d) => {
+          const nameKey = stripSalutation(d.name);
+          const isAlreadyDescribed = fullyDescribedNames.has(nameKey);
+
+          let fullName = "";
+          const salutation = (d.fs?.salutation || "Tuan").trim();
+          const cleanName = nameKey;
+          
+          if (isAlreadyDescribed) {
+            fullName = `${salutation.toUpperCase()} ${cleanName}, tersebut diatas`;
+          } else {
+            let detailsText = "";
+            if (d.fs) {
+              const tglLahirHuruf = d.fs.birthDate ? dateToWords(d.fs.birthDate) : "";
+              const tglLahirAngka = d.fs.birthDate ? formatDateStr(d.fs.birthDate) : "";
+              detailsText = formatPersonDetails(d.fs, tglLahirAngka, tglLahirHuruf, true);
+            } else {
+              detailsText = `, lahir di Bandung, pada tanggal 15-07-1991 (lima belas Juli seribu sembilan ratus sembilan puluh satu), Warga Negara Indonesia, Wiraswasta, bertempat tinggal di Kabupaten Bandung Barat, Jl Sukaresmi V Nomor 17, RT. 005 RW. 005, Kelurahan Mekarwangi, Kecamatan Lembang, pemegang Kartu Tanda Penduduk Nomor ...`;
+            }
+            fullName = `${salutation.toUpperCase()} ${cleanName}${expandAbbreviations(detailsText)}`;
+            
+            fullyDescribedNames.add(nameKey);
+          }
+
           blocks.push({
             type: "shareholder-list",
             bullet: "-",
-            name: d.fs.name.toUpperCase(),
-            sharesText: `: ${formatNumber(d.depositedShares)}${w(d.depositedShares, "shares")} lembar saham`,
+            name: fullName,
+            sharesText: `sebanyak ${formatNumber(d.depositedShares)}${w(d.depositedShares, "shares")} lembar saham`,
             rpText: `atau senilai Rp. ${formatNumber(d.valueRp)},-${w(d.valueRp, "rupiah")};`,
           });
         });
@@ -1383,10 +1438,9 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
         type: "list",
         bullet: "-",
         runs: [
-          { text: checkIsBadanHukum(from) ? "" : `${from?.salutation} ` },
           ...getPersonDetailRuns(from),
           {
-            text: ` mengalihkan ${formatNumber(t.sharesTransferred)}${w(t.sharesTransferred, "shares")} lembar saham perseroan atau senilai Rp ${formatNumber(valRp)},-${w(valRp, "rupiah")} kepada ${checkIsBadanHukum(to) ? "" : `${to?.salutation} `}`,
+            text: ` mengalihkan ${formatNumber(t.sharesTransferred)}${w(t.sharesTransferred, "shares")} lembar saham perseroan atau senilai Rp ${formatNumber(valRp)},-${w(valRp, "rupiah")} kepada `,
           },
           ...getPersonDetailRuns(to),
           { text: `.` },
@@ -1640,7 +1694,6 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
             bullet: "-",
             indentTabs: 0.8, // → left=567, hanging=283 (sesuai XML contoh_6.docx)
             runs: [
-              { text: `${m.salutation} ` },
               ...getPersonDetailRuns(m as any),
               { text: `, sebagai ${m.position} Perseroan;` },
             ],

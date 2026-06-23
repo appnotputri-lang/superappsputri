@@ -32,6 +32,16 @@ const LINE_SPACING = 360; // Approx 1.5 line spacing
 const AFTER_SPACING = 120; // 6pt
 
 const MARGIN_NORMAL = 1440; // 1 inch
+
+const cleanNameOfSalutation = (name: string): string => {
+  if (!name) return "";
+  let cleanName = name.trim();
+  const cleanPrefixRegex = /^(TUAN|NYONYA|NONA|NY\.?|TN\.?|IBU|BAPAK|SDR\.?|SDRI\.?|NYONYA|TUAN)\s+/i;
+  while (cleanPrefixRegex.test(cleanName)) {
+    cleanName = cleanName.replace(cleanPrefixRegex, "").trim();
+  }
+  return cleanName;
+};
 const PAGE_WIDTH_TWIPS = 11906; // A4 width
 const MARGIN_TOTAL = 2880; // Left + Right (1440 * 2)
 const CONTENT_WIDTH = PAGE_WIDTH_TWIPS - MARGIN_TOTAL;
@@ -418,7 +428,7 @@ export const generateWordDoc = async (data: CompanyData) => {
             font: FONT_FAMILY,
           }),
           new TextRun({
-            text: (sh.name || "................").toUpperCase(),
+            text: cleanNameOfSalutation((sh.name || "................").toUpperCase()),
             bold: true,
             size: FONT_SIZE,
             font: FONT_FAMILY,
@@ -474,25 +484,27 @@ export const generateWordDoc = async (data: CompanyData) => {
     }),
   );
 
-  children.push(
-    createBodyParagraph({
-      indent: { left: INDENT_STEP },
-      children: [
-        new TextRun({
-          text: "- Untuk selanjutnya secara bersama-sama disebut sebagai ",
-          size: FONT_SIZE,
-          font: FONT_FAMILY,
-        }),
-        new TextRun({
-          text: "“Para Pemegang Saham”",
-          bold: true,
-          size: FONT_SIZE,
-          font: FONT_FAMILY,
-        }),
-      ],
-      spacing: { after: 240 },
-    }),
-  );
+  if (isCircular) {
+    children.push(
+      createBodyParagraph({
+        indent: { left: INDENT_STEP },
+        children: [
+          new TextRun({
+            text: "- Untuk selanjutnya secara bersama-sama disebut sebagai ",
+            size: FONT_SIZE,
+            font: FONT_FAMILY,
+          }),
+          new TextRun({
+            text: "“Para Pemegang Saham”",
+            bold: true,
+            size: FONT_SIZE,
+            font: FONT_FAMILY,
+          }),
+        ],
+        spacing: { after: 240 },
+      }),
+    );
+  }
 
   if (isCircular) {
     // --- CIRCULAR DECLARATION ---
@@ -859,6 +871,15 @@ export const generateWordDoc = async (data: CompanyData) => {
       ],
     }),
   );
+
+  if (!isCircular) {
+    children.push(
+      createBodyParagraph({
+        text: "Oleh karena agenda rapat telah diketahui dan dipahami sepenuhnya oleh para hadirin, maka setelah memberikan penjelasan-penjelasan yang diperlukan sehubungan dengan rapat ini, ketua rapat langsung saja mengusulkan kepada rapat untuk mengambil keputusan-keputusan dan selanjutnya, Rapat dengan suara bulat memutuskan dan menetapkan sebagai berikut :",
+        spacing: { after: 240 },
+      }),
+    );
+  }
 
   // Helper to add numbered resolution
   const addResolution = (resTitle: string, resBody: any[]) => {
@@ -1297,7 +1318,7 @@ export const generateWordDoc = async (data: CompanyData) => {
               new TextRun({ text: "- ", size: FONT_SIZE, font: FONT_FAMILY }),
               new TextRun({ text: `Memberhentikan selaku ${toTitleCase(m.position)} yaitu `, size: FONT_SIZE, font: FONT_FAMILY }),
               new TextRun({
-                text: `${m.salutation || "Tuan"} ${(m.name || "..........").toUpperCase()}`,
+                text: `${m.salutation || "Tuan"} ${cleanNameOfSalutation((m.name || "..........").toUpperCase())}`,
                 bold: true,
                 size: FONT_SIZE,
                 font: FONT_FAMILY,
@@ -1326,7 +1347,7 @@ export const generateWordDoc = async (data: CompanyData) => {
               children: [
                 new TextRun({ text: "- ", size: FONT_SIZE, font: FONT_FAMILY }),
                 new TextRun({
-                  text: `${m.salutation || "Tuan"} ${(m.name || "..........").toUpperCase()}`,
+                  text: `${m.salutation || "Tuan"} ${cleanNameOfSalutation((m.name || "..........").toUpperCase())}`,
                   bold: true,
                   size: FONT_SIZE,
                   font: FONT_FAMILY,
@@ -1363,7 +1384,7 @@ export const generateWordDoc = async (data: CompanyData) => {
               new TextRun({ text: "- ", size: FONT_SIZE, font: FONT_FAMILY }),
               new TextRun({ text: `Mengangkat penggantinya selaku ${toTitleCase(m.position)} yaitu `, size: FONT_SIZE, font: FONT_FAMILY }),
               new TextRun({
-                text: `${m.salutation || "Tuan"} ${(m.name || "..........").toUpperCase()}`,
+                text: `${m.salutation || "Tuan"} ${cleanNameOfSalutation((m.name || "..........").toUpperCase())}`,
                 bold: true,
                 size: FONT_SIZE,
                 font: FONT_FAMILY,
@@ -1404,7 +1425,7 @@ export const generateWordDoc = async (data: CompanyData) => {
               children: [
                 new TextRun({ text: "- ", size: FONT_SIZE, font: FONT_FAMILY }),
                 new TextRun({
-                  text: `${m.salutation || "Tuan"} ${(m.name || "..........").toUpperCase()}`,
+                  text: `${m.salutation || "Tuan"} ${cleanNameOfSalutation((m.name || "..........").toUpperCase())}`,
                   bold: true,
                   size: FONT_SIZE,
                   font: FONT_FAMILY,
@@ -1490,12 +1511,12 @@ export const generateWordDoc = async (data: CompanyData) => {
     const rep = allPotentialReps.find(
       (s) => s.id === data.authorizedRepresentativeId,
     );
-    repName = `${rep?.salutation || "................"} ${(rep?.name || "................").toUpperCase()}`;
+    repName = `${rep?.salutation || "................"} ${cleanNameOfSalutation((rep?.name || "................").toUpperCase())}`;
     repText = repName;
   } else {
     const rep = data.manualRepresentative;
     if (rep) {
-      repName = `${rep.salutation} ${rep.name.toUpperCase() || "................"}`;
+      repName = `${rep.salutation} ${cleanNameOfSalutation(rep.name.toUpperCase() || "................")}`;
       const birthStr = `lahir di ${toTitleCase(rep.birthCity || "................")}, pada tanggal ${getDayIndo(rep.birthDate) || ".."} ${getMonthIndo(rep.birthDate) || "........"} ${getYearIndo(rep.birthDate) || "...."}`;
       repText = `${repName}, ${birthStr}, ${getNationalityStr(rep)}, ${getOccupationStr(rep)}${getAddressStr(rep)}, ${getIdentificationStr(rep)}`;
     } else {

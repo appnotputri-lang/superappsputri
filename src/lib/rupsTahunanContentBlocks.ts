@@ -454,7 +454,7 @@ export const generateRupstBlocks = (data: CompanyData): Block[] => {
     return [
       { text: sal },
       { text: nameUpper, bold: true },
-      { text: formatPersonDetails(person, tglAngka, tglHuruf) }
+      { text: formatPersonDetails(person, tglAngka, tglHuruf, true) }
     ];
   };
 
@@ -706,9 +706,13 @@ export const generateRupstBlocks = (data: CompanyData): Block[] => {
   });
 
   const totalValue = totalShares * (data.originalSharePrice || 0);
+  const presentValue = presentShares * (data.originalSharePrice || 0);
+  const formattedPercentage = presentPercentage.toFixed(2);
+  const isAllPresent = presentPercentage >= 99.99;
+
   blocks.push({
     type: "p",
-    runs: [{ text: `Bahwa dari semua saham yang telah dikeluarkan tersebut di atas, yaitu ${formatNumber(totalShares)} (${terbilang(totalShares)}) lembar saham atau senilai Rp. ${formatNumber(totalValue)},- (${terbilang(totalValue)} rupiah).` }]
+    runs: [{ text: `Bahwa dari semua saham yang telah dikeluarkan perseroan, yaitu ${formatNumber(totalShares)} (${terbilang(totalShares)}) lembar saham perseroan atau dengan nominal seluruhnya sebesar Rp. ${formatNumber(totalValue)},- (${terbilang(totalValue)} rupiah) telah hadir dalam rapat ini sebanyak ${formatNumber(presentShares)} (${terbilang(presentShares)}) lembar saham perseroan atau senilai Rp. ${formatNumber(presentValue)},- (${terbilang(presentValue)} rupiah) atau setara dengan ${formattedPercentage}% dari seluruh saham yang telah dikeluarkan oleh Perseroan.` }]
   });
 
   blocks.push({ type: "br" });

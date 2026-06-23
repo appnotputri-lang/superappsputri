@@ -296,7 +296,7 @@ export const generateRupstPernyataanBlocks = (data: CompanyData): Block[] => {
       { text: formatCompanyName(data.companyName) },
       { text: "\n" },
       { text: "\n" },
-      { text: "Materai Rp10.000" },
+      { text: "Materai + Cap", size: 12, color: "FF0000" },
       { text: "\n" },
       { text: "\n" },
     ],

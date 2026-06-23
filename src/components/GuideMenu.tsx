@@ -108,7 +108,7 @@ const GuideMenu = () => {
               <h2 className="text-lg font-bold text-slate-800">Data Kehadiran & Detail Rapat</h2>
               <p className="text-sm text-slate-600 leading-relaxed">
                 Jika Anda membuat Akta PKR LB, pastikan mengisi form <b>Detail Rapat</b> (Tanggal RUPS, Waktu, Tempat).<br/>
-                Sistem juga otomatis menyediakan input <b>Data Kehadiran (Daftar Hadir)</b> untuk memastikan kuorum RUPS telah terpenuhi. 
+                Sistem juga otomatis menyediakan input <b>Daftar Para Pihak</b> untuk memastikan kuorum RUPS telah terpenuhi. 
                 Anda cukup memilih siapa saja pemegang saham yang hadir atau diwakili oleh kuasa.
               </p>
             </div>

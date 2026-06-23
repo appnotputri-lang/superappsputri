@@ -108,30 +108,70 @@ export const RUPSDocumentPreview: React.FC<RUPSDocumentPreviewProps> = ({ data }
       });
     } else if (block.type === 'shareholder-list') {
       const align: string = 'left';
-      const combinedText = `${block.sharesText} ${block.rpText}`;
-      const tokens: FormatToken[] = [{ text: combinedText }];
-      const lines = parseTextRuns(tokens, 28);
-      
-      lines.forEach((line, lIdx) => {
-        allLines.push({
-          element: (
-             <div key={`shl-${bIdx}-${lIdx}`} className="flex relative items-start gap-1">
-               <span className="w-[0.75cm] shrink-0 whitespace-nowrap ml-[0.75cm]">{lIdx === 0 ? block.bullet : ""}</span>
-               <span className="w-[3.43cm] shrink-0 whitespace-nowrap">{lIdx === 0 ? block.name : ""}</span>
-               <div className="flex-1 min-w-0">
-                 <div className="flex relative w-full overflow-hidden leading-[2]">
-                   <span className="whitespace-pre-wrap shrink-0">
-                     {line.map((t, j) => t.bold ? <strong key={j}>{t.text}</strong> : <span key={j}>{t.text}</span>)}
-                   </span>
-                   {align !== 'center' && align !== 'right-center' && <span className="flex-1 overflow-hidden select-none whitespace-nowrap opacity-60" style={{ letterSpacing: '0.5px' }}>
-                     &nbsp;{Array(200).fill('-').join('')}
-                   </span>}
+      if (block.name.includes(", lahir") || block.name.length > 80) {
+        const cleanShares = block.sharesText.replace(/^:\s*/, "").replace(/^\s*sebanyak\s*/, "").trim();
+        const fullCombinedText = `, sebanyak ${cleanShares} ${block.rpText}`;
+        
+        const firstCommaIdx = block.name.indexOf(",");
+        let boldPart = block.name;
+        let normalPart = "";
+        if (firstCommaIdx !== -1) {
+          boldPart = block.name.substring(0, firstCommaIdx);
+          normalPart = block.name.substring(firstCommaIdx);
+        }
+
+        const runs = [
+          { text: boldPart, bold: true },
+          { text: normalPart + fullCombinedText }
+        ];
+
+        const lines = parseTextRuns(runs, 39.5);
+        
+        lines.forEach((line, lIdx) => {
+          allLines.push({
+            element: (
+               <div key={`shl-${bIdx}-${lIdx}`} className="flex relative items-start gap-1 pr-4">
+                 <span className="w-[0.75cm] shrink-0 whitespace-nowrap ml-[0.75cm]">{lIdx === 0 ? block.bullet : ""}</span>
+                 <div className="flex-1 min-w-0">
+                   <div className="flex relative w-full overflow-hidden leading-[2]">
+                     <span className="whitespace-pre-wrap shrink-0">
+                       {line.map((t, j) => t.bold ? <strong key={j}>{t.text}</strong> : <span key={j}>{t.text}</span>)}
+                     </span>
+                     {align !== 'center' && align !== 'right-center' && <span className="flex-1 overflow-hidden select-none whitespace-nowrap opacity-60" style={{ letterSpacing: '0.5px' }}>
+                       &nbsp;{Array(200).fill('-').join('')}
+                     </span>}
+                   </div>
                  </div>
                </div>
-             </div>
-          )
+            )
+          });
         });
-      });
+      } else {
+        const combinedText = `${block.sharesText} ${block.rpText}`;
+        const tokens: FormatToken[] = [{ text: combinedText }];
+        const lines = parseTextRuns(tokens, 28);
+        
+        lines.forEach((line, lIdx) => {
+          allLines.push({
+            element: (
+               <div key={`shl-${bIdx}-${lIdx}`} className="flex relative items-start gap-1">
+                 <span className="w-[0.75cm] shrink-0 whitespace-nowrap ml-[0.75cm]">{lIdx === 0 ? block.bullet : ""}</span>
+                 <span className="w-[3.43cm] shrink-0 whitespace-nowrap">{lIdx === 0 ? block.name : ""}</span>
+                 <div className="flex-1 min-w-0">
+                   <div className="flex relative w-full overflow-hidden leading-[2]">
+                     <span className="whitespace-pre-wrap shrink-0">
+                       {line.map((t, j) => t.bold ? <strong key={j}>{t.text}</strong> : <span key={j}>{t.text}</span>)}
+                     </span>
+                     {align !== 'center' && align !== 'right-center' && <span className="flex-1 overflow-hidden select-none whitespace-nowrap opacity-60" style={{ letterSpacing: '0.5px' }}>
+                       &nbsp;{Array(200).fill('-').join('')}
+                     </span>}
+                   </div>
+                 </div>
+               </div>
+            )
+          });
+        });
+      }
     } else if (block.type === 'management-list') {
       const align: string = 'left';
       const tokens: FormatToken[] = [{ text: `: ${block.name};` }];

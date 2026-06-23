@@ -398,7 +398,11 @@ export function formatPersonDetails(
     const kec = toTitleCase(person.address?.kecamatan || "...");
     const nik = person.nik || "...";
 
-    let details = `, lahir di ${birthCity}, pada tanggal ${birthDateWording}, Warga Negara Indonesia, ${occupation}, bertempat tinggal di ${city}, ${fullAddr}, RT. ${rt} RW. ${rw}, Kelurahan ${kel}, Kecamatan ${kec}`;
+    const addrText = useAktaFormat
+      ? `${fullAddr}, Rukun Tetangga ${rt}, Rukun Warga ${rw}, Kelurahan ${kel}, Kecamatan ${kec}`
+      : `${fullAddr}, RT. ${rt} RW. ${rw}, Kelurahan ${kel}, Kecamatan ${kec}`;
+
+    let details = `, lahir di ${birthCity}, pada tanggal ${birthDateWording}, Warga Negara Indonesia, ${occupation}, bertempat tinggal di ${city}, ${addrText}`;
 
     if ((person as any).isUnderage) {
       const gSal = (person as any).guardianSalutation || "Tuan/Nyonya";

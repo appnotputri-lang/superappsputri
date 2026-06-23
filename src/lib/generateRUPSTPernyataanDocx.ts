@@ -188,7 +188,7 @@ const makeInlineBr = (tokens: RunToken[], align?: string): Paragraph => {
 const makeSigTable = (columns: { name: string; position: string }[]): Table => {
   // MS Word dashed gridlines look like BorderStyle.DASHED, but normally we use NONE.
   // The screenshot shows a dashed border, which seems like MS Word's gridlines. Let's use dashed borders to match it visually.
-  const tblBorder = { style: BorderStyle.DASHED, size: 4, color: "888888" };
+  const tblBorder = { style: BorderStyle.NONE, size: 0, color: "FFFFFF" };
   const borders = {
     top: tblBorder, bottom: tblBorder, left: tblBorder, right: tblBorder,
     insideHorizontal: tblBorder, insideVertical: tblBorder,

@@ -32,6 +32,16 @@ const LINE_SPACING = 360;
 const AFTER_SPACING = 120;
 const MARGIN_NORMAL = 1440;
 
+const cleanNameOfSalutation = (name: string): string => {
+  if (!name) return "";
+  let cleanName = name.trim();
+  const cleanPrefixRegex = /^(TUAN|NYONYA|NONA|NY\.?|TN\.?|IBU|BAPAK|SDR\.?|SDRI\.?|NYONYA|TUAN)\s+/i;
+  while (cleanPrefixRegex.test(cleanName)) {
+    cleanName = cleanName.replace(cleanPrefixRegex, "").trim();
+  }
+  return cleanName;
+};
+
 // ─── NUMBERING REFERENCES (sesuai XML contoh NOTULEN_RUPSLB.docx) ────────────
 // "sh-dash"      → bullet "-", left=426, hang=426  → peserta/pemegang saham (numId 2)
 // "hadir-dash"   → bullet "-", left=993, hang=284  → "Dalam hal ini hadir selaku" (numId 3)
@@ -428,16 +438,8 @@ export const generateWordDoc = async (data: CompanyData) => {
   // Listing peserta
   const getDisplayNameForDocx = (person: any) => {
     let name = (person.name || "................").toUpperCase();
-    // Strip PT prefix if it exists
     name = name.replace(/^PT\.?\s+/i, '').trim();
-
-    if (person.salutation) {
-      const salUpper = `${person.salutation.toUpperCase()} `;
-      if (name.startsWith(salUpper)) {
-        name = name.substring(salUpper.length);
-      }
-    }
-    return name;
+    return cleanNameOfSalutation(name);
   };
 
   interface PhysicalAttendee {
@@ -880,17 +882,19 @@ export const generateWordDoc = async (data: CompanyData) => {
   );
 
   // "Para Pemegang Saham" → dash bullet
-  children.push(
-    new Paragraph({
-      alignment: "both" as any,
-      spacing: { line: LINE_SPACING, lineRule: "auto", before: 120, after: 120 },
-      numbering: { reference: "para-dash", level: 0 },
-      children: [
-        mkRun("Untuk selanjutnya secara bersama-sama disebut sebagai "),
-        mkRun("\u201CPara Pemegang Saham\u201D", true),
-      ],
-    }),
-  );
+  if (isCircular) {
+    children.push(
+      new Paragraph({
+        alignment: "both" as any,
+        spacing: { line: LINE_SPACING, lineRule: "auto", before: 120, after: 120 },
+        numbering: { reference: "para-dash", level: 0 },
+        children: [
+          mkRun("Untuk selanjutnya secara bersama-sama disebut sebagai "),
+          mkRun("\u201CPara Pemegang Saham\u201D", true),
+        ],
+      }),
+    );
+  }
 
   // ── CIRCULAR extra ────────────────────────────────────────────────────────
   if (isCircular) {
@@ -1028,6 +1032,20 @@ export const generateWordDoc = async (data: CompanyData) => {
       children: [mkRun(resLabel, true)],
     }),
   );
+
+  if (!isCircular) {
+    children.push(
+      new Paragraph({
+        alignment: "both" as any,
+        spacing: { line: LINE_SPACING, lineRule: "auto", after: AFTER_SPACING },
+        children: [
+          mkRun(
+            "Oleh karena agenda rapat telah diketahui dan dipahami sepenuhnya oleh para hadirin, maka setelah memberikan penjelasan-penjelasan yang diperlukan sehubungan dengan rapat ini, ketua rapat langsung saja mengusulkan kepada rapat untuk mengambil keputusan-keputusan dan selanjutnya, Rapat dengan suara bulat memutuskan dan menetapkan sebagai berikut :"
+          ),
+        ],
+      }),
+    );
+  }
 
   let resolutionIdx = 1;
 
@@ -1319,7 +1337,7 @@ export const generateWordDoc = async (data: CompanyData) => {
               detailsText = formatPersonDetails(person, "", "", false, true);
               const sal = (person.salutation || "Tuan").trim();
               const salUpper = sal.toUpperCase().includes("TUAN") ? "TUAN" : sal.toUpperCase().includes("NYONYA") ? "NYONYA" : sal.toUpperCase().includes("NONA") ? "NONA" : sal;
-              boldName = `${salUpper} ${dep.name.toUpperCase()}`;
+              boldName = `${salUpper} ${cleanNameOfSalutation(dep.name.toUpperCase())}`;
             }
 
             capitalBody.push(
@@ -1622,7 +1640,7 @@ export const generateWordDoc = async (data: CompanyData) => {
 
           const itemChildren = [
             mkRun(`Memberhentikan selaku ${d.position} yaitu `),
-            mkRun(`${d.salutation} ${(d.name || ".....").toUpperCase()}`, true),
+            mkRun(`${d.salutation} ${cleanNameOfSalutation((d.name || ".....").toUpperCase())}`, true),
             mkRun(`, karena ${detailResignStr}.`),
           ];
 
@@ -1636,7 +1654,7 @@ export const generateWordDoc = async (data: CompanyData) => {
             }
             itemChildren.push(
               mkRun(` Dan mengangkat penggantinya selaku ${d.replacedByPosition || d.position} yaitu `),
-              mkRun(`${d.replacedBySalutation || 'Tuan'} ${(d.replacedByName || ".....").toUpperCase()}`, true),
+              mkRun(`${d.replacedBySalutation || 'Tuan'} ${cleanNameOfSalutation((d.replacedByName || ".....").toUpperCase())}`, true),
               mkRun(replacedFullText)
             );
           }
@@ -1732,7 +1750,7 @@ export const generateWordDoc = async (data: CompanyData) => {
                 numbering: { reference: "hadir-dash", level: 0 },
                 children: [
                   mkRun((m.salutation || "Tuan") + " "),
-                  mkRun((m.name || ".....").toUpperCase(), true),
+                  mkRun(cleanNameOfSalutation((m.name || ".....").toUpperCase()), true),
                   mkRun(details),
                   mkRun(`, selaku ${m.position} perseroan;`),
                 ],
@@ -1778,7 +1796,7 @@ export const generateWordDoc = async (data: CompanyData) => {
                 numbering: { reference: "hadir-dash", level: 0 },
                 children: [
                   mkRun((m.salutation || "Tuan") + " "),
-                  mkRun((m.name || ".....").toUpperCase(), true),
+                  mkRun(cleanNameOfSalutation((m.name || ".....").toUpperCase()), true),
                   mkRun(details),
                   mkRun(`, sebagai ${toTitleCase(m.position)} perseroan;`),
                 ],
@@ -1843,12 +1861,12 @@ export const generateWordDoc = async (data: CompanyData) => {
     if (data.representativeType === "EXISTING") {
       const allReps = [...data.shareholders, ...data.finalShareholders];
       const rep = allReps.find((s) => s.id === data.authorizedRepresentativeId);
-      repText = `${rep?.salutation || "................"} ${(rep?.name || "................").toUpperCase()}`;
+      repText = `${rep?.salutation || "................"} ${cleanNameOfSalutation((rep?.name || "................").toUpperCase())}`;
     } else {
       const rep = data.manualRepresentative;
       if (rep) {
         const birthStr = `lahir di ${toTitleCase(rep.birthCity || "................")}, pada tanggal ${getDayIndo(rep.birthDate) || ".."} ${getMonthIndo(rep.birthDate) || "........"} ${getYearIndo(rep.birthDate) || "...."}`;
-        repText = `${rep.salutation} ${rep.name.toUpperCase() || "................"}, ${birthStr}, ${getNationalityStr(rep)}, ${getOccupationStr(rep)}${getAddressStr(rep)}, ${getIdentificationStr(rep)}`;
+        repText = `${rep.salutation} ${cleanNameOfSalutation(rep.name.toUpperCase() || "................")}, ${birthStr}, ${getNationalityStr(rep)}, ${getOccupationStr(rep)}${getAddressStr(rep)}, ${getIdentificationStr(rep)}`;
       }
     }
     
@@ -2368,7 +2386,7 @@ export const generateWordDoc = async (data: CompanyData) => {
 
           const itemChildren = [
             mkRun(`Memberhentikan selaku ${d.position} yaitu `),
-            mkRun(`${d.salutation || "Tuan"} ${(d.name || ".....").toUpperCase()}`, true),
+            mkRun(`${d.salutation || "Tuan"} ${cleanNameOfSalutation((d.name || ".....").toUpperCase())}`, true),
             mkRun(`, karena ${detailResignStr}.`),
           ];
 
@@ -2480,7 +2498,7 @@ export const generateWordDoc = async (data: CompanyData) => {
                 numbering: { reference: "hadir-dash", level: 0 },
                 children: [
                   mkRun(`${m.salutation || "Tuan"} `),
-                  mkRun((m.name || "..........").toUpperCase(), true),
+                  mkRun(cleanNameOfSalutation((m.name || "..........").toUpperCase()), true),
                   mkRun(`, selaku ${m.position} perseroan;`),
                 ],
               }),
@@ -2519,7 +2537,7 @@ export const generateWordDoc = async (data: CompanyData) => {
               children: [
                 mkRun(toTitleCase(m.position)),
                 mkRun("\t: "),
-                mkRun((m.name || "..........").toUpperCase(), true),
+                mkRun(cleanNameOfSalutation((m.name || "..........").toUpperCase()), true),
               ],
             }),
           );
@@ -2534,12 +2552,12 @@ export const generateWordDoc = async (data: CompanyData) => {
     if (data.representativeType === "EXISTING") {
       const allReps = [...data.shareholders, ...data.finalShareholders];
       const rep = allReps.find((s) => s.id === data.authorizedRepresentativeId);
-      repText = `${rep?.salutation || "................"} ${(rep?.name || "................").toUpperCase()}`;
+      repText = `${rep?.salutation || "................"} ${cleanNameOfSalutation((rep?.name || "................").toUpperCase())}`;
     } else {
       const rep = data.manualRepresentative;
       if (rep) {
         const birthStr = `lahir di ${toTitleCase(rep.birthCity || "................")}, pada tanggal ${getDayIndo(rep.birthDate) || ".."} ${getMonthIndo(rep.birthDate) || "........"} ${getYearIndo(rep.birthDate) || "...."}`;
-        repText = `${rep.salutation} ${rep.name.toUpperCase() || "................"}, ${birthStr}, ${getNationalityStr(rep)}, ${getOccupationStr(rep)}${getAddressStr(rep)}, ${getIdentificationStr(rep)}`;
+        repText = `${rep.salutation} ${cleanNameOfSalutation(rep.name.toUpperCase() || "................")}, ${birthStr}, ${getNationalityStr(rep)}, ${getOccupationStr(rep)}${getAddressStr(rep)}, ${getIdentificationStr(rep)}`;
       }
     }
     children.push(bodyP({

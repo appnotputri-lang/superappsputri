@@ -75,7 +75,7 @@ const DASH_LEVEL = {
   format: LevelFormat.BULLET,
   text: "-",
   alignment: AlignmentType.LEFT,
-  style: { paragraph: { indent: { left: 1440, hanging: 360 } } },
+  style: { paragraph: { indent: { left: 720, hanging: 360 } } },
 };
 
 const buildNumberingConfig = () => ({
@@ -307,14 +307,14 @@ const mkAttendanceNum = (t: FormatToken[], bulletStr: string) =>
     children: wrappedRuns(t, W.attendeeNum),
   });
 
-/** ATTENDANCE DASH  numId=3 ilvl=2 ind.left=1134 or deep */
+/** ATTENDANCE DASH  numId=3 ilvl=2 sejajar angka 3 */
 const mkAttendanceDash = (t: FormatToken[], indentTabs?: number) => {
   const isDeep = indentTabs !== undefined && indentTabs >= 1.5;
   return new Paragraph({
     style: "ListParagraph",
     numbering: { reference: NUM.ATTENDANCE, level: 2 },
     tabStops: [TAB_KANAN],
-    indent: isDeep ? { left: 1701, hanging: 283 } : { left: 1134, hanging: 284 },
+    indent: isDeep ? { left: 1080, hanging: 360 } : { left: 720, hanging: 360 },
     children: wrappedRuns(t, isDeep ? 33.0 : W.attendeeDash),
   });
 };
@@ -333,46 +333,46 @@ const mkAttendanceLetter = (t: FormatToken[], bulletStr: string) =>
 // ── General zone: 4 distinct builders matching corrected docx XML ─────────────
 
 /** GENERAL: "Bahwa dari semua saham..."
- *  numId=4 ilvl=2 ind.left=1134 */
+ *  NO numbering per user request ("tidak menggunakan bullet")
+ *  Position same as "angka 3" (left 720) */
 const mkGeneralBahwaDari = (t: FormatToken[]) =>
   new Paragraph({
     style: "ListParagraph",
-    numbering: { reference: NUM.GENERAL, level: 2 },
     tabStops: [TAB_KANAN],
-    indent: { left: 1134 },
+    indent: { left: 720 },
     children: wrappedRuns(t, W.generalBahwaDari),
   });
 
 /** GENERAL: "Bahwa menurut..."
- *  numId=4 ilvl=2 ind.left=709 hanging=425 */
+ *  numId=4 ilvl=2 indent matching level 0 (sejajar angka 3) */
 const mkGeneralMenurut = (t: FormatToken[]) =>
   new Paragraph({
     style: "ListParagraph",
     numbering: { reference: NUM.GENERAL, level: 2 },
     tabStops: [TAB_KANAN],
-    indent: { left: 709, hanging: 425 },
+    indent: { left: 720, hanging: 360 },
     children: wrappedRuns(t, W.generalMenurut),
   });
 
 /** GENERAL: "Berdasarkan ketentuan..." and "Bahwa dalam acara..."
- *  numId=4 ilvl=2 ind.left=709 (no hanging) */
+ *  numId=4 ilvl=2 indent matching level 0 (sejajar angka 3) */
 const mkGeneralInd709 = (t: FormatToken[]) =>
   new Paragraph({
     style: "ListParagraph",
     numbering: { reference: NUM.GENERAL, level: 2 },
     tabStops: [TAB_KANAN],
-    indent: { left: 709 },
+    indent: { left: 720, hanging: 360 },
     children: wrappedRuns(t, W.generalBerdasarkan),
   });
 
 /** GENERAL: agenda sub-items (Pernyataan Direksi, Persetujuan, Pengesahan, etc.)
- *  numId=4 ilvl=2 ind.left=1134 */
+ *  numId=4 ilvl=2 sejajar angka 3 */
 const mkAgendaItem = (t: FormatToken[]) =>
   new Paragraph({
     style: "ListParagraph",
     numbering: { reference: NUM.GENERAL, level: 2 },
     tabStops: [TAB_KANAN],
-    indent: { left: 1134 },
+    indent: { left: 720, hanging: 360 },
     children: wrappedRuns(t, W.agendaItem),
   });
 
@@ -396,23 +396,23 @@ const mkDecisionLetter = (t: FormatToken[]) =>
     children: wrappedRuns(t, W.decisionLetter),
   });
 
-/** DECISION DASH  numId=5 ilvl=2 ind.left=851 hanging=425 */
+/** DECISION DASH  sejajar numbering 0 */
 const mkDecisionDash = (t: FormatToken[]) =>
   new Paragraph({
     style: "ListParagraph",
     numbering: { reference: NUM.DECISIONS, level: 2 },
     tabStops: [TAB_KANAN],
-    indent: { left: 851, hanging: 425 },
+    indent: { left: 720, hanging: 360 },
     children: wrappedRuns(t, W.decisionDash),
   });
 
-/** DECISION DASH INNER  numId=5 ilvl=2 ind.left=1276 hanging=425 */
+/** DECISION DASH INNER */
 const mkDecisionDashInner = (t: FormatToken[]) =>
   new Paragraph({
     style: "ListParagraph",
     numbering: { reference: NUM.DECISIONS, level: 2 },
     tabStops: [TAB_KANAN],
-    indent: { left: 1276, hanging: 425 },
+    indent: { left: 1080, hanging: 360 },
     children: wrappedRuns(t, W.decisionDash),
   });
 
@@ -422,17 +422,17 @@ const mkSaksiNum = (t: FormatToken[]) =>
     style: "ListParagraph",
     numbering: { reference: NUM.SAKSI, level: 0 },
     tabStops: [TAB_KANAN],
-    indent: { left: 426 },
+    indent: { left: 720, hanging: 360 },
     children: wrappedRuns(t, W.saksiNum),
   });
 
-/** SAKSI DASH  numId=9 ilvl=2 ind.left=709 hanging=283 */
+/** SAKSI DASH  sejajar numbering 0 */
 const mkSaksiDash = (t: FormatToken[]) =>
   new Paragraph({
     style: "ListParagraph",
     numbering: { reference: NUM.SAKSI, level: 2 },
     tabStops: [TAB_KANAN],
-    indent: { left: 709, hanging: 283 },
+    indent: { left: 720, hanging: 360 },
     children: wrappedRuns(t, W.saksiDash),
   });
 

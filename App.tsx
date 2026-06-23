@@ -4733,14 +4733,14 @@ const App: React.FC = () => {
             {/* PENGURUS DAN PEMEGANG SAHAM LAMA */}
             <AhuSection title="PENGURUS DAN PEMEGANG SAHAM LAMA *">
               <div className="space-y-4">
-                  {data.documentType === 'MINUTES' && (
+                  {(data.documentType === 'MINUTES' || data.documentType === 'CIRCULAR') && (
                     <div className="bg-blue-50 border border-blue-200 p-3 rounded-sm flex items-start gap-3">
                       <div className="bg-blue-100 p-1.5 rounded-full"><FileText className="w-4 h-4 text-blue-600" /></div>
                       <div>
-                        <div className="text-[12px] font-bold text-blue-800 uppercase">Petunjuk Kehadiran (Notulen)</div>
+                        <div className="text-[12px] font-bold text-blue-800 uppercase">Petunjuk Daftar Para Pihak {data.documentType === 'CIRCULAR' ? '(Sirkuler)' : '(Notulen)'}</div>
                         <p className="text-[11px] text-blue-600 leading-tight mt-0.5">
-                          Silakan centang kolom <b>"Hadir"</b> di bawah ini untuk setiap pemegang saham yang menghadiri rapat. 
-                          Hanya pemegang saham yang dicentang yang akan muncul dalam daftar hadir di dokumen PKR LB.
+                          Silakan centang kolom <b>"{data.documentType === 'CIRCULAR' ? 'Pihak' : 'Hadir'}"</b> di bawah ini untuk setiap pemegang saham yang {data.documentType === 'CIRCULAR' ? 'menyetujui keputusan' : 'menghadiri rapat'}. 
+                          Hanya pemegang saham yang dicentang yang akan muncul dalam daftar para pihak di dokumen PKR LB.
                         </p>
                       </div>
                     </div>
@@ -5356,16 +5356,16 @@ const App: React.FC = () => {
               </div>
             </AhuSection>
 
-            {data.documentType === 'MINUTES' && (
-              <AhuSection title="DATA KEHADIRAN (DAFTAR HADIR)">
+            {(data.documentType === 'MINUTES' || data.documentType === 'CIRCULAR') && (
+              <AhuSection title="DAFTAR PARA PIHAK">
                 <div className="space-y-6">
                   <div className="bg-blue-50 border border-blue-200 p-3 rounded-sm flex items-start gap-3">
                     <div className="bg-blue-100 p-1.5 rounded-full"><FileText className="w-4 h-4 text-blue-600" /></div>
                     <div>
-                      <div className="text-[12px] font-bold text-blue-800 uppercase">Petunjuk Kehadiran (Notulen)</div>
+                      <div className="text-[12px] font-bold text-blue-800 uppercase">Petunjuk Daftar Para Pihak {data.documentType === 'CIRCULAR' ? '(Sirkuler)' : '(Notulen)'}</div>
                       <p className="text-[11px] text-blue-600 leading-tight mt-0.5">
-                        Silakan centang daftar pemegang saham yang hadir di bawah ini. 
-                        Anda juga dapat menambahkan tamu/undangan lain yang menghadiri rapat.
+                        Silakan centang daftar pemegang saham yang {data.documentType === 'CIRCULAR' ? 'terlibat' : 'hadir'} di bawah ini. 
+                        {data.documentType !== 'CIRCULAR' && "Anda juga dapat menambahkan tamu/undangan lain yang menghadiri rapat."}
                       </p>
                     </div>
                   </div>
@@ -5382,7 +5382,7 @@ const App: React.FC = () => {
                           onClick={() => openShareholderEditor('lama')}
                           className="text-[10px] bg-[#222d32] text-white px-3 py-1 rounded-sm hover:bg-black transition-colors font-bold shadow-sm uppercase flex items-center gap-1"
                         >
-                           <Plus className="w-3 h-3" /> Tambah Peserta Rapat
+                           <Plus className="w-3 h-3" /> Tambah {data.documentType === 'CIRCULAR' ? 'Pihak Lain' : 'Peserta Rapat'}
                         </button>
                         <button 
                           type="button"
@@ -5392,7 +5392,7 @@ const App: React.FC = () => {
                           }}
                           className="text-[10px] bg-[#3b5998] text-white px-3 py-1 rounded-sm hover:bg-black transition-colors font-bold shadow-sm uppercase"
                         >
-                          Tandai Semua Hadir
+                          Tandai Semua {data.documentType === 'CIRCULAR' ? 'Terlibat' : 'Hadir'}
                         </button>
                       </div>
                     </div>
@@ -5400,9 +5400,9 @@ const App: React.FC = () => {
                       <table className="w-full text-left text-[11px]">
                         <thead className="bg-[#f9f9f9] border-b border-slate-200 font-bold uppercase">
                           <tr>
-                            <th className="p-2 border-r border-slate-200">Nama Peserta</th>
+                            <th className="p-2 border-r border-slate-200">Nama Pihak</th>
                             <th className="p-2 border-r border-slate-200">Jumlah Saham</th>
-                            <th className="p-2 border-r border-slate-200 text-center w-20">Hadir?</th>
+                            <th className="p-2 border-r border-slate-200 text-center w-20">{data.documentType === 'CIRCULAR' ? 'Terlibat?' : 'Hadir?'}</th>
                             <th className="p-2 border-r border-slate-200 text-center w-28">Dikuasakan?</th>
                             <th className="p-2 border-r border-slate-200 text-center">Penerima Kuasa</th>
                             <th className="p-2 text-center w-24">Aksi</th>

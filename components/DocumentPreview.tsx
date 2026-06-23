@@ -350,10 +350,12 @@ const DocumentPreview: React.FC<Props> = ({ data, showHeader = true, zoom = 1 })
         </div>
 
         {/* ── "Para Pemegang Saham" bullet ───────────────────────────────────────── */}
-        <div style={{ textAlign: 'justify', display: 'flex', alignItems: 'flex-start', marginTop: '6pt', paddingLeft: '0.2in', textIndent: '-0.2in', marginBottom: '18pt' }}>
-          <span style={{ minWidth: '0.2in' }}>-&nbsp;</span>
-          <span style={{ flex: 1 }}>Untuk selanjutnya secara bersama-sama disebut sebagai <strong>“Para Pemegang Saham”</strong></span>
-        </div>
+        {isCircular && (
+          <div style={{ textAlign: 'justify', display: 'flex', alignItems: 'flex-start', marginTop: '6pt', paddingLeft: '0.2in', textIndent: '-0.2in', marginBottom: '18pt' }}>
+            <span style={{ minWidth: '0.2in' }}>-&nbsp;</span>
+            <span style={{ flex: 1 }}>Untuk selanjutnya secara bersama-sama disebut sebagai <strong>“Para Pemegang Saham”</strong></span>
+          </div>
+        )}
 
         {/* ── CIRCULAR ADDITIONAL PREAMBLE OR NOTULEN SECTIONS ─────────────────── */}
         {isCircular ? (

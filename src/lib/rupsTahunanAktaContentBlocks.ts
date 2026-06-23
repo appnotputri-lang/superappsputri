@@ -759,26 +759,29 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
   // Quorum and Chair
   const sharePrice = (data.originalSharePrice || 10000000);
   const totalNominal = totalShares * sharePrice;
+  const presentNominal = presentShares * sharePrice;
 
   blocks.push(
     {
       type: "list",
       bullet: "-",
-      indentTabs: 0.5,
       runs: [
-        { text: `Bahwa dari semua saham yang telah dikeluarkan tersebut di atas, yaitu ` },
+        { text: `Bahwa dari semua saham yang telah dikeluarkan perseroan, yaitu ` },
         { text: `${formatNumber(totalShares)} (${terbilang(totalShares)})`, bold: true },
         { text: ` lembar saham perseroan atau dengan nominal seluruhnya sebesar ` },
         { text: `Rp. ${formatNumber(totalNominal)},- (${terbilang(totalNominal)} rupiah)`, bold: true },
-        { text: ` atau ` },
-        { text: `${formatNumber(presentPercentage)}%`, bold: true },
-        { text: ` telah hadir dalam rapat ini.` }
+        { text: ` telah hadir dalam rapat ini sebanyak ` },
+        { text: `${formatNumber(presentShares)} (${terbilang(presentShares)})`, bold: true },
+        { text: ` lembar saham perseroan atau senilai ` },
+        { text: `Rp. ${formatNumber(presentNominal)},- (${terbilang(presentNominal)} rupiah)`, bold: true },
+        { text: ` atau setara dengan ` },
+        { text: `${presentPercentage.toFixed(2)}%`, bold: true },
+        { text: ` dari seluruh saham yang telah dikeluarkan oleh Perseroan.` }
       ]
     },
     {
       type: "list",
       bullet: "-",
-      indentTabs: 0.5,
       runs: [
         { text: `Bahwa menurut ` },
         { text: `Pasal ${data.rupstQuorumArticle || "10"} ayat ${data.rupstQuorumParagraph || "1"} Anggaran Dasar Perseroan`, color: "FF0000" },
@@ -821,7 +824,6 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
     {
       type: "list",
       bullet: "-",
-      indentTabs: 0.5,
       runs: [
         { text: `Berdasarkan ketentuan Pasal ${data.rupstAdArticle || "9"} ayat (${data.rupstAdParagraph || "6"}) Anggaran Dasar Perseroan, ${chairSalutation} ` },
         { text: chairNameDisplay, bold: true },
@@ -837,7 +839,6 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
     {
       type: "list",
       bullet: "-",
-      indentTabs: 0.5,
       runs: [{ text: "Bahwa dalam acara Rapat telah diputuskan dengan suara bulat, sebagaimana tercantum dalam agenda rapat, yaitu mengenai :" }]
     },
     {

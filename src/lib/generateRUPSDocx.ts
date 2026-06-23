@@ -298,6 +298,52 @@ const createShareholderListParagraphs = (
   sharesText: string,
   rpText: string
 ): Paragraph[] => {
+  if (name.includes(", lahir") || name.length > 80) {
+    const cleanShares = sharesText.replace(/^:\s*/, "").replace(/^\s*sebanyak\s*/, "").trim();
+    const fullCombinedText = `, sebanyak ${cleanShares} ${rpText}`;
+    
+    const firstCommaIdx = name.indexOf(",");
+    let boldPart = name;
+    let normalPart = "";
+    if (firstCommaIdx !== -1) {
+      boldPart = name.substring(0, firstCommaIdx);
+      normalPart = name.substring(firstCommaIdx);
+    }
+
+    const tokens: FormatToken[] = [
+      { text: boldPart, bold: true },
+      { text: normalPart },
+      { text: fullCombinedText }
+    ];
+
+    const lines = parseTextRuns(tokens, W.list1);
+    const children: any[] = [];
+    lines.forEach((lineTokens, i) => {
+      if (i === 0) {
+        children.push(new TextRun({ text: `${bullet}\t` }));
+      }
+      lineTokens.forEach((t) => {
+        children.push(new TextRun({ text: t.text, bold: t.bold, highlight: t.highlight as any }));
+      });
+      children.push(new TextRun({ text: "\t" }));
+      if (i < lines.length - 1) {
+        children.push(new TextRun({ break: 1 }));
+      }
+    });
+
+    return [
+      new Paragraph({
+        children,
+        tabStops: [
+          { type: TabStopType.LEFT, position: 284 },
+          TAB_KANAN,
+        ],
+        alignment: AlignmentType.LEFT,
+        indent: { left: 284, hanging: 284 },
+      })
+    ];
+  }
+
   const p1 = new Paragraph({
     children: [
       new TextRun({ text: `${bullet}\t` }),
