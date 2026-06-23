@@ -264,8 +264,7 @@ const createManagementRoleListP = (
 ): Paragraph => {
   // Sesuai XML contoh_6.docx:
   // Format: [Jabatan][TAB]: [Nama];[TAB kanan]
-  // Tab kiri di 2268 (kolom ": Nama"), tab kanan di 8504
-  // indent left=284 (sejajar dengan paragraf normal ber-indent)
+  // Tab kiri diperlebar (misal 3402 atau 3969) agar jabatan panjang tidak menabrak `\t` pertama.
   return new Paragraph({
     children: [
       new TextRun({ text: position }),
@@ -274,7 +273,7 @@ const createManagementRoleListP = (
       new TextRun({ text: "\t" }),
     ],
     tabStops: [
-      { type: TabStopType.LEFT, position: 2268 },
+      { type: TabStopType.LEFT, position: 3969 }, // 3969 = 2.75 inches
       TAB_KANAN,
     ],
     alignment: AlignmentType.LEFT,

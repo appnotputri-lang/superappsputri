@@ -1457,31 +1457,67 @@ export const generateWordDoc = async (data: CompanyData) => {
         ...data.shareholders.filter((s) => s.isManagement).map((s) => ({ ...s, position: s.managementPosition || "Pengurus" })),
         ...(data.oldManagementItems || []),
       ];
-      const newManagers = [
-        ...(data.finalShareholders && data.finalShareholders.length > 0 ? data.finalShareholders : data.shareholders)
-          .filter((s) => s.isManagement)
-          .map((s) => ({ ...s, position: s.managementPosition || "Pengurus" })),
-        ...(data.newManagementItems || []),
-      ];
 
+      const hasExplicitDismissals = data.managementDismissals && data.managementDismissals.length > 0;
+      const hasExplicitAppointments = data.managementAppointments && data.managementAppointments.length > 0;
+
+      let newManagers = [];
+      let managersToDismiss = [];
+      let managersToAppoint = [];
       const changeType = data.managementChangeType || "ALL_DISMISSED";
-      let managersToDismiss: any[] = [];
-      let managersToAppoint: any[] = [];
 
-      if (changeType === "PARTIAL_CHANGE") {
-        managersToDismiss = oldManagers.filter(
-          (om) => !newManagers.some(
-            (nm) => nm.name.toUpperCase().trim() === om.name.toUpperCase().trim() && nm.position.toUpperCase().trim() === om.position.toUpperCase().trim()
-          )
-        );
-        managersToAppoint = newManagers.filter(
-          (nm) => !oldManagers.some(
-            (om) => om.name.toUpperCase().trim() === nm.name.toUpperCase().trim() && om.position.toUpperCase().trim() === nm.position.toUpperCase().trim()
-          )
-        );
+      if (hasExplicitDismissals || hasExplicitAppointments) {
+        if (hasExplicitDismissals) {
+          managersToDismiss = data.managementDismissals.map(d => {
+            const person = data.shareholders?.find(s => s.name?.toUpperCase().trim() === d.name?.toUpperCase().trim());
+            return {
+              ...person,
+              name: d.name,
+              salutation: d.salutation || "Tuan",
+              position: d.position
+            };
+          });
+        }
+        if (hasExplicitAppointments) {
+          managersToAppoint = data.managementAppointments.map(a => {
+            const person = data.shareholders?.find(s => s.name?.toUpperCase().trim() === a.name?.toUpperCase().trim());
+            return {
+              ...person,
+              name: a.name,
+              salutation: a.salutation || "Tuan",
+              position: a.position
+            };
+          });
+        }
+
+        const dismissedNames = new Set((data.managementDismissals || []).map(d => d.name?.toUpperCase().trim()));
+        newManagers = [
+          ...oldManagers.filter(om => !dismissedNames.has(om.name?.toUpperCase().trim())),
+          ...managersToAppoint
+        ];
       } else {
-        managersToDismiss = oldManagers;
-        managersToAppoint = newManagers;
+        newManagers = [
+          ...(data.finalShareholders && data.finalShareholders.length > 0 ? data.finalShareholders : data.shareholders)
+            .filter((s) => s.isManagement)
+            .map((s) => ({ ...s, position: s.managementPosition || "Pengurus" })),
+          ...(data.newManagementItems || []),
+        ];
+
+        if (changeType === "PARTIAL_CHANGE") {
+          managersToDismiss = oldManagers.filter(
+            (om) => !newManagers.some(
+              (nm) => nm.name.toUpperCase().trim() === om.name.toUpperCase().trim() && nm.position.toUpperCase().trim() === om.position.toUpperCase().trim()
+            )
+          );
+          managersToAppoint = newManagers.filter(
+            (nm) => !oldManagers.some(
+              (om) => om.name.toUpperCase().trim() === nm.name.toUpperCase().trim() && om.position.toUpperCase().trim() === nm.position.toUpperCase().trim()
+            )
+          );
+        } else {
+          managersToDismiss = oldManagers;
+          managersToAppoint = newManagers;
+        }
       }
 
       const mgmtBody: any[] = [];
@@ -1792,10 +1828,8 @@ export const generateWordDoc = async (data: CompanyData) => {
     repText = expandAbbreviations(repText);
 
     addRes("Pemberian Kuasa", [
-      new Paragraph({
-        alignment: "both" as any,
-        spacing: { line: LINE_SPACING, lineRule: "auto", after: AFTER_SPACING },
-        indent: { left: 426 },
+      bodyP({
+        numbering: { reference: "keputusan-num", level: 0 },
         children: [
           mkRun("Menyetujui dan memutuskan untuk memberikan kuasa dengan hak substitusi kepada "),
           mkRun(repText, true),
@@ -2139,12 +2173,68 @@ export const generateWordDoc = async (data: CompanyData) => {
         ...data.shareholders.filter((s) => s.isManagement).map((s) => ({ ...s, position: s.managementPosition || "Pengurus" })),
         ...(data.oldManagementItems || []),
       ];
-      const newManagers = [
-        ...(data.finalShareholders && data.finalShareholders.length > 0 ? data.finalShareholders : data.shareholders)
-          .filter((s) => s.isManagement)
-          .map((s) => ({ ...s, position: s.managementPosition || "Pengurus" })),
-        ...(data.newManagementItems || []),
-      ];
+
+      const hasExplicitDismissals = data.managementDismissals && data.managementDismissals.length > 0;
+      const hasExplicitAppointments = data.managementAppointments && data.managementAppointments.length > 0;
+
+      let newManagers = [];
+      let managersToDismiss = [];
+      let managersToAppoint = [];
+      const changeType = data.managementChangeType || "ALL_DISMISSED";
+
+      if (hasExplicitDismissals || hasExplicitAppointments) {
+        if (hasExplicitDismissals) {
+          managersToDismiss = data.managementDismissals.map(d => {
+            const person = data.shareholders?.find(s => s.name?.toUpperCase().trim() === d.name?.toUpperCase().trim());
+            return {
+              ...person,
+              name: d.name,
+              salutation: d.salutation || "Tuan",
+              position: d.position
+            };
+          });
+        }
+        if (hasExplicitAppointments) {
+          managersToAppoint = data.managementAppointments.map(a => {
+            const person = data.shareholders?.find(s => s.name?.toUpperCase().trim() === a.name?.toUpperCase().trim());
+            return {
+              ...person,
+              name: a.name,
+              salutation: a.salutation || "Tuan",
+              position: a.position
+            };
+          });
+        }
+
+        const dismissedNames = new Set((data.managementDismissals || []).map(d => d.name?.toUpperCase().trim()));
+        newManagers = [
+          ...oldManagers.filter(om => !dismissedNames.has(om.name?.toUpperCase().trim())),
+          ...managersToAppoint
+        ];
+      } else {
+        newManagers = [
+          ...(data.finalShareholders && data.finalShareholders.length > 0 ? data.finalShareholders : data.shareholders)
+            .filter((s) => s.isManagement)
+            .map((s) => ({ ...s, position: s.managementPosition || "Pengurus" })),
+          ...(data.newManagementItems || []),
+        ];
+
+        if (changeType === "PARTIAL_CHANGE") {
+          managersToDismiss = oldManagers.filter(
+            (om) => !newManagers.some(
+              (nm) => nm.name.toUpperCase().trim() === om.name.toUpperCase().trim() && nm.position.toUpperCase().trim() === om.position.toUpperCase().trim()
+            )
+          );
+          managersToAppoint = newManagers.filter(
+            (nm) => !oldManagers.some(
+              (om) => om.name.toUpperCase().trim() === nm.name.toUpperCase().trim() && om.position.toUpperCase().trim() === nm.position.toUpperCase().trim()
+            )
+          );
+        } else {
+          managersToDismiss = oldManagers;
+          managersToAppoint = newManagers;
+        }
+      }
 
       const mgmtBody: any[] = [];
 
@@ -2222,7 +2312,7 @@ export const generateWordDoc = async (data: CompanyData) => {
             ],
           })
         );
-      } else if (data.managementDismissals && data.managementDismissals.length > 0) {
+      } else if (hasExplicitDismissals || hasExplicitAppointments) {
         mgmtBody.push(
           bodyP({ indent: { left: 426 }, text: "Menyetujui perubahan susunan Direksi dan Dewan Komisaris Perseroan, dengan rincian sebagai berikut :" })
         );
@@ -2292,7 +2382,7 @@ export const generateWordDoc = async (data: CompanyData) => {
         mgmtBody.push(
           bodyP({ 
             indent: { left: 426 }, 
-            text: `Masa jabatan anggota Direksi dan Dewan Komisaris tersebut di atas berlaku efektif terhitung sejak tanggal Keputusan ini ditetapkan, untuk jangka waktu sebagaimana yang ditentukan dalam Anggaran Dasar Perseroan, dengan tidak mengurangi hak Rapat Umum Pemegang Saham untuk memberhentikan sewaktu-waktu sesuai dengan ketentuan peraturan perundang-undangan yang berlaku.`,
+            text: `Masa jabatan anggota Direksi dan Dewan Komisaris tersebut di atas berlaku efektif terhitung sejak tanggal Keputusan ini ditetapkan, ${data.managementEffectiveUntil || "untuk jangka waktu sebagaimana yang ditentukan dalam Anggaran Dasar Perseroan"}, dengan tidak mengurangi hak Rapat Umum Pemegang Saham untuk memberhentikan sewaktu-waktu sesuai dengan ketentuan peraturan perundang-undangan yang berlaku.`,
             spacing: { before: 120, after: 120 } 
           })
         );
@@ -2366,16 +2456,14 @@ export const generateWordDoc = async (data: CompanyData) => {
       }
     }
     addRes("Pemberian Kuasa", [
-      new Paragraph({
-        alignment: "both" as any,
-        spacing: { line: LINE_SPACING, lineRule: "auto", after: AFTER_SPACING },
-        indent: { left: 426 },
+      bodyP({
+        numbering: { reference: "keputusan-num", level: 0 },
         children: [
           mkRun("Menyetujui dan memutuskan untuk memberikan kuasa dengan hak substitusi kepada "),
           mkRun(repText, true),
-          mkRun(", untuk melakukan tindakan-tindakan yang diperlukan sehubungan dengan keputusan Rapat di atas, termasuk memberi keterangan-keterangan, membuat, minta dibuatkan dan menandatangani segala surat dan akta dihadapan Notaris dan umumnya menjalankan segala tindakan yang dianggap perlu dan berguna, tidak ada tindakan yang dikecualikan."),
-        ],
-      }),
+          mkRun(", untuk melakukan setiap dan seluruh tindakan yang diperlukan sehubungan dengan keputusan-keputusan tersebut di atas, termasuk tetapi tidak terbatas pada menghadap dihadapan pejabat yang berwenang, memberikan keterangan-keterangan, menandatangani dokumen dan akta-akta, dan melakukan pendaftaran serta mengajukan permohonan persetujuan dan/atau menyampaikan pemberitahuan atas keputusan tersebut di atas kepada Menteri Hukum dan Hak Asasi Manusia Republik Indonesia dan instansi lain yang berwenang sesuai dengan peraturan perundang-undangan yang berlaku."),
+        ]
+      })
     ]);
   }
 

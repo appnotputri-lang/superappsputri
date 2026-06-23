@@ -902,7 +902,7 @@ export const generateRupstBlocks = (data: CompanyData): Block[] => {
     blocks.push({
       type: "list",
       bullet: "-",
-      indentTabs: 1,
+      indentTabs: 0,
       indentStyle: "keputusan",
       runs: [{ text: "Laporan Keuangan, terlampir dan dilekatkan pada Notulen Rapat Umum Pemegang Saham Tahunan ini." }]
     });
@@ -1253,7 +1253,7 @@ export const generateRupstBlocks = (data: CompanyData): Block[] => {
   blocks.push({
     type: "p",
     align: "center",
-    runs: [{ text: "DAFTAR HADIR", bold: true }]
+    runs: [{ text: "DAFTAR PARA PIHAK", bold: true }]
   });
   blocks.push({
     type: "p",

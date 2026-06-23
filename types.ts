@@ -239,6 +239,8 @@ export interface CompanyData {
   oldManagementItems: ManagementItem[];
   newManagementItems: ManagementItem[];
   managementEffectiveUntil: string;
+  managementEffectiveUntilType?: 'AD' | 'MANUAL';
+  managementEffectiveDate?: string;
   reappointmentOldExpiredDate?: string;
   reappointmentStartDate?: string;
   reappointmentEndDate?: string;
@@ -388,6 +390,7 @@ export interface CompanyData {
   saksi2NIK?: string;
 
   managementDismissals?: ManagementDismissal[];
+  managementAppointments?: ManagementAppointment[];
   shareTransfersNew?: ShareTransferItem[];
   capitalSubscriptionsNew?: CapitalSubscriptionItem[];
   rupstDividends?: RupstDividendDistribution[];
@@ -415,6 +418,15 @@ export interface ManagementDismissal {
   replacedBySalutation?: 'Tuan' | 'Nyonya' | 'Nona';
   replacedByNik?: string;
   replacedByDetail?: Shareholder;
+}
+
+export interface ManagementAppointment {
+  id: string;
+  salutation: 'Tuan' | 'Nyonya' | 'Nona';
+  name: string;
+  position: string;
+  nik?: string;
+  detail?: Shareholder;
 }
 
 export interface ShareTransferItem {

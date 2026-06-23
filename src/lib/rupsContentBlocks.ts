@@ -53,6 +53,18 @@ export type Block =
     }
   | { type: "divider"; text: string }
   | { type: "saksi"; number: number; runs: FormatToken[]; spaceAfter?: boolean }
+  | {
+      type: "participantSigs";
+      participants: any[];
+    }
+  | {
+      type: "table";
+      headers: string[];
+      rows: (FormatToken[] | string)[][];
+      widths?: number[];
+    }
+  | { type: "br" }
+  | { type: "pageBreak" }
   | { type: "static"; content: string };
 
 export const generateRupsBlocks = (data: CompanyData): Block[] => {
@@ -1028,7 +1040,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
         { text: `${rep?.salutation || "Tuan"} ` },
         { text: rep?.name.toUpperCase() || "...", bold: true },
         {
-          text: `, tersebut diatas untuk melakukan tindakan-tindakan yang diperlukan sehubungan dengan keputusan Rapat di atas, termasuk memberi keterangan-keterangan, membuat, minta dibuatkan dan menandatangani segala surat dan akta dihadapan Notaris dan umumnya menjalankan segala tindakan yang dianggap perlu dan berguna.`,
+          text: `, tersebut diatas untuk melakukan setiap dan seluruh tindakan yang diperlukan sehubungan dengan keputusan-keputusan tersebut di atas, termasuk tetapi tidak terbatas pada menghadap dihadapan pejabat yang berwenang, memberikan keterangan-keterangan, menandatangani dokumen dan akta-akta, dan melakukan pendaftaran serta mengajukan permohonan persetujuan dan/atau menyampaikan pemberitahuan atas keputusan tersebut di atas kepada Menteri Hukum dan Hak Asasi Manusia Republik Indonesia dan instansi lain yang berwenang sesuai dengan peraturan perundang-undangan yang berlaku.`,
         },
       ],
     });
@@ -1502,7 +1514,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
       ...(data.oldManagementItems || []),
     ];
 
-    const newManagers = [
+    let newManagers = [
       ...(data.finalShareholders && data.finalShareholders.length > 0
         ? data.finalShareholders
         : data.shareholders
@@ -1557,6 +1569,8 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
         ]
       });
 
+      newManagers.sort((a, b) => getPosRank(a.position) - getPosRank(b.position));
+
       newManagers.forEach((m) => {
         blocks.push({
           type: "management-list",
@@ -1577,7 +1591,43 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
       let managersToDismiss = [];
       let managersToAppoint = [];
 
-      if (changeType === "PARTIAL_CHANGE") {
+      // Priority: use explicit lists if populated
+      const hasExplicitDismissals = data.managementDismissals && data.managementDismissals.length > 0;
+      const hasExplicitAppointments = data.managementAppointments && data.managementAppointments.length > 0;
+
+      if (hasExplicitDismissals || hasExplicitAppointments) {
+        if (hasExplicitDismissals) {
+          managersToDismiss = data.managementDismissals.map(d => {
+            // Find person detail for better formatting if available
+            const person = data.shareholders?.find(s => s.name?.toUpperCase().trim() === d.name?.toUpperCase().trim());
+            return {
+              ...person,
+              name: d.name,
+              salutation: d.salutation,
+              position: d.position
+            };
+          });
+        }
+        if (hasExplicitAppointments) {
+          managersToAppoint = data.managementAppointments.map(a => {
+            const person = data.shareholders?.find(s => s.name?.toUpperCase().trim() === a.name?.toUpperCase().trim());
+            return {
+              ...person,
+              name: a.name,
+              salutation: a.salutation,
+              position: a.position
+            };
+          });
+        }
+        
+        // If they used explicit lists, the NEW composition is:
+        // (Old Managers - Dismissed) + Appointed
+        const dismissedNames = new Set((data.managementDismissals || []).map(d => d.name?.toUpperCase().trim()));
+        newManagers = [
+          ...oldManagers.filter(om => !dismissedNames.has(om.name?.toUpperCase().trim())),
+          ...managersToAppoint
+        ];
+      } else if (changeType === "PARTIAL_CHANGE") {
         // Logic from user: only dismiss those who leave or change position
         managersToDismiss = oldManagers.filter(
           (om) =>
@@ -1602,120 +1652,231 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
         managersToDismiss = oldManagers;
         managersToAppoint = newManagers;
       }
+      
+      managersToDismiss.sort((a, b) => getPosRank(a.position) - getPosRank(b.position));
+      managersToAppoint.sort((a, b) => getPosRank(a.position) - getPosRank(b.position));
 
-      // DISMISSAL BLOCK
-      if (managersToDismiss.length > 0) {
-        if (managersToDismiss.length === 1) {
-          const mgr = managersToDismiss[0];
-          let resignationHeading = "";
-          if (/direktur/i.test(mgr.position)) {
-            resignationHeading = `anggota Direksi`;
-          } else if (/komisaris/i.test(mgr.position)) {
-            resignationHeading = `Dewan Komisaris Perseroan`;
-          } else {
-            resignationHeading = `anggota Direksi dan Dewan Komisaris Perseroan`;
-          }
-          
-          const detailRuns = getPersonDetailRuns(mgr);
-
-          blocks.push({
-            type: "p",
-            number: resIdx++,
-            runs: [
-              {
-                text: `Menyetujui untuk memberhentikan dengan hormat ${resignationHeading}, ${mgr.salutation || "Tuan"} `,
-              },
-              ...detailRuns,
-              { text: ` selaku ${mgr.position} perseroan.` },
-            ],
-          });
-        } else {
-          let dismissalText = `${changeType === "PARTIAL_CHANGE" ? "anggota" : "seluruh anggota"} Direksi dan Dewan Komisaris Perseroan${changeType === "PARTIAL_CHANGE" ? "" : " yang menjabat saat ini"}`;
-
-          blocks.push({
-            type: "p",
-            number: resIdx++,
-            runs: [
-              {
-                text: `Menyetujui untuk memberhentikan dengan hormat ${dismissalText}, yaitu :`,
-              },
-            ],
-          });
-
-          managersToDismiss.forEach((m) => {
-            blocks.push({
-              type: "list",
-              bullet: "-",
-              indentTabs: 0.8, // → left=567, hanging=283 (sesuai XML contoh_6.docx)
-              runs: [
-                ...getPersonDetailRuns(m as any),
-                { text: ` selaku ${m.position} perseroan` },
-              ],
-            });
-          });
-        }
-
-        blocks.push({
-          type: "p",
-          indentTabs: 0.334, // → left=284 (sesuai XML: indent paragraf setelah list direksi)
-          runs: [
-            {
-              text: `dengan ucapan terima kasih atas jasa-jasa dan pengabdian yang telah diberikan selama masa jabatannya dalam Perseroan, serta memberikan pelunasan dan pembebasan tanggung jawab sepenuhnya (acquit et de charge) atas tindakan pengurusan dan pengawasan yang telah dijalankan, sepanjang tindakan-tindakan tersebut tercermin dalam buku-buku serta laporan tahunan Perseroan.`,
-            },
-          ],
-        });
-      }
-
-      // APPOINTMENT BLOCK
-      if (managersToAppoint.length > 0) {
-        const hasDirector = managersToAppoint.some(m => /direktur/i.test(m.position));
-        const hasCommissioner = managersToAppoint.some(m => /komisaris/i.test(m.position));
-        
-        let titleText = "anggota Direksi /Dewan Komisaris Perseroan";
-        if (hasDirector && !hasCommissioner) {
-          titleText = "anggota Direksi Perseroan";
-        } else if (!hasDirector && hasCommissioner) {
-          titleText = "Dewan Komisaris Perseroan";
-        }
-
-        blocks.push({
-          type: "p",
-          number: resIdx++,
-          runs: [
-            {
-              text: `Selanjutnya menyetujui untuk mengangkat sebagai ${titleText} yang baru :`,
-            },
-          ],
-        });
-
-        managersToAppoint.forEach((m) => {
-          blocks.push({
-            type: "list",
-            bullet: "-",
-            indentTabs: 0.8, // → left=567, hanging=283 (sesuai XML contoh_6.docx)
-            runs: [
-              ...getPersonDetailRuns(m as any),
-              { text: `, sebagai ${m.position} Perseroan;` },
-            ],
-          });
-        });
-      }
-
-      // FINAL COMPOSITION BLOCK
+      // MANAGEMENT CHANGE BLOCKS
       if (managersToDismiss.length > 0 || managersToAppoint.length > 0) {
+        
+        let dismissalHasList = false;
+
+        // DISMISSAL BLOCK
+        if (managersToDismiss.length > 0) {
+          const dismissedDirectors = managersToDismiss.filter(m => /direktur/i.test(m.position));
+          const dismissedCommissioners = managersToDismiss.filter(m => /komisaris/i.test(m.position));
+
+          if (dismissedDirectors.length > 0 && dismissedCommissioners.length === 0) {
+            if (dismissedDirectors.length === 1) {
+              const m = dismissedDirectors[0];
+              blocks.push({
+                type: "p",
+                number: resIdx++,
+                runs: [
+                  { text: `Memberhentikan dengan hormat ` },
+                  ...getPersonDetailRuns(m as any),
+                  { text: `, dari jabatannya selaku Direktur Perseroan.` }
+                ]
+              });
+            } else {
+              dismissalHasList = true;
+              blocks.push({
+                type: "p",
+                number: resIdx++,
+                runs: [{ text: `Memberhentikan dengan hormat anggota Direksi Perseroan, yaitu:` }]
+              });
+              dismissedDirectors.forEach((m, idx) => {
+                blocks.push({
+                  type: "list",
+                  bullet: `${idx + 1}.`,
+                  indentTabs: 0.8,
+                  runs: [
+                    ...getPersonDetailRuns(m as any),
+                    { text: `;` }
+                  ]
+                });
+              });
+            }
+          } else if (dismissedDirectors.length === 0 && dismissedCommissioners.length > 0) {
+            if (dismissedCommissioners.length === 1) {
+              const m = dismissedCommissioners[0];
+              blocks.push({
+                type: "p",
+                number: resIdx++,
+                runs: [
+                  { text: `Memberhentikan dengan hormat ` },
+                  ...getPersonDetailRuns(m as any),
+                  { text: `, dari jabatannya selaku Komisaris Perseroan.` }
+                ]
+              });
+            } else {
+              dismissalHasList = true;
+              blocks.push({
+                type: "p",
+                number: resIdx++,
+                runs: [{ text: `Memberhentikan dengan hormat anggota Dewan Komisaris Perseroan, yaitu:` }]
+              });
+              dismissedCommissioners.forEach((m, idx) => {
+                blocks.push({
+                  type: "list",
+                  bullet: `${idx + 1}.`,
+                  indentTabs: 0.8,
+                  runs: [
+                    ...getPersonDetailRuns(m as any),
+                    { text: `;` }
+                  ]
+                });
+              });
+            }
+          } else {
+            // Both directors and commissioners dismissed
+            dismissalHasList = true;
+            blocks.push({
+              type: "p",
+              number: resIdx++,
+              runs: [{ text: `Memberhentikan dengan hormat seluruh anggota Direksi dan Dewan Komisaris Perseroan, yaitu:` }]
+            });
+
+            if (dismissedDirectors.length > 0) {
+              blocks.push({
+                type: "p",
+                indentTabs: 0.334,
+                runs: [{ text: `Direksi` }]
+              });
+              dismissedDirectors.forEach((m) => {
+                blocks.push({
+                  type: "list",
+                  bullet: `-`,
+                  indentTabs: 0.8,
+                  runs: [...getPersonDetailRuns(m as any), { text: `;` }]
+                });
+              });
+            }
+            if (dismissedCommissioners.length > 0) {
+              blocks.push({
+                type: "p",
+                indentTabs: 0.334,
+                runs: [{ text: `Dewan Komisaris` }]
+              });
+              dismissedCommissioners.forEach((m) => {
+                blocks.push({
+                  type: "list",
+                  bullet: `-`,
+                  indentTabs: 0.8,
+                  runs: [...getPersonDetailRuns(m as any), { text: `;` }]
+                });
+              });
+            }
+          }
+
+          blocks.push({
+            type: "p",
+            indentTabs: 0.334,
+            runs: [
+              {
+                text: `dengan ucapan terima kasih atas jasa-jasa dan pengabdian yang telah diberikan selama masa jabatannya dalam Perseroan, serta memberikan pelunasan dan pembebasan tanggung jawab sepenuhnya (acquit et de charge) atas tindakan pengurusan dan pengawasan yang telah dijalankan, sepanjang tindakan-tindakan tersebut tercermin dalam buku-buku serta laporan tahunan Perseroan.`,
+              },
+            ],
+          });
+        }
+
+        // APPOINTMENT BLOCK
+        if (managersToAppoint.length > 0) {
+          const appointedDirectors = managersToAppoint.filter(m => /direktur/i.test(m.position));
+          const appointedCommissioners = managersToAppoint.filter(m => /komisaris/i.test(m.position));
+
+          if (appointedDirectors.length > 0 && appointedCommissioners.length === 0) {
+            if (appointedDirectors.length === 1) {
+              blocks.push({
+                type: "p",
+                number: managersToDismiss.length === 0 ? resIdx++ : undefined,
+                indentTabs: managersToDismiss.length > 0 ? 0.334 : undefined,
+                runs: [
+                  { text: `Mengangkat ` },
+                  ...getPersonDetailRuns(appointedDirectors[0] as any),
+                  { text: `, sebagai ${appointedDirectors[0].position.toUpperCase()} Perseroan.` }
+                ]
+              });
+            } else {
+              blocks.push({
+                type: "p",
+                number: managersToDismiss.length === 0 ? resIdx++ : undefined,
+                indentTabs: managersToDismiss.length > 0 ? 0.334 : undefined,
+                runs: [{ text: `Mengangkat anggota Direksi Perseroan, dengan rincian sebagai berikut:` }]
+              });
+              appointedDirectors.forEach((m, idx) => {
+                blocks.push({
+                  type: "list",
+                  bullet: `${idx + 1}.`,
+                  indentTabs: 0.8,
+                  runs: [...getPersonDetailRuns(m as any), { text: ` selaku ${m.position.toUpperCase()};` }]
+                });
+              });
+            }
+          } else if (appointedDirectors.length === 0 && appointedCommissioners.length > 0) {
+            if (appointedCommissioners.length === 1) {
+              blocks.push({
+                type: "p",
+                number: managersToDismiss.length === 0 ? resIdx++ : undefined,
+                indentTabs: managersToDismiss.length > 0 ? 0.334 : undefined,
+                runs: [
+                  { text: `Mengangkat ` },
+                  ...getPersonDetailRuns(appointedCommissioners[0] as any),
+                  { text: `, sebagai ${appointedCommissioners[0].position.toUpperCase()} Perseroan.` }
+                ]
+              });
+            } else {
+              blocks.push({
+                type: "p",
+                number: managersToDismiss.length === 0 ? resIdx++ : undefined,
+                indentTabs: managersToDismiss.length > 0 ? 0.334 : undefined,
+                runs: [{ text: `Mengangkat anggota Dewan Komisaris Perseroan, dengan rincian sebagai berikut:` }]
+              });
+              appointedCommissioners.forEach((m, idx) => {
+                blocks.push({
+                  type: "list",
+                  bullet: `${idx + 1}.`,
+                  indentTabs: 0.8,
+                  runs: [...getPersonDetailRuns(m as any), { text: ` selaku ${m.position.toUpperCase()};` }]
+                });
+              });
+            }
+          } else {
+            blocks.push({
+              type: "p",
+              number: managersToDismiss.length === 0 ? resIdx++ : undefined,
+              indentTabs: managersToDismiss.length > 0 ? 0.334 : undefined,
+              runs: [{ text: `Selanjutnya mengangkat Direksi dan Dewan Komisaris Perseroan, dengan rincian sebagai berikut :` }]
+            });
+
+            managersToAppoint.forEach((m, idx) => {
+              blocks.push({
+                type: "list",
+                bullet: `${idx + 1}.`,
+                indentTabs: 0.8,
+                runs: [...getPersonDetailRuns(m as any), { text: ` selaku ${m.position.toUpperCase()};` }]
+              });
+            });
+          }
+        }
+
+        // OUTPUT FINAL COMPOSITION
         blocks.push({
           type: "p",
-          indentTabs: 0.334, // → left=284
+          indentTabs: 0.334, 
           runs: [
             {
               text: `Sehingga susunan anggota Direksi dan Dewan Komisaris Perseroan menjadi sebagai berikut :`,
             },
           ],
         });
+        
+        newManagers.sort((a, b) => getPosRank(a.position) - getPosRank(b.position));
+        
         newManagers.forEach((m) => {
           blocks.push({
             type: "management-list",
-            position: m.position,
+            position: m.position.toUpperCase(),
             name: m.name.toUpperCase(),
           });
         });

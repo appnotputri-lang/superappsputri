@@ -241,7 +241,15 @@ async function startServer() {
   });
 
   app.get("/api/template-pendirian", (req, res) => {
-    res.sendFile(path.join(process.cwd(), "DRAFT PENDIRIAN PT.docx"));
+    const filePath = path.join(process.cwd(), "template_pendirian.docx");
+    res.sendFile(filePath, (err) => {
+      if (err) {
+        console.error("Failed to send template:", err);
+        if (!res.headersSent) {
+          res.status(500).send("Template master tidak ditemukan di server");
+        }
+      }
+    });
   });
 
   app.get("/api/search-by-nik", async (req, res) => {

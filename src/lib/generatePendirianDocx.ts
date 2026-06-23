@@ -632,7 +632,14 @@ export const generatePendirianDocx = async (data: any): Promise<void> => {
 
   // 4. Parse
   const parser = new DOMParser();
-  const xmlDoc = parser.parseFromString(originalXml, "application/xml");
+  const xmlDoc = parser.parseFromString(originalXml, "text/xml");
+
+  // Check for parser errors (browsers return a document with <parsererror>)
+  const parseError = xmlDoc.getElementsByTagName("parsererror");
+  if (parseError.length > 0) {
+    console.error("DOMParser Error:", parseError[0].textContent);
+    throw new Error("Gagal mengurai XML template: " + parseError[0].textContent);
+  }
 
   const body = getSingleElement(xmlDoc, "body");
   if (!body) {

@@ -653,37 +653,73 @@ const DocumentPreview: React.FC<Props> = ({ data, showHeader = true, zoom = 1 })
                   ...data.shareholders.filter((s) => s.isManagement).map((s) => ({ ...s, position: s.managementPosition || "Pengurus", salutation: s.salutation || "Tuan" })),
                   ...(data.oldManagementItems || []),
                 ];
-                const newManagers = [
-                  ...(data.finalShareholders && data.finalShareholders.length > 0 ? data.finalShareholders : data.shareholders)
-                    .filter((s) => s.isManagement)
-                    .map((s) => ({ ...s, position: s.managementPosition || "Pengurus", salutation: s.salutation || "Tuan" })),
-                  ...(data.newManagementItems || []),
-                ];
 
-                const changeType = data.managementChangeType || "ALL_DISMISSED";
+                const hasExplicitDismissals = data.managementDismissals && data.managementDismissals.length > 0;
+                const hasExplicitAppointments = data.managementAppointments && data.managementAppointments.length > 0;
+
+                let newManagers = [];
                 let managersToDismiss = [];
                 let managersToAppoint = [];
+                const changeType = data.managementChangeType || "ALL_DISMISSED";
 
-                if (changeType === "PARTIAL_CHANGE") {
-                  managersToDismiss = oldManagers.filter(
-                    (om) =>
-                      !newManagers.some(
-                        (nm) =>
-                          (nm.name || "").toUpperCase().trim() === (om.name || "").toUpperCase().trim() &&
-                          (nm.position || "").toUpperCase().trim() === (om.position || "").toUpperCase().trim()
-                      )
-                  );
-                  managersToAppoint = newManagers.filter(
-                    (nm) =>
-                      !oldManagers.some(
-                        (om) =>
-                          (om.name || "").toUpperCase().trim() === (nm.name || "").toUpperCase().trim() &&
-                          (om.position || "").toUpperCase().trim() === (nm.position || "").toUpperCase().trim()
-                      )
-                  );
+                if (hasExplicitDismissals || hasExplicitAppointments) {
+                  if (hasExplicitDismissals) {
+                    managersToDismiss = data.managementDismissals.map(d => {
+                      const person = data.shareholders?.find(s => s.name?.toUpperCase().trim() === d.name?.toUpperCase().trim());
+                      return {
+                        ...person,
+                        name: d.name,
+                        salutation: d.salutation || "Tuan",
+                        position: d.position
+                      };
+                    });
+                  }
+                  if (hasExplicitAppointments) {
+                    managersToAppoint = data.managementAppointments.map(a => {
+                      const person = data.shareholders?.find(s => s.name?.toUpperCase().trim() === a.name?.toUpperCase().trim());
+                      return {
+                        ...person,
+                        name: a.name,
+                        salutation: a.salutation || "Tuan",
+                        position: a.position
+                      };
+                    });
+                  }
+
+                  const dismissedNames = new Set((data.managementDismissals || []).map(d => d.name?.toUpperCase().trim()));
+                  newManagers = [
+                    ...oldManagers.filter(om => !dismissedNames.has(om.name?.toUpperCase().trim())),
+                    ...managersToAppoint
+                  ];
                 } else {
-                  managersToDismiss = oldManagers;
-                  managersToAppoint = newManagers;
+                  newManagers = [
+                    ...(data.finalShareholders && data.finalShareholders.length > 0 ? data.finalShareholders : data.shareholders)
+                      .filter((s) => s.isManagement)
+                      .map((s) => ({ ...s, position: s.managementPosition || "Pengurus", salutation: s.salutation || "Tuan" })),
+                    ...(data.newManagementItems || []),
+                  ];
+
+                  if (changeType === "PARTIAL_CHANGE") {
+                    managersToDismiss = oldManagers.filter(
+                      (om) =>
+                        !newManagers.some(
+                          (nm) =>
+                            (nm.name || "").toUpperCase().trim() === (om.name || "").toUpperCase().trim() &&
+                            (nm.position || "").toUpperCase().trim() === (om.position || "").toUpperCase().trim()
+                        )
+                    );
+                    managersToAppoint = newManagers.filter(
+                      (nm) =>
+                        !oldManagers.some(
+                          (om) =>
+                            (om.name || "").toUpperCase().trim() === (nm.name || "").toUpperCase().trim() &&
+                            (om.position || "").toUpperCase().trim() === (nm.position || "").toUpperCase().trim()
+                        )
+                    );
+                  } else {
+                    managersToDismiss = oldManagers;
+                    managersToAppoint = newManagers;
+                  }
                 }
 
                 const hasDirector = managersToAppoint.some(m => /direktur/i.test(m.position || ""));
@@ -785,7 +821,7 @@ const DocumentPreview: React.FC<Props> = ({ data, showHeader = true, zoom = 1 })
               <>
                 {renderResolutionTitle("Pemberian Kuasa")}
                 <div style={{ textAlign: 'justify', paddingLeft: '0.3in', marginBottom: PARA_SPACING }}>
-                  Menyetujui dan memutuskan untuk memberikan kuasa dengan hak substitusi kepada <strong>{repText}</strong>, untuk melakukan tindakan-tindakan yang diperlukan sehubungan dengan keputusan Rapat di atas, termasuk memberi keterangan-keterangan, membuat, minta dibuatkan dan menandatangani segala surat dan akta dihadapan Notaris dan umumnya menjalankan segala tindakan yang dianggap perlu dan berguna, tidak ada tindakan yang dikecualikan.
+                  Menyetujui dan memutuskan untuk memberikan kuasa dengan hak substitusi kepada <strong>{repText}</strong>, untuk melakukan setiap dan seluruh tindakan yang diperlukan sehubungan dengan keputusan-keputusan tersebut di atas, termasuk tetapi tidak terbatas pada menghadap dihadapan pejabat yang berwenang, memberikan keterangan-keterangan, menandatangani dokumen dan akta-akta, dan melakukan pendaftaran serta mengajukan permohonan persetujuan dan/atau menyampaikan pemberitahuan atas keputusan tersebut di atas kepada Menteri Hukum dan Hak Asasi Manusia Republik Indonesia dan instansi lain yang berwenang sesuai dengan peraturan perundang-undangan yang berlaku.
                 </div>
               </>
             );

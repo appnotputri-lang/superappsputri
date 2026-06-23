@@ -105,7 +105,7 @@ import {
   Smartphone
 } from 'lucide-react';
 import { IndoRegionSelector, DomicileSelector, SearchableSelect } from './components/AddressFields';
-import { formatCurrency, formatInputNumber, parseFormattedNumber, numberToWords, toTitleCase } from './utils/formatters';
+import { formatCurrency, formatInputNumber, parseFormattedNumber, numberToWords, toTitleCase, formatDateIndo } from './utils/formatters';
 import { KBLI_DATA } from './utils/kbliData';
 
 const INITIAL_ADDRESS: Address = {
@@ -168,6 +168,8 @@ const INITIAL_STATE: CompanyData = {
   oldManagementItems: [],
   newManagementItems: [],
   managementEffectiveUntil: '',
+  managementEffectiveUntilType: 'AD',
+  managementEffectiveDate: '',
   reappointmentOldExpiredDate: '',
   reappointmentStartDate: '',
   reappointmentEndDate: '',
@@ -325,6 +327,116 @@ const AhuSelect = ({ children, className = "", ...props }: React.SelectHTMLAttri
     {children}
   </select>
 );
+
+const AhuMasaJabatanSelector = ({ data, updateData }: { data: any, updateData: (d: any) => void }) => {
+  const isAD = data.managementEffectiveUntilType === 'AD' || !data.managementEffectiveUntilType;
+  const isManual = data.managementEffectiveUntilType === 'MANUAL';
+
+  return (
+    <div className="space-y-4 border-t border-slate-100 pt-4 mt-4">
+      <AhuLabel label="Pilihan Akhir Masa Jabatan" required />
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+        {/* Option 1: Sesuai Anggaran Dasar */}
+        <label className={`flex flex-col p-4 border rounded-sm hover:bg-slate-50 cursor-pointer transition-all group ${isAD ? 'border-[#3b5998] bg-slate-50' : 'border-slate-200'}`}>
+          <div className="flex items-center gap-3">
+            <input 
+              type="radio" 
+              name="masa_jabatan_type"
+              className="w-4 h-4 text-[#3b5998] focus:ring-[#3b5998]"
+              checked={isAD}
+              onChange={() => {
+                updateData({ 
+                  managementEffectiveUntilType: 'AD',
+                  managementEffectiveUntil: 'untuk jangka waktu sebagaimana yang ditentukan dalam Anggaran Dasar Perseroan'
+                });
+              }}
+            />
+            <span className="text-[13px] font-bold text-slate-700 group-hover:text-slate-900">Sesuai Anggaran Dasar</span>
+          </div>
+          <p className="text-[11px] text-slate-500 mt-2 pl-7">
+            Masa jabatan akan disesuaikan dengan ketentuan dalam Anggaran Dasar Perseroan.
+          </p>
+        </label>
+
+        {/* Option 2: Input Manual Tanggal Bulan Tahun */}
+        <label className={`flex flex-col p-4 border rounded-sm hover:bg-slate-50 cursor-pointer transition-all group ${isManual ? 'border-[#3b5998] bg-slate-50' : 'border-slate-200'}`}>
+          <div className="flex items-center gap-3">
+            <input 
+              type="radio" 
+              name="masa_jabatan_type"
+              className="w-4 h-4 text-[#3b5998] focus:ring-[#3b5998]"
+              checked={isManual}
+              onChange={() => {
+                const defaultDate = data.managementEffectiveDate || '';
+                let formattedStr = '';
+                if (defaultDate) {
+                  formattedStr = `sampai dengan tanggal ${formatDateIndo(defaultDate)}`;
+                } else {
+                  formattedStr = data.managementEffectiveUntil && data.managementEffectiveUntil.startsWith('sampai dengan tanggal') 
+                    ? data.managementEffectiveUntil 
+                    : 'sampai dengan tanggal ';
+                }
+                updateData({ 
+                  managementEffectiveUntilType: 'MANUAL',
+                  managementEffectiveUntil: formattedStr
+                });
+              }}
+            />
+            <span className="text-[13px] font-bold text-slate-700 group-hover:text-slate-900">Input Manual Tanggal Bulan Tahun</span>
+          </div>
+          <p className="text-[11px] text-slate-500 mt-2 pl-7">
+            Tentukan tanggal berakhirnya masa jabatan secara spesifik (hari, bulan, dan tahun).
+          </p>
+        </label>
+      </div>
+
+      {isManual && (
+        <div className="p-4 border border-slate-100 bg-slate-50 rounded space-y-3 mt-3 animate-fade-in">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <AhuLabel label="Pilih Tanggal Berakhir" />
+              <AhuInput 
+                type="date"
+                value={data.managementEffectiveDate || ''}
+                onChange={(e) => {
+                  const dateVal = e.target.value;
+                  const formattedStr = dateVal ? `sampai dengan tanggal ${formatDateIndo(dateVal)}` : 'sampai dengan tanggal ';
+                  updateData({ 
+                    managementEffectiveDate: dateVal,
+                    managementEffectiveUntil: formattedStr
+                  });
+                }}
+                className="mt-1"
+              />
+              <p className="text-[11px] text-slate-400 mt-1">Gunakan pemilih tanggal ini untuk otomatis mengisi format bahasa Indonesia.</p>
+            </div>
+            <div>
+              <AhuLabel label="Hasil Format Teks (Bisa Diedit Manual)" />
+              <AhuInput 
+                placeholder="Contoh: sampai dengan tanggal 31 Desember 2029"
+                value={data.managementEffectiveUntil || ''}
+                onChange={(e) => {
+                  updateData({ managementEffectiveUntil: e.target.value });
+                }}
+                className="mt-1 font-medium text-slate-800"
+              />
+              <p className="text-[11px] text-slate-400 mt-1">Teks inilah yang akan dimasukkan ke dalam Akta dan Notulen.</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Preview Box */}
+      <div className="mt-3 p-3 bg-indigo-50 border border-indigo-100/50 rounded-sm">
+        <h5 className="text-[11px] font-bold text-indigo-800 uppercase tracking-wider mb-1">Pratinjau Kalimat di Akta & Notulen:</h5>
+        <p className="text-[12px] text-indigo-900 leading-relaxed italic">
+          "Masa jabatan anggota Direksi dan Dewan Komisaris tersebut di atas berlaku efektif terhitung sejak tanggal Keputusan ini ditetapkan, <strong className="underline text-[#3b5998]">{data.managementEffectiveUntil || "untuk jangka waktu sebagaimana yang ditentukan dalam Anggaran Dasar Perseroan"}</strong>, dengan tidak mengurangi hak Rapat Umum Pemegang Saham untuk memberhentikan sewaktu-waktu sesuai dengan ketentuan peraturan perundang-undangan yang berlaku."
+        </p>
+      </div>
+    </div>
+  );
+};
 
 const sanitizeForFirestore = (obj: any): any => {
   if (Array.isArray(obj)) {
@@ -710,7 +822,33 @@ const App: React.FC = () => {
         }
       } else if (item.type === 'pendirian') {
         try {
-          await generatePendirianDocx(item.project);
+          const d = item.project;
+          const mappedData = {
+            namaPt: d.companyName || d.namaPt || "",
+            tanggal: d.signingDate || d.tanggal || "",
+            waktu: d.aktaStartTime || d.waktu || "10:00",
+            notarisNamaSurat: d.notaryName || d.notarisNamaSurat || "NUKANTINI PUTRI PARINCHA, SH., M.Kn.",
+            notarisTempat: d.notaryDomicile || d.notarisTempat || "Kabupaten Bandung Barat",
+            kotaKedudukan: d.newAddress?.city || d.domicile || "",
+            alamatLengkapPT: d.newAddress?.fullAddress || d.fullAddress || "",
+            modalDasar: d.targetCapitalBase || d.originalCapitalBase || 0,
+            nilaiPerLembar: d.originalSharePrice || 0,
+            modalDisetorPersen: (d.targetCapitalPaid / d.targetCapitalBase) * 100 || 25,
+            kuotaWaktuDireksi: d.duration || "5",
+            kbliItems: d.kbliItems || [],
+            shareholders: d.shareholders || [],
+            saksi1Nama: d.saksi1Nama || "",
+            saksi1LahirTempat: d.saksi1Lahir || "",
+            saksi1LahirTanggal: d.saksi1Lahir || "",
+            saksi1Alamat: d.saksi1Alamat || "",
+            saksi1NIK: d.saksi1NIK || "",
+            saksi2Nama: d.saksi2Nama || "",
+            saksi2LahirTempat: d.saksi2Lahir || "",
+            saksi2LahirTanggal: d.saksi2Lahir || "",
+            saksi2Alamat: d.saksi2Alamat || "",
+            saksi2NIK: d.saksi2NIK || "",
+          };
+          await generatePendirianDocx(mappedData);
         } catch (e) {
           console.error(e);
           alert("Gagal mengunduh Pendirian.");
@@ -1396,10 +1534,36 @@ const App: React.FC = () => {
   const handlePendirianExportWord = async (d: any) => {
     setIsExportingPendirian(true);
     try {
-      await generatePendirianDocx(d);
-    } catch (e) {
+      // Map CompanyData to PendirianData expected by the generator
+      const mappedData = {
+        namaPt: d.companyName || d.namaPt || "",
+        tanggal: d.signingDate || d.tanggal || "",
+        waktu: d.aktaStartTime || d.waktu || "10:00",
+        notarisNamaSurat: d.notaryName || d.notarisNamaSurat || "NUKANTINI PUTRI PARINCHA, SH., M.Kn.",
+        notarisTempat: d.notaryDomicile || d.notarisTempat || "Kabupaten Bandung Barat",
+        kotaKedudukan: d.newAddress?.city || d.domicile || "",
+        alamatLengkapPT: d.newAddress?.fullAddress || d.fullAddress || "",
+        modalDasar: d.targetCapitalBase || d.originalCapitalBase || 0,
+        nilaiPerLembar: d.originalSharePrice || 0,
+        modalDisetorPersen: (d.targetCapitalPaid / d.targetCapitalBase) * 100 || 25,
+        kuotaWaktuDireksi: d.duration || "5",
+        kbliItems: d.kbliItems || [],
+        shareholders: d.shareholders || [],
+        saksi1Nama: d.saksi1Nama || "",
+        saksi1LahirTempat: d.saksi1Lahir || "",
+        saksi1LahirTanggal: d.saksi1Lahir || "",
+        saksi1Alamat: d.saksi1Alamat || "",
+        saksi1NIK: d.saksi1NIK || "",
+        saksi2Nama: d.saksi2Nama || "",
+        saksi2LahirTempat: d.saksi2Lahir || "",
+        saksi2LahirTanggal: d.saksi2Lahir || "",
+        saksi2Alamat: d.saksi2Alamat || "",
+        saksi2NIK: d.saksi2NIK || "",
+      };
+      await generatePendirianDocx(mappedData);
+    } catch (e: any) {
       console.error(e);
-      alert("Error Exporting");
+      alert("Error Exporting: " + (e.message || String(e)));
     } finally {
       setIsExportingPendirian(false);
     }
@@ -5770,275 +5934,242 @@ const App: React.FC = () => {
 
               return (
                 <AhuSection title="DATA PERUBAHAN PENGURUS (DIREKSI & KOMISARIS)">
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-center mb-4">
-                      <div>
-                        <h4 className="text-[13px] font-bold text-[#3b5998] uppercase flex items-center gap-1.5">
-                          <Users className="w-4 h-4 text-[#3b5998]" /> Form Perubahan Pengurus (Diberhentikan / Mengundurkan Diri)
-                        </h4>
-                        <p className="text-[11px] text-slate-500 mt-1">
-                          Pilih nama pengurus lama yang diberhentikan atau mengundurkan diri, serta tentukan pengganti jika ada.
-                        </p>
+                  <div className="space-y-8">
+                    {/* 1. LIST PEMBERHENTIAN */}
+                    <div className="space-y-4">
+                      <div className="flex justify-between items-center mb-4 border-b border-slate-100 pb-2">
+                        <div>
+                          <h4 className="text-[13px] font-bold text-red-700 uppercase flex items-center gap-1.5">
+                            <Trash2 className="w-4 h-4" /> 1. DAFTAR PENGURUS YANG DIBERHENTIKAN
+                          </h4>
+                          <p className="text-[11px] text-slate-500 mt-1">
+                            Pilih nama pengurus lama yang diberhentikan atau mengundurkan diri.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const id = Math.random().toString(36).substring(2);
+                            const item = {
+                              id,
+                              salutation: 'Tuan' as const,
+                              name: '',
+                              position: 'DIREKTUR',
+                              reason: 'DIBERHENTIKAN_DENGAN_HORMAT' as const,
+                              resignationDate: '',
+                            };
+                            updateData({
+                              managementDismissals: [...(data.managementDismissals || []), item]
+                            });
+                          }}
+                          className="text-[11px] bg-red-600 text-white px-3 py-1.5 rounded hover:bg-black transition-colors font-bold shadow-sm uppercase flex items-center gap-1.5"
+                        >
+                          <Plus className="w-3.5 h-3.5" /> Tambah Pemberhentian
+                        </button>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const id = Math.random().toString(36).substring(2);
-                          const item = {
-                            id,
-                            salutation: 'Tuan' as const,
-                            name: '',
-                            position: 'DIREKTUR',
-                            reason: 'DIBERHENTIKAN_DENGAN_HORMAT' as const,
-                            resignationDate: '',
-                            replacementType: 'PRESENT' as const,
-                            replacedByName: '',
-                            replacedByPosition: 'DIREKTUR',
-                            replacedBySalutation: 'Tuan' as const,
-                            replacedByNik: '',
-                          };
-                          updateData({
-                            managementDismissals: [...(data.managementDismissals || []), item]
-                          });
-                        }}
-                        className="text-[11px] bg-[#3b5998] text-white px-3 py-1.5 rounded hover:bg-slate-900 transition-colors font-bold shadow-sm uppercase flex items-center gap-1.5"
-                      >
-                        <Plus className="w-3.5 h-3.5" /> Tambah Perubahan Pengurus
-                      </button>
-                    </div>
 
-                    {(data.managementDismissals || []).length === 0 ? (
-                      <div className="text-center py-8 border border-dashed border-slate-200 rounded text-slate-500 text-[12px] bg-slate-50">
-                        Belum ada data perubahan pengurus secara manual. Silakan klik "Tambah Perubahan Pengurus" untuk menambahkan.
-                      </div>
-                    ) : (
-                      <div className="space-y-4">
-                        {(data.managementDismissals || []).map((item, idx) => {
-                          const isManualManager = !oldManagersList.some(m => m.name.toUpperCase().trim() === (item.name || '').toUpperCase().trim());
-                          
-                          return (
-                            <div key={item.id} className="p-4 border border-slate-200 rounded bg-[#fcfcfc] shadow-xs relative space-y-4">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  updateData({
-                                    managementDismissals: (data.managementDismissals || []).filter(t => t.id !== item.id)
-                                  });
-                                }}
-                                className="absolute top-3 right-3 text-red-500 hover:text-red-700 p-1"
-                                title="Hapus"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-
-                              <div className="text-[12px] font-bold text-[#3b5998] border-b border-slate-200 pb-1 flex items-center gap-1.5 font-mono">
-                                <span>DATA PERUBAHAN PENGURUS #{idx + 1}</span>
-                              </div>
-
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                  <AhuLabel label="Pilih Pengurus Lama (Dari Komposisi Lama)" required />
-                                  <select
-                                    className="w-full text-[12px] border border-slate-300 rounded p-1.5 bg-white font-medium focus:border-indigo-500 focus:outline-none"
-                                    value={isManualManager && item.name !== '' ? 'MANUAL' : item.name}
-                                    onChange={e => {
-                                      const val = e.target.value;
-                                      if (val === 'MANUAL') {
-                                        updateData({
-                                          managementDismissals: (data.managementDismissals || []).map(t =>
-                                            t.id === item.id ? { ...t, name: '', position: 'DIREKTUR' } : t
-                                          )
-                                        });
-                                      } else {
-                                        const selected = oldManagersList.find(om => om.name === val);
-                                        updateData({
-                                          managementDismissals: (data.managementDismissals || []).map(t =>
-                                            t.id === item.id ? { 
-                                              ...t, 
-                                              name: val, 
-                                              salutation: selected ? (selected.salutation as any) : 'Tuan',
-                                              position: selected ? selected.position : 'DIREKTUR' 
-                                            } : t
-                                          )
-                                        });
-                                      }
-                                    }}
-                                  >
-                                    <option value="">-- Pilih Pengurus Lama --</option>
+                      {(data.managementDismissals || []).length === 0 ? (
+                        <div className="text-center py-6 border border-dashed border-slate-200 rounded text-slate-400 text-[11px] bg-slate-50/50">
+                          Klik tombol di atas untuk menambah daftar pengurus yang diberhentikan.
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-1 gap-3">
+                          {(data.managementDismissals || []).map((item, idx) => (
+                            <div key={item.id} className="p-3 border border-slate-200 rounded bg-white relative grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+                              <div className="md:col-span-1 text-[10px] font-bold text-slate-400">#{idx + 1}</div>
+                              <div className="md:col-span-4">
+                                <AhuLabel label="Pilih dari Komposisi Lama / Pihak" />
+                                <select
+                                  className="w-full text-[12px] border border-slate-300 rounded p-1.5 bg-white font-medium focus:border-red-500 focus:outline-none"
+                                  value={item.name}
+                                  onChange={e => {
+                                    const val = e.target.value;
+                                    const selectedOld = oldManagersList.find(om => om.name === val);
+                                    const selectedParty = presentAttendeesList.find(p => p.name === val);
+                                    updateData({
+                                      managementDismissals: (data.managementDismissals || []).map(t =>
+                                        t.id === item.id ? { 
+                                          ...t, 
+                                          name: val, 
+                                          salutation: selectedOld ? (selectedOld.salutation as any) : selectedParty ? (selectedParty.salutation as any) : 'Tuan',
+                                          position: selectedOld ? selectedOld.position : 'DIREKTUR' 
+                                        } : t
+                                      )
+                                    });
+                                  }}
+                                >
+                                  <option value="">-- Pilih Nama --</option>
+                                  <optgroup label="Pengurus Sekarang">
                                     {oldManagersList.map((om, omIdx) => (
-                                      <option key={omIdx} value={om.name}>
-                                        {om.salutation} {om.name} ({om.position})
-                                      </option>
+                                      <option key={`old-${omIdx}`} value={om.name}>{om.salutation} {om.name} ({om.position})</option>
                                     ))}
-                                    <option value="MANUAL">-- Input Manual (Custom) --</option>
-                                  </select>
-                                </div>
-
-                                <div>
-                                  <AhuLabel label="Alasan Perubahan Jabatan" required />
-                                  <select
-                                    className="w-full text-[12px] border border-slate-300 rounded p-1.5 bg-white font-medium focus:border-indigo-500 focus:outline-none"
-                                    value={item.reason}
-                                    onChange={e => {
-                                      updateData({
-                                        managementDismissals: (data.managementDismissals || []).map(t =>
-                                          t.id === item.id ? { ...t, reason: e.target.value as any } : t
-                                        )
-                                      });
-                                    }}
-                                  >
-                                    <option value="DIBERHENTIKAN_DENGAN_HORMAT">Diberhentikan Dengan Hormat</option>
-                                    <option value="MENGUNDURKAN_DIRI">Mengundurkan Diri (Ada Surat Pernyataan)</option>
-                                  </select>
-                                </div>
+                                  </optgroup>
+                                  <optgroup label="Para Pihak Lainnya">
+                                    {presentAttendeesList.map((p, pIdx) => (
+                                      <option key={`p-${pIdx}`} value={p.name}>{p.salutation} {p.name}</option>
+                                    ))}
+                                  </optgroup>
+                                </select>
                               </div>
-
-                              {/* Show detailed old manager inputs ONLY if custom/manual, or as read-only view */}
-                              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50/50 p-3 rounded border border-slate-100">
-                                <div>
-                                  <AhuLabel label="Panggilan" required />
-                                  <select
-                                    className="w-full text-[12px] border border-slate-300 rounded p-1.5 bg-white font-medium focus:border-indigo-500 focus:outline-none disabled:bg-slate-100/50 disabled:text-slate-500"
-                                    disabled={!isManualManager}
-                                    value={item.salutation}
-                                    onChange={e => {
-                                      updateData({
-                                        managementDismissals: (data.managementDismissals || []).map(t =>
-                                          t.id === item.id ? { ...t, salutation: e.target.value as any } : t
-                                        )
-                                      });
-                                    }}
-                                  >
-                                    <option value="Tuan">Tuan</option>
-                                    <option value="Nyonya">Nyonya</option>
-                                    <option value="Nona">Nona</option>
-                                  </select>
-                                </div>
-
-                                <div>
-                                  <AhuLabel label="Nama Pengurus Lama" required />
-                                  <input
-                                    type="text"
-                                    placeholder="Nama Pengurus Lama..."
-                                    className="w-full text-[12px] border border-slate-300 rounded p-1.5 bg-white font-medium focus:border-indigo-500 focus:outline-none uppercase disabled:bg-slate-100/50 disabled:text-slate-500"
-                                    disabled={!isManualManager}
-                                    value={item.name}
-                                    onChange={e => {
-                                      updateData({
-                                        managementDismissals: (data.managementDismissals || []).map(t =>
-                                          t.id === item.id ? { ...t, name: e.target.value } : t
-                                        )
-                                      });
-                                    }}
-                                  />
-                                </div>
-
-                                <div>
-                                  <AhuLabel label="Jabatan Lama" required />
-                                  <input
-                                    type="text"
-                                    placeholder="Contoh: DIREKTUR"
-                                    className="w-full text-[12px] border border-slate-300 rounded p-1.5 bg-white font-medium focus:border-indigo-500 focus:outline-none uppercase disabled:bg-slate-100/50 disabled:text-slate-500"
-                                    disabled={!isManualManager}
-                                    value={item.position}
-                                    onChange={e => {
-                                      updateData({
-                                        managementDismissals: (data.managementDismissals || []).map(t =>
-                                          t.id === item.id ? { ...t, position: e.target.value } : t
-                                        )
-                                      });
-                                    }}
-                                  />
-                                </div>
+                              <div className="md:col-span-3">
+                                <AhuLabel label="Jabatan Saat Ini" />
+                                <input 
+                                  type="text"
+                                  className="w-full text-[12px] border border-slate-300 rounded p-1.5 bg-slate-50 font-medium uppercase"
+                                  value={item.position}
+                                  onChange={e => {
+                                    updateData({
+                                      managementDismissals: (data.managementDismissals || []).map(t =>
+                                        t.id === item.id ? { ...t, position: e.target.value } : t
+                                      )
+                                    });
+                                  }}
+                                />
                               </div>
-
-                              {item.reason === 'MENGUNDURKAN_DIRI' && (
-                                <div className="p-3 bg-red-50/30 border border-red-100/55 rounded grid grid-cols-1 md:grid-cols-2 gap-4">
-                                  <div>
-                                    <AhuLabel label="Tanggal Surat Pengunduran Diri" required />
-                                    <input
-                                      type="date"
-                                      className="w-full text-[12px] border border-slate-300 rounded p-1.5 bg-white font-medium focus:border-indigo-500 focus:outline-none"
-                                      value={item.resignationDate || ''}
-                                      onChange={e => {
-                                        updateData({
-                                          managementDismissals: (data.managementDismissals || []).map(t =>
-                                            t.id === item.id ? { ...t, resignationDate: e.target.value } : t
-                                          )
-                                        });
-                                      }}
-                                    />
-                                  </div>
-                                  <div className="flex items-center text-slate-500 text-[11px] leading-relaxed mt-4">
-                                    <p>Surat pengunduran diri dari pengurus yang bersangkutan akan direferensikan dalam konsideran akta sesuai tanggal yang diisi.</p>
-                                  </div>
-                                </div>
-                              )}
-
-                              {/* REPLACEMENT CONFIG */}
-                              <div className="p-4 bg-blue-50/50 rounded border border-blue-100/50 space-y-4">
-                                <div className="text-[11px] font-bold text-slate-700 uppercase flex justify-between items-center pb-2 border-b border-blue-100/50">
-                                  <span>PILIH PENGGANTI PENGURUS (OPSIONAL) DARI PARA PIHAK</span>
-                                </div>
-
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                  <div>
-                                    <AhuLabel label="Pilih dari Para Pihak" />
-                                    <select
-                                      className="w-full text-[12px] border border-slate-300 rounded p-1.5 bg-white font-medium focus:border-indigo-500 focus:outline-none uppercase"
-                                      value={item.replacedByName || ''}
-                                      onChange={e => {
-                                        const selName = e.target.value;
-                                        const found = presentAttendeesList.find(p => p.name === selName);
-                                        updateData({
-                                          managementDismissals: (data.managementDismissals || []).map(t =>
-                                            t.id === item.id ? {
-                                              ...t,
-                                              replacedByName: selName,
-                                              replacedBySalutation: found ? (found.salutation as any) : 'Tuan',
-                                              replacedByNik: found ? found.nik : '',
-                                              replacementType: 'PRESENT'
-                                            } : t
-                                          )
-                                        });
-                                      }}
-                                    >
-                                      <option value="">-- Pilih dari Para Pihak --</option>
-                                      {presentAttendeesList.map((p, pIdx) => (
-                                        <option key={`${p.name}-${pIdx}`} value={p.name}>
-                                          {p.salutation || 'Tuan'} {p.name} {p.nik ? `(NIK: ${p.nik})` : ''}
-                                        </option>
-                                      ))}
-                                    </select>
-                                  </div>
-
-                                  <div>
-                                    <AhuLabel label="Jabatan Baru Pengganti" />
-                                    <select
-                                      className="w-full text-[12px] border border-slate-300 rounded p-1.5 bg-white font-medium focus:border-indigo-500 focus:outline-none"
-                                      value={item.replacedByPosition || ''}
-                                      onChange={e => {
-                                        updateData({
-                                          managementDismissals: (data.managementDismissals || []).map(t =>
-                                            t.id === item.id ? { ...t, replacedByPosition: e.target.value as any } : t
-                                          )
-                                        });
-                                      }}
-                                    >
-                                      <option value="">Sama dengan Jabatan Lama ({item.position})</option>
-                                      <option value="DIREKTUR">DIREKTUR</option>
-                                      <option value="KOMISARIS">KOMISARIS</option>
-                                      <option value="DIREKTUR UTAMA">DIREKTUR UTAMA</option>
-                                      <option value="KOMISARIS UTAMA">KOMISARIS UTAMA</option>
-                                    </select>
-                                  </div>
-                                </div>
+                              <div className="md:col-span-3">
+                                <AhuLabel label="Alasan" />
+                                <select
+                                  className="w-full text-[12px] border border-slate-300 rounded p-1.5 bg-white font-medium"
+                                  value={item.reason}
+                                  onChange={e => {
+                                    updateData({
+                                      managementDismissals: (data.managementDismissals || []).map(t =>
+                                        t.id === item.id ? { ...t, reason: e.target.value as any } : t
+                                      )
+                                    });
+                                  }}
+                                >
+                                  <option value="DIBERHENTIKAN_DENGAN_HORMAT">Diberhentikan Hormat</option>
+                                  <option value="MENGUNDURKAN_DIRI">Mengundurkan Diri</option>
+                                </select>
+                              </div>
+                              <div className="md:col-span-1 flex justify-end">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    updateData({
+                                      managementDismissals: (data.managementDismissals || []).filter(t => t.id !== item.id)
+                                    });
+                                  }}
+                                  className="text-red-400 hover:text-red-600 p-1.5"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
                               </div>
                             </div>
-                          );
-                        })}
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* 2. LIST PENGANGKATAN */}
+                    <div className="space-y-4">
+                      <div className="flex justify-between items-center mb-4 border-b border-slate-100 pb-2">
+                        <div>
+                          <h4 className="text-[13px] font-bold text-emerald-700 uppercase flex items-center gap-1.5">
+                            <UserPlus className="w-4 h-4" /> 2. DAFTAR PENGURUS YANG DIANGKAT
+                          </h4>
+                          <p className="text-[11px] text-slate-500 mt-1">
+                            Pilih nama pengurus baru yang diangkat (biasanya dari para pihak yang hadir).
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const id = Math.random().toString(36).substring(2);
+                            const item = {
+                              id,
+                              salutation: 'Tuan' as const,
+                              name: '',
+                              position: 'DIREKTUR',
+                            };
+                            updateData({
+                              managementAppointments: [...(data.managementAppointments || []), item]
+                            });
+                          }}
+                          className="text-[11px] bg-emerald-600 text-white px-3 py-1.5 rounded hover:bg-black transition-colors font-bold shadow-sm uppercase flex items-center gap-1.5"
+                        >
+                          <Plus className="w-3.5 h-3.5" /> Tambah Pengangkatan
+                        </button>
                       </div>
-                    )}
+
+                      {(data.managementAppointments || []).length === 0 ? (
+                        <div className="text-center py-6 border border-dashed border-slate-200 rounded text-slate-400 text-[11px] bg-slate-50/50">
+                          Klik tombol di atas untuk menambah daftar pengurus yang diangkat.
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-1 gap-3">
+                          {(data.managementAppointments || []).map((item, idx) => (
+                            <div key={item.id} className="p-3 border border-slate-200 rounded bg-white relative grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+                              <div className="md:col-span-1 text-[10px] font-bold text-slate-400">#{idx + 1}</div>
+                              <div className="md:col-span-5">
+                                <AhuLabel label="Pilih dari Para Pihak" />
+                                <select
+                                  className="w-full text-[12px] border border-slate-300 rounded p-1.5 bg-white font-medium focus:border-emerald-500 focus:outline-none"
+                                  value={item.name}
+                                  onChange={e => {
+                                    const val = e.target.value;
+                                    const found = presentAttendeesList.find(p => p.name === val);
+                                    updateData({
+                                      managementAppointments: (data.managementAppointments || []).map(t =>
+                                        t.id === item.id ? { 
+                                          ...t, 
+                                          name: val, 
+                                          salutation: found ? (found.salutation as any) : 'Tuan',
+                                          nik: found ? found.nik : ''
+                                        } : t
+                                      )
+                                    });
+                                  }}
+                                >
+                                  <option value="">-- Pilih Nama --</option>
+                                  {presentAttendeesList.map((p, pIdx) => (
+                                    <option key={`app-${pIdx}`} value={p.name}>{p.salutation} {p.name}</option>
+                                  ))}
+                                </select>
+                              </div>
+                              <div className="md:col-span-5">
+                                <AhuLabel label="Jabatan Baru" />
+                                <select
+                                  className="w-full text-[12px] border border-slate-300 rounded p-1.5 bg-white font-medium"
+                                  value={item.position}
+                                  onChange={e => {
+                                    updateData({
+                                      managementAppointments: (data.managementAppointments || []).map(t =>
+                                        t.id === item.id ? { ...t, position: e.target.value } : t
+                                      )
+                                    });
+                                  }}
+                                >
+                                  <option value="DIREKTUR">DIREKTUR</option>
+                                  <option value="DIREKTUR UTAMA">DIREKTUR UTAMA</option>
+                                  <option value="KOMISARIS">KOMISARIS</option>
+                                  <option value="KOMISARIS UTAMA">KOMISARIS UTAMA</option>
+                                </select>
+                              </div>
+                              <div className="md:col-span-1 flex justify-end">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    updateData({
+                                      managementAppointments: (data.managementAppointments || []).filter(t => t.id !== item.id)
+                                    });
+                                  }}
+                                  className="text-red-400 hover:text-red-600 p-1.5"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    
+                    {/* Masa Jabatan Option */}
+                    <div className="pt-4 border-t border-slate-100">
+                      <AhuMasaJabatanSelector data={data} updateData={updateData} />
+                    </div>
                   </div>
                 </AhuSection>
               );
@@ -6083,39 +6214,7 @@ const App: React.FC = () => {
                       <p className="text-[11px] text-slate-400 mt-1">Kosongkan untuk default otomatis 5 tahun berikutnya.</p>
                     </div>
                   </div>
-                  <div>
-                    <AhuLabel label="Pilihan Akhir Masa Jabatan" required />
-                    <div className="space-y-3 mt-2">
-                       {[
-                         'Sampai dengan penutupan RUPS Tahunan yang ke-5 (lima)',
-                         'Untuk jangka waktu 5 (lima) tahun',
-                         'Sampai dengan ditentukan lain oleh RUPS'
-                       ].map((opt) => (
-                         <label key={opt} className="flex items-center gap-3 p-3 border border-slate-200 rounded-sm hover:bg-slate-50 cursor-pointer transition-colors group">
-                           <input 
-                             type="radio" 
-                             name="masa_jabatan"
-                             className="w-4 h-4 text-[#3b5998] focus:ring-[#3b5998]"
-                             checked={data.managementEffectiveUntil === opt}
-                             onChange={() => updateData({ managementEffectiveUntil: opt })}
-                           />
-                           <span className="text-[13px] font-medium text-slate-700 group-hover:text-slate-900">{opt}</span>
-                         </label>
-                       ))}
-                       <div className="mt-2">
-                         <AhuLabel label="Input Manual (Lainnya)" />
-                         <AhuInput 
-                           placeholder="Contoh: Sampai dengan tanggal 31 Desember 2029"
-                           value={![
-                             'Sampai dengan penutupan RUPS Tahunan yang ke-5 (lima)',
-                             'Untuk jangka waktu 5 (lima) tahun',
-                             'Sampai dengan ditentukan lain oleh RUPS'
-                           ].includes(data.managementEffectiveUntil) ? data.managementEffectiveUntil : ''}
-                           onChange={(e) => updateData({ managementEffectiveUntil: e.target.value })}
-                         />
-                       </div>
-                    </div>
-                  </div>
+                  <AhuMasaJabatanSelector data={data} updateData={updateData} />
                 </div>
               </AhuSection>
             )}
@@ -8968,11 +9067,11 @@ const App: React.FC = () => {
                       </div>
                     </AhuSection>
 
-                    <AhuSection title="KEHADIRAN PEMEGANG SAHAM">
+                    <AhuSection title="DATA KEHADIRAN (DAFTAR PARA PIHAK)">
                       <div className="space-y-4">
                         <div className="flex justify-between items-center">
                           <h4 className="text-[12px] font-bold text-slate-500 uppercase flex items-center gap-2">
-                             <Users className="w-3 h-3" /> Kehadiran Pemegang Saham
+                             <Users className="w-3 h-3" /> DATA KEHADIRAN (DAFTAR PARA PIHAK)
                           </h4>
                           <button 
                             onClick={() => {
