@@ -923,9 +923,9 @@ const KBLIMapping: React.FC = () => {
         doc.setTextColor(15, 48, 87); // Dark Blue Header
         doc.setFont("helvetica", "bold");
         doc.setFontSize(16);
-        doc.text(isEn ? "CONVERSION SUGGESTION" : "SARAN KOMPERSI", 14, 15);
+        doc.text(isEn ? "ADJUSTMENT RECOMMENDATION" : "REKOMENDASI PENYESUAIAN", 14, 15);
         doc.setFontSize(26);
-        doc.text("KBLI 2020 ==> 2025", 14, 25);
+        doc.text(isEn ? "KBLI 2020 TO KBLI 2025" : "KBLI 2020 KE KBLI 2025", 14, 25);
         
         doc.setDrawColor(15, 48, 87);
         doc.setLineWidth(0.8);
@@ -957,7 +957,7 @@ const KBLIMapping: React.FC = () => {
         const address = doc.splitTextToSize("Komp. PPR-ITB Kav. F-5 Dago Giri, Lembang, Kab. Bandung Barat", 60);
         doc.text(address, pageWidth / 2 + 32, 36);
 
-        doc.text("Telp/Fax", pageWidth / 2 + 15, 46);
+        doc.text("HP", pageWidth / 2 + 15, 46);
         doc.text(":", pageWidth / 2 + 30, 46);
         doc.text("08112007061", pageWidth / 2 + 32, 46);
 
@@ -1057,33 +1057,123 @@ const KBLIMapping: React.FC = () => {
       else countRecoding++; // default
     });
 
-    // Draw Stats Boxes (5 boxes)
+    // Draw Stats Boxes (5 boxes with beautiful custom vector icons)
     const boxW = (pageWidth - 28 - 20) / 5;
-    const drawStatBoxOutline = (x: number, y: number, w: number, h: number, value: string, title1: string, title2: string, color: number[]) => {
-      doc.setDrawColor(color[0], color[1], color[2]);
-      doc.setLineWidth(0.5);
-      doc.roundedRect(x, y, w, h, 2, 2, "D");
-      
-      doc.setTextColor(15, 48, 87);
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(18);
-      doc.text(value, x + w / 2, y + 9, { align: "center" });
-      
-      doc.setTextColor(0, 0, 0);
-      doc.setFontSize(7.5);
-      doc.text(title1, x + w / 2, y + 13, { align: "center" });
-      if (title2) {
-        doc.text(title2, x + w / 2, y + 16, { align: "center" });
+    const boxH = 22;
+    const drawStatBoxOutline = (
+      x: number,
+      y: number,
+      w: number,
+      h: number,
+      value: string,
+      title1: string,
+      title2: string,
+      borderColor: number[],
+      iconType: "sync" | "chain" | "venn" | "fork" | "clipboard"
+    ) => {
+      let fillColor = [248, 250, 252];
+      if (iconType === "sync") fillColor = [240, 249, 255];
+      else if (iconType === "chain") fillColor = [240, 253, 244];
+      else if (iconType === "venn") fillColor = [255, 247, 237];
+      else if (iconType === "fork") fillColor = [254, 242, 242];
+
+      // Draw background and border
+      doc.setFillColor(fillColor[0], fillColor[1], fillColor[2]);
+      doc.setDrawColor(borderColor[0], borderColor[1], borderColor[2]);
+      doc.setLineWidth(0.4);
+      doc.roundedRect(x, y, w, h, 2, 2, "FD");
+
+      const centerX = x + 5.5;
+      const centerY = y + h / 2;
+
+      // Draw custom high-fidelity vector icons
+      if (iconType === "sync") {
+        doc.setDrawColor(15, 48, 87);
+        doc.setLineWidth(0.8);
+        doc.ellipse(centerX, centerY, 2.6, 2.6, "S");
+        
+        doc.setFillColor(fillColor[0], fillColor[1], fillColor[2]);
+        doc.rect(centerX - 1.0, centerY - 3.4, 2.0, 1.2, "F");
+        doc.rect(centerX - 1.0, centerY + 2.2, 2.0, 1.2, "F");
+        
+        doc.setFillColor(15, 48, 87);
+        doc.triangle(centerX + 0.2, centerY - 3.4, centerX + 1.8, centerY - 2.6, centerX + 0.2, centerY - 1.6, "F");
+        doc.triangle(centerX - 0.2, centerY + 3.4, centerX - 1.8, centerY + 2.6, centerX - 0.2, centerY + 1.6, "F");
+      }
+      else if (iconType === "chain") {
+        doc.setDrawColor(21, 128, 61);
+        doc.setLineWidth(1.0);
+        doc.ellipse(centerX - 1.1, centerY + 0.9, 1.8, 1.8, "S");
+        doc.ellipse(centerX + 1.1, centerY - 0.9, 1.8, 1.8, "S");
+      }
+      else if (iconType === "venn") {
+        doc.setDrawColor(234, 88, 12);
+        doc.setLineWidth(1.0);
+        doc.ellipse(centerX - 1.2, centerY, 2.2, 2.2, "S");
+        doc.ellipse(centerX + 1.2, centerY, 2.2, 2.2, "S");
+      }
+      else if (iconType === "fork") {
+        doc.setDrawColor(185, 28, 28);
+        doc.setLineWidth(0.8);
+        doc.line(centerX - 2.4, centerY, centerX + 1.8, centerY - 2.4);
+        doc.line(centerX - 2.4, centerY, centerX + 1.8, centerY + 2.4);
+        
+        doc.setFillColor(185, 28, 28);
+        doc.ellipse(centerX - 2.4, centerY, 0.8, 0.8, "FD");
+        doc.ellipse(centerX + 1.8, centerY - 2.4, 0.8, 0.8, "FD");
+        doc.ellipse(centerX + 1.8, centerY + 2.4, 0.8, 0.8, "FD");
+      }
+      else if (iconType === "clipboard") {
+        doc.setDrawColor(15, 48, 87);
+        doc.setLineWidth(0.6);
+        doc.rect(centerX - 2.6, centerY - 3.4, 5.2, 7.0, "S");
+        
+        doc.setFillColor(15, 48, 87);
+        doc.rect(centerX - 1.0, centerY - 4.2, 2.0, 1.1, "FD");
+        
+        doc.line(centerX - 0.6, centerY - 1.2, centerX + 1.4, centerY - 1.2);
+        doc.line(centerX - 0.6, centerY + 0.8, centerX + 1.4, centerY + 0.8);
+        doc.line(centerX - 0.6, centerY + 2.8, centerX + 1.4, centerY + 2.8);
+        
+        doc.ellipse(centerX - 1.4, centerY - 1.2, 0.28, 0.28, "FD");
+        doc.ellipse(centerX - 1.4, centerY + 0.8, 0.28, 0.28, "FD");
+        doc.ellipse(centerX - 1.4, centerY + 2.8, 0.28, 0.28, "FD");
+      }
+
+      // Draw texts (right-aligned to leave space for the icons)
+      if (iconType === "clipboard") {
+        doc.setTextColor(15, 48, 87);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(6.5);
+        doc.text(isEn ? "Total Active KBLI" : "Total KBLI Aktif", x + w - 2.5, y + 8, { align: "right" });
+
+        doc.setFontSize(18);
+        doc.text(value, x + w - 2.5, y + 17, { align: "right" });
+      } else {
+        doc.setTextColor(15, 48, 87);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(18);
+        doc.text(value, x + w - 2.5, y + 9, { align: "right" });
+
+        doc.setTextColor(15, 48, 87);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(6.5);
+        if (title2) {
+          doc.text(title1, x + w - 2.5, y + 14, { align: "right" });
+          doc.text(title2, x + w - 2.5, y + 18, { align: "right" });
+        } else {
+          doc.text(title1, x + w - 2.5, y + 16, { align: "right" });
+        }
       }
     };
 
-    drawStatBoxOutline(14, currentY, boxW, 18, countRecoding.toString(), "Recoding /", "Pindah Kode", [14, 165, 233]);
-    drawStatBoxOutline(14 + boxW + 5, currentY, boxW, 18, countGabung.toString(), "Gabung", "Kode", [34, 197, 94]);
-    drawStatBoxOutline(14 + (boxW + 5) * 2, currentY, boxW, 18, countLebur.toString(), "Lebur", "Cakupan", [245, 158, 11]);
-    drawStatBoxOutline(14 + (boxW + 5) * 3, currentY, boxW, 18, countPecah.toString(), "Pecah", "Kode", [239, 68, 68]);
-    drawStatBoxOutline(14 + (boxW + 5) * 4, currentY, boxW, 18, unique2025.size.toString(), "Total KBLI", "Aktif", [100, 116, 139]);
+    drawStatBoxOutline(14, currentY, boxW, boxH, countRecoding.toString(), isEn ? "Recoding /" : "Recoding /", isEn ? "Move Code" : "Pindah Kode", [14, 165, 233], "sync");
+    drawStatBoxOutline(14 + boxW + 5, currentY, boxW, boxH, countGabung.toString(), isEn ? "Merge" : "Gabung", isEn ? "Code" : "Kode", [34, 197, 94], "chain");
+    drawStatBoxOutline(14 + (boxW + 5) * 2, currentY, boxW, boxH, countLebur.toString(), isEn ? "Merge" : "Lebur", isEn ? "Scope" : "Cakupan", [245, 158, 11], "venn");
+    drawStatBoxOutline(14 + (boxW + 5) * 3, currentY, boxW, boxH, countPecah.toString(), isEn ? "Split" : "Pecah", isEn ? "Code" : "Kode", [239, 68, 68], "fork");
+    drawStatBoxOutline(14 + (boxW + 5) * 4, currentY, boxW, boxH, unique2025.size.toString(), isEn ? "Total Active" : "Total KBLI", isEn ? "KBLI" : "Aktif", [100, 116, 139], "clipboard");
     
-    currentY += 24;
+    currentY += 28;
 
     // --- SUMMARY TABLE ---
     // group items by KBLI 2020
@@ -1399,10 +1489,74 @@ const KBLIMapping: React.FC = () => {
       });
     }
 
+    // --- HALAMAN KESIMPULAN & REKOMENDASI ---
+    doc.addPage();
+    addLetterhead(false);
+    currentY = 20;
+
+    doc.setFillColor(15, 48, 87);
+    doc.rect(14, currentY, pageWidth - 28, 8, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    doc.text(
+      isEn
+        ? "CONCLUSION OF ANALYSIS AND RECOMMENDATIONS"
+        : "KESIMPULAN HASIL ANALISIS DAN REKOMENDASI",
+      18,
+      currentY + 5.5
+    );
+    currentY += 15;
+
+    const conclusions = isEn
+      ? [
+          "Based on the analysis and mapping of KBLI 2020 to KBLI 2025, it is known that the Company's business activities may experience changes in KBLI codes, adjustments to classifications, changes in the scope of activities, or other changes in accordance with the provisions of KBLI 2025 and the applicable Risk-Based OSS.",
+          "This report is prepared to provide an overview of the alignment between the KBLI currently listed in the Company's Deed and/or AHU data and the classifications of business activities based on KBLI 2025, including information on the business scope, risk levels, and applicable business licensing in the Risk-Based OSS system.",
+          "Any KBLI 2020 codes listed in the Deed of Establishment, Deed of Amendments, or AHU data that are not included in this report can be considered unchanged or still usable under the provisions of KBLI 2025 at the time this report was prepared. Nevertheless, the Company is still advised to verify data on the OSS system to ensure compliance with actual business activities.",
+          "In adjusting business activities, the Company is advised to select the KBLI that best suits the actual business activities carried out. If a KBLI has more than one business scope in the OSS system, the selection of the business scope must be made carefully because each scope can have different risk levels and licensing requirements.",
+          "If the current KBLI 2020 is already registered and active on the Business Identification Number (NIB), we recommend that the Company first perform the KBLI conversion or adjustment process on the OSS system according to the applicable mechanism. This step aims to ensure that the business activity data in OSS remains aligned with KBLI 2025.",
+          "Furthermore, to maintain harmony between OSS data, AHU data, and the actual business activities, we recommend that the Company adjust its Articles of Association using the most appropriate KBLI 2025, especially if there are material changes in KBLI codes, business scopes, or classifications.",
+          "The Company is also advised to pay attention to the risk levels and licensing requirements applicable to each business scope. Changes in the business scope can lead to different risk levels and licensing obligations, even within the same KBLI code. Therefore, the KBLI adjustment process should be carried out by considering the actual business activities.",
+          "All information, analysis, and recommendations in this document are the result of tracking and mapping based on available data on the Risk-Based OSS system, KBLI 2025 references, and accessible information at the time of writing. If there are future changes in regulations, OSS systems, risk levels, business scopes, licensing requirements, or other policies, the analysis may be adjusted.",
+          "To obtain more complete, accurate, and up-to-date information, the Company is advised to consult directly with the Ministry of Investment and Downstream/BKPM, the OSS Call Center, or the relevant sector supervisory agency.",
+          "This report is informative and recommendatory, compiled as a reference for the Company's KBLI adjustment process. This document does not constitute a decision, approval, determination, or official opinion of the Ministry of Investment and Downstream/BKPM, OSS, or any other authorized government agency."
+        ]
+      : [
+          "Berdasarkan hasil analisis dan pemetaan KBLI 2020 terhadap KBLI 2025, diketahui bahwa terhadap kegiatan usaha Perseroan dapat terjadi perubahan kode KBLI, penyesuaian klasifikasi kegiatan usaha, perubahan cakupan kegiatan usaha, maupun perubahan lainnya sesuai ketentuan KBLI 2025 dan OSS Berbasis Risiko yang berlaku.",
+          "Laporan ini disusun untuk memberikan gambaran mengenai kesesuaian antara KBLI yang saat ini tercantum dalam Akta Perseroan dan/atau data Administrasi Hukum Umum (AHU) dengan klasifikasi kegiatan usaha berdasarkan KBLI 2025, termasuk informasi mengenai ruang lingkup usaha, tingkat risiko, serta perizinan berusaha yang berlaku pada sistem OSS Berbasis Risiko.",
+          "Kode KBLI 2020 yang tercantum dalam Akta Pendirian, Akta Perubahan, maupun data Administrasi Hukum Umum (AHU), namun tidak tercantum dalam laporan ini, dapat dianggap tidak mengalami perubahan atau masih tetap dapat digunakan berdasarkan ketentuan KBLI 2025 yang berlaku pada saat laporan ini disusun. Meskipun demikian, Perseroan tetap disarankan untuk melakukan verifikasi kembali terhadap data yang tercantum pada sistem OSS guna memastikan kesesuaian dengan kegiatan usaha yang dijalankan.",
+          "Dalam melakukan penyesuaian kegiatan usaha, Perseroan disarankan untuk memilih KBLI yang paling sesuai dengan kegiatan usaha yang sebenarnya dijalankan. Dalam hal suatu KBLI memiliki lebih dari satu ruang lingkup usaha pada sistem OSS, pemilihan ruang lingkup usaha perlu dilakukan secara cermat karena masing-masing ruang lingkup usaha dapat memiliki tingkat risiko dan persyaratan perizinan yang berbeda.",
+          "Apabila KBLI 2020 saat ini telah terdaftar dan aktif pada Nomor Induk Berusaha (NIB), kami menyarankan agar Perseroan terlebih dahulu melakukan proses konversi atau penyesuaian KBLI pada sistem OSS sesuai mekanisme yang berlaku. Langkah tersebut bertujuan untuk memastikan bahwa data kegiatan usaha yang tercantum dalam OSS tetap sesuai dengan klasifikasi kegiatan usaha yang berlaku berdasarkan KBLI 2025.",
+          "Selanjutnya, untuk menjaga keselarasan antara data OSS, data Administrasi Hukum Umum (AHU), dan kegiatan usaha yang dijalankan Perseroan, kami merekomendasikan agar Perseroan melakukan penyesuaian Anggaran Dasar dengan menggunakan KBLI 2025 yang paling sesuai dengan kegiatan usahanya, terutama apabila terdapat perubahan kode KBLI, perubahan ruang lingkup usaha, atau perubahan klasifikasi kegiatan usaha yang material.",
+          "Perseroan juga disarankan untuk memperhatikan tingkat risiko dan persyaratan perizinan yang berlaku pada masing-masing ruang lingkup usaha. Perubahan ruang lingkup usaha dapat mengakibatkan perbedaan tingkat risiko dan kewajiban perizinan, meskipun masih berada dalam kode KBLI yang sama. Oleh karena itu, proses penyesuaian KBLI sebaiknya dilakukan dengan mempertimbangkan kegiatan usaha aktual yang dijalankan oleh Perseroan.",
+          "Seluruh informasi, analisis, dan rekomendasi yang tercantum dalam dokumen ini merupakan hasil penelusuran dan pemetaan berdasarkan data yang tersedia pada sistem OSS Berbasis Risiko, referensi KBLI 2025, serta informasi yang dapat diakses pada saat laporan ini disusun. Apabila di kemudian hari terdapat perubahan regulasi, perubahan sistem OSS, perubahan tingkat risiko, perubahan ruang lingkup usaha, perubahan persyaratan perizinan, atau kebijakan lain dari instansi yang berwenang, maka hasil analisis dalam dokumen ini dapat mengalami penyesuaian.",
+          "Untuk memperoleh informasi yang lebih lengkap, akurat, dan mutakhir, Perseroan disarankan untuk melakukan konsultasi langsung dengan Kementerian Investasi dan Hilirisasi/BKPM, Call Center OSS, atau instansi pembina sektor terkait sesuai bidang usaha yang dijalankan.",
+          "Laporan ini bersifat informatif dan rekomendatif serta disusun sebagai bahan pertimbangan dalam proses penyesuaian KBLI Perseroan. Dokumen ini tidak merupakan keputusan, persetujuan, penetapan, maupun pendapat resmi dari Kementerian Investasi dan Hilirisasi/BKPM, OSS, atau instansi pemerintah lainnya yang berwenang."
+        ];
+
+    conclusions.forEach((pText) => {
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8.5);
+      doc.setTextColor(51, 65, 85);
+
+      const lines = doc.splitTextToSize(pText, pageWidth - 28);
+      const paragraphHeight = lines.length * 4.2;
+
+      if (currentY + paragraphHeight > pageHeight - 25) {
+        doc.addPage();
+        addLetterhead(false);
+        currentY = 20;
+      }
+
+      doc.text(pText, 14, currentY, { align: "justify", maxWidth: pageWidth - 28 });
+      currentY += paragraphHeight + 4;
+    });
+
     addFooter();
+    const cleanPT = (activeNamaPT || "PT KAIYE TECHNOLOGY INDONESIA").trim();
     const filename = isEn
-      ? `KBLI_Mapping_${activeNamaPT.replace(/\s+/g, "_") || "Suggestions"}.pdf`
-      : `Pemetaan_KBLI_${activeNamaPT.replace(/\s+/g, "_") || "Saran"}.pdf`;
+      ? `KBLI Migration ${cleanPT}.pdf`
+      : `Migrasi KBLI ${cleanPT}.pdf`;
     doc.save(filename);
   };
   return (
