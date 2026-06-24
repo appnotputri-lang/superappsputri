@@ -920,63 +920,70 @@ const KBLIMapping: React.FC = () => {
 
     const addLetterhead = (isFirstPage: boolean = false) => {
       if (isFirstPage) {
-        doc.setTextColor(0, 0, 0);
+        doc.setTextColor(15, 48, 87); // Dark Blue Header
         doc.setFont("helvetica", "bold");
-        doc.setFontSize(14);
-        doc.text("NOTARIS/PPAT", 14, 15);
-
-        doc.setLineWidth(0.5);
-        doc.setDrawColor(0, 0, 0);
-        doc.line(14, 17, pageWidth - 14, 17);
-
-        doc.setFontSize(11);
-        doc.text("NUKANTINI PUTRI PARINCHA, SH., M.Kn", 14, 22);
-
-        doc.setFontSize(8.5);
-        doc.text(
-          "SK MENTERI HUKUM DAN HAK ASASI MANUSIA REPUBLIK INDONESIA",
-          14,
-          26.5,
-        );
-        doc.text(
-          "NO. C-309.HT 03.01-Th. 2007, Tanggal 23 Agustus 2007",
-          14,
-          30.5,
-        );
-        doc.text(
-          "SK. KEPALA BADAN PERTANAHAN NASIONAL REPUBLIK INDONESIA",
-          14,
-          34.5,
-        );
-        doc.text(
-          "NO. 1 - XVI I- PPAT - 2009, Tanggal 12 Februari 2009",
-          14,
-          38.5,
-        );
-
-        doc.setFont("helvetica", "normal");
-        doc.text("Kantor", 14, 43.5);
-        doc.text(":", 32, 43.5);
-        doc.text(
-          "Komp. PPR-ITB Kav. F-5 Dago Giri, Lembang, Kab. Bandung Barat",
-          34,
-          43.5,
-        );
-
-        doc.text("Telp/Fax", 14, 47.5);
-        doc.text(":", 32, 47.5);
-        doc.text("08112007061", 34, 47.5);
-
-        // Double lines under letterhead
-        doc.setDrawColor(0, 0, 0);
-        doc.setLineWidth(1.0);
-        doc.line(14, 51, pageWidth - 14, 51);
+        doc.setFontSize(16);
+        doc.text(isEn ? "CONVERSION SUGGESTION" : "SARAN KOMPERSI", 14, 15);
+        doc.setFontSize(26);
+        doc.text("KBLI 2020 ==> 2025", 14, 25);
+        
+        doc.setDrawColor(15, 48, 87);
+        doc.setLineWidth(0.8);
+        doc.line(14, 29, pageWidth - 14, 29);
         doc.setLineWidth(0.3);
-        doc.line(14, 52, pageWidth - 14, 52);
+        doc.line(14, 30, pageWidth - 14, 30);
 
-        currentY = 60;
+        // Left Info
+        doc.setTextColor(15, 48, 87);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(11);
+        doc.text("NUKANTINI PUTRI PARINCHA, SH., M.Kn", 14, 36);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(10);
+        doc.text("NOTARIS/PPAT", 14, 40);
+
+        doc.setTextColor(0, 0, 0);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(7.5);
+        doc.text("SK MENTERI HUKUM DAN HAK ASASI MANUSIA REPUBLIK INDONESIA", 14, 45);
+        doc.text("NO. C-309.HT 03.01-Th. 2007, Tanggal 23 Agustus 2007", 14, 49);
+        doc.text("SK. KEPALA BADAN PERTANAHAN NASIONAL REPUBLIK INDONESIA", 14, 53);
+        doc.text("NO. 1 - XVII - PPAT - 2009, Tanggal 12 Februari 2009", 14, 57);
+
+        // Right Info
+        doc.setFontSize(9);
+        doc.text("Kantor", pageWidth / 2 + 15, 36);
+        doc.text(":", pageWidth / 2 + 30, 36);
+        const address = doc.splitTextToSize("Komp. PPR-ITB Kav. F-5 Dago Giri, Lembang, Kab. Bandung Barat", 60);
+        doc.text(address, pageWidth / 2 + 32, 36);
+
+        doc.text("Telp/Fax", pageWidth / 2 + 15, 46);
+        doc.text(":", pageWidth / 2 + 30, 46);
+        doc.text("08112007061", pageWidth / 2 + 32, 46);
+
+        currentY = 65;
+        
+        // Company Box
+        doc.setFillColor(248, 250, 252);
+        doc.setDrawColor(203, 213, 225);
+        doc.roundedRect(14, currentY, pageWidth - 28, 20, 2, 2, "FD");
+        
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(10);
+        doc.setTextColor(15, 48, 87);
+        doc.text("Nama", 20, currentY + 8);
+        doc.text(":", 42, currentY + 8);
+        doc.setTextColor(15, 118, 110);
+        doc.text(activeNamaPT || "-", 46, currentY + 8);
+        
+        doc.setTextColor(15, 48, 87);
+        doc.text("Skala Usaha", 20, currentY + 15);
+        doc.text(":", 42, currentY + 15);
+        doc.setTextColor(15, 118, 110);
+        doc.text(translateBusinessScale(activeKelompokUsaha, isEn), 46, currentY + 15);
+
+        currentY += 25;
       } else {
-        // Minimal header running line for pages after page 1
         doc.setLineWidth(0.3);
         doc.setDrawColor(180, 180, 180);
         doc.line(14, 12, pageWidth - 14, 12);
@@ -991,7 +998,7 @@ const KBLIMapping: React.FC = () => {
     };
 
     const addFooter = () => {
-      const pageCount = doc.getNumberOfPages();
+      const pageCount = (doc as any).internal.getNumberOfPages();
       for (let i = 1; i <= pageCount; i++) {
         doc.setPage(i);
         doc.setFontSize(8.5);
@@ -1009,542 +1016,388 @@ const KBLIMapping: React.FC = () => {
         const splitDisclaimer = doc.splitTextToSize(disclaimer, pageWidth - 28);
         doc.text(splitDisclaimer, 14, pageHeight - 16);
 
-        const runningContact = `Notaris/PPAT: Nukantini Putri Parincha, SH., M.Kn. — Komp. PPR-ITB Kav. F-5 Dago Giri, Lembang, Kab. Bandung Barat`;
+        const runningContact = "Notaris/PPAT: Nukantini Putri Parincha, SH., M.Kn. — Komp. PPR-ITB Kav. F-5 Dago Giri, Lembang, Kab. Bandung Barat";
         doc.setFontSize(7.5);
         doc.setTextColor(120, 120, 120);
         doc.setFont("helvetica", "normal");
         doc.text(runningContact, 14, pageHeight - 8);
+        
+        doc.setFont("helvetica", "bold");
+        doc.text("Hal " + i + " dari " + pageCount, pageWidth - 14, pageHeight - 8, { align: "right" });
       }
     };
 
-    // Full letterhead of Notary on first page
     addLetterhead(true);
 
-    // Document Title
-    doc.setTextColor(0, 0, 0);
-    doc.setFontSize(12);
+    // --- RINGKASAN PEMETAAN ---
+    doc.setFillColor(15, 48, 87);
+    doc.roundedRect(14, currentY, 60, 8, 0, 0, "F");
+    doc.setDrawColor(15, 48, 87);
+    doc.line(74, currentY + 8, pageWidth - 14, currentY + 8);
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(10);
     doc.setFont("helvetica", "bold");
-    doc.text(
-      isEn
-        ? "RECOMMENDED KBLI 2020 - 2025 MAPPINGS"
-        : "SARAN PEMETAAN KBLI 2020 - 2025",
-      pageWidth / 2,
-      currentY,
-      { align: "center" },
-    );
-    currentY += 8;
+    doc.text(isEn ? "MAPPING SUMMARY" : "RINGKASAN PEMETAAN", 18, currentY + 5.5);
+    currentY += 12;
 
-    // Nama PT & Skala Usaha Block (Plain text layout with perfect alignment)
-    autoTable(doc, {
-      startY: currentY,
-      theme: "plain",
-      body: [
-        [
-          {
-            content: isEn ? "Name" : "Nama",
-            styles: { fontStyle: "normal", cellWidth: 30 },
-          },
-          { content: `: ${activeNamaPT || "–"}`, styles: { fontStyle: "bold" } },
-        ],
-        [
-          {
-            content: isEn ? "Business Scale" : "Skala Usaha",
-            styles: { fontStyle: "normal", cellWidth: 30 },
-          },
-          {
-            content: `: ${translateBusinessScale(activeKelompokUsaha, isEn)}`,
-            styles: { fontStyle: "bold" },
-          },
-        ],
-      ],
-      styles: {
-        fontSize: 10,
-        textColor: [0, 0, 0],
-        minCellHeight: 5,
-        cellPadding: 0.5,
-      },
-      margin: { left: 14, right: 14, top: 20, bottom: 25 },
-    });
-
-    // @ts-ignore
-    currentY = doc.lastAutoTable.finalY + 8;
-
-    // 1. RINGKASAN PEMETAAN SECTION
-    autoTable(doc, {
-      startY: currentY,
-      theme: "plain",
-      body: [
-        [
-          {
-            content: isEn ? "MAPPING SUMMARY" : "RINGKASAN PEMETAAN",
-            styles: {
-              fillColor: [15, 118, 110], // Teal
-              textColor: [255, 255, 255], // White
-              fontStyle: "bold",
-              fontSize: 11,
-              cellPadding: { top: 3.5, bottom: 3.5, left: 6, right: 6 },
-              halign: "left",
-            }
-          }
-        ]
-      ],
-      margin: { left: 14, right: 14, bottom: 25, top: 20 },
-    });
-    // @ts-ignore
-    currentY = doc.lastAutoTable.finalY + 4;
-
-    // Compile Summary Rows Data
-    const summaryRows: any[] = [];
-    const unique2020Kodes = Array.from(new Set(activeSelectedMappings.map(s => s.kbli_2020.kode)));
+    const unique2020 = new Set(activeSelectedMappings.map(s => s.kbli_2020.kode));
+    const unique2025 = new Set(activeSelectedMappings.map(s => s.kbli_2025?.kode).filter(Boolean));
     
-    unique2020Kodes.forEach(kode2020 => {
-      const mappingsFor2020 = activeSelectedMappings.filter(s => s.kbli_2020.kode === kode2020);
+    let countRecoding = 0;
+    let countPecah = 0;
+    let countGabung = 0;
+    let countLebur = 0;
+    
+    activeSelectedMappings.forEach(m => {
+      const p = m.jenis_perubahan?.toLowerCase() || "";
+      if (p.includes("recoding") || p.includes("tetap") || p.includes("pindah")) countRecoding++;
+      else if (p.includes("pecah")) countPecah++;
+      else if (p.includes("gabung")) countGabung++;
+      else if (p.includes("lebur")) countLebur++;
+      else countRecoding++; // default
+    });
+
+    // Draw Stats Boxes (5 boxes)
+    const boxW = (pageWidth - 28 - 20) / 5;
+    const drawStatBoxOutline = (x: number, y: number, w: number, h: number, value: string, title1: string, title2: string, color: number[]) => {
+      doc.setDrawColor(color[0], color[1], color[2]);
+      doc.setLineWidth(0.5);
+      doc.roundedRect(x, y, w, h, 2, 2, "D");
       
-      // Robust Name 2020 extraction (find the longest/first non-empty title)
-      let name2020 = "";
-      for (const m of mappingsFor2020) {
-        if (m.kbli_2020.judul && m.kbli_2020.judul.length > name2020.length) {
-          name2020 = m.kbli_2020.judul;
-        }
+      doc.setTextColor(15, 48, 87);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(18);
+      doc.text(value, x + w / 2, y + 9, { align: "center" });
+      
+      doc.setTextColor(0, 0, 0);
+      doc.setFontSize(7.5);
+      doc.text(title1, x + w / 2, y + 13, { align: "center" });
+      if (title2) {
+        doc.text(title2, x + w / 2, y + 16, { align: "center" });
       }
-      
-      // Robust Target Kodes extraction (handles swapped kode/judul fields in messy source data)
-      const targetCodesAndNames = new Map<string, string>();
-      mappingsFor2020.forEach(s => {
-        const k = (s.kbli_2025?.kode || "").trim();
-        const j = (s.kbli_2025?.judul || "").trim();
+    };
+
+    drawStatBoxOutline(14, currentY, boxW, 18, countRecoding.toString(), "Recoding /", "Pindah Kode", [14, 165, 233]);
+    drawStatBoxOutline(14 + boxW + 5, currentY, boxW, 18, countGabung.toString(), "Gabung", "Kode", [34, 197, 94]);
+    drawStatBoxOutline(14 + (boxW + 5) * 2, currentY, boxW, 18, countLebur.toString(), "Lebur", "Cakupan", [245, 158, 11]);
+    drawStatBoxOutline(14 + (boxW + 5) * 3, currentY, boxW, 18, countPecah.toString(), "Pecah", "Kode", [239, 68, 68]);
+    drawStatBoxOutline(14 + (boxW + 5) * 4, currentY, boxW, 18, unique2025.size.toString(), "Total KBLI", "Aktif", [100, 116, 139]);
+    
+    currentY += 24;
+
+    // --- SUMMARY TABLE ---
+    // group items by KBLI 2020
+    const summaryRows: any[] = [];
+    const groupedSummary: { [key: string]: SelectedMappingItem[] } = {};
+    activeSelectedMappings.forEach((s) => {
+      const g = s.kbli_2020.kode;
+      if (!groupedSummary[g]) groupedSummary[g] = [];
+      groupedSummary[g].push(s);
+    });
+
+    Object.values(groupedSummary).forEach((items) => {
+      const kbli2020 = items[0].kbli_2020;
+      items.forEach((item, idx) => {
+        let jp = item.jenis_perubahan || "Recoding";
+        let keterangan = "-";
         
-        // Detect swapped fields: KBLI codes are typically numeric and short. Titles are usually long.
-        const kIsTitle = k.length > 7 || (k && !/^\d+$/.test(k));
-        const jIsCode = j && /^\d+$/.test(j) && j.length <= 7;
+        const jpLower = jp.toLowerCase();
+        if (jpLower.includes("pecah")) keterangan = "Satu kode lama dipecah menjadi beberapa kode baru.";
+        else if (jpLower.includes("gabung")) keterangan = "Dua atau lebih kode lama menjadi satu kode baru pada KBLI 2025.";
+        else if (jpLower.includes("lebur")) keterangan = "Ruang lingkup diperluas/peleburan cakupan menjadi satu kode baru.";
+        else if (jpLower.includes("recoding") || jpLower.includes("pindah")) keterangan = "Perubahan kode akibat penyesuaian struktur KBLI.";
         
-        if (kIsTitle && jIsCode) {
-          targetCodesAndNames.set(j, k);
-        } else if (k && !kIsTitle) {
-          targetCodesAndNames.set(k, j);
+        let k25Kode = item.kbli_2025?.kode || "-";
+        let k25Judul = item.kbli_2025?.judul || "-";
+        if (k25Kode.length > 7) {
+           k25Judul = k25Kode;
+           k25Kode = item.kbli_2025?.judul || "-";
+        }
+        
+        if (idx === 0) {
+          summaryRows.push([
+            { content: kbli2020.kode, rowSpan: items.length, styles: { fontStyle: "bold", valign: "middle", halign: "center", textColor: [15, 48, 87] } },
+            { content: kbli2020.judul, rowSpan: items.length, styles: { valign: "middle", textColor: [15, 48, 87] } },
+            { content: k25Kode, styles: { fontStyle: "bold", textColor: [15, 118, 110] } },
+            { content: k25Judul, styles: { textColor: [15, 118, 110] } },
+            { content: jp, styles: { fontStyle: "bold", textColor: jpLower.includes("pecah") ? [239,68,68] : jpLower.includes("gabung") ? [34,197,94] : jpLower.includes("lebur") ? [245,158,11] : [14,165,233] } },
+            { content: keterangan }
+          ]);
+        } else {
+          summaryRows.push([
+            { content: k25Kode, styles: { fontStyle: "bold", textColor: [15, 118, 110] } },
+            { content: k25Judul, styles: { textColor: [15, 118, 110] } },
+            { content: jp, styles: { fontStyle: "bold", textColor: jpLower.includes("pecah") ? [239,68,68] : jpLower.includes("gabung") ? [34,197,94] : jpLower.includes("lebur") ? [245,158,11] : [14,165,233] } },
+            { content: keterangan }
+          ]);
         }
       });
-      
-      const targetEntries = Array.from(targetCodesAndNames.entries());
-      
-      const isDeleted = targetEntries.length === 0 || 
-        mappingsFor2020.some(s => s.jenis_perubahan?.toLowerCase() === "dihapus") || 
-        mappingsFor2020.every(s => !s.kbli_2025?.kode && !s.kbli_2025?.judul);
-      
-      let kbli2025Str = "";
-      let namaKbli2025Str = "";
-      
-      if (isDeleted) {
-        kbli2025Str = isEn ? "DELETED" : "DIHAPUS";
-        namaKbli2025Str = "—";
-      } else {
-        kbli2025Str = targetEntries.map(e => e[0]).join("\n\n");
-        namaKbli2025Str = targetEntries.map(e => e[1]).join("\n\n");
-      }
-      
-      summaryRows.push([
-        kode2020,
-        name2020,
-        kbli2025Str,
-        namaKbli2025Str
-      ]);
     });
 
-    // Summary AutoTable
     autoTable(doc, {
       startY: currentY,
-      theme: "grid",
-      head: [
-        isEn
-          ? ["KBLI 2020", "Name", "KBLI 2025", "KBLI 2025 Name"]
-          : ["KBLI 2020", "Nama", "KBLI 2025", "Nama KBLI 2025"]
-      ],
+      head: [[
+        { content: "KBLI\n2020", styles: { halign: "center" } }, 
+        { content: "Nama KBLI 2020", styles: { halign: "center" } }, 
+        { content: "KBLI\n2025", styles: { halign: "center" } }, 
+        { content: "Nama KBLI 2025", styles: { halign: "center" } }, 
+        { content: "Jenis\nPerubahan", styles: { halign: "center" } }, 
+        { content: "Keterangan Pemetaan", styles: { halign: "center" } }
+      ]],
       body: summaryRows,
-      headStyles: {
-        fillColor: [30, 41, 59], // Slate-800
-        textColor: [255, 255, 255],
-        fontStyle: "bold",
-        halign: "center",
-        valign: "middle",
-        lineColor: [150, 150, 150],
-        lineWidth: 0.2,
-      },
-      styles: {
-        fontSize: 9,
-        cellPadding: 4,
-        lineColor: [226, 232, 240], // Light gray grid lines
-        lineWidth: 0.2,
-        textColor: [0, 0, 0],
-        valign: "middle",
-      },
+      theme: "grid",
+      headStyles: { fillColor: [15, 48, 87], textColor: [255, 255, 255], fontStyle: "bold", fontSize: 9 },
+      styles: { fontSize: 8.5, textColor: [15, 48, 87], valign: "middle", cellPadding: 3, lineColor: [226, 232, 240] },
       columnStyles: {
-        0: { cellWidth: 20, halign: "center", fontStyle: "bold" },
-        1: { cellWidth: 70, halign: "left" },
-        2: { cellWidth: 55, halign: "center" },
-        3: { cellWidth: 37, halign: "left" },
+        0: { cellWidth: 15 },
+        1: { cellWidth: 40 },
+        2: { cellWidth: 15, halign: "center" },
+        3: { cellWidth: 45 },
+        4: { cellWidth: 25, halign: "center" },
+        5: { cellWidth: "auto" }
       },
-      alternateRowStyles: { fillColor: [248, 250, 252] },
-      margin: { left: 14, right: 14, bottom: 25, top: 20 },
-      willDrawCell: (data) => {
-        if (data.section === "body") {
-          if (data.column.index === 2) {
-            const val = data.cell.text.join("").trim();
-            if (val === "DIHAPUS" || val === "DELETED") {
-              data.cell.styles.textColor = [220, 38, 38]; // Red
-              data.cell.styles.fontStyle = "bold";
-            }
-          }
-          if (data.column.index === 3) {
-            const val = data.cell.text.join("\n");
-            if (val.includes("*")) {
-              data.cell.text = []; // Clear for hand-rolled rendering in didDrawCell
-            }
-          }
+      margin: { top: 22, right: 14, bottom: 25, left: 14 },
+    });
+    
+    // @ts-ignore
+    currentY = doc.lastAutoTable.finalY + 12;
+
+    // --- BAGIAN DETAIL PEMETAAN ---
+    const kbli2025List: { kode: string; judul: string; uraian: string }[] = [];
+    const seenCodes = new Set<string>();
+
+    activeSelectedMappings.forEach(m => {
+      const kbli2025 = m.kbli_2025;
+      if (kbli2025) {
+        let tKode = (kbli2025.kode || "").trim();
+        let tJudul = (kbli2025.judul || "").trim();
+        let tUraian = (kbli2025.uraian || "").trim();
+        
+        // Handle swap if code/title are reversed
+        const kIsTitle = tKode.length > 7 || (tKode && !/^\d+$/.test(tKode));
+        const jIsCode = tJudul && /^\d+$/.test(tJudul) && tJudul.length <= 7;
+        if (kIsTitle && jIsCode) {
+          const temp = tKode;
+          tKode = tJudul;
+          tJudul = temp;
         }
-      },
-      didDrawCell: (data) => {
-        if (data.section === "body" && data.column.index === 3) {
-          const rawRow = summaryRows[data.row.index];
-          const text = rawRow[3];
-          if (text && text.includes("*")) {
-            const parts = text.split("\n");
-            const mainText = parts[0];
-            const subText = parts[1];
-            
-            // Bold standard count
-            doc.setFont("helvetica", "normal");
-            doc.setFontSize(9);
-            doc.setTextColor(0, 0, 0);
-            doc.text(mainText, data.cell.x + 4, data.cell.y + 6);
-            
-            // Orange warning below
-            doc.setFont("helvetica", "italic");
-            doc.setFontSize(7.5);
-            doc.setTextColor(217, 119, 6); // Amber
-            const limitWidth = data.column.width - 7;
-            const splitSubText = doc.splitTextToSize(subText, limitWidth);
-            doc.text(splitSubText, data.cell.x + 4, data.cell.y + 10.5);
+
+        if (tKode && tKode !== "DIHAPUS") {
+          if (!seenCodes.has(tKode)) {
+            seenCodes.add(tKode);
+            kbli2025List.push({
+              kode: tKode,
+              judul: tJudul,
+              uraian: tUraian
+            });
           }
         }
       }
     });
 
-    // @ts-ignore
-    currentY = doc.lastAutoTable.finalY + 8;
+    // Urutkan daftar KBLI 2025 agar rapi
+    kbli2025List.sort((a, b) => a.kode.localeCompare(b.kode));
 
-    // 2. DETAIL PEMETAAN SECTION (Must have enough space)
-    if (currentY > pageHeight - 40) {
+    if (kbli2025List.length > 0) {
       doc.addPage();
       addLetterhead(false);
       currentY = 20;
-    }
 
-    doc.setFontSize(14);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(0, 0, 0);
-    doc.text(isEn ? "MAPPING DETAILS" : "DETAIL PEMETAAN", pageWidth / 2, currentY, { align: "center" });
-    currentY += 8;
-
-    // Detail Items render loop
-    const groupedMappings: { [key: string]: SelectedMappingItem[] } = {};
-    activeSelectedMappings.forEach((s) => {
-      const g = s.kbli_2020.kode;
-      if (!groupedMappings[g]) {
-        groupedMappings[g] = [];
-      }
-      groupedMappings[g].push(s);
-    });
-
-    Object.values(groupedMappings).forEach((items) => {
-      const kbli2020 = items[0].kbli_2020;
-
-      if (currentY > pageHeight - 35) {
-        doc.addPage();
-        addLetterhead(false);
-        currentY = 20;
-      }
-
-      // Plain Bold Text: KBLI 2020 Header (Wrapped to prevent overflow)
+      doc.setFillColor(15, 48, 87);
+      doc.rect(14, currentY, pageWidth - 28, 8, "F");
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(10);
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(11);
-      doc.setTextColor(30, 41, 59);
-      const text2020 = `KBLI 2020: ${kbli2020.kode} — ${kbli2020.judul.toUpperCase()}`;
-      const lines2020 = doc.splitTextToSize(text2020, pageWidth - 28);
-      doc.text(lines2020, 14, currentY);
-      currentY += (lines2020.length * 5) + 1;
+      doc.text(isEn ? "DETAILS OF KBLI 2025 IN SUMMARY" : "RINCIAN KBLI 2025 YANG ADA DALAM RINGKASAN", 18, currentY + 5.5);
+      currentY += 14;
 
-      let blockY = currentY;
+      const kbli2025Rows = kbli2025List.map((item) => [
+        item.kode,
+        item.judul,
+        item.uraian || "-"
+      ]);
 
-      // Iteration for KBLI 2025 entries
-      items.forEach((kbli2025Item) => {
-        const kbli2025 = kbli2025Item.kbli_2025;
+      autoTable(doc, {
+        startY: currentY,
+        head: [[
+          { content: "KODE KBLI", styles: { halign: "center" } }, 
+          { content: "JUDUL KBLI", styles: { halign: "left" } }, 
+          { content: "URAIAN KBLI", styles: { halign: "left" } }
+        ]],
+        body: kbli2025Rows,
+        theme: "grid",
+        headStyles: { fillColor: [15, 48, 87], textColor: [255, 255, 255], fontStyle: "bold", fontSize: 9 },
+        styles: { fontSize: 8.5, textColor: [0, 0, 0], valign: "top", cellPadding: 4, lineColor: [226, 232, 240] },
+        columnStyles: {
+          0: { cellWidth: 25, halign: "center", fontStyle: "bold", textColor: [15, 118, 110] },
+          1: { cellWidth: 50, fontStyle: "bold" },
+          2: { cellWidth: "auto", halign: "justify" }
+        },
+        margin: { top: 22, right: 14, bottom: 25, left: 14 },
+      });
 
-        if (blockY > pageHeight - 35) {
-          doc.addPage();
-          addLetterhead(false);
-          blockY = 20;
-        }
+      // @ts-ignore
+      currentY = doc.lastAutoTable.finalY + 12;
 
-        // Bold Teal Text: KBLI 2025 (Wrapped to prevent overflow, drawn teal square)
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(10.5);
-        doc.setTextColor(15, 118, 110); // Teal
+      // Group or find unique scopes per KBLI 2025
+      const kbli2025ScopesMap = new Map<string, any[]>();
 
-        let targetKodeStr = (kbli2025.kode || "").trim();
-        let targetJudulText = (kbli2025.judul || "").trim();
-
-        // Heuristic to detect swapped Kode/Judul fields in messy source data
-        const kIsTitle = targetKodeStr.length > 7 || (targetKodeStr && !/^\d+$/.test(targetKodeStr));
-        const jIsCode = targetJudulText && /^\d+$/.test(targetJudulText) && targetJudulText.length <= 7;
-
-        if (kIsTitle && jIsCode) {
-          const temp = targetKodeStr;
-          targetKodeStr = targetJudulText;
-          targetJudulText = temp;
-        }
-
-        const isTargetDeleted = !targetKodeStr || targetKodeStr === "-" || kbli2025Item.jenis_perubahan?.toLowerCase() === "dihapus";
-        const targetJudulStr = isTargetDeleted
-          ? (isEn ? "DELETED" : "DIHAPUS")
-          : (targetJudulText || "").toUpperCase();
-
-        const subHeaderString = `KBLI 2025: ${targetKodeStr} — ${targetJudulStr}`;
-        const statusText = isEn 
-          ? `Mapping Status: ${kbli2025Item.jenis_perubahan || "-"}`
-          : `Keterangan Pemetaan: ${kbli2025Item.jenis_perubahan || "-"}`;
-        const lines2025 = doc.splitTextToSize(subHeaderString, pageWidth - 33);
-        
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(10.5);
-        doc.setTextColor(0, 0, 0);
-
-        doc.text(lines2025, 14, blockY);
-        blockY += (lines2025.length * 4.8) + 1;
-
-        // Draw Status text in smaller italic font
-        doc.setFont("helvetica", "bolditalic");
-        doc.setFontSize(9);
-        doc.setTextColor(220, 38, 38); // Red-600
-        doc.text(statusText, 14, blockY);
-        blockY += 5;
-
-        doc.setFont("helvetica", "bold"); // Reset font
-        doc.setTextColor(0, 0, 0); // Reset color
-
-        // Paragraph Wrapped description
-        if (kbli2025.kode && kbli2025.uraian) {
-          if (blockY > pageHeight - 30) {
-            doc.addPage();
-            addLetterhead(false);
-            blockY = 20;
-          }
-          autoTable(doc, {
-            startY: blockY,
-            theme: "plain",
-            body: [[kbli2025.uraian]],
-            styles: {
-              fontSize: 9,
-              textColor: [100, 116, 139], // Slate-500
-              fontStyle: "normal",
-              cellPadding: { top: 1, bottom: 2, left: 0, right: 0 },
-              halign: "justify",
-            },
-            margin: { left: 14, right: 14, top: 20, bottom: 25 },
-          });
-          // @ts-ignore
-          blockY = doc.lastAutoTable.finalY + 4;
-        }
-
-        // Scopes table (No, Ruang Lingkup Usaha, Tingkat Risiko, Jenis Izin)
-        if (
-          kbli2025Item.scopes &&
-          kbli2025Item.scopes.length > 0 &&
-          kbli2025Item.kbli_2025?.kode
-        ) {
-          if (blockY > pageHeight - 35) {
-            doc.addPage();
-            addLetterhead(false);
-            blockY = 20;
+      activeSelectedMappings.forEach(m => {
+        const kbli2025 = m.kbli_2025;
+        if (kbli2025) {
+          let tKode = (kbli2025.kode || "").trim();
+          const tJudul = (kbli2025.judul || "").trim();
+          
+          // Handle swap if code/title are reversed
+          const kIsTitle = tKode.length > 7 || (tKode && !/^\d+$/.test(tKode));
+          const jIsCode = tJudul && /^\d+$/.test(tJudul) && tJudul.length <= 7;
+          if (kIsTitle && jIsCode) {
+            tKode = tJudul;
           }
 
-          const scopeBody = (kbli2025Item.scopes || []).map((s, index) => {
-            const isFailedScope =
-              !s?.ruangLingkup ||
-              s.ruangLingkup.includes("Gagal membaca") ||
-              s.ruangLingkup.includes("Belum tersedia") ||
-              s.ruangLingkup === "-";
-
-            let displayRuangLingkup = s?.ruangLingkup || "-";
-            if (isFailedScope) {
-              displayRuangLingkup = isEn
-                ? "New data from OSS is not yet available"
-                : "Belum tersedia data baru dari OSS";
+          if (tKode && tKode !== "DIHAPUS") {
+            const currentScopes = m.scopes || [];
+            if (!kbli2025ScopesMap.has(tKode)) {
+              kbli2025ScopesMap.set(tKode, []);
             }
-
-            let displayRisiko = translateRiskLevel(s.tingkatResiko, isEn);
-            if (isFailedScope) {
-              displayRisiko = "N/A";
-            }
-
-            let autoIzin = "N/A";
-            let manualIzin = "N/A";
-            
-            if (!isFailedScope) {
-              manualIzin =
-                s.izin && s.izin !== "-" ? translateIzinValue(s.izin, isEn) : "";
-
-              if (
-                manualIzin &&
-                manualIzin.toUpperCase() === "SERTIFIKAT STANDAR SELEF DECLARE"
-              ) {
-                manualIzin = "Sertifikat Standar Self Declare";
-              }
-              if (
-                manualIzin &&
-                manualIzin.toUpperCase() ===
-                  "SERTIFIKAT STANDAR PEMENUHAN KOMITMEN"
-              ) {
-                manualIzin = "Sertifikat Standar Pemenuhan Komitmen";
-              }
-            }
-
-            if (!manualIzin || manualIzin === "-") {
-              manualIzin = "—";
-            }
-
-            return [index + 1, displayRuangLingkup, displayRisiko, manualIzin];
-          });
-
-          const countScopes = kbli2025Item.scopes.length;
-
-          autoTable(doc, {
-            startY: blockY,
-            head: [
-              isEn
-                ? [
-                    "No",
-                    countScopes > 1
-                      ? "Business Scope\n* please choose one suitable business activity when inputting on OSS"
-                      : "Business Scope",
-                    "Risk Level",
-                    "License / Business License",
-                  ]
-                : [
-                    "No",
-                    countScopes > 1
-                      ? "Ruang Lingkup Usaha\n* pilih salah satu sesuai kegiatan usaha yang dijalankan saat input OSS"
-                      : "Ruang Lingkup Usaha",
-                    "Tingkat Risiko",
-                    "Izin / Perizinan Berusaha",
-                  ],
-            ],
-            body: scopeBody,
-            theme: "grid",
-            headStyles: {
-              fillColor: [225, 228, 232], // Gray matching saran
-              textColor: [0, 0, 0],
-              fontStyle: "bold",
-              halign: "center",
-              valign: "middle",
-              lineColor: [150, 150, 150],
-              lineWidth: 0.2,
-            },
-            styles: {
-              fontSize: 9,
-              cellPadding: 4,
-              lineColor: [150, 150, 150],
-              lineWidth: 0.2,
-              textColor: [0, 0, 0],
-              valign: "middle",
-            },
-            columnStyles: {
-              0: { cellWidth: 10, halign: "center" },
-              1: { cellWidth: 70, halign: "left" },
-              2: { cellWidth: 25, halign: "center" },
-              3: { cellWidth: 25, halign: "center" },
-              4: { cellWidth: 52, halign: "left" },
-            },
-            alternateRowStyles: { fillColor: [255, 255, 255] },
-            margin: { left: 14, right: 14, top: 20, bottom: 25 },
-            willDrawCell: (data) => {
-              // Clear default text for header column index 1 ONLY when there is subtitle
-              if (data.section === "head" && data.column.index === 1 && countScopes > 1) {
-                data.cell.text = [];
-              }
-            },
-            didDrawCell: (data) => {
-              if (data.section === "head" && data.column.index === 1 && countScopes > 1) {
-                doc.setFont("helvetica", "bold");
-                doc.setFontSize(9.5);
-                doc.setTextColor(255, 255, 255);
-                doc.text(isEn ? "Business Scope" : "Ruang Lingkup Usaha", data.cell.x + 4, data.cell.y + 6);
-                
-                doc.setFont("helvetica", "italic");
-                doc.setFontSize(7.5);
-                doc.setTextColor(209, 250, 229); // Beautiful light emerald mint
-                const warningMsg = isEn 
-                  ? "* please choose one suitable business activity when inputting on OSS" 
-                  : "* pilih salah satu sesuai kegiatan usaha yang dijalankan saat input OSS";
-                const limitWidth = data.column.width - 8;
-                const splitMsg = doc.splitTextToSize(warningMsg, limitWidth);
-                doc.text(splitMsg, data.cell.x + 4, data.cell.y + 11);
-              }
-            }
-          });
-
-          // @ts-ignore
-          blockY = doc.lastAutoTable.finalY + 6;
-        }
-
-        // Catatan KBLI 25
-        if (kbli2025Item.catatan) {
-          if (blockY > pageHeight - 35) {
-            doc.addPage();
-            addLetterhead(false);
-            blockY = 20;
-          }
-          autoTable(doc, {
-            startY: blockY,
-            theme: "grid",
-            body: [
-              [
-                {
-                  content: isEn ? "Notes KBLI 2025:" : "Catatan KBLI 2025 Ini:",
-                  styles: {
-                    fontStyle: "bold",
-                    textColor: [30, 41, 59],
-                    cellPadding: { top: 4, left: 4, right: 4, bottom: 1 },
-                  }
+            const list = kbli2025ScopesMap.get(tKode)!;
+            currentScopes.forEach(s => {
+              if (s && s.ruangLingkup && s.ruangLingkup.trim() !== "") {
+                if (!list.some(existing => existing.ruangLingkup === s.ruangLingkup)) {
+                  list.push(s);
                 }
-              ],
-              [
-                {
-                  content: kbli2025Item.catatan,
-                  styles: {
-                    fontStyle: "normal",
-                    textColor: [71, 85, 105],
-                    cellPadding: { top: 1, left: 4, right: 4, bottom: 4 },
-                    halign: "justify",
-                  }
-                }
-              ]
-            ],
-            styles: {
-              fontSize: 9,
-              fillColor: [248, 250, 252],
-              lineColor: [226, 232, 240],
-              lineWidth: 0.2,
-            },
-            margin: { left: 14, right: 14, bottom: 25, top: 20 },
-          });
-          // @ts-ignore
-          blockY = doc.lastAutoTable.finalY + 6;
-        } else {
-          blockY += 2;
+              }
+            });
+          }
         }
       });
-      currentY = blockY + 6;
-    });
+
+      // --- HALAMAN RUANG LINGKUP KBLI 2025 ---
+      doc.addPage();
+      addLetterhead(false);
+      currentY = 20;
+
+      doc.setFillColor(15, 48, 87);
+      doc.rect(14, currentY, pageWidth - 28, 8, "F");
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "bold");
+      doc.text(isEn ? "SCOPE OF KBLI 2025 IN SUMMARY" : "RUANG LINGKUP KBLI 2025 YANG ADA DALAM RINGKASAN", 18, currentY + 5.5);
+      currentY += 14;
+
+      kbli2025List.forEach((item, index) => {
+        if (currentY > pageHeight - 50) {
+          doc.addPage();
+          addLetterhead(false);
+          currentY = 20;
+        }
+
+        doc.setFontSize(9.5);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(15, 48, 87);
+        doc.text(`${index + 1}. KBLI ${item.kode}: ${item.judul.toUpperCase()}`, 14, currentY);
+        currentY += 5;
+
+        const scopes = kbli2025ScopesMap.get(item.kode) || [];
+        const tableRows: any[] = [];
+
+        if (scopes.length === 0) {
+          tableRows.push([
+            1,
+            "Belum tersedia data baru dari OSS",
+            "N/A",
+            "N/A",
+            "N/A"
+          ]);
+        } else {
+          scopes.forEach((s, sIdx) => {
+            const isFailedScope = !s?.ruangLingkup || 
+                                  s.ruangLingkup.includes("Gagal membaca") || 
+                                  s.ruangLingkup.includes("Belum tersedia") || 
+                                  s.ruangLingkup === "-";
+            
+            let displayRisiko = s.tingkatResiko || "-";
+            let displayIzin = "-";
+            let displayJenisIzin = "-";
+
+            if (isFailedScope) {
+              displayRisiko = "N/A";
+              displayIzin = "N/A";
+              displayJenisIzin = "N/A";
+            } else {
+              const izinText = s.izin || "";
+              if (izinText === "NIB") {
+                displayIzin = "NIB";
+                displayJenisIzin = "-";
+              } else if (izinText.toLowerCase().includes("sertifikat standar")) {
+                displayIzin = "Sertifikat Standar";
+                if (izinText.toLowerCase().includes("self declare")) {
+                  displayJenisIzin = "Sertifikat Standar (Self Declare)";
+                } else {
+                  displayJenisIzin = "Sertifikat Standar (Verifikasi)";
+                }
+              } else if (izinText.toLowerCase().includes("izin")) {
+                displayIzin = "Izin";
+                displayJenisIzin = "Izin Usaha / Operasional";
+              } else {
+                displayIzin = izinText;
+                displayJenisIzin = "-";
+              }
+            }
+
+            tableRows.push([
+              sIdx + 1,
+              s.ruangLingkup,
+              displayRisiko,
+              displayIzin,
+              displayJenisIzin
+            ]);
+          });
+        }
+
+        autoTable(doc, {
+          startY: currentY,
+          head: [[
+            { content: "No", styles: { halign: "center" } },
+            { content: isEn ? "Business Scope" : "Ruang Lingkup Usaha", styles: { halign: "left" } },
+            { content: isEn ? "Risk Level" : "Tingkat Risiko", styles: { halign: "center" } },
+            { content: isEn ? "Permit" : "Izin", styles: { halign: "center" } },
+            { content: isEn ? "Type of Permit" : "Jenis Izin", styles: { halign: "center" } }
+          ]],
+          body: tableRows,
+          theme: "grid",
+          headStyles: { fillColor: [241, 245, 249], textColor: [71, 85, 105], fontStyle: "bold", fontSize: 9 },
+          styles: { fontSize: 8.5, textColor: [0, 0, 0], valign: "middle", cellPadding: 4, lineColor: [226, 232, 240] },
+          columnStyles: {
+            0: { cellWidth: 12, halign: "center" },
+            1: { cellWidth: 85, halign: "left" },
+            2: { cellWidth: 28, halign: "center" },
+            3: { cellWidth: 27, halign: "center" },
+            4: { cellWidth: "auto", halign: "center" }
+          },
+          margin: { top: 22, right: 14, bottom: 25, left: 14 },
+          willDrawCell: (data) => {
+            if (data.section === "body" && data.column.index === 2) {
+              const text = data.cell.text[0] || "";
+              if (text.includes("Menengah Rendah")) {
+                data.cell.styles.textColor = [202, 138, 4]; // Yellow/Amber
+              } else if (text.includes("Menengah Tinggi")) {
+                data.cell.styles.textColor = [234, 88, 12]; // Orange
+              } else if (text.includes("Tinggi")) {
+                data.cell.styles.textColor = [220, 38, 38]; // Red
+              } else if (text.includes("Rendah")) {
+                data.cell.styles.textColor = [22, 163, 74]; // Green
+              } else {
+                data.cell.styles.textColor = [100, 116, 139];
+              }
+            }
+          }
+        });
+
+        // @ts-ignore
+        currentY = doc.lastAutoTable.finalY + 10;
+      });
+    }
 
     addFooter();
     const filename = isEn
@@ -1552,7 +1405,6 @@ const KBLIMapping: React.FC = () => {
       : `Pemetaan_KBLI_${activeNamaPT.replace(/\s+/g, "_") || "Saran"}.pdf`;
     doc.save(filename);
   };
-
   return (
     <div className="max-w-5xl mx-auto space-y-8 pb-20 animate-in fade-in duration-500">
       {viewMode === "list" ? (

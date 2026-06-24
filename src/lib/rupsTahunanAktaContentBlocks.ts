@@ -461,7 +461,7 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
     bullet: "-",
     indentTabs: 0.5,
     runs: [
-      { text: `Bahwa sesuai ketentuan Pasal ${data.rupstAdArticle || "9"} ayat (${data.rupstAdParagraph || "6"}) Anggaran Dasar Perseroan, pada tanggal ${formatAktaDate(data.signingDate || "")} seluruh pemegang saham telah menandatangani risalah rapat yang dimuat dalam "Risalah rapat Pemegang Saham Tahunan" yang dibuat di bawah tangan, yang ditandatangani oleh:` }
+      { text: `Bahwa sesuai ketentuan Pasal ${data.rupstQuorumArticle || "9"} ayat (${data.rupstQuorumParagraph || "4"}) Anggaran Dasar Perseroan, pada tanggal ${formatAktaDate(data.signingDate || "")} seluruh pemegang saham telah menandatangani risalah rapat yang dimuat dalam "Risalah rapat Pemegang Saham Tahunan" yang dibuat di bawah tangan, yang ditandatangani oleh:` }
     ]
   });
 
@@ -784,7 +784,7 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
       bullet: "-",
       runs: [
         { text: `Bahwa menurut ` },
-        { text: `Pasal ${data.rupstQuorumArticle || "10"} ayat ${data.rupstQuorumParagraph || "1"} Anggaran Dasar Perseroan`, color: "FF0000" },
+        { text: `Pasal ${data.rupstQuorumArticle || "9"} ayat ${data.rupstQuorumParagraph || "4"} Anggaran Dasar Perseroan`, color: "FF0000" },
         { text: ` mengenai Kuorum, Rapat ini adalah sah sesuai dengan Kuorum dan berhak mengambil keputusan-keputusan yang sah serta mengikat mengenai hal-hal yang dibicarakan;` }
       ]
     }
