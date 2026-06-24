@@ -3033,7 +3033,7 @@ export const generateWordDoc = async (data: CompanyData) => {
       new Paragraph({
         alignment: "left" as any,
         spacing: { after: 480, before: 480, line: LINE_SPACING, lineRule: "auto" },
-        children: [mkRun("TANDA TANGAN PESERTA RAPAT :", true)],
+        children: [mkRun("DAFTAR HADIR / TANDA TANGAN PESERTA RAPAT :", true)],
       })
     );
 

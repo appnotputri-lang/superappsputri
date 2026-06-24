@@ -530,14 +530,15 @@ const KBLIMapping: React.FC = () => {
   useEffect(() => {
     setSelectedMappings((prev) =>
       prev.map((m) => {
-        if (!m.kbli_2025.kode) return m;
+        if (!m.kbli_2025?.kode) return m;
+        const currentScopes = m.scopes || [];
         return {
           ...m,
-          scopes: m.scopes.map((s) => {
+          scopes: currentScopes.map((s) => {
             const autoData = calculateScopeData(
               s.ruangLingkup,
               kelompokUsaha,
-              m.kbli_2025.kode,
+              m.kbli_2025?.kode || "",
             );
             return {
               ...s,
@@ -586,7 +587,7 @@ const KBLIMapping: React.FC = () => {
         !selectedMappings.some(
           (m) =>
             m.kbli_2020.kode === item.kbli_2020.kode &&
-            m.kbli_2025.kode === item.kbli_2025.kode,
+            m.kbli_2025?.kode === item.kbli_2025?.kode,
         ),
     );
 
@@ -598,7 +599,7 @@ const KBLIMapping: React.FC = () => {
     const processedItems: SelectedMappingItem[] = [];
 
     for (const item of newItemsToProcess) {
-      const targetKode = item.kbli_2025.kode;
+      const targetKode = item.kbli_2025?.kode;
       let availableDpb: DpbScopeData[] | undefined = undefined;
 
       if (targetKode) {
@@ -788,9 +789,10 @@ const KBLIMapping: React.FC = () => {
     setSelectedMappings((prev) =>
       prev.map((m) => {
         if (m.id === mappingId) {
+          const currentScopes = m.scopes || [];
           return {
             ...m,
-            scopes: m.scopes.map((s) => {
+            scopes: currentScopes.map((s) => {
               if (s.id === scopeId) {
                 if (field === "tingkatResiko") {
                   const riskLevel = RISK_LEVELS.find((r) => r.value === value);
@@ -801,8 +803,8 @@ const KBLIMapping: React.FC = () => {
                   };
                 }
                 if (field === "ruangLingkup") {
-                  const autoData = m.kbli_2025.kode
-                    ? calculateScopeData(value, kelompokUsaha, m.kbli_2025.kode)
+                  const autoData = m.kbli_2025?.kode
+                    ? calculateScopeData(value, kelompokUsaha, m.kbli_2025.kode || "")
                     : { tingkatResiko: "Rendah", izin: "NIB" };
                   return {
                     ...s,
@@ -827,7 +829,7 @@ const KBLIMapping: React.FC = () => {
     setSelectedMappings((prev) =>
       prev.map((m) => {
         if (m.id === mappingId) {
-          const currentScopes = m.scopes;
+          const currentScopes = m.scopes || [];
           if (num > currentScopes.length) {
             const newScopes = [...currentScopes];
             for (let i = currentScopes.length; i < num; i++) {
@@ -842,6 +844,52 @@ const KBLIMapping: React.FC = () => {
           } else if (num < currentScopes.length && num >= 1) {
             return { ...m, scopes: currentScopes.slice(0, num) };
           }
+        }
+        return m;
+      }),
+    );
+  };
+
+  const addMappingScope = (mappingId: string) => {
+    setSelectedMappings((prev) =>
+      prev.map((m) => {
+        if (m.id === mappingId) {
+          const currentScopes = m.scopes || [];
+          return {
+            ...m,
+            scopes: [
+              ...currentScopes,
+              {
+                id: Math.random().toString(36).substr(2, 9),
+                ruangLingkup: "",
+                tingkatResiko: "Rendah",
+                izin: "NIB",
+              },
+            ],
+          };
+        }
+        return m;
+      }),
+    );
+  };
+
+  const removeMappingScope = (mappingId: string, scopeId: string) => {
+    setSelectedMappings((prev) =>
+      prev.map((m) => {
+        if (m.id === mappingId) {
+          const currentScopes = m.scopes || [];
+          const newScopes = currentScopes.filter((s) => s.id !== scopeId);
+          return {
+            ...m,
+            scopes: newScopes.length > 0 ? newScopes : [
+              {
+                id: Math.random().toString(36).substr(2, 9),
+                ruangLingkup: "",
+                tingkatResiko: "Rendah",
+                izin: "NIB",
+              }
+            ],
+          };
         }
         return m;
       }),
@@ -1061,7 +1109,7 @@ const KBLIMapping: React.FC = () => {
       }
       
       // Robust Target Kodes extraction (handles swapped kode/judul fields in messy source data)
-      const targetCodesSet = new Set<string>();
+      const targetCodesAndNames = new Map<string, string>();
       mappingsFor2020.forEach(s => {
         const k = (s.kbli_2025?.kode || "").trim();
         const j = (s.kbli_2025?.judul || "").trim();
@@ -1071,41 +1119,34 @@ const KBLIMapping: React.FC = () => {
         const jIsCode = j && /^\d+$/.test(j) && j.length <= 7;
         
         if (kIsTitle && jIsCode) {
-          targetCodesSet.add(j);
+          targetCodesAndNames.set(j, k);
         } else if (k && !kIsTitle) {
-          targetCodesSet.add(k);
+          targetCodesAndNames.set(k, j);
         }
       });
       
-      const targetKodes = Array.from(targetCodesSet).filter(Boolean);
+      const targetEntries = Array.from(targetCodesAndNames.entries());
       
-      const isDeleted = targetKodes.length === 0 || 
+      const isDeleted = targetEntries.length === 0 || 
         mappingsFor2020.some(s => s.jenis_perubahan?.toLowerCase() === "dihapus") || 
         mappingsFor2020.every(s => !s.kbli_2025?.kode && !s.kbli_2025?.judul);
       
       let kbli2025Str = "";
-      let jumlahStr = "";
+      let namaKbli2025Str = "";
       
       if (isDeleted) {
         kbli2025Str = isEn ? "DELETED" : "DIHAPUS";
-        jumlahStr = "—";
+        namaKbli2025Str = "—";
       } else {
-        kbli2025Str = targetKodes.join(", ");
-        const count = targetKodes.length;
-        if (count > 1) {
-          jumlahStr = isEn 
-            ? `${count} KBLI\n*can choose any suitable one`
-            : `${count} KBLI\n*dapat dipilih salah satu yang sesuai`;
-        } else {
-          jumlahStr = `${count} KBLI`;
-        }
+        kbli2025Str = targetEntries.map(e => e[0]).join("\n\n");
+        namaKbli2025Str = targetEntries.map(e => e[1]).join("\n\n");
       }
       
       summaryRows.push([
         kode2020,
         name2020,
         kbli2025Str,
-        jumlahStr
+        namaKbli2025Str
       ]);
     });
 
@@ -1115,8 +1156,8 @@ const KBLIMapping: React.FC = () => {
       theme: "grid",
       head: [
         isEn
-          ? ["KBLI 2020", "Name", "KBLI 2025", "Total"]
-          : ["KBLI 2020", "Nama", "KBLI 2025", "Jumlah"]
+          ? ["KBLI 2020", "Name", "KBLI 2025", "KBLI 2025 Name"]
+          : ["KBLI 2020", "Nama", "KBLI 2025", "Nama KBLI 2025"]
       ],
       body: summaryRows,
       headStyles: {
@@ -1318,7 +1359,7 @@ const KBLIMapping: React.FC = () => {
         if (
           kbli2025Item.scopes &&
           kbli2025Item.scopes.length > 0 &&
-          kbli2025Item.kbli_2025.kode
+          kbli2025Item.kbli_2025?.kode
         ) {
           if (blockY > pageHeight - 35) {
             doc.addPage();
@@ -1326,14 +1367,14 @@ const KBLIMapping: React.FC = () => {
             blockY = 20;
           }
 
-          const scopeBody = kbli2025Item.scopes.map((s, index) => {
+          const scopeBody = (kbli2025Item.scopes || []).map((s, index) => {
             const isFailedScope =
-              !s.ruangLingkup ||
+              !s?.ruangLingkup ||
               s.ruangLingkup.includes("Gagal membaca") ||
               s.ruangLingkup.includes("Belum tersedia") ||
               s.ruangLingkup === "-";
 
-            let displayRuangLingkup = s.ruangLingkup || "-";
+            let displayRuangLingkup = s?.ruangLingkup || "-";
             if (isFailedScope) {
               displayRuangLingkup = isEn
                 ? "New data from OSS is not yet available"
@@ -1349,9 +1390,6 @@ const KBLIMapping: React.FC = () => {
             let manualIzin = "N/A";
             
             if (!isFailedScope) {
-              autoIzin = isEn
-                ? getEnAutoIzin(s.tingkatResiko)
-                : getAutoIzin(s.tingkatResiko);
               manualIzin =
                 s.izin && s.izin !== "-" ? translateIzinValue(s.izin, isEn) : "";
 
@@ -1374,7 +1412,7 @@ const KBLIMapping: React.FC = () => {
               manualIzin = "—";
             }
 
-            return [index + 1, displayRuangLingkup, displayRisiko, autoIzin, manualIzin];
+            return [index + 1, displayRuangLingkup, displayRisiko, manualIzin];
           });
 
           const countScopes = kbli2025Item.scopes.length;
@@ -1389,8 +1427,7 @@ const KBLIMapping: React.FC = () => {
                       ? "Business Scope\n* please choose one suitable business activity when inputting on OSS"
                       : "Business Scope",
                     "Risk Level",
-                    "License",
-                    "License Type",
+                    "License / Business License",
                   ]
                 : [
                     "No",
@@ -1398,8 +1435,7 @@ const KBLIMapping: React.FC = () => {
                       ? "Ruang Lingkup Usaha\n* pilih salah satu sesuai kegiatan usaha yang dijalankan saat input OSS"
                       : "Ruang Lingkup Usaha",
                     "Tingkat Risiko",
-                    "Izin",
-                    "Jenis Izin",
+                    "Izin / Perizinan Berusaha",
                   ],
             ],
             body: scopeBody,
@@ -1831,12 +1867,12 @@ const KBLIMapping: React.FC = () => {
                               className="bg-emerald-50/50 p-2 rounded border border-emerald-100/50"
                             >
                               <div className="font-bold text-[14px] text-emerald-800">
-                                {sub.kbli_2025.kode || "-"}
+                                {sub.kbli_2025?.kode || "-"}
                               </div>
                               <div className="text-[12px] text-emerald-700 leading-tight">
-                                {sub.kbli_2025.judul || "Dihapus/Dialihkan"}
+                                {sub.kbli_2025?.judul || "Dihapus/Dialihkan"}
                               </div>
-                              {sub.kbli_2025.uraian && (
+                              {sub.kbli_2025?.uraian && (
                                 <div className="text-[11px] text-slate-500 line-clamp-2 hover:line-clamp-none cursor-pointer leading-snug border-t border-emerald-100/30 pt-1 mt-1 font-normal italic">
                                   {sub.kbli_2025.uraian}
                                 </div>
@@ -1965,33 +2001,24 @@ const KBLIMapping: React.FC = () => {
                     >
                       <div className="px-4 py-3 bg-emerald-50/50 flex flex-col md:flex-row items-start md:items-center justify-between border-b border-emerald-100 gap-3">
                         <div className="font-bold text-[14px] text-emerald-800">
-                          {sub.kbli_2025.kode || "-"}{" "}
+                          {sub.kbli_2025?.kode || "-"}{" "}
                           <span className="font-normal text-emerald-600 ml-1 text-[13px]">
-                            {sub.kbli_2025.judul || "Dihapus/Dialihkan"}
+                            {sub.kbli_2025?.judul || "Dihapus/Dialihkan"}
                           </span>
                         </div>
-                        {sub.kbli_2025.kode && (
+                        {sub.kbli_2025?.kode && (
                           <div className="flex items-center gap-2 bg-white px-3 py-1.5 border border-emerald-200 rounded-sm shrink-0 shadow-sm">
                             <span className="text-[11px] font-bold text-emerald-600 uppercase">
-                              Ruang Lingkup?
+                              Jumlah Ruang Lingkup
                             </span>
-                            <input
-                              type="number"
-                              min="1"
-                              className="w-12 text-center text-[13px] font-bold text-emerald-800 focus:outline-none"
-                              value={sub.scopes?.length || 1}
-                              onChange={(e) =>
-                                updateMappingScopes(
-                                  sub.id,
-                                  parseInt(e.target.value) || 1,
-                                )
-                              }
-                            />
+                            <div className="w-8 text-center text-[13px] font-bold text-emerald-800">
+                              {sub.scopes?.length || 0}
+                            </div>
                           </div>
                         )}
                       </div>
 
-                      {sub.kbli_2025.uraian && (
+                      {sub.kbli_2025?.uraian && (
                         <div className="px-4 py-3 bg-slate-50 border-b border-emerald-100/30 text-[12px] text-slate-600 leading-relaxed border-t border-slate-100">
                           <span className="font-bold text-slate-700 block mb-0.5 tracking-tight text-[11px] uppercase">
                             Uraian KBLI 2025:
@@ -2003,32 +2030,41 @@ const KBLIMapping: React.FC = () => {
                       )}
 
                       {/* Scopes Table for this KBLI 2025 */}
-                      {sub.kbli_2025.kode && (
+                      {sub.kbli_2025?.kode && (
                         <div className="overflow-x-auto bg-white">
+                          <div className="flex justify-end p-2 border-b border-slate-100 bg-slate-50/50">
+                            <button
+                              onClick={() => addMappingScope(sub.id)}
+                              className="px-3 py-1.5 bg-[#17a2b8] text-white hover:bg-[#138496] rounded-sm text-[11px] font-bold tracking-wider flex items-center gap-1.5 transition-colors uppercase"
+                            >
+                              <Plus className="w-3.5 h-3.5" />
+                              Tambah Ruang Lingkup
+                            </button>
+                          </div>
                           <table className="w-full text-left border-collapse min-w-[700px]">
                             <thead>
                               <tr className="bg-slate-50 border-b border-slate-100">
-                                <th className="px-4 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider w-12 text-center">
+                                <th className="px-4 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider w-12 text-center border-r border-slate-100">
                                   No
                                 </th>
-                                <th className="px-4 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                                <th className="px-4 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-r border-slate-100">
                                   Ruang Lingkup Usaha
                                 </th>
-                                <th className="px-4 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider w-40">
+                                <th className="px-4 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider w-40 border-r border-slate-100">
                                   Tingkat Risiko
                                 </th>
-                                <th className="px-4 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider w-52">
-                                  Izin
+                                <th className="px-4 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider w-56 text-center border-r border-slate-100">
+                                  Izin / Perizinan Berusaha
                                 </th>
-                                <th className="px-4 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider w-56">
-                                  Jenis Izin
+                                <th className="px-3 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider w-16 text-center">
+                                  Hapus
                                 </th>
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-50">
                               {sub.scopes?.map((scope, index) => {
                                 const isFailedScope =
-                                  !scope.ruangLingkup ||
+                                  !scope?.ruangLingkup ||
                                   scope.ruangLingkup.includes("Gagal membaca") ||
                                   scope.ruangLingkup.includes("Belum tersedia") ||
                                   scope.ruangLingkup === "-";
@@ -2037,12 +2073,12 @@ const KBLIMapping: React.FC = () => {
                                     key={scope.id}
                                     className="group hover:bg-slate-50/50 transition-colors"
                                   >
-                                    <td className="px-4 py-3 align-top text-center">
+                                    <td className="px-4 py-3 align-top text-center border-r border-slate-100">
                                       <span className="text-[13px] font-medium text-slate-400">
                                         {index + 1}
                                       </span>
                                     </td>
-                                    <td className="px-4 py-3 align-top">
+                                    <td className="px-4 py-3 align-top border-r border-slate-100">
                                       <textarea
                                         placeholder="Input manual ruang lingkup..."
                                         className="w-full px-3 py-2 border border-slate-200/50 rounded-sm text-[13px] focus:ring-1 focus:ring-indigo-500/30 focus:border-indigo-500 outline-none transition-all resize-none h-14 group-hover:border-slate-300/50 shadow-sm"
@@ -2057,7 +2093,7 @@ const KBLIMapping: React.FC = () => {
                                         }
                                       />
                                     </td>
-                                    <td className="px-4 py-3 align-top">
+                                    <td className="px-4 py-3 align-top border-r border-slate-100">
                                       {isFailedScope ? (
                                         <div className="px-3 py-2 bg-slate-50 border border-slate-200/50 rounded-sm text-[13px] text-slate-400 min-h-[36px] flex items-center leading-relaxed font-medium">
                                           N/A
@@ -2086,15 +2122,35 @@ const KBLIMapping: React.FC = () => {
                                         </select>
                                       )}
                                     </td>
-                                    <td className="px-4 py-3 align-top">
-                                      <div className="px-3 py-2 bg-emerald-50 text-emerald-800 border border-emerald-100/50 rounded-sm text-[11px] font-bold min-h-[36px] flex items-center leading-relaxed uppercase">
-                                        {isFailedScope ? "N/A" : getAutoIzin(scope.tingkatResiko)}
-                                      </div>
+                                    <td className="px-4 py-3 align-top border-r border-slate-100">
+                                      {isFailedScope ? (
+                                        <div className="px-3 py-2 bg-slate-50 border border-slate-100 rounded-sm text-[12px] text-slate-600 min-h-[36px] flex items-center leading-relaxed">
+                                          N/A
+                                        </div>
+                                      ) : (
+                                        <input
+                                          type="text"
+                                          className="w-full px-3 py-2 border border-slate-200/50 rounded-sm text-[13px] focus:ring-1 focus:ring-indigo-500/30 focus:border-indigo-500 outline-none transition-all bg-white group-hover:border-slate-300/50 shadow-sm"
+                                          value={scope.izin}
+                                          onChange={(e) =>
+                                            updateScope(
+                                              sub.id,
+                                              scope.id,
+                                              "izin",
+                                              e.target.value,
+                                            )
+                                          }
+                                        />
+                                      )}
                                     </td>
-                                    <td className="px-4 py-3 align-top">
-                                      <div className="px-3 py-2 bg-slate-50 border border-slate-100 rounded-sm text-[12px] text-slate-600 min-h-[36px] flex items-center leading-relaxed">
-                                        {isFailedScope ? "N/A" : scope.izin}
-                                      </div>
+                                    <td className="px-3 py-3 align-top text-center">
+                                      <button
+                                        onClick={() => removeMappingScope(sub.id, scope.id)}
+                                        className="p-1.5 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded transition-all cursor-pointer"
+                                        title="Hapus"
+                                      >
+                                        <Trash2 className="w-4 h-4" />
+                                      </button>
                                     </td>
                                   </tr>
                                 );

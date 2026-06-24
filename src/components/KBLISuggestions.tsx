@@ -372,10 +372,11 @@ const KBLISuggestions: React.FC = () => {
 
   useEffect(() => {
     setSelectedKblis(prev => prev.map(kbli => {
+      const currentScopes = kbli.scopes || [];
       return {
         ...kbli,
-        scopes: kbli.scopes.map((s) => {
-          const autoData = calculateScopeData(s.ruangLingkup, kelompokUsaha, kbli.kode);
+        scopes: currentScopes.map((s) => {
+          const autoData = calculateScopeData(s?.ruangLingkup, kelompokUsaha, kbli.kode);
           return {
             ...s,
             tingkatResiko: autoData.tingkatResiko,
@@ -847,6 +848,39 @@ const KBLISuggestions: React.FC = () => {
     setSelectedKblis(selectedKblis.filter(k => k.kode !== kode));
   };
 
+  const updateKbliScopeField = (kbliKode: string, scopeIndex: number, field: string, value: string) => {
+    setSelectedKblis(prev => prev.map(kbli => {
+      if (kbli.kode === kbliKode) {
+        const newScopes = [...(kbli.scopes || [])];
+        newScopes[scopeIndex] = { ...newScopes[scopeIndex], [field]: value };
+        return { ...kbli, scopes: newScopes };
+      }
+      return kbli;
+    }));
+  };
+
+  const addKbliScope = (kbliKode: string) => {
+    setSelectedKblis(prev => prev.map(kbli => {
+      if (kbli.kode === kbliKode) {
+        return { 
+          ...kbli, 
+          scopes: [...(kbli.scopes || []), { ruangLingkup: "", tingkatResiko: "Rendah", izin: "NIB" }] 
+        };
+      }
+      return kbli;
+    }));
+  };
+
+  const removeKbliScope = (kbliKode: string, scopeIndex: number) => {
+    setSelectedKblis(prev => prev.map(kbli => {
+      if (kbli.kode === kbliKode) {
+        const newScopes = (kbli.scopes || []).filter((_, idx) => idx !== scopeIndex);
+        return { ...kbli, scopes: newScopes.length ? newScopes : [{ ruangLingkup: "", tingkatResiko: "Rendah", izin: "NIB" }] };
+      }
+      return kbli;
+    }));
+  };
+
   const updateKbliCatatan = (kbliKode: string, value: string) => {
     setSelectedKblis(prev => prev.map(kbli => {
       if (kbli.kode === kbliKode) {
@@ -1083,13 +1117,13 @@ const KBLISuggestions: React.FC = () => {
       doc.text(splitHeader, 14, currentY);
       currentY += (splitHeader.length * 5) + 3;
 
-      const body = kbli.scopes.map((s, index) => {
+      const body = (kbli.scopes || []).map((s, index) => {
         const isFailedScope =
-          !s.ruangLingkup ||
+          !s?.ruangLingkup ||
           s.ruangLingkup.includes("Gagal membaca") ||
           s.ruangLingkup.includes("Belum tersedia") ||
           s.ruangLingkup === "-";
-        const displayRuangLingkup = s.ruangLingkup || '-';
+        const displayRuangLingkup = s?.ruangLingkup || '-';
         const displayRisiko = isFailedScope ? "N/A" : translateRiskLevel(s.tingkatResiko, isEn);
         const autoIzin = isFailedScope ? "N/A" : (isEn ? getEnAutoIzin(s.tingkatResiko) : getAutoIzin(s.tingkatResiko));
         const manualIzin = isFailedScope ? "N/A" : translateIzinValue(s.izin, isEn);
@@ -1730,7 +1764,7 @@ const KBLISuggestions: React.FC = () => {
                   <div className="bg-indigo-50/40 border border-indigo-100 rounded-sm p-3 flex flex-col items-center shrink-0 min-w-[150px]">
                     <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Jumlah Ruang Lingkup</span>
                     <div className="mt-1 text-lg font-bold text-indigo-600">
-                      {kbli.ruangLingkup?.length || 0}
+                      {kbli.scopes?.length || 0}
                     </div>
                   </div>
                 </div>
@@ -1739,8 +1773,15 @@ const KBLISuggestions: React.FC = () => {
                 <div className="bg-white border border-slate-200 rounded-sm overflow-hidden shadow-sm">
                   <div className="px-5 py-3.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
                     <span className="text-[12px] font-bold text-slate-800 uppercase tracking-wider">
-                      Tabel Ruang Lingkup Usaha ({kbli.ruangLingkup?.length || 0} Baris)
+                      Tabel Ruang Lingkup Usaha ({kbli.scopes?.length || 0} Baris)
                     </span>
+                    <button
+                      onClick={() => addKbliScope(kbli.kode)}
+                      className="px-3 py-1.5 bg-[#17a2b8] text-white hover:bg-[#138496] rounded-sm text-[11px] font-bold tracking-wider flex items-center gap-1.5 transition-colors uppercase"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      Tambah
+                    </button>
                   </div>
                   <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse text-[13px]">
@@ -1748,16 +1789,15 @@ const KBLISuggestions: React.FC = () => {
                         <tr className="bg-slate-50/50 border-b border-slate-200">
                           <th className="px-4 py-2.5 font-bold text-slate-600 tracking-wider w-12 text-center border-r border-slate-150">No</th>
                           <th className="px-5 py-2.5 font-bold text-slate-600 tracking-wider border-r border-slate-150">Ruang Lingkup Usaha</th>
-                          <th className="px-5 py-2.5 font-bold text-slate-600 tracking-wider w-52 border-r border-slate-150">Tingkat Risiko</th>
-                          <th className="px-4 py-2.5 font-bold text-slate-600 tracking-wider w-40 text-center">Izin / Perizinan Berusaha</th>
+                          <th className="px-5 py-2.5 font-bold text-slate-600 tracking-wider w-40 border-r border-slate-150">Tingkat Risiko</th>
+                          <th className="px-4 py-2.5 font-bold text-slate-600 tracking-wider w-40 text-center border-r border-slate-150">Izin / Perizinan Berusaha</th>
+                          <th className="px-3 py-2.5 font-bold text-slate-600 tracking-wider w-16 text-center">Hapus</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-150">
-                        {kbli.ruangLingkup?.map((scope, index) => {
-                          const scaleKey = kelompokUsaha.toLowerCase() as keyof RuangLingkupSkalaGroup;
-                          const scopeData = scope.skala[scaleKey];
-                          const risk = scopeData.risiko;
-                          const perizinan = scopeData.perizinan;
+                        {kbli.scopes?.map((scope, index) => {
+                          const risk = scope.tingkatResiko;
+                          const perizinan = scope.izin;
 
                           let riskColor = "bg-slate-100 text-slate-800 border-slate-200";
                           if (risk === "Rendah") riskColor = "bg-emerald-50 text-emerald-800 border-emerald-100";
@@ -1765,19 +1805,46 @@ const KBLISuggestions: React.FC = () => {
                           else if (risk === "Menengah Tinggi") riskColor = "bg-amber-50 text-amber-800 border-amber-100";
                           else if (risk === "Tinggi") riskColor = "bg-rose-50 text-rose-800 border-rose-100";
 
-                          const isSelfDeclare = risk === "Menengah Rendah" && perizinan.includes("Sertifikat Standar");
+                          const isFailedScope = !scope?.ruangLingkup || scope.ruangLingkup.includes("Gagal membaca") || scope.ruangLingkup.includes("Belum tersedia") || scope.ruangLingkup === "-";
 
                           return (
-                            <tr key={index} className="hover:bg-slate-50/30">
+                            <tr key={index} className="hover:bg-slate-50/30 group">
                               <td className="px-4 py-3 text-center border-r border-slate-150 text-slate-400 font-mono align-top text-xs pt-4">{index + 1}</td>
-                              <td className="px-5 py-3 border-r border-slate-150 align-top text-slate-700 text-xs leading-relaxed">{scope.deskripsi}</td>
-                              <td className="px-5 py-3 border-r border-slate-150 align-top">
-                                <span className={`inline-block px-2.5 py-1 rounded-sm text-[11px] font-bold border uppercase leading-tight ${riskColor}`}>
-                                  {risk}
-                                </span>
+                              <td className="px-3 py-3 border-r border-slate-150 align-top">
+                                <textarea
+                                  placeholder="Input manual ruang lingkup..."
+                                  className="w-full px-3 py-2 border border-slate-200/50 rounded-sm text-[13px] focus:ring-1 focus:ring-indigo-500/30 focus:border-indigo-500 outline-none transition-all resize-none h-14 group-hover:border-slate-300/50 shadow-sm"
+                                  value={scope.ruangLingkup}
+                                  onChange={(e) => updateKbliScopeField(kbli.kode, index, "ruangLingkup", e.target.value)}
+                                />
                               </td>
-                              <td className="px-4 py-3 align-top text-center text-xs text-slate-700">
-                                {isSelfDeclare ? "Sertifikat Standar (Self Declare)" : perizinan}
+                              <td className="px-3 py-3 border-r border-slate-150 align-top">
+                                <select
+                                  className="w-full px-2 py-2 border border-slate-200/50 rounded-sm text-[13px] focus:ring-1 focus:ring-indigo-500/30 focus:border-indigo-500 outline-none transition-all bg-white group-hover:border-slate-300/50 shadow-sm"
+                                  value={risk}
+                                  onChange={(e) => updateKbliScopeField(kbli.kode, index, "tingkatResiko", e.target.value)}
+                                >
+                                  {RISK_LEVELS.map(l => (
+                                    <option key={l.value} value={l.value}>{l.label}</option>
+                                  ))}
+                                </select>
+                              </td>
+                              <td className="px-3 py-3 align-top text-center text-xs text-slate-700 border-r border-slate-150">
+                                <input
+                                  type="text"
+                                  className="w-full px-3 py-2 border border-slate-200/50 rounded-sm text-[13px] focus:ring-1 focus:ring-indigo-500/30 focus:border-indigo-500 outline-none transition-all bg-white group-hover:border-slate-300/50 shadow-sm"
+                                  value={perizinan}
+                                  onChange={(e) => updateKbliScopeField(kbli.kode, index, "izin", e.target.value)}
+                                />
+                              </td>
+                              <td className="px-3 py-3 align-top text-center">
+                                <button
+                                  onClick={() => removeKbliScope(kbli.kode, index)}
+                                  className="p-1.5 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded transition-all cursor-pointer"
+                                  title="Hapus"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
                               </td>
                             </tr>
                           );
