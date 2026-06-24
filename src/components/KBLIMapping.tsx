@@ -19,6 +19,21 @@ import mappingData from "../../KBLI_2020_vs_2025.json";
 import kbli2025Data from "../../kbli_2025.json";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import {
+  Document,
+  Packer,
+  Paragraph,
+  TextRun,
+  Table,
+  TableRow,
+  TableCell,
+  WidthType,
+  BorderStyle,
+  AlignmentType,
+  HeadingLevel,
+  PageBreak,
+} from "docx";
+import { saveAs } from "file-saver";
 import { db, auth, cleanUndefined, handleFirestoreError, OperationType } from "../lib/firebase";
 import {
   collection,
@@ -907,8 +922,509 @@ const KBLIMapping: React.FC = () => {
     );
   };
 
+  const handlePrintDocx = async (customRecord?: any) => {
+    const activeNamaPT = (customRecord ? (customRecord.nama || "") : namaPT).trim() || "PT KAIYE TECHNOLOGY INDONESIA";
+    const activeKelompokUsaha = customRecord ? (customRecord.kelompokUsaha || "Mikro") : kelompokUsaha;
+    const activeSelectedMappings = customRecord ? (customRecord.selectedItems || []) : selectedMappings;
+
+    const run = (text: string, options: { bold?: boolean; size?: number; color?: string; italic?: boolean } = {}) => {
+      return new TextRun({
+        text,
+        font: "Arial",
+        bold: options.bold,
+        size: (options.size || 10) * 2,
+        color: options.color || "334155",
+        italics: options.italic,
+      });
+    };
+
+    const para = (children: (TextRun | any)[], options: { alignment?: any; spaceBefore?: number; spaceAfter?: number; fillColor?: string } = {}) => {
+      return new Paragraph({
+        children,
+        alignment: options.alignment || AlignmentType.LEFT,
+        shading: options.fillColor ? { fill: options.fillColor } : undefined,
+        spacing: {
+          before: options.spaceBefore !== undefined ? options.spaceBefore : 100,
+          after: options.spaceAfter !== undefined ? options.spaceAfter : 100,
+        },
+      });
+    };
+
+    const cell = (paragraphs: Paragraph[], options: { widthPercent?: number; fillColor?: string; colSpan?: number; rowSpan?: number } = {}) => {
+      return new TableCell({
+        children: paragraphs,
+        columnSpan: options.colSpan,
+        rowSpan: options.rowSpan,
+        width: options.widthPercent ? { size: options.widthPercent, type: WidthType.PERCENTAGE } : undefined,
+        shading: options.fillColor ? { fill: options.fillColor } : undefined,
+        margins: {
+          top: 100,
+          bottom: 100,
+          left: 150,
+          right: 150,
+        },
+        borders: {
+          top: { style: BorderStyle.SINGLE, size: 4, color: "E2E8F0" },
+          bottom: { style: BorderStyle.SINGLE, size: 4, color: "E2E8F0" },
+          left: { style: BorderStyle.SINGLE, size: 4, color: "E2E8F0" },
+          right: { style: BorderStyle.SINGLE, size: 4, color: "E2E8F0" },
+        },
+      });
+    };
+
+    const unique2025 = new Set(activeSelectedMappings.map(s => s.kbli_2025?.kode).filter(Boolean));
+    
+    let countRecoding = 0;
+    let countPecah = 0;
+    let countGabung = 0;
+    let countLebur = 0;
+
+    activeSelectedMappings.forEach(m => {
+      const p = m.jenis_perubahan?.toLowerCase() || "";
+      if (p.includes("recoding") || p.includes("tetap") || p.includes("pindah")) countRecoding++;
+      else if (p.includes("pecah")) countPecah++;
+      else if (p.includes("gabung")) countGabung++;
+      else if (p.includes("lebur")) countLebur++;
+      else countRecoding++;
+    });
+
+    const elements: any[] = [];
+
+    const letterheadTable = new Table({
+      rows: [
+        new TableRow({
+          children: [
+            new TableCell({
+              children: [
+                para([run("NUKANTINI PUTRI PARINCHA, SH., M.Kn", { bold: true, size: 12, color: "0F3057" })]),
+                para([run("NOTARIS/PPAT", { bold: true, size: 10, color: "0F3057" })], { spaceBefore: 50 }),
+                para([run("SK MENTERI HUKUM DAN HAK ASASI MANUSIA REPUBLIK INDONESIA", { size: 7.5 })], { spaceBefore: 50 }),
+                para([run("NO. C-309.HT 03.01-Th. 2007, Tanggal 23 Agustus 2007", { size: 7.5 })], { spaceBefore: 0 }),
+                para([run("SK. KEPALA BADAN PERTANAHAN NASIONAL REPUBLIK INDONESIA", { size: 7.5 })], { spaceBefore: 50 }),
+                para([run("NO. 1 - XVII - PPAT - 2009, Tanggal 12 Februari 2009", { size: 7.5 })], { spaceBefore: 0 }),
+              ],
+              width: { size: 60, type: WidthType.PERCENTAGE },
+              borders: {
+                top: { style: BorderStyle.NONE, size: 0, color: "auto" },
+                bottom: { style: BorderStyle.NONE, size: 0, color: "auto" },
+                left: { style: BorderStyle.NONE, size: 0, color: "auto" },
+                right: { style: BorderStyle.NONE, size: 0, color: "auto" },
+              },
+            }),
+            new TableCell({
+              children: [
+                para([run("Office:", { bold: true, size: 8.5 })]),
+                para([run("Komp. PPR-ITB Kav. F-5 Dago Giri,", { size: 8.5 })], { spaceBefore: 0 }),
+                para([run("Lembang, Kab. Bandung Barat", { size: 8.5 })], { spaceBefore: 0 }),
+                para([run("HP: 08112007061", { size: 8.5 })], { spaceBefore: 100 }),
+              ],
+              width: { size: 40, type: WidthType.PERCENTAGE },
+              borders: {
+                top: { style: BorderStyle.NONE, size: 0, color: "auto" },
+                bottom: { style: BorderStyle.NONE, size: 0, color: "auto" },
+                left: { style: BorderStyle.NONE, size: 0, color: "auto" },
+                right: { style: BorderStyle.NONE, size: 0, color: "auto" },
+              },
+            }),
+          ]
+        }),
+        new TableRow({
+          children: [
+            new TableCell({
+              children: [],
+              columnSpan: 2,
+              borders: {
+                top: { style: BorderStyle.SINGLE, size: 16, color: "0F3057" },
+                bottom: { style: BorderStyle.NONE, size: 0, color: "auto" },
+                left: { style: BorderStyle.NONE, size: 0, color: "auto" },
+                right: { style: BorderStyle.NONE, size: 0, color: "auto" },
+              },
+            })
+          ]
+        })
+      ],
+      width: { size: 100, type: WidthType.PERCENTAGE },
+    });
+
+    elements.push(letterheadTable);
+    elements.push(para([], { spaceBefore: 200 }));
+
+    elements.push(para([run("ADJUSTMENT RECOMMENDATION", { bold: true, size: 14, color: "0F3057" })], { alignment: AlignmentType.CENTER, spaceBefore: 200 }));
+    elements.push(para([run("KBLI 2020 TO KBLI 2025", { bold: true, size: 18, color: "0F3057" })], { alignment: AlignmentType.CENTER, spaceBefore: 50, spaceAfter: 200 }));
+
+    const companyTable = new Table({
+      rows: [
+        new TableRow({
+          children: [
+            cell([para([run("Company Name:", { bold: true, size: 9.5, color: "0F3057" })])], { widthPercent: 30, fillColor: "F8FAFC" }),
+            cell([para([run(activeNamaPT, { bold: true, size: 9.5, color: "0F766E" })])], { widthPercent: 70, fillColor: "F8FAFC" }),
+          ]
+        }),
+        new TableRow({
+          children: [
+            cell([para([run("Business Scale:", { bold: true, size: 9.5, color: "0F3057" })])], { widthPercent: 30, fillColor: "F8FAFC" }),
+            cell([para([run(translateBusinessScale(activeKelompokUsaha, true), { bold: true, size: 9.5, color: "0F766E" })])], { widthPercent: 70, fillColor: "F8FAFC" }),
+          ]
+        }),
+      ],
+      width: { size: 100, type: WidthType.PERCENTAGE },
+    });
+    elements.push(companyTable);
+    elements.push(para([], { spaceAfter: 200 }));
+
+    elements.push(para([run("MAPPING SUMMARY", { bold: true, size: 12, color: "0F3057" })], { spaceBefore: 200, spaceAfter: 100 }));
+    
+    const statsTable = new Table({
+      rows: [
+        new TableRow({
+          children: [
+            cell([
+              para([run(countRecoding.toString(), { bold: true, size: 14, color: "0084FF" })], { alignment: AlignmentType.CENTER }),
+              para([run("Recoding / Move Code", { size: 8, bold: true, color: "0084FF" })], { alignment: AlignmentType.CENTER })
+            ], { fillColor: "F0F9FF" }),
+            cell([
+              para([run(countGabung.toString(), { bold: true, size: 14, color: "22C55E" })], { alignment: AlignmentType.CENTER }),
+              para([run("Merge Code", { size: 8, bold: true, color: "22C55E" })], { alignment: AlignmentType.CENTER })
+            ], { fillColor: "F0FDF4" }),
+            cell([
+              para([run(countLebur.toString(), { bold: true, size: 14, color: "F59E0B" })], { alignment: AlignmentType.CENTER }),
+              para([run("Merge Scope", { size: 8, bold: true, color: "F59E0B" })], { alignment: AlignmentType.CENTER })
+            ], { fillColor: "FFF7ED" }),
+            cell([
+              para([run(countPecah.toString(), { bold: true, size: 14, color: "EF4444" })], { alignment: AlignmentType.CENTER }),
+              para([run("Split Code", { size: 8, bold: true, color: "EF4444" })], { alignment: AlignmentType.CENTER })
+            ], { fillColor: "FEF2F2" }),
+            cell([
+              para([run(unique2025.size.toString(), { bold: true, size: 14, color: "64748B" })], { alignment: AlignmentType.CENTER }),
+              para([run("Total Active KBLI", { size: 8, bold: true, color: "64748B" })], { alignment: AlignmentType.CENTER })
+            ], { fillColor: "F1F5F9" }),
+          ]
+        })
+      ],
+      width: { size: 100, type: WidthType.PERCENTAGE },
+    });
+    elements.push(statsTable);
+    elements.push(para([], { spaceAfter: 200 }));
+
+    const summaryRows: TableRow[] = [];
+    summaryRows.push(new TableRow({
+      children: [
+        cell([para([run("KBLI 2020", { bold: true, size: 9, color: "FFFFFF" })], { alignment: AlignmentType.CENTER })], { fillColor: "0F3057" }),
+        cell([para([run("KBLI 2020 Name", { bold: true, size: 9, color: "FFFFFF" })], { alignment: AlignmentType.CENTER })], { fillColor: "0F3057" }),
+        cell([para([run("KBLI 2025", { bold: true, size: 9, color: "FFFFFF" })], { alignment: AlignmentType.CENTER })], { fillColor: "0F3057" }),
+        cell([para([run("KBLI 2025 Name", { bold: true, size: 9, color: "FFFFFF" })], { alignment: AlignmentType.CENTER })], { fillColor: "0F3057" }),
+        cell([para([run("Change Type", { bold: true, size: 9, color: "FFFFFF" })], { alignment: AlignmentType.CENTER })], { fillColor: "0F3057" }),
+        cell([para([run("Mapping Explanation", { bold: true, size: 9, color: "FFFFFF" })], { alignment: AlignmentType.CENTER })], { fillColor: "0F3057" }),
+      ]
+    }));
+
+    activeSelectedMappings.forEach((item) => {
+      const kbli2020 = item.kbli_2020;
+      let jp = item.jenis_perubahan || "Recoding";
+      let keterangan = "-";
+      
+      const jpLower = jp.toLowerCase();
+      if (jpLower.includes("pecah")) keterangan = "One old code split into multiple new codes.";
+      else if (jpLower.includes("gabung")) keterangan = "Two or more old codes merged into one new KBLI 2025 code.";
+      else if (jpLower.includes("lebur")) keterangan = "Scope expanded or merged into a single new code.";
+      else if (jpLower.includes("recoding") || jpLower.includes("pindah")) keterangan = "Code changes due to adjustments in KBLI structure.";
+      
+      let k25Kode = item.kbli_2025?.kode || "-";
+      let k25Judul = item.kbli_2025?.judul || "-";
+      if (k25Kode.length > 7) {
+         k25Judul = k25Kode;
+         k25Kode = item.kbli_2025?.judul || "-";
+      }
+
+      let jpColor = "0E766E";
+      if (jpLower.includes("pecah")) jpColor = "EF4444";
+      else if (jpLower.includes("gabung")) jpColor = "22C55E";
+      else if (jpLower.includes("lebur")) jpColor = "F59E0B";
+
+      summaryRows.push(new TableRow({
+        children: [
+          cell([para([run(kbli2020.kode, { bold: true, size: 8.5, color: "0F3057" })], { alignment: AlignmentType.CENTER })]),
+          cell([para([run(kbli2020.judul, { size: 8.5, color: "0F3057" })])]),
+          cell([para([run(k25Kode, { bold: true, size: 8.5, color: "0F766E" })], { alignment: AlignmentType.CENTER })]),
+          cell([para([run(k25Judul, { size: 8.5, color: "0F766E" })])]),
+          cell([para([run(jp, { bold: true, size: 8.5, color: jpColor })], { alignment: AlignmentType.CENTER })]),
+          cell([para([run(keterangan, { size: 8.5 })])]),
+        ]
+      }));
+    });
+
+    elements.push(new Table({
+      rows: summaryRows,
+      width: { size: 100, type: WidthType.PERCENTAGE }
+    }));
+    elements.push(para([], { spaceAfter: 200 }));
+
+    const kbli2025List: { kode: string; judul: string; uraian: string }[] = [];
+    const seenCodes = new Set<string>();
+
+    activeSelectedMappings.forEach(m => {
+      const kbli2025 = m.kbli_2025;
+      if (kbli2025) {
+        let tKode = (kbli2025.kode || "").trim();
+        let tJudul = (kbli2025.judul || "").trim();
+        let tUraian = (kbli2025.uraian || "").trim();
+        
+        const kIsTitle = tKode.length > 7 || (tKode && !/^\d+$/.test(tKode));
+        const jIsCode = tJudul && /^\d+$/.test(tJudul) && tJudul.length <= 7;
+        if (kIsTitle && jIsCode) {
+          const temp = tKode;
+          tKode = tJudul;
+          tJudul = temp;
+        }
+
+        if (tKode && tKode !== "DIHAPUS") {
+          if (!seenCodes.has(tKode)) {
+            seenCodes.add(tKode);
+            kbli2025List.push({
+              kode: tKode,
+              judul: tJudul,
+              uraian: tUraian
+            });
+          }
+        }
+      }
+    });
+
+    kbli2025List.sort((a, b) => a.kode.localeCompare(b.kode));
+
+    if (kbli2025List.length > 0) {
+      elements.push(new Paragraph({ children: [new PageBreak()] }));
+      elements.push(letterheadTable);
+      elements.push(para([], { spaceBefore: 200 }));
+
+      elements.push(para([run("DETAILS OF KBLI 2025 IN SUMMARY", { bold: true, size: 12, color: "0F3057" })], { spaceBefore: 200, spaceAfter: 100 }));
+
+      const detailRows: TableRow[] = [];
+      detailRows.push(new TableRow({
+        children: [
+          cell([para([run("KBLI CODE", { bold: true, size: 9, color: "FFFFFF" })], { alignment: AlignmentType.CENTER })], { fillColor: "0F3057" }),
+          cell([para([run("KBLI TITLE", { bold: true, size: 9, color: "FFFFFF" })])], { fillColor: "0F3057" }),
+          cell([para([run("KBLI DESCRIPTION", { bold: true, size: 9, color: "FFFFFF" })])], { fillColor: "0F3057" }),
+        ]
+      }));
+
+      kbli2025List.forEach(item => {
+        detailRows.push(new TableRow({
+          children: [
+            cell([para([run(item.kode, { bold: true, size: 8.5, color: "0F766E" })], { alignment: AlignmentType.CENTER })]),
+            cell([para([run(item.judul, { bold: true, size: 8.5, color: "0F3057" })])]),
+            cell([para([run(item.uraian || "-", { size: 8.5 })], { alignment: AlignmentType.BOTH })]),
+          ]
+        }));
+      });
+
+      elements.push(new Table({
+        rows: detailRows,
+        width: { size: 100, type: WidthType.PERCENTAGE }
+      }));
+      elements.push(para([], { spaceAfter: 200 }));
+
+      const kbli2025ScopesMap = new Map<string, any[]>();
+      activeSelectedMappings.forEach(m => {
+        const kbli2025 = m.kbli_2025;
+        if (kbli2025) {
+          let tKode = (kbli2025.kode || "").trim();
+          const tJudul = (kbli2025.judul || "").trim();
+          
+          const kIsTitle = tKode.length > 7 || (tKode && !/^\d+$/.test(tKode));
+          const jIsCode = tJudul && /^\d+$/.test(tJudul) && tJudul.length <= 7;
+          if (kIsTitle && jIsCode) {
+            tKode = tJudul;
+          }
+
+          if (tKode && tKode !== "DIHAPUS") {
+            const currentScopes = m.scopes || [];
+            if (!kbli2025ScopesMap.has(tKode)) {
+              kbli2025ScopesMap.set(tKode, []);
+            }
+            const list = kbli2025ScopesMap.get(tKode)!;
+            currentScopes.forEach(s => {
+              if (s && s.ruangLingkup && s.ruangLingkup.trim() !== "") {
+                if (!list.some(existing => existing.ruangLingkup === s.ruangLingkup)) {
+                  list.push(s);
+                }
+              }
+            });
+          }
+        }
+      });
+
+      elements.push(new Paragraph({ children: [new PageBreak()] }));
+      elements.push(letterheadTable);
+      elements.push(para([], { spaceBefore: 200 }));
+
+      elements.push(para([run("SCOPE OF KBLI 2025 IN SUMMARY", { bold: true, size: 12, color: "0F3057" })], { spaceBefore: 200, spaceAfter: 100 }));
+
+      kbli2025List.forEach((item, idx) => {
+        elements.push(para([run(`${idx + 1}. KBLI ${item.kode}: ${item.judul.toUpperCase()}`, { bold: true, size: 10, color: "0F3057" })], { spaceBefore: 150, spaceAfter: 50 }));
+
+        const scopes = kbli2025ScopesMap.get(item.kode) || [];
+        const scopeRows: TableRow[] = [];
+
+        scopeRows.push(new TableRow({
+          children: [
+            cell([para([run("No", { bold: true, size: 8.5, color: "FFFFFF" })], { alignment: AlignmentType.CENTER })], { fillColor: "0F3057" }),
+            cell([para([run("Business Scope", { bold: true, size: 8.5, color: "FFFFFF" })])], { fillColor: "0F3057" }),
+            cell([para([run("Risk Level", { bold: true, size: 8.5, color: "FFFFFF" })], { alignment: AlignmentType.CENTER })], { fillColor: "0F3057" }),
+            cell([para([run("Permit", { bold: true, size: 8.5, color: "FFFFFF" })], { alignment: AlignmentType.CENTER })], { fillColor: "0F3057" }),
+            cell([para([run("Type of Permit", { bold: true, size: 8.5, color: "FFFFFF" })], { alignment: AlignmentType.CENTER })], { fillColor: "0F3057" }),
+          ]
+        }));
+
+        if (scopes.length === 0) {
+          scopeRows.push(new TableRow({
+            children: [
+              cell([para([run("1", { size: 8.5 })], { alignment: AlignmentType.CENTER })]),
+              cell([para([run("New data from OSS not yet available", { size: 8.5, italic: true })])]),
+              cell([para([run("N/A", { size: 8.5 })], { alignment: AlignmentType.CENTER })]),
+              cell([para([run("N/A", { size: 8.5 })], { alignment: AlignmentType.CENTER })]),
+              cell([para([run("N/A", { size: 8.5 })], { alignment: AlignmentType.CENTER })]),
+            ]
+          }));
+        } else {
+          scopes.forEach((s, sIdx) => {
+            const isFailedScope = !s?.ruangLingkup || 
+                                  s.ruangLingkup.includes("Gagal membaca") || 
+                                  s.ruangLingkup.includes("Belum tersedia") || 
+                                  s.ruangLingkup === "-";
+            
+            let displayRisiko = translateRiskLevel(s.tingkatResiko || "-", true);
+            let displayIzin = "-";
+            let displayJenisIzin = "-";
+
+            if (isFailedScope) {
+              displayRisiko = "N/A";
+              displayIzin = "N/A";
+              displayJenisIzin = "N/A";
+            } else {
+              const izinText = s.izin || "";
+              if (izinText === "NIB") {
+                displayIzin = "NIB";
+                displayJenisIzin = "-";
+              } else if (izinText.toLowerCase().includes("sertifikat standar")) {
+                displayIzin = "Standard Certificate";
+                if (izinText.toLowerCase().includes("self declare")) {
+                  displayJenisIzin = "Standard Certificate (Self Declared)";
+                } else {
+                  displayJenisIzin = "Standard Certificate (Verified)";
+                }
+              } else if (izinText.toLowerCase().includes("izin")) {
+                displayIzin = "Permit";
+                displayJenisIzin = "Business / Operational Permit";
+              } else {
+                displayIzin = izinText;
+                displayJenisIzin = "-";
+              }
+            }
+
+            scopeRows.push(new TableRow({
+              children: [
+                cell([para([run((sIdx + 1).toString(), { size: 8.5 })], { alignment: AlignmentType.CENTER })]),
+                cell([para([run(s.ruangLingkup || "-", { size: 8.5 })])]),
+                cell([para([run(displayRisiko, { size: 8.5, bold: true, color: displayRisiko.includes("High") ? "EF4444" : "0F766E" })], { alignment: AlignmentType.CENTER })]),
+                cell([para([run(displayIzin, { size: 8.5 })], { alignment: AlignmentType.CENTER })]),
+                cell([para([run(displayJenisIzin, { size: 8.5 })], { alignment: AlignmentType.CENTER })]),
+              ]
+            }));
+          });
+        }
+
+        elements.push(new Table({
+          rows: scopeRows,
+          width: { size: 100, type: WidthType.PERCENTAGE }
+        }));
+      });
+      elements.push(para([], { spaceAfter: 200 }));
+    }
+
+    elements.push(new Paragraph({ children: [new PageBreak()] }));
+    elements.push(letterheadTable);
+    elements.push(para([], { spaceBefore: 200 }));
+
+    const conclusionHeaderTable = new Table({
+      rows: [
+        new TableRow({
+          children: [
+            cell([para([run("CONCLUSION OF ANALYSIS AND RECOMMENDATIONS", { bold: true, size: 10, color: "FFFFFF" })])], { fillColor: "0F3057" })
+          ]
+        })
+      ],
+      width: { size: 100, type: WidthType.PERCENTAGE }
+    });
+    elements.push(conclusionHeaderTable);
+    elements.push(para([], { spaceBefore: 150 }));
+
+    const conclusions = [
+      "Based on the analysis and mapping of KBLI 2020 to KBLI 2025, it is known that the Company's business activities may experience changes in KBLI codes, adjustments to classifications, changes in the scope of activities, or other changes in accordance with the provisions of KBLI 2025 and the applicable Risk-Based OSS.",
+      "This report is prepared to provide an overview of the alignment between the KBLI currently listed in the Company's Deed and/or AHU data and the classifications of business activities based on KBLI 2025, including information on the business scope, risk levels, and applicable business licensing in the Risk-Based OSS system.",
+      "Any KBLI 2020 codes listed in the Deed of Establishment, Deed of Amendments, or AHU data that are not included in this report can be considered unchanged or still usable under the provisions of KBLI 2025 at the time this report was prepared. Nevertheless, the Company is still advised to verify data on the OSS system to ensure compliance with actual business activities.",
+      "In adjusting business activities, the Company is advised to select the KBLI that best suits the actual business activities carried out. If a KBLI has more than one business scope in the OSS system, the selection of the business scope must be made carefully because each scope can have different risk levels and licensing requirements.",
+      "If the current KBLI 2020 is already registered and active on the Business Identification Number (NIB), we recommend that the Company first perform the KBLI conversion or adjustment process on the OSS system according to the applicable mechanism. This step aims to ensure that the business activity data in OSS remains aligned with KBLI 2025.",
+      "Furthermore, to maintain harmony between OSS data, AHU data, and the actual business activities, we recommend that the Company adjust its Articles of Association using the most appropriate KBLI 2025, especially if there are material changes in KBLI codes, business scopes, or classifications.",
+      "The Company is also advised to pay attention to the risk levels and licensing requirements applicable to each business scope. Changes in the business scope can lead to different risk levels and licensing obligations, even within the same KBLI code. Therefore, the KBLI adjustment process should be carried out by considering the actual business activities.",
+      "All information, analysis, and recommendations in this document are the result of tracking and mapping based on available data on the Risk-Based OSS system, KBLI 2025 references, and accessible information at the time of writing. If there are future changes in regulations, OSS systems, risk levels, business scopes, licensing requirements, or other policies, the analysis may be adjusted.",
+      "To obtain more complete, accurate, and up-to-date information, the Company is advised to consult directly with the Ministry of Investment and Downstream/BKPM, the OSS Call Center, or the relevant sector supervisory agency.",
+      "This report is informative and recommendatory, compiled as a reference for the Company's KBLI adjustment process. This document does not constitute a decision, approval, determination, or official opinion of the Ministry of Investment and Downstream/BKPM, OSS, or any other authorized government agency."
+    ];
+
+    conclusions.forEach(pText => {
+      elements.push(para([run(pText, { size: 8.5 })], { alignment: AlignmentType.BOTH, spaceAfter: 80 }));
+    });
+
+    elements.push(para([], { spaceBefore: 200 }));
+    const disclaimerTable = new Table({
+      rows: [
+        new TableRow({
+          children: [
+            new TableCell({
+              children: [
+                para([run("Notes: Data compiled based on oss.go.id, if there are discrepancies in the future due to new regulations, it is not the responsibility of the Notary Office.", { size: 8, italic: true, color: "64748B" })]),
+                para([run("Notaris/PPAT: Nukantini Putri Parincha, SH., M.Kn. — Komp. PPR-ITB Kav. F-5 Dago Giri, Lembang, Kab. Bandung Barat", { size: 7.5, color: "7C8BA1" })], { spaceBefore: 50 }),
+              ],
+              borders: {
+                top: { style: BorderStyle.SINGLE, size: 8, color: "CBD5E1" },
+                bottom: { style: BorderStyle.NONE, size: 0, color: "auto" },
+                left: { style: BorderStyle.NONE, size: 0, color: "auto" },
+                right: { style: BorderStyle.NONE, size: 0, color: "auto" },
+              },
+              width: { size: 100, type: WidthType.PERCENTAGE }
+            })
+          ]
+        })
+      ],
+      width: { size: 100, type: WidthType.PERCENTAGE }
+    });
+    elements.push(disclaimerTable);
+
+    const doc = new Document({
+      sections: [
+        {
+          properties: {
+            page: {
+              margin: { top: 1100, right: 1100, bottom: 1100, left: 1100 },
+            }
+          },
+          children: elements,
+        }
+      ]
+    });
+
+    const blob = await Packer.toBlob(doc);
+    const cleanPT = activeNamaPT.trim();
+    saveAs(blob, `KBLI Migration ${cleanPT}.docx`);
+  };
+
   const handlePrint = (lang: "id" | "en" = "id", customRecord?: any) => {
     const isEn = lang === "en";
+    if (isEn) {
+      handlePrintDocx(customRecord);
+      return;
+    }
     const activeNamaPT = customRecord ? (customRecord.nama || "") : namaPT;
     const activeKelompokUsaha = customRecord ? (customRecord.kelompokUsaha || "Mikro") : kelompokUsaha;
     const activeSelectedMappings = customRecord ? (customRecord.selectedItems || []) : selectedMappings;
@@ -1680,7 +2196,7 @@ const KBLIMapping: React.FC = () => {
                                 <button
                                   onClick={() => handlePrint("en", rec)}
                                   className="p-1 px-2.5 bg-slate-50 hover:bg-slate-100 text-slate-700 rounded-md text-xs font-bold transition-all border border-slate-200 flex items-center gap-1 cursor-pointer"
-                                  title="Cetak PDF (EN)"
+                                  title="Download DOCX (EN)"
                                 >
                                   <FileDown className="w-3.5 h-3.5" />
                                   EN
@@ -1932,15 +2448,15 @@ const KBLIMapping: React.FC = () => {
                   onChange={(e) => setPdfLang(e.target.value as "id" | "en")}
                   className="px-2 py-2 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-600 focus:outline-none cursor-pointer hover:border-slate-300 transition-colors shadow-sm"
                 >
-                  <option value="id">Bahasa Indonesia</option>
-                  <option value="en">English (PDF)</option>
+                  <option value="id">Bahasa Indonesia (PDF)</option>
+                  <option value="en">English (DOCX)</option>
                 </select>
                 <button
                   onClick={() => handlePrint(pdfLang)}
                   className="flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-lg text-sm font-bold transition-all border border-indigo-100 shadow-sm"
                 >
                   <FileDown className="w-4 h-4" />
-                  Cetak PDF
+                  {pdfLang === "id" ? "Cetak PDF" : "Download DOCX"}
                 </button>
               </div>
               <span className="bg-slate-100 px-2 py-1 rounded text-xs font-bold text-slate-500">
