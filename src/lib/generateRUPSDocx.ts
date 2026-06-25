@@ -81,10 +81,10 @@ const createP = (
 };
 
 /**
- * Paragraf khusus deskripsi KBLI — left=1417.
+ * Paragraf khusus deskripsi KBLI — left=851.
  */
 const createKbliDescP = (tokens: FormatToken[]): Paragraph => {
-  const lines = parseTextRuns(tokens, 34.5);
+  const lines = parseTextRuns(tokens, W.list3);
   const children: any[] = [];
 
   lines.forEach((lineTokens, i) => {
@@ -97,7 +97,7 @@ const createKbliDescP = (tokens: FormatToken[]): Paragraph => {
     children,
     tabStops: [TAB_KANAN],
     alignment: AlignmentType.LEFT,
-    indent: { left: 1417 },
+    indent: { left: 851 },
   });
 };
 

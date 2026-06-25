@@ -321,31 +321,49 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
         { text: `, Notaris di Kabupaten Bandung Barat, dengan di hadiri oleh saksi-saksi yang saya, Notaris kenal dan akan disebutkan nama-namanya pada bagian akhir akta ini :` },
       ],
     },
-
-    {
-      type: "list",
-      bullet: "-",
-      indentTabs: 0.5,
-      runs: [
-        { text: `${rep?.salutation || "Tuan"} ` },
-        { text: (() => {
-            let n = (rep?.name || "...").toUpperCase();
-            const s = `${(rep?.salutation || "Tuan").toUpperCase()} `;
-            if (n.startsWith(s)) n = n.substring(s.length);
-            return expandAbbreviations(n);
-          })(), bold: true },
-        {
-          text: expandAbbreviations(rep ? formatPersonDetails(rep, tglLahirRepAngka, tglLahirRepHuruf, true) : `, lahir di ..., pada tanggal ... (...), Warga Negara Indonesia, ..., bertempat tinggal di ..., ..., Rukun Tetangga ..., Rukun Warga ..., Kelurahan ..., Kecamatan ..., pemegang Kartu Tanda Penduduk Nomor ...;`),
-        },
-      ],
-    },
   );
+
+  const repBlock: Block = isCircular
+    ? {
+        type: "p",
+        runs: [
+          { text: `${rep?.salutation || "Tuan"} ` },
+          { text: (() => {
+              let n = (rep?.name || "...").toUpperCase();
+              const s = `${(rep?.salutation || "Tuan").toUpperCase()} `;
+              if (n.startsWith(s)) n = n.substring(s.length);
+              return expandAbbreviations(n);
+            })(), bold: true },
+          {
+            text: expandAbbreviations(rep ? formatPersonDetails(rep, tglLahirRepAngka, tglLahirRepHuruf, true) : `, lahir di ..., pada tanggal ... (...), Warga Negara Indonesia, ..., bertempat tinggal di ..., ..., Rukun Tetangga ..., Rukun Warga ..., Kelurahan ..., Kecamatan ..., pemegang Kartu Tanda Penduduk Nomor ...;`),
+          },
+        ],
+      }
+    : {
+        type: "list",
+        bullet: "-",
+        indentTabs: 0.5,
+        runs: [
+          { text: `${rep?.salutation || "Tuan"} ` },
+          { text: (() => {
+              let n = (rep?.name || "...").toUpperCase();
+              const s = `${(rep?.salutation || "Tuan").toUpperCase()} `;
+              if (n.startsWith(s)) n = n.substring(s.length);
+              return expandAbbreviations(n);
+            })(), bold: true },
+          {
+            text: expandAbbreviations(rep ? formatPersonDetails(rep, tglLahirRepAngka, tglLahirRepHuruf, true) : `, lahir di ..., pada tanggal ... (...), Warga Negara Indonesia, ..., bertempat tinggal di ..., ..., Rukun Tetangga ..., Rukun Warga ..., Kelurahan ..., Kecamatan ..., pemegang Kartu Tanda Penduduk Nomor ...;`),
+          },
+        ],
+      };
+
+  blocks.push(repBlock);
 
   if (rep?.address?.city?.toUpperCase() !== "KABUPATEN BANDUNG BARAT" && toTitleCase(rep?.address?.city || "").toUpperCase() !== "KABUPATEN BANDUNG BARAT") {
     blocks.push({
       type: "list",
       bullet: "-",
-      indentTabs: 1.5,
+      indentTabs: 0.5,
       runs: [
         {
           text: `Untuk sementara berada di ${toTitleCase(data.notaryDomicile || "Kabupaten Bandung Barat")};`,

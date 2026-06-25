@@ -588,13 +588,55 @@ const KBLIMapping: React.FC = () => {
       allData.filter((item) => matchingKodes.has(item.kbli_2020.kode)),
     );
 
-    setResults(fullGroupedResults);
+    // Look for matches in kbli2025Data
+    const kbli2025List = ((kbli2025Data as any).data || []) as {
+      kode: string;
+      judul: string;
+      uraian?: string;
+      level?: string;
+    }[];
+
+    const matching2025 = kbli2025List.filter(
+      (k) =>
+        k.kode === searchTerm ||
+        k.kode.includes(searchTerm) ||
+        k.judul.toLowerCase().includes(searchTerm.toLowerCase()),
+    );
+
+    const syntheticItems: KBLIMappingItem[] = [];
+    matching2025.forEach((k) => {
+      // Check if this code is already represented in fullGroupedResults as kbli_2020.kode
+      const alreadyHas = fullGroupedResults.some(
+        (item) => item.kbli_2020.kode === k.kode,
+      );
+      if (!alreadyHas) {
+        syntheticItems.push({
+          kbli_2020: {
+            kode: k.kode,
+            judul: k.judul,
+            uraian: k.uraian,
+          },
+          kbli_2025: {
+            kode: k.kode,
+            judul: k.judul,
+            uraian: k.uraian,
+          },
+          jenis_perubahan: "KBLI tidak berubah",
+        });
+      }
+    });
+
+    const finalResults = [...fullGroupedResults, ...syntheticItems];
+    setResults(finalResults);
     setHasSearched(true);
   };
 
   const addMappingGroup = async (kode2020: string) => {
     const allData = (mappingData as any).data as KBLIMappingItem[];
-    const group = allData.filter((item) => item.kbli_2020.kode === kode2020);
+    let group = allData.filter((item) => item.kbli_2020.kode === kode2020);
+    if (group.length === 0) {
+      group = results.filter((item) => item.kbli_2020.kode === kode2020);
+    }
     const expandedGroup = expandKblis(group);
 
     const newItemsToProcess = expandedGroup.filter(
@@ -981,7 +1023,7 @@ const KBLIMapping: React.FC = () => {
 
     activeSelectedMappings.forEach(m => {
       const p = m.jenis_perubahan?.toLowerCase() || "";
-      if (p.includes("recoding") || p.includes("tetap") || p.includes("pindah")) countRecoding++;
+      if (p.includes("recoding") || p.includes("tetap") || p.includes("pindah") || p.includes("tidak berubah")) countRecoding++;
       else if (p.includes("pecah")) countPecah++;
       else if (p.includes("gabung")) countGabung++;
       else if (p.includes("lebur")) countLebur++;
@@ -1128,6 +1170,7 @@ const KBLIMapping: React.FC = () => {
       else if (jpLower.includes("gabung")) keterangan = "Two or more old codes merged into one new KBLI 2025 code.";
       else if (jpLower.includes("lebur")) keterangan = "Scope expanded or merged into a single new code.";
       else if (jpLower.includes("recoding") || jpLower.includes("pindah")) keterangan = "Code changes due to adjustments in KBLI structure.";
+      else if (jpLower.includes("tidak berubah")) keterangan = "No changes to the KBLI code and title.";
       
       let k25Kode = item.kbli_2025?.kode || "-";
       let k25Judul = item.kbli_2025?.judul || "-";
@@ -1138,6 +1181,7 @@ const KBLIMapping: React.FC = () => {
 
       let jpColor = "0E766E";
       if (jpLower.includes("pecah")) jpColor = "EF4444";
+      else if (jpLower.includes("tidak berubah")) jpColor = "10B981";
       else if (jpLower.includes("gabung")) jpColor = "22C55E";
       else if (jpLower.includes("lebur")) jpColor = "F59E0B";
 
@@ -1566,7 +1610,7 @@ const KBLIMapping: React.FC = () => {
     
     activeSelectedMappings.forEach(m => {
       const p = m.jenis_perubahan?.toLowerCase() || "";
-      if (p.includes("recoding") || p.includes("tetap") || p.includes("pindah")) countRecoding++;
+      if (p.includes("recoding") || p.includes("tetap") || p.includes("pindah") || p.includes("tidak berubah")) countRecoding++;
       else if (p.includes("pecah")) countPecah++;
       else if (p.includes("gabung")) countGabung++;
       else if (p.includes("lebur")) countLebur++;
@@ -1712,6 +1756,7 @@ const KBLIMapping: React.FC = () => {
         else if (jpLower.includes("gabung")) keterangan = "Dua atau lebih kode lama menjadi satu kode baru pada KBLI 2025.";
         else if (jpLower.includes("lebur")) keterangan = "Ruang lingkup diperluas/peleburan cakupan menjadi satu kode baru.";
         else if (jpLower.includes("recoding") || jpLower.includes("pindah")) keterangan = "Perubahan kode akibat penyesuaian struktur KBLI.";
+        else if (jpLower.includes("tidak berubah")) keterangan = "Tidak ada perubahan pada kode dan judul KBLI.";
         
         let k25Kode = item.kbli_2025?.kode || "-";
         let k25Judul = item.kbli_2025?.judul || "-";
@@ -1726,14 +1771,14 @@ const KBLIMapping: React.FC = () => {
             { content: kbli2020.judul, rowSpan: items.length, styles: { valign: "middle", textColor: [15, 48, 87] } },
             { content: k25Kode, styles: { fontStyle: "bold", textColor: [15, 118, 110] } },
             { content: k25Judul, styles: { textColor: [15, 118, 110] } },
-            { content: jp, styles: { fontStyle: "bold", textColor: jpLower.includes("pecah") ? [239,68,68] : jpLower.includes("gabung") ? [34,197,94] : jpLower.includes("lebur") ? [245,158,11] : [14,165,233] } },
+            { content: jp, styles: { fontStyle: "bold", textColor: jpLower.includes("pecah") ? [239,68,68] : jpLower.includes("tidak berubah") ? [16,185,129] : jpLower.includes("gabung") ? [34,197,94] : jpLower.includes("lebur") ? [245,158,11] : [14,165,233] } },
             { content: keterangan }
           ]);
         } else {
           summaryRows.push([
             { content: k25Kode, styles: { fontStyle: "bold", textColor: [15, 118, 110] } },
             { content: k25Judul, styles: { textColor: [15, 118, 110] } },
-            { content: jp, styles: { fontStyle: "bold", textColor: jpLower.includes("pecah") ? [239,68,68] : jpLower.includes("gabung") ? [34,197,94] : jpLower.includes("lebur") ? [245,158,11] : [14,165,233] } },
+            { content: jp, styles: { fontStyle: "bold", textColor: jpLower.includes("pecah") ? [239,68,68] : jpLower.includes("tidak berubah") ? [16,185,129] : jpLower.includes("gabung") ? [34,197,94] : jpLower.includes("lebur") ? [245,158,11] : [14,165,233] } },
             { content: keterangan }
           ]);
         }
@@ -2361,7 +2406,11 @@ const KBLIMapping: React.FC = () => {
                   >
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">
-                        <span className="text-[10px] font-bold text-blue-600 uppercase tracking-widest bg-blue-50 px-2 py-0.5 rounded border border-blue-100 flex items-center gap-1.5">
+                        <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded border flex items-center gap-1.5 ${
+                          items[0].jenis_perubahan === "KBLI tidak berubah"
+                            ? "text-emerald-600 bg-emerald-50 border-emerald-100"
+                            : "text-blue-600 bg-blue-50 border-blue-100"
+                        }`}>
                           <Info className="w-3 h-3" />{" "}
                           {items[0].jenis_perubahan}
                         </span>
@@ -2497,7 +2546,11 @@ const KBLIMapping: React.FC = () => {
                     </span>
                   </div>
                   <div className="flex items-center gap-4">
-                    <div className="bg-indigo-50 px-3 py-1 rounded text-[11px] font-bold text-indigo-600 text-center whitespace-nowrap hidden md:block border border-indigo-100 shadow-sm">
+                    <div className={`px-3 py-1 rounded text-[11px] font-bold text-center whitespace-nowrap hidden md:block border shadow-sm ${
+                      items[0].jenis_perubahan === "KBLI tidak berubah"
+                        ? "text-emerald-600 bg-emerald-50 border-emerald-100"
+                        : "text-indigo-600 bg-indigo-50 border-indigo-100"
+                    }`}>
                       {items[0].jenis_perubahan}
                     </div>
                     <button
