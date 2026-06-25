@@ -20,12 +20,12 @@ export type Block =
   | { type: 'br' }
   | { type: 'divider'; text: string }
   | { type: 'pasal-divider'; text: string }
-  | { type: 'numbered'; num: number | string; runs: Run[] }
+  | { type: 'numbered'; num: number | string; runs: Run[]; indentTabs?: number }
   | { type: 'sub-numbered'; num: number | string; runs: Run[]; indentTabs?: number }
   | { type: 'list'; bullet: string; runs: Run[]; indentTabs?: number }
   | { type: 'saksi'; num: number | string; runs: Run[] }
   | { type: 'shareholder'; name: string; sharesText: string; rpText: string; bullet?: string }
-  | { type: 'management-role'; position: string; nameText: string };
+  | { type: 'management-role'; position: string; salutation: string; name: string };
 
 export interface Address {
   fullAddress?: string;
@@ -567,7 +567,7 @@ export function generatePendirianBlocks(data: PendirianData): Block[] {
   const totNominal = tSaham * data.nilaiPerLembar;
   blocks.push(
     {
-      type: "p", indentTabs: 1,
+      type: "p", indentTabs: 0.5,
       runs: [{
         text: `Sehingga seluruhnya berjumlah ${formatNumber(tSaham)} (${terbilang(tSaham)}) lembar saham, dengan nilai nominal seluruhnya sebesar Rp. ${formatNumber(totNominal)},- (${terbilang(totNominal)} rupiah).`
       }],
@@ -580,27 +580,38 @@ export function generatePendirianBlocks(data: PendirianData): Block[] {
     },
   );
 
+  const getManagementRank = (pos: string) => {
+    const p = pos.toLowerCase();
+    if (p.includes("utama")) return 1;
+    if (p.includes("wakil")) return 2;
+    return 3;
+  };
+
   // Management list – Direksi
-  blocks.push({ type: "numbered", num: 1, runs: [{ text: "Anggota Direksi :" }] });
+  blocks.push({ type: "numbered", num: 1, indentTabs: 1, runs: [{ text: "Anggota Direksi :" }] });
   shareholders
     .filter((p) => p.isManagement && String(p.managementPosition || "").includes("Direktur"))
+    .sort((a, b) => getManagementRank(a.managementPosition || "") - getManagementRank(b.managementPosition || ""))
     .forEach((p) => {
       blocks.push({
         type: "management-role",
         position: p.managementPosition || "Direktur",
-        nameText: `${p.salutation} ${p.name}, tersebut di atas`,
+        salutation: p.salutation || "",
+        name: p.name.toUpperCase(),
       });
     });
 
   // Management list – Komisaris
-  blocks.push({ type: "numbered", num: 2, runs: [{ text: "Anggota Komisaris :" }] });
+  blocks.push({ type: "numbered", num: 2, indentTabs: 1, runs: [{ text: "Anggota Komisaris :" }] });
   shareholders
     .filter((p) => p.isManagement && String(p.managementPosition || "").includes("Komisaris"))
+    .sort((a, b) => getManagementRank(a.managementPosition || "") - getManagementRank(b.managementPosition || ""))
     .forEach((p) => {
       blocks.push({
         type: "management-role",
         position: p.managementPosition || "Komisaris",
-        nameText: `${p.salutation} ${p.name}, tersebut di atas`,
+        salutation: p.salutation || "",
+        name: p.name.toUpperCase(),
       });
     });
 

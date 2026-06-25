@@ -133,7 +133,12 @@ export default function PendirianDocumentPreview({ data, onExport, onClose, isEx
                     runs = [{ text: `${block.bullet} `, bold: false }, ...block.runs];
                     indentTabs = block.indentTabs || 1;
                   } else if (block.type === 'management-role') {
-                    runs = [{ text: block.position, bold: false }, { text: ` : ${block.nameText}`, bold: false }];
+                    runs = [
+                      { text: `${block.position} : `, bold: false },
+                      { text: block.salutation ? `${block.salutation} ` : '', bold: false },
+                      { text: block.name, bold: true },
+                      { text: ', tersebut di atas;', bold: false }
+                    ];
                   } else if (block.type === 'shareholder') {
                     runs = [{ text: `- ${block.name} : ${block.sharesText}`, bold: false }];
                   } else if (block.type === 'saksi') {

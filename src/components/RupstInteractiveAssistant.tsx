@@ -61,6 +61,10 @@ export const RupstInteractiveAssistant: React.FC<RupstInteractiveAssistantProps>
   const setCurrentStep = setExternalStep !== undefined ? setExternalStep : setInternalStep;
   const [mascotState, setMascotState] = useState<'welcome' | 'happy' | 'thinking' | 'warning' | 'done'>('welcome');
 
+  const activeSteps = data.rupstType === 'sirkuler' ? [1, 2, 3, 4, 5, 9, 10, 11] : [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+  const displayStepIndex = activeSteps.includes(currentStep) ? activeSteps.indexOf(currentStep) + 1 : 1;
+  const totalStepsCount = activeSteps.length;
+
   const totalSteps = 11;
 
   // Let's calculate shareholder metrics
@@ -111,14 +115,16 @@ export const RupstInteractiveAssistant: React.FC<RupstInteractiveAssistantProps>
   }, [currentStep, data.companyName, data.originalSharePrice, data.originalAuthorizedShares, isSharesMismatched, totalSharesInputted, data.meetingChair]);
 
   const handleNext = () => {
-    if (currentStep < totalSteps) {
-      setCurrentStep(prev => prev + 1);
+    const idx = activeSteps.indexOf(currentStep);
+    if (idx !== -1 && idx < activeSteps.length - 1) {
+      setCurrentStep(activeSteps[idx + 1]);
     }
   };
 
   const handlePrev = () => {
-    if (currentStep > 1) {
-      setCurrentStep(prev => prev - 1);
+    const idx = activeSteps.indexOf(currentStep);
+    if (idx !== -1 && idx > 0) {
+      setCurrentStep(activeSteps[idx - 1]);
     }
   };
 
@@ -277,16 +283,16 @@ export const RupstInteractiveAssistant: React.FC<RupstInteractiveAssistantProps>
         <div className="mb-6 px-1">
           <div className="flex justify-between items-center mb-1.5">
             <span className="text-[11px] font-bold text-[#3b5998] uppercase tracking-wider flex items-center gap-1">
-              <Sparkles size={12} className="text-yellow-500 animate-spin" /> Langkah {currentStep} <span className="hidden sm:inline">dari {totalSteps}</span>
+              <Sparkles size={12} className="text-yellow-500 animate-spin" /> Langkah {displayStepIndex} <span className="hidden sm:inline">dari {totalStepsCount}</span>
             </span>
             <span className="text-[11px] font-bold text-slate-500">
-              {Math.floor((currentStep / totalSteps) * 100)}% <span className="hidden sm:inline">Selesai</span>
+              {Math.floor((displayStepIndex / totalStepsCount) * 100)}% <span className="hidden sm:inline">Selesai</span>
             </span>
           </div>
           <div className="w-full bg-slate-200 h-2.5 rounded-full overflow-hidden border border-slate-100 shadow-inner">
             <div 
               className="bg-gradient-to-r from-blue-500 to-[#3b5998] h-full transition-all duration-300 rounded-full"
-              style={{ width: `${(currentStep / totalSteps) * 100}%` }}
+              style={{ width: `${(displayStepIndex / totalStepsCount) * 100}%` }}
             />
           </div>
         </div>
@@ -313,6 +319,24 @@ export const RupstInteractiveAssistant: React.FC<RupstInteractiveAssistantProps>
                 </div>
                 
                 <div className="space-y-3">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">Bentuk Keputusan / RUPST <span className="text-red-500">*</span></label>
+                    <select
+                      className="w-full border border-slate-300 rounded px-3 py-2 text-[12px] font-bold focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none bg-white text-slate-800"
+                      value={data.rupstType || 'rapat'}
+                      onChange={e => {
+                        const val = e.target.value;
+                        updateData({ rupstType: val });
+                        if (val === 'sirkuler' && ((currentStep as number) === 6 || (currentStep as number) === 7 || (currentStep as number) === 8)) {
+                          setCurrentStep(5);
+                        }
+                      }}
+                    >
+                      <option value="rapat">Rapat Umum Pemegang Saham Tahunan (RUPST Biasa / Fisik / Hibrid)</option>
+                      <option value="sirkuler">Keputusan Para Pemegang Saham Sebagai Pengganti RUPST (Sirkuler / Pasal 91 UU PT)</option>
+                    </select>
+                  </div>
+
                   <div>
                     <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">Nama PT (Perseroan) <span className="text-red-500">*</span></label>
                     <input 
@@ -1566,55 +1590,74 @@ export const RupstInteractiveAssistant: React.FC<RupstInteractiveAssistantProps>
               <div className="space-y-4">
                 <div className="flex items-center gap-2 border-b border-slate-100 pb-2 mb-2">
                   <Calendar className="text-[#3b5998] w-4.5 h-4.5" />
-                  <h4 className="font-bold text-[13px] text-slate-800 uppercase">Detail Penyelenggaraan Rapat</h4>
+                  <h4 className="font-bold text-[13px] text-slate-800 uppercase">
+                    {data.rupstType === 'sirkuler' ? 'Tanggal Keputusan Sirkuler' : 'Detail Penyelenggaraan Rapat'}
+                  </h4>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-3">
+                {data.rupstType === 'sirkuler' ? (
+                  <div className="max-w-md space-y-3">
                     <div>
-                      <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">Tanggal Rapat <span className="text-red-500">*</span></label>
+                      <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">Tanggal Keputusan Sirkuler <span className="text-red-500">*</span></label>
                       <input 
                         type="date"
                         className="w-full border border-slate-300 rounded px-3 py-1.5 text-[12px] focus:border-blue-500 font-bold"
                         value={data.signingDate || ''}
                         onChange={e => updateData({ signingDate: e.target.value })}
                       />
+                      <p className="text-[10px] text-slate-400 mt-1">
+                        Tanggal keputusan ini adalah tanggal di mana keputusan sirkuler ditandatangani oleh seluruh pemegang saham secara bulat.
+                      </p>
                     </div>
-
-                    <div className="grid grid-cols-2 gap-2">
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-3">
                       <div>
-                        <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">Jam Mulai <span className="text-red-500">*</span></label>
+                        <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">Tanggal Rapat <span className="text-red-500">*</span></label>
                         <input 
-                          type="time"
+                          type="date"
                           className="w-full border border-slate-300 rounded px-3 py-1.5 text-[12px] focus:border-blue-500 font-bold"
-                          value={data.meetingStartTime || ''}
-                          onChange={e => updateData({ meetingStartTime: e.target.value })}
+                          value={data.signingDate || ''}
+                          onChange={e => updateData({ signingDate: e.target.value })}
                         />
                       </div>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">Jam Mulai <span className="text-red-500">*</span></label>
+                          <input 
+                            type="time"
+                            className="w-full border border-slate-300 rounded px-3 py-1.5 text-[12px] focus:border-blue-500 font-bold"
+                            value={data.meetingStartTime || ''}
+                            onChange={e => updateData({ meetingStartTime: e.target.value })}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">Jam Selesai <span className="text-red-500">*</span></label>
+                          <input 
+                            type="time"
+                            className="w-full border border-slate-300 rounded px-3 py-1.5 text-[12px] focus:border-blue-500 font-bold"
+                            value={data.rupstMeetingEndTime || ''}
+                            onChange={e => updateData({ rupstMeetingEndTime: e.target.value })}
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
                       <div>
-                        <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">Jam Selesai <span className="text-red-500">*</span></label>
-                        <input 
-                          type="time"
-                          className="w-full border border-slate-300 rounded px-3 py-1.5 text-[12px] focus:border-blue-500 font-bold"
-                          value={data.rupstMeetingEndTime || ''}
-                          onChange={e => updateData({ rupstMeetingEndTime: e.target.value })}
+                        <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">Tempat Penyelenggaraan Rapat <span className="text-red-500">*</span></label>
+                        <textarea 
+                          className="w-full border border-slate-300 rounded px-3 py-2 text-[12px] focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none min-h-[100px]"
+                          placeholder="Contoh: Kantor Perseroan, Jalan Asia Afrika No. 123, Bandung"
+                          value={data.signingPlace || ''}
+                          onChange={e => updateData({ signingPlace: e.target.value })}
                         />
                       </div>
                     </div>
                   </div>
-
-                  <div className="space-y-3">
-                    <div>
-                      <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">Tempat Penyelenggaraan Rapat <span className="text-red-500">*</span></label>
-                      <textarea 
-                        className="w-full border border-slate-300 rounded px-3 py-2 text-[12px] focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none min-h-[100px]"
-                        placeholder="Contoh: Kantor Perseroan, Jalan Asia Afrika No. 123, Bandung"
-                        value={data.signingPlace || ''}
-                        onChange={e => updateData({ signingPlace: e.target.value })}
-                      />
-                    </div>
-                  </div>
-                </div>
+                )}
               </div>
             )}
 
@@ -1637,17 +1680,17 @@ export const RupstInteractiveAssistant: React.FC<RupstInteractiveAssistantProps>
           </button>
           
           <div className="hidden sm:block text-[11px] text-slate-400 font-bold uppercase tracking-widest">
-            PROGRES: {currentStep} / {totalSteps}
+            PROGRES: {displayStepIndex} / {totalStepsCount}
           </div>
           <div className="sm:hidden text-[10px] text-slate-400 font-bold uppercase tracking-widest -mt-2">
-            Langkah {currentStep} dari {totalSteps}
+            Langkah {displayStepIndex} dari {totalStepsCount}
           </div>
  
           <button
             type="button"
-            onClick={currentStep === totalSteps ? undefined : handleNext}
+            onClick={currentStep === 11 ? undefined : handleNext}
             className={`w-full sm:w-auto px-8 py-2.5 text-[12px] font-black rounded-md flex items-center justify-center gap-1 transition-all active:scale-95 shadow-sm ${
-              currentStep === totalSteps
+              currentStep === 11
                 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 cursor-default font-extrabold'
                 : 'bg-blue-600 text-white hover:bg-blue-700 shadow-blue-200'
             }`}

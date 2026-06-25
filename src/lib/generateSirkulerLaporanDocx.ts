@@ -13,7 +13,9 @@ import {
   TableRow,
   TableCell,
   WidthType,
-  BorderStyle
+  BorderStyle,
+  UnderlineType,
+  Header
 } from "docx";
 import { saveAs } from "file-saver";
 import { CompanyData } from "../../types";
@@ -41,7 +43,10 @@ const createDocxRun = (runs: { text: string; bold?: boolean; underline?: boolean
   );
 };
 
-export const generateSirkulerLaporanDocx = async (data: CompanyData) => {
+export const generateSirkulerLaporanDocx = async (data: CompanyData, returnBlob?: boolean) => {
+  let ptName = data.companyName ? data.companyName.trim().toUpperCase() : "PT";
+  if (!ptName.startsWith("PT")) ptName = `PT ${ptName}`;
+
   const rawBlocks = generateSirkulerLaporanBlocks(data);
   const blocks = preprocessBlocksForWordBullets(rawBlocks);
   const elements: any[] = [];
@@ -112,83 +117,27 @@ export const generateSirkulerLaporanDocx = async (data: CompanyData) => {
         })
       );
     } else if (block.type === "signatures") {
-      const cells = block.shareholders.map(sh => (
-        new TableCell({
-          borders: {
-            top: { style: BorderStyle.NONE, size: 0, color: "auto" },
-            bottom: { style: BorderStyle.NONE, size: 0, color: "auto" },
-            left: { style: BorderStyle.NONE, size: 0, color: "auto" },
-            right: { style: BorderStyle.NONE, size: 0, color: "auto" },
-          },
-          children: [
-            new Paragraph({
-              children: [new TextRun({ text: sh.name.toUpperCase(), bold: true, underline: {}, font: FONT_FAMILY, size: FONT_SIZE })],
-              alignment: AlignmentType.CENTER,
-            })
-          ],
-          width: { size: 100 / block.shareholders.length, type: WidthType.PERCENTAGE },
-        })
-      ));
-
-      // Put them into rows of 2 (if there are more than 2, it splits naturally ok, but we map simple table for all in one row here. 
-      // If there are many we should wrap.
-      const rows = [];
-      let currentRow = [];
-      for (let i = 0; i < cells.length; i++) {
-        currentRow.push(cells[i]);
-        if (currentRow.length === 2 || i === cells.length - 1) {
-          if (currentRow.length < 2) {
-             currentRow.push(new TableCell({
-                 borders: {
-                  top: { style: BorderStyle.NONE, size: 0, color: "auto" },
-                  bottom: { style: BorderStyle.NONE, size: 0, color: "auto" },
-                  left: { style: BorderStyle.NONE, size: 0, color: "auto" },
-                  right: { style: BorderStyle.NONE, size: 0, color: "auto" },
-                },
-                children: [new Paragraph({text: ""})],
-                width: { size: 50, type: WidthType.PERCENTAGE }
-             }));
-          }
-          rows.push(new TableRow({ children: currentRow }));
-          // Add spacing rows between lines of sigs
-          if (i < cells.length - 1) {
-            const spacerRow = new TableRow({
-              children: [
-                new TableCell({
-                  borders: {
-                    top: { style: BorderStyle.NONE, size: 0, color: "auto" },
-                    bottom: { style: BorderStyle.NONE, size: 0, color: "auto" },
-                    left: { style: BorderStyle.NONE, size: 0, color: "auto" },
-                    right: { style: BorderStyle.NONE, size: 0, color: "auto" },
-                  },
-                  children: [
-                    new Paragraph({text: "", spacing: {before: 1000, after: 1000}})
-                  ],
-                  width: {size: 100, type: WidthType.PERCENTAGE},
-                  columnSpan: 2
-                })
-              ]
-            });
-            rows.push(spacerRow);
-          }
-          currentRow = [];
-        }
-      }
-
-      elements.push(
-        new Table({
-          rows: rows,
-          width: { size: 100, type: WidthType.PERCENTAGE },
-          borders: {
-            top: { style: BorderStyle.NONE, size: 0, color: "auto" },
-            bottom: { style: BorderStyle.NONE, size: 0, color: "auto" },
-            left: { style: BorderStyle.NONE, size: 0, color: "auto" },
-            right: { style: BorderStyle.NONE, size: 0, color: "auto" },
-            insideHorizontal: { style: BorderStyle.NONE, size: 0, color: "auto" },
-            insideVertical: { style: BorderStyle.NONE, size: 0, color: "auto" },
-          },
-        })
-      )
+      block.shareholders.forEach((sh: any) => {
+        elements.push(
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: sh.name.toUpperCase(),
+                bold: true,
+                underline: { type: UnderlineType.SINGLE },
+                font: FONT_FAMILY,
+                size: FONT_SIZE,
+              }),
+            ],
+            alignment: AlignmentType.LEFT,
+            spacing: { before: 1000 },
+          }),
+          new Paragraph({
+            children: [new TextRun({ text: "Tanggal :", font: FONT_FAMILY, size: FONT_SIZE })],
+            alignment: AlignmentType.LEFT,
+          })
+        );
+      });
     }
   }
 
@@ -207,8 +156,26 @@ export const generateSirkulerLaporanDocx = async (data: CompanyData) => {
       {
         properties: {
           page: {
-            margin: { top: 1440, right: 1440, bottom: 1440, left: 1440 },
+            margin: { top: 720, right: 1440, bottom: 1440, left: 1440 },
           },
+        },
+        headers: {
+          default: new Header({
+            children: [
+              new Paragraph({
+                children: [
+                  new TextRun({
+                    text: "KOP SURAT PT",
+                    bold: true,
+                    size: 32,
+                    color: "FF0000",
+                    font: FONT_FAMILY,
+                  }),
+                ],
+                alignment: AlignmentType.CENTER,
+              }),
+            ],
+          }),
         },
         children: elements,
       },
@@ -216,7 +183,9 @@ export const generateSirkulerLaporanDocx = async (data: CompanyData) => {
   });
 
   const blob = await Packer.toBlob(doc);
-  let ptName = data.companyName ? data.companyName.trim().toUpperCase() : "PT";
-  if (!ptName.startsWith("PT")) ptName = `PT ${ptName}`;
-  saveAs(blob, `Keputusan_Sirkuler_${ptName}.docx`);
+  const filename = `Keputusan_Sirkuler_${ptName}.docx`;
+  if (returnBlob) {
+    return { blob, filename };
+  }
+  saveAs(blob, filename);
 };

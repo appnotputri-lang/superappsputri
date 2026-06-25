@@ -134,8 +134,13 @@ export const RupstPublicWizard = ({ data, updateData, isSaving, handleSave, goBa
 
     const handleDownloadNotulen = async () => {
         try {
-            const { generateRUPSTDocx } = await import('../lib/generateRUPSTDocx');
-            await generateRUPSTDocx(data);
+            if (data.rupstType === 'sirkuler') {
+                const { generateSirkulerLaporanDocx } = await import('../lib/generateSirkulerLaporanDocx');
+                await generateSirkulerLaporanDocx(data);
+            } else {
+                const { generateRUPSTDocx } = await import('../lib/generateRUPSTDocx');
+                await generateRUPSTDocx(data);
+            }
         } catch (err) {
             console.error(err);
             alert('Gagal menghasilkan RUPST DOCX.');
@@ -203,9 +208,19 @@ export const RupstPublicWizard = ({ data, updateData, isSaving, handleSave, goBa
                         <>
                             <h3 className="text-[10px] font-bold text-slate-400 tracking-wider uppercase mb-2">DAFTAR LANGKAH</h3>
                             <div className="space-y-0.5">
-                                {STEPS.map((step) => {
+                                {STEPS.filter(step => {
+                                    if (data.rupstType === 'sirkuler') {
+                                        return step.id !== 6 && step.id !== 7 && step.id !== 8;
+                                    }
+                                    return true;
+                                }).map((step, idx) => {
                                     const isPast = step.id < currentStep;
                                     const isCurrent = step.id === currentStep;
+                                    let displayTitle = step.title;
+                                    if (data.rupstType === 'sirkuler') {
+                                        if (step.id === 5) displayTitle = "Pemegang Saham";
+                                        if (step.id === 11) displayTitle = "Tanggal Keputusan";
+                                    }
                                     return (
                                         <button
                                             key={step.id}
@@ -218,9 +233,9 @@ export const RupstPublicWizard = ({ data, updateData, isSaving, handleSave, goBa
                                                 isCurrent ? 'bg-blue-600 text-white border-blue-600' :
                                                 isPast ? 'bg-slate-100 text-slate-500 border-slate-200' : 'bg-white text-slate-400 border-slate-200'
                                             }`}>
-                                                {step.id}
+                                                {idx + 1}
                                             </div>
-                                            <span className="text-[12px] truncate">{step.title}</span>
+                                            <span className="text-[12px] truncate">{displayTitle}</span>
                                         </button>
                                     );
                                 })}
@@ -311,25 +326,80 @@ export const RupstPublicWizard = ({ data, updateData, isSaving, handleSave, goBa
                                 >
                                     <div className="p-8 flex-1 relative flex flex-col justify-center min-h-[400px]">
                                         <div className="absolute inset-0 z-0 bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:16px_16px] opacity-20"></div>
-                                        <div className="z-10 max-w-md">
+                                        <div className="z-10 max-w-xl">
                                             <h1 className="text-3xl font-extrabold text-slate-800 tracking-tight leading-tight mb-2">Memulai RUPST Public</h1>
                                             <p className="text-[13px] text-slate-600 mb-6 leading-relaxed">
                                                 Layanan pembuatan Notulen Rapat Umum Pemegang Saham Tahunan (RUPST) mandiri tanpa login. Hasil input data aman dan dapat langsung diekspor ke Microsoft Word (.docx).
                                             </p>
                                             
-                                            <div className="space-y-4 mb-6">
-                                                <div className="flex gap-3">
-                                                    <div className="w-8 h-8 rounded-md bg-blue-50 border border-blue-100 flex items-center justify-center shrink-0 text-blue-600 font-bold text-[12px]">✓</div>
-                                                    <div>
-                                                        <h4 className="font-bold text-[13px] text-slate-800 leading-none">Format Input Sama dengan Versi Login</h4>
-                                                        <p className="text-[11px] text-slate-500 mt-1">Dapat diinput via Asisten Interaktif ataupun pengisian Formulir Lengkap sekaligus.</p>
+                                            <div className="mb-6">
+                                                <label className="block text-[11px] font-bold text-slate-700 uppercase mb-2">Pilih Bentuk Keputusan / RUPST :</label>
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                    <div 
+                                                        onClick={() => updateData({ rupstType: 'rapat' })}
+                                                        className={`cursor-pointer p-4 rounded border text-left transition-all flex flex-col justify-between ${
+                                                            (data.rupstType || 'rapat') === 'rapat' 
+                                                                ? 'border-blue-600 bg-blue-50/50 ring-2 ring-blue-600/20' 
+                                                                : 'border-slate-200 hover:border-slate-300 bg-white'
+                                                        }`}
+                                                    >
+                                                        <div>
+                                                            <h4 className="font-bold text-[13px] text-slate-800 flex items-center gap-1.5">
+                                                                RUPST Rapat Biasa
+                                                            </h4>
+                                                            <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
+                                                                Draft Notulen Rapat Umum Pemegang Saham Tahunan dengan kehadiran fisik atau hibrid.
+                                                            </p>
+                                                        </div>
+                                                        <div className="flex justify-end mt-3">
+                                                            <span className={`w-4 h-4 rounded-full border flex items-center justify-center ${
+                                                                (data.rupstType || 'rapat') === 'rapat' ? 'border-blue-600 bg-blue-600 text-white' : 'border-slate-300'
+                                                            }`}>
+                                                                {(data.rupstType || 'rapat') === 'rapat' && <span className="w-1.5 h-1.5 bg-white rounded-full"></span>}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+
+                                                    <div 
+                                                        onClick={() => updateData({ rupstType: 'sirkuler' })}
+                                                        className={`cursor-pointer p-4 rounded border text-left transition-all flex flex-col justify-between ${
+                                                            data.rupstType === 'sirkuler' 
+                                                                ? 'border-blue-600 bg-blue-50/50 ring-2 ring-blue-600/20' 
+                                                                : 'border-slate-200 hover:border-slate-300 bg-white'
+                                                        }`}
+                                                    >
+                                                        <div>
+                                                            <h4 className="font-bold text-[13px] text-slate-800 flex items-center gap-1.5">
+                                                                RUPST Sirkuler (Pasal 91)
+                                                            </h4>
+                                                            <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
+                                                                Keputusan Para Pemegang Saham sebagai pengganti RUPST tertulis tanpa rapat fisik.
+                                                            </p>
+                                                        </div>
+                                                        <div className="flex justify-end mt-3">
+                                                            <span className={`w-4 h-4 rounded-full border flex items-center justify-center ${
+                                                                data.rupstType === 'sirkuler' ? 'border-blue-600 bg-blue-600 text-white' : 'border-slate-300'
+                                                            }`}>
+                                                                {data.rupstType === 'sirkuler' && <span className="w-1.5 h-1.5 bg-white rounded-full"></span>}
+                                                            </span>
+                                                        </div>
                                                     </div>
                                                 </div>
-                                                <div className="flex gap-3">
-                                                    <div className="w-8 h-8 rounded-md bg-emerald-50 border border-emerald-100 flex items-center justify-center shrink-0 text-emerald-600 font-bold text-[12px]">✓</div>
+                                            </div>
+
+                                            <div className="space-y-3 mb-6">
+                                                <div className="flex gap-2.5 items-start">
+                                                    <div className="w-5 h-5 rounded-md bg-blue-50 border border-blue-100 flex items-center justify-center shrink-0 text-blue-600 font-bold text-[11px]">✓</div>
                                                     <div>
-                                                        <h4 className="font-bold text-[13px] text-slate-800 leading-none">Mendukung Ekspor Word Mandiri</h4>
-                                                        <p className="text-[11px] text-slate-500 mt-1">Gunakan template resmi dari Notaris Nukantini Putri secara gratis dan instan.</p>
+                                                        <h4 className="font-bold text-[12px] text-slate-800 leading-none">Format Input Sama dengan Versi Login</h4>
+                                                        <p className="text-[10px] text-slate-500 mt-0.5">Dapat diinput via Asisten Interaktif ataupun pengisian Formulir Lengkap sekaligus.</p>
+                                                    </div>
+                                                </div>
+                                                <div className="flex gap-2.5 items-start">
+                                                    <div className="w-5 h-5 rounded-md bg-emerald-50 border border-emerald-100 flex items-center justify-center shrink-0 text-emerald-600 font-bold text-[11px]">✓</div>
+                                                    <div>
+                                                        <h4 className="font-bold text-[12px] text-slate-800 leading-none">Mendukung Ekspor Word Mandiri</h4>
+                                                        <p className="text-[10px] text-slate-500 mt-0.5">Gunakan template resmi dari Notaris Nukantini Putri secara gratis dan instan.</p>
                                                     </div>
                                                 </div>
                                             </div>
@@ -359,10 +429,34 @@ export const RupstPublicWizard = ({ data, updateData, isSaving, handleSave, goBa
                                         />
                                     </div>
                                     <div className="p-4 border-t border-slate-100 bg-slate-50 flex justify-between items-center">
-                                        <button onClick={() => setCurrentStep(prev => prev > 1 ? prev - 1 : 0)} className="px-4 py-2 border border-slate-200 rounded bg-white hover:bg-slate-50 text-[12px] font-bold text-slate-600">Sebelumnya</button>
+                                        <button 
+                                            onClick={() => {
+                                                const activeSteps = data.rupstType === 'sirkuler' ? [1, 2, 3, 4, 5, 9, 10, 11] : [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+                                                const idx = activeSteps.indexOf(currentStep);
+                                                if (idx !== -1 && idx > 0) {
+                                                    setCurrentStep(activeSteps[idx - 1]);
+                                                } else {
+                                                    setCurrentStep(0);
+                                                }
+                                            }} 
+                                            className="px-4 py-2 border border-slate-200 rounded bg-white hover:bg-slate-50 text-[12px] font-bold text-slate-600"
+                                        >
+                                            Sebelumnya
+                                        </button>
                                         
                                         {currentStep < 11 ? (
-                                            <button onClick={() => setCurrentStep(prev => prev + 1)} className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded text-[12px] font-bold shadow">Selanjutnya</button>
+                                            <button 
+                                                onClick={() => {
+                                                    const activeSteps = data.rupstType === 'sirkuler' ? [1, 2, 3, 4, 5, 9, 10, 11] : [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+                                                    const idx = activeSteps.indexOf(currentStep);
+                                                    if (idx !== -1 && idx < activeSteps.length - 1) {
+                                                        setCurrentStep(activeSteps[idx + 1]);
+                                                    }
+                                                }} 
+                                                className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded text-[12px] font-bold shadow"
+                                            >
+                                                Selanjutnya
+                                            </button>
                                         ) : (
                                             <button onClick={handleSave} disabled={isSaving} className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded text-[12px] font-bold shadow">
                                                 {isSaving ? 'Menyimpan...' : 'Kirim dan Simpan ke Notaris'}
@@ -376,6 +470,19 @@ export const RupstPublicWizard = ({ data, updateData, isSaving, handleSave, goBa
                                     {/* FORM SECTION 1: DATA UTAMA PERSEROAN */}
                                     <AhuSection id="sec_identitas" title="DATA UTAMA PERSEROAN">
                                         <div className="space-y-3.5">
+                                            <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                                                <AhuLabel label="Bentuk Keputusan / RUPST" required />
+                                                <div className="md:col-span-3">
+                                                    <AhuSelect 
+                                                        value={data.rupstType || 'rapat'} 
+                                                        onChange={e => updateData({ rupstType: e.target.value })}
+                                                    >
+                                                        <option value="rapat">Rapat Umum Pemegang Saham Tahunan (RUPST Biasa / Fisik / Hibrid)</option>
+                                                        <option value="sirkuler">Keputusan Para Pemegang Saham Sebagai Pengganti RUPST (Sirkuler / Pasal 91 UU PT)</option>
+                                                    </AhuSelect>
+                                                </div>
+                                            </div>
+
                                             <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
                                                 <AhuLabel label="Nama PT (Perseroan)" required />
                                                 <div className="md:col-span-3">
@@ -762,34 +869,43 @@ export const RupstPublicWizard = ({ data, updateData, isSaving, handleSave, goBa
                                     </AhuSection>
 
                                     {/* FORM SECTION 5: DATA PENYELENGGARAAN RAPAT */}
-                                    <AhuSection id="sec_penyelenggaraan" title="DATA PENYELENGGARAAN RAPAT">
+                                    <AhuSection id="sec_penyelenggaraan" title={data.rupstType === 'sirkuler' ? "DATA KEPUTUSAN SIRKULER" : "DATA PENYELENGGARAAN RAPAT"}>
                                         <div className="space-y-4">
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                <div>
-                                                    <AhuLabel label="Nomor Pemanggilan RUPST" />
-                                                    <AhuInput value={data.rupstInvitationNumber || ''} onChange={e => updateData({ rupstInvitationNumber: e.target.value })} />
+                                            {data.rupstType === 'sirkuler' ? (
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                    <div>
+                                                        <AhuLabel label="Tanggal Keputusan Sirkuler" />
+                                                        <AhuInput type="date" value={data.signingDate || ''} onChange={e => updateData({ signingDate: e.target.value })} />
+                                                    </div>
                                                 </div>
-                                                <div>
-                                                    <AhuLabel label="Tanggal Pemanggilan RUPST" />
-                                                    <AhuInput type="date" value={data.rupstInvitationDate || ''} onChange={e => updateData({ rupstInvitationDate: e.target.value })} />
+                                            ) : (
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                    <div>
+                                                        <AhuLabel label="Nomor Pemanggilan RUPST" />
+                                                        <AhuInput value={data.rupstInvitationNumber || ''} onChange={e => updateData({ rupstInvitationNumber: e.target.value })} />
+                                                    </div>
+                                                    <div>
+                                                        <AhuLabel label="Tanggal Pemanggilan RUPST" />
+                                                        <AhuInput type="date" value={data.rupstInvitationDate || ''} onChange={e => updateData({ rupstInvitationDate: e.target.value })} />
+                                                    </div>
+                                                    <div>
+                                                        <AhuLabel label="Tempat Penyelenggaraan" />
+                                                        <AhuInput value={data.signingPlace || ''} onChange={e => updateData({ signingPlace: e.target.value })} />
+                                                    </div>
+                                                    <div>
+                                                        <AhuLabel label="Hari/Tanggal Penandatangan / Rapat" />
+                                                        <AhuInput type="date" value={data.signingDate || ''} onChange={e => updateData({ signingDate: e.target.value })} />
+                                                    </div>
+                                                    <div>
+                                                        <AhuLabel label="Jam Mulai" />
+                                                        <AhuInput type="time" value={data.meetingStartTime || ''} onChange={e => updateData({ meetingStartTime: e.target.value })} />
+                                                    </div>
+                                                    <div>
+                                                        <AhuLabel label="Jam Selesai" />
+                                                        <AhuInput type="time" value={data.rupstMeetingEndTime || ''} onChange={e => updateData({ rupstMeetingEndTime: e.target.value })} />
+                                                    </div>
                                                 </div>
-                                                <div>
-                                                    <AhuLabel label="Tempat Penyelenggaraan" />
-                                                    <AhuInput value={data.signingPlace || ''} onChange={e => updateData({ signingPlace: e.target.value })} />
-                                                </div>
-                                                <div>
-                                                    <AhuLabel label="Hari/Tanggal Penandatangan / Rapat" />
-                                                    <AhuInput type="date" value={data.signingDate || ''} onChange={e => updateData({ signingDate: e.target.value })} />
-                                                </div>
-                                                <div>
-                                                    <AhuLabel label="Jam Mulai" />
-                                                    <AhuInput type="time" value={data.meetingStartTime || ''} onChange={e => updateData({ meetingStartTime: e.target.value })} />
-                                                </div>
-                                                <div>
-                                                    <AhuLabel label="Jam Selesai" />
-                                                    <AhuInput type="time" value={data.rupstMeetingEndTime || ''} onChange={e => updateData({ rupstMeetingEndTime: e.target.value })} />
-                                                </div>
-                                            </div>
+                                            )}
                                         </div>
                                     </AhuSection>
 

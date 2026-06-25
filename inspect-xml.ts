@@ -4,7 +4,7 @@ import * as cheerio from 'cheerio';
 
 async function main() {
   try {
-    const fileData = fs.readFileSync('DRAFT PENDIRIAN PT.docx');
+    const fileData = fs.readFileSync('template_pendirian.docx');
     const zip = await JSZip.loadAsync(fileData);
     
     const docXml = await zip.file('word/document.xml')?.async('text');

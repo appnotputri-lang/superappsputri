@@ -257,6 +257,8 @@ const INITIAL_STATE: CompanyData = {
   rupstNotulenNumber: '',
   rupstDividends: [],
   rupstDividendPaymentDate: '05 Juni 2026 dan 10 Juni 2026',
+  rupstType: 'rapat',
+  rupstNonAuditedUseKAP: true,
   rupstQuorumArticle: '10',
   rupstQuorumParagraph: '1',
   rupstMeetingEndTime: '',
@@ -634,6 +636,7 @@ const App: React.FC = () => {
 
   const draftAktaRef = useRef<DraftAktaAppRef>(null);
   const [rupstCurrentPage, setRupstCurrentPage] = useState<number>(1);
+  const [rupstActiveTab, setRupstActiveTab] = useState<'ALL' | 'PROSES' | 'SELESAI'>('ALL');
   const [isRupstFilterOpen, setIsRupstFilterOpen] = useState<boolean>(false);
   const [notulenSearchQuery, setNotulenSearchQuery] = useState("");
   const [selectedRupslbYear, setSelectedRupslbYear] = useState<string>("all");
@@ -814,8 +817,13 @@ const App: React.FC = () => {
     if (item.project) {
       if (item.type === 'rupst') {
         try {
-          const { generateRUPSTDocx } = await import('./src/lib/generateRUPSTDocx');
-          await generateRUPSTDocx({ ...INITIAL_STATE, ...item.project });
+          if (item.project.rupstType === 'sirkuler') {
+            const { generateSirkulerLaporanDocx } = await import('./src/lib/generateSirkulerLaporanDocx');
+            await generateSirkulerLaporanDocx({ ...INITIAL_STATE, ...item.project });
+          } else {
+            const { generateRUPSTDocx } = await import('./src/lib/generateRUPSTDocx');
+            await generateRUPSTDocx({ ...INITIAL_STATE, ...item.project });
+          }
         } catch (error) {
           console.error("RUPST Export Error:", error);
           alert("Gagal mengunduh RUPST.");
@@ -831,9 +839,9 @@ const App: React.FC = () => {
             notarisTempat: d.notaryDomicile || d.notarisTempat || "Kabupaten Bandung Barat",
             kotaKedudukan: d.newAddress?.city || d.domicile || "",
             alamatLengkapPT: d.newAddress?.fullAddress || d.fullAddress || "",
-            modalDasar: d.targetCapitalBase || d.originalCapitalBase || 0,
-            nilaiPerLembar: d.originalSharePrice || 0,
-            modalDisetorPersen: (d.targetCapitalPaid / d.targetCapitalBase) * 100 || 25,
+            modalDasar: d.modalDasar || d.targetCapitalBase || d.originalCapitalBase || 0,
+            nilaiPerLembar: d.nilaiPerLembar || d.originalSharePrice || 0,
+            modalDisetorPersen: d.modalDisetorPersen || (d.targetCapitalPaid / d.targetCapitalBase) * 100 || 25,
             kuotaWaktuDireksi: d.duration || "5",
             kbliItems: d.kbliItems || [],
             shareholders: d.shareholders || [],
@@ -1443,6 +1451,7 @@ const App: React.FC = () => {
           }
 
           const profileData = {
+            documentStatus: 'DRAFTING', // Default to DRAFTING for new auto-saved projects
             ...curData,
             id,
             updatedAt: new Date().toISOString()
@@ -1465,6 +1474,7 @@ const App: React.FC = () => {
           }
 
           const profileData = {
+            documentStatus: 'DRAFTING', // Default to DRAFTING
             ...curData,
             id,
             updatedAt: new Date().toISOString()
@@ -1487,6 +1497,7 @@ const App: React.FC = () => {
           }
 
           const finalData = {
+            documentStatus: 'DRAFTING', // Default to DRAFTING
             ...curPendirian,
             id,
             updatedAt: new Date().toISOString()
@@ -1501,7 +1512,7 @@ const App: React.FC = () => {
         console.error("Auto-save failed to save draft:", error);
         setIsAutoSaving(false);
       }
-    }, 30000); // 30 seconds
+    }, 3600000); // 1 hour
 
     return () => clearInterval(interval);
   }, [editingProjectId, editingRupstId, editingPendirianId, user]);
@@ -1543,9 +1554,9 @@ const App: React.FC = () => {
         notarisTempat: d.notaryDomicile || d.notarisTempat || "Kabupaten Bandung Barat",
         kotaKedudukan: d.newAddress?.city || d.domicile || "",
         alamatLengkapPT: d.newAddress?.fullAddress || d.fullAddress || "",
-        modalDasar: d.targetCapitalBase || d.originalCapitalBase || 0,
-        nilaiPerLembar: d.originalSharePrice || 0,
-        modalDisetorPersen: (d.targetCapitalPaid / d.targetCapitalBase) * 100 || 25,
+        modalDasar: d.modalDasar || d.targetCapitalBase || d.originalCapitalBase || 0,
+        nilaiPerLembar: d.nilaiPerLembar || d.originalSharePrice || 0,
+        modalDisetorPersen: d.modalDisetorPersen || (d.targetCapitalPaid / d.targetCapitalBase) * 100 || 25,
         kuotaWaktuDireksi: d.duration || "5",
         kbliItems: d.kbliItems || [],
         shareholders: d.shareholders || [],
@@ -1872,8 +1883,13 @@ const App: React.FC = () => {
 
     if (activeSidebarTab === 'rupst') {
       try {
-        const { generateRUPSTDocx } = await import('./src/lib/generateRUPSTDocx');
-        await generateRUPSTDocx(mergedData);
+        if (mergedData.rupstType === 'sirkuler') {
+          const { generateSirkulerLaporanDocx } = await import('./src/lib/generateSirkulerLaporanDocx');
+          await generateSirkulerLaporanDocx(mergedData);
+        } else {
+          const { generateRUPSTDocx } = await import('./src/lib/generateRUPSTDocx');
+          await generateRUPSTDocx(mergedData);
+        }
       } catch (error) {
         console.error("RUPST Export Error:", error);
         alert("Gagal mengunduh RUPST.");
@@ -4635,9 +4651,11 @@ const App: React.FC = () => {
                               
                               let newProjects = [...projects];
                               const newId = editingProjectId && editingProjectId !== 'new' ? editingProjectId : crypto.randomUUID();
+                              const isNew = editingProjectId === 'new' || !editingProjectId;
                               const profileData: CompanyProfile = {
                                   ...data,
                                   id: newId,
+                                  documentStatus: isNew ? 'DRAFTING' : (data.documentStatus || 'DRAFTING'),
                                   updatedAt: new Date().toISOString()
                               };
                               
@@ -4651,7 +4669,6 @@ const App: React.FC = () => {
                               }
                               
                               try {
-                                  const isNew = editingProjectId === 'new' || !editingProjectId;
                                    await setDoc(doc(db, 'projects', profileData.id), sanitizeForFirestore(profileData));
                                    recordNotification(
                                      isNew ? 'Draft RUPS LB Baru Dibuat' : 'Draft RUPS LB Diubah',
@@ -7121,6 +7138,32 @@ const App: React.FC = () => {
             const currentRupstProjects = rupstProjects;
             const currentCollectionName = 'rupst_projects';
 
+            // Calculate status-based counts before status filtering
+            const baseResultsForCount = currentRupstProjects.filter(p => {
+              // Apply search query filter for counts
+              if (rupstSearchQuery) {
+                const q = rupstSearchQuery.toLowerCase();
+                const matchSearch = (p.companyName && p.companyName.toLowerCase().includes(q)) ||
+                  (p.rupstFiscalYear && p.rupstFiscalYear.toString().toLowerCase().includes(q));
+                if (!matchSearch) return false;
+              }
+              // Apply year filter for counts
+              if (selectedRupstYear !== "all" && (p.rupstFiscalYear || '').toString() !== selectedRupstYear) {
+                return false;
+              }
+              return true;
+            });
+
+            const totalRupstAll = baseResultsForCount.length;
+            const totalRupstProses = baseResultsForCount.filter(p => {
+              const status = (p.documentStatus || p.rupstStatus || "DRAFTING").toUpperCase();
+              return status !== "SELESAI" && status !== "FINAL";
+            }).length;
+            const totalRupstSelesai = baseResultsForCount.filter(p => {
+              const status = (p.documentStatus || p.rupstStatus || "DRAFTING").toUpperCase();
+              return status === "SELESAI" || status === "FINAL";
+            }).length;
+
             // 1. Initial filter by search query (PT Name or Year)
             let filteredResults = currentRupstProjects.filter(p => {
               if (!rupstSearchQuery) return true;
@@ -7134,6 +7177,19 @@ const App: React.FC = () => {
             // 2. Filter by Year Dropdown Selection
             if (selectedRupstYear !== "all") {
               filteredResults = filteredResults.filter(p => (p.rupstFiscalYear || '').toString() === selectedRupstYear);
+            }
+
+            // 2b. Filter by Active Status Tab
+            if (rupstActiveTab === "PROSES") {
+              filteredResults = filteredResults.filter(p => {
+                const status = (p.documentStatus || p.rupstStatus || "DRAFTING").toUpperCase();
+                return status !== "SELESAI" && status !== "FINAL";
+              });
+            } else if (rupstActiveTab === "SELESAI") {
+              filteredResults = filteredResults.filter(p => {
+                const status = (p.documentStatus || p.rupstStatus || "DRAFTING").toUpperCase();
+                return status === "SELESAI" || status === "FINAL";
+              });
             }
 
             // 3. Extract unique years for the dropdown
@@ -7246,10 +7302,16 @@ const App: React.FC = () => {
             const handleDownloadAllZip = async () => {
               try {
                 const zip = new JSZip();
-                const { generateRUPSTDocx } = await import('./src/lib/generateRUPSTDocx');
                 const { generateRUPSTPernyataanDocx } = await import('./src/lib/generateRUPSTPernyataanDocx');
                 
-                const docxResult = await generateRUPSTDocx(mergedData, true);
+                let docxResult;
+                if (mergedData.rupstType === 'sirkuler') {
+                  const { generateSirkulerLaporanDocx } = await import('./src/lib/generateSirkulerLaporanDocx');
+                  docxResult = await generateSirkulerLaporanDocx(mergedData, true);
+                } else {
+                  const { generateRUPSTDocx } = await import('./src/lib/generateRUPSTDocx');
+                  docxResult = await generateRUPSTDocx(mergedData, true);
+                }
                 if (docxResult) {
                   zip.file(docxResult.filename, docxResult.blob);
                 }
@@ -7374,9 +7436,12 @@ const App: React.FC = () => {
                               if (!data.companyName) return alert('Nama perseroan harus diisi');
                               setIsSaving(true);
                               const newId = currentEditingRupstId && currentEditingRupstId !== 'new' ? currentEditingRupstId : crypto.randomUUID();
+                              const isNewRupst = currentEditingRupstId === 'new' || !currentEditingRupstId;
                               const profileData = {
                                   ...data,
                                   id: newId,
+                                  documentStatus: isNewRupst ? 'DRAFTING' : (data.documentStatus || 'DRAFTING'),
+                                  rupstStatus: isNewRupst ? 'Draft' : (data.rupstStatus || 'Draft'),
                                   updatedAt: new Date().toISOString()
                               };
                               if (!user && !isPublicMenu) {
@@ -7385,7 +7450,6 @@ const App: React.FC = () => {
                               }
                               
                               try {
-                                  const isNewRupst = currentEditingRupstId === 'new' || !currentEditingRupstId;
                                    await setDoc(doc(db, currentCollectionName, profileData.id), sanitizeForFirestore(profileData));
                                    recordNotification(
                                      isNewRupst ? (isPublicMenu ? 'RUPST Public Baru Dibuat' : 'Draft RUPST Baru Dibuat') : (isPublicMenu ? 'RUPST Public Diubah' : 'Draft RUPST Diubah'),
@@ -7427,8 +7491,13 @@ const App: React.FC = () => {
                                 e.stopPropagation();
                                 setIsRupstDocDropdownOpen(false);
                                 try {
-                                  const { generateRUPSTDocx } = await import('./src/lib/generateRUPSTDocx');
-                                  await generateRUPSTDocx(mergedData);
+                                  if (mergedData.rupstType === 'sirkuler') {
+                                    const { generateSirkulerLaporanDocx } = await import('./src/lib/generateSirkulerLaporanDocx');
+                                    await generateSirkulerLaporanDocx(mergedData);
+                                  } else {
+                                    const { generateRUPSTDocx } = await import('./src/lib/generateRUPSTDocx');
+                                    await generateRUPSTDocx(mergedData);
+                                  }
                                 } catch (err) {
                                   console.error('Failed to generate RUPST DOCX:', err);
                                   alert('Gagal menghasilkan RUPST DOCX.');
@@ -7438,7 +7507,9 @@ const App: React.FC = () => {
                             >
                               <FileText className="w-[18px] h-[18px] text-indigo-600 stroke-[2.25px] shrink-0" />
                               <div className="flex flex-col text-left">
-                                <span className="font-bold text-slate-800 leading-tight">Notulen RUPST</span>
+                                <span className="font-bold text-slate-800 leading-tight">
+                                  {mergedData.rupstType === 'sirkuler' ? 'Keputusan Sirkuler' : 'Notulen RUPST'}
+                                </span>
                                 <span className="text-[10px] text-slate-400 lowercase mt-0.5 font-medium">format dokumen (.docx)</span>
                               </div>
                             </button>
@@ -8200,6 +8271,23 @@ const App: React.FC = () => {
                     {/* DATA KHUSUS RUPST */}
                     {!(isPublicMenu && rupstInputMode === 'assistant') && (
                       <>
+                        <AhuSection title="BENTUK KEPUTUSAN / RUPST">
+                          <div className="space-y-4">
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                              <AhuLabel label="Bentuk Keputusan / RUPST" required />
+                              <div className="md:col-span-3">
+                                <AhuSelect 
+                                  value={data.rupstType || 'rapat'} 
+                                  onChange={e => updateData({ rupstType: e.target.value as any })}
+                                >
+                                  <option value="rapat">Rapat Umum Pemegang Saham Tahunan (RUPST Biasa / Fisik / Hibrid)</option>
+                                  <option value="sirkuler">Keputusan Para Pemegang Saham Sebagai Pengganti RUPST (Sirkuler / Pasal 91 UU PT)</option>
+                                </AhuSelect>
+                              </div>
+                            </div>
+                          </div>
+                        </AhuSection>
+
                         <AhuSection title="AGENDA DAN KEUANGAN RUPST">
                       {isPublicMenu ? (
                         <div className="mb-6 p-4 bg-slate-50 border border-slate-200 rounded space-y-4">
@@ -8978,92 +9066,109 @@ const App: React.FC = () => {
                       </div>
                     </AhuSection>
 
-                    {/* DATA PENYELENGGARAAN RAPAT */}
-                    <AhuSection title="DATA PENYELENGGARAAN RAPAT">
+                    {/* DATA PENYELENGGARAAN RAPAT / DATA KEPUTUSAN SIRKULER */}
+                    <AhuSection title={data.rupstType === 'sirkuler' ? "DATA KEPUTUSAN SIRKULER" : "DATA PENYELENGGARAAN RAPAT"}>
                       <div className="space-y-4">
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
-                          <AhuLabel label="Nomor Pemanggilan RUPST" />
-                          <div className="md:col-span-3"><AhuInput value={data.rupstInvitationNumber || ''} onChange={e => updateData({ rupstInvitationNumber: e.target.value })} /></div>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
-                          <AhuLabel label="Tanggal Pemanggilan RUPST" />
-                          <div className="md:col-span-3"><AhuInput type="date" value={data.rupstInvitationDate || ''} onChange={e => updateData({ rupstInvitationDate: e.target.value })} /></div>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
-                          <AhuLabel label="Tempat Penyelenggaraan" />
-                          <div className="md:col-span-3"><AhuInput value={data.signingPlace || ''} onChange={e => updateData({ signingPlace: e.target.value })} /></div>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
-                          <AhuLabel label="Hari/Tanggal Rapat" />
-                          <div className="md:col-span-3 flex gap-2">
-                             <AhuInput type="date" value={data.signingDate || ''} onChange={e => updateData({ signingDate: e.target.value })} />
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
-                          <AhuLabel label="Waktu Rapat" />
-                          <div className="md:col-span-3 flex items-center gap-2">
-                            <div className="flex-1">
-                              <AhuLabel label="Mulai" />
-                              <AhuInput type="time" value={data.meetingStartTime || ''} onChange={e => updateData({ meetingStartTime: e.target.value })} />
+                        {data.rupstType === 'sirkuler' ? (
+                          <>
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                              <AhuLabel label="Tanggal Keputusan Sirkuler" required />
+                              <div className="md:col-span-3">
+                                <AhuInput 
+                                  type="date" 
+                                  value={data.signingDate || ''} 
+                                  onChange={e => updateData({ signingDate: e.target.value })} 
+                                />
+                              </div>
                             </div>
-                            <div className="flex-1">
-                              <AhuLabel label="Selesai" />
-                              <AhuInput type="time" value={data.rupstMeetingEndTime || ''} onChange={e => updateData({ rupstMeetingEndTime: e.target.value })} />
+                          </>
+                        ) : (
+                          <>
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                              <AhuLabel label="Nomor Pemanggilan RUPST" />
+                              <div className="md:col-span-3"><AhuInput value={data.rupstInvitationNumber || ''} onChange={e => updateData({ rupstInvitationNumber: e.target.value })} /></div>
                             </div>
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
-                          <AhuLabel label="Ketentuan Anggaran Dasar Pimpinan rapat" />
-                          <div className="md:col-span-3 flex gap-4">
-                            <div className="flex-1">
-                              <AhuLabel label="Nomor Pasal" />
-                              <AhuInput value={data.rupstAdArticle || ''} onChange={e => updateData({ rupstAdArticle: e.target.value })} placeholder="Contoh: 9" />
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                              <AhuLabel label="Tanggal Pemanggilan RUPST" />
+                              <div className="md:col-span-3"><AhuInput type="date" value={data.rupstInvitationDate || ''} onChange={e => updateData({ rupstInvitationDate: e.target.value })} /></div>
                             </div>
-                            <div className="flex-1">
-                              <AhuLabel label="Nomor Ayat" />
-                              <AhuInput value={data.rupstAdParagraph || ''} onChange={e => updateData({ rupstAdParagraph: e.target.value })} placeholder="Contoh: 4" />
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                              <AhuLabel label="Tempat Penyelenggaraan" />
+                              <div className="md:col-span-3"><AhuInput value={data.signingPlace || ''} onChange={e => updateData({ signingPlace: e.target.value })} /></div>
                             </div>
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
-                          <AhuLabel label="Ketentuan Kuorum AD" />
-                          <div className="md:col-span-3 flex gap-4">
-                            <div className="flex-1">
-                              <AhuLabel label="Pasal Kuorum" />
-                              <AhuInput value={data.rupstQuorumArticle || ''} onChange={e => updateData({ rupstQuorumArticle: e.target.value })} placeholder="Contoh: 10" />
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                              <AhuLabel label="Hari/Tanggal Rapat" />
+                              <div className="md:col-span-3 flex gap-2">
+                                 <AhuInput type="date" value={data.signingDate || ''} onChange={e => updateData({ signingDate: e.target.value })} />
+                              </div>
                             </div>
-                            <div className="flex-1">
-                              <AhuLabel label="Ayat Kuorum" />
-                              <AhuInput value={data.rupstQuorumParagraph || ''} onChange={e => updateData({ rupstQuorumParagraph: e.target.value })} placeholder="Contoh: 1" />
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                              <AhuLabel label="Waktu Rapat" />
+                              <div className="md:col-span-3 flex items-center gap-2">
+                                <div className="flex-1">
+                                  <AhuLabel label="Mulai" />
+                                  <AhuInput type="time" value={data.meetingStartTime || ''} onChange={e => updateData({ meetingStartTime: e.target.value })} />
+                                </div>
+                                <div className="flex-1">
+                                  <AhuLabel label="Selesai" />
+                                  <AhuInput type="time" value={data.rupstMeetingEndTime || ''} onChange={e => updateData({ rupstMeetingEndTime: e.target.value })} />
+                                </div>
+                              </div>
                             </div>
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
-                          <AhuLabel label="Ketua Rapat" />
-                          <div className="md:col-span-3 flex gap-4">
-                            <div className="flex-1">
-                              <AhuLabel label="Nama Ketua Rapat" />
-                              <AhuSelect 
-                                value={data.meetingChair || ''} 
-                                onChange={e => {
-                                  const selectedName = e.target.value;
-                                  const sh = data.shareholders.find(s => s.name === selectedName);
-                                  updateData({ 
-                                    meetingChair: selectedName,
-                                    meetingChairPosition: sh?.isManagement ? (sh.managementPosition || "Direktur") : "Pemegang Saham"
-                                  });
-                                }}
-                              >
-                                <option value="">-- Pilih --</option>
-                                {data.shareholders.map(s => <option key={s.id} value={s.name}>{s.salutation} {s.name}</option>)}
-                              </AhuSelect>
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                              <AhuLabel label="Ketentuan Anggaran Dasar Pimpinan rapat" />
+                              <div className="md:col-span-3 flex gap-4">
+                                <div className="flex-1">
+                                  <AhuLabel label="Nomor Pasal" />
+                                  <AhuInput value={data.rupstAdArticle || ''} onChange={e => updateData({ rupstAdArticle: e.target.value })} placeholder="Contoh: 9" />
+                                </div>
+                                <div className="flex-1">
+                                  <AhuLabel label="Nomor Ayat" />
+                                  <AhuInput value={data.rupstAdParagraph || ''} onChange={e => updateData({ rupstAdParagraph: e.target.value })} placeholder="Contoh: 4" />
+                                </div>
+                              </div>
                             </div>
-                            <div className="flex-1">
-                              <AhuLabel label="Jabatan di PT" />
-                              <AhuInput value={data.meetingChairPosition || ''} onChange={e => updateData({ meetingChairPosition: e.target.value })} placeholder="Contoh: Direktur Utama" />
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                              <AhuLabel label="Ketentuan Kuorum AD" />
+                              <div className="md:col-span-3 flex gap-4">
+                                <div className="flex-1">
+                                  <AhuLabel label="Pasal Kuorum" />
+                                  <AhuInput value={data.rupstQuorumArticle || ''} onChange={e => updateData({ rupstQuorumArticle: e.target.value })} placeholder="Contoh: 10" />
+                                </div>
+                                <div className="flex-1">
+                                  <AhuLabel label="Ayat Kuorum" />
+                                  <AhuInput value={data.rupstQuorumParagraph || ''} onChange={e => updateData({ rupstQuorumParagraph: e.target.value })} placeholder="Contoh: 1" />
+                                </div>
+                              </div>
                             </div>
-                          </div>
-                        </div>
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                              <AhuLabel label="Ketua Rapat" />
+                              <div className="md:col-span-3 flex gap-4">
+                                <div className="flex-1">
+                                  <AhuLabel label="Nama Ketua Rapat" />
+                                  <AhuSelect 
+                                    value={data.meetingChair || ''} 
+                                    onChange={e => {
+                                      const selectedName = e.target.value;
+                                      const sh = data.shareholders.find(s => s.name === selectedName);
+                                      updateData({ 
+                                        meetingChair: selectedName,
+                                        meetingChairPosition: sh?.isManagement ? (sh.managementPosition || "Direktur") : "Pemegang Saham"
+                                      });
+                                    }}
+                                  >
+                                    <option value="">-- Pilih --</option>
+                                    {data.shareholders.map(s => <option key={s.id} value={s.name}>{s.salutation} {s.name}</option>)}
+                                  </AhuSelect>
+                                </div>
+                                <div className="flex-1">
+                                  <AhuLabel label="Jabatan di PT" />
+                                  <AhuInput value={data.meetingChairPosition || ''} onChange={e => updateData({ meetingChairPosition: e.target.value })} placeholder="Contoh: Direktur Utama" />
+                                </div>
+                              </div>
+                            </div>
+                          </>
+                        )}
                       </div>
                     </AhuSection>
 
@@ -9297,6 +9402,43 @@ const App: React.FC = () => {
                       </div>
                     </div>
 
+                    {/* STATUS FILTER TABS */}
+                    <div className="flex flex-wrap gap-1.5 bg-slate-100/80 p-1.5 rounded-xl border border-slate-200/50 max-w-max mb-5">
+                      {([
+                        { key: 'ALL', label: 'Semua RUPST', count: totalRupstAll },
+                        { key: 'PROSES', label: 'Dalam Proses', count: totalRupstProses },
+                        { key: 'SELESAI', label: 'Selesai', count: totalRupstSelesai }
+                      ] as const).map(tab => {
+                        const isActive = rupstActiveTab === tab.key;
+                        return (
+                          <button
+                            key={tab.key}
+                            type="button"
+                            onClick={() => {
+                              setRupstActiveTab(tab.key);
+                              setRupstCurrentPage(1);
+                            }}
+                            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all duration-200 flex items-center gap-2 uppercase tracking-wide cursor-pointer select-none ${
+                              isActive
+                                ? tab.key === 'SELESAI'
+                                  ? 'bg-emerald-600 text-white shadow-sm'
+                                  : tab.key === 'PROSES'
+                                    ? 'bg-amber-500 text-white shadow-sm'
+                                    : 'bg-[#1b449c] text-white shadow-sm'
+                                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+                            }`}
+                          >
+                            <span>{tab.label}</span>
+                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-black ${
+                              isActive ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'
+                            }`}>
+                              {tab.count}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+
                     {/* QUICK FILTER EXPANSION PANEL */}
                     {isRupstFilterOpen && (
                       <div className="bg-slate-50 p-4 rounded-md border border-slate-200 mb-5 flex flex-wrap gap-2.5 items-center animate-fadeIn">
@@ -9418,14 +9560,19 @@ const App: React.FC = () => {
 
                                     {rupstDropdownId === p.id && (
                                       <div className="absolute right-4 top-13 bg-white border border-slate-200 shadow-xl rounded-xl py-1.5 w-[220px] z-50 text-left overflow-hidden animate-in fade-in slide-in-from-top-1 duration-100">
-                                        {/* Notulen RUPST */}
+                                        {/* Notulen / Sirkuler RUPST */}
                                         <button
                                           onClick={async (e) => {
                                             e.stopPropagation();
                                             setRupstDropdownId(null);
                                             try {
-                                              const { generateRUPSTDocx } = await import('./src/lib/generateRUPSTDocx');
-                                              await generateRUPSTDocx({ ...INITIAL_STATE, ...p } as any);
+                                              if (p.rupstType === 'sirkuler') {
+                                                const { generateSirkulerLaporanDocx } = await import('./src/lib/generateSirkulerLaporanDocx');
+                                                await generateSirkulerLaporanDocx({ ...INITIAL_STATE, ...p } as any);
+                                              } else {
+                                                const { generateRUPSTDocx } = await import('./src/lib/generateRUPSTDocx');
+                                                await generateRUPSTDocx({ ...INITIAL_STATE, ...p } as any);
+                                              }
                                             } catch (err) {
                                               console.error('Failed to generate RUPST DOCX:', err);
                                               alert('Gagal mengunduh Notulen RUPST.');
@@ -9435,7 +9582,9 @@ const App: React.FC = () => {
                                         >
                                           <FileText className="w-[15px] h-[15px] text-indigo-500 shrink-0" />
                                           <div className="flex flex-col text-left">
-                                            <span className="leading-tight">Notulen RUPST</span>
+                                            <span className="leading-tight">
+                                              {p.rupstType === 'sirkuler' ? 'Keputusan Sirkuler' : 'Notulen RUPST'}
+                                            </span>
                                             <span className="text-[9px] text-slate-400 lowercase font-medium mt-0.5">.docx</span>
                                           </div>
                                         </button>

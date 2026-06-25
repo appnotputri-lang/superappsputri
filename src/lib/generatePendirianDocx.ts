@@ -104,6 +104,9 @@ const EXEMPLAR = {
   // KBLI description paragraph (indented)
   KBLI_DESC: 28,                      // (Index 28 in new template)
 
+  // Indented text (level 0) without numbering
+  INDENTED_P: 149,                    // (Index 149 in new template)
+
   // "Diberikan sebagai salinan..." note (indented)
   COPY_NOTE: 231,                     // (Index 231 in new template)
 
@@ -129,6 +132,7 @@ function getExemplarIndex(block: any): number {
         return EXEMPLAR.NOTARIS_LOCATION;
       }
       if (block.kbliDesc) return EXEMPLAR.KBLI_DESC;
+      if (block.indentTabs === 0.5) return EXEMPLAR.INDENTED_P;
       if (block.indentTabs === 2) return EXEMPLAR.COPY_NOTE;
       if (block.indentTabs === 1) return EXEMPLAR.KBLI_DESC; // fallback
       return EXEMPLAR.NORMAL_P;
@@ -174,6 +178,18 @@ function adjustNumbering(clonedP: Element, block: any, currentNumId: string): vo
     if (pPr) {
       const numPr = getSingleElement(pPr, "numPr");
       if (numPr) pPr.removeChild(numPr);
+      
+      // Fix indent for management-role which was relying on numbering hanging indent
+      if (block.type === "management-role") {
+        let ind = getSingleElement(pPr, "ind");
+        if (!ind) {
+          ind = clonedP.ownerDocument.createElementNS(W_NS, "w:ind");
+          pPr.appendChild(ind);
+        }
+        // Indent further than the numbered list text (851 vs 567)
+        ind.setAttribute("w:left", "851");
+        ind.removeAttribute("w:hanging");
+      }
     }
     return;
   }
@@ -183,6 +199,18 @@ function adjustNumbering(clonedP: Element, block: any, currentNumId: string): vo
   if (!pPr) {
     pPr = clonedP.ownerDocument.createElementNS(W_NS, "w:pPr");
     clonedP.insertBefore(pPr, clonedP.firstChild);
+  }
+
+  // If block.type === "numbered" with indentTabs, override the indentation
+  if (block.type === "numbered" && block.indentTabs) {
+    let ind = getSingleElement(pPr, "ind");
+    if (!ind) {
+      ind = clonedP.ownerDocument.createElementNS(W_NS, "w:ind");
+      pPr.appendChild(ind);
+    }
+    const leftIndent = 284 + (block.indentTabs * 283);
+    ind.setAttribute("w:left", leftIndent.toString());
+    ind.setAttribute("w:hanging", "284");
   }
 
   // Ensure numPr exists
@@ -245,63 +273,15 @@ function insertTabsInOrder(pPr: Element, tabs: Element): void {
 // -------------------------------------------------------------------------------------
 function getDividerTabPos(text: string): number {
   const normalized = text.trim().toUpperCase().replace(/\s+/g, " ");
-  
-  const exactMap: Record<string, number> = {
-    "NAMA DAN TEMPAT KEDUDUKAN": 2268,
-    "PASAL 1": 3402,
-    "JANGKA WAKTU BERDIRINYA PERSEROAN": 2268,
-    "PASAL 2": 3402,
-    "MAKSUD DAN TUJUAN SERTA KEGIATAN USAHA": 1985,
-    "PASAL 3": 3402,
-    "M O D A L": 3402,
-    "PASAL 4": 3402,
-    "S A H A M": 3402,
-    "PASAL 5": 3402,
-    "PENGGANTI SURAT SAHAM": 2268,
-    "PASAL 6": 3402,
-    "PEMINDAHAN HAK ATAS SAHAM": 1985,
-    "PASAL 7": 3119,
-    "RAPAT UMUM PEMEGANG SAHAM": 1985,
-    "PASAL 8": 3119,
-    "TEMPAT, PEMANGGILAN DAN PIMPINAN RAPAT UMUM": 1701,
-    "PEMEGANG SAHAM": 2835,
-    "PASAL 9": 3402,
-    "KUORUM, HAK SUARA, DAN KEPUTUSAN RAPAT UMUM": 1276,
-    "PASAL10": 3402,
-    "D I R E K S I": 3402,
-    "PASAL 11": 3402,
-    "TUGAS DAN WEWENANG DIREKSI": 1843,
-    "PASAL 12": 3119,
-    "RAPAT DIREKSI": 3119,
-    "PASAL 13": 3402,
-    "DEWAN KOMISARIS": 2835,
-    "PASAL 14": 3402,
-    "TUGAS DAN WEWENANG DEWAN KOMISARIS": 1843,
-    "PASAL 15": 3402,
-    "RAPAT DEWAN KOMISARIS": 2835,
-    "PASAL 16": 3544,
-    "RENCANA KERJA, TAHUN BUKU DAN LAPORAN TAHUNAN": 1710,
-    "PASAL 17": 3686,
-    "PENGGUNAAN LABA DAN PEMBAGIAN DEVIDEN": 1843,
-    "PASAL 18": 3402,
-    "PENGGUNAAN CADANGAN": 2268,
-    "PASAL 19": 3119,
-    "KETENTUAN PENUTUP": 2835,
-    "PASAL 20": 3402,
-    "DEMIKIANLAH AKTA INI": 3119
-  };
-
-  if (exactMap[normalized] !== undefined) {
-    return exactMap[normalized];
-  }
-
-  // Fallback calculation based on string length to dynamically keep it centered
   const len = normalized.length;
-  if (len < 10) return 3402;
-  if (len < 16) return 2835;
-  if (len < 34) return 2268;
-  if (len < 40) return 1985;
-  return 1276;
+
+  // Center of the printable tab-stop area is exactly 4440 dxa (half of 8880 dxa)
+  // Century Gothic 10pt Bold has an average character width of ~125 dxa
+  // Mathematically, the left tab stop = (center) - (text_length * character_width / 2)
+  const calculatedPos = Math.round(4440 - (len * 125) / 2);
+
+  // Safeguard: make sure there is at least 800 dxa on the left for hyphens, and at most 4200 dxa
+  return Math.min(4200, Math.max(800, calculatedPos));
 }
 
 // -------------------------------------------------------------------------------------
@@ -320,6 +300,12 @@ function adjustDividerTabStops(clonedP: Element, text: string): void {
     pPr.removeChild(existingTabs);
   }
 
+  // Remove negative/custom left indentation so that dividers start exactly at the page margin
+  const ind = getSingleElement(pPr, "ind");
+  if (ind) {
+    pPr.removeChild(ind);
+  }
+
   const tabs = clonedP.ownerDocument.createElementNS(W_NS, "w:tabs");
   
   // Tab 1: Left-aligned at calculated centering position, draws hyphens
@@ -330,11 +316,11 @@ function adjustDividerTabStops(clonedP: Element, text: string): void {
   tab1.setAttribute("w:pos", pos1.toString());
   tabs.appendChild(tab1);
 
-  // Tab 2: Left-aligned at 8364, draws hyphens to exact right margin boundary
+  // Tab 2: Left-aligned at 8880, draws hyphens to exact right margin boundary
   const tab2 = clonedP.ownerDocument.createElementNS(W_NS, "w:tab");
   tab2.setAttribute("w:val", "left");
   tab2.setAttribute("w:leader", "hyphen");
-  tab2.setAttribute("w:pos", "8364");
+  tab2.setAttribute("w:pos", "8880");
   tabs.appendChild(tab2);
   
   insertTabsInOrder(pPr, tabs);
@@ -343,7 +329,7 @@ function adjustDividerTabStops(clonedP: Element, text: string): void {
 // -------------------------------------------------------------------------------------
 // Ensure tab stops exist and have hyphen leader on normal body paragraphs
 // -------------------------------------------------------------------------------------
-function adjustTabStops(clonedP: Element): void {
+function adjustTabStops(clonedP: Element, blockType?: string): void {
   let pPr = getSingleElement(clonedP, "pPr");
   if (!pPr) {
     pPr = clonedP.ownerDocument.createElementNS(W_NS, "w:pPr");
@@ -358,11 +344,19 @@ function adjustTabStops(clonedP: Element): void {
 
   const tabs = clonedP.ownerDocument.createElementNS(W_NS, "w:tabs");
   
-  // Single left-aligned tab stop at 8364 (exact left tab stop alignment from the original notary PT. pendirian template)
+  // For management-role, we need a tab stop before the leader tab
+  if (blockType === "management-role") {
+    const roleTab = clonedP.ownerDocument.createElementNS(W_NS, "w:tab");
+    roleTab.setAttribute("w:val", "left");
+    roleTab.setAttribute("w:pos", "3402"); // ~6cm, enough to align after 'Komisaris Utama'
+    tabs.appendChild(roleTab);
+  }
+
+  // Single left-aligned tab stop at 8880 (exact left tab stop alignment from the original notary PT. pendirian template)
   const tab = clonedP.ownerDocument.createElementNS(W_NS, "w:tab");
   tab.setAttribute("w:val", "left");
   tab.setAttribute("w:leader", "hyphen");
-  tab.setAttribute("w:pos", "8364");
+  tab.setAttribute("w:pos", "8880");
   
   tabs.appendChild(tab);
   
@@ -377,22 +371,23 @@ function getMaxWidthForBlock(block: any): number {
   switch (block.type) {
     case "p":
       if (block.align === "center" || block.align === "right-center") return 100;
-      if (block.kbliDesc) return 36.5;
-      if (block.indentTabs === 2) return 33.0;
-      if (block.indentTabs === 1) return 36.5;
-      return 41.5;
+      if (block.kbliDesc) return 40.5;
+      if (block.indentTabs === 0.5) return 42.0;
+      if (block.indentTabs === 2) return 37.0;
+      if (block.indentTabs === 1) return 40.5;
+      return 45.5;
     case "numbered":
-      return 38.0;
+      return 42.0;
     case "sub-numbered":
-      return 36.0;
+      return 40.0;
     case "list":
-      return 38.0;
+      return 42.0;
     case "management-role":
-      return 38.0;
+      return 42.0;
     case "saksi":
-      return 38.0;
+      return 42.0;
     default:
-      return 41.5;
+      return 45.5;
   }
 }
 
@@ -455,7 +450,12 @@ function populateRuns(
   let logicalRuns: { text: string; bold?: boolean }[] = [];
 
   if (block.type === "management-role") {
-    logicalRuns = [{ text: `${block.position}: ${block.nameText};` }];
+    logicalRuns = [
+      { text: `${block.position}\t: ` },
+      { text: block.salutation ? `${block.salutation} ` : "" },
+      { text: block.name, bold: true },
+      { text: ", tersebut di atas;" }
+    ];
   } else if (block.type === "divider" || block.type === "pasal-divider") {
     const displayText = block.type === "pasal-divider" 
       ? block.text 
@@ -516,15 +516,31 @@ function populateRuns(
           }
         }
 
-        let tNode = getSingleElement(newRun, "t");
-        if (!tNode) {
-          tNode = xmlDoc.createElementNS(W_NS, "w:t");
-          newRun.appendChild(tNode);
+        // Handle tabs within the text by splitting
+        const parts = token.text.split('\t');
+        for (let i = 0; i < parts.length; i++) {
+          if (parts[i]) {
+            const runClone = newRun.cloneNode(true) as Element;
+            let tNode = getSingleElement(runClone, "t");
+            if (!tNode) {
+              tNode = xmlDoc.createElementNS(W_NS, "w:t");
+              runClone.appendChild(tNode);
+            }
+            tNode.setAttribute("xml:space", "preserve");
+            tNode.textContent = parts[i];
+            pNode.appendChild(runClone);
+          }
+          
+          // Insert a tab element after every part except the last one
+          if (i < parts.length - 1) {
+            const tabRun = xmlDoc.createElementNS(W_NS, "w:r");
+            if (rPr) {
+              tabRun.appendChild(rPr.cloneNode(true));
+            }
+            tabRun.appendChild(xmlDoc.createElementNS(W_NS, "w:tab"));
+            pNode.appendChild(tabRun);
+          }
         }
-        tNode.setAttribute("xml:space", "preserve");
-        tNode.textContent = token.text;
-
-        pNode.appendChild(newRun);
       }
 
       // Append tab stop character to fill the line up to the right margin
@@ -671,7 +687,7 @@ export const generatePendirianDocx = async (data: any): Promise<void> => {
     pgMar.setAttribute("w:top", "1418");
     pgMar.setAttribute("w:bottom", "1418");
     pgMar.setAttribute("w:left", "2268");
-    pgMar.setAttribute("w:right", "1134");
+    pgMar.setAttribute("w:right", "618");
     pgMar.setAttribute("w:header", "720");
     pgMar.setAttribute("w:footer", "578");
     pgMar.setAttribute("w:gutter", "0");
@@ -690,38 +706,92 @@ export const generatePendirianDocx = async (data: any): Promise<void> => {
   // Clear body
   removeAllChildren(body);
 
-  // 5. Generate logical blocks + preprocess (for bullet splitting)
+  // 6. Generate logical blocks + preprocess (for bullet splitting)
   const rawBlocks = generatePendirianBlocks(data);
   const preprocessedBlocks = preprocessBlocksForWordBullets(rawBlocks);
 
-  // 6. Assign numId values for independent numbered lists
-  // We cycle through a pool of decimal-at-lvl0, lowerLetter-at-lvl1 numIds defined in the template's numbering.xml
-  const DECIMAL_NUM_ID_POOL = [
-    "3", "4", "6", "7", "9", "12", "13", "16", "18", "26", "27", "29", "30", "34", "37", "46"
-  ];
-
-  let poolIndex = -1;
+  // 6.5 Dynamically create new numId definitions in word/numbering.xml to ensure EVERY list restarts
   let activeNumId = "7";
+  const numberingXmlFile = zip.file("word/numbering.xml");
+  let blocksWithNum = preprocessedBlocks;
+  
+  if (numberingXmlFile) {
+    const numXmlText = await numberingXmlFile.async("text");
+    const numDoc = parser.parseFromString(numXmlText, "text/xml");
+    const numberingNode = getSingleElement(numDoc, "numbering") || numDoc.documentElement;
+    
+    let nextNumId = 200; // Start high to avoid collision with existing template numIds
+    const ABSTRACT_NUM_ID_DECIMAL = "31"; // abstractNumId for decimal numbering in this template
+    
+    blocksWithNum = preprocessedBlocks.map((block: any) => {
+      if (block.type === "numbered") {
+        if (block.num === 1 || block.num === "1") {
+          activeNumId = String(nextNumId++);
+          
+          // Create new <w:num w:numId="...">
+          const numNode = numDoc.createElementNS(W_NS, "w:num");
+          numNode.setAttribute("w:numId", activeNumId);
+          
+          const abstractNumIdNode = numDoc.createElementNS(W_NS, "w:abstractNumId");
+          abstractNumIdNode.setAttribute("w:val", ABSTRACT_NUM_ID_DECIMAL);
+          numNode.appendChild(abstractNumIdNode);
+          
+          // Add lvlOverride to force start from 1
+          const lvlOverrideNode = numDoc.createElementNS(W_NS, "w:lvlOverride");
+          lvlOverrideNode.setAttribute("w:ilvl", "0");
+          const startOverrideNode = numDoc.createElementNS(W_NS, "w:startOverride");
+          startOverrideNode.setAttribute("w:val", "1");
+          lvlOverrideNode.appendChild(startOverrideNode);
+          numNode.appendChild(lvlOverrideNode);
+          
+          // Also override level 1 for sub-numbered items
+          const lvlOverrideNode1 = numDoc.createElementNS(W_NS, "w:lvlOverride");
+          lvlOverrideNode1.setAttribute("w:ilvl", "1");
+          const startOverrideNode1 = numDoc.createElementNS(W_NS, "w:startOverride");
+          startOverrideNode1.setAttribute("w:val", "1");
+          lvlOverrideNode1.appendChild(startOverrideNode1);
+          numNode.appendChild(lvlOverrideNode1);
 
-  const blocksWithNum = preprocessedBlocks.map((block: any) => {
-    if (block.type === "numbered") {
-      if (block.num === 1 || block.num === "1") {
-        poolIndex = (poolIndex + 1) % DECIMAL_NUM_ID_POOL.length;
-        activeNumId = DECIMAL_NUM_ID_POOL[poolIndex];
+          numberingNode.appendChild(numNode);
+        }
+        return { ...block, _numId: activeNumId };
       }
-      return { ...block, _numId: activeNumId };
+      if (block.type === "sub-numbered") {
+        return { ...block, _numId: activeNumId };
+      }
+      if (block.type === "list") {
+        return { ...block, _numId: "5" }; // bullet numId from template
+      }
+      if (block.type === "saksi") {
+        return { ...block, _numId: "14" }; // saksi numId from template
+      }
+      return block;
+    });
+
+    const serializer = new XMLSerializer();
+    let finalNumXml = serializer.serializeToString(numDoc);
+    if (!finalNumXml.startsWith("<?xml")) {
+      finalNumXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' + finalNumXml;
     }
-    if (block.type === "sub-numbered") {
-      return { ...block, _numId: activeNumId };
-    }
-    if (block.type === "list") {
-      return { ...block, _numId: "5" }; // bullet numId from template
-    }
-    if (block.type === "saksi") {
-      return { ...block, _numId: "14" }; // saksi numId from template
-    }
-    return block;
-  });
+    zip.file("word/numbering.xml", finalNumXml);
+  } else {
+    // Fallback if no numbering.xml found
+    const fallbackPool = ["3", "4", "6", "7", "9", "12", "13", "16", "18", "26", "27", "29", "30", "34", "37", "46"];
+    let poolIndex = -1;
+    blocksWithNum = preprocessedBlocks.map((block: any) => {
+      if (block.type === "numbered") {
+        if (block.num === 1 || block.num === "1") {
+          poolIndex = (poolIndex + 1) % fallbackPool.length;
+          activeNumId = fallbackPool[poolIndex];
+        }
+        return { ...block, _numId: activeNumId };
+      }
+      if (block.type === "sub-numbered") return { ...block, _numId: activeNumId };
+      if (block.type === "list") return { ...block, _numId: "5" };
+      if (block.type === "saksi") return { ...block, _numId: "14" };
+      return block;
+    });
+  }
 
   // 7. Clone + populate each block
   for (const block of blocksWithNum) {
@@ -748,7 +818,7 @@ export const generatePendirianDocx = async (data: any): Promise<void> => {
       block.type === "management-role";
 
     if (needsTrailingTab) {
-      adjustTabStops(cloned);
+      adjustTabStops(cloned, block.type);
     }
 
     if (block.type === "divider" || block.type === "pasal-divider") {

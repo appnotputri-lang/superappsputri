@@ -2,6 +2,7 @@ import React from 'react';
 import { CompanyData } from '../types';
 import { parseTextRuns } from './lib/notaryWrapper';
 import { generateRupstBlocks } from './lib/rupsTahunanContentBlocks';
+import { generateSirkulerLaporanBlocks } from './lib/sirkulerLaporanContentBlocks';
 
 interface RUPSTDocumentPreviewProps {
   data: CompanyData;
@@ -50,7 +51,7 @@ const renderToken = (t: any, j: number) => {
 };
 
 export const RUPSTDocumentPreview: React.FC<RUPSTDocumentPreviewProps> = ({ data }) => {
-  const blocks = generateRupstBlocks(data);
+  const blocks = data.rupstType === 'sirkuler' ? generateSirkulerLaporanBlocks(data) : generateRupstBlocks(data);
   
   const allLines: { element: React.ReactNode }[] = [];
   
@@ -84,7 +85,7 @@ export const RUPSTDocumentPreview: React.FC<RUPSTDocumentPreviewProps> = ({ data
       });
     } else if (block.type === 'list') {
       const runs = block.runs;
-      const indentTabs = block.indentTabs || 0;
+      const indentTabs = ('indentLeft' in block ? (block.indentLeft || 0) / 720 : ('indentTabs' in block ? (block.indentTabs || 0) : 0));
       const maxLine = 38 - (indentTabs * 2.2);
       const lines = parseTextRuns(runs, maxLine);
       
@@ -106,6 +107,47 @@ export const RUPSTDocumentPreview: React.FC<RUPSTDocumentPreviewProps> = ({ data
             </div>
           )
         });
+      });
+    } else if (block.type === 'numbered') {
+      const runs = block.runs;
+      const indentTabs = (block.indentLeft || 0) / 720;
+      const maxLine = 38 - (indentTabs * 2.2);
+      const lines = parseTextRuns(runs, maxLine);
+      const bulletLeft = indentTabs * 1;
+
+      lines.forEach((line, lIdx) => {
+        allLines.push({
+          element: (
+            <div key={`n-${bIdx}-${lIdx}`} className="flex relative items-start" style={{ paddingLeft: `${bulletLeft}cm` }}>
+              <span className="shrink-0 font-bold whitespace-nowrap" style={{ width: '1cm' }}>{lIdx === 0 ? block.num : ""}</span>
+              <div className="flex-1 min-w-0">
+                <div className="flex relative w-full overflow-hidden leading-[1.8]" style={{ textAlign: 'justify' }}>
+                  <span className="whitespace-pre-wrap w-full">
+                    {line.map((t, j) => renderToken(t, j))}
+                    {lIdx < lines.length - 1 && <span className="inline-block w-full" />}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )
+        });
+      });
+    } else if (block.type === 'signatures') {
+      const shs = block.shareholders || [];
+      allLines.push({
+        element: (
+          <div key={`sigs-${bIdx}`} className="grid grid-cols-2 gap-y-12 gap-x-8 mt-12 w-full text-center">
+            {shs.map((sh, idx) => (
+              <div key={sh.id || idx} className="flex flex-col items-center">
+                <div className="h-20" />
+                <span className="font-bold border-b border-black uppercase pb-1 tracking-wide text-xs">
+                  {sh.name}
+                </span>
+                <span className="text-[10px] text-slate-500 uppercase mt-1">Pemegang Saham</span>
+              </div>
+            ))}
+          </div>
+        )
       });
     } else if (block.type === 'divider') {
       allLines.push({

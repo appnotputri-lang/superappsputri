@@ -395,6 +395,11 @@ export interface CompanyData {
   capitalSubscriptionsNew?: CapitalSubscriptionItem[];
   rupstDividends?: RupstDividendDistribution[];
   rupstDividendPaymentDate?: string;
+  rupstType?: 'sirkuler' | 'rapat';
+  totalShares?: number;
+  rupstReceiptNumber?: string;
+  rupstReceiptDate?: string;
+  fiscalYear?: number;
 }
 
 export interface RupstDividendDistribution {
