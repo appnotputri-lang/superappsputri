@@ -333,14 +333,26 @@ const mkAttendanceLetter = (t: FormatToken[], bulletStr: string) =>
 // ── General zone: 4 distinct builders matching corrected docx XML ─────────────
 
 /** GENERAL: "Bahwa dari semua saham..."
- *  NO numbering per user request ("tidak menggunakan bullet")
- *  Position same as "angka 3" (left 720) */
+ *  Has bullet - per user request ("harus bullet - dan posisinya sperti contoh melebihi numbering 2")
+ *  Position same as "Selaku pemilik" (left 1080, hanging 360) with bullet - */
 const mkGeneralBahwaDari = (t: FormatToken[]) =>
   new Paragraph({
     style: "ListParagraph",
+    numbering: { reference: NUM.GENERAL, level: 2 },
     tabStops: [TAB_KANAN],
-    indent: { left: 720 },
-    children: wrappedRuns(t, W.generalBahwaDari),
+    indent: { left: 1080, hanging: 360 },
+    children: wrappedRuns(t, 36.0),
+  });
+
+/** DECISIONS: "Sehubungan dengan apa..."
+ *  Position same as "Bahwa para pemegang saham" (left 426, hanging 426) with bullet - */
+const mkDecisionSehubungan = (t: FormatToken[]) =>
+  new Paragraph({
+    style: "ListParagraph",
+    numbering: { reference: NUM.DECISIONS, level: 2 },
+    tabStops: [TAB_KANAN],
+    indent: { left: 426, hanging: 426 },
+    children: wrappedRuns(t, W.preambleDash),
   });
 
 /** GENERAL: "Bahwa menurut..."
@@ -376,33 +388,33 @@ const mkAgendaItem = (t: FormatToken[]) =>
     children: wrappedRuns(t, W.agendaItem),
   });
 
-/** DECISION NUMBER  numId=5 ilvl=0 ind.left=426 hanging=426 */
+/** DECISION NUMBER  numId=5 ilvl=0 ind.left=720 hanging=360 */
 const mkDecisionNum = (t: FormatToken[]) =>
   new Paragraph({
     style: "ListParagraph",
     numbering: { reference: NUM.DECISIONS, level: 0 },
     tabStops: [TAB_KANAN],
-    indent: { left: 426, hanging: 426 },
+    indent: { left: 720, hanging: 360 },
     children: wrappedRuns(t, W.decisionNum),
   });
 
-/** DECISION LETTER  numId=5 ilvl=1 ind.left=851 */
+/** DECISION LETTER  numId=5 ilvl=1 ind.left=1080 hanging=360 */
 const mkDecisionLetter = (t: FormatToken[]) =>
   new Paragraph({
     style: "ListParagraph",
     numbering: { reference: NUM.DECISIONS, level: 1 },
     tabStops: [TAB_KANAN],
-    indent: { left: 851 },
+    indent: { left: 1080, hanging: 360 },
     children: wrappedRuns(t, W.decisionLetter),
   });
 
-/** DECISION DASH  sejajar numbering 0 */
+/** DECISION DASH  sejajar letter/level 1 */
 const mkDecisionDash = (t: FormatToken[]) =>
   new Paragraph({
     style: "ListParagraph",
     numbering: { reference: NUM.DECISIONS, level: 2 },
     tabStops: [TAB_KANAN],
-    indent: { left: 720, hanging: 360 },
+    indent: { left: 1080, hanging: 360 },
     children: wrappedRuns(t, W.decisionDash),
   });
 
@@ -412,7 +424,7 @@ const mkDecisionDashInner = (t: FormatToken[]) =>
     style: "ListParagraph",
     numbering: { reference: NUM.DECISIONS, level: 2 },
     tabStops: [TAB_KANAN],
-    indent: { left: 1080, hanging: 360 },
+    indent: { left: 1440, hanging: 360 },
     children: wrappedRuns(t, W.decisionDash),
   });
 
@@ -576,7 +588,9 @@ export const generateRUPSTAktaDocx = async (data: CompanyData, returnBlob?: bool
       }
 
       if (zone === "decisions") {
-        if (isLetter) {
+        if (text.startsWith("Sehubungan dengan apa yang diuraikan")) {
+          docxChildren.push(mkDecisionSehubungan(b.runs));
+        } else if (isLetter) {
           docxChildren.push(mkDecisionLetter(b.runs));
         } else {
           // indentTabs determines if it's an inner dash (indent 2) or outer dash (indent 1)

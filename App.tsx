@@ -9172,11 +9172,11 @@ const App: React.FC = () => {
                       </div>
                     </AhuSection>
 
-                    <AhuSection title="DATA KEHADIRAN (DAFTAR PARA PIHAK)">
+                    <AhuSection title={data.rupstType === 'sirkuler' ? "DAFTAR PARA PIHAK" : "DATA KEHADIRAN (DAFTAR PARA PIHAK)"}>
                       <div className="space-y-4">
                         <div className="flex justify-between items-center">
                           <h4 className="text-[12px] font-bold text-slate-500 uppercase flex items-center gap-2">
-                             <Users className="w-3 h-3" /> DATA KEHADIRAN (DAFTAR PARA PIHAK)
+                             <Users className="w-3 h-3" /> {data.rupstType === 'sirkuler' ? "DAFTAR PARA PIHAK" : "DATA KEHADIRAN (DAFTAR PARA PIHAK)"}
                           </h4>
                           <button 
                             onClick={() => {

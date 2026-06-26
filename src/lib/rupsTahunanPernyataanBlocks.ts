@@ -32,10 +32,18 @@ export const generateRupstPernyataanBlocks = (data: CompanyData): Block[] => {
 
   const fiscalYear = data.rupstFiscalYear || "2025";
   const notaryName = data.notaryName || "NUKANTINI PUTRI PARINCHA, SH., M.Kn";
-  const domicile =
-    data.domicileStyle === "KABUPATEN"
-      ? `Kabupaten ${toTitleCase(data.domicile || "")}`
-      : `Kota ${toTitleCase(data.domicile || "")}`;
+  const rawDomicile = data.domicile || "";
+  const isCityOrRegency = rawDomicile.toLowerCase().startsWith("kota") || rawDomicile.toLowerCase().startsWith("kabupaten");
+  let domicile = "Kota ............................";
+  if (rawDomicile) {
+    if (isCityOrRegency) {
+      domicile = toTitleCase(rawDomicile);
+    } else {
+      domicile = data.domicileStyle === "KABUPATEN" 
+        ? `Kabupaten ${toTitleCase(rawDomicile)}` 
+        : `Kota ${toTitleCase(rawDomicile)}`;
+    }
+  }
 
   // 1. Title — centered, bold, size 24 (12pt)
   blocks.push(
