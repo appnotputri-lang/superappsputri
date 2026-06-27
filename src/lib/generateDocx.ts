@@ -29,7 +29,7 @@ const saveAsNative = (blob: Blob, fileName: string) => {
 const FONT_FAMILY = "Arial";
 const FONT_SIZE = 22; 
 const LINE_SPACING = 360; // Approx 1.5 line spacing
-const AFTER_SPACING = 120; // 6pt
+const AFTER_SPACING = 0; // 0pt
 
 const MARGIN_NORMAL = 1440; // 1 inch
 
@@ -247,7 +247,7 @@ export const generateWordDoc = async (data: CompanyData) => {
           font: FONT_FAMILY,
         }),
       ],
-      spacing: { after: 480, line: LINE_SPACING, lineRule: "auto" },
+      spacing: { after: 360, line: LINE_SPACING, lineRule: "auto" },
     }),
   );
 
@@ -255,7 +255,7 @@ export const generateWordDoc = async (data: CompanyData) => {
   if (!isCircular) {
     children.push(
       new Paragraph({
-        spacing: { after: 240 },
+        spacing: { after: 0 },
         children: [
           new TextRun({
             text: "I. RAPAT",
@@ -560,7 +560,7 @@ export const generateWordDoc = async (data: CompanyData) => {
     // --- II. KETUA RAPAT ---
     children.push(
       new Paragraph({
-        spacing: { before: 480, after: 240 },
+        spacing: { before: 0, after: 0 },
         children: [
           new TextRun({
             text: "II. KETUA RAPAT",
@@ -597,7 +597,7 @@ export const generateWordDoc = async (data: CompanyData) => {
     // --- III. AGENDA RAPAT ---
     children.push(
       new Paragraph({
-        spacing: { before: 480, after: 240 },
+        spacing: { before: 0, after: 0 },
         children: [
           new TextRun({
             text: "III. AGENDA RAPAT",
@@ -630,7 +630,7 @@ export const generateWordDoc = async (data: CompanyData) => {
     // --- IV. DETAIL RAPAT DAN AKTA PENDIRIAN/PERUBAHAN ---
     children.push(
       new Paragraph({
-        spacing: { before: 480, after: 240 },
+        spacing: { before: 0, after: 0 },
         children: [
           new TextRun({
             text: "IV. DETAIL RAPAT DAN AKTA PENDIRIAN/PERUBAHAN",
@@ -831,7 +831,7 @@ export const generateWordDoc = async (data: CompanyData) => {
     // --- V. JALANNYA RAPAT ---
     children.push(
       new Paragraph({
-        spacing: { before: 480, after: 240 },
+        spacing: { before: 0, after: 0 },
         children: [
           new TextRun({
             text: "V. JALANNYA RAPAT",
@@ -860,7 +860,7 @@ export const generateWordDoc = async (data: CompanyData) => {
     : "VI. KEPUTUSAN-KEPUTUSAN";
   children.push(
     new Paragraph({
-      spacing: { before: 480, after: 240 },
+      spacing: { before: 0, after: 0 },
       children: [
         new TextRun({
           text: resolutionsLabel,

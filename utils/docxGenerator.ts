@@ -29,7 +29,7 @@ const saveAsNative = (blob: Blob, fileName: string) => {
 const FONT_FAMILY = "Arial";
 const FONT_SIZE = 22; // 11pt
 const LINE_SPACING = 360;
-const AFTER_SPACING = 120;
+const AFTER_SPACING = 0;
 const MARGIN_NORMAL = 1440;
 
 const cleanNameOfSalutation = (name: string): string => {
@@ -156,7 +156,7 @@ export const generateWordDoc = async (data: CompanyData) => {
   const w = (num: number, tipe: "shares" | "rupiah") => {
     return "";
   };
-  const companyName = data.companyName.replace(/PT\.?\s*/i, "").trim().toUpperCase();
+  const companyName = data.companyName.trim().toUpperCase().replace(/^(PT\b\.?|PERSEROAN\s+TERBATAS\b)\s*/gi, "").trim();
 
   const expandAbbreviations = (str: string) => {
     if (!str) return "";
@@ -187,8 +187,8 @@ export const generateWordDoc = async (data: CompanyData) => {
   const formatCompanyName = (name: string): string => {
     if (!name) return "";
     let clean = name.trim().toUpperCase();
-    if (clean.startsWith("PT ") || clean.startsWith("PT. ")) {
-      clean = clean.replace(/^PT\.?\s+/, "");
+    while (/^(PT\b\.?|PERSEROAN\s+TERBATAS\b)\s*/i.test(clean)) {
+      clean = clean.replace(/^(PT\b\.?|PERSEROAN\s+TERBATAS\b)\s*/i, "").trim();
     }
     return `PT ${clean}`;
   };
@@ -307,7 +307,7 @@ export const generateWordDoc = async (data: CompanyData) => {
       mkP({ text: "KEPUTUSAN PARA PEMEGANG SAHAM SEBAGAI PENGGANTI", bold: true, alignment: "center", spacing: { after: 0 } }),
       mkP({ text: "RAPAT UMUM PEMEGANG SAHAM LUAR BIASA", bold: true, alignment: "center", spacing: { after: 0 } }),
       mkP({
-        alignment: "center", spacing: { after: 480 },
+        alignment: "center", spacing: { after: 360 },
         children: [mkRun(`PT ${companyName}`, true, { underline: { type: "single" } })],
       }),
     );
@@ -316,7 +316,7 @@ export const generateWordDoc = async (data: CompanyData) => {
       mkP({ text: "NOTULEN", bold: true, alignment: "center", spacing: { after: 0 } }),
       mkP({ text: "RAPAT UMUM PEMEGANG SAHAM LUAR BIASA", bold: true, alignment: "center", spacing: { after: 0 } }),
       mkP({
-        alignment: "center", spacing: { after: 480 },
+        alignment: "center", spacing: { after: 360 },
         children: [mkRun(`PT ${companyName}`, true, { underline: { type: "single" } })],
       }),
     );
@@ -324,7 +324,7 @@ export const generateWordDoc = async (data: CompanyData) => {
 
   // ── SECTION HEADERS (I. RAPAT / II. PESERTA dst.) ─────────────────────────
   // numId 15 → upperRoman bold, left=0 (per contoh: ind left=142 firstLine=0)
-  const mkSection = (label: string, spacingBefore = 480, spacingAfter = 240) =>
+  const mkSection = (label: string, spacingBefore = 0, spacingAfter = 0) =>
     new Paragraph({
       alignment: "left" as any,
       spacing: { before: spacingBefore, after: spacingAfter },
@@ -337,7 +337,7 @@ export const generateWordDoc = async (data: CompanyData) => {
   if (isCircular) {
     const preambleDomicile = data.domicile || "................";
     children.push(
-      mkP({ text: `Kami yang bertandatangan dibawah ini, para Pemegang Saham PT ${data.companyName || "................"}, berkedudukan di ${preambleDomicile} ("Perseroan"), terdiri dari:` }),
+      mkP({ text: `Kami yang bertandatangan dibawah ini, para Pemegang Saham ${formatCompanyName(data.companyName)}, berkedudukan di ${preambleDomicile} ("Perseroan"), terdiri dari:` }),
     );
   }
 
@@ -451,7 +451,9 @@ export const generateWordDoc = async (data: CompanyData) => {
   // Listing peserta
   const getDisplayNameForDocx = (person: any) => {
     let name = (person.name || "................").toUpperCase();
-    name = name.replace(/^PT\.?\s+/i, '').trim();
+    while (/^(PT\b\.?|PERSEROAN\s+TERBATAS\b)\s*/i.test(name)) {
+      name = name.replace(/^(PT\b\.?|PERSEROAN\s+TERBATAS\b)\s*/i, "").trim();
+    }
     return cleanNameOfSalutation(name);
   };
 
@@ -1041,7 +1043,7 @@ export const generateWordDoc = async (data: CompanyData) => {
   children.push(
     new Paragraph({
       alignment: "left" as any,
-      spacing: { before: 480, after: 240 },
+      spacing: { before: 0, after: 0 },
       children: [mkRun(resLabel, true)],
     }),
   );
@@ -1104,8 +1106,8 @@ export const generateWordDoc = async (data: CompanyData) => {
       const isDomicile = data.resolutions.domicile;
       const isBoth = isName && isDomicile;
 
-      const oldName = (data.companyName || "..........").toUpperCase();
-      const newName = (data.targetCompanyName || data.companyName).toUpperCase();
+      const oldName = formatCompanyName(data.companyName);
+      const newName = formatCompanyName(data.targetCompanyName || data.companyName);
       const oldDomicile = data.domicile || "..........";
       const newDomicile = data.newAddress?.city || "..........";
 
@@ -1114,7 +1116,7 @@ export const generateWordDoc = async (data: CompanyData) => {
       if (isName) {
         resBlocks.push(bodyP({
           numbering: { reference: "keputusan-num", level: 0 },
-          text: `Menyetujui dan memutuskan untuk mengubah nama Perseroan, yang semula bernama : PT ${oldName} menjadi bernama PT ${newName}.`
+          text: `Menyetujui dan memutuskan untuk mengubah nama Perseroan, yang semula bernama : ${oldName} menjadi bernama ${newName}.`
         }));
       }
 
@@ -1189,28 +1191,13 @@ export const generateWordDoc = async (data: CompanyData) => {
     // 3. KBLI/Maksud dan Tujuan (Pasal 3)
     if (data.resolutions.kbli) {
       const kbliBody: any[] = [
-        bodyP({ indent: { left: 426 }, text: "Menyetujui dan memutuskan untuk mengubah ketentuan Pasal 3 ayat (1) dan ayat (2) Anggaran Dasar Perseroan mengenai Maksud dan Tujuan serta Kegiatan Usaha, sehingga selanjutnya menjadi berbunyi sebagai berikut :" }),
-        new Paragraph({
-          alignment: AlignmentType.LEFT,
-          spacing: { before: 240, after: 120 },
-          children: [
-            new TextRun({ text: "\t", font: FONT_FAMILY, size: FONT_SIZE }),
-            new TextRun({ text: " Pasal 3 ", bold: true, font: FONT_FAMILY, size: FONT_SIZE }),
-            new TextRun({ text: "\t", font: FONT_FAMILY, size: FONT_SIZE }),
-          ],
-          tabStops: [
-            { type: TabStopType.CENTER, position: 4513, leader: LeaderType.HYPHEN },
-            { type: TabStopType.RIGHT, position: 9026, leader: LeaderType.HYPHEN },
-          ]
+        bodyP({
+          numbering: { reference: "keputusan-num", level: 0 },
+          text: "Menyetujui dan memutuskan untuk mengubah ketentuan Pasal 3 ayat (1) dan ayat (2) Anggaran Dasar Perseroan mengenai Maksud dan Tujuan serta Kegiatan Usaha, sehingga selanjutnya menjadi berbunyi sebagai berikut :"
         }),
-        new Paragraph({
-          alignment: "both" as any,
-          spacing: { line: LINE_SPACING, lineRule: "auto", after: 60 },
-          indent: { left: 851, hanging: 426 },
-          children: [
-            mkRun("1) "),
-            mkRun("Maksud dan Tujuan Perseroan adalah berusaha dalam bidang :"),
-          ],
+        bodyP({
+          numbering: { reference: "kbli-sub-1", level: 0 },
+          text: "Maksud dan Tujuan Perseroan adalah berusaha dalam bidang :",
         })
       ];
 
@@ -1229,13 +1216,9 @@ export const generateWordDoc = async (data: CompanyData) => {
       });
 
       kbliBody.push(
-        new Paragraph({
-          alignment: "both" as any,
-          spacing: { line: LINE_SPACING, lineRule: "auto", before: 60, after: 60 },
+        bodyP({
           numbering: { reference: "kbli-sub-2", level: 0 },
-          children: [
-            mkRun("Untuk mencapai maksud dan tujuan tersebut diatas, perseroan dapat melaksanakan kegiatan usaha sebagai berikut :"),
-          ],
+          text: "Untuk mencapai maksud dan tujuan tersebut diatas, perseroan dapat melaksanakan kegiatan usaha sebagai berikut :",
         })
       );
 
@@ -2079,8 +2062,8 @@ export const generateWordDoc = async (data: CompanyData) => {
       const isDomicile = data.resolutions.domicile;
       const isBoth = isName && isDomicile;
 
-      const oldName = (data.companyName || "..........").toUpperCase();
-      const newName = (data.targetCompanyName || data.companyName).toUpperCase();
+      const oldName = formatCompanyName(data.companyName);
+      const newName = formatCompanyName(data.targetCompanyName || data.companyName);
       const oldDomicile = data.domicile || "..........";
       const newDomicile = data.newAddress?.city || "..........";
 
@@ -2089,7 +2072,7 @@ export const generateWordDoc = async (data: CompanyData) => {
       if (isName) {
         resBlocks.push(bodyP({
           numbering: { reference: "keputusan-num", level: 0 },
-          text: `Menyetujui dan memutuskan untuk mengubah nama Perseroan, yang semula bernama : PT ${oldName} menjadi bernama PT ${newName}.`
+          text: `Menyetujui dan memutuskan untuk mengubah nama Perseroan, yang semula bernama : ${oldName} menjadi bernama ${newName}.`
         }));
       }
 
@@ -2158,41 +2141,18 @@ export const generateWordDoc = async (data: CompanyData) => {
 
     // KBLI
     if (data.resolutions.kbli) {
-      // "Menyetujui dan memutuskan..."
-      addRes([
+      const kbliBody: any[] = [
         bodyP({ 
           numbering: { reference: "keputusan-num", level: 0 },
           text: "Menyetujui dan memutuskan untuk mengubah ketentuan Pasal 3 ayat (1) dan ayat (2) Anggaran Dasar Perseroan mengenai Maksud dan Tujuan serta Kegiatan Usaha, sehingga selanjutnya menjadi berbunyi sebagai berikut :" 
-        })
-      ]);
-
-      addRes([
-        new Paragraph({
-          alignment: AlignmentType.LEFT,
-          spacing: { before: 240, after: 120 },
-          children: [
-            new TextRun({ text: "\t", font: FONT_FAMILY, size: FONT_SIZE }),
-            new TextRun({ text: " Pasal 3 ", bold: true, font: FONT_FAMILY, size: FONT_SIZE }),
-            new TextRun({ text: "\t", font: FONT_FAMILY, size: FONT_SIZE }),
-          ],
-          tabStops: [
-            { type: TabStopType.CENTER, position: 4513, leader: LeaderType.HYPHEN },
-            { type: TabStopType.RIGHT, position: 9026, leader: LeaderType.HYPHEN },
-          ]
-        })
-      ]);
-
-      const kbliBody: any[] = [];
-
-      // "1) Maksud dan Tujuan Perseroan adalah berusaha dalam bidang :"
-      kbliBody.push(
+        }),
         bodyP({
           numbering: { reference: "kbli-sub-1", level: 0 },
           text: "Maksud dan Tujuan Perseroan adalah berusaha dalam bidang :",
         })
-      );
+      ];
 
-      // "- PENYEDIAAN AKOMODASI DAN PENYEDIAAN MAKAN MINUM"
+      // "- TRANSPORTASI DAN PENYIMPANAN"
       const categories = Array.from(new Set((data.kbliItems || []).map((k: any) => k.categoryName))).filter(Boolean) as string[];
       categories.forEach((cat) => {
         kbliBody.push(
@@ -2209,13 +2169,9 @@ export const generateWordDoc = async (data: CompanyData) => {
 
       // "2) Untuk mencapai maksud dan tujuan..."
       kbliBody.push(
-        new Paragraph({
-          alignment: "both" as any,
-          spacing: { line: LINE_SPACING, lineRule: "auto", before: 60, after: 60 },
+        bodyP({
           numbering: { reference: "kbli-sub-2", level: 0 },
-          children: [
-            mkRun("Untuk mencapai maksud dan tujuan tersebut diatas, perseroan dapat melaksanakan kegiatan usaha sebagai berikut :"),
-          ],
+          text: "Untuk mencapai maksud dan tujuan tersebut diatas, perseroan dapat melaksanakan kegiatan usaha sebagai berikut :",
         })
       );
 
@@ -2247,6 +2203,7 @@ export const generateWordDoc = async (data: CompanyData) => {
       });
 
       kbliBody.forEach(p => children.push(p));
+      resolutionIdx++;
     }
 
     // Modal Dasar

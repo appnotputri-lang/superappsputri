@@ -196,7 +196,7 @@ export function formatCompanyName(name: string): string {
     cleanName = cleanName.replace(/^(pt\b\.?|perseroan\s+terbatas\b)\s*/i, "").trim();
   }
   
-  return `PT. ${cleanName}`.toUpperCase();
+  return `PT ${cleanName}`.toUpperCase();
 }
 
 export function formatAktaDate(dateStr: string): string {

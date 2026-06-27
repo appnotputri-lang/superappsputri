@@ -1,6 +1,6 @@
 import { FormData } from '../constants';
 import { FormatToken } from './notaryWrapper';
-import { getDayName, dateToWords, formatDateStr, timeToWords, formatTimeStr, terbilang, toTitleCase, formatNumber, formatAddress } from './formatter';
+import { getDayName, dateToWords, formatDateStr, timeToWords, formatTimeStr, terbilang, toTitleCase, formatNumber, formatAddress, formatCompanyName } from './formatter';
 
 export type Block = 
   | { type: 'p', runs: FormatToken[], align?: 'left' | 'center' | 'right' | 'right-center', indent?: boolean, indentTabs?: number, spaceAfter?: boolean, number?: number }
@@ -151,7 +151,7 @@ export const generateBlocks = (data: FormData): Block[] => {
     
     { type: 'list', bullet: '-', runs: [
       { text: `Bahwa Pihak Pertama adalah selaku pemilik ${jumlahSaham} (${jumlahSahamHuruf}) lembar saham Perseroan Terbatas ` },
-      { text: `PT ${data.namaPT.toUpperCase()}`, bold: true },
+      { text: formatCompanyName(data.namaPT), bold: true },
       { text: ` Perseroan yang berkedudukan di ${toTitleCase(data.kedudukanPT)}, demikian berdasarkan Akta Pendirian tertanggal ${tglPendirianAngka} (${tglPendirianHuruf}), Nomor ${data.nomorPendirian} dibuat dihadapan ${checkNotaryWording(data.notarisPT, data.notarisPTTitle, data.kedudukanNotarisPT)} telah mendapat pengesahan dari Menteri Hukum dan Hak Asasi Manusia Republik Indonesia berdasarkan Surat Keputusan Nomor ${data.skPengesahan} tanggal ${tglSKPendirianAngka} (${tglSKPendirianHuruf})` },
       ...aktaPerubahanRuns,
       { text: `;` }
@@ -161,7 +161,7 @@ export const generateBlocks = (data: FormData): Block[] => {
       { type: 'list', bullet: '-', runs: [{ text: `Bahwa Pihak Pertama bermaksud untuk menghibahkan ${jumlahSahamHibah} (${jumlahSahamHibahHuruf}) lembar saham Perseroan atau senilai ${nilaiSahamStr} (${nilaiSahamHurufStr}) yang dimilikinya tersebut kepada Pihak Kedua yang juga menerangkan telah menerima hibah saham dari Pihak Pertama atas ${jumlahSahamHibah} (${jumlahSahamHibahHuruf}) lembar saham Perseroan yang dimiliki oleh Pihak Pertama tersebut, demikian berikut tanda-tanda bukti pemilikan saham dan talon yang berkenaan;` }] },
       { type: 'list', bullet: '-', runs: [
          { text: `Bahwa Hibah Saham ini telah mendapat persetujuan dari para pemegang saham Perseroan berdasarkan Keputusan Sirkuler Para Pemegang Saham ` },
-         { text: `PT ${data.namaPT.toUpperCase()}`, bold: true },
+         { text: formatCompanyName(data.namaPT), bold: true },
          { text: `, Sebagai Pengganti Rapat Umum Pemegang Saham Luar Biasa tertanggal ${tglSirkulerAngka} (${tglSirkulerHuruf});` }
       ] },
       { type: 'list', bullet: '-', runs: [
@@ -177,7 +177,7 @@ export const generateBlocks = (data: FormData): Block[] => {
       { type: 'list', bullet: '-', runs: [{ text: `Bahwa Pihak Pertama bermaksud untuk menjual ${jumlahSahamHibah} (${jumlahSahamHibahHuruf}) lembar saham Perseroan atau senilai ${hargaJualStr} (${hargaJualHuruf}) yang dimilikinya tersebut kepada Pihak Kedua yang juga menerangkan telah membeli dan menerima penyerahan dari Pihak Pertama atas ${jumlahSahamHibah} (${jumlahSahamHibahHuruf}) lembar saham Perseroan yang dimiliki oleh Pihak Pertama tersebut, demikian berikut tanda-tanda bukti pemilikan saham dan talon yang berkenaan;` }] },
       { type: 'list', bullet: '-', runs: [
          { text: `Bahwa Jual Beli Saham ini telah mendapat persetujuan dari para pemegang saham Perseroan berdasarkan Keputusan Sirkuler Para Pemegang Saham ` },
-         { text: `PT ${data.namaPT.toUpperCase()}`, bold: true },
+         { text: formatCompanyName(data.namaPT), bold: true },
          { text: `, Sebagai Pengganti Rapat Umum Pemegang Saham Luar Biasa tertanggal ${tglSirkulerAngka} (${tglSirkulerHuruf});` }
       ] },
       { type: 'list', bullet: '-', runs: [
@@ -210,7 +210,7 @@ export const generateBlocks = (data: FormData): Block[] => {
     { type: 'divider', text: `Pasal 5` },
     { type: 'p', runs: [
        { text: `Sejak beralihnya kepemilikan saham-saham tersebut diatas, Pihak Pertama tidak akan memanfaatkan dan/atau mengambil keuntungan dengan cara apapun baik untuk kepentingan sendiri maupun kelompok dengan menggunakan nama perseroan terbatas ` },
-       { text: `PT ${data.namaPT.toUpperCase()}`, bold: true },
+       { text: formatCompanyName(data.namaPT), bold: true },
        { text: `.` }
     ] },
 

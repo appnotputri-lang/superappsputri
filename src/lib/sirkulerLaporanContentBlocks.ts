@@ -66,10 +66,7 @@ export function generateSirkulerLaporanBlocks(data: CompanyData): Block[] {
   const blocks: Block[] = [];
 
   const companyNameText = data.companyName || "";
-  const displayCompanyName = companyNameText.toUpperCase().startsWith("PT") || companyNameText.toUpperCase().startsWith("PT.")
-    ? companyNameText.toUpperCase()
-    : `PT ${companyNameText.toUpperCase()}`;
-  const finalCompanyName = data.companyName ? displayCompanyName : "PT. ............................";
+  const finalCompanyName = formatCompanyName(companyNameText) || "PT ............................";
   const rawDomicile = data.domicile || "";
   const isCityOrRegency = rawDomicile.toLowerCase().startsWith("kota") || rawDomicile.toLowerCase().startsWith("kabupaten");
   const domicile = rawDomicile 
