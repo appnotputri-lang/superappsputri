@@ -110,9 +110,12 @@ const EXEMPLAR = {
   // "Diberikan sebagai salinan..." note (indented)
   COPY_NOTE: 231,                     // (Index 231 in new template)
 
+  // "Minuta Akta ini..." note
+  MINUTA_NOTE: 230,                   // (Index 230 in new template)
+
   // Notaris location (right-center)
   NOTARIS_LOCATION: 232,              // "Notaris di Kabupaten Bandung Barat;" (Index 232 in new template)
-
+  
   // Notaris name (right-center, bold)
   NOTARIS_NAME: 236,                  // "NUKANTINI PUTRI PARINCHA, SH., M.Kn." (Index 236 in new template)
 };
@@ -134,7 +137,7 @@ function getExemplarIndex(block: any): number {
       if (block.kbliDesc) return EXEMPLAR.KBLI_DESC;
       if (block.indentTabs === 0.5) return EXEMPLAR.INDENTED_P;
       if (block.indentTabs === 2) return EXEMPLAR.COPY_NOTE;
-      if (block.indentTabs === 1) return EXEMPLAR.KBLI_DESC; // fallback
+      if (block.indentTabs === 1) return EXEMPLAR.MINUTA_NOTE;
       return EXEMPLAR.NORMAL_P;
 
     case "br":
@@ -142,6 +145,7 @@ function getExemplarIndex(block: any): number {
 
     case "divider":
     case "pasal-divider":
+    case "pt-name":
       // Both use similar tab + bold uppercase style
       return EXEMPLAR.DIVIDER;
 
@@ -180,15 +184,35 @@ function adjustNumbering(clonedP: Element, block: any, currentNumId: string): vo
       if (numPr) pPr.removeChild(numPr);
       
       // Fix indent for management-role which was relying on numbering hanging indent
-      if (block.type === "management-role") {
+      if (block.type === "management-role" || block.kbliDesc || block.type === "pt-name" || block.indentTabs !== undefined) {
         let ind = getSingleElement(pPr, "ind");
         if (!ind) {
           ind = clonedP.ownerDocument.createElementNS(W_NS, "w:ind");
           pPr.appendChild(ind);
         }
-        // Indent further than the numbered list text (851 vs 567)
-        ind.setAttribute("w:left", "851");
-        ind.removeAttribute("w:hanging");
+        if (block.kbliDesc) {
+          ind.setAttribute("w:left", "567");
+          ind.removeAttribute("w:hanging");
+          ind.removeAttribute("w:firstLine");
+        } else if (block.type === "pt-name") {
+          ind.setAttribute("w:left", "284");
+          ind.removeAttribute("w:hanging");
+          ind.removeAttribute("w:firstLine");
+        } else if (block.indentTabs !== undefined) {
+          const leftIndent = 284 + (block.indentTabs * 283);
+          ind.setAttribute("w:left", leftIndent.toString());
+          if (block.hanging !== undefined) {
+            ind.setAttribute("w:hanging", block.hanging.toString());
+            ind.removeAttribute("w:firstLine");
+          } else {
+            ind.removeAttribute("w:hanging");
+            ind.removeAttribute("w:firstLine");
+          }
+        } else {
+          // Indent further than the numbered list text (851 vs 567)
+          ind.setAttribute("w:left", "851");
+          ind.setAttribute("w:hanging", "284");
+        }
       }
     }
     return;
@@ -287,7 +311,7 @@ function getDividerTabPos(text: string): number {
 // -------------------------------------------------------------------------------------
 // Adjust custom tab stops for divider title paragraphs (Tab 1 centers the title, Tab 2 goes to the margin)
 // -------------------------------------------------------------------------------------
-function adjustDividerTabStops(clonedP: Element, text: string): void {
+function adjustDividerTabStops(clonedP: Element, text: string, isPtName: boolean = false): void {
   let pPr = getSingleElement(clonedP, "pPr");
   if (!pPr) {
     pPr = clonedP.ownerDocument.createElementNS(W_NS, "w:pPr");
@@ -301,9 +325,11 @@ function adjustDividerTabStops(clonedP: Element, text: string): void {
   }
 
   // Remove negative/custom left indentation so that dividers start exactly at the page margin
-  const ind = getSingleElement(pPr, "ind");
-  if (ind) {
-    pPr.removeChild(ind);
+  if (!isPtName) {
+    const ind = getSingleElement(pPr, "ind");
+    if (ind) {
+      pPr.removeChild(ind);
+    }
   }
 
   const tabs = clonedP.ownerDocument.createElementNS(W_NS, "w:tabs");
@@ -371,7 +397,7 @@ function getMaxWidthForBlock(block: any): number {
   switch (block.type) {
     case "p":
       if (block.align === "center" || block.align === "right-center") return 100;
-      if (block.kbliDesc) return 40.5;
+      if (block.kbliDesc) return 42.0;
       if (block.indentTabs === 0.5) return 42.0;
       if (block.indentTabs === 2) return 37.0;
       if (block.indentTabs === 1) return 40.5;
@@ -451,12 +477,13 @@ function populateRuns(
 
   if (block.type === "management-role") {
     logicalRuns = [
+      { text: "-\t" },
       { text: `${block.position}\t: ` },
       { text: block.salutation ? `${block.salutation} ` : "" },
       { text: block.name, bold: true },
       { text: ", tersebut di atas;" }
     ];
-  } else if (block.type === "divider" || block.type === "pasal-divider") {
+  } else if (block.type === "divider" || block.type === "pasal-divider" || block.type === "pt-name") {
     const displayText = block.type === "pasal-divider" 
       ? block.text 
       : block.text.toUpperCase();
@@ -725,7 +752,7 @@ export const generatePendirianDocx = async (data: any): Promise<void> => {
     
     blocksWithNum = preprocessedBlocks.map((block: any) => {
       if (block.type === "numbered") {
-        if (block.num === 1 || block.num === "1") {
+        if (block.num === 1 || block.num === "1" || block.subStartVal !== undefined) {
           activeNumId = String(nextNumId++);
           
           // Create new <w:num w:numId="...">
@@ -736,11 +763,11 @@ export const generatePendirianDocx = async (data: any): Promise<void> => {
           abstractNumIdNode.setAttribute("w:val", ABSTRACT_NUM_ID_DECIMAL);
           numNode.appendChild(abstractNumIdNode);
           
-          // Add lvlOverride to force start from 1
+          // Add lvlOverride to force start from 1 or block.startVal or block.num
           const lvlOverrideNode = numDoc.createElementNS(W_NS, "w:lvlOverride");
           lvlOverrideNode.setAttribute("w:ilvl", "0");
           const startOverrideNode = numDoc.createElementNS(W_NS, "w:startOverride");
-          startOverrideNode.setAttribute("w:val", "1");
+          startOverrideNode.setAttribute("w:val", String(block.startVal !== undefined ? block.startVal : (block.num !== undefined ? block.num : "1")));
           lvlOverrideNode.appendChild(startOverrideNode);
           numNode.appendChild(lvlOverrideNode);
           
@@ -748,7 +775,7 @@ export const generatePendirianDocx = async (data: any): Promise<void> => {
           const lvlOverrideNode1 = numDoc.createElementNS(W_NS, "w:lvlOverride");
           lvlOverrideNode1.setAttribute("w:ilvl", "1");
           const startOverrideNode1 = numDoc.createElementNS(W_NS, "w:startOverride");
-          startOverrideNode1.setAttribute("w:val", "1");
+          startOverrideNode1.setAttribute("w:val", String(block.subStartVal !== undefined ? block.subStartVal : "1"));
           lvlOverrideNode1.appendChild(startOverrideNode1);
           numNode.appendChild(lvlOverrideNode1);
 
@@ -767,6 +794,21 @@ export const generatePendirianDocx = async (data: any): Promise<void> => {
       }
       return block;
     });
+
+    // Ensure all native bullet points (with numFmt = "bullet") use "-" (dash) as their bullet character instead of "o" or "•"
+    const lvls = numDoc.getElementsByTagNameNS ? numDoc.getElementsByTagNameNS("*", "lvl") : numDoc.getElementsByTagName("w:lvl");
+    for (let i = 0; i < lvls.length; i++) {
+      const lvl = lvls[i];
+      const numFmts = lvl.getElementsByTagNameNS ? lvl.getElementsByTagNameNS("*", "numFmt") : lvl.getElementsByTagName("w:numFmt");
+      const numFmt = numFmts[0];
+      if (numFmt && numFmt.getAttribute("w:val") === "bullet") {
+        const lvlTexts = lvl.getElementsByTagNameNS ? lvl.getElementsByTagNameNS("*", "lvlText") : lvl.getElementsByTagName("w:lvlText");
+        const lvlText = lvlTexts[0];
+        if (lvlText) {
+          lvlText.setAttribute("w:val", "-");
+        }
+      }
+    }
 
     const serializer = new XMLSerializer();
     let finalNumXml = serializer.serializeToString(numDoc);
@@ -821,8 +863,8 @@ export const generatePendirianDocx = async (data: any): Promise<void> => {
       adjustTabStops(cloned, block.type);
     }
 
-    if (block.type === "divider" || block.type === "pasal-divider") {
-      adjustDividerTabStops(cloned, block.text);
+    if (block.type === "divider" || block.type === "pasal-divider" || block.type === "pt-name") {
+      adjustDividerTabStops(cloned, block.text, block.type === "pt-name");
     }
 
     // Replace text content while preserving formatting

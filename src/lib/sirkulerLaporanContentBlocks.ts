@@ -8,7 +8,8 @@ import {
   getDayName,
   dateToWords,
   formatDateRupst,
-  terbilang
+  terbilang,
+  formatCompanyName
 } from "./formatter";
 
 // Helper for formatting blocks for DOCX

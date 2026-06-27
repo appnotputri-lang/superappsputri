@@ -33,7 +33,7 @@ const WrappedText = ({ runs, isList = false, indent = false, indentTabs = 0, ali
       {lines.map((line, i) => (
         <div key={i} className={`flex relative w-full overflow-hidden leading-[2]`} style={{ textAlign: align as any, justifyContent: (align === 'center' || marginLeft === '50%') ? 'center' : 'flex-start', paddingLeft, marginLeft }}>
            <span className="whitespace-pre-wrap shrink-0 flex">
-             {line.map((t, j) => t.bold ? <strong key={j}>{t.text}</strong> : <span key={j}>{t.text}</span>)}
+             {line.map((t, j) => t.bold ? <strong key={j} style={t.style}>{t.text}</strong> : <span key={j} style={t.style}>{t.text}</span>)}
            </span>
            {align !== 'center' && marginLeft !== '50%' && (
              <span className="flex-1 overflow-hidden select-none whitespace-nowrap opacity-60" style={{ letterSpacing: '0.5px' }}>
@@ -120,29 +120,39 @@ export default function PendirianDocumentPreview({ data, onExport, onClose, isEx
                   let indentTabs = 0;
                   let align: any = 'left';
 
+                  const mapRunsWithTabs = (sourceRuns: any[]) => {
+                    return sourceRuns.map(r => ({
+                      ...r,
+                      text: r.text.replace(/\t/g, '\u00A0\u00A0')
+                    }));
+                  };
+
                   if (block.type === 'p') {
-                    runs = block.runs;
+                    runs = mapRunsWithTabs(block.runs);
                     indentTabs = block.indentTabs || 0;
                     align = block.align || 'left';
                   } else if (block.type === 'numbered') {
-                    runs = [{ text: `${block.num}. `, bold: false }, ...block.runs];
+                    runs = [{ text: `${block.num}. `, bold: false }, ...mapRunsWithTabs(block.runs)];
                   } else if (block.type === 'sub-numbered') {
-                    runs = [{ text: `${block.num}) `, bold: false }, ...block.runs];
+                    runs = [{ text: `${block.num}) `, bold: false }, ...mapRunsWithTabs(block.runs)];
                     indentTabs = block.indentTabs || 1;
                   } else if (block.type === 'list') {
-                    runs = [{ text: `${block.bullet} `, bold: false }, ...block.runs];
+                    runs = [{ text: `${block.bullet} `, bold: false }, ...mapRunsWithTabs(block.runs)];
                     indentTabs = block.indentTabs || 1;
                   } else if (block.type === 'management-role') {
                     runs = [
-                      { text: `${block.position} : `, bold: false },
+                      { text: '-\u00A0\u00A0', bold: false },
+                      { text: `${block.position}`, bold: false, style: { display: 'inline-block', width: '2.5cm' } },
+                      { text: ': ', bold: false },
                       { text: block.salutation ? `${block.salutation} ` : '', bold: false },
                       { text: block.name, bold: true },
                       { text: ', tersebut di atas;', bold: false }
                     ];
+                    indentTabs = 1;
                   } else if (block.type === 'shareholder') {
                     runs = [{ text: `- ${block.name} : ${block.sharesText}`, bold: false }];
                   } else if (block.type === 'saksi') {
-                    runs = [{ text: `${block.num}. `, bold: false }, ...block.runs];
+                    runs = [{ text: `${block.num}. `, bold: false }, ...mapRunsWithTabs(block.runs)];
                   }
 
                   return (
@@ -158,6 +168,9 @@ export default function PendirianDocumentPreview({ data, onExport, onClose, isEx
                 
                 <div key="footer-space" className="h-20"></div>
                 <div key="footer-notary" className="w-1/2 ml-auto text-center font-bold">
+                  <div className="font-normal text-sm mb-12">
+                    Notaris di {data.notarisTempat || "Kabupaten Bandung Barat"};
+                  </div>
                   {data.notarisNamaSurat 
                     ? data.notarisNamaSurat
                         .replace(/Sarjana Hukum/gi, 'SH')

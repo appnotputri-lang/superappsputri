@@ -96,7 +96,7 @@ const NUMBERING_CONFIG = [
     levels: [{
       level: 0,
       format: LevelFormat.BULLET,
-      text: "•",
+      text: "-",
       alignment: AlignmentType.LEFT,
       style: { paragraph: { indent: { left: 1278, hanging: 426 } } },
     }],

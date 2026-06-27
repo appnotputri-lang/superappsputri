@@ -1,174 +1,41 @@
-import { PendirianData } from '../DraftAktaPendirian';
-import { terbilang, toTitleCase, formatNumber, formatAddress } from './formatter';
-import { KbliItem } from '../../types';
-
-const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
-
-function formatDateIndo(dateStr: string) {
-  if (!dateStr) return '';
-  const d = new Date(dateStr);
-  const day = d.getDate();
-  const month = months[d.getMonth()];
-  const year = d.getFullYear();
-  return `${terbilang(day).toLowerCase()} ${month} dua ribu ${terbilang(year % 2000).toLowerCase()} (${String(day).padStart(2, '0')}-${String(d.getMonth()+1).padStart(2, '0')}-${year})`;
-}
-
-export function generatePendirianBlocks(data: PendirianData) {
-  const blocks: any[] = [];
-  
-  const hDate = new Date(data.tanggal);
-  const hariArr = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
-  const tglHuruf = formatDateIndo(data.tanggal);
-
-  blocks.push(
-    { type: 'p', align: 'center', runs: [{ text: "PENDIRIAN PERSEROAN TERBATAS", bold: true }] },
-    { type: 'p', align: 'center', runs: [{ text: `PT. ${data.namaPt.toUpperCase()}`, bold: true }] },
-    { type: 'p', align: 'center', runs: [{ text: "Nomor : 09", bold: false }] },
-    { type: 'br' }
-  );
-
-  blocks.push(
-    { type: 'p', runs: [{ text: `Pada hari ini, ${hariArr[hDate.getDay()]}, ${tglHuruf}.` }] },
-    { type: 'p', runs: [{ text: `Pukul ${data.waktu} WIB Waktu Indonesia Barat.` }] },
-    { type: 'p', runs: [{ text: `Telah hadir di hadapan saya Notaris di ${data.notarisTempat || "Kabupaten Bandung Barat"}, dengan dihadiri oleh saksi-saksi yang saya, Notaris kenal dan akan disebutkan nama-namanya pada bagian akhir akta ini :` }] },
-  );
-
-  data.pendiri.forEach((p, idx) => {
-    const tglLahirHuruf = formatDateIndo(p.tanggalLahir);
-    const alamat = `${p.alamatJalan}, RT ${p.rt}, RW ${p.rw}, Kel. ${toTitleCase(p.kelurahan)}, Kec. ${toTitleCase(p.kecamatan)}`;
-
-    blocks.push(
-       { type: 'p', indentTabs: 1, runs: [{ text: `${idx+1}. Tuan ${p.nama}, lahir di ${toTitleCase(p.tempatLahir)}, pada tanggal ${tglLahirHuruf}, Warga Negara Indonesia, ${toTitleCase(p.pekerjaan)}, bertempat tinggal di ${toTitleCase(p.kota)}, ${formatAddress(alamat)}, pemegang Kartu Tanda Penduduk Nomor ${p.nik}.`}] }
-    );
-  });
-
-  blocks.push(
-    { type: 'p', runs: [{ text: "Para Penghadap bertindak dalam kedudukannya tersebut di atas, menerangkan, bahwa dengan tidak mengurangi izin dari pihak yang berwenang telah sepakat dan setuju untuk bersama-sama mendirikan suatu perseroan terbatas dengan anggaran dasar sebagaimana yang termuat dalam akta pendirian ini, (untuk selanjutnya cukup disingkat dengan \"Anggaran Dasar\") sebagai berikut :"}] },
-    { type: 'p', align: 'center', runs: [{ text: "NAMA DAN TEMPAT KEDUDUKAN", bold: true }] },
-    { type: 'p', align: 'center', runs: [{ text: "PASAL 1", bold: true }] },
-    { type: 'p', runs: [{ text: `1. Perseroan Terbatas ini bernama Perseroan Terbatas : PT. ${data.namaPt.toUpperCase()} (selanjutnya dalam Anggaran Dasar ini cukup disingkat dengan "Perseroan"), berkedudukan di ${data.kotaKedudukan}.` }] },
-    { type: 'p', runs: [{ text: `2. Perseroan dapat membuka kantor cabang atau kantor perwakilan, baik di dalam maupun di luar wilayah Republik Indonesia sebagaimana ditetapkan oleh Direksi, dengan persetujuan Rapat Umum Pemegang Saham.` }] },
-    
-    { type: 'p', align: 'center', runs: [{ text: "JANGKA WAKTU BERDIRINYA PERSEROAN", bold: true }] },
-    { type: 'p', align: 'center', runs: [{ text: "PASAL 2", bold: true }] },
-    { type: 'p', runs: [{ text: "Perseroan didirikan untuk jangka waktu yang tidak terbatas."}] },
-
-    { type: 'p', align: 'center', runs: [{ text: "MAKSUD DAN TUJUAN SERTA KEGIATAN USAHA", bold: true }] },
-    { type: 'p', align: 'center', runs: [{ text: "PASAL 3", bold: true }] },
-    { type: 'p', runs: [{ text: "1. Maksud dan Tujuan Perseroan adalah berusaha dalam bidang : Perdagangan;"}] },
-    { type: 'p', runs: [{ text: "2. Untuk mencapai maksud dan tujuan tersebut diatas, perseroan dapat melaksanakan kegiatan usaha sebagai berikut :"}] }
-  );
-  
-  (data.kbliItems || []).forEach((kbli: KbliItem) => {
-      blocks.push({
-        type: 'list',
-        bullet: '-',
-        indentTabs: 1,
-        runs: [{ text: `${kbli.code} - ${kbli.name};`, bold: true }]
-      });
-
-      if (kbli.description) {
-        blocks.push({
-          type: 'p',
-          kbliDesc: true,
-          indentTabs: 1,
-          runs: [{ text: kbli.description }]
-        });
-      }
-  });
-
-  blocks.push(
-    { type: 'p', align: 'center', runs: [{ text: "M O D A L", bold: true }] },
-    { type: 'p', align: 'center', runs: [{ text: "PASAL 4", bold: true }] },
-  );
-
-  const totalLembar = data.modalDasar / data.nilaiPerLembar;
-  // Let modal disetor be 25% of modal dasar, per typical UU PT
-  const modalDisetorPersen = data.modalDisetorPersen || 25;
-  const modalDisetor = (data.modalDasar * modalDisetorPersen) / 100;
-  const disetorLembar = (totalLembar * modalDisetorPersen) / 100;
-
-  blocks.push(
-    { type: 'p', runs: [{ text: `1. Modal Dasar Perseroan berjumlah Rp. ${formatNumber(data.modalDasar)} (${terbilang(data.modalDasar)} rupiah), terbagi atas ${formatNumber(totalLembar)} (${terbilang(totalLembar)}) lembar saham, masing-masing saham bernilai nominal Rp. ${formatNumber(data.nilaiPerLembar)} (${terbilang(data.nilaiPerLembar)} rupiah).` }] },
-    { type: 'p', runs: [{ text: `2. Dari modal dasar tersebut telah ditempatkan dan disetor ${modalDisetorPersen}% (${terbilang(modalDisetorPersen)} persen) atau sejumlah ${formatNumber(disetorLembar)} (${terbilang(disetorLembar)}) lembar saham dengan nilai nominal seluruhnya sebesar Rp. ${formatNumber(modalDisetor)} (${terbilang(modalDisetor)} rupiah), oleh Para Pendiri yang telah mengambil bagian saham dan rincian serta nilai nominal saham yang disebutkan pada bagian akhir sebelum penutup akta.` }] },
-    { type: 'p', runs: [{ text: "3. Saham-saham yang masih dalam simpanan akan dikeluarkan oleh Perseroan menurut keperluan modal kerja Perseroan, dengan persetujuan Rapat Umum Pemegang Saham." }] },
-  );
-
-  blocks.push(
-    { type: 'p', align: 'center', runs: [{ text: "S A H A M", bold: true }] },
-    { type: 'p', align: 'center', runs: [{ text: "PASAL 5", bold: true }] },
-    { type: 'p', runs: [{ text: "1. Semua saham yang dikeluarkan oleh Perseroan adalah saham atas nama, dan harus sesuai dengan ketentuan perundang-undangan yang berlaku bagi perseroan." }] },
-    { type: 'p', runs: [{ text: "2. Yang boleh memiliki dan mempergunakan hak atas saham hanyalah Warga Negara Indonesia atau Badan Hukum Indonesia." }] },
-  );
-
-  blocks.push(
-    { type: 'p', align: 'center', runs: [{ text: "D I R E K S I", bold: true }] },
-    { type: 'p', align: 'center', runs: [{ text: "PASAL 11", bold: true }] },
-    { type: 'p', runs: [{ text: "1. Perseroan diurus dan dipimpin oleh Direksi yang terdiri dari seorang anggota Direksi atau lebih." }] },
-    { type: 'p', runs: [{ text: `3. Anggota Direksi diangkat oleh Rapat Umum Pemegang Saham, untuk jangka waktu ${data.kuotaWaktuDireksi} (${terbilang(parseInt(data.kuotaWaktuDireksi) || 5)}) tahun dengan tidak mengurangi hak Rapat Umum Pemegang Saham untuk memberhentikannya sewaktu-waktu.` }] },
-  );
-
-  blocks.push(
-    { type: 'p', align: 'center', runs: [{ text: "DEWAN KOMISARIS", bold: true }] },
-    { type: 'p', align: 'center', runs: [{ text: "PASAL 14", bold: true }] },
-    { type: 'p', runs: [{ text: "1. Dewan Komisaris terdiri dari seorang atau lebih anggota Komisaris, apabila diangkat lebih dari seorang anggota Dewan Komisaris, maka seorang di antaranya dapat diangkat sebagai Komisaris Utama." }] },
-    { type: 'p', runs: [{ text: `3. Anggota Dewan Komisaris diangkat oleh Rapat Umum Pemegang Saham untuk jangka waktu ${data.kuotaWaktuDireksi} (${terbilang(parseInt(data.kuotaWaktuDireksi) || 5)}) tahun, dengan tidak mengurangi hak Rapat Umum Pemegang Saham untuk memberhentikan sewaktu-waktu.` }] },
-  );
-
-  blocks.push(
-    { type: 'p', align: 'center', runs: [{ text: "KETENTUAN PENUTUP", bold: true }] },
-    { type: 'p', align: 'center', runs: [{ text: "PASAL 20", bold: true }] },
-    { type: 'p', runs: [{ text: "Akhirnya, para penghadap bertindak dalam kedudukannya sebagaimana tersebut di atas menerangkan bahwa :" }] },
-    { type: 'p', runs: [{ text: "1. Modal ditempatkan sebagaimana dimaksud dalam pasal 4 ayat 2 telah diambil bagian dan disetor penuh dengan uang tunai melalui kas Perseroan oleh para pendiri :" }] },
-  );
-
-  const charCodeA = 97;
-  let tSaham = 0;
-  data.pendiri.forEach((p, i) => {
-    tSaham += p.sahamSaham;
-    const nominal = p.sahamSaham * data.nilaiPerLembar;
-    blocks.push(
-      { type: 'p', indentTabs: 1, runs: [{ text: `${String.fromCharCode(charCodeA+i)}. Tuan ${p.nama.toUpperCase()}, tersebut diatas, sejumlah ${formatNumber(p.sahamSaham)} ${terbilang(p.sahamSaham)} lembar saham, dengan nilai nominal seluruhnya sebesar Rp. ${formatNumber(nominal)} (${terbilang(nominal)} rupiah);` }] }
-    );
-  });
-  
-  const totNominal = tSaham * data.nilaiPerLembar;
-  blocks.push({ type: 'p', indentTabs: 1, runs: [{ text: `Sehingga seluruhnya berjumlah ${formatNumber(tSaham)} (${terbilang(tSaham)}) lembar saham, dengan nilai nominal seluruhnya sebesar Rp. ${formatNumber(totNominal)} (${terbilang(totNominal)} rupiah).` }] });
-
-  blocks.push(
-    { type: 'p', runs: [{ text: `2. Menyimpang dari ketentuan dalam pasal 11 ayat 3 dan pasal 14 ayat 3 Anggaran Dasar ini mengenai tata cara pengangkatan Anggota Direksi dan Dewan Komisaris, telah diangkat anggota Direksi dan Dewan Komisaris Perseroan dengan masa jabatan ${data.kuotaWaktuDireksi} tahun, terhitung sejak tanggal akta ini, adalah sebagai berikut :` }] },
-  );
-
-  blocks.push({ type: 'p', indentTabs: 0, runs: [{ text: "1. Anggota Direksi :" }] });
-  data.pendiri.filter(p => p.jabatan.includes("Direktur")).forEach((p, i) => {
-    blocks.push({ type: 'p', indentTabs: 1, runs: [{ text: `- ${p.jabatan} : Tuan ${p.nama}, tersebut di atas;` }] });
-  });
-
-  blocks.push({ type: 'p', indentTabs: 0, runs: [{ text: "2. Anggota Komisaris :" }] });
-  data.pendiri.filter(p => !p.jabatan.includes("Direktur") && p.jabatan !== 'N/A').forEach((p, i) => {
-    blocks.push({ type: 'p', indentTabs: 1, runs: [{ text: `- ${p.jabatan} : Tuan ${p.nama}, tersebut di atas;` }] });
-  });
-
-  blocks.push(
-    { type: 'p', runs: [{ text: "Para Pihak menyatakan dengan ini menjamin akan kebenaran identitas para pihak sesuai dengan tanda pengenal yang disampaikan kepada saya, Notaris dan tanggungjawab penuh atas seluruh dokumen yang diberikan." }] },
-    { type: 'p', align: 'center', runs: [{ text: "DEMIKIANLAH AKTA INI", bold: true }] },
-    { type: 'p', runs: [{ text: `Dibuat sebagai minuta dan dilangsungkan di ${data.notarisTempat || "Kabupaten Bandung Barat"}, pada hari dan tanggal serta jam sebagaimana disebutkan pada kepala akta ini dengan dihadiri oleh :` }] }
-  );
-
-  blocks.push(
-    { type: 'p', indentTabs: 1, runs: [{ text: `1. Nendi Suhendi, lahir di Bandung, pada tanggal lima belas Juli seribu sembilan ratus sembilan puluh satu (15-07-1991), Warga Negara Indonesia, bertempat tinggal di Jalan Sukaresmi Nomor 12, Rukun Tetangga 005, Rukun Warga 005, Kecamatan Lembang, Desa Mekarwangi, pemegang Kartu Tanda Penduduk Nomor 3217011507910016;` }] },
-    { type: 'p', indentTabs: 1, runs: [{ text: `2. Siti Nur Azizah, lahir di Bandung, pada tanggal tujuh belas Desember seribu sembilan ratus sembilan puluh sembilan (17-12-1999), Warga Negara Indonesia, bertempat tinggal di Kabupaten Bandung, Jalan Lembah Pakar Timur II Kampung Sekebuluh Rukun Tetangga 001, Rukun Warga 004, Kecamatan Cimenyan, Desa Ciburial, pemegang Kartu Tanda Penduduk Nomor 3204065712990001;` }] },
-    { type: 'p', runs: [{ text: "Keduanya pegawai Kantor Notaris dan sebagai saksi-saksi." }] },
-    { type: 'p', runs: [{ text: "Segera setelah akta ini dibacakan oleh saya, Notaris kepada penghadap dan saksi-saksi maka ditanda-tanganilah akta ini oleh penghadap, saksi-saksi dan saya, Notaris. Serta penghadap membubuhkan sidik jari sebelah kanan pada lembaran tersendiri di hadapan saya, Notaris dan saksi-saksi, yang dilekatkan pada minuta akta ini." }] },
-    { type: 'p', runs: [{ text: "Dilangsungkan dengan tanpa perubahan." }] },
-    { type: 'br' },
-    { type: 'p', indentTabs: 1, runs: [{ text: "Minuta Akta ini telah ditanda-tangani dengan sempurna." }] },
-    { type: 'p', indentTabs: 2, runs: [{ text: "Diberikan sebagai salinan yang sama bunyinya." }] },
-    { type: 'br' },
-    { type: 'p', align: 'right-center', runs: [{ text: `Notaris di ${toTitleCase(data.notarisTempat || "Kabupaten Bandung Barat")};` }] }
-  );
-
-  return blocks;
-}
-
-
+291:type SidebarTabId = 'beranda' | 'company_profile' | 'cv_profile' | 'notulen' | 'pendirian' | 'rupst' | 'perbaikan' | 'draft_akta_rups' | 'panduan' | 'kbli_mapping' | 'saran_kbli' | 'import_kbli' | 'laporan' | 'whatsapp_settings';
+508:  pendirian: {
+641:  const [pendirianProjects, setPendirianProjects] = useState<CompanyData[]>([]);
+745:    pendirianProjects.forEach(p => {
+776:  }, [projects, rupstProjects, pendirianProjects]);
+803:    pendirianProjects.forEach(p => {
+810:        type: 'pendirian'
+817:      { id: 'd3', name: 'Akta Pendirian PT', sub: 'PT Berkah Nusantara', format: 'DOCX' as const, type: 'pendirian' },
+830:  }, [projects, rupstProjects, pendirianProjects]);
+847:      } else if (item.type === 'pendirian') {
+922:      { id: 'm-pp', title: 'Menu: Pendirian PT', subtitle: 'Draft akta pendirian', type: 'menu', tabId: 'pendirian' as const },
+1181:      let pendirianReady = false;
+1184:        if (profilesReady && cvProfilesReady && projectsReady && rupstReady && pendirianReady) {
+1234:      const pendirianRef = collection(db, 'pendirian_projects');
+1235:      const unsubPendirian = onSnapshot(pendirianRef, (snapshot) => {
+1241:        pendirianReady = true;
+1244:        handleFirestoreError(error, OperationType.LIST, 'pendirian_projects');
+1245:        pendirianReady = true;
+1459:    'pendirian': '/pendirian',
+1581:        else if (currentTab === 'pendirian' && curPendirianId && curPendirian) {
+1599:          await setDoc(doc(db, 'pendirian_projects', id), sanitizeForFirestore(finalData));
+1635:  const [pendirianPreviewData, setPendirianPreviewData] = useState<any>(null);
+2717:              { label: 'Pendirian PT', id: 'pendirian' as const, icon: FilePlus },
+3215:                      setActiveSidebarTab('pendirian');
+3230:                  { label: "Draft Pendirian PT", val: pendirianProjects.length, desc: "Draft akta pendirian", icon: FileCode, color: "text-purple-600 bg-purple-50/80 border-purple-100/60", tab: "pendirian" as const }
+3666:                          placeholder="Nama notaris pendirian" 
+4742:                                  placeholder="Nama notaris pendirian CV" 
+5548:                          placeholder="Nama notaris pendirian" 
+8355:                                    placeholder="Nama notaris pendirian" 
+10264:          ) : activeSidebarTab === 'pendirian' ? (
+10268:                initialData={editingPendirianId === 'new' ? null : pendirianProjects.find(p => p.id === editingPendirianId) as any}
+10272:                onSave={async (pendirianData) => {
+10281:                    ...pendirianData,
+10288:                     await setDoc(doc(db, 'pendirian_projects', id), sanitizeForFirestore(finalData));
+10292:                       isNewPendirian ? 'create_pendirian' : 'update_pendirian'
+10295:                    alert('Data pendirian berhasil disimpan!');
+10297:                    handleFirestoreError(e, OperationType.WRITE, `pendirian_projects/${id}`);
+10323:            <LaporanList projects={projects} rupstProjects={rupstProjects} pendirianProjects={pendirianProjects} />
+10521:      {showPendirianPreview && pendirianPreviewData && (
+10523:          data={pendirianPreviewData}
+10524:          onExport={() => handlePendirianExportWord(pendirianPreviewData)}

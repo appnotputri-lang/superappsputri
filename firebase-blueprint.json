@@ -14,6 +14,16 @@
         "userId": { "type": "string" }
       }
     },
+    "user_profile": {
+      "title": "User Profile",
+      "description": "User's specific profile data including display name and level/position.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "level": { "type": "string" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      }
+    },
     "profile": {
       "title": "Company Profile",
       "description": "Company profile draft for the user.",
@@ -72,6 +82,10 @@
       "schema": { "$ref": "#/entities/notification" },
       "description": "System-wide real-time notifications"
     },
+    "user_profiles/{userId}": {
+      "schema": { "$ref": "#/entities/user_profile" },
+      "description": "User profile documents keyed by Firebase Auth UID"
+    },
     "kbli_saved_records/{recordId}": {
       "schema": { "$ref": "#/entities/kbli_saved_record" },
       "description": "Contains saved KBLI mappings and suggestions based on name"
@@ -79,6 +93,10 @@
     "profiles/{profileId}": {
       "schema": { "$ref": "#/entities/profile" },
       "description": "Contains global company profiles"
+    },
+    "cv_profiles/{profileId}": {
+      "schema": { "$ref": "#/entities/profile" },
+      "description": "Contains global company profiles for CV"
     },
     "projects/{projectId}": {
       "schema": { "$ref": "#/entities/profile" },

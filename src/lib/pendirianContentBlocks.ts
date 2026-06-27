@@ -16,16 +16,17 @@ export interface Run {
 }
 
 export type Block =
-  | { type: 'p'; runs: Run[]; align?: 'center' | 'right-center'; indentTabs?: number; kbliDesc?: boolean }
+  | { type: 'p'; runs: Run[]; align?: 'center' | 'right-center'; indentTabs?: number; kbliDesc?: boolean; hanging?: number }
   | { type: 'br' }
   | { type: 'divider'; text: string }
   | { type: 'pasal-divider'; text: string }
-  | { type: 'numbered'; num: number | string; runs: Run[]; indentTabs?: number }
+  | { type: 'numbered'; num: number | string; runs: Run[]; indentTabs?: number; subStartVal?: number; startVal?: number }
   | { type: 'sub-numbered'; num: number | string; runs: Run[]; indentTabs?: number }
   | { type: 'list'; bullet: string; runs: Run[]; indentTabs?: number }
   | { type: 'saksi'; num: number | string; runs: Run[] }
   | { type: 'shareholder'; name: string; sharesText: string; rpText: string; bullet?: string }
-  | { type: 'management-role'; position: string; salutation: string; name: string };
+  | { type: 'management-role'; position: string; salutation: string; name: string }
+  | { type: 'pt-name'; text: string };
 
 export interface Address {
   fullAddress?: string;
@@ -170,21 +171,38 @@ export function generatePendirianBlocks(data: PendirianData): Block[] {
     { type: "p", align: "center", runs: [{ text: "PENDIRIAN PERSEROAN TERBATAS", bold: true }] },
     { type: "p", align: "center", runs: [{ text: `PT. ${cleanNamaPt}`, bold: true }] },
     { type: "p", align: "center", runs: [{ text: "Nomor : " }] },
-    { type: "br" },
   );
 
   // ── OPENING ─────────────────────────────────────────────────────────────
-  const notarisName = data.notarisNamaSurat ? data.notarisNamaSurat + ", " : "";
   const notarisTempat = data.notarisTempat || "Kabupaten Bandung Barat";
 
   blocks.push(
     { type: "p", runs: [{ text: `Pada hari ini, ${hari}, ${tglHuruf}.` }] },
     { type: "p", runs: [{ text: `Pukul ${data.waktu} WIB Waktu Indonesia Barat.` }] },
-    { type: "p", runs: [{ text: `Telah hadir di hadapan saya ${notarisName}Notaris di ${notarisTempat}, dengan dihadiri oleh saksi-saksi yang saya, Notaris kenal dan akan disebutkan nama-namanya pada bagian akhir akta ini :` }] },
+    {
+      type: "p",
+      runs: [
+        { text: "Telah hadir di hadapan saya, " },
+        {
+          text: toTitleCase(
+            (data.notarisNamaSurat || "Nukantini Putri Parincha, Sarjana Hukum, Magister Kenotariatan")
+              .replace(/\bSH\b\.?/gi, "Sarjana Hukum")
+              .replace(/\bM\b\.?\s*\bKn\b\.?/gi, "Magister Kenotariatan")
+          ),
+          bold: true,
+        },
+        { text: ", Notaris di " },
+        {
+          text: toTitleCase(notarisTempat),
+          bold: true,
+        },
+        { text: ", dengan dihadiri oleh saksi-saksi yang saya, Notaris kenal dan akan disebutkan nama-namanya pada bagian akhir akta ini :" },
+      ],
+    },
   );
 
   // ── SHAREHOLDERS (penghadap) ─────────────────────────────────────────────
-  shareholders.forEach((p, idx) => {
+  const shareholderDetails = shareholders.map((p) => {
     const tglLahirHuruf = dateToWords(p.birthDate || "");
     const tglLahirAngka = formatDateStr(p.birthDate || "");
 
@@ -198,22 +216,104 @@ export function generatePendirianBlocks(data: PendirianData): Block[] {
     const namePrefix = isBH ? "" : `${sal} `;
     const details = formatPersonDetails(p as any, tglLahirAngka, tglLahirHuruf, true);
 
+    return {
+      p,
+      namePrefix,
+      nameText,
+      details,
+      isBH
+    };
+  });
+
+  shareholderDetails.forEach((sd, idx) => {
     blocks.push({
       type: "numbered",
       num: idx + 1,
       runs: [
-        { text: `${namePrefix}${nameText}`, bold: true },
-        { text: `${details}.` },
+        { text: `${sd.namePrefix}${sd.nameText}`, bold: true },
+        { text: `${sd.details}.` },
       ],
     });
   });
 
+  // ── TEMPORARY DOMICILE CLAUSE (Untuk sementara...) ─────────────────────
+  const outsideCount = shareholderDetails.filter(sd => {
+    if (sd.isBH) return false;
+    
+    // Extract city name directly from formatted "bertempat tinggal di [city]," text to ensure perfect sync
+    const detailsStr = sd.details;
+    const marker = "bertempat tinggal di ";
+    const markerIdx = detailsStr.indexOf(marker);
+    if (markerIdx === -1) return false;
+    
+    const start = markerIdx + marker.length;
+    const end = detailsStr.indexOf(",", start);
+    const cityStr = end === -1 
+      ? detailsStr.substring(start).trim() 
+      : detailsStr.substring(start, end).trim();
+
+    if (!cityStr) return false;
+
+    // Compare with notary domicile robustly
+    const clean = (str: string) => {
+      return str
+        .toLowerCase()
+        .replace(/\bkabupaten\b/gi, "")
+        .replace(/\bkab\b\.?/gi, "")
+        .replace(/\bkota\b/gi, "")
+        .replace(/\bpropinsi\b/gi, "")
+        .replace(/\bprovinsi\b/gi, "")
+        .replace(/\bdaerah khusus ibukota\b/gi, "")
+        .replace(/\bdki\b/gi, "")
+        .replace(/\badministrasi\b/gi, "")
+        .replace(/[^a-z0-9]/g, "")
+        .trim();
+    };
+
+    const c = clean(cityStr);
+    const n = clean(notarisTempat);
+
+    if (!c || !n) return false;
+    if (c === n) return false;
+    if ((c === "kbb" && n === "bandungbarat") || (c === "bandungbarat" && n === "kbb")) return false;
+    
+    return true;
+  }).length;
+
+  if (outsideCount > 0) {
+    let stayText = "";
+    if (outsideCount === 1) {
+      stayText = `-\tUntuk sementara berada di ${toTitleCase(notarisTempat)};`;
+    } else if (outsideCount === 2) {
+      stayText = `-\tUntuk sementara keduanya berada di ${toTitleCase(notarisTempat)};`;
+    } else if (outsideCount === 3) {
+      stayText = `-\tUntuk sementara ketiganya berada di ${toTitleCase(notarisTempat)};`;
+    } else if (outsideCount === 4) {
+      stayText = `-\tUntuk sementara keempatnya berada di ${toTitleCase(notarisTempat)};`;
+    } else {
+      stayText = `-\tUntuk sementara semuanya berada di ${toTitleCase(notarisTempat)};`;
+    }
+
+    blocks.push({
+      type: "p",
+      indentTabs: 1,
+      hanging: 284,
+      runs: [{ text: stayText }],
+    });
+  }
+
   // ── PARA PENGHADAP CLAUSE ────────────────────────────────────────────────
   blocks.push({
     type: "p",
-    runs: [{
-      text: 'Para Penghadap bertindak dalam kedudukannya tersebut di atas, menerangkan, bahwa dengan tidak mengurangi izin dari pihak yang berwenang telah sepakat dan setuju untuk bersama-sama mendirikan suatu perseroan terbatas dengan anggaran dasar sebagaimana yang termuat dalam akta pendirian ini, (untuk selanjutnya cukup disingkat dengan "Anggaran Dasar") sebagai berikut :'
-    }],
+    runs: [
+      { text: "Para Penghadap bertindak dalam kedudukannya tersebut di atas, menerangkan, bahwa\n" },
+      { text: "dengan tidak mengurangi izin dari pihak yang berwenang telah sepakat dan setuju untuk\n" },
+      { text: "bersama-sama mendirikan suatu perseroan terbatas dengan anggaran dasar\n" },
+      { text: "sebagaimana yang termuat dalam akta pendirian ini, (untuk selanjutnya cukup disingkat\n" },
+      { text: "dengan \"" },
+      { text: "Anggaran Dasar", bold: true },
+      { text: "\") sebagai berikut :" }
+    ],
   });
 
   // ── PASAL 1 – NAMA DAN TEMPAT KEDUDUKAN ─────────────────────────────────
@@ -222,9 +322,16 @@ export function generatePendirianBlocks(data: PendirianData): Block[] {
     { type: "pasal-divider", text: "PASAL 1" },
     {
       type: "numbered", num: 1,
-      runs: [{
-        text: `Perseroan Terbatas ini bernama Perseroan Terbatas : PT. ${cleanNamaPt} (selanjutnya dalam Anggaran Dasar ini cukup disingkat dengan "Perseroan"), berkedudukan di ${toTitleCase(data.kotaKedudukan || "")}${data.alamatLengkapPT ? ", " + data.alamatLengkapPT : ""}.`
-      }],
+      runs: [{ text: "Perseroan Terbatas ini bernama Perseroan Terbatas :" }],
+    },
+    { type: "pt-name", text: `PT. ${cleanNamaPt}` },
+    {
+      type: "p", indentTabs: 0.5,
+      runs: [
+        { text: '(selanjutnya dalam Anggaran Dasar ini cukup disingkat dengan "' },
+        { text: 'Perseroan', bold: true },
+        { text: `"), berkedudukan di ${toTitleCase(data.kotaKedudukan || "")}${data.alamatLengkapPT ? ", " + data.alamatLengkapPT : ""}.` }
+      ]
     },
     {
       type: "numbered", num: 2,
@@ -240,40 +347,41 @@ export function generatePendirianBlocks(data: PendirianData): Block[] {
   );
 
   // ── PASAL 3 – MAKSUD & TUJUAN ────────────────────────────────────────────
-  const sectors = getSectors(kbliItems);
   blocks.push(
     { type: "pasal-divider", text: "MAKSUD DAN TUJUAN SERTA KEGIATAN USAHA" },
     { type: "pasal-divider", text: "PASAL 3" },
-    { type: "numbered", num: 1, runs: [{ text: "Maksud dan Tujuan Perseroan adalah berusaha dalam bidang : " }] },
+    { type: "numbered", num: 1, runs: [{ text: "Maksud dan Tujuan Perseroan adalah berusaha dalam bidang :" }] },
   );
-  sectors.forEach((sec) => {
-    blocks.push({ type: "p", runs: [{ text: `${sec};` }] });
+  
+  const categoryNames = Array.from(
+    new Set(kbliItems.map(k => {
+      if (k.categoryName) return k.categoryName;
+      if (k.categoryLetter && KBLI_CATEGORIES[k.categoryLetter.toUpperCase()]) {
+        return KBLI_CATEGORIES[k.categoryLetter.toUpperCase()];
+      }
+      return "Lain-lain";
+    }))
+  ).map(cat => toTitleCase(cat).replace(/\bDan\b/g, "dan").replace(/\bAtau\b/g, "atau"));
+
+  categoryNames.forEach((cat) => {
+    blocks.push({ type: "list", bullet: "-", runs: [{ text: `${cat}` }] });
   });
+
   blocks.push({
     type: "numbered", num: 2,
     runs: [{ text: "Untuk mencapai maksud dan tujuan tersebut diatas, perseroan dapat melaksanakan kegiatan usaha sebagai berikut :" }],
   });
 
-  // KBLI groups
-  const kbliGroups: Record<string, KbliItem[]> = {};
-  kbliItems.forEach((item) => {
-    const key = formatKbliCategory(item.categoryLetter, item.categoryName) || "LAIN-LAIN";
-    if (!kbliGroups[key]) kbliGroups[key] = [];
-    kbliGroups[key].push(item);
-  });
-  Object.entries(kbliGroups).forEach(([groupName, items]) => {
-    blocks.push({ type: "list", bullet: "-", runs: [{ text: groupName, bold: true }] });
-    items.forEach((kbli) => {
-      blocks.push({
-        type: "list", bullet: "-", indentTabs: 1,
-        runs: [{ text: `${kbli.code} - ${kbli.name};`, bold: true }],
-      });
-      if (kbli.description) {
-        blocks.push({ type: "p", kbliDesc: true, indentTabs: 1, runs: [{ text: kbli.description }] });
-      }
+  kbliItems.forEach((kbli) => {
+    blocks.push({
+      type: "list", bullet: "-",
+      runs: [{ text: `${kbli.code} - ${kbli.name};`, bold: true }],
     });
-    blocks.push({ type: "br" });
+    if (kbli.description) {
+      blocks.push({ type: "p", kbliDesc: true, indentTabs: 0.5, runs: [{ text: kbli.description }] });
+    }
   });
+
 
   // ── PASAL 4 – MODAL ──────────────────────────────────────────────────────
   const totalLembar = data.modalDasar / data.nilaiPerLembar;
@@ -286,19 +394,31 @@ export function generatePendirianBlocks(data: PendirianData): Block[] {
     { type: "pasal-divider", text: "PASAL 4" },
     {
       type: "numbered", num: 1,
-      runs: [{
-        text: `Modal Dasar Perseroan berjumlah Rp. ${formatNumber(data.modalDasar)},- (${terbilang(data.modalDasar)} rupiah), terbagi atas ${formatNumber(totalLembar)} (${terbilang(totalLembar)}) lembar saham, masing-masing saham bernilai nominal Rp. ${formatNumber(data.nilaiPerLembar)},- (${terbilang(data.nilaiPerLembar)} rupiah).`
-      }],
+      runs: [
+        { text: "Modal Dasar Perseroan berjumlah " },
+        { text: `Rp. ${formatNumber(data.modalDasar)},-`, bold: true },
+        { text: ` (${terbilang(data.modalDasar)} rupiah), terbagi atas ${formatNumber(totalLembar)} (${terbilang(totalLembar)}) lembar saham, masing-masing saham bernilai nominal ` },
+        { text: `Rp. ${formatNumber(data.nilaiPerLembar)},-`, bold: true },
+        { text: ` (${terbilang(data.nilaiPerLembar)} rupiah).` }
+      ],
     },
     {
       type: "numbered", num: 2,
-      runs: [{
-        text: `Dari modal dasar tersebut telah ditempatkan dan disetor ${persen}% (${terbilang(persen)} persen) atau sejumlah ${formatNumber(disetorLembar)} (${terbilang(disetorLembar)}) lembar saham dengan nilai nominal seluruhnya sebesar Rp. ${formatNumber(modalDisetor)},- (${terbilang(modalDisetor)} rupiah), oleh Para Pendiri yang telah mengambil bagian saham dan rincian serta nilai nominal saham yang disebutkan pada bagian akhir sebelum penutup akta.`
-      }],
+      runs: [
+        { text: "Dari modal dasar tersebut telah ditempatkan dan disetor " },
+        { text: `${persen}%`, bold: true },
+        { text: ` (${terbilang(persen)} persen) atau sejumlah ${formatNumber(disetorLembar)} (${terbilang(disetorLembar)}) lembar saham dengan nilai nominal seluruhnya sebesar ` },
+        { text: `Rp. ${formatNumber(modalDisetor)},-`, bold: true },
+        { text: ` (${terbilang(modalDisetor)} rupiah), oleh Para Pendiri yang telah mengambil bagian saham dan rincian serta nilai nominal saham yang disebutkan pada bagian akhir sebelum penutup akta.` }
+      ],
     },
     {
       type: "numbered", num: 3,
-      runs: [{ text: "Saham-saham yang masih dalam simpanan akan dikeluarkan oleh Perseroan menurut keperluan modal kerja Perseroan, dengan persetujuan Rapat Umum Pemegang Saham." }],
+      runs: [{ text: "Saham-saham yang masih dalam simpanan akan dikeluarkan oleh Perseroan menurut keperluan modal kerja Perseroan, dengan persetujuan Rapat Umum Pemegang Saham. Para pemegang saham yang namanya tercatat dalam Daftar Pemegang Saham mempunyai hak terlebih dahulu untuk mengambil bagian atas saham yang hendak dikeluarkan itu dalam jangka waktu 14 (empatbelas) hari sejak tanggal penawaran dilakukan dan masing-masing pemegang saham berhak mengambil bagian seimbang dengan jumlah saham yang mereka miliki (proporsional) baik terhadap saham yang menjadi bagiannya maupun terhadap sisa saham yang tidak diambil oleh pemegang saham lainnya." }],
+    },
+    {
+      type: "p", indentTabs: 0.5,
+      runs: [{ text: "Apabila jangka waktu penawaran 14 (empatbelas) hari tersebut telah lewat dan ternyata masih ada sisa saham yang belum diambil bagian maka Direksi berhak menawarkan sisa saham tersebut kepada Pihak Lain." }],
     },
   );
 
@@ -361,7 +481,12 @@ export function generatePendirianBlocks(data: PendirianData): Block[] {
     { type: "numbered", num: 1, runs: [{ text: "Rapat Umum Pemegang Saham yang selanjutnya disebut juga RUPS adalah :" }] },
     { type: "sub-numbered", num: "a", indentTabs: 1, runs: [{ text: "Rapat Umum Pemegang Saham Tahunan;" }] },
     { type: "sub-numbered", num: "b", indentTabs: 1, runs: [{ text: "Rapat Umum Pemegang Saham lainnya, yang dalam Anggaran Dasar ini disebut juga Rapat Umum Pemegang Saham Luar Biasa." }] },
-    { type: "numbered", num: 2, runs: [{ text: "Istilah Rapat Umum Pemegang Saham dalam Anggaran Dasar ini berarti keduanya, yaitu : Rapat Umum Pemegang Saham tahunan dan Rapat Umum Pemegang Saham luar biasa kecuali dengan tegas ditentukan lain." }] },
+    { type: "numbered", num: 2, runs: [
+      { text: "Istilah Rapat Umum Pemegang Saham dalam Anggaran Dasar ini berarti keduanya,\n" },
+      { text: "yaitu :\n" },
+      { text: "Rapat Umum Pemegang Saham tahunan dan Rapat Umum Pemegang Saham luar\n" },
+      { text: "biasa kecuali dengan tegas ditentukan lain." }
+    ] },
     { type: "numbered", num: 3, runs: [{ text: "Dalam Rapat Umum Pemegang Saham tahunan :" }] },
     { type: "sub-numbered", num: "a", indentTabs: 1, runs: [{ text: "Direksi menyampaikan :" }] },
     { type: "list", bullet: "-", indentTabs: 2, runs: [{ text: "Laporan tahunan yang telah ditelaah oleh Dewan Komisaris untuk mendapat persetujuan Rapat Umum Pemegang Saham;" }] },
@@ -386,7 +511,7 @@ export function generatePendirianBlocks(data: PendirianData): Block[] {
     { type: "numbered", num: 7, runs: [{ text: "Jika Direktur Utama tidak ada atau berhalangan karena sebab apapun yang tidak perlu dibuktikan kepada pihak ketiga, Rapat Umum Pemegang Saham dipimpin oleh seorang anggota Direktur lainnya." }] },
     { type: "numbered", num: 8, runs: [{ text: "Jika semua Direktur tidak hadir atau berhalangan karena sebab apapun yang tidak perlu dibuktikan kepada pihak ketiga, Rapat Umum Pemegang Saham dipimpin oleh salah seorang anggota Dewan Komisaris." }] },
     { type: "numbered", num: 9, runs: [{ text: "Jika semua anggota Dewan Komisaris tidak hadir atau berhalangan karena sebab apapun yang tidak perlu dibuktikan kepada pihak ketiga, Rapat Umum Pemegang Saham dipimpin oleh seorang yang dipilih oleh dan diantara mereka yang hadir dalam rapat." }] },
-    { type: "p", runs: [{ text: "Rapat Umum Pemegang Saham dapat juga diselenggarakan melalui media video konferensi atau media elektronik lainnya yang memungkinkan semua peserta Rapat Umum Pemegang Saham saling melihat dan mendengar secara langsung serta berpartisipasi dalam rapat, dengan persyaratan kourum dan persyaratan pengambilan keputusan adalah persyaratan sebagaimana diatur dalam ketentuan peraturan perundang-undangan yang berlaku bagi perseroan atau Anggaran Dasar." }] },
+    { type: "p", indentTabs: 0.5, runs: [{ text: "Rapat Umum Pemegang Saham dapat juga diselenggarakan melalui media video konferensi atau media elektronik lainnya yang memungkinkan semua peserta Rapat Umum Pemegang Saham saling melihat dan mendengar secara langsung serta berpartisipasi dalam rapat, dengan persyaratan kourum dan persyaratan pengambilan keputusan adalah persyaratan sebagaimana diatur dalam ketentuan peraturan perundang-undangan yang berlaku bagi perseroan atau Anggaran Dasar." }] },
   );
 
   // ── PASAL 10 – KUORUM ────────────────────────────────────────────────────
@@ -452,7 +577,7 @@ export function generatePendirianBlocks(data: PendirianData): Block[] {
     { type: "numbered", num: 9, runs: [{ text: "Keputusan Rapat Direksi harus diambil berdasarkan musyawarah untuk mufakat. Dalam hal keputusan berdasarkan musyawarah untuk mufakat tidak tercapai maka keputusan diambil dengan pemungutan suara berdasarkan suara setuju paling sedikit lebih dari ½ (satu per dua) dari jumlah suara yang dikeluarkan dalam rapat." }] },
     { type: "numbered", num: 10, runs: [{ text: "Apabila suara yang setuju dan yang tidak setuju berimbang, Ketua Rapat Direksi yang akan menentukan." }] },
     { type: "numbered", num: 11, runs: [{ text: "Rapat Direksi dapat juga dilakukan melalui media video konferensi atau sarana media elektronik lainnya yang memungkinkan semua peserta rapat Direksi saling melihat dan mendengar secara langsung serta berpartisipasi dalam rapat, dengan persyaratan kourum dan persyaratan pengambilan keputusan adalah sesuai dengan persyaratan sebagaimana diatur dalam Anggaran Dasar." }] },
-    { type: "numbered", num: 12, runs: [{ text: "a. Setiap anggota Direksi yang hadir dalam Rapat berhak mengeluarkan 1 satu suara dan tambahan 1 satu suara untuk setiap anggota Direksi lain yang diwakilinya." }] },
+    { type: "numbered", num: 12, subStartVal: 2, runs: [{ text: "a. Setiap anggota Direksi yang hadir dalam Rapat berhak mengeluarkan 1 satu suara dan tambahan 1 satu suara untuk setiap anggota Direksi lain yang diwakilinya." }] },
     { type: "sub-numbered", num: "b", indentTabs: 1, runs: [{ text: "Pemungutan suara mengenai diri orang dilakukan dengan surat tertutup tanpa tanda tangan sedangkan mengenai hal-hal lain dilakukan secara lisan kecuali ketua rapat menentukan lain tanpa ada keberatan dari yang hadir." }] },
     { type: "sub-numbered", num: "c", indentTabs: 1, runs: [{ text: "Suara blanko dan suara yang tidak sah dianggap tidak dikeluarkan secara sah dan dianggap tidak ada serta tidak dihitung dalam menentukan jumlah suara yang dikeluarkan." }] },
     { type: "numbered", num: 13, runs: [{ text: "Direksi dapat juga mengambil keputusan yang sah tanpa mengadakan Rapat Direksi, dengan ketentuan semua anggota Direksi telah diberitahu secara tertulis dan semua anggota Direksi memberikan persetujuan mengenai usul yang diajukan secara tertulis dengan menandatangani persetujuan tersebut. Keputusan yang diambil dengan cara demikian mempunyai kekuatan yang sama dengan keputusan yang diambil dengan sah dalam Rapat Direksi." }] },
@@ -558,9 +683,15 @@ export function generatePendirianBlocks(data: PendirianData): Block[] {
       type: "sub-numbered",
       num: String.fromCharCode(97 + i),
       indentTabs: 1,
-      runs: [{
-        text: `${p.salutation} ${p.name.toUpperCase()}, tersebut di atas, sejumlah ${formatNumber(p.sharesOwned)} (${terbilang(p.sharesOwned)}) lembar saham, dengan nilai nominal seluruhnya sebesar Rp. ${formatNumber(nominal)},- (${terbilang(nominal)} rupiah);`
-      }],
+      runs: [
+        { text: `${p.salutation} ` },
+        { text: `${p.name.toUpperCase()}`, bold: true },
+        { text: `, tersebut di atas, sejumlah ` },
+        { text: `${formatNumber(p.sharesOwned)}`, bold: true },
+        { text: ` (${terbilang(p.sharesOwned)}) lembar saham, dengan nilai nominal seluruhnya sebesar ` },
+        { text: `Rp. ${formatNumber(nominal)},-`, bold: true },
+        { text: ` (${terbilang(nominal)} rupiah);` }
+      ],
     });
   });
 
@@ -568,15 +699,23 @@ export function generatePendirianBlocks(data: PendirianData): Block[] {
   blocks.push(
     {
       type: "p", indentTabs: 0.5,
-      runs: [{
-        text: `Sehingga seluruhnya berjumlah ${formatNumber(tSaham)} (${terbilang(tSaham)}) lembar saham, dengan nilai nominal seluruhnya sebesar Rp. ${formatNumber(totNominal)},- (${terbilang(totNominal)} rupiah).`
-      }],
+      runs: [
+        { text: "Sehingga seluruhnya berjumlah " },
+        { text: `${formatNumber(tSaham)}`, bold: true },
+        { text: ` (${terbilang(tSaham)}) lembar saham, dengan nilai nominal seluruhnya sebesar ` },
+        { text: `Rp. ${formatNumber(totNominal)},-`, bold: true },
+        { text: ` (${terbilang(totNominal)} rupiah).` }
+      ],
     },
     {
       type: "numbered", num: 2,
-      runs: [{
-        text: `Menyimpang dari ketentuan dalam pasal 11 ayat 3 dan pasal 14 ayat 3 Anggaran Dasar ini mengenai tata cara pengangkatan Anggota Direksi dan Dewan Komisaris, telah diangkat anggota Direksi dan Dewan Komisaris Perseroan dengan masa jabatan ${termYears} (${terbilang(termYears)}) tahun, terhitung sejak tanggal ${tglHuruf} sampai dengan tanggal ${endTglHuruf}, adalah sebagai berikut :`
-      }],
+      runs: [
+        { text: "Menyimpang dari ketentuan dalam pasal 11 ayat 3 dan pasal 14 ayat 3 Anggaran Dasar ini mengenai tata cara pengangkatan Anggota Direksi dan Dewan Komisaris, telah diangkat anggota Direksi dan Dewan Komisaris Perseroan dengan masa jabatan " },
+        { text: `${termYears}`, bold: true },
+        { text: ` (${terbilang(termYears)}) ` },
+        { text: "tahun", bold: true },
+        { text: `, terhitung sejak tanggal ${tglHuruf} sampai dengan tanggal ${endTglHuruf}, adalah sebagai berikut :` }
+      ],
     },
   );
 
@@ -615,40 +754,120 @@ export function generatePendirianBlocks(data: PendirianData): Block[] {
       });
     });
 
+  // Para penghadap telah memperkenalkan diri kepada saya, Notaris.
+  blocks.push({
+    type: "p",
+    indentTabs: 1,
+    hanging: 284,
+    runs: [{ text: "-\tPara penghadap telah memperkenalkan diri kepada saya, Notaris." }]
+  });
+
   // ── PENUTUP ──────────────────────────────────────────────────────────────
+  const expandAbbreviations = (str: string) => {
+    if (!str) return "";
+    let res = str;
+    res = res.replace(
+      /RT\.\s*(\d+)\s*RW\.\s*(\d+)/gi,
+      "Rukun Tetangga $1, Rukun Warga $2",
+    );
+    res = res.replace(
+      /RT\s+(\d+)\s*RW\s+(\d+)/gi,
+      "Rukun Tetangga $1, Rukun Warga $2",
+    );
+    res = res.replace(/RT\.\s*(\d+)/gi, "Rukun Tetangga $1");
+    res = res.replace(/RW\.\s*(\d+)/gi, "Rukun Warga $1");
+    res = res.replace(/\bS\.H\b\.?/gi, "Sarjana Hukum");
+    res = res.replace(/\bM\.Kn\b\.?/gi, "Magister Kenotariatan");
+    res = res.replace(/\bjl(?:n)?\.?\b/gi, "Jalan");
+    res = res.replace(/\bgg\.?\b/gi, "Gang");
+    return res;
+  };
+
   blocks.push(
-    { type: "p", runs: [{ text: "Para penghadap telah memperkenalkan diri kepada saya, Notaris." }] },
-    { type: "p", runs: [{ text: "Para Pihak menyatakan dengan ini menjamin akan kebenaran identitas para pihak sesuai dengan tanda pengenal yang disampaikan kepada saya, Notaris dan termasuk dengan seluruh dokumen yang diperlihatkan dan fotokopinya dilekatkan pada minuta akta ini para pihak bertanggung jawab sepenuhnya atas hal tersebut sehingga membebaskan Notaris dari segala tanggungjawab dan selanjutnya para pihak juga menyatakan telah mengerti dan memahami isi akta ini." }] },
+    {
+      type: "p",
+      runs: [
+        {
+          text: "Penghadap menyatakan dengan ini menjamin akan kebenaran, keaslian dan\n" +
+                "kelengkapan identitas pihak-pihak yang namanya tersebut dalam akta ini dan seluruh\n" +
+                "dokumen yang menjadi dasar akta ini tanpa ada yang dikecualikan yang disampaikan\n" +
+                "kepada saya, Notaris, sehingga apabila dikemudian hari sejak ditandatanganinya akta\n" +
+                "ini timbul sengketa dengan nama dan dalam bentuk apapun yang disebabkan karena\n" +
+                "akta ini, maka pihak yang membuat keterangan dengan ini berjanji mengikatkan dirinya\n" +
+                "untuk bertanggung jawab dan bersedia menanggung resiko yang timbul dan dengan ini\n" +
+                "penghadap menyatakan dengan tegas membebaskan saya, Notaris, dan para saksi\n" +
+                "dari turut bertanggung jawab dan memikul baik sebagian maupun seluruhnya akibat\n" +
+                "hukum yang timbul karena sengketa tersebut.",
+        },
+      ],
+    },
+    {
+      type: "p",
+      runs: [
+        {
+          text: "Selanjutnya penghadap juga menyatakan telah mengerti, memahami and menyetujui isi\n" +
+                "akta ini.",
+        },
+      ],
+    },
+    {
+      type: "p",
+      runs: [
+        {
+          text: "Dari segala sesuatu yang diuraikan tersebut di atas, maka saya, Notaris membuat Akta\n" +
+                "Pendirian Perseroan Terbatas ini untuk dapat dipergunakan sebagaimana mestinya.",
+        },
+      ],
+    },
     { type: "divider", text: "DEMIKIANLAH AKTA INI" },
-    { type: "p", runs: [{ text: `Dibuat sebagai minuta dan dilangsungkan di ${notarisTempat}, pada hari dan tanggal serta jam sebagaimana disebutkan pada kepala akta ini dengan dihadiri oleh :` }] },
+    {
+      type: "p",
+      runs: [
+        {
+          text: `Dibuat sebagai minuta dan dilangsungkan di ${notarisTempat}, pada hari dan tanggal serta jam sebagaimana disebutkan pada kepala akta ini dengan dihadiri oleh :`,
+        },
+      ],
+    },
   );
 
   // Saksi
   const saksi1DefaultAlamat = "Jalan Sukaresmi Nomor 12, Rukun Tetangga 005, Rukun Warga 005, Kecamatan Lembang, Desa Mekarwangi";
   const saksi2DefaultAlamat = "Kabupaten Bandung, Jalan Lembah Pakar Timur II Kampung Sekebuluh Rukun Tetangga 001, Rukun Warga 004, Kecamatan Cimenyan, Desa Ciburial";
 
+  const s1DetailText = expandAbbreviations(
+    `${data.saksi1Nama || "Nendi Suhendi"}, lahir di ${toTitleCase(data.saksi1LahirTempat || "Bandung")}, pada tanggal ${formatAktaDate(data.saksi1LahirTanggal || "1991-07-15")}, Warga Negara Indonesia, bertempat tinggal di ${formatAddress(data.saksi1Alamat || saksi1DefaultAlamat)}, pemegang Kartu Tanda Penduduk Nomor ${data.saksi1NIK || "3217011507910016"};`
+  );
+
+  const s2DetailText = expandAbbreviations(
+    `${data.saksi2Nama || "Siti Nur Azizah"}, lahir di ${toTitleCase(data.saksi2LahirTempat || "Bandung")}, pada tanggal ${formatAktaDate(data.saksi2LahirTanggal || "1999-12-17")}, Warga Negara Indonesia, bertempat tinggal di ${formatAddress(data.saksi2Alamat || saksi2DefaultAlamat)}, pemegang Kartu Tanda Penduduk Nomor ${data.saksi2NIK || "3204065712990001"};`
+  );
+
+  const ttdNotaryName = (data.notarisNamaSurat || "NUKANTINI PUTRI PARINCHA, SH., M.Kn.")
+    .toUpperCase()
+    .replace(/\.?$/, "."); // Ensure it ends with exactly one period
+
   blocks.push(
     {
       type: "saksi", num: 1,
-      runs: [{
-        text: `${data.saksi1Nama || "Nendi Suhendi"}, lahir di ${toTitleCase(data.saksi1LahirTempat || "Bandung")}, pada tanggal ${formatAktaDate(data.saksi1LahirTanggal || "1991-07-15")}, Warga Negara Indonesia, bertempat tinggal di ${formatAddress(data.saksi1Alamat || saksi1DefaultAlamat)}, pemegang Kartu Tanda Penduduk Nomor ${data.saksi1NIK || "3217011507910016"};`
-      }],
+      runs: [{ text: s1DetailText }],
     },
     {
       type: "saksi", num: 2,
-      runs: [{
-        text: `${data.saksi2Nama || "Siti Nur Azizah"}, lahir di ${toTitleCase(data.saksi2LahirTempat || "Bandung")}, pada tanggal ${formatAktaDate(data.saksi2LahirTanggal || "1999-12-17")}, Warga Negara Indonesia, bertempat tinggal di ${formatAddress(data.saksi2Alamat || saksi2DefaultAlamat)}, pemegang Kartu Tanda Penduduk Nomor ${data.saksi2NIK || "3204065712990001"};`
-      }],
+      runs: [{ text: s2DetailText }],
+    },
+    {
+      type: "list",
+      bullet: "-",
+      indentTabs: 1.0,
+      runs: [
+        { text: `Untuk sementara berada di ${toTitleCase(notarisTempat)};` },
+      ],
     },
     { type: "p", runs: [{ text: "Keduanya pegawai Kantor Notaris, sebagai saksi-saksi." }] },
-    { type: "p", runs: [{ text: "Segera setelah akta ini dibacakan oleh saya, Notaris kepada penghadap dan saksi-saksi maka ditanda-tanganilah akta ini oleh penghadap, saksi-saksi dan saya, Notaris. Serta penghadap membubuhkan sidik jari sebelah kanan pada lembaran tersendiri di hadapan saya, Notaris dan saksi-saksi, yang dilekatkan pada minuta akta ini." }] },
+    { type: "p", runs: [{ text: "Segera setelah akta ini dibacakan oleh saya, Notaris kepada penghadap dan saksi-saksi, maka ditanda-tanganilah akta ini oleh penghadap, saksi-saksi dan saya, Notaris. Serta penghadap membubuhkan sidik jari sebelah kanan pada lembaran tersendiri di hadapan saya, Notaris dan saksi-saksi, yang dilekatkan pada minuta akta ini." }] },
     { type: "p", runs: [{ text: "Dilangsungkan dengan tanpa perubahan." }] },
-    { type: "br" },
     { type: "p", indentTabs: 1, runs: [{ text: "Minuta Akta ini telah ditanda-tangani dengan sempurna." }] },
     { type: "p", indentTabs: 2, runs: [{ text: "Diberikan sebagai salinan yang sama bunyinya." }] },
-    { type: "br" },
-    { type: "p", align: "right-center", runs: [{ text: `Notaris di ${toTitleCase(notarisTempat)};` }] },
-    { type: "p", align: "right-center", runs: [{ text: "NUKANTINI PUTRI PARINCHA, SH., M.Kn", bold: true }] },
   );
 
   return blocks;

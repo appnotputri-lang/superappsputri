@@ -2,9 +2,12 @@ import React, { useState, useMemo } from 'react';
 import { KbliItem, Shareholder, Address } from '../types';
 import { KBLI_DATA } from '../utils/kbliData';
 import { Eye, Printer, Users, Building2, Banknote, ChevronDown, ChevronRight, Search, Trash2, Plus, User, MapPin, Briefcase, IdCard, ShieldCheck, ArrowRight, Save } from 'lucide-react';
+import { Modal } from '../components/Modal';
+import ShareholderForm from '../components/ShareholderForm';
 import { IndoRegionSelector } from '../components/AddressFields';
 import { searchShareholderByNIKClient } from './lib/firebase';
 import { documentStatusOptions } from '../components/DocumentStatusBadge';
+import { formatInputNumber, parseFormattedNumber } from '../utils/formatters';
 
 const AhuSection = ({ title, children, isOpen = true }: { title: string, children: React.ReactNode, isOpen?: boolean }) => {
   const [open, setOpen] = useState(isOpen);
@@ -71,6 +74,8 @@ export interface PendirianData {
   modalDasar: number;
   nilaiPerLembar: number;
   modalDisetorPersen: number;
+  modalDasarLembar?: number;
+  modalDisetorLembar?: number;
   shareholders: Shareholder[];
   saksi1Nama: string;
   saksi1LahirTempat: string;
@@ -163,6 +168,38 @@ export default function DraftAktaPendirian({
       onChange(data);
     }
   }, [data, onChange]);
+
+  const [editingShareholder, setEditingShareholder] = useState<Shareholder | null>(null);
+
+  const openShareholderEditor = (sh?: Shareholder) => {
+    if (sh) {
+      setEditingShareholder(sh);
+    } else {
+      const newSh: Shareholder = {
+        id: crypto.randomUUID(),
+        salutation: 'Tuan',
+        name: '',
+        birthCity: '',
+        birthDate: '',
+        nationality: 'WNI',
+        nationalityType: 'WNI',
+        occupation: '',
+        address: { ...INITIAL_ADDRESS },
+        nik: '',
+        sharesOwned: 0,
+        kitasType: 'NONE'
+      };
+      setEditingShareholder(newSh);
+    }
+  };
+
+  const handleShareholderSave = (updatedShareholder: Shareholder) => {
+    updateData('shareholders', data.shareholders.some(s => s.id === updatedShareholder.id)
+      ? data.shareholders.map(s => s.id === updatedShareholder.id ? updatedShareholder : s)
+      : [...data.shareholders, updatedShareholder]
+    );
+    setEditingShareholder(null);
+  };
 
   const [isAddKbliModalOpen, setIsAddKbliModalOpen] = useState(false);
   const [kbliModalSearchTerm, setKbliModalSearchTerm] = useState('');
@@ -279,65 +316,6 @@ export default function DraftAktaPendirian({
 
   const updateData = (field: keyof PendirianData, value: any) => {
     setData(prev => ({ ...prev, [field]: value }));
-  };
-
-  const handleShareholderChange = (id: string, updates: Partial<Shareholder>) => {
-    setData(prev => ({
-      ...prev,
-      shareholders: prev.shareholders.map(p => p.id === id ? { ...p, ...updates } : p)
-    }));
-  };
-
-  const searchShareholderByNIK = async (id: string, nik: string) => {
-    if (nik.length !== 16) return;
-    try {
-       const found = await searchShareholderByNIKClient(nik);
-      if (found) {
-        handleShareholderChange(id, {
-          nik: found.nik || nik,
-          name: found.name,
-          birthCity: found.birthCity,
-          birthDate: found.birthDate,
-          occupation: found.occupation,
-          address: found.address,
-        });
-      }
-    } catch (e) {
-      console.error("Error searching shareholder:", e);
-    }
-  };
-
-  const addShareholder = () => {
-    setData(prev => ({
-      ...prev,
-      shareholders: [
-        ...prev.shareholders,
-        {
-          id: crypto.randomUUID(),
-          salutation: 'Tuan',
-          name: '',
-          birthCity: '',
-          birthDate: '',
-          nationality: 'WNI',
-          nationalityType: 'WNI',
-          address: { ...INITIAL_ADDRESS },
-          nik: '',
-          sharesOwned: 0,
-          occupation: '',
-          managementPosition: 'Komisaris',
-          isManagement: true,
-          shareholderType: 'PERORANGAN',
-          isForeign: false
-        }
-      ]
-    }));
-  };
-
-  const removeShareholder = (id: string) => {
-    setData(prev => ({
-      ...prev,
-      shareholders: prev.shareholders.filter(p => p.id !== id)
-    }));
   };
 
   return (
@@ -461,6 +439,8 @@ export default function DraftAktaPendirian({
                                     `${profile.newAddress.fullAddress}, RT ${profile.newAddress.rt}/${profile.newAddress.rw}, Kel. ${profile.newAddress.kelurahan}, Kec. ${profile.newAddress.kecamatan}` 
                                     : ''),
                                 modalDasar: profile.originalCapitalBase || prev.modalDasar,
+                                modalDasarLembar: profile.originalAuthorizedShares || prev.modalDasarLembar,
+                                modalDisetorLembar: profile.originalTotalShares || prev.modalDisetorLembar,
                                 nilaiPerLembar: profile.originalSharePrice || prev.nilaiPerLembar,
                                 modalDisetorPersen: profile.originalCapitalBase ? 
                                     Math.round((profile.originalCapitalPaid / profile.originalCapitalBase) * 100) : prev.modalDisetorPersen,
@@ -503,25 +483,58 @@ export default function DraftAktaPendirian({
               </div>
             </div>
 
-            {/* Modal Perseroan Section - Requested to be after Alamat Lengkap */}
-            <div className="bg-slate-50 p-4 border border-slate-200 rounded-sm mt-2">
-              <h4 className="flex items-center gap-2 text-[13px] font-bold text-[#3b5998] mb-4 uppercase tracking-tighter shadow-sm pb-1 border-b border-slate-200">
+            {/* Modal Perseroan Section */}
+            <div className="bg-slate-50 p-4 border border-slate-200 rounded-sm mt-2 space-y-4">
+              <h4 className="flex items-center gap-2 text-[13px] font-bold text-[#3b5998] mb-2 uppercase tracking-tighter shadow-sm pb-1 border-b border-slate-200">
                 <Banknote className="w-4 h-4" /> Modal Perseroan
               </h4>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <AhuLabel label="Modal Dasar (Rp)" />
-                  <AhuInput type="number" value={data.modalDasar} onChange={e => updateData('modalDasar', parseInt(e.target.value) || 0)} />
-                </div>
-                <div>
-                  <AhuLabel label="Nilai per Saham (Rp)" />
-                  <AhuInput type="number" value={data.nilaiPerLembar} onChange={e => updateData('nilaiPerLembar', parseInt(e.target.value) || 0)} />
-                </div>
-                <div>
-                  <AhuLabel label="Ditempatkan & Disetor (%)" />
-                  <AhuInput type="number" min="0" max="100" value={data.modalDisetorPersen || 25} onChange={e => updateData('modalDisetorPersen', parseInt(e.target.value) || 0)} />
+
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                <AhuLabel label="Harga per Lembar" />
+                <div className="md:col-span-3">
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[13px]">Rp.</span>
+                    <AhuInput 
+                      className="pl-10"
+                      value={data.nilaiPerLembar === 0 ? '' : formatInputNumber(data.nilaiPerLembar)} 
+                      onChange={e => updateData('nilaiPerLembar', parseFormattedNumber(e.target.value))} 
+                    />
+                  </div>
                 </div>
               </div>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                <AhuLabel label="Modal Dasar (Lembar)" required />
+                <div className="md:col-span-3">
+                  <div className="flex items-center gap-4">
+                    <div className="flex-1">
+                      <AhuInput 
+                        value={data.modalDasarLembar === undefined || data.modalDasarLembar === 0 ? '' : formatInputNumber(data.modalDasarLembar)} 
+                        onChange={e => updateData('modalDasarLembar', parseFormattedNumber(e.target.value))} 
+                      />
+                    </div>
+                    <div className="text-[13px] font-bold text-slate-500 w-48">
+                      Rp. {formatInputNumber((data.modalDasarLembar || 0) * data.nilaiPerLembar)}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                <AhuLabel label="Modal Ditempatkan & Disetor (Lembar)" required />
+                <div className="md:col-span-3">
+                  <div className="flex items-center gap-4">
+                    <div className="flex-1">
+                      <AhuInput 
+                        value={data.modalDisetorLembar === undefined || data.modalDisetorLembar === 0 ? '' : formatInputNumber(data.modalDisetorLembar)} 
+                        onChange={e => updateData('modalDisetorLembar', parseFormattedNumber(e.target.value))} 
+                      />
+                    </div>
+                    <div className="text-[13px] font-bold text-slate-500 w-48">
+                      Rp. {formatInputNumber((data.modalDisetorLembar || 0) * data.nilaiPerLembar)}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
               <div className="mt-3 text-[11px] text-slate-500 font-bold italic">
                 * Modal Ditempatkan dan Disetor Minimal 25% dari Modal Dasar.
               </div>
@@ -633,273 +646,107 @@ export default function DraftAktaPendirian({
 
         {/* STRUKTUR PENDIRIAN - Match styling with KLIEN PT */}
         <AhuSection title="Struktur Pemegang Saham & Pengurus">
-          <div className="space-y-6">
-             <div className="flex justify-between items-center border-b border-slate-200 pb-2">
-                <div>
-                   <h4 className="text-[13px] font-bold text-slate-700 uppercase flex items-center gap-2">
-                     <Users className="w-4 h-4 text-[#3b5998]" /> Daftar Pendiri / Pemegang Saham
-                   </h4>
-                   <p className="text-[11px] text-slate-500 font-medium mt-1">Data ini akan menjadi dasar kepemilikan modal dan susunan pengurus pada saat pendirian.</p>
-                </div>
-                <button 
-                  type="button" 
-                  onClick={addShareholder} 
-                  className="px-4 py-2 bg-[#3b5998] hover:bg-[#2d4373] text-white text-[12px] font-bold rounded-sm shadow-md flex items-center gap-1.5 uppercase transition-all"
-                >
-                  <Plus className="w-4 h-4" /> Tambah Pendiri
-                </button>
-             </div>
-
-             <div className="space-y-4">
-                {data.shareholders.map((p, index) => (
-                  <div key={p.id} className="border border-slate-200 rounded-sm bg-white overflow-hidden shadow-sm">
-                    {/* Header Row */}
-                    <div className="bg-slate-50 px-4 py-2 border-b border-slate-200 flex justify-between items-center">
-                      <div className="flex items-center gap-3">
-                        <div className="w-6 h-6 bg-[#3b5998] text-white rounded-full flex items-center justify-center text-[11px] font-bold">
-                          {index + 1}
-                        </div>
-                        <span className="text-[12px] font-bold text-slate-700 uppercase">PENDIRI / PENGURUS</span>
-                      </div>
-                      <button 
-                        type="button" 
-                        onClick={() => removeShareholder(p.id)} 
-                        className="text-red-500 hover:text-red-700 p-1 transition-all rounded hover:bg-red-50"
-                        title="Hapus Pendiri"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-
-                    <div className="p-6 bg-white space-y-6">
-                      <div className="flex flex-col lg:flex-row gap-8">
-                        {/* Column 1: Identity Info */}
-                        <div className="flex-1 space-y-4">
-                           <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                             <h5 className="text-[11px] font-extrabold text-[#3b5998] uppercase flex items-center gap-2">
-                                <User className="w-4 h-4" /> Data Identitas Pendiri
-                             </h5>
-                             <label className="flex items-center gap-2 cursor-pointer bg-slate-50 px-2 py-1 rounded border border-slate-200">
-                              <input 
-                                type="checkbox" 
-                                checked={!!p.isForeign}
-                                onChange={e => handleShareholderChange(p.id, { 
-                                  isForeign: e.target.checked,
-                                  nationalityType: e.target.checked ? 'WNA' : 'WNI', 
-                                  nationality: e.target.checked ? '' : 'WNI' 
-                                })}
-                                className="rounded border-slate-300 text-teal-500 focus:ring-teal-500"
-                              />
-                              <span className="text-[10px] text-slate-700 font-bold uppercase">Asing (WNA)</span>
-                            </label>
-                           </div>
-
-                           <div className="grid grid-cols-1 gap-4 bg-slate-50/30 p-5 rounded-2xl border border-slate-100 shadow-inner">
-                             <div>
-                               <AhuLabel label="Jenis Pemegang Saham" />
-                               <AhuSelect 
-                                 value={p.shareholderType || 'PERORANGAN'}
-                                 onChange={e => handleShareholderChange(p.id, { shareholderType: e.target.value as any })}
-                                 className="rounded-xl border-slate-200 bg-white"
-                               >
-                                 <option value="PERORANGAN">PERORANGAN (INDIVIDU)</option>
-                                 <option value="BADAN_HUKUM">BADAN HUKUM (PT/DLL)</option>
-                               </AhuSelect>
-                             </div>
-
-                             {p.shareholderType !== 'BADAN_HUKUM' && (
-                               <div>
-                                  <AhuLabel label={p.isForeign ? "Nomor Passport" : "NIK (KTP)"} />
-                                  <AhuInput 
-                                    placeholder={p.isForeign ? "NOMOR PASSPORT" : "16 DIGIT NIK"} 
-                                    className="rounded-xl border-slate-200 bg-white"
-                                    value={p.isForeign ? (p.passportNumber || '') : (p.nik || '')} 
-                                    onChange={e => {
-                                      const nik = e.target.value;
-                                      handleShareholderChange(p.id, p.isForeign ? { passportNumber: nik } : { nik: nik });
-                                      if (!p.isForeign && nik.length === 16) {
-                                        searchShareholderByNIK(p.id, nik);
-                                      }
-                                    }}
-                                  />
-                               </div>
-                             )}
-
-                             <div>
-                               <AhuLabel label="Nama Lengkap" />
-                               <div className="flex gap-2">
-                                  {p.shareholderType !== 'BADAN_HUKUM' && (
-                                    <AhuSelect 
-                                      className="w-24 rounded-xl border-slate-200 bg-white" 
-                                      value={p.salutation} 
-                                      onChange={e => handleShareholderChange(p.id, { salutation: e.target.value as any })}
-                                    >
-                                      <option value="Tuan">Tuan</option>
-                                      <option value="Nyonya">Nyonya</option>
-                                      <option value="Nona">Nona</option>
-                                    </AhuSelect>
-                                  )}
-                                  <AhuInput 
-                                    placeholder={p.shareholderType === 'BADAN_HUKUM' ? "NAMA BADAN HUKUM / PT" : "NAMA SESUAI KTP"} 
-                                    className="rounded-xl border-slate-200 font-bold text-slate-800"
-                                    value={p.name} 
-                                    onChange={e => handleShareholderChange(p.id, { name: e.target.value.toUpperCase() })} 
-                                  />
-                               </div>
-                             </div>
-
-                             {p.shareholderType === 'BADAN_HUKUM' ? (
-                               <div className="space-y-4 animate-in fade-in slide-in-from-top-1">
-                                 <div>
-                                   <AhuLabel label="NPWP Badan Hukum" />
-                                   <AhuInput 
-                                      placeholder="00.000.000.0-000.000"
-                                      value={p.npwp || ''}
-                                      onChange={e => handleShareholderChange(p.id, { npwp: e.target.value })}
-                                      className="rounded-xl border-slate-200 bg-white"
-                                   />
-                                 </div>
-                                 <div className="grid grid-cols-2 gap-3 group">
-                                   <div>
-                                      <AhuLabel label="No. Akta Pendirian" />
-                                      <AhuInput 
-                                        placeholder="Nomor Akta"
-                                        value={p.establishmentDeedNumber || ''}
-                                        onChange={e => handleShareholderChange(p.id, { establishmentDeedNumber: e.target.value })}
-                                        className="rounded-xl border-slate-200 bg-white"
-                                      />
-                                   </div>
-                                   <div>
-                                      <AhuLabel label="Tgl Akta Pendirian" />
-                                      <AhuInput 
-                                        type="date"
-                                        value={p.establishmentDeedDate || ''}
-                                        onChange={e => handleShareholderChange(p.id, { establishmentDeedDate: e.target.value })}
-                                        className="rounded-xl border-slate-200 bg-white"
-                                      />
-                                   </div>
-                                 </div>
-                               </div>
-                             ) : (
-                                <div className="space-y-4 animate-in fade-in slide-in-from-top-1">
-                                  <div className="grid grid-cols-1 gap-4">
-                                    <div>
-                                      <AhuLabel label={p.isForeign ? "Nomor Passport" : "NIK (KTP)"} />
-                                      <AhuInput 
-                                        placeholder={p.isForeign ? "NOMOR PASSPORT" : "16 DIGIT NIK"}
-                                        className="rounded-xl border-slate-200 bg-white"
-                                        value={p.isForeign ? (p.passportNumber || "") : (p.nik || "")}
-                                        onChange={e => {
-                                          const nik = e.target.value;
-                                          handleShareholderChange(p.id, p.isForeign ? { passportNumber: nik } : { nik: nik });
-                                          if (!p.isForeign && nik.length === 16) {
-                                            searchShareholderByNIK(p.id, nik);
-                                          }
-                                        }}
-                                      />
-                                    </div>
-                                   <div>
-                                      <AhuLabel label="Pekerjaan" />
-                                      <AhuInput 
-                                        placeholder="CONTOH: KARYAWAN" 
-                                        className="rounded-xl border-slate-200 bg-white"
-                                        value={p.occupation || ''} 
-                                        onChange={e => handleShareholderChange(p.id, { occupation: e.target.value })} 
-                                      />
-                                   </div>
-                                 </div>
-
-                                 <div>
-                                    <AhuLabel label="Tempat & Tanggal Lahir" />
-                                    <div className="flex gap-2">
-                                       <AhuInput 
-                                         placeholder="KOTA" 
-                                         className="rounded-xl border-slate-200 bg-white flex-[2]"
-                                         value={p.birthCity || ''} 
-                                         onChange={e => handleShareholderChange(p.id, { birthCity: e.target.value })} 
-                                       />
-                                       <AhuInput 
-                                         type="date" 
-                                         className="rounded-xl border-slate-200 bg-white flex-[3]"
-                                         value={p.birthDate || ''} 
-                                         onChange={e => handleShareholderChange(p.id, { birthDate: e.target.value })} 
-                                       />
-                                    </div>
-                                 </div>
-                               </div>
-                             )}
-                           </div>
-                        </div>
-
-                        {/* Column 2: Address & Financials */}
-                        <div className="flex-1 space-y-4">
-                           <h5 className="text-[11px] font-extrabold text-[#3b5998] uppercase flex items-center gap-2 border-b border-slate-100 pb-2">
-                              <MapPin className="w-4 h-4" /> Domisili & Saham Pendiri
-                           </h5>
-                           
-                           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                              <IndoRegionSelector 
-                                accentColor="teal"
-                                address={p.address}
-                                onUpdate={updates => handleShareholderChange(p.id, { address: { ...p.address, ...updates } })}
-                              />
-                           </div>
-
-                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                              <div className="bg-teal-50/50 p-5 rounded-2xl border border-teal-100 flex flex-col justify-between">
-                                 <div>
-                                   <label className="text-[10px] font-extrabold text-teal-800 uppercase flex items-center gap-1.5 mb-2 tracking-tight">
-                                     <Banknote className="w-3.5 h-3.5" /> lembar Saham
-                                   </label>
-                                   <AhuInput 
-                                     type="number" 
-                                     className="rounded-xl border-teal-200 font-black text-lg text-teal-900 bg-white"
-                                     value={p.sharesOwned || 0} 
-                                     onChange={e => handleShareholderChange(p.id, { sharesOwned: parseInt(e.target.value) || 0 })} 
-                                   />
-                                 </div>
-                                 <div className="mt-2 text-[11px] font-bold text-teal-700 bg-white/60 px-3 py-1 rounded-full border border-teal-100/50 inline-block w-fit">
-                                    Rp. {((p.sharesOwned || 0) * data.nilaiPerLembar).toLocaleString('id-ID')}
-                                 </div>
-                              </div>
-
-                              <div className="bg-slate-50/50 p-5 rounded-2xl border border-slate-200 flex flex-col justify-between">
-                                 <div className="flex justify-between items-center mb-2">
-                                    <label className="text-[10px] font-extrabold text-slate-700 uppercase flex items-center gap-1.5 tracking-tight">
-                                      <Briefcase className="w-3.5 h-3.5" /> Jabatan
-                                    </label>
-                                    <label className="flex items-center gap-1.5 cursor-pointer bg-white px-2 py-0.5 rounded border border-slate-100 shadow-xs">
-                                      <input 
-                                        type="checkbox" 
-                                        checked={p.isManagement}
-                                        onChange={e => handleShareholderChange(p.id, { isManagement: e.target.checked })}
-                                        className="rounded-sm border-slate-300 text-[#3b5998] focus:ring-[#3b5998] w-3 h-3" 
-                                      />
-                                      <span className="text-[9px] font-bold text-slate-500 uppercase tracking-tighter">Pengurus</span>
-                                    </label>
-                                 </div>
-                                 <AhuSelect 
-                                   disabled={!p.isManagement}
-                                   className="rounded-xl border-slate-200 disabled:opacity-40 disabled:bg-slate-100/50 bg-white font-bold text-slate-700"
-                                   value={p.managementPosition} 
-                                   onChange={e => handleShareholderChange(p.id, { managementPosition: e.target.value })} 
-                                 >
-                                   <option value="Direktur Utama">Direktur Utama</option>
-                                   <option value="Direktur">Direktur</option>
-                                   <option value="Komisaris Utama">Komisaris Utama</option>
-                                   <option value="Komisaris">Komisaris</option>
-                                 </AhuSelect>
-                              </div>
-                           </div>
-                        </div>
-                      </div>
-                    </div>
+          <div className="space-y-4">
+              <div className="flex justify-end gap-2">
+                <button type="button" onClick={() => openShareholderEditor()} className="bg-[#222d32] text-white px-3 py-1.5 rounded-sm text-[12px] font-bold shadow hover:bg-black transition-colors flex items-center gap-1"><Plus className="w-4 h-4" /> Tambah Data</button>
+              </div>
+              <div className="border border-slate-200 overflow-x-auto rounded-sm bg-white">
+                <table className="w-full text-left text-[11px]">
+                  <thead className="bg-[#f9f9f9] border-b border-slate-200 font-bold uppercase">
+                    <tr>
+                      <th className="p-2 border-r border-slate-200">Nama</th>
+                      <th className="p-2 border-r border-slate-200">Klasifikasi Saham</th>
+                      <th className="p-2 border-r border-slate-200">Jumlah Lembar Saham</th>
+                      <th className="p-2 border-r border-slate-200">Jabatan</th>
+                      <th className="p-2 border-r border-slate-200">Total</th>
+                      <th className="p-2 text-center">Aksi</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.shareholders.map((s) => (
+                       <tr key={s.id} className="border-b border-slate-200 last:border-0 hover:bg-slate-50 transition-colors text-[10px]">
+                         <td className="p-2 border-r border-slate-200 font-bold uppercase">{s.name}</td>
+                         <td className="p-2 border-r border-slate-200">Tanpa Klasifikasi</td>
+                         <td className="p-2 border-r border-slate-200">{formatInputNumber(s.sharesOwned)}</td>
+                         <td className="p-2 border-r border-slate-200 font-bold uppercase">{s.isManagement ? (s.managementPosition || 'DIREKTUR') : '-'}</td>
+                         <td className="p-2 border-r border-slate-200">Rp. {formatInputNumber(s.sharesOwned * data.nilaiPerLembar)}</td>
+                         <td className="p-2 text-center text-blue-600 flex items-center justify-center gap-2">
+                           <button type="button" onClick={() => openShareholderEditor(s)} className="hover:underline flex items-center gap-0.5"><Eye className="w-3 h-3" /> Edit</button>
+                           <span className="text-slate-300">|</span>
+                           <button type="button" onClick={() => updateData('shareholders', data.shareholders.filter(sh => sh.id !== s.id))} className="hover:underline text-red-500 flex items-center gap-0.5"><Trash2 className="w-3 h-3" /> Hapus</button>
+                         </td>
+                       </tr>
+                    ))}
+                    {data.shareholders.length === 0 && (
+                      <tr>
+                        <td colSpan={6} className="p-4 text-center text-slate-400 italic">Belum ada data pengurus/pemegang saham.</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              <div className="text-[13px] font-bold text-slate-800 space-y-1 uppercase">
+                <div>TOTAL LEMBAR SAHAM {formatInputNumber(data.shareholders.reduce((sum, s) => sum + (s.sharesOwned || 0), 0))}</div>
+                <div>TOTAL MODAL DITEMPATKAN DAN DISETOR Rp {formatInputNumber(data.shareholders.reduce((sum, s) => sum + (s.sharesOwned || 0), 0) * data.nilaiPerLembar)}</div>
+                {data.shareholders.reduce((sum, s) => sum + (s.sharesOwned || 0), 0) < (data.modalDisetorLembar || 0) && (
+                  <div className="text-red-500 font-normal text-xs normal-case mt-1 bg-red-50 p-2 rounded border border-red-100">
+                    * Total lembar saham ({formatInputNumber(data.shareholders.reduce((sum, s) => sum + (s.sharesOwned || 0), 0))}) kurang dari Modal Ditempatkan & Disetor ({formatInputNumber(data.modalDisetorLembar || 0)} lembar)
                   </div>
-                ))}
-             </div>
+                )}
+              </div>
           </div>
         </AhuSection>
       </div>
+
+      <Modal
+        isOpen={Boolean(editingShareholder)}
+        onClose={() => setEditingShareholder(null)}
+        title="Tambah Pemegang Saham & Pengurus"
+        maxWidth="max-w-4xl"
+        headerColor="bg-white text-slate-800 border-b border-slate-200"
+      >
+        <div className="p-0 flex flex-col h-full bg-slate-50">
+          {editingShareholder && (
+            <div className="p-6 overflow-y-auto">
+              <ShareholderForm 
+                shareholder={editingShareholder}
+                onChange={updates => setEditingShareholder({ ...editingShareholder, ...updates })}
+                globalSharePrice={data.nilaiPerLembar}
+                totalSharesAllowed={1000000000} 
+                otherAllocated={0} 
+                existingData={[]} 
+                allShareholders={data.shareholders}
+                oldSharesOwned={0} 
+                isOld={true} 
+                hasTransferAgenda={false} 
+                hasManagementAgenda={true} 
+                hasCapitalChange={false} 
+                hideFinancials={false} 
+                hideManagement={false} 
+                profiles={profiles}
+              />
+            </div>
+          )}
+          <div className="p-4 border-t border-slate-200 bg-white flex justify-end gap-3 sticky bottom-0">
+             <button 
+                onClick={() => setEditingShareholder(null)} 
+                className="px-6 py-2 border border-slate-300 text-slate-700 font-bold rounded-sm text-sm hover:bg-slate-50 transition-colors uppercase"
+             >
+                Batal
+             </button>
+             <button 
+                onClick={() => {
+                  if (editingShareholder) {
+                    handleShareholderSave(editingShareholder);
+                  }
+                }} 
+                className="px-6 py-2 bg-[#222d32] text-white font-bold rounded-sm shadow-md text-sm hover:bg-black transition-colors uppercase flex items-center gap-2"
+             >
+                <Save className="w-4 h-4" /> Simpan Data
+             </button>
+          </div>
+        </div>
+      </Modal>
 
       {/* KBLI Modal */}
       {isAddKbliModalOpen && (

@@ -12,7 +12,7 @@ export const auth = getAuth(app);
 
 export const searchShareholderByNIKClient = async (nik: string): Promise<any | null> => {
   if (!nik || nik.length !== 16) return null;
-  const collections = ['profiles', 'projects', 'rupst_projects', 'pendirian_projects'];
+  const collections = ['profiles', 'cv_profiles', 'projects', 'rupst_projects', 'pendirian_projects'];
   try {
     for (const col of collections) {
       const querySnapshot = await getDocs(collection(db, col));

@@ -24,6 +24,8 @@ import { SirkulerLaporanDocumentPreview } from './components/SirkulerLaporanDocu
 import { SirkulerLaporanFormContent } from './components/SirkulerLaporanFormContent';
 import { RupstInteractiveAssistant } from './src/components/RupstInteractiveAssistant';
 import { RupstPublicWizard } from './src/components/RupstPublicWizard';
+import { RealTimeClock } from './src/components/RealTimeClock';
+import { EditProfileModal } from './components/EditProfileModal';
 import KBLIMapping from './src/components/KBLIMapping';
 import KBLISuggestions from './src/components/KBLISuggestions';
 import kbli2025Data from './kbli_2025.json';
@@ -286,7 +288,7 @@ const INITIAL_STATE: CompanyData = {
 };
 
 type TabId = 'general' | 'shareholders' | 'shareholders_new' | 'representative' | 'agenda' | 'kbli' | 'domicile' | 'address' | 'capitalBase' | 'capitalPaid' | 'management' | 'reappointment';
-type SidebarTabId = 'beranda' | 'company_profile' | 'notulen' | 'pendirian' | 'rupst' | 'perbaikan' | 'draft_akta_rups' | 'panduan' | 'kbli_mapping' | 'saran_kbli' | 'import_kbli' | 'laporan' | 'whatsapp_settings';
+type SidebarTabId = 'beranda' | 'company_profile' | 'cv_profile' | 'notulen' | 'pendirian' | 'rupst' | 'perbaikan' | 'draft_akta_rups' | 'panduan' | 'kbli_mapping' | 'saran_kbli' | 'import_kbli' | 'laporan' | 'whatsapp_settings';
 
 // AHU Style Helper Components
 const AhuSection = ({ title, children, isOpen = true }: { title: string, children: React.ReactNode, isOpen?: boolean }) => {
@@ -482,6 +484,13 @@ const TAB_ACCENTS: Record<SidebarTabId, {
     hoverBg: 'hover:bg-indigo-50/40 hover:text-indigo-950',
     indicatorBg: 'bg-indigo-600'
   },
+  cv_profile: {
+    iconColor: 'text-teal-600',
+    textColor: 'text-teal-900',
+    bgColor: 'bg-teal-50/70',
+    hoverBg: 'hover:bg-teal-50/40 hover:text-teal-950',
+    indicatorBg: 'bg-teal-600'
+  },
   notulen: {
     iconColor: 'text-orange-600',
     textColor: 'text-orange-900',
@@ -625,6 +634,7 @@ const App: React.FC = () => {
   const [expandedGuestId, setExpandedGuestId] = useState<string | null>(null);
   const [showArchivedProfiles, setShowArchivedProfiles] = useState<boolean>(false);
   const [profiles, setProfiles] = useState<CompanyProfile[]>([]);
+  const [cvProfiles, setCvProfiles] = useState<CompanyProfile[]>([]);
   const [projects, setProjects] = useState<CompanyData[]>([]);
   const [rupstProjects, setRupstProjects] = useState<CompanyData[]>([]);
   const [rupstPublicProjects, setRupstPublicProjects] = useState<CompanyData[]>([]);
@@ -645,11 +655,17 @@ const App: React.FC = () => {
   const [rupslbCurrentPage, setRupslbCurrentPage] = useState<number>(1);
   const [isRupslbFilterOpen, setIsRupslbFilterOpen] = useState<boolean>(false);
   const [profileSearchQuery, setProfileSearchQuery] = useState("");
+  const [cvProfileSearchQuery, setCvProfileSearchQuery] = useState("");
   const [profileSortField, setProfileSortField] = useState<string>("updatedAt");
+  const [cvProfileSortField, setCvProfileSortField] = useState<string>("updatedAt");
   const [profileSortOrder, setProfileSortOrder] = useState<"asc" | "desc">("desc");
+  const [cvProfileSortOrder, setCvProfileSortOrder] = useState<"asc" | "desc">("desc");
   const [profileCurrentPage, setProfileCurrentPage] = useState<number>(1);
+  const [cvProfileCurrentPage, setCvProfileCurrentPage] = useState<number>(1);
   const [selectedProfileYear, setSelectedProfileYear] = useState<string>("all");
+  const [selectedCvProfileYear, setSelectedCvProfileYear] = useState<string>("all");
   const [isProfileFilterOpen, setIsProfileFilterOpen] = useState<boolean>(false);
+  const [isCvProfileFilterOpen, setIsCvProfileFilterOpen] = useState<boolean>(false);
 
   const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
   const [globalSearchQuery, setGlobalSearchQuery] = useState("");
@@ -900,6 +916,7 @@ const App: React.FC = () => {
 
     const menus = [
       { id: 'm-kp', title: 'Menu: Klien PT', subtitle: 'Kelola profile klien PT', type: 'menu', tabId: 'company_profile' as const },
+      { id: 'm-kcv', title: 'Menu: Klien CV', subtitle: 'Kelola profile klien CV', type: 'menu', tabId: 'cv_profile' as const },
       { id: 'm-rlb', title: 'Menu: RUPS LB', subtitle: 'Keputusan Sirkuler & PKR LB', type: 'menu', tabId: 'notulen' as const },
       { id: 'm-rt', title: 'Menu: RUPS Tahunan', subtitle: 'Pertanggungjawaban tahun buku', type: 'menu', tabId: 'rupst' as const },
       { id: 'm-pp', title: 'Menu: Pendirian PT', subtitle: 'Draft akta pendirian', type: 'menu', tabId: 'pendirian' as const },
@@ -918,7 +935,7 @@ const App: React.FC = () => {
       if (p.companyName && p.companyName.toLowerCase().includes(q)) {
         results.push({
           id: p.id || '',
-          title: `Klien: ${p.companyName}`,
+          title: `Klien PT: ${p.companyName}`,
           subtitle: p.newAddress?.city || 'Profile Klien Perusahaan',
           type: 'klien',
           tabId: 'company_profile',
@@ -926,6 +943,23 @@ const App: React.FC = () => {
             setEditingProfileId(p.id);
             setIsProfilePreview(true);
             updateData({ ...INITIAL_STATE, ...p } as any);
+          }
+        });
+      }
+    });
+
+    cvProfiles.forEach(p => {
+      if (p.companyName && p.companyName.toLowerCase().includes(q)) {
+        results.push({
+          id: p.id || '',
+          title: `Klien CV: ${p.companyName}`,
+          subtitle: p.domicile || 'Profile Klien CV',
+          type: 'klien-cv',
+          tabId: 'cv_profile',
+          action: () => {
+            setEditingCvProfileId(p.id);
+            setIsProfilePreview(true);
+            updateData({ ...INITIAL_STATE, ...p, companyType: 'CV' } as any);
           }
         });
       }
@@ -963,8 +997,25 @@ const App: React.FC = () => {
       }
     });
 
+    cvProfiles.forEach(p => {
+      if (p.companyName && p.companyName.toLowerCase().includes(q)) {
+        results.push({
+          id: p.id || '',
+          title: `Klien CV: ${p.companyName}`,
+          subtitle: p.domicile || 'Profile Klien CV',
+          type: 'klien',
+          tabId: 'cv_profile',
+          action: () => {
+            setEditingCvProfileId(p.id);
+            setIsProfilePreview(true);
+            updateData({ ...INITIAL_STATE, ...p } as any);
+          }
+        });
+      }
+    });
+
     return results.slice(0, 8);
-  }, [globalSearchQuery, profiles, projects, rupstProjects]);
+  }, [globalSearchQuery, profiles, projects, rupstProjects, cvProfiles]);
 
   const filteredProjects = projects.filter(p => {
     if (!notulenSearchQuery) return true;
@@ -985,10 +1036,32 @@ const App: React.FC = () => {
   });
 
   const [user, setUser] = useState<FirebaseUser | null>(null);
+  const [userProfile, setUserProfile] = useState<{ name: string; level: string } | null>(null);
+  const [isEditProfileModalOpen, setIsEditProfileModalOpen] = useState(false);
   const [authLoading, setAuthLoading] = useState(() => {
     return localStorage.getItem('notaris_user_is_logged_in') === 'true';
   });
   const [dataLoading, setDataLoading] = useState(true);
+
+  useEffect(() => {
+    if (user) {
+      const unsub = onSnapshot(doc(db, 'user_profiles', user.uid), (doc) => {
+        if (doc.exists()) {
+          setUserProfile(doc.data() as { name: string; level: string });
+        } else {
+          setUserProfile({
+            name: user.displayName || 'Azizah',
+            level: 'Senior Notaris'
+          });
+        }
+      }, (error) => {
+        handleFirestoreError(error, OperationType.GET, `user_profiles/${user.uid}`);
+      });
+      return () => unsub();
+    } else {
+      setUserProfile(null);
+    }
+  }, [user]);
 
   useEffect(() => {
     const handleOutsideClick = () => {
@@ -1102,12 +1175,13 @@ const App: React.FC = () => {
 
     if (user) {
       let profilesReady = false;
+      let cvProfilesReady = false;
       let projectsReady = false;
       let rupstReady = false;
       let pendirianReady = false;
 
       const checkIfLoaded = () => {
-        if (profilesReady && projectsReady && rupstReady && pendirianReady) {
+        if (profilesReady && cvProfilesReady && projectsReady && rupstReady && pendirianReady) {
           setDataLoading(false);
         }
       };
@@ -1124,6 +1198,21 @@ const App: React.FC = () => {
       }, (error) => {
         handleFirestoreError(error, OperationType.LIST, `profiles`);
         profilesReady = true;
+        checkIfLoaded();
+      });
+
+      const cvProfilesRef = collection(db, 'cv_profiles');
+      const unsubCvProfiles = onSnapshot(cvProfilesRef, (snapshot) => {
+        const loaded: CompanyProfile[] = [];
+        snapshot.forEach(doc => {
+          loaded.push(doc.data() as CompanyProfile);
+        });
+        setCvProfiles(loaded);
+        cvProfilesReady = true;
+        checkIfLoaded();
+      }, (error) => {
+        handleFirestoreError(error, OperationType.LIST, `cv_profiles`);
+        cvProfilesReady = true;
         checkIfLoaded();
       });
 
@@ -1187,6 +1276,7 @@ const App: React.FC = () => {
 
       return () => { 
         unsubProfiles(); 
+        unsubCvProfiles();
         unsubProjects(); 
         unsubRupst(); 
         unsubRupstPublic(); 
@@ -1195,6 +1285,7 @@ const App: React.FC = () => {
       };
     } else {
       setProfiles([]);
+      setCvProfiles([]);
       setProjects([]);
       setRupstProjects([]);
       setPendirianProjects([]);
@@ -1208,6 +1299,7 @@ const App: React.FC = () => {
   const [editingRupstPublicId, setEditingRupstPublicId] = useState<string | null>(null);
   const [editingPendirianId, setEditingPendirianId] = useState<string | null>(null);
   const [editingProfileId, setEditingProfileId] = useState<string | null>(null);
+  const [editingCvProfileId, setEditingCvProfileId] = useState<string | null>(null);
 
   const [isProfilePreview, setIsProfilePreview] = useState<boolean>(false);
   const [isRupstPreview, setIsRupstPreview] = useState<boolean>(false);
@@ -1362,6 +1454,7 @@ const App: React.FC = () => {
   const TAB_TO_PATH: Record<string, string> = useMemo(() => ({
     'beranda': '/',
     'company_profile': '/profile',
+    'cv_profile': '/profile-cv',
     'notulen': '/rupslb',
     'pendirian': '/pendirian',
     'rupst': '/rupst',
@@ -1554,9 +1647,9 @@ const App: React.FC = () => {
         notarisTempat: d.notaryDomicile || d.notarisTempat || "Kabupaten Bandung Barat",
         kotaKedudukan: d.newAddress?.city || d.domicile || "",
         alamatLengkapPT: d.newAddress?.fullAddress || d.fullAddress || "",
-        modalDasar: d.modalDasar || d.targetCapitalBase || d.originalCapitalBase || 0,
+        modalDasar: (d.modalDasarLembar && d.nilaiPerLembar) ? (d.modalDasarLembar * d.nilaiPerLembar) : (d.modalDasar || d.targetCapitalBase || d.originalCapitalBase || 0),
         nilaiPerLembar: d.nilaiPerLembar || d.originalSharePrice || 0,
-        modalDisetorPersen: d.modalDisetorPersen || (d.targetCapitalPaid / d.targetCapitalBase) * 100 || 25,
+        modalDisetorPersen: (d.modalDisetorLembar && d.modalDasarLembar) ? ((d.modalDisetorLembar / d.modalDasarLembar) * 100) : (d.modalDisetorPersen || (d.targetCapitalPaid / d.targetCapitalBase) * 100 || 25),
         kuotaWaktuDireksi: d.duration || "5",
         kbliItems: d.kbliItems || [],
         shareholders: d.shareholders || [],
@@ -2618,6 +2711,7 @@ const App: React.FC = () => {
 
             {[
               { label: 'Klien PT', id: 'company_profile' as const, icon: Building2 },
+              { label: 'Klien CV', id: 'cv_profile' as const, icon: Briefcase },
               { label: 'RUPS LB', id: 'notulen' as const, icon: FileText },
               { label: 'RUPS Tahunan', id: 'rupst' as const, icon: CalendarCheck },
               { label: 'Pendirian PT', id: 'pendirian' as const, icon: FilePlus },
@@ -2797,19 +2891,23 @@ const App: React.FC = () => {
                 </button>
               )}
               <div className="flex flex-col">
-                <span className="font-semibold text-sm text-slate-800">Selamat siang, Azizah 👋</span>
+                <span className="font-semibold text-sm text-slate-800">
+                  {(() => {
+                    const hour = new Date().getHours();
+                    let greeting = 'Selamat malam';
+                    if (hour >= 4 && hour < 11) greeting = 'Selamat pagi';
+                    else if (hour >= 11 && hour < 15) greeting = 'Selamat siang';
+                    else if (hour >= 15 && hour < 19) greeting = 'Selamat sore';
+                    return greeting;
+                  })()}, {userProfile?.name?.split(' ')[0] || 'Azizah'} 👋
+                </span>
                 <span className="text-[10px] text-slate-500 font-medium tracking-tight">PUSAT KENDALI KANTOR</span>
               </div>
             </div>
             
             {/* Right: Date/Time + Notifications + Profile */}
             <div className="flex items-center gap-4">
-                <div className="hidden md:flex items-center gap-2 text-[11px] text-slate-500 border border-slate-200 px-3 py-1.5 rounded-lg font-medium">
-                  <CalendarCheck className="w-3.5 h-3.5" />
-                  <span>Minggu, 14 Juni 2026</span>
-                  <span className="text-slate-300">•</span>
-                  <span>13:34</span>
-                </div>
+                <RealTimeClock />
 
                 <div className="flex items-center gap-2 pr-4 border-r border-slate-200">
                   {/* Notification Logic */}
@@ -2962,10 +3060,12 @@ const App: React.FC = () => {
                      }}
                      className="flex items-center gap-3 text-left hover:bg-slate-50 p-1 rounded-lg transition-all cursor-pointer"
                    >
-                     <div className="w-8 h-8 rounded-full bg-teal-500 text-white flex items-center justify-center text-xs font-bold shadow-inner">AZ</div>
+                     <div className="w-8 h-8 rounded-full bg-teal-500 text-white flex items-center justify-center text-xs font-bold shadow-inner">
+                       {(userProfile?.name || 'AZ').substring(0, 2).toUpperCase()}
+                     </div>
                      <div className="flex flex-col">
-                         <span className="text-xs font-semibold text-slate-800">{user?.displayName || 'Azizah'}</span>
-                         <span className="text-[10px] text-slate-500 leading-none">{user?.email || 'Staff Kantor'}</span>
+                         <span className="text-xs font-semibold text-slate-800">{userProfile?.name || 'Azizah'}</span>
+                         <span className="text-[10px] text-slate-500 leading-none">{userProfile?.level || 'Staff Kantor'}</span>
                      </div>
                      <ChevronDown className="w-4 h-4 text-slate-400" />
                    </button>
@@ -2975,11 +3075,22 @@ const App: React.FC = () => {
                      <div className="absolute right-0 mt-2.5 w-60 bg-white rounded-xl shadow-2xl border border-slate-100 py-1.5 z-50 animate-in fade-in slide-in-from-top-1 divide-y divide-slate-100">
                        <div className="px-4 py-2.5">
                          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Masuk Sebagai</p>
-                         <p className="text-xs font-bold text-slate-800 truncate mt-1">{user?.displayName || 'Azizah'}</p>
+                         <p className="text-xs font-bold text-slate-800 truncate mt-1">{userProfile?.name || 'Azizah'}</p>
                          <p className="text-[10px] text-slate-505 truncate font-mono mt-0.5">{user?.email || 'admin@legalnotaris.id'}</p>
                        </div>
                        
                        <div className="py-1 text-left row">
+                         <button 
+                           onClick={() => {
+                             setIsEditProfileModalOpen(true);
+                             setIsUserDropdownOpen(false);
+                           }}
+                           className="w-full px-4 py-2 text-left text-xs text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-2 cursor-pointer"
+                         >
+                           <User className="w-3.5 h-3.5 text-slate-400" />
+                           <span>Edit Profil</span>
+                         </button>
+
                          <button 
                            onClick={() => {
                              setActiveSidebarTab('beranda');
@@ -4426,9 +4537,413 @@ const App: React.FC = () => {
                   );
               })()}
             </div>
+          ) : activeSidebarTab === 'cv_profile' ? (
+            <div className="max-w-5xl mx-auto space-y-4">
+              <div className="flex justify-between items-center bg-white p-4 rounded-sm shadow-sm border border-slate-200">
+                <div>
+                  <h2 className="text-[16px] font-bold flex items-center gap-2 text-slate-800 uppercase"><Briefcase className="w-5 h-5 text-teal-600" /> Klien CV</h2>
+                  <p className="text-[12px] text-slate-500">Kelola daftar profil klien CV (Persekutuan Komanditer)</p>
+                </div>
+                {!editingCvProfileId && (
+                  <button onClick={() => {
+                    setEditingCvProfileId('new');
+                    setIsProfilePreview(false);
+                    updateData({ ...INITIAL_STATE, companyType: 'CV' } as any);
+                  }} className="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-sm font-bold text-[12px] flex items-center gap-2 transition-colors">
+                    <Plus className="w-4 h-4" /> TAMBAH KLIEN CV
+                  </button>
+                )}
+              </div>
 
+              {editingCvProfileId ? (
+                <div className="space-y-4 pb-20">
+                  <div className="flex flex-wrap items-center gap-2 bg-slate-50/50 p-2 rounded-md border border-slate-200">
+                    <button className="text-slate-500 hover:text-slate-800 flex items-center gap-1 font-bold text-[12px] uppercase bg-white px-3 py-2 rounded-sm border border-slate-200 shadow-sm" onClick={() => setEditingCvProfileId(null)}>
+                      <ArrowRight className="w-4 h-4 rotate-180" /> Kembali
+                    </button>
+                    
+                    <div className="h-6 w-px bg-slate-300 mx-1"></div>
 
-) : activeSidebarTab === 'notulen' ? (() => {
+                    {isProfilePreview ? (
+                      <>
+                        <button 
+                          onClick={(e) => { e.preventDefault(); setIsProfilePreview(false); }}
+                          className="px-5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md text-[13px] font-bold transition-all border border-slate-200 shadow-sm flex items-center gap-2 uppercase">
+                          <Edit className="w-4 h-4" /> Edit
+                        </button>
+                        <button 
+                          onClick={async (e) => {
+                            e.preventDefault();
+                            if(confirm('Hapus profil CV ' + data.companyName + '?')) {
+                              if (!user) return alert('Anda harus login!');
+                              try {
+                                const deletedName = data.companyName || 'CV Baru';
+                                await deleteDoc(doc(db, 'cv_profiles', editingCvProfileId));
+                                recordNotification(
+                                  'Klien CV Dihapus',
+                                  `Profil klien CV "${deletedName}" telah berhasil dihapus oleh ${user?.email || 'Admin'}.`,
+                                  'delete_profile'
+                                );
+                                alert('Profil CV berhasil dihapus');
+                                setEditingCvProfileId(null);
+                              } catch (err) {
+                                handleFirestoreError(err, OperationType.DELETE, `cv_profiles/${editingCvProfileId}`);
+                              }
+                            }
+                          }}
+                          className="px-5 py-2 bg-red-50 hover:bg-red-500 hover:text-white text-red-600 rounded-md font-bold transition-all text-[13px] border border-red-100 hover:border-red-500 shadow-sm flex items-center gap-2 uppercase">
+                          <Trash2 className="w-4 h-4" /> Hapus
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button onClick={resetData} className="px-5 py-2 bg-[#d9534f] text-white rounded-md text-[13px] font-bold transition-all hover:bg-[#c9302c] shadow-sm uppercase">RISET</button>
+                        <button 
+                          disabled={isSaving}
+                          onClick={async () => {
+                           if (!data.companyName) return alert('Nama CV harus diisi');
+                           setIsSaving(true);
+                           const isNew = editingCvProfileId === 'new' || !editingCvProfileId;
+                           const newId = editingCvProfileId && editingCvProfileId !== 'new' ? editingCvProfileId : crypto.randomUUID();
+                           const profileData = {
+                               ...data,
+                               id: newId,
+                               companyType: 'CV',
+                               updatedAt: new Date().toISOString()
+                           };
+                           if (!user) {
+                             setIsSaving(false);
+                             return alert('Anda harus login terlebih dahulu!');
+                           }
+                           
+                           try {
+                               await setDoc(doc(db, 'cv_profiles', profileData.id), sanitizeForFirestore(profileData));
+                               recordNotification(
+                                 isNew ? 'Klien CV Baru Dibuat' : 'Profil Klien CV Diubah',
+                                 `Profil klien CV "${profileData.companyName}" telah ${isNew ? 'berhasil didaftarkan' : 'diperbarui'} oleh ${user?.email || 'Admin'}.`,
+                                 isNew ? 'create_profile' : 'update_profile'
+                               );
+                               setEditingCvProfileId(null);
+                               alert('Profil CV berhasil disimpan!');
+                           } catch (e) {
+                               handleFirestoreError(e, OperationType.WRITE, `cv_profiles/${profileData.id}`);
+                           } finally {
+                               setIsSaving(false);
+                           }
+                        }} className="px-5 py-2 bg-teal-600 text-white rounded-md text-[13px] font-bold transition-all hover:bg-teal-700 shadow-sm uppercase disabled:opacity-50 disabled:cursor-not-allowed">
+                          {isSaving ? 'MENYIMPAN...' : 'SIMPAN PROFIL'}
+                        </button>
+                      </>
+                    )}
+                  </div>
+                  
+                  <fieldset disabled={isProfilePreview} className="space-y-4">
+                    {/* DATA CV */}
+                    <AhuSection title="DATA CV (PERSEKUTUAN KOMANDITER)">
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                          <AhuLabel label="Nama CV" />
+                          <div className="md:col-span-3"><AhuInput value={data.companyName || ''} onChange={e => updateData({ companyName: e.target.value })} placeholder="Contoh: CV MAJU JAYA" /></div>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                          <AhuLabel label="Kedudukan (Kab/Kota)" />
+                          <div className="md:col-span-3">
+                            <AhuInput 
+                              placeholder="Contoh: Kota Bandung atau Kabupaten Bandung Barat"
+                              value={data.domicile || ''}
+                              onChange={e => updateData({ domicile: e.target.value })}
+                            />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                          <AhuLabel label="Modal CV (Total)" />
+                          <div className="md:col-span-3">
+                            <div className="relative">
+                              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[13px]">Rp.</span>
+                              <AhuInput 
+                                className="pl-10"
+                                value={data.originalCapitalPaid === 0 ? '' : formatInputNumber(data.originalCapitalPaid)} 
+                                onChange={e => updateData({ originalCapitalPaid: parseFormattedNumber(e.target.value) })} 
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </AhuSection>
+
+                    {/* PESERO PENGURUS & KOMANDITER */}
+                    <AhuSection title="PESERO PENGURUS & KOMANDITER *">
+                      <div className="space-y-4">
+                          <div className="flex justify-end gap-2">
+                            <button onClick={() => openShareholderEditor('lama')} className="bg-[#222d32] text-white px-3 py-1.5 rounded-sm text-[12px] font-bold shadow hover:bg-black transition-colors flex items-center gap-1"><Plus className="w-4 h-4" /> Tambah Data</button>
+                          </div>
+                          <div className="border border-slate-200 overflow-x-auto rounded-sm">
+                            <table className="w-full text-left text-[11px]">
+                              <thead className="bg-[#f9f9f9] border-b border-slate-200 font-bold uppercase">
+                                <tr>
+                                  <th className="p-2 border-r border-slate-200">Nama</th>
+                                  <th className="p-2 border-r border-slate-200">Status Pesero</th>
+                                  <th className="p-2 border-r border-slate-200">Jabatan</th>
+                                  <th className="p-2 border-r border-slate-200">Nilai Pemasukan (Modal)</th>
+                                  <th className="p-2 text-center">Aksi</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {data.shareholders.map((s) => (
+                                   <tr key={s.id} className="border-b border-slate-200 last:border-0 hover:bg-slate-50 transition-colors text-[10px]">
+                                     <td className="p-2 border-r border-slate-200 font-bold uppercase">{s.name}</td>
+                                     <td className="p-2 border-r border-slate-200">
+                                       {s.managementPosition?.toUpperCase().includes('KOMANDITER') ? 'KOMANDITER' : 'PENGURUS (KOMPLEMENTER)'}
+                                     </td>
+                                     <td className="p-2 border-r border-slate-200 font-bold uppercase">{s.managementPosition || (s.isManagement ? 'DIREKTUR' : 'PESERO')}</td>
+                                     <td className="p-2 border-r border-slate-200">Rp. {formatInputNumber(s.sharesOwned)}</td>
+                                     <td className="p-2 text-center text-blue-600 flex items-center justify-center gap-2">
+                                       <button onClick={() => openShareholderEditor('lama', s)} className="hover:underline flex items-center gap-0.5"><Eye className="w-3 h-3" /> Edit</button>
+                                       <span className="text-slate-300">|</span>
+                                       <button onClick={() => deleteShareholder(s.id, 'lama')} className="hover:underline text-red-500 flex items-center gap-0.5"><Trash2 className="w-3 h-3" /> Hapus</button>
+                                     </td>
+                                   </tr>
+                                ))}
+                                {data.shareholders.length === 0 && (
+                                  <tr>
+                                    <td colSpan={5} className="p-4 text-center text-slate-400 italic">Belum ada data pesero.</td>
+                                  </tr>
+                                )}
+                              </tbody>
+                            </table>
+                          </div>
+                       </div>
+                    </AhuSection>
+
+                    {/* AKTA PENDIRIAN CV */}
+                    <AhuSection title="AKTA PENDIRIAN DAN PERUBAHAN CV">
+                      <div className="space-y-4">
+                          <div className="border border-slate-200 rounded-sm p-4 space-y-4 bg-white/50">
+                            <h3 className="font-bold text-[13px] text-slate-800">Akta Pendirian CV</h3>
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                              <AhuLabel label="Nomor Akta" />
+                              <div className="md:col-span-3">
+                                <AhuInput value={data.establishmentDeedNumber || ''} onChange={e => updateData({ establishmentDeedNumber: e.target.value })} placeholder="Contoh: 12" />
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                              <AhuLabel label="Tanggal Akta" />
+                              <div className="md:col-span-3">
+                                <AhuInput type="date" value={data.establishmentDeedDate || ''} onChange={e => updateData({ establishmentDeedDate: e.target.value })} />
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                              <AhuLabel label="Nama Notaris" />
+                              <div className="md:col-span-3 flex gap-2">
+                                <AhuInput 
+                                  className="flex-1"
+                                  value={data.establishmentNotary || ''} 
+                                  onChange={e => updateData({ establishmentNotary: e.target.value })} 
+                                  placeholder="Nama notaris pendirian CV" 
+                                />
+                                <AhuInput 
+                                  className="w-48"
+                                  value={data.establishmentNotaryTitle || ''} 
+                                  onChange={e => updateData({ establishmentNotaryTitle: e.target.value })} 
+                                  placeholder="Gelar (SH., M.Kn.)" 
+                                />
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                              <AhuLabel label="Kedudukan Notaris" />
+                              <div className="md:col-span-3">
+                                <AhuInput 
+                                  value={data.establishmentNotaryDomicile || ''} 
+                                  onChange={e => updateData({ establishmentNotaryDomicile: e.target.value })} 
+                                  placeholder="Contoh: Kota Bandung" 
+                                />
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                              <AhuLabel label="Nomor SK (SABU)" />
+                              <div className="md:col-span-3">
+                                <AhuInput value={data.establishmentSkNumber || ''} onChange={e => updateData({ establishmentSkNumber: e.target.value })} placeholder="Nomor SK SABU Kemenkumham" />
+                              </div>
+                            </div>
+                          </div>
+
+                          {(data.amendmentDeeds || []).map((deed, index) => (
+                            <div key={deed.id} className="border border-slate-200 rounded-sm p-4 space-y-4 bg-white/50 relative">
+                              <div className="flex justify-between items-center border-b border-slate-200 pb-2 mb-2">
+                                <h3 className="font-bold text-[13px] text-slate-800 uppercase tracking-tight">Akta Perubahan {index + 1}</h3>
+                                <button 
+                                  onClick={() => {
+                                    const newList = (data.amendmentDeeds || []).filter(d => d.id !== deed.id);
+                                    updateData({ amendmentDeeds: newList });
+                                  }}
+                                  className="text-red-500 hover:text-red-700 p-1 transition-colors"
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              </div>
+                              <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                                <AhuLabel label="Nomor Akta" />
+                                <div className="md:col-span-3">
+                                  <AhuInput 
+                                    value={deed.number || ''} 
+                                    onChange={e => {
+                                      const newList = [...(data.amendmentDeeds || [])];
+                                      newList[index] = { ...deed, number: e.target.value };
+                                      updateData({ amendmentDeeds: newList });
+                                    }} 
+                                  />
+                                </div>
+                              </div>
+                              <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                                <AhuLabel label="Tanggal Akta" />
+                                <div className="md:col-span-3">
+                                  <AhuInput 
+                                    type="date" 
+                                    value={deed.date || ''} 
+                                    onChange={e => {
+                                      const newList = [...(data.amendmentDeeds || [])];
+                                      newList[index] = { ...deed, date: e.target.value };
+                                      updateData({ amendmentDeeds: newList });
+                                    }} 
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+
+                          <button 
+                            onClick={() => {
+                              const newDeed = { id: crypto.randomUUID(), number: '', date: '', notary: '', notaryDomicile: '', skNumber: '', skDate: '', skSpDocuments: [] };
+                              updateData({ amendmentDeeds: [...(data.amendmentDeeds || []), newDeed] });
+                            }}
+                            className="w-full flex items-center justify-center gap-2 py-3 border-2 border-dashed border-slate-200 rounded-sm text-slate-400 hover:border-teal-600 hover:text-teal-600 hover:bg-slate-50 transition-all group"
+                          >
+                            <Plus size={16} className="group-hover:scale-110 transition-transform" />
+                            <span className="text-[13px] font-bold uppercase tracking-wider">Tambah Akta Perubahan CV</span>
+                          </button>
+                      </div>
+                    </AhuSection>
+
+                    {/* KBLI CV */}
+                    <AhuSection title="MAKSUD DAN TUJUAN (KBLI) CV">
+                      <div className="space-y-4">
+                        <button
+                          type="button"
+                          onClick={() => setIsAddKbliModalOpen(true)}
+                          className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white text-[12px] font-bold rounded-sm transition-all flex items-center gap-1.5 uppercase"
+                        >
+                          <Plus className="w-4 h-4" /> Tambah KBLI
+                        </button>
+                        <div className="border border-slate-200 rounded-sm overflow-hidden">
+                          <table className="w-full text-left text-[12px]">
+                            <thead className="bg-[#f8fafc] border-b border-slate-200 uppercase font-semibold">
+                              <tr>
+                                <th className="p-3 w-12 text-center border-r">No</th>
+                                <th className="p-3 w-24 text-center border-r">Kode</th>
+                                <th className="p-3 border-r">Judul KBLI</th>
+                                <th className="p-3 text-center">Aksi</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {(data.kbliItems || []).map((item, idx) => (
+                                <tr key={item.id} className="border-b last:border-0">
+                                  <td className="p-3 text-center border-r text-slate-500">{idx + 1}</td>
+                                  <td className="p-3 text-center border-r font-mono font-bold">{item.code}</td>
+                                  <td className="p-3 border-r font-bold uppercase">{item.name}</td>
+                                  <td className="p-3 text-center">
+                                    <button onClick={() => updateData({ kbliItems: (data.kbliItems || []).filter(k => k.id !== item.id) })} className="text-red-400 hover:text-red-600"><Trash2 className="w-4 h-4 mx-auto" /></button>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </AhuSection>
+                  </fieldset>
+                </div>
+              ) : (() => {
+                  let filteredCvProfileResults = cvProfiles.filter(p => !p.isArchived);
+                  filteredCvProfileResults = filteredCvProfileResults.filter(p => {
+                    if (!cvProfileSearchQuery) return true;
+                    const q = cvProfileSearchQuery.toLowerCase();
+                    return (p.companyName || '').toLowerCase().includes(q) || (p.domicile || '').toLowerCase().includes(q);
+                  });
+
+                  const totalCvProfiles = filteredCvProfileResults.length;
+                  const profilesCvPerPage = 10;
+                  const totalCvProfilePages = Math.ceil(totalCvProfiles / profilesCvPerPage);
+                  const safeCvProfileCurrentPage = Math.min(cvProfileCurrentPage, totalCvProfilePages || 1);
+                  const currentCvProfiles = filteredCvProfileResults.slice(
+                    (safeCvProfileCurrentPage - 1) * profilesCvPerPage,
+                    safeCvProfileCurrentPage * profilesCvPerPage
+                  );
+
+                  return (
+                    <div className="space-y-4">
+                      <div className="bg-white p-4 rounded-sm border border-slate-200 shadow-sm flex flex-wrap items-center gap-3">
+                        <div className="relative flex-1 min-w-[200px]">
+                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+                          <input 
+                            type="text" 
+                            placeholder="Cari nama CV atau kedudukan..." 
+                            value={cvProfileSearchQuery}
+                            onChange={(e) => { setCvProfileSearchQuery(e.target.value); setCvProfileCurrentPage(1); }}
+                            className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-sm text-[13px] focus:bg-white focus:ring-1 focus:ring-teal-500 outline-none transition-all"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {currentCvProfiles.map((p) => (
+                          <div key={p.id} className="bg-white border border-slate-200 rounded-sm p-4 hover:shadow-md transition-all group relative overflow-hidden">
+                            <div className="absolute top-0 right-0 w-16 h-16 bg-teal-50 -mr-8 -mt-8 rounded-full transition-transform group-hover:scale-110"></div>
+                            <div className="relative">
+                              <div className="flex items-start justify-between mb-3">
+                                <div className="p-2 bg-teal-50 rounded-lg text-teal-600"><Briefcase className="w-5 h-5" /></div>
+                                <div className="flex gap-1">
+                                  <button onClick={() => { setEditingCvProfileId(p.id); setIsProfilePreview(true); updateData({ ...INITIAL_STATE, ...p } as any); }} className="p-1.5 hover:bg-slate-100 text-slate-400 hover:text-teal-600 rounded-md transition-colors"><Eye className="w-4 h-4" /></button>
+                                  <button onClick={() => { setEditingCvProfileId(p.id); setIsProfilePreview(false); updateData({ ...INITIAL_STATE, ...p } as any); }} className="p-1.5 hover:bg-slate-100 text-slate-400 hover:text-blue-600 rounded-md transition-colors"><Edit className="w-4 h-4" /></button>
+                                </div>
+                              </div>
+                              <h3 className="font-bold text-slate-800 text-[14px] uppercase mb-1 truncate leading-tight" title={p.companyName}>{p.companyName || 'Tanpa Nama'}</h3>
+                              <div className="flex items-center gap-1.5 text-slate-500 text-[11px] mb-3">
+                                <MapPin className="w-3.5 h-3.5 shrink-0" />
+                                <span className="truncate uppercase font-medium">{p.domicile || 'Kedudukan belum diatur'}</span>
+                              </div>
+                              <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-[10px]">
+                                <div className="text-slate-400">Update: {formatDateIndo(p.updatedAt || '')}</div>
+                                <div className="bg-teal-50 text-teal-700 px-2 py-0.5 rounded-full font-bold uppercase">KLIEN CV</div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      {totalCvProfiles === 0 && (
+                        <div className="bg-white border border-dashed border-slate-300 rounded-lg p-12 text-center">
+                          <Briefcase className="w-12 h-12 text-slate-200 mx-auto mb-4" />
+                          <h3 className="text-slate-600 font-bold mb-1">Belum ada klien CV</h3>
+                          <p className="text-slate-400 text-sm mb-6">Mulai dengan menambahkan profil CV pertama Anda.</p>
+                          <button onClick={() => { setEditingCvProfileId('new'); setIsProfilePreview(false); updateData({ ...INITIAL_STATE, companyType: 'CV' } as any); }} className="bg-teal-600 text-white px-6 py-2 rounded-md font-bold text-sm shadow-sm hover:bg-teal-700 transition-all">TAMBAH CV SEKARANG</button>
+                        </div>
+                      )}
+
+                      {totalCvProfilePages > 1 && (
+                        <div className="flex items-center justify-between bg-white px-4 py-3 border border-slate-200 rounded-sm">
+                          <div className="text-[12px] text-slate-500">Menampilkan <b>{currentCvProfiles.length}</b> dari <b>{totalCvProfiles}</b> profil</div>
+                          <div className="flex items-center gap-1">
+                            {Array.from({ length: totalCvProfilePages }).map((_, i) => (
+                              <button key={i} onClick={() => setCvProfileCurrentPage(i + 1)} className={`w-8 h-8 flex items-center justify-center rounded-md text-[12px] font-bold transition-all ${safeCvProfileCurrentPage === i + 1 ? 'bg-teal-600 text-white shadow-sm' : 'hover:bg-slate-100 text-slate-600'}`}>{i + 1}</button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+              })()}
+            </div>
+          ) : activeSidebarTab === 'notulen' ? (() => {
             // 1. Initial filter by search query (PT Name or Year/City)
             let filteredRupslbResults = projects.filter(p => {
               if (!notulenSearchQuery) return true;
@@ -9785,7 +10300,15 @@ const App: React.FC = () => {
                   }
                 }}
                 onCancel={() => setEditingPendirianId(null)}
-                onShowPreview={(d) => { setPendirianPreviewData(d); setShowPendirianPreview(true); }}
+                onShowPreview={(d) => {
+                  const mapped = {
+                    ...d,
+                    modalDasar: (d.modalDasarLembar && d.nilaiPerLembar) ? (d.modalDasarLembar * d.nilaiPerLembar) : d.modalDasar,
+                    modalDisetorPersen: (d.modalDisetorLembar && d.modalDasarLembar) ? ((d.modalDisetorLembar / d.modalDasarLembar) * 100) : d.modalDisetorPersen,
+                  };
+                  setPendirianPreviewData(mapped); 
+                  setShowPendirianPreview(true); 
+                }}
                 onExportWord={(d) => { handlePendirianExportWord(d); }}
               />
             ) : (
@@ -10152,6 +10675,15 @@ const App: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {isEditProfileModalOpen && user && userProfile && (
+        <EditProfileModal
+          isOpen={isEditProfileModalOpen}
+          onClose={() => setIsEditProfileModalOpen(false)}
+          userId={user.uid}
+          currentProfile={userProfile}
+        />
       )}
 
     </div>

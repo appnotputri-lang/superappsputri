@@ -29,7 +29,15 @@ service cloud.firestore {
       allow read, write: if true;
     }
 
+    match /user_profiles/{userId} {
+      allow read, write: if isSignedIn();
+    }
+
     match /profiles/{profileId} {
+      allow read, write: if isSignedIn();
+    }
+
+    match /cv_profiles/{profileId} {
       allow read, write: if isSignedIn();
     }
 

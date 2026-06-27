@@ -1,6 +1,6 @@
 import { Document, Packer, Paragraph, TextRun, TabStopType, AlignmentType, LeaderType, Tab, Table, TableRow, TableCell, WidthType, PageBreak, BorderStyle } from "docx";
 import { CompanyData, Shareholder, Address, ManagementItem } from "../types";
-import { formatFullAddressData, checkIsBadanHukum, formatPersonDetails, dateToWords, formatDateStr, formatDateRupst } from "../src/lib/formatter";
+import { formatFullAddressData, checkIsBadanHukum, formatPersonDetails, dateToWords, formatDateStr, formatDateRupst, formatCompanyName } from "../src/lib/formatter";
 import {
   formatCurrency,
   formatInputNumber,
@@ -184,15 +184,6 @@ export const generateWordDoc = async (data: CompanyData) => {
     return expandAbbreviations(details);
   };
 
-  const formatCompanyName = (name: string): string => {
-    if (!name) return "";
-    let clean = name.trim().toUpperCase();
-    while (/^(PT\b\.?|PERSEROAN\s+TERBATAS\b)\s*/i.test(clean)) {
-      clean = clean.replace(/^(PT\b\.?|PERSEROAN\s+TERBATAS\b)\s*/i, "").trim();
-    }
-    return `PT ${clean}`;
-  };
-
   const isExistingPerson = (name: string): boolean => {
     if (!name) return false;
     const normalized = name.trim().toUpperCase();
@@ -304,19 +295,19 @@ export const generateWordDoc = async (data: CompanyData) => {
   // ── HEADER ────────────────────────────────────────────────────────────────
   if (isCircular) {
     children.push(
-      mkP({ text: "KEPUTUSAN PARA PEMEGANG SAHAM SEBAGAI PENGGANTI", bold: true, alignment: "center", spacing: { after: 0 } }),
-      mkP({ text: "RAPAT UMUM PEMEGANG SAHAM LUAR BIASA", bold: true, alignment: "center", spacing: { after: 0 } }),
+      mkP({ text: "KEPUTUSAN PARA PEMEGANG SAHAM SEBAGAI PENGGANTI", bold: true, alignment: "center", spacing: { before: 0, after: 0 } }),
+      mkP({ text: "RAPAT UMUM PEMEGANG SAHAM LUAR BIASA", bold: true, alignment: "center", spacing: { before: 0, after: 0 } }),
       mkP({
-        alignment: "center", spacing: { after: 360 },
+        alignment: "center", spacing: { before: 0, after: 0 },
         children: [mkRun(`PT ${companyName}`, true, { underline: { type: "single" } })],
       }),
     );
   } else {
     children.push(
-      mkP({ text: "NOTULEN", bold: true, alignment: "center", spacing: { after: 0 } }),
-      mkP({ text: "RAPAT UMUM PEMEGANG SAHAM LUAR BIASA", bold: true, alignment: "center", spacing: { after: 0 } }),
+      mkP({ text: "NOTULEN", bold: true, alignment: "center", spacing: { before: 0, after: 0 } }),
+      mkP({ text: "RAPAT UMUM PEMEGANG SAHAM LUAR BIASA", bold: true, alignment: "center", spacing: { before: 0, after: 0 } }),
       mkP({
-        alignment: "center", spacing: { after: 360 },
+        alignment: "center", spacing: { before: 0, after: 0 },
         children: [mkRun(`PT ${companyName}`, true, { underline: { type: "single" } })],
       }),
     );
@@ -361,7 +352,7 @@ export const generateWordDoc = async (data: CompanyData) => {
     children.push(
       new Paragraph({
         alignment: "both" as any,
-        spacing: { line: LINE_SPACING, lineRule: "auto", after: 120 },
+        spacing: { line: LINE_SPACING, lineRule: "auto", before: 0, after: 0 },
         children: [
           mkRun(`Rapat Umum Pemegang Saham Luar Biasa “`),
           mkRun(`PT. ${companyName}`, true),
@@ -398,7 +389,7 @@ export const generateWordDoc = async (data: CompanyData) => {
         children.push(
           new Paragraph({
             alignment: "both" as any,
-            spacing: { line: LINE_SPACING, lineRule: "auto", after: 120 },
+            spacing: { line: LINE_SPACING, lineRule: "auto", before: 0, after: 0 },
             numbering: { reference: "deed-num", level: 0 },
             indent: { left: 426 },
             children: [
@@ -412,7 +403,7 @@ export const generateWordDoc = async (data: CompanyData) => {
     children.push(
       new Paragraph({
         alignment: "both" as any,
-        spacing: { line: LINE_SPACING, lineRule: "auto", after: 120 },
+        spacing: { line: LINE_SPACING, lineRule: "auto", before: 0, after: 0 },
         children: [
           mkRun(`Rapat ini diselenggarakan berdasarkan Surat Undangan Direksi PT. ${companyName} Nomor : `),
           mkRun(data.invitationNumber || "[nomor surat]", false, { highlight: data.invitationNumber ? undefined : "yellow" }),
@@ -429,12 +420,12 @@ export const generateWordDoc = async (data: CompanyData) => {
     children.push(
       new Paragraph({
         alignment: "left" as any,
-        spacing: { before: 480, after: 240 },
+        spacing: { before: 0, after: 0 },
         children: [mkRun("II. PESERTA RAPAT", true)],
       }),
       new Paragraph({
         alignment: "both" as any,
-        spacing: { line: LINE_SPACING, lineRule: "auto", after: 120 },
+        spacing: { line: LINE_SPACING, lineRule: "auto", before: 0, after: 0 },
         children: [mkRun("Rapat tersebut dihadiri oleh:")],
       })
     );
@@ -901,7 +892,7 @@ export const generateWordDoc = async (data: CompanyData) => {
     children.push(
       new Paragraph({
         alignment: "both" as any,
-        spacing: { line: LINE_SPACING, lineRule: "auto", before: 120, after: 120 },
+        spacing: { line: LINE_SPACING, lineRule: "auto", before: 0, after: 0 },
         numbering: { reference: "para-dash", level: 0 },
         children: [
           mkRun("Untuk selanjutnya secara bersama-sama disebut sebagai "),
@@ -914,12 +905,12 @@ export const generateWordDoc = async (data: CompanyData) => {
   // ── CIRCULAR extra ────────────────────────────────────────────────────────
   if (isCircular) {
     children.push(
-      mkP({ text: "DENGAN INI MENYATAKAN, bahwa Para Pemegang Saham telah mengetahui mengenai :", bold: true, spacing: { before: 240, after: 120 } }),
-      mkP({ numbering: { reference: "res-num", level: 0 }, text: `Bahwa sampai saat ini jumlah saham yang telah ditempatkan dan disetor penuh dalam perseroan sebanyak ${data.originalTotalShares.toLocaleString("id-ID")}${w(data.originalTotalShares, "shares")} lembar saham;` }),
-      mkP({ numbering: { reference: "res-num", level: 0 }, text: "Bahwa sesuai dengan ketentuan Pasal 91 Undang-Undang No. 40 Tahun 2007 tentang Perseroan Terbatas, pemegang saham dapat mengambil keputusan yang mengikat di luar Rapat Umum Pemegang Saham dengan syarat semua pemegang saham dengan hak suara menyetujui secara tertulis dengan menandatangani usul yang bersangkutan;" }),
-      mkP({ numbering: { reference: "res-num", level: 0 }, text: `Bahwa maksud dari Keputusan Sirkuler Para Pemegang Saham ini adalah untuk ${getResolutionSummary()} Perseroan.`, spacing: { after: 240 } }),
+      mkP({ text: "DENGAN INI MENYATAKAN, bahwa Para Pemegang Saham telah mengetahui mengenai :", bold: true, spacing: { before: 0, after: 0 } }),
+      mkP({ numbering: { reference: "res-num", level: 0 }, text: `Bahwa sampai saat ini jumlah saham yang telah ditempatkan dan disetor penuh dalam perseroan sebanyak ${data.originalTotalShares.toLocaleString("id-ID")}${w(data.originalTotalShares, "shares")} lembar saham;`, spacing: { before: 0, after: 0 } }),
+      mkP({ numbering: { reference: "res-num", level: 0 }, text: "Bahwa sesuai dengan ketentuan Pasal 91 Undang-Undang No. 40 Tahun 2007 tentang Perseroan Terbatas, pemegang saham dapat mengambil keputusan yang mengikat di luar Rapat Umum Pemegang Saham dengan syarat semua pemegang saham dengan hak suara menyetujui secara tertulis dengan menandatangani usul yang bersangkutan;", spacing: { before: 0, after: 0 } }),
+      mkP({ numbering: { reference: "res-num", level: 0 }, text: `Bahwa maksud dari Keputusan Sirkuler Para Pemegang Saham ini adalah untuk ${getResolutionSummary()} Perseroan.`, spacing: { before: 0, after: 0 } }),
       mkP({
-        spacing: { after: 240 },
+        spacing: { before: 0, after: 0 },
         children: [
           mkRun("OLEH KARENA ITU,", true),
           mkRun(" para pemegang saham secara bersama-sama setuju dan memutuskan hal-hal sebagai berikut:"),
@@ -931,12 +922,12 @@ export const generateWordDoc = async (data: CompanyData) => {
     children.push(
       new Paragraph({
         alignment: "left" as any,
-        spacing: { before: 480, after: 240 },
+        spacing: { before: 0, after: 0 },
         children: [mkRun("III. KETUA RAPAT", true)],
       }),
       new Paragraph({
         alignment: "both" as any,
-        spacing: { line: LINE_SPACING, lineRule: "auto", after: 240 },
+        spacing: { line: LINE_SPACING, lineRule: "auto", before: 0, after: 0 },
         children: [
           mkRun("Berdasarkan ketentuan pasal 21 ayat (1) anggaran dasar perseroan, maka "),
           mkRun((data.meetingChair || "................").toUpperCase(), true),
@@ -976,12 +967,12 @@ export const generateWordDoc = async (data: CompanyData) => {
     children.push(
       new Paragraph({
         alignment: "left" as any,
-        spacing: { before: 480, after: 240 },
+        spacing: { before: 0, after: 0 },
         children: [mkRun("IV. AGENDA RAPAT", true)],
       }),
       new Paragraph({
         alignment: "both" as any,
-        spacing: { line: LINE_SPACING, lineRule: "auto", after: 120 },
+        spacing: { line: LINE_SPACING, lineRule: "auto", before: 0, after: 0 },
         children: [mkRun("Rapat ini diadakan dengan agenda rapat sebagai berikut :")],
       })
     );
@@ -992,7 +983,7 @@ export const generateWordDoc = async (data: CompanyData) => {
         children.push(
           new Paragraph({
             alignment: "both" as any,
-            spacing: { line: LINE_SPACING, lineRule: "auto", after: 60 },
+            spacing: { line: LINE_SPACING, lineRule: "auto", before: 0, after: 0 },
             numbering: { reference: "agenda-dash", level: 0 },
             children: [
               mkRun(item),
@@ -1004,7 +995,7 @@ export const generateWordDoc = async (data: CompanyData) => {
       children.push(
         new Paragraph({
           alignment: "both" as any,
-          spacing: { line: LINE_SPACING, lineRule: "auto", after: 120 },
+          spacing: { line: LINE_SPACING, lineRule: "auto", before: 0, after: 0 },
           numbering: { reference: "agenda-dash", level: 0 },
           children: [
             mkRun("Persetujuan Perubahan Susunan Pengurus Perseroan;"),
@@ -1017,7 +1008,7 @@ export const generateWordDoc = async (data: CompanyData) => {
     children.push(
       new Paragraph({
         alignment: "left" as any,
-        spacing: { before: 480, after: 240 },
+        spacing: { before: 0, after: 0 },
         children: [mkRun("V. JALANNYA RAPAT", true)],
       }),
       new Paragraph({
@@ -1143,7 +1134,7 @@ export const generateWordDoc = async (data: CompanyData) => {
       // Banner Pasal 1 - Tab Line Leader
       resBlocks.push(new Paragraph({
         alignment: AlignmentType.LEFT,
-        spacing: { before: 240, after: 120 },
+        spacing: { before: 0, after: 0 },
         children: [
           new TextRun({ text: "\t", font: FONT_FAMILY, size: FONT_SIZE }),
           new TextRun({ text: " Pasal 1 ", bold: true, font: FONT_FAMILY, size: FONT_SIZE }),
@@ -2099,7 +2090,7 @@ export const generateWordDoc = async (data: CompanyData) => {
       // Banner Pasal 1 - Tab Line Leader
       resBlocks.push(new Paragraph({
         alignment: AlignmentType.LEFT,
-        spacing: { before: 240, after: 120 },
+        spacing: { before: 0, after: 0 },
         children: [
           new TextRun({ text: "\t", font: FONT_FAMILY, size: FONT_SIZE }),
           new TextRun({ text: " Pasal 1 ", bold: true, font: FONT_FAMILY, size: FONT_SIZE }),
@@ -2899,21 +2890,21 @@ export const generateWordDoc = async (data: CompanyData) => {
   }
 
   // ── PENUTUP ──────────────────────────────────────────────────────────────
-  if (isCircular) {
-    children.push(
-      mkP({ text: `Demikianlah keputusan para pemegang saham di luar rapat ini dibuat berdasarkan ketentuan pasal 91 Undang-Undang nomor 40 tahun 2007 tentang Perseroan Terbatas, mempunyai kekuatan yang sama yang diambil dengan sah dalam RUPS dan ditandatangani dengan sebenar-benarnya pada hari dan tanggal dimaksud pada keputusan diatas.`, spacing: { before: 480, after: 720 } }),
-    );
-  } else {
-    children.push(
-      new Paragraph({
-        spacing: { after: 240, before: 480 },
-        children: [mkRun("VII. PENUTUP", true)],
-      }),
-      new Paragraph({
-        alignment: "both" as any,
-        spacing: { line: LINE_SPACING, lineRule: "auto", after: 720 },
-        children: [
-          mkRun("Akhirnya, oleh karena sudah tidak ada hal-hal lain yang perlu dibicarakan lagi, maka Ketua Rapat menutup Rapat ini pada jam "),
+    if (isCircular) {
+      children.push(
+        mkP({ text: `Demikianlah keputusan para pemegang saham di luar rapat ini dibuat berdasarkan ketentuan pasal 91 Undang-Undang nomor 40 tahun 2007 tentang Perseroan Terbatas, mempunyai kekuatan yang sama yang diambil dengan sah dalam RUPS dan ditandatangani dengan sebenar-benarnya pada hari dan tanggal dimaksud pada keputusan diatas.`, spacing: { before: 0, after: 0 } }),
+      );
+    } else {
+      children.push(
+        new Paragraph({
+          spacing: { before: 0, after: 0 },
+          children: [mkRun("VII. PENUTUP", true)],
+        }),
+        new Paragraph({
+          alignment: "both" as any,
+          spacing: { line: LINE_SPACING, lineRule: "auto", before: 0, after: 0 },
+          children: [
+            mkRun("Akhirnya, oleh karena sudah tidak ada hal-hal lain yang perlu dibicarakan lagi, maka Ketua Rapat menutup Rapat ini pada jam "),
           mkRun(data.meetingEndTime || "11:00", true),
           mkRun(" WIB."),
         ],
