@@ -425,11 +425,11 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
 
   blocks.push(repBlock);
 
-  if (
-    rep?.address?.city?.toUpperCase() !== "KABUPATEN BANDUNG BARAT" &&
-    toTitleCase(rep?.address?.city || "").toUpperCase() !==
-      "KABUPATEN BANDUNG BARAT"
-  ) {
+  const isForeignRep = rep?.nationalityType === "WNA" || rep?.isForeign;
+  const repCity = (rep?.address?.city || "").trim().toUpperCase();
+  const isNotBandungBarat = !repCity.includes("BANDUNG BARAT") && !repCity.includes("KBB");
+
+  if (isForeignRep || isNotBandungBarat) {
     blocks.push({
       type: "list",
       bullet: "-",
@@ -2301,14 +2301,32 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
     });
   }
 
-  blocks.push({
-    type: "p",
-    runs: [
-      {
-        text: `Dari segala sesuatu yang diuraikan tersebut di atas, maka saya, Notaris membuat Akta Pernyataan Keputusan Rapat ini untuk dapat dipergunakan sebagaimana mestinya.`,
-      },
-    ],
-  });
+  blocks.push(
+    {
+      type: "p",
+      runs: [
+        {
+          text: "Penghadap menyatakan dengan ini menjamin akan kebenaran, keaslian dan kelengkapan identitas pihak-pihak yang namanya tersebut dalam akta ini dan seluruh dokumen yang menjadi dasar akta ini tanpa ada yang dikecualikan yang disampaikan kepada saya, Notaris, sehingga apabila dikemudian hari sejak ditandatanganinya akta ini timbul sengketa dengan nama dan dalam bentuk apapun yang disebabkan karena akta ini, maka pihak yang membuat keterangan dengan ini berjanji mengikatkan dirinya untuk bertanggung jawab dan bersedia menanggung resiko yang timbul dan dengan ini penghadap menyatakan dengan tegas membebaskan saya, Notaris, dan para saksi dari turut bertanggung jawab dan memikul baik sebagian maupun seluruhnya akibat hukum yang timbul karena sengketa tersebut.",
+        },
+      ],
+    },
+    {
+      type: "p",
+      runs: [
+        {
+          text: "Selanjutnya penghadap juga menyatakan telah mengerti, memahami dan menyetujui isi akta ini.",
+        },
+      ],
+    },
+    {
+      type: "p",
+      runs: [
+        {
+          text: `Dari segala sesuatu yang diuraikan tersebut di atas, maka saya, Notaris membuat Akta Pernyataan Keputusan ${isCircular ? "Para Pemegang Saham" : "Rapat"} ini untuk dapat dipergunakan sebagaimana mestinya.`,
+        },
+      ],
+    }
+  );
 
   blocks.push({ type: "divider", text: `DEMIKIANLAH AKTA INI` });
 

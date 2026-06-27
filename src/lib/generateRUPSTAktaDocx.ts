@@ -20,7 +20,7 @@ import { preprocessBlocksForWordBullets } from "./formatter";
 // ─── Tab stop & font constants ────────────────────────────────────────────────
 const TAB_KANAN = {
   type: TabStopType.RIGHT,
-  position: 8504,
+  position: 9020,
   leader: LeaderType.HYPHEN,
 };
 
@@ -33,31 +33,31 @@ const FONT_NAME = "Century Gothic";
 const FONT_SIZE = 20;
 
 // ─── Text-wrap widths ─────────────────────────────────────────────────────────
-// Calculated from: available = (8504 - ind.left) / (8504/41.5)
-// Content width = 11906 - 2268 - 1134 = 8504 DXA ; 1 char ≈ 204.9 DXA
+// Calculated from: available = (9020 - ind.left) / (9020/44.0)
+// Content width = 11906 - 2268 - 618 = 9020 DXA ; 1 char ≈ 204.9 DXA
 const W = {
-  normal:         41.5,
-  indent284:      40.8,
-  indent426:      40.2,
+  normal:         44.0,
+  indent284:      41.5,
+  indent426:      41.0,
   // Preamble dashes  (numId2 ilvl2 ind=426)
-  preambleDash:   38.6,   // (8504-426)/204.9 = 39.4 → use slightly less for safety
+  preambleDash:   41.0,   // (9020-426)/204.9 = 41.9 → use slightly less for safety
   // Attendance
-  attendeeNum:    36.2,   // numId3 ilvl0  no extra ind
-  attendeeDash:   34.8,   // numId3 ilvl2 ind=1134
-  attendeeLetter: 33.0,   // numId7 ilvl0 ind=1418
+  attendeeNum:    39.5,   // numId3 ilvl0  no extra ind
+  attendeeDash:   37.5,   // numId3 ilvl2 ind=1134
+  attendeeLetter: 36.0,   // numId7 ilvl0 ind=1418
   // General zone — 4 distinct variants (from corrected docx XML)
-  generalBahwaDari:   36.0,   // numId4 ilvl2 ind.left=1134  (Bahwa dari semua saham)
-  generalMenurut:     38.0,   // numId4 ilvl2 ind.left=709 hanging=425  (Bahwa menurut)
-  generalBerdasarkan: 38.0,   // numId4 ilvl2 ind.left=709  (Berdasarkan ketentuan)
-  generalDalamAcara:  38.0,   // numId4 ilvl2 ind.left=709  (Bahwa dalam acara)
-  agendaItem:         36.0,   // numId4 ilvl2 ind.left=1134  (agenda sub-items)
+  generalBahwaDari:   37.8,   // numId4 ilvl2 ind.left=1134  (Bahwa dari semua saham)
+  generalMenurut:     39.5,   // numId4 ilvl2 ind.left=709 hanging=425  (Bahwa menurut)
+  generalBerdasarkan: 39.5,   // numId4 ilvl2 ind.left=709  (Berdasarkan ketentuan)
+  generalDalamAcara:  39.5,   // numId4 ilvl2 ind.left=709  (Bahwa dalam acara)
+  agendaItem:         37.5,   // numId4 ilvl2 ind.left=1134  (agenda sub-items)
   // Decisions
-  decisionNum:    38.0,   // numId5 ilvl0 ind=426 hanging=426
-  decisionLetter: 37.2,   // numId5 ilvl1 ind=851
-  decisionDash:   37.2,   // numId5 ilvl2 ind=851 hanging=425
+  decisionNum:    39.5,   // numId5 ilvl0 ind=426 hanging=426
+  decisionLetter: 37.8,   // numId5 ilvl1 ind=851
+  decisionDash:   37.8,   // numId5 ilvl2 ind=851 hanging=425
   // Saksi
-  saksiNum:       39.5,   // numId9 ilvl0 ind=426
-  saksiDash:      38.0,   // numId9 ilvl2 ind=709 hanging=283
+  saksiNum:       41.5,   // numId9 ilvl0 ind=425 hanging=425
+  saksiDash:      39.0,   // numId9 ilvl2 ind=850 hanging=425
 };
 
 // ─── Numbering references ─────────────────────────────────────────────────────
@@ -165,7 +165,7 @@ const buildNumberingConfig = () => ({
           format: LevelFormat.DECIMAL,
           text: "%1.",
           alignment: AlignmentType.LEFT,
-          style: { paragraph: { indent: { left: 720, hanging: 360 } } },
+          style: { paragraph: { indent: { left: 425, hanging: 425 } } },
         },
         {
           level: 1,
@@ -174,7 +174,13 @@ const buildNumberingConfig = () => ({
           alignment: AlignmentType.LEFT,
           style: { paragraph: { indent: { left: 1080, hanging: 360 } } },
         },
-        DASH_LEVEL,
+        {
+          level: 2,
+          format: LevelFormat.BULLET,
+          text: "-",
+          alignment: AlignmentType.LEFT,
+          style: { paragraph: { indent: { left: 850, hanging: 425 } } },
+        },
       ],
     },
     {
@@ -246,7 +252,7 @@ const createIndentP = (
   leftDxa: number,
   options: Omit<IParagraphOptions, "children"> = {},
 ): Paragraph => {
-  const maxWidth = leftDxa >= 993 ? 36.5 : leftDxa >= 426 ? W.indent426 : W.indent284;
+  const maxWidth = leftDxa >= 993 ? 38.5 : leftDxa >= 426 ? W.indent426 : W.indent284;
   return new Paragraph({
     children: wrappedRuns(tokens, maxWidth),
     tabStops: [TAB_KANAN],
@@ -294,7 +300,7 @@ const mkPreambleDash = (t: FormatToken[], indentTabs?: number) => {
     numbering: { reference: NUM.PREAMBLE_DASH, level: 2 },
     tabStops: [TAB_KANAN],
     indent: isDeep ? { left: 850, hanging: 425 } : { left: 426, hanging: 426 },
-    children: wrappedRuns(t, isDeep ? 36.5 : W.preambleDash),
+    children: wrappedRuns(t, isDeep ? 38.5 : W.preambleDash),
   });
 };
 
@@ -315,7 +321,7 @@ const mkAttendanceDash = (t: FormatToken[], indentTabs?: number) => {
     numbering: { reference: NUM.ATTENDANCE, level: 2 },
     tabStops: [TAB_KANAN],
     indent: isDeep ? { left: 1080, hanging: 360 } : { left: 720, hanging: 360 },
-    children: wrappedRuns(t, isDeep ? 33.0 : W.attendeeDash),
+    children: wrappedRuns(t, isDeep ? 36.0 : W.attendeeDash),
   });
 };
 
@@ -341,7 +347,7 @@ const mkGeneralBahwaDari = (t: FormatToken[]) =>
     numbering: { reference: NUM.GENERAL, level: 2 },
     tabStops: [TAB_KANAN],
     indent: { left: 1080, hanging: 360 },
-    children: wrappedRuns(t, 36.0),
+    children: wrappedRuns(t, W.generalBahwaDari),
   });
 
 /** DECISIONS: "Sehubungan dengan apa..."
@@ -428,13 +434,13 @@ const mkDecisionDashInner = (t: FormatToken[]) =>
     children: wrappedRuns(t, W.decisionDash),
   });
 
-/** SAKSI NUMBER  numId=9 ilvl=0 ind.left=426 */
+/** SAKSI NUMBER  numId=9 ilvl=0 ind.left=425 hanging=425 */
 const mkSaksiNum = (t: FormatToken[]) =>
   new Paragraph({
     style: "ListParagraph",
     numbering: { reference: NUM.SAKSI, level: 0 },
     tabStops: [TAB_KANAN],
-    indent: { left: 720, hanging: 360 },
+    indent: { left: 425, hanging: 425 },
     children: wrappedRuns(t, W.saksiNum),
   });
 
@@ -444,7 +450,7 @@ const mkSaksiDash = (t: FormatToken[]) =>
     style: "ListParagraph",
     numbering: { reference: NUM.SAKSI, level: 2 },
     tabStops: [TAB_KANAN],
-    indent: { left: 720, hanging: 360 },
+    indent: { left: 850, hanging: 425 },
     children: wrappedRuns(t, W.saksiDash),
   });
 
@@ -661,7 +667,7 @@ export const generateRUPSTAktaDocx = async (data: CompanyData, returnBlob?: bool
         properties: {
           page: {
             size: { width: 11906, height: 16838 },
-            margin: { top: 1417, bottom: 1417, left: 2268, right: 1134 },
+            margin: { top: 1418, bottom: 1418, left: 2268, right: 618 },
           },
         },
         footers: {

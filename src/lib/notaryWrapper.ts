@@ -77,7 +77,11 @@ export function parseTextRuns(runs: FormatToken[], maxWidth = 41.5): FormatToken
       currentLine.push(token);
       currentLength += tokWidth;
     } else {
-      if (currentLength + tokWidth > maxWidth && currentLength > 0) {
+      const isPunctuation = token.text.match(/^[:;,.\?!]$/);
+      if (isPunctuation && currentLength > 0) {
+         currentLine.push(token);
+         currentLength += tokWidth;
+      } else if (currentLength + tokWidth > maxWidth && currentLength > 0) {
          lines.push(currentLine);
          currentLine = [token];
          currentLength = tokWidth;
