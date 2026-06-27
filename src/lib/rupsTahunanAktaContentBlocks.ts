@@ -1283,6 +1283,33 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
       indentTabs: 1.0,
       runs: [
         {
+          text: "Bahwa Berdasarkan ketentuan dalam Pasal 91 Undang-Undang Republik Indonesia, Nomor 40 Tahun 2007, tentang perseroan terbatas, Juncto pasal 10 ayat 1 anggaran dasar perseroan, Para Pemegang Saham dapat juga mengambil keputusan yang sah tanpa mengadakan Rapat Umum Pemegang Saham, dengan ketentuan semua pemegang saham telah diberitahu secara tertulis dan semua pemegang saham memberikan persetujuan mengenai usul yang diajukan secara tertulis serta secara tertulis menandatangani persetujuan tersebut. Keputusan yang diambil dengan cara demikian mempunyai kekuatan yang sama dengan keputusan yang diambil dengan sah dalam Rapat Umum Pemegang Saham;",
+        },
+      ],
+    });
+
+    blocks.push({
+      type: "list",
+      bullet: "-",
+      indentTabs: 1.0,
+      runs: [
+        {
+          text: "Bahwa para pemegang saham telah menyetujui dan memutuskan untuk memberikan kuasa dengan hak substitusi kepada ",
+        },
+        { text: `${rep?.salutation || "Tuan"} ` },
+        { text: rep?.name?.toUpperCase() || "VINCENT TANTINUS", bold: true },
+        {
+          text: ", tersebut diatas untuk melakukan setiap dan seluruh tindakan yang diperlukan sehubungan dengan keputusan-keputusan tersebut di atas, termasuk tetapi tidak terbatas pada menghadap dihadapan pejabat yang berwenang, memberikan keterangan-keterangan, menandatangani dokumen dan akta-akta, dan melakukan pendaftaran serta mengajukan permohonan persetujuan dan/atau menyampaikan pemberitahuan atas keputusan tersebut di atas kepada Menteri Hukum dan Hak Asasi Manusia Republik Indonesia dan instansi lain yang berwenang sesuai dengan peraturan perundang-undangan yang berlaku.",
+        },
+      ],
+    });
+
+    blocks.push({
+      type: "list",
+      bullet: "-",
+      indentTabs: 1.0,
+      runs: [
+        {
           text: "Sehubungan dengan apa yang diuraikan di atas, penghadap bertindak dalam kedudukannya sebagaimana tersebut di atas, dengan ini menyatakan kembali Keputusan Para Pemegang Saham yang telah diputuskan antaralin memutuskan dan menetapkan sebagai berikut:",
         },
       ],

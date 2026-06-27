@@ -459,25 +459,24 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
       bullet: "-",
       indentTabs: 0.5,
       runs: [
-        { text: "Hadir selaku" },
-        {
-          text: " kuasa sebagaimana yang tertera dalam risalah Rapat Perseroan yang akan diuraikan di bawah ini.",
-        },
+        { text: "Penghadap telah memperkenalkan diri kepada saya, Notaris." },
       ],
     });
   }
 
-  blocks.push(
-    { type: "p", runs: [{ text: `Penghadap saya, Notaris kenal.` }] },
-    {
-      type: "p",
-      runs: [
-        {
-          text: `Penghadap dalam kedudukannya tersebut di atas menerangkan terlebih dahulu kepada saya, Notaris :`,
-        },
-      ],
-    },
-  );
+  if (!isCircular) {
+    blocks.push(
+      { type: "p", runs: [{ text: `Penghadap saya, Notaris kenal.` }] },
+      {
+        type: "p",
+        runs: [
+          {
+            text: `Penghadap dalam kedudukannya tersebut di atas menerangkan terlebih dahulu kepada saya, Notaris :`,
+          },
+        ],
+      },
+    );
+  }
 
   const tglPendirianHuruf = dateToWords(data.establishmentDeedDate || "");
   const tglPendirianAngka = formatDateStr(data.establishmentDeedDate || "");
@@ -521,15 +520,15 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
       indentTabs: 0.5,
       runs: [
         {
-          text: `Menurut keterangannya dalam hal ini bertindak berdasarkan kuasa yang diberikan dalam Keputusan Sirkuler Para Pemegang Saham `,
+          text: `Bahwa menurut keterangannya dalam hal ini bertindak berdasarkan kuasa yang diberikan dalam Keputusan Para Pemegang Saham `,
         },
         { text: `"${formatCompanyName(data.companyName)}"`, bold: true },
         {
-          text: ` sebagai pengganti Keputusan yang diambil pada Rapat Umum Pemegang Saham Luar Biasa yang ditandatangani terakhir tertanggal ${isMinutes ? `${tglSirkulerAngka} (${tglSirkulerHuruf})` : formatAktaDate(data.signingDate)}, demikian sah mewakili untuk dan atas nama serta kepentingan `,
+          text: ` yang ditandatangani terakhir tertanggal ${formatAktaDate(data.signingDate)}, demikian sah mewakili untuk dan atas nama serta kepentingan `,
         },
         { text: formatCompanyName(data.companyName), bold: true },
         {
-          text: `, perseroan berkedudukan ${toTitleCase(data.newAddress?.city || data.domicile || "...")}, demikian berdasarkan Akta Pendirian tertanggal ${formattedEstDeedDate}, Nomor ${data.establishmentDeedNumber}, telah mendapat pengesahan dari Menteri Hukum dan Hak Asasi Manusia Republik Indonesia tertanggal ${formattedEstSkDate}, Nomor ${data.establishmentSkNumber}, dibuat di hadapan ${checkNotaryWording(data.establishmentNotary, data.establishmentNotaryTitle, data.establishmentNotaryDomicile)} dan telah mengalami perubahan berdasarkan akta sebagai berikut :-`,
+          text: `, perseroan berkedudukan di ${toTitleCase(data.newAddress?.city || data.domicile || "...")}, demikian berdasarkan Akta Pendirian tertanggal ${formattedEstDeedDate}, Nomor ${data.establishmentDeedNumber} dibuat dihadapan ${checkNotaryWording(data.establishmentNotary, data.establishmentNotaryTitle, data.establishmentNotaryDomicile)} dan telah mendapat pengesahan dari Menteri Hukum dan Hak Asasi Manusia Republik Indonesia berdasarkan Surat Keputusan Nomor ${data.establishmentSkNumber} tertanggal ${formattedEstSkDate} dan telah mengalami beberapa kali perubahan berdasarkan akta-akta sebagai berikut :`,
         },
       ],
     });
@@ -673,22 +672,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
         },
         { text: formatCompanyName(data.companyName), bold: true },
         {
-          text: ` sebagai pengganti Keputusan yang diambil pada Rapat Umum Pemegang Saham Luar Biasa yang ditandatangani secara bersama-sama dan/atau dengan cara diedarkan, yang terakhir ditandatangani pada tanggal ${isMinutes ? `${tglSirkulerAngka} (${tglSirkulerHuruf})` : formatAktaDate(data.signingDate)} bermeterai cukup yang aslinya dilekatkan pada minuta akta ini (selanjutnya akan disebut “Keputusan Sirkuler”);`,
-        },
-      ],
-    });
-
-    blocks.push({
-      type: "list",
-      bullet: "-",
-      indentTabs: 0.5,
-      runs: [
-        {
-          text: `Bahwa Keputusan Sirkuler mana telah ditandatangani dan mewakili seluruh saham yang telah dikeluarkan dan disetor penuh (“para pemegang saham”) sampai dengan hari ini, yaitu sebanyak ${formatNumber(totalShares)}${w(totalShares, "shares")} lembar saham atau 100 % (seratus persen) dari saham dalam Perseroan `,
-        },
-        { text: formatCompanyName(data.companyName), bold: true },
-        {
-          text: `, sehingga karenanya Keputusan tersebut adalah sah susunannya dan mengikat.`,
+          text: ` sebagai pengganti Keputusan yang diambil pada Rapat Umum Pemegang Saham Luar Biasa yang ditandatangani secara bersama-sama dan/atau dengan cara diedarkan, yang terakhir ditandatangani pada tanggal ${isMinutes ? `${tglSirkulerAngka} (${tglSirkulerHuruf})` : formatAktaDate(data.signingDate)} bermeterai cukup yang aslinya dilekatkan pada minuta akta ini (selanjutnya akan disebut “Keputusan Sirkuler”),yang ditandatangani oleh:`,
         },
       ],
     });
@@ -1263,6 +1247,21 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
   }
 
   if (isCircular) {
+    blocks.push({
+      type: "list",
+      bullet: "-",
+      indentTabs: 0.5,
+      runs: [
+        {
+          text: `Bahwa Keputusan Sirkuler mana telah ditandatangani dan mewakili seluruh saham yang telah dikeluarkan dan disetor penuh (“para pemegang saham”) sampai dengan hari ini, yaitu sebanyak ${formatNumber(totalShares)}${w(totalShares, "shares")} lembar saham atau 100 % (seratus persen) dari saham dalam Perseroan `,
+        },
+        { text: formatCompanyName(data.companyName), bold: true },
+        {
+          text: `, sehingga karenanya Keputusan tersebut adalah sah susunannya dan mengikat.`,
+        },
+      ],
+    });
+
     blocks.push({
       type: "list",
       bullet: "-",

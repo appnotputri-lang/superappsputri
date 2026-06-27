@@ -27,22 +27,22 @@ import { generateRupsBlocks } from "./rupsContentBlocks";
 import { preprocessBlocksForWordBullets } from "./formatter";
 
 // ──────────────────────────────────────────────────────────────────────────────
-// LAYOUT CONSTANTS (dari XML contoh_6.docx)
+// LAYOUT CONSTANTS (disamakan dengan Akta RUPS T)
 // Halaman A4: w=11906, h=16838
-// Margin: left=2268, right=1134, top=1417, bottom=1417
-// Lebar konten: 8504 DXA
+// Margin: left=2268, right=618, top=1418, bottom=1418
+// Lebar konten: 9020 DXA
 // ──────────────────────────────────────────────────────────────────────────────
 
-const TAB_KANAN_NO_LEADER = { type: TabStopType.RIGHT, position: 8504, leader: LeaderType.NONE };
-const TAB_KANAN = { type: TabStopType.RIGHT, position: 8504, leader: LeaderType.HYPHEN };
+const TAB_KANAN_NO_LEADER = { type: TabStopType.RIGHT, position: 9020, leader: LeaderType.NONE };
+const TAB_KANAN = { type: TabStopType.RIGHT, position: 9020, leader: LeaderType.HYPHEN };
 
 const W = {
-  normal:   41.5,
-  list1:    39.0,   // indent 284 DXA
-  list2:    36.5,   // indent 567 DXA
-  list3:    34.0,   // indent 851 DXA
-  numbered: 38.0,
-  subnr:    38.5,
+  normal:   44.0,
+  list1:    42.5,   // (9020 - 284)/204.9 ≈ 42.6 -> 42.5
+  list2:    41.0,   // (9020 - 567)/204.9 ≈ 41.2 -> 41.0
+  list3:    39.5,   // (9020 - 851)/204.9 ≈ 39.8 -> 39.5
+  numbered: 41.5,
+  subnr:    41.0,
   rcenter:  20.5,
 };
 
@@ -219,7 +219,7 @@ const createSubNumberedP = (
 };
 
 /**
- * "Pasal X" divider — tab center di 4252, tab kanan 8504
+ * "Pasal X" divider — tab center di 4252, tab kanan
  */
 const createPasalDividerP = (text: string): Paragraph =>
   new Paragraph({
@@ -230,7 +230,7 @@ const createPasalDividerP = (text: string): Paragraph =>
     ],
     tabStops: [
       { type: TabStopType.CENTER, position: 4252, leader: LeaderType.HYPHEN },
-      { type: TabStopType.RIGHT,  position: 8504, leader: LeaderType.HYPHEN },
+      TAB_KANAN,
     ],
     alignment: AlignmentType.LEFT,
   });
@@ -247,7 +247,7 @@ const createDividerP = (text: string): Paragraph =>
     ],
     tabStops: [
       { type: TabStopType.CENTER, position: 4252, leader: LeaderType.HYPHEN },
-      { type: TabStopType.RIGHT,  position: 8504, leader: LeaderType.HYPHEN },
+      TAB_KANAN,
     ],
     alignment: AlignmentType.LEFT,
   });
@@ -544,7 +544,7 @@ export const generateRUPSDocx = async (data: CompanyData) => {
         properties: {
           page: {
             size: { width: 11906, height: 16838 },
-            margin: { top: 1417, bottom: 1417, left: 2268, right: 1134 },
+            margin: { top: 1418, bottom: 1418, left: 2268, right: 618 },
           },
         },
         footers: {
