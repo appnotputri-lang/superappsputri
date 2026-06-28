@@ -315,13 +315,26 @@ const mkAttendanceNum = (t: FormatToken[], bulletStr: string) =>
 
 /** ATTENDANCE DASH  numId=3 ilvl=2 sejajar angka 3 */
 const mkAttendanceDash = (t: FormatToken[], indentTabs?: number) => {
+  const isDearestDeep = indentTabs !== undefined && indentTabs >= 2.0;
   const isDeep = indentTabs !== undefined && indentTabs >= 1.5;
+
+  let indent = { left: 720, hanging: 360 };
+  let wrapWidth = W.attendeeDash;
+
+  if (isDearestDeep) {
+    indent = { left: 1770, hanging: 360 };
+    wrapWidth = 32.0;
+  } else if (isDeep) {
+    indent = { left: 1080, hanging: 360 };
+    wrapWidth = 36.0;
+  }
+
   return new Paragraph({
     style: "ListParagraph",
     numbering: { reference: NUM.ATTENDANCE, level: 2 },
     tabStops: [TAB_KANAN],
-    indent: isDeep ? { left: 1080, hanging: 360 } : { left: 720, hanging: 360 },
-    children: wrappedRuns(t, isDeep ? 36.0 : W.attendeeDash),
+    indent,
+    children: wrappedRuns(t, wrapWidth),
   });
 };
 

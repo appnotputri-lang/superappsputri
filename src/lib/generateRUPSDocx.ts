@@ -140,7 +140,8 @@ const createListP = (
   else if (indentTabs <= 1.0)                    { leftDxa = 567;  hangingDxa = 283; tabKiriPos = 284;  maxW = W.list2; }
   else if (indentTabs > 1.0 && indentTabs < 1.4){ leftDxa = 1134; hangingDxa = 360; tabKiriPos = 774;  maxW = W.list3; }
   else if (indentTabs <= 1.9)                    { leftDxa = 567;  hangingDxa = 283; tabKiriPos = 284;  maxW = W.list2; }
-  else if (indentTabs === 2)                     { leftDxa = 1417; hangingDxa = 283; tabKiriPos = 1134; maxW = W.list3; }
+  else if (indentTabs >= 1.9 && indentTabs <= 2.1) { leftDxa = 1417; hangingDxa = 283; tabKiriPos = 1134; maxW = W.list3; }
+  else if (indentTabs > 2.1)                     { leftDxa = 1701; hangingDxa = 283; tabKiriPos = 1417; maxW = W.list3; }
   else                                           { leftDxa = 851;  hangingDxa = 284; tabKiriPos = 567;  maxW = W.list3; }
 
   const lines = parseTextRuns(tokens, maxW);

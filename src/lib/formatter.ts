@@ -473,8 +473,9 @@ export function preprocessBlocksForWordBullets(blocks: any[]): any[] {
         if (!cleanText) continue;
 
         // Determine the next block's indentTabs or standard levels.
+        // If parent block is already a list, make the nested sub-bullet deeper than parent.
         const nextBlockIndent = block.type === "list"
-          ? block.indentTabs // Keep the same indent level for sibling bullets
+          ? (block.indentTabs || 1.0) + 0.5
           : 1.0; // standard bullet indented slightly inside paragraph
 
         currentBlock = {
