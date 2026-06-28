@@ -213,15 +213,65 @@ export function generatePendirianBlocks(data: PendirianData): Block[] {
     nameText = nameText.replace(stripRe, "").trim();
 
     const isBH = checkIsBadanHukum(p);
-    const namePrefix = isBH ? "" : `${sal} `;
-    const details = formatPersonDetails(p as any, tglLahirAngka, tglLahirHuruf, true);
+    let namePrefix = isBH ? "" : `${sal} `;
+    let details = "";
+
+    let customRuns: Run[] | undefined = undefined;
+
+    if (isBH) {
+      // Determine representative position: "Direktur Utama" if no "Direktur" is present in the structure
+      const repPosition = (p as any).representativePosition;
+      let finalPosition = "Direktur Utama";
+      if (repPosition) {
+        finalPosition = String(repPosition);
+      } else {
+        const hasDirektur = shareholders.some(s => s.isManagement && String(s.managementPosition || "").toLowerCase() === "direktur");
+        finalPosition = hasDirektur ? "Direktur" : "Direktur Utama";
+      }
+
+      const repName = (p as any).guardianName || (p as any).representativeName || (p as any).proxyData?.name || "................";
+      const repSal = (p as any).guardianSalutation || (p as any).representativeSalutation || (p as any).proxyData?.salutation || "Tuan";
+      
+      const repPerson = {
+        birthCity: (p as any).guardianBirthCity || "",
+        birthDate: (p as any).guardianBirthDate || "",
+        nationalityType: (p as any).guardianNationalityType || "WNI",
+        nationality: (p as any).guardianNationality || "Indonesia",
+        occupation: (p as any).guardianOccupation || "WIRASWASTA",
+        address: (p as any).guardianAddress,
+        nik: (p as any).guardianNik || "",
+        passportNumber: (p as any).guardianPassportNumber || "",
+        kitasNumber: (p as any).guardianKitasNumber || "",
+        isForeign: (p as any).guardianNationalityType === "WNA",
+      };
+      
+      const repDetails = formatPersonDetails(repPerson as any, formatDateStr(repPerson.birthDate), dateToWords(repPerson.birthDate), true);
+      const ptDetails = formatPersonDetails(p as any, tglLahirAngka, tglLahirHuruf, true);
+      
+      namePrefix = `${repSal} `;
+      nameText = repName.toUpperCase();
+      
+      // We don't want the ptDetails to have "yang dalam hal ini diwakili oleh...", we already handled it. 
+      // ptDetails for BADAN_HUKUM starts with `, berkedudukan di...` or `, sebuah badan hukum asing...`
+      const ptName = `PT ${p.name.toUpperCase().replace(/^(PT|PT\.|P\.T\.|P\.T|PERSEROAN TERBATAS)\s*/i, "")}`;
+      
+      customRuns = [
+        { text: `${namePrefix}${nameText}`, bold: true },
+        { text: `${repDetails};\n- Hadir selaku ${finalPosition} dari` },
+        { text: ` ${ptName}`, bold: true },
+        { text: `${ptDetails}.` }
+      ];
+    } else {
+      details = formatPersonDetails(p as any, tglLahirAngka, tglLahirHuruf, true);
+    }
 
     return {
       p,
       namePrefix,
       nameText,
       details,
-      isBH
+      isBH,
+      customRuns
     };
   });
 
@@ -229,7 +279,7 @@ export function generatePendirianBlocks(data: PendirianData): Block[] {
     blocks.push({
       type: "numbered",
       num: idx + 1,
-      runs: [
+      runs: sd.customRuns || [
         { text: `${sd.namePrefix}${sd.nameText}`, bold: true },
         { text: `${sd.details}.` },
       ],
@@ -679,12 +729,14 @@ export function generatePendirianBlocks(data: PendirianData): Block[] {
   shareholders.forEach((p, i) => {
     tSaham += p.sharesOwned;
     const nominal = p.sharesOwned * data.nilaiPerLembar;
+    const isBH = checkIsBadanHukum(p);
+    const prefix = isBH ? "" : `${p.salutation || "Tuan"} `;
     blocks.push({
       type: "sub-numbered",
       num: String.fromCharCode(97 + i),
       indentTabs: 1,
       runs: [
-        { text: `${p.salutation} ` },
+        { text: prefix },
         { text: `${p.name.toUpperCase()}`, bold: true },
         { text: `, tersebut di atas, sejumlah ` },
         { text: `${formatNumber(p.sharesOwned)}`, bold: true },

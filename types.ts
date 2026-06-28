@@ -49,6 +49,8 @@ export interface Shareholder {
   establishmentSkNumber?: string;
   establishmentSkDate?: string;
   amendmentDeeds?: AmendmentDeed[];
+  representativePosition?: string;
+  representativeId?: string;
   
   // Acquisition details
   isAcquisition?: boolean;
@@ -67,6 +69,13 @@ export interface Shareholder {
   guardianSalutation?: 'Tuan' | 'Nyonya' | 'Nona';
   guardianRelationship?: 'AYAH KANDUNG' | 'IBU KANDUNG' | 'WALI' | string;
   guardianAddress?: Address;
+  guardianBirthCity?: string;
+  guardianBirthDate?: string;
+  guardianNationalityType?: 'WNI' | 'WNA';
+  guardianNationality?: string;
+  guardianOccupation?: string;
+  guardianPassportNumber?: string;
+  guardianKitasNumber?: string;
 
   // Proxy / Kuasa fields (for RUPS LB)
   isProxy?: boolean;       // true = pemegang saham dikuasakan ke orang lain

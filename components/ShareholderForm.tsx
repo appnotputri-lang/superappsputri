@@ -22,6 +22,7 @@ interface Props {
   hasCapitalChange?: boolean;
   profiles?: CompanyProfile[];
   availableParties?: Shareholder[];
+  disabled?: boolean;
 }
 
 const ShareholderForm: React.FC<Props> = ({ 
@@ -40,7 +41,8 @@ const ShareholderForm: React.FC<Props> = ({
   hasManagementAgenda = false,
   hasCapitalChange = false,
   profiles = [],
-  availableParties
+  availableParties,
+  disabled = false
 }) => {
   const [showLookup, setShowLookup] = React.useState(false);
   const [searchStatus, setSearchStatus] = React.useState('');
@@ -116,6 +118,21 @@ const ShareholderForm: React.FC<Props> = ({
   const isWna = shareholder.nationalityType === 'WNA' || shareholder.isForeign;
   const isBadanHukum = shareholder.shareholderType === 'BADAN_HUKUM';
 
+  const matchedProfile = React.useMemo(() => {
+    if (!isBadanHukum || !profiles || profiles.length === 0) return null;
+    return profiles.find(p => 
+      (shareholder.linkedProfileId && p.id === shareholder.linkedProfileId) ||
+      (shareholder.name && p.companyName && p.companyName.trim().toUpperCase() === shareholder.name.trim().toUpperCase())
+    );
+  }, [isBadanHukum, profiles, shareholder.linkedProfileId, shareholder.name]);
+
+  const managementListForWakil = React.useMemo<any[]>(() => {
+    if (!matchedProfile) return [];
+    return matchedProfile.newManagementItems?.length > 0 ? matchedProfile.newManagementItems : 
+         (matchedProfile.oldManagementItems?.length > 0 ? matchedProfile.oldManagementItems : 
+         (matchedProfile.shareholders || []).filter(s => s.isManagement));
+  }, [matchedProfile]);
+
   // Helper to remove PT prefix variation for sorting/filtering
   const cleanPT = (name: string): string => {
     if (!name) return "";
@@ -164,7 +181,7 @@ const ShareholderForm: React.FC<Props> = ({
     onChange({ address: { ...shareholder.address, ...updates } });
   };
 
-  // Automatically pull 'Kedudukan' (city) from company profile if shareholder is BADAN_HUKUM
+  // Automatically pull 'Kedudukan' (city) and representative from company profile if shareholder is BADAN_HUKUM
   React.useEffect(() => {
     if (isBadanHukum && profiles && profiles.length > 0) {
       const matchedProfile = profiles.find(p => 
@@ -173,21 +190,59 @@ const ShareholderForm: React.FC<Props> = ({
       );
 
       if (matchedProfile) {
+        const updates: Partial<Shareholder> = {};
+        
         const profileCity = (matchedProfile.domicile || matchedProfile.oldDomicile || matchedProfile.newAddress?.city || matchedProfile.oldAddress?.city || matchedProfile.kedudukanPT || (matchedProfile as any).city || '').toUpperCase();
         if (profileCity && (!shareholder.address || shareholder.address.city !== profileCity)) {
-          onChange({
-            address: {
-              ...(shareholder.address || {
-                fullAddress: '',
-                rt: '',
-                rw: '',
-                kelurahan: '',
-                kecamatan: '',
-                province: ''
-              }),
-              city: profileCity
-            }
-          });
+          updates.address = {
+            ...(shareholder.address || {
+              fullAddress: '',
+              rt: '',
+              rw: '',
+              kelurahan: '',
+              kecamatan: '',
+              province: ''
+            }),
+            city: profileCity
+          };
+        }
+
+        // Try to populate representative if not set
+        if (!shareholder.guardianName) {
+          const managementList: any[] = matchedProfile.newManagementItems?.length > 0 ? matchedProfile.newManagementItems : 
+                               (matchedProfile.oldManagementItems?.length > 0 ? matchedProfile.oldManagementItems : 
+                               (matchedProfile.shareholders || []).filter(s => s.isManagement));
+          
+          if (managementList && managementList.length > 0) {
+             let rep = managementList.find(m => String(m.position || m.managementPosition || '').toLowerCase() === 'direktur utama');
+             if (!rep) {
+               rep = managementList.find(m => String(m.position || m.managementPosition || '').toLowerCase() === 'direktur');
+             }
+             if (!rep) {
+               rep = managementList[0];
+             }
+             if (rep) {
+                updates.representativeId = rep.id;
+                updates.representativePosition = rep.position || rep.managementPosition || 'Direktur Utama';
+                updates.guardianName = (rep.name || '').toUpperCase();
+                updates.guardianSalutation = rep.salutation || 'Tuan';
+                
+                // Populate all other representative details
+                if (rep.nik) updates.guardianNik = rep.nik;
+                if (rep.occupation) updates.guardianOccupation = rep.occupation;
+                if (rep.birthCity) updates.guardianBirthCity = rep.birthCity;
+                if (rep.birthDate) updates.guardianBirthDate = rep.birthDate;
+                if (rep.address) updates.guardianAddress = rep.address;
+                if (rep.nationality) updates.guardianNationality = rep.nationality;
+                if (rep.nationalityType) updates.guardianNationalityType = rep.nationalityType;
+                if (rep.passportNumber) updates.guardianPassportNumber = rep.passportNumber;
+                if (rep.kitasNumber) updates.guardianKitasNumber = rep.kitasNumber;
+             }
+          }
+        }
+        
+        if (Object.keys(updates).length > 0) {
+          onChange(updates);
         }
       }
     }
@@ -207,7 +262,7 @@ const ShareholderForm: React.FC<Props> = ({
     const profileCity = (p.domicile || p.oldDomicile || p.newAddress?.city || p.oldAddress?.city || p.kedudukanPT || (p as any).city || targetAddress.city || '').toUpperCase();
     targetAddress.city = profileCity;
 
-    onChange({
+    const updates: Partial<Shareholder> = {
       name: (p.companyName || '').toUpperCase(),
       legalEntityType: p.companyType || 'PT Persekutuan Modal',
       npwp: p.npwp || '',
@@ -223,12 +278,44 @@ const ShareholderForm: React.FC<Props> = ({
       establishmentSkDate: p.establishmentSkDate || '',
       amendmentDeeds: p.amendmentDeeds || [],
       linkedProfileId: p.id
-    });
+    };
+
+    const managementList: any[] = p.newManagementItems?.length > 0 ? p.newManagementItems : 
+                         (p.oldManagementItems?.length > 0 ? p.oldManagementItems : 
+                         (p.shareholders || []).filter(s => s.isManagement));
+                         
+    if (managementList && managementList.length > 0) {
+       let rep = managementList.find(m => String(m.position || m.managementPosition || '').toLowerCase() === 'direktur utama');
+       if (!rep) {
+         rep = managementList.find(m => String(m.position || m.managementPosition || '').toLowerCase() === 'direktur');
+       }
+       if (!rep) {
+         rep = managementList[0];
+       }
+       if (rep) {
+          updates.representativeId = rep.id;
+          updates.representativePosition = rep.position || rep.managementPosition || 'Direktur Utama';
+          updates.guardianName = (rep.name || '').toUpperCase();
+          updates.guardianSalutation = rep.salutation || 'Tuan';
+          if (rep.nik) updates.guardianNik = rep.nik;
+          if (rep.occupation) updates.guardianOccupation = rep.occupation;
+          if (rep.birthCity) updates.guardianBirthCity = rep.birthCity;
+          if (rep.birthDate) updates.guardianBirthDate = rep.birthDate;
+          if (rep.address) updates.guardianAddress = rep.address;
+          if (rep.nationality) updates.guardianNationality = rep.nationality;
+          if (rep.nationalityType) updates.guardianNationalityType = rep.nationalityType;
+          if (rep.passportNumber) updates.guardianPassportNumber = rep.passportNumber;
+          if (rep.kitasNumber) updates.guardianKitasNumber = rep.kitasNumber;
+       }
+    }
+
+    onChange(updates);
   };
 
   return (
-    <div className="space-y-4">
-      {availableParties ? (
+    <fieldset disabled={disabled} className="contents">
+      <div className="space-y-4">
+        {availableParties ? (
         <div>
           <label className="block text-xs font-bold text-slate-700 mb-1">Pilih dari Daftar Hadir <span className="text-red-500">*</span></label>
           <select
@@ -1265,6 +1352,180 @@ const ShareholderForm: React.FC<Props> = ({
         </div>
       </div>
 
+      {isBadanHukum && (
+        <div className="mt-4 p-4 bg-teal-50/60 rounded border border-teal-200 space-y-3">
+          <div className="text-xs font-bold text-teal-800 uppercase tracking-wider flex items-center gap-1.5">
+            <Users className="w-3.5 h-3.5 text-teal-600" /> DATA WAKIL BADAN HUKUM (YANG MENGHADAP)
+          </div>
+          <p className="text-[11px] text-slate-500 leading-normal">
+            Pilih wakil yang sah dari badan hukum ini (berdasarkan data pengurus), atau pilih Kuasa Direksi untuk input manual.
+          </p>
+          
+          <div className="mb-3">
+            <label className="block text-xs font-bold text-slate-700 mb-1">Pilih Wakil <span className="text-red-500">*</span></label>
+            <select 
+              value={shareholder.representativeId || 'MANUAL'} 
+              onChange={e => {
+                const val = e.target.value;
+                if (val === 'MANUAL') {
+                  onChange({ representativeId: 'MANUAL', representativePosition: 'Kuasa Direksi' });
+                } else {
+                  const rep = managementListForWakil.find((m: any) => m.id === val);
+                  if (rep) {
+                    const updates: Partial<Shareholder> = {
+                      representativeId: rep.id,
+                      representativePosition: rep.position || rep.managementPosition || 'Direktur Utama',
+                      guardianName: (rep.name || '').toUpperCase(),
+                      guardianSalutation: rep.salutation || 'Tuan',
+                      guardianNik: rep.nik || '',
+                      guardianOccupation: rep.occupation || '',
+                      guardianBirthCity: rep.birthCity || '',
+                      guardianBirthDate: rep.birthDate || '',
+                      guardianAddress: rep.address || undefined,
+                      guardianNationality: rep.nationality || '',
+                      guardianNationalityType: rep.nationalityType || 'WNI',
+                      guardianPassportNumber: rep.passportNumber || '',
+                      guardianKitasNumber: rep.kitasNumber || ''
+                    };
+                    onChange(updates);
+                  }
+                }
+              }}
+              className="w-full px-3 py-2 border border-slate-300 rounded text-sm bg-white outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 font-medium"
+            >
+              {managementListForWakil.length > 0 && <option value="" disabled>-- Pilih Pengurus --</option>}
+              {managementListForWakil.map((m: any, idx: number) => (
+                <option key={m.id || idx} value={m.id}>
+                  {m.name} - {m.position || m.managementPosition}
+                </option>
+              ))}
+              <option value="MANUAL">{managementListForWakil.length > 0 ? 'Kuasa Direksi / Lainnya (Input Manual)' : 'Input Manual'}</option>
+            </select>
+          </div>
+
+          {(!shareholder.representativeId || shareholder.representativeId === 'MANUAL') && (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Jabatan Wakil <span className="text-red-500">*</span></label>
+                  <select 
+                    value={(shareholder as any).representativePosition || 'Kuasa Direksi'} 
+                    onChange={e => onChange({ representativePosition: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-300 rounded text-sm bg-white outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
+                  >
+                    <option value="Direktur Utama">DIREKTUR UTAMA</option>
+                    <option value="Direktur">DIREKTUR</option>
+                    <option value="Kuasa Direksi">KUASA DIREKSI</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Nama Lengkap <span className="text-red-500">*</span></label>
+                  <div className="flex gap-2">
+                    <select 
+                      value={shareholder.guardianSalutation || 'Tuan'} 
+                      onChange={e => onChange({ guardianSalutation: e.target.value as any })}
+                      className="w-24 px-3 py-2 border border-slate-300 rounded text-sm bg-white outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 cursor-pointer"
+                    >
+                      <option value="Tuan">Tuan</option>
+                      <option value="Nyonya">Nyonya</option>
+                      <option value="Nona">Nona</option>
+                    </select>
+                    <input 
+                      type="text" 
+                      value={shareholder.guardianName || ''} 
+                      onChange={e => onChange({ guardianName: e.target.value.toUpperCase() })}
+                      placeholder="NAMA WAKIL"
+                      className="flex-1 px-3 py-2 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm font-bold uppercase"
+                    />
+                  </div>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">NIK Wakil <span className="text-red-500">*</span></label>
+                  <input 
+                    type="text" 
+                    value={shareholder.guardianNik || ''} 
+                    onChange={e => onChange({ guardianNik: e.target.value.replace(/\D/g, '').slice(0, 16) })}
+                    placeholder="16 DIGIT NIK"
+                    className="w-full px-3 py-2 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Pekerjaan Wakil <span className="text-red-500">*</span></label>
+                  <input 
+                    type="text" 
+                    value={shareholder.guardianOccupation || ''} 
+                    onChange={e => onChange({ guardianOccupation: e.target.value.toUpperCase() })}
+                    placeholder="CONTOH: KARYAWAN SWASTA"
+                    className="w-full px-3 py-2 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm uppercase"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Tempat Lahir Wakil <span className="text-red-500">*</span></label>
+                  <input 
+                    type="text" 
+                    value={shareholder.guardianBirthCity || ''} 
+                    onChange={e => onChange({ guardianBirthCity: e.target.value.toUpperCase() })}
+                    className="w-full px-3 py-2 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm uppercase"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Tanggal Lahir Wakil <span className="text-red-500">*</span></label>
+                  <input 
+                    type="date" 
+                    value={shareholder.guardianBirthDate || ''} 
+                    onChange={e => onChange({ guardianBirthDate: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm bg-slate-50"
+                  />
+                </div>
+              </div>
+              <div className="pt-2 border-t border-teal-100/80 mt-3">
+                <div className="flex justify-between items-center mb-1">
+                  <label className="block text-xs font-bold text-slate-700">Alamat Wakil <span className="text-red-500">*</span></label>
+                </div>
+                <textarea 
+                  value={shareholder.guardianAddress?.fullAddress || ''} 
+                  onChange={e => onChange({ guardianAddress: { ...(shareholder.guardianAddress || { rt: '', rw: '', kelurahan: '', kecamatan: '', city: '', province: '' }), fullAddress: e.target.value.toUpperCase() } })}
+                  placeholder="NAMA JALAN / GEDUNG"
+                  className="w-full px-3 py-2 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm min-h-[60px] uppercase"
+                />
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3">
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 mb-1">RT</label>
+                    <input 
+                      type="text" 
+                      value={shareholder.guardianAddress?.rt || ''} 
+                      onChange={e => onChange({ guardianAddress: { ...(shareholder.guardianAddress || { fullAddress: '', rw: '', kelurahan: '', kecamatan: '', city: '', province: '' }), rt: e.target.value } })}
+                      placeholder="000"
+                      className="w-full px-3 py-1.5 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 mb-1">RW</label>
+                    <input 
+                      type="text" 
+                      value={shareholder.guardianAddress?.rw || ''} 
+                      onChange={e => onChange({ guardianAddress: { ...(shareholder.guardianAddress || { fullAddress: '', rt: '', kelurahan: '', kecamatan: '', city: '', province: '' }), rw: e.target.value } })}
+                      placeholder="000"
+                      className="w-full px-3 py-1.5 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm"
+                    />
+                  </div>
+                </div>
+                <div className="mt-3">
+                  <IndoRegionSelector 
+                    address={shareholder.guardianAddress || { fullAddress: '', rt: '', rw: '', kelurahan: '', kecamatan: '', city: '', province: '' }} 
+                    onUpdate={(upd) => onChange({ guardianAddress: { ...(shareholder.guardianAddress || { fullAddress: '', rt: '', rw: '', kelurahan: '', kecamatan: '', city: '', province: '' }), ...upd } })}
+                    hideStreetAndRT={true}
+                    disabled={disabled}
+                  />
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
       {!isBadanHukum && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
           <div>
@@ -1350,11 +1611,13 @@ const ShareholderForm: React.FC<Props> = ({
               address={shareholder.address} 
               onUpdate={updateAddress} 
               hideStreetAndRT={true}
+              disabled={disabled}
             />
           </div>
         </>
       )}
     </div>
+    </fieldset>
   );
 };
 

@@ -10300,6 +10300,22 @@ const App: React.FC = () => {
                   }
                 }}
                 onCancel={() => setEditingPendirianId(null)}
+                onDelete={async (id) => {
+                  if (confirm('Apakah Anda yakin ingin menghapus data pendirian ini?')) {
+                    try {
+                      await deleteDoc(doc(db, 'pendirian_projects', id));
+                      recordNotification(
+                        'Pendirian PT Dihapus',
+                        `Data Pendirian PT untuk perusahaan "${currentPendirianData?.namaPt || 'PT'}" telah berhasil dihapus oleh ${user?.email || 'Admin'}.`,
+                        'delete_pendirian'
+                      );
+                      setEditingPendirianId(null);
+                      alert('Data pendirian berhasil dihapus!');
+                    } catch (e) {
+                      handleFirestoreError(e, OperationType.DELETE, `pendirian_projects/${id}`);
+                    }
+                  }
+                }}
                 onShowPreview={(d) => {
                   const mapped = {
                     ...d,
@@ -10320,6 +10336,9 @@ const App: React.FC = () => {
                 onAdd={() => {
                   setEditingPendirianId('new');
                   updateData({ ...INITIAL_STATE } as any);
+                }}
+                onDownload={(rec) => {
+                  handlePendirianExportWord({ ...INITIAL_STATE, ...rec } as any);
                 }}
               />
             )

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Plus, Trash2, LayoutGrid, FileText, ArrowLeft, Edit, FileDown } from 'lucide-react';
+import { Search, Plus, Trash2, LayoutGrid, FileText, ArrowLeft, Edit, FileDown, ChevronDown } from 'lucide-react';
 import { collection, onSnapshot, query, doc, deleteDoc, updateDoc, setDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase'; // Adjust if path is different
 import { DocumentStatusBadge } from '../../components/DocumentStatusBadge';
@@ -7,9 +7,11 @@ import { DocumentStatusBadge } from '../../components/DocumentStatusBadge';
 const PendirianList: React.FC<{
   onEdit: (record: any) => void;
   onAdd: () => void;
-}> = ({ onEdit, onAdd }) => {
+  onDownload: (record: any) => void;
+}> = ({ onEdit, onAdd, onDownload }) => {
   const [listSearch, setListSearch] = useState('');
   const [records, setRecords] = useState<any[]>([]);
+  const [dropdownId, setDropdownId] = useState<string | null>(null);
 
   useEffect(() => {
     const q = query(collection(db, 'pendirian_projects'));
@@ -107,7 +109,7 @@ const PendirianList: React.FC<{
                   </tr>
                 ) : (
                   filtered.map((rec, idx) => (
-                    <tr key={rec.id} className="hover:bg-slate-50/50">
+                    <tr key={rec.id} className="hover:bg-slate-50/50 cursor-pointer" onClick={() => onEdit(rec)}>
                       <td className="px-4 py-3.5 text-center border-r border-slate-200 text-slate-500 font-bold">{idx + 1}</td>
                       <td className="px-4 py-3.5 border-r border-slate-200 font-bold text-[#0c2444] uppercase">{rec.namaPt || rec.companyName || '-'}</td>
                       <td className="px-4 py-3.5 border-r border-slate-200">{rec.kotaKedudukan || rec.domicile || '-'}</td>
@@ -117,13 +119,60 @@ const PendirianList: React.FC<{
                       <td className="px-4 py-3.5 border-r border-slate-200 text-center text-slate-400 font-mono text-[11px]">
                         {rec.updatedAt && !isNaN(new Date(rec.updatedAt).getTime()) ? new Date(rec.updatedAt).toLocaleDateString('id-ID') : '-'}
                       </td>
-                      <td className="px-4 py-3.5 text-center flex items-center justify-center gap-2">
-                        <button onClick={() => onEdit(rec)} className="p-1 px-2 bg-indigo-50 text-indigo-700 rounded text-xs font-bold border border-indigo-100 flex items-center gap-1">
-                          <Edit className="w-3.5 h-3.5" /> Edit
-                        </button>
-                        <button onClick={() => handleDelete(rec.id)} className="p-1.5 bg-red-50 text-red-650 rounded border border-red-100">
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                      <td className="px-4 py-3.5 text-center relative" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex justify-center items-center">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setDropdownId(dropdownId === rec.id ? null : rec.id);
+                            }}
+                            className={`px-3 py-1.5 rounded-md border text-[11px] font-bold uppercase transition-all shadow-sm flex items-center gap-1.5 ${
+                              dropdownId === rec.id ? 'bg-[#0c2444] text-white border-[#0c2444]' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:text-slate-800'
+                            }`}
+                          >
+                            <FileDown className="w-[14px] h-[14px] stroke-[2.25px]" /> Download <ChevronDown className={`w-3.5 h-3.5 transition-transform ${dropdownId === rec.id ? 'rotate-180' : ''}`} />
+                          </button>
+                        </div>
+                        {dropdownId === rec.id && (
+                          <div className="absolute right-4 top-13 bg-white border border-slate-200 shadow-xl rounded-xl py-1.5 w-[220px] z-50 text-left overflow-hidden animate-in fade-in slide-in-from-top-1 duration-100">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setDropdownId(null);
+                                onDownload(rec);
+                              }}
+                              className="w-full px-4 py-2 text-slate-700 hover:bg-slate-50 text-[11px] font-bold flex items-center gap-2.5 uppercase tracking-wide border-b border-slate-100"
+                            >
+                              <FileText className="w-[15px] h-[15px] text-blue-500 shrink-0" />
+                              <div className="flex flex-col text-left">
+                                <span className="leading-tight">Akta Pendirian</span>
+                                <span className="text-[9px] text-slate-400 lowercase font-medium mt-0.5">.docx</span>
+                              </div>
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setDropdownId(null);
+                                onEdit(rec);
+                              }}
+                              className="w-full px-4 py-2 text-slate-700 hover:bg-slate-50 text-[11px] font-bold flex items-center gap-2.5 uppercase tracking-wide border-b border-slate-100"
+                            >
+                              <Edit className="w-[15px] h-[15px] text-indigo-500 shrink-0" />
+                              <span className="leading-tight">Edit Data</span>
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setDropdownId(null);
+                                handleDelete(rec.id);
+                              }}
+                              className="w-full px-4 py-2 text-red-600 hover:bg-red-50 text-[11px] font-bold flex items-center gap-2.5 uppercase tracking-wide"
+                            >
+                              <Trash2 className="w-[15px] h-[15px] text-red-500 shrink-0" />
+                              <span className="leading-tight">Hapus Data</span>
+                            </button>
+                          </div>
+                        )}
                       </td>
                     </tr>
                   ))

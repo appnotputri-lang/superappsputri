@@ -213,7 +213,8 @@ export const IndoRegionSelector: React.FC<{
   onUpdate: (updates: Partial<Address>) => void;
   accentColor?: 'indigo' | 'slate' | 'teal' | 'blue' | 'rose';
   hideStreetAndRT?: boolean;
-}> = ({ address, onUpdate, accentColor = 'indigo', hideStreetAndRT = false }) => {
+  disabled?: boolean;
+}> = ({ address, onUpdate, accentColor = 'indigo', hideStreetAndRT = false, disabled = false }) => {
   const [provinces, setProvinces] = useState<{ id: string; name: string }[]>([]);
   const [regencies, setRegencies] = useState<{ id: string; name: string }[]>([]);
   const [districts, setDistricts] = useState<{ id: string; name: string }[]>([]);
@@ -290,25 +291,26 @@ export const IndoRegionSelector: React.FC<{
     <div className="space-y-4">
       {!hideStreetAndRT && (
         <>
-          <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm">
+          <div className="bg-white p-4 rounded-3xl border border-slate-200 shadow-sm">
             <label className="block text-xs font-bold text-slate-400 uppercase mb-2 px-1">Alamat Lengkap (Jalan / No / Blok)</label>
             <input 
               type="text" 
               value={address.fullAddress} 
               onChange={e => onUpdate({ fullAddress: e.target.value })}
               placeholder="CONTOH: JL. MERDEKA NO. 17 BLOK A"
-              className={`w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-4 ${focusRingClasses[accentColor].replace('focus:', 'focus:ring-')}/10 focus:border-slate-500 outline-none text-sm font-semibold transition-all`}
+              disabled={disabled}
+              className={`w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-4 ${focusRingClasses[accentColor].replace('focus:', 'focus:ring-')}/10 focus:border-slate-500 outline-none text-sm font-semibold transition-all ${disabled ? 'bg-slate-100 cursor-not-allowed opacity-80' : ''}`}
             />
           </div>
           
           <div className="grid grid-cols-2 gap-4">
             <div className="bg-white p-4 rounded-3xl border border-slate-200 shadow-sm">
               <label className="block text-xs font-bold text-slate-400 uppercase mb-2">RT</label>
-              <input type="text" value={address.rt} onChange={e => onUpdate({ rt: e.target.value })} placeholder="000" className={`w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-4 ${focusRingClasses[accentColor].replace('focus:', 'focus:ring-')}/10 outline-none text-sm font-bold`} />
+              <input type="text" value={address.rt} onChange={e => onUpdate({ rt: e.target.value })} placeholder="000" disabled={disabled} className={`w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-4 ${focusRingClasses[accentColor].replace('focus:', 'focus:ring-')}/10 outline-none text-sm font-bold ${disabled ? 'bg-slate-100 cursor-not-allowed opacity-80' : ''}`} />
             </div>
             <div className="bg-white p-4 rounded-3xl border border-slate-200 shadow-sm">
               <label className="block text-xs font-bold text-slate-400 uppercase mb-2">RW</label>
-              <input type="text" value={address.rw} onChange={e => onUpdate({ rw: e.target.value })} placeholder="000" className={`w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-4 ${focusRingClasses[accentColor].replace('focus:', 'focus:ring-')}/10 outline-none text-sm font-bold`} />
+              <input type="text" value={address.rw} onChange={e => onUpdate({ rw: e.target.value })} placeholder="000" disabled={disabled} className={`w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-4 ${focusRingClasses[accentColor].replace('focus:', 'focus:ring-')}/10 outline-none text-sm font-bold ${disabled ? 'bg-slate-100 cursor-not-allowed opacity-80' : ''}`} />
             </div>
           </div>
         </>
@@ -321,6 +323,7 @@ export const IndoRegionSelector: React.FC<{
             value={address.province}
             options={provinces}
             loading={loading.p}
+            disabled={disabled}
             placeholder="Pilih Provinsi"
             accentColor={accentColor}
             onChange={(opt) => {
@@ -334,7 +337,7 @@ export const IndoRegionSelector: React.FC<{
           <SearchableSelect 
             label="Kabupaten/Kota"
             value={address.city}
-            disabled={!ids.p}
+            disabled={disabled || !ids.p}
             options={regencies}
             placeholder="Pilih Kabupaten/Kota"
             accentColor={accentColor}
@@ -349,7 +352,7 @@ export const IndoRegionSelector: React.FC<{
           <SearchableSelect 
             label="Kecamatan"
             value={address.kecamatan}
-            disabled={!ids.r}
+            disabled={disabled || !ids.r}
             options={districts}
             placeholder="Pilih Kecamatan"
             accentColor={accentColor}
@@ -364,7 +367,7 @@ export const IndoRegionSelector: React.FC<{
           <SearchableSelect 
             label={villageLabel}
             value={address.kelurahan}
-            disabled={!ids.d}
+            disabled={disabled || !ids.d}
             options={villages}
             placeholder={`Pilih ${villageLabel}`}
             accentColor={accentColor}

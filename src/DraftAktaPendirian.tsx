@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { KbliItem, Shareholder, Address } from '../types';
 import { KBLI_DATA } from '../utils/kbliData';
-import { Eye, Printer, Users, Building2, Banknote, ChevronDown, ChevronRight, Search, Trash2, Plus, User, MapPin, Briefcase, IdCard, ShieldCheck, ArrowRight, Save } from 'lucide-react';
+import { Eye, Printer, Users, Building2, Banknote, ChevronDown, ChevronRight, Search, Trash2, Plus, User, MapPin, Briefcase, IdCard, ShieldCheck, ArrowRight, Save, Edit, FileText } from 'lucide-react';
 import { Modal } from '../components/Modal';
 import ShareholderForm from '../components/ShareholderForm';
 import { IndoRegionSelector } from '../components/AddressFields';
@@ -98,6 +98,7 @@ interface DraftAktaPendirianProps {
   initialData?: PendirianData | null;
   onSave?: (data: PendirianData) => void;
   onCancel?: () => void;
+  onDelete?: (id: string) => void;
   isSaving?: boolean;
   onChange?: (data: PendirianData) => void;
   autoSaveIndicator?: React.ReactNode;
@@ -110,6 +111,7 @@ export default function DraftAktaPendirian({
   initialData, 
   onSave, 
   onCancel,
+  onDelete,
   isSaving = false,
   onChange,
   autoSaveIndicator
@@ -162,6 +164,17 @@ export default function DraftAktaPendirian({
       ]
     };
   });
+
+  const [isReadOnly, setIsReadOnly] = useState(initialData !== null);
+
+  const handleCancelEdit = () => {
+    if (initialData) {
+      setData({ ...initialData });
+      setIsReadOnly(true);
+    } else {
+      if (onCancel) onCancel();
+    }
+  };
 
   React.useEffect(() => {
     if (onChange) {
@@ -328,44 +341,66 @@ export default function DraftAktaPendirian({
         </div>
         <div className="flex gap-3 items-center flex-wrap">
           {autoSaveIndicator}
-          {onCancel && (
-            <button 
-              type="button" 
-              onClick={onCancel}
-              className="px-3 py-1.5 bg-slate-100 text-slate-700 text-sm font-bold rounded shadow hover:bg-slate-200 flex items-center gap-2"
-            >
-              <ArrowRight className="w-4 h-4 rotate-180" /> Kembali
-            </button>
+          {isReadOnly ? (
+            <>
+              {onCancel && (
+                <button 
+                  type="button" 
+                  onClick={onCancel}
+                  className="px-3 py-1.5 bg-slate-100 text-slate-700 text-sm font-bold rounded shadow hover:bg-slate-200 flex items-center gap-2 transition-all"
+                >
+                  <ArrowRight className="w-4 h-4 rotate-180" /> Kembali
+                </button>
+              )}
+              <button 
+                type="button" 
+                onClick={() => onExportWord(data, 'pendirian')}
+                className="px-3 py-1.5 bg-[#00a65a] text-white text-sm font-bold rounded shadow hover:bg-[#008d4c] flex items-center gap-2 transition-all"
+              >
+                <Printer className="w-4 h-4" /> Download Akta
+              </button>
+              <button 
+                type="button" 
+                onClick={() => setIsReadOnly(false)}
+                className="px-3 py-1.5 bg-indigo-600 text-white text-sm font-bold rounded shadow hover:bg-indigo-700 flex items-center gap-2 transition-all"
+              >
+                <Edit className="w-4 h-4" /> Edit
+              </button>
+              {onDelete && initialData && (initialData as any).id && (
+                <button 
+                  type="button" 
+                  onClick={() => onDelete((initialData as any).id)}
+                  className="px-3 py-1.5 bg-red-600 text-white text-sm font-bold rounded shadow hover:bg-red-700 flex items-center gap-2 transition-all"
+                >
+                  <Trash2 className="w-4 h-4" /> Hapus
+                </button>
+              )}
+            </>
+          ) : (
+            <>
+              <button 
+                type="button" 
+                onClick={handleCancelEdit}
+                className="px-3 py-1.5 bg-slate-100 text-slate-700 text-sm font-bold rounded shadow hover:bg-slate-200 flex items-center gap-2 transition-all"
+              >
+                <ArrowRight className="w-4 h-4 rotate-180" /> Batal
+              </button>
+              {onSave && (
+                <button 
+                  type="button" 
+                  disabled={isSaving}
+                  onClick={() => onSave(data)}
+                  className="px-3 py-1.5 bg-[#3b5998] text-white text-sm font-bold rounded shadow hover:bg-[#2d4373] flex items-center gap-2 disabled:opacity-50 transition-all"
+                >
+                  <Save className="w-4 h-4" /> {isSaving ? 'Menyimpan...' : 'Simpan'}
+                </button>
+              )}
+            </>
           )}
-
-          {onSave && (
-            <button 
-              type="button" 
-              disabled={isSaving}
-              onClick={() => onSave(data)}
-              className="px-3 py-1.5 bg-[#3b5998] text-white text-sm font-bold rounded shadow hover:bg-[#2d4373] flex items-center gap-2 disabled:opacity-50"
-            >
-              <Save className="w-4 h-4" /> {isSaving ? 'Menyimpan...' : 'Simpan'}
-            </button>
-          )}
-
-          <button 
-            type="button" 
-            onClick={() => onShowPreview(data, 'pendirian')}
-            className="px-3 py-1.5 bg-[#f39c12] text-white text-sm font-bold rounded shadow hover:bg-[#e67e22] flex items-center gap-2"
-          >
-            <Eye className="w-4 h-4" /> Preview
-          </button>
-          <button 
-            type="button" 
-            onClick={() => onExportWord(data, 'pendirian')}
-            className="px-3 py-1.5 bg-[#00a65a] text-white text-sm font-bold rounded shadow hover:bg-[#008d4c] flex items-center gap-2"
-          >
-            <Printer className="w-4 h-4" /> Export DOCX
-          </button>
         </div>
       </div>
 
+      <fieldset disabled={isReadOnly} className="contents">
       <div className="grid grid-cols-1 gap-4">
         {/* STATUS DOKUMEN */}
         <AhuSection title="Status Dokumen">
@@ -671,9 +706,23 @@ export default function DraftAktaPendirian({
                          <td className="p-2 border-r border-slate-200 font-bold uppercase">{s.isManagement ? (s.managementPosition || 'DIREKTUR') : '-'}</td>
                          <td className="p-2 border-r border-slate-200">Rp. {formatInputNumber(s.sharesOwned * data.nilaiPerLembar)}</td>
                          <td className="p-2 text-center text-blue-600 flex items-center justify-center gap-2">
-                           <button type="button" onClick={() => openShareholderEditor(s)} className="hover:underline flex items-center gap-0.5"><Eye className="w-3 h-3" /> Edit</button>
-                           <span className="text-slate-300">|</span>
-                           <button type="button" onClick={() => updateData('shareholders', data.shareholders.filter(sh => sh.id !== s.id))} className="hover:underline text-red-500 flex items-center gap-0.5"><Trash2 className="w-3 h-3" /> Hapus</button>
+                           <span 
+                             onClick={() => openShareholderEditor(s)} 
+                             className="hover:underline flex items-center gap-0.5 cursor-pointer text-blue-600"
+                           >
+                             <Eye className="w-3 h-3" /> {isReadOnly ? 'Lihat' : 'Edit'}
+                           </span>
+                           {!isReadOnly && (
+                             <>
+                               <span className="text-slate-300">|</span>
+                               <span 
+                                 onClick={() => updateData('shareholders', data.shareholders.filter(sh => sh.id !== s.id))} 
+                                 className="hover:underline text-red-500 flex items-center gap-0.5 cursor-pointer"
+                               >
+                                 <Trash2 className="w-3 h-3" /> Hapus
+                               </span>
+                             </>
+                           )}
                          </td>
                        </tr>
                     ))}
@@ -697,6 +746,7 @@ export default function DraftAktaPendirian({
           </div>
         </AhuSection>
       </div>
+      </fieldset>
 
       <Modal
         isOpen={Boolean(editingShareholder)}
@@ -724,6 +774,7 @@ export default function DraftAktaPendirian({
                 hideFinancials={false} 
                 hideManagement={false} 
                 profiles={profiles}
+                disabled={isReadOnly}
               />
             </div>
           )}
@@ -732,18 +783,20 @@ export default function DraftAktaPendirian({
                 onClick={() => setEditingShareholder(null)} 
                 className="px-6 py-2 border border-slate-300 text-slate-700 font-bold rounded-sm text-sm hover:bg-slate-50 transition-colors uppercase"
              >
-                Batal
+                {isReadOnly ? 'Tutup' : 'Batal'}
              </button>
-             <button 
-                onClick={() => {
-                  if (editingShareholder) {
-                    handleShareholderSave(editingShareholder);
-                  }
-                }} 
-                className="px-6 py-2 bg-[#222d32] text-white font-bold rounded-sm shadow-md text-sm hover:bg-black transition-colors uppercase flex items-center gap-2"
-             >
-                <Save className="w-4 h-4" /> Simpan Data
-             </button>
+             {!isReadOnly && (
+               <button 
+                  onClick={() => {
+                    if (editingShareholder) {
+                      handleShareholderSave(editingShareholder);
+                    }
+                  }} 
+                  className="px-6 py-2 bg-[#222d32] text-white font-bold rounded-sm shadow-md text-sm hover:bg-black transition-colors uppercase flex items-center gap-2"
+               >
+                  <Save className="w-4 h-4" /> Simpan Data
+               </button>
+             )}
           </div>
         </div>
       </Modal>
