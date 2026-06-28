@@ -241,7 +241,7 @@ async function startServer() {
   });
 
   app.get("/api/template-pendirian", (req, res) => {
-    const filePath = path.join(process.cwd(), "template_pendirian.docx");
+    const filePath = path.join(process.cwd(), "public", "template_pendirian.docx");
     res.sendFile(filePath, (err) => {
       if (err) {
         console.error("Failed to send template:", err);

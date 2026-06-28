@@ -656,8 +656,8 @@ export const generatePendirianDocx = async (data: any): Promise<void> => {
     throw new Error("Data pendirian tidak boleh kosong");
   }
 
-  // 1. Fetch master template (served from /api/template-pendirian or local for testing)
-  const response = await fetch("/api/template-pendirian");
+  // 1. Fetch master template (served from /template_pendirian.docx as static asset)
+  const response = await fetch("/template_pendirian.docx");
   if (!response.ok) {
     throw new Error(`Gagal memuat template master: ${response.status}`);
   }
