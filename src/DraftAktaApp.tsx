@@ -23,6 +23,7 @@ export const getTransferData = (transfer: ShareTransfer, companyData: CompanyDat
   const nextData = { ...baseData };
   if (transfer.type) {
       nextData.tipeAkta = transfer.type === 'Hibah' ? 'Hibah' : 'Jual Beli';
+      nextData.judulAkta = transfer.type === 'Hibah' ? 'Akta Hibah Saham' : 'Akta Jual Beli Saham';
   }
   if (transfer.sharesTransferred) {
       nextData.jumlahSahamHibah = transfer.sharesTransferred.toString();
@@ -250,7 +251,13 @@ const DraftAktaApp = forwardRef<DraftAktaAppRef, DraftAktaAppProps>(({ companyDa
             </div>
             
             <div className="w-full max-w-4xl mx-auto pl-4">
-              <FormContent data={currentData} onChange={(e) => handleChange(transfer.id, e)} integrated={true} />
+              <FormContent 
+                data={currentData} 
+                onChange={(e) => handleChange(transfer.id, e)} 
+                integrated={true} 
+                companyData={companyData}
+                transferId={transfer.id}
+              />
             </div>
           </div>
         );

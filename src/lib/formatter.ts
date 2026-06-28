@@ -435,7 +435,7 @@ export function preprocessBlocksForWordBullets(blocks: any[]): any[] {
       continue;
     }
 
-    const hasManualBullets = block.runs.some((run: any) => run && run.text && run.text.includes("\n-"));
+    const hasManualBullets = block.runs.some((run: any) => run && run.text && /\r?\n\s*-\s*/.test(run.text));
 
     if (!hasManualBullets) {
       result.push(block);
@@ -448,13 +448,13 @@ export function preprocessBlocksForWordBullets(blocks: any[]): any[] {
 
     for (const run of block.runs) {
       const text = run.text || "";
-      if (!text.includes("\n-")) {
+      if (!/\r?\n\s*-\s*/.test(text)) {
         currentBlock.runs.push(run);
         continue;
       }
 
       // Split the text of this run!
-      const parts = text.split(/\r?\n-\s*/);
+      const parts = text.split(/\r?\n\s*-\s*/);
       
       // Clean up parent run's trailing manual hyphens when splitting
       let firstPart = parts[0];
@@ -468,15 +468,18 @@ export function preprocessBlocksForWordBullets(blocks: any[]): any[] {
         currentBlock.runs.push({ ...run, text: firstPart });
       }
 
+      // Determine the next block's indentTabs or standard levels.
+      // If currentBlock is already a list, make the nested sub-bullet deeper than parent.
+      let nextBlockIndent = 1.0;
+      if (currentBlock.type === "list") {
+        nextBlockIndent = ((currentBlock as any).indentTabs || 1.0) + 0.5;
+      } else if (block.type === "list") {
+        nextBlockIndent = (block.indentTabs || 1.0) + 0.5;
+      }
+
       for (let i = 1; i < parts.length; i++) {
         const cleanText = parts[i].trim();
         if (!cleanText) continue;
-
-        // Determine the next block's indentTabs or standard levels.
-        // If parent block is already a list, make the nested sub-bullet deeper than parent.
-        const nextBlockIndent = block.type === "list"
-          ? (block.indentTabs || 1.0) + 0.5
-          : 1.0; // standard bullet indented slightly inside paragraph
 
         currentBlock = {
           type: "list",

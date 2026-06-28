@@ -188,7 +188,7 @@ function adjustNumbering(clonedP: Element, block: any, currentNumId: string): vo
         let ind = getSingleElement(pPr, "ind");
         if (!ind) {
           ind = clonedP.ownerDocument.createElementNS(W_NS, "w:ind");
-          pPr.appendChild(ind);
+          insertIndInOrder(pPr, ind);
         }
         if (block.kbliDesc) {
           ind.setAttribute("w:left", "567");
@@ -225,16 +225,29 @@ function adjustNumbering(clonedP: Element, block: any, currentNumId: string): vo
     clonedP.insertBefore(pPr, clonedP.firstChild);
   }
 
-  // If block.type === "numbered" with indentTabs, override the indentation
-  if (block.type === "numbered" && block.indentTabs) {
+  // If block.type === "numbered" or block.type === "list" with indentTabs, override the indentation
+  if ((block.type === "numbered" || block.type === "list") && block.indentTabs !== undefined) {
     let ind = getSingleElement(pPr, "ind");
     if (!ind) {
       ind = clonedP.ownerDocument.createElementNS(W_NS, "w:ind");
-      pPr.appendChild(ind);
+      insertIndInOrder(pPr, ind);
     }
-    const leftIndent = 284 + (block.indentTabs * 283);
-    ind.setAttribute("w:left", leftIndent.toString());
-    ind.setAttribute("w:hanging", "284");
+    let leftDxa = 284 + Math.round(block.indentTabs * 283);
+    let hangingDxa = 284;
+    
+    if (block.type === "list") {
+      hangingDxa = 283;
+      if (block.indentTabs <= 1.0) {
+        leftDxa = 567;
+      } else if (block.indentTabs > 1.0 && block.indentTabs < 1.9) {
+        leftDxa = 851;
+      } else {
+        leftDxa = 1134;
+      }
+    }
+    
+    ind.setAttribute("w:left", leftDxa.toString());
+    ind.setAttribute("w:hanging", hangingDxa.toString());
   }
 
   // Ensure numPr exists
@@ -259,14 +272,51 @@ function adjustNumbering(clonedP: Element, block: any, currentNumId: string): vo
     numPr.appendChild(ilvlEl);
   }
 
-  if (block.type === "sub-numbered" || (block.type === "list" && (block.indentTabs || 0) > 0)) {
+  if (block.type === "sub-numbered") {
     ilvlEl.setAttribute("w:val", "1");
+  } else if (block.type === "list") {
+    if (block.indentTabs !== undefined) {
+      if (block.indentTabs >= 1.9) {
+        ilvlEl.setAttribute("w:val", "2");
+      } else if (block.indentTabs > 1.0) {
+        ilvlEl.setAttribute("w:val", "1");
+      } else {
+        ilvlEl.setAttribute("w:val", "0");
+      }
+    } else {
+      ilvlEl.setAttribute("w:val", "0");
+    }
   } else {
     ilvlEl.setAttribute("w:val", "0");
   }
 }
 
 // -------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------
+// Helper to insert <w:ind> in the correct order inside <w:pPr> (OOXML schema-compliant)
+// -------------------------------------------------------------------------------------
+function insertIndInOrder(pPr: Element, ind: Element): void {
+  const afterTags = ["contextualSpacing", "mirrorIndents", "shd", "rPr", "sectPr", "pPrChange"];
+  let insertBeforeNode: Node | null = null;
+  
+  for (const child of Array.from(pPr.childNodes)) {
+    if (child.nodeType === 1) {
+      const el = child as Element;
+      const localName = el.localName || el.tagName.replace(/^w:/, "");
+      if (afterTags.includes(localName)) {
+        insertBeforeNode = child;
+        break;
+      }
+    }
+  }
+  
+  if (insertBeforeNode) {
+    pPr.insertBefore(ind, insertBeforeNode);
+  } else {
+    pPr.appendChild(ind);
+  }
+}
+
 // Helper to insert <w:tabs> in the correct order inside <w:pPr> (OOXML schema-compliant)
 // -------------------------------------------------------------------------------------
 function insertTabsInOrder(pPr: Element, tabs: Element): void {
@@ -407,6 +457,10 @@ function getMaxWidthForBlock(block: any): number {
     case "sub-numbered":
       return 40.0;
     case "list":
+      if (block.indentTabs !== undefined) {
+        if (block.indentTabs >= 1.9) return 34.0;
+        if (block.indentTabs > 1.0) return 38.0;
+      }
       return 42.0;
     case "management-role":
       return 42.0;

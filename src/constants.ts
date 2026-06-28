@@ -13,6 +13,8 @@ export type AktaPerubahan = {
 export const initialData = {
   // Data Akta
   nomorAkta: '05',
+  nomorUrut: '1',
+  judulAkta: 'Peralihan Hak Atas Saham',
   tanggalAkta: '2026-05-08',
   jamAkta: '13:30',
   notarisNama: 'NUKANTINI PUTRI PARINCHA, Sarjana Hukum, Magister Kenotariatan',
@@ -108,7 +110,10 @@ export const initialData = {
   saksi2Nama: 'Siti Nur Azizah',
   saksi2Lahir: 'Bandung, pada tanggal tujuh belas Desember seribu sembilan ratus sembilan puluh sembilan (17-12-1999)',
   saksi2Alamat: 'Kabupaten Bandung, Jalan Lembah Pakar Timur II Kampung Sekebuluh Rukun Tetangga 001, Rukun Warga 004, Desa Ciburial, Kecamatan Cimenyan',
-  saksi2NIK: '3204065712990001'
+  saksi2NIK: '3204065712990001',
+  // Peran Penghadap (Aplikasi Utama)
+  appearer1Role: 'Self',
+  appearer2Role: 'Self',
 };
 
 export type FormData = typeof initialData;

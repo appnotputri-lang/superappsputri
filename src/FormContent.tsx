@@ -1,13 +1,20 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { FormData } from './constants';
 import { RegionSelects } from './components/RegionSelects';
-import { ChevronDown, ChevronUp, Trash2, Plus } from 'lucide-react';
+import { ChevronDown, ChevronUp, Trash2, Plus, Save, Loader2, RefreshCw } from 'lucide-react';
 import { formatNumber, parseNumber } from './lib/formatter';
+import { dbUtama } from './lib/firebaseUtama';
+import { collection, getDocs, addDoc } from 'firebase/firestore';
+import { CompanyData } from '../types';
+import { fetchLatestDeedNumbers } from './lib/deedUtils';
+import { syncToUtama, generateRandomId } from './lib/syncUtama';
 
 interface FormContentProps {
   data: FormData;
   onChange: (e: { target: { name: string; value: any } }) => void;
   integrated?: boolean;
+  companyData?: CompanyData;
+  transferId?: string;
 }
 
 export const Section = ({ title, defaultOpen = true, children }: { title: string, defaultOpen?: boolean, children: React.ReactNode }) => {
@@ -52,11 +59,136 @@ export const Select = ({ className, ...props }: React.SelectHTMLAttributes<HTMLS
   </select>
 );
 
+const AhuLabel = ({ label, required = false }: { label: string, required?: boolean }) => (
+  <label className="block text-sm text-gray-700 font-medium mb-1">
+    {label} {required && <span className="text-red-500">*</span>}
+  </label>
+);
+
+const AhuInput = ({ className = "", ...props }: React.InputHTMLAttributes<HTMLInputElement>) => (
+  <input 
+    {...props} 
+    className={`w-full px-4 py-2.5 rounded border border-gray-300 bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-sm transition-all ${className}`} 
+  />
+);
+
 export const TextArea = ({ className, ...props }: React.TextareaHTMLAttributes<HTMLTextAreaElement>) => (
   <textarea {...props} className={`w-full px-4 py-2.5 rounded border border-gray-300 bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-sm transition-all min-h-[100px] ${className || ''}`} />
 );
 
-export const FormContent: React.FC<FormContentProps> = ({ data, onChange, integrated = false }) => {
+export const FormContent: React.FC<FormContentProps> = ({ data, onChange, integrated = false, companyData, transferId }) => {
+  const [isSaving, setIsSaving] = useState(false);
+  const [isFetchingNumbers, setIsFetchingNumbers] = useState(false);
+
+  useEffect(() => {
+    if (integrated) {
+      handleFetchLatestNumbers(data.tanggalAkta, true);
+    }
+  }, []);
+
+  const handleFetchLatestNumbers = async (targetDate: string, auto = false) => {
+    setIsFetchingNumbers(true);
+    try {
+      const numbers = await fetchLatestDeedNumbers(targetDate);
+      
+      // If auto-fetch, only fill if current values are default or empty
+      if (auto) {
+        if (numbers.nextDeedNumber && (data.nomorAkta === '' || data.nomorAkta === '05')) {
+          onChange({ target: { name: 'nomorAkta', value: numbers.nextDeedNumber } });
+        }
+        if (numbers.nextOrderNumber && (data.nomorUrut === '' || data.nomorUrut === '1')) {
+          onChange({ target: { name: 'nomorUrut', value: numbers.nextOrderNumber } });
+        }
+      } else {
+        // Manual fetch: always update
+        onChange({ target: { name: 'nomorAkta', value: numbers.nextDeedNumber } });
+        onChange({ target: { name: 'nomorUrut', value: numbers.nextOrderNumber } });
+      }
+    } catch (error) {
+      console.error("Error fetching latest numbers:", error);
+      if (!auto) alert("Gagal mengambil nomor terbaru.");
+    } finally {
+      setIsFetchingNumbers(false);
+    }
+  };
+
+  const simpanKeUtama = async () => {
+    setIsSaving(true);
+    try {
+      // Re-fetch latest numbers just in case to ensure accuracy before save
+      const numbers = await fetchLatestDeedNumbers(data.tanggalAkta);
+      
+      const generatedDeedNumber = numbers.nextDeedNumber;
+      const generatedOrderNumber = numbers.nextOrderNumber;
+
+      // Format appearers
+      const appearers: any[] = [];
+
+      // Find parties in companyData if available
+      const transfer = companyData?.shareTransfers.find(t => t.id === transferId);
+      const fromSh = companyData?.shareholders.find(s => s.id === transfer?.fromShareholderId);
+      const toSh = companyData?.shareholders.find(s => s.id === transfer?.toShareholderId) || companyData?.finalShareholders?.find(s => s.id === transfer?.toShareholderId);
+
+      // Appearer 1: Pihak Pertama
+      const p1Grantors = [];
+      if ((data.appearer1Role === 'Proxy' || data.appearer1Role === 'SelfAndProxy') && fromSh) {
+        p1Grantors.push({ id: generateRandomId(), name: fromSh.name });
+      }
+
+      appearers.push({
+        id: generateRandomId(),
+        name: data.pihak1Nama,
+        role: data.appearer1Role,
+        grantors: p1Grantors
+      });
+
+      // Appearer 2: Pihak Kedua
+      const p2Grantors = [];
+      if ((data.appearer2Role === 'Proxy' || data.appearer2Role === 'SelfAndProxy') && toSh) {
+        p2Grantors.push({ id: generateRandomId(), name: toSh.name });
+      }
+
+      appearers.push({
+        id: generateRandomId(),
+        name: data.pihak2Nama,
+        role: data.appearer2Role,
+        grantors: p2Grantors
+      });
+
+      // Appearer 3: Spouse (if consent)
+      if (data.pihak1StatusPersetujuan === 'Suami' || data.pihak1StatusPersetujuan === 'Istri') {
+        appearers.push({
+          id: generateRandomId(),
+          name: data.suamiNama,
+          role: 'Self',
+          grantors: []
+        });
+      }
+
+      const syncPayload = {
+        orderNumber: generatedOrderNumber,
+        deedNumber: generatedDeedNumber,
+        clientName: data.namaPT,
+        deedDate: data.tanggalAkta,
+        deedTitle: data.judulAkta,
+        appearers: appearers
+      };
+
+      await syncToUtama(syncPayload);
+      
+      // Update form numbers to reflect what was actually saved
+      onChange({ target: { name: 'nomorAkta', value: generatedDeedNumber } });
+      onChange({ target: { name: 'nomorUrut', value: generatedOrderNumber } });
+
+      alert(`Data berhasil disimpan ke Aplikasi Utama!\nNomor Akta: ${generatedDeedNumber}\nNomor Urut: ${generatedOrderNumber}`);
+    } catch (error) {
+      console.error("Error saving to dbUtama:", error);
+      alert("Gagal menyimpan data: " + (error instanceof Error ? error.message : "Terjadi kesalahan"));
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const handleLocalChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     let actualValue: any = value;
@@ -167,14 +299,48 @@ export const FormContent: React.FC<FormContentProps> = ({ data, onChange, integr
       {/* 1. DATA AKTA */}
       <Section title="Data Akta" defaultOpen={true}>
         <div className="flex flex-col">
-          <FieldRow label="Nomor Akta">
-            <Input name="nomorAkta" value={data.nomorAkta} onChange={onChange} />
-          </FieldRow>
+          <div className="flex gap-4">
+            <div className="flex-[2]">
+              <FieldRow label="Judul Akta">
+                <Input name="judulAkta" value={data.judulAkta || ''} onChange={onChange} placeholder="Contoh: Akta Jual Beli Saham" />
+              </FieldRow>
+            </div>
+            <div className="flex-1">
+              <AhuLabel label="Nomor Akta" />
+              <div className="flex gap-2">
+                <AhuInput name="nomorAkta" value={data.nomorAkta || ''} onChange={onChange} />
+                <button
+                  type="button"
+                  onClick={() => handleFetchLatestNumbers(data.tanggalAkta)}
+                  disabled={isFetchingNumbers}
+                  className="p-2 bg-[#3b5998] hover:bg-[#2d4373] text-white rounded-sm transition-all disabled:opacity-50"
+                  title="Ambil Nomor Terakhir"
+                >
+                  {isFetchingNumbers ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
+                </button>
+              </div>
+            </div>
+            <div className="flex-1">
+              <AhuLabel label="Nomor Urut" />
+              <div className="flex gap-2">
+                <AhuInput name="nomorUrut" value={data.nomorUrut || ''} onChange={onChange} />
+                <button
+                  type="button"
+                  onClick={() => handleFetchLatestNumbers(data.tanggalAkta)}
+                  disabled={isFetchingNumbers}
+                  className="p-2 bg-[#3b5998] hover:bg-[#2d4373] text-white rounded-sm transition-all disabled:opacity-50"
+                  title="Ambil Nomor Terakhir"
+                >
+                  {isFetchingNumbers ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
+                </button>
+              </div>
+            </div>
+          </div>
           <FieldRow label="Tanggal Akta">
-            <Input name="tanggalAkta" type="date" value={data.tanggalAkta} onChange={onChange} />
+            <Input name="tanggalAkta" type="date" value={data.tanggalAkta || ''} onChange={onChange} />
           </FieldRow>
           <FieldRow label="Jam">
-            <Input name="jamAkta" type="time" value={data.jamAkta} onChange={onChange} />
+            <Input name="jamAkta" type="time" value={data.jamAkta || ''} onChange={onChange} />
           </FieldRow>
         </div>
       </Section>
@@ -310,6 +476,16 @@ export const FormContent: React.FC<FormContentProps> = ({ data, onChange, integr
                 </div>
               </FieldRow>
               <RegionSelects prefix="pihak1" data={data} onChange={(e) => handleLocalChange({ target: e.target } as any)} FieldRow={FieldRow} Select={Select} />
+          
+          <div className="mt-4 p-4 bg-slate-50 border border-slate-200 rounded-md">
+            <FieldRow label="Bertindak Sebagai (Opsi Utama)">
+              <Select name="appearer1Role" value={data.appearer1Role} onChange={onChange}>
+                <option value="Self">Diri Sendiri (Self)</option>
+                <option value="Proxy">Kuasa (Proxy)</option>
+                <option value="SelfAndProxy">Diri Sendiri & Kuasa (SelfAndProxy)</option>
+              </Select>
+            </FieldRow>
+          </div>
             </>
           )}
 
@@ -431,6 +607,16 @@ export const FormContent: React.FC<FormContentProps> = ({ data, onChange, integr
             </div>
           </FieldRow>
           <RegionSelects prefix="pihak2" data={data} onChange={(e) => handleLocalChange({ target: e.target } as any)} FieldRow={FieldRow} Select={Select} />
+
+          <div className="mt-4 p-4 bg-slate-50 border border-slate-200 rounded-md">
+            <FieldRow label="Bertindak Sebagai (Opsi Utama)">
+              <Select name="appearer2Role" value={data.appearer2Role} onChange={onChange}>
+                <option value="Self">Diri Sendiri (Self)</option>
+                <option value="Proxy">Kuasa (Proxy)</option>
+                <option value="SelfAndProxy">Diri Sendiri & Kuasa (SelfAndProxy)</option>
+              </Select>
+            </FieldRow>
+          </div>
         </div>
       </Section>
       )}
@@ -486,6 +672,23 @@ export const FormContent: React.FC<FormContentProps> = ({ data, onChange, integr
           </FieldRow>
         </div>
       </Section>
+
+      {integrated && (
+        <div className="mt-8 flex justify-center pb-12">
+          <button 
+            onClick={simpanKeUtama}
+            disabled={isSaving}
+            className="w-full max-w-md bg-green-600 hover:bg-green-700 text-white font-bold py-4 px-6 rounded-xl shadow-lg flex items-center justify-center gap-3 transition-all transform hover:scale-[1.02] active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed"
+          >
+            {isSaving ? (
+              <Loader2 className="animate-spin" size={20} />
+            ) : (
+              <Save size={20} />
+            )}
+            SIMPAN KE APLIKASI UTAMA
+          </button>
+        </div>
+      )}
 
     </div>
   );

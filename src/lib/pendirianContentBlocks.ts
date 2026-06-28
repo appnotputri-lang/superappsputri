@@ -72,6 +72,7 @@ export interface PendirianData {
   namaPt: string;
   tanggal: string;
   waktu: string;
+  nomorAkta?: string;
   notarisNamaSurat?: string;
   notarisTempat?: string;
   kotaKedudukan?: string;
@@ -170,7 +171,7 @@ export function generatePendirianBlocks(data: PendirianData): Block[] {
   blocks.push(
     { type: "p", align: "center", runs: [{ text: "PENDIRIAN PERSEROAN TERBATAS", bold: true }] },
     { type: "p", align: "center", runs: [{ text: `PT. ${cleanNamaPt}`, bold: true }] },
-    { type: "p", align: "center", runs: [{ text: "Nomor : " }] },
+    { type: "p", align: "center", runs: [{ text: `Nomor : ${data.nomorAkta || "............................"}` }] },
   );
 
   // ── OPENING ─────────────────────────────────────────────────────────────
@@ -218,6 +219,8 @@ export function generatePendirianBlocks(data: PendirianData): Block[] {
 
     let customRuns: Run[] | undefined = undefined;
 
+    let repDetailsStr: string | undefined = undefined;
+
     if (isBH) {
       // Determine representative position: "Direktur Utama" if no "Direktur" is present in the structure
       const repPosition = (p as any).representativePosition;
@@ -246,6 +249,7 @@ export function generatePendirianBlocks(data: PendirianData): Block[] {
       };
       
       const repDetails = formatPersonDetails(repPerson as any, formatDateStr(repPerson.birthDate), dateToWords(repPerson.birthDate), true);
+      repDetailsStr = repDetails;
       const ptDetails = formatPersonDetails(p as any, tglLahirAngka, tglLahirHuruf, true);
       
       namePrefix = `${repSal} `;
@@ -271,6 +275,7 @@ export function generatePendirianBlocks(data: PendirianData): Block[] {
       nameText,
       details,
       isBH,
+      repDetails: repDetailsStr,
       customRuns
     };
   });
@@ -288,10 +293,8 @@ export function generatePendirianBlocks(data: PendirianData): Block[] {
 
   // ── TEMPORARY DOMICILE CLAUSE (Untuk sementara...) ─────────────────────
   const outsideCount = shareholderDetails.filter(sd => {
-    if (sd.isBH) return false;
-    
     // Extract city name directly from formatted "bertempat tinggal di [city]," text to ensure perfect sync
-    const detailsStr = sd.details;
+    const detailsStr = sd.isBH ? (sd.repDetails || "") : sd.details;
     const marker = "bertempat tinggal di ";
     const markerIdx = detailsStr.indexOf(marker);
     if (markerIdx === -1) return false;

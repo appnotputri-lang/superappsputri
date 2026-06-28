@@ -1,13 +1,14 @@
 import React, { useState, useMemo } from 'react';
 import { KbliItem, Shareholder, Address } from '../types';
 import { KBLI_DATA } from '../utils/kbliData';
-import { Eye, Printer, Users, Building2, Banknote, ChevronDown, ChevronRight, Search, Trash2, Plus, User, MapPin, Briefcase, IdCard, ShieldCheck, ArrowRight, Save, Edit, FileText } from 'lucide-react';
+import { Eye, Printer, Users, Building2, Banknote, ChevronDown, ChevronRight, Search, Trash2, Plus, User, MapPin, Briefcase, IdCard, ShieldCheck, ArrowRight, Save, Edit, FileText, RefreshCw, Loader2 } from 'lucide-react';
 import { Modal } from '../components/Modal';
 import ShareholderForm from '../components/ShareholderForm';
 import { IndoRegionSelector } from '../components/AddressFields';
 import { searchShareholderByNIKClient } from './lib/firebase';
 import { documentStatusOptions } from '../components/DocumentStatusBadge';
 import { formatInputNumber, parseFormattedNumber } from '../utils/formatters';
+import { fetchLatestDeedNumbers } from './lib/deedUtils';
 
 const AhuSection = ({ title, children, isOpen = true }: { title: string, children: React.ReactNode, isOpen?: boolean }) => {
   const [open, setOpen] = useState(isOpen);
@@ -68,6 +69,9 @@ export interface PendirianData {
   kuotaWaktuDireksi: string; 
   tanggal: string;
   waktu: string;
+  nomorAkta: string;
+  nomorUrut: string;
+  selectedProfileId?: string;
   notarisTempat: string;
   notarisNamaSurat: string;
   kbliItems: KbliItem[];
@@ -100,6 +104,8 @@ interface DraftAktaPendirianProps {
   onCancel?: () => void;
   onDelete?: (id: string) => void;
   isSaving?: boolean;
+  isSyncing?: boolean;
+  onSync?: (data: PendirianData) => void;
   onChange?: (data: PendirianData) => void;
   autoSaveIndicator?: React.ReactNode;
 }
@@ -113,11 +119,13 @@ export default function DraftAktaPendirian({
   onCancel,
   onDelete,
   isSaving = false,
+  isSyncing = false,
+  onSync,
   onChange,
   autoSaveIndicator
 }: DraftAktaPendirianProps) {
   const [data, setData] = useState<PendirianData>(() => {
-    if (initialData) return { ...initialData };
+    if (initialData) return { nomorAkta: '', nomorUrut: '', ...initialData };
     return {
       namaPt: '',
       kotaKedudukan: '',
@@ -125,6 +133,8 @@ export default function DraftAktaPendirian({
       kuotaWaktuDireksi: '5',
       tanggal: new Date().toISOString().split('T')[0],
       waktu: '10:00',
+      nomorAkta: '',
+      nomorUrut: '',
       notarisTempat: 'Kabupaten Bandung Barat',
       notarisNamaSurat: '',
       kbliItems: [],
@@ -166,6 +176,23 @@ export default function DraftAktaPendirian({
   });
 
   const [isReadOnly, setIsReadOnly] = useState(initialData !== null);
+  const [isFetchingNumbers, setIsFetchingNumbers] = useState(false);
+
+  const handleFetchLatestNumbers = async () => {
+    setIsFetchingNumbers(true);
+    try {
+      const numbers = await fetchLatestDeedNumbers(data.tanggal);
+      setData(prev => ({
+        ...prev,
+        nomorAkta: numbers.nextDeedNumber,
+        nomorUrut: numbers.nextOrderNumber
+      }));
+    } catch (error) {
+      alert("Gagal mengambil nomor akta terbaru.");
+    } finally {
+      setIsFetchingNumbers(false);
+    }
+  };
 
   const handleCancelEdit = () => {
     if (initialData) {
@@ -395,6 +422,17 @@ export default function DraftAktaPendirian({
                   <Save className="w-4 h-4" /> {isSaving ? 'Menyimpan...' : 'Simpan'}
                 </button>
               )}
+              {onSync && (
+                <button 
+                  type="button" 
+                  disabled={isSyncing}
+                  onClick={() => onSync(data)}
+                  className="px-3 py-1.5 bg-[#3b5998] text-white text-sm font-bold rounded shadow hover:bg-[#2d4373] flex items-center gap-2 disabled:opacity-50 transition-all"
+                >
+                  {isSyncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                  Simpan ke laporan
+                </button>
+              )}
             </>
           )}
         </div>
@@ -426,9 +464,12 @@ export default function DraftAktaPendirian({
               <AhuLabel label="Pilih Klien PT (Opsional)" />
               <div className="md:col-span-3">
                 <AhuSelect 
+                    value={data.selectedProfileId || ''}
                     onChange={(e) => {
-                        const profile = profiles.find(p => p.id === e.target.value);
+                        const profileId = e.target.value;
+                        const profile = profiles.find(p => p.id === profileId);
                         if (profile) {
+                            setData(prev => ({ ...prev, selectedProfileId: profileId }));
                             const mappedShareholders = (profile.shareholders || []).map((s: any) => ({
                                 id: crypto.randomUUID(),
                                 salutation: s.salutation || 'Tuan',
@@ -494,14 +535,14 @@ export default function DraftAktaPendirian({
             <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
               <AhuLabel label="Nama Perseroan Terbatas" required />
               <div className="md:col-span-3">
-                 <AhuInput type="text" value={data.namaPt} onChange={e => updateData('namaPt', e.target.value.toUpperCase())} placeholder="CONTOH: MAJU BERSAMA" />
+                 <AhuInput type="text" value={data.namaPt || ''} onChange={e => updateData('namaPt', e.target.value.toUpperCase())} placeholder="CONTOH: MAJU BERSAMA" />
               </div>
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
               <AhuLabel label="Tempat Kedudukan (Kota/Kab)" required />
               <div className="md:col-span-3">
-                <AhuInput type="text" value={data.kotaKedudukan} onChange={e => updateData('kotaKedudukan', e.target.value)} placeholder="JAKARTA SELATAN" />
+                <AhuInput type="text" value={data.kotaKedudukan || ''} onChange={e => updateData('kotaKedudukan', e.target.value)} placeholder="JAKARTA SELATAN" />
               </div>
             </div>
 
@@ -578,7 +619,7 @@ export default function DraftAktaPendirian({
             <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center pt-2">
               <AhuLabel label="Masa Jabatan Direksi & Komisaris" />
               <div className="md:col-span-3 flex items-center gap-2">
-                <AhuInput type="text" className="w-20" value={data.kuotaWaktuDireksi} onChange={e => updateData('kuotaWaktuDireksi', e.target.value)} />
+                <AhuInput type="text" className="w-20" value={data.kuotaWaktuDireksi || ''} onChange={e => updateData('kuotaWaktuDireksi', e.target.value)} />
                 <span className="text-[13px] font-bold text-slate-500 uppercase">Tahun</span>
               </div>
             </div>
@@ -586,26 +627,49 @@ export default function DraftAktaPendirian({
         </AhuSection>
 
         {/* NOTARIS & JADWAL */}
-        <AhuSection title="Jadwal Akta & Notaris">
+        <AhuSection title="AKTA">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
              <div className="space-y-3">
                 <h4 className="text-[11px] font-bold text-slate-500 uppercase border-b pb-1">Detail Waktu</h4>
                 <div className="flex gap-4">
                   <div className="flex-1">
                     <AhuLabel label="Tanggal Akta" />
-                    <AhuInput type="date" value={data.tanggal} onChange={e => updateData('tanggal', e.target.value)} />
+                    <AhuInput type="date" value={data.tanggal || ''} onChange={e => updateData('tanggal', e.target.value)} />
                   </div>
                   <div className="flex-1">
                     <AhuLabel label="Waktu (Pukul)" />
-                    <AhuInput type="time" value={data.waktu} onChange={e => updateData('waktu', e.target.value)} />
+                    <AhuInput type="time" value={data.waktu || ''} onChange={e => updateData('waktu', e.target.value)} />
                   </div>
                 </div>
              </div>
              <div className="space-y-3">
-                <h4 className="text-[11px] font-bold text-slate-500 uppercase border-b pb-1">Detail Lokasi</h4>
+                <h4 className="text-[11px] font-bold text-slate-500 uppercase border-b pb-1">Detail Akta</h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <AhuLabel label="Nomor Akta" />
+                    <div className="flex gap-2">
+                      <AhuInput type="text" value={data.nomorAkta || ''} onChange={e => updateData('nomorAkta', e.target.value)} />
+                      <button
+                        type="button"
+                        onClick={handleFetchLatestNumbers}
+                        disabled={isFetchingNumbers || isReadOnly}
+                        className="p-2 bg-[#3b5998] hover:bg-[#2d4373] text-white rounded-sm transition-all disabled:opacity-50"
+                        title="Ambil Nomor Terakhir"
+                      >
+                        {isFetchingNumbers ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
+                      </button>
+                    </div>
+                  </div>
+                  <div>
+                    <AhuLabel label="Nomor Urut Akta" />
+                    <AhuInput type="text" value={data.nomorUrut || ''} onChange={e => updateData('nomorUrut', e.target.value)} />
+                  </div>
+                </div>
                 <div>
                   <AhuLabel label="Tempat Kedudukan Notaris" />
-                  <AhuInput type="text" value={data.notarisTempat} onChange={e => updateData('notarisTempat', e.target.value)} />
+                  <div className="h-[34px] px-3 flex items-center bg-slate-100 border border-slate-200 rounded-sm text-[12px] text-slate-600 font-medium">
+                    Kabupaten Bandung Barat
+                  </div>
                 </div>
              </div>
           </div>

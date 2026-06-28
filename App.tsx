@@ -1,5 +1,5 @@
 import { Modal } from './components/Modal';
-import { ChevronRight, RefreshCw } from 'lucide-react';
+import { ChevronRight, RefreshCw, Loader2 } from 'lucide-react';
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -38,6 +38,8 @@ import { LaporanList } from './src/components/LaporanList';
 import { WhatsAppSettings } from './src/components/WhatsAppSettings';
 import ProxyInputModal from './components/ProxyInputModal';
 import { generateWordDoc } from './utils/docxGenerator';
+import { fetchLatestDeedNumbers } from './src/lib/deedUtils';
+import { syncToUtama, getDeedTitle, formatAppearersForRups, formatAppearersForPendirian } from './src/lib/syncUtama';
 import { 
   Building2, 
   Users, 
@@ -220,6 +222,7 @@ const INITIAL_STATE: CompanyData = {
   selectedProfileId: '',
   createDraftAktaRups: true,
   draftAktaRupsNumber: '',
+  draftAktaRupsOrderNumber: '',
   draftAktaRupsDate: '',
   draftAktaRupsTime: '',
   notaryName: '',
@@ -1038,6 +1041,63 @@ const App: React.FC = () => {
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [userProfile, setUserProfile] = useState<{ name: string; level: string } | null>(null);
   const [isEditProfileModalOpen, setIsEditProfileModalOpen] = useState(false);
+  const [isFetchingNumbers, setIsFetchingNumbers] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  const handleManualSync = async (type: 'PENDIRIAN' | 'RUPSLB' | 'RUPST', deedData: any) => {
+    const deedNumber = type === 'PENDIRIAN' ? deedData.nomorAkta : deedData.draftAktaRupsNumber;
+    const deedDate = type === 'PENDIRIAN' ? deedData.tanggal : deedData.draftAktaRupsDate;
+
+    if (!deedNumber || !deedDate) {
+      alert("Nomor Akta dan Tanggal Akta harus diisi sebelum sinkronisasi.");
+      return false;
+    }
+
+    setIsSyncing(true);
+    try {
+      let rawClientName = type === 'PENDIRIAN' ? (deedData as any).namaPt : (deedData as any).companyName;
+      if (deedData.selectedProfileId) {
+        const profile = profiles.find(p => p.id === deedData.selectedProfileId);
+        if (profile && profile.companyName) {
+          rawClientName = profile.companyName;
+        }
+      }
+      
+      const clientName = (rawClientName || '').toUpperCase().startsWith('PT') ? (rawClientName || '') : `PT ${(rawClientName || '')}`;
+
+      const syncData = {
+        deedNumber,
+        orderNumber: type === 'PENDIRIAN' ? (deedData as any).nomorUrut : (deedData as any).draftAktaRupsOrderNumber,
+        deedDate,
+        clientName,
+        deedTitle: getDeedTitle(type, deedData, rawClientName),
+        appearers: type === 'PENDIRIAN' ? (formatAppearersForPendirian as any)(deedData) : formatAppearersForRups(deedData)
+      };
+      await syncToUtama(syncData);
+      return true;
+    } catch (error) {
+      console.error("Sync failed:", error);
+      alert("Gagal sinkronisasi ke Aplikasi Utama.");
+      return false;
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const handleFetchLatestNumbers = async () => {
+    setIsFetchingNumbers(true);
+    try {
+      const numbers = await fetchLatestDeedNumbers(data.draftAktaRupsDate || new Date().toISOString().split('T')[0]);
+      updateData({
+        draftAktaRupsNumber: numbers.nextDeedNumber,
+        draftAktaRupsOrderNumber: numbers.nextOrderNumber
+      });
+    } catch (error) {
+      alert("Gagal mengambil nomor akta terbaru.");
+    } finally {
+      setIsFetchingNumbers(false);
+    }
+  };
   const [authLoading, setAuthLoading] = useState(() => {
     return localStorage.getItem('notaris_user_is_logged_in') === 'true';
   });
@@ -5109,6 +5169,20 @@ const App: React.FC = () => {
                       >
                         <ArrowRight className="w-5 h-5 rotate-180" /> Kembali
                       </button>
+
+                      <button 
+                        className="bg-[#3b5998] hover:bg-[#2d4373] text-white flex items-center justify-center gap-1.5 font-bold text-[12.5px] uppercase h-11 px-4 rounded-xl shadow-sm transition-all duration-150 shrink-0 disabled:opacity-50" 
+                        onClick={async () => {
+                          const success = await handleManualSync('RUPSLB', data);
+                          if (success) {
+                            alert("Berhasil disimpan ke laporan!");
+                          }
+                        }}
+                        disabled={isSyncing}
+                      >
+                        {isSyncing ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
+                        Simpan ke laporan
+                      </button>
                       
                       <div className="h-6 w-px bg-slate-250 mx-1 hidden sm:block"></div>
                       <AutoSaveIndicatorComponent />
@@ -5990,13 +6064,32 @@ const App: React.FC = () => {
                             📝 DRAF AKTA NOTARIS
                           </span>
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                           <div>
                             <AhuLabel label="Nomor Akta" />
+                            <div className="flex gap-2">
+                              <AhuInput 
+                                value={data.draftAktaRupsNumber || ''} 
+                                onChange={(e) => updateData({ draftAktaRupsNumber: e.target.value })} 
+                                placeholder="Contoh: 12"
+                              />
+                              <button
+                                type="button"
+                                onClick={handleFetchLatestNumbers}
+                                disabled={isFetchingNumbers}
+                                className="p-2 bg-[#3b5998] hover:bg-[#2d4373] text-white rounded-sm transition-all disabled:opacity-50"
+                                title="Ambil Nomor Terakhir"
+                              >
+                                {isFetchingNumbers ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
+                              </button>
+                            </div>
+                          </div>
+                          <div>
+                            <AhuLabel label="Nomor Urut Akta" />
                             <AhuInput 
-                              value={data.draftAktaRupsNumber || ''} 
-                              onChange={(e) => updateData({ draftAktaRupsNumber: e.target.value })} 
-                              placeholder="Contoh: 12"
+                              value={data.draftAktaRupsOrderNumber || ''} 
+                              onChange={(e) => updateData({ draftAktaRupsOrderNumber: e.target.value })} 
+                              placeholder="Contoh: 001"
                             />
                           </div>
                           <div>
@@ -7259,7 +7352,7 @@ const App: React.FC = () => {
                       <div className="mt-3">
                         <AhuLabel label="Pilih Pemegang Saham" />
                         <AhuSelect 
-                          value={data.authorizedRepresentativeId} 
+                          value={data.authorizedRepresentativeId || ''} 
                           onChange={e => updateData({ authorizedRepresentativeId: e.target.value })}
                         >
                           <option value="">-- Pilih --</option>
@@ -7894,6 +7987,20 @@ const App: React.FC = () => {
                         }}
                       >
                         <ArrowRight className="w-5 h-5 rotate-180" /> Kembali
+                      </button>
+
+                      <button 
+                        className="bg-[#3b5998] hover:bg-[#2d4373] text-white flex items-center justify-center gap-1.5 font-bold text-[12.5px] uppercase h-11 px-4 rounded-xl shadow-sm transition-all duration-150 shrink-0 disabled:opacity-50" 
+                        onClick={async () => {
+                          const success = await handleManualSync('RUPST', data);
+                          if (success) {
+                            alert("Berhasil disimpan ke laporan!");
+                          }
+                        }}
+                        disabled={isSyncing}
+                      >
+                        {isSyncing ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
+                        Simpan ke laporan
                       </button>
                       
                       <div className="h-6 w-px bg-slate-250 mx-1 hidden sm:block"></div>
@@ -9082,13 +9189,32 @@ const App: React.FC = () => {
                             📝 DRAF AKTA RUPST
                           </span>
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                           <div>
                             <AhuLabel label="Nomor Akta RUPST" />
+                            <div className="flex gap-2">
+                              <AhuInput 
+                                value={data.draftAktaRupsNumber || ''} 
+                                onChange={e => updateData({ draftAktaRupsNumber: e.target.value })} 
+                                placeholder="Contoh: 08" 
+                              />
+                              <button
+                                type="button"
+                                onClick={handleFetchLatestNumbers}
+                                disabled={isFetchingNumbers}
+                                className="p-2 bg-[#3b5998] hover:bg-[#2d4373] text-white rounded-sm transition-all disabled:opacity-50"
+                                title="Ambil Nomor Terakhir"
+                              >
+                                {isFetchingNumbers ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
+                              </button>
+                            </div>
+                          </div>
+                          <div>
+                            <AhuLabel label="Nomor Urut Akta RUPST" />
                             <AhuInput 
-                              value={data.draftAktaRupsNumber || ''} 
-                              onChange={e => updateData({ draftAktaRupsNumber: e.target.value })} 
-                              placeholder="Contoh: 08" 
+                              value={data.draftAktaRupsOrderNumber || ''} 
+                              onChange={e => updateData({ draftAktaRupsOrderNumber: e.target.value })} 
+                              placeholder="Contoh: 001" 
                             />
                           </div>
                           <div>
@@ -9820,7 +9946,7 @@ const App: React.FC = () => {
                               <div className="mt-3">
                                 <AhuLabel label="Pilih Pemegang Saham" />
                                 <AhuSelect 
-                                  value={data.authorizedRepresentativeId} 
+                                  value={data.authorizedRepresentativeId || ''} 
                                   onChange={e => updateData({ authorizedRepresentativeId: e.target.value })}
                                 >
                                   <option value="">-- Pilih --</option>
@@ -10267,6 +10393,13 @@ const App: React.FC = () => {
                 profiles={profiles}
                 initialData={editingPendirianId === 'new' ? null : pendirianProjects.find(p => p.id === editingPendirianId) as any}
                 isSaving={isSaving}
+                isSyncing={isSyncing}
+                onSync={async (finalData) => {
+                  const success = await handleManualSync('PENDIRIAN', finalData);
+                  if (success) {
+                    alert("Berhasil disimpan ke laporan!");
+                  }
+                }}
                 onChange={setCurrentPendirianData}
                 autoSaveIndicator={<AutoSaveIndicatorComponent />}
                 onSave={async (pendirianData) => {
@@ -10286,6 +10419,12 @@ const App: React.FC = () => {
                   try {
                     const isNewPendirian = editingPendirianId === 'new';
                      await setDoc(doc(db, 'pendirian_projects', id), sanitizeForFirestore(finalData));
+                     
+                     // Sync to Utama
+                     if (finalData.nomorAkta && finalData.tanggal) {
+                       await handleManualSync('PENDIRIAN', finalData);
+                     }
+
                      recordNotification(
                        isNewPendirian ? 'Pendirian PT Baru Dibuat' : 'Pendirian PT Diubah',
                        `Data Pendirian PT untuk perusahaan "${finalData.namaPt || 'PT Baru'}" telah ${isNewPendirian ? 'berhasil didaftarkan' : 'diperbarui'} oleh ${user?.email || 'Admin'}.`,
