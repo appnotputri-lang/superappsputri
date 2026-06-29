@@ -1519,12 +1519,45 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
         indentTabs: 3,
         runs: [{ text: `${kbli.code} - ${kbli.name};`, bold: true }],
       });
-      // Deskripsi KBLI → sesuai CONTOH11.docx: ind left=851, tanpa bullet → kbliDesc (left=851 via createKbliDescP)
-      blocks.push({
-        type: "p",
-        indentTabs: 1,
-        kbliDesc: true,
-        runs: [{ text: kbli.description || "" }],
+
+      // Deskripsi KBLI: split menjadi paragraph terpisah per baris.
+      // Tangani dua format yang mungkin dari sumber data:
+      //   1) Newline eksplisit: "teks\n- bullet satu\n- bullet dua"
+      //   2) Newline di-collapse jadi spasi: "teks - bullet satu; - bullet dua"
+      const rawDesc = (kbli.description || "").trim();
+      if (!rawDesc) return;
+
+      // Normalkan: split pada " - " yang diikuti huruf (menangkap semua pola bullet
+      // yang di-collapse: "seperti - item", "; - item", ": - item", dll.)
+      const normalized = rawDesc.includes("\n")
+        ? rawDesc
+        : rawDesc.replace(/\s+-\s+(?=[a-zA-Z\u00C0-\u024F])/g, "\n- ");
+
+      const descLines = normalized.split(/\r?\n/);
+
+      descLines.forEach((line) => {
+        const trimmed = line.trim();
+        if (!trimmed) return;
+
+        if (trimmed.startsWith("-")) {
+          // Baris bullet: hapus tanda "-" di awal lalu emit sebagai list block
+          const content = trimmed.substring(1).trim();
+          if (!content) return;
+          blocks.push({
+            type: "list",
+            bullet: "-",
+            indentTabs: 1.5,
+            runs: [{ text: content }],
+          });
+        } else {
+          // Baris non-bullet: emit sebagai paragraph kbliDesc
+          blocks.push({
+            type: "p",
+            indentTabs: 1,
+            kbliDesc: true,
+            runs: [{ text: trimmed }],
+          });
+        }
       });
     });
   }

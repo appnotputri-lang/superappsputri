@@ -41,6 +41,7 @@ const W = {
   list1:    42.5,   // (9020 - 284)/204.9 ≈ 42.6 -> 42.5
   list2:    41.0,   // (9020 - 567)/204.9 ≈ 41.2 -> 41.0
   list3:    39.5,   // (9020 - 851)/204.9 ≈ 39.8 -> 39.5
+  list4:    38.0,   // (9020 - 1134)/204.9 ≈ 38.5 -> 38.0
   numbered: 41.5,
   subnr:    41.0,
   rcenter:  20.5,
@@ -136,7 +137,9 @@ const createListP = (
 ): Paragraph => {
   let leftDxa: number, hangingDxa: number, tabKiriPos: number, maxW: number;
 
-  if (indentTabs <= 0.6)                         { leftDxa = 284;  hangingDxa = 284; tabKiriPos = 0;    maxW = W.list1; }
+  if (indentTabs === 3)                         { leftDxa = 851;  hangingDxa = 567; tabKiriPos = 284;  maxW = W.list3; }
+  else if (indentTabs === 1.5)                  { leftDxa = 1134; hangingDxa = 283; tabKiriPos = 851;  maxW = W.list4; }
+  else if (indentTabs <= 0.6)                    { leftDxa = 284;  hangingDxa = 284; tabKiriPos = 0;    maxW = W.list1; }
   else if (indentTabs <= 1.0)                    { leftDxa = 567;  hangingDxa = 283; tabKiriPos = 284;  maxW = W.list2; }
   else if (indentTabs > 1.0 && indentTabs < 1.4){ leftDxa = 1134; hangingDxa = 360; tabKiriPos = 774;  maxW = W.list3; }
   else if (indentTabs <= 1.9)                    { leftDxa = 567;  hangingDxa = 283; tabKiriPos = 284;  maxW = W.list2; }

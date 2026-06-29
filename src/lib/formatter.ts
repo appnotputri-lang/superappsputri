@@ -435,6 +435,12 @@ export function preprocessBlocksForWordBullets(blocks: any[]): any[] {
       continue;
     }
 
+    // Skip KBLI description blocks to let generateRUPSDocx handle newlines and bullets specially
+    if (block.kbliDesc) {
+      result.push(block);
+      continue;
+    }
+
     const hasManualBullets = block.runs.some((run: any) => run && run.text && /\r?\n\s*-\s*/.test(run.text));
 
     if (!hasManualBullets) {
@@ -475,6 +481,11 @@ export function preprocessBlocksForWordBullets(blocks: any[]): any[] {
         nextBlockIndent = ((currentBlock as any).indentTabs || 1.0) + 0.5;
       } else if (block.type === "list") {
         nextBlockIndent = (block.indentTabs || 1.0) + 0.5;
+      } else if (block.kbliDesc) {
+        // KBLI description text starts at 1cm (567 dxa). 
+        // To align the bullet at 1cm, we need leftDxa = 851 (hanging 283).
+        // indentTabs 1.5 triggers the 851 dxa logic in generatePendirianDocx.ts
+        nextBlockIndent = 1.5;
       }
 
       for (let i = 1; i < parts.length; i++) {

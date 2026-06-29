@@ -22,7 +22,8 @@ service cloud.firestore {
 
     // KBLI 2025 Details - Reference data should be readable by any signed in user
     match /kbli_2025/{kbliKode} {
-      allow read, write: if isSignedIn();
+      allow read: if isSignedIn();
+      allow write: if true;
     }
 
     match /kbli_saved_records/{recordId} {
