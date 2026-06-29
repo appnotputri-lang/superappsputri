@@ -1525,40 +1525,119 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
       //   1) Newline eksplisit: "teks\n- bullet satu\n- bullet dua"
       //   2) Newline di-collapse jadi spasi: "teks - bullet satu; - bullet dua"
       const rawDesc = (kbli.description || "").trim();
-      if (!rawDesc) return;
+if (!rawDesc) return;
 
-      // Normalkan: split pada " - " yang diikuti huruf (menangkap semua pola bullet
-      // yang di-collapse: "seperti - item", "; - item", ": - item", dll.)
-      const normalized = rawDesc.includes("\n")
-        ? rawDesc
-        : rawDesc.replace(/\s+-\s+(?=[a-zA-Z\u00C0-\u024F])/g, "\n- ");
+// Pulihkan bullet jika newline hilang
+let normalized = rawDesc;
 
-      const descLines = normalized.split(/\r?\n/);
+if (!normalized.includes("\n")) {
+  normalized = normalized.replace(
+    /\s+-\s+(?=[A-Za-zÀ-ÿ])/g,
+    "\n- "
+  );
+}
 
-      descLines.forEach((line) => {
-        const trimmed = line.trim();
-        if (!trimmed) return;
+const proseWords = [
+  "Kelompok",
+  "Subgolongan",
+  "Golongan",
+  "Kegiatan",
+  "Aktivitas",
+  "Usaha",
+  "Jasa",
+  "Selanjutnya",
+  "Selain",
+  "Namun",
+  "Sedangkan",
+  "Dalam",
+  "Untuk",
+  "Termasuk",
+  "Penyelenggaraan",
+  "Penyediaan",
+  "Pelaksanaan",
+  "Pengelolaan",
+  "Pengembangan",
+  "Produksi",
+];
 
-        if (trimmed.startsWith("-")) {
-          // Baris bullet: hapus tanda "-" di awal lalu emit sebagai list block
-          const content = trimmed.substring(1).trim();
-          if (!content) return;
-          blocks.push({
-            type: "list",
-            bullet: "-",
-            indentTabs: 1.5,
-            runs: [{ text: content }],
-          });
-        } else {
-          // Baris non-bullet: emit sebagai paragraph kbliDesc
-          blocks.push({
-            type: "p",
-            indentTabs: 1,
-            kbliDesc: true,
-            runs: [{ text: trimmed }],
-          });
-        }
-      });
+const isNarrative = (text: string) => {
+  const t = text.trim();
+
+  return proseWords.some(
+    w =>
+      t.startsWith(w + " ") ||
+      t.startsWith(w + ",") ||
+      t.startsWith(w + ".")
+  );
+};
+
+for (const line of normalized.split(/\r?\n/)) {
+
+  const trimmed = line.trim();
+
+  if (!trimmed) continue;
+
+  if (!trimmed.startsWith("-")) {
+
+    blocks.push({
+      type: "p",
+      indentTabs: 1,
+      kbliDesc: true,
+      runs: [{ text: trimmed }],
+    });
+
+    continue;
+
+  }
+
+  let bullet = trimmed.substring(1).trim();
+
+  while (true) {
+
+    const dot = bullet.indexOf(". ");
+
+    if (dot === -1) break;
+
+    const after = bullet.substring(dot + 2).trim();
+
+    if (!after) break;
+
+    if (!isNarrative(after)) break;
+
+    const bulletPart = bullet.substring(0, dot + 1).trim();
+
+    blocks.push({
+      type: "list",
+      bullet: "-",
+      indentTabs: 1.5,
+      runs: [{ text: bulletPart }],
+    });
+
+    blocks.push({
+      type: "p",
+      indentTabs: 1,
+      kbliDesc: true,
+      runs: [{ text: after }],
+    });
+
+    bullet = "";
+
+    break;
+
+  }
+
+  if (bullet) {
+
+    blocks.push({
+      type: "list",
+      bullet: "-",
+      indentTabs: 1.5,
+      runs: [{ text: bullet }],
+    });
+
+  }
+
+}
     });
   }
 

@@ -137,7 +137,7 @@ const createListP = (
 ): Paragraph => {
   let leftDxa: number, hangingDxa: number, tabKiriPos: number, maxW: number;
 
-  if (indentTabs === 3)                         { leftDxa = 851;  hangingDxa = 567; tabKiriPos = 284;  maxW = W.list3; }
+  if (indentTabs === 3)                         { leftDxa = 851;  hangingDxa = 284; tabKiriPos = 851;  maxW = W.list3; }
   else if (indentTabs === 1.5)                  { leftDxa = 1134; hangingDxa = 283; tabKiriPos = 851;  maxW = W.list4; }
   else if (indentTabs <= 0.6)                    { leftDxa = 284;  hangingDxa = 284; tabKiriPos = 0;    maxW = W.list1; }
   else if (indentTabs <= 1.0)                    { leftDxa = 567;  hangingDxa = 283; tabKiriPos = 284;  maxW = W.list2; }
