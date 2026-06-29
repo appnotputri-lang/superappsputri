@@ -31,3 +31,63 @@ export function formatKbliCategory(letter?: string, name?: string): string {
   }
   return `${letter.toUpperCase()} - ${(name || "").toUpperCase()}`;
 }
+
+export interface ParsedKbliLine {
+  isBullet: boolean;
+  text: string;
+}
+
+export function parseKbliDescription(description: string | undefined): ParsedKbliLine[] {
+  const rawDesc = (description || "").trim();
+  if (!rawDesc) return [];
+
+  let normalized = rawDesc;
+  if (!normalized.includes("\n")) {
+    normalized = normalized.replace(/\s+-\s+(?=[A-Za-zÀ-ÿ])/g, "\n- ");
+  }
+
+  const proseWords = [
+    "Kelompok", "Subgolongan", "Golongan", "Kegiatan", "Aktivitas", "Usaha", 
+    "Jasa", "Selanjutnya", "Selain", "Namun", "Sedangkan", "Dalam", "Untuk", 
+    "Termasuk", "Penyelenggaraan", "Penyediaan", "Pelaksanaan", "Pengelolaan", 
+    "Pengembangan", "Produksi",
+  ];
+
+  const isNarrative = (text: string) => {
+    const t = text.trim();
+    return proseWords.some(w => t.startsWith(w + " ") || t.startsWith(w + ",") || t.startsWith(w + "."));
+  };
+
+  const lines: ParsedKbliLine[] = [];
+
+  for (const line of normalized.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+
+    if (!trimmed.startsWith("-")) {
+      lines.push({ isBullet: false, text: trimmed });
+      continue;
+    }
+
+    let bullet = trimmed.substring(1).trim();
+    while (true) {
+      const dot = bullet.indexOf(". ");
+      if (dot === -1) break;
+      const after = bullet.substring(dot + 2).trim();
+      if (!after) break;
+      if (!isNarrative(after)) break;
+
+      const bulletPart = bullet.substring(0, dot + 1).trim();
+      lines.push({ isBullet: true, text: bulletPart });
+      lines.push({ isBullet: false, text: after });
+      bullet = "";
+      break;
+    }
+
+    if (bullet) {
+      lines.push({ isBullet: true, text: bullet });
+    }
+  }
+
+  return lines;
+}

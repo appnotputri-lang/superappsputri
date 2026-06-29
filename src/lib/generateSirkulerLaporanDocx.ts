@@ -15,7 +15,8 @@ import {
   WidthType,
   BorderStyle,
   UnderlineType,
-  Header
+  Header,
+  LevelFormat
 } from "docx";
 import { saveAs } from "file-saver";
 import { CompanyData } from "../../types";
@@ -50,6 +51,8 @@ export const generateSirkulerLaporanDocx = async (data: CompanyData, returnBlob?
   const rawBlocks = generateSirkulerLaporanBlocks(data);
   const blocks = preprocessBlocksForWordBullets(rawBlocks);
   const elements: any[] = [];
+  let isDecisionSection = false;
+  let isStatementSection = false;
 
   for (const block of blocks) {
     if (block.type === "p") {
@@ -60,6 +63,18 @@ export const generateSirkulerLaporanDocx = async (data: CompanyData, returnBlob?
       let indentOpts = undefined;
       if (block.indentLeft) {
          indentOpts = { left: block.indentLeft, hanging: 0 };
+      }
+
+      // Track if we have entered the decision section by checking for "OLEH KARENA ITU"
+      const hasOlehKarenaItu = block.runs && block.runs.some((r: any) => r.text && r.text.includes("OLEH KARENA ITU"));
+      if (hasOlehKarenaItu) {
+        isDecisionSection = true;
+      }
+
+      // Track if we have entered the statement section by checking for "DENGAN INI MENYATAKAN"
+      const hasDenganIniMenyatakan = block.runs && block.runs.some((r: any) => r.text && r.text.includes("DENGAN INI MENYATAKAN"));
+      if (hasDenganIniMenyatakan) {
+        isStatementSection = true;
       }
 
       elements.push(
@@ -84,33 +99,33 @@ export const generateSirkulerLaporanDocx = async (data: CompanyData, returnBlob?
         })
       );
     } else if (block.type === "list") {
-      const children = [];
-      if (block.bullet) {
-         children.push(new TextRun({ text: `${block.bullet}\t`, font: FONT_FAMILY, size: FONT_SIZE }));
-      }
-      children.push(...createDocxRun(block.runs));
-
+      const level = Math.max(0, Math.floor(((block.indentLeft || 360) - 360) / 360));
       elements.push(
         new Paragraph({
-          children,
-          indent: {
-            left: block.indentLeft,
-            hanging: block.indentHanging,
+          children: createDocxRun(block.runs),
+          numbering: {
+            reference: "sirkuler-bullet",
+            level: level,
           },
           alignment: AlignmentType.BOTH,
           spacing: { line: LINE_SPACING },
         })
       );
     } else if (block.type === "numbered") {
+      const level = Math.max(0, Math.floor(((block.indentLeft || 360) - 360) / 360));
+      const isAlpha = typeof block.num === 'string' && /[a-zA-Z]/.test(block.num);
+      let ref = isAlpha ? "sirkuler-numbered-alpha" : "sirkuler-numbered";
+      if (isDecisionSection) {
+        ref = isAlpha ? "sirkuler-numbered-alpha-decision" : "sirkuler-numbered-decision";
+      } else if (isStatementSection) {
+        ref = isAlpha ? "sirkuler-numbered-alpha-statement" : "sirkuler-numbered-statement";
+      }
       elements.push(
         new Paragraph({
-          children: [
-            new TextRun({ text: `${block.num}\t`, font: FONT_FAMILY, size: FONT_SIZE }),
-            ...createDocxRun(block.runs)
-          ],
-          indent: {
-            left: block.indentLeft,
-            hanging: block.indentHanging,
+          children: createDocxRun(block.runs),
+          numbering: {
+            reference: ref,
+            level: level,
           },
           alignment: AlignmentType.BOTH,
           spacing: { line: LINE_SPACING },
@@ -142,6 +157,241 @@ export const generateSirkulerLaporanDocx = async (data: CompanyData, returnBlob?
   }
 
   const doc = new Document({
+    numbering: {
+      config: [
+        {
+          reference: "sirkuler-bullet",
+          levels: [
+            {
+              level: 0,
+              format: LevelFormat.BULLET,
+              text: "-",
+              alignment: AlignmentType.LEFT,
+              style: { paragraph: { indent: { left: 360, hanging: 360 } } },
+            },
+            {
+              level: 1,
+              format: LevelFormat.BULLET,
+              text: "-",
+              alignment: AlignmentType.LEFT,
+              style: { paragraph: { indent: { left: 720, hanging: 360 } } },
+            },
+            {
+              level: 2,
+              format: LevelFormat.BULLET,
+              text: "-",
+              alignment: AlignmentType.LEFT,
+              style: { paragraph: { indent: { left: 1080, hanging: 360 } } },
+            },
+            {
+              level: 3,
+              format: LevelFormat.BULLET,
+              text: "-",
+              alignment: AlignmentType.LEFT,
+              style: { paragraph: { indent: { left: 1440, hanging: 360 } } },
+            },
+          ],
+        },
+        {
+          reference: "sirkuler-numbered",
+          levels: [
+            {
+              level: 0,
+              format: LevelFormat.DECIMAL,
+              text: "%1.",
+              alignment: AlignmentType.LEFT,
+              style: { paragraph: { indent: { left: 360, hanging: 360 } } },
+            },
+            {
+              level: 1,
+              format: LevelFormat.DECIMAL,
+              text: "%2.",
+              alignment: AlignmentType.LEFT,
+              style: { paragraph: { indent: { left: 720, hanging: 360 } } },
+            },
+            {
+              level: 2,
+              format: LevelFormat.DECIMAL,
+              text: "%3.",
+              alignment: AlignmentType.LEFT,
+              style: { paragraph: { indent: { left: 1080, hanging: 360 } } },
+            },
+            {
+              level: 3,
+              format: LevelFormat.DECIMAL,
+              text: "%4.",
+              alignment: AlignmentType.LEFT,
+              style: { paragraph: { indent: { left: 1440, hanging: 360 } } },
+            },
+          ],
+        },
+        {
+          reference: "sirkuler-numbered-decision",
+          levels: [
+            {
+              level: 0,
+              format: LevelFormat.DECIMAL,
+              text: "%1.",
+              alignment: AlignmentType.LEFT,
+              style: { paragraph: { indent: { left: 360, hanging: 360 } } },
+            },
+            {
+              level: 1,
+              format: LevelFormat.DECIMAL,
+              text: "%2.",
+              alignment: AlignmentType.LEFT,
+              style: { paragraph: { indent: { left: 720, hanging: 360 } } },
+            },
+            {
+              level: 2,
+              format: LevelFormat.DECIMAL,
+              text: "%3.",
+              alignment: AlignmentType.LEFT,
+              style: { paragraph: { indent: { left: 1080, hanging: 360 } } },
+            },
+            {
+              level: 3,
+              format: LevelFormat.DECIMAL,
+              text: "%4.",
+              alignment: AlignmentType.LEFT,
+              style: { paragraph: { indent: { left: 1440, hanging: 360 } } },
+            },
+          ],
+        },
+        {
+          reference: "sirkuler-numbered-statement",
+          levels: [
+            {
+              level: 0,
+              format: LevelFormat.DECIMAL,
+              text: "%1.",
+              alignment: AlignmentType.LEFT,
+              style: { paragraph: { indent: { left: 360, hanging: 360 } } },
+            },
+            {
+              level: 1,
+              format: LevelFormat.DECIMAL,
+              text: "%2.",
+              alignment: AlignmentType.LEFT,
+              style: { paragraph: { indent: { left: 720, hanging: 360 } } },
+            },
+            {
+              level: 2,
+              format: LevelFormat.DECIMAL,
+              text: "%3.",
+              alignment: AlignmentType.LEFT,
+              style: { paragraph: { indent: { left: 1080, hanging: 360 } } },
+            },
+            {
+              level: 3,
+              format: LevelFormat.DECIMAL,
+              text: "%4.",
+              alignment: AlignmentType.LEFT,
+              style: { paragraph: { indent: { left: 1440, hanging: 360 } } },
+            },
+          ],
+        },
+        {
+          reference: "sirkuler-numbered-alpha",
+          levels: [
+            {
+              level: 0,
+              format: LevelFormat.LOWER_LETTER,
+              text: "%1.",
+              alignment: AlignmentType.LEFT,
+              style: { paragraph: { indent: { left: 360, hanging: 360 } } },
+            },
+            {
+              level: 1,
+              format: LevelFormat.LOWER_LETTER,
+              text: "%2.",
+              alignment: AlignmentType.LEFT,
+              style: { paragraph: { indent: { left: 720, hanging: 360 } } },
+            },
+            {
+              level: 2,
+              format: LevelFormat.LOWER_LETTER,
+              text: "%3.",
+              alignment: AlignmentType.LEFT,
+              style: { paragraph: { indent: { left: 1080, hanging: 360 } } },
+            },
+            {
+              level: 3,
+              format: LevelFormat.LOWER_LETTER,
+              text: "%4.",
+              alignment: AlignmentType.LEFT,
+              style: { paragraph: { indent: { left: 1440, hanging: 360 } } },
+            },
+          ],
+        },
+        {
+          reference: "sirkuler-numbered-alpha-decision",
+          levels: [
+            {
+              level: 0,
+              format: LevelFormat.LOWER_LETTER,
+              text: "%1.",
+              alignment: AlignmentType.LEFT,
+              style: { paragraph: { indent: { left: 360, hanging: 360 } } },
+            },
+            {
+              level: 1,
+              format: LevelFormat.LOWER_LETTER,
+              text: "%2.",
+              alignment: AlignmentType.LEFT,
+              style: { paragraph: { indent: { left: 720, hanging: 360 } } },
+            },
+            {
+              level: 2,
+              format: LevelFormat.LOWER_LETTER,
+              text: "%3.",
+              alignment: AlignmentType.LEFT,
+              style: { paragraph: { indent: { left: 1080, hanging: 360 } } },
+            },
+            {
+              level: 3,
+              format: LevelFormat.LOWER_LETTER,
+              text: "%4.",
+              alignment: AlignmentType.LEFT,
+              style: { paragraph: { indent: { left: 1440, hanging: 360 } } },
+            },
+          ],
+        },
+        {
+          reference: "sirkuler-numbered-alpha-statement",
+          levels: [
+            {
+              level: 0,
+              format: LevelFormat.LOWER_LETTER,
+              text: "%1.",
+              alignment: AlignmentType.LEFT,
+              style: { paragraph: { indent: { left: 360, hanging: 360 } } },
+            },
+            {
+              level: 1,
+              format: LevelFormat.LOWER_LETTER,
+              text: "%2.",
+              alignment: AlignmentType.LEFT,
+              style: { paragraph: { indent: { left: 720, hanging: 360 } } },
+            },
+            {
+              level: 2,
+              format: LevelFormat.LOWER_LETTER,
+              text: "%3.",
+              alignment: AlignmentType.LEFT,
+              style: { paragraph: { indent: { left: 1080, hanging: 360 } } },
+            },
+            {
+              level: 3,
+              format: LevelFormat.LOWER_LETTER,
+              text: "%4.",
+              alignment: AlignmentType.LEFT,
+              style: { paragraph: { indent: { left: 1440, hanging: 360 } } },
+            },
+          ],
+        },
+      ],
+    },
     styles: {
       default: {
         document: {

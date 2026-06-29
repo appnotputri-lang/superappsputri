@@ -101,6 +101,84 @@ const NUMBERING_CONFIG = [
       style: { paragraph: { indent: { left: 1278, hanging: 426 } } },
     }],
   },
+  {
+    reference: "peserta-decimal",
+    levels: [
+      {
+        level: 0,
+        format: LevelFormat.DECIMAL,
+        text: "%1.",
+        alignment: AlignmentType.LEFT,
+        style: { paragraph: { indent: { left: 567, hanging: 567 } } },
+      },
+      {
+        level: 1,
+        format: LevelFormat.DECIMAL,
+        text: "%2.",
+        alignment: AlignmentType.LEFT,
+        style: { paragraph: { indent: { left: 1134, hanging: 567 } } },
+      },
+      {
+        level: 2,
+        format: LevelFormat.DECIMAL,
+        text: "%3.",
+        alignment: AlignmentType.LEFT,
+        style: { paragraph: { indent: { left: 1701, hanging: 567 } } },
+      },
+    ],
+  },
+  {
+    reference: "peserta-letter",
+    levels: [
+      {
+        level: 0,
+        format: LevelFormat.LOWER_LETTER,
+        text: "%1.",
+        alignment: AlignmentType.LEFT,
+        style: { paragraph: { indent: { left: 567, hanging: 567 } } },
+      },
+      {
+        level: 1,
+        format: LevelFormat.LOWER_LETTER,
+        text: "%2.",
+        alignment: AlignmentType.LEFT,
+        style: { paragraph: { indent: { left: 1134, hanging: 567 } } },
+      },
+      {
+        level: 2,
+        format: LevelFormat.LOWER_LETTER,
+        text: "%3.",
+        alignment: AlignmentType.LEFT,
+        style: { paragraph: { indent: { left: 1701, hanging: 567 } } },
+      },
+    ],
+  },
+  {
+    reference: "peserta-dash",
+    levels: [
+      {
+        level: 0,
+        format: LevelFormat.BULLET,
+        text: "-",
+        alignment: AlignmentType.LEFT,
+        style: { paragraph: { indent: { left: 567, hanging: 567 } } },
+      },
+      {
+        level: 1,
+        format: LevelFormat.BULLET,
+        text: "-",
+        alignment: AlignmentType.LEFT,
+        style: { paragraph: { indent: { left: 1134, hanging: 567 } } },
+      },
+      {
+        level: 2,
+        format: LevelFormat.BULLET,
+        text: "-",
+        alignment: AlignmentType.LEFT,
+        style: { paragraph: { indent: { left: 1701, hanging: 567 } } },
+      },
+    ],
+  },
 ];
 
 const createP = (
@@ -205,27 +283,23 @@ const createListP = (
     });
   }
 
-  // PESERTA / AGENDA items: matches reference XML exactly.
-  // Structure: run("1.") → run(w:tab + "Tuan ") → run("RAJANDRAN") → ...
-  // Tab stop at position=left, hanging indent so bullet starts at 0.
+  // PESERTA / AGENDA items: matches reference XML exactly using native numbering.
   const levelIdx = Math.max(0, Math.min(Math.floor(level), INDENT_PESERTA.length - 1));
-  const { left: leftDxa, hanging: hangingDxa } = INDENT_PESERTA[levelIdx];
-  const children: TextRun[] = [];
-
-  // Run 1: bullet text only ("1." / "-" / "a.")
-  if (bulletText) children.push(new TextRun({ text: bulletText }));
-
-  // Run 2: tab character in its own run (separate from bullet AND from text)
-  children.push(new TextRun({ text: "\t" }));
-
-  // Run 3+: all content tokens as individual runs
-  children.push(...buildRuns(tokens));
+  
+  let numRef: string;
+  const isAlpha = typeof bulletText === 'string' && /[a-zA-Z]/.test(bulletText);
+  if (isAlpha) {
+    numRef = "peserta-letter";
+  } else if (bulletText === "-") {
+    numRef = "peserta-dash";
+  } else {
+    numRef = "peserta-decimal";
+  }
 
   return new Paragraph({
-    children,
-    tabStops: [{ type: TabStopType.LEFT, position: leftDxa }],
+    children: buildRuns(tokens),
+    numbering: { reference: numRef, level: levelIdx },
     alignment: AlignmentType.JUSTIFIED,
-    indent: { left: leftDxa, hanging: hangingDxa },
     ...options,
   });
 };

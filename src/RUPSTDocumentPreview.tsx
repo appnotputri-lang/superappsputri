@@ -157,6 +157,14 @@ export const RUPSTDocumentPreview: React.FC<RUPSTDocumentPreviewProps> = ({ data
           </div>
         )
       });
+    } else if (block.type === 'pageBreak') {
+      const currentLength = allLines.length;
+      const linesRemaining = LINES_PER_PAGE - (currentLength % LINES_PER_PAGE);
+      if (linesRemaining < LINES_PER_PAGE) {
+        for (let i = 0; i < linesRemaining; i++) {
+          allLines.push({ element: <div key={`pb-pad-${bIdx}-${i}`} className="leading-[1.8]">&nbsp;</div> });
+        }
+      }
     } else if (block.type === 'br') {
       allLines.push({ element: <div key={`br-${bIdx}`} className="h-6"></div> });
     } else if (block.type === 'participantSigs') {

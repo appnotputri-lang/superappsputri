@@ -1,10 +1,11 @@
 import { CompanyData, Shareholder, AmendmentDeed } from "../../types";
-import { formatKbliCategory } from "./kbliConstants";
+import { formatKbliCategory, parseKbliDescription } from "./kbliConstants";
 import { FormatToken } from "./notaryWrapper";
 import {
   getDayName,
   dateToWords,
   formatDateStr,
+  formatDateRupst,
   timeToWords,
   formatTimeStr,
   terbilang,
@@ -90,7 +91,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
       : "............................";
   const tglAktaAngka =
     hasCustomDeedDate && effectiveNotaryDate
-      ? formatDateStr(effectiveNotaryDate)
+      ? formatDateRupst(effectiveNotaryDate)
       : "............................";
 
   const hasCustomDeedTime = !!(data.draftAktaRupsTime || data.aktaStartTime);
@@ -181,7 +182,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
   }
 
   const tglLahirRepHuruf = rep ? dateToWords(rep.birthDate) : "";
-  const tglLahirRepAngka = rep ? formatDateStr(rep.birthDate) : "";
+  const tglLahirRepAngka = rep ? formatDateRupst(rep.birthDate) : "";
 
   // Helper to keep track of fully described persons
   const fullyDescribedNames = new Set<string>();
@@ -252,7 +253,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
 
     fullyDescribedNames.add(cleanName);
     const tglLahirHuruf = person ? dateToWords(person.birthDate) : "";
-    const tglLahirAngka = person ? formatDateStr(person.birthDate) : "";
+    const tglLahirAngka = person ? formatDateRupst(person.birthDate) : "";
 
     const detailText = person
       ? formatPersonDetails(person, tglLahirAngka, tglLahirHuruf, true)
@@ -268,7 +269,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
   };
 
   const tglSirkulerHuruf = dateToWords(data.signingDate);
-  const tglSirkulerAngka = formatDateStr(data.signingDate);
+  const tglSirkulerAngka = formatDateRupst(data.signingDate);
 
   function checkNotaryWording(name: string, title?: string, domicile?: string) {
     const norm = (name || "").toUpperCase().trim();
@@ -479,9 +480,9 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
   }
 
   const tglPendirianHuruf = dateToWords(data.establishmentDeedDate || "");
-  const tglPendirianAngka = formatDateStr(data.establishmentDeedDate || "");
+  const tglPendirianAngka = formatDateRupst(data.establishmentDeedDate || "");
   const tglSKPendirianHuruf = dateToWords(data.establishmentSkDate || "");
-  const tglSKPendirianAngka = formatDateStr(data.establishmentSkDate || "");
+  const tglSKPendirianAngka = formatDateRupst(data.establishmentSkDate || "");
 
   const formattedEstDeedDate = isMinutes
     ? `${tglPendirianHuruf} (${tglPendirianAngka})`
@@ -493,7 +494,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
   if (isMinutes) {
     const meetingHari = getDayName(data.signingDate);
     const meetingTglHuruf = dateToWords(data.signingDate);
-    const meetingTglAngka = formatDateStr(data.signingDate);
+    const meetingTglAngka = formatDateRupst(data.signingDate);
     const meetingTimeStr = data.meetingStartTime
       ? data.meetingStartTime.replace(":", ".")
       : "13.00";
@@ -575,7 +576,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
       group.forEach((deed, dIdx) => {
         const isLastInOverall = isLastGroup && dIdx === group.length - 1;
         const tglDeedHuruf = dateToWords(deed.date);
-        const tglDeedAngka = formatDateStr(deed.date);
+        const tglDeedAngka = formatDateRupst(deed.date);
         const formattedDeedDate = isMinutes
           ? `${tglDeedAngka} (${tglDeedHuruf})`
           : formatAktaDate(deed.date);
@@ -588,7 +589,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
           const skParts: string[] = [];
           sks.forEach((sk: any) => {
             skParts.push(
-              `telah mendapat pengesahan dari Menteri Hukum dan Hak Asasi Manusia Republik Indonesia tertanggal ${isMinutes ? `${dateToWords(sk.date)} (${formatDateStr(sk.date)})` : formatAktaDate(sk.date)}, Nomor ${sk.number}`,
+              `telah mendapat pengesahan dari Menteri Hukum dan Hak Asasi Manusia Republik Indonesia tertanggal ${isMinutes ? `${dateToWords(sk.date)} (${formatDateRupst(sk.date)})` : formatAktaDate(sk.date)}, Nomor ${sk.number}`,
             );
           });
 
@@ -605,7 +606,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
             const spDates = Array.from(new Set(sps.map((s: any) => s.date)));
             let spDateText = "";
             if (spDates.length === 1) {
-              spDateText = ` ${sps.length > 1 ? (sks.length > 0 ? "ketiganya " : "keduanya ") : ""}tertanggal ${isMinutes ? `${formatDateStr(spDates[0] as string)} (${dateToWords(spDates[0] as string)})` : formatAktaDate(spDates[0] as string)}`;
+              spDateText = ` ${sps.length > 1 ? (sks.length > 0 ? "ketiganya " : "keduanya ") : ""}tertanggal ${isMinutes ? `${formatDateRupst(spDates[0] as string)} (${dateToWords(spDates[0] as string)})` : formatAktaDate(spDates[0] as string)}`;
             } else {
               spDateText = ` masing-masing tertanggal sebagaimana tercantum dalam surat tersebut`;
             }
@@ -617,7 +618,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
 
           skText = [...skParts, ...spParts].join(" dan ");
         } else {
-          skText = `telah mendapat pengesahan berdasarkan Surat Keputusan Nomor ${deed.skNumber} tanggal ${isMinutes ? `${formatDateStr(deed.skDate)} (${dateToWords(deed.skDate)})` : formatAktaDate(deed.skDate)}`;
+          skText = `telah mendapat pengesahan berdasarkan Surat Keputusan Nomor ${deed.skNumber} tanggal ${isMinutes ? `${formatDateRupst(deed.skDate)} (${dateToWords(deed.skDate)})` : formatAktaDate(deed.skDate)}`;
         }
 
         if (group.length === 1) {
@@ -700,7 +701,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
     }
 
     const meetingTglHuruf = dateToWords(data.signingDate);
-    const meetingTglAngka = formatDateStr(data.signingDate);
+    const meetingTglAngka = formatDateRupst(data.signingDate);
     const formattedMeetingDate = isMinutes
       ? `${meetingTglAngka} (${meetingTglHuruf})`
       : formatAktaDate(data.signingDate);
@@ -969,7 +970,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
               ? dateToWords(r.proxyData.proxyDeedDate)
               : "__________";
             const proxyDateAngka = r.proxyData.proxyDeedDate
-              ? formatDateStr(r.proxyData.proxyDeedDate)
+              ? formatDateRupst(r.proxyData.proxyDeedDate)
               : "__________";
             const proxyDate = r.proxyData.proxyDeedDate
               ? isMinutes
@@ -1077,7 +1078,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
               ? dateToWords(r.proxyData.proxyDeedDate)
               : "__________";
             const proxyDateAngka = r.proxyData.proxyDeedDate
-              ? formatDateStr(r.proxyData.proxyDeedDate)
+              ? formatDateRupst(r.proxyData.proxyDeedDate)
               : "__________";
             const proxyDate = r.proxyData.proxyDeedDate
               ? isMinutes
@@ -1204,7 +1205,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
           ? dateToWords(guest.birthDate)
           : "";
         const tglLahirAngka = guest.birthDate
-          ? formatDateStr(guest.birthDate)
+          ? formatDateRupst(guest.birthDate)
           : "";
 
         const detailText = formatPersonDetails(
@@ -1524,120 +1525,24 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
       // Tangani dua format yang mungkin dari sumber data:
       //   1) Newline eksplisit: "teks\n- bullet satu\n- bullet dua"
       //   2) Newline di-collapse jadi spasi: "teks - bullet satu; - bullet dua"
-      const rawDesc = (kbli.description || "").trim();
-if (!rawDesc) return;
-
-// Pulihkan bullet jika newline hilang
-let normalized = rawDesc;
-
-if (!normalized.includes("\n")) {
-  normalized = normalized.replace(
-    /\s+-\s+(?=[A-Za-zÀ-ÿ])/g,
-    "\n- "
-  );
-}
-
-const proseWords = [
-  "Kelompok",
-  "Subgolongan",
-  "Golongan",
-  "Kegiatan",
-  "Aktivitas",
-  "Usaha",
-  "Jasa",
-  "Selanjutnya",
-  "Selain",
-  "Namun",
-  "Sedangkan",
-  "Dalam",
-  "Untuk",
-  "Termasuk",
-  "Penyelenggaraan",
-  "Penyediaan",
-  "Pelaksanaan",
-  "Pengelolaan",
-  "Pengembangan",
-  "Produksi",
-];
-
-const isNarrative = (text: string) => {
-  const t = text.trim();
-
-  return proseWords.some(
-    w =>
-      t.startsWith(w + " ") ||
-      t.startsWith(w + ",") ||
-      t.startsWith(w + ".")
-  );
-};
-
-for (const line of normalized.split(/\r?\n/)) {
-
-  const trimmed = line.trim();
-
-  if (!trimmed) continue;
-
-  if (!trimmed.startsWith("-")) {
-
-    blocks.push({
-      type: "p",
-      indentTabs: 1,
-      kbliDesc: true,
-      runs: [{ text: trimmed }],
-    });
-
-    continue;
-
-  }
-
-  let bullet = trimmed.substring(1).trim();
-
-  while (true) {
-
-    const dot = bullet.indexOf(". ");
-
-    if (dot === -1) break;
-
-    const after = bullet.substring(dot + 2).trim();
-
-    if (!after) break;
-
-    if (!isNarrative(after)) break;
-
-    const bulletPart = bullet.substring(0, dot + 1).trim();
-
-    blocks.push({
-      type: "list",
-      bullet: "-",
-      indentTabs: 1.5,
-      runs: [{ text: bulletPart }],
-    });
-
-    blocks.push({
-      type: "p",
-      indentTabs: 1,
-      kbliDesc: true,
-      runs: [{ text: after }],
-    });
-
-    bullet = "";
-
-    break;
-
-  }
-
-  if (bullet) {
-
-    blocks.push({
-      type: "list",
-      bullet: "-",
-      indentTabs: 1.5,
-      runs: [{ text: bullet }],
-    });
-
-  }
-
-}
+      const parsedLines = parseKbliDescription(kbli.description);
+      parsedLines.forEach((line) => {
+        if (line.isBullet) {
+          blocks.push({
+            type: "list",
+            bullet: "-",
+            indentTabs: 1.5,
+            runs: [{ text: line.text }],
+          });
+        } else {
+          blocks.push({
+            type: "p",
+            indentTabs: 1,
+            kbliDesc: true,
+            runs: [{ text: line.text }],
+          });
+        }
+      });
     });
   }
 
@@ -1772,7 +1677,7 @@ for (const line of normalized.split(/\r?\n/)) {
                 ? dateToWords(d.fs.birthDate)
                 : "";
               const tglLahirAngka = d.fs.birthDate
-                ? formatDateStr(d.fs.birthDate)
+                ? formatDateRupst(d.fs.birthDate)
                 : "";
               detailsText = formatPersonDetails(
                 d.fs,
@@ -1935,22 +1840,22 @@ for (const line of normalized.split(/\r?\n/)) {
       let oldExpiredDateStr = "16 Juni 2026";
       let oldExpiredDateHuruf = "enam belas Juni dua ribu dua puluh enam";
       if (data.reappointmentOldExpiredDate) {
-        const tgl = formatDateStr(data.reappointmentOldExpiredDate);
+        const tgl = formatDateRupst(data.reappointmentOldExpiredDate);
         oldExpiredDateStr = tgl !== "..." ? tgl : "16 Juni 2026";
       } else if (data.signingDate) {
-        const tgl = formatDateStr(data.signingDate);
+        const tgl = formatDateRupst(data.signingDate);
         oldExpiredDateStr = tgl !== "..." ? tgl : "16 Juni 2026";
       }
 
       let startDateStr = oldExpiredDateStr;
       if (data.reappointmentStartDate) {
-        const tgl = formatDateStr(data.reappointmentStartDate);
+        const tgl = formatDateRupst(data.reappointmentStartDate);
         if (tgl !== "...") startDateStr = tgl;
       }
 
       let endDateStr = "16 Juni 2031";
       if (data.reappointmentEndDate) {
-        const tgl = formatDateStr(data.reappointmentEndDate);
+        const tgl = formatDateRupst(data.reappointmentEndDate);
         if (tgl !== "...") endDateStr = tgl;
       } else {
         const baseDate =
@@ -1963,7 +1868,7 @@ for (const line of normalized.split(/\r?\n/)) {
             d.setFullYear(d.getFullYear() + 5);
             const mm = String(d.getMonth() + 1).padStart(2, "0");
             const dd = String(d.getDate()).padStart(2, "0");
-            const tgl = formatDateStr(`${d.getFullYear()}-${mm}-${dd}`);
+            const tgl = formatDateRupst(`${d.getFullYear()}-${mm}-${dd}`);
             if (tgl !== "...") endDateStr = tgl;
           }
         }

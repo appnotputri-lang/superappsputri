@@ -19,6 +19,7 @@ import {
   Document, Packer, Paragraph, TextRun,
   AlignmentType, TabStopType, LeaderType,
   IParagraphOptions, Footer, PageNumber,
+  LevelFormat
 } from "docx";
 import { saveAs } from "file-saver";
 import { CompanyData, Shareholder } from "../../types";
@@ -135,33 +136,41 @@ const createListP = (
   indentTabs: number = 0,
   options: Omit<IParagraphOptions, "children"> = {}
 ): Paragraph => {
-  let leftDxa: number, hangingDxa: number, tabKiriPos: number, maxW: number;
+  let level = 0;
+  if (indentTabs <= 0.6) level = 0;
+  else if (indentTabs <= 1.0 || (indentTabs > 1.4 && indentTabs <= 1.9)) level = 1;
+  else if (indentTabs > 1.0 && indentTabs < 1.4 || indentTabs === 3) level = 2;
+  else if (indentTabs === 1.5) level = 3;
+  else if (indentTabs >= 1.9 && indentTabs <= 2.1) level = 4;
+  else if (indentTabs > 2.1) level = 5;
+  else level = 2;
 
-  if (indentTabs === 3)                         { leftDxa = 851;  hangingDxa = 284; tabKiriPos = 851;  maxW = W.list3; }
-  else if (indentTabs === 1.5)                  { leftDxa = 1134; hangingDxa = 283; tabKiriPos = 851;  maxW = W.list4; }
-  else if (indentTabs <= 0.6)                    { leftDxa = 284;  hangingDxa = 284; tabKiriPos = 0;    maxW = W.list1; }
-  else if (indentTabs <= 1.0)                    { leftDxa = 567;  hangingDxa = 283; tabKiriPos = 284;  maxW = W.list2; }
-  else if (indentTabs > 1.0 && indentTabs < 1.4){ leftDxa = 1134; hangingDxa = 360; tabKiriPos = 774;  maxW = W.list3; }
-  else if (indentTabs <= 1.9)                    { leftDxa = 567;  hangingDxa = 283; tabKiriPos = 284;  maxW = W.list2; }
-  else if (indentTabs >= 1.9 && indentTabs <= 2.1) { leftDxa = 1417; hangingDxa = 283; tabKiriPos = 1134; maxW = W.list3; }
-  else if (indentTabs > 2.1)                     { leftDxa = 1701; hangingDxa = 283; tabKiriPos = 1417; maxW = W.list3; }
-  else                                           { leftDxa = 851;  hangingDxa = 284; tabKiriPos = 567;  maxW = W.list3; }
+  const buildRuns = (toks: FormatToken[]): TextRun[] =>
+    toks.map(t => new TextRun({
+      text: t.text,
+      bold: t.bold,
+      italics: t.italic,
+      underline: t.underline ? {} : undefined,
+      color: t.color,
+      highlight: t.highlight as any,
+    }));
 
-  const lines = parseTextRuns(tokens, maxW);
-  const children: any[] = [];
-
-  lines.forEach((lineTokens, i) => {
-    if (i === 0) children.push(new TextRun({ text: `${bulletText}\t` }));
-    lineTokens.forEach((t) => children.push(new TextRun({ text: t.text, bold: t.bold, highlight: t.highlight as any })));
-    children.push(new TextRun({ text: "\t" }));
-    if (i < lines.length - 1) children.push(new TextRun({ break: 1 }));
-  });
+  const isAlpha = typeof bulletText === 'string' && /[a-zA-Z]/.test(bulletText);
+  let numRef: string;
+  if (isAlpha) {
+    numRef = "rups-letter";
+  } else if (bulletText === "-") {
+    numRef = "rups-bullet-dash";
+  } else if (typeof bulletText === 'string' && /\d/.test(bulletText)) {
+    numRef = "rups-decimal";
+  } else {
+    numRef = "rups-bullet-dash";
+  }
 
   return new Paragraph({
-    children,
-    tabStops: [{ type: TabStopType.LEFT, position: leftDxa }, TAB_KANAN],
+    children: buildRuns(tokens),
+    numbering: { reference: numRef, level: level },
     alignment: AlignmentType.LEFT,
-    indent: { left: leftDxa, hanging: hangingDxa },
     ...options,
   });
 };
@@ -175,21 +184,21 @@ const createNumberedP = (
   tokens: FormatToken[],
   options: Omit<IParagraphOptions, "children"> = {}
 ): Paragraph => {
-  const lines = parseTextRuns(tokens, W.numbered);
-  const children: any[] = [];
+  const buildRuns = (toks: FormatToken[]): TextRun[] =>
+    toks.map(t => new TextRun({
+      text: t.text,
+      bold: t.bold,
+      italics: t.italic,
+      underline: t.underline ? {} : undefined,
+      color: t.color,
+      highlight: t.highlight as any,
+    }));
 
-  lines.forEach((lineTokens, i) => {
-    if (i === 0) children.push(new TextRun({ text: `${num}.\t` }));
-    lineTokens.forEach((t) => children.push(new TextRun({ text: t.text, bold: t.bold, highlight: t.highlight as any })));
-    children.push(new TextRun({ text: "\t" }));
-    if (i < lines.length - 1) children.push(new TextRun({ break: 1 }));
-  });
-
+  const isAlpha = typeof num === 'string' && /[a-zA-Z]/.test(num);
   return new Paragraph({
-    children,
-    tabStops: [{ type: TabStopType.LEFT, position: 720 }, TAB_KANAN],
+    children: buildRuns(tokens),
+    numbering: { reference: isAlpha ? "rups-letter" : "rups-decimal", level: 0 },
     alignment: AlignmentType.LEFT,
-    indent: { left: 284, hanging: 284 },
     ...options,
   });
 };
@@ -202,23 +211,21 @@ const createSubNumberedP = (
   tokens: FormatToken[],
   indentTabs: number = 0
 ): Paragraph => {
-  const leftDxa = 568 + Math.round(indentTabs * 425);
-  const hangingDxa = 284;
-  const lines = parseTextRuns(tokens, W.subnr - (indentTabs * 2.2));
-  const children: any[] = [];
-
-  lines.forEach((lineTokens, i) => {
-    if (i === 0) children.push(new TextRun({ text: `${num})\t` }));
-    lineTokens.forEach((t) => children.push(new TextRun({ text: t.text, bold: t.bold, highlight: t.highlight as any })));
-    children.push(new TextRun({ text: "\t" }));
-    if (i < lines.length - 1) children.push(new TextRun({ break: 1 }));
-  });
+  const level = Math.max(0, Math.min(Math.round(indentTabs), 2));
+  const buildRuns = (toks: FormatToken[]): TextRun[] =>
+    toks.map(t => new TextRun({
+      text: t.text,
+      bold: t.bold,
+      italics: t.italic,
+      underline: t.underline ? {} : undefined,
+      color: t.color,
+      highlight: t.highlight as any,
+    }));
 
   return new Paragraph({
-    children,
-    tabStops: [{ type: TabStopType.LEFT, position: leftDxa }, TAB_KANAN],
+    children: buildRuns(tokens),
+    numbering: { reference: "rups-sub-decimal", level: level },
     alignment: AlignmentType.LEFT,
-    indent: { left: leftDxa, hanging: hangingDxa },
   });
 };
 
@@ -531,6 +538,177 @@ export const generateRUPSDocx = async (data: CompanyData) => {
 
   // ── BUILD DOCUMENT
   const doc = new Document({
+    numbering: {
+      config: [
+        {
+          reference: "rups-decimal",
+          levels: [
+            {
+              level: 0,
+              format: LevelFormat.DECIMAL,
+              text: "%1.",
+              alignment: AlignmentType.LEFT,
+              style: { paragraph: { indent: { left: 284, hanging: 284 } } },
+            },
+            {
+              level: 1,
+              format: LevelFormat.DECIMAL,
+              text: "%2.",
+              alignment: AlignmentType.LEFT,
+              style: { paragraph: { indent: { left: 568, hanging: 284 } } },
+            },
+            {
+              level: 2,
+              format: LevelFormat.DECIMAL,
+              text: "%3.",
+              alignment: AlignmentType.LEFT,
+              style: { paragraph: { indent: { left: 852, hanging: 284 } } },
+            },
+            {
+              level: 3,
+              format: LevelFormat.DECIMAL,
+              text: "%4.",
+              alignment: AlignmentType.LEFT,
+              style: { paragraph: { indent: { left: 1136, hanging: 284 } } },
+            },
+            {
+              level: 4,
+              format: LevelFormat.DECIMAL,
+              text: "%5.",
+              alignment: AlignmentType.LEFT,
+              style: { paragraph: { indent: { left: 1420, hanging: 284 } } },
+            },
+            {
+              level: 5,
+              format: LevelFormat.DECIMAL,
+              text: "%6.",
+              alignment: AlignmentType.LEFT,
+              style: { paragraph: { indent: { left: 1704, hanging: 284 } } },
+            },
+          ],
+        },
+        {
+          reference: "rups-letter",
+          levels: [
+            {
+              level: 0,
+              format: LevelFormat.LOWER_LETTER,
+              text: "%1.",
+              alignment: AlignmentType.LEFT,
+              style: { paragraph: { indent: { left: 284, hanging: 284 } } },
+            },
+            {
+              level: 1,
+              format: LevelFormat.LOWER_LETTER,
+              text: "%2.",
+              alignment: AlignmentType.LEFT,
+              style: { paragraph: { indent: { left: 568, hanging: 284 } } },
+            },
+            {
+              level: 2,
+              format: LevelFormat.LOWER_LETTER,
+              text: "%3.",
+              alignment: AlignmentType.LEFT,
+              style: { paragraph: { indent: { left: 852, hanging: 284 } } },
+            },
+            {
+              level: 3,
+              format: LevelFormat.LOWER_LETTER,
+              text: "%4.",
+              alignment: AlignmentType.LEFT,
+              style: { paragraph: { indent: { left: 1136, hanging: 284 } } },
+            },
+            {
+              level: 4,
+              format: LevelFormat.LOWER_LETTER,
+              text: "%5.",
+              alignment: AlignmentType.LEFT,
+              style: { paragraph: { indent: { left: 1420, hanging: 284 } } },
+            },
+            {
+              level: 5,
+              format: LevelFormat.LOWER_LETTER,
+              text: "%6.",
+              alignment: AlignmentType.LEFT,
+              style: { paragraph: { indent: { left: 1704, hanging: 284 } } },
+            },
+          ],
+        },
+        {
+          reference: "rups-bullet-dash",
+          levels: [
+            {
+              level: 0,
+              format: LevelFormat.BULLET,
+              text: "-",
+              alignment: AlignmentType.LEFT,
+              style: { paragraph: { indent: { left: 284, hanging: 284 } } },
+            },
+            {
+              level: 1,
+              format: LevelFormat.BULLET,
+              text: "-",
+              alignment: AlignmentType.LEFT,
+              style: { paragraph: { indent: { left: 568, hanging: 284 } } },
+            },
+            {
+              level: 2,
+              format: LevelFormat.BULLET,
+              text: "-",
+              alignment: AlignmentType.LEFT,
+              style: { paragraph: { indent: { left: 852, hanging: 284 } } },
+            },
+            {
+              level: 3,
+              format: LevelFormat.BULLET,
+              text: "-",
+              alignment: AlignmentType.LEFT,
+              style: { paragraph: { indent: { left: 1136, hanging: 284 } } },
+            },
+            {
+              level: 4,
+              format: LevelFormat.BULLET,
+              text: "-",
+              alignment: AlignmentType.LEFT,
+              style: { paragraph: { indent: { left: 1420, hanging: 284 } } },
+            },
+            {
+              level: 5,
+              format: LevelFormat.BULLET,
+              text: "-",
+              alignment: AlignmentType.LEFT,
+              style: { paragraph: { indent: { left: 1704, hanging: 284 } } },
+            },
+          ],
+        },
+        {
+          reference: "rups-sub-decimal",
+          levels: [
+            {
+              level: 0,
+              format: LevelFormat.DECIMAL,
+              text: "%1)",
+              alignment: AlignmentType.LEFT,
+              style: { paragraph: { indent: { left: 568, hanging: 284 } } },
+            },
+            {
+              level: 1,
+              format: LevelFormat.DECIMAL,
+              text: "%2)",
+              alignment: AlignmentType.LEFT,
+              style: { paragraph: { indent: { left: 993, hanging: 284 } } },
+            },
+            {
+              level: 2,
+              format: LevelFormat.DECIMAL,
+              text: "%3)",
+              alignment: AlignmentType.LEFT,
+              style: { paragraph: { indent: { left: 1418, hanging: 284 } } },
+            },
+          ],
+        },
+      ],
+    },
     styles: {
       default: {
         document: {

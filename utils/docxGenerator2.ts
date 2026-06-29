@@ -562,13 +562,12 @@ export const generateWordDoc = async (data: CompanyData) => {
         displayName = displayName.replace(cleanPrefixRegex, "").trim();
       }
 
-      // Circular: bullet dash sh-dash
+      // Circular: decimal numbering
       children.push(
         new Paragraph({
           alignment: "both" as any,
           spacing: { line: LINE_SPACING, lineRule: "auto", after: 0 },
-          numbering: { reference: "sh-dash", level: 0 },
-          indent: { left: 426 },
+          numbering: { reference: "peserta-num", level: 0 },
           children: [
             mkRun(isBadanHukum ? "" : `${att.salutation} `),
             mkRun(displayName, true),

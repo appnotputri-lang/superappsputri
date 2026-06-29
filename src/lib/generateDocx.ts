@@ -1,7 +1,7 @@
 import { Document, Packer, Paragraph, TextRun, Tab, TabStopType } from "docx";
 import { CompanyData, Shareholder, Address, ManagementItem } from "../../types";
-import { formatFullAddressData, formatCompanyName, formatPersonDetails, formatDateStr, checkIsBadanHukum, dateToWords, formatDateRupst } from "./formatter";
-import { formatKbliCategory } from "./kbliConstants";
+import { formatFullAddressData, formatCompanyName, formatPersonDetails, formatDateStr, checkIsBadanHukum, dateToWords, formatDateRupst, formatCompanyEstablishment, formatCompanyEstablishmentOnly, formatAmendmentDeedSingle } from "./formatter";
+import { formatKbliCategory, parseKbliDescription } from "./kbliConstants";
 import {
   formatCurrency,
   formatInputNumber,
@@ -272,11 +272,38 @@ export const generateWordDoc = async (data: CompanyData) => {
   } else {
     // Circular starts with preamble
     const preambleDomicile = data.domicile || "................";
+    const companyEstStr = formatCompanyEstablishmentOnly(data, false);
+    const hasAmendments = data.amendmentDeeds && data.amendmentDeeds.length > 0;
 
     children.push(
       createBodyParagraph({
-        text: `Kami yang bertandatangan dibawah ini, para Pemegang Saham ${formatCompanyName(data.companyName || "................")}, berkedudukan di ${preambleDomicile} (“Perseroan”), terdiri dari:`,
+        text: `Kami yang bertandatangan dibawah ini, para Pemegang Saham ${formatCompanyName(data.companyName || "................")}, berkedudukan di ${preambleDomicile}${companyEstStr}${
+          hasAmendments 
+            ? ", dan telah mengalami beberapa kali perubahan berdasarkan akta-akta sebagai berikut :" 
+            : ""
+        }`,
       }),
+    );
+
+    if (hasAmendments) {
+      data.amendmentDeeds!.forEach((deed) => {
+        children.push(
+          new Paragraph({
+            alignment: "both" as any,
+            spacing: { before: 60, after: 60 },
+            numbering: { reference: "sh-dash", level: 0 },
+            children: [
+              new TextRun({ text: formatAmendmentDeedSingle(deed, false) }),
+            ],
+          })
+        );
+      });
+    }
+
+    children.push(
+      createBodyParagraph({
+        text: `untuk selanjutnya disebut ("Perseroan"), terdiri dari:`,
+      })
     );
   }
 
@@ -306,7 +333,7 @@ export const generateWordDoc = async (data: CompanyData) => {
     const currentValue = currentShares * parValue;
     const isBadanHukum = checkIsBadanHukum(sh);
 
-    const tglAngka = sh.birthDate ? formatDateStr(sh.birthDate) : "...";
+    const tglAngka = sh.birthDate ? formatDateRupst(sh.birthDate) : "...";
     const personDetails = formatPersonDetails(sh, tglAngka, "", false);
 
     const nameUpper = (sh.name || '').toUpperCase().trim();
@@ -1017,14 +1044,31 @@ export const generateWordDoc = async (data: CompanyData) => {
           ],
         }),
       );
-      if (kbli.description) {
-        kbliElements.push(
-          createBodyParagraph({
-            indent: { left: INDENT_STEP * 2 + HANGING_SIZE },
-            text: kbli.description,
-          }),
-        );
-      }
+      const parsedLines = parseKbliDescription(kbli.description);
+      parsedLines.forEach((line) => {
+        if (line.isBullet) {
+          kbliElements.push(
+            createBodyParagraph({
+              indent: { 
+                left: INDENT_STEP * 2 + HANGING_SIZE * 2,
+                hanging: HANGING_SIZE
+              },
+              children: [
+                new TextRun({ text: "-\t", size: FONT_SIZE, font: FONT_FAMILY }),
+                new TextRun({ text: line.text, size: FONT_SIZE, font: FONT_FAMILY }),
+              ],
+              tabStops: [{ type: "left", position: INDENT_STEP * 2 + HANGING_SIZE * 2 }]
+            })
+          );
+        } else {
+          kbliElements.push(
+            createBodyParagraph({
+              indent: { left: INDENT_STEP * 2 + HANGING_SIZE },
+              text: line.text,
+            })
+          );
+        }
+      });
     });
 
     addResolution(
