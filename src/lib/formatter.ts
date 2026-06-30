@@ -249,7 +249,8 @@ export function formatPersonDetails(
   tglLahirAngka: string,
   tglLahirHuruf: string,
   useAktaFormat: boolean = false,
-  excludeAmendmentDeeds: boolean = false
+  excludeAmendmentDeeds: boolean = false,
+  isSirkuler: boolean = false
 ): string {
   let finalAngka = tglLahirAngka;
   let finalHuruf = tglLahirHuruf;
@@ -263,7 +264,7 @@ export function formatPersonDetails(
 
   const birthDateWording = useAktaFormat 
     ? (finalHuruf && finalAngka ? `${finalHuruf} (${finalAngka})` : finalAngka || finalHuruf || "...")
-    : `${finalAngka}${finalHuruf ? ` (${finalHuruf})` : ""}`;
+    : (person.birthDate ? (isSirkuler ? formatDateSimple(person.birthDate) : formatDateStr(person.birthDate)) : `${finalAngka}${finalHuruf ? ` (${finalHuruf})` : ""}`);
 
   const isBadanHukum = checkIsBadanHukum(person);
 
@@ -299,14 +300,20 @@ export function formatPersonDetails(
       let baseString = `, berkedudukan di ${cityPrefix}${city}`;
       
       if (person.establishmentDeedNumber) {
-        const estDateStr = person.establishmentDeedDate ? (useAktaFormat ? formatAktaDate(person.establishmentDeedDate) : formatDateStr(person.establishmentDeedDate)) : "...";
+        const estDateStr = person.establishmentDeedDate ? (useAktaFormat ? formatAktaDate(person.establishmentDeedDate) : (isSirkuler ? formatDateSimple(person.establishmentDeedDate) : formatDateStr(person.establishmentDeedDate))) : "...";
         const estNotary = person.establishmentNotary || "...";
         const estNotaryTitle = person.establishmentNotaryTitle ? `, ${person.establishmentNotaryTitle}` : "";
         const estNotaryDomicile = person.establishmentNotaryDomicile ? toTitleCase(person.establishmentNotaryDomicile) : "...";
         const estSkNumber = person.establishmentSkNumber || person.skNumber || "...";
         const estSkDateStr = person.establishmentSkDate ? (useAktaFormat ? formatAktaDate(person.establishmentSkDate) : formatDateStr(person.establishmentSkDate)) : (person.skDate ? (useAktaFormat ? formatAktaDate(person.skDate) : formatDateStr(person.skDate)) : "...");
         
-        baseString += `, yang didirikan berdasarkan Akta Pendirian Nomor ${person.establishmentDeedNumber} tertanggal ${estDateStr}, dibuat dihadapan ${estNotary}${estNotaryTitle}, Notaris di ${estNotaryDomicile}, dan telah memperoleh pengesahan dari Menteri Hukum dan Hak Asasi Manusia Republik Indonesia berdasarkan Surat Keputusan Nomor ${estSkNumber} tertanggal ${estSkDateStr}`;
+        if (useAktaFormat) {
+          baseString += `, yang didirikan berdasarkan Akta Pendirian Nomor ${person.establishmentDeedNumber} tertanggal ${estDateStr}, dibuat dihadapan ${estNotary}${estNotaryTitle}, Notaris di ${estNotaryDomicile}, dan telah memperoleh pengesahan dari Menteri Hukum dan Hak Asasi Manusia Republik Indonesia berdasarkan Surat Keputusan Nomor ${estSkNumber} tertanggal ${estSkDateStr}`;
+        } else if (isSirkuler) {
+          baseString += `, yang didirikan berdasarkan Akta Pendirian tertanggal ${estDateStr} Nomor ${person.establishmentDeedNumber}, dibuat dihadapan ${estNotary}${estNotaryTitle}, Notaris di ${estNotaryDomicile}, dan telah memperoleh pengesahan dari Menteri Hukum dan Hak Asasi Manusia Republik Indonesia berdasarkan Surat Keputusan Nomor ${estSkNumber} tertanggal ${estSkDateStr}`;
+        } else {
+          baseString += `, yang didirikan berdasarkan Akta Pendirian Nomor ${person.establishmentDeedNumber} tertanggal ${estDateStr}, dibuat dihadapan ${estNotary}${estNotaryTitle}, Notaris di ${estNotaryDomicile}, dan telah memperoleh pengesahan dari Menteri Hukum dan Hak Asasi Manusia Republik Indonesia berdasarkan Surat Keputusan Nomor ${estSkNumber} tertanggal ${estSkDateStr}`;
+        }
       } else {
         baseString += `, berdasarkan Surat Keputusan/Akta Nomor ${skNum}${skDateWording}`;
       }
@@ -422,16 +429,22 @@ export function formatPersonDetails(
   }
 }
 
-export function formatCompanyEstablishmentOnly(data: Partial<CompanyData>, useAktaFormat: boolean = false): string {
+export function formatCompanyEstablishmentOnly(data: Partial<CompanyData>, useAktaFormat: boolean = false, isSirkuler: boolean = false): string {
   const estDeedNumber = data.establishmentDeedNumber || "................";
-  const estDateStr = data.establishmentDeedDate ? (useAktaFormat ? formatAktaDate(data.establishmentDeedDate) : formatDateStr(data.establishmentDeedDate)) : "................";
+  const estDateStr = data.establishmentDeedDate ? (useAktaFormat ? formatAktaDate(data.establishmentDeedDate) : (isSirkuler ? formatDateSimple(data.establishmentDeedDate) : formatDateStr(data.establishmentDeedDate))) : "................";
   const estNotary = data.establishmentNotary || "................";
   const estNotaryTitle = data.establishmentNotaryTitle ? `, ${data.establishmentNotaryTitle}` : "";
   const estNotaryDomicile = data.establishmentNotaryDomicile ? toTitleCase(data.establishmentNotaryDomicile) : "................";
   const estSkNumber = data.establishmentSkNumber || "................";
   const estSkDateStr = data.establishmentSkDate ? (useAktaFormat ? formatAktaDate(data.establishmentSkDate) : formatDateStr(data.establishmentSkDate)) : "................";
   
-  return `, yang didirikan berdasarkan Akta Pendirian Nomor ${estDeedNumber} tertanggal ${estDateStr}, dibuat dihadapan ${estNotary}${estNotaryTitle}, Notaris di ${estNotaryDomicile}, dan telah memperoleh pengesahan dari Menteri Hukum dan Hak Asasi Manusia Republik Indonesia berdasarkan Surat Keputusan Nomor ${estSkNumber} tertanggal ${estSkDateStr}`;
+  if (useAktaFormat) {
+    return `, yang didirikan berdasarkan Akta Pendirian Nomor ${estDeedNumber} tertanggal ${estDateStr}, dibuat dihadapan ${estNotary}${estNotaryTitle}, Notaris di ${estNotaryDomicile}, dan telah memperoleh pengesahan dari Menteri Hukum dan Hak Asasi Manusia Republik Indonesia berdasarkan Surat Keputusan Nomor ${estSkNumber} tertanggal ${estSkDateStr}`;
+  } else if (isSirkuler) {
+    return `, yang didirikan berdasarkan Akta Pendirian tertanggal ${estDateStr} Nomor ${estDeedNumber}, dibuat dihadapan ${estNotary}${estNotaryTitle}, Notaris di ${estNotaryDomicile}, dan telah memperoleh pengesahan dari Menteri Hukum dan Hak Asasi Manusia Republik Indonesia berdasarkan Surat Keputusan Nomor ${estSkNumber} tertanggal ${estSkDateStr}`;
+  } else {
+    return `, yang didirikan berdasarkan Akta Pendirian Nomor ${estDeedNumber} tertanggal ${estDateStr}, dibuat dihadapan ${estNotary}${estNotaryTitle}, Notaris di ${estNotaryDomicile}, dan telah memperoleh pengesahan dari Menteri Hukum dan Hak Asasi Manusia Republik Indonesia berdasarkan Surat Keputusan Nomor ${estSkNumber} tertanggal ${estSkDateStr}`;
+  }
 }
 
 export function formatAmendmentDeedSingle(deed: any, useAktaFormat: boolean = false): string {
@@ -474,14 +487,19 @@ export function formatAmendmentDeedSingle(deed: any, useAktaFormat: boolean = fa
 
 export function formatCompanyEstablishment(data: Partial<CompanyData>, useAktaFormat: boolean = false): string {
   const estDeedNumber = data.establishmentDeedNumber || "................";
-  const estDateStr = data.establishmentDeedDate ? (useAktaFormat ? formatAktaDate(data.establishmentDeedDate) : formatDateStr(data.establishmentDeedDate)) : "................";
+  const estDateStr = data.establishmentDeedDate ? (useAktaFormat ? formatAktaDate(data.establishmentDeedDate) : formatDateSimple(data.establishmentDeedDate)) : "................";
   const estNotary = data.establishmentNotary || "................";
   const estNotaryTitle = data.establishmentNotaryTitle ? `, ${data.establishmentNotaryTitle}` : "";
   const estNotaryDomicile = data.establishmentNotaryDomicile ? toTitleCase(data.establishmentNotaryDomicile) : "................";
   const estSkNumber = data.establishmentSkNumber || "................";
   const estSkDateStr = data.establishmentSkDate ? (useAktaFormat ? formatAktaDate(data.establishmentSkDate) : formatDateStr(data.establishmentSkDate)) : "................";
   
-  let baseString = `, yang didirikan berdasarkan Akta Pendirian Nomor ${estDeedNumber} tertanggal ${estDateStr}, dibuat dihadapan ${estNotary}${estNotaryTitle}, Notaris di ${estNotaryDomicile}, dan telah memperoleh pengesahan dari Menteri Hukum dan Hak Asasi Manusia Republik Indonesia berdasarkan Surat Keputusan Nomor ${estSkNumber} tertanggal ${estSkDateStr}`;
+  let baseString = "";
+  if (useAktaFormat) {
+    baseString = `, yang didirikan berdasarkan Akta Pendirian Nomor ${estDeedNumber} tertanggal ${estDateStr}, dibuat dihadapan ${estNotary}${estNotaryTitle}, Notaris di ${estNotaryDomicile}, dan telah memperoleh pengesahan dari Menteri Hukum dan Hak Asasi Manusia Republik Indonesia berdasarkan Surat Keputusan Nomor ${estSkNumber} tertanggal ${estSkDateStr}`;
+  } else {
+    baseString = `, yang didirikan berdasarkan Akta Pendirian tertanggal ${estDateStr} Nomor ${estDeedNumber}, dibuat dihadapan ${estNotary}${estNotaryTitle}, Notaris di ${estNotaryDomicile}, dan telah memperoleh pengesahan dari Menteri Hukum dan Hak Asasi Manusia Republik Indonesia berdasarkan Surat Keputusan Nomor ${estSkNumber} tertanggal ${estSkDateStr}`;
+  }
 
   if (data.amendmentDeeds && data.amendmentDeeds.length > 0) {
     if (data.amendmentDeeds.length === 1) {

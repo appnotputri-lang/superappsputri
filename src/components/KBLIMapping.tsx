@@ -83,23 +83,23 @@ const RISK_LEVELS = [
   {
     value: "Menengah Rendah",
     label: "Menengah Rendah",
-    permit: "NIB dan Sertifikat Standar Self Declare",
+    permit: "NIB & Sertifikat Standar Self Declare",
   },
   {
     value: "Menengah Tinggi",
     label: "Menengah Tinggi",
-    permit: "NIB dan Sertifikat Standar yang harus dipenuhi",
+    permit: "NIB & Sertifikat Standar Pemenuhan",
   },
-  { value: "Tinggi", label: "Tinggi", permit: "NIB dan IZIN" },
+  { value: "Tinggi", label: "Tinggi", permit: "NIB & Izin" },
 ];
 
 const getAutoIzin = (tingkatRisiko: string) => {
   const norm = (tingkatRisiko || "").toLowerCase().trim();
   if (norm === "rendah") return "NIB";
-  if (norm === "menengah rendah") return "SERTIFIKAT STANDAR SELEF DECLARE";
+  if (norm === "menengah rendah") return "NIB & Sertifikat Standar Self Declare";
   if (norm === "menengah tinggi")
-    return "SERTIFIKAT STANDAR PEMENUHAN KOMITMEN";
-  if (norm === "tinggi") return "IZIN";
+    return "NIB & Sertifikat Standar Pemenuhan";
+  if (norm === "tinggi") return "NIB & Izin";
   return "-";
 };
 
@@ -241,9 +241,9 @@ const translateIzinValue = (izin: string, isEn: boolean) => {
 const getEnAutoIzin = (tingkatRisiko: string) => {
   const norm = (tingkatRisiko || "").toLowerCase().trim();
   if (norm === "rendah") return "NIB";
-  if (norm === "menengah rendah") return "STANDARD CERTIFICATE (SELF-DECLARE)";
-  if (norm === "menengah tinggi") return "STANDARD CERTIFICATE (COMMITMENT)";
-  if (norm === "tinggi") return "LICENSE";
+  if (norm === "menengah rendah") return "NIB & STANDARD CERTIFICATE (SELF-DECLARE)";
+  if (norm === "menengah tinggi") return "NIB & STANDARD CERTIFICATE (COMMITMENT)";
+  if (norm === "tinggi") return "NIB & LICENSE";
   return "-";
 };
 
@@ -534,12 +534,14 @@ const KBLIMapping: React.FC = () => {
       }
 
       if (match) {
-        return { tingkatResiko: match.tingkatRisiko, izin: match.izin };
+        return {
+          tingkatResiko: match.tingkatRisiko,
+          izin: getAutoIzin(match.tingkatRisiko),
+        };
       }
     }
     const defaultRisk = calculateRisk("", skalaUsaha);
-    const riskLevel = RISK_LEVELS.find((r) => r.value === defaultRisk);
-    return { tingkatResiko: defaultRisk, izin: riskLevel?.permit || "NIB" };
+    return { tingkatResiko: defaultRisk, izin: getAutoIzin(defaultRisk) };
   };
 
   useEffect(() => {
@@ -1871,9 +1873,9 @@ const KBLIMapping: React.FC = () => {
       autoTable(doc, {
         startY: currentY,
         head: [[
-          { content: "KODE KBLI", styles: { halign: "center" } }, 
-          { content: "JUDUL KBLI", styles: { halign: "left" } }, 
-          { content: "URAIAN KBLI", styles: { halign: "left" } }
+          { content: "KODE KBLI", styles: { halign: "center" as const } }, 
+          { content: "JUDUL KBLI", styles: { halign: "left" as const } }, 
+          { content: "URAIAN KBLI", styles: { halign: "left" as const } }
         ]],
         body: kbli2025Rows,
         theme: "grid",
@@ -1882,7 +1884,7 @@ const KBLIMapping: React.FC = () => {
         columnStyles: {
           0: { cellWidth: 25, halign: "center", fontStyle: "bold", textColor: [15, 118, 110] },
           1: { cellWidth: 50, fontStyle: "bold" },
-          2: { cellWidth: "auto", halign: "justify" }
+          2: { cellWidth: "auto", halign: "left" }
         },
         margin: { top: 22, right: 14, bottom: 25, left: 14 },
       });
@@ -2009,11 +2011,11 @@ const KBLIMapping: React.FC = () => {
         autoTable(doc, {
           startY: currentY,
           head: [[
-            { content: "No", styles: { halign: "center" } },
-            { content: isEn ? "Business Scope" : "Ruang Lingkup Usaha", styles: { halign: "left" } },
-            { content: isEn ? "Risk Level" : "Tingkat Risiko", styles: { halign: "center" } },
-            { content: isEn ? "Permit" : "Izin", styles: { halign: "center" } },
-            { content: isEn ? "Type of Permit" : "Jenis Izin", styles: { halign: "center" } }
+            { content: "No", styles: { halign: "center" as const } },
+            { content: isEn ? "Business Scope" : "Ruang Lingkup Usaha", styles: { halign: "left" as const } },
+            { content: isEn ? "Risk Level" : "Tingkat Risiko", styles: { halign: "center" as const } },
+            { content: isEn ? "Permit" : "Izin", styles: { halign: "center" as const } },
+            { content: isEn ? "Type of Permit" : "Jenis Izin", styles: { halign: "center" as const } }
           ]],
           body: tableRows,
           theme: "grid",
@@ -2046,7 +2048,45 @@ const KBLIMapping: React.FC = () => {
         });
 
         // @ts-ignore
-        currentY = doc.lastAutoTable.finalY + 10;
+        currentY = doc.lastAutoTable.finalY + 7;
+
+        // Add Catatan KBLI if exists
+        const mappingNotes = activeSelectedMappings
+          .filter((m) => {
+            const mKode = m.kbli_2025?.kode || "";
+            const mJudul = m.kbli_2025?.judul || "";
+            // Handle reverse logic same as in kbli2025List generation
+            const kIsTitle = mKode.length > 7 || (mKode && !/^\d+$/.test(mKode));
+            const jIsCode = mJudul && /^\d+$/.test(mJudul) && mJudul.length <= 7;
+            const finalMKode = kIsTitle && jIsCode ? mJudul : mKode;
+            return finalMKode === item.kode;
+          })
+          .map((m) => m.catatan)
+          .filter(Boolean);
+
+        if (mappingNotes.length > 0) {
+          const uniqueNotes = Array.from(new Set(mappingNotes));
+          uniqueNotes.forEach((note) => {
+            if (currentY > pageHeight - 30) {
+              doc.addPage();
+              addLetterhead(false);
+              currentY = 25;
+            }
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(9);
+            doc.setTextColor(50, 50, 50);
+            doc.text(isEn ? "Notes / Regulations:" : "Catatan KBLI / Regulasi:", 14, currentY);
+            currentY += 5;
+            doc.setFont("helvetica", "italic");
+            doc.setFontSize(8.5);
+            doc.setTextColor(80, 80, 80);
+            const splitCatatan = doc.splitTextToSize(String(note), pageWidth - 28);
+            doc.text(splitCatatan, 14, currentY);
+            currentY += splitCatatan.length * 4 + 10;
+          });
+        } else {
+          currentY += 5;
+        }
       });
     }
 

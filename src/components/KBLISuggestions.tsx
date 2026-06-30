@@ -44,17 +44,17 @@ interface SelectedKbli extends KbliItem {
 
 const RISK_LEVELS = [
   { value: 'Rendah', label: 'Rendah', permit: 'NIB' },
-  { value: 'Menengah Rendah', label: 'Menengah Rendah', permit: 'NIB dan Sertifikat Standar Self Declare' },
-  { value: 'Menengah Tinggi', label: 'Menengah Tinggi', permit: 'NIB dan Sertifikat Standar yang harus dipenuhi' },
-  { value: 'Tinggi', label: 'Tinggi', permit: 'NIB dan IZIN' }
+  { value: 'Menengah Rendah', label: 'Menengah Rendah', permit: 'NIB & Sertifikat Standar Self Declare' },
+  { value: 'Menengah Tinggi', label: 'Menengah Tinggi', permit: 'NIB & Sertifikat Standar Pemenuhan' },
+  { value: 'Tinggi', label: 'Tinggi', permit: 'NIB & Izin' }
 ];
 
 const getAutoIzin = (tingkatRisiko: string) => {
   const norm = (tingkatRisiko || '').toLowerCase().trim();
   if (norm === 'rendah') return 'NIB';
-  if (norm === 'menengah rendah') return 'SERTIFIKAT STANDAR SELEF DECLARE';
-  if (norm === 'menengah tinggi') return 'SERTIFIKAT STANDAR PEMENUHAN KOMITMEN';
-  if (norm === 'tinggi') return 'IZIN';
+  if (norm === 'menengah rendah') return 'NIB & Sertifikat Standar Self Declare';
+  if (norm === 'menengah tinggi') return 'NIB & Sertifikat Standar Pemenuhan';
+  if (norm === 'tinggi') return 'NIB & Izin';
   return '-';
 };
 
@@ -99,9 +99,9 @@ const translateIzinValue = (izin: string, isEn: boolean) => {
 const getEnAutoIzin = (tingkatRisiko: string) => {
   const norm = (tingkatRisiko || '').toLowerCase().trim();
   if (norm === 'rendah') return 'NIB';
-  if (norm === 'menengah rendah') return 'STANDARD CERTIFICATE (SELF-DECLARE)';
-  if (norm === 'menengah tinggi') return 'STANDARD CERTIFICATE (COMMITMENT)';
-  if (norm === 'tinggi') return 'LICENSE';
+  if (norm === 'menengah rendah') return 'NIB & STANDARD CERTIFICATE (SELF-DECLARE)';
+  if (norm === 'menengah tinggi') return 'NIB & STANDARD CERTIFICATE (COMMITMENT)';
+  if (norm === 'tinggi') return 'NIB & LICENSE';
   return '-';
 };
 
@@ -299,13 +299,12 @@ const KBLISuggestions: React.FC = () => {
       }
 
       if (match) {
-        return { tingkatResiko: match.tingkatRisiko, izin: match.izin };
+        return { tingkatResiko: match.tingkatRisiko, izin: getAutoIzin(match.tingkatRisiko) };
       }
     }
     // Fallback logic
     const defaultRisk = calculateRisk('', skalaUsaha);
-    const riskLevel = RISK_LEVELS.find(r => r.value === defaultRisk);
-    return { tingkatResiko: defaultRisk, izin: riskLevel?.permit || 'NIB' };
+    return { tingkatResiko: defaultRisk, izin: getAutoIzin(defaultRisk) };
   };
 
   const parseScaleProperty = (propertyValue: string | undefined, scale: string, defaultValue: string) => {
@@ -852,7 +851,17 @@ const KBLISuggestions: React.FC = () => {
     setSelectedKblis(prev => prev.map(kbli => {
       if (kbli.kode === kbliKode) {
         const newScopes = [...(kbli.scopes || [])];
-        newScopes[scopeIndex] = { ...newScopes[scopeIndex], [field]: value };
+        let updatedScope = { ...newScopes[scopeIndex], [field]: value };
+        
+        if (field === "tingkatResiko") {
+          updatedScope.izin = getAutoIzin(value);
+        } else if (field === "ruangLingkup") {
+          const autoData = calculateScopeData(value, kelompokUsaha, kbli.kode);
+          updatedScope.tingkatResiko = autoData.tingkatResiko;
+          updatedScope.izin = autoData.izin;
+        }
+
+        newScopes[scopeIndex] = updatedScope;
         return { ...kbli, scopes: newScopes };
       }
       return kbli;
@@ -1025,9 +1034,18 @@ const KBLISuggestions: React.FC = () => {
     currentY = doc.lastAutoTable.finalY + 10;
 
     // Summary table listing all selected KBLIs with No KBLI, Nama Kelompok, and Uraian
-    const summaryHeaders = isEn 
-      ? [['No. KBLI', 'Group Name', 'Description']] 
-      : [['No. KBLI', 'Nama Kelompok', 'Uraian']];
+    const summaryHeaders = [isEn 
+      ? [
+          { content: 'No. KBLI', styles: { halign: 'center' as const } }, 
+          { content: 'Group Name', styles: { halign: 'left' as const } }, 
+          { content: 'Description', styles: { halign: 'left' as const } }
+        ] 
+      : [
+          { content: 'No. KBLI', styles: { halign: 'center' as const } }, 
+          { content: 'Nama Kelompok', styles: { halign: 'left' as const } }, 
+          { content: 'Uraian', styles: { halign: 'left' as const } }
+        ]
+    ];
 
     const summaryBody = activeSelectedKblis.map((kbli) => [
       kbli.kode,
@@ -1044,7 +1062,6 @@ const KBLISuggestions: React.FC = () => {
         fillColor: [225, 228, 232], 
         textColor: [0, 0, 0], 
         fontStyle: 'bold', 
-        halign: 'center', 
         valign: 'middle',
         lineColor: [150, 150, 150],
         lineWidth: 0.2
@@ -1059,7 +1076,7 @@ const KBLISuggestions: React.FC = () => {
       columnStyles: {
         0: { cellWidth: 18, halign: 'center', fontStyle: 'bold', valign: 'top' },
         1: { cellWidth: 47, fontStyle: 'bold', valign: 'top' },
-        2: { cellWidth: 'auto', halign: 'justify', valign: 'top' },
+        2: { cellWidth: 'auto', halign: 'left', valign: 'top' },
       },
       alternateRowStyles: { fillColor: [255, 255, 255] },
       margin: { left: 14, right: 14, bottom: 25, top: 20 },
@@ -1138,14 +1155,27 @@ const KBLISuggestions: React.FC = () => {
 
       autoTable(doc, {
         startY: currentY,
-        head: [isEn ? ['No', 'Business Scope', 'Risk Level', 'License', 'License Type'] : ['No', 'Ruang Lingkup Usaha', 'Tingkat Risiko', 'Izin', 'Jenis Izin']],
+        head: [isEn ? 
+          [
+            { content: 'No', styles: { halign: 'center' as const } },
+            { content: 'Business Scope', styles: { halign: 'left' as const } },
+            { content: 'Risk Level', styles: { halign: 'center' as const } },
+            { content: 'License', styles: { halign: 'center' as const } },
+            { content: 'License Type', styles: { halign: 'center' as const } }
+          ] : [
+            { content: 'No', styles: { halign: 'center' as const } },
+            { content: 'Ruang Lingkup Usaha', styles: { halign: 'left' as const } },
+            { content: 'Tingkat Risiko', styles: { halign: 'center' as const } },
+            { content: 'Izin', styles: { halign: 'center' as const } },
+            { content: 'Jenis Izin', styles: { halign: 'center' as const } }
+          ]
+        ],
         body: body,
         theme: 'grid',
         headStyles: { 
           fillColor: [225, 228, 232], 
           textColor: [0, 0, 0], 
           fontStyle: 'bold', 
-          halign: 'center', 
           valign: 'middle',
           lineColor: [150, 150, 150],
           lineWidth: 0.2
@@ -1159,7 +1189,7 @@ const KBLISuggestions: React.FC = () => {
         },
         columnStyles: {
           0: { cellWidth: 12, halign: 'center' },
-          1: { cellWidth: 80 },
+          1: { cellWidth: 80, halign: 'left' },
           2: { cellWidth: 30, halign: 'center' },
           3: { cellWidth: 30, halign: 'center' },
           4: { cellWidth: 30, halign: 'center' },
@@ -1169,7 +1199,29 @@ const KBLISuggestions: React.FC = () => {
       });
 
       // @ts-ignore
-      currentY = doc.lastAutoTable.finalY + 12;
+      currentY = doc.lastAutoTable.finalY + 7;
+
+      // Add Catatan KBLI if exists
+      if (kbli.catatan) {
+        if (currentY > pageHeight - 30) {
+          doc.addPage();
+          addLetterhead(false);
+          currentY = 25;
+        }
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(9);
+        doc.setTextColor(50, 50, 50);
+        doc.text(isEn ? 'Notes / Regulations:' : 'Catatan KBLI / Regulasi:', 14, currentY);
+        currentY += 5;
+        doc.setFont('helvetica', 'italic');
+        doc.setFontSize(8.5);
+        doc.setTextColor(80, 80, 80);
+        const splitCatatan = doc.splitTextToSize(kbli.catatan, pageWidth - 28);
+        doc.text(splitCatatan, 14, currentY);
+        currentY += (splitCatatan.length * 4) + 10;
+      } else {
+        currentY += 5;
+      }
     });
     
     addFooter();

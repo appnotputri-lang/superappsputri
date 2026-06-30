@@ -132,7 +132,7 @@ export function generateSirkulerLaporanBlocks(data: CompanyData): Block[] {
     { type: "br" }
   );
 
-  const companyEstStr = formatCompanyEstablishmentOnly(data, false);
+  const companyEstStr = formatCompanyEstablishmentOnly(data, false, true);
   const hasAmendments = data.amendmentDeeds && data.amendmentDeeds.length > 0;
 
   blocks.push(
@@ -284,10 +284,10 @@ export function generateSirkulerLaporanBlocks(data: CompanyData): Block[] {
     
     let details = "";
     if (isBadanHukum) {
-      details = formatPersonDetails(att.sourceObj, "", "", false, false);
+      details = formatPersonDetails(att.sourceObj, "", "", false, false, true);
     } else {
       const tglAngka = att.sourceObj.birthDate ? formatDateStr(att.sourceObj.birthDate) : "................";
-      details = formatPersonDetails(att.sourceObj, tglAngka, "", false, false);
+      details = formatPersonDetails(att.sourceObj, tglAngka, "", false, false, true);
     }
 
     const displayName = getCleanDisplayName(att.name);
@@ -340,7 +340,7 @@ export function generateSirkulerLaporanBlocks(data: CompanyData): Block[] {
           if (isAsing || isKoperasiOrYayasanOrCV) {
             entityPrefix = "";
           }
-          const shDetails = formatPersonDetails(r.shareholder, "", "", false, false);
+          const shDetails = formatPersonDetails(r.shareholder, "", "", false, false, true);
           const repName = `${entityPrefix}${getDisplayNameForDocx(r.shareholder)}`;
           
           runs = [
@@ -355,7 +355,7 @@ export function generateSirkulerLaporanBlocks(data: CompanyData): Block[] {
           ];
         } else {
           const proxyDate = r.proxyData.proxyDeedDate ? formatDateRupst(r.proxyData.proxyDeedDate) : "__________";
-          const repText = `Selaku kuasa dari ${r.shareholder.salutation || "Tuan"} ${getDisplayNameForDocx(r.shareholder)}${formatPersonDetails(r.shareholder, "", "", false, false)} berdasarkan surat kuasa tertanggal ${proxyDate}`;
+          const repText = `Selaku kuasa dari ${r.shareholder.salutation || "Tuan"} ${getDisplayNameForDocx(r.shareholder)}${formatPersonDetails(r.shareholder, "", "", false, false, true)} berdasarkan surat kuasa tertanggal ${proxyDate}`;
           runs = [
             { text: `${repText}, yang dalam hal ini selaku pemilik dan pemegang ` },
             { text: formatNumber(currentShares), bold: true },
@@ -409,7 +409,7 @@ export function generateSirkulerLaporanBlocks(data: CompanyData): Block[] {
           if (isAsing || isKoperasiOrYayasanOrCV) {
             entityPrefix = "";
           }
-          const shDetails = formatPersonDetails(r.shareholder, "", "", false, false);
+          const shDetails = formatPersonDetails(r.shareholder, "", "", false, false, true);
           const repName = `${entityPrefix}${getDisplayNameForDocx(r.shareholder)}`;
           
           runs = [
@@ -424,7 +424,7 @@ export function generateSirkulerLaporanBlocks(data: CompanyData): Block[] {
           ];
         } else {
           const proxyDate = r.proxyData.proxyDeedDate ? formatDateRupst(r.proxyData.proxyDeedDate) : "__________";
-          const repText = `Selaku kuasa dari ${r.shareholder.salutation || "Tuan"} ${getDisplayNameForDocx(r.shareholder)}${formatPersonDetails(r.shareholder, "", "", false, false)} berdasarkan surat kuasa tertanggal ${proxyDate}`;
+          const repText = `Selaku kuasa dari ${r.shareholder.salutation || "Tuan"} ${getDisplayNameForDocx(r.shareholder)}${formatPersonDetails(r.shareholder, "", "", false, false, true)} berdasarkan surat kuasa tertanggal ${proxyDate}`;
           runs = [
             { text: `${repText}, yang dalam hal ini selaku pemilik dan pemegang ` },
             { text: formatNumber(currentShares), bold: true },

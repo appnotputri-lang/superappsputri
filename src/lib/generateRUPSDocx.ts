@@ -137,13 +137,12 @@ const createListP = (
   options: Omit<IParagraphOptions, "children"> = {}
 ): Paragraph => {
   let level = 0;
-  if (indentTabs <= 0.6) level = 0;
-  else if (indentTabs <= 1.0 || (indentTabs > 1.4 && indentTabs <= 1.9)) level = 1;
-  else if (indentTabs > 1.0 && indentTabs < 1.4 || indentTabs === 3) level = 2;
-  else if (indentTabs === 1.5) level = 3;
-  else if (indentTabs >= 1.9 && indentTabs <= 2.1) level = 4;
-  else if (indentTabs > 2.1) level = 5;
-  else level = 2;
+  if (indentTabs <= 0.1) level = 0;
+  else if (indentTabs <= 0.6) level = 1;
+  else if (indentTabs <= 1.1) level = 2;
+  else if (indentTabs <= 1.6) level = 3;
+  else if (indentTabs <= 2.1) level = 4;
+  else level = 5;
 
   let width = W.list1;
   if (level === 1) width = W.list2;

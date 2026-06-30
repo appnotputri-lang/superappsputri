@@ -206,6 +206,7 @@ export const buildDividendBlocks = (
 
 export const generateRupstBlocks = (data: CompanyData): Block[] => {
   const blocks: Block[] = [];
+  const isSirkuler = data.rupstType === "sirkuler";
 
   const fiscalYear = data.rupstFiscalYear || "2025";
   const signingDate = data.signingDate || "";
@@ -288,7 +289,9 @@ export const generateRupstBlocks = (data: CompanyData): Block[] => {
       { text: `Rapat Umum Pemegang Saham Tahunan "` },
       { text: formatCompanyName(data.companyName).toUpperCase(), bold: true },
       {
-        text: `" (selanjutnya disebut sebagai "Rapat") perseroan yang berkedudukan di ${data.domicile || "..."}, demikian berdasarkan Akta Pendirian tertanggal ${tglPendirianRupst}, Nomor ${data.establishmentDeedNumber || "..."}, yang dibuat dihadapan ${checkNotaryWording(data.establishmentNotary || "............................", data.establishmentNotaryTitle, data.establishmentNotaryDomicile)} dan telah mendapat pengesahan dari Menteri Hukum dan Hak Asasi Manusia Republik Indonesia tertanggal ${tglSKPendirianRupst}, Nomor ${data.establishmentSkNumber || "..."}${hasAmendments ? (data.amendmentDeeds!.length === 1 ? " dan telah mengalami perubahan berdasarkan akta sebagai berikut :" : " dan telah mengalami beberapa kali perubahan berdasarkan akta-akta sebagai berikut :") : "."}`,
+        text: isSirkuler
+          ? `" (selanjutnya disebut sebagai "Keputusan") perseroan yang berkedudukan di ${data.domicile || "..."}, demikian berdasarkan Akta Pendirian tertanggal ${tglPendirianRupst} Nomor ${data.establishmentDeedNumber || "..."} yang dibuat di hadapan ${checkNotaryWording(data.establishmentNotary || "............................", data.establishmentNotaryTitle, data.establishmentNotaryDomicile)} dan telah mendapat pengesahan dari Menteri Hukum dan Hak Asasi Manusia Republik Indonesia tertanggal ${tglSKPendirianRupst}, Nomor ${data.establishmentSkNumber || "..."}${hasAmendments ? (data.amendmentDeeds!.length === 1 ? " dan telah mengalami perubahan berdasarkan akta sebagai berikut :" : " dan telah mengalami beberapa kali perubahan berdasarkan akta-akta sebagai berikut :") : "."}`
+          : `" (selanjutnya disebut sebagai "Rapat") perseroan yang berkedudukan di ${data.domicile || "..."}, demikian berdasarkan Akta Pendirian tertanggal ${tglPendirianRupst}, Nomor ${data.establishmentDeedNumber || "..."} yang dibuat di hadapan ${checkNotaryWording(data.establishmentNotary || "............................", data.establishmentNotaryTitle, data.establishmentNotaryDomicile)} dan telah mendapat pengesahan dari Menteri Hukum dan Hak Asasi Manusia Republik Indonesia tertanggal ${tglSKPendirianRupst}, Nomor ${data.establishmentSkNumber || "..."}${hasAmendments ? (data.amendmentDeeds!.length === 1 ? " dan telah mengalami perubahan berdasarkan akta sebagai berikut :" : " dan telah mengalami beberapa kali perubahan berdasarkan akta-akta sebagai berikut :") : "."}`,
       },
     ],
   });
@@ -531,7 +534,7 @@ export const generateRupstBlocks = (data: CompanyData): Block[] => {
     return [
       { text: sal },
       { text: nameUpper, bold: true },
-      { text: formatPersonDetails(person, tglAngka, tglHuruf, true) },
+      { text: formatPersonDetails(person, tglAngka, tglHuruf, true, false, isSirkuler) },
     ];
   };
 
@@ -936,7 +939,7 @@ export const generateRupstBlocks = (data: CompanyData): Block[] => {
     const repName = (rep.name || "").toUpperCase();
     const salutation = rep.salutation || "Tuan";
     const tglAngka = rep.birthDate ? formatDateRupst(rep.birthDate) : "...";
-    const details = formatPersonDetails(rep, tglAngka, "");
+    const details = formatPersonDetails(rep, tglAngka, "", false, false, isSirkuler);
     repRuns = [
       { text: `Memberikan kuasa kepada ` },
       { text: `${salutation} ` },

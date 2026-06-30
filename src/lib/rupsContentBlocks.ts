@@ -16,6 +16,7 @@ import {
   formatPersonDetails,
   checkIsBadanHukum,
   formatAktaDate,
+  formatDateSimple,
   cleanDegrees,
 } from "./formatter";
 
@@ -254,8 +255,10 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
     const tglLahirHuruf = person ? dateToWords(person.birthDate) : "";
     const tglLahirAngka = person ? formatDateStr(person.birthDate) : "";
 
+    const useAktaFormat = !isCircular && !isMinutes;
+
     const detailText = person
-      ? formatPersonDetails(person, tglLahirAngka, tglLahirHuruf, true)
+      ? formatPersonDetails(person, tglLahirAngka, tglLahirHuruf, useAktaFormat, false, isCircular)
       : `, lahir di ..., pada tanggal ... (...), Warga Negara Indonesia, ..., bertempat tinggal di ..., ..., Rukun Tetangga ..., Rukun Warga ..., Kelurahan ..., Kecamatan ..., pemegang Kartu Tanda Penduduk Nomor ...`;
 
     return [
@@ -386,7 +389,9 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
                     rep,
                     tglLahirRepAngka,
                     tglLahirRepHuruf,
-                    true,
+                    !isCircular && !isMinutes,
+                    false,
+                    isCircular
                   )
                 : `, lahir di ..., pada tanggal ... (...), Warga Negara Indonesia, ..., bertempat tinggal di ..., ..., Rukun Tetangga ..., Rukun Warga ..., Kelurahan ..., Kecamatan ..., pemegang Kartu Tanda Penduduk Nomor ...;`,
             ),
@@ -415,7 +420,9 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
                     rep,
                     tglLahirRepAngka,
                     tglLahirRepHuruf,
-                    true,
+                    !isCircular && !isMinutes,
+                    false,
+                    isCircular
                   )
                 : `, lahir di ..., pada tanggal ... (...), Warga Negara Indonesia, ..., bertempat tinggal di ..., ..., Rukun Tetangga ..., Rukun Warga ..., Kelurahan ..., Kecamatan ..., pemegang Kartu Tanda Penduduk Nomor ...;`,
             ),
@@ -485,7 +492,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
 
   const formattedEstDeedDate = isMinutes
     ? `${tglPendirianHuruf} (${tglPendirianAngka})`
-    : formatAktaDate(data.establishmentDeedDate || "");
+    : (isCircular ? formatDateSimple(data.establishmentDeedDate || "") : formatAktaDate(data.establishmentDeedDate || ""));
   const formattedEstSkDate = isMinutes
     ? `${tglSKPendirianHuruf} (${tglSKPendirianAngka})`
     : formatAktaDate(data.establishmentSkDate || "");
@@ -528,7 +535,9 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
         },
         { text: formatCompanyName(data.companyName), bold: true },
         {
-          text: `, perseroan berkedudukan di ${toTitleCase(data.newAddress?.city || data.domicile || "...")}, demikian berdasarkan Akta Pendirian tertanggal ${formattedEstDeedDate}, Nomor ${data.establishmentDeedNumber} dibuat dihadapan ${checkNotaryWording(data.establishmentNotary, data.establishmentNotaryTitle, data.establishmentNotaryDomicile)} dan telah mendapat pengesahan dari Menteri Hukum dan Hak Asasi Manusia Republik Indonesia berdasarkan Surat Keputusan Nomor ${data.establishmentSkNumber} tertanggal ${formattedEstSkDate} dan telah mengalami beberapa kali perubahan berdasarkan akta-akta sebagai berikut :`,
+          text: isCircular 
+            ? `, perseroan berkedudukan di ${toTitleCase(data.newAddress?.city || data.domicile || "...")}, demikian berdasarkan Akta Pendirian tertanggal ${formattedEstDeedDate} Nomor ${data.establishmentDeedNumber} dibuat dihadapan ${checkNotaryWording(data.establishmentNotary, data.establishmentNotaryTitle, data.establishmentNotaryDomicile)} dan telah mendapat pengesahan dari Menteri Hukum dan Hak Asasi Manusia Republik Indonesia berdasarkan Surat Keputusan Nomor ${data.establishmentSkNumber} tertanggal ${formattedEstSkDate} dan telah mengalami beberapa kali perubahan berdasarkan akta-akta sebagai berikut :`
+            : `, perseroan berkedudukan di ${toTitleCase(data.newAddress?.city || data.domicile || "...")}, demikian berdasarkan Akta Pendirian tertanggal ${formattedEstDeedDate}, Nomor ${data.establishmentDeedNumber} dibuat dihadapan ${checkNotaryWording(data.establishmentNotary, data.establishmentNotaryTitle, data.establishmentNotaryDomicile)} dan telah mendapat pengesahan dari Menteri Hukum dan Hak Asasi Manusia Republik Indonesia berdasarkan Surat Keputusan Nomor ${data.establishmentSkNumber} tertanggal ${formattedEstSkDate} dan telah mengalami beberapa kali perubahan berdasarkan akta-akta sebagai berikut :`,
         },
       ],
     });
@@ -648,7 +657,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
             blocks.push({
               type: "list",
               bullet: "-",
-              indentTabs: 2.0,
+              indentTabs: 1.5,
               runs: [
                 {
                   text: `${prefix} aktanya dibuat di hadapan ${checkNotaryWording(deed.notary, deed.notaryTitle, deed.notaryDomicile)}${isLastInOverall ? "." : ";"}`,
@@ -1212,6 +1221,8 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
           tglLahirAngka,
           tglLahirHuruf,
           true,
+          false,
+          isCircular
         );
 
         runs = [
@@ -1683,6 +1694,8 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
                 tglLahirAngka,
                 tglLahirHuruf,
                 true,
+                false,
+                isCircular
               );
             } else {
               detailsText = `, lahir di Bandung, pada tanggal 15-07-1991 (lima belas Juli seribu sembilan ratus sembilan puluh satu), Warga Negara Indonesia, Wiraswasta, bertempat tinggal di Kabupaten Bandung Barat, Jl Sukaresmi V Nomor 17, RT. 005 RW. 005, Kelurahan Mekarwangi, Kecamatan Lembang, pemegang Kartu Tanda Penduduk Nomor ...`;
