@@ -232,7 +232,7 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
 
     fullyDescribedNames.add(nameUpper);
     const tglAngka = person?.birthDate
-      ? formatDateRupst(person.birthDate)
+      ? formatDateStr(person.birthDate)
       : "...";
     const tglHuruf = person?.birthDate ? dateToWords(person.birthDate) : "";
 
@@ -382,7 +382,7 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
           text: expandAbbreviations(
             formatPersonDetails(
               rep,
-              rep.birthDate ? formatDateRupst(rep.birthDate) : "...",
+              rep.birthDate ? formatDateStr(rep.birthDate) : "...",
               rep.birthDate ? dateToWords(rep.birthDate) : "",
               true,
             ),

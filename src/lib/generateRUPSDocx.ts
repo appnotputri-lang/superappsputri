@@ -145,15 +145,30 @@ const createListP = (
   else if (indentTabs > 2.1) level = 5;
   else level = 2;
 
-  const buildRuns = (toks: FormatToken[]): TextRun[] =>
-    toks.map(t => new TextRun({
-      text: t.text,
-      bold: t.bold,
-      italics: t.italic,
-      underline: t.underline ? {} : undefined,
-      color: t.color,
-      highlight: t.highlight as any,
-    }));
+  let width = W.list1;
+  if (level === 1) width = W.list2;
+  else if (level === 2) width = W.list3;
+  else if (level >= 3) width = W.list4;
+
+  const lines = parseTextRuns(tokens, width);
+  const children: any[] = [];
+
+  lines.forEach((lineTokens, i) => {
+    lineTokens.forEach((t) => {
+      children.push(new TextRun({
+        text: t.text,
+        bold: t.bold,
+        italics: t.italic,
+        underline: t.underline ? {} : undefined,
+        color: t.color,
+        highlight: t.highlight as any,
+      }));
+    });
+    children.push(new TextRun({ text: "\t" }));
+    if (i < lines.length - 1) {
+      children.push(new TextRun({ break: 1 }));
+    }
+  });
 
   const isAlpha = typeof bulletText === 'string' && /[a-zA-Z]/.test(bulletText);
   let numRef: string;
@@ -168,8 +183,9 @@ const createListP = (
   }
 
   return new Paragraph({
-    children: buildRuns(tokens),
+    children,
     numbering: { reference: numRef, level: level },
+    tabStops: [TAB_KANAN],
     alignment: AlignmentType.LEFT,
     ...options,
   });
@@ -184,20 +200,31 @@ const createNumberedP = (
   tokens: FormatToken[],
   options: Omit<IParagraphOptions, "children"> = {}
 ): Paragraph => {
-  const buildRuns = (toks: FormatToken[]): TextRun[] =>
-    toks.map(t => new TextRun({
-      text: t.text,
-      bold: t.bold,
-      italics: t.italic,
-      underline: t.underline ? {} : undefined,
-      color: t.color,
-      highlight: t.highlight as any,
-    }));
+  const lines = parseTextRuns(tokens, W.numbered);
+  const children: any[] = [];
+
+  lines.forEach((lineTokens, i) => {
+    lineTokens.forEach((t) => {
+      children.push(new TextRun({
+        text: t.text,
+        bold: t.bold,
+        italics: t.italic,
+        underline: t.underline ? {} : undefined,
+        color: t.color,
+        highlight: t.highlight as any,
+      }));
+    });
+    children.push(new TextRun({ text: "\t" }));
+    if (i < lines.length - 1) {
+      children.push(new TextRun({ break: 1 }));
+    }
+  });
 
   const isAlpha = typeof num === 'string' && /[a-zA-Z]/.test(num);
   return new Paragraph({
-    children: buildRuns(tokens),
+    children,
     numbering: { reference: isAlpha ? "rups-letter" : "rups-decimal", level: 0 },
+    tabStops: [TAB_KANAN],
     alignment: AlignmentType.LEFT,
     ...options,
   });
@@ -212,19 +239,30 @@ const createSubNumberedP = (
   indentTabs: number = 0
 ): Paragraph => {
   const level = Math.max(0, Math.min(Math.round(indentTabs), 2));
-  const buildRuns = (toks: FormatToken[]): TextRun[] =>
-    toks.map(t => new TextRun({
-      text: t.text,
-      bold: t.bold,
-      italics: t.italic,
-      underline: t.underline ? {} : undefined,
-      color: t.color,
-      highlight: t.highlight as any,
-    }));
+  const lines = parseTextRuns(tokens, W.subnr);
+  const children: any[] = [];
+
+  lines.forEach((lineTokens, i) => {
+    lineTokens.forEach((t) => {
+      children.push(new TextRun({
+        text: t.text,
+        bold: t.bold,
+        italics: t.italic,
+        underline: t.underline ? {} : undefined,
+        color: t.color,
+        highlight: t.highlight as any,
+      }));
+    });
+    children.push(new TextRun({ text: "\t" }));
+    if (i < lines.length - 1) {
+      children.push(new TextRun({ break: 1 }));
+    }
+  });
 
   return new Paragraph({
-    children: buildRuns(tokens),
+    children,
     numbering: { reference: "rups-sub-decimal", level: level },
+    tabStops: [TAB_KANAN],
     alignment: AlignmentType.LEFT,
   });
 };

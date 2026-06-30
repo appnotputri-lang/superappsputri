@@ -286,7 +286,7 @@ export function generateSirkulerLaporanBlocks(data: CompanyData): Block[] {
     if (isBadanHukum) {
       details = formatPersonDetails(att.sourceObj, "", "", false, false);
     } else {
-      const tglAngka = att.sourceObj.birthDate ? formatDateRupst(att.sourceObj.birthDate) : "................";
+      const tglAngka = att.sourceObj.birthDate ? formatDateStr(att.sourceObj.birthDate) : "................";
       details = formatPersonDetails(att.sourceObj, tglAngka, "", false, false);
     }
 

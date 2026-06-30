@@ -333,7 +333,7 @@ export const generateWordDoc = async (data: CompanyData) => {
     const currentValue = currentShares * parValue;
     const isBadanHukum = checkIsBadanHukum(sh);
 
-    const tglAngka = sh.birthDate ? formatDateRupst(sh.birthDate) : "...";
+    const tglAngka = sh.birthDate ? formatDateStr(sh.birthDate) : "...";
     const personDetails = formatPersonDetails(sh, tglAngka, "", false);
 
     const nameUpper = (sh.name || '').toUpperCase().trim();
