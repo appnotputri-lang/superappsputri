@@ -434,7 +434,7 @@ export const generateWordDoc = async (data: CompanyData) => {
         alignment: "both" as any,
         spacing: { line: LINE_SPACING, lineRule: "auto", before: 0, after: 0 },
         children: [
-          mkRun(`Rapat ini diselenggarakan berdasarkan Surat Undangan Direksi PT. ${companyName} Nomor : `),
+          mkRun(`Rapat ini diselenggarakan berdasarkan Surat Undangan Direksi PT. ${companyName} nomor `),
           mkRun(data.invitationNumber || "[nomor surat]", false, { highlight: data.invitationNumber ? undefined : "yellow" }),
           mkRun(" tanggal "),
           mkRun(data.invitationDate ? invDateText2 : "[tanggal surat]", false, { highlight: data.invitationDate ? undefined : "yellow" }),
@@ -3053,34 +3053,27 @@ export const generateWordDoc = async (data: CompanyData) => {
     children.push(
       new Paragraph({
         alignment: "left" as any,
-        spacing: { after: 240, before: 480, line: LINE_SPACING, lineRule: "auto" },
+        spacing: { after: 240, before: 480 },
         children: [mkRun("KETUA RAPAT,", true)],
       }),
       new Paragraph({
         alignment: "left" as any,
-        spacing: { after: 480, line: LINE_SPACING, lineRule: "auto" },
-        children: [mkRun("Tanggal: ....................", false)],
-      }),
-      new Paragraph({
-        alignment: "left" as any,
-        spacing: { after: 480, line: LINE_SPACING, lineRule: "auto" },
+        spacing: { after: 480 },
         children: [mkRun("Meterai Rp.10.000,- + cap perusahan", false, { color: "FF0000", size: 16 })],
       }),
-      new Paragraph({ spacing: { before: 720 }, children: [] }),
       new Paragraph({
         alignment: "left" as any,
-        spacing: { after: 0, line: LINE_SPACING, lineRule: "auto" },
         children: [mkRun((data.meetingChair || "................").toUpperCase(), true, { underline: { type: "single" } })],
       }),
       new Paragraph({
         alignment: "left" as any,
-        spacing: { after: 480, line: LINE_SPACING, lineRule: "auto" },
+        spacing: { after: 480 },
         children: [mkRun((data.meetingChairPosition || "Direktur"), true)],
       }),
       new Paragraph({
         alignment: "left" as any,
-        spacing: { after: 480, before: 480, line: LINE_SPACING, lineRule: "auto" },
-        children: [mkRun("DAFTAR HADIR / TANDA TANGAN PESERTA RAPAT :", true)],
+        spacing: { after: 480, before: 480 },
+        children: [mkRun("TANDA TANGAN PESERTA RAPAT :", true)],
       })
     );
 
@@ -3095,40 +3088,34 @@ export const generateWordDoc = async (data: CompanyData) => {
     const participants = data.shareholders.filter(sh => (sh.sharesOwned > 0 || sh.isPresent) && sh.name.toUpperCase() !== tandaTanganChairName);
 
     const cols = 2;
-    const rowsCount = Math.ceil(participants.length / cols);
     const participantRows = [];
     const borderNone = { style: BorderStyle.NONE, size: 0, color: "auto" };
     const bordersNone = { top: borderNone, bottom: borderNone, left: borderNone, right: borderNone, insideHorizontal: borderNone, insideVertical: borderNone };
-    
-    for (let i = 0; i < rowsCount; i++) {
-      const rowCells = [];
-      for (let j = 0; j < cols; j++) {
-        const pIdx = i * cols + j;
-        const participant = participants[pIdx];
-        if (participant) {
-           rowCells.push(
-             new TableCell({
-               borders: bordersNone,
-               width: { size: 4252, type: WidthType.DXA },
-               margins: { top: 120, bottom: 120, left: 120, right: 120 },
-               children: [
-                 new Paragraph({ children: [new TextRun({ text: formatParticipantName(participant), bold: true })] }),
-                 new Paragraph({ children: [new TextRun({ text: participant.managementPosition || (participant.sharesOwned > 0 ? "pemegang saham" : "") })] }),
-                 new Paragraph({ spacing: { before: 720 }, children: [new TextRun({ text: "........................................................", bold: false })] })
-               ]
-             })
-           );
-        } else {
-           rowCells.push(
-             new TableCell({
-               borders: bordersNone,
-               width: { size: 4252, type: WidthType.DXA },
-               children: [new Paragraph({ children: [] })]
-             })
-           );
-        }
-      }
-      participantRows.push(new TableRow({ children: rowCells }));
+
+    for (const participant of participants) {
+      const positionText = participant.managementPosition || (participant.sharesOwned > 0 ? "pemegang saham" : "");
+      participantRows.push(
+        new TableRow({
+          children: [
+            new TableCell({
+              borders: bordersNone,
+              width: { size: 4252, type: WidthType.DXA },
+              margins: { top: 120, bottom: 120, left: 120, right: 120 },
+              children: [
+                new Paragraph({ children: [new TextRun({ text: formatParticipantName(participant), bold: true })] }),
+                new Paragraph({ children: [new TextRun({ text: positionText })] }),
+              ],
+            }),
+            new TableCell({
+              borders: bordersNone,
+              width: { size: 4252, type: WidthType.DXA },
+              children: [
+                new Paragraph({ children: [new TextRun({ text: "........................................................" })] }),
+              ],
+            }),
+          ],
+        }),
+      );
     }
 
     if (participantRows.length > 0) {
@@ -3136,7 +3123,8 @@ export const generateWordDoc = async (data: CompanyData) => {
         new Table({
           rows: participantRows,
           width: { size: 8504, type: WidthType.DXA },
-          borders: bordersNone
+          borders: bordersNone,
+          cellMargin: { left: 10, right: 10 },
         })
       );
     }
