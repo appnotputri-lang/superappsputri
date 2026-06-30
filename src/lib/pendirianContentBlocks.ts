@@ -680,7 +680,7 @@ export function generatePendirianBlocks(data: PendirianData): Block[] {
   if (isDocDateValid) {
     const endDate = new Date(docDate);
     endDate.setFullYear(endDate.getFullYear() + termYears);
-    endTglHuruf = formatAktaDate(formatDateStr(endDate.toISOString()));
+    endTglHuruf = formatAktaDate(endDate.toISOString());
     const fullYear = docDate.getFullYear();
     firstYearTitle = terbilang(fullYear);
     firstYearNumber = String(fullYear);

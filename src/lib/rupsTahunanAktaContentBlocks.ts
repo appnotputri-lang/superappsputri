@@ -80,7 +80,7 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
       : "............................";
   const tglAktaRupst =
     hasCustomDeedDate && effectiveNotaryDate
-      ? formatDateRupst(effectiveNotaryDate) || "08 Mei 2026"
+      ? formatAktaDate(effectiveNotaryDate) || "08 Mei 2026"
       : "............................";
   const tglAktaHuruf =
     hasCustomDeedDate && effectiveNotaryDate
@@ -109,7 +109,7 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
   // Meeting Dates
   const tglRapatHari = getDayName(data.signingDate || "") || "Rabu";
   const tglRapatRupst =
-    formatDateRupst(data.signingDate || "") || "06 Mei 2026";
+    formatAktaDate(data.signingDate || "") || "06 Mei 2026";
 
   const stTime = data.meetingStartTime;
   const jamRapatStr = stTime ? stTime.replace(":", ".") : "00.00";
@@ -1422,11 +1422,11 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
   const kapName = data.rupstKapName || "[NAMA KAP]";
   const kapLicense = data.rupstKapLicenseNumber || "[NOMOR IZIN KAP]";
   const kapExpiryDate = data.rupstKapExpiryDate
-    ? formatDateRupst(data.rupstKapExpiryDate)
+    ? formatAktaDate(data.rupstKapExpiryDate)
     : "[TANGGAL BERAKHIR IZIN]";
   const auditReportNum = data.rupstAuditReportNumber || "[NOMOR LAPORAN AUDIT]";
   const auditReportDate = data.rupstAuditReportDate
-    ? formatDateRupst(data.rupstAuditReportDate)
+    ? formatAktaDate(data.rupstAuditReportDate)
     : "[TANGGAL LAPORAN AUDIT]";
 
   let decisionIndex = 2;
@@ -1503,7 +1503,7 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
     }
 
     const financialRepDate = data.rupstFinancialReportDate
-      ? formatDateRupst(data.rupstFinancialReportDate)
+      ? formatAktaDate(data.rupstFinancialReportDate)
       : "29 April 2026";
 
     let financialApprovalRuns: any[] = [

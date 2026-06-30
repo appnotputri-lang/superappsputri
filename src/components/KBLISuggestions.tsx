@@ -1038,19 +1038,22 @@ const KBLISuggestions: React.FC = () => {
       ? [
           { content: 'No. KBLI', styles: { halign: 'center' as const } }, 
           { content: 'Group Name', styles: { halign: 'left' as const } }, 
-          { content: 'Description', styles: { halign: 'left' as const } }
+          { content: 'Description', styles: { halign: 'left' as const } },
+          { content: 'Notes', styles: { halign: 'left' as const } }
         ] 
       : [
           { content: 'No. KBLI', styles: { halign: 'center' as const } }, 
           { content: 'Nama Kelompok', styles: { halign: 'left' as const } }, 
-          { content: 'Uraian', styles: { halign: 'left' as const } }
+          { content: 'Uraian', styles: { halign: 'left' as const } },
+          { content: 'Catatan', styles: { halign: 'left' as const } }
         ]
     ];
 
     const summaryBody = activeSelectedKblis.map((kbli) => [
       kbli.kode,
       kbli.judul.toUpperCase(),
-      kbli.uraian || '-'
+      kbli.uraian || '-',
+      kbli.catatan || '-'
     ]);
 
     autoTable(doc, {
@@ -1075,8 +1078,9 @@ const KBLISuggestions: React.FC = () => {
       },
       columnStyles: {
         0: { cellWidth: 18, halign: 'center', fontStyle: 'bold', valign: 'top' },
-        1: { cellWidth: 47, fontStyle: 'bold', valign: 'top' },
-        2: { cellWidth: 'auto', halign: 'left', valign: 'top' },
+        1: { cellWidth: 40, fontStyle: 'bold', valign: 'top' },
+        2: { cellWidth: 60, halign: 'left', valign: 'top' },
+        3: { cellWidth: 'auto', halign: 'left', valign: 'top' },
       },
       alternateRowStyles: { fillColor: [255, 255, 255] },
       margin: { left: 14, right: 14, bottom: 25, top: 20 },

@@ -127,7 +127,7 @@ export const getDayNameIndo = (dateStr: string): string => {
 export const getDayIndo = (dateStr: string): string => {
     if (!dateStr) return '';
     const date = new Date(dateStr);
-    return date.getDate().toString();
+    return date.getDate().toString().padStart(2, '0');
 };
 
 export const getYearIndo = (dateStr: string): string => {

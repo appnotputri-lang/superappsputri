@@ -534,7 +534,7 @@ export const generateRupstBlocks = (data: CompanyData): Block[] => {
     return [
       { text: sal },
       { text: nameUpper, bold: true },
-      { text: formatPersonDetails(person, tglAngka, tglHuruf, true, false, isSirkuler) },
+      { text: formatPersonDetails(person, tglAngka, tglHuruf, false, false, isSirkuler) },
     ];
   };
 

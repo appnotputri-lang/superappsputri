@@ -1259,7 +1259,7 @@ const KBLIMapping: React.FC = () => {
           children: [
             cell([para([run(item.kode, { bold: true, size: 8.5, color: "0F766E" })], { alignment: AlignmentType.CENTER })]),
             cell([para([run(item.judul, { bold: true, size: 8.5, color: "0F3057" })])]),
-            cell([para([run(item.uraian || "-", { size: 8.5 })], { alignment: AlignmentType.BOTH })]),
+            cell([para([run(item.uraian || "-", { size: 8.5 })], { alignment: AlignmentType.LEFT })]),
           ]
         }));
       });
@@ -1774,14 +1774,16 @@ const KBLIMapping: React.FC = () => {
             { content: k25Kode, styles: { fontStyle: "bold", textColor: [15, 118, 110] } },
             { content: k25Judul, styles: { textColor: [15, 118, 110] } },
             { content: jp, styles: { fontStyle: "bold", textColor: jpLower.includes("pecah") ? [239,68,68] : jpLower.includes("tidak berubah") ? [16,185,129] : jpLower.includes("gabung") ? [34,197,94] : jpLower.includes("lebur") ? [245,158,11] : [14,165,233] } },
-            { content: keterangan }
+            { content: keterangan, styles: { halign: "left" } },
+            { content: item.catatan || "-", styles: { halign: "left" } }
           ]);
         } else {
           summaryRows.push([
             { content: k25Kode, styles: { fontStyle: "bold", textColor: [15, 118, 110] } },
             { content: k25Judul, styles: { textColor: [15, 118, 110] } },
             { content: jp, styles: { fontStyle: "bold", textColor: jpLower.includes("pecah") ? [239,68,68] : jpLower.includes("tidak berubah") ? [16,185,129] : jpLower.includes("gabung") ? [34,197,94] : jpLower.includes("lebur") ? [245,158,11] : [14,165,233] } },
-            { content: keterangan }
+            { content: keterangan, styles: { halign: "left" } },
+            { content: item.catatan || "-", styles: { halign: "left" } }
           ]);
         }
       });
@@ -1790,24 +1792,26 @@ const KBLIMapping: React.FC = () => {
     autoTable(doc, {
       startY: currentY,
       head: [[
-        { content: "KBLI\n2020", styles: { halign: "center" } }, 
-        { content: "Nama KBLI 2020", styles: { halign: "center" } }, 
-        { content: "KBLI\n2025", styles: { halign: "center" } }, 
-        { content: "Nama KBLI 2025", styles: { halign: "center" } }, 
-        { content: "Jenis\nPerubahan", styles: { halign: "center" } }, 
-        { content: "Keterangan Pemetaan", styles: { halign: "center" } }
+        { content: isEn ? "KBLI\n2020" : "KBLI\n2020", styles: { halign: "center" } }, 
+        { content: isEn ? "KBLI 2020 Name" : "Nama KBLI 2020", styles: { halign: "left" } }, 
+        { content: isEn ? "KBLI\n2025" : "KBLI\n2025", styles: { halign: "center" } }, 
+        { content: isEn ? "KBLI 2025 Name" : "Nama KBLI 2025", styles: { halign: "left" } }, 
+        { content: isEn ? "Change\nType" : "Jenis\nPerubahan", styles: { halign: "center" } }, 
+        { content: isEn ? "Mapping Explanation" : "Keterangan Pemetaan", styles: { halign: "left" } },
+        { content: isEn ? "Notes" : "Catatan", styles: { halign: "left" } }
       ]],
       body: summaryRows,
       theme: "grid",
       headStyles: { fillColor: [15, 48, 87], textColor: [255, 255, 255], fontStyle: "bold", fontSize: 9 },
       styles: { fontSize: 8.5, textColor: [15, 48, 87], valign: "middle", cellPadding: 3, lineColor: [226, 232, 240] },
       columnStyles: {
-        0: { cellWidth: 15 },
-        1: { cellWidth: 40 },
+        0: { cellWidth: 15, halign: "center" },
+        1: { cellWidth: 35, halign: "left" },
         2: { cellWidth: 15, halign: "center" },
-        3: { cellWidth: 45 },
-        4: { cellWidth: 25, halign: "center" },
-        5: { cellWidth: "auto" }
+        3: { cellWidth: 35, halign: "left" },
+        4: { cellWidth: 20, halign: "center" },
+        5: { cellWidth: 35, halign: "left" },
+        6: { cellWidth: "auto", halign: "left" }
       },
       margin: { top: 22, right: 14, bottom: 25, left: 14 },
     });

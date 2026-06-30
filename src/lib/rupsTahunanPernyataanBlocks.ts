@@ -2,6 +2,7 @@ import { CompanyData } from "../../types";
 import {
   formatDateStr,
   formatDateRupst,
+  formatAktaDate,
   formatCompanyName,
   toTitleCase,
 } from "./formatter";
@@ -226,7 +227,7 @@ export const generateRupstPernyataanBlocks = (data: CompanyData): Block[] => {
 
     const kapName = (data.rupstKapName || "[NAMA KAP]").toUpperCase();
     const kapLicense = data.rupstKapLicenseNumber || "[NOMOR IZIN KAP]";
-    const kapExpiryDate = data.rupstKapExpiryDate ? formatDateRupst(data.rupstKapExpiryDate) : "[TANGGAL BERAKHIR IZIN]";
+    const kapExpiryDate = data.rupstKapExpiryDate ? formatAktaDate(data.rupstKapExpiryDate) : "[TANGGAL BERAKHIR IZIN]";
 
     blocks.push({
       type: "listNumber",
@@ -290,7 +291,7 @@ export const generateRupstPernyataanBlocks = (data: CompanyData): Block[] => {
 
   // 7. Signing block — city, company name, materai, then table, then solo komisaris
   const signingDateStr = data.signingDate
-    ? formatDateRupst(data.signingDate)
+    ? formatAktaDate(data.signingDate)
     : "................................ 2026";
   const city = toTitleCase(data.domicile || "Bandung");
 
