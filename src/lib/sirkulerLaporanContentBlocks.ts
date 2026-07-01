@@ -685,13 +685,17 @@ export function generateSirkulerLaporanBlocks(data: CompanyData): Block[] {
         retainedText = `Laba bersih tahun berjalan sebesar ${netProfitAmtStr} ditambah saldo ${prevLabel} ditahan tahun sebelumnya sebesar ${prevRetProfitAmtStr} menjadi sebesar Rp${formatNumber(Math.abs(totalLabaDitahan))},- (${terbilang(Math.abs(totalLabaDitahan))} rupiah) ditetapkan sebagai saldo ${totalRetainedLabel} ditahan Perseroan.`;
       }
 
-      blocks.push({
-        type: "list",
-        bullet: "b.",
-        indentLeft: 720,
-        indentHanging: 360,
-        runs: [{ text: retainedText }]
-      });
+      const netProfitVal = data.rupstNetProfit || 0;
+      const prevRetainedVal = data.rupstRetainedProfit || 0;
+      if (netProfitVal !== 0 || prevRetainedVal !== 0) {
+        blocks.push({
+          type: "list",
+          bullet: "b.",
+          indentLeft: 720,
+          indentHanging: 360,
+          runs: [{ text: retainedText }]
+        });
+      }
     }
   }
   currentDecisionIdx++;

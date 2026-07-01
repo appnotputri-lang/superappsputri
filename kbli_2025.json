@@ -1441,6 +1441,12 @@
       "level": "Kelompok"
     },
     {
+      "kode": "10732",
+      "judul": "INDUSTRI COKELAT DAN KEMBANG GULA DARI COKELAT",
+      "uraian": "Kelompok ini mencakup kegiatan pembuatan berbagai jenis cokelat, seperti cokelat kompon, cokelat couverture, cokelat imitasi, cokelat putih, serta pembuatan gula-gula dari cokelat, olesan, dan isian berbasis cokelat. Kelompok ini juga mencakup pembuatan minuman dari cokelat dalam bentuk bubuk maupun cair.",
+      "level": "Kelompok"
+    },
+    {
       "kode": "10733",
       "judul": "INDUSTRI MANISAN BUAH-BUAHAN DAN SAYURAN KERING",
       "uraian": "Kelompok ini mencakup kegiatan pengawetan buah, kacang, kulit buah, dan bagian lain dari tumbuhan dengan proses pemanisan dan pengeringan, baik dalam bentuk kemasan ataupun tidak, seperti manisan pala dan manisan mangga kering.",
@@ -2398,6 +2404,12 @@
       "kode": "21021",
       "judul": "INDUSTRI BAHAN BAKU OBAT BAHAN ALAM UNTUK MANUSIA",
       "uraian": "Kelompok ini mencakup kegiatan pengolahan macam-macam ekstrak dan simplisia, sediaan galenik, bahan tambahan atau bahan lainnya, baik yang berkhasiat maupun yang tidak berkhasiat, yang berubah maupun yang tidak berubah, yang digunakan dalam pengolahan obat bahan alam, walaupun tidak semua bahan tersebut masih terdapat di dalam produk ruahan. 21022 INDUSTRI PRODUK OBAT BAHAN ALAM UNTUK MANUSIA Kelompok ini mencakup kegiatan pengolahan macam-macam produk obat bahan alam yang bahannya memakai sumber daya alam bentuk mentah atau belum melalui proses lanjutan dari tumbuhan, hewan, jasad renik, mineral, atau campuran dari bahan tersebut yang berbentuk sedian berupa serbuk, serbuk instan, rajangan, pil, dodol/jenang, pilis, tapel, pastiles, tablet, kapsul, cairan, larutan, emulsi dan suspensi, efervesen, film, strip, gummy chewable, salep, losion, krim dan gel, aerosol untuk obat luar, plester, supositoria; pembuatan minuman jamu dan suplemen kesehatan/makanan bukan produk farmasi.",
+      "level": "Kelompok"
+    },
+    {
+      "kode": "21022",
+      "judul": "INDUSTRI PRODUK OBAT BAHAN ALAM UNTUK MANUSIA",
+      "uraian": "Kelompok ini mencakup kegiatan pengolahan macam-macam produk obat bahan alam yang bahannya memakai sumber daya alam bentuk mentah atau belum melalui proses lanjutan dari tumbuhan, hewan, jasad renik, mineral, atau campuran dari bahan tersebut yang berbentuk sedian berupa serbuk, serbuk instan, rajangan, pil, dodol/jenang, pilis, tapel, pastiles, tablet, kapsul, cairan, larutan, emulsi dan suspensi, efervesen, film, strip, gummy chewable, salep, losion, krim dan gel, aerosol untuk obat luar, plester, supositoria; pembuatan minuman jamu dan suplemen kesehatan/makanan bukan produk farmasi",
       "level": "Kelompok"
     },
     {
@@ -4761,7 +4773,13 @@
     {
       "kode": "46791",
       "judul": "PERDAGANGAN BESAR ALAT KESEHATAN DAN LABORATORIUM UNTUK MANUSIA",
-      "uraian": "Kelompok ini mencakup usaha perdagangan besar alat laboratorium, peralatan medis, bedah, ortopedi, dan sejenisnya untuk manusia. 46792 PERDAGANGAN BESAR ALAT KESEHATAN UNTUK HEWAN Kelompok ini mencakup perdagangan besar peralatan laboratorium, diagnosis, bedah, dan sejenisnya untuk hewan yang meliputi kegiatan pemasukan, pengeluaran, dan distribusi.",
+      "uraian": "Kelompok ini mencakup usaha perdagangan besar alat laboratorium, peralatan medis, bedah, ortopedi, dan sejenisnya untuk manusia.",
+      "level": "Kelompok"
+    },
+    {
+      "kode": "46792",
+      "judul": "PERDAGANGAN BESAR ALAT KESEHATAN UNTUK HEWAN",
+      "uraian": "Kelompok ini mencakup perdagangan besar peralatan laboratorium, diagnosis, bedah, dan sejenisnya untuk hewan yang meliputi kegiatan pemasukan, pengeluaran, dan distribusi.",
       "level": "Kelompok"
     },
     {

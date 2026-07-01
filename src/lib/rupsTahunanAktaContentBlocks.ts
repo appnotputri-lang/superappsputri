@@ -1879,8 +1879,9 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
               },
             ],
           },
-          ...(!data.rupstIsAudited &&
-          (netProfit === 0 || netProfit === undefined)
+          ...((netProfit === 0 && previousRetained === 0) ||
+          (!data.rupstIsAudited &&
+            (netProfit === 0 || netProfit === undefined))
             ? []
             : [
                 {

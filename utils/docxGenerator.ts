@@ -3109,6 +3109,7 @@ export const generateWordDoc = async (data: CompanyData) => {
             new TableCell({
               borders: bordersNone,
               width: { size: 4252, type: WidthType.DXA },
+              margins: { top: 120, bottom: 120, left: 120, right: 120 },
               children: [
                 new Paragraph({ children: [new TextRun({ text: "........................................................" })] }),
               ],
@@ -3124,7 +3125,6 @@ export const generateWordDoc = async (data: CompanyData) => {
           rows: participantRows,
           width: { size: 8504, type: WidthType.DXA },
           borders: bordersNone,
-          cellMargin: { left: 10, right: 10 },
         })
       );
     }

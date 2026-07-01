@@ -1180,7 +1180,11 @@ export const generateRupstBlocks = (data: CompanyData): Block[] => {
             },
           ],
         });
+        const previousRetained = data.rupstRetainedProfit || 0;
+        const netProfit = data.rupstNetProfit || 0;
+
         if (
+          !(netProfit === 0 && previousRetained === 0) &&
           !(
             !data.rupstIsAudited &&
             ((typeof data.rupstNetProfit === "number" &&
@@ -1188,14 +1192,12 @@ export const generateRupstBlocks = (data: CompanyData): Block[] => {
               data.rupstNetProfit === undefined)
           )
         ) {
-          const previousRetained = data.rupstRetainedProfit || 0;
           const showRetained =
             data.rupstShowRetainedProfit ?? previousRetained !== 0;
 
           let retainedText =
             "Seluruh laba bersih Perseroan dibukukan sebagai laba ditahan Perseroan.";
           if (showRetained) {
-            const netProfit = data.rupstNetProfit || 0;
             const totalLabaDitahan = netProfit + previousRetained;
             const isTotalRetainedNeg = totalLabaDitahan < 0;
             const totalRetainedLabel = isTotalRetainedNeg ? "rugi" : "laba";
