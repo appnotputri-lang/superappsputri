@@ -1,5 +1,6 @@
 import { CompanyData, Shareholder } from "../../types";
 import { FormatToken } from "./notaryWrapper";
+import { createRupstOpening, createRupstClosing } from "./deed/layouts/rupst";
 import {
   getDayName,
   dateToWords,
@@ -248,121 +249,23 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
     ];
   };
 
-  // 1. Header (Centered, no "AKTA" prefix to match PDF exactly)
-  if (data.rupstType === "sirkuler") {
-    blocks.push(
-      {
-        type: "p",
-        align: "center",
-        runs: [
-          { text: `PERNYATAAN KEPUTUSAN PARA PEMEGANG SAHAM`, bold: true },
-        ],
-      },
-      {
-        type: "p",
-        align: "center",
-        runs: [{ text: formatCompanyName(data.companyName), bold: true }],
-      },
-      {
-        type: "p",
-        align: "center",
-        runs: [{ text: `Nomor : ${effectiveNotaryNumber}` }],
-      },
-      { type: "p", runs: [] },
-      { type: "p", runs: [] },
-      {
-        type: "p",
-        runs: [
-          {
-            text:
-              hasCustomDeedDate && effectiveNotaryDate
-                ? `Pada hari ini, ${tglAktaHari}, tanggal ${formatAktaDate(effectiveNotaryDate)}.`
-                : `Pada hari ini, hari ${tglAktaHari}, tanggal ${tglAktaHuruf}.`,
-          },
-        ],
-      },
-      { type: "p", runs: [{ text: `Pukul ${jamStr} WIB (${jamHuruf}).` }] },
-      {
-        type: "p",
-        runs: [
-          { text: `Berhadapan dengan saya, ` },
-          {
-            text: toTitleCase(
-              data.notaryName ||
-                "Nukantini Putri Parincha, Sarjana Hukum, Magister Kenotariatan",
-            ),
-            bold: true,
-          },
-          { text: `, Notaris di ` },
-          {
-            text: toTitleCase(data.notaryDomicile || "Kabupaten Bandung Barat"),
-            bold: true,
-          },
-          {
-            text: `, dengan dihadiri oleh saksi-saksi yang saya, Notaris kenal dan akan disebutkan nama-namanya pada bagian akhir akta ini:`,
-          },
-        ],
-      },
-    );
-  } else {
-    blocks.push(
-      {
-        type: "p",
-        align: "center",
-        runs: [{ text: "PERNYATAAN KEPUTUSAN", bold: true }],
-      },
-      {
-        type: "p",
-        align: "center",
-        runs: [{ text: "RAPAT UMUM PEMEGANG SAHAM TAHUNAN", bold: true }],
-      },
-      {
-        type: "p",
-        align: "center",
-        runs: [{ text: formatCompanyName(data.companyName), bold: true }],
-      },
-      {
-        type: "p",
-        align: "center",
-        runs: [{ text: `Nomor : ${effectiveNotaryNumber}` }],
-      },
-      { type: "p", runs: [] },
-      { type: "p", runs: [] },
-      {
-        type: "p",
-        runs: [
-          {
-            text:
-              hasCustomDeedDate && effectiveNotaryDate
-                ? `Pada hari ini, ${tglAktaHari}, tanggal ${formatAktaDate(effectiveNotaryDate)}.`
-                : `Pada hari ini, hari ${tglAktaHari}, tanggal ${tglAktaHuruf}.`,
-          },
-        ],
-      },
-      { type: "p", runs: [{ text: `Pukul ${jamStr} WIB (${jamHuruf}).` }] },
-      {
-        type: "p",
-        runs: [
-          { text: `Berhadapan dengan saya, ` },
-          {
-            text: toTitleCase(
-              data.notaryName ||
-                "Nukantini Putri Parincha, Sarjana Hukum, Magister Kenotariatan",
-            ),
-            bold: true,
-          },
-          { text: `, Notaris di ` },
-          {
-            text: toTitleCase(data.notaryDomicile || "Kabupaten Bandung Barat"),
-            bold: true,
-          },
-          {
-            text: `, dengan dihadiri oleh saksi-saksi yang saya, Notaris kenal dan akan disebutkan nama-namanya pada bagian akhir akta ini:`,
-          },
-        ],
-      },
-    );
-  }
+  // ── HEADER & OPENING ──────────────────────────────────────────────────────
+  blocks.push(
+    ...createRupstOpening({
+      rupstType: data.rupstType || "rapat",
+      companyNameFormatted: formatCompanyName(data.companyName),
+      effectiveNotaryNumber,
+      hasCustomDeedDate,
+      effectiveNotaryDate,
+      tglAktaHari,
+      tglAktaHuruf,
+      jamStr,
+      jamHuruf,
+      notaryName: toTitleCase(data.notaryName || "Nukantini Putri Parincha, Sarjana Hukum, Magister Kenotariatan"),
+      notaryDomicile: toTitleCase(data.notaryDomicile || "Kabupaten Bandung Barat"),
+      formatAktaDate,
+    })
+  );
 
   // 2. Representative (The person reporting the BAR RUPST)
   if (rep) {
@@ -1975,16 +1878,7 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
           text: `Dari segala sesuatu yang diuraikan tersebut di atas, maka saya, Notaris membuat Akta Pernyataan Keputusan ${data.rupstType === "sirkuler" ? "Para Pemegang Saham" : "Rapat"} ini untuk dapat dipergunakan sebagaimana mestinya.`,
         },
       ],
-    },
-    { type: "divider", text: "DEMIKIANLAH AKTA INI" },
-    {
-      type: "p",
-      runs: [
-        {
-          text: "Dibuat sebagai minuta dan dilangsungkan di Kabupaten Bandung Barat, pada hari dan tanggal serta jam sebagaimana disebutkan pada kepala akta ini dengan dihadiri oleh :",
-        },
-      ],
-    },
+    }
   );
 
   // Witness 1
@@ -1999,12 +1893,6 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
       : ", lahir di Bandung, Pada Tanggal Limabelas Juli Seribu Sembilan Ratus Sembilan Puluh Satu (15-07-1991), Warga Negara Indonesia, bertempat tinggal di Jalan Sukaresmi Nomor 17, RT. 005 RW. 005, Kecamatan Lembang, Desa Mekarwangi, pemegang Kartu Tanda Penduduk Nomor 3217011507910016";
   const s1Detail = expandAbbreviations(s1DetailRaw);
 
-  blocks.push({
-    type: "saksi",
-    number: 1,
-    runs: [{ text: s1Nama, bold: true }, { text: s1Detail + ";" }],
-  });
-
   // Witness 2
   const s2Nama = data.saksi2Nama || "Siti Nur Azizah";
   const s2DetailRaw =
@@ -2013,53 +1901,17 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
       : ", lahir di Bandung, Pada Tanggal Tujuh Belas Desember Seribu Sembilan Ratus Sembilan Puluh Sembilan (17-12-1999), Warga Negara Indonesia, bertempat tinggal di Kabupaten Bandung, Jalan Lembah Pakar Timur II Kampung Sekebuluh RT. 001 RW. 004, Desa Ciburial, Kecamatan Cimenyan, pemegang Kartu Tanda Penduduk Nomor 3204065712990001";
   const s2Detail = expandAbbreviations(s2DetailRaw);
 
-  blocks.push({
-    type: "saksi",
-    number: 2,
-    runs: [{ text: s2Nama, bold: true }, { text: s2Detail + "." }],
-  });
-
   const notaryDomicileStr = data.notaryDomicile || "Kabupaten Bandung Barat";
 
-  blocks.push({
-    type: "list",
-    bullet: "-",
-    indentTabs: 1.0,
-    runs: [
-      { text: `Untuk sementara berada di ${toTitleCase(notaryDomicileStr)};` },
-    ],
-  });
-
   blocks.push(
-    {
-      type: "p",
-      runs: [{ text: "Keduanya pegawai Kantor Notaris, sebagai saksi-saksi." }],
-    },
-    {
-      type: "p",
-      runs: [
-        {
-          text: "Segera setelah akta ini dibacakan oleh saya, Notaris kepada penghadap dan saksi-saksi, maka ditanda-tanganilah akta ini oleh penghadap, saksi-saksi dan saya, Notaris. Serta penghadap membubuhkan sidik jari sebelah kanan pada lembaran tersendiri di hadapan saya, Notaris dan saksi-saksi, yang dilekatkan pada minuta akta ini.",
-        },
-      ],
-    },
-    {
-      type: "p",
-      runs: [{ text: "Dilangsungkan dengan tanpa perubahan." }],
-    },
-    {
-      type: "p",
-      indentLeft: 426,
-      runs: [
-        { text: "Minuta Akta ini telah ditanda-tangani dengan sempurna." },
-      ],
-    },
-    {
-      type: "p",
-      indentLeft: 993,
-      runs: [{ text: "Diberikan sebagai salinan yang sama bunyinya." }],
-    },
+    ...createRupstClosing({
+      notaryDomicile: toTitleCase(notaryDomicileStr),
+      saksi1Nama: s1Nama,
+      saksi1Text: s1Detail,
+      saksi2Nama: s2Nama,
+      saksi2Text: s2Detail,
+    })
   );
 
   return blocks;
-};
+}

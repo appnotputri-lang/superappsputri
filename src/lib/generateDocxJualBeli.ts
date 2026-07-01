@@ -179,8 +179,8 @@ export const generateDocxBlob = async (data: FormData): Promise<Blob> => {
         createListP(block.bullet, block.runs, block.indentTabs || 0),
       );
     } else if (block.type === "shareholder-list") {
-      const leftIndent = 2800; // colon base position
-      const hangingIndent = 2375; // 2800 - 425 (bullet start)
+      const leftIndent = 4800; // colon base position
+      const hangingIndent = 4375; // 4800 - 425 (bullet start)
       const combinedText = `${block.sharesText} ${block.rpText}`;
       const tokens: FormatToken[] = [{ text: combinedText }];
       const lines = parseTextRuns(tokens, 28);

@@ -1184,7 +1184,7 @@ export const generateWordDoc = async (data: CompanyData) => {
       if (fromSh && toSh) {
         transferBody.push(
           createBodyParagraph({
-            indent: { left: INDENT_STEP * 2, hanging: HANGING_SIZE },
+            indent: { left: INDENT_STEP + HANGING_SIZE, hanging: HANGING_SIZE },
             children: [
               new TextRun({ text: "- ", size: FONT_SIZE, font: FONT_FAMILY }),
               new TextRun({
@@ -1244,9 +1244,9 @@ export const generateWordDoc = async (data: CompanyData) => {
         const currentValue = s.sharesOwned * (data.originalSharePrice || 0);
         finalCompBody.push(
           createBodyParagraph({
-            indent: { left: INDENT_STEP * 2, hanging: HANGING_SIZE },
+            indent: { left: 4800, hanging: 3720 },
             tabStops: [
-              { type: TabStopType.LEFT, position: 2835 },
+              { type: TabStopType.LEFT, position: 4800 },
             ],
             children: [
               new TextRun({ text: "- ", size: FONT_SIZE, font: FONT_FAMILY }),

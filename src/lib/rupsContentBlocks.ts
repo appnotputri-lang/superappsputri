@@ -1,6 +1,7 @@
 import { CompanyData, Shareholder, AmendmentDeed } from "../../types";
 import { formatKbliCategory, parseKbliDescription } from "./kbliConstants";
 import { FormatToken } from "./notaryWrapper";
+import { createRupsOpening, createRupsClosing } from "./deed/layouts/rups";
 import {
   getDayName,
   dateToWords,
@@ -288,148 +289,52 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
 
   const blocks: Block[] = [];
 
-  if (isCircular) {
-    blocks.push(
-      {
-        type: "p",
-        align: "center",
-        runs: [
-          { text: `PERNYATAAN KEPUTUSAN PARA PEMEGANG SAHAM`, bold: true },
-        ],
-      },
-      {
-        type: "p",
-        align: "center",
-        runs: [{ text: `YANG DIAMBIL DILUAR RAPAT`, bold: true }],
-      },
-      {
-        type: "p",
-        align: "center",
-        runs: [
-          {
-            text: `SEBAGAI PENGGANTI RAPAT UMUM PEMEGANG SAHAM LUAR BIASA`,
-            bold: true,
-          },
-        ],
-      },
-    );
-  } else {
-    blocks.push(
-      {
-        type: "p",
-        align: "center",
-        runs: [{ text: `PERNYATAAN KEPUTUSAN`, bold: true }],
-      },
-      {
-        type: "p",
-        align: "center",
-        runs: [{ text: `RAPAT UMUM PEMEGANG SAHAM LUAR BIASA`, bold: true }],
-      },
-    );
-  }
-
   blocks.push(
-    {
-      type: "p",
-      align: "center",
-      runs: [{ text: formatCompanyName(data.companyName), bold: true }],
-    },
-    {
-      type: "p",
-      align: "center",
-      runs: [{ text: `Nomor : ${effectiveNotaryNumber}`, bold: false }],
-    },
-    { type: "p", runs: [{ text: `` }] },
-    { type: "p", runs: [{ text: `` }] },
-
-    {
-      type: "p",
-      runs: [
-        {
-          text:
-            hasCustomDeedDate && effectiveNotaryDate
-              ? `Pada hari ini, ${tglAktaHari}, tanggal ${formatAktaDate(effectiveNotaryDate)}.`
-              : `Pada hari ini, hari ${tglAktaHari}, tanggal ${tglAktaHuruf}.`,
-        },
-      ],
-    },
-    { type: "p", runs: [{ text: `Pukul ${jamStr} (${jamHuruf}).` }] },
-    {
-      type: "p",
-      runs: [
-        { text: `Berhadapan dengan saya, ` },
-        {
-          text: `NUKANTINI PUTRI PARINCHA, Sarjana Hukum, Magister Kenotariatan`,
-          bold: true,
-        },
-        {
-          text: `, Notaris di Kabupaten Bandung Barat, dengan di hadiri oleh saksi-saksi yang saya, Notaris kenal dan akan disebutkan nama-namanya pada bagian akhir akta ini :`,
-        },
-      ],
-    },
+    ...createRupsOpening({
+      isCircular,
+      companyNameFormatted: formatCompanyName(data.companyName),
+      effectiveNotaryNumber,
+      hasCustomDeedDate,
+      effectiveNotaryDate,
+      tglAktaHari,
+      tglAktaHuruf,
+      jamStr,
+      jamHuruf,
+      notaryName: "NUKANTINI PUTRI PARINCHA, Sarjana Hukum, Magister Kenotariatan",
+      notaryDomicile: "Kabupaten Bandung Barat",
+      formatAktaDate,
+    })
   );
 
-  const repBlock: Block = isCircular
-    ? {
-        type: "p",
-        runs: [
-          { text: `${rep?.salutation || "Tuan"} ` },
-          {
-            text: (() => {
-              let n = (rep?.name || "...").toUpperCase();
-              const s = `${(rep?.salutation || "Tuan").toUpperCase()} `;
-              if (n.startsWith(s)) n = n.substring(s.length);
-              return expandAbbreviations(n);
-            })(),
-            bold: true,
-          },
-          {
-            text: expandAbbreviations(
-              rep
-                ? formatPersonDetails(
-                    rep,
-                    tglLahirRepAngka,
-                    tglLahirRepHuruf,
-                    true, // selalu format Akta (lihat catatan baris ~259)
-                    false,
-                    isCircular
-                  )
-                : `, lahir di ..., pada tanggal ... (...), Warga Negara Indonesia, ..., bertempat tinggal di ..., ..., Rukun Tetangga ..., Rukun Warga ..., Kelurahan ..., Kecamatan ..., pemegang Kartu Tanda Penduduk Nomor ...;`,
-            ),
-          },
-        ],
-      }
-    : {
-        type: "list",
-        bullet: "-",
-        indentTabs: 0.5,
-        runs: [
-          { text: `${rep?.salutation || "Tuan"} ` },
-          {
-            text: (() => {
-              let n = (rep?.name || "...").toUpperCase();
-              const s = `${(rep?.salutation || "Tuan").toUpperCase()} `;
-              if (n.startsWith(s)) n = n.substring(s.length);
-              return expandAbbreviations(n);
-            })(),
-            bold: true,
-          },
-          {
-            text: expandAbbreviations(
-              rep
-                ? formatPersonDetails(
-                    rep,
-                    tglLahirRepAngka,
-                    tglLahirRepHuruf,
-                    true, // selalu format Akta (lihat catatan baris ~259)
-                    false,
-                    isCircular
-                  )
-                : `, lahir di ..., pada tanggal ... (...), Warga Negara Indonesia, ..., bertempat tinggal di ..., ..., Rukun Tetangga ..., Rukun Warga ..., Kelurahan ..., Kecamatan ..., pemegang Kartu Tanda Penduduk Nomor ...;`,
-            ),
-          },
-        ],
-      };
+  const repBlock: Block = {
+    type: "p",
+    runs: [
+      { text: `${rep?.salutation || "Tuan"} ` },
+      {
+        text: (() => {
+          let n = (rep?.name || "...").toUpperCase();
+          const s = `${(rep?.salutation || "Tuan").toUpperCase()} `;
+          if (n.startsWith(s)) n = n.substring(s.length);
+          return expandAbbreviations(n);
+        })(),
+        bold: true,
+      },
+      {
+        text: expandAbbreviations(
+          rep
+            ? formatPersonDetails(
+                rep,
+                tglLahirRepAngka,
+                tglLahirRepHuruf,
+                true, // selalu format Akta (lihat catatan baris ~259)
+                false,
+                isCircular
+              )
+            : `, lahir di ..., pada tanggal ... (...), Warga Negara Indonesia, ..., bertempat tinggal di ..., ..., Rukun Tetangga ..., Rukun Warga ..., Kelurahan ..., Kecamatan ..., pemegang Kartu Tanda Penduduk Nomor ...;`,
+        ),
+      },
+    ],
+  };
 
   blocks.push(repBlock);
 
@@ -902,13 +807,13 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
         blocks.push({
           type: "list",
           bullet: "-",
-          indentTabs: isMinutes ? 1.0 : 0.5,
+          indentTabs: 1.5,
           runs: [{ text: selakuText }],
         });
         blocks.push({
           type: "list",
           bullet: "-",
-          indentTabs: isMinutes ? 1.0 : 0.5,
+          indentTabs: 1.5,
           runs: isMinutes
             ? [{ text: "selaku Undangan Rapat." }]
             : [{ text: " Selaku Undangan Rapat." }],
@@ -917,7 +822,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
         blocks.push({
           type: "list",
           bullet: "-",
-          indentTabs: isMinutes ? 1.0 : 0.5,
+          indentTabs: 1.5,
           runs: [{ text: selakuText }],
         });
 
@@ -925,7 +830,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
           blocks.push({
             type: "list",
             bullet: "-",
-            indentTabs: isMinutes ? 1.0 : 0.5,
+            indentTabs: 1.5,
             runs: isMinutes
               ? [{ text: `selaku ${att.management.position} Perseroan.` }]
               : [
@@ -940,7 +845,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
           blocks.push({
             type: "list",
             bullet: "-",
-            indentTabs: isMinutes ? 1.0 : 0.5,
+            indentTabs: 1.5,
             runs: isMinutes
               ? [
                   {
@@ -1008,7 +913,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
           blocks.push({
             type: "list",
             bullet: "-",
-            indentTabs: isMinutes ? 1.0 : 0.5,
+            indentTabs: 1.5,
             runs: repTextRuns,
           });
         }
@@ -1016,7 +921,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
         blocks.push({
           type: "list",
           bullet: "-",
-          indentTabs: isMinutes ? 1.0 : 0.5,
+          indentTabs: 1.5,
           runs: [{ text: selakuText }],
         });
 
@@ -1030,7 +935,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
           blocks.push({
             type: "list",
             bullet: String.fromCharCode(subBulletCode + bulletIdx - 1) + ".",
-            indentTabs: isMinutes ? 2.0 : 1.5,
+            indentTabs: 2.0,
             runs: [
               {
                 text: isMinutes
@@ -1050,7 +955,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
           blocks.push({
             type: "list",
             bullet: String.fromCharCode(subBulletCode + bulletIdx - 1) + ".",
-            indentTabs: isMinutes ? 2.0 : 1.5,
+            indentTabs: 2.0,
             runs: [
               {
                 text: isMinutes
@@ -1116,7 +1021,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
           blocks.push({
             type: "list",
             bullet: String.fromCharCode(subBulletCode + bulletIdx - 1) + ".",
-            indentTabs: isMinutes ? 2.0 : 1.5,
+            indentTabs: 2.0,
             runs: repTextRuns,
           });
         });
@@ -1499,7 +1404,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
       blocks.push({
         type: "list",
         bullet: "-",
-        indentTabs: 3,
+        indentTabs: 1.5,
         runs: [{ text: cat }],
       });
     });
@@ -1521,7 +1426,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
       blocks.push({
         type: "list",
         bullet: "-",
-        indentTabs: 3,
+        indentTabs: 1.5,
         runs: [{ text: `${kbli.code} - ${kbli.name};`, bold: true }],
       });
 
@@ -1767,6 +1672,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
       blocks.push({
         type: "list",
         bullet: "-",
+        indentTabs: 1.0,
         runs: [
           ...getPersonDetailRuns(from),
           {
@@ -1800,6 +1706,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
     } else {
       blocks.push({
         type: "p",
+        indent: true,
         runs: [
           {
             text: `Sehingga merubah susunan pemegang saham perseroan menjadi sebagai berikut :`,
@@ -2323,113 +2230,25 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
       type: "p",
       runs: [
         {
-          text: "Penghadap menyatakan dengan ini menjamin akan kebenaran, keaslian dan kelengkapan identitas pihak-pihak yang namanya tersebut dalam akta ini dan seluruh dokumen yang menjadi dasar akta ini tanpa ada yang dikecualikan yang disampaikan kepada saya, Notaris, sehingga apabila dikemudian hari sejak ditandatanganinya akta ini timbul sengketa dengan nama dan dalam bentuk apapun yang disebabkan karena akta ini, maka pihak yang membuat keterangan dengan ini berjanji mengikatkan dirinya untuk bertanggung jawab dan bersedia menanggung resiko yang timbul dan dengan ini penghadap menyatakan dengan tegas membebaskan saya, Notaris, dan para saksi dari turut bertanggung jawab dan memikul baik sebagian maupun seluruhnya akibat hukum yang timbul karena sengketa tersebut.",
-        },
-      ],
-    },
-    {
-      type: "p",
-      runs: [
-        {
-          text: "Selanjutnya penghadap juga menyatakan telah mengerti, memahami dan menyetujui isi akta ini.",
-        },
-      ],
-    },
-    {
-      type: "p",
-      runs: [
-        {
           text: `Dari segala sesuatu yang diuraikan tersebut di atas, maka saya, Notaris membuat Akta Pernyataan Keputusan ${isCircular ? "Para Pemegang Saham" : "Rapat"} ini untuk dapat dipergunakan sebagaimana mestinya.`,
         },
       ],
     }
   );
 
-  blocks.push({ type: "divider", text: `DEMIKIANLAH AKTA INI` });
-
-  blocks.push({
-    type: "p",
-    runs: [
-      {
-        text: `Dibuat sebagai minuta dan dilangsungkan di Kabupaten Bandung Barat, pada hari dan tanggal serta jam sebagaimana disebutkan pada kepala akta ini dengan dihadiri oleh :`,
-      },
-    ],
-  });
-
-  // Saksi 1
-  blocks.push({
-    type: "saksi",
-    number: 1,
-    runs: [
-      {
-        text: expandAbbreviations(data.saksi1Nama || "Nendi Suhendi"),
-        bold: false,
-      },
-      {
-        text: expandAbbreviations(
-          `, lahir di ${data.saksi1Lahir || "Bandung, pada tanggal lima belas Juli seribu sembilan ratus sembilan puluh satu (15-07-1991)"}, Warga Negara Indonesia, bertempat tinggal di ${(data.saksi1Alamat || "Jalan Sukaresmi Nomor 17, RT. 005 RW. 005, Kecamatan Lembang, Desa Mekarwangi").replace("Sukaresmi Nomor 12", "Sukaresmi Nomor 17")}, pemegang Kartu Tanda Penduduk Nomor ${data.saksi1NIK || "3217011507910016"};`,
-        ),
-      },
-    ],
-  });
-
-  // Saksi 2
-  blocks.push({
-    type: "saksi",
-    number: 2,
-    runs: [
-      {
-        text: expandAbbreviations(data.saksi2Nama || "Siti Nur Azizah"),
-        bold: false,
-      },
-      {
-        text: expandAbbreviations(
-          `, lahir di ${data.saksi2Lahir || "Bandung, pada tanggal tujuh belas Desember seribu sembilan ratus sembilan puluh sembilan (17-12-1999)"}, Warga Negara Indonesia, bertempat tinggal di ${data.saksi2Alamat || "Kabupaten Bandung, Jalan Lembah Pakar Timur II Kampung Sekebuluh RT. 001 RW. 004, Kecamatan Cimenyan, Desa Ciburial"}, pemegang Kartu Tanda Penduduk Nomor ${data.saksi2NIK || "3204065712990001"}.`,
-        ),
-      },
-    ],
-    spaceAfter: false,
-  });
-
-  blocks.push({
-    type: "list",
-    indentTabs: 0,
-    bullet: "-",
-    runs: [{ text: `Untuk sementara berada di Kabupaten Bandung Barat;` }],
-    spaceAfter: true,
-  });
-
-  blocks.push({
-    type: "p",
-    runs: [{ text: `Keduanya pegawai Kantor Notaris, sebagai saksi-saksi.` }],
-  });
-
-  blocks.push({
-    type: "p",
-    runs: [
-      {
-        text: `Segera setelah akta ini dibacakan oleh saya, Notaris kepada penghadap dan saksi-saksi, maka ditanda-tanganilah akta ini oleh penghadap, saksi-saksi dan saya, Notaris. Serta penghadap membubuhkan sidik jari sebelah kanan pada lembaran tersendiri di hadapan saya, Notaris dan saksi-saksi, yang dilekatkan pada minuta akta ini.`,
-      },
-    ],
-  });
-
-  blocks.push({
-    type: "p",
-    runs: [{ text: `Dilangsungkan dengan tanpa perubahan.` }],
-  });
-
-  blocks.push({
-    type: "p",
-    indentTabs: 1,
-    runs: [{ text: `Minuta Akta ini telah ditanda-tangani dengan sempurna.` }],
-  });
-
-  blocks.push({
-    type: "p",
-    indentTabs: 2,
-    runs: [{ text: `Diberikan sebagai salinan yang sama bunyinya.` }],
-    spaceAfter: true,
-  });
+  blocks.push(
+    ...createRupsClosing({
+      notarisTempat: "Kabupaten Bandung Barat",
+      saksi1Nama: expandAbbreviations(data.saksi1Nama || "Nendi Suhendi"),
+      saksi1Text: expandAbbreviations(
+        `, lahir di ${data.saksi1Lahir || "Bandung, pada tanggal lima belas Juli seribu sembilan ratus sembilan puluh satu (15-07-1991)"}, Warga Negara Indonesia, bertempat tinggal di ${(data.saksi1Alamat || "Jalan Sukaresmi Nomor 17, RT. 005 RW. 005, Kecamatan Lembang, Desa Mekarwangi").replace("Sukaresmi Nomor 12", "Sukaresmi Nomor 17")}, pemegang Kartu Tanda Penduduk Nomor ${data.saksi1NIK || "3217011507910016"};`,
+      ),
+      saksi2Nama: expandAbbreviations(data.saksi2Nama || "Siti Nur Azizah"),
+      saksi2Text: expandAbbreviations(
+        `, lahir di ${data.saksi2Lahir || "Bandung, pada tanggal tujuh belas Desember seribu sembilan ratus sembilan puluh sembilan (17-12-1999)"}, Warga Negara Indonesia, bertempat tinggal di ${data.saksi2Alamat || "Kabupaten Bandung, Jalan Lembah Pakar Timur II Kampung Sekebuluh RT. 001 RW. 004, Kecamatan Cimenyan, Desa Ciburial"}, pemegang Kartu Tanda Penduduk Nomor ${data.saksi2NIK || "3204065712990001"}.`,
+      ),
+    })
+  );
 
   return blocks;
 };

@@ -137,11 +137,11 @@ const createListP = (
   options: Omit<IParagraphOptions, "children"> = {}
 ): Paragraph => {
   let level = 0;
-  if (indentTabs <= 0.1) level = 0;
-  else if (indentTabs <= 0.6) level = 1;
-  else if (indentTabs <= 1.1) level = 2;
-  else if (indentTabs <= 1.6) level = 3;
-  else if (indentTabs <= 2.1) level = 4;
+  if (indentTabs <= 0.6) level = 0;
+  else if (indentTabs <= 1.1) level = 1;
+  else if (indentTabs <= 1.6) level = 2;
+  else if (indentTabs <= 2.1) level = 3;
+  else if (indentTabs <= 2.6) level = 4;
   else level = 5;
 
   let width = W.list1;
@@ -181,11 +181,35 @@ const createListP = (
     numRef = "rups-bullet-dash";
   }
 
+  let leftIndent = 284;
+  let hangingIndent = 284;
+  if (level === 0) {
+    leftIndent = 284;
+    hangingIndent = 284;
+  } else if (level === 1) {
+    leftIndent = 568;
+    hangingIndent = 284;
+  } else if (level === 2) {
+    leftIndent = 852;
+    hangingIndent = 284;
+  } else if (level === 3) {
+    leftIndent = 1136;
+    hangingIndent = 284;
+  } else if (level === 4) {
+    leftIndent = 1420;
+    hangingIndent = 284;
+  } else {
+    leftIndent = 1704;
+    hangingIndent = 284;
+  }
+
   return new Paragraph({
+    style: "ListParagraph",
     children,
     numbering: { reference: numRef, level: level },
     tabStops: [TAB_KANAN],
     alignment: AlignmentType.LEFT,
+    indent: { left: leftIndent, hanging: hangingIndent },
     ...options,
   });
 };
@@ -221,10 +245,12 @@ const createNumberedP = (
 
   const isAlpha = typeof num === 'string' && /[a-zA-Z]/.test(num);
   return new Paragraph({
+    style: "ListParagraph",
     children,
     numbering: { reference: isAlpha ? "rups-letter" : "rups-decimal", level: 0 },
     tabStops: [TAB_KANAN],
     alignment: AlignmentType.LEFT,
+    indent: { left: 284, hanging: 284 },
     ...options,
   });
 };
@@ -258,11 +284,22 @@ const createSubNumberedP = (
     }
   });
 
+  let leftIndent = 568;
+  if (level === 0) {
+    leftIndent = 568;
+  } else if (level === 1) {
+    leftIndent = 993;
+  } else {
+    leftIndent = 1418;
+  }
+
   return new Paragraph({
+    style: "ListParagraph",
     children,
     numbering: { reference: "rups-sub-decimal", level: level },
     tabStops: [TAB_KANAN],
     alignment: AlignmentType.LEFT,
+    indent: { left: leftIndent, hanging: 284 },
   });
 };
 
@@ -401,11 +438,11 @@ const createShareholderListParagraphs = (
     ],
     tabStops: [
       { type: TabStopType.LEFT, position: 850 },
-      { type: TabStopType.LEFT, position: 2800 },
+      { type: TabStopType.LEFT, position: 4200 },
       TAB_KANAN,
     ],
     alignment: AlignmentType.LEFT,
-    indent: { left: 2800, hanging: 2375 },
+    indent: { left: 4200, hanging: 3775 },
   });
 
   const p2 = new Paragraph({
@@ -417,11 +454,11 @@ const createShareholderListParagraphs = (
     ],
     tabStops: [
       { type: TabStopType.LEFT, position: 850 },
-      { type: TabStopType.LEFT, position: 2977 },
+      { type: TabStopType.LEFT, position: 4377 },
       TAB_KANAN,
     ],
     alignment: AlignmentType.LEFT,
-    indent: { left: 2835, hanging: 2375 },
+    indent: { left: 4235, hanging: 3775 },
   });
 
   return [p1, p2];

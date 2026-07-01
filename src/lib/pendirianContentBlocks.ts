@@ -7,6 +7,7 @@ import {
   formatAktaDate, dateToWords, formatDateStr,
   formatPersonDetails, checkIsBadanHukum,
 } from "./formatter";
+import { createPendirianOpening, createPendirianClosing } from "./deed/layouts/pendirian";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -167,39 +168,18 @@ export function generatePendirianBlocks(data: PendirianData): Block[] {
 
   const cleanNamaPt = (data.namaPt || "").replace(/^PT\.?\s*/i, "").trim().toUpperCase();
 
-  // ── HEADER ──────────────────────────────────────────────────────────────
-  blocks.push(
-    { type: "p", align: "center", runs: [{ text: "PENDIRIAN PERSEROAN TERBATAS", bold: true }] },
-    { type: "p", align: "center", runs: [{ text: `PT. ${cleanNamaPt}`, bold: true }] },
-    { type: "p", align: "center", runs: [{ text: `Nomor : ${data.nomorAkta || "............................"}` }] },
-  );
-
-  // ── OPENING ─────────────────────────────────────────────────────────────
+  // ── HEADER & OPENING ──────────────────────────────────────────────────────
   const notarisTempat = data.notarisTempat || "Kabupaten Bandung Barat";
-
   blocks.push(
-    { type: "p", runs: [{ text: `Pada hari ini, ${hari}, ${tglHuruf}.` }] },
-    { type: "p", runs: [{ text: `Pukul ${data.waktu} WIB Waktu Indonesia Barat.` }] },
-    {
-      type: "p",
-      runs: [
-        { text: "Telah hadir di hadapan saya, " },
-        {
-          text: toTitleCase(
-            (data.notarisNamaSurat || "Nukantini Putri Parincha, Sarjana Hukum, Magister Kenotariatan")
-              .replace(/\bSH\b\.?/gi, "Sarjana Hukum")
-              .replace(/\bM\b\.?\s*\bKn\b\.?/gi, "Magister Kenotariatan")
-          ),
-          bold: true,
-        },
-        { text: ", Notaris di " },
-        {
-          text: toTitleCase(notarisTempat),
-          bold: true,
-        },
-        { text: ", dengan dihadiri oleh saksi-saksi yang saya, Notaris kenal dan akan disebutkan nama-namanya pada bagian akhir akta ini :" },
-      ],
-    },
+    ...createPendirianOpening({
+      cleanNamaPt,
+      nomorAkta: data.nomorAkta || "............................",
+      hari,
+      tglHuruf,
+      waktu: data.waktu,
+      notarisNamaSurat: data.notarisNamaSurat || "Nukantini Putri Parincha, Sarjana Hukum, Magister Kenotariatan",
+      notarisTempat,
+    })
   );
 
   // ── SHAREHOLDERS (penghadap) ─────────────────────────────────────────────
@@ -281,14 +261,24 @@ export function generatePendirianBlocks(data: PendirianData): Block[] {
   });
 
   shareholderDetails.forEach((sd, idx) => {
-    blocks.push({
-      type: "numbered",
-      num: idx + 1,
-      runs: sd.customRuns || [
-        { text: `${sd.namePrefix}${sd.nameText}`, bold: true },
-        { text: `${sd.details}.` },
-      ],
-    });
+    if (shareholderDetails.length === 1) {
+      blocks.push({
+        type: "p",
+        runs: sd.customRuns || [
+          { text: `${sd.namePrefix}${sd.nameText}`, bold: true },
+          { text: `${sd.details}.` },
+        ],
+      });
+    } else {
+      blocks.push({
+        type: "numbered",
+        num: idx + 1,
+        runs: sd.customRuns || [
+          { text: `${sd.namePrefix}${sd.nameText}`, bold: true },
+          { text: `${sd.details}.` },
+        ],
+      });
+    }
   });
 
   // ── TEMPORARY DOMICILE CLAUSE (Untuk sementara...) ─────────────────────
@@ -838,53 +828,6 @@ export function generatePendirianBlocks(data: PendirianData): Block[] {
     return res;
   };
 
-  blocks.push(
-    {
-      type: "p",
-      runs: [
-        {
-          text: "Penghadap menyatakan dengan ini menjamin akan kebenaran, keaslian dan\n" +
-                "kelengkapan identitas pihak-pihak yang namanya tersebut dalam akta ini dan seluruh\n" +
-                "dokumen yang menjadi dasar akta ini tanpa ada yang dikecualikan yang disampaikan\n" +
-                "kepada saya, Notaris, sehingga apabila dikemudian hari sejak ditandatanganinya akta\n" +
-                "ini timbul sengketa dengan nama dan dalam bentuk apapun yang disebabkan karena\n" +
-                "akta ini, maka pihak yang membuat keterangan dengan ini berjanji mengikatkan dirinya\n" +
-                "untuk bertanggung jawab dan bersedia menanggung resiko yang timbul dan dengan ini\n" +
-                "penghadap menyatakan dengan tegas membebaskan saya, Notaris, dan para saksi\n" +
-                "dari turut bertanggung jawab dan memikul baik sebagian maupun seluruhnya akibat\n" +
-                "hukum yang timbul karena sengketa tersebut.",
-        },
-      ],
-    },
-    {
-      type: "p",
-      runs: [
-        {
-          text: "Selanjutnya penghadap juga menyatakan telah mengerti, memahami and menyetujui isi\n" +
-                "akta ini.",
-        },
-      ],
-    },
-    {
-      type: "p",
-      runs: [
-        {
-          text: "Dari segala sesuatu yang diuraikan tersebut di atas, maka saya, Notaris membuat Akta\n" +
-                "Pendirian Perseroan Terbatas ini untuk dapat dipergunakan sebagaimana mestinya.",
-        },
-      ],
-    },
-    { type: "divider", text: "DEMIKIANLAH AKTA INI" },
-    {
-      type: "p",
-      runs: [
-        {
-          text: `Dibuat sebagai minuta dan dilangsungkan di ${notarisTempat}, pada hari dan tanggal serta jam sebagaimana disebutkan pada kepala akta ini dengan dihadiri oleh :`,
-        },
-      ],
-    },
-  );
-
   // Saksi
   const saksi1DefaultAlamat = "Jalan Sukaresmi Nomor 12, Rukun Tetangga 005, Rukun Warga 005, Kecamatan Lembang, Desa Mekarwangi";
   const saksi2DefaultAlamat = "Kabupaten Bandung, Jalan Lembah Pakar Timur II Kampung Sekebuluh Rukun Tetangga 001, Rukun Warga 004, Kecamatan Cimenyan, Desa Ciburial";
@@ -902,27 +845,11 @@ export function generatePendirianBlocks(data: PendirianData): Block[] {
     .replace(/\.?$/, "."); // Ensure it ends with exactly one period
 
   blocks.push(
-    {
-      type: "saksi", num: 1,
-      runs: [{ text: s1DetailText }],
-    },
-    {
-      type: "saksi", num: 2,
-      runs: [{ text: s2DetailText }],
-    },
-    {
-      type: "list",
-      bullet: "-",
-      indentTabs: 1.0,
-      runs: [
-        { text: `Untuk sementara berada di ${toTitleCase(notarisTempat)};` },
-      ],
-    },
-    { type: "p", runs: [{ text: "Keduanya pegawai Kantor Notaris, sebagai saksi-saksi." }] },
-    { type: "p", runs: [{ text: "Segera setelah akta ini dibacakan oleh saya, Notaris kepada penghadap dan saksi-saksi, maka ditanda-tanganilah akta ini oleh penghadap, saksi-saksi dan saya, Notaris. Serta penghadap membubuhkan sidik jari sebelah kanan pada lembaran tersendiri di hadapan saya, Notaris dan saksi-saksi, yang dilekatkan pada minuta akta ini." }] },
-    { type: "p", runs: [{ text: "Dilangsungkan dengan tanpa perubahan." }] },
-    { type: "p", indentTabs: 1, runs: [{ text: "Minuta Akta ini telah ditanda-tangani dengan sempurna." }] },
-    { type: "p", indentTabs: 2, runs: [{ text: "Diberikan sebagai salinan yang sama bunyinya." }] },
+    ...createPendirianClosing({
+      notarisTempat: toTitleCase(notarisTempat),
+      saksi1Text: s1DetailText,
+      saksi2Text: s2DetailText,
+    })
   );
 
   return blocks;
