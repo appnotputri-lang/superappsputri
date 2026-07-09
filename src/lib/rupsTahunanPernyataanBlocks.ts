@@ -131,27 +131,27 @@ export const generateRupstPernyataanBlocks = (data: CompanyData): Block[] => {
   const reasonsRaw = [
     {
       key: "rupstAlasanAuditA",
-      text: `Kegiatan Usaha Perseroan ${data.rupstIsAudited ? "" : "tidak "}menghimpun dan/atau mengelola dana masyarakat.`,
+      text: `Kegiatan Usaha Perseroan ${data.rupstIsAudited ? "" : "tidak "}menghimpun dan/atau mengelola dana masyarakat`,
     },
     {
       key: "rupstAlasanAuditB",
-      text: `Perseroan ${data.rupstIsAudited ? "" : "tidak "}menerbitkan surat pengakuan utang kepada masyarakat.`,
+      text: `Perseroan ${data.rupstIsAudited ? "" : "tidak "}menerbitkan surat pengakuan utang kepada masyarakat`,
     },
     {
       key: "rupstAlasanAuditC",
-      text: `Perseroan ${data.rupstIsAudited ? "merupakan" : "tidak merupakan"} Perseroan Terbuka (Tbk).`,
+      text: `Perseroan ${data.rupstIsAudited ? "merupakan" : "tidak merupakan"} Perseroan Terbuka (Tbk)`,
     },
     {
       key: "rupstAlasanAuditD",
-      text: `Perseroan ${data.rupstIsAudited ? "merupakan" : "tidak merupakan"} Persero.`,
+      text: `Perseroan ${data.rupstIsAudited ? "merupakan" : "tidak merupakan"} Persero`,
     },
     {
       key: "rupstAlasanAuditE",
-      text: `Aset dan/atau jumlah peredaran usaha ${data.rupstIsAudited ? "lebih" : "tidak lebih"} dari 50 Milyar, atau`,
+      text: `Aset dan/atau jumlah peredaran usaha ${data.rupstIsAudited ? "lebih" : "tidak lebih"} dari 50 Milyar`,
     },
     {
       key: "rupstAlasanAuditF",
-      text: `${data.rupstIsAudited ? "" : "Tidak "}diwajibkan oleh peraturan perundang-undangan.`,
+      text: `${data.rupstIsAudited ? "" : "Tidak "}diwajibkan oleh peraturan perundang-undangan`,
     },
   ];
 
@@ -159,15 +159,15 @@ export const generateRupstPernyataanBlocks = (data: CompanyData): Block[] => {
   
   if (selectedReasons.length === 0) {
     if (data.rupstIsAudited) {
-      selectedReasons.push({ key: "rupstAlasanAuditE", text: "Aset dan/atau jumlah peredaran usaha lebih dari 50 Milyar." });
+      selectedReasons.push({ key: "rupstAlasanAuditE", text: "Aset dan/atau jumlah peredaran usaha lebih dari 50 Milyar" });
     } else {
       selectedReasons.push(
-        { key: "rupstAlasanAuditA", text: "Kegiatan Usaha Perseroan tidak menghimpun dan/atau mengelola dana masyarakat." },
-        { key: "rupstAlasanAuditB", text: "Perseroan tidak menerbitkan surat pengakuan utang kepada masyarakat." },
-        { key: "rupstAlasanAuditC", text: "Perseroan tidak merupakan Perseroan Terbuka (Tbk)." },
-        { key: "rupstAlasanAuditD", text: "Perseroan tidak merupakan Persero." },
-        { key: "rupstAlasanAuditE", text: "Aset dan/atau jumlah peredaran usaha tidak lebih dari 50 Milyar, atau" },
-        { key: "rupstAlasanAuditF", text: "Tidak diwajibkan oleh peraturan perundang-undangan." }
+        { key: "rupstAlasanAuditA", text: "Kegiatan Usaha Perseroan tidak menghimpun dan/atau mengelola dana masyarakat" },
+        { key: "rupstAlasanAuditB", text: "Perseroan tidak menerbitkan surat pengakuan utang kepada masyarakat" },
+        { key: "rupstAlasanAuditC", text: "Perseroan tidak merupakan Perseroan Terbuka (Tbk)" },
+        { key: "rupstAlasanAuditD", text: "Perseroan tidak merupakan Persero" },
+        { key: "rupstAlasanAuditE", text: "Aset dan/atau jumlah peredaran usaha tidak lebih dari 50 Milyar" },
+        { key: "rupstAlasanAuditF", text: "Tidak diwajibkan oleh peraturan perundang-undangan" }
       );
     }
   }
@@ -185,7 +185,7 @@ export const generateRupstPernyataanBlocks = (data: CompanyData): Block[] => {
           bold: true,
         },
         {
-          text: ` Ketentuan Wajib Audit oleh Akuntan Publik dengan alasan ${selectedReasons[0].text.replace(", atau", "")}`,
+          text: ` Ketentuan Wajib Audit oleh Akuntan Publik dengan alasan ${selectedReasons[0].text}.`,
         },
       ],
     });
@@ -202,15 +202,22 @@ export const generateRupstPernyataanBlocks = (data: CompanyData): Block[] => {
           bold: true,
         },
         {
-          text: " Ketentuan Wajib Audit oleh Akuntan Publik dengan alasan sebagai berikut:",
+          text: " Ketentuan Wajib Audit oleh Akuntan Publik dengan alasan :",
         },
       ],
     });
 
-    selectedReasons.forEach((r) => {
+    selectedReasons.forEach((r, index) => {
+      const isLast = index === selectedReasons.length - 1;
+      const isSecondLast = index === selectedReasons.length - 2;
+      
+      let suffix = ";";
+      if (isLast) suffix = ".";
+      else if (isSecondLast) suffix = ", atau";
+
       blocks.push({
         type: "listBullet",
-        runs: [{ text: r.text }],
+        runs: [{ text: `${r.text}${suffix}` }],
       });
     });
   }

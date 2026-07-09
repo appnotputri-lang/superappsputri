@@ -1,69 +1,149 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Basic helpers
+    // ---------------------------------------------------------
+    // GLOBALS & HELPERS
+    // ---------------------------------------------------------
+    
     function isSignedIn() {
       return request.auth != null;
     }
 
-    function isAllowedUser() {
-      return isSignedIn() && request.auth.token.email in [
-        'appnotputri@gmail.com',
-        'putrinabillar@gmail.com',
-        'appnotlegal@gmail.com',
-        'rdyndi@gmail.com',
-        'notarisppatputri@gmail.com'
-      ];
-    }
-
     function isValidId(id) {
-      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_-]+$');
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
     }
 
-    // KBLI 2025 Details - Reference data should be readable by any signed in user
-    match /kbli_2025/{kbliKode} {
+    function getUserData() {
+      return get(/databases/$(database)/documents/user_profiles/$(request.auth.uid)).data;
+    }
+
+    function userExists() {
+      return exists(/databases/$(database)/documents/user_profiles/$(request.auth.uid));
+    }
+
+    function isSuperAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == 'appnotputri@gmail.com' || 
+        (userExists() && getUserData().role == 'Super Admin')
+      );
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        isSuperAdmin() || 
+        (userExists() && getUserData().role == 'Admin')
+      );
+    }
+
+    // ---------------------------------------------------------
+    // USER PROFILES
+    // ---------------------------------------------------------
+    
+    match /user_profiles/{uid} {
       allow read: if isSignedIn();
-      allow write: if true;
+      
+      // Super Admin can manage all profiles. 
+      // Users can create/update their own profile (but not change their role unless they are Super Admin)
+      allow create: if isSignedIn() && (
+        (request.auth.uid == uid && request.resource.data.role == 'Staff') ||
+        isSuperAdmin()
+      );
+      
+      allow update: if isSignedIn() && (
+        isSuperAdmin() || 
+        (request.auth.uid == uid && request.resource.data.role == resource.data.role)
+      );
+      
+      allow delete: if isSuperAdmin();
     }
 
-    match /kbli_saved_records/{recordId} {
-      allow read, write: if true;
-    }
+    // ---------------------------------------------------------
+    // PROJECTS & OFFICE PROJECTS
+    // ---------------------------------------------------------
+    
+    match /office_projects/{projectId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isSignedIn();
+      allow delete: if isSuperAdmin();
 
-    match /user_profiles/{userId} {
-      allow read, write: if isSignedIn();
-    }
-
-    match /profiles/{profileId} {
-      allow read, write: if isSignedIn();
-    }
-
-    match /cv_profiles/{profileId} {
-      allow read, write: if isSignedIn();
+      match /{allSubcollections=**} {
+        allow read: if isSignedIn();
+        allow write: if isSignedIn();
+      }
     }
 
     match /projects/{projectId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isSignedIn();
+      allow delete: if isSuperAdmin();
+
+      match /{allSubcollections=**} {
+        allow read: if isSignedIn();
+        allow write: if isSignedIn();
+      }
+    }
+
+    // ---------------------------------------------------------
+    // CLIENT PROFILES (PT/CV)
+    // ---------------------------------------------------------
+    
+    match /profiles/{profileId} {
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn();
+      allow delete: if isAdmin();
+    }
+
+    match /cv_profiles/{id} {
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn();
+      allow delete: if isAdmin();
+    }
+
+    // ---------------------------------------------------------
+    // NOTIFICATIONS
+    // ---------------------------------------------------------
+
+    match /notifications/{id} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
+    }
+
+    // ---------------------------------------------------------
+    // SPECIALIZED PROJECT COLLECTIONS
+    // ---------------------------------------------------------
+    
+    match /rupst_projects/{id} {
+      allow read, write: if isSignedIn();
+    }
+    
+    match /pendirian_projects/{id} {
       allow read, write: if isSignedIn();
     }
 
-    match /rupst_projects/{rupstId} {
+    match /rupst_public_projects/{id} {
+      allow read: if true; // Publicly accessible
+      allow write: if isSuperAdmin();
+    }
+
+    match /workflows/{id} {
+      allow read: if isSignedIn();
+      allow write: if isSuperAdmin();
+    }
+
+    match /kbli_saved_records/{id} {
       allow read, write: if isSignedIn();
     }
 
-    match /rupst_public_projects/{rupstId} {
-      allow read, write: if true;
+    match /company_profiles/{id} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
     }
 
-    match /pendirian_projects/{pendirianId} {
-      allow read, write: if isSignedIn();
-    }
-
-    match /notifications/{notificationId} {
-      allow read, write: if isSignedIn();
-    }
-
-    match /settings/{settingsId} {
-      allow read, write: if isSignedIn();
+    match /kbli_data_v2025/{id} {
+      allow read: if isSignedIn();
+      allow write: if isSuperAdmin();
     }
   }
 }

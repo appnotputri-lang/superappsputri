@@ -1,7 +1,8 @@
-import { Document, Packer, Paragraph, TextRun, TabStopType, AlignmentType, LeaderType, Tab, Table, TableRow, TableCell, WidthType, PageBreak, BorderStyle } from "docx";
+import { Document, Packer, Paragraph, TextRun, TabStopType, AlignmentType, LeaderType, Tab, Table, TableRow, TableCell, WidthType, PageBreak, BorderStyle, Header } from "docx";
 import { CompanyData, Shareholder, Address, ManagementItem } from "../types";
 import { formatFullAddressData, checkIsBadanHukum, formatPersonDetails, dateToWords, formatDateStr, formatDateRupst, formatCompanyName, formatCompanyEstablishment, formatCompanyEstablishmentOnly, formatAmendmentDeedSingle } from "../src/lib/formatter";
 import { parseKbliDescription } from "../src/lib/kbliConstants";
+import { getPhysicallyPresentShareholders } from "../src/lib/meetingAttendanceHelper";
 import {
   formatCurrency,
   formatInputNumber,
@@ -463,7 +464,7 @@ export const generateWordDoc = async (data: CompanyData) => {
   // Hitung saham dan persiapkan data peserta
   const attendingShareholders = isCircular
     ? data.shareholders.filter((sh) => (sh.sharesOwned || 0) > 0)
-    : data.shareholders.filter((sh) => sh.isPresent);
+    : getPhysicallyPresentShareholders(data.shareholders);
   const totalIssuedShares = data.shareholders.reduce((sum, sh) => sum + (sh.sharesOwned || 0), 0);
   const presentShares = attendingShareholders.reduce((sum, sh) => sum + (sh.sharesOwned || 0), 0);
   const attendingPercentage = totalIssuedShares > 0 ? (presentShares / totalIssuedShares) * 100 : 0;
@@ -992,7 +993,7 @@ export const generateWordDoc = async (data: CompanyData) => {
         alignment: "both" as any,
         spacing: { line: LINE_SPACING, lineRule: "auto", before: 0, after: 0 },
         children: [
-          mkRun("Berdasarkan ketentuan pasal 21 ayat (1) anggaran dasar perseroan, maka "),
+          mkRun(`Berdasarkan ketentuan pasal ${data.rupstAdArticle || "21"} ayat (${data.rupstAdParagraph || "1"}) anggaran dasar perseroan, maka `),
           mkRun((data.meetingChair || "................").toUpperCase(), true),
           mkRun(", tersebut di atas, bertindak sebagai ketua rapat."),
         ],
@@ -3004,7 +3005,7 @@ export const generateWordDoc = async (data: CompanyData) => {
           spacing: { line: LINE_SPACING, lineRule: "auto", before: 0, after: 0 },
           children: [
             mkRun("Akhirnya, oleh karena sudah tidak ada hal-hal lain yang perlu dibicarakan lagi, maka Ketua Rapat menutup Rapat ini pada jam "),
-          mkRun(data.meetingEndTime || "11:00", true),
+          mkRun(data.meetingEndTime || data.rupstMeetingEndTime || "11:00", true),
           mkRun(" WIB."),
         ],
       }),
@@ -3426,6 +3427,25 @@ export const generateWordDoc = async (data: CompanyData) => {
           size: { width: 11906, height: 16838 },
           margin: { top: MARGIN_NORMAL, bottom: MARGIN_NORMAL, left: MARGIN_NORMAL, right: MARGIN_NORMAL },
         },
+      },
+      headers: {
+        default: new Header({
+          children: [
+            new Paragraph({
+              alignment: AlignmentType.CENTER,
+              children: [
+                new TextRun({
+                  text: "KOP SURAT PT",
+                  bold: true,
+                  font: FONT_FAMILY || "Arial",
+                  size: 24,
+                  color: "E06666",
+                }),
+              ],
+              spacing: { after: 240 },
+            }),
+          ],
+        }),
       },
       children,
     }],

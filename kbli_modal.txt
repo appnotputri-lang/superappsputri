@@ -1,0 +1,142 @@
+  8645	      {/* KBLI Modal inside RUPS LB */}
+  8646	      {isAddKbliModalOpen && (
+  8647	        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+  8648	          <div className="bg-white w-full max-w-4xl rounded-sm shadow-2xl border border-slate-200 flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200">
+  8649	            {/* Modal Header */}
+  8650	            <div className="bg-[#0c2444] px-5 py-3 flex justify-between items-center text-white rounded-t-sm">
+  8651	              <h3 className="text-sm font-bold tracking-wider text-white">TAMBAH DATA KBLI (RUPS LB)</h3>
+  8652	              <button 
+  8653	                onClick={() => setIsAddKbliModalOpen(false)}
+  8654	                className="text-white hover:text-slate-200 text-2xl font-semibold focus:outline-none transition-colors"
+  8655	              >
+  8656	                &times;
+  8657	              </button>
+  8658	            </div>
+  8659	
+  8660	            {/* Modal Body */}
+  8661	            <div className="p-6 overflow-y-auto space-y-6 flex-1">
+  8662	              {/* Center Banner text */}
+  8663	              <div className="text-center space-y-1 py-1">
+  8664	                <h4 className="text-[18px] font-bold text-slate-800 uppercase tracking-widest leading-none">MAKSUD DAN TUJUAN</h4>
+  8665	                <p className="text-[14px] font-bold text-slate-500 tracking-wide leading-none pt-1">(KBLI 2025)</p>
+  8666	                <div className="border-b border-slate-300 w-full pt-3"></div>
+  8667	              </div>
+  8668	
+  8669	              {/* Search Bar */}
+  8670	              <div className="max-w-md mx-auto">
+  8671	                <div className="flex items-center border border-slate-300 rounded-md overflow-hidden shadow-sm focus-within:ring-2 focus-within:ring-[#0c2444]/30 focus-within:border-[#0c2444] transition-all bg-white">
+  8672	                  <input
+  8673	                    type="text"
+  8674	                    placeholder="Cari KBLI..."
+  8675	                    className="w-full px-3 py-2 text-[14px] font-medium text-slate-700 outline-none"
+  8676	                    value={kbliModalSearchTerm}
+  8677	                    onChange={(e) => setKbliModalSearchTerm(e.target.value)}
+  8678	                    onKeyDown={handleKbliModalKeyDown}
+  8679	                  />
+  8680	                  <button 
+  8681	                    onClick={performKbliModalSearch}
+  8682	                    className="p-2.5 bg-slate-50 hover:bg-slate-100 border-l border-slate-300 text-slate-600 transition-colors focus:outline-none flex items-center justify-center shrink-0"
+  8683	                  >
+  8684	                    <Search className="w-4 h-4" />
+  8685	                  </button>
+  8686	                </div>
+  8687	              </div>
+  8688	
+  8689	              {/* Results Table */}
+  8690	              <div className="border border-slate-200 rounded-sm overflow-hidden shadow-sm bg-white">
+  8691	                <div className="max-h-[350px] overflow-y-auto">
+  8692	                  <table className="w-full text-left border-collapse text-[12px]">
+  8693	                    <thead className="sticky top-0 bg-slate-100 border-b border-slate-200 z-10">
+  8694	                      <tr>
+  8695	                        <th className="px-4 py-2 text-center w-12 border-r border-slate-200">
+  8696	                          <input
+  8697	                            type="checkbox"
+  8698	                            className="w-4 h-4 text-[#0c2444] border-slate-300 rounded cursor-pointer"
+  8699	                            checked={kbliPaginatedResults.length > 0 && kbliPaginatedResults.every(r => kbliCheckedKblis.includes(r.kode))}
+  8700	                            onChange={handleToggleAllKbliOnPage}
+  8701	                          />
+  8702	                        </th>
+  8703	                        <th className="px-4 py-2 font-bold text-slate-700 text-center w-24 border-r border-slate-200">Kode KBLI</th>
+  8704	                        <th className="px-4 py-2 font-bold text-slate-700 text-left w-52 border-r border-slate-200">Judul KBLI</th>
+  8705	                        <th className="px-4 py-2 font-bold text-slate-700 text-left">Uraian KBLI</th>
+  8706	                      </tr>
+  8707	                    </thead>
+  8708	                    <tbody className="divide-y divide-slate-100">
+  8709	                      {kbliPaginatedResults.map((item) => {
+  8710	                        const isChecked = kbliCheckedKblis.includes(item.kode);
+  8711	                        return (
+  8712	                          <tr 
+  8713	                            key={item.kode} 
+  8714	                            onClick={() => handleToggleKbliChecked(item.kode)}
+  8715	                            className={`hover:bg-slate-50 cursor-pointer transition-colors ${
+  8716	                              isChecked ? 'bg-indigo-50/50 hover:bg-indigo-100/50' : ''
+  8717	                            }`}
+  8718	                          >
+  8719	                            <td className="px-4 py-2 text-center border-r border-slate-200" onClick={(e) => e.stopPropagation()}>
+  8720	                              <input
+  8721	                                type="checkbox"
+  8722	                                className="w-4 h-4 text-[#0c2444] border-slate-300 rounded cursor-pointer"
+  8723	                                checked={isChecked}
+  8724	                                onChange={() => handleToggleKbliChecked(item.kode)}
+  8725	                              />
+  8726	                            </td>
+  8727	                            <td className="px-4 py-2 text-center border-r border-slate-200 font-mono font-bold text-slate-700">{item.kode}</td>
+  8728	                            <td className="px-4 py-2 border-r border-slate-200 font-bold text-slate-800">{item.judul}</td>
+  8729	                            <td className="px-4 py-2 text-slate-600 leading-relaxed text-justify">{item.uraian}</td>
+  8730	                          </tr>
+  8731	                        );
+  8732	                      })}
+  8733	                      {kbliPaginatedResults.length === 0 && (
+  8734	                        <tr>
+  8735	                          <td colSpan={4} className="text-center py-10 text-slate-400 italic">
+  8736	                            Hasil pencarian tidak ditemukan. Silakan masukkan kata kunci lain.
+  8737	                          </td>
+  8738	                        </tr>
+  8739	                      )}
+  8740	                    </tbody>
+  8741	                  </table>
+  8742	                </div>
+  8743	              </div>
+  8744	
+  8745	              {/* Pagination */}
+  8746	              {kbliTotalPages > 1 && (
+  8747	                <div className="flex flex-col sm:flex-row items-center justify-center gap-2 pt-2 border-t border-slate-100 text-[11px] text-slate-600">
+  8748	                  <span className="font-bold">Pergi ke halaman:</span>
+  8749	                  <div className="flex flex-wrap items-center gap-1">
+  8750	                    {getKbliPageNumbers().map(pageNum => (
+  8751	                      <button
+  8752	                        key={pageNum}
+  8753	                        onClick={() => setKbliCurrentPage(pageNum)}
+  8754	                        className={`px-2.5 py-1 border rounded-sm font-bold transition-all ${
+  8755	                          kbliCurrentPage === pageNum 
+  8756	                            ? 'bg-[#0c2444] border-[#0c2444] text-white' 
+  8757	                            : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+  8758	                        }`}
+  8759	                      >
+  8760	                        {pageNum}
+  8761	                      </button>
+  8762	                    ))}
+  8763	                  </div>
+  8764	                </div>
+  8765	              )}
+  8766	            </div>
+  8767	
+  8768	            {/* Modal Footer */}
+  8769	            <div className="border-t border-slate-200 bg-slate-50 px-6 py-4 flex justify-end gap-3 rounded-b-sm">
+  8770	              <button 
+  8771	                onClick={() => setIsAddKbliModalOpen(false)}
+  8772	                className="px-4 py-2 bg-white border border-slate-350 rounded-sm text-xs font-bold text-slate-700 hover:bg-slate-50 transition-all"
+  8773	              >
+  8774	                BATAL
+  8775	              </button>
+  8776	              <button 
+  8777	                onClick={handleAddKbliBatch}
+  8778	                className="px-4 py-2 bg-[#0c2444] text-white rounded-sm text-xs font-bold hover:bg-[#16365f] transition-all"
+  8779	              >
+  8780	                TAMBAH TERPILIH ({kbliCheckedKblis.length})
+  8781	              </button>
+  8782	            </div>
+  8783	          </div>
+  8784	        </div>
+  8785	      )}
+  8786	

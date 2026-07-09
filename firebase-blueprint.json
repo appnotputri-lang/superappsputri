@@ -1,126 +1,143 @@
 {
   "entities": {
-    "notification": {
-      "title": "Notification",
-      "description": "System-wide notification for project changes, creations, or deletions.",
+    "UserProfile": {
+      "title": "User Profile",
+      "description": "Information and role of an application user.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "role": { "type": "string", "enum": ["Super Admin", "Admin", "Staff"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "role"]
+    },
+    "CompanyProfile": {
+      "title": "Company Profile (Client)",
+      "description": "Information about a client company (PT/CV).",
+      "type": "object",
+      "properties": {
+        "companyName": { "type": "string" },
+        "domicile": { "type": "string" },
+        "phoneNumber": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["companyName"]
+    },
+    "Project": {
+      "title": "Office Project",
+      "description": "A workflow instance for a legal document process.",
+      "type": "object",
+      "properties": {
+        "projectId": { "type": "string" },
+        "clientId": { "type": "string" },
+        "jobType": { "type": "string" },
+        "title": { "type": "string" },
+        "status": { "type": "string" },
+        "currentStep": { "type": "string" },
+        "assignedTo": { "type": "string" },
+        "metadata": { "type": "object" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["projectId", "clientId", "jobType", "status"]
+    },
+    "Timeline": {
+      "title": "Project Timeline",
+      "description": "Log entry of project history.",
       "type": "object",
       "properties": {
         "id": { "type": "string" },
+        "projectId": { "type": "string" },
+        "status": { "type": "string" },
         "title": { "type": "string" },
         "description": { "type": "string" },
-        "timestamp": { "type": "string", "format": "date-time" },
-        "read": { "type": "boolean" },
-        "type": { "type": "string" },
-        "userId": { "type": "string" }
-      }
+        "createdBy": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "projectId", "status", "title"]
     },
-    "user_profile": {
-      "title": "User Profile",
-      "description": "User's specific profile data including display name and level/position.",
+    "Task": {
+      "title": "Project Task",
+      "description": "Checklist item for a project.",
       "type": "object",
       "properties": {
-        "name": { "type": "string" },
-        "level": { "type": "string" },
+        "id": { "type": "string" },
+        "projectId": { "type": "string" },
+        "title": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "completed"] },
+        "completedAt": { "type": "string", "format": "date-time" },
+        "createdAt": { "type": "string", "format": "date-time" },
         "updatedAt": { "type": "string", "format": "date-time" }
-      }
+      },
+      "required": ["id", "projectId", "title", "status"]
     },
-    "profile": {
-      "title": "Company Profile",
-      "description": "Company profile draft for the user.",
+    "DocumentReference": {
+      "title": "Document Reference",
+      "description": "Metadata for a document associated with a project.",
       "type": "object",
       "properties": {
         "id": { "type": "string" },
-        "companyName": { "type": "string" }
-      }
-    },
-    "kbli_item": {
-      "title": "KBLI 2025 Item",
-      "description": "Details of a KBLI 2025 classification.",
-      "type": "object",
-      "properties": {
-        "kode": { "type": "string" },
-        "judul": { "type": "string" },
-        "uraian": { "type": "string" },
-        "ruang_lingkup": { "type": "string" },
-        "tingkat_risiko": { "type": "string" },
-        "perizinan_berusaha": { "type": "string" },
-        "skala_usaha": { "type": "string" },
-        "jangka_waktu": { "type": "string" },
-        "kewajiban": { "type": "string" },
-        "kewenangan": { "type": "string" },
-        "ketentuan_khusus": { "type": "string" },
-        "updated_at": { "type": "string", "format": "date-time" }
-      }
-    },
-    "whatsapp_gateway_config": {
-      "title": "WhatsApp Gateway Config",
-      "description": "Settings for Fonnte WhatsApp API integration",
-      "type": "object",
-      "properties": {
-        "token": { "type": "string" },
-        "nomorAdmin": { "type": "string" },
-        "nomorTujuanDefault": { "type": "string" }
-      }
-    },
-    "kbli_saved_record": {
-      "title": "Saved KBLI Record",
-      "description": "Saved KBLI mappings and suggestions for clients",
-      "type": "object",
-      "properties": {
-        "id": { "type": "string" },
-        "nama": { "type": "string" },
+        "name": { "type": "string" },
         "type": { "type": "string" },
-        "kelompokUsaha": { "type": "string" },
-        "selectedItems": { "type": "array" },
-        "updatedAt": { "type": "string", "format": "date-time" },
-        "userId": { "type": "string" }
-      }
+        "url": { "type": "string" },
+        "refId": { "type": "string" },
+        "uploadedBy": { "type": "string" },
+        "uploadedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "name"]
     }
   },
   "firestore": {
-    "notifications/{notificationId}": {
-      "schema": { "$ref": "#/entities/notification" },
-      "description": "System-wide real-time notifications"
+    "/user_profiles/{uid}": {
+      "schema": "UserProfile",
+      "description": "User account information and roles."
     },
-    "user_profiles/{userId}": {
-      "schema": { "$ref": "#/entities/user_profile" },
-      "description": "User profile documents keyed by Firebase Auth UID"
+    "/profiles/{profileId}": {
+      "schema": "CompanyProfile",
+      "description": "Client company data (PT)."
     },
-    "kbli_saved_records/{recordId}": {
-      "schema": { "$ref": "#/entities/kbli_saved_record" },
-      "description": "Contains saved KBLI mappings and suggestions based on name"
+    "/cv_profiles/{profileId}": {
+      "schema": "CompanyProfile",
+      "description": "Client company data (CV)."
     },
-    "profiles/{profileId}": {
-      "schema": { "$ref": "#/entities/profile" },
-      "description": "Contains global company profiles"
+    "/projects/{projectId}": {
+      "schema": "Project",
+      "description": "Main project records."
     },
-    "cv_profiles/{profileId}": {
-      "schema": { "$ref": "#/entities/profile" },
-      "description": "Contains global company profiles for CV"
+    "/office_projects/{projectId}": {
+      "schema": "Project",
+      "description": "Legacy office project records."
     },
-    "projects/{projectId}": {
-      "schema": { "$ref": "#/entities/profile" },
-      "description": "Contains project-specific data"
+    "/projects/{projectId}/timelines/{timelineId}": {
+      "schema": "Timeline",
+      "description": "History logs for a project."
     },
-    "rupst_projects/{rupstId}": {
-      "schema": { "$ref": "#/entities/profile" },
-      "description": "Contains RUPS Tahunan project-specific data"
+    "/projects/{projectId}/tasks/{taskId}": {
+      "schema": "Task",
+      "description": "Checklist tasks for a project."
     },
-    "rupst_public_projects/{rupstId}": {
-      "schema": { "$ref": "#/entities/profile" },
-      "description": "Contains RUPS Tahunan Public project-specific data"
+    "/projects/{projectId}/documents/{docId}": {
+      "schema": "DocumentReference",
+      "description": "Document links for a project."
     },
-    "pendirian_projects/{pendirianId}": {
-      "schema": { "$ref": "#/entities/profile" },
-      "description": "Contains RUPS Pendirian project-specific data"
+    "/notifications/{notifId}": {
+      "schema": "object",
+      "description": "System notifications for users."
     },
-    "kbli_2025/{kbliKode}": {
-      "schema": { "$ref": "#/entities/kbli_item" },
-      "description": "Contains KBLI 2025 enriched details"
+    "/rupst_projects/{id}": {
+      "schema": "CompanyData",
+      "description": "RUPST projects."
     },
-    "settings/{settingsId}": {
-      "schema": { "$ref": "#/entities/whatsapp_gateway_config" },
-      "description": "Contains system wide configurations such as WhatsApp Gateway integration settings"
+    "/pendirian_projects/{id}": {
+      "schema": "CompanyData",
+      "description": "Pendirian projects."
+    },
+    "/rupst_public_projects/{id}": {
+      "schema": "CompanyData",
+      "description": "Public RUPST projects."
     }
   }
 }

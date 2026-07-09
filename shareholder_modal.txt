@@ -1,0 +1,45 @@
+  8588	      <Modal
+  8589	        isOpen={Boolean(editingShareholder)}
+  8590	        onClose={() => { setEditingShareholder(null); setEditMode(null); }}
+  8591	        title={editMode === 'pengganti' ? "Formulir Lengkap Pengganti / Pengurus Baru" : editMode === 'pengganti_saham' ? "Formulir Lengkap Penerima Peralihan Saham Baru" : "Tambah Pemegang Saham, Komisaris dan Direksi"}
+  8592	        maxWidth="max-w-4xl"
+  8593	        headerColor="bg-white text-slate-800 border-b border-slate-200"
+  8594	      >
+  8595	        <div className="p-0 flex flex-col h-full bg-slate-50">
+  8596	          {editingShareholder && (
+  8597	            <div className="p-6 overflow-y-auto">
+  8598	              <ShareholderForm 
+  8599	                shareholder={editingShareholder}
+  8600	                onChange={updates => setEditingShareholder({ ...editingShareholder, ...updates })}
+  8601	                totalSharesAllowed={editMode === 'lama' ? data.originalTotalShares : (data.resolutions.capitalPaid || data.resolutions.capitalPaidDecrease ? currentTargetSharesPaid : data.originalTotalShares)}
+  8602	                otherAllocated={(editMode === 'lama' ? data.shareholders : data.finalShareholders)
+  8603	                  .filter(s => s.id !== editingShareholder.id)
+  8604	                  .reduce((sum, s) => {
+  8605	                    let shares = s.sharesOwned;
+  8606	                    if (editMode === 'baru' && editingShareholder.isAcquisition && (editingShareholder.acquisitionSourceId === s.id || (s.linkedPartyId && editingShareholder.acquisitionSourceId === s.linkedPartyId))) {
+  8607	                      shares = Math.max(0, shares - (editingShareholder.acquisitionShares || 0));
+  8608	                    }
+  8609	                    return sum + shares;
+  8610	                  }, 0)
+  8611	                }
+  8612	                existingData={editMode === 'lama' ? [] : [
+  8613	                  ...data.shareholders,
+  8614	                  ...data.oldManagementItems.filter(m => !data.shareholders.some(s => (s.name || '').toUpperCase() === (m.name || '').toUpperCase()))
+  8615	                ]}
+  8616	                oldSharesOwned={data.shareholders.find(s => (s.name || '').trim().toUpperCase() === (editingShareholder.name || '').trim().toUpperCase())?.sharesOwned || 0}
+  8617	                isOld={editMode === 'lama' || editMode === 'pengganti' || editMode === 'pengganti_saham'}
+  8618	                hasTransferAgenda={(editMode === 'pengganti' || editMode === 'pengganti_saham') ? false : data.resolutions.shareholders}
+  8619	                hasManagementAgenda={(editMode === 'pengganti' || editMode === 'pengganti_saham') ? true : data.resolutions.management}
+  8620	                hasCapitalChange={(editMode === 'pengganti' || editMode === 'pengganti_saham') ? false : (data.resolutions.capitalBase || data.resolutions.capitalPaid || data.resolutions.capitalBaseDecrease || data.resolutions.capitalPaidDecrease)}
+  8621	                hideFinancials={editMode === 'pengganti' || editMode === 'pengganti_saham' || editMode === 'baru'}
+  8622	                hideManagement={editMode === 'baru'}
+  8623	                availableParties={(editMode === 'pengganti' || editMode === 'pengganti_saham' || editMode === 'baru') ? data.shareholders : undefined}
+  8624	              />
+  8625	            </div>
+  8626	          )}
+  8627	          <div className="mt-auto flex justify-end gap-3 p-4 px-6 border-t border-slate-200 bg-white sticky bottom-0 z-10 shrink-0">
+  8628	            <button onClick={() => { setEditingShareholder(null); setEditMode(null); }} className="px-8 py-2 border border-slate-300 bg-white text-slate-700 rounded font-bold text-sm hover:bg-slate-50 transition-all">BATAL</button>
+  8629	            <button onClick={saveShareholder} className="px-8 py-2 bg-[#40bdae] text-white rounded font-bold text-sm hover:bg-[#349c8f] transition-all shadow-sm">SIMPAN DATA</button>
+  8630	          </div>
+  8631	        </div>
+  8632	      </Modal>

@@ -363,7 +363,7 @@ export const generateRUPSTPernyataanDocx = async (data: CompanyData, returnBlob?
           },
           paragraph: {
             // line: 360 = exact 1.5× at 12pt; matches <w:docGrid w:linePitch="360"/>
-            spacing: { line: 240, lineRule: "auto", before: 0, after: 0 },
+            spacing: { line: 480, lineRule: "auto", before: 0, after: 0 },
             alignment: AlignmentType.JUSTIFIED,
           },
         },
@@ -388,8 +388,9 @@ export const generateRUPSTPernyataanDocx = async (data: CompanyData, returnBlob?
               new Paragraph({
                 alignment: AlignmentType.CENTER,
                 children: [
-                  new TextRun({ text: "KOP SURAT", bold: true, font: FONT, size: 24 }),
+                  new TextRun({ text: "KOP SURAT PT", bold: true, font: FONT, size: 24, color: "E06666" }),
                 ],
+                spacing: { after: 240 },
               }),
             ],
           }),

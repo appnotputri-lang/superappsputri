@@ -1920,7 +1920,7 @@ export const KBLI_DATA: KbliItem[] = [
     "categoryLetter": "C",
     "categoryName": "INDUSTRI",
     "name": "INDUSTRI PENGOLAHAN KAKAO",
-    "description": "Kelompok ini mencakup kegiatan pengolahan biji kakao menjadi bubuk kakao, mentega kakao, lemak kakao, minyak kakao, pasta kakao, bungkil kakao, dan produk kakao lainnya. 10732 INDUSTRI COKELAT DAN KEMBANG GULA DARI COKELAT Kelompok ini mencakup kegiatan pembuatan berbagai jenis cokelat, seperti cokelat kompon, cokelat couverture, cokelat imitasi, cokelat putih, serta pembuatan gula-gula dari cokelat, olesan, dan isian berbasis cokelat. Kelompok ini juga mencakup pembuatan minuman dari cokelat dalam bentuk bubuk maupun cair."
+    "description": "Kelompok ini mencakup kegiatan pengolahan biji kakao menjadi bubuk kakao, mentega kakao, lemak kakao, minyak kakao, pasta kakao, bungkil kakao, dan produk kakao lainnya."
   },
   {
     "id": "kbli-10733",
@@ -2024,7 +2024,15 @@ export const KBLI_DATA: KbliItem[] = [
     "categoryLetter": "C",
     "categoryName": "INDUSTRI",
     "name": "INDUSTRI PRODUK MAKANAN DARI KELAPA",
-    "description": "Kelompok ini mencakup kegiatan pembuatan produk makanan dari kelapa, seperti santan pekat dan santan cair, santan bubuk, kecap kelapa, sari kelapa (nata de coco), kelapa parut kering (desiccated coconut), krim kelapa, dan tepung kelapa. 10794 INDUSTRI KERUPUK, KERIPIK, PEYEK, DAN SEJENISNYA Kelompok ini mencakup kegiatan pembuatan berbagai macam kerupuk, keripik, peyek dan sejenisnya, seperti keripik dan peyek dari berbagai macam kacang-kacangan, kerupuk udang, kerupuk ikan, dan kerupuk pati (kerupuk terung), serta pembuatan berbagai macam makanan sejenis kerupuk, seperti macam-macam emping, kecimpring, karak, gendar, opak, keripik paru, keripik bekicot, keripik kulit, peyek teri, dan peyek udang."
+    "description": "Kelompok ini mencakup kegiatan pembuatan produk makanan dari kelapa, seperti santan pekat dan santan cair, santan bubuk, kecap kelapa, sari kelapa (nata de coco), kelapa parut kering (desiccated coconut), krim kelapa, dan tepung kelapa."
+  },
+  {
+    "id": "kbli-10794",
+    "code": "10794",
+    "categoryLetter": "C",
+    "categoryName": "INDUSTRI",
+    "name": "INDUSTRI KERUPUK, KERIPIK, PEYEK, DAN SEJENISNYA",
+    "description": "Kelompok ini mencakup kegiatan pembuatan berbagai macam kerupuk, keripik, peyek dan sejenisnya, seperti keripik dan peyek dari berbagai macam kacang-kacangan, kerupuk udang, kerupuk ikan, dan kerupuk pati (kerupuk terung), serta pembuatan berbagai macam makanan sejenis kerupuk, seperti macam-macam emping, kecimpring, karak, gendar, opak, keripik paru, keripik bekicot, keripik kulit, peyek teri, dan peyek udang."
   },
   {
     "id": "kbli-10795",
@@ -2168,7 +2176,15 @@ export const KBLI_DATA: KbliItem[] = [
     "categoryLetter": "C",
     "categoryName": "INDUSTRI",
     "name": "INDUSTRI ROKOK PUTIH",
-    "description": "Kelompok ini mencakup kegiatan pembuatan rokok/sigaret yang tidak mengandung komponen cengkih. 12004 INDUSTRI PENGERINGAN DAN PENGOLAHAN TEMBAKAU Kelompok ini mencakup kegiatan pengeringan daun tembakau dengan pengasapan atau dengan cara lain, termasuk juga kegiatan perajangan daun tembakau."
+    "description": "Kelompok ini mencakup kegiatan pembuatan rokok/sigaret yang tidak mengandung komponen cengkih."
+  },
+  {
+    "id": "kbli-12004",
+    "code": "12004",
+    "categoryLetter": "C",
+    "categoryName": "INDUSTRI",
+    "name": "INDUSTRI PENGERINGAN DAN PENGOLAHAN TEMBAKAU",
+    "description": "Kelompok ini mencakup kegiatan pengeringan daun tembakau dengan pengasapan atau dengan cara lain, termasuk juga kegiatan perajangan daun tembakau."
   },
   {
     "id": "kbli-12005",
@@ -3200,7 +3216,7 @@ export const KBLI_DATA: KbliItem[] = [
     "categoryLetter": "C",
     "categoryName": "INDUSTRI",
     "name": "INDUSTRI BAHAN BAKU OBAT BAHAN ALAM UNTUK MANUSIA",
-    "description": "Kelompok ini mencakup kegiatan pengolahan macam-macam ekstrak dan simplisia, sediaan galenik, bahan tambahan atau bahan lainnya, baik yang berkhasiat maupun yang tidak berkhasiat, yang berubah maupun yang tidak berubah, yang digunakan dalam pengolahan obat bahan alam, walaupun tidak semua bahan tersebut masih terdapat di dalam produk ruahan. 21022 INDUSTRI PRODUK OBAT BAHAN ALAM UNTUK MANUSIA Kelompok ini mencakup kegiatan pengolahan macam-macam produk obat bahan alam yang bahannya memakai sumber daya alam bentuk mentah atau belum melalui proses lanjutan dari tumbuhan, hewan, jasad renik, mineral, atau campuran dari bahan tersebut yang berbentuk sedian berupa serbuk, serbuk instan, rajangan, pil, dodol/jenang, pilis, tapel, pastiles, tablet, kapsul, cairan, larutan, emulsi dan suspensi, efervesen, film, strip, gummy chewable, salep, losion, krim dan gel, aerosol untuk obat luar, plester, supositoria; pembuatan minuman jamu dan suplemen kesehatan/makanan bukan produk farmasi."
+    "description": "Kelompok ini mencakup kegiatan pengolahan macam-macam ekstrak dan simplisia, sediaan galenik, bahan tambahan atau bahan lainnya, baik yang berkhasiat maupun yang tidak berkhasiat, yang berubah maupun yang tidak berubah, yang digunakan dalam pengolahan obat bahan alam, walaupun tidak semua bahan tersebut masih terdapat di dalam produk ruahan."
   },
   {
     "id": "kbli-21023",
@@ -4304,7 +4320,15 @@ export const KBLI_DATA: KbliItem[] = [
     "categoryLetter": "C",
     "categoryName": "INDUSTRI",
     "name": "INDUSTRI MESIN KANTOR DAN AKUNTANSI ELEKTRIK",
-    "description": "Kelompok ini mencakup kegiatan pembuatan macam-macam mesin kantor dan akuntansi elektrik, seperti mesin hitung elektrik, mesin tik elektrik, mesin stensil elektrik dan sejenisnya, kalkulator, alat timbang pos (postage meters), mesin pengelola surat (pengisi amplop, penyegel dan mesin pemberi alamat, membuka, mengurutkan, memindai), mesin stenografi, mesin fotokopi analog, alat penjilid (contoh penjilid plastik atau pita), mesin penghitung koin, penyortir koin, dan pembungkus koin, peruncing pensil, stapler, mesin pemungutan suara, mesin pembuat lubang kertas. Kelompok ini juga mencakup usaha pembuatan macam-macam mesin kantor dan akuntansi elektronik, seperti mesin hitung elektronik dan cash register. Kelompok ini tidak mencakup - pembuatan subassembly dan komponen elektronik mesin komputasi, termasuk pembuatan komponen dan suku cadangnya, ; - jasa pemeliharaan dan perbaikan mesin dalam kelompok ini, . 28173 INDUSTRI MESIN KANTOR DAN AKUNTANSI ELEKTRONIK Kelompok ini mencakup kegiatan pembuatan macam-macam mesin kantor dan akuntansi elektronik, seperti mesin hitung elektronik, mesin fotokopi digital, dan cash register. Kelompok ini tidak mencakup kegiatan pembuatan subassembly dan komponen elektronik mesin komputasi, ."
+    "description": "Kelompok ini mencakup kegiatan pembuatan macam-macam mesin kantor dan akuntansi elektrik, seperti mesin hitung elektrik, mesin tik elektrik, mesin stensil elektrik dan sejenisnya, kalkulator, alat timbang pos (postage meters), mesin pengelola surat (pengisi amplop, penyegel dan mesin pemberi alamat, membuka, mengurutkan, memindai), mesin stenografi, mesin fotokopi analog, alat penjilid (contoh penjilid plastik atau pita), mesin penghitung koin, penyortir koin, dan pembungkus koin, peruncing pensil, stapler, mesin pemungutan suara, mesin pembuat lubang kertas. Kelompok ini juga mencakup usaha pembuatan macam-macam mesin kantor dan akuntansi elektronik, seperti mesin hitung elektronik dan cash register. Kelompok ini tidak mencakup - pembuatan subassembly dan komponen elektronik mesin komputasi, termasuk pembuatan komponen dan suku cadangnya, ; - jasa pemeliharaan dan perbaikan mesin dalam kelompok ini, ."
+  },
+  {
+    "id": "kbli-28173",
+    "code": "28173",
+    "categoryLetter": "C",
+    "categoryName": "INDUSTRI",
+    "name": "INDUSTRI MESIN KANTOR DAN AKUNTANSI ELEKTRONIK",
+    "description": "Kelompok ini mencakup kegiatan pembuatan macam-macam mesin kantor dan akuntansi elektronik, seperti mesin hitung elektronik, mesin fotokopi digital, dan cash register. Kelompok ini tidak mencakup kegiatan pembuatan subassembly dan komponen elektronik mesin komputasi, ."
   },
   {
     "id": "kbli-28179",
@@ -5384,7 +5408,15 @@ export const KBLI_DATA: KbliItem[] = [
     "categoryLetter": "F",
     "categoryName": "KONSTRUKSI",
     "name": "KONSTRUKSI SENTRAL TELEKOMUNIKASI",
-    "description": "Kelompok ini mencakup kegiatan pembangunan, pemeliharaan, dan perbaikan konstruksi bangunan sentral telekomunikasi beserta perlengkapannya, seperti bangunan sentral telepon, telegraf, bangunan menara pemancar, penerima radar gelombang mikro, bangunan stasiun bumi kecil, dan stasiun satelit, termasuk jaringan pipa komunikasi lokal dan jarak jauh, jaringan transmisi, dan jaringan distribusi kabel telekomunikasi/ telepon di atas permukaan tanah, di bawah tanah, dan di dalam air. 42207 KONSTRUKSI PENGEBORAN/PENGGALIAN AIR TANAH Kelompok ini mencakup kegiatan jasa konstruksi pengeboran/penggalian, pembangunan konstruksi sumur bor/sumur gali air tanah."
+    "description": "Kelompok ini mencakup kegiatan pembangunan, pemeliharaan, dan perbaikan konstruksi bangunan sentral telekomunikasi beserta perlengkapannya, seperti bangunan sentral telepon, telegraf, bangunan menara pemancar, penerima radar gelombang mikro, bangunan stasiun bumi kecil, dan stasiun satelit, termasuk jaringan pipa komunikasi lokal dan jarak jauh, jaringan transmisi, dan jaringan distribusi kabel telekomunikasi/ telepon di atas permukaan tanah, di bawah tanah, dan di dalam air."
+  },
+  {
+    "id": "kbli-42207",
+    "code": "42207",
+    "categoryLetter": "F",
+    "categoryName": "KONSTRUKSI",
+    "name": "KONSTRUKSI PENGEBORAN/PENGGALIAN AIR TANAH",
+    "description": "Kelompok ini mencakup kegiatan jasa konstruksi pengeboran/penggalian, pembangunan konstruksi sumur bor/sumur gali air tanah."
   },
   {
     "id": "kbli-42209",
@@ -6224,7 +6256,15 @@ export const KBLI_DATA: KbliItem[] = [
     "categoryLetter": "G",
     "categoryName": "PERDAGANGAN BESAR DAN ECERAN",
     "name": "PERDAGANGAN BESAR BAHAN BAKAR PADAT, CAIR, DAN GAS BESERTA PRODUK TERKAIT",
-    "description": "Kelompok ini mencakup perdagangan besar bahan bakar fosil dan bahan bakar rendah karbon atau bebas karbon, gemuk (grease), pelumas, minyak. Kelompok ini juga mencakup - perdagangan besar minyak bumi mentah, minyak mentah, bahan bakar diesel, bensin, minyak bakar, kerosin, dan solar; - perdagangan besar bahan bakar nabati/biofuel, bahan bakar dari karbon daur ulang, bahan bakar sintetis dalam bentuk campuran atau murni; - perdagangan besar arang, batu bara, kokas, kayu bakar, pelet kayu atau biomassa, nafta; - perdagangan besar gas minyak cair (LPG), gas alam cair (LNG), gas butana, dan propana serta bentuk bio atau terbarukan yang terkait, baik dalam bentuk campuran atau murni; - perdagangan besar bahan bakar nuklir. Kelompok ini tidak mencakup perdagangan besar hidrogen, . 4672 PERDAGANGAN BESAR LOGAM DAN BIJIH LOGAM Subgolongan ini mencakup - perdagangan besar logam bijih besi dan bukan besi; - perdagangan besar besi dan bukan besi dalam bentuk dasar; - perdagangan besar produk logam setengah jadi besi dan bukan besi yang tidak diklasifikasikan di tempat lain; - perdagangan besar emas dan logam mulia lain (perak, platina); - perdagangan besar produk logam setengah jadi dan bijih logam. Subgolongan ini juga mencakup - perdagangan besar lembaran baja atas nama sendiri, termasuk operasi pemotongan yang biasanya terkait dengan perdagangan; - perdagangan besar emas dan logam mulia lainnya, dibeli dari rumah tangga atau perusahaan dan dijual kepada pedagang eceran, pengguna industri, komersial, institusi atau profesional, atau kepada pedagang perdagangan besar lainnya. Subgolongan ini tidak mencakup - perdagangan besar skrap logam, ; - perdagangan emas batangan, lihat kategori L. 46721 PERDAGANGAN BESAR BIJIH DAN KONSENTRAT LOGAM Kelompok ini mencakup perdagangan besar bijih dan konsentrat logam besi dan bukan besi, seperti bijih dan konsentrat nikel, bijih dan konsentrat tembaga, bijih dan konsentrat aluminium, bijih dan konsentrat besi, bijih dan konsentrat emas beserta logam mulia lain (perak, platina)."
+    "description": "Kelompok ini mencakup perdagangan besar bahan bakar fosil dan bahan bakar rendah karbon atau bebas karbon, gemuk (grease), pelumas, minyak. Kelompok ini juga mencakup - perdagangan besar minyak bumi mentah, minyak mentah, bahan bakar diesel, bensin, minyak bakar, kerosin, dan solar; - perdagangan besar bahan bakar nabati/biofuel, bahan bakar dari karbon daur ulang, bahan bakar sintetis dalam bentuk campuran atau murni; - perdagangan besar arang, batu bara, kokas, kayu bakar, pelet kayu atau biomassa, nafta; - perdagangan besar gas minyak cair (LPG), gas alam cair (LNG), gas butana, dan propana serta bentuk bio atau terbarukan yang terkait, baik dalam bentuk campuran atau murni; - perdagangan besar bahan bakar nuklir. Kelompok ini tidak mencakup perdagangan besar hidrogen, ."
+  },
+  {
+    "id": "kbli-46721",
+    "code": "46721",
+    "categoryLetter": "G",
+    "categoryName": "PERDAGANGAN BESAR DAN ECERAN",
+    "name": "PERDAGANGAN BESAR BIJIH DAN KONSENTRAT LOGAM",
+    "description": "Kelompok ini mencakup perdagangan besar bijih dan konsentrat logam besi dan bukan besi, seperti bijih dan konsentrat nikel, bijih dan konsentrat tembaga, bijih dan konsentrat aluminium, bijih dan konsentrat besi, bijih dan konsentrat emas beserta logam mulia lain (perak, platina)."
   },
   {
     "id": "kbli-46722",
@@ -6336,7 +6376,15 @@ export const KBLI_DATA: KbliItem[] = [
     "categoryLetter": "G",
     "categoryName": "PERDAGANGAN BESAR DAN ECERAN",
     "name": "PERDAGANGAN BESAR BAHAN DAN BARANG KIMIA",
-    "description": "Kelompok ini mencakup perdagangan besar berbagai bahan dan barang kimia dasar atau kimia industri selain bahan berbahaya, seperti tinta printer, minyak asiri, gas industri (termasuk hidrogen), perekat kimia, pewarna, resin buatan, metanol, parafin, perasa dan pewangi, soda, garam industri, asam, dan sulfur. 46752 PERDAGANGAN BESAR PUPUK DAN PRODUK AGROKIMIA Kelompok ini mencakup perdagangan besar pupuk dan produk agrokimia atau kimia pertanian."
+    "description": "Kelompok ini mencakup perdagangan besar berbagai bahan dan barang kimia dasar atau kimia industri selain bahan berbahaya, seperti tinta printer, minyak asiri, gas industri (termasuk hidrogen), perekat kimia, pewarna, resin buatan, metanol, parafin, perasa dan pewangi, soda, garam industri, asam, dan sulfur."
+  },
+  {
+    "id": "kbli-46752",
+    "code": "46752",
+    "categoryLetter": "G",
+    "categoryName": "PERDAGANGAN BESAR DAN ECERAN",
+    "name": "PERDAGANGAN BESAR PUPUK DAN PRODUK AGROKIMIA",
+    "description": "Kelompok ini mencakup perdagangan besar pupuk dan produk agrokimia atau kimia pertanian."
   },
   {
     "id": "kbli-46753",
@@ -6504,7 +6552,15 @@ export const KBLI_DATA: KbliItem[] = [
     "categoryLetter": "G",
     "categoryName": "PERDAGANGAN BESAR DAN ECERAN",
     "name": "PERDAGANGAN ECERAN MINUMAN BERALKOHOL",
-    "description": "Kelompok ini mencakup perdagangan eceran khusus minuman beralkohol didalam bangunan yang tidak langsung diminum di tempat, seperti minuman keras (wiski/whisky, genever, brendi/brandy, gin, arak, rum, sake, tuak), wine dan minuman yang mengandung malt (bir, ale, stout, temulawak). Kegiatan ini dapat dilakukan di dalam bangunan maupun di lokasi lain seperti pinggir jalan (kaki lima), serambi toko (emper), tempat tetap di pasar yang bersifat fleksibel dan dapat dipindah-pindah (los pasar), dan media lainnya, termasuk melalui internet. 47222 PERDAGANGAN ECERAN MINUMAN TIDAK BERALKOHOL Kelompok ini mencakup usaha perdagangan eceran khusus minuman tidak beralkohol yang tidak dikonsumsi langsung di tempat, seperti minuman ringan (limun, air soda, markisa, teh botol, air mineral, dan beras kencur), minuman kopi, dan berbagai jenis minuman tidak beralkohol lainnya yang tidak langsung diminum di tempat. Kegiatan ini dapat dilakukan di dalam bangunan maupun di lokasi lain seperti pinggir jalan (kaki lima), serambi toko (emper), tempat tetap di pasar yang bersifat fleksibel dan dapat dipindah-pindah (los pasar), dan media lainnya, termasuk melalui internet."
+    "description": "Kelompok ini mencakup perdagangan eceran khusus minuman beralkohol didalam bangunan yang tidak langsung diminum di tempat, seperti minuman keras (wiski/whisky, genever, brendi/brandy, gin, arak, rum, sake, tuak), wine dan minuman yang mengandung malt (bir, ale, stout, temulawak). Kegiatan ini dapat dilakukan di dalam bangunan maupun di lokasi lain seperti pinggir jalan (kaki lima), serambi toko (emper), tempat tetap di pasar yang bersifat fleksibel dan dapat dipindah-pindah (los pasar), dan media lainnya, termasuk melalui internet."
+  },
+  {
+    "id": "kbli-47222",
+    "code": "47222",
+    "categoryLetter": "G",
+    "categoryName": "PERDAGANGAN BESAR DAN ECERAN",
+    "name": "PERDAGANGAN ECERAN MINUMAN TIDAK BERALKOHOL",
+    "description": "Kelompok ini mencakup usaha perdagangan eceran khusus minuman tidak beralkohol yang tidak dikonsumsi langsung di tempat, seperti minuman ringan (limun, air soda, markisa, teh botol, air mineral, dan beras kencur), minuman kopi, dan berbagai jenis minuman tidak beralkohol lainnya yang tidak langsung diminum di tempat. Kegiatan ini dapat dilakukan di dalam bangunan maupun di lokasi lain seperti pinggir jalan (kaki lima), serambi toko (emper), tempat tetap di pasar yang bersifat fleksibel dan dapat dipindah-pindah (los pasar), dan media lainnya, termasuk melalui internet."
   },
   {
     "id": "kbli-47230",
@@ -6880,7 +6936,15 @@ export const KBLI_DATA: KbliItem[] = [
     "categoryLetter": "G",
     "categoryName": "PERDAGANGAN BESAR DAN ECERAN",
     "name": "PERDAGANGAN ECERAN ALAT KESEHATAN UNTUK MANUSIA",
-    "description": "Kelompok ini mencakup perdagangan eceran alat kesehatan untuk manusia, seperti termometer, pengukur tekanan darah, alat bantu dengar, prostesis ortopedi, dan penyangga leher. 47726 PERDAGANGAN ECERAN OBAT FARMASI UNTUK HEWAN Kelompok ini mencakup perdagangan eceran obat farmasi untuk hewan, misalnya dalam serbuk, tablet, kapsul, salep, bubuk, larutan, suspensi, dan aerosol. Kelompok ini juga mencakup perdagangan eceran obat untuk ikan."
+    "description": "Kelompok ini mencakup perdagangan eceran alat kesehatan untuk manusia, seperti termometer, pengukur tekanan darah, alat bantu dengar, prostesis ortopedi, dan penyangga leher."
+  },
+  {
+    "id": "kbli-47726",
+    "code": "47726",
+    "categoryLetter": "G",
+    "categoryName": "PERDAGANGAN BESAR DAN ECERAN",
+    "name": "PERDAGANGAN ECERAN OBAT FARMASI UNTUK HEWAN",
+    "description": "Kelompok ini mencakup perdagangan eceran obat farmasi untuk hewan, misalnya dalam serbuk, tablet, kapsul, salep, bubuk, larutan, suspensi, dan aerosol. Kelompok ini juga mencakup perdagangan eceran obat untuk ikan."
   },
   {
     "id": "kbli-47727",
@@ -7512,7 +7576,15 @@ export const KBLI_DATA: KbliItem[] = [
     "categoryLetter": "H",
     "categoryName": "TRANSPORTASI DAN PENYIMPANAN",
     "name": "ANGKUTAN LAUT LUAR NEGERI UNTUK BARANG UMUM",
-    "description": "Kelompok ini mencakup aktivitas pengangkutan barang melalui laut dengan menggunakan kapal laut antarpelabuhan di dalam negeri dengan pelabuhan di luar negeri dengan melayari trayek secara tetap dan teratur (liner) dengan berjadwal, atau trayek tidak tetap dan tidak teratur (tramper), termasuk kegiatan penyewaan angkutan laut berikut operatornya. 50126 ANGKUTAN LAUT LUAR NEGERI UNTUK BARANG KHUSUS Kelompok ini mencakup aktivitas angkutan laut internasional untuk barang khusus, contohnya angkutan barang berbahaya, limbah bahan berbahaya dan beracun, termasuk ikan dan biota air lainnya . transportasi laut khusus melayani trayek tidak tetap dan tidak teratur atau tramper antarpelabuhan di dalam negeri dengan pelabuhan di luar negeri. Kelompok ini mencakup - penyaluran/distribusi luar negeri untuk bahan bakar tanpa karbon dalam bentuk gas, padatan, atau cairan yang tergantung pada kebutuhan dan kondisi penyimpanan sebagai pembawa energi (hidrogen, amonia, dan senyawa lainnya)menggunakan kapal laut yang dirancang secara khusus; - angkutan laut luar negeri untuk ikan dengan kapal pengangkut ikan berbendera Indonesia; - angkutan laut luar negeri untuk ikan dengan kapal pengangkut ikan berbendera asing; - aktivitas peny-ewaan angkutan laut berikut operatornya."
+    "description": "Kelompok ini mencakup aktivitas pengangkutan barang melalui laut dengan menggunakan kapal laut antarpelabuhan di dalam negeri dengan pelabuhan di luar negeri dengan melayari trayek secara tetap dan teratur (liner) dengan berjadwal, atau trayek tidak tetap dan tidak teratur (tramper), termasuk kegiatan penyewaan angkutan laut berikut operatornya."
+  },
+  {
+    "id": "kbli-50126",
+    "code": "50126",
+    "categoryLetter": "H",
+    "categoryName": "TRANSPORTASI DAN PENYIMPANAN",
+    "name": "ANGKUTAN LAUT LUAR NEGERI UNTUK BARANG KHUSUS",
+    "description": "Kelompok ini mencakup aktivitas angkutan laut internasional untuk barang khusus, contohnya angkutan barang berbahaya, limbah bahan berbahaya dan beracun, termasuk ikan dan biota air lainnya . transportasi laut khusus melayani trayek tidak tetap dan tidak teratur atau tramper antarpelabuhan di dalam negeri dengan pelabuhan di luar negeri. Kelompok ini mencakup - penyaluran/distribusi luar negeri untuk bahan bakar tanpa karbon dalam bentuk gas, padatan, atau cairan yang tergantung pada kebutuhan dan kondisi penyimpanan sebagai pembawa energi (hidrogen, amonia, dan senyawa lainnya)menggunakan kapal laut yang dirancang secara khusus; - angkutan laut luar negeri untuk ikan dengan kapal pengangkut ikan berbendera Indonesia; - angkutan laut luar negeri untuk ikan dengan kapal pengangkut ikan berbendera asing; - aktivitas peny-ewaan angkutan laut berikut operatornya."
   },
   {
     "id": "kbli-50127",
@@ -9200,7 +9272,15 @@ export const KBLI_DATA: KbliItem[] = [
     "categoryLetter": "L",
     "categoryName": "AKTIVITAS KEUANGAN DAN ASURANSI",
     "name": "KEPIALANGAN UNIT KARBON",
-    "description": "Kelompok ini mencakup kegiatan perantaraan, yaitu pihak yang melakukan transaksi unit karbon untuk pihak lain atau nasabahnya. Kelompok ini tidak mencakup - perdagangan unit karbon atas nama sendiri, ; - kepialangan efek selain unit karbon, ; - bertransaksi di pasar keuangan atas nama sendiri (selain kegiatan perdagangan unit karbon), . 66129 KEPIALANGAN EFEK DAN KONTRAK KOMODITAS LAINNYA Kelompok ini mencakup kegiatan kepialangan efek dan kontrak komoditas dan aktivitas bertransaksi di pasar keuangan atas nama orang lain (bertindak sebagai pialang) yang belum dicakup di tempat lain, seperti transaksi perdagangan bulion atas nama pihak lain (kepialangan). Kelompok ini tidak mencakup aktivitas perdagangan di pasar keuangan atas nama sendiri, ."
+    "description": "Kelompok ini mencakup kegiatan perantaraan, yaitu pihak yang melakukan transaksi unit karbon untuk pihak lain atau nasabahnya. Kelompok ini tidak mencakup - perdagangan unit karbon atas nama sendiri, ; - kepialangan efek selain unit karbon, ; - bertransaksi di pasar keuangan atas nama sendiri (selain kegiatan perdagangan unit karbon), ."
+  },
+  {
+    "id": "kbli-66129",
+    "code": "66129",
+    "categoryLetter": "L",
+    "categoryName": "AKTIVITAS KEUANGAN DAN ASURANSI",
+    "name": "KEPIALANGAN EFEK DAN KONTRAK KOMODITAS LAINNYA",
+    "description": "Kelompok ini mencakup kegiatan kepialangan efek dan kontrak komoditas dan aktivitas bertransaksi di pasar keuangan atas nama orang lain (bertindak sebagai pialang) yang belum dicakup di tempat lain, seperti transaksi perdagangan bulion atas nama pihak lain (kepialangan). Kelompok ini tidak mencakup aktivitas perdagangan di pasar keuangan atas nama sendiri, ."
   },
   {
     "id": "kbli-66131",
@@ -9240,7 +9320,15 @@ export const KBLI_DATA: KbliItem[] = [
     "categoryLetter": "L",
     "categoryName": "AKTIVITAS KEUANGAN DAN ASURANSI",
     "name": "PENYELENGGARAAN INFRASTRUKTUR SISTEM PEMBAYARAN",
-    "description": "Kelompok ini mencakup kegiatan penyelenggaraan infrastruktur sistem pembayaran yang terkait dengan kliring dan setelmen transaksi pemindahan dana dalam rangka transaksi pembayaran. Kelompok ini juga mencakup: - penyelenggaraan fungsi sebagai prinsipal dan pengalihan (switching) dalam rangka transaksi pembayaran; - kegiatan lain terkait penyelenggaraan infrastruktur sistem pembayaran, seperti penatausahaan identitas pihak yang terlibat dalam penyelesaian transaksi pembayaran. 66143 PENYELENGGARAAN PENUNJANG SISTEM PEMBAYARAN Kelompok ini mencakup kegiatan penyelenggaraan kegiatan yang mendukung pelaksanaan penyediaan jasa pembayaran dan/atau infrastruktur sistem pembayaran dalam melakukan pemrosesan transaksi pembayaran, contohnya pencetakan kartu, personalisasi pembayaran, penyediaan pusat data dan/atau pusat pemulihan bencana, penyediaan terminal, penyediaan fitur keamanan instrumen pembayaran dan/atau transaksi pembayaran, penyediaan teknologi pendukung transaksi nirkontak (contactless), penyediaan penerusan (routing) data pendukung pemrosesan transaksi pembayaran."
+    "description": "Kelompok ini mencakup kegiatan penyelenggaraan infrastruktur sistem pembayaran yang terkait dengan kliring dan setelmen transaksi pemindahan dana dalam rangka transaksi pembayaran. Kelompok ini juga mencakup: - penyelenggaraan fungsi sebagai prinsipal dan pengalihan (switching) dalam rangka transaksi pembayaran; - kegiatan lain terkait penyelenggaraan infrastruktur sistem pembayaran, seperti penatausahaan identitas pihak yang terlibat dalam penyelesaian transaksi pembayaran."
+  },
+  {
+    "id": "kbli-66143",
+    "code": "66143",
+    "categoryLetter": "L",
+    "categoryName": "AKTIVITAS KEUANGAN DAN ASURANSI",
+    "name": "PENYELENGGARAAN PENUNJANG SISTEM PEMBAYARAN",
+    "description": "Kelompok ini mencakup kegiatan penyelenggaraan kegiatan yang mendukung pelaksanaan penyediaan jasa pembayaran dan/atau infrastruktur sistem pembayaran dalam melakukan pemrosesan transaksi pembayaran, contohnya pencetakan kartu, personalisasi pembayaran, penyediaan pusat data dan/atau pusat pemulihan bencana, penyediaan terminal, penyediaan fitur keamanan instrumen pembayaran dan/atau transaksi pembayaran, penyediaan teknologi pendukung transaksi nirkontak (contactless), penyediaan penerusan (routing) data pendukung pemrosesan transaksi pembayaran."
   },
   {
     "id": "kbli-66144",
@@ -9800,7 +9888,15 @@ export const KBLI_DATA: KbliItem[] = [
     "categoryLetter": "N",
     "categoryName": "AKTIVITAS PROFESIONAL, ILMIAH, DAN TEKNIS",
     "name": "PENELITIAN DAN PENGEMBANGAN ILMU PERTANIAN DAN KEDOKTERAN HEWAN",
-    "description": "Kelompok ini mencakup aktivitas penelitian dan pengembangan yang dilakukan secara teratur (sistematik) yang berkaitan dengan ilmu pertanian, peternakan, kehutanan, perikanan, dan kelautan, serta kedokteran hewan. Kelompok ini juga mencakup - penelitian dan pengembangan di bidang bioteknologi pertanian; - penelitian dan pengembangan di bidang ilmu pertanian, perikanan, dan kehutanan; - penelitian dan pengembangan di bidang ilmu hewan dan susu (peternakan dan perah); - penelitian dan pengembangan di bidang ilmu kedokteran hewan; - penelitian dan pengembangan di bidang pupuk; - penelitian dan pengembangan di bidang pengembangan pertanian berkelanjutan. Kelompok ini tidak mencakup - penelitian dan pengembangan di bidang lingkungan, . 72106 PENELITIAN DAN PENGEMBANGAN KETENAGANUKLIRAN Kelompok ini mencakup aktivitas penelitian dan pengembangan yang dilakukan secara teratur (sistematis) yang berkaitan dengan penggunaan teknologi nuklir."
+    "description": "Kelompok ini mencakup aktivitas penelitian dan pengembangan yang dilakukan secara teratur (sistematik) yang berkaitan dengan ilmu pertanian, peternakan, kehutanan, perikanan, dan kelautan, serta kedokteran hewan. Kelompok ini juga mencakup - penelitian dan pengembangan di bidang bioteknologi pertanian; - penelitian dan pengembangan di bidang ilmu pertanian, perikanan, dan kehutanan; - penelitian dan pengembangan di bidang ilmu hewan dan susu (peternakan dan perah); - penelitian dan pengembangan di bidang ilmu kedokteran hewan; - penelitian dan pengembangan di bidang pupuk; - penelitian dan pengembangan di bidang pengembangan pertanian berkelanjutan. Kelompok ini tidak mencakup - penelitian dan pengembangan di bidang lingkungan, ."
+  },
+  {
+    "id": "kbli-72106",
+    "code": "72106",
+    "categoryLetter": "N",
+    "categoryName": "AKTIVITAS PROFESIONAL, ILMIAH, DAN TEKNIS",
+    "name": "PENELITIAN DAN PENGEMBANGAN KETENAGANUKLIRAN",
+    "description": "Kelompok ini mencakup aktivitas penelitian dan pengembangan yang dilakukan secara teratur (sistematis) yang berkaitan dengan penggunaan teknologi nuklir."
   },
   {
     "id": "kbli-72109",
@@ -10032,7 +10128,15 @@ export const KBLI_DATA: KbliItem[] = [
     "categoryLetter": "N",
     "categoryName": "AKTIVITAS PROFESIONAL, ILMIAH, DAN TEKNIS",
     "name": "AKTIVITAS PENGELOLAAN SARANA KESEHATAN HEWAN",
-    "description": "Kelompok ini mencakup kegiatan jasa medik veteriner berupa perawatan, pemeriksaan, pengobatan, diagnosis, dan konsultasi kesehatan hewan untuk hewan ternak, hewan piaraan, hewan akuatik, dan satwa liar yang dikelola oleh suatu manajeman bisnis berupa klinik hewan, rumah sakir hewan, pusat kesehatan hewan, ambulatori hewan, serta laboratorium hewan dan selter hewan yang disertai pelayanan kesehatan hewan. 75009 AKTIVITAS PENGELOLAAN KESEHATAN HEWAN LAINNYA Kelompok ini mencakup aktivitas kesehatan hewan selain yang tercakup dalam kelompok 75001 dan 75002, seperti - unit tranfusi darah hewan/bank darah hewan; - bank mata, bank sperma hewan kesayangan, bank transplantasi organ, bank sel dan jaringan; - optikal hewan; - aktivitas ambulans hewan; - pelayanan penunjang kesehatan hewan lainnya."
+    "description": "Kelompok ini mencakup kegiatan jasa medik veteriner berupa perawatan, pemeriksaan, pengobatan, diagnosis, dan konsultasi kesehatan hewan untuk hewan ternak, hewan piaraan, hewan akuatik, dan satwa liar yang dikelola oleh suatu manajeman bisnis berupa klinik hewan, rumah sakir hewan, pusat kesehatan hewan, ambulatori hewan, serta laboratorium hewan dan selter hewan yang disertai pelayanan kesehatan hewan."
+  },
+  {
+    "id": "kbli-75009",
+    "code": "75009",
+    "categoryLetter": "N",
+    "categoryName": "AKTIVITAS PROFESIONAL, ILMIAH, DAN TEKNIS",
+    "name": "AKTIVITAS PENGELOLAAN KESEHATAN HEWAN LAINNYA",
+    "description": "Kelompok ini mencakup aktivitas kesehatan hewan selain yang tercakup dalam kelompok 75001 dan 75002, seperti - unit tranfusi darah hewan/bank darah hewan; - bank mata, bank sperma hewan kesayangan, bank transplantasi organ, bank sel dan jaringan; - optikal hewan; - aktivitas ambulans hewan; - pelayanan penunjang kesehatan hewan lainnya."
   },
   {
     "id": "kbli-77100",
@@ -10416,7 +10520,15 @@ export const KBLI_DATA: KbliItem[] = [
     "categoryLetter": "O",
     "categoryName": "AKTIVITAS ADMINISTRATIF DAN PENUNJANG USAHA",
     "name": "AKTIVITAS PENGEPAKAN BAHAN DAN PRODUK MAKANAN DAN MINUMAN OLAHAN",
-    "description": "Kelompok ini mencakup kegiatan pengemasan atas dasar balas jasa atau kontrak, baik menggunakan suatu proses otomatis ataupun manual, untuk bahan dan produk makanan dan minuman olahan. Kelompok ini mencakup kegiatan pembotolan cairan yang mencakup minuman dan makanan, pengemasan benda padat (blister packaging, pembungkusan dengan foil aluminium, dll.), pelabelan, pemberian cap, sterilisasi produk yang terkait dengan pengepakan, dan kegiatan terkait pengepakan lainnya untuk bahan dan produk makanan dan minuman olahan. 82923 AKTIVITAS PENGEPAKAN TEKSTIL DAN PRODUK TEKSTIL Kelompok ini mencakup kegiatan pengemasan atas dasar balas jasa atau kontrak, baik menggunakan suatu proses otomatis ataupun manual, untuk tekstil dan produk tekstil. Kelompok ini mencakup kegiatan pengemasan, pembungkusan dengan aman, pelabelan, pemberian cap, sterilisasi produk, dan kegiatan terkait pengepakan lainnya untuk tekstil dan produk tekstil."
+    "description": "Kelompok ini mencakup kegiatan pengemasan atas dasar balas jasa atau kontrak, baik menggunakan suatu proses otomatis ataupun manual, untuk bahan dan produk makanan dan minuman olahan. Kelompok ini mencakup kegiatan pembotolan cairan yang mencakup minuman dan makanan, pengemasan benda padat (blister packaging, pembungkusan dengan foil aluminium, dll.), pelabelan, pemberian cap, sterilisasi produk yang terkait dengan pengepakan, dan kegiatan terkait pengepakan lainnya untuk bahan dan produk makanan dan minuman olahan."
+  },
+  {
+    "id": "kbli-82923",
+    "code": "82923",
+    "categoryLetter": "O",
+    "categoryName": "AKTIVITAS ADMINISTRATIF DAN PENUNJANG USAHA",
+    "name": "AKTIVITAS PENGEPAKAN TEKSTIL DAN PRODUK TEKSTIL",
+    "description": "Kelompok ini mencakup kegiatan pengemasan atas dasar balas jasa atau kontrak, baik menggunakan suatu proses otomatis ataupun manual, untuk tekstil dan produk tekstil. Kelompok ini mencakup kegiatan pengemasan, pembungkusan dengan aman, pelabelan, pemberian cap, sterilisasi produk, dan kegiatan terkait pengepakan lainnya untuk tekstil dan produk tekstil."
   },
   {
     "id": "kbli-82924",
@@ -10840,7 +10952,15 @@ export const KBLI_DATA: KbliItem[] = [
     "categoryLetter": "Q",
     "categoryName": "PENDIDIKAN",
     "name": "PENDIDIKAN MENENGAH KEJURUAN UMUM SWASTA",
-    "description": "Kelompok ini mencakup pendidikan menengah kejuruan yang diselenggarakan swasta, seperti sekolah menengah kejuruan (SMK) swasta, dengan program studi seperti pariwisata, boga, manajemen, perkantoran, perhotelan, teknik, farmasi, kecantikan dan rambut, pertanian, sekolah menengah kejuruan hasil kerja sama dengan lembaga pendidikan asing, sekolah khusus swasta untuk peserta didik berkebutuhan khusus pada jenjang pendidikan menengah. 85323 PENDIDIKAN MENENGAH KEJURUAN KEAGAMAAN ISLAM Kelompok ini mencakup pendidikan menengah kejuruan, berorientasi pada pengembangan ilmu pengetahuan dan keterampilan kejuruan yang terintegrasi dengan nilai-nilai dan ajaran keagamaan Islam, termasuk pembelajaran kitab suci; hukum tata cara ibadah;bahasa klasik keagamaan; sejarah peradaban dan tokoh agama, seperti madrasah aliyah kejuruan, dengan program studi seperti multimedia, animasi, administrasi, akuntansi, farmasi, pariwisata, pelayaran, teknik mesin, tata boga, elektro, termasuk sekolah kesetaraan dan sekolah khusus keagamaan Islam untuk peserta didik berkebutuhan khusus pada jenjang pendidikan menengah."
+    "description": "Kelompok ini mencakup pendidikan menengah kejuruan yang diselenggarakan swasta, seperti sekolah menengah kejuruan (SMK) swasta, dengan program studi seperti pariwisata, boga, manajemen, perkantoran, perhotelan, teknik, farmasi, kecantikan dan rambut, pertanian, sekolah menengah kejuruan hasil kerja sama dengan lembaga pendidikan asing, sekolah khusus swasta untuk peserta didik berkebutuhan khusus pada jenjang pendidikan menengah."
+  },
+  {
+    "id": "kbli-85323",
+    "code": "85323",
+    "categoryLetter": "Q",
+    "categoryName": "PENDIDIKAN",
+    "name": "PENDIDIKAN MENENGAH KEJURUAN KEAGAMAAN ISLAM",
+    "description": "Kelompok ini mencakup pendidikan menengah kejuruan, berorientasi pada pengembangan ilmu pengetahuan dan keterampilan kejuruan yang terintegrasi dengan nilai-nilai dan ajaran keagamaan Islam, termasuk pembelajaran kitab suci; hukum tata cara ibadah;bahasa klasik keagamaan; sejarah peradaban dan tokoh agama, seperti madrasah aliyah kejuruan, dengan program studi seperti multimedia, animasi, administrasi, akuntansi, farmasi, pariwisata, pelayaran, teknik mesin, tata boga, elektro, termasuk sekolah kesetaraan dan sekolah khusus keagamaan Islam untuk peserta didik berkebutuhan khusus pada jenjang pendidikan menengah."
   },
   {
     "id": "kbli-85324",
@@ -11008,7 +11128,15 @@ export const KBLI_DATA: KbliItem[] = [
     "categoryLetter": "Q",
     "categoryName": "PENDIDIKAN",
     "name": "PELATIHAN KERJA PERTANIAN DAN PERIKANAN SWASTA",
-    "description": "Kelompok ini mencakup kegiatan pelatihan kerja yang bertujuan untuk menambah ketrampilan/keahlian dalam bidang mekanisasi pertanian, tanaman pangan, hortikultura, mix farming, pengolahan tanah, konservasi lahan, budidaya tanaman, penangkapan ikan, budidaya ikan, permesinan perikanan, pengolahan hasil pertanian, pengolahan hasil perikanan, pengolahan hasil peternakan, agribisnis produksi tanaman, agribisnis produksi peternakan, agribisnis produksi sumber daya perairan dan lainnya yang diselenggarakan oleh swasta. 85578 PENDIDIKAN DAN PELATIHAN PERSONEL PENERBANGAN Kelompok ini mencakup jasa pendidikan personel penerbangan yang dilakukan oleh swasta, seperti personel pesawat udara, personel bandar udara, personel navigasi penerbangan, personel keamanan penerbangan. Kelompok ini juga mencakup pengangkutan khusus awak pesawat dalam rangka pendidikan."
+    "description": "Kelompok ini mencakup kegiatan pelatihan kerja yang bertujuan untuk menambah ketrampilan/keahlian dalam bidang mekanisasi pertanian, tanaman pangan, hortikultura, mix farming, pengolahan tanah, konservasi lahan, budidaya tanaman, penangkapan ikan, budidaya ikan, permesinan perikanan, pengolahan hasil pertanian, pengolahan hasil perikanan, pengolahan hasil peternakan, agribisnis produksi tanaman, agribisnis produksi peternakan, agribisnis produksi sumber daya perairan dan lainnya yang diselenggarakan oleh swasta."
+  },
+  {
+    "id": "kbli-85578",
+    "code": "85578",
+    "categoryLetter": "Q",
+    "categoryName": "PENDIDIKAN",
+    "name": "PENDIDIKAN DAN PELATIHAN PERSONEL PENERBANGAN",
+    "description": "Kelompok ini mencakup jasa pendidikan personel penerbangan yang dilakukan oleh swasta, seperti personel pesawat udara, personel bandar udara, personel navigasi penerbangan, personel keamanan penerbangan. Kelompok ini juga mencakup pengangkutan khusus awak pesawat dalam rangka pendidikan."
   },
   {
     "id": "kbli-85579",
@@ -11056,7 +11184,15 @@ export const KBLI_DATA: KbliItem[] = [
     "categoryLetter": "Q",
     "categoryName": "PENDIDIKAN",
     "name": "PELATIHAN KERJA BISNIS DAN MANAJEMEN PERUSAHAAN",
-    "description": "Kelompok ini mencakup kegiatan pelatihan kerja yang bertujuan untuk menambah keterampilan/keahlian dalam bidang bisnis dan manajemen yang diselenggarakan oleh perusahaan. Kegiatan yang masuk dalam kelompok ini adalah pelatihan sekretaris, administrasi perkantoran, ICT for secretary, keuangan, tata niaga/penjualan, bahasa asing, promosi produktivitas, bimbingan konsultansi, pengukuran produktivitas, manajemen peningkatan produktivitas, kewirausahaan, dan lainnya. 85586 PELATIHAN KERJA PEKERJAAN DOMESTIK PERUSAHAAN Kelompok ini mencakup kegiatan pelatihan kerja yang bertujuan untuk menambah ketrampilan/keahlian dalam bidang pengurus rumah tangga, penjaga lanjut usia, pengasuh bayi/balita, pengasuh anak, juru masak, dan lainnya yang diselenggarakan oleh perusahaan."
+    "description": "Kelompok ini mencakup kegiatan pelatihan kerja yang bertujuan untuk menambah keterampilan/keahlian dalam bidang bisnis dan manajemen yang diselenggarakan oleh perusahaan. Kegiatan yang masuk dalam kelompok ini adalah pelatihan sekretaris, administrasi perkantoran, ICT for secretary, keuangan, tata niaga/penjualan, bahasa asing, promosi produktivitas, bimbingan konsultansi, pengukuran produktivitas, manajemen peningkatan produktivitas, kewirausahaan, dan lainnya."
+  },
+  {
+    "id": "kbli-85586",
+    "code": "85586",
+    "categoryLetter": "Q",
+    "categoryName": "PENDIDIKAN",
+    "name": "PELATIHAN KERJA PEKERJAAN DOMESTIK PERUSAHAAN",
+    "description": "Kelompok ini mencakup kegiatan pelatihan kerja yang bertujuan untuk menambah ketrampilan/keahlian dalam bidang pengurus rumah tangga, penjaga lanjut usia, pengasuh bayi/balita, pengasuh anak, juru masak, dan lainnya yang diselenggarakan oleh perusahaan."
   },
   {
     "id": "kbli-85587",

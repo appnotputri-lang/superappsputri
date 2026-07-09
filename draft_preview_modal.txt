@@ -1,0 +1,54 @@
+  8533	      <Modal 
+  8534	        isOpen={isPreviewOpen} 
+  8535	        onClose={() => setIsPreviewOpen(false)} 
+  8536	        title="DRAFT DOKUMEN"
+  8537	        maxWidth="max-w-7xl"
+  8538	        headerColor="bg-[#3b5998] text-white"
+  8539	      >
+  8540	        <div className="flex flex-col items-center h-[88vh] bg-slate-200/50 rounded-b-2xl overflow-hidden relative">
+  8541	          <div className="no-print sticky top-0 w-full py-4 z-40 flex justify-center gap-4 bg-white/90 backdrop-blur-md shadow-md border-b border-slate-200">
+  8542	            <div className="flex bg-white rounded-full p-1 border border-slate-300 shadow-sm">
+  8543	              <button 
+  8544	                onClick={() => setZoom(prev => Math.max(0.4, prev - 0.1))} 
+  8545	                className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-600"
+  8546	                title="Perkecil"
+  8547	              >
+  8548	                <ZoomOut className="w-5 h-5" />
+  8549	              </button>
+  8550	              <div className="flex items-center px-4 text-sm font-bold text-slate-700 min-w-[70px] justify-center">
+  8551	                {Math.round(zoom * 100)}%
+  8552	              </div>
+  8553	              <button 
+  8554	                onClick={() => setZoom(prev => Math.min(2, prev + 0.1))} 
+  8555	                className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-600"
+  8556	                title="Perbesar"
+  8557	              >
+  8558	                <ZoomIn className="w-5 h-5" />
+  8559	              </button>
+  8560	              <button 
+  8561	                onClick={() => setZoom(1)} 
+  8562	                className="px-4 text-[11px] font-bold text-blue-600 hover:bg-slate-100 rounded-full transition-colors uppercase border-l border-slate-200"
+  8563	              >
+  8564	                100%
+  8565	              </button>
+  8566	            </div>
+  8567	            
+  8568	            <div className="h-10 w-[1px] bg-slate-300"></div>
+  8569	
+  8570	            <button onClick={handlePrint} className="px-8 py-2.5 bg-[#3b5998] text-white rounded-full font-bold text-[13px] flex items-center gap-2 hover:bg-[#2d4373] transition-all shadow-md group">
+  8571	              <Printer className="w-4 h-4 group-hover:scale-110 transition-transform" /> Cetak / PDF
+  8572	            </button>
+  8573	            <button onClick={handleExportWord} className="px-8 py-2.5 bg-emerald-600 text-white rounded-full font-bold text-[13px] flex items-center gap-2 hover:bg-emerald-700 transition-all shadow-md group">
+  8574	              <FileCode className="w-4 h-4 group-hover:scale-110 transition-transform" /> Word (.docx)
+  8575	            </button>
+  8576	          </div>
+  8577	          
+  8578	          <div className="flex-1 w-full overflow-auto p-4 sm:p-8 pt-4 custom-scrollbar bg-slate-200/50">
+  8579	            {activeSidebarTab === 'rupst' ? (
+  8580	              <RUPSTDocumentPreview data={mergedData} />
+  8581	            ) : (
+  8582	              <DocumentPreview data={mergedData} showHeader={false} zoom={zoom} />
+  8583	            )}
+  8584	          </div>
+  8585	        </div>
+  8586	      </Modal>

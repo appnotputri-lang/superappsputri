@@ -1,0 +1,17 @@
+  const syncCompanyDataToRupst = () => {
+    if (!data.selectedProfileId) {
+      alert("Pilih Klien PT terlebih dahulu.");
+      return;
+    }
+        
+    if (!confirm("Sinkronkan data terbaru dari Klien PT?\n\nData manual RUPST tidak akan diubah.")) {
+      return;
+    }
+    const latestProfile = profiles.find(p => p.id === data.selectedProfileId);
+    if (!latestProfile) {
+      alert("Gagal mengambil data terbaru dari Klien PT.");
+      return;
+    }
+    try {
+      const updates: any = {
+        companyName: latestProfile.companyName,

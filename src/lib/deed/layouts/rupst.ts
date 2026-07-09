@@ -1,15 +1,7 @@
 import { createOpeningTitle } from "../opening/title";
 import { createOpeningDate } from "../opening/date";
 import { createOpeningSentence } from "../opening/sentence";
-
-import { createClosingDivider } from "../closing/divider";
-import { createWitnessBlocks } from "../closing/witness";
-import { createClosingReading } from "../closing/reading";
-import { createClosingFingerprint } from "../closing/fingerprint";
-import { createClosingNoChange } from "../closing/noChange";
-import { createClosingMinuta } from "../closing/minuta";
-import { createClosingCopy } from "../closing/copy";
-import { createClosingSignature } from "../closing/signature";
+import { createDemikianlah } from "../closing/demikianlah";
 
 export interface RupstOpeningConfig {
   rupstType: string;
@@ -28,7 +20,6 @@ export interface RupstOpeningConfig {
 
 export function createRupstOpening(config: RupstOpeningConfig) {
   const blocks: any[] = [];
-
   if (config.rupstType === "sirkuler") {
     blocks.push(
       ...createOpeningTitle({
@@ -86,21 +77,11 @@ export interface RupstClosingConfig {
 }
 
 export function createRupstClosing(config: RupstClosingConfig) {
-  return [
-    ...createClosingDivider("DEMIKIANLAH AKTA INI"),
-    ...createWitnessBlocks({
-      variant: "RUPST_AKTA",
-      notarisTempat: config.notaryDomicile,
-      saksi1Nama: config.saksi1Nama,
-      saksi1Text: config.saksi1Text,
-      saksi2Nama: config.saksi2Nama,
-      saksi2Text: config.saksi2Text,
-    }),
-    ...createClosingReading(),
-    ...createClosingFingerprint(),
-    ...createClosingNoChange(),
-    ...createClosingMinuta({ useIndentLeft: true, indentLeft: 426 }),
-    ...createClosingCopy({ useIndentLeft: true, indentLeft: 993 }),
-    ...createClosingSignature(),
-  ];
+  return createDemikianlah({
+    notarisTempat: config.notaryDomicile,
+    saksi1Nama: config.saksi1Nama,
+    saksi1Text: config.saksi1Text,
+    saksi2Nama: config.saksi2Nama,
+    saksi2Text: config.saksi2Text,
+  });
 }

@@ -1,0 +1,1152 @@
+          ) : activeSidebarTab === 'company_profile' ? (
+            <div className="max-w-5xl mx-auto space-y-4">
+              <div className="flex justify-between items-center bg-white p-4 rounded-sm shadow-sm border border-slate-200">
+                <div>
+                  <h2 className="text-[16px] font-bold flex items-center gap-2 text-slate-800 uppercase"><Building2 className="w-5 h-5 text-[#3b5998]" /> Klien PT</h2>
+                  <p className="text-[12px] text-slate-500">Kelola daftar profil klien PT untuk digunakan pada notulen dan akta</p>
+                </div>
+                {!editingProfileId && (
+                  <button onClick={() => {
+                    setEditingProfileId('new');
+                    setIsProfilePreview(false);
+                    updateData({ ...INITIAL_STATE } as any);
+                  }} className="bg-[#3b5998] hover:bg-[#2d4373] text-white px-4 py-2 rounded-sm font-bold text-[12px] flex items-center gap-2 transition-colors">
+                    <Plus className="w-4 h-4" /> TAMBAH KLIEN PT
+                  </button>
+                )}
+              </div>
+
+              {editingProfileId ? (
+                <div className="space-y-4 pb-20">
+                  <div className="flex flex-wrap items-center gap-2 bg-slate-50/50 p-2 rounded-md border border-slate-200">
+                    <button className="text-slate-500 hover:text-slate-800 flex items-center gap-1 font-bold text-[12px] uppercase bg-white px-3 py-2 rounded-sm border border-slate-200 shadow-sm" onClick={() => setEditingProfileId(null)}>
+                      <ArrowRight className="w-4 h-4 rotate-180" /> Kembali
+                    </button>
+                    
+                    <div className="h-6 w-px bg-slate-300 mx-1"></div>
+
+                    {isProfilePreview ? (
+                      <>
+                        <button 
+                          onClick={(e) => { e.preventDefault(); setIsProfilePreview(false); }}
+                          className="px-5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md text-[13px] font-bold transition-all border border-slate-200 shadow-sm flex items-center gap-2 uppercase">
+                          <Edit className="w-4 h-4" /> Edit
+                        </button>
+                        {userProfile?.role !== 'Staff' && (
+                          <button 
+                            onClick={async (e) => {
+                              e.preventDefault();
+                              if(confirm('Hapus profil ' + data.companyName + '?')) {
+                                if (!user) return alert('Anda harus login!');
+                                try {
+                                  const deletedName = data.companyName || 'PT Baru';
+                                  await deleteCompany(editingProfileId, false);
+                                  recordNotification(
+                                    'Klien PT Dihapus',
+                                    `Profil klien "${deletedName}" telah berhasil dihapus oleh ${user?.email || 'Admin'}.`,
+                                    'delete_profile'
+                                  );
+                                  alert('Profil berhasil dihapus');
+                                  setEditingProfileId(null);
+                                } catch (err) {
+                                  handleFirestoreError(err, OperationType.DELETE, `profiles/${editingProfileId}`);
+                                }
+                              }
+                            }}
+                            className="px-5 py-2 bg-red-50 hover:bg-red-500 hover:text-white text-red-600 rounded-md font-bold transition-all text-[13px] border border-red-100 hover:border-red-500 shadow-sm flex items-center gap-2 uppercase">
+                            <Trash2 className="w-4 h-4" /> Hapus
+                          </button>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        <button onClick={resetData} className="px-5 py-2 bg-[#d9534f] text-white rounded-md text-[13px] font-bold transition-all hover:bg-[#c9302c] shadow-sm uppercase">RISET</button>
+                        <button 
+                          disabled={isSaving}
+                          onClick={async () => {
+                           if (!data.companyName) return alert('Nama perseroan harus diisi');
+                           setIsSaving(true);
+                           const isNew = editingProfileId === 'new' || !editingProfileId;
+                           const newId = editingProfileId && editingProfileId !== 'new' ? editingProfileId : crypto.randomUUID();
+                           const profileData = {
+                               ...data,
+                               id: newId,
+                               updatedAt: new Date().toISOString()
+                           };
+                           if (!user) {
+                             setIsSaving(false);
+                             return alert('Anda harus login terlebih dahulu!');
+                           }
+                           
+                           try {
+                               await saveCompany(profileData.id, profileData, false);
+                               recordNotification(
+                                 isNew ? 'Klien PT Baru Dibuat' : 'Profil Klien PT Diubah',
+                                 `Profil klien "${profileData.companyName}" telah ${isNew ? 'berhasil didaftarkan' : 'diperbarui'} oleh ${user?.email || 'Admin'}.`,
+                                 isNew ? 'create_profile' : 'update_profile'
+                               );
+                               setEditingProfileId(null);
+                               alert('Profil berhasil disimpan!');
+                           } catch (e) {
+                               handleFirestoreError(e, OperationType.WRITE, `profiles/${profileData.id}`);
+                           } finally {
+                               setIsSaving(false);
+                           }
+                        }} className="px-5 py-2 bg-[#40bdae] text-white rounded-md text-[13px] font-bold transition-all hover:bg-[#349c8f] shadow-sm uppercase disabled:opacity-50 disabled:cursor-not-allowed">
+                          {isSaving ? 'MENYIMPAN...' : 'SIMPAN PROFIL'}
+                        </button>
+                      </>
+                    )}
+                  </div>
+                  
+                  <fieldset disabled={isProfilePreview} className="space-y-4">
+                    {/* DATA PERSEROAN */}
+            
+            <AhuSection title="DATA PERSEROAN">
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                  <AhuLabel label="Nama Perseroan" />
+                  <div className="md:col-span-3"><AhuInput value={data.companyName || ''} onChange={e => updateData({ companyName: e.target.value })} /></div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                  <AhuLabel label="Kedudukan (Kab/Kota)" />
+                  <div className="md:col-span-3 flex gap-4 items-center">
+                    <div className="flex-1">
+                      <AhuInput 
+                        placeholder="Contoh: Kota Bandung atau Kabupaten Bandung Barat"
+                        value={data.domicile || ''}
+                        onChange={e => updateData({ domicile: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                  <AhuLabel label="Harga per Lembar" />
+                  <div className="md:col-span-3">
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[13px]">Rp.</span>
+                      <AhuInput 
+                        className="pl-10"
+                        value={data.originalSharePrice === 0 ? '' : formatInputNumber(data.originalSharePrice)} 
+                        onChange={e => updateData({ originalSharePrice: parseFormattedNumber(e.target.value) })} 
+                      />
+                    </div>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                  <AhuLabel label="Modal Dasar (Lembar)" required />
+                  <div className="md:col-span-3">
+                    <div className="flex items-center gap-4">
+                      <div className="flex-1">
+                        <AhuInput 
+                          value={data.originalAuthorizedShares === 0 ? '' : formatInputNumber(data.originalAuthorizedShares)} 
+                          onChange={e => updateData({ originalAuthorizedShares: parseFormattedNumber(e.target.value) })} 
+                        />
+                      </div>
+                      <div className="text-[13px] font-bold text-slate-500 w-48">
+                        Rp. {formatInputNumber(data.targetCapitalBase)}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                  <AhuLabel label="Modal Ditempatkan & Disetor (Lembar)" required />
+                  <div className="md:col-span-3">
+                    <div className="flex items-center gap-4">
+                      <div className="flex-1">
+                        <AhuInput 
+                          value={data.originalTotalShares === 0 ? '' : formatInputNumber(data.originalTotalShares)} 
+                          onChange={e => updateData({ originalTotalShares: parseFormattedNumber(e.target.value) })} 
+                        />
+                      </div>
+                      <div className="text-[13px] font-bold text-slate-500 w-48">
+                        Rp. {formatInputNumber(data.targetCapitalPaid)}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </AhuSection>
+
+            {/* PENGURUS DAN PEMEGANG SAHAM LAMA */}
+            <AhuSection title="PENGURUS DAN PEMEGANG SAHAM LAMA *">
+              <div className="space-y-4">
+                  <div className="flex justify-end gap-2">
+                    <button onClick={() => openShareholderEditor('lama')} className="bg-[#222d32] text-white px-3 py-1.5 rounded-sm text-[12px] font-bold shadow hover:bg-black transition-colors flex items-center gap-1"><Plus className="w-4 h-4" /> Tambah Data</button>
+                  </div>
+                  <div className="border border-slate-200 overflow-x-auto rounded-sm">
+                    <table className="w-full text-left text-[11px]">
+                      <thead className="bg-[#f9f9f9] border-b border-slate-200 font-bold uppercase">
+                        <tr>
+                          <th className="p-2 border-r border-slate-200">Nama</th>
+                          <th className="p-2 border-r border-slate-200">Klasifikasi Saham</th>
+                          <th className="p-2 border-r border-slate-200">Jumlah Lembar Saham</th>
+                          <th className="p-2 border-r border-slate-200">Jabatan</th>
+                          <th className="p-2 border-r border-slate-200">Total</th>
+                          <th className="p-2 text-center">Aksi</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {data.shareholders.map((s) => (
+                           <tr key={s.id} className="border-b border-slate-200 last:border-0 hover:bg-slate-50 transition-colors text-[10px]">
+                             <td className="p-2 border-r border-slate-200 font-bold uppercase">{s.name}</td>
+                             <td className="p-2 border-r border-slate-200">Tanpa Klasifikasi</td>
+                             <td className="p-2 border-r border-slate-200">{formatInputNumber(s.sharesOwned)}</td>
+                             <td className="p-2 border-r border-slate-200 font-bold uppercase">{s.isManagement ? (s.managementPosition || 'DIREKTUR') : '-'}</td>
+                             <td className="p-2 border-r border-slate-200">Rp. {formatInputNumber(s.sharesOwned * data.originalSharePrice)}</td>
+                             <td className="p-2 text-center text-blue-600 flex items-center justify-center gap-2">
+                               <button onClick={() => openShareholderEditor('lama', s)} className="hover:underline flex items-center gap-0.5"><Eye className="w-3 h-3" /> Edit</button>
+                               <span className="text-slate-300">|</span>
+                               <button onClick={() => deleteShareholder(s.id, 'lama')} className="hover:underline text-red-500 flex items-center gap-0.5"><Trash2 className="w-3 h-3" /> Hapus</button>
+                             </td>
+                           </tr>
+                        ))}
+                        {data.shareholders.length === 0 && (
+                          <tr>
+                            <td colSpan={6} className="p-4 text-center text-slate-400 italic">Belum ada data pengurus/pemegang saham lama.</td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div className="text-[13px] font-bold text-slate-800 space-y-1 uppercase">
+                    <div>TOTAL LEMBAR SAHAM {formatInputNumber(data.shareholders.reduce((sum, s) => sum + s.sharesOwned, 0))}</div>
+                    <div>TOTAL MODAL DITEMPATKAN DAN DISETOR Rp {formatInputNumber(data.shareholders.reduce((sum, s) => sum + s.sharesOwned, 0) * data.originalSharePrice)}</div>
+                    {data.shareholders.reduce((sum, s) => sum + s.sharesOwned, 0) < data.originalTotalShares && (
+                      <div className="text-red-500 font-normal text-xs normal-case mt-1 bg-red-50 p-2 rounded border border-red-100">
+                        * Total lembar saham ({formatInputNumber(data.shareholders.reduce((sum, s) => sum + s.sharesOwned, 0))}) kurang dari Modal Ditempatkan & Disetor Lama ({formatInputNumber(data.originalTotalShares)} lembar)
+                      </div>
+                    )}
+                  </div>
+               </div>
+            </AhuSection>
+
+            <AhuSection title="AKTA PENDIRIAN DAN PERUBAHAN">
+              <div className="space-y-4">
+                  <div className="border border-slate-200 rounded-sm p-4 space-y-4 bg-white/50">
+                    <h3 className="font-bold text-[13px] text-slate-800">Akta Pendirian</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                      <AhuLabel label="Nomor Akta" />
+                      <div className="md:col-span-3">
+                        <AhuInput value={data.establishmentDeedNumber || ''} onChange={e => updateData({ establishmentDeedNumber: e.target.value })} placeholder="Contoh: 12" />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                      <AhuLabel label="Tanggal Akta" />
+                      <div className="md:col-span-3">
+                        <AhuInput type="date" value={data.establishmentDeedDate || ''} onChange={e => updateData({ establishmentDeedDate: e.target.value })} />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                      <AhuLabel label="Pilih Notaris" />
+                      <div className="md:col-span-3">
+                        <AhuSelect
+                          value={data.establishmentNotary === 'Nukantini Putri Parincha' ? 'saya' : (data.establishmentNotary ? 'manual' : '')}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            if (val === 'saya') {
+                              updateData({
+                                establishmentNotary: 'Nukantini Putri Parincha',
+                                establishmentNotaryTitle: 'Sarjana Hukum, Magister Kenotariatan',
+                                establishmentNotaryDomicile: 'Kabupaten Bandung Barat'
+                              });
+                            } else if (val === 'manual') {
+                              updateData({
+                                establishmentNotary: '',
+                                establishmentNotaryTitle: '',
+                                establishmentNotaryDomicile: ''
+                              });
+                            } else {
+                              updateData({ establishmentNotary: '', establishmentNotaryTitle: '', establishmentNotaryDomicile: '' });
+                            }
+                          }}
+                        >
+                          <option value="">-- Pilih Notaris --</option>
+                          <option value="saya">Saya (Nukantini Putri Parincha, SH., M.Kn.)</option>
+                          <option value="manual">Input Bebas</option>
+                        </AhuSelect>
+                      </div>
+                    </div>
+                    {data.establishmentNotary !== 'Nukantini Putri Parincha' && (
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                      <AhuLabel label="Nama Notaris" />
+                      <div className="md:col-span-3 flex gap-2">
+                        <AhuInput 
+                          className="flex-1"
+                          value={data.establishmentNotary || ''} 
+                          onChange={e => updateData({ establishmentNotary: e.target.value })} 
+                          placeholder="Nama notaris pendirian" 
+                        />
+                        <div className="w-48 flex flex-col gap-1">
+                          <AhuSelect
+                            value={['Sarjana Hukum', 'Sarjana Hukum, Magister Kenotariatan'].includes(data.establishmentNotaryTitle || '') ? data.establishmentNotaryTitle : (data.establishmentNotaryTitle ? 'manual' : '')}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (val === 'manual') {
+                                // Keep current title but allow editing
+                              } else {
+                                updateData({ establishmentNotaryTitle: val });
+                              }
+                            }}
+                          >
+                            <option value="">-- Pilih Gelar --</option>
+                            <option value="Sarjana Hukum">SH.</option>
+                            <option value="Sarjana Hukum, Magister Kenotariatan">SH., M.Kn.</option>
+                            <option value="manual">Manual</option>
+                          </AhuSelect>
+                          {( !['Sarjana Hukum', 'Sarjana Hukum, Magister Kenotariatan'].includes(data.establishmentNotaryTitle || '') || (data.establishmentNotaryTitle === 'manual')) && data.establishmentNotaryTitle !== undefined && (
+                             <AhuInput 
+                               placeholder="Gelar manual..." 
+                               value={data.establishmentNotaryTitle === 'manual' ? '' : data.establishmentNotaryTitle}
+                               onChange={e => updateData({ establishmentNotaryTitle: e.target.value })}
+                             />
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    )}
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                      <AhuLabel label="Kedudukan Notaris" />
+                      <div className="md:col-span-3">
+                        <AhuInput 
+                          value={data.establishmentNotaryDomicile || ''} 
+                          onChange={e => updateData({ establishmentNotaryDomicile: e.target.value })} 
+                          placeholder="Contoh: Kabupaten Bandung Barat" 
+                          disabled={data.establishmentNotary === 'Nukantini Putri Parincha'}
+                          className={data.establishmentNotary === 'Nukantini Putri Parincha' ? 'bg-slate-100 font-bold' : ''}
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                      <AhuLabel label="Nomor SK" />
+                      <div className="md:col-span-3">
+                        <AhuInput value={data.establishmentSkNumber || ''} onChange={e => updateData({ establishmentSkNumber: e.target.value })} placeholder="Nomor SK Kemenkumham" />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                      <AhuLabel label="Tanggal SK" />
+                      <div className="md:col-span-3">
+                        <AhuInput type="date" value={data.establishmentSkDate || ''} onChange={e => updateData({ establishmentSkDate: e.target.value })} />
+                      </div>
+                    </div>
+                  </div>
+
+                  {(data.amendmentDeeds || []).map((deed, index) => (
+                    <div key={deed.id} className="border border-slate-200 rounded-sm p-4 space-y-4 bg-white/50 relative">
+                      <div className="flex justify-between items-center border-b border-slate-200 pb-2 mb-2">
+                        <h3 className="font-bold text-[13px] text-slate-800 uppercase tracking-tight">Akta Perubahan {index + 1}</h3>
+                        <button 
+                          onClick={() => {
+                            const newList = (data.amendmentDeeds || []).filter(d => d.id !== deed.id);
+                            updateData({ amendmentDeeds: newList });
+                          }}
+                          className="text-red-500 hover:text-red-700 p-1 transition-colors"
+                          title="Hapus Akta Perubahan"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                        <AhuLabel label="Nomor Akta" />
+                        <div className="md:col-span-3">
+                          <AhuInput 
+                            value={deed.number || ''} 
+                            onChange={e => {
+                              const newList = [...(data.amendmentDeeds || [])];
+                              newList[index] = { ...deed, number: e.target.value };
+                              updateData({ amendmentDeeds: newList });
+                            }} 
+                            placeholder="Contoh: 05" 
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                        <AhuLabel label="Tanggal Akta" />
+                        <div className="md:col-span-3">
+                          <AhuInput 
+                            type="date" 
+                            value={deed.date || ''} 
+                            onChange={e => {
+                              const newList = [...(data.amendmentDeeds || [])];
+                              newList[index] = { ...deed, date: e.target.value };
+                              updateData({ amendmentDeeds: newList });
+                            }} 
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                        <AhuLabel label="Pilih Notaris" />
+                        <div className="md:col-span-3">
+                          <AhuSelect
+                            value={deed.notary === 'Nukantini Putri Parincha' ? 'saya' : (deed.notary ? 'manual' : '')}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              const newList = [...(data.amendmentDeeds || [])];
+                              if (val === 'saya') {
+                                newList[index] = { 
+                                  ...deed, 
+                                  notary: 'Nukantini Putri Parincha',
+                                  notaryTitle: 'Sarjana Hukum, Magister Kenotariatan',
+                                  notaryDomicile: 'Kabupaten Bandung Barat'
+                                };
+                              } else if (val === 'manual') {
+                                newList[index] = { 
+                                  ...deed, 
+                                  notary: '',
+                                  notaryTitle: '',
+                                  notaryDomicile: ''
+                                };
+                              } else {
+                                newList[index] = { ...deed, notary: '', notaryTitle: '', notaryDomicile: ' ' };
+                              }
+                              updateData({ amendmentDeeds: newList });
+                            }}
+                          >
+                            <option value="">-- Pilih Notaris --</option>
+                            <option value="saya">Saya (Nukantini Putri Parincha, SH., M.Kn.)</option>
+                            <option value="manual">Input Bebas</option>
+                          </AhuSelect>
+                        </div>
+                      </div>
+                      {deed.notary !== 'Nukantini Putri Parincha' && (
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                        <AhuLabel label="Nama Notaris" />
+                        <div className="md:col-span-3 flex gap-2">
+                          <AhuInput 
+                            className="flex-1"
+                            value={deed.notary || ''} 
+                            onChange={e => {
+                              const newList = [...(data.amendmentDeeds || [])];
+                              newList[index] = { ...deed, notary: e.target.value };
+                              updateData({ amendmentDeeds: newList });
+                            }} 
+                            placeholder="Nama notaris perubahan" 
+                          />
+                          <div className="w-48 flex flex-col gap-1">
+                            <AhuSelect
+                              value={['Sarjana Hukum', 'Sarjana Hukum, Magister Kenotariatan'].includes(deed.notaryTitle || '') ? deed.notaryTitle : (deed.notaryTitle ? 'manual' : '')}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                const newList = [...(data.amendmentDeeds || [])];
+                                if (val === 'manual') {
+                                   newList[index] = { ...deed, notaryTitle: deed.notaryTitle || ' ' };
+                                } else {
+                                   newList[index] = { ...deed, notaryTitle: val };
+                                }
+                                updateData({ amendmentDeeds: newList });
+                              }}
+                            >
+                              <option value="">-- Pilih Gelar --</option>
+                              <option value="Sarjana Hukum">SH.</option>
+                              <option value="Sarjana Hukum, Magister Kenotariatan">SH., M.Kn.</option>
+                              <option value="manual">Manual</option>
+                            </AhuSelect>
+                            {(!['Sarjana Hukum', 'Sarjana Hukum, Magister Kenotariatan'].includes(deed.notaryTitle || '') || (deed.notaryTitle === 'manual')) && deed.notaryTitle !== undefined && (
+                               <AhuInput 
+                                 placeholder="Gelar manual..." 
+                                 value={deed.notaryTitle === 'manual' ? '' : deed.notaryTitle}
+                                 onChange={e => {
+                                   const newList = [...(data.amendmentDeeds || [])];
+                                   newList[index] = { ...deed, notaryTitle: e.target.value };
+                                   updateData({ amendmentDeeds: newList });
+                                 }}
+                               />
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      )}
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                        <AhuLabel label="Kedudukan Notaris" />
+                        <div className="md:col-span-3">
+                          <AhuInput 
+                            value={deed.notaryDomicile || ''} 
+                            onChange={e => {
+                              const newList = [...(data.amendmentDeeds || [])];
+                              newList[index] = { ...deed, notaryDomicile: e.target.value };
+                              updateData({ amendmentDeeds: newList });
+                            }} 
+                            placeholder="Contoh: Kabupaten Bogor" 
+                            disabled={deed.notary === 'Nukantini Putri Parincha'}
+                            className={deed.notary === 'Nukantini Putri Parincha' ? 'bg-slate-100 font-bold' : ''}
+                          />
+                        </div>
+                      </div>
+                      
+                      <div className="bg-slate-50/50 p-3 border border-slate-100 rounded-sm">
+                        <div className="flex justify-between items-center mb-3">
+                          <h4 className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">Daftar SK / SP Terkait</h4>
+                        </div>
+                        
+                        <div className="space-y-3">
+                          {(deed.skSpDocuments || []).map((doc, docIdx) => (
+                            <div key={doc.id} className="grid grid-cols-1 md:grid-cols-9 gap-2 items-end border-b border-slate-100 pb-3 last:border-0 last:pb-0">
+                              <div className="md:col-span-2">
+                                <AhuLabel label="Tipe" />
+                                <AhuSelect 
+                                  value={doc.type} 
+                                  onChange={e => {
+                                    const newList = [...(data.amendmentDeeds || [])];
+                                    const newDocs = [...(deed.skSpDocuments || [])];
+                                    newDocs[docIdx] = { ...doc, type: e.target.value as any };
+                                    newList[index] = { ...deed, skSpDocuments: newDocs };
+                                    updateData({ amendmentDeeds: newList });
+                                  }}
+                                >
+                                  <option value="SK">SK (Keputusan)</option>
+                                  <option value="SP_DATA_PERSEROAN">SP (Perubahan Data Perseroan)</option>
+                                  <option value="SP_ANGGARAN_DASAR">SP (Perubahan Anggaran Dasar)</option>
+                                  <option value="SP">SP (Lainnya)</option>
+                                </AhuSelect>
+                              </div>
+                              <div className="md:col-span-4">
+                                <AhuLabel label="Nomor" />
+                                <AhuInput 
+                                  value={doc.number || ''} 
+                                  onChange={e => {
+                                    const newList = [...(data.amendmentDeeds || [])];
+                                    const newDocs = [...(deed.skSpDocuments || [])];
+                                    newDocs[docIdx] = { ...doc, number: e.target.value };
+                                    newList[index] = { ...deed, skSpDocuments: newDocs };
+                                    updateData({ amendmentDeeds: newList });
+                                  }}
+                                  placeholder="Nomor SK/SP"
+                                />
+                              </div>
+                              <div className="md:col-span-2">
+                                <AhuLabel label="Tanggal" />
+                                <AhuInput 
+                                  type="date"
+                                  value={doc.date || ''} 
+                                  onChange={e => {
+                                    const newList = [...(data.amendmentDeeds || [])];
+                                    const newDocs = [...(deed.skSpDocuments || [])];
+                                    newDocs[docIdx] = { ...doc, date: e.target.value };
+                                    newList[index] = { ...deed, skSpDocuments: newDocs };
+                                    updateData({ amendmentDeeds: newList });
+                                  }}
+                                />
+                              </div>
+                              <div className="md:col-span-1 flex justify-center pb-1">
+                                <button 
+                                  onClick={() => {
+                                    const newList = [...(data.amendmentDeeds || [])];
+                                    const newDocs = (deed.skSpDocuments || []).filter(d => d.id !== doc.id);
+                                    newList[index] = { ...deed, skSpDocuments: newDocs };
+                                    updateData({ amendmentDeeds: newList });
+                                  }}
+                                  className="text-red-400 hover:text-red-600 p-1 transition-colors"
+                                  title="Hapus SK/SP"
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                          
+                          {(deed.skSpDocuments || []).length === 0 && (
+                            <div className="text-[11px] text-slate-400 italic mb-2">Belum ada SK/SP yang ditambahkan.</div>
+                          )}
+
+                          <button 
+                            onClick={() => {
+                              const newList = [...(data.amendmentDeeds || [])];
+                              const newDoc = { id: crypto.randomUUID(), type: 'SK' as const, number: '', date: '' };
+                              newList[index] = { ...deed, skSpDocuments: [...(deed.skSpDocuments || []), newDoc] };
+                              updateData({ amendmentDeeds: newList });
+                            }}
+                            className="bg-white border border-[#3b5998]/30 text-[#3b5998] hover:bg-[#3b5998] hover:text-white px-3 py-1 rounded-sm text-[11px] font-bold flex items-center gap-1 transition-all"
+                          >
+                            <Plus size={12} /> TAMBAH SK / SP
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+
+                  <button 
+                    onClick={() => {
+                      const newDeed = { id: crypto.randomUUID(), number: '', date: '', notary: '', notaryDomicile: '', skNumber: '', skDate: '', skSpDocuments: [] };
+                      updateData({ amendmentDeeds: [...(data.amendmentDeeds || []), newDeed] });
+                    }}
+                    className="w-full flex items-center justify-center gap-2 py-3 border-2 border-dashed border-slate-200 rounded-sm text-slate-400 hover:border-[#3b5998] hover:text-[#3b5998] hover:bg-slate-50 transition-all group"
+                  >
+                    <Plus size={16} className="group-hover:scale-110 transition-transform" />
+                    <span className="text-[13px] font-bold uppercase tracking-wider">Tambah Akta Perubahan (Opsional)</span>
+                  </button>
+                </div>
+              </AhuSection>
+
+              {/* MAKSUD DAN TUJUAN (KBLI) PERSEROAN */}
+              <AhuSection title="MAKSUD DAN TUJUAN (KBLI) PERSEROAN">
+                <div className="space-y-4">
+                  {/* Tambah KBLI Button */}
+                  <div className="mb-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsAddKbliModalOpen(true)}
+                      className="px-4 py-2 bg-[#3b5998] hover:bg-[#2d4373] text-white text-[12px] font-bold rounded-sm transition-all focus:outline-none flex items-center gap-1.5 uppercase shadow-sm"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Tambah Data KBLI
+                    </button>
+                  </div>
+
+                  {/* Selected KBLIs List Table */}
+                  <div className="w-full bg-white border border-slate-200 rounded-sm overflow-hidden shadow-sm">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse text-[12px]">
+                        <thead>
+                          <tr className="bg-[#f8fafc] border-b border-slate-200 uppercase font-semibold text-slate-600 text-[11px] tracking-wider">
+                            <th className="px-4 py-3 text-center w-12 border-r border-slate-200 text-[#3b5998]">No</th>
+                            <th className="px-4 py-3 text-center w-24 border-r border-slate-200">Kode KBLI</th>
+                            <th className="px-4 py-3 text-left w-64 border-r border-slate-200">Judul KBLI</th>
+                            <th className="px-4 py-3 text-left border-r border-slate-200">Uraian / Deskripsi Kegiatan</th>
+                            <th className="px-4 py-3 text-center w-20 text-[#3b5998]">Aksi</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {(data.kbliItems || []).map((item, idx) => (
+                            <tr key={item.id} className="hover:bg-slate-50/40">
+                              <td className="px-4 py-3 text-center border-r border-slate-100 text-slate-500 font-bold align-top">{idx + 1}</td>
+                              <td className="px-4 py-3 text-center border-r border-slate-100 font-mono text-slate-800 font-semibold align-top">{item.code}</td>
+                              <td className="px-4 py-3 border-r border-slate-100 font-bold text-slate-800 align-top uppercase leading-tight">{item.name}</td>
+                              <td className="px-4 py-3 border-r border-slate-100 text-slate-600 align-top">
+                                <textarea
+                                  value={item.description || ''}
+                                  onChange={(e) => {
+                                    updateData({
+                                      kbliItems: (data.kbliItems || []).map(k =>
+                                        k.id === item.id ? { ...k, description: e.target.value } : k
+                                      )
+                                    });
+                                  }}
+                                  className="w-full text-[11px] p-2 border border-slate-200 rounded font-medium focus:border-[#3b5998] outline-none bg-white text-slate-800 resize-y min-h-[90px]"
+                                  placeholder="Edit uraian kegiatan jika diperlukan..."
+                                />
+                              </td>
+                              <td className="px-4 py-3 text-center align-top whitespace-nowrap">
+                                <button 
+                                  onClick={() => updateData({ kbliItems: (data.kbliItems || []).filter(k => k.id !== item.id) })}
+                                  className="p-1.5 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded transition-all"
+                                  title="Hapus KBLI"
+                                >
+                                  <Trash2 className="w-4 h-4 mx-auto" />
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                          {(!data.kbliItems || data.kbliItems.length === 0) && (
+                            <tr>
+                              <td colSpan={5} className="text-center py-10 text-slate-400 italic">
+                                Belum ada data KBLI terpilih. Silakan klik tombol "Tambah Data KBLI" di atas.
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              </AhuSection>
+
+            
+
+{/* JENIS NOTULEN */}
+            
+
+                  </fieldset>
+                </div>
+              ) : (() => {
+                  // 1. Filter by archive status
+                  let filteredProfileResults = profiles.filter(p => {
+                    if (showArchivedProfiles) {
+                      return !!p.isArchived;
+                    } else {
+                      return !p.isArchived;
+                    }
+                  });
+
+                  // 2. Initial filter by search query (PT Name or Domicile or City)
+                  filteredProfileResults = filteredProfileResults.filter(p => {
+                    if (!profileSearchQuery) return true;
+                    const q = profileSearchQuery.toLowerCase();
+                    return (
+                      (p.companyName || '').toLowerCase().includes(q) ||
+                      (p.domicile || '').toLowerCase().includes(q) ||
+                      (p.newAddress?.city || '').toLowerCase().includes(q)
+                    );
+                  });
+
+                  // 2. Filter by Year Dropdown Selection (via establishmentDeedDate)
+                  if (selectedProfileYear !== "all") {
+                    filteredProfileResults = filteredProfileResults.filter(p => {
+                      const year = p.establishmentDeedDate ? new Date(p.establishmentDeedDate).getFullYear().toString() : "";
+                      return year === selectedProfileYear;
+                    });
+                  }
+
+                  // 3. Extract unique years
+                  const uniqueProfileYears = Array.from(new Set(
+                    profiles
+                      .map(p => p.establishmentDeedDate ? new Date(p.establishmentDeedDate).getFullYear().toString() : "")
+                      .filter(Boolean)
+                  )).sort((a, b) => Number(b) - Number(a));
+
+                  // 4. Sort results
+                  const sortedProfileResults = [...filteredProfileResults].sort((a, b) => {
+                    let valA = "";
+                    let valB = "";
+
+                    if (profileSortField === "companyName") {
+                      valA = a.companyName || "";
+                      valB = b.companyName || "";
+                    } else if (profileSortField === "domicile") {
+                      valA = a.domicile || a.newAddress?.city || "";
+                      valB = b.domicile || b.newAddress?.city || "";
+                    } else if (profileSortField === "establishmentDeedDate") {
+                      valA = a.establishmentDeedDate || "";
+                      valB = b.establishmentDeedDate || "";
+                    } else if (profileSortField === "updatedAt") {
+                      valA = a.updatedAt || a.establishmentDeedDate || "";
+                      valB = b.updatedAt || b.establishmentDeedDate || "";
+                    }
+
+                    if (valA < valB) return profileSortOrder === "asc" ? -1 : 1;
+                    if (valA > valB) return profileSortOrder === "asc" ? 1 : -1;
+                    return 0;
+                  });
+
+                  // 5. Pagination calculation
+                  const profileItemsPerPage = 10;
+                  const totalProfileItems = sortedProfileResults.length;
+                  const totalProfilePages = Math.ceil(totalProfileItems / profileItemsPerPage) || 1;
+                  
+                  // Adjust current page if out of range
+                  const safeProfileCurrentPage = Math.min(profileCurrentPage, totalProfilePages);
+                  const profileStartIndex = (safeProfileCurrentPage - 1) * profileItemsPerPage;
+                  const paginatedProfileResults = sortedProfileResults.slice(profileStartIndex, profileStartIndex + profileItemsPerPage);
+
+                  const formatProfileLastUpdated = (dateStr?: string, establishmentDate?: string) => {
+                    const dateToFormat = dateStr || establishmentDate;
+                    if (!dateToFormat) return "-";
+                    try {
+                      const d = new Date(dateToFormat);
+                      if (isNaN(d.getTime())) return dateToFormat;
+                      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+                      const day = String(d.getDate()).padStart(2, '0');
+                      const month = months[d.getMonth()];
+                      const year = d.getFullYear();
+                      const hours = String(d.getHours()).padStart(2, '0');
+                      const minutes = String(d.getMinutes()).padStart(2, '0');
+                      return `${day} ${month} ${year} ${hours}:${minutes}`;
+                    } catch (e) {
+                      return dateToFormat;
+                    }
+                  };
+
+                  const handleProfileSort = (field: string) => {
+                    if (profileSortField === field) {
+                      setProfileSortOrder(profileSortOrder === "asc" ? "desc" : "asc");
+                    } else {
+                      setProfileSortField(field);
+                      setProfileSortOrder("asc");
+                    }
+                    setProfileCurrentPage(1);
+                  };
+
+                  const renderProfileSortArrows = (field: string) => {
+                    const isActive = profileSortField === field;
+                    return (
+                      <span className="inline-flex flex-col text-[8px] text-slate-400 shrink-0 ml-1.5 leading-none select-none">
+                        <span className={`${isActive && profileSortOrder === "asc" ? "text-blue-600 font-bold" : "text-slate-300"}`}>▲</span>
+                        <span className={`${isActive && profileSortOrder === "desc" ? "text-blue-600 font-bold" : "text-slate-300"}`}>▼</span>
+                      </span>
+                    );
+                  };
+
+                  const getProfilePageRange = () => {
+                    const pages: (number | string)[] = [];
+                    if (totalProfilePages <= 5) {
+                      for (let i = 1; i <= totalProfilePages; i++) pages.push(i);
+                    } else {
+                      pages.push(1);
+                      if (safeProfileCurrentPage > 3) {
+                        pages.push("...");
+                      }
+                      const start = Math.max(2, safeProfileCurrentPage - 1);
+                      const end = Math.min(totalProfilePages - 1, safeProfileCurrentPage + 1);
+                      for (let i = start; i <= end; i++) {
+                        pages.push(i);
+                      }
+                      if (safeProfileCurrentPage < totalProfilePages - 2) {
+                        pages.push("...");
+                      }
+                      pages.push(totalProfilePages);
+                    }
+                    return pages;
+                  };
+
+                  const handleSearchChange = (val: string) => {
+                    setProfileSearchQuery(val);
+                    setProfileCurrentPage(1);
+                  };
+
+                  return (
+                    <div className="space-y-6">
+                      {profiles.length > 0 && (
+                        <div className="bg-white p-5 rounded-md shadow-sm border border-slate-200">
+                          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                            <div className="flex flex-wrap items-center gap-3">
+                              <div className="flex items-center gap-2">
+                                <SlidersHorizontal className="w-5 h-5 text-[#3b5998]" />
+                                <h3 className="text-[14px] font-bold text-slate-800 uppercase tracking-tight">
+                                  Saring & Cari Klien
+                                </h3>
+                              </div>
+                              {/* Active vs Archived Segmented Control */}
+                              <div className="bg-slate-100 p-0.5 rounded-lg flex items-center border border-slate-200/60">
+                                <button
+                                  onClick={() => {
+                                    setShowArchivedProfiles(false);
+                                    setProfileCurrentPage(1);
+                                  }}
+                                  className={`px-3 py-1 text-[11px] font-bold rounded-md transition-all uppercase tracking-wider ${!showArchivedProfiles ? 'bg-white text-[#3b5998] shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
+                                >
+                                  Aktif
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setShowArchivedProfiles(true);
+                                    setProfileCurrentPage(1);
+                                  }}
+                                  className={`px-3 py-1 text-[11px] font-bold rounded-md transition-all uppercase tracking-wider flex items-center gap-1.5 ${showArchivedProfiles ? 'bg-white text-orange-600 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
+                                >
+                                  <span>Arsip</span>
+                                  {profiles.filter(p => p.isArchived).length > 0 && (
+                                    <span className="bg-orange-100 text-orange-700 text-[10px] px-1.5 h-4 rounded-full flex items-center justify-center font-bold">
+                                      {profiles.filter(p => p.isArchived).length}
+                                    </span>
+                                  )}
+                                </button>
+                              </div>
+                            </div>
+                            <div className="flex flex-col sm:flex-row gap-3 items-center w-full md:w-auto">
+                              {/* Search */}
+                              <div className="relative w-full sm:w-80">
+                                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                                <input
+                                  type="text"
+                                  placeholder="Cari berdasarkan nama PT atau Kedudukan..."
+                                  value={profileSearchQuery}
+                                  onChange={(e) => handleSearchChange(e.target.value)}
+                                  className="w-full pl-9 pr-8 py-2 border border-slate-300 rounded-md text-[12px] outline-none focus:border-[#3b5998] bg-white text-slate-800 placeholder-slate-400 transition-all shadow-sm"
+                                />
+                                {profileSearchQuery && (
+                                  <button
+                                    onClick={() => handleSearchChange("")}
+                                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 font-bold text-[14px]"
+                                  >
+                                    ×
+                                  </button>
+                                )}
+                              </div>
+
+                              {/* Year Filter */}
+                              <div className="w-full sm:w-44">
+                                <select
+                                  value={selectedProfileYear}
+                                  onChange={(e) => {
+                                    setSelectedProfileYear(e.target.value);
+                                    setProfileCurrentPage(1);
+                                  }}
+                                  className="w-full py-2 px-3 border border-slate-300 rounded-md text-[12px] text-slate-700 font-medium outline-none focus:border-[#3b5998] transition-all bg-white"
+                                >
+                                  <option value="all">Semua Tahun Pendirian</option>
+                                  {uniqueProfileYears.map((y) => (
+                                    <option key={y} value={y}>{y}</option>
+                                  ))}
+                                </select>
+                              </div>
+
+                              {/* Reset Button */}
+                              {(profileSearchQuery !== "" || selectedProfileYear !== "all") && (
+                                <button
+                                  onClick={() => {
+                                    setProfileSearchQuery("");
+                                    setSelectedProfileYear("all");
+                                    setProfileCurrentPage(1);
+                                  }}
+                                  className="py-2 px-4 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-md text-[12px] font-bold transition-all border border-slate-200 uppercase tracking-wider"
+                                >
+                                  Reset
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {profiles.length === 0 ? (
+                        <div className="bg-slate-50 text-center py-12 rounded-sm border border-dashed border-slate-300 text-slate-500 text-[13px]">
+                          Belum ada data klien PT. Klik <strong>"TAMBAH KLIEN PT"</strong> untuk membuat.
+                        </div>
+                      ) : filteredProfileResults.length === 0 ? (
+                        <div className="bg-slate-50 text-center py-8 rounded-sm border border-dashed border-slate-300 text-slate-500 text-[12px]">
+                          Tidak ada data klien PT yang cocok dengan pencarian / penyaringan saat ini.
+                        </div>
+                      ) : (
+                        <div className="bg-white rounded-md shadow-sm border border-slate-200 overflow-hidden">
+                          {/* List count header */}
+                          <div className="px-5 py-4 border-b border-slate-200 flex justify-between items-center bg-slate-50/50">
+                            <span className="text-[12px] font-semibold text-slate-500">
+                              Menampilkan <span className="text-slate-800 font-bold">{profileStartIndex + 1}</span> - <span className="text-slate-800 font-bold">{Math.min(profileStartIndex + paginatedProfileResults.length, totalProfileItems)}</span> dari <span className="text-slate-800 font-bold">{totalProfileItems}</span> Klien PT
+                            </span>
+                          </div>
+
+                          {/* Table structure */}
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-left text-[12px] border-collapse">
+                              <thead className="bg-[#f8fafc] border-b border-slate-200 font-bold uppercase text-slate-600 text-[11px] tracking-wider select-none">
+                                <tr>
+                                  <th className="p-4 text-center border-r border-slate-200 w-12 text-[#3b5998]">No</th>
+                                  <th 
+                                    className="p-4 border-r border-slate-200 cursor-pointer hover:bg-slate-100/80 transition-colors"
+                                    onClick={() => handleProfileSort("companyName")}
+                                  >
+                                    <div className="flex items-center justify-between">
+                                      <span>NAMA PERSEROAN</span>
+                                      {renderProfileSortArrows("companyName")}
+                                    </div>
+                                  </th>
+                                  <th 
+                                    className="p-4 border-r border-slate-200 cursor-pointer hover:bg-slate-100/80 transition-colors"
+                                    onClick={() => handleProfileSort("domicile")}
+                                  >
+                                    <div className="flex items-center justify-between">
+                                      <span>KEDUDUKAN (KAB/KOTA)</span>
+                                      {renderProfileSortArrows("domicile")}
+                                    </div>
+                                  </th>
+                                  <th 
+                                    className="p-4 border-r border-slate-200 cursor-pointer hover:bg-slate-100/80 transition-colors"
+                                    onClick={() => handleProfileSort("establishmentDeedDate")}
+                                  >
+                                    <div className="flex items-center justify-between">
+                                      <span>TANGGAL AKTA PENDIRIAN</span>
+                                      {renderProfileSortArrows("establishmentDeedDate")}
+                                    </div>
+                                  </th>
+                                  <th 
+                                    className="p-4 border-r border-slate-200 cursor-pointer hover:bg-slate-100/80 transition-colors"
+                                    onClick={() => handleProfileSort("updatedAt")}
+                                  >
+                                    <div className="flex items-center justify-between">
+                                      <span>TERAKHIR DIUBAH</span>
+                                      {renderProfileSortArrows("updatedAt")}
+                                    </div>
+                                  </th>
+                                  <th className="p-4 text-center w-16">AKSI</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-slate-100">
+                                {paginatedProfileResults.map((p, idx) => {
+                                  const currentNo = profileStartIndex + idx + 1;
+                                  const city = p.domicile || p.newAddress?.city || '-';
+                                  const deedDate = p.establishmentDeedDate ? new Date(p.establishmentDeedDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) : "-";
+                                  const lastUpdated = formatProfileLastUpdated(p.updatedAt, p.establishmentDeedDate);
+
+                                  return (
+                                    <tr 
+                                      key={p.id} 
+                                      className="group hover:bg-slate-50/50 transition-colors cursor-pointer"
+                                      onClick={() => {
+                                        setEditingProfileId(p.id);
+                                        setIsProfilePreview(true);
+                                        updateData({ ...INITIAL_STATE, ...p } as any);
+                                      }}
+                                    >
+                                      <td className="p-4 font-bold text-center border-r border-slate-100 text-slate-500 w-12">{currentNo}</td>
+                                      <td className="p-4 font-bold text-slate-800 border-r border-slate-100 uppercase tracking-tight">
+                                        <div className="flex items-center gap-3">
+                                          <CompanyAvatar name={p.companyName || ''} />
+                                          <span>{p.companyName}</span>
+                                        </div>
+                                        {p.kbliItems && p.kbliItems.length > 0 && (
+                                          <div className="mt-1.5 flex flex-wrap gap-1 items-center">
+                                            <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider bg-slate-100 px-1 py-0.5 rounded leading-none shrink-0" style={{ color: '#3b5998', backgroundColor: '#eef2f7' }}>KBLI:</span>
+                                            {p.kbliItems.map(item => (
+                                              <span key={item.id || item.code} className="text-[9px] font-mono font-bold bg-slate-50 text-slate-600 px-1.5 py-0.5 rounded border border-slate-200 leading-none" title={item.name}>
+                                                {item.code}
+                                              </span>
+                                            ))}
+                                          </div>
+                                        )}
+                                      </td>
+                                      <td className="p-4 text-slate-600 border-r border-slate-100 uppercase font-medium">{city}</td>
+                                      <td className="p-4 text-slate-600 border-r border-slate-100 uppercase font-medium">{deedDate}</td>
+                                      <td className="p-4 text-slate-500 border-r border-slate-100 text-[11px] font-mono">{lastUpdated}</td>
+                                      <td className="p-4 text-center relative border-r border-slate-100" onClick={(e) => e.stopPropagation()}>
+                                        <div className="flex items-center justify-center">
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              setOpenDropdownId(openDropdownId === p.id ? null : p.id);
+                                            }}
+                                            className={`p-1.5 rounded-md border border-slate-200/45 bg-white hover:bg-slate-50 hover:border-slate-300 text-slate-500 hover:text-slate-800 transition-all shadow-sm ${
+                                              openDropdownId === p.id ? 'opacity-100 bg-slate-50' : 'opacity-100 sm:opacity-0 group-hover:opacity-100'
+                                            }`}
+                                            title="Pilihan Aksi"
+                                          >
+                                            <MoreHorizontal className="w-[18px] h-[18px] stroke-[2.25px]" />
+                                          </button>
+                                        </div>
+
+                                        {/* Dropdown popup portal */}
+                                        {openDropdownId === p.id && (
+                                          <div className="absolute right-4 top-13 bg-white border border-slate-200 shadow-xl rounded-xl py-1.5 w-40 z-50 text-left overflow-hidden animate-in fade-in slide-in-from-top-1 duration-100">
+                                            <button
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                setOpenDropdownId(null);
+                                                setEditingProfileId(p.id);
+                                                setIsProfilePreview(true);
+                                                updateData({ ...INITIAL_STATE, ...p } as any);
+                                              }}
+                                              className="w-full px-3.5 py-2 text-slate-700 hover:bg-slate-50 text-[11px] font-bold flex items-center gap-2 uppercase tracking-wide border-b border-slate-100"
+                                            >
+                                              <Eye className="w-3.5 h-3.5 text-slate-450 stroke-[2.25px] shrink-0" />
+                                              <span>Buka Profil</span>
+                                            </button>
+                                            <button
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                setOpenDropdownId(null);
+                                                setEditingProfileId(p.id);
+                                                setIsProfilePreview(false);
+                                                updateData({ ...INITIAL_STATE, ...p } as any);
+                                              }}
+                                              className="w-full px-3.5 py-2 text-slate-700 hover:bg-slate-50 text-[11px] font-bold flex items-center gap-2 uppercase tracking-wide border-b border-slate-100"
+                                            >
+                                              <Edit className="w-3.5 h-3.5 text-slate-450 stroke-[2.25px] shrink-0" />
+                                              <span>Edit</span>
+                                            </button>
+                                            <button
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                setOpenDropdownId(null);
+                                                handleDuplicateProfile(p);
+                                              }}
+                                              className="w-full px-3.5 py-2 text-slate-700 hover:bg-slate-50 text-[11px] font-bold flex items-center gap-2 uppercase tracking-wide border-b border-slate-100"
+                                            >
+                                              <Copy className="w-3.5 h-3.5 text-slate-450 stroke-[2.25px] shrink-0" />
+                                              <span>Duplikat</span>
+                                            </button>
+                                            <button
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                setOpenDropdownId(null);
+                                                handleArchiveProfile(p);
+                                              }}
+                                              className={`w-full px-3.5 py-2 hover:bg-slate-50 text-[11px] font-bold flex items-center gap-2 uppercase tracking-wide ${p.isArchived ? 'text-emerald-700 hover:bg-emerald-50/60' : 'text-orange-700 hover:bg-orange-50/60'}`}
+                                            >
+                                              {p.isArchived ? (
+                                                <>
+                                                  <Undo className="w-3.5 h-3.5 text-emerald-500 stroke-[2.25px] shrink-0" />
+                                                  <span>Pulihkan</span>
+                                                </>
+                                              ) : (
+                                                <>
+                                                  <Archive className="w-3.5 h-3.5 text-orange-500 stroke-[2.25px] shrink-0" />
+                                                  <span>Arsipkan</span>
+                                                </>
+                                              )}
+                                            </button>
+                                          </div>
+                                        )}
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+
+                          {/* Pagination block */}
+                          {totalProfilePages > 1 && (
+                            <div className="px-5 py-4 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4 bg-[#f8fafc]">
+                              <div className="text-[12px] text-slate-500 font-medium">
+                                Halaman <span className="text-slate-800 font-bold">{safeProfileCurrentPage}</span> dari <span className="text-slate-800 font-bold">{totalProfilePages}</span>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                {/* First */}
+                                <button
+                                  disabled={safeProfileCurrentPage === 1}
+                                  onClick={() => setProfileCurrentPage(1)}
+                                  className="w-8 h-8 flex items-center justify-center rounded-md border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 text-[12px] disabled:opacity-40 disabled:cursor-not-allowed transition-all font-bold"
+                                  title="Halaman Pertama"
+                                >
+                                  «
+                                </button>
+                                {/* Prev */}
+                                <button
+                                  disabled={safeProfileCurrentPage === 1}
+                                  onClick={() => setProfileCurrentPage(safeProfileCurrentPage - 1)}
+                                  className="w-8 h-8 flex items-center justify-center rounded-md border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 text-[12px] disabled:opacity-40 disabled:cursor-not-allowed transition-all font-bold"
+                                  title="Halaman Sebelumnya"
+                                >
+                                  ‹
+                                </button>
+
+                                {/* Numbers */}
+                                {getProfilePageRange().map((page, idx) => {
+                                  if (page === "...") {
+                                    return (
+                                      <span key={`dots-${idx}`} className="w-8 h-8 flex items-center justify-center text-slate-400 text-[12px]">
+                                        ...
+                                      </span>
+                                    );
+                                  }
+                                  return (
+                                    <button
+                                      key={`page-${page}`}
+                                      onClick={() => setProfileCurrentPage(Number(page))}
+                                      className={`w-8 h-8 flex items-center justify-center rounded-md text-[12px] font-bold transition-all ${
+                                        safeProfileCurrentPage === page
+                                          ? "bg-[#3b5998] text-white"
+                                          : "border border-slate-200 bg-white hover:bg-slate-50 text-slate-600"
+                                      }`}
+                                    >
+                                      {page}
+                                    </button>
+                                  );
+                                })}
+
+                                {/* Next */}
+                                <button
+                                  disabled={safeProfileCurrentPage === totalProfilePages}
+                                  onClick={() => setProfileCurrentPage(safeProfileCurrentPage + 1)}
+                                  className="w-8 h-8 flex items-center justify-center rounded-md border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 text-[12px] disabled:opacity-40 disabled:cursor-not-allowed transition-all font-bold"
+                                  title="Halaman Selanjutnya"
+                                >
+                                  ›
+                                </button>
+                                {/* Last */}
+                                <button
+                                  disabled={safeProfileCurrentPage === totalProfilePages}
+                                  onClick={() => setProfileCurrentPage(totalProfilePages)}
+                                  className="w-8 h-8 flex items-center justify-center rounded-md border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 text-[12px] disabled:opacity-40 disabled:cursor-not-allowed transition-all font-bold"
+                                  title="Halaman Terakhir"
+                                >
+                                  »
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+              })()}
+            </div>
+          ) : activeSidebarTab === 'cv_profile' ? (

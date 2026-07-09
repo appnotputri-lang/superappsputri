@@ -137,8 +137,19 @@ export default function PendirianDocumentPreview({ data, onExport, onClose, isEx
                     runs = [{ text: `${block.num}) `, bold: false }, ...mapRunsWithTabs(block.runs)];
                     indentTabs = block.indentTabs || 1;
                   } else if (block.type === 'list') {
-                    runs = [{ text: `${block.bullet} `, bold: false }, ...mapRunsWithTabs(block.runs)];
-                    indentTabs = block.indentTabs || 1;
+                    const indentTabs = block.indentTabs || 1;
+                    const level = indentTabs <= 0.6 ? 0 : (indentTabs <= 1.1 ? 1 : (indentTabs <= 1.6 ? 2 : 3));
+                    const textLeft = level === 0 ? 0.75 : (level === 1 ? 1.0 : (level === 2 ? 1.5 : 2.0));
+                    const bLeft = level === 0 ? 0 : textLeft - 0.5;
+                    const bWidth = level === 0 ? 0.75 : 0.5;
+                    return (
+                      <div key={index} className="flex relative items-start" style={{ paddingLeft: `${bLeft}cm` }}>
+                        <span className="shrink-0 whitespace-nowrap" style={{ width: `${bWidth}cm` }}>{block.bullet}</span>
+                        <div className="flex-1 min-w-0">
+                          <WrappedText runs={block.runs} align="left" />
+                        </div>
+                      </div>
+                    );
                   } else if (block.type === 'management-role') {
                     runs = [
                       { text: '-\u00A0\u00A0', bold: false },

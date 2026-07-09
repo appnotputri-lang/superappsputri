@@ -8,8 +8,17 @@ import {
   formatPersonDetails, checkIsBadanHukum,
 } from "./formatter";
 import { createPendirianOpening, createPendirianClosing } from "./deed/layouts/pendirian";
+import { parseKbliDescription } from "./kbliConstants";
+import type { Address, KbliItem, Shareholder } from "../../types";
 
 // ── Types ──────────────────────────────────────────────────────────────────
+// NOTE: Address, KbliItem, Shareholder now come from ../../types (central
+// source of truth), matching the pattern already used by rupsContentBlocks.ts,
+// rupsTahunanContentBlocks.ts, rupsTahunanAktaContentBlocks.ts, and
+// formatter.ts. `Run` has no equivalent in types.ts, so it stays defined
+// here.
+
+export type { Address, KbliItem, Shareholder };
 
 export interface Run {
   text: string;
@@ -28,46 +37,6 @@ export type Block =
   | { type: 'shareholder'; name: string; sharesText: string; rpText: string; bullet?: string }
   | { type: 'management-role'; position: string; salutation: string; name: string }
   | { type: 'pt-name'; text: string };
-
-export interface Address {
-  fullAddress?: string;
-  rt?: string;
-  rw?: string;
-  kelurahan?: string;
-  kecamatan?: string;
-  city?: string;
-  province?: string;
-}
-
-export interface KbliItem {
-  code: string;
-  name: string;
-  description?: string;
-  categoryLetter?: string;
-  categoryName?: string;
-}
-
-export interface Shareholder {
-  salutation?: string;
-  name: string;
-  birthCity?: string;
-  birthDate?: string;
-  nationalityType?: "WNI" | "WNA";
-  nationality?: string;
-  occupation?: string;
-  address?: Address;
-  nik?: string;
-  passportNumber?: string;
-  kitasNumber?: string;
-  sharesOwned: number;
-  isManagement?: boolean;
-  managementPosition?: string;
-  shareholderType?: "PERORANGAN" | "BADAN_HUKUM";
-  isForeign?: boolean;
-  skNumber?: string;
-  skDate?: string;
-  legalEntityType?: string;
-}
 
 export interface PendirianData {
   namaPt: string;
@@ -417,12 +386,30 @@ export function generatePendirianBlocks(data: PendirianData): Block[] {
 
   kbliItems.forEach((kbli) => {
     blocks.push({
-      type: "list", bullet: "-",
+      type: "list",
+      bullet: "-",
+      indentTabs: 1.0,
       runs: [{ text: `${kbli.code} - ${kbli.name};`, bold: true }],
     });
-    if (kbli.description) {
-      blocks.push({ type: "p", kbliDesc: true, indentTabs: 0.5, runs: [{ text: kbli.description }] });
-    }
+
+    const parsedLines = parseKbliDescription(kbli.description);
+    parsedLines.forEach((line) => {
+      if (line.isBullet) {
+        blocks.push({
+          type: "list",
+          bullet: "-",
+          indentTabs: 1.5,
+          runs: [{ text: line.text }],
+        });
+      } else {
+        blocks.push({
+          type: "p",
+          indentTabs: 0.668,
+          kbliDesc: true,
+          runs: [{ text: line.text }],
+        });
+      }
+    });
   });
 
 
@@ -832,12 +819,15 @@ export function generatePendirianBlocks(data: PendirianData): Block[] {
   const saksi1DefaultAlamat = "Jalan Sukaresmi Nomor 12, Rukun Tetangga 005, Rukun Warga 005, Kecamatan Lembang, Desa Mekarwangi";
   const saksi2DefaultAlamat = "Kabupaten Bandung, Jalan Lembah Pakar Timur II Kampung Sekebuluh Rukun Tetangga 001, Rukun Warga 004, Kecamatan Cimenyan, Desa Ciburial";
 
-  const s1DetailText = expandAbbreviations(
-    `${data.saksi1Nama || "Nendi Suhendi"}, lahir di ${toTitleCase(data.saksi1LahirTempat || "Bandung")}, pada tanggal ${formatAktaDate(data.saksi1LahirTanggal || "1991-07-15")}, Warga Negara Indonesia, bertempat tinggal di ${formatAddress(data.saksi1Alamat || saksi1DefaultAlamat)}, pemegang Kartu Tanda Penduduk Nomor ${data.saksi1NIK || "3217011507910016"};`
+    const s1DetailText = expandAbbreviations(
+    data.saksi1LahirTempat && data.saksi1LahirTanggal && data.saksi1Alamat && data.saksi1NIK
+      ? `, lahir di ${toTitleCase(data.saksi1LahirTempat)}, pada tanggal ${formatAktaDate(data.saksi1LahirTanggal)}, Warga Negara Indonesia, bertempat tinggal di ${formatAddress(data.saksi1Alamat)}, pemegang Kartu Tanda Penduduk Nomor ${data.saksi1NIK}`
+      : ", lahir di Bandung, Pada Tanggal Limabelas Juli Seribu Sembilan Ratus Sembilan Puluh Satu (15-07-1991), Warga Negara Indonesia, bertempat tinggal di Jalan Sukaresmi Nomor 17, Rukun Tetangga 005, Rukun Warga 005, Kecamatan Lembang, Desa Mekarwangi, pemegang Kartu Tanda Penduduk Nomor 3217011507910016"
   );
-
   const s2DetailText = expandAbbreviations(
-    `${data.saksi2Nama || "Siti Nur Azizah"}, lahir di ${toTitleCase(data.saksi2LahirTempat || "Bandung")}, pada tanggal ${formatAktaDate(data.saksi2LahirTanggal || "1999-12-17")}, Warga Negara Indonesia, bertempat tinggal di ${formatAddress(data.saksi2Alamat || saksi2DefaultAlamat)}, pemegang Kartu Tanda Penduduk Nomor ${data.saksi2NIK || "3204065712990001"};`
+    data.saksi2LahirTempat && data.saksi2LahirTanggal && data.saksi2Alamat && data.saksi2NIK
+      ? `, lahir di ${toTitleCase(data.saksi2LahirTempat)}, pada tanggal ${formatAktaDate(data.saksi2LahirTanggal)}, Warga Negara Indonesia, bertempat tinggal di ${formatAddress(data.saksi2Alamat)}, pemegang Kartu Tanda Penduduk Nomor ${data.saksi2NIK}`
+      : ", lahir di Bandung, Pada Tanggal Tujuh Belas Desember Seribu Sembilan Ratus Sembilan Puluh Sembilan (17-12-1999), Warga Negara Indonesia, bertempat tinggal di Kabupaten Bandung, Jalan Lembah Pakar Timur II Kampung Sekebuluh Rukun Tetangga 001, Rukun Warga 004, Desa Ciburial, Kecamatan Cimenyan, pemegang Kartu Tanda Penduduk Nomor 3204065712990001"
   );
 
   const ttdNotaryName = (data.notarisNamaSurat || "NUKANTINI PUTRI PARINCHA, SH., M.Kn.")
@@ -847,10 +837,11 @@ export function generatePendirianBlocks(data: PendirianData): Block[] {
   blocks.push(
     ...createPendirianClosing({
       notarisTempat: toTitleCase(notarisTempat),
+      saksi1Nama: data.saksi1Nama || "Nendi Suhendi",
       saksi1Text: s1DetailText,
+      saksi2Nama: data.saksi2Nama || "Siti Nur Azizah",
       saksi2Text: s2DetailText,
     })
   );
-
   return blocks;
 }

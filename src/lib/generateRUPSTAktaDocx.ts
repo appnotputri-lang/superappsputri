@@ -13,6 +13,10 @@ import {
 } from "docx";
 import { saveAs } from "file-saver";
 import { CompanyData } from "../../types";
+import { BaseDocxRenderer } from "./docx-renderer/BaseDocxRenderer";
+import { DOCX_CONSTANTS } from "./docx-renderer/constants";
+import { buildAktaNumberingConfig } from "./docx-renderer/numbering";
+
 import { FormatToken, parseTextRuns } from "./notaryWrapper";
 import { Block, generateRupstAktaBlocks } from "./rupsTahunanAktaContentBlocks";
 import { preprocessBlocksForWordBullets } from "./formatter";
@@ -551,6 +555,16 @@ export const generateRUPSTAktaDocx = async (data: CompanyData, returnBlob?: bool
         docxChildren.push(createIndentP(b.runs, b.indentLeft));
         return;
       }
+      if (b.kbliDesc) {
+        // Aligned with level 1 (left 568)
+        docxChildren.push(createIndentP(b.runs, 568));
+        return;
+      }
+      if (b.indentTabs !== undefined && b.indentTabs > 0) {
+        const dxa = Math.round(b.indentTabs * 850);
+        docxChildren.push(createIndentP(b.runs, dxa));
+        return;
+      }
       if (b.indent) {
         docxChildren.push(createIndentP(b.runs, 284));
         return;
@@ -662,48 +676,20 @@ export const generateRUPSTAktaDocx = async (data: CompanyData, returnBlob?: bool
   );
 
   // ── Document assembly ──────────────────────────────────────────────────────
-  const doc = new Document({
-    numbering: buildNumberingConfig(),
-    styles: {
-      default: {
-        document: {
-          run: { font: FONT_NAME, size: FONT_SIZE },
-          paragraph: {
-            spacing: { line: 480, before: 0, after: 0 },
-            alignment: AlignmentType.LEFT,
-          },
-        },
-      },
-    },
-    sections: [
-      {
-        properties: {
-          page: {
-            size: { width: 11906, height: 16838 },
-            margin: { top: 1418, bottom: 1418, left: 2268, right: 618 },
-          },
-        },
-        footers: {
-          default: new Footer({
-            children: [
-              new Paragraph({
-                alignment: AlignmentType.CENTER,
-                children: [
-                  new TextRun({ children: ["- ", PageNumber.CURRENT, " -"] }),
-                ],
-              }),
-            ],
-          }),
-        },
-        children: docxChildren,
-      },
-    ],
-  });
-
-  const blob = await Packer.toBlob(doc);
   const filename = `Draft Akta RUPST ${data.companyName || 'PT Baru'}.docx`;
-  if (returnBlob) {
-    return { blob, filename };
-  }
-  saveAs(blob, filename);
+  return BaseDocxRenderer.render({
+    margins: DOCX_CONSTANTS.AKTA.MARGINS,
+    numbering: buildNumberingConfig().config,
+    children: docxChildren,
+    footer: new Footer({
+      children: [
+        new Paragraph({
+          alignment: AlignmentType.CENTER,
+          children: [
+            new TextRun({ children: ["- ", PageNumber.CURRENT, " -"] }),
+          ],
+        }),
+      ],
+    }),
+  }, filename, returnBlob);
 };

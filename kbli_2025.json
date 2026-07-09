@@ -1437,7 +1437,7 @@
     {
       "kode": "10731",
       "judul": "INDUSTRI PENGOLAHAN KAKAO",
-      "uraian": "Kelompok ini mencakup kegiatan pengolahan biji kakao menjadi bubuk kakao, mentega kakao, lemak kakao, minyak kakao, pasta kakao, bungkil kakao, dan produk kakao lainnya. 10732 INDUSTRI COKELAT DAN KEMBANG GULA DARI COKELAT Kelompok ini mencakup kegiatan pembuatan berbagai jenis cokelat, seperti cokelat kompon, cokelat couverture, cokelat imitasi, cokelat putih, serta pembuatan gula-gula dari cokelat, olesan, dan isian berbasis cokelat. Kelompok ini juga mencakup pembuatan minuman dari cokelat dalam bentuk bubuk maupun cair.",
+      "uraian": "Kelompok ini mencakup kegiatan pengolahan biji kakao menjadi bubuk kakao, mentega kakao, lemak kakao, minyak kakao, pasta kakao, bungkil kakao, dan produk kakao lainnya.",
       "level": "Kelompok"
     },
     {
@@ -1521,7 +1521,13 @@
     {
       "kode": "10793",
       "judul": "INDUSTRI PRODUK MAKANAN DARI KELAPA",
-      "uraian": "Kelompok ini mencakup kegiatan pembuatan produk makanan dari kelapa, seperti santan pekat dan santan cair, santan bubuk, kecap kelapa, sari kelapa (nata de coco), kelapa parut kering (desiccated coconut), krim kelapa, dan tepung kelapa. 10794 INDUSTRI KERUPUK, KERIPIK, PEYEK, DAN SEJENISNYA Kelompok ini mencakup kegiatan pembuatan berbagai macam kerupuk, keripik, peyek dan sejenisnya, seperti keripik dan peyek dari berbagai macam kacang-kacangan, kerupuk udang, kerupuk ikan, dan kerupuk pati (kerupuk terung), serta pembuatan berbagai macam makanan sejenis kerupuk, seperti macam-macam emping, kecimpring, karak, gendar, opak, keripik paru, keripik bekicot, keripik kulit, peyek teri, dan peyek udang.",
+      "uraian": "Kelompok ini mencakup kegiatan pembuatan produk makanan dari kelapa, seperti santan pekat dan santan cair, santan bubuk, kecap kelapa, sari kelapa (nata de coco), kelapa parut kering (desiccated coconut), krim kelapa, dan tepung kelapa.",
+      "level": "Kelompok"
+    },
+    {
+      "kode": "10794",
+      "judul": "INDUSTRI KERUPUK, KERIPIK, PEYEK, DAN SEJENISNYA",
+      "uraian": "Kelompok ini mencakup kegiatan pembuatan berbagai macam kerupuk, keripik, peyek dan sejenisnya, seperti keripik dan peyek dari berbagai macam kacang-kacangan, kerupuk udang, kerupuk ikan, dan kerupuk pati (kerupuk terung), serta pembuatan berbagai macam makanan sejenis kerupuk, seperti macam-macam emping, kecimpring, karak, gendar, opak, keripik paru, keripik bekicot, keripik kulit, peyek teri, dan peyek udang.",
       "level": "Kelompok"
     },
     {
@@ -1629,7 +1635,13 @@
     {
       "kode": "12003",
       "judul": "INDUSTRI ROKOK PUTIH",
-      "uraian": "Kelompok ini mencakup kegiatan pembuatan rokok/sigaret yang tidak mengandung komponen cengkih. 12004 INDUSTRI PENGERINGAN DAN PENGOLAHAN TEMBAKAU Kelompok ini mencakup kegiatan pengeringan daun tembakau dengan pengasapan atau dengan cara lain, termasuk juga kegiatan perajangan daun tembakau.",
+      "uraian": "Kelompok ini mencakup kegiatan pembuatan rokok/sigaret yang tidak mengandung komponen cengkih.",
+      "level": "Kelompok"
+    },
+    {
+      "kode": "12004",
+      "judul": "INDUSTRI PENGERINGAN DAN PENGOLAHAN TEMBAKAU",
+      "uraian": "Kelompok ini mencakup kegiatan pengeringan daun tembakau dengan pengasapan atau dengan cara lain, termasuk juga kegiatan perajangan daun tembakau.",
       "level": "Kelompok"
     },
     {
@@ -2403,7 +2415,7 @@
     {
       "kode": "21021",
       "judul": "INDUSTRI BAHAN BAKU OBAT BAHAN ALAM UNTUK MANUSIA",
-      "uraian": "Kelompok ini mencakup kegiatan pengolahan macam-macam ekstrak dan simplisia, sediaan galenik, bahan tambahan atau bahan lainnya, baik yang berkhasiat maupun yang tidak berkhasiat, yang berubah maupun yang tidak berubah, yang digunakan dalam pengolahan obat bahan alam, walaupun tidak semua bahan tersebut masih terdapat di dalam produk ruahan. 21022 INDUSTRI PRODUK OBAT BAHAN ALAM UNTUK MANUSIA Kelompok ini mencakup kegiatan pengolahan macam-macam produk obat bahan alam yang bahannya memakai sumber daya alam bentuk mentah atau belum melalui proses lanjutan dari tumbuhan, hewan, jasad renik, mineral, atau campuran dari bahan tersebut yang berbentuk sedian berupa serbuk, serbuk instan, rajangan, pil, dodol/jenang, pilis, tapel, pastiles, tablet, kapsul, cairan, larutan, emulsi dan suspensi, efervesen, film, strip, gummy chewable, salep, losion, krim dan gel, aerosol untuk obat luar, plester, supositoria; pembuatan minuman jamu dan suplemen kesehatan/makanan bukan produk farmasi.",
+      "uraian": "Kelompok ini mencakup kegiatan pengolahan macam-macam ekstrak dan simplisia, sediaan galenik, bahan tambahan atau bahan lainnya, baik yang berkhasiat maupun yang tidak berkhasiat, yang berubah maupun yang tidak berubah, yang digunakan dalam pengolahan obat bahan alam, walaupun tidak semua bahan tersebut masih terdapat di dalam produk ruahan.",
       "level": "Kelompok"
     },
     {
@@ -3237,7 +3249,13 @@
     {
       "kode": "28172",
       "judul": "INDUSTRI MESIN KANTOR DAN AKUNTANSI ELEKTRIK",
-      "uraian": "Kelompok ini mencakup kegiatan pembuatan macam-macam mesin kantor dan akuntansi elektrik, seperti mesin hitung elektrik, mesin tik elektrik, mesin stensil elektrik dan sejenisnya, kalkulator, alat timbang pos (postage meters), mesin pengelola surat (pengisi amplop, penyegel dan mesin pemberi alamat, membuka, mengurutkan, memindai), mesin stenografi, mesin fotokopi analog, alat penjilid (contoh penjilid plastik atau pita), mesin penghitung koin, penyortir koin, dan pembungkus koin, peruncing pensil, stapler, mesin pemungutan suara, mesin pembuat lubang kertas. Kelompok ini juga mencakup usaha pembuatan macam-macam mesin kantor dan akuntansi elektronik, seperti mesin hitung elektronik dan cash register. Kelompok ini tidak mencakup\n- pembuatan subassembly dan komponen elektronik mesin komputasi, termasuk pembuatan komponen dan suku cadangnya, ;\n- jasa pemeliharaan dan perbaikan mesin dalam kelompok ini, . 28173 INDUSTRI MESIN KANTOR DAN AKUNTANSI ELEKTRONIK Kelompok ini mencakup kegiatan pembuatan macam-macam mesin kantor dan akuntansi elektronik, seperti mesin hitung elektronik, mesin fotokopi digital, dan cash register. Kelompok ini tidak mencakup kegiatan pembuatan subassembly dan komponen elektronik mesin komputasi, .",
+      "uraian": "Kelompok ini mencakup kegiatan pembuatan macam-macam mesin kantor dan akuntansi elektrik, seperti mesin hitung elektrik, mesin tik elektrik, mesin stensil elektrik dan sejenisnya, kalkulator, alat timbang pos (postage meters), mesin pengelola surat (pengisi amplop, penyegel dan mesin pemberi alamat, membuka, mengurutkan, memindai), mesin stenografi, mesin fotokopi analog, alat penjilid (contoh penjilid plastik atau pita), mesin penghitung koin, penyortir koin, dan pembungkus koin, peruncing pensil, stapler, mesin pemungutan suara, mesin pembuat lubang kertas. Kelompok ini juga mencakup usaha pembuatan macam-macam mesin kantor dan akuntansi elektronik, seperti mesin hitung elektronik dan cash register. Kelompok ini tidak mencakup\n- pembuatan subassembly dan komponen elektronik mesin komputasi, termasuk pembuatan komponen dan suku cadangnya, ;\n- jasa pemeliharaan dan perbaikan mesin dalam kelompok ini, .",
+      "level": "Kelompok"
+    },
+    {
+      "kode": "28173",
+      "judul": "INDUSTRI MESIN KANTOR DAN AKUNTANSI ELEKTRONIK",
+      "uraian": "Kelompok ini mencakup kegiatan pembuatan macam-macam mesin kantor dan akuntansi elektronik, seperti mesin hitung elektronik, mesin fotokopi digital, dan cash register. Kelompok ini tidak mencakup kegiatan pembuatan subassembly dan komponen elektronik mesin komputasi, .",
       "level": "Kelompok"
     },
     {
@@ -4047,7 +4065,13 @@
     {
       "kode": "42206",
       "judul": "KONSTRUKSI SENTRAL TELEKOMUNIKASI",
-      "uraian": "Kelompok ini mencakup kegiatan pembangunan, pemeliharaan, dan perbaikan konstruksi bangunan sentral telekomunikasi beserta perlengkapannya, seperti bangunan sentral telepon, telegraf, bangunan menara pemancar, penerima radar gelombang mikro, bangunan stasiun bumi kecil, dan stasiun satelit, termasuk jaringan pipa komunikasi lokal dan jarak jauh, jaringan transmisi, dan jaringan distribusi kabel telekomunikasi/ telepon di atas permukaan tanah, di bawah tanah, dan di dalam air. 42207 KONSTRUKSI PENGEBORAN/PENGGALIAN AIR TANAH Kelompok ini mencakup kegiatan jasa konstruksi pengeboran/penggalian, pembangunan konstruksi sumur bor/sumur gali air tanah.",
+      "uraian": "Kelompok ini mencakup kegiatan pembangunan, pemeliharaan, dan perbaikan konstruksi bangunan sentral telekomunikasi beserta perlengkapannya, seperti bangunan sentral telepon, telegraf, bangunan menara pemancar, penerima radar gelombang mikro, bangunan stasiun bumi kecil, dan stasiun satelit, termasuk jaringan pipa komunikasi lokal dan jarak jauh, jaringan transmisi, dan jaringan distribusi kabel telekomunikasi/ telepon di atas permukaan tanah, di bawah tanah, dan di dalam air.",
+      "level": "Kelompok"
+    },
+    {
+      "kode": "42207",
+      "judul": "KONSTRUKSI PENGEBORAN/PENGGALIAN AIR TANAH",
+      "uraian": "Kelompok ini mencakup kegiatan jasa konstruksi pengeboran/penggalian, pembangunan konstruksi sumur bor/sumur gali air tanah.",
       "level": "Kelompok"
     },
     {
@@ -4677,7 +4701,13 @@
     {
       "kode": "46710",
       "judul": "PERDAGANGAN BESAR BAHAN BAKAR PADAT, CAIR, DAN GAS BESERTA PRODUK TERKAIT",
-      "uraian": "Kelompok ini mencakup perdagangan besar bahan bakar fosil dan bahan bakar rendah karbon atau bebas karbon, gemuk (grease), pelumas, minyak. Kelompok ini juga mencakup\n- perdagangan besar minyak bumi mentah, minyak mentah, bahan bakar diesel, bensin, minyak bakar, kerosin, dan solar;\n- perdagangan besar bahan bakar nabati/biofuel, bahan bakar dari karbon daur ulang, bahan bakar sintetis dalam bentuk campuran atau murni;\n- perdagangan besar arang, batu bara, kokas, kayu bakar, pelet kayu atau biomassa, nafta;\n- perdagangan besar gas minyak cair (LPG), gas alam cair (LNG), gas butana, dan propana serta bentuk bio atau terbarukan yang terkait, baik dalam bentuk campuran atau murni;\n- perdagangan besar bahan bakar nuklir. Kelompok ini tidak mencakup perdagangan besar hidrogen, . 4672 PERDAGANGAN BESAR LOGAM DAN BIJIH LOGAM Subgolongan ini mencakup\n- perdagangan besar logam bijih besi dan bukan besi;\n- perdagangan besar besi dan bukan besi dalam bentuk dasar;\n- perdagangan besar produk logam setengah jadi besi dan bukan besi yang tidak diklasifikasikan di tempat lain;\n- perdagangan besar emas dan logam mulia lain (perak, platina);\n- perdagangan besar produk logam setengah jadi dan bijih logam. Subgolongan ini juga mencakup\n- perdagangan besar lembaran baja atas nama sendiri, termasuk operasi pemotongan yang biasanya terkait dengan perdagangan;\n- perdagangan besar emas dan logam mulia lainnya, dibeli dari rumah tangga atau perusahaan dan dijual kepada pedagang eceran, pengguna industri, komersial, institusi atau profesional, atau kepada pedagang perdagangan besar lainnya. Subgolongan ini tidak mencakup\n- perdagangan besar skrap logam, ;\n- perdagangan emas batangan, lihat kategori L. 46721 PERDAGANGAN BESAR BIJIH DAN KONSENTRAT LOGAM Kelompok ini mencakup perdagangan besar bijih dan konsentrat logam besi dan bukan besi, seperti bijih dan konsentrat nikel, bijih dan konsentrat tembaga, bijih dan konsentrat aluminium, bijih dan konsentrat besi, bijih dan konsentrat emas beserta logam mulia lain (perak, platina).",
+      "uraian": "Kelompok ini mencakup perdagangan besar bahan bakar fosil dan bahan bakar rendah karbon atau bebas karbon, gemuk (grease), pelumas, minyak. Kelompok ini juga mencakup\n- perdagangan besar minyak bumi mentah, minyak mentah, bahan bakar diesel, bensin, minyak bakar, kerosin, dan solar;\n- perdagangan besar bahan bakar nabati/biofuel, bahan bakar dari karbon daur ulang, bahan bakar sintetis dalam bentuk campuran atau murni;\n- perdagangan besar arang, batu bara, kokas, kayu bakar, pelet kayu atau biomassa, nafta;\n- perdagangan besar gas minyak cair (LPG), gas alam cair (LNG), gas butana, dan propana serta bentuk bio atau terbarukan yang terkait, baik dalam bentuk campuran atau murni;\n- perdagangan besar bahan bakar nuklir. Kelompok ini tidak mencakup perdagangan besar hidrogen, .",
+      "level": "Kelompok"
+    },
+    {
+      "kode": "46721",
+      "judul": "PERDAGANGAN BESAR BIJIH DAN KONSENTRAT LOGAM",
+      "uraian": "Kelompok ini mencakup perdagangan besar bijih dan konsentrat logam besi dan bukan besi, seperti bijih dan konsentrat nikel, bijih dan konsentrat tembaga, bijih dan konsentrat aluminium, bijih dan konsentrat besi, bijih dan konsentrat emas beserta logam mulia lain (perak, platina).",
       "level": "Kelompok"
     },
     {
@@ -4761,7 +4791,13 @@
     {
       "kode": "46751",
       "judul": "PERDAGANGAN BESAR BAHAN DAN BARANG KIMIA",
-      "uraian": "Kelompok ini mencakup perdagangan besar berbagai bahan dan barang kimia dasar atau kimia industri selain bahan berbahaya, seperti tinta printer, minyak asiri, gas industri (termasuk hidrogen), perekat kimia, pewarna, resin buatan, metanol, parafin, perasa dan pewangi, soda, garam industri, asam, dan sulfur. 46752 PERDAGANGAN BESAR PUPUK DAN PRODUK AGROKIMIA Kelompok ini mencakup perdagangan besar pupuk dan produk agrokimia atau kimia pertanian.",
+      "uraian": "Kelompok ini mencakup perdagangan besar berbagai bahan dan barang kimia dasar atau kimia industri selain bahan berbahaya, seperti tinta printer, minyak asiri, gas industri (termasuk hidrogen), perekat kimia, pewarna, resin buatan, metanol, parafin, perasa dan pewangi, soda, garam industri, asam, dan sulfur.",
+      "level": "Kelompok"
+    },
+    {
+      "kode": "46752",
+      "judul": "PERDAGANGAN BESAR PUPUK DAN PRODUK AGROKIMIA",
+      "uraian": "Kelompok ini mencakup perdagangan besar pupuk dan produk agrokimia atau kimia pertanian.",
       "level": "Kelompok"
     },
     {
@@ -4893,7 +4929,13 @@
     {
       "kode": "47221",
       "judul": "PERDAGANGAN ECERAN MINUMAN BERALKOHOL",
-      "uraian": "Kelompok ini mencakup perdagangan eceran khusus minuman beralkohol didalam bangunan yang tidak langsung diminum di tempat, seperti minuman keras (wiski/whisky, genever, brendi/brandy, gin, arak, rum, sake, tuak), wine dan minuman yang mengandung malt (bir, ale, stout, temulawak). Kegiatan ini dapat dilakukan di dalam bangunan maupun di lokasi lain seperti pinggir jalan (kaki lima), serambi toko (emper), tempat tetap di pasar yang bersifat fleksibel dan dapat dipindah-pindah (los pasar), dan media lainnya, termasuk melalui internet. 47222 PERDAGANGAN ECERAN MINUMAN TIDAK BERALKOHOL Kelompok ini mencakup usaha perdagangan eceran khusus minuman tidak beralkohol yang tidak dikonsumsi langsung di tempat, seperti minuman ringan (limun, air soda, markisa, teh botol, air mineral, dan beras kencur), minuman kopi, dan berbagai jenis minuman tidak beralkohol lainnya yang tidak langsung diminum di tempat. Kegiatan ini dapat dilakukan di dalam bangunan maupun di lokasi lain seperti pinggir jalan (kaki lima), serambi toko (emper), tempat tetap di pasar yang bersifat fleksibel dan dapat dipindah-pindah (los pasar), dan media lainnya, termasuk melalui internet.",
+      "uraian": "Kelompok ini mencakup perdagangan eceran khusus minuman beralkohol didalam bangunan yang tidak langsung diminum di tempat, seperti minuman keras (wiski/whisky, genever, brendi/brandy, gin, arak, rum, sake, tuak), wine dan minuman yang mengandung malt (bir, ale, stout, temulawak). Kegiatan ini dapat dilakukan di dalam bangunan maupun di lokasi lain seperti pinggir jalan (kaki lima), serambi toko (emper), tempat tetap di pasar yang bersifat fleksibel dan dapat dipindah-pindah (los pasar), dan media lainnya, termasuk melalui internet.",
+      "level": "Kelompok"
+    },
+    {
+      "kode": "47222",
+      "judul": "PERDAGANGAN ECERAN MINUMAN TIDAK BERALKOHOL",
+      "uraian": "Kelompok ini mencakup usaha perdagangan eceran khusus minuman tidak beralkohol yang tidak dikonsumsi langsung di tempat, seperti minuman ringan (limun, air soda, markisa, teh botol, air mineral, dan beras kencur), minuman kopi, dan berbagai jenis minuman tidak beralkohol lainnya yang tidak langsung diminum di tempat. Kegiatan ini dapat dilakukan di dalam bangunan maupun di lokasi lain seperti pinggir jalan (kaki lima), serambi toko (emper), tempat tetap di pasar yang bersifat fleksibel dan dapat dipindah-pindah (los pasar), dan media lainnya, termasuk melalui internet.",
       "level": "Kelompok"
     },
     {
@@ -5175,7 +5217,13 @@
     {
       "kode": "47725",
       "judul": "PERDAGANGAN ECERAN ALAT KESEHATAN UNTUK MANUSIA",
-      "uraian": "Kelompok ini mencakup perdagangan eceran alat kesehatan untuk manusia, seperti termometer, pengukur tekanan darah, alat bantu dengar, prostesis ortopedi, dan penyangga leher. 47726 PERDAGANGAN ECERAN OBAT FARMASI UNTUK HEWAN Kelompok ini mencakup perdagangan eceran obat farmasi untuk hewan, misalnya dalam serbuk, tablet, kapsul, salep, bubuk, larutan, suspensi, dan aerosol. Kelompok ini juga mencakup perdagangan eceran obat untuk ikan.",
+      "uraian": "Kelompok ini mencakup perdagangan eceran alat kesehatan untuk manusia, seperti termometer, pengukur tekanan darah, alat bantu dengar, prostesis ortopedi, dan penyangga leher.",
+      "level": "Kelompok"
+    },
+    {
+      "kode": "47726",
+      "judul": "PERDAGANGAN ECERAN OBAT FARMASI UNTUK HEWAN",
+      "uraian": "Kelompok ini mencakup perdagangan eceran obat farmasi untuk hewan, misalnya dalam serbuk, tablet, kapsul, salep, bubuk, larutan, suspensi, dan aerosol. Kelompok ini juga mencakup perdagangan eceran obat untuk ikan.",
       "level": "Kelompok"
     },
     {
@@ -5649,7 +5697,13 @@
     {
       "kode": "50125",
       "judul": "ANGKUTAN LAUT LUAR NEGERI UNTUK BARANG UMUM",
-      "uraian": "Kelompok ini mencakup aktivitas pengangkutan barang melalui laut dengan menggunakan kapal laut antarpelabuhan di dalam negeri dengan pelabuhan di luar negeri dengan melayari trayek secara tetap dan teratur (liner) dengan berjadwal, atau trayek tidak tetap dan tidak teratur (tramper), termasuk kegiatan penyewaan angkutan laut berikut operatornya. 50126 ANGKUTAN LAUT LUAR NEGERI UNTUK BARANG KHUSUS Kelompok ini mencakup aktivitas angkutan laut internasional untuk barang khusus, contohnya angkutan barang berbahaya, limbah bahan berbahaya dan beracun, termasuk ikan dan biota air lainnya . transportasi laut khusus melayani trayek tidak tetap dan tidak teratur atau tramper antarpelabuhan di dalam negeri dengan pelabuhan di luar negeri. Kelompok ini mencakup\n- penyaluran/distribusi luar negeri untuk bahan bakar tanpa karbon dalam bentuk gas, padatan, atau cairan yang tergantung pada kebutuhan dan kondisi penyimpanan sebagai pembawa energi (hidrogen, amonia, dan senyawa lainnya)menggunakan kapal laut yang dirancang secara khusus;\n- angkutan laut luar negeri untuk ikan dengan kapal pengangkut ikan berbendera Indonesia;\n- angkutan laut luar negeri untuk ikan dengan kapal pengangkut ikan berbendera asing;\n- aktivitas peny-ewaan angkutan laut berikut operatornya.",
+      "uraian": "Kelompok ini mencakup aktivitas pengangkutan barang melalui laut dengan menggunakan kapal laut antarpelabuhan di dalam negeri dengan pelabuhan di luar negeri dengan melayari trayek secara tetap dan teratur (liner) dengan berjadwal, atau trayek tidak tetap dan tidak teratur (tramper), termasuk kegiatan penyewaan angkutan laut berikut operatornya.",
+      "level": "Kelompok"
+    },
+    {
+      "kode": "50126",
+      "judul": "ANGKUTAN LAUT LUAR NEGERI UNTUK BARANG KHUSUS",
+      "uraian": "Kelompok ini mencakup aktivitas angkutan laut internasional untuk barang khusus, contohnya angkutan barang berbahaya, limbah bahan berbahaya dan beracun, termasuk ikan dan biota air lainnya . transportasi laut khusus melayani trayek tidak tetap dan tidak teratur atau tramper antarpelabuhan di dalam negeri dengan pelabuhan di luar negeri. Kelompok ini mencakup\n- penyaluran/distribusi luar negeri untuk bahan bakar tanpa karbon dalam bentuk gas, padatan, atau cairan yang tergantung pada kebutuhan dan kondisi penyimpanan sebagai pembawa energi (hidrogen, amonia, dan senyawa lainnya)menggunakan kapal laut yang dirancang secara khusus;\n- angkutan laut luar negeri untuk ikan dengan kapal pengangkut ikan berbendera Indonesia;\n- angkutan laut luar negeri untuk ikan dengan kapal pengangkut ikan berbendera asing;\n- aktivitas peny-ewaan angkutan laut berikut operatornya.",
       "level": "Kelompok"
     },
     {
@@ -6915,7 +6969,13 @@
     {
       "kode": "66127",
       "judul": "KEPIALANGAN UNIT KARBON",
-      "uraian": "Kelompok ini mencakup kegiatan perantaraan, yaitu pihak yang melakukan transaksi unit karbon untuk pihak lain atau nasabahnya. Kelompok ini tidak mencakup\n- perdagangan unit karbon atas nama sendiri, ;\n- kepialangan efek selain unit karbon, ;\n- bertransaksi di pasar keuangan atas nama sendiri (selain kegiatan perdagangan unit karbon), . 66129 KEPIALANGAN EFEK DAN KONTRAK KOMODITAS LAINNYA Kelompok ini mencakup kegiatan kepialangan efek dan kontrak komoditas dan aktivitas bertransaksi di pasar keuangan atas nama orang lain (bertindak sebagai pialang) yang belum dicakup di tempat lain, seperti transaksi perdagangan bulion atas nama pihak lain (kepialangan). Kelompok ini tidak mencakup aktivitas perdagangan di pasar keuangan atas nama sendiri, .",
+      "uraian": "Kelompok ini mencakup kegiatan perantaraan, yaitu pihak yang melakukan transaksi unit karbon untuk pihak lain atau nasabahnya. Kelompok ini tidak mencakup\n- perdagangan unit karbon atas nama sendiri, ;\n- kepialangan efek selain unit karbon, ;\n- bertransaksi di pasar keuangan atas nama sendiri (selain kegiatan perdagangan unit karbon), .",
+      "level": "Kelompok"
+    },
+    {
+      "kode": "66129",
+      "judul": "KEPIALANGAN EFEK DAN KONTRAK KOMODITAS LAINNYA",
+      "uraian": "Kelompok ini mencakup kegiatan kepialangan efek dan kontrak komoditas dan aktivitas bertransaksi di pasar keuangan atas nama orang lain (bertindak sebagai pialang) yang belum dicakup di tempat lain, seperti transaksi perdagangan bulion atas nama pihak lain (kepialangan). Kelompok ini tidak mencakup aktivitas perdagangan di pasar keuangan atas nama sendiri, .",
       "level": "Kelompok"
     },
     {
@@ -6945,7 +7005,13 @@
     {
       "kode": "66142",
       "judul": "PENYELENGGARAAN INFRASTRUKTUR SISTEM PEMBAYARAN",
-      "uraian": "Kelompok ini mencakup kegiatan penyelenggaraan infrastruktur sistem pembayaran yang terkait dengan kliring dan setelmen transaksi pemindahan dana dalam rangka transaksi pembayaran. Kelompok ini juga mencakup:\n- penyelenggaraan fungsi sebagai prinsipal dan pengalihan (switching) dalam rangka transaksi pembayaran;\n- kegiatan lain terkait penyelenggaraan infrastruktur sistem pembayaran, seperti penatausahaan identitas pihak yang terlibat dalam penyelesaian transaksi pembayaran. 66143 PENYELENGGARAAN PENUNJANG SISTEM PEMBAYARAN Kelompok ini mencakup kegiatan penyelenggaraan kegiatan yang mendukung pelaksanaan penyediaan jasa pembayaran dan/atau infrastruktur sistem pembayaran dalam melakukan pemrosesan transaksi pembayaran, contohnya pencetakan kartu, personalisasi pembayaran, penyediaan pusat data dan/atau pusat pemulihan bencana, penyediaan terminal, penyediaan fitur keamanan instrumen pembayaran dan/atau transaksi pembayaran, penyediaan teknologi pendukung transaksi nirkontak (contactless), penyediaan penerusan (routing) data pendukung pemrosesan transaksi pembayaran.",
+      "uraian": "Kelompok ini mencakup kegiatan penyelenggaraan infrastruktur sistem pembayaran yang terkait dengan kliring dan setelmen transaksi pemindahan dana dalam rangka transaksi pembayaran. Kelompok ini juga mencakup:\n- penyelenggaraan fungsi sebagai prinsipal dan pengalihan (switching) dalam rangka transaksi pembayaran;\n- kegiatan lain terkait penyelenggaraan infrastruktur sistem pembayaran, seperti penatausahaan identitas pihak yang terlibat dalam penyelesaian transaksi pembayaran.",
+      "level": "Kelompok"
+    },
+    {
+      "kode": "66143",
+      "judul": "PENYELENGGARAAN PENUNJANG SISTEM PEMBAYARAN",
+      "uraian": "Kelompok ini mencakup kegiatan penyelenggaraan kegiatan yang mendukung pelaksanaan penyediaan jasa pembayaran dan/atau infrastruktur sistem pembayaran dalam melakukan pemrosesan transaksi pembayaran, contohnya pencetakan kartu, personalisasi pembayaran, penyediaan pusat data dan/atau pusat pemulihan bencana, penyediaan terminal, penyediaan fitur keamanan instrumen pembayaran dan/atau transaksi pembayaran, penyediaan teknologi pendukung transaksi nirkontak (contactless), penyediaan penerusan (routing) data pendukung pemrosesan transaksi pembayaran.",
       "level": "Kelompok"
     },
     {
@@ -7365,7 +7431,13 @@
     {
       "kode": "72105",
       "judul": "PENELITIAN DAN PENGEMBANGAN ILMU PERTANIAN DAN KEDOKTERAN HEWAN",
-      "uraian": "Kelompok ini mencakup aktivitas penelitian dan pengembangan yang dilakukan secara teratur (sistematik) yang berkaitan dengan ilmu pertanian, peternakan, kehutanan, perikanan, dan kelautan, serta kedokteran hewan. Kelompok ini juga mencakup\n- penelitian dan pengembangan di bidang bioteknologi pertanian;\n- penelitian dan pengembangan di bidang ilmu pertanian, perikanan, dan kehutanan;\n- penelitian dan pengembangan di bidang ilmu hewan dan susu (peternakan dan perah);\n- penelitian dan pengembangan di bidang ilmu kedokteran hewan;\n- penelitian dan pengembangan di bidang pupuk;\n- penelitian dan pengembangan di bidang pengembangan pertanian berkelanjutan. Kelompok ini tidak mencakup\n- penelitian dan pengembangan di bidang lingkungan, . 72106 PENELITIAN DAN PENGEMBANGAN KETENAGANUKLIRAN Kelompok ini mencakup aktivitas penelitian dan pengembangan yang dilakukan secara teratur (sistematis) yang berkaitan dengan penggunaan teknologi nuklir.",
+      "uraian": "Kelompok ini mencakup aktivitas penelitian dan pengembangan yang dilakukan secara teratur (sistematik) yang berkaitan dengan ilmu pertanian, peternakan, kehutanan, perikanan, dan kelautan, serta kedokteran hewan. Kelompok ini juga mencakup\n- penelitian dan pengembangan di bidang bioteknologi pertanian;\n- penelitian dan pengembangan di bidang ilmu pertanian, perikanan, dan kehutanan;\n- penelitian dan pengembangan di bidang ilmu hewan dan susu (peternakan dan perah);\n- penelitian dan pengembangan di bidang ilmu kedokteran hewan;\n- penelitian dan pengembangan di bidang pupuk;\n- penelitian dan pengembangan di bidang pengembangan pertanian berkelanjutan. Kelompok ini tidak mencakup\n- penelitian dan pengembangan di bidang lingkungan, .",
+      "level": "Kelompok"
+    },
+    {
+      "kode": "72106",
+      "judul": "PENELITIAN DAN PENGEMBANGAN KETENAGANUKLIRAN",
+      "uraian": "Kelompok ini mencakup aktivitas penelitian dan pengembangan yang dilakukan secara teratur (sistematis) yang berkaitan dengan penggunaan teknologi nuklir.",
       "level": "Kelompok"
     },
     {
@@ -7539,7 +7611,13 @@
     {
       "kode": "75002",
       "judul": "AKTIVITAS PENGELOLAAN SARANA KESEHATAN HEWAN",
-      "uraian": "Kelompok ini mencakup kegiatan jasa medik veteriner berupa perawatan, pemeriksaan, pengobatan, diagnosis, dan konsultasi kesehatan hewan untuk hewan ternak, hewan piaraan, hewan akuatik, dan satwa liar yang dikelola oleh suatu manajeman bisnis berupa klinik hewan, rumah sakir hewan, pusat kesehatan hewan, ambulatori hewan, serta laboratorium hewan dan selter hewan yang disertai pelayanan kesehatan hewan. 75009 AKTIVITAS PENGELOLAAN KESEHATAN HEWAN LAINNYA Kelompok ini mencakup aktivitas kesehatan hewan selain yang tercakup dalam kelompok 75001 dan 75002, seperti\n- unit tranfusi darah hewan/bank darah hewan;\n- bank mata, bank sperma hewan kesayangan, bank transplantasi organ, bank sel dan jaringan;\n- optikal hewan;\n- aktivitas ambulans hewan;\n- pelayanan penunjang kesehatan hewan lainnya.",
+      "uraian": "Kelompok ini mencakup kegiatan jasa medik veteriner berupa perawatan, pemeriksaan, pengobatan, diagnosis, dan konsultasi kesehatan hewan untuk hewan ternak, hewan piaraan, hewan akuatik, dan satwa liar yang dikelola oleh suatu manajeman bisnis berupa klinik hewan, rumah sakir hewan, pusat kesehatan hewan, ambulatori hewan, serta laboratorium hewan dan selter hewan yang disertai pelayanan kesehatan hewan.",
+      "level": "Kelompok"
+    },
+    {
+      "kode": "75009",
+      "judul": "AKTIVITAS PENGELOLAAN KESEHATAN HEWAN LAINNYA",
+      "uraian": "Kelompok ini mencakup aktivitas kesehatan hewan selain yang tercakup dalam kelompok 75001 dan 75002, seperti\n- unit tranfusi darah hewan/bank darah hewan;\n- bank mata, bank sperma hewan kesayangan, bank transplantasi organ, bank sel dan jaringan;\n- optikal hewan;\n- aktivitas ambulans hewan;\n- pelayanan penunjang kesehatan hewan lainnya.",
       "level": "Kelompok"
     },
     {
@@ -7827,7 +7905,13 @@
     {
       "kode": "82922",
       "judul": "AKTIVITAS PENGEPAKAN BAHAN DAN PRODUK MAKANAN DAN MINUMAN OLAHAN",
-      "uraian": "Kelompok ini mencakup kegiatan pengemasan atas dasar balas jasa atau kontrak, baik menggunakan suatu proses otomatis ataupun manual, untuk bahan dan produk makanan dan minuman olahan. Kelompok ini mencakup kegiatan pembotolan cairan yang mencakup minuman dan makanan, pengemasan benda padat (blister packaging, pembungkusan dengan foil aluminium, dll.), pelabelan, pemberian cap, sterilisasi produk yang terkait dengan pengepakan, dan kegiatan terkait pengepakan lainnya untuk bahan dan produk makanan dan minuman olahan. 82923 AKTIVITAS PENGEPAKAN TEKSTIL DAN PRODUK TEKSTIL Kelompok ini mencakup kegiatan pengemasan atas dasar balas jasa atau kontrak, baik menggunakan suatu proses otomatis ataupun manual, untuk tekstil dan produk tekstil. Kelompok ini mencakup kegiatan pengemasan, pembungkusan dengan aman, pelabelan, pemberian cap, sterilisasi produk, dan kegiatan terkait pengepakan lainnya untuk tekstil dan produk tekstil.",
+      "uraian": "Kelompok ini mencakup kegiatan pengemasan atas dasar balas jasa atau kontrak, baik menggunakan suatu proses otomatis ataupun manual, untuk bahan dan produk makanan dan minuman olahan. Kelompok ini mencakup kegiatan pembotolan cairan yang mencakup minuman dan makanan, pengemasan benda padat (blister packaging, pembungkusan dengan foil aluminium, dll.), pelabelan, pemberian cap, sterilisasi produk yang terkait dengan pengepakan, dan kegiatan terkait pengepakan lainnya untuk bahan dan produk makanan dan minuman olahan.",
+      "level": "Kelompok"
+    },
+    {
+      "kode": "82923",
+      "judul": "AKTIVITAS PENGEPAKAN TEKSTIL DAN PRODUK TEKSTIL",
+      "uraian": "Kelompok ini mencakup kegiatan pengemasan atas dasar balas jasa atau kontrak, baik menggunakan suatu proses otomatis ataupun manual, untuk tekstil dan produk tekstil. Kelompok ini mencakup kegiatan pengemasan, pembungkusan dengan aman, pelabelan, pemberian cap, sterilisasi produk, dan kegiatan terkait pengepakan lainnya untuk tekstil dan produk tekstil.",
       "level": "Kelompok"
     },
     {
@@ -8145,7 +8229,13 @@
     {
       "kode": "85322",
       "judul": "PENDIDIKAN MENENGAH KEJURUAN UMUM SWASTA",
-      "uraian": "Kelompok ini mencakup pendidikan menengah kejuruan yang diselenggarakan swasta, seperti sekolah menengah kejuruan (SMK) swasta, dengan program studi seperti pariwisata, boga, manajemen, perkantoran, perhotelan, teknik, farmasi, kecantikan dan rambut, pertanian, sekolah menengah kejuruan hasil kerja sama dengan lembaga pendidikan asing, sekolah khusus swasta untuk peserta didik berkebutuhan khusus pada jenjang pendidikan menengah. 85323 PENDIDIKAN MENENGAH KEJURUAN KEAGAMAAN ISLAM Kelompok ini mencakup pendidikan menengah kejuruan, berorientasi pada pengembangan ilmu pengetahuan dan keterampilan kejuruan yang terintegrasi dengan nilai-nilai dan ajaran keagamaan Islam, termasuk pembelajaran kitab suci; hukum tata cara ibadah;bahasa klasik keagamaan; sejarah peradaban dan tokoh agama, seperti madrasah aliyah kejuruan, dengan program studi seperti multimedia, animasi, administrasi, akuntansi, farmasi, pariwisata, pelayaran, teknik mesin, tata boga, elektro, termasuk sekolah kesetaraan dan sekolah khusus keagamaan Islam untuk peserta didik berkebutuhan khusus pada jenjang pendidikan menengah.",
+      "uraian": "Kelompok ini mencakup pendidikan menengah kejuruan yang diselenggarakan swasta, seperti sekolah menengah kejuruan (SMK) swasta, dengan program studi seperti pariwisata, boga, manajemen, perkantoran, perhotelan, teknik, farmasi, kecantikan dan rambut, pertanian, sekolah menengah kejuruan hasil kerja sama dengan lembaga pendidikan asing, sekolah khusus swasta untuk peserta didik berkebutuhan khusus pada jenjang pendidikan menengah.",
+      "level": "Kelompok"
+    },
+    {
+      "kode": "85323",
+      "judul": "PENDIDIKAN MENENGAH KEJURUAN KEAGAMAAN ISLAM",
+      "uraian": "Kelompok ini mencakup pendidikan menengah kejuruan, berorientasi pada pengembangan ilmu pengetahuan dan keterampilan kejuruan yang terintegrasi dengan nilai-nilai dan ajaran keagamaan Islam, termasuk pembelajaran kitab suci; hukum tata cara ibadah;bahasa klasik keagamaan; sejarah peradaban dan tokoh agama, seperti madrasah aliyah kejuruan, dengan program studi seperti multimedia, animasi, administrasi, akuntansi, farmasi, pariwisata, pelayaran, teknik mesin, tata boga, elektro, termasuk sekolah kesetaraan dan sekolah khusus keagamaan Islam untuk peserta didik berkebutuhan khusus pada jenjang pendidikan menengah.",
       "level": "Kelompok"
     },
     {
@@ -8271,7 +8361,13 @@
     {
       "kode": "85577",
       "judul": "PELATIHAN KERJA PERTANIAN DAN PERIKANAN SWASTA",
-      "uraian": "Kelompok ini mencakup kegiatan pelatihan kerja yang bertujuan untuk menambah ketrampilan/keahlian dalam bidang mekanisasi pertanian, tanaman pangan, hortikultura, mix farming, pengolahan tanah, konservasi lahan, budidaya tanaman, penangkapan ikan, budidaya ikan, permesinan perikanan, pengolahan hasil pertanian, pengolahan hasil perikanan, pengolahan hasil peternakan, agribisnis produksi tanaman, agribisnis produksi peternakan, agribisnis produksi sumber daya perairan dan lainnya yang diselenggarakan oleh swasta. 85578 PENDIDIKAN DAN PELATIHAN PERSONEL PENERBANGAN Kelompok ini mencakup jasa pendidikan personel penerbangan yang dilakukan oleh swasta, seperti personel pesawat udara, personel bandar udara, personel navigasi penerbangan, personel keamanan penerbangan. Kelompok ini juga mencakup pengangkutan khusus awak pesawat dalam rangka pendidikan.",
+      "uraian": "Kelompok ini mencakup kegiatan pelatihan kerja yang bertujuan untuk menambah ketrampilan/keahlian dalam bidang mekanisasi pertanian, tanaman pangan, hortikultura, mix farming, pengolahan tanah, konservasi lahan, budidaya tanaman, penangkapan ikan, budidaya ikan, permesinan perikanan, pengolahan hasil pertanian, pengolahan hasil perikanan, pengolahan hasil peternakan, agribisnis produksi tanaman, agribisnis produksi peternakan, agribisnis produksi sumber daya perairan dan lainnya yang diselenggarakan oleh swasta.",
+      "level": "Kelompok"
+    },
+    {
+      "kode": "85578",
+      "judul": "PENDIDIKAN DAN PELATIHAN PERSONEL PENERBANGAN",
+      "uraian": "Kelompok ini mencakup jasa pendidikan personel penerbangan yang dilakukan oleh swasta, seperti personel pesawat udara, personel bandar udara, personel navigasi penerbangan, personel keamanan penerbangan. Kelompok ini juga mencakup pengangkutan khusus awak pesawat dalam rangka pendidikan.",
       "level": "Kelompok"
     },
     {
@@ -8307,7 +8403,13 @@
     {
       "kode": "85585",
       "judul": "PELATIHAN KERJA BISNIS DAN MANAJEMEN PERUSAHAAN",
-      "uraian": "Kelompok ini mencakup kegiatan pelatihan kerja yang bertujuan untuk menambah keterampilan/keahlian dalam bidang bisnis dan manajemen yang diselenggarakan oleh perusahaan. Kegiatan yang masuk dalam kelompok ini adalah pelatihan sekretaris, administrasi perkantoran, ICT for secretary, keuangan, tata niaga/penjualan, bahasa asing, promosi produktivitas, bimbingan konsultansi, pengukuran produktivitas, manajemen peningkatan produktivitas, kewirausahaan, dan lainnya. 85586 PELATIHAN KERJA PEKERJAAN DOMESTIK PERUSAHAAN Kelompok ini mencakup kegiatan pelatihan kerja yang bertujuan untuk menambah ketrampilan/keahlian dalam bidang pengurus rumah tangga, penjaga lanjut usia, pengasuh bayi/balita, pengasuh anak, juru masak, dan lainnya yang diselenggarakan oleh perusahaan.",
+      "uraian": "Kelompok ini mencakup kegiatan pelatihan kerja yang bertujuan untuk menambah keterampilan/keahlian dalam bidang bisnis dan manajemen yang diselenggarakan oleh perusahaan. Kegiatan yang masuk dalam kelompok ini adalah pelatihan sekretaris, administrasi perkantoran, ICT for secretary, keuangan, tata niaga/penjualan, bahasa asing, promosi produktivitas, bimbingan konsultansi, pengukuran produktivitas, manajemen peningkatan produktivitas, kewirausahaan, dan lainnya.",
+      "level": "Kelompok"
+    },
+    {
+      "kode": "85586",
+      "judul": "PELATIHAN KERJA PEKERJAAN DOMESTIK PERUSAHAAN",
+      "uraian": "Kelompok ini mencakup kegiatan pelatihan kerja yang bertujuan untuk menambah ketrampilan/keahlian dalam bidang pengurus rumah tangga, penjaga lanjut usia, pengasuh bayi/balita, pengasuh anak, juru masak, dan lainnya yang diselenggarakan oleh perusahaan.",
       "level": "Kelompok"
     },
     {

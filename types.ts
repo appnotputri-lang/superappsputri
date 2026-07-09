@@ -1,3 +1,15 @@
+export type UserRole = 'Super Admin' | 'Admin' | 'Staff';
+
+export interface UserProfile {
+  uid: string;
+  email: string;
+  name: string;
+  role: UserRole;
+  level?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Address {
   province: string;
   city: string;
@@ -219,6 +231,7 @@ export interface AmendmentDeed {
 export interface CompanyProfile extends Partial<CompanyData> {
   id: string;
   isArchived?: boolean;
+  phoneNumber?: string;
 }
 
 export interface CompanyData {
@@ -461,3 +474,5 @@ export interface CapitalSubscriptionItem {
   subscriberName: string;
   sharesCount: number;
 }
+
+export type SidebarTabId = 'beranda' | 'company_profile' | 'cv_profile' | 'notulen' | 'pendirian' | 'rupst' | 'perbaikan' | 'draft_akta_rups' | 'panduan' | 'kbli_mapping' | 'saran_kbli' | 'import_kbli' | 'laporan' | 'whatsapp_settings' | 'projects' | 'project_detail' | 'user_management';

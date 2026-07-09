@@ -1,16 +1,31 @@
+import { mapCompanyProfileToPendirian } from './src/domain/company/mappers/companyProfileToPendirian';
+import { INITIAL_STATE, INITIAL_ADDRESS, INITIAL_MANUAL_REP, INITIAL_RESOLUTIONS } from "./src/domain/company/initialCompanyData";
+import { ALLOWED_EMAILS } from "./src/constants/appConstants";
+import { TAB_ACCENTS, TAB_TO_PATH, PATH_TO_TAB } from "./src/constants/tabs";
+import { sanitizeForFirestore } from "./src/utils/sanitize";
+import { Sidebar } from "./src/components/layout/Sidebar";
+import { Header } from "./src/components/layout/Header";
+import { Dashboard } from './src/pages/Dashboard';
+import { Panduan } from './src/pages/Panduan';
+import { KbliTools } from './src/pages/KbliTools';
 import { Modal } from './components/Modal';
 import { ChevronRight, RefreshCw, Loader2 } from 'lucide-react';
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { auth, db, loginWithGoogle, logout, handleFirestoreError, OperationType } from './src/lib/firebase';
-import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
-import { collection, onSnapshot, doc, setDoc, deleteDoc, updateDoc } from 'firebase/firestore';
-import { CompanyData, Shareholder, ResolutionFlags, KbliItem, ManagementItem, DocumentType, Address, ManagementChangeType, CompanyProfile, AmendmentDeed, Guest, ShareTransfer } from './types';
-import ShareholderForm from './components/ShareholderForm';
+import { db, handleFirestoreError, OperationType } from './src/lib/firebase';
+import { AuthProvider, useAuthContext } from './src/contexts/AuthContext';
+import { CompanyProvider, useCompanyContext } from './src/contexts/CompanyContext';
+import { ProjectProvider, useProjectContext } from './src/contexts/ProjectContext';
+import { NotificationProvider, useNotificationContext } from './src/contexts/NotificationContext';
+import { NotificationService } from './src/services/NotificationService';
+import { doc, setDoc, deleteDoc } from 'firebase/firestore';
+import { CompanyData, Shareholder, ResolutionFlags, KbliItem, ManagementItem, DocumentType, Address, ManagementChangeType, CompanyProfile, AmendmentDeed, Guest, ShareTransfer, UserRole, UserProfile } from './types';
+import ShareholderEditor from './src/components/editors/ShareholderEditor';
 import CompositionEditor from './components/CompositionEditor';
 import ManagementEditor from './components/ManagementEditor';
 import StockTransferEditor from './components/StockTransferEditor';
+import { GlobalModalManager } from './src/components/modals/GlobalModalManager';
 import DocumentPreview from './components/DocumentPreview';
 import { DataCorrectionLetter } from './components/DataCorrectionLetter';
 import DraftAktaApp, { DraftAktaAppRef } from './src/DraftAktaApp';
@@ -22,8 +37,6 @@ import PendirianDocumentPreview from './src/PendirianDocumentPreview';
 import { RUPSTDocumentPreview } from './src/RUPSTDocumentPreview';
 import { SirkulerLaporanDocumentPreview } from './components/SirkulerLaporanDocumentPreview';
 import { SirkulerLaporanFormContent } from './components/SirkulerLaporanFormContent';
-import { RupstInteractiveAssistant } from './src/components/RupstInteractiveAssistant';
-import { RupstPublicWizard } from './src/components/RupstPublicWizard';
 import { RealTimeClock } from './src/components/RealTimeClock';
 import { EditProfileModal } from './components/EditProfileModal';
 import KBLIMapping from './src/components/KBLIMapping';
@@ -32,12 +45,15 @@ import kbli2025Data from './kbli_2025.json';
 import JSZip from 'jszip';
 import { KBLI_2025_CATEGORIES } from './src/lib/kbliConstants';
 import { Sparkles, Bot, Lightbulb, Lock } from 'lucide-react';
-import { generatePendirianDocx } from './src/lib/generatePendirianDocx';
 import GuideMenu from './src/components/GuideMenu';
 import { LaporanList } from './src/components/LaporanList';
+import { UserManagement } from './src/components/UserManagement';
 import { WhatsAppSettings } from './src/components/WhatsAppSettings';
 import ProxyInputModal from './components/ProxyInputModal';
-import { generateWordDoc } from './utils/docxGenerator';
+import ProjectList from './src/components/project-engine/ProjectList';
+import ProjectDetail from './src/components/project-engine/ProjectDetail';
+import { ProjectService } from './src/services/ProjectService';
+import { MeetingFormShell } from './src/components/MeetingFormShell';
 import { fetchLatestDeedNumbers } from './src/lib/deedUtils';
 import { syncToUtama, getDeedTitle, formatAppearersForRups, formatAppearersForPendirian } from './src/lib/syncUtama';
 import { 
@@ -112,186 +128,12 @@ import { IndoRegionSelector, DomicileSelector, SearchableSelect } from './compon
 import { formatCurrency, formatInputNumber, parseFormattedNumber, numberToWords, toTitleCase, formatDateIndo } from './utils/formatters';
 import { KBLI_DATA } from './utils/kbliData';
 
-const INITIAL_ADDRESS: Address = {
-  province: '',
-  city: '',
-  fullAddress: '',
-  rt: '',
-  rw: '',
-  kelurahan: '',
-  kecamatan: ''
-};
 
-const INITIAL_RESOLUTIONS: ResolutionFlags = {
-  domicile: false,
-  address: false,
-  capitalBase: false,
-  capitalPaid: false,
-  capitalBaseDecrease: false,
-  capitalPaidDecrease: false,
-  reappointment: false,
-  kbli: false, 
-  management: false,
-  shareholders: false,
-  companyNameChange: false
-};
 
-const INITIAL_MANUAL_REP: Shareholder = {
-  id: 'manual-rep',
-  salutation: 'Tuan',
-  name: '',
-  birthCity: '',
-  birthDate: '',
-  nationality: 'WNI',
-  nationalityType: 'WNI',
-  occupation: '',
-  address: { ...INITIAL_ADDRESS },
-  nik: '',
-  sharesOwned: 0
-};
 
-const INITIAL_STATE: CompanyData = {
-  documentType: 'CIRCULAR',
-  companyName: '',
-  companyShortName: '',
-  targetCompanyName: '',
-  targetCompanyShortName: '',
-  companyType: 'SWASTA NASIONAL',
-  npwp: '',
-  duration: 'TIDAK TERBATAS',
-  status: 'tertutup',
-  oldDomicile: '',
-  domicile: '',
-  domicileStyle: 'KOTA',
-  oldAddress: { ...INITIAL_ADDRESS },
-  newAddress: { ...INITIAL_ADDRESS },
-  oldFullAddress: '',
-  fullAddress: '',
-  kbliItems: [],
-  managementChangeType: 'ALL_DISMISSED',
-  oldManagementItems: [],
-  newManagementItems: [],
-  managementEffectiveUntil: '',
-  managementEffectiveUntilType: 'AD',
-  managementEffectiveDate: '',
-  reappointmentOldExpiredDate: '',
-  reappointmentStartDate: '',
-  reappointmentEndDate: '',
-  originalTotalShares: 0,
-  originalAuthorizedShares: 0,
-  originalSharePrice: 0,
-  originalCapitalBase: 0,
-  originalCapitalPaid: 0,
-  targetCapitalBase: 0,
-  targetCapitalPaid: 0,
-  capitalArticleNumber: '4',
-  domicileArticleNumber: '1',
-  representativeType: 'EXISTING',
-  authorizedRepresentativeId: '',
-  manualRepresentative: { ...INITIAL_MANUAL_REP },
-  signingPlace: '',
-  signingDate: '',
-  aktaStartTime: '10:00',
-  meetingStartTime: '',
-  meetingEndTime: '',
-  meetingChair: '',
-  meetingChairPosition: '',
-  invitationNumber: '',
-  invitationDate: '',
-  meetingAgenda: '',
-  establishmentDeedNumber: '',
-  establishmentDeedDate: '',
-  establishmentNotary: '',
-  establishmentNotaryDomicile: '',
-  establishmentSkNumber: '',
-  establishmentSkDate: '',
-  latestAmendmentDeedNumber: '',
-  latestAmendmentDeedDate: '',
-  latestAmendmentNotary: '',
-  latestAmendmentSkNumber: '',
-  latestAmendmentSkDate: '',
-  amendmentDeeds: [],
-  shareholders: [],
-  shareTransfers: [],
-  finalShareholders: [],
-  guests: [],
-  managementDismissals: [],
-  shareTransfersNew: [],
-  capitalSubscriptionsNew: [],
-  resolutions: INITIAL_RESOLUTIONS,
-  selectedProfileId: '',
-  createDraftAktaRups: true,
-  draftAktaRupsNumber: '',
-  draftAktaRupsOrderNumber: '',
-  draftAktaRupsDate: '',
-  draftAktaRupsTime: '',
-  notaryName: '',
-  notaryTitle: '',
-  notaryDomicile: '',
-  notaryNumber: '',
-  notaryDate: '',
-  isReplacementNotary: false,
-  beneficialOwnerConsent: false,
-  rupstFiscalYear: '',
-  rupstNetProfit: undefined,
-  rupstDividendAmount: undefined,
-  rupstRetainedProfit: undefined,
-  rupstFinancialReportNumber: '',
-  rupstFinancialReportDate: '',
-  rupstFinancialReportSignatoryName: '',
-  rupstFinancialReportSignatoryPosition: '',
-  rupstStatementNeraca: true,
-  rupstStatementLabaRugi: false,
-  rupstStatementPerubahanEkuitas: false,
-  rupstStatementArusKas: false,
-  rupstStatementCatatan: false,
-  rupstStatementNamaAnggota: false,
-  rupstStatementGaji: false,
-  rupstAlasanAuditA: true,
-  rupstAlasanAuditB: true,
-  rupstAlasanAuditC: true,
-  rupstAlasanAuditD: true,
-  rupstAlasanAuditE: true,
-  rupstAlasanAuditF: true,
-  rupstIsAudited: false,
-  rupstKapName: '',
-  rupstKapLicenseNumber: '',
-  rupstKapExpiryDate: '',
-  rupstAuditReportNumber: '',
-  rupstAuditReportDate: '',
-  rupstNotulenNumber: '',
-  rupstDividends: [],
-  rupstDividendPaymentDate: '05 Juni 2026 dan 10 Juni 2026',
-  rupstType: 'rapat',
-  rupstNonAuditedUseKAP: true,
-  rupstQuorumArticle: '10',
-  rupstQuorumParagraph: '1',
-  rupstMeetingEndTime: '',
-  rupstInvitationNumber: '',
-  rupstInvitationDate: '',
-  slHari: '',
-  slTanggalHuruf: '',
-  slAlasanAuditA: false,
-  slAlasanAuditB: false,
-  slAlasanAuditC: true,
-  slAlasanAuditD: true,
-  slAlasanAuditE: false,
-  slAlasanAuditF: false,
-  slLaporanNomor: '',
-  slLaporanTanggalHuruf: '',
-  slTahunBukuAkhirHuruf: '',
-  saksi1Nama: 'Nendi Suhendi',
-  saksi1Lahir: 'Bandung, pada tanggal limabelas Juli seribu sembilan ratus sembilan puluh satu (15-07-1991)',
-  saksi1Alamat: 'Jalan Sukaresmi Nomor 12, Rukun Tetangga 005, Rukun Warga 005, Kecamatan Lembang, Desa Mekarwangi',
-  saksi1NIK: '3217011507910016',
-  saksi2Nama: 'Siti Nur Azizah',
-  saksi2Lahir: 'Bandung, pada tanggal tujuh belas Desember seribu sembilan ratus sembilan puluh sembilan (17-12-1999)',
-  saksi2Alamat: 'Kabupaten Bandung, Jalan Lembah Pakar Timur II Kampung Sekebuluh Rukun Tetangga 001, Rukun Warga 004, Desa Ciburial, Kecamatan Cimenyan',
-  saksi2NIK: '3204065712990001'
-};
 
 type TabId = 'general' | 'shareholders' | 'shareholders_new' | 'representative' | 'agenda' | 'kbli' | 'domicile' | 'address' | 'capitalBase' | 'capitalPaid' | 'management' | 'reappointment';
-type SidebarTabId = 'beranda' | 'company_profile' | 'cv_profile' | 'notulen' | 'pendirian' | 'rupst' | 'perbaikan' | 'draft_akta_rups' | 'panduan' | 'kbli_mapping' | 'saran_kbli' | 'import_kbli' | 'laporan' | 'whatsapp_settings';
+type SidebarTabId = 'beranda' | 'company_profile' | 'cv_profile' | 'notulen' | 'pendirian' | 'rupst' | 'perbaikan' | 'draft_akta_rups' | 'panduan' | 'kbli_mapping' | 'saran_kbli' | 'import_kbli' | 'laporan' | 'whatsapp_settings' | 'projects' | 'project_detail' | 'user_management';
 
 // AHU Style Helper Components
 const AhuSection = ({ title, children, isOpen = true }: { title: string, children: React.ReactNode, isOpen?: boolean }) => {
@@ -445,134 +287,6 @@ const AhuMasaJabatanSelector = ({ data, updateData }: { data: any, updateData: (
   );
 };
 
-const sanitizeForFirestore = (obj: any): any => {
-  if (Array.isArray(obj)) {
-    return obj.map(v => sanitizeForFirestore(v));
-  } else if (obj !== null && typeof obj === 'object') {
-    const newObj: any = {};
-    for (const key in obj) {
-      if (Object.prototype.hasOwnProperty.call(obj, key)) {
-        const val = obj[key];
-        if (val !== undefined) {
-          newObj[key] = sanitizeForFirestore(val);
-        }
-      }
-    }
-    return newObj;
-  }
-  return obj;
-};
-
-// ==========================================
-// 2026 SaaS Premium Theme Accents Configuration
-// ==========================================
-const TAB_ACCENTS: Record<SidebarTabId, {
-  iconColor: string;      // Active icon colors
-  textColor: string;      // Active text classes
-  bgColor: string;        // Active background color (soft theme tints)
-  hoverBg: string;        // Soft hover borders/backgrounds
-  indicatorBg: string;    // Accent border colors
-}> = {
-  beranda: {
-    iconColor: 'text-blue-600',
-    textColor: 'text-blue-900',
-    bgColor: 'bg-blue-50/70',
-    hoverBg: 'hover:bg-blue-50/40 hover:text-blue-950',
-    indicatorBg: 'bg-blue-600'
-  },
-  company_profile: {
-    iconColor: 'text-indigo-600',
-    textColor: 'text-indigo-900',
-    bgColor: 'bg-indigo-50/70',
-    hoverBg: 'hover:bg-indigo-50/40 hover:text-indigo-950',
-    indicatorBg: 'bg-indigo-600'
-  },
-  cv_profile: {
-    iconColor: 'text-teal-600',
-    textColor: 'text-teal-900',
-    bgColor: 'bg-teal-50/70',
-    hoverBg: 'hover:bg-teal-50/40 hover:text-teal-950',
-    indicatorBg: 'bg-teal-600'
-  },
-  notulen: {
-    iconColor: 'text-orange-600',
-    textColor: 'text-orange-900',
-    bgColor: 'bg-orange-50/70',
-    hoverBg: 'hover:bg-orange-50/40 hover:text-orange-950',
-    indicatorBg: 'bg-orange-600'
-  },
-  rupst: {
-    iconColor: 'text-green-600',
-    textColor: 'text-green-900',
-    bgColor: 'bg-green-50/70',
-    hoverBg: 'hover:bg-green-50/40 hover:text-green-950',
-    indicatorBg: 'bg-green-600'
-  },
-  pendirian: {
-    iconColor: 'text-pink-600',
-    textColor: 'text-pink-900',
-    bgColor: 'bg-pink-50/70',
-    hoverBg: 'hover:bg-pink-50/40 hover:text-pink-950',
-    indicatorBg: 'bg-pink-600'
-  },
-  kbli_mapping: {
-    iconColor: 'text-blue-900',
-    textColor: 'text-blue-950',
-    bgColor: 'bg-blue-100/55',
-    hoverBg: 'hover:bg-blue-100/30 hover:text-blue-950',
-    indicatorBg: 'bg-blue-900'
-  },
-  saran_kbli: {
-    iconColor: 'text-lime-600',
-    textColor: 'text-lime-900',
-    bgColor: 'bg-lime-50/60',
-    hoverBg: 'hover:bg-lime-50/35 hover:text-lime-950',
-    indicatorBg: 'bg-lime-600'
-  },
-  perbaikan: {
-    iconColor: 'text-red-600',
-    textColor: 'text-red-900',
-    bgColor: 'bg-red-50/70',
-    hoverBg: 'hover:bg-red-50/40 hover:text-red-950',
-    indicatorBg: 'bg-red-600'
-  },
-  panduan: {
-    iconColor: 'text-amber-600',
-    textColor: 'text-amber-900',
-    bgColor: 'bg-amber-50/70',
-    hoverBg: 'hover:bg-amber-50/40 hover:text-amber-950',
-    indicatorBg: 'bg-amber-600'
-  },
-  import_kbli: {
-    iconColor: 'text-emerald-600',
-    textColor: 'text-emerald-900',
-    bgColor: 'bg-emerald-50/70',
-    hoverBg: 'hover:bg-emerald-50/40 hover:text-emerald-950',
-    indicatorBg: 'bg-emerald-600'
-  },
-  draft_akta_rups: {
-    iconColor: 'text-slate-600',
-    textColor: 'text-slate-905',
-    bgColor: 'bg-slate-100',
-    hoverBg: 'hover:bg-slate-100 hover:text-slate-905',
-    indicatorBg: 'bg-slate-500'
-  },
-  laporan: {
-    iconColor: 'text-fuchsia-600',
-    textColor: 'text-fuchsia-900',
-    bgColor: 'bg-fuchsia-50/70',
-    hoverBg: 'hover:bg-fuchsia-50/40 hover:text-fuchsia-950',
-    indicatorBg: 'bg-fuchsia-600'
-  },
-  whatsapp_settings: {
-    iconColor: 'text-rose-600',
-    textColor: 'text-rose-900',
-    bgColor: 'bg-rose-50/70',
-    hoverBg: 'hover:bg-rose-50/40 hover:text-rose-950',
-    indicatorBg: 'bg-rose-600'
-  }
-};
-
 const getCompanyInitials = (name: string): string => {
   if (!name) return "PT";
   let cleanName = name.replace(/^(PT\.?\s+)/gi, "").trim();
@@ -590,6 +304,9 @@ const getCompanyInitials = (name: string): string => {
 };
 
 import { DocumentStatusBadge, documentStatusOptions } from './components/DocumentStatusBadge';
+import { useDocumentRuntime, DocumentRuntimeProvider } from './src/domain/company/useDocumentRuntime';
+import { useProjectSession, ProjectSessionProvider } from './src/domain/project/useProjectSession';
+import { useExportPipeline, ExportPipelineProvider } from './src/domain/project/useExportPipeline';
 
 const getPastelColor = (name: string) => {
   const hash = Array.from(name).reduce((acc, char) => acc + char.charCodeAt(0), 0);
@@ -617,31 +334,72 @@ const CompanyAvatar = ({ name }: { name: string }) => {
   );
 };
 
-const App: React.FC = () => {
-  const [data, setData] = useState<CompanyData>(() => {
-    const saved = localStorage.getItem('legal-draft-data-v25-final');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        return { ...INITIAL_STATE, ...parsed };
-      } catch (e) {
-        console.error("Failed to parse saved data:", e);
-        return INITIAL_STATE;
-      }
-    }
-    return INITIAL_STATE;
+const AppShell: React.FC = () => {
+  const { user, userProfile, authLoading, loginWithGoogle, logout } = useAuthContext();
+  const [activeTab, setActiveTab] = useState<TabId | null>(null);
+
+  const {
+    editingProjectId,
+    setEditingProjectId,
+    editingRupstId,
+    setEditingRupstId,
+    editingPendirianId,
+    setEditingPendirianId,
+    editingProfileId,
+    setEditingProfileId,
+    selectedProjectId,
+    setSelectedProjectId,
+    activeProjectContext,
+    setActiveProjectContext,
+    activeProjectJobType,
+    setActiveProjectJobType,
+    openProject,
+    closeProject,
+    switchProject,
+    activateProject,
+    deactivateProject
+  } = useProjectSession();
+
+  const {
+    data,
+    setData,
+    updateData,
+    resetData,
+    isAutoSaving,
+    lastAutoSavedAt,
+    setAutosaveParams,
+    mergedData,
+    isSyncing,
+    syncCompanyDataToRupst,
+    handleManualSync,
+    proxyModalOpenId,
+    setProxyModalOpenId,
+    editingShareholder,
+    setEditingShareholder
+  } = useDocumentRuntime(() => {
+    setActiveTab('general');
   });
 
-  const [activeTab, setActiveTab] = useState<TabId | null>(null);
+  const {
+    isExportingPendirian,
+    handleExportWord,
+    handleDownloadProject,
+    handlePendirianExportWord,
+    handlePrint
+  } = useExportPipeline();
+
+  const { profiles, cvProfiles, save: saveCompany, delete: deleteCompany, archive: archiveCompany, duplicate: duplicateCompany } = useCompanyContext();
+
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
   const [expandedGuestId, setExpandedGuestId] = useState<string | null>(null);
   const [showArchivedProfiles, setShowArchivedProfiles] = useState<boolean>(false);
-  const [profiles, setProfiles] = useState<CompanyProfile[]>([]);
-  const [cvProfiles, setCvProfiles] = useState<CompanyProfile[]>([]);
-  const [projects, setProjects] = useState<CompanyData[]>([]);
-  const [rupstProjects, setRupstProjects] = useState<CompanyData[]>([]);
-  const [rupstPublicProjects, setRupstPublicProjects] = useState<CompanyData[]>([]);
-  const [pendirianProjects, setPendirianProjects] = useState<CompanyData[]>([]);
+  const { projects, rupstProjects, rupstPublicProjects, pendirianProjects, loading: projectsLoading } = useProjectContext();
+
+  useEffect(() => {
+    if (!projectsLoading) {
+      setDataLoading(false);
+    }
+  }, [projectsLoading]);
   const [rupstSearchQuery, setRupstSearchQuery] = useState("");
   const [selectedRupstYear, setSelectedRupstYear] = useState<string>("all");
   const [rupstSortField, setRupstSortField] = useState<string>("updatedAt");
@@ -674,7 +432,7 @@ const App: React.FC = () => {
   const [globalSearchQuery, setGlobalSearchQuery] = useState("");
   const [showGlobalSearchResults, setShowGlobalSearchResults] = useState(false);
 
-  const [notifications, setNotifications] = useState<any[]>([]);
+  const { notifications } = useNotificationContext();
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
 
   const formatIndonesianTime = (isoString?: string) => {
@@ -701,19 +459,8 @@ const App: React.FC = () => {
 
   const recordNotification = async (title: string, description: string, type: string) => {
     try {
-      // Allow saving notification if logged in
-      if (!auth.currentUser) return;
-      const id = crypto.randomUUID();
-      const notifData = {
-        id,
-        title,
-        description,
-        timestamp: new Date().toISOString(),
-        read: false,
-        type,
-        userId: auth.currentUser.uid || auth.currentUser.email || 'system'
-      };
-      await setDoc(doc(db, 'notifications', id), notifData);
+      if (!user) return;
+      await NotificationService.sendNotification(user, title, description, type);
     } catch (err) {
       console.error("Gagal menambahkan notifikasi:", err);
     }
@@ -832,66 +579,7 @@ const App: React.FC = () => {
     return finalDocs.slice(0, 5);
   }, [projects, rupstProjects, pendirianProjects]);
 
-  const handleDownloadProject = async (item: any) => {
-    if (item.project) {
-      if (item.type === 'rupst') {
-        try {
-          if (item.project.rupstType === 'sirkuler') {
-            const { generateSirkulerLaporanDocx } = await import('./src/lib/generateSirkulerLaporanDocx');
-            await generateSirkulerLaporanDocx({ ...INITIAL_STATE, ...item.project });
-          } else {
-            const { generateRUPSTDocx } = await import('./src/lib/generateRUPSTDocx');
-            await generateRUPSTDocx({ ...INITIAL_STATE, ...item.project });
-          }
-        } catch (error) {
-          console.error("RUPST Export Error:", error);
-          alert("Gagal mengunduh RUPST.");
-        }
-      } else if (item.type === 'pendirian') {
-        try {
-          const d = item.project;
-          const mappedData = {
-            namaPt: d.companyName || d.namaPt || "",
-            tanggal: d.signingDate || d.tanggal || "",
-            waktu: d.aktaStartTime || d.waktu || "10:00",
-            notarisNamaSurat: d.notaryName || d.notarisNamaSurat || "NUKANTINI PUTRI PARINCHA, SH., M.Kn.",
-            notarisTempat: d.notaryDomicile || d.notarisTempat || "Kabupaten Bandung Barat",
-            kotaKedudukan: d.newAddress?.city || d.domicile || "",
-            alamatLengkapPT: d.newAddress?.fullAddress || d.fullAddress || "",
-            modalDasar: d.modalDasar || d.targetCapitalBase || d.originalCapitalBase || 0,
-            nilaiPerLembar: d.nilaiPerLembar || d.originalSharePrice || 0,
-            modalDisetorPersen: d.modalDisetorPersen || (d.targetCapitalPaid / d.targetCapitalBase) * 100 || 25,
-            kuotaWaktuDireksi: d.duration || "5",
-            kbliItems: d.kbliItems || [],
-            shareholders: d.shareholders || [],
-            saksi1Nama: d.saksi1Nama || "",
-            saksi1LahirTempat: d.saksi1Lahir || "",
-            saksi1LahirTanggal: d.saksi1Lahir || "",
-            saksi1Alamat: d.saksi1Alamat || "",
-            saksi1NIK: d.saksi1NIK || "",
-            saksi2Nama: d.saksi2Nama || "",
-            saksi2LahirTempat: d.saksi2Lahir || "",
-            saksi2LahirTanggal: d.saksi2Lahir || "",
-            saksi2Alamat: d.saksi2Alamat || "",
-            saksi2NIK: d.saksi2NIK || "",
-          };
-          await generatePendirianDocx(mappedData);
-        } catch (e) {
-          console.error(e);
-          alert("Gagal mengunduh Pendirian.");
-        }
-      } else if (item.type === 'notulen') {
-        try {
-          await generateWordDoc({ ...INITIAL_STATE, ...item.project });
-        } catch (error) {
-          console.error("Export Word error:", error);
-          alert("Gagal mengunduh dokumen Word.");
-        }
-      }
-    } else {
-      alert(`Simulasi pengunduhan akta "${item.name}" untuk "${item.sub}" berhasil.`);
-    }
-  };
+
 
   const getDeduplicatedNames = () => {
     const names = new Set<string>();
@@ -1038,51 +726,8 @@ const App: React.FC = () => {
     );
   });
 
-  const [user, setUser] = useState<FirebaseUser | null>(null);
-  const [userProfile, setUserProfile] = useState<{ name: string; level: string } | null>(null);
   const [isEditProfileModalOpen, setIsEditProfileModalOpen] = useState(false);
   const [isFetchingNumbers, setIsFetchingNumbers] = useState(false);
-  const [isSyncing, setIsSyncing] = useState(false);
-
-  const handleManualSync = async (type: 'PENDIRIAN' | 'RUPSLB' | 'RUPST', deedData: any) => {
-    const deedNumber = type === 'PENDIRIAN' ? deedData.nomorAkta : deedData.draftAktaRupsNumber;
-    const deedDate = type === 'PENDIRIAN' ? deedData.tanggal : deedData.draftAktaRupsDate;
-
-    if (!deedNumber || !deedDate) {
-      alert("Nomor Akta dan Tanggal Akta harus diisi sebelum sinkronisasi.");
-      return false;
-    }
-
-    setIsSyncing(true);
-    try {
-      let rawClientName = type === 'PENDIRIAN' ? (deedData as any).namaPt : (deedData as any).companyName;
-      if (deedData.selectedProfileId) {
-        const profile = profiles.find(p => p.id === deedData.selectedProfileId);
-        if (profile && profile.companyName) {
-          rawClientName = profile.companyName;
-        }
-      }
-      
-      const clientName = (rawClientName || '').toUpperCase().startsWith('PT') ? (rawClientName || '') : `PT ${(rawClientName || '')}`;
-
-      const syncData = {
-        deedNumber,
-        orderNumber: type === 'PENDIRIAN' ? (deedData as any).nomorUrut : (deedData as any).draftAktaRupsOrderNumber,
-        deedDate,
-        clientName,
-        deedTitle: getDeedTitle(type, deedData, rawClientName),
-        appearers: type === 'PENDIRIAN' ? (formatAppearersForPendirian as any)(deedData) : formatAppearersForRups(deedData)
-      };
-      await syncToUtama(syncData);
-      return true;
-    } catch (error) {
-      console.error("Sync failed:", error);
-      alert("Gagal sinkronisasi ke Aplikasi Utama.");
-      return false;
-    } finally {
-      setIsSyncing(false);
-    }
-  };
 
   const handleFetchLatestNumbers = async () => {
     setIsFetchingNumbers(true);
@@ -1098,30 +743,7 @@ const App: React.FC = () => {
       setIsFetchingNumbers(false);
     }
   };
-  const [authLoading, setAuthLoading] = useState(() => {
-    return localStorage.getItem('notaris_user_is_logged_in') === 'true';
-  });
   const [dataLoading, setDataLoading] = useState(true);
-
-  useEffect(() => {
-    if (user) {
-      const unsub = onSnapshot(doc(db, 'user_profiles', user.uid), (doc) => {
-        if (doc.exists()) {
-          setUserProfile(doc.data() as { name: string; level: string });
-        } else {
-          setUserProfile({
-            name: user.displayName || 'Azizah',
-            level: 'Senior Notaris'
-          });
-        }
-      }, (error) => {
-        handleFirestoreError(error, OperationType.GET, `user_profiles/${user.uid}`);
-      });
-      return () => unsub();
-    } else {
-      setUserProfile(null);
-    }
-  }, [user]);
 
   useEffect(() => {
     const handleOutsideClick = () => {
@@ -1133,39 +755,7 @@ const App: React.FC = () => {
     };
   }, []);
 
-  useEffect(() => {
-    let timeoutId: any;
-    const unsub = onAuthStateChanged(auth, (currentUser) => {
-      if (currentUser) {
-        localStorage.setItem('notaris_user_is_logged_in', 'true');
-        setUser(currentUser);
-        setAuthLoading(false);
-      } else {
-        const wasLoggedIn = localStorage.getItem('notaris_user_is_logged_in') === 'true';
-        if (wasLoggedIn) {
-          timeoutId = setTimeout(() => {
-            localStorage.removeItem('notaris_user_is_logged_in');
-            setUser(null);
-            setAuthLoading(false);
-            setDataLoading(false);
-          }, 1500);
-        } else {
-          setUser(null);
-          setAuthLoading(false);
-          setDataLoading(false);
-        }
-      }
-    });
-    return () => {
-      unsub();
-      if (timeoutId) clearTimeout(timeoutId);
-    };
-  }, []);
-
   const handleLogout = async () => {
-    localStorage.removeItem('notaris_user_is_logged_in');
-    setUser(null);
-    setAuthLoading(false);
     setDataLoading(false);
     await logout();
   };
@@ -1173,18 +763,11 @@ const App: React.FC = () => {
   const handleDuplicateProfile = async (profile: CompanyProfile) => {
     if (!user) return alert('Anda harus login!');
     try {
-      const duplicatedName = `${profile.companyName} (Salinan)`;
-      const newId = crypto.randomUUID();
-      const duplicatedProfile = {
-        ...profile,
-        id: newId,
-        companyName: duplicatedName,
-        updatedAt: new Date().toISOString()
-      };
-      await setDoc(doc(db, 'profiles', newId), sanitizeForFirestore(duplicatedProfile));
+      const isCv = profile.companyType === 'CV';
+      const duplicated = await duplicateCompany(profile, isCv);
       recordNotification(
-        'Klien PT Diduplikat',
-        `Klien PT "${profile.companyName}" telah diduplikat menjadi "${duplicatedName}".`,
+        isCv ? 'Klien CV Diduplikat' : 'Klien PT Diduplikat',
+        `Klien ${isCv ? 'CV' : 'PT'} "${profile.companyName}" telah diduplikat menjadi "${duplicated.companyName}".`,
         'create_profile'
       );
       alert('Profil berhasil diduplikat!');
@@ -1195,13 +778,12 @@ const App: React.FC = () => {
 
   const handleArchiveProfile = async (profile: CompanyProfile) => {
     if (!user) return alert('Anda harus login!');
+    const isCv = profile.companyType === 'CV';
     const toggleArchive = !profile.isArchived;
     try {
-      await updateDoc(doc(db, 'profiles', profile.id), {
-        isArchived: toggleArchive
-      });
+      await archiveCompany(profile.id, profile.isArchived, isCv);
       recordNotification(
-        toggleArchive ? 'Klien PT Diarsipkan' : 'Klien PT Dipulihkan',
+        toggleArchive ? (isCv ? 'Klien CV Diarsipkan' : 'Klien PT Diarsipkan') : (isCv ? 'Klien CV Dipulihkan' : 'Klien PT Dipulihkan'),
         `Profil klien "${profile.companyName}" telah ${toggleArchive ? 'diarsipkan' : 'dipulihkan'} oleh ${user.email || 'Admin'}.`,
         'update_profile'
       );
@@ -1214,151 +796,12 @@ const App: React.FC = () => {
   // Fail-safe to ensure loader disappears even with network failure
   useEffect(() => {
     const timer = setTimeout(() => {
-      setAuthLoading(false);
       setDataLoading(false);
     }, 4500);
     return () => clearTimeout(timer);
   }, []);
 
-  useEffect(() => {
-    // Public projects listener - always active
-    const rupstPublicRef = collection(db, 'rupst_public_projects');
-    const unsubRupstPublic = onSnapshot(rupstPublicRef, (snapshot) => {
-      const loaded: CompanyData[] = [];
-      snapshot.forEach(doc => {
-        loaded.push(doc.data() as CompanyData);
-      });
-      setRupstPublicProjects(loaded);
-    }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, `rupst_public_projects`);
-    });
-
-    if (user) {
-      let profilesReady = false;
-      let cvProfilesReady = false;
-      let projectsReady = false;
-      let rupstReady = false;
-      let pendirianReady = false;
-
-      const checkIfLoaded = () => {
-        if (profilesReady && cvProfilesReady && projectsReady && rupstReady && pendirianReady) {
-          setDataLoading(false);
-        }
-      };
-
-      const profilesRef = collection(db, 'profiles');
-      const unsubProfiles = onSnapshot(profilesRef, (snapshot) => {
-        const loaded: CompanyProfile[] = [];
-        snapshot.forEach(doc => {
-          loaded.push(doc.data() as CompanyProfile);
-        });
-        setProfiles(loaded);
-        profilesReady = true;
-        checkIfLoaded();
-      }, (error) => {
-        handleFirestoreError(error, OperationType.LIST, `profiles`);
-        profilesReady = true;
-        checkIfLoaded();
-      });
-
-      const cvProfilesRef = collection(db, 'cv_profiles');
-      const unsubCvProfiles = onSnapshot(cvProfilesRef, (snapshot) => {
-        const loaded: CompanyProfile[] = [];
-        snapshot.forEach(doc => {
-          loaded.push(doc.data() as CompanyProfile);
-        });
-        setCvProfiles(loaded);
-        cvProfilesReady = true;
-        checkIfLoaded();
-      }, (error) => {
-        handleFirestoreError(error, OperationType.LIST, `cv_profiles`);
-        cvProfilesReady = true;
-        checkIfLoaded();
-      });
-
-      const projectsRef = collection(db, 'projects');
-      const unsubProjects = onSnapshot(projectsRef, (snapshot) => {
-        const loaded: CompanyData[] = [];
-        snapshot.forEach(doc => {
-          loaded.push(doc.data() as CompanyData);
-        });
-        setProjects(loaded);
-        projectsReady = true;
-        checkIfLoaded();
-      }, (error) => {
-        handleFirestoreError(error, OperationType.LIST, `projects`);
-        projectsReady = true;
-        checkIfLoaded();
-      });
-
-      const pendirianRef = collection(db, 'pendirian_projects');
-      const unsubPendirian = onSnapshot(pendirianRef, (snapshot) => {
-        const loaded: CompanyData[] = [];
-        snapshot.forEach(doc => {
-          loaded.push(doc.data() as CompanyData);
-        });
-        setPendirianProjects(loaded);
-        pendirianReady = true;
-        checkIfLoaded();
-      }, (error) => {
-        handleFirestoreError(error, OperationType.LIST, 'pendirian_projects');
-        pendirianReady = true;
-        checkIfLoaded();
-      });
-
-      const rupstRef = collection(db, 'rupst_projects');
-      const unsubRupst = onSnapshot(rupstRef, (snapshot) => {
-        const loaded: CompanyData[] = [];
-        snapshot.forEach(doc => {
-          loaded.push(doc.data() as CompanyData);
-        });
-        setRupstProjects(loaded);
-        rupstReady = true;
-        checkIfLoaded();
-      }, (error) => {
-        handleFirestoreError(error, OperationType.LIST, `rupst_projects`);
-        rupstReady = true;
-        checkIfLoaded();
-      });
-
-      // Realtime notifications
-      const notificationsRef = collection(db, 'notifications');
-      const unsubNotifications = onSnapshot(notificationsRef, (snapshot) => {
-        const loaded: any[] = [];
-        snapshot.forEach(doc => {
-          loaded.push({ id: doc.id, ...doc.data() });
-        });
-        loaded.sort((a, b) => (b.timestamp || '').localeCompare(a.timestamp || ''));
-        setNotifications(loaded);
-      }, (error) => {
-        handleFirestoreError(error, OperationType.LIST, `notifications`);
-      });
-
-      return () => { 
-        unsubProfiles(); 
-        unsubCvProfiles();
-        unsubProjects(); 
-        unsubRupst(); 
-        unsubRupstPublic(); 
-        unsubPendirian(); 
-        unsubNotifications();
-      };
-    } else {
-      setProfiles([]);
-      setCvProfiles([]);
-      setProjects([]);
-      setRupstProjects([]);
-      setPendirianProjects([]);
-      setDataLoading(false);
-      return () => unsubRupstPublic();
-    }
-  }, [user]);
-
-  const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
-  const [editingRupstId, setEditingRupstId] = useState<string | null>(null);
   const [editingRupstPublicId, setEditingRupstPublicId] = useState<string | null>(null);
-  const [editingPendirianId, setEditingPendirianId] = useState<string | null>(null);
-  const [editingProfileId, setEditingProfileId] = useState<string | null>(null);
   const [editingCvProfileId, setEditingCvProfileId] = useState<string | null>(null);
 
   const [isProfilePreview, setIsProfilePreview] = useState<boolean>(false);
@@ -1370,9 +813,6 @@ const App: React.FC = () => {
   const [rupstDropdownId, setRupstDropdownId] = useState<string | null>(null);
   const [isPtGroupOpen, setIsPtGroupOpen] = useState(true);
 
-  const [editingShareholder, setEditingShareholder] = useState<Shareholder | null>(null);
-  const [rupstInputMode, setRupstInputMode] = useState<'form' | 'assistant'>('assistant');
-  const [assistantStep, setAssistantStep] = useState<number>(1);
   const [editMode, setEditMode] = useState<'lama' | 'baru' | 'pengganti' | 'pengganti_saham' | null>(null);
   const [editingDismissalId, setEditingDismissalId] = useState<string | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
@@ -1508,167 +948,357 @@ const App: React.FC = () => {
   };
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [presetLoadedForProject, setPresetLoadedForProject] = useState<string | null>(null);
+  // Guards against duplicate/racy concurrent fetch-and-match runs of the
+  // project-preset-loading effect below (see usage for details).
+  const presetFetchInFlightRef = useRef<string | null>(null);
+  const [presetRetryTick, setPresetRetryTick] = useState(0);
+  const presetRetryCountRef = useRef<Record<string, number>>({});
+  const [pendirianPreset, setPendirianPreset] = useState<any>(null);
   const navigate = useNavigate();
   const location = useLocation();
 
-  const TAB_TO_PATH: Record<string, string> = useMemo(() => ({
-    'beranda': '/',
-    'company_profile': '/profile',
-    'cv_profile': '/profile-cv',
-    'notulen': '/rupslb',
-    'pendirian': '/pendirian',
-    'rupst': '/rupst',
-    'perbaikan': '/perbaikan',
-    'draft_akta_rups': '/draft-akta',
-    'panduan': '/panduan',
-    'sirkuler_laporan': '/sirkuler',
-    'rupst_public': '/rupst-public',
-    'kbli_mapping': '/kbli-mapping',
-    'saran_kbli': '/saran-kbli',
-    'import_kbli': '/import-kbli',
-    'laporan': '/laporan',
-    'whatsapp_settings': '/whatsapp-gateway'
-  }), []);
-
-  const PATH_TO_TAB: Record<string, SidebarTabId> = useMemo(() => 
-    Object.fromEntries(Object.entries(TAB_TO_PATH).map(([tab, path]) => [path, tab as SidebarTabId])),
-  [TAB_TO_PATH]);
-
   const activeSidebarTab = useMemo(() => {
     return PATH_TO_TAB[location.pathname] || 'beranda';
-  }, [location.pathname, PATH_TO_TAB]);
+  }, [location.pathname]);
 
   const setActiveSidebarTab = (tab: SidebarTabId) => {
+    closeProject();
     const path = TAB_TO_PATH[tab] || '/';
     navigate(path);
   };
 
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const projId = params.get('projectId');
+    const docId = params.get('id');
+    
+    if (projId || docId) {
+      if (projId) {
+        setActiveProjectContext(projId);
+      }
+      
+      if (docId) {
+        if (location.pathname === '/rupst') {
+          setEditingRupstId(docId);
+        } else if (location.pathname === '/rupslb') {
+          setEditingProjectId(docId);
+        } else if (location.pathname === '/pendirian') {
+          setEditingPendirianId(docId);
+        }
+      }
+      
+      // Clean query parameter from URL using navigate to prevent auto-open loop
+      navigate(location.pathname, { replace: true });
+    }
+  }, [location.search, location.pathname, navigate, setActiveProjectContext, setEditingRupstId, setEditingProjectId, setEditingPendirianId]);
+
+  useEffect(() => {
+    setPresetLoadedForProject(null);
+    setPendirianPreset(null);
+  }, [activeProjectContext]);
+
+  // Fetch project jobType details when activeProjectContext is set
+  useEffect(() => {
+    if (activeProjectContext) {
+      ProjectService.getProject(activeProjectContext)
+        .then((proj) => {
+          if (proj) {
+            setActiveProjectJobType(proj.jobType);
+          }
+        })
+        .catch((err) => {
+          console.error("Error fetching active project details:", err);
+        });
+    } else {
+      setActiveProjectJobType(null);
+    }
+  }, [activeProjectContext]);
+
+  // Handle auto-opening of document editors when activeProjectContext is set
+  const findMatchedProfile = (proj: any, profilesList: any[]) => {
+    if (!proj || !profilesList || profilesList.length === 0) return null;
+    
+    // 1. Try matching by exact clientId
+    if (proj.clientId) {
+      const directMatch = profilesList.find(p => p.id === proj.clientId);
+      if (directMatch) return directMatch;
+      
+      // 2. Try matching by clientId after trimming
+      const cleanId = proj.clientId.trim();
+      const cleanMatch = profilesList.find(p => p.id && p.id.trim() === cleanId);
+      if (cleanMatch) return cleanMatch;
+    }
+    
+    // 3. Try matching by company name extracted from project title (splitting by "—")
+    if (proj.title && proj.title.includes('—')) {
+      const parts = proj.title.split('—');
+      const nameFromTitle = parts[1]?.trim().toLowerCase();
+      if (nameFromTitle) {
+        const nameMatch = profilesList.find(p => {
+          const pName = p.companyName?.trim().toLowerCase();
+          return pName && (pName === nameFromTitle || pName.includes(nameFromTitle) || nameFromTitle.includes(pName));
+        });
+        if (nameMatch) return nameMatch;
+      }
+    }
+    
+    // 4. Try matching by companyName or targetCompanyName on project companyName field
+    if (proj.companyName) {
+      const cleanCompName = proj.companyName.trim().toLowerCase();
+      const nameMatch = profilesList.find(p => {
+        const pName = p.companyName?.trim().toLowerCase();
+        return pName && (pName === cleanCompName || pName.includes(cleanCompName) || cleanCompName.includes(pName));
+      });
+      if (nameMatch) return nameMatch;
+    }
+    
+    // 5. Try matching by companyName anywhere in the project title
+    if (proj.title) {
+      const cleanTitle = proj.title.toLowerCase();
+      const nameMatch = profilesList.find(p => {
+        const pName = p.companyName?.trim().toLowerCase();
+        return pName && cleanTitle.includes(pName);
+      });
+      if (nameMatch) return nameMatch;
+    }
+    
+    return null;
+  };
+
+  useEffect(() => {
+    if (activeProjectContext) {
+      if (activeSidebarTab === 'rupst' && presetLoadedForProject !== activeProjectContext) {
+        if (editingRupstId && editingRupstId !== 'new') {
+          // If we're editing an existing doc, don't run preset logic (which would overwrite saved state)
+          setPresetLoadedForProject(activeProjectContext);
+          return;
+        }
+        if (!editingRupstId) {
+          setEditingRupstId('new');
+          setIsRupstPreview(false);
+        }
+        // Guard: prevent duplicate concurrent fetch/match runs for the same project.
+        // (This effect can re-fire when setEditingRupstId above triggers a re-render,
+        // since editingRupstId is in the dependency list — without this guard, two
+        // concurrent ProjectService.getProject() calls can race and the losing run
+        // can lock in presetLoadedForProject with an incomplete result.)
+        if (
+          (profiles.length > 0 || !dataLoading) &&
+          presetFetchInFlightRef.current !== `rupst:${activeProjectContext}`
+        ) {
+          presetFetchInFlightRef.current = `rupst:${activeProjectContext}`;
+          ProjectService.getProject(activeProjectContext)
+            .then((proj) => {
+              if (proj) {
+                const defaultType = proj.jobType === 'sirkuler' ? 'sirkuler' : 'rapat';
+                const matchedProfile = findMatchedProfile(proj, profiles);
+                console.log('[ProjectPreset:rupst]', {
+                  activeProjectContext,
+                  profilesCount: profiles.length,
+                  projClientId: proj.clientId,
+                  projTitle: proj.title,
+                  matched: !!matchedProfile,
+                  matchedId: matchedProfile?.id,
+                  matchedShareholders: matchedProfile?.shareholders?.length,
+                  matchedOldManagementItems: matchedProfile?.oldManagementItems?.length,
+                  matchedDomicile: matchedProfile?.domicile,
+                });
+                if (matchedProfile) {
+                  const {
+                    id, 
+                    resolutions, 
+                    targetCapitalBase, 
+                    targetCapitalPaid,
+                    targetCompanyName, 
+                    targetShareholders, 
+                    newManagementItems,
+                    ...rest
+                  } = matchedProfile as any;
+                  
+                  // Ensure address fields from profile are mapped to "old" fields for RUPS context
+                  const updates = { 
+                    ...INITIAL_STATE, 
+                    rupstType: defaultType, 
+                    ...rest, 
+                    selectedProfileId: matchedProfile.id,
+                    oldFullAddress: rest.fullAddress || rest.oldFullAddress,
+                    oldAddress: rest.newAddress || rest.oldAddress,
+                    oldDomicile: rest.domicile || rest.oldDomicile
+                  };
+
+                  updateData(updates as any);
+                  setPresetLoadedForProject(activeProjectContext);
+                } else if (!dataLoading && profiles.length > 0) {
+                  console.warn('[ProjectPreset:rupst] No matched profile found — falling back to title-only. clientId on project was:', proj.clientId);
+                  updateData({ ...INITIAL_STATE, rupstType: defaultType, companyName: proj.title || '' } as any);
+                  setPresetLoadedForProject(activeProjectContext);
+                } else {
+                  const retryKey = `rupst:${activeProjectContext}`;
+                  const attempts = (presetRetryCountRef.current[retryKey] || 0) + 1;
+                  presetRetryCountRef.current[retryKey] = attempts;
+                  if (attempts > 8) {
+                    console.error('[ProjectPreset:rupst] Giving up after 8 retries — profiles still empty. Falling back to title-only.');
+                    updateData({ ...INITIAL_STATE, rupstType: defaultType, companyName: proj.title || '' } as any);
+                    setPresetLoadedForProject(activeProjectContext);
+                  } else {
+                    console.warn(`[ProjectPreset:rupst] profiles not loaded yet (profilesCount=0), retry ${attempts}/8 in 700ms...`);
+                    setTimeout(() => setPresetRetryTick(t => t + 1), 700);
+                  }
+                }
+              }
+            })
+            .catch((err) => {
+              console.error('Error fetching project for RUPST preset:', err);
+              updateData({ ...INITIAL_STATE } as any);
+              setPresetLoadedForProject(activeProjectContext);
+            })
+            .finally(() => {
+              presetFetchInFlightRef.current = null;
+            });
+        }
+      } else if (activeSidebarTab === 'notulen' && presetLoadedForProject !== activeProjectContext) {
+        if (editingProjectId && editingProjectId !== 'new') {
+          // If we're editing an existing doc, don't run preset logic (which would overwrite saved state)
+          setPresetLoadedForProject(activeProjectContext);
+          return;
+        }
+        if (!editingProjectId) {
+          setEditingProjectId('new');
+          setIsRupsPreview(false);
+        }
+        if (
+          (profiles.length > 0 || !dataLoading) &&
+          presetFetchInFlightRef.current !== `notulen:${activeProjectContext}`
+        ) {
+          presetFetchInFlightRef.current = `notulen:${activeProjectContext}`;
+          ProjectService.getProject(activeProjectContext)
+            .then((proj) => {
+              if (proj) {
+                const defaultType = proj.jobType === 'sirkuler_rupslb' ? 'CIRCULAR' : 'MINUTES';
+                const matchedProfile = findMatchedProfile(proj, profiles);
+                console.log('[ProjectPreset:notulen]', {
+                  activeProjectContext,
+                  profilesCount: profiles.length,
+                  projClientId: proj.clientId,
+                  projTitle: proj.title,
+                  matched: !!matchedProfile,
+                  matchedId: matchedProfile?.id,
+                  matchedShareholders: matchedProfile?.shareholders?.length,
+                  matchedOldManagementItems: matchedProfile?.oldManagementItems?.length,
+                  matchedDomicile: matchedProfile?.domicile,
+                });
+                if (matchedProfile) {
+                  const {
+                    id, 
+                    resolutions, 
+                    targetCapitalBase, 
+                    targetCapitalPaid,
+                    targetCompanyName, 
+                    targetShareholders, 
+                    newManagementItems,
+                    ...rest
+                  } = matchedProfile as any;
+                  
+                  const updates = { 
+                    ...INITIAL_STATE, 
+                    documentType: defaultType, 
+                    ...rest, 
+                    selectedProfileId: matchedProfile.id,
+                    oldFullAddress: rest.fullAddress || rest.oldFullAddress,
+                    oldAddress: rest.newAddress || rest.oldAddress,
+                    oldDomicile: rest.domicile || rest.oldDomicile
+                  };
+
+                  updateData(updates as any);
+                  setPresetLoadedForProject(activeProjectContext);
+                } else if (!dataLoading && profiles.length > 0) {
+                  console.warn('[ProjectPreset:notulen] No matched profile found — falling back to title-only. clientId on project was:', proj.clientId);
+                  updateData({ ...INITIAL_STATE, documentType: defaultType, companyName: proj.title || '' } as any);
+                  setPresetLoadedForProject(activeProjectContext);
+                } else {
+                  const retryKey = `notulen:${activeProjectContext}`;
+                  const attempts = (presetRetryCountRef.current[retryKey] || 0) + 1;
+                  presetRetryCountRef.current[retryKey] = attempts;
+                  if (attempts > 8) {
+                    console.error('[ProjectPreset:notulen] Giving up after 8 retries — profiles still empty. Falling back to title-only.');
+                    updateData({ ...INITIAL_STATE, documentType: defaultType, companyName: proj.title || '' } as any);
+                    setPresetLoadedForProject(activeProjectContext);
+                  } else {
+                    console.warn(`[ProjectPreset:notulen] profiles not loaded yet (profilesCount=0), retry ${attempts}/8 in 700ms...`);
+                    setTimeout(() => setPresetRetryTick(t => t + 1), 700);
+                  }
+                }
+              }
+            })
+            .catch((err) => {
+              console.error('Error fetching project for RUPS LB preset:', err);
+              updateData({ ...INITIAL_STATE } as any);
+              setPresetLoadedForProject(activeProjectContext);
+            })
+            .finally(() => {
+              presetFetchInFlightRef.current = null;
+            });
+        }
+      } else if (activeSidebarTab === 'pendirian' && presetLoadedForProject !== activeProjectContext) {
+        if (!editingPendirianId) {
+          setEditingPendirianId('new');
+          setPendirianPreset(null);
+        }
+        if (profiles.length > 0 || !dataLoading) {
+          ProjectService.getProject(activeProjectContext)
+            .then((proj) => {
+              if (proj) {
+                const matchedProfile = findMatchedProfile(proj, profiles);
+                if (matchedProfile) {
+                  const preset = mapCompanyProfileToPendirian(matchedProfile);
+                  setPendirianPreset(preset);
+                  setPresetLoadedForProject(activeProjectContext);
+                } else if (!dataLoading) {
+                  setPendirianPreset({ namaPt: proj.title?.toUpperCase() || '' });
+                  setPresetLoadedForProject(activeProjectContext);
+                }
+              }
+            })
+            .catch((err) => {
+              console.error('Error fetching project for Pendirian preset:', err);
+              setPendirianPreset(null);
+              setPresetLoadedForProject(activeProjectContext);
+            });
+        }
+      }
+    }
+  }, [activeProjectContext, activeSidebarTab, profiles, dataLoading, presetLoadedForProject, editingRupstId, editingProjectId, editingPendirianId, presetRetryTick]);
+
   // Auto-Save States & Logic
   const [currentPendirianData, setCurrentPendirianData] = useState<any>(null);
-  const [lastAutoSavedAt, setLastAutoSavedAt] = useState<string | null>(null);
-  const [isAutoSaving, setIsAutoSaving] = useState<boolean>(false);
-
-  const autoSaveStateRef = useRef({
-    activeSidebarTab,
-    editingProjectId,
-    editingRupstId,
-    editingPendirianId,
-    data,
-    currentPendirianData,
-    user
-  });
 
   useEffect(() => {
-    autoSaveStateRef.current = {
+    setAutosaveParams({
       activeSidebarTab,
       editingProjectId,
+      setEditingProjectId,
       editingRupstId,
+      setEditingRupstId,
       editingPendirianId,
-      data,
+      setEditingPendirianId,
       currentPendirianData,
-      user
-    };
-  }, [activeSidebarTab, editingProjectId, editingRupstId, editingPendirianId, data, currentPendirianData, user]);
-
-  useEffect(() => {
-    const hasActiveSession = !!(editingProjectId || editingRupstId || editingPendirianId);
-    if (!user || !hasActiveSession) {
-      setIsAutoSaving(false);
-      setLastAutoSavedAt(null);
-      return;
-    }
-
-    const interval = setInterval(async () => {
-      const {
-        activeSidebarTab: currentTab,
-        editingProjectId: curProjId,
-        editingRupstId: curRupstId,
-        editingPendirianId: curPendirianId,
-        data: curData,
-        currentPendirianData: curPendirian,
-        user: curUser
-      } = autoSaveStateRef.current;
-
-      if (!curUser) return;
-
-      try {
-        if (currentTab === 'notulen' && curProjId) {
-          const companyName = curData.companyName?.trim();
-          if (!companyName) return;
-
-          setIsAutoSaving(true);
-          const id = curProjId === 'new' ? crypto.randomUUID() : curProjId;
-
-          if (curProjId === 'new') {
-            setEditingProjectId(id);
-          }
-
-          const profileData = {
-            documentStatus: 'DRAFTING', // Default to DRAFTING for new auto-saved projects
-            ...curData,
-            id,
-            updatedAt: new Date().toISOString()
-          };
-
-          await setDoc(doc(db, 'projects', id), sanitizeForFirestore(profileData));
-          const timeStr = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-          setLastAutoSavedAt(timeStr);
-          setIsAutoSaving(false);
-        } 
-        else if (currentTab === 'rupst' && curRupstId) {
-          const companyName = curData.companyName?.trim();
-          if (!companyName) return;
-
-          setIsAutoSaving(true);
-          const id = curRupstId === 'new' ? crypto.randomUUID() : curRupstId;
-
-          if (curRupstId === 'new') {
-            setEditingRupstId(id);
-          }
-
-          const profileData = {
-            documentStatus: 'DRAFTING', // Default to DRAFTING
-            ...curData,
-            id,
-            updatedAt: new Date().toISOString()
-          };
-
-          await setDoc(doc(db, 'rupst_projects', id), sanitizeForFirestore(profileData));
-          const timeStr = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-          setLastAutoSavedAt(timeStr);
-          setIsAutoSaving(false);
-        } 
-        else if (currentTab === 'pendirian' && curPendirianId && curPendirian) {
-          const companyName = curPendirian.namaPt?.trim();
-          if (!companyName) return;
-
-          setIsAutoSaving(true);
-          const id = curPendirianId === 'new' ? crypto.randomUUID() : curPendirianId;
-
-          if (curPendirianId === 'new') {
-            setEditingPendirianId(id);
-          }
-
-          const finalData = {
-            documentStatus: 'DRAFTING', // Default to DRAFTING
-            ...curPendirian,
-            id,
-            updatedAt: new Date().toISOString()
-          };
-
-          await setDoc(doc(db, 'pendirian_projects', id), sanitizeForFirestore(finalData));
-          const timeStr = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-          setLastAutoSavedAt(timeStr);
-          setIsAutoSaving(false);
-        }
-      } catch (error) {
-        console.error("Auto-save failed to save draft:", error);
-        setIsAutoSaving(false);
-      }
-    }, 3600000); // 1 hour
-
-    return () => clearInterval(interval);
-  }, [editingProjectId, editingRupstId, editingPendirianId, user]);
+      user,
+      profiles
+    });
+  }, [
+    activeSidebarTab,
+    editingProjectId,
+    setEditingProjectId,
+    editingRupstId,
+    setEditingRupstId,
+    editingPendirianId,
+    setEditingPendirianId,
+    currentPendirianData,
+    user,
+    profiles,
+    setAutosaveParams
+  ]);
 
   const AutoSaveIndicatorComponent = () => {
     if (isAutoSaving) {
@@ -1693,46 +1323,6 @@ const App: React.FC = () => {
   const [zoom, setZoom] = useState(1);
   const [showPendirianPreview, setShowPendirianPreview] = useState(false);
   const [pendirianPreviewData, setPendirianPreviewData] = useState<any>(null);
-  const [isExportingPendirian, setIsExportingPendirian] = useState(false);
-
-  const handlePendirianExportWord = async (d: any) => {
-    setIsExportingPendirian(true);
-    try {
-      // Map CompanyData to PendirianData expected by the generator
-      const mappedData = {
-        namaPt: d.companyName || d.namaPt || "",
-        tanggal: d.signingDate || d.tanggal || "",
-        waktu: d.aktaStartTime || d.waktu || "10:00",
-        notarisNamaSurat: d.notaryName || d.notarisNamaSurat || "NUKANTINI PUTRI PARINCHA, SH., M.Kn.",
-        notarisTempat: d.notaryDomicile || d.notarisTempat || "Kabupaten Bandung Barat",
-        kotaKedudukan: d.newAddress?.city || d.domicile || "",
-        alamatLengkapPT: d.newAddress?.fullAddress || d.fullAddress || "",
-        modalDasar: (d.modalDasarLembar && d.nilaiPerLembar) ? (d.modalDasarLembar * d.nilaiPerLembar) : (d.modalDasar || d.targetCapitalBase || d.originalCapitalBase || 0),
-        nilaiPerLembar: d.nilaiPerLembar || d.originalSharePrice || 0,
-        modalDisetorPersen: (d.modalDisetorLembar && d.modalDasarLembar) ? ((d.modalDisetorLembar / d.modalDasarLembar) * 100) : (d.modalDisetorPersen || (d.targetCapitalPaid / d.targetCapitalBase) * 100 || 25),
-        kuotaWaktuDireksi: d.duration || "5",
-        kbliItems: d.kbliItems || [],
-        shareholders: d.shareholders || [],
-        saksi1Nama: d.saksi1Nama || "",
-        saksi1LahirTempat: d.saksi1Lahir || "",
-        saksi1LahirTanggal: d.saksi1Lahir || "",
-        saksi1Alamat: d.saksi1Alamat || "",
-        saksi1NIK: d.saksi1NIK || "",
-        saksi2Nama: d.saksi2Nama || "",
-        saksi2LahirTempat: d.saksi2Lahir || "",
-        saksi2LahirTanggal: d.saksi2Lahir || "",
-        saksi2Alamat: d.saksi2Alamat || "",
-        saksi2NIK: d.saksi2NIK || "",
-      };
-      await generatePendirianDocx(mappedData);
-    } catch (e: any) {
-      console.error(e);
-      alert("Error Exporting: " + (e.message || String(e)));
-    } finally {
-      setIsExportingPendirian(false);
-    }
-  };
-  const [proxyModalOpenId, setProxyModalOpenId] = useState<string | null>(null);
 
 
   useEffect(() => {
@@ -1781,36 +1371,7 @@ const App: React.FC = () => {
     }
   }, [data.documentType, data.resolutions]);
 
-  // Validate completeness of manual inputs for replacements and recipients
-  const validateFormCompleteness = (): boolean => {
-    // 1. Validate Management Changelog Replaced detail
-    if (mergedData.resolutions.management && mergedData.managementDismissals) {
-      for (const d of mergedData.managementDismissals) {
-        if (d.replacementType === 'MANUAL' && d.replacedByName) {
-          const det = d.replacedByDetail;
-          if (!det || !det.birthCity || !det.birthDate || !det.occupation || !det.address?.fullAddress) {
-            alert(`⚠ PENTING: Anda harus melengkapi Formulir Lengkap untuk Pengganti Pengurus (${d.replacedByName.toUpperCase()}) yang Anda input secara manual! Tidak bisa hanya mengisi Nama dan NIK saja.`);
-            return false;
-          }
-        }
-      }
-    }
 
-    // 2. Validate Share Transfers Recipient detail
-    if (mergedData.resolutions.shareholders && mergedData.shareTransfersNew) {
-      for (const t of mergedData.shareTransfersNew) {
-        if (t.toType === 'NEW' && t.toName) {
-          const det = t.toDetail;
-          if (!det || !det.birthCity || !det.birthDate || !det.occupation || !det.address?.fullAddress) {
-            alert(`⚠ PENTING: Anda harus melengkapi Formulir Lengkap untuk Penerima Peralihan Saham Baru (${t.toName.toUpperCase()})! Tidak bisa hanya mengisi Nama dan NIK saja.`);
-            return false;
-          }
-        }
-      }
-    }
-
-    return true;
-  };
 
   // Synchronize new shareholders initially if completely empty
   // Also calculate final composition automatically when share transfers or capital subscriptions are filled
@@ -1820,7 +1381,7 @@ const App: React.FC = () => {
 
     if (hasShareholderChange || hasCapitalChange) {
       // Start with original shareholders
-      const calculated: Shareholder[] = data.shareholders.map(s => ({
+      const calculated: Shareholder[] = (data.shareholders || []).map(s => ({
         ...s,
         sharesOwned: s.sharesOwned,
         isNewDeposit: false,
@@ -1980,8 +1541,8 @@ const App: React.FC = () => {
         });
       }
     } else {
-      const initialShString = JSON.stringify(data.shareholders.map(f => ({ id: f.id, name: f.name, sharesOwned: f.sharesOwned, birthCity: f.birthCity, occupation: f.occupation })));
-      const existingFinalShString = JSON.stringify(data.finalShareholders.map(f => ({ id: f.id, name: f.name, sharesOwned: f.sharesOwned, birthCity: f.birthCity, occupation: f.occupation })));
+      const initialShString = JSON.stringify((data.shareholders || []).map(f => ({ id: f.id, name: f.name, sharesOwned: f.sharesOwned, birthCity: f.birthCity, occupation: f.occupation })));
+      const existingFinalShString = JSON.stringify((data.finalShareholders || []).map(f => ({ id: f.id, name: f.name, sharesOwned: f.sharesOwned, birthCity: f.birthCity, occupation: f.occupation })));
       
       if (initialShString !== existingFinalShString) {
         updateData({ finalShareholders: [...data.shareholders] });
@@ -2000,174 +1561,9 @@ const App: React.FC = () => {
     data.managementDismissals
   ]);
 
-  const handlePrint = () => {
-    if (!validateFormCompleteness()) {
-      return;
-    }
-    const totalInputted = data.finalShareholders.reduce((sum, s) => sum + s.sharesOwned, 0);
-    const targetShares = data.originalSharePrice > 0 ? (data.targetCapitalPaid / data.originalSharePrice) : 0;
-    const limit = (data.resolutions.capitalPaid || data.resolutions.capitalPaidDecrease) ? targetShares : data.originalTotalShares;
 
-    if (totalInputted !== limit && (data.resolutions.capitalPaid || data.resolutions.capitalPaidDecrease || data.resolutions.shareholders)) {
-      if (!confirm(`⚠ Perhatian: Total saham komposisi akhir (${totalInputted.toLocaleString('id-ID')}) tidak sama dengan target modal disetor (${limit.toLocaleString('id-ID')}). Lanjutkan cetak?`)) {
-        return;
-      }
-    }
-    window.print();
-  };
 
-  const handleExportWord = async () => {
-    if (!mergedData.companyName) {
-      alert("Harap isi Nama Perusahaan terlebih dahulu.");
-      return;
-    }
-    if (!validateFormCompleteness()) {
-      return;
-    }
-    const totalInputted = mergedData.finalShareholders.reduce((sum, s) => sum + s.sharesOwned, 0);
-    const targetShares = mergedData.originalSharePrice > 0 ? (mergedData.targetCapitalPaid / mergedData.originalSharePrice) : 0;
-    const limit = (mergedData.resolutions.capitalPaid || mergedData.resolutions.capitalPaidDecrease) ? targetShares : mergedData.originalTotalShares;
 
-    if (totalInputted !== limit && (mergedData.resolutions.capitalPaid || mergedData.resolutions.capitalPaidDecrease || mergedData.resolutions.shareholders)) {
-      if (!confirm(`⚠ Perhatian: Total saham komposisi akhir (${totalInputted.toLocaleString('id-ID')}) tidak sama dengan target modal disetor (${limit.toLocaleString('id-ID')}). Lanjutkan export?`)) {
-        return;
-      }
-    }
-
-    if (activeSidebarTab === 'rupst') {
-      try {
-        if (mergedData.rupstType === 'sirkuler') {
-          const { generateSirkulerLaporanDocx } = await import('./src/lib/generateSirkulerLaporanDocx');
-          await generateSirkulerLaporanDocx(mergedData);
-        } else {
-          const { generateRUPSTDocx } = await import('./src/lib/generateRUPSTDocx');
-          await generateRUPSTDocx(mergedData);
-        }
-      } catch (error) {
-        console.error("RUPST Export Error:", error);
-        alert("Gagal mengunduh RUPST.");
-      }
-      return;
-    }
-
-    try {
-      await generateWordDoc(mergedData);
-    } catch (error) {
-      console.error("Export Word error:", error);
-      alert("Gagal mengunduh dokumen Word.");
-    }
-  };
-
-  const formatFullAddress = (addr: Address): string => {
-    if (!addr.fullAddress) return '';
-    const isRegency = addr.city?.toLowerCase().includes('kabupaten');
-    const villagePrefix = isRegency ? 'Desa' : 'Kelurahan';
-
-    const parts = [
-      addr.fullAddress,
-      addr.rt && addr.rw ? `RT. ${addr.rt} RW. ${addr.rw}` : '',
-      addr.kelurahan ? `${villagePrefix} ${toTitleCase(addr.kelurahan)}` : '',
-      addr.kecamatan ? `Kecamatan ${toTitleCase(addr.kecamatan)}` : '',
-      addr.city ? toTitleCase(addr.city) : '',
-      addr.province ? toTitleCase(addr.province) : ''
-    ].filter(Boolean);
-    return parts.join(', ');
-  };
-
-  const updateData = (updates: Partial<CompanyData>) => {
-    setData(prev => {
-      const newData = { ...prev, ...updates };
-
-      if (updates.originalSharePrice !== undefined || updates.originalAuthorizedShares !== undefined) {
-        newData.originalCapitalBase = (newData.originalSharePrice || 0) * (newData.originalAuthorizedShares || 0);
-        if (!newData.resolutions.capitalBase && !newData.resolutions.capitalBaseDecrease) {
-          newData.targetCapitalBase = newData.originalCapitalBase;
-        }
-      }
-      if (updates.originalSharePrice !== undefined || updates.originalTotalShares !== undefined) {
-        newData.originalCapitalPaid = (newData.originalSharePrice || 0) * (newData.originalTotalShares || 0);
-        if (!newData.resolutions.capitalPaid && !newData.resolutions.capitalPaidDecrease) {
-          newData.targetCapitalPaid = newData.originalCapitalPaid;
-        }
-      }
-
-      if (updates.newAddress) {
-        newData.fullAddress = formatFullAddress(newData.newAddress);
-      }
-      if (updates.oldAddress) {
-        newData.oldFullAddress = formatFullAddress(newData.oldAddress);
-      }
-      if (
-        updates.rupstStreet !== undefined ||
-        updates.rupstRt !== undefined ||
-        updates.rupstRw !== undefined ||
-        updates.rupstKelurahan !== undefined ||
-        updates.rupstKecamatan !== undefined
-      ) {
-        const street = updates.rupstStreet !== undefined ? updates.rupstStreet : (prev.rupstStreet || '');
-        const rt = updates.rupstRt !== undefined ? updates.rupstRt : (prev.rupstRt || '');
-        const rw = updates.rupstRw !== undefined ? updates.rupstRw : (prev.rupstRw || '');
-        const kelurahan = updates.rupstKelurahan !== undefined ? updates.rupstKelurahan : (prev.rupstKelurahan || '');
-        const kecamatan = updates.rupstKecamatan !== undefined ? updates.rupstKecamatan : (prev.rupstKecamatan || '');
-
-        const parts = [
-          street,
-          rt && rw ? `RT. ${rt} RW. ${rw}` : (rt ? `RT. ${rt}` : (rw ? `RW. ${rw}` : '')),
-          kelurahan ? `Kelurahan/Desa ${kelurahan}` : '',
-          kecamatan ? `Kecamatan ${kecamatan}` : ''
-        ].filter(Boolean);
-
-        newData.fullAddress = parts.join(', ');
-      }
-      return newData;
-    });
-  };
-
-  const syncCompanyDataToRupst = () => {
-    if (!data.selectedProfileId) {
-      alert("Pilih Klien PT terlebih dahulu.");
-      return;
-    }
-    
-    if (!confirm("Sinkronkan data terbaru dari Klien PT?\n\nData manual RUPST tidak akan diubah.")) {
-      return;
-    }
-
-    const latestProfile = profiles.find(p => p.id === data.selectedProfileId);
-    if (!latestProfile) {
-      alert("Gagal mengambil data terbaru dari Klien PT.");
-      return;
-    }
-
-    try {
-      const updates: any = {
-        companyName: latestProfile.companyName,
-        domicile: latestProfile.domicile,
-        establishmentDeedNumber: latestProfile.establishmentDeedNumber,
-        establishmentDeedDate: latestProfile.establishmentDeedDate,
-        establishmentNotary: latestProfile.establishmentNotary,
-        establishmentNotaryTitle: latestProfile.establishmentNotaryTitle,
-        establishmentNotaryDomicile: latestProfile.establishmentNotaryDomicile,
-        establishmentSkNumber: latestProfile.establishmentSkNumber,
-        establishmentSkDate: latestProfile.establishmentSkDate,
-        amendmentDeeds: latestProfile.amendmentDeeds || [],
-        shareholders: latestProfile.shareholders || [],
-        originalSharePrice: latestProfile.originalSharePrice,
-      };
-
-      // Only sync representative data if the current form is NOT set to manual input
-      if (data.representativeType !== 'MANUAL') {
-        updates.authorizedRepresentativeId = latestProfile.authorizedRepresentativeId || '';
-        updates.manualRepresentative = latestProfile.manualRepresentative || { ...INITIAL_MANUAL_REP };
-        updates.representativeType = latestProfile.representativeType || 'EXISTING';
-      }
-
-      updateData(updates);
-      alert("Data PT berhasil disinkronkan.");
-    } catch (e) {
-      alert("Gagal mengambil data terbaru dari Klien PT.");
-    }
-  };
 
   const updateAddress = (property: 'newAddress' | 'oldAddress', updates: Partial<Address>) => {
     updateData({
@@ -2255,7 +1651,7 @@ const App: React.FC = () => {
     const updates: Partial<CompanyData> = { resolutions: updatedResolutions };
 
     if ((key === 'shareholders' || key === 'management') && newVal && data.finalShareholders.length === 0) {
-      updates.finalShareholders = data.shareholders.map(s => ({
+      updates.finalShareholders = (data.shareholders || []).map(s => ({
         ...s,
         id: crypto.randomUUID(),
         linkedPartyId: s.id,
@@ -2305,7 +1701,7 @@ const App: React.FC = () => {
 
   const updateKbli = (id: string, updates: Partial<KbliItem>) => {
     updateData({
-      kbliItems: data.kbliItems.map(item => item.id === id ? { ...item, ...updates } : item)
+      kbliItems: (data.kbliItems || []).map(item => item.id === id ? { ...item, ...updates } : item)
     });
   };
 
@@ -2551,102 +1947,15 @@ const App: React.FC = () => {
     setEditMode(null);
   };
 
-  const resetData = () => {
-    if (confirm("Reset semua data?")) {
-      setData(INITIAL_STATE);
-      localStorage.removeItem('legal-draft-data-v25-final');
-      setActiveTab('general');
-    }
-  };
 
   const currentTargetSharesBase = data.originalSharePrice > 0 ? (data.targetCapitalBase / data.originalSharePrice) : 0;
   const currentTargetSharesPaid = data.originalSharePrice > 0 ? (data.targetCapitalPaid / data.originalSharePrice) : 0;
-
-  const mergedData = useMemo(() => {
-    let baseData = data;
-    if ((activeSidebarTab === 'notulen' || activeSidebarTab === 'rupst') && data.selectedProfileId) {
-      const profile = profiles.find(p => p.id === data.selectedProfileId);
-      if (profile) {
-        // We want to keep the current state from profile as the "Old" data
-        // but allow the draft (data) to control the "New/Target" states
-        baseData = {
-          ...data,
-          companyName: profile.companyName,
-          companyShortName: profile.companyShortName,
-          companyType: profile.companyType,
-          npwp: profile.npwp,
-          duration: profile.duration,
-          status: profile.status,
-          // Preserve current domicile and address info from profile
-          domicile: profile.domicile,
-          domicileStyle: profile.domicileStyle,
-          // oldAddress: profile.oldAddress, // Removed so user form input overrides profile for Draft
-          // Do NOT override newAddress or fullAddress from profile if we are in a resolution
-          // but we might want the profile's address as a starting point for 'oldFullAddress'
-          oldFullAddress: profile.oldFullAddress,
-          
-          establishmentDeedNumber: profile.establishmentDeedNumber,
-          establishmentDeedDate: profile.establishmentDeedDate,
-          establishmentNotary: profile.establishmentNotary,
-          establishmentNotaryTitle: profile.establishmentNotaryTitle,
-          establishmentNotaryDomicile: profile.establishmentNotaryDomicile,
-          establishmentSkNumber: profile.establishmentSkNumber,
-          establishmentSkDate: profile.establishmentSkDate,
-          originalTotalShares: profile.originalTotalShares,
-          originalAuthorizedShares: profile.originalAuthorizedShares,
-          originalSharePrice: profile.originalSharePrice,
-          originalCapitalBase: profile.originalCapitalBase,
-          originalCapitalPaid: profile.originalCapitalPaid,
-        };
-      }
-    }
-
-    // Patch shareholders and proxyData to automatically pull missing city from matching profiles
-    if (baseData.shareholders && profiles.length > 0) {
-      baseData = {
-        ...baseData,
-        shareholders: baseData.shareholders.map(sh => {
-          let patchedSh = { ...sh };
-          if (patchedSh.shareholderType === 'BADAN_HUKUM') {
-            const prof = profiles.find(p => 
-              (patchedSh.linkedProfileId && p.id === patchedSh.linkedProfileId) ||
-              (p.companyName && patchedSh.name && p.companyName.trim().toUpperCase() === patchedSh.name.trim().toUpperCase())
-            );
-            if (prof) {
-              const fallbackCity = (prof.domicile || prof.oldDomicile || prof.newAddress?.city || prof.oldAddress?.city || prof.kedudukanPT || (prof as any).city || '').toUpperCase();
-              if (fallbackCity && (!patchedSh.address || !patchedSh.address.city)) {
-                patchedSh.address = {
-                  ...(patchedSh.address || {}),
-                  city: fallbackCity,
-                  fullAddress: patchedSh.address?.fullAddress || '',
-                  rt: patchedSh.address?.rt || '',
-                  rw: patchedSh.address?.rw || '',
-                  kelurahan: patchedSh.address?.kelurahan || '',
-                  kecamatan: patchedSh.address?.kecamatan || '',
-                  province: patchedSh.address?.province || '',
-                };
-              }
-            }
-          }
-          return patchedSh;
-        })
-      };
-    }
-
-    return baseData;
-  }, [data, profiles, activeSidebarTab]);
 
   const effectiveBaseCapital = data.resolutions.capitalBase ? data.targetCapitalBase : data.originalCapitalBase;
   const effectivePaidCapital = data.resolutions.capitalPaid ? data.targetCapitalPaid : data.originalCapitalPaid;
   const paidUpPercentage = effectiveBaseCapital > 0 
     ? Math.round((effectivePaidCapital / effectiveBaseCapital) * 100) 
     : 0;
-
-  const ALLOWED_EMAILS = [
-    'appnotputri@gmail.com',
-    'rdyndi@gmail.com',
-    'notarisppatputri@gmail.com'
-  ];
 
   const isPublicRoute = window.location.pathname === '/rupst';
 
@@ -2714,740 +2023,59 @@ const App: React.FC = () => {
     );
   }
 
-  const showPublicWizard = false;
-
   return (
     <div className="h-screen flex bg-slate-50 font-sans text-slate-800 overflow-hidden relative">
       
       {/* Dynamic Left Sidebar Spanning Full Height */}
-      {!showPublicWizard && user && (
-        <aside className={`bg-white border-r border-slate-200/80 flex flex-col h-full shrink-0 overflow-y-auto transition-all duration-300 ease-in-out ${isSidebarOpen ? 'w-[260px]' : 'w-0 overflow-hidden'}`}>
-          
-          {/* Logo container at top left */}
-          <div className="h-16 bg-[#001529] px-5 flex items-center gap-3 shrink-0 select-none">
-            <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white shrink-0 shadow-md">
-              <Gavel size={18} className="text-white shrink-0" />
-            </div>
-            <div className="flex flex-col truncate">
-              <span className="text-[10px] tracking-wider font-bold text-blue-400/90 leading-none">SISTEM DRAFT</span>
-              <span className="text-[13px] tracking-tight font-extrabold text-white leading-tight">NOTARIS PUTRI</span>
-            </div>
-          </div>
-
-          <div className="flex-1 py-4 space-y-1 text-[13px]">
-            {/* General Menu Items */}
-            {[
-              { label: 'Beranda', id: 'beranda' as const, icon: Home },
-            ].map((item) => {
-              const isActive = activeSidebarTab === item.id;
-              const acc = TAB_ACCENTS[item.id] || TAB_ACCENTS.beranda;
-              return (
-                <button 
-                  key={item.id} 
-                  onClick={() => setActiveSidebarTab(item.id)} 
-                  className={`relative w-full text-left px-5 py-3 transition-all flex items-center gap-3.5 select-none ${
-                    isActive 
-                      ? `${acc.bgColor} ${acc.textColor} font-semibold` 
-                      : `text-slate-600 ${acc.hoverBg}`
-                  }`}
-                >
-                  {isActive && (
-                    <div className={`absolute left-0 top-1.5 bottom-1.5 w-[4.5px] rounded-r-md ${acc.indicatorBg}`} />
-                  )}
-                  <item.icon 
-                    size={20} 
-                    strokeWidth={isActive ? 2.25 : 2.0}
-                    className={`shrink-0 transition-colors ${isActive ? acc.iconColor : 'text-slate-400'}`} 
-                  />
-                  <span>{item.label}</span>
-                </button>
-              );
-            })}
-
-            {/* Menu Header: PERSEROAN TERBATAS */}
-            <div className="px-5 pt-6 pb-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest select-none">
-              Perseroan Terbatas
-            </div>
-
-            {[
-              { label: 'Klien PT', id: 'company_profile' as const, icon: Building2 },
-              { label: 'Klien CV', id: 'cv_profile' as const, icon: Briefcase },
-              { label: 'RUPS LB', id: 'notulen' as const, icon: FileText },
-              { label: 'RUPS Tahunan', id: 'rupst' as const, icon: CalendarCheck },
-              { label: 'Pendirian PT', id: 'pendirian' as const, icon: FilePlus },
-              { label: 'Laporan', id: 'laporan' as const, icon: FileText },
-            ].map((item) => {
-              const isActive = activeSidebarTab === item.id;
-              const acc = TAB_ACCENTS[item.id] || TAB_ACCENTS.beranda;
-              return (
-                <button 
-                  key={item.id} 
-                  onClick={() => {
-                    if (!user) {
-                      if (confirm(`Anda harus login terlebih dahulu untuk mengakses menu "${item.label}".`)) {
-                        loginWithGoogle();
-                      }
-                      return;
-                    }
-                    setActiveSidebarTab(item.id);
-                  }} 
-                  className={`relative w-full text-left pl-7 pr-5 py-2.5 transition-all flex items-center justify-between select-none ${
-                    isActive 
-                      ? `${acc.bgColor} ${acc.textColor} font-semibold` 
-                      : `text-slate-600 ${acc.hoverBg}`
-                  }`}
-                >
-                  {isActive && (
-                    <div className={`absolute left-0 top-1.5 bottom-1.5 w-[4.5px] rounded-r-md ${acc.indicatorBg}`} />
-                  )}
-                  <span className="flex items-center gap-3">
-                    <item.icon 
-                      size={20} 
-                      strokeWidth={isActive ? 2.25 : 2.0}
-                      className={`shrink-0 transition-colors ${isActive ? acc.iconColor : 'text-slate-400'}`} 
-                    />
-                    <span>{item.label}</span>
-                  </span>
-                  {!user && (
-                    <Lock size={12} className="text-slate-400/50 shrink-0" />
-                  )}
-                </button>
-              );
-            })}
-
-            {/* Menu Header: DOKUMEN & DATA */}
-            <div className="px-5 pt-6 pb-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest select-none">
-              Dokumen & Data
-            </div>
-
-            {[
-              { label: 'Mapping KBLI 2020-2025', id: 'kbli_mapping' as const, icon: ArrowRightLeft },
-              { label: 'Saran KBLI', id: 'saran_kbli' as const, icon: Lightbulb },
-              { label: 'Surat Perbaikan Data', id: 'perbaikan' as const, icon: Mail },
-              { label: 'Panduan Penggunaan', id: 'panduan' as const, icon: BookOpen },
-            ].map((item) => {
-              const isActive = activeSidebarTab === item.id;
-              const acc = TAB_ACCENTS[item.id] || TAB_ACCENTS.beranda;
-              return (
-                <button 
-                  key={item.id} 
-                  onClick={() => {
-                    if (!user) {
-                      if (confirm(`Anda harus login terlebih dahulu untuk mengakses menu "${item.label}".`)) {
-                        loginWithGoogle();
-                      }
-                      return;
-                    }
-                    setActiveSidebarTab(item.id);
-                  }} 
-                  className={`relative w-full text-left px-5 py-2.5 transition-all flex items-center justify-between select-none ${
-                    isActive 
-                      ? `${acc.bgColor} ${acc.textColor} font-semibold` 
-                      : `text-slate-600 ${acc.hoverBg}`
-                  }`}
-                >
-                  {isActive && (
-                    <div className={`absolute left-0 top-1.5 bottom-1.5 w-[4.5px] rounded-r-md ${acc.indicatorBg}`} />
-                  )}
-                  <span className="flex items-center gap-3">
-                    <item.icon 
-                      size={20} 
-                      strokeWidth={isActive ? 2.25 : 2.0}
-                      className={`shrink-0 transition-colors ${isActive ? acc.iconColor : 'text-slate-400'}`} 
-                    />
-                    <span>{item.label}</span>
-                  </span>
-                  {!user && (
-                    <Lock size={12} className="text-slate-400/55 shrink-0" />
-                  )}
-                </button>
-              );
-            })}
-
-            {user?.email === 'appnotputri@gmail.com' && (() => {
-              const isActive = activeSidebarTab === 'import_kbli';
-              const acc = TAB_ACCENTS.import_kbli;
-              return (
-                <div className="pt-2 px-5">
-                  <button 
-                    onClick={() => setActiveSidebarTab('import_kbli')} 
-                    className={`relative w-full text-left px-4 py-2.5 rounded-lg transition-all flex items-center gap-3 select-none ${
-                      isActive 
-                        ? `${acc.bgColor} ${acc.textColor} font-semibold border border-transparent` 
-                        : 'bg-slate-50 border border-slate-200 text-slate-600 hover:bg-slate-100 hover:text-slate-800'
-                    }`}
-                  >
-                    <RefreshCw 
-                      size={15} 
-                      strokeWidth={isActive ? 2.25 : 2.00}
-                      className={`shrink-0 transition-colors ${isActive ? acc.iconColor : 'text-slate-500'}`} 
-                    />
-                    <span>Import KBLI 2025</span>
-                  </button>
-                </div>
-              );
-            })()}
-
-            {/* Menu Header: PENGATURAN */}
-            <div className="px-5 pt-6 pb-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest select-none">
-              Pengaturan
-            </div>
-
-            {[
-              { label: 'WhatsApp Gateway', id: 'whatsapp_settings' as const, icon: Smartphone },
-            ].map((item) => {
-              const isActive = activeSidebarTab === item.id;
-              const acc = TAB_ACCENTS[item.id] || TAB_ACCENTS.beranda;
-              return (
-                <button 
-                  key={item.id} 
-                  onClick={() => {
-                    if (!user) {
-                      if (confirm(`Anda harus login terlebih dahulu untuk mengakses menu "${item.label}".`)) {
-                        loginWithGoogle();
-                      }
-                      return;
-                    }
-                    setActiveSidebarTab(item.id);
-                  }} 
-                  className={`relative w-full text-left px-5 py-2.5 transition-all flex items-center justify-between select-none ${
-                    isActive 
-                      ? `${acc.bgColor} ${acc.textColor} font-semibold` 
-                      : `text-slate-600 ${acc.hoverBg}`
-                  }`}
-                >
-                  {isActive && (
-                    <div className={`absolute left-0 top-1.5 bottom-1.5 w-[4.5px] rounded-r-md ${acc.indicatorBg}`} />
-                  )}
-                  <span className="flex items-center gap-3">
-                    <item.icon 
-                      size={20} 
-                      strokeWidth={isActive ? 2.25 : 2.0}
-                      className={`shrink-0 transition-colors ${isActive ? acc.iconColor : 'text-slate-400'}`} 
-                    />
-                    <span>{item.label}</span>
-                  </span>
-                  {!user && (
-                    <Lock size={12} className="text-slate-400/55 shrink-0" />
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        </aside>
+      {user && (
+        <Sidebar
+          user={user}
+          isSidebarOpen={isSidebarOpen}
+          activeSidebarTab={activeSidebarTab}
+          setActiveSidebarTab={setActiveSidebarTab}
+          userProfile={userProfile}
+          loginWithGoogle={loginWithGoogle}
+        />
       )}
 
       {/* Main Container viewport on right side */}
       <div className="flex-1 flex flex-col h-full overflow-hidden">
         
         {/* Dynamic Nav Header next to the Sidebar */}
-        {!showPublicWizard && (
-          <header className="bg-white border-b border-slate-200/80 flex justify-between items-center px-6 sticky top-0 z-50 h-16 shrink-0 shadow-sm">
-            {/* Left: Greeting + Sidebar toggle */}
-            <div className="flex items-center gap-4">
-              {user && (
-                <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-1.5 hover:bg-slate-100/90 text-slate-500 hover:text-slate-800 rounded transition-colors shrink-0">
-                  <Menu className="w-5 h-5" />
-                </button>
-              )}
-              <div className="flex flex-col">
-                <span className="font-semibold text-sm text-slate-800">
-                  {(() => {
-                    const hour = new Date().getHours();
-                    let greeting = 'Selamat malam';
-                    if (hour >= 4 && hour < 11) greeting = 'Selamat pagi';
-                    else if (hour >= 11 && hour < 15) greeting = 'Selamat siang';
-                    else if (hour >= 15 && hour < 19) greeting = 'Selamat sore';
-                    return greeting;
-                  })()}, {userProfile?.name?.split(' ')[0] || 'Azizah'} 👋
-                </span>
-                <span className="text-[10px] text-slate-500 font-medium tracking-tight">PUSAT KENDALI KANTOR</span>
-              </div>
-            </div>
-            
-            {/* Right: Date/Time + Notifications + Profile */}
-            <div className="flex items-center gap-4">
-                <RealTimeClock />
-
-                <div className="flex items-center gap-2 pr-4 border-r border-slate-200">
-                  {/* Notification Logic */}
-                  {(() => {
-                    const unreadCount = notifications.filter(n => !n.read).length;
-                    return (
-                      <div className="relative">
-                        <button 
-                          onClick={() => {
-                            setIsNotificationOpen(!isNotificationOpen);
-                            setIsUserDropdownOpen(false);
-                          }}
-                          className={`p-2 rounded-full transition-all shrink-0 cursor-pointer outline-none relative ${
-                            isNotificationOpen 
-                              ? 'text-blue-600 bg-blue-50' 
-                              : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'
-                          }`}
-                        >
-                          <Bell className="w-5 h-5" />
-                          {unreadCount > 0 && <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border border-white"></span>}
-                        </button>
-                        
-                        {/* Notification Dropdown */}
-                        {isNotificationOpen && (
-                          <div className="absolute right-0 mt-2.5 w-80 md:w-96 bg-white rounded-xl shadow-2xl border border-slate-100 py-1.5 z-50 animate-in fade-in slide-in-from-top-1">
-                            <div className="flex items-center justify-between px-4 py-2 border-b border-slate-100">
-                              <span className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-                                <Bell className="w-3.5 h-3.5 text-blue-600" /> Notifikasi
-                              </span>
-                              {unreadCount > 0 && (
-                                <button 
-                                  onClick={async () => {
-                                    try {
-                                      const unreadNotifs = notifications.filter(n => !n.read);
-                                      await Promise.all(
-                                        unreadNotifs.map(n => updateDoc(doc(db, 'notifications', n.id), { read: true }))
-                                      );
-                                    } catch (err) {
-                                      console.error("Gagal tandai semua dibaca:", err);
-                                    }
-                                  }}
-                                  className="text-[10px] text-blue-600 hover:text-blue-800 font-bold hover:underline cursor-pointer"
-                                >
-                                  Tandai semua dibaca
-                                </button>
-                              )}
-                            </div>
-                            
-                            <div className="max-h-72 overflow-y-auto divide-y divide-slate-50">
-                              {notifications.length === 0 ? (
-                                <div className="flex flex-col items-center justify-center py-8 text-center px-4">
-                                  <BellOff className="w-8 h-8 text-slate-300 mb-2" />
-                                  <p className="text-xs text-slate-500 font-medium">Tidak ada notifikasi baru</p>
-                                  <p className="text-[10px] text-slate-400 mt-0.5">Semua info terbaru dari sistem akan muncul di sini</p>
-                                </div>
-                              ) : (
-                                [...notifications].sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).map((notif) => (
-                                  <div key={notif.id} className={`p-3 transition-colors hover:bg-slate-50/50 flex gap-2.5 items-start text-left ${!notif.read ? 'bg-blue-50/20' : ''}`}>
-                                    {/* Status Type Icon */}
-                                    <div className={`mt-0.5 p-1 rounded-lg shrink-0 ${
-                                      notif.type === 'SUCCESS' ? 'bg-emerald-50 text-emerald-600' :
-                                      notif.type === 'ERROR' ? 'bg-rose-50 text-rose-600' :
-                                      notif.type === 'WARNING' ? 'bg-amber-50 text-amber-600' :
-                                      'bg-blue-50 text-blue-600'
-                                    }`}>
-                                      {notif.type === 'SUCCESS' ? <CheckCircle2 className="w-3.5 h-3.5" /> :
-                                       notif.type === 'ERROR' ? <AlertCircle className="w-3.5 h-3.5" /> :
-                                       notif.type === 'WARNING' ? <AlertTriangle className="w-3.5 h-3.5" /> :
-                                       <Info className="w-3.5 h-3.5" />}
-                                    </div>
-
-                                    {/* Notification content */}
-                                    <div className="flex-1 space-y-0.5 min-w-0">
-                                      <div className="flex items-start justify-between gap-1.5">
-                                        <span className={`text-xs block leading-tight truncate ${!notif.read ? 'font-semibold text-slate-900' : 'text-slate-700'}`}>
-                                          {notif.title}
-                                        </span>
-                                        <span className="text-[9px] text-slate-400 font-mono whitespace-nowrap shrink-0">
-                                          {(() => {
-                                            try {
-                                              const diffMs = Date.now() - new Date(notif.timestamp).getTime();
-                                              const diffMins = Math.floor(diffMs / 60000);
-                                              if (diffMins < 1) return 'Baru saja';
-                                              if (diffMins < 60) return `${diffMins}m lalu`;
-                                              const diffHours = Math.floor(diffMins / 60);
-                                              if (diffHours < 24) return `${diffHours}j lalu`;
-                                              return new Date(notif.timestamp).toLocaleDateString('id-ID', {day: 'numeric', month: 'short'});
-                                            } catch {
-                                              return 'Baru saja';
-                                            }
-                                          })()}
-                                        </span>
-                                      </div>
-                                      <p className="text-[11px] text-slate-500 leading-normal break-words">{notif.description}</p>
-                                      
-                                      {/* Actions row */}
-                                      <div className="flex gap-2.5 pt-1">
-                                        {!notif.read && (
-                                          <button 
-                                            onClick={async () => {
-                                              try {
-                                                await updateDoc(doc(db, 'notifications', notif.id), { read: true });
-                                              } catch (err) {
-                                                console.error("Gagal tandai dibaca:", err);
-                                              }
-                                            }}
-                                            className="text-[10px] text-blue-600 hover:text-blue-800 font-bold hover:underline cursor-pointer"
-                                          >
-                                            Tandai Dibaca
-                                          </button>
-                                        )}
-                                        <button 
-                                          onClick={async () => {
-                                            try {
-                                              await deleteDoc(doc(db, 'notifications', notif.id));
-                                            } catch (err) {
-                                              console.error("Gagal menghapus notifikasi:", err);
-                                            }
-                                          }}
-                                          className="text-[10px] text-slate-400 hover:text-red-600 font-medium hover:underline cursor-pointer"
-                                        >
-                                          Hapus
-                                        </button>
-                                      </div>
-                                    </div>
-                                  </div>
-                                ))
-                              )}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })()}
-                  
-                  <button className="p-2 rounded-full hover:bg-slate-100 transition-colors">
-                    <Mail className="w-5 h-5 text-slate-500" />
-                  </button>
-                  <button className="p-2 rounded-full hover:bg-slate-100 transition-colors">
-                    <Moon className="w-5 h-5 text-slate-500" />
-                  </button>
-                </div>
-
-                {/* Profile Logic */}
-                <div className="relative">
-                   <button 
-                     onClick={() => {
-                       setIsUserDropdownOpen(!isUserDropdownOpen);
-                       setIsNotificationOpen(false);
-                     }}
-                     className="flex items-center gap-3 text-left hover:bg-slate-50 p-1 rounded-lg transition-all cursor-pointer"
-                   >
-                     <div className="w-8 h-8 rounded-full bg-teal-500 text-white flex items-center justify-center text-xs font-bold shadow-inner">
-                       {(userProfile?.name || 'AZ').substring(0, 2).toUpperCase()}
-                     </div>
-                     <div className="flex flex-col">
-                         <span className="text-xs font-semibold text-slate-800">{userProfile?.name || 'Azizah'}</span>
-                         <span className="text-[10px] text-slate-500 leading-none">{userProfile?.level || 'Staff Kantor'}</span>
-                     </div>
-                     <ChevronDown className="w-4 h-4 text-slate-400" />
-                   </button>
-                   
-                   {/* User Profile Dropdown Menu */}
-                   {isUserDropdownOpen && (
-                     <div className="absolute right-0 mt-2.5 w-60 bg-white rounded-xl shadow-2xl border border-slate-100 py-1.5 z-50 animate-in fade-in slide-in-from-top-1 divide-y divide-slate-100">
-                       <div className="px-4 py-2.5">
-                         <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Masuk Sebagai</p>
-                         <p className="text-xs font-bold text-slate-800 truncate mt-1">{userProfile?.name || 'Azizah'}</p>
-                         <p className="text-[10px] text-slate-505 truncate font-mono mt-0.5">{user?.email || 'admin@legalnotaris.id'}</p>
-                       </div>
-                       
-                       <div className="py-1 text-left row">
-                         <button 
-                           onClick={() => {
-                             setIsEditProfileModalOpen(true);
-                             setIsUserDropdownOpen(false);
-                           }}
-                           className="w-full px-4 py-2 text-left text-xs text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-2 cursor-pointer"
-                         >
-                           <User className="w-3.5 h-3.5 text-slate-400" />
-                           <span>Edit Profil</span>
-                         </button>
-
-                         <button 
-                           onClick={() => {
-                             setActiveSidebarTab('beranda');
-                             setIsUserDropdownOpen(false);
-                           }}
-                           className="w-full px-4 py-2 text-left text-xs text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-2 cursor-pointer"
-                         >
-                           <Home className="w-3.5 h-3.5 text-slate-400" />
-                           <span>Dashboard Utama</span>
-                         </button>
-
-                         <button 
-                           onClick={() => {
-                             if (!user) {
-                               if (confirm('Anda harus login terlebih dahulu untuk mengakses menu "Klien PT".')) {
-                                 loginWithGoogle();
-                               }
-                             } else {
-                               setActiveSidebarTab('company_profile');
-                             }
-                             setIsUserDropdownOpen(false);
-                           }}
-                           className="w-full px-4 py-2 text-left text-xs text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-2 cursor-pointer"
-                         >
-                           <Building2 className="w-3.5 h-3.5 text-slate-400" />
-                           <span>Database Klien PT</span>
-                         </button>
-                       </div>
-
-                       <div className="py-1 text-left">
-                         <button 
-                           onClick={() => {
-                             if (user) {
-                               logout();
-                             } else {
-                               loginWithGoogle();
-                             }
-                             setIsUserDropdownOpen(false);
-                           }}
-                           className={`w-full px-4 py-2 text-left text-xs font-bold transition-colors flex items-center gap-2 cursor-pointer ${
-                             user ? 'text-red-600 hover:bg-red-50/50' : 'text-blue-600 hover:bg-blue-50/55'
-                           }`}
-                         >
-                           <Lock className="w-3.5 h-3.5" />
-                           <span>{user ? 'Keluar Aplikasi' : 'Login / Masuk Google'}</span>
-                         </button>
-                       </div>
-                     </div>
-                   )}
-                </div>
-            </div>
-          </header>
-        )}
-        {showPublicWizard ? (
-          <RupstPublicWizard
-            data={data}
-            updateData={updateData}
-            isSaving={isSaving}
-            openShareholderEditor={openShareholderEditor}
-            deleteShareholder={deleteShareholder}
-            handleSave={async () => {
-              if (!data.companyName) return alert('Nama perseroan harus diisi');
-              setIsSaving(true);
-              const newId = crypto.randomUUID();
-              const profileData = {
-                  ...data,
-                  id: newId
-              };
-              try {
-                  await setDoc(doc(db, 'rupst_public_projects', profileData.id), sanitizeForFirestore(profileData));
-                  alert('RUPST Public berhasil disimpan dan dikirim ke Notaris!');
-                  updateData({ ...INITIAL_STATE } as any);
-              } catch (e) {
-                  handleFirestoreError(e, OperationType.WRITE, `rupst_public_projects/${profileData.id}`);
-              } finally {
-                  setIsSaving(false);
-              }
-            }}
-            goBack={() => {
-                alert('Silakan login di pojok kanan atas untuk melihat Notulen Anda sebelumnya.');
-                window.location.href = '/';
-            }}
-          />
-        ) : (
+        <Header
+          user={user}
+          isSidebarOpen={isSidebarOpen}
+          setIsSidebarOpen={setIsSidebarOpen}
+          userProfile={userProfile}
+          notifications={notifications}
+          isNotificationOpen={isNotificationOpen}
+          setIsNotificationOpen={setIsNotificationOpen}
+          isUserDropdownOpen={isUserDropdownOpen}
+          setIsUserDropdownOpen={setIsUserDropdownOpen}
+          setIsEditProfileModalOpen={setIsEditProfileModalOpen}
+          setActiveSidebarTab={setActiveSidebarTab}
+          loginWithGoogle={loginWithGoogle}
+          logout={logout}
+        />
           <main className="flex-1 overflow-y-auto bg-[#f8fafc] p-6 md:p-8 pb-24 scroll-smooth">
           
-          {activeSidebarTab === 'beranda' ? (
-            <div className="max-w-7xl mx-auto space-y-8 animate-fade-in">
-              
-              {/* Redesigned Brand Header row inside dashboard content with Date and Action Buttons */}
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div className="space-y-1">
-                  <h1 className="text-2xl font-bold tracking-tight text-slate-900">Dashboard</h1>
-                  <p className="text-xs text-slate-400 font-mono flex items-center gap-1.5 bg-slate-100 border border-slate-200/50 px-2.5 py-1 rounded-md w-fit">
-                    <Clock className="w-3.5 h-3.5 text-[#1890ff]" /> {new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-                  </p>
-                </div>
-
-                <div className="flex flex-wrap gap-2.5">
-                  <button
-                    onClick={() => {
-                      setEditingProjectId('new');
-                      updateData({ ...INITIAL_STATE } as any);
-                      setActiveSidebarTab('notulen');
-                    }}
-                    className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold text-xs shadow-md hover:shadow-lg transition-all active:scale-95"
-                  >
-                    <Plus className="w-3.5 h-3.5" /> RUPS LB
-                  </button>
-                  <button
-                    onClick={() => {
-                      setEditingRupstId('new');
-                      updateData({ ...INITIAL_STATE } as any);
-                      setActiveSidebarTab('rupst');
-                    }}
-                    className="flex items-center gap-1.5 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg font-bold text-xs shadow-md hover:shadow-lg transition-all active:scale-95"
-                  >
-                    <Plus className="w-3.5 h-3.5" /> RUPST
-                  </button>
-                  <button
-                    onClick={() => {
-                      setActiveSidebarTab('pendirian');
-                    }}
-                    className="flex items-center gap-1.5 px-4 py-2 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 rounded-lg font-bold text-xs shadow-sm hover:shadow transition-all active:scale-95"
-                  >
-                    <Plus className="w-3.5 h-3.5" /> Pendirian PT
-                  </button>
-                </div>
-              </div>
-
-              {/* Stats Card Row - 4 beautiful cards matching screenshot */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-                {[
-                  { label: "Klien PT", val: profiles.length, desc: "Database klien perusahaan", icon: Building2, color: "text-[#1890ff] bg-blue-50/80 border-blue-100", tab: "company_profile" as const },
-                  { label: "Draft RUPS LB", val: projects.length, desc: "Keputusan Sirkuler & PKR LB", icon: FileText, color: "text-amber-600 bg-amber-50/85 border-amber-100/80", tab: "notulen" as const },
-                  { label: "Draft RUPS Tahunan", val: rupstProjects.length, desc: "Pertanggungjawaban tahun buku", icon: History, color: "text-emerald-600 bg-emerald-50/80 border-emerald-100/70", tab: "rupst" as const },
-                  { label: "Draft Pendirian PT", val: pendirianProjects.length, desc: "Draft akta pendirian", icon: FileCode, color: "text-purple-600 bg-purple-50/80 border-purple-100/60", tab: "pendirian" as const }
-                ].map((st, i) => (
-                  <div 
-                    key={i} 
-                    onClick={() => setActiveSidebarTab(st.tab)}
-                    className="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm flex items-center justify-between hover:shadow-md hover:border-slate-300 transition-all cursor-pointer group"
-                  >
-                    <div className="space-y-1.5 min-w-0 flex-1 pr-2">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{st.label}</span>
-                      <h2 className="text-2xl font-black text-slate-800 tracking-tight leading-none">{st.val}</h2>
-                      <p className="text-[10px] text-slate-400 truncate leading-tight font-medium">{st.desc}</p>
-                    </div>
-                    <div className={`w-14 h-14 rounded-xl flex items-center justify-center shrink-0 border transition-all group-hover:scale-105 ${st.color}`}>
-                      <st.icon size={40} className="shrink-0" />
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Quick Actions (QUICK ACCESS) workflow rows - 3 Elegant Columns */}
-              <div className="space-y-3.5">
-                <h3 className="text-slate-500 text-[10px] font-bold uppercase tracking-wider pl-2.5 border-l-4 border-blue-600 select-none">
-                  Quick Access
-                </h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {[
-                    { title: "Daftar Klien PT", sub: "Kelola dan lihat seluruh data klien perusahaan.", color: "text-blue-600 bg-blue-50 border-blue-104", icon: Building2, tab: "company_profile" as const },
-                    { title: "RUPS Tahunan", sub: "Lihat dan kelola draf RUPS Tahunan terbaru.", color: "text-amber-600 bg-amber-50 border-amber-104", icon: History, tab: "rupst" as const },
-                    { title: "Dokumen & Arsip", sub: "Akses semua draf dokumen dan arsip legalitas.", color: "text-teal-600 bg-teal-50 border-teal-104", icon: BookOpen, tab: "notulen" as const }
-                  ].map((x, i) => (
-                    <button
-                      key={i}
-                      onClick={() => setActiveSidebarTab(x.tab)}
-                      className="group border border-slate-200 hover:border-blue-400 p-4 rounded-xl text-left bg-white transition-all hover:shadow-md flex flex-col justify-between h-36"
-                    >
-                      <div className="space-y-2">
-                        <div className={`w-8 h-8 rounded-lg border flex items-center justify-center transition-all ${x.color} group-hover:scale-110`}>
-                          <x.icon className="w-4 h-4" />
-                        </div>
-                        <div className="space-y-1">
-                          <h4 className="font-bold text-slate-800 text-[12px] group-hover:text-blue-600 transition-colors">{x.title}</h4>
-                          <p className="text-[10px] text-slate-400 leading-snug font-medium line-clamp-2">{x.sub}</p>
-                        </div>
-                      </div>
-                      <span className="text-[10px] font-bold text-slate-400 group-hover:text-blue-600 uppercase flex items-center gap-1 mt-2.5">
-                        Mulai <ChevronRight size={12} className="group-hover:translate-x-1 transition-transform" />
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Split: Dynamic Activities & Documents inside Cards */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pb-4">
-                
-                {/* Cell 1: Recent Activities Card */}
-                <div className="bg-white p-6 rounded-xl border border-slate-200/80 shadow-sm flex flex-col h-[400px]">
-                  <div className="flex justify-between items-center pb-4 border-b border-slate-100 shrink-0">
-                    <h3 className="text-slate-800 font-extrabold text-sm tracking-tight flex items-center gap-2 select-none">
-                      <span className="w-1.5 h-4 bg-blue-500 rounded-sm"></span> AKTIVITAS TERAKHIR
-                    </h3>
-                    <button 
-                      onClick={() => setActiveSidebarTab('notulen')} 
-                      className="text-[#1890ff] hover:underline text-[11px] font-bold uppercase tracking-wider select-none"
-                    >
-                      Lihat semua
-                    </button>
-                  </div>
-                  
-                  <div className="flex-1 overflow-y-auto space-y-3 pt-3 pr-1">
-                    {compiledActivities.map(item => (
-                      <div 
-                        key={item.id} 
-                        className="p-3 border border-slate-100 hover:border-slate-200 rounded-lg bg-slate-50/50 hover:bg-slate-50/80 transition-all flex items-center justify-between gap-4"
-                      >
-                        <div className="flex items-center gap-3 min-w-0 flex-1">
-                          <div className="w-8 h-8 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center shrink-0 border border-slate-200/50">
-                            <FileText className="w-4 h-4 text-slate-500" />
-                          </div>
-                          <div className="min-w-0">
-                            <h4 className="font-bold text-slate-800 text-[12px] truncate">{item.desc}</h4>
-                            <span className="flex items-center gap-1 font-medium text-[10px] text-slate-400 mt-0.5">
-                              <Clock className="w-3 h-3 text-slate-300" /> {item.time}
-                            </span>
-                          </div>
-                        </div>
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold tracking-tight shrink-0 select-none ${
-                          item.status === 'Selesai' ? 'bg-green-50 text-green-700 border border-green-200/50' : 
-                          item.status === 'Dalam Proses' ? 'bg-blue-50 text-blue-700 border border-blue-200/50' : 
-                          'bg-amber-50 text-amber-700 border border-amber-200/50'
-                        }`}>
-                          {item.status}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                  <button 
-                    onClick={() => setActiveSidebarTab('notulen')} 
-                    className="w-full mt-3 py-2 bg-slate-50 hover:bg-slate-100 text-slate-600 hover:text-slate-800 rounded-lg text-xs font-bold border border-slate-200/70 shrink-0 transition-all tracking-wide shadow-sm"
-                  >
-                    Lihat semua aktivitas
-                  </button>
-                </div>
-
-                {/* Cell 2: Latest Documents Card */}
-                <div className="bg-white p-6 rounded-xl border border-slate-200/80 shadow-sm flex flex-col h-[400px]">
-                  <div className="flex justify-between items-center pb-4 border-b border-slate-100 shrink-0">
-                    <h3 className="text-slate-800 font-extrabold text-sm tracking-tight flex items-center gap-2 select-none">
-                      <span className="w-1.5 h-4 bg-teal-500 rounded-sm"></span> DOKUMEN TERBARU
-                    </h3>
-                    <button 
-                      onClick={() => setActiveSidebarTab('notulen')} 
-                      className="text-[#1890ff] hover:underline text-[11px] font-bold uppercase tracking-wider select-none"
-                    >
-                      Lihat semua
-                    </button>
-                  </div>
-                  
-                  <div className="flex-1 overflow-y-auto space-y-3 pt-3 pr-1">
-                    {compiledDocuments.map(item => (
-                      <div 
-                        key={item.id} 
-                        className="p-3 border border-slate-100 hover:border-slate-200 rounded-lg bg-slate-50/50 hover:bg-slate-50/80 transition-all flex items-center justify-between gap-4"
-                      >
-                        <div className="flex items-center gap-3 min-w-0 flex-1">
-                          <div className="w-8 h-8 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center shrink-0 border border-slate-200/50">
-                            <FileCheck className="w-4 h-4 text-teal-600" />
-                          </div>
-                          <div className="min-w-0">
-                            <h4 className="font-bold text-slate-800 text-[12px] truncate">{item.name}</h4>
-                            <span className="font-bold text-[10px] text-[#1890ff] block truncate leading-none mt-0.5">{item.sub}</span>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <span className={`px-1.5 py-0.5 rounded text-[9px] font-black tracking-wider border select-none ${
-                            item.format === 'PDF' ? 'bg-rose-50 text-rose-700 border-rose-200/60' : 'bg-blue-50 text-blue-700 border-blue-200/60'
-                          }`}>
-                            {item.format}
-                          </span>
-                          <button 
-                            onClick={() => handleDownloadProject(item)}
-                            title="Unduh draf akta asli" 
-                            className="bg-white hover:bg-slate-100 p-1.5 text-slate-500 hover:text-slate-800 rounded-lg border border-slate-200/70 transition-all shrink-0"
-                          >
-                            <Save className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  <button 
-                    onClick={() => setActiveSidebarTab('notulen')} 
-                    className="w-full mt-3 py-2 bg-slate-50 hover:bg-slate-100 text-slate-600 hover:text-slate-800 rounded-lg text-xs font-bold border border-slate-200/70 shrink-0 transition-all tracking-wide shadow-sm"
-                  >
-                    Lihat semua dokumen
-                  </button>
-                </div>
-
-              </div>
-              
-            </div>
+          {activeSidebarTab === 'user_management' && userProfile?.role === 'Super Admin' ? (
+            <UserManagement currentUser={userProfile} />
+          ) : activeSidebarTab === 'beranda' ? (
+            <Dashboard
+              profiles={profiles}
+              projects={projects}
+              rupstProjects={rupstProjects}
+              pendirianProjects={pendirianProjects}
+              compiledActivities={compiledActivities}
+              compiledDocuments={compiledDocuments}
+              setActiveSidebarTab={setActiveSidebarTab}
+              setEditingProjectId={setEditingProjectId}
+              setEditingRupstId={setEditingRupstId}
+              updateData={updateData}
+              INITIAL_STATE={INITIAL_STATE}
+              handleDownloadProject={handleDownloadProject}
+            />
           ) : activeSidebarTab === 'company_profile' ? (
             <div className="max-w-5xl mx-auto space-y-4">
               <div className="flex justify-between items-center bg-white p-4 rounded-sm shadow-sm border border-slate-200">
@@ -3482,29 +2110,31 @@ const App: React.FC = () => {
                           className="px-5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md text-[13px] font-bold transition-all border border-slate-200 shadow-sm flex items-center gap-2 uppercase">
                           <Edit className="w-4 h-4" /> Edit
                         </button>
-                        <button 
-                          onClick={async (e) => {
-                            e.preventDefault();
-                            if(confirm('Hapus profil ' + data.companyName + '?')) {
-                              if (!user) return alert('Anda harus login!');
-                              try {
-                                const deletedName = data.companyName || 'PT Baru';
-                                await deleteDoc(doc(db, 'profiles', editingProfileId));
-                                recordNotification(
-                                  'Klien PT Dihapus',
-                                  `Profil klien "${deletedName}" telah berhasil dihapus oleh ${user?.email || 'Admin'}.`,
-                                  'delete_profile'
-                                );
-                                alert('Profil berhasil dihapus');
-                                setEditingProfileId(null);
-                              } catch (err) {
-                                handleFirestoreError(err, OperationType.DELETE, `profiles/${editingProfileId}`);
+                        {userProfile?.role !== 'Staff' && (
+                          <button 
+                            onClick={async (e) => {
+                              e.preventDefault();
+                              if(confirm('Hapus profil ' + data.companyName + '?')) {
+                                if (!user) return alert('Anda harus login!');
+                                try {
+                                  const deletedName = data.companyName || 'PT Baru';
+                                  await deleteCompany(editingProfileId, false);
+                                  recordNotification(
+                                    'Klien PT Dihapus',
+                                    `Profil klien "${deletedName}" telah berhasil dihapus oleh ${user?.email || 'Admin'}.`,
+                                    'delete_profile'
+                                  );
+                                  alert('Profil berhasil dihapus');
+                                  setEditingProfileId(null);
+                                } catch (err) {
+                                  handleFirestoreError(err, OperationType.DELETE, `profiles/${editingProfileId}`);
+                                }
                               }
-                            }
-                          }}
-                          className="px-5 py-2 bg-red-50 hover:bg-red-500 hover:text-white text-red-600 rounded-md font-bold transition-all text-[13px] border border-red-100 hover:border-red-500 shadow-sm flex items-center gap-2 uppercase">
-                          <Trash2 className="w-4 h-4" /> Hapus
-                        </button>
+                            }}
+                            className="px-5 py-2 bg-red-50 hover:bg-red-500 hover:text-white text-red-600 rounded-md font-bold transition-all text-[13px] border border-red-100 hover:border-red-500 shadow-sm flex items-center gap-2 uppercase">
+                            <Trash2 className="w-4 h-4" /> Hapus
+                          </button>
+                        )}
                       </>
                     ) : (
                       <>
@@ -3527,7 +2157,7 @@ const App: React.FC = () => {
                            }
                            
                            try {
-                               await setDoc(doc(db, 'profiles', profileData.id), sanitizeForFirestore(profileData));
+                               await saveCompany(profileData.id, profileData, false);
                                recordNotification(
                                  isNew ? 'Klien PT Baru Dibuat' : 'Profil Klien PT Diubah',
                                  `Profil klien "${profileData.companyName}" telah ${isNew ? 'berhasil didaftarkan' : 'diperbarui'} oleh ${user?.email || 'Admin'}.`,
@@ -4631,29 +3261,31 @@ const App: React.FC = () => {
                           className="px-5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md text-[13px] font-bold transition-all border border-slate-200 shadow-sm flex items-center gap-2 uppercase">
                           <Edit className="w-4 h-4" /> Edit
                         </button>
-                        <button 
-                          onClick={async (e) => {
-                            e.preventDefault();
-                            if(confirm('Hapus profil CV ' + data.companyName + '?')) {
-                              if (!user) return alert('Anda harus login!');
-                              try {
-                                const deletedName = data.companyName || 'CV Baru';
-                                await deleteDoc(doc(db, 'cv_profiles', editingCvProfileId));
-                                recordNotification(
-                                  'Klien CV Dihapus',
-                                  `Profil klien CV "${deletedName}" telah berhasil dihapus oleh ${user?.email || 'Admin'}.`,
-                                  'delete_profile'
-                                );
-                                alert('Profil CV berhasil dihapus');
-                                setEditingCvProfileId(null);
-                              } catch (err) {
-                                handleFirestoreError(err, OperationType.DELETE, `cv_profiles/${editingCvProfileId}`);
+                        {userProfile?.role !== 'Staff' && (
+                          <button 
+                            onClick={async (e) => {
+                              e.preventDefault();
+                              if(confirm('Hapus profil CV ' + data.companyName + '?')) {
+                                if (!user) return alert('Anda harus login!');
+                                try {
+                                  const deletedName = data.companyName || 'CV Baru';
+                                  await deleteCompany(editingCvProfileId, true);
+                                  recordNotification(
+                                    'Klien CV Dihapus',
+                                    `Profil klien CV "${deletedName}" telah berhasil dihapus oleh ${user?.email || 'Admin'}.`,
+                                    'delete_profile'
+                                  );
+                                  alert('Profil CV berhasil dihapus');
+                                  setEditingCvProfileId(null);
+                                } catch (err) {
+                                  handleFirestoreError(err, OperationType.DELETE, `cv_profiles/${editingCvProfileId}`);
+                                }
                               }
-                            }
-                          }}
-                          className="px-5 py-2 bg-red-50 hover:bg-red-500 hover:text-white text-red-600 rounded-md font-bold transition-all text-[13px] border border-red-100 hover:border-red-500 shadow-sm flex items-center gap-2 uppercase">
-                          <Trash2 className="w-4 h-4" /> Hapus
-                        </button>
+                            }}
+                            className="px-5 py-2 bg-red-50 hover:bg-red-500 hover:text-white text-red-600 rounded-md font-bold transition-all text-[13px] border border-red-100 hover:border-red-500 shadow-sm flex items-center gap-2 uppercase">
+                            <Trash2 className="w-4 h-4" /> Hapus
+                          </button>
+                        )}
                       </>
                     ) : (
                       <>
@@ -4677,7 +3309,7 @@ const App: React.FC = () => {
                            }
                            
                            try {
-                               await setDoc(doc(db, 'cv_profiles', profileData.id), sanitizeForFirestore(profileData));
+                               await saveCompany(profileData.id, profileData, true);
                                recordNotification(
                                  isNew ? 'Klien CV Baru Dibuat' : 'Profil Klien CV Diubah',
                                  `Profil klien CV "${profileData.companyName}" telah ${isNew ? 'berhasil didaftarkan' : 'diperbarui'} oleh ${user?.email || 'Admin'}.`,
@@ -4749,7 +3381,7 @@ const App: React.FC = () => {
                                 </tr>
                               </thead>
                               <tbody>
-                                {data.shareholders.map((s) => (
+                                {(data.shareholders || []).map((s) => (
                                    <tr key={s.id} className="border-b border-slate-200 last:border-0 hover:bg-slate-50 transition-colors text-[10px]">
                                      <td className="p-2 border-r border-slate-200 font-bold uppercase">{s.name}</td>
                                      <td className="p-2 border-r border-slate-200">
@@ -5163,8 +3795,14 @@ const App: React.FC = () => {
                       <button 
                         className="text-slate-600 hover:text-slate-900 bg-white border border-slate-200 hover:bg-slate-50 flex items-center justify-center gap-1.5 font-bold text-[12.5px] uppercase h-11 px-4 rounded-xl shadow-sm transition-all duration-150 shrink-0" 
                         onClick={() => {
+                          const returnToProjectId = activeProjectContext;
                           setIsRupsPreview(false);
                           setEditingProjectId(null);
+                          setActiveProjectContext(null);
+                          if (returnToProjectId) {
+                            setSelectedProjectId(returnToProjectId);
+                            setActiveSidebarTab('project_detail');
+                          }
                         }}
                       >
                         <ArrowRight className="w-5 h-5 rotate-180" /> Kembali
@@ -5198,10 +3836,11 @@ const App: React.FC = () => {
                           >
                             <Edit className="w-[18px] h-[18px]" /> Edit
                           </button>
-                          <button 
-                            onClick={async (e) => {
-                              e.preventDefault();
-                              if(confirm('Hapus RUPS LB ' + data.companyName + '?')) {
+                          {userProfile?.role === 'Super Admin' && (
+                            <button 
+                              onClick={async (e) => {
+                                e.preventDefault();
+                                if(confirm('Hapus RUPS LB ' + data.companyName + '?')) {
                                 if (!user) return alert('Anda harus login!');
                                 try {
                                   const deletedName = data.companyName || 'PT Baru';
@@ -5211,9 +3850,15 @@ const App: React.FC = () => {
                                     `Draft RUPS Luar Biasa untuk perusahaan "${deletedName}" telah berhasil dihapus oleh ${user?.email || 'Admin'}.`,
                                     'delete_rupslb'
                                   );
+                                  const returnToProjectId = activeProjectContext;
                                   alert('RUPS LB berhasil dihapus');
                                   setEditingProjectId(null);
+                                  setActiveProjectContext(null);
                                   setIsRupsPreview(false);
+                                  if (returnToProjectId) {
+                                    setSelectedProjectId(returnToProjectId);
+                                    setActiveSidebarTab('project_detail');
+                                  }
                                 } catch (err) {
                                   handleFirestoreError(err, OperationType.DELETE, `projects/${editingProjectId}`);
                                 }
@@ -5223,7 +3868,8 @@ const App: React.FC = () => {
                           >
                             <Trash2 className="w-[18px] h-[18px]" /> Hapus
                           </button>
-                        </>
+                        )}
+                      </>
                       ) : (
                         <>
                           <button 
@@ -5259,14 +3905,32 @@ const App: React.FC = () => {
                               
                               try {
                                    await setDoc(doc(db, 'projects', profileData.id), sanitizeForFirestore(profileData));
+                                   if (activeProjectContext) {
+                                       const docName = profileData.documentType === 'CIRCULAR'
+                                         ? `Draft Sirkuler RUPS LB - ${profileData.companyName || 'PT Baru'}`
+                                         : `Draft RUPS LB - ${profileData.companyName || 'PT Baru'}`;
+                                       await ProjectService.addDocument(activeProjectContext, {
+                                           name: docName,
+                                           type: 'docx',
+                                           url: `/rupslb`,
+                                           refId: profileData.id,
+                                           uploadedBy: user?.email || 'staff_notaris'
+                                       });
+                                   }
                                    recordNotification(
                                      isNew ? 'Draft RUPS LB Baru Dibuat' : 'Draft RUPS LB Diubah',
                                      `Draft RUPS Luar Biasa untuk perusahaan "${profileData.companyName || 'PT Baru'}" telah ${isNew ? 'berhasil dibuat' : 'diperbarui'} oleh ${user?.email || 'Admin'}.`,
                                      isNew ? 'create_rupslb' : 'update_rupslb'
                                    );
+                                  const returnToProjectId = activeProjectContext;
                                   setEditingProjectId(null);
+                                  setActiveProjectContext(null);
                                   setIsRupsPreview(false);
                                   alert('RUPS LB berhasil disimpan!');
+                                  if (returnToProjectId) {
+                                    setSelectedProjectId(returnToProjectId);
+                                    setActiveSidebarTab('project_detail');
+                                  }
                               } catch (e) {
                                   handleFirestoreError(e, OperationType.WRITE, `projects/${profileData.id}`);
                               } finally {
@@ -5294,7 +3958,7 @@ const App: React.FC = () => {
 
                         {isRupslbDocDropdownOpen && (
                           <div className="absolute right-0 mt-2 bg-white border border-slate-200 shadow-xl rounded-2xl py-1 w-64 z-50 text-left overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150">
-                            {/* Notulen RUPS LB */}
+                            {/* Notulen RUPS LB / SIRKULER RUPS LB */}
                             <button
                               onClick={async (e) => {
                                 e.stopPropagation();
@@ -5305,12 +3969,14 @@ const App: React.FC = () => {
                             >
                               <FileText className="w-[18px] h-[18px] text-indigo-600 stroke-[2.25px] shrink-0" />
                               <div className="flex flex-col text-left">
-                                <span className="font-bold text-slate-800 leading-tight">Notulen RUPS LB</span>
+                                <span className="font-bold text-slate-800 leading-tight">
+                                  {mergedData.documentType === 'CIRCULAR' ? 'SIRKULER RUPS LB' : 'Notulen RUPS LB'}
+                                </span>
                                 <span className="text-[10px] text-slate-400 lowercase mt-0.5 font-medium">format dokumen (.docx)</span>
                               </div>
                             </button>
 
-                            {/* Draft Akta RUPS LB */}
+                            {/* Draft Akta RUPS LB / AKTA SIRKULER RUPS LB */}
                             <button
                               onClick={async (e) => {
                                 e.stopPropagation();
@@ -5327,14 +3993,16 @@ const App: React.FC = () => {
                             >
                               <FileCode className="w-[18px] h-[18px] text-blue-600 stroke-[2.25px] shrink-0" />
                               <div className="flex flex-col text-left">
-                                <span className="font-bold text-slate-800 leading-tight">Draft Akta PKR LB</span>
+                                <span className="font-bold text-slate-800 leading-tight">
+                                  {mergedData.documentType === 'CIRCULAR' ? 'AKTA SIRKULER RUPS LB' : 'AKTA RUPS LB'}
+                                </span>
                                 <span className="text-[10px] text-slate-400 lowercase mt-0.5 font-medium">format dokumen (.docx)</span>
                               </div>
                             </button>
 
                             {/* Akta Peralihan Saham (Multiple items) */}
                             {mergedData.resolutions.shareholders && mergedData.shareTransfers && mergedData.shareTransfers.length > 0 && (
-                               mergedData.shareTransfers.map((transfer, index) => {
+                               (mergedData.shareTransfers || []).map((transfer, index) => {
                                  const fromName = mergedData.shareholders?.find(s => s.id === transfer.fromShareholderId)?.name || 'Unknown';
                                  const toName = mergedData.shareholders?.find(s => s.id === transfer.toShareholderId)?.name || mergedData.finalShareholders?.find(s => s.id === transfer.toShareholderId)?.name || 'Unknown';
                                  return (
@@ -5392,43 +4060,62 @@ const App: React.FC = () => {
             {/* DATA PERSEROAN (Pilihan dari Profil) */}
             <AhuSection title="PILIH PROFIL">
               <div className="space-y-4">
-                <label className="block text-[13px] font-medium text-slate-700 mb-1">Pilih Profil Perseroan untuk mengisi data otomatis</label>
-                <select 
-                  className="w-full border border-[#ccc] rounded-sm px-3 py-1.5 text-[13px] outline-none bg-white focus:border-[#66afe9]"
-                  value={data.selectedProfileId || ''}
-                  onChange={(e) => {
-                     const selected = profiles.find(p => p.id === e.target.value);
-                     if (selected) {
-                         const { 
-                           id, 
-                           newAddress, 
-                           fullAddress, 
-                           oldFullAddress, 
-                           oldAddress, 
-                           oldDomicile,
-                           kbliItems,
-                           resolutions,
-                           targetCapitalBase,
-                           targetCapitalPaid,
-                           targetCompanyName,
-                           targetShareholders,
-                           newManagementItems,
-                           ...rest 
-                         } = selected as any; // Exclude resolution target fields
-                         updateData({ 
-                           ...rest, 
-                           selectedProfileId: selected.id 
-                         } as any);
-                     } else {
-                         updateData({ selectedProfileId: '' });
-                     }
-                  }}
-                >
-                  <option value="">-- Pilih PT --</option>
-                  {profiles.map(p => (
-                    <option key={p.id} value={p.id}>{p.companyName}</option>
-                  ))}
-                </select>
+                {activeProjectContext ? (
+                  <div className="bg-slate-50 border border-slate-200 rounded-sm p-4 text-[13px] text-slate-700 space-y-2">
+                    <div>
+                      <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Company</div>
+                      <div className="font-bold text-slate-800 text-[14px]">
+                        {profiles.find(p => p.id === data.selectedProfileId)?.companyName || data.companyName || ((projects.find(p => p.id === activeProjectContext) as any) || (rupstProjects.find(p => p.id === activeProjectContext) as any) || (pendirianProjects.find(p => p.id === activeProjectContext) as any))?.title || 'PT Belum Ditentukan'}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                      <span>Source: Project Workspace</span>
+                    </div>
+                    <p className="text-[11px] text-slate-400 italic">
+                      This Company is locked because the document belongs to this Project.
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    <label className="block text-[13px] font-medium text-slate-700 mb-1">Pilih Profil Perseroan untuk mengisi data otomatis</label>
+                    <select 
+                      className="w-full border border-[#ccc] rounded-sm px-3 py-1.5 text-[13px] outline-none bg-white focus:border-[#66afe9]"
+                      value={data.selectedProfileId || ''}
+                      onChange={(e) => {
+                         const selected = profiles.find(p => p.id === e.target.value);
+                         if (selected) {
+                             const { 
+                               id, 
+                               resolutions,
+                               targetCapitalBase,
+                               targetCapitalPaid,
+                               targetCompanyName,
+                               targetShareholders,
+                               newManagementItems,
+                               ...rest 
+                             } = selected as any;
+                             
+                             updateData({ 
+                               ...rest, 
+                               selectedProfileId: selected.id,
+                               oldFullAddress: selected.fullAddress || selected.oldFullAddress,
+                               oldAddress: selected.newAddress || selected.oldAddress,
+                               oldDomicile: selected.domicile || selected.oldDomicile,
+                               kbliItems: selected.kbliItems || []
+                             } as any);
+                         } else {
+                             updateData({ selectedProfileId: '' });
+                         }
+                      }}
+                    >
+                      <option value="">-- Pilih PT --</option>
+                      {profiles.map(p => (
+                        <option key={p.id} value={p.id}>{p.companyName}</option>
+                      ))}
+                    </select>
+                  </>
+                )}
               </div>
             </AhuSection>
 
@@ -6001,12 +4688,6 @@ const App: React.FC = () => {
                         <AhuInput type="date" value={data.invitationDate || ''} onChange={e => updateData({ invitationDate: e.target.value })} />
                       </div>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
-                      <AhuLabel label="Tempat Rapat" />
-                      <div className="md:col-span-3">
-                        <AhuInput value={data.signingPlace || ''} onChange={e => updateData({ signingPlace: e.target.value })} placeholder="Contoh: Jakarta" />
-                      </div>
-                    </div>
                   </>
                 )}
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
@@ -6031,25 +4712,14 @@ const App: React.FC = () => {
 
                 {data.documentType === 'MINUTES' && (
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
-                    <AhuLabel label="Waktu Rapat" />
+                    <AhuLabel label="Waktu Rapat (Mulai)" />
                     <div className="md:col-span-3">
-                      <div className="flex gap-4 items-center">
-                        <div className="flex-1">
-                          <AhuInput 
-                            type="time" 
-                            value={data.meetingStartTime || ''} 
-                            onChange={e => updateData({ meetingStartTime: e.target.value })} 
-                          />
-                          <div className="text-[10px] text-slate-400 mt-1">MULAI</div>
-                        </div>
-                        <div className="flex-1">
-                          <AhuInput 
-                            type="time" 
-                            value={data.meetingEndTime || ''} 
-                            onChange={e => updateData({ meetingEndTime: e.target.value })} 
-                          />
-                          <div className="text-[10px] text-slate-400 mt-1">SELESAI</div>
-                        </div>
+                      <div className="w-1/2">
+                        <AhuInput 
+                          type="time" 
+                          value={data.meetingStartTime || ''} 
+                          onChange={e => updateData({ meetingStartTime: e.target.value })} 
+                        />
                       </div>
                     </div>
                   </div>
@@ -6146,155 +4816,14 @@ const App: React.FC = () => {
             </AhuSection>
 
             {(data.documentType === 'MINUTES' || data.documentType === 'CIRCULAR') && (
-              <AhuSection title="DAFTAR PARA PIHAK">
-                <div className="space-y-6">
-                  <div className="bg-blue-50 border border-blue-200 p-3 rounded-sm flex items-start gap-3">
-                    <div className="bg-blue-100 p-1.5 rounded-full"><FileText className="w-4 h-4 text-blue-600" /></div>
-                    <div>
-                      <div className="text-[12px] font-bold text-blue-800 uppercase">Petunjuk Daftar Para Pihak {data.documentType === 'CIRCULAR' ? '(Sirkuler)' : '(Notulen)'}</div>
-                      <p className="text-[11px] text-blue-600 leading-tight mt-0.5">
-                        Silakan centang daftar pemegang saham yang {data.documentType === 'CIRCULAR' ? 'terlibat' : 'hadir'} di bawah ini. 
-                        {data.documentType !== 'CIRCULAR' && "Anda juga dapat menambahkan tamu/undangan lain yang menghadiri rapat."}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Shareholder & Management & Guest Attendance */}
-                  <div>
-                    <div className="flex justify-between items-center mb-3">
-                      <h4 className="text-[12px] font-bold text-slate-500 flex items-center gap-2">
-                         <Users className="w-3 h-3" /> PARA PIHAK
-                      </h4>
-                      <div className="flex items-center gap-2">
-                        <button 
-                          type="button"
-                          onClick={() => openShareholderEditor('lama')}
-                          className="text-[10px] bg-[#222d32] text-white px-3 py-1 rounded-sm hover:bg-black transition-colors font-bold shadow-sm uppercase flex items-center gap-1"
-                        >
-                           <Plus className="w-3 h-3" /> Tambah {data.documentType === 'CIRCULAR' ? 'Pihak Lain' : 'Peserta Rapat'}
-                        </button>
-                        <button 
-                          type="button"
-                          onClick={() => {
-                            const newList = data.shareholders.map(s => ({ ...s, isPresent: true }));
-                            updateData({ shareholders: newList });
-                          }}
-                          className="text-[10px] bg-[#3b5998] text-white px-3 py-1 rounded-sm hover:bg-black transition-colors font-bold shadow-sm uppercase"
-                        >
-                          Tandai Semua {data.documentType === 'CIRCULAR' ? 'Terlibat' : 'Hadir'}
-                        </button>
-                      </div>
-                    </div>
-                    <div className="border border-slate-200 rounded-sm overflow-hidden">
-                      <table className="w-full text-left text-[11px]">
-                        <thead className="bg-[#f9f9f9] border-b border-slate-200 font-bold uppercase">
-                          <tr>
-                            <th className="p-2 border-r border-slate-200">Nama Pihak</th>
-                            <th className="p-2 border-r border-slate-200">Jumlah Saham</th>
-                            <th className="p-2 border-r border-slate-200 text-center w-20">{data.documentType === 'CIRCULAR' ? 'Terlibat?' : 'Hadir?'}</th>
-                            <th className="p-2 border-r border-slate-200 text-center w-28">Dikuasakan?</th>
-                            <th className="p-2 border-r border-slate-200 text-center">Penerima Kuasa</th>
-                            <th className="p-2 text-center w-24">Aksi</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {data.shareholders.map(s => (
-                            <tr key={s.id} className="border-b border-slate-200 last:border-0 hover:bg-slate-50 transition-colors">
-                              <td className="p-2 border-r border-slate-200 font-medium uppercase">{s.name}</td>
-                              <td className="p-2 border-r border-slate-200">{formatInputNumber(s.sharesOwned)} Saham</td>
-                              <td className="p-2 text-center border-r border-slate-200">
-                                <input
-                                  type="checkbox"
-                                  className="w-4 h-4 cursor-pointer"
-                                  checked={s.isPresent || false}
-                                  onChange={e => {
-                                    const newList = data.shareholders.map(item =>
-                                      item.id === s.id
-                                        ? { ...item, isPresent: e.target.checked, isProxy: e.target.checked ? item.isProxy : false, proxyData: e.target.checked ? item.proxyData : undefined }
-                                        : item
-                                    );
-                                    updateData({ shareholders: newList });
-                                  }}
-                                />
-                              </td>
-                              <td className="p-2 text-center border-r border-slate-200">
-                                {s.isPresent && (
-                                  <input
-                                    type="checkbox"
-                                    className="w-4 h-4 cursor-pointer accent-orange-600"
-                                    checked={s.isProxy || false}
-                                    onChange={e => {
-                                      const newList = data.shareholders.map(item =>
-                                        item.id === s.id ? { ...item, isProxy: e.target.checked, proxyData: e.target.checked ? item.proxyData : undefined } : item
-                                      );
-                                      updateData({ shareholders: newList });
-                                    }}
-                                    title="Centang jika pemegang saham dikuasakan ke orang lain"
-                                  />
-                                )}
-                              </td>
-                              <td className="p-2 text-center border-r border-slate-200">
-                                {s.isPresent && s.isProxy && (
-                                  s.proxyData?.name ? (
-                                    <div className="flex items-center justify-between gap-2 px-1">
-                                      <span className="text-[11px] font-bold text-slate-700 uppercase truncate">
-                                        {s.proxyData.salutation} {s.proxyData.name}
-                                      </span>
-                                      <button
-                                        onClick={() => {
-                                            setProxyModalOpenId(s.id);
-                                        }}
-                                        className="text-[9px] text-blue-600 hover:underline whitespace-nowrap"
-                                      >
-                                        Ubah
-                                      </button>
-                                    </div>
-                                  ) : (
-                                    <button
-                                      onClick={() => {
-                                        setProxyModalOpenId(s.id);
-                                      }}
-                                      className="text-[10px] bg-orange-500 text-white px-3 py-1 rounded hover:bg-orange-600 transition-colors font-bold"
-                                    >
-                                      + Isi Data Kuasa
-                                    </button>
-                                  )
-                                )}
-                              </td>
-                              <td className="p-2 text-center">
-                                <div className="flex justify-center items-center gap-1.5">
-                                  <button
-                                    type="button"
-                                    onClick={() => openShareholderEditor('lama', s)}
-                                    className="p-1 text-blue-600 hover:text-blue-800 transition-colors"
-                                    title="Edit data"
-                                  >
-                                    <Eye className="w-3.5 h-3.5" />
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => deleteShareholder(s.id, 'lama')}
-                                    className="p-1 text-red-500 hover:text-red-700 transition-colors"
-                                    title="Hapus"
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
-                          ))}
-                          {data.shareholders.length === 0 && (
-                            <tr>
-                              <td colSpan={6} className="p-4 text-center text-slate-400 italic">Belum ada data pemegang saham. Silakan isi di bagian DATA PERSEROAN atau tambah secara langsung.</td>
-                            </tr>
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-
-
-                </div>
+              <AhuSection title="DATA KEHADIRAN & PIMPINAN RAPAT">
+                <MeetingFormShell 
+                  meetingType="luar_biasa" 
+                  isCircular={data.documentType === 'CIRCULAR'} 
+                  onAddParticipant={() => openShareholderEditor('lama')}
+                  openShareholderEditor={openShareholderEditor}
+                  deleteShareholder={deleteShareholder}
+                />
               </AhuSection>
             )}
 
@@ -6325,27 +4854,6 @@ const App: React.FC = () => {
                         <AhuLabel label="Ayat Kuorum" />
                         <AhuInput value={data.rupstQuorumParagraph || ''} onChange={e => updateData({ rupstQuorumParagraph: e.target.value })} placeholder="Contoh: 1" />
                       </div>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
-                    <AhuLabel label="Pimpinan Rapat" />
-                    <div className="md:col-span-3">
-                      <AhuSelect value={data.meetingChair || ''} onChange={e => updateData({ meetingChair: e.target.value })}>
-                        <option value="">-- Pilih Pimpinan Rapat --</option>
-                        {Array.from(new Set([
-                          ...data.shareholders
-                            .filter(sh => sh.isManagement && /direksi|direktur|komisaris/i.test(sh.managementPosition || ''))
-                            .map(sh => JSON.stringify({ name: sh.name, position: sh.managementPosition })),
-                          ...data.oldManagementItems
-                            .filter(m => /direksi|direktur|komisaris/i.test(m.position || ''))
-                            .map(m => JSON.stringify({ name: m.name, position: m.position })),
-                          ...data.shareholders
-                            .filter(sh => sh.isPresent && sh.isProxy && sh.proxyData?.name)
-                            .map(sh => JSON.stringify({ name: sh.proxyData!.name, position: 'Kuasa Pemegang Saham' }))
-                        ])).map(str => JSON.parse(str)).map((m: any, idx: number) => (
-                          <option key={idx} value={m.name}>{m.name} - {m.position}</option>
-                        ))}
-                      </AhuSelect>
                     </div>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
@@ -7364,13 +5872,11 @@ const App: React.FC = () => {
                     ) : (
                       <div className="mt-4 p-4 border border-slate-200 rounded bg-slate-50">
                         <h4 className="text-[12px] font-bold text-slate-500 uppercase mb-3">Data Kuasa (Manual)</h4>
-                        <ShareholderForm 
+                        <ShareholderEditor 
                           shareholder={data.manualRepresentative!}
                           onChange={updates => updateManualRep(updates)}
                           hideManagement
                           hideFinancials
-                          profiles={profiles}
-                          globalSharePrice={0}
                           totalSharesAllowed={0}
                           otherAllocated={0}
                         />
@@ -7608,7 +6114,9 @@ const App: React.FC = () => {
                                         >
                                           <FileText className="w-[15px] h-[15px] text-indigo-500 shrink-0" />
                                           <div className="flex flex-col text-left">
-                                            <span className="leading-tight">Notulen RUPS LB</span>
+                                            <span className="leading-tight">
+                                              {p.documentType === 'CIRCULAR' ? 'SIRKULER RUPS LB' : 'Notulen RUPS LB'}
+                                            </span>
                                             <span className="text-[9px] text-slate-400 lowercase font-medium mt-0.5">.docx</span>
                                           </div>
                                         </button>
@@ -7631,7 +6139,9 @@ const App: React.FC = () => {
                                           >
                                             <FileCode className="w-[15px] h-[15px] text-blue-500 shrink-0" />
                                             <div className="flex flex-col text-left">
-                                              <span className="leading-tight">Draft Akta PKR LB</span>
+                                              <span className="leading-tight">
+                                                {p.documentType === 'CIRCULAR' ? 'AKTA SIRKULER RUPS LB' : 'AKTA RUPS LB'}
+                                              </span>
                                               <span className="text-[9px] text-slate-400 lowercase font-medium mt-0.5">.docx</span>
                                             </div>
                                           </button>
@@ -7639,7 +6149,7 @@ const App: React.FC = () => {
 
                                         {/* Akta Peralihan Saham */}
                                         {p.resolutions?.shareholders && p.shareTransfers && p.shareTransfers.length > 0 && (
-                                          p.shareTransfers.map((transfer, index) => {
+                                          (p.shareTransfers || []).map((transfer, index) => {
                                             const fromName = p.shareholders?.find(s => s.id === transfer.fromShareholderId)?.name || 'Unknown';
                                             const toName = p.shareholders?.find(s => s.id === transfer.toShareholderId)?.name || p.finalShareholders?.find(s => s.id === transfer.toShareholderId)?.name || 'Unknown';
                                             return (
@@ -7740,7 +6250,6 @@ const App: React.FC = () => {
             </div>
             );
           })() : activeSidebarTab === 'rupst' ? (() => {
-            const isPublicMenu = false;
             const currentEditingRupstId = editingRupstId;
             const setCurrentEditingRupstId = setEditingRupstId;
             const currentRupstProjects = rupstProjects;
@@ -7929,12 +6438,10 @@ const App: React.FC = () => {
                   zip.file(pernyataanResult.filename, pernyataanResult.blob);
                 }
                 
-                if (!isPublicMenu) {
-                  const { generateRUPSTAktaDocx } = await import('./src/lib/generateRUPSTAktaDocx');
-                  const aktaResult = await generateRUPSTAktaDocx(mergedData, true);
-                  if (aktaResult) {
-                    zip.file(aktaResult.filename, aktaResult.blob);
-                  }
+                const { generateRUPSTAktaDocx } = await import('./src/lib/generateRUPSTAktaDocx');
+                const aktaResult = await generateRUPSTAktaDocx(mergedData, true);
+                if (aktaResult) {
+                  zip.file(aktaResult.filename, aktaResult.blob);
                 }
                 
                 const content = await zip.generateAsync({ type: 'blob' });
@@ -7955,10 +6462,10 @@ const App: React.FC = () => {
                     </div>
                     <div>
                       <h2 className="text-[18px] font-extrabold flex items-center gap-2 text-slate-800 tracking-tight leading-snug">
-                        {isPublicMenu ? 'RUPS TAHUNAN PUBLIC' : 'RUPS TAHUNAN (RUPST)'}
+                        RUPS TAHUNAN (RUPST)
                       </h2>
                       <p className="text-[13px] text-slate-500 font-medium">
-                        {isPublicMenu ? 'Kelola daftar notulen RUPST Public' : 'Kelola daftar notulen RUPS Tahunan'}
+                        Kelola daftar notulen RUPS Tahunan
                       </p>
                     </div>
                   </div>
@@ -7966,11 +6473,13 @@ const App: React.FC = () => {
                     <button onClick={() => {
                       setCurrentEditingRupstId('new');
                       setIsRupstPreview(false);
+                      const defaultType = activeProjectJobType === 'sirkuler' ? 'sirkuler' : 'rapat';
                       updateData({ 
                         ...INITIAL_STATE, 
+                        rupstType: defaultType,
                       } as any);
                     }} className="bg-[#1b449c] hover:bg-[#13327d] text-white px-5 py-2.5 rounded-md font-bold text-[12px] flex items-center gap-2 transition-all shadow-sm shrink-0 hover:scale-[1.01] active:scale-[0.99]">
-                      <Plus className="w-4 h-4" /> {isPublicMenu ? 'TAMBAH RUPST PUBLIC BARU' : 'TAMBAH RUPST BARU'}
+                      <Plus className="w-4 h-4" /> TAMBAH RUPST BARU
                     </button>
                   )}
                 </div>
@@ -7982,8 +6491,14 @@ const App: React.FC = () => {
                       <button 
                         className="text-slate-600 hover:text-slate-900 bg-white border border-slate-200 hover:bg-slate-50 flex items-center justify-center gap-1.5 font-bold text-[12.5px] uppercase h-11 px-4 rounded-xl shadow-sm transition-all duration-150 shrink-0" 
                         onClick={() => {
+                          const returnToProjectId = activeProjectContext;
                           setIsRupstDocDropdownOpen(false);
                           setCurrentEditingRupstId(null);
+                          setActiveProjectContext(null);
+                          if (returnToProjectId) {
+                            setSelectedProjectId(returnToProjectId);
+                            setActiveSidebarTab('project_detail');
+                          }
                         }}
                       >
                         <ArrowRight className="w-5 h-5 rotate-180" /> Kembali
@@ -8018,22 +6533,29 @@ const App: React.FC = () => {
                           >
                             <Edit className="w-[18px] h-[18px]" /> Edit
                           </button>
-                          <button 
-                            onClick={async (e) => {
-                              e.preventDefault();
-                              setIsRupstDocDropdownOpen(false);
-                              if(confirm('Hapus ' + (isPublicMenu ? 'RUPST Public ' : 'RUPST ') + data.companyName + '?')) {
+                          {userProfile?.role === 'Super Admin' && (
+                            <button 
+                              onClick={async (e) => {
+                                e.preventDefault();
+                                setIsRupstDocDropdownOpen(false);
+                                if(confirm('Hapus RUPST ' + data.companyName + '?')) {
                                 if (!user) return alert('Anda harus login!');
                                 try {
                                   const deletedRupstName = data.companyName || 'PT Baru';
                                   await deleteDoc(doc(db, currentCollectionName, currentEditingRupstId));
                                   recordNotification(
-                                    isPublicMenu ? 'RUPST Public Dihapus' : 'Draft RUPST Dihapus',
-                                    `Rapat Umum Pemegang Saham Temuan (RUPST) ${isPublicMenu ? 'Public ' : ''}untuk perusahaan "${deletedRupstName}" telah berhasil dihapus oleh ${user?.email || 'Admin'}.`,
-                                    isPublicMenu ? 'delete_rupst_public' : 'delete_rupst'
+                                    'Draft RUPST Dihapus',
+                                    `Rapat Umum Pemegang Saham Temuan (RUPST) untuk perusahaan "${deletedRupstName}" telah berhasil dihapus oleh ${user?.email || 'Admin'}.`,
+                                    'delete_rupst'
                                   );
-                                  alert(isPublicMenu ? 'RUPST Public berhasil dihapus' : 'RUPST berhasil dihapus');
+                                  const returnToProjectId = activeProjectContext;
+                                  alert('RUPST berhasil dihapus');
                                   setCurrentEditingRupstId(null);
+                                  setActiveProjectContext(null);
+                                  if (returnToProjectId) {
+                                    setSelectedProjectId(returnToProjectId);
+                                    setActiveSidebarTab('project_detail');
+                                  }
                                 } catch (err) {
                                   handleFirestoreError(err, OperationType.DELETE, `${currentCollectionName}/${currentEditingRupstId}`);
                                 }
@@ -8043,7 +6565,8 @@ const App: React.FC = () => {
                           >
                             <Trash2 className="w-[18px] h-[18px]" /> Hapus
                           </button>
-                        </>
+                        )}
+                      </>
                       ) : (
                         <>
                           <button 
@@ -8066,20 +6589,38 @@ const App: React.FC = () => {
                                   rupstStatus: isNewRupst ? 'Draft' : (data.rupstStatus || 'Draft'),
                                   updatedAt: new Date().toISOString()
                               };
-                              if (!user && !isPublicMenu) {
+                              if (!user) {
                                 setIsSaving(false);
                                 return alert('Anda harus login terlebih dahulu!');
                               }
                               
                               try {
                                    await setDoc(doc(db, currentCollectionName, profileData.id), sanitizeForFirestore(profileData));
+                                   if (activeProjectContext) {
+                                       const docName = profileData.rupstType === 'sirkuler'
+                                         ? `Draft Sirkuler RUPST - ${profileData.companyName || 'PT Baru'}`
+                                         : `Draft RUPST - ${profileData.companyName || 'PT Baru'}`;
+                                       await ProjectService.addDocument(activeProjectContext, {
+                                           name: docName,
+                                           type: 'docx',
+                                           url: `/rupst`,
+                                           refId: profileData.id,
+                                           uploadedBy: user?.email || 'staff_notaris'
+                                       });
+                                   }
                                    recordNotification(
-                                     isNewRupst ? (isPublicMenu ? 'RUPST Public Baru Dibuat' : 'Draft RUPST Baru Dibuat') : (isPublicMenu ? 'RUPST Public Diubah' : 'Draft RUPST Diubah'),
-                                     `Rapat Umum Pemegang Saham Tahunan (RUPST) ${isPublicMenu ? 'Public ' : ''}untuk perusahaan "${profileData.companyName || 'PT Baru'}" telah ${isNewRupst ? 'berhasil didaftarkan' : 'diperbarui'} oleh ${user?.email || 'Admin'}.`,
-                                     isNewRupst ? (isPublicMenu ? 'create_rupst_public' : 'create_rupst') : (isPublicMenu ? 'update_rupst_public' : 'update_rupst')
+                                     isNewRupst ? 'Draft RUPST Baru Dibuat' : 'Draft RUPST Diubah',
+                                     `Rapat Umum Pemegang Saham Tahunan (RUPST) untuk perusahaan "${profileData.companyName || 'PT Baru'}" telah ${isNewRupst ? 'berhasil didaftarkan' : 'diperbarui'} oleh ${user?.email || 'Admin'}.`,
+                                     isNewRupst ? 'create_rupst' : 'update_rupst'
                                    );
+                                  const returnToProjectId = activeProjectContext;
                                   setCurrentEditingRupstId(null);
-                                  alert(isPublicMenu ? 'RUPST Public berhasil disimpan!' : 'RUPST berhasil disimpan!');
+                                  setActiveProjectContext(null);
+                                  alert('RUPST berhasil disimpan!');
+                                  if (returnToProjectId) {
+                                    setSelectedProjectId(returnToProjectId);
+                                    setActiveSidebarTab('project_detail');
+                                  }
                               } catch (e) {
                                   handleFirestoreError(e, OperationType.WRITE, `${currentCollectionName}/${profileData.id}`);
                               } finally {
@@ -8088,7 +6629,7 @@ const App: React.FC = () => {
                            }} 
                            className="px-5 bg-[#40bdae] hover:bg-[#349c8f] text-white rounded-xl text-[12.5px] font-bold transition-all h-11 uppercase disabled:opacity-50 disabled:cursor-not-allowed"
                           >
-                            {isSaving ? 'MENYIMPAN...' : (isPublicMenu ? 'SIMPAN RUPST PUBLIC' : 'SIMPAN RUPST')}
+                            {isSaving ? 'MENYIMPAN...' : 'SIMPAN RUPST'}
                           </button>
                         </>
                       )}
@@ -8130,7 +6671,7 @@ const App: React.FC = () => {
                               <FileText className="w-[18px] h-[18px] text-indigo-600 stroke-[2.25px] shrink-0" />
                               <div className="flex flex-col text-left">
                                 <span className="font-bold text-slate-800 leading-tight">
-                                  {mergedData.rupstType === 'sirkuler' ? 'Keputusan Sirkuler' : 'Notulen RUPST'}
+                                  {mergedData.rupstType === 'sirkuler' ? 'SIRKULER RUPST' : 'NOTULEN RUPST'}
                                 </span>
                                 <span className="text-[10px] text-slate-400 lowercase mt-0.5 font-medium">format dokumen (.docx)</span>
                               </div>
@@ -8158,29 +6699,29 @@ const App: React.FC = () => {
                               </div>
                             </button>
 
-                            {/* Draft Akta RUPST (Conditional) */}
-                            {!isPublicMenu && (
-                              <button
-                                onClick={async (e) => {
-                                  e.stopPropagation();
-                                  setIsRupstDocDropdownOpen(false);
-                                  try {
-                                    const { generateRUPSTAktaDocx } = await import('./src/lib/generateRUPSTAktaDocx');
-                                    await generateRUPSTAktaDocx(mergedData);
-                                  } catch (err) {
-                                    console.error('Failed to generate Draft Akta RUPST DOCX:', err);
-                                    alert('Gagal menghasilkan Draft Akta RUPST DOCX.');
-                                  }
-                                }}
-                                className="w-full px-4.5 py-3 text-slate-700 hover:bg-slate-50 text-[12px] font-bold flex items-center gap-3 uppercase tracking-wide transition-colors border-b border-slate-100"
-                              >
-                                <FileSignature className="w-[18px] h-[18px] text-blue-600 stroke-[2.25px] shrink-0" />
-                                <div className="flex flex-col text-left">
-                                  <span className="font-bold text-slate-800 leading-tight">Draft Akta RUPST</span>
-                                  <span className="text-[10px] text-slate-400 lowercase mt-0.5 font-medium">format dokumen (.docx)</span>
-                                </div>
-                              </button>
-                            )}
+                            {/* Draft Akta RUPST */}
+                            <button
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                setIsRupstDocDropdownOpen(false);
+                                try {
+                                  const { generateRUPSTAktaDocx } = await import('./src/lib/generateRUPSTAktaDocx');
+                                  await generateRUPSTAktaDocx(mergedData);
+                                } catch (err) {
+                                  console.error('Failed to generate Draft Akta RUPST DOCX:', err);
+                                  alert('Gagal menghasilkan Draft Akta RUPST DOCX.');
+                                }
+                              }}
+                              className="w-full px-4.5 py-3 text-slate-700 hover:bg-slate-50 text-[12px] font-bold flex items-center gap-3 uppercase tracking-wide transition-colors border-b border-slate-100"
+                            >
+                              <FileSignature className="w-[18px] h-[18px] text-blue-600 stroke-[2.25px] shrink-0" />
+                              <div className="flex flex-col text-left">
+                                <span className="font-bold text-slate-800 leading-tight">
+                                  {mergedData.rupstType === 'sirkuler' ? 'AKTA SIRKULER RUPST' : 'AKTA RUPST'}
+                                </span>
+                                <span className="text-[10px] text-slate-400 lowercase mt-0.5 font-medium">format dokumen (.docx)</span>
+                              </div>
+                            </button>
 
                             {/* Download Semua (.zip) */}
                             <button
@@ -8204,635 +6745,7 @@ const App: React.FC = () => {
                   </div>
                   
                   <fieldset disabled={isRupstPreview} className="space-y-4">
-                    {/* PILIH PROFIL */}
-                    {isPublicMenu && (
-                      <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center bg-white p-3.5 rounded-lg border border-slate-200 shadow-sm gap-2 mt-2">
-                        <div className="flex items-center gap-2">
-                          <div className="bg-blue-50 text-[#3b5998] p-1.5 rounded">
-                            <Sparkles className="w-4 h-4 animate-pulse text-blue-500" />
-                          </div>
-                          <div>
-                            <span className="text-[10px] sm:text-[12px] font-bold text-slate-800 uppercase block leading-none">Format Pengisian Data RUPST</span>
-                            <span className="text-[10px] text-slate-500 mt-1 block">Pilih mode pengisian yang paling nyaman untuk Anda</span>
-                          </div>
-                        </div>
-                        <div className="flex bg-slate-100 p-0.5 rounded-md border border-slate-200">
-                          <button
-                            type="button"
-                            onClick={() => setRupstInputMode('assistant')}
-                            className={`px-3 py-1.5 rounded-md text-[11px] font-bold uppercase transition-all flex items-center gap-1.5 cursor-pointer ${
-                              rupstInputMode === 'assistant'
-                                ? 'bg-white text-[#3b5998] shadow-sm font-extrabold'
-                                : 'text-slate-600 hover:text-slate-800'
-                            }`}
-                          >
-                            <Bot className="w-3.5 h-3.5" /> Asisten Interaktif
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setRupstInputMode('form')}
-                            className={`px-3 py-1.5 rounded-md text-[11px] font-bold uppercase transition-all flex items-center gap-1.5 cursor-pointer ${
-                              rupstInputMode === 'form'
-                                ? 'bg-white text-[#3b5998] shadow-sm font-extrabold'
-                                : 'text-[#3b5998] hover:text-blue-800'
-                            }`}
-                          >
-                            <FileText className="w-3.5 h-3.5" /> Formulir Lengkap
-                          </button>
-                        </div>
-                      </div>
-                    )}
 
-                    {isPublicMenu && rupstInputMode === 'assistant' ? (
-                      <RupstInteractiveAssistant
-                        data={data}
-                        updateData={updateData}
-                        openShareholderEditor={openShareholderEditor}
-                        deleteShareholder={deleteShareholder}
-                      />
-                    ) : isPublicMenu ? (
-                      <>
-                      <AhuSection title="DATA UTAMA PERSEROAN">
-                        <div className="space-y-4">
-                          <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
-                            <AhuLabel label="Status Dokumen" required />
-                            <div className="md:col-span-3">
-                              <select
-                                className="w-full border border-[#ccc] rounded-sm px-3 py-1.5 text-[13px] outline-none bg-white focus:border-[#66afe9]"
-                                value={data.documentStatus || data.rupstStatus || "DRAFTING"}
-                                onChange={e => updateData({ documentStatus: e.target.value as any, rupstStatus: (e.target.value === 'SELESAI' ? 'Final' : 'Draft') })}
-                              >
-                                {documentStatusOptions.map(opt => (
-                                  <option key={opt} value={opt}>{opt}</option>
-                                ))}
-                              </select>
-                            </div>
-                          </div>
-                          <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
-                            <AhuLabel label="Nama PT (Perseroan)" required />
-                            <div className="md:col-span-3">
-                              <AhuInput 
-                                placeholder="Contoh: PT SARANA MAKMUR SEJAHTERA"
-                                value={data.companyName || ''} 
-                                onChange={e => updateData({ companyName: e.target.value.toUpperCase() })} 
-                              />
-                            </div>
-                          </div>
-                          <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
-                            <AhuLabel label="Kedudukan PT (Kab/Kota)" required />
-                            <div className="md:col-span-3">
-                              <AhuInput 
-                                placeholder="Contoh: KOTA BANDUNG atau KABUPATEN INDRAMAYU"
-                                value={data.domicile || ''} 
-                                onChange={e => updateData({ domicile: e.target.value.toUpperCase() })} 
-                              />
-                            </div>
-                          </div>
-                          <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-start mt-2">
-                            <AhuLabel label="Detail Alamat PT" required />
-                            <div className="md:col-span-3 space-y-3">
-                              <div>
-                                <span className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Nama Jalan / Blok / Nomor Rumah</span>
-                                <AhuInput 
-                                  placeholder="Contoh: Jalan Asia Afrika Nomor 123"
-                                  value={data.rupstStreet || ''} 
-                                  onChange={e => updateData({ rupstStreet: e.target.value })} 
-                                />
-                              </div>
-                              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                                <div>
-                                  <span className="text-[10px] font-bold text-slate-500 uppercase block mb-1">RT</span>
-                                  <AhuInput 
-                                    placeholder="Contoh: 001"
-                                    value={data.rupstRt || ''} 
-                                    onChange={e => updateData({ rupstRt: e.target.value })} 
-                                  />
-                                </div>
-                                <div>
-                                  <span className="text-[10px] font-bold text-slate-500 uppercase block mb-1">RW</span>
-                                  <AhuInput 
-                                    placeholder="Contoh: 005"
-                                    value={data.rupstRw || ''} 
-                                    onChange={e => updateData({ rupstRw: e.target.value })} 
-                                  />
-                                </div>
-                                <div>
-                                  <span className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Kelurahan / Desa</span>
-                                  <AhuInput 
-                                    placeholder="Contoh: Braga"
-                                    value={data.rupstKelurahan || ''} 
-                                    onChange={e => updateData({ rupstKelurahan: e.target.value })} 
-                                  />
-                                </div>
-                                <div>
-                                  <span className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Kecamatan</span>
-                                  <AhuInput 
-                                    placeholder="Contoh: Sumur Bandung"
-                                    value={data.rupstKecamatan || ''} 
-                                    onChange={e => updateData({ rupstKecamatan: e.target.value })} 
-                                  />
-                                </div>
-                              </div>
-                              <div className="bg-slate-50 p-3 rounded border border-slate-200">
-                                <span className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Pratinjau Alamat Lengkap:</span>
-                                <p className="text-[12px] font-semibold text-[#3b5998] italic">
-                                  {data.fullAddress || <span className="text-slate-400">Harap lengkapi komponen alamat di atas...</span>}
-                                </p>
-                              </div>
-                            </div>
-                          </div>
-                          <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
-                            <AhuLabel label="Nilai Nominal Per Saham" required />
-                            <div className="md:col-span-3">
-                              <div className="relative">
-                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[13px]">Rp.</span>
-                                <AhuInput 
-                                  className="pl-10"
-                                  placeholder="Contoh: 100.000"
-                                  value={data.originalSharePrice === 0 ? '' : formatInputNumber(data.originalSharePrice)} 
-                                  onChange={e => updateData({ originalSharePrice: parseFormattedNumber(e.target.value) })} 
-                                />
-                              </div>
-                            </div>
-                          </div>
-                          <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
-                            <AhuLabel label="Total Modal Dasar (Lembar)" required />
-                            <div className="md:col-span-3">
-                              <div className="flex items-center gap-4">
-                                <div className="flex-1">
-                                  <AhuInput 
-                                    placeholder="Contoh: 10.000"
-                                    value={data.originalAuthorizedShares === 0 ? '' : formatInputNumber(data.originalAuthorizedShares)} 
-                                    onChange={e => updateData({ originalAuthorizedShares: parseFormattedNumber(e.target.value) })} 
-                                  />
-                                </div>
-                                <div className="text-[13px] font-bold text-slate-500 w-48">
-                                  Rp. {formatInputNumber(data.originalCapitalBase || 0)}
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                          <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
-                            <AhuLabel label="Total Modal Disetor (Lembar)" required />
-                            <div className="md:col-span-3">
-                              <div className="flex items-center gap-4">
-                                <div className="flex-1">
-                                  <AhuInput 
-                                    placeholder="Contoh: 2.500"
-                                    value={data.originalTotalShares === 0 ? '' : formatInputNumber(data.originalTotalShares)} 
-                                    onChange={e => updateData({ originalTotalShares: parseFormattedNumber(e.target.value) })} 
-                                  />
-                                </div>
-                                <div className="text-[13px] font-bold text-slate-500 w-48">
-                                  Rp. {formatInputNumber(data.originalCapitalPaid || 0)}
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                          
-                          {/* Alert: check latest Akta & SK AHU */}
-                          <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-start mt-1">
-                            <div className="hidden md:block"></div>
-                            <div className="md:col-span-3">
-                              <div className="p-3 bg-yellow-50 border border-yellow-200 rounded text-[11.5px] text-yellow-800 leading-relaxed">
-                                <span className="font-bold uppercase tracking-wider block mb-1 flex items-center gap-1.5 text-[11px]">
-                                  <span className="animate-pulse">💡</span> Rekomendasi Terpenting:
-                                </span>
-                                Harap pastikan nilai nominal saham modal dasar, dan modal disetor ini sesuai dengan records pada <strong>Akta Perubahan terakhir</strong> dan <strong>SK AHU (Persetujuan Kemenkumham) terbaru</strong> untuk menjaga kecocokan data hukum PT Anda saat ini!
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </AhuSection>
-
-                      <AhuSection title="AKTA PENDIRIAN DAN PERUBAHAN">
-                        <div className="space-y-4">
-                            <div className="border border-slate-200 rounded-sm p-4 space-y-4 bg-white/50">
-                              <h3 className="font-bold text-[13px] text-slate-800">Akta Pendirian</h3>
-                              <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
-                                <AhuLabel label="Nomor Akta" />
-                                <div className="md:col-span-3">
-                                  <AhuInput value={data.establishmentDeedNumber || ''} onChange={e => updateData({ establishmentDeedNumber: e.target.value })} placeholder="Contoh: 12" />
-                                </div>
-                              </div>
-                              <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
-                                <AhuLabel label="Tanggal Akta" />
-                                <div className="md:col-span-3">
-                                  <AhuInput type="date" value={data.establishmentDeedDate || ''} onChange={e => updateData({ establishmentDeedDate: e.target.value })} />
-                                </div>
-                              </div>
-                              <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
-                                <AhuLabel label="Pilih Notaris" />
-                                <div className="md:col-span-3">
-                                  <AhuSelect
-                                    value={data.establishmentNotary === 'Nukantini Putri Parincha' ? 'saya' : (data.establishmentNotary ? 'manual' : '')}
-                                    onChange={(e) => {
-                                      const val = e.target.value;
-                                      if (val === 'saya') {
-                                        updateData({
-                                          establishmentNotary: 'Nukantini Putri Parincha',
-                                          establishmentNotaryTitle: 'Sarjana Hukum, Magister Kenotariatan',
-                                          establishmentNotaryDomicile: 'Kabupaten Bandung Barat'
-                                        });
-                                      } else if (val === 'manual') {
-                                        updateData({
-                                          establishmentNotary: '',
-                                          establishmentNotaryTitle: '',
-                                          establishmentNotaryDomicile: ''
-                                        });
-                                      } else {
-                                        updateData({ establishmentNotary: '', establishmentNotaryTitle: '', establishmentNotaryDomicile: '' });
-                                      }
-                                    }}
-                                  >
-                                    <option value="">-- Pilih Notaris --</option>
-                                    <option value="saya">Saya (Nukantini Putri Parincha, SH., M.Kn.)</option>
-                                    <option value="manual">Input Bebas</option>
-                                  </AhuSelect>
-                                </div>
-                              </div>
-                              {data.establishmentNotary !== 'Nukantini Putri Parincha' && (
-                              <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
-                                <AhuLabel label="Nama Notaris" />
-                                <div className="md:col-span-3 flex gap-2">
-                                  <AhuInput 
-                                    className="flex-1"
-                                    value={data.establishmentNotary || ''} 
-                                    onChange={e => updateData({ establishmentNotary: e.target.value })} 
-                                    placeholder="Nama notaris pendirian" 
-                                  />
-                                  <div className="w-48 flex flex-col gap-1">
-                                    <AhuSelect
-                                      value={['Sarjana Hukum', 'Sarjana Hukum, Magister Kenotariatan'].includes(data.establishmentNotaryTitle || '') ? data.establishmentNotaryTitle : (data.establishmentNotaryTitle ? 'manual' : '')}
-                                      onChange={(e) => {
-                                        const val = e.target.value;
-                                        if (val === 'manual') {
-                                          // Keep current title but allow editing
-                                        } else {
-                                          updateData({ establishmentNotaryTitle: val });
-                                        }
-                                      }}
-                                    >
-                                      <option value="">-- Pilih Gelar --</option>
-                                      <option value="Sarjana Hukum">SH.</option>
-                                      <option value="Sarjana Hukum, Magister Kenotariatan">SH., M.Kn.</option>
-                                      <option value="manual">Manual</option>
-                                    </AhuSelect>
-                                    {( !['Sarjana Hukum', 'Sarjana Hukum, Magister Kenotariatan'].includes(data.establishmentNotaryTitle || '') || (data.establishmentNotaryTitle === 'manual')) && data.establishmentNotaryTitle !== undefined && (
-                                       <AhuInput 
-                                         placeholder="Gelar manual..." 
-                                         value={data.establishmentNotaryTitle === 'manual' ? '' : data.establishmentNotaryTitle}
-                                         onChange={e => updateData({ establishmentNotaryTitle: e.target.value })}
-                                       />
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-                              )}
-                              <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
-                                <AhuLabel label="Kedudukan Notaris" />
-                                <div className="md:col-span-3">
-                                  <AhuInput 
-                                    value={data.establishmentNotaryDomicile || ''} 
-                                    onChange={e => updateData({ establishmentNotaryDomicile: e.target.value })} 
-                                    placeholder="Contoh: Kabupaten Bandung Barat" 
-                                    disabled={data.establishmentNotary === 'Nukantini Putri Parincha'}
-                                    className={data.establishmentNotary === 'Nukantini Putri Parincha' ? 'bg-slate-100 font-bold' : ''}
-                                  />
-                                </div>
-                              </div>
-                              <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
-                                <AhuLabel label="Nomor SK" />
-                                <div className="md:col-span-3">
-                                  <AhuInput value={data.establishmentSkNumber || ''} onChange={e => updateData({ establishmentSkNumber: e.target.value })} placeholder="Nomor SK Kemenkumham" />
-                                </div>
-                              </div>
-                              <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
-                                <AhuLabel label="Tanggal SK" />
-                                <div className="md:col-span-3">
-                                  <AhuInput type="date" value={data.establishmentSkDate || ''} onChange={e => updateData({ establishmentSkDate: e.target.value })} />
-                                </div>
-                              </div>
-                            </div>
-
-                            {(data.amendmentDeeds || []).map((deed, index) => (
-                              <div key={deed.id} className="border border-slate-200 rounded-sm p-4 space-y-4 bg-white/50 relative">
-                                <div className="flex justify-between items-center border-b border-slate-200 pb-2 mb-2">
-                                  <h3 className="font-bold text-[13px] text-slate-800 uppercase tracking-tight">Akta Perubahan {index + 1}</h3>
-                                  <button 
-                                    onClick={() => {
-                                      const newList = (data.amendmentDeeds || []).filter(d => d.id !== deed.id);
-                                      updateData({ amendmentDeeds: newList });
-                                    }}
-                                    className="text-red-500 hover:text-red-700 p-1 transition-colors"
-                                    title="Hapus Akta Perubahan"
-                                  >
-                                    <Trash2 size={14} />
-                                  </button>
-                                </div>
-                                <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
-                                  <AhuLabel label="Nomor Akta" />
-                                  <div className="md:col-span-3">
-                                    <AhuInput 
-                                      value={deed.number || ''} 
-                                      onChange={e => {
-                                        const newList = [...(data.amendmentDeeds || [])];
-                                        newList[index] = { ...deed, number: e.target.value };
-                                        updateData({ amendmentDeeds: newList });
-                                      }} 
-                                      placeholder="Contoh: 05" 
-                                    />
-                                  </div>
-                                </div>
-                                <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
-                                  <AhuLabel label="Tanggal Akta" />
-                                  <div className="md:col-span-3">
-                                    <AhuInput 
-                                      type="date" 
-                                      value={deed.date || ''} 
-                                      onChange={e => {
-                                        const newList = [...(data.amendmentDeeds || [])];
-                                        newList[index] = { ...deed, date: e.target.value };
-                                        updateData({ amendmentDeeds: newList });
-                                      }} 
-                                    />
-                                  </div>
-                                </div>
-                                <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
-                                  <AhuLabel label="Pilih Notaris" />
-                                  <div className="md:col-span-3">
-                                    <AhuSelect
-                                      value={deed.notary === 'Nukantini Putri Parincha' ? 'saya' : (deed.notary ? 'manual' : '')}
-                                      onChange={(e) => {
-                                        const val = e.target.value;
-                                        const newList = [...(data.amendmentDeeds || [])];
-                                        if (val === 'saya') {
-                                          newList[index] = { 
-                                            ...deed, 
-                                            notary: 'Nukantini Putri Parincha',
-                                            notaryTitle: 'Sarjana Hukum, Magister Kenotariatan',
-                                            notaryDomicile: 'Kabupaten Bandung Barat'
-                                          };
-                                        } else if (val === 'manual') {
-                                          newList[index] = { 
-                                            ...deed, 
-                                            notary: '',
-                                            notaryTitle: '',
-                                            notaryDomicile: ''
-                                          };
-                                        } else {
-                                          newList[index] = { ...deed, notary: '', notaryTitle: '', notaryDomicile: ' ' };
-                                        }
-                                        updateData({ amendmentDeeds: newList });
-                                      }}
-                                    >
-                                      <option value="">-- Pilih Notaris --</option>
-                                      <option value="saya">Saya (Nukantini Putri Parincha, SH., M.Kn.)</option>
-                                      <option value="manual">Input Bebas</option>
-                                    </AhuSelect>
-                                  </div>
-                                </div>
-                                {deed.notary !== 'Nukantini Putri Parincha' && (
-                                <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
-                                  <AhuLabel label="Nama Notaris" />
-                                  <div className="md:col-span-3 flex gap-2">
-                                    <AhuInput 
-                                      className="flex-1"
-                                      value={deed.notary || ''} 
-                                      onChange={e => {
-                                        const newList = [...(data.amendmentDeeds || [])];
-                                        newList[index] = { ...deed, notary: e.target.value };
-                                        updateData({ amendmentDeeds: newList });
-                                      }} 
-                                      placeholder="Nama notaris perubahan" 
-                                    />
-                                    <div className="w-48 flex flex-col gap-1">
-                                      <AhuSelect
-                                        value={['Sarjana Hukum', 'Sarjana Hukum, Magister Kenotariatan'].includes(deed.notaryTitle || '') ? deed.notaryTitle : (deed.notaryTitle ? 'manual' : '')}
-                                        onChange={(e) => {
-                                          const val = e.target.value;
-                                          const newList = [...(data.amendmentDeeds || [])];
-                                          if (val === 'manual') {
-                                             newList[index] = { ...deed, notaryTitle: deed.notaryTitle || ' ' };
-                                          } else {
-                                             newList[index] = { ...deed, notaryTitle: val };
-                                          }
-                                          updateData({ amendmentDeeds: newList });
-                                        }}
-                                      >
-                                        <option value="">-- Pilih Gelar --</option>
-                                        <option value="Sarjana Hukum">SH.</option>
-                                        <option value="Sarjana Hukum, Magister Kenotariatan">SH., M.Kn.</option>
-                                        <option value="manual">Manual</option>
-                                      </AhuSelect>
-                                      {(!['Sarjana Hukum', 'Sarjana Hukum, Magister Kenotariatan'].includes(deed.notaryTitle || '') || (deed.notaryTitle === 'manual')) && deed.notaryTitle !== undefined && (
-                                         <AhuInput 
-                                           placeholder="Gelar manual..." 
-                                           value={deed.notaryTitle === 'manual' ? '' : deed.notaryTitle}
-                                           onChange={e => {
-                                             const newList = [...(data.amendmentDeeds || [])];
-                                             newList[index] = { ...deed, notaryTitle: e.target.value };
-                                             updateData({ amendmentDeeds: newList });
-                                           }}
-                                         />
-                                      )}
-                                    </div>
-                                  </div>
-                                </div>
-                                )}
-                                <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
-                                  <AhuLabel label="Kedudukan Notaris" />
-                                  <div className="md:col-span-3">
-                                    <AhuInput 
-                                      value={deed.notaryDomicile || ''} 
-                                      onChange={e => {
-                                        const newList = [...(data.amendmentDeeds || [])];
-                                        newList[index] = { ...deed, notaryDomicile: e.target.value };
-                                        updateData({ amendmentDeeds: newList });
-                                      }} 
-                                      placeholder="Contoh: Kabupaten Bogor" 
-                                      disabled={deed.notary === 'Nukantini Putri Parincha'}
-                                      className={deed.notary === 'Nukantini Putri Parincha' ? 'bg-slate-100 font-bold' : ''}
-                                    />
-                                  </div>
-                                </div>
-                                
-                                <div className="bg-slate-50/50 p-3 border border-slate-100 rounded-sm">
-                                  <div className="flex justify-between items-center mb-3">
-                                    <h4 className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">Daftar SK / SP Terkait</h4>
-                                  </div>
-                                  
-                                  <div className="space-y-3">
-                                    {(deed.skSpDocuments || []).map((doc, docIdx) => (
-                                      <div key={doc.id} className="grid grid-cols-1 md:grid-cols-9 gap-2 items-end border-b border-slate-100 pb-3 last:border-0 last:pb-0">
-                                        <div className="md:col-span-2">
-                                          <AhuLabel label="Tipe" />
-                                          <AhuSelect 
-                                            value={doc.type} 
-                                            onChange={e => {
-                                              const newList = [...(data.amendmentDeeds || [])];
-                                              const newDocs = [...(deed.skSpDocuments || [])];
-                                              newDocs[docIdx] = { ...doc, type: e.target.value as any };
-                                              newList[index] = { ...deed, skSpDocuments: newDocs };
-                                              updateData({ amendmentDeeds: newList });
-                                            }}
-                                          >
-                                            <option value="SK">SK (Keputusan)</option>
-                                            <option value="SP_DATA_PERSEROAN">SP (Perubahan Data Perseroan)</option>
-                                            <option value="SP_ANGGARAN_DASAR">SP (Perubahan Anggaran Dasar)</option>
-                                            <option value="SP">SP (Lainnya)</option>
-                                          </AhuSelect>
-                                        </div>
-                                        <div className="md:col-span-4">
-                                          <AhuLabel label="Nomor" />
-                                          <AhuInput 
-                                            value={doc.number || ''} 
-                                            onChange={e => {
-                                              const newList = [...(data.amendmentDeeds || [])];
-                                              const newDocs = [...(deed.skSpDocuments || [])];
-                                              newDocs[docIdx] = { ...doc, number: e.target.value };
-                                              newList[index] = { ...deed, skSpDocuments: newDocs };
-                                              updateData({ amendmentDeeds: newList });
-                                            }}
-                                            placeholder="Nomor SK/SP"
-                                          />
-                                        </div>
-                                        <div className="md:col-span-2">
-                                          <AhuLabel label="Tanggal" />
-                                          <AhuInput 
-                                            type="date"
-                                            value={doc.date || ''} 
-                                            onChange={e => {
-                                              const newList = [...(data.amendmentDeeds || [])];
-                                              const newDocs = [...(deed.skSpDocuments || [])];
-                                              newDocs[docIdx] = { ...doc, date: e.target.value };
-                                              newList[index] = { ...deed, skSpDocuments: newDocs };
-                                              updateData({ amendmentDeeds: newList });
-                                            }}
-                                          />
-                                        </div>
-                                        <div className="md:col-span-1 flex justify-center pb-1">
-                                          <button 
-                                            onClick={() => {
-                                              const newList = [...(data.amendmentDeeds || [])];
-                                              const newDocs = (deed.skSpDocuments || []).filter(d => d.id !== doc.id);
-                                              newList[index] = { ...deed, skSpDocuments: newDocs };
-                                              updateData({ amendmentDeeds: newList });
-                                            }}
-                                            className="text-red-400 hover:text-red-600 p-1 transition-colors"
-                                            title="Hapus SK/SP"
-                                          >
-                                            <Trash2 size={14} />
-                                          </button>
-                                        </div>
-                                      </div>
-                                    ))}
-                                    
-                                    {(deed.skSpDocuments || []).length === 0 && (
-                                      <div className="text-[11px] text-slate-400 italic mb-2">Belum ada SK/SP yang ditambahkan.</div>
-                                    )}
-
-                                    <button 
-                                      onClick={() => {
-                                        const newList = [...(data.amendmentDeeds || [])];
-                                        const newDoc = { id: crypto.randomUUID(), type: 'SK' as const, number: '', date: '' };
-                                        newList[index] = { ...deed, skSpDocuments: [...(deed.skSpDocuments || []), newDoc] };
-                                        updateData({ amendmentDeeds: newList });
-                                      }}
-                                      className="bg-white border border-[#3b5998]/30 text-[#3b5998] hover:bg-[#3b5998] hover:text-white px-3 py-1 rounded-sm text-[11px] font-bold flex items-center gap-1 transition-all"
-                                    >
-                                      <Plus size={12} /> TAMBAH SK / SP
-                                    </button>
-                                  </div>
-                                </div>
-                              </div>
-                            ))}
-
-                            <button 
-                              onClick={() => {
-                                const newDeed = { id: crypto.randomUUID(), number: '', date: '', notary: '', notaryDomicile: '', skNumber: '', skDate: '', skSpDocuments: [] };
-                                updateData({ amendmentDeeds: [...(data.amendmentDeeds || []), newDeed] });
-                              }}
-                              className="w-full flex items-center justify-center gap-2 py-3 border-2 border-dashed border-slate-200 rounded-sm text-slate-400 hover:border-[#3b5998] hover:text-[#3b5998] hover:bg-slate-50 transition-all group"
-                            >
-                              <Plus size={16} className="group-hover:scale-110 transition-transform" />
-                              <span className="text-[13px] font-bold uppercase tracking-wider">Tambah Akta Perubahan (Opsional)</span>
-                            </button>
-                          </div>
-                      </AhuSection>
-
-                      <AhuSection title="PESERTA RAPAT (PEMEGANG SAHAM & PENGURUS)">
-                        <div className="space-y-4">
-                          <div className="flex justify-between items-center bg-slate-50 p-2.5 rounded border border-slate-200">
-                            <div>
-                              <div className="text-[12px] font-bold text-[#3b5998] uppercase">Silakan Masukkan Data Peserta Rapat</div>
-                              <p className="text-[11px] text-slate-500 leading-tight mt-0.5">
-                                Khusus RUPST Public, Anda dapat menyalin atau mengisi pemegang saham, direksi, dan komisaris secara manual di bawah ini.
-                              </p>
-                            </div>
-                            <button 
-                              onClick={() => openShareholderEditor('lama')} 
-                              className="bg-[#3b5998] text-white px-3 py-1.5 rounded-sm text-[11px] font-bold shadow hover:bg-black transition-all flex items-center gap-1 shrink-0"
-                            >
-                              <Plus className="w-3.5 h-3.5" /> TAMBAH PESERTA
-                            </button>
-                          </div>
-                          
-                          <div className="border border-slate-200 overflow-x-auto rounded-sm">
-                            <table className="w-full text-left text-[11px]">
-                              <thead className="bg-[#f9f9f9] border-b border-slate-200 font-bold uppercase">
-                                <tr>
-                                  <th className="p-2 border-r border-slate-200">Nama</th>
-                                  <th className="p-2 border-r border-slate-200">Klasifikasi Saham</th>
-                                  <th className="p-2 border-r border-slate-200">Jumlah Lembar Saham</th>
-                                  <th className="p-2 border-r border-slate-200">Jabatan</th>
-                                  <th className="p-2 border-r border-slate-200">Total Nominal</th>
-                                  <th className="p-2 text-center">Aksi</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {data.shareholders.map((s) => (
-                                   <tr key={s.id} className="border-b border-slate-200 last:border-0 hover:bg-slate-50 transition-colors text-[10px]">
-                                     <td className="p-2 border-r border-slate-200 font-bold uppercase">{s.name}</td>
-                                     <td className="p-2 border-r border-slate-200">Tanpa Klasifikasi</td>
-                                     <td className="p-2 border-r border-slate-200">{formatInputNumber(s.sharesOwned)}</td>
-                                     <td className="p-2 border-r border-slate-200 font-bold uppercase">{s.isManagement ? (s.managementPosition || 'DIREKTUR') : '-'}</td>
-                                     <td className="p-2 border-r border-slate-200">Rp. {formatInputNumber(s.sharesOwned * data.originalSharePrice)}</td>
-                                     <td className="p-2 text-center text-blue-600 flex items-center justify-center gap-2">
-                                       <button onClick={() => openShareholderEditor('lama', s)} className="hover:underline flex items-center gap-0.5"><Eye className="w-3.5 h-3.5" /> Edit</button>
-                                       <span className="text-slate-300">|</span>
-                                       <button onClick={() => deleteShareholder(s.id, 'lama')} className="hover:underline text-red-500 flex items-center gap-0.5"><Trash2 className="w-3.5 h-3.5" /> Hapus</button>
-                                     </td>
-                                   </tr>
-                                ))}
-                                {data.shareholders.length === 0 && (
-                                  <tr>
-                                    <td colSpan={6} className="p-4 text-center text-slate-400 italic">Belum ada data pengurus/pemegang saham. Silakan klik tombol "TAMBAH PESERTA" untuk memulai.</td>
-                                  </tr>
-                                )}
-                              </tbody>
-                            </table>
-                          </div>
-                          <div className="text-[12px] font-bold text-slate-800 space-y-1 uppercase bg-slate-50 p-3 rounded border border-slate-200">
-                            <div className="flex justify-between">
-                              <span>TOTAL LEMBAR SAHAM DIINPUT:</span>
-                              <span>{formatInputNumber(data.shareholders.reduce((sum, s) => sum + s.sharesOwned, 0))} lembar</span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span>TOTAL NOMINAL DIINPUT:</span>
-                              <span>Rp {formatInputNumber(data.shareholders.reduce((sum, s) => sum + s.sharesOwned, 0) * data.originalSharePrice)}</span>
-                            </div>
-                            {data.shareholders.reduce((sum, s) => sum + s.sharesOwned, 0) !== data.originalTotalShares && (
-                              <div className="text-orange-600 font-normal text-xs normal-case mt-1 bg-orange-50 p-2 rounded border border-orange-100">
-                                * Catatan: Total lembar saham yang diinput ({formatInputNumber(data.shareholders.reduce((sum, s) => sum + s.sharesOwned, 0))} lembar) berbeda dengan Total Modal Disetor ({formatInputNumber(data.originalTotalShares)} lembar).
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </AhuSection>
-                      </>
-                    ) : (
-                      <>
                         <AhuSection title="STATUS DOKUMEN">
                           <div className="space-y-4">
                             <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
@@ -8852,46 +6765,78 @@ const App: React.FC = () => {
                           </div>
                         </AhuSection>
                         <AhuSection title="PILIH PROFIL">
-                      <div className="space-y-4">
-                        <label className="block text-[13px] font-medium text-slate-700 mb-1">Pilih Profil Perseroan untuk mengisi data otomatis</label>
-                        <div className="flex flex-col sm:flex-row gap-2">
-                          <select 
-                            className="flex-1 border border-[#ccc] rounded-sm px-3 py-1.5 text-[13px] outline-none bg-white focus:border-[#66afe9]"
-                            value={data.selectedProfileId || ''}
-                            onChange={(e) => {
-                               const selected = profiles.find(p => p.id === e.target.value);
-                               if (selected) {
-                                   const { id, ...rest } = selected;
-                                   updateData({ 
-                                     ...rest, 
-                                     selectedProfileId: selected.id 
-                                   } as any);
-                               } else {
-                                   updateData({ selectedProfileId: '' });
-                               }
-                            }}
-                          >
-                            <option value="">-- Pilih PT --</option>
-                            {profiles.map(p => (
-                              <option key={p.id} value={p.id}>{p.companyName}</option>
-                            ))}
-                          </select>
-                          {data.selectedProfileId && (
-                            <button
-                              onClick={syncCompanyDataToRupst}
-                              className="bg-blue-50 text-[#3b5998] hover:bg-[#3b5998] hover:text-white px-4 py-1.5 rounded-sm text-[12px] font-bold uppercase transition-colors shrink-0"
-                            >
-                              Sinkronkan Data PT
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    </AhuSection>
-                    </>
-                    )}
+                          <div className="space-y-4">
+                            {activeProjectContext ? (
+                              <div className="bg-slate-50 border border-slate-200 rounded-sm p-4 text-[13px] text-slate-700 space-y-2">
+                                <div>
+                                  <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Company</div>
+                                  <div className="font-bold text-slate-800 text-[14px]">
+                                    {profiles.find(p => p.id === data.selectedProfileId)?.companyName || data.companyName || ((projects.find(p => p.id === activeProjectContext) as any) || (rupstProjects.find(p => p.id === activeProjectContext) as any) || (pendirianProjects.find(p => p.id === activeProjectContext) as any))?.title || 'PT Belum Ditentukan'}
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                  <span>Source: Project Workspace</span>
+                                </div>
+                                <p className="text-[11px] text-slate-400 italic">
+                                  This Company is locked because the document belongs to this Project.
+                                </p>
+                              </div>
+                            ) : (
+                              <>
+                                <label className="block text-[13px] font-medium text-slate-700 mb-1">Pilih Profil Perseroan untuk mengisi data otomatis</label>
+                                <div className="flex flex-col sm:flex-row gap-2">
+                                  <select 
+                                    className="flex-1 border border-[#ccc] rounded-sm px-3 py-1.5 text-[13px] outline-none bg-white focus:border-[#66afe9]"
+                                    value={data.selectedProfileId || ''}
+                                    onChange={(e) => {
+                                       const selected = profiles.find(p => p.id === e.target.value);
+                                       if (selected) {
+                                           const { 
+                                             id, 
+                                             resolutions,
+                                             targetCapitalBase,
+                                             targetCapitalPaid,
+                                             targetCompanyName,
+                                             targetShareholders,
+                                             newManagementItems,
+                                             ...rest 
+                                           } = selected as any;
+                                           
+                                           updateData({ 
+                                             ...rest, 
+                                             selectedProfileId: selected.id,
+                                             oldFullAddress: selected.fullAddress || selected.oldFullAddress,
+                                             oldAddress: selected.newAddress || selected.oldAddress,
+                                             oldDomicile: selected.domicile || selected.oldDomicile,
+                                             kbliItems: selected.kbliItems || []
+                                           } as any);
+                                       } else {
+                                           updateData({ selectedProfileId: '' });
+                                       }
+                                    }}
+                                  >
+                                    <option value="">-- Pilih PT --</option>
+                                    {profiles.map(p => (
+                                      <option key={p.id} value={p.id}>{p.companyName}</option>
+                                    ))}
+                                  </select>
+                                  {data.selectedProfileId && (
+                                    <button
+                                      onClick={syncCompanyDataToRupst}
+                                      className="bg-blue-50 text-[#3b5998] hover:bg-[#3b5998] hover:text-white px-4 py-1.5 rounded-sm text-[12px] font-bold uppercase transition-colors shrink-0"
+                                    >
+                                      Sinkronkan Data PT
+                                    </button>
+                                  )}
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        </AhuSection>
 
                     {/* DATA KHUSUS RUPST */}
-                    {!(isPublicMenu && rupstInputMode === 'assistant') && (
+                    {true && (
                       <>
                         <AhuSection title="BENTUK KEPUTUSAN / RUPST">
                           <div className="space-y-4">
@@ -8911,7 +6856,7 @@ const App: React.FC = () => {
                         </AhuSection>
 
                         <AhuSection title="AGENDA DAN KEUANGAN RUPST">
-                      {isPublicMenu ? (
+                      {false ? (
                         <div className="mb-6 p-4 bg-slate-50 border border-slate-200 rounded space-y-4">
                           <div className="border-b border-slate-200 pb-2">
                             <span className="text-[12px] font-bold text-[#3b5998] uppercase tracking-wider flex items-center gap-1.5">
@@ -9267,7 +7212,7 @@ const App: React.FC = () => {
                                   }}
                                 >
                                   <option value="">-- Pilih --</option>
-                                  {data.shareholders.map(s => <option key={s.id} value={s.name}>{s.salutation || "Tuan"} {s.name}</option>)}
+                                  {(data.shareholders || []).map(s => <option key={s.id} value={s.name}>{s.salutation || "Tuan"} {s.name}</option>)}
                                 </AhuSelect>
                               </div>
                               <div>
@@ -9534,7 +7479,7 @@ const App: React.FC = () => {
                                         const totalOriginalShares = data.shareholders.reduce((sum, s) => sum + s.sharesOwned, 0);
                                         if (totalOriginalShares === 0) return;
 
-                                        const autoDividends = data.shareholders.map(s => {
+                                        const autoDividends = (data.shareholders || []).map(s => {
                                           const pct = parseFloat(((s.sharesOwned / totalOriginalShares) * 100).toFixed(4));
                                           const amt = Math.round((pct / 100) * (data.rupstDividendAmount || 0));
                                           return {
@@ -9734,25 +7679,16 @@ const App: React.FC = () => {
                               <div className="md:col-span-3"><AhuInput type="date" value={data.rupstInvitationDate || ''} onChange={e => updateData({ rupstInvitationDate: e.target.value })} /></div>
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
-                              <AhuLabel label="Tempat Penyelenggaraan" />
-                              <div className="md:col-span-3"><AhuInput value={data.signingPlace || ''} onChange={e => updateData({ signingPlace: e.target.value })} /></div>
-                            </div>
-                            <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
                               <AhuLabel label="Hari/Tanggal Rapat" />
                               <div className="md:col-span-3 flex gap-2">
                                  <AhuInput type="date" value={data.signingDate || ''} onChange={e => updateData({ signingDate: e.target.value })} />
                               </div>
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
-                              <AhuLabel label="Waktu Rapat" />
-                              <div className="md:col-span-3 flex items-center gap-2">
-                                <div className="flex-1">
-                                  <AhuLabel label="Mulai" />
+                              <AhuLabel label="Waktu Rapat (Mulai)" />
+                              <div className="md:col-span-3">
+                                <div className="w-1/2">
                                   <AhuInput type="time" value={data.meetingStartTime || ''} onChange={e => updateData({ meetingStartTime: e.target.value })} />
-                                </div>
-                                <div className="flex-1">
-                                  <AhuLabel label="Selesai" />
-                                  <AhuInput type="time" value={data.rupstMeetingEndTime || ''} onChange={e => updateData({ rupstMeetingEndTime: e.target.value })} />
                                 </div>
                               </div>
                             </div>
@@ -9782,140 +7718,123 @@ const App: React.FC = () => {
                                 </div>
                               </div>
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
-                              <AhuLabel label="Ketua Rapat" />
-                              <div className="md:col-span-3 flex gap-4">
-                                <div className="flex-1">
-                                  <AhuLabel label="Nama Ketua Rapat" />
-                                  <AhuSelect 
-                                    value={data.meetingChair || ''} 
-                                    onChange={e => {
-                                      const selectedName = e.target.value;
-                                      const sh = data.shareholders.find(s => s.name === selectedName);
-                                      updateData({ 
-                                        meetingChair: selectedName,
-                                        meetingChairPosition: sh?.isManagement ? (sh.managementPosition || "Direktur") : "Pemegang Saham"
-                                      });
-                                    }}
-                                  >
-                                    <option value="">-- Pilih --</option>
-                                    {data.shareholders.map(s => <option key={s.id} value={s.name}>{s.salutation} {s.name}</option>)}
-                                  </AhuSelect>
-                                </div>
-                                <div className="flex-1">
-                                  <AhuLabel label="Jabatan di PT" />
-                                  <AhuInput value={data.meetingChairPosition || ''} onChange={e => updateData({ meetingChairPosition: e.target.value })} placeholder="Contoh: Direktur Utama" />
-                                </div>
-                              </div>
-                            </div>
                           </>
                         )}
                       </div>
                     </AhuSection>
 
-                    <AhuSection title={data.rupstType === 'sirkuler' ? "DAFTAR PARA PIHAK" : "DATA KEHADIRAN (DAFTAR PARA PIHAK)"}>
-                      <div className="space-y-4">
-                        <div className="flex justify-between items-center">
-                          <h4 className="text-[12px] font-bold text-slate-500 uppercase flex items-center gap-2">
-                             <Users className="w-3 h-3" /> {data.rupstType === 'sirkuler' ? "DAFTAR PARA PIHAK" : "DATA KEHADIRAN (DAFTAR PARA PIHAK)"}
-                          </h4>
-                          <button 
-                            onClick={() => {
-                              const newList = data.shareholders.map(s => ({ ...s, isPresent: true }));
-                              updateData({ shareholders: newList });
-                            }}
-                            className="text-[10px] bg-[#3b5998] text-white px-3 py-1 rounded-sm hover:bg-black transition-colors font-bold shadow-sm"
-                          >
-                            Tandai Semua Hadir
-                          </button>
-                        </div>
-                        <div className="border border-slate-200 rounded-sm overflow-hidden">
-                          <table className="w-full text-left text-[11px]">
-                            <thead className="bg-[#f9f9f9] border-b border-slate-200 font-bold uppercase">
-                              <tr>
-                                <th className="p-2 border-r border-slate-200">Nama Pemegang Saham</th>
-                                <th className="p-2 border-r border-slate-200">Jumlah Saham</th>
-                                <th className="p-2 border-r border-slate-200 text-center w-20">Hadir?</th>
-                                <th className="p-2 border-r border-slate-200 text-center w-28">Dikuasakan?</th>
-                                <th className="p-2 border-slate-200 text-center">Penerima Kuasa</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {data.shareholders.map(s => (
-                                <tr key={s.id} className="border-b border-slate-200 last:border-0 hover:bg-slate-50 transition-colors">
-                                  <td className="p-2 border-r border-slate-200 font-medium uppercase">{s.name}</td>
-                                  <td className="p-2 border-r border-slate-200">{formatInputNumber(s.sharesOwned)} Saham</td>
-                                  <td className="p-2 text-center border-r border-slate-200">
-                                    <input
-                                      type="checkbox"
-                                      className="w-4 h-4 cursor-pointer"
-                                      checked={s.isPresent || false}
-                                      onChange={e => {
-                                        const newList = data.shareholders.map(item =>
-                                          item.id === s.id 
-                                            ? { ...item, isPresent: e.target.checked, isProxy: e.target.checked ? item.isProxy : false, proxyData: e.target.checked ? item.proxyData : undefined } 
-                                            : item
-                                        );
-                                        updateData({ shareholders: newList });
-                                      }}
-                                    />
-                                  </td>
-                                  <td className="p-2 text-center border-r border-slate-200">
-                                    {s.isPresent && (
+                    {data.rupstType === 'sirkuler' ? (
+                      <AhuSection title="DAFTAR PARA PIHAK">
+                        <div className="space-y-4">
+                          <div className="flex justify-between items-center">
+                            <h4 className="text-[12px] font-bold text-slate-500 uppercase flex items-center gap-2">
+                               <Users className="w-3 h-3" /> DAFTAR PARA PIHAK
+                            </h4>
+                            <button 
+                              onClick={() => {
+                                const newList = data.shareholders.map(s => ({ ...s, isPresent: true }));
+                                updateData({ shareholders: newList });
+                              }}
+                              className="text-[10px] bg-[#3b5998] text-white px-3 py-1 rounded-sm hover:bg-black transition-colors font-bold shadow-sm"
+                            >
+                              Tandai Semua Hadir
+                            </button>
+                          </div>
+                          <div className="border border-slate-200 rounded-sm overflow-hidden">
+                            <table className="w-full text-left text-[11px]">
+                              <thead className="bg-[#f9f9f9] border-b border-slate-200 font-bold uppercase">
+                                <tr>
+                                  <th className="p-2 border-r border-slate-200">Nama Pemegang Saham</th>
+                                  <th className="p-2 border-r border-slate-200">Jumlah Saham</th>
+                                  <th className="p-2 border-r border-slate-200 text-center w-20">Hadir?</th>
+                                  <th className="p-2 border-r border-slate-200 text-center w-28">Dikuasakan?</th>
+                                  <th className="p-2 border-slate-200 text-center">Penerima Kuasa</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {data.shareholders.map(s => (
+                                  <tr key={s.id} className="border-b border-slate-200 last:border-0 hover:bg-slate-50 transition-colors">
+                                    <td className="p-2 border-r border-slate-200 font-medium uppercase">{s.name}</td>
+                                    <td className="p-2 border-r border-slate-200">{formatInputNumber(s.sharesOwned)} Saham</td>
+                                    <td className="p-2 text-center border-r border-slate-200">
                                       <input
                                         type="checkbox"
-                                        className="w-4 h-4 cursor-pointer accent-orange-600"
-                                        checked={s.isProxy || false}
+                                        className="w-4 h-4 cursor-pointer"
+                                        checked={s.isPresent || false}
                                         onChange={e => {
                                           const newList = data.shareholders.map(item =>
-                                            item.id === s.id ? { ...item, isProxy: e.target.checked, proxyData: e.target.checked ? item.proxyData : undefined } : item
+                                            item.id === s.id 
+                                              ? { ...item, isPresent: e.target.checked, isProxy: e.target.checked ? item.isProxy : false, proxyData: e.target.checked ? item.proxyData : undefined } 
+                                              : item
                                           );
                                           updateData({ shareholders: newList });
                                         }}
-                                        title="Centang jika pemegang saham dikuasakan ke orang lain"
                                       />
-                                    )}
-                                  </td>
-                                  <td className="p-2 text-center">
-                                    {s.isPresent && s.isProxy && (
-                                      s.proxyData?.name ? (
-                                        <div className="flex items-center justify-between gap-2 px-1">
-                                          <span className="text-[11px] font-bold text-slate-700 uppercase truncate">
-                                            {s.proxyData.salutation} {s.proxyData.name}
-                                          </span>
+                                    </td>
+                                    <td className="p-2 text-center border-r border-slate-200">
+                                      {s.isPresent && (
+                                        <input
+                                          type="checkbox"
+                                          className="w-4 h-4 cursor-pointer accent-orange-600"
+                                          checked={s.isProxy || false}
+                                          onChange={e => {
+                                            const newList = data.shareholders.map(item =>
+                                              item.id === s.id ? { ...item, isProxy: e.target.checked, proxyData: e.target.checked ? item.proxyData : undefined } : item
+                                            );
+                                            updateData({ shareholders: newList });
+                                          }}
+                                          title="Centang jika pemegang saham dikuasakan ke orang lain"
+                                        />
+                                      )}
+                                    </td>
+                                    <td className="p-2 text-center">
+                                      {s.isPresent && s.isProxy && (
+                                        s.proxyData?.name ? (
+                                          <div className="flex items-center justify-between gap-2 px-1">
+                                            <span className="text-[11px] font-bold text-slate-700 uppercase truncate">
+                                              {s.proxyData.salutation} {s.proxyData.name}
+                                            </span>
+                                            <button
+                                              onClick={() => {
+                                                  setProxyModalOpenId(s.id);
+                                              }}
+                                              className="text-[9px] text-blue-600 hover:underline whitespace-nowrap"
+                                            >
+                                              Ubah
+                                            </button>
+                                          </div>
+                                        ) : (
                                           <button
                                             onClick={() => {
-                                                setProxyModalOpenId(s.id);
+                                              setProxyModalOpenId(s.id);
                                             }}
-                                            className="text-[9px] text-blue-600 hover:underline whitespace-nowrap"
+                                            className="text-[10px] bg-orange-500 text-white px-3 py-1 rounded hover:bg-orange-600 transition-colors font-bold"
                                           >
-                                            Ubah
+                                            + Isi Data Kuasa
                                           </button>
-                                        </div>
-                                      ) : (
-                                        <button
-                                          onClick={() => {
-                                            setProxyModalOpenId(s.id);
-                                          }}
-                                          className="text-[10px] bg-orange-500 text-white px-3 py-1 rounded hover:bg-orange-600 transition-colors font-bold"
-                                        >
-                                          + Isi Data Kuasa
-                                        </button>
-                                      )
-                                    )}
-                                  </td>
-                                </tr>
-                              ))}
-                              {data.shareholders.length === 0 && (
-                                <tr>
-                                  <td colSpan={5} className="p-4 text-center text-slate-400 italic">Belum ada data pemegang saham. Silakan isi di bagian DATA PERSEROAN.</td>
-                                </tr>
-                              )}
-                            </tbody>
-                          </table>
+                                        )
+                                      )}
+                                    </td>
+                                  </tr>
+                                ))}
+                                {data.shareholders.length === 0 && (
+                                  <tr>
+                                    <td colSpan={5} className="p-4 text-center text-slate-400 italic">Belum ada data pemegang saham. Silakan isi di bagian DATA PERSEROAN.</td>
+                                  </tr>
+                                )}
+                              </tbody>
+                            </table>
+                          </div>
                         </div>
-                      </div>
-                    </AhuSection>
+                      </AhuSection>
+                    ) : (
+                      <AhuSection title="DATA KEHADIRAN & PIMPINAN RAPAT">
+                        <MeetingFormShell 
+                          meetingType="tahunan" 
+                          isCircular={false} 
+                        />
+                      </AhuSection>
+                    )}
                     
                     {/* KUASA */}
                     <AhuSection title="Kuasa">
@@ -9958,13 +7877,11 @@ const App: React.FC = () => {
                             ) : (
                               <div className="mt-4 p-4 border border-slate-200 rounded bg-slate-50">
                                 <h4 className="text-[12px] font-bold text-slate-500 uppercase mb-3">Data Kuasa (Manual)</h4>
-                                <ShareholderForm 
+                                <ShareholderEditor 
                                   shareholder={data.manualRepresentative!}
                                   onChange={updates => updateManualRep(updates)}
                                   hideManagement
                                   hideFinancials
-                                  profiles={profiles}
-                                  globalSharePrice={0}
                                   totalSharesAllowed={0}
                                   otherAllocated={0}
                                 />
@@ -9987,7 +7904,7 @@ const App: React.FC = () => {
                       <div className="flex items-center gap-2.5">
                         <History className="w-5 h-5 text-[#1b449c]" />
                         <h3 className="text-[15px] font-bold text-slate-800 tracking-tight uppercase">
-                          {isPublicMenu ? 'NOTULEN RUPST PUBLIC TERSIMPAN' : 'NOTULEN RUPST TERSIMPAN'}
+                          NOTULEN RUPST TERSIMPAN
                         </h3>
                       </div>
                       
@@ -10106,7 +8023,7 @@ const App: React.FC = () => {
                     {/* TABLE AREA */}
                     {currentRupstProjects.length === 0 ? (
                       <div className="bg-slate-50 text-center py-10 rounded-md border border-dashed border-slate-350 text-slate-500 text-[13px] font-medium">
-                        {isPublicMenu ? 'Belum ada notulen RUPST Public yang disimpan.' : 'Belum ada notulen RUPST yang disimpan.'}
+                        Belum ada notulen RUPST yang disimpan.
                       </div>
                     ) : sortedResults.length === 0 ? (
                       <div className="bg-slate-50 text-center py-12 rounded-md border border-dashed border-slate-350 text-slate-500 text-[13px] font-medium">
@@ -10224,7 +8141,7 @@ const App: React.FC = () => {
                                           <FileText className="w-[15px] h-[15px] text-indigo-500 shrink-0" />
                                           <div className="flex flex-col text-left">
                                             <span className="leading-tight">
-                                              {p.rupstType === 'sirkuler' ? 'Keputusan Sirkuler' : 'Notulen RUPST'}
+                                              {p.rupstType === 'sirkuler' ? 'SIRKULER RUPST' : 'NOTULEN RUPST'}
                                             </span>
                                             <span className="text-[9px] text-slate-400 lowercase font-medium mt-0.5">.docx</span>
                                           </div>
@@ -10269,7 +8186,9 @@ const App: React.FC = () => {
                                         >
                                           <FileCode className="w-[15px] h-[15px] text-blue-500 shrink-0" />
                                           <div className="flex flex-col text-left">
-                                            <span className="leading-tight">Draft Akta RUPST</span>
+                                            <span className="leading-tight">
+                                              {p.rupstType === 'sirkuler' ? 'AKTA SIRKULER RUPST' : 'AKTA RUPST'}
+                                            </span>
                                             <span className="text-[9px] text-slate-400 lowercase font-medium mt-0.5">.docx</span>
                                           </div>
                                         </button>
@@ -10381,17 +8300,15 @@ const App: React.FC = () => {
               )}
             </div>
             );
-          })() : activeSidebarTab === 'kbli_mapping' ? (
-            <KBLIMapping />
-          ) : activeSidebarTab === 'saran_kbli' ? (
-            <KBLISuggestions />
-          ) : activeSidebarTab === 'import_kbli' ? (
-            <ImportKBLI />
+          })() : (activeSidebarTab === 'kbli_mapping' || activeSidebarTab === 'saran_kbli' || activeSidebarTab === 'import_kbli') ? (
+            <KbliTools activeKbliTab={activeSidebarTab} />
           ) : activeSidebarTab === 'pendirian' ? (
             editingPendirianId ? (
               <DraftAktaPendirian 
                 profiles={profiles}
-                initialData={editingPendirianId === 'new' ? null : pendirianProjects.find(p => p.id === editingPendirianId) as any}
+                initialData={editingPendirianId === 'new' ? pendirianPreset : pendirianProjects.find(p => p.id === editingPendirianId) as any}
+                projectName={((projects.find(p => p.id === activeProjectContext) as any) || (rupstProjects.find(p => p.id === activeProjectContext) as any) || (pendirianProjects.find(p => p.id === activeProjectContext) as any))?.title}
+                activeProjectContext={activeProjectContext}
                 isSaving={isSaving}
                 isSyncing={isSyncing}
                 onSync={async (finalData) => {
@@ -10420,6 +8337,15 @@ const App: React.FC = () => {
                     const isNewPendirian = editingPendirianId === 'new';
                      await setDoc(doc(db, 'pendirian_projects', id), sanitizeForFirestore(finalData));
                      
+                     if (activeProjectContext) {
+                       await ProjectService.addDocument(activeProjectContext, {
+                         name: `Draft Pendirian PT - ${finalData.namaPt || 'PT Baru'}`,
+                         type: 'docx',
+                         url: `/pendirian`,
+                         uploadedBy: user?.email || 'staff_notaris'
+                       });
+                     }
+
                      // Sync to Utama
                      if (finalData.nomorAkta && finalData.tanggal) {
                        await handleManualSync('PENDIRIAN', finalData);
@@ -10430,16 +8356,26 @@ const App: React.FC = () => {
                        `Data Pendirian PT untuk perusahaan "${finalData.namaPt || 'PT Baru'}" telah ${isNewPendirian ? 'berhasil didaftarkan' : 'diperbarui'} oleh ${user?.email || 'Admin'}.`,
                        isNewPendirian ? 'create_pendirian' : 'update_pendirian'
                      );
+                    const returnToProjectId = activeProjectContext;
                     setEditingPendirianId(null);
+                    setActiveProjectContext(null);
                     alert('Data pendirian berhasil disimpan!');
+                    if (returnToProjectId) {
+                      setSelectedProjectId(returnToProjectId);
+                      setActiveSidebarTab('project_detail');
+                    }
                   } catch (e) {
                     handleFirestoreError(e, OperationType.WRITE, `pendirian_projects/${id}`);
                   } finally {
                     setIsSaving(false);
                   }
                 }}
-                onCancel={() => setEditingPendirianId(null)}
+                onCancel={() => {
+                  setEditingPendirianId(null);
+                  setActiveProjectContext(null);
+                }}
                 onDelete={async (id) => {
+                  if (userProfile?.role !== 'Super Admin') return alert('Hanya Super Admin yang dapat menghapus proyek!');
                   if (confirm('Apakah Anda yakin ingin menghapus data pendirian ini?')) {
                     try {
                       await deleteDoc(doc(db, 'pendirian_projects', id));
@@ -10449,6 +8385,7 @@ const App: React.FC = () => {
                         'delete_pendirian'
                       );
                       setEditingPendirianId(null);
+                      setActiveProjectContext(null);
                       alert('Data pendirian berhasil dihapus!');
                     } catch (e) {
                       handleFirestoreError(e, OperationType.DELETE, `pendirian_projects/${id}`);
@@ -10484,14 +8421,30 @@ const App: React.FC = () => {
           ) : activeSidebarTab === 'perbaikan' ? (
             <DataCorrectionLetter />
           ) : activeSidebarTab === 'panduan' ? (
-            <GuideMenu />
+            <Panduan />
           ) : activeSidebarTab === 'laporan' ? (
             <LaporanList projects={projects} rupstProjects={rupstProjects} pendirianProjects={pendirianProjects} />
           ) : activeSidebarTab === 'whatsapp_settings' ? (
             <WhatsAppSettings />
+          ) : activeSidebarTab === 'projects' ? (
+            <ProjectList
+              onSelectProject={(id) => {
+                setSelectedProjectId(id);
+                setActiveSidebarTab('project_detail');
+              }}
+              currentUser={userProfile}
+            />
+          ) : activeSidebarTab === 'project_detail' && selectedProjectId && userProfile ? (
+            <ProjectDetail
+              projectId={selectedProjectId}
+              currentUser={userProfile}
+              onBack={() => {
+                setSelectedProjectId(null);
+                setActiveSidebarTab('projects');
+              }}
+            />
           ) : null}
         </main>
-        )}
       </div>
 
       {/* Floating Action Buttons removed as per request */}
@@ -10578,273 +8531,69 @@ const App: React.FC = () => {
         );
       })()}
 
-      <Modal 
-        isOpen={isPreviewOpen} 
-        onClose={() => setIsPreviewOpen(false)} 
-        title="DRAFT DOKUMEN"
-        maxWidth="max-w-7xl"
-        headerColor="bg-[#3b5998] text-white"
-      >
-        <div className="flex flex-col items-center h-[88vh] bg-slate-200/50 rounded-b-2xl overflow-hidden relative">
-          <div className="no-print sticky top-0 w-full py-4 z-40 flex justify-center gap-4 bg-white/90 backdrop-blur-md shadow-md border-b border-slate-200">
-            <div className="flex bg-white rounded-full p-1 border border-slate-300 shadow-sm">
-              <button 
-                onClick={() => setZoom(prev => Math.max(0.4, prev - 0.1))} 
-                className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-600"
-                title="Perkecil"
-              >
-                <ZoomOut className="w-5 h-5" />
-              </button>
-              <div className="flex items-center px-4 text-sm font-bold text-slate-700 min-w-[70px] justify-center">
-                {Math.round(zoom * 100)}%
-              </div>
-              <button 
-                onClick={() => setZoom(prev => Math.min(2, prev + 0.1))} 
-                className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-600"
-                title="Perbesar"
-              >
-                <ZoomIn className="w-5 h-5" />
-              </button>
-              <button 
-                onClick={() => setZoom(1)} 
-                className="px-4 text-[11px] font-bold text-blue-600 hover:bg-slate-100 rounded-full transition-colors uppercase border-l border-slate-200"
-              >
-                100%
-              </button>
-            </div>
-            
-            <div className="h-10 w-[1px] bg-slate-300"></div>
-
-            <button onClick={handlePrint} className="px-8 py-2.5 bg-[#3b5998] text-white rounded-full font-bold text-[13px] flex items-center gap-2 hover:bg-[#2d4373] transition-all shadow-md group">
-              <Printer className="w-4 h-4 group-hover:scale-110 transition-transform" /> Cetak / PDF
-            </button>
-            <button onClick={handleExportWord} className="px-8 py-2.5 bg-emerald-600 text-white rounded-full font-bold text-[13px] flex items-center gap-2 hover:bg-emerald-700 transition-all shadow-md group">
-              <FileCode className="w-4 h-4 group-hover:scale-110 transition-transform" /> Word (.docx)
-            </button>
-          </div>
-          
-          <div className="flex-1 w-full overflow-auto p-4 sm:p-8 pt-4 custom-scrollbar bg-slate-200/50">
-            {activeSidebarTab === 'rupst' ? (
-              <RUPSTDocumentPreview data={mergedData} />
-            ) : (
-              <DocumentPreview data={mergedData} showHeader={false} zoom={zoom} />
-            )}
-          </div>
-        </div>
-      </Modal>
-
-      <Modal
-        isOpen={Boolean(editingShareholder)}
-        onClose={() => { setEditingShareholder(null); setEditMode(null); }}
-        title={editMode === 'pengganti' ? "Formulir Lengkap Pengganti / Pengurus Baru" : editMode === 'pengganti_saham' ? "Formulir Lengkap Penerima Peralihan Saham Baru" : "Tambah Pemegang Saham, Komisaris dan Direksi"}
-        maxWidth="max-w-4xl"
-        headerColor="bg-white text-slate-800 border-b border-slate-200"
-      >
-        <div className="p-0 flex flex-col h-full bg-slate-50">
-          {editingShareholder && (
-            <div className="p-6 overflow-y-auto">
-              <ShareholderForm 
-                shareholder={editingShareholder}
-                onChange={updates => setEditingShareholder({ ...editingShareholder, ...updates })}
-                globalSharePrice={data.originalSharePrice}
-                totalSharesAllowed={editMode === 'lama' ? data.originalTotalShares : (data.resolutions.capitalPaid || data.resolutions.capitalPaidDecrease ? currentTargetSharesPaid : data.originalTotalShares)}
-                otherAllocated={(editMode === 'lama' ? data.shareholders : data.finalShareholders)
-                  .filter(s => s.id !== editingShareholder.id)
-                  .reduce((sum, s) => {
-                    let shares = s.sharesOwned;
-                    if (editMode === 'baru' && editingShareholder.isAcquisition && (editingShareholder.acquisitionSourceId === s.id || (s.linkedPartyId && editingShareholder.acquisitionSourceId === s.linkedPartyId))) {
-                      shares = Math.max(0, shares - (editingShareholder.acquisitionShares || 0));
-                    }
-                    return sum + shares;
-                  }, 0)
-                }
-                existingData={editMode === 'lama' ? [] : [
-                  ...data.shareholders,
-                  ...data.oldManagementItems.filter(m => !data.shareholders.some(s => (s.name || '').toUpperCase() === (m.name || '').toUpperCase()))
-                ]}
-                allShareholders={data.shareholders}
-                oldSharesOwned={data.shareholders.find(s => (s.name || '').trim().toUpperCase() === (editingShareholder.name || '').trim().toUpperCase())?.sharesOwned || 0}
-                isOld={editMode === 'lama' || editMode === 'pengganti' || editMode === 'pengganti_saham'}
-                hasTransferAgenda={(editMode === 'pengganti' || editMode === 'pengganti_saham') ? false : data.resolutions.shareholders}
-                hasManagementAgenda={(editMode === 'pengganti' || editMode === 'pengganti_saham') ? true : data.resolutions.management}
-                hasCapitalChange={(editMode === 'pengganti' || editMode === 'pengganti_saham') ? false : (data.resolutions.capitalBase || data.resolutions.capitalPaid || data.resolutions.capitalBaseDecrease || data.resolutions.capitalPaidDecrease)}
-                hideFinancials={editMode === 'pengganti' || editMode === 'pengganti_saham' || editMode === 'baru'}
-                hideManagement={editMode === 'baru'}
-                availableParties={(editMode === 'pengganti' || editMode === 'pengganti_saham' || editMode === 'baru') ? data.shareholders : undefined}
-                profiles={profiles}
-              />
-            </div>
-          )}
-          <div className="mt-auto flex justify-end gap-3 p-4 px-6 border-t border-slate-200 bg-white sticky bottom-0 z-10 shrink-0">
-            <button onClick={() => { setEditingShareholder(null); setEditMode(null); }} className="px-8 py-2 border border-slate-300 bg-white text-slate-700 rounded font-bold text-sm hover:bg-slate-50 transition-all">BATAL</button>
-            <button onClick={saveShareholder} className="px-8 py-2 bg-[#40bdae] text-white rounded font-bold text-sm hover:bg-[#349c8f] transition-all shadow-sm">SIMPAN DATA</button>
-          </div>
-        </div>
-      </Modal>
-
-      {/* Popup Editors for a cleaner AHU look */}
-
-      {showPendirianPreview && pendirianPreviewData && (
-        <PendirianDocumentPreview
-          data={pendirianPreviewData}
-          onExport={() => handlePendirianExportWord(pendirianPreviewData)}
-          onClose={() => setShowPendirianPreview(false)}
-          isExporting={isExportingPendirian}
-        />
-      )}
-
-      {/* KBLI Modal inside RUPS LB */}
-      {isAddKbliModalOpen && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-white w-full max-w-4xl rounded-sm shadow-2xl border border-slate-200 flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200">
-            {/* Modal Header */}
-            <div className="bg-[#0c2444] px-5 py-3 flex justify-between items-center text-white rounded-t-sm">
-              <h3 className="text-sm font-bold tracking-wider text-white">TAMBAH DATA KBLI (RUPS LB)</h3>
-              <button 
-                onClick={() => setIsAddKbliModalOpen(false)}
-                className="text-white hover:text-slate-200 text-2xl font-semibold focus:outline-none transition-colors"
-              >
-                &times;
-              </button>
-            </div>
-
-            {/* Modal Body */}
-            <div className="p-6 overflow-y-auto space-y-6 flex-1">
-              {/* Center Banner text */}
-              <div className="text-center space-y-1 py-1">
-                <h4 className="text-[18px] font-bold text-slate-800 uppercase tracking-widest leading-none">MAKSUD DAN TUJUAN</h4>
-                <p className="text-[14px] font-bold text-slate-500 tracking-wide leading-none pt-1">(KBLI 2025)</p>
-                <div className="border-b border-slate-300 w-full pt-3"></div>
-              </div>
-
-              {/* Search Bar */}
-              <div className="max-w-md mx-auto">
-                <div className="flex items-center border border-slate-300 rounded-md overflow-hidden shadow-sm focus-within:ring-2 focus-within:ring-[#0c2444]/30 focus-within:border-[#0c2444] transition-all bg-white">
-                  <input
-                    type="text"
-                    placeholder="Cari KBLI..."
-                    className="w-full px-3 py-2 text-[14px] font-medium text-slate-700 outline-none"
-                    value={kbliModalSearchTerm}
-                    onChange={(e) => setKbliModalSearchTerm(e.target.value)}
-                    onKeyDown={handleKbliModalKeyDown}
-                  />
-                  <button 
-                    onClick={performKbliModalSearch}
-                    className="p-2.5 bg-slate-50 hover:bg-slate-100 border-l border-slate-300 text-slate-600 transition-colors focus:outline-none flex items-center justify-center shrink-0"
-                  >
-                    <Search className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-
-              {/* Results Table */}
-              <div className="border border-slate-200 rounded-sm overflow-hidden shadow-sm bg-white">
-                <div className="max-h-[350px] overflow-y-auto">
-                  <table className="w-full text-left border-collapse text-[12px]">
-                    <thead className="sticky top-0 bg-slate-100 border-b border-slate-200 z-10">
-                      <tr>
-                        <th className="px-4 py-2 text-center w-12 border-r border-slate-200">
-                          <input
-                            type="checkbox"
-                            className="w-4 h-4 text-[#0c2444] border-slate-300 rounded cursor-pointer"
-                            checked={kbliPaginatedResults.length > 0 && kbliPaginatedResults.every(r => kbliCheckedKblis.includes(r.kode))}
-                            onChange={handleToggleAllKbliOnPage}
-                          />
-                        </th>
-                        <th className="px-4 py-2 font-bold text-slate-700 text-center w-24 border-r border-slate-200">Kode KBLI</th>
-                        <th className="px-4 py-2 font-bold text-slate-700 text-left w-52 border-r border-slate-200">Judul KBLI</th>
-                        <th className="px-4 py-2 font-bold text-slate-700 text-left">Uraian KBLI</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {kbliPaginatedResults.map((item) => {
-                        const isChecked = kbliCheckedKblis.includes(item.kode);
-                        return (
-                          <tr 
-                            key={item.kode} 
-                            onClick={() => handleToggleKbliChecked(item.kode)}
-                            className={`hover:bg-slate-50 cursor-pointer transition-colors ${
-                              isChecked ? 'bg-indigo-50/50 hover:bg-indigo-100/50' : ''
-                            }`}
-                          >
-                            <td className="px-4 py-2 text-center border-r border-slate-200" onClick={(e) => e.stopPropagation()}>
-                              <input
-                                type="checkbox"
-                                className="w-4 h-4 text-[#0c2444] border-slate-300 rounded cursor-pointer"
-                                checked={isChecked}
-                                onChange={() => handleToggleKbliChecked(item.kode)}
-                              />
-                            </td>
-                            <td className="px-4 py-2 text-center border-r border-slate-200 font-mono font-bold text-slate-700">{item.kode}</td>
-                            <td className="px-4 py-2 border-r border-slate-200 font-bold text-slate-800">{item.judul}</td>
-                            <td className="px-4 py-2 text-slate-600 leading-relaxed text-justify">{item.uraian}</td>
-                          </tr>
-                        );
-                      })}
-                      {kbliPaginatedResults.length === 0 && (
-                        <tr>
-                          <td colSpan={4} className="text-center py-10 text-slate-400 italic">
-                            Hasil pencarian tidak ditemukan. Silakan masukkan kata kunci lain.
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              {/* Pagination */}
-              {kbliTotalPages > 1 && (
-                <div className="flex flex-col sm:flex-row items-center justify-center gap-2 pt-2 border-t border-slate-100 text-[11px] text-slate-600">
-                  <span className="font-bold">Pergi ke halaman:</span>
-                  <div className="flex flex-wrap items-center gap-1">
-                    {getKbliPageNumbers().map(pageNum => (
-                      <button
-                        key={pageNum}
-                        onClick={() => setKbliCurrentPage(pageNum)}
-                        className={`px-2.5 py-1 border rounded-sm font-bold transition-all ${
-                          kbliCurrentPage === pageNum 
-                            ? 'bg-[#0c2444] border-[#0c2444] text-white' 
-                            : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
-                        }`}
-                      >
-                        {pageNum}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Modal Footer */}
-            <div className="border-t border-slate-200 bg-slate-50 px-6 py-4 flex justify-end gap-3 rounded-b-sm">
-              <button 
-                onClick={() => setIsAddKbliModalOpen(false)}
-                className="px-4 py-2 bg-white border border-slate-350 rounded-sm text-xs font-bold text-slate-700 hover:bg-slate-50 transition-all"
-              >
-                BATAL
-              </button>
-              <button 
-                onClick={handleAddKbliBatch}
-                className="px-4 py-2 bg-[#0c2444] text-white rounded-sm text-xs font-bold hover:bg-[#16365f] transition-all"
-              >
-                TAMBAH TERPILIH ({kbliCheckedKblis.length})
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {isEditProfileModalOpen && user && userProfile && (
-        <EditProfileModal
-          isOpen={isEditProfileModalOpen}
-          onClose={() => setIsEditProfileModalOpen(false)}
-          userId={user.uid}
-          currentProfile={userProfile}
-        />
-      )}
+      <GlobalModalManager
+        editingShareholder={editingShareholder}
+        setEditingShareholder={setEditingShareholder}
+        editMode={editMode}
+        setEditMode={setEditMode}
+        data={data}
+        currentTargetSharesPaid={currentTargetSharesPaid}
+        saveShareholder={saveShareholder}
+        isPreviewOpen={isPreviewOpen}
+        setIsPreviewOpen={setIsPreviewOpen}
+        zoom={zoom}
+        setZoom={setZoom}
+        handlePrint={handlePrint}
+        handleExportWord={handleExportWord}
+        activeSidebarTab={activeSidebarTab}
+        mergedData={mergedData}
+        isAddKbliModalOpen={isAddKbliModalOpen}
+        setIsAddKbliModalOpen={setIsAddKbliModalOpen}
+        kbliModalSearchTerm={kbliModalSearchTerm}
+        setKbliModalSearchTerm={setKbliModalSearchTerm}
+        handleKbliModalKeyDown={handleKbliModalKeyDown}
+        performKbliModalSearch={performKbliModalSearch}
+        kbliPaginatedResults={kbliPaginatedResults}
+        kbliCheckedKblis={kbliCheckedKblis}
+        handleToggleAllKbliOnPage={handleToggleAllKbliOnPage}
+        handleToggleKbliChecked={handleToggleKbliChecked}
+        kbliTotalPages={kbliTotalPages}
+        getKbliPageNumbers={getKbliPageNumbers}
+        kbliCurrentPage={kbliCurrentPage}
+        setKbliCurrentPage={setKbliCurrentPage}
+        handleAddKbliBatch={handleAddKbliBatch}
+        showPendirianPreview={showPendirianPreview}
+        setShowPendirianPreview={setShowPendirianPreview}
+        pendirianPreviewData={pendirianPreviewData}
+        handlePendirianExportWord={handlePendirianExportWord}
+        isExportingPendirian={isExportingPendirian}
+        isEditProfileModalOpen={isEditProfileModalOpen}
+        setIsEditProfileModalOpen={setIsEditProfileModalOpen}
+        user={user}
+        userProfile={userProfile}
+      />
 
     </div>
+  );
+};
+
+const App: React.FC = () => {
+  return (
+    <AuthProvider>
+      <CompanyProvider>
+        <ProjectProvider>
+          <NotificationProvider>
+            <ProjectSessionProvider>
+              <DocumentRuntimeProvider>
+                <ExportPipelineProvider>
+                  <AppShell />
+                </ExportPipelineProvider>
+              </DocumentRuntimeProvider>
+            </ProjectSessionProvider>
+          </NotificationProvider>
+        </ProjectProvider>
+      </CompanyProvider>
+    </AuthProvider>
   );
 };
 

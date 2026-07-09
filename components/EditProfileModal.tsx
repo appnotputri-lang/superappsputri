@@ -8,7 +8,7 @@ interface EditProfileModalProps {
   isOpen: boolean;
   onClose: () => void;
   userId: string;
-  currentProfile: { name: string; level: string };
+  currentProfile: { name: string; level?: string };
 }
 
 export const EditProfileModal: React.FC<EditProfileModalProps> = ({
@@ -18,7 +18,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
   currentProfile,
 }) => {
   const [name, setName] = useState(currentProfile.name);
-  const [level, setLevel] = useState(currentProfile.level);
+  const [level, setLevel] = useState(currentProfile.level || 'Staff Kantor');
   const [isSaving, setIsSaving] = useState(false);
 
   const handleSave = async () => {

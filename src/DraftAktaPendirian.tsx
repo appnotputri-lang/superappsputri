@@ -3,12 +3,14 @@ import { KbliItem, Shareholder, Address } from '../types';
 import { KBLI_DATA } from '../utils/kbliData';
 import { Eye, Printer, Users, Building2, Banknote, ChevronDown, ChevronRight, Search, Trash2, Plus, User, MapPin, Briefcase, IdCard, ShieldCheck, ArrowRight, Save, Edit, FileText, RefreshCw, Loader2 } from 'lucide-react';
 import { Modal } from '../components/Modal';
-import ShareholderForm from '../components/ShareholderForm';
+import ShareholderEditor from './components/editors/ShareholderEditor';
 import { IndoRegionSelector } from '../components/AddressFields';
 import { searchShareholderByNIKClient } from './lib/firebase';
 import { documentStatusOptions } from '../components/DocumentStatusBadge';
 import { formatInputNumber, parseFormattedNumber } from '../utils/formatters';
 import { fetchLatestDeedNumbers } from './lib/deedUtils';
+import { mapCompanyProfileToPendirian } from './domain/company/mappers/companyProfileToPendirian';
+import { useProjectSession } from './domain/project/useProjectSession';
 
 const AhuSection = ({ title, children, isOpen = true }: { title: string, children: React.ReactNode, isOpen?: boolean }) => {
   const [open, setOpen] = useState(isOpen);
@@ -100,6 +102,8 @@ interface DraftAktaPendirianProps {
   onExportWord: (data: any, type: string) => void;
   profiles: any[];
   initialData?: PendirianData | null;
+  activeProjectContext?: string | null;
+  projectName?: string | null;
   onSave?: (data: PendirianData) => void;
   onCancel?: () => void;
   onDelete?: (id: string) => void;
@@ -115,6 +119,7 @@ export default function DraftAktaPendirian({
   onExportWord, 
   profiles, 
   initialData, 
+  projectName,
   onSave, 
   onCancel,
   onDelete,
@@ -124,55 +129,67 @@ export default function DraftAktaPendirian({
   onChange,
   autoSaveIndicator
 }: DraftAktaPendirianProps) {
+  const { activeProjectContext } = useProjectSession();
+  const DEFAULT_DATA: PendirianData = {
+    namaPt: '',
+    kotaKedudukan: '',
+    alamatLengkapPT: '',
+    kuotaWaktuDireksi: '5',
+    tanggal: new Date().toISOString().split('T')[0],
+    waktu: '10:00',
+    nomorAkta: '',
+    nomorUrut: '',
+    notarisTempat: 'Kabupaten Bandung Barat',
+    notarisNamaSurat: '',
+    kbliItems: [],
+    modalDasar: 50000000,
+    modalDisetorPersen: 25,
+    nilaiPerLembar: 50000,
+    saksi1Nama: 'Nendi Suhendi',
+    saksi1LahirTempat: 'Bandung',
+    saksi1LahirTanggal: '1991-07-15',
+    saksi1Pekerjaan: 'Karyawan Swasta',
+    saksi1Alamat: 'Jalan Sukaresmi Nomor 17, Rukun Tetangga 005, Rukun Warga 005, Kecamatan Lembang, Desa Mekarwangi',
+    saksi1NIK: '3217011507910016',
+    saksi2Nama: 'Siti Nur Azizah',
+    saksi2LahirTempat: 'Bandung',
+    saksi2LahirTanggal: '1999-12-17',
+    saksi2Pekerjaan: 'Karyawan Swasta',
+    saksi2Alamat: 'Jalan Lembah Pakar Timur II Kampung Sekebuluh Rukun Tetangga 001, Rukun Warga 004, Kecamatan Cimenyan, Desa Ciburial',
+    saksi2NIK: '3204065712990001',
+    shareholders: [
+      {
+        id: crypto.randomUUID(),
+        salutation: 'Tuan',
+        name: '',
+        birthCity: '',
+        birthDate: '',
+        occupation: '',
+        nationality: 'WNI',
+        nationalityType: 'WNI',
+        address: { ...INITIAL_ADDRESS },
+        nik: '',
+        sharesOwned: 100,
+        managementPosition: 'Direktur',
+        isManagement: true,
+        shareholderType: 'PERORANGAN',
+        isForeign: false
+      }
+    ]
+  };
+
   const [data, setData] = useState<PendirianData>(() => {
-    if (initialData) return { nomorAkta: '', nomorUrut: '', ...initialData };
-    return {
-      namaPt: '',
-      kotaKedudukan: '',
-      alamatLengkapPT: '',
-      kuotaWaktuDireksi: '5',
-      tanggal: new Date().toISOString().split('T')[0],
-      waktu: '10:00',
-      nomorAkta: '',
-      nomorUrut: '',
-      notarisTempat: 'Kabupaten Bandung Barat',
-      notarisNamaSurat: '',
-      kbliItems: [],
-      modalDasar: 50000000,
-      modalDisetorPersen: 25,
-      nilaiPerLembar: 50000,
-      saksi1Nama: 'Nendi Suhendi',
-      saksi1LahirTempat: 'Bandung',
-      saksi1LahirTanggal: '1991-07-15',
-      saksi1Pekerjaan: 'Karyawan Swasta',
-      saksi1Alamat: 'Jalan Sukaresmi Nomor 17, Rukun Tetangga 005, Rukun Warga 005, Kecamatan Lembang, Desa Mekarwangi',
-      saksi1NIK: '3217011507910016',
-      saksi2Nama: 'Siti Nur Azizah',
-      saksi2LahirTempat: 'Bandung',
-      saksi2LahirTanggal: '1999-12-17',
-      saksi2Pekerjaan: 'Karyawan Swasta',
-      saksi2Alamat: 'Jalan Lembah Pakar Timur II Kampung Sekebuluh Rukun Tetangga 001, Rukun Warga 004, Kecamatan Cimenyan, Desa Ciburial',
-      saksi2NIK: '3204065712990001',
-      shareholders: [
-        {
-          id: crypto.randomUUID(),
-          salutation: 'Tuan',
-          name: '',
-          birthCity: '',
-          birthDate: '',
-          occupation: '',
-          nationality: 'WNI',
-          nationalityType: 'WNI',
-          address: { ...INITIAL_ADDRESS },
-          nik: '',
-          sharesOwned: 100,
-          managementPosition: 'Direktur',
-          isManagement: true,
-          shareholderType: 'PERORANGAN',
-          isForeign: false
-        }
-      ]
-    };
+    if (initialData) {
+      return { 
+        ...DEFAULT_DATA, 
+        ...initialData,
+        nomorAkta: initialData.nomorAkta || '',
+        nomorUrut: initialData.nomorUrut || '',
+        kbliItems: initialData.kbliItems || [],
+        shareholders: initialData.shareholders || DEFAULT_DATA.shareholders
+      };
+    }
+    return DEFAULT_DATA;
   });
 
   const [isReadOnly, setIsReadOnly] = useState(initialData !== null);
@@ -202,6 +219,18 @@ export default function DraftAktaPendirian({
       if (onCancel) onCancel();
     }
   };
+
+  React.useEffect(() => {
+    if (initialData) {
+      setData(prev => {
+        // Only update if current data is effectively empty/default and initialData has real content
+        if (!prev.namaPt && (initialData.namaPt || initialData.selectedProfileId)) {
+          return { ...prev, ...initialData };
+        }
+        return prev;
+      });
+    }
+  }, [initialData]);
 
   React.useEffect(() => {
     if (onChange) {
@@ -460,75 +489,44 @@ export default function DraftAktaPendirian({
         {/* INFORMASI UTAMA */}
         <AhuSection title="Informasi Pendirian PT">
           <div className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
-              <AhuLabel label="Pilih Klien PT (Opsional)" />
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-start">
+              <div className="pt-2">
+                <AhuLabel label="Pilih Klien PT (Opsional)" />
+              </div>
               <div className="md:col-span-3">
-                <AhuSelect 
-                    value={data.selectedProfileId || ''}
-                    onChange={(e) => {
-                        const profileId = e.target.value;
-                        const profile = profiles.find(p => p.id === profileId);
-                        if (profile) {
-                            setData(prev => ({ ...prev, selectedProfileId: profileId }));
-                            const mappedShareholders = (profile.shareholders || []).map((s: any) => ({
-                                id: crypto.randomUUID(),
-                                salutation: s.salutation || 'Tuan',
-                                name: (s.name || '').toUpperCase(),
-                                birthCity: s.birthCity || '',
-                                birthDate: s.birthDate || '',
-                                nationality: s.nationality || 'WNI',
-                                nationalityType: s.nationalityType || 'WNI',
-                                occupation: s.occupation || '',
-                                address: {
-                                    fullAddress: s.address?.fullAddress || '',
-                                    rt: s.address?.rt || '',
-                                    rw: s.address?.rw || '',
-                                    kelurahan: s.address?.kelurahan || '',
-                                    kecamatan: s.address?.kecamatan || '',
-                                    city: s.address?.city || '',
-                                    province: s.address?.province || '',
-                                },
-                                nik: s.nik || '',
-                                shareholderType: s.shareholderType || 'PERORANGAN',
-                                isForeign: s.isForeign || false,
-                                npwp: s.npwp || '',
-                                passportNumber: s.passportNumber || '',
-                                establishmentDeedNumber: s.establishmentDeedNumber || '',
-                                establishmentDeedDate: s.establishmentDeedDate || '',
-                                sharesOwned: s.sharesOwned || 0,
-                                managementPosition: s.managementPosition || 'Direktur',
-                                isManagement: s.isManagement || true
-                            }));
-                            const mappedKblis = (profile.kbliItems || []).map((k: any) => ({
-                                id: crypto.randomUUID(),
-                                code: k.code,
-                                name: k.name,
-                                description: k.description,
-                                categoryLetter: k.categoryLetter,
-                                categoryName: k.categoryName
-                            }));
-                            setData(prev => ({
-                                ...prev,
-                                namaPt: (profile.companyName || '').toUpperCase(),
-                                kotaKedudukan: profile.newAddress?.city || profile.domicile || '',
-                                alamatLengkapPT: profile.fullAddress || (profile.newAddress?.fullAddress ? 
-                                    `${profile.newAddress.fullAddress}, RT ${profile.newAddress.rt}/${profile.newAddress.rw}, Kel. ${profile.newAddress.kelurahan}, Kec. ${profile.newAddress.kecamatan}` 
-                                    : ''),
-                                modalDasar: profile.originalCapitalBase || prev.modalDasar,
-                                modalDasarLembar: profile.originalAuthorizedShares || prev.modalDasarLembar,
-                                modalDisetorLembar: profile.originalTotalShares || prev.modalDisetorLembar,
-                                nilaiPerLembar: profile.originalSharePrice || prev.nilaiPerLembar,
-                                modalDisetorPersen: profile.originalCapitalBase ? 
-                                    Math.round((profile.originalCapitalPaid / profile.originalCapitalBase) * 100) : prev.modalDisetorPersen,
-                                kbliItems: mappedKblis.length > 0 ? mappedKblis : prev.kbliItems,
-                                shareholders: mappedShareholders.length > 0 ? mappedShareholders : prev.shareholders
-                            }));
-                        }
-                    }}
-                >
-                    <option value="">-- PILIH DATA DARI MANIFEST PT --</option>
-                    {profiles.map(p => <option key={p.id} value={p.id}>{p.companyName}</option>)}
-                </AhuSelect>
+                {activeProjectContext ? (
+                  <div className="bg-slate-50 border border-slate-200 rounded-sm p-4 text-[13px] text-slate-700 space-y-2">
+                    <div>
+                      <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Company</div>
+                      <div className="font-bold text-slate-800 text-[14px]">
+                        {profiles.find(p => p.id === data.selectedProfileId)?.companyName || data.namaPt || initialData?.namaPt || projectName || 'PT Belum Ditentukan'}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                      <span>Source: Project Workspace</span>
+                    </div>
+                    <p className="text-[11px] text-slate-400 italic">
+                      This Company is locked because the document belongs to this Project.
+                    </p>
+                  </div>
+                ) : (
+                  <AhuSelect 
+                      value={data.selectedProfileId || ''}
+                      onChange={(e) => {
+                          const profileId = e.target.value;
+                          const profile = profiles.find(p => p.id === profileId);
+                          if (profile) {
+                              setData(prev => mapCompanyProfileToPendirian(profile, prev));
+                          } else {
+                              setData(prev => ({ ...prev, selectedProfileId: '' }));
+                          }
+                      }}
+                  >
+                      <option value="">-- PILIH DATA DARI MANIFEST PT --</option>
+                      {profiles.map(p => <option key={p.id} value={p.id}>{p.companyName}</option>)}
+                  </AhuSelect>
+                )}
               </div>
             </div>
 
@@ -762,7 +760,7 @@ export default function DraftAktaPendirian({
                     </tr>
                   </thead>
                   <tbody>
-                    {data.shareholders.map((s) => (
+                    {(data.shareholders || []).map((s) => (
                        <tr key={s.id} className="border-b border-slate-200 last:border-0 hover:bg-slate-50 transition-colors text-[10px]">
                          <td className="p-2 border-r border-slate-200 font-bold uppercase">{s.name}</td>
                          <td className="p-2 border-r border-slate-200">Tanpa Klasifikasi</td>
@@ -822,7 +820,7 @@ export default function DraftAktaPendirian({
         <div className="p-0 flex flex-col h-full bg-slate-50">
           {editingShareholder && (
             <div className="p-6 overflow-y-auto">
-              <ShareholderForm 
+              <ShareholderEditor 
                 shareholder={editingShareholder}
                 onChange={updates => setEditingShareholder({ ...editingShareholder, ...updates })}
                 globalSharePrice={data.nilaiPerLembar}

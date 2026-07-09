@@ -214,6 +214,28 @@ export function checkIsBadanHukum(person: any): boolean {
   return person.shareholderType === "BADAN_HUKUM" || looksLikePT || !!person.legalEntityType;
 }
 
+export function getGroupedAmendmentDeeds(amendmentDeeds: any[]): any[][] {
+  const groupedDeeds: any[][] = [];
+  for (const deed of amendmentDeeds) {
+    if (groupedDeeds.length === 0) {
+      groupedDeeds.push([deed]);
+    } else {
+      const lastGroup = groupedDeeds[groupedDeeds.length - 1];
+      const lastDeedInGroup = lastGroup[0];
+      if (
+        deed.notary === lastDeedInGroup.notary &&
+        deed.notaryTitle === lastDeedInGroup.notaryTitle &&
+        deed.notaryDomicile === lastDeedInGroup.notaryDomicile
+      ) {
+        lastGroup.push(deed);
+      } else {
+        groupedDeeds.push([deed]);
+      }
+    }
+  }
+  return groupedDeeds;
+}
+
 export function formatPersonDetails(
   person: {
     birthCity?: string;
@@ -330,25 +352,7 @@ export function formatPersonDetails(
           const lastDateStr = lastDeed.date ? (useAktaFormat ? formatAktaDate(lastDeed.date) : formatDateRupst(lastDeed.date)) : "...";
           baseString += `, dan anggaran dasarnya telah mengalami beberapa kali perubahan, terakhir dengan ${actaNumWord} ${lastDeed.number || "..."} tertanggal ${lastDateStr} dibuat dihadapan ${lastDeed.notary || "..."}, Notaris di ${lastDeed.notaryDomicile ? toTitleCase(lastDeed.notaryDomicile) : "..."} berdasarkan akta-akta sebagai berikut:`;
 
-          const groupedDeeds: any[][] = [];
-          for (const deed of person.amendmentDeeds) {
-            if (groupedDeeds.length === 0) {
-              groupedDeeds.push([deed]);
-            } else {
-              const lastGroup = groupedDeeds[groupedDeeds.length - 1];
-              const lastDeedInGroup = lastGroup[0];
-              if (
-                deed.notary === lastDeedInGroup.notary &&
-                deed.notaryTitle === lastDeedInGroup.notaryTitle &&
-                deed.notaryDomicile === lastDeedInGroup.notaryDomicile
-              ) {
-                lastGroup.push(deed);
-              } else {
-                groupedDeeds.push([deed]);
-              }
-            }
-          }
-
+          const groupedDeeds = getGroupedAmendmentDeeds(person.amendmentDeeds);
           const keWord = ["", "", "kedua", "ketiga", "keempat", "kelima", "keenam", "ketujuh", "kedelapan", "kesembilan", "kesepuluh"];
 
           groupedDeeds.forEach((group) => {

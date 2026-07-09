@@ -83,15 +83,16 @@ export const RUPSDocumentPreview: React.FC<RUPSDocumentPreviewProps> = ({ data }
       const maxLine = 41.5 - (1.1 + (indentTabs * 2.2));
       const lines = parseTextRuns(runs, maxLine);
       
-      // textStart is (indentTabs * 0.75) + 0.75 cm
-      // bullet is at indentTabs * 0.75 cm
-      const bulletLeft = indentTabs * 0.75;
+      const level = indentTabs <= 0.6 ? 0 : (indentTabs <= 1.1 ? 1 : (indentTabs <= 1.6 ? 2 : 3));
+      const textLeft = level === 0 ? 0.75 : (level === 1 ? 1.0 : (level === 2 ? 1.5 : 2.0));
+      const bulletLeft = level === 0 ? 0 : textLeft - 0.5;
+      const bulletWidth = level === 0 ? 0.75 : 0.5;
 
       lines.forEach((line, lIdx) => {
         allLines.push({
           element: (
             <div key={`l-${bIdx}-${lIdx}`} className="flex relative items-start" style={{ paddingLeft: `${bulletLeft}cm` }}>
-              <span className="shrink-0 whitespace-nowrap" style={{ width: '0.75cm' }}>{lIdx === 0 ? block.bullet : ""}</span>
+              <span className="shrink-0 whitespace-nowrap" style={{ width: `${bulletWidth}cm` }}>{lIdx === 0 ? block.bullet : ""}</span>
               <div className="flex-1 min-w-0">
                 <div className="flex relative w-full overflow-hidden leading-[2]">
                   <span className="whitespace-pre-wrap shrink-0">

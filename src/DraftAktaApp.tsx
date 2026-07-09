@@ -102,7 +102,7 @@ const DraftAktaApp = forwardRef<DraftAktaAppRef, DraftAktaAppProps>(({ companyDa
           nilaiNominalSaham: companyData.originalSharePrice ? companyData.originalSharePrice.toString() : initialData.nilaiNominalSaham,
           tglSirkuler: companyData.signingDate || initialData.tglSirkuler,
           aktaPerubahan: companyData.amendmentDeeds && companyData.amendmentDeeds.length > 0 
-            ? companyData.amendmentDeeds.map((deed) => {
+            ? (companyData.amendmentDeeds || []).map((deed) => {
                 const sk = deed.skSpDocuments?.[0];
                 return {
                   id: deed.id,
@@ -228,7 +228,7 @@ const DraftAktaApp = forwardRef<DraftAktaAppRef, DraftAktaAppProps>(({ companyDa
 
   return (
     <div className="w-full flex flex-col gap-8">
-      {companyData.shareTransfers.map((transfer, index) => {
+      {(companyData.shareTransfers || []).map((transfer, index) => {
         const currentData = transferDataMap[transfer.id] || initialData;
         const fromName = companyData.shareholders.find(s => s.id === transfer.fromShareholderId)?.name || 'Unknown';
         const toName = companyData.shareholders.find(s => s.id === transfer.toShareholderId)?.name || companyData.finalShareholders?.find(s => s.id === transfer.toShareholderId)?.name || 'Unknown';
