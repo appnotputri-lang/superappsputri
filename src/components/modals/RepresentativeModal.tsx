@@ -1,7 +1,7 @@
 import React from 'react';
 import { X, UserCheck, FileText } from 'lucide-react';
-import { IndoRegionSelector } from './AddressFields';
-import { Shareholder, CompanyProfile } from '../types';
+import { IndoRegionSelector } from '../../../components/AddressFields';
+import { Shareholder, CompanyProfile } from '../../../types';
 
 export interface ProxyData {
   salutation: 'Tuan' | 'Nyonya' | 'Nona';

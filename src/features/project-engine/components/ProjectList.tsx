@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Project } from '../../domain/project/Project';
-import { ProjectService } from '../../services/ProjectService';
-import { UserProfile, CompanyProfile } from '../../../types';
-import { db } from '../../lib/firebase';
+import { Project } from '../../../domain/project/Project';
+import { ProjectService } from '../../../services/ProjectService';
+import { UserProfile, CompanyProfile } from '../../../../types';
+import { db } from '../../../lib/firebase';
 import { collection, getDocs } from 'firebase/firestore';
-import { Workflow } from '../../domain/project/Workflow';
-import { WorkflowService } from '../../services/WorkflowService';
-import { Plus, Search, Filter, Briefcase, User, Calendar, ExternalLink, Loader2, ArrowRight, Trash2 } from 'lucide-react';
+import { Workflow } from '../../../domain/project/Workflow';
+import { WorkflowService } from '../../../services/WorkflowService';
+import { Plus, Search, Filter, Briefcase, User, Calendar, ExternalLink, Loader2, ArrowRight, Trash2, AlertCircle } from 'lucide-react';
+import { SearchableClientSelect } from '../../../components/common/SearchableClientSelect';
 
 interface ProjectListProps {
   onSelectProject: (projectId: string) => void;
@@ -56,7 +57,7 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
         setWorkflows(wfList || []);
       } catch (err: any) {
         console.error(err);
-        setError('Gagal memuat data proyek. Silakan coba lagi beberapa saat lagi.');
+        setError('Gagal memuat data draf RUPS LB. Silakan coba lagi beberapa saat lagi.');
       } finally {
         setLoading(false);
       }
@@ -152,28 +153,30 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
     return workflows.find((w) => w.id === jobType)?.name || jobType;
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status.toLowerCase()) {
-      case 'completed':
-      case 'archived':
-        return 'bg-emerald-50 text-emerald-700 border-emerald-200';
-      case 'draft':
-        return 'bg-slate-50 text-slate-700 border-slate-200';
-      case 'approval':
-      case 'review':
-        return 'bg-amber-50 text-amber-700 border-amber-200';
-      case 'signing':
-        return 'bg-blue-50 text-blue-700 border-blue-200';
-      case 'ahu':
-      case 'ahu_sk':
-        return 'bg-indigo-50 text-indigo-700 border-indigo-200';
-      default:
-        return 'bg-purple-50 text-purple-700 border-purple-200';
+  const getCleanTitle = (title: string) => {
+    if (title.includes(' — ')) {
+      return title.split(' — ').slice(1).join(' — ').trim();
     }
+    if (title.includes(' - ')) {
+      return title.split(' - ').slice(1).join(' - ').trim();
+    }
+    return title;
+  };
+
+  const getStatusColor = (status: string) => {
+    const s = status.toLowerCase();
+    if (s.includes('selesai') || s.includes('completed') || s.includes('archived')) return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+    if (s.includes('booking_nama')) return 'bg-fuchsia-50 text-fuchsia-700 border-fuchsia-200';
+    if (s.includes('draft') || s.includes('form_input')) return 'bg-slate-50 text-slate-700 border-slate-200';
+    if (s.includes('batal') || s.includes('cancelled') || s.includes('ditolak') || s.includes('rejected')) return 'bg-red-50 text-red-700 border-red-200';
+    if (s.includes('review') || s.includes('approval') || s.includes('proses')) return 'bg-amber-50 text-amber-700 border-amber-200';
+    if (s.includes('signing') || s.includes('print')) return 'bg-blue-50 text-blue-700 border-blue-200';
+    if (s.includes('ahu') || s.includes('nib') || s.includes('ahu_sk')) return 'bg-indigo-50 text-indigo-700 border-indigo-200';
+    return 'bg-slate-50 text-slate-700 border-slate-200';
   };
 
   return (
-    <div className="flex-1 overflow-auto bg-slate-50 p-6">
+    <div className="flex-1 overflow-auto bg-slate-50 p-6 animate-fade-in">
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -200,7 +203,7 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <input
                 type="text"
-                placeholder="Cari proyek berdasarkan judul, nama klien, atau ID..."
+                placeholder="Cari proyek, klien, atau ID..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-10 pr-4 py-2.5 text-[13px] bg-slate-50 border border-slate-200 hover:border-slate-300 focus:bg-white focus:ring-1 focus:ring-blue-500 focus:border-blue-500 rounded-lg outline-none transition-all"
@@ -209,16 +212,15 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
 
             {/* Filter buttons */}
             <div className="grid grid-cols-2 sm:flex gap-2">
-              <select
+              <SearchableClientSelect
                 value={filterClient}
-                onChange={(e) => setFilterClient(e.target.value)}
-                className="px-3 py-2.5 text-[13px] bg-slate-50 border border-slate-200 rounded-lg outline-none cursor-pointer hover:bg-slate-100/50 transition-colors"
-              >
-                <option value="">Semua Klien</option>
-                {profiles.map((c) => (
-                  <option key={c.id} value={c.id}>{c.companyName}</option>
-                ))}
-              </select>
+                onChange={setFilterClient}
+                options={profiles}
+                placeholder="Semua Klien"
+                className="w-full sm:w-48"
+                selectClassName="w-full px-3 py-2.5 text-[13px] bg-slate-50 border border-slate-200 rounded-lg outline-none cursor-pointer hover:bg-slate-100/50 transition-colors flex items-center justify-between"
+                allowClear={true}
+              />
 
               <select
                 value={filterJobType}
@@ -276,12 +278,11 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
                 <thead className="bg-slate-50 border-b border-slate-200">
                   <tr>
                     <th className="px-4 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-wide">ID</th>
-                    <th className="px-4 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-wide">Judul Proyek</th>
-                    <th className="px-4 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-wide">Klien</th>
+                    <th className="px-4 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-wide">Judul Proyek / Klien</th>
                     <th className="px-4 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-wide">Jenis Pekerjaan</th>
                     <th className="px-4 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-wide">Status</th>
                     <th className="px-4 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-wide">Diperbarui</th>
-                    <th className="px-4 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-wide text-right">Aksi</th>
+                    <th className="pl-4 pr-6 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-wide text-right">Aksi</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -294,11 +295,31 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
                       <td className="px-4 py-3.5 text-[11px] font-mono text-slate-400 uppercase whitespace-nowrap">
                         {project.projectId.substring(0, 8)}
                       </td>
-                      <td className="px-4 py-3.5 text-[13px] font-bold text-slate-900 group-hover:text-blue-600 transition-colors">
-                        {project.title}
-                      </td>
-                      <td className="px-4 py-3.5 text-[12px] text-slate-700 font-medium">
-                        {getClientName(project.clientId)}
+                      <td className="px-4 py-3.5 max-w-[280px]">
+                        <div className="text-[13px] font-bold text-slate-900 truncate" title={getCleanTitle(project.title)}>
+                          {getCleanTitle(project.title)}
+                        </div>
+                        {(() => {
+                          const clientName = getClientName(project.clientId);
+                          const isUnknown = clientName === 'Klien Tidak Diketahui';
+                          const cleanTitle = getCleanTitle(project.title);
+                          const isRedundant = cleanTitle.toLowerCase() === clientName.toLowerCase();
+                          
+                          if (!isRedundant) {
+                            return (
+                              <div className="text-[11px] mt-0.5 truncate flex items-center gap-1" title={clientName}>
+                                {isUnknown ? (
+                                  <span className="italic text-slate-400 flex items-center gap-1">
+                                    <AlertCircle className="w-3 h-3" /> {clientName}
+                                  </span>
+                                ) : (
+                                  <span className="text-slate-500">{clientName}</span>
+                                )}
+                              </div>
+                            );
+                          }
+                          return null;
+                        })()}
                       </td>
                       <td className="px-4 py-3.5 text-[12px] text-slate-600">
                         {getWorkflowName(project.jobType)}
@@ -311,7 +332,7 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
                       <td className="px-4 py-3.5 text-[12px] text-slate-500 whitespace-nowrap">
                         {project.updatedAt ? new Date(project.updatedAt.seconds ? project.updatedAt.toDate() : project.updatedAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : '-'}
                       </td>
-                      <td className="px-4 py-3.5 text-right flex items-center justify-end gap-3">
+                      <td className="pl-4 pr-6 py-3.5 text-right flex items-center justify-end gap-4">
                         <button
                           onClick={(e) => { e.stopPropagation(); onSelectProject(project.projectId); }}
                           className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-700 font-semibold text-[12px]"
@@ -354,17 +375,11 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
                 {/* Select Client */}
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">Pilih Klien</label>
-                  <select
-                    required
+                  <SearchableClientSelect
                     value={newProjectData.clientId}
-                    onChange={(e) => setNewProjectData({ ...newProjectData, clientId: e.target.value })}
-                    className="w-full px-3 py-2.5 text-[13px] bg-slate-50 border border-slate-200 hover:border-slate-300 focus:bg-white focus:ring-1 focus:ring-blue-500 rounded-lg outline-none transition-all"
-                  >
-                    <option value="">-- Pilih Klien Registrasi --</option>
-                    {profiles.map((c) => (
-                      <option key={c.id} value={c.id}>{c.companyName}</option>
-                    ))}
-                  </select>
+                    onChange={(val) => setNewProjectData({ ...newProjectData, clientId: val })}
+                    options={profiles}
+                  />
                 </div>
 
                 {/* Select Workflow / Job Type */}
@@ -437,7 +452,6 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
   );
 }
 
-// Simple close button helper
 function X({ className }: { className?: string }) {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>

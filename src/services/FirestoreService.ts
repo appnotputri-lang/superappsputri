@@ -120,4 +120,27 @@ export class FirestoreService {
       }
     );
   }
+
+  // Server-side REST API Methods (stateless, compatible with Cloudflare Workers)
+  static async serverGetDocument(collectionPath: string, docId: string, firebaseIdToken: string): Promise<any> {
+    // Phase 1 placeholder: To be fully implemented in Phase 3
+    return null;
+  }
+
+  static async serverSetDocument(collectionPath: string, docId: string, data: any, firebaseIdToken: string): Promise<void> {
+    // Phase 1 placeholder: To be fully implemented in Phase 3
+  }
+
+  static async serverUpdateDocument(collectionPath: string, docId: string, data: any, firebaseIdToken: string): Promise<void> {
+    // Phase 1 placeholder: To be fully implemented in Phase 3
+  }
+
+  static async serverDeleteDocument(collectionPath: string, docId: string, firebaseIdToken: string): Promise<void> {
+    // Phase 1 placeholder: To be fully implemented in Phase 3
+  }
+
+  static async serverListDocuments(collectionPath: string, firebaseIdToken: string): Promise<any[]> {
+    // Phase 1 placeholder: To be fully implemented in Phase 3
+    return [];
+  }
 }

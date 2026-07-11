@@ -1,24 +1,25 @@
 import React, { useState, useEffect } from 'react';
-import { Project, DocumentReference } from '../../domain/project/Project';
-import { ProjectService } from '../../services/ProjectService';
-import { CompanyProfile, UserProfile } from '../../../types';
-import { INITIAL_STATE } from '../../domain/company/initialCompanyData';
-import { Workflow } from '../../domain/project/Workflow';
-import { WorkflowService } from '../../services/WorkflowService';
-import { Timeline } from '../../domain/project/Timeline';
-import { Task } from '../../domain/project/Task';
-import { db, cleanUndefined } from '../../lib/firebase';
-import { collection, getDocs, setDoc, doc, deleteDoc, getDoc } from 'firebase/firestore';
-import DraftAktaPendirian from '../../DraftAktaPendirian';
-import PendirianDocumentPreview from '../../PendirianDocumentPreview';
-import { syncToUtama, getDeedTitle, formatAppearersForPendirian } from '../../lib/syncUtama';
-import { mapCompanyProfileToPendirian } from '../../domain/company/mappers/companyProfileToPendirian';
+import { Project, DocumentReference } from '../../../domain/project/Project';
+import { ProjectService } from '../../../services/ProjectService';
+import { CompanyProfile, UserProfile } from '../../../../types';
+import { INITIAL_STATE } from '../../../domain/company/initialCompanyData';
+import { Workflow } from '../../../domain/project/Workflow';
+import { WorkflowService } from '../../../services/WorkflowService';
+import { Timeline } from '../../../domain/project/Timeline';
+import { Task } from '../../../domain/project/Task';
+import { db, cleanUndefined } from '../../../lib/firebase';
+import { collection, getDocs, setDoc, doc, deleteDoc, getDoc, query, where } from 'firebase/firestore';
+import DraftAktaPendirian from '../../../DraftAktaPendirian';
+import PendirianDocumentPreview from '../../../PendirianDocumentPreview';
+import { syncToUtama, getDeedTitle, formatAppearersForPendirian } from '../../../lib/syncUtama';
+import { mapCompanyProfileToPendirian } from '../../../domain/company/mappers/companyProfileToPendirian';
 import {
   ArrowLeft,
   Calendar,
   User,
   Briefcase,
   FileText,
+  File,
   CheckSquare,
   Square,
   Clock,
@@ -31,7 +32,8 @@ import {
   ChevronDown,
   Send,
   Trash2,
-  Sparkles
+  Sparkles,
+  UploadCloud
 } from 'lucide-react';
 
 const getDocKinds = (jobType: string): { kind: 'notulen' | 'pernyataan' | 'akta' | 'pendirian'; label: string }[] => {
@@ -89,6 +91,20 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
     url: ''
   });
   const [addingDoc, setAddingDoc] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isDragActive, setIsDragActive] = useState(false);
+
+  const getBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => {
+        const base64Str = (reader.result as string).split(',')[1];
+        resolve(base64Str);
+      };
+      reader.onerror = (error) => reject(error);
+    });
+  };
 
   // Pendirian Work Mode States
   const [workMode, setWorkMode] = useState<'default' | 'pendirian'>('default');
@@ -104,10 +120,6 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
   const [isDeleting, setIsDeleting] = useState(false);
 
   const fetchDocRecordData = async (docRef: DocumentReference): Promise<any | null> => {
-    if (!docRef.refId) {
-      alert('Dokumen ini dibuat sebelum fitur download otomatis tersedia. Silakan buka manual lewat menu lama untuk mengunduhnya.');
-      return null;
-    }
     let collectionName = '';
     if (project?.jobType === 'rups_lb' || project?.jobType === 'sirkuler_rupslb') {
       collectionName = 'projects';
@@ -120,12 +132,64 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
       return null;
     }
 
-    const snap = await getDoc(doc(db, collectionName, docRef.refId));
-    if (!snap.exists()) {
-      alert('Data dokumen tidak ditemukan. Mungkin sudah dihapus.');
-      return null;
+    if (docRef.refId) {
+      const snap = await getDoc(doc(db, collectionName, docRef.refId));
+      if (snap.exists()) {
+        return snap.data();
+      }
     }
-    return snap.data();
+
+    // Fallback search by title / PT name
+    try {
+      const colRef = collection(db, collectionName);
+      
+      const cleanTitle = project?.title?.includes(' — ') 
+        ? project.title.split(' — ')[1].trim() 
+        : project?.title?.includes(' - ') 
+          ? project.title.split(' - ')[1].trim() 
+          : project?.title || '';
+
+      // First try to match by selectedProfileId/clientId if available
+      if (project?.clientId) {
+        let qClient;
+        if (collectionName === 'pendirian_projects') {
+          qClient = query(colRef, where('selectedProfileId', '==', project.clientId));
+        } else {
+          qClient = query(colRef, where('clientId', '==', project.clientId)); // Assuming others might have clientId, if not it might fail safely or just return empty
+        }
+        try {
+          const qSnapClient = await getDocs(qClient);
+          if (!qSnapClient.empty) return qSnapClient.docs[0].data();
+        } catch(e) {}
+      }
+
+      let q;
+      if (collectionName === 'pendirian_projects') {
+        q = query(colRef, where('namaPt', '==', cleanTitle));
+      } else {
+        q = query(colRef, where('companyName', '==', cleanTitle));
+      }
+      const qSnap = await getDocs(q);
+      if (!qSnap.empty) {
+        return qSnap.docs[0].data();
+      }
+
+      // Brute-force local/trimmed fallback if exact match query failed
+      const allSnap = await getDocs(colRef);
+      const projectTitleUpper = cleanTitle.toUpperCase();
+      for (const d of allSnap.docs) {
+        const data = d.data();
+        const docTitle = (data.namaPt || data.companyName || '').toUpperCase().trim();
+        if (docTitle === projectTitleUpper && projectTitleUpper !== '') {
+          return data;
+        }
+      }
+    } catch (e) {
+      console.error('Fallback query failed:', e);
+    }
+
+    alert('Dokumen ini dibuat sebelum fitur download otomatis tersedia. Silakan buka manual lewat menu lama untuk mengunduhnya.');
+    return null;
   };
 
   const handleGenerate = async (docRef: DocumentReference, kind: 'notulen' | 'pernyataan' | 'akta' | 'pendirian', rowKey: string) => {
@@ -135,7 +199,7 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
       if (!rawData) return;
 
       if (kind === 'pendirian') {
-        const { generatePendirianDocx } = await import('../../lib/generatePendirianDocx');
+        const { generatePendirianDocx } = await import('../../../lib/generatePendirianDocx');
         await generatePendirianDocx(rawData);
         return;
       }
@@ -145,26 +209,26 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
       if (project?.jobType === 'rups_t' || project?.jobType === 'sirkuler') {
         if (kind === 'notulen') {
           if (mergedData.rupstType === 'sirkuler') {
-            const { generateSirkulerLaporanDocx } = await import('../../lib/generateSirkulerLaporanDocx');
+            const { generateSirkulerLaporanDocx } = await import('../../../lib/generateSirkulerLaporanDocx');
             await generateSirkulerLaporanDocx(mergedData);
           } else {
-            const { generateRUPSTDocx } = await import('../../lib/generateRUPSTDocx');
+            const { generateRUPSTDocx } = await import('../../../lib/generateRUPSTDocx');
             await generateRUPSTDocx(mergedData);
           }
         } else if (kind === 'pernyataan') {
-          const { generateRUPSTPernyataanDocx } = await import('../../lib/generateRUPSTPernyataanDocx');
+          const { generateRUPSTPernyataanDocx } = await import('../../../lib/generateRUPSTPernyataanDocx');
           await generateRUPSTPernyataanDocx(mergedData);
         } else if (kind === 'akta') {
-          const { generateRUPSTAktaDocx } = await import('../../lib/generateRUPSTAktaDocx');
+          const { generateRUPSTAktaDocx } = await import('../../../lib/generateRUPSTAktaDocx');
           await generateRUPSTAktaDocx(mergedData);
         }
       } else {
         // RUPS LB / sirkuler_rupslb
         if (kind === 'notulen') {
-          const { generateWordDoc } = await import('../../../utils/docxGenerator');
+          const { generateWordDoc } = await import('../../../../utils/docxGenerator');
           await generateWordDoc(mergedData);
         } else if (kind === 'akta') {
-          const { generateRUPSDocx } = await import('../../lib/generateRUPSDocx');
+          const { generateRUPSDocx } = await import('../../../lib/generateRUPSDocx');
           await generateRUPSDocx(mergedData);
         }
       }
@@ -192,8 +256,14 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
       if (pendirianDocRef && pendirianDocRef.refId) {
         existing = pendData.find(p => p.id === pendirianDocRef.refId);
       } else {
-        // Fallback to matching by project title for backward compatibility
-        existing = pendData.find(p => p.namaPt === project?.title);
+        // Fallback: match by selectedProfileId (clientId) or a clean name
+        const cleanTitle = project?.title.includes(' — ') 
+          ? project.title.split(' — ')[1].trim() 
+          : project?.title.includes(' - ') 
+            ? project.title.split(' - ')[1].trim() 
+            : project?.title;
+            
+        existing = pendData.find(p => p.selectedProfileId === project?.clientId || p.namaPt === cleanTitle || p.namaPt === project?.title);
       }
       
       if (existing) {
@@ -221,7 +291,7 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
   const handlePendirianExportWord = async (d: any) => {
     setIsExportingPendirian(true);
     try {
-      const { generatePendirianDocx } = await import('../../lib/generatePendirianDocx');
+      const { generatePendirianDocx } = await import('../../../lib/generatePendirianDocx');
       await generatePendirianDocx(d);
     } catch (e) {
       console.error(e);
@@ -376,27 +446,47 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
       alert('Nama dokumen wajib diisi.');
       return;
     }
+    if (!selectedFile) {
+      alert('Silakan pilih atau seret file yang ingin diunggah.');
+      return;
+    }
 
     setAddingDoc(true);
     try {
-      const newDoc = await ProjectService.addDocument(projectId, {
-        name: docForm.name.trim(),
-        type: docForm.type,
-        url: docForm.url.trim() || undefined,
-        uploadedBy: currentUserEmail || 'staff_notaris'
+      const base64 = await getBase64(selectedFile);
+      
+      const response = await fetch('/api/upload-document', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          projectId,
+          name: docForm.name.trim(),
+          fileName: selectedFile.name,
+          fileType: selectedFile.type || 'application/octet-stream',
+          base64,
+          uploadedBy: currentUser.email || 'staff_notaris'
+        })
       });
 
-      if (newDoc) {
-        setDocuments([...documents, newDoc]);
-        setIsDocModalOpen(false);
-        setDocForm({ name: '', type: 'docx', url: '' });
-        // Refresh timelines too
-        const tlList = await ProjectService.getProjectTimelines(projectId);
-        setTimelines(tlList || []);
+      const resData = await response.json();
+      if (!response.ok) {
+        throw new Error(resData.error || 'Gagal mengunggah dokumen.');
       }
-    } catch (err) {
+
+      // Refresh documents and clear states
+      setIsDocModalOpen(false);
+      setSelectedFile(null);
+      setDocForm({ name: '', type: 'docx', url: '' });
+      
+      // Fetch details again to refresh UI
+      await fetchProjectFullDetails();
+      
+      alert('Dokumen administrasi berhasil diunggah dan disimpan ke Google Drive!');
+    } catch (err: any) {
       console.error(err);
-      alert('Gagal mengunggah dokumen referensi.');
+      alert('Gagal mengunggah dokumen: ' + err.message);
     } finally {
       setAddingDoc(false);
     }
@@ -617,7 +707,7 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
                   } catch (e: any) {
                     console.error(e);
                     alert("Error: " + e.message);
-                  } finally {
+                  } fillly: {
                     setAddingDoc(false);
                   }
                 }}
@@ -711,6 +801,21 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
                     </span>
                   </div>
                 </div>
+
+                {project.metadata?.driveFolderUrl && (
+                  <div className="space-y-1 col-span-1 sm:col-span-2 mt-2">
+                    <span className="text-slate-400 font-semibold block text-[11px] uppercase tracking-wider">Google Drive Proyek (Auto-generated)</span>
+                    <a 
+                      href={project.metadata.driveFolderUrl} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 hover:bg-blue-100 font-bold text-xs rounded-lg border border-blue-200 transition-all shadow-sm group"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />
+                      Buka Folder Drive Proyek
+                    </a>
+                  </div>
+                )}
               </div>
 
               {/* Display Custom Metadata */}
@@ -794,8 +899,8 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
                   onClick={() => setIsDocModalOpen(true)}
                   className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold text-xs rounded transition-colors flex items-center gap-1.5"
                 >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Registrasi Dokumen</span>
+                  <UploadCloud className="w-3.5 h-3.5" />
+                  <span>Upload Dokumen</span>
                 </button>
               </div>
 
@@ -805,37 +910,75 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
                 </div>
               ) : (
                 <div className="divide-y divide-slate-100">
-                  {documents.flatMap((doc) => {
-                    const kinds = getDocKinds(project?.jobType || '');
-                    if (kinds.length === 0) return [];
-                    return kinds.map(({ kind, label }) => {
-                      const rowKey = `${doc.id}-${kind}`;
-                      const isExporting = exportingDocId === rowKey;
+                  {documents.map((doc) => {
+                    // Check if it's an uploaded file (no refId or has external URL)
+                    const isUploadedFile = !doc.refId || (doc.url && doc.url.startsWith('http'));
+                    
+                    if (isUploadedFile) {
                       return (
-                        <div key={rowKey} className="py-3.5 flex items-center justify-between gap-4">
+                        <div key={doc.id} className="py-3.5 flex items-center justify-between gap-4">
                           <div className="flex items-start gap-3">
-                            <div className="w-8 h-8 rounded bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 shrink-0">
+                            <div className="w-8 h-8 rounded bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600 shrink-0">
                               <FileText className="w-4 h-4" />
                             </div>
                             <div>
-                              <h4 className="font-bold text-slate-800 text-[13px]">{label}</h4>
+                              <h4 className="font-bold text-slate-800 text-[13px]">{doc.name}</h4>
                               <p className="text-[11px] text-slate-400 mt-0.5">
-                                Dari: {doc.name} | Diunggah oleh: {doc.uploadedBy || 'Sistem'}
+                                Format: {doc.type ? doc.type.toUpperCase() : 'PDF'} | Diunggah oleh: {doc.uploadedBy || 'Staf'}
                                 {' '}| {doc.uploadedAt ? new Date(doc.uploadedAt.seconds ? doc.uploadedAt.toDate() : doc.uploadedAt).toLocaleDateString('id-ID') : ''}
                               </p>
                             </div>
                           </div>
-                          <button
-                            onClick={() => handleGenerate(doc, kind, rowKey)}
-                            disabled={isExporting}
-                            className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-semibold text-xs rounded transition-colors flex items-center gap-1.5"
-                          >
-                            {isExporting ? <Loader2 className="w-3 h-3 animate-spin" /> : <FileText className="w-3 h-3" />}
-                            <span>{isExporting ? 'Mengunduh...' : 'Download DOCX'}</span>
-                          </button>
+                          {doc.url && (
+                            <a
+                              href={doc.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded transition-colors flex items-center gap-1.5"
+                            >
+                              <ExternalLink className="w-3 h-3" />
+                              <span>Buka di Google Drive</span>
+                            </a>
+                          )}
                         </div>
                       );
-                    });
+                    }
+
+                    // Otherwise, it's a template reference
+                    const kinds = getDocKinds(project?.jobType || '');
+                    if (kinds.length === 0) return null;
+                    return (
+                      <div key={doc.id} className="divide-y divide-slate-50 border-b border-slate-100 last:border-0">
+                        {kinds.map(({ kind, label }) => {
+                          const rowKey = `${doc.id}-${kind}`;
+                          const isExporting = exportingDocId === rowKey;
+                          return (
+                            <div key={rowKey} className="py-3.5 flex items-center justify-between gap-4">
+                              <div className="flex items-start gap-3">
+                                <div className="w-8 h-8 rounded bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 shrink-0">
+                                  <FileText className="w-4 h-4" />
+                                </div>
+                                <div>
+                                  <h4 className="font-bold text-slate-800 text-[13px]">{label}</h4>
+                                  <p className="text-[11px] text-slate-400 mt-0.5">
+                                    Dari: {doc.name} | Diunggah oleh: {doc.uploadedBy || 'Sistem'}
+                                    {' '}| {doc.uploadedAt ? new Date(doc.uploadedAt.seconds ? doc.uploadedAt.toDate() : doc.uploadedAt).toLocaleDateString('id-ID') : ''}
+                                  </p>
+                                </div>
+                              </div>
+                              <button
+                                onClick={() => handleGenerate(doc, kind, rowKey)}
+                                disabled={isExporting}
+                                className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-semibold text-xs rounded transition-colors flex items-center gap-1.5"
+                              >
+                                {isExporting ? <Loader2 className="w-3 h-3 animate-spin" /> : <FileText className="w-3 h-3" />}
+                                <span>{isExporting ? 'Mengunduh...' : 'Download DOCX'}</span>
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
                   })}
                 </div>
               )}
@@ -960,9 +1103,12 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
           <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fadeIn">
             <div className="bg-white rounded-xl shadow-xl border border-slate-200 max-w-md w-full overflow-hidden animate-slideUp">
               <div className="bg-slate-50 px-6 py-4 border-b border-slate-200 flex items-center justify-between">
-                <h3 className="font-bold text-slate-800 text-[15px]">Registrasi Dokumen Baru</h3>
+                <h3 className="font-bold text-slate-800 text-[15px]">Upload Dokumen Administrasi</h3>
                 <button
-                  onClick={() => setIsDocModalOpen(false)}
+                  onClick={() => {
+                    setIsDocModalOpen(false);
+                    setSelectedFile(null);
+                  }}
                   className="p-1 text-slate-400 rounded hover:bg-slate-100 transition-colors"
                 >
                   <X className="w-4 h-4" />
@@ -970,6 +1116,76 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
               </div>
 
               <form onSubmit={handleAddDocument} className="p-6 space-y-4">
+                {/* Drag and Drop Zone */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">File Dokumen (PDF, JPG, PNG, DOCX, dll)</label>
+                  <div
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      setIsDragActive(true);
+                    }}
+                    onDragLeave={() => setIsDragActive(false)}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      setIsDragActive(false);
+                      if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                        const file = e.dataTransfer.files[0];
+                        setSelectedFile(file);
+                        // Auto-populate document name with file name (without extension) if empty
+                        if (!docForm.name.trim()) {
+                          const baseName = file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
+                          setDocForm(prev => ({ ...prev, name: baseName }));
+                        }
+                      }
+                    }}
+                    onClick={() => {
+                      document.getElementById('file-picker')?.click();
+                    }}
+                    className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all ${
+                      isDragActive 
+                        ? 'border-blue-500 bg-blue-50/50' 
+                        : selectedFile 
+                        ? 'border-emerald-500 bg-emerald-50/10' 
+                        : 'border-slate-200 hover:border-slate-300 bg-slate-50/50'
+                    }`}
+                  >
+                    <input
+                      id="file-picker"
+                      type="file"
+                      className="hidden"
+                      onChange={(e) => {
+                        if (e.target.files && e.target.files[0]) {
+                          const file = e.target.files[0];
+                          setSelectedFile(file);
+                          // Auto-populate document name with file name (without extension) if empty
+                          if (!docForm.name.trim()) {
+                            const baseName = file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
+                            setDocForm(prev => ({ ...prev, name: baseName }));
+                          }
+                        }
+                      }}
+                    />
+                    
+                    {selectedFile ? (
+                      <div className="space-y-1">
+                        <div className="mx-auto w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 mb-2">
+                          <File className="w-5 h-5" />
+                        </div>
+                        <p className="text-xs font-semibold text-emerald-800 line-clamp-1">{selectedFile.name}</p>
+                        <p className="text-[10px] text-slate-400">{(selectedFile.size / 1024 / 1024).toFixed(2)} MB • Klik untuk ganti file</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-1">
+                        <div className="mx-auto w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 mb-2">
+                          <UploadCloud className="w-5 h-5" />
+                        </div>
+                        <p className="text-xs font-semibold text-slate-700">Seret file ke sini atau Klik untuk memilih</p>
+                        <p className="text-[10px] text-slate-400">Mendukung format PDF, JPG, PNG, DOCX, dll.</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">Nama / Judul Dokumen</label>
                   <input
@@ -977,32 +1193,7 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
                     required
                     value={docForm.name}
                     onChange={(e) => setDocForm({ ...docForm, name: e.target.value })}
-                    placeholder="Contoh: Akta Pendirian Final, SK Kemenkumham"
-                    className="w-full px-3 py-2.5 text-[13px] bg-slate-50 border border-slate-200 hover:border-slate-300 focus:bg-white focus:ring-1 focus:ring-blue-500 rounded-lg outline-none transition-all"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">Format Dokumen</label>
-                  <select
-                    value={docForm.type}
-                    onChange={(e) => setDocForm({ ...docForm, type: e.target.value })}
-                    className="w-full px-3 py-2.5 text-[13px] bg-slate-50 border border-slate-200 hover:border-slate-300 focus:bg-white focus:ring-1 focus:ring-blue-500 rounded-lg outline-none transition-all cursor-pointer"
-                  >
-                    <option value="docx">DOCX (Word Document)</option>
-                    <option value="pdf">PDF (Portable Document Format)</option>
-                    <option value="doc">DOC (Legacy Word)</option>
-                    <option value="other">Lain-lain / Gambar</option>
-                  </select>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">URL Referensi (Opsional)</label>
-                  <input
-                    type="text"
-                    value={docForm.url}
-                    onChange={(e) => setDocForm({ ...docForm, url: e.target.value })}
-                    placeholder="https://contoh-link-drive-atau-file.com"
+                    placeholder="Contoh: Akta Pendirian Final, SK Kemenkumham, KTP Direktur"
                     className="w-full px-3 py-2.5 text-[13px] bg-slate-50 border border-slate-200 hover:border-slate-300 focus:bg-white focus:ring-1 focus:ring-blue-500 rounded-lg outline-none transition-all"
                   />
                 </div>
@@ -1010,23 +1201,29 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
                 <div className="flex gap-3 justify-end pt-4 border-t border-slate-100 mt-6">
                   <button
                     type="button"
-                    onClick={() => setIsDocModalOpen(false)}
+                    onClick={() => {
+                      setIsDocModalOpen(false);
+                      setSelectedFile(null);
+                    }}
                     className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 font-semibold rounded-lg text-[13px] transition-colors"
                   >
                     Batal
                   </button>
                   <button
                     type="submit"
-                    disabled={addingDoc}
+                    disabled={addingDoc || !selectedFile}
                     className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg text-[13px] transition-colors flex items-center gap-2 shadow-sm disabled:opacity-50"
                   >
                     {addingDoc ? (
                       <>
                         <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        <span>Menyimpan...</span>
+                        <span>Mengunggah...</span>
                       </>
                     ) : (
-                      <span>Daftarkan Dokumen</span>
+                      <>
+                        <UploadCloud className="w-4 h-4" />
+                        <span>Unggah Dokumen</span>
+                      </>
                     )}
                   </button>
                 </div>

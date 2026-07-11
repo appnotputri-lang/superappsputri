@@ -68,19 +68,19 @@ service cloud.firestore {
       allow delete: if isSuperAdmin();
 
       match /{allSubcollections=**} {
-        allow read: if isSignedIn();
+        allow read: if true;
         allow write: if isSignedIn();
       }
     }
 
     match /projects/{projectId} {
-      allow read: if isSignedIn();
+      allow read: if true;
       allow create: if isSignedIn();
       allow update: if isSignedIn();
       allow delete: if isSuperAdmin();
 
       match /{allSubcollections=**} {
-        allow read: if isSignedIn();
+        allow read: if true;
         allow write: if isSignedIn();
       }
     }
@@ -90,13 +90,13 @@ service cloud.firestore {
     // ---------------------------------------------------------
     
     match /profiles/{profileId} {
-      allow read: if isSignedIn();
+      allow read: if true;
       allow create, update: if isSignedIn();
       allow delete: if isAdmin();
     }
 
     match /cv_profiles/{id} {
-      allow read: if isSignedIn();
+      allow read: if true;
       allow create, update: if isSignedIn();
       allow delete: if isAdmin();
     }
@@ -115,11 +115,13 @@ service cloud.firestore {
     // ---------------------------------------------------------
     
     match /rupst_projects/{id} {
-      allow read, write: if isSignedIn();
+      allow read: if true;
+      allow write: if isSignedIn();
     }
     
     match /pendirian_projects/{id} {
-      allow read, write: if isSignedIn();
+      allow read: if true;
+      allow write: if isSignedIn();
     }
 
     match /rupst_public_projects/{id} {
@@ -141,9 +143,5 @@ service cloud.firestore {
       allow write: if isSignedIn();
     }
 
-    match /kbli_data_v2025/{id} {
-      allow read: if isSignedIn();
-      allow write: if isSuperAdmin();
-    }
   }
 }

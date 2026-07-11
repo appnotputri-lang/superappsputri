@@ -3,6 +3,7 @@ import { ShareholderModal } from './ShareholderModal';
 import { DraftPreviewModal } from './DraftPreviewModal';
 import { KbliModal } from './KbliModal';
 import { EditProfileModal } from '../../../components/EditProfileModal';
+import ProxyInputModal from './RepresentativeModal';
 import PendirianDocumentPreview from '../../PendirianDocumentPreview';
 
 interface GlobalModalManagerProps {
@@ -54,6 +55,12 @@ interface GlobalModalManagerProps {
   setIsEditProfileModalOpen: (val: boolean) => void;
   user: any;
   userProfile: any;
+
+  // Proxy Input Modal Props
+  proxyModalOpenId: string | null;
+  setProxyModalOpenId: (id: string | null) => void;
+  profiles: any[];
+  updateData: (updates: any) => void;
 }
 
 export const GlobalModalManager: React.FC<GlobalModalManagerProps> = (props) => {
@@ -115,6 +122,88 @@ export const GlobalModalManager: React.FC<GlobalModalManagerProps> = (props) => 
           currentProfile={props.userProfile}
         />
       )}
+
+      {/* Proxy Input Modal */}
+      {props.proxyModalOpenId && (() => {
+        const sh = props.data.shareholders.find((s: any) => s.id === props.proxyModalOpenId);
+        if (!sh) return null;
+
+        const rawParties = [
+          ...props.data.shareholders.map((s: any) => ({
+            name: s.name,
+            salutation: s.salutation || 'Tuan',
+            nik: s.nik || '',
+            birthCity: s.birthCity || '',
+            birthDate: s.birthDate || '',
+            occupation: s.occupation || '',
+            address: s.address,
+            nationalityType: s.nationalityType || 'WNI',
+            isForeign: s.isForeign || false,
+            nationality: s.nationality || '',
+            passportNumber: s.passportNumber || '',
+            kitasNumber: s.kitasNumber || '',
+            kitasType: s.kitasType || 'NONE',
+            hasKitas: s.hasKitas || false
+          })),
+          ...(props.data.newManagementItems || []).map((m: any) => ({
+            name: m.name,
+            salutation: m.salutation || 'Tuan',
+            nik: m.nik || '',
+            birthCity: m.birthCity || '',
+            birthDate: m.birthDate || '',
+            occupation: m.occupation || '',
+            address: m.address,
+            nationalityType: (m as any).nationalityType || 'WNI',
+            isForeign: (m as any).isForeign || false,
+            nationality: (m as any).nationality || '',
+            passportNumber: (m as any).passportNumber || '',
+            kitasNumber: (m as any).kitasNumber || '',
+            kitasType: (m as any).kitasType || 'NONE',
+            hasKitas: (m as any).hasKitas || false
+          })),
+          ...(props.data.oldManagementItems || []).map((m: any) => ({
+            name: m.name,
+            salutation: m.salutation || 'Tuan',
+            nik: m.nik || '',
+            birthCity: m.birthCity || '',
+            birthDate: m.birthDate || '',
+            occupation: m.occupation || '',
+            address: m.address,
+            nationalityType: (m as any).nationalityType || 'WNI',
+            isForeign: (m as any).isForeign || false,
+            nationality: (m as any).nationality || '',
+            passportNumber: (m as any).passportNumber || '',
+            kitasNumber: (m as any).kitasNumber || '',
+            kitasType: (m as any).kitasType || 'NONE',
+            hasKitas: (m as any).hasKitas || false
+          }))
+        ];
+
+        const availableParties = rawParties.filter((item, index, self) => 
+          item.name && 
+          item.name.trim() !== '' &&
+          self.findIndex(t => t.name.trim().toUpperCase() === item.name.trim().toUpperCase()) === index
+        );
+
+        return (
+          <ProxyInputModal
+            isOpen={true}
+            shareholderName={`${sh.salutation} ${sh.name}`}
+            initialData={sh.proxyData}
+            availableParties={availableParties}
+            shareholder={sh}
+            profiles={props.profiles}
+            onSave={(proxyData) => {
+              const newList = props.data.shareholders.map((item: any) =>
+                item.id === props.proxyModalOpenId ? { ...item, proxyData } : item
+              );
+              props.updateData({ shareholders: newList });
+              props.setProxyModalOpenId(null);
+            }}
+            onClose={() => props.setProxyModalOpenId(null)}
+          />
+        );
+      })()}
     </>
   );
 };

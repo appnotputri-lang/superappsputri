@@ -11,6 +11,7 @@ import { formatInputNumber, parseFormattedNumber } from '../utils/formatters';
 import { fetchLatestDeedNumbers } from './lib/deedUtils';
 import { mapCompanyProfileToPendirian } from './domain/company/mappers/companyProfileToPendirian';
 import { useProjectSession } from './domain/project/useProjectSession';
+import { SearchableClientSelect } from './components/common/SearchableClientSelect';
 
 const AhuSection = ({ title, children, isOpen = true }: { title: string, children: React.ReactNode, isOpen?: boolean }) => {
   const [open, setOpen] = useState(isOpen);
@@ -511,10 +512,10 @@ export default function DraftAktaPendirian({
                     </p>
                   </div>
                 ) : (
-                  <AhuSelect 
+                  <SearchableClientSelect 
                       value={data.selectedProfileId || ''}
-                      onChange={(e) => {
-                          const profileId = e.target.value;
+                      onChange={(val) => {
+                          const profileId = val;
                           const profile = profiles.find(p => p.id === profileId);
                           if (profile) {
                               setData(prev => mapCompanyProfileToPendirian(profile, prev));
@@ -522,10 +523,11 @@ export default function DraftAktaPendirian({
                               setData(prev => ({ ...prev, selectedProfileId: '' }));
                           }
                       }}
-                  >
-                      <option value="">-- PILIH DATA DARI MANIFEST PT --</option>
-                      {profiles.map(p => <option key={p.id} value={p.id}>{p.companyName}</option>)}
-                  </AhuSelect>
+                      options={profiles}
+                      placeholder="-- PILIH DATA DARI MANIFEST PT --"
+                      selectClassName="w-full text-[13px] border border-slate-200 rounded-sm px-3 py-2 bg-white outline-none cursor-pointer hover:border-slate-300 focus:border-blue-500 flex items-center justify-between"
+                      allowClear={true}
+                  />
                 )}
               </div>
             </div>

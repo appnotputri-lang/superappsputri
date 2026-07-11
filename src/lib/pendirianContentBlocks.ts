@@ -794,6 +794,12 @@ export function generatePendirianBlocks(data: PendirianData): Block[] {
     runs: [{ text: "-\tPara penghadap telah memperkenalkan diri kepada saya, Notaris." }]
   });
 
+  // Para Pihak menyatakan dengan ini menjamin...
+  blocks.push({
+    type: "p",
+    runs: [{ text: "Para Pihak menyatakan dengan ini menjamin akan kebenaran identitas para pihak sesuai dengan tanda pengenal yang disampaikan kepada saya, Notaris dan termasuk dengan seluruh dokumen yang diperlihatkan dan fotokopinya dilekatkan pada minuta akta ini para pihak bertanggung jawab sepenuhnya atas hal tersebut sehingga membebaskan Notaris dari segala tanggungjawab dan selanjutnya para pihak juga menyatakan telah mengerti dan memahami isi akta ini." }]
+  });
+
   // ── PENUTUP ──────────────────────────────────────────────────────────────
   const expandAbbreviations = (str: string) => {
     if (!str) return "";

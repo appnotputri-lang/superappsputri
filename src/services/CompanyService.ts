@@ -93,6 +93,33 @@ export class CompanyService {
     const collectionName = isCvCompany ? 'cv_profiles' : 'profiles';
     try {
       await setDoc(doc(db, collectionName, companyId), sanitizeForFirestore(data), { merge: true });
+      
+      // Ensure the Google Drive folder exists for this client (only if not CV for now, or you can do it for both)
+      if (!isCvCompany && data.companyName) {
+        try {
+          const authUserStr = localStorage.getItem('auth_user');
+          let token = '';
+          if (authUserStr) {
+            try {
+              const authUser = JSON.parse(authUserStr);
+              token = authUser.token || '';
+            } catch (e) {}
+          }
+          await fetch('/api/v2/drive/ensure-client-folder', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+              clientId: companyId,
+              companyName: data.companyName
+            })
+          });
+        } catch (e) {
+          console.warn("[CompanyService] Failed to ensure drive folder for new client:", e);
+        }
+      }
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, `${collectionName}/${companyId}`);
       throw error;

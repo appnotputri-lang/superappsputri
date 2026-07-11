@@ -3,6 +3,7 @@
 // Replace props dengan CompanyContext dan ProjectContext.
 
 import React from 'react';
+import MigrationTool from '../features/migration/MigrationTool';
 import { 
   Clock, 
   Plus, 
@@ -29,6 +30,7 @@ interface DashboardProps {
   updateData: (data: any) => void;
   INITIAL_STATE: any;
   handleDownloadProject: (project: any) => void;
+  currentUser?: any;
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({
@@ -43,7 +45,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
   setEditingRupstId,
   updateData,
   INITIAL_STATE,
-  handleDownloadProject
+  handleDownloadProject,
+  currentUser
 }) => {
   return (
     <div className="max-w-7xl mx-auto space-y-8 animate-fade-in">
@@ -255,6 +258,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
       </div>
       
+      {currentUser?.role === 'Super Admin' && (
+        <MigrationTool />
+      )}
     </div>
   );
 };

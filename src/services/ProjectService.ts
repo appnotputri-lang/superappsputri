@@ -66,6 +66,30 @@ export class ProjectService {
         createdBy: projectData.assignedTo || "system"
       });
 
+      // Ensure the project folder in Google Drive
+      try {
+        const authUserStr = localStorage.getItem('auth_user');
+        let token = '';
+        if (authUserStr) {
+          try {
+            const authUser = JSON.parse(authUserStr);
+            token = authUser.token || '';
+          } catch (e) {}
+        }
+        await fetch('/api/v2/drive/ensure-project-folder', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            project: newProject
+          })
+        });
+      } catch (e) {
+        console.warn("[ProjectService] Failed to ensure drive folder for new project:", e);
+      }
+
       return newProject;
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, path);
@@ -373,7 +397,7 @@ export class ProjectService {
     const path = `${this.projectsCol}/${projectId}/timelines`;
     try {
       const timelinesColRef = collection(db, this.projectsCol, projectId, "timelines");
-      const q = query(timelinesColRef, orderBy("createdAt", "asc"));
+      const q = query(timelinesColRef, orderBy("createdAt", "desc"));
       const querySnap = await getDocs(q);
       return querySnap.docs.map((docSnap) => docSnap.data() as Timeline);
     } catch (error) {
@@ -430,6 +454,13 @@ export class ProjectService {
           await deleteDoc(docSnap.ref);
         }
       }
+
+      // Cascading delete for linked document projects (RUPS, RUPST, Pendirian, etc.)
+      // These usually use the same ID as the parent project ID
+      await deleteDoc(doc(db, 'projects', projectId));
+      await deleteDoc(doc(db, 'rupst_projects', projectId));
+      await deleteDoc(doc(db, 'rupst_public_projects', projectId));
+      await deleteDoc(doc(db, 'pendirian_projects', projectId));
 
       // Finally delete the parent project document
       await deleteDoc(projectRef);
@@ -577,5 +608,21 @@ export class ProjectService {
       handleFirestoreError(error, OperationType.DELETE, `pendirian_projects/${projectId}`);
       throw error;
     }
+  }
+
+  // Server-side Orchestration Methods (to be implemented in Phase 5)
+  static async serverCreateProject(projectData: any, firebaseIdToken: string): Promise<any> {
+    // Phase 1 placeholder
+    return { success: true };
+  }
+
+  static async serverUpdateProjectStatus(
+    projectId: string,
+    newStatus: string,
+    userId: string,
+    comment: string,
+    firebaseIdToken: string
+  ): Promise<void> {
+    // Phase 1 placeholder
   }
 }

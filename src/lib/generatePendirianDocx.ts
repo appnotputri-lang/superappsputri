@@ -175,7 +175,7 @@ function getExemplarIndex(block: any): number {
 // Different numId values allow independent restarting of numbering sequences.
 // -------------------------------------------------------------------------------------
 function adjustNumbering(clonedP: Element, block: any, currentNumId: string): void {
-  const isNumbered = ["numbered", "sub-numbered", "list", "saksi"].includes(block.type);
+  const isNumbered = ["numbered", "sub-numbered", "saksi"].includes(block.type);
   if (!isNumbered) {
     // Remove any existing numPr so it becomes normal paragraph
     const pPr = getSingleElement(clonedP, "pPr");
@@ -183,14 +183,26 @@ function adjustNumbering(clonedP: Element, block: any, currentNumId: string): vo
       const numPr = getSingleElement(pPr, "numPr");
       if (numPr) pPr.removeChild(numPr);
       
-      // Fix indent for management-role which was relying on numbering hanging indent
-      if (block.type === "management-role" || block.kbliDesc || block.type === "pt-name" || block.indentTabs !== undefined) {
+      // Remove pStyle for list items to prevent Word from applying default ListParagraph indentation
+      if (block.type === "list") {
+        const pStyle = getSingleElement(pPr, "pStyle");
+        if (pStyle) pPr.removeChild(pStyle);
+      }
+      
+      // Fix indent for management-role and list which was relying on numbering hanging indent
+      if (block.type === "list" || block.type === "management-role" || block.kbliDesc || block.type === "pt-name" || block.indentTabs !== undefined) {
         let ind = getSingleElement(pPr, "ind");
         if (!ind) {
           ind = clonedP.ownerDocument.createElementNS(W_NS, "w:ind");
           insertIndInOrder(pPr, ind);
         }
-        if (block.kbliDesc) {
+        if (block.type === "list") {
+          const indentVal = block.indentTabs !== undefined ? block.indentTabs : 1;
+          const leftIndent = 568 + (indentVal * 283);
+          ind.setAttribute("w:left", leftIndent.toString());
+          ind.setAttribute("w:hanging", "283");
+          ind.removeAttribute("w:firstLine");
+        } else if (block.kbliDesc) {
           ind.setAttribute("w:left", "567");
           ind.removeAttribute("w:hanging");
           ind.removeAttribute("w:firstLine");
@@ -225,8 +237,8 @@ function adjustNumbering(clonedP: Element, block: any, currentNumId: string): vo
     clonedP.insertBefore(pPr, clonedP.firstChild);
   }
 
-  // If block.type === "numbered" or block.type === "list" with indentTabs, override the indentation
-  if ((block.type === "numbered" || block.type === "list") && block.indentTabs !== undefined) {
+  // If block.type === "numbered" or block.type === "sub-numbered" or block.type === "list" with indentTabs, override the indentation
+  if ((block.type === "numbered" || block.type === "sub-numbered" || block.type === "list") && block.indentTabs !== undefined) {
     let ind = getSingleElement(pPr, "ind");
     if (!ind) {
       ind = clonedP.ownerDocument.createElementNS(W_NS, "w:ind");
@@ -244,10 +256,18 @@ function adjustNumbering(clonedP: Element, block: any, currentNumId: string): vo
       } else {
         leftDxa = 1134;
       }
+    } else if (block.type === "sub-numbered") {
+      hangingDxa = 283;
+      if (block.indentTabs === 1) {
+        leftDxa = 851;
+      } else {
+        leftDxa = 284 + Math.round((block.indentTabs + 1) * 283);
+      }
     }
     
     ind.setAttribute("w:left", leftDxa.toString());
     ind.setAttribute("w:hanging", hangingDxa.toString());
+    ind.removeAttribute("w:firstLine");
   }
 
   // Ensure numPr exists
@@ -547,9 +567,20 @@ function populateRuns(
       { text: "\t" }
     ];
   } else if (block.runs && block.runs.length > 0) {
-    logicalRuns = block.runs;
+    logicalRuns = JSON.parse(JSON.stringify(block.runs));
+    if (block.type === "list") {
+      if (logicalRuns[0]) {
+        logicalRuns[0].text = "-\t" + logicalRuns[0].text;
+      } else {
+        logicalRuns.push({ text: "-\t" });
+      }
+    }
   } else {
-    logicalRuns = [{ text: block.text || "" }];
+    let t = block.text || "";
+    if (block.type === "list") {
+      t = "-\t" + t;
+    }
+    logicalRuns = [{ text: t }];
   }
 
   const needsTrailingTab =
@@ -860,6 +891,39 @@ export const generatePendirianDocx = async (data: any): Promise<void> => {
         const lvlText = lvlTexts[0];
         if (lvlText) {
           lvlText.setAttribute("w:val", "-");
+        }
+        
+        // Change the font of the bullet level to a normal sans-serif font (Arial)
+        // so that the "-" (dash) is rendered as a normal hyphen/dash character instead of a Symbol/Wingdings glyph.
+        const rPrs = lvl.getElementsByTagNameNS ? lvl.getElementsByTagNameNS("*", "rPr") : lvl.getElementsByTagName("w:rPr");
+        const rPr = rPrs[0];
+        if (rPr) {
+          const rFontsList = rPr.getElementsByTagNameNS ? rPr.getElementsByTagNameNS("*", "rFonts") : rPr.getElementsByTagName("w:rFonts");
+          const rFonts = rFontsList[0];
+          if (rFonts) {
+            rFonts.setAttribute("w:ascii", "Arial");
+            rFonts.setAttribute("w:hAnsi", "Arial");
+            rFonts.setAttribute("w:hint", "default");
+          }
+        }
+
+        // Adjust the indentation of the numbering level itself so Word uses the correct indentation!
+        const ilvlAttr = lvl.getAttribute("w:ilvl");
+        const inds = lvl.getElementsByTagNameNS ? lvl.getElementsByTagNameNS("*", "ind") : lvl.getElementsByTagName("w:ind");
+        let ind = inds[0];
+        if (!ind) {
+          ind = numDoc.createElementNS(W_NS, "w:ind");
+          lvl.appendChild(ind);
+        }
+        if (ilvlAttr === "0") {
+          ind.setAttribute("w:left", "567");
+          ind.setAttribute("w:hanging", "283");
+        } else if (ilvlAttr === "1") {
+          ind.setAttribute("w:left", "851");
+          ind.setAttribute("w:hanging", "283");
+        } else if (ilvlAttr === "2") {
+          ind.setAttribute("w:left", "1134");
+          ind.setAttribute("w:hanging", "283");
         }
       }
     }
