@@ -243,10 +243,25 @@ export class DocumentGenerationService {
         });
 
         if (!response.ok) {
-          const errData = await response.json();
-          throw new Error(errData.error || `Gagal mengunggah file hasil generate ${item.label} baru ke Google Drive.`);
+          let errMsg = `Gagal mengunggah file hasil generate ${item.label} baru ke Google Drive. Status: ${response.status}`;
+          try {
+            const errData = await response.json();
+            errMsg = errData.error || errMsg;
+          } catch (e) {
+            try {
+              const textMsg = await response.text();
+              if (textMsg) errMsg = `${errMsg}. Detail: ${textMsg.substring(0, 200)}`;
+            } catch (_) {}
+          }
+          throw new Error(errMsg);
         }
-        const driveData = await response.json();
+
+        let driveData;
+        try {
+          driveData = await response.json();
+        } catch (e) {
+          throw new Error(`Respons dari Google Drive upload tidak valid (bukan JSON).`);
+        }
         const newDriveFileId = driveData.file.id;
 
         // Delete old file from Drive in background
@@ -288,10 +303,25 @@ export class DocumentGenerationService {
         });
 
         if (!response.ok) {
-          const errData = await response.json();
-          throw new Error(errData.error || `Gagal mengunggah file hasil generate ${item.label} ke Google Drive.`);
+          let errMsg = `Gagal mengunggah file hasil generate ${item.label} ke Google Drive. Status: ${response.status}`;
+          try {
+            const errData = await response.json();
+            errMsg = errData.error || errMsg;
+          } catch (e) {
+            try {
+              const textMsg = await response.text();
+              if (textMsg) errMsg = `${errMsg}. Detail: ${textMsg.substring(0, 200)}`;
+            } catch (_) {}
+          }
+          throw new Error(errMsg);
         }
-        const driveData = await response.json();
+
+        let driveData;
+        try {
+          driveData = await response.json();
+        } catch (e) {
+          throw new Error(`Respons dari Google Drive upload tidak valid (bukan JSON).`);
+        }
         const driveFileId = driveData.file.id;
 
         const docId = crypto.randomUUID();

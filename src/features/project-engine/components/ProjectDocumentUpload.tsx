@@ -148,10 +148,31 @@ export function ProjectDocumentUpload({ project, currentUser }: ProjectDocumentU
         })
       });
 
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error);
+      if (!response.ok) {
+        let errMsg = 'Gagal mengunggah berkas ke Google Drive.';
+        try {
+          const errData = await response.json();
+          errMsg = errData.error || errMsg;
+        } catch (e) {
+          try {
+            const textMsg = await response.text();
+            if (textMsg) errMsg = `${errMsg} Detail: ${textMsg.substring(0, 200)}`;
+          } catch (_) {}
+        }
+        throw new Error(errMsg);
+      }
 
-      const driveFileId = data.file.id;
+      let data;
+      try {
+        data = await response.json();
+      } catch (e) {
+        throw new Error('Respons dari Google Drive upload tidak valid (bukan JSON).');
+      }
+
+      const driveFileId = data.file?.id;
+      if (!driveFileId) {
+        throw new Error('Respons dari Google Drive upload tidak menyertakan ID berkas.');
+      }
       
       let title = '';
       if (selectedType === 'custom') {
