@@ -63,6 +63,11 @@ export class StatusEngine {
       return false;
     }
 
+    // If current status is legacy / not in workflow, allow transition to migrate the project
+    if (currentIndex === -1) {
+      return true;
+    }
+
     if (strict) {
       // In strict sequential mode, can only move to adjacent steps
       return Math.abs(targetIndex - currentIndex) === 1;

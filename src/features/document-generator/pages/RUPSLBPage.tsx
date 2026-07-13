@@ -10,6 +10,7 @@ import { doc, setDoc, deleteDoc } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from '../../../lib/firebase';
 import { sanitizeForFirestore } from '../../../utils/sanitize';
 import { ProjectService } from '../../../services/ProjectService';
+import { DocumentGenerationService } from '../../../services/DocumentGenerationService';
 import { DocumentStatusBadge, documentStatusOptions } from '../../../../components/DocumentStatusBadge';
 import { AhuSection, AhuLabel, AhuInput, AhuSelect, AhuMasaJabatanSelector } from '../../../../App';
 import DraftAktaApp, { DraftAktaAppRef } from '../../../DraftAktaApp';
@@ -490,6 +491,13 @@ export const RUPSLBPage: React.FC<RUPSLBPageProps> = ({
                                            refId: profileData.id,
                                            uploadedBy: user?.email || 'staff_notaris'
                                        });
+
+                                       await DocumentGenerationService.generateAndUploadAllForProject(
+                                           activeProjectContext,
+                                           profileData,
+                                           user?.email,
+                                           userProfile?.name
+                                       );
                                    }
                                    recordNotification(
                                      isNew ? 'Draft RUPS LB Baru Dibuat' : 'Draft RUPS LB Diubah',
@@ -500,13 +508,14 @@ export const RUPSLBPage: React.FC<RUPSLBPageProps> = ({
                                   setEditingProjectId(null);
                                   setActiveProjectContext(null);
                                   setIsRupsPreview(false);
-                                  alert('RUPS LB berhasil disimpan!');
+                                  alert('✅ Data berhasil disimpan dan dokumen berhasil diperbarui.');
                                   if (returnToProjectId) {
                                     setSelectedProjectId(returnToProjectId);
                                     setActiveSidebarTab('project_detail');
                                   }
-                              } catch (e) {
-                                  handleFirestoreError(e, OperationType.WRITE, `projects/${profileData.id}`);
+                              } catch (e: any) {
+                                  console.error("Save & Generate failed:", e);
+                                  alert('Gagal menyimpan atau memperbarui dokumen: ' + (e.message || e));
                               } finally {
                                   setIsSaving(false);
                               }

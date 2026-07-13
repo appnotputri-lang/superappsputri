@@ -14,6 +14,25 @@ import PendirianDocumentPreview from '../../../PendirianDocumentPreview';
 import { syncToUtama, getDeedTitle, formatAppearersForPendirian } from '../../../lib/syncUtama';
 import { mapCompanyProfileToPendirian } from '../../../domain/company/mappers/companyProfileToPendirian';
 import { ProjectDocumentUpload } from './ProjectDocumentUpload';
+import { AuthService } from '../../../services/AuthService';
+
+interface UploadedDocument {
+  id: string;
+  companyId: string;
+  projectId: string;
+  type?: 'minutes' | 'deed' | 'sksp' | 'custom';
+  title: string;
+  fileName: string;
+  mimeType: string;
+  size: number;
+  driveFileId: string;
+  driveFolderId: string;
+  uploadedBy: string;
+  uploadedAt: string;
+  createdAt: string;
+  documentSource?: 'generated' | 'manual';
+  documentCategory?: 'draft_akta' | 'notulen' | 'surat_pernyataan' | 'scan_akta' | 'scan_notulen' | 'sksp' | 'custom';
+}
 import {
   ArrowLeft,
   Calendar,
@@ -74,6 +93,7 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
   const [documents, setDocuments] = useState<DocumentReference[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [documentUploadKey, setDocumentUploadKey] = useState(0);
 
   // Interaction States
   const [transitionStatus, setTransitionStatus] = useState('');
@@ -194,49 +214,211 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
     return null;
   };
 
+  const uploadGeneratedDocument = async (
+    filename: string,
+    blob: Blob,
+    category: 'draft_akta' | 'notulen' | 'surat_pernyataan'
+  ) => {
+    const driveFolderId = project?.metadata?.driveFolderId || (project as any)?.driveFolderId;
+    if (!driveFolderId) {
+      throw new Error('Google Drive folder belum disiapkan untuk proyek ini.');
+    }
+
+    // Convert blob to base64
+    const toBase64 = (b: Blob): Promise<string> => {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(b);
+        reader.onload = () => {
+          const result = reader.result as string;
+          resolve(result.split(',')[1]);
+        };
+        reader.onerror = error => reject(error);
+      });
+    };
+
+    const base64 = await toBase64(blob);
+    const token = await AuthService.getToken();
+
+    // Query if a document with documentCategory == category and projectId == projectId already exists
+    const docQuery = query(
+      collection(db, 'project_uploaded_documents'),
+      where('projectId', '==', projectId),
+      where('documentCategory', '==', category)
+    );
+    const docSnap = await getDocs(docQuery);
+    const existingDoc = !docSnap.empty ? docSnap.docs[0].data() as UploadedDocument : null;
+
+    let response;
+    if (existingDoc) {
+      // Replace file in Google Drive
+      response = await fetch('/api/v2/drive/upload-file', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          fileName: filename,
+          mimeType: blob.type || 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          parentFolderId: driveFolderId,
+          base64
+        })
+      });
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.error || 'Gagal mengunggah file hasil generate baru ke Google Drive.');
+      }
+      const data = await response.json();
+      const newDriveFileId = data.file.id;
+
+      // Delete old file from Drive in background
+      try {
+        await fetch(`/api/v2/drive/delete-file/${existingDoc.driveFileId}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+      } catch (e) {
+        console.warn("Could not delete old file from drive:", e);
+      }
+
+      // Update metadata in project_uploaded_documents
+      const updatedDoc: UploadedDocument = {
+        ...existingDoc,
+        fileName: filename,
+        mimeType: blob.type || 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        size: blob.size,
+        driveFileId: newDriveFileId,
+        uploadedBy: currentUser?.name || 'Sistem',
+        uploadedAt: new Date().toISOString()
+      };
+
+      await setDoc(doc(db, 'project_uploaded_documents', existingDoc.id), updatedDoc);
+    } else {
+      // Create new document in Google Drive and project_uploaded_documents
+      response = await fetch('/api/v2/drive/upload-file', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          fileName: filename,
+          mimeType: blob.type || 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          parentFolderId: driveFolderId,
+          base64
+        })
+      });
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.error || 'Gagal mengunggah file hasil generate ke Google Drive.');
+      }
+      const data = await response.json();
+      const driveFileId = data.file.id;
+
+      let titleLabel = '';
+      if (category === 'draft_akta') titleLabel = project?.jobType === 'pendirian_pt' ? 'Akta Pendirian' : 'Draft Akta';
+      else if (category === 'notulen') titleLabel = 'Draft Notulen / Sirkuler';
+      else if (category === 'surat_pernyataan') titleLabel = 'Surat Pernyataan';
+
+      const docId = crypto.randomUUID();
+      const now = new Date().toISOString();
+
+      const newDoc: UploadedDocument = {
+        id: docId,
+        companyId: project?.clientId || '',
+        projectId: projectId,
+        title: titleLabel,
+        fileName: filename,
+        mimeType: blob.type || 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        size: blob.size,
+        driveFileId,
+        driveFolderId,
+        uploadedBy: currentUser?.name || 'Sistem',
+        uploadedAt: now,
+        createdAt: now,
+        documentSource: 'generated',
+        documentCategory: category
+      };
+
+      await setDoc(doc(db, 'project_uploaded_documents', docId), newDoc);
+    }
+  };
+
   const handleGenerate = async (docRef: DocumentReference, kind: 'notulen' | 'pernyataan' | 'akta' | 'pendirian', rowKey: string) => {
     setExportingDocId(rowKey);
     try {
       const rawData = await fetchDocRecordData(docRef);
       if (!rawData) return;
 
+      let genResult: { filename: string, blob: Blob } | null = null;
+
       if (kind === 'pendirian') {
         const { generatePendirianDocx } = await import('../../../lib/generatePendirianDocx');
-        await generatePendirianDocx(rawData);
-        return;
+        genResult = await generatePendirianDocx(rawData, true);
+      } else {
+        const mergedData = { ...INITIAL_STATE, ...rawData } as any;
+
+        if (project?.jobType === 'rups_t' || project?.jobType === 'sirkuler') {
+          if (kind === 'notulen') {
+            if (mergedData.rupstType === 'sirkuler') {
+              const { generateSirkulerLaporanDocx } = await import('../../../lib/generateSirkulerLaporanDocx');
+              genResult = await generateSirkulerLaporanDocx(mergedData, true);
+            } else {
+              const { generateRUPSTDocx } = await import('../../../lib/generateRUPSTDocx');
+              genResult = await generateRUPSTDocx(mergedData, true);
+            }
+          } else if (kind === 'pernyataan') {
+            const { generateRUPSTPernyataanDocx } = await import('../../../lib/generateRUPSTPernyataanDocx');
+            genResult = await generateRUPSTPernyataanDocx(mergedData, true);
+          } else if (kind === 'akta') {
+            const { generateRUPSTAktaDocx } = await import('../../../lib/generateRUPSTAktaDocx');
+            genResult = await generateRUPSTAktaDocx(mergedData, true);
+          }
+        } else {
+          // RUPS LB / sirkuler_rupslb
+          if (kind === 'notulen') {
+            const { generateWordDoc } = await import('../../../../utils/docxGenerator');
+            genResult = await generateWordDoc(mergedData, true);
+          } else if (kind === 'akta') {
+            const { generateRUPSDocx } = await import('../../../lib/generateRUPSDocx');
+            genResult = await generateRUPSDocx(mergedData, true);
+          }
+        }
       }
 
-      const mergedData = { ...INITIAL_STATE, ...rawData } as any;
+      if (genResult) {
+        const { filename, blob } = genResult;
 
-      if (project?.jobType === 'rups_t' || project?.jobType === 'sirkuler') {
-        if (kind === 'notulen') {
-          if (mergedData.rupstType === 'sirkuler') {
-            const { generateSirkulerLaporanDocx } = await import('../../../lib/generateSirkulerLaporanDocx');
-            await generateSirkulerLaporanDocx(mergedData);
-          } else {
-            const { generateRUPSTDocx } = await import('../../../lib/generateRUPSTDocx');
-            await generateRUPSTDocx(mergedData);
-          }
+        // Map generation kind to category
+        let category: 'draft_akta' | 'notulen' | 'surat_pernyataan' = 'notulen';
+        if (kind === 'akta' || kind === 'pendirian') {
+          category = 'draft_akta';
         } else if (kind === 'pernyataan') {
-          const { generateRUPSTPernyataanDocx } = await import('../../../lib/generateRUPSTPernyataanDocx');
-          await generateRUPSTPernyataanDocx(mergedData);
-        } else if (kind === 'akta') {
-          const { generateRUPSTAktaDocx } = await import('../../../lib/generateRUPSTAktaDocx');
-          await generateRUPSTAktaDocx(mergedData);
+          category = 'surat_pernyataan';
         }
-      } else {
-        // RUPS LB / sirkuler_rupslb
-        if (kind === 'notulen') {
-          const { generateWordDoc } = await import('../../../../utils/docxGenerator');
-          await generateWordDoc(mergedData);
-        } else if (kind === 'akta') {
-          const { generateRUPSDocx } = await import('../../../lib/generateRUPSDocx');
-          await generateRUPSDocx(mergedData);
-        }
+
+        // Upload to Drive and save metadata
+        await uploadGeneratedDocument(filename, blob, category);
+
+        // Download locally to browser
+        const downloadUrl = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = downloadUrl;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(downloadUrl);
+
+        // Trigger ProjectDocumentUpload refresh
+        setDocumentUploadKey(prev => prev + 1);
+
+        alert(`Dokumen "${filename}" berhasil di-generate, diunduh, dan disimpan ke Google Drive!`);
       }
     } catch (err: any) {
       console.error(err);
-      alert('Gagal mengunduh dokumen: ' + err.message);
+      alert('Gagal mengunduh atau menyimpan dokumen: ' + err.message);
     } finally {
       setExportingDocId(null);
     }
@@ -930,102 +1112,7 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
             </div>
 
             {/* UPLOAD DOKUMEN PROYEK (New Feature) */}
-            <ProjectDocumentUpload project={project} currentUser={currentUser} />
-
-            {/* Subcollection Document Listing */}
-            <div className="bg-white border border-slate-200/80 rounded-xl p-6 shadow-sm">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
-                <h2 className="text-[14px] font-bold text-slate-800 uppercase tracking-wide">
-                  Arsip Dokumen Administrasi ({documents.length})
-                </h2>
-                <button
-                  onClick={() => setIsDocModalOpen(true)}
-                  className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold text-xs rounded transition-colors flex items-center gap-1.5"
-                >
-                  <UploadCloud className="w-3.5 h-3.5" />
-                  <span>Upload Dokumen</span>
-                </button>
-              </div>
-
-              {documents.length === 0 ? (
-                <div className="py-8 text-center text-slate-400 text-[13px]">
-                  Belum ada dokumen yang terdaftar dalam proyek ini.
-                </div>
-              ) : (
-                <div className="divide-y divide-slate-100">
-                  {documents.map((doc) => {
-                    // Check if it's an uploaded file (no refId or has external URL)
-                    const isUploadedFile = !doc.refId || (doc.url && doc.url.startsWith('http'));
-                    
-                    if (isUploadedFile) {
-                      return (
-                        <div key={doc.id} className="py-3.5 flex items-center justify-between gap-4">
-                          <div className="flex items-start gap-3">
-                            <div className="w-8 h-8 rounded bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600 shrink-0">
-                              <FileText className="w-4 h-4" />
-                            </div>
-                            <div>
-                              <h4 className="font-bold text-slate-800 text-[13px]">{doc.name}</h4>
-                              <p className="text-[11px] text-slate-400 mt-0.5">
-                                Format: {doc.type ? doc.type.toUpperCase() : 'PDF'} | Diunggah oleh: {doc.uploadedBy || 'Staf'}
-                                {' '}| {doc.uploadedAt ? new Date(doc.uploadedAt.seconds ? doc.uploadedAt.toDate() : doc.uploadedAt).toLocaleDateString('id-ID') : ''}
-                              </p>
-                            </div>
-                          </div>
-                          {doc.url && (
-                            <a
-                              href={doc.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded transition-colors flex items-center gap-1.5"
-                            >
-                              <ExternalLink className="w-3 h-3" />
-                              <span>Buka di Google Drive</span>
-                            </a>
-                          )}
-                        </div>
-                      );
-                    }
-
-                    // Otherwise, it's a template reference
-                    const kinds = getDocKinds(project?.jobType || '');
-                    if (kinds.length === 0) return null;
-                    return (
-                      <div key={doc.id} className="divide-y divide-slate-50 border-b border-slate-100 last:border-0">
-                        {kinds.map(({ kind, label }) => {
-                          const rowKey = `${doc.id}-${kind}`;
-                          const isExporting = exportingDocId === rowKey;
-                          return (
-                            <div key={rowKey} className="py-3.5 flex items-center justify-between gap-4">
-                              <div className="flex items-start gap-3">
-                                <div className="w-8 h-8 rounded bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 shrink-0">
-                                  <FileText className="w-4 h-4" />
-                                </div>
-                                <div>
-                                  <h4 className="font-bold text-slate-800 text-[13px]">{label}</h4>
-                                  <p className="text-[11px] text-slate-400 mt-0.5">
-                                    Dari: {doc.name} | Diunggah oleh: {doc.uploadedBy || 'Sistem'}
-                                    {' '}| {doc.uploadedAt ? new Date(doc.uploadedAt.seconds ? doc.uploadedAt.toDate() : doc.uploadedAt).toLocaleDateString('id-ID') : ''}
-                                  </p>
-                                </div>
-                              </div>
-                              <button
-                                onClick={() => handleGenerate(doc, kind, rowKey)}
-                                disabled={isExporting}
-                                className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-semibold text-xs rounded transition-colors flex items-center gap-1.5"
-                              >
-                                {isExporting ? <Loader2 className="w-3 h-3 animate-spin" /> : <FileText className="w-3 h-3" />}
-                                <span>{isExporting ? 'Mengunduh...' : 'Download DOCX'}</span>
-                              </button>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
+            <ProjectDocumentUpload project={project} currentUser={currentUser} key={documentUploadKey} />
           </div>
 
           {/* Column 3: Transition Engine Guard & Chronological Timeline */}

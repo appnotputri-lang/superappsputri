@@ -736,7 +736,7 @@ function populateRuns(
 // -------------------------------------------------------------------------------------
 // Main export
 // -------------------------------------------------------------------------------------
-export const generatePendirianDocx = async (data: any): Promise<void> => {
+export const generatePendirianDocx = async (data: any, returnBlob?: boolean): Promise<any> => {
   if (!data) {
     throw new Error("Data pendirian tidak boleh kosong");
   }
@@ -1029,5 +1029,10 @@ export const generatePendirianDocx = async (data: any): Promise<void> => {
     ? String(data.namaPt).replace(/^PT\.?\s*/i, "").trim().replace(/\s+/g, "_")
     : "Draft";
 
-  saveAs(blob, `Akta_Pendirian_${safeName}.docx`);
+  const fileName = `Akta_Pendirian_${safeName}.docx`;
+  if (returnBlob) {
+    return { filename: fileName, blob };
+  }
+
+  saveAs(blob, fileName);
 };

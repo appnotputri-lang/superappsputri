@@ -153,7 +153,7 @@ const mkP = (opts: {
 
 // ─── MAIN EXPORT ────────────────────────────────────────────────────────────
 
-export const generateWordDoc = async (data: CompanyData) => {
+export const generateWordDoc = async (data: CompanyData, returnBlob?: boolean) => {
   const isCircular = data.documentType === "CIRCULAR";
   const w = (num: number, tipe: "shares" | "rupiah") => {
     return "";
@@ -3455,6 +3455,9 @@ export const generateWordDoc = async (data: CompanyData) => {
     const blob = await Packer.toBlob(doc);
     const safeName = data.companyName ? data.companyName.replace(/PT\.?\s*/i, "").trim() : "Draft";
     const fileName = `Draft ${isCircular ? "Sirkuler" : "Notulen"} PT ${safeName}.docx`;
+    if (returnBlob) {
+      return { filename: fileName, blob };
+    }
     saveAsNative(blob, fileName);
   } catch (error) {
     console.error("docx error", error);

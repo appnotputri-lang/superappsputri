@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Project } from '../../../domain/project/Project';
 import { db, handleFirestoreError, OperationType } from '../../../lib/firebase';
 import { collection, query, where, getDocs, doc, setDoc, deleteDoc, orderBy } from 'firebase/firestore';
-import { Upload, FileText, Image as FileImage, File, Trash2, Download, RefreshCw, X, Loader2, Eye, Replace, ExternalLink } from 'lucide-react';
+import { Upload, FileText, Image as FileImage, File, Trash2, Download, RefreshCw, X, Loader2, Eye, Replace, ExternalLink, MoreVertical } from 'lucide-react';
 import { UserProfile } from '../../../../types';
 import { AuthService } from '../../../services/AuthService';
 
@@ -15,7 +15,7 @@ interface UploadedDocument {
   id: string;
   companyId: string;
   projectId: string;
-  type: 'minutes' | 'deed' | 'sksp' | 'custom';
+  type?: 'minutes' | 'deed' | 'sksp' | 'custom';
   title: string;
   fileName: string;
   mimeType: string;
@@ -25,6 +25,8 @@ interface UploadedDocument {
   uploadedBy: string;
   uploadedAt: string;
   createdAt: string;
+  documentSource?: 'generated' | 'manual';
+  documentCategory?: 'draft_akta' | 'notulen' | 'surat_pernyataan' | 'scan_akta' | 'scan_notulen' | 'sksp' | 'custom';
 }
 
 const DOCUMENT_TYPES = [
@@ -46,6 +48,7 @@ export function ProjectDocumentUpload({ project, currentUser }: ProjectDocumentU
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [documentToReplace, setDocumentToReplace] = useState<UploadedDocument | null>(null);
   const [previewDoc, setPreviewDoc] = useState<UploadedDocument | null>(null);
+  const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -109,7 +112,16 @@ export function ProjectDocumentUpload({ project, currentUser }: ProjectDocumentU
 
     const builtInTypes = ['minutes', 'deed', 'sksp'];
     if (!isReplace && builtInTypes.includes(selectedType)) {
-      const existing = documents.find(d => d.type === selectedType);
+      const mapTypeToCategory = (type: string) => {
+        switch (type) {
+          case 'minutes': return 'scan_notulen';
+          case 'deed': return 'scan_akta';
+          case 'sksp': return 'sksp';
+          default: return 'custom';
+        }
+      };
+      const cat = mapTypeToCategory(selectedType);
+      const existing = documents.find(d => d.documentCategory === cat || d.type === selectedType);
       if (existing) {
         setDocumentToReplace(existing);
         setIsReplaceModalOpen(true);
@@ -148,6 +160,15 @@ export function ProjectDocumentUpload({ project, currentUser }: ProjectDocumentU
         title = DOCUMENT_TYPES.find(d => d.value === selectedType)?.label || file.name;
       }
 
+      const mapTypeToCategory = (type: string) => {
+        switch (type) {
+          case 'minutes': return 'scan_notulen';
+          case 'deed': return 'scan_akta';
+          case 'sksp': return 'sksp';
+          default: return 'custom';
+        }
+      };
+
       const docId = replaceDoc ? replaceDoc.id : crypto.randomUUID();
       const now = new Date().toISOString();
 
@@ -164,7 +185,9 @@ export function ProjectDocumentUpload({ project, currentUser }: ProjectDocumentU
         driveFolderId: driveFolderId,
         uploadedBy: currentUser?.name || 'Unknown',
         uploadedAt: now,
-        createdAt: replaceDoc ? replaceDoc.createdAt : now
+        createdAt: replaceDoc ? replaceDoc.createdAt : now,
+        documentSource: 'manual',
+        documentCategory: replaceDoc ? (replaceDoc.documentCategory || mapTypeToCategory(replaceDoc.type || 'custom')) : mapTypeToCategory(selectedType)
       };
 
       try {
@@ -230,28 +253,38 @@ export function ProjectDocumentUpload({ project, currentUser }: ProjectDocumentU
     }
   };
 
+  const getFileIconBgClass = (mimeType: string) => {
+    if (mimeType.includes('pdf')) return 'bg-rose-50 border-rose-100/50 text-rose-500';
+    if (mimeType.includes('image')) return 'bg-violet-50 border-violet-100/50 text-violet-500';
+    if (mimeType.includes('word') || mimeType.includes('officedocument')) return 'bg-blue-50 border-blue-100/50 text-blue-500';
+    return 'bg-slate-50 border-slate-100 text-slate-500';
+  };
+
   const getFileIcon = (mimeType: string) => {
-    if (mimeType.includes('pdf')) return <FileText className="w-4 h-4 text-red-500" />;
-    if (mimeType.includes('image')) return <FileImage className="w-4 h-4 text-blue-500" />;
-    if (mimeType.includes('word')) return <FileText className="w-4 h-4 text-blue-600" />;
-    return <File className="w-4 h-4 text-slate-400" />;
+    if (mimeType.includes('pdf')) return <FileText className="w-5 h-5 text-rose-500" />;
+    if (mimeType.includes('image')) return <FileImage className="w-5 h-5 text-violet-500" />;
+    if (mimeType.includes('word') || mimeType.includes('officedocument')) return <FileText className="w-5 h-5 text-blue-500" />;
+    return <File className="w-5 h-5 text-slate-400" />;
   };
 
   return (
-    <div className="bg-white border border-slate-200/80 rounded-xl overflow-hidden shadow-sm mt-6">
-      <div className="px-6 py-4 border-b border-slate-200/80 bg-slate-50 flex items-center justify-between">
-        <h2 className="font-bold text-slate-800 text-[14px] uppercase tracking-wide flex items-center gap-2">
-          <Upload className="w-4 h-4 text-blue-600" />
-          Upload Dokumen Proyek
-        </h2>
-        <div className="flex gap-2">
+    <div className="bg-white border border-slate-200/60 rounded-2xl overflow-visible shadow-xs mt-6">
+      <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
+        <div>
+          <h2 className="font-bold text-slate-800 text-[15px] flex items-center gap-2">
+            <Upload className="w-4 h-4 text-blue-600" />
+            Upload Dokumen Proyek
+          </h2>
+          <p className="text-xs text-slate-400 mt-1">Kelola dan telusuri seluruh berkas atau hasil generate proyek ini</p>
+        </div>
+        <div className="flex items-center gap-2">
           <button
             onClick={fetchDocuments}
             disabled={loading}
-            className="p-1.5 text-slate-400 hover:text-slate-600 rounded-md hover:bg-slate-200 transition-colors"
-            title="Refresh"
+            className="p-2 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-50 transition-colors"
+            title="Refresh List"
           >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
           </button>
           <button
             onClick={() => {
@@ -260,7 +293,7 @@ export function ProjectDocumentUpload({ project, currentUser }: ProjectDocumentU
               setSelectedFile(null);
               setIsUploadModalOpen(true);
             }}
-            className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-medium text-xs rounded transition-colors flex items-center gap-1.5"
+            className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5"
           >
             <Upload className="w-3.5 h-3.5" />
             <span>Upload Dokumen</span>
@@ -268,86 +301,179 @@ export function ProjectDocumentUpload({ project, currentUser }: ProjectDocumentU
         </div>
       </div>
 
-      <div className="p-6">
+      <div className="p-0">
         {loading ? (
-          <div className="py-8 flex justify-center text-slate-400">
-            <Loader2 className="w-6 h-6 animate-spin" />
+          <div className="py-12 flex flex-col items-center justify-center gap-3 text-slate-400">
+            <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+            <span className="text-xs font-medium text-slate-400">Memuat berkas...</span>
           </div>
         ) : documents.length === 0 ? (
-          <div className="py-8 text-center text-slate-400 text-[13px]">
-            Belum ada dokumen yang diunggah.
+          <div className="py-12 text-center text-slate-400 text-[13px] flex flex-col items-center justify-center gap-2">
+            <File className="w-10 h-10 text-slate-200" />
+            <span>Belum ada dokumen yang diunggah untuk proyek ini.</span>
           </div>
         ) : (
-          <div className="divide-y divide-slate-100 border border-slate-100 rounded-lg">
-            {documents.map(docObj => (
-              <div key={docObj.id} className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-slate-50 transition-colors">
-                <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center shrink-0">
-                    {getFileIcon(docObj.mimeType)}
+          <div className="divide-y divide-slate-100/70">
+            {documents.map(docObj => {
+              const isMenuOpen = activeMenuId === docObj.id;
+              const canPreview = docObj.mimeType.includes('pdf') || docObj.mimeType.includes('image');
+
+              return (
+                <div 
+                  key={docObj.id} 
+                  className="group relative p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-slate-50/50 transition-colors"
+                >
+                  {/* Left: Icon & File Info */}
+                  <div className="flex items-start gap-4 min-w-0 flex-1">
+                    <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 border transition-all group-hover:scale-102 ${getFileIconBgClass(docObj.mimeType)}`}>
+                      {getFileIcon(docObj.mimeType)}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2.5 flex-wrap">
+                        <h4 
+                          className="font-bold text-slate-800 text-[13.5px] leading-snug tracking-tight hover:text-blue-600 transition-colors cursor-pointer"
+                          onClick={() => canPreview ? setPreviewDoc(docObj) : window.open(`https://drive.google.com/file/d/${docObj.driveFileId}/view`, '_blank')}
+                        >
+                          {docObj.title}
+                        </h4>
+                        {docObj.documentSource === 'generated' ? (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold bg-slate-100 text-slate-600 border border-slate-200/50 uppercase tracking-wider">
+                            Hasil Generate
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold bg-slate-50 text-slate-500 border border-slate-200/30 uppercase tracking-wider">
+                            Upload Manual
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-slate-400 font-mono mt-1 truncate max-w-lg" title={docObj.fileName}>
+                        {docObj.fileName}
+                      </p>
+                      <div className="text-[11px] text-slate-400/90 mt-1.5 flex items-center gap-2 flex-wrap font-medium">
+                        <span className="text-slate-500">{(docObj.size / 1024 / 1024).toFixed(2)} MB</span>
+                        <span className="text-slate-300">•</span>
+                        <span>{new Date(docObj.uploadedAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                        <span className="text-slate-300">•</span>
+                        <span className="inline-flex items-center gap-1">
+                          Oleh: {docObj.uploadedBy}
+                        </span>
+                      </div>
+                    </div>
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <h4 className="font-bold text-slate-800 text-[13px]">{docObj.title}</h4>
-                    <p className="text-[11px] text-slate-500 mt-0.5 truncate">{docObj.fileName}</p>
-                    <p className="text-[11px] text-slate-400 mt-0.5">
-                      {new Date(docObj.uploadedAt).toLocaleDateString('id-ID')} • {(docObj.size / 1024 / 1024).toFixed(2)} MB • {docObj.uploadedBy}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex flex-wrap items-center gap-1.5 shrink-0">
-                  {(docObj.mimeType.includes('pdf') || docObj.mimeType.includes('image')) && (
-                    <button
-                      onClick={() => setPreviewDoc(docObj)}
-                      className="px-2.5 py-1.5 text-blue-600 hover:bg-blue-50 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors"
-                      title="Preview"
+
+                  {/* Right: Actions */}
+                  <div className="flex items-center justify-end gap-1.5 shrink-0">
+                    {/* Primary actions visible inline for convenience on hover/focus */}
+                    {canPreview && (
+                      <button
+                        onClick={() => setPreviewDoc(docObj)}
+                        className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50/80 rounded-lg transition-all duration-150"
+                        title="Preview"
+                      >
+                        <Eye className="w-4 h-4" />
+                      </button>
+                    )}
+                    <a
+                      href={`https://drive.google.com/uc?export=download&id=${docObj.driveFileId}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50/80 rounded-lg transition-all duration-150"
+                      title="Download"
                     >
-                      <Eye className="w-3.5 h-3.5" />
-                      <span>Preview</span>
-                    </button>
-                  )}
-                  <a
-                    href={`https://drive.google.com/file/d/${docObj.driveFileId}/view`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="px-2.5 py-1.5 text-slate-600 hover:bg-slate-100 hover:text-slate-800 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors"
-                    title="Buka di Google Drive"
-                  >
-                    <ExternalLink className="w-3.5 h-3.5" />
-                    <span>Buka Drive</span>
-                  </a>
-                  <a
-                    href={`https://drive.google.com/uc?export=download&id=${docObj.driveFileId}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="px-2.5 py-1.5 text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors"
-                    title="Download"
-                  >
-                    <Download className="w-3.5 h-3.5" />
-                    <span>Download</span>
-                  </a>
-                  <button
-                    onClick={() => {
-                      setDocumentToReplace(docObj);
-                      if (fileInputRef.current) {
-                        fileInputRef.current.click();
-                      }
-                    }}
-                    className="px-2.5 py-1.5 text-amber-600 hover:bg-amber-50 hover:text-amber-700 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors"
-                    title="Ganti File"
-                  >
-                    <RefreshCw className="w-3.5 h-3.5" />
-                    <span>Ganti</span>
-                  </button>
-                  <button
-                    onClick={() => handleDelete(docObj)}
-                    className="px-2.5 py-1.5 text-red-600 hover:bg-red-50 hover:text-red-700 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors"
-                    title="Hapus"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    <span>Hapus</span>
-                  </button>
+                      <Download className="w-4 h-4" />
+                    </a>
+
+                    {/* Overflow trigger */}
+                    <div className="relative">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveMenuId(isMenuOpen ? null : docObj.id);
+                        }}
+                        className={`p-2 rounded-lg transition-all duration-150 ${isMenuOpen ? 'bg-slate-100 text-slate-700' : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100'}`}
+                        title="Menu Aksi"
+                      >
+                        <MoreVertical className="w-4 h-4" />
+                      </button>
+
+                      {isMenuOpen && (
+                        <>
+                          {/* Full page click catcher to close the dropdown menu */}
+                          <div 
+                            className="fixed inset-0 z-40 cursor-default" 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActiveMenuId(null);
+                            }} 
+                          />
+                          <div className="absolute right-0 mt-2 w-48 rounded-xl bg-white border border-slate-200/80 shadow-lg ring-1 ring-black/5 z-50 py-1.5 divide-y divide-slate-100 origin-top-right animate-in fade-in duration-100">
+                            <div className="py-1">
+                              {canPreview && (
+                                <button
+                                  onClick={() => {
+                                    setPreviewDoc(docObj);
+                                    setActiveMenuId(null);
+                                  }}
+                                  className="w-full text-left px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2.5 transition-colors"
+                                >
+                                  <Eye className="w-4 h-4 text-slate-400" />
+                                  <span>Preview</span>
+                                </button>
+                              )}
+                              <a
+                                href={`https://drive.google.com/file/d/${docObj.driveFileId}/view`}
+                                target="_blank"
+                                rel="noreferrer"
+                                onClick={() => setActiveMenuId(null)}
+                                className="w-full text-left px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2.5 transition-colors"
+                              >
+                                <ExternalLink className="w-4 h-4 text-slate-400" />
+                                <span>Buka di Drive</span>
+                              </a>
+                              <a
+                                href={`https://drive.google.com/uc?export=download&id=${docObj.driveFileId}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                onClick={() => setActiveMenuId(null)}
+                                className="w-full text-left px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2.5 transition-colors"
+                              >
+                                <Download className="w-4 h-4 text-slate-400" />
+                                <span>Unduh Berkas</span>
+                              </a>
+                              <button
+                                onClick={() => {
+                                  setDocumentToReplace(docObj);
+                                  setActiveMenuId(null);
+                                  if (fileInputRef.current) {
+                                    fileInputRef.current.click();
+                                  }
+                                }}
+                                className="w-full text-left px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2.5 transition-colors"
+                              >
+                                <RefreshCw className="w-4 h-4 text-slate-400" />
+                                <span>Ganti Berkas</span>
+                              </button>
+                            </div>
+                            <div className="py-1">
+                              <button
+                                onClick={() => {
+                                  handleDelete(docObj);
+                                  setActiveMenuId(null);
+                                }}
+                                className="w-full text-left px-3.5 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 flex items-center gap-2.5 transition-colors"
+                              >
+                                <Trash2 className="w-4 h-4 text-red-500" />
+                                <span>Hapus Dokumen</span>
+                              </button>
+                            </div>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

@@ -17,9 +17,11 @@
         "driveFolderId": { "type": "string" },
         "uploadedBy": { "type": "string" },
         "uploadedAt": { "type": "string" },
-        "createdAt": { "type": "string" }
+        "createdAt": { "type": "string" },
+        "documentSource": { "type": "string", "enum": ["generated", "manual"] },
+        "documentCategory": { "type": "string", "enum": ["draft_akta", "notulen", "surat_pernyataan", "scan_akta", "scan_notulen", "sksp", "custom"] }
       },
-      "required": ["id", "companyId", "projectId", "type", "title", "fileName", "mimeType", "size", "driveFileId", "driveFolderId", "uploadedBy", "uploadedAt", "createdAt"]
+      "required": ["id", "companyId", "projectId", "title", "fileName", "mimeType", "size", "driveFileId", "driveFolderId", "uploadedBy", "uploadedAt", "createdAt"]
     }
   },
   "firestore": {

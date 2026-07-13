@@ -39,7 +39,7 @@ service cloud.firestore {
       return data.id is string && data.id.size() <= 128
         && data.projectId is string && data.projectId.size() <= 128
         && data.companyId is string && data.companyId.size() <= 128
-        && data.type is string && (data.type == 'minutes' || data.type == 'deed' || data.type == 'sksp' || data.type == 'custom')
+        && (!('type' in data) || (data.type is string && (data.type == 'minutes' || data.type == 'deed' || data.type == 'sksp' || data.type == 'custom')))
         && data.title is string && data.title.size() <= 256
         && data.fileName is string && data.fileName.size() <= 256
         && data.mimeType is string && data.mimeType.size() <= 128
@@ -48,7 +48,9 @@ service cloud.firestore {
         && data.driveFolderId is string && data.driveFolderId.size() <= 128
         && data.uploadedBy is string && data.uploadedBy.size() <= 128
         && data.uploadedAt is string && data.uploadedAt.size() <= 128
-        && data.createdAt is string && data.createdAt.size() <= 128;
+        && data.createdAt is string && data.createdAt.size() <= 128
+        && (!('documentSource' in data) || (data.documentSource is string && (data.documentSource == 'generated' || data.documentSource == 'manual')))
+        && (!('documentCategory' in data) || (data.documentCategory is string && (data.documentCategory == 'draft_akta' || data.documentCategory == 'notulen' || data.documentCategory == 'surat_pernyataan' || data.documentCategory == 'scan_akta' || data.documentCategory == 'scan_notulen' || data.documentCategory == 'sksp' || data.documentCategory == 'custom')));
     }
 
     // ---------------------------------------------------------

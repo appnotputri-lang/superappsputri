@@ -4,6 +4,7 @@ import { doc, setDoc, deleteDoc } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from '../../../lib/firebase';
 import { sanitizeForFirestore } from '../../../utils/sanitize';
 import { ProjectService } from '../../../services/ProjectService';
+import { DocumentGenerationService } from '../../../services/DocumentGenerationService';
 import DraftAktaPendirian from '../../../DraftAktaPendirian';
 import PendirianList from '../../../components/PendirianList';
 import { INITIAL_STATE } from '../../../domain/company/initialCompanyData';
@@ -106,6 +107,13 @@ export const PendirianPage: React.FC<PendirianPageProps> = ({
                  refId: id,
                  uploadedBy: user?.email || 'staff_notaris'
                });
+
+               await DocumentGenerationService.generateAndUploadAllForProject(
+                 activeProjectContext,
+                 finalData,
+                 user?.email,
+                 userProfile?.name
+               );
              }
 
              // Sync to Utama
@@ -121,13 +129,14 @@ export const PendirianPage: React.FC<PendirianPageProps> = ({
             const returnToProjectId = activeProjectContext;
             setEditingPendirianId(null);
             setActiveProjectContext(null);
-            alert('Data pendirian berhasil disimpan!');
+            alert('✅ Data berhasil disimpan dan dokumen berhasil diperbarui.');
             if (returnToProjectId) {
               setSelectedProjectId(returnToProjectId);
               setActiveSidebarTab('project_detail');
             }
-          } catch (e) {
-            handleFirestoreError(e, OperationType.WRITE, `pendirian_projects/${id}`);
+          } catch (e: any) {
+            console.error("Save & Generate failed:", e);
+            alert('Gagal menyimpan atau memperbarui dokumen: ' + (e.message || e));
           } finally {
             setIsSaving(false);
           }

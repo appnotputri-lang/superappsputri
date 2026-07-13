@@ -10,6 +10,7 @@ import { doc, setDoc, deleteDoc } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from '../../../lib/firebase';
 import { sanitizeForFirestore } from '../../../utils/sanitize';
 import { ProjectService } from '../../../services/ProjectService';
+import { DocumentGenerationService } from '../../../services/DocumentGenerationService';
 import { DocumentStatusBadge, documentStatusOptions } from '../../../../components/DocumentStatusBadge';
 import { AhuSection, AhuLabel, AhuInput, AhuSelect, AhuMasaJabatanSelector } from '../../../../App';
 import { INITIAL_STATE } from '../../../domain/company/initialCompanyData';
@@ -513,6 +514,13 @@ syncCompanyDataToRupst
                                            refId: profileData.id,
                                            uploadedBy: user?.email || 'staff_notaris'
                                        });
+
+                                       await DocumentGenerationService.generateAndUploadAllForProject(
+                                           activeProjectContext,
+                                           profileData,
+                                           user?.email,
+                                           userProfile?.name
+                                       );
                                    }
                                    recordNotification(
                                      isNewRupst ? 'Draft RUPST Baru Dibuat' : 'Draft RUPST Diubah',
@@ -522,13 +530,14 @@ syncCompanyDataToRupst
                                   const returnToProjectId = activeProjectContext;
                                   setCurrentEditingRupstId(null);
                                   setActiveProjectContext(null);
-                                  alert('RUPST berhasil disimpan!');
+                                  alert('✅ Data berhasil disimpan dan dokumen berhasil diperbarui.');
                                   if (returnToProjectId) {
                                     setSelectedProjectId(returnToProjectId);
                                     setActiveSidebarTab('project_detail');
                                   }
-                              } catch (e) {
-                                  handleFirestoreError(e, OperationType.WRITE, `${currentCollectionName}/${profileData.id}`);
+                              } catch (e: any) {
+                                  console.error("Save & Generate failed:", e);
+                                  alert('Gagal menyimpan atau memperbarui dokumen: ' + (e.message || e));
                               } finally {
                                   setIsSaving(false);
                               }
