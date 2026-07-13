@@ -1,4 +1,5 @@
 import { db } from '../lib/firebase';
+import { getApiUrl } from '../lib/api';
 import { 
   collection, 
   doc, 
@@ -102,7 +103,7 @@ export class CompanyService {
           if (auth.currentUser) {
             token = await auth.currentUser.getIdToken();
           }
-          await fetch('/api/v2/drive/ensure-client-folder', {
+          await fetch(getApiUrl('/api/v2/drive/ensure-client-folder'), {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',

@@ -15,6 +15,7 @@ import { syncToUtama, getDeedTitle, formatAppearersForPendirian } from '../../..
 import { mapCompanyProfileToPendirian } from '../../../domain/company/mappers/companyProfileToPendirian';
 import { ProjectDocumentUpload } from './ProjectDocumentUpload';
 import { AuthService } from '../../../services/AuthService';
+import { getApiUrl } from '../../../lib/api';
 
 interface UploadedDocument {
   id: string;
@@ -252,7 +253,7 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
     let response;
     if (existingDoc) {
       // Replace file in Google Drive
-      response = await fetch('/api/v2/drive/upload-file', {
+      response = await fetch(getApiUrl('/api/v2/drive/upload-file'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -288,7 +289,7 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
 
       // Delete old file from Drive in background
       try {
-        await fetch(`/api/v2/drive/delete-file/${existingDoc.driveFileId}`, {
+        await fetch(getApiUrl(`/api/v2/drive/delete-file/${existingDoc.driveFileId}`), {
           method: 'DELETE',
           headers: { 'Authorization': `Bearer ${token}` }
         });
@@ -310,7 +311,7 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
       await setDoc(doc(db, 'project_uploaded_documents', existingDoc.id), updatedDoc);
     } else {
       // Create new document in Google Drive and project_uploaded_documents
-      response = await fetch('/api/v2/drive/upload-file', {
+      response = await fetch(getApiUrl('/api/v2/drive/upload-file'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -705,7 +706,7 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
     try {
       const base64 = await getBase64(selectedFile);
       
-      const response = await fetch('/api/upload-document', {
+      const response = await fetch(getApiUrl('/api/upload-document'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

@@ -5,6 +5,7 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
+import { getApiUrl } from '../lib/api';
 import { toJpeg } from 'html-to-image';
 import { useProjectContext } from '../contexts/ProjectContext';
 
@@ -161,7 +162,7 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects: propsProject
   const fetchGroups = async () => {
     setLoadingGroups(true);
     try {
-      const response = await fetch('/api/whatsapp-groups', {
+      const response = await fetch(getApiUrl('/api/whatsapp-groups'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' }
       });
@@ -212,7 +213,7 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects: propsProject
   const handleSyncGroups = async () => {
     setSyncingGroups(true);
     try {
-      const response = await fetch('/api/whatsapp-groups-sync', {
+      const response = await fetch(getApiUrl('/api/whatsapp-groups-sync'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' }
       });
@@ -318,7 +319,7 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects: propsProject
 
     setSending(true);
     try {
-      const response = await fetch('/api/send-whatsapp', {
+      const response = await fetch(getApiUrl('/api/send-whatsapp'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -362,7 +363,7 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects: propsProject
       const timestamp = new Date().toLocaleString('id-ID');
       const testMsg = `🧪 UJI KONEKTIVITAS WHATSAPP GATEWAY\n\nGateway Fonnte berhasil terhubung secara penuh dengan Notaris Putri Office System!\n\nWaktu Tes: ${timestamp}\nStatus Gateway: SEHAT / AKTIF`;
 
-      const response = await fetch('/api/send-whatsapp', {
+      const response = await fetch(getApiUrl('/api/send-whatsapp'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

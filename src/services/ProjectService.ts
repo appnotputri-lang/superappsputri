@@ -1,4 +1,5 @@
 import { db, handleFirestoreError, OperationType, cleanUndefined } from "../lib/firebase";
+import { getApiUrl } from "../lib/api";
 import {
   collection,
   doc,
@@ -73,7 +74,7 @@ export class ProjectService {
         if (auth.currentUser) {
           token = await auth.currentUser.getIdToken();
         }
-        await fetch('/api/v2/drive/ensure-project-folder', {
+        await fetch(getApiUrl('/api/v2/drive/ensure-project-folder'), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

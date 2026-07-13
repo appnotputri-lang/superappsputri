@@ -1,4 +1,5 @@
 import { db } from '../lib/firebase';
+import { getApiUrl } from '../lib/api';
 import { doc, getDoc, setDoc, getDocs, collection, query, where } from 'firebase/firestore';
 import { AuthService } from './AuthService';
 import { Project, DocumentReference } from '../domain/project/Project';
@@ -228,7 +229,7 @@ export class DocumentGenerationService {
       let response;
       if (existingDoc) {
         // Replace file in Google Drive
-        response = await fetch('/api/v2/drive/upload-file', {
+        response = await fetch(getApiUrl('/api/v2/drive/upload-file'), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -266,7 +267,7 @@ export class DocumentGenerationService {
 
         // Delete old file from Drive in background
         try {
-          await fetch(`/api/v2/drive/delete-file/${existingDoc.driveFileId}`, {
+          await fetch(getApiUrl(`/api/v2/drive/delete-file/${existingDoc.driveFileId}`), {
             method: 'DELETE',
             headers: { 'Authorization': `Bearer ${token}` }
           });
@@ -288,7 +289,7 @@ export class DocumentGenerationService {
         await setDoc(doc(db, 'project_uploaded_documents', existingDoc.id), updatedDoc);
       } else {
         // Create new document in Google Drive and project_uploaded_documents
-        response = await fetch('/api/v2/drive/upload-file', {
+        response = await fetch(getApiUrl('/api/v2/drive/upload-file'), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

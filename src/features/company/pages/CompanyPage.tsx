@@ -8,6 +8,7 @@ import { CompanyForm } from '../components/CompanyForm';
 import { CompanyPageProps } from '../types/company.types';
 import { useCompanyContext } from '../../../hooks/useCompanyContext';
 import { useAuth } from '../../../hooks/useAuth';
+import { getApiUrl } from '../../../lib/api';
 import { handleFirestoreError, OperationType } from '../../../lib/firebase';
 import { NotificationService } from '../../../services/NotificationService';
 import { ShareholderModal } from '../../../components/modals/ShareholderModal';
@@ -441,7 +442,7 @@ export const CompanyPage: React.FC<CompanyPageProps> = () => {
     setIsSyncing(true);
     try {
       const token = await user?.getIdToken();
-      const response = await fetch('/api/sync-drive-clients', {
+      const response = await fetch(getApiUrl('/api/sync-drive-clients'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

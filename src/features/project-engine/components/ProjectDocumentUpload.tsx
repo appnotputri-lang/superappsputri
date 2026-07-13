@@ -5,6 +5,7 @@ import { collection, query, where, getDocs, doc, setDoc, deleteDoc, orderBy } fr
 import { Upload, FileText, Image as FileImage, File, Trash2, Download, RefreshCw, X, Loader2, Eye, Replace, ExternalLink, MoreVertical } from 'lucide-react';
 import { UserProfile } from '../../../../types';
 import { AuthService } from '../../../services/AuthService';
+import { getApiUrl } from '../../../lib/api';
 
 interface ProjectDocumentUploadProps {
   project: Project;
@@ -134,7 +135,7 @@ export function ProjectDocumentUpload({ project, currentUser }: ProjectDocumentU
       const token = await AuthService.getToken();
       const base64 = await toBase64(file);
       
-      const response = await fetch('/api/v2/drive/upload-file', {
+      const response = await fetch(getApiUrl('/api/v2/drive/upload-file'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
