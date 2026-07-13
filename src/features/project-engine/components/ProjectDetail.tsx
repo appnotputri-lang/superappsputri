@@ -13,6 +13,7 @@ import DraftAktaPendirian from '../../../DraftAktaPendirian';
 import PendirianDocumentPreview from '../../../PendirianDocumentPreview';
 import { syncToUtama, getDeedTitle, formatAppearersForPendirian } from '../../../lib/syncUtama';
 import { mapCompanyProfileToPendirian } from '../../../domain/company/mappers/companyProfileToPendirian';
+import { ProjectDocumentUpload } from './ProjectDocumentUpload';
 import {
   ArrowLeft,
   Calendar,
@@ -33,7 +34,8 @@ import {
   Send,
   Trash2,
   Sparkles,
-  UploadCloud
+  UploadCloud,
+  RefreshCw
 } from 'lucide-react';
 
 const getDocKinds = (jobType: string): { kind: 'notulen' | 'pernyataan' | 'akta' | 'pendirian'; label: string }[] => {
@@ -330,6 +332,41 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
     }
   };
 
+  // Google Drive State
+  const [driveFiles, setDriveFiles] = useState<any[]>([]);
+  const [driveLoading, setDriveLoading] = useState(false);
+  const [driveError, setDriveError] = useState<string | null>(null);
+
+  const fetchDriveFiles = async (projId: string = projectId) => {
+    setDriveLoading(true);
+    setDriveError(null);
+    try {
+      const { auth } = await import('../../../lib/firebase');
+      let token = '';
+      if (auth.currentUser) {
+        token = await auth.currentUser.getIdToken();
+      }
+      
+      const response = await fetch(`/api/v2/drive/list-project-files/${projId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to fetch drive files');
+      }
+      
+      setDriveFiles(data.files || []);
+    } catch (err: any) {
+      console.error(err);
+      setDriveError(err.message || 'Failed to fetch drive files');
+    } finally {
+      setDriveLoading(false);
+    }
+  };
+
   const fetchProjectFullDetails = async () => {
     setLoading(true);
     setError(null);
@@ -342,6 +379,9 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
       }
 
       setProject(proj);
+      
+      // Fetch Drive Files asynchronously without blocking the rest of the UI
+      fetchDriveFiles(proj.projectId);
 
       // Parallel queries for children and linked entities
       const [cli, wf, tlList, tkList, docList] = await Promise.all([
@@ -889,6 +929,9 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
               </form>
             </div>
 
+            {/* UPLOAD DOKUMEN PROYEK (New Feature) */}
+            <ProjectDocumentUpload project={project} currentUser={currentUser} />
+
             {/* Subcollection Document Listing */}
             <div className="bg-white border border-slate-200/80 rounded-xl p-6 shadow-sm">
               <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
@@ -1001,11 +1044,18 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
                     onChange={(e) => setTransitionStatus(e.target.value)}
                     className="w-full px-3 py-2 text-[13px] bg-slate-50 border border-slate-200 rounded-lg outline-none transition-all focus:bg-white focus:ring-1 focus:ring-blue-500"
                   >
-                    {workflow?.steps.map((step) => (
-                      <option key={step} value={step}>
-                        {step.toUpperCase()} {step === project.status ? '(Aktif Saat Ini)' : ''}
-                      </option>
-                    ))}
+                    {(workflow?.steps || [])
+                      .filter((step) => {
+                        if (!transitionStrict) return true;
+                        const currentIndex = workflow?.steps.indexOf(project.status) ?? -1;
+                        const stepIndex = workflow?.steps.indexOf(step) ?? -1;
+                        return currentIndex === -1 || stepIndex === -1 || Math.abs(stepIndex - currentIndex) <= 1;
+                      })
+                      .map((step) => (
+                        <option key={step} value={step}>
+                          {step.toUpperCase()} {step === project.status ? '(Aktif Saat Ini)' : ''}
+                        </option>
+                      ))}
                   </select>
                 </div>
 
@@ -1028,7 +1078,21 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
                   <input
                     type="checkbox"
                     checked={transitionStrict}
-                    onChange={(e) => setTransitionStrict(e.target.checked)}
+                    onChange={(e) => {
+                      const checked = e.target.checked;
+                      setTransitionStrict(checked);
+                      if (checked && workflow && workflow.steps) {
+                        const currentIndex = workflow.steps.indexOf(project.status);
+                        const targetIndex = workflow.steps.indexOf(transitionStatus);
+                        if (currentIndex !== -1 && targetIndex !== -1 && Math.abs(targetIndex - currentIndex) > 1) {
+                          if (currentIndex + 1 < workflow.steps.length) {
+                            setTransitionStatus(workflow.steps[currentIndex + 1]);
+                          } else {
+                            setTransitionStatus(project.status);
+                          }
+                        }
+                      }
+                    }}
                     className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500 cursor-pointer"
                   />
                 </div>

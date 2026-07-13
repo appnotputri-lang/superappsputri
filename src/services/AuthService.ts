@@ -82,6 +82,10 @@ export class AuthService {
     return auth.currentUser;
   }
 
+  static async getToken(): Promise<string | null> {
+    return auth.currentUser ? await auth.currentUser.getIdToken() : null;
+  }
+
   static async loginWithGoogle(): Promise<FirebaseUser> {
     return await firebaseLoginWithGoogle();
   }

@@ -61,35 +61,52 @@ export class WorkflowService {
    * in Firestore if they do not already exist, securing the systemic data foundation.
    */
   static async seedDefaultWorkflows(): Promise<void> {
+    const newSteps = [
+      "Drafting Notulen/Sirkuler",
+      "Review Draft Notulen/Sirkuler",
+      "ACC Draft Notulen/Sirkuler",
+      "Notulen/Sirkuler Sedang di Tandatangan",
+      "Drafting Akta",
+      "Akta Sedang di Review",
+      "Akta ACC",
+      "Akta Telah dibuat",
+      "Input AHU",
+      "AHU sedang di Tinjau",
+      "AHU Selesai",
+      "NIB Sedang di Input",
+      "NIB Terbit",
+      "Selesai"
+    ];
+
     const defaults: Workflow[] = [
       {
         id: "rups_lb",
         name: "RUPS Luar Biasa",
-        steps: ["draft", "approval", "print", "ahu", "completed"],
+        steps: newSteps,
         description: "Alur kerja standar RUPS LB meliputi penyusunan draft akta, persetujuan, pencetakan akta, pelaporan AHU, dan penyelesaian."
       },
       {
         id: "rups_t",
         name: "RUPS Tahunan",
-        steps: ["draft", "review", "signing", "archived"],
+        steps: newSteps,
         description: "Alur kerja RUPS Tahunan yang mencakup penyusunan draft, penelaahan laporan keuangan, penandatanganan akta, dan pengarsipan."
       },
       {
         id: "pendirian_pt",
         name: "Pendirian PT",
-        steps: ["booking_nama", "draft", "approval", "signing", "ahu_sk", "nib", "completed"],
+        steps: newSteps,
         description: "Alur kerja pendirian badan hukum PT baru mulai dari pemesanan nama, akta pendirian, pengesahan SK AHU, dan NIB."
       },
       {
         id: "sirkuler",
         name: "Keputusan Sirkuler RUPST",
-        steps: ["draft", "review", "signing", "archived"],
+        steps: newSteps,
         description: "Alur kerja Keputusan Sirkuler RUPST yang mencakup penyusunan keputusan sirkuler sebagai pengganti RUPS, penelaahan, penandatanganan sirkuler oleh para pemegang saham, dan pengarsipan."
       },
       {
         id: "sirkuler_rupslb",
         name: "Sirkuler RUPS LB",
-        steps: ["draft", "review", "signing", "archived"],
+        steps: newSteps,
         description: "Alur kerja Keputusan Sirkuler RUPS LB yang mencakup penyusunan keputusan sirkuler sebagai pengganti RUPS, penelaahan, penandatanganan sirkuler oleh para pemegang saham, dan pengarsipan."
       }
     ];
@@ -97,7 +114,7 @@ export class WorkflowService {
     for (const wf of defaults) {
       try {
         const existing = await this.getWorkflow(wf.id);
-        if (!existing) {
+        if (!existing || JSON.stringify(existing.steps) !== JSON.stringify(wf.steps)) {
           await this.defineWorkflow(wf);
         }
       } catch (e) {

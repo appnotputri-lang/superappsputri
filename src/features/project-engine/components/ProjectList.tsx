@@ -22,6 +22,7 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
   const [error, setError] = useState<string | null>(null);
 
   // Filter States
+  const [activeTab, setActiveTab] = useState<'aktif' | 'minuta' | 'selesai'>('aktif');
   const [searchTerm, setSearchTerm] = useState('');
   const [filterClient, setFilterClient] = useState('');
   const [filterJobType, setFilterJobType] = useState('');
@@ -131,7 +132,18 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
   };
 
   // Filter logic
+  const isProjectCompleted = (status: string) => {
+    const s = status.toLowerCase();
+    return s === 'completed' || s === 'archived' || s === 'selesai';
+  };
+
   const filteredProjects = projects.filter((project) => {
+    // Tab Filter
+    const isCompleted = isProjectCompleted(project.status);
+    if (activeTab === 'aktif' && isCompleted) return false;
+    if (activeTab === 'minuta' && !isCompleted) return false;
+    if (activeTab === 'selesai') return false; // Selesai is reserved/empty for now
+
     const clientName = profiles.find((c) => c.id === project.clientId)?.companyName || '';
     const matchesSearch =
       project.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -193,6 +205,25 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
             <Plus className="w-4 h-4" />
             <span>Buat Proyek Baru</span>
           </button>
+        </div>
+
+        {/* Tabs */}
+        <div className="flex space-x-1 border-b border-slate-200">
+          {(['aktif', 'minuta', 'selesai'] as const).map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 ${
+                activeTab === tab
+                  ? 'border-blue-600 text-blue-600'
+                  : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+              }`}
+            >
+              {tab === 'aktif' && 'Proyek Aktif'}
+              {tab === 'minuta' && 'Minuta'}
+              {tab === 'selesai' && 'Selesai'}
+            </button>
+          ))}
         </div>
 
         {/* Filters Panel */}
@@ -277,6 +308,7 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
               <table className="w-full text-left">
                 <thead className="bg-slate-50 border-b border-slate-200">
                   <tr>
+                    <th className="px-4 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-wide w-12 text-center">No</th>
                     <th className="px-4 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-wide">ID</th>
                     <th className="px-4 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-wide">Judul Proyek / Klien</th>
                     <th className="px-4 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-wide">Jenis Pekerjaan</th>
@@ -286,12 +318,15 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {filteredProjects.map((project) => (
+                  {filteredProjects.map((project, index) => (
                     <tr
                       key={project.projectId}
                       onClick={() => onSelectProject(project.projectId)}
                       className="hover:bg-slate-50 cursor-pointer transition-colors group"
                     >
+                      <td className="px-4 py-3.5 text-[12px] font-medium text-slate-500 text-center">
+                        {index + 1}
+                      </td>
                       <td className="px-4 py-3.5 text-[11px] font-mono text-slate-400 uppercase whitespace-nowrap">
                         {project.projectId.substring(0, 8)}
                       </td>

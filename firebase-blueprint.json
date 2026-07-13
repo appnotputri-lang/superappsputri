@@ -1,0 +1,31 @@
+{
+  "entities": {
+    "ProjectUploadedDocument": {
+      "title": "Project Uploaded Document",
+      "description": "Metadata of documents uploaded by users to a specific project Google Drive folder.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "companyId": { "type": "string" },
+        "projectId": { "type": "string" },
+        "type": { "type": "string", "enum": ["minutes", "deed", "sksp", "custom"] },
+        "title": { "type": "string" },
+        "fileName": { "type": "string" },
+        "mimeType": { "type": "string" },
+        "size": { "type": "number" },
+        "driveFileId": { "type": "string" },
+        "driveFolderId": { "type": "string" },
+        "uploadedBy": { "type": "string" },
+        "uploadedAt": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "companyId", "projectId", "type", "title", "fileName", "mimeType", "size", "driveFileId", "driveFolderId", "uploadedBy", "uploadedAt", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/project_uploaded_documents/{documentId}": {
+      "schema": "ProjectUploadedDocument",
+      "description": "Collection of uploaded documents metadata."
+    }
+  }
+}

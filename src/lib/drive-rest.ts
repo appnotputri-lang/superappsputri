@@ -98,5 +98,21 @@ export const driveRest = {
       throw new Error(`Drive UPLOAD failed: ${typeof data === 'object' ? JSON.stringify(data) : data}`);
     }
     return data;
+  },
+
+  async deleteFile(fileId: string) {
+    const token = await getGoogleAccessToken();
+    const url = `${BASE_URL}/files/${fileId}`;
+    
+    const response = await fetch(url, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    
+    if (!response.ok) {
+      const responseText = await response.text();
+      throw new Error(`Drive DELETE failed: ${responseText}`);
+    }
+    return true;
   }
 };

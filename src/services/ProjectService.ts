@@ -68,13 +68,10 @@ export class ProjectService {
 
       // Ensure the project folder in Google Drive
       try {
-        const authUserStr = localStorage.getItem('auth_user');
+        const { auth } = await import('../lib/firebase');
         let token = '';
-        if (authUserStr) {
-          try {
-            const authUser = JSON.parse(authUserStr);
-            token = authUser.token || '';
-          } catch (e) {}
+        if (auth.currentUser) {
+          token = await auth.currentUser.getIdToken();
         }
         await fetch('/api/v2/drive/ensure-project-folder', {
           method: 'POST',

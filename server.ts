@@ -154,6 +154,9 @@ async function startServer() {
   
   app.post("/api/v2/drive/ensure-folder", authMiddleware, DriveController.ensureFolder);
   app.get("/api/v2/drive/files", authMiddleware, DriveController.listFiles);
+  app.get("/api/v2/drive/list-project-files/:projectId", authMiddleware, DriveController.listProjectFiles);
+  app.post("/api/v2/drive/upload-file", authMiddleware, DriveController.uploadFile);
+  app.delete("/api/v2/drive/delete-file/:fileId", authMiddleware, DriveController.deleteFile);
   
   app.post("/api/v2/documents/upload", authMiddleware, DocumentController.uploadDocument);
 

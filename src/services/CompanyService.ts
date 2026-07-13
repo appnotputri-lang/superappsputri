@@ -97,13 +97,10 @@ export class CompanyService {
       // Ensure the Google Drive folder exists for this client (only if not CV for now, or you can do it for both)
       if (!isCvCompany && data.companyName) {
         try {
-          const authUserStr = localStorage.getItem('auth_user');
+          const { auth } = await import('../lib/firebase');
           let token = '';
-          if (authUserStr) {
-            try {
-              const authUser = JSON.parse(authUserStr);
-              token = authUser.token || '';
-            } catch (e) {}
+          if (auth.currentUser) {
+            token = await auth.currentUser.getIdToken();
           }
           await fetch('/api/v2/drive/ensure-client-folder', {
             method: 'POST',
