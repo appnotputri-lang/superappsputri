@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { AuthService } from '../services/AuthService';
+import { verifyIdToken } from '../runtime/auth';
 
 export interface AuthenticatedRequest extends Request {
   user?: {
@@ -18,7 +18,7 @@ export async function authMiddleware(req: AuthenticatedRequest, res: Response, n
 
   const token = authHeader.split(' ')[1];
   try {
-    const verifiedUser = await AuthService.verifyIdToken(token);
+    const verifiedUser = await verifyIdToken(token, process.env);
     req.user = verifiedUser;
     next();
   } catch (error: any) {

@@ -1,3 +1,5 @@
+import { getEnv } from '../runtime/env';
+
 let subtle: SubtleCrypto;
 
 async function getSubtleCrypto(): Promise<SubtleCrypto> {
@@ -125,15 +127,15 @@ async function signJwt(
 let cachedToken: string | null = null;
 let tokenExpiryTime = 0;
 
-export async function getFirestoreServiceAccountToken(): Promise<string> {
+export async function getFirestoreServiceAccountToken(env: any = {}): Promise<string> {
   const now = Date.now();
   // Return cached token if it's still valid for at least 5 more minutes
   if (cachedToken && tokenExpiryTime > now + 300000) {
     return cachedToken;
   }
 
-  const clientEmail = process.env.FIREBASE_SERVICE_ACCOUNT_EMAIL?.trim();
-  const privateKey = process.env.FIREBASE_SERVICE_ACCOUNT_PRIVATE_KEY?.trim();
+  const clientEmail = getEnv(env, 'FIREBASE_SERVICE_ACCOUNT_EMAIL').trim();
+  const privateKey = getEnv(env, 'FIREBASE_SERVICE_ACCOUNT_PRIVATE_KEY').trim();
 
   const isEmailPlaceholder = !clientEmail || clientEmail.includes('YOUR_') || clientEmail.includes('EXAMPLE');
   const isKeyPlaceholder = !privateKey || privateKey.length < 100 || !privateKey.includes('-----BEGIN PRIVATE KEY-----');

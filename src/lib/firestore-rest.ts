@@ -50,8 +50,8 @@ function toFirestore(data: any) {
   return fields;
 }
 
-const getHeaders = async () => {
-  const token = await getFirestoreServiceAccountToken();
+const getHeaders = async (env: any = {}) => {
+  const token = await getFirestoreServiceAccountToken(env);
   return {
     Authorization: `Bearer ${token}`,
     'Content-Type': 'application/json',
@@ -60,8 +60,8 @@ const getHeaders = async () => {
 };
 
 export const firestoreRest = {
-  async getDocument(collection: string, docId: string) {
-    const headers = await getHeaders();
+  async getDocument(collection: string, docId: string, env: any = {}) {
+    const headers = await getHeaders(env);
     const fullPath = `${collection}/${docId}`.split('/').map(encodeURIComponent).join('/');
     const response = await fetch(`${BASE_URL}/${fullPath}`, {
       headers
@@ -77,8 +77,8 @@ export const firestoreRest = {
     };
   },
 
-  async updateDocument(collection: string, docId: string, data: any) {
-    const headers = await getHeaders();
+  async updateDocument(collection: string, docId: string, data: any, env: any = {}) {
+    const headers = await getHeaders(env);
     const fields = toFirestore(data);
     
     // updateMask determines which fields are replaced
@@ -96,8 +96,8 @@ export const firestoreRest = {
     return result;
   },
 
-  async setDocument(collection: string, docId: string, data: any) {
-    const headers = await getHeaders();
+  async setDocument(collection: string, docId: string, data: any, env: any = {}) {
+    const headers = await getHeaders(env);
     const fields = toFirestore(data);
     const fullPath = `${collection}/${docId}`.split('/').map(encodeURIComponent).join('/');
     const response = await fetch(`${BASE_URL}/${fullPath}`, {
@@ -111,8 +111,8 @@ export const firestoreRest = {
     return result;
   },
 
-  async listDocuments(collection: string, pageSize = 100, pageToken?: string) {
-    const headers = await getHeaders();
+  async listDocuments(collection: string, pageSize = 100, pageToken?: string, env: any = {}) {
+    const headers = await getHeaders(env);
     let url = `${BASE_URL}/${collection}?pageSize=${pageSize}`;
     if (pageToken) url += `&pageToken=${pageToken}`;
 
@@ -132,5 +132,3 @@ export const firestoreRest = {
     };
   }
 };
-
-

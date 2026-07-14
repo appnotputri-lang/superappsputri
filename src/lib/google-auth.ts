@@ -1,7 +1,9 @@
-export async function getGoogleAccessToken() {
-  const clientId = process.env.GOOGLE_DRIVE_CLIENT_ID?.trim();
-  const clientSecret = process.env.GOOGLE_DRIVE_CLIENT_SECRET?.trim();
-  const refreshToken = process.env.GOOGLE_DRIVE_REFRESH_TOKEN?.trim();
+import { getEnv } from '../runtime/env';
+
+export async function getGoogleAccessToken(env: any = {}) {
+  const clientId = getEnv(env, 'GOOGLE_DRIVE_CLIENT_ID').trim();
+  const clientSecret = getEnv(env, 'GOOGLE_DRIVE_CLIENT_SECRET').trim();
+  const refreshToken = getEnv(env, 'GOOGLE_DRIVE_REFRESH_TOKEN').trim();
 
   if (!clientId || !clientSecret || !refreshToken) {
     const missing = [];

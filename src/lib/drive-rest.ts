@@ -3,8 +3,8 @@ import { getGoogleAccessToken } from './google-auth';
 const BASE_URL = 'https://www.googleapis.com/drive/v3';
 
 export const driveRest = {
-  async listFiles(q: string, fields = 'files(id, name, webViewLink)', pageSize = 1000) {
-    const token = await getGoogleAccessToken();
+  async listFiles(q: string, fields = 'files(id, name, webViewLink)', pageSize = 1000, env: any = {}) {
+    const token = await getGoogleAccessToken(env);
     const url = `${BASE_URL}/files?q=${encodeURIComponent(q)}&fields=${encodeURIComponent(fields)}&pageSize=${pageSize}`;
     
     const response = await fetch(url, {
@@ -16,8 +16,8 @@ export const driveRest = {
     return data.files || [];
   },
 
-  async createFolder(name: string, parents: string[] = []) {
-    const token = await getGoogleAccessToken();
+  async createFolder(name: string, parents: string[] = [], env: any = {}) {
+    const token = await getGoogleAccessToken(env);
     const response = await fetch(`${BASE_URL}/files?fields=id,webViewLink`, {
       method: 'POST',
       headers: { 
@@ -36,8 +36,8 @@ export const driveRest = {
     return data;
   },
 
-  async uploadFile(name: string, mimeType: string, parentId: string, base64Content: string) {
-    const token = await getGoogleAccessToken();
+  async uploadFile(name: string, mimeType: string, parentId: string, base64Content: string, env: any = {}) {
+    const token = await getGoogleAccessToken(env);
     const boundary = 'multipart_upload_boundary';
     
     const metadata = {
@@ -100,8 +100,8 @@ export const driveRest = {
     return data;
   },
 
-  async deleteFile(fileId: string) {
-    const token = await getGoogleAccessToken();
+  async deleteFile(fileId: string, env: any = {}) {
+    const token = await getGoogleAccessToken(env);
     const url = `${BASE_URL}/files/${fileId}`;
     
     const response = await fetch(url, {

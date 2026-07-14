@@ -41,13 +41,13 @@ async function startServer() {
       }
 
       console.log(`[Drive API] Ensuring client folder for: ${companyName}`);
-      const companyFolder = await DriveFolderService.ensureCompanyFolder(companyName);
+      const companyFolder = await DriveFolderService.ensureCompanyFolder(companyName, process.env);
       
       // Save driveFolderId and driveFolderUrl into the client document
       await firestoreRest.updateDocument('profiles', clientId, {
         driveFolderId: companyFolder.folderId,
         driveFolderUrl: companyFolder.folderUrl
-      });
+      }, process.env);
 
       res.json({ success: true, folderId: companyFolder.folderId, folderUrl: companyFolder.folderUrl });
     } catch (error: any) {
@@ -64,7 +64,7 @@ async function startServer() {
       }
 
       console.log(`[Drive API] Ensuring project folder for project ID: ${project.id}`);
-      await DriveFolderService.handleNewProject(project);
+      await DriveFolderService.handleNewProject(project, process.env);
 
       res.json({ success: true, message: "Project folder ensured successfully" });
     } catch (error: any) {
@@ -82,7 +82,7 @@ async function startServer() {
 
       console.log(`[Sync Drive Clients] Listing folders from Google Drive root: ${rootFolderId}...`);
       const q = `'${rootFolderId}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
-      const allFolders = await driveRest.listFiles(q);
+      const allFolders = await driveRest.listFiles(q, 'files(id, name, webViewLink)', 1000, process.env);
 
       // Filter folders starting with "PT " (case-insensitive) or "PT."
       const ptFolders = allFolders.filter(folder => {
@@ -94,7 +94,7 @@ async function startServer() {
       console.log(`[Sync Drive Clients] Found ${ptFolders.length} folders starting with "PT" prefix.`);
 
       // Fetch existing clients (profiles collection)
-      const { documents: existingProfiles } = await firestoreRest.listDocuments("profiles", 500);
+      const { documents: existingProfiles } = await firestoreRest.listDocuments("profiles", 500, undefined, process.env);
       
       // Use DriveFolderService.normalizeCompanyName to get a set of existing normalized names
       const existingNormalizedNames = new Set(
@@ -137,7 +137,7 @@ async function startServer() {
           };
 
           console.log(`[Sync Drive Clients] Creating new client profile: ${folderName}`);
-          await firestoreRest.setDocument("profiles", newId, newProfile);
+          await firestoreRest.setDocument("profiles", newId, newProfile, process.env);
           createdClients.push(folderName);
           
           // Add to set to prevent duplicate creation if there are multiple duplicate folder names in response
@@ -180,7 +180,7 @@ async function startServer() {
 
     try {
       // 1. Get project document from Firestore REST
-      const project = await firestoreRest.getDocument("office_projects", projectId);
+      const project = await firestoreRest.getDocument("office_projects", projectId, process.env);
       if (!project) {
         return res.status(404).json({ error: "Project not found" });
       }
@@ -189,10 +189,10 @@ async function startServer() {
       let driveFolderId = project.metadata?.driveFolderId;
       if (!driveFolderId) {
         console.log(`[Upload API] Project ${projectId} does not have a Google Drive folder. Creating on-demand...`);
-        await DriveFolderService.handleNewProject(project);
+        await DriveFolderService.handleNewProject(project, process.env);
         
         // Fetch the updated project to get the newly created driveFolderId
-        const updatedProject = await firestoreRest.getDocument("office_projects", projectId);
+        const updatedProject = await firestoreRest.getDocument("office_projects", projectId, process.env);
         driveFolderId = updatedProject?.metadata?.driveFolderId;
         
         if (!driveFolderId) {
@@ -202,7 +202,7 @@ async function startServer() {
 
       // 3. Upload file to Google Drive
       console.log(`[Upload API] Uploading ${fileName} (${fileType}) to Google Drive folder: ${driveFolderId}...`);
-      const uploadResult = await driveRest.uploadFile(fileName, fileType, driveFolderId, base64);
+      const uploadResult = await driveRest.uploadFile(fileName, fileType, driveFolderId, base64, process.env);
       const driveFileUrl = uploadResult.webViewLink;
 
       if (!driveFileUrl) {
@@ -223,7 +223,7 @@ async function startServer() {
       };
 
       console.log(`[Upload API] Registering document ${docId} in Firestore...`);
-      await firestoreRest.setDocument("office_projects", `${projectId}/documents/${docId}`, newDoc);
+      await firestoreRest.setDocument("office_projects", `${projectId}/documents/${docId}`, newDoc, process.env);
 
       // 5. Add a timeline entry for auditing
       const timelineId = crypto.randomUUID();
@@ -234,7 +234,7 @@ async function startServer() {
         createdBy: uploadedBy || "staff_notaris",
         createdAt: now.toISOString()
       };
-      await firestoreRest.setDocument("office_projects", `${projectId}/timelines/${timelineId}`, timelineDoc);
+      await firestoreRest.setDocument("office_projects", `${projectId}/timelines/${timelineId}`, timelineDoc, process.env);
 
       res.json({ success: true, document: newDoc });
     } catch (error: any) {
