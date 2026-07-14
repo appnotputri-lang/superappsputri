@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { Project, DocumentReference } from '../../../domain/project/Project';
+import { Project, DocumentReference, ClientSnapshot, ProjectChangeSnapshot } from '../../../domain/project/Project';
 import { ProjectService } from '../../../services/ProjectService';
-import { CompanyProfile, UserProfile } from '../../../../types';
+import { CompanyProfile, UserProfile, AmendmentDeed } from '../../../../types';
 import { INITIAL_STATE } from '../../../domain/company/initialCompanyData';
 import { Workflow } from '../../../domain/project/Workflow';
 import { WorkflowService } from '../../../services/WorkflowService';
 import { Timeline } from '../../../domain/project/Timeline';
 import { Task } from '../../../domain/project/Task';
 import { db, cleanUndefined } from '../../../lib/firebase';
-import { collection, getDocs, setDoc, doc, deleteDoc, getDoc, query, where } from 'firebase/firestore';
+import { collection, getDocs, setDoc, doc, deleteDoc, getDoc, query, where, updateDoc } from 'firebase/firestore';
 import DraftAktaPendirian from '../../../DraftAktaPendirian';
 import PendirianDocumentPreview from '../../../PendirianDocumentPreview';
 import { syncToUtama, getDeedTitle, formatAppearersForPendirian } from '../../../lib/syncUtama';
@@ -96,11 +96,32 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
   const [error, setError] = useState<string | null>(null);
   const [documentUploadKey, setDocumentUploadKey] = useState(0);
 
+  // Related Projects and History
+  const [relatedProjects, setRelatedProjects] = useState<Project[]>([]);
+
+  // Migration Wizard States
+  const [showMigrationModal, setShowMigrationModal] = useState(false);
+  const [migrationSource, setMigrationSource] = useState<'legacy_db' | 'master_client' | 'manual'>('legacy_db');
+  const [manualName, setManualName] = useState('');
+  const [manualAddress, setManualAddress] = useState('');
+  const [manualCapital, setManualCapital] = useState(100000000);
+  const [isMigrating, setIsMigrating] = useState(false);
+
   // Interaction States
   const [transitionStatus, setTransitionStatus] = useState('');
   const [transitionComment, setTransitionComment] = useState('');
   const [transitionStrict, setTransitionStrict] = useState(true);
   const [transitioning, setTransitioning] = useState(false);
+
+  // Deed & SK/SP Form states for status transition
+  const [deedNumber, setDeedNumber] = useState('');
+  const [deedDate, setDeedDate] = useState('');
+  const [notarySelectionType, setNotarySelectionType] = useState<'saya' | 'manual'>('saya');
+  const [notaryName, setNotaryName] = useState('Nukantini Putri Parincha, SH., M.Kn.');
+  const [notaryLocation, setNotaryLocation] = useState('KABUPATEN BANDUNG BARAT');
+  const [skSpType, setSkSpType] = useState<string>('SP (Perubahan Data Perseroan)');
+  const [skSpNumber, setSkSpNumber] = useState('');
+  const [skSpDate, setSkSpDate] = useState('');
 
   // New Task State
   const [newTaskTitle, setNewTaskTitle] = useState('');
@@ -155,10 +176,36 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
       return null;
     }
 
+    const enrichWithProjectMetadata = (data: any) => {
+      if (!data) return data;
+      if (project?.metadata) {
+        const { deedNumber, deedDate, notaryName, notaryLocation } = project.metadata;
+        if (deedNumber) {
+          data.notaryNumber = deedNumber;
+          data.draftAktaRupsNumber = deedNumber;
+          data.notaryNumberInput = deedNumber;
+          data.draftAktaRupsNumberInput = deedNumber;
+        }
+        if (deedDate) {
+          data.notaryDate = deedDate;
+          data.draftAktaRupsDate = deedDate;
+          data.notaryDateInput = deedDate;
+          data.draftAktaRupsDateInput = deedDate;
+        }
+        if (notaryName) {
+          data.notaryName = notaryName;
+        }
+        if (notaryLocation) {
+          data.notaryDomicile = notaryLocation;
+        }
+      }
+      return data;
+    };
+
     if (docRef.refId) {
       const snap = await getDoc(doc(db, collectionName, docRef.refId));
       if (snap.exists()) {
-        return snap.data();
+        return enrichWithProjectMetadata(snap.data());
       }
     }
 
@@ -182,7 +229,7 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
         }
         try {
           const qSnapClient = await getDocs(qClient);
-          if (!qSnapClient.empty) return qSnapClient.docs[0].data();
+          if (!qSnapClient.empty) return enrichWithProjectMetadata(qSnapClient.docs[0].data());
         } catch(e) {}
       }
 
@@ -194,7 +241,7 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
       }
       const qSnap = await getDocs(q);
       if (!qSnap.empty) {
-        return qSnap.docs[0].data();
+        return enrichWithProjectMetadata(qSnap.docs[0].data());
       }
 
       // Brute-force local/trimmed fallback if exact match query failed
@@ -204,7 +251,7 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
         const data = d.data();
         const docTitle = (data.namaPt || data.companyName || '').toUpperCase().trim();
         if (docTitle === projectTitleUpper && projectTitleUpper !== '') {
-          return data;
+          return enrichWithProjectMetadata(data);
         }
       }
     } catch (e) {
@@ -595,7 +642,7 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
       fetchDriveFiles(proj.projectId);
 
       // Parallel queries for children and linked entities
-      const [cli, wf, tlList, tkList, docList] = await Promise.all([
+      const [cli, wf, tlList, tkList, docList, relatedSnap] = await Promise.all([
         getDoc(doc(db, 'profiles', proj.clientId)).then(snapshot => {
           if (snapshot.exists()) {
             return { id: snapshot.id, ...snapshot.data() } as CompanyProfile;
@@ -605,7 +652,8 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
         WorkflowService.getWorkflow(proj.jobType),
         ProjectService.getProjectTimelines(projectId),
         ProjectService.getProjectTasks(projectId),
-        ProjectService.getProjectDocuments(projectId)
+        ProjectService.getProjectDocuments(projectId),
+        getDocs(query(collection(db, 'office_projects'), where('clientId', '==', proj.clientId)))
       ]);
 
       setClient(cli);
@@ -613,6 +661,16 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
       setTimelines(tlList || []);
       setTasks(tkList || []);
       setDocuments(docList || []);
+
+      const relatedList: Project[] = [];
+      if (relatedSnap) {
+        relatedSnap.forEach(docSnap => {
+          if (docSnap.id !== projectId) {
+            relatedList.push({ projectId: docSnap.id, ...docSnap.data() } as Project);
+          }
+        });
+      }
+      setRelatedProjects(relatedList);
 
       // Pre-populate status transition select
       if (wf && wf.steps) {
@@ -623,6 +681,18 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
           setTransitionStatus(wf.steps[0]);
         }
       }
+
+      // Pre-populate deed & SK/SP details if saved in project metadata
+      if (proj.metadata) {
+        if (proj.metadata.deedNumber) setDeedNumber(proj.metadata.deedNumber);
+        if (proj.metadata.deedDate) setDeedDate(proj.metadata.deedDate);
+        if (proj.metadata.notarySelectionType) setNotarySelectionType(proj.metadata.notarySelectionType);
+        if (proj.metadata.notaryName) setNotaryName(proj.metadata.notaryName);
+        if (proj.metadata.notaryLocation) setNotaryLocation(proj.metadata.notaryLocation);
+        if (proj.metadata.skSpType) setSkSpType(proj.metadata.skSpType);
+        if (proj.metadata.skSpNumber) setSkSpNumber(proj.metadata.skSpNumber);
+        if (proj.metadata.skSpDate) setSkSpDate(proj.metadata.skSpDate);
+      }
     } catch (err: any) {
       console.error(err);
       setError('Gagal memuat detail proyek.');
@@ -631,12 +701,419 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
     }
   };
 
+  const handleRunMigration = async () => {
+    if (!project) return;
+    setIsMigrating(true);
+    try {
+      let snapshotData: ClientSnapshot | null = null;
+
+      if (migrationSource === 'master_client') {
+        if (!client) {
+          throw new Error("Master client data not loaded yet.");
+        }
+        // Build snapshot from master client
+        snapshotData = {
+          id: client.id,
+          companyName: client.companyName || project.title,
+          companyType: client.companyType || 'PT',
+          fullAddress: client.fullAddress || '',
+          province: client.newAddress?.province || client.oldAddress?.province || '',
+          city: client.newAddress?.city || client.oldAddress?.city || '',
+          kbliItems: (client.kbliItems || []).map(k => ({
+            id: k.id,
+            code: k.code,
+            name: k.name,
+            description: k.description || ''
+          })),
+          authorizedCapital: client.targetCapitalBase || client.originalCapitalBase || 0,
+          paidUpCapital: client.targetCapitalPaid || client.originalCapitalPaid || 0,
+          shareholders: (client.shareholders || []).map(sh => ({
+            id: sh.id,
+            name: sh.name,
+            sharesOwned: sh.sharesOwned,
+            nik: sh.nik || '',
+            npwp: sh.npwp || ''
+          })),
+          managementItems: (client.newManagementItems || []).map(m => ({
+            id: m.id,
+            name: m.name,
+            position: m.position,
+            nik: m.nik || ''
+          })),
+          establishmentDeedNumber: client.establishmentDeedNumber || '',
+          establishmentDeedDate: client.establishmentDeedDate || '',
+          establishmentNotary: client.establishmentNotary || '',
+          latestAmendmentDeedNumber: client.latestAmendmentDeedNumber || '',
+          latestAmendmentDeedDate: client.latestAmendmentDeedDate || '',
+          latestAmendmentNotary: client.latestAmendmentNotary || ''
+        };
+      } else if (migrationSource === 'legacy_db') {
+        // Fetch from legacy projects db
+        const formDoc = documents.find(d => d.refId);
+        const refIdToUse = formDoc?.refId || project.metadata?.refId || projectId;
+        const legacyData = await fetchDocRecordData({
+          id: 'temp',
+          name: project.title,
+          type: 'form',
+          refId: refIdToUse,
+          uploadedAt: new Date().toISOString()
+        });
+
+        if (!legacyData) {
+          throw new Error("Gagal mengambil data dari database proyek lama. Silakan gunakan sumber lain atau buat manual.");
+        }
+
+        snapshotData = {
+          id: project.clientId,
+          companyName: legacyData.companyName || legacyData.namaPt || project.title,
+          companyType: legacyData.companyType || 'PT',
+          fullAddress: legacyData.fullAddress || legacyData.address?.fullAddress || '',
+          province: legacyData.address?.province || '',
+          city: legacyData.address?.city || '',
+          kbliItems: (legacyData.kbliItems || []).map((k: any) => ({
+            id: k.id || Math.random().toString(36).substring(7),
+            code: k.code || '',
+            name: k.name || '',
+            description: k.description || ''
+          })),
+          authorizedCapital: legacyData.originalCapitalBase || legacyData.targetCapitalBase || 0,
+          paidUpCapital: legacyData.originalCapitalPaid || legacyData.targetCapitalPaid || 0,
+          shareholders: (legacyData.shareholders || legacyData.finalShareholders || []).map((sh: any) => ({
+            id: sh.id || Math.random().toString(36).substring(7),
+            name: sh.name,
+            sharesOwned: sh.sharesOwned || 0,
+            nik: sh.nik || '',
+            npwp: sh.npwp || ''
+          })),
+          managementItems: (legacyData.newManagementItems || legacyData.oldManagementItems || []).map((m: any) => ({
+            id: m.id || Math.random().toString(36).substring(7),
+            name: m.name,
+            position: m.position || '',
+            nik: m.nik || ''
+          })),
+          establishmentDeedNumber: legacyData.establishmentDeedNumber || '',
+          establishmentDeedDate: legacyData.establishmentDeedDate || '',
+          establishmentNotary: legacyData.establishmentNotary || '',
+          latestAmendmentDeedNumber: legacyData.latestAmendmentDeedNumber || '',
+          latestAmendmentDeedDate: legacyData.latestAmendmentDeedDate || '',
+          latestAmendmentNotary: legacyData.latestAmendmentNotary || ''
+        };
+      } else {
+        // Manual form
+        snapshotData = {
+          id: project.clientId,
+          companyName: manualName || project.title,
+          companyType: 'PT',
+          fullAddress: manualAddress,
+          authorizedCapital: manualCapital,
+          paidUpCapital: manualCapital,
+          shareholders: [],
+          managementItems: []
+        };
+      }
+
+      if (!snapshotData) {
+        throw new Error("Snapshot data compilation failed.");
+      }
+
+      if (project.jobType === 'rups_lb') {
+        // RUPS LB has Before/After snapshot structure
+        const beforeSnapshot = { ...snapshotData };
+        let afterSnapshot = { ...snapshotData };
+        if (migrationSource === 'legacy_db') {
+          const formDoc = documents.find(d => d.refId);
+          const refIdToUse = formDoc?.refId || project.metadata?.refId || projectId;
+          const legacyData = await fetchDocRecordData({
+            id: 'temp',
+            name: project.title,
+            type: 'form',
+            refId: refIdToUse,
+            uploadedAt: new Date().toISOString()
+          });
+          if (legacyData) {
+            afterSnapshot = {
+              id: project.clientId,
+              companyName: legacyData.targetCompanyName || legacyData.companyName || project.title,
+              companyType: legacyData.companyType || 'PT',
+              fullAddress: legacyData.fullAddress || legacyData.oldFullAddress || '',
+              kbliItems: (legacyData.kbliItems || []).map((k: any) => ({
+                id: k.id || Math.random().toString(36).substring(7),
+                code: k.code || '',
+                name: k.name || '',
+                description: k.description || ''
+              })),
+              authorizedCapital: legacyData.targetCapitalBase || legacyData.originalCapitalBase || 0,
+              paidUpCapital: legacyData.targetCapitalPaid || legacyData.originalCapitalPaid || 0,
+              shareholders: (legacyData.finalShareholders || legacyData.shareholders || []).map((sh: any) => ({
+                id: sh.id || Math.random().toString(36).substring(7),
+                name: sh.name,
+                sharesOwned: sh.sharesOwned || 0,
+                nik: sh.nik || '',
+                npwp: sh.npwp || ''
+              })),
+              managementItems: (legacyData.newManagementItems || legacyData.oldManagementItems || []).map((m: any) => ({
+                id: m.id || Math.random().toString(36).substring(7),
+                name: m.name,
+                position: m.position || '',
+                nik: m.nik || ''
+              })),
+              establishmentDeedNumber: legacyData.establishmentDeedNumber || '',
+              establishmentDeedDate: legacyData.establishmentDeedDate || '',
+              establishmentNotary: legacyData.establishmentNotary || '',
+              latestAmendmentDeedNumber: legacyData.latestAmendmentDeedNumber || '',
+              latestAmendmentDeedDate: legacyData.latestAmendmentDeedDate || '',
+              latestAmendmentNotary: legacyData.latestAmendmentNotary || ''
+            };
+          }
+        }
+        await ProjectService.updateProjectSnapshots(projectId, {
+          changeSnapshot: {
+            before: beforeSnapshot,
+            after: afterSnapshot
+          }
+        });
+      } else {
+        await ProjectService.updateProjectSnapshots(projectId, {
+          clientSnapshot: snapshotData
+        });
+      }
+
+      await ProjectService.addTimeline(projectId, {
+        status: project.status,
+        title: "Migrasi Snapshot Manual Berhasil",
+        description: `Snapshot proyek berhasil dibuat secara eksplisit menggunakan sumber '${migrationSource}'.`,
+        createdBy: currentUserEmail || 'admin'
+      });
+
+      alert('Migrasi snapshot berhasil! Integritas arsip legal telah diperbarui.');
+      setShowMigrationModal(false);
+      await fetchProjectFullDetails();
+    } catch (err: any) {
+      console.error(err);
+      alert('Gagal menjalankan migrasi snapshot: ' + err.message);
+    } finally {
+      setIsMigrating(false);
+    }
+  };
+
   const handleStatusTransition = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!transitionStatus) return;
 
+    const isCompletedStatus = transitionStatus.toLowerCase().includes('selesai');
+    const hasDeedForm = ['rups_lb', 'sirkuler_rupslb', 'pendirian_pt'].includes(project?.jobType || '');
+
+    if (isCompletedStatus && hasDeedForm) {
+      if (!deedNumber.trim() || !deedDate || !notaryName.trim() || !notaryLocation.trim()) {
+        alert('Harap isi Nomor Akta, Tanggal Akta, Nama Notaris, dan Kedudukan Notaris sebelum menyelesaikan proyek.');
+        return;
+      }
+    }
+
     setTransitioning(true);
     try {
+      // 1. If we have deed info and transitioning to completed, let's first update project metadata
+      if (isCompletedStatus && hasDeedForm) {
+        const updatedMetadata = {
+          ...(project?.metadata || {}),
+          deedNumber: deedNumber.trim(),
+          deedDate,
+          notarySelectionType,
+          notaryName: notaryName.trim(),
+          notaryLocation: notaryLocation.trim(),
+          skSpType,
+          skSpNumber: skSpNumber.trim(),
+          skSpDate
+        };
+        
+        await updateDoc(doc(db, 'office_projects', projectId), {
+          metadata: updatedMetadata
+        });
+
+        // 2. Try to fetch the latest form document data to propagate changes to Master Client profile
+        const formDoc = documents.find(d => d.refId);
+        const refIdToUse = formDoc?.refId || project?.metadata?.refId || projectId;
+        const formObj = await fetchDocRecordData({
+          id: 'temp',
+          name: project?.title || '',
+          type: 'form',
+          refId: refIdToUse,
+          uploadedAt: new Date().toISOString()
+        });
+
+        if (project?.clientId) {
+          const clientDocRef = doc(db, 'profiles', project.clientId);
+          const clientSnap = await getDoc(clientDocRef);
+          const freshClient = clientSnap.exists() ? (clientSnap.data() as CompanyProfile) : null;
+
+          const profileUpdate: any = {
+            updatedAt: new Date().toISOString()
+          };
+
+          // If we successfully fetched the form data, sync it to the master profile
+          if (formObj) {
+            if (formObj.companyName || formObj.namaPt) {
+              profileUpdate.companyName = formObj.companyName || formObj.namaPt;
+            }
+            if (formObj.companyType) {
+              profileUpdate.companyType = formObj.companyType;
+            }
+            if (formObj.fullAddress || formObj.address?.fullAddress) {
+              profileUpdate.fullAddress = formObj.fullAddress || formObj.address?.fullAddress;
+            }
+            if (formObj.newAddress) {
+              profileUpdate.newAddress = formObj.newAddress;
+            }
+            if (formObj.kbliItems) {
+              profileUpdate.kbliItems = formObj.kbliItems;
+            }
+
+            // Capital
+            if (formObj.targetCapitalBase || formObj.originalCapitalBase || formObj.modalDasar) {
+              profileUpdate.targetCapitalBase = Number(formObj.targetCapitalBase || formObj.originalCapitalBase || formObj.modalDasar || 0);
+              profileUpdate.originalCapitalBase = Number(formObj.originalCapitalBase || formObj.targetCapitalBase || formObj.modalDasar || 0);
+            }
+            if (formObj.targetCapitalPaid || formObj.originalCapitalPaid || formObj.modalDisetor) {
+              profileUpdate.targetCapitalPaid = Number(formObj.targetCapitalPaid || formObj.originalCapitalPaid || formObj.modalDisetor || 0);
+              profileUpdate.originalCapitalPaid = Number(formObj.originalCapitalPaid || formObj.targetCapitalPaid || formObj.modalDisetor || 0);
+            }
+
+            // Shareholders
+            const formShareholders = formObj.finalShareholders || formObj.shareholders || formObj.pemegangSaham;
+            if (formShareholders && formShareholders.length > 0) {
+              profileUpdate.shareholders = formShareholders.map((sh: any) => ({
+                id: sh.id || Math.random().toString(36).substring(7),
+                name: sh.name,
+                sharesOwned: Number(sh.finalShares || sh.sharesOwned || sh.shares || 0),
+                nik: sh.nik || '',
+                npwp: sh.npwp || ''
+              })).filter((sh: any) => sh.sharesOwned > 0);
+              
+              profileUpdate.finalShareholders = profileUpdate.shareholders;
+            }
+
+            // Management calculation mimicking rupsContentBlocks.ts
+            const oldManagers = [
+              ...(freshClient?.newManagementItems || []),
+              ...(freshClient?.shareholders || [])
+                .filter((s: any) => s.isManagement)
+                .map((s: any) => ({
+                  id: s.id || Math.random().toString(36).substring(7),
+                  name: s.name,
+                  position: s.managementPosition || "DIREKTUR",
+                  nik: s.nik || ""
+                }))
+            ];
+
+            const uniqueOldManagers: any[] = [];
+            const seenMgmt = new Set<string>();
+            oldManagers.forEach((om: any) => {
+              if (!om || !om.name) return;
+              const key = `${om.name.toUpperCase().trim()}_${(om.position || 'DIREKTUR').toUpperCase().trim()}`;
+              if (!seenMgmt.has(key)) {
+                seenMgmt.add(key);
+                uniqueOldManagers.push(om);
+              }
+            });
+
+            const hasExplicitDismissals = formObj.managementDismissals && formObj.managementDismissals.length > 0;
+            const hasExplicitAppointments = formObj.managementAppointments && formObj.managementAppointments.length > 0;
+
+            if (hasExplicitDismissals || hasExplicitAppointments) {
+              const dismissedNames = new Set((formObj.managementDismissals || []).map((d: any) => d.name?.toUpperCase().trim()));
+              const managersToAppoint = (formObj.managementAppointments || []).map((a: any) => ({
+                id: a.id || Math.random().toString(36).substring(7),
+                name: a.name,
+                position: a.position || 'DIREKTUR',
+                nik: a.nik || ''
+              }));
+
+              profileUpdate.newManagementItems = [
+                ...uniqueOldManagers.filter(om => om && om.name && !dismissedNames.has(om.name.toUpperCase().trim())),
+                ...managersToAppoint
+              ];
+            } else {
+              const formNewMgmt = formObj.newManagementItems || formObj.managementItems || formObj.pengurus;
+              if (formNewMgmt && formNewMgmt.length > 0) {
+                profileUpdate.newManagementItems = formNewMgmt.map((m: any) => ({
+                  id: m.id || Math.random().toString(36).substring(7),
+                  name: m.name,
+                  position: m.position || 'DIREKTUR',
+                  nik: m.nik || ''
+                }));
+              } else {
+                const activeMgmt = (formObj.finalShareholders || formObj.shareholders || [])
+                  .filter((s: any) => s.isManagement)
+                  .map((s: any) => ({
+                    id: s.id || Math.random().toString(36).substring(7),
+                    name: s.name,
+                    position: s.managementPosition || 'DIREKTUR',
+                    nik: s.nik || ''
+                  }));
+                if (activeMgmt.length > 0) {
+                  profileUpdate.newManagementItems = activeMgmt;
+                } else {
+                  profileUpdate.newManagementItems = uniqueOldManagers;
+                }
+              }
+            }
+          }
+
+          // Merge Deed and SK details
+          if (project.jobType === 'pendirian_pt') {
+            profileUpdate.establishmentDeedNumber = deedNumber.trim();
+            profileUpdate.establishmentDeedDate = deedDate;
+            profileUpdate.establishmentNotary = notaryName.trim();
+            profileUpdate.establishmentNotaryDomicile = notaryLocation.trim();
+            if (skSpNumber.trim()) {
+              profileUpdate.establishmentSkNumber = skSpNumber.trim();
+              profileUpdate.establishmentSkDate = skSpDate || deedDate;
+            }
+          } else {
+            // RUPS LB or Sirkuler
+            profileUpdate.latestAmendmentDeedNumber = deedNumber.trim();
+            profileUpdate.latestAmendmentDeedDate = deedDate;
+            profileUpdate.latestAmendmentNotary = notaryName.trim();
+            if (skSpNumber.trim()) {
+              profileUpdate.latestAmendmentSkNumber = skSpNumber.trim();
+              profileUpdate.latestAmendmentSkDate = skSpDate || deedDate;
+            }
+
+            const existingDeeds = freshClient?.amendmentDeeds || [];
+            const newAmendmentDeed: AmendmentDeed = {
+              id: Math.random().toString(36).substring(7),
+              number: deedNumber.trim(),
+              date: deedDate,
+              notary: notaryName.trim(),
+              notaryDomicile: notaryLocation.trim(),
+              skNumber: skSpNumber.trim(),
+              skDate: skSpDate || deedDate,
+              skSpDocuments: skSpNumber.trim() ? [{
+                id: Math.random().toString(36).substring(7),
+                type: skSpType.toLowerCase().includes('sk') ? 'SK' : 'SP',
+                number: skSpNumber.trim(),
+                date: skSpDate || deedDate
+              }] : []
+            };
+
+            const duplicateIndex = existingDeeds.findIndex(d => d.number === deedNumber.trim());
+            if (duplicateIndex !== -1) {
+              const updatedDeeds = [...existingDeeds];
+              updatedDeeds[duplicateIndex] = {
+                ...newAmendmentDeed,
+                id: existingDeeds[duplicateIndex].id || newAmendmentDeed.id
+              };
+              profileUpdate.amendmentDeeds = updatedDeeds;
+            } else {
+              profileUpdate.amendmentDeeds = [newAmendmentDeed, ...existingDeeds];
+            }
+          }
+
+          await updateDoc(doc(db, 'profiles', project.clientId), cleanUndefined(profileUpdate));
+        }
+      }
+
+      // 3. Complete actual status update transition
       await ProjectService.updateStatus(
         projectId,
         transitionStatus,
@@ -648,7 +1125,7 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
       setTransitionComment('');
       // Reload everything
       await fetchProjectFullDetails();
-      alert('Status proyek berhasil diperbarui!');
+      alert('Status proyek berhasil diperbarui dan data perubahan/pendirian telah disinkronkan ke master data klien!');
     } catch (err: any) {
       console.error(err);
       alert(`Gagal memperbarui status: ${err.message || 'Pelanggaran transisi status berurutan (Strict Guard).'}`);
@@ -1080,6 +1557,300 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
               )}
             </div>
 
+            {/* Rule: Legacy Project Banner & Migration Wizard */}
+            {!project.clientSnapshot && !project.changeSnapshot ? (
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-6 shadow-xs space-y-4">
+                <div className="flex items-start gap-3">
+                  <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5 shrink-0" />
+                  <div>
+                    <h3 className="text-sm font-bold text-amber-900 uppercase tracking-wide">
+                      ⚠️ Proyek Legacy Detect — Snapshot Historis Belum Tersedia
+                    </h3>
+                    <p className="text-[13px] text-amber-700 mt-1 leading-relaxed">
+                      Sistem tidak boleh membuat snapshot historis secara otomatis menggunakan data Master Client saat ini guna melindungi integritas arsip sejarah hukum perusahaan.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 bg-white/60 p-3 rounded-lg border border-amber-100">
+                  <span className="text-xs font-mono text-slate-500 font-semibold">Tindakan Diperlukan:</span>
+                  <button
+                    onClick={() => {
+                      setManualName(client?.companyName || project.title);
+                      setManualAddress(client?.fullAddress || '');
+                      setManualCapital(client?.targetCapitalBase || 100000000);
+                      setShowMigrationModal(true);
+                    }}
+                    className="px-4 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-lg shadow-xs transition-colors animate-pulse"
+                  >
+                    Mulai Migration Wizard
+                  </button>
+                </div>
+              </div>
+            ) : null}
+
+            {/* Rule: Immutable Project Snapshot Section */}
+            {(project.clientSnapshot || project.changeSnapshot) ? (
+              <div className="bg-white border border-slate-200/80 rounded-xl p-6 shadow-sm space-y-5">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                  <h2 className="text-[14px] font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                    <Briefcase className="w-4 h-4 text-blue-600" />
+                    <span>Snapshot Hukum Proyek (Arsip Immutable)</span>
+                  </h2>
+                  <span className="px-2 py-0.5 text-[10px] bg-slate-100 text-slate-500 border border-slate-200 rounded-full font-mono font-bold uppercase tracking-wider">
+                    Snapshot Active
+                  </span>
+                </div>
+
+                {project.jobType === 'rups_lb' && project.changeSnapshot ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Before Snapshot */}
+                    <div className="space-y-3 bg-slate-50 p-4 rounded-xl border border-slate-100">
+                      <h3 className="text-xs font-extrabold text-slate-500 uppercase tracking-wider border-b border-slate-200 pb-1.5">
+                        Struktur Sebelum (Before)
+                      </h3>
+                      <div className="space-y-2 text-xs">
+                        <div>
+                          <span className="text-slate-400 font-semibold text-[10px] uppercase tracking-wider">Nama Perusahaan</span>
+                          <p className="font-bold text-slate-850 text-[13px]">{project.changeSnapshot.before.companyName}</p>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 font-semibold text-[10px] uppercase tracking-wider">Alamat Lengkap</span>
+                          <p className="font-medium text-slate-700 text-[12px]">{project.changeSnapshot.before.fullAddress || '-'}</p>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <span className="text-slate-400 font-semibold text-[10px] uppercase tracking-wider">Modal Dasar</span>
+                            <p className="font-bold text-slate-800">Rp {project.changeSnapshot.before.authorizedCapital?.toLocaleString('id-ID') || '0'}</p>
+                          </div>
+                          <div>
+                            <span className="text-slate-400 font-semibold text-[10px] uppercase tracking-wider">Modal Disetor</span>
+                            <p className="font-bold text-slate-800">Rp {project.changeSnapshot.before.paidUpCapital?.toLocaleString('id-ID') || '0'}</p>
+                          </div>
+                        </div>
+                        {/* Shareholders before */}
+                        <div className="pt-2 border-t border-slate-150">
+                          <span className="text-slate-450 font-bold text-[10px] uppercase tracking-wider block mb-1">Daftar Pemegang Saham (Before)</span>
+                          {project.changeSnapshot.before.shareholders && project.changeSnapshot.before.shareholders.length > 0 ? (
+                            <div className="space-y-1 max-h-40 overflow-y-auto">
+                              {project.changeSnapshot.before.shareholders.map((sh, idx) => (
+                                <div key={sh.id || idx} className="flex justify-between p-1.5 bg-white border border-slate-100 rounded">
+                                  <span className="font-semibold text-slate-700">{sh.name}</span>
+                                  <span className="font-mono text-slate-600">{sh.sharesOwned?.toLocaleString('id-ID')} lembar</span>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-slate-400 italic">Tidak ada data</p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* After Snapshot */}
+                    <div className="space-y-3 bg-blue-50/40 p-4 rounded-xl border border-blue-100">
+                      <h3 className="text-xs font-extrabold text-blue-600 uppercase tracking-wider border-b border-blue-100 pb-1.5">
+                        Struktur Sesudah (After)
+                      </h3>
+                      <div className="space-y-2 text-xs">
+                        <div>
+                          <span className="text-blue-400 font-semibold text-[10px] uppercase tracking-wider">Nama Perusahaan</span>
+                          <p className="font-bold text-slate-850 text-[13px]">{project.changeSnapshot.after.companyName}</p>
+                        </div>
+                        <div>
+                          <span className="text-blue-400 font-semibold text-[10px] uppercase tracking-wider">Alamat Lengkap</span>
+                          <p className="font-medium text-slate-700 text-[12px]">{project.changeSnapshot.after.fullAddress || '-'}</p>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <span className="text-blue-400 font-semibold text-[10px] uppercase tracking-wider">Modal Dasar</span>
+                            <p className="font-bold text-slate-800">Rp {project.changeSnapshot.after.authorizedCapital?.toLocaleString('id-ID') || '0'}</p>
+                          </div>
+                          <div>
+                            <span className="text-blue-400 font-semibold text-[10px] uppercase tracking-wider">Modal Disetor</span>
+                            <p className="font-bold text-slate-800">Rp {project.changeSnapshot.after.paidUpCapital?.toLocaleString('id-ID') || '0'}</p>
+                          </div>
+                        </div>
+                        {/* Shareholders after */}
+                        <div className="pt-2 border-t border-blue-100/60">
+                          <span className="text-blue-500 font-bold text-[10px] uppercase tracking-wider block mb-1">Daftar Pemegang Saham (After)</span>
+                          {project.changeSnapshot.after.shareholders && project.changeSnapshot.after.shareholders.length > 0 ? (
+                            <div className="space-y-1 max-h-40 overflow-y-auto">
+                              {project.changeSnapshot.after.shareholders.map((sh, idx) => (
+                                <div key={sh.id || idx} className="flex justify-between p-1.5 bg-white border border-blue-100/50 rounded animate-fade-in">
+                                  <span className="font-bold text-slate-800">{sh.name}</span>
+                                  <span className="font-mono text-slate-600 font-semibold">{sh.sharesOwned?.toLocaleString('id-ID')} lembar</span>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-slate-400 italic">Tidak ada data</p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  project.clientSnapshot && (
+                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 text-xs grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <div>
+                          <span className="text-slate-400 font-semibold text-[10px] uppercase tracking-wider">Nama Perusahaan</span>
+                          <p className="font-bold text-slate-850 text-[13px]">{project.clientSnapshot.companyName}</p>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 font-semibold text-[10px] uppercase tracking-wider">Alamat Lengkap</span>
+                          <p className="font-medium text-slate-700">{project.clientSnapshot.fullAddress || '-'}</p>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <span className="text-slate-400 font-semibold text-[10px] uppercase tracking-wider">Modal Dasar</span>
+                            <p className="font-bold text-slate-800">Rp {project.clientSnapshot.authorizedCapital?.toLocaleString('id-ID') || '0'}</p>
+                          </div>
+                          <div>
+                            <span className="text-slate-400 font-semibold text-[10px] uppercase tracking-wider">Modal Disetor</span>
+                            <p className="font-bold text-slate-800">Rp {project.clientSnapshot.paidUpCapital?.toLocaleString('id-ID') || '0'}</p>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <span className="text-slate-400 font-semibold text-[10px] uppercase tracking-wider block">Daftar Pemegang Saham</span>
+                        {project.clientSnapshot.shareholders && project.clientSnapshot.shareholders.length > 0 ? (
+                          <div className="space-y-1 max-h-40 overflow-y-auto">
+                            {project.clientSnapshot.shareholders.map((sh, idx) => (
+                              <div key={sh.id || idx} className="flex justify-between p-1.5 bg-white border border-slate-100 rounded">
+                                <span className="font-semibold text-slate-700">{sh.name}</span>
+                                <span className="font-mono text-slate-600">{sh.sharesOwned?.toLocaleString('id-ID')} lembar</span>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-slate-400 italic">Tidak ada data pemegang saham</p>
+                        )}
+                      </div>
+                    </div>
+                  )
+                )}
+              </div>
+            ) : null}
+
+            {/* Rule: Company Timeline (Legal History Tracker) */}
+            <div className="bg-white border border-slate-200/80 rounded-xl p-6 shadow-sm space-y-4">
+              <h2 className="text-[14px] font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2 border-b border-slate-100 pb-3">
+                <Clock className="w-4 h-4 text-blue-600" />
+                <span>Riwayat Sejarah Legal Perusahaan (Company Timeline)</span>
+              </h2>
+              <div className="relative border-l-2 border-blue-100 pl-4 space-y-6 ml-2 text-xs">
+                {/* Active/Linked projects as milestones */}
+                {[project, ...relatedProjects]
+                  .sort((a, b) => new Date(a.createdAt?.seconds ? a.createdAt.toDate() : a.createdAt).getTime() - new Date(b.createdAt?.seconds ? b.createdAt.toDate() : b.createdAt).getTime())
+                  .map((p, idx) => {
+                    const dateStr = p.createdAt ? new Date(p.createdAt.seconds ? p.createdAt.toDate() : p.createdAt).toLocaleDateString('id-ID', {
+                      day: 'numeric',
+                      month: 'long',
+                      year: 'numeric'
+                    }) : '-';
+                    const isCurrent = p.projectId === projectId;
+                    return (
+                      <div key={p.projectId || idx} className="relative">
+                        {/* Dot indicator */}
+                        <div className={`absolute -left-[23px] top-1.5 w-3.5 h-3.5 rounded-full border-2 ${isCurrent ? 'bg-blue-600 border-blue-250 animate-pulse' : 'bg-slate-300 border-white'} shrink-0`} />
+                        <div className="space-y-1">
+                          <span className="font-mono text-[9px] text-slate-400 font-bold block">{dateStr}</span>
+                          <span className={`font-bold text-[13px] ${isCurrent ? 'text-blue-700' : 'text-slate-800'}`}>
+                            {p.title} {isCurrent ? '(Proyek Ini)' : ''}
+                          </span>
+                          <div className="flex gap-2 items-center mt-1 text-[11px]">
+                            <span className="px-2 py-0.5 bg-slate-100 text-slate-600 font-semibold rounded text-[10px] uppercase">
+                              {p.jobType.replace('_', ' ')}
+                            </span>
+                            <span className="text-slate-300">|</span>
+                            <span className="text-slate-500 font-medium">Status: <strong className="uppercase font-bold text-slate-650">{p.status}</strong></span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+            </div>
+
+            {/* Rule: Master Client Version/Revision History */}
+            {client && client.versionHistory && client.versionHistory.length > 0 ? (
+              <div className="bg-white border border-slate-200/80 rounded-xl p-6 shadow-sm space-y-4">
+                <h2 className="text-[14px] font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2 border-b border-slate-100 pb-3">
+                  <FileText className="w-4 h-4 text-blue-600" />
+                  <span>Jejak Audit Perubahan Master Client (Revision History)</span>
+                </h2>
+                <div className="space-y-4">
+                  {client.versionHistory.map((rev, idx) => (
+                    <div key={rev.revisionId || idx} className="bg-slate-50 border border-slate-100 rounded-xl p-4 text-xs space-y-2">
+                      <div className="flex justify-between items-center flex-wrap gap-2">
+                        <span className="font-bold text-slate-850">{rev.reason}</span>
+                        <span className="font-mono text-[10px] text-slate-400 font-bold bg-white px-2 py-0.5 rounded border border-slate-100">
+                          REVISION: {rev.revisionId?.substring(0, 8)}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-slate-500">
+                        <div>
+                          <span>Tanggal Persetujuan:</span>
+                          <p className="font-medium text-slate-700">{new Date(rev.changedAt).toLocaleString('id-ID')}</p>
+                        </div>
+                        <div>
+                          <span>Disetujui Oleh:</span>
+                          <p className="font-medium text-slate-700">{rev.changedBy}</p>
+                        </div>
+                      </div>
+                      {rev.changes && rev.changes.length > 0 && (
+                        <div className="pt-2 border-t border-slate-200/60 space-y-1.5">
+                          <span className="text-slate-400 font-bold text-[10px] uppercase tracking-wider block">Rincian Perubahan Hukum:</span>
+                          <div className="space-y-1 font-mono text-[11px]">
+                            {rev.changes.map((ch, cidx) => (
+                              <div key={cidx} className="flex flex-col bg-white p-2 rounded border border-slate-100 gap-1">
+                                <span className="font-bold text-blue-600">{ch.field}:</span>
+                                <div className="flex items-center gap-2 flex-wrap text-xs">
+                                  <span className="text-red-500 line-through bg-red-50 px-1 rounded">{String(ch.before || 'KOSONG')}</span>
+                                  <ChevronRight className="w-3 h-3 text-slate-400 animate-pulse" />
+                                  <span className="text-emerald-600 font-bold bg-emerald-50 px-1 rounded">{String(ch.after || 'KOSONG')}</span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            {/* Rule: Related Projects Section */}
+            <div className="bg-white border border-slate-200/80 rounded-xl p-6 shadow-sm space-y-4">
+              <h2 className="text-[14px] font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2 border-b border-slate-100 pb-3">
+                <Briefcase className="w-4 h-4 text-blue-600" />
+                <span>Proyek Terkait Klien Ini ({relatedProjects.length})</span>
+              </h2>
+              {relatedProjects.length === 0 ? (
+                <p className="text-slate-450 text-xs italic">Tidak ada proyek terkait lainnya untuk klien ini.</p>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                  {relatedProjects.map((p) => (
+                    <div key={p.projectId} className="p-3.5 bg-slate-50 border border-slate-100 hover:border-slate-200 rounded-xl transition-all space-y-1.5 shadow-2xs">
+                      <span className="font-bold text-slate-800 block text-[13px] hover:text-blue-600 transition-colors">
+                        {p.title}
+                      </span>
+                      <div className="flex items-center justify-between text-slate-500">
+                        <span className="bg-white px-2 py-0.5 border border-slate-150 rounded font-semibold text-[10px] uppercase">
+                          {p.jobType.replace('_', ' ')}
+                        </span>
+                        <span className="uppercase font-bold text-[10px] text-slate-400 bg-white px-1.5 py-0.5 rounded border border-slate-100">
+                          {p.status}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
             {/* Task Checklist Section */}
             <div className="bg-white border border-slate-200/80 rounded-xl p-6 shadow-sm">
               <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
@@ -1212,6 +1983,171 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
                     className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500 cursor-pointer"
                   />
                 </div>
+
+                {/* Conditionally render Deed / Akta details form when transitioning to Completed state */}
+                {['rups_lb', 'sirkuler_rupslb', 'pendirian_pt'].includes(project?.jobType || '') && 
+                  transitionStatus.toLowerCase().includes('selesai') && (
+                  <div className="p-5 bg-white border border-slate-200 rounded-xl space-y-4 animate-fadeIn shadow-sm">
+                    {/* Header */}
+                    <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
+                      <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                        {project?.jobType === 'pendirian_pt' 
+                          ? 'AKTA PENDIRIAN' 
+                          : `AKTA PERUBAHAN ${(client?.amendmentDeeds?.length || 0) + 1}`}
+                      </h3>
+                      <span className="text-[10px] font-mono text-slate-400 bg-slate-100 px-2 py-0.5 rounded">
+                        {project?.title}
+                      </span>
+                    </div>
+                    
+                    {/* Nomor Akta */}
+                    <div className="grid grid-cols-3 gap-4 items-center">
+                      <label className="text-xs font-medium text-slate-700">
+                        Nomor Akta <span className="text-red-500">*</span>
+                      </label>
+                      <div className="col-span-2">
+                        <input
+                          type="text"
+                          required
+                          value={deedNumber}
+                          onChange={(e) => setDeedNumber(e.target.value)}
+                          placeholder="Contoh: 01"
+                          className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg outline-none transition-all focus:ring-1 focus:ring-blue-500"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Tanggal Akta */}
+                    <div className="grid grid-cols-3 gap-4 items-center">
+                      <label className="text-xs font-medium text-slate-700">
+                        Tanggal Akta <span className="text-red-500">*</span>
+                      </label>
+                      <div className="col-span-2">
+                        <input
+                          type="date"
+                          required
+                          value={deedDate}
+                          onChange={(e) => setDeedDate(e.target.value)}
+                          className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg outline-none transition-all focus:ring-1 focus:ring-blue-500"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Pilih Notaris */}
+                    <div className="grid grid-cols-3 gap-4 items-center">
+                      <label className="text-xs font-medium text-slate-700">
+                        Pilih Notaris <span className="text-red-500">*</span>
+                      </label>
+                      <div className="col-span-2">
+                        <select
+                          value={notarySelectionType}
+                          onChange={(e) => {
+                            const val = e.target.value as 'saya' | 'manual';
+                            setNotarySelectionType(val);
+                            if (val === 'saya') {
+                              setNotaryName('Nukantini Putri Parincha, SH., M.Kn.');
+                            } else {
+                              setNotaryName('');
+                            }
+                          }}
+                          className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg outline-none transition-all focus:ring-1 focus:ring-blue-500"
+                        >
+                          <option value="saya">Saya (Nukantini Putri Parincha, SH., M.Kn.)</option>
+                          <option value="manual">Notaris Lain (Isi Manual)</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Nama Notaris (if manual) */}
+                    {notarySelectionType === 'manual' && (
+                      <div className="grid grid-cols-3 gap-4 items-center animate-fadeIn">
+                        <label className="text-xs font-medium text-slate-700">
+                          Nama Notaris <span className="text-red-500">*</span>
+                        </label>
+                        <div className="col-span-2">
+                          <input
+                            type="text"
+                            required
+                            value={notaryName}
+                            onChange={(e) => setNotaryName(e.target.value)}
+                            placeholder="Nama Notaris..."
+                            className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg outline-none transition-all focus:ring-1 focus:ring-blue-500"
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Kedudukan Notaris */}
+                    <div className="grid grid-cols-3 gap-4 items-center">
+                      <label className="text-xs font-medium text-slate-700">
+                        Kedudukan Notaris <span className="text-red-500">*</span>
+                      </label>
+                      <div className="col-span-2">
+                        <input
+                          type="text"
+                          required
+                          value={notaryLocation}
+                          onChange={(e) => setNotaryLocation(e.target.value)}
+                          placeholder="Kedudukan Notaris..."
+                          className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg outline-none transition-all focus:ring-1 focus:ring-blue-500"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Nested Box: DAFTAR SK / SP TERKAIT */}
+                    <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3.5 mt-2 shadow-sm">
+                      <div className="text-[11px] font-bold text-slate-600 uppercase tracking-wide">
+                        DAFTAR SK / SP TERKAIT
+                      </div>
+                      
+                      <div className="grid grid-cols-3 gap-3">
+                        {/* Tipe */}
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">
+                            Tipe
+                          </label>
+                          <select
+                            value={skSpType}
+                            onChange={(e) => setSkSpType(e.target.value)}
+                            className="w-full px-2 py-1.5 text-xs bg-white border border-slate-200 rounded-lg outline-none transition-all focus:ring-1 focus:ring-blue-500"
+                          >
+                            <option value="SP (Perubahan Data Perseroan)">SP (Perubahan Data Perseroan)</option>
+                            <option value="SK (Persetujuan Perubahan Anggaran Dasar)">SK (Persetujuan Perubahan Anggaran Dasar)</option>
+                            <option value="SP (Pendirian PT)">SP (Pendirian PT)</option>
+                            <option value="SK (Pendirian PT)">SK (Pendirian PT)</option>
+                          </select>
+                        </div>
+
+                        {/* Nomor */}
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">
+                            Nomor
+                          </label>
+                          <input
+                            type="text"
+                            value={skSpNumber}
+                            onChange={(e) => setSkSpNumber(e.target.value)}
+                            placeholder="AHU-AH.01.09-..."
+                            className="w-full px-2 py-1.5 text-xs bg-white border border-slate-200 rounded-lg outline-none transition-all focus:ring-1 focus:ring-blue-500"
+                          />
+                        </div>
+
+                        {/* Tanggal */}
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">
+                            Tanggal
+                          </label>
+                          <input
+                            type="date"
+                            value={skSpDate}
+                            onChange={(e) => setSkSpDate(e.target.value)}
+                            className="w-full px-2 py-1.5 text-xs bg-white border border-slate-200 rounded-lg outline-none transition-all focus:ring-1 focus:ring-blue-500"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 <button
                   type="submit"
@@ -1408,6 +2344,153 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        )}
+
+        {/* Rule: Explicit Migration Wizard Modal */}
+        {showMigrationModal && (
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fadeIn">
+            <div className="bg-white rounded-xl shadow-xl border border-slate-200 max-w-lg w-full overflow-hidden animate-slideUp">
+              <div className="bg-amber-50 px-6 py-4 border-b border-amber-200 flex items-center justify-between">
+                <div className="flex items-center gap-2 text-amber-900">
+                  <AlertCircle className="w-5 h-5 text-amber-600" />
+                  <h3 className="font-bold text-[15px] uppercase tracking-wide">Migration Wizard - Proyek Legacy</h3>
+                </div>
+                <button
+                  onClick={() => setShowMigrationModal(false)}
+                  className="p-1 text-slate-400 hover:text-slate-600 rounded hover:bg-amber-100 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="p-6 space-y-5">
+                <div className="text-[13px] text-slate-600 leading-relaxed bg-slate-50 p-4 rounded-xl border border-slate-100">
+                  <strong className="text-slate-800">Prinsip Integritas Histori Hukum:</strong>
+                  <p className="mt-1">
+                    Anda sedang menginisialisasi snapshot proyek lama secara manual. Pilih salah satu metode pemetaan legal di bawah ini untuk menghasilkan arsip snapshot proyek yang sah.
+                  </p>
+                </div>
+
+                {/* Source Selectors */}
+                <div className="space-y-3">
+                  <label className="text-xs font-extrabold text-slate-600 uppercase tracking-wider block">Sumber Data Snapshot</label>
+                  <div className="grid grid-cols-1 gap-2">
+                    {/* Database Lama */}
+                    <label className={`flex items-start gap-3 p-3 border rounded-xl cursor-pointer transition-all ${migrationSource === 'legacy_db' ? 'bg-blue-50/50 border-blue-500 ring-1 ring-blue-500' : 'bg-white border-slate-200 hover:bg-slate-50'}`}>
+                      <input
+                        type="radio"
+                        name="migrationSource"
+                        value="legacy_db"
+                        checked={migrationSource === 'legacy_db'}
+                        onChange={() => setMigrationSource('legacy_db')}
+                        className="mt-1 text-blue-600 focus:ring-blue-500"
+                      />
+                      <div className="text-xs">
+                        <span className="font-bold text-slate-800 block">Database Dokumen Proyek Lama (Sangat Direkomendasikan)</span>
+                        <span className="text-slate-500">Mengekstrak data legal historis langsung dari modul form proyek yang diarsipkan (misal: RUPS LB / Pendirian PT).</span>
+                      </div>
+                    </label>
+
+                    {/* Master Client */}
+                    <label className={`flex items-start gap-3 p-3 border rounded-xl cursor-pointer transition-all ${migrationSource === 'master_client' ? 'bg-blue-50/50 border-blue-500 ring-1 ring-blue-500' : 'bg-white border-slate-200 hover:bg-slate-50'}`}>
+                      <input
+                        type="radio"
+                        name="migrationSource"
+                        value="master_client"
+                        checked={migrationSource === 'master_client'}
+                        onChange={() => setMigrationSource('master_client')}
+                        className="mt-1 text-blue-600 focus:ring-blue-500"
+                      />
+                      <div className="text-xs">
+                        <span className="font-bold text-slate-800 block">Profil Master Client Saat Ini (Pilihan Terakhir)</span>
+                        <span className="text-slate-500">Gunakan data Master Client saat ini sebagai representasi sejarah hukum. Gunakan hanya jika arsip lain tidak tersedia.</span>
+                      </div>
+                    </label>
+
+                    {/* Formulir Manual */}
+                    <label className={`flex items-start gap-3 p-3 border rounded-xl cursor-pointer transition-all ${migrationSource === 'manual' ? 'bg-blue-50/50 border-blue-500 ring-1 ring-blue-500' : 'bg-white border-slate-200 hover:bg-slate-50'}`}>
+                      <input
+                        type="radio"
+                        name="migrationSource"
+                        value="manual"
+                        checked={migrationSource === 'manual'}
+                        onChange={() => setMigrationSource('manual')}
+                        className="mt-1 text-blue-600 focus:ring-blue-500"
+                      />
+                      <div className="text-xs">
+                        <span className="font-bold text-slate-800 block">Formulir Input Manual (Arsip Akta DOCX/PDF)</span>
+                        <span className="text-slate-500">Ketik rincian legal snapshot secara manual dari salinan fisik akta notaril.</span>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+
+                {/* Conditional Manual Inputs */}
+                {migrationSource === 'manual' && (
+                  <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 space-y-3 text-xs animate-fadeIn">
+                    <div className="space-y-1">
+                      <label className="font-bold text-slate-650 uppercase text-[10px]">Nama Perusahaan</label>
+                      <input
+                        type="text"
+                        value={manualName}
+                        onChange={(e) => setManualName(e.target.value)}
+                        placeholder="Masukkan nama PT/CV sesuai akta..."
+                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg outline-none text-xs"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="font-bold text-slate-650 uppercase text-[10px]">Alamat Lengkap</label>
+                      <input
+                        type="text"
+                        value={manualAddress}
+                        onChange={(e) => setManualAddress(e.target.value)}
+                        placeholder="Alamat lengkap perusahaan..."
+                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg outline-none text-xs"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="font-bold text-slate-650 uppercase text-[10px]">Modal Dasar (IDR)</label>
+                      <input
+                        type="number"
+                        value={manualCapital}
+                        onChange={(e) => setManualCapital(Number(e.target.value))}
+                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg outline-none text-xs"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Actions */}
+                <div className="flex gap-3 justify-end pt-4 border-t border-slate-100 mt-6">
+                  <button
+                    type="button"
+                    onClick={() => setShowMigrationModal(false)}
+                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg text-xs"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleRunMigration}
+                    disabled={isMigrating}
+                    className="px-5 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-lg text-xs flex items-center gap-1.5 disabled:opacity-50"
+                  >
+                    {isMigrating ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        <span>Mengekstrak...</span>
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5" />
+                        <span>Eksekusi Migrasi Snapshot</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         )}

@@ -228,10 +228,27 @@ export interface AmendmentDeed {
   skSpDocuments: SkSpDocument[];
 }
 
+export interface CompanyRevision {
+  revisionId: string;
+  changedAt: string; // ISO String
+  changedBy: string;
+  projectCauseId?: string;
+  reason: string;
+  changes: {
+    field: string;
+    before: any;
+    after: any;
+  }[];
+  deedNumber?: string;
+  skNumber?: string;
+  ahuNumber?: string;
+}
+
 export interface CompanyProfile extends Partial<CompanyData> {
   id: string;
   isArchived?: boolean;
   phoneNumber?: string;
+  versionHistory?: CompanyRevision[];
 }
 
 export interface CompanyData {

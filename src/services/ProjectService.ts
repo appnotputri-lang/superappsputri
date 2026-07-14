@@ -16,7 +16,7 @@ import {
   onSnapshot,
   deleteDoc
 } from "firebase/firestore";
-import { Project, DocumentReference } from "../domain/project/Project";
+import { Project, DocumentReference, ClientSnapshot, ProjectChangeSnapshot } from "../domain/project/Project";
 import { Timeline } from "../domain/project/Timeline";
 import { Task } from "../domain/project/Task";
 import { StatusEngine } from "../domain/project/ProjectStatus";
@@ -147,8 +147,100 @@ export class ProjectService {
         description: comment || `Status proyek beralih dari '${oldStatus}' menuju '${newStatus}'.`,
         createdBy: userId
       });
+
+      // Master Client HANYA BOLEH berubah ketika workflow mencapai status AHU APPROVED (AHU Selesai)
+      if (newStatus === "AHU Selesai") {
+        const afterSnap = project.changeSnapshot?.after || project.clientSnapshot;
+        if (afterSnap) {
+          const clientRef = doc(db, "profiles", project.clientId);
+          const clientSnap = await getDoc(clientRef);
+          
+          if (clientSnap.exists()) {
+            const clientData = clientSnap.data() as any;
+            
+            // Compare and record differences for versionHistory
+            const changes: { field: string; before: any; after: any }[] = [];
+            
+            const fieldsToCompare = [
+              { key: 'companyName', label: 'Nama Perusahaan' },
+              { key: 'fullAddress', label: 'Alamat Lengkap' },
+              { key: 'authorizedCapital', label: 'Modal Dasar' },
+              { key: 'paidUpCapital', label: 'Modal Disetor' }
+            ];
+
+            fieldsToCompare.forEach(({ key, label }) => {
+              const beforeVal = clientData[key] || '';
+              const afterVal = (afterSnap as any)[key] || '';
+              if (String(beforeVal) !== String(afterVal)) {
+                changes.push({
+                  field: label,
+                  before: beforeVal,
+                  after: afterVal
+                });
+              }
+            });
+
+            const uuid = Math.random().toString(36).substring(2, 15);
+            const revision: any = {
+              revisionId: uuid,
+              changedAt: new Date().toISOString(),
+              changedBy: userId,
+              projectCauseId: projectId,
+              reason: `Persetujuan AHU - Proyek ${project.title}`,
+              changes,
+              deedNumber: afterSnap.establishmentDeedNumber || afterSnap.latestAmendmentDeedNumber || '',
+              ahuNumber: 'AHU APPROVED'
+            };
+
+            const existingHistory = clientData.versionHistory || [];
+            
+            const updates: any = {
+              companyName: afterSnap.companyName || clientData.companyName,
+              fullAddress: afterSnap.fullAddress || clientData.fullAddress || '',
+              targetCapitalBase: afterSnap.authorizedCapital || clientData.targetCapitalBase || 0,
+              targetCapitalPaid: afterSnap.paidUpCapital || clientData.targetCapitalPaid || 0,
+              versionHistory: [...existingHistory, revision],
+              updatedAt: new Date().toISOString()
+            };
+
+            if (afterSnap.shareholders && afterSnap.shareholders.length > 0) {
+              updates.shareholders = afterSnap.shareholders.map((sh: any) => ({
+                id: sh.id,
+                name: sh.name,
+                sharesOwned: sh.sharesOwned,
+                nik: sh.nik || '',
+                npwp: sh.npwp || ''
+              }));
+              updates.finalShareholders = updates.shareholders;
+            }
+
+            if (afterSnap.managementItems && afterSnap.managementItems.length > 0) {
+              updates.newManagementItems = afterSnap.managementItems.map((m: any) => ({
+                id: m.id,
+                name: m.name,
+                position: m.position,
+                nik: m.nik || ''
+              }));
+            }
+
+            await updateDoc(clientRef, cleanUndefined(updates));
+          }
+        }
+      }
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, path);
+    }
+  }
+
+  static async updateProjectSnapshots(
+    projectId: string,
+    snapshots: { clientSnapshot?: ClientSnapshot; changeSnapshot?: ProjectChangeSnapshot }
+  ): Promise<void> {
+    try {
+      const projectRef = doc(db, this.projectsCol, projectId);
+      await updateDoc(projectRef, cleanUndefined(snapshots));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `${this.projectsCol}/${projectId}`);
     }
   }
 

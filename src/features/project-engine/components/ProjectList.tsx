@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Project } from '../../../domain/project/Project';
+import { Project, ClientSnapshot } from '../../../domain/project/Project';
 import { ProjectService } from '../../../services/ProjectService';
 import { UserProfile, CompanyProfile } from '../../../../types';
 import { db } from '../../../lib/firebase';
@@ -83,8 +83,50 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
       return;
     }
 
-    const clientName = profiles.find((c) => c.id === clientId)?.companyName || '';
+    const clientProfile = profiles.find((c) => c.id === clientId);
+    const clientName = clientProfile?.companyName || '';
     const title = `${selectedWorkflow.name || jobType} — ${clientName}`;
+
+    const mapCompanyProfileToSnapshot = (profile: CompanyProfile): ClientSnapshot => {
+      return {
+        id: profile.id,
+        companyName: profile.companyName || '',
+        companyType: profile.companyType || 'PT',
+        fullAddress: profile.fullAddress || '',
+        province: profile.newAddress?.province || profile.oldAddress?.province || '',
+        city: profile.newAddress?.city || profile.oldAddress?.city || '',
+        kbliItems: (profile.kbliItems || []).map(k => ({
+          id: k.id,
+          code: k.code,
+          name: k.name,
+          description: k.description || ''
+        })),
+        authorizedCapital: profile.targetCapitalBase || profile.originalCapitalBase || 0,
+        paidUpCapital: profile.targetCapitalPaid || profile.originalCapitalPaid || 0,
+        shareholders: (profile.shareholders || []).map(s => ({
+          id: s.id,
+          name: s.name,
+          sharesOwned: s.sharesOwned,
+          position: s.managementPosition || '',
+          nik: s.nik || '',
+          npwp: s.npwp || ''
+        })),
+        managementItems: (profile.newManagementItems || []).map(m => ({
+          id: m.id,
+          name: m.name,
+          position: m.position,
+          nik: m.nik || ''
+        })),
+        establishmentDeedNumber: profile.establishmentDeedNumber || '',
+        establishmentDeedDate: profile.establishmentDeedDate || '',
+        establishmentNotary: profile.establishmentNotary || '',
+        latestAmendmentDeedNumber: profile.latestAmendmentDeedNumber || '',
+        latestAmendmentDeedDate: profile.latestAmendmentDeedDate || '',
+        latestAmendmentNotary: profile.latestAmendmentNotary || ''
+      };
+    };
+
+    const initialSnapshot = clientProfile ? mapCompanyProfileToSnapshot(clientProfile) : undefined;
 
     setSubmitting(true);
     try {
@@ -96,7 +138,11 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
         status: startingStep,
         currentStep: startingStep,
         assignedTo: assignedTo.trim() || 'Unassigned',
-        metadata: {}
+        metadata: {},
+        ...(jobType === 'rups_lb' 
+          ? { changeSnapshot: initialSnapshot ? { before: initialSnapshot, after: initialSnapshot } : undefined }
+          : { clientSnapshot: initialSnapshot }
+        )
       });
 
       // Refresh list

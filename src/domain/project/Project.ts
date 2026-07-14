@@ -8,6 +8,43 @@ export interface DocumentReference {
   uploadedAt: any; // Date, Firestore Timestamp, or ISO string
 }
 
+export interface ClientSnapshot {
+  id: string; // Master client ID
+  companyName: string;
+  companyType?: string; // PT, CV, etc.
+  fullAddress?: string;
+  province?: string;
+  city?: string;
+  kbliItems?: { id: string; code: string; name: string; description?: string }[];
+  authorizedCapital?: number; // Modal Dasar
+  paidUpCapital?: number; // Modal Disetor
+  shareholders?: {
+    id: string;
+    name: string;
+    sharesOwned: number;
+    position?: string;
+    nik?: string;
+    npwp?: string;
+  }[];
+  managementItems?: {
+    id: string;
+    name: string;
+    position: string; // Direktur, Komisaris, dsb
+    nik?: string;
+  }[];
+  establishmentDeedNumber?: string;
+  establishmentDeedDate?: string;
+  establishmentNotary?: string;
+  latestAmendmentDeedNumber?: string;
+  latestAmendmentDeedDate?: string;
+  latestAmendmentNotary?: string;
+}
+
+export interface ProjectChangeSnapshot {
+  before: ClientSnapshot;
+  after: ClientSnapshot;
+}
+
 export interface Project {
   projectId: string; // Unique Identifier (Document ID in Firestore)
   clientId: string;  // Reference to CompanyProfile document (profiles/{id})
@@ -20,4 +57,6 @@ export interface Project {
   updatedAt: any;    // Timestamp of the last status or detail update
   metadata?: Record<string, any>; // Highly extensible metadata block
   documents?: DocumentReference[]; // Associated document registry
+  clientSnapshot?: ClientSnapshot; // Immutable snapshot of client state for normal projects
+  changeSnapshot?: ProjectChangeSnapshot; // Immutable change snapshot for RUPS LB Before/After
 }
