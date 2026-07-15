@@ -35,16 +35,17 @@ async function startServer() {
 
   app.post("/api/v2/drive/ensure-client-folder", authMiddleware, async (req, res) => {
     try {
-      const { clientId, companyName } = req.body;
+      const { clientId, companyName, clientType } = req.body;
       if (!clientId || !companyName) {
         return res.status(400).json({ error: "Missing clientId or companyName" });
       }
 
-      console.log(`[Drive API] Ensuring client folder for: ${companyName}`);
-      const companyFolder = await DriveFolderService.ensureCompanyFolder(companyName, process.env);
+      console.log(`[Drive API] Ensuring client folder for: ${companyName} (${clientType || 'PT'})`);
+      const companyFolder = await DriveFolderService.ensureCompanyFolder(companyName, clientType || 'PT', process.env);
       
       // Save driveFolderId and driveFolderUrl into the client document
       await firestoreRest.updateDocument('profiles', clientId, {
+        clientType: clientType || 'PT',
         driveFolderId: companyFolder.folderId,
         driveFolderUrl: companyFolder.folderUrl
       }, process.env);
@@ -80,18 +81,19 @@ async function startServer() {
         return res.status(500).json({ error: "GOOGLE_DRIVE_ROOT_FOLDER_ID is not configured in settings." });
       }
 
-      console.log(`[Sync Drive Clients] Listing folders from Google Drive root: ${rootFolderId}...`);
-      const q = `'${rootFolderId}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
+      console.log(`[Sync Drive Clients] Ensuring COMPANY PROFILE/PT folder exists...`);
+      const companyProfileId = await DriveFolderService.getOrCreateFolderByName("COMPANY PROFILE", rootFolderId, process.env);
+      const ptFolderId = await DriveFolderService.getOrCreateFolderByName("PT", companyProfileId, process.env);
+
+      console.log(`[Sync Drive Clients] Listing folders from Google Drive PT folder: ${ptFolderId}...`);
+      const q = `'${ptFolderId}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
       const allFolders = await driveRest.listFiles(q, 'files(id, name, webViewLink)', 1000, process.env);
 
-      // Filter folders starting with "PT " (case-insensitive) or "PT."
-      const ptFolders = allFolders.filter(folder => {
-        const name = folder.name || '';
-        const upperName = name.toUpperCase().trim();
-        return upperName.startsWith("PT ") || upperName.startsWith("PT.");
-      });
+      // No need to filter PT folders anymore since they are already in the PT folder
+      // But we can still normalize names
+      const ptFolders = allFolders;
 
-      console.log(`[Sync Drive Clients] Found ${ptFolders.length} folders starting with "PT" prefix.`);
+      console.log(`[Sync Drive Clients] Found ${ptFolders.length} folders in COMPANY PROFILE/PT.`);
 
       // Fetch existing clients (profiles collection)
       const { documents: existingProfiles } = await firestoreRest.listDocuments("profiles", 500, undefined, process.env);

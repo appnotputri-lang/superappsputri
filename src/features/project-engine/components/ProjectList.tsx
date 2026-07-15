@@ -355,11 +355,10 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
                 <thead className="bg-slate-50 border-b border-slate-200">
                   <tr>
                     <th className="px-4 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-wide w-12 text-center">No</th>
-                    <th className="px-4 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-wide">ID</th>
                     <th className="px-4 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-wide">Judul Proyek / Klien</th>
                     <th className="px-4 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-wide">Jenis Pekerjaan</th>
                     <th className="px-4 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-wide">Status</th>
-                    <th className="px-4 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-wide">Diperbarui</th>
+                    <th className="px-4 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-wide max-w-[320px]">Catatan Transisi Terakhir</th>
                     <th className="pl-4 pr-6 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-wide text-right">Aksi</th>
                   </tr>
                 </thead>
@@ -372,9 +371,6 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
                     >
                       <td className="px-4 py-3.5 text-[12px] font-medium text-slate-500 text-center">
                         {index + 1}
-                      </td>
-                      <td className="px-4 py-3.5 text-[11px] font-mono text-slate-400 uppercase whitespace-nowrap">
-                        {project.projectId.substring(0, 8)}
                       </td>
                       <td className="px-4 py-3.5 max-w-[280px]">
                         <div className="text-[13px] font-bold text-slate-900 truncate" title={getCleanTitle(project.title)}>
@@ -410,8 +406,8 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
                           {project.status}
                         </span>
                       </td>
-                      <td className="px-4 py-3.5 text-[12px] text-slate-500 whitespace-nowrap">
-                        {project.updatedAt ? new Date(project.updatedAt.seconds ? project.updatedAt.toDate() : project.updatedAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : '-'}
+                      <td className="px-4 py-3.5 text-[12px] text-slate-500 max-w-[320px] truncate" title={project.lastTransitionComment || `Proyek '${getCleanTitle(project.title)}' telah berhasil diinisialisasi.`}>
+                        {project.lastTransitionComment || `Proyek '${getCleanTitle(project.title)}' telah berhasil diinisialisasi.`}
                       </td>
                       <td className="pl-4 pr-6 py-3.5 text-right flex items-center justify-end gap-4">
                         <button

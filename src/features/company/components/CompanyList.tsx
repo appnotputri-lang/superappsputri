@@ -10,6 +10,19 @@ import {
 import { CompanyAvatar } from '../../../components/common/CompanyAvatar';
 import { CompanyListProps } from '../types/company.types';
 
+const clientTypeBadgeStyles: Record<string, { bg: string; text: string; border: string; label: string }> = {
+  PT: { bg: 'bg-blue-50/70', text: 'text-blue-700', border: 'border-blue-200', label: 'PT' },
+  CV: { bg: 'bg-amber-50/70', text: 'text-amber-700', border: 'border-amber-200', label: 'CV' },
+  YAYASAN: { bg: 'bg-emerald-50/70', text: 'text-emerald-700', border: 'border-emerald-200', label: 'Yayasan' },
+  PERKUMPULAN: { bg: 'bg-purple-50/70', text: 'text-purple-700', border: 'border-purple-200', label: 'Perkumpulan' },
+  PERSEKUTUAN_FIRMA: { bg: 'bg-pink-50/70', text: 'text-pink-700', border: 'border-pink-200', label: 'Persekutuan Firma' },
+  PERSEKUTUAN_PERDATA: { bg: 'bg-indigo-50/70', text: 'text-indigo-700', border: 'border-indigo-200', label: 'Persekutuan Perdata' },
+  KOPERASI: { bg: 'bg-teal-50/70', text: 'text-teal-700', border: 'border-teal-200', label: 'Koperasi' },
+  PMA: { bg: 'bg-rose-50/70', text: 'text-rose-700', border: 'border-rose-200', label: 'PMA' },
+  PERORANGAN: { bg: 'bg-sky-50/70', text: 'text-sky-700', border: 'border-sky-200', label: 'Perorangan' },
+  LAINNYA: { bg: 'bg-slate-50/70', text: 'text-slate-700', border: 'border-slate-200', label: 'Lainnya' }
+};
+
 export const CompanyList: React.FC<CompanyListProps> = ({
   profiles,
   profileStartIndex,
@@ -87,7 +100,7 @@ export const CompanyList: React.FC<CompanyListProps> = ({
   if (profiles.length === 0) {
     return (
       <div className="bg-slate-50 text-center py-12 rounded-sm border border-dashed border-slate-300 text-slate-500 text-[13px]">
-        Belum ada data klien PT. Klik <strong>"TAMBAH KLIEN PT"</strong> untuk membuat.
+        Belum ada data klien. Klik <strong>"TAMBAH KLIEN"</strong> untuk membuat.
       </div>
     );
   }
@@ -95,7 +108,7 @@ export const CompanyList: React.FC<CompanyListProps> = ({
   if (paginatedProfileResults.length === 0) {
     return (
       <div className="bg-slate-50 text-center py-8 rounded-sm border border-dashed border-slate-300 text-slate-500 text-[12px]">
-        Tidak ada data klien PT yang cocok dengan pencarian / penyaringan saat ini.
+        Tidak ada data klien yang cocok dengan pencarian / penyaringan saat ini.
       </div>
     );
   }
@@ -109,7 +122,7 @@ export const CompanyList: React.FC<CompanyListProps> = ({
           <span className="text-slate-800 font-bold">
             {Math.min(profileStartIndex + paginatedProfileResults.length, totalProfileItems)}
           </span>{' '}
-          dari <span className="text-slate-800 font-bold">{totalProfileItems}</span> Klien PT
+          dari <span className="text-slate-800 font-bold">{totalProfileItems}</span> Klien
         </span>
       </div>
 
@@ -127,6 +140,9 @@ export const CompanyList: React.FC<CompanyListProps> = ({
                   <span>NAMA PERSEROAN</span>
                   {renderProfileSortArrows('companyName')}
                 </div>
+              </th>
+              <th className="p-4 border-r border-slate-200">
+                JENIS BADAN USAHA
               </th>
               <th
                 className="p-4 border-r border-slate-200 cursor-pointer hover:bg-slate-100/80 transition-colors"
@@ -170,6 +186,7 @@ export const CompanyList: React.FC<CompanyListProps> = ({
                   })
                 : '-';
               const lastUpdated = formatProfileLastUpdated(p.updatedAt, p.establishmentDeedDate);
+              const badge = clientTypeBadgeStyles[p.clientType || 'PT'] || clientTypeBadgeStyles.PT;
 
               return (
                 <tr
@@ -208,6 +225,11 @@ export const CompanyList: React.FC<CompanyListProps> = ({
                         ))}
                       </div>
                     )}
+                  </td>
+                  <td className="p-4 border-r border-slate-100">
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${badge.bg} ${badge.text} ${badge.border}`}>
+                      {badge.label}
+                    </span>
                   </td>
                   <td className="p-4 text-slate-600 border-r border-slate-100 uppercase font-medium">
                     {city}

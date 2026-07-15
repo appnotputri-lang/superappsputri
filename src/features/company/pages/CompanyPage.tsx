@@ -35,9 +35,10 @@ export const CompanyPage: React.FC<CompanyPageProps> = () => {
     loading: isDataLoading,
   } = useCompanyContext();
 
-  const currentProfilesList = isCv ? cvProfiles : ptProfiles;
+  const currentProfilesList = ptProfiles;
 
   // 2. Local State Management for Listing & View State
+  const [selectedClientType, setSelectedClientType] = useState<string>('all');
   const [editingProfileId, setEditingProfileId] = useState<string | null>(null);
   const [isProfilePreview, setIsProfilePreview] = useState<boolean>(false);
   const [showArchivedProfiles, setShowArchivedProfiles] = useState<boolean>(false);
@@ -47,6 +48,13 @@ export const CompanyPage: React.FC<CompanyPageProps> = () => {
   const [profileSortField, setProfileSortField] = useState<string>('companyName');
   const [profileSortOrder, setProfileSortOrder] = useState<'asc' | 'desc'>('asc');
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
+
+  // Sync clientType if arriving from legacy CV path
+  useEffect(() => {
+    if (isCv) {
+      setSelectedClientType('CV');
+    }
+  }, [isCv]);
   
   // 3. Local State Management for Current Edited Profile Form Data
   const [data, setData] = useState<any>({ ...INITIAL_STATE });
@@ -69,10 +77,12 @@ export const CompanyPage: React.FC<CompanyPageProps> = () => {
   useEffect(() => {
     if (editingProfileId) {
       if (editingProfileId === 'new') {
+        const defaultType = selectedClientType !== 'all' ? selectedClientType : 'PT';
         setData({ 
           ...INITIAL_STATE, 
           id: crypto.randomUUID(),
-          companyType: isCv ? 'CV' : 'PT_LOKAL' 
+          clientType: defaultType,
+          companyType: defaultType === 'CV' ? 'CV' : 'PT_LOKAL' 
         });
       } else {
         const found = currentProfilesList.find(p => p.id === editingProfileId);
@@ -83,7 +93,7 @@ export const CompanyPage: React.FC<CompanyPageProps> = () => {
     } else {
       setData({ ...INITIAL_STATE });
     }
-  }, [editingProfileId, isCv, currentProfilesList]);
+  }, [editingProfileId, currentProfilesList, selectedClientType]);
 
   // Reset pagination when searching/filtering
   useEffect(() => {
@@ -543,6 +553,12 @@ export const CompanyPage: React.FC<CompanyPageProps> = () => {
     }
   });
 
+  if (selectedClientType !== 'all') {
+    filteredProfileResults = filteredProfileResults.filter((p) => {
+      return (p.clientType || 'PT') === selectedClientType;
+    });
+  }
+
   filteredProfileResults = filteredProfileResults.filter((p) => {
     if (!profileSearchQuery) return true;
     const q = profileSearchQuery.toLowerCase();
@@ -655,6 +671,8 @@ export const CompanyPage: React.FC<CompanyPageProps> = () => {
             selectedProfileYear={selectedProfileYear}
             setSelectedProfileYear={setSelectedProfileYear}
             uniqueProfileYears={uniqueProfileYears}
+            selectedClientType={selectedClientType}
+            setSelectedClientType={setSelectedClientType}
           />
 
           <CompanyList

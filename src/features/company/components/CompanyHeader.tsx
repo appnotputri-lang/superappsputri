@@ -16,15 +16,15 @@ export const CompanyHeader: React.FC<CompanyHeaderProps> = ({
     <div className="flex justify-between items-center bg-white p-4 rounded-sm shadow-sm border border-slate-200">
       <div>
         <h2 className="text-[16px] font-bold flex items-center gap-2 text-slate-800 uppercase">
-          <Building2 className="w-5 h-5 text-[#3b5998]" /> Klien PT
+          <Building2 className="w-5 h-5 text-[#3b5998]" /> Klien
         </h2>
         <p className="text-[12px] text-slate-500">
-          Kelola daftar profil klien PT untuk digunakan pada notulen dan akta
+          Kelola daftar profil klien badan usaha untuk digunakan pada notulen, akta, dan proyek
         </p>
       </div>
       {!editingProfileId && (
         <div className="flex gap-2">
-          {!isCv && onSyncDrive && (
+          {onSyncDrive && (
             <button
               onClick={onSyncDrive}
               disabled={isSyncing}
@@ -42,7 +42,7 @@ export const CompanyHeader: React.FC<CompanyHeaderProps> = ({
             }}
             className="bg-[#3b5998] hover:bg-[#2d4373] text-white px-4 py-2 rounded-sm font-bold text-[12px] flex items-center gap-2 transition-colors uppercase shadow-sm cursor-pointer"
           >
-            <Plus className="w-4 h-4" /> TAMBAH KLIEN PT
+            <Plus className="w-4 h-4" /> TAMBAH KLIEN
           </button>
         </div>
       )}

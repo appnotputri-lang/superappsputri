@@ -249,6 +249,7 @@ export interface CompanyProfile extends Partial<CompanyData> {
   isArchived?: boolean;
   phoneNumber?: string;
   versionHistory?: CompanyRevision[];
+  clientType?: 'PT' | 'CV' | 'YAYASAN' | 'PERKUMPULAN' | 'PERSEKUTUAN_FIRMA' | 'PERSEKUTUAN_PERDATA' | 'KOPERASI' | 'PMA' | 'PERORANGAN' | 'LAINNYA';
 }
 
 export interface CompanyData {

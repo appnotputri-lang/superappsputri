@@ -1,5 +1,5 @@
 import React from 'react';
-import { AhuSection, AhuLabel, AhuInput } from '../components/CompanyForm';
+import { AhuSection, AhuLabel, AhuInput, AhuSelect } from '../components/CompanyForm';
 
 interface GeneralInformationSectionProps {
   data: any;
@@ -13,6 +13,32 @@ export const GeneralInformationSection: React.FC<GeneralInformationSectionProps>
   return (
     <AhuSection title="General Information">
       <div className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+          <AhuLabel label="Jenis Badan Usaha" required />
+          <div className="md:col-span-3">
+            <AhuSelect 
+              value={data.clientType || 'PT'} 
+              onChange={e => {
+                const val = e.target.value;
+                updateData({ 
+                  clientType: val,
+                  companyType: val === 'CV' ? 'CV' : (val === 'PT' ? 'PT_LOKAL' : val)
+                });
+              }}
+            >
+              <option value="PT">PT</option>
+              <option value="CV">CV</option>
+              <option value="YAYASAN">Yayasan</option>
+              <option value="PERKUMPULAN">Perkumpulan</option>
+              <option value="PERSEKUTUAN_FIRMA">Persekutuan Firma</option>
+              <option value="PERSEKUTUAN_PERDATA">Persekutuan Perdata</option>
+              <option value="KOPERASI">Koperasi</option>
+              <option value="PMA">PMA</option>
+              <option value="PERORANGAN">Perorangan</option>
+              <option value="LAINNYA">Lainnya</option>
+            </AhuSelect>
+          </div>
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
           <AhuLabel label="Nama Perseroan" required />
           <div className="md:col-span-3">

@@ -78,6 +78,22 @@ export class WorkflowService {
       "Selesai"
     ];
 
+    const rupslbSteps = [
+      "Drafting Notulen",
+      "Review Notulen",
+      "ACC Notulen",
+      "Notulen Diterima PDF",
+      "Drafting Akta",
+      "Review Draft Akta",
+      "ACC Draft Akta",
+      "Cetak Akta",
+      "Input AHU",
+      "SP/SK Terbit",
+      "NPWP Terbit",
+      "INPUT NIB",
+      "NIB TERBIT"
+    ];
+
     const rupstSteps = [
       "Drafting Notulen",
       "Review Notulen",
@@ -96,7 +112,7 @@ export class WorkflowService {
       {
         id: "rups_lb",
         name: "RUPS Luar Biasa",
-        steps: newSteps,
+        steps: rupslbSteps,
         description: "Alur kerja standar RUPS LB meliputi penyusunan draft akta, persetujuan, pencetakan akta, pelaporan AHU, dan penyelesaian."
       },
       {
@@ -120,7 +136,7 @@ export class WorkflowService {
       {
         id: "sirkuler_rupslb",
         name: "Sirkuler RUPS LB",
-        steps: newSteps,
+        steps: rupslbSteps,
         description: "Alur kerja Keputusan Sirkuler RUPS LB yang mencakup penyusunan keputusan sirkuler sebagai pengganti RUPS, penelaahan, penandatanganan sirkuler oleh para pemegang saham, dan pengarsipan."
       }
     ];

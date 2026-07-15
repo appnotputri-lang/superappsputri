@@ -606,8 +606,7 @@ const AppShell: React.FC = () => {
     const results: { id: string; title: string; subtitle: string; type: string; tabId: SidebarTabId; action?: () => void }[] = [];
 
     const menus = [
-      { id: 'm-kp', title: 'Menu: Klien PT', subtitle: 'Kelola profile klien PT', type: 'menu', tabId: 'company_profile' as const },
-      { id: 'm-kcv', title: 'Menu: Klien CV', subtitle: 'Kelola profile klien CV', type: 'menu', tabId: 'cv_profile' as const },
+      { id: 'm-kp', title: 'Menu: Klien', subtitle: 'Kelola profile klien badan usaha', type: 'menu', tabId: 'company_profile' as const },
       { id: 'm-rlb', title: 'Menu: RUPS LB', subtitle: 'Keputusan Sirkuler & PKR LB', type: 'menu', tabId: 'notulen' as const },
       { id: 'm-rt', title: 'Menu: RUPS Tahunan', subtitle: 'Pertanggungjawaban tahun buku', type: 'menu', tabId: 'rupst' as const },
       { id: 'm-pp', title: 'Menu: Pendirian PT', subtitle: 'Draft akta pendirian', type: 'menu', tabId: 'pendirian' as const },
@@ -626,31 +625,14 @@ const AppShell: React.FC = () => {
       if (p.companyName && p.companyName.toLowerCase().includes(q)) {
         results.push({
           id: p.id || '',
-          title: `Klien PT: ${p.companyName}`,
-          subtitle: p.newAddress?.city || 'Profile Klien Perusahaan',
+          title: `Klien: ${p.companyName}`,
+          subtitle: `${p.clientType || 'PT'} - ${p.newAddress?.city || 'Profile Klien'}`,
           type: 'klien',
           tabId: 'company_profile',
           action: () => {
             setEditingProfileId(p.id);
             setIsProfilePreview(true);
             updateData({ ...INITIAL_STATE, ...p } as any);
-          }
-        });
-      }
-    });
-
-    cvProfiles.forEach(p => {
-      if (p.companyName && p.companyName.toLowerCase().includes(q)) {
-        results.push({
-          id: p.id || '',
-          title: `Klien CV: ${p.companyName}`,
-          subtitle: p.domicile || 'Profile Klien CV',
-          type: 'klien-cv',
-          tabId: 'cv_profile',
-          action: () => {
-            setEditingCvProfileId(p.id);
-            setIsProfilePreview(true);
-            updateData({ ...INITIAL_STATE, ...p, companyType: 'CV' } as any);
           }
         });
       }
@@ -2104,7 +2086,7 @@ const AppShell: React.FC = () => {
             <CompanyPage />
           ) : activeSidebarTab === 'cv_profile' ? (
             <CompanyPage />
-          ) : (activeSidebarTab as any) === 'cv_profile_legacy' ? (
+          ) : false ? (
             <div className="max-w-5xl mx-auto space-y-4">
               <div className="flex justify-between items-center bg-white p-4 rounded-sm shadow-sm border border-slate-200">
                 <div>

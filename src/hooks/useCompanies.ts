@@ -28,13 +28,18 @@ export function useCompanies() {
   // Listen in real-time
   useEffect(() => {
     setLoading(true);
-    const unsubPT = CompanyService.listenCompanies((ptList) => {
-      setProfiles(ptList);
-      setLoading(false);
-    });
-    const unsubCV = CompanyService.listenCvCompanies((cvList) => {
-      setCvProfiles(cvList);
-      setLoading(false);
+    let unsubPT = () => {};
+    let unsubCV = () => {};
+
+    CompanyService.migrateLegacyCvProfiles().finally(() => {
+      unsubPT = CompanyService.listenCompanies((ptList) => {
+        setProfiles(ptList);
+        setLoading(false);
+      });
+      unsubCV = CompanyService.listenCvCompanies((cvList) => {
+        setCvProfiles(cvList);
+        setLoading(false);
+      });
     });
 
     return () => {

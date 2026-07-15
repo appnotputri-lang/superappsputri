@@ -80,17 +80,107 @@ export const Sidebar: React.FC<SidebarProps> = ({
           );
         })}
 
-        {/* Menu Header: PERSEROAN TERBATAS */}
+        {/* Menu Header: KLIEN */}
         <div className="px-5 pt-6 pb-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest select-none">
-          Perseroan Terbatas
+          Klien
         </div>
 
         {[
-          { label: 'Klien PT', id: 'company_profile' as const, icon: Building2 },
-          { label: 'Klien CV', id: 'cv_profile' as const, icon: Briefcase },
+          { label: 'Klien', id: 'company_profile' as const, icon: Building2 },
+        ].map((item) => {
+          const isActive = activeSidebarTab === item.id;
+          const acc = TAB_ACCENTS[item.id] || TAB_ACCENTS.beranda;
+          return (
+            <button 
+              key={item.id} 
+              onClick={() => {
+                if (!user) {
+                  if (confirm(`Anda harus login terlebih dahulu untuk mengakses menu "${item.label}".`)) {
+                    loginWithGoogle();
+                  }
+                  return;
+                }
+                setActiveSidebarTab(item.id);
+              }} 
+              className={`relative w-full text-left pl-7 pr-5 py-2.5 transition-all flex items-center justify-between select-none ${
+                isActive 
+                  ? `${acc.bgColor} ${acc.textColor} font-semibold` 
+                  : `text-slate-600 ${acc.hoverBg}`
+              }`}
+            >
+              {isActive && (
+                <div className={`absolute left-0 top-1.5 bottom-1.5 w-[4.5px] rounded-r-md ${acc.indicatorBg}`} />
+              )}
+              <span className="flex items-center gap-3">
+                <item.icon 
+                  size={20} 
+                  strokeWidth={isActive ? 2.25 : 2.0}
+                  className={`shrink-0 transition-colors ${isActive ? acc.iconColor : 'text-slate-400'}`} 
+                />
+                <span>{item.label}</span>
+              </span>
+              {!user && (
+                <Lock size={12} className="text-slate-400/50 shrink-0" />
+              )}
+            </button>
+          );
+        })}
+
+        {/* Menu Header: PROYEK */}
+        <div className="px-5 pt-6 pb-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest select-none">
+          Proyek
+        </div>
+
+        {[
           { label: 'RUPS LB', id: 'notulen' as const, icon: FileText },
           { label: 'RUPS Tahunan', id: 'rupst' as const, icon: CalendarCheck },
           { label: 'Pendirian PT', id: 'pendirian' as const, icon: FilePlus },
+          { label: 'Proyek Kerja', id: 'projects' as const, icon: Briefcase },
+        ].map((item) => {
+          const isActive = activeSidebarTab === item.id || (item.id === 'projects' && activeSidebarTab === 'project_detail');
+          const acc = TAB_ACCENTS[item.id] || TAB_ACCENTS.beranda;
+          return (
+            <button 
+              key={item.id} 
+              onClick={() => {
+                if (!user) {
+                  if (confirm(`Anda harus login terlebih dahulu untuk mengakses menu "${item.label}".`)) {
+                    loginWithGoogle();
+                  }
+                  return;
+                }
+                setActiveSidebarTab(item.id);
+              }} 
+              className={`relative w-full text-left pl-7 pr-5 py-2.5 transition-all flex items-center justify-between select-none ${
+                isActive 
+                  ? `${acc.bgColor} ${acc.textColor} font-semibold` 
+                  : `text-slate-600 ${acc.hoverBg}`
+              }`}
+            >
+              {isActive && (
+                <div className={`absolute left-0 top-1.5 bottom-1.5 w-[4.5px] rounded-r-md ${acc.indicatorBg}`} />
+              )}
+              <span className="flex items-center gap-3">
+                <item.icon 
+                  size={20} 
+                  strokeWidth={isActive ? 2.25 : 2.0}
+                  className={`shrink-0 transition-colors ${isActive ? acc.iconColor : 'text-slate-400'}`} 
+                />
+                <span>{item.label}</span>
+              </span>
+              {!user && (
+                <Lock size={12} className="text-slate-400/50 shrink-0" />
+              )}
+            </button>
+          );
+        })}
+
+        {/* Menu Header: LAPORAN */}
+        <div className="px-5 pt-6 pb-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest select-none">
+          Laporan
+        </div>
+
+        {[
           { label: 'Laporan', id: 'laporan' as const, icon: FileText },
         ].map((item) => {
           const isActive = activeSidebarTab === item.id;
@@ -203,52 +293,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
           );
         })()}
-
-        {/* Menu Header: MANAJEMEN KANTOR */}
-        <div className="px-5 pt-6 pb-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest select-none">
-          Manajemen Kantor
-        </div>
-
-        {[
-          { label: 'Proyek Kerja', id: 'projects' as const, icon: Briefcase },
-        ].map((item) => {
-          const isActive = activeSidebarTab === item.id || (item.id === 'projects' && activeSidebarTab === 'project_detail');
-          const acc = TAB_ACCENTS[item.id] || TAB_ACCENTS.beranda;
-          return (
-            <button 
-              key={item.id} 
-              onClick={() => {
-                if (!user) {
-                  if (confirm(`Anda harus login terlebih dahulu untuk mengakses menu "${item.label}".`)) {
-                    loginWithGoogle();
-                  }
-                  return;
-                }
-                setActiveSidebarTab(item.id);
-              }} 
-              className={`relative w-full text-left px-5 py-2.5 transition-all flex items-center justify-between select-none ${
-                isActive 
-                  ? `${acc.bgColor} ${acc.textColor} font-semibold` 
-                  : `text-slate-600 ${acc.hoverBg}`
-              }`}
-            >
-              {isActive && (
-                <div className={`absolute left-0 top-1.5 bottom-1.5 w-[4.5px] rounded-r-md ${acc.indicatorBg}`} />
-              )}
-              <span className="flex items-center gap-3">
-                <item.icon 
-                  size={20} 
-                  strokeWidth={isActive ? 2.25 : 2.0}
-                  className={`shrink-0 transition-colors ${isActive ? acc.iconColor : 'text-slate-400'}`} 
-                />
-                <span>{item.label}</span>
-              </span>
-              {!user && (
-                <Lock size={12} className="text-slate-400/50 shrink-0" />
-              )}
-            </button>
-          );
-        })}
 
         {/* Menu Header: PENGATURAN */}
         {userProfile?.role === 'Super Admin' && (

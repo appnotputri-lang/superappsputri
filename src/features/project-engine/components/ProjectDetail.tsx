@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Project, DocumentReference, ClientSnapshot, ProjectChangeSnapshot } from '../../../domain/project/Project';
+import { Project, DocumentReference, ClientSnapshot, ProjectChangeSnapshot, Party } from '../../../domain/project/Project';
 import { ProjectService } from '../../../services/ProjectService';
+import { PartiesManager } from './PartiesManager';
 import { CompanyProfile, UserProfile, AmendmentDeed } from '../../../../types';
 import { INITIAL_STATE } from '../../../domain/company/initialCompanyData';
 import { Workflow } from '../../../domain/project/Workflow';
@@ -221,13 +222,13 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
           ? project.title.split(' - ')[1].trim() 
           : project?.title || '';
 
-      // First try to match by selectedProfileId/clientId if available
+      // First try to match by selectedProfileId if available (form templates usually use selectedProfileId, except pendirian)
       if (project?.clientId) {
         let qClient;
-        if (collectionName === 'pendirian_projects') {
+        if (collectionName === 'pendirian_projects' || collectionName === 'rupst_projects' || collectionName === 'projects') {
           qClient = query(colRef, where('selectedProfileId', '==', project.clientId));
         } else {
-          qClient = query(colRef, where('clientId', '==', project.clientId)); // Assuming others might have clientId, if not it might fail safely or just return empty
+          qClient = query(colRef, where('clientId', '==', project.clientId));
         }
         try {
           const qSnapClient = await getDocs(qClient);
@@ -246,13 +247,25 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
         return enrichWithProjectMetadata(qSnap.docs[0].data());
       }
 
+      // Brute-force robust company name matching helper
+      const normalizeCompName = (n: string): string => {
+        if (!n) return '';
+        return n
+          .toUpperCase()
+          .replace(/\bPT\b\.?/g, 'PT') // normalize "PT." or "PT"
+          .replace(/[^A-Z0-9]/g, '')   // remove space, dots, symbols
+          .trim();
+      };
+
+      const projectTitleNorm = normalizeCompName(cleanTitle);
+
       // Brute-force local/trimmed fallback if exact match query failed
       const allSnap = await getDocs(colRef);
-      const projectTitleUpper = cleanTitle.toUpperCase();
       for (const d of allSnap.docs) {
         const data = d.data();
-        const docTitle = (data.namaPt || data.companyName || '').toUpperCase().trim();
-        if (docTitle === projectTitleUpper && projectTitleUpper !== '') {
+        const docTitle = data.namaPt || data.companyName || '';
+        const docTitleNorm = normalizeCompName(docTitle);
+        if (docTitleNorm === projectTitleNorm && projectTitleNorm !== '') {
           return enrichWithProjectMetadata(data);
         }
       }
@@ -959,7 +972,11 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
     e.preventDefault();
     if (!transitionStatus) return;
 
-    const isCompletedStatus = transitionStatus.toLowerCase().includes('selesai') || transitionStatus.toLowerCase() === 'sp terbit';
+    const isCompletedStatus = 
+      transitionStatus.toLowerCase().includes('selesai') || 
+      transitionStatus.toLowerCase() === 'sp terbit' || 
+      transitionStatus.toLowerCase() === 'sp/sk terbit' || 
+      transitionStatus.toLowerCase() === 'nib terbit';
     const hasDeedForm = ['rups_lb', 'sirkuler_rupslb', 'pendirian_pt'].includes(project?.jobType || '');
 
     if (isCompletedStatus && hasDeedForm) {
@@ -1280,6 +1297,207 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
       alert('Gagal mengunggah dokumen: ' + err.message);
     } finally {
       setAddingDoc(false);
+    }
+  };
+
+  const handlePullFromForm = async (): Promise<Party[]> => {
+    // 1. Fetch form object
+    const formDoc = documents.find(d => d.refId);
+    const refIdToUse = formDoc?.refId || project?.metadata?.refId || projectId;
+    const formObj = await fetchDocRecordData({
+      id: 'temp',
+      name: project?.title || '',
+      type: 'form',
+      refId: refIdToUse,
+      uploadedAt: new Date().toISOString()
+    });
+
+    if (!formObj) {
+      throw new Error('Gagal memuat formulir atau data kehadiran proyek ini. Pastikan Anda telah mengisi dan menyimpan data formulir terlebih dahulu.');
+    }
+
+    const extractedParties: Party[] = [];
+
+    // Helper to format Address object to string
+    const formatAddress = (addr: any): string => {
+      if (!addr) return '';
+      if (typeof addr === 'string') return addr;
+      const parts = [];
+      if (addr.fullAddress) parts.push(addr.fullAddress);
+      if (addr.rt && addr.rw) parts.push(`RT ${addr.rt}/RW ${addr.rw}`);
+      else if (addr.rt) parts.push(`RT ${addr.rt}`);
+      else if (addr.rw) parts.push(`RW ${addr.rw}`);
+      if (addr.kelurahan) parts.push(`Kel. ${addr.kelurahan}`);
+      if (addr.kecamatan) parts.push(`Kec. ${addr.kecamatan}`);
+      if (addr.city) parts.push(addr.city);
+      if (addr.province) parts.push(addr.province);
+      return parts.join(', ');
+    };
+
+    // Helper to standardise occupation
+    const mapOccupation = (occ: string): string => {
+      if (!occ) return 'Pengusaha';
+      const clean = occ.trim().toLowerCase();
+      if (clean === 'pengusaha') return 'Pengusaha';
+      if (clean.includes('swasta') || clean.includes('karyawan') || clean.includes('pegawai')) return 'Pegawai Swasta';
+      if (clean === 'pns' || clean.includes('negeri') || clean.includes('sipil')) return 'PNS';
+      if (clean.includes('dokter') || clean.includes('advokat') || clean.includes('notaris') || clean.includes('akuntan') || clean.includes('profesional') || clean.includes('spesialis') || clean.includes('bidan')) {
+        return 'Profesional';
+      }
+      if (clean.includes('pedagang') || clean.includes('dagang')) return 'Pedagang';
+      if (clean.includes('guru') || clean.includes('dosen') || clean.includes('pengajar')) return 'Pengajar';
+      if (clean.includes('petani') || clean.includes('tani')) return 'Petani';
+      return 'Lainnya';
+    };
+
+    // Helper to add unique party
+    const addParty = (item: {
+      name: string;
+      nik?: string;
+      jabatan: string;
+      pekerjaan?: string;
+      kewarganegaraan?: string;
+      alamat?: string;
+      sahamPercentage?: number;
+    }) => {
+      if (!item.name) return;
+      const name = item.name.trim();
+      const nik = (item.nik || '').trim();
+      const rawJabatan = item.jabatan.trim();
+      
+      // Map jabatan to standardized options
+      let jabatan = 'Direktur';
+      if (rawJabatan.toLowerCase().includes('direktur utama')) {
+        jabatan = 'Direktur Utama';
+      } else if (rawJabatan.toLowerCase().includes('direktur')) {
+        jabatan = 'Direktur';
+      } else if (rawJabatan.toLowerCase().includes('komisaris utama')) {
+        jabatan = 'Komisaris Utama';
+      } else if (rawJabatan.toLowerCase().includes('komisaris')) {
+        jabatan = 'Komisaris';
+      } else if (rawJabatan.toLowerCase().includes('saham') || rawJabatan.toLowerCase().includes('shareholder')) {
+        jabatan = 'Pemegang Saham';
+      } else if (rawJabatan.toLowerCase().includes('kuasa') || rawJabatan.toLowerCase().includes('proxy')) {
+        jabatan = 'Kuasa';
+      } else {
+        jabatan = rawJabatan;
+      }
+
+      const pekerjaan = mapOccupation(item.pekerjaan || 'Pengusaha');
+      let kewarganegaraan = (item.kewarganegaraan || 'WNI').trim().toUpperCase();
+      if (kewarganegaraan === 'INDONESIA') kewarganegaraan = 'WNI';
+
+      const existingIdx = extractedParties.findIndex(p => p.nik && p.nik === nik);
+      if (existingIdx !== -1) {
+        // Person already exists (by NIK), let's keep the highest precedence position or append details
+        const existing = extractedParties[existingIdx];
+        if (jabatan !== 'Kuasa' && existing.jabatan === 'Kuasa') {
+          existing.jabatan = jabatan;
+        }
+        if (item.sahamPercentage !== undefined) {
+          existing.sahamPercentage = item.sahamPercentage;
+        }
+      } else {
+        extractedParties.push({
+          id: crypto.randomUUID(),
+          name,
+          nik,
+          jabatan,
+          pekerjaan,
+          kewarganegaraan,
+          alamat: item.alamat || undefined,
+          sahamPercentage: item.sahamPercentage || undefined,
+          status: 'Aktif'
+        });
+      }
+    };
+
+    // 1. Fetch from Shareholders (data.shareholders, finalShareholders, pemegangSaham)
+    const rawShareholders = formObj.shareholders || formObj.finalShareholders || formObj.pemegangSaham || [];
+    let totalShares = 0;
+    if (Array.isArray(rawShareholders)) {
+      rawShareholders.forEach((s: any) => {
+        const shares = Number(s.sharesOwned || s.finalShares || s.shares || 0);
+        totalShares += shares;
+      });
+
+      rawShareholders.forEach((s: any) => {
+        const shares = Number(s.sharesOwned || s.finalShares || s.shares || 0);
+        const sahamPercentage = totalShares > 0 ? Number(((shares / totalShares) * 100).toFixed(2)) : undefined;
+
+        // Add as shareholder
+        addParty({
+          name: s.name,
+          nik: s.nik,
+          jabatan: s.isManagement ? (s.managementPosition || 'Direktur') : 'Pemegang Saham',
+          pekerjaan: s.occupation,
+          kewarganegaraan: s.nationalityType || (s.nationality === 'INDONESIA' ? 'WNI' : s.nationality) || 'WNI',
+          alamat: formatAddress(s.address),
+          sahamPercentage
+        });
+
+        // Add proxy (kuasa) if present
+        if (s.isProxy && s.proxyData && s.proxyData.name) {
+          addParty({
+            name: s.proxyData.name,
+            nik: s.proxyData.nik,
+            jabatan: 'Kuasa',
+            pekerjaan: s.proxyData.occupation,
+            kewarganegaraan: s.proxyData.nationalityType || 'WNI',
+            alamat: formatAddress(s.proxyData.address)
+          });
+        }
+      });
+    }
+
+    // 2. Fetch from Management items (managementItems, newManagementItems, oldManagementItems, finalManagement, direksi, komisaris, pengurus)
+    const mItems = [
+      ...(formObj.managementItems || []),
+      ...(formObj.newManagementItems || []),
+      ...(formObj.oldManagementItems || []),
+      ...(formObj.finalManagement || []),
+      ...(formObj.direksi || []),
+      ...(formObj.komisaris || []),
+      ...(formObj.pengurus || [])
+    ];
+
+    if (Array.isArray(mItems)) {
+      mItems.forEach((m: any) => {
+        if (!m || !m.name) return;
+        addParty({
+          name: m.name,
+          nik: m.nik,
+          jabatan: m.position || m.managementPosition || 'Direktur',
+          pekerjaan: m.occupation || m.pekerjaan,
+          kewarganegaraan: m.nationalityType || m.kewarganegaraan || 'WNI',
+          alamat: formatAddress(m.address)
+        });
+      });
+    }
+
+    // 3. Pimpinan Rapat (pimpinanRapat, meetingChair)
+    if (formObj.meetingChair) {
+      addParty({
+        name: formObj.meetingChair,
+        nik: formObj.meetingChairNik || '',
+        jabatan: formObj.meetingChairPosition || 'Kuasa',
+        pekerjaan: 'Pengusaha',
+        kewarganegaraan: 'WNI'
+      });
+    }
+
+    return extractedParties;
+  };
+
+  const handleSaveParties = async (updatedParties: Party[]) => {
+    try {
+      await updateDoc(doc(db, 'office_projects', projectId), {
+        parties: updatedParties
+      });
+      setProject(prev => prev ? { ...prev, parties: updatedParties } : null);
+    } catch (err: any) {
+      console.error(err);
+      throw new Error('Gagal menyimpan data personil ke database: ' + err.message);
     }
   };
 
@@ -1930,6 +2148,13 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
               )}
             </div>
 
+            {/* Profil Personil PT (PMPJ/SRA) */}
+            <PartiesManager 
+              parties={project.parties || []} 
+              onSaveParties={handleSaveParties} 
+              onPullFromForm={handlePullFromForm}
+            />
+
             {/* Task Checklist Section */}
             <div className="bg-white border border-slate-200/80 rounded-xl p-6 shadow-sm">
               <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
@@ -2119,7 +2344,10 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
 
                 {/* Conditionally render Deed / Akta details form when transitioning to Completed state */}
                 {['rups_lb', 'sirkuler_rupslb', 'pendirian_pt'].includes(project?.jobType || '') && 
-                  (transitionStatus.toLowerCase().includes('selesai') || transitionStatus.toLowerCase() === 'sp terbit') && (
+                  (transitionStatus.toLowerCase().includes('selesai') || 
+                   transitionStatus.toLowerCase() === 'sp terbit' ||
+                   transitionStatus.toLowerCase() === 'sp/sk terbit' ||
+                   transitionStatus.toLowerCase() === 'nib terbit') && (
                   <div className="p-5 bg-white border border-slate-200 rounded-xl space-y-4 animate-fadeIn shadow-sm">
                     {/* Header */}
                     <div className="border-b border-slate-100 pb-3 flex items-center justify-between">

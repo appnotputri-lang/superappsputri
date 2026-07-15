@@ -12,6 +12,8 @@ export const CompanyToolbar: React.FC<CompanyToolbarProps> = ({
   selectedProfileYear,
   setSelectedProfileYear,
   uniqueProfileYears,
+  selectedClientType,
+  setSelectedClientType,
 }) => {
   const handleSearchChange = (val: string) => {
     setProfileSearchQuery(val);
@@ -88,6 +90,30 @@ export const CompanyToolbar: React.FC<CompanyToolbarProps> = ({
             )}
           </div>
 
+          {/* Client Type Filter */}
+          <div className="w-full sm:w-44">
+            <select
+              value={selectedClientType}
+              onChange={(e) => {
+                setSelectedClientType(e.target.value);
+                setProfileCurrentPage(1);
+              }}
+              className="w-full py-2 px-3 border border-slate-300 rounded-md text-[12px] text-slate-700 font-medium outline-none focus:border-[#3b5998] transition-all bg-white"
+            >
+              <option value="all">▼ Semua Jenis Klien</option>
+              <option value="PT">▼ PT</option>
+              <option value="CV">▼ CV</option>
+              <option value="YAYASAN">▼ Yayasan</option>
+              <option value="PERKUMPULAN">▼ Perkumpulan</option>
+              <option value="PERSEKUTUAN_FIRMA">▼ Persekutuan Firma</option>
+              <option value="PERSEKUTUAN_PERDATA">▼ Persekutuan Perdata</option>
+              <option value="KOPERASI">▼ Koperasi</option>
+              <option value="PMA">▼ PMA</option>
+              <option value="PERORANGAN">▼ Perorangan</option>
+              <option value="LAINNYA">▼ Lainnya</option>
+            </select>
+          </div>
+
           {/* Year Filter */}
           <div className="w-full sm:w-44">
             <select
@@ -108,11 +134,12 @@ export const CompanyToolbar: React.FC<CompanyToolbarProps> = ({
           </div>
 
           {/* Reset Button */}
-          {(profileSearchQuery !== '' || selectedProfileYear !== 'all') && (
+          {(profileSearchQuery !== '' || selectedProfileYear !== 'all' || selectedClientType !== 'all') && (
             <button
               onClick={() => {
                 setProfileSearchQuery('');
                 setSelectedProfileYear('all');
+                setSelectedClientType('all');
                 setProfileCurrentPage(1);
               }}
               className="py-2 px-4 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-md text-[12px] font-bold transition-all border border-slate-200 uppercase tracking-wider"

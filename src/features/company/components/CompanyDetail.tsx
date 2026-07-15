@@ -85,10 +85,10 @@ export const CompanyDetail: React.FC<CompanyDetailProps> = ({
               if (confirm('Hapus profil ' + data.companyName + '?')) {
                 if (!user) return alert('Anda harus login!');
                 try {
-                  const deletedName = data.companyName || 'PT Baru';
+                  const deletedName = data.companyName || 'Klien Baru';
                   await deleteCompany(editingProfileId, false);
                   recordNotification(
-                    'Klien PT Dihapus',
+                    'Klien Dihapus',
                     `Profil klien "${deletedName}" telah berhasil dihapus oleh ${user?.email || 'Admin'}.`,
                     'delete_profile'
                   );
@@ -217,6 +217,14 @@ export const CompanyDetail: React.FC<CompanyDetailProps> = ({
         {/* 1. GENERAL INFORMATION */}
         <AhuSection title="General Information">
           <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+              <AhuLabel label="Jenis Badan Usaha" />
+              <div className="md:col-span-3">
+                <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold border bg-slate-100 text-slate-800 border-slate-200">
+                  {data.clientType || 'PT'}
+                </span>
+              </div>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
               <AhuLabel label="Nama Perseroan" required />
               <div className="md:col-span-3">

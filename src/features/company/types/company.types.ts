@@ -21,6 +21,8 @@ export interface CompanyToolbarProps {
   selectedProfileYear: string;
   setSelectedProfileYear: (year: string) => void;
   uniqueProfileYears: string[];
+  selectedClientType: string;
+  setSelectedClientType: (type: string) => void;
 }
 
 export interface CompanyListProps {

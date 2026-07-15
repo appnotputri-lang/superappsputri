@@ -53,7 +53,8 @@ export class ProjectService {
         ...projectData,
         projectId,
         createdAt: now,
-        updatedAt: now
+        updatedAt: now,
+        lastTransitionComment: `Proyek '${projectData.title}' telah berhasil diinisialisasi.`
       };
 
       // Set document in Firestore
@@ -148,18 +149,21 @@ export class ProjectService {
       }
 
       const now = new Date();
+      const lastComment = comment || `Status proyek beralih dari '${oldStatus}' menuju '${newStatus}'.`;
+      
       // Update status on Firestore
       await updateDoc(projectRef, {
         status: newStatus,
         currentStep: newStatus,
-        updatedAt: now
+        updatedAt: now,
+        lastTransitionComment: lastComment
       });
 
       // Generate a milestone timeline entry
       await this.addTimeline(projectId, {
         status: newStatus,
         title: `Status diubah ke ${newStatus.toUpperCase()}`,
-        description: comment || `Status proyek beralih dari '${oldStatus}' menuju '${newStatus}'.`,
+        description: lastComment,
         createdBy: userId
       });
 

@@ -16,49 +16,63 @@ export class DriveFolderService {
   private static companyFolderPromises = new Map<string, Promise<{ folderId: string; folderUrl: string }>>();
   private static subFolderPromises = new Map<string, Promise<{ folderId: string; folderUrl: string }>>();
 
-  static async ensureCompanyFolder(companyName: string, env: any = {}): Promise<{ folderId: string; folderUrl: string }> {
+  static async ensureCompanyFolder(companyName: string, clientType: string = 'PT', env: any = {}): Promise<{ folderId: string; folderUrl: string }> {
     const normalized = this.normalizeCompanyName(companyName);
     
-    let activePromise = this.companyFolderPromises.get(normalized);
+    // Key for promise tracking should probably include clientType if we want to be safe, 
+    // but normalized company name is usually unique enough for active requests.
+    const promiseKey = `${clientType}:${normalized}`;
+
+    let activePromise = this.companyFolderPromises.get(promiseKey);
     if (!activePromise) {
-      activePromise = this._ensureCompanyFolderInternal(companyName, normalized, env);
-      this.companyFolderPromises.set(normalized, activePromise);
+      activePromise = this._ensureCompanyFolderInternal(companyName, clientType, normalized, env);
+      this.companyFolderPromises.set(promiseKey, activePromise);
       activePromise.finally(() => {
-        this.companyFolderPromises.delete(normalized);
+        this.companyFolderPromises.delete(promiseKey);
       });
     }
     
     return activePromise;
   }
 
-  private static async _ensureCompanyFolderInternal(companyName: string, normalized: string, env: any = {}): Promise<{ folderId: string; folderUrl: string }> {
-    const rootFolderId = getEnv(env, 'GOOGLE_DRIVE_ROOT_FOLDER_ID');
+  private static async _ensureCompanyFolderInternal(companyName: string, clientType: string, normalized: string, env: any = {}): Promise<{ folderId: string; folderUrl: string }> {
+    const rootDriveFolderId = getEnv(env, 'GOOGLE_DRIVE_ROOT_FOLDER_ID');
 
-    // Use simple GET/SET instead of complex transaction for Cloudflare simplicity
-    // in production, you might want more robust locking if many requests hit at once
+    // 1. Check Firestore cache first
     const mapDoc = await firestoreRest.getDocument('drive_folder_map', normalized, env);
-
     if (mapDoc && mapDoc.driveFolderId) {
       return { folderId: mapDoc.driveFolderId, folderUrl: mapDoc.driveFolderUrl };
     }
 
-    // Not found in cache, check Drive API using case and space-insensitive matching in JS
-    let existing: any = null;
-    if (rootFolderId) {
-      const q = `'${rootFolderId}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
-      const allFolders = await driveRest.listFiles(q, 'files(id, name, webViewLink)', 1000, env);
-      existing = allFolders.find(f => this.normalizeCompanyName(f.name) === normalized);
-    } else {
-      // Fallback search with contains to limit search size
-      const q = `name contains '${companyName.replace(/'/g, "\\'")}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
-      const matchingFolders = await driveRest.listFiles(q, 'files(id, name, webViewLink)', 1000, env);
-      existing = matchingFolders.find(f => this.normalizeCompanyName(f.name) === normalized);
-    }
+    // 2. Ensure "COMPANY PROFILE" exists under rootDriveFolderId
+    const companyProfileFolderId = await this.getOrCreateFolderByName("COMPANY PROFILE", rootDriveFolderId || 'root', env);
+
+    // 3. Ensure Client Type folder exists under "COMPANY PROFILE"
+    // Map clientType to pretty folder name
+    const typeFolderMap: Record<string, string> = {
+      'PT': 'PT',
+      'CV': 'CV',
+      'YAYASAN': 'YAYASAN',
+      'PERKUMPULAN': 'PERKUMPULAN',
+      'PERSEKUTUAN_FIRMA': 'PERSEKUTUAN FIRMA',
+      'PERSEKUTUAN_PERDATA': 'PERSEKUTUAN PERDATA',
+      'KOPERASI': 'KOPERASI',
+      'PMA': 'PMA',
+      'PERORANGAN': 'PERORANGAN'
+    };
+    const typeFolderName = typeFolderMap[clientType] || 'LAINNYA';
+    const typeFolderId = await this.getOrCreateFolderByName(typeFolderName, companyProfileFolderId, env);
+
+    // 4. Search for existing company folder under the type folder
+    const q = `'${typeFolderId}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
+    const allFolders = await driveRest.listFiles(q, 'files(id, name, webViewLink)', 1000, env);
+    const existing = allFolders.find(f => this.normalizeCompanyName(f.name) === normalized);
 
     if (existing) {
       const result = { folderId: existing.id!, folderUrl: existing.webViewLink! };
       await firestoreRest.setDocument('drive_folder_map', normalized, { 
         companyName, 
+        clientType,
         driveFolderId: result.folderId, 
         driveFolderUrl: result.folderUrl, 
         createdAt: new Date()
@@ -66,18 +80,34 @@ export class DriveFolderService {
       return result;
     }
 
-    // Create new folder
-    const folder = await driveRest.createFolder(companyName, rootFolderId ? [rootFolderId] : [], env);
+    // 5. Create new folder if not found
+    const folder = await driveRest.createFolder(companyName, [typeFolderId], env);
     const result = { folderId: folder.id!, folderUrl: folder.webViewLink! };
 
     await firestoreRest.setDocument('drive_folder_map', normalized, { 
       companyName, 
+      clientType,
       driveFolderId: result.folderId, 
       driveFolderUrl: result.folderUrl, 
       createdAt: new Date()
     }, env);
 
     return result;
+  }
+
+  /**
+   * Helper to find or create a folder by name in a specific parent
+   */
+  public static async getOrCreateFolderByName(name: string, parentId: string, env: any): Promise<string> {
+    const q = `'${parentId}' in parents and name = '${name.replace(/'/g, "\\'")}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
+    const folders = await driveRest.listFiles(q, 'files(id, name)', 10, env);
+    
+    if (folders && folders.length > 0) {
+      return folders[0].id!;
+    }
+
+    const newFolder = await driveRest.createFolder(name, [parentId], env);
+    return newFolder.id!;
   }
 
   static async ensureSubFolder(parentFolderId: string, subFolderName: string, env: any = {}): Promise<{ folderId: string; folderUrl: string }> {
@@ -156,9 +186,10 @@ export class DriveFolderService {
       }
 
       const companyName = profileData.companyName || 'Unknown Company';
+      const clientType = profileData.clientType || 'PT';
       
       // 2. Ensure Company Folder
-      const companyFolder = await this.ensureCompanyFolder(companyName, env);
+      const companyFolder = await this.ensureCompanyFolder(companyName, clientType, env);
 
       // 3. Ensure Subfolder
       const subFolderName = this.buildSubFolderName(jobType, new Date());

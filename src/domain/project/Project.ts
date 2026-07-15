@@ -45,6 +45,18 @@ export interface ProjectChangeSnapshot {
   after: ClientSnapshot;
 }
 
+export interface Party {
+  id: string; // Unique ID (usually UUID or random string)
+  name: string;
+  nik: string;
+  jabatan: string; // Direktur, Komisaris, Pemegang Saham, Kuasa, dll.
+  pekerjaan: string; // Pengusaha, Pegawai Swasta, PNS, Profesional, Pedagang, Pengajar, Petani, Lainnya
+  kewarganegaraan: string; // WNI, WNA
+  alamat?: string;
+  sahamPercentage?: number; // Persentase Saham
+  status: string; // Aktif, Nonaktif, dsb
+}
+
 export interface Project {
   projectId: string; // Unique Identifier (Document ID in Firestore)
   clientId: string;  // Reference to CompanyProfile document (profiles/{id})
@@ -59,4 +71,6 @@ export interface Project {
   documents?: DocumentReference[]; // Associated document registry
   clientSnapshot?: ClientSnapshot; // Immutable snapshot of client state for normal projects
   changeSnapshot?: ProjectChangeSnapshot; // Immutable change snapshot for RUPS LB Before/After
+  lastTransitionComment?: string; // Cache of the latest transition note/comment
+  parties?: Party[]; // Profil orang-orang yang terlibat dalam PT
 }

@@ -15,6 +15,46 @@ import { sanitizeForFirestore } from '../utils/sanitize';
 
 export class CompanyService {
   /**
+   * Migrate legacy cv_profiles to unified profiles collection
+   */
+  static async migrateLegacyCvProfiles(): Promise<void> {
+    try {
+      // 1. Migrate CV profiles
+      const cvSnap = await getDocs(collection(db, 'cv_profiles'));
+      for (const docSnap of cvSnap.docs) {
+        const data = docSnap.data();
+        const id = docSnap.id;
+        
+        console.log(`Migrating CV profile ${id} (${data.companyName}) to unified profiles...`);
+        
+        // Save to 'profiles' collection with clientType: 'CV' and companyType: 'CV'
+        await setDoc(doc(db, 'profiles', id), {
+          ...data,
+          clientType: 'CV',
+          companyType: 'CV'
+        }, { merge: true });
+        
+        // Delete from legacy 'cv_profiles' collection
+        await deleteDoc(doc(db, 'cv_profiles', id));
+      }
+
+      // 2. Add clientType: 'PT' to any existing profiles that don't have it
+      const profilesSnap = await getDocs(collection(db, 'profiles'));
+      for (const docSnap of profilesSnap.docs) {
+        const data = docSnap.data();
+        if (!data.clientType) {
+          console.log(`Setting default clientType: PT for profile ${docSnap.id} (${data.companyName})`);
+          await updateDoc(doc(db, 'profiles', docSnap.id), {
+            clientType: 'PT'
+          });
+        }
+      }
+    } catch (error) {
+      console.warn("[CompanyService] Error migrating cv_profiles:", error);
+    }
+  }
+
+  /**
    * Fetch all PT (Company) Profiles
    */
   static async getCompanies(): Promise<CompanyProfile[]> {
@@ -32,18 +72,21 @@ export class CompanyService {
   }
 
   /**
-   * Fetch all CV Profiles
+   * Fetch all CV Profiles (now loaded from profiles collection for backward compatibility)
    */
   static async getCvCompanies(): Promise<CompanyProfile[]> {
     try {
-      const snap = await getDocs(collection(db, 'cv_profiles'));
+      const snap = await getDocs(collection(db, 'profiles'));
       const loaded: CompanyProfile[] = [];
       snap.forEach(docSnap => {
-        loaded.push({ id: docSnap.id, ...docSnap.data() } as CompanyProfile);
+        const data = docSnap.data();
+        if (data.clientType === 'CV' || data.companyType === 'CV') {
+          loaded.push({ id: docSnap.id, ...data } as CompanyProfile);
+        }
       });
       return loaded;
     } catch (error) {
-      handleFirestoreError(error, OperationType.LIST, 'cv_profiles');
+      handleFirestoreError(error, OperationType.LIST, 'profiles');
       throw error;
     }
   }
@@ -68,35 +111,44 @@ export class CompanyService {
   }
 
   /**
-   * Listen to CV Profiles
+   * Listen to CV Profiles (now listened from profiles collection for backward compatibility)
    */
   static listenCvCompanies(callback: (profiles: CompanyProfile[]) => void): () => void {
     return onSnapshot(
-      collection(db, 'cv_profiles'),
+      collection(db, 'profiles'),
       (snapshot) => {
         const loaded: CompanyProfile[] = [];
         snapshot.forEach(docSnap => {
-          loaded.push({ id: docSnap.id, ...docSnap.data() } as CompanyProfile);
+          const data = docSnap.data();
+          if (data.clientType === 'CV' || data.companyType === 'CV') {
+            loaded.push({ id: docSnap.id, ...data } as CompanyProfile);
+          }
         });
         callback(loaded);
       },
       (error) => {
-        handleFirestoreError(error, OperationType.LIST, 'cv_profiles');
+        handleFirestoreError(error, OperationType.LIST, 'profiles');
       }
     );
   }
 
   /**
-   * Save (set with merge) a PT or CV Company Profile
+   * Save (set with merge) a Company Profile
    */
   static async saveCompany(companyId: string, data: Partial<CompanyProfile>, isCv?: boolean): Promise<void> {
-    const isCvCompany = isCv || data.companyType === 'CV';
-    const collectionName = isCvCompany ? 'cv_profiles' : 'profiles';
+    const isCvCompany = isCv || data.clientType === 'CV' || data.companyType === 'CV';
+    const collectionName = 'profiles';
     try {
-      await setDoc(doc(db, collectionName, companyId), sanitizeForFirestore(data), { merge: true });
+      const clientType = data.clientType || (isCvCompany ? 'CV' : 'PT');
+      const preparedData = {
+        ...data,
+        clientType
+      };
+
+      await setDoc(doc(db, collectionName, companyId), sanitizeForFirestore(preparedData), { merge: true });
       
-      // Ensure the Google Drive folder exists for this client (only if not CV for now, or you can do it for both)
-      if (!isCvCompany && data.companyName) {
+      // Ensure the Google Drive folder exists for this client (for all client types!)
+      if (preparedData.companyName) {
         try {
           const { auth } = await import('../lib/firebase');
           let token = '';
@@ -111,7 +163,8 @@ export class CompanyService {
             },
             body: JSON.stringify({
               clientId: companyId,
-              companyName: data.companyName
+              companyName: preparedData.companyName,
+              clientType: preparedData.clientType
             })
           });
         } catch (e) {
@@ -125,11 +178,10 @@ export class CompanyService {
   }
 
   /**
-   * Update a PT or CV Company Profile
+   * Update a Company Profile
    */
   static async updateCompany(companyId: string, data: Partial<CompanyProfile>, isCv?: boolean): Promise<void> {
-    const isCvCompany = isCv || data.companyType === 'CV';
-    const collectionName = isCvCompany ? 'cv_profiles' : 'profiles';
+    const collectionName = 'profiles';
     try {
       await updateDoc(doc(db, collectionName, companyId), sanitizeForFirestore(data));
     } catch (error) {
@@ -139,11 +191,11 @@ export class CompanyService {
   }
 
   /**
-   * Archive/unarchive a PT or CV Profile
+   * Archive/unarchive a Profile
    */
   static async archiveCompany(companyId: string, currentStatus: boolean, isCv?: boolean): Promise<boolean> {
     const nextStatus = !currentStatus;
-    const collectionName = isCv ? 'cv_profiles' : 'profiles';
+    const collectionName = 'profiles';
     try {
       await updateDoc(doc(db, collectionName, companyId), {
         isArchived: nextStatus
@@ -156,7 +208,7 @@ export class CompanyService {
   }
 
   /**
-   * Duplicate a PT or CV Profile
+   * Duplicate a Profile
    */
   static async duplicateCompany(company: CompanyProfile, isCv?: boolean): Promise<CompanyProfile> {
     const duplicatedName = `${company.companyName} (Salinan)`;
@@ -167,7 +219,7 @@ export class CompanyService {
       companyName: duplicatedName,
       updatedAt: new Date().toISOString()
     };
-    const collectionName = isCv || company.companyType === 'CV' ? 'cv_profiles' : 'profiles';
+    const collectionName = 'profiles';
     try {
       await setDoc(doc(db, collectionName, newId), sanitizeForFirestore(duplicatedProfile));
       return duplicatedProfile;
@@ -178,10 +230,10 @@ export class CompanyService {
   }
 
   /**
-   * Delete a PT or CV Profile
+   * Delete a Profile
    */
   static async deleteCompany(companyId: string, isCv?: boolean): Promise<void> {
-    const collectionName = isCv ? 'cv_profiles' : 'profiles';
+    const collectionName = 'profiles';
     try {
       await deleteDoc(doc(db, collectionName, companyId));
     } catch (error) {

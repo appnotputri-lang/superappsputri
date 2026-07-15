@@ -150,6 +150,9 @@ export const TAB_TO_PATH: Record<string, string> = {
   'user_management': '/user-management'
 };
 
-export const PATH_TO_TAB: Record<string, SidebarTabId> = Object.fromEntries(
-  Object.entries(TAB_TO_PATH).map(([tab, path]) => [path, tab as SidebarTabId])
-);
+export const PATH_TO_TAB: Record<string, SidebarTabId> = {
+  ...Object.fromEntries(
+    Object.entries(TAB_TO_PATH).map(([tab, path]) => [path, tab as SidebarTabId])
+  ),
+  '/profile-cv': 'company_profile' as SidebarTabId
+};
