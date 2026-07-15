@@ -19,12 +19,12 @@ export const onRequestPost = async (context: any) => {
   }
 
   const { project } = body;
-  if (!project || !project.id || !project.clientId) {
+  if (!project || (!project.id && !project.projectId) || !project.clientId) {
     return createErrorResponse("Missing valid project object", 400);
   }
 
   try {
-    console.log(`[Drive API] Ensuring project folder for project ID: ${project.id}`);
+    console.log(`[Drive API] Ensuring project folder for project ID: ${project.id || project.projectId}`);
     await DriveFolderService.handleNewProject(project, env);
 
     return createJsonResponse({ success: true, message: "Project folder ensured successfully" });

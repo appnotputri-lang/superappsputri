@@ -56,7 +56,8 @@ import {
   Sparkles,
   UploadCloud,
   RefreshCw,
-  Ban
+  Ban,
+  FolderPlus
 } from 'lucide-react';
 
 const getDocKinds = (jobType: string): { kind: 'notulen' | 'pernyataan' | 'akta' | 'pendirian'; label: string }[] => {
@@ -595,6 +596,45 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
   const [driveFiles, setDriveFiles] = useState<any[]>([]);
   const [driveLoading, setDriveLoading] = useState(false);
   const [driveError, setDriveError] = useState<string | null>(null);
+  const [isSettingUpDrive, setIsSettingUpDrive] = useState(false);
+
+  const handleSetupDriveFolder = async () => {
+    if (!project) return;
+    setIsSettingUpDrive(true);
+    try {
+      const { auth } = await import('../../../lib/firebase');
+      let token = '';
+      if (auth.currentUser) {
+        token = await auth.currentUser.getIdToken();
+      }
+      
+      const response = await fetch(getApiUrl('/api/v2/drive/ensure-project-folder'), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          project: project
+        })
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to ensure project folder');
+      }
+
+      alert('Folder Google Drive berhasil dibuat dan dihubungkan ke proyek ini!');
+      
+      // Refresh project data so driveFolderId is updated on the page
+      await fetchProjectFullDetails();
+    } catch (err: any) {
+      console.error(err);
+      alert('Gagal menyiapkan folder Google Drive: ' + err.message);
+    } finally {
+      setIsSettingUpDrive(false);
+    }
+  };
 
   const fetchDriveFiles = async (projId: string = projectId) => {
     setDriveLoading(true);
@@ -1553,7 +1593,7 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
                   </div>
                 </div>
 
-                {project.metadata?.driveFolderUrl && (
+                {project.metadata?.driveFolderUrl ? (
                   <div className="space-y-1 col-span-1 sm:col-span-2 mt-2">
                     <span className="text-slate-400 font-semibold block text-[11px] uppercase tracking-wider">Google Drive Proyek (Auto-generated)</span>
                     <a 
@@ -1565,6 +1605,30 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
                       <ExternalLink className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />
                       Buka Folder Drive Proyek
                     </a>
+                  </div>
+                ) : (
+                  <div className="space-y-2 col-span-1 sm:col-span-2 mt-2">
+                    <span className="text-slate-400 font-semibold block text-[11px] uppercase tracking-wider">Google Drive Proyek</span>
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                      <button
+                        onClick={handleSetupDriveFolder}
+                        disabled={isSettingUpDrive}
+                        className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white hover:bg-emerald-700 font-bold text-xs rounded-lg transition-all shadow-sm disabled:opacity-50"
+                      >
+                        {isSettingUpDrive ? (
+                          <>
+                            <span className="animate-spin inline-block w-3 h-3 border-2 border-white border-t-transparent rounded-full" />
+                            Menyiapkan Folder...
+                          </>
+                        ) : (
+                          <>
+                            <FolderPlus className="w-3.5 h-3.5" />
+                            Buat / Hubungkan Google Drive
+                          </>
+                        )}
+                      </button>
+                      <span className="text-xs text-slate-500">Folder Google Drive belum disiapkan untuk proyek ini. Klik tombol untuk membuatnya secara otomatis.</span>
+                    </div>
                   </div>
                 )}
               </div>

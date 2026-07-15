@@ -138,7 +138,7 @@ export class DriveFolderService {
   }
 
   static async handleNewProject(projectData: any, env: any = {}) {
-    const projectId = projectData.id;
+    const projectId = projectData.id || projectData.projectId;
     const clientId = projectData.clientId;
     const jobType = projectData.jobType;
 
