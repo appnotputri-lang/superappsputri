@@ -19,14 +19,14 @@ export const onRequestPost = async (context: any) => {
     return createErrorResponse('Invalid JSON body', 400);
   }
 
-  const { clientId, companyName } = body;
+  const { clientId, companyName, clientType } = body;
   if (!clientId || !companyName) {
     return createErrorResponse("Missing clientId or companyName", 400);
   }
 
   try {
-    console.log(`[Drive API] Ensuring client folder for: ${companyName}`);
-    const companyFolder = await DriveFolderService.ensureCompanyFolder(companyName, env);
+    console.log(`[Drive API] Ensuring client folder for: ${companyName} (${clientType || 'PT'})`);
+    const companyFolder = await DriveFolderService.ensureCompanyFolder(companyName, clientType, env);
     
     // Save driveFolderId and driveFolderUrl into the client document
     await firestoreRest.updateDocument('profiles', clientId, {
