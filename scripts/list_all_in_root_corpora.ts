@@ -4,7 +4,7 @@ const BASE_URL = 'https://www.googleapis.com/drive/v3';
 
 async function listAllCorpora() {
   const token = await getGoogleAccessToken();
-  const rootId = '0B-My1uo45zLiUDlnbkY4WFA2dVU';
+  const rootId = '0B-My1uo45zLiOTBzWnh2LVNGNE0';
   
   const q = `'${rootId}' in parents and trashed = false`;
   // Using corpora=allDrives requires supportsAllDrives=true and includeItemsFromAllDrives=true

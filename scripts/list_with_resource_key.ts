@@ -4,7 +4,7 @@ const BASE_URL = 'https://www.googleapis.com/drive/v3';
 
 async function listWithResourceKey() {
   const token = await getGoogleAccessToken();
-  const rootId = '0B-My1uo45zLiUDlnbkY4WFA2dVU';
+  const rootId = '0B-My1uo45zLiOTBzWnh2LVNGNE0';
   const resourceKey = '0-OneXpFthzNT9f_3bb3L7Vg';
 
   console.log(`Querying root folder with resource key: ${rootId}=${resourceKey}`);

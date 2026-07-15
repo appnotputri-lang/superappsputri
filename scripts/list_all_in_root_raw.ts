@@ -4,7 +4,7 @@ const BASE_URL = 'https://www.googleapis.com/drive/v3';
 
 async function listAllInRootRaw() {
   const token = await getGoogleAccessToken();
-  const rootId = '0B-My1uo45zLiUDlnbkY4WFA2dVU';
+  const rootId = '0B-My1uo45zLiOTBzWnh2LVNGNE0';
   console.log('Querying everything in parent:', rootId);
 
   // Notice includeItemsFromAllDrives, supportsAllDrives, and no trashed filter

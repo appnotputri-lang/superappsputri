@@ -5,12 +5,16 @@ import { getEnv } from '../runtime/env';
 export class DriveFolderService {
   static normalizeCompanyName(name: string): string {
     if (!name) return 'unknown';
-    return name
-      .toLowerCase()
-      .replace(/\s+/g, ' ')
-      .replace(/pt\.\s+/g, 'pt ')
-      .replace(/pt\./g, 'pt')
-      .trim();
+    
+    // Normalize spaces and case for processing
+    let processed = name.toUpperCase().replace(/\s+/g, ' ').trim();
+    
+    // Strip common prefixes (case-insensitive via upperCase)
+    // Longest strings first to avoid partial matches
+    processed = processed.replace(/^(PERSEKUTUAN FIRMA|PERSEKUTUAN PERDATA)\.?\s+/g, '');
+    processed = processed.replace(/^(PT|CV|YAYASAN|PERKUMPULAN|KOPERASI|PMA|PERORANGAN)\.?\s+/g, '');
+
+    return processed.toLowerCase().trim();
   }
 
   private static companyFolderPromises = new Map<string, Promise<{ folderId: string; folderUrl: string }>>();
@@ -81,7 +85,21 @@ export class DriveFolderService {
     }
 
     // 5. Create new folder if not found
-    const folder = await driveRest.createFolder(companyName, [typeFolderId], env);
+    let targetFolderName = companyName;
+    const excludedTypes = ['PERORANGAN', 'PMA', 'OTHER'];
+    
+    if (!excludedTypes.includes(clientType)) {
+      const typeFolderName = typeFolderMap[clientType] || clientType;
+      // Construct name like "CV ASOLALI"
+      // Check if it already starts with the prefix (case insensitive)
+      const upperName = targetFolderName.toUpperCase();
+      const upperPrefix = typeFolderName.toUpperCase();
+      if (!upperName.startsWith(upperPrefix + ' ') && !upperName.startsWith(upperPrefix + '.')) {
+        targetFolderName = `${typeFolderName} ${companyName}`;
+      }
+    }
+
+    const folder = await driveRest.createFolder(targetFolderName, [typeFolderId], env);
     const result = { folderId: folder.id!, folderUrl: folder.webViewLink! };
 
     await firestoreRest.setDocument('drive_folder_map', normalized, { 
