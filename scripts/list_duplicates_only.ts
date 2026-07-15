@@ -4,7 +4,7 @@ const BASE_URL = 'https://www.googleapis.com/drive/v3';
 
 async function listDuplicatesOnly() {
   const token = await getGoogleAccessToken();
-  const rootId = '0B-My1uo45zLiOTBzWnh2LVNGNE0';
+  const rootId = '0B-My1uo45zLibWQyMVN3N3ZueEk';
   
   const q = `'${rootId}' in parents and trashed = false`;
   const url = `${BASE_URL}/files?q=${encodeURIComponent(q)}&includeItemsFromAllDrives=true&supportsAllDrives=true&fields=files(id,name,mimeType,parents,webViewLink,trashed,owners,shared)&pageSize=1000`;

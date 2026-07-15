@@ -4,7 +4,7 @@ const BASE_URL = 'https://www.googleapis.com/drive/v3';
 
 async function getRootMetadata() {
   const token = await getGoogleAccessToken();
-  const rootId = '0B-My1uo45zLiOTBzWnh2LVNGNE0';
+  const rootId = '0B-My1uo45zLibWQyMVN3N3ZueEk';
   const resourceKey = '0-OneXpFthzNT9f_3bb3L7Vg';
 
   const url = `${BASE_URL}/files/${rootId}?supportsAllDrives=true&fields=id,name,mimeType,parents,webViewLink,owners,shared,trashed`;
