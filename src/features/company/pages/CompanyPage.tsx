@@ -452,7 +452,8 @@ export const CompanyPage: React.FC<CompanyPageProps> = () => {
     setIsSyncing(true);
     try {
       const token = await user?.getIdToken();
-      const response = await fetch(getApiUrl('/api/sync-drive-clients'), {
+      const typeFilter = selectedClientType !== 'all' ? selectedClientType : '';
+      const response = await fetch(getApiUrl(`/api/sync-drive-clients${typeFilter ? `?clientType=${typeFilter}` : ''}`), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

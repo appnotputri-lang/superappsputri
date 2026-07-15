@@ -137,17 +137,7 @@ export class CompanyService {
    */
   static formatCompanyName(name: string, clientType: string): string {
     if (!name) return '';
-    let formatted = name.toUpperCase().trim();
-    const excludedTypes = ['PERORANGAN', 'PMA', 'OTHER'];
-
-    if (!excludedTypes.includes(clientType)) {
-      const prefix = clientType.toUpperCase();
-      // Add prefix if not already present
-      if (!formatted.startsWith(prefix + ' ') && !formatted.startsWith(prefix + '.')) {
-        formatted = `${prefix} ${formatted}`;
-      }
-    }
-    return formatted;
+    return name.toUpperCase().trim();
   }
 
   /**

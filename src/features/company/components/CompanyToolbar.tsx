@@ -69,8 +69,9 @@ export const CompanyToolbar: React.FC<CompanyToolbarProps> = ({
             </button>
           </div>
         </div>
+
+        {/* Search */}
         <div className="flex flex-col sm:flex-row gap-3 items-center w-full md:w-auto">
-          {/* Search */}
           <div className="relative w-full sm:w-80">
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
@@ -88,30 +89,6 @@ export const CompanyToolbar: React.FC<CompanyToolbarProps> = ({
                 ×
               </button>
             )}
-          </div>
-
-          {/* Client Type Filter */}
-          <div className="w-full sm:w-44">
-            <select
-              value={selectedClientType}
-              onChange={(e) => {
-                setSelectedClientType(e.target.value);
-                setProfileCurrentPage(1);
-              }}
-              className="w-full py-2 px-3 border border-slate-300 rounded-md text-[12px] text-slate-700 font-medium outline-none focus:border-[#3b5998] transition-all bg-white"
-            >
-              <option value="all">▼ Semua Jenis Klien</option>
-              <option value="PT">▼ PT</option>
-              <option value="CV">▼ CV</option>
-              <option value="YAYASAN">▼ Yayasan</option>
-              <option value="PERKUMPULAN">▼ Perkumpulan</option>
-              <option value="PERSEKUTUAN_FIRMA">▼ Persekutuan Firma</option>
-              <option value="PERSEKUTUAN_PERDATA">▼ Persekutuan Perdata</option>
-              <option value="KOPERASI">▼ Koperasi</option>
-              <option value="PMA">▼ PMA</option>
-              <option value="PERORANGAN">▼ Perorangan</option>
-              <option value="LAINNYA">▼ Lainnya</option>
-            </select>
           </div>
 
           {/* Year Filter */}
@@ -147,6 +124,40 @@ export const CompanyToolbar: React.FC<CompanyToolbarProps> = ({
               Reset
             </button>
           )}
+        </div>
+      </div>
+
+      {/* Client Type Tabs */}
+      <div className="mt-5 pt-4 border-t border-slate-100 overflow-x-auto">
+        <div className="flex items-center gap-1.5 pb-1 min-w-max">
+          {[
+            { id: 'all', label: 'SEMUA' },
+            { id: 'PT', label: 'PT' },
+            { id: 'CV', label: 'CV' },
+            { id: 'YAYASAN', label: 'YAYASAN' },
+            { id: 'PERKUMPULAN', label: 'PERKUMPULAN' },
+            { id: 'KOPERASI', label: 'KOPERASI' },
+            { id: 'FIRMA', label: 'FIRMA' },
+            { id: 'PERDATA', label: 'PERDATA' },
+            { id: 'PMA', label: 'PMA' },
+            { id: 'PERORANGAN', label: 'PERORANGAN' },
+            { id: 'LAINNYA', label: 'LAINNYA' }
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => {
+                setSelectedClientType(tab.id);
+                setProfileCurrentPage(1);
+              }}
+              className={`px-4 py-2 text-[11px] font-bold rounded-md transition-all uppercase tracking-widest border ${
+                selectedClientType === tab.id
+                  ? 'bg-[#3b5998] text-white border-[#3b5998] shadow-md shadow-blue-100 scale-105'
+                  : 'bg-white text-slate-500 border-slate-200 hover:border-[#3b5998] hover:text-[#3b5998]'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
       </div>
     </div>

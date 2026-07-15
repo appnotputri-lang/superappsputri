@@ -19,8 +19,15 @@ export const onRequestPost = async (context: any) => {
       return createErrorResponse("GOOGLE_DRIVE_ROOT_FOLDER_ID is not configured in settings.", 500);
     }
 
+    const url = new URL(request.url);
+    const clientTypeFilter = url.searchParams.get('clientType');
+
     console.log(`[Sync Drive Clients] Ensuring COMPANY PROFILE folder exists...`);
     const companyProfileId = await DriveFolderService.getOrCreateFolderByName("COMPANY PROFILE", rootFolderId, env);
+    
+    // 1. List all type folders inside COMPANY PROFILE in one request
+    const qTypes = `'${companyProfileId}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
+    const typeFolders = await driveRest.listFiles(qTypes, 'files(id, name)', 100, env);
     
     const typeFoldersMapping = [
       { folder: 'PT', type: 'PT' },
@@ -29,16 +36,26 @@ export const onRequestPost = async (context: any) => {
       { folder: 'PERKUMPULAN', type: 'PERKUMPULAN' },
       { folder: 'KOPERASI', type: 'KOPERASI' },
       { folder: 'PERSEKUTUAN FIRMA', type: 'FIRMA' },
-      { folder: 'PERSEKUTUAN PERDATA', type: 'PERDATA' }
-    ];
+      { folder: 'PERSEKUTUAN PERDATA', type: 'PERDATA' },
+      { folder: 'PMA', type: 'PMA' },
+      { folder: 'PERORANGAN', type: 'PERORANGAN' },
+      { folder: 'LAINNYA', type: 'LAINNYA' }
+    ].filter(m => !clientTypeFilter || m.type === clientTypeFilter);
 
     let allFolders: any[] = [];
     for (const mapping of typeFoldersMapping) {
-      console.log(`[Sync Drive Clients] Syncing type: ${mapping.type} from folder: ${mapping.folder}`);
-      const typeFolderId = await DriveFolderService.getOrCreateFolderByName(mapping.folder, companyProfileId, env);
-      const q = `'${typeFolderId}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
-      const folders = await driveRest.listFiles(q, 'files(id, name, webViewLink)', 1000, env);
-      allFolders.push(...folders.map(f => ({ ...f, clientType: mapping.type })));
+      let typeFolderId = typeFolders.find(f => f.name.toUpperCase() === mapping.folder.toUpperCase())?.id;
+      
+      if (!typeFolderId) {
+        console.log(`[Sync Drive Clients] Type folder ${mapping.folder} not found, creating...`);
+        typeFolderId = await DriveFolderService.getOrCreateFolderByName(mapping.folder, companyProfileId, env);
+      }
+
+      if (typeFolderId) {
+        const q = `'${typeFolderId}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
+        const folders = await driveRest.listFiles(q, 'files(id, name, webViewLink)', 1000, env);
+        allFolders.push(...folders.map(f => ({ ...f, clientType: mapping.type })));
+      }
     }
 
     console.log(`[Sync Drive Clients] Found total ${allFolders.length} folders across all types.`);
@@ -46,61 +63,75 @@ export const onRequestPost = async (context: any) => {
     // Fetch existing clients (profiles collection)
     const { documents: existingProfiles } = await firestoreRest.listDocuments("profiles", 1000, undefined, env);
     
-    // Use DriveFolderService.normalizeCompanyName to get a set of existing normalized names
-    const existingNormalizedNames = new Set(
-      existingProfiles.map(p => {
-        const name = p.companyName || '';
-        return DriveFolderService.normalizeCompanyName(name);
+    // Duplicate detection using (Type + Normalized Name)
+    const existingKeys = new Set(
+      existingProfiles.map((p: any) => {
+        const name = p.fields?.companyName?.stringValue || p.companyName || "";
+        const type = p.fields?.clientType?.stringValue || p.clientType || "PT";
+        return `${type}:${DriveFolderService.normalizeCompanyName(name)}`;
       })
     );
 
+    const stripTypePrefix = (name: string, type: string): string => {
+      let clean = name.toUpperCase().trim();
+      const typePrefixMap: Record<string, string[]> = {
+        'PT': ['PT ', 'PT.'],
+        'CV': ['CV ', 'CV.'],
+        'YAYASAN': ['YAYASAN '],
+        'PERKUMPULAN': ['PERKUMPULAN '],
+        'KOPERASI': ['KOPERASI '],
+        'FIRMA': ['PERSEKUTUAN FIRMA ', 'FIRMA '],
+        'PERDATA': ['PERSEKUTUAN PERDATA ', 'PERDATA '],
+        'PMA': ['PMA '],
+        'PERORANGAN': ['PERORANGAN ']
+      };
+      const prefixes = typePrefixMap[type] || [];
+      for (const p of prefixes) {
+        if (clean.startsWith(p)) {
+          clean = clean.substring(p.length).trim();
+          break;
+        }
+      }
+      return clean;
+    };
+
     const createdClients: string[] = [];
+    const MAX_CREATION_PER_SYNC = 20; // Limit to avoid Cloudflare subrequest limits
 
     // Iterate through folders and create missing clients
     for (const folder of allFolders) {
+      if (createdClients.length >= MAX_CREATION_PER_SYNC) break;
+
       const folderName = folder.name.trim();
-      const normFolderName = DriveFolderService.normalizeCompanyName(folderName);
+      const clientType = folder.clientType;
+      const cleanCompanyName = stripTypePrefix(folderName, clientType);
+      const normFolderName = DriveFolderService.normalizeCompanyName(cleanCompanyName);
+      const key = `${clientType}:${normFolderName}`;
 
-      if (!existingNormalizedNames.has(normFolderName)) {
+      if (!existingKeys.has(key)) {
         const newId = crypto.randomUUID();
-        const clientType = folder.clientType;
         
-        // Ensure company name starts with type prefix if needed
-        let finalCompanyName = folderName.toUpperCase().trim();
-        const prefix = clientType.toUpperCase();
-        if (!finalCompanyName.startsWith(prefix + ' ') && !finalCompanyName.startsWith(prefix + '.')) {
-          finalCompanyName = `${prefix} ${finalCompanyName}`;
-        }
-
         // Pre-fill only companyName (Nama Perseroan) and basic default values
         const newProfile = {
           id: newId,
-          companyName: finalCompanyName,
+          companyName: cleanCompanyName,
           clientType: clientType,
-          companyType: 'SWASTA NASIONAL',
+          companyType: clientType === 'CV' ? 'CV' : 'SWASTA NASIONAL',
           documentType: 'CIRCULAR',
           duration: 'TIDAK TERBATAS',
-          status: 'tertutup',
-          kbliItems: [],
-          oldManagementItems: [],
-          newManagementItems: [],
-          shareholders: [],
-          shareTransfers: [],
-          finalShareholders: [],
-          guests: [],
-          managementDismissals: [],
-          shareTransfersNew: [],
-          capitalSubscriptionsNew: [],
+          status: 'AKTIF',
+          isArchived: false,
+          createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
           updatedBy: authResult.user?.email || 'System (Drive Sync)'
         };
 
-        console.log(`[Sync Drive Clients] Creating new ${clientType} client profile: ${finalCompanyName}`);
+        console.log(`[Sync Drive Clients] Creating new ${clientType} client profile: ${cleanCompanyName}`);
         await firestoreRest.setDocument("profiles", newId, newProfile, env);
-        createdClients.push(finalCompanyName);
+        createdClients.push(`${clientType} ${cleanCompanyName}`);
         
         // Add to set to prevent duplicate creation
-        existingNormalizedNames.add(normFolderName);
+        existingKeys.add(key);
       }
     }
 
@@ -108,7 +139,8 @@ export const onRequestPost = async (context: any) => {
       success: true,
       totalFoldersCount: allFolders.length,
       createdClients,
-      createdCount: createdClients.length
+      createdCount: createdClients.length,
+      message: createdClients.length === MAX_CREATION_PER_SYNC ? "Limit tercapai. Silakan klik lagi untuk sisa klien." : "Sinkronisasi selesai."
     });
 
   } catch (error: any) {
