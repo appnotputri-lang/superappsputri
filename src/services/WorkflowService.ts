@@ -78,6 +78,20 @@ export class WorkflowService {
       "Selesai"
     ];
 
+    const rupstSteps = [
+      "Drafting Notulen",
+      "Review Notulen",
+      "ACC Notulen",
+      "Notulen Diterima PDF",
+      "Drafting Akta",
+      "Review Draft Akta",
+      "ACC Draft Akta",
+      "Cetak Akta",
+      "Input AHU",
+      "SP Terbit",
+      "Selesai"
+    ];
+
     const defaults: Workflow[] = [
       {
         id: "rups_lb",
@@ -88,7 +102,7 @@ export class WorkflowService {
       {
         id: "rups_t",
         name: "RUPS Tahunan",
-        steps: newSteps,
+        steps: rupstSteps,
         description: "Alur kerja RUPS Tahunan yang mencakup penyusunan draft, penelaahan laporan keuangan, penandatanganan akta, dan pengarsipan."
       },
       {
@@ -100,7 +114,7 @@ export class WorkflowService {
       {
         id: "sirkuler",
         name: "Keputusan Sirkuler RUPST",
-        steps: newSteps,
+        steps: rupstSteps,
         description: "Alur kerja Keputusan Sirkuler RUPST yang mencakup penyusunan keputusan sirkuler sebagai pengganti RUPS, penelaahan, penandatanganan sirkuler oleh para pemegang saham, dan pengarsipan."
       },
       {

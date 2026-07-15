@@ -55,7 +55,8 @@ import {
   Trash2,
   Sparkles,
   UploadCloud,
-  RefreshCw
+  RefreshCw,
+  Ban
 } from 'lucide-react';
 
 const getDocKinds = (jobType: string): { kind: 'notulen' | 'pernyataan' | 'akta' | 'pendirian'; label: string }[] => {
@@ -659,7 +660,25 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
       setClient(cli);
       setWorkflow(wf);
       setTimelines(tlList || []);
-      setTasks(tkList || []);
+      
+      let finalTasks = tkList || [];
+      if (finalTasks.length === 0 && ['rups_lb', 'sirkuler_rupslb'].includes(proj.jobType)) {
+        const defaultTaskTitles = ["NOTULEN", "AKTA RUPS LB", "SK/SP", "NPWP", "NIB"];
+        const createdTasks: Task[] = [];
+        for (const title of defaultTaskTitles) {
+          try {
+            const newTask = await ProjectService.createTask(projectId, {
+              title,
+              status: 'pending'
+            });
+            if (newTask) createdTasks.push(newTask);
+          } catch (e) {
+            console.error("Failed to create default task:", title, e);
+          }
+        }
+        finalTasks = createdTasks;
+      }
+      setTasks(finalTasks);
       setDocuments(docList || []);
 
       const relatedList: Project[] = [];
@@ -900,7 +919,7 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
     e.preventDefault();
     if (!transitionStatus) return;
 
-    const isCompletedStatus = transitionStatus.toLowerCase().includes('selesai');
+    const isCompletedStatus = transitionStatus.toLowerCase().includes('selesai') || transitionStatus.toLowerCase() === 'sp terbit';
     const hasDeedForm = ['rups_lb', 'sirkuler_rupslb', 'pendirian_pt'].includes(project?.jobType || '');
 
     if (isCompletedStatus && hasDeedForm) {
@@ -1134,15 +1153,19 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
     }
   };
 
-  const handleToggleTask = async (taskId: string, currentCompleted: boolean) => {
+  const handleUpdateTaskStatus = async (taskId: string, newStatus: 'pending' | 'in_progress' | 'completed' | 'not_required') => {
     try {
-      await ProjectService.updateTaskStatus(projectId, taskId, !currentCompleted);
+      await ProjectService.updateTaskStatus(projectId, taskId, newStatus);
       // Update local state smoothly
-      setTasks(tasks.map((t) => (t.id === taskId ? { ...t, status: !currentCompleted ? 'completed' : 'pending' } : t)));
+      setTasks(tasks.map((t) => (t.id === taskId ? { ...t, status: newStatus } : t)));
     } catch (err) {
       console.error(err);
-      alert('Gagal memperbarui checklist tugas.');
+      alert('Gagal memperbarui status checklist.');
     }
+  };
+
+  const handleToggleTask = async (taskId: string, currentCompleted: boolean) => {
+    await handleUpdateTaskStatus(taskId, currentCompleted ? 'pending' : 'completed');
   };
 
   const handleAddTask = async (e: React.FormEvent) => {
@@ -1546,15 +1569,7 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
                 )}
               </div>
 
-              {/* Display Custom Metadata */}
-              {project.metadata && Object.keys(project.metadata).length > 0 && (
-                <div className="mt-5 pt-4 border-t border-slate-100 space-y-2">
-                  <span className="text-slate-400 font-semibold block text-[11px] uppercase tracking-wider">Kunci Metadata Kustom</span>
-                  <div className="bg-slate-50 rounded-lg p-3 border border-slate-100 font-mono text-xs text-slate-600 max-h-32 overflow-y-auto">
-                    {JSON.stringify(project.metadata, null, 2)}
-                  </div>
-                </div>
-              )}
+
             </div>
 
             {/* Rule: Legacy Project Banner & Migration Wizard */}
@@ -1855,7 +1870,7 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
             <div className="bg-white border border-slate-200/80 rounded-xl p-6 shadow-sm">
               <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
                 <h2 className="text-[14px] font-bold text-slate-800 uppercase tracking-wide">
-                  Daftar Checklist Tugas ({tasks.filter((t) => t.status === 'completed').length}/{tasks.length})
+                  Daftar Checklist Tugas ({tasks.filter((t) => t.status === 'completed').length}/{tasks.filter((t) => t.status !== 'not_required').length})
                 </h2>
               </div>
 
@@ -1869,22 +1884,76 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
                   {tasks.map((task) => (
                     <div
                       key={task.id}
-                      onClick={() => handleToggleTask(task.id, task.status === 'completed')}
-                      className="flex items-center justify-between p-3 border border-slate-100 rounded-lg hover:bg-slate-50/50 cursor-pointer transition-all select-none group"
+                      className={`flex flex-col sm:flex-row sm:items-center justify-between p-3.5 border rounded-xl transition-all select-none gap-3 ${
+                        task.status === 'completed'
+                          ? 'border-emerald-100 bg-emerald-50/10'
+                          : task.status === 'not_required'
+                          ? 'border-slate-200 bg-slate-50/40 opacity-70'
+                          : 'border-slate-150 bg-white hover:bg-slate-50/30'
+                      }`}
                     >
                       <div className="flex items-center gap-3">
                         {task.status === 'completed' ? (
                           <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
+                        ) : task.status === 'not_required' ? (
+                          <Ban className="w-5 h-5 text-slate-400 shrink-0" />
                         ) : (
-                          <div className="w-5 h-5 rounded-md border border-slate-300 group-hover:border-blue-500 shrink-0 transition-colors" />
+                          <div className="w-5 h-5 rounded-md border border-slate-300 shrink-0" />
                         )}
-                        <span className={`text-[13px] ${task.status === 'completed' ? 'line-through text-slate-400' : 'text-slate-700 font-medium'}`}>
-                          {task.title}
-                        </span>
+                        <div className="flex flex-col">
+                          <span className={`text-[13px] font-semibold ${
+                            task.status === 'completed'
+                              ? 'line-through text-slate-500'
+                              : task.status === 'not_required'
+                              ? 'line-through text-slate-400 italic'
+                              : 'text-slate-800'
+                          }`}>
+                            {task.title}
+                          </span>
+                          {task.updatedAt && (
+                            <span className="text-[10px] text-slate-400 font-mono mt-0.5">
+                              Terakhir diperbarui: {new Date(task.updatedAt.seconds ? task.updatedAt.toDate() : task.updatedAt).toLocaleDateString('id-ID')}
+                            </span>
+                          )}
+                        </div>
                       </div>
-                      <span className="text-[10px] text-slate-400 font-mono">
-                        {task.updatedAt ? new Date(task.updatedAt.seconds ? task.updatedAt.toDate() : task.updatedAt).toLocaleDateString('id-ID') : ''}
-                      </span>
+
+                      {/* Status Selector Buttons */}
+                      <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-auto">
+                        <button
+                          type="button"
+                          onClick={() => handleUpdateTaskStatus(task.id, 'completed')}
+                          className={`px-2.5 py-1 text-[11px] font-bold rounded-lg border transition-all ${
+                            task.status === 'completed'
+                              ? 'bg-emerald-500 text-white border-emerald-500 shadow-xs'
+                              : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:border-slate-300'
+                          }`}
+                        >
+                          Selesai
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleUpdateTaskStatus(task.id, 'pending')}
+                          className={`px-2.5 py-1 text-[11px] font-bold rounded-lg border transition-all ${
+                            task.status === 'pending' || task.status === 'in_progress'
+                              ? 'bg-amber-500 text-white border-amber-500 shadow-xs'
+                              : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:border-slate-300'
+                          }`}
+                        >
+                          Belum
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleUpdateTaskStatus(task.id, 'not_required')}
+                          className={`px-2.5 py-1 text-[11px] font-bold rounded-lg border transition-all ${
+                            task.status === 'not_required'
+                              ? 'bg-slate-500 text-white border-slate-500 shadow-xs'
+                              : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:border-slate-300'
+                          }`}
+                        >
+                          Tidak Diperlukan
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -1986,7 +2055,7 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
 
                 {/* Conditionally render Deed / Akta details form when transitioning to Completed state */}
                 {['rups_lb', 'sirkuler_rupslb', 'pendirian_pt'].includes(project?.jobType || '') && 
-                  transitionStatus.toLowerCase().includes('selesai') && (
+                  (transitionStatus.toLowerCase().includes('selesai') || transitionStatus.toLowerCase() === 'sp terbit') && (
                   <div className="p-5 bg-white border border-slate-200 rounded-xl space-y-4 animate-fadeIn shadow-sm">
                     {/* Header */}
                     <div className="border-b border-slate-100 pb-3 flex items-center justify-between">

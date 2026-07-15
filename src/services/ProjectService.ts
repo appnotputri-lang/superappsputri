@@ -67,6 +67,21 @@ export class ProjectService {
         createdBy: projectData.assignedTo || "system"
       });
 
+      // If RUPS LB or Sirkuler RUPSLB, automatically create default task checklist
+      if (projectData.jobType === 'rups_lb' || projectData.jobType === 'sirkuler_rupslb') {
+        const defaultTaskTitles = ["NOTULEN", "AKTA RUPS LB", "SK/SP", "NPWP", "NIB"];
+        for (const title of defaultTaskTitles) {
+          try {
+            await this.createTask(projectId, {
+              title,
+              status: 'pending'
+            });
+          } catch (e) {
+            console.warn("[ProjectService] Failed to create default task during initialization:", title, e);
+          }
+        }
+      }
+
       // Ensure the project folder in Google Drive
       try {
         const { auth } = await import('../lib/firebase');
@@ -449,15 +464,22 @@ export class ProjectService {
   static async updateTaskStatus(
     projectId: string,
     taskId: string,
-    isCompleted: boolean
+    status: 'pending' | 'in_progress' | 'completed' | 'not_required' | boolean
   ): Promise<void> {
     const path = `${this.projectsCol}/${projectId}/tasks/${taskId}`;
     try {
       const taskRef = doc(db, this.projectsCol, projectId, "tasks", taskId);
       const now = new Date();
+      let finalStatus: 'pending' | 'in_progress' | 'completed' | 'not_required';
+      if (typeof status === 'boolean') {
+        finalStatus = status ? 'completed' : 'pending';
+      } else {
+        finalStatus = status;
+      }
+
       await updateDoc(taskRef, {
-        status: isCompleted ? 'completed' : 'pending',
-        completedAt: isCompleted ? now : null,
+        status: finalStatus,
+        completedAt: finalStatus === 'completed' ? now : null,
         updatedAt: now
       });
     } catch (error) {
