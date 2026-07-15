@@ -133,6 +133,24 @@ export class CompanyService {
   }
 
   /**
+   * Helper to format company name: Uppercase and add type prefix if needed
+   */
+  static formatCompanyName(name: string, clientType: string): string {
+    if (!name) return '';
+    let formatted = name.toUpperCase().trim();
+    const excludedTypes = ['PERORANGAN', 'PMA', 'OTHER'];
+
+    if (!excludedTypes.includes(clientType)) {
+      const prefix = clientType.toUpperCase();
+      // Add prefix if not already present
+      if (!formatted.startsWith(prefix + ' ') && !formatted.startsWith(prefix + '.')) {
+        formatted = `${prefix} ${formatted}`;
+      }
+    }
+    return formatted;
+  }
+
+  /**
    * Save (set with merge) a Company Profile
    */
   static async saveCompany(companyId: string, data: Partial<CompanyProfile>, isCv?: boolean): Promise<void> {
@@ -142,7 +160,8 @@ export class CompanyService {
       const clientType = data.clientType || (isCvCompany ? 'CV' : 'PT');
       const preparedData = {
         ...data,
-        clientType
+        clientType,
+        companyName: data.companyName ? this.formatCompanyName(data.companyName, clientType) : undefined
       };
 
       await setDoc(doc(db, collectionName, companyId), sanitizeForFirestore(preparedData), { merge: true });
@@ -183,7 +202,21 @@ export class CompanyService {
   static async updateCompany(companyId: string, data: Partial<CompanyProfile>, isCv?: boolean): Promise<void> {
     const collectionName = 'profiles';
     try {
-      await updateDoc(doc(db, collectionName, companyId), sanitizeForFirestore(data));
+      const updateData = { ...data };
+      if (updateData.companyName || updateData.clientType) {
+        const docRef = doc(db, collectionName, companyId);
+        const snap = await getDocs(collection(db, collectionName));
+        const currentData = snap.docs.find(d => d.id === companyId)?.data() || {};
+        
+        const finalType = updateData.clientType || currentData.clientType || 'PT';
+        const finalName = updateData.companyName || currentData.companyName || '';
+        
+        if (finalName) {
+          updateData.companyName = this.formatCompanyName(finalName, finalType);
+        }
+      }
+
+      await updateDoc(doc(db, collectionName, companyId), sanitizeForFirestore(updateData));
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, `${collectionName}/${companyId}`);
       throw error;
@@ -211,7 +244,8 @@ export class CompanyService {
    * Duplicate a Profile
    */
   static async duplicateCompany(company: CompanyProfile, isCv?: boolean): Promise<CompanyProfile> {
-    const duplicatedName = `${company.companyName} (Salinan)`;
+    const clientType = company.clientType || 'PT';
+    const duplicatedName = this.formatCompanyName(`${company.companyName} (Salinan)`, clientType);
     const newId = crypto.randomUUID();
     const duplicatedProfile: CompanyProfile = {
       ...company,

@@ -85,17 +85,15 @@ export class DriveFolderService {
     }
 
     // 5. Create new folder if not found
-    let targetFolderName = companyName;
+    let targetFolderName = companyName.toUpperCase(); // Force uppercase for Drive folder
     const excludedTypes = ['PERORANGAN', 'PMA', 'OTHER'];
     
     if (!excludedTypes.includes(clientType)) {
-      const typeFolderName = typeFolderMap[clientType] || clientType;
+      const typeFolderName = (typeFolderMap[clientType] || clientType).toUpperCase();
       // Construct name like "CV ASOLALI"
-      // Check if it already starts with the prefix (case insensitive)
-      const upperName = targetFolderName.toUpperCase();
-      const upperPrefix = typeFolderName.toUpperCase();
-      if (!upperName.startsWith(upperPrefix + ' ') && !upperName.startsWith(upperPrefix + '.')) {
-        targetFolderName = `${typeFolderName} ${companyName}`;
+      // Check if it already starts with the prefix
+      if (!targetFolderName.startsWith(typeFolderName + ' ') && !targetFolderName.startsWith(typeFolderName + '.')) {
+        targetFolderName = `${typeFolderName} ${targetFolderName}`;
       }
     }
 
