@@ -73,7 +73,7 @@ export function generateSirkulerLaporanBlocks(data: CompanyData): Block[] {
   const blocks: Block[] = [];
 
   const companyNameText = data.companyName || "";
-  const finalCompanyName = formatCompanyName(companyNameText) || "PT ............................";
+  const finalCompanyName = formatCompanyName(companyNameText, data.clientType) || "PT ............................";
   const rawDomicile = data.domicile || "";
   const isCityOrRegency = rawDomicile.toLowerCase().startsWith("kota") || rawDomicile.toLowerCase().startsWith("kabupaten");
   const domicile = rawDomicile
@@ -542,38 +542,38 @@ export function generateSirkulerLaporanBlocks(data: CompanyData): Block[] {
       ref: "sirkuler-numbered-statement",
       indentLeft: INDENT.NUMBERED_STATEMENT,
       indentHanging: INDENT.NUMBERED_STATEMENT_HANGING,
-      runs: [{ text: `Bahwa maksud dari Keputusan Sirkuler Para Pemegang Saham ini adalah untuk perubahan KBLI Perseroan.` }]
+      runs: [{ text: `Bahwa maksud dari Keputusan Sirkuler Para Pemegang Saham ini adalah untuk menyetujui hal-hal sebagaimana diuraikan di bawah ini:` }]
     },
     {
       type: "numbered",
-      num: "4.",
-      ref: "sirkuler-numbered-statement",
-      indentLeft: INDENT.NUMBERED_STATEMENT,
-      indentHanging: INDENT.NUMBERED_STATEMENT_HANGING,
+      num: "a.",
+      ref: "sirkuler-numbered-alpha-statement",
+      indentLeft: INDENT.ALPHA_BULLET,
+      indentHanging: INDENT.ALPHA_BULLET_HANGING,
       runs: [{ text: `Persetujuan Laporan Tahunan Perseroan Tahun Buku ${fiscalYear};` }]
     },
     {
       type: "numbered",
-      num: "5.",
-      ref: "sirkuler-numbered-statement",
-      indentLeft: INDENT.NUMBERED_STATEMENT,
-      indentHanging: INDENT.NUMBERED_STATEMENT_HANGING,
+      num: "b.",
+      ref: "sirkuler-numbered-alpha-statement",
+      indentLeft: INDENT.ALPHA_BULLET,
+      indentHanging: INDENT.ALPHA_BULLET_HANGING,
       runs: [{ text: `Pengesahan Laporan Keuangan Perseroan Tahun Buku ${fiscalYear};` }]
     },
     {
       type: "numbered",
-      num: "6.",
-      ref: "sirkuler-numbered-statement",
-      indentLeft: INDENT.NUMBERED_STATEMENT,
-      indentHanging: INDENT.NUMBERED_STATEMENT_HANGING,
+      num: "c.",
+      ref: "sirkuler-numbered-alpha-statement",
+      indentLeft: INDENT.ALPHA_BULLET,
+      indentHanging: INDENT.ALPHA_BULLET_HANGING,
       runs: [{ text: "Penetapan penggunaan laba bersih Perseroan;" }]
     },
     {
       type: "numbered",
-      num: "7.",
-      ref: "sirkuler-numbered-statement",
-      indentLeft: INDENT.NUMBERED_STATEMENT,
-      indentHanging: INDENT.NUMBERED_STATEMENT_HANGING,
+      num: "d.",
+      ref: "sirkuler-numbered-alpha-statement",
+      indentLeft: INDENT.ALPHA_BULLET,
+      indentHanging: INDENT.ALPHA_BULLET_HANGING,
       runs: [{ text: "Pemberian pelunasan dan pembebasan tanggung jawab sepenuhnya (acquit et de charge) kepada Direksi dan Komisaris;" }]
     }
   );
@@ -584,7 +584,7 @@ export function generateSirkulerLaporanBlocks(data: CompanyData): Block[] {
       type: "p",
       runs: [
         { text: "OLEH KARENA ITU", bold: true },
-        { text: ", para pemegang saham secara bersama-sama setuju and memutuskan hal-hal sebagai berikut:" }
+        { text: ", para pemegang saham secara bersama-sama setuju dan memutuskan hal-hal sebagai berikut:" }
       ]
     }
   );

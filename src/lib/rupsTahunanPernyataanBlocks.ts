@@ -58,7 +58,7 @@ export const generateRupstPernyataanBlocks = (data: CompanyData): Block[] => {
     align: "both",
     runs: [
       { text: "Yang bertandatangan di bawah ini Direksi dan Dewan Komisaris " },
-      { text: formatCompanyName(data.companyName) },
+      { text: formatCompanyName(data.companyName, data.clientType) },
       {
         text:
           `, suatu perseroan terbatas yang didirikan berdasarkan hukum Negara Republik Indonesia dan berkedudukan di ${domicile}, untuk selanjutnya disebut sebagai \u201cPerseroan\u201d, sebagai berikut:`,
@@ -178,7 +178,7 @@ export const generateRupstPernyataanBlocks = (data: CompanyData): Block[] => {
       type: "listNumber",
       runs: [
         { text: "Bahwa status perseroan " },
-        { text: formatCompanyName(data.companyName) },
+        { text: formatCompanyName(data.companyName, data.clientType) },
         { text: " merupakan PT. Tertutup yang Laporan Keuangannya " },
         {
           text: data.rupstIsAudited ? "Memenuhi" : "Tidak Memenuhi",
@@ -195,7 +195,7 @@ export const generateRupstPernyataanBlocks = (data: CompanyData): Block[] => {
       type: "listNumber",
       runs: [
         { text: "Bahwa status perseroan " },
-        { text: formatCompanyName(data.companyName) },
+        { text: formatCompanyName(data.companyName, data.clientType) },
         { text: " merupakan PT. Tertutup yang Laporan Keuangannya " },
         {
           text: data.rupstIsAudited ? "Memenuhi" : "Tidak Memenuhi",
@@ -227,7 +227,7 @@ export const generateRupstPernyataanBlocks = (data: CompanyData): Block[] => {
       type: "listNumber",
       runs: [
         { text: "Bahwa Laporan Tahunan " },
-        { text: formatCompanyName(data.companyName) },
+        { text: formatCompanyName(data.companyName, data.clientType) },
         { text: ` Tahun Buku ${fiscalYear} telah disusun oleh Direksi dan ditelaah oleh Dewan Komisaris sesuai dengan ketentuan Pasal 66 Undang-Undang Nomor 40 Tahun 2007 tentang Perseroan Terbatas sebagaimana telah diubah dengan Undang-Undang Nomor 6 Tahun 2023 tentang Penetapan Peraturan Pemerintah Pengganti Undang-Undang Nomor 2 Tahun 2022 tentang Cipta Kerja menjadi Undang-Undang, serta Peraturan Menteri Hukum Republik Indonesia Nomor 49 Tahun 2025 tentang Syarat dan Tata Cara Pendirian, Perubahan, dan Pembubaran Badan Hukum Perseroan Terbatas.` }
       ],
     });
@@ -254,7 +254,7 @@ export const generateRupstPernyataanBlocks = (data: CompanyData): Block[] => {
       type: "listNumber",
       runs: [
         { text: "Bahwa Laporan Tahunan " },
-        { text: formatCompanyName(data.companyName) },
+        { text: formatCompanyName(data.companyName, data.clientType) },
         { text: ` tahun buku ${fiscalYear} ` },
         {
           text:
@@ -309,7 +309,7 @@ export const generateRupstPernyataanBlocks = (data: CompanyData): Block[] => {
     runs: [
       { text: `${city}, ${signingDateStr}` },
       { text: "\n" },
-      { text: formatCompanyName(data.companyName) },
+      { text: formatCompanyName(data.companyName, data.clientType) },
       { text: "\n" },
       { text: "\n" },
       { text: "Materai + Cap", size: 12, color: "FF0000" },

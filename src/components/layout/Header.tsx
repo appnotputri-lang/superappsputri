@@ -272,7 +272,7 @@ export const Header: React.FC<HeaderProps> = ({
                 <button 
                   onClick={() => {
                     if (!user) {
-                      if (confirm('Anda harus login terlebih dahulu untuk mengakses menu "Klien PT".')) {
+                      if (confirm('Anda harus login terlebih dahulu untuk mengakses menu "Klien".')) {
                         loginWithGoogle();
                       }
                     } else {
@@ -283,7 +283,7 @@ export const Header: React.FC<HeaderProps> = ({
                   className="w-full px-4 py-2 text-left text-xs text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-2 cursor-pointer"
                 >
                   <Building2 className="w-3.5 h-3.5 text-slate-400" />
-                  <span>Database Klien PT</span>
+                  <span>Database Klien</span>
                 </button>
               </div>
 

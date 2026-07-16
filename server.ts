@@ -61,11 +61,11 @@ async function startServer() {
   app.post("/api/v2/drive/ensure-project-folder", authMiddleware, async (req, res) => {
     try {
       const { project } = req.body;
-      if (!project || !project.id || !project.clientId) {
+      if (!project || !project.projectId || !project.clientId) {
         return res.status(400).json({ error: "Missing valid project object" });
       }
 
-      console.log(`[Drive API] Ensuring project folder for project ID: ${project.id}`);
+      console.log(`[Drive API] Ensuring project folder for project ID: ${project.projectId}`);
       await DriveFolderService.handleNewProject(project, process.env);
 
       res.json({ success: true, message: "Project folder ensured successfully" });

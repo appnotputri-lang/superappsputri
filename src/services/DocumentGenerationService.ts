@@ -40,10 +40,35 @@ export class DocumentGenerationService {
       throw new Error(`Proyek dengan ID ${projectId} tidak ditemukan.`);
     }
 
-    const project = projectSnap.data() as Project;
-    const driveFolderId = project.metadata?.driveFolderId || (project as any).driveFolderId;
+    const project = { ...projectSnap.data(), projectId: projectSnap.id } as Project;
+    let driveFolderId = project.metadata?.driveFolderId || (project as any).driveFolderId;
+    
     if (!driveFolderId) {
-      throw new Error('Google Drive folder belum disiapkan untuk proyek ini. Silakan hubungi admin.');
+      console.log(`[DocumentGenerationService] Project ${projectId} has no driveFolderId. Attempting to ensure folder...`);
+      const token = await AuthService.getToken();
+      const response = await fetch(getApiUrl('/api/v2/drive/ensure-project-folder'), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          project: project
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Google Drive folder belum disiapkan untuk proyek ini. Gagal membuat folder otomatis.');
+      }
+
+      // Re-fetch project to get newly created driveFolderId
+      const updatedSnap = await getDoc(projectRef);
+      const updatedProject = updatedSnap.data() as Project;
+      driveFolderId = updatedProject.metadata?.driveFolderId || (updatedProject as any).driveFolderId;
+
+      if (!driveFolderId) {
+        throw new Error('Google Drive folder belum disiapkan untuk proyek ini. Silakan hubungi admin.');
+      }
     }
 
     const jobType = project.jobType;

@@ -254,7 +254,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
       {/* Stats Card Row - 4 beautiful cards matching screenshot */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         {[
-          { label: "Klien PT", val: profiles.length, desc: "Database klien perusahaan", icon: Building2, color: "text-[#1890ff] bg-blue-50/80 border-blue-100", tab: "company_profile" as const },
+          { label: "Klien", val: profiles.length, desc: "Database klien perusahaan", icon: Building2, color: "text-[#1890ff] bg-blue-50/80 border-blue-100", tab: "company_profile" as const },
           { label: "Draft RUPS LB", val: projects.length, desc: "Keputusan Sirkuler & PKR LB", icon: FileText, color: "text-amber-600 bg-amber-50/85 border-amber-100/80", tab: "notulen" as const },
           { label: "Draft RUPS Tahunan", val: rupstProjects.length, desc: "Pertanggungjawaban tahun buku", icon: History, color: "text-emerald-600 bg-emerald-50/80 border-emerald-100/70", tab: "rupst" as const },
           { label: "Draft Pendirian PT", val: pendirianProjects.length, desc: "Draft akta pendirian", icon: FileCode, color: "text-purple-600 bg-purple-50/80 border-purple-100/60", tab: "pendirian" as const }
@@ -438,7 +438,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         </h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {[
-            { title: "Daftar Klien PT", sub: "Kelola dan lihat seluruh data klien perusahaan.", color: "text-blue-600 bg-blue-50 border-blue-104", icon: Building2, tab: "company_profile" as const },
+            { title: "Daftar Klien", sub: "Kelola dan lihat seluruh data klien perusahaan.", color: "text-blue-600 bg-blue-50 border-blue-104", icon: Building2, tab: "company_profile" as const },
             { title: "RUPS Tahunan", sub: "Lihat dan kelola draf RUPS Tahunan terbaru.", color: "text-amber-600 bg-amber-50 border-amber-104", icon: History, tab: "rupst" as const },
             { title: "Dokumen & Arsip", sub: "Akses semua draf dokumen dan arsip legalitas.", color: "text-teal-600 bg-teal-50 border-teal-104", icon: BookOpen, tab: "notulen" as const }
           ].map((x, i) => (

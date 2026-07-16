@@ -109,9 +109,16 @@ createListP = (
   else if (level === 2) width = this.W.list3;
   else if (level >= 3) width = this.W.list4;
 
+  const useNumbering = !!(options as any).numbering;
+  if (useNumbering) {
+    width = indentTabs >= 0.8 ? 38.5 : 41.0;
+  }
+
   const lines = parseTextRuns(tokens, width);
   const children: any[] = [];
-  children.push(new TextRun({ text: bulletText + "\t" }));
+  if (!useNumbering) {
+    children.push(new TextRun({ text: bulletText + "\t" }));
+  }
 
   lines.forEach((lineTokens, i) => {
     lineTokens.forEach((t) => {
@@ -130,17 +137,14 @@ createListP = (
     }
   });
 
-  const isAlpha = typeof bulletText === 'string' && /[a-zA-Z]/.test(bulletText);
-  // let numRef: string;
-  // if (isAlpha) {
-  //   numRef = "rups-letter";
-  // } else if (bulletText === "-") {
-  //   numRef = "rups-bullet-dash";
-  // } else if (typeof bulletText === 'string' && /\d/.test(bulletText)) {
-  //   numRef = "rups-decimal";
-  // } else {
-  //   numRef = "rups-bullet-dash";
-  // }
+  if (useNumbering) {
+    return new Paragraph({
+      children,
+      tabStops: [this.TAB_KANAN],
+      alignment: AlignmentType.LEFT,
+      ...options,
+    });
+  }
 
   let leftIndent = 284;
   let hangingIndent = 284;

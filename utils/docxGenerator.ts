@@ -158,7 +158,7 @@ export const generateWordDoc = async (data: CompanyData, returnBlob?: boolean) =
   const w = (num: number, tipe: "shares" | "rupiah") => {
     return "";
   };
-  const companyName = data.companyName.trim().toUpperCase().replace(/^(PT\b\.?|PERSEROAN\s+TERBATAS\b)\s*/gi, "").trim();
+  const companyNameFormatted = formatCompanyName(data.companyName, data.clientType);
 
   const expandAbbreviations = (str: string) => {
     if (!str) return "";
@@ -301,7 +301,7 @@ export const generateWordDoc = async (data: CompanyData, returnBlob?: boolean) =
       mkP({ text: "RAPAT UMUM PEMEGANG SAHAM LUAR BIASA", bold: true, alignment: "center", spacing: { before: 0, after: 0 } }),
       mkP({
         alignment: "center", spacing: { before: 0, after: 0 },
-        children: [mkRun(`PT ${companyName}`, true, { underline: { type: "single" } })],
+        children: [mkRun(companyNameFormatted, true, { underline: { type: "single" } })],
       }),
     );
   } else {
@@ -310,7 +310,7 @@ export const generateWordDoc = async (data: CompanyData, returnBlob?: boolean) =
       mkP({ text: "RAPAT UMUM PEMEGANG SAHAM LUAR BIASA", bold: true, alignment: "center", spacing: { before: 0, after: 0 } }),
       mkP({
         alignment: "center", spacing: { before: 0, after: 0 },
-        children: [mkRun(`PT ${companyName}`, true, { underline: { type: "single" } })],
+        children: [mkRun(companyNameFormatted, true, { underline: { type: "single" } })],
       }),
     );
   }
@@ -334,7 +334,7 @@ export const generateWordDoc = async (data: CompanyData, returnBlob?: boolean) =
     
     children.push(
       mkP({ 
-        text: `Kami yang bertandatangan dibawah ini, para Pemegang Saham ${formatCompanyName(data.companyName)}, berkedudukan di ${preambleDomicile}${companyEstStr}${
+        text: `Kami yang bertandatangan dibawah ini, para Pemegang Saham ${formatCompanyName(data.companyName, data.clientType)}, berkedudukan di ${preambleDomicile}${companyEstStr}${
           hasAmendments 
             ? ", dan telah mengalami beberapa kali perubahan berdasarkan akta-akta sebagai berikut :" 
             : ""
@@ -385,7 +385,7 @@ export const generateWordDoc = async (data: CompanyData, returnBlob?: boolean) =
         spacing: { line: LINE_SPACING, lineRule: "auto", before: 0, after: 0 },
         children: [
           mkRun(`Rapat Umum Pemegang Saham Luar Biasa “`),
-          mkRun(`PT. ${companyName}`, true),
+          mkRun(companyNameFormatted, true),
           mkRun(`“ (selanjutnya disebut sebagai “`),
           mkRun(`Rapat`, true),
           mkRun(`”) perseroan yang berkedudukan di ${currentCity}, demikian berdasarkan Akta Pendirian tertanggal `),
@@ -435,7 +435,7 @@ export const generateWordDoc = async (data: CompanyData, returnBlob?: boolean) =
         alignment: "both" as any,
         spacing: { line: LINE_SPACING, lineRule: "auto", before: 0, after: 0 },
         children: [
-          mkRun(`Rapat ini diselenggarakan berdasarkan Surat Undangan Direksi PT. ${companyName} nomor `),
+          mkRun(`Rapat ini diselenggarakan berdasarkan Surat Undangan Direksi ${companyNameFormatted} nomor `),
           mkRun(data.invitationNumber || "[nomor surat]", false, { highlight: data.invitationNumber ? undefined : "yellow" }),
           mkRun(" tanggal "),
           mkRun(data.invitationDate ? invDateText2 : "[tanggal surat]", false, { highlight: data.invitationDate ? undefined : "yellow" }),
@@ -3147,7 +3147,7 @@ export const generateWordDoc = async (data: CompanyData, returnBlob?: boolean) =
       new Paragraph({
         alignment: AlignmentType.CENTER,
         spacing: { after: 120 },
-        children: [mkRun("PT " + companyName, true)]
+        children: [mkRun(companyNameFormatted, true)]
       }),
       new Paragraph({
         alignment: AlignmentType.CENTER,

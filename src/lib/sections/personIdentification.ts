@@ -8,8 +8,9 @@ import {
   formatDateRupst,
   formatAktaDate,
   toTitleCase,
+  expandAbbreviations,
 } from "../formatter";
-import { expandAbbreviations, checkNotaryWording } from "./common";
+import { checkNotaryWording } from "./common";
 import { buildAmendmentDeedBlocks } from "./history/amendmentDeeds";
 
 export interface PersonIdentificationConfig {

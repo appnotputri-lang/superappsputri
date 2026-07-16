@@ -500,7 +500,7 @@ export class ProjectService {
       const projectRef = doc(db, this.projectsCol, projectId);
       const projectSnap = await getDoc(projectRef);
       if (!projectSnap.exists()) return null;
-      return projectSnap.data() as Project;
+      return { ...projectSnap.data(), projectId: projectSnap.id } as Project;
     } catch (error) {
       handleFirestoreError(error, OperationType.GET, path);
     }
@@ -544,7 +544,7 @@ export class ProjectService {
       const colRef = collection(db, this.projectsCol);
       const q = query(colRef, orderBy("createdAt", "desc"));
       const querySnap = await getDocs(q);
-      return querySnap.docs.map((docSnap) => docSnap.data() as Project);
+      return querySnap.docs.map((docSnap) => ({ ...docSnap.data(), projectId: docSnap.id }) as Project);
     } catch (error) {
       handleFirestoreError(error, OperationType.LIST, path);
     }

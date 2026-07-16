@@ -1,0 +1,67 @@
+src/features/project-engine/components/ProjectDetail.tsx:import { formatCompanyName } from '../../../lib/formatter';
+src/features/project-engine/components/ProjectDetail.tsx:                    <span className="font-semibold">{client ? formatCompanyName(client.companyName, client.clientType) : 'Memuat...'}</span>
+src/features/company/pages/CompanyPage.tsx:import { formatCompanyName } from '../../../lib/formatter';
+src/features/company/pages/CompanyPage.tsx:    const formattedName = formatCompanyName(p.companyName, p.clientType).toLowerCase();
+src/features/company/components/CompanyDetail.tsx:import { formatCompanyName } from '../../../lib/formatter';
+src/features/company/components/CompanyDetail.tsx:              if (confirm('Hapus profil ' + formatCompanyName(data.companyName, data.clientType) + '?')) {
+src/features/company/components/CompanyDetail.tsx:                  value={formatCompanyName(data.companyName || '', data.clientType)} 
+src/features/company/components/CompanyList.tsx:import { formatCompanyName } from '../../../lib/formatter';
+src/features/company/components/CompanyList.tsx:                      <span>{formatCompanyName(p.companyName, p.clientType)}</span>
+src/lib/generateRUPSDocx.ts:import { preprocessBlocksForWordBullets, toTitleCase, formatCompanyName } from "./formatter";
+src/lib/generateRUPSDocx.ts:  const fullCompanyName = formatCompanyName(data.companyName, data.clientType);
+src/lib/rupsContentBlocks.ts:  formatCompanyName,
+src/lib/rupsContentBlocks.ts:      companyNameFormatted: formatCompanyName(data.companyName, data.clientType),
+src/lib/rupsContentBlocks.ts:        { text: formatCompanyName(data.companyName, data.clientType), bold: true },
+src/lib/rupsContentBlocks.ts:        { text: `"${formatCompanyName(data.companyName, data.clientType)}"`, bold: true },
+src/lib/rupsContentBlocks.ts:        { text: formatCompanyName(data.companyName, data.clientType), bold: true },
+src/lib/rupsContentBlocks.ts:        { text: formatCompanyName(data.companyName, data.clientType), bold: true },
+src/lib/rupsContentBlocks.ts:        { text: formatCompanyName(data.companyName, data.clientType), bold: true },
+src/lib/rupsContentBlocks.ts:        { text: `"${formatCompanyName(newName)}"`, bold: true },
+src/lib/generateRUPSTDocx.ts:import { preprocessBlocksForWordBullets, formatCompanyName } from "./formatter";
+src/lib/generateRUPSTDocx.ts:  const template = new NotulenTemplate(blocks, formatCompanyName(data.companyName, data.clientType), data.domicile);
+src/lib/generateRUPSTDocx.ts:  const filename = `Notulen RUPST ${formatCompanyName(data.companyName, data.clientType)}.docx`;
+src/lib/contentBlocks.ts:import { getDayName, dateToWords, formatDateStr, timeToWords, formatTimeStr, terbilang, toTitleCase, formatNumber, formatAddress, formatCompanyName } from './formatter';
+src/lib/contentBlocks.ts:      { text: formatCompanyName(data.namaPT), bold: true },
+src/lib/contentBlocks.ts:         { text: formatCompanyName(data.namaPT), bold: true },
+src/lib/contentBlocks.ts:         { text: formatCompanyName(data.namaPT), bold: true },
+src/lib/contentBlocks.ts:       { text: formatCompanyName(data.namaPT), bold: true },
+src/lib/rupsTahunanAktaContentBlocks.ts:  formatCompanyName,
+src/lib/rupsTahunanAktaContentBlocks.ts:      companyNameFormatted: formatCompanyName(data.companyName, data.clientType),
+src/lib/rupsTahunanAktaContentBlocks.ts:        { text: `"${formatCompanyName(data.companyName, data.clientType)}"`, bold: true },
+src/lib/rupsTahunanAktaContentBlocks.ts:        { text: formatCompanyName(data.companyName, data.clientType), bold: true },
+src/lib/rupsTahunanAktaContentBlocks.ts:        text: ` telah diadakan Rapat Umum Pemegang Saham Tahunan Perseroan Terbatas ${formatCompanyName(data.companyName, data.clientType)} (selanjutnya disebut sebagai “Rapat”) Perseroan berkedudukan di ${toTitleCase(data.domicile || "...")}, demikian berdasarkan Akta Pendirian tertanggal ${establishmentDeedDateText}, Nomor ${data.establishmentDeedNumber || "02"} dibuat dihadapan ${checkNotaryWording(data.establishmentNotary || "............................", data.establishmentNotaryTitle, data.establishmentNotaryDomicile)} dan telah mendapat pengesahan dari Menteri Hukum dan Hak Asasi Manusia Republik Indonesia berdasarkan Surat Keputusan Nomor ${getSkFormattedNumber()} tertanggal ${formatAktaDate(data.establishmentSkDate || "")}${suffix}`,
+src/lib/rupsTahunanAktaContentBlocks.ts:        { text: formatCompanyName(data.companyName), bold: true },
+src/lib/rupsTahunanAktaContentBlocks.ts:        { text: formatCompanyName(data.companyName), bold: true },
+src/lib/rupsTahunanAktaContentBlocks.ts:          text: `Menyetujui Pernyataan Direksi dan Komisaris serta Para Pemegang Saham Perseroan ${formatCompanyName(data.companyName, data.clientType)} yang menyatakan bahwa status perseroan ini merupakan PT. Tertutup yang Laporan Keuangannya ${data.rupstIsAudited ? "Memenuhi" : "Tidak Memenuhi"} Ketentuan Wajib Audit oleh Akuntan Publik dengan alasan ${formattedReason}`,
+src/lib/rupsTahunanAktaContentBlocks.ts:          text: `Menyetujui Pernyataan Direksi dan Komisaris serta Para Pemegang Saham Perseroan ${formatCompanyName(data.companyName, data.clientType)} yang menyatakan bahwa status perseroan ini merupakan PT. Tertutup yang Laporan Keuangannya ${data.rupstIsAudited ? "Memenuhi" : "Tidak Memenuhi"} Ketentuan Wajib Audit oleh Akuntan Publik dengan alasan :`,
+src/lib/rupsTahunanAktaContentBlocks.ts:        text: `Mengesahkan Laporan Keuangan Perseroan untuk tahun buku yang berakhir pada tanggal 31 Desember ${data.rupstFiscalYear || "2025"}, sebagaimana dimuat dalam Laporan Keuangan ${formatCompanyName(data.companyName, data.clientType)} tertanggal ${financialRepDate}, yang ditandatangani ${signatoryPosition} Perseroan ${signatorySalutation} `,
+src/lib/generateSirkulerLaporanDocx.ts:import { preprocessBlocksForWordBullets, formatCompanyName } from "./formatter";
+src/lib/generateSirkulerLaporanDocx.ts:  const template = new SirkulerTemplate(blocks, formatCompanyName(data.companyName, data.clientType), data.domicile);
+src/lib/generateSirkulerLaporanDocx.ts:  const filename = `Sirkuler RUPST ${formatCompanyName(data.companyName, data.clientType)}.docx`;
+src/lib/rupsTahunanContentBlocks.ts:  formatCompanyName,
+src/lib/rupsTahunanContentBlocks.ts:      runs: [{ text: formatCompanyName(data.companyName, data.clientType), bold: true }],
+src/lib/rupsTahunanContentBlocks.ts:      { text: formatCompanyName(data.companyName, data.clientType).toUpperCase(), bold: true },
+src/lib/rupsTahunanContentBlocks.ts:            text: `Menyetujui Pernyataan Direksi dan Komisaris serta Para Pemegang Saham Perseroan ${formatCompanyName(data.companyName, data.clientType)} yang menyatakan bahwa status perseroan ini merupakan PT. Tertutup yang Laporan Keuangannya Tidak Memenuhi Ketentuan Wajib Audit oleh Akuntan Publik dengan alasan ${formattedReason}`,
+src/lib/rupsTahunanContentBlocks.ts:            text: `Menyetujui Pernyataan Direksi dan Komisaris serta Para Pemegang Saham Perseroan ${formatCompanyName(data.companyName, data.clientType)} yang menyatakan bahwa status perseroan ini merupakan PT. Tertutup yang Laporan Keuangannya Tidak Memenuhi Ketentuan Wajib Audit oleh Akuntan Publik dengan alasan :`,
+src/lib/rupsTahunanContentBlocks.ts:    let baseApprovalText = `Mengesahkan Laporan Keuangan Perseroan untuk tahun buku yang berakhir pada tanggal 31 Desember ${fiscalYear}, sebagaimana dimuat dalam Laporan Keuangan ${formatCompanyName(data.companyName, data.clientType)} tanggal ${financialDateStr}, yang ditandatangani oleh ${financialPos} Perseroan ${signatorySalutation} ${financialSignatory}`;
+src/lib/rupsTahunanContentBlocks.ts:              text: `Menyetujui Pernyataan Direksi dan Komisaris serta Para Pemegang Saham Perseroan ${formatCompanyName(data.companyName, data.clientType)} yang menyatakan bahwa status perseroan ini merupakan PT. Tertutup yang Laporan Keuangannya Memenuhi Ketentuan Wajib Audit oleh Akuntan Publik dengan alasan ${reasonsAudit[0]}.`,
+src/lib/rupsTahunanContentBlocks.ts:              text: `Menyetujui Pernyataan Direksi dan Komisaris serta Para Pemegang Saham Perseroan ${formatCompanyName(data.companyName, data.clientType)} yang menyatakan bahwa status perseroan ini merupakan PT. Tertutup yang Laporan Keuangannya Memenuhi Ketentuan Wajib Audit oleh Akuntan Publik dengan alasan :`,
+src/lib/rupsTahunanContentBlocks.ts:    runs: [{ text: formatCompanyName(data.companyName, data.clientType), bold: true }],
+src/lib/generateRUPSTAktaDocx.ts:import { preprocessBlocksForWordBullets, formatCompanyName } from "./formatter";
+src/lib/generateRUPSTAktaDocx.ts:  const filename = `Draft Akta RUPST ${formatCompanyName(data.companyName, data.clientType)}.docx`;
+src/lib/sirkulerLaporanContentBlocks.ts:  formatCompanyName,
+src/lib/sirkulerLaporanContentBlocks.ts:  const finalCompanyName = formatCompanyName(companyNameText, data.clientType) || "PT ............................";
+src/lib/rupsTahunanPernyataanBlocks.ts:  formatCompanyName,
+src/lib/rupsTahunanPernyataanBlocks.ts:      { text: formatCompanyName(data.companyName, data.clientType) },
+src/lib/rupsTahunanPernyataanBlocks.ts:        { text: formatCompanyName(data.companyName, data.clientType) },
+src/lib/rupsTahunanPernyataanBlocks.ts:        { text: formatCompanyName(data.companyName, data.clientType) },
+src/lib/rupsTahunanPernyataanBlocks.ts:        { text: formatCompanyName(data.companyName, data.clientType) },
+src/lib/rupsTahunanPernyataanBlocks.ts:        { text: formatCompanyName(data.companyName, data.clientType) },
+src/lib/rupsTahunanPernyataanBlocks.ts:      { text: formatCompanyName(data.companyName, data.clientType) },
+src/lib/generateRUPSTPernyataanDocx.ts:import { preprocessBlocksForWordBullets, formatCompanyName } from "./formatter";
+src/lib/generateRUPSTPernyataanDocx.ts:  const filename = `Surat Pernyataan RUPST ${formatCompanyName(data.companyName, data.clientType)}.docx`;
+src/lib/formatter.ts:export function formatCompanyName(name: string, clientType: string = 'PT'): string {
+src/services/CompanyService.ts:  static formatCompanyName(name: string, clientType: string): string {
+src/services/CompanyService.ts:        companyName: data.companyName ? this.formatCompanyName(data.companyName, clientType) : undefined
+src/services/CompanyService.ts:          updateData.companyName = this.formatCompanyName(finalName, finalType);
+src/services/CompanyService.ts:    const duplicatedName = this.formatCompanyName(`${company.companyName} (Salinan)`, clientType);

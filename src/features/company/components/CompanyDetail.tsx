@@ -3,6 +3,7 @@ import { ArrowRight, Edit, Trash2, ChevronDown, ChevronRight, Plus, Eye } from '
 import { CompanyDetailProps } from '../types/company.types';
 import { OperationType } from '../../../../src/lib/firebase';
 import { formatInputNumber, parseFormattedNumber } from '../../../../utils/formatters';
+import { formatCompanyName } from '../../../lib/formatter';
 
 const AhuSection = ({ title, children, isOpen = true }: { title: string, children: React.ReactNode, isOpen?: boolean }) => {
   const [open, setOpen] = useState(isOpen);
@@ -82,7 +83,7 @@ export const CompanyDetail: React.FC<CompanyDetailProps> = ({
             onClick={async (e) => {
               e.preventDefault();
               if (!editingProfileId) return;
-              if (confirm('Hapus profil ' + data.companyName + '?')) {
+              if (confirm('Hapus profil ' + formatCompanyName(data.companyName, data.clientType) + '?')) {
                 if (!user) return alert('Anda harus login!');
                 try {
                   const deletedName = data.companyName || 'Klien Baru';
@@ -229,7 +230,7 @@ export const CompanyDetail: React.FC<CompanyDetailProps> = ({
               <AhuLabel label="Nama Perseroan" required />
               <div className="md:col-span-3">
                 <AhuInput 
-                  value={data.companyName || ''} 
+                  value={formatCompanyName(data.companyName || '', data.clientType)} 
                   readOnly
                 />
               </div>

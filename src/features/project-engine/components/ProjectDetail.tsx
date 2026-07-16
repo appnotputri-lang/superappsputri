@@ -15,6 +15,7 @@ import PendirianDocumentPreview from '../../../PendirianDocumentPreview';
 import { syncToUtama, getDeedTitle, formatAppearersForPendirian } from '../../../lib/syncUtama';
 import { mapCompanyProfileToPendirian } from '../../../domain/company/mappers/companyProfileToPendirian';
 import { ProjectDocumentUpload } from './ProjectDocumentUpload';
+import { formatCompanyName } from '../../../lib/formatter';
 import { AuthService } from '../../../services/AuthService';
 import { getApiUrl } from '../../../lib/api';
 
@@ -441,6 +442,11 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
     try {
       const rawData = await fetchDocRecordData(docRef);
       if (!rawData) return;
+      
+      // Inject clientType from client profile
+      if (client?.clientType) {
+        (rawData as any).clientType = client.clientType;
+      }
 
       let genResult: { filename: string, blob: Blob } | null = null;
 
@@ -449,6 +455,11 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
         genResult = await generatePendirianDocx(rawData, true);
       } else {
         const mergedData = { ...INITIAL_STATE, ...rawData } as any;
+        
+        // Also ensure mergedData has clientType
+        if (client?.clientType) {
+          mergedData.clientType = client.clientType;
+        }
 
         if (project?.jobType === 'rups_t' || project?.jobType === 'sirkuler') {
           if (kind === 'notulen') {
@@ -1771,7 +1782,7 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
                   <span className="text-slate-400 font-semibold block text-[11px] uppercase tracking-wider">Klien Registrasi</span>
                   <div className="flex items-center gap-2 text-slate-800">
                     <User className="w-4 h-4 text-slate-400" />
-                    <span className="font-semibold">{client ? client.companyName : 'Memuat...'}</span>
+                    <span className="font-semibold">{client ? formatCompanyName(client.companyName, client.clientType) : 'Memuat...'}</span>
                   </div>
                   {client && (
                     <span className="text-xs text-slate-400 block ml-6">

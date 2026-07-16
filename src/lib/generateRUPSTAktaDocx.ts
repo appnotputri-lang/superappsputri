@@ -19,7 +19,7 @@ import { buildAktaNumberingConfig } from "./docx-renderer/numbering";
 
 import { FormatToken, parseTextRuns } from "./notaryWrapper";
 import { Block, generateRupstAktaBlocks } from "./rupsTahunanAktaContentBlocks";
-import { preprocessBlocksForWordBullets } from "./formatter";
+import { preprocessBlocksForWordBullets, formatCompanyName } from "./formatter";
 
 // ─── Tab stop & font constants ────────────────────────────────────────────────
 const TAB_KANAN = {
@@ -66,150 +66,13 @@ const W = {
 
 // ─── Numbering references ─────────────────────────────────────────────────────
 const NUM = {
-  PREAMBLE_DASH:  "num-2",   // abstractNum 5
-  ATTENDANCE:     "num-3",   // abstractNum 1
-  ATTENDANCE_LTR: "num-7",   // abstractNum 0
-  GENERAL:        "num-4",   // abstractNum 2
-  DECISIONS:      "num-5",   // abstractNum 3
-  SAKSI:          "num-9",   // abstractNum 4
+  PREAMBLE_DASH:  "akta-rupst-preamble",
+  ATTENDANCE:     "akta-rupst-attendance",
+  ATTENDANCE_LTR: "akta-rupst-attendance-ltr",
+  GENERAL:        "akta-rupst-general",
+  DECISIONS:      "akta-rupst-decisions",
+  SAKSI:          "akta-rupst-saksi",
 };
-
-const DASH_LEVEL = {
-  level: 2,
-  format: LevelFormat.BULLET,
-  text: "-",
-  alignment: AlignmentType.LEFT,
-  style: { paragraph: { indent: { left: 720, hanging: 360 } } },
-};
-
-const buildNumberingConfig = () => ({
-  config: [
-    {
-      // abstractNum 0 → NUM.ATTENDANCE_LTR
-      reference: NUM.ATTENDANCE_LTR,
-      levels: [
-        {
-          level: 0,
-          format: LevelFormat.LOWER_LETTER,
-          text: "%1.",
-          alignment: AlignmentType.LEFT,
-          style: { paragraph: { indent: { left: 1080, hanging: 360 } } },
-        },
-      ],
-    },
-    {
-      // abstractNum 1 → NUM.ATTENDANCE
-      reference: NUM.ATTENDANCE,
-      levels: [
-        {
-          level: 0,
-          format: LevelFormat.DECIMAL,
-          text: "%1.",
-          alignment: AlignmentType.LEFT,
-          style: { paragraph: { indent: { left: 720, hanging: 360 } } },
-        },
-        {
-          level: 1,
-          format: LevelFormat.LOWER_LETTER,
-          text: "%2.",
-          alignment: AlignmentType.LEFT,
-          style: { paragraph: { indent: { left: 1080, hanging: 360 } } },
-        },
-        DASH_LEVEL,
-      ],
-    },
-    {
-      // abstractNum 2 → NUM.GENERAL
-      reference: NUM.GENERAL,
-      levels: [
-        {
-          level: 0,
-          format: LevelFormat.DECIMAL,
-          text: "%1.",
-          alignment: AlignmentType.LEFT,
-          style: { paragraph: { indent: { left: 720, hanging: 360 } } },
-        },
-        {
-          level: 1,
-          format: LevelFormat.LOWER_LETTER,
-          text: "%2.",
-          alignment: AlignmentType.LEFT,
-          style: { paragraph: { indent: { left: 1080, hanging: 360 } } },
-        },
-        DASH_LEVEL,
-      ],
-    },
-    {
-      // abstractNum 3 → NUM.DECISIONS
-      reference: NUM.DECISIONS,
-      levels: [
-        {
-          level: 0,
-          format: LevelFormat.DECIMAL,
-          text: "%1.",
-          alignment: AlignmentType.LEFT,
-          style: { paragraph: { indent: { left: 720, hanging: 360 } } },
-        },
-        {
-          level: 1,
-          format: LevelFormat.LOWER_LETTER,
-          text: "%2.",
-          alignment: AlignmentType.LEFT,
-          style: { paragraph: { indent: { left: 1080, hanging: 360 } } },
-        },
-        DASH_LEVEL,
-      ],
-    },
-    {
-      // abstractNum 4 → NUM.SAKSI
-      reference: NUM.SAKSI,
-      levels: [
-        {
-          level: 0,
-          format: LevelFormat.DECIMAL,
-          text: "%1.",
-          alignment: AlignmentType.LEFT,
-          style: { paragraph: { indent: { left: 425, hanging: 425 } } },
-        },
-        {
-          level: 1,
-          format: LevelFormat.LOWER_LETTER,
-          text: "%2.",
-          alignment: AlignmentType.LEFT,
-          style: { paragraph: { indent: { left: 1080, hanging: 360 } } },
-        },
-        {
-          level: 2,
-          format: LevelFormat.BULLET,
-          text: "-",
-          alignment: AlignmentType.LEFT,
-          style: { paragraph: { indent: { left: 850, hanging: 425 } } },
-        },
-      ],
-    },
-    {
-      // abstractNum 5 → NUM.PREAMBLE_DASH
-      reference: NUM.PREAMBLE_DASH,
-      levels: [
-        {
-          level: 0,
-          format: LevelFormat.DECIMAL,
-          text: "%1.",
-          alignment: AlignmentType.LEFT,
-          style: { paragraph: { indent: { left: 720, hanging: 360 } } },
-        },
-        {
-          level: 1,
-          format: LevelFormat.LOWER_LETTER,
-          text: "%2.",
-          alignment: AlignmentType.LEFT,
-          style: { paragraph: { indent: { left: 1080, hanging: 360 } } },
-        },
-        DASH_LEVEL,
-      ],
-    },
-  ],
-});
 
 // ─── Text-run helpers ─────────────────────────────────────────────────────────
 const makeRun = (t: FormatToken): TextRun =>
@@ -603,6 +466,10 @@ export const generateRUPSTAktaDocx = async (data: CompanyData, returnBlob?: bool
       }
 
       if (zone === "general") {
+        if (data.rupstType === "sirkuler") {
+          docxChildren.push(mkPreambleDash(b.runs, 0.5));
+          return;
+        }
         switch (generalSubtype) {
           case "bahwaDari":
             docxChildren.push(mkGeneralBahwaDari(b.runs));
@@ -676,10 +543,10 @@ export const generateRUPSTAktaDocx = async (data: CompanyData, returnBlob?: bool
   );
 
   // ── Document assembly ──────────────────────────────────────────────────────
-  const filename = `Draft Akta RUPST ${data.companyName || 'PT Baru'}.docx`;
+  const filename = `Draft Akta RUPST ${formatCompanyName(data.companyName, data.clientType)}.docx`;
   return BaseDocxRenderer.render({
     margins: DOCX_CONSTANTS.AKTA.MARGINS,
-    numbering: buildNumberingConfig().config,
+    numbering: buildAktaNumberingConfig(),
     children: docxChildren,
     footer: new Footer({
       children: [

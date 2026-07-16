@@ -1,4 +1,4 @@
-import { toTitleCase, cleanDegrees } from "../formatter";
+import { toTitleCase, cleanDegrees, expandAbbreviations } from "../formatter";
 
 export const stripSalutation = (name: string): string => {
   let nameUpper = (name || "").toUpperCase().trim();
@@ -8,16 +8,6 @@ export const stripSalutation = (name: string): string => {
     nameUpper = nameUpper.replace(prefixRegex, "").trim();
   }
   return expandAbbreviations(nameUpper);
-};
-
-export const expandAbbreviations = (str: string) => {
-  if (!str) return "";
-  let res = str;
-  res = res.replace(/\bS\.H\b\.?/gi, "Sarjana Hukum");
-  res = res.replace(/\bM\.Kn\b\.?/gi, "Magister Kenotariatan");
-  res = res.replace(/\bjl(?:n)?\.?\b/gi, "Jalan");
-  res = res.replace(/\bgg\.?\b/gi, "Gang");
-  return res;
 };
 
 export function checkNotaryWording(

@@ -18,6 +18,7 @@ import { KBLI_DATA } from '../../../../utils/kbliData';
 import { KBLI_2025_CATEGORIES } from '../../../lib/kbliConstants';
 import kbli2025Data from '../../../../kbli_2025.json';
 import { CompanyProfile, Shareholder, KbliItem } from '../../../../types';
+import { formatCompanyName } from '../../../lib/formatter';
 
 export const CompanyPage: React.FC<CompanyPageProps> = () => {
   const location = useLocation();
@@ -563,8 +564,10 @@ export const CompanyPage: React.FC<CompanyPageProps> = () => {
   filteredProfileResults = filteredProfileResults.filter((p) => {
     if (!profileSearchQuery) return true;
     const q = profileSearchQuery.toLowerCase();
+    const formattedName = formatCompanyName(p.companyName, p.clientType).toLowerCase();
     return (
       (p.companyName || '').toLowerCase().includes(q) ||
+      formattedName.includes(q) ||
       (p.domicile || '').toLowerCase().includes(q) ||
       (p.newAddress?.city || '').toLowerCase().includes(q)
     );

@@ -6,6 +6,7 @@ import { createDemikianlah } from "../closing/demikianlah";
 
 export interface PendirianOpeningConfig {
   cleanNamaPt: string;
+  clientType?: string;
   nomorAkta: string;
   hari: string;
   tglHuruf: string;
@@ -15,10 +16,23 @@ export interface PendirianOpeningConfig {
 }
 
 export function createPendirianOpening(config: PendirianOpeningConfig) {
+  const typeMap: Record<string, { title: string; prefix: string }> = {
+    'PT': { title: 'PENDIRIAN PERSEROAN TERBATAS', prefix: 'PT.' },
+    'CV': { title: 'PENDIRIAN COMMANDITAIRE VENNOOTSCHAP', prefix: 'CV.' },
+    'YAYASAN': { title: 'PENDIRIAN YAYASAN', prefix: 'YAYASAN' },
+    'PERKUMPULAN': { title: 'PENDIRIAN PERKUMPULAN', prefix: 'PERKUMPULAN' },
+    'KOPERASI': { title: 'PENDIRIAN KOPERASI', prefix: 'KOPERASI' },
+    'PMA': { title: 'PENDIRIAN PERSEROAN TERBATAS', prefix: 'PT.' },
+    'PERORANGAN': { title: 'PENDIRIAN PERSEROAN TERBATAS', prefix: 'PT.' }
+  };
+
+  const clientType = config.clientType || 'PT';
+  const info = typeMap[clientType] || { title: 'PENDIRIAN PERSEROAN TERBATAS', prefix: 'PT.' };
+
   return [
     ...createOpeningTitle({
-      title: "PENDIRIAN PERSEROAN TERBATAS",
-      subtitle: `PT. ${config.cleanNamaPt}`,
+      title: info.title,
+      subtitle: `${info.prefix} ${config.cleanNamaPt}`,
     }),
     ...createOpeningNumber(config.nomorAkta || "............................"),
     ...createOpeningDate({

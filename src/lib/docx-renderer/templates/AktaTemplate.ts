@@ -16,8 +16,14 @@ export class AktaTemplate {
     );
 
     const docxChildren: any[] = [];
+    let zone: "preamble" | "attendance" | "general" | "decisions" | "saksi" = "preamble";
 
     this.blocks.forEach((block) => {
+      // Zone transitions (similar to generateRUPSTAktaDocx.ts)
+      if (block.type === "list" && /^\d+\.$/.test(block.bullet ?? "")) {
+        zone = "attendance";
+      }
+
       if (block.type === "p") {
         const isCentered = block.align === "center";
         const isRightCenter = block.align === "right-center";
@@ -41,7 +47,17 @@ export class AktaTemplate {
           docxChildren.push(factory.createP(block.runs, isRightCenter, opts));
         }
       } else if (block.type === "list") {
-        docxChildren.push(factory.createListP(block.bullet, block.runs, block.indentTabs || 0));
+        if (zone === "preamble" && block.bullet === "-") {
+          const isDeep = (block.indentTabs || 0) >= 0.8;
+          const opts: any = {
+            style: "ListParagraph",
+            numbering: { reference: "akta-rupst-preamble", level: 2 },
+            indent: isDeep ? { left: 850, hanging: 425 } : { left: 426, hanging: 426 },
+          };
+          docxChildren.push(factory.createListP(block.bullet, block.runs, block.indentTabs || 0, opts));
+        } else {
+          docxChildren.push(factory.createListP(block.bullet, block.runs, block.indentTabs || 0));
+        }
       } else if (block.type === "shareholder-list") {
         const paragraphs = factory.createShareholderListParagraphs(block.bullet, block.name, block.sharesText, block.rpText);
         paragraphs.forEach((p: any) => docxChildren.push(p));

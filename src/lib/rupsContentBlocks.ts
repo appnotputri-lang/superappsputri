@@ -22,6 +22,7 @@ import {
   formatAktaDate,
   formatDateRupst,
   formatDateSimple,
+  expandAbbreviations,
 } from "./formatter";
 import { 
   Block, 
@@ -31,7 +32,6 @@ import {
   addPersonIdentificationBlocks,
   getPersonDetailRuns,
   stripSalutation,
-  expandAbbreviations,
   buildAttendanceBlocks,
   buildChairmanBlocks,
   buildClosingBlocks,
@@ -153,7 +153,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
   blocks.push(
     ...createRupsOpening({
       isCircular,
-      companyNameFormatted: formatCompanyName(data.companyName),
+      companyNameFormatted: formatCompanyName(data.companyName, data.clientType),
       effectiveNotaryNumber,
       hasCustomDeedDate,
       effectiveNotaryDate,
@@ -269,7 +269,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
         {
           text: `Bahwa pada hari ${meetingHari}, tanggal ${formattedMeetingDate}, bertempat di ${toTitleCase(data.signingPlace || "Kantor Perseroan")}, pukul ${meetingTimeStr} WIB (${meetingTimeWords} Waktu Indonesia Barat) telah diadakan Rapat Umum Pemegang Saham Luar Biasa Perseroan Terbatas `,
         },
-        { text: formatCompanyName(data.companyName), bold: true },
+        { text: formatCompanyName(data.companyName, data.clientType), bold: true },
         {
           text: ` (selanjutnya disebut sebagai “Rapat”) Perseroan berkedudukan di ${toTitleCase(data.newAddress?.city || data.domicile || "...")}, demikian berdasarkan Akta Pendirian tertanggal ${formattedEstDeedDate}, Nomor ${data.establishmentDeedNumber}, telah mendapat pengesahan dari Menteri Hukum dan Hak Asasi Manusia Republik Indonesia tertanggal ${formattedEstSkDate}, Nomor ${data.establishmentSkNumber}, dibuat di hadapan ${checkNotaryWording(data.establishmentNotary, data.establishmentNotaryTitle, data.establishmentNotaryDomicile, { isAkta: true, currentNotaryName: "NUKANTINI PUTRI PARINCHA" })} dan telah mengalami perubahan berdasarkan akta sebagai berikut :-`,
         },
@@ -284,11 +284,11 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
         {
           text: `Bahwa menurut keterangannya dalam hal ini bertindak berdasarkan kuasa yang diberikan dalam Keputusan Para Pemegang Saham `,
         },
-        { text: `"${formatCompanyName(data.companyName)}"`, bold: true },
+        { text: `"${formatCompanyName(data.companyName, data.clientType)}"`, bold: true },
         {
           text: ` yang ditandatangani terakhir tertanggal ${formatAktaDate(data.signingDate)}, demikian sah mewakili untuk dan atas nama serta kepentingan `,
         },
-        { text: formatCompanyName(data.companyName), bold: true },
+        { text: formatCompanyName(data.companyName, data.clientType), bold: true },
         {
           text: isCircular 
             ? `, perseroan berkedudukan di ${toTitleCase(data.newAddress?.city || data.domicile || "...")}, demikian berdasarkan Akta Pendirian tertanggal ${formatAktaDate(data.establishmentDeedDate || "")} Nomor ${data.establishmentDeedNumber} dibuat dihadapan ${checkNotaryWording(data.establishmentNotary, data.establishmentNotaryTitle, data.establishmentNotaryDomicile, { isAkta: true, currentNotaryName: "NUKANTINI PUTRI PARINCHA" })} dan telah mendapat pengesahan dari Menteri Hukum dan Hak Asasi Manusia Republik Indonesia berdasarkan Surat Keputusan Nomor ${data.establishmentSkNumber} tertanggal ${formatAktaDate(data.establishmentSkDate || "")} dan telah mengalami beberapa kali perubahan berdasarkan akta-akta sebagai berikut :`
@@ -319,7 +319,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
         {
           text: `Bahwa para pemegang saham perseroan telah mengambil keputusan berdasarkan Keputusan Sirkuler Para Pemegang Saham `,
         },
-        { text: formatCompanyName(data.companyName), bold: true },
+        { text: formatCompanyName(data.companyName, data.clientType), bold: true },
         {
           text: ` sebagai pengganti Keputusan yang diambil pada Rapat Umum Pemegang Saham Luar Biasa yang ditandatangani secara bersama-sama dan/atau dengan cara diedarkan, yang terakhir ditandatangani pada tanggal ${formatAktaDate(data.signingDate)} bermeterai cukup yang aslinya dilekatkan pada minuta akta ini (selanjutnya akan disebut “Keputusan Sirkuler”),yang ditandatangani oleh:`,
         },
@@ -327,22 +327,15 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
     });
 
     // Output attending shareholders for circular
-    attendingShareholders.forEach((sh, i) => {
-      const shTotalRp = sh.sharesOwned * data.originalSharePrice;
-      const suffixRuns: FormatToken[] = [
-        {
-          text: `, selaku pemilik dan pemegang ${formatNumber(sh.sharesOwned)} lembar saham atau senilai Rp. ${formatNumber(shTotalRp)},-.`,
-        },
-      ];
-      addPersonIdentificationBlocks(blocks, {
-        person: sh,
-        bullet: `${i + 1}.`,
-        indentTabs: 0.668,
-        suffixRuns,
-        fullyDescribedNames,
-        isSirkuler: isCircular
-      });
-    });
+    blocks.push(...buildAttendanceBlocks({
+      shareholders: data.shareholders,
+      isMinutes: false,
+      isSirkuler: true,
+      originalSharePrice: data.originalSharePrice,
+      fullyDescribedNames,
+      useAktaFormat: true,
+      rep
+    }));
   } else {
     // MINUTES specific Preamble
     let totalCapPaid = data.originalCapitalPaid;
@@ -397,7 +390,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
     oldManagementItems: data.oldManagementItems,
     newManagementItems: data.newManagementItems,
     fullyDescribedNames,
-    useAktaFormat: false,
+    useAktaFormat: true,
     isSirkuler: isCircular,
     isMinutes: true
   };
@@ -519,7 +512,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
         {
           text: `Bahwa Keputusan Sirkuler mana telah ditandatangani dan mewakili seluruh saham yang telah dikeluarkan dan disetor penuh (“para pemegang saham”) sampai dengan hari ini, yaitu sebanyak ${formatNumber(totalShares)} lembar saham atau 100 % (seratus persen) dari saham dalam Perseroan `,
         },
-        { text: formatCompanyName(data.companyName), bold: true },
+        { text: formatCompanyName(data.companyName, data.clientType), bold: true },
         {
           text: `, sehingga karenanya Keputusan tersebut adalah sah susunannya dan mengikat.`,
         },
@@ -951,7 +944,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
                 isCircular
               );
             } else {
-              detailsText = `, lahir di Bandung, pada tanggal 15-07-1991 (lima belas Juli seribu sembilan ratus sembilan puluh satu), Warga Negara Indonesia, Wiraswasta, bertempat tinggal di Kabupaten Bandung Barat, Jl Sukaresmi V Nomor 17, RT. 005 RW. 005, Kelurahan Mekarwangi, Kecamatan Lembang, pemegang Kartu Tanda Penduduk Nomor ...`;
+              detailsText = `, lahir di Bandung, pada tanggal 15-07-1991 (lima belas Juli seribu sembilan ratus sembilan puluh satu), Warga Negara Indonesia, Wiraswasta, bertempat tinggal di Kabupaten Bandung Barat, Jalan Sukaresmi V Nomor 17, Rukun Tetangga 005, Rukun Warga 005, Kelurahan Mekarwangi, Kecamatan Lembang, pemegang Kartu Tanda Penduduk Nomor ...`;
             }
             fullName = `${salutation.toUpperCase()} ${cleanName}${expandAbbreviations(detailsText)}`;
 
@@ -1028,11 +1021,11 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
         bullet: "-",
         indentTabs: 1.0,
         runs: [
-          ...getPersonDetailRuns({ person: from, fullyDescribedNames, isSirkuler: isCircular }),
+          ...getPersonDetailRuns({ person: from, fullyDescribedNames, isSirkuler: isCircular, useAktaFormat: true }),
           {
             text: ` mengalihkan ${formatNumber(t.sharesTransferred)}${w(t.sharesTransferred, "shares")} lembar saham perseroan atau senilai Rp ${formatNumber(valRp)},-${w(valRp, "rupiah")} kepada `,
           },
-          ...getPersonDetailRuns({ person: to, fullyDescribedNames, isSirkuler: isCircular }),
+          ...getPersonDetailRuns({ person: to, fullyDescribedNames, isSirkuler: isCircular, useAktaFormat: true }),
           { text: `.` },
         ],
       });
@@ -1279,7 +1272,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
                 number: resIdx++,
                 runs: [
                   { text: `Memberhentikan dengan hormat ` },
-                  ...getPersonDetailRuns({ person: m, fullyDescribedNames, isSirkuler: isCircular }),
+                  ...getPersonDetailRuns({ person: m, fullyDescribedNames, isSirkuler: isCircular, useAktaFormat: true }),
                   { text: `, dari jabatannya selaku Direktur Perseroan.` },
                 ],
               });
@@ -1299,7 +1292,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
                   type: "list",
                   bullet: `${idx + 1}.`,
                   indentTabs: 0.8,
-                  runs: [...getPersonDetailRuns({ person: m, fullyDescribedNames, isSirkuler: isCircular }), { text: `;` }],
+                  runs: [...getPersonDetailRuns({ person: m, fullyDescribedNames, isSirkuler: isCircular, useAktaFormat: true }), { text: `;` }],
                 });
               });
             }
@@ -1314,7 +1307,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
                 number: resIdx++,
                 runs: [
                   { text: `Memberhentikan dengan hormat ` },
-                  ...getPersonDetailRuns({ person: m, fullyDescribedNames, isSirkuler: isCircular }),
+                  ...getPersonDetailRuns({ person: m, fullyDescribedNames, isSirkuler: isCircular, useAktaFormat: true }),
                   { text: `, dari jabatannya selaku Komisaris Perseroan.` },
                 ],
               });
@@ -1334,7 +1327,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
                   type: "list",
                   bullet: `${idx + 1}.`,
                   indentTabs: 0.8,
-                  runs: [...getPersonDetailRuns({ person: m, fullyDescribedNames, isSirkuler: isCircular }), { text: `;` }],
+                  runs: [...getPersonDetailRuns({ person: m, fullyDescribedNames, isSirkuler: isCircular, useAktaFormat: true }), { text: `;` }],
                 });
               });
             }
@@ -1362,7 +1355,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
                   type: "list",
                   bullet: `-`,
                   indentTabs: 0.8,
-                  runs: [...getPersonDetailRuns({ person: m, fullyDescribedNames, isSirkuler: isCircular }), { text: `;` }],
+                  runs: [...getPersonDetailRuns({ person: m, fullyDescribedNames, isSirkuler: isCircular, useAktaFormat: true }), { text: `;` }],
                 });
               });
             }
@@ -1377,7 +1370,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
                   type: "list",
                   bullet: `-`,
                   indentTabs: 0.8,
-                  runs: [...getPersonDetailRuns({ person: m, fullyDescribedNames, isSirkuler: isCircular }), { text: `;` }],
+                  runs: [...getPersonDetailRuns({ person: m, fullyDescribedNames, isSirkuler: isCircular, useAktaFormat: true }), { text: `;` }],
                 });
               });
             }
@@ -1414,7 +1407,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
                 indentTabs: managersToDismiss.length > 0 ? 0.334 : undefined,
                 runs: [
                   { text: `Mengangkat ` },
-                  ...getPersonDetailRuns({ person: appointedDirectors[0], fullyDescribedNames, isSirkuler: isCircular }),
+                  ...getPersonDetailRuns({ person: appointedDirectors[0], fullyDescribedNames, isSirkuler: isCircular, useAktaFormat: true }),
                   {
                     text: `, sebagai ${appointedDirectors[0].position.toUpperCase()} Perseroan.`,
                   },
@@ -1437,7 +1430,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
                   bullet: `${idx + 1}.`,
                   indentTabs: 0.8,
                   runs: [
-                    ...getPersonDetailRuns({ person: m, fullyDescribedNames, isSirkuler: isCircular }),
+                    ...getPersonDetailRuns({ person: m, fullyDescribedNames, isSirkuler: isCircular, useAktaFormat: true }),
                     { text: ` selaku ${m.position.toUpperCase()};` },
                   ],
                 });
@@ -1454,7 +1447,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
                 indentTabs: managersToDismiss.length > 0 ? 0.334 : undefined,
                 runs: [
                   { text: `Mengangkat ` },
-                  ...getPersonDetailRuns({ person: appointedCommissioners[0], fullyDescribedNames, isSirkuler: isCircular }),
+                  ...getPersonDetailRuns({ person: appointedCommissioners[0], fullyDescribedNames, isSirkuler: isCircular, useAktaFormat: true }),
                   {
                     text: `, sebagai ${appointedCommissioners[0].position.toUpperCase()} Perseroan.`,
                   },
@@ -1477,7 +1470,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
                   bullet: `${idx + 1}.`,
                   indentTabs: 0.8,
                   runs: [
-                    ...getPersonDetailRuns({ person: m, fullyDescribedNames, isSirkuler: isCircular }),
+                    ...getPersonDetailRuns({ person: m, fullyDescribedNames, isSirkuler: isCircular, useAktaFormat: true }),
                     { text: ` selaku ${m.position.toUpperCase()};` },
                   ],
                 });
@@ -1501,7 +1494,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
                 bullet: `${idx + 1}.`,
                 indentTabs: 0.8,
                 runs: [
-                  ...getPersonDetailRuns({ person: m, fullyDescribedNames, isSirkuler: isCircular }),
+                  ...getPersonDetailRuns({ person: m, fullyDescribedNames, isSirkuler: isCircular, useAktaFormat: true }),
                   { text: ` selaku ${m.position.toUpperCase()};` },
                 ],
               });
@@ -1609,13 +1602,13 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
       saksi1Text: expandAbbreviations(
         data.saksi1Lahir && data.saksi1Alamat && data.saksi1NIK
           ? `, lahir di ${toTitleCase(data.saksi1Lahir)}, Warga Negara Indonesia, bertempat tinggal di ${formatAddress(toTitleCase(data.saksi1Alamat.replace(/Sukaresmi Nomor 12/gi, "Sukaresmi Nomor 17")))}, pemegang Kartu Tanda Penduduk Nomor ${data.saksi1NIK}`
-          : ", lahir di Bandung, Pada Tanggal Limabelas Juli Seribu Sembilan Ratus Sembilan Puluh Satu (15-07-1991), Warga Negara Indonesia, bertempat tinggal di Jalan Sukaresmi Nomor 17, RT. 005 RW. 005, Kecamatan Lembang, Desa Mekarwangi, pemegang Kartu Tanda Penduduk Nomor 3217011507910016"
+          : ", lahir di Bandung, Pada Tanggal Limabelas Juli Seribu Sembilan Ratus Sembilan Puluh Satu (15-07-1991), Warga Negara Indonesia, bertempat tinggal di Jalan Sukaresmi Nomor 17, Rukun Tetangga 005, Rukun Warga 005, Kecamatan Lembang, Desa Mekarwangi, pemegang Kartu Tanda Penduduk Nomor 3217011507910016"
       ),
       saksi2Nama: expandAbbreviations(data.saksi2Nama || "Siti Nur Azizah"),
       saksi2Text: expandAbbreviations(
         data.saksi2Lahir && data.saksi2Alamat && data.saksi2NIK
           ? `, lahir di ${toTitleCase(data.saksi2Lahir)}, Warga Negara Indonesia, bertempat tinggal di ${formatAddress(toTitleCase(data.saksi2Alamat))}, pemegang Kartu Tanda Penduduk Nomor ${data.saksi2NIK}`
-          : ", lahir di Bandung, Pada Tanggal Tujuh Belas Desember Seribu Sembilan Ratus Sembilan Puluh Sembilan (17-12-1999), Warga Negara Indonesia, bertempat tinggal di Kabupaten Bandung, Jalan Lembah Pakar Timur II Kampung Sekebuluh RT. 001 RW. 004, Desa Ciburial, Kecamatan Cimenyan, pemegang Kartu Tanda Penduduk Nomor 3204065712990001"
+          : ", lahir di Bandung, Pada Tanggal Tujuh Belas Desember Seribu Sembilan Ratus Sembilan Puluh Sembilan (17-12-1999), Warga Negara Indonesia, bertempat tinggal di Kabupaten Bandung, Jalan Lembah Pakar Timur II Kampung Sekebuluh Rukun Tetangga 001, Rukun Warga 004, Desa Ciburial, Kecamatan Cimenyan, pemegang Kartu Tanda Penduduk Nomor 3204065712990001"
       ),
       notaryName: ttdNotaryName,
     })

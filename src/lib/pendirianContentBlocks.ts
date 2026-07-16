@@ -40,6 +40,7 @@ export type Block =
 
 export interface PendirianData {
   namaPt: string;
+  clientType?: string;
   tanggal: string;
   waktu: string;
   nomorAkta?: string;
@@ -135,13 +136,42 @@ export function generatePendirianBlocks(data: PendirianData): Block[] {
   const kbliItems = data.kbliItems || [];
   const termYears = parseInt(data.kuotaWaktuDireksi || "5") || 5;
 
-  const cleanNamaPt = (data.namaPt || "").replace(/^PT\.?\s*/i, "").trim().toUpperCase();
+  const typeMap: Record<string, string> = {
+    'PT': 'PT',
+    'CV': 'CV',
+    'YAYASAN': 'YAYASAN',
+    'PERKUMPULAN': 'PERKUMPULAN',
+    'PERSEKUTUAN_FIRMA': 'FIRMA',
+    'PERSEKUTUAN_PERDATA': 'PERSEKUTUAN PERDATA',
+    'KOPERASI': 'KOPERASI',
+    'PMA': 'PT',
+    'PERORANGAN': 'PT',
+    'LAINNYA': ''
+  };
+
+  const clientType = data.clientType || 'PT';
+  const prefix = typeMap[clientType] || 'PT';
+
+  const allPrefixes = [
+    'PT', 'PT\\.', 'P\\.T\\.', 'P\\.T', 'PERSEROAN TERBATAS',
+    'CV', 'CV\\.', 'C\\.V\\.', 'C\\.V', 'COMMANDITAIRE VENNOOTSCHAP',
+    'YAYASAN', 'KOPERASI', 'FIRMA', 'PERKUMPULAN'
+  ];
+  
+  const prefixRegex = new RegExp(`^(${allPrefixes.join('|')})\\s*`, 'i');
+  
+  let cleanNamaPt = (data.namaPt || "").trim();
+  while (prefixRegex.test(cleanNamaPt)) {
+    cleanNamaPt = cleanNamaPt.replace(prefixRegex, "").trim();
+  }
+  cleanNamaPt = cleanNamaPt.toUpperCase();
 
   // ── HEADER & OPENING ──────────────────────────────────────────────────────
   const notarisTempat = data.notarisTempat || "Kabupaten Bandung Barat";
   blocks.push(
     ...createPendirianOpening({
       cleanNamaPt,
+      clientType,
       nomorAkta: data.nomorAkta || "............................",
       hari,
       tglHuruf,

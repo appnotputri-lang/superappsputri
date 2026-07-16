@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { CompanyAvatar } from '../../../components/common/CompanyAvatar';
 import { CompanyListProps } from '../types/company.types';
+import { formatCompanyName } from '../../../lib/formatter';
 
 const clientTypeBadgeStyles: Record<string, { bg: string; text: string; border: string; label: string }> = {
   PT: { bg: 'bg-blue-50/70', text: 'text-blue-700', border: 'border-blue-200', label: 'PT' },
@@ -204,7 +205,7 @@ export const CompanyList: React.FC<CompanyListProps> = ({
                   <td className="p-4 font-bold text-slate-800 border-r border-slate-100 uppercase tracking-tight">
                     <div className="flex items-center gap-3">
                       <CompanyAvatar name={p.companyName || ''} />
-                      <span>{p.companyName}</span>
+                      <span>{formatCompanyName(p.companyName, p.clientType)}</span>
                     </div>
                     {p.kbliItems && p.kbliItems.length > 0 && (
                       <div className="mt-1.5 flex flex-wrap gap-1 items-center">

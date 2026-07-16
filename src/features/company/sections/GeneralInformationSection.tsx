@@ -1,5 +1,6 @@
 import React from 'react';
 import { AhuSection, AhuLabel, AhuInput, AhuSelect } from '../components/CompanyForm';
+import { cleanCompanyName } from '../../../lib/formatter';
 
 interface GeneralInformationSectionProps {
   data: any;
@@ -45,6 +46,7 @@ export const GeneralInformationSection: React.FC<GeneralInformationSectionProps>
             <AhuInput 
               value={data.companyName || ''} 
               onChange={e => updateData({ companyName: e.target.value })} 
+              onBlur={e => updateData({ companyName: cleanCompanyName(e.target.value) })}
             />
           </div>
         </div>

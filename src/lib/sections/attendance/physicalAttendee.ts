@@ -7,6 +7,7 @@ import {
   toTitleCase,
   formatAktaDate,
   formatDateRupst,
+  terbilang,
 } from "../../formatter";
 import { getPosRank } from "../common";
 import { getPersonDetailRuns, addPersonIdentificationBlocks } from "../personIdentification";
@@ -282,21 +283,46 @@ export const buildAttendanceBlocks = (config: AttendanceConfig): Block[] => {
   const blocks: Block[] = [];
 
   attendees.forEach((att, idx) => {
+    const isSirkulerMode = isSirkuler;
+    const endChar = ";";
+
     addPersonIdentificationBlocks(blocks, {
       person: att.sourceObj,
       fullyDescribedNames,
       useAktaFormat,
-      isSirkuler,
+      isSirkuler: isSirkulerMode,
       rep,
       bullet: `${idx + 1}.`,
       indentTabs: config.isMinutes ? 0.668 : 1.0,
-      suffixRuns: [{ text: ";" }],
+      suffixRuns: [{ text: endChar }],
     });
 
     const totalSubBullets =
       (att.management ? 1 : 0) +
       (att.ownShares ? 1 : 0) +
       att.representations.length;
+
+    if (isSirkulerMode) {
+      if (att.ownShares) {
+        const shareRp = (att.ownShares.sharesOwned || 0) * originalSharePrice;
+        const formattedAmt = formatNumber(shareRp);
+        const terbilangAmt = terbilang(shareRp);
+        blocks.push({
+          type: "list",
+          bullet: "-",
+          indentTabs: config.isMinutes ? 1.0 : 1.5,
+          runs: [
+            {
+              text: `selaku pemilik dan pemegang ${formatNumber(att.ownShares.sharesOwned)} (${terbilang(att.ownShares.sharesOwned)}) lembar saham atau senilai Rp. ${formattedAmt},- (${terbilangAmt} rupiah).`,
+            },
+          ],
+        });
+      }
+      att.representations.forEach((r) => {
+        blocks.push(...buildRepresentationBlocks(r, config, "-", config.isMinutes ? 1.0 : 1.5, "."));
+      });
+      return;
+    }
 
     const selakuText = "Dalam hal ini hadir selaku :";
 

@@ -1,6 +1,6 @@
 import { CompanyData } from "../../types";
 import { generateRupsBlocks } from "./rupsContentBlocks";
-import { preprocessBlocksForWordBullets, toTitleCase } from "./formatter";
+import { preprocessBlocksForWordBullets, toTitleCase, formatCompanyName } from "./formatter";
 import { AktaTemplate } from "./docx-renderer/templates/AktaTemplate";
 import { BaseDocxRenderer } from "./docx-renderer/BaseDocxRenderer";
 
@@ -22,7 +22,8 @@ export const generateRUPSDocx = async (data: CompanyData, returnBlob?: boolean) 
 
   const config = template.getRenderConfig(notarisDomicile, notarisName);
   
-  const filename = `Draft Akta RUPS LB ${data.companyName || 'PT Baru'}.docx`;
+  const fullCompanyName = formatCompanyName(data.companyName, data.clientType);
+  const filename = `Draft Akta RUPS LB ${fullCompanyName || 'PT Baru'}.docx`;
 
   return BaseDocxRenderer.render(config, filename, returnBlob);
 };

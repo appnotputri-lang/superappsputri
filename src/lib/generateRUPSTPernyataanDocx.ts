@@ -17,7 +17,7 @@ import {
 import { saveAs } from "file-saver";
 import { CompanyData } from "../../types";
 import { generateRupstPernyataanBlocks, RunToken } from "./rupsTahunanPernyataanBlocks";
-import { preprocessBlocksForWordBullets } from "./formatter";
+import { preprocessBlocksForWordBullets, formatCompanyName } from "./formatter";
 
 // ─── Constants (matching the DOCX exactly) ───────────────────────────────────
 const FONT = "Century Gothic";
@@ -401,7 +401,7 @@ export const generateRUPSTPernyataanDocx = async (data: CompanyData, returnBlob?
   });
 
   const blob = await Packer.toBlob(doc);
-  const filename = `Surat Pernyataan RUPST ${data.companyName || 'PT Baru'}.docx`;
+  const filename = `Surat Pernyataan RUPST ${formatCompanyName(data.companyName, data.clientType)}.docx`;
   if (returnBlob) {
     return { blob, filename };
   }

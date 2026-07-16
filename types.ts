@@ -257,6 +257,7 @@ export interface CompanyData {
   updatedAt?: string;
   documentType: DocumentType;
   companyName: string;
+  clientType?: 'PT' | 'CV' | 'YAYASAN' | 'PERKUMPULAN' | 'PERSEKUTUAN_FIRMA' | 'PERSEKUTUAN_PERDATA' | 'KOPERASI' | 'PMA' | 'PERORANGAN' | 'LAINNYA';
   companyShortName?: string;
   targetCompanyName?: string;
   targetCompanyShortName?: string;

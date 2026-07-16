@@ -1025,9 +1025,36 @@ export const generatePendirianDocx = async (data: any, returnBlob?: boolean): Pr
     mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   });
 
-  const safeName = data?.namaPt
-    ? String(data.namaPt).replace(/^PT\.?\s*/i, "").trim().replace(/\s+/g, "_")
-    : "Draft";
+  const typeMap: Record<string, string> = {
+    'PT': 'PT',
+    'CV': 'CV',
+    'YAYASAN': 'YAYASAN',
+    'PERKUMPULAN': 'PERKUMPULAN',
+    'PERSEKUTUAN_FIRMA': 'FIRMA',
+    'PERSEKUTUAN_PERDATA': 'PERSEKUTUAN PERDATA',
+    'KOPERASI': 'KOPERASI',
+    'PMA': 'PT',
+    'PERORANGAN': 'PT',
+    'LAINNYA': ''
+  };
+
+  const clientType = data.clientType || 'PT';
+  const prefix = typeMap[clientType] || 'PT';
+  
+  const allPrefixes = [
+    'PT', 'PT\\.', 'P\\.T\\.', 'P\\.T', 'PERSEROAN TERBATAS',
+    'CV', 'CV\\.', 'C\\.V\\.', 'C\\.V', 'COMMANDITAIRE VENNOOTSCHAP',
+    'YAYASAN', 'KOPERASI', 'FIRMA', 'PERKUMPULAN'
+  ];
+  const prefixRegex = new RegExp(`^(${allPrefixes.join('|')})\\s*`, 'i');
+  
+  let cleanName = (data.namaPt || "").trim();
+  while (prefixRegex.test(cleanName)) {
+    cleanName = cleanName.replace(prefixRegex, "").trim();
+  }
+  
+  const fullName = prefix ? `${prefix} ${cleanName}` : cleanName;
+  const safeName = fullName.toUpperCase().replace(/\s+/g, "_");
 
   const fileName = `Akta_Pendirian_${safeName}.docx`;
   if (returnBlob) {

@@ -153,6 +153,26 @@ export function parseNumber(formattedStr: string): string {
   return formattedStr.replace(/\./g, "");
 }
 
+export const expandAbbreviations = (str: string) => {
+  if (!str) return "";
+  let res = str;
+  res = res.replace(
+    /RT\.\s*(\d+)\s*RW\.\s*(\d+)/gi,
+    "Rukun Tetangga $1, Rukun Warga $2",
+  );
+  res = res.replace(
+    /RT\s+(\d+)\s*RW\s+(\d+)/gi,
+    "Rukun Tetangga $1, Rukun Warga $2",
+  );
+  res = res.replace(/RT\.\s*(\d+)/gi, "Rukun Tetangga $1");
+  res = res.replace(/RW\.\s*(\d+)/gi, "Rukun Warga $1");
+  res = res.replace(/\bS\.H\b\.?/gi, "Sarjana Hukum");
+  res = res.replace(/\bM\.Kn\b\.?/gi, "Magister Kenotariatan");
+  res = res.replace(/\bjl(?:n)?\.?\b/gi, "Jalan");
+  res = res.replace(/\bgg\.?\b/gi, "Gang");
+  return res;
+};
+
 export function formatAddress(address: string): string {
   if (!address) return "";
   let addr = address;
@@ -160,7 +180,8 @@ export function formatAddress(address: string): string {
   // Replace No, no, No., no. with Nomor (case-insensitive)
   addr = addr.replace(/\bno\.?\b/gi, "Nomor");
   
-  return addr;
+  // Expand other abbreviations like RT/RW, Jl, etc.
+  return expandAbbreviations(addr);
 }
 
 export function toTitleCase(str: string): string {
@@ -187,16 +208,60 @@ export function cleanDegrees(str: string): string {
   return res;
 }
 
-export function formatCompanyName(name: string): string {
+export function formatCompanyName(name: string, clientType: string = 'PT'): string {
   if (!name) return "";
   let cleanName = name.trim();
   
-  // Remove any existing PT prefix recursively to handle "PT PT name" or "PT. PT name"
-  while (/^(pt\b\.?|perseroan\s+terbatas\b)\s*/i.test(cleanName)) {
-    cleanName = cleanName.replace(/^(pt\b\.?|perseroan\s+terbatas\b)\s*/i, "").trim();
+  // Normalize types for mapping
+  const typeMap: Record<string, string> = {
+    'PT': 'PT',
+    'CV': 'CV',
+    'YAYASAN': 'YAYASAN',
+    'PERKUMPULAN': 'PERKUMPULAN',
+    'PERSEKUTUAN_FIRMA': 'FIRMA',
+    'PERSEKUTUAN_PERDATA': 'PERSEKUTUAN PERDATA',
+    'KOPERASI': 'KOPERASI',
+    'PMA': 'PT',
+    'PERORANGAN': 'PT',
+    'LAINNYA': ''
+  };
+
+  const prefix = typeMap[clientType] || 'PT';
+
+  // Remove existing prefixes recursively to handle "PT PT name" or "PT. PT name" etc
+  const allPrefixes = [
+    'PT', 'PT\\.', 'P\\.T\\.', 'P\\.T', 'PERSEROAN TERBATAS',
+    'CV', 'CV\\.', 'C\\.V\\.', 'C\\.V', 'COMMANDITAIRE VENNOOTSCHAP',
+    'YAYASAN', 'KOPERASI', 'FIRMA', 'PERKUMPULAN'
+  ];
+  
+  const prefixRegex = new RegExp(`^(${allPrefixes.join('|')})\\s*`, 'i');
+  
+  while (prefixRegex.test(cleanName)) {
+    cleanName = cleanName.replace(prefixRegex, "").trim();
   }
   
-  return `PT ${cleanName}`.toUpperCase();
+  if (!prefix) return cleanName.toUpperCase();
+  return `${prefix} ${cleanName}`.toUpperCase();
+}
+
+export function cleanCompanyName(name: string): string {
+  if (!name) return "";
+  let cleanName = name.trim();
+  
+  const allPrefixes = [
+    'PT', 'PT\\.', 'P\\.T\\.', 'P\\.T', 'PERSEROAN TERBATAS',
+    'CV', 'CV\\.', 'C\\.V\\.', 'C\\.V', 'COMMANDITAIRE VENNOOTSCHAP',
+    'YAYASAN', 'KOPERASI', 'FIRMA', 'PERKUMPULAN'
+  ];
+  
+  const prefixRegex = new RegExp(`^(${allPrefixes.join('|')})\\s*`, 'i');
+  
+  while (prefixRegex.test(cleanName)) {
+    cleanName = cleanName.replace(prefixRegex, "").trim();
+  }
+  
+  return cleanName;
 }
 
 export function formatAktaDate(dateStr: string): string {

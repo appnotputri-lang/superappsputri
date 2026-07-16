@@ -236,7 +236,7 @@ export const generateRupstBlocks = (data: CompanyData): Block[] => {
     {
       type: "p",
       align: "center",
-      runs: [{ text: formatCompanyName(data.companyName), bold: true }],
+      runs: [{ text: formatCompanyName(data.companyName, data.clientType), bold: true }],
     },
   );
 
@@ -254,11 +254,11 @@ export const generateRupstBlocks = (data: CompanyData): Block[] => {
     type: "p",
     runs: [
       { text: `Rapat Umum Pemegang Saham Tahunan "` },
-      { text: formatCompanyName(data.companyName).toUpperCase(), bold: true },
+      { text: formatCompanyName(data.companyName, data.clientType).toUpperCase(), bold: true },
       {
         text: isSirkuler
           ? `" (selanjutnya disebut sebagai "Keputusan") perseroan yang berkedudukan di ${data.domicile || "..."}, demikian berdasarkan Akta Pendirian tertanggal ${tglPendirianRupst} Nomor ${data.establishmentDeedNumber || "..."} yang dibuat di hadapan ${checkNotaryWording(data.establishmentNotary || "............................", data.establishmentNotaryTitle, data.establishmentNotaryDomicile, { isAkta: true, currentNotaryName: "NUKANTINI PUTRI PARINCHA" })} dan telah mendapat pengesahan dari Menteri Hukum dan Hak Asasi Manusia Republik Indonesia tertanggal ${tglSKPendirianRupst}, Nomor ${data.establishmentSkNumber || "..."}${hasAmendments ? (data.amendmentDeeds!.length === 1 ? " dan telah mengalami perubahan berdasarkan akta sebagai berikut :" : " dan telah mengalami beberapa kali perubahan berdasarkan akta-akta sebagai berikut :") : "."}`
-          : `" (selanjutnya disebut sebagai "Rapat") perseroan yang berkedudukan di ${data.domicile || "..."}, demikian berdasarkan Akta Pendirian tertanggal ${tglPendirianRupst}, Nomor ${data.establishmentDeedNumber || "..."} yang dibuat di hadapan ${checkNotaryWording(data.establishmentNotary || "............................", data.establishmentNotaryTitle, data.establishmentNotaryDomicile, { isAkta: true, currentNotaryName: "NUKANTINI PUTRI PARINCHA" })} dan telah mendapat pengesahan dari Menteri Hukum dan Hak Asasi Manusia Republik Indonesia tertanggal ${tglSKPendirianRupst}, Nomor ${data.establishmentSkNumber || "..."}${hasAmendments ? (data.amendmentDeeds!.length === 1 ? " dan telah mengalami perubahan berdasarkan akta sebagai berikut :" : " dan telah mengalami beberapa kali perubahan berdasarkan akta-akta sebagai berikut :") : "."}`,
+          : `" (selanjutnya disebut sebagai "Rapat") perseroan yang berkedudukan di ${data.domicile || "..."}, demikian berdasarkan Akta Pendirian tertanggal ${tglPendirianRupst} Nomor ${data.establishmentDeedNumber || "..."} yang dibuat di hadapan ${checkNotaryWording(data.establishmentNotary || "............................", data.establishmentNotaryTitle, data.establishmentNotaryDomicile, { isAkta: true, currentNotaryName: "NUKANTINI PUTRI PARINCHA" })} dan telah mendapat pengesahan dari Menteri Hukum dan Hak Asasi Manusia Republik Indonesia tertanggal ${tglSKPendirianRupst}, Nomor ${data.establishmentSkNumber || "..."}${hasAmendments ? (data.amendmentDeeds!.length === 1 ? " dan telah mengalami perubahan berdasarkan akta sebagai berikut :" : " dan telah mengalami beberapa kali perubahan berdasarkan akta-akta sebagai berikut :") : "."}`,
       },
     ],
   });
@@ -581,7 +581,7 @@ export const generateRupstBlocks = (data: CompanyData): Block[] => {
         indentStyle: "keputusan",
         runs: [
           {
-            text: `Menyetujui Pernyataan Direksi dan Komisaris serta Para Pemegang Saham Perseroan ${formatCompanyName(data.companyName)} yang menyatakan bahwa status perseroan ini merupakan PT. Tertutup yang Laporan Keuangannya Tidak Memenuhi Ketentuan Wajib Audit oleh Akuntan Publik dengan alasan ${formattedReason}`,
+            text: `Menyetujui Pernyataan Direksi dan Komisaris serta Para Pemegang Saham Perseroan ${formatCompanyName(data.companyName, data.clientType)} yang menyatakan bahwa status perseroan ini merupakan PT. Tertutup yang Laporan Keuangannya Tidak Memenuhi Ketentuan Wajib Audit oleh Akuntan Publik dengan alasan ${formattedReason}`,
           },
         ],
       });
@@ -592,7 +592,7 @@ export const generateRupstBlocks = (data: CompanyData): Block[] => {
         indentStyle: "keputusan",
         runs: [
           {
-            text: `Menyetujui Pernyataan Direksi dan Komisaris serta Para Pemegang Saham Perseroan ${formatCompanyName(data.companyName)} yang menyatakan bahwa status perseroan ini merupakan PT. Tertutup yang Laporan Keuangannya Tidak Memenuhi Ketentuan Wajib Audit oleh Akuntan Publik dengan alasan :`,
+            text: `Menyetujui Pernyataan Direksi dan Komisaris serta Para Pemegang Saham Perseroan ${formatCompanyName(data.companyName, data.clientType)} yang menyatakan bahwa status perseroan ini merupakan PT. Tertutup yang Laporan Keuangannya Tidak Memenuhi Ketentuan Wajib Audit oleh Akuntan Publik dengan alasan :`,
           },
         ],
       });
@@ -662,7 +662,7 @@ export const generateRupstBlocks = (data: CompanyData): Block[] => {
       financialSignatory = financialSignatory.substring(sigSalUpper.length);
     }
 
-    let baseApprovalText = `Mengesahkan Laporan Keuangan Perseroan untuk tahun buku yang berakhir pada tanggal 31 Desember ${fiscalYear}, sebagaimana dimuat dalam Laporan Keuangan ${formatCompanyName(data.companyName)} tanggal ${financialDateStr}, yang ditandatangani oleh ${financialPos} Perseroan ${signatorySalutation} ${financialSignatory}`;
+    let baseApprovalText = `Mengesahkan Laporan Keuangan Perseroan untuk tahun buku yang berakhir pada tanggal 31 Desember ${fiscalYear}, sebagaimana dimuat dalam Laporan Keuangan ${formatCompanyName(data.companyName, data.clientType)} tanggal ${financialDateStr}, yang ditandatangani oleh ${financialPos} Perseroan ${signatorySalutation} ${financialSignatory}`;
 
     if (data.rupstNonAuditedUseKAP) {
       const kapName = data.rupstKapName || "[NAMA KAP]";
@@ -861,7 +861,7 @@ export const generateRupstBlocks = (data: CompanyData): Block[] => {
           indentStyle: "keputusan",
           runs: [
             {
-              text: `Menyetujui Pernyataan Direksi dan Komisaris serta Para Pemegang Saham Perseroan ${formatCompanyName(data.companyName)} yang menyatakan bahwa status perseroan ini merupakan PT. Tertutup yang Laporan Keuangannya Memenuhi Ketentuan Wajib Audit oleh Akuntan Publik dengan alasan ${reasonsAudit[0]}.`,
+              text: `Menyetujui Pernyataan Direksi dan Komisaris serta Para Pemegang Saham Perseroan ${formatCompanyName(data.companyName, data.clientType)} yang menyatakan bahwa status perseroan ini merupakan PT. Tertutup yang Laporan Keuangannya Memenuhi Ketentuan Wajib Audit oleh Akuntan Publik dengan alasan ${reasonsAudit[0]}.`,
             },
           ],
         });
@@ -872,7 +872,7 @@ export const generateRupstBlocks = (data: CompanyData): Block[] => {
           indentStyle: "keputusan",
           runs: [
             {
-              text: `Menyetujui Pernyataan Direksi dan Komisaris serta Para Pemegang Saham Perseroan ${formatCompanyName(data.companyName)} yang menyatakan bahwa status perseroan ini merupakan PT. Tertutup yang Laporan Keuangannya Memenuhi Ketentuan Wajib Audit oleh Akuntan Publik dengan alasan :`,
+              text: `Menyetujui Pernyataan Direksi dan Komisaris serta Para Pemegang Saham Perseroan ${formatCompanyName(data.companyName, data.clientType)} yang menyatakan bahwa status perseroan ini merupakan PT. Tertutup yang Laporan Keuangannya Memenuhi Ketentuan Wajib Audit oleh Akuntan Publik dengan alasan :`,
             },
           ],
         });
@@ -1173,7 +1173,7 @@ export const generateRupstBlocks = (data: CompanyData): Block[] => {
   blocks.push({
     type: "p",
     align: "center",
-    runs: [{ text: formatCompanyName(data.companyName), bold: true }],
+    runs: [{ text: formatCompanyName(data.companyName, data.clientType), bold: true }],
   });
   blocks.push({
     type: "p",

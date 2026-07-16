@@ -100,10 +100,42 @@ export function ProjectDocumentUpload({ project, currentUser }: ProjectDocumentU
   };
 
   const uploadFile = async (file: File, isReplace = false, replaceDoc?: UploadedDocument) => {
-    const driveFolderId = project.metadata?.driveFolderId || (project as any).driveFolderId;
+    let driveFolderId = project.metadata?.driveFolderId || (project as any).driveFolderId;
+    
     if (!driveFolderId) {
-      alert('Google Drive folder belum disiapkan untuk proyek ini.');
-      return;
+      setUploading(true);
+      try {
+        const token = await AuthService.getToken();
+        const response = await fetch(getApiUrl('/api/v2/drive/ensure-project-folder'), {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            project: project
+          })
+        });
+
+        if (!response.ok) {
+          alert('Google Drive folder belum disiapkan untuk proyek ini. Gagal membuat folder otomatis.');
+          setUploading(false);
+          return;
+        }
+
+        // We need to re-fetch or assume it's created and will be available in next render or via the response
+        // For simplicity here, we'll try to re-fetch the project or just tell the user to try again if it fails
+        const resData = await response.json();
+        // The handleNewProject updates Firestore, so we might need a small delay or re-fetch
+        // But the most reliable way is to tell the user it's being prepared
+        alert('Folder Google Drive sedang disiapkan. Silakan coba upload kembali dalam sekejap.');
+        setUploading(false);
+        return;
+      } catch (err) {
+        setUploading(false);
+        alert('Gagal menyiapkan folder Google Drive otomatis.');
+        return;
+      }
     }
 
     if (selectedType === 'custom' && !customTitle.trim()) {
