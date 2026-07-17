@@ -9,6 +9,40 @@ import { WorkflowService } from '../../../services/WorkflowService';
 import { Plus, Search, Filter, Briefcase, User, Calendar, ExternalLink, Loader2, ArrowRight, Trash2, AlertCircle } from 'lucide-react';
 import { SearchableClientSelect } from '../../../components/common/SearchableClientSelect';
 
+const formatCompanyNameWithType = (name: string, clientType?: string) => {
+  if (!name) return '';
+  if (!clientType) return name;
+
+  const typeMap: Record<string, string> = {
+    PT: 'PT',
+    CV: 'CV',
+    YAYASAN: 'Yayasan',
+    PERKUMPULAN: 'Perkumpulan',
+    PERSEKUTUAN_FIRMA: 'Firma',
+    PERSEKUTUAN_PERDATA: 'Persekutuan Perdata',
+    KOPERASI: 'Koperasi',
+    PMA: 'PMA',
+    PERORANGAN: 'Perorangan',
+  };
+
+  const prefix = typeMap[clientType];
+  if (!prefix) return name;
+
+  const trimmedName = name.trim();
+  const lowerName = trimmedName.toLowerCase();
+  const lowerPrefix = prefix.toLowerCase();
+
+  if (
+    lowerName.startsWith(lowerPrefix + ' ') ||
+    lowerName.startsWith(lowerPrefix + '.') ||
+    lowerName === lowerPrefix
+  ) {
+    return trimmedName;
+  }
+
+  return `${prefix} ${trimmedName}`;
+};
+
 interface ProjectListProps {
   onSelectProject: (projectId: string) => void;
   currentUser: UserProfile | null;
@@ -85,7 +119,7 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
 
     const clientProfile = profiles.find((c) => c.id === clientId);
     const clientName = clientProfile?.companyName || '';
-    const title = `${selectedWorkflow.name || jobType} — ${clientName}`;
+    const title = `${selectedWorkflow.name || jobType} — ${formatCompanyNameWithType(clientName, clientProfile?.clientType)}`;
 
     const mapCompanyProfileToSnapshot = (profile: CompanyProfile): ClientSnapshot => {
       return {
@@ -183,6 +217,21 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
     return s === 'completed' || s === 'archived' || s === 'selesai';
   };
 
+  const getProjectTime = (val: any) => {
+    if (!val) return 0;
+    if (typeof val === 'object' && val.seconds !== undefined) {
+      return val.seconds * 1000 + Math.floor(val.nanoseconds / 1000000);
+    }
+    if (val instanceof Date) {
+      return val.getTime();
+    }
+    if (typeof val.toDate === 'function') {
+      return val.toDate().getTime();
+    }
+    const parsed = Date.parse(val);
+    return isNaN(parsed) ? 0 : parsed;
+  };
+
   const filteredProjects = projects.filter((project) => {
     // Tab Filter
     const isCompleted = isProjectCompleted(project.status);
@@ -201,24 +250,37 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
     const matchesStatus = filterStatus === '' || project.status === filterStatus;
 
     return matchesSearch && matchesClient && matchesJobType && matchesStatus;
+  }).sort((a, b) => {
+    const timeA = Math.max(getProjectTime(a.updatedAt), getProjectTime(a.createdAt));
+    const timeB = Math.max(getProjectTime(b.updatedAt), getProjectTime(b.createdAt));
+    return timeB - timeA;
   });
 
   const getClientName = (clientId: string) => {
-    return profiles.find((c) => c.id === clientId)?.companyName || 'Klien Tidak Diketahui';
+    const profile = profiles.find((c) => c.id === clientId);
+    if (!profile) return 'Klien Tidak Diketahui';
+    return formatCompanyNameWithType(profile.companyName, profile.clientType);
   };
 
   const getWorkflowName = (jobType: string) => {
     return workflows.find((w) => w.id === jobType)?.name || jobType;
   };
 
-  const getCleanTitle = (title: string) => {
+  const getCleanTitle = (title: string, clientId?: string) => {
+    let clean = title;
     if (title.includes(' — ')) {
-      return title.split(' — ').slice(1).join(' — ').trim();
+      clean = title.split(' — ').slice(1).join(' — ').trim();
+    } else if (title.includes(' - ')) {
+      clean = title.split(' - ').slice(1).join(' - ').trim();
     }
-    if (title.includes(' - ')) {
-      return title.split(' - ').slice(1).join(' - ').trim();
+
+    if (clientId) {
+      const profile = profiles.find((c) => c.id === clientId);
+      if (profile) {
+        return formatCompanyNameWithType(clean, profile.clientType);
+      }
     }
-    return title;
+    return clean;
   };
 
   const getStatusColor = (status: string) => {
@@ -373,13 +435,13 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
                         {index + 1}
                       </td>
                       <td className="px-4 py-3.5 max-w-[280px]">
-                        <div className="text-[13px] font-bold text-slate-900 truncate" title={getCleanTitle(project.title)}>
-                          {getCleanTitle(project.title)}
+                        <div className="text-[13px] font-bold text-slate-900 truncate" title={getCleanTitle(project.title, project.clientId)}>
+                          {getCleanTitle(project.title, project.clientId)}
                         </div>
                         {(() => {
                           const clientName = getClientName(project.clientId);
                           const isUnknown = clientName === 'Klien Tidak Diketahui';
-                          const cleanTitle = getCleanTitle(project.title);
+                          const cleanTitle = getCleanTitle(project.title, project.clientId);
                           const isRedundant = cleanTitle.toLowerCase() === clientName.toLowerCase();
                           
                           if (!isRedundant) {
@@ -406,8 +468,8 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
                           {project.status}
                         </span>
                       </td>
-                      <td className="px-4 py-3.5 text-[12px] text-slate-500 max-w-[320px] truncate" title={project.lastTransitionComment || `Proyek '${getCleanTitle(project.title)}' telah berhasil diinisialisasi.`}>
-                        {project.lastTransitionComment || `Proyek '${getCleanTitle(project.title)}' telah berhasil diinisialisasi.`}
+                      <td className="px-4 py-3.5 text-[12px] text-slate-500 max-w-[320px] truncate" title={project.lastTransitionComment || `Proyek '${getCleanTitle(project.title, project.clientId)}' telah berhasil diinisialisasi.`}>
+                        {project.lastTransitionComment || `Proyek '${getCleanTitle(project.title, project.clientId)}' telah berhasil diinisialisasi.`}
                       </td>
                       <td className="pl-4 pr-6 py-3.5 text-right flex items-center justify-end gap-4">
                         <button
@@ -480,7 +542,10 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
                   <div className="space-y-1.5">
                     <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">Judul Proyek (Otomatis)</label>
                     <div className="w-full px-4 py-2.5 text-[13px] bg-slate-100 border border-slate-200 rounded-lg text-slate-700">
-                      {workflows.find(w => w.id === newProjectData.jobType)?.name || ''} — {profiles.find(c => c.id === newProjectData.clientId)?.companyName || ''}
+                      {workflows.find(w => w.id === newProjectData.jobType)?.name || ''} — {(() => {
+                        const profile = profiles.find(c => c.id === newProjectData.clientId);
+                        return profile ? formatCompanyNameWithType(profile.companyName, profile.clientType) : '';
+                      })()}
                     </div>
                   </div>
                 )}

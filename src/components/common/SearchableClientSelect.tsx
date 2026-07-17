@@ -12,6 +12,40 @@ interface SearchableClientSelectProps {
   allowClear?: boolean;
 }
 
+const formatCompanyNameWithType = (name: string, clientType?: string) => {
+  if (!name) return '';
+  if (!clientType) return name;
+
+  const typeMap: Record<string, string> = {
+    PT: 'PT',
+    CV: 'CV',
+    YAYASAN: 'Yayasan',
+    PERKUMPULAN: 'Perkumpulan',
+    PERSEKUTUAN_FIRMA: 'Firma',
+    PERSEKUTUAN_PERDATA: 'Persekutuan Perdata',
+    KOPERASI: 'Koperasi',
+    PMA: 'PMA',
+    PERORANGAN: 'Perorangan',
+  };
+
+  const prefix = typeMap[clientType];
+  if (!prefix) return name;
+
+  const trimmedName = name.trim();
+  const lowerName = trimmedName.toLowerCase();
+  const lowerPrefix = prefix.toLowerCase();
+
+  if (
+    lowerName.startsWith(lowerPrefix + ' ') ||
+    lowerName.startsWith(lowerPrefix + '.') ||
+    lowerName === lowerPrefix
+  ) {
+    return trimmedName;
+  }
+
+  return `${prefix} ${trimmedName}`;
+};
+
 export const SearchableClientSelect: React.FC<SearchableClientSelectProps> = ({
   value,
   onChange,
@@ -37,9 +71,10 @@ export const SearchableClientSelect: React.FC<SearchableClientSelectProps> = ({
 
   const selectedOption = options.find(opt => opt.id === value);
 
-  const filteredOptions = options.filter(opt =>
-    (opt.companyName || '').toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredOptions = options.filter(opt => {
+    const formatted = formatCompanyNameWithType(opt.companyName || '', opt.clientType);
+    return formatted.toLowerCase().includes(search.toLowerCase());
+  });
 
   return (
     <div ref={wrapperRef} className={`relative ${className}`}>
@@ -48,7 +83,7 @@ export const SearchableClientSelect: React.FC<SearchableClientSelectProps> = ({
         className={selectClassName}
       >
         <span className={selectedOption ? "text-slate-800 truncate pr-2" : "text-slate-400 truncate pr-2"}>
-          {selectedOption ? selectedOption.companyName : placeholder}
+          {selectedOption ? formatCompanyNameWithType(selectedOption.companyName, selectedOption.clientType) : placeholder}
         </span>
         <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform flex-shrink-0 ${isOpen ? 'rotate-180' : ''}`} />
       </div>
@@ -104,7 +139,7 @@ export const SearchableClientSelect: React.FC<SearchableClientSelectProps> = ({
                     value === opt.id ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-700'
                   }`}
                 >
-                  {opt.companyName}
+                  {formatCompanyNameWithType(opt.companyName, opt.clientType)}
                 </div>
               ))
             )}

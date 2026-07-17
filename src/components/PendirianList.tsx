@@ -20,6 +20,35 @@ const PendirianList: React.FC<{
       snapshot.forEach(doc => {
         loaded.push({ id: doc.id, ...doc.data() });
       });
+
+      const getDocTime = (val: any) => {
+        if (!val) return 0;
+        if (typeof val === 'object' && val.seconds !== undefined) {
+          return val.seconds * 1000 + Math.floor(val.nanoseconds / 1000000);
+        }
+        if (val instanceof Date) {
+          return val.getTime();
+        }
+        const parsed = Date.parse(val);
+        return isNaN(parsed) ? 0 : parsed;
+      };
+
+      loaded.sort((a, b) => {
+        const timeA = Math.max(
+          getDocTime(a.updatedAt),
+          getDocTime(a.createdAt),
+          getDocTime(a.signingDate),
+          getDocTime(a.establishmentDeedDate)
+        );
+        const timeB = Math.max(
+          getDocTime(b.updatedAt),
+          getDocTime(b.createdAt),
+          getDocTime(b.signingDate),
+          getDocTime(b.establishmentDeedDate)
+        );
+        return timeB - timeA;
+      });
+
       setRecords(loaded);
     });
     return () => unsub();

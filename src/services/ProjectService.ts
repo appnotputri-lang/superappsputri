@@ -542,9 +542,30 @@ export class ProjectService {
     const path = this.projectsCol;
     try {
       const colRef = collection(db, this.projectsCol);
-      const q = query(colRef, orderBy("createdAt", "desc"));
+      const q = query(colRef, orderBy("updatedAt", "desc"));
       const querySnap = await getDocs(q);
-      return querySnap.docs.map((docSnap) => ({ ...docSnap.data(), projectId: docSnap.id }) as Project);
+      const list = querySnap.docs.map((docSnap) => ({ ...docSnap.data(), projectId: docSnap.id }) as Project);
+      
+      const getDocTime = (val: any) => {
+        if (!val) return 0;
+        if (typeof val === 'object' && val.seconds !== undefined) {
+          return val.seconds * 1000 + Math.floor(val.nanoseconds / 1000000);
+        }
+        if (val instanceof Date) {
+          return val.getTime();
+        }
+        if (typeof val.toDate === 'function') {
+          return val.toDate().getTime();
+        }
+        const parsed = Date.parse(val);
+        return isNaN(parsed) ? 0 : parsed;
+      };
+
+      return list.sort((a, b) => {
+        const timeA = Math.max(getDocTime(a.updatedAt), getDocTime(a.createdAt));
+        const timeB = Math.max(getDocTime(b.updatedAt), getDocTime(b.createdAt));
+        return timeB - timeA;
+      });
     } catch (error) {
       handleFirestoreError(error, OperationType.LIST, path);
     }
@@ -590,6 +611,36 @@ export class ProjectService {
   // ==========================================
 
   static listenToRupsLb(callback: (data: any[]) => void): () => void {
+    const getDocTime = (val: any) => {
+      if (!val) return 0;
+      if (typeof val === 'object' && val.seconds !== undefined) {
+        return val.seconds * 1000 + Math.floor(val.nanoseconds / 1000000);
+      }
+      if (val instanceof Date) {
+        return val.getTime();
+      }
+      const parsed = Date.parse(val);
+      return isNaN(parsed) ? 0 : parsed;
+    };
+
+    const sortNewestFirst = (list: any[]) => {
+      return list.sort((a, b) => {
+        const timeA = Math.max(
+          getDocTime(a.updatedAt),
+          getDocTime(a.createdAt),
+          getDocTime(a.signingDate),
+          getDocTime(a.establishmentDeedDate)
+        );
+        const timeB = Math.max(
+          getDocTime(b.updatedAt),
+          getDocTime(b.createdAt),
+          getDocTime(b.signingDate),
+          getDocTime(b.establishmentDeedDate)
+        );
+        return timeB - timeA;
+      });
+    };
+
     return onSnapshot(
       collection(db, 'projects'),
       (snapshot) => {
@@ -597,7 +648,7 @@ export class ProjectService {
         snapshot.forEach(doc => {
           loaded.push({ id: doc.id, ...doc.data() });
         });
-        callback(loaded);
+        callback(sortNewestFirst(loaded));
       },
       (error) => {
         handleFirestoreError(error, OperationType.LIST, 'projects');
@@ -606,6 +657,36 @@ export class ProjectService {
   }
 
   static listenToRupst(callback: (data: any[]) => void): () => void {
+    const getDocTime = (val: any) => {
+      if (!val) return 0;
+      if (typeof val === 'object' && val.seconds !== undefined) {
+        return val.seconds * 1000 + Math.floor(val.nanoseconds / 1000000);
+      }
+      if (val instanceof Date) {
+        return val.getTime();
+      }
+      const parsed = Date.parse(val);
+      return isNaN(parsed) ? 0 : parsed;
+    };
+
+    const sortNewestFirst = (list: any[]) => {
+      return list.sort((a, b) => {
+        const timeA = Math.max(
+          getDocTime(a.updatedAt),
+          getDocTime(a.createdAt),
+          getDocTime(a.signingDate),
+          getDocTime(a.establishmentDeedDate)
+        );
+        const timeB = Math.max(
+          getDocTime(b.updatedAt),
+          getDocTime(b.createdAt),
+          getDocTime(b.signingDate),
+          getDocTime(b.establishmentDeedDate)
+        );
+        return timeB - timeA;
+      });
+    };
+
     return onSnapshot(
       collection(db, 'rupst_projects'),
       (snapshot) => {
@@ -613,7 +694,7 @@ export class ProjectService {
         snapshot.forEach(doc => {
           loaded.push({ id: doc.id, ...doc.data() });
         });
-        callback(loaded);
+        callback(sortNewestFirst(loaded));
       },
       (error) => {
         handleFirestoreError(error, OperationType.LIST, 'rupst_projects');
@@ -622,6 +703,36 @@ export class ProjectService {
   }
 
   static listenToRupstPublic(callback: (data: any[]) => void): () => void {
+    const getDocTime = (val: any) => {
+      if (!val) return 0;
+      if (typeof val === 'object' && val.seconds !== undefined) {
+        return val.seconds * 1000 + Math.floor(val.nanoseconds / 1000000);
+      }
+      if (val instanceof Date) {
+        return val.getTime();
+      }
+      const parsed = Date.parse(val);
+      return isNaN(parsed) ? 0 : parsed;
+    };
+
+    const sortNewestFirst = (list: any[]) => {
+      return list.sort((a, b) => {
+        const timeA = Math.max(
+          getDocTime(a.updatedAt),
+          getDocTime(a.createdAt),
+          getDocTime(a.signingDate),
+          getDocTime(a.establishmentDeedDate)
+        );
+        const timeB = Math.max(
+          getDocTime(b.updatedAt),
+          getDocTime(b.createdAt),
+          getDocTime(b.signingDate),
+          getDocTime(b.establishmentDeedDate)
+        );
+        return timeB - timeA;
+      });
+    };
+
     return onSnapshot(
       collection(db, 'rupst_public_projects'),
       (snapshot) => {
@@ -629,7 +740,7 @@ export class ProjectService {
         snapshot.forEach(doc => {
           loaded.push({ id: doc.id, ...doc.data() });
         });
-        callback(loaded);
+        callback(sortNewestFirst(loaded));
       },
       (error) => {
         handleFirestoreError(error, OperationType.LIST, 'rupst_public_projects');
@@ -638,6 +749,36 @@ export class ProjectService {
   }
 
   static listenToPendirian(callback: (data: any[]) => void): () => void {
+    const getDocTime = (val: any) => {
+      if (!val) return 0;
+      if (typeof val === 'object' && val.seconds !== undefined) {
+        return val.seconds * 1000 + Math.floor(val.nanoseconds / 1000000);
+      }
+      if (val instanceof Date) {
+        return val.getTime();
+      }
+      const parsed = Date.parse(val);
+      return isNaN(parsed) ? 0 : parsed;
+    };
+
+    const sortNewestFirst = (list: any[]) => {
+      return list.sort((a, b) => {
+        const timeA = Math.max(
+          getDocTime(a.updatedAt),
+          getDocTime(a.createdAt),
+          getDocTime(a.signingDate),
+          getDocTime(a.establishmentDeedDate)
+        );
+        const timeB = Math.max(
+          getDocTime(b.updatedAt),
+          getDocTime(b.createdAt),
+          getDocTime(b.signingDate),
+          getDocTime(b.establishmentDeedDate)
+        );
+        return timeB - timeA;
+      });
+    };
+
     return onSnapshot(
       collection(db, 'pendirian_projects'),
       (snapshot) => {
@@ -645,7 +786,7 @@ export class ProjectService {
         snapshot.forEach(doc => {
           loaded.push({ id: doc.id, ...doc.data() });
         });
-        callback(loaded);
+        callback(sortNewestFirst(loaded));
       },
       (error) => {
         handleFirestoreError(error, OperationType.LIST, 'pendirian_projects');
