@@ -181,7 +181,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         {[
-          { label: 'Laporan', id: 'laporan' as const, icon: FileText },
+          { label: 'Laporan Proyek Kerja', id: 'laporan' as const, icon: FileText },
         ].map((item) => {
           const isActive = activeSidebarTab === item.id;
           const acc = TAB_ACCENTS[item.id] || TAB_ACCENTS.beranda;

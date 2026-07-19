@@ -8,6 +8,8 @@ import { db } from '../lib/firebase';
 import { getApiUrl } from '../lib/api';
 import { toJpeg } from 'html-to-image';
 import { useProjectContext } from '../contexts/ProjectContext';
+import { ProjectCategory, PROJECT_TYPES } from '../constants/appConstants';
+import { ProjectService } from '../services/ProjectService';
 
 interface LaporanListProps {
   projects?: any[];
@@ -17,9 +19,73 @@ interface LaporanListProps {
 
 type JobGroupFilter = 'ALL' | 'RUPS LB' | 'RUPS TAHUNAN' | 'PENDIRIAN PT';
 
-export const getStatusCategory = (status: string) => {
-  const s = (status || '').toUpperCase().trim();
-  if (s === 'SELESAI' || s === 'FINAL' || s === 'COMPLETE' || s === 'SIAP_KIRIM') {
+export interface GroupedReportItem {
+  pekerjaan: string;
+  status: string;
+  metadata?: any;
+  updatedAt: any;
+  id: string;
+  lastTransitionComment?: string;
+}
+
+export interface GroupedReport {
+  id: string;
+  namaPt: string;
+  items: GroupedReportItem[];
+}
+
+export function getProjectStatusDisplay(status: string, metadata?: any): string {
+  const s = (status || '').toLowerCase();
+  const isCompleted = s === 'completed' || s === 'archived' || s === 'selesai';
+  if (isCompleted) {
+    if (metadata?.minutaCheckedAll === false || !metadata?.minutaCheckedAll) {
+      return 'Progres Minuta';
+    }
+  }
+  return status;
+}
+
+export function getCleanTransitionComment(comment: string | undefined): string {
+  if (!comment) return '-';
+  const c = comment.trim();
+  if (c.startsWith("Status proyek beralih dari") && c.includes("menuju")) {
+    return '-';
+  }
+  if (c.startsWith("Proyek '") && c.includes("telah berhasil diinisialisasi")) {
+    return '-';
+  }
+  return c;
+}
+
+export function getGroupedReports(reports: any[]): GroupedReport[] {
+  const groupedMap = new Map<string, GroupedReport>();
+  
+  reports.forEach(r => {
+    const key = r.namaPt.trim().toUpperCase();
+    if (!groupedMap.has(key)) {
+      groupedMap.set(key, {
+        id: r.id,
+        namaPt: r.namaPt,
+        items: []
+      });
+    }
+    groupedMap.get(key)!.items.push({
+      pekerjaan: r.pekerjaan,
+      status: r.status,
+      metadata: r.metadata,
+      updatedAt: r.updatedAt,
+      id: r.id,
+      lastTransitionComment: r.lastTransitionComment
+    });
+  });
+  
+  return Array.from(groupedMap.values());
+}
+
+export const getStatusCategory = (status: string, metadata?: any) => {
+  const displayStatus = getProjectStatusDisplay(status, metadata);
+  const s = (displayStatus || '').toUpperCase().trim();
+  if (s === 'PROGRES MINUTA' || s === 'SELESAI' || s === 'FINAL' || s === 'COMPLETE' || s === 'SIAP_KIRIM') {
     return 'SELESAI';
   }
   if (s === 'SUDAH INPUT AHU') {
@@ -49,8 +115,12 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects: propsProject
   const pendirianProjects = propsPendirian || contextPendirian || [];
 
   const [search, setSearch] = useState('');
-  const [selectedGroup, setSelectedGroup] = useState<JobGroupFilter>('ALL');
+  const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
+  const [selectedType, setSelectedType] = useState<string>('ALL');
   const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
+  const [officeProjects, setOfficeProjects] = useState<any[]>([]);
+  const [activeReportTab, setActiveReportTab] = useState<'aktif' | 'minuta'>('aktif');
+  const [projectCommentsMap, setProjectCommentsMap] = useState<Record<string, string>>({});
 
   // WhatsApp States
   const [modalOpen, setModalOpen] = useState(false);
@@ -78,54 +148,111 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects: propsProject
     }
   }, [toast]);
 
+  // Load office_projects
+  useEffect(() => {
+    const loadOfficeProjects = async () => {
+      try {
+        const list = await ProjectService.listProjects();
+        setOfficeProjects(list || []);
+
+        // Fetch timelines for all projects in parallel to populate the custom comments map
+        const commentsMap: Record<string, string> = {};
+        await Promise.all(
+          (list || []).map(async (p) => {
+            try {
+              const timelines = await ProjectService.getProjectTimelines(p.projectId);
+              if (timelines && timelines.length > 0) {
+                // Find the latest custom transition comment from newest to oldest
+                for (const t of timelines) {
+                  const clean = getCleanTransitionComment(t.description);
+                  if (clean && clean !== '-') {
+                    commentsMap[p.projectId] = clean;
+                    break;
+                  }
+                }
+              }
+            } catch (err) {
+              console.warn(`Gagal memuat timeline untuk proyek ${p.projectId}:`, err);
+            }
+          })
+        );
+        setProjectCommentsMap(commentsMap);
+      } catch (err) {
+        console.error("Gagal memuat office_projects untuk laporan:", err);
+      }
+    };
+    loadOfficeProjects();
+  }, []);
+
   const showToast = (type: 'success' | 'error', message: string) => {
     setToast({ type, message });
   };
 
-  // Compile all data records
+  // Compile all data records (only showing projects from the "Proyek Kerja" menu as requested)
   const allReports = useMemo(() => {
     const list: any[] = [];
     
-    projects.forEach(p => list.push({
-      id: p.id,
-      namaPt: p.companyName || '-',
-      pekerjaan: 'RUPS LB',
-      status: p.documentStatus || p.rupslbStatus || 'DRAFTING',
-      updatedAt: p.updatedAt || p.createdAt || 0
-    }));
+    // Modern office_projects (Proyek Kerja menu)
+    officeProjects.forEach(p => {
+      let companyName = p.title || '';
+      if (p.title && p.title.includes(' — ')) {
+        companyName = p.title.split(' — ').slice(1).join(' — ');
+      } else if (p.title && p.title.includes(' - ')) {
+        companyName = p.title.split(' - ').slice(1).join(' - ');
+      }
 
-    rupstProjects.forEach(p => list.push({
-      id: p.id,
-      namaPt: p.companyName || '-',
-      pekerjaan: 'RUPS TAHUNAN',
-      status: p.documentStatus || p.rupstStatus || 'DRAFTING',
-      updatedAt: p.updatedAt || p.createdAt || 0
-    }));
+      const customComment = projectCommentsMap[p.projectId] || p.lastTransitionComment || '-';
 
-    pendirianProjects.forEach(p => list.push({
-      id: p.id,
-      namaPt: p.namaPt || p.companyName || '-',
-      pekerjaan: 'PENDIRIAN PT',
-      status: p.documentStatus || 'DRAFTING',
-      updatedAt: p.updatedAt || p.createdAt || 0
-    }));
+      list.push({
+        id: p.projectId,
+        namaPt: companyName || '-',
+        pekerjaan: p.projectType || 'Perubahan',
+        projectCategory: p.projectCategory || 'BODY_LEGAL',
+        projectType: p.projectType || 'Perubahan',
+        status: p.status || 'DRAFT',
+        metadata: p.metadata || {},
+        updatedAt: p.updatedAt || p.createdAt || 0,
+        lastTransitionComment: customComment
+      });
+    });
 
     // Sort by recent update
-    return list.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
-  }, [projects, rupstProjects, pendirianProjects]);
+    return list.sort((a, b) => {
+      const timeA = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
+      const timeB = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
+      return timeB - timeA;
+    });
+  }, [officeProjects, projectCommentsMap]);
 
-  // Apply grouping and search filters
+  // Apply grouping, search, and tab filters (Proyek Aktif vs Minuta)
   const filteredReports = useMemo(() => {
     let result = allReports;
 
-    // Apply grouping filter
-    if (selectedGroup !== 'ALL') {
-      result = result.filter(r => r.pekerjaan === selectedGroup);
+    // Apply tab filter: Proyek Aktif vs Minuta
+    const isProjectCompleted = (status: string) => {
+      const s = (status || '').toLowerCase();
+      return s === 'completed' || s === 'archived' || s === 'selesai';
+    };
+
+    if (activeReportTab === 'aktif') {
+      result = result.filter(r => !isProjectCompleted(r.status));
+    } else if (activeReportTab === 'minuta') {
+      result = result.filter(r => isProjectCompleted(r.status));
+    }
+
+    // Apply category filter
+    if (selectedCategory !== 'ALL') {
+      result = result.filter(r => r.projectCategory === selectedCategory);
+    }
+
+    // Apply specific projectType filter
+    if (selectedType !== 'ALL') {
+      result = result.filter(r => r.projectType === selectedType);
     }
 
     // Apply status category filter
     if (selectedStatus !== 'ALL') {
-      result = result.filter(r => getStatusCategory(r.status) === selectedStatus);
+      result = result.filter(r => getStatusCategory(r.status, r.metadata) === selectedStatus);
     }
 
     // Apply search query filter
@@ -139,7 +266,7 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects: propsProject
     }
 
     return result;
-  }, [allReports, selectedGroup, selectedStatus, search]);
+  }, [allReports, activeReportTab, selectedCategory, selectedType, selectedStatus, search]);
 
   // Load WhatsApp configurations from Firestore when component loads or modal opens
   useEffect(() => {
@@ -255,7 +382,7 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects: propsProject
     let draftingCount = 0;
 
     filteredReports.forEach(r => {
-      const cat = getStatusCategory(r.status);
+      const cat = getStatusCategory(r.status, r.metadata);
       if (cat === 'SELESAI') selesaiCount++;
       else if (cat === 'SUDAH INPUT AHU') ahuCount++;
       else if (cat === 'SUDAH CETAK AKTA') aktaCount++;
@@ -263,7 +390,7 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects: propsProject
       else draftingCount++;
     });
 
-    let msg = `📋 LAPORAN PEKERJAAN\n\n`;
+    let msg = `📋 LAPORAN PROYEK KERJA (${activeReportTab === 'aktif' ? 'PROYEK AKTIF' : 'MINUTA'})\n\n`;
     msg += `Tanggal: ${todayStr}\n\n`;
     msg += `📊 RINGKASAN STATUS\n\n`;
     msg += `• Total Pekerjaan : ${total}\n`;
@@ -275,13 +402,18 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects: propsProject
     msg += `📌 DAFTAR PEKERJAAN BERDASARKAN STATUS\n\n`;
 
     STATUS_CATEGORIES.forEach(cat => {
-      const catReports = filteredReports.filter(r => getStatusCategory(r.status) === cat.id);
+      const catReports = filteredReports.filter(r => getStatusCategory(r.status, r.metadata) === cat.id);
       if (catReports.length === 0) return;
 
+      const groupedCatReports = getGroupedReports(catReports);
+
       msg += `📁 STATUS: ${cat.label}\n`;
-      catReports.forEach((r, idx) => {
-        msg += `${idx + 1}. ${r.namaPt.toUpperCase()}\n`;
-        msg += `   ${r.pekerjaan.toUpperCase()} • Status: ${r.status.toUpperCase()}\n`;
+      groupedCatReports.forEach((g, idx) => {
+        msg += `${idx + 1}. ${g.namaPt.toUpperCase()}\n`;
+        g.items.forEach(it => {
+          const displayStatus = getProjectStatusDisplay(it.status, it.metadata);
+          msg += `   - ${it.pekerjaan.toUpperCase()} (Status: ${displayStatus.toUpperCase()})\n`;
+        });
       });
       msg += `\n`;
     });
@@ -398,109 +530,342 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects: propsProject
   const handleExportPDF = () => {
     const doc = new jsPDF('p', 'mm', 'a4');
     
+    const formatPrintDate = () => {
+      const d = new Date();
+      const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+      const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+      const dayName = days[d.getDay()];
+      const dateNum = d.getDate();
+      const monthName = months[d.getMonth()];
+      const year = d.getFullYear();
+      const hours = String(d.getHours()).padStart(2, '0');
+      const minutes = String(d.getMinutes()).padStart(2, '0');
+      return `${dayName}, ${dateNum} ${monthName} ${year} pukul ${hours}.${minutes}`;
+    };
+
+    const mapStatusToDisplay = (status: string, metadata?: any): string => {
+      const displayStatus = getProjectStatusDisplay(status, metadata);
+      const cleanS = (displayStatus || '').toUpperCase().trim();
+      
+      if (cleanS === 'PROGRES MINUTA') {
+        return 'PROGRES MINUTA';
+      }
+      if (cleanS.includes('SELESAI') || cleanS.includes('FINAL') || cleanS.includes('COMPLETE') || cleanS.includes('SIAP_KIRIM')) {
+        return 'SELESAI';
+      }
+      if (cleanS.includes('PERBAIKAN') || cleanS.includes('REVISION') || cleanS.includes('DIKEMBALIKAN')) {
+        return 'PERBAIKAN';
+      }
+      if (cleanS.includes('DRAFTING') || cleanS.includes('PROSES') || cleanS.includes('KOREKSI')) {
+        return 'PROSES DRAFTING';
+      }
+      if (cleanS === 'DRAFT NOTULEN DI KIRIM' || cleanS === 'DRAFT NOTULEN DIKIRIM' || cleanS === 'DRAFT AKTA DIKIRIM' || cleanS === 'REVIEW NOTULEN' || cleanS === 'DRAFT AKTA & NOTULEN DIKIRIM') {
+        return 'REVIEW NOTULEN';
+      }
+      if (cleanS === 'SUDAH CETAK AKTA' || cleanS === 'NIB SEDANG DI INPUT') {
+        return 'NIB SEDANG DI INPUT';
+      }
+      if (cleanS === 'SUDAH INPUT AHU' || cleanS === 'INPUT AHU') {
+        return 'INPUT AHU';
+      }
+      return displayStatus;
+    };
+
+    const getStatusColors = (status: string) => {
+      const s = (status || '').toUpperCase().trim();
+      if (s === 'PROSES DRAFTING' || s === 'DRAFTING' || s === 'DRAFT') {
+        return {
+          bg: [254, 243, 199], // amber-100
+          text: [180, 83, 9],   // amber-700
+        };
+      }
+      if (s === 'REVIEW NOTULEN' || s === 'DRAFT NOTULEN DI KIRIM' || s === 'DRAFT NOTULEN DIKIRIM' || s === 'DRAFT AKTA DIKIRIM') {
+        return {
+          bg: [219, 234, 254], // blue-100
+          text: [29, 78, 216],  // blue-700
+        };
+      }
+      if (s === 'NIB SEDANG DI INPUT' || s === 'SUDAH CETAK AKTA') {
+        return {
+          bg: [243, 232, 255], // purple-100
+          text: [107, 33, 168], // purple-800
+        };
+      }
+      if (s === 'INPUT AHU' || s === 'SUDAH INPUT AHU') {
+        return {
+          bg: [204, 251, 241], // teal-100
+          text: [15, 118, 110], // teal-700
+        };
+      }
+      if (s === 'PROGRES MINUTA') {
+        return {
+          bg: [254, 243, 199], // amber-100
+          text: [120, 53, 4],   // amber-900
+        };
+      }
+      if (s === 'SELESAI' || s === 'FINAL' || s === 'COMPLETE' || s === 'SIAP_KIRIM') {
+        return {
+          bg: [209, 250, 229], // emerald-100
+          text: [4, 120, 87],   // emerald-700
+        };
+      }
+      if (s === 'PERBAIKAN' || s === 'REVISION' || s === 'DIKEMBALIKAN') {
+        return {
+          bg: [254, 226, 226], // red-100
+          text: [185, 28, 28],  // red-700
+        };
+      }
+      return {
+        bg: [241, 245, 249], // slate-100
+        text: [71, 85, 105],  // slate-600
+      };
+    };
+
     // Header Style
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(14);
+    doc.setFontSize(16);
     doc.setTextColor(12, 36, 68); // #0c2444 color
-    doc.text('LAPORAN STATUS PEKERJAAN', 14, 16);
+    const titleText = activeReportTab === 'aktif' ? 'LAPORAN PROYEK AKTIF' : 'LAPORAN MINUTA PROYEK';
+    doc.text(titleText, 14, 16);
     
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(10.5);
-    doc.setTextColor(71, 85, 105); // Elegant slate gray (#475569) instead of pink
+    doc.setFontSize(11);
+    doc.setTextColor(12, 36, 68);
     doc.text('KANTOR NOTARIS NUKANTINI PUTRI PARINCHA SH.,M.Kn', 14, 22);
     
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8.5);
     doc.setTextColor(100, 116, 139);
-    doc.text(`Filter Pekerjaan: ${selectedGroup} | Status: ${selectedStatus === 'ALL' ? 'Semua Status' : selectedStatus} | Tanggal Cetak: ${new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`, 14, 28);
+    
+    const catLabel = selectedCategory === 'ALL' ? 'Semua Kategori' : selectedCategory;
+    const typeLabel = selectedType === 'ALL' ? 'Semua Jenis' : selectedType;
+    const statusLabelFilter = selectedStatus === 'ALL' ? 'Semua Status' : selectedStatus;
+    doc.text(`Kategori: ${catLabel} | Jenis: ${typeLabel} | Status: ${statusLabelFilter} | Tanggal Cetak: ${formatPrintDate()}`, 14, 28);
     
     // Separator line
     doc.setDrawColor(226, 232, 240);
     doc.setLineWidth(0.5);
     doc.line(14, 32, 196, 32);
     
-    let currentY = 37;
-    let hasData = false;
+    let currentY = 40;
+    
+    // Construct dynamic PDF Groups
+    interface PdfCategoryGroup {
+      id: string;
+      label: string;
+      reports: any[];
+    }
+    
+    const pdfGroups: PdfCategoryGroup[] = [];
 
-    STATUS_CATEGORIES.forEach((cat) => {
-      // Filter reports belonging to this category
-      const catReports = filteredReports.filter(r => getStatusCategory(r.status) === cat.id);
+    if (activeReportTab === 'aktif') {
+      const activeReports = filteredReports.filter(r => {
+        const cat = getStatusCategory(r.status, r.metadata);
+        return cat !== 'SELESAI';
+      });
 
-      if (catReports.length === 0) return;
-      hasData = true;
+      if (activeReports.length > 0) {
+        pdfGroups.push({
+          id: 'SEDANG_BERJALAN',
+          label: 'SEDANG BERJALAN',
+          reports: activeReports,
+        });
+      }
+    } else {
+      const selesaiReports = filteredReports.filter(r => {
+        const cat = getStatusCategory(r.status, r.metadata);
+        return cat === 'SELESAI';
+      });
 
-      // Add category section header in PDF
-      // Check if we need to add a page (if close to bottom, say Y > 240)
+      if (selesaiReports.length > 0) {
+        pdfGroups.push({
+          id: 'SELESAI',
+          label: 'SELESAI',
+          reports: selesaiReports,
+        });
+      }
+    }
+
+    pdfGroups.forEach((group) => {
+      const groupedCatReports = getGroupedReports(group.reports);
+
+      // Check page break for section header
       if (currentY > 240) {
         doc.addPage();
         currentY = 20;
       }
 
+      // Draw vertical orange bar
+      doc.setFillColor(245, 158, 11); // Amber-500 (#f59e0b)
+      doc.rect(14, currentY - 4.5, 2.5, 5.5, 'F');
+
+      // Draw Group title
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(10);
-      doc.setTextColor(12, 36, 68);
-      doc.text(`KATEGORI STATUS: ${cat.label} (${catReports.length} Berkas)`, 14, currentY);
+      doc.setFontSize(10.5);
+      doc.setTextColor(15, 23, 42); // Slate-900 (#0f172a)
+      doc.text(`KATEGORI STATUS: ${group.label} (${groupedCatReports.length} Klien / ${group.reports.length} Berkas)`, 18.5, currentY);
       
+      // Draw status legend pills
+      const uniqueStatusInGroup = Array.from(
+        new Set(
+          group.reports.map(r => mapStatusToDisplay(r.status, r.metadata))
+        )
+      );
+
+      let pillX = 14;
+      const pillY = currentY + 4;
+      const pillHeight = 5.2;
+      const textPadding = 4.5;
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7.5);
+
+      uniqueStatusInGroup.forEach(statusName => {
+        const colors = getStatusColors(statusName);
+        const textWidth = doc.getTextWidth(statusName);
+        const pillWidth = textWidth + textPadding * 2;
+
+        // Draw pill background
+        doc.setFillColor(colors.bg[0], colors.bg[1], colors.bg[2]);
+        doc.roundedRect(pillX, pillY, pillWidth, pillHeight, 1.2, 1.2, 'F');
+
+        // Draw text
+        doc.setTextColor(colors.text[0], colors.text[1], colors.text[2]);
+        doc.text(statusName, pillX + textPadding, pillY + 3.6);
+
+        pillX += pillWidth + 3.5; // gap between pills
+      });
+
+      // Space table below the legends
+      currentY = pillY + pillHeight + 5;
+
       // PDF Columns
-      const tableColumn = ["No", "Nama PT", "Jenis Pekerjaan", "Status Terakhir", "Terakhir Update"];
+      const tableColumn = ["No", "Nama PT / Klien", "Jenis Pekerjaan", "Status Terakhir", "Catatan Transisi"];
       
-      // PDF Rows
-      const tableRows = catReports.map((rec, idx) => [
-        (idx + 1).toString(),
-        rec.namaPt.toUpperCase(),
-        rec.pekerjaan.toUpperCase(),
-        rec.status.toUpperCase(),
-        rec.updatedAt && !isNaN(new Date(rec.updatedAt).getTime()) 
-          ? new Date(rec.updatedAt).toLocaleDateString('id-ID', { year: 'numeric', month: 'short', day: 'numeric' }) 
-          : '-'
-      ]);
+      // Build Rows
+      const tableRows: any[] = [];
+      groupedCatReports.forEach((rec, idx) => {
+        const rowSpanVal = rec.items.length;
+        
+        rec.items.forEach((item, itemIdx) => {
+          const displayStatus = mapStatusToDisplay(item.status, item.metadata);
+          
+          const noteText = getCleanTransitionComment(item.lastTransitionComment);
+
+          if (itemIdx === 0) {
+            tableRows.push([
+              { content: (idx + 1).toString(), rowSpan: rowSpanVal, styles: { halign: 'center' as const, valign: 'middle' as const } },
+              { content: rec.namaPt.toUpperCase(), rowSpan: rowSpanVal, styles: { valign: 'middle' as const } },
+              item.pekerjaan.toUpperCase(),
+              displayStatus.toUpperCase(),
+              noteText
+            ]);
+          } else {
+            tableRows.push([
+              item.pekerjaan.toUpperCase(),
+              displayStatus.toUpperCase(),
+              noteText
+            ]);
+          }
+        });
+      });
 
       // Generate Table for this category
       autoTable(doc, {
-        startY: currentY + 3,
+        startY: currentY,
         head: [tableColumn],
         body: tableRows,
         theme: 'grid',
         styles: {
-          fontSize: 8.5,
-          cellPadding: 3.5,
+          fontSize: 7.5,
+          cellPadding: { top: 3.5, bottom: 3.5, left: 4, right: 4 },
           valign: 'middle',
+          lineColor: [226, 232, 240], // slate-200 border lines
+          lineWidth: 0.15,
         },
         headStyles: {
-          fillColor: [12, 36, 68], // Navy/Slate theme matching the applet's color
+          fillColor: [12, 36, 68], // Navy/Slate (#0c2444)
           textColor: [255, 255, 255],
           fontStyle: 'bold',
-          halign: 'center',
+          halign: 'left',
+          fontSize: 8,
+          cellPadding: { top: 4, bottom: 4, left: 4, right: 4 },
+        },
+        alternateRowStyles: {
+          fillColor: [248, 250, 252], // slate-50 background for alternate rows
         },
         columnStyles: {
-          0: { cellWidth: 10, halign: 'center' },
-          1: { cellWidth: 65, fontStyle: 'bold' },
-          2: { cellWidth: 40, halign: 'center' },
-          3: { cellWidth: 47, halign: 'center' },
-          4: { cellWidth: 23, halign: 'center' },
+          0: { cellWidth: 14, halign: 'center' },
+          1: { cellWidth: 46, fontStyle: 'bold', halign: 'left' },
+          2: { cellWidth: 34, halign: 'left' },
+          3: { cellWidth: 38, halign: 'center' },
+          4: { cellWidth: 50, halign: 'left' },
+        },
+        willDrawCell: (data) => {
+          if (data.column.index === 3 && data.cell.section === 'body') {
+            (data.cell as any).rawStatusText = data.cell.text.join(' ') || '';
+            data.cell.text = [];
+          }
+        },
+        didDrawCell: (data) => {
+          if (data.column.index === 3 && data.cell.section === 'body') {
+            const statusText = (data.cell as any).rawStatusText || '';
+            if (statusText) {
+              const colors = getStatusColors(statusText);
+              const cell = data.cell;
+              
+              // Calculate pill dimensions
+              const pillWidth = 35; // optimal width to prevent truncation and center perfectly
+              const pillHeight = 5;  // nice slim height
+              const pillX = cell.x + (cell.width - pillWidth) / 2;
+              const pillY = cell.y + (cell.height - pillHeight) / 2;
+              
+              // Draw rounded rectangle for the pill background
+              doc.setFillColor(colors.bg[0], colors.bg[1], colors.bg[2]);
+              doc.roundedRect(pillX, pillY, pillWidth, pillHeight, 1.2, 1.2, 'F');
+              
+              // Draw text centered inside the pill
+              doc.setFont('helvetica', 'bold');
+              doc.setFontSize(7);
+              doc.setTextColor(colors.text[0], colors.text[1], colors.text[2]);
+              doc.text(statusText, cell.x + cell.width / 2, pillY + 3.5, { align: 'center' });
+            }
+          }
         },
         didDrawPage: (data) => {
+          const pageHeight = doc.internal.pageSize.height;
+          const pageWidth = doc.internal.pageSize.width;
+          
+          // Draw thin footer separator line
+          doc.setDrawColor(241, 245, 249); // slate-100
+          doc.setLineWidth(0.3);
+          doc.line(14, pageHeight - 15, pageWidth - 14, pageHeight - 15);
+          
           // Footer page counter
-          const str = `Halaman ${data.pageNumber}`;
+          const pageStr = `Halaman ${data.pageNumber}`;
           doc.setFont('helvetica', 'normal');
           doc.setFontSize(8);
-          doc.setTextColor(148, 163, 184);
-          doc.text(str, data.settings.margin.left, doc.internal.pageSize.height - 10);
+          doc.setTextColor(148, 163, 184); // slate-400
+          doc.text(pageStr, 14, pageHeight - 10);
+          
+          // Footer branding
+          const brandingStr = `SuperApps Putri \u2014 Sistem Manajemen Proyek Notaris`;
+          doc.text(brandingStr, pageWidth - 14, pageHeight - 10, { align: 'right' });
         }
       });
 
-      // Update currentY for the next table
+      // Update currentY for next potential elements
       currentY = (doc as any).lastAutoTable.finalY + 12;
     });
 
-    if (!hasData) {
+    if (pdfGroups.length === 0) {
       doc.setFont('helvetica', 'italic');
       doc.setFontSize(10);
       doc.setTextColor(148, 163, 184);
       doc.text('Tidak ada laporan dokumen pekerjaan yang ditemukan.', 14, currentY);
     }
     
-    doc.save(`Laporan_Dokumen_PT_${new Date().toISOString().slice(0, 10)}.pdf`);
+    doc.save(`Laporan_Proyek_Kerja_${activeReportTab === 'aktif' ? 'Aktif' : 'Minuta'}_${new Date().toISOString().slice(0, 10)}.pdf`);
   };
 
   // Export report to high-resolution JPG Document using html-to-image
@@ -536,7 +901,7 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects: propsProject
         });
 
         const link = document.createElement('a');
-        link.download = `Laporan_Pekerjaan_Notaris_${new Date().toISOString().slice(0, 10)}.jpg`;
+        link.download = `Laporan_Pekerjaan_Notaris_${activeReportTab === 'aktif' ? 'Aktif' : 'Minuta'}_${new Date().toISOString().slice(0, 10)}.jpg`;
         link.href = dataUrl;
         link.click();
 
@@ -571,7 +936,7 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects: propsProject
               <FileText size={22} className="stroke-[2.5]" />
             </span>
             <div>
-              <div className="text-xl font-black text-slate-800 tracking-tight">LAPORAN STATUS PEKERJAAN</div>
+              <div className="text-xl font-black text-slate-800 tracking-tight">LAPORAN PROYEK KERJA</div>
               <div className="text-[12px] sm:text-xs font-bold text-fuchsia-600 tracking-wide uppercase mt-0.5">
                 KANTOR NOTARIS NUKANTINI PUTRI PARINCHA SH.,M.Kn
               </div>
@@ -632,24 +997,48 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects: propsProject
         </div>
       </div>
 
+      {/* TAB SELECTOR (PROYEK AKTIF & MINUTA) */}
+      <div className="flex space-x-1 border-b border-slate-200 mt-4 select-none">
+        {(['aktif', 'minuta'] as const).map((tab) => (
+          <button
+            key={tab}
+            onClick={() => {
+              setActiveReportTab(tab);
+            }}
+            className={`px-5 py-3 text-xs sm:text-sm font-black transition-all border-b-2 uppercase tracking-wider cursor-pointer ${
+              activeReportTab === tab
+                ? 'border-fuchsia-600 text-fuchsia-600'
+                : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+            }`}
+          >
+            {tab === 'aktif' ? '📁 Proyek Aktif' : '📋 Minuta'}
+          </button>
+        ))}
+      </div>
+
       {/* FILTER, SEARCH, & TABS */}
       <div className="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm space-y-5">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-col lg:flex-row lg:items-center gap-4 w-full">
             {/* Grouping Tabs */}
             <div className="flex flex-wrap gap-1.5 bg-slate-100/80 p-1 rounded-lg border border-slate-200/50 max-w-max">
               {([
-                { key: 'ALL', label: 'Semua Pekerjaan' },
-                { key: 'RUPS LB', label: 'RUPS LB' },
-                { key: 'RUPS TAHUNAN', label: 'RUPS Tahunan' },
-                { key: 'PENDIRIAN PT', label: 'Pendirian PT' }
+                { key: 'ALL', label: 'Semua Kategori' },
+                { key: 'BODY_LEGAL', label: 'Badan Hukum (BODY_LEGAL)' },
+                { key: 'MEETING', label: 'Rapat / RUPS (MEETING)' },
+                { key: 'AGREEMENT', label: 'Perjanjian (AGREEMENT)' },
+                { key: 'GENERAL_DEED', label: 'Akta Umum (GENERAL_DEED)' },
+                { key: 'LEGALIZATION', label: 'Legalisasi (LEGALIZATION)' }
               ] as const).map(tab => (
                 <button
                   key={tab.key}
-                  onClick={() => setSelectedGroup(tab.key)}
+                  onClick={() => {
+                    setSelectedCategory(tab.key);
+                    setSelectedType('ALL');
+                  }}
                   className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all duration-200 uppercase tracking-wide cursor-pointer ${
-                    selectedGroup === tab.key
+                    selectedCategory === tab.key
                       ? 'bg-fuchsia-600 text-white shadow-sm'
                       : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
                   }`}
@@ -659,19 +1048,48 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects: propsProject
               ))}
             </div>
 
-            {/* Status Filter Dropdown */}
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-slate-500 uppercase whitespace-nowrap">Status:</span>
-              <select
-                value={selectedStatus}
-                onChange={(e) => setSelectedStatus(e.target.value)}
-                className="px-3 py-1.5 text-xs font-bold border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-fuchsia-500/15 focus:border-fuchsia-500 bg-white cursor-pointer"
-              >
-                <option value="ALL">Semua Status</option>
-                {STATUS_CATEGORIES.map(cat => (
-                  <option key={cat.id} value={cat.id}>{cat.label}</option>
-                ))}
-              </select>
+            <div className="flex flex-wrap items-center gap-4">
+              {/* Dynamic Project Type Dropdown */}
+              {selectedCategory !== 'ALL' && (
+                <div className="flex items-center gap-2 animate-fadeIn">
+                  <span className="text-xs font-bold text-slate-500 uppercase whitespace-nowrap">Jenis:</span>
+                  <select
+                    value={selectedType}
+                    onChange={(e) => setSelectedType(e.target.value)}
+                    className="px-3 py-1.5 text-xs font-bold border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-fuchsia-500/15 focus:border-fuchsia-500 bg-white cursor-pointer shadow-sm"
+                  >
+                    <option value="ALL">Semua Jenis Pekerjaan</option>
+                    {(PROJECT_TYPES[selectedCategory as ProjectCategory] || []).map(type => (
+                      <option key={type} value={type}>{type}</option>
+                    ))}
+                    {/* Support legacy mappings */}
+                    {selectedCategory === 'MEETING' && (
+                      <>
+                        <option value="RUPS-LB">RUPS-LB (Legacy)</option>
+                        <option value="RUPST">RUPST (Legacy)</option>
+                      </>
+                    )}
+                    {selectedCategory === 'BODY_LEGAL' && (
+                      <option value="Pendirian">Pendirian (Legacy)</option>
+                    )}
+                  </select>
+                </div>
+              )}
+
+              {/* Status Filter Dropdown */}
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-slate-500 uppercase whitespace-nowrap">Status:</span>
+                <select
+                  value={selectedStatus}
+                  onChange={(e) => setSelectedStatus(e.target.value)}
+                  className="px-3 py-1.5 text-xs font-bold border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-fuchsia-500/15 focus:border-fuchsia-500 bg-white cursor-pointer shadow-sm"
+                >
+                  <option value="ALL">Semua Status</option>
+                  {STATUS_CATEGORIES.map(cat => (
+                    <option key={cat.id} value={cat.id}>{cat.label}</option>
+                  ))}
+                </select>
+              </div>
             </div>
           </div>
 
@@ -697,7 +1115,7 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects: propsProject
                 <th className="px-5 py-3 border-r border-slate-200">Nama PT</th>
                 <th className="px-4 py-3 border-r border-slate-200 text-center">Jenis Pekerjaan</th>
                 <th className="px-4 py-3 border-r border-slate-200 text-center">Status Terakhir</th>
-                <th className="px-4 py-3 text-center border-r border-slate-200">Terakhir Update</th>
+                <th className="px-4 py-3 border-r border-slate-200">Catatan Transisi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200 bg-white">
@@ -709,7 +1127,7 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects: propsProject
                 </tr>
               ) : (
                 STATUS_CATEGORIES.map(cat => {
-                  const catReports = filteredReports.filter(r => getStatusCategory(r.status) === cat.id);
+                  const catReports = filteredReports.filter(r => getStatusCategory(r.status, r.metadata) === cat.id);
                   if (catReports.length === 0) return null;
 
                   return (
@@ -720,31 +1138,50 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects: propsProject
                           <div className="flex items-center gap-2">
                             <span className="text-fuchsia-600 text-sm">📂</span>
                             <span>KATEGORI: {cat.label}</span>
-                            <span className="ml-1.5 px-2 py-0.5 text-[10px] font-bold rounded-full bg-slate-200/80 text-slate-600">
-                              {catReports.length} Berkas
+                            <span className="ml-1.5 px-2.5 py-0.5 text-[10px] font-bold rounded-full bg-slate-200/80 text-slate-600">
+                              {getGroupedReports(catReports).length} Klien / {catReports.length} Berkas
                             </span>
                           </div>
                         </td>
                       </tr>
-                      {catReports.map((rec, idx) => (
+                      {getGroupedReports(catReports).map((rec, idx) => (
                         <tr key={idx + '-' + rec.id} className="hover:bg-fuchsia-50/25 transition-colors group">
-                          <td className="px-4 py-3.5 text-center border-r border-slate-200 text-slate-500 font-bold">{idx + 1}</td>
-                          <td className="px-5 py-3.5 border-r border-slate-200 font-bold text-[#0c2444] uppercase text-[13px] tracking-wide">{rec.namaPt}</td>
+                          <td className="px-4 py-3.5 text-center border-r border-slate-200 text-slate-500 font-bold bg-slate-50/10">{idx + 1}</td>
+                          <td className="px-5 py-3.5 border-r border-slate-200 font-black text-[#0c2444] uppercase text-[13px] tracking-wide bg-slate-50/5 max-w-[250px] break-words">{rec.namaPt}</td>
                           
                           {/* Aligned, identical size badges */}
-                          <td className="px-4 py-3.5 border-r border-slate-200 text-center">
-                            <span className="inline-block px-2.5 py-1 text-[10px] sm:text-[11px] font-bold rounded-md bg-slate-100 text-slate-700 border border-slate-200 uppercase whitespace-nowrap w-[150px] sm:w-[185px] text-center shadow-sm">
-                              {rec.pekerjaan}
-                            </span>
+                          <td className="border-r border-slate-200 p-0">
+                            <div className="flex flex-col divide-y divide-slate-200/80 h-full justify-stretch">
+                              {rec.items.map((it, i) => (
+                                <div key={i} className="px-4 py-3 flex items-center justify-center sm:justify-start min-h-[48px] flex-1">
+                                  {rec.items.length > 1 && (
+                                    <span className="text-fuchsia-500 font-bold text-xs shrink-0 mr-1.5">•</span>
+                                  )}
+                                  <span className="inline-block px-2.5 py-1 text-[10px] sm:text-[11px] font-bold rounded-md bg-slate-100 text-slate-700 border border-slate-200 uppercase truncate w-[150px] sm:w-[185px] text-center shadow-xs">
+                                    {it.pekerjaan}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
                           </td>
-                          <td className="px-4 py-3.5 border-r border-slate-200 text-center">
-                            <DocumentStatusBadge status={rec.status} />
+                          <td className="border-r border-slate-200 p-0 text-center">
+                            <div className="flex flex-col divide-y divide-slate-200/80 h-full justify-stretch items-stretch">
+                              {rec.items.map((it, i) => (
+                                <div key={i} className="px-4 py-3 flex items-center justify-center min-h-[48px] flex-1">
+                                  <DocumentStatusBadge status={getProjectStatusDisplay(it.status, it.metadata)} />
+                                </div>
+                              ))}
+                            </div>
                           </td>
                           
-                          <td className="px-4 py-3.5 border-r border-slate-200 text-center text-slate-500 font-mono text-[11px]">
-                            {rec.updatedAt && !isNaN(new Date(rec.updatedAt).getTime()) 
-                              ? new Date(rec.updatedAt).toLocaleDateString('id-ID', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) 
-                              : '-'}
+                          <td className="border-r border-slate-200 p-0 text-left text-slate-600 font-medium text-[11px]">
+                            <div className="flex flex-col divide-y divide-slate-200/80 h-full justify-stretch items-stretch">
+                              {rec.items.map((it, i) => (
+                                <div key={i} className="px-4 py-3 flex items-center justify-start min-h-[48px] flex-1 max-w-[250px] break-words whitespace-normal leading-relaxed">
+                                  {getCleanTransitionComment(it.lastTransitionComment)}
+                                </div>
+                              ))}
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -936,7 +1373,7 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects: propsProject
           </div>
           <div className="text-right">
             <div className="text-[22px] font-black text-slate-900 tracking-tight leading-none uppercase">
-              Laporan Status Pekerjaan
+              {activeReportTab === 'aktif' ? 'Laporan Proyek Aktif' : 'Laporan Minuta Proyek'}
             </div>
             <div className="text-[11px] text-slate-500 font-bold tracking-wider uppercase mt-2">
               Sistem Notariatan Terintegrasi
@@ -951,7 +1388,7 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects: propsProject
               Kategori Filter
             </div>
             <div className="text-sm font-black text-slate-800 mt-1 uppercase">
-              {selectedGroup === 'ALL' ? 'Semua Pekerjaan' : selectedGroup}
+              {selectedCategory === 'ALL' ? 'Semua Kategori' : `${selectedCategory} (${selectedType === 'ALL' ? 'Semua Jenis' : selectedType})`}
             </div>
           </div>
           <div>
@@ -980,7 +1417,7 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects: propsProject
               Jumlah Pekerjaan
             </div>
             <div className="text-sm font-black text-slate-800 mt-1">
-              {filteredReports.length} Berkas Aktif
+              {filteredReports.length} Berkas {activeReportTab === 'aktif' ? 'Aktif' : 'Minuta'}
             </div>
           </div>
         </div>
@@ -1005,7 +1442,7 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects: propsProject
               </tr>
             ) : (
               STATUS_CATEGORIES.map(cat => {
-                const catReports = filteredReports.filter(r => getStatusCategory(r.status) === cat.id);
+                const catReports = filteredReports.filter(r => getStatusCategory(r.status, r.metadata) === cat.id);
                 if (catReports.length === 0) return null;
 
                 return (
@@ -1013,50 +1450,74 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects: propsProject
                     {/* Category Section Header Row */}
                     <tr className="bg-slate-100 font-black">
                       <td colSpan={5} className="px-6 py-3 border border-slate-300 text-[#0c2444] font-black text-[13px] tracking-wide uppercase">
-                        📂 Kategori Status: {cat.label} ({catReports.length} Berkas)
+                        📂 Kategori Status: {cat.label} ({getGroupedReports(catReports).length} Klien / {catReports.length} Berkas)
                       </td>
                     </tr>
-                    {catReports.map((rec, idx) => {
-                      // Determine status styling for static canvas layout
-                      let statusBg = 'bg-slate-100 text-slate-800 border-slate-300';
-                      let statusLabel = rec.status;
-                      
-                      const cleanStatus = (rec.status || '').toUpperCase();
-                      if (cleanStatus.includes('SELESAI') || cleanStatus.includes('FINAL') || cleanStatus.includes('COMPLETE') || cleanStatus.includes('SIAP_KIRIM')) {
-                        statusBg = 'bg-emerald-100 text-emerald-900 border-emerald-300';
-                        statusLabel = 'SELESAI';
-                      } else if (cleanStatus.includes('PERBAIKAN') || cleanStatus.includes('REVISION') || cleanStatus.includes('DIKEMBALIKAN')) {
-                        statusBg = 'bg-rose-100 text-rose-900 border-rose-300';
-                        statusLabel = 'PERBAIKAN';
-                      } else if (cleanStatus.includes('DRAFTING') || cleanStatus.includes('PROSES') || cleanStatus.includes('KOREKSI')) {
-                        statusBg = 'bg-blue-100 text-blue-900 border-blue-300';
-                        statusLabel = 'PROSES DRAFTING';
-                      } else {
-                        statusBg = 'bg-violet-100 text-violet-900 border-violet-300';
-                      }
+                    {getGroupedReports(catReports).map((rec, idx) => (
+                      <tr key={'highres-' + idx} className="text-slate-800 text-[12.5px]">
+                        <td className="px-4 py-4 text-center border border-slate-300 font-bold bg-slate-50/50">{idx + 1}</td>
+                        <td className="px-6 py-4 border border-slate-300 font-black text-[#0c2444] uppercase tracking-wide bg-slate-50/5 max-w-[250px] break-words">{rec.namaPt}</td>
+                        <td className="border border-slate-300 p-0">
+                          <div className="flex flex-col divide-y divide-slate-300 h-full justify-stretch">
+                            {rec.items.map((it, i) => (
+                              <div key={i} className="px-5 py-3.5 flex items-center justify-center sm:justify-start min-h-[52px] flex-1">
+                                {rec.items.length > 1 && (
+                                  <span className="text-fuchsia-600 font-bold text-sm shrink-0 mr-1.5">•</span>
+                                )}
+                                <span className="inline-block px-3 py-1 text-[11px] font-bold rounded-md bg-slate-100 text-slate-700 border border-slate-200 uppercase whitespace-nowrap min-w-[160px] text-center shadow-xs">
+                                  {it.pekerjaan}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </td>
+                        <td className="border border-slate-300 p-0 text-center font-extrabold">
+                          <div className="flex flex-col divide-y divide-slate-300 h-full justify-stretch items-stretch">
+                            {rec.items.map((it, i) => {
+                              const displayStatus = getProjectStatusDisplay(it.status, it.metadata);
+                              let statusBg = 'bg-slate-100 text-slate-800 border-slate-300';
+                              let statusLabel = displayStatus;
+                              
+                              const cleanStatus = (displayStatus || '').toUpperCase();
+                              if (cleanStatus === 'PROGRES MINUTA') {
+                                statusBg = 'bg-amber-100 text-amber-950 border-amber-300';
+                                statusLabel = 'PROGRES MINUTA';
+                              } else if (cleanStatus.includes('SELESAI') || cleanStatus.includes('FINAL') || cleanStatus.includes('COMPLETE') || cleanStatus.includes('SIAP_KIRIM')) {
+                                statusBg = 'bg-emerald-100 text-emerald-900 border-emerald-300';
+                                statusLabel = 'SELESAI';
+                              } else if (cleanStatus.includes('PERBAIKAN') || cleanStatus.includes('REVISION') || cleanStatus.includes('DIKEMBALIKAN')) {
+                                statusBg = 'bg-rose-100 text-rose-900 border-rose-300';
+                                statusLabel = 'PERBAIKAN';
+                              } else if (cleanStatus.includes('DRAFTING') || cleanStatus.includes('PROSES') || cleanStatus.includes('KOREKSI')) {
+                                statusBg = 'bg-blue-100 text-blue-900 border-blue-300';
+                                statusLabel = 'PROSES DRAFTING';
+                              } else {
+                                statusBg = 'bg-violet-100 text-violet-900 border-violet-300';
+                              }
 
-                      return (
-                        <tr key={'highres-' + idx} className="text-slate-800 text-[12.5px]">
-                          <td className="px-4 py-4 text-center border border-slate-300 font-bold bg-slate-50/50">{idx + 1}</td>
-                          <td className="px-6 py-4 border border-slate-300 font-black text-[#0c2444] uppercase tracking-wide">{rec.namaPt}</td>
-                          <td className="px-5 py-4 border border-slate-300 text-center font-bold">
-                            <span className="inline-block px-3 py-1.5 text-[11px] font-bold rounded-md bg-slate-100 text-slate-700 border border-slate-200 uppercase whitespace-nowrap min-w-[160px]">
-                              {rec.pekerjaan}
-                            </span>
-                          </td>
-                          <td className="px-5 py-4 border border-slate-300 text-center font-extrabold">
-                            <span className={`inline-block px-4 py-1.5 text-[10.5px] font-bold rounded-lg border uppercase whitespace-nowrap tracking-wider min-w-[140px] text-center ${statusBg}`}>
-                              {statusLabel}
-                            </span>
-                          </td>
-                          <td className="px-5 py-4 border border-slate-300 text-center text-slate-500 font-mono text-[11px] font-bold">
-                            {rec.updatedAt && !isNaN(new Date(rec.updatedAt).getTime()) 
-                              ? new Date(rec.updatedAt).toLocaleDateString('id-ID', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) 
-                              : '-'}
-                          </td>
-                        </tr>
-                      );
-                    })}
+                              return (
+                                <div key={i} className="px-5 py-3.5 flex items-center justify-center min-h-[52px] flex-1">
+                                  <span className={`inline-block px-4 py-1 text-[10.5px] font-bold rounded-lg border uppercase whitespace-nowrap tracking-wider min-w-[140px] text-center ${statusBg}`}>
+                                    {statusLabel}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </td>
+                        <td className="border border-slate-300 p-0 text-center text-slate-500 font-mono text-[11px] font-bold">
+                          <div className="flex flex-col divide-y divide-slate-300 h-full justify-stretch items-stretch font-bold">
+                            {rec.items.map((it, i) => (
+                              <div key={i} className="px-5 py-3.5 flex items-center justify-center min-h-[52px] flex-1 font-bold">
+                                {it.updatedAt && !isNaN(new Date(it.updatedAt).getTime()) 
+                                  ? new Date(it.updatedAt).toLocaleDateString('id-ID', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) 
+                                  : '-'}
+                              </div>
+                            ))}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
                   </React.Fragment>
                 );
               })

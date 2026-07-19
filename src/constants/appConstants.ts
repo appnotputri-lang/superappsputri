@@ -183,3 +183,76 @@ export const ALLOWED_EMAILS = [
   'rdyndi@gmail.com',
   'notarisppatputri@gmail.com'
 ];
+
+export enum ProjectCategory {
+  BODY_LEGAL = 'BODY_LEGAL',
+  MEETING = 'MEETING',
+  AGREEMENT = 'AGREEMENT',
+  GENERAL_DEED = 'GENERAL_DEED',
+  LEGALIZATION = 'LEGALIZATION'
+}
+
+export const PROJECT_TYPES: Record<ProjectCategory, string[]> = {
+  [ProjectCategory.BODY_LEGAL]: [
+    'Pendirian PT',
+    'RUPST',
+    'RUPS-LB',
+    'PKPS RUPST',
+    'PKPS RUPS-LB',
+    'Pendirian CV',
+    'Perubahan CV',
+    'Pembubaran CV',
+    'Pendirian Firma',
+    'Perubahan Firma',
+    'Pembubaran Firma',
+    'Pendirian Yayasan',
+    'Perubahan Yayasan',
+    'Pembubaran Yayasan',
+    'Rapat Pembina',
+    'Rapat Pengurus',
+    'Rapat Pengawas',
+    'Pendirian Perkumpulan',
+    'Perubahan Perkumpulan',
+    'Pembubaran Perkumpulan',
+    'Rapat Anggota',
+    'Rapat Pengurus'
+  ],
+  [ProjectCategory.MEETING]: ['RUPST', 'RUPS-LB', 'PKPS RUPST', 'PKPS RUPS-LB', 'Rapat Yayasan', 'Rapat Perkumpulan'],
+  [ProjectCategory.AGREEMENT]: [
+    'Perjanjian Sewa Menyewa',
+    'Perjanjian Kerja Sama',
+    'PPJB',
+    'Perjanjian Utang Piutang',
+    'Akta Hibah',
+    'Pengalihan Merek',
+    'Lisensi Merek',
+    'Pinjam Pakai',
+    'Waralaba',
+    'Akta Kustom',
+    'Lainnya'
+  ],
+  [ProjectCategory.GENERAL_DEED]: [
+    'Akta Kuasa',
+    'Akta Pernyataan',
+    'Akta Pengakuan Utang',
+    'Akta Kustom',
+    'Lainnya'
+  ],
+  [ProjectCategory.LEGALIZATION]: ['Legalisasi', 'Waarmerking']
+};
+
+export const MEETING_SUBJECTS = [
+  'Perubahan AD',
+  'Perubahan Data',
+  'Perubahan Nama',
+  'Perubahan Alamat',
+  'Perubahan KBLI',
+  'Perubahan Modal',
+  'Perubahan Pengurus',
+  'Perubahan Pemegang Saham',
+  'Merger',
+  'Akuisisi',
+  'Spin Off',
+  'Pembubaran',
+  'Lainnya'
+];

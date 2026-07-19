@@ -13,6 +13,7 @@ import { collection, getDocs, setDoc, doc, deleteDoc, getDoc, query, where, upda
 import DraftAktaPendirian from '../../../DraftAktaPendirian';
 import PendirianDocumentPreview from '../../../PendirianDocumentPreview';
 import { syncToUtama, getDeedTitle, formatAppearersForPendirian } from '../../../lib/syncUtama';
+import LeaseAgreementDraft from '../../lease-agreement/components/LeaseAgreementDraft';
 import { mapCompanyProfileToPendirian } from '../../../domain/company/mappers/companyProfileToPendirian';
 import { ProjectDocumentUpload } from './ProjectDocumentUpload';
 import { formatCompanyName } from '../../../lib/formatter';
@@ -131,6 +132,10 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [addingTask, setAddingTask] = useState(false);
 
+  // Minuta Notes State
+  const [localMinutaNotes, setLocalMinutaNotes] = useState('');
+  const [savingNotes, setSavingNotes] = useState(false);
+
   // New Document State
   const [isDocModalOpen, setIsDocModalOpen] = useState(false);
   const [docForm, setDocForm] = useState({
@@ -155,7 +160,7 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
   };
 
   // Pendirian Work Mode States
-  const [workMode, setWorkMode] = useState<'default' | 'pendirian'>('default');
+  const [workMode, setWorkMode] = useState<'default' | 'pendirian' | 'sewa_menyewa'>('default');
   const [workingPendirianId, setWorkingPendirianId] = useState<string | null>(null);
   const [workingPendirianData, setWorkingPendirianData] = useState<any>(null);
   const [pendirianProfiles, setPendirianProfiles] = useState<any[]>([]);
@@ -702,6 +707,7 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
       }
 
       setProject(proj);
+      setLocalMinutaNotes(proj.minutaNotes || '');
       
       // Fetch Drive Files asynchronously without blocking the rest of the UI
       fetchDriveFiles(proj.projectId);
@@ -725,23 +731,105 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
       setWorkflow(wf);
       setTimelines(tlList || []);
       
+      const isMinuta = proj.status.toLowerCase() === 'completed' || proj.status.toLowerCase() === 'archived' || proj.status.toLowerCase() === 'selesai';
       let finalTasks = tkList || [];
-      if (finalTasks.length === 0 && ['rups_lb', 'sirkuler_rupslb'].includes(proj.jobType)) {
-        const defaultTaskTitles = ["NOTULEN", "AKTA RUPS LB", "SK/SP", "NPWP", "NIB"];
-        const createdTasks: Task[] = [];
-        for (const title of defaultTaskTitles) {
-          try {
-            const newTask = await ProjectService.createTask(projectId, {
-              title,
-              status: 'pending'
-            });
-            if (newTask) createdTasks.push(newTask);
-          } catch (e) {
-            console.error("Failed to create default task:", title, e);
+      
+      // Strict client-side deduplication & background Firestore cleanup to prevent race-condition duplicates
+      const uniqueTasksMap = new Map<string, Task>();
+      const duplicateTaskIdsToDelete: string[] = [];
+
+      for (const task of finalTasks) {
+        const existing = uniqueTasksMap.get(task.title);
+        if (!existing) {
+          uniqueTasksMap.set(task.title, task);
+        } else {
+          // Prefer completed status over pending or other states
+          if (task.status === 'completed' && existing.status !== 'completed') {
+            duplicateTaskIdsToDelete.push(existing.id);
+            uniqueTasksMap.set(task.title, task);
+          } else {
+            duplicateTaskIdsToDelete.push(task.id);
           }
         }
-        finalTasks = createdTasks;
       }
+
+      if (duplicateTaskIdsToDelete.length > 0) {
+        console.log(`[Deduplication] Detected ${duplicateTaskIdsToDelete.length} duplicate tasks for project ${projectId}. Cleaning up...`);
+        for (const id of duplicateTaskIdsToDelete) {
+          ProjectService.deleteTask(projectId, id).catch(err => {
+            console.error("[Deduplication] Failed to delete duplicate task", id, err);
+          });
+        }
+      }
+
+      finalTasks = Array.from(uniqueTasksMap.values());
+      
+      if (isMinuta) {
+        const MINUTA_TASK_TITLES = [
+          "Copy KTP Para Pihak",
+          "Copy NPWP Para Pihak",
+          "Copy Seluruh Riwayat Akta",
+          "Demikianlah Lengkap",
+          "Akta Minuta diprint",
+          "Surat-Surat Pendukung",
+          "Jahit Minuta"
+        ];
+        
+        const existingTitles = finalTasks.map(t => t.title);
+        const missingTitles = MINUTA_TASK_TITLES.filter(title => !existingTitles.includes(title));
+        
+        if (missingTitles.length > 0) {
+          const createdTasks: Task[] = [];
+          for (const title of missingTitles) {
+            try {
+              const newTask = await ProjectService.createTask(projectId, {
+                title,
+                status: 'pending'
+              });
+              if (newTask) createdTasks.push(newTask);
+            } catch (e) {
+              console.error("Failed to create default minuta task:", title, e);
+            }
+          }
+          finalTasks = [...finalTasks, ...createdTasks];
+        }
+        
+        const displayedMinutaTasks = finalTasks.filter(t => !["NOTULEN", "AKTA RUPS LB", "SK/SP", "NPWP", "NIB"].includes(t.title));
+        const allChecked = displayedMinutaTasks.length > 0 && displayedMinutaTasks.every(t => t.status === 'completed' || t.status === 'not_required');
+        
+        if (proj.metadata?.minutaCheckedAll !== allChecked) {
+          const updatedMetadata = {
+            ...(proj.metadata || {}),
+            minutaCheckedAll: allChecked
+          };
+          try {
+            await updateDoc(doc(db, 'office_projects', projectId), {
+              metadata: updatedMetadata
+            });
+            proj.metadata = updatedMetadata;
+          } catch (e) {
+            console.error("Failed to update initial metadata for minuta check:", e);
+          }
+        }
+      } else {
+        if (finalTasks.length === 0 && ['rups_lb', 'sirkuler_rupslb'].includes(proj.jobType)) {
+          const defaultTaskTitles = ["NOTULEN", "AKTA RUPS LB", "SK/SP", "NPWP", "NIB"];
+          const createdTasks: Task[] = [];
+          for (const title of defaultTaskTitles) {
+            try {
+              const newTask = await ProjectService.createTask(projectId, {
+                title,
+                status: 'pending'
+              });
+              if (newTask) createdTasks.push(newTask);
+            } catch (e) {
+              console.error("Failed to create default task:", title, e);
+            }
+          }
+          finalTasks = createdTasks;
+        }
+      }
+      
       setTasks(finalTasks);
       setDocuments(docList || []);
 
@@ -1206,7 +1294,7 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
         transitionStatus,
         currentUserEmail || 'staff_notaris',
         transitionComment.trim() || undefined,
-        transitionStrict
+        isProjectMinuta(project.status) ? false : transitionStrict
       );
 
       setTransitionComment('');
@@ -1221,11 +1309,82 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
     }
   };
 
+  const isProjectMinuta = (status: string) => {
+    const s = status.toLowerCase();
+    return s === 'completed' || s === 'archived' || s === 'selesai';
+  };
+
+  const syncMinutaCompletion = async (currentTasks: Task[]) => {
+    if (!project) return;
+    const isMinuta = isProjectMinuta(project.status);
+    if (!isMinuta) return;
+
+    const PRE_MINUTA_DEFAULT_TITLES = ["NOTULEN", "AKTA RUPS LB", "SK/SP", "NPWP", "NIB"];
+    const displayedMinutaTasks = currentTasks.filter(t => !PRE_MINUTA_DEFAULT_TITLES.includes(t.title));
+
+    const allChecked = displayedMinutaTasks.length > 0 && displayedMinutaTasks.every(t => t.status === 'completed' || t.status === 'not_required');
+
+    if (project.metadata?.minutaCheckedAll !== allChecked) {
+      try {
+        const updatedMetadata = {
+          ...(project.metadata || {}),
+          minutaCheckedAll: allChecked
+        };
+        await updateDoc(doc(db, 'office_projects', project.projectId), {
+          metadata: updatedMetadata
+        });
+        setProject(prev => prev ? { ...prev, metadata: updatedMetadata } : null);
+      } catch (err) {
+        console.error("Failed to sync minuta completion status:", err);
+      }
+    }
+  };
+
+  const getDisplayedTasks = () => {
+    if (!project) return [];
+    const isMinuta = isProjectMinuta(project.status);
+    const MINUTA_TASK_TITLES = [
+      "Copy KTP Para Pihak",
+      "Copy NPWP Para Pihak",
+      "Copy Seluruh Riwayat Akta",
+      "Demikianlah Lengkap",
+      "Akta Minuta diprint",
+      "Surat-Surat Pendukung",
+      "Jahit Minuta"
+    ];
+    const PRE_MINUTA_DEFAULT_TITLES = ["NOTULEN", "AKTA RUPS LB", "SK/SP", "NPWP", "NIB"];
+
+    if (isMinuta) {
+      return tasks.filter(t => !PRE_MINUTA_DEFAULT_TITLES.includes(t.title));
+    } else {
+      return tasks.filter(t => !MINUTA_TASK_TITLES.includes(t.title));
+    }
+  };
+
+  const handleSaveMinutaNotes = async () => {
+    if (!project) return;
+    setSavingNotes(true);
+    try {
+      await updateDoc(doc(db, 'office_projects', project.projectId), {
+        minutaNotes: localMinutaNotes
+      });
+      setProject(prev => prev ? { ...prev, minutaNotes: localMinutaNotes } : null);
+      alert('Catatan minuta berhasil disimpan.');
+    } catch (err: any) {
+      console.error(err);
+      alert('Gagal menyimpan catatan minuta: ' + err.message);
+    } finally {
+      setSavingNotes(false);
+    }
+  };
+
   const handleUpdateTaskStatus = async (taskId: string, newStatus: 'pending' | 'in_progress' | 'completed' | 'not_required') => {
     try {
       await ProjectService.updateTaskStatus(projectId, taskId, newStatus);
       // Update local state smoothly
-      setTasks(tasks.map((t) => (t.id === taskId ? { ...t, status: newStatus } : t)));
+      const updatedTasks = tasks.map((t) => (t.id === taskId ? { ...t, status: newStatus } : t));
+      setTasks(updatedTasks);
+      await syncMinutaCompletion(updatedTasks);
     } catch (err) {
       console.error(err);
       alert('Gagal memperbarui status checklist.');
@@ -1248,8 +1407,10 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
       });
 
       if (newTask) {
-        setTasks([...tasks, newTask]);
+        const updatedTasks = [...tasks, newTask];
+        setTasks(updatedTasks);
         setNewTaskTitle('');
+        await syncMinutaCompletion(updatedTasks);
       }
     } catch (err) {
       console.error(err);
@@ -1559,6 +1720,8 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
     );
   }
 
+  const isPT = client?.clientType === 'PT' || project.clientSnapshot?.companyType === 'PT';
+
   return (
     <div className="flex-1 overflow-auto bg-slate-50 p-6">
       <div className="max-w-7xl mx-auto space-y-6">
@@ -1588,47 +1751,60 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
 
           {/* Quick link buttons to existing forms */}
           <div className="flex items-center gap-2 flex-wrap shrink-0">
-            <a
-              href={getRedirectPath(project.jobType)}
-              className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-lg text-[13px] flex items-center gap-2 transition-all shadow-sm"
-            >
-              <span>Buka Modul Form Existing</span>
-              <ExternalLink className="w-4 h-4" />
-            </a>
-            {(() => {
-              const path = getRedirectPath(project.jobType);
-              const existingDoc = documents.find(d => d.url === path);
-              
-              if (existingDoc && existingDoc.refId) {
-                return (
-                  <a
-                    href={`${path}?id=${existingDoc.refId}&projectId=${project.projectId}`}
-                    className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg text-[13px] flex items-center gap-2 transition-all shadow-sm"
-                  >
-                    <span>Edit Dokumen</span>
-                    <FileText className="w-4 h-4" />
-                  </a>
-                );
-              }
-
-              return (
-                <a
-                  href={`${path}?projectId=${project.projectId}`}
-                  className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg text-[13px] flex items-center gap-2 transition-all shadow-sm"
-                >
-                  <span>Buat Dokumen Baru</span>
-                  <Plus className="w-4 h-4" />
-                </a>
-              );
-            })()}
-            {project.jobType === 'pendirian_pt' && (
+            {project.jobType === 'sewa_menyewa' && (
               <button
-                onClick={handleWorkHere}
+                onClick={() => setWorkMode('sewa_menyewa')}
                 className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg text-[13px] flex items-center gap-2 transition-all shadow-sm"
               >
                 <span>Kerjakan di Sini</span>
                 <Sparkles className="w-4 h-4" />
               </button>
+            )}
+            {isPT && (
+              <>
+                <a
+                  href={getRedirectPath(project.jobType)}
+                  className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-lg text-[13px] flex items-center gap-2 transition-all shadow-sm"
+                >
+                  <span>Buka Modul Form Existing</span>
+                  <ExternalLink className="w-4 h-4" />
+                </a>
+                {(() => {
+                  const path = getRedirectPath(project.jobType);
+                  const existingDoc = documents.find(d => d.url === path);
+                  
+                  if (existingDoc && existingDoc.refId) {
+                    return (
+                      <a
+                        href={`${path}?id=${existingDoc.refId}&projectId=${project.projectId}`}
+                        className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg text-[13px] flex items-center gap-2 transition-all shadow-sm"
+                      >
+                        <span>Edit Dokumen</span>
+                        <FileText className="w-4 h-4" />
+                      </a>
+                    );
+                  }
+
+                  return (
+                    <a
+                      href={`${path}?projectId=${project.projectId}`}
+                      className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg text-[13px] flex items-center gap-2 transition-all shadow-sm"
+                    >
+                      <span>Buat Dokumen Baru</span>
+                      <Plus className="w-4 h-4" />
+                    </a>
+                  );
+                })()}
+                {project.jobType === 'pendirian_pt' && (
+                  <button
+                    onClick={handleWorkHere}
+                    className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg text-[13px] flex items-center gap-2 transition-all shadow-sm"
+                  >
+                    <span>Kerjakan di Sini</span>
+                    <Sparkles className="w-4 h-4" />
+                  </button>
+                )}
+              </>
             )}
             {currentUser.role === 'Super Admin' && (
               <button
@@ -1643,7 +1819,23 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
           </div>
         </div>
 
-        {workMode === 'pendirian' ? (
+        {workMode === 'sewa_menyewa' ? (
+          <div className="mt-6">
+            <button 
+              onClick={() => setWorkMode('default')}
+              className="mb-4 flex items-center gap-2 text-slate-500 hover:text-slate-700 font-semibold text-sm transition-colors bg-white px-4 py-2 rounded-lg border border-slate-200 shadow-sm"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Kembali ke Detail Proyek
+            </button>
+            <LeaseAgreementDraft
+              projectId={projectId}
+              project={project}
+              currentUser={currentUser}
+              onCancel={() => setWorkMode('default')}
+            />
+          </div>
+        ) : workMode === 'pendirian' ? (
           <div className="mt-6">
             <button 
               onClick={() => setWorkMode('default')}
@@ -2041,6 +2233,128 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
               </div>
             ) : null}
 
+            {/* Task Checklist Section */}
+            {(() => {
+              const displayedTasks = getDisplayedTasks();
+              const completedCount = displayedTasks.filter((t) => t.status === 'completed').length;
+              const totalCount = displayedTasks.filter((t) => t.status !== 'not_required').length;
+              
+              return (
+                <div className="bg-white border border-slate-200/80 rounded-xl p-6 shadow-sm">
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+                    <h2 className="text-[14px] font-bold text-slate-800 uppercase tracking-wide">
+                      Daftar Checklist {isProjectMinuta(project.status) ? 'Minuta' : 'Tugas'} ({completedCount}/{totalCount})
+                    </h2>
+                  </div>
+
+                  {/* Tasks List */}
+                  {displayedTasks.length === 0 ? (
+                    <div className="py-8 text-center text-slate-400 text-[13px]">
+                      Belum ada checklist tugas kustom untuk proyek ini.
+                    </div>
+                  ) : (
+                    <div className="space-y-2.5">
+                      {displayedTasks.map((task) => (
+                        <div
+                          key={task.id}
+                          className={`flex flex-col sm:flex-row sm:items-center justify-between p-3.5 border rounded-xl transition-all select-none gap-3 ${
+                            task.status === 'completed'
+                              ? 'border-emerald-100 bg-emerald-50/10'
+                              : task.status === 'not_required'
+                              ? 'border-slate-200 bg-slate-50/40 opacity-70'
+                              : 'border-slate-150 bg-white hover:bg-slate-50/30'
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            {task.status === 'completed' ? (
+                              <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
+                            ) : task.status === 'not_required' ? (
+                              <Ban className="w-5 h-5 text-slate-400 shrink-0" />
+                            ) : (
+                              <div className="w-5 h-5 rounded-md border border-slate-300 shrink-0" />
+                            )}
+                            <div className="flex flex-col">
+                              <span className={`text-[13px] font-semibold ${
+                                task.status === 'completed'
+                                  ? 'line-through text-slate-500'
+                                  : task.status === 'not_required'
+                                  ? 'line-through text-slate-400 italic'
+                                  : 'text-slate-800'
+                              }`}>
+                                {task.title}
+                              </span>
+                              {task.updatedAt && (
+                                <span className="text-[10px] text-slate-400 font-mono mt-0.5">
+                                  Terakhir diperbarui: {new Date(task.updatedAt.seconds ? task.updatedAt.toDate() : task.updatedAt).toLocaleDateString('id-ID')}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Status Selector Buttons */}
+                          <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-auto">
+                            <button
+                              type="button"
+                              onClick={() => handleUpdateTaskStatus(task.id, 'completed')}
+                              className={`px-2.5 py-1 text-[11px] font-bold rounded-lg border transition-all ${
+                                task.status === 'completed'
+                                  ? 'bg-emerald-500 text-white border-emerald-500 shadow-xs'
+                                  : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:border-slate-300'
+                              }`}
+                            >
+                              Selesai
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleUpdateTaskStatus(task.id, 'pending')}
+                              className={`px-2.5 py-1 text-[11px] font-bold rounded-lg border transition-all ${
+                                task.status === 'pending' || task.status === 'in_progress'
+                                  ? 'bg-amber-500 text-white border-amber-500 shadow-xs'
+                                  : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:border-slate-300'
+                              }`}
+                            >
+                              Belum
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleUpdateTaskStatus(task.id, 'not_required')}
+                              className={`px-2.5 py-1 text-[11px] font-bold rounded-lg border transition-all ${
+                                task.status === 'not_required'
+                                  ? 'bg-slate-500 text-white border-slate-500 shadow-xs'
+                                  : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:border-slate-300'
+                              }`}
+                            >
+                              Tidak Diperlukan
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Add Quick Task Form */}
+                  <form onSubmit={handleAddTask} className="mt-4 pt-4 border-t border-slate-100 flex gap-2">
+                    <input
+                      type="text"
+                      required
+                      value={newTaskTitle}
+                      onChange={(e) => setNewTaskTitle(e.target.value)}
+                      placeholder={isProjectMinuta(project.status) ? "Tambah ceklist minuta baru..." : "Tambah ceklist tugas baru..."}
+                      className="flex-1 px-3 py-2 text-[13px] bg-slate-50 border border-slate-200 focus:bg-white focus:ring-1 focus:ring-blue-500 rounded-lg outline-none transition-all"
+                    />
+                    <button
+                      type="submit"
+                      disabled={addingTask}
+                      className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-semibold text-[13px] rounded-lg transition-colors flex items-center gap-1.5 disabled:opacity-50"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>Tambah</span>
+                    </button>
+                  </form>
+                </div>
+              );
+            })()}
+
             {/* Rule: Company Timeline (Legal History Tracker) */}
             <div className="bg-white border border-slate-200/80 rounded-xl p-6 shadow-sm space-y-4">
               <h2 className="text-[14px] font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2 border-b border-slate-100 pb-3">
@@ -2166,380 +2480,311 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
               onPullFromForm={handlePullFromForm}
             />
 
-            {/* Task Checklist Section */}
-            <div className="bg-white border border-slate-200/80 rounded-xl p-6 shadow-sm">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
-                <h2 className="text-[14px] font-bold text-slate-800 uppercase tracking-wide">
-                  Daftar Checklist Tugas ({tasks.filter((t) => t.status === 'completed').length}/{tasks.filter((t) => t.status !== 'not_required').length})
-                </h2>
-              </div>
-
-              {/* Tasks List */}
-              {tasks.length === 0 ? (
-                <div className="py-8 text-center text-slate-400 text-[13px]">
-                  Belum ada checklist tugas kustom untuk proyek ini.
-                </div>
-              ) : (
-                <div className="space-y-2.5">
-                  {tasks.map((task) => (
-                    <div
-                      key={task.id}
-                      className={`flex flex-col sm:flex-row sm:items-center justify-between p-3.5 border rounded-xl transition-all select-none gap-3 ${
-                        task.status === 'completed'
-                          ? 'border-emerald-100 bg-emerald-50/10'
-                          : task.status === 'not_required'
-                          ? 'border-slate-200 bg-slate-50/40 opacity-70'
-                          : 'border-slate-150 bg-white hover:bg-slate-50/30'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        {task.status === 'completed' ? (
-                          <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
-                        ) : task.status === 'not_required' ? (
-                          <Ban className="w-5 h-5 text-slate-400 shrink-0" />
-                        ) : (
-                          <div className="w-5 h-5 rounded-md border border-slate-300 shrink-0" />
-                        )}
-                        <div className="flex flex-col">
-                          <span className={`text-[13px] font-semibold ${
-                            task.status === 'completed'
-                              ? 'line-through text-slate-500'
-                              : task.status === 'not_required'
-                              ? 'line-through text-slate-400 italic'
-                              : 'text-slate-800'
-                          }`}>
-                            {task.title}
-                          </span>
-                          {task.updatedAt && (
-                            <span className="text-[10px] text-slate-400 font-mono mt-0.5">
-                              Terakhir diperbarui: {new Date(task.updatedAt.seconds ? task.updatedAt.toDate() : task.updatedAt).toLocaleDateString('id-ID')}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Status Selector Buttons */}
-                      <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-auto">
-                        <button
-                          type="button"
-                          onClick={() => handleUpdateTaskStatus(task.id, 'completed')}
-                          className={`px-2.5 py-1 text-[11px] font-bold rounded-lg border transition-all ${
-                            task.status === 'completed'
-                              ? 'bg-emerald-500 text-white border-emerald-500 shadow-xs'
-                              : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:border-slate-300'
-                          }`}
-                        >
-                          Selesai
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleUpdateTaskStatus(task.id, 'pending')}
-                          className={`px-2.5 py-1 text-[11px] font-bold rounded-lg border transition-all ${
-                            task.status === 'pending' || task.status === 'in_progress'
-                              ? 'bg-amber-500 text-white border-amber-500 shadow-xs'
-                              : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:border-slate-300'
-                          }`}
-                        >
-                          Belum
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleUpdateTaskStatus(task.id, 'not_required')}
-                          className={`px-2.5 py-1 text-[11px] font-bold rounded-lg border transition-all ${
-                            task.status === 'not_required'
-                              ? 'bg-slate-500 text-white border-slate-500 shadow-xs'
-                              : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:border-slate-300'
-                          }`}
-                        >
-                          Tidak Diperlukan
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Add Quick Task Form */}
-              <form onSubmit={handleAddTask} className="mt-4 pt-4 border-t border-slate-100 flex gap-2">
-                <input
-                  type="text"
-                  required
-                  value={newTaskTitle}
-                  onChange={(e) => setNewTaskTitle(e.target.value)}
-                  placeholder="Ketik tugas administratif baru di sini..."
-                  className="flex-1 px-3 py-2 text-[13px] bg-slate-50 border border-slate-200 focus:bg-white focus:ring-1 focus:ring-blue-500 rounded-lg outline-none transition-all"
-                />
-                <button
-                  type="submit"
-                  disabled={addingTask}
-                  className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-semibold text-[13px] rounded-lg transition-colors flex items-center gap-1.5 disabled:opacity-50"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>Tambah</span>
-                </button>
-              </form>
-            </div>
-
             {/* UPLOAD DOKUMEN PROYEK (New Feature) */}
             <ProjectDocumentUpload project={project} currentUser={currentUser} key={documentUploadKey} />
           </div>
 
           {/* Column 3: Transition Engine Guard & Chronological Timeline */}
           <div className="space-y-6">
-            {/* Status Transition Engine Guard Form */}
-            <div className="bg-white border border-slate-200/80 rounded-xl p-6 shadow-sm">
-              <h2 className="text-[14px] font-bold text-slate-800 uppercase tracking-wide border-b border-slate-100 pb-3 mb-4">
-                Transisi Status Guard
-              </h2>
-
-              <form onSubmit={handleStatusTransition} className="space-y-4">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">Pilih Tahap Tujuan</label>
-                  <select
-                    value={transitionStatus}
-                    onChange={(e) => setTransitionStatus(e.target.value)}
-                    className="w-full px-3 py-2 text-[13px] bg-slate-50 border border-slate-200 rounded-lg outline-none transition-all focus:bg-white focus:ring-1 focus:ring-blue-500"
-                  >
-                    {(workflow?.steps || [])
-                      .filter((step) => {
-                        if (!transitionStrict) return true;
-                        const currentIndex = workflow?.steps.indexOf(project.status) ?? -1;
-                        const stepIndex = workflow?.steps.indexOf(step) ?? -1;
-                        return currentIndex === -1 || stepIndex === -1 || Math.abs(stepIndex - currentIndex) <= 1;
-                      })
-                      .map((step) => (
-                        <option key={step} value={step}>
-                          {step.toUpperCase()} {step === project.status ? '(Aktif Saat Ini)' : ''}
-                        </option>
-                      ))}
-                  </select>
+            {/* If in Minuta phase, show Minuta Notes; otherwise show Transisi Status Guard */}
+            {isProjectMinuta(project.status) ? (
+              /* Catatan Proyek Minuta */
+              <div className="bg-white border border-slate-200/80 rounded-xl p-6 shadow-sm space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                  <h2 className="text-[14px] font-bold text-slate-800 uppercase tracking-wide flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-amber-500" />
+                    <span>Catatan Proyek Minuta</span>
+                  </h2>
                 </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">Catatan Transisi</label>
+                <div className="space-y-3">
+                  <p className="text-xs text-slate-500">
+                    Gunakan catatan ini untuk mendokumentasikan detail khusus, berkas pendukung, atau instruksi jahit/penataan minuta akta ini.
+                  </p>
                   <textarea
-                    value={transitionComment}
-                    onChange={(e) => setTransitionComment(e.target.value)}
-                    placeholder="Masukkan alasan atau catatan peralihan status hukum..."
-                    rows={2}
-                    className="w-full px-3 py-2 text-[13px] bg-slate-50 border border-slate-200 rounded-lg outline-none transition-all focus:bg-white focus:ring-1 focus:ring-blue-500"
+                    value={localMinutaNotes}
+                    onChange={(e) => setLocalMinutaNotes(e.target.value)}
+                    placeholder="Tulis catatan penting di sini (misal: Lokasi penempatan berkas, status jilid, kelengkapan berkas fisik)..."
+                    rows={4}
+                    className="w-full p-3 text-[13px] bg-slate-50 border border-slate-200 rounded-lg outline-none transition-all focus:bg-white focus:ring-1 focus:ring-blue-500"
                   />
-                </div>
-
-                <div className="flex items-center justify-between p-2.5 bg-slate-50 rounded-lg border border-slate-100">
-                  <div className="flex flex-col">
-                    <span className="text-xs font-bold text-slate-700">Sequential Guard (Strict)</span>
-                    <span className="text-[10px] text-slate-400">Hanya izinkan transisi berurutan</span>
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      onClick={handleSaveMinutaNotes}
+                      disabled={savingNotes}
+                      className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg text-xs transition-all flex items-center gap-2"
+                    >
+                      {savingNotes ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          <span>Menyimpan...</span>
+                        </>
+                      ) : (
+                        <span>Simpan Catatan Minuta</span>
+                      )}
+                    </button>
                   </div>
-                  <input
-                    type="checkbox"
-                    checked={transitionStrict}
-                    onChange={(e) => {
-                      const checked = e.target.checked;
-                      setTransitionStrict(checked);
-                      if (checked && workflow && workflow.steps) {
-                        const currentIndex = workflow.steps.indexOf(project.status);
-                        const targetIndex = workflow.steps.indexOf(transitionStatus);
-                        if (currentIndex !== -1 && targetIndex !== -1 && Math.abs(targetIndex - currentIndex) > 1) {
-                          if (currentIndex + 1 < workflow.steps.length) {
-                            setTransitionStatus(workflow.steps[currentIndex + 1]);
-                          } else {
-                            setTransitionStatus(project.status);
-                          }
-                        }
-                      }
-                    }}
-                    className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500 cursor-pointer"
-                  />
                 </div>
+              </div>
+            ) : (
+              /* Status Transition Engine Guard Form */
+              <div className="bg-white border border-slate-200/80 rounded-xl p-6 shadow-sm">
+                <h2 className="text-[14px] font-bold text-slate-800 uppercase tracking-wide border-b border-slate-100 pb-3 mb-4">
+                  Transisi Status Guard
+                </h2>
 
-                {/* Conditionally render Deed / Akta details form when transitioning to Completed state */}
-                {['rups_lb', 'sirkuler_rupslb', 'pendirian_pt'].includes(project?.jobType || '') && 
-                  (transitionStatus.toLowerCase().includes('selesai') || 
-                   transitionStatus.toLowerCase() === 'sp terbit' ||
-                   transitionStatus.toLowerCase() === 'sp/sk terbit' ||
-                   transitionStatus.toLowerCase() === 'nib terbit') && (
-                  <div className="p-5 bg-white border border-slate-200 rounded-xl space-y-4 animate-fadeIn shadow-sm">
-                    {/* Header */}
-                    <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
-                      <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
-                        {project?.jobType === 'pendirian_pt' 
-                          ? 'AKTA PENDIRIAN' 
-                          : `AKTA PERUBAHAN ${(client?.amendmentDeeds?.length || 0) + 1}`}
-                      </h3>
-                      <span className="text-[10px] font-mono text-slate-400 bg-slate-100 px-2 py-0.5 rounded">
-                        {project?.title}
-                      </span>
-                    </div>
-                    
-                    {/* Nomor Akta */}
-                    <div className="grid grid-cols-3 gap-4 items-center">
-                      <label className="text-xs font-medium text-slate-700">
-                        Nomor Akta <span className="text-red-500">*</span>
-                      </label>
-                      <div className="col-span-2">
-                        <input
-                          type="text"
-                          required
-                          value={deedNumber}
-                          onChange={(e) => setDeedNumber(e.target.value)}
-                          placeholder="Contoh: 01"
-                          className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg outline-none transition-all focus:ring-1 focus:ring-blue-500"
-                        />
+                <form onSubmit={handleStatusTransition} className="space-y-4">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">Pilih Tahap Tujuan</label>
+                    <select
+                      value={transitionStatus}
+                      onChange={(e) => setTransitionStatus(e.target.value)}
+                      className="w-full px-3 py-2 text-[13px] bg-slate-50 border border-slate-200 rounded-lg outline-none transition-all focus:bg-white focus:ring-1 focus:ring-blue-500"
+                    >
+                      {(workflow?.steps || [])
+                        .filter((step) => {
+                          if (isProjectMinuta(project.status)) return true;
+                          if (!transitionStrict) return true;
+                          const currentIndex = workflow?.steps.indexOf(project.status) ?? -1;
+                          const stepIndex = workflow?.steps.indexOf(step) ?? -1;
+                          return currentIndex === -1 || stepIndex === -1 || Math.abs(stepIndex - currentIndex) <= 1;
+                        })
+                        .map((step) => (
+                          <option key={step} value={step}>
+                            {step.toUpperCase()} {step === project.status ? '(Aktif Saat Ini)' : ''}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">Catatan Transisi</label>
+                    <textarea
+                      value={transitionComment}
+                      onChange={(e) => setTransitionComment(e.target.value)}
+                      placeholder="Masukkan alasan atau catatan peralihan status hukum..."
+                      rows={2}
+                      className="w-full px-3 py-2 text-[13px] bg-slate-50 border border-slate-200 rounded-lg outline-none transition-all focus:bg-white focus:ring-1 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  {!isProjectMinuta(project.status) && (
+                    <div className="flex items-center justify-between p-2.5 bg-slate-50 rounded-lg border border-slate-100">
+                      <div className="flex flex-col">
+                        <span className="text-xs font-bold text-slate-700">Sequential Guard (Strict)</span>
+                        <span className="text-[10px] text-slate-400">Hanya izinkan transisi berurutan</span>
                       </div>
-                    </div>
-
-                    {/* Tanggal Akta */}
-                    <div className="grid grid-cols-3 gap-4 items-center">
-                      <label className="text-xs font-medium text-slate-700">
-                        Tanggal Akta <span className="text-red-500">*</span>
-                      </label>
-                      <div className="col-span-2">
-                        <input
-                          type="date"
-                          required
-                          value={deedDate}
-                          onChange={(e) => setDeedDate(e.target.value)}
-                          className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg outline-none transition-all focus:ring-1 focus:ring-blue-500"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Pilih Notaris */}
-                    <div className="grid grid-cols-3 gap-4 items-center">
-                      <label className="text-xs font-medium text-slate-700">
-                        Pilih Notaris <span className="text-red-500">*</span>
-                      </label>
-                      <div className="col-span-2">
-                        <select
-                          value={notarySelectionType}
-                          onChange={(e) => {
-                            const val = e.target.value as 'saya' | 'manual';
-                            setNotarySelectionType(val);
-                            if (val === 'saya') {
-                              setNotaryName('Nukantini Putri Parincha, SH., M.Kn.');
-                            } else {
-                              setNotaryName('');
+                      <input
+                        type="checkbox"
+                        checked={transitionStrict}
+                        onChange={(e) => {
+                          const checked = e.target.checked;
+                          setTransitionStrict(checked);
+                          if (checked && workflow && workflow.steps) {
+                            const currentIndex = workflow.steps.indexOf(project.status);
+                            const targetIndex = workflow.steps.indexOf(transitionStatus);
+                            if (currentIndex !== -1 && targetIndex !== -1 && Math.abs(targetIndex - currentIndex) > 1) {
+                              if (currentIndex + 1 < workflow.steps.length) {
+                                setTransitionStatus(workflow.steps[currentIndex + 1]);
+                              } else {
+                                setTransitionStatus(project.status);
+                              }
                             }
-                          }}
-                          className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg outline-none transition-all focus:ring-1 focus:ring-blue-500"
-                        >
-                          <option value="saya">Saya (Nukantini Putri Parincha, SH., M.Kn.)</option>
-                          <option value="manual">Notaris Lain (Isi Manual)</option>
-                        </select>
-                      </div>
+                          }
+                        }}
+                        className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500 cursor-pointer"
+                      />
                     </div>
+                  )}
 
-                    {/* Nama Notaris (if manual) */}
-                    {notarySelectionType === 'manual' && (
-                      <div className="grid grid-cols-3 gap-4 items-center animate-fadeIn">
+                  {/* Conditionally render Deed / Akta details form when transitioning to Completed state */}
+                  {['rups_lb', 'sirkuler_rupslb', 'pendirian_pt'].includes(project?.jobType || '') && 
+                    (transitionStatus.toLowerCase().includes('selesai') || 
+                     transitionStatus.toLowerCase() === 'sp terbit' ||
+                     transitionStatus.toLowerCase() === 'sp/sk terbit' ||
+                     transitionStatus.toLowerCase() === 'nib terbit') && (
+                    <div className="p-5 bg-white border border-slate-200 rounded-xl space-y-4 animate-fadeIn shadow-sm">
+                      {/* Header */}
+                      <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
+                        <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                          {project?.jobType === 'pendirian_pt' 
+                            ? 'AKTA PENDIRIAN' 
+                            : `AKTA PERUBAHAN ${(client?.amendmentDeeds?.length || 0) + 1}`}
+                        </h3>
+                        <span className="text-[10px] font-mono text-slate-400 bg-slate-100 px-2 py-0.5 rounded">
+                          {project?.title}
+                        </span>
+                      </div>
+                      
+                      {/* Nomor Akta */}
+                      <div className="grid grid-cols-3 gap-4 items-center">
                         <label className="text-xs font-medium text-slate-700">
-                          Nama Notaris <span className="text-red-500">*</span>
+                          Nomor Akta <span className="text-red-500">*</span>
                         </label>
                         <div className="col-span-2">
                           <input
                             type="text"
                             required
-                            value={notaryName}
-                            onChange={(e) => setNotaryName(e.target.value)}
-                            placeholder="Nama Notaris..."
+                            value={deedNumber}
+                            onChange={(e) => setDeedNumber(e.target.value)}
+                            placeholder="Contoh: 01"
                             className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg outline-none transition-all focus:ring-1 focus:ring-blue-500"
                           />
                         </div>
                       </div>
-                    )}
 
-                    {/* Kedudukan Notaris */}
-                    <div className="grid grid-cols-3 gap-4 items-center">
-                      <label className="text-xs font-medium text-slate-700">
-                        Kedudukan Notaris <span className="text-red-500">*</span>
-                      </label>
-                      <div className="col-span-2">
-                        <input
-                          type="text"
-                          required
-                          value={notaryLocation}
-                          onChange={(e) => setNotaryLocation(e.target.value)}
-                          placeholder="Kedudukan Notaris..."
-                          className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg outline-none transition-all focus:ring-1 focus:ring-blue-500"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Nested Box: DAFTAR SK / SP TERKAIT */}
-                    <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3.5 mt-2 shadow-sm">
-                      <div className="text-[11px] font-bold text-slate-600 uppercase tracking-wide">
-                        DAFTAR SK / SP TERKAIT
-                      </div>
-                      
-                      <div className="grid grid-cols-3 gap-3">
-                        {/* Tipe */}
-                        <div className="space-y-1">
-                          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">
-                            Tipe
-                          </label>
-                          <select
-                            value={skSpType}
-                            onChange={(e) => setSkSpType(e.target.value)}
-                            className="w-full px-2 py-1.5 text-xs bg-white border border-slate-200 rounded-lg outline-none transition-all focus:ring-1 focus:ring-blue-500"
-                          >
-                            <option value="SP (Perubahan Data Perseroan)">SP (Perubahan Data Perseroan)</option>
-                            <option value="SK (Persetujuan Perubahan Anggaran Dasar)">SK (Persetujuan Perubahan Anggaran Dasar)</option>
-                            <option value="SP (Pendirian PT)">SP (Pendirian PT)</option>
-                            <option value="SK (Pendirian PT)">SK (Pendirian PT)</option>
-                          </select>
-                        </div>
-
-                        {/* Nomor */}
-                        <div className="space-y-1">
-                          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">
-                            Nomor
-                          </label>
-                          <input
-                            type="text"
-                            value={skSpNumber}
-                            onChange={(e) => setSkSpNumber(e.target.value)}
-                            placeholder="AHU-AH.01.09-..."
-                            className="w-full px-2 py-1.5 text-xs bg-white border border-slate-200 rounded-lg outline-none transition-all focus:ring-1 focus:ring-blue-500"
-                          />
-                        </div>
-
-                        {/* Tanggal */}
-                        <div className="space-y-1">
-                          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">
-                            Tanggal
-                          </label>
+                      {/* Tanggal Akta */}
+                      <div className="grid grid-cols-3 gap-4 items-center">
+                        <label className="text-xs font-medium text-slate-700">
+                          Tanggal Akta <span className="text-red-500">*</span>
+                        </label>
+                        <div className="col-span-2">
                           <input
                             type="date"
-                            value={skSpDate}
-                            onChange={(e) => setSkSpDate(e.target.value)}
-                            className="w-full px-2 py-1.5 text-xs bg-white border border-slate-200 rounded-lg outline-none transition-all focus:ring-1 focus:ring-blue-500"
+                            required
+                            value={deedDate}
+                            onChange={(e) => setDeedDate(e.target.value)}
+                            className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg outline-none transition-all focus:ring-1 focus:ring-blue-500"
                           />
                         </div>
                       </div>
-                    </div>
-                  </div>
-                )}
 
-                <button
-                  type="submit"
-                  disabled={transitioning || transitionStatus === project.status}
-                  className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-[13px] rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
-                >
-                  {transitioning ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>Memproses...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Send className="w-3.5 h-3.5" />
-                      <span>Terapkan Transisi</span>
-                    </>
+                      {/* Pilih Notaris */}
+                      <div className="grid grid-cols-3 gap-4 items-center">
+                        <label className="text-xs font-medium text-slate-700">
+                          Pilih Notaris <span className="text-red-500">*</span>
+                        </label>
+                        <div className="col-span-2">
+                          <select
+                            value={notarySelectionType}
+                            onChange={(e) => {
+                              const val = e.target.value as 'saya' | 'manual';
+                              setNotarySelectionType(val);
+                              if (val === 'saya') {
+                                setNotaryName('Nukantini Putri Parincha, SH., M.Kn.');
+                              } else {
+                                setNotaryName('');
+                              }
+                            }}
+                            className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg outline-none transition-all focus:ring-1 focus:ring-blue-500"
+                          >
+                            <option value="saya">Saya (Nukantini Putri Parincha, SH., M.Kn.)</option>
+                            <option value="manual">Notaris Lain (Isi Manual)</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      {/* Nama Notaris (if manual) */}
+                      {notarySelectionType === 'manual' && (
+                        <div className="grid grid-cols-3 gap-4 items-center animate-fadeIn">
+                          <label className="text-xs font-medium text-slate-700">
+                            Nama Notaris <span className="text-red-500">*</span>
+                          </label>
+                          <div className="col-span-2">
+                            <input
+                              type="text"
+                              required
+                              value={notaryName}
+                              onChange={(e) => setNotaryName(e.target.value)}
+                              placeholder="Nama Notaris..."
+                              className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg outline-none transition-all focus:ring-1 focus:ring-blue-500"
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Kedudukan Notaris */}
+                      <div className="grid grid-cols-3 gap-4 items-center">
+                        <label className="text-xs font-medium text-slate-700">
+                          Kedudukan Notaris <span className="text-red-500">*</span>
+                        </label>
+                        <div className="col-span-2">
+                          <input
+                            type="text"
+                            required
+                            value={notaryLocation}
+                            onChange={(e) => setNotaryLocation(e.target.value)}
+                            placeholder="Kedudukan Notaris..."
+                            className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg outline-none transition-all focus:ring-1 focus:ring-blue-500"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Nested Box: DAFTAR SK / SP TERKAIT */}
+                      <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3.5 mt-2 shadow-sm">
+                        <div className="text-[11px] font-bold text-slate-600 uppercase tracking-wide">
+                          DAFTAR SK / SP TERKAIT
+                        </div>
+                        
+                        <div className="grid grid-cols-3 gap-3">
+                          {/* Tipe */}
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">
+                              Tipe
+                            </label>
+                            <select
+                              value={skSpType}
+                              onChange={(e) => setSkSpType(e.target.value)}
+                              className="w-full px-2 py-1.5 text-xs bg-white border border-slate-200 rounded-lg outline-none transition-all focus:ring-1 focus:ring-blue-500"
+                            >
+                              <option value="SP (Perubahan Data Perseroan)">SP (Perubahan Data Perseroan)</option>
+                              <option value="SK (Persetujuan Perubahan Anggaran Dasar)">SK (Persetujuan Perubahan Anggaran Dasar)</option>
+                              <option value="SP (Pendirian PT)">SP (Pendirian PT)</option>
+                              <option value="SK (Pendirian PT)">SK (Pendirian PT)</option>
+                            </select>
+                          </div>
+
+                          {/* Nomor */}
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">
+                              Nomor
+                            </label>
+                            <input
+                              type="text"
+                              value={skSpNumber}
+                              onChange={(e) => setSkSpNumber(e.target.value)}
+                              placeholder="AHU-AH.01.09-..."
+                              className="w-full px-2 py-1.5 text-xs bg-white border border-slate-200 rounded-lg outline-none transition-all focus:ring-1 focus:ring-blue-500"
+                            />
+                          </div>
+
+                          {/* Tanggal */}
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">
+                              Tanggal
+                            </label>
+                            <input
+                              type="date"
+                              value={skSpDate}
+                              onChange={(e) => setSkSpDate(e.target.value)}
+                              className="w-full px-2 py-1.5 text-xs bg-white border border-slate-200 rounded-lg outline-none transition-all focus:ring-1 focus:ring-blue-500"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   )}
-                </button>
-              </form>
-            </div>
+
+                  <button
+                    type="submit"
+                    disabled={transitioning || transitionStatus === project.status}
+                    className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-[13px] rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                  >
+                    {transitioning ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Memproses...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Send className="w-3.5 h-3.5" />
+                        <span>Terapkan Transisi</span>
+                      </>
+                    )}
+                  </button>
+                </form>
+              </div>
+            )}
 
             {/* Chronological Vertical Timeline Log */}
             <div className="bg-white border border-slate-200/80 rounded-xl p-6 shadow-sm">

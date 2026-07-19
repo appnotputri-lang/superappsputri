@@ -73,4 +73,8 @@ export interface Project {
   changeSnapshot?: ProjectChangeSnapshot; // Immutable change snapshot for RUPS LB Before/After
   lastTransitionComment?: string; // Cache of the latest transition note/comment
   parties?: Party[]; // Profil orang-orang yang terlibat dalam PT
+  projectCategory?: string; // e.g. BODY_LEGAL, MEETING, AGREEMENT, GENERAL_DEED, LEGALIZATION
+  projectType?: string;     // e.g. Pendirian, RUPS-LB, RUPST, Perjanjian Sewa Menyewa, etc.
+  meetingSubject?: string;  // e.g. Perubahan AD, Perubahan Data, etc.
+  minutaNotes?: string;     // Catatan khusus untuk proyek minuta
 }

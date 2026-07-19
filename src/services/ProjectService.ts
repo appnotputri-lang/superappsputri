@@ -492,6 +492,20 @@ export class ProjectService {
   }
 
   /**
+   * Deletes a task from projects/{projectId}/tasks/{taskId}
+   */
+  static async deleteTask(projectId: string, taskId: string): Promise<void> {
+    const path = `${this.projectsCol}/${projectId}/tasks/${taskId}`;
+    try {
+      const { deleteDoc } = await import('firebase/firestore');
+      const taskRef = doc(db, this.projectsCol, projectId, "tasks", taskId);
+      await deleteDoc(taskRef);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, path);
+    }
+  }
+
+  /**
    * Retrieves full details of a project from Firestore.
    */
   static async getProject(projectId: string): Promise<Project | null> {
@@ -500,7 +514,25 @@ export class ProjectService {
       const projectRef = doc(db, this.projectsCol, projectId);
       const projectSnap = await getDoc(projectRef);
       if (!projectSnap.exists()) return null;
-      return { ...projectSnap.data(), projectId: projectSnap.id } as Project;
+      const project = { ...projectSnap.data(), projectId: projectSnap.id } as Project;
+      
+      // Auto-populate for backward compatibility
+      if (!project.projectCategory) {
+        if (project.jobType === 'rups_lb' || project.jobType === 'sirkuler_rupslb') {
+          project.projectCategory = 'MEETING';
+          project.projectType = 'RUPS-LB';
+        } else if (project.jobType === 'rups_t' || project.jobType === 'sirkuler') {
+          project.projectCategory = 'MEETING';
+          project.projectType = 'RUPST';
+        } else if (project.jobType === 'pendirian_pt') {
+          project.projectCategory = 'BODY_LEGAL';
+          project.projectType = 'Pendirian';
+        } else {
+          project.projectCategory = 'BODY_LEGAL';
+          project.projectType = 'Pendirian';
+        }
+      }
+      return project;
     } catch (error) {
       handleFirestoreError(error, OperationType.GET, path);
     }
@@ -544,7 +576,27 @@ export class ProjectService {
       const colRef = collection(db, this.projectsCol);
       const q = query(colRef, orderBy("updatedAt", "desc"));
       const querySnap = await getDocs(q);
-      const list = querySnap.docs.map((docSnap) => ({ ...docSnap.data(), projectId: docSnap.id }) as Project);
+      const list = querySnap.docs.map((docSnap) => {
+        const project = { ...docSnap.data(), projectId: docSnap.id } as Project;
+        
+        // Auto-populate for backward compatibility
+        if (!project.projectCategory) {
+          if (project.jobType === 'rups_lb' || project.jobType === 'sirkuler_rupslb') {
+            project.projectCategory = 'MEETING';
+            project.projectType = 'RUPS-LB';
+          } else if (project.jobType === 'rups_t' || project.jobType === 'sirkuler') {
+            project.projectCategory = 'MEETING';
+            project.projectType = 'RUPST';
+          } else if (project.jobType === 'pendirian_pt') {
+            project.projectCategory = 'BODY_LEGAL';
+            project.projectType = 'Pendirian';
+          } else {
+            project.projectCategory = 'BODY_LEGAL';
+            project.projectType = 'Pendirian';
+          }
+        }
+        return project;
+      });
       
       const getDocTime = (val: any) => {
         if (!val) return 0;

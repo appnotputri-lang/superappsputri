@@ -3,11 +3,12 @@ import { Project, ClientSnapshot } from '../../../domain/project/Project';
 import { ProjectService } from '../../../services/ProjectService';
 import { UserProfile, CompanyProfile } from '../../../../types';
 import { db } from '../../../lib/firebase';
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs, doc, updateDoc } from 'firebase/firestore';
 import { Workflow } from '../../../domain/project/Workflow';
 import { WorkflowService } from '../../../services/WorkflowService';
 import { Plus, Search, Filter, Briefcase, User, Calendar, ExternalLink, Loader2, ArrowRight, Trash2, AlertCircle } from 'lucide-react';
 import { SearchableClientSelect } from '../../../components/common/SearchableClientSelect';
+import { ProjectCategory, PROJECT_TYPES, MEETING_SUBJECTS } from '../../../constants/appConstants';
 
 const formatCompanyNameWithType = (name: string, clientType?: string) => {
   if (!name) return '';
@@ -66,10 +67,87 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newProjectData, setNewProjectData] = useState({
     clientId: '',
-    jobType: '',
-    assignedTo: ''
+    projectCategory: '' as ProjectCategory | '',
+    projectType: '',
+    meetingSubject: '',
+    projectDate: new Date().toISOString().substring(0, 10),
+    assignedTo: '',
+    status: '',
+    comment: ''
   });
   const [submitting, setSubmitting] = useState(false);
+
+  const selectedClient = profiles.find((c) => c.id === newProjectData.clientId);
+  const clientTypeRaw = selectedClient?.clientType;
+
+  const getClientTypeGroup = (clientType?: string): 'PT' | 'CV' | 'FIRMA' | 'YAYASAN' | 'PERKUMPULAN' | 'PERSONAL' => {
+    if (!clientType) return 'PERSONAL';
+    const type = clientType.toUpperCase();
+    if (type === 'PT' || type === 'PMA') return 'PT';
+    if (type === 'CV') return 'CV';
+    if (type === 'PERSEKUTUAN_FIRMA' || type === 'PERSEKUTUAN_PERDATA' || type === 'FIRMA') return 'FIRMA';
+    if (type === 'YAYASAN') return 'YAYASAN';
+    if (type === 'PERKUMPULAN') return 'PERKUMPULAN';
+    return 'PERSONAL';
+  };
+
+  const clientTypeGroup = getClientTypeGroup(clientTypeRaw);
+
+  const getAvailableProjectTypes = (): string[] => {
+    const category = newProjectData.projectCategory;
+    if (!category) return [];
+
+    if (category === 'BODY_LEGAL') {
+      if (clientTypeGroup === 'PT') {
+        return ['Pendirian PT', 'RUPST', 'RUPS-LB', 'PKPS RUPST', 'PKPS RUPS-LB'];
+      }
+      if (clientTypeGroup === 'CV') {
+        return ['Pendirian CV', 'Perubahan CV', 'Pembubaran CV'];
+      }
+      if (clientTypeGroup === 'FIRMA') {
+        return ['Pendirian Firma', 'Perubahan Firma', 'Pembubaran Firma'];
+      }
+      if (clientTypeGroup === 'YAYASAN') {
+        return ['Pendirian Yayasan', 'Perubahan Yayasan', 'Pembubaran Yayasan', 'Rapat Pembina', 'Rapat Pengurus', 'Rapat Pengawas'];
+      }
+      if (clientTypeGroup === 'PERKUMPULAN') {
+        return ['Pendirian Perkumpulan', 'Perubahan Perkumpulan', 'Pembubaran Perkumpulan', 'Rapat Anggota', 'Rapat Pengurus'];
+      }
+      return [];
+    }
+
+    if (category === 'AGREEMENT') {
+      return [
+        'Perjanjian Sewa Menyewa',
+        'Perjanjian Kerja Sama',
+        'PPJB',
+        'Perjanjian Utang Piutang',
+        'Akta Hibah',
+        'Pengalihan Merek',
+        'Lisensi Merek',
+        'Waralaba',
+        'Pinjam Pakai',
+        'Akta Kustom',
+        'Lainnya'
+      ];
+    }
+
+    if (category === 'GENERAL_DEED') {
+      return [
+        'Akta Kuasa',
+        'Akta Pernyataan',
+        'Akta Pengakuan Utang',
+        'Akta Kustom',
+        'Lainnya'
+      ];
+    }
+
+    if (category === 'LEGALIZATION') {
+      return ['Legalisasi', 'Waarmerking'];
+    }
+
+    return [];
+  };
 
   useEffect(() => {
     const initData = async () => {
@@ -87,7 +165,35 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
           WorkflowService.listWorkflows()
         ]);
 
-        setProjects(projList || []);
+        const rawProjects = projList || [];
+        const migratedProjects = await Promise.all(
+          rawProjects.map(async (proj) => {
+            if (proj.projectCategory === 'BODY_LEGAL') {
+              let targetJobType = '';
+              if (proj.projectType === 'Pendirian CV' && proj.jobType !== 'pendirian_cv') {
+                targetJobType = 'pendirian_cv';
+              } else if (proj.projectType === 'Perubahan CV' && proj.jobType !== 'perubahan_cv') {
+                targetJobType = 'perubahan_cv';
+              } else if (proj.projectType === 'Pembubaran CV' && proj.jobType !== 'pembubaran_cv') {
+                targetJobType = 'pembubaran_cv';
+              }
+
+              if (targetJobType) {
+                try {
+                  await updateDoc(doc(db, 'office_projects', proj.projectId), {
+                    jobType: targetJobType
+                  });
+                  return { ...proj, jobType: targetJobType };
+                } catch (e) {
+                  console.error('Failed to auto-migrate CV project jobType:', proj.projectId, e);
+                }
+              }
+            }
+            return proj;
+          })
+        );
+
+        setProjects(migratedProjects);
         setProfiles(profileList || []);
         setWorkflows(wfList || []);
       } catch (err: any) {
@@ -101,16 +207,65 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
     initData();
   }, []);
 
+  const getWorkflowJobType = (category: string, type: string): string => {
+    // Legacy support
+    if (category === 'MEETING') {
+      if (type === 'RUPS-LB' || type === 'PKPS RUPS-LB') {
+        return 'rups_lb';
+      }
+      if (type === 'RUPST' || type === 'PKPS RUPST') {
+        return 'rups_t';
+      }
+      return 'rups_lb';
+    }
+
+    if (category === 'BODY_LEGAL') {
+      if (type === 'Pendirian PT') {
+        return 'pendirian_pt';
+      }
+      if (type === 'Pendirian CV') {
+        return 'pendirian_cv';
+      }
+      if (type === 'Perubahan CV') {
+        return 'perubahan_cv';
+      }
+      if (type === 'Pembubaran CV') {
+        return 'pembubaran_cv';
+      }
+      if (type.startsWith('Pendirian')) {
+        return 'pendirian_pt';
+      }
+      if (type === 'RUPS-LB' || type === 'PKPS RUPS-LB') {
+        return 'rups_lb';
+      }
+      if (type === 'RUPST' || type === 'PKPS RUPST') {
+        return 'rups_t';
+      }
+      if (type.startsWith('Rapat ')) {
+        return 'rups_t';
+      }
+      return 'rups_lb'; // default change workflow (amendment)
+    }
+
+    if (category === 'AGREEMENT' && type === 'Perjanjian Sewa Menyewa') {
+      return 'sewa_menyewa';
+    }
+
+    return 'rups_t'; // default simple workflow for agreements, legalizations, etc.
+  };
+
   const handleCreateProject = async (e: React.FormEvent) => {
     e.preventDefault();
-    const { clientId, jobType, assignedTo } = newProjectData;
+    const { clientId, projectCategory, projectType, meetingSubject, projectDate, assignedTo, status, comment } = newProjectData;
 
-    if (!clientId || !jobType) {
-      alert('Klien dan Jenis Pekerjaan wajib diisi.');
+    if (!clientId || !projectCategory || !projectType) {
+      alert('Klien, Kategori Pekerjaan, dan Jenis Pekerjaan wajib diisi.');
       return;
     }
 
-    // Get selected workflow to find first step
+    const jobType = getWorkflowJobType(projectCategory, projectType);
+
+    // Get selected workflow to find steps
     const selectedWorkflow = workflows.find((w) => w.id === jobType);
     if (!selectedWorkflow || !selectedWorkflow.steps || selectedWorkflow.steps.length === 0) {
       alert('Pencocokan alur kerja tidak ditemukan atau alur kerja kosong.');
@@ -119,7 +274,8 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
 
     const clientProfile = profiles.find((c) => c.id === clientId);
     const clientName = clientProfile?.companyName || '';
-    const title = `${selectedWorkflow.name || jobType} — ${formatCompanyNameWithType(clientName, clientProfile?.clientType)}`;
+    const formattedClientName = formatCompanyNameWithType(clientName, clientProfile?.clientType);
+    const title = `${projectType} — ${formattedClientName}`;
 
     const mapCompanyProfileToSnapshot = (profile: CompanyProfile): ClientSnapshot => {
       return {
@@ -164,8 +320,11 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
 
     setSubmitting(true);
     try {
-      const startingStep = selectedWorkflow.steps[0];
-      await ProjectService.createProject({
+      const startingStep = status || selectedWorkflow.steps[0];
+      const customDate = projectDate ? new Date(projectDate) : new Date();
+      const finalComment = comment.trim() || `Proyek '${title}' telah berhasil diinisialisasi.`;
+
+      const projectPayload: any = {
         clientId,
         jobType,
         title: title.trim(),
@@ -173,18 +332,39 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
         currentStep: startingStep,
         assignedTo: assignedTo.trim() || 'Unassigned',
         metadata: {},
+        projectCategory,
+        projectType,
+        projectDate,
+        createdAt: customDate,
+        updatedAt: customDate,
+        lastTransitionComment: finalComment,
         ...(jobType === 'rups_lb' 
           ? { changeSnapshot: initialSnapshot ? { before: initialSnapshot, after: initialSnapshot } : undefined }
           : { clientSnapshot: initialSnapshot }
         )
-      });
+      };
+
+      if (projectCategory === 'MEETING' && (projectType === 'RUPS-LB' || projectType === 'PKPS RUPS-LB') && meetingSubject) {
+        projectPayload.meetingSubject = meetingSubject;
+      }
+
+      await ProjectService.createProject(projectPayload);
 
       // Refresh list
       const updatedProjects = await ProjectService.listProjects();
       setProjects(updatedProjects || []);
       
       setIsModalOpen(false);
-      setNewProjectData({ clientId: '', jobType: '', assignedTo: '' });
+      setNewProjectData({
+        clientId: '',
+        projectCategory: '' as ProjectCategory | '',
+        projectType: '',
+        meetingSubject: '',
+        projectDate: new Date().toISOString().substring(0, 10),
+        assignedTo: '',
+        status: '',
+        comment: ''
+      });
     } catch (err) {
       console.error(err);
       alert('Gagal membuat proyek baru.');
@@ -215,6 +395,16 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
   const isProjectCompleted = (status: string) => {
     const s = status.toLowerCase();
     return s === 'completed' || s === 'archived' || s === 'selesai';
+  };
+
+  const getProjectStatusDisplay = (project: Project) => {
+    const isCompleted = isProjectCompleted(project.status);
+    if (isCompleted) {
+      if (project.metadata?.minutaCheckedAll === false || !project.metadata?.minutaCheckedAll) {
+        return 'Progres Minuta';
+      }
+    }
+    return project.status;
   };
 
   const getProjectTime = (val: any) => {
@@ -420,7 +610,9 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
                     <th className="px-4 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-wide">Judul Proyek / Klien</th>
                     <th className="px-4 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-wide">Jenis Pekerjaan</th>
                     <th className="px-4 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-wide">Status</th>
-                    <th className="px-4 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-wide max-w-[320px]">Catatan Transisi Terakhir</th>
+                    <th className="px-4 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-wide max-w-[320px]">
+                      {activeTab === 'minuta' ? 'Catatan Minuta' : 'Catatan Transisi Terakhir'}
+                    </th>
                     <th className="pl-4 pr-6 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-wide text-right">Aksi</th>
                   </tr>
                 </thead>
@@ -464,12 +656,18 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
                         {getWorkflowName(project.jobType)}
                       </td>
                       <td className="px-4 py-3.5">
-                        <span className={`px-2 py-0.5 text-[11px] font-bold rounded border uppercase tracking-wider ${getStatusColor(project.status)}`}>
-                          {project.status}
+                        <span className={`px-2 py-0.5 text-[11px] font-bold rounded border uppercase tracking-wider ${getStatusColor(getProjectStatusDisplay(project))}`}>
+                          {getProjectStatusDisplay(project)}
                         </span>
                       </td>
-                      <td className="px-4 py-3.5 text-[12px] text-slate-500 max-w-[320px] truncate" title={project.lastTransitionComment || `Proyek '${getCleanTitle(project.title, project.clientId)}' telah berhasil diinisialisasi.`}>
-                        {project.lastTransitionComment || `Proyek '${getCleanTitle(project.title, project.clientId)}' telah berhasil diinisialisasi.`}
+                      <td className="px-4 py-3.5 text-[12px] text-slate-500 max-w-[320px] truncate" title={
+                        activeTab === 'minuta'
+                          ? (project.minutaNotes || 'Tidak ada catatan minuta.')
+                          : (project.lastTransitionComment || `Proyek '${getCleanTitle(project.title, project.clientId)}' telah berhasil diinisialisasi.`)
+                      }>
+                        {activeTab === 'minuta'
+                          ? (project.minutaNotes || 'Tidak ada catatan minuta.')
+                          : (project.lastTransitionComment || `Proyek '${getCleanTitle(project.title, project.clientId)}' telah berhasil diinisialisasi.`)}
                       </td>
                       <td className="pl-4 pr-6 py-3.5 text-right flex items-center justify-end gap-4">
                         <button
@@ -516,33 +714,100 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
                   <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">Pilih Klien</label>
                   <SearchableClientSelect
                     value={newProjectData.clientId}
-                    onChange={(val) => setNewProjectData({ ...newProjectData, clientId: val })}
+                    onChange={(val) => {
+                      // Reset other fields on client change
+                      setNewProjectData({
+                        ...newProjectData,
+                        clientId: val,
+                        projectCategory: '',
+                        projectType: '',
+                        meetingSubject: '',
+                        status: ''
+                      });
+                    }}
                     options={profiles}
                   />
                 </div>
 
-                {/* Select Workflow / Job Type */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">Jenis Pekerjaan (Alur Kerja)</label>
-                  <select
-                    required
-                    value={newProjectData.jobType}
-                    onChange={(e) => setNewProjectData({ ...newProjectData, jobType: e.target.value })}
-                    className="w-full px-3 py-2.5 text-[13px] bg-slate-50 border border-slate-200 hover:border-slate-300 focus:bg-white focus:ring-1 focus:ring-blue-500 rounded-lg outline-none transition-all"
-                  >
-                    <option value="">-- Pilih Model Alur Kerja --</option>
-                    {workflows.map((w) => (
-                      <option key={w.id} value={w.id}>{w.name}</option>
-                    ))}
-                  </select>
-                </div>
+                {/* Kategori Pekerjaan */}
+                {newProjectData.clientId && (
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">Kategori Pekerjaan</label>
+                    <select
+                      required
+                      value={newProjectData.projectCategory}
+                      onChange={(e) => {
+                        const cat = e.target.value as ProjectCategory;
+                        setNewProjectData({
+                          ...newProjectData,
+                          projectCategory: cat,
+                          projectType: '',
+                          meetingSubject: '',
+                          status: ''
+                        });
+                      }}
+                      className="w-full px-3 py-2.5 text-[13px] bg-slate-50 border border-slate-200 hover:border-slate-300 focus:bg-white focus:ring-1 focus:ring-blue-500 rounded-lg outline-none transition-all cursor-pointer"
+                    >
+                      <option value="">-- Pilih Kategori Pekerjaan --</option>
+                      {clientTypeGroup !== 'PERSONAL' && (
+                        <option value="BODY_LEGAL">Badan Hukum / Usaha (BODY LEGAL)</option>
+                      )}
+                      <option value="AGREEMENT">Perjanjian (AGREEMENT)</option>
+                      <option value="GENERAL_DEED">Akta Umum (GENERAL DEED)</option>
+                      <option value="LEGALIZATION">Legalisasi / Waarmerking (LEGALIZATION)</option>
+                    </select>
+                  </div>
+                )}
+
+                {/* Jenis Pekerjaan */}
+                {newProjectData.projectCategory && (
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">Jenis Pekerjaan</label>
+                    <select
+                      required
+                      value={newProjectData.projectType}
+                      onChange={(e) => {
+                        const type = e.target.value;
+                        setNewProjectData({
+                          ...newProjectData,
+                          projectType: type,
+                          status: ''
+                        });
+                      }}
+                      className="w-full px-3 py-2.5 text-[13px] bg-slate-50 border border-slate-200 hover:border-slate-300 focus:bg-white focus:ring-1 focus:ring-blue-500 rounded-lg outline-none transition-all cursor-pointer"
+                    >
+                      <option value="">-- Pilih Jenis Pekerjaan --</option>
+                      {getAvailableProjectTypes().map((type) => (
+                        <option key={type} value={type}>{type}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {/* Materi RUPS */}
+                {newProjectData.projectCategory === 'BODY_LEGAL' && 
+                 (newProjectData.projectType === 'RUPS-LB' || newProjectData.projectType === 'PKPS RUPS-LB') && (
+                  <div className="space-y-1.5 animate-fadeIn">
+                    <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">Materi RUPS</label>
+                    <select
+                      value={newProjectData.meetingSubject}
+                      onChange={(e) => setNewProjectData({ ...newProjectData, meetingSubject: e.target.value })}
+                      className="w-full px-3 py-2.5 text-[13px] bg-slate-50 border border-slate-200 hover:border-slate-300 focus:bg-white focus:ring-1 focus:ring-blue-500 rounded-lg outline-none transition-all cursor-pointer"
+                    >
+                      <option value="">-- Pilih Materi RUPS --</option>
+                      {MEETING_SUBJECTS.map((subject) => (
+                        <option key={subject} value={subject}>{subject}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
 
                 {/* Preview Judul Proyek (otomatis) */}
-                {newProjectData.clientId && newProjectData.jobType && (
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">Judul Proyek (Otomatis)</label>
-                    <div className="w-full px-4 py-2.5 text-[13px] bg-slate-100 border border-slate-200 rounded-lg text-slate-700">
-                      {workflows.find(w => w.id === newProjectData.jobType)?.name || ''} — {(() => {
+                {newProjectData.clientId && newProjectData.projectCategory && newProjectData.projectType && (
+                  <div className="space-y-1.5 bg-slate-50 p-3 rounded-lg border border-slate-200">
+                    <label className="text-xs font-bold text-slate-600 uppercase tracking-wide block">Judul Proyek (Otomatis)</label>
+                    <div className="text-[13px] font-bold text-slate-700 mt-1">
+                      {newProjectData.projectType} — {(() => {
                         const profile = profiles.find(c => c.id === newProjectData.clientId);
                         return profile ? formatCompanyNameWithType(profile.companyName, profile.clientType) : '';
                       })()}
@@ -550,15 +815,56 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
                   </div>
                 )}
 
+                {/* Tanggal Proyek */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">Tanggal Proyek</label>
+                  <input
+                    type="date"
+                    required
+                    value={newProjectData.projectDate}
+                    onChange={(e) => setNewProjectData({ ...newProjectData, projectDate: e.target.value })}
+                    className="w-full px-4 py-2.5 text-[13px] bg-slate-50 border border-slate-200 hover:border-slate-300 focus:bg-white focus:ring-1 focus:ring-blue-500 rounded-lg outline-none transition-all"
+                  />
+                </div>
+
                 {/* Assigned To */}
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">Ditugaskan Kepada (Staf / Notaris)</label>
+                  <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">Ditugaskan Kepada (Staf / Notaris / PIC)</label>
                   <input
                     type="text"
                     value={newProjectData.assignedTo}
                     onChange={(e) => setNewProjectData({ ...newProjectData, assignedTo: e.target.value })}
                     placeholder="Contoh: Putri Nabilla, S.H., M.Kn."
                     className="w-full px-4 py-2.5 text-[13px] bg-slate-50 border border-slate-200 hover:border-slate-300 focus:bg-white focus:ring-1 focus:ring-blue-500 rounded-lg outline-none transition-all"
+                  />
+                </div>
+
+                {/* Status Tahapan Awal */}
+                {newProjectData.projectCategory && newProjectData.projectType && (
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">Status Tahapan Awal</label>
+                    <select
+                      value={newProjectData.status}
+                      onChange={(e) => setNewProjectData({ ...newProjectData, status: e.target.value })}
+                      className="w-full px-3 py-2.5 text-[13px] bg-slate-50 border border-slate-200 hover:border-slate-300 focus:bg-white focus:ring-1 focus:ring-blue-500 rounded-lg outline-none transition-all cursor-pointer"
+                    >
+                      <option value="">-- Gunakan Tahapan Pertama ({workflows.find(w => w.id === getWorkflowJobType(newProjectData.projectCategory, newProjectData.projectType))?.steps?.[0] || 'Inisialisasi'}) --</option>
+                      {(workflows.find(w => w.id === getWorkflowJobType(newProjectData.projectCategory, newProjectData.projectType))?.steps || []).map((step) => (
+                        <option key={step} value={step}>{step}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {/* Catatan Inisialisasi */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">Catatan Inisialisasi / Catatan Awal (Optional)</label>
+                  <textarea
+                    value={newProjectData.comment}
+                    onChange={(e) => setNewProjectData({ ...newProjectData, comment: e.target.value })}
+                    placeholder="Masukkan catatan transisi awal..."
+                    rows={3}
+                    className="w-full px-4 py-2.5 text-[13px] bg-slate-50 border border-slate-200 hover:border-slate-300 focus:bg-white focus:ring-1 focus:ring-blue-500 rounded-lg outline-none transition-all resize-none"
                   />
                 </div>
 

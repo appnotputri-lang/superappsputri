@@ -108,6 +108,48 @@ export class WorkflowService {
       "Selesai"
     ];
 
+    const sewaMenyewaSteps = [
+      "Pengumpulan Berkas & Klien",
+      "Drafting Perjanjian",
+      "Review Draft Perjanjian",
+      "Persetujuan Draft",
+      "Penandatanganan Perjanjian",
+      "Cetak & Penyerahan Salinan",
+      "Selesai"
+    ];
+
+    const pendirianCvSteps = [
+      "Pemesanan Nama CV",
+      "Drafting Akta Pendirian CV",
+      "Review Draft Akta",
+      "ACC Draft Akta",
+      "Tanda Tangan Akta Pendirian",
+      "Pendaftaran SABH (SK Kemenkumham)",
+      "NPWP CV Terbit",
+      "Pendaftaran NIB CV",
+      "NIB CV Terbit",
+      "Selesai"
+    ];
+
+    const perubahanCvSteps = [
+      "Drafting Akta Perubahan CV",
+      "Review Draft",
+      "ACC Draft Akta Perubahan",
+      "Tanda Tangan Akta Perubahan",
+      "Pendaftaran Perubahan SABH",
+      "NIB Penyesuaian",
+      "Selesai"
+    ];
+
+    const pembubaranCvSteps = [
+      "Drafting Akta Pembubaran CV",
+      "Review Draft Akta Pembubaran",
+      "ACC Draft Akta Pembubaran",
+      "Tanda Tangan Akta Pembubaran",
+      "Pencatatan SABH Pembubaran",
+      "Selesai"
+    ];
+
     const defaults: Workflow[] = [
       {
         id: "rups_lb",
@@ -126,6 +168,30 @@ export class WorkflowService {
         name: "Pendirian PT",
         steps: newSteps,
         description: "Alur kerja pendirian badan hukum PT baru mulai dari pemesanan nama, akta pendirian, pengesahan SK AHU, dan NIB."
+      },
+      {
+        id: "pendirian_cv",
+        name: "Pendirian CV",
+        steps: pendirianCvSteps,
+        description: "Alur kerja pendirian CV baru dari pemesanan nama, akta pendirian CV, pendaftaran SABH Kemenkumham, dan NIB."
+      },
+      {
+        id: "perubahan_cv",
+        name: "Perubahan CV",
+        steps: perubahanCvSteps,
+        description: "Alur kerja perubahan CV (masuk/keluar pesero, peningkatan modal, perubahan pengurus), pendaftaran SABH Kemenkumham."
+      },
+      {
+        id: "pembubaran_cv",
+        name: "Pembubaran CV",
+        steps: pembubaranCvSteps,
+        description: "Alur kerja pembubaran CV dari penyusunan akta pembubaran hingga pemberitahuan dan pencatatan di SABH Kemenkumham."
+      },
+      {
+        id: "sewa_menyewa",
+        name: "Perjanjian Sewa Menyewa",
+        steps: sewaMenyewaSteps,
+        description: "Alur kerja perjanjian sewa menyewa ruko/bangunan/tanah, meliputi input data para pihak, objek sewa, harga, pembayaran, cetak draft akta."
       },
       {
         id: "sirkuler",
