@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Save, RefreshCw, Key, Shield, User, Smartphone, Send, CheckCircle2, XCircle } from 'lucide-react';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { db, handleFirestoreError, OperationType } from '../lib/firebase';
+import { db, auth, handleFirestoreError, OperationType } from '../lib/firebase';
 import { getApiUrl } from '../lib/api';
 
 export function WhatsAppSettings() {
@@ -75,11 +75,17 @@ export function WhatsAppSettings() {
     setStatus('IDLE');
     setStatusMessage('');
     try {
+      const userToken = await auth.currentUser?.getIdToken();
+      const headers: any = {
+        'Content-Type': 'application/json'
+      };
+      if (userToken) {
+        headers['Authorization'] = `Bearer ${userToken}`;
+      }
+      
       const response = await fetch(getApiUrl('/api/whatsapp-status'), {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers,
         body: JSON.stringify({ token })
       });
       const resText = await response.text();
