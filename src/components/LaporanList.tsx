@@ -909,6 +909,7 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects: propsProject
           quality: 0.95,
           pixelRatio: 3, // Premium ultra-high resolution (3x density rendering)
           cacheBust: true,
+          skipFonts: true,
           style: {
             transform: 'scale(1)',
             transformOrigin: 'top left',
@@ -1371,7 +1372,7 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects: propsProject
       {/* Target capture container for JPG exports - permanently in DOM and fully painted, but invisible to user */}
       <div 
         id="high-res-jpg-capture-target"
-        className="absolute top-0 left-0 w-[1200px] bg-white text-slate-800 p-12 space-y-8 flex flex-col pointer-events-none opacity-0 -z-[9999] overflow-hidden"
+        className="absolute top-0 -left-[9999px] w-[1200px] bg-white text-slate-800 p-12 space-y-8 flex flex-col pointer-events-none overflow-hidden"
         style={{ fontFamily: 'Inter, system-ui, sans-serif' }}
       >
         {/* Letterhead Header */}
