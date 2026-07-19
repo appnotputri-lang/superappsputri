@@ -135,6 +135,8 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
   // Minuta Notes State
   const [localMinutaNotes, setLocalMinutaNotes] = useState('');
   const [savingNotes, setSavingNotes] = useState(false);
+  const [projectNote, setProjectNote] = useState('');
+  const [savingProjectNote, setSavingProjectNote] = useState(false);
 
   // New Document State
   const [isDocModalOpen, setIsDocModalOpen] = useState(false);
@@ -1378,6 +1380,43 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
     }
   };
 
+  const handleSaveProjectNote = async () => {
+    if (!project) return;
+    if (!projectNote.trim()) {
+      alert('Harap ketik catatan terlebih dahulu.');
+      return;
+    }
+    setSavingProjectNote(true);
+    try {
+      const now = new Date();
+      const noteContent = projectNote.trim();
+      
+      // Update the project document on Firestore directly
+      await updateDoc(doc(db, 'office_projects', projectId), {
+        lastTransitionComment: noteContent,
+        updatedAt: now
+      });
+
+      // Add to timeline log with current status and category as Catatan Tambahan
+      await ProjectService.addTimeline(projectId, {
+        status: project.status,
+        title: "Catatan Tambahan",
+        description: noteContent,
+        createdBy: currentUserEmail || 'staff_notaris'
+      });
+
+      setProjectNote('');
+      // Reload project details to show updated timeline and comments
+      await fetchProjectFullDetails();
+      alert('Catatan tambahan berhasil disimpan!');
+    } catch (err: any) {
+      console.error(err);
+      alert(`Gagal menyimpan catatan: ${err.message || 'Error tidak dikenal'}`);
+    } finally {
+      setSavingProjectNote(false);
+    }
+  };
+
   const handleUpdateTaskStatus = async (taskId: string, newStatus: 'pending' | 'in_progress' | 'completed' | 'not_required') => {
     try {
       await ProjectService.updateTaskStatus(projectId, taskId, newStatus);
@@ -2558,11 +2597,11 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">Catatan Transisi</label>
+                    <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">Catatan Transisi (Opsional)</label>
                     <textarea
                       value={transitionComment}
                       onChange={(e) => setTransitionComment(e.target.value)}
-                      placeholder="Masukkan alasan atau catatan peralihan status hukum..."
+                      placeholder="Masukkan alasan transisi... atau tambahkan catatan mandiri pada kotak Catatan Proyek di bawah jika status tidak berubah"
                       rows={2}
                       className="w-full px-3 py-2 text-[13px] bg-slate-50 border border-slate-200 rounded-lg outline-none transition-all focus:bg-white focus:ring-1 focus:ring-blue-500"
                     />
@@ -2785,6 +2824,46 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
                 </form>
               </div>
             )}
+
+            {/* Tambah Catatan Proyek (Separate notes entry) */}
+            <div className="bg-white border border-slate-200/80 rounded-xl p-6 shadow-sm space-y-4">
+              <h2 className="text-[14px] font-bold text-slate-800 uppercase tracking-wide border-b border-slate-100 pb-3 flex items-center gap-2">
+                <FileText className="w-4 h-4 text-amber-500" />
+                <span>Tambah Catatan Proyek (Tanpa Ubah Status)</span>
+              </h2>
+              <div className="space-y-3">
+                <p className="text-xs text-slate-500">
+                  Tambahkan catatan perkembangan atau catatan penting untuk proyek ini tanpa harus mengubah status.
+                </p>
+                <textarea
+                  value={projectNote}
+                  onChange={(e) => setProjectNote(e.target.value)}
+                  placeholder="Ketik catatan di sini (misal: Menunggu konfirmasi akta, dokumen sedang diproses, dsb)..."
+                  rows={3}
+                  className="w-full px-3 py-2 text-[13px] bg-slate-50 border border-slate-200 rounded-lg outline-none transition-all focus:bg-white focus:ring-1 focus:ring-blue-500"
+                />
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    onClick={handleSaveProjectNote}
+                    disabled={savingProjectNote}
+                    className="px-4 py-2 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white font-semibold rounded-lg text-xs transition-all flex items-center gap-2"
+                  >
+                    {savingProjectNote ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        <span>Menyimpan...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Simpan Catatan</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
 
             {/* Chronological Vertical Timeline Log */}
             <div className="bg-white border border-slate-200/80 rounded-xl p-6 shadow-sm">
