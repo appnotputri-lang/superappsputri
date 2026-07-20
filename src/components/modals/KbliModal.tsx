@@ -83,8 +83,8 @@ export const KbliModal: React.FC<KbliModalProps> = ({
 
           {/* Results Table */}
           <div className="border border-slate-200 rounded-sm overflow-hidden shadow-sm bg-white">
-            <div className="max-h-[350px] overflow-y-auto">
-              <table className="w-full text-left border-collapse text-[12px]">
+            <div className="max-h-[350px] overflow-y-auto overflow-x-auto">
+              <table className="min-w-[600px] w-full text-left border-collapse text-[12px]">
                 <thead className="sticky top-0 bg-slate-100 border-b border-slate-200 z-10">
                   <tr>
                     <th className="px-4 py-2 text-center w-12 border-r border-slate-200">

@@ -2213,7 +2213,7 @@ const KBLIMapping: React.FC = () => {
 
             <div className="w-full bg-white border border-slate-100 rounded-sm overflow-hidden">
               <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse text-[13px]">
+                <table className="min-w-[600px] w-full text-left border-collapse text-[13px]">
                   <thead>
                     <tr className="bg-[#fcfcfc] border-b border-slate-200 text-slate-500 text-xs uppercase font-bold">
                       <th className="px-4 py-3 text-center w-12 border-r border-slate-200">No</th>

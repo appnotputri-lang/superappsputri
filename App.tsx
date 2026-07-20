@@ -928,7 +928,12 @@ const AppShell: React.FC = () => {
     setKbliCheckedKblis([]);
     setIsAddKbliModalOpen(false);
   };
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth >= 1024;
+    }
+    return true;
+  });
   const [isSaving, setIsSaving] = useState(false);
   const [presetLoadedForProject, setPresetLoadedForProject] = useState<string | null>(null);
   // Guards against duplicate/racy concurrent fetch-and-match runs of the
@@ -2036,6 +2041,7 @@ const AppShell: React.FC = () => {
         <Sidebar
           user={user}
           isSidebarOpen={isSidebarOpen}
+          setIsSidebarOpen={setIsSidebarOpen}
           activeSidebarTab={activeSidebarTab}
           setActiveSidebarTab={setActiveSidebarTab}
           userProfile={userProfile}

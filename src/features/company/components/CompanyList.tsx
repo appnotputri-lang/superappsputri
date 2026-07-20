@@ -127,9 +127,9 @@ export const CompanyList: React.FC<CompanyListProps> = ({
         </span>
       </div>
 
-      {/* Table structure */}
-      <div className="overflow-x-auto">
-        <table className="w-full text-left text-[12px] border-collapse">
+      {/* Desktop Table View */}
+      <div className="hidden md:block overflow-x-auto">
+        <table className="min-w-[800px] w-full text-left text-[12px] border-collapse">
           <thead className="bg-[#f8fafc] border-b border-slate-200 font-bold uppercase text-slate-600 text-[11px] tracking-wider select-none">
             <tr>
               <th className="p-4 text-center border-r border-slate-200 w-12 text-[#3b5998]">No</th>
@@ -334,6 +334,109 @@ export const CompanyList: React.FC<CompanyListProps> = ({
             })}
           </tbody>
         </table>
+      </div>
+
+      {/* Mobile Card View */}
+      <div className="block md:hidden divide-y divide-slate-100">
+        {paginatedProfileResults.map((p, idx) => {
+          const city = p.domicile || p.newAddress?.city || '-';
+          const deedDate = p.establishmentDeedDate
+            ? new Date(p.establishmentDeedDate).toLocaleDateString('id-ID', {
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric',
+              })
+            : '-';
+          const badge = clientTypeBadgeStyles[p.clientType || 'PT'] || clientTypeBadgeStyles.PT;
+
+          return (
+            <div 
+              key={p.id} 
+              className="p-4 hover:bg-slate-50/50 transition-colors cursor-pointer"
+              onClick={() => {
+                setEditingProfileId(p.id);
+                setIsProfilePreview(true);
+                updateData({ ...INITIAL_STATE, ...p } as any);
+              }}
+            >
+              <div className="flex items-start justify-between gap-3 mb-2.5">
+                <div className="flex items-center gap-3">
+                  <CompanyAvatar name={p.companyName || ''} />
+                  <div className="flex flex-col">
+                    <span className="font-bold text-slate-800 uppercase text-[12px] tracking-tight leading-tight">
+                      {formatCompanyName(p.companyName, p.clientType)}
+                    </span>
+                    <span className="text-[10px] text-slate-400 font-mono mt-0.5">No. {profileStartIndex + idx + 1}</span>
+                  </div>
+                </div>
+                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border ${badge.bg} ${badge.text} ${badge.border} shrink-0`}>
+                  {badge.label}
+                </span>
+              </div>
+
+              {p.kbliItems && p.kbliItems.length > 0 && (
+                <div className="mb-3 flex flex-wrap gap-1 items-center">
+                  <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider bg-slate-100 px-1 py-0.5 rounded leading-none shrink-0">KBLI:</span>
+                  {p.kbliItems.map((item) => (
+                    <span
+                      key={item.id || item.code}
+                      className="text-[9px] font-mono font-bold bg-slate-50 text-slate-600 px-1 py-0.5 rounded border border-slate-200 leading-none"
+                      title={item.name}
+                    >
+                      {item.code}
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-[11px] text-slate-600 font-medium mb-3 border-t border-slate-50 pt-2.5">
+                <div>
+                  <span className="block text-[9px] text-slate-400 font-bold uppercase tracking-wider">Kedudukan</span>
+                  <span className="uppercase text-slate-700 text-[11px] truncate block max-w-[120px]">{city}</span>
+                </div>
+                <div>
+                  <span className="block text-[9px] text-slate-400 font-bold uppercase tracking-wider">Akta Pendirian</span>
+                  <span className="uppercase text-slate-700 text-[11px] whitespace-nowrap block">{deedDate}</span>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between border-t border-slate-50 pt-2.5 mt-2" onClick={(e) => e.stopPropagation()}>
+                <span className="text-[10px] text-slate-450 font-mono">
+                  Ubah: {formatProfileLastUpdated(p.updatedAt, p.establishmentDeedDate).split(' ')[0]}
+                </span>
+                
+                <div className="flex gap-2">
+                  <button 
+                    onClick={() => {
+                      setEditingProfileId(p.id);
+                      setIsProfilePreview(true);
+                      updateData({ ...INITIAL_STATE, ...p } as any);
+                    }}
+                    className="px-2.5 py-1 rounded bg-slate-100 text-slate-700 font-bold text-[10px] hover:bg-slate-200 transition-colors uppercase cursor-pointer"
+                  >
+                    Buka
+                  </button>
+                  <button 
+                    onClick={() => {
+                      setEditingProfileId(p.id);
+                      setIsProfilePreview(false);
+                      updateData({ ...INITIAL_STATE, ...p } as any);
+                    }}
+                    className="px-2.5 py-1 rounded bg-blue-50 text-blue-700 font-bold text-[10px] hover:bg-blue-100 transition-colors uppercase cursor-pointer"
+                  >
+                    Edit
+                  </button>
+                  <button 
+                    onClick={() => handleDuplicateProfile(p)}
+                    className="px-2.5 py-1 rounded bg-teal-50 text-teal-700 font-bold text-[10px] hover:bg-teal-100 transition-colors uppercase cursor-pointer"
+                  >
+                    Duplikat
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })}
       </div>
 
       {/* Pagination block */}

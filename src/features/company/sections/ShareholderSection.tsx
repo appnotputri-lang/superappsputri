@@ -32,7 +32,7 @@ export const ShareholderSection: React.FC<ShareholderSectionProps> = ({
             </button>
           </div>
           <div className="border border-slate-200 overflow-x-auto rounded-sm bg-white">
-            <table className="w-full text-left text-[11px]">
+            <table className="min-w-[600px] w-full text-left text-[11px]">
               <thead className="bg-[#f9f9f9] border-b border-slate-200 font-bold uppercase">
                 <tr>
                   <th className="p-2 border-r border-slate-200">Nama</th>
@@ -93,7 +93,7 @@ export const ShareholderSection: React.FC<ShareholderSectionProps> = ({
           </button>
         </div>
         <div className="border border-slate-200 overflow-x-auto rounded-sm bg-white">
-          <table className="w-full text-left text-[11px]">
+          <table className="min-w-[600px] w-full text-left text-[11px]">
             <thead className="bg-[#f9f9f9] border-b border-slate-200 font-bold uppercase">
               <tr>
                 <th className="p-2 border-r border-slate-200">Nama Pemegang Saham</th>

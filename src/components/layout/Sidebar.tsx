@@ -12,7 +12,8 @@ import {
   Smartphone, 
   Users, 
   Lock, 
-  Gavel 
+  Gavel,
+  X
 } from 'lucide-react';
 import { TAB_ACCENTS } from '../../constants/tabs';
 import { SidebarTabId, UserProfile } from '../../../types';
@@ -20,6 +21,7 @@ import { SidebarTabId, UserProfile } from '../../../types';
 interface SidebarProps {
   user: any;
   isSidebarOpen: boolean;
+  setIsSidebarOpen?: (val: boolean) => void;
   activeSidebarTab: SidebarTabId;
   setActiveSidebarTab: (tab: SidebarTabId) => void;
   userProfile: UserProfile | null;
@@ -29,24 +31,55 @@ interface SidebarProps {
 export const Sidebar: React.FC<SidebarProps> = ({
   user,
   isSidebarOpen,
+  setIsSidebarOpen,
   activeSidebarTab,
   setActiveSidebarTab,
   userProfile,
   loginWithGoogle
 }) => {
+  const handleTabClick = (tabId: SidebarTabId) => {
+    setActiveSidebarTab(tabId);
+    if (window.innerWidth < 768) {
+      setIsSidebarOpen?.(false);
+    }
+  };
+
   return (
-    <aside className={`bg-white border-r border-slate-200/80 flex flex-col h-full shrink-0 overflow-y-auto transition-all duration-300 ease-in-out ${isSidebarOpen ? 'w-[260px]' : 'w-0 overflow-hidden'}`}>
-      
-      {/* Logo container at top left */}
-      <div className="h-16 bg-[#001529] px-5 flex items-center gap-3 shrink-0 select-none">
-        <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white shrink-0 shadow-md">
-          <Gavel size={18} className="text-white shrink-0" />
+    <>
+      {/* Dark backdrop overlay on Mobile */}
+      {isSidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[90] md:hidden transition-opacity duration-300"
+          onClick={() => setIsSidebarOpen?.(false)}
+        />
+      )}
+
+      <aside className={`bg-white border-r border-slate-200/80 flex flex-col h-full shrink-0 overflow-y-auto transition-all duration-300 ease-in-out fixed md:relative top-0 bottom-0 left-0 ${
+        isSidebarOpen 
+          ? 'w-[260px] translate-x-0 z-[100] shadow-2xl md:shadow-none' 
+          : 'w-[260px] -translate-x-full md:w-0 md:translate-x-0 md:overflow-hidden z-0'
+      }`}>
+        
+        {/* Logo container at top left */}
+        <div className="h-16 bg-[#001529] px-5 flex items-center justify-between shrink-0 select-none">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white shrink-0 shadow-md">
+              <Gavel size={18} className="text-white shrink-0" />
+            </div>
+            <div className="flex flex-col truncate">
+              <span className="text-[10px] tracking-wider font-bold text-blue-400/90 leading-none">SISTEM DRAFT</span>
+              <span className="text-[13px] tracking-tight font-extrabold text-white leading-tight">NOTARIS PUTRI</span>
+            </div>
+          </div>
+          {/* Close button for mobile drawer */}
+          <button 
+            onClick={() => setIsSidebarOpen?.(false)}
+            className="md:hidden p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+            aria-label="Close menu"
+          >
+            <X size={18} />
+          </button>
         </div>
-        <div className="flex flex-col truncate">
-          <span className="text-[10px] tracking-wider font-bold text-blue-400/90 leading-none">SISTEM DRAFT</span>
-          <span className="text-[13px] tracking-tight font-extrabold text-white leading-tight">NOTARIS PUTRI</span>
-        </div>
-      </div>
 
       <div className="flex-1 py-4 space-y-1 text-[13px]">
         {/* General Menu Items */}
@@ -58,7 +91,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           return (
             <button 
               key={item.id} 
-              onClick={() => setActiveSidebarTab(item.id)} 
+              onClick={() => handleTabClick(item.id)} 
               className={`relative w-full text-left px-5 py-3 transition-all flex items-center gap-3.5 select-none ${
                 isActive 
                   ? `${acc.bgColor} ${acc.textColor} font-semibold` 
@@ -98,7 +131,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   }
                   return;
                 }
-                setActiveSidebarTab(item.id);
+                handleTabClick(item.id);
               }} 
               className={`relative w-full text-left pl-7 pr-5 py-2.5 transition-all flex items-center justify-between select-none ${
                 isActive 
@@ -144,7 +177,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   }
                   return;
                 }
-                setActiveSidebarTab(item.id);
+                handleTabClick(item.id);
               }} 
               className={`relative w-full text-left pl-7 pr-5 py-2.5 transition-all flex items-center justify-between select-none ${
                 isActive 
@@ -190,7 +223,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   }
                   return;
                 }
-                setActiveSidebarTab(item.id);
+                handleTabClick(item.id);
               }} 
               className={`relative w-full text-left pl-7 pr-5 py-2.5 transition-all flex items-center justify-between select-none ${
                 isActive 
@@ -239,7 +272,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   }
                   return;
                 }
-                setActiveSidebarTab(item.id);
+                handleTabClick(item.id);
               }} 
               className={`relative w-full text-left px-5 py-2.5 transition-all flex items-center justify-between select-none ${
                 isActive 
@@ -271,7 +304,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           return (
             <div className="pt-2 px-5">
               <button 
-                onClick={() => setActiveSidebarTab('import_kbli')} 
+                onClick={() => handleTabClick('import_kbli')} 
                 className={`relative w-full text-left px-4 py-2.5 rounded-lg transition-all flex items-center gap-3 select-none ${
                   isActive 
                     ? `${acc.bgColor} ${acc.textColor} font-semibold border border-transparent` 
@@ -305,7 +338,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               return (
                 <button 
                   key={item.id} 
-                  onClick={() => setActiveSidebarTab(item.id)} 
+                  onClick={() => handleTabClick(item.id)} 
                   className={`relative w-full text-left px-5 py-2.5 transition-all flex items-center gap-3.5 select-none ${
                     isActive 
                       ? `${acc.bgColor} ${acc.textColor} font-semibold` 
@@ -328,5 +361,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
         )}
       </div>
     </aside>
+    </>
   );
 };

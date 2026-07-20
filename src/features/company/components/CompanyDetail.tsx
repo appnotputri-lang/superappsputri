@@ -175,7 +175,7 @@ export const CompanyDetail: React.FC<CompanyDetailProps> = ({
         <AhuSection title="PENGURUS DAN PEMEGANG SAHAM LAMA *">
           <div className="space-y-4">
               <div className="border border-slate-200 overflow-x-auto rounded-sm">
-                <table className="w-full text-left text-[11px]">
+                <table className="min-w-[600px] w-full text-left text-[11px]">
                   <thead className="bg-[#f9f9f9] border-b border-slate-200 font-bold uppercase">
                     <tr>
                       <th className="p-2 border-r border-slate-200">Nama</th>
@@ -502,7 +502,7 @@ export const CompanyDetail: React.FC<CompanyDetailProps> = ({
                 {/* Selected KBLIs List Table */}
                 <div className="w-full bg-white border border-slate-200 rounded-sm overflow-hidden shadow-sm">
                   <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse text-[12px]">
+                    <table className="min-w-[600px] w-full text-left border-collapse text-[12px]">
                       <thead>
                         <tr className="bg-[#f8fafc] border-b border-slate-200 uppercase font-semibold text-slate-600 text-[11px] tracking-wider">
                           <th className="px-4 py-3 text-center w-12 border-r border-slate-200 text-[#3b5998]">No</th>

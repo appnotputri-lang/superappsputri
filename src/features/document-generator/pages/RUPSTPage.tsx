@@ -1656,7 +1656,7 @@ syncCompanyDataToRupst
                             </button>
                           </div>
                           <div className="border border-slate-200 rounded-sm overflow-hidden">
-                            <table className="w-full text-left text-[11px]">
+                            <table className="min-w-[600px] w-full text-left text-[11px]">
                               <thead className="bg-[#f9f9f9] border-b border-slate-200 font-bold uppercase">
                                 <tr>
                                   <th className="p-2 border-r border-slate-200">Nama Pemegang Saham</th>
@@ -1946,7 +1946,7 @@ syncCompanyDataToRupst
                       </div>
                     ) : (
                       <div className="overflow-x-auto border border-slate-200 rounded-md shadow-inner bg-white">
-                        <table className="w-full text-left border-collapse text-[13px] font-sans">
+                        <table className="min-w-[600px] w-full text-left border-collapse text-[13px] font-sans">
                           <thead>
                             <tr className="bg-[#F8FAFC] border-b border-slate-200">
                               <th className="px-4 py-3.5 text-slate-600 font-bold text-[12px] uppercase w-[60px] text-center">NO</th>

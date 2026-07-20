@@ -167,8 +167,17 @@ export class ProjectService {
         createdBy: userId
       });
 
-      // Master Client HANYA BOLEH berubah ketika workflow mencapai status AHU APPROVED (AHU Selesai)
-      if (newStatus === "AHU Selesai") {
+      // Master Client HANYA BOLEH berubah ketika workflow mencapai status AHU APPROVED (AHU Selesai, SP/SK Terbit, SP Terbit, atau NIB TERBIT)
+      const isClientUpdateStatus = 
+        newStatus === "AHU Selesai" || 
+        newStatus === "SP/SK Terbit" || 
+        newStatus === "SP Terbit" || 
+        newStatus === "NIB TERBIT" || 
+        newStatus === "NIB TERBIT".toUpperCase() || 
+        newStatus === "NIB CV Terbit" || 
+        newStatus === "Selesai";
+
+      if (isClientUpdateStatus) {
         const afterSnap = project.changeSnapshot?.after || project.clientSnapshot;
         if (afterSnap) {
           const clientRef = doc(db, "profiles", project.clientId);
@@ -200,6 +209,13 @@ export class ProjectService {
             });
 
             const uuid = Math.random().toString(36).substring(2, 15);
+            const finalDeedNumber = afterSnap.establishmentDeedNumber || 
+                                    afterSnap.latestAmendmentDeedNumber || 
+                                    (afterSnap as any).number || 
+                                    project.metadata?.deedNumber || 
+                                    '';
+            const finalAhuNumber = project.metadata?.skSpNumber || 'AHU APPROVED';
+
             const revision: any = {
               revisionId: uuid,
               changedAt: new Date().toISOString(),
@@ -207,8 +223,8 @@ export class ProjectService {
               projectCauseId: projectId,
               reason: `Persetujuan AHU - Proyek ${project.title}`,
               changes,
-              deedNumber: afterSnap.establishmentDeedNumber || afterSnap.latestAmendmentDeedNumber || '',
-              ahuNumber: 'AHU APPROVED'
+              deedNumber: finalDeedNumber,
+              ahuNumber: finalAhuNumber
             };
 
             const existingHistory = clientData.versionHistory || [];
@@ -221,6 +237,37 @@ export class ProjectService {
               versionHistory: [...existingHistory, revision],
               updatedAt: new Date().toISOString()
             };
+
+            // Propagate deed details to master profile fields based on jobType
+            if (project.jobType !== 'pendirian_pt') {
+              if (project.metadata?.deedNumber) {
+                updates.latestAmendmentDeedNumber = project.metadata.deedNumber.trim();
+              }
+              if (project.metadata?.deedDate) {
+                updates.latestAmendmentDeedDate = project.metadata.deedDate;
+              }
+              if (project.metadata?.notaryName) {
+                updates.latestAmendmentNotary = project.metadata.notaryName.trim();
+              }
+              if (project.metadata?.skSpNumber) {
+                updates.latestAmendmentSkNumber = project.metadata.skSpNumber.trim();
+                updates.latestAmendmentSkDate = project.metadata.skSpDate || project.metadata.deedDate || '';
+              }
+            } else {
+              if (project.metadata?.deedNumber) {
+                updates.establishmentDeedNumber = project.metadata.deedNumber.trim();
+              }
+              if (project.metadata?.deedDate) {
+                updates.establishmentDeedDate = project.metadata.deedDate;
+              }
+              if (project.metadata?.notaryName) {
+                updates.establishmentNotary = project.metadata.notaryName.trim();
+              }
+              if (project.metadata?.skSpNumber) {
+                updates.establishmentSkNumber = project.metadata.skSpNumber.trim();
+                updates.establishmentSkDate = project.metadata.skSpDate || project.metadata.deedDate || '';
+              }
+            }
 
             if (afterSnap.shareholders && afterSnap.shareholders.length > 0) {
               updates.shareholders = afterSnap.shareholders.map((sh: any) => ({

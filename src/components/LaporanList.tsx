@@ -1399,7 +1399,7 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects: propsProject
         </div>
 
         {/* Metadata Infobox Grid */}
-        <div className="grid grid-cols-4 gap-4 bg-slate-50 border border-slate-200 rounded-xl p-5">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-slate-50 border border-slate-200 rounded-xl p-5">
           <div>
             <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
               Kategori Filter
@@ -1440,9 +1440,10 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects: propsProject
         </div>
 
         {/* Table list */}
-        <table className="w-full text-left border-collapse border border-slate-300">
-          <thead>
-            <tr className="bg-[#0c2444] text-white text-[11px] font-bold uppercase tracking-wider">
+        <div className="overflow-x-auto">
+          <table className="min-w-[800px] w-full text-left border-collapse border border-slate-300">
+            <thead>
+              <tr className="bg-[#0c2444] text-white text-[11px] font-bold uppercase tracking-wider">
               <th className="px-4 py-4 text-center w-16 border border-slate-300">No</th>
               <th className="px-6 py-4 border border-slate-300">Nama Badan Hukum / PT</th>
               <th className="px-5 py-4 border border-slate-300 text-center w-60">Jenis Layanan Pekerjaan</th>
@@ -1541,6 +1542,7 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects: propsProject
             )}
           </tbody>
         </table>
+        </div>
 
         {/* Signature and Approval Area */}
         <div className="flex justify-between items-end pt-12 mt-auto">

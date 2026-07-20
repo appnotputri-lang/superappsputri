@@ -416,7 +416,7 @@ export const PartiesManager: React.FC<PartiesManagerProps> = ({ parties = [], on
         </div>
       ) : (
         <div className="overflow-x-auto border border-slate-150 rounded-xl bg-slate-50/20">
-          <table className="w-full text-left text-xs border-collapse">
+          <table className="min-w-[600px] w-full text-left text-xs border-collapse">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-150 text-slate-500 uppercase tracking-wider font-bold text-[10px]">
                 <th className="px-4 py-3">Nama</th>

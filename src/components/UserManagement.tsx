@@ -157,7 +157,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({ currentUser }) =
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left">
+          <table className="min-w-[600px] w-full text-left">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-100">
                 <th className="px-6 py-4 text-[13px] font-bold text-slate-600 uppercase tracking-wider">User</th>
@@ -198,7 +198,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({ currentUser }) =
                     </span>
                   </td>
                   <td className="px-6 py-4 text-right">
-                    <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="flex items-center justify-end gap-2 md:opacity-0 md:group-hover:opacity-100 opacity-100 transition-opacity">
                       <button 
                         onClick={() => openEditModal(user)}
                         className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"

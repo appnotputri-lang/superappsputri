@@ -174,7 +174,7 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
   const [exportingDocId, setExportingDocId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const fetchDocRecordData = async (docRef: DocumentReference): Promise<any | null> => {
+  const fetchDocRecordData = async (docRef: DocumentReference, silent = false): Promise<any | null> => {
     let collectionName = '';
     if (project?.jobType === 'rups_lb' || project?.jobType === 'sirkuler_rupslb') {
       collectionName = 'projects';
@@ -183,7 +183,7 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
     } else if (project?.jobType === 'pendirian_pt') {
       collectionName = 'pendirian_projects';
     } else {
-      alert('Jenis dokumen ini belum didukung untuk download otomatis.');
+      if (!silent) alert('Jenis dokumen ini belum didukung untuk download otomatis.');
       return null;
     }
 
@@ -281,7 +281,7 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
       console.error('Fallback query failed:', e);
     }
 
-    alert('Dokumen ini dibuat sebelum fitur download otomatis tersedia. Silakan buka manual lewat menu lama untuk mengunduhnya.');
+    if (!silent) alert('Dokumen ini dibuat sebelum fitur download otomatis tersedia. Silakan buka manual lewat menu lama untuk mengunduhnya.');
     return null;
   };
 
@@ -1116,7 +1116,7 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
           type: 'form',
           refId: refIdToUse,
           uploadedAt: new Date().toISOString()
-        });
+        }, true);
 
         if (project?.clientId) {
           const clientDocRef = doc(db, 'profiles', project.clientId);
@@ -1237,10 +1237,12 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
           }
 
           // Merge Deed and SK details
+          const finalNotaryName = notarySelectionType === 'saya' ? 'Nukantini Putri Parincha' : notaryName.trim();
           if (project.jobType === 'pendirian_pt') {
             profileUpdate.establishmentDeedNumber = deedNumber.trim();
             profileUpdate.establishmentDeedDate = deedDate;
-            profileUpdate.establishmentNotary = notaryName.trim();
+            profileUpdate.establishmentNotary = finalNotaryName;
+            profileUpdate.establishmentNotaryTitle = notarySelectionType === 'saya' ? 'Sarjana Hukum, Magister Kenotariatan' : '';
             profileUpdate.establishmentNotaryDomicile = notaryLocation.trim();
             if (skSpNumber.trim()) {
               profileUpdate.establishmentSkNumber = skSpNumber.trim();
@@ -1250,24 +1252,33 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
             // RUPS LB or Sirkuler
             profileUpdate.latestAmendmentDeedNumber = deedNumber.trim();
             profileUpdate.latestAmendmentDeedDate = deedDate;
-            profileUpdate.latestAmendmentNotary = notaryName.trim();
+            profileUpdate.latestAmendmentNotary = finalNotaryName;
             if (skSpNumber.trim()) {
               profileUpdate.latestAmendmentSkNumber = skSpNumber.trim();
               profileUpdate.latestAmendmentSkDate = skSpDate || deedDate;
             }
+
+            const mapSkSpTypeToDocType = (typeStr: string): 'SK' | 'SP_DATA_PERSEROAN' | 'SP_ANGGARAN_DASAR' | 'SP' => {
+              const s = typeStr.toLowerCase();
+              if (s.includes('perubahan data perseroan')) return 'SP_DATA_PERSEROAN';
+              if (s.includes('perubahan anggaran dasar')) return 'SP_ANGGARAN_DASAR';
+              if (s.includes('sk')) return 'SK';
+              return 'SP';
+            };
 
             const existingDeeds = freshClient?.amendmentDeeds || [];
             const newAmendmentDeed: AmendmentDeed = {
               id: Math.random().toString(36).substring(7),
               number: deedNumber.trim(),
               date: deedDate,
-              notary: notaryName.trim(),
+              notary: finalNotaryName,
+              notaryTitle: notarySelectionType === 'saya' ? 'Sarjana Hukum, Magister Kenotariatan' : '',
               notaryDomicile: notaryLocation.trim(),
               skNumber: skSpNumber.trim(),
               skDate: skSpDate || deedDate,
               skSpDocuments: skSpNumber.trim() ? [{
                 id: Math.random().toString(36).substring(7),
-                type: skSpType.toLowerCase().includes('sk') ? 'SK' : 'SP',
+                type: mapSkSpTypeToDocType(skSpType),
                 number: skSpNumber.trim(),
                 date: skSpDate || deedDate
               }] : []
@@ -1286,7 +1297,7 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
             }
           }
 
-          await updateDoc(doc(db, 'profiles', project.clientId), cleanUndefined(profileUpdate));
+          await setDoc(doc(db, 'profiles', project.clientId), cleanUndefined(profileUpdate), { merge: true });
         }
       }
 
@@ -1598,15 +1609,24 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
       let kewarganegaraan = (item.kewarganegaraan || 'WNI').trim().toUpperCase();
       if (kewarganegaraan === 'INDONESIA') kewarganegaraan = 'WNI';
 
-      const existingIdx = extractedParties.findIndex(p => p.nik && p.nik === nik);
+      const existingIdx = extractedParties.findIndex(p => {
+        if (p.nik && nik) return p.nik === nik;
+        return p.name.trim().toLowerCase() === name.trim().toLowerCase();
+      });
       if (existingIdx !== -1) {
-        // Person already exists (by NIK), let's keep the highest precedence position or append details
+        // Person already exists, let's keep the highest precedence position or append details
         const existing = extractedParties[existingIdx];
         if (jabatan !== 'Kuasa' && existing.jabatan === 'Kuasa') {
           existing.jabatan = jabatan;
         }
         if (item.sahamPercentage !== undefined) {
           existing.sahamPercentage = item.sahamPercentage;
+        }
+        if (!existing.nik && nik) {
+          existing.nik = nik;
+        }
+        if (!existing.alamat && item.alamat) {
+          existing.alamat = item.alamat;
         }
       } else {
         extractedParties.push({
@@ -1686,7 +1706,60 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
       });
     }
 
-    // 3. Pimpinan Rapat (pimpinanRapat, meetingChair)
+    // 3. Fetch from Guests / Pihak Lain / Peserta Rapat (guests, paraPihak, pihakLain, pesertaRapat)
+    const rawGuests = [
+      ...(formObj.guests || []),
+      ...(formObj.paraPihak || []),
+      ...(formObj.pihakLain || []),
+      ...(formObj.pesertaRapat || [])
+    ];
+
+    if (Array.isArray(rawGuests)) {
+      rawGuests.forEach((g: any) => {
+        if (!g || !g.name) return;
+        addParty({
+          name: g.name,
+          nik: g.nik,
+          jabatan: g.position || g.jabatan || 'Kuasa',
+          pekerjaan: g.occupation || g.pekerjaan,
+          kewarganegaraan: g.nationalityType || g.nationality || g.kewarganegaraan || 'WNI',
+          alamat: formatAddress(g.address)
+        });
+      });
+    }
+
+    // 4. Fetch from Appointed and Dismissed Management (managementAppointments, managementDismissals)
+    const rawAppointments = formObj.managementAppointments || [];
+    if (Array.isArray(rawAppointments)) {
+      rawAppointments.forEach((a: any) => {
+        if (!a || !a.name) return;
+        addParty({
+          name: a.name,
+          nik: a.nik,
+          jabatan: a.position || 'Direktur',
+          pekerjaan: a.occupation || 'Pengusaha',
+          kewarganegaraan: a.nationalityType || 'WNI',
+          alamat: formatAddress(a.address)
+        });
+      });
+    }
+
+    const rawDismissals = formObj.managementDismissals || [];
+    if (Array.isArray(rawDismissals)) {
+      rawDismissals.forEach((d: any) => {
+        if (!d || !d.name) return;
+        addParty({
+          name: d.name,
+          nik: d.nik,
+          jabatan: d.position || 'Direktur',
+          pekerjaan: d.occupation || 'Pengusaha',
+          kewarganegaraan: d.nationalityType || 'WNI',
+          alamat: formatAddress(d.address)
+        });
+      });
+    }
+
+    // 5. Pimpinan Rapat (pimpinanRapat, meetingChair)
     if (formObj.meetingChair) {
       addParty({
         name: formObj.meetingChair,
@@ -2149,7 +2222,7 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
                           <span className="text-slate-400 font-semibold text-[10px] uppercase tracking-wider">Alamat Lengkap</span>
                           <p className="font-medium text-slate-700 text-[12px]">{project.changeSnapshot.before.fullAddress || '-'}</p>
                         </div>
-                        <div className="grid grid-cols-2 gap-2">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                           <div>
                             <span className="text-slate-400 font-semibold text-[10px] uppercase tracking-wider">Modal Dasar</span>
                             <p className="font-bold text-slate-800">Rp {project.changeSnapshot.before.authorizedCapital?.toLocaleString('id-ID') || '0'}</p>
@@ -2192,7 +2265,7 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
                           <span className="text-blue-400 font-semibold text-[10px] uppercase tracking-wider">Alamat Lengkap</span>
                           <p className="font-medium text-slate-700 text-[12px]">{project.changeSnapshot.after.fullAddress || '-'}</p>
                         </div>
-                        <div className="grid grid-cols-2 gap-2">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                           <div>
                             <span className="text-blue-400 font-semibold text-[10px] uppercase tracking-wider">Modal Dasar</span>
                             <p className="font-bold text-slate-800">Rp {project.changeSnapshot.after.authorizedCapital?.toLocaleString('id-ID') || '0'}</p>
@@ -2233,7 +2306,7 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
                           <span className="text-slate-400 font-semibold text-[10px] uppercase tracking-wider">Alamat Lengkap</span>
                           <p className="font-medium text-slate-700">{project.clientSnapshot.fullAddress || '-'}</p>
                         </div>
-                        <div className="grid grid-cols-2 gap-2">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                           <div>
                             <span className="text-slate-400 font-semibold text-[10px] uppercase tracking-wider">Modal Dasar</span>
                             <p className="font-bold text-slate-800">Rp {project.clientSnapshot.authorizedCapital?.toLocaleString('id-ID') || '0'}</p>
@@ -2649,7 +2722,7 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
                       </div>
                       
                       {/* Nomor Akta */}
-                      <div className="grid grid-cols-3 gap-4 items-center">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
                         <label className="text-xs font-medium text-slate-700">
                           Nomor Akta <span className="text-red-500">*</span>
                         </label>
@@ -2666,7 +2739,7 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
                       </div>
 
                       {/* Tanggal Akta */}
-                      <div className="grid grid-cols-3 gap-4 items-center">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
                         <label className="text-xs font-medium text-slate-700">
                           Tanggal Akta <span className="text-red-500">*</span>
                         </label>
@@ -2682,7 +2755,7 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
                       </div>
 
                       {/* Pilih Notaris */}
-                      <div className="grid grid-cols-3 gap-4 items-center">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
                         <label className="text-xs font-medium text-slate-700">
                           Pilih Notaris <span className="text-red-500">*</span>
                         </label>
@@ -2708,7 +2781,7 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
 
                       {/* Nama Notaris (if manual) */}
                       {notarySelectionType === 'manual' && (
-                        <div className="grid grid-cols-3 gap-4 items-center animate-fadeIn">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center animate-fadeIn">
                           <label className="text-xs font-medium text-slate-700">
                             Nama Notaris <span className="text-red-500">*</span>
                           </label>
@@ -2726,7 +2799,7 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
                       )}
 
                       {/* Kedudukan Notaris */}
-                      <div className="grid grid-cols-3 gap-4 items-center">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
                         <label className="text-xs font-medium text-slate-700">
                           Kedudukan Notaris <span className="text-red-500">*</span>
                         </label>
@@ -2748,7 +2821,7 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
                           DAFTAR SK / SP TERKAIT
                         </div>
                         
-                        <div className="grid grid-cols-3 gap-3">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                           {/* Tipe */}
                           <div className="space-y-1">
                             <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">

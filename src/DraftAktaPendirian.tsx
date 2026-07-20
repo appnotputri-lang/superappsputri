@@ -644,7 +644,7 @@ export default function DraftAktaPendirian({
              </div>
              <div className="space-y-3">
                 <h4 className="text-[11px] font-bold text-slate-500 uppercase border-b pb-1">Detail Akta</h4>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <AhuLabel label="Nomor Akta" />
                     <div className="flex gap-2">
@@ -691,7 +691,7 @@ export default function DraftAktaPendirian({
               </div>
 
               <div className="w-full bg-white border border-slate-200 rounded-sm overflow-hidden shadow-sm">
-                <table className="w-full text-left border-collapse text-[12px]">
+                <table className="min-w-[600px] w-full text-left border-collapse text-[12px]">
                   <thead>
                     <tr className="bg-slate-50 border-b border-slate-200 uppercase font-bold text-slate-600 text-[11px]">
                       <th className="px-4 py-3 text-center w-12 border-r border-slate-200">#</th>
@@ -750,7 +750,7 @@ export default function DraftAktaPendirian({
                 <button type="button" onClick={() => openShareholderEditor()} className="bg-[#222d32] text-white px-3 py-1.5 rounded-sm text-[12px] font-bold shadow hover:bg-black transition-colors flex items-center gap-1"><Plus className="w-4 h-4" /> Tambah Data</button>
               </div>
               <div className="border border-slate-200 overflow-x-auto rounded-sm bg-white">
-                <table className="w-full text-left text-[11px]">
+                <table className="min-w-[600px] w-full text-left text-[11px]">
                   <thead className="bg-[#f9f9f9] border-b border-slate-200 font-bold uppercase">
                     <tr>
                       <th className="p-2 border-r border-slate-200">Nama</th>
@@ -907,7 +907,7 @@ export default function DraftAktaPendirian({
 
               <div className="border border-slate-200 rounded-sm overflow-hidden bg-white">
                 <div className="max-h-[350px] overflow-y-auto">
-                  <table className="w-full text-left border-collapse text-[12px]">
+                  <table className="min-w-[600px] w-full text-left border-collapse text-[12px]">
                     <thead className="sticky top-0 bg-slate-100 border-b border-slate-200 z-10 font-extrabold uppercase text-[11px] text-slate-700">
                       <tr>
                         <th className="px-4 py-3 text-center w-12 border-r border-slate-200">

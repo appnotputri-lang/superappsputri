@@ -56,8 +56,8 @@ export const MeetingAttendanceTable: React.FC<MeetingAttendanceTableProps> = ({
           </button>
         </div>
       </div>
-      <div className="border border-slate-200 rounded-sm overflow-hidden">
-        <table className="w-full text-left text-[11px]">
+      <div className="border border-slate-200 rounded-sm overflow-x-auto">
+        <table className="min-w-[750px] w-full text-left text-[11px]">
           <thead className="bg-[#f9f9f9] border-b border-slate-200 font-bold uppercase">
             <tr>
               <th className="p-2 border-r border-slate-200">{nameColumnLabel}</th>

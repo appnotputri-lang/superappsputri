@@ -54,16 +54,20 @@ export const Header: React.FC<HeaderProps> = ({
   const unreadCount = notifications.filter(n => !n.read).length;
 
   return (
-    <header className="bg-white border-b border-slate-200/80 flex justify-between items-center px-6 sticky top-0 z-50 h-16 shrink-0 shadow-sm">
+    <header className="bg-white border-b border-slate-200/80 flex justify-between items-center px-4 md:px-6 sticky top-0 z-40 h-16 shrink-0 shadow-sm">
       {/* Left: Greeting + Sidebar toggle */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-2 md:gap-4">
         {user && (
-          <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-1.5 hover:bg-slate-100/90 text-slate-500 hover:text-slate-800 rounded transition-colors shrink-0">
+          <button 
+            onClick={() => setIsSidebarOpen(!isSidebarOpen)} 
+            className="w-11 h-11 flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-100/90 active:scale-95 rounded-lg transition-all shrink-0 cursor-pointer"
+            aria-label="Toggle sidebar"
+          >
             <Menu className="w-5 h-5" />
           </button>
         )}
         <div className="flex flex-col">
-          <span className="font-semibold text-sm text-slate-800">
+          <span className="font-semibold text-xs sm:text-sm text-slate-800">
             {(() => {
               const hour = new Date().getHours();
               let greeting = 'Selamat malam';
@@ -73,15 +77,17 @@ export const Header: React.FC<HeaderProps> = ({
               return greeting;
             })()}, {userProfile?.name?.split(' ')[0] || 'Azizah'} 👋
           </span>
-          <span className="text-[10px] text-slate-500 font-medium tracking-tight">PUSAT KENDALI KANTOR</span>
+          <span className="hidden sm:block text-[10px] text-slate-505 font-medium tracking-tight">PUSAT KENDALI KANTOR</span>
         </div>
       </div>
       
       {/* Right: Date/Time + Notifications + Profile */}
-      <div className="flex items-center gap-4">
-        <RealTimeClock />
+      <div className="flex items-center gap-2 md:gap-4">
+        <div className="hidden md:block">
+          <RealTimeClock />
+        </div>
 
-        <div className="flex items-center gap-2 pr-4 border-r border-slate-200">
+        <div className="flex items-center gap-1.5 md:gap-2 pr-2 md:pr-4 border-r border-slate-200">
           {/* Notification Logic */}
           <div className="relative">
             <button 
@@ -89,14 +95,15 @@ export const Header: React.FC<HeaderProps> = ({
                 setIsNotificationOpen(!isNotificationOpen);
                 setIsUserDropdownOpen(false);
               }}
-              className={`p-2 rounded-full transition-all shrink-0 cursor-pointer outline-none relative ${
+              className={`w-11 h-11 flex items-center justify-center rounded-full transition-all shrink-0 cursor-pointer outline-none relative ${
                 isNotificationOpen 
                   ? 'text-blue-600 bg-blue-50' 
                   : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'
               }`}
+              aria-label="Notifications"
             >
               <Bell className="w-5 h-5" />
-              {unreadCount > 0 && <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border border-white"></span>}
+              {unreadCount > 0 && <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-red-500 rounded-full border border-white"></span>}
             </button>
             
             {/* Notification Dropdown */}
@@ -129,7 +136,7 @@ export const Header: React.FC<HeaderProps> = ({
                   {notifications.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-8 text-center px-4">
                       <BellOff className="w-8 h-8 text-slate-300 mb-2" />
-                      <p className="text-xs text-slate-500 font-medium">Tidak ada notifikasi baru</p>
+                      <p className="text-xs text-slate-505 font-medium">Tidak ada notifikasi baru</p>
                       <p className="text-[10px] text-slate-400 mt-0.5">Semua info terbaru dari sistem akan muncul di sini</p>
                     </div>
                   ) : (
@@ -170,7 +177,7 @@ export const Header: React.FC<HeaderProps> = ({
                               })()}
                             </span>
                           </div>
-                          <p className="text-[11px] text-slate-500 leading-normal break-words">{notif.description}</p>
+                          <p className="text-[11px] text-slate-505 leading-normal break-words">{notif.description}</p>
                           
                           {/* Actions row */}
                           <div className="flex gap-2.5 pt-1">
@@ -210,10 +217,10 @@ export const Header: React.FC<HeaderProps> = ({
             )}
           </div>
           
-          <button className="p-2 rounded-full hover:bg-slate-100 transition-colors">
+          <button className="hidden sm:flex w-11 h-11 items-center justify-center rounded-full hover:bg-slate-100 transition-colors">
             <Mail className="w-5 h-5 text-slate-500" />
           </button>
-          <button className="p-2 rounded-full hover:bg-slate-100 transition-colors">
+          <button className="hidden sm:flex w-11 h-11 items-center justify-center rounded-full hover:bg-slate-100 transition-colors">
             <Moon className="w-5 h-5 text-slate-500" />
           </button>
         </div>

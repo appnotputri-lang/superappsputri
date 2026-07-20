@@ -1092,7 +1092,7 @@ const ShareholderEditor: React.FC<Props> = ({
                   placeholder="Contoh: 24E28A410488"
                 />
               </div>
-              <div className="md:col-span-2 grid grid-cols-2 gap-4">
+              <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">Tipe Izin Tinggal</label>
                   <select 

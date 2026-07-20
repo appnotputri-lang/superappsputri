@@ -203,7 +203,7 @@ export const RUPSTDocumentPreview: React.FC<RUPSTDocumentPreviewProps> = ({ data
               const rows = block.rows || [];
               return (
                 <div key={`table-${bIdx}`} className="my-8 w-full overflow-x-auto">
-                  <table className="w-full border-collapse border border-black text-[10pt]">
+                  <table className="min-w-[600px] w-full border-collapse border border-black text-[10pt]">
                     <thead>
                       <tr>
                         {headers.map((h: string, i: number) => (

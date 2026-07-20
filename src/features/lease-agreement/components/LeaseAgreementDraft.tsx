@@ -823,7 +823,7 @@ export default function LeaseAgreementDraft({ projectId, project, currentUser, o
                   <Clock className="w-4 h-4" />
                   Kalkulasi Durasi Sewa Otomatis
                 </h4>
-                <div className="grid grid-cols-3 gap-4 text-center">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
                   <div className="bg-white p-3 rounded-lg border border-blue-100 shadow-2xs">
                     <div className="text-xl font-black text-blue-700">{leaseData.durationYears}</div>
                     <div className="text-[10px] font-bold text-slate-400 uppercase">Tahun</div>

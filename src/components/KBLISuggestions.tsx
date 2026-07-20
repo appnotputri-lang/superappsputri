@@ -1285,7 +1285,7 @@ const KBLISuggestions: React.FC = () => {
 
             <div className="w-full bg-white border border-slate-100 rounded-sm overflow-hidden">
               <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse text-[13px]">
+                <table className="min-w-[600px] w-full text-left border-collapse text-[13px]">
                   <thead>
                     <tr className="bg-[#fcfcfc] border-b border-slate-200 text-slate-500 text-xs uppercase font-bold">
                       <th className="px-4 py-3 text-center w-12 border-r border-slate-200">No</th>
@@ -1491,7 +1491,7 @@ const KBLISuggestions: React.FC = () => {
             {/* Selected KBLIs List Table */}
             <div className="w-full bg-white border border-slate-200 rounded-sm overflow-hidden mb-2">
               <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse text-[13px]">
+                <table className="min-w-[600px] w-full text-left border-collapse text-[13px]">
                   <thead>
                     <tr className="bg-[#fcfcfc] border-b border-slate-200">
                       <th className="px-4 py-2.5 font-bold text-slate-700 text-center w-12 border-r border-slate-200">No</th>
@@ -1604,8 +1604,8 @@ const KBLISuggestions: React.FC = () => {
                 <>
                   {/* Results Table */}
                   <div className="border border-slate-200 rounded-sm overflow-hidden shadow-sm bg-white">
-                    <div className="max-h-[550px] overflow-y-auto">
-                      <table className="w-full text-left border-collapse text-[12px]">
+                    <div className="max-h-[550px] overflow-y-auto overflow-x-auto">
+                      <table className="min-w-[600px] w-full text-left border-collapse text-[12px]">
                         <thead className="sticky top-0 bg-slate-100 border-b border-slate-200 z-10">
                           <tr>
                             <th className="px-4 py-2 text-center w-12 border-r border-slate-200">
@@ -1840,7 +1840,7 @@ const KBLISuggestions: React.FC = () => {
                     </button>
                   </div>
                   <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse text-[13px]">
+                    <table className="min-w-[600px] w-full text-left border-collapse text-[13px]">
                       <thead>
                         <tr className="bg-slate-50/50 border-b border-slate-200">
                           <th className="px-4 py-2.5 font-bold text-slate-600 tracking-wider w-12 text-center border-r border-slate-150">No</th>

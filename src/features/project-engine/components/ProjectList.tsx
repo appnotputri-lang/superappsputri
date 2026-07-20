@@ -602,8 +602,9 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
           </div>
         ) : (
           <div className="bg-white border border-slate-200/80 rounded-xl shadow-sm overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left">
+            {/* Desktop Table View */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="min-w-[800px] w-full text-left">
                 <thead className="bg-slate-50 border-b border-slate-200">
                   <tr>
                     <th className="px-4 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-wide w-12 text-center">No</th>
@@ -690,6 +691,80 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
                   ))}
                 </tbody>
               </table>
+            </div>
+
+            {/* Mobile Card View */}
+            <div className="block md:hidden divide-y divide-slate-100">
+              {filteredProjects.map((project, index) => {
+                const clientName = getClientName(project.clientId);
+                const title = getCleanTitle(project.title, project.clientId);
+                const isUnknown = clientName === 'Klien Tidak Diketahui';
+                const lastComment = activeTab === 'minuta'
+                  ? (project.minutaNotes || 'Tidak ada catatan minuta.')
+                  : (project.lastTransitionComment || `Proyek '${title}' telah berhasil diinisialisasi.`);
+
+                return (
+                  <div 
+                    key={project.projectId}
+                    onClick={() => onSelectProject(project.projectId)}
+                    className="p-4 hover:bg-slate-50 cursor-pointer transition-colors"
+                  >
+                    <div className="flex items-start justify-between gap-3 mb-2">
+                      <div className="min-w-0">
+                        <h4 className="text-[13px] font-bold text-slate-900 leading-tight truncate uppercase" title={title}>
+                          {title}
+                        </h4>
+                        {!isUnknown && (
+                          <p className="text-[11px] text-slate-500 mt-0.5 truncate uppercase">
+                            {clientName}
+                          </p>
+                        )}
+                      </div>
+                      <span className="text-[10px] text-slate-400 font-mono shrink-0">No. {index + 1}</span>
+                    </div>
+
+                    <div className="flex flex-wrap gap-1.5 items-center my-3">
+                      <span className="px-2 py-0.5 text-[9px] font-bold bg-slate-100 text-slate-600 rounded">
+                        {getWorkflowName(project.jobType)}
+                      </span>
+                      <span className={`px-2 py-0.5 text-[9px] font-bold rounded border uppercase tracking-wider ${getStatusColor(getProjectStatusDisplay(project))}`}>
+                        {getProjectStatusDisplay(project)}
+                      </span>
+                    </div>
+
+                    {lastComment && (
+                      <div className="text-[11.5px] text-slate-505 bg-slate-50 p-2.5 rounded-lg border border-slate-100/60 leading-relaxed mb-3">
+                        <span className="block text-[8px] text-slate-400 font-extrabold uppercase tracking-widest mb-1">Catatan Terakhir:</span>
+                        <p className="line-clamp-2">{lastComment}</p>
+                      </div>
+                    )}
+
+                    <div className="flex items-center justify-between border-t border-slate-50 pt-2.5 mt-2" onClick={(e) => e.stopPropagation()}>
+                      <span className="text-[10px] text-slate-450 font-mono flex items-center gap-1">
+                        <Calendar className="w-3.5 h-3.5 text-slate-300" />
+                        {project.createdAt ? new Date(getProjectTime(project.createdAt)).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }) : '-'}
+                      </span>
+                      
+                      <div className="flex gap-2">
+                        <button 
+                          onClick={() => onSelectProject(project.projectId)}
+                          className="px-2.5 py-1 rounded bg-blue-50 text-blue-700 font-bold text-[10px] hover:bg-blue-100 transition-colors uppercase flex items-center gap-1 cursor-pointer"
+                        >
+                          Detail <ArrowRight className="w-3 h-3" />
+                        </button>
+                        {currentUser?.role === 'Super Admin' && (
+                          <button 
+                            onClick={(e) => handleDeleteProject(e, project.projectId, project.title)}
+                            className="p-1 text-slate-450 hover:text-red-600 hover:bg-red-50 rounded transition-colors cursor-pointer"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}

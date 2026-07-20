@@ -789,7 +789,7 @@ export const RUPSLBPage: React.FC<RUPSLBPageProps> = ({
                     <button onClick={() => openShareholderEditor('lama')} className="bg-[#222d32] text-white px-3 py-1.5 rounded-sm text-[12px] font-bold shadow hover:bg-black transition-colors flex items-center gap-1"><Plus className="w-4 h-4" /> Tambah Data</button>
                   </div>
                   <div className="border border-slate-200 overflow-x-auto rounded-sm">
-                    <table className="w-full text-left text-[11px]">
+                    <table className="min-w-[600px] w-full text-left text-[11px]">
                       <thead className="bg-[#f9f9f9] border-b border-slate-200 font-bold uppercase">
                         <tr>
                           <th className="p-2 border-r border-slate-200">Nama</th>
@@ -1480,7 +1480,7 @@ export const RUPSLBPage: React.FC<RUPSLBPageProps> = ({
                       </div>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div><AhuLabel label="RT" /><AhuInput value={data.oldAddress?.rt || ''} onChange={e => updateAddress('oldAddress', { rt: e.target.value })} /></div>
                         <div><AhuLabel label="RW" /><AhuInput value={data.oldAddress?.rw || ''} onChange={e => updateAddress('oldAddress', { rw: e.target.value })} /></div>
                       </div>
@@ -1521,7 +1521,7 @@ export const RUPSLBPage: React.FC<RUPSLBPageProps> = ({
                       </div>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div><AhuLabel label="RT" /><AhuInput value={data.newAddress.rt || ''} onChange={e => updateAddress('newAddress', { rt: e.target.value })} /></div>
                         <div><AhuLabel label="RW" /><AhuInput value={data.newAddress.rw || ''} onChange={e => updateAddress('newAddress', { rw: e.target.value })} /></div>
                       </div>
@@ -1564,7 +1564,7 @@ export const RUPSLBPage: React.FC<RUPSLBPageProps> = ({
                   {/* Selected KBLIs List Table */}
                   <div className="w-full bg-white border border-slate-200 rounded-sm overflow-hidden shadow-sm">
                     <div className="overflow-x-auto">
-                      <table className="w-full text-left border-collapse text-[13px]">
+                      <table className="min-w-[600px] w-full text-left border-collapse text-[13px]">
                         <thead>
                           <tr className="bg-[#fcfcfc] border-b border-slate-200">
                             <th className="px-4 py-2.5 font-bold text-slate-700 text-center w-12 border-r border-slate-200">No</th>
@@ -1956,7 +1956,7 @@ export const RUPSLBPage: React.FC<RUPSLBPageProps> = ({
               <AhuSection title="MODAL DASAR *">
                 <div className="space-y-4">
                     <div className="border border-slate-200 overflow-x-auto rounded-sm">
-                      <table className="w-full text-left text-[12px]">
+                      <table className="min-w-[600px] w-full text-left text-[12px]">
                         <thead className="bg-[#f9f9f9] border-b border-slate-200 font-bold uppercase">
                           <tr>
                             <th className="p-3 border-r border-slate-200">Klasifikasi Saham</th>
@@ -2004,7 +2004,7 @@ export const RUPSLBPage: React.FC<RUPSLBPageProps> = ({
               <AhuSection title="MODAL DITEMPATKAN DAN DISETOR *">
                 <div className="space-y-4">
                     <div className="border border-slate-200 overflow-x-auto rounded-sm">
-                      <table className="w-full text-left text-[12px]">
+                      <table className="min-w-[600px] w-full text-left text-[12px]">
                         <thead className="bg-[#f9f9f9] border-b border-slate-200 font-bold uppercase">
                           <tr>
                             <th className="p-3 border-r border-slate-200">Klasifikasi Saham</th>
@@ -2149,7 +2149,7 @@ export const RUPSLBPage: React.FC<RUPSLBPageProps> = ({
                               </div>
 
                               {/* GENERAL PARAMS (AJB / HIBAH & JUMLAH SAHAM) */}
-                              <div className="grid grid-cols-2 gap-2">
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                 <div>
                                   <AhuLabel label="Hubungan AJB / Hibah" required />
                                   <select
@@ -2382,7 +2382,7 @@ export const RUPSLBPage: React.FC<RUPSLBPageProps> = ({
                        <button onClick={() => openShareholderEditor('baru')} className="bg-[#222d32] text-white px-3 py-1.5 rounded-sm text-[12px] font-bold shadow hover:bg-black transition-colors flex items-center gap-1"><Plus className="w-4 h-4" /> Tambah Data</button>
                     </div>
                     <div className="border border-slate-200 overflow-x-auto rounded-sm">
-                      <table className="w-full text-left text-[11px]">
+                      <table className="min-w-[600px] w-full text-left text-[11px]">
                         <thead className="bg-[#f9f9f9] border-b border-slate-200 font-bold uppercase">
                           <tr>
                             <th className="p-2 border-r border-slate-200">Nama</th>
@@ -2589,7 +2589,7 @@ export const RUPSLBPage: React.FC<RUPSLBPageProps> = ({
                       </div>
                     ) : (
                       <div className="overflow-x-auto border border-slate-200 rounded-md shadow-inner bg-white">
-                        <table className="w-full text-left border-collapse text-[13px] font-sans">
+                        <table className="min-w-[600px] w-full text-left border-collapse text-[13px] font-sans">
                           <thead>
                             <tr className="bg-[#F8FAFC] border-b border-slate-200">
                               <th className="px-4 py-3.5 text-slate-600 font-bold text-[12px] uppercase w-[60px] text-center">NO</th>

@@ -277,7 +277,7 @@ const ProxyInputModal: React.FC<Props> = ({
             <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide">
               Kapasitas/Kewenangan Penerima Kuasa <span className="text-red-500">*</span>
             </label>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <label className={`flex items-center gap-2.5 p-3 rounded-lg border cursor-pointer transition-all ${
                 form.representationType !== 'DIREKTUR_PT_LAIN' 
                   ? 'bg-teal-50/50 border-teal-300 text-teal-900' 
@@ -634,7 +634,7 @@ const ProxyInputModal: React.FC<Props> = ({
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">Tipe Izin Tinggal</label>
                   <select 
@@ -667,7 +667,7 @@ const ProxyInputModal: React.FC<Props> = ({
           )}
 
           {/* Tempat & Tanggal Lahir */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">
                 Tempat Lahir <span className="text-red-500">*</span>
@@ -720,7 +720,7 @@ const ProxyInputModal: React.FC<Props> = ({
           </div>
 
           {/* RT / RW */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">RT</label>
               <input
