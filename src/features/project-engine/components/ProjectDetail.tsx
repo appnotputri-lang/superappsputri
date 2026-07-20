@@ -1801,13 +1801,6 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
             )}
             {isPT && (
               <>
-                <a
-                  href={getRedirectPath(project.jobType)}
-                  className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-lg text-[13px] flex items-center gap-2 transition-all shadow-sm"
-                >
-                  <span>Buka Modul Form Existing</span>
-                  <ExternalLink className="w-4 h-4" />
-                </a>
                 {(() => {
                   const path = getRedirectPath(project.jobType);
                   const existingDoc = documents.find(d => d.url === path);

@@ -4,8 +4,6 @@ import {
   Building2, 
   Briefcase, 
   FileText, 
-  CalendarCheck, 
-  FilePlus, 
   ArrowRightLeft, 
   Lightbulb, 
   Mail, 
@@ -132,9 +130,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         {[
-          { label: 'RUPS LB', id: 'notulen' as const, icon: FileText },
-          { label: 'RUPS Tahunan', id: 'rupst' as const, icon: CalendarCheck },
-          { label: 'Pendirian PT', id: 'pendirian' as const, icon: FilePlus },
           { label: 'Proyek Kerja', id: 'projects' as const, icon: Briefcase },
         ].map((item) => {
           const isActive = activeSidebarTab === item.id || (item.id === 'projects' && activeSidebarTab === 'project_detail');
