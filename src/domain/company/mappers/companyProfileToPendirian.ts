@@ -62,15 +62,16 @@ export function mapCompanyProfileToPendirian(profile: any, prev?: any): any {
   }));
 
   const mappedKblis = (profile.kbliItems || []).map((k: any) => ({
-    id: crypto.randomUUID(),
-    code: k.code,
-    name: k.name,
-    description: k.description,
-    categoryLetter: k.categoryLetter,
-    categoryName: k.categoryName
+    id: k.id || crypto.randomUUID(),
+    code: k.code || k.kode || '',
+    name: k.name || k.judul || k.title || '',
+    description: k.description || k.uraian || '',
+    categoryLetter: k.categoryLetter || '',
+    categoryName: k.categoryName || '',
+    uraian: k.uraian || k.description || ''
   }));
 
-  const alamatLengkap = profile.fullAddress || (profile.newAddress?.fullAddress ? 
+  const alamatLengkap = profile.fullAddress || profile.oldFullAddress || (profile.newAddress?.fullAddress ? 
     `${profile.newAddress.fullAddress}, RT ${profile.newAddress.rt}/${profile.newAddress.rw}, Kel. ${profile.newAddress.kelurahan}, Kec. ${profile.newAddress.kecamatan}` 
     : '');
 
@@ -78,7 +79,7 @@ export function mapCompanyProfileToPendirian(profile: any, prev?: any): any {
     ...baseData,
     selectedProfileId: profile.id,
     namaPt: (profile.companyName || '').toUpperCase(),
-    kotaKedudukan: profile.newAddress?.city || profile.domicile || '',
+    kotaKedudukan: profile.newAddress?.city || profile.oldAddress?.city || profile.domicile || profile.oldDomicile || '',
     alamatLengkapPT: alamatLengkap || baseData.alamatLengkapPT,
     modalDasar: profile.originalCapitalBase || baseData.modalDasar,
     modalDasarLembar: profile.originalAuthorizedShares || baseData.modalDasarLembar,

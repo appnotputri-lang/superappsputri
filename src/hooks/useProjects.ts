@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { CompanyData } from '../../types';
 import { ProjectService } from '../services/ProjectService';
 
@@ -93,7 +93,7 @@ export function useProjects() {
     }
   }, []);
 
-  return {
+  return useMemo(() => ({
     projects,
     rupstProjects,
     rupstPublicProjects,
@@ -102,5 +102,5 @@ export function useProjects() {
     error,
     saveProject,
     deleteProject
-  };
+  }), [projects, rupstProjects, rupstPublicProjects, pendirianProjects, loading, error, saveProject, deleteProject]);
 }

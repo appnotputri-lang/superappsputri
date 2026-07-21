@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { FormData } from './constants';
 import { Printer, Download, Loader2 } from 'lucide-react';
 import { generateDocx } from './lib/generateDocxJualBeli';
@@ -75,7 +75,7 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({ data }) => {
     }
   };
 
-  const blocks = generateBlocks(data);
+  const blocks = useMemo(() => generateBlocks(data), [data]);
   
   // Collect all lines
   const allLines: { element: React.ReactNode }[] = [];

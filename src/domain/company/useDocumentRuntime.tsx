@@ -71,8 +71,8 @@ export function DocumentRuntimeProvider({ children }: { children: ReactNode }) {
     return INITIAL_STATE;
   });
 
-  const [lastAutoSavedAt, setLastAutoSavedAt] = useState<string | null>(null);
-  const [isAutoSaving, setIsAutoSaving] = useState<boolean>(false);
+  const [lastAutoSavedAt] = useState<string | null>(null);
+  const [isAutoSaving] = useState<boolean>(false);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
 
   const [proxyModalOpenId, setProxyModalOpenId] = useState<string | null>(null);
@@ -94,126 +94,6 @@ export function DocumentRuntimeProvider({ children }: { children: ReactNode }) {
   const setAutosaveParams = useCallback((params: any) => {
     setAutosaveParamsState(params);
   }, []);
-
-  const autoSaveParamsRef = useRef(autosaveParams);
-  useEffect(() => {
-    autoSaveParamsRef.current = autosaveParams;
-  }, [autosaveParams]);
-
-  const dataRef = useRef(data);
-  useEffect(() => {
-    dataRef.current = data;
-  }, [data]);
-
-  useEffect(() => {
-    if (!autosaveParams) {
-      return;
-    }
-
-    const { editingProjectId, editingRupstId, editingPendirianId, user } = autosaveParams;
-    const hasActiveSession = !!(editingProjectId || editingRupstId || editingPendirianId);
-    if (!user || !hasActiveSession) {
-      setIsAutoSaving(false);
-      setLastAutoSavedAt(null);
-      return;
-    }
-
-    const interval = setInterval(async () => {
-      if (!autoSaveParamsRef.current) return;
-      const {
-        activeSidebarTab: currentTab,
-        editingProjectId: curProjId,
-        editingRupstId: curRupstId,
-        editingPendirianId: curPendirianId,
-        currentPendirianData: curPendirian,
-        user: curUser,
-        setEditingProjectId,
-        setEditingRupstId,
-        setEditingPendirianId
-      } = autoSaveParamsRef.current;
-
-      const curData = dataRef.current;
-
-      if (!curUser) return;
-
-      try {
-        if (currentTab === 'notulen' && curProjId) {
-          const companyName = curData.companyName?.trim();
-          if (!companyName) return;
-
-          setIsAutoSaving(true);
-          const id = curProjId === 'new' ? crypto.randomUUID() : curProjId;
-
-          if (curProjId === 'new') {
-            setEditingProjectId(id);
-          }
-
-          const profileData = {
-            documentStatus: 'DRAFTING', // Default to DRAFTING for new auto-saved projects
-            ...curData,
-            id,
-            updatedAt: new Date().toISOString()
-          };
-
-          await setDoc(doc(db, 'projects', id), sanitizeForFirestore(profileData));
-          const timeStr = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-          setLastAutoSavedAt(timeStr);
-          setIsAutoSaving(false);
-        } 
-        else if (currentTab === 'rupst' && curRupstId) {
-          const companyName = curData.companyName?.trim();
-          if (!companyName) return;
-
-          setIsAutoSaving(true);
-          const id = curRupstId === 'new' ? crypto.randomUUID() : curRupstId;
-
-          if (curRupstId === 'new') {
-            setEditingRupstId(id);
-          }
-
-          const profileData = {
-            documentStatus: 'DRAFTING', // Default to DRAFTING
-            ...curData,
-            id,
-            updatedAt: new Date().toISOString()
-          };
-
-          await setDoc(doc(db, 'rupst_projects', id), sanitizeForFirestore(profileData));
-          const timeStr = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-          setLastAutoSavedAt(timeStr);
-          setIsAutoSaving(false);
-        } 
-        else if (currentTab === 'pendirian' && curPendirianId && curPendirian) {
-          const companyName = curPendirian.namaPt?.trim();
-          if (!companyName) return;
-
-          setIsAutoSaving(true);
-          const id = curPendirianId === 'new' ? crypto.randomUUID() : curPendirianId;
-
-          if (curPendirianId === 'new') {
-            setEditingPendirianId(id);
-          }
-
-          const finalData = {
-            documentStatus: 'DRAFTING', // Default to DRAFTING
-            ...curPendirian,
-            id,
-            updatedAt: new Date().toISOString()
-          };
-
-          await setDoc(doc(db, 'pendirian_projects', id), sanitizeForFirestore(finalData));
-          const timeStr = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-          setLastAutoSavedAt(timeStr);
-          setIsAutoSaving(false);
-        }
-      } catch (error) {
-        console.error("Auto-save failed to save draft:", error);
-        setIsAutoSaving(false);
-      }
-    }, 3600000); // 1 hour
-
-    return () => clearInterval(interval);
-  }, [autosaveParams]);
 
   const formatFullAddress = (addr: Address): string => {
     if (!addr.fullAddress) return '';

@@ -286,10 +286,13 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
         province: profile.newAddress?.province || profile.oldAddress?.province || '',
         city: profile.newAddress?.city || profile.oldAddress?.city || '',
         kbliItems: (profile.kbliItems || []).map(k => ({
-          id: k.id,
-          code: k.code,
-          name: k.name,
-          description: k.description || ''
+          id: k.id || Math.random().toString(36).substring(7),
+          code: k.code || (k as any).kode || '',
+          name: k.name || (k as any).judul || '',
+          description: k.description || (k as any).uraian || '',
+          categoryLetter: k.categoryLetter || '',
+          categoryName: k.categoryName || '',
+          uraian: (k as any).uraian || k.description || ''
         })),
         authorizedCapital: profile.targetCapitalBase || profile.originalCapitalBase || 0,
         paidUpCapital: profile.targetCapitalPaid || profile.originalCapitalPaid || 0,
@@ -301,7 +304,7 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
           nik: s.nik || '',
           npwp: s.npwp || ''
         })),
-        managementItems: (profile.newManagementItems || []).map(m => ({
+        managementItems: (profile.oldManagementItems || profile.newManagementItems || (profile as any).managementItems || []).map(m => ({
           id: m.id,
           name: m.name,
           position: m.position,

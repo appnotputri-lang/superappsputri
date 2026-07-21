@@ -857,10 +857,13 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
           province: client.newAddress?.province || client.oldAddress?.province || '',
           city: client.newAddress?.city || client.oldAddress?.city || '',
           kbliItems: (client.kbliItems || []).map(k => ({
-            id: k.id,
-            code: k.code,
-            name: k.name,
-            description: k.description || ''
+            id: k.id || Math.random().toString(36).substring(7),
+            code: k.code || (k as any).kode || '',
+            name: k.name || (k as any).judul || '',
+            description: k.description || (k as any).uraian || '',
+            categoryLetter: k.categoryLetter || '',
+            categoryName: k.categoryName || '',
+            uraian: (k as any).uraian || k.description || ''
           })),
           authorizedCapital: client.targetCapitalBase || client.originalCapitalBase || 0,
           paidUpCapital: client.targetCapitalPaid || client.originalCapitalPaid || 0,
@@ -871,7 +874,7 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
             nik: sh.nik || '',
             npwp: sh.npwp || ''
           })),
-          managementItems: (client.newManagementItems || []).map(m => ({
+          managementItems: (client.oldManagementItems || client.newManagementItems || (client as any).managementItems || []).map(m => ({
             id: m.id,
             name: m.name,
             position: m.position,
@@ -909,9 +912,12 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
           city: legacyData.address?.city || '',
           kbliItems: (legacyData.kbliItems || []).map((k: any) => ({
             id: k.id || Math.random().toString(36).substring(7),
-            code: k.code || '',
-            name: k.name || '',
-            description: k.description || ''
+            code: k.code || k.kode || '',
+            name: k.name || k.judul || k.title || '',
+            description: k.description || k.uraian || '',
+            categoryLetter: k.categoryLetter || '',
+            categoryName: k.categoryName || '',
+            uraian: k.uraian || k.description || ''
           })),
           authorizedCapital: legacyData.originalCapitalBase || legacyData.targetCapitalBase || 0,
           paidUpCapital: legacyData.originalCapitalPaid || legacyData.targetCapitalPaid || 0,

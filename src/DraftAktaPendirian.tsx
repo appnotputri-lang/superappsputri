@@ -923,13 +923,14 @@ export default function DraftAktaPendirian({
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                      {kbliPaginatedResults.map((item) => {
-                        const isChecked = kbliCheckedKblis.includes(item.code);
-                        const isAlreadySelected = data.kbliItems.some(i => i.code === item.code);
+                      {kbliPaginatedResults.map((item: any, idx: number) => {
+                        const codeKey = item.code || item.kode || item.id || `kbli-${idx}`;
+                        const isChecked = kbliCheckedKblis.includes(codeKey) || kbliCheckedKblis.includes(item.code) || kbliCheckedKblis.includes(item.kode);
+                        const isAlreadySelected = data.kbliItems.some((i: any) => (i.code || i.kode) === (item.code || item.kode || codeKey));
                         return (
                           <tr 
-                            key={item.code} 
-                            onClick={() => !isAlreadySelected && handleToggleKbliChecked(item.code)}
+                            key={codeKey} 
+                            onClick={() => !isAlreadySelected && handleToggleKbliChecked(item.code || item.kode || codeKey)}
                             className={`hover:bg-indigo-50/30 transition-colors ${isChecked ? 'bg-indigo-50 underline decoration-indigo-200' : ''} ${isAlreadySelected ? 'opacity-50 cursor-not-allowed italic' : 'cursor-pointer'}`}
                           >
                             <td className="px-4 py-2 text-center border-r border-slate-100" onClick={(e) => e.stopPropagation()}>

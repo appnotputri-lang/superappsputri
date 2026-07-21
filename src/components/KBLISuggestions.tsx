@@ -1622,12 +1622,15 @@ const KBLISuggestions: React.FC = () => {
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
-                          {paginatedResults.map((item) => {
-                            const isChecked = searchCheckedKblis.includes(item.kode);
+                          {paginatedResults.map((item: any, index: number) => {
+                            const itemKode = item.kode || item.code || item.id || `kbli-item-${index}`;
+                            const isChecked = searchCheckedKblis.includes(itemKode) || searchCheckedKblis.includes(item.kode) || searchCheckedKblis.includes(item.code);
+                            const judul = item.judul || item.name || item.title || '';
+                            const uraian = item.uraian || item.description || '';
                             return (
                               <tr 
-                                key={item.kode} 
-                                onClick={() => handleToggleChecked(item.kode)}
+                                key={itemKode} 
+                                onClick={() => handleToggleChecked(item.kode || item.code || itemKode)}
                                 className={`hover:bg-slate-50 cursor-pointer transition-colors ${
                                   isChecked ? 'bg-[#17a2b8]/5 hover:bg-[#17a2b8]/10' : ''
                                 }`}
@@ -1637,17 +1640,17 @@ const KBLISuggestions: React.FC = () => {
                                     type="checkbox"
                                     className="w-4 h-4 text-[#17a2b8] border-slate-300 rounded focus:ring-[#17a2b8] cursor-pointer"
                                     checked={isChecked}
-                                    onChange={() => handleToggleChecked(item.kode)}
+                                    onChange={() => handleToggleChecked(item.kode || item.code || itemKode)}
                                   />
                                 </td>
-                                <td className="px-4 py-2 text-center border-r border-slate-200 font-mono font-bold text-slate-700">{item.kode}</td>
-                                <td className="px-4 py-2 border-r border-slate-200 font-bold text-slate-800">{item.judul}</td>
-                                <td className="px-4 py-2 text-slate-600 leading-relaxed text-justify">{item.uraian}</td>
+                                <td className="px-4 py-2 text-center border-r border-slate-200 font-mono font-bold text-slate-700">{item.kode || item.code || itemKode}</td>
+                                <td className="px-4 py-2 border-r border-slate-200 font-bold text-slate-800">{judul}</td>
+                                <td className="px-4 py-2 text-slate-600 leading-relaxed text-justify">{uraian}</td>
                               </tr>
                             );
                           })}
                           {paginatedResults.length === 0 && (
-                            <tr>
+                            <tr key="empty-kbli-sug-row">
                               <td colSpan={4} className="text-center py-10 text-slate-400 italic">
                                 Hasil pencarian tidak ditemukan. Silakan masukkan kata kunci lain.
                               </td>

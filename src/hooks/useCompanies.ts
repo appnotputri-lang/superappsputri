@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { CompanyProfile } from '../../types';
 import { CompanyService } from '../services/CompanyService';
 
@@ -28,21 +28,26 @@ export function useCompanies() {
   // Listen in real-time
   useEffect(() => {
     setLoading(true);
+    let isMounted = true;
     let unsubPT = () => {};
     let unsubCV = () => {};
 
     CompanyService.migrateLegacyCvProfiles().finally(() => {
+      if (!isMounted) return;
       unsubPT = CompanyService.listenCompanies((ptList) => {
+        if (!isMounted) return;
         setProfiles(ptList);
         setLoading(false);
       });
       unsubCV = CompanyService.listenCvCompanies((cvList) => {
+        if (!isMounted) return;
         setCvProfiles(cvList);
         setLoading(false);
       });
     });
 
     return () => {
+      isMounted = false;
       unsubPT();
       unsubCV();
     };
@@ -64,7 +69,7 @@ export function useCompanies() {
     return await CompanyService.duplicateCompany(company, isCv);
   }, []);
 
-  return {
+  return useMemo(() => ({
     profiles,
     cvProfiles,
     loading,
@@ -74,5 +79,5 @@ export function useCompanies() {
     delete: remove, // exposing as delete
     archive,
     duplicate,
-  };
+  }), [profiles, cvProfiles, loading, error, refresh, save, remove, archive, duplicate]);
 }

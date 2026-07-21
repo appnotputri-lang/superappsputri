@@ -668,24 +668,41 @@ export const RUPSLBPage: React.FC<RUPSLBPageProps> = ({
                       onChange={(e) => {
                          const selected = profiles.find(p => p.id === e.target.value);
                          if (selected) {
-                             const { 
-                               id, 
-                               resolutions,
-                               targetCapitalBase,
-                               targetCapitalPaid,
-                               targetCompanyName,
-                               targetShareholders,
-                               newManagementItems,
-                               ...rest 
-                             } = selected as any;
-                             
+                             const normalizeKblis = (items: any[]) => (items || []).map((k: any) => ({
+                               id: k.id || crypto.randomUUID(),
+                               code: k.code || k.kode || '',
+                               name: k.name || k.judul || k.title || '',
+                               description: k.description || k.uraian || '',
+                               categoryLetter: k.categoryLetter || '',
+                               categoryName: k.categoryName || '',
+                               uraian: k.uraian || k.description || ''
+                             }));
+
+                             const currentManagement = selected.oldManagementItems || selected.newManagementItems || (selected as any).managementItems || [];
+
                              updateData({ 
-                               ...rest, 
+                               ...(selected as any), 
                                selectedProfileId: selected.id,
-                               oldFullAddress: selected.fullAddress || selected.oldFullAddress,
+                               companyName: selected.companyName || '',
+                               domicile: selected.domicile || selected.newAddress?.city || selected.oldAddress?.city || '',
+                               oldFullAddress: selected.fullAddress || selected.oldFullAddress || (selected.newAddress?.fullAddress ? `${selected.newAddress.fullAddress}, RT ${selected.newAddress.rt}/${selected.newAddress.rw}, Kel. ${selected.newAddress.kelurahan}, Kec. ${selected.newAddress.kecamatan}` : ''),
                                oldAddress: selected.newAddress || selected.oldAddress,
                                oldDomicile: selected.domicile || selected.oldDomicile,
-                               kbliItems: selected.kbliItems || []
+                               kbliItems: normalizeKblis(selected.kbliItems),
+                               shareholders: selected.shareholders || [],
+                               oldManagementItems: currentManagement,
+                               originalCapitalBase: selected.originalCapitalBase || selected.targetCapitalBase || 0,
+                               originalCapitalPaid: selected.originalCapitalPaid || selected.targetCapitalPaid || 0,
+                               originalSharePrice: selected.originalSharePrice || 0,
+                               originalAuthorizedShares: selected.originalAuthorizedShares || 0,
+                               originalTotalShares: selected.originalTotalShares || 0,
+                               establishmentDeedNumber: selected.establishmentDeedNumber || '',
+                               establishmentDeedDate: selected.establishmentDeedDate || '',
+                               establishmentNotary: selected.establishmentNotary || '',
+                               establishmentNotaryDomicile: selected.establishmentNotaryDomicile || '',
+                               establishmentSkNumber: selected.establishmentSkNumber || '',
+                               establishmentSkDate: selected.establishmentSkDate || '',
+                               amendmentDeeds: selected.amendmentDeeds || []
                              } as any);
                          } else {
                              updateData({ selectedProfileId: '' });

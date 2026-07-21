@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { CompanyData } from '../types';
 import { parseTextRuns, FormatToken } from './lib/notaryWrapper';
 import { generateRupsBlocks } from './lib/rupsContentBlocks';
@@ -20,7 +20,7 @@ const DashedDivider = ({ text, className = "" }: { text: string, className?: str
 );
 
 export const RUPSDocumentPreview: React.FC<RUPSDocumentPreviewProps> = ({ data }) => {
-  const blocks = generateRupsBlocks(data);
+  const blocks = useMemo(() => generateRupsBlocks(data), [data]);
   
   // Collect all lines
   const allLines: { element: React.ReactNode }[] = [];

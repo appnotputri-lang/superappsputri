@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { PendirianData } from './DraftAktaPendirian';
 import { generatePendirianBlocks } from './lib/pendirianContentBlocks';
 import { parseTextRuns, FormatToken } from './lib/notaryWrapper';
@@ -47,7 +47,7 @@ const WrappedText = ({ runs, isList = false, indent = false, indentTabs = 0, ali
 };
 
 export default function PendirianDocumentPreview({ data, onExport, onClose, isExporting }: PendirianDocumentPreviewProps) {
-  const blocks = generatePendirianBlocks(data);
+  const blocks = useMemo(() => generatePendirianBlocks(data), [data]);
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/50 flex justify-end">

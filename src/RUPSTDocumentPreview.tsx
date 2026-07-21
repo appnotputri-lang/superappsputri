@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { CompanyData } from '../types';
 import { generateRupstBlocks } from './lib/rupsTahunanContentBlocks';
 import { generateSirkulerLaporanBlocks } from './lib/sirkulerLaporanContentBlocks';
@@ -52,7 +52,7 @@ const renderToken = (t: any, j: number) => {
 
 export const RUPSTDocumentPreview: React.FC<RUPSTDocumentPreviewProps> = ({ data, zoom = 1 }) => {
   const isCircular = data.rupstType === 'sirkuler';
-  const blocks = isCircular ? generateSirkulerLaporanBlocks(data) : generateRupstBlocks(data);
+  const blocks = useMemo(() => isCircular ? generateSirkulerLaporanBlocks(data) : generateRupstBlocks(data), [isCircular, data]);
 
   return (
     <div className="flex flex-col items-center w-full min-h-screen bg-slate-200/50 py-12 px-4 shadow-inner">

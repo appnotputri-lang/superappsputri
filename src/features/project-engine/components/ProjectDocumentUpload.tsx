@@ -126,6 +126,9 @@ export function ProjectDocumentUpload({ project, currentUser }: ProjectDocumentU
   };
 
   const syncFromDrive = async (currentDocs?: UploadedDocument[]) => {
+    const projId = project?.projectId || (project as any)?.id;
+    if (!projId) return;
+
     setDriveSyncLoading(true);
     try {
       const token = await AuthService.getToken();
@@ -133,7 +136,7 @@ export function ProjectDocumentUpload({ project, currentUser }: ProjectDocumentU
       if (token) {
         headers['Authorization'] = `Bearer ${token}`;
       }
-      const response = await fetch(getApiUrl(`/api/v2/drive/list-project-files/${project.projectId}`), {
+      const response = await fetch(getApiUrl(`/api/v2/drive/list-project-files/${projId}`), {
         headers
       });
       if (!response.ok) {
@@ -148,7 +151,7 @@ export function ProjectDocumentUpload({ project, currentUser }: ProjectDocumentU
       const unrecorded = driveFiles.filter(f => !existingDriveIds.has(f.id));
       setDriveOnlyFiles(unrecorded);
     } catch (err) {
-      console.error('Failed to sync from Drive:', err);
+      console.warn('Failed to sync from Drive:', err);
     } finally {
       setDriveSyncLoading(false);
     }
