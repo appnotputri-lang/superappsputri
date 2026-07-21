@@ -6,6 +6,7 @@ import {
   CompanyIdentitySection,
   LegalInformationSection,
   ContactSection,
+  PicSection,
   StatusSection,
   CapitalSection,
   AddressSection,
@@ -140,6 +141,9 @@ export const CompanyForm: React.FC<CompanyFormProps> = ({
       <fieldset disabled={isProfilePreview} className="space-y-4">
         {/* 1. GENERAL INFORMATION */}
         <GeneralInformationSection data={data} updateData={updateData} />
+
+        {/* PIC SECTION */}
+        <PicSection data={data} updateData={updateData} />
 
         {/* 2. COMPANY IDENTITY */}
         <CompanyIdentitySection data={data} updateData={updateData} />

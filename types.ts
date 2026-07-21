@@ -322,6 +322,12 @@ export interface CompanyData {
   establishmentSkNumber: string;
   establishmentSkDate: string;
 
+  // PIC Information
+  picName?: string;
+  picPhone?: string;
+  picEmail?: string;
+  picAddress?: string;
+
   // Akta Perubahan (legacy - to be replaced by amendmentDeeds)
   latestAmendmentDeedNumber: string;
   latestAmendmentDeedDate: string;

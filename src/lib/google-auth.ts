@@ -1,6 +1,14 @@
 import { getEnv } from '../runtime/env';
 
+let cachedAccessToken: string | null = null;
+let cachedTokenExpiryTime = 0;
+
 export async function getGoogleAccessToken(env: any = {}) {
+  const now = Date.now();
+  if (cachedAccessToken && cachedTokenExpiryTime > now + 300000) {
+    return cachedAccessToken;
+  }
+
   const clientId = getEnv(env, 'GOOGLE_DRIVE_CLIENT_ID').trim();
   const clientSecret = getEnv(env, 'GOOGLE_DRIVE_CLIENT_SECRET').trim();
   const refreshToken = getEnv(env, 'GOOGLE_DRIVE_REFRESH_TOKEN').trim();
@@ -40,7 +48,11 @@ export async function getGoogleAccessToken(env: any = {}) {
       throw new Error('No access_token returned from Google OAuth');
     }
 
-    return data.access_token as string;
+    cachedAccessToken = data.access_token;
+    const expiresIn = data.expires_in || 3600;
+    cachedTokenExpiryTime = now + expiresIn * 1000;
+
+    return cachedAccessToken as string;
   } catch (error) {
     console.error('[GoogleAuth] Network or Parsing Error:', error);
     throw error;

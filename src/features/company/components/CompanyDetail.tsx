@@ -248,6 +248,41 @@ export const CompanyDetail: React.FC<CompanyDetailProps> = ({
           </div>
         </AhuSection>
 
+        {/* PIC SECTION */}
+        <AhuSection title="Person In Charge (PIC)">
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+              <AhuLabel label="Nama PIC" />
+              <div className="md:col-span-3">
+                <AhuInput value={data.picName || ''} readOnly />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+              <AhuLabel label="Nomor HP" />
+              <div className="md:col-span-3">
+                <AhuInput value={data.picPhone || ''} readOnly />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+              <AhuLabel label="Alamat Email" />
+              <div className="md:col-span-3">
+                <AhuInput value={data.picEmail || ''} readOnly />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-start">
+              <AhuLabel label="Alamat PIC" />
+              <div className="md:col-span-3">
+                <textarea 
+                  value={data.picAddress || ''} 
+                  readOnly 
+                  rows={3}
+                  className="w-full text-[13px] border border-slate-200 rounded-sm px-3 py-2 bg-slate-50 focus:outline-none text-slate-700"
+                />
+              </div>
+            </div>
+          </div>
+        </AhuSection>
+
         {/* 2. COMPANY IDENTITY */}
         <AhuSection title="Company Identity">
           <div className="space-y-4">

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Project } from '../../../domain/project/Project';
 import { db, handleFirestoreError, OperationType } from '../../../lib/firebase';
-import { collection, query, where, getDocs, doc, setDoc, deleteDoc, orderBy } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, setDoc, deleteDoc } from 'firebase/firestore';
 import { Upload, FileText, Image as FileImage, File, Trash2, Download, RefreshCw, X, Loader2, Eye, Replace, ExternalLink, MoreVertical, Share2, Copy, Send } from 'lucide-react';
 import { UserProfile } from '../../../../types';
 import { AuthService } from '../../../services/AuthService';
@@ -26,8 +26,17 @@ interface UploadedDocument {
   uploadedBy: string;
   uploadedAt: string;
   createdAt: string;
-  documentSource?: 'generated' | 'manual';
+  documentSource?: 'generated' | 'manual' | 'drive_sync';
   documentCategory?: 'draft_akta' | 'notulen' | 'surat_pernyataan' | 'scan_akta' | 'scan_notulen' | 'sksp' | 'custom';
+}
+
+interface DriveFileItem {
+  id: string;
+  name: string;
+  mimeType: string;
+  size?: number | string;
+  modifiedTime?: string;
+  webViewLink?: string;
 }
 
 const DOCUMENT_TYPES = [
@@ -40,10 +49,19 @@ const DOCUMENT_TYPES = [
 export function ProjectDocumentUpload({ project, currentUser }: ProjectDocumentUploadProps) {
   const [documents, setDocuments] = useState<UploadedDocument[]>([]);
   const [loading, setLoading] = useState(true);
+  const [driveOnlyFiles, setDriveOnlyFiles] = useState<DriveFileItem[]>([]);
+  const [driveSyncLoading, setDriveSyncLoading] = useState(false);
+
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [isReplaceModalOpen, setIsReplaceModalOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
-  
+
+  const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
+  const [registeringDriveFile, setRegisteringDriveFile] = useState<DriveFileItem | null>(null);
+  const [registerType, setRegisterType] = useState('minutes');
+  const [registerCustomTitle, setRegisterCustomTitle] = useState('');
+  const [registering, setRegistering] = useState(false);
+
   const [selectedType, setSelectedType] = useState('minutes');
   const [customTitle, setCustomTitle] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -56,14 +74,16 @@ export function ProjectDocumentUpload({ project, currentUser }: ProjectDocumentU
   const [shareError, setShareError] = useState('');
   const [shareSuccess, setShareSuccess] = useState('');
 
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const handleShareWhatsApp = async () => {
-    if (!shareDoc || !shareNumber) return;
+    if (!shareDoc || shareNumber === ' ') return;
     setSharing(true);
     setShareError('');
     setShareSuccess('');
     try {
       const link = `https://drive.google.com/file/d/${shareDoc.driveFileId}/view`;
-      const message = `Berikut adalah link dokumen proyek "${project.title}":\n\n${shareDoc.title}\n${link}`;
+      const message = `Berikut adalah link dokumen ${shareDoc.title} — ${project.title}:\n\n${link}`;
       
       const userToken = await AuthService.getToken();
       const headers: any = { 'Content-Type': 'application/json' };
@@ -75,7 +95,7 @@ export function ProjectDocumentUpload({ project, currentUser }: ProjectDocumentU
         method: 'POST',
         headers,
         body: JSON.stringify({
-          target: shareNumber,
+          target: shareNumber === '' ? '120363295728301990@g.us' : shareNumber.trim(),
           message: message
         })
       });
@@ -105,11 +125,38 @@ export function ProjectDocumentUpload({ project, currentUser }: ProjectDocumentU
     }
   };
 
+  const syncFromDrive = async (currentDocs?: UploadedDocument[]) => {
+    setDriveSyncLoading(true);
+    try {
+      const token = await AuthService.getToken();
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      const response = await fetch(getApiUrl(`/api/v2/drive/list-project-files/${project.projectId}`), {
+        headers
+      });
+      if (!response.ok) {
+        return;
+      }
+      const data = await response.json();
+      const driveFiles: DriveFileItem[] = data.files || [];
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
+      const docsToCompare = currentDocs || documents;
+      const existingDriveIds = new Set(docsToCompare.map(d => d.driveFileId).filter(Boolean));
+
+      const unrecorded = driveFiles.filter(f => !existingDriveIds.has(f.id));
+      setDriveOnlyFiles(unrecorded);
+    } catch (err) {
+      console.error('Failed to sync from Drive:', err);
+    } finally {
+      setDriveSyncLoading(false);
+    }
+  };
 
   const fetchDocuments = async () => {
     setLoading(true);
+    let docs: UploadedDocument[] = [];
     try {
       const q = query(
         collection(db, 'project_uploaded_documents'),
@@ -122,7 +169,7 @@ export function ProjectDocumentUpload({ project, currentUser }: ProjectDocumentU
         handleFirestoreError(err, OperationType.GET, 'project_uploaded_documents');
         throw err;
       }
-      const docs = snapshot.docs.map(doc => doc.data() as UploadedDocument);
+      docs = snapshot.docs.map(doc => doc.data() as UploadedDocument);
       docs.sort((a, b) => new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime());
       setDocuments(docs);
     } catch (error: any) {
@@ -130,11 +177,84 @@ export function ProjectDocumentUpload({ project, currentUser }: ProjectDocumentU
     } finally {
       setLoading(false);
     }
+
+    // Trigger syncFromDrive with fresh docs array
+    syncFromDrive(docs);
   };
 
   useEffect(() => {
     fetchDocuments();
   }, [project.projectId]);
+
+  const handleRegisterSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!registeringDriveFile) return;
+
+    if (registerType === 'custom' && !registerCustomTitle.trim()) {
+      alert('Nama dokumen wajib diisi untuk jenis kustom.');
+      return;
+    }
+
+    setRegistering(true);
+    try {
+      const mapTypeToCategory = (type: string) => {
+        switch (type) {
+          case 'minutes': return 'scan_notulen';
+          case 'deed': return 'scan_akta';
+          case 'sksp': return 'sksp';
+          default: return 'custom';
+        }
+      };
+
+      let title = '';
+      if (registerType === 'custom') {
+        title = registerCustomTitle.trim();
+      } else {
+        title = DOCUMENT_TYPES.find(d => d.value === registerType)?.label || registeringDriveFile.name;
+      }
+
+      const driveFolderId = project.metadata?.driveFolderId || (project as any).driveFolderId || '';
+      const now = new Date().toISOString();
+      const docId = registeringDriveFile.id; // CRITICAL: driveFileId as docId
+
+      const newDoc: UploadedDocument = {
+        id: docId,
+        companyId: project.clientId,
+        projectId: project.projectId,
+        type: registerType as any,
+        title: title,
+        fileName: registeringDriveFile.name,
+        mimeType: registeringDriveFile.mimeType || 'application/octet-stream',
+        size: Number(registeringDriveFile.size) || 0,
+        driveFileId: registeringDriveFile.id,
+        driveFolderId: driveFolderId,
+        uploadedBy: currentUser?.name || 'Unknown',
+        uploadedAt: registeringDriveFile.modifiedTime || now,
+        createdAt: now,
+        documentSource: 'drive_sync',
+        documentCategory: mapTypeToCategory(registerType)
+      };
+
+      try {
+        await setDoc(doc(db, 'project_uploaded_documents', docId), newDoc, { merge: true });
+      } catch (err) {
+        handleFirestoreError(err, OperationType.WRITE, `project_uploaded_documents/${docId}`);
+        throw err;
+      }
+
+      setIsRegisterModalOpen(false);
+      setRegisteringDriveFile(null);
+      setRegisterCustomTitle('');
+
+      await fetchDocuments();
+      alert('Dokumen berhasil didaftarkan.');
+    } catch (err: any) {
+      console.error('Failed to register file from Drive:', err);
+      alert('Gagal mendaftarkan dokumen: ' + (err.message || 'Terjadi kesalahan'));
+    } finally {
+      setRegistering(false);
+    }
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -178,11 +298,6 @@ export function ProjectDocumentUpload({ project, currentUser }: ProjectDocumentU
           return;
         }
 
-        // We need to re-fetch or assume it's created and will be available in next render or via the response
-        // For simplicity here, we'll try to re-fetch the project or just tell the user to try again if it fails
-        const resData = await response.json();
-        // The handleNewProject updates Firestore, so we might need a small delay or re-fetch
-        // But the most reliable way is to tell the user it's being prepared
         alert('Folder Google Drive sedang disiapkan. Silakan coba upload kembali dalam sekejap.');
         setUploading(false);
         return;
@@ -306,7 +421,6 @@ export function ProjectDocumentUpload({ project, currentUser }: ProjectDocumentU
       }
       
       if (isReplace && replaceDoc) {
-        // Optionally delete old file from Drive
         try {
           await fetch(`/api/v2/drive/delete-file/${replaceDoc.driveFileId}`, {
             method: 'DELETE',
@@ -389,11 +503,11 @@ export function ProjectDocumentUpload({ project, currentUser }: ProjectDocumentU
         <div className="flex items-center gap-2">
           <button
             onClick={fetchDocuments}
-            disabled={loading}
+            disabled={loading || driveSyncLoading}
             className="p-2 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-50 transition-colors"
-            title="Refresh List"
+            title="Refresh List & Sinkron Drive"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-3.5 h-3.5 ${(loading || driveSyncLoading) ? 'animate-spin' : ''}`} />
           </button>
           <button
             onClick={() => {
@@ -411,6 +525,84 @@ export function ProjectDocumentUpload({ project, currentUser }: ProjectDocumentU
       </div>
 
       <div className="p-0">
+        {/* Unrecorded Drive Files Section */}
+        {driveOnlyFiles.length > 0 && (
+          <div className="bg-amber-50/70 border-b border-amber-200/80 p-5 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-200/80 text-amber-800 border border-amber-300">
+                  Belum Tercatat
+                </span>
+                <h3 className="font-bold text-amber-900 text-[13.5px]">
+                  Berkas Ditemukan di Drive ({driveOnlyFiles.length})
+                </h3>
+              </div>
+              {driveSyncLoading && (
+                <span className="text-xs text-amber-700 flex items-center gap-1.5 font-medium">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-600" /> Memeriksa Drive...
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-amber-800/80">
+              Berkas berikut berada di folder Google Drive proyek tetapi belum tercatat di Firestore. Klik <strong>Daftarkan</strong> untuk mencatatnya sebagai dokumen resmi.
+            </p>
+
+            <div className="divide-y divide-amber-200/60 bg-white rounded-xl border border-amber-200/80 overflow-hidden shadow-xs">
+              {driveOnlyFiles.map((driveFile) => (
+                <div key={driveFile.id} className="p-3.5 flex items-center justify-between gap-3 hover:bg-amber-50/40 transition-colors">
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                    <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 border ${getFileIconBgClass(driveFile.mimeType || '')}`}>
+                      {getFileIcon(driveFile.mimeType || '')}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <h4 className="font-bold text-slate-800 text-[13px] truncate" title={driveFile.name}>
+                        {driveFile.name}
+                      </h4>
+                      <div className="text-[11px] text-slate-400 mt-0.5 flex items-center gap-2 flex-wrap">
+                        {driveFile.size && (
+                          <span>{(Number(driveFile.size) / 1024 / 1024).toFixed(2)} MB</span>
+                        )}
+                        {driveFile.modifiedTime && (
+                          <>
+                            <span>•</span>
+                            <span>{new Date(driveFile.modifiedTime).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                          </>
+                        )}
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9.5px] font-semibold bg-amber-100 text-amber-800 border border-amber-200">
+                          Belum Tercatat
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <a
+                      href={`https://drive.google.com/file/d/${driveFile.id}/view`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-colors"
+                      title="Buka di Drive"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                    </a>
+                    <button
+                      onClick={() => {
+                        setRegisteringDriveFile(driveFile);
+                        setRegisterType('minutes');
+                        setRegisterCustomTitle(driveFile.name.replace(/\.[^/.]+$/, ''));
+                        setIsRegisterModalOpen(true);
+                      }}
+                      className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs rounded-lg shadow-xs transition-colors flex items-center gap-1.5"
+                    >
+                      <FileText className="w-3.5 h-3.5" />
+                      <span>Daftarkan</span>
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {loading ? (
           <div className="py-12 flex flex-col items-center justify-center gap-3 text-slate-400">
             <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
@@ -449,6 +641,10 @@ export function ProjectDocumentUpload({ project, currentUser }: ProjectDocumentU
                           <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold bg-slate-100 text-slate-600 border border-slate-200/50 uppercase tracking-wider">
                             Hasil Generate
                           </span>
+                        ) : docObj.documentSource === 'drive_sync' ? (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200/60 uppercase tracking-wider">
+                            Sync Drive
+                          </span>
                         ) : (
                           <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold bg-slate-50 text-slate-500 border border-slate-200/30 uppercase tracking-wider">
                             Upload Manual
@@ -472,7 +668,6 @@ export function ProjectDocumentUpload({ project, currentUser }: ProjectDocumentU
 
                   {/* Right: Actions */}
                   <div className="flex items-center justify-end gap-1.5 shrink-0">
-                    {/* Primary actions visible inline for convenience on hover/focus */}
                     {canPreview && (
                       <button
                         onClick={() => setPreviewDoc(docObj)}
@@ -484,9 +679,9 @@ export function ProjectDocumentUpload({ project, currentUser }: ProjectDocumentU
                     )}
                     <button
                       onClick={(e) => {
-    e.stopPropagation();
-    setShareDoc(docObj);
-  }}
+                        e.stopPropagation();
+                        setShareDoc(docObj);
+                      }}
                       className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50/80 rounded-lg transition-all duration-150"
                       title="Kirim via WhatsApp"
                     >
@@ -502,7 +697,6 @@ export function ProjectDocumentUpload({ project, currentUser }: ProjectDocumentU
                       <Download className="w-4 h-4" />
                     </a>
 
-                    {/* Overflow trigger */}
                     <div className="relative">
                       <button
                         onClick={(e) => {
@@ -517,7 +711,6 @@ export function ProjectDocumentUpload({ project, currentUser }: ProjectDocumentU
 
                       {isMenuOpen && (
                         <>
-                          {/* Full page click catcher to close the dropdown menu */}
                           <div 
                             className="fixed inset-0 z-40 cursor-default" 
                             onClick={(e) => {
@@ -561,9 +754,9 @@ export function ProjectDocumentUpload({ project, currentUser }: ProjectDocumentU
                               </a>
                               <button
                                 onClick={() => {
-    setShareDoc(docObj);
-    setActiveMenuId(null);
-  }}
+                                  setShareDoc(docObj);
+                                  setActiveMenuId(null);
+                                }}
                                 className="w-full text-left px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2.5 transition-colors"
                               >
                                 <Share2 className="w-4 h-4 text-slate-400" />
@@ -620,6 +813,85 @@ export function ProjectDocumentUpload({ project, currentUser }: ProjectDocumentU
           </div>
         )}
       </div>
+
+      {/* Register Drive File Modal */}
+      {isRegisterModalOpen && registeringDriveFile && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl border border-slate-200 max-w-md w-full overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="bg-amber-50 px-6 py-4 border-b border-amber-200 flex items-center justify-between">
+              <h3 className="font-bold text-amber-900 text-[15px] flex items-center gap-2">
+                <FileText className="w-4 h-4 text-amber-600" />
+                Daftarkan Dokumen dari Drive
+              </h3>
+              <button
+                onClick={() => {
+                  setIsRegisterModalOpen(false);
+                  setRegisteringDriveFile(null);
+                }}
+                className="p-1 text-slate-400 hover:text-slate-600 rounded-md hover:bg-slate-100 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <form onSubmit={handleRegisterSubmit} className="p-6 space-y-4">
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg text-xs space-y-1">
+                <div className="text-slate-400 font-medium">Nama Berkas di Google Drive:</div>
+                <div className="font-bold text-slate-700 truncate" title={registeringDriveFile.name}>
+                  {registeringDriveFile.name}
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">Jenis Dokumen</label>
+                <select
+                  value={registerType}
+                  onChange={(e) => setRegisterType(e.target.value)}
+                  className="w-full px-3 py-2.5 text-[13px] bg-slate-50 border border-slate-200 rounded-lg outline-none focus:border-amber-500"
+                >
+                  {DOCUMENT_TYPES.map(t => (
+                    <option key={t.value} value={t.value}>{t.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              {registerType === 'custom' && (
+                <div className="space-y-1.5 animate-in slide-in-from-top-2 duration-200">
+                  <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">Nama Dokumen Kustom</label>
+                  <input
+                    type="text"
+                    required
+                    value={registerCustomTitle}
+                    onChange={(e) => setRegisterCustomTitle(e.target.value)}
+                    placeholder="Masukkan nama dokumen"
+                    className="w-full px-3 py-2 text-[13px] border border-slate-200 rounded-lg outline-none focus:border-amber-500"
+                  />
+                </div>
+              )}
+
+              <div className="pt-4 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsRegisterModalOpen(false);
+                    setRegisteringDriveFile(null);
+                  }}
+                  className="px-4 py-2 text-slate-600 text-[13px] font-medium hover:bg-slate-100 rounded-lg transition-colors"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={registering}
+                  className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-[13px] font-medium rounded-lg transition-colors flex items-center gap-2"
+                >
+                  {registering ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
+                  {registering ? 'Mendaftarkan...' : 'Daftarkan Dokumen'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Preview Modal */}
       {previewDoc && (
@@ -767,7 +1039,6 @@ export function ProjectDocumentUpload({ project, currentUser }: ProjectDocumentU
         }}
       />
 
-      
       {/* WhatsApp Share Modal */}
       {shareDoc && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -794,18 +1065,83 @@ export function ProjectDocumentUpload({ project, currentUser }: ProjectDocumentU
                 </div>
               )}
               
-              <div className="space-y-2">
-                <label className="text-sm font-semibold text-slate-700">Nomor WhatsApp Tujuan</label>
-                <input
-                  type="text"
-                  value={shareNumber}
-                  onChange={(e) => setShareNumber(e.target.value)}
-                  placeholder="Contoh: 081234567890"
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-                  disabled={sharing}
-                />
-                <p className="text-xs text-slate-500">
-                  Link Google Drive dari dokumen <strong>{shareDoc.title}</strong> akan dikirimkan ke nomor ini melalui Fonnte.
+              <div className="space-y-3">
+                <label className="text-sm font-semibold text-slate-700">Pilih Penerima WhatsApp</label>
+                
+                <div className="space-y-2">
+                  <label className="flex items-center gap-3 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 transition-colors">
+                    <input 
+                      type="radio" 
+                      name="whatsappTarget" 
+                      value="120363295728301990@g.us"
+                      checked={shareNumber === '120363295728301990@g.us' || shareNumber === ''}
+                      onChange={(e) => setShareNumber(e.target.value)}
+                      className="w-4 h-4 text-indigo-600 focus:ring-indigo-500"
+                    />
+                    <div>
+                      <div className="font-medium text-sm text-slate-800">Grup Kantor</div>
+                      <div className="text-xs text-slate-500">Gorpu kantor</div>
+                    </div>
+                  </label>
+
+                  <label className="flex items-center gap-3 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 transition-colors">
+                    <input 
+                      type="radio" 
+                      name="whatsappTarget" 
+                      value="08111301991"
+                      checked={shareNumber === '08111301991'}
+                      onChange={(e) => setShareNumber(e.target.value)}
+                      className="w-4 h-4 text-indigo-600 focus:ring-indigo-500"
+                    />
+                    <div>
+                      <div className="font-medium text-sm text-slate-800">Nendi</div>
+                      <div className="text-xs text-slate-500">08111301991</div>
+                    </div>
+                  </label>
+
+                  <label className="flex items-center gap-3 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 transition-colors">
+                    <input 
+                      type="radio" 
+                      name="whatsappTarget" 
+                      value="083128916406"
+                      checked={shareNumber === '083128916406'}
+                      onChange={(e) => setShareNumber(e.target.value)}
+                      className="w-4 h-4 text-indigo-600 focus:ring-indigo-500"
+                    />
+                    <div>
+                      <div className="font-medium text-sm text-slate-800">Azizah</div>
+                      <div className="text-xs text-slate-500">083128916406</div>
+                    </div>
+                  </label>
+                  
+                  <label className="flex items-start gap-3 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 transition-colors">
+                    <input 
+                      type="radio" 
+                      name="whatsappTarget" 
+                      value="custom"
+                      checked={!['120363295728301990@g.us', '08111301991', '083128916406', ''].includes(shareNumber)}
+                      onChange={(e) => setShareNumber(' ')}
+                      className="w-4 h-4 text-indigo-600 focus:ring-indigo-500 mt-1"
+                    />
+                    <div className="w-full">
+                      <div className="font-medium text-sm text-slate-800">Nomor Lain</div>
+                      {!['120363295728301990@g.us', '08111301991', '083128916406', ''].includes(shareNumber) && (
+                        <input
+                          type="text"
+                          value={shareNumber.trim()}
+                          onChange={(e) => setShareNumber(e.target.value)}
+                          placeholder="Contoh: 081234567890"
+                          className="w-full mt-2 px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                          disabled={sharing}
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      )}
+                    </div>
+                  </label>
+                </div>
+
+                <p className="text-xs text-slate-500 mt-2">
+                  Link Google Drive dari dokumen <strong>{shareDoc.title}</strong> akan dikirimkan melalui Fonnte API.
                 </p>
               </div>
             </div>
@@ -820,7 +1156,7 @@ export function ProjectDocumentUpload({ project, currentUser }: ProjectDocumentU
               </button>
               <button
                 onClick={handleShareWhatsApp}
-                disabled={!shareNumber || sharing || !!shareSuccess}
+                disabled={sharing || !!shareSuccess || shareNumber === ' '}
                 className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {sharing ? (
@@ -834,7 +1170,6 @@ export function ProjectDocumentUpload({ project, currentUser }: ProjectDocumentU
           </div>
         </div>
       )}
-
 
       {/* Replace Confirmation Modal */}
       {isReplaceModalOpen && documentToReplace && (

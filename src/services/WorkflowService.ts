@@ -78,7 +78,7 @@ export class WorkflowService {
       "Selesai"
     ];
 
-    const rupslbSteps = [
+        const rupslbSteps = [
       "Drafting Notulen",
       "Review Notulen",
       "ACC Notulen",
@@ -91,7 +91,8 @@ export class WorkflowService {
       "SP/SK Terbit",
       "NPWP Terbit",
       "INPUT NIB",
-      "NIB TERBIT"
+      "NIB TERBIT",
+      "SELESAI"
     ];
 
     const rupstSteps = [
@@ -159,7 +160,7 @@ export class WorkflowService {
       },
       {
         id: "rups_t",
-        name: "RUPS Tahunan",
+        name: "RUPST",
         steps: rupstSteps,
         description: "Alur kerja RUPS Tahunan yang mencakup penyusunan draft, penelaahan laporan keuangan, penandatanganan akta, dan pengarsipan."
       },
@@ -195,7 +196,7 @@ export class WorkflowService {
       },
       {
         id: "sirkuler",
-        name: "Keputusan Sirkuler RUPST",
+        name: "RUPST",
         steps: rupstSteps,
         description: "Alur kerja Keputusan Sirkuler RUPST yang mencakup penyusunan keputusan sirkuler sebagai pengganti RUPS, penelaahan, penandatanganan sirkuler oleh para pemegang saham, dan pengarsipan."
       },
@@ -210,7 +211,7 @@ export class WorkflowService {
     for (const wf of defaults) {
       try {
         const existing = await this.getWorkflow(wf.id);
-        if (!existing || JSON.stringify(existing.steps) !== JSON.stringify(wf.steps)) {
+        if (!existing || JSON.stringify(existing.steps) !== JSON.stringify(wf.steps) || existing.name !== wf.name) {
           await this.defineWorkflow(wf);
         }
       } catch (e) {

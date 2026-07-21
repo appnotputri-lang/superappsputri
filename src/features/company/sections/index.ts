@@ -7,3 +7,4 @@ export * from './CapitalSection';
 export * from './AddressSection';
 export * from './ShareholderSection';
 export * from './ManagementSection';
+export * from './PicSection';

@@ -115,7 +115,7 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
   // Interaction States
   const [transitionStatus, setTransitionStatus] = useState('');
   const [transitionComment, setTransitionComment] = useState('');
-  const [transitionStrict, setTransitionStrict] = useState(true);
+  const [transitionStrict, setTransitionStrict] = useState(false);
   const [transitioning, setTransitioning] = useState(false);
 
   // Deed & SK/SP Form states for status transition
@@ -624,9 +624,6 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
   };
 
   // Google Drive State
-  const [driveFiles, setDriveFiles] = useState<any[]>([]);
-  const [driveLoading, setDriveLoading] = useState(false);
-  const [driveError, setDriveError] = useState<string | null>(null);
   const [isSettingUpDrive, setIsSettingUpDrive] = useState(false);
 
   const handleSetupDriveFolder = async () => {
@@ -667,36 +664,6 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
     }
   };
 
-  const fetchDriveFiles = async (projId: string = projectId) => {
-    setDriveLoading(true);
-    setDriveError(null);
-    try {
-      const { auth } = await import('../../../lib/firebase');
-      let token = '';
-      if (auth.currentUser) {
-        token = await auth.currentUser.getIdToken();
-      }
-      
-      const response = await fetch(`/api/v2/drive/list-project-files/${projId}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to fetch drive files');
-      }
-      
-      setDriveFiles(data.files || []);
-    } catch (err: any) {
-      console.error(err);
-      setDriveError(err.message || 'Failed to fetch drive files');
-    } finally {
-      setDriveLoading(false);
-    }
-  };
-
   const fetchProjectFullDetails = async () => {
     setLoading(true);
     setError(null);
@@ -710,9 +677,6 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
 
       setProject(proj);
       setLocalMinutaNotes(proj.minutaNotes || '');
-      
-      // Fetch Drive Files asynchronously without blocking the rest of the UI
-      fetchDriveFiles(proj.projectId);
 
       // Parallel queries for children and linked entities
       const [cli, wf, tlList, tkList, docList, relatedSnap] = await Promise.all([
