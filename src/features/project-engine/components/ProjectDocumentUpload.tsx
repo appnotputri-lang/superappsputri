@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Project } from '../../../domain/project/Project';
 import { db, handleFirestoreError, OperationType } from '../../../lib/firebase';
 import { collection, query, where, getDocs, doc, setDoc, deleteDoc, orderBy } from 'firebase/firestore';
-import { Upload, FileText, Image as FileImage, File, Trash2, Download, RefreshCw, X, Loader2, Eye, Replace, ExternalLink, MoreVertical } from 'lucide-react';
+import { Upload, FileText, Image as FileImage, File, Trash2, Download, RefreshCw, X, Loader2, Eye, Replace, ExternalLink, MoreVertical, Share2, Copy, Send } from 'lucide-react';
 import { UserProfile } from '../../../../types';
 import { AuthService } from '../../../services/AuthService';
 import { getApiUrl } from '../../../lib/api';
@@ -50,6 +50,61 @@ export function ProjectDocumentUpload({ project, currentUser }: ProjectDocumentU
   const [documentToReplace, setDocumentToReplace] = useState<UploadedDocument | null>(null);
   const [previewDoc, setPreviewDoc] = useState<UploadedDocument | null>(null);
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+  const [shareDoc, setShareDoc] = useState<UploadedDocument | null>(null);
+  const [shareNumber, setShareNumber] = useState('');
+  const [sharing, setSharing] = useState(false);
+  const [shareError, setShareError] = useState('');
+  const [shareSuccess, setShareSuccess] = useState('');
+
+  const handleShareWhatsApp = async () => {
+    if (!shareDoc || !shareNumber) return;
+    setSharing(true);
+    setShareError('');
+    setShareSuccess('');
+    try {
+      const link = `https://drive.google.com/file/d/${shareDoc.driveFileId}/view`;
+      const message = `Berikut adalah link dokumen proyek "${project.title}":\n\n${shareDoc.title}\n${link}`;
+      
+      const userToken = await AuthService.getToken();
+      const headers: any = { 'Content-Type': 'application/json' };
+      if (userToken) {
+        headers['Authorization'] = `Bearer ${userToken}`;
+      }
+      
+      const response = await fetch(getApiUrl('/api/send-whatsapp'), {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          target: shareNumber,
+          message: message
+        })
+      });
+      
+      const resText = await response.text();
+      let resData;
+      try {
+        resData = JSON.parse(resText);
+      } catch (e) {
+        throw new Error("Respon server tidak valid.");
+      }
+      
+      if (response.ok && resData.success) {
+        setShareSuccess('Berhasil mengirim link dokumen ke WhatsApp!');
+        setTimeout(() => {
+          setShareDoc(null);
+          setShareNumber('');
+          setShareSuccess('');
+        }, 2000);
+      } else {
+        setShareError(resData.error || 'Server menolak mengirim pesan.');
+      }
+    } catch (err: any) {
+      setShareError(err.message || 'Terjadi kesalahan saat mengirim.');
+    } finally {
+      setSharing(false);
+    }
+  };
+
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -427,6 +482,16 @@ export function ProjectDocumentUpload({ project, currentUser }: ProjectDocumentU
                         <Eye className="w-4 h-4" />
                       </button>
                     )}
+                    <button
+                      onClick={(e) => {
+    e.stopPropagation();
+    setShareDoc(docObj);
+  }}
+                      className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50/80 rounded-lg transition-all duration-150"
+                      title="Kirim via WhatsApp"
+                    >
+                      <Share2 className="w-4 h-4" />
+                    </button>
                     <a
                       href={`https://drive.google.com/uc?export=download&id=${docObj.driveFileId}`}
                       target="_blank"
@@ -494,6 +559,30 @@ export function ProjectDocumentUpload({ project, currentUser }: ProjectDocumentU
                                 <Download className="w-4 h-4 text-slate-400" />
                                 <span>Unduh Berkas</span>
                               </a>
+                              <button
+                                onClick={() => {
+    setShareDoc(docObj);
+    setActiveMenuId(null);
+  }}
+                                className="w-full text-left px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2.5 transition-colors"
+                              >
+                                <Share2 className="w-4 h-4 text-slate-400" />
+                                <span>Kirim via WhatsApp</span>
+                              </button>
+
+                              <button
+                                onClick={() => {
+                                  const link = `https://drive.google.com/file/d/${docObj.driveFileId}/view`;
+                                  navigator.clipboard.writeText(link);
+                                  alert('Link Google Drive disalin ke clipboard!');
+                                  setActiveMenuId(null);
+                                }}
+                                className="w-full text-left px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2.5 transition-colors"
+                              >
+                                <Copy className="w-4 h-4 text-slate-400" />
+                                <span>Salin Link</span>
+                              </button>
+
                               <button
                                 onClick={() => {
                                   setDocumentToReplace(docObj);
@@ -677,6 +766,75 @@ export function ProjectDocumentUpload({ project, currentUser }: ProjectDocumentU
           }
         }}
       />
+
+      
+      {/* WhatsApp Share Modal */}
+      {shareDoc && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+              <h3 className="text-lg font-bold text-slate-800">Bagikan ke WhatsApp</h3>
+              <button 
+                onClick={() => { setShareDoc(null); setShareNumber(''); setShareError(''); setShareSuccess(''); }}
+                className="text-slate-400 hover:text-slate-500"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="p-6 space-y-4">
+              {shareError && (
+                <div className="p-3 bg-red-50 text-red-700 text-sm rounded-lg border border-red-100">
+                  {shareError}
+                </div>
+              )}
+              {shareSuccess && (
+                <div className="p-3 bg-green-50 text-green-700 text-sm rounded-lg border border-green-100">
+                  {shareSuccess}
+                </div>
+              )}
+              
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-slate-700">Nomor WhatsApp Tujuan</label>
+                <input
+                  type="text"
+                  value={shareNumber}
+                  onChange={(e) => setShareNumber(e.target.value)}
+                  placeholder="Contoh: 081234567890"
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                  disabled={sharing}
+                />
+                <p className="text-xs text-slate-500">
+                  Link Google Drive dari dokumen <strong>{shareDoc.title}</strong> akan dikirimkan ke nomor ini melalui Fonnte.
+                </p>
+              </div>
+            </div>
+            
+            <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-3">
+              <button
+                onClick={() => { setShareDoc(null); setShareNumber(''); setShareError(''); setShareSuccess(''); }}
+                className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-800 bg-white border border-slate-200 hover:bg-slate-50 rounded-lg transition-colors"
+                disabled={sharing}
+              >
+                Batal
+              </button>
+              <button
+                onClick={handleShareWhatsApp}
+                disabled={!shareNumber || sharing || !!shareSuccess}
+                className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {sharing ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Send className="w-4 h-4" />
+                )}
+                Kirim
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
 
       {/* Replace Confirmation Modal */}
       {isReplaceModalOpen && documentToReplace && (
