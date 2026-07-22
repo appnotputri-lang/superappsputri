@@ -1,6 +1,6 @@
 import { db } from '../lib/firebase';
 import { getApiUrl } from '../lib/api';
-import { doc, getDoc, setDoc, getDocs, collection, query, where } from 'firebase/firestore';
+import { doc, getDoc, setDoc, getDocs, collection, query, where, deleteDoc } from 'firebase/firestore';
 import { AuthService } from './AuthService';
 import { Project, DocumentReference } from '../domain/project/Project';
 import { INITIAL_STATE } from '../domain/company/initialCompanyData';
@@ -227,14 +227,15 @@ export class DocumentGenerationService {
 
       const { filename, blob } = genResult;
 
-      // Check if a document with documentCategory == item.category and projectId == projectId already exists
+      // Check if documents with documentCategory == item.category and projectId == projectId already exist
       const docQuery = query(
         collection(db, 'project_uploaded_documents'),
         where('projectId', '==', projectId),
         where('documentCategory', '==', item.category)
       );
       const docSnap = await getDocs(docQuery);
-      const existingDoc = !docSnap.empty ? docSnap.docs[0].data() as UploadedDocument : null;
+      const existingDocList = !docSnap.empty ? docSnap.docs.map(d => ({ ref: d.ref, data: d.data() as UploadedDocument })) : [];
+      const existingDoc = existingDocList.length > 0 ? existingDocList[0].data : null;
 
       // Convert blob to base64
       const toBase64 = (b: Blob): Promise<string> => {
@@ -290,14 +291,26 @@ export class DocumentGenerationService {
         }
         const newDriveFileId = driveData.file.id;
 
-        // Delete old file from Drive in background
-        try {
-          await fetch(getApiUrl(`/api/v2/drive/delete-file/${existingDoc.driveFileId}`), {
-            method: 'DELETE',
-            headers: { 'Authorization': `Bearer ${token}` }
-          });
-        } catch (e) {
-          console.warn(`Could not delete old file from drive for ${existingDoc.driveFileId}:`, e);
+        // Delete ALL old files matching this category from Drive & delete extra Firestore records if duplicates exist
+        for (let i = 0; i < existingDocList.length; i++) {
+          const docItem = existingDocList[i];
+          if (docItem.data.driveFileId) {
+            try {
+              await fetch(getApiUrl(`/api/v2/drive/delete-file/${docItem.data.driveFileId}`), {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}` }
+              });
+            } catch (e) {
+              console.warn(`Could not delete old file from drive for ${docItem.data.driveFileId}:`, e);
+            }
+          }
+          if (i > 0) {
+            try {
+              await deleteDoc(docItem.ref);
+            } catch (e) {
+              console.warn(`Could not delete duplicate document record ${docItem.data.id}:`, e);
+            }
+          }
         }
 
         // Update metadata in project_uploaded_documents

@@ -424,13 +424,49 @@ export function ProjectDocumentUpload({ project, currentUser }: ProjectDocumentU
       }
       
       if (isReplace && replaceDoc) {
+        // Delete the replaced document's drive file
         try {
-          await fetch(`/api/v2/drive/delete-file/${replaceDoc.driveFileId}`, {
+          await fetch(getApiUrl(`/api/v2/drive/delete-file/${replaceDoc.driveFileId}`), {
             method: 'DELETE',
             headers: { 'Authorization': `Bearer ${token}` }
           });
         } catch (e) {
           console.warn("Could not delete old file from drive:", e);
+        }
+
+        // Clean up any duplicate records in project_uploaded_documents for this category/type
+        if (replaceDoc.documentCategory || replaceDoc.type) {
+          try {
+            const catOrType = replaceDoc.documentCategory || mapTypeToCategory(replaceDoc.type || 'custom');
+            const dupQuery = query(
+              collection(db, 'project_uploaded_documents'),
+              where('projectId', '==', project.projectId),
+              where('documentCategory', '==', catOrType)
+            );
+            const dupSnap = await getDocs(dupQuery);
+            for (const dDoc of dupSnap.docs) {
+              if (dDoc.id !== replaceDoc.id) {
+                const dData = dDoc.data() as UploadedDocument;
+                if (dData.driveFileId) {
+                  try {
+                    await fetch(getApiUrl(`/api/v2/drive/delete-file/${dData.driveFileId}`), {
+                      method: 'DELETE',
+                      headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                  } catch (e) {
+                    console.warn(`Could not delete duplicate file from drive for ${dData.driveFileId}:`, e);
+                  }
+                }
+                try {
+                  await deleteDoc(dDoc.ref);
+                } catch (e) {
+                  console.warn(`Could not delete duplicate document record ${dDoc.id}:`, e);
+                }
+              }
+            }
+          } catch (e) {
+            console.warn("Error cleaning up duplicate document records:", e);
+          }
         }
       }
 
@@ -463,7 +499,7 @@ export function ProjectDocumentUpload({ project, currentUser }: ProjectDocumentU
     if (!confirm(`Hapus dokumen ${docObj.title}?`)) return;
     try {
       const token = await AuthService.getToken();
-      await fetch(`/api/v2/drive/delete-file/${docObj.driveFileId}`, {
+      await fetch(getApiUrl(`/api/v2/drive/delete-file/${docObj.driveFileId}`), {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });

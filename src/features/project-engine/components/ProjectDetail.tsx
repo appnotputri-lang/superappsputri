@@ -312,14 +312,15 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
     const base64 = await toBase64(blob);
     const token = await AuthService.getToken();
 
-    // Query if a document with documentCategory == category and projectId == projectId already exists
+    // Query if documents with documentCategory == category and projectId == projectId already exist
     const docQuery = query(
       collection(db, 'project_uploaded_documents'),
       where('projectId', '==', projectId),
       where('documentCategory', '==', category)
     );
     const docSnap = await getDocs(docQuery);
-    const existingDoc = !docSnap.empty ? docSnap.docs[0].data() as UploadedDocument : null;
+    const existingDocList = !docSnap.empty ? docSnap.docs.map(d => ({ ref: d.ref, data: d.data() as UploadedDocument })) : [];
+    const existingDoc = existingDocList.length > 0 ? existingDocList[0].data : null;
 
     let response;
     if (existingDoc) {
@@ -358,14 +359,26 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
       }
       const newDriveFileId = data.file.id;
 
-      // Delete old file from Drive in background
-      try {
-        await fetch(getApiUrl(`/api/v2/drive/delete-file/${existingDoc.driveFileId}`), {
-          method: 'DELETE',
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-      } catch (e) {
-        console.warn("Could not delete old file from drive:", e);
+      // Delete ALL old files matching this category from Drive & delete extra Firestore records if duplicates exist
+      for (let i = 0; i < existingDocList.length; i++) {
+        const item = existingDocList[i];
+        if (item.data.driveFileId) {
+          try {
+            await fetch(getApiUrl(`/api/v2/drive/delete-file/${item.data.driveFileId}`), {
+              method: 'DELETE',
+              headers: { 'Authorization': `Bearer ${token}` }
+            });
+          } catch (e) {
+            console.warn(`Could not delete old file from drive for ${item.data.driveFileId}:`, e);
+          }
+        }
+        if (i > 0) {
+          try {
+            await deleteDoc(item.ref);
+          } catch (e) {
+            console.warn(`Could not delete duplicate document record ${item.data.id}:`, e);
+          }
+        }
       }
 
       // Update metadata in project_uploaded_documents
