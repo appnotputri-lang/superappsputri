@@ -14,7 +14,7 @@ interface GlobalModalManagerProps {
   setEditMode: (mode: any) => void;
   data: any;
   currentTargetSharesPaid: number;
-  saveShareholder: () => void;
+  saveShareholder: (s: any) => void;
 
   // Draft Preview Modal Props
   isPreviewOpen: boolean;

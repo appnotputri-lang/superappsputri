@@ -441,7 +441,24 @@ export const AppShell: React.FC = () => {
 
   const openShareholderEditor = (mode: 'lama' | 'baru', shareholder?: Shareholder) => {
     setEditMode(mode);
-    setEditingShareholder(shareholder ? { ...shareholder } : null);
+    if (shareholder) {
+      setEditingShareholder({ ...shareholder });
+    } else {
+      setEditingShareholder({
+        id: crypto.randomUUID(),
+        salutation: 'Tuan',
+        name: '',
+        birthCity: '',
+        birthDate: '',
+        nationality: 'WNI',
+        nationalityType: 'WNI',
+        occupation: '',
+        address: { ...INITIAL_ADDRESS },
+        nik: '',
+        sharesOwned: 0,
+        kitasType: 'NONE'
+      } as any);
+    }
     setCurrentTargetSharesPaid(null);
   };
 
@@ -904,7 +921,7 @@ export const AppShell: React.FC = () => {
         setEditMode={setEditMode}
         data={data}
         currentTargetSharesPaid={currentTargetSharesPaid}
-        saveShareholder={saveShareholder as any}
+        saveShareholder={saveShareholder}
         isPreviewOpen={isPreviewOpen}
         setIsPreviewOpen={setIsPreviewOpen}
         zoom={zoom}

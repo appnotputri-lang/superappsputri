@@ -9,7 +9,7 @@ interface ShareholderModalProps {
   setEditMode: (mode: any) => void;
   data: any;
   currentTargetSharesPaid: number;
-  saveShareholder: () => void;
+  saveShareholder: (s: any) => void;
 }
 
 export const ShareholderModal: React.FC<ShareholderModalProps> = ({
@@ -63,7 +63,7 @@ export const ShareholderModal: React.FC<ShareholderModalProps> = ({
         )}
         <div className="mt-auto flex justify-end gap-3 p-4 px-6 border-t border-slate-200 bg-white sticky bottom-0 z-10 shrink-0">
           <button onClick={() => { setEditingShareholder(null); setEditMode(null); }} className="px-8 py-2 border border-slate-300 bg-white text-slate-700 rounded font-bold text-sm hover:bg-slate-50 transition-all">BATAL</button>
-          <button onClick={saveShareholder} className="px-8 py-2 bg-[#40bdae] text-white rounded font-bold text-sm hover:bg-[#349c8f] transition-all shadow-sm">SIMPAN DATA</button>
+          <button onClick={() => editingShareholder && saveShareholder(editingShareholder)} className="px-8 py-2 bg-[#40bdae] text-white rounded font-bold text-sm hover:bg-[#349c8f] transition-all shadow-sm">SIMPAN DATA</button>
         </div>
       </div>
     </Modal>

@@ -2272,8 +2272,8 @@ export const RUPSLBPage: React.FC<RUPSLBPageProps> = ({
                                   }}
                                 >
                                   <option value="">-- PILIH PEMILIK SAHAM LAMA --</option>
-                                  {(data.shareholders || []).map(sh => (
-                                    <option key={sh.id} value={sh.name}>{sh.name?.toUpperCase()}</option>
+                                  {(data.shareholders || []).map((sh, shIdx) => (
+                                    <option key={sh.id ? `sh-from-${sh.id}-${shIdx}` : `sh-from-idx-${shIdx}`} value={sh.name}>{sh.name?.toUpperCase()}</option>
                                   ))}
                                 </select>
                               </div>
@@ -2605,7 +2605,7 @@ export const RUPSLBPage: React.FC<RUPSLBPageProps> = ({
                         >
                           <option value="">-- Pilih --</option>
                           {[...data.shareholders, ...data.finalShareholders.filter(fs => !data.shareholders.some(s => s.id === fs.id))].map(s => (
-                            <option key={s.id} value={s.id}>{s.name}</option>
+                            <option key={s.id ? `rep-${s.id}` : `rep-${s.name || ''}`} value={s.id}>{s.name}</option>
                           ))}
                         </AhuSelect>
                       </div>

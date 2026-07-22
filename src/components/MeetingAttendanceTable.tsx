@@ -70,8 +70,8 @@ export const MeetingAttendanceTable: React.FC<MeetingAttendanceTableProps> = ({
             </tr>
           </thead>
           <tbody>
-            {shareholders.map(s => (
-              <tr key={s.id} className="border-b border-slate-200 last:border-0 hover:bg-slate-50 transition-colors">
+            {shareholders.map((s, idx) => (
+              <tr key={s.id ? `sh-${s.id}-${idx}` : `sh-idx-${idx}`} className="border-b border-slate-200 last:border-0 hover:bg-slate-50 transition-colors">
                 <td className="p-2 border-r border-slate-200 font-medium uppercase">{s.name}</td>
                 <td className="p-2 border-r border-slate-200">{formatInputNumber(s.sharesOwned)} Saham</td>
                 <td className="p-2 text-center border-r border-slate-200">

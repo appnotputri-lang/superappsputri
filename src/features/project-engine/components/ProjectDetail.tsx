@@ -1475,7 +1475,7 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
             uniqueOldManagers.push(om);
           }
         });
-
+        
         const hasExplicitDismissals = formObj.managementDismissals && formObj.managementDismissals.length > 0;
         const hasExplicitAppointments = formObj.managementAppointments && formObj.managementAppointments.length > 0;
 
@@ -1492,7 +1492,6 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
               nik: a.nik || ''
             });
           });
-
           // Also include manual replacements from managementDismissals
           (formObj.managementDismissals || []).forEach((d: any) => {
             if ((d.replacementType === 'MANUAL' || d.replacementType === 'NEW') && (d.replacedByDetail || d.replacedByName)) {
@@ -1508,34 +1507,26 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
               });
             }
           });
-
           const remainingOldManagers = uniqueOldManagers.filter(om => om && om.name && !dismissedNames.has(om.name.toUpperCase().trim()));
           profileUpdate.newManagementItems = [...remainingOldManagers, ...managersToAppoint];
+          console.warn("[Sync Management] Derived management from explicit appointments/dismissals.", profileUpdate.newManagementItems);
         } else {
-          const formNewMgmt = formObj.newManagementItems || formObj.managementItems || formObj.pengurus;
-          if (formNewMgmt && formNewMgmt.length > 0) {
-            profileUpdate.newManagementItems = formNewMgmt.map((m: any) => ({
-              ...m,
-              id: m.id || Math.random().toString(36).substring(7),
-              name: m.name || '',
-              position: m.position || 'DIREKTUR',
-              nik: m.nik || ''
+          const activeMgmt = (workingShareholders || [])
+            .filter((s: any) => s.isManagement || (s.managementPosition && s.managementPosition.trim().length > 0))
+            .map((s: any) => ({
+              ...s,
+              id: s.id || Math.random().toString(36).substring(7),
+              name: s.name,
+              position: s.managementPosition || 'DIREKTUR',
+              nik: s.nik || ''
             }));
+            
+          if (activeMgmt.length > 0) {
+            profileUpdate.newManagementItems = activeMgmt;
+            console.warn("[Sync Management] Derived management from workingShareholders.", profileUpdate.newManagementItems);
           } else {
-            const activeMgmt = (workingShareholders || [])
-              .filter((s: any) => s.isManagement)
-              .map((s: any) => ({
-                ...s,
-                id: s.id || Math.random().toString(36).substring(7),
-                name: s.name,
-                position: s.managementPosition || 'DIREKTUR',
-                nik: s.nik || ''
-              }));
-            if (activeMgmt.length > 0) {
-              profileUpdate.newManagementItems = activeMgmt;
-            } else {
-              profileUpdate.newManagementItems = uniqueOldManagers;
-            }
+            profileUpdate.newManagementItems = uniqueOldManagers;
+            console.warn("[Sync Management] Fallback to uniqueOldManagers (No changes detected).", profileUpdate.newManagementItems);
           }
         }
 

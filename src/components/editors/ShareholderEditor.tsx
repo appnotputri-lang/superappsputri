@@ -185,8 +185,19 @@ const ShareholderEditor: React.FC<Props> = ({
     onChange({ sharesOwned: maxPossible });
   };
 
+  const shAddress = shareholder.address || {
+    fullAddress: '',
+    rt: '',
+    rw: '',
+    kelurahan: '',
+    kecamatan: '',
+    city: '',
+    province: '',
+    postalCode: ''
+  };
+
   const updateAddress = (updates: Partial<Shareholder['address']>) => {
-    onChange({ address: { ...shareholder.address, ...updates } });
+    onChange({ address: { ...shAddress, ...updates } });
   };
 
   // Automatically pull 'Kedudukan' (city) and representative from company profile if shareholder is BADAN_HUKUM
@@ -201,16 +212,9 @@ const ShareholderEditor: React.FC<Props> = ({
         const updates: Partial<Shareholder> = {};
         
         const profileCity = (matchedProfile.domicile || matchedProfile.oldDomicile || matchedProfile.newAddress?.city || matchedProfile.oldAddress?.city || matchedProfile.kedudukanPT || (matchedProfile as any).city || '').toUpperCase();
-        if (profileCity && (!shareholder.address || shareholder.address.city !== profileCity)) {
+        if (profileCity && (!shareholder.address || shAddress.city !== profileCity)) {
           updates.address = {
-            ...(shareholder.address || {
-              fullAddress: '',
-              rt: '',
-              rw: '',
-              kelurahan: '',
-              kecamatan: '',
-              province: ''
-            }),
+            ...shAddress,
             city: profileCity
           };
         }
@@ -254,7 +258,7 @@ const ShareholderEditor: React.FC<Props> = ({
         }
       }
     }
-  }, [isBadanHukum, shareholder.linkedProfileId, shareholder.name, activeProfiles]);
+  }, [isBadanHukum, shareholder.linkedProfileId, shareholder.name, activeProfiles.length]);
 
   const handleProfileSelect = (p: CompanyProfile) => {
     const targetAddress = p.newAddress && p.newAddress.fullAddress ? { ...p.newAddress } : (p.oldAddress && p.oldAddress.fullAddress ? { ...p.oldAddress } : {
@@ -687,14 +691,14 @@ const ShareholderEditor: React.FC<Props> = ({
                 onClick={() => {
                   onChange({
                     guardianAddress: {
-                      fullAddress: shareholder.address.fullAddress || '',
-                      rt: shareholder.address.rt || '',
-                      rw: shareholder.address.rw || '',
-                      kelurahan: shareholder.address.kelurahan || '',
-                      kecamatan: shareholder.address.kecamatan || '',
-                      city: shareholder.address.city || '',
-                      province: shareholder.address.province || '',
-                      postalCode: shareholder.address.postalCode || ''
+                      fullAddress: shAddress.fullAddress || '',
+                      rt: shAddress.rt || '',
+                      rw: shAddress.rw || '',
+                      kelurahan: shAddress.kelurahan || '',
+                      kecamatan: shAddress.kecamatan || '',
+                      city: shAddress.city || '',
+                      province: shAddress.province || '',
+                      postalCode: shAddress.postalCode || ''
                     }
                   });
                 }}
@@ -1571,7 +1575,7 @@ const ShareholderEditor: React.FC<Props> = ({
         <div className="mt-4">
           <label className="block text-xs font-bold text-slate-700 mb-1">Alamat <span className="text-red-500">*</span></label>
           <textarea 
-            value={shareholder.address.fullAddress || ''} 
+            value={shAddress.fullAddress || ''} 
             onChange={e => updateAddress({ fullAddress: e.target.value.toUpperCase() })}
             className="w-full px-3 py-2 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm min-h-[80px]"
           />
@@ -1583,7 +1587,7 @@ const ShareholderEditor: React.FC<Props> = ({
           <label className="block text-xs font-bold text-slate-700 mb-1">Kedudukan <span className="text-red-500">*</span></label>
           <input 
             type="text" 
-            value={shareholder.address.city || ''} 
+            value={shAddress.city || ''} 
             onChange={e => updateAddress({ city: e.target.value.toUpperCase() })}
             placeholder="CONTOH: JAKARTA SELATAN"
             className="w-full px-3 py-2 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm"
@@ -1598,7 +1602,7 @@ const ShareholderEditor: React.FC<Props> = ({
               <label className="block text-xs font-bold text-slate-700 mb-1">Rt</label>
               <input 
                 type="text" 
-                value={shareholder.address.rt || ''} 
+                value={shAddress.rt || ''} 
                 onChange={e => updateAddress({ rt: e.target.value })}
                 className="w-full px-3 py-2 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm"
               />
@@ -1607,7 +1611,7 @@ const ShareholderEditor: React.FC<Props> = ({
               <label className="block text-xs font-bold text-slate-700 mb-1">Rw</label>
               <input 
                 type="text" 
-                value={shareholder.address.rw || ''} 
+                value={shAddress.rw || ''} 
                 onChange={e => updateAddress({ rw: e.target.value })}
                 className="w-full px-3 py-2 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm"
               />
@@ -1616,7 +1620,7 @@ const ShareholderEditor: React.FC<Props> = ({
 
           <div className="mt-2">
             <IndoRegionSelector 
-              address={shareholder.address} 
+              address={shAddress} 
               onUpdate={updateAddress} 
               hideStreetAndRT={true}
               disabled={disabled}
