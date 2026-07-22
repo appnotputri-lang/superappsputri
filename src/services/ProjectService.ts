@@ -272,25 +272,30 @@ export class ProjectService {
 
             if (afterSnap.shareholders && afterSnap.shareholders.length > 0) {
               updates.shareholders = afterSnap.shareholders.map((sh: any) => ({
-                id: sh.id,
-                name: sh.name,
-                sharesOwned: sh.sharesOwned,
-                nik: sh.nik || '',
-                npwp: sh.npwp || ''
+                ...sh,
+                id: sh.id || Math.random().toString(36).substring(7),
+                sharesOwned: Number(sh.sharesOwned ?? sh.finalShares ?? sh.shares ?? 0)
               }));
               updates.finalShareholders = updates.shareholders;
             }
 
             if (afterSnap.managementItems && afterSnap.managementItems.length > 0) {
               updates.newManagementItems = afterSnap.managementItems.map((m: any) => ({
-                id: m.id,
-                name: m.name,
-                position: m.position,
+                ...m,
+                id: m.id || Math.random().toString(36).substring(7),
+                name: m.name || '',
+                position: m.position || 'DIREKTUR',
                 nik: m.nik || ''
               }));
             }
 
             await updateDoc(clientRef, cleanUndefined(updates));
+            try {
+              const companyProfileRef = doc(db, 'company_profiles', project.clientId);
+              await updateDoc(companyProfileRef, cleanUndefined(updates));
+            } catch (e) {
+              console.warn('Could not sync company_profiles in ProjectService:', e);
+            }
           }
         }
       }

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Project, DocumentReference, ClientSnapshot, ProjectChangeSnapshot, Party } from '../../../domain/project/Project';
 import { ProjectService } from '../../../services/ProjectService';
 import { PartiesManager } from './PartiesManager';
-import { CompanyProfile, UserProfile, AmendmentDeed } from '../../../../types';
+import { CompanyProfile, UserProfile, AmendmentDeed, SkSpDocument, CompanyRevision } from '../../../../types';
 import { INITIAL_STATE } from '../../../domain/company/initialCompanyData';
 import { Workflow } from '../../../domain/project/Workflow';
 import { WorkflowService } from '../../../services/WorkflowService';
@@ -1152,13 +1152,14 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
       }));
 
     const firstSkSp = validSkSpDocs[0];
+    const finalNotaryName = notarySelectionType === 'saya' ? 'Nukantini Putri Parincha' : notaryName.trim();
 
     const updatedMetadata = {
       ...(project.metadata || {}),
       deedNumber: deedNumber.trim(),
       deedDate,
       notarySelectionType,
-      notaryName: notaryName.trim(),
+      notaryName: finalNotaryName,
       notaryLocation: notaryLocation.trim(),
       skSpEntries,
       skSpType: firstSkSp ? firstSkSp.type : (skSpEntries[0]?.type || ''),
@@ -1181,6 +1182,36 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
       refId: refIdToUse,
       uploadedAt: new Date().toISOString()
     }, true);
+
+    // Update target form document in Firestore if available
+    let targetCollection = '';
+    if (project.jobType === 'rups_lb' || project.jobType === 'sirkuler_rupslb') {
+      targetCollection = 'projects';
+    } else if (project.jobType === 'rups_t' || project.jobType === 'sirkuler') {
+      targetCollection = 'rupst_projects';
+    } else if (project.jobType === 'pendirian_pt') {
+      targetCollection = 'pendirian_projects';
+    }
+
+    if (refIdToUse && targetCollection) {
+      try {
+        const formUpdatePayload: any = {
+          notaryNumber: deedNumber.trim(),
+          notaryDate: deedDate,
+          notaryName: finalNotaryName,
+          notaryDomicile: notaryLocation.trim(),
+          skSpDocuments: validSkSpDocs,
+          updatedAt: new Date().toISOString()
+        };
+        if (firstSkSp) {
+          formUpdatePayload.skNumber = firstSkSp.number;
+          formUpdatePayload.skDate = firstSkSp.date || deedDate;
+        }
+        await updateDoc(doc(db, targetCollection, refIdToUse), cleanUndefined(formUpdatePayload));
+      } catch (e) {
+        console.warn('Could not update form document in Firestore collection:', e);
+      }
+    }
 
     if (project.clientId) {
       const clientDocRef = doc(db, 'profiles', project.clientId);
@@ -1213,30 +1244,142 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
           syncedItems.push(`KBLI (${formObj.kbliItems.length} item)`);
         }
 
-        // Capital
-        if (formObj.targetCapitalBase || formObj.originalCapitalBase || formObj.modalDasar) {
-          profileUpdate.targetCapitalBase = Number(formObj.targetCapitalBase || formObj.originalCapitalBase || formObj.modalDasar || 0);
-          profileUpdate.originalCapitalBase = Number(formObj.originalCapitalBase || formObj.targetCapitalBase || formObj.modalDasar || 0);
-          syncedItems.push('Modal Dasar / Disetor');
+        // Capital sync (Modal Dasar & Modal Disetor)
+        const formPaid = Number(formObj.targetCapitalPaid || formObj.modalDisetor || formObj.originalCapitalPaid || 0);
+        const formBase = Number(formObj.targetCapitalBase || formObj.modalDasar || formObj.originalCapitalBase || 0);
+        const formNominal = Number(formObj.shareValue || formObj.nilaiNominal || 0);
+
+        if (formBase > 0) {
+          profileUpdate.targetCapitalBase = formBase;
+          profileUpdate.originalCapitalBase = Number(freshClient?.targetCapitalBase || freshClient?.originalCapitalBase || formBase);
         }
-        if (formObj.targetCapitalPaid || formObj.originalCapitalPaid || formObj.modalDisetor) {
-          profileUpdate.targetCapitalPaid = Number(formObj.targetCapitalPaid || formObj.originalCapitalPaid || formObj.modalDisetor || 0);
-          profileUpdate.originalCapitalPaid = Number(formObj.originalCapitalPaid || formObj.targetCapitalPaid || formObj.modalDisetor || 0);
+        if (formPaid > 0) {
+          profileUpdate.targetCapitalPaid = formPaid;
+          profileUpdate.originalCapitalPaid = Number(freshClient?.targetCapitalPaid || freshClient?.originalCapitalPaid || formPaid);
+          if (freshClient?.targetCapitalPaid !== formPaid) {
+            syncedItems.push(`Modal Disetor (Rp ${formPaid.toLocaleString('id-ID')})`);
+          } else {
+            syncedItems.push('Modal Disetor / Dasar');
+          }
+        }
+        if (formNominal > 0) {
+          profileUpdate.shareValue = formNominal;
         }
 
-        // Shareholders
-        const formShareholders = formObj.finalShareholders || formObj.shareholders || formObj.pemegangSaham;
-        if (formShareholders && formShareholders.length > 0) {
-          profileUpdate.shareholders = formShareholders.map((sh: any) => ({
+        const shareVal = profileUpdate.shareValue || (freshClient as any)?.shareValue || 1000000;
+        if (profileUpdate.targetCapitalPaid && shareVal > 0) {
+          profileUpdate.totalSharesPaid = profileUpdate.targetCapitalPaid / shareVal;
+        }
+        if (profileUpdate.targetCapitalBase && shareVal > 0) {
+          profileUpdate.totalSharesBase = profileUpdate.targetCapitalBase / shareVal;
+        }
+
+        // Shareholders sync & calculation
+        const baseShareholdersSource = (formObj.finalShareholders && formObj.finalShareholders.length > 0)
+          ? formObj.finalShareholders
+          : (formObj.shareholders || formObj.pemegangSaham || freshClient?.shareholders || []);
+
+        let workingShareholders: any[] = JSON.parse(JSON.stringify(baseShareholdersSource || []));
+
+        // Process share transfers if present in formObj
+        const transfers = formObj.shareTransfersNew || formObj.shareTransfers || [];
+        if (transfers.length > 0 && formObj.resolutions?.shareholders) {
+          transfers.forEach((t: any) => {
+            const transferShares = Number(t.sharesTransferred || t.shares || 0);
+            if (transferShares <= 0) return;
+
+            // Find source
+            const fromSh = workingShareholders.find((s: any) => 
+              s.id === t.fromShareholderId || 
+              (s.name && t.fromName && s.name.trim().toUpperCase() === t.fromName.trim().toUpperCase())
+            );
+
+            // Find target
+            const targetDetail = t.toDetail || {};
+            const toName = t.toName || targetDetail.name || '';
+            const toNik = t.toNik || targetDetail.nik || '';
+
+            let toSh = workingShareholders.find((s: any) => 
+              (s.id && (s.id === t.toShareholderId || s.id === targetDetail.id)) ||
+              (toNik && s.nik && s.nik.trim() === toNik.trim()) ||
+              (toName && s.name && s.name.trim().toUpperCase() === toName.trim().toUpperCase())
+            );
+
+            if (toSh) {
+              // Merge details from targetDetail into existing target shareholder
+              Object.assign(toSh, {
+                ...targetDetail,
+                ...toSh,
+                sharesOwned: (toSh.sharesOwned || 0) + (formObj.finalShareholders?.length ? 0 : transferShares),
+                address: targetDetail.address || toSh.address
+              });
+            } else if (toName || targetDetail.name) {
+              // Add new recipient shareholder
+              const newSh = {
+                ...targetDetail,
+                id: targetDetail.id || t.toShareholderId || Math.random().toString(36).substring(7),
+                name: toName || targetDetail.name,
+                nik: toNik || targetDetail.nik || '',
+                salutation: t.toSalutation || targetDetail.salutation || 'Tuan',
+                sharesOwned: transferShares,
+                address: targetDetail.address
+              };
+              workingShareholders.push(newSh);
+            }
+
+            if (fromSh && !formObj.finalShareholders?.length) {
+              fromSh.sharesOwned = Math.max(0, (fromSh.sharesOwned || 0) - transferShares);
+            }
+          });
+        }
+
+        // Enrich all workingShareholders with initial shareholder details (address, occupation, etc)
+        const initialShareholdersPool = [
+          ...(formObj.shareholders || []),
+          ...(freshClient?.shareholders || []),
+          ...(freshClient?.finalShareholders || [])
+        ];
+
+        workingShareholders = workingShareholders.map((sh: any) => {
+          const matchingOld = initialShareholdersPool.find((oldSh: any) =>
+            (oldSh.id && oldSh.id === sh.id) ||
+            (oldSh.nik && sh.nik && oldSh.nik.trim() === sh.nik.trim()) ||
+            (oldSh.name && sh.name && oldSh.name.trim().toUpperCase() === sh.name.trim().toUpperCase())
+          );
+
+          const mergedAddress = sh.address || matchingOld?.address;
+          const formattedAddress = mergedAddress ? {
+            rt: mergedAddress.rt || '',
+            rw: mergedAddress.rw || '',
+            kelurahan: mergedAddress.kelurahan || '',
+            kecamatan: mergedAddress.kecamatan || '',
+            city: mergedAddress.city || '',
+            province: mergedAddress.province || '',
+            fullAddress: mergedAddress.fullAddress || (typeof mergedAddress === 'string' ? mergedAddress : '')
+          } : undefined;
+
+          return {
+            ...(matchingOld || {}),
+            ...sh,
             id: sh.id || Math.random().toString(36).substring(7),
-            name: sh.name,
-            sharesOwned: Number(sh.finalShares || sh.sharesOwned || sh.shares || 0),
-            nik: sh.nik || '',
-            npwp: sh.npwp || ''
-          })).filter((sh: any) => sh.sharesOwned > 0);
-          
-          profileUpdate.finalShareholders = profileUpdate.shareholders;
-          syncedItems.push(`Susunan Pemegang Saham (${profileUpdate.shareholders.length} orang)`);
+            name: sh.name || '',
+            sharesOwned: Number(sh.finalShares ?? sh.sharesOwned ?? sh.shares ?? sh.jumlahSaham ?? 0),
+            address: formattedAddress,
+            nik: sh.nik || matchingOld?.nik || '',
+            npwp: sh.npwp || matchingOld?.npwp || '',
+            occupation: sh.occupation || matchingOld?.occupation || '',
+            birthCity: sh.birthCity || matchingOld?.birthCity || '',
+            birthDate: sh.birthDate || matchingOld?.birthDate || '',
+            salutation: sh.salutation || matchingOld?.salutation || 'Tuan',
+            nationality: sh.nationality || matchingOld?.nationality || 'Indonesia',
+            managementPosition: sh.managementPosition || matchingOld?.managementPosition || '',
+            isManagement: sh.isManagement ?? matchingOld?.isManagement
+          };
+        }).filter((sh: any) => sh.sharesOwned > 0 || (sh.name && sh.name.trim().length > 0));
+
+        if (workingShareholders.length > 0) {
+          profileUpdate.shareholders = workingShareholders;
+          profileUpdate.finalShareholders = workingShareholders;
         }
 
         // Management calculation
@@ -1245,6 +1388,7 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
           ...(freshClient?.shareholders || [])
             .filter((s: any) => s.isManagement)
             .map((s: any) => ({
+              ...s,
               id: s.id || Math.random().toString(36).substring(7),
               name: s.name,
               position: s.managementPosition || "DIREKTUR",
@@ -1267,31 +1411,52 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
         const hasExplicitAppointments = formObj.managementAppointments && formObj.managementAppointments.length > 0;
 
         if (hasExplicitDismissals || hasExplicitAppointments) {
-          const dismissedNames = new Set((formObj.managementDismissals || []).map((d: any) => d.name?.toUpperCase().trim()));
-          const managersToAppoint = (formObj.managementAppointments || []).map((a: any) => ({
-            id: a.id || Math.random().toString(36).substring(7),
-            name: a.name,
-            position: a.position || 'DIREKTUR',
-            nik: a.nik || ''
-          }));
+          const dismissedNames = new Set((formObj.managementDismissals || []).map((d: any) => (d.name || d.dismissedName || '').toUpperCase().trim()));
+          
+          const managersToAppoint: any[] = [];
+          (formObj.managementAppointments || []).forEach((a: any) => {
+            managersToAppoint.push({
+              ...a,
+              id: a.id || Math.random().toString(36).substring(7),
+              name: a.name || '',
+              position: a.position || 'DIREKTUR',
+              nik: a.nik || ''
+            });
+          });
 
-          profileUpdate.newManagementItems = [
-            ...uniqueOldManagers.filter(om => om && om.name && !dismissedNames.has(om.name.toUpperCase().trim())),
-            ...managersToAppoint
-          ];
+          // Also include manual replacements from managementDismissals
+          (formObj.managementDismissals || []).forEach((d: any) => {
+            if ((d.replacementType === 'MANUAL' || d.replacementType === 'NEW') && (d.replacedByDetail || d.replacedByName)) {
+              const detail = d.replacedByDetail || {};
+              managersToAppoint.push({
+                ...detail,
+                id: detail.id || Math.random().toString(36).substring(7),
+                name: d.replacedByName || detail.name || '',
+                position: d.replacedByPosition || detail.position || detail.managementPosition || 'DIREKTUR',
+                nik: d.replacedByNik || detail.nik || '',
+                salutation: d.replacedBySalutation || detail.salutation || 'Tuan',
+                address: detail.address
+              });
+            }
+          });
+
+          const remainingOldManagers = uniqueOldManagers.filter(om => om && om.name && !dismissedNames.has(om.name.toUpperCase().trim()));
+          profileUpdate.newManagementItems = [...remainingOldManagers, ...managersToAppoint];
         } else {
           const formNewMgmt = formObj.newManagementItems || formObj.managementItems || formObj.pengurus;
           if (formNewMgmt && formNewMgmt.length > 0) {
             profileUpdate.newManagementItems = formNewMgmt.map((m: any) => ({
+              ...m,
               id: m.id || Math.random().toString(36).substring(7),
-              name: m.name,
+              name: m.name || '',
               position: m.position || 'DIREKTUR',
               nik: m.nik || ''
             }));
           } else {
-            const activeMgmt = (formObj.finalShareholders || formObj.shareholders || [])
+            const activeMgmt = (workingShareholders || [])
               .filter((s: any) => s.isManagement)
               .map((s: any) => ({
+                ...s,
                 id: s.id || Math.random().toString(36).substring(7),
                 name: s.name,
                 position: s.managementPosition || 'DIREKTUR',
@@ -1304,13 +1469,28 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
             }
           }
         }
-        if (profileUpdate.newManagementItems && profileUpdate.newManagementItems.length > 0) {
-          syncedItems.push(`Susunan Pengurus (${profileUpdate.newManagementItems.length} orang)`);
+
+        // Enrich all management items with details (address, etc.) from shareholders/client
+        if (profileUpdate.newManagementItems) {
+          profileUpdate.newManagementItems = profileUpdate.newManagementItems.map((m: any) => {
+            const sourceSh = workingShareholders.find((s: any) => (s.name || '').trim().toUpperCase() === (m.name || '').trim().toUpperCase());
+            const sourceClient = freshClient?.newManagementItems?.find((c: any) => (c.name || '').trim().toUpperCase() === (m.name || '').trim().toUpperCase());
+            const source = sourceSh || sourceClient;
+
+            return {
+              ...m,
+              salutation: m.salutation || source?.salutation || 'Tuan',
+              birthCity: m.birthCity || source?.birthCity || '',
+              birthDate: m.birthDate || source?.birthDate || '',
+              occupation: m.occupation || source?.occupation || '',
+              nationality: m.nationality || source?.nationality || 'Indonesia',
+              address: m.address || source?.address
+            };
+          });
         }
       }
 
       // Merge Deed and SK details
-      const finalNotaryName = notarySelectionType === 'saya' ? 'Nukantini Putri Parincha' : notaryName.trim();
       if (project.jobType === 'pendirian_pt') {
         profileUpdate.establishmentDeedNumber = deedNumber.trim();
         profileUpdate.establishmentDeedDate = deedDate;
@@ -1364,13 +1544,40 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
       if (profileUpdate.companyName && profileUpdate.companyName !== freshClient?.companyName) {
         changesList.push({ field: 'Nama Perusahaan', before: freshClient?.companyName || '-', after: profileUpdate.companyName });
       }
-      if (profileUpdate.kbliItems && JSON.stringify(profileUpdate.kbliItems) !== JSON.stringify(freshClient?.kbliItems)) {
+
+      const oldKbliStr = JSON.stringify((freshClient?.kbliItems || []).map((k: any) => k.code));
+      const newKbliStr = JSON.stringify((profileUpdate.kbliItems || []).map((k: any) => k.code));
+      if (profileUpdate.kbliItems && newKbliStr !== oldKbliStr) {
         changesList.push({ field: 'KBLI', before: `${freshClient?.kbliItems?.length || 0} item`, after: `${profileUpdate.kbliItems.length} item` });
       }
-      if (profileUpdate.newManagementItems && JSON.stringify(profileUpdate.newManagementItems) !== JSON.stringify(freshClient?.newManagementItems)) {
+
+      const oldMgmtSig = JSON.stringify((freshClient?.newManagementItems || []).map((m: any) => ({
+        name: (m.name || '').trim().toUpperCase(),
+        pos: (m.position || '').trim().toUpperCase(),
+        addr: m.address?.fullAddress || ''
+      })));
+      const newMgmtSig = JSON.stringify((profileUpdate.newManagementItems || []).map((m: any) => ({
+        name: (m.name || '').trim().toUpperCase(),
+        pos: (m.position || '').trim().toUpperCase(),
+        addr: m.address?.fullAddress || ''
+      })));
+      if (profileUpdate.newManagementItems && newMgmtSig !== oldMgmtSig) {
+        syncedItems.push(`Susunan Pengurus (${profileUpdate.newManagementItems.length} orang)`);
         changesList.push({ field: 'Susunan Pengurus', before: `${freshClient?.newManagementItems?.length || 0} orang`, after: `${profileUpdate.newManagementItems.length} orang` });
       }
-      if (profileUpdate.shareholders && JSON.stringify(profileUpdate.shareholders) !== JSON.stringify(freshClient?.shareholders)) {
+
+      const oldShSig = JSON.stringify((freshClient?.shareholders || []).map((s: any) => ({
+        name: (s.name || '').trim().toUpperCase(),
+        shares: s.sharesOwned || 0,
+        addr: s.address?.fullAddress || ''
+      })));
+      const newShSig = JSON.stringify((profileUpdate.shareholders || []).map((s: any) => ({
+        name: (s.name || '').trim().toUpperCase(),
+        shares: s.sharesOwned || 0,
+        addr: s.address?.fullAddress || ''
+      })));
+      if (profileUpdate.shareholders && newShSig !== oldShSig) {
+        syncedItems.push(`Susunan Pemegang Saham (${profileUpdate.shareholders.length} orang)`);
         changesList.push({ field: 'Pemegang Saham', before: `${freshClient?.shareholders?.length || 0} pemegang`, after: `${profileUpdate.shareholders.length} pemegang` });
       }
       changesList.push({
@@ -1396,6 +1603,11 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
       profileUpdate.versionHistory = [newRevision, ...existingHistory];
 
       await setDoc(doc(db, 'profiles', project.clientId), cleanUndefined(profileUpdate), { merge: true });
+      try {
+        await setDoc(doc(db, 'company_profiles', project.clientId), cleanUndefined(profileUpdate), { merge: true });
+      } catch (e) {
+        console.warn('Could not sync company_profiles:', e);
+      }
     }
 
     return syncedItems;
