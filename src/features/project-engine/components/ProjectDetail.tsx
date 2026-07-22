@@ -128,6 +128,10 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
   const [skSpType, setSkSpType] = useState<string>('SP (Perubahan Data Perseroan)');
   const [skSpNumber, setSkSpNumber] = useState('');
   const [skSpDate, setSkSpDate] = useState('');
+  const [skSpEntries, setSkSpEntries] = useState<{ id: string; type: string; number: string; date: string }[]>([
+    { id: '1', type: 'SP (Perubahan Data Perseroan)', number: '', date: '' }
+  ]);
+  const [savingDeedInfo, setSavingDeedInfo] = useState(false);
 
   // New Task State
   const [newTaskTitle, setNewTaskTitle] = useState('');
@@ -833,7 +837,8 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
         }
       }
 
-      // Pre-populate deed & SK/SP details if saved in project metadata
+      // Pre-populate deed & SK/SP details if saved in project metadata or client profile
+      let loadedEntries: { id: string; type: string; number: string; date: string }[] = [];
       if (proj.metadata) {
         if (proj.metadata.deedNumber) setDeedNumber(proj.metadata.deedNumber);
         if (proj.metadata.deedDate) setDeedDate(proj.metadata.deedDate);
@@ -843,6 +848,43 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
         if (proj.metadata.skSpType) setSkSpType(proj.metadata.skSpType);
         if (proj.metadata.skSpNumber) setSkSpNumber(proj.metadata.skSpNumber);
         if (proj.metadata.skSpDate) setSkSpDate(proj.metadata.skSpDate);
+
+        if (proj.metadata.skSpEntries && Array.isArray(proj.metadata.skSpEntries) && proj.metadata.skSpEntries.length > 0) {
+          loadedEntries = proj.metadata.skSpEntries;
+        } else if (proj.metadata.skSpNumber) {
+          loadedEntries = [{
+            id: '1',
+            type: proj.metadata.skSpType || 'SP (Perubahan Data Perseroan)',
+            number: proj.metadata.skSpNumber,
+            date: proj.metadata.skSpDate || ''
+          }];
+        }
+      }
+
+      // Check existing deed SK/SP docs in cli.amendmentDeeds if available for deedNumber prefill
+      const currentDeedNum = proj.metadata?.deedNumber || '';
+      if (currentDeedNum && cli?.amendmentDeeds) {
+        const matchingDeed = cli.amendmentDeeds.find((d: AmendmentDeed) => d.number === currentDeedNum.trim());
+        if (matchingDeed?.skSpDocuments && matchingDeed.skSpDocuments.length > 0) {
+          const docTypeToOptionMap = (docType: string): string => {
+            if (docType === 'SP_DATA_PERSEROAN') return 'SP (Perubahan Data Perseroan)';
+            if (docType === 'SP_ANGGARAN_DASAR') return 'SK (Persetujuan Perubahan Anggaran Dasar)';
+            if (docType === 'SK') return 'SK (Pendirian PT)';
+            if (docType === 'SP') return 'SP (Pendirian PT)';
+            return docType || 'SP (Perubahan Data Perseroan)';
+          };
+
+          loadedEntries = matchingDeed.skSpDocuments.map((docItem: any) => ({
+            id: docItem.id || Math.random().toString(36).substring(7),
+            type: docTypeToOptionMap(docItem.type),
+            number: docItem.number || '',
+            date: docItem.date || ''
+          }));
+        }
+      }
+
+      if (loadedEntries.length > 0) {
+        setSkSpEntries(loadedEntries);
       }
     } catch (err: any) {
       console.error(err);
@@ -1089,6 +1131,298 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
     }
   };
 
+  const syncDeedInfoAndClientProfile = async () => {
+    if (!project) return [];
+
+    const mapOptionToDocType = (typeStr: string): 'SK' | 'SP_DATA_PERSEROAN' | 'SP_ANGGARAN_DASAR' | 'SP' => {
+      const s = typeStr.toLowerCase();
+      if (s.includes('perubahan data perseroan')) return 'SP_DATA_PERSEROAN';
+      if (s.includes('perubahan anggaran dasar')) return 'SP_ANGGARAN_DASAR';
+      if (s.includes('sk')) return 'SK';
+      return 'SP';
+    };
+
+    const validSkSpDocs: SkSpDocument[] = skSpEntries
+      .filter(e => e.number.trim().length > 0)
+      .map(e => ({
+        id: e.id || Math.random().toString(36).substring(7),
+        type: mapOptionToDocType(e.type),
+        number: e.number.trim(),
+        date: e.date || deedDate
+      }));
+
+    const firstSkSp = validSkSpDocs[0];
+
+    const updatedMetadata = {
+      ...(project.metadata || {}),
+      deedNumber: deedNumber.trim(),
+      deedDate,
+      notarySelectionType,
+      notaryName: notaryName.trim(),
+      notaryLocation: notaryLocation.trim(),
+      skSpEntries,
+      skSpType: firstSkSp ? firstSkSp.type : (skSpEntries[0]?.type || ''),
+      skSpNumber: firstSkSp ? firstSkSp.number : (skSpEntries[0]?.number || ''),
+      skSpDate: firstSkSp ? firstSkSp.date : (skSpEntries[0]?.date || '')
+    };
+
+    await updateDoc(doc(db, 'office_projects', projectId), {
+      metadata: updatedMetadata
+    });
+
+    const syncedItems: string[] = [];
+
+    const formDoc = documents.find(d => d.refId);
+    const refIdToUse = formDoc?.refId || project.metadata?.refId || projectId;
+    const formObj = await fetchDocRecordData({
+      id: 'temp',
+      name: project.title || '',
+      type: 'form',
+      refId: refIdToUse,
+      uploadedAt: new Date().toISOString()
+    }, true);
+
+    if (project.clientId) {
+      const clientDocRef = doc(db, 'profiles', project.clientId);
+      const clientSnap = await getDoc(clientDocRef);
+      const freshClient = clientSnap.exists() ? (clientSnap.data() as CompanyProfile) : null;
+
+      const profileUpdate: any = {
+        updatedAt: new Date().toISOString()
+      };
+
+      if (formObj) {
+        if (formObj.companyName || formObj.namaPt) {
+          profileUpdate.companyName = formObj.companyName || formObj.namaPt;
+          if (profileUpdate.companyName !== freshClient?.companyName) {
+            syncedItems.push('Nama Perusahaan');
+          }
+        }
+        if (formObj.companyType) {
+          profileUpdate.companyType = formObj.companyType;
+        }
+        if (formObj.fullAddress || formObj.address?.fullAddress) {
+          profileUpdate.fullAddress = formObj.fullAddress || formObj.address?.fullAddress;
+          syncedItems.push('Alamat Utama / Domisili');
+        }
+        if (formObj.newAddress) {
+          profileUpdate.newAddress = formObj.newAddress;
+        }
+        if (formObj.kbliItems && formObj.kbliItems.length > 0) {
+          profileUpdate.kbliItems = formObj.kbliItems;
+          syncedItems.push(`KBLI (${formObj.kbliItems.length} item)`);
+        }
+
+        // Capital
+        if (formObj.targetCapitalBase || formObj.originalCapitalBase || formObj.modalDasar) {
+          profileUpdate.targetCapitalBase = Number(formObj.targetCapitalBase || formObj.originalCapitalBase || formObj.modalDasar || 0);
+          profileUpdate.originalCapitalBase = Number(formObj.originalCapitalBase || formObj.targetCapitalBase || formObj.modalDasar || 0);
+          syncedItems.push('Modal Dasar / Disetor');
+        }
+        if (formObj.targetCapitalPaid || formObj.originalCapitalPaid || formObj.modalDisetor) {
+          profileUpdate.targetCapitalPaid = Number(formObj.targetCapitalPaid || formObj.originalCapitalPaid || formObj.modalDisetor || 0);
+          profileUpdate.originalCapitalPaid = Number(formObj.originalCapitalPaid || formObj.targetCapitalPaid || formObj.modalDisetor || 0);
+        }
+
+        // Shareholders
+        const formShareholders = formObj.finalShareholders || formObj.shareholders || formObj.pemegangSaham;
+        if (formShareholders && formShareholders.length > 0) {
+          profileUpdate.shareholders = formShareholders.map((sh: any) => ({
+            id: sh.id || Math.random().toString(36).substring(7),
+            name: sh.name,
+            sharesOwned: Number(sh.finalShares || sh.sharesOwned || sh.shares || 0),
+            nik: sh.nik || '',
+            npwp: sh.npwp || ''
+          })).filter((sh: any) => sh.sharesOwned > 0);
+          
+          profileUpdate.finalShareholders = profileUpdate.shareholders;
+          syncedItems.push(`Susunan Pemegang Saham (${profileUpdate.shareholders.length} orang)`);
+        }
+
+        // Management calculation
+        const oldManagers = [
+          ...(freshClient?.newManagementItems || []),
+          ...(freshClient?.shareholders || [])
+            .filter((s: any) => s.isManagement)
+            .map((s: any) => ({
+              id: s.id || Math.random().toString(36).substring(7),
+              name: s.name,
+              position: s.managementPosition || "DIREKTUR",
+              nik: s.nik || ""
+            }))
+        ];
+
+        const uniqueOldManagers: any[] = [];
+        const seenMgmt = new Set<string>();
+        oldManagers.forEach((om: any) => {
+          if (!om || !om.name) return;
+          const key = `${om.name.toUpperCase().trim()}_${(om.position || 'DIREKTUR').toUpperCase().trim()}`;
+          if (!seenMgmt.has(key)) {
+            seenMgmt.add(key);
+            uniqueOldManagers.push(om);
+          }
+        });
+
+        const hasExplicitDismissals = formObj.managementDismissals && formObj.managementDismissals.length > 0;
+        const hasExplicitAppointments = formObj.managementAppointments && formObj.managementAppointments.length > 0;
+
+        if (hasExplicitDismissals || hasExplicitAppointments) {
+          const dismissedNames = new Set((formObj.managementDismissals || []).map((d: any) => d.name?.toUpperCase().trim()));
+          const managersToAppoint = (formObj.managementAppointments || []).map((a: any) => ({
+            id: a.id || Math.random().toString(36).substring(7),
+            name: a.name,
+            position: a.position || 'DIREKTUR',
+            nik: a.nik || ''
+          }));
+
+          profileUpdate.newManagementItems = [
+            ...uniqueOldManagers.filter(om => om && om.name && !dismissedNames.has(om.name.toUpperCase().trim())),
+            ...managersToAppoint
+          ];
+        } else {
+          const formNewMgmt = formObj.newManagementItems || formObj.managementItems || formObj.pengurus;
+          if (formNewMgmt && formNewMgmt.length > 0) {
+            profileUpdate.newManagementItems = formNewMgmt.map((m: any) => ({
+              id: m.id || Math.random().toString(36).substring(7),
+              name: m.name,
+              position: m.position || 'DIREKTUR',
+              nik: m.nik || ''
+            }));
+          } else {
+            const activeMgmt = (formObj.finalShareholders || formObj.shareholders || [])
+              .filter((s: any) => s.isManagement)
+              .map((s: any) => ({
+                id: s.id || Math.random().toString(36).substring(7),
+                name: s.name,
+                position: s.managementPosition || 'DIREKTUR',
+                nik: s.nik || ''
+              }));
+            if (activeMgmt.length > 0) {
+              profileUpdate.newManagementItems = activeMgmt;
+            } else {
+              profileUpdate.newManagementItems = uniqueOldManagers;
+            }
+          }
+        }
+        if (profileUpdate.newManagementItems && profileUpdate.newManagementItems.length > 0) {
+          syncedItems.push(`Susunan Pengurus (${profileUpdate.newManagementItems.length} orang)`);
+        }
+      }
+
+      // Merge Deed and SK details
+      const finalNotaryName = notarySelectionType === 'saya' ? 'Nukantini Putri Parincha' : notaryName.trim();
+      if (project.jobType === 'pendirian_pt') {
+        profileUpdate.establishmentDeedNumber = deedNumber.trim();
+        profileUpdate.establishmentDeedDate = deedDate;
+        profileUpdate.establishmentNotary = finalNotaryName;
+        profileUpdate.establishmentNotaryTitle = notarySelectionType === 'saya' ? 'Sarjana Hukum, Magister Kenotariatan' : '';
+        profileUpdate.establishmentNotaryDomicile = notaryLocation.trim();
+        if (firstSkSp) {
+          profileUpdate.establishmentSkNumber = firstSkSp.number;
+          profileUpdate.establishmentSkDate = firstSkSp.date || deedDate;
+        }
+        syncedItems.push('Data Akta Pendirian & SK');
+      } else {
+        // RUPS LB or Sirkuler
+        profileUpdate.latestAmendmentDeedNumber = deedNumber.trim();
+        profileUpdate.latestAmendmentDeedDate = deedDate;
+        profileUpdate.latestAmendmentNotary = finalNotaryName;
+        if (firstSkSp) {
+          profileUpdate.latestAmendmentSkNumber = firstSkSp.number;
+          profileUpdate.latestAmendmentSkDate = firstSkSp.date || deedDate;
+        }
+
+        const existingDeeds = freshClient?.amendmentDeeds || [];
+        const newAmendmentDeed: AmendmentDeed = {
+          id: Math.random().toString(36).substring(7),
+          number: deedNumber.trim(),
+          date: deedDate,
+          notary: finalNotaryName,
+          notaryTitle: notarySelectionType === 'saya' ? 'Sarjana Hukum, Magister Kenotariatan' : '',
+          notaryDomicile: notaryLocation.trim(),
+          skNumber: firstSkSp ? firstSkSp.number : '',
+          skDate: firstSkSp ? firstSkSp.date : deedDate,
+          skSpDocuments: validSkSpDocs
+        };
+
+        const duplicateIndex = existingDeeds.findIndex(d => d.number === deedNumber.trim());
+        if (duplicateIndex !== -1) {
+          const updatedDeeds = [...existingDeeds];
+          updatedDeeds[duplicateIndex] = {
+            ...newAmendmentDeed,
+            id: existingDeeds[duplicateIndex].id || newAmendmentDeed.id
+          };
+          profileUpdate.amendmentDeeds = updatedDeeds;
+        } else {
+          profileUpdate.amendmentDeeds = [newAmendmentDeed, ...existingDeeds];
+        }
+        syncedItems.push(`Data Akta Perubahan (No. ${deedNumber.trim()}${validSkSpDocs.length > 0 ? `, ${validSkSpDocs.length} SK/SP` : ''})`);
+      }
+
+      // Build changes for versionHistory
+      const changesList: { field: string; before: any; after: any }[] = [];
+      if (profileUpdate.companyName && profileUpdate.companyName !== freshClient?.companyName) {
+        changesList.push({ field: 'Nama Perusahaan', before: freshClient?.companyName || '-', after: profileUpdate.companyName });
+      }
+      if (profileUpdate.kbliItems && JSON.stringify(profileUpdate.kbliItems) !== JSON.stringify(freshClient?.kbliItems)) {
+        changesList.push({ field: 'KBLI', before: `${freshClient?.kbliItems?.length || 0} item`, after: `${profileUpdate.kbliItems.length} item` });
+      }
+      if (profileUpdate.newManagementItems && JSON.stringify(profileUpdate.newManagementItems) !== JSON.stringify(freshClient?.newManagementItems)) {
+        changesList.push({ field: 'Susunan Pengurus', before: `${freshClient?.newManagementItems?.length || 0} orang`, after: `${profileUpdate.newManagementItems.length} orang` });
+      }
+      if (profileUpdate.shareholders && JSON.stringify(profileUpdate.shareholders) !== JSON.stringify(freshClient?.shareholders)) {
+        changesList.push({ field: 'Pemegang Saham', before: `${freshClient?.shareholders?.length || 0} pemegang`, after: `${profileUpdate.shareholders.length} pemegang` });
+      }
+      changesList.push({
+        field: 'Akta & SK/SP',
+        before: freshClient?.latestAmendmentDeedNumber || freshClient?.establishmentDeedNumber || '-',
+        after: `${deedNumber.trim()} (${validSkSpDocs.length} SK/SP)`
+      });
+
+      const newRevision: CompanyRevision = {
+        revisionId: Math.random().toString(36).substring(7),
+        changedAt: new Date().toISOString(),
+        changedBy: currentUser?.name || currentUser?.email || 'Notaris Engine',
+        projectCauseId: projectId,
+        reason: isProjectMinuta(project.status) 
+          ? `Koreksi Data Akta / Update Minuta (${deedNumber.trim()})`
+          : `Penetapan Akta Selesai (${deedNumber.trim()})`,
+        changes: changesList,
+        deedNumber: deedNumber.trim(),
+        skNumber: firstSkSp ? firstSkSp.number : ''
+      };
+
+      const existingHistory = freshClient?.versionHistory || [];
+      profileUpdate.versionHistory = [newRevision, ...existingHistory];
+
+      await setDoc(doc(db, 'profiles', project.clientId), cleanUndefined(profileUpdate), { merge: true });
+    }
+
+    return syncedItems;
+  };
+
+  const handleSaveDeedInfoOnly = async () => {
+    if (!deedNumber.trim() || !deedDate || !notaryName.trim() || !notaryLocation.trim()) {
+      alert('Lengkapi data akta terlebih dahulu.');
+      return;
+    }
+    setSavingDeedInfo(true);
+    try {
+      const syncedItems = await syncDeedInfoAndClientProfile();
+      await fetchProjectFullDetails();
+      const itemsFormatted = syncedItems && syncedItems.length > 0
+        ? syncedItems.map(item => `• ${item}`).join('\n')
+        : '• Data Akta & Profil Perusahaan';
+
+      alert(`✅ Data akta berhasil disimpan.\n\nPerubahan yang disinkronkan ke profil klien:\n${itemsFormatted}`);
+    } catch (e: any) {
+      console.error(e);
+      alert('Gagal menyimpan data akta: ' + (e.message || e));
+    } finally {
+      setSavingDeedInfo(false);
+    }
+  };
+
   const handleStatusTransition = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!transitionStatus) return;
@@ -1109,219 +1443,10 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
 
     setTransitioning(true);
     try {
-      // 1. If we have deed info and transitioning to completed, let's first update project metadata
       if (isCompletedStatus && hasDeedForm) {
-        const updatedMetadata = {
-          ...(project?.metadata || {}),
-          deedNumber: deedNumber.trim(),
-          deedDate,
-          notarySelectionType,
-          notaryName: notaryName.trim(),
-          notaryLocation: notaryLocation.trim(),
-          skSpType,
-          skSpNumber: skSpNumber.trim(),
-          skSpDate
-        };
-        
-        await updateDoc(doc(db, 'office_projects', projectId), {
-          metadata: updatedMetadata
-        });
-
-        // 2. Try to fetch the latest form document data to propagate changes to Master Client profile
-        const formDoc = documents.find(d => d.refId);
-        const refIdToUse = formDoc?.refId || project?.metadata?.refId || projectId;
-        const formObj = await fetchDocRecordData({
-          id: 'temp',
-          name: project?.title || '',
-          type: 'form',
-          refId: refIdToUse,
-          uploadedAt: new Date().toISOString()
-        }, true);
-
-        if (project?.clientId) {
-          const clientDocRef = doc(db, 'profiles', project.clientId);
-          const clientSnap = await getDoc(clientDocRef);
-          const freshClient = clientSnap.exists() ? (clientSnap.data() as CompanyProfile) : null;
-
-          const profileUpdate: any = {
-            updatedAt: new Date().toISOString()
-          };
-
-          // If we successfully fetched the form data, sync it to the master profile
-          if (formObj) {
-            if (formObj.companyName || formObj.namaPt) {
-              profileUpdate.companyName = formObj.companyName || formObj.namaPt;
-            }
-            if (formObj.companyType) {
-              profileUpdate.companyType = formObj.companyType;
-            }
-            if (formObj.fullAddress || formObj.address?.fullAddress) {
-              profileUpdate.fullAddress = formObj.fullAddress || formObj.address?.fullAddress;
-            }
-            if (formObj.newAddress) {
-              profileUpdate.newAddress = formObj.newAddress;
-            }
-            if (formObj.kbliItems) {
-              profileUpdate.kbliItems = formObj.kbliItems;
-            }
-
-            // Capital
-            if (formObj.targetCapitalBase || formObj.originalCapitalBase || formObj.modalDasar) {
-              profileUpdate.targetCapitalBase = Number(formObj.targetCapitalBase || formObj.originalCapitalBase || formObj.modalDasar || 0);
-              profileUpdate.originalCapitalBase = Number(formObj.originalCapitalBase || formObj.targetCapitalBase || formObj.modalDasar || 0);
-            }
-            if (formObj.targetCapitalPaid || formObj.originalCapitalPaid || formObj.modalDisetor) {
-              profileUpdate.targetCapitalPaid = Number(formObj.targetCapitalPaid || formObj.originalCapitalPaid || formObj.modalDisetor || 0);
-              profileUpdate.originalCapitalPaid = Number(formObj.originalCapitalPaid || formObj.targetCapitalPaid || formObj.modalDisetor || 0);
-            }
-
-            // Shareholders
-            const formShareholders = formObj.finalShareholders || formObj.shareholders || formObj.pemegangSaham;
-            if (formShareholders && formShareholders.length > 0) {
-              profileUpdate.shareholders = formShareholders.map((sh: any) => ({
-                id: sh.id || Math.random().toString(36).substring(7),
-                name: sh.name,
-                sharesOwned: Number(sh.finalShares || sh.sharesOwned || sh.shares || 0),
-                nik: sh.nik || '',
-                npwp: sh.npwp || ''
-              })).filter((sh: any) => sh.sharesOwned > 0);
-              
-              profileUpdate.finalShareholders = profileUpdate.shareholders;
-            }
-
-            // Management calculation mimicking rupsContentBlocks.ts
-            const oldManagers = [
-              ...(freshClient?.newManagementItems || []),
-              ...(freshClient?.shareholders || [])
-                .filter((s: any) => s.isManagement)
-                .map((s: any) => ({
-                  id: s.id || Math.random().toString(36).substring(7),
-                  name: s.name,
-                  position: s.managementPosition || "DIREKTUR",
-                  nik: s.nik || ""
-                }))
-            ];
-
-            const uniqueOldManagers: any[] = [];
-            const seenMgmt = new Set<string>();
-            oldManagers.forEach((om: any) => {
-              if (!om || !om.name) return;
-              const key = `${om.name.toUpperCase().trim()}_${(om.position || 'DIREKTUR').toUpperCase().trim()}`;
-              if (!seenMgmt.has(key)) {
-                seenMgmt.add(key);
-                uniqueOldManagers.push(om);
-              }
-            });
-
-            const hasExplicitDismissals = formObj.managementDismissals && formObj.managementDismissals.length > 0;
-            const hasExplicitAppointments = formObj.managementAppointments && formObj.managementAppointments.length > 0;
-
-            if (hasExplicitDismissals || hasExplicitAppointments) {
-              const dismissedNames = new Set((formObj.managementDismissals || []).map((d: any) => d.name?.toUpperCase().trim()));
-              const managersToAppoint = (formObj.managementAppointments || []).map((a: any) => ({
-                id: a.id || Math.random().toString(36).substring(7),
-                name: a.name,
-                position: a.position || 'DIREKTUR',
-                nik: a.nik || ''
-              }));
-
-              profileUpdate.newManagementItems = [
-                ...uniqueOldManagers.filter(om => om && om.name && !dismissedNames.has(om.name.toUpperCase().trim())),
-                ...managersToAppoint
-              ];
-            } else {
-              const formNewMgmt = formObj.newManagementItems || formObj.managementItems || formObj.pengurus;
-              if (formNewMgmt && formNewMgmt.length > 0) {
-                profileUpdate.newManagementItems = formNewMgmt.map((m: any) => ({
-                  id: m.id || Math.random().toString(36).substring(7),
-                  name: m.name,
-                  position: m.position || 'DIREKTUR',
-                  nik: m.nik || ''
-                }));
-              } else {
-                const activeMgmt = (formObj.finalShareholders || formObj.shareholders || [])
-                  .filter((s: any) => s.isManagement)
-                  .map((s: any) => ({
-                    id: s.id || Math.random().toString(36).substring(7),
-                    name: s.name,
-                    position: s.managementPosition || 'DIREKTUR',
-                    nik: s.nik || ''
-                  }));
-                if (activeMgmt.length > 0) {
-                  profileUpdate.newManagementItems = activeMgmt;
-                } else {
-                  profileUpdate.newManagementItems = uniqueOldManagers;
-                }
-              }
-            }
-          }
-
-          // Merge Deed and SK details
-          const finalNotaryName = notarySelectionType === 'saya' ? 'Nukantini Putri Parincha' : notaryName.trim();
-          if (project.jobType === 'pendirian_pt') {
-            profileUpdate.establishmentDeedNumber = deedNumber.trim();
-            profileUpdate.establishmentDeedDate = deedDate;
-            profileUpdate.establishmentNotary = finalNotaryName;
-            profileUpdate.establishmentNotaryTitle = notarySelectionType === 'saya' ? 'Sarjana Hukum, Magister Kenotariatan' : '';
-            profileUpdate.establishmentNotaryDomicile = notaryLocation.trim();
-            if (skSpNumber.trim()) {
-              profileUpdate.establishmentSkNumber = skSpNumber.trim();
-              profileUpdate.establishmentSkDate = skSpDate || deedDate;
-            }
-          } else {
-            // RUPS LB or Sirkuler
-            profileUpdate.latestAmendmentDeedNumber = deedNumber.trim();
-            profileUpdate.latestAmendmentDeedDate = deedDate;
-            profileUpdate.latestAmendmentNotary = finalNotaryName;
-            if (skSpNumber.trim()) {
-              profileUpdate.latestAmendmentSkNumber = skSpNumber.trim();
-              profileUpdate.latestAmendmentSkDate = skSpDate || deedDate;
-            }
-
-            const mapSkSpTypeToDocType = (typeStr: string): 'SK' | 'SP_DATA_PERSEROAN' | 'SP_ANGGARAN_DASAR' | 'SP' => {
-              const s = typeStr.toLowerCase();
-              if (s.includes('perubahan data perseroan')) return 'SP_DATA_PERSEROAN';
-              if (s.includes('perubahan anggaran dasar')) return 'SP_ANGGARAN_DASAR';
-              if (s.includes('sk')) return 'SK';
-              return 'SP';
-            };
-
-            const existingDeeds = freshClient?.amendmentDeeds || [];
-            const newAmendmentDeed: AmendmentDeed = {
-              id: Math.random().toString(36).substring(7),
-              number: deedNumber.trim(),
-              date: deedDate,
-              notary: finalNotaryName,
-              notaryTitle: notarySelectionType === 'saya' ? 'Sarjana Hukum, Magister Kenotariatan' : '',
-              notaryDomicile: notaryLocation.trim(),
-              skNumber: skSpNumber.trim(),
-              skDate: skSpDate || deedDate,
-              skSpDocuments: skSpNumber.trim() ? [{
-                id: Math.random().toString(36).substring(7),
-                type: mapSkSpTypeToDocType(skSpType),
-                number: skSpNumber.trim(),
-                date: skSpDate || deedDate
-              }] : []
-            };
-
-            const duplicateIndex = existingDeeds.findIndex(d => d.number === deedNumber.trim());
-            if (duplicateIndex !== -1) {
-              const updatedDeeds = [...existingDeeds];
-              updatedDeeds[duplicateIndex] = {
-                ...newAmendmentDeed,
-                id: existingDeeds[duplicateIndex].id || newAmendmentDeed.id
-              };
-              profileUpdate.amendmentDeeds = updatedDeeds;
-            } else {
-              profileUpdate.amendmentDeeds = [newAmendmentDeed, ...existingDeeds];
-            }
-          }
-
-          await setDoc(doc(db, 'profiles', project.clientId), cleanUndefined(profileUpdate), { merge: true });
-        }
+        await syncDeedInfoAndClientProfile();
       }
 
-      // 3. Complete actual status update transition
       await ProjectService.updateStatus(
         projectId,
         transitionStatus,
@@ -1331,7 +1456,6 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
       );
 
       setTransitionComment('');
-      // Reload everything
       await fetchProjectFullDetails();
       alert('Status proyek berhasil diperbarui dan data perubahan/pendirian telah disinkronkan ke master data klien!');
     } catch (err: any) {
@@ -1341,6 +1465,195 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
       setTransitioning(false);
     }
   };
+
+  const renderDeedFields = () => (
+    <div className="space-y-4">
+      {/* Nomor Akta */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
+        <label className="text-xs font-medium text-slate-700">
+          Nomor Akta <span className="text-red-500">*</span>
+        </label>
+        <div className="col-span-2">
+          <input
+            type="text"
+            required
+            value={deedNumber}
+            onChange={(e) => setDeedNumber(e.target.value)}
+            placeholder="Contoh: 01"
+            className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg outline-none transition-all focus:ring-1 focus:ring-blue-500"
+          />
+        </div>
+      </div>
+
+      {/* Tanggal Akta */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
+        <label className="text-xs font-medium text-slate-700">
+          Tanggal Akta <span className="text-red-500">*</span>
+        </label>
+        <div className="col-span-2">
+          <input
+            type="date"
+            required
+            value={deedDate}
+            onChange={(e) => setDeedDate(e.target.value)}
+            className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg outline-none transition-all focus:ring-1 focus:ring-blue-500"
+          />
+        </div>
+      </div>
+
+      {/* Pilih Notaris */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
+        <label className="text-xs font-medium text-slate-700">
+          Pilih Notaris <span className="text-red-500">*</span>
+        </label>
+        <div className="col-span-2">
+          <select
+            value={notarySelectionType}
+            onChange={(e) => {
+              const val = e.target.value as 'saya' | 'manual';
+              setNotarySelectionType(val);
+              if (val === 'saya') {
+                setNotaryName('Nukantini Putri Parincha, SH., M.Kn.');
+              } else {
+                setNotaryName('');
+              }
+            }}
+            className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg outline-none transition-all focus:ring-1 focus:ring-blue-500"
+          >
+            <option value="saya">Saya (Nukantini Putri Parincha, SH., M.Kn.)</option>
+            <option value="manual">Notaris Lain (Isi Manual)</option>
+          </select>
+        </div>
+      </div>
+
+      {/* Nama Notaris (if manual) */}
+      {notarySelectionType === 'manual' && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center animate-fadeIn">
+          <label className="text-xs font-medium text-slate-700">
+            Nama Notaris <span className="text-red-500">*</span>
+          </label>
+          <div className="col-span-2">
+            <input
+              type="text"
+              required
+              value={notaryName}
+              onChange={(e) => setNotaryName(e.target.value)}
+              placeholder="Nama Notaris..."
+              className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg outline-none transition-all focus:ring-1 focus:ring-blue-500"
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Kedudukan Notaris */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
+        <label className="text-xs font-medium text-slate-700">
+          Kedudukan Notaris <span className="text-red-500">*</span>
+        </label>
+        <div className="col-span-2">
+          <input
+            type="text"
+            required
+            value={notaryLocation}
+            onChange={(e) => setNotaryLocation(e.target.value)}
+            placeholder="Kedudukan Notaris..."
+            className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg outline-none transition-all focus:ring-1 focus:ring-blue-500"
+          />
+        </div>
+      </div>
+
+      {/* Nested Box: DAFTAR SK / SP TERKAIT */}
+      <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3.5 mt-2 shadow-sm">
+        <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+          <div className="text-[11px] font-bold text-slate-700 uppercase tracking-wide">
+            DAFTAR SK / SP TERKAIT ({skSpEntries.filter(e => e.number.trim()).length})
+          </div>
+          <button
+            type="button"
+            onClick={() => setSkSpEntries(prev => [...prev, { id: Math.random().toString(36).substring(7), type: 'SP (Perubahan Data Perseroan)', number: '', date: '' }])}
+            className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-200 font-semibold text-[11px] rounded-lg transition-colors flex items-center gap-1"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Tambah SK/SP</span>
+          </button>
+        </div>
+        
+        <div className="space-y-3">
+          {skSpEntries.map((entry, idx) => (
+            <div key={entry.id || idx} className="grid grid-cols-1 md:grid-cols-12 gap-2 items-center bg-white p-3 rounded-lg border border-slate-200">
+              {/* Tipe */}
+              <div className="md:col-span-4 space-y-1">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">
+                  Tipe
+                </label>
+                <select
+                  value={entry.type}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setSkSpEntries(prev => prev.map((item, i) => i === idx ? { ...item, type: val } : item));
+                  }}
+                  className="w-full px-2 py-1.5 text-xs bg-white border border-slate-200 rounded-lg outline-none transition-all focus:ring-1 focus:ring-blue-500"
+                >
+                  <option value="SP (Perubahan Data Perseroan)">SP (Perubahan Data Perseroan)</option>
+                  <option value="SK (Persetujuan Perubahan Anggaran Dasar)">SK (Persetujuan Perubahan Anggaran Dasar)</option>
+                  <option value="SP (Pendirian PT)">SP (Pendirian PT)</option>
+                  <option value="SK (Pendirian PT)">SK (Pendirian PT)</option>
+                </select>
+              </div>
+
+              {/* Nomor */}
+              <div className="md:col-span-4 space-y-1">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">
+                  Nomor
+                </label>
+                <input
+                  type="text"
+                  value={entry.number}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setSkSpEntries(prev => prev.map((item, i) => i === idx ? { ...item, number: val } : item));
+                  }}
+                  placeholder="AHU-AH.01.09-..."
+                  className="w-full px-2 py-1.5 text-xs bg-white border border-slate-200 rounded-lg outline-none transition-all focus:ring-1 focus:ring-blue-500"
+                />
+              </div>
+
+              {/* Tanggal */}
+              <div className="md:col-span-3 space-y-1">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">
+                  Tanggal
+                </label>
+                <input
+                  type="date"
+                  value={entry.date}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setSkSpEntries(prev => prev.map((item, i) => i === idx ? { ...item, date: val } : item));
+                  }}
+                  className="w-full px-2 py-1.5 text-xs bg-white border border-slate-200 rounded-lg outline-none transition-all focus:ring-1 focus:ring-blue-500"
+                />
+              </div>
+
+              {/* Action Hapus */}
+              <div className="md:col-span-1 flex items-center justify-center pt-2 md:pt-4">
+                <button
+                  type="button"
+                  disabled={skSpEntries.length <= 1}
+                  onClick={() => {
+                    setSkSpEntries(prev => prev.filter((_, i) => i !== idx));
+                  }}
+                  className="p-1.5 text-slate-400 hover:text-red-500 disabled:opacity-30 disabled:hover:text-slate-400 transition-colors"
+                  title="Hapus baris"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
 
   const isProjectMinuta = (status: string) => {
     const s = status.toLowerCase();
@@ -2640,46 +2953,84 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
 
           {/* Column 3: Transition Engine Guard & Chronological Timeline */}
           <div className="space-y-6">
-            {/* If in Minuta phase, show Minuta Notes; otherwise show Transisi Status Guard */}
+            {/* If in Minuta phase, show Minuta Notes AND Deed Form; otherwise show Transisi Status Guard */}
             {isProjectMinuta(project.status) ? (
-              /* Catatan Proyek Minuta */
-              <div className="bg-white border border-slate-200/80 rounded-xl p-6 shadow-sm space-y-4">
-                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                  <h2 className="text-[14px] font-bold text-slate-800 uppercase tracking-wide flex items-center gap-2">
-                    <FileText className="w-4 h-4 text-amber-500" />
-                    <span>Catatan Proyek Minuta</span>
-                  </h2>
+              <>
+                {/* Catatan Proyek Minuta */}
+                <div className="bg-white border border-slate-200/80 rounded-xl p-6 shadow-sm space-y-4">
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                    <h2 className="text-[14px] font-bold text-slate-800 uppercase tracking-wide flex items-center gap-2">
+                      <FileText className="w-4 h-4 text-amber-500" />
+                      <span>Catatan Proyek Minuta</span>
+                    </h2>
+                  </div>
+                  <div className="space-y-3">
+                    <p className="text-xs text-slate-500">
+                      Gunakan catatan ini untuk mendokumentasikan detail khusus, berkas pendukung, atau instruksi jahit/penataan minuta akta ini.
+                    </p>
+                    <textarea
+                      value={localMinutaNotes}
+                      onChange={(e) => setLocalMinutaNotes(e.target.value)}
+                      placeholder="Tulis catatan penting di sini (misal: Lokasi penempatan berkas, status jilid, kelengkapan berkas fisik)..."
+                      rows={4}
+                      className="w-full p-3 text-[13px] bg-slate-50 border border-slate-200 rounded-lg outline-none transition-all focus:bg-white focus:ring-1 focus:ring-blue-500"
+                    />
+                    <div className="flex justify-end">
+                      <button
+                        type="button"
+                        onClick={handleSaveMinutaNotes}
+                        disabled={savingNotes}
+                        className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg text-xs transition-all flex items-center gap-2"
+                      >
+                        {savingNotes ? (
+                          <>
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            <span>Menyimpan...</span>
+                          </>
+                        ) : (
+                          <span>Simpan Catatan Minuta</span>
+                        )}
+                      </button>
+                    </div>
+                  </div>
                 </div>
-                <div className="space-y-3">
-                  <p className="text-xs text-slate-500">
-                    Gunakan catatan ini untuk mendokumentasikan detail khusus, berkas pendukung, atau instruksi jahit/penataan minuta akta ini.
-                  </p>
-                  <textarea
-                    value={localMinutaNotes}
-                    onChange={(e) => setLocalMinutaNotes(e.target.value)}
-                    placeholder="Tulis catatan penting di sini (misal: Lokasi penempatan berkas, status jilid, kelengkapan berkas fisik)..."
-                    rows={4}
-                    className="w-full p-3 text-[13px] bg-slate-50 border border-slate-200 rounded-lg outline-none transition-all focus:bg-white focus:ring-1 focus:ring-blue-500"
-                  />
-                  <div className="flex justify-end">
+
+                {/* Form Akta/Deed di Fase Minuta (Koreksi / Lengkapi Data Akta) */}
+                {['rups_lb', 'sirkuler_rupslb', 'pendirian_pt'].includes(project?.jobType || '') && (
+                  <div className="bg-white border border-slate-200/80 rounded-xl p-6 shadow-sm space-y-4">
+                    <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
+                      <h2 className="text-[14px] font-bold text-slate-800 uppercase tracking-wide flex items-center gap-2">
+                        <FileText className="w-4 h-4 text-blue-600" />
+                        <span>KOREKSI / LENGKAPI DATA AKTA</span>
+                      </h2>
+                      <span className="text-[10px] font-mono text-slate-400 bg-slate-100 px-2 py-0.5 rounded">
+                        {project?.title}
+                      </span>
+                    </div>
+
+                    {renderDeedFields()}
+
                     <button
                       type="button"
-                      onClick={handleSaveMinutaNotes}
-                      disabled={savingNotes}
-                      className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg text-xs transition-all flex items-center gap-2"
+                      onClick={handleSaveDeedInfoOnly}
+                      disabled={savingDeedInfo}
+                      className="w-full py-2.5 bg-slate-800 hover:bg-slate-900 text-white font-semibold text-[13px] rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
                     >
-                      {savingNotes ? (
+                      {savingDeedInfo ? (
                         <>
-                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          <span>Menyimpan...</span>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <span>Menyimpan Data Akta...</span>
                         </>
                       ) : (
-                        <span>Simpan Catatan Minuta</span>
+                        <>
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          <span>Simpan Data Akta</span>
+                        </>
                       )}
                     </button>
                   </div>
-                </div>
-              </div>
+                )}
+              </>
             ) : (
               /* Status Transition Engine Guard Form */
               <div className="bg-white border border-slate-200/80 rounded-xl p-6 shadow-sm">
@@ -2770,152 +3121,7 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
                         </span>
                       </div>
                       
-                      {/* Nomor Akta */}
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
-                        <label className="text-xs font-medium text-slate-700">
-                          Nomor Akta <span className="text-red-500">*</span>
-                        </label>
-                        <div className="col-span-2">
-                          <input
-                            type="text"
-                            required
-                            value={deedNumber}
-                            onChange={(e) => setDeedNumber(e.target.value)}
-                            placeholder="Contoh: 01"
-                            className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg outline-none transition-all focus:ring-1 focus:ring-blue-500"
-                          />
-                        </div>
-                      </div>
-
-                      {/* Tanggal Akta */}
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
-                        <label className="text-xs font-medium text-slate-700">
-                          Tanggal Akta <span className="text-red-500">*</span>
-                        </label>
-                        <div className="col-span-2">
-                          <input
-                            type="date"
-                            required
-                            value={deedDate}
-                            onChange={(e) => setDeedDate(e.target.value)}
-                            className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg outline-none transition-all focus:ring-1 focus:ring-blue-500"
-                          />
-                        </div>
-                      </div>
-
-                      {/* Pilih Notaris */}
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
-                        <label className="text-xs font-medium text-slate-700">
-                          Pilih Notaris <span className="text-red-500">*</span>
-                        </label>
-                        <div className="col-span-2">
-                          <select
-                            value={notarySelectionType}
-                            onChange={(e) => {
-                              const val = e.target.value as 'saya' | 'manual';
-                              setNotarySelectionType(val);
-                              if (val === 'saya') {
-                                setNotaryName('Nukantini Putri Parincha, SH., M.Kn.');
-                              } else {
-                                setNotaryName('');
-                              }
-                            }}
-                            className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg outline-none transition-all focus:ring-1 focus:ring-blue-500"
-                          >
-                            <option value="saya">Saya (Nukantini Putri Parincha, SH., M.Kn.)</option>
-                            <option value="manual">Notaris Lain (Isi Manual)</option>
-                          </select>
-                        </div>
-                      </div>
-
-                      {/* Nama Notaris (if manual) */}
-                      {notarySelectionType === 'manual' && (
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center animate-fadeIn">
-                          <label className="text-xs font-medium text-slate-700">
-                            Nama Notaris <span className="text-red-500">*</span>
-                          </label>
-                          <div className="col-span-2">
-                            <input
-                              type="text"
-                              required
-                              value={notaryName}
-                              onChange={(e) => setNotaryName(e.target.value)}
-                              placeholder="Nama Notaris..."
-                              className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg outline-none transition-all focus:ring-1 focus:ring-blue-500"
-                            />
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Kedudukan Notaris */}
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
-                        <label className="text-xs font-medium text-slate-700">
-                          Kedudukan Notaris <span className="text-red-500">*</span>
-                        </label>
-                        <div className="col-span-2">
-                          <input
-                            type="text"
-                            required
-                            value={notaryLocation}
-                            onChange={(e) => setNotaryLocation(e.target.value)}
-                            placeholder="Kedudukan Notaris..."
-                            className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg outline-none transition-all focus:ring-1 focus:ring-blue-500"
-                          />
-                        </div>
-                      </div>
-
-                      {/* Nested Box: DAFTAR SK / SP TERKAIT */}
-                      <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3.5 mt-2 shadow-sm">
-                        <div className="text-[11px] font-bold text-slate-600 uppercase tracking-wide">
-                          DAFTAR SK / SP TERKAIT
-                        </div>
-                        
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                          {/* Tipe */}
-                          <div className="space-y-1">
-                            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">
-                              Tipe
-                            </label>
-                            <select
-                              value={skSpType}
-                              onChange={(e) => setSkSpType(e.target.value)}
-                              className="w-full px-2 py-1.5 text-xs bg-white border border-slate-200 rounded-lg outline-none transition-all focus:ring-1 focus:ring-blue-500"
-                            >
-                              <option value="SP (Perubahan Data Perseroan)">SP (Perubahan Data Perseroan)</option>
-                              <option value="SK (Persetujuan Perubahan Anggaran Dasar)">SK (Persetujuan Perubahan Anggaran Dasar)</option>
-                              <option value="SP (Pendirian PT)">SP (Pendirian PT)</option>
-                              <option value="SK (Pendirian PT)">SK (Pendirian PT)</option>
-                            </select>
-                          </div>
-
-                          {/* Nomor */}
-                          <div className="space-y-1">
-                            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">
-                              Nomor
-                            </label>
-                            <input
-                              type="text"
-                              value={skSpNumber}
-                              onChange={(e) => setSkSpNumber(e.target.value)}
-                              placeholder="AHU-AH.01.09-..."
-                              className="w-full px-2 py-1.5 text-xs bg-white border border-slate-200 rounded-lg outline-none transition-all focus:ring-1 focus:ring-blue-500"
-                            />
-                          </div>
-
-                          {/* Tanggal */}
-                          <div className="space-y-1">
-                            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">
-                              Tanggal
-                            </label>
-                            <input
-                              type="date"
-                              value={skSpDate}
-                              onChange={(e) => setSkSpDate(e.target.value)}
-                              className="w-full px-2 py-1.5 text-xs bg-white border border-slate-200 rounded-lg outline-none transition-all focus:ring-1 focus:ring-blue-500"
-                            />
-                          </div>
-                        </div>
-                      </div>
+                      {renderDeedFields()}
                     </div>
                   )}
 
