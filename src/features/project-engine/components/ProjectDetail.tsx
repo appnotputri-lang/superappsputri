@@ -605,7 +605,7 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
       return;
     }
 
-    const confirm1 = window.confirm('Apakah Anda yakin ingin MENGHAPUS PERMANEN proyek ini? Tindakan ini tidak dapat dibatalkan.');
+    const confirm1 = window.confirm('Apakah Anda yakin ingin MENGHAPUS PERMANEN proyek ini? Seluruh data terkait (timeline, tugas, dokumen) akan dihapus secara permanen, dan folder Google Drive proyek ini akan dipindahkan ke Trash.');
     if (!confirm1) return;
 
     const confirm2 = window.prompt('Ketik "HAPUS" untuk mengonfirmasi penghapusan permanen:');

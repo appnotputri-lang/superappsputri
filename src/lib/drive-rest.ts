@@ -114,5 +114,25 @@ export const driveRest = {
       throw new Error(`Drive DELETE failed: ${responseText}`);
     }
     return true;
+  },
+
+  async trashFile(fileId: string, env: any = {}) {
+    const token = await getGoogleAccessToken(env);
+    const url = `${BASE_URL}/files/${fileId}`;
+
+    const response = await fetch(url, {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ trashed: true })
+    });
+
+    if (!response.ok) {
+      const responseText = await response.text();
+      throw new Error(`Drive TRASH failed: ${responseText}`);
+    }
+    return true;
   }
 };

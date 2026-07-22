@@ -380,7 +380,7 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
     e.stopPropagation();
     if (currentUser?.role !== 'Super Admin') return;
 
-    if (!window.confirm(`Apakah Anda yakin ingin menghapus proyek "${title}"? Seluruh data terkait (timeline, tugas, dokumen) akan dihapus secara permanen.`)) {
+    if (!window.confirm(`Apakah Anda yakin ingin menghapus proyek "${title}"? Seluruh data terkait (timeline, tugas, dokumen) akan dihapus secara permanen, dan folder Google Drive proyek ini akan dipindahkan ke Trash.`)) {
       return;
     }
 

@@ -21,6 +21,7 @@ import { Timeline } from "../domain/project/Timeline";
 import { Task } from "../domain/project/Task";
 import { StatusEngine } from "../domain/project/ProjectStatus";
 import { WorkflowService } from "./WorkflowService";
+import { AuthService } from "./AuthService";
 
 export class ProjectService {
   private static projectsCol = "office_projects";
@@ -680,7 +681,19 @@ export class ProjectService {
       const { deleteDoc, collection, getDocs } = await import('firebase/firestore');
       const projectRef = doc(db, this.projectsCol, projectId);
       
-      // Cleanup subcollections: timelines, tasks, documents
+      // 1. Fetch project data to retrieve driveFolderId before deletion
+      let driveFolderId: string | undefined = undefined;
+      try {
+        const projectSnap = await getDoc(projectRef);
+        if (projectSnap.exists()) {
+          const projectData = projectSnap.data() as any;
+          driveFolderId = projectData?.metadata?.driveFolderId || projectData?.driveFolderId;
+        }
+      } catch (e) {
+        console.warn("[ProjectService] Failed to fetch project metadata prior to deletion:", e);
+      }
+
+      // 2. Cleanup subcollections: timelines, tasks, documents
       const subcollections = ['timelines', 'tasks', 'documents'];
       
       for (const sub of subcollections) {
@@ -691,15 +704,35 @@ export class ProjectService {
         }
       }
 
-      // Cascading delete for linked document projects (RUPS, RUPST, Pendirian, etc.)
+      // 3. Cascading delete for linked document projects (RUPS, RUPST, Pendirian, etc.)
       // These usually use the same ID as the parent project ID
       await deleteDoc(doc(db, 'projects', projectId));
       await deleteDoc(doc(db, 'rupst_projects', projectId));
       await deleteDoc(doc(db, 'rupst_public_projects', projectId));
       await deleteDoc(doc(db, 'pendirian_projects', projectId));
 
-      // Finally delete the parent project document
+      // 4. Finally delete the parent project document
       await deleteDoc(projectRef);
+
+      // 5. If driveFolderId exists, trash the Drive folder in Google Drive (non-blocking)
+      if (driveFolderId) {
+        try {
+          const token = await AuthService.getToken();
+          const response = await fetch(getApiUrl(`/api/v2/drive/trash-folder/${driveFolderId}`), {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            }
+          });
+          if (!response.ok) {
+            const errText = await response.text();
+            console.warn(`[ProjectService] Warning: Failed to trash Drive folder '${driveFolderId}':`, errText);
+          }
+        } catch (e) {
+          console.warn(`[ProjectService] Warning: Error trashing Drive folder '${driveFolderId}':`, e);
+        }
+      }
     } catch (error) {
       handleFirestoreError(error, OperationType.DELETE, path);
     }
