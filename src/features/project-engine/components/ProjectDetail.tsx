@@ -1174,7 +1174,7 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
     const syncedItems: string[] = [];
 
     const formDoc = documents.find(d => d.refId);
-    const refIdToUse = formDoc?.refId || project.metadata?.refId || projectId;
+    const refIdToUse = project.metadata?.refId || formDoc?.refId || projectId;
     const formObj = await fetchDocRecordData({
       id: 'temp',
       name: project.title || '',
@@ -1245,33 +1245,65 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
         }
 
         // Capital sync (Modal Dasar & Modal Disetor)
-        const formPaid = Number(formObj.targetCapitalPaid || formObj.modalDisetor || formObj.originalCapitalPaid || 0);
-        const formBase = Number(formObj.targetCapitalBase || formObj.modalDasar || formObj.originalCapitalBase || 0);
-        const formNominal = Number(formObj.shareValue || formObj.nilaiNominal || 0);
+        const formNominal = Number(
+          formObj.shareValue ||
+          formObj.nilaiNominal ||
+          formObj.nilaiPerLembar ||
+          formObj.originalSharePrice ||
+          (freshClient as any)?.shareValue ||
+          (freshClient as any)?.nilaiNominal ||
+          freshClient?.originalSharePrice ||
+          0
+        );
+
+        const baseFromLembar = (formObj.modalDasarLembar && formNominal) ? (formObj.modalDasarLembar * formNominal) : 0;
+        const paidFromLembar = (formObj.modalDisetorLembar && formNominal) ? (formObj.modalDisetorLembar * formNominal) : 0;
+
+        const formPaid = Number(
+          formObj.targetCapitalPaid ||
+          formObj.modalDisetor ||
+          formObj.originalCapitalPaid ||
+          formObj.paidUpCapital ||
+          paidFromLembar ||
+          0
+        );
+
+        const formBase = Number(
+          formObj.targetCapitalBase ||
+          formObj.modalDasar ||
+          formObj.originalCapitalBase ||
+          formObj.authorizedCapital ||
+          baseFromLembar ||
+          0
+        );
+
+        console.log('[Sync Deed] Capital extraction results:', { formBase, formPaid, formNominal });
+
+        if (formNominal > 0) {
+          profileUpdate.shareValue = formNominal;
+          profileUpdate.originalSharePrice = formNominal;
+        }
 
         if (formBase > 0) {
           profileUpdate.targetCapitalBase = formBase;
-          profileUpdate.originalCapitalBase = Number(freshClient?.targetCapitalBase || freshClient?.originalCapitalBase || formBase);
+          profileUpdate.originalCapitalBase = formBase;
+          const shareVal = formNominal > 0 ? formNominal : 1000000;
+          profileUpdate.originalAuthorizedShares = formBase / shareVal;
+          profileUpdate.totalSharesBase = formBase / shareVal;
         }
+
         if (formPaid > 0) {
           profileUpdate.targetCapitalPaid = formPaid;
-          profileUpdate.originalCapitalPaid = Number(freshClient?.targetCapitalPaid || freshClient?.originalCapitalPaid || formPaid);
+          profileUpdate.originalCapitalPaid = formPaid;
+          const shareVal = formNominal > 0 ? formNominal : 1000000;
+          profileUpdate.originalTotalShares = formPaid / shareVal;
+          profileUpdate.totalSharesPaid = formPaid / shareVal;
+
           if (freshClient?.targetCapitalPaid !== formPaid) {
             syncedItems.push(`Modal Disetor (Rp ${formPaid.toLocaleString('id-ID')})`);
           } else {
             syncedItems.push('Modal Disetor / Dasar');
           }
-        }
-        if (formNominal > 0) {
-          profileUpdate.shareValue = formNominal;
-        }
-
-        const shareVal = profileUpdate.shareValue || (freshClient as any)?.shareValue || 1000000;
-        if (profileUpdate.targetCapitalPaid && shareVal > 0) {
-          profileUpdate.totalSharesPaid = profileUpdate.targetCapitalPaid / shareVal;
-        }
-        if (profileUpdate.targetCapitalBase && shareVal > 0) {
-          profileUpdate.totalSharesBase = profileUpdate.targetCapitalBase / shareVal;
         }
 
         // Shareholders sync & calculation
@@ -1280,6 +1312,41 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
           : (formObj.shareholders || formObj.pemegangSaham || freshClient?.shareholders || []);
 
         let workingShareholders: any[] = JSON.parse(JSON.stringify(baseShareholdersSource || []));
+
+        const isUsingFinalShareholders = !!(formObj.finalShareholders && formObj.finalShareholders.length > 0);
+
+        // Process subscriptions (Peningkatan Modal) if not using pre-calculated finalShareholders
+        if (!isUsingFinalShareholders && formObj.resolutions?.capitalPaid) {
+          const subscriptions = formObj.capitalSubscriptionsNew || [];
+          subscriptions.forEach((sub: any) => {
+            const subShares = Number(sub.sharesCount || sub.shares || 0);
+            if (subShares <= 0) return;
+
+            const subName = sub.subscriberName || '';
+            const subNik = sub.subscriberNik || '';
+
+            let toSh = workingShareholders.find((s: any) =>
+              (sub.id && s.id === sub.id) ||
+              (subNik && s.nik && s.nik.trim() === subNik.trim()) ||
+              (subName && s.name && s.name.trim().toUpperCase() === subName.trim().toUpperCase())
+            );
+
+            if (toSh) {
+              toSh.sharesOwned = (toSh.sharesOwned || 0) + subShares;
+            } else if (subName) {
+              const newSh = {
+                id: sub.id || Math.random().toString(36).substring(7),
+                name: subName,
+                nik: subNik,
+                salutation: sub.salutation || 'Tuan',
+                sharesOwned: subShares,
+                nationality: 'Indonesia',
+                address: sub.address || {}
+              };
+              workingShareholders.push(newSh);
+            }
+          });
+        }
 
         // Process share transfers if present in formObj
         const transfers = formObj.shareTransfersNew || formObj.shareTransfers || [];
@@ -1310,7 +1377,7 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
               Object.assign(toSh, {
                 ...targetDetail,
                 ...toSh,
-                sharesOwned: (toSh.sharesOwned || 0) + (formObj.finalShareholders?.length ? 0 : transferShares),
+                sharesOwned: (toSh.sharesOwned || 0) + (isUsingFinalShareholders ? 0 : transferShares),
                 address: targetDetail.address || toSh.address
               });
             } else if (toName || targetDetail.name) {
@@ -1327,7 +1394,7 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
               workingShareholders.push(newSh);
             }
 
-            if (fromSh && !formObj.finalShareholders?.length) {
+            if (fromSh && !isUsingFinalShareholders) {
               fromSh.sharesOwned = Math.max(0, (fromSh.sharesOwned || 0) - transferShares);
             }
           });
@@ -1347,15 +1414,17 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
             (oldSh.name && sh.name && oldSh.name.trim().toUpperCase() === sh.name.trim().toUpperCase())
           );
 
-          const mergedAddress = sh.address || matchingOld?.address;
-          const formattedAddress = mergedAddress ? {
-            rt: mergedAddress.rt || '',
-            rw: mergedAddress.rw || '',
-            kelurahan: mergedAddress.kelurahan || '',
-            kecamatan: mergedAddress.kecamatan || '',
-            city: mergedAddress.city || '',
-            province: mergedAddress.province || '',
-            fullAddress: mergedAddress.fullAddress || (typeof mergedAddress === 'string' ? mergedAddress : '')
+          const oldAddr = matchingOld?.address || {};
+          const newAddr = sh.address || {};
+
+          const formattedAddress = (sh.address || matchingOld?.address) ? {
+            rt: newAddr.rt || oldAddr.rt || '',
+            rw: newAddr.rw || oldAddr.rw || '',
+            kelurahan: newAddr.kelurahan || oldAddr.kelurahan || '',
+            kecamatan: newAddr.kecamatan || oldAddr.kecamatan || '',
+            city: newAddr.city || oldAddr.city || '',
+            province: newAddr.province || oldAddr.province || '',
+            fullAddress: newAddr.fullAddress || oldAddr.fullAddress || (typeof newAddr === 'string' ? newAddr : typeof oldAddr === 'string' ? oldAddr : '')
           } : undefined;
 
           return {
@@ -1363,7 +1432,7 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
             ...sh,
             id: sh.id || Math.random().toString(36).substring(7),
             name: sh.name || '',
-            sharesOwned: Number(sh.finalShares ?? sh.sharesOwned ?? sh.shares ?? sh.jumlahSaham ?? 0),
+            sharesOwned: Number(sh.sharesOwned ?? sh.finalShares ?? sh.shares ?? sh.jumlahSaham ?? 0),
             address: formattedAddress,
             nik: sh.nik || matchingOld?.nik || '',
             npwp: sh.npwp || matchingOld?.npwp || '',

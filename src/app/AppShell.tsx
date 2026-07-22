@@ -461,14 +461,16 @@ export const AppShell: React.FC = () => {
         });
       }
     } else if (editMode === 'baru') {
-      const newShs = rawData.newShareholders || [];
+      const newShs = rawData.finalShareholders || rawData.newShareholders || [];
       const existing = newShs.find((x: any) => x.id === s.id);
       if (existing) {
         updateData({
+          finalShareholders: newShs.map((x: any) => x.id === s.id ? s : x),
           newShareholders: newShs.map((x: any) => x.id === s.id ? s : x)
         } as any);
       } else {
         updateData({
+          finalShareholders: [...newShs, s],
           newShareholders: [...newShs, s]
         } as any);
       }
@@ -485,8 +487,9 @@ export const AppShell: React.FC = () => {
         shareholders: data.shareholders.filter(x => x.id !== id)
       });
     } else {
-      const newShs = rawData.newShareholders || [];
+      const newShs = rawData.finalShareholders || rawData.newShareholders || [];
       updateData({
+        finalShareholders: newShs.filter((x: any) => x.id !== id),
         newShareholders: newShs.filter((x: any) => x.id !== id)
       } as any);
     }

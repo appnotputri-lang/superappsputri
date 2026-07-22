@@ -102,6 +102,118 @@ export interface RUPSLBPageProps {
   isFetchingNumbers: boolean;
 }
 
+const calculateFinalShareholders = (currentData: any): any[] => {
+  const originalShareholders = currentData.shareholders || [];
+  const resolutions = currentData.resolutions || {};
+  const hasCapitalPaid = resolutions.capitalPaid;
+  const hasShareholdersChange = resolutions.shareholders;
+
+  const shMap = new Map<string, any>();
+  originalShareholders.forEach((sh: any) => {
+    const nameKey = (sh.name || '').trim().toUpperCase();
+    if (nameKey) {
+      shMap.set(nameKey, {
+        ...sh,
+        sharesOwned: Number(sh.sharesOwned || 0),
+        finalShares: Number(sh.sharesOwned || 0)
+      });
+    }
+  });
+
+  if (hasCapitalPaid && currentData.capitalSubscriptionsNew) {
+    currentData.capitalSubscriptionsNew.forEach((sub: any) => {
+      const nameKey = (sub.subscriberName || '').trim().toUpperCase();
+      const sharesCount = Number(sub.sharesCount || 0);
+      if (nameKey && sharesCount > 0) {
+        if (shMap.has(nameKey)) {
+          const existing = shMap.get(nameKey);
+          existing.sharesOwned = (existing.sharesOwned || 0) + sharesCount;
+          existing.finalShares = (existing.finalShares || 0) + sharesCount;
+        } else {
+          shMap.set(nameKey, {
+            id: sub.id || Math.random().toString(36).substring(7),
+            name: sub.subscriberName,
+            sharesOwned: sharesCount,
+            finalShares: sharesCount,
+            isExistingParty: false,
+            salutation: 'Tuan',
+            nationality: 'Indonesia'
+          });
+        }
+      }
+    });
+  }
+
+  if (hasShareholdersChange) {
+    const transfers = currentData.shareTransfersNew || currentData.shareTransfers || [];
+    transfers.forEach((t: any) => {
+      const transferAmt = Number(t.sharesTransferred || t.shares || 0);
+      if (transferAmt <= 0) return;
+
+      let fromSh: any = null;
+      let fromKey = '';
+
+      if (t.fromShareholderId) {
+        for (const [key, sh] of shMap.entries()) {
+          if (sh.id === t.fromShareholderId || sh.linkedPartyId === t.fromShareholderId) {
+            fromSh = sh;
+            fromKey = key;
+            break;
+          }
+        }
+      }
+
+      if (!fromSh && t.fromName) {
+        const testKey = t.fromName.trim().toUpperCase();
+        if (shMap.has(testKey)) {
+          fromSh = shMap.get(testKey);
+          fromKey = testKey;
+        }
+      }
+
+      if (fromSh) {
+        fromSh.sharesOwned = Math.max(0, (fromSh.sharesOwned || 0) - transferAmt);
+        fromSh.finalShares = Math.max(0, (fromSh.finalShares || 0) - transferAmt);
+      }
+
+      const toName = t.toName || t.toDetail?.name || '';
+      const toKey = toName.trim().toUpperCase();
+
+      if (toKey) {
+        if (shMap.has(toKey)) {
+          const toSh = shMap.get(toKey);
+          toSh.sharesOwned = (toSh.sharesOwned || 0) + transferAmt;
+          toSh.finalShares = (toSh.finalShares || 0) + transferAmt;
+        } else {
+          const toDetail = t.toDetail || {};
+          shMap.set(toKey, {
+            ...toDetail,
+            id: toDetail.id || t.toShareholderId || Math.random().toString(36).substring(7),
+            name: toName,
+            sharesOwned: transferAmt,
+            finalShares: transferAmt,
+            isExistingParty: false,
+            salutation: t.toSalutation || toDetail.salutation || 'Tuan',
+            nik: t.toNik || toDetail.nik || '',
+            nationality: toDetail.nationality || 'Indonesia',
+            address: toDetail.address || {}
+          });
+        }
+      }
+    });
+  }
+
+  return Array.from(shMap.values())
+    .map(sh => {
+      const price = currentData.originalSharePrice || 1000000;
+      return {
+        ...sh,
+        finalAmount: sh.sharesOwned * price
+      };
+    })
+    .filter((sh: any) => sh.sharesOwned > 0 || sh.isManagement || (sh.managementPosition && sh.managementPosition.length > 0));
+};
+
 export const RUPSLBPage: React.FC<RUPSLBPageProps> = ({
   user,
   userProfile,
@@ -186,12 +298,8 @@ export const RUPSLBPage: React.FC<RUPSLBPageProps> = ({
     
     const updates: any = { resolutions: updatedResolutions };
 
-    if ((key === 'shareholders' || key === 'management') && newVal && (!data.finalShareholders || data.finalShareholders.length === 0)) {
-      updates.finalShareholders = (data.shareholders || []).map((s: any) => ({
-        ...s,
-        finalShares: s.shares || 0,
-        finalAmount: s.amount || 0
-      }));
+    if ((key === 'shareholders' || key === 'management' || key === 'capitalPaid') && newVal && (!data.finalShareholders || data.finalShareholders.length === 0)) {
+      updates.finalShareholders = calculateFinalShareholders(data);
     }
 
     if ((key === 'shareholders' || key === 'management') && newVal && (!data.finalManagement || data.finalManagement.length === 0)) {
@@ -462,9 +570,14 @@ export const RUPSLBPage: React.FC<RUPSLBPageProps> = ({
                               let newProjects = [...projects];
                               const newId = editingProjectId && editingProjectId !== 'new' ? editingProjectId : crypto.randomUUID();
                               const isNew = editingProjectId === 'new' || !editingProjectId;
+                              
+                              // Automatically calculate final shareholders right before saving to ensure consistency
+                              const calculatedFinal = calculateFinalShareholders(data);
+                              
                               const profileData: CompanyProfile = {
                                   ...data,
                                   id: newId,
+                                  finalShareholders: calculatedFinal.length > 0 ? calculatedFinal : (data.finalShareholders || []),
                                   documentStatus: isNew ? 'DRAFTING' : (data.documentStatus || 'DRAFTING'),
                                   updatedAt: new Date().toISOString()
                               };
@@ -2392,34 +2505,61 @@ export const RUPSLBPage: React.FC<RUPSLBPageProps> = ({
                 title = "Data calon Pemegang saham/Direksi/Komisaris / SETELAH PERUBAHAN MODAL *";
               }
 
+              const handleAutoRecalculate = () => {
+                const calculated = calculateFinalShareholders(data);
+                updateData({ finalShareholders: calculated });
+              };
+
               return (
               <AhuSection title={title}>
                 <div className="space-y-4">
-                    <div className="flex justify-end gap-2">
-                       <button onClick={() => openShareholderEditor('baru')} className="bg-[#222d32] text-white px-3 py-1.5 rounded-sm text-[12px] font-bold shadow hover:bg-black transition-colors flex items-center gap-1"><Plus className="w-4 h-4" /> Tambah Data</button>
+                    <div className="flex justify-between items-center gap-2 flex-wrap bg-slate-50 p-3 rounded border border-slate-200">
+                       <p className="text-[12px] text-slate-600">
+                         <strong>Petunjuk:</strong> Sinkronkan susunan pemegang saham baru secara otomatis dari data Peningkatan Modal & Peralihan Saham di atas.
+                       </p>
+                       <div className="flex gap-2">
+                          <button 
+                            type="button"
+                            onClick={handleAutoRecalculate} 
+                            className="bg-blue-600 text-white px-3 py-1.5 rounded-sm text-[12px] font-bold shadow hover:bg-blue-700 transition-colors flex items-center gap-1.5"
+                          >
+                            <RefreshCw className="w-4 h-4" /> Kalkulasi Otomatis
+                          </button>
+                          <button 
+                            type="button"
+                            onClick={() => openShareholderEditor('baru')} 
+                            className="bg-[#222d32] text-white px-3 py-1.5 rounded-sm text-[12px] font-bold shadow hover:bg-black transition-colors flex items-center gap-1"
+                          >
+                            <Plus className="w-4 h-4" /> Tambah Data
+                          </button>
+                       </div>
                     </div>
                     <div className="border border-slate-200 overflow-x-auto rounded-sm">
                       <table className="min-w-[600px] w-full text-left text-[11px]">
                         <thead className="bg-[#f9f9f9] border-b border-slate-200 font-bold uppercase">
                           <tr>
-                            <th className="p-2 border-r border-slate-200">Nama</th>
-                            <th className="p-2 border-r border-slate-200 text-center">Aksi</th>
+                            <th className="p-2.5 border-r border-slate-200">Nama</th>
+                            <th className="p-2.5 border-r border-slate-200 text-center">Jumlah Lembar Saham</th>
+                            <th className="p-2.5 border-r border-slate-200 text-right">Nominal (Rupiah)</th>
+                            <th className="p-2.5 text-center">Aksi</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {data.finalShareholders.map((s) => (
+                          {(data.finalShareholders || []).map((s: any) => (
                             <tr key={s.id} className="border-b border-slate-200 last:border-0 hover:bg-slate-50 transition-colors text-[10px]">
-                              <td className="p-2 border-r border-slate-200 font-bold uppercase">{s.name}</td>
-                              <td className="p-2 text-center text-blue-600 flex items-center justify-center gap-2">
+                              <td className="p-2.5 border-r border-slate-200 font-bold uppercase">{s.name}</td>
+                              <td className="p-2.5 border-r border-slate-200 text-center font-mono">{formatInputNumber(s.sharesOwned)}</td>
+                              <td className="p-2.5 border-r border-slate-200 text-right font-mono font-semibold">Rp. {formatInputNumber(s.sharesOwned * (data.originalSharePrice || 1000000))}</td>
+                              <td className="p-2.5 text-center text-blue-600 flex items-center justify-center gap-2">
                                 <button onClick={() => openShareholderEditor('baru', s)} className="hover:underline flex items-center gap-0.5"><Eye className="w-3 h-3" /> Edit</button>
                                 <span className="text-slate-300">|</span>
                                 <button onClick={() => deleteShareholder(s.id, 'baru')} className="hover:underline text-red-500 flex items-center gap-0.5"><Trash2 className="w-3 h-3" /> Hapus</button>
                               </td>
                             </tr>
                           ))}
-                          {data.finalShareholders.length === 0 && (
+                          {(!data.finalShareholders || data.finalShareholders.length === 0) && (
                             <tr>
-                              <td colSpan={2} className="p-4 text-center text-slate-400 italic">Belum ada data pengurus/pemegang saham baru.</td>
+                              <td colSpan={4} className="p-4 text-center text-slate-400 italic">Belum ada data pengurus/pemegang saham baru. Gunakan tombol Kalkulasi Otomatis di atas.</td>
                             </tr>
                           )}
                         </tbody>
