@@ -58,6 +58,94 @@ async function startServer() {
     }
   });
 
+  app.post("/api/v2/drive/delete-client-folder", authMiddleware, async (req, res) => {
+    try {
+      const { clientId, companyName, clientType, driveFolderId: passedFolderId } = req.body;
+      if (!clientId) {
+        return res.status(400).json({ error: "Missing clientId" });
+      }
+
+      console.log(`[Drive API] Request to delete client folder for clientId: ${clientId}, name: ${companyName}`);
+
+      // 1. Fetch client doc from Firestore to get stored folderId and companyName if not passed
+      const clientDoc = await firestoreRest.getDocument('profiles', clientId, process.env);
+      const targetName = companyName || clientDoc?.companyName;
+      const targetType = clientType || clientDoc?.clientType || 'PT';
+      let folderIdToDelete = passedFolderId || clientDoc?.driveFolderId;
+
+      let normalized = '';
+      if (targetName) {
+        normalized = DriveFolderService.normalizeCompanyName(targetName);
+      }
+
+      // 2. Check drive_folder_map if folderIdToDelete is still missing
+      if (!folderIdToDelete && normalized) {
+        const mapDoc = await firestoreRest.getDocument('drive_folder_map', normalized, process.env);
+        if (mapDoc && mapDoc.driveFolderId) {
+          folderIdToDelete = mapDoc.driveFolderId;
+        }
+      }
+
+      // 3. Fallback: Search drive directly if still missing
+      if (!folderIdToDelete && targetName) {
+        try {
+          const rootFolderId = process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID;
+          if (rootFolderId) {
+            const companyProfileFolderId = await DriveFolderService.getOrCreateFolderByName("COMPANY PROFILE", rootFolderId, process.env);
+            const typeFolderMap: Record<string, string> = {
+              'PT': 'PT',
+              'CV': 'CV',
+              'YAYASAN': 'YAYASAN',
+              'PERKUMPULAN': 'PERKUMPULAN',
+              'FIRMA': 'PERSEKUTUAN FIRMA',
+              'PERDATA': 'PERSEKUTUAN PERDATA',
+              'KOPERASI': 'KOPERASI',
+              'PMA': 'PMA',
+              'PERORANGAN': 'PERORANGAN'
+            };
+            const typeFolderName = typeFolderMap[targetType] || 'LAINNYA';
+            const typeFolderId = await DriveFolderService.getOrCreateFolderByName(typeFolderName, companyProfileFolderId, process.env);
+            
+            const q = `'${typeFolderId}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
+            const allFolders = await driveRest.listFiles(q, 'files(id, name)', 1000, process.env);
+            const existing = allFolders.find(f => DriveFolderService.normalizeCompanyName(f.name) === normalized);
+            if (existing) {
+              folderIdToDelete = existing.id;
+            }
+          }
+        } catch (e: any) {
+          console.warn(`[Drive API] Search fallback failed:`, e?.message);
+        }
+      }
+
+      // 4. Delete the folder from Google Drive
+      if (folderIdToDelete) {
+        try {
+          console.log(`[Drive API] Deleting Google Drive folder ID: ${folderIdToDelete}`);
+          await driveRest.deleteFile(folderIdToDelete, process.env);
+        } catch (driveErr: any) {
+          console.warn(`[Drive API] Could not delete folder ${folderIdToDelete} from Drive:`, driveErr?.message || driveErr);
+        }
+      } else {
+        console.log(`[Drive API] No Drive folder found for client ${targetName || clientId}`);
+      }
+
+      // 5. Clean up drive_folder_map Firestore entry
+      if (normalized) {
+        try {
+          await firestoreRest.deleteDocument('drive_folder_map', normalized, process.env);
+        } catch (mapErr) {
+          // ignore if map doc doesn't exist
+        }
+      }
+
+      res.json({ success: true, message: "Client folder deleted successfully" });
+    } catch (error: any) {
+      console.error("[Drive API] Error in delete-client-folder:", error);
+      res.status(500).json({ error: error.message || "Failed to delete client folder" });
+    }
+  });
+
   app.post("/api/v2/drive/ensure-project-folder", authMiddleware, async (req, res) => {
     try {
       const { project } = req.body;

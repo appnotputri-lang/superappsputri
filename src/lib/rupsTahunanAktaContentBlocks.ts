@@ -888,7 +888,7 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
           type: "list",
           bullet: "-",
           indentTabs: 1.5,
-          runs: [{ text: " Selaku Undangan Rapat." }],
+          runs: [{ text: " Undangan Rapat." }],
         });
       } else if (totalSubBullets === 1) {
       if (att.management) {
@@ -997,7 +997,7 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
           indentTabs: 2.0,
           runs: [
             {
-              text: `Selaku pemilik dan pemegang ${formatNumber(att.ownShares.sharesOwned)} (${terbilang(att.ownShares.sharesOwned)}) lembar saham atau senilai `,
+              text: `Pemilik dan pemegang ${formatNumber(att.ownShares.sharesOwned)} (${terbilang(att.ownShares.sharesOwned)}) lembar saham atau senilai `,
             },
             {
               text: `Rp. ${formattedAmt},- (${terbilangAmt} rupiah)${isLast ? "." : ";"}`,

@@ -20,8 +20,8 @@ import { generateRupstPernyataanBlocks, RunToken } from "./rupsTahunanPernyataan
 import { preprocessBlocksForWordBullets, formatCompanyName } from "./formatter";
 
 // ─── Constants (matching the DOCX exactly) ───────────────────────────────────
-const FONT = "Century Gothic";
-const FONT_SIZE = 20;
+const FONT = "Arial";
+const FONT_SIZE = 24;
 
 // Margins: top=1440, right=1800, bottom=1440, left=1800 (from <w:pgMar> in XML)
 const PAGE_MARGIN_LEFT = 1800;

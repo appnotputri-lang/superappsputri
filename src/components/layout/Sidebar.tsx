@@ -82,88 +82,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
       <div className="flex-1 py-4 space-y-1 text-[13px]">
-        {/* General Menu Items */}
+        {/* Core Menu Group */}
         {[
-          { label: 'Beranda', id: 'beranda' as const, icon: Home },
-        ].map((item) => {
-          const isActive = activeSidebarTab === item.id;
-          const acc = TAB_ACCENTS[item.id] || TAB_ACCENTS.beranda;
-          return (
-            <button 
-              key={item.id} 
-              onClick={() => handleTabClick(item.id)} 
-              className={`relative w-full text-left px-5 py-3 transition-all flex items-center gap-3.5 select-none ${
-                isActive 
-                  ? `${acc.bgColor} ${acc.textColor} font-semibold` 
-                  : `text-slate-600 ${acc.hoverBg}`
-              }`}
-            >
-              {isActive && (
-                <div className={`absolute left-0 top-1.5 bottom-1.5 w-[4.5px] rounded-r-md ${acc.indicatorBg}`} />
-              )}
-              <item.icon 
-                size={20} 
-                strokeWidth={isActive ? 2.25 : 2.0}
-                className={`shrink-0 transition-colors ${isActive ? acc.iconColor : 'text-slate-400'}`} 
-              />
-              <span>{item.label}</span>
-            </button>
-          );
-        })}
-
-        {/* Menu Header: KLIEN */}
-        <div className="px-5 pt-6 pb-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest select-none">
-          Klien
-        </div>
-
-        {[
-          { label: 'Klien', id: 'company_profile' as const, icon: Building2 },
-        ].map((item) => {
-          const isActive = activeSidebarTab === item.id;
-          const acc = TAB_ACCENTS[item.id] || TAB_ACCENTS.beranda;
-          return (
-            <button 
-              key={item.id} 
-              onClick={() => {
-                if (!user) {
-                  if (confirm(`Anda harus login terlebih dahulu untuk mengakses menu "${item.label}".`)) {
-                    loginWithGoogle();
-                  }
-                  return;
-                }
-                handleTabClick(item.id);
-              }} 
-              className={`relative w-full text-left pl-7 pr-5 py-2.5 transition-all flex items-center justify-between select-none ${
-                isActive 
-                  ? `${acc.bgColor} ${acc.textColor} font-semibold` 
-                  : `text-slate-600 ${acc.hoverBg}`
-              }`}
-            >
-              {isActive && (
-                <div className={`absolute left-0 top-1.5 bottom-1.5 w-[4.5px] rounded-r-md ${acc.indicatorBg}`} />
-              )}
-              <span className="flex items-center gap-3">
-                <item.icon 
-                  size={20} 
-                  strokeWidth={isActive ? 2.25 : 2.0}
-                  className={`shrink-0 transition-colors ${isActive ? acc.iconColor : 'text-slate-400'}`} 
-                />
-                <span>{item.label}</span>
-              </span>
-              {!user && (
-                <Lock size={12} className="text-slate-400/50 shrink-0" />
-              )}
-            </button>
-          );
-        })}
-
-        {/* Menu Header: PROYEK */}
-        <div className="px-5 pt-6 pb-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest select-none">
-          Proyek
-        </div>
-
-        {[
-          { label: 'Proyek Kerja', id: 'projects' as const, icon: Briefcase },
+          { label: 'Beranda', id: 'beranda' as const, icon: Home, requiresAuth: false },
+          { label: 'Klien', id: 'company_profile' as const, icon: Building2, requiresAuth: true },
+          { label: 'Proyek Kerja', id: 'projects' as const, icon: Briefcase, requiresAuth: true },
+          { label: 'Laporan Proyek Kerja', id: 'laporan' as const, icon: FileText, requiresAuth: true },
         ].map((item) => {
           const isActive = activeSidebarTab === item.id || (item.id === 'projects' && activeSidebarTab === 'project_detail');
           const acc = TAB_ACCENTS[item.id] || TAB_ACCENTS.beranda;
@@ -171,7 +95,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <button 
               key={item.id} 
               onClick={() => {
-                if (!user) {
+                if (item.requiresAuth && !user) {
                   if (confirm(`Anda harus login terlebih dahulu untuk mengakses menu "${item.label}".`)) {
                     loginWithGoogle();
                   }
@@ -179,7 +103,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 }
                 handleTabClick(item.id);
               }} 
-              className={`relative w-full text-left pl-7 pr-5 py-2.5 transition-all flex items-center justify-between select-none ${
+              className={`relative w-full text-left px-5 py-2.5 transition-all flex items-center justify-between select-none ${
                 isActive 
                   ? `${acc.bgColor} ${acc.textColor} font-semibold` 
                   : `text-slate-600 ${acc.hoverBg}`
@@ -188,7 +112,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               {isActive && (
                 <div className={`absolute left-0 top-1.5 bottom-1.5 w-[4.5px] rounded-r-md ${acc.indicatorBg}`} />
               )}
-              <span className="flex items-center gap-3">
+              <span className="flex items-center gap-3.5">
                 <item.icon 
                   size={20} 
                   strokeWidth={isActive ? 2.25 : 2.0}
@@ -196,53 +120,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 />
                 <span>{item.label}</span>
               </span>
-              {!user && (
-                <Lock size={12} className="text-slate-400/50 shrink-0" />
-              )}
-            </button>
-          );
-        })}
-
-        {/* Menu Header: LAPORAN */}
-        <div className="px-5 pt-6 pb-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest select-none">
-          Laporan
-        </div>
-
-        {[
-          { label: 'Laporan Proyek Kerja', id: 'laporan' as const, icon: FileText },
-        ].map((item) => {
-          const isActive = activeSidebarTab === item.id;
-          const acc = TAB_ACCENTS[item.id] || TAB_ACCENTS.beranda;
-          return (
-            <button 
-              key={item.id} 
-              onClick={() => {
-                if (!user) {
-                  if (confirm(`Anda harus login terlebih dahulu untuk mengakses menu "${item.label}".`)) {
-                    loginWithGoogle();
-                  }
-                  return;
-                }
-                handleTabClick(item.id);
-              }} 
-              className={`relative w-full text-left pl-7 pr-5 py-2.5 transition-all flex items-center justify-between select-none ${
-                isActive 
-                  ? `${acc.bgColor} ${acc.textColor} font-semibold` 
-                  : `text-slate-600 ${acc.hoverBg}`
-              }`}
-            >
-              {isActive && (
-                <div className={`absolute left-0 top-1.5 bottom-1.5 w-[4.5px] rounded-r-md ${acc.indicatorBg}`} />
-              )}
-              <span className="flex items-center gap-3">
-                <item.icon 
-                  size={20} 
-                  strokeWidth={isActive ? 2.25 : 2.0}
-                  className={`shrink-0 transition-colors ${isActive ? acc.iconColor : 'text-slate-400'}`} 
-                />
-                <span>{item.label}</span>
-              </span>
-              {!user && (
+              {item.requiresAuth && !user && (
                 <Lock size={12} className="text-slate-400/50 shrink-0" />
               )}
             </button>

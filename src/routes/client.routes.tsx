@@ -51,12 +51,12 @@ export const renderClientRoute = (props: any) => {
                   className="px-5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md text-[13px] font-bold transition-all border border-slate-200 shadow-sm flex items-center gap-2 uppercase">
                   <Edit className="w-4 h-4" /> Edit
                 </button>
-                {userProfile?.role !== 'Staff' && (
+                {userProfile?.role === 'Super Admin' && (
                   <button 
                     disabled={props.isSaving}
                     onClick={async (e) => {
                       e.preventDefault();
-                      if(confirm('Hapus profil CV ' + data.companyName + '?')) {
+                      if(confirm('Hapus profil CV ' + data.companyName + ' beserta seluruh folder Google Drive miliknya?')) {
                         if (!user) return alert('Anda harus login!');
                         if (props.setIsSaving) props.setIsSaving(true);
                         try {
@@ -65,11 +65,11 @@ export const renderClientRoute = (props: any) => {
                           if (props.recordNotification) {
                             props.recordNotification(
                               'Klien CV Dihapus',
-                              `Profil klien CV "${deletedName}" telah berhasil dihapus oleh ${user?.email || 'Admin'}.`,
+                              `Profil klien CV "${deletedName}" dan folder Google Drive telah berhasil dihapus oleh ${user?.email || 'Super Admin'}.`,
                               'delete_profile'
                             );
                           }
-                          alert('Profil CV berhasil dihapus');
+                          alert('Profil CV dan folder Google Drive berhasil dihapus');
                           if (props.setEditingCvProfileId) props.setEditingCvProfileId(null);
                         } catch (err) {
                           handleFirestoreError(err, OperationType.DELETE, `cv_profiles/${props.editingCvProfileId}`);

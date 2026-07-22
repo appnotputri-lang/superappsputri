@@ -130,5 +130,21 @@ export const firestoreRest = {
       })),
       nextPageToken: data.nextPageToken
     };
+  },
+
+  async deleteDocument(collection: string, docId: string, env: any = {}) {
+    const headers = await getHeaders(env);
+    const fullPath = `${collection}/${docId}`.split('/').map(encodeURIComponent).join('/');
+    const response = await fetch(`${BASE_URL}/${fullPath}`, {
+      method: 'DELETE',
+      headers
+    });
+
+    if (response.status === 404) return true;
+    if (!response.ok) {
+      const data = await response.json() as any;
+      throw new Error(`Firestore DELETE failed: ${JSON.stringify(data)}`);
+    }
+    return true;
   }
 };

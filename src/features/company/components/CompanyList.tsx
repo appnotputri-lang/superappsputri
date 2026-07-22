@@ -6,6 +6,7 @@ import {
   Copy,
   Undo,
   Archive,
+  Trash2,
 } from 'lucide-react';
 import { CompanyAvatar } from '../../../components/common/CompanyAvatar';
 import { CompanyListProps } from '../types/company.types';
@@ -44,6 +45,8 @@ export const CompanyList: React.FC<CompanyListProps> = ({
   profileCurrentPage,
   setProfileCurrentPage,
   totalProfilePages,
+  userProfile,
+  deleteCompany,
 }) => {
   const formatProfileLastUpdated = (dateStr?: string, establishmentDate?: string) => {
     const dateToFormat = dateStr || establishmentDate;
@@ -326,6 +329,21 @@ export const CompanyList: React.FC<CompanyListProps> = ({
                             </>
                           )}
                         </button>
+                        {userProfile?.role === 'Super Admin' && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setOpenDropdownId(null);
+                              if (deleteCompany) {
+                                deleteCompany(p.id, false);
+                              }
+                            }}
+                            className="w-full px-3.5 py-2 hover:bg-red-50 text-red-600 text-[11px] font-bold flex items-center gap-2 uppercase tracking-wide border-t border-slate-100"
+                          >
+                            <Trash2 className="w-3.5 h-3.5 text-red-500 stroke-[2.25px] shrink-0" />
+                            <span>Hapus</span>
+                          </button>
+                        )}
                       </div>
                     )}
                   </td>
@@ -432,6 +450,14 @@ export const CompanyList: React.FC<CompanyListProps> = ({
                   >
                     Duplikat
                   </button>
+                  {userProfile?.role === 'Super Admin' && (
+                    <button 
+                      onClick={() => deleteCompany && deleteCompany(p.id, false)}
+                      className="px-2.5 py-1 rounded bg-red-50 text-red-700 font-bold text-[10px] hover:bg-red-100 transition-colors uppercase cursor-pointer"
+                    >
+                      Hapus
+                    </button>
+                  )}
                 </div>
               </div>
             </div>

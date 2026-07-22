@@ -3,6 +3,7 @@ import { getApiUrl } from '../lib/api';
 import { 
   collection, 
   doc, 
+  getDoc,
   getDocs, 
   setDoc, 
   updateDoc, 
@@ -254,12 +255,60 @@ export class CompanyService {
   }
 
   /**
-   * Delete a Profile
+   * Delete a Profile and its Google Drive folder
    */
   static async deleteCompany(companyId: string, isCv?: boolean): Promise<void> {
     const collectionName = 'profiles';
     try {
+      // 1. Fetch profile to get driveFolderId, companyName, clientType
+      let companyName = '';
+      let clientType = 'PT';
+      let driveFolderId = '';
+      try {
+        const companySnap = await getDoc(doc(db, collectionName, companyId));
+        if (companySnap.exists()) {
+          const data = companySnap.data();
+          companyName = data.companyName || '';
+          clientType = data.clientType || (isCv ? 'CV' : 'PT');
+          driveFolderId = data.driveFolderId || '';
+        }
+      } catch (e) {
+        console.warn("[CompanyService] Could not pre-fetch profile before delete:", e);
+      }
+
+      // 2. Call backend to delete client folder from Google Drive
+      try {
+        const { auth } = await import('../lib/firebase');
+        let token = '';
+        if (auth.currentUser) {
+          token = await auth.currentUser.getIdToken();
+        }
+        await fetch(getApiUrl('/api/v2/drive/delete-client-folder'), {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            clientId: companyId,
+            companyName,
+            clientType,
+            driveFolderId
+          })
+        });
+      } catch (e) {
+        console.warn("[CompanyService] Error deleting Google Drive folder:", e);
+      }
+
+      // 3. Delete document from Firestore
       await deleteDoc(doc(db, collectionName, companyId));
+
+      // Also clean up legacy cv_profiles if existing
+      try {
+        await deleteDoc(doc(db, 'cv_profiles', companyId));
+      } catch (e) {
+        // ignore
+      }
     } catch (error) {
       handleFirestoreError(error, OperationType.DELETE, `${collectionName}/${companyId}`);
       throw error;

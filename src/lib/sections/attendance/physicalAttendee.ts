@@ -194,6 +194,7 @@ const buildRepresentationBlocks = (
   bullet: string,
   indentTabs: number,
   endingText: string,
+  omitSelaku?: boolean,
 ): Block[] => {
   const { originalSharePrice, useAktaFormat, isSirkuler } = config;
   const isDirector = r.proxyData.representationType === "DIREKTUR_PT_LAIN";
@@ -201,7 +202,7 @@ const buildRepresentationBlocks = (
 
   const prefixRuns: FormatToken[] = [];
   if (isDirector) {
-    prefixRuns.push({ text: `selaku Direktur dari ` });
+    prefixRuns.push({ text: omitSelaku ? `Direktur dari ` : `selaku Direktur dari ` });
   } else {
     const proxyDate = r.proxyData.proxyDeedDate
       ? useAktaFormat
@@ -209,7 +210,9 @@ const buildRepresentationBlocks = (
         : formatDateRupst(r.proxyData.proxyDeedDate)
       : "__________";
     prefixRuns.push({
-      text: `selaku penerima kuasa berdasarkan Surat Kuasa tertanggal ${proxyDate}, dari dan oleh karena itu sah bertindak untuk dan atas nama `,
+      text: omitSelaku
+        ? `penerima kuasa berdasarkan Surat Kuasa tertanggal ${proxyDate}, dari dan oleh karena itu sah bertindak untuk dan atas nama `
+        : `selaku penerima kuasa berdasarkan Surat Kuasa tertanggal ${proxyDate}, dari dan oleh karena itu sah bertindak untuk dan atas nama `,
     });
   }
 
@@ -337,7 +340,7 @@ export const buildAttendanceBlocks = (config: AttendanceConfig): Block[] => {
         type: "list",
         bullet: "-",
         indentTabs: 1.5,
-        runs: [{ text: "selaku Undangan Rapat." }],
+        runs: [{ text: "Undangan Rapat." }],
       });
     } else if (totalSubBullets === 1) {
       blocks.push({
@@ -352,7 +355,7 @@ export const buildAttendanceBlocks = (config: AttendanceConfig): Block[] => {
           type: "list",
           bullet: "-",
           indentTabs: 1.5,
-          runs: [{ text: `selaku ${toTitleCase(att.management.position)} Perseroan.` }],
+          runs: [{ text: `${toTitleCase(att.management.position)} Perseroan.` }],
         });
       } else if (att.ownShares) {
         const shareRp = (att.ownShares.sharesOwned || 0) * originalSharePrice;
@@ -362,13 +365,13 @@ export const buildAttendanceBlocks = (config: AttendanceConfig): Block[] => {
           indentTabs: 1.5,
           runs: [
             {
-              text: `selaku Pemilik dan pemegang saham sebanyak ${formatNumber(att.ownShares.sharesOwned)} lembar saham atau senilai Rp. ${formatNumber(shareRp)},- berhak mengeluarkan suara ${formatNumber(att.ownShares.sharesOwned)} suara dalam rapat.`,
+              text: `Pemilik dan pemegang saham sebanyak ${formatNumber(att.ownShares.sharesOwned)} lembar saham atau senilai Rp. ${formatNumber(shareRp)},- berhak mengeluarkan suara ${formatNumber(att.ownShares.sharesOwned)} suara dalam rapat.`,
             },
           ],
         });
       } else if (att.representations.length === 1) {
         const r = att.representations[0];
-        blocks.push(...buildRepresentationBlocks(r, config, "-", 1.5, "."));
+        blocks.push(...buildRepresentationBlocks(r, config, "-", 1.5, ".", true));
       }
     } else if (totalSubBullets > 1) {
       blocks.push({
@@ -395,7 +398,7 @@ export const buildAttendanceBlocks = (config: AttendanceConfig): Block[] => {
           indentTabs: 2.0,
           runs: [
             {
-              text: `selaku ${toTitleCase(att.management.position)} Perseroan${getEnding(bulletIdx)}`,
+              text: `${toTitleCase(att.management.position)} Perseroan${getEnding(bulletIdx)}`,
             },
           ],
         });
@@ -410,7 +413,7 @@ export const buildAttendanceBlocks = (config: AttendanceConfig): Block[] => {
           indentTabs: 2.0,
           runs: [
             {
-              text: `selaku Pemilik dan pemegang saham sebanyak ${formatNumber(att.ownShares.sharesOwned)} lembar saham atau senilai Rp. ${formatNumber(shareRp)},- berhak mengeluarkan suara ${formatNumber(att.ownShares.sharesOwned)} suara dalam rapat${getEnding(bulletIdx)}`,
+              text: `Pemilik dan pemegang saham sebanyak ${formatNumber(att.ownShares.sharesOwned)} lembar saham atau senilai Rp. ${formatNumber(shareRp)},- berhak mengeluarkan suara ${formatNumber(att.ownShares.sharesOwned)} suara dalam rapat${getEnding(bulletIdx)}`,
             },
           ],
         });
@@ -425,6 +428,7 @@ export const buildAttendanceBlocks = (config: AttendanceConfig): Block[] => {
             String.fromCharCode(subBulletCode + bulletIdx - 1) + ".",
             2.0,
             getEnding(bulletIdx),
+            true,
           ),
         );
       });

@@ -78,22 +78,22 @@ export const CompanyDetail: React.FC<CompanyDetailProps> = ({
         >
           <Edit className="w-4 h-4" /> Edit
         </button>
-        {userProfile?.role !== 'Staff' && (
+        {userProfile?.role === 'Super Admin' && (
           <button 
             onClick={async (e) => {
               e.preventDefault();
               if (!editingProfileId) return;
-              if (confirm('Hapus profil ' + formatCompanyName(data.companyName, data.clientType) + '?')) {
+              if (confirm('Hapus profil ' + formatCompanyName(data.companyName, data.clientType) + ' beserta seluruh folder Google Drive miliknya?')) {
                 if (!user) return alert('Anda harus login!');
                 try {
                   const deletedName = data.companyName || 'Klien Baru';
                   await deleteCompany(editingProfileId, false);
                   recordNotification(
                     'Klien Dihapus',
-                    `Profil klien "${deletedName}" telah berhasil dihapus oleh ${user?.email || 'Admin'}.`,
+                    `Profil klien "${deletedName}" dan folder Google Drive telah berhasil dihapus oleh ${user?.email || 'Super Admin'}.`,
                     'delete_profile'
                   );
-                  alert('Profil berhasil dihapus');
+                  alert('Profil klien dan folder Google Drive berhasil dihapus');
                   setEditingProfileId(null);
                 } catch (err) {
                   handleFirestoreError(err, OperationType.DELETE, `profiles/${editingProfileId}`);

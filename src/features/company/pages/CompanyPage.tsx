@@ -486,14 +486,26 @@ export const CompanyPage: React.FC<CompanyPageProps> = () => {
   };
 
   const deleteCompany = async (id: string, redirect: boolean) => {
-    if (confirm('Apakah Anda yakin ingin menghapus profil ini secara permanen?')) {
-      await deleteCompanyInContext(id, isCv);
-      recordNotification(
-        'Profil Dihapus', 
-        `Profil perusahaan dengan ID ${id} telah dihapus secara permanen.`, 
-        'warning'
-      );
-      setEditingProfileId(null);
+    if (userProfile?.role !== 'Super Admin') {
+      alert('Hanya Super Admin yang dapat menghapus data klien!');
+      return null;
+    }
+    const targetProfile = currentProfilesList.find(p => p.id === id);
+    const clientName = targetProfile?.companyName ? formatCompanyName(targetProfile.companyName, targetProfile.clientType) : id;
+    if (confirm(`Apakah Anda yakin ingin menghapus profil "${clientName}" dan seluruh folder Google Drive miliknya secara permanen?`)) {
+      try {
+        await deleteCompanyInContext(id, isCv);
+        recordNotification(
+          'Profil Dihapus', 
+          `Profil klien "${clientName}" dan folder Google Drive telah dihapus secara permanen.`, 
+          'warning'
+        );
+        alert(`Profil klien "${clientName}" dan folder Google Drive berhasil dihapus.`);
+        setEditingProfileId(null);
+      } catch (err: any) {
+        console.error("Gagal menghapus profil:", err);
+        alert(`Gagal menghapus profil: ${err?.message || String(err)}`);
+      }
     }
     return null;
   };
@@ -699,6 +711,8 @@ export const CompanyPage: React.FC<CompanyPageProps> = () => {
             profileCurrentPage={safeProfileCurrentPage}
             setProfileCurrentPage={setProfileCurrentPage}
             totalProfilePages={totalProfilePages}
+            userProfile={userProfile}
+            deleteCompany={deleteCompany}
           />
         </>
       ) : isProfilePreview ? (
