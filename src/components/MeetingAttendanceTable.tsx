@@ -26,8 +26,9 @@ export const MeetingAttendanceTable: React.FC<MeetingAttendanceTableProps> = ({
   openShareholderEditor,
   deleteShareholder,
 }) => {
-  const { data, updateData, setProxyModalOpenId } = useDocumentRuntime();
-  const shareholders = data.shareholders || [];
+  const { data, mergedData, updateData, setProxyModalOpenId } = useDocumentRuntime();
+  const actualData = mergedData || data;
+  const shareholders = actualData.shareholders || [];
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center mb-3">

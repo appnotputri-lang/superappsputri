@@ -168,40 +168,82 @@ export function DocumentRuntimeProvider({ children }: { children: ReactNode }) {
 
   const mergedData = useMemo(() => {
     let baseData = data;
-    if ((activeSidebarTab === 'notulen' || activeSidebarTab === 'rupst') && data.selectedProfileId) {
+    if (data.selectedProfileId && activeSidebarTab !== 'pendirian' && activeSidebarTab !== 'cv_profile') {
       const profile = profiles.find(p => p.id === data.selectedProfileId);
       if (profile) {
         baseData = {
           ...data,
-          companyName: profile.companyName,
-          companyShortName: profile.companyShortName,
-          companyType: profile.companyType,
-          npwp: profile.npwp,
-          duration: profile.duration,
-          status: profile.status,
-          oldFullAddress: profile.oldFullAddress,
+          companyName: profile.companyName || data.companyName,
+          companyShortName: profile.companyShortName || data.companyShortName,
+          companyType: profile.companyType || data.companyType,
+          npwp: profile.npwp || data.npwp,
+          duration: profile.duration || data.duration,
+          status: profile.status || data.status,
+          oldFullAddress: profile.fullAddress || profile.oldFullAddress || data.oldFullAddress,
+          domicile: profile.domicile || profile.newAddress?.city || profile.oldAddress?.city || data.domicile,
+          oldAddress: profile.newAddress || profile.oldAddress || data.oldAddress,
+          oldDomicile: profile.domicile || profile.oldDomicile || data.oldDomicile,
+          kbliItems: (data.kbliItems && data.kbliItems.length > 0) ? data.kbliItems : (profile.kbliItems || []),
+          shareholders: (data.shareholders && data.shareholders.length > 0) ? data.shareholders : (profile.shareholders || []),
+          oldManagementItems: (data.oldManagementItems && data.oldManagementItems.length > 0) ? data.oldManagementItems : (profile.oldManagementItems || profile.newManagementItems || (profile as any).managementItems || []),
           
-          establishmentDeedNumber: profile.establishmentDeedNumber,
-          establishmentDeedDate: profile.establishmentDeedDate,
-          establishmentNotary: profile.establishmentNotary,
-          establishmentNotaryTitle: profile.establishmentNotaryTitle,
-          establishmentNotaryDomicile: profile.establishmentNotaryDomicile,
-          establishmentSkNumber: profile.establishmentSkNumber,
-          establishmentSkDate: profile.establishmentSkDate,
-          originalTotalShares: profile.originalTotalShares,
-          originalAuthorizedShares: profile.originalAuthorizedShares,
-          originalSharePrice: profile.originalSharePrice,
-          originalCapitalBase: profile.originalCapitalBase,
-          originalCapitalPaid: profile.originalCapitalPaid,
+          establishmentDeedNumber: profile.establishmentDeedNumber || data.establishmentDeedNumber,
+          establishmentDeedDate: profile.establishmentDeedDate || data.establishmentDeedDate,
+          establishmentNotary: profile.establishmentNotary || data.establishmentNotary,
+          establishmentNotaryTitle: profile.establishmentNotaryTitle || data.establishmentNotaryTitle,
+          establishmentNotaryDomicile: profile.establishmentNotaryDomicile || data.establishmentNotaryDomicile,
+          establishmentSkNumber: profile.establishmentSkNumber || data.establishmentSkNumber,
+          establishmentSkDate: profile.establishmentSkDate || data.establishmentSkDate,
+          originalTotalShares: profile.originalTotalShares || data.originalTotalShares,
+          originalAuthorizedShares: profile.originalAuthorizedShares || data.originalAuthorizedShares,
+          originalSharePrice: profile.originalSharePrice || data.originalSharePrice,
+          originalCapitalBase: profile.originalCapitalBase || data.originalCapitalBase,
+          originalCapitalPaid: profile.originalCapitalPaid || data.originalCapitalPaid,
+          amendmentDeeds: (data.amendmentDeeds && data.amendmentDeeds.length > 0) ? data.amendmentDeeds : (profile.amendmentDeeds || []),
         };
       }
     }
 
     if (baseData.shareholders && profiles.length > 0) {
+      const selectedProfile = data.selectedProfileId ? profiles.find(p => p.id === data.selectedProfileId) : null;
+      
       baseData = {
         ...baseData,
         shareholders: baseData.shareholders.map(sh => {
           let patchedSh = { ...sh };
+
+          // Try to find matching shareholder in company profile for enrichment
+          if (selectedProfile && selectedProfile.shareholders) {
+            const profSh = selectedProfile.shareholders.find((s: any) => 
+              (s.nik && patchedSh.nik && s.nik.trim() === patchedSh.nik.trim()) ||
+              (s.name && patchedSh.name && s.name.trim().toLowerCase() === patchedSh.name.trim().toLowerCase())
+            ) as any;
+
+            if (profSh) {
+              patchedSh.occupation = patchedSh.occupation || profSh.occupation || '';
+              patchedSh.managementPosition = patchedSh.managementPosition || profSh.managementPosition || profSh.position || '';
+              if (patchedSh.isManagement === undefined && profSh.isManagement !== undefined) {
+                patchedSh.isManagement = profSh.isManagement;
+              } else if (patchedSh.isManagement === undefined) {
+                patchedSh.isManagement = /direktur|direksi|komisaris/i.test(patchedSh.managementPosition || '');
+              }
+
+              const profAddr = (profSh.address || {}) as any;
+              const curAddr = (patchedSh.address || {}) as any;
+              patchedSh.address = {
+                ...profAddr,
+                ...curAddr,
+                rt: curAddr.rt || profAddr.rt || '',
+                rw: curAddr.rw || profAddr.rw || '',
+                kelurahan: curAddr.kelurahan || profAddr.kelurahan || '',
+                kecamatan: curAddr.kecamatan || profAddr.kecamatan || '',
+                city: curAddr.city || profAddr.city || '',
+                province: curAddr.province || profAddr.province || '',
+                fullAddress: curAddr.fullAddress || profAddr.fullAddress || '',
+              };
+            }
+          }
+
           if (patchedSh.shareholderType === 'BADAN_HUKUM') {
             const prof = profiles.find(p => 
               (patchedSh.linkedProfileId && p.id === patchedSh.linkedProfileId) ||

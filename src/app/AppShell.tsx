@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { mapCompanyProfileToPendirian } from '../domain/company/mappers/companyProfileToPendirian';
+import { mapPartiesToShareholdersAndManagement } from '../domain/project/mappers/partyToShareholder';
 import { INITIAL_STATE, INITIAL_ADDRESS, INITIAL_MANUAL_REP, INITIAL_RESOLUTIONS } from "../domain/company/initialCompanyData";
 import { TAB_TO_PATH, PATH_TO_TAB } from "../constants/tabs";
 import { AppLayout, SidebarTabId } from './layout/AppLayout';
@@ -60,7 +61,8 @@ export const AppShell: React.FC = () => {
     setData,
     updateData,
     resetData,
-    mergedData
+    mergedData,
+    setAutosaveParams
   } = useDocumentRuntime();
 
   const companyCtx = useCompanyContext();
@@ -183,6 +185,33 @@ export const AppShell: React.FC = () => {
     navigate(path);
   };
 
+  useEffect(() => {
+    setAutosaveParams({
+      activeSidebarTab,
+      editingProjectId,
+      setEditingProjectId,
+      editingRupstId,
+      setEditingRupstId,
+      editingPendirianId,
+      setEditingPendirianId,
+      currentPendirianData,
+      user,
+      profiles
+    });
+  }, [
+    activeSidebarTab,
+    editingProjectId,
+    setEditingProjectId,
+    editingRupstId,
+    setEditingRupstId,
+    editingPendirianId,
+    setEditingPendirianId,
+    currentPendirianData,
+    user,
+    profiles,
+    setAutosaveParams
+  ]);
+
   const loadedDocIdRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -288,20 +317,57 @@ export const AppShell: React.FC = () => {
                 selectedProfileId: profile.id,
                 companyName: profile.companyName,
                 kbliItems: normalizeKblis(profile.kbliItems),
-                oldManagementItems: profile.oldManagementItems || profile.newManagementItems || (profile as any).managementItems || []
+                shareholders: (profile.shareholders && profile.shareholders.length > 0) ? profile.shareholders : ((proj.clientSnapshot?.shareholders || []) as Shareholder[]),
+                oldManagementItems: profile.oldManagementItems || profile.newManagementItems || (profile as any).managementItems || proj.clientSnapshot?.managementItems || []
               });
-            } else if (proj.clientSnapshot) {
-              const snap = proj.clientSnapshot as any;
-              updateData({
-                ...INITIAL_STATE,
-                ...snap,
-                kbliItems: normalizeKblis(snap.kbliItems)
-              });
-            } else if (proj.title) {
-              updateData({ ...INITIAL_STATE, companyName: proj.title });
+              loadedDocIdRef.current = sessionKey;
+              setPresetLoadedForProject(activeProjectContext);
+              return;
+            } else if (profiles.length === 0) {
+              // Profiles not loaded yet from context! Fallback to available snapshot/parties/title, but DO NOT lock loadedDocIdRef.current so it retries when profiles loads
+              if (proj.clientSnapshot) {
+                const snap = proj.clientSnapshot as any;
+                updateData({
+                  ...INITIAL_STATE,
+                  ...snap,
+                  kbliItems: normalizeKblis(snap.kbliItems)
+                });
+              } else if (proj.parties && proj.parties.length > 0) {
+                const { shareholders: partySh, oldManagementItems: partyMgmt } = mapPartiesToShareholdersAndManagement(proj.parties);
+                updateData({
+                  ...INITIAL_STATE,
+                  companyName: proj.title,
+                  shareholders: partySh,
+                  oldManagementItems: partyMgmt
+                });
+              } else if (proj.title) {
+                updateData({ ...INITIAL_STATE, companyName: proj.title });
+              }
+              return;
+            } else {
+              // profiles is loaded (>0), but profile was not found in profiles list
+              if (proj.clientSnapshot) {
+                const snap = proj.clientSnapshot as any;
+                updateData({
+                  ...INITIAL_STATE,
+                  ...snap,
+                  kbliItems: normalizeKblis(snap.kbliItems)
+                });
+              } else if (proj.parties && proj.parties.length > 0) {
+                const { shareholders: partySh, oldManagementItems: partyMgmt } = mapPartiesToShareholdersAndManagement(proj.parties);
+                updateData({
+                  ...INITIAL_STATE,
+                  companyName: proj.title,
+                  shareholders: partySh,
+                  oldManagementItems: partyMgmt
+                });
+              } else if (proj.title) {
+                updateData({ ...INITIAL_STATE, companyName: proj.title });
+              }
+              loadedDocIdRef.current = sessionKey;
+              setPresetLoadedForProject(activeProjectContext);
+              return;
             }
-            loadedDocIdRef.current = sessionKey;
-            return;
           }
         } catch (err) {
           console.error("Error loading project session data:", err);

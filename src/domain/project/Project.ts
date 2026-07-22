@@ -25,6 +25,18 @@ export interface ClientSnapshot {
     position?: string;
     nik?: string;
     npwp?: string;
+    occupation?: string;
+    managementPosition?: string;
+    isManagement?: boolean;
+    address?: {
+      rt?: string;
+      rw?: string;
+      kelurahan?: string;
+      kecamatan?: string;
+      city?: string;
+      province?: string;
+      fullAddress?: string;
+    };
   }[];
   managementItems?: {
     id: string;

@@ -40,8 +40,9 @@ export const MeetingFormShell: React.FC<MeetingFormShellProps> = ({
   openShareholderEditor,
   deleteShareholder,
 }) => {
-  const { data, updateData, setProxyModalOpenId } = useDocumentRuntime();
-  const chairCandidates = getRupsLbChairCandidates(data.shareholders || [], data.oldManagementItems || []);
+  const { data, mergedData, updateData, setProxyModalOpenId } = useDocumentRuntime();
+  const actualData = mergedData || data;
+  const chairCandidates = getRupsLbChairCandidates(actualData.shareholders || [], actualData.oldManagementItems || []);
 
   return (
     <div className="space-y-6">
@@ -55,7 +56,7 @@ export const MeetingFormShell: React.FC<MeetingFormShellProps> = ({
             <div>
               <AhuLabel label="Pimpinan Rapat" required />
               <AhuSelect 
-                value={data.meetingChair || ''} 
+                value={actualData.meetingChair || ''} 
                 onChange={e => {
                   const selectedName = e.target.value;
                   const position = resolveRupsLbChairPosition(selectedName, chairCandidates);
@@ -74,7 +75,7 @@ export const MeetingFormShell: React.FC<MeetingFormShellProps> = ({
             <div>
               <AhuLabel label="Jabatan di PT" />
               <AhuInput 
-                value={data.meetingChairPosition || ''} 
+                value={actualData.meetingChairPosition || ''} 
                 onChange={e => updateData({ meetingChairPosition: e.target.value })} 
                 placeholder="Contoh: Direktur Utama" 
               />
@@ -86,12 +87,12 @@ export const MeetingFormShell: React.FC<MeetingFormShellProps> = ({
       {/* 2. Blok Kehadiran */}
       <MeetingAttendanceTable 
         sectionTitle={meetingType === 'tahunan' ? "DATA KEHADIRAN (DAFTAR PARA PIHAK)" : "DAFTAR PARA PIHAK"} 
-        presentLabel={meetingType === 'luar_biasa' && data.documentType === 'CIRCULAR' ? 'Terlibat?' : 'Hadir?'} 
-        markAllLabel={`Tandai Semua ${meetingType === 'luar_biasa' && data.documentType === 'CIRCULAR' ? 'Terlibat' : 'Hadir'}`} 
+        presentLabel={meetingType === 'luar_biasa' && actualData.documentType === 'CIRCULAR' ? 'Terlibat?' : 'Hadir?'} 
+        markAllLabel={`Tandai Semua ${meetingType === 'luar_biasa' && actualData.documentType === 'CIRCULAR' ? 'Terlibat' : 'Hadir'}`} 
         nameColumnLabel={meetingType === 'tahunan' ? "Nama Pemegang Saham" : "Nama Pihak"} 
         showAksiColumn={meetingType === 'luar_biasa'} 
         onAddParticipant={meetingType === 'luar_biasa' ? onAddParticipant : undefined} 
-        addParticipantLabel={meetingType === 'luar_biasa' ? (data.documentType === 'CIRCULAR' ? 'Tambah Pihak Lain' : 'Tambah Peserta Rapat') : undefined}
+        addParticipantLabel={meetingType === 'luar_biasa' ? (actualData.documentType === 'CIRCULAR' ? 'Tambah Pihak Lain' : 'Tambah Peserta Rapat') : undefined}
         openShareholderEditor={openShareholderEditor}
         deleteShareholder={deleteShareholder}
       />
@@ -107,7 +108,7 @@ export const MeetingFormShell: React.FC<MeetingFormShellProps> = ({
               <AhuLabel label="Waktu Selesai Rapat" required />
               <AhuInput 
                 type="time" 
-                value={data.meetingEndTime || data.rupstMeetingEndTime || ''} 
+                value={actualData.meetingEndTime || actualData.rupstMeetingEndTime || ''} 
                 onChange={e => updateData({ 
                   meetingEndTime: e.target.value, 
                   rupstMeetingEndTime: e.target.value 
@@ -117,7 +118,7 @@ export const MeetingFormShell: React.FC<MeetingFormShellProps> = ({
             <div>
               <AhuLabel label="Tempat Penandatanganan / Penyelenggaraan" required />
               <AhuInput 
-                value={data.signingPlace || ''} 
+                value={actualData.signingPlace || ''} 
                 onChange={e => updateData({ signingPlace: e.target.value })} 
                 placeholder="Contoh: Jakarta" 
               />

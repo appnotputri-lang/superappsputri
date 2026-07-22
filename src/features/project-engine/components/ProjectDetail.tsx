@@ -15,6 +15,7 @@ import PendirianDocumentPreview from '../../../PendirianDocumentPreview';
 import { syncToUtama, getDeedTitle, formatAppearersForPendirian } from '../../../lib/syncUtama';
 import LeaseAgreementDraft from '../../lease-agreement/components/LeaseAgreementDraft';
 import { mapCompanyProfileToPendirian } from '../../../domain/company/mappers/companyProfileToPendirian';
+import { mapPartiesToShareholdersAndManagement } from '../../../domain/project/mappers/partyToShareholder';
 import { ProjectDocumentUpload } from './ProjectDocumentUpload';
 import { formatCompanyName } from '../../../lib/formatter';
 import { AuthService } from '../../../services/AuthService';
@@ -872,7 +873,19 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
             name: sh.name,
             sharesOwned: sh.sharesOwned,
             nik: sh.nik || '',
-            npwp: sh.npwp || ''
+            npwp: sh.npwp || '',
+            occupation: sh.occupation || '',
+            managementPosition: sh.managementPosition || (sh as any).position || '',
+            isManagement: sh.isManagement ?? !!(sh.managementPosition || (sh as any).position),
+            address: sh.address ? {
+              rt: sh.address.rt || '',
+              rw: sh.address.rw || '',
+              kelurahan: sh.address.kelurahan || '',
+              kecamatan: sh.address.kecamatan || '',
+              city: sh.address.city || '',
+              province: sh.address.province || '',
+              fullAddress: sh.address.fullAddress || (typeof sh.address === 'string' ? sh.address : '')
+            } : undefined
           })),
           managementItems: (client.oldManagementItems || client.newManagementItems || (client as any).managementItems || []).map(m => ({
             id: m.id,
@@ -926,7 +939,19 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
             name: sh.name,
             sharesOwned: sh.sharesOwned || 0,
             nik: sh.nik || '',
-            npwp: sh.npwp || ''
+            npwp: sh.npwp || '',
+            occupation: sh.occupation || '',
+            managementPosition: sh.managementPosition || sh.position || '',
+            isManagement: sh.isManagement ?? !!(sh.managementPosition || sh.position),
+            address: sh.address ? {
+              rt: sh.address.rt || '',
+              rw: sh.address.rw || '',
+              kelurahan: sh.address.kelurahan || '',
+              kecamatan: sh.address.kecamatan || '',
+              city: sh.address.city || '',
+              province: sh.address.province || '',
+              fullAddress: sh.address.fullAddress || (typeof sh.address === 'string' ? sh.address : '')
+            } : undefined
           })),
           managementItems: (legacyData.newManagementItems || legacyData.oldManagementItems || []).map((m: any) => ({
             id: m.id || Math.random().toString(36).substring(7),
@@ -992,7 +1017,19 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
                 name: sh.name,
                 sharesOwned: sh.sharesOwned || 0,
                 nik: sh.nik || '',
-                npwp: sh.npwp || ''
+                npwp: sh.npwp || '',
+                occupation: sh.occupation || '',
+                managementPosition: sh.managementPosition || sh.position || '',
+                isManagement: sh.isManagement ?? !!(sh.managementPosition || sh.position),
+                address: sh.address ? {
+                  rt: sh.address.rt || '',
+                  rw: sh.address.rw || '',
+                  kelurahan: sh.address.kelurahan || '',
+                  kecamatan: sh.address.kecamatan || '',
+                  city: sh.address.city || '',
+                  province: sh.address.province || '',
+                  fullAddress: sh.address.fullAddress || (typeof sh.address === 'string' ? sh.address : '')
+                } : undefined
               })),
               managementItems: (legacyData.newManagementItems || legacyData.oldManagementItems || []).map((m: any) => ({
                 id: m.id || Math.random().toString(36).substring(7),
@@ -1752,6 +1789,34 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
     } catch (err: any) {
       console.error(err);
       throw new Error('Gagal menyimpan data personil ke database: ' + err.message);
+    }
+  };
+
+  const handlePushPartiesToForm = async (): Promise<void> => {
+    if (!project?.parties || project.parties.length === 0) {
+      alert('Belum ada Data Personil di Proyek Kerja ini.');
+      return;
+    }
+
+    const { shareholders: mappedSh, oldManagementItems: mappedMgmt } = mapPartiesToShareholdersAndManagement(project.parties);
+
+    const formDoc = documents.find(d => d.refId);
+    const refIdToUse = formDoc?.refId || project.metadata?.refId || projectId;
+    const collectionName = project.jobType === 'rupst' || project.jobType === 'sirkuler' ? 'rupst_projects' : 'projects';
+
+    try {
+      const docRef = doc(db, collectionName, refIdToUse);
+      const snap = await getDoc(docRef);
+      if (snap.exists()) {
+        await updateDoc(docRef, {
+          shareholders: mappedSh,
+          oldManagementItems: mappedMgmt
+        });
+      }
+      alert(`Berhasil mengimpor ${mappedSh.length} Personil dari Proyek Kerja ke Formulir RUPS.`);
+    } catch (e: any) {
+      console.error('Error pushing parties to form doc:', e);
+      alert('Data Personil telah dipetakan ke memori sesi.');
     }
   };
 
@@ -2553,6 +2618,7 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
               parties={project.parties || []} 
               onSaveParties={handleSaveParties} 
               onPullFromForm={handlePullFromForm}
+              onPushToForm={handlePushPartiesToForm}
             />
 
             {/* UPLOAD DOKUMEN PROYEK (New Feature) */}

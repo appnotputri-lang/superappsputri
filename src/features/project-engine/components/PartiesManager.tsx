@@ -15,7 +15,8 @@ import {
   Activity,
   AlertCircle,
   Loader2,
-  RefreshCw
+  RefreshCw,
+  Send
 } from 'lucide-react';
 import { Party } from '../../../domain/project/Project';
 
@@ -23,6 +24,7 @@ interface PartiesManagerProps {
   parties: Party[];
   onSaveParties: (updatedParties: Party[]) => Promise<void>;
   onPullFromForm?: () => Promise<Party[]>;
+  onPushToForm?: () => Promise<void>;
 }
 
 const LIST_JABATAN = [
@@ -46,11 +48,12 @@ const LIST_PEKERJAAN = [
   'Lainnya'
 ];
 
-export const PartiesManager: React.FC<PartiesManagerProps> = ({ parties = [], onSaveParties, onPullFromForm }) => {
+export const PartiesManager: React.FC<PartiesManagerProps> = ({ parties = [], onSaveParties, onPullFromForm, onPushToForm }) => {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingPartyId, setEditingPartyId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [pulling, setPulling] = useState(false);
+  const [pushing, setPushing] = useState(false);
 
   // Form states
   const [name, setName] = useState('');
@@ -194,6 +197,20 @@ export const PartiesManager: React.FC<PartiesManagerProps> = ({ parties = [], on
     }
   };
 
+  const handlePushClick = async () => {
+    if (!onPushToForm) return;
+    setPushing(true);
+    setError('');
+    try {
+      await onPushToForm();
+    } catch (err: any) {
+      setError(err.message || 'Gagal mengirim data ke formulir.');
+      alert(err.message || 'Gagal mengirim data ke formulir.');
+    } finally {
+      setPushing(false);
+    }
+  };
+
   return (
     <div className="bg-white border border-slate-200/80 rounded-xl p-6 shadow-sm space-y-5">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 pb-3 gap-3">
@@ -218,6 +235,26 @@ export const PartiesManager: React.FC<PartiesManagerProps> = ({ parties = [], on
                 <>
                   <RefreshCw className="w-3.5 h-3.5 text-slate-500" />
                   <span>Ambil dari Kehadiran / Parapihak Formulir</span>
+                </>
+              )}
+            </button>
+          )}
+          {onPushToForm && (
+            <button
+              type="button"
+              onClick={handlePushClick}
+              disabled={pushing || parties.length === 0}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg font-bold text-xs shadow-sm transition-all active:scale-95 border border-emerald-200 disabled:opacity-50 cursor-pointer"
+            >
+              {pushing ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-600" />
+                  <span>Mengirim...</span>
+                </>
+              ) : (
+                <>
+                  <Send className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Impor ke Formulir RUPS</span>
                 </>
               )}
             </button>
