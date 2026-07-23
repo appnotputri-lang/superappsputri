@@ -309,6 +309,17 @@ async function startServer() {
   app.get("/api/v2/drive/list-project-files/:projectId", authMiddleware, DriveController.listProjectFiles);
   app.post("/api/v2/drive/upload-file", authMiddleware, DriveController.uploadFile);
   app.delete("/api/v2/drive/delete-file/:fileId", authMiddleware, DriveController.deleteFile);
+  app.post("/api/v2/drive/trash-folder/:folderId", authMiddleware, async (req, res) => {
+    try {
+      const folderId = String(req.params.folderId || '');
+      if (!folderId) return res.status(400).json({ error: "Missing folderId" });
+      await driveRest.deleteFile(folderId, process.env);
+      res.json({ success: true, message: "Folder deleted from Drive" });
+    } catch (err: any) {
+      console.warn(`[Drive API] Failed to delete folder ${req.params.folderId}:`, err?.message);
+      res.status(500).json({ error: err.message || "Failed to delete folder" });
+    }
+  });
   
   app.post("/api/v2/documents/upload", authMiddleware, DocumentController.uploadDocument);
 

@@ -255,7 +255,8 @@ export class CompanyService {
   }
 
   /**
-   * Delete a Profile and its Google Drive folder
+   * Delete a Profile, all associated projects and uploaded documents,
+   * all Firestore records, and its Google Drive folders.
    */
   static async deleteCompany(companyId: string, isCv?: boolean): Promise<void> {
     const collectionName = 'profiles';
@@ -271,12 +272,82 @@ export class CompanyService {
           companyName = data.companyName || '';
           clientType = data.clientType || (isCv ? 'CV' : 'PT');
           driveFolderId = data.driveFolderId || '';
+        } else {
+          const cpSnap = await getDoc(doc(db, 'company_profiles', companyId));
+          if (cpSnap.exists()) {
+            const data = cpSnap.data();
+            companyName = data.companyName || '';
+            clientType = data.clientType || 'PT';
+            driveFolderId = data.driveFolderId || '';
+          }
         }
       } catch (e) {
         console.warn("[CompanyService] Could not pre-fetch profile before delete:", e);
       }
 
-      // 2. Call backend to delete client folder from Google Drive
+      // 2. Scan and gather ALL project IDs associated with this client
+      const projectIdsToDelete = new Set<string>();
+      
+      const projectCollections = [
+        'office_projects',
+        'projects',
+        'rupst_projects',
+        'rupst_public_projects',
+        'pendirian_projects'
+      ];
+
+      for (const colName of projectCollections) {
+        try {
+          const colRef = collection(db, colName);
+          const snap = await getDocs(colRef);
+          snap.forEach(d => {
+            const data = d.data();
+            if (
+              d.id === companyId ||
+              data.clientId === companyId ||
+              data.selectedProfileId === companyId ||
+              data.companyId === companyId ||
+              data.metadata?.clientId === companyId
+            ) {
+              projectIdsToDelete.add(d.id);
+            }
+          });
+        } catch (e) {
+          console.warn(`[CompanyService] Error scanning collection ${colName} for client projects:`, e);
+        }
+      }
+
+      // 3. Delete each associated project (and its subcollections, drive folders, uploaded docs)
+      const { ProjectService } = await import('./ProjectService');
+      for (const projId of projectIdsToDelete) {
+        try {
+          console.log(`[CompanyService] Deleting associated project ${projId} for client ${companyId}...`);
+          await ProjectService.deleteProject(projId);
+        } catch (projErr) {
+          console.warn(`[CompanyService] Error deleting project ${projId}:`, projErr);
+        }
+      }
+
+      // 4. Clean up any remaining records in project_uploaded_documents for this client ID
+      try {
+        const uploadedDocsCol = collection(db, 'project_uploaded_documents');
+        const uploadedDocsSnap = await getDocs(uploadedDocsCol);
+        for (const docSnap of uploadedDocsSnap.docs) {
+          const data = docSnap.data();
+          if (
+            data.clientId === companyId ||
+            data.selectedProfileId === companyId ||
+            data.companyId === companyId ||
+            projectIdsToDelete.has(data.projectId)
+          ) {
+            await deleteDoc(docSnap.ref);
+          }
+        }
+      } catch (e) {
+        console.warn("[CompanyService] Error cleaning project_uploaded_documents for client:", e);
+      }
+
+      // 5. Call backend API to delete client folder from Google Drive
       try {
         const { auth } = await import('../lib/firebase');
         let token = '';
@@ -300,15 +371,10 @@ export class CompanyService {
         console.warn("[CompanyService] Error deleting Google Drive folder:", e);
       }
 
-      // 3. Delete document from Firestore
-      await deleteDoc(doc(db, collectionName, companyId));
-
-      // Also clean up legacy cv_profiles if existing
-      try {
-        await deleteDoc(doc(db, 'cv_profiles', companyId));
-      } catch (e) {
-        // ignore
-      }
+      // 6. Delete client documents from Firestore
+      await deleteDoc(doc(db, 'profiles', companyId)).catch(() => {});
+      await deleteDoc(doc(db, 'company_profiles', companyId)).catch(() => {});
+      await deleteDoc(doc(db, 'cv_profiles', companyId)).catch(() => {});
     } catch (error) {
       handleFirestoreError(error, OperationType.DELETE, `${collectionName}/${companyId}`);
       throw error;

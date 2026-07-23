@@ -709,15 +709,33 @@ export class ProjectService {
         }
       }
 
-      // 3. Cascading delete for linked document projects (RUPS, RUPST, Pendirian, etc.)
-      // These usually use the same ID as the parent project ID
-      await deleteDoc(doc(db, 'projects', projectId));
-      await deleteDoc(doc(db, 'rupst_projects', projectId));
-      await deleteDoc(doc(db, 'rupst_public_projects', projectId));
-      await deleteDoc(doc(db, 'pendirian_projects', projectId));
+      // 3. Cleanup project_uploaded_documents
+      try {
+        const uploadedCol = collection(db, 'project_uploaded_documents');
+        const uploadedSnap = await getDocs(uploadedCol);
+        for (const uSnap of uploadedSnap.docs) {
+          if (uSnap.data()?.projectId === projectId) {
+            await deleteDoc(uSnap.ref);
+          }
+        }
+      } catch (e) {
+        console.warn("[ProjectService] Failed to cleanup project_uploaded_documents:", e);
+      }
 
-      // 4. Finally delete the parent project document
-      await deleteDoc(projectRef);
+      // 4. Cascading delete for linked document projects (RUPS, RUPST, Pendirian, etc.)
+      // These usually use the same ID as the parent project ID
+      await deleteDoc(doc(db, 'office_projects', projectId)).catch(() => {});
+      await deleteDoc(doc(db, 'projects', projectId)).catch(() => {});
+      await deleteDoc(doc(db, 'rupst_projects', projectId)).catch(() => {});
+      await deleteDoc(doc(db, 'rupst_public_projects', projectId)).catch(() => {});
+      await deleteDoc(doc(db, 'pendirian_projects', projectId)).catch(() => {});
+
+      // 5. Finally delete the parent project document
+      try {
+        await deleteDoc(projectRef);
+      } catch (e) {
+        // ignore if already deleted
+      }
 
       // 5. If driveFolderId exists, trash the Drive folder in Google Drive (non-blocking)
       if (driveFolderId) {

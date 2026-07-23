@@ -492,15 +492,15 @@ export const CompanyPage: React.FC<CompanyPageProps> = () => {
     }
     const targetProfile = currentProfilesList.find(p => p.id === id);
     const clientName = targetProfile?.companyName ? formatCompanyName(targetProfile.companyName, targetProfile.clientType) : id;
-    if (confirm(`Apakah Anda yakin ingin menghapus profil "${clientName}" dan seluruh folder Google Drive miliknya secara permanen?`)) {
+    if (confirm(`Apakah Anda yakin ingin menghapus profil "${clientName}", SELURUH PROYEK TERKAIT, DATA FIRESTORE, dan FOLDER GOOGLE DRIVE miliknya secara permanen?`)) {
       try {
         await deleteCompanyInContext(id, isCv);
         recordNotification(
-          'Profil Dihapus', 
-          `Profil klien "${clientName}" dan folder Google Drive telah dihapus secara permanen.`, 
+          'Klien & Proyek Dihapus', 
+          `Profil klien "${clientName}", seluruh proyek terkait, data Firestore, dan folder Google Drive telah dihapus secara permanen.`, 
           'warning'
         );
-        alert(`Profil klien "${clientName}" dan folder Google Drive berhasil dihapus.`);
+        alert(`Profil klien "${clientName}", seluruh proyek terkait, data Firestore, dan folder Google Drive berhasil dihapus.`);
         setEditingProfileId(null);
       } catch (err: any) {
         console.error("Gagal menghapus profil:", err);

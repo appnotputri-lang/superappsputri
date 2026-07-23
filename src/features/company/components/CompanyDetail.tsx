@@ -83,17 +83,17 @@ export const CompanyDetail: React.FC<CompanyDetailProps> = ({
             onClick={async (e) => {
               e.preventDefault();
               if (!editingProfileId) return;
-              if (confirm('Hapus profil ' + formatCompanyName(data.companyName, data.clientType) + ' beserta seluruh folder Google Drive miliknya?')) {
+              if (confirm('Hapus profil ' + formatCompanyName(data.companyName, data.clientType) + ' beserta SELURUH PROYEK TERKAIT, DATA FIRESTORE, dan FOLDER GOOGLE DRIVE miliknya secara permanen?')) {
                 if (!user) return alert('Anda harus login!');
                 try {
                   const deletedName = data.companyName || 'Klien Baru';
                   await deleteCompany(editingProfileId, false);
                   recordNotification(
-                    'Klien Dihapus',
-                    `Profil klien "${deletedName}" dan folder Google Drive telah berhasil dihapus oleh ${user?.email || 'Super Admin'}.`,
+                    'Klien & Proyek Dihapus',
+                    `Profil klien "${deletedName}", seluruh proyek terkait, data Firestore, dan folder Google Drive telah berhasil dihapus oleh ${user?.email || 'Super Admin'}.`,
                     'delete_profile'
                   );
-                  alert('Profil klien dan folder Google Drive berhasil dihapus');
+                  alert('Profil klien, seluruh proyek terkait, data Firestore, dan folder Google Drive berhasil dihapus');
                   setEditingProfileId(null);
                 } catch (err) {
                   handleFirestoreError(err, OperationType.DELETE, `profiles/${editingProfileId}`);
