@@ -9,7 +9,7 @@ interface PicSectionProps {
 
 export const PicSection: React.FC<PicSectionProps> = ({ data, updateData }) => {
   return (
-    <AhuSection title="Person In Charge (PIC)">
+    <AhuSection title="PENANGGUNG JAWAB (PIC)">
       <div className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
           <AhuLabel label="Nama PIC" />

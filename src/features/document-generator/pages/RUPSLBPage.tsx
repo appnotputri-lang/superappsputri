@@ -900,8 +900,8 @@ export const RUPSLBPage: React.FC<RUPSLBPageProps> = ({
               </div>
             </AhuSection>
 
-            {/* PENGURUS DAN PEMEGANG SAHAM LAMA */}
-            <AhuSection title="PENGURUS DAN PEMEGANG SAHAM LAMA *">
+            {/* PENGURUS DAN PEMEGANG SAHAM */}
+            <AhuSection title="PENGURUS DAN PEMEGANG SAHAM">
               <div className="space-y-4">
                   {(data.documentType === 'MINUTES' || data.documentType === 'CIRCULAR') && (
                     <div className="bg-blue-50 border border-blue-200 p-3 rounded-sm flex items-start gap-3">

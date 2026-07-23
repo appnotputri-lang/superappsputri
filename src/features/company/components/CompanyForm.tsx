@@ -142,32 +142,32 @@ export const CompanyForm: React.FC<CompanyFormProps> = ({
         {/* 1. GENERAL INFORMATION */}
         <GeneralInformationSection data={data} updateData={updateData} />
 
-        {/* PIC SECTION */}
-        <PicSection data={data} updateData={updateData} />
-
         {/* 2. COMPANY IDENTITY */}
         <CompanyIdentitySection data={data} updateData={updateData} />
 
-        {/* 3. LEGAL INFORMATION */}
+        {/* 3. COMPANY STATUS */}
+        <StatusSection data={data} updateData={updateData} />
+
+        {/* 4. DATA DOMISILI & ALAMAT PERSEROAN */}
+        <AddressSection data={data} updateData={updateData} />
+
+        {/* 5. COMPANY CONTACT */}
+        <ContactSection data={data} updateData={updateData} />
+
+        {/* 6. PIC SECTION */}
+        <PicSection data={data} updateData={updateData} />
+
+        {/* 7. LEGAL INFORMATION */}
         <LegalInformationSection 
           data={data} 
           updateData={updateData} 
           setIsAddKbliModalOpen={setIsAddKbliModalOpen} 
         />
 
-        {/* 4. COMPANY CONTACT */}
-        <ContactSection />
-
-        {/* 5. COMPANY STATUS */}
-        <StatusSection data={data} updateData={updateData} />
-
-        {/* 6. CAPITAL SECTION */}
+        {/* 8. CAPITAL SECTION */}
         <CapitalSection data={data} updateData={updateData} />
 
-        {/* 7. ADDRESS SECTION */}
-        <AddressSection data={data} updateData={updateData} />
-
-        {/* 8. SHAREHOLDER SECTION */}
+        {/* 9. SHAREHOLDER SECTION */}
         <ShareholderSection 
           data={data} 
           updateData={updateData} 
@@ -175,7 +175,7 @@ export const CompanyForm: React.FC<CompanyFormProps> = ({
           deleteShareholder={deleteShareholder} 
         />
 
-        {/* 9. MANAGEMENT SECTION */}
+        {/* 10. MANAGEMENT SECTION */}
         <ManagementSection 
           data={data} 
           updateData={updateData} 

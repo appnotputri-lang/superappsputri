@@ -3,7 +3,7 @@ import { ArrowRight, Edit, Trash2, ChevronDown, ChevronRight, Plus, Eye } from '
 import { CompanyDetailProps } from '../types/company.types';
 import { OperationType } from '../../../../src/lib/firebase';
 import { formatInputNumber, parseFormattedNumber } from '../../../../utils/formatters';
-import { formatCompanyName } from '../../../lib/formatter';
+import { formatCompanyName, extractStreetAddress } from '../../../lib/formatter';
 
 const AhuSection = ({ title, children, isOpen = true }: { title: string, children: React.ReactNode, isOpen?: boolean }) => {
   const [open, setOpen] = useState(isOpen);
@@ -123,6 +123,16 @@ export const CompanyDetail: React.FC<CompanyDetailProps> = ({
                 </div>
               </div>
             </div>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-start">
+              <AhuLabel label="Alamat Utama / Jalan" />
+              <div className="md:col-span-3">
+                <AhuInput 
+                  placeholder="Belum diisi"
+                  value={extractStreetAddress(data.newAddress?.fullAddress || data.fullAddress || '')}
+                  readOnly
+                />
+              </div>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
               <AhuLabel label="Harga per Lembar" />
               <div className="md:col-span-3">
@@ -171,8 +181,8 @@ export const CompanyDetail: React.FC<CompanyDetailProps> = ({
           </div>
         </AhuSection>
 
-        {/* PENGURUS DAN PEMEGANG SAHAM LAMA */}
-        <AhuSection title="PENGURUS DAN PEMEGANG SAHAM LAMA *">
+        {/* PENGURUS DAN PEMEGANG SAHAM */}
+        <AhuSection title="PENGURUS DAN PEMEGANG SAHAM">
           <div className="space-y-4">
               <div className="border border-slate-200 overflow-x-auto rounded-sm">
                 <table className="min-w-[600px] w-full text-left text-[11px]">
@@ -186,16 +196,18 @@ export const CompanyDetail: React.FC<CompanyDetailProps> = ({
                     </tr>
                   </thead>
                   <tbody>
-                    {data.shareholders.map((s: any) => (
-                       <tr key={s.id} className="border-b border-slate-200 last:border-0 hover:bg-slate-50 transition-colors text-[10px]">
-                         <td className="p-2 border-r border-slate-200 font-bold uppercase">{s.name}</td>
-                         <td className="p-2 border-r border-slate-200">Tanpa Klasifikasi</td>
-                         <td className="p-2 border-r border-slate-200">{formatInputNumber(s.sharesOwned)}</td>
-                         <td className="p-2 border-r border-slate-200 font-bold uppercase">{s.isManagement ? (s.managementPosition || 'DIREKTUR') : '-'}</td>
-                         <td className="p-2 border-r border-slate-200">Rp. {formatInputNumber(s.sharesOwned * data.originalSharePrice)}</td>
-                       </tr>
-                    ))}
-                    {data.shareholders.length === 0 && (
+                    {(data.shareholders || [])
+                      .filter((s: any) => (Number(s.sharesOwned) > 0) || Boolean(s.isManagement || (s.managementPosition && String(s.managementPosition).trim().length > 0)))
+                      .map((s: any) => (
+                        <tr key={s.id} className="border-b border-slate-200 last:border-0 hover:bg-slate-50 transition-colors text-[10px]">
+                          <td className="p-2 border-r border-slate-200 font-bold uppercase">{s.name}</td>
+                          <td className="p-2 border-r border-slate-200">Tanpa Klasifikasi</td>
+                          <td className="p-2 border-r border-slate-200">{formatInputNumber(s.sharesOwned)}</td>
+                          <td className="p-2 border-r border-slate-200 font-bold uppercase">{s.isManagement ? (s.managementPosition || 'DIREKTUR') : '-'}</td>
+                          <td className="p-2 border-r border-slate-200">Rp. {formatInputNumber(s.sharesOwned * data.originalSharePrice)}</td>
+                        </tr>
+                     ))}
+                    {(!data.shareholders || data.shareholders.filter((s: any) => (Number(s.sharesOwned) > 0) || Boolean(s.isManagement || (s.managementPosition && String(s.managementPosition).trim().length > 0))).length === 0) && (
                       <tr>
                         <td colSpan={5} className="p-4 text-center text-slate-400 italic">Belum ada data pengurus/pemegang saham lama.</td>
                       </tr>
@@ -204,19 +216,19 @@ export const CompanyDetail: React.FC<CompanyDetailProps> = ({
                 </table>
               </div>
               <div className="text-[13px] font-bold text-slate-800 space-y-1 uppercase">
-                <div>TOTAL LEMBAR SAHAM {formatInputNumber(data.shareholders.reduce((sum: number, s: any) => sum + s.sharesOwned, 0))}</div>
-                <div>TOTAL MODAL DITEMPATKAN DAN DISETOR Rp {formatInputNumber(data.shareholders.reduce((sum: number, s: any) => sum + s.sharesOwned, 0) * data.originalSharePrice)}</div>
-                {data.shareholders.reduce((sum: number, s: any) => sum + s.sharesOwned, 0) < data.originalTotalShares && (
+                <div>TOTAL LEMBAR SAHAM {formatInputNumber((data.shareholders || []).filter((s: any) => (Number(s.sharesOwned) > 0) || Boolean(s.isManagement || (s.managementPosition && String(s.managementPosition).trim().length > 0))).reduce((sum: number, s: any) => sum + (s.sharesOwned || 0), 0))}</div>
+                <div>TOTAL MODAL DITEMPATKAN DAN DISETOR Rp {formatInputNumber((data.shareholders || []).filter((s: any) => (Number(s.sharesOwned) > 0) || Boolean(s.isManagement || (s.managementPosition && String(s.managementPosition).trim().length > 0))).reduce((sum: number, s: any) => sum + (s.sharesOwned || 0), 0) * data.originalSharePrice)}</div>
+                {(data.shareholders || []).filter((s: any) => (Number(s.sharesOwned) > 0) || Boolean(s.isManagement || (s.managementPosition && String(s.managementPosition).trim().length > 0))).reduce((sum: number, s: any) => sum + (s.sharesOwned || 0), 0) < data.originalTotalShares && (
                   <div className="text-red-500 font-normal text-xs normal-case mt-1 bg-red-50 p-2 rounded border border-red-100">
-                    * Total lembar saham ({formatInputNumber(data.shareholders.reduce((sum: number, s: any) => sum + s.sharesOwned, 0))}) kurang dari Modal Ditempatkan & Disetor Lama ({formatInputNumber(data.originalTotalShares)} lembar)
+                    * Total lembar saham ({formatInputNumber((data.shareholders || []).filter((s: any) => (Number(s.sharesOwned) > 0) || Boolean(s.isManagement || (s.managementPosition && String(s.managementPosition).trim().length > 0))).reduce((sum: number, s: any) => sum + (s.sharesOwned || 0), 0))}) kurang dari Modal Ditempatkan & Disetor Lama ({formatInputNumber(data.originalTotalShares)} lembar)
                   </div>
                 )}
               </div>
            </div>
         </AhuSection>
 
-        {/* 1. GENERAL INFORMATION */}
-        <AhuSection title="General Information">
+        {/* 1. INFORMASI UMUM */}
+        <AhuSection title="INFORMASI UMUM">
           <div className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
               <AhuLabel label="Jenis Badan Usaha" />
@@ -248,8 +260,119 @@ export const CompanyDetail: React.FC<CompanyDetailProps> = ({
           </div>
         </AhuSection>
 
-        {/* PIC SECTION */}
-        <AhuSection title="Person In Charge (PIC)">
+        {/* 2. IDENTITAS PERSEROAN */}
+        <AhuSection title="IDENTITAS PERSEROAN">
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+              <AhuLabel label="Tipe Perseroan" />
+              <div className="md:col-span-3">
+                <AhuSelect 
+                  value={data.companyType || 'SWASTA NASIONAL'} 
+                  disabled
+                >
+                  <option value="SWASTA NASIONAL">SWASTA NASIONAL</option>
+                  <option value="CV">CV</option>
+                  <option value="PMA">PMA</option>
+                </AhuSelect>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+              <AhuLabel label="NPWP" />
+              <div className="md:col-span-3">
+                <AhuInput 
+                  value={data.npwp || ''} 
+                  readOnly
+                  placeholder="00.000.000.0-000.000"
+                />
+              </div>
+            </div>
+          </div>
+        </AhuSection>
+
+        {/* 3. STATUS PERSEROAN */}
+        <AhuSection title="STATUS PERSEROAN">
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+              <AhuLabel label="Status Perseroan" />
+              <div className="md:col-span-3">
+                <AhuSelect 
+                  value={data.status || 'tertutup'} 
+                  disabled
+                >
+                  <option value="tertutup">Tertutup</option>
+                  <option value="terbuka">Terbuka</option>
+                </AhuSelect>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+              <AhuLabel label="Jangka Waktu Berdiri" />
+              <div className="md:col-span-3">
+                <AhuSelect 
+                  value={data.duration || 'TIDAK TERBATAS'} 
+                  disabled
+                >
+                  <option value="TIDAK TERBATAS">Tidak Terbatas</option>
+                  <option value="TERBATAS">Terbatas</option>
+                </AhuSelect>
+              </div>
+            </div>
+          </div>
+        </AhuSection>
+
+        {/* 4. DATA DOMISILI & ALAMAT PERSEROAN */}
+        <AhuSection title="DATA DOMISILI & ALAMAT PERSEROAN">
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+              <AhuLabel label="Kedudukan (Kab/Kota)" />
+              <div className="md:col-span-3">
+                <AhuInput 
+                  value={data.domicile || ''}
+                  readOnly
+                  placeholder="Belum diisi"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-start">
+              <AhuLabel label="Alamat Utama / Jalan" />
+              <div className="md:col-span-3">
+                <AhuInput 
+                  value={extractStreetAddress(data.newAddress?.fullAddress || data.fullAddress || '')}
+                  readOnly
+                  placeholder="Belum diisi"
+                />
+              </div>
+            </div>
+          </div>
+        </AhuSection>
+
+        {/* 5. KONTAK PERUSAHAAN */}
+        <AhuSection title="KONTAK PERUSAHAAN">
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+              <AhuLabel label="Email PT" />
+              <div className="md:col-span-3">
+                <AhuInput 
+                  value={data.email || ''} 
+                  disabled 
+                  placeholder="Belum diisi"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+              <AhuLabel label="Nomor Telepon PT" />
+              <div className="md:col-span-3">
+                <AhuInput 
+                  value={data.phoneNumber || ''} 
+                  disabled 
+                  placeholder="Belum diisi"
+                />
+              </div>
+            </div>
+          </div>
+        </AhuSection>
+
+        {/* 6. PENANGGUNG JAWAB (PIC) */}
+        <AhuSection title="PENANGGUNG JAWAB (PIC)">
           <div className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
               <AhuLabel label="Nama PIC" />
@@ -283,37 +406,8 @@ export const CompanyDetail: React.FC<CompanyDetailProps> = ({
           </div>
         </AhuSection>
 
-        {/* 2. COMPANY IDENTITY */}
-        <AhuSection title="Company Identity">
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
-              <AhuLabel label="Tipe Perseroan" />
-              <div className="md:col-span-3">
-                <AhuSelect 
-                  value={data.companyType || 'SWASTA NASIONAL'} 
-                  disabled
-                >
-                  <option value="SWASTA NASIONAL">SWASTA NASIONAL</option>
-                  <option value="CV">CV</option>
-                  <option value="PMA">PMA</option>
-                </AhuSelect>
-              </div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
-              <AhuLabel label="NPWP" />
-              <div className="md:col-span-3">
-                <AhuInput 
-                  value={data.npwp || ''} 
-                  readOnly
-                  placeholder="00.000.000.0-000.000"
-                />
-              </div>
-            </div>
-          </div>
-        </AhuSection>
-
-        {/* 3. LEGAL INFORMATION */}
-        <AhuSection title="Legal Information">
+        {/* 7. INFORMASI LEGALITAS */}
+        <AhuSection title="INFORMASI LEGALITAS">
           <div className="space-y-6">
             {/* AKTA PENDIRIAN */}
             <div className="border border-slate-200 rounded-sm p-4 space-y-4 bg-white/50">
@@ -575,43 +669,6 @@ export const CompanyDetail: React.FC<CompanyDetailProps> = ({
                 </div>
               </div>
             </div>
-          </div>
-        </AhuSection>
-
-        {/* 4. COMPANY STATUS */}
-        <AhuSection title="Company Status">
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
-              <AhuLabel label="Status Perseroan" />
-              <div className="md:col-span-3">
-                <AhuSelect 
-                  value={data.status || 'tertutup'} 
-                  disabled
-                >
-                  <option value="tertutup">Tertutup</option>
-                  <option value="terbuka">Terbuka</option>
-                </AhuSelect>
-              </div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
-              <AhuLabel label="Jangka Waktu Berdiri" />
-              <div className="md:col-span-3">
-                <AhuSelect 
-                  value={data.duration || 'TIDAK TERBATAS'} 
-                  disabled
-                >
-                  <option value="TIDAK TERBATAS">Tidak Terbatas</option>
-                  <option value="TERBATAS">Terbatas</option>
-                </AhuSelect>
-              </div>
-            </div>
-          </div>
-        </AhuSection>
-
-        {/* 5. COMPANY CONTACT */}
-        <AhuSection title="Company Contact">
-          <div className="text-slate-400 italic text-[12px] p-2 bg-slate-50 border border-slate-100 rounded-sm">
-            Detail kontak dan alamat lengkap akan dimigrasikan pada fase berikutnya.
           </div>
         </AhuSection>
       </fieldset>

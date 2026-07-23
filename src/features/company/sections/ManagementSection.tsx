@@ -25,7 +25,7 @@ export const ManagementSection: React.FC<ManagementSectionProps> = ({
   const managementMembers = shareholders.filter((s: any) => s.isManagement || s.managementPosition);
 
   return (
-    <AhuSection title="SUSUNAN DIREKSI DAN KOMISARIS LAMA">
+    <AhuSection title="SUSUNAN DIREKSI DAN KOMISARIS">
       <div className="space-y-4">
         <div className="flex justify-end gap-2">
           <button 

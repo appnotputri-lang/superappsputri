@@ -23,6 +23,45 @@ function formatBirthDateStr(dateStr?: string): string {
 }
 
 /**
+ * Helper to turn values to UPPERCASE
+ */
+function toUpper(val: any): string {
+  if (val === undefined || val === null || val === '') return '-';
+  return String(val).toUpperCase();
+}
+
+/**
+ * Format clean domicile without duplicate KOTA/KABUPATEN
+ */
+function cleanDomicile(domicile?: string, style?: string, kedudukanPT?: string): string {
+  const raw = domicile || kedudukanPT || '-';
+  if (raw === '-') return '-';
+  let str = raw.trim();
+  const upperStr = str.toUpperCase();
+
+  if (upperStr.startsWith('KOTA ') || upperStr.startsWith('KABUPATEN ') || upperStr.startsWith('KAB. ')) {
+    return upperStr.replace(/^KAB\.\s+/, 'KABUPATEN ');
+  }
+
+  if (style) {
+    const styleUpper = style.trim().toUpperCase();
+    if (!upperStr.startsWith(styleUpper)) {
+      return `${styleUpper} ${upperStr}`;
+    }
+  }
+
+  return upperStr;
+}
+
+/**
+ * Format document SK/SP type by stripping underscores and converting to UPPERCASE
+ */
+function formatSkSpType(type?: string): string {
+  if (!type) return '-';
+  return type.replace(/_/g, ' ').toUpperCase();
+}
+
+/**
  * Generate PDF summary for a Company Profile
  */
 export function generateCompanyProfileSummaryPdf(profile: CompanyProfile): void {
@@ -44,14 +83,14 @@ export function generateCompanyProfileSummaryPdf(profile: CompanyProfile): void 
 
   // Helper for Section Titles
   const renderSectionTitle = (title: string) => {
-    ensureSpace(12);
+    ensureSpace(14);
     doc.setFillColor(30, 41, 59); // Slate-800
     doc.rect(margin, currentY, contentWidth, 7, 'F');
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(9);
     doc.setTextColor(255, 255, 255);
-    doc.text(title, margin + 3, currentY + 4.8);
-    currentY += 9;
+    doc.text(title.toUpperCase(), margin + 3, currentY + 4.8);
+    currentY += 12;
   };
 
   // ───────────────────────────────────────────────────────────────────────────
@@ -69,7 +108,7 @@ export function generateCompanyProfileSummaryPdf(profile: CompanyProfile): void 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(12);
   doc.setTextColor(30, 41, 59);
-  doc.text(displayName, margin, currentY);
+  doc.text(displayName.toUpperCase(), margin, currentY);
   currentY += 5;
 
   doc.setFont('helvetica', 'normal');
@@ -80,7 +119,7 @@ export function generateCompanyProfileSummaryPdf(profile: CompanyProfile): void 
     month: 'long',
     year: 'numeric',
   });
-  doc.text(`Tanggal Cetak: ${todayStr}`, margin, currentY);
+  doc.text(`TANGGAL CETAK: ${todayStr.toUpperCase()}`, margin, currentY);
   currentY += 4;
 
   // Decorative header divider line
@@ -100,9 +139,7 @@ export function generateCompanyProfileSummaryPdf(profile: CompanyProfile): void 
       : '-'
   );
 
-  const domicileStr = profile.domicile 
-    ? `${profile.domicileStyle ? profile.domicileStyle + ' ' : ''}${profile.domicile}`
-    : (profile.kedudukanPT || '-');
+  const domicileStr = cleanDomicile(profile.domicile, profile.domicileStyle, profile.kedudukanPT);
 
   autoTable(doc, {
     startY: currentY,
@@ -114,13 +151,15 @@ export function generateCompanyProfileSummaryPdf(profile: CompanyProfile): void 
       1: { cellWidth: 'auto' }
     },
     body: [
-      ['Jenis Badan Usaha', profile.clientType || 'PT'],
-      ['Tipe Perseroan', profile.companyType || '-'],
-      ['NPWP', profile.npwp || '-'],
-      ['Kedudukan', domicileStr],
-      ['Alamat Lengkap', fullAddr],
-      ['Status Perseroan', profile.status || '-'],
-      ['Jangka Waktu Berdiri', profile.duration || '-'],
+      ['Jenis Badan Usaha', toUpper(profile.clientType || 'PT')],
+      ['Tipe Perseroan', toUpper(profile.companyType || '-')],
+      ['NPWP', toUpper(profile.npwp || '-')],
+      ['Email PT', toUpper(profile.email || '-')],
+      ['No. Telepon PT', toUpper(profile.phoneNumber || '-')],
+      ['Kedudukan', toUpper(domicileStr)],
+      ['Alamat Lengkap', toUpper(fullAddr)],
+      ['Status Perseroan', toUpper(profile.status || '-')],
+      ['Jangka Waktu Berdiri', toUpper(profile.duration || '-')],
     ]
   });
 
@@ -143,12 +182,12 @@ export function generateCompanyProfileSummaryPdf(profile: CompanyProfile): void 
       1: { cellWidth: 'auto' }
     },
     body: [
-      ['Nomor Akta Pendirian', profile.establishmentDeedNumber || '-'],
-      ['Tanggal Akta Pendirian', profile.establishmentDeedDate || '-'],
-      ['Notaris Pendirian', notaryFull],
-      ['Kedudukan Notaris', profile.establishmentNotaryDomicile || '-'],
-      ['Nomor SK Kemenkumham', profile.establishmentSkNumber || '-'],
-      ['Tanggal SK Kemenkumham', profile.establishmentSkDate || '-'],
+      ['Nomor Akta Pendirian', toUpper(profile.establishmentDeedNumber || '-')],
+      ['Tanggal Akta Pendirian', toUpper(profile.establishmentDeedDate || '-')],
+      ['Notaris Pendirian', toUpper(notaryFull)],
+      ['Kedudukan Notaris', toUpper(profile.establishmentNotaryDomicile || '-')],
+      ['Nomor SK Kemenkumham', toUpper(profile.establishmentSkNumber || '-')],
+      ['Tanggal SK Kemenkumham', toUpper(profile.establishmentSkDate || '-')],
     ]
   });
 
@@ -171,19 +210,20 @@ export function generateCompanyProfileSummaryPdf(profile: CompanyProfile): void 
       margin: { left: margin, right: margin },
       theme: 'plain',
       styles: { fontSize: 8.5, fontStyle: 'italic', textColor: [100, 116, 139] },
-      body: [['Belum ada riwayat akta perubahan.']]
+      body: [['BELUM ADA RIWAYAT AKTA PERUBAHAN.']]
     });
     currentY = (doc as any).lastAutoTable.finalY + 6;
   } else {
     deeds.forEach((deed, idx) => {
+      if (idx > 0) currentY += 2;
       ensureSpace(20);
 
       // Subheader for deed item
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(8.5);
       doc.setTextColor(30, 41, 59);
-      doc.text(`• Akta Perubahan Ke-${idx + 1}`, margin, currentY);
-      currentY += 4;
+      doc.text(`• AKTA PERUBAHAN KE-${idx + 1}`, margin, currentY);
+      currentY += 5;
 
       const deedNotary = [deed.notary, deed.notaryTitle].filter(Boolean).join(' ') || '-';
 
@@ -197,10 +237,10 @@ export function generateCompanyProfileSummaryPdf(profile: CompanyProfile): void 
           1: { cellWidth: 'auto' }
         },
         body: [
-          ['Nomor Akta', deed.number || '-'],
-          ['Tanggal Akta', deed.date || '-'],
-          ['Notaris', deedNotary],
-          ['Kedudukan Notaris', deed.notaryDomicile || '-'],
+          ['Nomor Akta', toUpper(deed.number || '-')],
+          ['Tanggal Akta', toUpper(deed.date || '-')],
+          ['Notaris', toUpper(deedNotary)],
+          ['Kedudukan Notaris', toUpper(deed.notaryDomicile || '-')],
         ]
       });
 
@@ -211,23 +251,23 @@ export function generateCompanyProfileSummaryPdf(profile: CompanyProfile): void 
       if (skDocs.length > 0) {
         autoTable(doc, {
           startY: currentY,
-          margin: { left: margin + 5, right: margin },
+          margin: { left: margin, right: margin },
           theme: 'striped',
           styles: { fontSize: 7.5, cellPadding: 1.5, textColor: [51, 65, 85] },
           headStyles: { fillColor: [226, 232, 240], textColor: [15, 23, 42], fontStyle: 'bold' },
-          head: [['Tipe Dokumen SK/SP', 'Nomor Dokumen', 'Tanggal']],
-          body: skDocs.map(d => [d.type || '-', d.number || '-', d.date || '-'])
+          head: [['TIPE DOKUMEN SK/SP', 'NOMOR DOKUMEN', 'TANGGAL']],
+          body: skDocs.map(d => [formatSkSpType(d.type), toUpper(d.number || '-'), toUpper(d.date || '-')])
         });
         currentY = (doc as any).lastAutoTable.finalY + 4;
       } else if (deed.skNumber) {
         autoTable(doc, {
           startY: currentY,
-          margin: { left: margin + 5, right: margin },
+          margin: { left: margin, right: margin },
           theme: 'striped',
           styles: { fontSize: 7.5, cellPadding: 1.5, textColor: [51, 65, 85] },
           headStyles: { fillColor: [226, 232, 240], textColor: [15, 23, 42], fontStyle: 'bold' },
-          head: [['Tipe Dokumen SK/SP', 'Nomor Dokumen', 'Tanggal']],
-          body: [['SK Kemenkumham', deed.skNumber, deed.skDate || '-']]
+          head: [['TIPE DOKUMEN SK/SP', 'NOMOR DOKUMEN', 'TANGGAL']],
+          body: [['SK KEMENKUMHAM', toUpper(deed.skNumber), toUpper(deed.skDate || '-')]]
         });
         currentY = (doc as any).lastAutoTable.finalY + 4;
       } else {
@@ -244,8 +284,8 @@ export function generateCompanyProfileSummaryPdf(profile: CompanyProfile): void 
   renderSectionTitle('4. PERMODALAN');
 
   const sharePriceStr = formatRp(profile.originalSharePrice);
-  const authSharesStr = `${formatNumber(profile.originalAuthorizedShares || 0)} lembar (${formatRp(profile.originalCapitalBase)})`;
-  const paidSharesStr = `${formatNumber(profile.originalTotalShares || 0)} lembar (${formatRp(profile.originalCapitalPaid)})`;
+  const authSharesStr = `${formatNumber(profile.originalAuthorizedShares || 0)} LEMBAR (${formatRp(profile.originalCapitalBase)})`;
+  const paidSharesStr = `${formatNumber(profile.originalTotalShares || 0)} LEMBAR (${formatRp(profile.originalCapitalPaid)})`;
 
   autoTable(doc, {
     startY: currentY,
@@ -257,9 +297,9 @@ export function generateCompanyProfileSummaryPdf(profile: CompanyProfile): void 
       1: { cellWidth: 'auto' }
     },
     body: [
-      ['Nominal Harga per Saham', sharePriceStr],
-      ['Modal Dasar', authSharesStr],
-      ['Modal Ditempatkan & Disetor', paidSharesStr],
+      ['Nominal Harga per Saham', toUpper(sharePriceStr)],
+      ['Modal Dasar', toUpper(authSharesStr)],
+      ['Modal Ditempatkan & Disetor', toUpper(paidSharesStr)],
     ]
   });
 
@@ -278,25 +318,26 @@ export function generateCompanyProfileSummaryPdf(profile: CompanyProfile): void 
       margin: { left: margin, right: margin },
       theme: 'plain',
       styles: { fontSize: 8.5, fontStyle: 'italic', textColor: [100, 116, 139] },
-      body: [['Belum ada data pengurus / pemegang saham.']]
+      body: [['BELUM ADA DATA PENGURUS / PEMEGANG SAHAM.']]
     });
     currentY = (doc as any).lastAutoTable.finalY + 6;
   } else {
     const sharePrice = profile.originalSharePrice || 0;
 
     // 5a. Detail Identitas Personil
+    currentY += 1;
     ensureSpace(12);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(9);
     doc.setTextColor(30, 41, 59);
-    doc.text('5a. Detail Identitas Personil', margin, currentY);
+    doc.text('5A. DETAIL IDENTITAS PERSONIL', margin, currentY);
     currentY += 5;
 
     shareholders.forEach((sh, idx) => {
       ensureSpace(20);
 
       const salutationStr = sh.salutation ? `${sh.salutation} ` : '';
-      const titleStr = `Personil ${idx + 1}. ${salutationStr}${sh.name || '-'}`;
+      const titleStr = `PERSONIL ${idx + 1}. ${toUpper(salutationStr)}${toUpper(sh.name || '-')}`;
 
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(8.5);
@@ -305,19 +346,19 @@ export function generateCompanyProfileSummaryPdf(profile: CompanyProfile): void 
       currentY += 3.5;
 
       const shares = sh.sharesOwned || 0;
-      const sharesValStr = `${formatNumber(shares)} lembar (${formatRp(shares * sharePrice)})`;
-      const positionStr = sh.isManagement && sh.managementPosition ? sh.managementPosition : 'Bukan Pengurus (Pemegang Saham)';
+      const sharesValStr = `${formatNumber(shares)} LEMBAR (${formatRp(shares * sharePrice)})`;
+      const positionStr = sh.isManagement && sh.managementPosition ? sh.managementPosition : 'BUKAN PENGURUS (PEMEGANG SAHAM)';
 
       let bodyRows: [string, string][] = [];
 
       if (sh.shareholderType === 'BADAN_HUKUM') {
         bodyRows = [
-          ['Tipe Badan Hukum', sh.legalEntityType || 'Badan Hukum'],
-          ['Nama Badan Hukum', sh.name || '-'],
-          ['SK Kemenkumham', sh.skNumber || '-'],
-          ['NPWP', sh.npwp || '-'],
-          ['Jumlah Saham', sharesValStr],
-          ['Jabatan', positionStr],
+          ['Tipe Badan Hukum', toUpper(sh.legalEntityType || 'BADAN HUKUM')],
+          ['Nama Badan Hukum', toUpper(sh.name || '-')],
+          ['SK Kemenkumham', toUpper(sh.skNumber || '-')],
+          ['NPWP', toUpper(sh.npwp || '-')],
+          ['Jumlah Saham', toUpper(sharesValStr)],
+          ['Jabatan', toUpper(positionStr)],
         ];
       } else {
         const idLabel = sh.nationalityType === 'WNA' ? 'Nomor Paspor' : 'NIK';
@@ -331,38 +372,61 @@ export function generateCompanyProfileSummaryPdf(profile: CompanyProfile): void 
         let addressStr = '-';
         if (sh.address) {
           const addrParts: string[] = [];
-          if (sh.address.fullAddress) addrParts.push(sh.address.fullAddress);
+          const isWna = sh.nationalityType === 'WNA';
 
-          const rtRw = [
-            sh.address.rt ? `RT ${sh.address.rt}` : '',
-            sh.address.rw ? `RW ${sh.address.rw}` : ''
-          ].filter(Boolean).join('/');
-          if (rtRw) addrParts.push(rtRw);
+          if (sh.address.fullAddress) {
+            addrParts.push(sh.address.fullAddress);
+          }
 
-          if (sh.address.kelurahan) addrParts.push(`Kel. ${sh.address.kelurahan}`);
-          if (sh.address.kecamatan) addrParts.push(`Kec. ${sh.address.kecamatan}`);
-          if (sh.address.city) addrParts.push(sh.address.city);
-          if (sh.address.province && sh.address.province !== sh.address.city) addrParts.push(sh.address.province);
+          if (isWna) {
+            // WNA (Foreigner): No RT/RW/Kel/Kec.
+            if (!sh.address.fullAddress) {
+              if (sh.address.city) addrParts.push(sh.address.city);
+              if (sh.address.province && sh.address.province !== sh.address.city) addrParts.push(sh.address.province);
+            }
+          } else {
+            // WNI: Add RT/RW/Kel/Kec if present and valid
+            const validRt = sh.address.rt && sh.address.rt !== '0' && sh.address.rt !== '00' && sh.address.rt !== '000' && sh.address.rt !== '-' ? sh.address.rt : '';
+            const validRw = sh.address.rw && sh.address.rw !== '0' && sh.address.rw !== '00' && sh.address.rw !== '000' && sh.address.rw !== '-' ? sh.address.rw : '';
+            const rtRw = [validRt ? `RT ${validRt}` : '', validRw ? `RW ${validRw}` : ''].filter(Boolean).join('/');
+            
+            if (rtRw && !sh.address.fullAddress?.toUpperCase().includes(rtRw.toUpperCase())) {
+              addrParts.push(rtRw);
+            }
+
+            if (sh.address.kelurahan && sh.address.kelurahan !== '-' && !sh.address.fullAddress?.toUpperCase().includes(sh.address.kelurahan.toUpperCase())) {
+              addrParts.push(`Kel. ${sh.address.kelurahan}`);
+            }
+            if (sh.address.kecamatan && sh.address.kecamatan !== '-' && !sh.address.fullAddress?.toUpperCase().includes(sh.address.kecamatan.toUpperCase())) {
+              addrParts.push(`Kec. ${sh.address.kecamatan}`);
+            }
+            if (sh.address.city && sh.address.city !== '-' && !sh.address.fullAddress?.toUpperCase().includes(sh.address.city.toUpperCase())) {
+              addrParts.push(sh.address.city);
+            }
+            if (sh.address.province && sh.address.province !== '-' && sh.address.province !== sh.address.city && !sh.address.fullAddress?.toUpperCase().includes(sh.address.province.toUpperCase())) {
+              addrParts.push(sh.address.province);
+            }
+          }
 
           if (addrParts.length > 0) addressStr = addrParts.join(', ');
         }
 
         bodyRows = [
-          [idLabel, idValue],
+          [idLabel, toUpper(idValue)],
         ];
 
         if (sh.hasKitas && sh.kitasNumber) {
           const kitasTypeStr = (sh.kitasType && sh.kitasType !== 'NONE') ? sh.kitasType : 'KITAS';
-          bodyRows.push([kitasTypeStr, sh.kitasNumber]);
+          bodyRows.push([kitasTypeStr, toUpper(sh.kitasNumber)]);
         }
 
         bodyRows.push(
-          ['Tempat, Tanggal Lahir', birthPlaceDate],
-          ['Kewarganegaraan', nationalityStr],
-          ['Pekerjaan', sh.occupation || '-'],
-          ['Alamat', addressStr],
-          ['Jumlah Saham', sharesValStr],
-          ['Jabatan', positionStr]
+          ['Tempat, Tanggal Lahir', toUpper(birthPlaceDate)],
+          ['Kewarganegaraan', toUpper(nationalityStr)],
+          ['Pekerjaan', toUpper(sh.occupation || '-')],
+          ['Alamat', toUpper(addressStr)],
+          ['Jumlah Saham', toUpper(sharesValStr)],
+          ['Jabatan', toUpper(positionStr)]
         );
       }
 
@@ -388,7 +452,7 @@ export function generateCompanyProfileSummaryPdf(profile: CompanyProfile): void 
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(9);
     doc.setTextColor(30, 41, 59);
-    doc.text('5b. Tabel Rekap Pengurus & Pemegang Saham', margin, currentY);
+    doc.text('5B. TABEL REKAP PENGURUS & PEMEGANG SAHAM', margin, currentY);
     currentY += 5;
 
     let totalShares = 0;
@@ -403,10 +467,10 @@ export function generateCompanyProfileSummaryPdf(profile: CompanyProfile): void 
       const position = sh.isManagement && sh.managementPosition ? sh.managementPosition : '-';
 
       return [
-        sh.name || '-',
+        toUpper(sh.name || '-'),
         formatNumber(shares),
-        position,
-        formatRp(value)
+        toUpper(position),
+        toUpper(formatRp(value))
       ];
     });
 
@@ -414,7 +478,7 @@ export function generateCompanyProfileSummaryPdf(profile: CompanyProfile): void 
       'TOTAL',
       formatNumber(totalShares),
       '-',
-      formatRp(totalValue)
+      toUpper(formatRp(totalValue))
     ]);
 
     autoTable(doc, {
@@ -423,7 +487,7 @@ export function generateCompanyProfileSummaryPdf(profile: CompanyProfile): void 
       theme: 'striped',
       styles: { fontSize: 8, cellPadding: 2, textColor: [30, 41, 59] },
       headStyles: { fillColor: [30, 41, 59], textColor: [255, 255, 255], fontStyle: 'bold', halign: 'left' },
-      head: [['Nama Personil / Pemegang Saham', 'Jumlah Saham', 'Jabatan Pengurus', 'Nilai Saham (Rp)']],
+      head: [['NAMA PERSONIL / PEMEGANG SAHAM', 'JUMLAH SAHAM', 'JABATAN PENGURUS', 'NILAI SAHAM (RP)']],
       body: tableRows,
       didParseCell: (data) => {
         if (data.row.index === tableRows.length - 1) {
@@ -449,7 +513,7 @@ export function generateCompanyProfileSummaryPdf(profile: CompanyProfile): void 
       margin: { left: margin, right: margin },
       theme: 'plain',
       styles: { fontSize: 8.5, fontStyle: 'italic', textColor: [100, 116, 139] },
-      body: [['Belum ada data KBLI terpilih.']]
+      body: [['BELUM ADA DATA KBLI TERPILIH.']]
     });
     currentY = (doc as any).lastAutoTable.finalY + 6;
   } else {
@@ -465,12 +529,12 @@ export function generateCompanyProfileSummaryPdf(profile: CompanyProfile): void 
         2: { cellWidth: 50, fontStyle: 'bold' },
         3: { cellWidth: 'auto' }
       },
-      head: [['No', 'Kode', 'Judul KBLI', 'Uraian / Deskripsi']],
+      head: [['NO', 'KODE', 'JUDUL KBLI', 'URAIAN / DESKRIPSI']],
       body: kbliItems.map((item, idx) => [
         idx + 1,
-        item.code || '-',
-        item.name || '-',
-        item.uraian || item.description || '-'
+        toUpper(item.code || '-'),
+        toUpper(item.name || '-'),
+        toUpper(item.uraian || item.description || '-')
       ])
     });
 
@@ -493,10 +557,10 @@ export function generateCompanyProfileSummaryPdf(profile: CompanyProfile): void 
         1: { cellWidth: 'auto' }
       },
       body: [
-        ['Nama PIC', profile.picName || '-'],
-        ['No. Telepon / WhatsApp', profile.picPhone || '-'],
-        ['Email', profile.picEmail || '-'],
-        ['Alamat PIC', profile.picAddress || '-'],
+        ['Nama PIC', toUpper(profile.picName || '-')],
+        ['No. Telepon / WhatsApp', toUpper(profile.picPhone || '-')],
+        ['Email', toUpper(profile.picEmail || '-')],
+        ['Alamat PIC', toUpper(profile.picAddress || '-')],
       ]
     });
 
@@ -516,14 +580,14 @@ export function generateCompanyProfileSummaryPdf(profile: CompanyProfile): void 
 
     // Footer text left
     doc.text(
-      'Dokumen ini digenerate otomatis dari data profil klien — bukan dokumen legal resmi.',
+      'DOKUMEN INI DIGENERATE OTOMATIS DARI DATA PROFIL KLIEN — BUKAN DOKUMEN LEGAL RESMI.',
       margin,
       pageHeight - 8
     );
 
     // Page number right
     doc.text(
-      `Halaman ${i} dari ${totalPages}`,
+      `HALAMAN ${i} DARI ${totalPages}`,
       pageWidth - margin,
       pageHeight - 8,
       { align: 'right' }
@@ -540,3 +604,4 @@ export function generateCompanyProfileSummaryPdf(profile: CompanyProfile): void 
 
   doc.save(filename);
 }
+

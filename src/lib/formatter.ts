@@ -1,13 +1,24 @@
 import { Address, CompanyData } from '../../types';
 
+export const extractStreetAddress = (addrStr?: string): string => {
+  if (!addrStr) return '';
+  const str = String(addrStr).trim();
+  const commaIdx = str.search(/,\s*(RT[\s.]|RW[\s.]|Desa|Kel[\s.]|Kelurahan|Kec[\s.]|Kecamatan|Kab[\s.]|Kabupaten|Kota|Prov[\s.]|Provinsi)/i);
+  if (commaIdx !== -1) {
+    return str.substring(0, commaIdx).trim();
+  }
+  return str;
+};
+
 export const formatFullAddressData = (addr?: Address, fallbackCity?: string): string => {
   if (!addr || !addr.fullAddress) return "................";
+  const street = extractStreetAddress(addr.fullAddress);
   const city = addr.city || fallbackCity;
   const isRegency = city?.toLowerCase().includes("kabupaten");
   const villagePrefix = isRegency ? "Desa" : "Kelurahan";
 
   const parts = [
-    addr.fullAddress,
+    street,
     addr.rt && addr.rw ? `RT. ${addr.rt} RW. ${addr.rw}` : "",
     addr.kelurahan ? `${villagePrefix} ${toTitleCase(addr.kelurahan)}` : "",
     addr.kecamatan ? `Kecamatan ${toTitleCase(addr.kecamatan)}` : "",

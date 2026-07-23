@@ -11,7 +11,7 @@ export const CompanyIdentitySection: React.FC<CompanyIdentitySectionProps> = ({
   updateData,
 }) => {
   return (
-    <AhuSection title="Company Identity">
+    <AhuSection title="IDENTITAS PERSEROAN">
       <div className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
           <AhuLabel label="Tipe Perseroan" />

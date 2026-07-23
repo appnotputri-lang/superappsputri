@@ -11,7 +11,7 @@ export const StatusSection: React.FC<StatusSectionProps> = ({
   updateData,
 }) => {
   return (
-    <AhuSection title="Company Status">
+    <AhuSection title="STATUS PERSEROAN">
       <div className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
           <AhuLabel label="Status Perseroan" />

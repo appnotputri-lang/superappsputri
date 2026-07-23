@@ -12,7 +12,7 @@ export const GeneralInformationSection: React.FC<GeneralInformationSectionProps>
   updateData,
 }) => {
   return (
-    <AhuSection title="General Information">
+    <AhuSection title="INFORMASI UMUM">
       <div className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
           <AhuLabel label="Jenis Badan Usaha" required />

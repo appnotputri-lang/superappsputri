@@ -1275,18 +1275,24 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
         if (formObj.companyType) {
           profileUpdate.companyType = formObj.companyType;
         }
-        // [Fix] Alamat & KBLI HARUS hanya disinkron kalau resolusi terkait memang dicentang
-        // untuk agenda push ini. Sebelumnya field ini ditulis setiap kali form kebetulan
-        // punya isi (mis. karena form pre-fill dari data lama untuk ditampilkan), sehingga
-        // agenda "Perubahan Modal Dasar" misalnya ikut menimpa Alamat/KBLI walau notaris
-        // tidak bermaksud mengubahnya sama sekali di push ini.
-        if (formObj.resolutions?.address === true && (formObj.fullAddress || formObj.address?.fullAddress)) {
-          profileUpdate.fullAddress = formObj.fullAddress || formObj.address?.fullAddress;
-          syncedItems.push('Alamat Utama / Domisili');
-          if (formObj.newAddress) {
-            profileUpdate.newAddress = formObj.newAddress;
+        // Sync Alamat Perseroan (Perubahan Alamat)
+        const newFullAddressVal = 
+          formObj.fullAddress || 
+          formObj.address?.fullAddress || 
+          formObj.newAddress?.fullAddress || 
+          (typeof formObj.newAddress === 'string' ? formObj.newAddress : '');
+        const newAddressObj = formObj.newAddress || formObj.address;
+
+        if (formObj.resolutions?.address === true && (newFullAddressVal || newAddressObj)) {
+          if (newFullAddressVal) {
+            profileUpdate.fullAddress = newFullAddressVal;
           }
+          if (newAddressObj) {
+            profileUpdate.newAddress = newAddressObj;
+          }
+          syncedItems.push('Alamat Utama / Domisili');
         }
+
         if (formObj.resolutions?.kbli === true && formObj.kbliItems && formObj.kbliItems.length > 0) {
           profileUpdate.kbliItems = formObj.kbliItems;
           syncedItems.push(`KBLI (${formObj.kbliItems.length} item)`);
@@ -1294,11 +1300,12 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
 
         // Kedudukan (Domisili) sync — hanya jika resolusi domicile dicentang DAN nilai baru terisi.
         // Tidak boleh menimpa data lama dengan string kosong.
-        if (formObj.resolutions?.domicile === true && formObj.domicile && String(formObj.domicile).trim().length > 0) {
+        const targetDomicile = formObj.domicile || formObj.newAddress?.city || formObj.kedudukanPT;
+        if (formObj.resolutions?.domicile === true && targetDomicile && String(targetDomicile).trim().length > 0) {
           const oldDomicileVal = freshClient?.domicile || '';
-          if (String(formObj.domicile).trim() !== String(oldDomicileVal).trim()) {
+          if (String(targetDomicile).trim() !== String(oldDomicileVal).trim()) {
             profileUpdate.oldDomicile = oldDomicileVal;
-            profileUpdate.domicile = String(formObj.domicile).trim();
+            profileUpdate.domicile = String(targetDomicile).trim();
             if (formObj.domicileStyle) {
               profileUpdate.domicileStyle = formObj.domicileStyle;
             }
@@ -1524,9 +1531,15 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
             managementPosition: sh.managementPosition || matchingOld?.managementPosition || '',
             isManagement: sh.isManagement ?? matchingOld?.isManagement
           };
-        }).filter((sh: any) => sh.sharesOwned > 0 || (sh.name && sh.name.trim().length > 0));
+        }).filter((sh: any) => {
+          const shares = Number(sh.sharesOwned || 0);
+          const isMgmt = Boolean(sh.isManagement || (sh.managementPosition && String(sh.managementPosition).trim().length > 0));
+          return shares > 0 || isMgmt;
+        });
 
-        if (workingShareholders.length > 0) {
+        const shareholdersResolutionActive = formObj.resolutions?.shareholders === true || formObj.resolutions?.capitalPaid === true;
+
+        if (shareholdersResolutionActive && workingShareholders.length > 0) {
           profileUpdate.shareholders = workingShareholders;
           profileUpdate.finalShareholders = workingShareholders;
         }
@@ -1710,13 +1723,27 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
             }
           });
 
-          // workingShareholders dimutasi in-place di atas, tapi tetap tegaskan ulang referensinya
-          // supaya konsisten kalau urutan kode di atas berubah di masa depan.
+          // Filter workingShareholders agar yang bersaham 0 dan tidak lagi menjabat langsung dibersihkan
+          workingShareholders = workingShareholders.filter((sh: any) => {
+            const shares = Number(sh.sharesOwned || 0);
+            const isMgmt = Boolean(sh.isManagement || (sh.managementPosition && String(sh.managementPosition).trim().length > 0));
+            return shares > 0 || isMgmt;
+          });
+
           profileUpdate.shareholders = workingShareholders;
           profileUpdate.finalShareholders = workingShareholders;
           console.log('[Sync Diagnostic][Management] shareholders setelah sinkron appointment/dismissal:', workingShareholders);
         }
         } // tutup gate: if (formObj.resolutions?.management === true)
+
+        if (profileUpdate.shareholders) {
+          profileUpdate.shareholders = profileUpdate.shareholders.filter((sh: any) => {
+            const shares = Number(sh.sharesOwned || 0);
+            const isMgmt = Boolean(sh.isManagement || (sh.managementPosition && String(sh.managementPosition).trim().length > 0));
+            return shares > 0 || isMgmt;
+          });
+          profileUpdate.finalShareholders = profileUpdate.shareholders;
+        }
       }
 
       // Merge Deed and SK details

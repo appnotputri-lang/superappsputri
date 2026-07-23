@@ -263,6 +263,8 @@ export interface CompanyData {
   targetCompanyShortName?: string;
   companyType?: string;
   npwp?: string;
+  email?: string;
+  phoneNumber?: string;
   duration?: string;
   status?: string;
 

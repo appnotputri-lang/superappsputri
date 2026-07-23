@@ -82,7 +82,7 @@ export const ShareholderSection: React.FC<ShareholderSectionProps> = ({
   const shareholdingMembers = shareholders.filter((s: any) => (s.sharesOwned || 0) > 0);
 
   return (
-    <AhuSection title="PEMEGANG SAHAM LAMA *">
+    <AhuSection title="PEMEGANG SAHAM">
       <div className="space-y-4">
         <div className="flex justify-end gap-2">
           <button 

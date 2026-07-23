@@ -14,7 +14,7 @@ export const LegalInformationSection: React.FC<LegalInformationSectionProps> = (
   setIsAddKbliModalOpen,
 }) => {
   return (
-    <AhuSection title="Legal Information">
+    <AhuSection title="INFORMASI LEGALITAS">
       <div className="space-y-6">
         {/* AKTA PENDIRIAN */}
         <div className="border border-slate-200 rounded-sm p-4 space-y-4 bg-white/50">
