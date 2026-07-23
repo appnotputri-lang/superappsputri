@@ -17,6 +17,7 @@ import LeaseAgreementDraft from '../../lease-agreement/components/LeaseAgreement
 import { mapCompanyProfileToPendirian } from '../../../domain/company/mappers/companyProfileToPendirian';
 import { mapPartiesToShareholdersAndManagement } from '../../../domain/project/mappers/partyToShareholder';
 import { ProjectDocumentUpload } from './ProjectDocumentUpload';
+import { SyncPreviewModal } from './SyncPreviewModal';
 import { formatCompanyName } from '../../../lib/formatter';
 import { AuthService } from '../../../services/AuthService';
 import { getApiUrl } from '../../../lib/api';
@@ -118,6 +119,39 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
   const [transitionComment, setTransitionComment] = useState('');
   const [transitionStrict, setTransitionStrict] = useState(false);
   const [transitioning, setTransitioning] = useState(false);
+
+  // === Sync Preview Modal (Task 3) ===
+  const [syncPreviewData, setSyncPreviewData] = useState<{
+    categories: { label: string; before: string; after: string }[];
+    warnings: string[];
+  } | null>(null);
+  const syncPreviewResolveRef = React.useRef<((confirmed: boolean) => void) | null>(null);
+
+  const requestSyncPreviewConfirmation = (payload: {
+    categories: { label: string; before: string; after: string }[];
+    warnings: string[];
+  }): Promise<boolean> => {
+    return new Promise((resolve) => {
+      syncPreviewResolveRef.current = resolve;
+      setSyncPreviewData(payload);
+    });
+  };
+
+  const handleSyncPreviewConfirm = () => {
+    setSyncPreviewData(null);
+    if (syncPreviewResolveRef.current) {
+      syncPreviewResolveRef.current(true);
+      syncPreviewResolveRef.current = null;
+    }
+  };
+
+  const handleSyncPreviewCancel = () => {
+    setSyncPreviewData(null);
+    if (syncPreviewResolveRef.current) {
+      syncPreviewResolveRef.current(false);
+      syncPreviewResolveRef.current = null;
+    }
+  };
 
   // Deed & SK/SP Form states for status transition
   const [deedNumber, setDeedNumber] = useState('');
@@ -1222,7 +1256,16 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
         updatedAt: new Date().toISOString()
       };
 
+      // [Fix: Management baseline] `newManagementItems` di client profile bisa basi/kontaminasi
+      // duplikat dari sync project sebelumnya (mis. project dibuat-hapus berkali-kali saat testing).
+      // Baseline "before" untuk perbandingan & preview HARUS dihitung ulang dari `shareholders`
+      // (source of truth yang tampil di halaman Klien), bukan dipercaya mentah-mentah dari field
+      // cache `newManagementItems`. Default awal masih pakai field lama untuk kasus formObj kosong,
+      // tapi akan ditimpa oleh hasil derive di bawah begitu formObj tersedia.
+      let managementBaseline: any[] = freshClient?.newManagementItems || [];
+
       if (formObj) {
+
         if (formObj.companyName || formObj.namaPt) {
           profileUpdate.companyName = formObj.companyName || formObj.namaPt;
           if (profileUpdate.companyName !== freshClient?.companyName) {
@@ -1232,16 +1275,38 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
         if (formObj.companyType) {
           profileUpdate.companyType = formObj.companyType;
         }
-        if (formObj.fullAddress || formObj.address?.fullAddress) {
+        // [Fix] Alamat & KBLI HARUS hanya disinkron kalau resolusi terkait memang dicentang
+        // untuk agenda push ini. Sebelumnya field ini ditulis setiap kali form kebetulan
+        // punya isi (mis. karena form pre-fill dari data lama untuk ditampilkan), sehingga
+        // agenda "Perubahan Modal Dasar" misalnya ikut menimpa Alamat/KBLI walau notaris
+        // tidak bermaksud mengubahnya sama sekali di push ini.
+        if (formObj.resolutions?.address === true && (formObj.fullAddress || formObj.address?.fullAddress)) {
           profileUpdate.fullAddress = formObj.fullAddress || formObj.address?.fullAddress;
           syncedItems.push('Alamat Utama / Domisili');
+          if (formObj.newAddress) {
+            profileUpdate.newAddress = formObj.newAddress;
+          }
         }
-        if (formObj.newAddress) {
-          profileUpdate.newAddress = formObj.newAddress;
-        }
-        if (formObj.kbliItems && formObj.kbliItems.length > 0) {
+        if (formObj.resolutions?.kbli === true && formObj.kbliItems && formObj.kbliItems.length > 0) {
           profileUpdate.kbliItems = formObj.kbliItems;
           syncedItems.push(`KBLI (${formObj.kbliItems.length} item)`);
+        }
+
+        // Kedudukan (Domisili) sync — hanya jika resolusi domicile dicentang DAN nilai baru terisi.
+        // Tidak boleh menimpa data lama dengan string kosong.
+        if (formObj.resolutions?.domicile === true && formObj.domicile && String(formObj.domicile).trim().length > 0) {
+          const oldDomicileVal = freshClient?.domicile || '';
+          if (String(formObj.domicile).trim() !== String(oldDomicileVal).trim()) {
+            profileUpdate.oldDomicile = oldDomicileVal;
+            profileUpdate.domicile = String(formObj.domicile).trim();
+            if (formObj.domicileStyle) {
+              profileUpdate.domicileStyle = formObj.domicileStyle;
+            }
+            if (formObj.kedudukanPT && String(formObj.kedudukanPT).trim().length > 0) {
+              profileUpdate.kedudukanPT = String(formObj.kedudukanPT).trim();
+            }
+            syncedItems.push(`Kedudukan (${oldDomicileVal || '-'} → ${profileUpdate.domicile})`);
+          }
         }
 
         // Capital sync (Modal Dasar & Modal Disetor)
@@ -1279,12 +1344,19 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
 
         console.log('[Sync Deed] Capital extraction results:', { formBase, formPaid, formNominal });
 
-        if (formNominal > 0) {
+        // [Fix] Modal Dasar/Disetor HARUS hanya disinkron kalau resolusi peningkatan modal
+        // memang dicentang untuk agenda push ini — form biasanya pre-fill nilai modal yang
+        // sudah ada untuk ditampilkan ke notaris, jadi kalau tidak digate, agenda lain (mis.
+        // Perubahan Alamat) ikut menimpa Modal Dasar/Disetor walau nilainya sebenarnya sama
+        // atau malah nyasar dari draft form lain.
+        const capitalResolutionActive = formObj.resolutions?.capitalBase === true || formObj.resolutions?.capitalPaid === true;
+
+        if (capitalResolutionActive && formNominal > 0) {
           profileUpdate.shareValue = formNominal;
           profileUpdate.originalSharePrice = formNominal;
         }
 
-        if (formBase > 0) {
+        if (formObj.resolutions?.capitalBase === true && formBase > 0) {
           profileUpdate.targetCapitalBase = formBase;
           profileUpdate.originalCapitalBase = formBase;
           const shareVal = formNominal > 0 ? formNominal : 1000000;
@@ -1292,7 +1364,7 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
           profileUpdate.totalSharesBase = formBase / shareVal;
         }
 
-        if (formPaid > 0) {
+        if (formObj.resolutions?.capitalPaid === true && formPaid > 0) {
           profileUpdate.targetCapitalPaid = formPaid;
           profileUpdate.originalCapitalPaid = formPaid;
           const shareVal = formNominal > 0 ? formNominal : 1000000;
@@ -1305,6 +1377,14 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
             syncedItems.push('Modal Disetor / Dasar');
           }
         }
+
+        // [SYNC DIAGNOSTIC] Log raw data sebelum kalkulasi Pemegang Saham — untuk melacak apakah
+        // data dari form sudah tersimpan dengan benar ke Firestore sebelum proyek diselesaikan.
+        console.log('[Sync Diagnostic][Shareholders] resolutions.shareholders:', formObj.resolutions?.shareholders);
+        console.log('[Sync Diagnostic][Shareholders] formObj.finalShareholders (raw):', formObj.finalShareholders);
+        console.log('[Sync Diagnostic][Shareholders] formObj.shareTransfersNew / shareTransfers (raw):', formObj.shareTransfersNew || formObj.shareTransfers);
+        console.log('[Sync Diagnostic][Shareholders] formObj.capitalSubscriptionsNew (raw):', formObj.capitalSubscriptionsNew);
+        console.log('[Sync Diagnostic][Shareholders] freshClient?.shareholders (data lama):', freshClient?.shareholders);
 
         // Shareholders sync & calculation
         const baseShareholdersSource = (formObj.finalShareholders && formObj.finalShareholders.length > 0)
@@ -1451,19 +1531,36 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
           profileUpdate.finalShareholders = workingShareholders;
         }
 
+        // [Fix] Seluruh kalkulasi & penulisan Susunan Pengurus (termasuk sinkron ke
+        // `shareholders`) HANYA boleh jalan kalau resolusi "Perubahan Susunan Pengurus"
+        // memang dicentang untuk agenda push ini. Sebelum fix ini, blok di bawah selalu
+        // jalan kalau `formObj.managementAppointments`/`managementDismissals` kebetulan
+        // tidak kosong — termasuk data sisa draft/testing sebelumnya yang tidak relevan
+        // dengan agenda yang sedang di-push, sehingga bisa menimpa data pengurus klien
+        // dengan data yang salah/tidak dimaksud.
+        if (formObj.resolutions?.management === true) {
+        // [SYNC DIAGNOSTIC] Log raw data sebelum kalkulasi Susunan Pengurus — untuk melacak apakah
+        // data dari form sudah tersimpan dengan benar ke Firestore sebelum proyek diselesaikan.
+        console.log('[Sync Diagnostic][Management] resolutions.management:', formObj.resolutions?.management);
+        console.log('[Sync Diagnostic][Management] formObj.managementAppointments (raw):', formObj.managementAppointments);
+        console.log('[Sync Diagnostic][Management] formObj.managementDismissals (raw):', formObj.managementDismissals);
+        console.log('[Sync Diagnostic][Management] freshClient?.newManagementItems (data lama):', freshClient?.newManagementItems);
+        console.log('[Sync Diagnostic][Management] workingShareholders (setelah kalkulasi saham):', workingShareholders);
+
         // Management calculation
-        const oldManagers = [
-          ...(freshClient?.newManagementItems || []),
-          ...(freshClient?.shareholders || [])
-            .filter((s: any) => s.isManagement)
-            .map((s: any) => ({
-              ...s,
-              id: s.id || Math.random().toString(36).substring(7),
-              name: s.name,
-              position: s.managementPosition || "DIREKTUR",
-              nik: s.nik || ""
-            }))
-        ];
+        // [Fix] Baseline "pengurus lama" TIDAK lagi diambil dari `freshClient.newManagementItems`
+        // (field cache yang terbukti bisa basi/berisi duplikat sisa testing project yang dihapus).
+        // Sumber kebenaran untuk siapa pengurus saat ini adalah `shareholders` — yang juga dipakai
+        // di halaman Klien — jadi baseline harus konsisten dengan apa yang notaris lihat di sana.
+        const oldManagers = (freshClient?.shareholders || [])
+          .filter((s: any) => s.isManagement || (s.managementPosition && String(s.managementPosition).trim().length > 0))
+          .map((s: any) => ({
+            ...s,
+            id: s.id || Math.random().toString(36).substring(7),
+            name: s.name,
+            position: s.managementPosition || "DIREKTUR",
+            nik: s.nik || ""
+          }));
 
         const uniqueOldManagers: any[] = [];
         const seenMgmt = new Set<string>();
@@ -1475,6 +1572,8 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
             uniqueOldManagers.push(om);
           }
         });
+        managementBaseline = uniqueOldManagers;
+        console.log('[Sync Diagnostic][Management] managementBaseline (dari shareholders, bukan newManagementItems):', managementBaseline);
         
         const hasExplicitDismissals = formObj.managementDismissals && formObj.managementDismissals.length > 0;
         const hasExplicitAppointments = formObj.managementAppointments && formObj.managementAppointments.length > 0;
@@ -1548,6 +1647,76 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
             };
           });
         }
+
+        // [Fix] Halaman Klien menampilkan pengurus dari `shareholders`, BUKAN dari
+        // `newManagementItems`. Kalau kita cuma update `newManagementItems` (di atas),
+        // hasil pengangkatan/pemberhentian pengurus TIDAK PERNAH muncul di halaman Klien —
+        // persis kasus "Tuan Ade diangkat, Tuan Rendy diberhentikan, tapi tidak ada yang
+        // berubah di Klien". Jadi perubahan yang sama harus ikut ditulis ke `workingShareholders`
+        // (yang jadi `profileUpdate.shareholders`), baik untuk pengurus yang sudah jadi
+        // pemegang saham, maupun pengurus baru yang belum punya saham (mis. 0 lembar).
+        if (hasExplicitDismissals || hasExplicitAppointments) {
+          const dismissedNamesForSh = new Set(
+            (formObj.managementDismissals || []).map((d: any) => (d.name || d.dismissedName || '').toUpperCase().trim())
+          );
+
+          workingShareholders.forEach((s: any) => {
+            if (s?.name && dismissedNamesForSh.has(s.name.toUpperCase().trim())) {
+              s.managementPosition = '';
+              s.isManagement = false;
+            }
+          });
+
+          const appointeesForSh: any[] = [
+            ...(formObj.managementAppointments || []).map((a: any) => ({
+              name: a.name || '',
+              position: a.position || 'DIREKTUR',
+              nik: a.nik || '',
+              salutation: a.salutation || 'Tuan',
+              address: a.address
+            })),
+            ...(formObj.managementDismissals || [])
+              .filter((d: any) => (d.replacementType === 'MANUAL' || d.replacementType === 'NEW') && (d.replacedByDetail || d.replacedByName))
+              .map((d: any) => {
+                const detail = d.replacedByDetail || {};
+                return {
+                  name: d.replacedByName || detail.name || '',
+                  position: d.replacedByPosition || detail.position || detail.managementPosition || 'DIREKTUR',
+                  nik: d.replacedByNik || detail.nik || '',
+                  salutation: d.replacedBySalutation || detail.salutation || 'Tuan',
+                  address: detail.address
+                };
+              })
+          ];
+
+          appointeesForSh.forEach((ap: any) => {
+            if (!ap.name) return;
+            const match = workingShareholders.find((s: any) => (s.name || '').trim().toUpperCase() === ap.name.trim().toUpperCase());
+            if (match) {
+              match.managementPosition = ap.position;
+              match.isManagement = true;
+            } else {
+              // Pengurus baru yang belum tercatat sebagai pemegang saham (mis. 0 lembar saham)
+              workingShareholders.push({
+                id: Math.random().toString(36).substring(7),
+                name: ap.name,
+                sharesOwned: 0,
+                managementPosition: ap.position,
+                isManagement: true,
+                nik: ap.nik || '',
+                salutation: ap.salutation || 'Tuan',
+                address: ap.address
+              });
+            }
+          });
+
+          // workingShareholders dimutasi in-place di atas, tapi tetap tegaskan ulang referensinya
+          // supaya konsisten kalau urutan kode di atas berubah di masa depan.
+          profileUpdate.shareholders = workingShareholders;
+          profileUpdate.finalShareholders = workingShareholders;
+          console.log('[Sync Diagnostic][Management] shareholders setelah sinkron appointment/dismissal:', workingShareholders);
+        }
+        } // tutup gate: if (formObj.resolutions?.management === true)
       }
 
       // Merge Deed and SK details
@@ -1594,7 +1763,14 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
           };
           profileUpdate.amendmentDeeds = updatedDeeds;
         } else {
-          profileUpdate.amendmentDeeds = [newAmendmentDeed, ...existingDeeds];
+          // [Fix] Akta baru HARUS ditambahkan di AKHIR array, bukan di depan.
+          // Seluruh logic generate dokumen lain (formatter.ts, personIdentification.ts,
+          // sirkulerLaporanContentBlocks.ts, docxGenerator.ts, dll.) mengasumsikan
+          // amendmentDeeds[length-1] adalah akta PALING BARU (dipakai untuk kalimat
+          // "...terakhir dengan akta nomor X..."). Menaruh akta baru di depan array
+          // akan membuat kalimat itu salah rujuk ke akta yang lebih lama, dan juga
+          // membuat penomoran "Akta Perubahan 1/2/dst" di halaman Klien jadi terbalik.
+          profileUpdate.amendmentDeeds = [...existingDeeds, newAmendmentDeed];
         }
         syncedItems.push(`Data Akta Perubahan (No. ${deedNumber.trim()}${validSkSpDocs.length > 0 ? `, ${validSkSpDocs.length} SK/SP` : ''})`);
       }
@@ -1611,7 +1787,11 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
         changesList.push({ field: 'KBLI', before: `${freshClient?.kbliItems?.length || 0} item`, after: `${profileUpdate.kbliItems.length} item` });
       }
 
-      const oldMgmtSig = JSON.stringify((freshClient?.newManagementItems || []).map((m: any) => ({
+      if (profileUpdate.domicile && profileUpdate.domicile !== freshClient?.domicile) {
+        changesList.push({ field: 'Kedudukan', before: freshClient?.domicile || '-', after: profileUpdate.domicile });
+      }
+
+      const oldMgmtSig = JSON.stringify(managementBaseline.map((m: any) => ({
         name: (m.name || '').trim().toUpperCase(),
         pos: (m.position || '').trim().toUpperCase(),
         addr: m.address?.fullAddress || ''
@@ -1623,7 +1803,7 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
       })));
       if (profileUpdate.newManagementItems && newMgmtSig !== oldMgmtSig) {
         syncedItems.push(`Susunan Pengurus (${profileUpdate.newManagementItems.length} orang)`);
-        changesList.push({ field: 'Susunan Pengurus', before: `${freshClient?.newManagementItems?.length || 0} orang`, after: `${profileUpdate.newManagementItems.length} orang` });
+        changesList.push({ field: 'Susunan Pengurus', before: `${managementBaseline.length} orang`, after: `${profileUpdate.newManagementItems.length} orang` });
       }
 
       const oldShSig = JSON.stringify((freshClient?.shareholders || []).map((s: any) => ({
@@ -1662,6 +1842,78 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
       const existingHistory = freshClient?.versionHistory || [];
       profileUpdate.versionHistory = [newRevision, ...existingHistory];
 
+      // === Layar Preview Perubahan Data Klien (Task 3) ===
+      // Rangkum perubahan per kategori, dan beri peringatan tegas apabila sebuah resolusi
+      // dicentang di form tapi hasil kalkulasi TIDAK menghasilkan perubahan apa pun.
+      const previewCategories: { label: string; before: string; after: string }[] = [];
+      const previewWarnings: string[] = [];
+
+      const domicileChanged = !!profileUpdate.domicile && profileUpdate.domicile !== freshClient?.domicile;
+      if (domicileChanged) {
+        previewCategories.push({ label: 'Kedudukan', before: freshClient?.domicile || '-', after: profileUpdate.domicile });
+      }
+      if (formObj?.resolutions?.domicile === true && !domicileChanged) {
+        previewWarnings.push('Resolusi "Perubahan Tempat Kedudukan" dicentang tapi tidak ada perubahan terdeteksi — periksa input form sebelum lanjut.');
+      }
+
+      const addressChanged = syncedItems.some(i => i.startsWith('Alamat'));
+      if (addressChanged) {
+        previewCategories.push({ label: 'Alamat', before: freshClient?.fullAddress || '-', after: profileUpdate.fullAddress || '-' });
+      }
+      if (formObj?.resolutions?.address === true && !addressChanged) {
+        previewWarnings.push('Resolusi "Perubahan Alamat Lengkap" dicentang tapi tidak ada perubahan terdeteksi — periksa input form sebelum lanjut.');
+      }
+
+      const kbliChanged = !!(profileUpdate.kbliItems && newKbliStr !== oldKbliStr);
+      if (kbliChanged) {
+        previewCategories.push({ label: 'KBLI', before: `${freshClient?.kbliItems?.length || 0} item`, after: `${profileUpdate.kbliItems.length} item` });
+      }
+      if (formObj?.resolutions?.kbli === true && !kbliChanged) {
+        previewWarnings.push('Resolusi "Perubahan Maksud & Tujuan (KBLI)" dicentang tapi tidak ada perubahan terdeteksi — periksa input form sebelum lanjut.');
+      }
+
+      const capitalChanged = !!(profileUpdate.targetCapitalBase || profileUpdate.targetCapitalPaid);
+      if (capitalChanged) {
+        previewCategories.push({
+          label: 'Modal Dasar / Disetor',
+          before: `Rp ${(freshClient?.targetCapitalBase || 0).toLocaleString('id-ID')} / Rp ${(freshClient?.targetCapitalPaid || 0).toLocaleString('id-ID')}`,
+          after: `Rp ${(profileUpdate.targetCapitalBase || freshClient?.targetCapitalBase || 0).toLocaleString('id-ID')} / Rp ${(profileUpdate.targetCapitalPaid || freshClient?.targetCapitalPaid || 0).toLocaleString('id-ID')}`
+        });
+      }
+      const capitalResolutionChecked = formObj?.resolutions?.capitalBase === true || formObj?.resolutions?.capitalPaid === true;
+      if (capitalResolutionChecked && !capitalChanged) {
+        previewWarnings.push('Resolusi Peningkatan Modal dicentang tapi tidak ada perubahan Modal Dasar/Disetor terdeteksi — periksa input form sebelum lanjut.');
+      }
+
+      const managementChanged = !!(profileUpdate.newManagementItems && newMgmtSig !== oldMgmtSig);
+      if (managementChanged) {
+        previewCategories.push({ label: 'Susunan Pengurus', before: `${managementBaseline.length} orang`, after: `${profileUpdate.newManagementItems.length} orang` });
+      }
+      if (formObj?.resolutions?.management === true && !managementChanged) {
+        previewWarnings.push('Resolusi "Perubahan Susunan Pengurus" dicentang tapi tidak ada perubahan terdeteksi — periksa apakah Daftar Pengangkatan/Pemberhentian sudah tersimpan sebelum lanjut.');
+      }
+
+      const shareholdersChanged = !!(profileUpdate.shareholders && newShSig !== oldShSig);
+      if (shareholdersChanged) {
+        previewCategories.push({ label: 'Pemegang Saham', before: `${freshClient?.shareholders?.length || 0} pemegang`, after: `${profileUpdate.shareholders.length} pemegang` });
+      }
+      if (formObj?.resolutions?.shareholders === true && !shareholdersChanged) {
+        previewWarnings.push('Resolusi "Peralihan Saham / Perubahan Pemegang Saham" dicentang tapi tidak ada perubahan terdeteksi — periksa input form sebelum lanjut.');
+      }
+
+      console.log('[Sync Diagnostic][Preview] Kategori perubahan:', previewCategories);
+      console.log('[Sync Diagnostic][Preview] Peringatan:', previewWarnings);
+      console.log('[Sync Diagnostic][Preview] profileUpdate final:', profileUpdate);
+
+      const userConfirmedSync = await requestSyncPreviewConfirmation({
+        categories: previewCategories,
+        warnings: previewWarnings
+      });
+
+      if (!userConfirmedSync) {
+        throw new Error('SYNC_CANCELLED_BY_USER');
+      }
+
       await setDoc(doc(db, 'profiles', project.clientId), cleanUndefined(profileUpdate), { merge: true });
       try {
         await setDoc(doc(db, 'company_profiles', project.clientId), cleanUndefined(profileUpdate), { merge: true });
@@ -1688,6 +1940,10 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
 
       alert(`✅ Data akta berhasil disimpan.\n\nPerubahan yang disinkronkan ke profil klien:\n${itemsFormatted}`);
     } catch (e: any) {
+      if (e?.message === 'SYNC_CANCELLED_BY_USER') {
+        // Notaris membatalkan dari layar preview — tidak perlu tampilkan error.
+        return;
+      }
       console.error(e);
       alert('Gagal menyimpan data akta: ' + (e.message || e));
     } finally {
@@ -1731,6 +1987,10 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
       await fetchProjectFullDetails();
       alert('Status proyek berhasil diperbarui dan data perubahan/pendirian telah disinkronkan ke master data klien!');
     } catch (err: any) {
+      if (err?.message === 'SYNC_CANCELLED_BY_USER') {
+        // Notaris membatalkan dari layar preview — status TIDAK berubah, tidak perlu tampilkan error.
+        return;
+      }
       console.error(err);
       alert(`Gagal memperbarui status: ${err.message || 'Pelanggaran transisi status berurutan (Strict Guard).'}`);
     } finally {
@@ -3782,6 +4042,16 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
               </div>
             </div>
           </div>
+        )}
+
+        {/* Layar Preview Perubahan Data Klien — muncul sebelum commit ke koleksi profiles/company_profiles */}
+        {syncPreviewData && (
+          <SyncPreviewModal
+            categories={syncPreviewData.categories}
+            warnings={syncPreviewData.warnings}
+            onConfirm={handleSyncPreviewConfirm}
+            onCancel={handleSyncPreviewCancel}
+          />
         )}
       </div>
     </div>
