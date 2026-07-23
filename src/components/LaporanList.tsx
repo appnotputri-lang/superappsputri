@@ -1037,35 +1037,27 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects: propsProject
       <div className="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm space-y-5">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           
-          <div className="flex flex-col lg:flex-row lg:items-center gap-4 w-full">
-            {/* Grouping Tabs */}
-            <div className="flex flex-wrap gap-1.5 bg-slate-100/80 p-1 rounded-lg border border-slate-200/50 max-w-max">
-              {([
-                { key: 'ALL', label: 'Semua Kategori' },
-                { key: 'BODY_LEGAL', label: 'Badan Hukum (BODY_LEGAL)' },
-                { key: 'MEETING', label: 'Rapat / RUPS (MEETING)' },
-                { key: 'AGREEMENT', label: 'Perjanjian (AGREEMENT)' },
-                { key: 'GENERAL_DEED', label: 'Akta Umum (GENERAL_DEED)' },
-                { key: 'LEGALIZATION', label: 'Legalisasi (LEGALIZATION)' }
-              ] as const).map(tab => (
-                <button
-                  key={tab.key}
-                  onClick={() => {
-                    setSelectedCategory(tab.key);
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4 w-full">
+            <div className="flex flex-wrap items-center gap-4">
+              {/* Category Dropdown Filter */}
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-slate-500 uppercase whitespace-nowrap">Kategori:</span>
+                <select
+                  value={selectedCategory}
+                  onChange={(e) => {
+                    setSelectedCategory(e.target.value);
                     setSelectedType('ALL');
                   }}
-                  className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all duration-200 uppercase tracking-wide cursor-pointer ${
-                    selectedCategory === tab.key
-                      ? 'bg-fuchsia-600 text-white shadow-sm'
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
-                  }`}
+                  className="px-3 py-1.5 text-xs font-bold border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-fuchsia-500/15 focus:border-fuchsia-500 bg-white cursor-pointer shadow-sm"
                 >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
-
-            <div className="flex flex-wrap items-center gap-4">
+                  <option value="ALL">Semua Kategori</option>
+                  <option value="BODY_LEGAL">Badan Hukum (BODY_LEGAL)</option>
+                  <option value="MEETING">Rapat / RUPS (MEETING)</option>
+                  <option value="AGREEMENT">Perjanjian (AGREEMENT)</option>
+                  <option value="GENERAL_DEED">Akta Umum (GENERAL_DEED)</option>
+                  <option value="LEGALIZATION">Legalisasi (LEGALIZATION)</option>
+                </select>
+              </div>
               {/* Dynamic Project Type Dropdown */}
               {selectedCategory !== 'ALL' && (
                 <div className="flex items-center gap-2 animate-fadeIn">

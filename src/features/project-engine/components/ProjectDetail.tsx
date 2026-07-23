@@ -3420,55 +3420,6 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
               </div>
             </div>
 
-            {/* Rule: Master Client Version/Revision History */}
-            {client && client.versionHistory && client.versionHistory.length > 0 ? (
-              <div className="bg-white border border-slate-200/80 rounded-xl p-6 shadow-sm space-y-4">
-                <h2 className="text-[14px] font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2 border-b border-slate-100 pb-3">
-                  <FileText className="w-4 h-4 text-blue-600" />
-                  <span>Jejak Audit Perubahan Master Client (Revision History)</span>
-                </h2>
-                <div className="space-y-4">
-                  {client.versionHistory.map((rev, idx) => (
-                    <div key={rev.revisionId || idx} className="bg-slate-50 border border-slate-100 rounded-xl p-4 text-xs space-y-2">
-                      <div className="flex justify-between items-center flex-wrap gap-2">
-                        <span className="font-bold text-slate-850">{rev.reason}</span>
-                        <span className="font-mono text-[10px] text-slate-400 font-bold bg-white px-2 py-0.5 rounded border border-slate-100">
-                          REVISION: {rev.revisionId?.substring(0, 8)}
-                        </span>
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-slate-500">
-                        <div>
-                          <span>Tanggal Persetujuan:</span>
-                          <p className="font-medium text-slate-700">{new Date(rev.changedAt).toLocaleString('id-ID')}</p>
-                        </div>
-                        <div>
-                          <span>Disetujui Oleh:</span>
-                          <p className="font-medium text-slate-700">{rev.changedBy}</p>
-                        </div>
-                      </div>
-                      {rev.changes && rev.changes.length > 0 && (
-                        <div className="pt-2 border-t border-slate-200/60 space-y-1.5">
-                          <span className="text-slate-400 font-bold text-[10px] uppercase tracking-wider block">Rincian Perubahan Hukum:</span>
-                          <div className="space-y-1 font-mono text-[11px]">
-                            {rev.changes.map((ch, cidx) => (
-                              <div key={cidx} className="flex flex-col bg-white p-2 rounded border border-slate-100 gap-1">
-                                <span className="font-bold text-blue-600">{ch.field}:</span>
-                                <div className="flex items-center gap-2 flex-wrap text-xs">
-                                  <span className="text-red-500 line-through bg-red-50 px-1 rounded">{String(ch.before || 'KOSONG')}</span>
-                                  <ChevronRight className="w-3 h-3 text-slate-400 animate-pulse" />
-                                  <span className="text-emerald-600 font-bold bg-emerald-50 px-1 rounded">{String(ch.after || 'KOSONG')}</span>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : null}
-
             {/* Rule: Related Projects Section */}
             <div className="bg-white border border-slate-200/80 rounded-xl p-6 shadow-sm space-y-4">
               <h2 className="text-[14px] font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2 border-b border-slate-100 pb-3">
@@ -3786,6 +3737,55 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
                 </div>
               )}
             </div>
+
+            {/* Rule: Master Client Version/Revision History */}
+            {client && client.versionHistory && client.versionHistory.length > 0 ? (
+              <div className="bg-white border border-slate-200/80 rounded-xl p-6 shadow-sm space-y-4">
+                <h2 className="text-[14px] font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2 border-b border-slate-100 pb-3">
+                  <FileText className="w-4 h-4 text-blue-600" />
+                  <span>Jejak Audit Perubahan Master Client (Revision History)</span>
+                </h2>
+                <div className="space-y-4">
+                  {client.versionHistory.map((rev, idx) => (
+                    <div key={rev.revisionId || idx} className="bg-slate-50 border border-slate-100 rounded-xl p-4 text-xs space-y-2">
+                      <div className="flex justify-between items-center flex-wrap gap-2">
+                        <span className="font-bold text-slate-850">{rev.reason}</span>
+                        <span className="font-mono text-[10px] text-slate-400 font-bold bg-white px-2 py-0.5 rounded border border-slate-100">
+                          REVISION: {rev.revisionId?.substring(0, 8)}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-slate-500">
+                        <div>
+                          <span>Tanggal Persetujuan:</span>
+                          <p className="font-medium text-slate-700">{new Date(rev.changedAt).toLocaleString('id-ID')}</p>
+                        </div>
+                        <div>
+                          <span>Disetujui Oleh:</span>
+                          <p className="font-medium text-slate-700">{rev.changedBy}</p>
+                        </div>
+                      </div>
+                      {rev.changes && rev.changes.length > 0 && (
+                        <div className="pt-2 border-t border-slate-200/60 space-y-1.5">
+                          <span className="text-slate-400 font-bold text-[10px] uppercase tracking-wider block">Rincian Perubahan Hukum:</span>
+                          <div className="space-y-1 font-mono text-[11px]">
+                            {rev.changes.map((ch, cidx) => (
+                              <div key={cidx} className="flex flex-col bg-white p-2 rounded border border-slate-100 gap-1">
+                                <span className="font-bold text-blue-600">{ch.field}:</span>
+                                <div className="flex items-center gap-2 flex-wrap text-xs">
+                                  <span className="text-red-500 line-through bg-red-50 px-1 rounded">{String(ch.before || 'KOSONG')}</span>
+                                  <ChevronRight className="w-3 h-3 text-slate-400 animate-pulse" />
+                                  <span className="text-emerald-600 font-bold bg-emerald-50 px-1 rounded">{String(ch.after || 'KOSONG')}</span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
           </div>
         </div>
         )}
