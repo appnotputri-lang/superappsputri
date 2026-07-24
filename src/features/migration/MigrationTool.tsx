@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { Database } from 'lucide-react';
+import { PageContainer, PageHeader } from '../../components/ui/PageLayout';
 import { db } from '../../lib/firebase';
 import { collection, getDocs, doc, writeBatch } from 'firebase/firestore';
 
@@ -200,32 +202,35 @@ export default function MigrationTool() {
   };
 
   return (
-    <div className="m-8 max-w-4xl mx-auto border rounded-xl bg-white shadow-sm overflow-hidden">
-      <div className="p-6 border-b border-slate-100">
-        <h2 className="text-xl font-bold text-slate-800">Migration Tool - Legacy Projects to Office Projects</h2>
-      </div>
-      <div className="p-6">
-        <div className="flex gap-4 mb-6">
+    <PageContainer>
+      <PageHeader
+        icon={<Database className="w-5 h-5 text-white" />}
+        title="Migration Tool"
+        description="Legacy Projects to Office Projects migration utility"
+      />
+
+      <div className="bg-white p-6 rounded-xl border border-slate-200/80 shadow-sm space-y-6">
+        <div className="flex gap-4">
           <button 
             onClick={() => runMigration(true)} 
             disabled={loading} 
-            className="px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50 font-medium"
+            className="px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50 text-xs font-bold transition-all cursor-pointer"
           >
             Run Dry Run
           </button>
           <button 
             onClick={() => runMigration(false)} 
             disabled={loading} 
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+            className="px-4 py-2 bg-[#0c2444] text-white rounded-lg hover:bg-[#16365f] text-xs font-bold transition-all cursor-pointer"
           >
             Execute Migration
           </button>
         </div>
         
-        <div className="bg-slate-900 text-green-400 p-4 rounded-md font-mono text-sm h-96 overflow-y-auto whitespace-pre-wrap">
+        <div className="bg-slate-900 text-green-400 p-4 rounded-lg font-mono text-sm h-96 overflow-y-auto whitespace-pre-wrap border border-slate-800">
           {logs.length === 0 ? "Click 'Run Dry Run' to preview changes..." : logs.join('\n')}
         </div>
       </div>
-    </div>
+    </PageContainer>
   );
 }

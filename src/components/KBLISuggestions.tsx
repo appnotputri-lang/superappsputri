@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { PageContainer, PageHeader } from './ui/PageLayout';
 import { Search, Plus, Trash2, Info, LayoutGrid, Printer, FileDown, Loader2, Save, History, Eye, ArrowLeft, Edit } from 'lucide-react';
 import kbli2025Data from '../../kbli_2025.json';
 import jsPDF from 'jspdf';
@@ -1237,34 +1238,30 @@ const KBLISuggestions: React.FC = () => {
   };
 
   return (
-    <div className="max-w-5xl mx-auto space-y-8 pb-20 animate-in fade-in duration-500">
+    <PageContainer>
       {viewMode === 'list' ? (
         <div className="space-y-6">
           {/* List Mode Header */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between bg-white border border-slate-200 rounded-sm p-6 shadow-sm gap-4">
-            <div className="flex items-center gap-4">
-              <div className="bg-[#0c2444] p-3 rounded-2xl shadow-md">
-                <LayoutGrid className="w-8 h-8 text-white" />
-              </div>
-              <div>
-                <h1 className="text-xl font-extrabold text-slate-900 tracking-tight font-sans">Daftar Saran KBLI 2025</h1>
-                <p className="text-slate-500 text-xs">Kelola saran klasifikasi KBLI untuk klien PT secara terstruktur.</p>
-              </div>
-            </div>
-            <button
-              onClick={() => {
-                setNamaPT('');
-                setKelompokUsaha('Mikro');
-                setSelectedKblis([]);
-                setEditingId(null);
-                setViewMode('form');
-              }}
-              className="px-5 py-2.5 bg-[#0c2444] hover:bg-[#16365f] text-white text-[13px] font-bold rounded-sm shadow-sm transition-all flex items-center justify-center gap-2 uppercase tracking-wide shrink-0"
-            >
-              <Plus className="w-4 h-4" />
-              Tambah Saran KBLI
-            </button>
-          </div>
+          <PageHeader
+            icon={<LayoutGrid className="w-5 h-5 text-white" />}
+            title="Daftar Saran KBLI 2025"
+            description="Kelola saran klasifikasi KBLI untuk klien PT secara terstruktur."
+            actions={
+              <button
+                onClick={() => {
+                  setNamaPT('');
+                  setKelompokUsaha('Mikro');
+                  setSelectedKblis([]);
+                  setEditingId(null);
+                  setViewMode('form');
+                }}
+                className="px-4 py-2 bg-[#0c2444] hover:bg-[#16365f] text-white text-xs sm:text-[13px] font-bold rounded-lg shadow-sm transition-all flex items-center justify-center gap-2 uppercase tracking-wide shrink-0 cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                Tambah Saran KBLI
+              </button>
+            }
+          />
 
           {/* Search Table Block */}
           <div className="bg-white border border-slate-200 rounded-sm p-6 shadow-sm space-y-4 animate-in fade-in slide-in-from-top-4 duration-300">
@@ -1511,7 +1508,7 @@ const KBLISuggestions: React.FC = () => {
                         <td className="px-4 py-3 text-center align-top whitespace-nowrap">
                           <button 
                             onClick={() => setViewingKbliKode(kbli.kode)}
-                            className="p-1.5 hover:bg-teal-50 text-slate-400 hover:text-[#17a2b8] rounded transition-all mr-1.5 cursor-pointer"
+                            className="p-1.5 hover:bg-teal-50 text-slate-400 hover:text-[#0c2444] rounded transition-all mr-1.5 cursor-pointer"
                             title="Lihat Rincian Ruang Lingkup"
                           >
                             <Eye className="w-4 h-4" />
@@ -1555,7 +1552,7 @@ const KBLISuggestions: React.FC = () => {
         <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
           <div className="bg-white w-full max-w-4xl rounded-sm shadow-2xl border border-slate-200 flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200">
             {/* Modal Header */}
-            <div className="bg-[#17a2b8] px-5 py-3 flex justify-between items-center text-white rounded-t-sm">
+            <div className="bg-[#0c2444] px-5 py-3 flex justify-between items-center text-white rounded-t-sm">
               <h3 className="text-sm font-bold tracking-wider">TAMBAH DATA</h3>
               <button 
                 onClick={() => setIsAddModalOpen(false)}
@@ -1576,7 +1573,7 @@ const KBLISuggestions: React.FC = () => {
 
               {/* Search Bar */}
               <div className="max-w-md mx-auto">
-                <div className="flex items-center border border-slate-300 rounded-md overflow-hidden shadow-sm focus-within:ring-2 focus-within:ring-[#17a2b8]/30 focus-within:border-[#17a2b8] transition-all">
+                <div className="flex items-center border border-slate-300 rounded-md overflow-hidden shadow-sm focus-within:ring-2 focus-within:ring-[#0c2444]/30 focus-within:border-[#0c2444] transition-all">
                   <input
                     type="text"
                     placeholder="Cari..."
@@ -1597,7 +1594,7 @@ const KBLISuggestions: React.FC = () => {
               {/* Loader during Batch Adds */}
               {isAddingBatch ? (
                 <div className="p-16 flex flex-col items-center justify-center space-y-3">
-                  <Loader2 className="w-8 h-8 text-[#17a2b8] animate-spin" />
+                  <Loader2 className="w-8 h-8 text-[#0c2444] animate-spin" />
                   <p className="text-sm font-bold text-slate-600">Mengambil detail ruang lingkup KBLI dari DPB OSS...</p>
                 </div>
               ) : (
@@ -1611,7 +1608,7 @@ const KBLISuggestions: React.FC = () => {
                             <th className="px-4 py-2 text-center w-12 border-r border-slate-200">
                               <input
                                 type="checkbox"
-                                className="w-4 h-4 text-[#17a2b8] border-slate-300 rounded focus:ring-[#17a2b8] cursor-pointer"
+                                className="w-4 h-4 text-[#0c2444] border-slate-300 rounded focus:ring-[#0c2444] cursor-pointer"
                                 checked={paginatedResults.length > 0 && paginatedResults.every(r => searchCheckedKblis.includes(r.kode))}
                                 onChange={handleToggleAllOnPage}
                               />
@@ -1632,13 +1629,13 @@ const KBLISuggestions: React.FC = () => {
                                 key={itemKode} 
                                 onClick={() => handleToggleChecked(item.kode || item.code || itemKode)}
                                 className={`hover:bg-slate-50 cursor-pointer transition-colors ${
-                                  isChecked ? 'bg-[#17a2b8]/5 hover:bg-[#17a2b8]/10' : ''
+                                  isChecked ? 'bg-[#0c2444]/5 hover:bg-[#0c2444]/10' : ''
                                 }`}
                               >
                                 <td className="px-4 py-2 text-center border-r border-slate-200" onClick={(e) => e.stopPropagation()}>
                                   <input
                                     type="checkbox"
-                                    className="w-4 h-4 text-[#17a2b8] border-slate-300 rounded focus:ring-[#17a2b8] cursor-pointer"
+                                    className="w-4 h-4 text-[#0c2444] border-slate-300 rounded focus:ring-[#0c2444] cursor-pointer"
                                     checked={isChecked}
                                     onChange={() => handleToggleChecked(item.kode || item.code || itemKode)}
                                   />
@@ -1672,8 +1669,8 @@ const KBLISuggestions: React.FC = () => {
                             onClick={() => setCurrentPage(pageNum)}
                             className={`px-2.5 py-1 border rounded-sm font-bold transition-all ${
                               currentPage === pageNum 
-                                ? 'bg-[#17a2b8] border-[#17a2b8] text-white' 
-                                : 'bg-white border-slate-200 text-[#17a2b8] hover:bg-slate-50'
+                                ? 'bg-[#0c2444] border-[#0c2444] text-white' 
+                                : 'bg-white border-slate-200 text-[#0c2444] hover:bg-slate-50'
                             }`}
                           >
                             {pageNum}
@@ -1682,14 +1679,14 @@ const KBLISuggestions: React.FC = () => {
                         {currentPage < totalPages && (
                           <button
                             onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                            className="px-2.5 py-1 border border-slate-200 bg-white rounded-sm text-[#17a2b8] font-bold hover:bg-slate-50 transition-all"
+                            className="px-2.5 py-1 border border-slate-200 bg-white rounded-sm text-[#0c2444] font-bold hover:bg-slate-50 transition-all"
                           >
                             Berikut &gt;
                           </button>
                         )}
                         <button
                           onClick={() => setCurrentPage(totalPages)}
-                          className="px-2.5 py-1 border border-slate-200 bg-white rounded-sm text-[#17a2b8] font-bold hover:bg-slate-50 transition-all"
+                          className="px-2.5 py-1 border border-slate-200 bg-white rounded-sm text-[#0c2444] font-bold hover:bg-slate-50 transition-all"
                         >
                           Terakhir &gt;&gt;
                         </button>
@@ -1705,7 +1702,7 @@ const KBLISuggestions: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setIsAddModalOpen(false)}
-                className="px-5 py-1.5 bg-[#f0ad4e] hover:bg-[#ec971f] text-white text-[12px] font-bold rounded shadow-sm hover:shadow transition-all uppercase"
+                className="px-5 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-[12px] font-bold rounded shadow-sm hover:shadow transition-all uppercase"
               >
                 BATAL
               </button>
@@ -1713,7 +1710,7 @@ const KBLISuggestions: React.FC = () => {
                 type="button"
                 disabled={searchCheckedKblis.length === 0 || isAddingBatch}
                 onClick={() => addKbliBatch(searchCheckedKblis)}
-                className="px-5 py-1.5 bg-[#17a2b8] hover:bg-[#138496] disabled:opacity-50 disabled:cursor-not-allowed text-white text-[12px] font-bold rounded shadow-sm hover:shadow transition-all uppercase"
+                className="px-5 py-1.5 bg-[#0c2444] hover:bg-[#16365f] disabled:opacity-50 disabled:cursor-not-allowed text-white text-[12px] font-bold rounded shadow-sm hover:shadow transition-all uppercase"
               >
                 TAMBAH
               </button>
@@ -1728,7 +1725,7 @@ const KBLISuggestions: React.FC = () => {
           <div className="bg-white w-full max-w-lg rounded-xl shadow-xl overflow-hidden animate-in zoom-in-95 duration-200 border border-slate-200">
             <div className="px-6 py-4 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
               <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
-                <History className="w-4 h-4 text-[#17a2b8]" />
+                <History className="w-4 h-4 text-[#0c2444]" />
                 Riwayat Saran Tersimpan
               </h3>
               <button 
@@ -1793,7 +1790,7 @@ const KBLISuggestions: React.FC = () => {
           <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-250">
             <div className="bg-white w-full max-w-5xl rounded-sm shadow-2xl border border-slate-200 flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200">
               {/* Modal Header */}
-              <div className="bg-[#17a2b8] px-5 py-3 flex justify-between items-center text-white rounded-t-sm">
+              <div className="bg-[#0c2444] px-5 py-3 flex justify-between items-center text-white rounded-t-sm">
                 <div className="flex items-center gap-2">
                   <Eye className="w-5 h-5 text-white animate-pulse" />
                   <h3 className="text-sm font-bold tracking-wider">RINCIAN RUANG LINGKUP & DETAIL KBLI</h3>
@@ -1836,7 +1833,7 @@ const KBLISuggestions: React.FC = () => {
                     </span>
                     <button
                       onClick={() => addKbliScope(kbli.kode)}
-                      className="px-3 py-1.5 bg-[#17a2b8] text-white hover:bg-[#138496] rounded-sm text-[11px] font-bold tracking-wider flex items-center gap-1.5 transition-colors uppercase"
+                      className="px-3 py-1.5 bg-[#0c2444] text-white hover:bg-[#16365f] rounded-sm text-[11px] font-bold tracking-wider flex items-center gap-1.5 transition-colors uppercase"
                     >
                       <Plus className="w-3.5 h-3.5" />
                       Tambah
@@ -1929,7 +1926,7 @@ const KBLISuggestions: React.FC = () => {
               <div className="bg-slate-50 px-6 py-4 flex justify-end border-t border-slate-200 gap-3">
                 <button
                   onClick={() => setViewingKbliKode(null)}
-                  className="px-5 py-2.5 bg-[#17a2b8] hover:bg-[#138496] text-white font-bold text-sm rounded-sm transition-all shadow-sm"
+                  className="px-5 py-2.5 bg-[#0c2444] hover:bg-[#16365f] text-white font-bold text-sm rounded-sm transition-all shadow-sm"
                 >
                   SIMPAN & TUTUP
                 </button>
@@ -1938,7 +1935,7 @@ const KBLISuggestions: React.FC = () => {
           </div>
         );
       })()}
-    </div>
+    </PageContainer>
   );
 };
 

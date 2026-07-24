@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useEffect } from 'react';
+import { PageContainer, PageHeader } from './ui/PageLayout';
 import { Search, FileText, Download, Smartphone, Send, SendHorizontal, AlertCircle, CheckCircle2, RefreshCw, X, Image } from 'lucide-react';
 import { DocumentStatusBadge } from '../../components/DocumentStatusBadge';
 import { jsPDF } from 'jspdf';
@@ -933,7 +934,7 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects: propsProject
   };
 
   return (
-    <div className="space-y-4">
+    <PageContainer>
       {/* TOAST NOTIFICATION BANNER */}
       {toast && (
         <div className={`fixed top-4 right-4 z-50 flex items-center gap-2 px-5 py-3 rounded-xl border font-bold text-xs shadow-md uppercase tracking-wide animate-fade-in ${
@@ -945,74 +946,50 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects: propsProject
       )}
 
       {/* HEADER SECTION */}
-      <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-40 h-40 bg-fuchsia-50 rounded-full blur-3xl -mx-10 -my-10 z-0"></div>
-        <div className="relative z-10 flex-1">
-          <h2 className="text-xl font-bold flex items-start sm:items-center gap-3 text-slate-800 tracking-tight">
-            <span className="p-2 bg-fuchsia-100 text-fuchsia-600 rounded-lg shrink-0">
-              <FileText size={22} className="stroke-[2.5]" />
-            </span>
-            <div>
-              <div className="text-xl font-black text-slate-800 tracking-tight">LAPORAN PROYEK KERJA</div>
-              <div className="text-[12px] sm:text-xs font-bold text-fuchsia-600 tracking-wide uppercase mt-0.5">
-                KANTOR NOTARIS NUKANTINI PUTRI PARINCHA SH.,M.Kn
-              </div>
-            </div>
-          </h2>
-          <p className="text-slate-500 text-[13px] font-medium mt-2">Daftar laporan seluruh pekerjaan dan status terakhir</p>
-        </div>
+      <PageHeader
+        icon={<FileText className="w-5 h-5 text-white" />}
+        title="Laporan Proyek Kerja"
+        description="Kantor Notaris Nukantini Putri Parincha SH., M.Kn — Daftar laporan seluruh pekerjaan dan status terakhir"
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={handleTestWhatsApp}
+              disabled={testingStatus}
+              className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 disabled:text-slate-400 font-bold text-xs px-3.5 py-2 rounded-lg border border-slate-200 shadow-sm transition-all cursor-pointer uppercase tracking-wider"
+              title="Klik untuk menguji konektivitas WhatsApp Gateway"
+            >
+              {testingStatus ? <RefreshCw className="animate-spin w-3.5 h-3.5" /> : <Smartphone size={14} />}
+              Test WA
+            </button>
 
-        {/* INTEGRATED CONFIGURATION BUTTONS */}
-        <div className="relative z-10 w-full xl:w-auto flex flex-col sm:flex-row items-center gap-2">
-          {/* TEST WHATSAPP BUTTON */}
-          <button
-            onClick={handleTestWhatsApp}
-            disabled={testingStatus}
-            className="w-full sm:w-auto flex items-center justify-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 disabled:text-slate-400 font-bold text-xs px-4 py-2.5 rounded-lg border border-slate-200 shadow-sm transition-all duration-200 hover:-translate-y-0.5 cursor-pointer uppercase tracking-wider disabled:-translate-y-0"
-            title="Klik untuk menguji konektivitas WhatsApp Gateway dengan mengirim pesan uji coba ke Nomor Admin."
-          >
-            {testingStatus ? (
-              <RefreshCw className="animate-spin w-3.5 h-3.5" />
-            ) : (
-              <Smartphone size={14} className="stroke-[2]" />
-            )}
-            Test WhatsApp
-          </button>
+            <button
+              onClick={() => setModalOpen(true)}
+              disabled={filteredReports.length === 0}
+              className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 text-white font-bold text-xs px-3.5 py-2 rounded-lg shadow-sm transition-all cursor-pointer uppercase tracking-wider"
+            >
+              <Send size={14} />
+              Kirim WA ({filteredReports.length})
+            </button>
 
-          {/* KIRIM WHATSAPP BUTTON */}
-          <button
-            onClick={() => setModalOpen(true)}
-            disabled={filteredReports.length === 0}
-            className="w-full sm:w-auto flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 hover:text-white border border-emerald-700 text-white font-bold text-xs px-4 py-2.5 rounded-lg shadow-sm transition-all duration-200 hover:-translate-y-0.5 cursor-pointer uppercase tracking-wider disabled:-translate-y-0"
-          >
-            <Send size={14} className="stroke-[2.5]" />
-            Kirim WhatsApp ({filteredReports.length})
-          </button>
+            <button
+              onClick={handleExportPDF}
+              className="flex items-center gap-2 bg-[#0c2444] hover:bg-[#16365f] text-white font-bold text-xs px-3.5 py-2 rounded-lg shadow-sm transition-all cursor-pointer uppercase tracking-wider"
+            >
+              <Download size={14} />
+              PDF
+            </button>
 
-          {/* EXCEL/PDF EXPORT */}
-          <button
-            onClick={handleExportPDF}
-            className="w-full sm:w-auto flex items-center justify-center gap-2 bg-fuchsia-600 hover:bg-fuchsia-700 active:bg-fuchsia-800 text-white font-bold text-xs px-4 py-2.5 rounded-lg border border-fuchsia-700 shadow-sm transition-all duration-200 hover:-translate-y-0.5 cursor-pointer uppercase tracking-wider"
-          >
-            <Download size={15} className="stroke-[2.5]" />
-            Ekspor PDF
-          </button>
-
-          {/* HIGH RES JPG EXPORT */}
-          <button
-            onClick={handleExportJPG}
-            disabled={isExportingJpg || filteredReports.length === 0}
-            className="w-full sm:w-auto flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 text-white font-bold text-xs px-4 py-2.5 rounded-lg border border-indigo-700 shadow-sm transition-all duration-200 hover:-translate-y-0.5 cursor-pointer uppercase tracking-wider disabled:-translate-y-0"
-          >
-            {isExportingJpg ? (
-              <RefreshCw className="animate-spin w-4 h-4" />
-            ) : (
-              <Image size={15} className="stroke-[2.5]" />
-            )}
-            {isExportingJpg ? 'Grup Gambar HD...' : 'Ekspor JPG (HD)'}
-          </button>
-        </div>
-      </div>
+            <button
+              onClick={handleExportJPG}
+              disabled={isExportingJpg || filteredReports.length === 0}
+              className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 text-white font-bold text-xs px-3.5 py-2 rounded-lg shadow-sm transition-all cursor-pointer uppercase tracking-wider"
+            >
+              {isExportingJpg ? <RefreshCw className="animate-spin w-3.5 h-3.5" /> : <Image size={14} />}
+              {isExportingJpg ? 'JPG...' : 'JPG (HD)'}
+            </button>
+          </div>
+        }
+      />
 
       {/* TAB SELECTOR (PROYEK AKTIF & MINUTA) */}
       <div className="flex space-x-1 border-b border-slate-200 mt-4 select-none">
@@ -1053,6 +1030,7 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects: propsProject
                   <option value="ALL">Semua Kategori</option>
                   <option value="BODY_LEGAL">Badan Hukum (BODY_LEGAL)</option>
                   <option value="MEETING">Rapat / RUPS (MEETING)</option>
+                  <option value="PPAT">Akta PPAT (PPAT)</option>
                   <option value="AGREEMENT">Perjanjian (AGREEMENT)</option>
                   <option value="GENERAL_DEED">Akta Umum (GENERAL_DEED)</option>
                   <option value="LEGALIZATION">Legalisasi (LEGALIZATION)</option>
@@ -1555,6 +1533,6 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects: propsProject
           </div>
         </div>
       </div>
-    </div>
+    </PageContainer>
   );
 };

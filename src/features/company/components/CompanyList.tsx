@@ -1,6 +1,6 @@
 import React from 'react';
 import {
-  MoreHorizontal,
+  MoreVertical,
   Eye,
   Edit,
   Copy,
@@ -15,16 +15,16 @@ import { formatCompanyName } from '../../../lib/formatter';
 import { generateCompanyProfileSummaryPdf } from '../../../lib/generateCompanyProfileSummaryPdf';
 
 const clientTypeBadgeStyles: Record<string, { bg: string; text: string; border: string; label: string }> = {
-  PT: { bg: 'bg-blue-50/70', text: 'text-blue-700', border: 'border-blue-200', label: 'PT' },
-  CV: { bg: 'bg-amber-50/70', text: 'text-amber-700', border: 'border-amber-200', label: 'CV' },
-  YAYASAN: { bg: 'bg-emerald-50/70', text: 'text-emerald-700', border: 'border-emerald-200', label: 'Yayasan' },
-  PERKUMPULAN: { bg: 'bg-purple-50/70', text: 'text-purple-700', border: 'border-purple-200', label: 'Perkumpulan' },
-  PERSEKUTUAN_FIRMA: { bg: 'bg-pink-50/70', text: 'text-pink-700', border: 'border-pink-200', label: 'Persekutuan Firma' },
-  PERSEKUTUAN_PERDATA: { bg: 'bg-indigo-50/70', text: 'text-indigo-700', border: 'border-indigo-200', label: 'Persekutuan Perdata' },
-  KOPERASI: { bg: 'bg-teal-50/70', text: 'text-teal-700', border: 'border-teal-200', label: 'Koperasi' },
-  PMA: { bg: 'bg-rose-50/70', text: 'text-rose-700', border: 'border-rose-200', label: 'PMA' },
-  PERORANGAN: { bg: 'bg-sky-50/70', text: 'text-sky-700', border: 'border-sky-200', label: 'Perorangan' },
-  LAINNYA: { bg: 'bg-slate-50/70', text: 'text-slate-700', border: 'border-slate-200', label: 'Lainnya' }
+  PT: { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200/80', label: 'PT' },
+  CV: { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200/80', label: 'CV' },
+  YAYASAN: { bg: 'bg-purple-50', text: 'text-purple-700', border: 'border-purple-200/80', label: 'Yayasan' },
+  PERKUMPULAN: { bg: 'bg-indigo-50', text: 'text-indigo-700', border: 'border-indigo-200/80', label: 'Perkumpulan' },
+  PERSEKUTUAN_FIRMA: { bg: 'bg-pink-50', text: 'text-pink-700', border: 'border-pink-200/80', label: 'Persekutuan Firma' },
+  PERSEKUTUAN_PERDATA: { bg: 'bg-teal-50', text: 'text-teal-700', border: 'border-teal-200/80', label: 'Persekutuan Perdata' },
+  KOPERASI: { bg: 'bg-violet-50', text: 'text-violet-700', border: 'border-violet-200/80', label: 'Koperasi' },
+  PMA: { bg: 'bg-rose-50', text: 'text-rose-700', border: 'border-rose-200/80', label: 'PMA' },
+  PERORANGAN: { bg: 'bg-sky-50', text: 'text-sky-700', border: 'border-sky-200/80', label: 'Perorangan' },
+  LAINNYA: { bg: 'bg-slate-50', text: 'text-slate-700', border: 'border-slate-200/80', label: 'Lainnya' }
 };
 
 export const CompanyList: React.FC<CompanyListProps> = ({
@@ -49,6 +49,8 @@ export const CompanyList: React.FC<CompanyListProps> = ({
   totalProfilePages,
   userProfile,
   deleteCompany,
+  itemsPerPage = 10,
+  setItemsPerPage,
 }) => {
   const formatProfileLastUpdated = (dateStr?: string, establishmentDate?: string) => {
     const dateToFormat = dateStr || establishmentDate;
@@ -105,25 +107,25 @@ export const CompanyList: React.FC<CompanyListProps> = ({
 
   if (profiles.length === 0) {
     return (
-      <div className="bg-slate-50 text-center py-12 rounded-sm border border-dashed border-slate-300 text-slate-500 text-[13px]">
-        Belum ada data klien. Klik <strong>"TAMBAH KLIEN"</strong> untuk membuat.
+      <div className="bg-white p-12 text-center rounded-2xl border border-dashed border-slate-300 text-slate-500 text-xs font-medium shadow-xs">
+        Belum ada data klien. Klik <strong className="text-slate-800 font-bold">"TAMBAH KLIEN"</strong> untuk membuat.
       </div>
     );
   }
 
   if (paginatedProfileResults.length === 0) {
     return (
-      <div className="bg-slate-50 text-center py-8 rounded-sm border border-dashed border-slate-300 text-slate-500 text-[12px]">
+      <div className="bg-white p-8 text-center rounded-2xl border border-dashed border-slate-300 text-slate-500 text-xs font-medium shadow-xs">
         Tidak ada data klien yang cocok dengan pencarian / penyaringan saat ini.
       </div>
     );
   }
 
   return (
-    <div className="bg-white rounded-md shadow-sm border border-slate-200 overflow-hidden">
+    <div className="bg-white rounded-xl shadow-xs border border-slate-200/80 overflow-hidden">
       {/* List count header */}
-      <div className="px-5 py-4 border-b border-slate-200 flex justify-between items-center bg-slate-50/50">
-        <span className="text-[12px] font-semibold text-slate-500">
+      <div className="px-4 py-2.5 border-b border-slate-200/80 flex justify-between items-center bg-slate-50/50">
+        <span className="text-xs font-semibold text-slate-500">
           Menampilkan <span className="text-slate-800 font-bold">{profileStartIndex + 1}</span> -{' '}
           <span className="text-slate-800 font-bold">
             {Math.min(profileStartIndex + paginatedProfileResults.length, totalProfileItems)}
@@ -134,12 +136,12 @@ export const CompanyList: React.FC<CompanyListProps> = ({
 
       {/* Desktop Table View */}
       <div className="hidden md:block overflow-x-auto">
-        <table className="min-w-[800px] w-full text-left text-[12px] border-collapse">
-          <thead className="bg-[#f8fafc] border-b border-slate-200 font-bold uppercase text-slate-600 text-[11px] tracking-wider select-none">
+        <table className="min-w-[850px] w-full text-left text-xs border-collapse">
+          <thead className="bg-[#f8fafc] border-b border-slate-200/80 font-bold uppercase text-slate-600 text-[11px] tracking-wider select-none">
             <tr>
-              <th className="p-4 text-center border-r border-slate-200 w-12 text-[#3b5998]">No</th>
+              <th className="px-3.5 py-2.5 text-center border-r border-slate-200/60 w-12 text-[#0c2444]">NO</th>
               <th
-                className="p-4 border-r border-slate-200 cursor-pointer hover:bg-slate-100/80 transition-colors"
+                className="px-4 py-2.5 border-r border-slate-200/60 cursor-pointer hover:bg-slate-100/80 transition-colors"
                 onClick={() => handleProfileSort('companyName')}
               >
                 <div className="flex items-center justify-between">
@@ -147,11 +149,11 @@ export const CompanyList: React.FC<CompanyListProps> = ({
                   {renderProfileSortArrows('companyName')}
                 </div>
               </th>
-              <th className="p-4 border-r border-slate-200">
+              <th className="px-4 py-2.5 border-r border-slate-200/60">
                 JENIS BADAN USAHA
               </th>
               <th
-                className="p-4 border-r border-slate-200 cursor-pointer hover:bg-slate-100/80 transition-colors"
+                className="px-4 py-2.5 border-r border-slate-200/60 cursor-pointer hover:bg-slate-100/80 transition-colors"
                 onClick={() => handleProfileSort('domicile')}
               >
                 <div className="flex items-center justify-between">
@@ -160,7 +162,7 @@ export const CompanyList: React.FC<CompanyListProps> = ({
                 </div>
               </th>
               <th
-                className="p-4 border-r border-slate-200 cursor-pointer hover:bg-slate-100/80 transition-colors"
+                className="px-4 py-2.5 border-r border-slate-200/60 cursor-pointer hover:bg-slate-100/80 transition-colors"
                 onClick={() => handleProfileSort('establishmentDeedDate')}
               >
                 <div className="flex items-center justify-between">
@@ -169,7 +171,7 @@ export const CompanyList: React.FC<CompanyListProps> = ({
                 </div>
               </th>
               <th
-                className="p-4 border-r border-slate-200 cursor-pointer hover:bg-slate-100/80 transition-colors"
+                className="px-4 py-2.5 border-r border-slate-200/60 cursor-pointer hover:bg-slate-100/80 transition-colors"
                 onClick={() => handleProfileSort('updatedAt')}
               >
                 <div className="flex items-center justify-between">
@@ -177,7 +179,7 @@ export const CompanyList: React.FC<CompanyListProps> = ({
                   {renderProfileSortArrows('updatedAt')}
                 </div>
               </th>
-              <th className="p-4 text-center w-16">AKSI</th>
+              <th className="px-3 py-2.5 text-center w-14">AKSI</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -197,27 +199,31 @@ export const CompanyList: React.FC<CompanyListProps> = ({
               return (
                 <tr
                   key={p.id}
-                  className="group hover:bg-slate-50/50 transition-colors cursor-pointer"
+                  className="group hover:bg-blue-50/30 transition-colors cursor-pointer"
                   onClick={() => {
                     setEditingProfileId(p.id);
                     setIsProfilePreview(true);
                     updateData({ ...INITIAL_STATE, ...p } as any);
                   }}
                 >
-                  <td className="p-4 font-bold text-center border-r border-slate-100 text-slate-500 w-12">
+                  <td className="px-3.5 py-2.5 font-bold text-center border-r border-slate-100 text-slate-400 w-12">
                     {currentNo}
                   </td>
-                  <td className="p-4 font-bold text-slate-800 border-r border-slate-100 uppercase tracking-tight">
-                    <div className="flex items-center gap-3">
+                  <td className="px-4 py-2.5 border-r border-slate-100">
+                    <div className="flex items-center gap-2.5">
                       <CompanyAvatar name={p.companyName || ''} />
-                      <span>{formatCompanyName(p.companyName, p.clientType)}</span>
+                      <div className="flex flex-col">
+                        <span className="font-extrabold text-slate-900 uppercase tracking-tight text-[12px] group-hover:text-[#1890ff] transition-colors">
+                          {formatCompanyName(p.companyName, p.clientType)}
+                        </span>
+                        <span className="text-[10px] text-slate-400 font-mono mt-0.5">
+                          ID Klien: {p.id ? `${p.id.slice(0, 12)}...` : '-'}
+                        </span>
+                      </div>
                     </div>
                     {p.kbliItems && p.kbliItems.length > 0 && (
-                      <div className="mt-1.5 flex flex-wrap gap-1 items-center">
-                        <span
-                          className="text-[9px] font-bold text-slate-500 uppercase tracking-wider bg-slate-100 px-1 py-0.5 rounded leading-none shrink-0"
-                          style={{ color: '#3b5998', backgroundColor: '#eef2f7' }}
-                        >
+                      <div className="mt-1 flex flex-wrap gap-1 items-center pl-9">
+                        <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider bg-slate-100 px-1 py-0.5 rounded leading-none shrink-0">
                           KBLI:
                         </span>
                         {p.kbliItems.map((item) => (
@@ -232,22 +238,23 @@ export const CompanyList: React.FC<CompanyListProps> = ({
                       </div>
                     )}
                   </td>
-                  <td className="p-4 border-r border-slate-100">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${badge.bg} ${badge.text} ${badge.border}`}>
+                  <td className="px-4 py-2.5 border-r border-slate-100">
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-extrabold border ${badge.bg} ${badge.text} ${badge.border}`}>
                       {badge.label}
                     </span>
                   </td>
-                  <td className="p-4 text-slate-600 border-r border-slate-100 uppercase font-medium">
+                  <td className="px-4 py-2.5 text-slate-700 border-r border-slate-100 uppercase font-semibold">
                     {city}
                   </td>
-                  <td className="p-4 text-slate-600 border-r border-slate-100 uppercase font-medium">
+                  <td className="px-4 py-2.5 text-slate-700 border-r border-slate-100 uppercase font-medium">
                     {deedDate}
                   </td>
-                  <td className="p-4 text-slate-500 border-r border-slate-100 text-[11px] font-mono">
-                    {lastUpdated}
+                  <td className="px-4 py-2.5 border-r border-slate-100">
+                    <span className="text-slate-800 text-xs font-semibold block">{lastUpdated}</span>
+                    <span className="text-[10px] text-slate-400 font-medium block mt-0.5 uppercase tracking-wider">oleh ADMIN</span>
                   </td>
                   <td
-                    className="p-4 text-center relative border-r border-slate-100"
+                    className="px-3 py-2.5 text-center relative border-r border-slate-100"
                     onClick={(e) => e.stopPropagation()}
                   >
                     <div className="flex items-center justify-center">
@@ -256,20 +263,20 @@ export const CompanyList: React.FC<CompanyListProps> = ({
                           e.stopPropagation();
                           setOpenDropdownId(openDropdownId === p.id ? null : p.id);
                         }}
-                        className={`p-1.5 rounded-md border border-slate-200/45 bg-white hover:bg-slate-50 hover:border-slate-300 text-slate-500 hover:text-slate-800 transition-all shadow-sm ${
+                        className={`p-1.5 rounded-xl border border-slate-200/80 bg-white hover:bg-slate-100 hover:border-slate-300 text-slate-600 hover:text-slate-900 transition-all shadow-xs cursor-pointer ${
                           openDropdownId === p.id
-                            ? 'opacity-100 bg-slate-50'
-                            : 'opacity-100 sm:opacity-0 group-hover:opacity-100'
+                            ? 'opacity-100 bg-slate-100 border-slate-300'
+                            : 'opacity-100'
                         }`}
                         title="Pilihan Aksi"
                       >
-                        <MoreHorizontal className="w-[18px] h-[18px] stroke-[2.25px]" />
+                        <MoreVertical className="w-4 h-4" />
                       </button>
                     </div>
 
                     {/* Dropdown popup portal */}
                     {openDropdownId === p.id && (
-                      <div className="absolute right-4 top-13 bg-white border border-slate-200 shadow-xl rounded-xl py-1.5 w-40 z-50 text-left overflow-hidden animate-in fade-in slide-in-from-top-1 duration-100">
+                      <div className="absolute right-4 top-13 bg-white border border-slate-200 shadow-xl rounded-2xl py-1.5 w-44 z-50 text-left overflow-hidden animate-in fade-in slide-in-from-top-1 duration-100">
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -278,9 +285,9 @@ export const CompanyList: React.FC<CompanyListProps> = ({
                             setIsProfilePreview(true);
                             updateData({ ...INITIAL_STATE, ...p } as any);
                           }}
-                          className="w-full px-3.5 py-2 text-slate-700 hover:bg-slate-50 text-[11px] font-bold flex items-center gap-2 uppercase tracking-wide border-b border-slate-100"
+                          className="w-full px-3.5 py-2 text-slate-700 hover:bg-slate-50 text-[11px] font-bold flex items-center gap-2 uppercase tracking-wide border-b border-slate-100 cursor-pointer"
                         >
-                          <Eye className="w-3.5 h-3.5 text-slate-450 stroke-[2.25px] shrink-0" />
+                          <Eye className="w-3.5 h-3.5 text-slate-500 shrink-0" />
                           <span>Buka Profil</span>
                         </button>
                         <button
@@ -291,9 +298,9 @@ export const CompanyList: React.FC<CompanyListProps> = ({
                             setIsProfilePreview(false);
                             updateData({ ...INITIAL_STATE, ...p } as any);
                           }}
-                          className="w-full px-3.5 py-2 text-slate-700 hover:bg-slate-50 text-[11px] font-bold flex items-center gap-2 uppercase tracking-wide border-b border-slate-100"
+                          className="w-full px-3.5 py-2 text-slate-700 hover:bg-slate-50 text-[11px] font-bold flex items-center gap-2 uppercase tracking-wide border-b border-slate-100 cursor-pointer"
                         >
-                          <Edit className="w-3.5 h-3.5 text-slate-450 stroke-[2.25px] shrink-0" />
+                          <Edit className="w-3.5 h-3.5 text-slate-500 shrink-0" />
                           <span>Edit</span>
                         </button>
                         <button
@@ -302,9 +309,9 @@ export const CompanyList: React.FC<CompanyListProps> = ({
                             setOpenDropdownId(null);
                             handleDuplicateProfile(p);
                           }}
-                          className="w-full px-3.5 py-2 text-slate-700 hover:bg-slate-50 text-[11px] font-bold flex items-center gap-2 uppercase tracking-wide border-b border-slate-100"
+                          className="w-full px-3.5 py-2 text-slate-700 hover:bg-slate-50 text-[11px] font-bold flex items-center gap-2 uppercase tracking-wide border-b border-slate-100 cursor-pointer"
                         >
-                          <Copy className="w-3.5 h-3.5 text-slate-450 stroke-[2.25px] shrink-0" />
+                          <Copy className="w-3.5 h-3.5 text-slate-500 shrink-0" />
                           <span>Duplikat</span>
                         </button>
                         <button
@@ -313,9 +320,9 @@ export const CompanyList: React.FC<CompanyListProps> = ({
                             setOpenDropdownId(null);
                             generateCompanyProfileSummaryPdf(p);
                           }}
-                          className="w-full px-3.5 py-2 text-slate-700 hover:bg-slate-50 text-[11px] font-bold flex items-center gap-2 uppercase tracking-wide border-b border-slate-100"
+                          className="w-full px-3.5 py-2 text-slate-700 hover:bg-slate-50 text-[11px] font-bold flex items-center gap-2 uppercase tracking-wide border-b border-slate-100 cursor-pointer"
                         >
-                          <FileDown className="w-3.5 h-3.5 text-slate-450 stroke-[2.25px] shrink-0" />
+                          <FileDown className="w-3.5 h-3.5 text-slate-500 shrink-0" />
                           <span>Ringkasan (PDF)</span>
                         </button>
                         <button
@@ -324,20 +331,20 @@ export const CompanyList: React.FC<CompanyListProps> = ({
                             setOpenDropdownId(null);
                             handleArchiveProfile(p);
                           }}
-                          className={`w-full px-3.5 py-2 hover:bg-slate-50 text-[11px] font-bold flex items-center gap-2 uppercase tracking-wide ${
+                          className={`w-full px-3.5 py-2 hover:bg-slate-50 text-[11px] font-bold flex items-center gap-2 uppercase tracking-wide cursor-pointer ${
                             p.isArchived
                               ? 'text-emerald-700 hover:bg-emerald-50/60'
-                              : 'text-orange-700 hover:bg-orange-50/60'
+                              : 'text-amber-700 hover:bg-amber-50/60'
                           }`}
                         >
                           {p.isArchived ? (
                             <>
-                              <Undo className="w-3.5 h-3.5 text-emerald-500 stroke-[2.25px] shrink-0" />
+                              <Undo className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                               <span>Pulihkan</span>
                             </>
                           ) : (
                             <>
-                              <Archive className="w-3.5 h-3.5 text-orange-500 stroke-[2.25px] shrink-0" />
+                              <Archive className="w-3.5 h-3.5 text-amber-600 shrink-0" />
                               <span>Arsipkan</span>
                             </>
                           )}
@@ -351,9 +358,9 @@ export const CompanyList: React.FC<CompanyListProps> = ({
                                 deleteCompany(p.id, false);
                               }
                             }}
-                            className="w-full px-3.5 py-2 hover:bg-red-50 text-red-600 text-[11px] font-bold flex items-center gap-2 uppercase tracking-wide border-t border-slate-100"
+                            className="w-full px-3.5 py-2 hover:bg-red-50 text-red-600 text-[11px] font-bold flex items-center gap-2 uppercase tracking-wide border-t border-slate-100 cursor-pointer"
                           >
-                            <Trash2 className="w-3.5 h-3.5 text-red-500 stroke-[2.25px] shrink-0" />
+                            <Trash2 className="w-3.5 h-3.5 text-red-500 shrink-0" />
                             <span>Hapus</span>
                           </button>
                         )}
@@ -394,13 +401,13 @@ export const CompanyList: React.FC<CompanyListProps> = ({
                 <div className="flex items-center gap-3">
                   <CompanyAvatar name={p.companyName || ''} />
                   <div className="flex flex-col">
-                    <span className="font-bold text-slate-800 uppercase text-[12px] tracking-tight leading-tight">
+                    <span className="font-bold text-slate-800 uppercase text-xs tracking-tight leading-tight">
                       {formatCompanyName(p.companyName, p.clientType)}
                     </span>
-                    <span className="text-[10px] text-slate-400 font-mono mt-0.5">No. {profileStartIndex + idx + 1}</span>
+                    <span className="text-[10px] text-slate-400 font-mono mt-0.5">ID Klien: {p.id ? `${p.id.slice(0, 10)}...` : '-'}</span>
                   </div>
                 </div>
-                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border ${badge.bg} ${badge.text} ${badge.border} shrink-0`}>
+                <span className={`inline-flex items-center px-2 py-0.5 rounded-lg text-[10px] font-bold border ${badge.bg} ${badge.text} ${badge.border} shrink-0`}>
                   {badge.label}
                 </span>
               </div>
@@ -420,20 +427,20 @@ export const CompanyList: React.FC<CompanyListProps> = ({
                 </div>
               )}
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-[11px] text-slate-600 font-medium mb-3 border-t border-slate-50 pt-2.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-xs text-slate-600 font-medium mb-3 border-t border-slate-50 pt-2.5">
                 <div>
                   <span className="block text-[9px] text-slate-400 font-bold uppercase tracking-wider">Kedudukan</span>
-                  <span className="uppercase text-slate-700 text-[11px] truncate block max-w-[120px]">{city}</span>
+                  <span className="uppercase text-slate-700 text-xs truncate block max-w-[120px]">{city}</span>
                 </div>
                 <div>
                   <span className="block text-[9px] text-slate-400 font-bold uppercase tracking-wider">Akta Pendirian</span>
-                  <span className="uppercase text-slate-700 text-[11px] whitespace-nowrap block">{deedDate}</span>
+                  <span className="uppercase text-slate-700 text-xs whitespace-nowrap block">{deedDate}</span>
                 </div>
               </div>
 
               <div className="flex items-center justify-between border-t border-slate-50 pt-2.5 mt-2" onClick={(e) => e.stopPropagation()}>
-                <span className="text-[10px] text-slate-450 font-mono">
-                  Ubah: {formatProfileLastUpdated(p.updatedAt, p.establishmentDeedDate).split(' ')[0]}
+                <span className="text-[10px] text-slate-400 font-mono">
+                  Ubah: {formatProfileLastUpdated(p.updatedAt, p.establishmentDeedDate).split(' ')[0]} oleh ADMIN
                 </span>
                 
                 <div className="flex gap-2">
@@ -443,7 +450,7 @@ export const CompanyList: React.FC<CompanyListProps> = ({
                       setIsProfilePreview(true);
                       updateData({ ...INITIAL_STATE, ...p } as any);
                     }}
-                    className="px-2.5 py-1 rounded bg-slate-100 text-slate-700 font-bold text-[10px] hover:bg-slate-200 transition-colors uppercase cursor-pointer"
+                    className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 font-bold text-[10px] hover:bg-slate-200 transition-colors uppercase cursor-pointer"
                   >
                     Buka
                   </button>
@@ -453,19 +460,19 @@ export const CompanyList: React.FC<CompanyListProps> = ({
                       setIsProfilePreview(false);
                       updateData({ ...INITIAL_STATE, ...p } as any);
                     }}
-                    className="px-2.5 py-1 rounded bg-blue-50 text-blue-700 font-bold text-[10px] hover:bg-blue-100 transition-colors uppercase cursor-pointer"
+                    className="px-2.5 py-1 rounded-lg bg-blue-50 text-blue-700 font-bold text-[10px] hover:bg-blue-100 transition-colors uppercase cursor-pointer"
                   >
                     Edit
                   </button>
                   <button 
                     onClick={() => handleDuplicateProfile(p)}
-                    className="px-2.5 py-1 rounded bg-teal-50 text-teal-700 font-bold text-[10px] hover:bg-teal-100 transition-colors uppercase cursor-pointer"
+                    className="px-2.5 py-1 rounded-lg bg-teal-50 text-teal-700 font-bold text-[10px] hover:bg-teal-100 transition-colors uppercase cursor-pointer"
                   >
                     Duplikat
                   </button>
                   <button 
                     onClick={() => generateCompanyProfileSummaryPdf(p)}
-                    className="px-2.5 py-1 rounded bg-slate-100 text-slate-700 font-bold text-[10px] hover:bg-slate-200 transition-colors uppercase cursor-pointer flex items-center gap-1"
+                    className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 font-bold text-[10px] hover:bg-slate-200 transition-colors uppercase cursor-pointer flex items-center gap-1"
                   >
                     <FileDown className="w-3 h-3" />
                     <span>PDF</span>
@@ -473,7 +480,7 @@ export const CompanyList: React.FC<CompanyListProps> = ({
                   {userProfile?.role === 'Super Admin' && (
                     <button 
                       onClick={() => deleteCompany && deleteCompany(p.id, false)}
-                      className="px-2.5 py-1 rounded bg-red-50 text-red-700 font-bold text-[10px] hover:bg-red-100 transition-colors uppercase cursor-pointer"
+                      className="px-2.5 py-1 rounded-lg bg-red-50 text-red-700 font-bold text-[10px] hover:bg-red-100 transition-colors uppercase cursor-pointer"
                     >
                       Hapus
                     </button>
@@ -485,19 +492,36 @@ export const CompanyList: React.FC<CompanyListProps> = ({
         })}
       </div>
 
-      {/* Pagination block */}
-      {totalProfilePages > 1 && (
-        <div className="px-5 py-4 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4 bg-[#f8fafc]">
-          <div className="text-[12px] text-slate-500 font-medium">
+      {/* Pagination Footer */}
+      <div className="px-5 py-3.5 border-t border-slate-200/80 flex flex-col sm:flex-row items-center justify-between gap-4 bg-[#f8fafc]">
+        {/* Rows per page dropdown on the left */}
+        <div className="flex items-center gap-2 text-xs text-slate-500 font-medium">
+          <select
+            value={itemsPerPage}
+            onChange={(e) => setItemsPerPage && setItemsPerPage(Number(e.target.value))}
+            className="py-1 px-2.5 border border-slate-200/80 rounded-lg text-xs font-bold text-slate-700 bg-white outline-none focus:border-[#1890ff]"
+          >
+            <option value={10}>10</option>
+            <option value={25}>25</option>
+            <option value={50}>50</option>
+            <option value={100}>100</option>
+          </select>
+          <span>baris per halaman</span>
+        </div>
+
+        {/* Page counter and controls on the right */}
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-slate-500 font-medium">
             Halaman <span className="text-slate-800 font-bold">{profileCurrentPage}</span> dari{' '}
             <span className="text-slate-800 font-bold">{totalProfilePages}</span>
-          </div>
+          </span>
+
           <div className="flex items-center gap-1">
             {/* First */}
             <button
               disabled={profileCurrentPage === 1}
               onClick={() => setProfileCurrentPage(1)}
-              className="w-8 h-8 flex items-center justify-center rounded-md border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 text-[12px] disabled:opacity-40 disabled:cursor-not-allowed transition-all font-bold"
+              className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200/80 bg-white hover:bg-slate-100 text-slate-600 text-xs disabled:opacity-40 disabled:cursor-not-allowed transition-all font-bold cursor-pointer"
               title="Halaman Pertama"
             >
               «
@@ -506,7 +530,7 @@ export const CompanyList: React.FC<CompanyListProps> = ({
             <button
               disabled={profileCurrentPage === 1}
               onClick={() => setProfileCurrentPage(profileCurrentPage - 1)}
-              className="w-8 h-8 flex items-center justify-center rounded-md border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 text-[12px] disabled:opacity-40 disabled:cursor-not-allowed transition-all font-bold"
+              className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200/80 bg-white hover:bg-slate-100 text-slate-600 text-xs disabled:opacity-40 disabled:cursor-not-allowed transition-all font-bold cursor-pointer"
               title="Halaman Sebelumnya"
             >
               ‹
@@ -518,20 +542,21 @@ export const CompanyList: React.FC<CompanyListProps> = ({
                 return (
                   <span
                     key={`dots-${idx}`}
-                    className="w-8 h-8 flex items-center justify-center text-slate-400 text-[12px]"
+                    className="w-8 h-8 flex items-center justify-center text-slate-400 text-xs font-bold"
                   >
                     ...
                   </span>
                 );
               }
+              const isCurrent = profileCurrentPage === page;
               return (
                 <button
                   key={`page-${page}`}
                   onClick={() => setProfileCurrentPage(Number(page))}
-                  className={`w-8 h-8 flex items-center justify-center rounded-md text-[12px] font-bold transition-all ${
-                    profileCurrentPage === page
-                      ? 'bg-[#3b5998] text-white'
-                      : 'border border-slate-200 bg-white hover:bg-slate-50 text-slate-600'
+                  className={`w-8 h-8 flex items-center justify-center rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    isCurrent
+                      ? 'bg-[#0c2444] text-white shadow-xs'
+                      : 'border border-slate-200/80 bg-white hover:bg-slate-100 text-slate-600'
                   }`}
                 >
                   {page}
@@ -543,7 +568,7 @@ export const CompanyList: React.FC<CompanyListProps> = ({
             <button
               disabled={profileCurrentPage === totalProfilePages}
               onClick={() => setProfileCurrentPage(profileCurrentPage + 1)}
-              className="w-8 h-8 flex items-center justify-center rounded-md border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 text-[12px] disabled:opacity-40 disabled:cursor-not-allowed transition-all font-bold"
+              className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200/80 bg-white hover:bg-slate-100 text-slate-600 text-xs disabled:opacity-40 disabled:cursor-not-allowed transition-all font-bold cursor-pointer"
               title="Halaman Selanjutnya"
             >
               ›
@@ -552,15 +577,16 @@ export const CompanyList: React.FC<CompanyListProps> = ({
             <button
               disabled={profileCurrentPage === totalProfilePages}
               onClick={() => setProfileCurrentPage(totalProfilePages)}
-              className="w-8 h-8 flex items-center justify-center rounded-md border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 text-[12px] disabled:opacity-40 disabled:cursor-not-allowed transition-all font-bold"
+              className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200/80 bg-white hover:bg-slate-100 text-slate-600 text-xs disabled:opacity-40 disabled:cursor-not-allowed transition-all font-bold cursor-pointer"
               title="Halaman Terakhir"
             >
               »
             </button>
           </div>
         </div>
-      )}
+      </div>
     </div>
   );
 };
 export default CompanyList;
+

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Save, RefreshCw, Key, Shield, User, Smartphone, Send, CheckCircle2, XCircle } from 'lucide-react';
+import { PageContainer, PageHeader } from './ui/PageLayout';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db, auth, handleFirestoreError, OperationType } from '../lib/firebase';
 import { getApiUrl } from '../lib/api';
@@ -111,20 +112,12 @@ export function WhatsAppSettings() {
   };
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
-      {/* HEADER CARD */}
-      <div className="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-32 h-32 bg-fuchsia-50 rounded-full blur-3xl -mx-5 -my-5"></div>
-        <div className="relative z-10 flex items-center gap-3">
-          <span className="p-2.5 bg-fuchsia-100 text-fuchsia-600 rounded-lg">
-            <Smartphone size={22} className="stroke-[2.5]" />
-          </span>
-          <div>
-            <h2 className="text-lg font-black text-slate-800 uppercase tracking-tight">WhatsApp Gateway</h2>
-            <p className="text-slate-500 text-xs font-semibold">Hubungkan dan kelola Fonnte API untuk mengirim laporan otomatis via WhatsApp</p>
-          </div>
-        </div>
-      </div>
+    <PageContainer>
+      <PageHeader
+        icon={<Smartphone className="w-5 h-5 text-white" />}
+        title="WhatsApp Gateway"
+        description="Hubungkan dan kelola Fonnte API untuk mengirim laporan otomatis via WhatsApp"
+      />
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* INPUT CONFIGURATIONS (LEFT 2 COLS) */}
@@ -267,6 +260,6 @@ export function WhatsAppSettings() {
           </button>
         </div>
       </div>
-    </div>
+    </PageContainer>
   );
 }

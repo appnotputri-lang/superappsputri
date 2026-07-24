@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { collection, onSnapshot, doc, setDoc, deleteDoc, query, orderBy } from 'firebase/firestore';
 import { UserProfile, UserRole } from '../../types';
+import { PageContainer, PageHeader } from './ui/PageLayout';
 import { 
   Users, 
   UserPlus, 
@@ -120,27 +121,25 @@ export const UserManagement: React.FC<UserManagementProps> = ({ currentUser }) =
   }
 
   return (
-    <div className="max-w-6xl mx-auto p-6 space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-3">
-            <ShieldCheck className="w-8 h-8 text-violet-600" />
-            Manajemen User & Akses
-          </h1>
-          <p className="text-slate-500 mt-1">Kelola hak akses dan peran seluruh staf notaris.</p>
-        </div>
-        <button
-          onClick={() => {
-            setEditingUser(null);
-            setFormData({ name: '', email: '', role: 'Staff' });
-            setIsAddModalOpen(true);
-          }}
-          className="bg-violet-600 hover:bg-violet-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-all shadow-sm font-medium"
-        >
-          <UserPlus className="w-4 h-4" />
-          Tambah User Baru
-        </button>
-      </div>
+    <PageContainer>
+      <PageHeader
+        icon={<ShieldCheck className="w-5 h-5 text-white" />}
+        title="Manajemen User & Akses"
+        description="Kelola hak akses dan peran seluruh staf notaris."
+        actions={
+          <button
+            onClick={() => {
+              setEditingUser(null);
+              setFormData({ name: '', email: '', role: 'Staff' });
+              setIsAddModalOpen(true);
+            }}
+            className="bg-[#0c2444] hover:bg-[#16365f] text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-all shadow-sm text-xs font-bold cursor-pointer"
+          >
+            <UserPlus className="w-4 h-4" />
+            Tambah User Baru
+          </button>
+        }
+      />
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex items-center gap-4">
@@ -309,6 +308,6 @@ export const UserManagement: React.FC<UserManagementProps> = ({ currentUser }) =
           </div>
         </div>
       )}
-    </div>
+    </PageContainer>
   );
 };

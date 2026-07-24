@@ -47,6 +47,8 @@ export interface CompanyListProps {
   totalProfilePages: number;
   userProfile?: any;
   deleteCompany?: (id: string, redirect: boolean) => Promise<any>;
+  itemsPerPage?: number;
+  setItemsPerPage?: (num: number) => void;
 }
 
 export interface CompanyDetailProps {

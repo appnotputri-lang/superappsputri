@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { PageContainer, PageHeader } from '../../../components/ui/PageLayout';
 import { Project, ClientSnapshot } from '../../../domain/project/Project';
 import { ProjectService } from '../../../services/ProjectService';
 import { UserProfile, CompanyProfile } from '../../../../types';
@@ -114,6 +115,22 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
         return ['Pendirian Perkumpulan', 'Perubahan Perkumpulan', 'Pembubaran Perkumpulan', 'Rapat Anggota', 'Rapat Pengurus'];
       }
       return [];
+    }
+
+    if (category === 'PPAT') {
+      return PROJECT_TYPES[ProjectCategory.PPAT] || [
+        'Akta Jual Beli (AJB)',
+        'Akta Hibah',
+        'Akta Tukar Menukar',
+        'Akta Pembagian Hak Bersama (APHB)',
+        'Akta Pemberian Hak Tanggungan (APHT)',
+        'Akta Surat Kuasa Memasang Hak Tanggungan (SKMHT)',
+        'Akta Pemasukan Ke Dalam Perusahaan (Inbreng)',
+        'Akta Pemberian HGB / Hak Pakai atas Tanah Hak Milik',
+        'Akta Pelepasan Hak Atas Tanah',
+        'Akta Kustom',
+        'Lainnya'
+      ];
     }
 
     if (category === 'AGREEMENT') {
@@ -245,6 +262,10 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
         return 'rups_t';
       }
       return 'rups_lb'; // default change workflow (amendment)
+    }
+
+    if (category === 'PPAT') {
+      return 'akta_ppat';
     }
 
     if (category === 'AGREEMENT' && type === 'Perjanjian Sewa Menyewa') {
@@ -489,24 +510,21 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
   };
 
   return (
-    <div className="flex-1 overflow-auto bg-slate-50 p-6 animate-fade-in">
-      <div className="max-w-7xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900">Manajemen Proyek</h1>
-            <p className="text-[13px] text-slate-500 mt-1">
-              Pantau kemajuan alur kerja akta dan proses administrasi hukum di satu tempat.
-            </p>
-          </div>
+    <PageContainer>
+      <PageHeader
+        icon={<Briefcase className="w-5 h-5 text-white" />}
+        title="Manajemen Proyek"
+        description="Pantau kemajuan alur kerja akta dan proses administrasi hukum di satu tempat."
+        actions={
           <button
             onClick={() => setIsModalOpen(true)}
-            className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg text-[13px] transition-all flex items-center gap-2 shadow-sm shrink-0 sm:self-center"
+            className="px-4 py-2 bg-[#0c2444] hover:bg-[#16365f] text-white font-bold rounded-lg text-xs transition-all flex items-center gap-2 shadow-sm shrink-0 cursor-pointer"
           >
             <Plus className="w-4 h-4" />
             <span>Buat Proyek Baru</span>
           </button>
-        </div>
+        }
+      />
 
         {/* Tabs */}
         <div className="flex space-x-1 border-b border-slate-200">
@@ -830,6 +848,7 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
                       {clientTypeGroup !== 'PERSONAL' && (
                         <option value="BODY_LEGAL">Badan Hukum / Usaha (BODY LEGAL)</option>
                       )}
+                      <option value="PPAT">Akta PPAT (PPAT)</option>
                       <option value="AGREEMENT">Perjanjian (AGREEMENT)</option>
                       <option value="GENERAL_DEED">Akta Umum (GENERAL DEED)</option>
                       <option value="LEGALIZATION">Legalisasi / Waarmerking (LEGALIZATION)</option>
@@ -928,8 +947,7 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
             </div>
           </div>
         )}
-      </div>
-    </div>
+    </PageContainer>
   );
 }
 

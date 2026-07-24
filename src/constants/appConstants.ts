@@ -189,7 +189,8 @@ export enum ProjectCategory {
   MEETING = 'MEETING',
   AGREEMENT = 'AGREEMENT',
   GENERAL_DEED = 'GENERAL_DEED',
-  LEGALIZATION = 'LEGALIZATION'
+  LEGALIZATION = 'LEGALIZATION',
+  PPAT = 'PPAT'
 }
 
 export const PROJECT_TYPES: Record<ProjectCategory, string[]> = {
@@ -218,6 +219,19 @@ export const PROJECT_TYPES: Record<ProjectCategory, string[]> = {
     'Rapat Pengurus'
   ],
   [ProjectCategory.MEETING]: ['RUPST', 'RUPS-LB', 'PKPS RUPST', 'PKPS RUPS-LB', 'Rapat Yayasan', 'Rapat Perkumpulan'],
+  [ProjectCategory.PPAT]: [
+    'Akta Jual Beli (AJB)',
+    'Akta Hibah',
+    'Akta Tukar Menukar',
+    'Akta Pembagian Hak Bersama (APHB)',
+    'Akta Pemberian Hak Tanggungan (APHT)',
+    'Akta Surat Kuasa Memasang Hak Tanggungan (SKMHT)',
+    'Akta Pemasukan Ke Dalam Perusahaan (Inbreng)',
+    'Akta Pemberian HGB / Hak Pakai atas Tanah Hak Milik',
+    'Akta Pelepasan Hak Atas Tanah',
+    'Akta Kustom',
+    'Lainnya'
+  ],
   [ProjectCategory.AGREEMENT]: [
     'Perjanjian Sewa Menyewa',
     'Perjanjian Kerja Sama',

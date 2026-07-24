@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { db } from '../lib/firebase';
 import { collection, writeBatch, doc } from 'firebase/firestore';
 import kbliData from '../../kbli_2025.json';
+import { PageContainer, PageHeader } from './ui/PageLayout';
+import { Database, Upload, CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react';
 
 /**
  * ImportKBLI Component
@@ -68,36 +70,33 @@ const ImportKBLI: React.FC = () => {
     };
 
     return (
-        <div className="p-6 bg-white rounded-lg shadow-md border border-slate-200 max-w-2xl mx-auto my-10">
-            <div className="flex items-center gap-3 mb-6">
-                <div className="p-2 bg-blue-50 rounded-lg">
-                    <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                    </svg>
-                </div>
-                <h2 className="text-xl font-bold text-slate-800">Migration Tool: KBLI 2025 to Firestore</h2>
-            </div>
+        <PageContainer>
+            <PageHeader
+                icon={<Database className="w-5 h-5 text-white" />}
+                title="Migrasi Data KBLI 2025 ke Firestore"
+                description="Import dan sinkronisasi database klasifikasi KBLI 2025 ke koleksi Firestore."
+            />
 
-            <div className="space-y-6">
-                <div className="bg-slate-50 p-4 rounded-md border border-slate-100">
-                    <h3 className="text-sm font-semibold text-slate-700 mb-2 uppercase tracking-wider">Metode Sinkronisasi</h3>
-                    <ul className="text-sm text-slate-600 space-y-1">
-                        <li>• Source: <code className="bg-white px-1 border rounded text-xs font-mono">kbli_2025.json</code></li>
-                        <li>• Destination: Collection <code className="bg-white px-1 border rounded text-xs font-mono text-blue-600">kbli_2025</code></li>
-                        <li>• ID Strategi: Menggunakan field <span className="font-medium text-slate-900">kode</span> sebagai Document ID</li>
-                        <li>• Batching: Commit setiap <span className="font-medium text-slate-900">400 dokumen</span></li>
+            <div className="p-6 bg-white rounded-xl border border-slate-200/80 shadow-sm max-w-2xl mx-auto space-y-6">
+                <div className="bg-slate-50 p-4 rounded-lg border border-slate-200/80">
+                    <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Metode Sinkronisasi</h3>
+                    <ul className="text-xs text-slate-600 space-y-1.5">
+                        <li>• Source: <code className="bg-white px-1.5 py-0.5 border rounded text-xs font-mono">kbli_2025.json</code></li>
+                        <li>• Destination: Collection <code className="bg-white px-1.5 py-0.5 border rounded text-xs font-mono text-blue-600">kbli_2025</code></li>
+                        <li>• ID Strategi: Menggunakan field <span className="font-semibold text-slate-900">kode</span> sebagai Document ID</li>
+                        <li>• Batching: Commit setiap <span className="font-semibold text-slate-900">400 dokumen</span></li>
                     </ul>
                 </div>
 
                 {progress.total > 0 && (
                     <div className="space-y-3">
-                        <div className="flex justify-between text-sm">
-                            <span className="font-medium text-slate-700">Progress Transaksi</span>
+                        <div className="flex justify-between text-xs font-bold">
+                            <span className="text-slate-700">Progress Transaksi</span>
                             <span className="font-mono text-blue-600 bg-blue-50 px-2 py-0.5 rounded">{progress.current.toLocaleString()} / {progress.total.toLocaleString()} Data</span>
                         </div>
                         <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden border border-slate-200">
                             <div 
-                                className="bg-blue-600 h-full rounded-full transition-all duration-500 ease-out" 
+                                className="bg-[#0c2444] h-full rounded-full transition-all duration-500 ease-out" 
                                 style={{ width: `${progress.percent}%` }}
                             ></div>
                         </div>
@@ -111,26 +110,26 @@ const ImportKBLI: React.FC = () => {
                     <button
                         onClick={handleImport}
                         disabled={isImporting}
-                        className={`w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3 rounded-md font-bold text-white shadow-lg transition-all ${
+                        className={`w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg text-xs font-bold text-white shadow-sm transition-all cursor-pointer ${
                             isImporting 
-                                ? 'bg-slate-400 cursor-not-allowed transform-none' 
-                                : 'bg-blue-600 hover:bg-blue-700 active:scale-95'
+                                ? 'bg-slate-400 cursor-not-allowed' 
+                                : 'bg-[#0c2444] hover:bg-[#16365f]'
                         }`}
                     >
                         {isImporting ? (
                             <>
-                                <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                </svg>
+                                <RefreshCw className="animate-spin h-4 w-4 text-white" />
                                 Migrating Data...
                             </>
                         ) : (
-                            'Import KBLI ke Firestore'
+                            <>
+                                <Upload className="w-4 h-4" />
+                                Import KBLI ke Firestore
+                            </>
                         )}
                     </button>
                     
-                    <div className={`text-sm px-3 py-1.5 rounded-full font-medium ${
+                    <div className={`text-xs px-3 py-1.5 rounded-full font-bold ${
                         status.includes('Error') ? 'bg-red-50 text-red-600' : 
                         status.includes('selesai') ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-50 text-slate-500'
                     }`}>
@@ -138,7 +137,7 @@ const ImportKBLI: React.FC = () => {
                     </div>
                 </div>
             </div>
-        </div>
+        </PageContainer>
     );
 };
 

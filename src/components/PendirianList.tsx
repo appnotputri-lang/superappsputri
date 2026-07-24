@@ -3,6 +3,7 @@ import { Search, Plus, Trash2, LayoutGrid, FileText, ArrowLeft, Edit, FileDown, 
 import { collection, onSnapshot, query, doc, deleteDoc, updateDoc, setDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase'; // Adjust if path is different
 import { DocumentStatusBadge } from '../../components/DocumentStatusBadge';
+import { PageContainer, PageHeader } from './ui/PageLayout';
 
 const PendirianList: React.FC<{
   onEdit: (record: any) => void;
@@ -81,25 +82,21 @@ const PendirianList: React.FC<{
   );
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between bg-white border border-slate-200 rounded-sm p-6 shadow-sm gap-4">
-        <div className="flex items-center gap-4">
-          <div className="bg-[#0c2444] p-3 rounded-2xl shadow-md">
-            <FileText className="w-8 h-8 text-white" />
-          </div>
-          <div>
-            <h1 className="text-xl font-extrabold text-slate-900 tracking-tight font-sans">Pendirian PT</h1>
-            <p className="text-slate-500 text-xs">Kelola data pendirian PT secara terstruktur.</p>
-          </div>
-        </div>
-        <button
-          onClick={onAdd}
-          className="px-5 py-2.5 bg-[#0c2444] hover:bg-[#16365f] text-white text-[13px] font-bold rounded-sm shadow-sm transition-all flex items-center justify-center gap-2 uppercase tracking-wide shrink-0 cursor-pointer"
-        >
-          <Plus className="w-4 h-4" />
-          Tambah Pendirian
-        </button>
-      </div>
+    <PageContainer>
+      <PageHeader
+        icon={<FileText className="w-5 h-5 text-white" />}
+        title="Pendirian PT"
+        description="Kelola data pendirian PT secara terstruktur."
+        actions={
+          <button
+            onClick={onAdd}
+            className="px-4 py-2 bg-[#0c2444] hover:bg-[#16365f] text-white text-xs font-bold rounded-lg shadow-sm transition-all flex items-center justify-center gap-2 uppercase tracking-wide shrink-0 cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            Tambah Pendirian
+          </button>
+        }
+      />
 
       <div className="bg-white border border-slate-200 rounded-sm p-6 shadow-sm space-y-4">
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pb-2 border-b border-slate-100">
@@ -211,7 +208,7 @@ const PendirianList: React.FC<{
           </div>
         </div>
       </div>
-    </div>
+    </PageContainer>
   );
 };
 

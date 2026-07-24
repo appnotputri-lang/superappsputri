@@ -1,5 +1,11 @@
 @import "tailwindcss";
 
+@theme {
+  --color-brand-navy: #0c2444;
+  --color-brand-navy-dark: #001529;
+  --color-brand-accent: #2563eb;
+}
+
 @media print {
   body {
     background-color: white;

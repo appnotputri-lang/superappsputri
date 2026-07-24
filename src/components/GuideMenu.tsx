@@ -1,4 +1,5 @@
 import React from 'react';
+import { PageContainer, PageHeader } from './ui/PageLayout';
 import { 
   Building2, 
   FileText, 
@@ -18,19 +19,14 @@ import {
 
 const GuideMenu = () => {
   return (
-    <div className="max-w-5xl mx-auto space-y-8 pb-10">
-      {/* Header */}
-      <div className="bg-white p-8 rounded-sm shadow-sm border border-slate-200">
-        <h1 className="text-2xl font-bold text-slate-800 mb-2 flex items-center gap-3">
-          <span className="bg-[#3b5998] p-2 rounded text-white"><FileText className="w-6 h-6" /></span>
-          Panduan Penggunaan Aplikasi
-        </h1>
-        <p className="text-slate-600">
-          Ikuti langkah-langkah di bawah ini untuk memulai membuat draft Notulen, PKR LB, Peralihan Saham, dan Surat Kuasa dengan sistem yang terotomatisasi.
-        </p>
-      </div>
+    <PageContainer>
+      <PageHeader
+        icon={<FileText className="w-5 h-5 text-white" />}
+        title="Panduan Penggunaan Aplikasi"
+        description="Ikuti langkah-langkah di bawah ini untuk memulai membuat draft Notulen, PKR LB, Peralihan Saham, dan Surat Kuasa dengan sistem yang terotomatisasi."
+      />
 
-      <div className="space-y-12">
+      <div className="space-y-8">
         {/* Step 1 */}
         <div className="bg-white p-6 rounded-sm shadow-sm border border-slate-200">
           <div className="flex gap-6 items-start">
@@ -216,7 +212,7 @@ const GuideMenu = () => {
       <div className="text-center mt-10">
         <p className="text-sm text-slate-500">Mempunyai pertanyaan atau kendala lanjutan? Silakan hubungi pengembang aplikasi atau Admin Notaris.</p>
       </div>
-    </div>
+    </PageContainer>
   );
 };
 

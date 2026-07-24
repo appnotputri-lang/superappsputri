@@ -54,20 +54,20 @@ export const Header: React.FC<HeaderProps> = ({
   const unreadCount = notifications.filter(n => !n.read).length;
 
   return (
-    <header className="bg-white border-b border-slate-200/80 flex justify-between items-center px-4 md:px-6 sticky top-0 z-40 h-16 shrink-0 shadow-sm">
+    <header className="bg-white border-b border-slate-200/80 flex justify-between items-center px-4 md:px-6 sticky top-0 z-40 h-13 md:h-14 shrink-0 shadow-xs">
       {/* Left: Greeting + Sidebar toggle */}
-      <div className="flex items-center gap-2 md:gap-4">
+      <div className="flex items-center gap-2 md:gap-3">
         {user && (
           <button 
             onClick={() => setIsSidebarOpen(!isSidebarOpen)} 
-            className="w-11 h-11 flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-100/90 active:scale-95 rounded-lg transition-all shrink-0 cursor-pointer"
+            className="w-8 h-8 md:w-9 md:h-9 flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-100/90 active:scale-95 rounded-lg transition-all shrink-0 cursor-pointer"
             aria-label="Toggle sidebar"
           >
-            <Menu className="w-5 h-5" />
+            <Menu className="w-4 h-4 md:w-4.5 md:h-4.5" />
           </button>
         )}
         <div className="flex flex-col">
-          <span className="font-semibold text-xs sm:text-sm text-slate-800">
+          <span className="font-bold text-xs md:text-[13px] text-slate-800 leading-tight">
             {(() => {
               const hour = new Date().getHours();
               let greeting = 'Selamat malam';
@@ -75,19 +75,19 @@ export const Header: React.FC<HeaderProps> = ({
               else if (hour >= 11 && hour < 15) greeting = 'Selamat siang';
               else if (hour >= 15 && hour < 19) greeting = 'Selamat sore';
               return greeting;
-            })()}, {userProfile?.name?.split(' ')[0] || 'Azizah'} 👋
+            })()}, {userProfile?.name?.split(' ')[0] || 'ADMIN'} 👋
           </span>
-          <span className="hidden sm:block text-[10px] text-slate-505 font-medium tracking-tight">PUSAT KENDALI KANTOR</span>
+          <span className="hidden sm:block text-[9.5px] text-slate-400 font-medium tracking-wide">PUSAT KENDALI KANTOR</span>
         </div>
       </div>
       
       {/* Right: Date/Time + Notifications + Profile */}
-      <div className="flex items-center gap-2 md:gap-4">
+      <div className="flex items-center gap-2 md:gap-3">
         <div className="hidden md:block">
           <RealTimeClock />
         </div>
 
-        <div className="flex items-center gap-1.5 md:gap-2 pr-2 md:pr-4 border-r border-slate-200">
+        <div className="flex items-center gap-1 md:gap-1.5 pr-2 md:pr-3 border-r border-slate-200/80">
           {/* Notification Logic */}
           <div className="relative">
             <button 
@@ -95,15 +95,15 @@ export const Header: React.FC<HeaderProps> = ({
                 setIsNotificationOpen(!isNotificationOpen);
                 setIsUserDropdownOpen(false);
               }}
-              className={`w-11 h-11 flex items-center justify-center rounded-full transition-all shrink-0 cursor-pointer outline-none relative ${
+              className={`w-8.5 h-8.5 md:w-9 md:h-9 flex items-center justify-center rounded-lg transition-all shrink-0 cursor-pointer outline-none relative ${
                 isNotificationOpen 
                   ? 'text-blue-600 bg-blue-50' 
                   : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'
               }`}
               aria-label="Notifications"
             >
-              <Bell className="w-5 h-5" />
-              {unreadCount > 0 && <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-red-500 rounded-full border border-white"></span>}
+              <Bell className="w-4 h-4" />
+              {unreadCount > 0 && <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border border-white"></span>}
             </button>
             
             {/* Notification Dropdown */}

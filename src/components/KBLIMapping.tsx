@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { PageContainer, PageHeader } from "./ui/PageLayout";
 import {
   Search,
   Info,
@@ -2165,34 +2166,30 @@ const KBLIMapping: React.FC = () => {
     doc.save(filename);
   };
   return (
-    <div className="max-w-5xl mx-auto space-y-8 pb-20 animate-in fade-in duration-500">
+    <PageContainer>
       {viewMode === "list" ? (
         <div className="space-y-6">
           {/* List Mode Header */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between bg-white border border-slate-200 rounded-sm p-6 shadow-sm gap-4">
-            <div className="flex items-center gap-4">
-              <div className="bg-[#0c2444] p-3 rounded-2xl shadow-md">
-                <LayoutGrid className="w-8 h-8 text-white" />
-              </div>
-              <div>
-                <h1 className="text-xl font-extrabold text-slate-900 tracking-tight font-sans">Daftar Pemetaan KBLI 2020 - 2025</h1>
-                <p className="text-slate-500 text-xs">Kelola pemetaan klasifikasi KBLI untuk klien PT secara terstruktur.</p>
-              </div>
-            </div>
-            <button
-              onClick={() => {
-                setNamaPT("");
-                setKelompokUsaha("Mikro");
-                setSelectedMappings([]);
-                setEditingId(null);
-                setViewMode("form");
-              }}
-              className="px-5 py-2.5 bg-[#0c2444] hover:bg-[#16365f] text-white text-[13px] font-bold rounded-sm shadow-sm transition-all flex items-center justify-center gap-2 uppercase tracking-wide shrink-0 cursor-pointer"
-            >
-              <Plus className="w-4 h-4" />
-              Tambah Pemetaan KBLI
-            </button>
-          </div>
+          <PageHeader
+            icon={<LayoutGrid className="w-5 h-5 text-white" />}
+            title="Daftar Pemetaan KBLI 2020 - 2025"
+            description="Kelola pemetaan klasifikasi KBLI untuk klien PT secara terstruktur."
+            actions={
+              <button
+                onClick={() => {
+                  setNamaPT("");
+                  setKelompokUsaha("Mikro");
+                  setSelectedMappings([]);
+                  setEditingId(null);
+                  setViewMode("form");
+                }}
+                className="px-4 py-2 bg-[#0c2444] hover:bg-[#16365f] text-white text-xs sm:text-[13px] font-bold rounded-lg shadow-sm transition-all flex items-center justify-center gap-2 uppercase tracking-wide shrink-0 cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                Tambah Pemetaan KBLI
+              </button>
+            }
+          />
 
           {/* Search Table Block */}
           <div className="bg-white border border-slate-200 rounded-sm p-6 shadow-sm space-y-4 animate-in fade-in slide-in-from-top-4 duration-300">
@@ -2654,7 +2651,7 @@ const KBLIMapping: React.FC = () => {
                           <div className="flex justify-end p-2 border-b border-slate-100 bg-slate-50/50">
                             <button
                               onClick={() => addMappingScope(sub.id)}
-                              className="px-3 py-1.5 bg-[#17a2b8] text-white hover:bg-[#138496] rounded-sm text-[11px] font-bold tracking-wider flex items-center gap-1.5 transition-colors uppercase"
+                              className="px-3 py-1.5 bg-[#0c2444] text-white hover:bg-[#16365f] rounded-sm text-[11px] font-bold tracking-wider flex items-center gap-1.5 transition-colors uppercase"
                             >
                               <Plus className="w-3.5 h-3.5" />
                               Tambah Ruang Lingkup
@@ -2883,7 +2880,7 @@ const KBLIMapping: React.FC = () => {
           </div>
         </div>
       )}
-    </div>
+    </PageContainer>
   );
 };
 

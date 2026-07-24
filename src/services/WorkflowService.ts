@@ -151,6 +151,17 @@ export class WorkflowService {
       "Selesai"
     ];
 
+    const ppatSteps = [
+      "Pemeriksaan Sertipikat (Pengecekan BPN)",
+      "Verifikasi Pajak (PPH & BPHTB)",
+      "Drafting Akta PPAT",
+      "Review Draft Akta",
+      "ACC Draft Akta",
+      "Penandatanganan Akta",
+      "Proses Balik Nama / Pendaftaran BPN",
+      "Sertipikat & Berkas Selesai"
+    ];
+
     const defaults: Workflow[] = [
       {
         id: "rups_lb",
@@ -193,6 +204,12 @@ export class WorkflowService {
         name: "Perjanjian Sewa Menyewa",
         steps: sewaMenyewaSteps,
         description: "Alur kerja perjanjian sewa menyewa ruko/bangunan/tanah, meliputi input data para pihak, objek sewa, harga, pembayaran, cetak draft akta."
+      },
+      {
+        id: "akta_ppat",
+        name: "Akta PPAT",
+        steps: ppatSteps,
+        description: "Alur kerja pembuatan Akta PPAT meliputi pengecekan sertipikat di BPN, validasi pajak PPH & BPHTB, penandatanganan akta, hingga pendaftaran balik nama."
       },
       {
         id: "sirkuler",

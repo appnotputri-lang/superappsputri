@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { PageContainer } from '../../../components/ui/PageLayout';
 import { useLocation } from 'react-router-dom';
 import { CompanyHeader } from '../components/CompanyHeader';
 import { CompanyToolbar } from '../components/CompanyToolbar';
@@ -49,6 +50,7 @@ export const CompanyPage: React.FC<CompanyPageProps> = () => {
   const [profileSortField, setProfileSortField] = useState<string>('companyName');
   const [profileSortOrder, setProfileSortOrder] = useState<'asc' | 'desc'>('asc');
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
+  const [profileItemsPerPage, setProfileItemsPerPage] = useState<number>(10);
 
   // Sync clientType if arriving from legacy CV path
   useEffect(() => {
@@ -625,7 +627,6 @@ export const CompanyPage: React.FC<CompanyPageProps> = () => {
     return 0;
   });
 
-  const profileItemsPerPage = 10;
   const totalProfileItems = sortedProfileResults.length;
   const totalProfilePages = Math.ceil(totalProfileItems / profileItemsPerPage) || 1;
 
@@ -663,7 +664,7 @@ export const CompanyPage: React.FC<CompanyPageProps> = () => {
   const currentTargetSharesPaidForModal = data.originalSharePrice > 0 ? ((data.targetCapitalPaid || 0) / data.originalSharePrice) : 0;
 
   return (
-    <div className="max-w-5xl mx-auto space-y-4">
+    <PageContainer>
       <CompanyHeader
         editingProfileId={editingProfileId}
         setEditingProfileId={setEditingProfileId}
@@ -713,6 +714,11 @@ export const CompanyPage: React.FC<CompanyPageProps> = () => {
             totalProfilePages={totalProfilePages}
             userProfile={userProfile}
             deleteCompany={deleteCompany}
+            itemsPerPage={profileItemsPerPage}
+            setItemsPerPage={(n) => {
+              setProfileItemsPerPage(n);
+              setProfileCurrentPage(1);
+            }}
           />
         </>
       ) : isProfilePreview ? (
@@ -780,7 +786,7 @@ export const CompanyPage: React.FC<CompanyPageProps> = () => {
         setCurrentPage={setKbliCurrentPage}
         onAddBatch={handleAddKbliBatch}
       />
-    </div>
+    </PageContainer>
   );
 };
 
