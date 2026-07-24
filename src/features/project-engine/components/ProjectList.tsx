@@ -862,24 +862,6 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
                   </div>
                 )}
 
-                {/* Materi RUPS */}
-                {newProjectData.projectCategory === 'BODY_LEGAL' && 
-                 (newProjectData.projectType === 'RUPS-LB' || newProjectData.projectType === 'PKPS RUPS-LB') && (
-                  <div className="space-y-1.5 animate-fadeIn">
-                    <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">Materi RUPS</label>
-                    <select
-                      value={newProjectData.meetingSubject}
-                      onChange={(e) => setNewProjectData({ ...newProjectData, meetingSubject: e.target.value })}
-                      className="w-full px-3 py-2.5 text-[13px] bg-slate-50 border border-slate-200 hover:border-slate-300 focus:bg-white focus:ring-1 focus:ring-blue-500 rounded-lg outline-none transition-all cursor-pointer"
-                    >
-                      <option value="">-- Pilih Materi RUPS --</option>
-                      {MEETING_SUBJECTS.map((subject) => (
-                        <option key={subject} value={subject}>{subject}</option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-
                 {/* Preview Judul Proyek (otomatis) */}
                 {newProjectData.clientId && newProjectData.projectCategory && newProjectData.projectType && (
                   <div className="space-y-1.5 bg-slate-50 p-3 rounded-lg border border-slate-200">
@@ -905,34 +887,7 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
                   />
                 </div>
 
-                {/* Assigned To */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">Ditugaskan Kepada (Staf / Notaris / PIC)</label>
-                  <input
-                    type="text"
-                    value={newProjectData.assignedTo}
-                    onChange={(e) => setNewProjectData({ ...newProjectData, assignedTo: e.target.value })}
-                    placeholder="Contoh: Putri Nabilla, S.H., M.Kn."
-                    className="w-full px-4 py-2.5 text-[13px] bg-slate-50 border border-slate-200 hover:border-slate-300 focus:bg-white focus:ring-1 focus:ring-blue-500 rounded-lg outline-none transition-all"
-                  />
-                </div>
 
-                {/* Status Tahapan Awal */}
-                {newProjectData.projectCategory && newProjectData.projectType && (
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">Status Tahapan Awal</label>
-                    <select
-                      value={newProjectData.status}
-                      onChange={(e) => setNewProjectData({ ...newProjectData, status: e.target.value })}
-                      className="w-full px-3 py-2.5 text-[13px] bg-slate-50 border border-slate-200 hover:border-slate-300 focus:bg-white focus:ring-1 focus:ring-blue-500 rounded-lg outline-none transition-all cursor-pointer"
-                    >
-                      <option value="">-- Gunakan Tahapan Pertama ({workflows.find(w => w.id === getWorkflowJobType(newProjectData.projectCategory, newProjectData.projectType))?.steps?.[0] || 'Inisialisasi'}) --</option>
-                      {(workflows.find(w => w.id === getWorkflowJobType(newProjectData.projectCategory, newProjectData.projectType))?.steps || []).map((step) => (
-                        <option key={step} value={step}>{step}</option>
-                      ))}
-                    </select>
-                  </div>
-                )}
 
                 {/* Catatan Inisialisasi */}
                 <div className="space-y-1.5">
