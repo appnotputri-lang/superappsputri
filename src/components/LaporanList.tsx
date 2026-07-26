@@ -949,7 +949,7 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects: propsProject
       <PageHeader
         icon={<FileText className="w-5 h-5 text-white" />}
         title="Laporan Proyek Kerja"
-        description="Kantor Notaris Nukantini Putri Parincha SH., M.Kn — Daftar laporan seluruh pekerjaan dan status terakhir"
+        description="Daftar laporan seluruh pekerjaan dan status terakhir"
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <button

@@ -626,16 +626,16 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
             {/* Desktop Table View */}
             <div className="hidden md:block overflow-x-auto">
               <table className="min-w-[800px] w-full text-left">
-                <thead className="bg-slate-50 border-b border-slate-200">
+                <thead className="bg-[#f8fafc] border-b border-slate-200/80 font-bold uppercase text-slate-600 text-[11px] tracking-wider select-none">
                   <tr>
-                    <th className="px-4 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-wide w-12 text-center">No</th>
-                    <th className="px-4 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-wide">Judul Proyek / Klien</th>
-                    <th className="px-4 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-wide">Jenis Pekerjaan</th>
-                    <th className="px-4 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-wide">Status</th>
-                    <th className="px-4 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-wide max-w-[320px]">
+                    <th className="px-4 py-3 w-12 text-center">No</th>
+                    <th className="px-4 py-3">Judul Proyek / Klien</th>
+                    <th className="px-4 py-3">Jenis Pekerjaan</th>
+                    <th className="px-4 py-3">Status</th>
+                    <th className="px-4 py-3 max-w-[320px]">
                       {activeTab === 'minuta' ? 'Catatan Minuta' : 'Catatan Transisi Terakhir'}
                     </th>
-                    <th className="pl-4 pr-6 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-wide text-right">Aksi</th>
+                    <th className="pl-4 pr-6 py-3 text-right">Aksi</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -643,7 +643,7 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
                     <tr
                       key={project.projectId}
                       onClick={() => onSelectProject(project.projectId)}
-                      className="hover:bg-slate-50 cursor-pointer transition-colors group"
+                      className="hover:bg-slate-50/60 even:bg-slate-50/30 cursor-pointer transition-colors group"
                     >
                       <td className="px-4 py-3.5 text-[12px] font-medium text-slate-500 text-center">
                         {index + 1}
@@ -678,7 +678,7 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
                         {getWorkflowName(project.jobType)}
                       </td>
                       <td className="px-4 py-3.5">
-                        <span className={`px-2 py-0.5 text-[11px] font-bold rounded border uppercase tracking-wider ${getStatusColor(getProjectStatusDisplay(project))}`}>
+                        <span className={`inline-flex items-center px-2.5 py-0.5 text-[11px] font-bold rounded-full border uppercase tracking-wider ${getStatusColor(getProjectStatusDisplay(project))}`}>
                           {getProjectStatusDisplay(project)}
                         </span>
                       </td>
@@ -745,10 +745,10 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
                     </div>
 
                     <div className="flex flex-wrap gap-1.5 items-center my-3">
-                      <span className="px-2 py-0.5 text-[9px] font-bold bg-slate-100 text-slate-600 rounded">
+                      <span className="px-2 py-0.5 text-[9px] font-bold bg-slate-100 text-slate-600 rounded-full">
                         {getWorkflowName(project.jobType)}
                       </span>
-                      <span className={`px-2 py-0.5 text-[9px] font-bold rounded border uppercase tracking-wider ${getStatusColor(getProjectStatusDisplay(project))}`}>
+                      <span className={`inline-flex items-center px-2 py-0.5 text-[9px] font-bold rounded-full border uppercase tracking-wider ${getStatusColor(getProjectStatusDisplay(project))}`}>
                         {getProjectStatusDisplay(project)}
                       </span>
                     </div>

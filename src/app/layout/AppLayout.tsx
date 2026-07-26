@@ -129,7 +129,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
           loginWithGoogle={loginWithGoogle}
           logout={logout}
         />
-        <main className="flex-1 overflow-y-auto bg-[#f8fafc] p-6 md:p-8 pb-24 scroll-smooth">
+        <main className="flex-1 overflow-y-auto bg-[#f8fafc] scroll-smooth">
           {children}
         </main>
       </div>
