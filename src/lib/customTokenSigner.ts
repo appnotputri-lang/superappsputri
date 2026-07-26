@@ -10,9 +10,14 @@ function base64urlEncode(data: ArrayBuffer | Uint8Array | string): string {
   return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
-async function importPrivateKeyFromPem(pem: string): Promise<CryptoKey> {
-  const subtle = globalThis.crypto?.subtle || (await import('crypto')).webcrypto.subtle;
+function getSubtleCrypto(): SubtleCrypto {
+  const subtle = globalThis.crypto?.subtle || (typeof crypto !== 'undefined' ? crypto.subtle : undefined);
   if (!subtle) throw new Error('Web Crypto subtle API tidak tersedia di lingkungan ini');
+  return subtle;
+}
+
+async function importPrivateKeyFromPem(pem: string): Promise<CryptoKey> {
+  const subtle = getSubtleCrypto();
   const pemContents = pem.replace(/-----BEGIN PRIVATE KEY-----/, '').replace(/-----END PRIVATE KEY-----/, '').replace(/\s+/g, '');
   const binaryDer = atob(pemContents);
   const bytes = new Uint8Array(binaryDer.length);
@@ -30,7 +35,7 @@ export async function mintFirebaseCustomToken(uid: string, serviceAccountEmail: 
   const signingInput = `${headerB64}.${payloadB64}`;
   const normalizedPem = privateKeyPem.replace(/\\n/g, '\n');
   const cryptoKey = await importPrivateKeyFromPem(normalizedPem);
-  const subtle = globalThis.crypto?.subtle || (await import('crypto')).webcrypto.subtle;
+  const subtle = getSubtleCrypto();
   const signature = await subtle.sign('RSASSA-PKCS1-v1_5', cryptoKey, new TextEncoder().encode(signingInput));
   const signatureB64 = base64urlEncode(signature);
   return `${signingInput}.${signatureB64}`;

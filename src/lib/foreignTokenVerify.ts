@@ -54,7 +54,7 @@ export async function verifyForeignFirebaseIdToken(idToken: string, expectedProj
   const publicKeys = await getGooglePublicKeys();
   const matchingKey = publicKeys.find(k => k.kid === header.kid);
   if (!matchingKey) throw new Error('Public key untuk token ini tidak ditemukan (kid tidak cocok)');
-  const subtle = globalThis.crypto?.subtle || (await import('crypto')).webcrypto.subtle;
+  const subtle = globalThis.crypto?.subtle || (typeof crypto !== 'undefined' ? crypto.subtle : undefined);
   if (!subtle) throw new Error('Web Crypto subtle API tidak tersedia di lingkungan ini');
   const cryptoKey = await subtle.importKey('jwk', matchingKey as any, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['verify']);
   const dataToVerify = new TextEncoder().encode(`${headerB64}.${payloadB64}`);
