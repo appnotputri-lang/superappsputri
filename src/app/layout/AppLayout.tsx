@@ -7,6 +7,7 @@ import { UserProfile } from '../../../types';
 export type SidebarTabId = 'beranda' | 'company_profile' | 'cv_profile' | 'notulen' | 'pendirian' | 'rupst' | 'perbaikan' | 'draft_akta_rups' | 'panduan' | 'kbli_mapping' | 'saran_kbli' | 'import_kbli' | 'laporan' | 'whatsapp_settings' | 'projects' | 'project_detail' | 'user_management';
 
 interface AppLayoutProps {
+  isEmbedMode?: boolean;
   user: any;
   userProfile: UserProfile | null;
   authLoading: boolean;
@@ -26,6 +27,7 @@ interface AppLayoutProps {
 }
 
 export const AppLayout: React.FC<AppLayoutProps> = ({
+  isEmbedMode = false,
   user,
   userProfile,
   authLoading,
@@ -48,12 +50,20 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
   if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 text-slate-600 font-medium text-sm">
-        Memuat aplikasi...
+        {isEmbedMode ? 'Menyambungkan sesi...' : 'Memuat aplikasi...'}
       </div>
     );
   }
 
-  if (!isPublicRoute && !user) {
+  if (isEmbedMode && !user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 text-slate-600 font-medium text-sm">
+        Menunggu sesi dari Aplikasi Utama...
+      </div>
+    );
+  }
+
+  if (!isPublicRoute && !isEmbedMode && !user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-100 p-4">
         <div className="bg-white p-8 rounded-lg shadow-md max-w-md w-full text-center space-y-6">
@@ -75,7 +85,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
     );
   }
 
-  if (!isPublicRoute && user && user.email && !ALLOWED_EMAILS.includes(user.email)) {
+  if (!isPublicRoute && !isEmbedMode && user && user.email && !ALLOWED_EMAILS.includes(user.email)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-100 p-4">
         <div className="bg-white p-8 rounded-lg shadow-md max-w-md w-full text-center space-y-6">
@@ -95,6 +105,14 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
             Keluar / Ganti Akun
           </button>
         </div>
+      </div>
+    );
+  }
+
+  if (isEmbedMode) {
+    return (
+      <div className="h-screen w-full overflow-y-auto bg-[#f8fafc]">
+        {children}
       </div>
     );
   }

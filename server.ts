@@ -9,6 +9,8 @@ import { authMiddleware } from "./src/middlewares/auth";
 import { ProjectController } from "./src/controllers/ProjectController";
 import { DriveController } from "./src/controllers/DriveController";
 import { DocumentController } from "./src/controllers/DocumentController";
+import { verifyForeignFirebaseIdToken } from "./src/lib/foreignTokenVerify";
+import { mintFirebaseCustomToken } from "./src/lib/customTokenSigner";
 
 async function startServer() {
   const app = express();
@@ -32,6 +34,59 @@ async function startServer() {
   // API routes FIRST
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok", mode: "REST" });
+  });
+
+  const APP2_PROJECT_ID = "notarisputri-cecab";
+  const APP2_ALLOWED_EMAILS = ["notarisppatputri@gmail.com", "rdyndi@gmail.com"];
+  const DEFAULT_SSO_ORIGINS = [
+    "https://notarisputri.web.id",
+    "https://app.notarisputri.web.id",
+    "https://notarisputri-cecab.web.app",
+    "https://notarisputri-cecab.firebaseapp.com",
+    "https://appsputri.pages.dev"
+  ];
+  const envOrigins = (process.env.ALLOWED_SSO_ORIGINS || "").split(",").map((s) => s.trim()).filter(Boolean);
+  const ALLOWED_SSO_ORIGINS = Array.from(new Set([...DEFAULT_SSO_ORIGINS, ...envOrigins]));
+
+  app.post("/api/sso/exchange", async (req, res) => {
+    try {
+      const origin = req.headers.origin || "";
+      const isAllowedOrigin =
+        !origin ||
+        ALLOWED_SSO_ORIGINS.includes("*") ||
+        ALLOWED_SSO_ORIGINS.includes(origin) ||
+        origin.endsWith(".run.app") ||
+        origin.endsWith(".web.id") ||
+        origin.endsWith(".web.app") ||
+        origin.endsWith(".firebaseapp.com") ||
+        origin.endsWith(".pages.dev");
+
+      if (!isAllowedOrigin) {
+        console.warn(`[SSO Exchange] Origin ditolak: ${origin}`);
+        return res.status(403).json({ error: "Origin tidak diizinkan untuk SSO exchange." });
+      }
+      const { idToken } = req.body || {};
+      if (!idToken || typeof idToken !== "string") {
+        return res.status(400).json({ error: "idToken wajib diisi." });
+      }
+      const { email, uid } = await verifyForeignFirebaseIdToken(idToken, APP2_PROJECT_ID);
+      if (!APP2_ALLOWED_EMAILS.includes(email.toLowerCase())) {
+        console.warn(`[SSO Exchange] Email tidak di allowlist: ${email}`);
+        return res.status(403).json({ error: "Email ini tidak terdaftar untuk mengakses superappsputri." });
+      }
+      const serviceAccountEmail = process.env.FIREBASE_SA_CLIENT_EMAIL;
+      const privateKey = process.env.FIREBASE_SA_PRIVATE_KEY;
+      if (!serviceAccountEmail || !privateKey) {
+        console.error("[SSO Exchange] FIREBASE_SA_CLIENT_EMAIL / FIREBASE_SA_PRIVATE_KEY belum di-set.");
+        return res.status(500).json({ error: "Konfigurasi server SSO belum lengkap. Hubungi admin." });
+      }
+      const targetUid = `app2_${uid}`;
+      const customToken = await mintFirebaseCustomToken(targetUid, serviceAccountEmail, privateKey);
+      return res.json({ customToken });
+    } catch (err: any) {
+      console.error("[SSO Exchange] Error:", err.message);
+      return res.status(401).json({ error: err.message || "Gagal melakukan SSO exchange." });
+    }
   });
 
   app.post("/api/v2/drive/ensure-client-folder", authMiddleware, async (req, res) => {

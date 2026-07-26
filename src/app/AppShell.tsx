@@ -34,6 +34,38 @@ export const AppShell: React.FC = () => {
   const { user, userProfile, authLoading, loginWithGoogle, logout } = useAuthContext();
   const [activeTab, setActiveTab] = useState<TabId | null>(null);
 
+  const isEmbedMode = useMemo(
+    () => new URLSearchParams(window.location.search).get('embed') === '1',
+    []
+  );
+
+  useEffect(() => {
+    if (!isEmbedMode) return;
+
+    const handler = async (event: MessageEvent) => {
+      if (event.data?.type === 'SUPERAPPS_SSO_TOKEN' && event.data?.token) {
+        try {
+          const { signInWithCustomToken } = await import('firebase/auth');
+          const { auth } = await import('../lib/firebase');
+          await signInWithCustomToken(auth, event.data.token);
+        } catch (e: any) {
+          console.error('[SSO Embed] Failed to sign in with custom token:', e);
+          window.parent?.postMessage(
+            { type: 'SUPERAPPS_SSO_FAILED', message: e.message || 'SSO Sign In Failed' },
+            '*'
+          );
+        }
+      }
+    };
+
+    window.addEventListener('message', handler);
+    window.parent?.postMessage({ type: 'SUPERAPPS_EMBED_READY' }, '*');
+
+    return () => {
+      window.removeEventListener('message', handler);
+    };
+  }, [isEmbedMode]);
+
   const {
     editingProjectId,
     setEditingProjectId,
@@ -695,6 +727,7 @@ export const AppShell: React.FC = () => {
 
   return (
     <AppLayout
+      isEmbedMode={isEmbedMode}
       user={user}
       userProfile={userProfile}
       authLoading={authLoading}
