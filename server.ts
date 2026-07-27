@@ -57,25 +57,65 @@ async function startServer() {
   const envOrigins = (process.env.ALLOWED_SSO_ORIGINS || "").split(",").map((s) => s.trim()).filter(Boolean);
   const ALLOWED_SSO_ORIGINS = Array.from(new Set([...DEFAULT_SSO_ORIGINS, ...envOrigins]));
 
-  app.get("/api/sso/debug-key-check", (req, res) => {
-    const email = process.env.FIREBASE_SA_CLIENT_EMAIL || '';
-    const key = process.env.FIREBASE_SA_PRIVATE_KEY || '';
-    const normalizedKey = key.replace(/\\n/g, '\n');
+  app.get("/api/sso/debug-self-verify", async (req, res) => {
+    try {
+      const serviceAccountEmail = process.env.FIREBASE_SA_CLIENT_EMAIL || '';
+      const privateKey = process.env.FIREBASE_SA_PRIVATE_KEY || '';
 
-    res.json({
-      hasEmail: !!email,
-      emailPreview: email ? `${email.slice(0, 15)}...${email.slice(-25)}` : null,
-      hasKey: !!key,
-      keyRawLength: key.length,
-      keyNormalizedLength: normalizedKey.length,
-      keyStartsWithHeader: normalizedKey.trimStart().startsWith('-----BEGIN PRIVATE KEY-----'),
-      keyEndsWithFooter: normalizedKey.trimEnd().endsWith('-----END PRIVATE KEY-----'),
-      keyFirst40Chars: normalizedKey.slice(0, 40),
-      keyLast40Chars: normalizedKey.slice(-40),
-      keyLineCount: normalizedKey.split('\n').length,
-      containsLiteralBackslashN: key.includes('\\n'),
-      containsRealNewline: key.includes('\n'),
-    });
+      if (!serviceAccountEmail || !privateKey) {
+        return res.status(500).json({ error: 'Env var belum lengkap' });
+      }
+
+      // 1. Mint token pakai fungsi yang sama persis dengan /api/sso/exchange
+      const { mintFirebaseCustomToken } = await import('./src/lib/customTokenSigner');
+      const testUid = 'debug_test_uid_12345';
+      const token = await mintFirebaseCustomToken(testUid, serviceAccountEmail, privateKey);
+
+      const [headerB64, payloadB64, signatureB64] = token.split('.');
+
+      // 2. Decode header & payload untuk inspeksi visual
+      const decodeB64url = (s: string) => {
+        let base64 = s.replace(/-/g, '+').replace(/_/g, '/');
+        while (base64.length % 4) base64 += '=';
+        return Buffer.from(base64, 'base64').toString('utf8');
+      };
+      const decodedHeader = JSON.parse(decodeB64url(headerB64));
+      const decodedPayload = JSON.parse(decodeB64url(payloadB64));
+
+      // 3. Ambil public cert Google untuk service account ini, lalu verifikasi ulang
+      //    tanda tangan yang baru dibuat -- ini persis yang dilakukan Firebase Auth
+      //    di belakang layar saat menerima custom token.
+      const certUrl = `https://www.googleapis.com/robot/v1/metadata/x509/${encodeURIComponent(serviceAccountEmail)}`;
+      const certResp = await fetch(certUrl);
+      const certData = await certResp.json() as Record<string, string>;
+      const certPem = Object.values(certData)[0]; // ambil sertifikat pertama
+
+      let selfVerifyResult = 'belum dicoba';
+      let selfVerifyError = null;
+
+      try {
+        const crypto = await import('crypto');
+        const verifier = crypto.createVerify('RSA-SHA256');
+        verifier.update(`${headerB64}.${payloadB64}`);
+        const sigBuffer = Buffer.from(signatureB64.replace(/-/g, '+').replace(/_/g, '/'), 'base64');
+        const isValid = verifier.verify(certPem, sigBuffer);
+        selfVerifyResult = isValid ? 'VALID - signature cocok dengan public cert' : 'INVALID - signature TIDAK cocok dengan public cert';
+      } catch (e: any) {
+        selfVerifyError = e.message;
+      }
+
+      res.json({
+        tokenLength: token.length,
+        signatureB64Length: signatureB64.length,
+        decodedHeader,
+        decodedPayload,
+        certFound: !!certPem,
+        selfVerifyResult,
+        selfVerifyError,
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message, stack: err.stack });
+    }
   });
 
   app.post("/api/sso/exchange", async (req, res) => {

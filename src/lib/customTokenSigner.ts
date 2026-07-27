@@ -29,11 +29,22 @@ async function importPrivateKeyFromPem(pem: string): Promise<CryptoKey> {
 export async function mintFirebaseCustomToken(uid: string, serviceAccountEmail: string, privateKeyPem: string): Promise<string> {
   const now = Math.floor(Date.now() / 1000);
   const header = { alg: 'RS256', typ: 'JWT' };
-  const payload = { iss: serviceAccountEmail, sub: serviceAccountEmail, aud: CUSTOM_TOKEN_AUDIENCE, iat: now, exp: now + 3600, uid };
+  const payload = {
+    iss: serviceAccountEmail,
+    sub: serviceAccountEmail,
+    aud: CUSTOM_TOKEN_AUDIENCE,
+    iat: now - 60,
+    exp: now + 3600,
+    uid
+  };
   const headerB64 = base64urlEncode(JSON.stringify(header));
   const payloadB64 = base64urlEncode(JSON.stringify(payload));
   const signingInput = `${headerB64}.${payloadB64}`;
-  const normalizedPem = privateKeyPem.replace(/\\n/g, '\n');
+  const normalizedPem = privateKeyPem
+    .trim()
+    .replace(/^["']|["']$/g, '')
+    .replace(/\\n/g, '\n')
+    .trim();
   const cryptoKey = await importPrivateKeyFromPem(normalizedPem);
   const subtle = getSubtleCrypto();
   const signature = await subtle.sign('RSASSA-PKCS1-v1_5', cryptoKey, new TextEncoder().encode(signingInput));
