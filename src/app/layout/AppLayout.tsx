@@ -3,6 +3,7 @@ import { Sidebar } from '../../components/layout/Sidebar';
 import { Header } from '../../components/layout/Header';
 import { ALLOWED_EMAILS } from '../../constants/appConstants';
 import { UserProfile } from '../../../types';
+import { EmbedSsoWaitingView } from '../../components/auth/EmbedSsoWaitingView';
 
 export type SidebarTabId = 'beranda' | 'company_profile' | 'cv_profile' | 'notulen' | 'pendirian' | 'rupst' | 'perbaikan' | 'draft_akta_rups' | 'panduan' | 'kbli_mapping' | 'saran_kbli' | 'import_kbli' | 'laporan' | 'whatsapp_settings' | 'projects' | 'project_detail' | 'user_management';
 
@@ -56,11 +57,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
   }
 
   if (isEmbedMode && !user) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 text-slate-600 font-medium text-sm">
-        Menunggu sesi dari Aplikasi Utama...
-      </div>
-    );
+    return <EmbedSsoWaitingView />;
   }
 
   if (!isPublicRoute && !isEmbedMode && !user) {
