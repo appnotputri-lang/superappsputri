@@ -46,12 +46,15 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
   setIsEditProfileModalOpen,
   children
 }) => {
-  const isPublicRoute = window.location.pathname === '/rupst';
+  const isPublicRoute = window.location.pathname === '/rupst' || (window.location.hash && window.location.hash.includes('/rupst'));
 
   if (authLoading) {
+    if (isEmbedMode) {
+      return <EmbedSsoWaitingView />;
+    }
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 text-slate-600 font-medium text-sm">
-        {isEmbedMode ? 'Menyambungkan sesi...' : 'Memuat aplikasi...'}
+        Memuat aplikasi...
       </div>
     );
   }

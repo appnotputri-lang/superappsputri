@@ -32,71 +32,8 @@ import JSZip from 'jszip';
 type TabId = 'general' | 'shareholders' | 'shareholders_new' | 'representative' | 'agenda' | 'kbli' | 'domicile' | 'address' | 'capitalBase' | 'capitalPaid' | 'management' | 'reappointment';
 
 export const AppShell: React.FC = () => {
-  const { user, userProfile, authLoading, loginWithGoogle, logout } = useAuthContext();
+  const { user, userProfile, authLoading, isEmbedMode, loginWithGoogle, logout } = useAuthContext();
   const [activeTab, setActiveTab] = useState<TabId | null>(null);
-
-  const isEmbedMode = useMemo(() => checkIsEmbedMode(), []);
-
-  useEffect(() => {
-    console.log('[SSO Embed] Root AppShell listener mounted.', {
-      pathname: window.location.pathname,
-      search: window.location.search,
-      hash: window.location.hash,
-      isEmbedMode,
-      inIframe: window.self !== window.top
-    });
-
-    const handler = async (event: MessageEvent) => {
-      if (event.data?.type === 'SUPERAPPS_SSO_TOKEN') {
-        const ssoToken = event.data?.token || event.data?.customToken;
-        console.log('[SSO Embed] Received SUPERAPPS_SSO_TOKEN message from origin:', event.origin, {
-          hasToken: !!ssoToken
-        });
-
-        if (ssoToken) {
-          try {
-            console.log('[SSO Embed] Signing in to Firebase Auth with custom token...');
-            const { signInWithCustomToken } = await import('firebase/auth');
-            const { auth } = await import('../lib/firebase');
-            const userCredential = await signInWithCustomToken(auth, ssoToken);
-            console.log('[SSO Embed] Firebase Auth Sign-In SUCCESS! User UID:', userCredential.user?.uid, 'Email:', userCredential.user?.email);
-            localStorage.setItem('notaris_user_is_logged_in', 'true');
-          } catch (e: any) {
-            console.error('[SSO Embed] Failed to sign in with custom token:', e);
-            window.parent?.postMessage(
-              { type: 'SUPERAPPS_SSO_FAILED', message: e.message || 'SSO Sign In Failed' },
-              '*'
-            );
-          }
-        } else {
-          console.warn('[SSO Embed] SUPERAPPS_SSO_TOKEN event received without token string in event.data');
-        }
-      }
-    };
-
-    // Unconditionally attach root listener for SSO messages
-    window.addEventListener('message', handler);
-
-    // Proactively request token if in embed mode or iframe
-    if (isEmbedMode || window.self !== window.top) {
-      requestSsoTokenFromParent('AppShell_Mount');
-
-      const t1 = setTimeout(() => requestSsoTokenFromParent('Retry_500ms'), 500);
-      const t2 = setTimeout(() => requestSsoTokenFromParent('Retry_1500ms'), 1500);
-      const t3 = setTimeout(() => requestSsoTokenFromParent('Retry_3000ms'), 3000);
-
-      return () => {
-        window.removeEventListener('message', handler);
-        clearTimeout(t1);
-        clearTimeout(t2);
-        clearTimeout(t3);
-      };
-    }
-
-    return () => {
-      window.removeEventListener('message', handler);
-    };
-  }, [isEmbedMode]);
 
   const {
     editingProjectId,
@@ -240,8 +177,15 @@ export const AppShell: React.FC = () => {
   const location = useLocation();
 
   const activeSidebarTab = useMemo(() => {
-    return PATH_TO_TAB[location.pathname] || 'beranda';
-  }, [location.pathname]);
+    let currentPath = location.pathname;
+    if (window.location.hash && window.location.hash.startsWith('#/')) {
+      const rawHash = window.location.hash.substring(1).split('?')[0];
+      if (rawHash) {
+        currentPath = rawHash;
+      }
+    }
+    return PATH_TO_TAB[currentPath] || 'beranda';
+  }, [location.pathname, location.hash]);
 
   const setActiveSidebarTab = (tab: SidebarTabId) => {
     closeProject();

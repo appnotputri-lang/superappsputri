@@ -1,14 +1,17 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { CompanyProfile } from '../../types';
 import { CompanyService } from '../services/CompanyService';
+import { useAuthContext } from '../contexts/AuthContext';
 
 export function useCompanies() {
+  const { user } = useAuthContext();
   const [profiles, setProfiles] = useState<CompanyProfile[]>([]);
   const [cvProfiles, setCvProfiles] = useState<CompanyProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
   const refresh = useCallback(async () => {
+    if (!user) return;
     setLoading(true);
     try {
       const [pt, cv] = await Promise.all([
@@ -23,10 +26,17 @@ export function useCompanies() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [user]);
 
   // Listen in real-time
   useEffect(() => {
+    if (!user) {
+      setProfiles([]);
+      setCvProfiles([]);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     let isMounted = true;
     let unsubPT = () => {};
@@ -51,7 +61,7 @@ export function useCompanies() {
       unsubPT();
       unsubCV();
     };
-  }, []);
+  }, [user]);
 
   const save = useCallback(async (companyId: string, companyData: Partial<CompanyProfile>, isCv?: boolean) => {
     await CompanyService.saveCompany(companyId, companyData, isCv);

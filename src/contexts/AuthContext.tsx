@@ -7,8 +7,10 @@ interface AuthContextType {
   user: FirebaseUser | null;
   userProfile: UserProfile | null;
   authLoading: boolean;
+  isEmbedMode: boolean;
   loginWithGoogle: () => Promise<FirebaseUser>;
   logout: () => Promise<void>;
+  requestSsoToken: (reason?: string) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);

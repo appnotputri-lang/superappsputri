@@ -28,10 +28,17 @@ export const requestSsoTokenFromParent = (reason = 'manual/mount') => {
   if (typeof window === 'undefined') return;
   const inIframe = window.self !== window.top;
 
-  console.log(`[SSO Embed] Sending REQUEST_SSO_TOKEN & SUPERAPPS_EMBED_READY to parent window (Reason: ${reason}, inIframe: ${inIframe})`);
+  console.log(`[SSO Embed] Outgoing REQUEST_SSO_TOKEN & SUPERAPPS_EMBED_READY to parent window.`, {
+    reason,
+    inIframe,
+    pathname: window.location.pathname,
+    hash: window.location.hash,
+    search: window.location.search
+  });
 
   if (window.parent) {
     window.parent.postMessage({ type: 'REQUEST_SSO_TOKEN' }, '*');
     window.parent.postMessage({ type: 'SUPERAPPS_EMBED_READY' }, '*');
   }
 };
+

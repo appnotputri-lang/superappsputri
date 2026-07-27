@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { RefreshCw, ShieldAlert, KeyRound } from 'lucide-react';
+import { RefreshCw, KeyRound } from 'lucide-react';
 import { requestSsoTokenFromParent } from '../../utils/ssoEmbed';
+import { useAuthContext } from '../../contexts/AuthContext';
 
 interface EmbedSsoWaitingViewProps {
   onRetry?: () => void;
@@ -9,13 +10,24 @@ interface EmbedSsoWaitingViewProps {
 export const EmbedSsoWaitingView: React.FC<EmbedSsoWaitingViewProps> = ({ onRetry }) => {
   const [retryCount, setRetryCount] = useState(0);
   const [isRetrying, setIsRetrying] = useState(false);
+  const authCtx = useAuthContext();
 
   const handleManualRetry = () => {
     setIsRetrying(true);
     setRetryCount(prev => prev + 1);
-    console.log('[SSO Embed] Manual retry clicked by user. Path:', window.location.pathname, 'Query:', window.location.search);
+    console.log('[SSO Embed] Manual retry clicked by user.', {
+      pathname: window.location.pathname,
+      search: window.location.search,
+      hash: window.location.hash,
+      retryAttempt: retryCount + 1
+    });
     
-    requestSsoTokenFromParent(`manual_retry_click_#${retryCount + 1}`);
+    if (authCtx?.requestSsoToken) {
+      authCtx.requestSsoToken(`manual_retry_click_#${retryCount + 1}`);
+    } else {
+      requestSsoTokenFromParent(`manual_retry_click_#${retryCount + 1}`);
+    }
+
     if (onRetry) onRetry();
 
     setTimeout(() => {
@@ -23,15 +35,21 @@ export const EmbedSsoWaitingView: React.FC<EmbedSsoWaitingViewProps> = ({ onRetr
     }, 1200);
   };
 
-  // Periodic background request every 3.5 seconds to handle race conditions
+  // Periodic background request every 2.5 seconds to handle race conditions
   useEffect(() => {
     const interval = setInterval(() => {
       console.log('[SSO Embed] Background periodic REQUEST_SSO_TOKEN trigger...');
-      requestSsoTokenFromParent('periodic_background_interval');
-    }, 3500);
+      if (authCtx?.requestSsoToken) {
+        authCtx.requestSsoToken('periodic_background_interval');
+      } else {
+        requestSsoTokenFromParent('periodic_background_interval');
+      }
+    }, 2500);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [authCtx]);
+
+  const currentRoute = `${window.location.pathname}${window.location.hash ? window.location.hash : ''}`;
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
@@ -51,7 +69,7 @@ export const EmbedSsoWaitingView: React.FC<EmbedSsoWaitingViewProps> = ({ onRetr
           <div className="pt-1">
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-slate-100 text-slate-600 border border-slate-200">
               <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
-              Rute: <code className="font-mono text-slate-700">{window.location.pathname}</code>
+              Rute: <code className="font-mono text-slate-700">{currentRoute}</code>
             </span>
           </div>
         </div>
@@ -60,7 +78,7 @@ export const EmbedSsoWaitingView: React.FC<EmbedSsoWaitingViewProps> = ({ onRetr
           <button
             onClick={handleManualRetry}
             disabled={isRetrying}
-            className="w-full bg-teal-600 hover:bg-teal-700 disabled:opacity-75 text-white py-2.5 px-4 rounded-lg font-semibold text-xs transition-all shadow-sm flex items-center justify-center gap-2"
+            className="w-full bg-teal-600 hover:bg-teal-700 disabled:opacity-75 text-white py-2.5 px-4 rounded-lg font-semibold text-xs transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isRetrying ? 'animate-spin' : ''}`} />
             {isRetrying ? 'Meminta Ulang Token...' : 'Minta Ulang Sesi (Retry SSO)'}
@@ -76,3 +94,4 @@ export const EmbedSsoWaitingView: React.FC<EmbedSsoWaitingViewProps> = ({ onRetr
     </div>
   );
 };
+

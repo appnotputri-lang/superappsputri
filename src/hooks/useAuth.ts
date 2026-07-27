@@ -1,15 +1,87 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { AuthService } from '../services/AuthService';
 import { User as FirebaseUser } from 'firebase/auth';
 import { UserProfile } from '../../types';
+import { checkIsEmbedMode, requestSsoTokenFromParent } from '../utils/ssoEmbed';
 
 export const useAuth = () => {
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [isEmbedMode] = useState<boolean>(() => checkIsEmbedMode());
   const [authLoading, setAuthLoading] = useState<boolean>(() => {
     return localStorage.getItem('notaris_user_is_logged_in') === 'true';
   });
 
+  const requestSsoToken = useCallback((reason = 'useAuth_manual') => {
+    requestSsoTokenFromParent(reason);
+  }, []);
+
+  // 1. Root SSO Listener & Proactive Token Request
+  useEffect(() => {
+    const isEmbed = checkIsEmbedMode();
+    console.log('[SSO Embed] Root useAuth listener mounted.', {
+      pathname: window.location.pathname,
+      search: window.location.search,
+      hash: window.location.hash,
+      isEmbed,
+      inIframe: window.self !== window.top
+    });
+
+    const handler = async (event: MessageEvent) => {
+      if (event.data?.type === 'SUPERAPPS_SSO_TOKEN') {
+        const ssoToken = event.data?.token || event.data?.customToken;
+        console.log('[SSO Embed] Received SUPERAPPS_SSO_TOKEN in root listener from origin:', event.origin, {
+          hasToken: !!ssoToken,
+          pathname: window.location.pathname,
+          hash: window.location.hash
+        });
+
+        if (ssoToken) {
+          try {
+            console.log('[SSO Embed] Signing in with custom token to Firebase Auth...');
+            const { signInWithCustomToken } = await import('firebase/auth');
+            const { auth } = await import('../lib/firebase');
+            const userCredential = await signInWithCustomToken(auth, ssoToken);
+            console.log('[SSO Embed] Firebase Auth Sign-In SUCCESS! User UID:', userCredential.user?.uid, 'Email:', userCredential.user?.email);
+            localStorage.setItem('notaris_user_is_logged_in', 'true');
+            setUser(userCredential.user);
+            setAuthLoading(false);
+          } catch (e: any) {
+            console.error('[SSO Embed] Firebase Custom Token Sign-In FAILED:', e);
+            window.parent?.postMessage(
+              { type: 'SUPERAPPS_SSO_FAILED', message: e.message || 'SSO Sign In Failed' },
+              '*'
+            );
+          }
+        } else {
+          console.warn('[SSO Embed] SUPERAPPS_SSO_TOKEN message received without token string in event.data');
+        }
+      }
+    };
+
+    window.addEventListener('message', handler);
+
+    if (isEmbed || window.self !== window.top) {
+      requestSsoTokenFromParent('useAuth_Mount');
+
+      const t1 = setTimeout(() => requestSsoTokenFromParent('useAuth_Retry_400ms'), 400);
+      const t2 = setTimeout(() => requestSsoTokenFromParent('useAuth_Retry_1200ms'), 1200);
+      const t3 = setTimeout(() => requestSsoTokenFromParent('useAuth_Retry_2500ms'), 2500);
+
+      return () => {
+        window.removeEventListener('message', handler);
+        clearTimeout(t1);
+        clearTimeout(t2);
+        clearTimeout(t3);
+      };
+    }
+
+    return () => {
+      window.removeEventListener('message', handler);
+    };
+  }, []);
+
+  // 2. Observe Firebase Auth State
   useEffect(() => {
     let timeoutId: any;
     const unsub = AuthService.observeAuthState((currentUser) => {
@@ -38,7 +110,7 @@ export const useAuth = () => {
     };
   }, []);
 
-  // Listen to user profile changes
+  // 3. Listen to user profile changes
   useEffect(() => {
     if (user) {
       const unsubProfile = AuthService.observeUserProfile(
@@ -89,7 +161,10 @@ export const useAuth = () => {
     user,
     userProfile,
     authLoading,
+    isEmbedMode,
     loginWithGoogle,
-    logout
+    logout,
+    requestSsoToken
   };
 };
+

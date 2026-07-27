@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { CompanyData } from '../../types';
 import { ProjectService } from '../services/ProjectService';
+import { useAuthContext } from '../contexts/AuthContext';
 
 export function useProjects() {
+  const { user } = useAuthContext();
   const [projects, setProjects] = useState<CompanyData[]>([]);
   const [rupstProjects, setRupstProjects] = useState<CompanyData[]>([]);
   const [rupstPublicProjects, setRupstPublicProjects] = useState<CompanyData[]>([]);
@@ -11,6 +13,15 @@ export function useProjects() {
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
+    if (!user) {
+      setProjects([]);
+      setRupstProjects([]);
+      setRupstPublicProjects([]);
+      setPendirianProjects([]);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     let projectsReady = false;
     let rupstReady = false;
@@ -50,7 +61,7 @@ export function useProjects() {
       unsubRupstPublic();
       unsubPendirian();
     };
-  }, []);
+  }, [user]);
 
   const saveProject = useCallback(async (
     projectId: string,
