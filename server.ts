@@ -57,6 +57,27 @@ async function startServer() {
   const envOrigins = (process.env.ALLOWED_SSO_ORIGINS || "").split(",").map((s) => s.trim()).filter(Boolean);
   const ALLOWED_SSO_ORIGINS = Array.from(new Set([...DEFAULT_SSO_ORIGINS, ...envOrigins]));
 
+  app.get("/api/sso/debug-key-check", (req, res) => {
+    const email = process.env.FIREBASE_SA_CLIENT_EMAIL || '';
+    const key = process.env.FIREBASE_SA_PRIVATE_KEY || '';
+    const normalizedKey = key.replace(/\\n/g, '\n');
+
+    res.json({
+      hasEmail: !!email,
+      emailPreview: email ? `${email.slice(0, 15)}...${email.slice(-25)}` : null,
+      hasKey: !!key,
+      keyRawLength: key.length,
+      keyNormalizedLength: normalizedKey.length,
+      keyStartsWithHeader: normalizedKey.trimStart().startsWith('-----BEGIN PRIVATE KEY-----'),
+      keyEndsWithFooter: normalizedKey.trimEnd().endsWith('-----END PRIVATE KEY-----'),
+      keyFirst40Chars: normalizedKey.slice(0, 40),
+      keyLast40Chars: normalizedKey.slice(-40),
+      keyLineCount: normalizedKey.split('\n').length,
+      containsLiteralBackslashN: key.includes('\\n'),
+      containsRealNewline: key.includes('\n'),
+    });
+  });
+
   app.post("/api/sso/exchange", async (req, res) => {
     try {
       const origin = req.headers.origin || "";
