@@ -34,10 +34,16 @@ export const AppShell: React.FC = () => {
   const { user, userProfile, authLoading, loginWithGoogle, logout } = useAuthContext();
   const [activeTab, setActiveTab] = useState<TabId | null>(null);
 
-  const isEmbedMode = useMemo(
-    () => new URLSearchParams(window.location.search).get('embed') === '1',
-    []
-  );
+  const isEmbedMode = useMemo(() => {
+    try {
+      return (
+        new URLSearchParams(window.location.search).get('embed') === '1' ||
+        window.self !== window.top
+      );
+    } catch {
+      return true;
+    }
+  }, []);
 
   useEffect(() => {
     if (!isEmbedMode) return;
