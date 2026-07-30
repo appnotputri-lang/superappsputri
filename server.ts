@@ -1,5 +1,6 @@
 import express from "express";
 import path from "path";
+import crypto from "crypto";
 import { createServer as createViteServer } from "vite";
 import { firestoreRest } from "./src/lib/firestore-rest";
 import { DriveFolderService } from "./src/services/DriveFolderService";
@@ -14,7 +15,7 @@ import { mintFirebaseCustomToken } from "./src/lib/customTokenSigner";
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
   console.log("Server starting in REST mode (Cloudflare compatible architecture)...");
 
@@ -67,7 +68,6 @@ async function startServer() {
       }
 
       // 1. Mint token pakai fungsi yang sama persis dengan /api/sso/exchange
-      const { mintFirebaseCustomToken } = await import('./src/lib/customTokenSigner');
       const testUid = 'debug_test_uid_12345';
       const token = await mintFirebaseCustomToken(testUid, serviceAccountEmail, privateKey);
 
@@ -94,7 +94,6 @@ async function startServer() {
       let selfVerifyError = null;
 
       try {
-        const crypto = await import('crypto');
         const verifier = crypto.createVerify('RSA-SHA256');
         verifier.update(`${headerB64}.${payloadB64}`);
         const sigBuffer = Buffer.from(signatureB64.replace(/-/g, '+').replace(/_/g, '/'), 'base64');
@@ -185,6 +184,23 @@ async function startServer() {
     } catch (error: any) {
       console.error("[Drive API] Error ensuring client folder:", error);
       res.status(500).json({ error: error.message || "Failed to ensure client folder" });
+    }
+  });
+
+  app.post("/api/v2/drive/rename-client-folder", authMiddleware, async (req, res) => {
+    try {
+      const { oldCompanyName, newCompanyName, clientType } = req.body;
+      if (!oldCompanyName || !newCompanyName) {
+        return res.status(400).json({ error: "Missing oldCompanyName or newCompanyName" });
+      }
+
+      console.log(`[Drive API] Renaming client folder from: ${oldCompanyName} to ${newCompanyName} (${clientType || 'PT'})`);
+      await DriveFolderService.renameCompanyFolder(oldCompanyName, newCompanyName, clientType || 'PT', process.env);
+
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("[Drive API] Error renaming client folder:", error);
+      res.status(500).json({ error: error.message || "Failed to rename client folder" });
     }
   });
 
@@ -564,7 +580,7 @@ async function startServer() {
   } else {
     const distPath = path.join(process.cwd(), "dist");
     app.use(express.static(distPath));
-    app.get("*", (req, res) => {
+    app.get("*all", (req, res) => {
       res.sendFile(path.join(distPath, "index.html"));
     });
   }

@@ -1163,8 +1163,21 @@ export const generateWordDoc = async (data: CompanyData, returnBlob?: boolean) =
 
       const oldName = formatCompanyName(data.companyName);
       const newName = formatCompanyName(data.targetCompanyName || data.companyName);
-      const oldDomicile = data.domicile || "..........";
-      const newDomicile = data.newAddress?.city || "..........";
+      const resolvedOldDomicile =
+        data.domicile ||
+        data.oldDomicile ||
+        (data as any).kedudukanPT ||
+        (data as any).kotaKedudukan ||
+        (data as any).city ||
+        (data as any).kedudukan ||
+        data.oldAddress?.city ||
+        data.newAddress?.city ||
+        (data as any).address?.city ||
+        "..........";
+      const oldDomicile = resolvedOldDomicile;
+      const newDomicile = isDomicile 
+        ? (data.newAddress?.city || resolvedOldDomicile) 
+        : resolvedOldDomicile;
 
       const resBlocks: any[] = [];
 
@@ -2137,8 +2150,21 @@ export const generateWordDoc = async (data: CompanyData, returnBlob?: boolean) =
 
       const oldName = formatCompanyName(data.companyName);
       const newName = formatCompanyName(data.targetCompanyName || data.companyName);
-      const oldDomicile = data.domicile || "..........";
-      const newDomicile = data.newAddress?.city || "..........";
+      const resolvedOldDomicile =
+        data.domicile ||
+        data.oldDomicile ||
+        (data as any).kedudukanPT ||
+        (data as any).kotaKedudukan ||
+        (data as any).city ||
+        (data as any).kedudukan ||
+        data.oldAddress?.city ||
+        data.newAddress?.city ||
+        (data as any).address?.city ||
+        "..........";
+      const oldDomicile = resolvedOldDomicile;
+      const newDomicile = isDomicile 
+        ? (data.newAddress?.city || resolvedOldDomicile) 
+        : resolvedOldDomicile;
 
       const resBlocks: any[] = [];
 

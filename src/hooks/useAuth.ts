@@ -28,10 +28,24 @@ export const useAuth = () => {
     });
 
     const handler = async (event: MessageEvent) => {
-      if (event.data?.type === 'SUPERAPPS_SSO_TOKEN') {
-        const ssoToken = event.data?.token || event.data?.customToken;
+      let data = event.data;
+      if (typeof data === 'string') {
+        try {
+          data = JSON.parse(data);
+        } catch (e) {
+          // not JSON
+        }
+      }
+
+      if (data?.type === 'SUPERAPPS_SSO_TOKEN') {
+        const customToken = data?.customToken;
+        const tokenProp = data?.token;
+        const ssoToken = customToken || tokenProp;
+
         console.log('[SSO Embed] Received SUPERAPPS_SSO_TOKEN in root listener from origin:', event.origin, {
           hasToken: !!ssoToken,
+          hasCustomToken: !!customToken,
+          hasTokenProp: !!tokenProp,
           pathname: window.location.pathname,
           hash: window.location.hash
         });
@@ -47,7 +61,25 @@ export const useAuth = () => {
             setUser(userCredential.user);
             setAuthLoading(false);
           } catch (e: any) {
-            console.error('[SSO Embed] Firebase Custom Token Sign-In FAILED:', e);
+            console.error('[SSO Embed] Firebase Custom Token Sign-In FAILED with primary token:', e);
+
+            const fallbackToken = (ssoToken === customToken) ? tokenProp : customToken;
+            if (fallbackToken) {
+              try {
+                console.log('[SSO Embed] Retrying Firebase Auth sign-in with fallback token...');
+                const { signInWithCustomToken } = await import('firebase/auth');
+                const { auth } = await import('../lib/firebase');
+                const userCredential = await signInWithCustomToken(auth, fallbackToken);
+                console.log('[SSO Embed] Firebase Auth Sign-In SUCCESS (fallback)! User UID:', userCredential.user?.uid);
+                localStorage.setItem('notaris_user_is_logged_in', 'true');
+                setUser(userCredential.user);
+                setAuthLoading(false);
+                return;
+              } catch (fallbackErr: any) {
+                console.error('[SSO Embed] Fallback token sign-in also failed:', fallbackErr);
+              }
+            }
+
             window.parent?.postMessage(
               { type: 'SUPERAPPS_SSO_FAILED', message: e.message || 'SSO Sign In Failed' },
               '*'

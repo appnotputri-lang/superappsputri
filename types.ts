@@ -203,15 +203,23 @@ export type ManagementChangeType = 'ALL_DISMISSED' | 'PARTIAL_CHANGE' | 'REAPPOI
 
 export interface ShareTransfer {
   id: string;
-  type: 'Jual Beli' | 'Hibah';
-  fromShareholderId: string;
-  toShareholderId: string;
+  type?: 'Jual Beli' | 'Hibah' | string;
+  transferType?: 'AJB' | 'HIBAH' | string;
+  fromShareholderId?: string;
+  toShareholderId?: string;
+  fromName?: string;
+  toName?: string;
   sharesTransferred: number;
+  shares?: number;
+  toType?: 'EXISTING' | 'PRESENT' | 'NEW';
+  toSalutation?: 'Tuan' | 'Nyonya' | 'Nona' | string;
+  toNik?: string;
+  toDetail?: Shareholder;
 }
 
 export interface SkSpDocument {
   id: string;
-  type: 'SK' | 'SP' | 'SP_DATA_PERSEROAN' | 'SP_ANGGARAN_DASAR';
+  type: 'SK' | 'SK_PENDIRIAN' | 'SK_PERUBAHAN' | 'SP' | 'SP_DATA_PERSEROAN' | 'SP_ANGGARAN_DASAR';
   number: string;
   date: string;
 }
@@ -484,14 +492,13 @@ export interface ManagementAppointment {
   detail?: Shareholder;
 }
 
-export interface ShareTransferItem {
-  id: string;
+export interface ShareTransferItem extends ShareTransfer {
   fromName: string;
   transferType: 'AJB' | 'HIBAH';
   toName: string;
   sharesTransferred: number;
   toType?: 'EXISTING' | 'PRESENT' | 'NEW';
-  toSalutation?: 'Tuan' | 'Nyonya' | 'Nona';
+  toSalutation?: 'Tuan' | 'Nyonya' | 'Nona' | string;
   toNik?: string;
   toDetail?: Shareholder;
 }
@@ -502,4 +509,157 @@ export interface CapitalSubscriptionItem {
   sharesCount: number;
 }
 
-export type SidebarTabId = 'beranda' | 'company_profile' | 'cv_profile' | 'notulen' | 'pendirian' | 'rupst' | 'perbaikan' | 'draft_akta_rups' | 'panduan' | 'kbli_mapping' | 'saran_kbli' | 'import_kbli' | 'laporan' | 'whatsapp_settings' | 'projects' | 'project_detail' | 'user_management';
+// --- NOTARY & INVOICE TYPES ---
+
+export interface DeedGrantor {
+  id?: string;
+  name: string;
+  birthCity?: string;
+  birthDate?: string;
+  nik?: string;
+  address?: string;
+  occupation?: string;
+}
+
+export interface DeedAppearer {
+  id?: string;
+  name: string;
+  role?: 'Self' | 'Proxy' | 'Both' | 'SelfAndProxy';
+  grantors?: DeedGrantor[];
+  birthCity?: string;
+  birthDate?: string;
+  nik?: string;
+  address?: string;
+  occupation?: string;
+  position?: string;
+}
+
+export interface Deed {
+  id: string;
+  orderNumber?: string;
+  clientId?: string;
+  clientName?: string;
+  deedNumber?: string;
+  number?: string;
+  deedDate?: string;
+  date?: string;
+  deedTitle?: string;
+  title?: string;
+  category?: string;
+  jobName?: string;
+  grantors?: DeedGrantor[];
+  appearers?: DeedAppearer[];
+  picName?: string;
+  notes?: string;
+  createdAt?: number | string;
+  updatedAt?: string;
+}
+
+export type PrivateDeedType = 'Legalisasi' | 'Waarmerking' | 'LEGALISASI' | 'WAARMERKING';
+
+export interface PrivateDeed {
+  id: string;
+  number: string;
+  registrationDate: string; // YYYY-MM-DD
+  type: PrivateDeedType | string;
+  description: string;
+  parties: string[];
+  picName?: string;
+  notes?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface ProtestCheque {
+  id: string;
+  number: string;
+  protestDate: string; // YYYY-MM-DD
+  bankName: string;
+  chequeNumber: string;
+  amount: number;
+  applicantName: string;
+  drawerName: string;
+  reason?: string;
+  notes?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface PaymentRecord {
+  id: string;
+  date: string; // YYYY-MM-DD
+  amount: number;
+  method?: string;
+  notes?: string;
+  recordedBy?: string;
+}
+
+export interface InvoiceItem {
+  id: string;
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  amount: number;
+  isTaxed?: boolean;
+  taxRate?: number;
+}
+
+export interface Invoice {
+  id: string;
+  invoiceNumber: string;
+  clientName: string;
+  clientId?: string;
+  clientSource?: 'local' | 'superapps';
+  clientEmail?: string;
+  clientPhone?: string;
+  clientAddress?: string;
+  issueDate: string; // YYYY-MM-DD
+  dueDate?: string;  // YYYY-MM-DD
+  status: 'UNPAID' | 'PAID' | 'DRAFT' | 'CANCELLED';
+  items: InvoiceItem[];
+  subtotal: number;
+  taxAmount: number;
+  taxRate?: number;
+  discount?: number;
+  totalAmount: number;
+  paidAmount: number;
+  balanceDue: number;
+  currency?: string;
+  language?: 'id' | 'en';
+  notes?: string;
+  terms?: string;
+  bankDetails?: {
+    bankName: string;
+    accountNumber: string;
+    accountHolder: string;
+  };
+  paymentHistory?: PaymentRecord[];
+  publicToken?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface OutgoingMail {
+  id: string;
+  mailNumber: string;
+  date: string; // YYYY-MM-DD
+  recipient: string;
+  subject: string;
+  attachmentCount?: number;
+  notes?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface IncomingMail {
+  id: string;
+  date: string; // YYYY-MM-DD
+  mailNumber: string; // Nomor surat dari pengirim
+  sender: string; // Surat Dari
+  subject: string; // Perihal
+  notes?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export type SidebarTabId = 'beranda' | 'company_profile' | 'cv_profile' | 'notulen' | 'pendirian' | 'rupst' | 'perbaikan' | 'draft_akta_rups' | 'panduan' | 'kbli_mapping' | 'saran_kbli' | 'import_kbli' | 'laporan' | 'whatsapp_settings' | 'projects' | 'project_detail' | 'user_management' | 'notary_reports' | 'invoice' | 'deeds' | 'private_deeds' | 'protest_cheque' | 'outgoing_mail' | 'incoming_mail';

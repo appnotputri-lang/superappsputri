@@ -29,8 +29,8 @@ export type Block =
 
 function getDeedSkText(deed: any): string {
   if (deed.skSpDocuments && deed.skSpDocuments.length > 0) {
-    const sks = deed.skSpDocuments.filter((d: any) => d.type === "SK");
-    const sps = deed.skSpDocuments.filter((d: any) => d.type !== "SK");
+    const sks = deed.skSpDocuments.filter((d: any) => d.type === "SK" || d.type === "SK_PENDIRIAN" || d.type === "SK_PERUBAHAN");
+    const sps = deed.skSpDocuments.filter((d: any) => d.type !== "SK" && d.type !== "SK_PENDIRIAN" && d.type !== "SK_PERUBAHAN");
 
     const skParts: string[] = [];
     sks.forEach((sk: any) => {
@@ -74,7 +74,7 @@ export function generateSirkulerLaporanBlocks(data: CompanyData): Block[] {
 
   const companyNameText = data.companyName || "";
   const finalCompanyName = formatCompanyName(companyNameText, data.clientType) || "PT ............................";
-  const rawDomicile = data.domicile || "";
+  const rawDomicile = data.domicile || data.oldDomicile || (data as any).kedudukanPT || (data as any).kotaKedudukan || (data as any).city || data.newAddress?.city || data.oldAddress?.city || "";
   const isCityOrRegency = rawDomicile.toLowerCase().startsWith("kota") || rawDomicile.toLowerCase().startsWith("kabupaten");
   const domicile = rawDomicile
     ? (isCityOrRegency ? toTitleCase(rawDomicile) : `Kota ${toTitleCase(rawDomicile)}`)

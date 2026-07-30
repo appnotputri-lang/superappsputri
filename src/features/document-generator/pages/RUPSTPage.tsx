@@ -723,7 +723,7 @@ syncCompanyDataToRupst
                                              ...(selected as any), 
                                              selectedProfileId: selected.id,
                                              companyName: selected.companyName || '',
-                                             domicile: selected.domicile || selected.newAddress?.city || selected.oldAddress?.city || '',
+                                             domicile: selected.domicile || selected.oldDomicile || (selected as any).kedudukanPT || (selected as any).kotaKedudukan || (selected as any).city || selected.newAddress?.city || selected.oldAddress?.city || '',
                                              oldFullAddress: selected.fullAddress || selected.oldFullAddress || (selected.newAddress?.fullAddress ? `${selected.newAddress.fullAddress}, RT ${selected.newAddress.rt}/${selected.newAddress.rw}, Kel. ${selected.newAddress.kelurahan}, Kec. ${selected.newAddress.kecamatan}` : ''),
                                              oldAddress: selected.newAddress || selected.oldAddress,
                                              oldDomicile: selected.domicile || selected.oldDomicile,

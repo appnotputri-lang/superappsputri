@@ -77,6 +77,13 @@ export const AppRoutes: React.FC<AppRoutesProps> = (props) => {
   const saveCompany = props.saveCompany ?? companyCtx.save;
   const deleteCompany = props.deleteCompany ?? companyCtx.delete;
 
+  const isPublicInvoice = location.pathname.includes('/invoice/public') ||
+    (window.location.hash && window.location.hash.includes('/invoice/public'));
+
+  if (isPublicInvoice) {
+    return renderAppRoute('invoice', { ...props, isPublic: true });
+  }
+
   const currentTab = props.activeSidebarTab || PATH_TO_TAB[location.pathname] || 'beranda';
 
   return renderAppRoute(currentTab, {

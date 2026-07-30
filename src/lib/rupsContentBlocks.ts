@@ -271,7 +271,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
         },
         { text: formatCompanyName(data.companyName, data.clientType), bold: true },
         {
-          text: ` (selanjutnya disebut sebagai “Rapat”) Perseroan berkedudukan di ${toTitleCase(data.newAddress?.city || data.domicile || "...")}, demikian berdasarkan Akta Pendirian tertanggal ${formattedEstDeedDate}, Nomor ${data.establishmentDeedNumber}, telah mendapat pengesahan dari Menteri Hukum dan Hak Asasi Manusia Republik Indonesia tertanggal ${formattedEstSkDate}, Nomor ${data.establishmentSkNumber}, dibuat di hadapan ${checkNotaryWording(data.establishmentNotary, data.establishmentNotaryTitle, data.establishmentNotaryDomicile, { isAkta: true, currentNotaryName: "NUKANTINI PUTRI PARINCHA" })} dan telah mengalami perubahan berdasarkan akta sebagai berikut :-`,
+          text: ` (selanjutnya disebut sebagai “Rapat”) Perseroan berkedudukan di ${toTitleCase(data.domicile || data.oldDomicile || data.kedudukanPT || (data as any).kotaKedudukan || (data as any).city || (data as any).kedudukan || data.newAddress?.city || data.oldAddress?.city || "...")}, demikian berdasarkan Akta Pendirian tertanggal ${formattedEstDeedDate}, Nomor ${data.establishmentDeedNumber}, telah mendapat pengesahan dari Menteri Hukum dan Hak Asasi Manusia Republik Indonesia tertanggal ${formattedEstSkDate}, Nomor ${data.establishmentSkNumber}, dibuat di hadapan ${checkNotaryWording(data.establishmentNotary, data.establishmentNotaryTitle, data.establishmentNotaryDomicile, { isAkta: true, currentNotaryName: "NUKANTINI PUTRI PARINCHA" })} dan telah mengalami perubahan berdasarkan akta sebagai berikut :-`,
         },
       ],
     });
@@ -291,8 +291,8 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
         { text: formatCompanyName(data.companyName, data.clientType), bold: true },
         {
           text: isCircular 
-            ? `, perseroan berkedudukan di ${toTitleCase(data.newAddress?.city || data.domicile || "...")}, demikian berdasarkan Akta Pendirian tertanggal ${formatAktaDate(data.establishmentDeedDate || "")} Nomor ${data.establishmentDeedNumber} dibuat dihadapan ${checkNotaryWording(data.establishmentNotary, data.establishmentNotaryTitle, data.establishmentNotaryDomicile, { isAkta: true, currentNotaryName: "NUKANTINI PUTRI PARINCHA" })} dan telah mendapat pengesahan dari Menteri Hukum dan Hak Asasi Manusia Republik Indonesia berdasarkan Surat Keputusan Nomor ${data.establishmentSkNumber} tertanggal ${formatAktaDate(data.establishmentSkDate || "")} dan telah mengalami beberapa kali perubahan berdasarkan akta-akta sebagai berikut :`
-            : `, perseroan berkedudukan di ${toTitleCase(data.newAddress?.city || data.domicile || "...")}, demikian berdasarkan Akta Pendirian tertanggal ${formatAktaDate(data.establishmentDeedDate || "")}, Nomor ${data.establishmentDeedNumber} dibuat dihadapan ${checkNotaryWording(data.establishmentNotary, data.establishmentNotaryTitle, data.establishmentNotaryDomicile, { isAkta: true, currentNotaryName: "NUKANTINI PUTRI PARINCHA" })} dan telah mendapat pengesahan dari Menteri Hukum dan Hak Asasi Manusia Republik Indonesia berdasarkan Surat Keputusan Nomor ${data.establishmentSkNumber} tertanggal ${formatAktaDate(data.establishmentSkDate || "")} dan telah mengalami beberapa kali perubahan berdasarkan akta-akta sebagai berikut :`,
+            ? `, perseroan berkedudukan di ${toTitleCase(data.domicile || data.oldDomicile || data.kedudukanPT || (data as any).kotaKedudukan || (data as any).city || (data as any).kedudukan || data.newAddress?.city || data.oldAddress?.city || "...")}, demikian berdasarkan Akta Pendirian tertanggal ${formatAktaDate(data.establishmentDeedDate || "")} Nomor ${data.establishmentDeedNumber} dibuat dihadapan ${checkNotaryWording(data.establishmentNotary, data.establishmentNotaryTitle, data.establishmentNotaryDomicile, { isAkta: true, currentNotaryName: "NUKANTINI PUTRI PARINCHA" })} dan telah mendapat pengesahan dari Menteri Hukum dan Hak Asasi Manusia Republik Indonesia berdasarkan Surat Keputusan Nomor ${data.establishmentSkNumber} tertanggal ${formatAktaDate(data.establishmentSkDate || "")} dan telah mengalami beberapa kali perubahan berdasarkan akta-akta sebagai berikut :`
+            : `, perseroan berkedudukan di ${toTitleCase(data.domicile || data.oldDomicile || data.kedudukanPT || (data as any).kotaKedudukan || (data as any).city || (data as any).kedudukan || data.newAddress?.city || data.oldAddress?.city || "...")}, demikian berdasarkan Akta Pendirian tertanggal ${formatAktaDate(data.establishmentDeedDate || "")}, Nomor ${data.establishmentDeedNumber} dibuat dihadapan ${checkNotaryWording(data.establishmentNotary, data.establishmentNotaryTitle, data.establishmentNotaryDomicile, { isAkta: true, currentNotaryName: "NUKANTINI PUTRI PARINCHA" })} dan telah mendapat pengesahan dari Menteri Hukum dan Hak Asasi Manusia Republik Indonesia berdasarkan Surat Keputusan Nomor ${data.establishmentSkNumber} tertanggal ${formatAktaDate(data.establishmentSkDate || "")} dan telah mengalami beberapa kali perubahan berdasarkan akta-akta sebagai berikut :`,
         },
       ],
     });
@@ -639,9 +639,21 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
     const isDomicile = data.resolutions.domicile;
 
     const newName = (data.targetCompanyName || data.companyName).toUpperCase();
+    const currentDomicile =
+      data.domicile ||
+      data.oldDomicile ||
+      (data as any).kedudukanPT ||
+      (data as any).kotaKedudukan ||
+      (data as any).city ||
+      (data as any).kedudukan ||
+      data.oldAddress?.city ||
+      data.newAddress?.city ||
+      (data as any).address?.city ||
+      "";
+
     const areaNew = data.resolutions.domicile
-      ? data.newAddress?.city || ".........."
-      : data.domicile || "..........";
+      ? (data.newAddress?.city || currentDomicile || "..........")
+      : (currentDomicile || data.newAddress?.city || "..........");
 
     let subject = "Nama dan Tempat Kedudukan Perseroan";
     if (isName && !isDomicile) subject = "Nama Perseroan";
@@ -686,7 +698,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
         {
           text: `Menyetujui dan memutuskan untuk mengubah tempat kedudukan Perseroan, yang semula berkedudukan di `,
         },
-        { text: toTitleCase(data.domicile || "..."), bold: true },
+        { text: toTitleCase(data.domicile || data.oldDomicile || data.oldAddress?.city || data.kedudukanPT || "..."), bold: true },
         { text: ` menjadi berkedudukan di ` },
         { text: toTitleCase(data.newAddress?.city || "..."), bold: true },
         { text: `.` },
@@ -878,16 +890,17 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
 
                 if (data.shareTransfers) {
                   data.shareTransfers.forEach((t) => {
+                    const shares = Number(t.sharesTransferred || t.shares || 0);
                     if (
-                      t.toShareholderId === fs.id ||
-                      t.toShareholderId === fs.linkedPartyId
+                      t.toShareholderId &&
+                      (t.toShareholderId === fs.id || (fs.linkedPartyId && t.toShareholderId === fs.linkedPartyId))
                     )
-                      sharesFromTransfer += t.sharesTransferred;
+                      sharesFromTransfer += shares;
                     if (
-                      t.fromShareholderId === fs.id ||
-                      t.fromShareholderId === fs.linkedPartyId
+                      t.fromShareholderId &&
+                      (t.fromShareholderId === fs.id || (fs.linkedPartyId && t.fromShareholderId === fs.linkedPartyId))
                     )
-                      sharesToTransfer += t.sharesTransferred;
+                      sharesToTransfer += shares;
                   });
                 }
 
@@ -965,19 +978,22 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
 
   // Shareholders change
   if (data.resolutions.shareholders) {
-    const totalTransferredShares = data.shareTransfers.reduce(
-      (sum, t) => sum + t.sharesTransferred,
+    const activeTransfers = (data.shareTransfers && data.shareTransfers.length > 0)
+      ? data.shareTransfers
+      : (data.shareTransfersNew || []);
+
+    const totalTransferredShares = activeTransfers.reduce(
+      (sum, t) => sum + Number(t.sharesTransferred || t.shares || 0),
       0,
     );
 
-    const transferTypesRaw = data.shareTransfers.map((t) =>
-      (t.type || "jual beli").toLowerCase(),
-    );
+    const transferTypesRaw = activeTransfers.map((t) => {
+      const rawType = (t.type || t.transferType || "jual beli").toString().toLowerCase();
+      return rawType.includes("hibah") ? "hibah" : "jual beli";
+    });
 
     const hasHibah = transferTypesRaw.some((t) => t.includes("hibah"));
-    const hasJualBeli = transferTypesRaw.some(
-      (t) => t.includes("jual beli") || t.includes("ajb"),
-    );
+    const hasJualBeli = transferTypesRaw.some((t) => t.includes("jual beli"));
 
     const transferText =
       hasHibah && hasJualBeli
@@ -986,18 +1002,25 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
           ? "hibah"
           : "jual beli";
 
-    // Simplified logic: If total shares transferred equals total shares of the company, it's entire.
-    // For simplicity, check if the sum of shares transferred is equal to the sum of shares of all transferors before the transfer.
-    // Given the data structure constraints, we might need a simpler check.
-    // Let's assume for now the user's requirement is about the transferor's total shares vs transferred.
-    // For now, let's stick to totalShares comparison if it fits, or perhaps a flag if the data is available.
-    // Actually, let's just use the logic: "if total shares of company, seluruh".
-    // Wait, the prompt says "si A sisa 0" -> entire, "si A sisa 100" -> sebagian.
-    // I will keep the 'totalTransferredShares === totalShares' for now as it's the closest simple check.
-    const sahamText =
-      totalTransferredShares === totalShares
-        ? "seluruh saham"
-        : "sebagian saham";
+    // Check if transferor(s) transferred all their shares (sisa 0)
+    let isEntireTransfer = totalTransferredShares === totalShares;
+    if (!isEntireTransfer && activeTransfers.length > 0) {
+      // Check if for all transferors, their total transferred shares equal their owned shares
+      const transferorSums: Record<string, number> = {};
+      activeTransfers.forEach((t) => {
+        const key = t.fromShareholderId || t.fromName || 'key';
+        transferorSums[key] = (transferorSums[key] || 0) + Number(t.sharesTransferred || t.shares || 0);
+      });
+      const allFullyTransferred = Object.entries(transferorSums).every(([key, qty]) => {
+        const sh = data.shareholders.find(s => s.id === key || s.name === key);
+        return sh ? sh.sharesOwned <= qty : false;
+      });
+      if (allFullyTransferred && Object.keys(transferorSums).length > 0) {
+        isEntireTransfer = true;
+      }
+    }
+
+    const sahamText = isEntireTransfer ? "seluruh saham" : "sebagian saham";
 
     blocks.push({
       type: "p",
@@ -1009,12 +1032,50 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
       ],
     });
 
-    data.shareTransfers.forEach((t) => {
-      const from = data.shareholders.find((s) => s.id === t.fromShareholderId);
-      const to =
-        data.shareholders.find((s) => s.id === t.toShareholderId) ||
-        data.finalShareholders.find((s) => s.id === t.toShareholderId);
-      const valRp = t.sharesTransferred * data.originalSharePrice;
+    activeTransfers.forEach((t) => {
+      let from: any = null;
+      if (t.fromShareholderId) {
+        from = data.shareholders.find((s) => s.id === t.fromShareholderId || (s.linkedPartyId && s.linkedPartyId === t.fromShareholderId));
+      }
+      if (!from && t.fromName) {
+        from = data.shareholders.find((s) => s.name && s.name.trim().toUpperCase() === t.fromName.trim().toUpperCase());
+      }
+      if (!from) {
+        from = {
+          name: t.fromName || "PEMILIK SAHAM",
+          salutation: "Tuan",
+          nationality: "Indonesia"
+        } as any;
+      }
+
+      let to: any = null;
+      if (t.toShareholderId) {
+        to = data.shareholders.find((s) => s.id === t.toShareholderId || (s.linkedPartyId && s.linkedPartyId === t.toShareholderId)) ||
+             data.finalShareholders.find((s) => s.id === t.toShareholderId || (s.linkedPartyId && s.linkedPartyId === t.toShareholderId));
+      }
+      if (!to && t.toName) {
+        to = data.shareholders.find((s) => s.name && s.name.trim().toUpperCase() === t.toName.trim().toUpperCase()) ||
+             data.finalShareholders.find((s) => s.name && s.name.trim().toUpperCase() === t.toName.trim().toUpperCase());
+      }
+      if (!to && t.toDetail) {
+        to = t.toDetail;
+      }
+      if (!to) {
+        to = {
+          name: t.toName || "PENERIMA SAHAM",
+          salutation: t.toSalutation || "Tuan",
+          nik: t.toNik || "",
+          nationality: "Indonesia"
+        } as any;
+      }
+
+      const sharesCount = Number(t.sharesTransferred || t.shares || 0);
+      const sharePrice = data.originalSharePrice || 0;
+      const valRp = sharesCount * sharePrice;
+
+      const rawItemType = (t.type || t.transferType || "").toString().toLowerCase();
+      const isHibahSingle = rawItemType.includes("hibah");
+      const itemMethodText = isHibahSingle ? "secara hibah" : "secara jual beli";
 
       blocks.push({
         type: "list",
@@ -1023,7 +1084,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
         runs: [
           ...getPersonDetailRuns({ person: from, fullyDescribedNames, isSirkuler: isCircular, useAktaFormat: true }),
           {
-            text: ` mengalihkan ${formatNumber(t.sharesTransferred)}${w(t.sharesTransferred, "shares")} lembar saham perseroan atau senilai Rp ${formatNumber(valRp)},-${w(valRp, "rupiah")} kepada `,
+            text: ` mengalihkan ${itemMethodText} sebanyak ${formatNumber(sharesCount)}${w(sharesCount, "shares")} lembar saham perseroan atau senilai Rp ${formatNumber(valRp)},-${w(valRp, "rupiah")} kepada `,
           },
           ...getPersonDetailRuns({ person: to, fullyDescribedNames, isSirkuler: isCircular, useAktaFormat: true }),
           { text: `.` },

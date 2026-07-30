@@ -22,12 +22,117 @@
         "documentCategory": { "type": "string", "enum": ["draft_akta", "notulen", "surat_pernyataan", "scan_akta", "scan_notulen", "sksp", "custom"] }
       },
       "required": ["id", "companyId", "projectId", "title", "fileName", "mimeType", "size", "driveFileId", "driveFolderId", "uploadedBy", "uploadedAt", "createdAt"]
+    },
+    "Deed": {
+      "title": "Deed",
+      "description": "Notary deed records.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "number": { "type": "string" },
+        "date": { "type": "string" },
+        "title": { "type": "string" }
+      },
+      "required": ["id", "number", "date", "title"]
+    },
+    "PrivateDeed": {
+      "title": "Private Deed",
+      "description": "Private deed records for Legalisasi and Waarmerking.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "number": { "type": "string" },
+        "registrationDate": { "type": "string" },
+        "type": { "type": "string" },
+        "description": { "type": "string" }
+      },
+      "required": ["id", "number", "registrationDate", "type", "description"]
+    },
+    "ProtestCheque": {
+      "title": "Protest Cheque",
+      "description": "Protest cheque records.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "number": { "type": "string" },
+        "protestDate": { "type": "string" },
+        "bankName": { "type": "string" },
+        "chequeNumber": { "type": "string" },
+        "amount": { "type": "number" },
+        "applicantName": { "type": "string" },
+        "drawerName": { "type": "string" }
+      },
+      "required": ["id", "number", "protestDate", "bankName", "chequeNumber", "amount", "applicantName", "drawerName"]
+    },
+    "Invoice": {
+      "title": "Invoice",
+      "description": "Client invoices.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "invoiceNumber": { "type": "string" },
+        "clientName": { "type": "string" },
+        "issueDate": { "type": "string" },
+        "status": { "type": "string" },
+        "totalAmount": { "type": "number" }
+      },
+      "required": ["id", "invoiceNumber", "clientName", "issueDate", "status", "totalAmount"]
+    },
+    "OutgoingMail": {
+      "title": "Outgoing Mail",
+      "description": "Surat Keluar / MPD.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "mailNumber": { "type": "string" },
+        "date": { "type": "string" },
+        "recipient": { "type": "string" },
+        "subject": { "type": "string" }
+      },
+      "required": ["id", "mailNumber", "date", "recipient", "subject"]
+    },
+    "IncomingMail": {
+      "title": "Incoming Mail",
+      "description": "Surat Masuk.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "mailNumber": { "type": "string" },
+        "date": { "type": "string" },
+        "sender": { "type": "string" },
+        "subject": { "type": "string" }
+      },
+      "required": ["id", "mailNumber", "date", "sender", "subject"]
     }
   },
   "firestore": {
     "/project_uploaded_documents/{documentId}": {
       "schema": "ProjectUploadedDocument",
       "description": "Collection of uploaded documents metadata."
+    },
+    "/deeds/{deedId}": {
+      "schema": "Deed",
+      "description": "Notary deeds collection."
+    },
+    "/private_deeds/{privateDeedId}": {
+      "schema": "PrivateDeed",
+      "description": "Private deeds collection."
+    },
+    "/protest_cheques/{protestChequeId}": {
+      "schema": "ProtestCheque",
+      "description": "Protest cheques collection."
+    },
+    "/invoices/{invoiceId}": {
+      "schema": "Invoice",
+      "description": "Invoices collection."
+    },
+    "/outgoing_mails/{outgoingMailId}": {
+      "schema": "OutgoingMail",
+      "description": "Outgoing mails collection."
+    },
+    "/incoming_mails/{incomingMailId}": {
+      "schema": "IncomingMail",
+      "description": "Incoming mails collection."
     }
   }
 }

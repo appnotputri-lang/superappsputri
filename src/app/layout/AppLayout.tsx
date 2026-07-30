@@ -2,10 +2,10 @@ import React from 'react';
 import { Sidebar } from '../../components/layout/Sidebar';
 import { Header } from '../../components/layout/Header';
 import { ALLOWED_EMAILS } from '../../constants/appConstants';
-import { UserProfile } from '../../../types';
+import { UserProfile, SidebarTabId } from '../../../types';
 import { EmbedSsoWaitingView } from '../../components/auth/EmbedSsoWaitingView';
 
-export type SidebarTabId = 'beranda' | 'company_profile' | 'cv_profile' | 'notulen' | 'pendirian' | 'rupst' | 'perbaikan' | 'draft_akta_rups' | 'panduan' | 'kbli_mapping' | 'saran_kbli' | 'import_kbli' | 'laporan' | 'whatsapp_settings' | 'projects' | 'project_detail' | 'user_management';
+export type { SidebarTabId };
 
 interface AppLayoutProps {
   isEmbedMode?: boolean;
@@ -46,7 +46,11 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
   setIsEditProfileModalOpen,
   children
 }) => {
-  const isPublicRoute = window.location.pathname === '/rupst' || (window.location.hash && window.location.hash.includes('/rupst'));
+  const isPublicRoute = 
+    window.location.pathname === '/rupst' || 
+    (window.location.hash && window.location.hash.includes('/rupst')) ||
+    window.location.pathname.includes('/invoice/public') ||
+    (window.location.hash && window.location.hash.includes('/invoice/public'));
 
   if (authLoading) {
     if (isEmbedMode) {

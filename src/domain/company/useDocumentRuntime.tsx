@@ -180,9 +180,9 @@ export function DocumentRuntimeProvider({ children }: { children: ReactNode }) {
           duration: profile.duration || data.duration,
           status: profile.status || data.status,
           oldFullAddress: profile.fullAddress || profile.oldFullAddress || data.oldFullAddress,
-          domicile: profile.domicile || profile.newAddress?.city || profile.oldAddress?.city || data.domicile,
+          domicile: profile.domicile || profile.oldDomicile || (profile as any).kedudukanPT || (profile as any).kotaKedudukan || (profile as any).city || profile.newAddress?.city || profile.oldAddress?.city || data.domicile || (data as any).kedudukanPT || '',
           oldAddress: profile.newAddress || profile.oldAddress || data.oldAddress,
-          oldDomicile: profile.domicile || profile.oldDomicile || data.oldDomicile,
+          oldDomicile: profile.domicile || profile.oldDomicile || (profile as any).kedudukanPT || (profile as any).kotaKedudukan || (profile as any).city || profile.oldAddress?.city || data.oldDomicile || '',
           kbliItems: (data.kbliItems && data.kbliItems.length > 0) ? data.kbliItems : (profile.kbliItems || []),
           shareholders: (data.shareholders && data.shareholders.length > 0) ? data.shareholders : (profile.shareholders || []),
           oldManagementItems: (data.oldManagementItems && data.oldManagementItems.length > 0) ? data.oldManagementItems : (profile.oldManagementItems || profile.newManagementItems || (profile as any).managementItems || []),
@@ -202,6 +202,16 @@ export function DocumentRuntimeProvider({ children }: { children: ReactNode }) {
           amendmentDeeds: (data.amendmentDeeds && data.amendmentDeeds.length > 0) ? data.amendmentDeeds : (profile.amendmentDeeds || []),
         };
       }
+    }
+
+    // Auto-resolve baseData.domicile if empty
+    const resolvedDomicile = baseData.domicile || baseData.oldDomicile || (baseData as any).kedudukanPT || (baseData as any).kotaKedudukan || (baseData as any).city || baseData.oldAddress?.city || baseData.newAddress?.city || '';
+    if (!baseData.domicile && resolvedDomicile) {
+      baseData = {
+        ...baseData,
+        domicile: resolvedDomicile,
+        oldDomicile: baseData.oldDomicile || resolvedDomicile,
+      };
     }
 
     if (baseData.shareholders && profiles.length > 0) {
@@ -267,6 +277,51 @@ export function DocumentRuntimeProvider({ children }: { children: ReactNode }) {
           }
           return patchedSh;
         })
+      };
+    }
+
+    // Normalize and synchronize shareTransfers & shareTransfersNew
+    const rawTransfers = (baseData.shareTransfersNew && baseData.shareTransfersNew.length > 0)
+      ? baseData.shareTransfersNew
+      : (baseData.shareTransfers || []);
+
+    if (rawTransfers.length > 0) {
+      const normalizedTransfers = rawTransfers.map((t: any, idx: number) => {
+        const fromName = t.fromName || (t.fromShareholderId ? baseData.shareholders?.find((s: any) => s.id === t.fromShareholderId)?.name : '') || '';
+        const toName = t.toName || t.toDetail?.name || (t.toShareholderId ? (baseData.shareholders?.find((s: any) => s.id === t.toShareholderId)?.name || baseData.finalShareholders?.find((s: any) => s.id === t.toShareholderId)?.name) : '') || '';
+        
+        const fromSh = baseData.shareholders?.find((s: any) => 
+          (t.fromShareholderId && (s.id === t.fromShareholderId || (s.linkedPartyId && s.linkedPartyId === t.fromShareholderId))) ||
+          (fromName && s.name && s.name.trim().toUpperCase() === fromName.trim().toUpperCase())
+        );
+        const toSh = baseData.shareholders?.find((s: any) => 
+          (t.toShareholderId && (s.id === t.toShareholderId || (s.linkedPartyId && s.linkedPartyId === t.toShareholderId))) ||
+          (toName && s.name && s.name.trim().toUpperCase() === toName.trim().toUpperCase())
+        ) || baseData.finalShareholders?.find((s: any) => 
+          (t.toShareholderId && (s.id === t.toShareholderId || (s.linkedPartyId && s.linkedPartyId === t.toShareholderId))) ||
+          (toName && s.name && s.name.trim().toUpperCase() === toName.trim().toUpperCase())
+        );
+
+        const isHibah = t.transferType === 'HIBAH' || t.type === 'Hibah' || t.type === 'HIBAH';
+        const sharesTransferred = Number(t.sharesTransferred || t.shares || 0);
+
+        return {
+          ...t,
+          id: t.id || `transfer_${idx}`,
+          fromShareholderId: fromSh?.id || t.fromShareholderId || '',
+          toShareholderId: toSh?.id || t.toShareholderId || '',
+          fromName: fromName || fromSh?.name || '',
+          toName: toName || toSh?.name || '',
+          sharesTransferred,
+          type: isHibah ? 'Hibah' : 'Jual Beli',
+          transferType: isHibah ? 'HIBAH' : 'AJB',
+        };
+      });
+
+      baseData = {
+        ...baseData,
+        shareTransfers: normalizedTransfers,
+        shareTransfersNew: normalizedTransfers
       };
     }
 

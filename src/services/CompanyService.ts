@@ -142,8 +142,8 @@ export class CompanyService {
   }
 
   /**
-   * Save (set with merge) a Company Profile
-   */
+    * Save (set with merge) a Company Profile
+    */
   static async saveCompany(companyId: string, data: Partial<CompanyProfile>, isCv?: boolean): Promise<void> {
     const isCvCompany = isCv || data.clientType === 'CV' || data.companyType === 'CV';
     const collectionName = 'profiles';
@@ -155,35 +155,68 @@ export class CompanyService {
         companyName: data.companyName ? this.formatCompanyName(data.companyName, clientType) : undefined
       };
 
-      await setDoc(doc(db, collectionName, companyId), sanitizeForFirestore(preparedData), { merge: true });
+      const docRef = doc(db, collectionName, companyId);
+      const docSnap = await getDoc(docRef);
+      const oldData = docSnap.exists() ? docSnap.data() as CompanyProfile : null;
+      const oldCompanyName = oldData?.companyName;
+
+      await setDoc(docRef, sanitizeForFirestore(preparedData), { merge: true });
       
-      // Ensure the Google Drive folder exists for this client (for all client types!)
+      // Ensure or Rename the Google Drive folder for this client
       if (preparedData.companyName) {
-        try {
-          const { auth } = await import('../lib/firebase');
-          let token = '';
-          if (auth.currentUser) {
-            token = await auth.currentUser.getIdToken();
-          }
-          await fetch(getApiUrl('/api/v2/drive/ensure-client-folder'), {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({
-              clientId: companyId,
-              companyName: preparedData.companyName,
-              clientType: preparedData.clientType
-            })
-          });
-        } catch (e) {
-          console.warn("[CompanyService] Failed to ensure drive folder for new client:", e);
-        }
+        await this.handleRenameOrEnsureFolder(companyId, oldCompanyName, preparedData.companyName, clientType);
       }
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, `${collectionName}/${companyId}`);
       throw error;
+    }
+  }
+
+  /**
+   * Helper to rename or ensure Google Drive folder
+   */
+  private static async handleRenameOrEnsureFolder(companyId: string, oldCompanyName: string | undefined, newCompanyName: string, clientType: string) {
+    try {
+      const { auth } = await import('../lib/firebase');
+      let token = '';
+      if (auth.currentUser) {
+        token = await auth.currentUser.getIdToken();
+      }
+
+      const formattedNewName = this.formatCompanyName(newCompanyName, clientType);
+      const formattedOldName = oldCompanyName ? this.formatCompanyName(oldCompanyName, clientType) : undefined;
+
+      if (formattedOldName && formattedOldName !== formattedNewName) {
+        console.log(`[CompanyService] Renaming Drive folder from "${formattedOldName}" to "${formattedNewName}"`);
+        await fetch(getApiUrl('/api/v2/drive/rename-client-folder'), {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            oldCompanyName: formattedOldName,
+            newCompanyName: formattedNewName,
+            clientType
+          })
+        });
+      } else {
+        console.log(`[CompanyService] Ensuring Drive folder for "${formattedNewName}"`);
+        await fetch(getApiUrl('/api/v2/drive/ensure-client-folder'), {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            clientId: companyId,
+            companyName: formattedNewName,
+            clientType
+          })
+        });
+      }
+    } catch (e) {
+      console.warn("[CompanyService] Failed to rename or ensure drive folder:", e);
     }
   }
 
@@ -194,20 +227,24 @@ export class CompanyService {
     const collectionName = 'profiles';
     try {
       const updateData = { ...data };
-      if (updateData.companyName || updateData.clientType) {
-        const docRef = doc(db, collectionName, companyId);
-        const snap = await getDocs(collection(db, collectionName));
-        const currentData = snap.docs.find(d => d.id === companyId)?.data() || {};
-        
-        const finalType = updateData.clientType || currentData.clientType || 'PT';
-        const finalName = updateData.companyName || currentData.companyName || '';
-        
-        if (finalName) {
-          updateData.companyName = this.formatCompanyName(finalName, finalType);
-        }
+      
+      const docRef = doc(db, collectionName, companyId);
+      const snap = await getDoc(docRef);
+      const currentData = (snap.exists() ? snap.data() : {}) as any;
+      const oldCompanyName = currentData.companyName;
+
+      const finalType = updateData.clientType || currentData.clientType || 'PT';
+      const finalName = updateData.companyName || currentData.companyName || '';
+      
+      if (finalName) {
+        updateData.companyName = this.formatCompanyName(finalName, finalType);
       }
 
-      await updateDoc(doc(db, collectionName, companyId), sanitizeForFirestore(updateData));
+      await updateDoc(docRef, sanitizeForFirestore(updateData));
+
+      if (updateData.companyName) {
+        await this.handleRenameOrEnsureFolder(companyId, oldCompanyName, updateData.companyName, finalType);
+      }
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, `${collectionName}/${companyId}`);
       throw error;

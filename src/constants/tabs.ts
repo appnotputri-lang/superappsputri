@@ -125,6 +125,55 @@ export const TAB_ACCENTS: Record<SidebarTabId, {
     bgColor: 'bg-violet-50/70',
     hoverBg: 'hover:bg-violet-50/40 hover:text-violet-950',
     indicatorBg: 'bg-violet-600'
+  },
+  notary_reports: {
+    iconColor: 'text-sky-600',
+    textColor: 'text-sky-900',
+    bgColor: 'bg-sky-50/70',
+    hoverBg: 'hover:bg-sky-50/40 hover:text-sky-950',
+    indicatorBg: 'bg-sky-600'
+  },
+  invoice: {
+    iconColor: 'text-emerald-600',
+    textColor: 'text-emerald-900',
+    bgColor: 'bg-emerald-50/70',
+    hoverBg: 'hover:bg-emerald-50/40 hover:text-emerald-950',
+    indicatorBg: 'bg-emerald-600'
+  },
+  deeds: {
+    iconColor: 'text-blue-600',
+    textColor: 'text-blue-900',
+    bgColor: 'bg-blue-50/70',
+    hoverBg: 'hover:bg-blue-50/40 hover:text-blue-950',
+    indicatorBg: 'bg-blue-600'
+  },
+  private_deeds: {
+    iconColor: 'text-indigo-600',
+    textColor: 'text-indigo-900',
+    bgColor: 'bg-indigo-50/70',
+    hoverBg: 'hover:bg-indigo-50/40 hover:text-indigo-950',
+    indicatorBg: 'bg-indigo-600'
+  },
+  protest_cheque: {
+    iconColor: 'text-amber-600',
+    textColor: 'text-amber-900',
+    bgColor: 'bg-amber-50/70',
+    hoverBg: 'hover:bg-amber-50/40 hover:text-amber-950',
+    indicatorBg: 'bg-amber-600'
+  },
+  outgoing_mail: {
+    iconColor: 'text-cyan-600',
+    textColor: 'text-cyan-900',
+    bgColor: 'bg-cyan-50/70',
+    hoverBg: 'hover:bg-cyan-50/40 hover:text-cyan-950',
+    indicatorBg: 'bg-cyan-600'
+  },
+  incoming_mail: {
+    iconColor: 'text-teal-600',
+    textColor: 'text-teal-900',
+    bgColor: 'bg-teal-50/70',
+    hoverBg: 'hover:bg-teal-50/40 hover:text-teal-950',
+    indicatorBg: 'bg-teal-600'
   }
 };
 
@@ -147,7 +196,14 @@ export const TAB_TO_PATH: Record<string, string> = {
   'whatsapp_settings': '/whatsapp-gateway',
   'projects': '/projects',
   'project_detail': '/projects-detail',
-  'user_management': '/user-management'
+  'user_management': '/user-management',
+  'notary_reports': '/notary-reports',
+  'invoice': '/invoice',
+  'deeds': '/deeds',
+  'private_deeds': '/private-deeds',
+  'protest_cheque': '/protest-cheque',
+  'outgoing_mail': '/surat-keluar',
+  'incoming_mail': '/surat-masuk'
 };
 
 export const PATH_TO_TAB: Record<string, SidebarTabId> = {

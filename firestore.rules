@@ -173,5 +173,39 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // ---------------------------------------------------------
+    // NOTARY & INVOICE COLLECTIONS
+    // ---------------------------------------------------------
+
+    match /deeds/{id} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
+    }
+
+    match /private_deeds/{id} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
+    }
+
+    match /protest_cheques/{id} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
+    }
+
+    match /invoices/{id} {
+      allow read: if true; // Public read permitted for public invoice viewing
+      allow write: if isSignedIn();
+    }
+
+    match /outgoing_mails/{id} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
+    }
+
+    match /incoming_mails/{id} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
+    }
+
   }
 }

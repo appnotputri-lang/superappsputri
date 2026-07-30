@@ -288,9 +288,11 @@ export const LegalInformationSection: React.FC<LegalInformationSectionProps> = (
                           updateData({ amendmentDeeds: newList });
                         }}
                       >
-                        <option value="SK">SK (Keputusan)</option>
-                        <option value="SP_DATA_PERSEROAN">SP (Perubahan Data Perseroan)</option>
-                        <option value="SP_ANGGARAN_DASAR">SP (Perubahan Anggaran Dasar)</option>
+                        <option value="SK_PENDIRIAN">SK Pendirian</option>
+                        <option value="SK_PERUBAHAN">SK Perubahan</option>
+                        <option value="SP_ANGGARAN_DASAR">SP Anggaran Dasar</option>
+                        <option value="SP_DATA_PERSEROAN">SP Perubahan Data</option>
+                        <option value="SK">SK (Lainnya / Keputusan)</option>
                         <option value="SP">SP (Lainnya)</option>
                       </AhuSelect>
                     </div>

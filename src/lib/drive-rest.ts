@@ -134,5 +134,25 @@ export const driveRest = {
       throw new Error(`Drive TRASH failed: ${responseText}`);
     }
     return true;
+  },
+
+  async renameFile(fileId: string, newName: string, env: any = {}) {
+    const token = await getGoogleAccessToken(env);
+    const url = `${BASE_URL}/files/${fileId}`;
+
+    const response = await fetch(url, {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ name: newName })
+    });
+
+    if (!response.ok) {
+      const responseText = await response.text();
+      throw new Error(`Drive RENAME failed: ${responseText}`);
+    }
+    return true;
   }
 };

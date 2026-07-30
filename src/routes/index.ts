@@ -7,8 +7,23 @@ import { renderReportRoute } from './report.routes';
 import { renderSettingsRoute } from './settings.routes';
 import { renderTrackingRoute } from './tracking.routes';
 import { renderSharedRoute } from './shared.routes';
+import { renderNotaryReportRoute } from './notaryReport.routes';
+import { renderInvoiceRoute } from './invoice.routes';
+import { renderNotaryBookRoute } from './notaryBooks.routes';
 
 export const renderAppRoute = (currentTab: string, props: any) => {
+  if (currentTab === 'deeds' || currentTab === 'private_deeds' || currentTab === 'outgoing_mail' || currentTab === 'incoming_mail') {
+    return renderNotaryBookRoute(currentTab);
+  }
+
+  if (currentTab === 'notary_reports') {
+    return renderNotaryReportRoute();
+  }
+
+  if (currentTab === 'invoice') {
+    return renderInvoiceRoute(props?.isPublic || false);
+  }
+
   if (currentTab === 'user_management' || currentTab === 'whatsapp_settings') {
     return renderSettingsRoute(currentTab, props);
   }

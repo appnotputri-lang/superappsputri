@@ -697,10 +697,10 @@ export const RUPSLBPage: React.FC<RUPSLBPageProps> = ({
                             </button>
 
                             {/* Akta Peralihan Saham (Multiple items) */}
-                            {mergedData.resolutions.shareholders && mergedData.shareTransfers && mergedData.shareTransfers.length > 0 && (
-                               (mergedData.shareTransfers || []).map((transfer, index) => {
-                                 const fromName = mergedData.shareholders?.find(s => s.id === transfer.fromShareholderId)?.name || 'Unknown';
-                                 const toName = mergedData.shareholders?.find(s => s.id === transfer.toShareholderId)?.name || mergedData.finalShareholders?.find(s => s.id === transfer.toShareholderId)?.name || 'Unknown';
+                            {mergedData.resolutions.shareholders && (mergedData.shareTransfers || mergedData.shareTransfersNew) && ((mergedData.shareTransfers || mergedData.shareTransfersNew || []).length > 0) && (
+                               ((mergedData.shareTransfersNew && mergedData.shareTransfersNew.length > 0 ? mergedData.shareTransfersNew : mergedData.shareTransfers) || []).map((transfer, index) => {
+                                 const fromName = transfer.fromName || mergedData.shareholders?.find(s => s.id === transfer.fromShareholderId)?.name || 'Pemilik Saham';
+                                 const toName = transfer.toName || mergedData.shareholders?.find(s => s.id === transfer.toShareholderId)?.name || mergedData.finalShareholders?.find(s => s.id === transfer.toShareholderId)?.name || 'Penerima Saham';
                                  return (
                                    <button
                                      key={transfer.id}
@@ -797,7 +797,7 @@ export const RUPSLBPage: React.FC<RUPSLBPageProps> = ({
                                ...(selected as any), 
                                selectedProfileId: selected.id,
                                companyName: selected.companyName || '',
-                               domicile: selected.domicile || selected.newAddress?.city || selected.oldAddress?.city || '',
+                               domicile: selected.domicile || selected.oldDomicile || (selected as any).kedudukanPT || (selected as any).kotaKedudukan || (selected as any).city || selected.newAddress?.city || selected.oldAddress?.city || '',
                                oldFullAddress: selected.fullAddress || selected.oldFullAddress || (selected.newAddress?.fullAddress ? `${selected.newAddress.fullAddress}, RT ${selected.newAddress.rt}/${selected.newAddress.rw}, Kel. ${selected.newAddress.kelurahan}, Kec. ${selected.newAddress.kecamatan}` : ''),
                                oldAddress: selected.newAddress || selected.oldAddress,
                                oldDomicile: selected.domicile || selected.oldDomicile,
@@ -1237,9 +1237,11 @@ export const RUPSLBPage: React.FC<RUPSLBPageProps> = ({
                                     updateData({ amendmentDeeds: newList });
                                   }}
                                 >
-                                  <option value="SK">SK (Keputusan)</option>
-                                  <option value="SP_DATA_PERSEROAN">SP (Perubahan Data Perseroan)</option>
-                                  <option value="SP_ANGGARAN_DASAR">SP (Perubahan Anggaran Dasar)</option>
+                                  <option value="SK_PENDIRIAN">SK Pendirian</option>
+                                  <option value="SK_PERUBAHAN">SK Perubahan</option>
+                                  <option value="SP_ANGGARAN_DASAR">SP Anggaran Dasar</option>
+                                  <option value="SP_DATA_PERSEROAN">SP Perubahan Data</option>
+                                  <option value="SK">SK (Lainnya / Keputusan)</option>
                                   <option value="SP">SP (Lainnya)</option>
                                 </AhuSelect>
                               </div>
@@ -2888,10 +2890,10 @@ export const RUPSLBPage: React.FC<RUPSLBPageProps> = ({
                                         )}
 
                                         {/* Akta Peralihan Saham */}
-                                        {p.resolutions?.shareholders && p.shareTransfers && p.shareTransfers.length > 0 && (
-                                          (p.shareTransfers || []).map((transfer, index) => {
-                                            const fromName = p.shareholders?.find(s => s.id === transfer.fromShareholderId)?.name || 'Unknown';
-                                            const toName = p.shareholders?.find(s => s.id === transfer.toShareholderId)?.name || p.finalShareholders?.find(s => s.id === transfer.toShareholderId)?.name || 'Unknown';
+                                        {p.resolutions?.shareholders && (p.shareTransfers || p.shareTransfersNew) && ((p.shareTransfers || p.shareTransfersNew || []).length > 0) && (
+                                          ((p.shareTransfersNew && p.shareTransfersNew.length > 0 ? p.shareTransfersNew : p.shareTransfers) || []).map((transfer, index) => {
+                                            const fromName = transfer.fromName || p.shareholders?.find(s => s.id === transfer.fromShareholderId)?.name || 'Pemilik Saham';
+                                            const toName = transfer.toName || p.shareholders?.find(s => s.id === transfer.toShareholderId)?.name || p.finalShareholders?.find(s => s.id === transfer.toShareholderId)?.name || 'Penerima Saham';
                                             return (
                                               <button
                                                 key={transfer.id}

@@ -226,4 +226,88 @@ export class DriveFolderService {
       console.error(`[DriveService] Error processing project ${projectId}:`, error);
     }
   }
+
+  static async renameCompanyFolder(oldCompanyName: string, newCompanyName: string, clientType: string = 'PT', env: any = {}): Promise<void> {
+    const oldNormalized = this.normalizeCompanyName(oldCompanyName);
+    const newNormalized = this.normalizeCompanyName(newCompanyName);
+
+    if (oldNormalized === newNormalized) {
+      return; // No change in normalized name
+    }
+
+    console.log(`[DriveFolderService] Renaming company folder from "${oldCompanyName}" to "${newCompanyName}" (${clientType})`);
+
+    // 1. Check if we have an existing folder in firestore cache
+    const oldMapDoc = await firestoreRest.getDocument('drive_folder_map', oldNormalized, env);
+    let folderId = oldMapDoc?.driveFolderId;
+
+    // 2. If not in cache, search in Google Drive under the parent type folder
+    if (!folderId) {
+      const rootDriveFolderId = getEnv(env, 'GOOGLE_DRIVE_ROOT_FOLDER_ID');
+      const companyProfileFolderId = await this.getOrCreateFolderByName("COMPANY PROFILE", rootDriveFolderId || 'root', env);
+      
+      const typeFolderMap: Record<string, string> = {
+        'PT': 'PT',
+        'CV': 'CV',
+        'YAYASAN': 'YAYASAN',
+        'PERKUMPULAN': 'PERKUMPULAN',
+        'FIRMA': 'PERSEKUTUAN FIRMA',
+        'PERDATA': 'PERSEKUTUAN PERDATA',
+        'KOPERASI': 'KOPERASI',
+        'PMA': 'PMA',
+        'PERORANGAN': 'PERORANGAN'
+      };
+      const typeFolderName = typeFolderMap[clientType] || 'LAINNYA';
+      const typeFolderId = await this.getOrCreateFolderByName(typeFolderName, companyProfileFolderId, env);
+
+      const q = `'${typeFolderId}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
+      const allFolders = await driveRest.listFiles(q, 'files(id, name, webViewLink)', 1000, env);
+      const existing = allFolders.find(f => this.normalizeCompanyName(f.name) === oldNormalized);
+      if (existing) {
+        folderId = existing.id;
+      }
+    }
+
+    if (folderId) {
+      // Build new folder name
+      let targetFolderName = newCompanyName.toUpperCase();
+      const excludedTypes = ['PERORANGAN', 'PMA', 'OTHER'];
+      const typeFolderMap: Record<string, string> = {
+        'PT': 'PT',
+        'CV': 'CV',
+        'YAYASAN': 'YAYASAN',
+        'PERKUMPULAN': 'PERKUMPULAN',
+        'FIRMA': 'PERSEKUTUAN FIRMA',
+        'PERDATA': 'PERSEKUTUAN PERDATA',
+        'KOPERASI': 'KOPERASI',
+        'PMA': 'PMA',
+        'PERORANGAN': 'PERORANGAN'
+      };
+      
+      if (!excludedTypes.includes(clientType)) {
+        const typeFolderName = (typeFolderMap[clientType] || clientType).toUpperCase();
+        if (!targetFolderName.startsWith(typeFolderName + ' ') && !targetFolderName.startsWith(typeFolderName + '.')) {
+          targetFolderName = `${typeFolderName} ${targetFolderName}`;
+        }
+      }
+
+      // 3. Perform rename on Google Drive via REST API
+      await driveRest.renameFile(folderId, targetFolderName, env);
+
+      // 4. Update the Firestore `drive_folder_map` mapping. Delete the old normalized key and set the new one.
+      const oldFolderUrl = oldMapDoc?.driveFolderUrl || 'https://drive.google.com';
+      await firestoreRest.deleteDocument('drive_folder_map', oldNormalized, env);
+      await firestoreRest.setDocument('drive_folder_map', newNormalized, {
+        companyName: newCompanyName,
+        clientType,
+        driveFolderId: folderId,
+        driveFolderUrl: oldFolderUrl,
+        createdAt: new Date()
+      }, env);
+
+      console.log(`[DriveFolderService] Successfully renamed Google Drive folder to "${targetFolderName}" and updated Firestore mapping.`);
+    } else {
+      console.warn(`[DriveFolderService] No existing Google Drive folder found for old company name "${oldCompanyName}".`);
+    }
+  }
 }

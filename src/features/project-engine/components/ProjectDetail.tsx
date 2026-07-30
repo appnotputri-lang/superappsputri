@@ -85,6 +85,18 @@ const getDocKinds = (jobType: string): { kind: 'notulen' | 'pernyataan' | 'akta'
   return [];
 };
 
+const mapToStandardType = (val: string): string => {
+  if (!val) return 'SP_DATA_PERSEROAN';
+  const s = val.toLowerCase();
+  if (s === 'sk_pendirian' || s.includes('sk (pendirian') || s.includes('sk pendirian')) return 'SK_PENDIRIAN';
+  if (s === 'sk_perubahan' || s.includes('sk (persetujuan') || s.includes('sk perubahan')) return 'SK_PERUBAHAN';
+  if (s === 'sp_anggaran_dasar' || s.includes('sp (perubahan anggaran') || s.includes('sp anggaran dasar')) return 'SP_ANGGARAN_DASAR';
+  if (s === 'sp_data_perseroan' || s.includes('sp (perubahan data') || s.includes('sp perubahan data')) return 'SP_DATA_PERSEROAN';
+  if (s === 'sk' || s.includes('sk (')) return 'SK';
+  if (s === 'sp' || s.includes('sp (')) return 'SP';
+  return val;
+};
+
 interface ProjectDetailProps {
   projectId: string;
   onBack: () => void;
@@ -884,11 +896,14 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
         if (proj.metadata.skSpDate) setSkSpDate(proj.metadata.skSpDate);
 
         if (proj.metadata.skSpEntries && Array.isArray(proj.metadata.skSpEntries) && proj.metadata.skSpEntries.length > 0) {
-          loadedEntries = proj.metadata.skSpEntries;
+          loadedEntries = proj.metadata.skSpEntries.map(e => ({
+            ...e,
+            type: mapToStandardType(e.type)
+          }));
         } else if (proj.metadata.skSpNumber) {
           loadedEntries = [{
             id: '1',
-            type: proj.metadata.skSpType || 'SP (Perubahan Data Perseroan)',
+            type: mapToStandardType(proj.metadata.skSpType || 'SP_DATA_PERSEROAN'),
             number: proj.metadata.skSpNumber,
             date: proj.metadata.skSpDate || ''
           }];
@@ -900,17 +915,9 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
       if (currentDeedNum && cli?.amendmentDeeds) {
         const matchingDeed = cli.amendmentDeeds.find((d: AmendmentDeed) => d.number === currentDeedNum.trim());
         if (matchingDeed?.skSpDocuments && matchingDeed.skSpDocuments.length > 0) {
-          const docTypeToOptionMap = (docType: string): string => {
-            if (docType === 'SP_DATA_PERSEROAN') return 'SP (Perubahan Data Perseroan)';
-            if (docType === 'SP_ANGGARAN_DASAR') return 'SK (Persetujuan Perubahan Anggaran Dasar)';
-            if (docType === 'SK') return 'SK (Pendirian PT)';
-            if (docType === 'SP') return 'SP (Pendirian PT)';
-            return docType || 'SP (Perubahan Data Perseroan)';
-          };
-
           loadedEntries = matchingDeed.skSpDocuments.map((docItem: any) => ({
             id: docItem.id || Math.random().toString(36).substring(7),
-            type: docTypeToOptionMap(docItem.type),
+            type: mapToStandardType(docItem.type),
             number: docItem.number || '',
             date: docItem.date || ''
           }));
@@ -1168,10 +1175,12 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
   const syncDeedInfoAndClientProfile = async () => {
     if (!project) return [];
 
-    const mapOptionToDocType = (typeStr: string): 'SK' | 'SP_DATA_PERSEROAN' | 'SP_ANGGARAN_DASAR' | 'SP' => {
+    const mapOptionToDocType = (typeStr: string): any => {
       const s = typeStr.toLowerCase();
-      if (s.includes('perubahan data perseroan')) return 'SP_DATA_PERSEROAN';
-      if (s.includes('perubahan anggaran dasar')) return 'SP_ANGGARAN_DASAR';
+      if (s.includes('perubahan data perseroan') || s.includes('sp perubahan data')) return 'SP_DATA_PERSEROAN';
+      if (s.includes('perubahan anggaran dasar') || s.includes('sp anggaran dasar')) return 'SP_ANGGARAN_DASAR';
+      if (s.includes('sk pendirian')) return 'SK_PENDIRIAN';
+      if (s.includes('sk perubahan')) return 'SK_PERUBAHAN';
       if (s.includes('sk')) return 'SK';
       return 'SP';
     };
@@ -1266,11 +1275,14 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
 
       if (formObj) {
 
-        if (formObj.companyName || formObj.namaPt) {
-          profileUpdate.companyName = formObj.companyName || formObj.namaPt;
+        if (formObj.targetCompanyName || formObj.companyName || formObj.namaPt) {
+          profileUpdate.companyName = formObj.targetCompanyName || formObj.companyName || formObj.namaPt;
           if (profileUpdate.companyName !== freshClient?.companyName) {
             syncedItems.push('Nama Perusahaan');
           }
+        }
+        if (formObj.targetCompanyShortName !== undefined) {
+          profileUpdate.companyShortName = formObj.targetCompanyShortName;
         }
         if (formObj.companyType) {
           profileUpdate.companyType = formObj.companyType;
@@ -1875,6 +1887,14 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
       const previewCategories: { label: string; before: string; after: string }[] = [];
       const previewWarnings: string[] = [];
 
+      const nameChanged = !!profileUpdate.companyName && profileUpdate.companyName !== freshClient?.companyName;
+      if (nameChanged) {
+        previewCategories.push({ label: 'Nama Perusahaan', before: freshClient?.companyName || '-', after: profileUpdate.companyName });
+      }
+      if (formObj?.resolutions?.companyNameChange === true && !nameChanged) {
+        previewWarnings.push('Resolusi "Perubahan Nama Perseroan" dicentang tapi tidak ada perubahan terdeteksi — periksa input form sebelum lanjut.');
+      }
+
       const domicileChanged = !!profileUpdate.domicile && profileUpdate.domicile !== freshClient?.domicile;
       if (domicileChanged) {
         previewCategories.push({ label: 'Kedudukan', before: freshClient?.domicile || '-', after: profileUpdate.domicile });
@@ -2146,17 +2166,19 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
                   Tipe
                 </label>
                 <select
-                  value={entry.type}
+                  value={mapToStandardType(entry.type)}
                   onChange={(e) => {
                     const val = e.target.value;
                     setSkSpEntries(prev => prev.map((item, i) => i === idx ? { ...item, type: val } : item));
                   }}
                   className="w-full px-2 py-1.5 text-xs bg-white border border-slate-200 rounded-lg outline-none transition-all focus:ring-1 focus:ring-blue-500"
                 >
-                  <option value="SP (Perubahan Data Perseroan)">SP (Perubahan Data Perseroan)</option>
-                  <option value="SK (Persetujuan Perubahan Anggaran Dasar)">SK (Persetujuan Perubahan Anggaran Dasar)</option>
-                  <option value="SP (Pendirian PT)">SP (Pendirian PT)</option>
-                  <option value="SK (Pendirian PT)">SK (Pendirian PT)</option>
+                  <option value="SK_PENDIRIAN">SK Pendirian</option>
+                  <option value="SK_PERUBAHAN">SK Perubahan</option>
+                  <option value="SP_ANGGARAN_DASAR">SP Anggaran Dasar</option>
+                  <option value="SP_DATA_PERSEROAN">SP Perubahan Data</option>
+                  <option value="SK">SK (Lainnya / Keputusan)</option>
+                  <option value="SP">SP (Lainnya)</option>
                 </select>
               </div>
 

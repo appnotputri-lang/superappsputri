@@ -380,8 +380,8 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
 
   const getDeedSkText = (deed: any) => {
     if (deed.skSpDocuments && deed.skSpDocuments.length > 0) {
-      const sks = deed.skSpDocuments.filter((d: any) => d.type === "SK");
-      const sps = deed.skSpDocuments.filter((d: any) => d.type !== "SK");
+      const sks = deed.skSpDocuments.filter((d: any) => d.type === "SK" || d.type === "SK_PENDIRIAN" || d.type === "SK_PERUBAHAN");
+      const sps = deed.skSpDocuments.filter((d: any) => d.type !== "SK" && d.type !== "SK_PENDIRIAN" && d.type !== "SK_PERUBAHAN");
 
       const skParts: string[] = [];
       sks.forEach((sk: any) => {

@@ -21,16 +21,27 @@ export interface DraftAktaAppRef {
 
 export const getTransferData = (transfer: ShareTransfer, companyData: CompanyData, baseData: FormData): FormData => {
   const nextData = { ...baseData };
-  if (transfer.type) {
-      nextData.tipeAkta = transfer.type === 'Hibah' ? 'Hibah' : 'Jual Beli';
-      nextData.judulAkta = transfer.type === 'Hibah' ? 'Akta Hibah Saham' : 'Akta Jual Beli Saham';
-  }
+  const rawType = (transfer.type || (transfer as any).transferType || '').toString().toLowerCase();
+  const isHibah = rawType.includes('hibah');
+
+  nextData.tipeAkta = isHibah ? 'Hibah' : 'Jual Beli';
+  nextData.judulAkta = isHibah ? 'Akta Hibah Saham' : 'Akta Jual Beli Saham';
+
   if (transfer.sharesTransferred) {
-      nextData.jumlahSahamHibah = transfer.sharesTransferred.toString();
+    nextData.jumlahSahamHibah = transfer.sharesTransferred.toString();
   }
 
-  const fromSh = companyData.shareholders.find(s => s.id === transfer.fromShareholderId);
-  const toSh = companyData.shareholders.find(s => s.id === transfer.toShareholderId) || companyData.finalShareholders?.find(s => s.id === transfer.toShareholderId);
+  let fromSh = companyData.shareholders?.find(s => transfer.fromShareholderId && (s.id === transfer.fromShareholderId || (s.linkedPartyId && s.linkedPartyId === transfer.fromShareholderId)));
+  if (!fromSh && transfer.fromName) {
+    fromSh = companyData.shareholders?.find(s => s.name && s.name.trim().toUpperCase() === transfer.fromName.trim().toUpperCase());
+  }
+
+  let toSh = companyData.shareholders?.find(s => transfer.toShareholderId && (s.id === transfer.toShareholderId || (s.linkedPartyId && s.linkedPartyId === transfer.toShareholderId))) ||
+             companyData.finalShareholders?.find(s => transfer.toShareholderId && (s.id === transfer.toShareholderId || (s.linkedPartyId && s.linkedPartyId === transfer.toShareholderId)));
+  if (!toSh && transfer.toName) {
+    toSh = companyData.shareholders?.find(s => s.name && s.name.trim().toUpperCase() === transfer.toName.trim().toUpperCase()) ||
+           companyData.finalShareholders?.find(s => s.name && s.name.trim().toUpperCase() === transfer.toName.trim().toUpperCase());
+  }
 
   if (fromSh) {
     nextData.pihak1Gelar = fromSh.salutation || nextData.pihak1Gelar;
@@ -46,6 +57,8 @@ export const getTransferData = (transfer: ShareTransfer, companyData: CompanyDat
     nextData.pihak1Kecamatan = toTitleCase(fromSh.address?.kecamatan || nextData.pihak1Kecamatan || '');
     nextData.pihak1Kelurahan = toTitleCase(fromSh.address?.kelurahan || nextData.pihak1Kelurahan || '');
     nextData.pihak1NIK = fromSh.nik || nextData.pihak1NIK;
+  } else if (transfer.fromName) {
+    nextData.pihak1Nama = transfer.fromName;
   }
 
   if (toSh) {
@@ -62,6 +75,10 @@ export const getTransferData = (transfer: ShareTransfer, companyData: CompanyDat
     nextData.pihak2Kecamatan = toTitleCase(toSh.address?.kecamatan || nextData.pihak2Kecamatan || '');
     nextData.pihak2Kelurahan = toTitleCase(toSh.address?.kelurahan || nextData.pihak2Kelurahan || '');
     nextData.pihak2NIK = toSh.nik || nextData.pihak2NIK;
+  } else if (transfer.toName) {
+    nextData.pihak2Nama = transfer.toName;
+    if ((transfer as any).toSalutation) nextData.pihak2Gelar = (transfer as any).toSalutation;
+    if ((transfer as any).toNik) nextData.pihak2NIK = (transfer as any).toNik;
   }
 
   // Calculate harga jual if Jual Beli
@@ -78,8 +95,12 @@ const DraftAktaApp = forwardRef<DraftAktaAppRef, DraftAktaAppProps>(({ companyDa
   const [transferDataMap, setTransferDataMap] = useState<Record<string, FormData>>({});
   const [previewTransferId, setPreviewTransferId] = useState<string | null>(null);
 
+  const activeTransfers = (companyData?.shareTransfersNew && companyData.shareTransfersNew.length > 0)
+    ? companyData.shareTransfersNew
+    : (companyData?.shareTransfers || []);
+
   useEffect(() => {
-    if (companyData && companyData.shareTransfers) {
+    if (companyData && activeTransfers.length > 0) {
       setTransferDataMap(prevMap => {
         const newMap = { ...prevMap };
         let hasChanges = false;
@@ -119,7 +140,7 @@ const DraftAktaApp = forwardRef<DraftAktaAppRef, DraftAktaAppProps>(({ companyDa
             : initialData.aktaPerubahan,
         };
 
-        for (const transfer of companyData.shareTransfers) {
+        for (const transfer of activeTransfers) {
           if (!newMap[transfer.id]) {
             newMap[transfer.id] = getTransferData(transfer, companyData, baseCompanyData);
             hasChanges = true;
@@ -154,7 +175,7 @@ const DraftAktaApp = forwardRef<DraftAktaAppRef, DraftAktaAppProps>(({ companyDa
         return hasChanges ? newMap : prevMap;
       });
     }
-  }, [companyData]);
+  }, [companyData, activeTransfers]);
 
   const handleChange = (transferId: string, e: { target: { name: string; value: any } }) => {
     setTransferDataMap(prev => {
@@ -187,10 +208,10 @@ const DraftAktaApp = forwardRef<DraftAktaAppRef, DraftAktaAppProps>(({ companyDa
   };
 
   const handleDownloadAll = async () => {
-      if (!companyData || !companyData.shareTransfers || companyData.shareTransfers.length === 0) return;
+      if (!activeTransfers || activeTransfers.length === 0) return;
       
-      if (companyData.shareTransfers.length === 1) {
-          const transferId = companyData.shareTransfers[0].id;
+      if (activeTransfers.length === 1) {
+          const transferId = activeTransfers[0].id;
           if (transferDataMap[transferId]) {
              await generateDocx(transferDataMap[transferId]);
           }
@@ -199,7 +220,7 @@ const DraftAktaApp = forwardRef<DraftAktaAppRef, DraftAktaAppProps>(({ companyDa
 
       const zip = new JSZip();
       
-      for (const transfer of companyData.shareTransfers) {
+      for (const transfer of activeTransfers) {
           const transferData = transferDataMap[transfer.id];
           if (!transferData) continue;
           
@@ -217,10 +238,10 @@ const DraftAktaApp = forwardRef<DraftAktaAppRef, DraftAktaAppProps>(({ companyDa
   useImperativeHandle(ref, () => ({
     handleDownloadAll,
     handleDownloadSingle,
-    hasTransfers: !!(companyData?.shareTransfers && companyData.shareTransfers.length > 0)
+    hasTransfers: activeTransfers.length > 0
   }));
 
-  if (!companyData?.shareTransfers || companyData.shareTransfers.length === 0) {
+  if (!activeTransfers || activeTransfers.length === 0) {
     return <div className="text-sm text-slate-500 italic p-4">Tidak ada data peralihan saham.</div>;
   }
 
@@ -228,10 +249,10 @@ const DraftAktaApp = forwardRef<DraftAktaAppRef, DraftAktaAppProps>(({ companyDa
 
   return (
     <div className="w-full flex flex-col gap-8">
-      {(companyData.shareTransfers || []).map((transfer, index) => {
+      {activeTransfers.map((transfer, index) => {
         const currentData = transferDataMap[transfer.id] || initialData;
-        const fromName = companyData.shareholders.find(s => s.id === transfer.fromShareholderId)?.name || 'Unknown';
-        const toName = companyData.shareholders.find(s => s.id === transfer.toShareholderId)?.name || companyData.finalShareholders?.find(s => s.id === transfer.toShareholderId)?.name || 'Unknown';
+        const fromName = transfer.fromName || companyData.shareholders.find(s => s.id === transfer.fromShareholderId)?.name || 'Pemilik Saham';
+        const toName = transfer.toName || companyData.shareholders.find(s => s.id === transfer.toShareholderId)?.name || companyData.finalShareholders?.find(s => s.id === transfer.toShareholderId)?.name || 'Penerima Saham';
         
         return (
           <div key={transfer.id} className="w-full pb-8 border-b border-slate-200 last:border-b-0">

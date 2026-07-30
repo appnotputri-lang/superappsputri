@@ -125,9 +125,12 @@ export const FormContent: React.FC<FormContentProps> = ({ data, onChange, integr
       const appearers: any[] = [];
 
       // Find parties in companyData if available
-      const transfer = companyData?.shareTransfers.find(t => t.id === transferId);
-      const fromSh = companyData?.shareholders.find(s => s.id === transfer?.fromShareholderId);
-      const toSh = companyData?.shareholders.find(s => s.id === transfer?.toShareholderId) || companyData?.finalShareholders?.find(s => s.id === transfer?.toShareholderId);
+      const activeTransfers = (companyData?.shareTransfersNew && companyData.shareTransfersNew.length > 0)
+        ? companyData.shareTransfersNew
+        : (companyData?.shareTransfers || []);
+      const transfer = activeTransfers.find(t => t.id === transferId);
+      const fromSh = companyData?.shareholders.find(s => (transfer?.fromShareholderId && s.id === transfer.fromShareholderId) || (transfer?.fromName && s.name && s.name.trim().toUpperCase() === transfer.fromName.trim().toUpperCase()));
+      const toSh = companyData?.shareholders.find(s => (transfer?.toShareholderId && s.id === transfer.toShareholderId) || (transfer?.toName && s.name && s.name.trim().toUpperCase() === transfer.toName.trim().toUpperCase())) || companyData?.finalShareholders?.find(s => (transfer?.toShareholderId && s.id === transfer.toShareholderId) || (transfer?.toName && s.name && s.name.trim().toUpperCase() === transfer.toName.trim().toUpperCase()));
 
       // Appearer 1: Pihak Pertama
       const p1Grantors = [];

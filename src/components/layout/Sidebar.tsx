@@ -13,7 +13,12 @@ import {
   Users, 
   Lock, 
   Gavel,
-  X
+  X,
+  BookMarked,
+  CreditCard,
+  ShieldCheck,
+  Send,
+  Inbox
 } from 'lucide-react';
 import { TAB_ACCENTS } from '../../constants/tabs';
 import { SidebarTabId, UserProfile } from '../../../types';
@@ -90,6 +95,57 @@ export const Sidebar: React.FC<SidebarProps> = ({
           { label: 'Laporan Proyek Kerja', id: 'laporan' as const, icon: FileText, requiresAuth: true },
         ].map((item) => {
           const isActive = activeSidebarTab === item.id || (item.id === 'projects' && activeSidebarTab === 'project_detail');
+          const acc = TAB_ACCENTS[item.id] || TAB_ACCENTS.beranda;
+          return (
+            <button 
+              key={item.id} 
+              onClick={() => {
+                if (item.requiresAuth && !user) {
+                  if (confirm(`Anda harus login terlebih dahulu untuk mengakses menu "${item.label}".`)) {
+                    loginWithGoogle();
+                  }
+                  return;
+                }
+                handleTabClick(item.id);
+              }} 
+              className={`relative w-full text-left px-5 py-2.5 transition-all flex items-center justify-between select-none ${
+                isActive 
+                  ? `${acc.bgColor} ${acc.textColor} font-semibold` 
+                  : `text-slate-600 ${acc.hoverBg}`
+              }`}
+            >
+              {isActive && (
+                <div className={`absolute left-0 top-1.5 bottom-1.5 w-[4.5px] rounded-r-md ${acc.indicatorBg}`} />
+              )}
+              <span className="flex items-center gap-3.5">
+                <item.icon 
+                  size={20} 
+                  strokeWidth={isActive ? 2.25 : 2.0}
+                  className={`shrink-0 transition-colors ${isActive ? acc.iconColor : 'text-slate-400'}`} 
+                />
+                <span>{item.label}</span>
+              </span>
+              {item.requiresAuth && !user && (
+                <Lock size={12} className="text-slate-400/50 shrink-0" />
+              )}
+            </button>
+          );
+        })}
+
+        {/* Menu Header: NOTARIS & KEUANGAN */}
+        <div className="px-5 pt-6 pb-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest select-none">
+          Notaris & Keuangan
+        </div>
+
+        {[
+          { label: 'Buku Daftar Akta', id: 'deeds' as const, icon: BookOpen, requiresAuth: true },
+          { label: 'Buku Legalisasi & Waarmerking', id: 'private_deeds' as const, icon: ShieldCheck, requiresAuth: true },
+          { label: 'Surat Keluar', id: 'outgoing_mail' as const, icon: Send, requiresAuth: true },
+          { label: 'Surat Masuk', id: 'incoming_mail' as const, icon: Inbox, requiresAuth: true },
+          { label: 'Laporan Notaris', id: 'notary_reports' as const, icon: BookMarked, requiresAuth: true },
+          { label: 'Invoice', id: 'invoice' as const, icon: CreditCard, requiresAuth: true },
+        ].map((item) => {
+          const isActive = activeSidebarTab === item.id;
           const acc = TAB_ACCENTS[item.id] || TAB_ACCENTS.beranda;
           return (
             <button 
