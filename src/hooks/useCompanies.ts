@@ -79,6 +79,10 @@ export function useCompanies() {
     return await CompanyService.duplicateCompany(company, isCv);
   }, []);
 
+  const merge = useCallback(async (targetId: string, sourceIds: string[]) => {
+    return await CompanyService.mergeCompanies(targetId, sourceIds);
+  }, []);
+
   return useMemo(() => ({
     profiles,
     cvProfiles,
@@ -89,5 +93,6 @@ export function useCompanies() {
     delete: remove, // exposing as delete
     archive,
     duplicate,
-  }), [profiles, cvProfiles, loading, error, refresh, save, remove, archive, duplicate]);
+    merge,
+  }), [profiles, cvProfiles, loading, error, refresh, save, remove, archive, duplicate, merge]);
 }

@@ -23,6 +23,7 @@ export interface CompanyToolbarProps {
   uniqueProfileYears: string[];
   selectedClientType: string;
   setSelectedClientType: (type: string) => void;
+  onOpenMergeModal?: () => void;
 }
 
 export interface CompanyListProps {

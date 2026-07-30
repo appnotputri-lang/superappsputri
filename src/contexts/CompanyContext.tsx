@@ -12,6 +12,7 @@ interface CompanyContextType {
   delete: (companyId: string, isCv?: boolean) => Promise<void>;
   archive: (companyId: string, currentStatus: boolean, isCv?: boolean) => Promise<boolean>;
   duplicate: (company: CompanyProfile, isCv?: boolean) => Promise<CompanyProfile>;
+  merge: (targetId: string, sourceIds: string[]) => Promise<{ projectsMerged: number }>;
 }
 
 export const CompanyContext = createContext<CompanyContextType | undefined>(undefined);

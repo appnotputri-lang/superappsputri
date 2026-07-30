@@ -417,4 +417,159 @@ export class CompanyService {
       throw error;
     }
   }
+
+  /**
+   * Merge one or more source companies into a target company
+   * without losing associated projects or key profiles data.
+   */
+  static async mergeCompanies(targetId: string, sourceIds: string[]): Promise<{ projectsMerged: number }> {
+    const collectionName = 'profiles';
+    let projectsMerged = 0;
+    try {
+      // 1. Fetch Target Profile
+      const targetRef = doc(db, collectionName, targetId);
+      const targetSnap = await getDoc(targetRef);
+      if (!targetSnap.exists()) {
+        throw new Error('Klien utama (target) tidak ditemukan.');
+      }
+      const targetData = targetSnap.data() as CompanyProfile;
+
+      // 2. Fetch Source Profiles & Merge Fields
+      const mergedFields: Partial<CompanyProfile> = {};
+      
+      for (const sourceId of sourceIds) {
+        if (sourceId === targetId) continue;
+        const sourceRef = doc(db, collectionName, sourceId);
+        const sourceSnap = await getDoc(sourceRef);
+        if (!sourceSnap.exists()) continue;
+        const sourceData = sourceSnap.data() as CompanyProfile;
+
+        // Loop through keys and fill empty target fields with source fields
+        Object.keys(sourceData).forEach((key) => {
+          const k = key as keyof CompanyProfile;
+          const targetVal = targetData[k];
+          const sourceVal = sourceData[k];
+
+          if (sourceVal !== undefined && sourceVal !== null && sourceVal !== '') {
+            // If target value is missing/empty, adopt the source value
+            if (targetVal === undefined || targetVal === null || targetVal === '' || (Array.isArray(targetVal) && targetVal.length === 0)) {
+              (mergedFields as any)[k] = sourceVal;
+            } else if (Array.isArray(targetVal) && Array.isArray(sourceVal)) {
+              // For arrays like shareholders or kblis, combine unique items
+              if (k === 'shareholders') {
+                const targetSH = targetVal as any[];
+                const sourceSH = sourceVal as any[];
+                // Basic deduplication of shareholders based on name or id
+                const combinedSH = [...targetSH];
+                sourceSH.forEach(sh => {
+                  const exists = targetSH.some(t => t.name === sh.name || t.id === sh.id);
+                  if (!exists) combinedSH.push(sh);
+                });
+                (mergedFields as any)[k] = combinedSH;
+              } else if (k === 'kbliItems') {
+                const targetKbli = targetVal as any[];
+                const sourceKbli = sourceVal as any[];
+                const combinedKbli = [...targetKbli];
+                sourceKbli.forEach(kb => {
+                  const exists = targetKbli.some(t => (t.kode || t) === (kb.kode || kb));
+                  if (!exists) combinedKbli.push(kb);
+                });
+                (mergedFields as any)[k] = combinedKbli;
+              }
+            }
+          }
+        });
+      }
+
+      // Save updated Target profile
+      if (Object.keys(mergedFields).length > 0) {
+        await updateDoc(targetRef, sanitizeForFirestore(mergedFields));
+      }
+
+      // 3. Scan & Reassociate Project Collections
+      const projectCollections = [
+        'office_projects',
+        'projects',
+        'rupst_projects',
+        'rupst_public_projects',
+        'pendirian_projects'
+      ];
+
+      for (const colName of projectCollections) {
+        try {
+          const colRef = collection(db, colName);
+          const snap = await getDocs(colRef);
+          
+          for (const d of snap.docs) {
+            const data = d.data();
+            const projId = d.id;
+            
+            // Check if this project matches any of the source IDs
+            const matchesSource = sourceIds.some(sourceId => 
+              projId === sourceId ||
+              data.clientId === sourceId ||
+              data.selectedProfileId === sourceId ||
+              data.companyId === sourceId ||
+              data.metadata?.clientId === sourceId
+            );
+
+            if (matchesSource) {
+              const updates: any = {};
+              if (data.clientId && sourceIds.includes(data.clientId)) updates.clientId = targetId;
+              if (data.selectedProfileId && sourceIds.includes(data.selectedProfileId)) updates.selectedProfileId = targetId;
+              if (data.companyId && sourceIds.includes(data.companyId)) updates.companyId = targetId;
+              if (data.metadata?.clientId && sourceIds.includes(data.metadata?.clientId)) {
+                updates.metadata = { ...data.metadata, clientId: targetId };
+              }
+              
+              if (Object.keys(updates).length > 0) {
+                await updateDoc(doc(db, colName, projId), sanitizeForFirestore(updates));
+                projectsMerged++;
+              }
+            }
+          }
+        } catch (e) {
+          console.warn(`[CompanyService] Error updating projects in ${colName} during merge:`, e);
+        }
+      }
+
+      // 4. Reassociate project_uploaded_documents
+      try {
+        const uploadedDocsCol = collection(db, 'project_uploaded_documents');
+        const uploadedDocsSnap = await getDocs(uploadedDocsCol);
+        for (const docSnap of uploadedDocsSnap.docs) {
+          const data = docSnap.data();
+          const matchesSource = sourceIds.some(sourceId => 
+            data.clientId === sourceId ||
+            data.selectedProfileId === sourceId ||
+            data.companyId === sourceId
+          );
+
+          if (matchesSource) {
+            const updates: any = {};
+            if (data.clientId && sourceIds.includes(data.clientId)) updates.clientId = targetId;
+            if (data.selectedProfileId && sourceIds.includes(data.selectedProfileId)) updates.selectedProfileId = targetId;
+            if (data.companyId && sourceIds.includes(data.companyId)) updates.companyId = targetId;
+
+            await updateDoc(docSnap.ref, sanitizeForFirestore(updates));
+          }
+        }
+      } catch (e) {
+        console.warn("[CompanyService] Error updating project_uploaded_documents during merge:", e);
+      }
+
+      // 5. Delete source profile documents
+      for (const sourceId of sourceIds) {
+        if (sourceId === targetId) continue;
+        await deleteDoc(doc(db, collectionName, sourceId)).catch(() => {});
+        await deleteDoc(doc(db, 'company_profiles', sourceId)).catch(() => {});
+        await deleteDoc(doc(db, 'cv_profiles', sourceId)).catch(() => {});
+      }
+
+      return { projectsMerged };
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, `${collectionName}/${targetId}`);
+      throw error;
+    }
+  }
 }

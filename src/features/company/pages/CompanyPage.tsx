@@ -14,6 +14,7 @@ import { handleFirestoreError, OperationType } from '../../../lib/firebase';
 import { NotificationService } from '../../../services/NotificationService';
 import { ShareholderModal } from '../../../components/modals/ShareholderModal';
 import { KbliModal } from '../../../components/modals/KbliModal';
+import { MergeClientsModal } from '../../../components/modals/MergeClientsModal';
 import { INITIAL_STATE, INITIAL_ADDRESS } from '../../../domain/company/initialCompanyData';
 import { KBLI_DATA } from '../../../../utils/kbliData';
 import { KBLI_2025_CATEGORIES } from '../../../lib/kbliConstants';
@@ -34,6 +35,7 @@ export const CompanyPage: React.FC<CompanyPageProps> = () => {
     delete: deleteCompanyInContext, 
     archive: archiveCompanyInContext, 
     duplicate: duplicateCompanyInContext,
+    merge: mergeCompaniesInContext,
     loading: isDataLoading,
   } = useCompanyContext();
 
@@ -69,7 +71,26 @@ export const CompanyPage: React.FC<CompanyPageProps> = () => {
   const [editingShareholder, setEditingShareholder] = useState<any>(null);
   const [editingDismissalId, setEditingDismissalId] = useState<string | null>(null);
 
-  // 5. Local State Management for KBLI Modal
+  // 5. State for Merge Clients Modal
+  const [isMergeModalOpen, setIsMergeModalOpen] = useState<boolean>(false);
+
+  const handleMergeCompanies = async (targetId: string, sourceIds: string[]) => {
+    try {
+      const result = await mergeCompaniesInContext(targetId, sourceIds);
+      await recordNotification(
+        'Penyatuan Klien Berhasil',
+        `Berhasil menyatukan ${sourceIds.length} klien duplikat. ${result.projectsMerged} proyek telah dipindahkan secara aman.`,
+        'success'
+      );
+      alert(`Penyatuan berhasil! ${sourceIds.length} klien duplikat telah digabungkan, dan ${result.projectsMerged} proyek dipindahkan secara aman.`);
+    } catch (err: any) {
+      console.error(err);
+      alert(err.message || 'Terjadi kesalahan saat menggabungkan klien.');
+      throw err;
+    }
+  };
+
+  // 6. Local State Management for KBLI Modal
   const [isAddKbliModalOpen, setIsAddKbliModalOpen] = useState<boolean>(false);
   const [kbliModalSearchTerm, setKbliModalSearchTerm] = useState<string>('');
   const [kbliModalSearchResults, setKbliModalSearchResults] = useState<any[]>([]);
@@ -690,6 +711,7 @@ export const CompanyPage: React.FC<CompanyPageProps> = () => {
             uniqueProfileYears={uniqueProfileYears}
             selectedClientType={selectedClientType}
             setSelectedClientType={setSelectedClientType}
+            onOpenMergeModal={() => setIsMergeModalOpen(true)}
           />
 
           <CompanyList
@@ -785,6 +807,13 @@ export const CompanyPage: React.FC<CompanyPageProps> = () => {
         currentPage={safeKbliCurrentPage}
         setCurrentPage={setKbliCurrentPage}
         onAddBatch={handleAddKbliBatch}
+      />
+
+      <MergeClientsModal
+        isOpen={isMergeModalOpen}
+        onClose={() => setIsMergeModalOpen(false)}
+        profiles={currentProfilesList}
+        onMerge={handleMergeCompanies}
       />
     </PageContainer>
   );

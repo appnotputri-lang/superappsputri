@@ -12,7 +12,8 @@ import {
   FileText, 
   Globe, 
   User, 
-  Layers 
+  Layers,
+  GitMerge
 } from 'lucide-react';
 import { CompanyToolbarProps } from '../types/company.types';
 
@@ -42,6 +43,7 @@ export const CompanyToolbar: React.FC<CompanyToolbarProps> = ({
   uniqueProfileYears,
   selectedClientType,
   setSelectedClientType,
+  onOpenMergeModal,
 }) => {
   const handleSearchChange = (val: string) => {
     setProfileSearchQuery(val);
@@ -101,6 +103,17 @@ export const CompanyToolbar: React.FC<CompanyToolbarProps> = ({
               )}
             </button>
           </div>
+
+          {/* Merge Clients Button */}
+          {onOpenMergeModal && (
+            <button
+              onClick={onOpenMergeModal}
+              className="px-3 py-1 bg-blue-50 hover:bg-blue-100 text-[#0c2444] text-[11px] font-bold rounded-lg transition-all flex items-center gap-1.5 uppercase tracking-wider border border-blue-200/50 cursor-pointer"
+            >
+              <GitMerge className="w-3.5 h-3.5 text-blue-600 animate-pulse" />
+              <span>Gabungkan Duplikat</span>
+            </button>
+          )}
         </div>
 
         {/* Search Input & Year Dropdown */}

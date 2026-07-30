@@ -831,21 +831,34 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects: propsProject
               const colors = getStatusColors(statusText);
               const cell = data.cell;
               
-              // Calculate pill dimensions
-              const pillWidth = 35; // optimal width to prevent truncation and center perfectly
-              const pillHeight = 5;  // nice slim height
-              const pillX = cell.x + (cell.width - pillWidth) / 2;
+              doc.setFont('helvetica', 'bold');
+              // Use a smaller font size if the text is quite long to prevent overflow
+              const fontSize = statusText.length > 20 ? 5.5 : 6.5;
+              doc.setFontSize(fontSize);
+              
+              // Let the pill occupy almost the full width of the cell, with 2mm margin on each side
+              const maxPillWidth = cell.width - 4; // 34mm if cell is 38mm
+              
+              // Split text into lines that fit inside the pill with safety padding
+              const lines = doc.splitTextToSize(statusText, maxPillWidth - 5);
+              
+              const lineHeight = fontSize === 5.5 ? 2.5 : 2.8;
+              const pillHeight = Math.max(5, lines.length * lineHeight + 1.8);
+              const pillX = cell.x + (cell.width - maxPillWidth) / 2;
               const pillY = cell.y + (cell.height - pillHeight) / 2;
               
               // Draw rounded rectangle for the pill background
               doc.setFillColor(colors.bg[0], colors.bg[1], colors.bg[2]);
-              doc.roundedRect(pillX, pillY, pillWidth, pillHeight, 1.2, 1.2, 'F');
+              doc.roundedRect(pillX, pillY, maxPillWidth, pillHeight, 1.2, 1.2, 'F');
               
               // Draw text centered inside the pill
-              doc.setFont('helvetica', 'bold');
-              doc.setFontSize(7);
               doc.setTextColor(colors.text[0], colors.text[1], colors.text[2]);
-              doc.text(statusText, cell.x + cell.width / 2, pillY + 3.5, { align: 'center' });
+              
+              lines.forEach((line: string, i: number) => {
+                const offset = (pillHeight - (lines.length * lineHeight)) / 2;
+                const lineY = pillY + offset + (i * lineHeight) + (lineHeight * 0.82);
+                doc.text(line, cell.x + cell.width / 2, lineY, { align: 'center' });
+              });
             }
           }
         },
