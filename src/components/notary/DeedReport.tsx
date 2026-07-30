@@ -1,8 +1,9 @@
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useRef } from 'react';
 import { Deed } from '../../../types';
-import { Printer, Search } from 'lucide-react';
+import { Printer, Search, Download, Share2, Loader2 } from 'lucide-react';
 import { printElement } from '../../utils/printHelper';
-import stampSignatureImage from '../../assets/images/notary_stamp_signature_1785252991786.jpg';
+import { downloadElementAsPdf, shareElementAsPdf } from '../../utils/pdfExport';
+import { getSignatureImage } from '../../utils/signatureUtils';
 
 interface DeedReportProps {
   month: number;
@@ -27,14 +28,8 @@ export const DeedReport: React.FC<DeedReportProps> = ({
   signatureDate
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
-
-  const customStampUrl = useMemo(() => {
-    try {
-      return localStorage.getItem('notary_custom_stamp_signature_url') || '';
-    } catch {
-      return '';
-    }
-  }, []);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [isSharing, setIsSharing] = useState(false);
 
   // Filter deeds for current month and year
   const filteredDeeds = deeds.filter(d => {
@@ -61,6 +56,30 @@ export const DeedReport: React.FC<DeedReportProps> = ({
   };
 
   const monthName = MONTH_NAMES[month - 1] || '';
+
+  const handleDownload = async () => {
+    setIsDownloading(true);
+    try {
+      await downloadElementAsPdf(printRef.current, `Laporan_Akta_${monthName}_${year}.pdf`);
+    } catch (e) {
+      console.error(e);
+      alert('Gagal mengunduh PDF.');
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
+  const handleShare = async () => {
+    setIsSharing(true);
+    try {
+      await shareElementAsPdf(printRef.current, `Laporan_Akta_${monthName}_${year}.pdf`, 'Laporan Akta');
+    } catch (e) {
+      console.error(e);
+      alert('Gagal memproses PDF.');
+    } finally {
+      setIsSharing(false);
+    }
+  };
 
   const formatDateIndo = (dateStr: string) => {
     if (!dateStr) return '-';
@@ -100,6 +119,22 @@ export const DeedReport: React.FC<DeedReportProps> = ({
         </div>
 
         <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+          <button
+            onClick={handleDownload}
+            disabled={isDownloading}
+            className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium text-xs flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
+          >
+            {isDownloading ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />}
+            Download PDF
+          </button>
+          <button
+            onClick={handleShare}
+            disabled={isSharing}
+            className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium text-xs flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
+          >
+            {isSharing ? <Loader2 size={15} className="animate-spin" /> : <Share2 size={15} />}
+            Share
+          </button>
           <button
             onClick={handlePrint}
             className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium text-xs flex items-center gap-1.5 transition-all cursor-pointer"
@@ -221,7 +256,7 @@ export const DeedReport: React.FC<DeedReportProps> = ({
             <div className="relative h-28 my-1 flex items-center">
               <div className="absolute -left-4 -top-8 w-44 h-44 pointer-events-none select-none z-0">
                 <img
-                  src={customStampUrl || stampSignatureImage}
+                  src={getSignatureImage()}
                   alt="Cap Stempel dan Tanda Tangan Notaris"
                   className="w-full h-full object-contain mix-blend-multiply opacity-95"
                 />

@@ -1,7 +1,9 @@
 import React, { useState, useRef } from 'react';
 import { PrivateDeed } from '../../../types';
-import { Printer, Search } from 'lucide-react';
+import { Printer, Search, Download, Share2, Loader2 } from 'lucide-react';
 import { printElement } from '../../utils/printHelper';
+import { downloadElementAsPdf, shareElementAsPdf } from '../../utils/pdfExport';
+import { getSignatureImage } from '../../utils/signatureUtils';
 
 interface PrivateDeedPrintViewProps {
   month: number;
@@ -51,9 +53,35 @@ export const PrivateDeedPrintView: React.FC<PrivateDeedPrintViewProps> = ({
   });
 
   const printRef = useRef<HTMLDivElement>(null);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [isSharing, setIsSharing] = useState(false);
 
   const handlePrint = () => {
     printElement(printRef.current, `Laporan_${type}_${month}_${year}`);
+  };
+
+  const handleDownload = async () => {
+    setIsDownloading(true);
+    try {
+      await downloadElementAsPdf(printRef.current, `Laporan_${type}_${monthName}_${year}.pdf`);
+    } catch (e) {
+      console.error(e);
+      alert('Gagal mengunduh PDF.');
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
+  const handleShare = async () => {
+    setIsSharing(true);
+    try {
+      await shareElementAsPdf(printRef.current, `Laporan_${type}_${monthName}_${year}.pdf`, `Laporan ${type}`);
+    } catch (e) {
+      console.error(e);
+      alert('Gagal memproses PDF.');
+    } finally {
+      setIsSharing(false);
+    }
   };
 
   return (
@@ -72,6 +100,22 @@ export const PrivateDeedPrintView: React.FC<PrivateDeedPrintViewProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
+          <button
+            onClick={handleDownload}
+            disabled={isDownloading}
+            className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium text-xs flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
+          >
+            {isDownloading ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />}
+            Download PDF
+          </button>
+          <button
+            onClick={handleShare}
+            disabled={isSharing}
+            className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium text-xs flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
+          >
+            {isSharing ? <Loader2 size={15} className="animate-spin" /> : <Share2 size={15} />}
+            Share
+          </button>
           <button
             onClick={handlePrint}
             className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium text-xs flex items-center gap-1.5 transition-all cursor-pointer"
@@ -140,11 +184,24 @@ export const PrivateDeedPrintView: React.FC<PrivateDeedPrintViewProps> = ({
         </div>
 
         {/* Signature Footer */}
-        <div className="mt-8 hidden print:flex justify-end text-xs">
-          <div className="text-center w-56">
+        <div className="mt-8 flex justify-end text-xs font-sans text-slate-900">
+          <div className="text-left w-80 space-y-1">
             <p>Jawa Barat, {signatureDate || `${monthName} ${year}`}</p>
-            <p className="mb-14">Notaris di Jawa Barat</p>
-            <p className="font-bold underline">PUTRI, S.H., M.Kn.</p>
+            <p>Notaris di Jawa Barat</p>
+
+            <div className="relative h-28 my-1 flex items-center">
+              <div className="absolute -left-4 -top-8 w-44 h-44 pointer-events-none select-none z-0">
+                <img
+                  src={getSignatureImage()}
+                  alt="Cap Stempel dan Tanda Tangan Notaris"
+                  className="w-full h-full object-contain mix-blend-multiply opacity-95"
+                />
+              </div>
+            </div>
+
+            <p className="font-bold underline uppercase text-xs tracking-wide pt-2 z-10 relative">
+              PUTRI, S.H., M.Kn.
+            </p>
           </div>
         </div>
       </div>

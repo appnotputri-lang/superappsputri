@@ -20,6 +20,7 @@ interface MergeClientsModalProps {
   onClose: () => void;
   profiles: CompanyProfile[];
   onMerge: (targetId: string, sourceIds: string[]) => Promise<void>;
+  onMergeMultiple?: (groups: { targetId: string; sourceIds: string[] }[]) => Promise<void>;
 }
 
 export const MergeClientsModal: React.FC<MergeClientsModalProps> = ({
@@ -27,6 +28,7 @@ export const MergeClientsModal: React.FC<MergeClientsModalProps> = ({
   onClose,
   profiles,
   onMerge,
+  onMergeMultiple,
 }) => {
   const [activeTab, setActiveTab] = useState<'auto' | 'manual'>('auto');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
@@ -41,6 +43,9 @@ export const MergeClientsModal: React.FC<MergeClientsModalProps> = ({
   const [selectedAutoGroup, setSelectedAutoGroup] = useState<any | null>(null);
   const [customPrimaryId, setCustomPrimaryId] = useState<string>('');
   const [customSourceIds, setCustomSourceIds] = useState<string[]>([]);
+
+  // Bulk merge confirmation state
+  const [isBulkMergeConfirmOpen, setIsBulkMergeConfirmOpen] = useState<boolean>(false);
 
   // Filter out archived profiles and sort alphabetically
   const activeProfiles = useMemo(() => {
@@ -206,6 +211,32 @@ export const MergeClientsModal: React.FC<MergeClientsModalProps> = ({
     }
   };
 
+  const handleBulkMergeSubmit = async () => {
+    setIsSubmitting(true);
+    setError(null);
+    try {
+      const groups = autoDuplicateGroups.map(group => ({
+        targetId: group.suggestedPrimary.id,
+        sourceIds: group.duplicates.map(d => d.id)
+      }));
+
+      if (onMergeMultiple) {
+        await onMergeMultiple(groups);
+      } else {
+        // Fallback sequentially
+        for (const g of groups) {
+          await onMerge(g.targetId, g.sourceIds);
+        }
+      }
+      setIsBulkMergeConfirmOpen(false);
+      onClose();
+    } catch (err: any) {
+      setError(err.message || 'Terjadi kesalahan saat menggabungkan semua klien.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const selectedManualTarget = activeProfiles.find(p => p.id === manualTargetId);
 
   return (
@@ -244,7 +275,7 @@ export const MergeClientsModal: React.FC<MergeClientsModalProps> = ({
           </div>
 
           {/* Tab Navigation (Only shown when not in deep confirmation state) */}
-          {!selectedAutoGroup && (
+          {!selectedAutoGroup && !isBulkMergeConfirmOpen && (
             <div className="flex border-b border-slate-200 bg-slate-50/50">
               <button
                 type="button"
@@ -274,7 +305,7 @@ export const MergeClientsModal: React.FC<MergeClientsModalProps> = ({
           )}
 
           {/* Main Error View */}
-          {error && !selectedAutoGroup && (
+          {error && !selectedAutoGroup && !isBulkMergeConfirmOpen && (
             <div className="mx-6 mt-4 bg-rose-50 border border-rose-200 text-rose-800 p-3.5 rounded-lg text-xs flex gap-2">
               <AlertTriangle className="w-4 h-4 shrink-0" />
               <span>{error}</span>
@@ -285,7 +316,7 @@ export const MergeClientsModal: React.FC<MergeClientsModalProps> = ({
           <div className="p-6 overflow-y-auto max-h-[60vh] space-y-4">
 
             {/* A: CONFIRMATION SCREEN (FOR AUTO-MERGE GROUP) */}
-            {selectedAutoGroup && (
+            {selectedAutoGroup && !isBulkMergeConfirmOpen && (
               <div className="space-y-4">
                 <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl flex gap-3">
                   <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
@@ -410,8 +441,84 @@ export const MergeClientsModal: React.FC<MergeClientsModalProps> = ({
               </div>
             )}
 
+            {/* A.2: CONFIRMATION SCREEN (FOR BULK AUTO-MERGE) */}
+            {isBulkMergeConfirmOpen && (
+              <div className="space-y-4">
+                <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl flex gap-3">
+                  <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                  <div>
+                    <h4 className="text-xs font-bold text-amber-900 uppercase tracking-wider">
+                      Konfirmasi Penyatuan Massal ({autoDuplicateGroups.length} Grup Klien)
+                    </h4>
+                    <p className="text-[11px] text-amber-800 mt-1 leading-relaxed">
+                      Anda akan menyatukan <strong>seluruh</strong> grup duplikat yang terdeteksi secara otomatis di bawah ini. Sistem telah memilih profil terbaik sebagai <strong>Klien Utama</strong> untuk masing-masing grup berdasarkan kelengkapan datanya. Semua proyek, akta, dan dokumen akan dipindahkan secara aman.
+                    </p>
+                  </div>
+                </div>
+
+                {error && (
+                  <div className="bg-rose-50 border border-rose-200 text-rose-800 p-3 rounded-lg text-xs flex gap-2">
+                    <AlertTriangle className="w-4 h-4 shrink-0" />
+                    <span>{error}</span>
+                  </div>
+                )}
+
+                <div className="space-y-3 max-h-60 overflow-y-auto pr-1">
+                  {autoDuplicateGroups.map((group, index) => (
+                    <div key={group.id} className="border border-slate-200 rounded-xl p-3 bg-white space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-slate-800">Grup {index + 1}: {group.groupName}</span>
+                        <span className="text-[10px] bg-amber-50 text-amber-850 font-bold px-2 py-0.5 rounded-full">
+                          {group.allProfiles.length} data ganda
+                        </span>
+                      </div>
+                      <div className="text-[11px] leading-relaxed space-y-1 bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+                        <div className="flex items-center gap-1">
+                          <span className="font-semibold text-slate-700">Klien Utama (Rekomendasi):</span> 
+                          <span className="text-blue-700 font-semibold">{group.suggestedPrimary.companyName}</span>
+                        </div>
+                        <div className="text-slate-500">
+                          Akan digabung & dihapus: {group.duplicates.map(d => d.companyName).join(', ')}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Action controls for bulk confirmation view */}
+                <div className="flex items-center justify-end gap-2.5 pt-4 border-t border-slate-100">
+                  <button
+                    type="button"
+                    className="px-4 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-lg text-xs font-bold uppercase tracking-wider transition-all cursor-pointer"
+                    onClick={() => setIsBulkMergeConfirmOpen(false)}
+                    disabled={isSubmitting}
+                  >
+                    Kembali
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleBulkMergeSubmit}
+                    className="px-4 py-2 bg-blue-750 hover:bg-blue-800 text-white rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
+                    disabled={isSubmitting}
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        <span>Sedang Memproses Penyatuan...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-3.5 h-3.5 text-amber-350 animate-pulse" />
+                        <span>Gabung Semua Duplikat</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* B: TAB AUTO-DETECTED GROUPS LIST */}
-            {activeTab === 'auto' && !selectedAutoGroup && (
+            {activeTab === 'auto' && !selectedAutoGroup && !isBulkMergeConfirmOpen && (
               <div className="space-y-4">
                 <div className="bg-slate-50 border border-slate-200/80 p-4 rounded-xl flex gap-3">
                   <Building className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
@@ -441,9 +548,24 @@ export const MergeClientsModal: React.FC<MergeClientsModalProps> = ({
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
-                      Daftar Grup Duplikat Terdeteksi ({autoDuplicateGroups.length})
-                    </label>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-blue-50/50 border border-blue-100 p-4 rounded-xl shadow-xs">
+                      <div className="space-y-0.5">
+                        <span className="block text-xs font-bold text-slate-800 uppercase tracking-wider">
+                          Daftar Grup Duplikat ({autoDuplicateGroups.length})
+                        </span>
+                        <p className="text-[10px] text-slate-500">
+                          Sistem mendeteksi kelompok data ganda/serupa dalam database Anda.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setIsBulkMergeConfirmOpen(true)}
+                        className="bg-amber-600 hover:bg-amber-700 text-white font-bold text-[11px] px-3.5 py-2 rounded-lg flex items-center justify-center gap-1.5 uppercase tracking-wider transition-all shrink-0 shadow-sm cursor-pointer"
+                      >
+                        <Sparkles className="w-3.5 h-3.5 text-amber-200 animate-pulse" />
+                        <span>Gabung Semua Sekaligus</span>
+                      </button>
+                    </div>
                     
                     <div className="space-y-3">
                       {autoDuplicateGroups.map((group) => (

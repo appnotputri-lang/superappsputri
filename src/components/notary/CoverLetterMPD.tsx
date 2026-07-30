@@ -1,8 +1,9 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Deed, PrivateDeed, ProtestCheque, OutgoingMail } from '../../../types';
-import { Printer, Settings, RotateCcw, Image, Check, Trash2, Upload } from 'lucide-react';
-import stampSignatureImage from '../../assets/images/notary_stamp_signature_1785252991786.jpg';
+import { Printer, Settings, RotateCcw, Image, Check, Trash2, Upload, Download, Share2, Loader2 } from 'lucide-react';
 import { printElement } from '../../utils/printHelper';
+import { downloadElementAsPdf, shareElementAsPdf } from '../../utils/pdfExport';
+import { getSignatureImage, setSignatureImage, resetSignatureImage } from '../../utils/signatureUtils';
 
 interface CoverLetterMPDProps {
   month: number;
@@ -28,6 +29,10 @@ export const CoverLetterMPD: React.FC<CoverLetterMPDProps> = ({
   month,
   year,
   signatureDate,
+  deeds,
+  privateDeeds,
+  protestCheques,
+  outgoingMails,
 }) => {
   const monthName = MONTH_NAMES[month - 1] || 'Juli';
   const romanMonth = ROMAN_MONTHS[month - 1] || 'VII';
@@ -68,13 +73,33 @@ export const CoverLetterMPD: React.FC<CoverLetterMPDProps> = ({
   const STAMP_SIZE_KEY = 'notary_stamp_size';
 
   const [showStampImage, setShowStampImage] = useState(true);
-  const [customStampUrl, setCustomStampUrl] = useState<string>(() => {
-    try {
-      return localStorage.getItem(STAMP_STORAGE_KEY) || '';
-    } catch {
-      return '';
-    }
-  });
+  const [customStampUrl, setCustomStampUrl] = useState<string>(getSignatureImage());
+
+  useEffect(() => {
+    setCustomStampUrl(getSignatureImage());
+  }, []);
+
+  useEffect(() => {
+    const mails = outgoingMails || [];
+    const count = mails.filter(m => {
+      if (!m.date) return false;
+      const isMpdCoverLetter = 
+        (m as any).type === 'surat_pengantar' ||
+        (m.subject && m.subject.toLowerCase().includes('pengantar')) ||
+        (m.subject && m.subject.toLowerCase().includes('daftar akta')) ||
+        (m.mailNumber && m.mailNumber.toLowerCase().includes('npp-not'));
+
+      if (!isMpdCoverLetter) return false;
+
+      try {
+        return new Date(m.date).getFullYear() === year;
+      } catch {
+        return false;
+      }
+    }).length;
+    const nextNum = count + 1;
+    setLetterNumber(`${nextNum}/NPP-NOT/${romanMonth}/${year}`);
+  }, [outgoingMails, year, romanMonth]);
 
   const [stampOffsetY, setStampOffsetY] = useState<number>(() => {
     try {
@@ -157,18 +182,40 @@ export const CoverLetterMPD: React.FC<CoverLetterMPDProps> = ({
     setEndDateStr(`${lastDayOfMonth.toString().padStart(2, '0')} ${monthName} ${year}`);
 
     setShowStampImage(true);
-    setCustomStampUrl('');
-    try {
-      localStorage.removeItem(STAMP_STORAGE_KEY);
-    } catch (e) {
-      console.error(e);
-    }
+    resetSignatureImage();
+    setCustomStampUrl(getSignatureImage());
   };
 
   const printRef = useRef<HTMLDivElement>(null);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [isSharing, setIsSharing] = useState(false);
 
   const handlePrint = () => {
     printElement(printRef.current, `Surat_Pengantar_MPD_${month}_${year}`);
+  };
+
+  const handleDownload = async () => {
+    setIsDownloading(true);
+    try {
+      await downloadElementAsPdf(printRef.current, `Surat_Pengantar_MPD_${monthName}_${year}.pdf`);
+    } catch (e) {
+      console.error(e);
+      alert('Gagal mengunduh PDF.');
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
+  const handleShare = async () => {
+    setIsSharing(true);
+    try {
+      await shareElementAsPdf(printRef.current, `Surat_Pengantar_MPD_${monthName}_${year}.pdf`, 'Surat Pengantar MPD');
+    } catch (e) {
+      console.error(e);
+      alert('Gagal memproses PDF.');
+    } finally {
+      setIsSharing(false);
+    }
   };
 
   const formattedLetterDate = signatureDate || customDate;
@@ -194,8 +241,26 @@ export const CoverLetterMPD: React.FC<CoverLetterMPDProps> = ({
           </button>
           <button
             type="button"
+            onClick={handleDownload}
+            disabled={isDownloading}
+            className="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium text-xs flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
+          >
+            {isDownloading ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />}
+            Download PDF
+          </button>
+          <button
+            type="button"
+            onClick={handleShare}
+            disabled={isSharing}
+            className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium text-xs flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
+          >
+            {isSharing ? <Loader2 size={15} className="animate-spin" /> : <Share2 size={15} />}
+            Share
+          </button>
+          <button
+            type="button"
             onClick={handlePrint}
-            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium text-xs flex items-center gap-2 transition-all shadow-sm cursor-pointer"
+            className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium text-xs flex items-center gap-2 transition-all cursor-pointer"
           >
             <Printer size={16} />
             Cetak Surat Pengantar
@@ -356,19 +421,15 @@ export const CoverLetterMPD: React.FC<CoverLetterMPDProps> = ({
                       onChange={(e) => {
                         const file = e.target.files?.[0];
                         if (file) {
-                          const reader = new FileReader();
-                          reader.onload = (evt) => {
-                            if (evt.target?.result) {
-                              const imgData = evt.target.result as string;
-                              setCustomStampUrl(imgData);
-                              try {
-                                localStorage.setItem('notary_custom_stamp_signature_url', imgData);
-                              } catch (err) {
-                                console.error('Gagal menyimpan gambar ke storage:', err);
-                              }
-                            }
-                          };
-                          reader.readAsDataURL(file);
+                           const reader = new FileReader();
+                           reader.onload = (evt) => {
+                             if (evt.target?.result) {
+                               const imgData = evt.target.result as string;
+                               setSignatureImage(imgData);
+                               setCustomStampUrl(imgData);
+                             }
+                           };
+                           reader.readAsDataURL(file);
                         }
                       }}
                       className="hidden"
@@ -378,12 +439,8 @@ export const CoverLetterMPD: React.FC<CoverLetterMPDProps> = ({
                     <button
                       type="button"
                       onClick={() => {
-                        setCustomStampUrl('');
-                        try {
-                          localStorage.removeItem('notary_custom_stamp_signature_url');
-                        } catch (err) {
-                          console.error(err);
-                        }
+                        resetSignatureImage();
+                        setCustomStampUrl(getSignatureImage());
                       }}
                       className="px-2.5 py-1.5 text-rose-600 hover:bg-rose-50 rounded-lg flex items-center gap-1 font-medium cursor-pointer border border-rose-200"
                     >
@@ -557,7 +614,7 @@ export const CoverLetterMPD: React.FC<CoverLetterMPDProps> = ({
                   className="absolute pointer-events-none select-none z-0"
                 >
                   <img
-                    src={customStampUrl || stampSignatureImage}
+                    src={getSignatureImage()}
                     alt="Cap Stempel dan Tanda Tangan Notaris"
                     className="w-full h-full object-contain mix-blend-multiply"
                     referrerPolicy="no-referrer"

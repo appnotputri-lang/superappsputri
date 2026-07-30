@@ -90,6 +90,28 @@ export const CompanyPage: React.FC<CompanyPageProps> = () => {
     }
   };
 
+  const handleMergeMultipleCompanies = async (groups: { targetId: string; sourceIds: string[] }[]) => {
+    try {
+      let totalProjectsMerged = 0;
+      let totalClientsMerged = 0;
+      for (const group of groups) {
+        const result = await mergeCompaniesInContext(group.targetId, group.sourceIds);
+        totalProjectsMerged += result.projectsMerged;
+        totalClientsMerged += group.sourceIds.length;
+      }
+      await recordNotification(
+        'Penyatuan Massal Berhasil',
+        `Berhasil menyatukan ${totalClientsMerged} klien duplikat di ${groups.length} grup berbeda. ${totalProjectsMerged} proyek telah dipindahkan secara aman.`,
+        'success'
+      );
+      alert(`Penyatuan massal berhasil! ${totalClientsMerged} klien duplikat di ${groups.length} grup telah digabungkan, dan ${totalProjectsMerged} proyek dipindahkan secara aman.`);
+    } catch (err: any) {
+      console.error(err);
+      alert(err.message || 'Terjadi kesalahan saat menggabungkan klien secara massal.');
+      throw err;
+    }
+  };
+
   // 6. Local State Management for KBLI Modal
   const [isAddKbliModalOpen, setIsAddKbliModalOpen] = useState<boolean>(false);
   const [kbliModalSearchTerm, setKbliModalSearchTerm] = useState<string>('');
@@ -814,6 +836,7 @@ export const CompanyPage: React.FC<CompanyPageProps> = () => {
         onClose={() => setIsMergeModalOpen(false)}
         profiles={currentProfilesList}
         onMerge={handleMergeCompanies}
+        onMergeMultiple={handleMergeMultipleCompanies}
       />
     </PageContainer>
   );

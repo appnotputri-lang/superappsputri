@@ -1,7 +1,8 @@
 import React, { useState, useMemo, useRef } from 'react';
 import { Deed, DeedAppearer, DeedGrantor } from '../types';
-import { exportToPDF } from '../utils/pdfExportHelper';
-import { printHtmlString } from '../utils/printHelper';
+import { printElement } from '../utils/printHelper';
+import { downloadElementAsPdf, shareElementAsPdf } from '../utils/pdfExport';
+import { getSignatureImage } from '../utils/signatureUtils';
 import {
   Printer,
   ArrowLeft,
@@ -19,8 +20,6 @@ export const getCachedSettings = () => ({
   city: 'Bandung Barat',
   officeAddress: 'Jl. Raya Notaris No. 123, Jawa Barat'
 });
-
-export const getSignatureImage = () => null;
 
 const MONTH_NAMES = [
   'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
@@ -631,50 +630,30 @@ export const DeedAlphabeticalReport: React.FC<DeedAlphabeticalReportProps> = ({
 
   // Actions
   const handlePrint = () => {
-    const htmlString = generateHTML();
-    printHtmlString(htmlString, `KLAPPER_AKTA_${monthName}_${year}`);
+    printElement(printRef.current, `Klapper_Akta_${monthName}_${year}`);
   };
 
   const handleDownloadPDF = async () => {
     setIsExportingPDF(true);
     try {
-      const htmlString = generateHTML();
-      await exportToPDF(htmlString, {
-        filename: `Salinan_Klapper_Akta_${monthName}_${year}.pdf`,
-        margin: [10, 10, 10, 10],
-        orientation: 'portrait'
-      });
+      await downloadElementAsPdf(printRef.current, `Klapper_Akta_${monthName}_${year}.pdf`);
     } catch (err) {
       console.error('Failed to export PDF:', err);
-      alert('Gagal mendownload PDF, mengalihkan ke fitur cetak.');
-      const htmlString = generateHTML();
-      printHtmlString(htmlString, `KLAPPER_AKTA_${monthName}_${year}`);
+      alert('Gagal mendownload PDF.');
     } finally {
       setIsExportingPDF(false);
     }
   };
 
   const handleShare = async () => {
-    const shareData = {
-      title: `Klapper Akta (A-Z) - ${monthName} ${year}`,
-      text: `Salinan Daftar Klapper Akta Notaris ${settings.notaryName} Periode ${monthName} ${year}`,
-      url: window.location.href
-    };
-
-    if (navigator.share) {
-      try {
-        await navigator.share(shareData);
-      } catch (err) {
-        console.log('Share dismissed:', err);
-      }
-    } else {
-      try {
-        await navigator.clipboard.writeText(window.location.href);
-        setCopiedShare(true);
-        setTimeout(() => setCopiedShare(false), 2500);
-      } catch (e) {
-        alert('Tautan halaman berhasil disalin ke clipboard!');
-      }
+    setIsExportingPDF(true);
+    try {
+      await shareElementAsPdf(printRef.current, `Klapper_Akta_${monthName}_${year}.pdf`, `Klapper Akta ${monthName} ${year}`);
+    } catch (err) {
+      console.error('Failed to share PDF:', err);
+      alert('Gagal memproses PDF.');
+    } finally {
+      setIsExportingPDF(false);
     }
   };
 
@@ -911,11 +890,20 @@ export const DeedAlphabeticalReport: React.FC<DeedAlphabeticalReportProps> = ({
               Salinan Daftar Klapper dari Akta-Akta yang telah dibuat dihadapan saya, Notaris, selama bulan {monthName} {year}.
             </p>
             <p className="pt-2 text-black">{settings.city}, 29 {monthName} {year}</p>
-            <div className="pt-16">
-              <p className="font-bold underline uppercase text-black">
-                {settings.notaryName}
-              </p>
+            
+            <div className="relative h-28 my-1 flex items-center">
+              <div className="absolute -left-4 -top-8 w-44 h-44 pointer-events-none select-none z-0">
+                <img
+                  src={getSignatureImage()}
+                  alt="Cap Stempel dan Tanda Tangan Notaris"
+                  className="w-full h-full object-contain mix-blend-multiply opacity-95"
+                />
+              </div>
             </div>
+
+            <p className="font-bold underline uppercase text-black relative z-10 pt-2">
+              {settings.notaryName}
+            </p>
           </div>
         </div>
       </div>

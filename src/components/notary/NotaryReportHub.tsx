@@ -6,7 +6,8 @@ import { DeedReport } from './DeedReport';
 import { DeedAlphabeticalReport } from './DeedAlphabeticalReport';
 import { PrivateDeedPrintView } from './PrivateDeedPrintView';
 import { ProtestChequeReport } from './ProtestChequeReport';
-import { BookOpen, FileText, ListOrdered, ShieldCheck, FileCheck, AlertCircle, Calendar, ExternalLink, Info } from 'lucide-react';
+import { BookOpen, FileText, ListOrdered, ShieldCheck, FileCheck, AlertCircle, Calendar, ExternalLink, Info, Image, Trash2, Upload } from 'lucide-react';
+import { getSignatureImage, setSignatureImage, resetSignatureImage } from '../../utils/signatureUtils';
 
 type NotaryReportSubTab =
   | 'surat_pengantar'
@@ -84,6 +85,28 @@ export const NotaryReportHub: React.FC = () => {
     const dt = new Date(p.protestDate);
     return dt.getMonth() + 1 === selectedMonth && dt.getFullYear() === selectedYear;
   });
+
+  const [signatureImageState, setSignatureImageState] = useState<string>(getSignatureImage());
+
+  const handleUploadSignature = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (evt) => {
+        if (evt.target?.result) {
+          const imgData = evt.target.result as string;
+          setSignatureImage(imgData);
+          setSignatureImageState(imgData);
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleResetSignature = () => {
+    resetSignatureImage();
+    setSignatureImageState(getSignatureImage());
+  };
 
   const SUB_TABS: { id: NotaryReportSubTab; label: string; icon: React.FC<{ size?: number; className?: string }>; count?: number }[] = [
     { id: 'surat_pengantar', label: 'Surat Pengantar MPD', icon: FileText },
@@ -167,6 +190,54 @@ export const NotaryReportHub: React.FC = () => {
               className="bg-transparent font-medium text-xs text-slate-800 focus:outline-none w-28"
             />
           </div>
+        </div>
+      </div>
+
+      {/* Central Signature & Stamp Panel */}
+      <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm print:hidden flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-start gap-3">
+          <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center font-bold mt-0.5 shrink-0">
+            <Image size={20} />
+          </div>
+          <div>
+            <h2 className="text-sm font-semibold text-slate-800">Foto Tanda Tangan & Stempel Terpusat</h2>
+            <p className="text-xs text-slate-500 max-w-2xl leading-relaxed">
+              Unggah satu gambar stempel/tanda tangan di sini untuk digunakan secara otomatis di seluruh 5 model laporan notaris (Surat Pengantar, Laporan Akta, Klapper, Legalisasi, Waarmerking, Protest Cheque).
+            </p>
+          </div>
+        </div>
+        
+        <div className="flex items-center gap-3 shrink-0">
+          {signatureImageState ? (
+            <div className="flex items-center gap-3">
+              <div className="w-14 h-14 bg-slate-50 border border-slate-200 rounded-xl p-1 flex items-center justify-center overflow-hidden">
+                <img
+                  src={signatureImageState}
+                  alt="Pratinjau TTD/Stempel"
+                  className="max-w-full max-h-full object-contain mix-blend-multiply"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={handleResetSignature}
+                className="px-3 py-1.5 border border-rose-200 text-rose-600 hover:bg-rose-50 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer"
+              >
+                <Trash2 size={14} />
+                Hapus & Reset
+              </button>
+            </div>
+          ) : (
+            <label className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-sm transition cursor-pointer">
+              <Upload size={14} />
+              Unggah Stempel & TTD
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleUploadSignature}
+                className="hidden"
+              />
+            </label>
+          )}
         </div>
       </div>
 

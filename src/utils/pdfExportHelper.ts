@@ -225,6 +225,8 @@ export interface ExportPDFOptions {
   filename: string;
   margin?: number[];
   orientation?: 'portrait' | 'landscape';
+  action?: 'save' | 'share';
+  shareTitle?: string;
 }
 
 /**
@@ -337,7 +339,34 @@ export async function exportToPDF(
       const restoreIframe = patchGetComputedStyleForPdf(iframeWin);
       const restoreMain = patchGetComputedStyleForPdf(window);
       try {
-        await (window as any).html2pdf().set(opt).from(targetElement).save();
+        const worker = (window as any).html2pdf().set(opt).from(targetElement);
+        if (options.action === 'share') {
+          const blob = await worker.toPdf().output('blob');
+          const file = new File([blob], options.filename, { type: 'application/pdf' });
+          if (navigator.share && navigator.canShare?.({ files: [file] })) {
+            try {
+              await navigator.share({
+                files: [file],
+                title: options.shareTitle || options.filename,
+                text: options.shareTitle || options.filename
+              });
+            } catch (e: any) {
+              if (e.name !== 'AbortError') {
+                throw e;
+              }
+            }
+          } else {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = options.filename;
+            a.click();
+            URL.revokeObjectURL(url);
+            alert('File PDF telah diunduh (Browser tidak mendukung fitur Share).');
+          }
+        } else {
+          await worker.save();
+        }
       } finally {
         restoreIframe();
         restoreMain();

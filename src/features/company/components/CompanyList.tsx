@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import {
   MoreVertical,
   Eye,
@@ -52,6 +53,19 @@ export const CompanyList: React.FC<CompanyListProps> = ({
   itemsPerPage = 10,
   setItemsPerPage,
 }) => {
+  const [dropdownCoords, setDropdownCoords] = React.useState<{ top: number; left: number } | null>(null);
+
+  React.useEffect(() => {
+    if (!openDropdownId) return;
+    const handleOutsideClick = () => {
+      setOpenDropdownId(null);
+    };
+    document.addEventListener('click', handleOutsideClick);
+    return () => {
+      document.removeEventListener('click', handleOutsideClick);
+    };
+  }, [openDropdownId, setOpenDropdownId]);
+
   const formatProfileLastUpdated = (dateStr?: string, establishmentDate?: string) => {
     const dateToFormat = dateStr || establishmentDate;
     if (!dateToFormat) return '-';
@@ -261,6 +275,10 @@ export const CompanyList: React.FC<CompanyListProps> = ({
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          const top = rect.bottom + window.scrollY + 6;
+                          const left = Math.max(16, rect.right + window.scrollX - 176);
+                          setDropdownCoords({ top, left });
                           setOpenDropdownId(openDropdownId === p.id ? null : p.id);
                         }}
                         className={`p-1.5 rounded-xl border border-slate-200/80 bg-white hover:bg-slate-100 hover:border-slate-300 text-slate-600 hover:text-slate-900 transition-all shadow-xs cursor-pointer ${
@@ -275,8 +293,16 @@ export const CompanyList: React.FC<CompanyListProps> = ({
                     </div>
 
                     {/* Dropdown popup portal */}
-                    {openDropdownId === p.id && (
-                      <div className="absolute right-4 top-13 bg-white border border-slate-200 shadow-xl rounded-2xl py-1.5 w-44 z-50 text-left overflow-hidden animate-in fade-in slide-in-from-top-1 duration-100">
+                    {openDropdownId === p.id && dropdownCoords && createPortal(
+                      <div 
+                        style={{
+                          position: 'absolute',
+                          top: `${dropdownCoords.top}px`,
+                          left: `${dropdownCoords.left}px`,
+                        }}
+                        className="bg-white border border-slate-200 shadow-xl rounded-2xl py-1.5 w-44 z-[9999] text-left overflow-hidden animate-in fade-in slide-in-from-top-1 duration-100"
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -364,7 +390,8 @@ export const CompanyList: React.FC<CompanyListProps> = ({
                             <span>Hapus</span>
                           </button>
                         )}
-                      </div>
+                      </div>,
+                      document.body
                     )}
                   </td>
                 </tr>
