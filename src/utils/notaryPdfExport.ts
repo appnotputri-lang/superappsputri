@@ -345,10 +345,7 @@ export async function exportDeedReportToPdf(data: {
   const pageWidth = doc.internal.pageSize.width;
   const pageHeight = doc.internal.pageSize.height;
 
-  // Add Letterhead
-  addNotaryLetterhead(doc, pageWidth);
-
-  let currentY = 60;
+  let currentY = 25;
 
   // Title
   doc.setTextColor(0, 0, 0);
@@ -356,9 +353,9 @@ export async function exportDeedReportToPdf(data: {
   doc.setFont('helvetica', 'bold');
   const title1 = `SALINAN DAFTAR AKTA-AKTA NOTARIS NUKANTINI PUTRI PARINCHA, SH., M.Kn`;
   const splitTitle = doc.splitTextToSize(title1, pageWidth - 40);
-  doc.text(splitTitle, pageWidth / 2, currentY, { align: 'center' });
+  doc.text(splitTitle, 20, currentY, { align: 'left' });
   currentY += (splitTitle.length * 5);
-  doc.text(`BULAN ${data.monthName.toUpperCase()} ${data.year}`, pageWidth / 2, currentY, { align: 'center' });
+  doc.text(`BULAN ${data.monthName.toUpperCase()} ${data.year}`, 20, currentY, { align: 'left' });
   currentY += 8;
 
   // Map deeds to autoTable rows
@@ -457,7 +454,6 @@ export async function exportDeedReportToPdf(data: {
   // Closing & Signature Block
   if (currentY > pageHeight - 75) {
     doc.addPage();
-    addNotaryHeaderMinimal(doc, pageWidth);
     currentY = 25;
   }
 
@@ -485,8 +481,6 @@ export async function exportDeedReportToPdf(data: {
   doc.text('NUKANTINI PUTRI PARINCHA, SH., M.Kn', sigX, currentY);
   doc.line(sigX, currentY + 1, sigX + doc.getTextWidth('NUKANTINI PUTRI PARINCHA, SH., M.Kn'), currentY + 1);
 
-  addNotaryFooter(doc, pageWidth, pageHeight, `Laporan Bulanan Akta - ${data.monthName} ${data.year}`);
-
   const filename = `Laporan_Akta_${data.monthName}_${data.year}.pdf`;
   await handlePdfOutput(doc, filename, mode, 'Laporan Akta');
 }
@@ -502,20 +496,17 @@ export async function exportPrivateDeedReportToPdf(data: {
   const pageWidth = doc.internal.pageSize.width;
   const pageHeight = doc.internal.pageSize.height;
 
-  // Add Letterhead
-  addNotaryLetterhead(doc, pageWidth);
-
-  let currentY = 60;
+  let currentY = 25;
 
   // Title
   doc.setTextColor(0, 0, 0);
   doc.setFontSize(10);
   doc.setFont('helvetica', 'bold');
-  const titleText = `LAPORAN SURATAN DI BAWAH TANGAN YANG DI-${data.type.toUpperCase()}`;
+  const titleText = `SALINAN DAFTAR AKTA-AKTA NOTARIS NUKANTINI PUTRI PARINCHA, SH., M.Kn`;
   const splitTitle = doc.splitTextToSize(titleText, pageWidth - 40);
-  doc.text(splitTitle, pageWidth / 2, currentY, { align: 'center' });
+  doc.text(splitTitle, 20, currentY, { align: 'left' });
   currentY += (splitTitle.length * 5);
-  doc.text(`BULAN ${data.monthName.toUpperCase()} ${data.year}`, pageWidth / 2, currentY, { align: 'center' });
+  doc.text(`BULAN ${data.monthName.toUpperCase()} ${data.year}`, 20, currentY, { align: 'left' });
   currentY += 8;
 
   // Map to rows
@@ -574,7 +565,6 @@ export async function exportPrivateDeedReportToPdf(data: {
   // Closing & Signature Block
   if (currentY > pageHeight - 75) {
     doc.addPage();
-    addNotaryHeaderMinimal(doc, pageWidth);
     currentY = 25;
   }
 
@@ -599,8 +589,6 @@ export async function exportPrivateDeedReportToPdf(data: {
   doc.text('NUKANTINI PUTRI PARINCHA, SH., M.Kn', sigX, currentY);
   doc.line(sigX, currentY + 1, sigX + doc.getTextWidth('NUKANTINI PUTRI PARINCHA, SH., M.Kn'), currentY + 1);
 
-  addNotaryFooter(doc, pageWidth, pageHeight, `Laporan ${data.type} - ${data.monthName} ${data.year}`);
-
   const filename = `Laporan_${data.type}_${data.monthName}_${data.year}.pdf`;
   await handlePdfOutput(doc, filename, mode, `Laporan ${data.type}`);
 }
@@ -615,20 +603,17 @@ export async function exportProtestChequeReportToPdf(data: {
   const pageWidth = doc.internal.pageSize.width;
   const pageHeight = doc.internal.pageSize.height;
 
-  // Add Letterhead
-  addNotaryLetterhead(doc, pageWidth);
-
-  let currentY = 60;
+  let currentY = 25;
 
   // Title
   doc.setTextColor(0, 0, 0);
   doc.setFontSize(10);
   doc.setFont('helvetica', 'bold');
-  const titleText = `LAPORAN PROTEST CHEQUE / BILYET GIRO`;
+  const titleText = `SALINAN DAFTAR AKTA-AKTA NOTARIS NUKANTINI PUTRI PARINCHA, SH., M.Kn`;
   const splitTitle = doc.splitTextToSize(titleText, pageWidth - 40);
-  doc.text(splitTitle, pageWidth / 2, currentY, { align: 'center' });
+  doc.text(splitTitle, 20, currentY, { align: 'left' });
   currentY += (splitTitle.length * 5);
-  doc.text(`BULAN ${data.monthName.toUpperCase()} ${data.year}`, pageWidth / 2, currentY, { align: 'center' });
+  doc.text(`BULAN ${data.monthName.toUpperCase()} ${data.year}`, 20, currentY, { align: 'left' });
   currentY += 8;
 
   // Map rows
@@ -692,7 +677,6 @@ export async function exportProtestChequeReportToPdf(data: {
   // Closing & Signature Block
   if (currentY > pageHeight - 75) {
     doc.addPage();
-    addNotaryHeaderMinimal(doc, pageWidth);
     currentY = 25;
   }
 
@@ -717,8 +701,6 @@ export async function exportProtestChequeReportToPdf(data: {
   doc.text('NUKANTINI PUTRI PARINCHA, SH., M.Kn', sigX, currentY);
   doc.line(sigX, currentY + 1, sigX + doc.getTextWidth('NUKANTINI PUTRI PARINCHA, SH., M.Kn'), currentY + 1);
 
-  addNotaryFooter(doc, pageWidth, pageHeight, `Laporan Protest Cheque - ${data.monthName} ${data.year}`);
-
   const filename = `Laporan_Protest_Cheque_${data.monthName}_${data.year}.pdf`;
   await handlePdfOutput(doc, filename, mode, 'Laporan Protest Cheque');
 }
@@ -734,24 +716,22 @@ export async function exportDeedAlphabeticalReportToPdf(data: {
   const pageWidth = doc.internal.pageSize.width;
   const pageHeight = doc.internal.pageSize.height;
 
-  // Add Letterhead
-  addNotaryLetterhead(doc, pageWidth);
-
-  let currentY = 60;
+  let currentY = 25;
 
   // Title
   doc.setTextColor(0, 0, 0);
   doc.setFontSize(10);
   doc.setFont('helvetica', 'bold');
-  const titleText = `SALINAN DAFTAR KLAPPER AKTA-AKTA NOTARIS BULAN ${data.monthName.toUpperCase()} ${data.year}`;
+  const titleText = `SALINAN DAFTAR AKTA-AKTA NOTARIS NUKANTINI PUTRI PARINCHA, SH., M.Kn`;
   const splitTitle = doc.splitTextToSize(titleText, pageWidth - 40);
-  doc.text(splitTitle, pageWidth / 2, currentY, { align: 'center' });
-  currentY += (splitTitle.length * 5) + 3;
+  doc.text(splitTitle, 20, currentY, { align: 'left' });
+  currentY += (splitTitle.length * 5);
+  doc.text(`BULAN ${data.monthName.toUpperCase()} ${data.year}`, 20, currentY, { align: 'left' });
+  currentY += 8;
 
   data.filteredSections.forEach((sec) => {
     if (currentY > pageHeight - 60) {
       doc.addPage();
-      addNotaryHeaderMinimal(doc, pageWidth);
       currentY = 25;
     }
 
@@ -851,7 +831,6 @@ export async function exportDeedAlphabeticalReportToPdf(data: {
   // Closing & Signature Block
   if (currentY > pageHeight - 75) {
     doc.addPage();
-    addNotaryHeaderMinimal(doc, pageWidth);
     currentY = 25;
   }
 
@@ -875,8 +854,6 @@ export async function exportDeedAlphabeticalReportToPdf(data: {
   doc.setFont('helvetica', 'bold');
   doc.text(data.notaryName.toUpperCase(), sigX, currentY);
   doc.line(sigX, currentY + 1, sigX + doc.getTextWidth(data.notaryName.toUpperCase()), currentY + 1);
-
-  addNotaryFooter(doc, pageWidth, pageHeight, `Klapper Akta - ${data.monthName} ${data.year}`);
 
   const filename = `Klapper_Akta_${data.monthName}_${data.year}.pdf`;
   await handlePdfOutput(doc, filename, mode, 'Klapper Akta');
