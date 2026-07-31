@@ -452,20 +452,24 @@ export async function exportDeedReportToPdf(data: {
   currentY = doc.lastAutoTable.finalY + 12;
 
   // Closing & Signature Block
-  if (currentY > pageHeight - 75) {
+  const closingText = `Salinan Daftar Akta-Akta yang telah dibuat oleh saya, Notaris, selama Bulan ${data.monthName} ${data.year}.`;
+  const splitClosing = doc.splitTextToSize(closingText, pageWidth - 40);
+
+  if (currentY > pageHeight - (75 + (splitClosing.length * 5))) {
     doc.addPage();
     currentY = 25;
   }
 
-  const sigX = pageWidth - 95;
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9.5);
-  doc.text('Salinan Daftar Akta-Akta yang telah dibuat oleh saya,', sigX, currentY);
-  currentY += 5;
-  doc.text(`Notaris, selama Bulan ${data.monthName} ${data.year}.`, sigX, currentY);
-  currentY += 6;
-  const formattedSigDate = data.signatureDate ? (data.signatureDate.includes('Bandung') ? data.signatureDate : `Bandung Barat, ${data.signatureDate}`) : `Bandung Barat, ${data.year}`;
+  doc.text(splitClosing, 20, currentY);
+  currentY += (splitClosing.length * 5) + 10;
+
+  const sigX = pageWidth - 95;
+  const formattedSigDate = data.signatureDate ? (data.signatureDate.includes('Bandung') ? data.signatureDate : `Bandung Barat, ${data.signatureDate}`) : `Bandung Barat, 31 ${data.monthName} ${data.year}`;
   doc.text(formattedSigDate, sigX, currentY);
+  currentY += 5;
+  doc.text('Notaris di Kabupaten Bandung Barat,', sigX, currentY);
 
   // Add Stamp & Signature
   try {
@@ -563,17 +567,24 @@ export async function exportPrivateDeedReportToPdf(data: {
   currentY = doc.lastAutoTable.finalY + 12;
 
   // Closing & Signature Block
-  if (currentY > pageHeight - 75) {
+  const actionWord = data.type === 'Legalisasi' ? 'disahkan' : 'dibukukan';
+  const closingText = `Salinan Daftar Surat dibawah tangan yang ${actionWord} dalam buku daftar yang disediakan untuk keperluan tersebut pada kantor saya, Notaris, selama bulan ${data.monthName} ${data.year}`;
+  const splitClosing = doc.splitTextToSize(closingText, pageWidth - 40);
+  
+  if (currentY > pageHeight - (75 + (splitClosing.length * 5))) {
     doc.addPage();
     currentY = 25;
   }
 
-  const sigX = pageWidth - 95;
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9.5);
-  doc.text(`Jawa Barat, ${data.signatureDate || `${data.monthName} ${data.year}`}`, sigX, currentY);
+  doc.text(splitClosing, 20, currentY);
+  currentY += (splitClosing.length * 5) + 10;
+
+  const sigX = pageWidth - 95;
+  doc.text(`Bandung Barat, ${data.signatureDate || `${data.monthName} ${data.year}`}`, sigX, currentY);
   currentY += 5;
-  doc.text('Notaris di Jawa Barat', sigX, currentY);
+  doc.text('Notaris di Kabupaten Bandung Barat,', sigX, currentY);
 
   // Add Stamp & Signature
   try {
@@ -675,17 +686,23 @@ export async function exportProtestChequeReportToPdf(data: {
   currentY = doc.lastAutoTable.finalY + 12;
 
   // Closing & Signature Block
-  if (currentY > pageHeight - 75) {
+  const closingText = `Salinan Daftar Protest Cheque dan Protes Wessel yang dibuat oleh saya selama bulan ${data.monthName} ${data.year}`;
+  const splitClosing = doc.splitTextToSize(closingText, pageWidth - 40);
+
+  if (currentY > pageHeight - (75 + (splitClosing.length * 5))) {
     doc.addPage();
     currentY = 25;
   }
 
-  const sigX = pageWidth - 95;
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9.5);
-  doc.text(`Jawa Barat, ${data.signatureDate || `${data.monthName} ${data.year}`}`, sigX, currentY);
+  doc.text(splitClosing, 20, currentY);
+  currentY += (splitClosing.length * 5) + 10;
+
+  const sigX = pageWidth - 95;
+  doc.text(`Bandung, ${data.signatureDate || `${data.monthName} ${data.year}`}`, sigX, currentY);
   currentY += 5;
-  doc.text('Notaris di Jawa Barat', sigX, currentY);
+  doc.text('Notaris di Kabupaten Bandung Barat,', sigX, currentY);
 
   // Add Stamp & Signature
   try {
@@ -829,17 +846,23 @@ export async function exportDeedAlphabeticalReportToPdf(data: {
   });
 
   // Closing & Signature Block
-  if (currentY > pageHeight - 75) {
+  const closingText = `Salinan Daftar Klapper dari Akta-Akta yang telah dibuat dihadapan saya, Notaris, selama bulan ${data.monthName} ${data.year}.`;
+  const splitClosing = doc.splitTextToSize(closingText, pageWidth - 40);
+
+  if (currentY > pageHeight - (75 + (splitClosing.length * 5))) {
     doc.addPage();
     currentY = 25;
   }
 
-  const sigX = pageWidth - 95;
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9.5);
-  doc.text(`Salinan Daftar Klapper dari Akta-Akta yang telah dibuat dihadapan saya, Notaris, selama bulan ${data.monthName} ${data.year}.`, sigX, currentY, { maxWidth: 80 });
-  currentY += 12;
-  doc.text(`${data.city}, 29 ${data.monthName} ${data.year}`, sigX, currentY);
+  doc.text(splitClosing, 20, currentY);
+  currentY += (splitClosing.length * 5) + 10;
+
+  const sigX = pageWidth - 95;
+  doc.text(`${data.city || 'Bandung Barat'}, 29 ${data.monthName} ${data.year}`, sigX, currentY);
+  currentY += 5;
+  doc.text('Notaris di Kabupaten Bandung Barat,', sigX, currentY);
 
   // Add Stamp & Signature
   try {
