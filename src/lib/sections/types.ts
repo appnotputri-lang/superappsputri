@@ -27,6 +27,7 @@ export type Block =
       name: string;
       sharesText: string;
       rpText: string;
+      salutation?: string;
     }
   | {
       type: "management-list";

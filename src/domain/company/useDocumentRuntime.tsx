@@ -253,7 +253,7 @@ export function DocumentRuntimeProvider({ children }: { children: ReactNode }) {
           }
 
           if (profSh) {
-            patchedSh.salutation = patchedSh.salutation || profSh.salutation || 'Tuan';
+            patchedSh.salutation = profSh.salutation || patchedSh.salutation || 'Tuan';
             patchedSh.birthCity = patchedSh.birthCity || profSh.birthCity || '';
             patchedSh.birthDate = patchedSh.birthDate || profSh.birthDate || '';
             patchedSh.occupation = patchedSh.occupation || profSh.occupation || '';
@@ -262,7 +262,7 @@ export function DocumentRuntimeProvider({ children }: { children: ReactNode }) {
             patchedSh.nationality = patchedSh.nationality || profSh.nationality || '';
             patchedSh.passportNumber = patchedSh.passportNumber || profSh.passportNumber || '';
             patchedSh.kitasNumber = patchedSh.kitasNumber || profSh.kitasNumber || '';
-            patchedSh.gender = patchedSh.gender || profSh.gender || '';
+            (patchedSh as any).gender = (patchedSh as any).gender || (profSh as any).gender || '';
             if (patchedSh.isForeign === undefined && profSh.isForeign !== undefined) {
               patchedSh.isForeign = profSh.isForeign;
             }
@@ -472,7 +472,7 @@ export function DocumentRuntimeProvider({ children }: { children: ReactNode }) {
             const curAddr = (sh.address || {}) as any;
             return {
               ...sh,
-              salutation: sh.salutation || found.salutation || 'Tuan',
+              salutation: found.salutation || sh.salutation || 'Tuan',
               birthCity: sh.birthCity || found.birthCity || '',
               birthDate: sh.birthDate || found.birthDate || '',
               occupation: sh.occupation || found.occupation || '',

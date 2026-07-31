@@ -1129,9 +1129,25 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
     data.finalShareholders.forEach((fs) => {
       if (fs.sharesOwned === 0) return;
       const fsTotal = fs.sharesOwned * data.originalSharePrice;
+      const fsNameUpper = (fs.name || "").toUpperCase().trim();
+      const fsSalUpper = (fs.salutation || "").toUpperCase().trim();
+      const isBadanHukum =
+        (fs.nationalityType as any) === "BADAN_HUKUM" ||
+        fsSalUpper === "PT" ||
+        fsSalUpper === "PERSEROAN TERBATAS" ||
+        fsSalUpper === "BADAN HUKUM" ||
+        fsSalUpper === "CV" ||
+        fsSalUpper === "YAYASAN" ||
+        fsNameUpper.startsWith("PT ") ||
+        fsNameUpper.startsWith("PT.") ||
+        fsNameUpper.startsWith("PERSEROAN TERBATAS") ||
+        fsNameUpper.startsWith("CV ") ||
+        fsNameUpper.startsWith("YAYASAN");
+
       blocks.push({
         type: "shareholder-list",
         bullet: "-",
+        salutation: isBadanHukum ? "" : fs.salutation || "Tuan",
         name: fs.name.toUpperCase(),
         sharesText: `: ${formatNumber(fs.sharesOwned)}${w(fs.sharesOwned, "shares")} lembar saham`,
         rpText: `atau senilai Rp. ${formatNumber(fsTotal)},-${w(fsTotal, "rupiah")};`,
@@ -1236,31 +1252,51 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
         data.managementAppointments && data.managementAppointments.length > 0;
 
       if (hasExplicitDismissals || hasExplicitAppointments) {
+        const candidatePeople = [
+          ...(data.shareholders || []),
+          ...(data.oldManagementItems || []),
+          ...((data as any).managementItems || []),
+          ...(data.finalShareholders || []),
+          ...((data as any).presentAttendees || []),
+        ];
+
+        const findPerson = (item: { nik?: string; name?: string }) => {
+          if (!item) return null;
+          if (item.nik && String(item.nik).trim()) {
+            const cleanNik = String(item.nik).trim();
+            const matchByNik = candidatePeople.find(
+              (s) => s && s.nik && String(s.nik).trim() === cleanNik
+            );
+            if (matchByNik) return matchByNik;
+          }
+          if (item.name && String(item.name).trim()) {
+            const cleanName = String(item.name).trim().toUpperCase();
+            const matchByName = candidatePeople.find(
+              (s) => s && s.name && String(s.name).trim().toUpperCase() === cleanName
+            );
+            if (matchByName) return matchByName;
+          }
+          return null;
+        };
+
         if (hasExplicitDismissals) {
           managersToDismiss = data.managementDismissals.map((d) => {
-            // Find person detail for better formatting if available
-            const person = data.shareholders?.find(
-              (s) =>
-                s.name?.toUpperCase().trim() === d.name?.toUpperCase().trim(),
-            );
+            const person = findPerson(d);
             return {
               ...person,
               name: d.name,
-              salutation: d.salutation,
+              salutation: person?.salutation || d.salutation || 'Tuan',
               position: d.position,
             };
           });
         }
         if (hasExplicitAppointments) {
           managersToAppoint = data.managementAppointments.map((a) => {
-            const person = data.shareholders?.find(
-              (s) =>
-                s.name?.toUpperCase().trim() === a.name?.toUpperCase().trim(),
-            );
+            const person = findPerson(a);
             return {
               ...person,
               name: a.name,
-              salutation: a.salutation,
+              salutation: person?.salutation || a.salutation || 'Tuan',
               position: a.position,
             };
           });

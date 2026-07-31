@@ -255,7 +255,7 @@ export const AppShell: React.FC = () => {
 
         // Master lists from profile
         const masterShareholders = profile.shareholders || profile.finalShareholders || [];
-        const masterManagement = profile.oldManagementItems || profile.newManagementItems || profile.managementItems || [];
+        const masterManagement = profile.oldManagementItems || profile.newManagementItems || (profile as any).managementItems || [];
 
         const hasDetails = (p: any) => {
           return !!(p && (p.birthCity || p.birthDate || p.occupation || p.address?.fullAddress || p.address?.city));
@@ -298,7 +298,7 @@ export const AppShell: React.FC = () => {
               birthCity: sh.birthCity || profSh.birthCity || '',
               birthDate: sh.birthDate || profSh.birthDate || '',
               occupation: sh.occupation || profSh.occupation || '',
-              salutation: sh.salutation || profSh.salutation || '',
+              salutation: profSh.salutation || sh.salutation || '',
               nationalityType: sh.nationalityType || profSh.nationalityType || '',
               nationality: sh.nationality || profSh.nationality || '',
               passportNumber: sh.passportNumber || profSh.passportNumber || '',
@@ -336,7 +336,7 @@ export const AppShell: React.FC = () => {
               birthCity: m.birthCity || profM.birthCity || '',
               birthDate: m.birthDate || profM.birthDate || '',
               occupation: m.occupation || profM.occupation || '',
-              salutation: m.salutation || profM.salutation || '',
+              salutation: profM.salutation || m.salutation || '',
               nationalityType: m.nationalityType || profM.nationalityType || '',
               nationality: m.nationality || profM.nationality || '',
               passportNumber: m.passportNumber || profM.passportNumber || '',
@@ -374,7 +374,7 @@ export const AppShell: React.FC = () => {
               birthCity: m.birthCity || profM.birthCity || '',
               birthDate: m.birthDate || profM.birthDate || '',
               occupation: m.occupation || profM.occupation || '',
-              salutation: m.salutation || profM.salutation || '',
+              salutation: profM.salutation || m.salutation || '',
               nationalityType: m.nationalityType || profM.nationalityType || '',
               nationality: m.nationality || profM.nationality || '',
               passportNumber: m.passportNumber || profM.passportNumber || '',
@@ -411,9 +411,9 @@ export const AppShell: React.FC = () => {
           shareholders: enrichedShareholders,
           oldManagementItems: enrichedOldManagement,
           managementItems: enrichedManagement,
-          capitalBase: profile.targetCapitalBase || profile.capitalBase || profile.originalCapitalBase || docData.capitalBase,
-          capitalPaid: profile.targetCapitalPaid || profile.capitalPaid || profile.originalCapitalPaid || docData.capitalPaid,
-          shareValue: profile.shareValue || profile.originalSharePrice || docData.shareValue,
+          capitalBase: (profile as any).targetCapitalBase || (profile as any).capitalBase || profile.originalCapitalBase || docData.capitalBase,
+          capitalPaid: (profile as any).targetCapitalPaid || (profile as any).capitalPaid || profile.originalCapitalPaid || docData.capitalPaid,
+          shareValue: (profile as any).shareValue || profile.originalSharePrice || docData.shareValue,
         };
       };
 

@@ -59,7 +59,7 @@ export class AktaTemplate {
           docxChildren.push(factory.createListP(block.bullet, block.runs, block.indentTabs || 0));
         }
       } else if (block.type === "shareholder-list") {
-        const paragraphs = factory.createShareholderListParagraphs(block.bullet, block.name, block.sharesText, block.rpText);
+        const paragraphs = factory.createShareholderListParagraphs(block.bullet, block.name, block.sharesText, block.rpText, block.salutation);
         paragraphs.forEach((p: any) => docxChildren.push(p));
       } else if (block.type === "management-list") {
         docxChildren.push(factory.createManagementRoleListP(block.position, block.name));

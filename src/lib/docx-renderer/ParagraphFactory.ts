@@ -349,18 +349,41 @@ createShareholderListParagraphs = (
   bullet: string,
   name: string,
   sharesText: string,
-  rpText: string
+  rpText: string,
+  salutation?: string
 ): Paragraph[] => {
-  if (name.includes(", lahir") || name.length > 80) {
+  let displayName = name;
+  if (salutation && salutation.trim()) {
+    const sal = salutation.trim();
+    const salUpper = sal.toUpperCase();
+    const nameUpper = name.toUpperCase().trim();
+    const isBadanHukum =
+      salUpper === "PT" ||
+      salUpper === "PERSEROAN TERBATAS" ||
+      salUpper === "BADAN HUKUM" ||
+      salUpper === "CV" ||
+      salUpper === "YAYASAN" ||
+      nameUpper.startsWith("PT ") ||
+      nameUpper.startsWith("PT.") ||
+      nameUpper.startsWith("PERSEROAN TERBATAS") ||
+      nameUpper.startsWith("CV ") ||
+      nameUpper.startsWith("YAYASAN");
+
+    if (!isBadanHukum && !nameUpper.startsWith(salUpper)) {
+      displayName = `${sal} ${name}`;
+    }
+  }
+
+  if (displayName.includes(", lahir") || displayName.length > 80) {
     const cleanShares = sharesText.replace(/^:\s*/, "").replace(/^\s*sebanyak\s*/, "").trim();
     const fullCombinedText = `, sebanyak ${cleanShares} ${rpText}`;
     
-    const firstCommaIdx = name.indexOf(",");
-    let boldPart = name;
+    const firstCommaIdx = displayName.indexOf(",");
+    let boldPart = displayName;
     let normalPart = "";
     if (firstCommaIdx !== -1) {
-      boldPart = name.substring(0, firstCommaIdx);
-      normalPart = name.substring(firstCommaIdx);
+      boldPart = displayName.substring(0, firstCommaIdx);
+      normalPart = displayName.substring(firstCommaIdx);
     }
 
     const tokens: FormatToken[] = [
@@ -399,7 +422,7 @@ createShareholderListParagraphs = (
 
   const p1Children: any[] = [
     new TextRun({ text: `${bullet}\t` }),
-    new TextRun({ text: name }),
+    new TextRun({ text: displayName }),
     new TextRun({ text: "\t" }),
     new TextRun({ text: `${sharesText}` }),
   ];

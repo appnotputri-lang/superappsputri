@@ -5,7 +5,7 @@ import { getDayName, dateToWords, formatDateStr, timeToWords, formatTimeStr, ter
 export type Block = 
   | { type: 'p', runs: FormatToken[], align?: 'left' | 'center' | 'right' | 'right-center', indent?: boolean, indentTabs?: number, spaceAfter?: boolean, number?: number }
   | { type: 'list', bullet: string, runs: FormatToken[], spaceAfter?: boolean, number?: number, indentTabs?: number }
-  | { type: 'shareholder-list', bullet: string, name: string, sharesText: string, rpText: string }
+  | { type: 'shareholder-list', bullet: string, name: string, sharesText: string, rpText: string, salutation?: string }
   | { type: 'divider', text: string }
   | { type: 'static', content: string };
 

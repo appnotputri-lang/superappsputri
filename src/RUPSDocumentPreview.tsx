@@ -109,16 +109,38 @@ export const RUPSDocumentPreview: React.FC<RUPSDocumentPreviewProps> = ({ data }
       });
     } else if (block.type === 'shareholder-list') {
       const align: string = 'left';
-      if (block.name.includes(", lahir") || block.name.length > 80) {
+      let displayName = block.name;
+      if (block.salutation && block.salutation.trim()) {
+        const sal = block.salutation.trim();
+        const salUpper = sal.toUpperCase();
+        const nameUpper = block.name.toUpperCase().trim();
+        const isBadanHukum =
+          salUpper === "PT" ||
+          salUpper === "PERSEROAN TERBATAS" ||
+          salUpper === "BADAN HUKUM" ||
+          salUpper === "CV" ||
+          salUpper === "YAYASAN" ||
+          nameUpper.startsWith("PT ") ||
+          nameUpper.startsWith("PT.") ||
+          nameUpper.startsWith("PERSEROAN TERBATAS") ||
+          nameUpper.startsWith("CV ") ||
+          nameUpper.startsWith("YAYASAN");
+
+        if (!isBadanHukum && !nameUpper.startsWith(salUpper)) {
+          displayName = `${sal} ${block.name}`;
+        }
+      }
+
+      if (displayName.includes(", lahir") || displayName.length > 80) {
         const cleanShares = block.sharesText.replace(/^:\s*/, "").replace(/^\s*sebanyak\s*/, "").trim();
         const fullCombinedText = `, sebanyak ${cleanShares} ${block.rpText}`;
         
-        const firstCommaIdx = block.name.indexOf(",");
-        let boldPart = block.name;
+        const firstCommaIdx = displayName.indexOf(",");
+        let boldPart = displayName;
         let normalPart = "";
         if (firstCommaIdx !== -1) {
-          boldPart = block.name.substring(0, firstCommaIdx);
-          normalPart = block.name.substring(firstCommaIdx);
+          boldPart = displayName.substring(0, firstCommaIdx);
+          normalPart = displayName.substring(firstCommaIdx);
         }
 
         const runs = [
@@ -157,7 +179,7 @@ export const RUPSDocumentPreview: React.FC<RUPSDocumentPreviewProps> = ({ data }
             element: (
                <div key={`shl-${bIdx}-${lIdx}`} className="flex relative items-start gap-1">
                  <span className="w-[0.75cm] shrink-0 whitespace-nowrap ml-[0.75cm]">{lIdx === 0 ? block.bullet : ""}</span>
-                 <span className="w-[7.00cm] shrink-0 whitespace-nowrap">{lIdx === 0 ? block.name : ""}</span>
+                 <span className="w-[7.00cm] shrink-0 whitespace-nowrap">{lIdx === 0 ? displayName : ""}</span>
                  <div className="flex-1 min-w-0">
                    <div className="flex relative w-full overflow-hidden leading-[2]">
                      <span className="whitespace-pre-wrap shrink-0">
