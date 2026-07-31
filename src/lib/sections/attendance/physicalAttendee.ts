@@ -53,7 +53,7 @@ export interface AttendanceConfig {
 export const buildAttendanceAttendees = (config: AttendanceConfig): PhysicalAttendee[] => {
   const { shareholders, isMinutes, newManagementItems, oldManagementItems } = config;
   const attendingShareholders = isMinutes
-    ? shareholders.filter((s) => s.isPresent)
+    ? shareholders.filter((s) => s.isPresent !== false)
     : shareholders.filter((s) => (s.sharesOwned || 0) > 0);
 
   const attendees: PhysicalAttendee[] = [];

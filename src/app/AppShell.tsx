@@ -246,6 +246,177 @@ export const AppShell: React.FC = () => {
         uraian: k.uraian || k.description || ''
       }));
 
+      
+      const mergeWithMasterClient = (docData: any) => {
+        const profileId = docData.selectedProfileId || docData.clientId;
+        if (!profileId) return docData;
+        const profile = profiles.find((p: any) => p.id === profileId || p.clientId === profileId);
+        if (!profile) return docData;
+
+        // Master lists from profile
+        const masterShareholders = profile.shareholders || profile.finalShareholders || [];
+        const masterManagement = profile.oldManagementItems || profile.newManagementItems || profile.managementItems || [];
+
+        const hasDetails = (p: any) => {
+          return !!(p && (p.birthCity || p.birthDate || p.occupation || p.address?.fullAddress || p.address?.city));
+        };
+
+        // Helper to find matching profile person
+        const findMatchingPerson = (item: any, masterList: any[]) => {
+          if (!item || !Array.isArray(masterList) || masterList.length === 0) return null;
+          let candidates: any[] = [];
+          // Priority a: match by id
+          if (item.id) {
+            candidates.push(...masterList.filter((m: any) => m && m.id === item.id));
+          }
+          // Priority b: match by NIK (trim, exact)
+          if (item.nik && String(item.nik).trim()) {
+            const cleanNik = String(item.nik).trim();
+            candidates.push(...masterList.filter((m: any) => m && m.nik && String(m.nik).trim() === cleanNik));
+          }
+          // Priority c: match by name (trim + uppercase)
+          if (item.name && String(item.name).trim()) {
+            const cleanName = String(item.name).trim().toUpperCase();
+            candidates.push(...masterList.filter((m: any) => m && m.name && String(m.name).trim().toUpperCase() === cleanName));
+          }
+          if (candidates.length === 0) return null;
+          return candidates.find(c => hasDetails(c)) || candidates[0];
+        };
+
+        // Enrich individual shareholder items
+        let enrichedShareholders = docData.shareholders;
+        if (Array.isArray(docData.shareholders) && docData.shareholders.length > 0) {
+          enrichedShareholders = docData.shareholders.map((sh: any) => {
+            const profSh = findMatchingPerson(sh, masterShareholders);
+            if (!profSh) return sh;
+
+            const curAddr = sh.address || {};
+            const profAddr = profSh.address || {};
+
+            return {
+              ...sh,
+              birthCity: sh.birthCity || profSh.birthCity || '',
+              birthDate: sh.birthDate || profSh.birthDate || '',
+              occupation: sh.occupation || profSh.occupation || '',
+              salutation: sh.salutation || profSh.salutation || '',
+              nationalityType: sh.nationalityType || profSh.nationalityType || '',
+              nationality: sh.nationality || profSh.nationality || '',
+              passportNumber: sh.passportNumber || profSh.passportNumber || '',
+              kitasNumber: sh.kitasNumber || profSh.kitasNumber || '',
+              npwp: sh.npwp || profSh.npwp || '',
+              address: {
+                ...curAddr,
+                rt: curAddr.rt || profAddr.rt || '',
+                rw: curAddr.rw || profAddr.rw || '',
+                kelurahan: curAddr.kelurahan || profAddr.kelurahan || '',
+                kecamatan: curAddr.kecamatan || profAddr.kecamatan || '',
+                city: curAddr.city || profAddr.city || '',
+                province: curAddr.province || profAddr.province || '',
+                fullAddress: curAddr.fullAddress || profAddr.fullAddress || '',
+                postalCode: curAddr.postalCode || profAddr.postalCode || ''
+              }
+            };
+          });
+        } else if (masterShareholders.length > 0) {
+          enrichedShareholders = masterShareholders;
+        }
+
+        // Enrich individual oldManagementItems
+        let enrichedOldManagement = docData.oldManagementItems;
+        if (Array.isArray(docData.oldManagementItems) && docData.oldManagementItems.length > 0) {
+          enrichedOldManagement = docData.oldManagementItems.map((m: any) => {
+            const profM = findMatchingPerson(m, masterManagement) || findMatchingPerson(m, masterShareholders);
+            if (!profM) return m;
+
+            const curAddr = m.address || {};
+            const profAddr = profM.address || {};
+
+            return {
+              ...m,
+              birthCity: m.birthCity || profM.birthCity || '',
+              birthDate: m.birthDate || profM.birthDate || '',
+              occupation: m.occupation || profM.occupation || '',
+              salutation: m.salutation || profM.salutation || '',
+              nationalityType: m.nationalityType || profM.nationalityType || '',
+              nationality: m.nationality || profM.nationality || '',
+              passportNumber: m.passportNumber || profM.passportNumber || '',
+              kitasNumber: m.kitasNumber || profM.kitasNumber || '',
+              npwp: m.npwp || profM.npwp || '',
+              address: {
+                ...curAddr,
+                rt: curAddr.rt || profAddr.rt || '',
+                rw: curAddr.rw || profAddr.rw || '',
+                kelurahan: curAddr.kelurahan || profAddr.kelurahan || '',
+                kecamatan: curAddr.kecamatan || profAddr.kecamatan || '',
+                city: curAddr.city || profAddr.city || '',
+                province: curAddr.province || profAddr.province || '',
+                fullAddress: curAddr.fullAddress || profAddr.fullAddress || '',
+                postalCode: curAddr.postalCode || profAddr.postalCode || ''
+              }
+            };
+          });
+        } else if (masterManagement.length > 0) {
+          enrichedOldManagement = masterManagement;
+        }
+
+        // Enrich individual managementItems
+        let enrichedManagement = docData.managementItems;
+        if (Array.isArray(docData.managementItems) && docData.managementItems.length > 0) {
+          enrichedManagement = docData.managementItems.map((m: any) => {
+            const profM = findMatchingPerson(m, masterManagement) || findMatchingPerson(m, masterShareholders);
+            if (!profM) return m;
+
+            const curAddr = m.address || {};
+            const profAddr = profM.address || {};
+
+            return {
+              ...m,
+              birthCity: m.birthCity || profM.birthCity || '',
+              birthDate: m.birthDate || profM.birthDate || '',
+              occupation: m.occupation || profM.occupation || '',
+              salutation: m.salutation || profM.salutation || '',
+              nationalityType: m.nationalityType || profM.nationalityType || '',
+              nationality: m.nationality || profM.nationality || '',
+              passportNumber: m.passportNumber || profM.passportNumber || '',
+              kitasNumber: m.kitasNumber || profM.kitasNumber || '',
+              npwp: m.npwp || profM.npwp || '',
+              address: {
+                ...curAddr,
+                rt: curAddr.rt || profAddr.rt || '',
+                rw: curAddr.rw || profAddr.rw || '',
+                kelurahan: curAddr.kelurahan || profAddr.kelurahan || '',
+                kecamatan: curAddr.kecamatan || profAddr.kecamatan || '',
+                city: curAddr.city || profAddr.city || '',
+                province: curAddr.province || profAddr.province || '',
+                fullAddress: curAddr.fullAddress || profAddr.fullAddress || '',
+                postalCode: curAddr.postalCode || profAddr.postalCode || ''
+              }
+            };
+          });
+        } else if (masterManagement.length > 0) {
+          enrichedManagement = masterManagement;
+        }
+
+        return {
+          ...docData,
+          companyName: profile.companyName || docData.companyName,
+          companyShortName: profile.companyShortName || docData.companyShortName,
+          companyType: profile.companyType || docData.companyType,
+          npwp: profile.npwp || docData.npwp,
+          domicile: profile.domicile || profile.oldDomicile || docData.domicile,
+          oldDomicile: profile.oldDomicile || profile.domicile || docData.oldDomicile,
+          fullAddress: profile.fullAddress || profile.oldFullAddress || docData.fullAddress,
+          oldFullAddress: profile.oldFullAddress || profile.fullAddress || docData.oldFullAddress,
+          kbliItems: (docData.kbliItems && docData.kbliItems.length > 0) ? docData.kbliItems : profile.kbliItems,
+          shareholders: enrichedShareholders,
+          oldManagementItems: enrichedOldManagement,
+          managementItems: enrichedManagement,
+          capitalBase: profile.targetCapitalBase || profile.capitalBase || profile.originalCapitalBase || docData.capitalBase,
+          capitalPaid: profile.targetCapitalPaid || profile.capitalPaid || profile.originalCapitalPaid || docData.capitalPaid,
+          shareValue: profile.shareValue || profile.originalSharePrice || docData.shareValue,
+        };
+      };
+
       // 1. If editing an existing RUPSLB document
       if (location.pathname === '/rupslb' && editingProjectId && editingProjectId !== 'new') {
         let found = projects.find((p: any) => p.id === editingProjectId || p.projectId === editingProjectId);
@@ -258,10 +429,11 @@ export const AppShell: React.FC = () => {
           }
         }
         if (found) {
+          const mergedFound = mergeWithMasterClient(found);
           updateData({
             ...INITIAL_STATE,
-            ...found,
-            kbliItems: normalizeKblis(found.kbliItems)
+            ...mergedFound,
+            kbliItems: normalizeKblis(mergedFound.kbliItems)
           });
           loadedDocIdRef.current = sessionKey;
           return;
@@ -280,10 +452,11 @@ export const AppShell: React.FC = () => {
           }
         }
         if (found) {
+          const mergedFound = mergeWithMasterClient(found);
           updateData({
             ...INITIAL_STATE,
-            ...found,
-            kbliItems: normalizeKblis(found.kbliItems)
+            ...mergedFound,
+            kbliItems: normalizeKblis(mergedFound.kbliItems)
           });
           loadedDocIdRef.current = sessionKey;
           return;
@@ -317,7 +490,7 @@ export const AppShell: React.FC = () => {
         try {
           const proj = await ProjectService.getProject(activeProjectContext);
           if (proj) {
-            const profile = profiles.find((p: any) => p.id === proj.clientId || p.id === activeProjectContext || (p.companyName && proj.title && p.companyName.toLowerCase().trim() === proj.title.toLowerCase().trim()));
+            const profile = profiles.find((p: any) => p.id === proj.clientId || p.id === (proj as any).selectedProfileId || p.id === activeProjectContext || (p.companyName && proj.title && p.companyName.toLowerCase().trim() === proj.title.toLowerCase().trim()));
             if (profile) {
               updateData({
                 ...INITIAL_STATE,

@@ -1,0 +1,3 @@
+Build success. 
+Tidak ada error terkait pdf export yang baru kita ubah. Log system message hanya warning ukuran chunk dan dinamik import yang tidak terkait.
+Saya sudah menjelaskan rencana dan eksekusinya. 

@@ -1,0 +1,24 @@
+Berdasarkan analisis mendalam terhadap kebutuhan Anda dan batasan teknologi browser saat ini, berikut adalah penjelasan rencana implementasi:
+
+1. Library PDF yang dipilih:
+`html2pdf.js` (dengan implementasi yang jauh lebih bersih, tanpa helper/workaround DOM yang berat).
+
+2. Alasan Teknis Pemilihannya:
+Di sisi client (browser), TIDAK ADA library yang murni mengubah HTML/CSS modern menjadi format vektor PDF tanpa melewati tahap rendering canvas/screenshot (seperti `html2canvas`), kecuali jika kita menggunakan `pdfmake` yang mengharuskan pembuatan ulang seluruh layout JSON dari nol (melanggar aturan untuk mempertahankan layout HTML). 
+
+`html-to-image` gagal karena hanya membuat satu gambar raksasa. Sebaliknya, `html2pdf.js` dirancang khusus untuk mem-parsing instruksi CSS seperti `page-break-inside: avoid` dan secara cerdas memotong-motong rendering ke dalam halaman-halaman A4 yang presisi, mempertahankan margin, tabel, dan layout laporan. 
+
+Akar masalah sebelumnya (error `oklch`) disebabkan oleh parser internal `html2canvas` yang membaca tag `<style>` bawaan Tailwind v4. Kita akan menyelesaikan ini BUKAN dengan traversing/cloning DOM yang berat dan lambat, melainkan dengan satu operasi regex super-ringan pada string CSS (hanya ~5 baris kode) sebelum rendering, yang memakan waktu <1 milidetik.
+
+3. Keuntungan dibanding implementasi saat ini:
+- Mendukung penuh dokumen A4 multipage dengan page break yang benar (tidak menjadi satu gambar raksasa).
+- Tabel panjang akan terpotong dengan rapi ke halaman berikutnya.
+- Performa sangat cepat dan tidak menyebabkan browser freeze karena kita menghapus operasi traversing DOM, getComputedStyle, dan Iframe.
+- Tidak ada file helper yang rumit.
+
+4. Dampaknya terhadap kode yang sudah ada:
+- `exportToPDF` API dan return typenya (Blob/void) tidak berubah sama sekali, sehingga seluruh aplikasi tetap berjalan normal.
+- File `pdfExportHelper.ts` akan dihapus karena implementasi baru akan cukup dan sangat ringkas di dalam `pdfExport.ts`.
+- Workaround OKLCH yang rumit, clone DOM, dan sanitasi berat akan dibersihkan total.
+
+Silakan konfirmasi jika Anda setuju dengan pendekatan ini, dan saya akan langsung menerapkan kodenya.

@@ -16,7 +16,7 @@ export function getRupsLbChairCandidates(
     .map(m => JSON.stringify({ name: m.name, position: m.position || 'Direktur' }));
 
   const proxyItems = (shareholders || [])
-    .filter(sh => sh.isPresent && sh.isProxy && sh.proxyData?.name)
+    .filter(sh => sh.isPresent !== false && sh.isProxy && sh.proxyData?.name)
     .map(sh => JSON.stringify({ name: sh.proxyData!.name, position: 'Kuasa Pemegang Saham' }));
 
   let combined = Array.from(new Set([...shItems, ...oldMgmtItems, ...proxyItems]));

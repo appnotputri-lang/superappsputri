@@ -80,7 +80,7 @@ export function generateSirkulerLaporanBlocks(data: CompanyData): Block[] {
     ? (isCityOrRegency ? toTitleCase(rawDomicile) : `Kota ${toTitleCase(rawDomicile)}`)
     : "Kota ............................";
 
-  const presentShareholders = data.shareholders.filter(s => s.isPresent);
+  const presentShareholders = data.shareholders.filter(s => s.isPresent !== false);
   const shareholders = presentShareholders.length > 0 ? presentShareholders : (data.finalShareholders && data.finalShareholders.length > 0 ? data.finalShareholders : data.shareholders);
 
   const fiscalYear = data.rupstFiscalYear || data.fiscalYear || "2025";

@@ -25,9 +25,16 @@ export interface ClientSnapshot {
     position?: string;
     nik?: string;
     npwp?: string;
+    salutation?: string;
+    birthCity?: string;
+    birthDate?: string;
+    nationalityType?: string;
+    nationality?: string;
     occupation?: string;
     managementPosition?: string;
     isManagement?: boolean;
+    passportNumber?: string;
+    kitasNumber?: string;
     address?: {
       rt?: string;
       rw?: string;
@@ -35,6 +42,7 @@ export interface ClientSnapshot {
       kecamatan?: string;
       city?: string;
       province?: string;
+      postalCode?: string;
       fullAddress?: string;
     };
   }[];
@@ -43,6 +51,25 @@ export interface ClientSnapshot {
     name: string;
     position: string; // Direktur, Komisaris, dsb
     nik?: string;
+    npwp?: string;
+    salutation?: string;
+    birthCity?: string;
+    birthDate?: string;
+    nationalityType?: string;
+    nationality?: string;
+    occupation?: string;
+    passportNumber?: string;
+    kitasNumber?: string;
+    address?: {
+      rt?: string;
+      rw?: string;
+      kelurahan?: string;
+      kecamatan?: string;
+      city?: string;
+      province?: string;
+      postalCode?: string;
+      fullAddress?: string;
+    };
   }[];
   establishmentDeedNumber?: string;
   establishmentDeedDate?: string;

@@ -2,7 +2,7 @@ import { useState, useCallback, createContext, useContext, ReactNode, useEffect,
 import { CompanyData, Address, CompanyProfile, Shareholder } from '../../../types';
 import { INITIAL_STATE, INITIAL_MANUAL_REP } from './initialCompanyData';
 import { toTitleCase } from '../../../utils/formatters';
-import { db } from '../../lib/firebase';
+import { db, searchShareholderByNIKClient } from '../../lib/firebase';
 import { doc, setDoc } from 'firebase/firestore';
 import { syncToUtama, getDeedTitle, formatAppearersForRups, formatAppearersForPendirian } from '../../lib/syncUtama';
 
@@ -221,37 +221,72 @@ export function DocumentRuntimeProvider({ children }: { children: ReactNode }) {
         ...baseData,
         shareholders: baseData.shareholders.map(sh => {
           let patchedSh = { ...sh };
+          if (patchedSh.isPresent === undefined) {
+            patchedSh.isPresent = true;
+          }
 
           // Try to find matching shareholder in company profile for enrichment
+          let profSh: any = null;
           if (selectedProfile && selectedProfile.shareholders) {
-            const profSh = selectedProfile.shareholders.find((s: any) => 
+            profSh = selectedProfile.shareholders.find((s: any) => 
               (s.nik && patchedSh.nik && s.nik.trim() === patchedSh.nik.trim()) ||
               (s.name && patchedSh.name && s.name.trim().toLowerCase() === patchedSh.name.trim().toLowerCase())
             ) as any;
-
-            if (profSh) {
-              patchedSh.occupation = patchedSh.occupation || profSh.occupation || '';
-              patchedSh.managementPosition = patchedSh.managementPosition || profSh.managementPosition || profSh.position || '';
-              if (patchedSh.isManagement === undefined && profSh.isManagement !== undefined) {
-                patchedSh.isManagement = profSh.isManagement;
-              } else if (patchedSh.isManagement === undefined) {
-                patchedSh.isManagement = /direktur|direksi|komisaris/i.test(patchedSh.managementPosition || '');
+          }
+          // Fallback search across all profiles if not found in selectedProfile
+          if (!profSh) {
+            for (const p of profiles) {
+              if (p.shareholders) {
+                const found = p.shareholders.find((s: any) =>
+                  (s.nik && patchedSh.nik && s.nik.trim() === patchedSh.nik.trim()) ||
+                  (s.name && patchedSh.name && s.name.trim().toLowerCase() === patchedSh.name.trim().toLowerCase())
+                );
+                if (found) { profSh = found; break; }
               }
-
-              const profAddr = (profSh.address || {}) as any;
-              const curAddr = (patchedSh.address || {}) as any;
-              patchedSh.address = {
-                ...profAddr,
-                ...curAddr,
-                rt: curAddr.rt || profAddr.rt || '',
-                rw: curAddr.rw || profAddr.rw || '',
-                kelurahan: curAddr.kelurahan || profAddr.kelurahan || '',
-                kecamatan: curAddr.kecamatan || profAddr.kecamatan || '',
-                city: curAddr.city || profAddr.city || '',
-                province: curAddr.province || profAddr.province || '',
-                fullAddress: curAddr.fullAddress || profAddr.fullAddress || '',
-              };
+              const mgmtList = (p as any).oldManagementItems || (p as any).newManagementItems || (p as any).managementItems || [];
+              const foundMgmt = mgmtList.find((s: any) =>
+                (s.nik && patchedSh.nik && s.nik.trim() === patchedSh.nik.trim()) ||
+                (s.name && patchedSh.name && s.name.trim().toLowerCase() === patchedSh.name.trim().toLowerCase())
+              );
+              if (foundMgmt) { profSh = foundMgmt; break; }
             }
+          }
+
+          if (profSh) {
+            patchedSh.salutation = patchedSh.salutation || profSh.salutation || 'Tuan';
+            patchedSh.birthCity = patchedSh.birthCity || profSh.birthCity || '';
+            patchedSh.birthDate = patchedSh.birthDate || profSh.birthDate || '';
+            patchedSh.occupation = patchedSh.occupation || profSh.occupation || '';
+            patchedSh.nik = patchedSh.nik || profSh.nik || '';
+            patchedSh.nationalityType = patchedSh.nationalityType || profSh.nationalityType || 'WNI';
+            patchedSh.nationality = patchedSh.nationality || profSh.nationality || '';
+            patchedSh.passportNumber = patchedSh.passportNumber || profSh.passportNumber || '';
+            patchedSh.kitasNumber = patchedSh.kitasNumber || profSh.kitasNumber || '';
+            patchedSh.gender = patchedSh.gender || profSh.gender || '';
+            if (patchedSh.isForeign === undefined && profSh.isForeign !== undefined) {
+              patchedSh.isForeign = profSh.isForeign;
+            }
+            patchedSh.foreignCountry = patchedSh.foreignCountry || profSh.foreignCountry || '';
+            patchedSh.managementPosition = patchedSh.managementPosition || profSh.managementPosition || profSh.position || '';
+            if (patchedSh.isManagement === undefined && profSh.isManagement !== undefined) {
+              patchedSh.isManagement = profSh.isManagement;
+            } else if (patchedSh.isManagement === undefined) {
+              patchedSh.isManagement = /direktur|direksi|komisaris/i.test(patchedSh.managementPosition || '');
+            }
+
+            const profAddr = (profSh.address || {}) as any;
+            const curAddr = (patchedSh.address || {}) as any;
+            patchedSh.address = {
+              ...profAddr,
+              ...curAddr,
+              rt: curAddr.rt || profAddr.rt || '',
+              rw: curAddr.rw || profAddr.rw || '',
+              kelurahan: curAddr.kelurahan || profAddr.kelurahan || '',
+              kecamatan: curAddr.kecamatan || profAddr.kecamatan || '',
+              city: curAddr.city || profAddr.city || '',
+              province: curAddr.province || profAddr.province || '',
+              fullAddress: curAddr.fullAddress || profAddr.fullAddress || '',
+            };
           }
 
           if (patchedSh.shareholderType === 'BADAN_HUKUM') {
@@ -414,6 +449,63 @@ export function DocumentRuntimeProvider({ children }: { children: ReactNode }) {
       setIsSyncing(false);
     }
   }, [profiles]);
+
+  // Async NIK lookup auto-enrichment for shareholders with missing personal details
+  useEffect(() => {
+    if (!data.shareholders || data.shareholders.length === 0) return;
+
+    let isMounted = true;
+    const enrichMissingShareholders = async () => {
+      const needsEnrichment = data.shareholders.some(s => 
+        s.nik && s.nik.trim().length === 16 && (!s.birthCity || !s.address?.fullAddress || !s.occupation)
+      );
+
+      if (!needsEnrichment) return;
+
+      let updated = false;
+      const enrichedList = await Promise.all(data.shareholders.map(async (sh) => {
+        if (sh.nik && sh.nik.trim().length === 16 && (!sh.birthCity || !sh.address?.fullAddress || !sh.occupation)) {
+          const found = await searchShareholderByNIKClient(sh.nik.trim());
+          if (found) {
+            updated = true;
+            const profAddr = (found.address || {}) as any;
+            const curAddr = (sh.address || {}) as any;
+            return {
+              ...sh,
+              salutation: sh.salutation || found.salutation || 'Tuan',
+              birthCity: sh.birthCity || found.birthCity || '',
+              birthDate: sh.birthDate || found.birthDate || '',
+              occupation: sh.occupation || found.occupation || '',
+              nationalityType: sh.nationalityType || found.nationalityType || 'WNI',
+              nationality: sh.nationality || found.nationality || '',
+              passportNumber: sh.passportNumber || found.passportNumber || '',
+              kitasNumber: sh.kitasNumber || found.kitasNumber || '',
+              address: {
+                ...profAddr,
+                ...curAddr,
+                rt: curAddr.rt || profAddr.rt || '',
+                rw: curAddr.rw || profAddr.rw || '',
+                kelurahan: curAddr.kelurahan || profAddr.kelurahan || '',
+                kecamatan: curAddr.kecamatan || profAddr.kecamatan || '',
+                city: curAddr.city || profAddr.city || '',
+                province: curAddr.province || profAddr.province || '',
+                fullAddress: curAddr.fullAddress || profAddr.fullAddress || '',
+              }
+            };
+          }
+        }
+        return sh;
+      }));
+
+      if (isMounted && updated) {
+        setData(prev => ({ ...prev, shareholders: enrichedList }));
+      }
+    };
+
+    enrichMissingShareholders();
+
+    return () => { isMounted = false; };
+  }, [data.shareholders]);
 
   return (
     <DocumentRuntimeContext.Provider value={{

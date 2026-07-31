@@ -14,17 +14,45 @@ export const db = initializeFirestore(app, {
 export const auth = getAuth(app);
 
 export const searchShareholderByNIKClient = async (nik: string): Promise<any | null> => {
-  if (!nik || nik.length !== 16) return null;
-  const collections = ['profiles', 'cv_profiles', 'projects', 'rupst_projects', 'pendirian_projects'];
+  if (!nik || nik.trim().length !== 16) return null;
+  const cleanNik = nik.trim();
+  const collections = ['profiles', 'cv_profiles', 'projects', 'rupst_projects', 'pendirian_projects', 'laporan_projects'];
+  let bestCandidate: any = null;
+
   try {
     for (const col of collections) {
       const querySnapshot = await getDocs(collection(db, col));
       for (const doc of querySnapshot.docs) {
         const data = doc.data();
-        if (data.shareholders && Array.isArray(data.shareholders)) {
-          const shareholder = data.shareholders.find((s: any) => s.nik === nik);
-          if (shareholder) {
-            return shareholder;
+        const candidateArrays = [
+          data.shareholders,
+          data.finalShareholders,
+          data.oldManagementItems,
+          data.newManagementItems,
+          data.managementItems,
+          data.parties,
+          data.founders,
+        ];
+
+        for (const arr of candidateArrays) {
+          if (Array.isArray(arr)) {
+            for (const item of arr) {
+              if (item && item.nik && item.nik.trim() === cleanNik) {
+                const hasFullDetails = !!(
+                  item.birthCity ||
+                  item.birthDate ||
+                  item.occupation ||
+                  item.address?.fullAddress ||
+                  item.address?.city
+                );
+                if (hasFullDetails) {
+                  return item; // Best possible candidate found!
+                }
+                if (!bestCandidate) {
+                  bestCandidate = item;
+                }
+              }
+            }
           }
         }
       }
@@ -32,7 +60,7 @@ export const searchShareholderByNIKClient = async (nik: string): Promise<any | n
   } catch (error) {
     console.error("Error in searchShareholderByNIKClient:", error);
   }
-  return null;
+  return bestCandidate;
 };
 
 export const loginWithGoogle = async () => {

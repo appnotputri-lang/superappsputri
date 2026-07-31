@@ -59,24 +59,40 @@ const ShareholderEditor: React.FC<Props> = ({
   const maxPossible = totalSharesAllowed - otherAllocated;
   
   const searchShareholderByNIK = async (nik: string) => {
-    if (nik.length !== 16) return;
+    if (!nik || nik.trim().length !== 16) return;
     try {
-      setSearchStatus('Mencari...');
-      const found = await searchShareholderByNIKClient(nik);
+      setSearchStatus('Mencari di database...');
+      const found = await searchShareholderByNIKClient(nik.trim());
       if (found) {
+        const foundAddress = found.address ? {
+          fullAddress: found.address.fullAddress || '',
+          rt: found.address.rt || '',
+          rw: found.address.rw || '',
+          kelurahan: found.address.kelurahan || '',
+          kecamatan: found.address.kecamatan || '',
+          city: found.address.city || '',
+          province: found.address.province || '',
+          postalCode: found.address.postalCode || ''
+        } : shareholder.address;
+
         onChange({
+          ...shareholder,
           nik: found.nik || nik,
-          name: found.name,
-          birthCity: found.birthCity,
-          birthDate: found.birthDate,
-          occupation: found.occupation,
-          address: found.address,
-          // Assuming npwp and other fields might be available
-          npwp: found.npwp || shareholder.npwp
+          name: (found.name || shareholder.name || '').toUpperCase(),
+          salutation: found.salutation || shareholder.salutation || 'Tuan',
+          birthCity: found.birthCity || shareholder.birthCity || '',
+          birthDate: found.birthDate || shareholder.birthDate || '',
+          nationalityType: found.nationalityType || shareholder.nationalityType || 'WNI',
+          nationality: found.nationality || shareholder.nationality || 'WNI',
+          occupation: found.occupation || shareholder.occupation || '',
+          address: foundAddress,
+          passportNumber: found.passportNumber || shareholder.passportNumber || '',
+          kitasNumber: found.kitasNumber || shareholder.kitasNumber || '',
+          npwp: found.npwp || shareholder.npwp || ''
         });
-        setSearchStatus('Data ditemukan dari database');
+        setSearchStatus('✅ Data lengkap ditemukan dari database!');
       } else {
-        setSearchStatus('');
+        setSearchStatus('Data tidak ditemukan di database');
       }
     } catch (e) {
       console.error("Error searching shareholder:", e);

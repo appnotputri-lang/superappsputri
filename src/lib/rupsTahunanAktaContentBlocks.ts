@@ -139,7 +139,7 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
   const totalShares =
     data.shareholders.reduce((sum, s) => sum + (s.sharesOwned || 0), 0) || 1010;
   const attendingShareholders =
-    data.shareholders.filter((s) => s.isPresent) || [];
+    data.shareholders.filter((s) => s.isPresent !== false) || [];
 
   attendingShareholders.sort((a, b) => {
     const rankA = a.isManagement ? getPosRank(a.managementPosition) : 99;

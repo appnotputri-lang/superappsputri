@@ -129,14 +129,17 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
 
   // Rep details
   let rep: Shareholder | undefined;
-  if (data.representativeType === "EXISTING") {
+  if (data.representativeType === "MANUAL" && data.manualRepresentative?.name) {
+    rep = data.manualRepresentative;
+  } else {
     rep =
       data.shareholders.find((s) => s.id === data.authorizedRepresentativeId) ||
-      data.finalShareholders.find(
+      (data.finalShareholders && data.finalShareholders.find(
         (s) => s.id === data.authorizedRepresentativeId,
-      );
-  } else {
-    rep = data.manualRepresentative;
+      )) ||
+      data.shareholders.find((s) => s.name === data.meetingChair) ||
+      data.shareholders.find((s) => s.isManagement || /direktur|direksi/i.test(s.managementPosition || '')) ||
+      data.shareholders[0];
   }
 
   const tglLahirRepHuruf = rep ? dateToWords(rep.birthDate) : "";

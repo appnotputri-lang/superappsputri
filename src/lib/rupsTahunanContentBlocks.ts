@@ -1148,7 +1148,7 @@ export const generateRupstBlocks = (data: CompanyData): Block[] => {
   };
 
   const participants = data.shareholders.filter(
-    (sh) => sh.isPresent && sh.name.toUpperCase() !== tandaTanganChairName,
+    (sh) => sh.isPresent !== false && sh.name.toUpperCase() !== tandaTanganChairName,
   );
   blocks.push({
     type: "participantSigs",
@@ -1188,7 +1188,7 @@ export const generateRupstBlocks = (data: CompanyData): Block[] => {
     headers: ["NO", "NAMA", "KEDUDUKAN", "TANDATANGAN"],
     widths: [800, 3000, 3000, 1704],
     rows: data.shareholders
-      .filter((sh) => sh.isPresent)
+      .filter((sh) => sh.isPresent !== false)
       .map((sh, idx) => {
         const positions = [];
         if (sh.isManagement && sh.managementPosition) {

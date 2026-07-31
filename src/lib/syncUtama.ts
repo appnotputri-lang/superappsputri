@@ -99,7 +99,7 @@ export const formatAppearersForRups = (data: CompanyData): SyncAppearer[] => {
   const appearers: SyncAppearer[] = [];
   
   if (data.representativeType === 'MANUAL' && data.manualRepresentative.name) {
-    const representedParties = data.shareholders.filter(s => s.isPresent);
+    const representedParties = data.shareholders.filter(s => s.isPresent !== false);
     appearers.push({
       id: generateRandomId(),
       name: data.manualRepresentative.name,
@@ -112,8 +112,8 @@ export const formatAppearersForRups = (data: CompanyData): SyncAppearer[] => {
     const rep = data.shareholders.find(s => s.id === data.authorizedRepresentativeId) || 
                 data.finalShareholders.find(s => s.id === data.authorizedRepresentativeId);
     if (rep) {
-      const representedParties = data.shareholders.filter(s => s.isPresent && s.id !== rep.id);
-      const isRepPresent = data.shareholders.some(s => s.id === rep.id && s.isPresent);
+      const representedParties = data.shareholders.filter(s => s.isPresent !== false && s.id !== rep.id);
+      const isRepPresent = data.shareholders.some(s => s.id === rep.id && s.isPresent !== false);
       
       let role: 'Self' | 'Proxy' | 'SelfAndProxy' = 'Proxy';
       if (isRepPresent && representedParties.length > 0) {
@@ -136,7 +136,7 @@ export const formatAppearersForRups = (data: CompanyData): SyncAppearer[] => {
       });
     }
   } else {
-    data.shareholders.filter(s => s.isPresent && !s.isProxy).forEach(s => {
+    data.shareholders.filter(s => s.isPresent !== false && !s.isProxy).forEach(s => {
       appearers.push({
         id: generateRandomId(),
         name: s.name,
