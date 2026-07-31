@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useRef } from 'react';
 import { Deed, DeedAppearer, DeedGrantor } from '../types';
 import { printElement } from '../utils/printHelper';
-import { downloadElementAsPdf, shareElementAsPdf } from '../utils/pdfExport';
+import { exportDeedAlphabeticalReportToPdf } from '../utils/notaryPdfExport';
 import { getSignatureImage } from '../utils/signatureUtils';
 import {
   Printer,
@@ -636,7 +636,13 @@ export const DeedAlphabeticalReport: React.FC<DeedAlphabeticalReportProps> = ({
   const handleDownloadPDF = async () => {
     setIsExportingPDF(true);
     try {
-      await downloadElementAsPdf(printRef.current, `Klapper_Akta_${monthName}_${year}.pdf`);
+      await exportDeedAlphabeticalReportToPdf({
+        monthName,
+        year,
+        filteredSections,
+        notaryName: settings.notaryName,
+        city: settings.city
+      }, 'download');
     } catch (err) {
       console.error('Failed to export PDF:', err);
       alert('Gagal mendownload PDF.');
@@ -648,7 +654,13 @@ export const DeedAlphabeticalReport: React.FC<DeedAlphabeticalReportProps> = ({
   const handleShare = async () => {
     setIsExportingPDF(true);
     try {
-      await shareElementAsPdf(printRef.current, `Klapper_Akta_${monthName}_${year}.pdf`, `Klapper Akta ${monthName} ${year}`);
+      await exportDeedAlphabeticalReportToPdf({
+        monthName,
+        year,
+        filteredSections,
+        notaryName: settings.notaryName,
+        city: settings.city
+      }, 'share');
     } catch (err) {
       console.error('Failed to share PDF:', err);
       alert('Gagal memproses PDF.');

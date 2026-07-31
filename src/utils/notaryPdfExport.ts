@@ -1,0 +1,883 @@
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import { getSignatureImage } from './signatureUtils';
+
+const MONTH_NAMES = [
+  'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+  'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+];
+
+function formatDateIndo(dateStr: string): string {
+  if (!dateStr) return '-';
+  const parts = dateStr.split('-');
+  if (parts.length === 3) {
+    const y = parts[0];
+    const m = parseInt(parts[1], 10) - 1;
+    const d = parts[2].padStart(2, '0');
+    return `${d} ${MONTH_NAMES[m] || ''} ${y}`;
+  }
+  return dateStr;
+}
+
+async function handlePdfOutput(doc: jsPDF, filename: string, mode: 'download' | 'share', shareTitle: string) {
+  if (mode === 'download') {
+    doc.save(filename);
+  } else {
+    try {
+      const blob = doc.output('blob');
+      const file = new File([blob], filename, { type: 'application/pdf' });
+      if (navigator.share && navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file], title: shareTitle, text: shareTitle });
+      } else {
+        doc.save(filename);
+        alert('File PDF telah diunduh (Browser tidak mendukung fitur Share).');
+      }
+    } catch (e: any) {
+      if (e.name !== 'AbortError') {
+        console.error('Sharing failed, falling back to download:', e);
+        doc.save(filename);
+      }
+    }
+  }
+}
+
+export function addNotaryLetterhead(doc: jsPDF, pageWidth: number) {
+  const margin = 20;
+  doc.setTextColor(0, 0, 0);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(14);
+  doc.text('NOTARIS/PPAT', margin, 15);
+  
+  doc.setLineWidth(0.5);
+  doc.setDrawColor(0, 0, 0);
+  doc.line(margin, 17, pageWidth - margin, 17);
+  
+  doc.setFontSize(11);
+  doc.text('NUKANTINI PUTRI PARINCHA, SH., M.Kn', margin, 22);
+  
+  doc.setFontSize(8.5);
+  doc.text('SK MENTERI HUKUM DAN HAK ASASI MANUSIA REPUBLIK INDONESIA', margin, 26.5);
+  doc.text('NO. C-309.HT 03.01-Th. 2007, Tanggal 23 Agustus 2007', margin, 30.5);
+  doc.text('SK. KEPALA BADAN PERTANAHAN NASIONAL REPUBLIK INDONESIA', margin, 34.5);
+  doc.text('NO. 1 - XVI I- PPAT - 2009, Tanggal 12 Februari 2009', margin, 38.5);
+  
+  doc.setFont('helvetica', 'normal');
+  doc.text('Kantor', margin, 43.5);
+  doc.text(':', margin + 18, 43.5);
+  doc.text('Komp. PPR-ITB Kav. F-5 Dago Giri, Lembang, Kab. Bandung Barat', margin + 20, 43.5);
+  
+  doc.text('Telp/Fax', margin, 47.5);
+  doc.text(':', margin + 18, 47.5);
+  doc.text('08112007061', margin + 20, 47.5);
+  
+  // Double lines under letterhead
+  doc.setDrawColor(0, 0, 0);
+  doc.setLineWidth(1.0);
+  doc.line(margin, 51, pageWidth - margin, 51);
+  doc.setLineWidth(0.3);
+  doc.line(margin, 52, pageWidth - margin, 52);
+}
+
+export function addNotaryHeaderMinimal(doc: jsPDF, pageWidth: number) {
+  const margin = 20;
+  doc.setLineWidth(0.3);
+  doc.setDrawColor(180, 180, 180);
+  doc.line(margin, 12, pageWidth - margin, 12);
+  
+  doc.setFont('helvetica', 'italic');
+  doc.setFontSize(8);
+  doc.setTextColor(100, 100, 100);
+  doc.text('NOTARIS/PPAT NUKANTINI PUTRI PARINCHA, SH., M.Kn', margin, 9);
+}
+
+export function addNotaryFooter(doc: jsPDF, pageWidth: number, pageHeight: number, runningTitle: string) {
+  const margin = 20;
+  const pageCount = doc.getNumberOfPages();
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+    doc.setFontSize(8.5);
+    doc.setTextColor(100);
+    doc.setFont('helvetica', 'italic');
+    
+    doc.setDrawColor(180, 180, 180);
+    doc.setLineWidth(0.5);
+    doc.line(margin, pageHeight - 15, pageWidth - margin, pageHeight - 15);
+    
+    doc.text(`${runningTitle} - Halaman ${i} dari ${pageCount}`, margin, pageHeight - 10);
+  }
+}
+
+export function drawRichParagraph(doc: jsPDF, text: string, x: number, y: number, maxWidth: number, lineHeight: number = 5) {
+  const words: { text: string; bold: boolean }[] = [];
+  const parts = text.split('**');
+  let isBold = false;
+  for (let i = 0; i < parts.length; i++) {
+    const part = parts[i];
+    if (part === '') {
+      isBold = !isBold;
+      continue;
+    }
+    const subWords = part.split(/\s+/);
+    for (const sw of subWords) {
+      if (sw === '') continue;
+      words.push({ text: sw, bold: isBold });
+    }
+    isBold = !isBold;
+  }
+
+  const lines: { text: string; bold: boolean }[][] = [];
+  let currentLine: { text: string; bold: boolean }[] = [];
+  let currentLineWidth = 0;
+
+  for (const word of words) {
+    doc.setFont('helvetica', word.bold ? 'bold' : 'normal');
+    const wordWidth = doc.getTextWidth(word.text);
+    const spaceWidth = doc.getTextWidth(' ');
+
+    const extraSpace = currentLine.length > 0 ? spaceWidth : 0;
+    if (currentLineWidth + extraSpace + wordWidth > maxWidth && currentLine.length > 0) {
+      lines.push(currentLine);
+      currentLine = [word];
+      currentLineWidth = wordWidth;
+    } else {
+      currentLine.push(word);
+      currentLineWidth += extraSpace + wordWidth;
+    }
+  }
+  if (currentLine.length > 0) {
+    lines.push(currentLine);
+  }
+
+  let currentY = y;
+  const standardSpaceWidth = doc.getTextWidth(' ');
+
+  for (let l = 0; l < lines.length; l++) {
+    const line = lines[l];
+    const isLastLine = (l === lines.length - 1);
+
+    if (isLastLine || line.length === 1) {
+      // Draw with standard spacing
+      let currentX = x;
+      for (let i = 0; i < line.length; i++) {
+        const w = line[i];
+        doc.setFont('helvetica', w.bold ? 'bold' : 'normal');
+        doc.text(w.text, currentX, currentY);
+        currentX += doc.getTextWidth(w.text) + standardSpaceWidth;
+      }
+    } else {
+      // Justify line
+      let totalWordsWidth = 0;
+      for (const w of line) {
+        doc.setFont('helvetica', w.bold ? 'bold' : 'normal');
+        totalWordsWidth += doc.getTextWidth(w.text);
+      }
+      const numGaps = line.length - 1;
+      const gapWidth = (maxWidth - totalWordsWidth) / numGaps;
+
+      let currentX = x;
+      for (let i = 0; i < line.length; i++) {
+        const w = line[i];
+        doc.setFont('helvetica', w.bold ? 'bold' : 'normal');
+        doc.text(w.text, currentX, currentY);
+        currentX += doc.getTextWidth(w.text) + gapWidth;
+      }
+    }
+    currentY += lineHeight;
+  }
+  return currentY;
+}
+
+export async function exportCoverLetterMPDToPdf(data: {
+  notaryTitle: string;
+  notaryName: string;
+  skMenkumhamTitle: string;
+  skMenkumhamNo: string;
+  skBpnTitle: string;
+  skBpnNo: string;
+  officeAddress: string;
+  officePhone: string;
+  letterNumber: string;
+  subject: string;
+  attachment: string;
+  letterCity: string;
+  formattedLetterDate: string;
+  recipientTitle: string;
+  mpdLine1: string;
+  mpdLine2: string;
+  mpdLine3: string;
+  mpdLine4: string;
+  notaryCityJurisdiction: string;
+  startDateStr: string;
+  endDateStr: string;
+  stampOffsetX: number;
+  stampOffsetY: number;
+  stampSize: number;
+  showStamp: boolean;
+}, mode: 'download' | 'share' = 'download') {
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const pageWidth = doc.internal.pageSize.width;
+  const pageHeight = doc.internal.pageSize.height;
+  const margin = 20;
+
+  // Draw Kop Surat manually based on custom states!
+  doc.setTextColor(0, 0, 0);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(14);
+  doc.text(data.notaryTitle, margin, 15);
+  
+  doc.setLineWidth(0.6);
+  doc.setDrawColor(0, 0, 0);
+  doc.line(margin, 17, pageWidth - margin, 17);
+  
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(11);
+  doc.text(data.notaryName, margin, 22);
+  
+  doc.setFontSize(8.5);
+  doc.setFont('helvetica', 'bold');
+  doc.text(data.skMenkumhamTitle, margin, 26.5);
+  doc.setFont('helvetica', 'normal');
+  doc.text(data.skMenkumhamNo, margin, 30.5);
+  doc.setFont('helvetica', 'bold');
+  doc.text(data.skBpnTitle, margin, 34.5);
+  doc.setFont('helvetica', 'normal');
+  doc.text(data.skBpnNo, margin, 38.5);
+  
+  const officeAddressText = data.officeAddress.trim().toLowerCase().startsWith('kantor') 
+    ? data.officeAddress 
+    : `Kantor : ${data.officeAddress}`;
+  const officePhoneText = (data.officePhone.trim().toLowerCase().startsWith('telp') || data.officePhone.trim().toLowerCase().startsWith('fax')) 
+    ? data.officePhone 
+    : `Telp/Fax : ${data.officePhone}`;
+
+  doc.setFont('helvetica', 'normal');
+  doc.text(officeAddressText, margin, 42.5);
+  doc.text(officePhoneText, margin, 46.5);
+
+  let currentY = 56;
+
+  // Metadata block
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(10);
+
+  // Left side
+  doc.text(`Nomor`, margin, currentY);
+  doc.text(`: ${data.letterNumber}`, margin + 20, currentY);
+  currentY += 5;
+  doc.text(`Perihal`, margin, currentY);
+  doc.text(`: ${data.subject}`, margin + 20, currentY);
+  currentY += 5;
+  doc.text(`Lampiran`, margin, currentY);
+  doc.text(`: ${data.attachment}`, margin + 20, currentY);
+
+  // Right side (x = pageWidth - margin - 75)
+  let rightY = 56;
+  const rightX = pageWidth - margin - 75;
+  doc.text(`${data.letterCity}, ${data.formattedLetterDate}`, rightX, rightY);
+  rightY += 8;
+  doc.text(data.recipientTitle, rightX, rightY);
+  rightY += 5;
+  doc.setFont('helvetica', 'bold');
+  doc.text(data.mpdLine1, rightX, rightY);
+  rightY += 5;
+  doc.text(data.mpdLine2, rightX, rightY);
+  rightY += 5;
+  doc.setFont('helvetica', 'normal');
+  doc.text(data.mpdLine3, rightX, rightY);
+  rightY += 5;
+  doc.text(data.mpdLine4, rightX, rightY);
+
+  currentY = Math.max(currentY, rightY) + 15;
+
+  // Salutation
+  doc.text('Dengan hormat,', margin, currentY);
+  currentY += 10;
+
+  // Body text
+  const bodyText = `Guna memenuhi ketentuan Pasal 61 ayat 1 dari Undang-Undang Nomor 30 tahun 2004 tentang Jabatan Notaris, dengan ini kami sampaikan kepada Saudara salinan daftar akta-akta Notaris dan daftar lainnya yang telah dibuat di hadapan **${data.notaryName}**, Notaris di ${data.notaryCityJurisdiction} terhitung mulai tanggal ${data.startDateStr} sampai dengan ${data.endDateStr}.`;
+  
+  currentY = drawRichParagraph(doc, bodyText, margin, currentY, pageWidth - (margin * 2), 5);
+  currentY += 15;
+
+  // Closing & Signature Block
+  if (currentY > pageHeight - 75) {
+    doc.addPage();
+    currentY = 30;
+  }
+
+  const sigX = pageWidth - margin - 75;
+  doc.setFont('helvetica', 'normal');
+  doc.text('Hormat saya,', sigX, currentY);
+  currentY += 5;
+  doc.text(`Notaris di ${data.notaryCityJurisdiction}`, sigX, currentY);
+  
+  // Stamp & Signature Image
+  if (data.showStamp) {
+    try {
+      const signatureImg = getSignatureImage();
+      const format = signatureImg.startsWith('data:image/png') ? 'PNG' : 'JPEG';
+      const stampW = data.stampSize / 4;
+      const stampH = data.stampSize / 4;
+      const offsetX_mm = data.stampOffsetX * 0.26;
+      const offsetY_mm = data.stampOffsetY * 0.26;
+      doc.addImage(signatureImg, format, sigX - 5 + offsetX_mm, currentY + 2 + offsetY_mm, stampW, stampH);
+    } catch (e) {
+      console.error('Error adding stamp image to PDF:', e);
+    }
+  }
+
+  currentY += 45;
+  doc.setFont('helvetica', 'bold');
+  doc.text(data.notaryName, sigX, currentY);
+  doc.line(sigX, currentY + 1, sigX + doc.getTextWidth(data.notaryName), currentY + 1);
+
+  const filename = `Surat_Pengantar_MPD_${data.formattedLetterDate.replace(/\s+/g, '_')}.pdf`;
+  await handlePdfOutput(doc, filename, mode, 'Surat Pengantar MPD');
+}
+
+export async function exportDeedReportToPdf(data: {
+  monthName: string;
+  year: number;
+  deeds: any[];
+  signatureDate: string;
+}, mode: 'download' | 'share' = 'download') {
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const pageWidth = doc.internal.pageSize.width;
+  const pageHeight = doc.internal.pageSize.height;
+
+  // Add Letterhead
+  addNotaryLetterhead(doc, pageWidth);
+
+  let currentY = 60;
+
+  // Title
+  doc.setTextColor(0, 0, 0);
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'bold');
+  const title1 = `SALINAN DAFTAR AKTA-AKTA NOTARIS NUKANTINI PUTRI PARINCHA, SH., M.Kn`;
+  const splitTitle = doc.splitTextToSize(title1, pageWidth - 40);
+  doc.text(splitTitle, pageWidth / 2, currentY, { align: 'center' });
+  currentY += (splitTitle.length * 5);
+  doc.text(`BULAN ${data.monthName.toUpperCase()} ${data.year}`, pageWidth / 2, currentY, { align: 'center' });
+  currentY += 8;
+
+  // Map deeds to autoTable rows
+  const headers = [['NO. URUT', 'NO. BULANAN', 'TANGGAL', 'SIFAT AKTA', 'NAMA PENGHADAP / PARA PIHAK']];
+  
+  const body = data.deeds.map((deed, idx) => {
+    const orderNum = deed.orderNumber || deed.number || '';
+    const monthlyNum = deed.number || (idx + 1).toString();
+    const dateStr = formatDateIndo(deed.date || '');
+    const titleStr = (deed.title || '').toUpperCase();
+
+    // Format Appearers multiline string
+    let appearerLines: string[] = [];
+    if (deed.appearers && deed.appearers.length > 0) {
+      deed.appearers.forEach((app: any) => {
+        const appNameUpper = (app.name || '').trim().toUpperCase();
+        const isBoth = app.role === 'Both';
+        const isProxy = app.role === 'Proxy';
+
+        const grantors = (app.grantors && app.grantors.length > 0)
+          ? app.grantors
+          : ((isProxy || isBoth) && deed.grantors && deed.grantors.length > 0 ? deed.grantors : []);
+
+        const formatGrantorName = (gName: string) => {
+          const trimmed = gName.trim().toUpperCase();
+          if (trimmed.startsWith('QQ ') || trimmed.startsWith('QQ.')) {
+            return trimmed;
+          }
+          return `QQ ${trimmed}`;
+        };
+
+        if (isBoth) {
+          appearerLines.push(appNameUpper);
+          appearerLines.push(appNameUpper);
+          grantors.forEach((g: any) => {
+            appearerLines.push(`  ${formatGrantorName(g.name)}`);
+          });
+        } else if (isProxy) {
+          appearerLines.push(appNameUpper);
+          grantors.forEach((g: any) => {
+            appearerLines.push(`  ${formatGrantorName(g.name)}`);
+          });
+        } else {
+          appearerLines.push(appNameUpper);
+          if (app.position) {
+            appearerLines.push(`  (${app.position.toUpperCase()})`);
+          }
+        }
+      });
+    }
+
+    return [
+      orderNum,
+      monthlyNum,
+      dateStr,
+      titleStr,
+      appearerLines.join('\n') || '-'
+    ];
+  });
+
+  autoTable(doc, {
+    startY: currentY,
+    head: headers,
+    body: body,
+    theme: 'grid',
+    headStyles: {
+      fillColor: [230, 230, 230],
+      textColor: [0, 0, 0],
+      fontStyle: 'bold',
+      halign: 'center',
+      valign: 'middle',
+      lineColor: [0, 0, 0],
+      lineWidth: 0.2
+    },
+    styles: {
+      fontSize: 8.5,
+      cellPadding: 3,
+      textColor: [0, 0, 0],
+      lineColor: [0, 0, 0],
+      lineWidth: 0.2,
+      font: 'helvetica'
+    },
+    columnStyles: {
+      0: { cellWidth: 15, halign: 'center' },
+      1: { cellWidth: 20, halign: 'center' },
+      2: { cellWidth: 25, halign: 'center' },
+      3: { cellWidth: 45, halign: 'left' },
+      4: { cellWidth: 'auto', halign: 'left' }
+    },
+    margin: { left: 20, right: 20, top: 20, bottom: 25 }
+  });
+
+  // @ts-ignore
+  currentY = doc.lastAutoTable.finalY + 12;
+
+  // Closing & Signature Block
+  if (currentY > pageHeight - 75) {
+    doc.addPage();
+    addNotaryHeaderMinimal(doc, pageWidth);
+    currentY = 25;
+  }
+
+  const sigX = pageWidth - 95;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9.5);
+  doc.text('Salinan Daftar Akta-Akta yang telah dibuat oleh saya,', sigX, currentY);
+  currentY += 5;
+  doc.text(`Notaris, selama Bulan ${data.monthName} ${data.year}.`, sigX, currentY);
+  currentY += 6;
+  const formattedSigDate = data.signatureDate ? (data.signatureDate.includes('Bandung') ? data.signatureDate : `Bandung Barat, ${data.signatureDate}`) : `Bandung Barat, ${data.year}`;
+  doc.text(formattedSigDate, sigX, currentY);
+
+  // Add Stamp & Signature
+  try {
+    const signatureImg = getSignatureImage();
+    const format = signatureImg.startsWith('data:image/png') ? 'PNG' : 'JPEG';
+    doc.addImage(signatureImg, format, sigX - 6, currentY + 2, 45, 45);
+  } catch (e) {
+    console.error('Error adding signature to PDF:', e);
+  }
+
+  currentY += 45;
+  doc.setFont('helvetica', 'bold');
+  doc.text('NUKANTINI PUTRI PARINCHA, SH., M.Kn', sigX, currentY);
+  doc.line(sigX, currentY + 1, sigX + doc.getTextWidth('NUKANTINI PUTRI PARINCHA, SH., M.Kn'), currentY + 1);
+
+  addNotaryFooter(doc, pageWidth, pageHeight, `Laporan Bulanan Akta - ${data.monthName} ${data.year}`);
+
+  const filename = `Laporan_Akta_${data.monthName}_${data.year}.pdf`;
+  await handlePdfOutput(doc, filename, mode, 'Laporan Akta');
+}
+
+export async function exportPrivateDeedReportToPdf(data: {
+  monthName: string;
+  year: number;
+  type: 'Legalisasi' | 'Waarmerking';
+  items: any[];
+  signatureDate: string;
+}, mode: 'download' | 'share' = 'download') {
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const pageWidth = doc.internal.pageSize.width;
+  const pageHeight = doc.internal.pageSize.height;
+
+  // Add Letterhead
+  addNotaryLetterhead(doc, pageWidth);
+
+  let currentY = 60;
+
+  // Title
+  doc.setTextColor(0, 0, 0);
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'bold');
+  const titleText = `LAPORAN SURATAN DI BAWAH TANGAN YANG DI-${data.type.toUpperCase()}`;
+  const splitTitle = doc.splitTextToSize(titleText, pageWidth - 40);
+  doc.text(splitTitle, pageWidth / 2, currentY, { align: 'center' });
+  currentY += (splitTitle.length * 5);
+  doc.text(`BULAN ${data.monthName.toUpperCase()} ${data.year}`, pageWidth / 2, currentY, { align: 'center' });
+  currentY += 8;
+
+  // Map to rows
+  const headers = [['NO', 'NO. REGISTER', 'TANGGAL', 'SIFAT DOKUMEN / SURAT', 'NAMA PEMOHON / PARA PIHAK', 'KETERANGAN']];
+
+  const body = data.items.map((item, idx) => {
+    const regDateStr = formatDateIndo(item.registrationDate || '');
+    const partiesStr = item.parties && item.parties.length > 0 ? item.parties.join('\n') : '-';
+
+    return [
+      (idx + 1).toString(),
+      item.number || '-',
+      regDateStr,
+      (item.description || '').toUpperCase(),
+      partiesStr,
+      item.notes || '-'
+    ];
+  });
+
+  autoTable(doc, {
+    startY: currentY,
+    head: headers,
+    body: body,
+    theme: 'grid',
+    headStyles: {
+      fillColor: [230, 230, 230],
+      textColor: [0, 0, 0],
+      fontStyle: 'bold',
+      halign: 'center',
+      valign: 'middle',
+      lineColor: [0, 0, 0],
+      lineWidth: 0.2
+    },
+    styles: {
+      fontSize: 8.5,
+      cellPadding: 3,
+      textColor: [0, 0, 0],
+      lineColor: [0, 0, 0],
+      lineWidth: 0.2,
+      font: 'helvetica'
+    },
+    columnStyles: {
+      0: { cellWidth: 10, halign: 'center' },
+      1: { cellWidth: 25, halign: 'center' },
+      2: { cellWidth: 25, halign: 'center' },
+      3: { cellWidth: 45, halign: 'left' },
+      4: { cellWidth: 45, halign: 'left' },
+      5: { cellWidth: 'auto', halign: 'left' }
+    },
+    margin: { left: 20, right: 20, top: 20, bottom: 25 }
+  });
+
+  // @ts-ignore
+  currentY = doc.lastAutoTable.finalY + 12;
+
+  // Closing & Signature Block
+  if (currentY > pageHeight - 75) {
+    doc.addPage();
+    addNotaryHeaderMinimal(doc, pageWidth);
+    currentY = 25;
+  }
+
+  const sigX = pageWidth - 95;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9.5);
+  doc.text(`Jawa Barat, ${data.signatureDate || `${data.monthName} ${data.year}`}`, sigX, currentY);
+  currentY += 5;
+  doc.text('Notaris di Jawa Barat', sigX, currentY);
+
+  // Add Stamp & Signature
+  try {
+    const signatureImg = getSignatureImage();
+    const format = signatureImg.startsWith('data:image/png') ? 'PNG' : 'JPEG';
+    doc.addImage(signatureImg, format, sigX - 6, currentY + 2, 45, 45);
+  } catch (e) {
+    console.error('Error adding signature to PDF:', e);
+  }
+
+  currentY += 45;
+  doc.setFont('helvetica', 'bold');
+  doc.text('NUKANTINI PUTRI PARINCHA, SH., M.Kn', sigX, currentY);
+  doc.line(sigX, currentY + 1, sigX + doc.getTextWidth('NUKANTINI PUTRI PARINCHA, SH., M.Kn'), currentY + 1);
+
+  addNotaryFooter(doc, pageWidth, pageHeight, `Laporan ${data.type} - ${data.monthName} ${data.year}`);
+
+  const filename = `Laporan_${data.type}_${data.monthName}_${data.year}.pdf`;
+  await handlePdfOutput(doc, filename, mode, `Laporan ${data.type}`);
+}
+
+export async function exportProtestChequeReportToPdf(data: {
+  monthName: string;
+  year: number;
+  items: any[];
+  signatureDate: string;
+}, mode: 'download' | 'share' = 'download') {
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const pageWidth = doc.internal.pageSize.width;
+  const pageHeight = doc.internal.pageSize.height;
+
+  // Add Letterhead
+  addNotaryLetterhead(doc, pageWidth);
+
+  let currentY = 60;
+
+  // Title
+  doc.setTextColor(0, 0, 0);
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'bold');
+  const titleText = `LAPORAN PROTEST CHEQUE / BILYET GIRO`;
+  const splitTitle = doc.splitTextToSize(titleText, pageWidth - 40);
+  doc.text(splitTitle, pageWidth / 2, currentY, { align: 'center' });
+  currentY += (splitTitle.length * 5);
+  doc.text(`BULAN ${data.monthName.toUpperCase()} ${data.year}`, pageWidth / 2, currentY, { align: 'center' });
+  currentY += 8;
+
+  // Map rows
+  const headers = [['NO', 'TANGGAL', 'NAMA BANK & NO. CEK', 'JUMLAH UANG', 'NAMA PEMOHON', 'NAMA PENARIK CEK']];
+
+  const formatCurrency = (val: number) => {
+    return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(val);
+  };
+
+  const body = data.items.map((item, idx) => {
+    const protestDateStr = formatDateIndo(item.protestDate || '');
+    const bankAndCek = `${item.bankName}\nNo: ${item.chequeNumber}`;
+    const amountStr = formatCurrency(item.amount || 0);
+
+    return [
+      (idx + 1).toString(),
+      protestDateStr,
+      bankAndCek,
+      amountStr,
+      item.applicantName || '-',
+      item.drawerName || '-'
+    ];
+  });
+
+  autoTable(doc, {
+    startY: currentY,
+    head: headers,
+    body: body,
+    theme: 'grid',
+    headStyles: {
+      fillColor: [230, 230, 230],
+      textColor: [0, 0, 0],
+      fontStyle: 'bold',
+      halign: 'center',
+      valign: 'middle',
+      lineColor: [0, 0, 0],
+      lineWidth: 0.2
+    },
+    styles: {
+      fontSize: 8.5,
+      cellPadding: 3,
+      textColor: [0, 0, 0],
+      lineColor: [0, 0, 0],
+      lineWidth: 0.2,
+      font: 'helvetica'
+    },
+    columnStyles: {
+      0: { cellWidth: 10, halign: 'center' },
+      1: { cellWidth: 22, halign: 'center' },
+      2: { cellWidth: 38, halign: 'left' },
+      3: { cellWidth: 32, halign: 'right', fontStyle: 'bold' },
+      4: { cellWidth: 34, halign: 'left' },
+      5: { cellWidth: 'auto', halign: 'left' }
+    },
+    margin: { left: 20, right: 20, top: 20, bottom: 25 }
+  });
+
+  // @ts-ignore
+  currentY = doc.lastAutoTable.finalY + 12;
+
+  // Closing & Signature Block
+  if (currentY > pageHeight - 75) {
+    doc.addPage();
+    addNotaryHeaderMinimal(doc, pageWidth);
+    currentY = 25;
+  }
+
+  const sigX = pageWidth - 95;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9.5);
+  doc.text(`Jawa Barat, ${data.signatureDate || `${data.monthName} ${data.year}`}`, sigX, currentY);
+  currentY += 5;
+  doc.text('Notaris di Jawa Barat', sigX, currentY);
+
+  // Add Stamp & Signature
+  try {
+    const signatureImg = getSignatureImage();
+    const format = signatureImg.startsWith('data:image/png') ? 'PNG' : 'JPEG';
+    doc.addImage(signatureImg, format, sigX - 6, currentY + 2, 45, 45);
+  } catch (e) {
+    console.error('Error adding signature to PDF:', e);
+  }
+
+  currentY += 45;
+  doc.setFont('helvetica', 'bold');
+  doc.text('NUKANTINI PUTRI PARINCHA, SH., M.Kn', sigX, currentY);
+  doc.line(sigX, currentY + 1, sigX + doc.getTextWidth('NUKANTINI PUTRI PARINCHA, SH., M.Kn'), currentY + 1);
+
+  addNotaryFooter(doc, pageWidth, pageHeight, `Laporan Protest Cheque - ${data.monthName} ${data.year}`);
+
+  const filename = `Laporan_Protest_Cheque_${data.monthName}_${data.year}.pdf`;
+  await handlePdfOutput(doc, filename, mode, 'Laporan Protest Cheque');
+}
+
+export async function exportDeedAlphabeticalReportToPdf(data: {
+  monthName: string;
+  year: number;
+  filteredSections: any[];
+  notaryName: string;
+  city: string;
+}, mode: 'download' | 'share' = 'download') {
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const pageWidth = doc.internal.pageSize.width;
+  const pageHeight = doc.internal.pageSize.height;
+
+  // Add Letterhead
+  addNotaryLetterhead(doc, pageWidth);
+
+  let currentY = 60;
+
+  // Title
+  doc.setTextColor(0, 0, 0);
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'bold');
+  const titleText = `SALINAN DAFTAR KLAPPER AKTA-AKTA NOTARIS BULAN ${data.monthName.toUpperCase()} ${data.year}`;
+  const splitTitle = doc.splitTextToSize(titleText, pageWidth - 40);
+  doc.text(splitTitle, pageWidth / 2, currentY, { align: 'center' });
+  currentY += (splitTitle.length * 5) + 3;
+
+  data.filteredSections.forEach((sec) => {
+    if (currentY > pageHeight - 60) {
+      doc.addPage();
+      addNotaryHeaderMinimal(doc, pageWidth);
+      currentY = 25;
+    }
+
+    // Draw Letter box badge
+    doc.setFillColor(240, 240, 240);
+    doc.rect(20, currentY, 15, 7, 'F');
+    doc.setDrawColor(0, 0, 0);
+    doc.setLineWidth(0.3);
+    doc.rect(20, currentY, 15, 7, 'S');
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.setTextColor(0, 0, 0);
+    doc.text(sec.letter, 27.5, currentY + 5.2, { align: 'center' });
+
+    currentY += 10;
+
+    const headers = [['NO. URUT', 'NO. BLN', 'TANGGAL', 'SIFAT AKTA', 'NAMA PENGHADAP']];
+    let body: string[][] = [];
+
+    if (sec.deeds.length === 0) {
+      body = [['N', 'I', 'H', 'I', 'L']];
+    } else {
+      body = sec.deeds.map((item: any) => {
+        const d = item.deed;
+        const orderNum = d.orderNumber || d.number || '';
+        const deedNum = d.deedNumber || d.number || '';
+        const dateStr = formatDateIndo(d.deedDate || d.date || '');
+        const titleStr = (d.deedTitle || d.title || '').toUpperCase();
+
+        // format appearers as plain multiline string
+        let appearersList: string[] = [];
+        if (d.appearers && d.appearers.length > 0) {
+          d.appearers.forEach((app: any) => {
+            const appNameUpper = (app.name || '').trim().toUpperCase();
+            appearersList.push(appNameUpper);
+            if (app.position) {
+              appearersList.push(`  (${app.position.toUpperCase()})`);
+            }
+          });
+        } else {
+          appearersList.push('-');
+        }
+
+        return [
+          orderNum.toString(),
+          deedNum.toString(),
+          dateStr,
+          titleStr,
+          appearersList.join('\n')
+        ];
+      });
+    }
+
+    autoTable(doc, {
+      startY: currentY,
+      head: headers,
+      body: body,
+      theme: 'grid',
+      headStyles: {
+        fillColor: [230, 230, 230],
+        textColor: [0, 0, 0],
+        fontStyle: 'bold',
+        halign: 'center',
+        valign: 'middle',
+        lineColor: [0, 0, 0],
+        lineWidth: 0.2
+      },
+      styles: {
+        fontSize: 8.5,
+        cellPadding: 3,
+        textColor: [0, 0, 0],
+        lineColor: [0, 0, 0],
+        lineWidth: 0.2,
+        font: 'helvetica'
+      },
+      columnStyles: sec.deeds.length === 0 ? {
+        0: { cellWidth: 15, halign: 'center', fontStyle: 'bold' },
+        1: { cellWidth: 18, halign: 'center', fontStyle: 'bold' },
+        2: { cellWidth: 22, halign: 'center', fontStyle: 'bold' },
+        3: { cellWidth: 45, halign: 'center', fontStyle: 'bold' },
+        4: { cellWidth: 'auto', halign: 'center', fontStyle: 'bold' }
+      } : {
+        0: { cellWidth: 15, halign: 'center' },
+        1: { cellWidth: 18, halign: 'center' },
+        2: { cellWidth: 22, halign: 'center' },
+        3: { cellWidth: 45, halign: 'left' },
+        4: { cellWidth: 'auto', halign: 'left' }
+      },
+      margin: { left: 20, right: 20, top: 20, bottom: 25 }
+    });
+
+    // @ts-ignore
+    currentY = doc.lastAutoTable.finalY + 8;
+  });
+
+  // Closing & Signature Block
+  if (currentY > pageHeight - 75) {
+    doc.addPage();
+    addNotaryHeaderMinimal(doc, pageWidth);
+    currentY = 25;
+  }
+
+  const sigX = pageWidth - 95;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9.5);
+  doc.text(`Salinan Daftar Klapper dari Akta-Akta yang telah dibuat dihadapan saya, Notaris, selama bulan ${data.monthName} ${data.year}.`, sigX, currentY, { maxWidth: 80 });
+  currentY += 12;
+  doc.text(`${data.city}, 29 ${data.monthName} ${data.year}`, sigX, currentY);
+
+  // Add Stamp & Signature
+  try {
+    const signatureImg = getSignatureImage();
+    const format = signatureImg.startsWith('data:image/png') ? 'PNG' : 'JPEG';
+    doc.addImage(signatureImg, format, sigX - 6, currentY + 2, 45, 45);
+  } catch (e) {
+    console.error('Error adding signature to PDF:', e);
+  }
+
+  currentY += 45;
+  doc.setFont('helvetica', 'bold');
+  doc.text(data.notaryName.toUpperCase(), sigX, currentY);
+  doc.line(sigX, currentY + 1, sigX + doc.getTextWidth(data.notaryName.toUpperCase()), currentY + 1);
+
+  addNotaryFooter(doc, pageWidth, pageHeight, `Klapper Akta - ${data.monthName} ${data.year}`);
+
+  const filename = `Klapper_Akta_${data.monthName}_${data.year}.pdf`;
+  await handlePdfOutput(doc, filename, mode, 'Klapper Akta');
+}

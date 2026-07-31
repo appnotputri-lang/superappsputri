@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Deed, PrivateDeed, ProtestCheque, OutgoingMail } from '../../../types';
 import { Printer, Settings, RotateCcw, Image, Check, Trash2, Upload, Download, Share2, Loader2 } from 'lucide-react';
 import { printElement } from '../../utils/printHelper';
-import { downloadElementAsPdf, shareElementAsPdf } from '../../utils/pdfExport';
+import { exportCoverLetterMPDToPdf } from '../../utils/notaryPdfExport';
 import { getSignatureImage, setSignatureImage, resetSignatureImage } from '../../utils/signatureUtils';
 
 interface CoverLetterMPDProps {
@@ -197,7 +197,33 @@ export const CoverLetterMPD: React.FC<CoverLetterMPDProps> = ({
   const handleDownload = async () => {
     setIsDownloading(true);
     try {
-      await downloadElementAsPdf(printRef.current, `Surat_Pengantar_MPD_${monthName}_${year}.pdf`);
+      await exportCoverLetterMPDToPdf({
+        notaryTitle,
+        notaryName,
+        skMenkumhamTitle,
+        skMenkumhamNo,
+        skBpnTitle,
+        skBpnNo,
+        officeAddress,
+        officePhone,
+        letterNumber,
+        subject,
+        attachment,
+        letterCity,
+        formattedLetterDate,
+        recipientTitle,
+        mpdLine1,
+        mpdLine2,
+        mpdLine3,
+        mpdLine4,
+        notaryCityJurisdiction,
+        startDateStr,
+        endDateStr,
+        stampOffsetX,
+        stampOffsetY,
+        stampSize,
+        showStamp: showStampImage
+      }, 'download');
     } catch (e) {
       console.error(e);
       alert('Gagal mengunduh PDF.');
@@ -209,7 +235,33 @@ export const CoverLetterMPD: React.FC<CoverLetterMPDProps> = ({
   const handleShare = async () => {
     setIsSharing(true);
     try {
-      await shareElementAsPdf(printRef.current, `Surat_Pengantar_MPD_${monthName}_${year}.pdf`, 'Surat Pengantar MPD');
+      await exportCoverLetterMPDToPdf({
+        notaryTitle,
+        notaryName,
+        skMenkumhamTitle,
+        skMenkumhamNo,
+        skBpnTitle,
+        skBpnNo,
+        officeAddress,
+        officePhone,
+        letterNumber,
+        subject,
+        attachment,
+        letterCity,
+        formattedLetterDate,
+        recipientTitle,
+        mpdLine1,
+        mpdLine2,
+        mpdLine3,
+        mpdLine4,
+        notaryCityJurisdiction,
+        startDateStr,
+        endDateStr,
+        stampOffsetX,
+        stampOffsetY,
+        stampSize,
+        showStamp: showStampImage
+      }, 'share');
     } catch (e) {
       console.error(e);
       alert('Gagal memproses PDF.');

@@ -174,6 +174,13 @@ export const TAB_ACCENTS: Record<SidebarTabId, {
     bgColor: 'bg-teal-50/70',
     hoverBg: 'hover:bg-teal-50/40 hover:text-teal-950',
     indicatorBg: 'bg-teal-600'
+  },
+  stamp_settings: {
+    iconColor: 'text-indigo-600',
+    textColor: 'text-indigo-900',
+    bgColor: 'bg-indigo-50/70',
+    hoverBg: 'hover:bg-indigo-50/40 hover:text-indigo-950',
+    indicatorBg: 'bg-indigo-600'
   }
 };
 
@@ -203,7 +210,8 @@ export const TAB_TO_PATH: Record<string, string> = {
   'private_deeds': '/private-deeds',
   'protest_cheque': '/protest-cheque',
   'outgoing_mail': '/surat-keluar',
-  'incoming_mail': '/surat-masuk'
+  'incoming_mail': '/surat-masuk',
+  'stamp_settings': '/stamp-settings'
 };
 
 export const PATH_TO_TAB: Record<string, SidebarTabId> = {

@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { PrivateDeed } from '../../../types';
 import { Printer, Search, Download, Share2, Loader2 } from 'lucide-react';
 import { printElement } from '../../utils/printHelper';
-import { downloadElementAsPdf, shareElementAsPdf } from '../../utils/pdfExport';
+import { exportPrivateDeedReportToPdf } from '../../utils/notaryPdfExport';
 import { getSignatureImage } from '../../utils/signatureUtils';
 
 interface PrivateDeedPrintViewProps {
@@ -63,7 +63,13 @@ export const PrivateDeedPrintView: React.FC<PrivateDeedPrintViewProps> = ({
   const handleDownload = async () => {
     setIsDownloading(true);
     try {
-      await downloadElementAsPdf(printRef.current, `Laporan_${type}_${monthName}_${year}.pdf`);
+      await exportPrivateDeedReportToPdf({
+        monthName,
+        year,
+        type,
+        items: filteredItems,
+        signatureDate
+      }, 'download');
     } catch (e) {
       console.error(e);
       alert('Gagal mengunduh PDF.');
@@ -75,7 +81,13 @@ export const PrivateDeedPrintView: React.FC<PrivateDeedPrintViewProps> = ({
   const handleShare = async () => {
     setIsSharing(true);
     try {
-      await shareElementAsPdf(printRef.current, `Laporan_${type}_${monthName}_${year}.pdf`, `Laporan ${type}`);
+      await exportPrivateDeedReportToPdf({
+        monthName,
+        year,
+        type,
+        items: filteredItems,
+        signatureDate
+      }, 'share');
     } catch (e) {
       console.error(e);
       alert('Gagal memproses PDF.');

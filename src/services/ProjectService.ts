@@ -180,8 +180,9 @@ export class ProjectService {
 
       if (isClientUpdateStatus) {
         const afterSnap = project.changeSnapshot?.after || project.clientSnapshot;
-        if (afterSnap) {
-          const clientRef = doc(db, "profiles", project.clientId);
+        const targetProjClientId = project.clientId || (project as any).selectedProfileId;
+        if (afterSnap && targetProjClientId && targetProjClientId !== 'undefined') {
+          const clientRef = doc(db, "profiles", targetProjClientId);
           const clientSnap = await getDoc(clientRef);
           
           if (clientSnap.exists()) {
@@ -291,7 +292,7 @@ export class ProjectService {
 
             await updateDoc(clientRef, cleanUndefined(updates));
             try {
-              const companyProfileRef = doc(db, 'company_profiles', project.clientId);
+              const companyProfileRef = doc(db, 'company_profiles', targetProjClientId);
               await updateDoc(companyProfileRef, cleanUndefined(updates));
             } catch (e) {
               console.warn('Could not sync company_profiles in ProjectService:', e);

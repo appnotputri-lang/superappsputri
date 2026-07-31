@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { Deed } from '../../../types';
 import { Printer, Search, Download, Share2, Loader2 } from 'lucide-react';
 import { printElement } from '../../utils/printHelper';
-import { downloadElementAsPdf, shareElementAsPdf } from '../../utils/pdfExport';
+import { exportDeedReportToPdf } from '../../utils/notaryPdfExport';
 import { getSignatureImage } from '../../utils/signatureUtils';
 
 interface DeedReportProps {
@@ -60,7 +60,12 @@ export const DeedReport: React.FC<DeedReportProps> = ({
   const handleDownload = async () => {
     setIsDownloading(true);
     try {
-      await downloadElementAsPdf(printRef.current, `Laporan_Akta_${monthName}_${year}.pdf`);
+      await exportDeedReportToPdf({
+        monthName,
+        year,
+        deeds: filteredDeeds,
+        signatureDate
+      }, 'download');
     } catch (e) {
       console.error(e);
       alert('Gagal mengunduh PDF.');
@@ -72,7 +77,12 @@ export const DeedReport: React.FC<DeedReportProps> = ({
   const handleShare = async () => {
     setIsSharing(true);
     try {
-      await shareElementAsPdf(printRef.current, `Laporan_Akta_${monthName}_${year}.pdf`, 'Laporan Akta');
+      await exportDeedReportToPdf({
+        monthName,
+        year,
+        deeds: filteredDeeds,
+        signatureDate
+      }, 'share');
     } catch (e) {
       console.error(e);
       alert('Gagal memproses PDF.');

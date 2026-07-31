@@ -18,7 +18,8 @@ import {
   CreditCard,
   ShieldCheck,
   Send,
-  Inbox
+  Inbox,
+  Image
 } from 'lucide-react';
 import { TAB_ACCENTS } from '../../constants/tabs';
 import { SidebarTabId, UserProfile } from '../../../types';
@@ -265,6 +266,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
             {[
               { label: 'WhatsApp Gateway', id: 'whatsapp_settings' as const, icon: Smartphone },
+              { label: 'Stempel & TTD', id: 'stamp_settings' as const, icon: Image },
               { label: 'Manajemen User', id: 'user_management' as const, icon: Users },
             ].map((item) => {
               const isActive = activeSidebarTab === item.id;

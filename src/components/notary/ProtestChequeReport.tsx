@@ -3,7 +3,7 @@ import { ProtestCheque } from '../../../types';
 import { NotaryService } from '../../services/NotaryService';
 import { Plus, Edit2, Trash2, Printer, Search, X, Download, Share2, Loader2 } from 'lucide-react';
 import { printElement } from '../../utils/printHelper';
-import { downloadElementAsPdf, shareElementAsPdf } from '../../utils/pdfExport';
+import { exportProtestChequeReportToPdf } from '../../utils/notaryPdfExport';
 import { getSignatureImage } from '../../utils/signatureUtils';
 
 interface ProtestChequeReportProps {
@@ -145,7 +145,12 @@ export const ProtestChequeReport: React.FC<ProtestChequeReportProps> = ({
   const handleDownload = async () => {
     setIsDownloading(true);
     try {
-      await downloadElementAsPdf(printRef.current, `Laporan_Protest_Cheque_${monthName}_${year}.pdf`);
+      await exportProtestChequeReportToPdf({
+        monthName,
+        year,
+        items: filteredItems,
+        signatureDate
+      }, 'download');
     } catch (e) {
       console.error(e);
       alert('Gagal mengunduh PDF.');
@@ -157,7 +162,12 @@ export const ProtestChequeReport: React.FC<ProtestChequeReportProps> = ({
   const handleShare = async () => {
     setIsSharing(true);
     try {
-      await shareElementAsPdf(printRef.current, `Laporan_Protest_Cheque_${monthName}_${year}.pdf`, 'Laporan Protest Cheque');
+      await exportProtestChequeReportToPdf({
+        monthName,
+        year,
+        items: filteredItems,
+        signatureDate
+      }, 'share');
     } catch (e) {
       console.error(e);
       alert('Gagal memproses PDF.');

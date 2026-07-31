@@ -24,7 +24,7 @@ export const renderAppRoute = (currentTab: string, props: any) => {
     return renderInvoiceRoute(props?.isPublic || false);
   }
 
-  if (currentTab === 'user_management' || currentTab === 'whatsapp_settings') {
+  if (currentTab === 'user_management' || currentTab === 'whatsapp_settings' || currentTab === 'stamp_settings') {
     return renderSettingsRoute(currentTab, props);
   }
 

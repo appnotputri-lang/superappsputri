@@ -742,19 +742,25 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
       setProject(proj);
       setLocalMinutaNotes(proj.minutaNotes || '');
 
+      const targetQueryClientId = proj.clientId || (proj as any).selectedProfileId;
+
       // Parallel queries for children and linked entities
       const [cli, wf, tlList, tkList, docList, relatedSnap] = await Promise.all([
-        getDoc(doc(db, 'profiles', proj.clientId)).then(snapshot => {
-          if (snapshot.exists()) {
-            return { id: snapshot.id, ...snapshot.data() } as CompanyProfile;
-          }
-          return null;
-        }),
+        (targetQueryClientId && targetQueryClientId !== 'undefined')
+          ? getDoc(doc(db, 'profiles', targetQueryClientId)).then(snapshot => {
+              if (snapshot.exists()) {
+                return { id: snapshot.id, ...snapshot.data() } as CompanyProfile;
+              }
+              return null;
+            })
+          : Promise.resolve(null),
         WorkflowService.getWorkflow(proj.jobType),
         ProjectService.getProjectTimelines(projectId),
         ProjectService.getProjectTasks(projectId),
         ProjectService.getProjectDocuments(projectId),
-        getDocs(query(collection(db, 'office_projects'), where('clientId', '==', proj.clientId)))
+        (targetQueryClientId && targetQueryClientId !== 'undefined')
+          ? getDocs(query(collection(db, 'office_projects'), where('clientId', '==', targetQueryClientId)))
+          : Promise.resolve({ docs: [] } as any)
       ]);
 
       setClient(cli);
@@ -1312,8 +1318,10 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
       }
     }
 
-    if (project.clientId) {
-      const clientDocRef = doc(db, 'profiles', project.clientId);
+    const targetClientId = project.clientId || (project as any).selectedProfileId || client?.id;
+
+    if (targetClientId && targetClientId !== 'undefined') {
+      const clientDocRef = doc(db, 'profiles', targetClientId);
       const clientSnap = await getDoc(clientDocRef);
       const freshClient = clientSnap.exists() ? (clientSnap.data() as CompanyProfile) : null;
 
@@ -2017,9 +2025,9 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
         throw new Error('SYNC_CANCELLED_BY_USER');
       }
 
-      await setDoc(doc(db, 'profiles', project.clientId), cleanUndefined(profileUpdate), { merge: true });
+      await setDoc(doc(db, 'profiles', targetClientId), cleanUndefined(profileUpdate), { merge: true });
       try {
-        await setDoc(doc(db, 'company_profiles', project.clientId), cleanUndefined(profileUpdate), { merge: true });
+        await setDoc(doc(db, 'company_profiles', targetClientId), cleanUndefined(profileUpdate), { merge: true });
       } catch (e) {
         console.warn('Could not sync company_profiles:', e);
       }
