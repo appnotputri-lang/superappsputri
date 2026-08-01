@@ -6,9 +6,16 @@ import { driveRest } from '../lib/drive-rest';
 export class DriveController {
   static async ensureFolder(req: AuthenticatedRequest, res: Response) {
     try {
-      const { name, parentId } = req.body;
+      let { name, parentId } = req.body;
       if (!name || !parentId) {
         return res.status(400).json({ error: "Missing required fields: name, parentId" });
+      }
+
+      // Automatically map hardcoded placeholder ID or 'root' to the configured GOOGLE_DRIVE_REPORT_FOLDER_ID or GOOGLE_DRIVE_ROOT_FOLDER_ID
+      if (parentId === '0B-My1uo45zLiMy11WVdHVFJ4RU0') {
+        parentId = process.env.GOOGLE_DRIVE_REPORT_FOLDER_ID || process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID || '0B-My1uo45zLiMy11WVdHVFJ4RU0';
+      } else if (parentId === 'root') {
+        parentId = process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID || 'root';
       }
 
       const q = `'${parentId}' in parents and name = '${name.replace(/'/g, "\\'")}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
@@ -27,8 +34,19 @@ export class DriveController {
 
   static async listFiles(req: AuthenticatedRequest, res: Response) {
     try {
-      const q = (req.query.q as string) || '';
+      let q = (req.query.q as string) || '';
       const fields = (req.query.fields as string) || 'files(id, name, webViewLink)';
+
+      // Automatically map hardcoded placeholder ID to the configured GOOGLE_DRIVE_REPORT_FOLDER_ID or GOOGLE_DRIVE_ROOT_FOLDER_ID
+      const placeholderId = '0B-My1uo45zLiMy11WVdHVFJ4RU0';
+      if (q.includes(placeholderId)) {
+        const actualReportId = process.env.GOOGLE_DRIVE_REPORT_FOLDER_ID || process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID || placeholderId;
+        q = q.replace(new RegExp(placeholderId, 'g'), actualReportId);
+      } else if (q.includes("'root' in parents") && process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID) {
+        const actualRootId = process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID;
+        q = q.replace(/'root' in parents/g, `'${actualRootId}' in parents`);
+      }
+
       const files = await driveRest.listFiles(q, fields, 1000, process.env);
       res.json({ success: true, files });
     } catch (error: any) {
@@ -68,10 +86,17 @@ export class DriveController {
 
   static async uploadFile(req: AuthenticatedRequest, res: Response) {
     try {
-      const { fileName, mimeType, parentFolderId, base64 } = req.body;
+      let { fileName, mimeType, parentFolderId, base64 } = req.body;
       if (!fileName || !mimeType || !parentFolderId || !base64) {
         return res.status(400).json({ error: "Missing required fields" });
       }
+
+      if (parentFolderId === '0B-My1uo45zLiMy11WVdHVFJ4RU0') {
+        parentFolderId = process.env.GOOGLE_DRIVE_REPORT_FOLDER_ID || process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID || '0B-My1uo45zLiMy11WVdHVFJ4RU0';
+      } else if (parentFolderId === 'root') {
+        parentFolderId = process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID || 'root';
+      }
+
       const result = await driveRest.uploadFile(fileName, mimeType, parentFolderId, base64, process.env);
       res.json({ success: true, file: result });
     } catch (error: any) {
