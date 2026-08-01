@@ -299,18 +299,18 @@ export function generateInvoiceHTML(invoice: Invoice, qrBase64: string, autoPrin
       color: #dc2626;
       font-weight: 600;
     }
-    .grand-total-row {
+    .grand-total-row td {
       border-top: 2px solid #0f172a;
-      padding-top: 6px !important;
+      padding-top: 14px !important;
       font-weight: 900;
       font-size: 15px;
       color: #0f172a;
     }
-    .due-row {
+    .due-row td {
       font-weight: 900;
       font-size: 14px;
       color: #dc2626;
-      padding-top: 4px !important;
+      padding-top: 6px !important;
     }
     .signature-container {
       text-align: center;
@@ -717,13 +717,13 @@ export async function downloadInvoicePdf(invoice: Invoice, publicUrl?: string) {
   }
 
   // Draw the divider line before "Total"
-  rightY += 5;
+  rightY += 6;
   doc.setDrawColor(15, 23, 42);
   doc.setLineWidth(0.4);
   doc.line(120, rightY, 195, rightY);
 
   // Grand Total
-  rightY += 6;
+  rightY += 9;
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(10.5);
   doc.setTextColor(15, 23, 42);
@@ -731,7 +731,7 @@ export async function downloadInvoicePdf(invoice: Invoice, publicUrl?: string) {
   doc.text(`Rp ${formatNum(invoice.totalAmount)}`, 195, rightY, { align: 'right' });
 
   // Sisa Tagihan
-  rightY += 6;
+  rightY += 7;
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(10.5);
   doc.setTextColor(220, 38, 38);

@@ -210,12 +210,12 @@ export const InvoicePrintTemplate: React.FC<InvoicePrintTemplateProps> = ({ invo
               </div>
             ) : null}
 
-            <div className="border-t-2 border-slate-900 pt-1.5 flex justify-between font-black text-sm text-slate-900">
+            <div className="border-t-2 border-slate-900 mt-4 pt-3 flex justify-between font-black text-sm text-slate-900">
               <span>Total</span>
               <span>Rp {formatNum(invoice.totalAmount)}</span>
             </div>
 
-            <div className="flex justify-between font-black text-sm text-red-600 pt-0.5">
+            <div className="flex justify-between font-black text-sm text-red-600 pt-1.5">
               <span>Sisa Tagihan</span>
               <span>{formatNum(invoice.balanceDue ?? invoice.totalAmount)}</span>
             </div>
