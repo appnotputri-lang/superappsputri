@@ -1,10 +1,11 @@
 import React, { useState, useRef } from 'react';
 import { ProtestCheque } from '../../../types';
 import { NotaryService } from '../../services/NotaryService';
-import { Plus, Edit2, Trash2, Printer, Search, X, Download, Share2, Loader2 } from 'lucide-react';
+import { Plus, Edit2, Trash2, Printer, Search, X, Download, Share2, Loader2, CheckCircle2, AlertCircle, ExternalLink } from 'lucide-react';
 import { printElement } from '../../utils/printHelper';
 import { exportProtestChequeReportToPdf } from '../../utils/notaryPdfExport';
 import { getSignatureImage } from '../../utils/signatureUtils';
+import { saveReportToDrive } from '../../services/reportDriveService';
 
 interface ProtestChequeReportProps {
   month: number;
@@ -176,6 +177,48 @@ export const ProtestChequeReport: React.FC<ProtestChequeReportProps> = ({
     }
   };
 
+  const [isSavingDrive, setIsSavingDrive] = useState(false);
+  const [driveProgress, setDriveProgress] = useState('');
+  const [driveResult, setDriveResult] = useState<{ success: boolean; message: string; link?: string } | null>(null);
+
+  const handleSaveDrive = async () => {
+    setIsSavingDrive(true);
+    setDriveProgress('Mempersiapkan PDF...');
+    setDriveResult(null);
+    try {
+      const pdfBlob = await exportProtestChequeReportToPdf({
+        monthName,
+        year,
+        items: filteredItems,
+        signatureDate
+      }, 'blob');
+
+      if (!pdfBlob) throw new Error('Gagal membuat PDF Blob.');
+
+      const result = await saveReportToDrive(
+        pdfBlob as Blob,
+        { month, year, signatureDate },
+        'Protes',
+        (msg) => setDriveProgress(msg)
+      );
+
+      setDriveResult({
+        success: true,
+        message: 'Laporan berhasil disimpan ke Google Drive.',
+        link: result.webViewLink
+      });
+    } catch (e: any) {
+      console.error(e);
+      setDriveResult({
+        success: false,
+        message: 'Gagal menyimpan laporan ke Google Drive.'
+      });
+    } finally {
+      setIsSavingDrive(false);
+      setDriveProgress('');
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Top Action Bar */}
@@ -198,7 +241,15 @@ export const ProtestChequeReport: React.FC<ProtestChequeReportProps> = ({
             className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium text-xs flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
           >
             {isDownloading ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />}
-            Download PDF
+            Export PDF
+          </button>
+          <button
+            onClick={handleSaveDrive}
+            disabled={isSavingDrive}
+            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium text-xs flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
+          >
+            {isSavingDrive ? <Loader2 size={15} className="animate-spin" /> : <span>📁</span>}
+            {isSavingDrive ? (driveProgress || 'Menyimpan...') : 'Simpan Google Drive'}
           </button>
           <button
             onClick={handleShare}
@@ -226,40 +277,64 @@ export const ProtestChequeReport: React.FC<ProtestChequeReportProps> = ({
         </div>
       </div>
 
+      {driveResult && (
+        <div className={`p-3.5 rounded-xl border flex items-center justify-between text-xs font-medium ${
+          driveResult.success ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-rose-50 text-rose-800 border-rose-200'
+        }`}>
+          <div className="flex items-center gap-2">
+            {driveResult.success ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
+            <span>{driveResult.message}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            {driveResult.link && (
+              <a
+                href={driveResult.link}
+                target="_blank"
+                rel="noreferrer"
+                className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded font-medium text-[11px] flex items-center gap-1"
+              >
+                <ExternalLink size={13} />
+                Buka di Drive
+              </a>
+            )}
+            <button
+              onClick={() => setDriveResult(null)}
+              className="p-1 text-slate-400 hover:text-slate-600 rounded"
+            >
+              <X size={14} />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Main Document Sheet */}
       <div ref={printRef} className="bg-white p-6 md:p-8 rounded-xl border border-slate-200 shadow-sm print:shadow-none print:border-none print:p-0">
-        <div className="text-center mb-6">
-          <h2 className="text-base font-bold text-slate-900 uppercase tracking-wide">
-            LAPORAN PROTEST CHEQUE / BILYET GIRO
+        <div className="text-left mb-6">
+          <h2 className="text-sm font-bold text-slate-900">
+            Salinan Daftar Protest Cheque dan Protes Wessel, Bulan {monthName} {year}
           </h2>
-          <p className="text-xs font-medium text-slate-600 mt-0.5">
-            BULAN: {monthName.toUpperCase()} {year}
-          </p>
-          <p className="text-[11px] text-slate-500">Notaris & PPAT Putri, S.H., M.Kn.</p>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs border-collapse border border-slate-300">
-            <thead>
-              <tr className="bg-slate-100 text-slate-800 font-bold">
-                <th className="border border-slate-300 p-2 text-center w-10">NO</th>
-                <th className="border border-slate-300 p-2 w-28 text-center">TANGGAL</th>
-                <th className="border border-slate-300 p-2 min-w-[160px]">NAMA BANK & NO. CEK</th>
-                <th className="border border-slate-300 p-2 text-right w-36">JUMLAH UANG</th>
-                <th className="border border-slate-300 p-2 min-w-[160px]">NAMA PEMOHON</th>
-                <th className="border border-slate-300 p-2 min-w-[160px]">NAMA PENARIK CEK</th>
-                <th className="border border-slate-300 p-2 w-20 text-center print:hidden">AKSI</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredItems.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="border border-slate-300 p-8 text-center text-slate-400 italic">
-                    Tidak ada data protest cheque untuk periode bulan {monthName} {year}.
-                  </td>
+        {filteredItems.length === 0 ? (
+          <div className="py-12 my-4 text-center font-bold text-sm tracking-[0.5em] text-slate-900 uppercase">
+            N I H I L
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse border border-slate-300">
+              <thead>
+                <tr className="bg-slate-100 text-slate-800 font-bold">
+                  <th className="border border-slate-300 p-2 text-center w-10">NO</th>
+                  <th className="border border-slate-300 p-2 w-28 text-center">TANGGAL</th>
+                  <th className="border border-slate-300 p-2 min-w-[160px]">NAMA BANK & NO. CEK</th>
+                  <th className="border border-slate-300 p-2 text-right w-36">JUMLAH UANG</th>
+                  <th className="border border-slate-300 p-2 min-w-[160px]">NAMA PEMOHON</th>
+                  <th className="border border-slate-300 p-2 min-w-[160px]">NAMA PENARIK CEK</th>
+                  <th className="border border-slate-300 p-2 w-20 text-center print:hidden">AKSI</th>
                 </tr>
-              ) : (
-                filteredItems.map((item, idx) => (
+              </thead>
+              <tbody>
+                {filteredItems.map((item, idx) => (
                   <tr key={item.id} className="hover:bg-slate-50/80 transition-colors">
                     <td className="border border-slate-300 p-2 text-center font-medium text-slate-600">{idx + 1}</td>
                     <td className="border border-slate-300 p-2 text-center text-slate-600">{item.protestDate}</td>
@@ -291,17 +366,17 @@ export const ProtestChequeReport: React.FC<ProtestChequeReportProps> = ({
                       </div>
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
 
         {/* Signature Footer */}
         <div className="mt-8 flex justify-end text-xs font-sans text-slate-900">
           <div className="text-left w-80 space-y-1">
-            <p>Jawa Barat, {signatureDate || `${monthName} ${year}`}</p>
-            <p>Notaris di Jawa Barat</p>
+            <p>Bandung Barat, {signatureDate || `${monthName} ${year}`}</p>
+            <p>Notaris di Kabupaten Bandung Barat,</p>
 
             <div className="relative h-28 my-1 flex items-center">
               <div className="absolute -left-4 -top-8 w-44 h-44 pointer-events-none select-none z-0">
@@ -313,8 +388,8 @@ export const ProtestChequeReport: React.FC<ProtestChequeReportProps> = ({
               </div>
             </div>
 
-            <p className="font-bold underline uppercase text-xs tracking-wide pt-2 z-10 relative">
-              PUTRI, S.H., M.Kn.
+            <p className="font-bold underline text-xs tracking-wide pt-2 z-10 relative">
+              NUKANTINI PUTRI PARINCHA, SH., M.Kn
             </p>
           </div>
         </div>

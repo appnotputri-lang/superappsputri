@@ -19,7 +19,10 @@ function formatDateIndo(dateStr: string): string {
   return dateStr;
 }
 
-async function handlePdfOutput(doc: jsPDF, filename: string, mode: 'download' | 'share', shareTitle: string) {
+async function handlePdfOutput(doc: jsPDF, filename: string, mode: 'download' | 'share' | 'blob', shareTitle: string) {
+  if (mode === 'blob') {
+    return doc.output('blob');
+  }
   if (mode === 'download') {
     doc.save(filename);
   } else {
@@ -213,7 +216,7 @@ export async function exportCoverLetterMPDToPdf(data: {
   stampOffsetY: number;
   stampSize: number;
   showStamp: boolean;
-}, mode: 'download' | 'share' = 'download') {
+}, mode: 'download' | 'share' | 'blob' = 'download') {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const pageWidth = doc.internal.pageSize.width;
   const pageHeight = doc.internal.pageSize.height;
@@ -332,7 +335,7 @@ export async function exportCoverLetterMPDToPdf(data: {
   doc.line(sigX, currentY + 1, sigX + doc.getTextWidth(data.notaryName), currentY + 1);
 
   const filename = `Surat_Pengantar_MPD_${data.formattedLetterDate.replace(/\s+/g, '_')}.pdf`;
-  await handlePdfOutput(doc, filename, mode, 'Surat Pengantar MPD');
+  return await handlePdfOutput(doc, filename, mode, 'Surat Pengantar MPD');
 }
 
 export async function exportDeedReportToPdf(data: {
@@ -340,7 +343,7 @@ export async function exportDeedReportToPdf(data: {
   year: number;
   deeds: any[];
   signatureDate: string;
-}, mode: 'download' | 'share' = 'download') {
+}, mode: 'download' | 'share' | 'blob' = 'download') {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const pageWidth = doc.internal.pageSize.width;
   const pageHeight = doc.internal.pageSize.height;
@@ -504,7 +507,7 @@ export async function exportDeedReportToPdf(data: {
   doc.line(sigX, currentY + 1, sigX + doc.getTextWidth('NUKANTINI PUTRI PARINCHA, SH., M.Kn'), currentY + 1);
 
   const filename = `Laporan_Akta_${data.monthName}_${data.year}.pdf`;
-  await handlePdfOutput(doc, filename, mode, 'Laporan Akta');
+  return await handlePdfOutput(doc, filename, mode, 'Laporan Akta');
 }
 
 export async function exportPrivateDeedReportToPdf(data: {
@@ -513,7 +516,7 @@ export async function exportPrivateDeedReportToPdf(data: {
   type: 'Legalisasi' | 'Waarmerking';
   items: any[];
   signatureDate: string;
-}, mode: 'download' | 'share' = 'download') {
+}, mode: 'download' | 'share' | 'blob' = 'download') {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const pageWidth = doc.internal.pageSize.width;
   const pageHeight = doc.internal.pageSize.height;
@@ -524,15 +527,14 @@ export async function exportPrivateDeedReportToPdf(data: {
   doc.setTextColor(0, 0, 0);
   doc.setFontSize(10);
   doc.setFont('helvetica', 'bold');
-  const titleText = `SALINAN DAFTAR AKTA-AKTA NOTARIS NUKANTINI PUTRI PARINCHA, SH., M.Kn`;
+  const actionWord = data.type === 'Legalisasi' ? 'disahkan' : 'dibukukan';
+  const titleText = `Salinan Daftar Surat di bawah tangan yang ${actionWord}, Bulan ${data.monthName} ${data.year}`;
   const splitTitle = doc.splitTextToSize(titleText, pageWidth - 40);
   doc.text(splitTitle, 20, currentY, { align: 'left' });
-  currentY += (splitTitle.length * 5);
-  doc.text(`BULAN ${data.monthName.toUpperCase()} ${data.year}`, 20, currentY, { align: 'left' });
-  currentY += 8;
+  currentY += (splitTitle.length * 5) + 8;
 
   // Map to rows
-  const headers = [['NO', 'NO. REGISTER', 'TANGGAL', 'SIFAT DOKUMEN / SURAT', 'NAMA PEMOHON / PARA PIHAK', 'KETERANGAN']];
+  const headers = [['No.', 'Tanggal Pembukuan', 'Nama yang menandatangani atau membubuhi cap jari', 'Tanggal dan Isi singkat']];
 
   // Sort items by number (ascending)
   const sortedItems = [...data.items].sort((a, b) => {
@@ -541,19 +543,22 @@ export async function exportPrivateDeedReportToPdf(data: {
     return numA - numB;
   });
 
-  const body = sortedItems.map((item, idx) => {
+  let body = sortedItems.map((item) => {
     const regDateStr = formatDateIndo(item.registrationDate || '');
     const partiesStr = item.parties && item.parties.length > 0 ? item.parties.join('\n') : '-';
+    const content = `${item.description || ''}${item.notes ? '\n' + item.notes : ''}`.trim() || '-';
 
     return [
-      (idx + 1).toString(),
       item.number || '-',
       regDateStr,
-      (item.description || '').toUpperCase(),
       partiesStr,
-      item.notes || '-'
+      content
     ];
   });
+
+  if (body.length === 0) {
+    body = [['-NIHIL-', '-NIHIL-', '-NIHIL-', '-NIHIL-']];
+  }
 
   autoTable(doc, {
     startY: currentY,
@@ -577,13 +582,16 @@ export async function exportPrivateDeedReportToPdf(data: {
       lineWidth: 0.2,
       font: 'helvetica'
     },
-    columnStyles: {
-      0: { cellWidth: 10, halign: 'center' },
-      1: { cellWidth: 25, halign: 'center' },
-      2: { cellWidth: 25, halign: 'center' },
-      3: { cellWidth: 45, halign: 'left' },
-      4: { cellWidth: 45, halign: 'left' },
-      5: { cellWidth: 'auto', halign: 'left' }
+    columnStyles: body[0][0] === '-NIHIL-' ? {
+      0: { halign: 'center', fontStyle: 'bold' },
+      1: { halign: 'center', fontStyle: 'bold' },
+      2: { halign: 'center', fontStyle: 'bold' },
+      3: { halign: 'center', fontStyle: 'bold' }
+    } : {
+      0: { cellWidth: 35, halign: 'center' },
+      1: { cellWidth: 35, halign: 'center' },
+      2: { cellWidth: 50, halign: 'left' },
+      3: { cellWidth: 'auto', halign: 'left' }
     },
     margin: { left: 20, right: 20, top: 20, bottom: 25 }
   });
@@ -591,20 +599,11 @@ export async function exportPrivateDeedReportToPdf(data: {
   // @ts-ignore
   currentY = doc.lastAutoTable.finalY + 12;
 
-  // Closing & Signature Block
-  const actionWord = data.type === 'Legalisasi' ? 'disahkan' : 'dibukukan';
-  const closingText = `Salinan Daftar Surat dibawah tangan yang ${actionWord} dalam buku daftar yang disediakan untuk keperluan tersebut pada kantor saya, Notaris, selama bulan ${data.monthName} ${data.year}`;
-  const splitClosing = doc.splitTextToSize(closingText, pageWidth - 40);
-  
-  if (currentY > pageHeight - (75 + (splitClosing.length * 5))) {
+  // Signature Block
+  if (currentY > pageHeight - 75) {
     doc.addPage();
     currentY = 25;
   }
-
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9.5);
-  doc.text(splitClosing, 20, currentY);
-  currentY += (splitClosing.length * 5) + 10;
 
   const sigX = pageWidth - 95;
   doc.text(`Bandung Barat, ${data.signatureDate || `${data.monthName} ${data.year}`}`, sigX, currentY);
@@ -626,7 +625,7 @@ export async function exportPrivateDeedReportToPdf(data: {
   doc.line(sigX, currentY + 1, sigX + doc.getTextWidth('NUKANTINI PUTRI PARINCHA, SH., M.Kn'), currentY + 1);
 
   const filename = `Laporan_${data.type}_${data.monthName}_${data.year}.pdf`;
-  await handlePdfOutput(doc, filename, mode, `Laporan ${data.type}`);
+  return await handlePdfOutput(doc, filename, mode, `Laporan ${data.type}`);
 }
 
 export async function exportProtestChequeReportToPdf(data: {
@@ -634,7 +633,7 @@ export async function exportProtestChequeReportToPdf(data: {
   year: number;
   items: any[];
   signatureDate: string;
-}, mode: 'download' | 'share' = 'download') {
+}, mode: 'download' | 'share' | 'blob' = 'download') {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const pageWidth = doc.internal.pageSize.width;
   const pageHeight = doc.internal.pageSize.height;
@@ -645,96 +644,92 @@ export async function exportProtestChequeReportToPdf(data: {
   doc.setTextColor(0, 0, 0);
   doc.setFontSize(10);
   doc.setFont('helvetica', 'bold');
-  const titleText = `SALINAN DAFTAR AKTA-AKTA NOTARIS NUKANTINI PUTRI PARINCHA, SH., M.Kn`;
+  const titleText = `Salinan Daftar Protest Cheque dan Protes Wessel, Bulan ${data.monthName} ${data.year}`;
   const splitTitle = doc.splitTextToSize(titleText, pageWidth - 40);
   doc.text(splitTitle, 20, currentY, { align: 'left' });
-  currentY += (splitTitle.length * 5);
-  doc.text(`BULAN ${data.monthName.toUpperCase()} ${data.year}`, 20, currentY, { align: 'left' });
-  currentY += 8;
+  currentY += (splitTitle.length * 5) + 8;
 
-  // Map rows
-  const headers = [['NO', 'TANGGAL', 'NAMA BANK & NO. CEK', 'JUMLAH UANG', 'NAMA PEMOHON', 'NAMA PENARIK CEK']];
+  // Render content or NIHIL
+  if (!data.items || data.items.length === 0) {
+    currentY += 15;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.text('N I H I L', pageWidth / 2, currentY, { align: 'center' });
+    currentY += 20;
+  } else {
+    // Map rows
+    const headers = [['NO', 'TANGGAL', 'NAMA BANK & NO. CEK', 'JUMLAH UANG', 'NAMA PEMOHON', 'NAMA PENARIK CEK']];
 
-  const formatCurrency = (val: number) => {
-    return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(val);
-  };
+    const formatCurrency = (val: number) => {
+      return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(val);
+    };
 
-  // Sort items by date (since they might not have a number field like deeds)
-  // But wait, the user said "menurut nomor terkecil ke besar".
-  // If they have numbers, we sort by them.
-  const sortedItems = [...data.items].sort((a, b) => {
-    const numA = parseInt(a.number) || parseInt(a.id) || 0;
-    const numB = parseInt(b.number) || parseInt(b.id) || 0;
-    return numA - numB;
-  });
+    const sortedItems = [...data.items].sort((a, b) => {
+      const numA = parseInt(a.number) || parseInt(a.id) || 0;
+      const numB = parseInt(b.number) || parseInt(b.id) || 0;
+      return numA - numB;
+    });
 
-  const body = sortedItems.map((item, idx) => {
-    const protestDateStr = formatDateIndo(item.protestDate || '');
-    const bankAndCek = `${item.bankName}\nNo: ${item.chequeNumber}`;
-    const amountStr = formatCurrency(item.amount || 0);
+    const body = sortedItems.map((item, idx) => {
+      const protestDateStr = formatDateIndo(item.protestDate || '');
+      const bankAndCek = `${item.bankName}\nNo: ${item.chequeNumber}`;
+      const amountStr = formatCurrency(item.amount || 0);
 
-    return [
-      (idx + 1).toString(),
-      protestDateStr,
-      bankAndCek,
-      amountStr,
-      item.applicantName || '-',
-      item.drawerName || '-'
-    ];
-  });
+      return [
+        (idx + 1).toString(),
+        protestDateStr,
+        bankAndCek,
+        amountStr,
+        item.applicantName || '-',
+        item.drawerName || '-'
+      ];
+    });
 
-  autoTable(doc, {
-    startY: currentY,
-    head: headers,
-    body: body,
-    theme: 'grid',
-    headStyles: {
-      fillColor: [230, 230, 230],
-      textColor: [0, 0, 0],
-      fontStyle: 'bold',
-      halign: 'center',
-      valign: 'middle',
-      lineColor: [0, 0, 0],
-      lineWidth: 0.2
-    },
-    styles: {
-      fontSize: 8.5,
-      cellPadding: 3,
-      textColor: [0, 0, 0],
-      lineColor: [0, 0, 0],
-      lineWidth: 0.2,
-      font: 'helvetica'
-    },
-    columnStyles: {
-      0: { cellWidth: 10, halign: 'center' },
-      1: { cellWidth: 22, halign: 'center' },
-      2: { cellWidth: 38, halign: 'left' },
-      3: { cellWidth: 32, halign: 'right', fontStyle: 'bold' },
-      4: { cellWidth: 34, halign: 'left' },
-      5: { cellWidth: 'auto', halign: 'left' }
-    },
-    margin: { left: 20, right: 20, top: 20, bottom: 25 }
-  });
+    autoTable(doc, {
+      startY: currentY,
+      head: headers,
+      body: body,
+      theme: 'grid',
+      headStyles: {
+        fillColor: [230, 230, 230],
+        textColor: [0, 0, 0],
+        fontStyle: 'bold',
+        halign: 'center',
+        valign: 'middle',
+        lineColor: [0, 0, 0],
+        lineWidth: 0.2
+      },
+      styles: {
+        fontSize: 8.5,
+        cellPadding: 3,
+        textColor: [0, 0, 0],
+        lineColor: [0, 0, 0],
+        lineWidth: 0.2,
+        font: 'helvetica'
+      },
+      columnStyles: {
+        0: { cellWidth: 10, halign: 'center' },
+        1: { cellWidth: 22, halign: 'center' },
+        2: { cellWidth: 38, halign: 'left' },
+        3: { cellWidth: 32, halign: 'right', fontStyle: 'bold' },
+        4: { cellWidth: 34, halign: 'left' },
+        5: { cellWidth: 'auto', halign: 'left' }
+      },
+      margin: { left: 20, right: 20, top: 20, bottom: 25 }
+    });
 
-  // @ts-ignore
-  currentY = doc.lastAutoTable.finalY + 12;
+    // @ts-ignore
+    currentY = doc.lastAutoTable.finalY + 12;
+  }
 
-  // Closing & Signature Block
-  const closingText = `Salinan Daftar Protest Cheque dan Protes Wessel yang dibuat oleh saya selama bulan ${data.monthName} ${data.year}`;
-  const splitClosing = doc.splitTextToSize(closingText, pageWidth - 40);
-
-  if (currentY > pageHeight - (75 + (splitClosing.length * 5))) {
+  // Signature Block
+  if (currentY > pageHeight - 75) {
     doc.addPage();
     currentY = 25;
   }
 
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9.5);
-  doc.text(splitClosing, 20, currentY);
-  currentY += (splitClosing.length * 5) + 10;
-
   const sigX = pageWidth - 95;
-  doc.text(`Bandung, ${data.signatureDate || `${data.monthName} ${data.year}`}`, sigX, currentY);
+  doc.text(`Bandung Barat, ${data.signatureDate || `${data.monthName} ${data.year}`}`, sigX, currentY);
   currentY += 5;
   doc.text('Notaris di Kabupaten Bandung Barat,', sigX, currentY);
 
@@ -753,7 +748,7 @@ export async function exportProtestChequeReportToPdf(data: {
   doc.line(sigX, currentY + 1, sigX + doc.getTextWidth('NUKANTINI PUTRI PARINCHA, SH., M.Kn'), currentY + 1);
 
   const filename = `Laporan_Protest_Cheque_${data.monthName}_${data.year}.pdf`;
-  await handlePdfOutput(doc, filename, mode, 'Laporan Protest Cheque');
+  return await handlePdfOutput(doc, filename, mode, 'Laporan Protest Cheque');
 }
 
 export async function exportDeedAlphabeticalReportToPdf(data: {
@@ -762,7 +757,7 @@ export async function exportDeedAlphabeticalReportToPdf(data: {
   filteredSections: any[];
   notaryName: string;
   city: string;
-}, mode: 'download' | 'share' = 'download') {
+}, mode: 'download' | 'share' | 'blob' = 'download') {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const pageWidth = doc.internal.pageSize.width;
   const pageHeight = doc.internal.pageSize.height;
@@ -913,5 +908,5 @@ export async function exportDeedAlphabeticalReportToPdf(data: {
   doc.line(sigX, currentY + 1, sigX + doc.getTextWidth(data.notaryName.toUpperCase()), currentY + 1);
 
   const filename = `Klapper_Akta_${data.monthName}_${data.year}.pdf`;
-  await handlePdfOutput(doc, filename, mode, 'Klapper Akta');
+  return await handlePdfOutput(doc, filename, mode, 'Klapper Akta');
 }

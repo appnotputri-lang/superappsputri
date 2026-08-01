@@ -6,8 +6,7 @@ import { DeedReport } from './DeedReport';
 import { DeedAlphabeticalReport } from './DeedAlphabeticalReport';
 import { PrivateDeedPrintView } from './PrivateDeedPrintView';
 import { ProtestChequeReport } from './ProtestChequeReport';
-import { BookOpen, FileText, ListOrdered, ShieldCheck, FileCheck, AlertCircle, Calendar, ExternalLink, Info, Image, Trash2, Upload } from 'lucide-react';
-import { getSignatureImage, setSignatureImage, resetSignatureImage } from '../../utils/signatureUtils';
+import { BookOpen, FileText, ListOrdered, ShieldCheck, FileCheck, AlertCircle, Calendar, ExternalLink, Info } from 'lucide-react';
 
 type NotaryReportSubTab =
   | 'surat_pengantar'
@@ -85,13 +84,6 @@ export const NotaryReportHub: React.FC = () => {
     const dt = new Date(p.protestDate);
     return dt.getMonth() + 1 === selectedMonth && dt.getFullYear() === selectedYear;
   });
-
-  const [signatureImageState, setSignatureImageState] = useState<string>(getSignatureImage());
-
-  useEffect(() => {
-    // Update local preview state on mount/focus
-    setSignatureImageState(getSignatureImage());
-  }, []);
 
   const SUB_TABS: { id: NotaryReportSubTab; label: string; icon: React.FC<{ size?: number; className?: string }>; count?: number }[] = [
     { id: 'surat_pengantar', label: 'Surat Pengantar MPD', icon: FileText },
@@ -173,32 +165,6 @@ export const NotaryReportHub: React.FC = () => {
               onChange={(e) => setSignatureDate(e.target.value)}
               placeholder="e.g. 05 Mei 2026"
               className="bg-transparent font-medium text-xs text-slate-800 focus:outline-none w-28"
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Central Signature & Stamp Panel */}
-      <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm print:hidden flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-start gap-3">
-          <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center font-bold mt-0.5 shrink-0">
-            <Image size={20} />
-          </div>
-          <div>
-            <h2 className="text-sm font-semibold text-slate-800">Stempel & Tanda Tangan Terpusat</h2>
-            <p className="text-xs text-slate-500 max-w-2xl leading-relaxed">
-              Menggunakan gambar stempel & tanda tangan resmi yang dikonfigurasi di menu Pengaturan. Gambar ini otomatis diterapkan di seluruh 5 model laporan notaris.
-            </p>
-          </div>
-        </div>
-        
-        <div className="flex items-center gap-3 shrink-0">
-          <div className="w-14 h-14 bg-slate-50 border border-slate-200 rounded-xl p-1 flex items-center justify-center overflow-hidden">
-            <img
-              src={signatureImageState}
-              alt="Pratinjau TTD/Stempel"
-              className="max-w-full max-h-full object-contain mix-blend-multiply"
-              referrerPolicy="no-referrer"
             />
           </div>
         </div>

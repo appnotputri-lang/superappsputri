@@ -1,9 +1,10 @@
 import React, { useState, useRef } from 'react';
 import { Deed } from '../../../types';
-import { Printer, Search, Download, Share2, Loader2 } from 'lucide-react';
+import { Printer, Search, Download, Share2, Loader2, CheckCircle2, AlertCircle, ExternalLink, X } from 'lucide-react';
 import { printElement } from '../../utils/printHelper';
 import { exportDeedReportToPdf } from '../../utils/notaryPdfExport';
 import { getSignatureImage } from '../../utils/signatureUtils';
+import { saveReportToDrive } from '../../services/reportDriveService';
 
 interface DeedReportProps {
   month: number;
@@ -110,6 +111,48 @@ export const DeedReport: React.FC<DeedReportProps> = ({
     }
   };
 
+  const [isSavingDrive, setIsSavingDrive] = useState(false);
+  const [driveProgress, setDriveProgress] = useState('');
+  const [driveResult, setDriveResult] = useState<{ success: boolean; message: string; link?: string } | null>(null);
+
+  const handleSaveDrive = async () => {
+    setIsSavingDrive(true);
+    setDriveProgress('Mempersiapkan PDF...');
+    setDriveResult(null);
+    try {
+      const pdfBlob = await exportDeedReportToPdf({
+        monthName,
+        year,
+        deeds: filteredDeeds,
+        signatureDate
+      }, 'blob');
+
+      if (!pdfBlob) throw new Error('Gagal membuat PDF Blob.');
+
+      const result = await saveReportToDrive(
+        pdfBlob as Blob,
+        { month, year, signatureDate },
+        'Repertorium',
+        (msg) => setDriveProgress(msg)
+      );
+
+      setDriveResult({
+        success: true,
+        message: 'Laporan berhasil disimpan ke Google Drive.',
+        link: result.webViewLink
+      });
+    } catch (e: any) {
+      console.error(e);
+      setDriveResult({
+        success: false,
+        message: 'Gagal menyimpan laporan ke Google Drive.'
+      });
+    } finally {
+      setIsSavingDrive(false);
+      setDriveProgress('');
+    }
+  };
+
   const formatDateIndo = (dateStr: string) => {
     if (!dateStr) return '-';
     const parts = dateStr.split('-');
@@ -154,7 +197,15 @@ export const DeedReport: React.FC<DeedReportProps> = ({
             className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium text-xs flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
           >
             {isDownloading ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />}
-            Download PDF
+            Export PDF
+          </button>
+          <button
+            onClick={handleSaveDrive}
+            disabled={isSavingDrive}
+            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium text-xs flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
+          >
+            {isSavingDrive ? <Loader2 size={15} className="animate-spin" /> : <span>📁</span>}
+            {isSavingDrive ? (driveProgress || 'Menyimpan...') : 'Simpan Google Drive'}
           </button>
           <button
             onClick={handleShare}
@@ -173,6 +224,36 @@ export const DeedReport: React.FC<DeedReportProps> = ({
           </button>
         </div>
       </div>
+
+      {driveResult && (
+        <div className={`p-3.5 rounded-xl border flex items-center justify-between text-xs font-medium ${
+          driveResult.success ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-rose-50 text-rose-800 border-rose-200'
+        }`}>
+          <div className="flex items-center gap-2">
+            {driveResult.success ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
+            <span>{driveResult.message}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            {driveResult.link && (
+              <a
+                href={driveResult.link}
+                target="_blank"
+                rel="noreferrer"
+                className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded font-medium text-[11px] flex items-center gap-1"
+              >
+                <ExternalLink size={13} />
+                Buka di Drive
+              </a>
+            )}
+            <button
+              onClick={() => setDriveResult(null)}
+              className="p-1 text-slate-400 hover:text-slate-600 rounded"
+            >
+              <X size={14} />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Main Report Document Sheet */}
       <div ref={printRef} className="bg-white p-6 md:p-10 rounded-xl border border-slate-200 shadow-sm print:shadow-none print:border-none print:p-0">

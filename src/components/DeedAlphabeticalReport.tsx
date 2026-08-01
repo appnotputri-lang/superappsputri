@@ -11,8 +11,13 @@ import {
   Download,
   Search,
   Check,
-  ListOrdered
+  ListOrdered,
+  CheckCircle2,
+  AlertCircle,
+  ExternalLink,
+  X
 } from 'lucide-react';
+import { saveReportToDrive } from '../services/reportDriveService';
 
 // Mock/Placeholder helpers as requested if not present in workspace
 export const getCachedSettings = () => ({
@@ -691,6 +696,49 @@ export const DeedAlphabeticalReport: React.FC<DeedAlphabeticalReportProps> = ({
     }
   };
 
+  const [isSavingDrive, setIsSavingDrive] = useState(false);
+  const [driveProgress, setDriveProgress] = useState('');
+  const [driveResult, setDriveResult] = useState<{ success: boolean; message: string; link?: string } | null>(null);
+
+  const handleSaveDrive = async () => {
+    setIsSavingDrive(true);
+    setDriveProgress('Mempersiapkan PDF...');
+    setDriveResult(null);
+    try {
+      const pdfBlob = await exportDeedAlphabeticalReportToPdf({
+        monthName,
+        year,
+        filteredSections,
+        notaryName: settings.notaryName,
+        city: settings.city
+      }, 'blob');
+
+      if (!pdfBlob) throw new Error('Gagal membuat PDF Blob.');
+
+      const result = await saveReportToDrive(
+        pdfBlob as Blob,
+        { month, year, signatureDate: displaySigDate },
+        'Klapper Akta',
+        (msg) => setDriveProgress(msg)
+      );
+
+      setDriveResult({
+        success: true,
+        message: 'Laporan berhasil disimpan ke Google Drive.',
+        link: result.webViewLink
+      });
+    } catch (e: any) {
+      console.error(e);
+      setDriveResult({
+        success: false,
+        message: 'Gagal menyimpan laporan ke Google Drive.'
+      });
+    } finally {
+      setIsSavingDrive(false);
+      setDriveProgress('');
+    }
+  };
+
   const handleShare = async () => {
     setIsExportingPDF(true);
     try {
@@ -736,21 +784,30 @@ export const DeedAlphabeticalReport: React.FC<DeedAlphabeticalReportProps> = ({
 
         <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto justify-end">
           <button
+            onClick={handleDownloadPDF}
+            disabled={isExportingPDF}
+            className="px-3.5 py-2 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-300 rounded-lg transition flex items-center gap-1.5 disabled:opacity-50 cursor-pointer shadow-sm"
+          >
+            {isExportingPDF ? <Loader2 size={16} className="animate-spin text-blue-600" /> : <Download size={16} />}
+            {isExportingPDF ? 'Membuat PDF...' : 'Export PDF'}
+          </button>
+
+          <button
+            onClick={handleSaveDrive}
+            disabled={isSavingDrive}
+            className="px-3.5 py-2 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-sm transition flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+          >
+            {isSavingDrive ? <Loader2 size={16} className="animate-spin" /> : <span>📁</span>}
+            {isSavingDrive ? (driveProgress || 'Menyimpan...') : 'Simpan Google Drive'}
+          </button>
+
+          <button
             onClick={handleShare}
             className="px-3.5 py-2 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-lg transition flex items-center gap-1.5 cursor-pointer"
             title="Bagikan Tautan Laporan"
           >
             {copiedShare ? <Check size={16} className="text-green-600" /> : <Share2 size={16} />}
             {copiedShare ? 'Tautan Disalin!' : 'Bagikan'}
-          </button>
-
-          <button
-            onClick={handleDownloadPDF}
-            disabled={isExportingPDF}
-            className="px-3.5 py-2 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-300 rounded-lg transition flex items-center gap-1.5 disabled:opacity-50 cursor-pointer shadow-sm"
-          >
-            {isExportingPDF ? <Loader2 size={16} className="animate-spin text-blue-600" /> : <Download size={16} />}
-            {isExportingPDF ? 'Membuat PDF...' : 'Download PDF'}
           </button>
 
           <button
@@ -762,6 +819,36 @@ export const DeedAlphabeticalReport: React.FC<DeedAlphabeticalReportProps> = ({
           </button>
         </div>
       </div>
+
+      {driveResult && (
+        <div className={`p-3.5 rounded-xl border flex items-center justify-between text-xs font-medium ${
+          driveResult.success ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-rose-50 text-rose-800 border-rose-200'
+        }`}>
+          <div className="flex items-center gap-2">
+            {driveResult.success ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
+            <span>{driveResult.message}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            {driveResult.link && (
+              <a
+                href={driveResult.link}
+                target="_blank"
+                rel="noreferrer"
+                className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded font-medium text-[11px] flex items-center gap-1"
+              >
+                <ExternalLink size={13} />
+                Buka di Drive
+              </a>
+            )}
+            <button
+              onClick={() => setDriveResult(null)}
+              className="p-1 text-slate-400 hover:text-slate-600 rounded"
+            >
+              <X size={14} />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Alphabet Filter Buttons A-Z */}
       <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-3 print:hidden">

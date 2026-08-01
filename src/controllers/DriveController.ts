@@ -6,16 +6,33 @@ import { driveRest } from '../lib/drive-rest';
 export class DriveController {
   static async ensureFolder(req: AuthenticatedRequest, res: Response) {
     try {
-      res.json({ success: true, message: "DriveController.ensureFolder wired" });
+      const { name, parentId } = req.body;
+      if (!name || !parentId) {
+        return res.status(400).json({ error: "Missing required fields: name, parentId" });
+      }
+
+      const q = `'${parentId}' in parents and name = '${name.replace(/'/g, "\\'")}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
+      const existing = await driveRest.listFiles(q, 'files(id, name, webViewLink)', 10, process.env);
+      if (existing && existing.length > 0) {
+        return res.json({ success: true, folder: existing[0] });
+      }
+
+      const created = await driveRest.createFolder(name, [parentId], process.env);
+      res.json({ success: true, folder: created });
     } catch (error: any) {
+      console.error("[Drive API] Error ensuring folder:", error);
       res.status(500).json({ error: error.message || "Failed to ensure folder" });
     }
   }
 
   static async listFiles(req: AuthenticatedRequest, res: Response) {
     try {
-      res.json({ success: true, message: "DriveController.listFiles wired" });
+      const q = (req.query.q as string) || '';
+      const fields = (req.query.fields as string) || 'files(id, name, webViewLink)';
+      const files = await driveRest.listFiles(q, fields, 1000, process.env);
+      res.json({ success: true, files });
     } catch (error: any) {
+      console.error("[Drive API] Error listing files:", error);
       res.status(500).json({ error: error.message || "Failed to list files" });
     }
   }
@@ -55,7 +72,7 @@ export class DriveController {
       if (!fileName || !mimeType || !parentFolderId || !base64) {
         return res.status(400).json({ error: "Missing required fields" });
       }
-      const result = await driveRest.uploadFile(fileName, mimeType, parentFolderId, base64);
+      const result = await driveRest.uploadFile(fileName, mimeType, parentFolderId, base64, process.env);
       res.json({ success: true, file: result });
     } catch (error: any) {
       console.error("[Drive API] Error uploading file:", error);

@@ -1,9 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Deed, PrivateDeed, ProtestCheque, OutgoingMail } from '../../../types';
-import { Printer, Settings, RotateCcw, Image, Check, Trash2, Upload, Download, Share2, Loader2 } from 'lucide-react';
+import { Printer, Settings, RotateCcw, Image, Check, Trash2, Upload, Download, Share2, Loader2, CheckCircle2, AlertCircle, ExternalLink, X, Save } from 'lucide-react';
 import { printElement } from '../../utils/printHelper';
 import { exportCoverLetterMPDToPdf } from '../../utils/notaryPdfExport';
 import { getSignatureImage, setSignatureImage, resetSignatureImage } from '../../utils/signatureUtils';
+import { saveReportToDrive } from '../../services/reportDriveService';
+import { NotaryService } from '../../services/NotaryService';
 
 interface CoverLetterMPDProps {
   month: number;
@@ -79,8 +81,43 @@ export const CoverLetterMPD: React.FC<CoverLetterMPDProps> = ({
     setCustomStampUrl(getSignatureImage());
   }, []);
 
+  const [isSavingNumber, setIsSavingNumber] = useState(false);
+  const [saveNumberResult, setSaveNumberResult] = useState<{ success: boolean; message: string } | null>(null);
+
   useEffect(() => {
+    // 1. Check if user saved a letter number for this specific month and year in local storage
+    const savedKey = `mpd_letter_number_${year}_${month}`;
+    const savedNum = localStorage.getItem(savedKey);
+    if (savedNum) {
+      setLetterNumber(savedNum);
+      return;
+    }
+
+    // 2. Check if an outgoing mail entry already exists for MPD in this month and year
     const mails = outgoingMails || [];
+    const existingMail = mails.find(m => {
+      if (!m.date) return false;
+      const isMpd =
+        (m as any).type === 'surat_pengantar' ||
+        (m.subject && m.subject.toLowerCase().includes('pengantar')) ||
+        (m.subject && m.subject.toLowerCase().includes('daftar akta')) ||
+        (m.notes && m.notes.toLowerCase().includes('mpd'));
+
+      if (!isMpd) return false;
+      try {
+        const d = new Date(m.date);
+        return d.getFullYear() === year && (d.getMonth() + 1) === month;
+      } catch {
+        return false;
+      }
+    });
+
+    if (existingMail && existingMail.mailNumber) {
+      setLetterNumber(existingMail.mailNumber);
+      return;
+    }
+
+    // 3. Fallback: calculate next sequence number
     const count = mails.filter(m => {
       if (!m.date) return false;
       const isMpdCoverLetter = 
@@ -99,7 +136,77 @@ export const CoverLetterMPD: React.FC<CoverLetterMPDProps> = ({
     }).length;
     const nextNum = count + 1;
     setLetterNumber(`${nextNum}/NPP-NOT/${romanMonth}/${year}`);
-  }, [outgoingMails, year, romanMonth]);
+  }, [outgoingMails, year, month, romanMonth]);
+
+  const handleSaveLetterNumber = async () => {
+    if (!letterNumber.trim()) {
+      setSaveNumberResult({ success: false, message: 'Nomor surat tidak boleh kosong.' });
+      return;
+    }
+
+    setIsSavingNumber(true);
+    setSaveNumberResult(null);
+
+    try {
+      // Save locally
+      const savedKey = `mpd_letter_number_${year}_${month}`;
+      localStorage.setItem(savedKey, letterNumber.trim());
+
+      // Prepare date (YYYY-MM-DD)
+      const targetDate = signatureDate || `${year}-${month.toString().padStart(2, '0')}-${lastDayOfMonth.toString().padStart(2, '0')}`;
+
+      // Find existing entry in outgoing mails
+      const mails = outgoingMails || [];
+      const existingMail = mails.find(m => {
+        if (!m.date) return false;
+        const isMpd =
+          (m as any).type === 'surat_pengantar' ||
+          (m.subject && m.subject.toLowerCase().includes('pengantar')) ||
+          (m.subject && m.subject.toLowerCase().includes('daftar akta')) ||
+          (m.notes && m.notes.toLowerCase().includes('mpd'));
+
+        if (!isMpd) return false;
+        try {
+          const d = new Date(m.date);
+          return d.getFullYear() === year && (d.getMonth() + 1) === month;
+        } catch {
+          return false;
+        }
+      });
+
+      if (existingMail) {
+        await NotaryService.updateOutgoingMail(existingMail.id, {
+          mailNumber: letterNumber.trim(),
+          date: targetDate,
+          recipient: `${mpdLine1} ${mpdLine2}`,
+          subject: subject || 'Penyampaian Daftar Akta',
+          notes: `Surat Pengantar MPD Bulan ${monthName} ${year}`
+        });
+      } else {
+        await NotaryService.addOutgoingMail({
+          mailNumber: letterNumber.trim(),
+          date: targetDate,
+          recipient: `${mpdLine1} ${mpdLine2}`,
+          subject: subject || 'Penyampaian Daftar Akta',
+          attachmentCount: 1,
+          notes: `Surat Pengantar MPD Bulan ${monthName} ${year}`
+        });
+      }
+
+      setSaveNumberResult({
+        success: true,
+        message: `Nomor Surat "${letterNumber.trim()}" berhasil disimpan dan dicatat di Buku Surat Keluar!`
+      });
+    } catch (err: any) {
+      console.error(err);
+      setSaveNumberResult({
+        success: false,
+        message: 'Gagal menyimpan Nomor Surat: ' + (err.message || 'Terjadi kesalahan.')
+      });
+    } finally {
+      setIsSavingNumber(false);
+    }
+  };
 
   const [stampOffsetY, setStampOffsetY] = useState<number>(() => {
     try {
@@ -270,6 +377,69 @@ export const CoverLetterMPD: React.FC<CoverLetterMPDProps> = ({
     }
   };
 
+  const [isSavingDrive, setIsSavingDrive] = useState(false);
+  const [driveProgress, setDriveProgress] = useState('');
+  const [driveResult, setDriveResult] = useState<{ success: boolean; message: string; link?: string } | null>(null);
+
+  const handleSaveDrive = async () => {
+    setIsSavingDrive(true);
+    setDriveProgress('Mempersiapkan PDF...');
+    setDriveResult(null);
+    try {
+      const pdfBlob = await exportCoverLetterMPDToPdf({
+        notaryTitle,
+        notaryName,
+        skMenkumhamTitle,
+        skMenkumhamNo,
+        skBpnTitle,
+        skBpnNo,
+        officeAddress,
+        officePhone,
+        letterNumber,
+        subject,
+        attachment,
+        letterCity,
+        formattedLetterDate,
+        recipientTitle,
+        mpdLine1,
+        mpdLine2,
+        mpdLine3,
+        mpdLine4,
+        notaryCityJurisdiction,
+        startDateStr,
+        endDateStr,
+        stampOffsetX,
+        stampOffsetY,
+        stampSize,
+        showStamp: showStampImage
+      }, 'blob');
+
+      if (!pdfBlob) throw new Error('Gagal membuat PDF Blob.');
+
+      const result = await saveReportToDrive(
+        pdfBlob as Blob,
+        { month, year, signatureDate: formattedLetterDate },
+        'Surat MPD',
+        (msg) => setDriveProgress(msg)
+      );
+
+      setDriveResult({
+        success: true,
+        message: 'Laporan berhasil disimpan ke Google Drive.',
+        link: result.webViewLink
+      });
+    } catch (e: any) {
+      console.error(e);
+      setDriveResult({
+        success: false,
+        message: 'Gagal menyimpan laporan ke Google Drive.'
+      });
+    } finally {
+      setIsSavingDrive(false);
+      setDriveProgress('');
+    }
+  };
+
   const formattedLetterDate = signatureDate || customDate;
 
   return (
@@ -285,6 +455,16 @@ export const CoverLetterMPD: React.FC<CoverLetterMPDProps> = ({
         <div className="flex items-center gap-2">
           <button
             type="button"
+            onClick={handleSaveLetterNumber}
+            disabled={isSavingNumber}
+            className="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium text-xs flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50 shadow-sm"
+            title="Simpan Nomor Surat ini ke sistem & Buku Surat Keluar"
+          >
+            {isSavingNumber ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
+            Simpan Nomor Surat
+          </button>
+          <button
+            type="button"
             onClick={() => setShowSettings(!showSettings)}
             className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium text-xs flex items-center gap-1.5 transition-all cursor-pointer"
           >
@@ -298,7 +478,16 @@ export const CoverLetterMPD: React.FC<CoverLetterMPDProps> = ({
             className="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium text-xs flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
           >
             {isDownloading ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />}
-            Download PDF
+            Export PDF
+          </button>
+          <button
+            type="button"
+            onClick={handleSaveDrive}
+            disabled={isSavingDrive}
+            className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium text-xs flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
+          >
+            {isSavingDrive ? <Loader2 size={15} className="animate-spin" /> : <span>📁</span>}
+            {isSavingDrive ? (driveProgress || 'Menyimpan...') : 'Simpan Google Drive'}
           </button>
           <button
             type="button"
@@ -320,6 +509,53 @@ export const CoverLetterMPD: React.FC<CoverLetterMPDProps> = ({
         </div>
       </div>
 
+      {driveResult && (
+        <div className={`p-3.5 rounded-xl border flex items-center justify-between text-xs font-medium ${
+          driveResult.success ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-rose-50 text-rose-800 border-rose-200'
+        }`}>
+          <div className="flex items-center gap-2">
+            {driveResult.success ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
+            <span>{driveResult.message}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            {driveResult.link && (
+              <a
+                href={driveResult.link}
+                target="_blank"
+                rel="noreferrer"
+                className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded font-medium text-[11px] flex items-center gap-1"
+              >
+                <ExternalLink size={13} />
+                Buka di Drive
+              </a>
+            )}
+            <button
+              onClick={() => setDriveResult(null)}
+              className="p-1 text-slate-400 hover:text-slate-600 rounded"
+            >
+              <X size={14} />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {saveNumberResult && (
+        <div className={`p-3.5 rounded-xl border flex items-center justify-between text-xs font-medium ${
+          saveNumberResult.success ? 'bg-indigo-50 text-indigo-800 border-indigo-200' : 'bg-rose-50 text-rose-800 border-rose-200'
+        }`}>
+          <div className="flex items-center gap-2">
+            {saveNumberResult.success ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
+            <span>{saveNumberResult.message}</span>
+          </div>
+          <button
+            onClick={() => setSaveNumberResult(null)}
+            className="p-1 text-slate-400 hover:text-slate-600 rounded cursor-pointer"
+          >
+            <X size={14} />
+          </button>
+        </div>
+      )}
+
       {/* Editable Settings Collapsible Panel */}
       {showSettings && (
         <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 shadow-inner space-y-4 text-xs print:hidden">
@@ -339,12 +575,24 @@ export const CoverLetterMPD: React.FC<CoverLetterMPDProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             <div>
               <label className="block text-slate-600 font-medium mb-1">Nomor Surat</label>
-              <input
-                type="text"
-                value={letterNumber}
-                onChange={(e) => setLetterNumber(e.target.value)}
-                className="w-full p-2 bg-white border border-slate-300 rounded focus:ring-1 focus:ring-indigo-500"
-              />
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={letterNumber}
+                  onChange={(e) => setLetterNumber(e.target.value)}
+                  className="w-full p-2 bg-white border border-slate-300 rounded focus:ring-1 focus:ring-indigo-500 font-mono text-xs font-semibold"
+                />
+                <button
+                  type="button"
+                  onClick={handleSaveLetterNumber}
+                  disabled={isSavingNumber}
+                  className="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded font-medium text-xs flex items-center gap-1 whitespace-nowrap cursor-pointer disabled:opacity-50 shadow-sm"
+                  title="Simpan Nomor Surat"
+                >
+                  {isSavingNumber ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                  Simpan
+                </button>
+              </div>
             </div>
             <div>
               <label className="block text-slate-600 font-medium mb-1">Perihal</label>
@@ -607,9 +855,19 @@ export const CoverLetterMPD: React.FC<CoverLetterMPDProps> = ({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8 font-serif text-xs leading-normal">
           {/* Left Metadata */}
           <div className="space-y-1">
-            <div className="flex">
+            <div className="flex items-center">
               <span className="w-20 inline-block">Nomor</span>
               <span>: {letterNumber}</span>
+              <button
+                type="button"
+                onClick={handleSaveLetterNumber}
+                disabled={isSavingNumber}
+                className="ml-2 px-2 py-0.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded text-[10px] font-sans font-medium flex items-center gap-1 print:hidden cursor-pointer"
+                title="Simpan Nomor Surat ini ke Buku Surat Keluar"
+              >
+                {isSavingNumber ? <Loader2 size={11} className="animate-spin" /> : <Save size={11} />}
+                Simpan
+              </button>
             </div>
             <div className="flex">
               <span className="w-20 inline-block">Perihal</span>
