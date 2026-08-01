@@ -1,127 +1,112 @@
 import { InvoiceItem } from '../types';
 
-export interface TaxBracket {
-  min: number;
-  max: number;
+export interface TaxRateOption {
+  label: string;
   rate: number;
+  divisor: number;
 }
 
-/**
- * Configurable tax table for PPh 21 (Tarif Progresif Pasal 17 UU HPP).
- * Lapisan 1: 0 s/d 60.000.000 -> 5%
- * Lapisan 2: > 60.000.000 s/d 250.000.000 -> 15%
- * Lapisan 3: > 250.000.000 s/d 500.000.000 -> 25%
- * Lapisan 4: > 500.000.000 s/d 5.000.000.000 -> 30%
- * Lapisan 5: > 5.000.000.000 -> 35%
- */
-export const TAX_TABLE: TaxBracket[] = [
-  { min: 0, max: 60000000, rate: 0.05 },
-  { min: 60000000, max: 250000000, rate: 0.15 },
-  { min: 250000000, max: 500000000, rate: 0.25 },
-  { min: 500000000, max: 5000000000, rate: 0.30 },
-  { min: 5000000000, max: Infinity, rate: 0.35 },
+export const PPH21_RATES: TaxRateOption[] = [
+  { label: '5%', rate: 0.05, divisor: 0.95 },
+  { label: '15%', rate: 0.15, divisor: 0.85 },
+  { label: '25%', rate: 0.25, divisor: 0.75 },
+  { label: '30%', rate: 0.30, divisor: 0.70 },
+  { label: '35%', rate: 0.35, divisor: 0.65 },
 ];
 
 /**
- * Single source of truth for progressive PPh 21 calculation.
- * Calculates total PPh 21 tax for a given gross income based on TAX_TABLE brackets.
- */
-export function calculatePPh21(gross: number): number {
-  if (gross <= 0) return 0;
-  let tax = 0;
-  for (const bracket of TAX_TABLE) {
-    if (gross > bracket.min) {
-      const taxableInBracket = Math.min(gross, bracket.max) - bracket.min;
-      tax += taxableInBracket * bracket.rate;
-    }
-  }
-  return tax;
-}
-
-/**
- * Iterative Gross Up PPh 21 algorithm.
- * Finds the Gross amount required to achieve the target Net amount after PPh 21 progressive deduction.
+ * Calculates Gross Up PPh 21 based on the selected tax rate.
  * 
- * Pseudo code:
- * targetNet = honorariumInput
- * gross = targetNet
- * repeat
- *   pph = calculatePPh21(gross)
- *   net = gross - pph
- *   difference = targetNet - net
- *   gross = gross + difference
- * until abs(difference) < 1
+ * Formulas:
+ * Tarif 5%:  Gross = Net / 0.95
+ * Tarif 15%: Gross = Net / 0.85
+ * Tarif 25%: Gross = Net / 0.75
+ * Tarif 30%: Gross = Net / 0.70
+ * Tarif 35%: Gross = Net / 0.65
+ * 
+ * PPh = Gross - Net
+ * Net = Gross - PPh
  */
-export function calculateGrossUpPPh21(targetNet: number): { gross: number; pph: number; net: number } {
-  if (targetNet <= 0) return { gross: 0, pph: 0, net: 0 };
+export function calculateGrossUpByRate(net: number, rate: number = 0.05): { gross: number; pph: number; net: number } {
+  if (net <= 0) return { gross: 0, pph: 0, net: 0 };
 
-  let gross = targetNet;
-  let difference = 0;
-  let pph = 0;
-  let net = 0;
-  let iterations = 0;
-  const maxIterations = 1000;
+  const normalizedRate = rate > 1 ? rate / 100 : rate;
+  const divisor = 1 - normalizedRate;
 
-  do {
-    pph = calculatePPh21(gross);
-    net = gross - pph;
-    difference = targetNet - net;
-    gross = gross + difference;
-    iterations++;
-  } while (Math.abs(difference) >= 1 && iterations < maxIterations);
+  if (divisor <= 0) return { gross: net, pph: 0, net };
 
-  pph = calculatePPh21(gross);
-  net = gross - pph;
+  const gross = Math.round(net / divisor);
+  const pph = gross - net;
 
   return {
-    gross: Math.round(gross),
-    pph: Math.round(pph),
-    net: Math.round(net)
+    gross,
+    pph,
+    net
   };
 }
 
-export interface InvoiceTaxSummary {
-  honorarium: number;    // Honorarium Bersih (Net)
-  pphGrossUp: number;    // PPh 21 (Gross Up)
-  totalTagihan: number;  // Total Tagihan (Gross = Honorarium + PPh 21)
-  subtotal: number;      // Same as honorarium
+/**
+ * Helper function to calculate item gross subtotal (display subtotal).
+ * If Gross Up is checked, returns Gross amount.
+ * Otherwise, returns net item total (quantity * unitPrice).
+ */
+export function getItemSubtotal(item: InvoiceItem): number {
+  const qty = item.quantity || 1;
+  const price = item.unitPrice || 0;
+  const net = qty * price;
+  if (item.isTaxed) {
+    const rate = item.taxRate !== undefined ? item.taxRate : 0.05;
+    return calculateGrossUpByRate(net, rate).gross;
+  }
+  return net;
 }
 
 /**
- * Calculates complete invoice tax and summary using calculatePPh21() and calculateGrossUpPPh21().
+ * Helper function to calculate item PPh 21 amount.
+ */
+export function getItemTax(item: InvoiceItem): number {
+  const qty = item.quantity || 1;
+  const price = item.unitPrice || 0;
+  const net = qty * price;
+  if (item.isTaxed) {
+    const rate = item.taxRate !== undefined ? item.taxRate : 0.05;
+    return calculateGrossUpByRate(net, rate).pph;
+  }
+  return 0;
+}
+
+/**
+ * Helper function to get net item amount.
+ */
+export function getItemNet(item: InvoiceItem): number {
+  const qty = item.quantity || 1;
+  const price = item.unitPrice || 0;
+  return qty * price;
+}
+
+export interface InvoiceTaxSummary {
+  grossSubtotal: number; // Sub Total (Sum of item gross amounts)
+  taxAmount: number;     // Potongan Pajak (PPh 21)
+  netTotal: number;      // Total Tagihan (Net amount)
+}
+
+/**
+ * Calculates complete invoice totals including Gross Up PPh 21.
  */
 export function calculateInvoiceTotals(items: InvoiceItem[]): InvoiceTaxSummary {
-  let totalNetTaxable = 0;
-  let totalNonTaxable = 0;
+  let grossSubtotal = 0;
+  let taxAmount = 0;
+  let netTotal = 0;
 
   items.forEach((it) => {
-    const qty = it.quantity || 1;
-    const price = it.unitPrice || 0;
-    const itemTotal = qty * price;
-
-    if (it.isTaxed) {
-      totalNetTaxable += itemTotal;
-    } else {
-      totalNonTaxable += itemTotal;
-    }
+    grossSubtotal += getItemSubtotal(it);
+    taxAmount += getItemTax(it);
+    netTotal += getItemNet(it);
   });
 
-  let pphGrossUp = 0;
-  let grossTaxable = 0;
-
-  if (totalNetTaxable > 0) {
-    const grossUpRes = calculateGrossUpPPh21(totalNetTaxable);
-    grossTaxable = grossUpRes.gross;
-    pphGrossUp = grossUpRes.pph;
-  }
-
-  const honorarium = totalNetTaxable + totalNonTaxable;
-  const totalTagihan = grossTaxable + totalNonTaxable;
-
   return {
-    honorarium,
-    pphGrossUp,
-    totalTagihan,
-    subtotal: honorarium
+    grossSubtotal,
+    taxAmount,
+    netTotal
   };
 }

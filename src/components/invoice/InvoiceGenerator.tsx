@@ -1,10 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Invoice, InvoiceItem, PaymentRecord } from '../../../types';
 import { InvoiceService } from '../../services/InvoiceService';
 import { CompanyService } from '../../services/CompanyService';
 import { SuperappsClientService } from '../../services/superappsClientService';
-import { calculateInvoiceTotals } from '../../services/taxCalculator';
+import { calculateInvoiceTotals, getItemSubtotal } from '../../services/taxCalculator';
 import { formatInputNumber, parseFormattedNumber } from '../../../utils/formatters';
+import { InvoicePrintTemplate } from './InvoicePrintTemplate';
+import { printInvoice, downloadInvoicePdf } from '../../utils/invoiceHtmlGenerator';
 import {
   Plus, Edit2, Trash2, Printer, Search, X, Copy, ExternalLink,
   Check, CreditCard, DollarSign, Globe, CheckCircle2, AlertCircle, FileText, Share2,
@@ -48,6 +50,21 @@ export const InvoiceGenerator: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
 
+  // PDF Export State
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
+
+  const handleDownloadPDF = async (inv: Invoice) => {
+    setDownloadingPdf(true);
+    try {
+      await downloadInvoicePdf(inv);
+    } catch (err) {
+      console.error('Error downloading PDF:', err);
+      alert('Gagal mengunduh file PDF.');
+    } finally {
+      setDownloadingPdf(false);
+    }
+  };
+
   // Form Fields
   const [editingInvoiceId, setEditingInvoiceId] = useState<string | null>(null);
   const [invoiceNumber, setInvoiceNumber] = useState('');
@@ -62,7 +79,7 @@ export const InvoiceGenerator: React.FC = () => {
   const [status, setStatus] = useState<'UNPAID' | 'PAID' | 'DRAFT' | 'CANCELLED'>('UNPAID');
   const [language, setLanguage] = useState<'id' | 'en'>('id');
   const [currency, setCurrency] = useState('IDR');
-  const [notes, setNotes] = useState('');
+  const [notes, setNotes] = useState('Pemotongan pajak PPh Pasal 21 harus disetorkan paling lambat tanggal 10 bulan berikutnya, untuk mencegah sanksi Ditjen Pajak.');
   const [terms, setTerms] = useState('Pembayaran dilakukan maksimal 14 hari setelah invoice diterbitkan.');
 
   // Items Form
@@ -75,11 +92,14 @@ export const InvoiceGenerator: React.FC = () => {
   const [itemDescription, setItemDescription] = useState('');
   const [itemUnitPrice, setItemUnitPrice] = useState<number>(0);
   const [itemGrossUp, setItemGrossUp] = useState(false);
+  const [itemTaxRate, setItemTaxRate] = useState<number>(0.05);
 
   // Bank details
-  const [bankName, setBankName] = useState('Bank Mandiri');
-  const [accountNumber, setAccountNumber] = useState('123-00-0987654-3');
-  const [accountHolder, setAccountHolder] = useState('Notaris & PPAT Putri');
+  const [bankName, setBankName] = useState('BCA Cabang Dago - Bandung');
+  const [accountNumber, setAccountNumber] = useState('Acc. 7770673016');
+  const [accountHolder, setAccountHolder] = useState('A.n Nukantini Putri Parincha');
+  const [bankNpwp, setBankNpwp] = useState('3217015610760002');
+  const [bankSwift, setBankSwift] = useState('CENAIDJA');
 
   // Client Master Selection State
   const [clientSourceTab, setClientSourceTab] = useState<'all' | 'local' | 'superapps'>('all');
@@ -184,9 +204,9 @@ export const InvoiceGenerator: React.FC = () => {
   const calculateTotals = (currentItems: InvoiceItem[]) => {
     const summary = calculateInvoiceTotals(currentItems);
     return {
-      sub: summary.honorarium,
-      tax: summary.pphGrossUp,
-      total: summary.totalTagihan
+      sub: summary.grossSubtotal,
+      tax: summary.taxAmount,
+      total: summary.netTotal
     };
   };
 
@@ -203,13 +223,15 @@ export const InvoiceGenerator: React.FC = () => {
       quantity: 1,
       unitPrice: itemUnitPrice || 0,
       amount: itemUnitPrice || 0,
-      isTaxed: itemGrossUp
+      isTaxed: itemGrossUp,
+      taxRate: itemGrossUp ? itemTaxRate : undefined
     };
 
     setItems(prev => [...prev, newItem]);
     setItemDescription('');
     setItemUnitPrice(0);
     setItemGrossUp(false);
+    setItemTaxRate(0.05);
     setSelectedPresetProduct('-- Manual --');
   };
 
@@ -248,16 +270,18 @@ export const InvoiceGenerator: React.FC = () => {
     setStatus('UNPAID');
     setLanguage('id');
     setCurrency('IDR');
-    setNotes('');
+    setNotes('Pemotongan pajak PPh Pasal 21 harus disetorkan paling lambat tanggal 10 bulan berikutnya, untuk mencegah sanksi Ditjen Pajak.');
     setTerms('Pembayaran dilakukan maksimal 14 hari setelah invoice diterbitkan.');
     setItems([]);
     setItemDescription('');
     setItemUnitPrice(0);
     setItemGrossUp(false);
     setSelectedPresetProduct('-- Manual --');
-    setBankName('Bank Mandiri');
-    setAccountNumber('123-00-0987654-3');
-    setAccountHolder('Notaris & PPAT Putri');
+    setBankName('BCA Cabang Dago - Bandung');
+    setAccountNumber('Acc. 7770673016');
+    setAccountHolder('A.n Nukantini Putri Parincha');
+    setBankNpwp('3217015610760002');
+    setBankSwift('CENAIDJA');
     loadClientOptions();
     setViewMode('create');
   };
@@ -278,7 +302,7 @@ export const InvoiceGenerator: React.FC = () => {
     setStatus(inv.status || 'UNPAID');
     setLanguage(inv.language || 'id');
     setCurrency(inv.currency || 'IDR');
-    setNotes(inv.notes || '');
+    setNotes(inv.notes !== undefined ? inv.notes : 'Pemotongan pajak PPh Pasal 21 harus disetorkan paling lambat tanggal 10 bulan berikutnya, untuk mencegah sanksi Ditjen Pajak.');
     setTerms(inv.terms || '');
     setItems(inv.items && inv.items.length > 0 ? inv.items : []);
     setItemDescription('');
@@ -286,9 +310,17 @@ export const InvoiceGenerator: React.FC = () => {
     setItemGrossUp(false);
     setSelectedPresetProduct('-- Manual --');
     if (inv.bankDetails) {
-      setBankName(inv.bankDetails.bankName || 'Bank Mandiri');
-      setAccountNumber(inv.bankDetails.accountNumber || '');
-      setAccountHolder(inv.bankDetails.accountHolder || '');
+      setBankName(inv.bankDetails.bankName || 'BCA Cabang Dago - Bandung');
+      setAccountNumber(inv.bankDetails.accountNumber || 'Acc. 7770673016');
+      setAccountHolder(inv.bankDetails.accountHolder || 'A.n Nukantini Putri Parincha');
+      setBankNpwp(inv.bankDetails.npwp || '3217015610760002');
+      setBankSwift(inv.bankDetails.swiftCode || 'CENAIDJA');
+    } else {
+      setBankName('BCA Cabang Dago - Bandung');
+      setAccountNumber('Acc. 7770673016');
+      setAccountHolder('A.n Nukantini Putri Parincha');
+      setBankNpwp('3217015610760002');
+      setBankSwift('CENAIDJA');
     }
     loadClientOptions();
     setViewMode('edit');
@@ -343,7 +375,9 @@ export const InvoiceGenerator: React.FC = () => {
         bankDetails: {
           bankName,
           accountNumber,
-          accountHolder
+          accountHolder,
+          npwp: bankNpwp,
+          swiftCode: bankSwift
         },
         paymentHistory: selectedInvoice && editingInvoiceId === selectedInvoice.id ? selectedInvoice.paymentHistory || [] : []
       };
@@ -668,40 +702,34 @@ export const InvoiceGenerator: React.FC = () => {
           <div className="flex items-center gap-2 flex-wrap">
             <button
               onClick={() => handleShareWhatsApp(inv)}
-              className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
+              className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
             >
               <Send size={14} /> Kirim Tagihan
+            </button>
+
+            <button
+              onClick={() => handleDownloadPDF(inv)}
+              disabled={downloadingPdf}
+              className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs disabled:opacity-50"
+            >
+              <Download size={14} />
+              {downloadingPdf ? 'Mengunduh PDF...' : 'Download PDF'}
             </button>
 
             <button
               onClick={() => copyPublicLink(inv)}
               className="px-3 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
             >
-              {copiedToken === inv.id ? <Check size={14} className="text-emerald-600" /> : <Download size={14} />}
-              {copiedToken === inv.id ? 'Tersalin!' : 'Download'}
+              {copiedToken === inv.id ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}
+              {copiedToken === inv.id ? 'Tersalin!' : 'Salin Link'}
             </button>
 
             <button
-              onClick={() => window.print()}
-              className="px-3.5 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
+              onClick={() => printInvoice(inv)}
+              className="px-3.5 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
             >
               <Printer size={14} /> Print
             </button>
-
-            <div className="flex items-center bg-slate-100 p-0.5 rounded-lg text-[11px] font-bold">
-              <button
-                onClick={() => setLanguage('id')}
-                className={`px-2 py-1 rounded ${language === 'id' ? 'bg-white text-slate-800 shadow-xs' : 'text-slate-500'}`}
-              >
-                ID
-              </button>
-              <button
-                onClick={() => setLanguage('en')}
-                className={`px-2 py-1 rounded ${language === 'en' ? 'bg-white text-slate-800 shadow-xs' : 'text-slate-500'}`}
-              >
-                EN
-              </button>
-            </div>
 
             <button
               onClick={() => openEditPage(inv)}
@@ -722,127 +750,9 @@ export const InvoiceGenerator: React.FC = () => {
 
         {/* Main Content Layout (2 Columns) */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          {/* Left Column: Invoice Document Preview (7 Cols on desktop) */}
-          <div className="lg:col-span-8 bg-white p-6 md:p-8 rounded-2xl border border-slate-200/80 shadow-sm space-y-6 print:border-none print:shadow-none print:p-0">
-            {/* Payment Status Header Banner */}
-            <div className="border-b border-slate-100 pb-4 flex items-center justify-between">
-              <span className={`text-xs font-bold uppercase tracking-wide ${isUnpaid ? 'text-red-500' : 'text-emerald-600'}`}>
-                {isUnpaid ? 'Belum Dibayar' : 'Lunas'}
-              </span>
-            </div>
-
-            {/* Client & Invoice Meta Grid */}
-            <div className="grid grid-cols-2 gap-6 text-xs border-b border-slate-100 pb-6">
-              <div>
-                <p className="text-slate-400 mb-1">Pelanggan</p>
-                <p className="font-bold text-slate-900 text-sm">{inv.clientName}</p>
-                {inv.clientAddress && <p className="text-slate-500 mt-1">{inv.clientAddress}</p>}
-                {inv.clientEmail && <p className="text-slate-500">{inv.clientEmail}</p>}
-                {inv.clientPhone && <p className="text-slate-500">{inv.clientPhone}</p>}
-              </div>
-
-              <div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <p className="text-slate-400 mb-0.5">Nomor</p>
-                    <p className="font-bold text-slate-900">{inv.invoiceNumber}</p>
-                  </div>
-                  <div>
-                    <p className="text-slate-400 mb-0.5">Tgl. Transaksi</p>
-                    <p className="font-semibold text-slate-800">{formatDateIndo(inv.issueDate)}</p>
-                  </div>
-                  <div className="col-span-2 pt-2">
-                    <p className="text-slate-400 mb-0.5">Tgl. Jatuh Tempo</p>
-                    <p className="font-semibold text-slate-800">{formatDateIndo(inv.dueDate)}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Invoice Items Table */}
-            <div className="space-y-2">
-              <table className="w-full text-left text-xs border-collapse">
-                <thead>
-                  <tr className="border-b border-slate-200/80 text-slate-500 font-bold">
-                    <th className="py-2.5 pr-4">Produk</th>
-                    <th className="py-2.5 pl-4 text-right">Jumlah</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {inv.items && inv.items.length > 0 ? (
-                    inv.items.map((it, idx) => {
-                      const descLines = it.description.split('\n');
-                      const title = descLines[0];
-                      const subLines = descLines.slice(1);
-
-                      return (
-                        <tr key={it.id || idx}>
-                          <td className="py-4 pr-4 align-top">
-                            <p className="font-bold text-slate-900 uppercase">{title}</p>
-                            {subLines.length > 0 && (
-                              <div className="mt-1 space-y-0.5 text-slate-600 text-[11px] pl-1">
-                                {subLines.map((line, lIdx) => (
-                                  <p key={lIdx}>{line}</p>
-                                ))}
-                              </div>
-                            )}
-                            {it.isTaxed && (
-                              <span className="inline-block mt-1 px-1.5 py-0.5 bg-blue-50 text-blue-700 rounded text-[9px] font-semibold border border-blue-200">
-                                Gross Up PPh 21
-                              </span>
-                            )}
-                          </td>
-                          <td className="py-4 pl-4 text-right font-bold text-slate-900 align-top whitespace-nowrap">
-                            {formatCurrency(it.amount || ((it.quantity || 1) * (it.unitPrice || 0)))}
-                          </td>
-                        </tr>
-                      );
-                    })
-                  ) : (
-                    <tr>
-                      <td colSpan={2} className="py-4 text-center text-slate-400 italic">
-                        Tidak ada item tagihan
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Calculations Breakdown */}
-            <div className="border-t border-slate-100 pt-4 flex justify-end">
-              <div className="w-64 space-y-2 text-xs">
-                <div className="flex justify-between text-slate-600">
-                  <span>Honorarium</span>
-                  <span className="font-semibold text-slate-900">{formatCurrency(inv.subtotal || inv.totalAmount)}</span>
-                </div>
-
-                {inv.taxAmount && inv.taxAmount > 0 ? (
-                  <div className="flex justify-between text-blue-600">
-                    <span>PPh 21 (Gross Up)</span>
-                    <span className="font-semibold">+ {formatCurrency(inv.taxAmount)}</span>
-                  </div>
-                ) : null}
-
-                <div className="flex justify-between pt-2 border-t border-slate-100 text-sm font-bold">
-                  <span className="text-slate-900">Total Tagihan</span>
-                  <span className="text-slate-900">{formatCurrency(inv.totalAmount)}</span>
-                </div>
-
-                <div className="flex justify-between pt-1 text-sm font-bold">
-                  <span className="text-slate-900">Sisa Tagihan</span>
-                  <span className="text-slate-900">{formatCurrency(inv.balanceDue ?? inv.totalAmount)}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Bank Details & Terms Footer */}
-            {inv.bankDetails && (
-              <div className="pt-6 border-t border-slate-100 text-xs text-slate-600 space-y-1">
-                <p className="font-bold text-slate-800">Metode Pembayaran Transfer:</p>
-                <p>{inv.bankDetails.bankName} - No. Rek: <span className="font-bold">{inv.bankDetails.accountNumber}</span> a.n {inv.bankDetails.accountHolder}</p>
-              </div>
-            )}
+          {/* Left Column: Invoice Document Preview (8 Cols on desktop) */}
+          <div className="lg:col-span-8 bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden print:border-none print:shadow-none print:p-0">
+            <InvoicePrintTemplate invoice={inv} />
           </div>
 
           {/* Right Column: Payment Recording & History (4 Cols on desktop, hidden in print) */}
@@ -1219,7 +1129,7 @@ export const InvoiceGenerator: React.FC = () => {
                 />
               </div>
 
-              <div className="md:col-span-2 flex items-center gap-2 pb-2.5">
+              <div className="md:col-span-2 flex flex-col justify-center gap-1.5 pb-1">
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="checkbox"
@@ -1229,6 +1139,22 @@ export const InvoiceGenerator: React.FC = () => {
                   />
                   <span className="font-semibold text-slate-700 text-xs whitespace-nowrap">Gross Up PPh 21</span>
                 </label>
+                {itemGrossUp && (
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[11px] text-slate-500 font-medium">Tarif:</span>
+                    <select
+                      value={itemTaxRate}
+                      onChange={(e) => setItemTaxRate(parseFloat(e.target.value))}
+                      className="text-xs font-bold p-1 border border-blue-200 bg-blue-50 text-blue-800 rounded focus:outline-none"
+                    >
+                      <option value={0.05}>Tarif 5%</option>
+                      <option value={0.15}>Tarif 15%</option>
+                      <option value={0.25}>Tarif 25%</option>
+                      <option value={0.30}>Tarif 30%</option>
+                      <option value={0.35}>Tarif 35%</option>
+                    </select>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1251,7 +1177,7 @@ export const InvoiceGenerator: React.FC = () => {
                   <th className="p-3">Item / Deskripsi</th>
                   <th className="p-3 w-20 text-center">Qty</th>
                   <th className="p-3 w-32 text-right">Harga (Rp)</th>
-                  <th className="p-3 w-20 text-center">PPh</th>
+                  <th className="p-3 w-28 text-center">PPh 21</th>
                   <th className="p-3 w-32 text-right">Subtotal</th>
                   <th className="p-3 w-12 text-center"></th>
                 </tr>
@@ -1292,15 +1218,33 @@ export const InvoiceGenerator: React.FC = () => {
                         />
                       </td>
                       <td className="p-3 text-center">
-                        <input
-                          type="checkbox"
-                          checked={it.isTaxed || false}
-                          onChange={(e) => handleItemChange(idx, 'isTaxed', e.target.checked)}
-                          className="w-4 h-4 text-blue-600 rounded cursor-pointer"
-                        />
+                        <div className="flex flex-col items-center gap-1">
+                          <label className="flex items-center gap-1 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={it.isTaxed || false}
+                              onChange={(e) => handleItemChange(idx, 'isTaxed', e.target.checked)}
+                              className="w-4 h-4 text-blue-600 rounded cursor-pointer"
+                            />
+                            <span className="text-[10px] text-slate-600 font-semibold">Gross Up</span>
+                          </label>
+                          {it.isTaxed && (
+                            <select
+                              value={it.taxRate !== undefined ? it.taxRate : 0.05}
+                              onChange={(e) => handleItemChange(idx, 'taxRate', parseFloat(e.target.value))}
+                              className="text-[10px] font-bold p-1 border border-blue-200 bg-blue-50 text-blue-800 rounded focus:outline-none cursor-pointer"
+                            >
+                              <option value={0.05}>5%</option>
+                              <option value={0.15}>15%</option>
+                              <option value={0.25}>25%</option>
+                              <option value={0.30}>30%</option>
+                              <option value={0.35}>35%</option>
+                            </select>
+                          )}
+                        </div>
                       </td>
                       <td className="p-3 text-right font-bold text-slate-900">
-                        {formatCurrency((it.quantity || 1) * (it.unitPrice || 0))}
+                        {formatCurrency(getItemSubtotal(it))}
                       </td>
                       <td className="p-3 text-center">
                         <button
@@ -1322,13 +1266,13 @@ export const InvoiceGenerator: React.FC = () => {
           <div className="flex justify-end pt-2">
             <div className="w-72 space-y-1.5 text-right font-medium text-slate-700">
               <div className="flex justify-between">
-                <span>Honorarium (Bersih):</span>
+                <span>Sub Total:</span>
                 <span className="font-bold text-slate-900">{formatCurrency(currentSub)}</span>
               </div>
               {currentTax > 0 && (
-                <div className="flex justify-between text-blue-600">
-                  <span>PPh 21 Gross Up:</span>
-                  <span className="font-bold">+ {formatCurrency(currentTax)}</span>
+                <div className="flex justify-between text-red-600">
+                  <span>Potongan Pajak (PPh 21):</span>
+                  <span className="font-bold">({formatCurrency(currentTax)})</span>
                 </div>
               )}
               <div className="flex justify-between pt-2 border-t border-slate-200 text-sm">
@@ -1339,10 +1283,10 @@ export const InvoiceGenerator: React.FC = () => {
           </div>
         </div>
 
-        {/* Card 4: Rekening & Pengaturan */}
+        {/* Card 4: Rekening, Catatan & Pengaturan */}
         <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2 p-3 bg-slate-50 rounded-xl border border-slate-200/80">
-            <h4 className="font-bold text-slate-800 uppercase tracking-wide text-[11px]">Rekening Pembayaran</h4>
+            <h4 className="font-bold text-slate-800 uppercase tracking-wide text-[11px]">Rekening Pembayaran & Pajak</h4>
             <div>
               <label className="block text-[11px] text-slate-600">Nama Bank</label>
               <input
@@ -1370,33 +1314,65 @@ export const InvoiceGenerator: React.FC = () => {
                 className="w-full p-2 border border-slate-200 rounded bg-white font-medium"
               />
             </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="block text-[11px] text-slate-600">NPWP 16 Digit</label>
+                <input
+                  type="text"
+                  value={bankNpwp}
+                  onChange={(e) => setBankNpwp(e.target.value)}
+                  className="w-full p-2 border border-slate-200 rounded bg-white font-medium text-xs"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] text-slate-600">SWIFT BCA</label>
+                <input
+                  type="text"
+                  value={bankSwift}
+                  onChange={(e) => setBankSwift(e.target.value)}
+                  className="w-full p-2 border border-slate-200 rounded bg-white font-medium text-xs"
+                />
+              </div>
+            </div>
           </div>
 
           <div className="space-y-2 p-3 bg-slate-50 rounded-xl border border-slate-200/80">
-            <h4 className="font-bold text-slate-800 uppercase tracking-wide text-[11px]">Pengaturan & Status</h4>
+            <h4 className="font-bold text-slate-800 uppercase tracking-wide text-[11px]">Catatan & Pengaturan Status</h4>
             <div>
-              <label className="block text-[11px] text-slate-600">Bahasa Invoice</label>
-              <select
-                value={language}
-                onChange={(e) => setLanguage(e.target.value as 'id' | 'en')}
-                className="w-full p-2 border border-slate-200 rounded bg-white font-medium"
-              >
-                <option value="id">Bahasa Indonesia</option>
-                <option value="en">English</option>
-              </select>
+              <label className="block text-[11px] text-slate-600 mb-1 font-semibold">Catatan Invoice (PPh 21 / Instruktur)</label>
+              <textarea
+                rows={3}
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                className="w-full p-2 border border-slate-200 rounded bg-white text-xs font-medium focus:outline-none focus:ring-1 focus:ring-blue-500"
+                placeholder="Tambah catatan..."
+              />
             </div>
-            <div>
-              <label className="block text-[11px] text-slate-600">Status Invoice</label>
-              <select
-                value={status}
-                onChange={(e) => setStatus(e.target.value as any)}
-                className="w-full p-2 border border-slate-200 rounded bg-white font-medium"
-              >
-                <option value="UNPAID">UNPAID (Belum Lunas)</option>
-                <option value="PAID">PAID (Lunas)</option>
-                <option value="DRAFT">DRAFT</option>
-                <option value="CANCELLED">CANCELLED</option>
-              </select>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="block text-[11px] text-slate-600">Bahasa Invoice</label>
+                <select
+                  value={language}
+                  onChange={(e) => setLanguage(e.target.value as 'id' | 'en')}
+                  className="w-full p-2 border border-slate-200 rounded bg-white font-medium text-xs"
+                >
+                  <option value="id">Bahasa Indonesia</option>
+                  <option value="en">English</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-[11px] text-slate-600">Status Invoice</label>
+                <select
+                  value={status}
+                  onChange={(e) => setStatus(e.target.value as any)}
+                  className="w-full p-2 border border-slate-200 rounded bg-white font-medium text-xs"
+                >
+                  <option value="UNPAID">UNPAID (Belum Lunas)</option>
+                  <option value="PAID">PAID (Lunas)</option>
+                  <option value="DRAFT">DRAFT</option>
+                  <option value="CANCELLED">CANCELLED</option>
+                </select>
+              </div>
             </div>
           </div>
         </div>

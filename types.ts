@@ -632,6 +632,8 @@ export interface Invoice {
     bankName: string;
     accountNumber: string;
     accountHolder: string;
+    npwp?: string;
+    swiftCode?: string;
   };
   paymentHistory?: PaymentRecord[];
   publicToken?: string;
