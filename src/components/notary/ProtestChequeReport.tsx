@@ -12,6 +12,7 @@ interface ProtestChequeReportProps {
   year: number;
   protestCheques: ProtestCheque[];
   signatureDate: string;
+  showStamp?: boolean;
 }
 
 const MONTH_NAMES = [
@@ -23,7 +24,8 @@ export const ProtestChequeReport: React.FC<ProtestChequeReportProps> = ({
   month,
   year,
   protestCheques,
-  signatureDate
+  signatureDate,
+  showStamp = false
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -150,7 +152,8 @@ export const ProtestChequeReport: React.FC<ProtestChequeReportProps> = ({
         monthName,
         year,
         items: filteredItems,
-        signatureDate
+        signatureDate,
+        showStamp
       }, 'download');
     } catch (e) {
       console.error(e);
@@ -167,7 +170,8 @@ export const ProtestChequeReport: React.FC<ProtestChequeReportProps> = ({
         monthName,
         year,
         items: filteredItems,
-        signatureDate
+        signatureDate,
+        showStamp
       }, 'share');
     } catch (e) {
       console.error(e);
@@ -190,7 +194,8 @@ export const ProtestChequeReport: React.FC<ProtestChequeReportProps> = ({
         monthName,
         year,
         items: filteredItems,
-        signatureDate
+        signatureDate,
+        showStamp
       }, 'blob');
 
       if (!pdfBlob) throw new Error('Gagal membuat PDF Blob.');
@@ -379,13 +384,15 @@ export const ProtestChequeReport: React.FC<ProtestChequeReportProps> = ({
             <p>Notaris di Kabupaten Bandung Barat,</p>
 
             <div className="relative h-28 my-1 flex items-center">
-              <div className="absolute -left-4 -top-8 w-44 h-44 pointer-events-none select-none z-0">
-                <img
-                  src={getSignatureImage()}
-                  alt="Cap Stempel dan Tanda Tangan Notaris"
-                  className="w-full h-full object-contain mix-blend-multiply opacity-95"
-                />
-              </div>
+              {showStamp && (
+                <div className="absolute -left-4 -top-8 w-44 h-44 pointer-events-none select-none z-0">
+                  <img
+                    src={getSignatureImage()}
+                    alt="Cap Stempel dan Tanda Tangan Notaris"
+                    className="w-full h-full object-contain mix-blend-multiply opacity-95"
+                  />
+                </div>
+              )}
             </div>
 
             <p className="font-bold underline text-xs tracking-wide pt-2 z-10 relative">

@@ -15,6 +15,7 @@ interface CoverLetterMPDProps {
   privateDeeds: PrivateDeed[];
   protestCheques: ProtestCheque[];
   outgoingMails?: OutgoingMail[];
+  showStamp?: boolean;
 }
 
 const MONTH_NAMES = [
@@ -35,6 +36,7 @@ export const CoverLetterMPD: React.FC<CoverLetterMPDProps> = ({
   privateDeeds,
   protestCheques,
   outgoingMails,
+  showStamp = false
 }) => {
   const monthName = MONTH_NAMES[month - 1] || 'Juli';
   const romanMonth = ROMAN_MONTHS[month - 1] || 'VII';
@@ -74,8 +76,12 @@ export const CoverLetterMPD: React.FC<CoverLetterMPDProps> = ({
   const STAMP_POS_X_KEY = 'notary_stamp_pos_x';
   const STAMP_SIZE_KEY = 'notary_stamp_size';
 
-  const [showStampImage, setShowStampImage] = useState(true);
+  const [showStampImage, setShowStampImage] = useState(false);
   const [customStampUrl, setCustomStampUrl] = useState<string>(getSignatureImage());
+
+  useEffect(() => {
+    setShowStampImage(!!showStamp);
+  }, [showStamp]);
 
   useEffect(() => {
     setCustomStampUrl(getSignatureImage());

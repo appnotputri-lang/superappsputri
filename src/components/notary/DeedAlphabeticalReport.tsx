@@ -7,13 +7,15 @@ interface DeedAlphabeticalReportProps {
   year: number;
   deeds: Deed[];
   signatureDate: string;
+  showStamp?: boolean;
 }
 
 export const DeedAlphabeticalReport: React.FC<DeedAlphabeticalReportProps> = ({
   month,
   year,
   deeds,
-  signatureDate
+  signatureDate,
+  showStamp
 }) => {
   return (
     <DeedAlphabeticalReportMain
@@ -21,6 +23,7 @@ export const DeedAlphabeticalReport: React.FC<DeedAlphabeticalReportProps> = ({
       year={year}
       deeds={deeds}
       signatureDate={signatureDate}
+      showStamp={showStamp}
     />
   );
 };

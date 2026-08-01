@@ -361,47 +361,6 @@ export const DeedBook: React.FC = () => {
     setAppearers(updated);
   };
 
-  // Function to shift numbers backwards after a deletion
-  const shiftDeedsAfterDelete = async (deletedDeed: Deed) => {
-    const deletedNum = parseInt(deletedDeed.number, 10);
-    const deletedOrder = parseInt(deletedDeed.orderNumber || '0', 10);
-    if (isNaN(deletedNum) || isNaN(deletedOrder)) return;
-
-    if (!deletedDeed.date || deletedDeed.date.length < 7) return;
-    const yearMonth = deletedDeed.date.substring(0, 7);
-
-    // 1) Shift Number for deeds in the same month/year with higher numbers
-    const sameMonthAfter = deeds.filter((d) => {
-      if (d.id === deletedDeed.id) return false;
-      if (!d.date || !d.date.startsWith(yearMonth)) return false;
-      const n = parseInt(d.number, 10);
-      return !isNaN(n) && n > deletedNum;
-    });
-
-    // 2) Shift OrderNumber for ALL deeds with higher order numbers
-    const allAfterGlobal = deeds.filter((d) => {
-      if (d.id === deletedDeed.id) return false;
-      const o = parseInt(d.orderNumber || '0', 10);
-      return !isNaN(o) && o > deletedOrder;
-    });
-
-    const updates = new Map<string, Partial<Deed>>();
-
-    sameMonthAfter.forEach((d) => {
-      const oldNum = parseInt(d.number, 10);
-      const newNum = String(oldNum - 1).padStart(d.number.length >= 2 ? 2 : 1, '0');
-      updates.set(d.id, { ...(updates.get(d.id) || {}), number: newNum });
-    });
-
-    allAfterGlobal.forEach((d) => {
-      const oldOrder = parseInt(d.orderNumber || '0', 10);
-      updates.set(d.id, { ...(updates.get(d.id) || {}), orderNumber: String(oldOrder - 1) });
-    });
-
-    await Promise.all(
-      Array.from(updates.entries()).map(([id, patch]) => NotaryService.updateDeed(id, patch))
-    );
-  };
 
   // Function to shift numbers forward when inserting/editing with a conflict
   const shiftDeedsForInsert = async (targetNumber: number, targetDate: string, excludeId: string | null) => {
@@ -488,6 +447,44 @@ export const DeedBook: React.FC = () => {
       }
     });
 
+    // Chronological validation within the same month and year
+    const targetNumVal = parseInt(deedNumber, 10);
+    if (!isNaN(targetNumVal)) {
+      const yearMonth = deedDate.substring(0, 7);
+      
+      // Find deeds in the same month/year
+      const sameMonthDeeds = deeds.filter((d) => {
+        if (d.id === editingDeedId) return false;
+        return d.date && d.date.startsWith(yearMonth);
+      });
+
+      // 1) Check for any deed with smaller number that has a later date
+      const smallerNumberViolator = sameMonthDeeds.find((d) => {
+        const num = parseInt(d.number, 10);
+        return !isNaN(num) && num < targetNumVal && d.date > deedDate;
+      });
+
+      if (smallerNumberViolator) {
+        alert(
+          `Kesalahan penanggalan: Akta No. ${targetNumVal} (tanggal ${deedDate}) tidak boleh mendahului tanggal Akta No. ${smallerNumberViolator.number} (${smallerNumberViolator.date}).`
+        );
+        return;
+      }
+
+      // 2) Check for any deed with greater number that has an earlier date
+      const greaterNumberViolator = sameMonthDeeds.find((d) => {
+        const num = parseInt(d.number, 10);
+        return !isNaN(num) && num > targetNumVal && d.date < deedDate;
+      });
+
+      if (greaterNumberViolator) {
+        alert(
+          `Kesalahan penanggalan: Akta No. ${targetNumVal} (tanggal ${deedDate}) tidak boleh melewati tanggal Akta No. ${greaterNumberViolator.number} (${greaterNumberViolator.date}).`
+        );
+        return;
+      }
+    }
+
     setIsSaving(true);
     try {
       // Check for conflicts and shift if necessary
@@ -540,9 +537,8 @@ export const DeedBook: React.FC = () => {
       return;
     }
 
-    if (confirm(`Apakah Anda yakin ingin menghapus akta No. ${deed.number} - "${deed.title}"?\n\nSemua akta setelahnya akan otomatis bergeser nomornya.`)) {
+    if (confirm(`Apakah Anda yakin ingin menghapus akta No. ${deed.number} - "${deed.title}"?`)) {
       try {
-        await shiftDeedsAfterDelete(deed);
         await NotaryService.deleteDeed(deed.id);
       } catch (err) {
         console.error('Failed to delete deed:', err);

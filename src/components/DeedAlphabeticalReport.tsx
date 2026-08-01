@@ -37,6 +37,7 @@ export interface DeedAlphabeticalReportProps {
   year?: number;
   signatureDate?: string;
   onBack?: () => void;
+  showStamp?: boolean;
 }
 
 // Sample dummy data matching the uploaded PDF screenshot exactly
@@ -343,7 +344,8 @@ export const DeedAlphabeticalReport: React.FC<DeedAlphabeticalReportProps> = ({
   month = 7,
   year = 2026,
   signatureDate,
-  onBack
+  onBack,
+  showStamp = false
 }) => {
   const [selectedLetter, setSelectedLetter] = useState<string>('ALL');
   const [searchTerm, setSearchTerm] = useState<string>('');
@@ -686,7 +688,8 @@ export const DeedAlphabeticalReport: React.FC<DeedAlphabeticalReportProps> = ({
         year,
         filteredSections,
         notaryName: settings.notaryName,
-        city: settings.city
+        city: settings.city,
+        showStamp
       }, 'download');
     } catch (err) {
       console.error('Failed to export PDF:', err);
@@ -710,7 +713,8 @@ export const DeedAlphabeticalReport: React.FC<DeedAlphabeticalReportProps> = ({
         year,
         filteredSections,
         notaryName: settings.notaryName,
-        city: settings.city
+        city: settings.city,
+        showStamp
       }, 'blob');
 
       if (!pdfBlob) throw new Error('Gagal membuat PDF Blob.');
@@ -747,7 +751,8 @@ export const DeedAlphabeticalReport: React.FC<DeedAlphabeticalReportProps> = ({
         year,
         filteredSections,
         notaryName: settings.notaryName,
-        city: settings.city
+        city: settings.city,
+        showStamp
       }, 'share');
     } catch (err) {
       console.error('Failed to share PDF:', err);
@@ -1031,13 +1036,15 @@ export const DeedAlphabeticalReport: React.FC<DeedAlphabeticalReportProps> = ({
             <p className="pt-2 text-black">{settings.city}, 29 {monthName} {year}</p>
             
             <div className="relative h-28 my-1 flex items-center">
-              <div className="absolute -left-4 -top-8 w-44 h-44 pointer-events-none select-none z-0">
-                <img
-                  src={getSignatureImage()}
-                  alt="Cap Stempel dan Tanda Tangan Notaris"
-                  className="w-full h-full object-contain mix-blend-multiply opacity-95"
-                />
-              </div>
+              {showStamp && (
+                <div className="absolute -left-4 -top-8 w-44 h-44 pointer-events-none select-none z-0">
+                  <img
+                    src={getSignatureImage()}
+                    alt="Cap Stempel dan Tanda Tangan Notaris"
+                    className="w-full h-full object-contain mix-blend-multiply opacity-95"
+                  />
+                </div>
+              )}
             </div>
 
             <p className="font-bold underline uppercase text-black relative z-10 pt-2">

@@ -28,6 +28,7 @@ export const NotaryReportHub: React.FC = () => {
   const [signatureDate, setSignatureDate] = useState<string>(
     `${currentDate.getDate()} ${MONTH_NAMES[currentDate.getMonth()]} ${currentDate.getFullYear()}`
   );
+  const [showStamp, setShowStamp] = useState<boolean>(false);
 
   const [activeSubTab, setActiveSubTab] = useState<NotaryReportSubTab>('surat_pengantar');
 
@@ -167,6 +168,16 @@ export const NotaryReportHub: React.FC = () => {
               className="bg-transparent font-medium text-xs text-slate-800 focus:outline-none w-28"
             />
           </div>
+
+          <label className="flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-100 transition-colors select-none">
+            <input
+              type="checkbox"
+              checked={showStamp}
+              onChange={(e) => setShowStamp(e.target.checked)}
+              className="w-4 h-4 text-sky-600 border-slate-300 rounded focus:ring-sky-500 cursor-pointer"
+            />
+            <span className="text-xs font-semibold text-slate-700">Tampilkan TTD & Cap</span>
+          </label>
         </div>
       </div>
 
@@ -212,6 +223,7 @@ export const NotaryReportHub: React.FC = () => {
             privateDeeds={privateDeeds}
             protestCheques={protestCheques}
             outgoingMails={outgoingMails}
+            showStamp={showStamp}
           />
         )}
 
@@ -221,6 +233,7 @@ export const NotaryReportHub: React.FC = () => {
             year={selectedYear}
             deeds={deeds}
             signatureDate={signatureDate}
+            showStamp={showStamp}
           />
         )}
 
@@ -230,6 +243,7 @@ export const NotaryReportHub: React.FC = () => {
             year={selectedYear}
             deeds={deeds}
             signatureDate={signatureDate}
+            showStamp={showStamp}
           />
         )}
 
@@ -240,6 +254,7 @@ export const NotaryReportHub: React.FC = () => {
             type="Legalisasi"
             privateDeeds={privateDeeds}
             signatureDate={signatureDate}
+            showStamp={showStamp}
           />
         )}
 
@@ -250,6 +265,7 @@ export const NotaryReportHub: React.FC = () => {
             type="Waarmerking"
             privateDeeds={privateDeeds}
             signatureDate={signatureDate}
+            showStamp={showStamp}
           />
         )}
 
@@ -259,6 +275,7 @@ export const NotaryReportHub: React.FC = () => {
             year={selectedYear}
             protestCheques={protestCheques}
             signatureDate={signatureDate}
+            showStamp={showStamp}
           />
         )}
       </div>

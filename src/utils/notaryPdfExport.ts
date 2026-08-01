@@ -343,6 +343,7 @@ export async function exportDeedReportToPdf(data: {
   year: number;
   deeds: any[];
   signatureDate: string;
+  showStamp?: boolean;
 }, mode: 'download' | 'share' | 'blob' = 'download') {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const pageWidth = doc.internal.pageSize.width;
@@ -493,12 +494,14 @@ export async function exportDeedReportToPdf(data: {
   doc.text('Notaris di Kabupaten Bandung Barat,', sigX, currentY);
 
   // Add Stamp & Signature
-  try {
-    const signatureImg = getSignatureImage();
-    const format = signatureImg.startsWith('data:image/png') ? 'PNG' : 'JPEG';
-    doc.addImage(signatureImg, format, sigX - 6, currentY + 2, 45, 45);
-  } catch (e) {
-    console.error('Error adding signature to PDF:', e);
+  if (data.showStamp) {
+    try {
+      const signatureImg = getSignatureImage();
+      const format = signatureImg.startsWith('data:image/png') ? 'PNG' : 'JPEG';
+      doc.addImage(signatureImg, format, sigX - 6, currentY + 2, 45, 45);
+    } catch (e) {
+      console.error('Error adding signature to PDF:', e);
+    }
   }
 
   currentY += 45;
@@ -516,6 +519,7 @@ export async function exportPrivateDeedReportToPdf(data: {
   type: 'Legalisasi' | 'Waarmerking';
   items: any[];
   signatureDate: string;
+  showStamp?: boolean;
 }, mode: 'download' | 'share' | 'blob' = 'download') {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const pageWidth = doc.internal.pageSize.width;
@@ -611,12 +615,14 @@ export async function exportPrivateDeedReportToPdf(data: {
   doc.text('Notaris di Kabupaten Bandung Barat,', sigX, currentY);
 
   // Add Stamp & Signature
-  try {
-    const signatureImg = getSignatureImage();
-    const format = signatureImg.startsWith('data:image/png') ? 'PNG' : 'JPEG';
-    doc.addImage(signatureImg, format, sigX - 6, currentY + 2, 45, 45);
-  } catch (e) {
-    console.error('Error adding signature to PDF:', e);
+  if (data.showStamp) {
+    try {
+      const signatureImg = getSignatureImage();
+      const format = signatureImg.startsWith('data:image/png') ? 'PNG' : 'JPEG';
+      doc.addImage(signatureImg, format, sigX - 6, currentY + 2, 45, 45);
+    } catch (e) {
+      console.error('Error adding signature to PDF:', e);
+    }
   }
 
   currentY += 45;
@@ -633,6 +639,7 @@ export async function exportProtestChequeReportToPdf(data: {
   year: number;
   items: any[];
   signatureDate: string;
+  showStamp?: boolean;
 }, mode: 'download' | 'share' | 'blob' = 'download') {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const pageWidth = doc.internal.pageSize.width;
@@ -734,12 +741,14 @@ export async function exportProtestChequeReportToPdf(data: {
   doc.text('Notaris di Kabupaten Bandung Barat,', sigX, currentY);
 
   // Add Stamp & Signature
-  try {
-    const signatureImg = getSignatureImage();
-    const format = signatureImg.startsWith('data:image/png') ? 'PNG' : 'JPEG';
-    doc.addImage(signatureImg, format, sigX - 6, currentY + 2, 45, 45);
-  } catch (e) {
-    console.error('Error adding signature to PDF:', e);
+  if (data.showStamp) {
+    try {
+      const signatureImg = getSignatureImage();
+      const format = signatureImg.startsWith('data:image/png') ? 'PNG' : 'JPEG';
+      doc.addImage(signatureImg, format, sigX - 6, currentY + 2, 45, 45);
+    } catch (e) {
+      console.error('Error adding signature to PDF:', e);
+    }
   }
 
   currentY += 45;
@@ -757,6 +766,7 @@ export async function exportDeedAlphabeticalReportToPdf(data: {
   filteredSections: any[];
   notaryName: string;
   city: string;
+  showStamp?: boolean;
 }, mode: 'download' | 'share' | 'blob' = 'download') {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const pageWidth = doc.internal.pageSize.width;
@@ -894,12 +904,14 @@ export async function exportDeedAlphabeticalReportToPdf(data: {
   doc.text('Notaris di Kabupaten Bandung Barat,', sigX, currentY);
 
   // Add Stamp & Signature
-  try {
-    const signatureImg = getSignatureImage();
-    const format = signatureImg.startsWith('data:image/png') ? 'PNG' : 'JPEG';
-    doc.addImage(signatureImg, format, sigX - 6, currentY + 2, 45, 45);
-  } catch (e) {
-    console.error('Error adding signature to PDF:', e);
+  if (data.showStamp) {
+    try {
+      const signatureImg = getSignatureImage();
+      const format = signatureImg.startsWith('data:image/png') ? 'PNG' : 'JPEG';
+      doc.addImage(signatureImg, format, sigX - 6, currentY + 2, 45, 45);
+    } catch (e) {
+      console.error('Error adding signature to PDF:', e);
+    }
   }
 
   currentY += 45;

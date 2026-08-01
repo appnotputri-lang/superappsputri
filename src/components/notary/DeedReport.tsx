@@ -11,6 +11,7 @@ interface DeedReportProps {
   year: number;
   deeds: Deed[];
   signatureDate: string;
+  showStamp?: boolean;
 }
 
 const MONTH_NAMES = [
@@ -26,7 +27,8 @@ export const DeedReport: React.FC<DeedReportProps> = ({
   month,
   year,
   deeds,
-  signatureDate
+  signatureDate,
+  showStamp = false
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isDownloading, setIsDownloading] = useState(false);
@@ -84,7 +86,8 @@ export const DeedReport: React.FC<DeedReportProps> = ({
         monthName,
         year,
         deeds: filteredDeeds,
-        signatureDate
+        signatureDate,
+        showStamp
       }, 'download');
     } catch (e) {
       console.error(e);
@@ -101,7 +104,8 @@ export const DeedReport: React.FC<DeedReportProps> = ({
         monthName,
         year,
         deeds: filteredDeeds,
-        signatureDate
+        signatureDate,
+        showStamp
       }, 'share');
     } catch (e) {
       console.error(e);
@@ -124,7 +128,8 @@ export const DeedReport: React.FC<DeedReportProps> = ({
         monthName,
         year,
         deeds: filteredDeeds,
-        signatureDate
+        signatureDate,
+        showStamp
       }, 'blob');
 
       if (!pdfBlob) throw new Error('Gagal membuat PDF Blob.');
@@ -364,13 +369,15 @@ export const DeedReport: React.FC<DeedReportProps> = ({
             <p className="pt-2">{signatureDate ? (signatureDate.includes('Bandung') ? signatureDate : `Bandung Barat, ${signatureDate}`) : `Bandung Barat, 28 ${monthName} ${year}`}</p>
 
             <div className="relative h-28 my-1 flex items-center">
-              <div className="absolute -left-4 -top-8 w-44 h-44 pointer-events-none select-none z-0">
-                <img
-                  src={getSignatureImage()}
-                  alt="Cap Stempel dan Tanda Tangan Notaris"
-                  className="w-full h-full object-contain mix-blend-multiply opacity-95"
-                />
-              </div>
+              {showStamp && (
+                <div className="absolute -left-4 -top-8 w-44 h-44 pointer-events-none select-none z-0">
+                  <img
+                    src={getSignatureImage()}
+                    alt="Cap Stempel dan Tanda Tangan Notaris"
+                    className="w-full h-full object-contain mix-blend-multiply opacity-95"
+                  />
+                </div>
+              )}
             </div>
 
             <p className="font-bold underline uppercase text-xs tracking-wide pt-2 z-10 relative">
