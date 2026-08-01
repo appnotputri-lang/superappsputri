@@ -14,10 +14,9 @@ export function useCompanies() {
     if (!user) return;
     setLoading(true);
     try {
-      const [pt, cv] = await Promise.all([
-        CompanyService.getCompanies(),
-        CompanyService.getCvCompanies(),
-      ]);
+      const allCompanies = await CompanyService.getCompanies();
+      const pt = allCompanies.filter(p => p.clientType !== 'CV' && p.companyType !== 'CV');
+      const cv = allCompanies.filter(p => p.clientType === 'CV' || p.companyType === 'CV');
       setProfiles(pt);
       setCvProfiles(cv);
       setError(null);
@@ -44,14 +43,12 @@ export function useCompanies() {
 
     CompanyService.migrateLegacyCvProfiles().finally(() => {
       if (!isMounted) return;
-      unsubPT = CompanyService.listenCompanies((ptList) => {
+      unsubPT = CompanyService.listenCompanies((allList) => {
         if (!isMounted) return;
-        setProfiles(ptList);
-        setLoading(false);
-      });
-      unsubCV = CompanyService.listenCvCompanies((cvList) => {
-        if (!isMounted) return;
-        setCvProfiles(cvList);
+        const pt = allList.filter(p => p.clientType !== 'CV' && p.companyType !== 'CV');
+        const cv = allList.filter(p => p.clientType === 'CV' || p.companyType === 'CV');
+        setProfiles(pt);
+        setCvProfiles(cv);
         setLoading(false);
       });
     });
@@ -59,7 +56,6 @@ export function useCompanies() {
     return () => {
       isMounted = false;
       unsubPT();
-      unsubCV();
     };
   }, [user]);
 

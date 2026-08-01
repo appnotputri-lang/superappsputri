@@ -9,7 +9,7 @@ import { WorkflowService } from '../../../services/WorkflowService';
 import { Timeline } from '../../../domain/project/Timeline';
 import { Task } from '../../../domain/project/Task';
 import { db, cleanUndefined } from '../../../lib/firebase';
-import { collection, getDocs, setDoc, doc, deleteDoc, getDoc, query, where, updateDoc } from 'firebase/firestore';
+import { collection, getDocs, setDoc, doc, deleteDoc, getDoc, query, where, updateDoc, getDocsFromCache } from 'firebase/firestore';
 import DraftAktaPendirian from '../../../DraftAktaPendirian';
 import PendirianDocumentPreview from '../../../PendirianDocumentPreview';
 import { syncToUtama, getDeedTitle, formatAppearersForPendirian } from '../../../lib/syncUtama';
@@ -600,27 +600,47 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
   const handleWorkHere = async () => {
     setLoading(true);
     try {
-      const profSnap = await getDocs(collection(db, 'company_profiles'));
+      let profSnap;
+      try {
+        profSnap = await getDocsFromCache(collection(db, 'company_profiles'));
+        if (profSnap.empty) {
+          profSnap = await getDocs(collection(db, 'company_profiles'));
+        }
+      } catch (e) {
+        profSnap = await getDocs(collection(db, 'company_profiles'));
+      }
       setPendirianProfiles(profSnap.docs.map(d => ({ id: d.id, ...d.data() })));
-      
-      const pendSnap = await getDocs(collection(db, 'pendirian_projects'));
-      const pendData = pendSnap.docs.map(d => ({ id: d.id, ...(d.data() as any) }));
       
       // Look for an existing document reference with url '/pendirian' in the project
       const pendirianDocRef = documents.find(d => d.url === '/pendirian');
       
-      let existing;
+      let existing: any = null;
       if (pendirianDocRef && pendirianDocRef.refId) {
-        existing = pendData.find(p => p.id === pendirianDocRef.refId);
+        const docSnap = await getDoc(doc(db, 'pendirian_projects', pendirianDocRef.refId));
+        if (docSnap.exists()) {
+          existing = { id: docSnap.id, ...(docSnap.data() as any) };
+        }
       } else {
         // Fallback: match by selectedProfileId (clientId) or a clean name
         const cleanTitle = project?.title.includes(' — ') 
           ? project.title.split(' — ')[1].trim() 
           : project?.title.includes(' - ') 
             ? project.title.split(' - ')[1].trim() 
-            : project?.title;
+            : project?.title || '';
             
-        existing = pendData.find(p => p.selectedProfileId === project?.clientId || p.namaPt === cleanTitle || p.namaPt === project?.title);
+        let qMatches: any[] = [];
+        if (project?.clientId) {
+          const q1 = query(collection(db, 'pendirian_projects'), where('selectedProfileId', '==', project.clientId));
+          const q1Snap = await getDocs(q1);
+          q1Snap.forEach(d => qMatches.push({ id: d.id, ...d.data() }));
+        }
+        if (cleanTitle && qMatches.length === 0) {
+          const q2 = query(collection(db, 'pendirian_projects'), where('namaPt', '==', cleanTitle));
+          const q2Snap = await getDocs(q2);
+          q2Snap.forEach(d => qMatches.push({ id: d.id, ...d.data() }));
+        }
+        
+        existing = qMatches[0] || null;
       }
       
       if (existing) {

@@ -8,7 +8,9 @@ import {
   setDoc, 
   updateDoc, 
   deleteDoc, 
-  onSnapshot 
+  onSnapshot,
+  query,
+  where
 } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from '../lib/firebase';
 import { CompanyProfile } from '../../types';
@@ -368,17 +370,33 @@ export class CompanyService {
       // 4. Clean up any remaining records in project_uploaded_documents for this client ID
       try {
         const uploadedDocsCol = collection(db, 'project_uploaded_documents');
-        const uploadedDocsSnap = await getDocs(uploadedDocsCol);
-        for (const docSnap of uploadedDocsSnap.docs) {
-          const data = docSnap.data();
-          if (
-            data.clientId === companyId ||
-            data.selectedProfileId === companyId ||
-            data.companyId === companyId ||
-            projectIdsToDelete.has(data.projectId)
-          ) {
-            await deleteDoc(docSnap.ref);
-          }
+        const docRefsToDelete = new Set<string>();
+
+        // Query by clientId
+        const qClient = query(uploadedDocsCol, where('clientId', '==', companyId));
+        const qClientSnap = await getDocs(qClient);
+        qClientSnap.forEach(d => docRefsToDelete.add(d.id));
+
+        // Query by selectedProfileId
+        const qSel = query(uploadedDocsCol, where('selectedProfileId', '==', companyId));
+        const qSelSnap = await getDocs(qSel);
+        qSelSnap.forEach(d => docRefsToDelete.add(d.id));
+
+        // Query by companyId
+        const qComp = query(uploadedDocsCol, where('companyId', '==', companyId));
+        const qCompSnap = await getDocs(qComp);
+        qCompSnap.forEach(d => docRefsToDelete.add(d.id));
+
+        // Query for each projectId to delete
+        for (const projId of Array.from(projectIdsToDelete)) {
+          const qProj = query(uploadedDocsCol, where('projectId', '==', projId));
+          const qProjSnap = await getDocs(qProj);
+          qProjSnap.forEach(d => docRefsToDelete.add(d.id));
+        }
+
+        // Perform deletions
+        for (const docId of Array.from(docRefsToDelete)) {
+          await deleteDoc(doc(db, 'project_uploaded_documents', docId));
         }
       } catch (e) {
         console.warn("[CompanyService] Error cleaning project_uploaded_documents for client:", e);
@@ -536,22 +554,39 @@ export class CompanyService {
       // 4. Reassociate project_uploaded_documents
       try {
         const uploadedDocsCol = collection(db, 'project_uploaded_documents');
-        const uploadedDocsSnap = await getDocs(uploadedDocsCol);
-        for (const docSnap of uploadedDocsSnap.docs) {
-          const data = docSnap.data();
-          const matchesSource = sourceIds.some(sourceId => 
-            data.clientId === sourceId ||
-            data.selectedProfileId === sourceId ||
-            data.companyId === sourceId
-          );
+        const docsToUpdate = new Map<string, { ref: any, data: any }>();
 
-          if (matchesSource) {
-            const updates: any = {};
-            if (data.clientId && sourceIds.includes(data.clientId)) updates.clientId = targetId;
-            if (data.selectedProfileId && sourceIds.includes(data.selectedProfileId)) updates.selectedProfileId = targetId;
-            if (data.companyId && sourceIds.includes(data.companyId)) updates.companyId = targetId;
+        for (const sourceId of sourceIds) {
+          // Query by clientId
+          const qClient = query(uploadedDocsCol, where('clientId', '==', sourceId));
+          const qClientSnap = await getDocs(qClient);
+          qClientSnap.forEach(d => {
+            docsToUpdate.set(d.id, { ref: d.ref, data: d.data() });
+          });
 
-            await updateDoc(docSnap.ref, sanitizeForFirestore(updates));
+          // Query by selectedProfileId
+          const qSel = query(uploadedDocsCol, where('selectedProfileId', '==', sourceId));
+          const qSelSnap = await getDocs(qSel);
+          qSelSnap.forEach(d => {
+            docsToUpdate.set(d.id, { ref: d.ref, data: d.data() });
+          });
+
+          // Query by companyId
+          const qComp = query(uploadedDocsCol, where('companyId', '==', sourceId));
+          const qCompSnap = await getDocs(qComp);
+          qCompSnap.forEach(d => {
+            docsToUpdate.set(d.id, { ref: d.ref, data: d.data() });
+          });
+        }
+
+        for (const { ref, data } of Array.from(docsToUpdate.values())) {
+          const updates: any = {};
+          if (data.clientId && sourceIds.includes(data.clientId)) updates.clientId = targetId;
+          if (data.selectedProfileId && sourceIds.includes(data.selectedProfileId)) updates.selectedProfileId = targetId;
+          if (data.companyId && sourceIds.includes(data.companyId)) updates.companyId = targetId;
+          
+          if (Object.keys(updates).length > 0) {
+            await updateDoc(ref, sanitizeForFirestore(updates));
           }
         }
       } catch (e) {

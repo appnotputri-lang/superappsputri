@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithPopup, GoogleAuthProvider, signOut } from 'firebase/auth';
-import { initializeFirestore, collection, getDocs, persistentLocalCache, persistentMultipleTabManager } from 'firebase/firestore';
+import { initializeFirestore, collection, getDocs, persistentLocalCache, persistentMultipleTabManager, getDocsFromCache } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
 
 const app = initializeApp(firebaseConfig);
@@ -21,7 +21,15 @@ export const searchShareholderByNIKClient = async (nik: string): Promise<any | n
 
   try {
     for (const col of collections) {
-      const querySnapshot = await getDocs(collection(db, col));
+      let querySnapshot;
+      try {
+        querySnapshot = await getDocsFromCache(collection(db, col));
+        if (querySnapshot.empty) {
+          querySnapshot = await getDocs(collection(db, col));
+        }
+      } catch (cacheError) {
+        querySnapshot = await getDocs(collection(db, col));
+      }
       for (const doc of querySnapshot.docs) {
         const data = doc.data();
         const candidateArrays = [

@@ -4,7 +4,7 @@ import { Project, ClientSnapshot } from '../../../domain/project/Project';
 import { ProjectService } from '../../../services/ProjectService';
 import { UserProfile, CompanyProfile } from '../../../../types';
 import { db } from '../../../lib/firebase';
-import { collection, getDocs, doc, updateDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, updateDoc, getDocsFromCache } from 'firebase/firestore';
 import { Workflow } from '../../../domain/project/Workflow';
 import { WorkflowService } from '../../../services/WorkflowService';
 import { Plus, Search, Filter, Briefcase, User, Calendar, ExternalLink, Loader2, ArrowRight, Trash2, AlertCircle } from 'lucide-react';
@@ -174,11 +174,16 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
         // Ensure default workflows are seeded
         await WorkflowService.seedDefaultWorkflows();
         
+        const profilesPromise = getDocsFromCache(collection(db, 'profiles'))
+          .then(snapshot => snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as CompanyProfile[])
+          .catch(async () => {
+            const snapshot = await getDocs(collection(db, 'profiles'));
+            return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as CompanyProfile[];
+          });
+
         const [projList, profileList, wfList] = await Promise.all([
           ProjectService.listProjects(),
-          getDocs(collection(db, 'profiles')).then(snapshot => 
-            snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as CompanyProfile[]
-          ),
+          profilesPromise,
           WorkflowService.listWorkflows()
         ]);
 

@@ -713,11 +713,10 @@ export class ProjectService {
       // 3. Cleanup project_uploaded_documents
       try {
         const uploadedCol = collection(db, 'project_uploaded_documents');
-        const uploadedSnap = await getDocs(uploadedCol);
+        const q = query(uploadedCol, where('projectId', '==', projectId));
+        const uploadedSnap = await getDocs(q);
         for (const uSnap of uploadedSnap.docs) {
-          if (uSnap.data()?.projectId === projectId) {
-            await deleteDoc(uSnap.ref);
-          }
+          await deleteDoc(uSnap.ref);
         }
       } catch (e) {
         console.warn("[ProjectService] Failed to cleanup project_uploaded_documents:", e);

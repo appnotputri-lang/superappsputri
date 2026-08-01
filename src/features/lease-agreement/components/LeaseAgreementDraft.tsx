@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { doc, getDoc, setDoc, collection, getDocs, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, collection, getDocs, updateDoc, getDocsFromCache } from 'firebase/firestore';
 import { db, cleanUndefined } from '../../../lib/firebase';
 import { LeaseProjectData, LeaseParty, LeaseObject, LeasePayment } from '../types';
 import { CompanyProfile } from '../../../../types';
@@ -31,8 +31,16 @@ export default function LeaseAgreementDraft({ projectId, project, currentUser, o
     const loadData = async () => {
       setLoading(true);
       try {
-        // Fetch Master Clients (profiles)
-        const profileSnap = await getDocs(collection(db, 'profiles'));
+        // Fetch Master Clients (profiles) - Cache first
+        let profileSnap;
+        try {
+          profileSnap = await getDocsFromCache(collection(db, 'profiles'));
+          if (profileSnap.empty) {
+            profileSnap = await getDocs(collection(db, 'profiles'));
+          }
+        } catch (e) {
+          profileSnap = await getDocs(collection(db, 'profiles'));
+        }
         const clientProfiles = profileSnap.docs.map(d => ({ id: d.id, ...d.data() } as CompanyProfile));
         setProfiles(clientProfiles);
 
