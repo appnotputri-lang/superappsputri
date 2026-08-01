@@ -18,9 +18,15 @@ export const onRequestPost = async (context: any) => {
     return createErrorResponse('Invalid JSON body', 400);
   }
 
-  const { fileName, mimeType, parentFolderId, base64 } = body;
+  let { fileName, mimeType, parentFolderId, base64 } = body;
   if (!fileName || !mimeType || !parentFolderId || !base64) {
     return createErrorResponse("Missing required fields", 400);
+  }
+
+  if (parentFolderId === '0B-My1uo45zLiMy11WVdHVFJ4RU0') {
+    parentFolderId = env.GOOGLE_DRIVE_REPORT_FOLDER_ID || env.GOOGLE_DRIVE_ROOT_FOLDER_ID || '0B-My1uo45zLiMy11WVdHVFJ4RU0';
+  } else if (parentFolderId === 'root') {
+    parentFolderId = env.GOOGLE_DRIVE_ROOT_FOLDER_ID || 'root';
   }
 
   try {
