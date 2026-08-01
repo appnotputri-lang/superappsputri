@@ -117,24 +117,20 @@ export const CoverLetterMPD: React.FC<CoverLetterMPDProps> = ({
       return;
     }
 
-    // 3. Fallback: calculate next sequence number
-    const count = mails.filter(m => {
-      if (!m.date) return false;
-      const isMpdCoverLetter = 
-        (m as any).type === 'surat_pengantar' ||
-        (m.subject && m.subject.toLowerCase().includes('pengantar')) ||
-        (m.subject && m.subject.toLowerCase().includes('daftar akta')) ||
-        (m.mailNumber && m.mailNumber.toLowerCase().includes('npp-not'));
-
-      if (!isMpdCoverLetter) return false;
-
-      try {
-        return new Date(m.date).getFullYear() === year;
-      } catch {
-        return false;
+    // 3. Fallback: calculate next sequence number from highest recorded mail sequence
+    let maxSeq = 0;
+    mails.forEach(m => {
+      if (!m.mailNumber) return;
+      const str = m.mailNumber.trim();
+      const match = str.match(/^(\d+)/);
+      if (match) {
+        const num = parseInt(match[1], 10);
+        if (!isNaN(num) && num > maxSeq) {
+          maxSeq = num;
+        }
       }
-    }).length;
-    const nextNum = count + 1;
+    });
+    const nextNum = maxSeq + 1;
     setLetterNumber(`${nextNum}/NPP-NOT/${romanMonth}/${year}`);
   }, [outgoingMails, year, month, romanMonth]);
 

@@ -224,8 +224,18 @@ export const DeedBook: React.FC = () => {
     return sortedKeys.map((key) => {
       const grp = groups[key];
       grp.deeds.sort((a, b) => {
+        // Sort by date descending (latest date first)
         if (a.date !== b.date) return b.date.localeCompare(a.date);
-        return (parseInt(a.number, 10) || 0) - (parseInt(b.number, 10) || 0);
+        // Secondary sort: order number descending
+        const ordA = parseInt(a.orderNumber || '0', 10);
+        const ordB = parseInt(b.orderNumber || '0', 10);
+        if (!isNaN(ordA) && !isNaN(ordB) && ordA !== ordB) {
+          return ordB - ordA;
+        }
+        // Tertiary sort: deed number descending
+        const numA = parseInt(a.number, 10) || 0;
+        const numB = parseInt(b.number, 10) || 0;
+        return numB - numA;
       });
       return grp;
     });
@@ -357,15 +367,13 @@ export const DeedBook: React.FC = () => {
     const deletedOrder = parseInt(deletedDeed.orderNumber || '0', 10);
     if (isNaN(deletedNum) || isNaN(deletedOrder)) return;
 
-    const deletedDate = new Date(deletedDeed.date);
-    const deletedMonth = deletedDate.getMonth();
-    const deletedYear = deletedDate.getFullYear();
+    if (!deletedDeed.date || deletedDeed.date.length < 7) return;
+    const yearMonth = deletedDeed.date.substring(0, 7);
 
     // 1) Shift Number for deeds in the same month/year with higher numbers
     const sameMonthAfter = deeds.filter((d) => {
       if (d.id === deletedDeed.id) return false;
-      const dt = new Date(d.date);
-      if (dt.getMonth() !== deletedMonth || dt.getFullYear() !== deletedYear) return false;
+      if (!d.date || !d.date.startsWith(yearMonth)) return false;
       const n = parseInt(d.number, 10);
       return !isNaN(n) && n > deletedNum;
     });
@@ -397,14 +405,12 @@ export const DeedBook: React.FC = () => {
 
   // Function to shift numbers forward when inserting/editing with a conflict
   const shiftDeedsForInsert = async (targetNumber: number, targetDate: string, excludeId: string | null) => {
-    const targetDt = new Date(targetDate);
-    const targetMonth = targetDt.getMonth();
-    const targetYear = targetDt.getFullYear();
+    if (!targetDate || targetDate.length < 7) return;
+    const yearMonth = targetDate.substring(0, 7);
 
     const sameMonthConflict = deeds.filter((d) => {
       if (d.id === excludeId) return false;
-      const dt = new Date(d.date);
-      if (dt.getMonth() !== targetMonth || dt.getFullYear() !== targetYear) return false;
+      if (!d.date || !d.date.startsWith(yearMonth)) return false;
       const n = parseInt(d.number, 10);
       return !isNaN(n) && n >= targetNumber;
     });
@@ -487,11 +493,10 @@ export const DeedBook: React.FC = () => {
       // Check for conflicts and shift if necessary
       const targetNum = parseInt(deedNumber, 10);
       if (!isNaN(targetNum)) {
+        const yearMonth = deedDate.substring(0, 7);
         const hasCollision = deeds.some((d) => {
           if (d.id === editingDeedId) return false;
-          const dDt = new Date(d.date);
-          const targetDt = new Date(deedDate);
-          if (dDt.getMonth() !== targetDt.getMonth() || dDt.getFullYear() !== targetDt.getFullYear()) return false;
+          if (!d.date || !d.date.startsWith(yearMonth)) return false;
           return parseInt(d.number, 10) === targetNum;
         });
         

@@ -108,7 +108,7 @@ export const PrivateDeedBook: React.FC = () => {
       const grp = groups[key];
       grp.deeds.sort((a, b) => {
         if (a.registrationDate !== b.registrationDate) return b.registrationDate.localeCompare(a.registrationDate);
-        return (parseInt(a.number, 10) || 0) - (parseInt(b.number, 10) || 0);
+        return (parseInt(b.number, 10) || 0) - (parseInt(a.number, 10) || 0);
       });
       return grp;
     });

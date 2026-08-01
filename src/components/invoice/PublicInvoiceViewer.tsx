@@ -49,7 +49,12 @@ export const PublicInvoiceViewer: React.FC = () => {
   };
 
   const formatCurrency = (val: number, curr = 'IDR') => {
-    return new Intl.NumberFormat('id-ID', {
+    if (curr === 'IDR') {
+      return `Rp ${new Intl.NumberFormat('id-ID', {
+        maximumFractionDigits: 0
+      }).format(val || 0)}`;
+    }
+    return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: curr,
       maximumFractionDigits: 0
@@ -165,7 +170,7 @@ export const PublicInvoiceViewer: React.FC = () => {
                   <tr key={idx} className="py-2">
                     <td className="py-2.5 font-medium text-slate-800">
                       {it.description}
-                      {it.isTaxed && <span className="text-[10px] text-slate-500 ml-1">(PPN 11%)</span>}
+                      {it.isTaxed && <span className="text-[10px] text-blue-600 ml-1 font-semibold">(Gross Up PPh 21)</span>}
                     </td>
                     <td className="py-2.5 text-center font-semibold text-slate-700">{it.quantity}</td>
                     <td className="py-2.5 text-right font-medium text-slate-700">
@@ -184,13 +189,15 @@ export const PublicInvoiceViewer: React.FC = () => {
           <div className="flex justify-end pt-2">
             <div className="w-64 space-y-2 text-right">
               <div className="flex justify-between text-slate-600">
-                <span>Subtotal:</span>
+                <span>{isEn ? 'Honorarium:' : 'Honorarium:'}</span>
                 <span className="font-semibold text-slate-900">{formatCurrency(invoice.subtotal, invoice.currency)}</span>
               </div>
-              <div className="flex justify-between text-slate-600">
-                <span>{isEn ? 'Tax (VAT 11%):' : 'PPN 11%:'}</span>
-                <span className="font-semibold text-slate-900">{formatCurrency(invoice.taxAmount, invoice.currency)}</span>
-              </div>
+              {invoice.taxAmount && invoice.taxAmount > 0 ? (
+                <div className="flex justify-between text-slate-600">
+                  <span>{isEn ? 'PPh 21 (Gross Up):' : 'PPh 21 (Gross Up):'}</span>
+                  <span className="font-semibold text-slate-900">+{formatCurrency(invoice.taxAmount, invoice.currency)}</span>
+                </div>
+              ) : null}
               <div className="flex justify-between pt-2 border-t-2 border-slate-900 text-sm font-bold">
                 <span className="text-slate-900">{isEn ? 'Total Amount:' : 'Total Tagihan:'}</span>
                 <span className="text-emerald-700">{formatCurrency(invoice.totalAmount, invoice.currency)}</span>

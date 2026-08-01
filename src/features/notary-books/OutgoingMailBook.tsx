@@ -10,6 +10,38 @@ const MONTH_NAMES = [
   'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
 ];
 
+const ROMAN_MONTHS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'];
+
+export const getSuggestedMailNumber = (dateStr: string, existingMails: OutgoingMail[]): string => {
+  if (!dateStr) return '';
+  const parts = dateStr.split('-');
+  if (parts.length < 3) return '';
+  const year = parts[0];
+  const monthIdx = parseInt(parts[1], 10) - 1;
+  const romanMonth = ROMAN_MONTHS[monthIdx] || 'I';
+
+  let maxSeq = 0;
+  let codeFormat = 'NPP-NOT';
+
+  (existingMails || []).forEach((m) => {
+    if (!m.mailNumber) return;
+    const str = m.mailNumber.trim();
+    const match = str.match(/^(\d+)(?:\/([^\/]+))?/);
+    if (match) {
+      const num = parseInt(match[1], 10);
+      if (!isNaN(num) && num > maxSeq) {
+        maxSeq = num;
+      }
+      if (match[2] && match[2].length >= 2) {
+        codeFormat = match[2];
+      }
+    }
+  });
+
+  const nextSeq = maxSeq + 1;
+  return `${nextSeq}/${codeFormat}/${romanMonth}/${year}`;
+};
+
 export const OutgoingMailBook: React.FC = () => {
   const { user } = useAuth();
   const [mails, setMails] = useState<OutgoingMail[]>([]);
@@ -80,6 +112,18 @@ export const OutgoingMailBook: React.FC = () => {
     return list.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
   }, [mails, selectedYear, searchTerm]);
 
+  const suggestedNumber = useMemo(() => {
+    return getSuggestedMailNumber(mailDate, mails);
+  }, [mailDate, mails]);
+
+  const handleDateChange = (newDate: string) => {
+    setMailDate(newDate);
+    if (!editingId) {
+      const suggested = getSuggestedMailNumber(newDate, mails);
+      setMailNumber(suggested);
+    }
+  };
+
   const handleOpenModal = (mail?: OutgoingMail) => {
     if (mail) {
       setEditingId(mail.id);
@@ -91,8 +135,10 @@ export const OutgoingMailBook: React.FC = () => {
       setNotes(mail.notes || '');
     } else {
       setEditingId(null);
-      setMailNumber('');
-      setMailDate(new Date().toISOString().split('T')[0]);
+      const todayStr = new Date().toISOString().split('T')[0];
+      setMailDate(todayStr);
+      const suggested = getSuggestedMailNumber(todayStr, mails);
+      setMailNumber(suggested);
       setRecipient('');
       setSubject('');
       setAttachmentCount('');
@@ -329,22 +375,39 @@ export const OutgoingMailBook: React.FC = () => {
                     type="date"
                     required
                     value={mailDate}
-                    onChange={(e) => setMailDate(e.target.value)}
-                    className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-cyan-500/20 focus:outline-none"
+                    onChange={(e) => handleDateChange(e.target.value)}
+                    className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-cyan-500/20 focus:outline-none font-medium"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-slate-700 font-medium mb-1">
-                    Nomor Surat Keluar
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-slate-700 font-medium">
+                      Nomor Surat Keluar
+                    </label>
+                    {!editingId && suggestedNumber && (
+                      <button
+                        type="button"
+                        onClick={() => setMailNumber(suggestedNumber)}
+                        className="text-[10px] font-semibold text-cyan-700 hover:text-cyan-800 bg-cyan-50 hover:bg-cyan-100 px-2 py-0.5 rounded border border-cyan-200 transition cursor-pointer"
+                        title="Klik untuk menggunakan rekomendasi nomor otomatis"
+                      >
+                        Saran: {suggestedNumber}
+                      </button>
+                    )}
+                  </div>
                   <input
                     type="text"
                     value={mailNumber}
                     onChange={(e) => setMailNumber(e.target.value)}
-                    placeholder="Contoh: 042/SK-NOT/VII/2026"
-                    className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-cyan-500/20 focus:outline-none"
+                    placeholder="Contoh: 29/NPP-NOT/VIII/2026"
+                    className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-cyan-500/20 focus:outline-none font-mono font-medium text-xs"
                   />
+                  {!editingId && (
+                    <p className="text-[11px] text-slate-500 mt-1">
+                      💡 Rekomendasi otomatis (+1 nomor urut terakhir) menyesuaikan bulan/tahun surat.
+                    </p>
+                  )}
                 </div>
               </div>
 

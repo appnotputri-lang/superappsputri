@@ -3,10 +3,12 @@ import { Invoice, InvoiceItem, PaymentRecord } from '../../../types';
 import { InvoiceService } from '../../services/InvoiceService';
 import { CompanyService } from '../../services/CompanyService';
 import { SuperappsClientService } from '../../services/superappsClientService';
+import { calculateInvoiceTotals } from '../../services/taxCalculator';
+import { formatInputNumber, parseFormattedNumber } from '../../../utils/formatters';
 import {
   Plus, Edit2, Trash2, Printer, Search, X, Copy, ExternalLink,
   Check, CreditCard, DollarSign, Globe, CheckCircle2, AlertCircle, FileText, Share2,
-  Building2, Database
+  Building2, Database, ArrowLeft, Download, Send, MessageSquare, ChevronRight, UserPlus
 } from 'lucide-react';
 
 interface ClientOption {
@@ -19,25 +21,35 @@ interface ClientOption {
   clientType?: string;
 }
 
+const PRESET_PRODUCTS = [
+  '-- Manual --',
+  'AKTA PERUBAHAN PT SK',
+  'Jasa Pembuatan Akta Notaris',
+  'Pendirian PT / CV',
+  'Draft Notulen Sirkuler',
+  'Akta RUPSLB',
+  'Surat Keputusan (SK) AHU',
+  'Surat Pelaporan AHU',
+  'BNRI (Berita Negara RI)',
+  'Akta Hibah Saham',
+  'Legalisasi & Waarmerking',
+  'Sewa Ruangan Kantor'
+];
+
 export const InvoiceGenerator: React.FC = () => {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // View mode: 'list' | 'create' | 'edit' | 'detail'
+  const [viewMode, setViewMode] = useState<'list' | 'create' | 'edit' | 'detail'>('list');
+  const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
+
+  // Filter & Search State
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
 
-  // Modal State
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // Payment Record Modal State
-  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
-  const [paymentTargetInvoice, setPaymentTargetInvoice] = useState<Invoice | null>(null);
-  const [payAmount, setPayAmount] = useState<number>(0);
-  const [payMethod, setPayMethod] = useState<string>('Transfer Bank');
-  const [payNotes, setPayNotes] = useState<string>('');
-
   // Form Fields
+  const [editingInvoiceId, setEditingInvoiceId] = useState<string | null>(null);
   const [invoiceNumber, setInvoiceNumber] = useState('');
   const [clientName, setClientName] = useState('');
   const [selectedClientId, setSelectedClientId] = useState<string>('');
@@ -53,35 +65,65 @@ export const InvoiceGenerator: React.FC = () => {
   const [notes, setNotes] = useState('');
   const [terms, setTerms] = useState('Pembayaran dilakukan maksimal 14 hari setelah invoice diterbitkan.');
 
-  // Client Master Selection State
-  const [clientSourceTab, setClientSourceTab] = useState<'local' | 'superapps'>('superapps');
-  const [localClients, setLocalClients] = useState<ClientOption[]>([]);
-  const [superappsClients, setSuperappsClients] = useState<ClientOption[]>([]);
-  const [isLoadingClients, setIsLoadingClients] = useState(false);
-  const [superappsError, setSuperappsError] = useState<string | null>(null);
-  const [clientSearch, setClientSearch] = useState('');
-
-  // Items
+  // Items Form
   const [items, setItems] = useState<InvoiceItem[]>([
     { id: '1', description: 'Jasa Pembuatan Akta Notaris', quantity: 1, unitPrice: 5000000, amount: 5000000, isTaxed: false }
   ]);
+
+  // Add Item Temp Inputs
+  const [selectedPresetProduct, setSelectedPresetProduct] = useState('-- Manual --');
+  const [itemDescription, setItemDescription] = useState('');
+  const [itemUnitPrice, setItemUnitPrice] = useState<number>(0);
+  const [itemGrossUp, setItemGrossUp] = useState(false);
 
   // Bank details
   const [bankName, setBankName] = useState('Bank Mandiri');
   const [accountNumber, setAccountNumber] = useState('123-00-0987654-3');
   const [accountHolder, setAccountHolder] = useState('Notaris & PPAT Putri');
 
-  // Copied alert
+  // Client Master Selection State
+  const [clientSourceTab, setClientSourceTab] = useState<'all' | 'local' | 'superapps'>('all');
+  const [localClients, setLocalClients] = useState<ClientOption[]>([]);
+  const [superappsClients, setSuperappsClients] = useState<ClientOption[]>([]);
+  const [isLoadingClients, setIsLoadingClients] = useState(false);
+  const [superappsError, setSuperappsError] = useState<string | null>(null);
+  const [clientSearch, setClientSearch] = useState('');
+  const [showClientDropdown, setShowClientDropdown] = useState(false);
+
+  // New Client Quick Modal
+  const [isNewClientModalOpen, setIsNewClientModalOpen] = useState(false);
+  const [newClientNameInput, setNewClientNameInput] = useState('');
+  const [newClientEmailInput, setNewClientEmailInput] = useState('');
+  const [newClientPhoneInput, setNewClientPhoneInput] = useState('');
+  const [newClientAddressInput, setNewClientAddressInput] = useState('');
+
+  // Payment Form in Detail Page
+  const [payAmount, setPayAmount] = useState<number>(0);
+  const [payDate, setPayDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [payMethod, setPayMethod] = useState<string>('Transfer BCA');
+  const [payRefNumber, setPayRefNumber] = useState<string>('');
+  const [payNotes, setPayNotes] = useState<string>('');
+  const [isSavingPayment, setIsSavingPayment] = useState(false);
+
+  // Submission State
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
 
   useEffect(() => {
     setLoading(true);
     const unsub = InvoiceService.subscribeInvoices((data) => {
       setInvoices(data);
+      // Keep selectedInvoice synced if viewing detail
+      if (selectedInvoice) {
+        const updated = data.find(i => i.id === selectedInvoice.id);
+        if (updated) {
+          setSelectedInvoice(updated);
+        }
+      }
       setLoading(false);
     });
     return () => unsub();
-  }, []);
+  }, [selectedInvoice?.id]);
 
   const loadClientOptions = async () => {
     setIsLoadingClients(true);
@@ -117,7 +159,7 @@ export const InvoiceGenerator: React.FC = () => {
       console.error('Error fetching local clients:', err);
     }
 
-    // 2. Fetch Superapps Clients (read-only from second Firestore instance)
+    // 2. Fetch Superapps Clients
     try {
       const spProfiles = await SuperappsClientService.getSuperappsProfiles();
       const mappedSp: ClientOption[] = spProfiles.map(p => ({
@@ -140,43 +182,59 @@ export const InvoiceGenerator: React.FC = () => {
   };
 
   const calculateTotals = (currentItems: InvoiceItem[]) => {
-    let sub = 0;
-    let tax = 0;
-    currentItems.forEach(it => {
-      const itemSub = (it.quantity || 0) * (it.unitPrice || 0);
-      sub += itemSub;
-      if (it.isTaxed) {
-        tax += itemSub * ((it.taxRate || 11) / 100);
-      }
-    });
-    const total = sub + tax;
-    return { sub, tax, total };
+    const summary = calculateInvoiceTotals(currentItems);
+    return {
+      sub: summary.honorarium,
+      tax: summary.pphGrossUp,
+      total: summary.totalTagihan
+    };
+  };
+
+  const handleAddItemFromInput = () => {
+    if (!itemUnitPrice && !itemDescription && selectedPresetProduct === '-- Manual --') return;
+
+    const desc = selectedPresetProduct !== '-- Manual --'
+      ? (itemDescription ? `${selectedPresetProduct}\n${itemDescription}` : selectedPresetProduct)
+      : itemDescription || 'Item Tagihan Baru';
+
+    const newItem: InvoiceItem = {
+      id: Date.now().toString(),
+      description: desc,
+      quantity: 1,
+      unitPrice: itemUnitPrice || 0,
+      amount: itemUnitPrice || 0,
+      isTaxed: itemGrossUp
+    };
+
+    setItems(prev => [...prev, newItem]);
+    setItemDescription('');
+    setItemUnitPrice(0);
+    setItemGrossUp(false);
+    setSelectedPresetProduct('-- Manual --');
+  };
+
+  const handleRemoveItem = (index: number) => {
+    setItems(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleItemChange = (index: number, field: keyof InvoiceItem, value: any) => {
     const updated = [...items];
     const item = { ...updated[index], [field]: value };
-    item.amount = (item.quantity || 0) * (item.unitPrice || 0);
+    item.amount = (item.quantity || 1) * (item.unitPrice || 0);
     updated[index] = item;
     setItems(updated);
   };
 
-  const addItem = () => {
-    setItems([
-      ...items,
-      { id: Date.now().toString(), description: '', quantity: 1, unitPrice: 0, amount: 0, isTaxed: false }
-    ]);
-  };
+  const openCreatePage = () => {
+    setEditingInvoiceId(null);
+    const nextNum = (invoices.length + 1).toString().padStart(3, '0');
+    const generatedNum = `INV/${new Date().getFullYear()}/${nextNum}`;
+    
+    // Auto due date + 3 days
+    const today = new Date();
+    const due = new Date();
+    due.setDate(today.getDate() + 3);
 
-  const removeItem = (index: number) => {
-    if (items.length > 1) {
-      setItems(items.filter((_, i) => i !== index));
-    }
-  };
-
-  const openAddModal = () => {
-    setEditingInvoice(null);
-    const generatedNum = `INV/NTR/${new Date().getFullYear()}/${(invoices.length + 1).toString().padStart(3, '0')}`;
     setInvoiceNumber(generatedNum);
     setClientName('');
     setSelectedClientId('');
@@ -185,25 +243,28 @@ export const InvoiceGenerator: React.FC = () => {
     setClientPhone('');
     setClientAddress('');
     setClientSearch('');
-    setIssueDate(new Date().toISOString().split('T')[0]);
-    setDueDate('');
+    setIssueDate(today.toISOString().split('T')[0]);
+    setDueDate(due.toISOString().split('T')[0]);
     setStatus('UNPAID');
     setLanguage('id');
     setCurrency('IDR');
     setNotes('');
     setTerms('Pembayaran dilakukan maksimal 14 hari setelah invoice diterbitkan.');
-    setItems([
-      { id: '1', description: 'Jasa Pembuatan Akta Notaris', quantity: 1, unitPrice: 5000000, amount: 5000000, isTaxed: false }
-    ]);
+    setItems([]);
+    setItemDescription('');
+    setItemUnitPrice(0);
+    setItemGrossUp(false);
+    setSelectedPresetProduct('-- Manual --');
     setBankName('Bank Mandiri');
     setAccountNumber('123-00-0987654-3');
     setAccountHolder('Notaris & PPAT Putri');
     loadClientOptions();
-    setIsModalOpen(true);
+    setViewMode('create');
   };
 
-  const openEditModal = (inv: Invoice) => {
-    setEditingInvoice(inv);
+  const openEditPage = (inv: Invoice) => {
+    setEditingInvoiceId(inv.id);
+    setSelectedInvoice(inv);
     setInvoiceNumber(inv.invoiceNumber || '');
     setClientName(inv.clientName || '');
     setSelectedClientId(inv.clientId || '');
@@ -220,17 +281,33 @@ export const InvoiceGenerator: React.FC = () => {
     setNotes(inv.notes || '');
     setTerms(inv.terms || '');
     setItems(inv.items && inv.items.length > 0 ? inv.items : []);
+    setItemDescription('');
+    setItemUnitPrice(0);
+    setItemGrossUp(false);
+    setSelectedPresetProduct('-- Manual --');
     if (inv.bankDetails) {
       setBankName(inv.bankDetails.bankName || 'Bank Mandiri');
       setAccountNumber(inv.bankDetails.accountNumber || '');
       setAccountHolder(inv.bankDetails.accountHolder || '');
     }
     loadClientOptions();
-    setIsModalOpen(true);
+    setViewMode('edit');
   };
 
-  const handleSaveInvoice = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const openDetailPage = (inv: Invoice) => {
+    setSelectedInvoice(inv);
+    setPayAmount(inv.balanceDue ?? inv.totalAmount);
+    setPayDate(new Date().toISOString().split('T')[0]);
+    setPayMethod('Transfer BCA');
+    const payCount = (inv.paymentHistory?.length || 0) + 1;
+    const refNum = `KWT/${payCount.toString().padStart(3, '0')}/VIII/${new Date().getFullYear()}`;
+    setPayRefNumber(refNum);
+    setPayNotes('');
+    setViewMode('detail');
+  };
+
+  const handleSaveInvoice = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     if (!invoiceNumber || !clientName) {
       alert('Mohon isi Nomor Invoice dan Nama Klien.');
       return;
@@ -239,8 +316,8 @@ export const InvoiceGenerator: React.FC = () => {
     setIsSubmitting(true);
     try {
       const { sub, tax, total } = calculateTotals(items);
-      const paid = editingInvoice ? editingInvoice.paidAmount || 0 : 0;
-      const balance = Math.max(0, total - paid);
+      const existingPaid = selectedInvoice && editingInvoiceId === selectedInvoice.id ? selectedInvoice.paidAmount || 0 : 0;
+      const balance = Math.max(0, total - existingPaid);
 
       const payload: Omit<Invoice, 'id'> = {
         invoiceNumber,
@@ -257,7 +334,7 @@ export const InvoiceGenerator: React.FC = () => {
         subtotal: sub,
         taxAmount: tax,
         totalAmount: total,
-        paidAmount: paid,
+        paidAmount: existingPaid,
         balanceDue: balance,
         currency,
         language,
@@ -268,16 +345,24 @@ export const InvoiceGenerator: React.FC = () => {
           accountNumber,
           accountHolder
         },
-        paymentHistory: editingInvoice?.paymentHistory || []
+        paymentHistory: selectedInvoice && editingInvoiceId === selectedInvoice.id ? selectedInvoice.paymentHistory || [] : []
       };
 
-      if (editingInvoice) {
-        await InvoiceService.updateInvoice(editingInvoice.id, payload);
+      let targetId = editingInvoiceId;
+      if (editingInvoiceId) {
+        await InvoiceService.updateInvoice(editingInvoiceId, payload);
       } else {
-        await InvoiceService.addInvoice(payload);
+        targetId = await InvoiceService.addInvoice(payload);
       }
 
-      setIsModalOpen(false);
+      // Switch to detail view of saved invoice
+      const savedInvoice: Invoice = {
+        ...payload,
+        id: targetId || `inv_${Date.now()}`
+      };
+      setSelectedInvoice(savedInvoice);
+      setPayAmount(savedInvoice.balanceDue);
+      setViewMode('detail');
     } catch (err) {
       console.error('Error saving invoice:', err);
       alert('Gagal menyimpan invoice.');
@@ -290,6 +375,10 @@ export const InvoiceGenerator: React.FC = () => {
     if (confirm('Apakah Anda yakin ingin menghapus invoice ini?')) {
       try {
         await InvoiceService.deleteInvoice(id);
+        if (selectedInvoice?.id === id) {
+          setSelectedInvoice(null);
+          setViewMode('list');
+        }
       } catch (err) {
         console.error('Error deleting invoice:', err);
         alert('Gagal menghapus invoice.');
@@ -297,54 +386,118 @@ export const InvoiceGenerator: React.FC = () => {
     }
   };
 
-  const openPaymentModal = (inv: Invoice) => {
-    setPaymentTargetInvoice(inv);
-    setPayAmount(inv.balanceDue || inv.totalAmount);
-    setPayMethod('Transfer Bank');
-    setPayNotes('');
-    setIsPaymentModalOpen(true);
-  };
-
-  const handleRecordPayment = async (e: React.FormEvent) => {
+  const handleAddPayment = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!paymentTargetInvoice || payAmount <= 0) {
+    if (!selectedInvoice || payAmount <= 0) {
       alert('Nominal pembayaran harus lebih dari 0.');
       return;
     }
 
+    setIsSavingPayment(true);
     try {
-      await InvoiceService.addPayment(paymentTargetInvoice.id, paymentTargetInvoice, {
-        date: new Date().toISOString().split('T')[0],
+      await InvoiceService.addPayment(selectedInvoice.id, selectedInvoice, {
+        date: payDate || new Date().toISOString().split('T')[0],
         amount: payAmount,
         method: payMethod,
-        notes: payNotes,
-        recordedBy: 'Admin'
+        notes: `${payRefNumber ? 'Ref: ' + payRefNumber + ' - ' : ''}${payNotes}`.trim(),
+        recordedBy: 'Staff Kantor'
       });
-      setIsPaymentModalOpen(false);
+
+      // Update local selected state balance
+      const newPaid = (selectedInvoice.paidAmount || 0) + payAmount;
+      const newBalance = Math.max(0, selectedInvoice.totalAmount - newPaid);
+      const updatedInv: Invoice = {
+        ...selectedInvoice,
+        paidAmount: newPaid,
+        balanceDue: newBalance,
+        status: newBalance <= 0 ? 'PAID' : 'UNPAID',
+        paymentHistory: [
+          ...(selectedInvoice.paymentHistory || []),
+          {
+            id: `pay_${Date.now()}`,
+            date: payDate,
+            amount: payAmount,
+            method: payMethod,
+            notes: payRefNumber ? `Ref: ${payRefNumber} ${payNotes}` : payNotes
+          }
+        ]
+      };
+      setSelectedInvoice(updatedInv);
+      setPayAmount(newBalance);
+      const nextPayCount = (updatedInv.paymentHistory?.length || 0) + 1;
+      setPayRefNumber(`KWT/${nextPayCount.toString().padStart(3, '0')}/VIII/${new Date().getFullYear()}`);
+      setPayNotes('');
     } catch (err) {
-      console.error('Error recording payment:', err);
+      console.error('Error adding payment:', err);
       alert('Gagal mencatat pembayaran.');
+    } finally {
+      setIsSavingPayment(false);
     }
+  };
+
+  const handleCreateQuickLocalClient = () => {
+    if (!newClientNameInput) {
+      alert('Mohon isi nama klien.');
+      return;
+    }
+    const newOpt: ClientOption = {
+      clientId: `loc_${Date.now()}`,
+      name: newClientNameInput,
+      email: newClientEmailInput,
+      phone: newClientPhoneInput,
+      address: newClientAddressInput,
+      source: 'local'
+    };
+    setLocalClients(prev => [newOpt, ...prev]);
+    setSelectedClientId(newOpt.clientId);
+    setSelectedClientSource('local');
+    setClientName(newOpt.name);
+    setClientEmail(newOpt.email);
+    setClientPhone(newOpt.phone);
+    setClientAddress(newOpt.address);
+    setIsNewClientModalOpen(false);
+    setNewClientNameInput('');
+    setNewClientEmailInput('');
+    setNewClientPhoneInput('');
+    setNewClientAddressInput('');
   };
 
   const copyPublicLink = (inv: Invoice) => {
     const token = inv.publicToken || inv.id;
-    const origin = window.location.origin;
-    const path = window.location.pathname;
-    const fullUrl = `${origin}${path}#/invoice/public?token=${token}`;
-
+    const fullUrl = `${window.location.origin}${window.location.pathname}#/invoice/public?token=${token}`;
     navigator.clipboard.writeText(fullUrl);
     setCopiedToken(inv.id);
     setTimeout(() => setCopiedToken(null), 2000);
   };
 
-  const openPublicViewInNewTab = (inv: Invoice) => {
+  const handleShareWhatsApp = (inv: Invoice) => {
     const token = inv.publicToken || inv.id;
-    const url = `${window.location.origin}${window.location.pathname}#/invoice/public?token=${token}`;
-    window.open(url, '_blank');
+    const publicUrl = `${window.location.origin}${window.location.pathname}#/invoice/public?token=${token}`;
+    const text = `Yth. Bapak/Ibu ${inv.clientName},\nBerikut adalah rincian Invoice Tagihan Nomor ${inv.invoiceNumber} sebesar Rp ${formatCurrency(inv.totalAmount)}.\n\nDetail tagihan dapat dilihat pada tautan berikut:\n${publicUrl}\n\nTerima kasih.`;
+    const waUrl = `https://wa.me/${inv.clientPhone ? inv.clientPhone.replace(/[^0-9]/g, '') : ''}?text=${encodeURIComponent(text)}`;
+    window.open(waUrl, '_blank');
   };
 
-  // Filtered list
+  const formatDateIndo = (dateStr?: string) => {
+    if (!dateStr) return '-';
+    try {
+      const parts = dateStr.split('-');
+      if (parts.length === 3) {
+        return `${parseInt(parts[2], 10)}/${parseInt(parts[1], 10)}/${parts[0]}`;
+      }
+      return dateStr;
+    } catch {
+      return dateStr;
+    }
+  };
+
+  const formatCurrency = (val?: number) => {
+    return new Intl.NumberFormat('id-ID', {
+      maximumFractionDigits: 0
+    }).format(val || 0);
+  };
+
+  // Filtered invoices for list view
   const filteredInvoices = invoices.filter(inv => {
     const matchSearch = inv.invoiceNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                         inv.clientName?.toLowerCase().includes(searchTerm.toLowerCase());
@@ -352,717 +505,1013 @@ export const InvoiceGenerator: React.FC = () => {
     return matchSearch && matchStatus;
   });
 
-  const formatCurrency = (val: number, curr = 'IDR') => {
-    return new Intl.NumberFormat('id-ID', {
-      style: 'currency',
-      currency: curr,
-      maximumFractionDigits: 0
-    }).format(val || 0);
-  };
+  const allClientsList = [...superappsClients, ...localClients].filter(c => {
+    if (clientSourceTab === 'local') return c.source === 'local';
+    if (clientSourceTab === 'superapps') return c.source === 'superapps';
+    return true;
+  });
+
+  const filteredClientOptions = allClientsList.filter(c =>
+    c.name.toLowerCase().includes(clientSearch.toLowerCase()) ||
+    c.address.toLowerCase().includes(clientSearch.toLowerCase()) ||
+    c.email.toLowerCase().includes(clientSearch.toLowerCase())
+  );
 
   const { sub: currentSub, tax: currentTax, total: currentTotal } = calculateTotals(items);
 
-  return (
-    <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-6">
-      {/* Header */}
-      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center font-bold">
-            <CreditCard size={20} />
-          </div>
+  // =========================================================================
+  // RENDER 1: LIST VIEW ("Invoice Penagihan")
+  // =========================================================================
+  if (viewMode === 'list') {
+    return (
+      <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-6">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-lg font-bold text-slate-800">Generator & Manajemen Invoice</h1>
-            <p className="text-xs text-slate-500">
-              Kelola penagihan, pajak, pembayaran, dan tautan publik untuk klien
-            </p>
+            <h1 className="text-xl font-bold text-slate-900">Invoice Penagihan</h1>
+            <p className="text-xs text-slate-500 mt-0.5">Kelola dan lihat rincian tagihan klien</p>
+          </div>
+
+          <button
+            onClick={openCreatePage}
+            className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold text-xs flex items-center gap-2 transition-all shadow-sm cursor-pointer self-start sm:self-auto"
+          >
+            <Plus size={16} />
+            Buat Invoice
+          </button>
+        </div>
+
+        {/* Search & Filter Bar */}
+        <div className="bg-white p-3 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3">
+          <div className="relative flex-1 w-full">
+            <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Cari nomor atau nama klien..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/20"
+            />
+          </div>
+
+          <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0">
+            {['ALL', 'UNPAID', 'PAID', 'DRAFT', 'CANCELLED'].map(st => (
+              <button
+                key={st}
+                onClick={() => setStatusFilter(st)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
+                  statusFilter === st
+                    ? 'bg-slate-900 text-white shadow-sm'
+                    : 'bg-slate-100/80 text-slate-600 hover:bg-slate-200/80'
+                }`}
+              >
+                {st}
+              </button>
+            ))}
           </div>
         </div>
 
-        <button
-          onClick={openAddModal}
-          className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-medium text-xs flex items-center gap-2 transition-all shadow-sm cursor-pointer"
-        >
-          <Plus size={16} />
-          Buat Invoice Baru
-        </button>
-      </div>
-
-      {/* Filter & Search Bar */}
-      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3">
-        <div className="relative flex-1 w-full sm:max-w-md">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Cari nomor invoice atau nama klien..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
-          />
-        </div>
-
-        <div className="flex items-center gap-2 w-full sm:w-auto">
-          {['ALL', 'UNPAID', 'PAID', 'DRAFT', 'CANCELLED'].map(st => (
-            <button
-              key={st}
-              onClick={() => setStatusFilter(st)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                statusFilter === st
-                  ? 'bg-slate-800 text-white shadow-sm'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-              }`}
-            >
-              {st}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Invoices List Table */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs border-collapse">
-            <thead>
-              <tr className="bg-slate-50 text-slate-700 border-b border-slate-200 font-bold">
-                <th className="p-3">NO. INVOICE</th>
-                <th className="p-3">KLIEN</th>
-                <th className="p-3">TGL TERBIT</th>
-                <th className="p-3">STATUS</th>
-                <th className="p-3 text-right">TOTAL</th>
-                <th className="p-3 text-right">SISA TAGIHAN</th>
-                <th className="p-3 text-center">TAUTAN PUBLIK</th>
-                <th className="p-3 text-center">AKSI</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {filteredInvoices.length === 0 ? (
-                <tr>
-                  <td colSpan={8} className="p-8 text-center text-slate-400 italic">
-                    Belum ada data invoice. Silakan klik "Buat Invoice Baru".
-                  </td>
+        {/* Invoice List Table */}
+        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr className="bg-slate-50/80 text-slate-600 border-b border-slate-200/80 font-bold">
+                  <th className="p-3.5">Tanggal</th>
+                  <th className="p-3.5">No. Invoice</th>
+                  <th className="p-3.5">Klien</th>
+                  <th className="p-3.5 text-right">Total</th>
+                  <th className="p-3.5 text-center">Status</th>
                 </tr>
-              ) : (
-                filteredInvoices.map((inv) => (
-                  <tr key={inv.id} className="hover:bg-slate-50/80 transition-colors">
-                    <td className="p-3 font-bold text-slate-900">{inv.invoiceNumber}</td>
-                    <td className="p-3">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <p className="font-semibold text-slate-800">{inv.clientName}</p>
-                        {inv.clientSource && (
-                          <span className={`text-[9px] px-1.5 py-0.2 rounded font-bold uppercase ${
-                            inv.clientSource === 'superapps'
-                              ? 'bg-indigo-100 text-indigo-700'
-                              : 'bg-emerald-100 text-emerald-700'
-                          }`}>
-                            {inv.clientSource === 'superapps' ? 'Superapps' : 'Lokal'}
-                          </span>
-                        )}
-                      </div>
-                      {inv.clientEmail && <p className="text-[11px] text-slate-500">{inv.clientEmail}</p>}
-                    </td>
-                    <td className="p-3 text-slate-600">{inv.issueDate}</td>
-                    <td className="p-3">
-                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${
-                        inv.status === 'PAID'
-                          ? 'bg-emerald-100 text-emerald-800'
-                          : inv.status === 'UNPAID'
-                          ? 'bg-amber-100 text-amber-800'
-                          : 'bg-slate-100 text-slate-700'
-                      }`}>
-                        {inv.status}
-                      </span>
-                    </td>
-                    <td className="p-3 text-right font-bold text-slate-900">
-                      {formatCurrency(inv.totalAmount, inv.currency)}
-                    </td>
-                    <td className="p-3 text-right font-bold text-amber-700">
-                      {formatCurrency(inv.balanceDue, inv.currency)}
-                    </td>
-                    <td className="p-3 text-center">
-                      <div className="flex items-center justify-center gap-1">
-                        <button
-                          onClick={() => copyPublicLink(inv)}
-                          className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-[11px] font-medium flex items-center gap-1 cursor-pointer"
-                          title="Salin Link Publik Klien"
-                        >
-                          {copiedToken === inv.id ? (
-                            <>
-                              <Check size={12} className="text-emerald-600" /> Tersalin!
-                            </>
-                          ) : (
-                            <>
-                              <Copy size={12} /> Salin Link
-                            </>
-                          )}
-                        </button>
-                        <button
-                          onClick={() => openPublicViewInNewTab(inv)}
-                          className="p-1 text-slate-600 hover:bg-slate-100 rounded cursor-pointer"
-                          title="Buka Tampilan Publik"
-                        >
-                          <ExternalLink size={14} />
-                        </button>
-                      </div>
-                    </td>
-                    <td className="p-3 text-center">
-                      <div className="flex items-center justify-center gap-1">
-                        {inv.status !== 'PAID' && (
-                          <button
-                            onClick={() => openPaymentModal(inv)}
-                            className="px-2 py-1 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded text-[11px] font-bold flex items-center gap-1 cursor-pointer"
-                            title="Bayar / Catat Pembayaran"
-                          >
-                            <DollarSign size={12} /> Bayar
-                          </button>
-                        )}
-                        <button
-                          onClick={() => openEditModal(inv)}
-                          className="p-1.5 text-blue-600 hover:bg-blue-50 rounded cursor-pointer"
-                          title="Edit"
-                        >
-                          <Edit2 size={14} />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteInvoice(inv.id)}
-                          className="p-1.5 text-red-600 hover:bg-red-50 rounded cursor-pointer"
-                          title="Hapus"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {loading ? (
+                  <tr>
+                    <td colSpan={5} className="p-8 text-center text-slate-400">
+                      <div className="inline-block w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mb-2" />
+                      <p className="text-xs">Memuat data invoice...</p>
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                ) : filteredInvoices.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="p-12 text-center text-slate-400 italic">
+                      Belum ada data invoice. Klik tombol "+ Buat Invoice" di atas untuk membuat invoice baru.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredInvoices.map((inv) => {
+                    const isUnpaid = inv.status === 'UNPAID';
+                    return (
+                      <tr
+                        key={inv.id}
+                        onClick={() => openDetailPage(inv)}
+                        className="hover:bg-blue-50/40 transition-colors cursor-pointer group"
+                      >
+                        <td className="p-3.5 text-slate-600 font-medium whitespace-nowrap">
+                          {formatDateIndo(inv.issueDate)}
+                        </td>
+                        <td className="p-3.5 font-bold text-blue-600 group-hover:underline whitespace-nowrap">
+                          {inv.invoiceNumber}
+                        </td>
+                        <td className="p-3.5 font-semibold text-slate-800">
+                          {inv.clientName}
+                        </td>
+                        <td className="p-3.5 text-right font-bold text-slate-900 whitespace-nowrap">
+                          {formatCurrency(inv.totalAmount)}
+                        </td>
+                        <td className="p-3.5 text-center whitespace-nowrap">
+                          <span
+                            className={`px-3 py-1 rounded-full text-[10px] font-bold tracking-wider ${
+                              isUnpaid
+                                ? 'bg-red-100/80 text-red-600'
+                                : 'bg-emerald-100/80 text-emerald-700'
+                            }`}
+                          >
+                            {inv.status}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
+    );
+  }
 
-      {/* Modal Add / Edit Invoice */}
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-3xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between p-4 md:p-6 border-b border-slate-200 sticky top-0 bg-white z-10">
-              <h3 className="font-bold text-slate-800 text-base">
-                {editingInvoice ? 'Edit Invoice' : 'Buat Invoice Baru'}
-              </h3>
+  // =========================================================================
+  // RENDER 2: DETAIL / PREVIEW VIEW ("Detil Tagihan INV/2026/138")
+  // =========================================================================
+  if (viewMode === 'detail' && selectedInvoice) {
+    const inv = selectedInvoice;
+    const isUnpaid = inv.status === 'UNPAID';
+
+    return (
+      <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-6 print:p-0 print:max-w-none">
+        {/* Top Navigation & Action Header (Hidden during browser print) */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 print:hidden">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setViewMode('list')}
+              className="p-2 bg-white hover:bg-slate-100 text-slate-600 rounded-xl border border-slate-200 transition-all cursor-pointer flex items-center gap-1 text-xs font-semibold"
+            >
+              <ArrowLeft size={16} /> Kembali
+            </button>
+            <h1 className="text-lg font-bold text-slate-900">
+              Detil Tagihan {inv.invoiceNumber}
+            </h1>
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              onClick={() => handleShareWhatsApp(inv)}
+              className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
+            >
+              <Send size={14} /> Kirim Tagihan
+            </button>
+
+            <button
+              onClick={() => copyPublicLink(inv)}
+              className="px-3 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
+            >
+              {copiedToken === inv.id ? <Check size={14} className="text-emerald-600" /> : <Download size={14} />}
+              {copiedToken === inv.id ? 'Tersalin!' : 'Download'}
+            </button>
+
+            <button
+              onClick={() => window.print()}
+              className="px-3.5 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
+            >
+              <Printer size={14} /> Print
+            </button>
+
+            <div className="flex items-center bg-slate-100 p-0.5 rounded-lg text-[11px] font-bold">
               <button
-                onClick={() => setIsModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg cursor-pointer"
+                onClick={() => setLanguage('id')}
+                className={`px-2 py-1 rounded ${language === 'id' ? 'bg-white text-slate-800 shadow-xs' : 'text-slate-500'}`}
               >
-                <X size={18} />
+                ID
+              </button>
+              <button
+                onClick={() => setLanguage('en')}
+                className={`px-2 py-1 rounded ${language === 'en' ? 'bg-white text-slate-800 shadow-xs' : 'text-slate-500'}`}
+              >
+                EN
               </button>
             </div>
 
-            <form onSubmit={handleSaveInvoice} className="p-4 md:p-6 space-y-6 text-xs">
-              {/* Header Info */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <button
+              onClick={() => openEditPage(inv)}
+              className="px-3 py-2 bg-white border border-slate-200 hover:bg-blue-50 text-blue-600 hover:border-blue-300 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
+            >
+              <Edit2 size={14} /> Edit
+            </button>
+
+            <button
+              onClick={() => handleDeleteInvoice(inv.id)}
+              className="p-2 text-red-600 hover:bg-red-50 rounded-xl border border-transparent hover:border-red-200 transition-all cursor-pointer"
+              title="Hapus Invoice"
+            >
+              <Trash2 size={16} />
+            </button>
+          </div>
+        </div>
+
+        {/* Main Content Layout (2 Columns) */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          {/* Left Column: Invoice Document Preview (7 Cols on desktop) */}
+          <div className="lg:col-span-8 bg-white p-6 md:p-8 rounded-2xl border border-slate-200/80 shadow-sm space-y-6 print:border-none print:shadow-none print:p-0">
+            {/* Payment Status Header Banner */}
+            <div className="border-b border-slate-100 pb-4 flex items-center justify-between">
+              <span className={`text-xs font-bold uppercase tracking-wide ${isUnpaid ? 'text-red-500' : 'text-emerald-600'}`}>
+                {isUnpaid ? 'Belum Dibayar' : 'Lunas'}
+              </span>
+            </div>
+
+            {/* Client & Invoice Meta Grid */}
+            <div className="grid grid-cols-2 gap-6 text-xs border-b border-slate-100 pb-6">
+              <div>
+                <p className="text-slate-400 mb-1">Pelanggan</p>
+                <p className="font-bold text-slate-900 text-sm">{inv.clientName}</p>
+                {inv.clientAddress && <p className="text-slate-500 mt-1">{inv.clientAddress}</p>}
+                {inv.clientEmail && <p className="text-slate-500">{inv.clientEmail}</p>}
+                {inv.clientPhone && <p className="text-slate-500">{inv.clientPhone}</p>}
+              </div>
+
+              <div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <p className="text-slate-400 mb-0.5">Nomor</p>
+                    <p className="font-bold text-slate-900">{inv.invoiceNumber}</p>
+                  </div>
+                  <div>
+                    <p className="text-slate-400 mb-0.5">Tgl. Transaksi</p>
+                    <p className="font-semibold text-slate-800">{formatDateIndo(inv.issueDate)}</p>
+                  </div>
+                  <div className="col-span-2 pt-2">
+                    <p className="text-slate-400 mb-0.5">Tgl. Jatuh Tempo</p>
+                    <p className="font-semibold text-slate-800">{formatDateIndo(inv.dueDate)}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Invoice Items Table */}
+            <div className="space-y-2">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-200/80 text-slate-500 font-bold">
+                    <th className="py-2.5 pr-4">Produk</th>
+                    <th className="py-2.5 pl-4 text-right">Jumlah</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {inv.items && inv.items.length > 0 ? (
+                    inv.items.map((it, idx) => {
+                      const descLines = it.description.split('\n');
+                      const title = descLines[0];
+                      const subLines = descLines.slice(1);
+
+                      return (
+                        <tr key={it.id || idx}>
+                          <td className="py-4 pr-4 align-top">
+                            <p className="font-bold text-slate-900 uppercase">{title}</p>
+                            {subLines.length > 0 && (
+                              <div className="mt-1 space-y-0.5 text-slate-600 text-[11px] pl-1">
+                                {subLines.map((line, lIdx) => (
+                                  <p key={lIdx}>{line}</p>
+                                ))}
+                              </div>
+                            )}
+                            {it.isTaxed && (
+                              <span className="inline-block mt-1 px-1.5 py-0.5 bg-blue-50 text-blue-700 rounded text-[9px] font-semibold border border-blue-200">
+                                Gross Up PPh 21
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-4 pl-4 text-right font-bold text-slate-900 align-top whitespace-nowrap">
+                            {formatCurrency(it.amount || ((it.quantity || 1) * (it.unitPrice || 0)))}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  ) : (
+                    <tr>
+                      <td colSpan={2} className="py-4 text-center text-slate-400 italic">
+                        Tidak ada item tagihan
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Calculations Breakdown */}
+            <div className="border-t border-slate-100 pt-4 flex justify-end">
+              <div className="w-64 space-y-2 text-xs">
+                <div className="flex justify-between text-slate-600">
+                  <span>Honorarium</span>
+                  <span className="font-semibold text-slate-900">{formatCurrency(inv.subtotal || inv.totalAmount)}</span>
+                </div>
+
+                {inv.taxAmount && inv.taxAmount > 0 ? (
+                  <div className="flex justify-between text-blue-600">
+                    <span>PPh 21 (Gross Up)</span>
+                    <span className="font-semibold">+ {formatCurrency(inv.taxAmount)}</span>
+                  </div>
+                ) : null}
+
+                <div className="flex justify-between pt-2 border-t border-slate-100 text-sm font-bold">
+                  <span className="text-slate-900">Total Tagihan</span>
+                  <span className="text-slate-900">{formatCurrency(inv.totalAmount)}</span>
+                </div>
+
+                <div className="flex justify-between pt-1 text-sm font-bold">
+                  <span className="text-slate-900">Sisa Tagihan</span>
+                  <span className="text-slate-900">{formatCurrency(inv.balanceDue ?? inv.totalAmount)}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Bank Details & Terms Footer */}
+            {inv.bankDetails && (
+              <div className="pt-6 border-t border-slate-100 text-xs text-slate-600 space-y-1">
+                <p className="font-bold text-slate-800">Metode Pembayaran Transfer:</p>
+                <p>{inv.bankDetails.bankName} - No. Rek: <span className="font-bold">{inv.bankDetails.accountNumber}</span> a.n {inv.bankDetails.accountHolder}</p>
+              </div>
+            )}
+          </div>
+
+          {/* Right Column: Payment Recording & History (4 Cols on desktop, hidden in print) */}
+          <div className="lg:col-span-4 space-y-6 print:hidden">
+            {/* Form: Terima Pembayaran */}
+            <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm space-y-4">
+              <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
+                <CreditCard size={16} className="text-emerald-600" />
+                Terima Pembayaran
+              </h3>
+
+              <form onSubmit={handleAddPayment} className="space-y-3 text-xs">
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Nomor Invoice *</label>
+                  <label className="block font-bold text-slate-700 mb-1">
+                    TOTAL DIBAYAR <span className="text-red-500">*</span>
+                  </label>
                   <input
                     type="text"
                     required
-                    value={invoiceNumber}
-                    onChange={(e) => setInvoiceNumber(e.target.value)}
-                    className="w-full p-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                    value={payAmount ? formatInputNumber(payAmount) : '0'}
+                    onChange={(e) => setPayAmount(parseFormattedNumber(e.target.value))}
+                    className="w-full p-2.5 border border-slate-200 rounded-xl font-bold text-slate-900 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
                   />
                 </div>
+
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Tanggal Terbit *</label>
+                  <label className="block font-bold text-slate-700 mb-1">
+                    TANGGAL TRANSAKSI <span className="text-red-500">*</span>
+                  </label>
                   <input
                     type="date"
                     required
-                    value={issueDate}
-                    onChange={(e) => setIssueDate(e.target.value)}
-                    className="w-full p-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                    value={payDate}
+                    onChange={(e) => setPayDate(e.target.value)}
+                    className="w-full p-2.5 border border-slate-200 rounded-xl font-medium text-slate-800 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
                   />
                 </div>
+
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Jatuh Tempo</label>
+                  <label className="block font-bold text-slate-700 mb-1">DIBAYAR KE</label>
+                  <select
+                    value={payMethod}
+                    onChange={(e) => setPayMethod(e.target.value)}
+                    className="w-full p-2.5 border border-slate-200 rounded-xl font-medium text-slate-800 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                  >
+                    <option value="Transfer BCA">Transfer BCA</option>
+                    <option value="Transfer Mandiri">Transfer Mandiri</option>
+                    <option value="Transfer BRI">Transfer BRI</option>
+                    <option value="Tunai">Tunai / Cash</option>
+                    <option value="QRIS">QRIS</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">NOMOR REFERENSI</label>
                   <input
-                    type="date"
-                    value={dueDate}
-                    onChange={(e) => setDueDate(e.target.value)}
-                    className="w-full p-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                    type="text"
+                    value={payRefNumber}
+                    onChange={(e) => setPayRefNumber(e.target.value)}
+                    placeholder="e.g. KWT/001/VIII/2026"
+                    className="w-full p-2.5 border border-slate-200 rounded-xl font-medium text-slate-800 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
                   />
                 </div>
-              </div>
 
-              {/* Client Details */}
-              <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-4">
-                <div className="flex items-center justify-between">
-                  <h4 className="font-bold text-slate-800 text-xs uppercase tracking-wide flex items-center gap-2">
-                    <Building2 size={14} className="text-emerald-600" /> Informasi Klien
-                  </h4>
-                  {selectedClientId && (
-                    <div className="flex items-center gap-1.5 text-[10px] bg-emerald-100 text-emerald-800 px-2.5 py-1 rounded-full font-semibold">
-                      <CheckCircle2 size={12} className="text-emerald-600" />
-                      Terisi dari {selectedClientSource === 'superapps' ? 'Klien Superapps' : 'Klien Lokal'}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSelectedClientId('');
-                          setSelectedClientSource(undefined);
-                        }}
-                        className="ml-1 text-slate-500 hover:text-slate-700 underline font-normal cursor-pointer"
-                      >
-                        Reset
-                      </button>
-                    </div>
-                  )}
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">CATATAN (TAG)</label>
+                  <input
+                    type="text"
+                    value={payNotes}
+                    onChange={(e) => setPayNotes(e.target.value)}
+                    placeholder="Info tambahan..."
+                    className="w-full p-2.5 border border-slate-200 rounded-xl text-slate-700 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                  />
                 </div>
 
-                {/* Client Selection Box */}
-                <div className="p-3 bg-white rounded-xl border border-slate-200 shadow-sm space-y-2.5">
-                  <div className="flex items-center justify-between">
-                    <label className="block font-semibold text-slate-700 text-[11px]">
-                      Pilih dari Data Master Klien (Opsional):
-                    </label>
-                    <span className="text-[10px] text-slate-400">Pilih untuk auto-fill data</span>
-                  </div>
-
-                  {/* Tabs for Source */}
-                  <div className="flex border-b border-slate-200">
-                    <button
-                      type="button"
-                      onClick={() => setClientSourceTab('superapps')}
-                      className={`px-3 py-1.5 text-xs font-semibold border-b-2 flex items-center gap-1.5 cursor-pointer transition-colors ${
-                        clientSourceTab === 'superapps'
-                          ? 'border-indigo-600 text-indigo-700 font-bold bg-indigo-50/50 rounded-t-lg'
-                          : 'border-transparent text-slate-500 hover:text-slate-800'
-                      }`}
-                    >
-                      <Database size={13} className={clientSourceTab === 'superapps' ? 'text-indigo-600' : 'text-slate-400'} />
-                      Klien Superapps
-                      <span className="text-[10px] px-1.5 py-0.2 bg-indigo-100 text-indigo-700 rounded-full font-bold">
-                        {superappsClients.length}
-                      </span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => setClientSourceTab('local')}
-                      className={`px-3 py-1.5 text-xs font-semibold border-b-2 flex items-center gap-1.5 cursor-pointer transition-colors ${
-                        clientSourceTab === 'local'
-                          ? 'border-emerald-600 text-emerald-700 font-bold bg-emerald-50/50 rounded-t-lg'
-                          : 'border-transparent text-slate-500 hover:text-slate-800'
-                      }`}
-                    >
-                      <Building2 size={13} className={clientSourceTab === 'local' ? 'text-emerald-600' : 'text-slate-400'} />
-                      Klien Lokal
-                      <span className="text-[10px] px-1.5 py-0.2 bg-emerald-100 text-emerald-700 rounded-full font-bold">
-                        {localClients.length}
-                      </span>
-                    </button>
-                  </div>
-
-                  {/* Search and List */}
-                  <div className="space-y-2">
-                    <div className="relative">
-                      <Search size={13} className="absolute left-2.5 top-2.5 text-slate-400" />
-                      <input
-                        type="text"
-                        placeholder={`Cari nama ${clientSourceTab === 'superapps' ? 'klien superapps' : 'klien lokal'}...`}
-                        value={clientSearch}
-                        onChange={(e) => setClientSearch(e.target.value)}
-                        className="w-full pl-8 pr-7 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-none focus:bg-white focus:ring-1 focus:ring-indigo-500"
-                      />
-                      {clientSearch && (
-                        <button
-                          type="button"
-                          onClick={() => setClientSearch('')}
-                          className="absolute right-2.5 top-2 text-slate-400 hover:text-slate-600 cursor-pointer"
-                        >
-                          <X size={12} />
-                        </button>
-                      )}
-                    </div>
-
-                    {isLoadingClients ? (
-                      <div className="p-3 text-center text-slate-500 text-xs flex items-center justify-center gap-2">
-                        <div className="w-3.5 h-3.5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
-                        Memuat data klien...
-                      </div>
-                    ) : clientSourceTab === 'superapps' && superappsError ? (
-                      <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-lg text-amber-800 text-xs flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <AlertCircle size={14} className="text-amber-600 shrink-0" />
-                          <span>{superappsError}</span>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={loadClientOptions}
-                          className="text-[11px] font-semibold text-amber-900 underline hover:text-amber-950 cursor-pointer"
-                        >
-                          Coba lagi
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="max-h-36 overflow-y-auto space-y-1 pr-1 border border-slate-200 rounded-lg p-1 bg-slate-50/50">
-                        {((clientSourceTab === 'superapps' ? superappsClients : localClients).filter(c =>
-                          c.name.toLowerCase().includes(clientSearch.toLowerCase()) ||
-                          c.address.toLowerCase().includes(clientSearch.toLowerCase()) ||
-                          c.email.toLowerCase().includes(clientSearch.toLowerCase())
-                        )).length === 0 ? (
-                          <div className="p-3 text-center text-slate-400 text-xs italic">
-                            Tidak ada data {clientSourceTab === 'superapps' ? 'klien superapps' : 'klien lokal'} yang cocok.
-                          </div>
-                        ) : (
-                          (clientSourceTab === 'superapps' ? superappsClients : localClients)
-                            .filter(c =>
-                              c.name.toLowerCase().includes(clientSearch.toLowerCase()) ||
-                              c.address.toLowerCase().includes(clientSearch.toLowerCase()) ||
-                              c.email.toLowerCase().includes(clientSearch.toLowerCase())
-                            )
-                            .map((client) => {
-                              const isSelected = selectedClientId === client.clientId && selectedClientSource === client.source;
-                              return (
-                                <div
-                                  key={`${client.source}_${client.clientId}`}
-                                  onClick={() => {
-                                    setSelectedClientId(client.clientId);
-                                    setSelectedClientSource(client.source);
-                                    setClientName(client.name);
-                                    setClientEmail(client.email);
-                                    setClientPhone(client.phone);
-                                    setClientAddress(client.address);
-                                  }}
-                                  className={`p-2 rounded-lg cursor-pointer transition-colors flex items-center justify-between text-xs ${
-                                    isSelected
-                                      ? 'bg-indigo-50 border border-indigo-300 text-indigo-950 font-medium shadow-sm'
-                                      : 'bg-white hover:bg-slate-100/80 border border-slate-200 text-slate-700'
-                                  }`}
-                                >
-                                  <div className="min-w-0 pr-2">
-                                    <div className="flex items-center gap-1.5">
-                                      <span className="font-semibold truncate">{client.name}</span>
-                                      <span className={`text-[9px] px-1.5 py-0.2 rounded font-bold uppercase ${
-                                        client.source === 'superapps'
-                                          ? 'bg-indigo-100 text-indigo-700'
-                                          : 'bg-emerald-100 text-emerald-700'
-                                      }`}>
-                                        {client.source === 'superapps' ? 'Superapps' : 'Lokal'}
-                                      </span>
-                                    </div>
-                                    {client.address && (
-                                      <p className="text-[10px] text-slate-500 truncate mt-0.5">{client.address}</p>
-                                    )}
-                                  </div>
-                                  {isSelected && (
-                                    <CheckCircle2 size={16} className="text-indigo-600 shrink-0" />
-                                  )}
-                                </div>
-                              );
-                            })
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                  <div>
-                    <label className="block font-medium text-slate-700 mb-1">Nama Klien / Perusahaan *</label>
-                    <input
-                      type="text"
-                      required
-                      value={clientName}
-                      onChange={(e) => setClientName(e.target.value)}
-                      placeholder="e.g. PT Maju Bersama / Bapak Budi"
-                      className="w-full p-2 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block font-medium text-slate-700 mb-1">Email Klien</label>
-                    <input
-                      type="email"
-                      value={clientEmail}
-                      onChange={(e) => setClientEmail(e.target.value)}
-                      placeholder="klien@email.com"
-                      className="w-full p-2 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                    />
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block font-medium text-slate-700 mb-1">Telepon Klien</label>
-                    <input
-                      type="text"
-                      value={clientPhone}
-                      onChange={(e) => setClientPhone(e.target.value)}
-                      placeholder="08123456789"
-                      className="w-full p-2 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block font-medium text-slate-700 mb-1">Alamat Klien</label>
-                    <input
-                      type="text"
-                      value={clientAddress}
-                      onChange={(e) => setClientAddress(e.target.value)}
-                      placeholder="Alamat lengkap klien..."
-                      className="w-full p-2 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Items Table */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <h4 className="font-bold text-slate-800 text-xs uppercase tracking-wide">Rincian Item & Jasa</h4>
-                  <button
-                    type="button"
-                    onClick={addItem}
-                    className="px-3 py-1 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded-lg font-bold text-xs flex items-center gap-1 cursor-pointer"
-                  >
-                    <Plus size={14} /> Tambah Item
-                  </button>
-                </div>
-
-                <div className="border border-slate-200 rounded-xl overflow-hidden">
-                  <table className="w-full text-left">
-                    <thead className="bg-slate-100 text-slate-700 font-semibold border-b border-slate-200">
-                      <tr>
-                        <th className="p-2.5">Deskripsi</th>
-                        <th className="p-2.5 w-20 text-center">Qty</th>
-                        <th className="p-2.5 w-32 text-right">Harga Satuan</th>
-                        <th className="p-2.5 w-24 text-center">Pajak (11%)</th>
-                        <th className="p-2.5 w-32 text-right">Subtotal</th>
-                        <th className="p-2.5 w-10 text-center"></th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {items.map((it, idx) => (
-                        <tr key={it.id || idx}>
-                          <td className="p-2">
-                            <input
-                              type="text"
-                              value={it.description}
-                              onChange={(e) => handleItemChange(idx, 'description', e.target.value)}
-                              placeholder="Deskripsi layanan / produk"
-                              className="w-full p-1.5 border border-slate-200 rounded focus:outline-none"
-                            />
-                          </td>
-                          <td className="p-2">
-                            <input
-                              type="number"
-                              min={1}
-                              value={it.quantity}
-                              onChange={(e) => handleItemChange(idx, 'quantity', Number(e.target.value))}
-                              className="w-full p-1.5 border border-slate-200 rounded text-center focus:outline-none"
-                            />
-                          </td>
-                          <td className="p-2">
-                            <input
-                              type="number"
-                              value={it.unitPrice}
-                              onChange={(e) => handleItemChange(idx, 'unitPrice', Number(e.target.value))}
-                              className="w-full p-1.5 border border-slate-200 rounded text-right focus:outline-none"
-                            />
-                          </td>
-                          <td className="p-2 text-center">
-                            <input
-                              type="checkbox"
-                              checked={it.isTaxed || false}
-                              onChange={(e) => handleItemChange(idx, 'isTaxed', e.target.checked)}
-                              className="w-4 h-4 text-emerald-600 rounded cursor-pointer"
-                            />
-                          </td>
-                          <td className="p-2 text-right font-semibold text-slate-800">
-                            {formatCurrency((it.quantity || 0) * (it.unitPrice || 0), currency)}
-                          </td>
-                          <td className="p-2 text-center">
-                            <button
-                              type="button"
-                              onClick={() => removeItem(idx)}
-                              className="text-red-500 hover:text-red-700 p-1 cursor-pointer"
-                            >
-                              <X size={14} />
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-
-                {/* Calculation Summary */}
-                <div className="flex justify-end pt-2">
-                  <div className="w-64 space-y-1.5 text-right font-medium text-slate-700">
-                    <div className="flex justify-between">
-                      <span>Subtotal:</span>
-                      <span className="font-bold text-slate-900">{formatCurrency(currentSub, currency)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Pajak (PPN 11%):</span>
-                      <span className="font-bold text-slate-900">{formatCurrency(currentTax, currency)}</span>
-                    </div>
-                    <div className="flex justify-between pt-2 border-t border-slate-200 text-sm">
-                      <span className="font-bold text-slate-900">Total Tagihan:</span>
-                      <span className="font-bold text-emerald-700">{formatCurrency(currentTotal, currency)}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Bank Details & Language */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-                <div className="space-y-2 p-3 bg-slate-50 rounded-xl border border-slate-200">
-                  <h4 className="font-bold text-slate-800 uppercase tracking-wide">Rekening Pembayaran</h4>
-                  <div>
-                    <label className="block text-[11px] text-slate-600">Nama Bank</label>
-                    <input
-                      type="text"
-                      value={bankName}
-                      onChange={(e) => setBankName(e.target.value)}
-                      className="w-full p-1.5 border border-slate-300 rounded bg-white"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] text-slate-600">Nomor Rekening</label>
-                    <input
-                      type="text"
-                      value={accountNumber}
-                      onChange={(e) => setAccountNumber(e.target.value)}
-                      className="w-full p-1.5 border border-slate-300 rounded bg-white"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] text-slate-600">Atas Nama</label>
-                    <input
-                      type="text"
-                      value={accountHolder}
-                      onChange={(e) => setAccountHolder(e.target.value)}
-                      className="w-full p-1.5 border border-slate-300 rounded bg-white"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2 p-3 bg-slate-50 rounded-xl border border-slate-200">
-                  <h4 className="font-bold text-slate-800 uppercase tracking-wide">Pengaturan Tampilan</h4>
-                  <div>
-                    <label className="block text-[11px] text-slate-600">Bahasa Invoice</label>
-                    <select
-                      value={language}
-                      onChange={(e) => setLanguage(e.target.value as 'id' | 'en')}
-                      className="w-full p-1.5 border border-slate-300 rounded bg-white font-medium"
-                    >
-                      <option value="id">Bahasa Indonesia</option>
-                      <option value="en">English</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-[11px] text-slate-600">Status Awal</label>
-                    <select
-                      value={status}
-                      onChange={(e) => setStatus(e.target.value as any)}
-                      className="w-full p-1.5 border border-slate-300 rounded bg-white font-medium"
-                    >
-                      <option value="UNPAID">UNPAID (Belum Lunas)</option>
-                      <option value="PAID">PAID (Lunas)</option>
-                      <option value="DRAFT">DRAFT</option>
-                      <option value="CANCELLED">CANCELLED</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-
-              {/* Submit Buttons */}
-              <div className="flex justify-end gap-2 pt-4 border-t border-slate-200">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 border border-slate-300 rounded-lg font-medium text-slate-600 hover:bg-slate-50 cursor-pointer"
-                >
-                  Batal
-                </button>
                 <button
                   type="submit"
-                  disabled={isSubmitting}
-                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold shadow-sm cursor-pointer"
+                  disabled={isSavingPayment}
+                  className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all shadow-sm cursor-pointer mt-2"
                 >
-                  {isSubmitting ? 'Menyimpan...' : 'Simpan Invoice'}
+                  <Plus size={16} />
+                  {isSavingPayment ? 'Menyimpan...' : 'Tambah Pembayaran'}
                 </button>
-              </div>
-            </form>
+              </form>
+            </div>
+
+            {/* Riwayat Pembayaran */}
+            <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm space-y-3">
+              <h3 className="font-bold text-slate-900 text-xs flex items-center gap-2">
+                <FileText size={14} className="text-slate-500" />
+                Riwayat Pembayaran
+              </h3>
+
+              {inv.paymentHistory && inv.paymentHistory.length > 0 ? (
+                <div className="space-y-2 max-h-60 overflow-y-auto">
+                  {inv.paymentHistory.map((p, pIdx) => (
+                    <div key={p.id || pIdx} className="p-3 bg-slate-50 rounded-xl border border-slate-100 text-xs space-y-1">
+                      <div className="flex items-center justify-between font-bold text-slate-900">
+                        <span>Rp {formatCurrency(p.amount)}</span>
+                        <span className="text-[10px] text-slate-500 font-normal">{formatDateIndo(p.date)}</span>
+                      </div>
+                      <p className="text-[11px] text-slate-600">{p.method || 'Transfer'}</p>
+                      {p.notes && <p className="text-[10px] text-slate-500 italic">{p.notes}</p>}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-center text-slate-400 text-xs italic py-4">
+                  Belum ada pembayaran.
+                </p>
+              )}
+            </div>
           </div>
         </div>
-      )}
+      </div>
+    );
+  }
 
-      {/* Modal Record Payment */}
-      {isPaymentModalOpen && paymentTargetInvoice && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-2xl border border-slate-200 max-w-md w-full p-6 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-              <h3 className="font-bold text-slate-800 text-sm">Catat Pembayaran Invoice</h3>
+  // =========================================================================
+  // RENDER 3: FULL PAGE FORM ("Buat Invoice Baru" / "Edit Invoice")
+  // =========================================================================
+  return (
+    <div className="p-4 md:p-6 max-w-5xl mx-auto space-y-6">
+      {/* Top Header */}
+      <div className="flex items-center gap-3">
+        <button
+          onClick={() => {
+            if (selectedInvoice && editingInvoiceId) {
+              setViewMode('detail');
+            } else {
+              setViewMode('list');
+            }
+          }}
+          className="p-2 bg-white hover:bg-slate-100 text-slate-600 rounded-xl border border-slate-200 transition-all cursor-pointer"
+        >
+          <ArrowLeft size={18} />
+        </button>
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center font-bold">
+            <CreditCard size={20} />
+          </div>
+          <div>
+            <h1 className="text-lg font-bold text-slate-900">
+              {editingInvoiceId ? `Edit Invoice ${invoiceNumber}` : 'Buat Invoice Baru'}
+            </h1>
+            <p className="text-xs text-slate-500">Formulir penagihan biaya jasa</p>
+          </div>
+        </div>
+      </div>
+
+      <form onSubmit={handleSaveInvoice} className="space-y-6 text-xs">
+        {/* Card 1: Pilih Klien */}
+        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+            <label className="font-bold text-slate-900 text-xs">Pilih Klien</label>
+
+            {/* Source filter tabs */}
+            <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-xl">
               <button
-                onClick={() => setIsPaymentModalOpen(false)}
+                type="button"
+                onClick={() => setClientSourceTab('all')}
+                className={`px-3 py-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer ${
+                  clientSourceTab === 'all'
+                    ? 'bg-white text-slate-900 shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Semua ({superappsClients.length + localClients.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setClientSourceTab('local')}
+                className={`px-3 py-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer ${
+                  clientSourceTab === 'local'
+                    ? 'bg-white text-slate-900 shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Lokal ({localClients.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setClientSourceTab('superapps')}
+                className={`px-3 py-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer ${
+                  clientSourceTab === 'superapps'
+                    ? 'bg-white text-indigo-700 shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Superapps ({superappsClients.length})
+              </button>
+            </div>
+          </div>
+
+          {/* Client Searchable Input / Dropdown */}
+          <div className="relative">
+            <div className="relative">
+              <Search size={15} className="absolute left-3.5 top-3 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Ketik nama klien, email, atau alamat..."
+                value={clientName || clientSearch}
+                onFocus={() => setShowClientDropdown(true)}
+                onChange={(e) => {
+                  setClientName(e.target.value);
+                  setClientSearch(e.target.value);
+                  setShowClientDropdown(true);
+                }}
+                className="w-full pl-10 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/20"
+              />
+              {(clientName || clientSearch) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setClientName('');
+                    setClientSearch('');
+                    setSelectedClientId('');
+                    setSelectedClientSource(undefined);
+                    setClientEmail('');
+                    setClientPhone('');
+                    setClientAddress('');
+                  }}
+                  className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 cursor-pointer"
+                >
+                  <X size={16} />
+                </button>
+              )}
+            </div>
+
+            {/* Dropdown Options */}
+            {showClientDropdown && (
+              <div className="absolute left-0 right-0 top-full mt-1 bg-white rounded-xl border border-slate-200 shadow-lg z-50 max-h-56 overflow-y-auto p-1">
+                {isLoadingClients ? (
+                  <div className="p-3 text-center text-slate-500 text-xs flex items-center justify-center gap-2">
+                    <div className="w-3.5 h-3.5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                    Memuat data klien...
+                  </div>
+                ) : filteredClientOptions.length === 0 ? (
+                  <div className="p-3 text-center text-slate-400 text-xs italic">
+                    Tidak ada data klien yang cocok.
+                  </div>
+                ) : (
+                  filteredClientOptions.map((c) => (
+                    <div
+                      key={`${c.source}_${c.clientId}`}
+                      onClick={() => {
+                        setSelectedClientId(c.clientId);
+                        setSelectedClientSource(c.source);
+                        setClientName(c.name);
+                        setClientEmail(c.email);
+                        setClientPhone(c.phone);
+                        setClientAddress(c.address);
+                        setShowClientDropdown(false);
+                      }}
+                      className="p-2.5 hover:bg-slate-50 rounded-lg cursor-pointer transition-colors flex items-center justify-between"
+                    >
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-slate-800">{c.name}</span>
+                          <span className={`text-[9px] px-1.5 py-0.2 rounded font-bold uppercase ${
+                            c.source === 'superapps'
+                              ? 'bg-indigo-100 text-indigo-700'
+                              : 'bg-emerald-100 text-emerald-700'
+                          }`}>
+                            {c.source === 'superapps' ? 'Superapps' : 'Lokal'}
+                          </span>
+                        </div>
+                        {c.address && <p className="text-[10px] text-slate-500 mt-0.5">{c.address}</p>}
+                      </div>
+                      {selectedClientId === c.clientId && (
+                        <Check size={16} className="text-blue-600" />
+                      )}
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center justify-between">
+            <button
+              type="button"
+              onClick={() => setIsNewClientModalOpen(true)}
+              className="text-blue-600 hover:text-blue-700 font-semibold text-xs flex items-center gap-1 cursor-pointer"
+            >
+              <UserPlus size={14} /> + Input Klien Baru (Lokal)
+            </button>
+          </div>
+        </div>
+
+        {/* Card 2: Form Header Fields */}
+        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label className="block font-bold text-slate-700 mb-1">Nomor Invoice</label>
+            <input
+              type="text"
+              required
+              value={invoiceNumber}
+              onChange={(e) => setInvoiceNumber(e.target.value)}
+              className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/20"
+            />
+          </div>
+
+          <div>
+            <label className="block font-bold text-slate-700 mb-1">Tanggal</label>
+            <input
+              type="date"
+              required
+              value={issueDate}
+              onChange={(e) => setIssueDate(e.target.value)}
+              className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/20"
+            />
+          </div>
+
+          <div>
+            <label className="block font-bold text-slate-700 mb-1">Jatuh Tempo</label>
+            <input
+              type="date"
+              value={dueDate}
+              onChange={(e) => setDueDate(e.target.value)}
+              className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/20"
+            />
+          </div>
+        </div>
+
+        {/* Card 3: ITEM TAGIHAN */}
+        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm space-y-4">
+          <h3 className="font-bold text-slate-900 text-xs uppercase tracking-wide">ITEM TAGIHAN</h3>
+
+          {/* Add Item Form Controls */}
+          <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/80 space-y-3">
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+              <div className="md:col-span-3">
+                <label className="block font-bold text-slate-700 mb-1">PILIH PRODUK</label>
+                <select
+                  value={selectedPresetProduct}
+                  onChange={(e) => {
+                    setSelectedPresetProduct(e.target.value);
+                    if (e.target.value === 'AKTA PERUBAHAN PT SK') {
+                      setItemDescription('1. Draft Notulen Sirkuler\n2. Akta RUPSLB\n3. Surat Keputusan (SK) AHU\n4. Surat Pelaporan AHU\n5. BNRI\n6. Akta Hibah Saham');
+                      setItemUnitPrice(7435897);
+                      setItemGrossUp(true);
+                    } else if (e.target.value === 'Jasa Pembuatan Akta Notaris') {
+                      setItemUnitPrice(5000000);
+                    }
+                  }}
+                  className="w-full p-2.5 bg-white border border-slate-200 rounded-xl font-medium text-slate-800 focus:outline-none"
+                >
+                  {PRESET_PRODUCTS.map((p) => (
+                    <option key={p} value={p}>{p}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="md:col-span-5">
+                <label className="block font-bold text-slate-700 mb-1">DESKRIPSI</label>
+                <input
+                  type="text"
+                  placeholder="Deskripsi rincian..."
+                  value={itemDescription}
+                  onChange={(e) => setItemDescription(e.target.value)}
+                  className="w-full p-2.5 bg-white border border-slate-200 rounded-xl text-slate-800 focus:outline-none"
+                />
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="block font-bold text-slate-700 mb-1">HARGA (RP)</label>
+                <input
+                  type="text"
+                  placeholder="0"
+                  value={itemUnitPrice ? formatInputNumber(itemUnitPrice) : ''}
+                  onChange={(e) => setItemUnitPrice(parseFormattedNumber(e.target.value))}
+                  className="w-full p-2.5 bg-white border border-slate-200 rounded-xl font-bold text-slate-900 focus:outline-none"
+                />
+              </div>
+
+              <div className="md:col-span-2 flex items-center gap-2 pb-2.5">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={itemGrossUp}
+                    onChange={(e) => setItemGrossUp(e.target.checked)}
+                    className="w-4 h-4 text-blue-600 rounded cursor-pointer"
+                  />
+                  <span className="font-semibold text-slate-700 text-xs whitespace-nowrap">Gross Up PPh 21</span>
+                </label>
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-1">
+              <button
+                type="button"
+                onClick={handleAddItemFromInput}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
+              >
+                <Plus size={15} /> Tambah Item
+              </button>
+            </div>
+          </div>
+
+          {/* Items List Table */}
+          <div className="border border-slate-200/80 rounded-xl overflow-hidden">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-slate-100 text-slate-600 font-bold border-b border-slate-200">
+                <tr>
+                  <th className="p-3">Item / Deskripsi</th>
+                  <th className="p-3 w-20 text-center">Qty</th>
+                  <th className="p-3 w-32 text-right">Harga (Rp)</th>
+                  <th className="p-3 w-20 text-center">PPh</th>
+                  <th className="p-3 w-32 text-right">Subtotal</th>
+                  <th className="p-3 w-12 text-center"></th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {items.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="p-8 text-center text-slate-400 italic">
+                      Belum ada item ditambahkan.
+                    </td>
+                  </tr>
+                ) : (
+                  items.map((it, idx) => (
+                    <tr key={it.id || idx}>
+                      <td className="p-3">
+                        <textarea
+                          rows={2}
+                          value={it.description}
+                          onChange={(e) => handleItemChange(idx, 'description', e.target.value)}
+                          className="w-full p-2 border border-slate-200 rounded-lg text-xs font-medium focus:outline-none"
+                        />
+                      </td>
+                      <td className="p-3 text-center">
+                        <input
+                          type="number"
+                          min={1}
+                          value={it.quantity || 1}
+                          onChange={(e) => handleItemChange(idx, 'quantity', Number(e.target.value))}
+                          className="w-14 p-1.5 border border-slate-200 rounded text-center font-bold"
+                        />
+                      </td>
+                      <td className="p-3 text-right">
+                        <input
+                          type="text"
+                          value={formatInputNumber(it.unitPrice || 0)}
+                          onChange={(e) => handleItemChange(idx, 'unitPrice', parseFormattedNumber(e.target.value))}
+                          className="w-28 p-1.5 border border-slate-200 rounded text-right font-bold"
+                        />
+                      </td>
+                      <td className="p-3 text-center">
+                        <input
+                          type="checkbox"
+                          checked={it.isTaxed || false}
+                          onChange={(e) => handleItemChange(idx, 'isTaxed', e.target.checked)}
+                          className="w-4 h-4 text-blue-600 rounded cursor-pointer"
+                        />
+                      </td>
+                      <td className="p-3 text-right font-bold text-slate-900">
+                        {formatCurrency((it.quantity || 1) * (it.unitPrice || 0))}
+                      </td>
+                      <td className="p-3 text-center">
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveItem(idx)}
+                          className="p-1 text-red-500 hover:text-red-700 cursor-pointer"
+                        >
+                          <X size={16} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Subtotal & Totals Summary */}
+          <div className="flex justify-end pt-2">
+            <div className="w-72 space-y-1.5 text-right font-medium text-slate-700">
+              <div className="flex justify-between">
+                <span>Honorarium (Bersih):</span>
+                <span className="font-bold text-slate-900">{formatCurrency(currentSub)}</span>
+              </div>
+              {currentTax > 0 && (
+                <div className="flex justify-between text-blue-600">
+                  <span>PPh 21 Gross Up:</span>
+                  <span className="font-bold">+ {formatCurrency(currentTax)}</span>
+                </div>
+              )}
+              <div className="flex justify-between pt-2 border-t border-slate-200 text-sm">
+                <span className="font-bold text-slate-900">Total Tagihan:</span>
+                <span className="font-bold text-blue-600">{formatCurrency(currentTotal)}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Card 4: Rekening & Pengaturan */}
+        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2 p-3 bg-slate-50 rounded-xl border border-slate-200/80">
+            <h4 className="font-bold text-slate-800 uppercase tracking-wide text-[11px]">Rekening Pembayaran</h4>
+            <div>
+              <label className="block text-[11px] text-slate-600">Nama Bank</label>
+              <input
+                type="text"
+                value={bankName}
+                onChange={(e) => setBankName(e.target.value)}
+                className="w-full p-2 border border-slate-200 rounded bg-white font-medium"
+              />
+            </div>
+            <div>
+              <label className="block text-[11px] text-slate-600">Nomor Rekening</label>
+              <input
+                type="text"
+                value={accountNumber}
+                onChange={(e) => setAccountNumber(e.target.value)}
+                className="w-full p-2 border border-slate-200 rounded bg-white font-medium"
+              />
+            </div>
+            <div>
+              <label className="block text-[11px] text-slate-600">Atas Nama</label>
+              <input
+                type="text"
+                value={accountHolder}
+                onChange={(e) => setAccountHolder(e.target.value)}
+                className="w-full p-2 border border-slate-200 rounded bg-white font-medium"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2 p-3 bg-slate-50 rounded-xl border border-slate-200/80">
+            <h4 className="font-bold text-slate-800 uppercase tracking-wide text-[11px]">Pengaturan & Status</h4>
+            <div>
+              <label className="block text-[11px] text-slate-600">Bahasa Invoice</label>
+              <select
+                value={language}
+                onChange={(e) => setLanguage(e.target.value as 'id' | 'en')}
+                className="w-full p-2 border border-slate-200 rounded bg-white font-medium"
+              >
+                <option value="id">Bahasa Indonesia</option>
+                <option value="en">English</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-[11px] text-slate-600">Status Invoice</label>
+              <select
+                value={status}
+                onChange={(e) => setStatus(e.target.value as any)}
+                className="w-full p-2 border border-slate-200 rounded bg-white font-medium"
+              >
+                <option value="UNPAID">UNPAID (Belum Lunas)</option>
+                <option value="PAID">PAID (Lunas)</option>
+                <option value="DRAFT">DRAFT</option>
+                <option value="CANCELLED">CANCELLED</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {/* Bottom Actions Bar */}
+        <div className="flex items-center justify-end gap-3 pt-2">
+          <button
+            type="button"
+            onClick={() => {
+              if (selectedInvoice && editingInvoiceId) {
+                setViewMode('detail');
+              } else {
+                setViewMode('list');
+              }
+            }}
+            className="px-5 py-2.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl font-bold text-xs cursor-pointer"
+          >
+            Batal
+          </button>
+
+          <button
+            type="button"
+            onClick={() => window.print()}
+            className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl font-bold text-xs flex items-center gap-1.5 cursor-pointer"
+          >
+            <Printer size={15} /> Cetak
+          </button>
+
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-xs shadow-sm cursor-pointer transition-all"
+          >
+            {isSubmitting ? 'Menyimpan...' : 'Simpan'}
+          </button>
+        </div>
+      </form>
+
+      {/* Modal Quick Create Local Client */}
+      {isNewClientModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-md w-full p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+              <h3 className="font-bold text-slate-800 text-sm">Input Klien Baru (Lokal)</h3>
+              <button
+                onClick={() => setIsNewClientModalOpen(false)}
                 className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
               >
                 <X size={18} />
               </button>
             </div>
 
-            <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 text-xs space-y-1">
-              <p><span className="font-semibold text-slate-600">Invoice:</span> {paymentTargetInvoice.invoiceNumber}</p>
-              <p><span className="font-semibold text-slate-600">Klien:</span> {paymentTargetInvoice.clientName}</p>
-              <p><span className="font-semibold text-slate-600">Sisa Tagihan:</span> <span className="font-bold text-amber-700">{formatCurrency(paymentTargetInvoice.balanceDue)}</span></p>
-            </div>
-
-            <form onSubmit={handleRecordPayment} className="space-y-3 text-xs">
+            <div className="space-y-3 text-xs">
               <div>
-                <label className="block font-medium text-slate-700 mb-1">Nominal Pembayaran (Rp) *</label>
+                <label className="block font-bold text-slate-700 mb-1">Nama Klien / Perusahaan *</label>
                 <input
-                  type="number"
+                  type="text"
                   required
-                  value={payAmount}
-                  onChange={(e) => setPayAmount(Number(e.target.value))}
-                  className="w-full p-2 border border-slate-300 rounded-lg text-sm font-bold text-emerald-800 focus:outline-none"
+                  value={newClientNameInput}
+                  onChange={(e) => setNewClientNameInput(e.target.value)}
+                  placeholder="e.g. PT Maju Jaya"
+                  className="w-full p-2.5 border border-slate-200 rounded-xl focus:outline-none"
                 />
               </div>
 
               <div>
-                <label className="block font-medium text-slate-700 mb-1">Metode Pembayaran</label>
-                <select
-                  value={payMethod}
-                  onChange={(e) => setPayMethod(e.target.value)}
-                  className="w-full p-2 border border-slate-300 rounded-lg font-medium"
-                >
-                  <option value="Transfer Bank">Transfer Bank</option>
-                  <option value="Tunai">Tunai / Cash</option>
-                  <option value="QRIS">QRIS</option>
-                  <option value="Kartu Kredit">Kartu Kredit</option>
-                </select>
+                <label className="block font-bold text-slate-700 mb-1">Email</label>
+                <input
+                  type="email"
+                  value={newClientEmailInput}
+                  onChange={(e) => setNewClientEmailInput(e.target.value)}
+                  placeholder="email@klien.com"
+                  className="w-full p-2.5 border border-slate-200 rounded-xl focus:outline-none"
+                />
               </div>
 
               <div>
-                <label className="block font-medium text-slate-700 mb-1">Catatan Pembayaran</label>
+                <label className="block font-bold text-slate-700 mb-1">Telepon</label>
                 <input
                   type="text"
-                  value={payNotes}
-                  onChange={(e) => setPayNotes(e.target.value)}
-                  placeholder="e.g. Pembayaran DP 50%"
-                  className="w-full p-2 border border-slate-300 rounded-lg focus:outline-none"
+                  value={newClientPhoneInput}
+                  onChange={(e) => setNewClientPhoneInput(e.target.value)}
+                  placeholder="08123456789"
+                  className="w-full p-2.5 border border-slate-200 rounded-xl focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Alamat</label>
+                <input
+                  type="text"
+                  value={newClientAddressInput}
+                  onChange={(e) => setNewClientAddressInput(e.target.value)}
+                  placeholder="Alamat lengkap..."
+                  className="w-full p-2.5 border border-slate-200 rounded-xl focus:outline-none"
                 />
               </div>
 
               <div className="flex justify-end gap-2 pt-3 border-t border-slate-200">
                 <button
                   type="button"
-                  onClick={() => setIsPaymentModalOpen(false)}
-                  className="px-4 py-2 border border-slate-300 rounded-lg font-medium text-slate-600 hover:bg-slate-50 cursor-pointer"
+                  onClick={() => setIsNewClientModalOpen(false)}
+                  className="px-4 py-2 border border-slate-300 rounded-xl font-medium text-slate-600 hover:bg-slate-50 cursor-pointer"
                 >
                   Batal
                 </button>
                 <button
-                  type="submit"
-                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold shadow-sm cursor-pointer"
+                  type="button"
+                  onClick={handleCreateQuickLocalClient}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold cursor-pointer"
                 >
-                  Simpan Pembayaran
+                  Gunakan Klien Ini
                 </button>
               </div>
-            </form>
+            </div>
           </div>
         </div>
       )}
