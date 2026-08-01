@@ -32,22 +32,41 @@ export const DeedReport: React.FC<DeedReportProps> = ({
   const [isSharing, setIsSharing] = useState(false);
 
   // Filter deeds for current month and year
-  const filteredDeeds = deeds.filter(d => {
-    if (!d.date) return false;
-    const dateObj = new Date(d.date);
-    const m = dateObj.getMonth() + 1;
-    const y = dateObj.getFullYear();
-    const matchPeriod = m === month && y === year;
+  const filteredDeeds = deeds
+    .filter(d => {
+      if (!d.date) return false;
+      const dateObj = new Date(d.date);
+      const m = dateObj.getMonth() + 1;
+      const y = dateObj.getFullYear();
+      const matchPeriod = m === month && y === year;
 
-    if (!matchPeriod) return false;
+      if (!matchPeriod) return false;
 
-    if (!searchTerm) return true;
-    const query = searchTerm.toLowerCase();
-    const titleMatch = d.title?.toLowerCase().includes(query);
-    const numMatch = d.number?.toLowerCase().includes(query);
-    const appearerMatch = d.appearers?.some(a => a.name?.toLowerCase().includes(query));
-    return titleMatch || numMatch || appearerMatch;
-  });
+      if (!searchTerm) return true;
+      const query = searchTerm.toLowerCase();
+      const titleMatch = d.title?.toLowerCase().includes(query);
+      const numMatch = d.number?.toLowerCase().includes(query);
+      const appearerMatch = d.appearers?.some(a => a.name?.toLowerCase().includes(query));
+      return titleMatch || numMatch || appearerMatch;
+    })
+    .sort((a, b) => {
+      const orderA = parseInt(a.orderNumber || '0', 10);
+      const orderB = parseInt(b.orderNumber || '0', 10);
+      
+      if (!isNaN(orderA) && !isNaN(orderB) && orderA !== orderB) {
+        return orderA - orderB;
+      }
+      
+      // Fallback 1: Date
+      if (a.date !== b.date) {
+        return (a.date || '').localeCompare(b.date || '');
+      }
+      
+      // Fallback 2: Monthly Number
+      const numA = parseInt(a.number || '0', 10);
+      const numB = parseInt(b.number || '0', 10);
+      return numA - numB;
+    });
 
   const printRef = useRef<HTMLDivElement>(null);
 

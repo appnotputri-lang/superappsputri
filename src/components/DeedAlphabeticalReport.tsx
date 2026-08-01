@@ -352,8 +352,40 @@ export const DeedAlphabeticalReport: React.FC<DeedAlphabeticalReportProps> = ({
   const displaySigDate = signatureDate || `${settings.city}, 29 ${monthName} ${year}`;
 
   const sourceDeeds = useMemo(() => {
-    return deeds && deeds.length > 0 ? deeds : DUMMY_DEEDS;
-  }, [deeds]);
+    const raw = deeds && deeds.length > 0 ? deeds : DUMMY_DEEDS;
+    // Filter by month/year to ensure consistency
+    return raw
+      .filter(d => {
+        if (!d.date) return false;
+        const dt = new Date(d.date);
+        return dt.getMonth() + 1 === month && dt.getFullYear() === year;
+      })
+      .sort((a, b) => {
+        const orderA = parseInt(a.orderNumber || '0', 10);
+        const orderB = parseInt(b.orderNumber || '0', 10);
+        
+        if (!isNaN(orderA) && !isNaN(orderB) && orderA !== orderB) {
+          return orderA - orderB;
+        }
+        
+        if (a.date !== b.date) {
+          return (a.date || '').localeCompare(b.date || '');
+        }
+        
+        const numA = parseInt(a.number || '0', 10);
+        const numB = parseInt(b.number || '0', 10);
+        return numA - numB;
+      });
+  }, [deeds, month, year]);
+
+  // Map to store consistent monthly sequence (idx + 1) after sorting by orderNumber
+  const deedIndexMap = useMemo(() => {
+    const map = new Map<string, number>();
+    sourceDeeds.forEach((d, idx) => {
+      map.set(d.id, idx + 1);
+    });
+    return map;
+  }, [sourceDeeds]);
 
   // Helper to format date string to Indo e.g. "10 Juli 2026"
   const formatDateIndo = (dateStr: string) => {
@@ -383,6 +415,7 @@ export const DeedAlphabeticalReport: React.FC<DeedAlphabeticalReportProps> = ({
       letter: string;
       deeds: {
         deed: Deed;
+        monthlyNumber: number | string;
         matchingAppearerJSX: React.ReactNode;
         matchingAppearerHTML: string;
       }[];
@@ -391,6 +424,7 @@ export const DeedAlphabeticalReport: React.FC<DeedAlphabeticalReportProps> = ({
     ALPHABET_LIST.forEach((letter) => {
       const letterDeeds: {
         deed: Deed;
+        monthlyNumber: number | string;
         matchingAppearerJSX: React.ReactNode;
         matchingAppearerHTML: string;
       }[] = [];
@@ -402,13 +436,7 @@ export const DeedAlphabeticalReport: React.FC<DeedAlphabeticalReportProps> = ({
         const matchingApps = d.appearers.filter((app) => {
           if (!app.name) return false;
           const appNameUpper = app.name.trim().toUpperCase();
-          if (appNameUpper.startsWith(letter)) return true;
-
-          // Check grantors
-          if (app.grantors && app.grantors.length > 0) {
-            return app.grantors.some((g) => g.name && g.name.trim().toUpperCase().startsWith(letter));
-          }
-          return false;
+          return appNameUpper.startsWith(letter);
         });
 
         if (matchingApps.length > 0) {
@@ -469,16 +497,28 @@ export const DeedAlphabeticalReport: React.FC<DeedAlphabeticalReportProps> = ({
 
           letterDeeds.push({
             deed: d,
+            monthlyNumber: deedIndexMap.get(d.id) || (parseInt(d.number, 10) || 0),
             matchingAppearerJSX: <div className="space-y-2">{jsxElements}</div>,
             matchingAppearerHTML: htmlLines.join('<div style="height: 6px;"></div>')
           });
         }
       });
 
-      // Sort deeds by orderNumber or deedNumber
+      // Sort deeds by orderNumber consistently
       letterDeeds.sort((a, b) => {
-        const numA = parseInt(a.deed.orderNumber || a.deed.number || '0', 10);
-        const numB = parseInt(b.deed.orderNumber || b.deed.number || '0', 10);
+        const orderA = parseInt(a.deed.orderNumber || '0', 10);
+        const orderB = parseInt(b.deed.orderNumber || '0', 10);
+        
+        if (!isNaN(orderA) && !isNaN(orderB) && orderA !== orderB) {
+          return orderA - orderB;
+        }
+        
+        if (a.deed.date !== b.deed.date) {
+          return (a.deed.date || '').localeCompare(b.deed.date || '');
+        }
+        
+        const numA = parseInt(a.deed.number || '0', 10);
+        const numB = parseInt(b.deed.number || '0', 10);
         return numA - numB;
       });
 
@@ -552,7 +592,7 @@ export const DeedAlphabeticalReport: React.FC<DeedAlphabeticalReportProps> = ({
           .map((item) => {
             const d = item.deed;
             const orderNum = d.orderNumber || d.number || '';
-            const deedNum = d.deedNumber || d.number || '';
+            const deedNum = deedIndexMap.get(d.id) || d.number || '';
             const dateStr = formatDateIndo(d.deedDate || d.date || '');
             const titleStr = (d.deedTitle || d.title || '').toUpperCase();
 
@@ -863,7 +903,7 @@ export const DeedAlphabeticalReport: React.FC<DeedAlphabeticalReportProps> = ({
                       sec.deeds.map((item) => {
                         const d = item.deed;
                         const orderNum = d.orderNumber || d.number || '';
-                        const deedNum = d.deedNumber || d.number || '';
+                        const deedNum = deedIndexMap.get(d.id) || d.number || '';
                         const dateStr = formatDateIndo(d.deedDate || d.date || '');
                         const titleStr = (d.deedTitle || d.title || '').toUpperCase();
 

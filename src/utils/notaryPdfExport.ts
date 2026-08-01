@@ -361,7 +361,25 @@ export async function exportDeedReportToPdf(data: {
   // Map deeds to autoTable rows
   const headers = [['NO. URUT', 'NO. BULANAN', 'TANGGAL', 'SIFAT AKTA', 'NAMA PENGHADAP / PARA PIHAK']];
   
-  const body = data.deeds.map((deed, idx) => {
+  // Sort deeds by orderNumber (ascending)
+  const sortedDeeds = [...data.deeds].sort((a, b) => {
+    const orderA = parseInt(a.orderNumber || '0', 10);
+    const orderB = parseInt(b.orderNumber || '0', 10);
+    
+    if (!isNaN(orderA) && !isNaN(orderB) && orderA !== orderB) {
+      return orderA - orderB;
+    }
+    
+    if (a.date !== b.date) {
+      return (a.date || '').localeCompare(b.date || '');
+    }
+    
+    const numA = parseInt(a.number || '0', 10);
+    const numB = parseInt(b.number || '0', 10);
+    return numA - numB;
+  });
+
+  const body = sortedDeeds.map((deed, idx) => {
     const orderNum = deed.orderNumber || deed.number || '';
     const monthlyNum = deed.number || (idx + 1).toString();
     const dateStr = formatDateIndo(deed.date || '');
@@ -516,7 +534,14 @@ export async function exportPrivateDeedReportToPdf(data: {
   // Map to rows
   const headers = [['NO', 'NO. REGISTER', 'TANGGAL', 'SIFAT DOKUMEN / SURAT', 'NAMA PEMOHON / PARA PIHAK', 'KETERANGAN']];
 
-  const body = data.items.map((item, idx) => {
+  // Sort items by number (ascending)
+  const sortedItems = [...data.items].sort((a, b) => {
+    const numA = parseInt(a.number) || 0;
+    const numB = parseInt(b.number) || 0;
+    return numA - numB;
+  });
+
+  const body = sortedItems.map((item, idx) => {
     const regDateStr = formatDateIndo(item.registrationDate || '');
     const partiesStr = item.parties && item.parties.length > 0 ? item.parties.join('\n') : '-';
 
@@ -634,7 +659,16 @@ export async function exportProtestChequeReportToPdf(data: {
     return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(val);
   };
 
-  const body = data.items.map((item, idx) => {
+  // Sort items by date (since they might not have a number field like deeds)
+  // But wait, the user said "menurut nomor terkecil ke besar".
+  // If they have numbers, we sort by them.
+  const sortedItems = [...data.items].sort((a, b) => {
+    const numA = parseInt(a.number) || parseInt(a.id) || 0;
+    const numB = parseInt(b.number) || parseInt(b.id) || 0;
+    return numA - numB;
+  });
+
+  const body = sortedItems.map((item, idx) => {
     const protestDateStr = formatDateIndo(item.protestDate || '');
     const bankAndCek = `${item.bankName}\nNo: ${item.chequeNumber}`;
     const amountStr = formatCurrency(item.amount || 0);
@@ -775,7 +809,7 @@ export async function exportDeedAlphabeticalReportToPdf(data: {
       body = sec.deeds.map((item: any) => {
         const d = item.deed;
         const orderNum = d.orderNumber || d.number || '';
-        const deedNum = d.deedNumber || d.number || '';
+        const deedNum = item.monthlyNumber || d.number || '';
         const dateStr = formatDateIndo(d.deedDate || d.date || '');
         const titleStr = (d.deedTitle || d.title || '').toUpperCase();
 

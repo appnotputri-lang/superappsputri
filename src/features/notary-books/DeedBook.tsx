@@ -351,6 +351,78 @@ export const DeedBook: React.FC = () => {
     setAppearers(updated);
   };
 
+  // Function to shift numbers backwards after a deletion
+  const shiftDeedsAfterDelete = async (deletedDeed: Deed) => {
+    const deletedNum = parseInt(deletedDeed.number, 10);
+    const deletedOrder = parseInt(deletedDeed.orderNumber || '0', 10);
+    if (isNaN(deletedNum) || isNaN(deletedOrder)) return;
+
+    const deletedDate = new Date(deletedDeed.date);
+    const deletedMonth = deletedDate.getMonth();
+    const deletedYear = deletedDate.getFullYear();
+
+    // 1) Shift Number for deeds in the same month/year with higher numbers
+    const sameMonthAfter = deeds.filter((d) => {
+      if (d.id === deletedDeed.id) return false;
+      const dt = new Date(d.date);
+      if (dt.getMonth() !== deletedMonth || dt.getFullYear() !== deletedYear) return false;
+      const n = parseInt(d.number, 10);
+      return !isNaN(n) && n > deletedNum;
+    });
+
+    // 2) Shift OrderNumber for ALL deeds with higher order numbers
+    const allAfterGlobal = deeds.filter((d) => {
+      if (d.id === deletedDeed.id) return false;
+      const o = parseInt(d.orderNumber || '0', 10);
+      return !isNaN(o) && o > deletedOrder;
+    });
+
+    const updates = new Map<string, Partial<Deed>>();
+
+    sameMonthAfter.forEach((d) => {
+      const oldNum = parseInt(d.number, 10);
+      const newNum = String(oldNum - 1).padStart(d.number.length >= 2 ? 2 : 1, '0');
+      updates.set(d.id, { ...(updates.get(d.id) || {}), number: newNum });
+    });
+
+    allAfterGlobal.forEach((d) => {
+      const oldOrder = parseInt(d.orderNumber || '0', 10);
+      updates.set(d.id, { ...(updates.get(d.id) || {}), orderNumber: String(oldOrder - 1) });
+    });
+
+    await Promise.all(
+      Array.from(updates.entries()).map(([id, patch]) => NotaryService.updateDeed(id, patch))
+    );
+  };
+
+  // Function to shift numbers forward when inserting/editing with a conflict
+  const shiftDeedsForInsert = async (targetNumber: number, targetDate: string, excludeId: string | null) => {
+    const targetDt = new Date(targetDate);
+    const targetMonth = targetDt.getMonth();
+    const targetYear = targetDt.getFullYear();
+
+    const sameMonthConflict = deeds.filter((d) => {
+      if (d.id === excludeId) return false;
+      const dt = new Date(d.date);
+      if (dt.getMonth() !== targetMonth || dt.getFullYear() !== targetYear) return false;
+      const n = parseInt(d.number, 10);
+      return !isNaN(n) && n >= targetNumber;
+    });
+
+    if (sameMonthConflict.length === 0) return;
+
+    // Sort from largest to smallest to avoid collisions during sequential updates
+    sameMonthConflict.sort((a, b) => parseInt(b.number, 10) - parseInt(a.number, 10));
+
+    for (const d of sameMonthConflict) {
+      const oldNum = parseInt(d.number, 10);
+      const newNum = String(oldNum + 1).padStart(d.number.length >= 2 ? 2 : 1, '0');
+      const oldOrder = parseInt(d.orderNumber || '0', 10);
+      const newOrder = String(oldOrder + 1);
+      await NotaryService.updateDeed(d.id, { number: newNum, orderNumber: newOrder });
+    }
+  };
+
   // Save Deed
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -412,6 +484,22 @@ export const DeedBook: React.FC = () => {
 
     setIsSaving(true);
     try {
+      // Check for conflicts and shift if necessary
+      const targetNum = parseInt(deedNumber, 10);
+      if (!isNaN(targetNum)) {
+        const hasCollision = deeds.some((d) => {
+          if (d.id === editingDeedId) return false;
+          const dDt = new Date(d.date);
+          const targetDt = new Date(deedDate);
+          if (dDt.getMonth() !== targetDt.getMonth() || dDt.getFullYear() !== targetDt.getFullYear()) return false;
+          return parseInt(d.number, 10) === targetNum;
+        });
+        
+        if (hasCollision) {
+          await shiftDeedsForInsert(targetNum, deedDate, editingDeedId);
+        }
+      }
+
       const deedData: Omit<Deed, 'id'> = {
         number: deedNumber.trim(),
         orderNumber: orderNumber.trim() || undefined,
@@ -447,8 +535,9 @@ export const DeedBook: React.FC = () => {
       return;
     }
 
-    if (confirm(`Apakah Anda yakin ingin menghapus akta No. ${deed.number} - "${deed.title}"?`)) {
+    if (confirm(`Apakah Anda yakin ingin menghapus akta No. ${deed.number} - "${deed.title}"?\n\nSemua akta setelahnya akan otomatis bergeser nomornya.`)) {
       try {
+        await shiftDeedsAfterDelete(deed);
         await NotaryService.deleteDeed(deed.id);
       } catch (err) {
         console.error('Failed to delete deed:', err);
@@ -652,12 +741,13 @@ export const DeedBook: React.FC = () => {
                   </label>
                   <input
                     type="text"
-                    disabled={isFormLocked}
+                    readOnly
+                    disabled
                     value={orderNumber}
-                    onChange={(e) => setOrderNumber(e.target.value)}
-                    placeholder="Contoh: 001"
-                    className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:outline-none disabled:bg-slate-100 disabled:text-slate-500 font-semibold text-xs sm:text-sm"
+                    placeholder="Otomatis terhitung"
+                    className="w-full p-2.5 border border-slate-300 rounded-lg bg-slate-100 text-slate-600 cursor-not-allowed font-semibold text-xs sm:text-sm"
                   />
+                  <p className="text-[11px] text-slate-500 mt-1">Otomatis mengikuti No. Akta &amp; Tanggal — tidak bisa diedit manual.</p>
                   {orderWarning && (
                     <div className="mt-1.5 p-2 bg-amber-50 border border-amber-200 rounded text-xs text-amber-800 flex items-start gap-1">
                       <AlertTriangle size={14} className="shrink-0 text-amber-600 mt-0.5" />
