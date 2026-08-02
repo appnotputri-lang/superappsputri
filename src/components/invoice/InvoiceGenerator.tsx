@@ -10,7 +10,8 @@ import { printInvoice, downloadInvoicePdf } from '../../utils/invoiceHtmlGenerat
 import {
   Plus, Edit2, Trash2, Printer, Search, X, Copy, ExternalLink,
   Check, CreditCard, DollarSign, Globe, CheckCircle2, AlertCircle, FileText, Share2,
-  Building2, Database, ArrowLeft, Download, Send, MessageSquare, ChevronRight, UserPlus
+  Building2, Database, ArrowLeft, Download, Send, MessageSquare, ChevronRight, UserPlus,
+  MoreHorizontal
 } from 'lucide-react';
 
 interface ClientOption {
@@ -128,6 +129,20 @@ export const InvoiceGenerator: React.FC = () => {
   // Submission State
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const moreMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (moreMenuRef.current && !moreMenuRef.current.contains(event.target as Node)) {
+        setShowMoreMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   useEffect(() => {
     setLoading(true);
@@ -498,7 +513,7 @@ export const InvoiceGenerator: React.FC = () => {
 
   const copyPublicLink = (inv: Invoice) => {
     const token = inv.publicToken || inv.id;
-    const fullUrl = `${window.location.origin}${window.location.pathname}#/invoice/public?token=${token}`;
+    const fullUrl = `${window.location.origin}/invoice/public/${token}`;
     navigator.clipboard.writeText(fullUrl);
     setCopiedToken(inv.id);
     setTimeout(() => setCopiedToken(null), 2000);
@@ -506,7 +521,7 @@ export const InvoiceGenerator: React.FC = () => {
 
   const handleShareWhatsApp = (inv: Invoice) => {
     const token = inv.publicToken || inv.id;
-    const publicUrl = `${window.location.origin}${window.location.pathname}#/invoice/public?token=${token}`;
+    const publicUrl = `${window.location.origin}/invoice/public/${token}`;
     const text = `Yth. Bapak/Ibu ${inv.clientName},\nBerikut adalah rincian Invoice Tagihan Nomor ${inv.invoiceNumber} sebesar Rp ${formatCurrency(inv.totalAmount)}.\n\nDetail tagihan dapat dilihat pada tautan berikut:\n${publicUrl}\n\nTerima kasih.`;
     const waUrl = `https://wa.me/${inv.clientPhone ? inv.clientPhone.replace(/[^0-9]/g, '') : ''}?text=${encodeURIComponent(text)}`;
     window.open(waUrl, '_blank');
@@ -699,7 +714,7 @@ export const InvoiceGenerator: React.FC = () => {
             </h1>
           </div>
 
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-2 flex-wrap relative" ref={moreMenuRef}>
             <button
               onClick={() => handleShareWhatsApp(inv)}
               className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
@@ -716,42 +731,51 @@ export const InvoiceGenerator: React.FC = () => {
               {downloadingPdf ? 'Mengunduh PDF...' : 'Download PDF'}
             </button>
 
-            <button
-              onClick={() => copyPublicLink(inv)}
-              className="px-3 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
-            >
-              {copiedToken === inv.id ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}
-              {copiedToken === inv.id ? 'Tersalin!' : 'Salin Link'}
-            </button>
-
-            <button
-              onClick={() => printInvoice(inv)}
-              className="px-3.5 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
-            >
-              <Printer size={14} /> Print
-            </button>
-
-            <button
-              onClick={() => openEditPage(inv)}
-              className="px-3 py-2 bg-white border border-slate-200 hover:bg-blue-50 text-blue-600 hover:border-blue-300 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
-            >
-              <Edit2 size={14} /> Edit
-            </button>
-
-            <button
-              onClick={() => handleDeleteInvoice(inv.id)}
-              className="p-2 text-red-600 hover:bg-red-50 rounded-xl border border-transparent hover:border-red-200 transition-all cursor-pointer"
-              title="Hapus Invoice"
-            >
-              <Trash2 size={16} />
-            </button>
+            <div className="relative">
+              <button
+                onClick={() => setShowMoreMenu(v => !v)}
+                className="px-3 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
+              >
+                <MoreHorizontal size={14} /> Lainnya
+              </button>
+              {showMoreMenu && (
+                <div className="absolute right-0 mt-2 w-48 bg-white border border-slate-200 rounded-xl shadow-lg z-20 py-1.5 overflow-hidden">
+                  <button
+                    onClick={() => { copyPublicLink(inv); setShowMoreMenu(false); }}
+                    className="w-full text-left px-4 py-2.5 text-xs font-medium text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
+                  >
+                    {copiedToken === inv.id ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}
+                    {copiedToken === inv.id ? 'Tersalin!' : 'Salin Link'}
+                  </button>
+                  <button
+                    onClick={() => { printInvoice(inv); setShowMoreMenu(false); }}
+                    className="w-full text-left px-4 py-2.5 text-xs font-medium text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
+                  >
+                    <Printer size={14} /> Print
+                  </button>
+                  <button
+                    onClick={() => { openEditPage(inv); setShowMoreMenu(false); }}
+                    className="w-full text-left px-4 py-2.5 text-xs font-medium text-blue-600 hover:bg-blue-50 flex items-center gap-2 cursor-pointer"
+                  >
+                    <Edit2 size={14} /> Edit
+                  </button>
+                  <div className="h-px bg-slate-100 my-1" />
+                  <button
+                    onClick={() => { setShowMoreMenu(false); handleDeleteInvoice(inv.id); }}
+                    className="w-full text-left px-4 py-2.5 text-xs font-medium text-red-600 hover:bg-red-50 flex items-center gap-2 cursor-pointer"
+                  >
+                    <Trash2 size={14} /> Hapus Invoice
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
         {/* Main Content Layout (2 Columns) */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           {/* Left Column: Invoice Document Preview (8 Cols on desktop) */}
-          <div className="lg:col-span-8 bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden print:border-none print:shadow-none print:p-0">
+          <div className="lg:col-span-8 bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-x-auto print:border-none print:shadow-none print:p-0 print:overflow-visible">
             <InvoicePrintTemplate invoice={inv} />
           </div>
 

@@ -14,7 +14,20 @@ export const PublicInvoiceViewer: React.FC = () => {
     const fetchInvoice = async () => {
       setLoading(true);
       try {
-        let token = new URLSearchParams(window.location.search).get('token');
+        let token: string | null = null;
+
+        // 1. Format baru: path /invoice/public/{token}
+        const pathMatch = window.location.pathname.match(/\/invoice\/public\/([^/?#]+)/);
+        if (pathMatch) {
+          token = decodeURIComponent(pathMatch[1]);
+        }
+
+        // 2. Fallback: query string ?token=
+        if (!token) {
+          token = new URLSearchParams(window.location.search).get('token');
+        }
+
+        // 3. Fallback: format hash lama #/invoice/public?token=
         if (!token && window.location.hash.includes('token=')) {
           const hashParts = window.location.hash.split('token=');
           if (hashParts[1]) {
