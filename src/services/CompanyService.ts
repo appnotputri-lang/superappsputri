@@ -187,6 +187,27 @@ export class CompanyService {
       const oldData = docSnap.exists() ? docSnap.data() as CompanyProfile : null;
       const oldCompanyName = oldData?.companyName;
 
+      if (preparedData.companyName) {
+        const qName = preparedData.companyName.trim().toUpperCase();
+        const isNameUnchanged = oldCompanyName && oldCompanyName.trim().toUpperCase() === qName;
+
+        if (!isNameUnchanged) {
+          const profilesColl = collection(db, collectionName);
+          const q = query(profilesColl, where('companyName', '==', qName));
+          const querySnap = await getDocs(q);
+          
+          const duplicate = querySnap.docs.find(docSnap => {
+            if (docSnap.id === companyId) return false;
+            const docData = docSnap.data();
+            return docData.clientType === clientType;
+          });
+
+          if (duplicate) {
+            throw new Error(`KLIEN_NAME_EXISTS:${preparedData.companyName}`);
+          }
+        }
+      }
+
       await setDoc(docRef, sanitizeForFirestore(preparedData), { merge: true });
       
       // Ensure or Rename the Google Drive folder for this client
@@ -194,6 +215,9 @@ export class CompanyService {
         await this.handleRenameOrEnsureFolder(companyId, oldCompanyName, preparedData.companyName, clientType);
       }
     } catch (error) {
+      if (error instanceof Error && error.message.startsWith('KLIEN_NAME_EXISTS:')) {
+        throw error;
+      }
       handleFirestoreError(error, OperationType.WRITE, `${collectionName}/${companyId}`);
       throw error;
     }
@@ -267,12 +291,36 @@ export class CompanyService {
         updateData.companyName = this.formatCompanyName(finalName, finalType);
       }
 
+      if (updateData.companyName) {
+        const qName = updateData.companyName.trim().toUpperCase();
+        const isNameUnchanged = oldCompanyName && oldCompanyName.trim().toUpperCase() === qName;
+
+        if (!isNameUnchanged) {
+          const profilesColl = collection(db, collectionName);
+          const q = query(profilesColl, where('companyName', '==', qName));
+          const querySnap = await getDocs(q);
+          
+          const duplicate = querySnap.docs.find(docSnap => {
+            if (docSnap.id === companyId) return false;
+            const docData = docSnap.data();
+            return docData.clientType === finalType;
+          });
+
+          if (duplicate) {
+            throw new Error(`KLIEN_NAME_EXISTS:${updateData.companyName}`);
+          }
+        }
+      }
+
       await updateDoc(docRef, sanitizeForFirestore(updateData));
 
       if (updateData.companyName) {
         await this.handleRenameOrEnsureFolder(companyId, oldCompanyName, updateData.companyName, finalType);
       }
     } catch (error) {
+      if (error instanceof Error && error.message.startsWith('KLIEN_NAME_EXISTS:')) {
+        throw error;
+      }
       handleFirestoreError(error, OperationType.WRITE, `${collectionName}/${companyId}`);
       throw error;
     }

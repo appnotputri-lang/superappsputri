@@ -117,7 +117,8 @@ export const CompanyForm: React.FC<CompanyFormProps> = ({
                   updatedBy: user?.email || 'System'
                 };
                 
-                await saveCompany(data.id, profileData, true);
+                const isCvCompany = data.clientType === 'CV' || data.companyType === 'CV';
+                await saveCompany(data.id, profileData, isCvCompany);
                 recordNotification(
                   'Profil Perusahaan Diperbarui', 
                   `Profil ${data.companyName} telah berhasil diperbarui.`, 
@@ -126,8 +127,13 @@ export const CompanyForm: React.FC<CompanyFormProps> = ({
                 
                 setEditingProfileId(null);
                 alert('Profil berhasil disimpan!');
-            } catch (e) {
-                handleFirestoreError(e, OperationType.WRITE, `profiles/${data.id}`);
+            } catch (e: any) {
+                if (e instanceof Error && e.message.startsWith('KLIEN_NAME_EXISTS:')) {
+                  const dupName = e.message.split('KLIEN_NAME_EXISTS:')[1];
+                  alert(`Gagal menyimpan: Klien dengan nama "${dupName}" sudah ada!`);
+                } else {
+                  handleFirestoreError(e, OperationType.WRITE, `profiles/${data.id}`);
+                }
             } finally {
                 setIsSaving(false);
             }

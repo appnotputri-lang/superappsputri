@@ -940,6 +940,8 @@ export const AppShell: React.FC = () => {
         activeSidebarTab={activeSidebarTab}
         user={user}
         userProfile={userProfile}
+        setIsSidebarOpen={setIsSidebarOpen}
+        notifications={notifications}
         profiles={profiles}
         cvProfiles={cvProfiles}
         projects={projects}

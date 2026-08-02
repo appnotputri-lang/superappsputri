@@ -11,7 +11,7 @@ import {
   Plus, Edit2, Trash2, Printer, Search, X, Copy, ExternalLink,
   Check, CreditCard, DollarSign, Globe, CheckCircle2, AlertCircle, FileText, Share2,
   Building2, Database, ArrowLeft, Download, Send, MessageSquare, ChevronLeft, ChevronRight, UserPlus,
-  MoreHorizontal
+  MoreHorizontal, Calendar, Clock, ChevronUp, ChevronDown, MoreVertical
 } from 'lucide-react';
 
 interface ClientOption {
@@ -38,6 +38,54 @@ const PRESET_PRODUCTS = [
   'Legalisasi & Waarmerking',
   'Sewa Ruangan Kantor'
 ];
+
+const MobileInvoiceRow: React.FC<{
+  invoice: Invoice;
+  onClick: () => void;
+  onDelete: () => void;
+  formatCurrency: (val?: number) => string;
+}> = ({ invoice, onClick, onDelete, formatCurrency }) => {
+  const [translateX, setTranslateX] = useState(0);
+  const startX = useRef<number | null>(null);
+  const handleTouchStart = (e: React.TouchEvent) => { startX.current = e.touches[0].clientX; };
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (startX.current === null) return;
+    const diff = e.touches[0].clientX - startX.current;
+    if (diff < 0) setTranslateX(Math.max(diff, -80));
+    else setTranslateX(0);
+  };
+  const handleTouchEnd = () => { setTranslateX(translateX < -40 ? -80 : 0); startX.current = null; };
+
+  return (
+    <div className="relative overflow-hidden">
+      <div
+        className="absolute inset-y-0 right-0 w-20 bg-red-600 flex items-center justify-center text-white z-0"
+        onClick={(e) => { e.stopPropagation(); onDelete(); }}
+      >
+        <Trash2 size={18} />
+      </div>
+      <div
+        className="relative z-10 bg-white p-4 flex justify-between items-center active:bg-slate-50 transition-transform"
+        style={{ transform: `translateX(${translateX}px)` }}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onClick={() => (translateX < -10 ? setTranslateX(0) : onClick())}
+      >
+        <div className="min-w-0">
+          <p className="font-semibold text-slate-800 truncate">{invoice.clientName}</p>
+          <div className="text-xs text-slate-500">{invoice.invoiceNumber}</div>
+        </div>
+        <div className="flex items-center gap-3 shrink-0">
+          <div className="bg-emerald-400 text-white text-xs font-bold px-3 py-1.5 rounded-full">
+            {formatCurrency(invoice.totalAmount)}
+          </div>
+          <ChevronRight size={16} className="text-slate-300" />
+        </div>
+      </div>
+    </div>
+  );
+};
 
 export const InvoiceGenerator: React.FC = () => {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -138,6 +186,8 @@ export const InvoiceGenerator: React.FC = () => {
   const [payRefNumber, setPayRefNumber] = useState<string>('');
   const [payNotes, setPayNotes] = useState<string>('');
   const [isSavingPayment, setIsSavingPayment] = useState(false);
+  const [isMobilePaymentOpen, setIsMobilePaymentOpen] = useState(false);
+  const [isMobileActionSheetOpen, setIsMobileActionSheetOpen] = useState(false);
 
   // Submission State
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -555,7 +605,12 @@ export const InvoiceGenerator: React.FC = () => {
       alert(`Klien ${newClientTypeInput} baru berhasil didaftarkan dan disimpan di database!`);
     } catch (err: any) {
       console.error('[InvoiceGenerator] Gagal membuat klien baru:', err);
-      alert(`Gagal membuat klien baru: ${err.message || err}`);
+      if (err instanceof Error && err.message.startsWith('KLIEN_NAME_EXISTS:')) {
+        const dupName = err.message.split('KLIEN_NAME_EXISTS:')[1];
+        alert(`Gagal menyimpan: Klien dengan nama "${dupName}" sudah ada!`);
+      } else {
+        alert(`Gagal membuat klien baru: ${err.message || err}`);
+      }
     }
   };
 
@@ -629,8 +684,54 @@ export const InvoiceGenerator: React.FC = () => {
   // =========================================================================
   if (viewMode === 'list') {
     return (
-      <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-6">
-        {/* Header */}
+      <>
+        {/* ===== MOBILE LIST (< md) ===== */}
+        <div className="md:hidden bg-slate-50 min-h-full">
+          <div className="sticky top-0 z-20 bg-white border-b border-slate-100 px-4 pt-4 pb-3 flex items-center justify-between">
+            <h1 className="text-2xl font-bold text-slate-900">Invoice</h1>
+            <div className="w-9 h-9 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs font-bold">
+              AZ
+            </div>
+          </div>
+          <div className="px-4 pt-3 pb-2">
+            <div className="relative">
+              <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Cari invoice..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm"
+              />
+            </div>
+          </div>
+          <div className="divide-y divide-slate-100 bg-white">
+            {filteredInvoices.map(inv => (
+              <MobileInvoiceRow
+                key={inv.id}
+                invoice={inv}
+                onClick={() => { setSelectedInvoice(inv); setViewMode('detail'); }}
+                onDelete={() => handleDeleteInvoice(inv.id)}
+                formatCurrency={formatCurrency}
+              />
+            ))}
+            {filteredInvoices.length === 0 && (
+              <div className="text-center py-8 text-slate-400 text-xs italic">
+                Belum ada invoice ditemukan.
+              </div>
+            )}
+          </div>
+          <button
+            onClick={openCreatePage}
+            className="fixed bottom-24 right-6 w-14 h-14 bg-blue-600 rounded-full text-white shadow-xl flex items-center justify-center active:scale-90 transition-all z-40"
+          >
+            <Plus size={26} />
+          </button>
+        </div>
+
+        {/* ===== DESKTOP LIST (existing, md+) ===== */}
+        <div className="hidden md:block p-4 md:p-6 max-w-7xl mx-auto space-y-6">
+          {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-xl font-bold text-slate-900">Invoice Penagihan</h1>
@@ -819,7 +920,8 @@ export const InvoiceGenerator: React.FC = () => {
             </div>
           )}
         </div>
-      </div>
+        </div>
+      </>
     );
   }
 
@@ -831,8 +933,259 @@ export const InvoiceGenerator: React.FC = () => {
     const isUnpaid = inv.status === 'UNPAID';
 
     return (
-      <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-6 print:p-0 print:max-w-none">
-        {/* Top Navigation & Action Header (Hidden during browser print) */}
+      <>
+        {/* ===== MOBILE DETAIL (< md) ===== */}
+        <div className="md:hidden fixed inset-0 z-[100] bg-[#eaeff3] flex flex-col">
+          <div className="flex-1 overflow-y-auto pb-[calc(140px+env(safe-area-inset-bottom))]">
+            <div className="bg-[#1e61c3] text-white rounded-b-[2rem] pt-[calc(env(safe-area-inset-top)+16px)] pb-6 px-4 shadow-md">
+              <div className="flex justify-between items-center mb-4">
+                <button onClick={() => { setViewMode('list'); setIsMobileActionSheetOpen(false); }} className="p-2 -ml-2 rounded-full active:bg-white/10">
+                  <ArrowLeft size={22} />
+                </button>
+                <h1 className="text-xl font-medium">Tagihan</h1>
+                <button onClick={() => setIsMobileActionSheetOpen(prev => !prev)} className="p-2 -mr-2 rounded-full active:bg-white/10">
+                  <MoreVertical size={22} />
+                </button>
+              </div>
+              <div className="text-center flex flex-col items-center mb-5">
+                <h2 className="text-2xl tracking-widest font-normal mb-2">{inv.invoiceNumber}</h2>
+                <h3 className="text-xl font-bold uppercase mb-4">{inv.clientName}</h3>
+                <div className="inline-flex items-center bg-white rounded-full pl-3 pr-5 py-2 text-slate-800">
+                  <div className={`w-5 h-5 rounded-full mr-3 ${!isUnpaid ? 'bg-green-400' : 'bg-[#f7949d]'}`}></div>
+                  <span className="font-medium text-[15px]">{!isUnpaid ? 'Lunas' : 'Belum Dibayar'}</span>
+                </div>
+              </div>
+              <div className="flex justify-between border-t border-white/20 pt-4 px-2">
+                <div className="flex items-center gap-2">
+                  <Calendar size={18} className="opacity-90" />
+                  <span className="text-sm">{formatDateIndo(inv.issueDate)}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Clock size={18} className="opacity-90" />
+                  <span className="text-sm">{inv.dueDate ? formatDateIndo(inv.dueDate) : '-'}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="px-4 py-4 space-y-4">
+              <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                <div className="px-5 py-3 bg-[#f2f4f7] flex justify-between text-sm border-b border-gray-200">
+                  <span className="font-medium text-[15px]">Jumlah Items</span>
+                  <span className="text-blue-600 font-medium text-[15px]">{inv.items.length} items</span>
+                </div>
+                <div className="divide-y divide-gray-100">
+                  {inv.items.map((item, idx) => (
+                    <div key={idx} className="p-5 flex items-center justify-between bg-white">
+                      <div className="min-w-0 pr-3">
+                        <div className="font-medium text-[#111] text-[15px] whitespace-pre-wrap">{item.description}</div>
+                        <div className="text-[13px] text-gray-500 mt-1">
+                          {item.quantity} Pcs x {formatCurrency(item.unitPrice)}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <div className="bg-[#fda4af] text-white font-medium text-sm px-4 py-1.5 rounded-full">
+                          {formatCurrency(item.amount || (item.quantity * item.unitPrice))}
+                        </div>
+                        <ChevronRight size={20} className="text-gray-400" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 space-y-3 text-[15px]">
+                <div className="flex justify-between items-center text-gray-700">
+                  <span>Subtotal</span>
+                  <span className="font-bold text-black">{formatCurrency(inv.subtotal)}</span>
+                </div>
+                {inv.taxAmount > 0 && (
+                  <div className="flex justify-between items-center text-red-600">
+                    <span>Pajak</span>
+                    <span className="font-bold">({formatCurrency(inv.taxAmount)})</span>
+                  </div>
+                )}
+                <div className="flex justify-between items-center pt-3 pb-1 border-t border-gray-100">
+                  <span className="font-bold text-lg text-black">Total</span>
+                  <span className="font-bold text-xl text-black">{formatCurrency(inv.totalAmount)}</span>
+                </div>
+                {inv.paidAmount > 0 && (
+                  <div className="flex justify-between items-center pt-1 text-green-600">
+                    <span className="font-medium">Total Terbayar</span>
+                    <span className="font-bold">{formatCurrency(inv.paidAmount)}</span>
+                  </div>
+                )}
+                <div className="flex justify-between items-center pt-2 border-t border-gray-100">
+                  <span className="text-gray-700">Sisa Tagihan</span>
+                  <span className="font-bold text-[#f43f5e]">{formatCurrency(inv.balanceDue)}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Floating Action Menu / Sheet */}
+          {isMobileActionSheetOpen && (
+            <div className="fixed inset-0 z-50 flex flex-col justify-end pointer-events-none">
+              <div
+                className="absolute inset-0 bg-black/40 pointer-events-auto"
+                onClick={() => setIsMobileActionSheetOpen(false)}
+              />
+              <div className="relative pointer-events-auto px-6 pb-24 space-y-3 flex flex-col items-end z-10">
+                <button
+                  onClick={() => { handleShareWhatsApp(inv); setIsMobileActionSheetOpen(false); }}
+                  className="flex items-center gap-3 bg-emerald-600 text-white px-5 py-3 rounded-full shadow-lg font-bold text-sm cursor-pointer active:scale-95 transition-all"
+                >
+                  <span>Kirim Tagihan (WA)</span>
+                  <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
+                    <Send size={18} />
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => { handleDownloadPDF(inv); setIsMobileActionSheetOpen(false); }}
+                  className="flex items-center gap-3 bg-blue-600 text-white px-5 py-3 rounded-full shadow-lg font-bold text-sm cursor-pointer active:scale-95 transition-all"
+                >
+                  <span>Download / Share PDF</span>
+                  <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
+                    <Download size={18} />
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => { openEditPage(inv); setIsMobileActionSheetOpen(false); }}
+                  className="flex items-center gap-3 bg-amber-500 text-white px-5 py-3 rounded-full shadow-lg font-bold text-sm cursor-pointer active:scale-95 transition-all"
+                >
+                  <span>Edit Invoice</span>
+                  <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
+                    <Edit2 size={18} />
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => { setIsMobileActionSheetOpen(false); handleDeleteInvoice(inv.id); }}
+                  className="flex items-center gap-3 bg-red-600 text-white px-5 py-3 rounded-full shadow-lg font-bold text-sm cursor-pointer active:scale-95 transition-all"
+                >
+                  <span>Hapus Invoice</span>
+                  <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
+                    <Trash2 size={18} />
+                  </div>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Trigger Bar */}
+          {!isMobilePaymentOpen && (
+            <div className="fixed bottom-0 left-0 right-0 z-40 bg-[#1e61c3] rounded-t-3xl shadow-[0_-4px_20px_rgba(0,0,0,0.2)] pb-[env(safe-area-inset-bottom)]">
+              <div className="w-12 h-1.5 bg-white/30 rounded-full mx-auto mt-3 mb-1"></div>
+              <button onClick={() => setIsMobilePaymentOpen(true)} className="w-full flex justify-between items-center px-6 pb-6 pt-2 text-white">
+                <span className="font-bold text-lg">Terima pembayaran</span>
+                <ChevronUp size={26} />
+              </button>
+            </div>
+          )}
+
+          {/* Bottom Sheet Payment */}
+          {isMobilePaymentOpen && (
+            <div className="fixed inset-0 z-50 flex flex-col justify-end">
+              <div className="absolute inset-0 bg-black/60" onClick={() => setIsMobilePaymentOpen(false)}></div>
+              <div className="relative bg-white w-full max-h-[85vh] rounded-t-3xl flex flex-col shadow-2xl">
+                <div className="bg-[#1e61c3] text-white rounded-t-3xl shrink-0">
+                  <div className="w-12 h-1.5 bg-white/30 rounded-full mx-auto mt-3 mb-1"></div>
+                  <button onClick={() => setIsMobilePaymentOpen(false)} className="w-full flex justify-between items-center px-6 pb-5 pt-2">
+                    <span className="font-bold text-lg">Terima pembayaran</span>
+                    <ChevronDown size={28} />
+                  </button>
+                </div>
+                <form
+                  onSubmit={(e) => { handleAddPayment(e); setIsMobilePaymentOpen(false); }}
+                  className="bg-slate-50 flex-1 overflow-y-auto px-5 py-6 space-y-4"
+                >
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Total Dibayar</label>
+                    <input
+                      type="text"
+                      value={payAmount || ''}
+                      onChange={(e) => setPayAmount(Number(e.target.value.replace(/\D/g, '')) || 0)}
+                      className="w-full px-4 py-3 border border-slate-200 rounded-xl font-mono font-bold text-slate-800 bg-white text-lg"
+                      placeholder="0"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Tanggal</label>
+                    <input
+                      type="date"
+                      value={payDate}
+                      onChange={(e) => setPayDate(e.target.value)}
+                      className="w-full px-4 py-3 border border-slate-200 rounded-xl text-slate-800 bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Dibayar Ke</label>
+                    <select
+                      value={payMethod}
+                      onChange={(e) => setPayMethod(e.target.value)}
+                      className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-white text-slate-800"
+                    >
+                      <option value="Transfer BCA">Transfer BCA</option>
+                      <option value="Transfer Mandiri">Transfer Mandiri</option>
+                      <option value="Transfer BRI">Transfer BRI</option>
+                      <option value="Tunai">Tunai / Cash</option>
+                      <option value="QRIS">QRIS</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Referensi</label>
+                    <input
+                      type="text"
+                      value={payRefNumber}
+                      onChange={(e) => setPayRefNumber(e.target.value)}
+                      placeholder="No. Kwitansi / Ref"
+                      className="w-full px-4 py-3 border border-slate-200 rounded-xl font-mono text-slate-800 bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Catatan</label>
+                    <input
+                      type="text"
+                      value={payNotes}
+                      onChange={(e) => setPayNotes(e.target.value)}
+                      placeholder="Opsional"
+                      className="w-full px-4 py-3 border border-slate-200 rounded-xl text-slate-800 bg-white"
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={isSavingPayment}
+                    className="w-full bg-[#2563EB] text-white py-3.5 rounded-xl font-bold mt-4 shadow-md flex items-center justify-center text-lg disabled:opacity-50"
+                  >
+                    {isSavingPayment ? 'Menyimpan...' : 'Simpan Pembayaran'}
+                  </button>
+
+                  {inv.paymentHistory && inv.paymentHistory.length > 0 && (
+                    <div className="mt-8 pt-6 border-t border-slate-200">
+                      <h4 className="font-bold text-slate-800 mb-4">Riwayat</h4>
+                      <div className="space-y-3">
+                        {inv.paymentHistory.map((p, pIdx) => (
+                          <div key={p.id || pIdx} className="bg-white p-4 rounded-xl border border-slate-200 flex flex-col gap-1">
+                            <div className="flex justify-between items-center">
+                              <span className="font-bold text-slate-800">Rp {formatCurrency(p.amount)}</span>
+                              <span className="text-xs text-slate-500">{formatDateIndo(p.date)}</span>
+                            </div>
+                            <p className="text-xs text-slate-500">{p.method || 'Transfer'}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </form>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* ===== DESKTOP DETAIL (existing, md+) ===== */}
+        <div className="hidden md:block p-4 md:p-6 max-w-7xl mx-auto space-y-6 print:p-0 print:max-w-none">
+          {/* Top Navigation & Action Header (Hidden during browser print) */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 print:hidden">
           <div className="flex items-center gap-3">
             <button
@@ -1023,7 +1376,8 @@ export const InvoiceGenerator: React.FC = () => {
             </div>
           </div>
         </div>
-      </div>
+        </div>
+      </>
     );
   }
 

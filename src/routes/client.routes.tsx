@@ -115,8 +115,13 @@ export const renderClientRoute = (props: any) => {
                         }
                         if (props.setEditingCvProfileId) props.setEditingCvProfileId(null);
                         alert('Profil CV berhasil disimpan!');
-                    } catch (e) {
-                        handleFirestoreError(e, OperationType.WRITE, `cv_profiles/${profileData.id}`);
+                    } catch (e: any) {
+                        if (e instanceof Error && e.message.startsWith('KLIEN_NAME_EXISTS:')) {
+                          const dupName = e.message.split('KLIEN_NAME_EXISTS:')[1];
+                          alert(`Gagal menyimpan: Klien dengan nama "${dupName}" sudah ada!`);
+                        } else {
+                          handleFirestoreError(e, OperationType.WRITE, `cv_profiles/${profileData.id}`);
+                        }
                     } finally {
                         if (props.setIsSaving) props.setIsSaving(false);
                     }

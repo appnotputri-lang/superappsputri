@@ -23,10 +23,32 @@ import {
   ChevronUp,
   FolderPlus,
   Compass,
-  ArrowUpRight
+  ArrowUpRight,
+  BookOpen,
+  Menu,
+  Bell,
+  BellOff,
+  AlertTriangle,
+  Info,
+  X
 } from 'lucide-react';
+import { db } from '../lib/firebase';
+import { doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { ProjectService } from '../services/ProjectService';
 import { Project, Party } from '../domain/project/Project';
+import { NotaryService } from '../services/NotaryService';
+import { InvoiceService } from '../services/InvoiceService';
+import { Deed, Invoice, OutgoingMail } from '../../types';
+import { Mail, CreditCard } from 'lucide-react';
+
+const getActivityIcon = (type: 'proyek' | 'akta' | 'invoice' | 'surat') => {
+  switch (type) {
+    case 'proyek': return { Icon: Briefcase, bg: 'bg-blue-50', color: 'text-blue-600' };
+    case 'akta': return { Icon: FileText, bg: 'bg-emerald-50', color: 'text-emerald-600' };
+    case 'invoice': return { Icon: CreditCard, bg: 'bg-red-50', color: 'text-red-600' };
+    case 'surat': return { Icon: Mail, bg: 'bg-blue-50', color: 'text-blue-600' };
+  }
+};
 
 interface DashboardProps {
   profiles: any[];
@@ -36,12 +58,15 @@ interface DashboardProps {
   compiledActivities: any[];
   compiledDocuments: any[];
   setActiveSidebarTab: (tab: string) => void;
-  setEditingProjectId: (id: string | null) => void;
-  setEditingRupstId: (id: string | null) => void;
-  updateData: (data: any) => void;
-  INITIAL_STATE: any;
-  handleDownloadProject: (project: any) => void;
+  setEditingProjectId?: (id: string | null) => void;
+  setEditingRupstId?: (id: string | null) => void;
+  updateData?: (data: any) => void;
+  INITIAL_STATE?: any;
+  handleDownloadProject?: (project: any) => void;
   currentUser?: any;
+  setIsSidebarOpen?: (v: boolean) => void;
+  notifications?: any[];
+  userProfile?: any;
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({
@@ -51,10 +76,28 @@ export const Dashboard: React.FC<DashboardProps> = ({
   pendirianProjects = [],
   compiledActivities = [],
   setActiveSidebarTab,
-  currentUser
+  currentUser,
+  setIsSidebarOpen,
+  notifications = [],
+  userProfile
 }) => {
   const [officeProjects, setOfficeProjects] = useState<Project[]>([]);
   const [loadingStats, setLoadingStats] = useState(true);
+
+  const [deeds, setDeeds] = useState<Deed[]>([]);
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [outgoingMails, setOutgoingMails] = useState<OutgoingMail[]>([]);
+
+  useEffect(() => {
+    const unsubDeeds = NotaryService.subscribeDeeds(setDeeds);
+    const unsubInvoices = InvoiceService.subscribeInvoices(setInvoices);
+    const unsubMails = NotaryService.subscribeOutgoingMails(setOutgoingMails);
+    return () => {
+      unsubDeeds();
+      unsubInvoices();
+      unsubMails();
+    };
+  }, []);
 
   // Date filter state for PMPJ
   const [startDate, setStartDate] = useState<string>('');
@@ -216,6 +259,20 @@ export const Dashboard: React.FC<DashboardProps> = ({
     return completedProj + completedAct;
   }, [officeProjects, compiledActivities]);
 
+  const aktaBulanIniCount = useMemo(() => {
+    const now = new Date();
+    return deeds.filter(d => {
+      const dateVal = d.deedDate || d.date;
+      if (!dateVal) return false;
+      const dt = new Date(dateVal);
+      return !isNaN(dt.getTime()) && dt.getMonth() === now.getMonth() && dt.getFullYear() === now.getFullYear();
+    }).length;
+  }, [deeds]);
+
+  const invoiceBelumDibayarCount = useMemo(() => {
+    return invoices.filter(inv => inv.status === 'UNPAID').length;
+  }, [invoices]);
+
   // 5. Monthly project creation trend chart data (Calculated from real officeProjects created dates)
   const monthlyChartData: DataPoint[] = useMemo(() => {
     const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
@@ -267,36 +324,70 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
   // 6. Recent Activities list
   const recentActivitiesList = useMemo(() => {
-    const items: Array<{ id: string; desc: string; time: string; timestamp: number; user: string }> = [];
-
-    if (compiledActivities && compiledActivities.length > 0) {
-      compiledActivities.forEach(act => {
-        items.push({
-          id: act.id || Math.random().toString(),
-          desc: act.desc || act.title || act.action || 'Aktivitas sistem',
-          time: act.time || 'Baru saja',
-          timestamp: act.createdAt ? new Date(act.createdAt).getTime() : Date.now(),
-          user: act.user || act.createdBy || 'ADMIN'
-        });
-      });
-    }
+    const items: Array<{ id: string; desc: string; subtitle: string; time: string; timestamp: number; type: 'proyek' | 'akta' | 'invoice' | 'surat' }> = [];
 
     officeProjects.forEach(p => {
       if (p.updatedAt || p.createdAt) {
         const d = new Date(p.updatedAt || p.createdAt);
-        const timeStr = isNaN(d.getTime()) ? 'Baru saja' : d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
         items.push({
-          id: p.projectId,
-          desc: `Proyek "${p.title || p.jobType}" diupdate (${p.status})`,
-          time: timeStr,
+          id: `proj_${p.projectId}`,
+          desc: `Proyek "${p.title || p.jobType}"`,
+          subtitle: `${p.status}`,
+          time: isNaN(d.getTime()) ? 'Baru saja' : d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
           timestamp: isNaN(d.getTime()) ? 0 : d.getTime(),
-          user: p.assignedTo || 'ADMIN'
+          type: 'proyek'
         });
       }
     });
 
-    return items.sort((a, b) => b.timestamp - a.timestamp).slice(0, 4);
-  }, [compiledActivities, officeProjects]);
+    deeds.forEach(deed => {
+      const dateVal = deed.createdAt || deed.deedDate || deed.date;
+      if (dateVal) {
+        const d = new Date(dateVal);
+        items.push({
+          id: `deed_${deed.id}`,
+          desc: `Akta No. ${deed.deedNumber || deed.number} telah selesai dibuat`,
+          subtitle: 'Disimpan ke Buku Daftar Akta',
+          time: isNaN(d.getTime()) ? 'Baru saja' : d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
+          timestamp: isNaN(d.getTime()) ? 0 : d.getTime(),
+          type: 'akta'
+        });
+      }
+    });
+
+    invoices.forEach(inv => {
+      const dateVal = inv.createdAt || inv.issueDate;
+      if (dateVal) {
+        const d = new Date(dateVal);
+        const isUnpaid = inv.status === 'UNPAID';
+        items.push({
+          id: `inv_${inv.id}`,
+          desc: `Invoice ${inv.invoiceNumber} ${isUnpaid ? 'belum dibayar' : 'telah lunas'}`,
+          subtitle: isUnpaid && inv.dueDate ? `Jatuh tempo ${new Date(inv.dueDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}` : inv.clientName,
+          time: isNaN(d.getTime()) ? 'Baru saja' : d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
+          timestamp: isNaN(d.getTime()) ? 0 : d.getTime(),
+          type: 'invoice'
+        });
+      }
+    });
+
+    outgoingMails.forEach(mail => {
+      const dateVal = mail.createdAt || mail.date;
+      if (dateVal) {
+        const d = new Date(dateVal);
+        items.push({
+          id: `mail_${mail.id}`,
+          desc: `Surat Keluar No. ${mail.mailNumber}`,
+          subtitle: `Terkirim ke ${mail.recipient}`,
+          time: isNaN(d.getTime()) ? 'Baru saja' : d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
+          timestamp: isNaN(d.getTime()) ? 0 : d.getTime(),
+          type: 'surat'
+        });
+      }
+    });
+
+    return items.sort((a, b) => b.timestamp - a.timestamp).slice(0, 6);
+  }, [officeProjects, deeds, invoices, outgoingMails]);
 
   // PMPJ / SRA Data processing
   const filteredProjectsForStats = useMemo(() => {
@@ -420,8 +511,333 @@ export const Dashboard: React.FC<DashboardProps> = ({
       .sort((a, b) => b.value - a.value);
   }, [allParties]);
 
+  const [isMobileNotifOpen, setIsMobileNotifOpen] = useState(false);
+
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour >= 4 && hour < 11) return 'Selamat pagi';
+    if (hour >= 11 && hour < 15) return 'Selamat siang';
+    if (hour >= 15 && hour < 19) return 'Selamat sore';
+    return 'Selamat malam';
+  };
+
+  const unreadCount = useMemo(() => {
+    return (notifications || []).filter((n: any) => !n.read).length;
+  }, [notifications]);
+
+  const firstName = userProfile?.name?.split(' ')[0] || currentUser?.name?.split(' ')[0] || 'ADMIN';
+
   return (
-    <PageContainer>
+    <>
+      {/* ===== MOBILE-ONLY HOMESCREEN (< md) ===== */}
+      <div className="md:hidden -m-4 sm:-m-6 bg-[#f8fafc] pb-8">
+        {/* 1. HERO HEADER BIRU */}
+        <div className="relative bg-[#1e61c3] text-white pt-[calc(env(safe-area-inset-top)+1.25rem)] pb-10 px-5 rounded-b-[2rem] shadow-md overflow-hidden">
+          {/* Top Row: Hamburger + Superapps Putri + Bell */}
+          <div className="flex items-center justify-between mb-6 relative z-10">
+            <div className="flex items-center gap-3">
+              <button 
+                onClick={() => setIsSidebarOpen?.(true)} 
+                className="p-1.5 -ml-1.5 rounded-xl text-white hover:bg-white/10 active:scale-95 transition-all cursor-pointer"
+                aria-label="Open menu"
+              >
+                <Menu size={24} />
+              </button>
+              <h1 className="text-lg font-bold text-white tracking-tight">Superapps Putri</h1>
+            </div>
+
+            <div className="relative">
+              <button 
+                onClick={() => setIsMobileNotifOpen(prev => !prev)} 
+                className="p-2 -mr-1 rounded-full text-white hover:bg-white/10 active:scale-95 relative transition-all cursor-pointer"
+                aria-label="Notifications"
+              >
+                <Bell size={22} />
+                {unreadCount > 0 && (
+                  <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-[#1e61c3]" />
+                )}
+              </button>
+
+              {/* Mobile Notification Bottom Sheet */}
+              {isMobileNotifOpen && (
+                <div className="fixed inset-0 z-[120] flex flex-col justify-end pointer-events-none">
+                  <div 
+                    className="absolute inset-0 bg-black/50 pointer-events-auto backdrop-blur-xs transition-opacity" 
+                    onClick={() => setIsMobileNotifOpen(false)} 
+                  />
+                  <div className="relative pointer-events-auto w-full bg-white rounded-t-3xl max-h-[75vh] flex flex-col shadow-2xl overflow-hidden z-10 animate-in slide-in-from-bottom duration-200">
+                    <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 bg-slate-50/80 shrink-0">
+                      <span className="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                        <Bell className="w-4 h-4 text-blue-600" /> Notifikasi
+                      </span>
+                      <div className="flex items-center gap-3">
+                        {unreadCount > 0 && (
+                          <button 
+                            onClick={async () => {
+                              try {
+                                const unreadNotifs = (notifications || []).filter((n: any) => !n.read);
+                                await Promise.all(
+                                  unreadNotifs.map((n: any) => updateDoc(doc(db, 'notifications', n.id), { read: true }))
+                                );
+                              } catch (err) {
+                                console.error("Gagal tandai semua dibaca:", err);
+                              }
+                            }}
+                            className="text-xs text-blue-600 hover:text-blue-800 font-bold cursor-pointer"
+                          >
+                            Tandai semua dibaca
+                          </button>
+                        )}
+                        <button 
+                          onClick={() => setIsMobileNotifOpen(false)}
+                          className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full cursor-pointer transition-colors"
+                        >
+                          <X size={20} />
+                        </button>
+                      </div>
+                    </div>
+                    
+                    <div className="flex-1 overflow-y-auto divide-y divide-slate-100 p-1">
+                      {(!notifications || notifications.length === 0) ? (
+                        <div className="flex flex-col items-center justify-center py-12 text-center px-4">
+                          <BellOff className="w-10 h-10 text-slate-300 mb-2" />
+                          <p className="text-sm text-slate-600 font-semibold">Tidak ada notifikasi baru</p>
+                          <p className="text-xs text-slate-400 mt-1">Semua info terbaru dari sistem akan muncul di sini</p>
+                        </div>
+                      ) : (
+                        [...notifications].sort((a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).map((notif: any) => (
+                          <div key={notif.id} className={`p-4 transition-colors flex gap-3 items-start text-left ${!notif.read ? 'bg-blue-50/40' : 'bg-white'}`}>
+                            {/* Status Type Icon */}
+                            <div className={`mt-0.5 p-2 rounded-xl shrink-0 ${
+                              notif.type === 'SUCCESS' ? 'bg-emerald-50 text-emerald-600' :
+                              notif.type === 'ERROR' ? 'bg-rose-50 text-rose-600' :
+                              notif.type === 'WARNING' ? 'bg-amber-50 text-amber-600' :
+                              'bg-blue-50 text-blue-600'
+                            }`}>
+                              {notif.type === 'SUCCESS' ? <CheckCircle2 className="w-4 h-4" /> :
+                               notif.type === 'ERROR' ? <AlertCircle className="w-4 h-4" /> :
+                               notif.type === 'WARNING' ? <AlertTriangle className="w-4 h-4" /> :
+                               <Info className="w-4 h-4" />}
+                            </div>
+
+                            {/* Content */}
+                            <div className="flex-1 space-y-1 min-w-0">
+                              <div className="flex items-start justify-between gap-2">
+                                <span className={`text-xs block leading-tight truncate ${!notif.read ? 'font-bold text-slate-900' : 'text-slate-700'}`}>
+                                  {notif.title}
+                                </span>
+                                <span className="text-[10px] text-slate-400 font-medium whitespace-nowrap shrink-0">
+                                  {(() => {
+                                    try {
+                                      const diffMs = Date.now() - new Date(notif.timestamp).getTime();
+                                      const diffMins = Math.floor(diffMs / 60000);
+                                      if (diffMins < 1) return 'Baru saja';
+                                      if (diffMins < 60) return `${diffMins}m lalu`;
+                                      const diffHours = Math.floor(diffMins / 60);
+                                      if (diffHours < 24) return `${diffHours}j lalu`;
+                                      return new Date(notif.timestamp).toLocaleDateString('id-ID', {day: 'numeric', month: 'short'});
+                                    } catch {
+                                      return 'Baru saja';
+                                    }
+                                  })()}
+                                </span>
+                              </div>
+                              <p className="text-xs text-slate-500 leading-normal break-words">{notif.description}</p>
+                              
+                              {/* Actions */}
+                              <div className="flex gap-4 pt-2">
+                                {!notif.read && (
+                                  <button 
+                                    onClick={async () => {
+                                      try {
+                                        await updateDoc(doc(db, 'notifications', notif.id), { read: true });
+                                      } catch (err) {
+                                        console.error("Gagal tandai dibaca:", err);
+                                      }
+                                    }}
+                                    className="text-xs text-blue-600 hover:text-blue-800 font-bold cursor-pointer"
+                                  >
+                                    Tandai Dibaca
+                                  </button>
+                                )}
+                                <button 
+                                  onClick={async () => {
+                                    try {
+                                      await deleteDoc(doc(db, 'notifications', notif.id));
+                                    } catch (err) {
+                                      console.error("Gagal menghapus notifikasi:", err);
+                                    }
+                                  }}
+                                  className="text-xs text-slate-400 hover:text-red-600 font-medium cursor-pointer"
+                                >
+                                  Hapus
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Greeting & Headline */}
+          <div className="relative z-10 pt-2 pb-1 space-y-1.5 max-w-xs">
+            <p className="text-xs text-blue-100 font-medium tracking-wide">{getGreeting()},</p>
+            <h2 className="text-2xl font-black text-white tracking-wide">
+              {userProfile?.name || currentUser?.name || 'ADMIN'} 👋
+            </h2>
+            <p className="text-[12px] text-blue-100/90 leading-snug pt-1 font-normal">
+              Kelola pekerjaan dan arsip notaris/PPAT lebih mudah dalam satu aplikasi.
+            </p>
+          </div>
+
+          {/* Dots Grid Decorative Pattern */}
+          <div className="absolute right-4 top-14 grid grid-cols-5 gap-2 opacity-25 pointer-events-none">
+            {Array.from({ length: 25 }).map((_, i) => (
+              <div key={i} className="w-1.5 h-1.5 rounded-full bg-white" />
+            ))}
+          </div>
+        </div>
+
+        {/* Content Section (Overlapping rounded top card) */}
+        <div className="relative z-10 -mt-4 bg-[#f8fafc] rounded-t-[2.5rem] pt-5 px-4 space-y-6">
+          
+          {/* 2. RINGKASAN HARI INI (3 cards in grid-cols-3) */}
+          <div>
+            <div className="flex items-center justify-between mb-3 px-1">
+              <h3 className="text-sm font-bold text-slate-900">Ringkasan Hari Ini</h3>
+              <span className="text-xs font-medium text-slate-400">
+                {new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2.5">
+              {/* Proyek Aktif */}
+              <button 
+                onClick={() => setActiveSidebarTab('projects')} 
+                className="bg-white rounded-2xl p-3 border border-slate-100 shadow-xs text-left flex flex-col justify-between hover:shadow-md active:scale-95 transition-all cursor-pointer"
+              >
+                <div>
+                  <div className="p-2 bg-blue-50 text-blue-600 rounded-xl w-fit mb-2.5">
+                    <Briefcase size={18} />
+                  </div>
+                  <p className="text-xl font-extrabold text-slate-900 leading-none">{runningProjectsCount}</p>
+                  <p className="text-[11px] font-bold text-slate-700 mt-1">Proyek Aktif</p>
+                </div>
+                <span className="text-[10px] font-bold text-blue-600 flex items-center gap-0.5 mt-2.5">
+                  Lihat detail <ChevronRight size={12} />
+                </span>
+              </button>
+
+              {/* Akta Bulan Ini */}
+              <button 
+                onClick={() => setActiveSidebarTab('deeds')} 
+                className="bg-white rounded-2xl p-3 border border-slate-100 shadow-xs text-left flex flex-col justify-between hover:shadow-md active:scale-95 transition-all cursor-pointer"
+              >
+                <div>
+                  <div className="p-2 bg-emerald-50 text-emerald-600 rounded-xl w-fit mb-2.5">
+                    <FileText size={18} />
+                  </div>
+                  <p className="text-xl font-extrabold text-slate-900 leading-none">{aktaBulanIniCount}</p>
+                  <p className="text-[11px] font-bold text-slate-700 mt-1">Akta Bulan Ini</p>
+                </div>
+                <span className="text-[10px] font-bold text-blue-600 flex items-center gap-0.5 mt-2.5">
+                  Lihat detail <ChevronRight size={12} />
+                </span>
+              </button>
+
+              {/* Invoice Belum Dibayar */}
+              <button 
+                onClick={() => setActiveSidebarTab('invoice')} 
+                className="bg-white rounded-2xl p-3 border border-slate-100 shadow-xs text-left flex flex-col justify-between hover:shadow-md active:scale-95 transition-all cursor-pointer"
+              >
+                <div>
+                  <div className="p-2 bg-rose-50 text-rose-500 rounded-xl w-fit mb-2.5">
+                    <CreditCard size={18} />
+                  </div>
+                  <p className="text-xl font-extrabold text-slate-900 leading-none">{invoiceBelumDibayarCount}</p>
+                  <p className="text-[11px] font-bold text-slate-700 mt-1">Invoice Belum Dibayar</p>
+                </div>
+                <span className="text-[10px] font-bold text-blue-600 flex items-center gap-0.5 mt-2.5">
+                  Lihat detail <ChevronRight size={12} />
+                </span>
+              </button>
+            </div>
+          </div>
+
+          {/* 3. QUICK ACTION (8 items, grid-cols-4, 2 rows) */}
+          <div>
+            <h3 className="text-sm font-bold text-slate-900 mb-3 px-1">Quick Action</h3>
+            <div className="grid grid-cols-4 gap-2.5">
+              {[
+                { label: 'Proyek Baru', icon: FolderPlus, bg: 'bg-blue-50 text-blue-600', tab: 'projects' },
+                { label: 'Klien Baru', icon: Users, bg: 'bg-amber-50 text-amber-600', tab: 'company_profile' },
+                { label: 'Buat Akta', icon: FileText, bg: 'bg-emerald-50 text-emerald-600', tab: 'deeds' },
+                { label: 'Buat Invoice', icon: CreditCard, bg: 'bg-purple-50 text-purple-600', tab: 'invoice' },
+                { label: 'Surat Baru', icon: Mail, bg: 'bg-slate-100 text-slate-600', tab: 'outgoing_mail' },
+                { label: 'Buku Akta', icon: BookOpen, bg: 'bg-blue-50 text-blue-600', tab: 'deeds' },
+                { label: 'Legalisasi & Waarmerking', icon: ShieldCheck, bg: 'bg-teal-50 text-teal-600', tab: 'private_deeds' },
+                { label: 'Laporan Bulanan', icon: BarChart2, bg: 'bg-amber-50 text-amber-600', tab: 'notary_reports' },
+              ].map((qa, idx) => (
+                <button 
+                  key={idx} 
+                  onClick={() => setActiveSidebarTab(qa.tab)} 
+                  className="bg-white rounded-2xl border border-slate-100 shadow-xs p-2.5 flex flex-col items-center justify-center text-center cursor-pointer hover:shadow-md active:scale-95 transition-all min-h-[92px]"
+                >
+                  <div className={`${qa.bg} p-2.5 rounded-2xl mb-1 flex items-center justify-center`}>
+                    <qa.icon size={18} />
+                  </div>
+                  <span className="text-[10px] font-bold text-slate-800 leading-tight text-center">
+                    {qa.label}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* 4. AKTIVITAS TERBARU */}
+          <div className="pb-4">
+            <div className="flex items-center justify-between mb-3 px-1">
+              <h3 className="text-sm font-bold text-slate-900">Aktivitas Terbaru</h3>
+              <button 
+                onClick={() => setActiveSidebarTab('projects')} 
+                className="text-xs font-bold text-blue-600 flex items-center gap-0.5 cursor-pointer"
+              >
+                Lihat semua <ChevronRight size={14} />
+              </button>
+            </div>
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-xs divide-y divide-slate-100">
+              {recentActivitiesList.length === 0 ? (
+                <div className="p-6 text-center text-xs text-slate-400 font-medium">Belum ada aktivitas terbaru.</div>
+              ) : recentActivitiesList.map((act) => {
+                const { Icon, bg, color } = getActivityIcon(act.type);
+                return (
+                  <div key={act.id} className="flex items-center gap-3 p-3.5">
+                    <div className={`${bg} ${color} p-2 rounded-xl shrink-0`}>
+                      <Icon size={16} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-bold text-slate-800 truncate">{act.desc}</p>
+                      <p className="text-[11px] text-slate-400 truncate mt-0.5">{act.subtitle}</p>
+                    </div>
+                    <span className="text-[11px] text-slate-400 font-medium shrink-0">{act.time}</span>
+                    <ChevronRight size={14} className="text-slate-300 shrink-0" />
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      {/* ===== DESKTOP HOMESCREEN (existing, md+) ===== */}
+      <div className="hidden md:block">
+        <PageContainer>
       {/* 1. Top Stats Row: 3 Gradient Cards + Ringkasan Hari Ini */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5">
         
@@ -662,7 +1078,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                       </div>
                       <div className="min-w-0">
                         <h4 className="text-xs font-bold text-slate-800 truncate">{act.desc}</h4>
-                        <p className="text-[10px] text-slate-400">oleh {act.user}</p>
+                        <p className="text-[10px] text-slate-400 truncate">{act.subtitle}</p>
                       </div>
                     </div>
                     <span className="text-[10px] font-medium text-slate-400 shrink-0 font-mono">{act.time}</span>
@@ -923,7 +1339,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
       {currentUser?.role === 'Super Admin' && (
         <MigrationTool />
       )}
-    </PageContainer>
+        </PageContainer>
+      </div>
+    </>
   );
 };
 

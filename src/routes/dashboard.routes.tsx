@@ -17,7 +17,10 @@ export const renderDashboardRoute = (props: any) => {
       updateData={props.updateData}
       INITIAL_STATE={INITIAL_STATE}
       handleDownloadProject={props.handleDownloadProject || (() => {})}
-      currentUser={props.userProfile}
+      currentUser={props.userProfile || props.user}
+      setIsSidebarOpen={props.setIsSidebarOpen}
+      notifications={props.notifications}
+      userProfile={props.userProfile}
     />
   );
 };

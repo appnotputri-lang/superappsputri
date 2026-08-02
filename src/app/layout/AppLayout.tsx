@@ -1,6 +1,7 @@
 import React from 'react';
 import { Sidebar } from '../../components/layout/Sidebar';
 import { Header } from '../../components/layout/Header';
+import { BottomNav } from '../../components/layout/BottomNav';
 import { ALLOWED_EMAILS } from '../../constants/appConstants';
 import { UserProfile, SidebarTabId } from '../../../types';
 import { EmbedSsoWaitingView } from '../../components/auth/EmbedSsoWaitingView';
@@ -151,22 +152,24 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
       )}
 
       <div className="flex-1 flex flex-col h-full overflow-hidden">
-        <Header
-          user={user}
-          isSidebarOpen={isSidebarOpen}
-          setIsSidebarOpen={setIsSidebarOpen}
-          userProfile={userProfile}
-          notifications={notifications}
-          isNotificationOpen={isNotificationOpen}
-          setIsNotificationOpen={setIsNotificationOpen}
-          isUserDropdownOpen={isUserDropdownOpen}
-          setIsUserDropdownOpen={setIsUserDropdownOpen}
-          setIsEditProfileModalOpen={setIsEditProfileModalOpen}
-          setActiveSidebarTab={setActiveSidebarTab}
-          loginWithGoogle={loginWithGoogle}
-          logout={logout}
-        />
-        <main className="flex-1 overflow-y-auto bg-[#f8fafc] scroll-smooth">
+        <div className={activeSidebarTab === 'beranda' ? 'hidden md:block' : ''}>
+          <Header
+            user={user}
+            isSidebarOpen={isSidebarOpen}
+            setIsSidebarOpen={setIsSidebarOpen}
+            userProfile={userProfile}
+            notifications={notifications}
+            isNotificationOpen={isNotificationOpen}
+            setIsNotificationOpen={setIsNotificationOpen}
+            isUserDropdownOpen={isUserDropdownOpen}
+            setIsUserDropdownOpen={setIsUserDropdownOpen}
+            setIsEditProfileModalOpen={setIsEditProfileModalOpen}
+            setActiveSidebarTab={setActiveSidebarTab}
+            loginWithGoogle={loginWithGoogle}
+            logout={logout}
+          />
+        </div>
+        <main className="flex-1 overflow-y-auto bg-[#f8fafc] scroll-smooth pb-0">
           {children}
         </main>
       </div>
