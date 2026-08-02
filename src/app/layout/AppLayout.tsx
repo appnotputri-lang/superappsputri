@@ -121,6 +121,14 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
     );
   }
 
+  if (isPublicRoute) {
+    return (
+      <div className="h-screen w-full overflow-y-auto bg-[#f8fafc]">
+        {children}
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-screen bg-[#f8fafc] overflow-hidden">
       {user && (
