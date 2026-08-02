@@ -1569,10 +1569,10 @@ export const InvoiceGenerator: React.FC = () => {
 
       {/* Modal Quick Create Local Client */}
       {isNewClientModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-md w-full p-6 space-y-4 max-h-[90vh] flex flex-col">
-            <div className="flex items-center justify-between border-b border-slate-200 pb-3 flex-shrink-0">
-              <h3 className="font-bold text-slate-800 text-sm">Input Klien Baru</h3>
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-[200] flex items-center justify-center p-4">
+          <div className="bg-slate-50 border border-slate-300 rounded-sm shadow-2xl max-w-lg w-full p-5 space-y-4 max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-2.5 flex-shrink-0">
+              <h3 className="font-bold text-[#333] text-[13px] uppercase tracking-wider">INPUT KLIEN BARU</h3>
               <button
                 onClick={() => setIsNewClientModalOpen(false)}
                 className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
@@ -1581,96 +1581,115 @@ export const InvoiceGenerator: React.FC = () => {
               </button>
             </div>
 
-            <div className="space-y-3 text-xs overflow-y-auto pr-1 flex-1">
+            <div className="space-y-4 overflow-y-auto pr-1 flex-1 text-[11px]">
+              {/* Seksi Profil Klien */}
               <div>
-                <label className="block font-bold text-slate-700 mb-1">Tipe Klien *</label>
-                <select
-                  value={newClientTypeInput}
-                  onChange={(e) => setNewClientTypeInput(e.target.value as 'PT' | 'CV')}
-                  className="w-full p-2.5 border border-slate-200 rounded-xl focus:outline-none bg-white cursor-pointer"
-                >
-                  <option value="PT">PT (Perseroan Terbatas)</option>
-                  <option value="CV">CV (Persekutuan Komanditer)</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">Nama Klien / Perusahaan *</label>
-                <input
-                  type="text"
-                  required
-                  value={newClientNameInput}
-                  onChange={(e) => setNewClientNameInput(e.target.value)}
-                  placeholder={newClientTypeInput === 'CV' ? 'e.g. CV MAJU JAYA' : 'e.g. PT MAJU JAYA'}
-                  className="w-full p-2.5 border border-slate-200 rounded-xl focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">Kedudukan (Kab/Kota)</label>
-                <input
-                  type="text"
-                  value={newClientDomicileInput}
-                  onChange={(e) => setNewClientDomicileInput(e.target.value)}
-                  placeholder="e.g. Kota Bandung atau Kabupaten Bandung Barat"
-                  className="w-full p-2.5 border border-slate-200 rounded-xl focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">Email</label>
-                <input
-                  type="email"
-                  value={newClientEmailInput}
-                  onChange={(e) => setNewClientEmailInput(e.target.value)}
-                  placeholder="email@klien.com"
-                  className="w-full p-2.5 border border-slate-200 rounded-xl focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">Telepon</label>
-                <input
-                  type="text"
-                  value={newClientPhoneInput}
-                  onChange={(e) => setNewClientPhoneInput(e.target.value)}
-                  placeholder="08123456789"
-                  className="w-full p-2.5 border border-slate-200 rounded-xl focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">Alamat Lengkap</label>
-                <textarea
-                  value={newClientAddressInput}
-                  onChange={(e) => setNewClientAddressInput(e.target.value)}
-                  placeholder="Alamat lengkap..."
-                  rows={2}
-                  className="w-full p-2.5 border border-slate-200 rounded-xl focus:outline-none resize-none"
-                />
-              </div>
-
-              <div className="border-t border-dashed border-slate-200 pt-3 mt-3">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-2">Informasi PIC (Tidak Wajib)</span>
-                <div className="space-y-3">
+                <div className="bg-[#f5f5f5] px-3 py-1.5 border border-slate-200 border-b-0 rounded-t-sm font-bold text-[11px] text-[#333] uppercase">
+                  Profil Klien
+                </div>
+                <div className="p-3.5 border border-slate-200 rounded-b-sm bg-white space-y-3">
                   <div>
-                    <label className="block font-bold text-slate-700 mb-1">Nama PIC</label>
+                    <label className="text-[10px] font-bold text-slate-600 block uppercase mb-1">Tipe Klien *</label>
+                    <select
+                      value={newClientTypeInput}
+                      onChange={(e) => setNewClientTypeInput(e.target.value as 'PT' | 'CV')}
+                      className="w-full text-[12px] border border-slate-300 rounded-sm p-1.5 bg-white font-medium focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all cursor-pointer"
+                    >
+                      <option value="PT">PT (Perseroan Terbatas)</option>
+                      <option value="CV">CV (Persekutuan Komanditer)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-600 block uppercase mb-1">Nama Klien / Perusahaan *</label>
+                    <input
+                      type="text"
+                      required
+                      value={newClientNameInput}
+                      onChange={(e) => setNewClientNameInput(e.target.value)}
+                      placeholder={newClientTypeInput === 'CV' ? 'e.g. CV MAJU JAYA' : 'e.g. PT MAJU JAYA'}
+                      className="w-full text-[12px] border border-slate-300 rounded-sm p-1.5 font-medium focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-600 block uppercase mb-1">Kedudukan (Kab/Kota)</label>
+                    <input
+                      type="text"
+                      value={newClientDomicileInput}
+                      onChange={(e) => setNewClientDomicileInput(e.target.value)}
+                      placeholder="e.g. Kota Bandung atau Kabupaten Bandung Barat"
+                      className="w-full text-[12px] border border-slate-300 rounded-sm p-1.5 font-medium focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Seksi Kontak Klien */}
+              <div>
+                <div className="bg-[#f5f5f5] px-3 py-1.5 border border-slate-200 border-b-0 rounded-t-sm font-bold text-[11px] text-[#333] uppercase">
+                  Kontak Klien
+                </div>
+                <div className="p-3.5 border border-slate-200 rounded-b-sm bg-white space-y-3">
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-600 block uppercase mb-1">Email</label>
+                    <input
+                      type="email"
+                      value={newClientEmailInput}
+                      onChange={(e) => setNewClientEmailInput(e.target.value)}
+                      placeholder="email@klien.com"
+                      className="w-full text-[12px] border border-slate-300 rounded-sm p-1.5 font-medium focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-600 block uppercase mb-1">Telepon</label>
+                    <input
+                      type="text"
+                      value={newClientPhoneInput}
+                      onChange={(e) => setNewClientPhoneInput(e.target.value)}
+                      placeholder="08123456789"
+                      className="w-full text-[12px] border border-slate-300 rounded-sm p-1.5 font-medium focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-600 block uppercase mb-1">Alamat Lengkap</label>
+                    <textarea
+                      value={newClientAddressInput}
+                      onChange={(e) => setNewClientAddressInput(e.target.value)}
+                      placeholder="Alamat lengkap..."
+                      rows={2}
+                      className="w-full text-[12px] border border-slate-300 rounded-sm p-1.5 font-medium focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all resize-none"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Seksi Informasi PIC */}
+              <div>
+                <div className="bg-[#f5f5f5] px-3 py-1.5 border border-slate-200 border-b-0 rounded-t-sm font-bold text-[11px] text-[#333] uppercase">
+                  Informasi PIC (Tidak Wajib)
+                </div>
+                <div className="p-3.5 border border-slate-200 rounded-b-sm bg-white space-y-3">
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-600 block uppercase mb-1">Nama PIC</label>
                     <input
                       type="text"
                       value={newClientPicNameInput}
                       onChange={(e) => setNewClientPicNameInput(e.target.value)}
                       placeholder="Nama lengkap PIC"
-                      className="w-full p-2.5 border border-slate-200 rounded-xl focus:outline-none"
+                      className="w-full text-[12px] border border-slate-300 rounded-sm p-1.5 font-medium focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all"
                     />
                   </div>
                   <div>
-                    <label className="block font-bold text-slate-700 mb-1">Telepon / WA PIC</label>
+                    <label className="text-[10px] font-bold text-slate-600 block uppercase mb-1">Telepon / WA PIC</label>
                     <input
                       type="text"
                       value={newClientPicPhoneInput}
                       onChange={(e) => setNewClientPicPhoneInput(e.target.value)}
                       placeholder="e.g. 08123456789"
-                      className="w-full p-2.5 border border-slate-200 rounded-xl focus:outline-none"
+                      className="w-full text-[12px] border border-slate-300 rounded-sm p-1.5 font-medium focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all"
                     />
                   </div>
                 </div>
@@ -1678,23 +1697,23 @@ export const InvoiceGenerator: React.FC = () => {
             </div>
 
             <div className="flex justify-end gap-2 pt-3 border-t border-slate-200 flex-shrink-0">
-                <button
-                  type="button"
-                  onClick={() => setIsNewClientModalOpen(false)}
-                  className="px-4 py-2 border border-slate-300 rounded-xl font-medium text-slate-600 hover:bg-slate-50 cursor-pointer text-xs"
-                >
-                  Batal
-                </button>
-                <button
-                  type="button"
-                  onClick={handleCreateQuickLocalClient}
-                  className="px-4 py-2 bg-[#0c2444] text-white rounded-xl font-bold cursor-pointer text-xs hover:bg-[#16365f]"
-                >
-                  Simpan & Gunakan Klien
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => setIsNewClientModalOpen(false)}
+                className="px-4 py-2 bg-slate-200 text-slate-700 rounded-sm text-[11px] font-bold uppercase transition-all hover:bg-slate-300 shadow-sm cursor-pointer"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={handleCreateQuickLocalClient}
+                className="px-4 py-2 bg-[#40bdae] text-white rounded-sm text-[11px] font-bold uppercase transition-all hover:bg-[#349c8f] shadow-sm cursor-pointer"
+              >
+                Simpan & Gunakan Klien
+              </button>
             </div>
           </div>
+        </div>
       )}
     </div>
   );

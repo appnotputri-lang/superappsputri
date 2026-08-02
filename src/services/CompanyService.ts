@@ -22,7 +22,7 @@ export class CompanyService {
    */
   static async migrateLegacyCvProfiles(): Promise<void> {
     try {
-      // 1. Migrate CV profiles
+      // 1. Migrate CV profiles from legacy 'cv_profiles' collection
       const cvSnap = await getDocs(collection(db, 'cv_profiles'));
       for (const docSnap of cvSnap.docs) {
         const data = docSnap.data();
@@ -41,14 +41,37 @@ export class CompanyService {
         await deleteDoc(doc(db, 'cv_profiles', id));
       }
 
-      // 2. Add clientType: 'PT' to any existing profiles that don't have it
+      // Load all profiles to perform checks and fixes
       const profilesSnap = await getDocs(collection(db, 'profiles'));
+      
+      // 2. Add clientType: 'PT' to any existing profiles that don't have it and are NOT CVs
       for (const docSnap of profilesSnap.docs) {
         const data = docSnap.data();
         if (!data.clientType) {
-          console.log(`Setting default clientType: PT for profile ${docSnap.id} (${data.companyName})`);
+          const isCv = data.companyType === 'CV';
+          const defaultClientType = isCv ? 'CV' : 'PT';
+          console.log(`Setting default clientType: ${defaultClientType} for profile ${docSnap.id} (${data.companyName})`);
           await updateDoc(doc(db, 'profiles', docSnap.id), {
-            clientType: 'PT'
+            clientType: defaultClientType
+          });
+        }
+      }
+
+      // 3. Auto-fix any mismatched CV fields: clientType CV and companyType CV must always match
+      for (const docSnap of profilesSnap.docs) {
+        const data = docSnap.data();
+        const isCvByClientType = data.clientType === 'CV';
+        const isCvByCompanyType = data.companyType === 'CV';
+        
+        if (isCvByClientType && data.companyType !== 'CV') {
+          console.log(`Auto-fixing mismatched companyType -> CV for profile ${docSnap.id} (${data.companyName})`);
+          await updateDoc(doc(db, 'profiles', docSnap.id), {
+            companyType: 'CV'
+          });
+        } else if (isCvByCompanyType && data.clientType !== 'CV') {
+          console.log(`Auto-fixing mismatched clientType -> CV for profile ${docSnap.id} (${data.companyName})`);
+          await updateDoc(doc(db, 'profiles', docSnap.id), {
+            clientType: 'CV'
           });
         }
       }
@@ -150,10 +173,12 @@ export class CompanyService {
     const isCvCompany = isCv || data.clientType === 'CV' || data.companyType === 'CV';
     const collectionName = 'profiles';
     try {
-      const clientType = data.clientType || (isCvCompany ? 'CV' : 'PT');
+      const clientType = isCvCompany ? 'CV' : (data.clientType || 'PT');
+      const companyType = isCvCompany ? 'CV' : (data.companyType || 'PT_LOKAL');
       const preparedData = {
         ...data,
         clientType,
+        companyType,
         companyName: data.companyName ? this.formatCompanyName(data.companyName, clientType) : undefined
       };
 

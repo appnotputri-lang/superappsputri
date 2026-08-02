@@ -39,7 +39,9 @@ export const CompanyPage: React.FC<CompanyPageProps> = () => {
     loading: isDataLoading,
   } = useCompanyContext();
 
-  const currentProfilesList = ptProfiles;
+  const currentProfilesList = useMemo(() => {
+    return [...ptProfiles, ...cvProfiles];
+  }, [ptProfiles, cvProfiles]);
 
   // 2. Local State Management for Listing & View State
   const [selectedClientType, setSelectedClientType] = useState<string>('all');
