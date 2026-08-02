@@ -33,7 +33,7 @@ export const renderAppRoute = (currentTab: string, props: any) => {
   }
 
   if (currentTab === 'company_profile') {
-    return renderCompanyRoute();
+    return renderCompanyRoute(props);
   }
 
   if (currentTab === 'cv_profile') {

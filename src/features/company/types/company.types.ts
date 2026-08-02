@@ -88,6 +88,7 @@ export interface CompanyFormProps {
 }
 
 export interface CompanyPageProps {
+  setIsSidebarOpen?: (val: boolean) => void;
   profiles?: CompanyProfile[];
   editingProfileId?: string | null;
   setEditingProfileId?: (id: string | null) => void;

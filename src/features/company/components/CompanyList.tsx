@@ -9,6 +9,8 @@ import {
   Archive,
   Trash2,
   FileDown,
+  ChevronRight,
+  MapPin,
 } from 'lucide-react';
 import { CompanyAvatar } from '../../../components/common/CompanyAvatar';
 import { CompanyListProps } from '../types/company.types';
@@ -402,116 +404,45 @@ export const CompanyList: React.FC<CompanyListProps> = ({
       </div>
 
       {/* Mobile Card View */}
-      <div className="block md:hidden divide-y divide-slate-100">
-        {paginatedProfileResults.map((p, idx) => {
+      <div className="block md:hidden space-y-3 pt-2">
+        {paginatedProfileResults.map((p) => {
           const city = p.domicile || p.newAddress?.city || '-';
-          const deedDate = p.establishmentDeedDate
-            ? new Date(p.establishmentDeedDate).toLocaleDateString('id-ID', {
-                day: 'numeric',
-                month: 'long',
-                year: 'numeric',
-              })
-            : '-';
-          const badge = clientTypeBadgeStyles[p.clientType || 'PT'] || clientTypeBadgeStyles.PT;
+          const npwpText = p.npwp ? `NPWP ${p.npwp}` : 'NPWP -';
 
           return (
             <div 
               key={p.id} 
-              className="p-4 hover:bg-slate-50/50 transition-colors cursor-pointer"
+              className="bg-white rounded-2xl p-4 shadow-xs border border-slate-100 hover:border-slate-200 transition-all cursor-pointer"
               onClick={() => {
                 setEditingProfileId(p.id);
                 setIsProfilePreview(true);
                 updateData({ ...INITIAL_STATE, ...p } as any);
               }}
             >
-              <div className="flex items-start justify-between gap-3 mb-2.5">
-                <div className="flex items-center gap-3">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
                   <CompanyAvatar name={p.companyName || ''} />
-                  <div className="flex flex-col">
-                    <span className="font-bold text-slate-800 uppercase text-xs tracking-tight leading-tight">
+                  <div className="flex flex-col min-w-0">
+                    <span className="font-bold text-slate-900 uppercase text-xs sm:text-sm tracking-tight leading-tight truncate">
                       {formatCompanyName(p.companyName, p.clientType)}
                     </span>
-                    <span className="text-[10px] text-slate-400 font-mono mt-0.5">ID Klien: {p.id ? `${p.id.slice(0, 10)}...` : '-'}</span>
+                    <span className="text-[11px] text-slate-500 font-mono mt-0.5 block truncate">
+                      {npwpText}
+                    </span>
+                    <div className="flex items-center gap-1 text-[11px] text-slate-500 font-medium mt-1 uppercase">
+                      <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                      <span className="truncate">{city}</span>
+                    </div>
                   </div>
                 </div>
-                <span className={`inline-flex items-center px-2 py-0.5 rounded-lg text-[10px] font-bold border ${badge.bg} ${badge.text} ${badge.border} shrink-0`}>
-                  {badge.label}
-                </span>
-              </div>
 
-              {p.kbliItems && p.kbliItems.length > 0 && (
-                <div className="mb-3 flex flex-wrap gap-1 items-center">
-                  <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider bg-slate-100 px-1 py-0.5 rounded leading-none shrink-0">KBLI:</span>
-                  {p.kbliItems.map((item) => (
-                    <span
-                      key={item.id || item.code}
-                      className="text-[9px] font-mono font-bold bg-slate-50 text-slate-600 px-1 py-0.5 rounded border border-slate-200 leading-none"
-                      title={item.name}
-                    >
-                      {item.code}
+                <div className="flex items-center gap-2 shrink-0">
+                  {(p as any).activeProjectsCount !== undefined && (
+                    <span className="bg-blue-50 text-[#1e61c3] px-2.5 py-1 rounded-full text-[11px] font-semibold whitespace-nowrap">
+                      {(p as any).activeProjectsCount} Proyek Aktif
                     </span>
-                  ))}
-                </div>
-              )}
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-xs text-slate-600 font-medium mb-3 border-t border-slate-50 pt-2.5">
-                <div>
-                  <span className="block text-[9px] text-slate-400 font-bold uppercase tracking-wider">Kedudukan</span>
-                  <span className="uppercase text-slate-700 text-xs truncate block max-w-[120px]">{city}</span>
-                </div>
-                <div>
-                  <span className="block text-[9px] text-slate-400 font-bold uppercase tracking-wider">Akta Pendirian</span>
-                  <span className="uppercase text-slate-700 text-xs whitespace-nowrap block">{deedDate}</span>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between border-t border-slate-50 pt-2.5 mt-2" onClick={(e) => e.stopPropagation()}>
-                <span className="text-[10px] text-slate-400 font-mono">
-                  Ubah: {formatProfileLastUpdated(p.updatedAt, p.establishmentDeedDate).split(' ')[0]} oleh ADMIN
-                </span>
-                
-                <div className="flex gap-2">
-                  <button 
-                    onClick={() => {
-                      setEditingProfileId(p.id);
-                      setIsProfilePreview(true);
-                      updateData({ ...INITIAL_STATE, ...p } as any);
-                    }}
-                    className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 font-bold text-[10px] hover:bg-slate-200 transition-colors uppercase cursor-pointer"
-                  >
-                    Buka
-                  </button>
-                  <button 
-                    onClick={() => {
-                      setEditingProfileId(p.id);
-                      setIsProfilePreview(false);
-                      updateData({ ...INITIAL_STATE, ...p } as any);
-                    }}
-                    className="px-2.5 py-1 rounded-lg bg-blue-50 text-blue-700 font-bold text-[10px] hover:bg-blue-100 transition-colors uppercase cursor-pointer"
-                  >
-                    Edit
-                  </button>
-                  <button 
-                    onClick={() => handleDuplicateProfile(p)}
-                    className="px-2.5 py-1 rounded-lg bg-teal-50 text-teal-700 font-bold text-[10px] hover:bg-teal-100 transition-colors uppercase cursor-pointer"
-                  >
-                    Duplikat
-                  </button>
-                  <button 
-                    onClick={() => generateCompanyProfileSummaryPdf(p)}
-                    className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 font-bold text-[10px] hover:bg-slate-200 transition-colors uppercase cursor-pointer flex items-center gap-1"
-                  >
-                    <FileDown className="w-3 h-3" />
-                    <span>PDF</span>
-                  </button>
-                  {userProfile?.role === 'Super Admin' && (
-                    <button 
-                      onClick={() => deleteCompany && deleteCompany(p.id, false)}
-                      className="px-2.5 py-1 rounded-lg bg-red-50 text-red-700 font-bold text-[10px] hover:bg-red-100 transition-colors uppercase cursor-pointer"
-                    >
-                      Hapus
-                    </button>
                   )}
+                  <ChevronRight className="w-5 h-5 text-slate-400 shrink-0" />
                 </div>
               </div>
             </div>

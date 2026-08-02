@@ -1,6 +1,15 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { PageContainer } from '../../../components/ui/PageLayout';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useOutletContext } from 'react-router-dom';
+import { 
+  Menu, 
+  Plus, 
+  Search, 
+  SlidersHorizontal, 
+  ChevronDown, 
+  X, 
+  Check 
+} from 'lucide-react';
 import { CompanyHeader } from '../components/CompanyHeader';
 import { CompanyToolbar } from '../components/CompanyToolbar';
 import { CompanyList } from '../components/CompanyList';
@@ -22,9 +31,10 @@ import kbli2025Data from '../../../../kbli_2025.json';
 import { CompanyProfile, Shareholder, KbliItem } from '../../../../types';
 import { formatCompanyName } from '../../../lib/formatter';
 
-export const CompanyPage: React.FC<CompanyPageProps> = () => {
+export const CompanyPage: React.FC<CompanyPageProps> = ({ setIsSidebarOpen, ...props }) => {
   const location = useLocation();
   const isCv = location.pathname === '/profile-cv';
+  const outletCtx = useOutletContext<{ setIsSidebarOpen?: (v: boolean) => void }>() || {};
 
   // 1. Context & Auth Hooks
   const { user, userProfile } = useAuth();
@@ -55,6 +65,10 @@ export const CompanyPage: React.FC<CompanyPageProps> = () => {
   const [profileSortOrder, setProfileSortOrder] = useState<'asc' | 'desc'>('asc');
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
   const [profileItemsPerPage, setProfileItemsPerPage] = useState<number>(10);
+
+  // Mobile Filter Sheet & Mobile Sort Dropdown State
+  const [isMobileFilterOpen, setIsMobileFilterOpen] = useState<boolean>(false);
+  const [isMobileSortOpen, setIsMobileSortOpen] = useState<boolean>(false);
 
   // Sync clientType if arriving from legacy CV path
   useEffect(() => {
@@ -708,35 +722,300 @@ export const CompanyPage: React.FC<CompanyPageProps> = () => {
 
   const currentTargetSharesPaidForModal = data.originalSharePrice > 0 ? ((data.targetCapitalPaid || 0) / data.originalSharePrice) : 0;
 
+  const currentSortLabel = useMemo(() => {
+    if (profileSortField === 'companyName') return profileSortOrder === 'asc' ? 'Nama A-Z' : 'Nama Z-A';
+    if (profileSortField === 'domicile') return 'Kedudukan';
+    if (profileSortField === 'establishmentDeedDate') return 'Thn Pendirian';
+    return 'Terbaru';
+  }, [profileSortField, profileSortOrder]);
+
   return (
     <PageContainer>
-      <CompanyHeader
-        editingProfileId={editingProfileId}
-        setEditingProfileId={setEditingProfileId}
-        setIsProfilePreview={setIsProfilePreview}
-        updateData={updateData}
-        INITIAL_STATE={INITIAL_STATE}
-        isCv={isCv}
-        onSyncDrive={handleSyncDrive}
-        isSyncing={isSyncing}
-      />
+      {/* 1. HERO HEADER BIRU KHUSUS MOBILE */}
+      {!editingProfileId && (
+        <div className="md:hidden bg-[#1e61c3] text-white rounded-b-[2rem] p-4.5 pt-5 pb-5 shadow-sm -mx-4 -mt-4 mb-4 space-y-4">
+          {/* Baris Atas: Hamburger Menu + Judul Klien + Tombol Plus */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => {
+                  const handler = setIsSidebarOpen || props.setIsSidebarOpen || outletCtx?.setIsSidebarOpen;
+                  if (handler) handler(true);
+                }}
+                className="p-1 -ml-1 text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer"
+                title="Buka Sidebar"
+              >
+                <Menu className="w-6 h-6" />
+              </button>
+              <h1 className="text-xl font-bold text-white tracking-tight">Klien</h1>
+            </div>
+
+            <button
+              onClick={() => {
+                setEditingProfileId('new');
+                setIsProfilePreview(false);
+                updateData({ ...INITIAL_STATE } as any);
+              }}
+              className="w-9 h-9 bg-white/20 hover:bg-white/30 text-white rounded-full flex items-center justify-center transition-all cursor-pointer"
+              title="Tambah Klien Baru"
+            >
+              <Plus className="w-5 h-5" />
+            </button>
+          </div>
+
+          {/* Search Bar + Filter Button */}
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder="Cari nama klien atau NPWP..."
+                value={profileSearchQuery}
+                onChange={(e) => {
+                  setProfileSearchQuery(e.target.value);
+                  setProfileCurrentPage(1);
+                }}
+                className="w-full pl-9.5 pr-8 py-2.5 bg-white text-slate-800 placeholder-slate-400 text-xs rounded-xl border-0 outline-none shadow-xs font-medium"
+              />
+              {profileSearchQuery && (
+                <button
+                  onClick={() => {
+                    setProfileSearchQuery('');
+                    setProfileCurrentPage(1);
+                  }}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 font-bold text-xs"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+
+            <button
+              onClick={() => setIsMobileFilterOpen(true)}
+              className="w-10 h-10 bg-white text-[#1e61c3] rounded-xl flex items-center justify-center shrink-0 shadow-xs cursor-pointer hover:bg-blue-50 transition-colors"
+              title="Filter Klien"
+            >
+              <SlidersHorizontal className="w-4.5 h-4.5" />
+            </button>
+          </div>
+
+          {/* Baris Ringkasan: Total Klien & Dropdown Urutkan */}
+          <div className="flex items-center justify-between pt-1">
+            <span className="text-xs font-medium text-white/90">
+              Total {totalProfileItems} Klien
+            </span>
+
+            <div className="relative">
+              <button
+                onClick={() => setIsMobileSortOpen(!isMobileSortOpen)}
+                className="flex items-center gap-1.5 text-xs font-medium text-white/90 hover:text-white cursor-pointer bg-white/10 hover:bg-white/20 px-2.5 py-1 rounded-lg transition-colors"
+              >
+                <span>Urutkan: {currentSortLabel}</span>
+                <ChevronDown className="w-3.5 h-3.5" />
+              </button>
+
+              {isMobileSortOpen && (
+                <div className="absolute right-0 mt-2 w-44 bg-white rounded-xl shadow-xl border border-slate-100 py-1.5 z-50 text-slate-800 animate-in fade-in zoom-in-95 duration-100">
+                  {[
+                    { field: 'updatedAt', order: 'desc', label: 'Terbaru' },
+                    { field: 'companyName', order: 'asc', label: 'Nama A-Z' },
+                    { field: 'companyName', order: 'desc', label: 'Nama Z-A' },
+                    { field: 'domicile', order: 'asc', label: 'Kedudukan' },
+                    { field: 'establishmentDeedDate', order: 'desc', label: 'Thn Pendirian' },
+                  ].map((opt) => (
+                    <button
+                      key={opt.label}
+                      onClick={() => {
+                        setProfileSortField(opt.field);
+                        setProfileSortOrder(opt.order as 'asc' | 'desc');
+                        setProfileCurrentPage(1);
+                        setIsMobileSortOpen(false);
+                      }}
+                      className={`w-full text-left px-3.5 py-2 text-xs font-semibold hover:bg-slate-50 flex items-center justify-between ${
+                        profileSortField === opt.field && profileSortOrder === opt.order
+                          ? 'text-[#1e61c3] bg-blue-50/50'
+                          : 'text-slate-700'
+                      }`}
+                    >
+                      <span>{opt.label}</span>
+                      {profileSortField === opt.field && profileSortOrder === opt.order && (
+                        <Check className="w-3.5 h-3.5 text-[#1e61c3]" />
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MOBILE BOTTOM SHEET FILTER */}
+      {isMobileFilterOpen && (
+        <div className="fixed inset-0 bg-black/60 z-[999] flex items-end justify-center md:hidden animate-in fade-in duration-200">
+          <div 
+            className="fixed inset-0" 
+            onClick={() => setIsMobileFilterOpen(false)} 
+          />
+          <div className="bg-white w-full max-w-lg rounded-t-3xl p-5 space-y-5 max-h-[85vh] overflow-y-auto relative z-[1000] shadow-2xl animate-in slide-in-from-bottom duration-200">
+            <div className="w-12 h-1 bg-slate-300 rounded-full mx-auto -mt-1"></div>
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="text-base font-bold text-slate-900">Filter Klien</h3>
+              <button
+                onClick={() => setIsMobileFilterOpen(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Status Filter */}
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">Status Profil</label>
+              <div className="grid grid-cols-2 gap-2 bg-slate-100 p-1 rounded-xl">
+                <button
+                  onClick={() => {
+                    setShowArchivedProfiles(false);
+                    setProfileCurrentPage(1);
+                  }}
+                  className={`py-2 text-xs font-bold rounded-lg transition-all ${
+                    !showArchivedProfiles
+                      ? 'bg-white text-[#1e61c3] shadow-xs'
+                      : 'text-slate-500'
+                  }`}
+                >
+                  Aktif
+                </button>
+                <button
+                  onClick={() => {
+                    setShowArchivedProfiles(true);
+                    setProfileCurrentPage(1);
+                  }}
+                  className={`py-2 text-xs font-bold rounded-lg transition-all ${
+                    showArchivedProfiles
+                      ? 'bg-white text-amber-700 shadow-xs'
+                      : 'text-slate-500'
+                  }`}
+                >
+                  Arsip ({currentProfilesList.filter(p => p.isArchived).length})
+                </button>
+              </div>
+            </div>
+
+            {/* Jenis Badan Usaha Filter */}
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">Jenis Badan Usaha</label>
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  { id: 'all', label: 'SEMUA' },
+                  { id: 'PT', label: 'PT' },
+                  { id: 'CV', label: 'CV' },
+                  { id: 'YAYASAN', label: 'YAYASAN' },
+                  { id: 'PERKUMPULAN', label: 'PERKUMPULAN' },
+                  { id: 'KOPERASI', label: 'KOPERASI' },
+                  { id: 'FIRMA', label: 'FIRMA' },
+                  { id: 'PERDATA', label: 'PERDATA' },
+                  { id: 'PMA', label: 'PMA' },
+                  { id: 'PERORANGAN', label: 'PERORANGAN' },
+                  { id: 'LAINNYA', label: 'LAINNYA' }
+                ].map((cat) => {
+                  const isActive = selectedClientType === cat.id;
+                  return (
+                    <button
+                      key={cat.id}
+                      onClick={() => {
+                        setSelectedClientType(cat.id);
+                        setProfileCurrentPage(1);
+                      }}
+                      className={`px-3 py-1.5 text-xs font-bold rounded-lg border transition-all cursor-pointer ${
+                        isActive
+                          ? 'bg-[#1e61c3] text-white border-[#1e61c3]'
+                          : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                      }`}
+                    >
+                      {cat.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Tahun Pendirian */}
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">Tahun Pendirian</label>
+              <select
+                value={selectedProfileYear}
+                onChange={(e) => {
+                  setSelectedProfileYear(e.target.value);
+                  setProfileCurrentPage(1);
+                }}
+                className="w-full py-2 px-3 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 bg-slate-50 outline-none"
+              >
+                <option value="all">Semua Tahun Pendirian</option>
+                {uniqueProfileYears.map((y) => (
+                  <option key={y} value={y}>{y}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Modal Footer Buttons */}
+            <div className="pt-3 border-t border-slate-100 flex gap-2">
+              <button
+                onClick={() => {
+                  setProfileSearchQuery('');
+                  setSelectedProfileYear('all');
+                  setSelectedClientType('all');
+                  setShowArchivedProfiles(false);
+                  setProfileCurrentPage(1);
+                }}
+                className="flex-1 py-2.5 bg-slate-100 text-slate-700 font-bold text-xs rounded-xl hover:bg-slate-200 uppercase tracking-wider cursor-pointer"
+              >
+                Reset Filter
+              </button>
+              <button
+                onClick={() => setIsMobileFilterOpen(false)}
+                className="flex-1 py-2.5 bg-[#1e61c3] text-white font-bold text-xs rounded-xl hover:bg-blue-700 uppercase tracking-wider cursor-pointer"
+              >
+                Terapkan
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* DESKTOP HEADER (HIDDEN ON MOBILE) */}
+      <div className="hidden md:block">
+        <CompanyHeader
+          editingProfileId={editingProfileId}
+          setEditingProfileId={setEditingProfileId}
+          setIsProfilePreview={setIsProfilePreview}
+          updateData={updateData}
+          INITIAL_STATE={INITIAL_STATE}
+          isCv={isCv}
+          onSyncDrive={handleSyncDrive}
+          isSyncing={isSyncing}
+        />
+      </div>
 
       {!editingProfileId ? (
         <>
-          <CompanyToolbar
-            profiles={currentProfilesList}
-            showArchivedProfiles={showArchivedProfiles}
-            setShowArchivedProfiles={setShowArchivedProfiles}
-            setProfileCurrentPage={setProfileCurrentPage}
-            profileSearchQuery={profileSearchQuery}
-            setProfileSearchQuery={setProfileSearchQuery}
-            selectedProfileYear={selectedProfileYear}
-            setSelectedProfileYear={setSelectedProfileYear}
-            uniqueProfileYears={uniqueProfileYears}
-            selectedClientType={selectedClientType}
-            setSelectedClientType={setSelectedClientType}
-            onOpenMergeModal={() => setIsMergeModalOpen(true)}
-          />
+          {/* DESKTOP TOOLBAR (HIDDEN ON MOBILE) */}
+          <div className="hidden md:block">
+            <CompanyToolbar
+              profiles={currentProfilesList}
+              showArchivedProfiles={showArchivedProfiles}
+              setShowArchivedProfiles={setShowArchivedProfiles}
+              setProfileCurrentPage={setProfileCurrentPage}
+              profileSearchQuery={profileSearchQuery}
+              setProfileSearchQuery={setProfileSearchQuery}
+              selectedProfileYear={selectedProfileYear}
+              setSelectedProfileYear={setSelectedProfileYear}
+              uniqueProfileYears={uniqueProfileYears}
+              selectedClientType={selectedClientType}
+              setSelectedClientType={setSelectedClientType}
+              onOpenMergeModal={() => setIsMergeModalOpen(true)}
+            />
+          </div>
 
           <CompanyList
             profiles={currentProfilesList}

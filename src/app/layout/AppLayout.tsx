@@ -29,6 +29,8 @@ interface AppLayoutProps {
   children: React.ReactNode;
 }
 
+const TABS_WITH_MOBILE_HERO: SidebarTabId[] = ['beranda', 'company_profile'];
+
 export const AppLayout: React.FC<AppLayoutProps> = ({
   isEmbedMode = false,
   user,
@@ -152,7 +154,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
       )}
 
       <div className="flex-1 flex flex-col h-full overflow-hidden">
-        <div className={activeSidebarTab === 'beranda' ? 'hidden md:block' : ''}>
+        <div className={TABS_WITH_MOBILE_HERO.includes(activeSidebarTab) ? 'hidden md:block' : ''}>
           <Header
             user={user}
             isSidebarOpen={isSidebarOpen}
@@ -169,7 +171,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
             logout={logout}
           />
         </div>
-        <main className="flex-1 overflow-y-auto bg-[#f8fafc] scroll-smooth pb-0">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden bg-[#f8fafc] scroll-smooth pb-0">
           {children}
         </main>
       </div>

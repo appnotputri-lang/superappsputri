@@ -530,7 +530,131 @@ export const Dashboard: React.FC<DashboardProps> = ({
   return (
     <>
       {/* ===== MOBILE-ONLY HOMESCREEN (< md) ===== */}
-      <div className="md:hidden -m-4 sm:-m-6 bg-[#f8fafc] pb-8">
+      <div className="md:hidden -m-4 sm:-m-6 bg-[#f8fafc] pb-8 overflow-x-hidden">
+        {/* Mobile Notification Bottom Sheet - Rendered outside hero to cover full screen & avoid clipping */}
+        {isMobileNotifOpen && (
+          <div className="fixed inset-0 z-[200] flex flex-col justify-end pointer-events-none">
+            <div 
+              className="fixed inset-0 bg-black/60 pointer-events-auto backdrop-blur-xs transition-opacity" 
+              onClick={() => setIsMobileNotifOpen(false)} 
+            />
+            <div className="relative pointer-events-auto w-full bg-white rounded-t-3xl max-h-[80vh] flex flex-col shadow-2xl overflow-hidden z-10 animate-in slide-in-from-bottom duration-200">
+              <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 bg-slate-50/90 shrink-0">
+                <span className="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                  <Bell className="w-4 h-4 text-blue-600" /> Notifikasi
+                </span>
+                <div className="flex items-center gap-3">
+                  {unreadCount > 0 && (
+                    <button 
+                      onClick={async () => {
+                        try {
+                          const unreadNotifs = (notifications || []).filter((n: any) => !n.read);
+                          await Promise.all(
+                            unreadNotifs.map((n: any) => updateDoc(doc(db, 'notifications', n.id), { read: true }))
+                          );
+                        } catch (err) {
+                          console.error("Gagal tandai semua dibaca:", err);
+                        }
+                      }}
+                      className="text-xs text-blue-600 hover:text-blue-800 font-bold cursor-pointer"
+                    >
+                      Tandai semua dibaca
+                    </button>
+                  )}
+                  <button 
+                    onClick={() => setIsMobileNotifOpen(false)}
+                    className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full cursor-pointer transition-colors"
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
+              </div>
+              
+              <div className="flex-1 overflow-y-auto divide-y divide-slate-100 p-1">
+                {(!notifications || notifications.length === 0) ? (
+                  <div className="flex flex-col items-center justify-center py-12 text-center px-4">
+                    <BellOff className="w-10 h-10 text-slate-300 mb-2" />
+                    <p className="text-sm text-slate-600 font-semibold">Tidak ada notifikasi baru</p>
+                    <p className="text-xs text-slate-400 mt-1">Semua info terbaru dari sistem akan muncul di sini</p>
+                  </div>
+                ) : (
+                  [...notifications].sort((a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).map((notif: any) => (
+                    <div key={notif.id} className={`p-4 transition-colors flex gap-3 items-start text-left ${!notif.read ? 'bg-blue-50/40' : 'bg-white'}`}>
+                      {/* Status Type Icon */}
+                      <div className={`mt-0.5 p-2 rounded-xl shrink-0 ${
+                        notif.type === 'SUCCESS' ? 'bg-emerald-50 text-emerald-600' :
+                        notif.type === 'ERROR' ? 'bg-rose-50 text-rose-600' :
+                        notif.type === 'WARNING' ? 'bg-amber-50 text-amber-600' :
+                        'bg-blue-50 text-blue-600'
+                      }`}>
+                        {notif.type === 'SUCCESS' ? <CheckCircle2 className="w-4 h-4" /> :
+                         notif.type === 'ERROR' ? <AlertCircle className="w-4 h-4" /> :
+                         notif.type === 'WARNING' ? <AlertTriangle className="w-4 h-4" /> :
+                         <Info className="w-4 h-4" />}
+                      </div>
+
+                      {/* Content */}
+                      <div className="flex-1 space-y-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2">
+                          <span className={`text-xs block leading-tight truncate ${!notif.read ? 'font-bold text-slate-900' : 'text-slate-700'}`}>
+                            {notif.title}
+                          </span>
+                          <span className="text-[10px] text-slate-400 font-medium whitespace-nowrap shrink-0">
+                            {(() => {
+                              try {
+                                const diffMs = Date.now() - new Date(notif.timestamp).getTime();
+                                const diffMins = Math.floor(diffMs / 60000);
+                                if (diffMins < 1) return 'Baru saja';
+                                if (diffMins < 60) return `${diffMins}m lalu`;
+                                const diffHours = Math.floor(diffMins / 60);
+                                if (diffHours < 24) return `${diffHours}j lalu`;
+                                return new Date(notif.timestamp).toLocaleDateString('id-ID', {day: 'numeric', month: 'short'});
+                              } catch {
+                                return 'Baru saja';
+                              }
+                            })()}
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-500 leading-normal break-words">{notif.description}</p>
+                        
+                        {/* Actions */}
+                        <div className="flex gap-4 pt-2">
+                          {!notif.read && (
+                            <button 
+                              onClick={async () => {
+                                try {
+                                  await updateDoc(doc(db, 'notifications', notif.id), { read: true });
+                                } catch (err) {
+                                  console.error("Gagal tandai dibaca:", err);
+                                }
+                              }}
+                              className="text-xs text-blue-600 hover:text-blue-800 font-bold cursor-pointer"
+                            >
+                              Tandai Dibaca
+                            </button>
+                          )}
+                          <button 
+                            onClick={async () => {
+                              try {
+                                await deleteDoc(doc(db, 'notifications', notif.id));
+                              } catch (err) {
+                                console.error("Gagal menghapus notifikasi:", err);
+                              }
+                            }}
+                            className="text-xs text-slate-400 hover:text-red-600 font-medium cursor-pointer"
+                          >
+                            Hapus
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* 1. HERO HEADER BIRU */}
         <div className="relative bg-[#1e61c3] text-white pt-[calc(env(safe-area-inset-top)+1.25rem)] pb-10 px-5 rounded-b-[2rem] shadow-md overflow-hidden">
           {/* Top Row: Hamburger + Superapps Putri + Bell */}
@@ -546,148 +670,22 @@ export const Dashboard: React.FC<DashboardProps> = ({
               <h1 className="text-lg font-bold text-white tracking-tight">Superapps Putri</h1>
             </div>
 
-            <div className="relative">
-              <button 
-                onClick={() => setIsMobileNotifOpen(prev => !prev)} 
-                className="p-2 -mr-1 rounded-full text-white hover:bg-white/10 active:scale-95 relative transition-all cursor-pointer"
-                aria-label="Notifications"
-              >
-                <Bell size={22} />
-                {unreadCount > 0 && (
-                  <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-[#1e61c3]" />
-                )}
-              </button>
-
-              {/* Mobile Notification Bottom Sheet */}
-              {isMobileNotifOpen && (
-                <div className="fixed inset-0 z-[120] flex flex-col justify-end pointer-events-none">
-                  <div 
-                    className="absolute inset-0 bg-black/50 pointer-events-auto backdrop-blur-xs transition-opacity" 
-                    onClick={() => setIsMobileNotifOpen(false)} 
-                  />
-                  <div className="relative pointer-events-auto w-full bg-white rounded-t-3xl max-h-[75vh] flex flex-col shadow-2xl overflow-hidden z-10 animate-in slide-in-from-bottom duration-200">
-                    <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 bg-slate-50/80 shrink-0">
-                      <span className="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
-                        <Bell className="w-4 h-4 text-blue-600" /> Notifikasi
-                      </span>
-                      <div className="flex items-center gap-3">
-                        {unreadCount > 0 && (
-                          <button 
-                            onClick={async () => {
-                              try {
-                                const unreadNotifs = (notifications || []).filter((n: any) => !n.read);
-                                await Promise.all(
-                                  unreadNotifs.map((n: any) => updateDoc(doc(db, 'notifications', n.id), { read: true }))
-                                );
-                              } catch (err) {
-                                console.error("Gagal tandai semua dibaca:", err);
-                              }
-                            }}
-                            className="text-xs text-blue-600 hover:text-blue-800 font-bold cursor-pointer"
-                          >
-                            Tandai semua dibaca
-                          </button>
-                        )}
-                        <button 
-                          onClick={() => setIsMobileNotifOpen(false)}
-                          className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full cursor-pointer transition-colors"
-                        >
-                          <X size={20} />
-                        </button>
-                      </div>
-                    </div>
-                    
-                    <div className="flex-1 overflow-y-auto divide-y divide-slate-100 p-1">
-                      {(!notifications || notifications.length === 0) ? (
-                        <div className="flex flex-col items-center justify-center py-12 text-center px-4">
-                          <BellOff className="w-10 h-10 text-slate-300 mb-2" />
-                          <p className="text-sm text-slate-600 font-semibold">Tidak ada notifikasi baru</p>
-                          <p className="text-xs text-slate-400 mt-1">Semua info terbaru dari sistem akan muncul di sini</p>
-                        </div>
-                      ) : (
-                        [...notifications].sort((a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).map((notif: any) => (
-                          <div key={notif.id} className={`p-4 transition-colors flex gap-3 items-start text-left ${!notif.read ? 'bg-blue-50/40' : 'bg-white'}`}>
-                            {/* Status Type Icon */}
-                            <div className={`mt-0.5 p-2 rounded-xl shrink-0 ${
-                              notif.type === 'SUCCESS' ? 'bg-emerald-50 text-emerald-600' :
-                              notif.type === 'ERROR' ? 'bg-rose-50 text-rose-600' :
-                              notif.type === 'WARNING' ? 'bg-amber-50 text-amber-600' :
-                              'bg-blue-50 text-blue-600'
-                            }`}>
-                              {notif.type === 'SUCCESS' ? <CheckCircle2 className="w-4 h-4" /> :
-                               notif.type === 'ERROR' ? <AlertCircle className="w-4 h-4" /> :
-                               notif.type === 'WARNING' ? <AlertTriangle className="w-4 h-4" /> :
-                               <Info className="w-4 h-4" />}
-                            </div>
-
-                            {/* Content */}
-                            <div className="flex-1 space-y-1 min-w-0">
-                              <div className="flex items-start justify-between gap-2">
-                                <span className={`text-xs block leading-tight truncate ${!notif.read ? 'font-bold text-slate-900' : 'text-slate-700'}`}>
-                                  {notif.title}
-                                </span>
-                                <span className="text-[10px] text-slate-400 font-medium whitespace-nowrap shrink-0">
-                                  {(() => {
-                                    try {
-                                      const diffMs = Date.now() - new Date(notif.timestamp).getTime();
-                                      const diffMins = Math.floor(diffMs / 60000);
-                                      if (diffMins < 1) return 'Baru saja';
-                                      if (diffMins < 60) return `${diffMins}m lalu`;
-                                      const diffHours = Math.floor(diffMins / 60);
-                                      if (diffHours < 24) return `${diffHours}j lalu`;
-                                      return new Date(notif.timestamp).toLocaleDateString('id-ID', {day: 'numeric', month: 'short'});
-                                    } catch {
-                                      return 'Baru saja';
-                                    }
-                                  })()}
-                                </span>
-                              </div>
-                              <p className="text-xs text-slate-500 leading-normal break-words">{notif.description}</p>
-                              
-                              {/* Actions */}
-                              <div className="flex gap-4 pt-2">
-                                {!notif.read && (
-                                  <button 
-                                    onClick={async () => {
-                                      try {
-                                        await updateDoc(doc(db, 'notifications', notif.id), { read: true });
-                                      } catch (err) {
-                                        console.error("Gagal tandai dibaca:", err);
-                                      }
-                                    }}
-                                    className="text-xs text-blue-600 hover:text-blue-800 font-bold cursor-pointer"
-                                  >
-                                    Tandai Dibaca
-                                  </button>
-                                )}
-                                <button 
-                                  onClick={async () => {
-                                    try {
-                                      await deleteDoc(doc(db, 'notifications', notif.id));
-                                    } catch (err) {
-                                      console.error("Gagal menghapus notifikasi:", err);
-                                    }
-                                  }}
-                                  className="text-xs text-slate-400 hover:text-red-600 font-medium cursor-pointer"
-                                >
-                                  Hapus
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </div>
-                </div>
+            <button 
+              onClick={() => setIsMobileNotifOpen(prev => !prev)} 
+              className="p-2 -mr-1 rounded-full text-white hover:bg-white/10 active:scale-95 relative transition-all cursor-pointer"
+              aria-label="Notifications"
+            >
+              <Bell size={22} />
+              {unreadCount > 0 && (
+                <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-[#1e61c3]" />
               )}
-            </div>
+            </button>
           </div>
 
           {/* Greeting & Headline */}
-          <div className="relative z-10 pt-2 pb-1 space-y-1.5 max-w-xs">
+          <div className="relative z-10 pt-3 pb-2 space-y-1.5 max-w-xs">
             <p className="text-xs text-blue-100 font-medium tracking-wide">{getGreeting()},</p>
-            <h2 className="text-2xl font-black text-white tracking-wide">
+            <h2 className="text-2xl font-black text-white tracking-wide leading-tight">
               {userProfile?.name || currentUser?.name || 'ADMIN'} 👋
             </h2>
             <p className="text-[12px] text-blue-100/90 leading-snug pt-1 font-normal">
