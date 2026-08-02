@@ -220,3 +220,18 @@ export const PATH_TO_TAB: Record<string, SidebarTabId> = {
   ),
   '/profile-cv': 'company_profile' as SidebarTabId
 };
+
+export const RESERVED_PATHS = new Set([
+  ...Object.values(TAB_TO_PATH),
+  '/rupslb', '/pendirian', '/rupst', '/perbaikan', '/draft-akta', '/panduan',
+  '/sirkuler', '/rupst-public', '/kbli-mapping', '/saran-kbli', '/import-kbli',
+  '/laporan', '/whatsapp-gateway', '/projects', '/projects-detail',
+  '/user-management', '/notary-reports', '/invoice', '/deeds', '/private-deeds',
+  '/protest-cheque', '/surat-keluar', '/surat-masuk', '/stamp-settings',
+  '/invoice/public', // pola lama, tetap dikecualikan
+]);
+
+export function isReservedPath(pathname: string): boolean {
+  const firstSegment = '/' + pathname.split('/').filter(Boolean)[0];
+  return RESERVED_PATHS.has(firstSegment) || RESERVED_PATHS.has(pathname);
+}

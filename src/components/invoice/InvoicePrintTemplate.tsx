@@ -35,7 +35,7 @@ export const InvoicePrintTemplate: React.FC<InvoicePrintTemplateProps> = ({ invo
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>('');
 
   const token = invoice.publicToken || invoice.id;
-  const actualPublicUrl = publicUrl || `${window.location.origin}/invoice/public/${token}`;
+  const actualPublicUrl = publicUrl || invoice.legacyPublicUrl || `${window.location.origin}/${token}`;
 
   useEffect(() => {
     if (actualPublicUrl) {

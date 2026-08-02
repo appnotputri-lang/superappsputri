@@ -637,6 +637,7 @@ export interface Invoice {
   };
   paymentHistory?: PaymentRecord[];
   publicToken?: string;
+  legacyPublicUrl?: string;
   createdAt?: string;
   updatedAt?: string;
 }

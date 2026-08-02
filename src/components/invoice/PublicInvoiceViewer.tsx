@@ -3,6 +3,7 @@ import { Invoice } from '../../../types';
 import { InvoiceService } from '../../services/InvoiceService';
 import { Printer, Download, Loader2, AlertCircle, Banknote, MapPin, Mail, Phone } from 'lucide-react';
 import { printInvoice, downloadInvoicePdf } from '../../utils/invoiceHtmlGenerator';
+import { isReservedPath } from '../../constants/tabs';
 
 export const PublicInvoiceViewer: React.FC = () => {
   const [invoice, setInvoice] = useState<Invoice | null>(null);
@@ -16,18 +17,26 @@ export const PublicInvoiceViewer: React.FC = () => {
       try {
         let token: string | null = null;
 
-        // 1. Format baru: path /invoice/public/{token}
-        const pathMatch = window.location.pathname.match(/\/invoice\/public\/([^/?#]+)/);
-        if (pathMatch) {
-          token = decodeURIComponent(pathMatch[1]);
+        // 1. Format terbaru: root path /{token}
+        const rootMatch = window.location.pathname.match(/^\/([A-Za-z0-9_-]+)\/?$/);
+        if (rootMatch && !isReservedPath(window.location.pathname)) {
+          token = rootMatch[1];
         }
 
-        // 2. Fallback: query string ?token=
+        // 2. Fallback: path lama /invoice/public/{token}
+        if (!token) {
+          const pathMatch = window.location.pathname.match(/\/invoice\/public\/([^/?#]+)/);
+          if (pathMatch) {
+            token = decodeURIComponent(pathMatch[1]);
+          }
+        }
+
+        // 3. Fallback: query string ?token=
         if (!token) {
           token = new URLSearchParams(window.location.search).get('token');
         }
 
-        // 3. Fallback: format hash lama #/invoice/public?token=
+        // 4. Fallback: format hash lama #/invoice/public?token=
         if (!token && window.location.hash.includes('token=')) {
           const hashParts = window.location.hash.split('token=');
           if (hashParts[1]) {

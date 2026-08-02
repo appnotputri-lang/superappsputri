@@ -513,7 +513,7 @@ export const InvoiceGenerator: React.FC = () => {
 
   const copyPublicLink = (inv: Invoice) => {
     const token = inv.publicToken || inv.id;
-    const fullUrl = `${window.location.origin}/invoice/public/${token}`;
+    const fullUrl = inv.legacyPublicUrl || `${window.location.origin}/${token}`;
     navigator.clipboard.writeText(fullUrl);
     setCopiedToken(inv.id);
     setTimeout(() => setCopiedToken(null), 2000);
@@ -521,7 +521,7 @@ export const InvoiceGenerator: React.FC = () => {
 
   const handleShareWhatsApp = (inv: Invoice) => {
     const token = inv.publicToken || inv.id;
-    const publicUrl = `${window.location.origin}/invoice/public/${token}`;
+    const publicUrl = inv.legacyPublicUrl || `${window.location.origin}/${token}`;
     const text = `Yth. Bapak/Ibu ${inv.clientName},\nBerikut adalah rincian Invoice Tagihan Nomor ${inv.invoiceNumber} sebesar Rp ${formatCurrency(inv.totalAmount)}.\n\nDetail tagihan dapat dilihat pada tautan berikut:\n${publicUrl}\n\nTerima kasih.`;
     const waUrl = `https://wa.me/${inv.clientPhone ? inv.clientPhone.replace(/[^0-9]/g, '') : ''}?text=${encodeURIComponent(text)}`;
     window.open(waUrl, '_blank');

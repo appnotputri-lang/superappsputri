@@ -1,6 +1,6 @@
 import React from 'react';
 import { useLocation } from 'react-router-dom';
-import { PATH_TO_TAB } from '../constants/tabs';
+import { PATH_TO_TAB, isReservedPath } from '../constants/tabs';
 import { useAuthContext } from '../contexts/AuthContext';
 import { useCompanyContext } from '../contexts/CompanyContext';
 import { useProjectContext } from '../contexts/ProjectContext';
@@ -77,8 +77,13 @@ export const AppRoutes: React.FC<AppRoutesProps> = (props) => {
   const saveCompany = props.saveCompany ?? companyCtx.save;
   const deleteCompany = props.deleteCompany ?? companyCtx.delete;
 
-  const isPublicInvoice = location.pathname.includes('/invoice/public') ||
-    (window.location.hash && window.location.hash.includes('/invoice/public'));
+  const isSingleSegmentPath = /^\/[A-Za-z0-9_-]+\/?$/.test(location.pathname) && location.pathname !== '/';
+  const isPossibleTokenRoute = isSingleSegmentPath && !isReservedPath(location.pathname);
+
+  const isPublicInvoice =
+    location.pathname.includes('/invoice/public') ||
+    (window.location.hash && window.location.hash.includes('/invoice/public')) ||
+    isPossibleTokenRoute;
 
   if (isPublicInvoice) {
     return renderAppRoute('invoice', { ...props, isPublic: true });
