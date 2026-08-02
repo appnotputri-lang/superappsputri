@@ -10,7 +10,7 @@ import { printInvoice, downloadInvoicePdf } from '../../utils/invoiceHtmlGenerat
 import {
   Plus, Edit2, Trash2, Printer, Search, X, Copy, ExternalLink,
   Check, CreditCard, DollarSign, Globe, CheckCircle2, AlertCircle, FileText, Share2,
-  Building2, Database, ArrowLeft, Download, Send, MessageSquare, ChevronRight, UserPlus,
+  Building2, Database, ArrowLeft, Download, Send, MessageSquare, ChevronLeft, ChevronRight, UserPlus,
   MoreHorizontal
 } from 'lucide-react';
 
@@ -50,6 +50,15 @@ export const InvoiceGenerator: React.FC = () => {
   // Filter & Search State
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
+
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+
+  // Reset pagination when search or status filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, statusFilter]);
 
   // PDF Export State
   const [downloadingPdf, setDownloadingPdf] = useState(false);
@@ -117,6 +126,10 @@ export const InvoiceGenerator: React.FC = () => {
   const [newClientEmailInput, setNewClientEmailInput] = useState('');
   const [newClientPhoneInput, setNewClientPhoneInput] = useState('');
   const [newClientAddressInput, setNewClientAddressInput] = useState('');
+  const [newClientTypeInput, setNewClientTypeInput] = useState<'PT' | 'CV'>('PT');
+  const [newClientDomicileInput, setNewClientDomicileInput] = useState('');
+  const [newClientPicNameInput, setNewClientPicNameInput] = useState('');
+  const [newClientPicPhoneInput, setNewClientPicPhoneInput] = useState('');
 
   // Payment Form in Detail Page
   const [payAmount, setPayAmount] = useState<number>(0);
@@ -484,31 +497,66 @@ export const InvoiceGenerator: React.FC = () => {
     }
   };
 
-  const handleCreateQuickLocalClient = () => {
+  const handleCreateQuickLocalClient = async () => {
     if (!newClientNameInput) {
       alert('Mohon isi nama klien.');
       return;
     }
-    const newOpt: ClientOption = {
-      clientId: `loc_${Date.now()}`,
-      name: newClientNameInput,
-      email: newClientEmailInput,
-      phone: newClientPhoneInput,
-      address: newClientAddressInput,
-      source: 'local'
-    };
-    setLocalClients(prev => [newOpt, ...prev]);
-    setSelectedClientId(newOpt.clientId);
-    setSelectedClientSource('local');
-    setClientName(newOpt.name);
-    setClientEmail(newOpt.email);
-    setClientPhone(newOpt.phone);
-    setClientAddress(newOpt.address);
-    setIsNewClientModalOpen(false);
-    setNewClientNameInput('');
-    setNewClientEmailInput('');
-    setNewClientPhoneInput('');
-    setNewClientAddressInput('');
+    
+    try {
+      const clientId = crypto.randomUUID();
+      const companyData = {
+        id: clientId,
+        companyName: newClientNameInput.toUpperCase().trim(),
+        domicile: newClientDomicileInput.trim(),
+        email: newClientEmailInput.trim(),
+        phoneNumber: newClientPhoneInput.trim(),
+        fullAddress: newClientAddressInput.trim(),
+        clientType: newClientTypeInput,
+        companyType: newClientTypeInput === 'CV' ? 'CV' : 'PT_LOKAL',
+        picName: newClientPicNameInput.trim(),
+        picPhone: newClientPicPhoneInput.trim(),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+
+      // Save to Firestore 'profiles' collection
+      await CompanyService.saveCompany(clientId, companyData, newClientTypeInput === 'CV');
+
+      const newOpt: ClientOption = {
+        clientId: clientId,
+        name: companyData.companyName,
+        email: companyData.email,
+        phone: companyData.phoneNumber,
+        address: companyData.fullAddress,
+        source: 'local',
+        clientType: newClientTypeInput
+      };
+
+      setLocalClients(prev => [newOpt, ...prev]);
+      setSelectedClientId(clientId);
+      setSelectedClientSource('local');
+      setClientName(newOpt.name);
+      setClientEmail(newOpt.email);
+      setClientPhone(newOpt.phone);
+      setClientAddress(newOpt.address);
+      setIsNewClientModalOpen(false);
+      
+      // Reset inputs
+      setNewClientNameInput('');
+      setNewClientEmailInput('');
+      setNewClientPhoneInput('');
+      setNewClientAddressInput('');
+      setNewClientDomicileInput('');
+      setNewClientPicNameInput('');
+      setNewClientPicPhoneInput('');
+      setNewClientTypeInput('PT');
+
+      alert(`Klien ${newClientTypeInput} baru berhasil didaftarkan dan disimpan di database!`);
+    } catch (err: any) {
+      console.error('[InvoiceGenerator] Gagal membuat klien baru:', err);
+      alert(`Gagal membuat klien baru: ${err.message || err}`);
+    }
   };
 
   const copyPublicLink = (inv: Invoice) => {
@@ -553,6 +601,14 @@ export const InvoiceGenerator: React.FC = () => {
     const matchStatus = statusFilter === 'ALL' || inv.status === statusFilter;
     return matchSearch && matchStatus;
   });
+
+  const totalItems = filteredInvoices.length;
+  const totalPages = Math.ceil(totalItems / pageSize) || 1;
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const paginatedInvoices = filteredInvoices.slice(
+    (safeCurrentPage - 1) * pageSize,
+    safeCurrentPage * pageSize
+  );
 
   const allClientsList = [...superappsClients, ...localClients].filter(c => {
     if (clientSourceTab === 'local') return c.source === 'local';
@@ -626,6 +682,7 @@ export const InvoiceGenerator: React.FC = () => {
             <table className="w-full text-left text-xs border-collapse">
               <thead>
                 <tr className="bg-slate-50/80 text-slate-600 border-b border-slate-200/80 font-bold">
+                  <th className="p-3.5 w-12 text-center">No.</th>
                   <th className="p-3.5">Tanggal</th>
                   <th className="p-3.5">No. Invoice</th>
                   <th className="p-3.5">Klien</th>
@@ -636,26 +693,30 @@ export const InvoiceGenerator: React.FC = () => {
               <tbody className="divide-y divide-slate-100">
                 {loading ? (
                   <tr>
-                    <td colSpan={5} className="p-8 text-center text-slate-400">
+                    <td colSpan={6} className="p-8 text-center text-slate-400">
                       <div className="inline-block w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mb-2" />
                       <p className="text-xs">Memuat data invoice...</p>
                     </td>
                   </tr>
-                ) : filteredInvoices.length === 0 ? (
+                ) : paginatedInvoices.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="p-12 text-center text-slate-400 italic">
+                    <td colSpan={6} className="p-12 text-center text-slate-400 italic">
                       Belum ada data invoice. Klik tombol "+ Buat Invoice" di atas untuk membuat invoice baru.
                     </td>
                   </tr>
                 ) : (
-                  filteredInvoices.map((inv) => {
+                  paginatedInvoices.map((inv, idx) => {
                     const isUnpaid = inv.status === 'UNPAID';
+                    const serialNumber = (safeCurrentPage - 1) * pageSize + idx + 1;
                     return (
                       <tr
                         key={inv.id}
                         onClick={() => openDetailPage(inv)}
                         className="hover:bg-blue-50/40 transition-colors cursor-pointer group"
                       >
+                        <td className="p-3.5 text-slate-500 font-semibold text-center whitespace-nowrap">
+                          {serialNumber}
+                        </td>
                         <td className="p-3.5 text-slate-600 font-medium whitespace-nowrap">
                           {formatDateIndo(inv.issueDate)}
                         </td>
@@ -686,6 +747,77 @@ export const InvoiceGenerator: React.FC = () => {
               </tbody>
             </table>
           </div>
+
+          {/* Pagination Footer */}
+          {totalItems > 0 && (
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 border-t border-slate-200 bg-slate-50/50">
+              <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                <span>Tampilkan</span>
+                <select
+                  value={pageSize}
+                  onChange={(e) => {
+                    setPageSize(Number(e.target.value));
+                    setCurrentPage(1);
+                  }}
+                  className="px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
+                >
+                  <option value={20}>20</option>
+                  <option value={30}>30</option>
+                  <option value={40}>40</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                </select>
+                <span>baris. Menampilkan {Math.min(totalItems, (safeCurrentPage - 1) * pageSize + 1)}-{Math.min(totalItems, safeCurrentPage * pageSize)} dari {totalItems} invoice.</span>
+              </div>
+
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={safeCurrentPage === 1}
+                  className="p-2 border border-slate-200 rounded-xl bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-white disabled:cursor-not-allowed transition-all cursor-pointer"
+                  title="Halaman Sebelumnya"
+                >
+                  <ChevronLeft size={14} />
+                </button>
+
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: totalPages }, (_, i) => i + 1)
+                    .filter(page => {
+                      return page === 1 || page === totalPages || Math.abs(page - safeCurrentPage) <= 1;
+                    })
+                    .map((page, index, array) => {
+                      const showEllipsisBefore = index > 0 && page - array[index - 1] > 1;
+                      return (
+                        <React.Fragment key={page}>
+                          {showEllipsisBefore && (
+                            <span className="px-2 text-slate-400 select-none">...</span>
+                          )}
+                          <button
+                            onClick={() => setCurrentPage(page)}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                              safeCurrentPage === page
+                                ? 'bg-blue-600 text-white'
+                                : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+                            }`}
+                          >
+                            {page}
+                          </button>
+                        </React.Fragment>
+                      );
+                    })}
+                </div>
+
+                <button
+                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  disabled={safeCurrentPage === totalPages}
+                  className="p-2 border border-slate-200 rounded-xl bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-white disabled:cursor-not-allowed transition-all cursor-pointer"
+                  title="Halaman Berikutnya"
+                >
+                  <ChevronRight size={14} />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -1062,7 +1194,7 @@ export const InvoiceGenerator: React.FC = () => {
               onClick={() => setIsNewClientModalOpen(true)}
               className="text-blue-600 hover:text-blue-700 font-semibold text-xs flex items-center gap-1 cursor-pointer"
             >
-              <UserPlus size={14} /> + Input Klien Baru (Lokal)
+              <UserPlus size={14} /> + Input Klien Baru
             </button>
           </div>
         </div>
@@ -1438,9 +1570,9 @@ export const InvoiceGenerator: React.FC = () => {
       {/* Modal Quick Create Local Client */}
       {isNewClientModalOpen && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-md w-full p-6 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-              <h3 className="font-bold text-slate-800 text-sm">Input Klien Baru (Lokal)</h3>
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-md w-full p-6 space-y-4 max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-3 flex-shrink-0">
+              <h3 className="font-bold text-slate-800 text-sm">Input Klien Baru</h3>
               <button
                 onClick={() => setIsNewClientModalOpen(false)}
                 className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
@@ -1449,7 +1581,19 @@ export const InvoiceGenerator: React.FC = () => {
               </button>
             </div>
 
-            <div className="space-y-3 text-xs">
+            <div className="space-y-3 text-xs overflow-y-auto pr-1 flex-1">
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Tipe Klien *</label>
+                <select
+                  value={newClientTypeInput}
+                  onChange={(e) => setNewClientTypeInput(e.target.value as 'PT' | 'CV')}
+                  className="w-full p-2.5 border border-slate-200 rounded-xl focus:outline-none bg-white cursor-pointer"
+                >
+                  <option value="PT">PT (Perseroan Terbatas)</option>
+                  <option value="CV">CV (Persekutuan Komanditer)</option>
+                </select>
+              </div>
+
               <div>
                 <label className="block font-bold text-slate-700 mb-1">Nama Klien / Perusahaan *</label>
                 <input
@@ -1457,7 +1601,18 @@ export const InvoiceGenerator: React.FC = () => {
                   required
                   value={newClientNameInput}
                   onChange={(e) => setNewClientNameInput(e.target.value)}
-                  placeholder="e.g. PT Maju Jaya"
+                  placeholder={newClientTypeInput === 'CV' ? 'e.g. CV MAJU JAYA' : 'e.g. PT MAJU JAYA'}
+                  className="w-full p-2.5 border border-slate-200 rounded-xl focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Kedudukan (Kab/Kota)</label>
+                <input
+                  type="text"
+                  value={newClientDomicileInput}
+                  onChange={(e) => setNewClientDomicileInput(e.target.value)}
+                  placeholder="e.g. Kota Bandung atau Kabupaten Bandung Barat"
                   className="w-full p-2.5 border border-slate-200 rounded-xl focus:outline-none"
                 />
               </div>
@@ -1485,35 +1640,61 @@ export const InvoiceGenerator: React.FC = () => {
               </div>
 
               <div>
-                <label className="block font-bold text-slate-700 mb-1">Alamat</label>
-                <input
-                  type="text"
+                <label className="block font-bold text-slate-700 mb-1">Alamat Lengkap</label>
+                <textarea
                   value={newClientAddressInput}
                   onChange={(e) => setNewClientAddressInput(e.target.value)}
                   placeholder="Alamat lengkap..."
-                  className="w-full p-2.5 border border-slate-200 rounded-xl focus:outline-none"
+                  rows={2}
+                  className="w-full p-2.5 border border-slate-200 rounded-xl focus:outline-none resize-none"
                 />
               </div>
 
-              <div className="flex justify-end gap-2 pt-3 border-t border-slate-200">
+              <div className="border-t border-dashed border-slate-200 pt-3 mt-3">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-2">Informasi PIC (Tidak Wajib)</span>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Nama PIC</label>
+                    <input
+                      type="text"
+                      value={newClientPicNameInput}
+                      onChange={(e) => setNewClientPicNameInput(e.target.value)}
+                      placeholder="Nama lengkap PIC"
+                      className="w-full p-2.5 border border-slate-200 rounded-xl focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Telepon / WA PIC</label>
+                    <input
+                      type="text"
+                      value={newClientPicPhoneInput}
+                      onChange={(e) => setNewClientPicPhoneInput(e.target.value)}
+                      placeholder="e.g. 08123456789"
+                      className="w-full p-2.5 border border-slate-200 rounded-xl focus:outline-none"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-3 border-t border-slate-200 flex-shrink-0">
                 <button
                   type="button"
                   onClick={() => setIsNewClientModalOpen(false)}
-                  className="px-4 py-2 border border-slate-300 rounded-xl font-medium text-slate-600 hover:bg-slate-50 cursor-pointer"
+                  className="px-4 py-2 border border-slate-300 rounded-xl font-medium text-slate-600 hover:bg-slate-50 cursor-pointer text-xs"
                 >
                   Batal
                 </button>
                 <button
                   type="button"
                   onClick={handleCreateQuickLocalClient}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold cursor-pointer"
+                  className="px-4 py-2 bg-[#0c2444] text-white rounded-xl font-bold cursor-pointer text-xs hover:bg-[#16365f]"
                 >
-                  Gunakan Klien Ini
+                  Simpan & Gunakan Klien
                 </button>
               </div>
             </div>
           </div>
-        </div>
       )}
     </div>
   );
