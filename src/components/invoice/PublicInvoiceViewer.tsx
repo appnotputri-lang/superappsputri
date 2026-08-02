@@ -23,6 +23,14 @@ export const PublicInvoiceViewer: React.FC = () => {
           token = rootMatch[1];
         }
 
+        // 1b. Format legacy: /INV/{slug} atau /inv/{slug}
+        if (!token) {
+          const invMatch = window.location.pathname.match(/^\/inv\/([^/?#]+)/i);
+          if (invMatch) {
+            token = decodeURIComponent(invMatch[1]);
+          }
+        }
+
         // 2. Fallback: path lama /invoice/public/{token}
         if (!token) {
           const pathMatch = window.location.pathname.match(/\/invoice\/public\/([^/?#]+)/);

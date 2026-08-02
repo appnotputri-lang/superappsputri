@@ -7,7 +7,7 @@ import { collection, getDocs, doc, writeBatch } from 'firebase/firestore';
 export default function MigrationTool() {
   const [logs, setLogs] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
-  const [importFiles, setImportFiles] = useState<{ deeds?: any[]; private_deeds?: any[]; outgoing_mails?: any[] }>({});
+  const [importFiles, setImportFiles] = useState<{ deeds?: any[]; private_deeds?: any[]; outgoing_mails?: any[]; invoices?: any[] }>({});
 
   const addLog = (msg: string) => {
     setLogs(prev => [...prev, msg]);
@@ -399,7 +399,7 @@ export default function MigrationTool() {
   // yang sama seperti aslinya supaya aman dijalankan ulang tanpa duplikat.
   // ============================================================================
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, key: 'deeds' | 'private_deeds' | 'outgoing_mails') => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, key: 'deeds' | 'private_deeds' | 'outgoing_mails' | 'invoices') => {
     const file = e.target.files?.[0];
     if (!file) return;
     try {
@@ -550,6 +550,130 @@ export default function MigrationTool() {
     }
   };
 
+  const runInvoiceJsonImport = async (isDryRun: boolean) => {
+    setLoading(true);
+    setLogs([]);
+    addLog(`=== STARTING INVOICE IMPORT (${isDryRun ? 'DRY RUN' : 'EXECUTE'}) ===`);
+
+    const LEGACY_INVOICE_DOMAIN = 'https://notarisputri.web.id'; // sesuaikan domain app lama yang sebenarnya
+    const OLD_TAX_RATE = 0.025; // tarif pajak tetap yang dipakai app lama
+
+    try {
+      if (!importFiles.invoices || importFiles.invoices.length === 0) {
+        addLog('Upload export_invoices.json dulu.');
+        return;
+      }
+
+      // Ambil semua profil klien sekali untuk pencocokan nama
+      const [profilesSnap, cvSnap] = await Promise.all([
+        getDocs(collection(db, 'profiles')),
+        getDocs(collection(db, 'cv_profiles')),
+      ]);
+      const normalize = (s: string) => (s || '').toUpperCase().trim().replace(/\s+/g, ' ');
+      const profileIndex = new Map<string, string>(); // normalizedName -> id
+      profilesSnap.docs.forEach((d) => {
+        const name = d.data().companyName || d.data().name || '';
+        if (name) profileIndex.set(normalize(name), d.id);
+      });
+      cvSnap.docs.forEach((d) => {
+        const name = d.data().companyName || d.data().name || '';
+        if (name) profileIndex.set(normalize(name), d.id);
+      });
+
+      const unmatchedClients = new Set<string>();
+      let batch = writeBatch(db);
+      let count = 0;
+      let imported = 0;
+
+      for (const raw of importFiles.invoices) {
+        const items = (raw.items || []).map((it: any, idx: number) => {
+          const baseAmount = it.amount ?? (it.price || 0) * (it.quantity || 1);
+          let grossAmount = baseAmount;
+          let itemTax = 0;
+          if (it.isTaxed) {
+            grossAmount = Math.floor(baseAmount / (1 - OLD_TAX_RATE));
+            itemTax = Math.floor(grossAmount - baseAmount);
+          }
+          return {
+            id: `item_${idx}_${raw.id}`,
+            description: it.description || '',
+            quantity: it.quantity ?? 1,
+            unitPrice: it.price ?? baseAmount,
+            amount: grossAmount,
+            isTaxed: !!it.isTaxed,
+            taxRate: it.isTaxed ? OLD_TAX_RATE : undefined,
+            _itemTax: itemTax, // dipakai sementara buat jumlah di bawah, tidak ikut disimpan
+          };
+        });
+
+        const subtotal = items.reduce((sum: number, it: any) => sum + it.amount, 0);
+        const taxAmount = items.reduce((sum: number, it: any) => sum + it._itemTax, 0);
+        const totalAmount = raw.totalAmount ?? (subtotal - taxAmount);
+        const paidAmount = raw.paymentAmount ?? (raw.paymentHistory || []).reduce((s: number, p: any) => s + (p.amount || 0), 0) ?? 0;
+        const balanceDue = Math.max(0, totalAmount - paidAmount);
+
+        const cleanItems = items.map(({ _itemTax, ...rest }: any) => rest);
+
+        const normalizedName = normalize(raw.clientName);
+        const matchedId = profileIndex.get(normalizedName);
+        if (!matchedId && raw.clientName) unmatchedClients.add(raw.clientName);
+
+        const numericPart = (raw.invoiceNumber || '').replace(/\D/g, '');
+        const slug = numericPart || raw.invoiceNumber;
+        const legacyPublicUrl = `${LEGACY_INVOICE_DOMAIN}/INV/${encodeURIComponent(slug)}`;
+
+        const createdAtIso = typeof raw.createdAt === 'number' ? new Date(raw.createdAt).toISOString() : new Date().toISOString();
+
+        const newData: any = {
+          id: raw.id,
+          invoiceNumber: raw.invoiceNumber,
+          clientName: raw.clientName,
+          clientId: matchedId || undefined,
+          clientSource: matchedId ? 'superapps' : 'local',
+          clientAddress: raw.clientAddress || '',
+          issueDate: raw.date,
+          dueDate: raw.dueDate,
+          status: raw.status,
+          items: cleanItems,
+          subtotal,
+          taxAmount,
+          totalAmount,
+          paidAmount,
+          balanceDue,
+          language: raw.language || 'id',
+          notes: raw.notes,
+          paymentHistory: raw.paymentHistory || [],
+          legacyPublicUrl,
+          createdAt: createdAtIso,
+          updatedAt: createdAtIso,
+        };
+
+        if (isDryRun) {
+          if (imported < 3) {
+            addLog(`[DRY RUN] invoices/${raw.id}: ${newData.invoiceNumber} - ${newData.clientName} (${matchedId ? 'klien cocok' : 'klien TIDAK cocok'}) - Total Rp${totalAmount.toLocaleString('id-ID')}`);
+          }
+        } else {
+          batch.set(doc(db, 'invoices', raw.id), newData);
+          count++;
+          if (count % 400 === 0) { await batch.commit(); batch = writeBatch(db); }
+        }
+        imported++;
+      }
+      if (!isDryRun) await batch.commit();
+
+      addLog(`\n${isDryRun ? '[DRY RUN] ' : ''}Imported ${imported} invoice(s).`);
+      if (unmatchedClients.size > 0) {
+        addLog(`\n=== Klien TIDAK ditemukan di daftar Klien superappsputri (${unmatchedClients.size}) ===`);
+        addLog('Invoice-invoice ini tetap terimpor dengan nama klien apa adanya (clientSource: local), hanya belum terhubung ke profil:');
+        Array.from(unmatchedClients).forEach((name) => addLog(`  - ${name}`));
+      }
+    } catch (err: any) {
+      addLog(`ERROR: ${err.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <PageContainer>
       <PageHeader
@@ -613,19 +737,19 @@ export default function MigrationTool() {
         <div>
           <h3 className="text-sm font-bold text-slate-800">Import Data dari JSON Export (App Lama)</h3>
           <p className="text-xs text-slate-500 mt-1">
-            Kalau data akta/waarmerking/surat keluar tidak muncul di panel "Normalisasi" di atas (berarti app lama
+            Kalau data akta/waarmerking/surat keluar/invoice tidak muncul di panel "Normalisasi" di atas (berarti app lama
             live memakai Firestore yang berbeda), upload file <code>export_deeds.json</code>,{' '}
-            <code>export_private_deeds.json</code>, dan/atau <code>export_outgoing_mails.json</code> hasil export dari
-            app lama di sini. Aman dijalankan ulang — id dokumen dipertahankan sama seperti aslinya, jadi tidak akan
-            dobel kalau diupload lagi.
+            <code>export_private_deeds.json</code>, <code>export_outgoing_mails.json</code>, dan/atau{' '}
+            <code>export_invoices.json</code> hasil export dari app lama di sini. Aman dijalankan ulang — id dokumen
+            dipertahankan sama seperti aslinya, jadi tidak akan dobel kalau diupload lagi.
           </p>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          {(['deeds', 'private_deeds', 'outgoing_mails'] as const).map((key) => (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          {(['deeds', 'private_deeds', 'outgoing_mails', 'invoices'] as const).map((key) => (
             <label key={key} className="flex flex-col items-center justify-center gap-2 border-2 border-dashed border-slate-300 rounded-lg p-4 text-center cursor-pointer hover:bg-slate-50 transition-all">
               <Upload size={18} className="text-slate-400" />
               <span className="text-xs font-semibold text-slate-700">
-                {key === 'deeds' ? 'export_deeds.json' : key === 'private_deeds' ? 'export_private_deeds.json' : 'export_outgoing_mails.json'}
+                {key === 'deeds' ? 'export_deeds.json' : key === 'private_deeds' ? 'export_private_deeds.json' : key === 'outgoing_mails' ? 'export_outgoing_mails.json' : 'export_invoices.json'}
               </span>
               <span className="text-[11px] text-slate-500">
                 {importFiles[key] ? `${importFiles[key]!.length} dokumen dimuat` : 'Klik untuk upload'}
@@ -634,7 +758,7 @@ export default function MigrationTool() {
             </label>
           ))}
         </div>
-        <div className="flex gap-4">
+        <div className="flex flex-wrap gap-4">
           <button
             onClick={() => runJsonImport(true)}
             disabled={loading}
@@ -648,6 +772,23 @@ export default function MigrationTool() {
             className="px-4 py-2 bg-[#0c2444] text-white rounded-lg hover:bg-[#16365f] text-xs font-bold transition-all cursor-pointer"
           >
             Execute Import (JSON)
+          </button>
+          
+          <div className="w-px bg-slate-200 self-stretch my-1 hidden sm:block" />
+
+          <button
+            onClick={() => runInvoiceJsonImport(true)}
+            disabled={loading}
+            className="px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50 text-xs font-bold transition-all cursor-pointer"
+          >
+            Run Dry Run (Import Invoice)
+          </button>
+          <button
+            onClick={() => runInvoiceJsonImport(false)}
+            disabled={loading}
+            className="px-4 py-2 bg-[#0c2444] text-white rounded-lg hover:bg-[#16365f] text-xs font-bold transition-all cursor-pointer"
+          >
+            Execute Import (Invoice)
           </button>
         </div>
       </div>

@@ -49,13 +49,15 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
 }) => {
   const isSingleSegmentPath = /^\/[A-Za-z0-9_-]+\/?$/.test(window.location.pathname) && window.location.pathname !== '/';
   const isPossibleTokenRoute = isSingleSegmentPath && !isReservedPath(window.location.pathname);
+  const isLegacyInvRoute = /^\/inv\/[A-Za-z0-9_-]+\/?$/i.test(window.location.pathname);
 
   const isPublicRoute = 
     window.location.pathname === '/rupst' || 
     (window.location.hash && window.location.hash.includes('/rupst')) ||
     window.location.pathname.includes('/invoice/public') ||
     (window.location.hash && window.location.hash.includes('/invoice/public')) ||
-    isPossibleTokenRoute;
+    isPossibleTokenRoute ||
+    isLegacyInvRoute;
 
   if (authLoading) {
     if (isEmbedMode) {

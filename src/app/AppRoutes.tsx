@@ -79,11 +79,13 @@ export const AppRoutes: React.FC<AppRoutesProps> = (props) => {
 
   const isSingleSegmentPath = /^\/[A-Za-z0-9_-]+\/?$/.test(location.pathname) && location.pathname !== '/';
   const isPossibleTokenRoute = isSingleSegmentPath && !isReservedPath(location.pathname);
+  const isLegacyInvRoute = /^\/inv\/[A-Za-z0-9_-]+\/?$/i.test(location.pathname);
 
   const isPublicInvoice =
     location.pathname.includes('/invoice/public') ||
     (window.location.hash && window.location.hash.includes('/invoice/public')) ||
-    isPossibleTokenRoute;
+    isPossibleTokenRoute ||
+    isLegacyInvRoute;
 
   if (isPublicInvoice) {
     return renderAppRoute('invoice', { ...props, isPublic: true });
