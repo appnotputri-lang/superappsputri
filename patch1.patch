@@ -1,0 +1,52 @@
+--- src/features/project-engine/components/ProjectDetail.tsx
++++ src/features/project-engine/components/ProjectDetail.tsx
+@@ -179,6 +179,48 @@
+   ]);
+   const [savingDeedInfo, setSavingDeedInfo] = useState(false);
+ 
++  // States for Refresh from Client
++  const [showRefreshModal, setShowRefreshModal] = useState(false);
++  const [isRefreshingClient, setIsRefreshingClient] = useState(false);
++  const [refreshFormData, setRefreshFormData] = useState<any>(null);
++
++  const prepareRefreshFromClient = async () => {
++    setIsRefreshingClient(true);
++    try {
++      const formDoc = documents.find(d => d.refId);
++      const refIdToUse = formDoc?.refId || project?.metadata?.refId || projectId;
++      const formObj = await fetchDocRecordData({
++        id: 'temp',
++        name: project?.title || '',
++        type: 'form',
++        refId: refIdToUse,
++        uploadedAt: new Date().toISOString()
++      }, true);
++      if (!formObj) throw new Error('Data form proyek tidak ditemukan.');
++      setRefreshFormData(formObj);
++      setShowRefreshModal(true);
++    } catch (e: any) {
++      alert(e.message || 'Gagal memuat data form proyek.');
++    } finally {
++      setIsRefreshingClient(false);
++    }
++  };
++
++  const confirmRefreshFromClient = async () => {
++    if (!refreshFormData || !client) return;
++    setIsRefreshingClient(true);
++    try {
++      const formDoc = documents.find(d => d.refId);
++      const refIdToUse = formDoc?.refId || project?.metadata?.refId || projectId;
++      let collectionName = '';
++      if (project?.jobType === 'rups_lb' || project?.jobType === 'sirkuler_rupslb') collectionName = 'projects';
++      else if (project?.jobType === 'rups_t' || project?.jobType === 'sirkuler') collectionName = 'rupst_projects';
++      if (!collectionName) throw new Error('Tipe proyek tidak didukung.');
++      const updatedForm = { ...refreshFormData, shareholders: client.shareholders || [], amendmentDeeds: client.amendmentDeeds || [] };
++      await updateDoc(doc(db, collectionName, refIdToUse), updatedForm);
++      setShowRefreshModal(false);
++      alert('Data proyek berhasil diperbarui dari Profil Klien terbaru. Silakan regenerate (buat ulang) dokumen terkait agar perubahan masuk ke file Word.');
++    } catch (e: any) { alert(e.message || 'Gagal menyimpan pembaruan.'); } finally { setIsRefreshingClient(false); }
++  };
++
+   // New Task State
+   const [newTaskTitle, setNewTaskTitle] = useState('');
