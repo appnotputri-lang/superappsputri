@@ -31,31 +31,43 @@ export const getTransferData = (transfer: ShareTransfer, companyData: CompanyDat
     nextData.jumlahSahamHibah = transfer.sharesTransferred.toString();
   }
 
-  let fromSh = companyData.shareholders?.find(s => transfer.fromShareholderId && (s.id === transfer.fromShareholderId || (s.linkedPartyId && s.linkedPartyId === transfer.fromShareholderId)));
+  const allCandidates: any[] = [
+    ...(companyData.shareholders || []),
+    ...(companyData.finalShareholders || []),
+    ...((companyData as any).initialShareholders || []),
+    ...((companyData as any).parties || []),
+    ...(companyData.oldManagementItems || []),
+    ...(companyData.newManagementItems || []),
+  ];
+
+  let fromSh = allCandidates.find(s => transfer.fromShareholderId && (s.id === transfer.fromShareholderId || (s.linkedPartyId && s.linkedPartyId === transfer.fromShareholderId))) ||
+               (transfer as any).fromDetail;
   if (!fromSh && transfer.fromName) {
-    fromSh = companyData.shareholders?.find(s => s.name && s.name.trim().toUpperCase() === transfer.fromName.trim().toUpperCase());
+    const fromUpper = transfer.fromName.trim().toUpperCase();
+    fromSh = allCandidates.find(s => s.name && s.name.trim().toUpperCase() === fromUpper);
   }
 
-  let toSh = companyData.shareholders?.find(s => transfer.toShareholderId && (s.id === transfer.toShareholderId || (s.linkedPartyId && s.linkedPartyId === transfer.toShareholderId))) ||
-             companyData.finalShareholders?.find(s => transfer.toShareholderId && (s.id === transfer.toShareholderId || (s.linkedPartyId && s.linkedPartyId === transfer.toShareholderId)));
+  let toSh = allCandidates.find(s => transfer.toShareholderId && (s.id === transfer.toShareholderId || (s.linkedPartyId && s.linkedPartyId === transfer.toShareholderId))) ||
+             transfer.toDetail;
   if (!toSh && transfer.toName) {
-    toSh = companyData.shareholders?.find(s => s.name && s.name.trim().toUpperCase() === transfer.toName.trim().toUpperCase()) ||
-           companyData.finalShareholders?.find(s => s.name && s.name.trim().toUpperCase() === transfer.toName.trim().toUpperCase());
+    const toUpper = transfer.toName.trim().toUpperCase();
+    toSh = allCandidates.find(s => s.name && s.name.trim().toUpperCase() === toUpper);
   }
 
   if (fromSh) {
+    const addr = fromSh.address || {};
     nextData.pihak1Gelar = fromSh.salutation || nextData.pihak1Gelar;
     nextData.pihak1Nama = fromSh.name || nextData.pihak1Nama;
-    nextData.pihak1TempatLahir = fromSh.birthCity || nextData.pihak1TempatLahir;
-    nextData.pihak1TanggalLahir = fromSh.birthDate || nextData.pihak1TanggalLahir;
-    nextData.pihak1Pekerjaan = fromSh.occupation || nextData.pihak1Pekerjaan;
-    nextData.pihak1AlamatJalan = fromSh.address?.fullAddress || nextData.pihak1AlamatJalan;
-    nextData.pihak1RT = fromSh.address?.rt || nextData.pihak1RT;
-    nextData.pihak1RW = fromSh.address?.rw || nextData.pihak1RW;
-    nextData.pihak1Provinsi = toTitleCase(fromSh.address?.province || nextData.pihak1Provinsi || '');
-    nextData.pihak1Kota = toTitleCase(fromSh.address?.city || nextData.pihak1Kota || '');
-    nextData.pihak1Kecamatan = toTitleCase(fromSh.address?.kecamatan || nextData.pihak1Kecamatan || '');
-    nextData.pihak1Kelurahan = toTitleCase(fromSh.address?.kelurahan || nextData.pihak1Kelurahan || '');
+    nextData.pihak1TempatLahir = fromSh.birthCity || fromSh.tempatLahir || nextData.pihak1TempatLahir;
+    nextData.pihak1TanggalLahir = fromSh.birthDate || fromSh.tanggalLahir || nextData.pihak1TanggalLahir;
+    nextData.pihak1Pekerjaan = fromSh.occupation || fromSh.pekerjaan || nextData.pihak1Pekerjaan;
+    nextData.pihak1AlamatJalan = addr.fullAddress || fromSh.fullAddress || fromSh.alamat || nextData.pihak1AlamatJalan;
+    nextData.pihak1RT = addr.rt || fromSh.rt || nextData.pihak1RT;
+    nextData.pihak1RW = addr.rw || fromSh.rw || nextData.pihak1RW;
+    nextData.pihak1Provinsi = toTitleCase(addr.province || fromSh.province || nextData.pihak1Provinsi || '');
+    nextData.pihak1Kota = toTitleCase(addr.city || fromSh.city || nextData.pihak1Kota || '');
+    nextData.pihak1Kecamatan = toTitleCase(addr.kecamatan || fromSh.kecamatan || nextData.pihak1Kecamatan || '');
+    nextData.pihak1Kelurahan = toTitleCase(addr.kelurahan || fromSh.kelurahan || nextData.pihak1Kelurahan || '');
     nextData.pihak1NIK = fromSh.nik || nextData.pihak1NIK;
     nextData.pihak1SahamDimiliki = fromSh.sharesOwned != null
       ? fromSh.sharesOwned.toString()
@@ -65,18 +77,19 @@ export const getTransferData = (transfer: ShareTransfer, companyData: CompanyDat
   }
 
   if (toSh) {
+    const addr = toSh.address || {};
     nextData.pihak2Gelar = toSh.salutation || nextData.pihak2Gelar;
     nextData.pihak2Nama = toSh.name || nextData.pihak2Nama;
-    nextData.pihak2TempatLahir = toSh.birthCity || nextData.pihak2TempatLahir;
-    nextData.pihak2TanggalLahir = toSh.birthDate || nextData.pihak2TanggalLahir;
-    nextData.pihak2Pekerjaan = toSh.occupation || nextData.pihak2Pekerjaan;
-    nextData.pihak2AlamatJalan = toSh.address?.fullAddress || nextData.pihak2AlamatJalan;
-    nextData.pihak2RT = toSh.address?.rt || nextData.pihak2RT;
-    nextData.pihak2RW = toSh.address?.rw || nextData.pihak2RW;
-    nextData.pihak2Provinsi = toTitleCase(toSh.address?.province || nextData.pihak2Provinsi || '');
-    nextData.pihak2Kota = toTitleCase(toSh.address?.city || nextData.pihak2Kota || '');
-    nextData.pihak2Kecamatan = toTitleCase(toSh.address?.kecamatan || nextData.pihak2Kecamatan || '');
-    nextData.pihak2Kelurahan = toTitleCase(toSh.address?.kelurahan || nextData.pihak2Kelurahan || '');
+    nextData.pihak2TempatLahir = toSh.birthCity || toSh.tempatLahir || nextData.pihak2TempatLahir;
+    nextData.pihak2TanggalLahir = toSh.birthDate || toSh.tanggalLahir || nextData.pihak2TanggalLahir;
+    nextData.pihak2Pekerjaan = toSh.occupation || toSh.pekerjaan || nextData.pihak2Pekerjaan;
+    nextData.pihak2AlamatJalan = addr.fullAddress || toSh.fullAddress || toSh.alamat || nextData.pihak2AlamatJalan;
+    nextData.pihak2RT = addr.rt || toSh.rt || nextData.pihak2RT;
+    nextData.pihak2RW = addr.rw || toSh.rw || nextData.pihak2RW;
+    nextData.pihak2Provinsi = toTitleCase(addr.province || toSh.province || nextData.pihak2Provinsi || '');
+    nextData.pihak2Kota = toTitleCase(addr.city || toSh.city || nextData.pihak2Kota || '');
+    nextData.pihak2Kecamatan = toTitleCase(addr.kecamatan || toSh.kecamatan || nextData.pihak2Kecamatan || '');
+    nextData.pihak2Kelurahan = toTitleCase(addr.kelurahan || toSh.kelurahan || nextData.pihak2Kelurahan || '');
     nextData.pihak2NIK = toSh.nik || nextData.pihak2NIK;
   } else if (transfer.toName) {
     nextData.pihak2Nama = transfer.toName;

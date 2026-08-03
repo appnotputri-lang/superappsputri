@@ -120,7 +120,7 @@ export const generateDocxBlob = async (data: FormData): Promise<Blob> => {
     indentTabs: number = 0,
     options: Omit<IParagraphOptions, "children"> = {},
   ) => {
-    let indentReduction = 4.4;
+    let indentReduction = 2.2;
     if (indentTabs) indentReduction += indentTabs * 4.4;
 
     const lines = parseTextRuns(tokens, 41.5 - indentReduction);
