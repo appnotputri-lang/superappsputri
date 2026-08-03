@@ -50,8 +50,8 @@ export const generateBlocks = (data: FormData): Block[] => {
     });
   }
 
-  const jumlahSaham = formatNumber(data.jumlahSahamPT);
-  const jumlahSahamHuruf = data.jumlahSahamPT ? terbilang(Number(data.jumlahSahamPT)) : "";
+  const jumlahSaham = formatNumber(data.pihak1SahamDimiliki);
+  const jumlahSahamHuruf = data.pihak1SahamDimiliki ? terbilang(Number(data.pihak1SahamDimiliki)) : "";
   const jumlahSahamHibah = formatNumber(data.jumlahSahamHibah);
   const jumlahSahamHibahHuruf = data.jumlahSahamHibah ? terbilang(Number(data.jumlahSahamHibah)) : "";
 

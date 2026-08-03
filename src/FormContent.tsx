@@ -629,6 +629,14 @@ export const FormContent: React.FC<FormContentProps> = ({ data, onChange, integr
         <div className="flex flex-col">
           {!integrated && (
             <>
+              <FieldRow label="Jumlah Saham Dimiliki Pihak Pertama (Lembar)">
+                <Input 
+                  name="pihak1SahamDimiliki" 
+                  type="text" 
+                  value={formatNumber(data.pihak1SahamDimiliki)} 
+                  onChange={handleNumberChange} 
+                />
+              </FieldRow>
               <FieldRow label="Total Saham PT">
                 <Input 
                   name="jumlahSahamPT" 

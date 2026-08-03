@@ -47,6 +47,7 @@ export const initialData = {
   ],
 
   jumlahSahamPT: '127500',
+  pihak1SahamDimiliki: '',
   jumlahSahamHibah: '127500',
   nilaiNominalSaham: '1000', // Example
   hargaJualSaham: '3125000', // Only for Jual Beli

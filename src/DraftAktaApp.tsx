@@ -57,6 +57,9 @@ export const getTransferData = (transfer: ShareTransfer, companyData: CompanyDat
     nextData.pihak1Kecamatan = toTitleCase(fromSh.address?.kecamatan || nextData.pihak1Kecamatan || '');
     nextData.pihak1Kelurahan = toTitleCase(fromSh.address?.kelurahan || nextData.pihak1Kelurahan || '');
     nextData.pihak1NIK = fromSh.nik || nextData.pihak1NIK;
+    nextData.pihak1SahamDimiliki = fromSh.sharesOwned != null
+      ? fromSh.sharesOwned.toString()
+      : nextData.pihak1SahamDimiliki;
   } else if (transfer.fromName) {
     nextData.pihak1Nama = transfer.fromName;
   }
