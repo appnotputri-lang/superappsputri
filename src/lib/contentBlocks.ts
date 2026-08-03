@@ -91,6 +91,12 @@ export const generateBlocks = (data: FormData): Block[] => {
   const tglPersetujuanSuamiHuruf = dateToWords(data.tglPersetujuanSuami);
   const tglPersetujuanSuamiAngka = formatDateStr(data.tglPersetujuanSuami);
 
+  const isSpouseSuami = data.pihak1StatusPersetujuan === 'Suami' ||
+    (data.pihak1StatusPersetujuan !== 'Istri' && (data.pihak1Gelar === 'Nyonya' || data.pihak1Gelar === 'Nona'));
+  const spouseRelation = isSpouseSuami ? 'suaminya' : 'istrinya';
+  const spouseTitle = isSpouseSuami ? 'Tuan ' : 'Nyonya ';
+  const spouseAddressRelation = isSpouseSuami ? 'istrinya' : 'suaminya';
+
   return [
     { type: 'p', align: 'center', runs: [{ text: `${data.tipeAkta === "Hibah" ? "HIBAH SAHAM" : "JUAL BELI SAHAM"}`, bold: true }] },
     { type: 'p', align: 'center', runs: [{ text: `Nomor : ${data.nomorAkta || '0'}` }] },
@@ -116,19 +122,30 @@ export const generateBlocks = (data: FormData): Block[] => {
       { text: `, lahir di ${toTitleCase(data.pihak1TempatLahir)}, pada tanggal ${tglLahirPihak1Huruf} (${tglLahirPihak1Angka}), Warga Negara Indonesia, ${toTitleCase(data.pihak1Pekerjaan)}, bertempat tinggal di ${toTitleCase(data.pihak1Kota)}, ${formatAddress(toTitleCase(data.pihak1AlamatJalan))}, Rukun Tetangga ${data.pihak1RT}, Rukun Warga ${data.pihak1RW}, Kelurahan ${toTitleCase(data.pihak1Kelurahan)}, Kecamatan ${toTitleCase(data.pihak1Kecamatan)}, pemegang Kartu Tanda Penduduk Nomor ${data.pihak1NIK};` }
     ] },
 
-    ...(data.pihak1StatusPersetujuan === 'Suami' || data.pihak1StatusPersetujuan === 'Istri' ? [
-      { type: 'list', bullet: '-', runs: [
-        { text: `Dalam melakukan tindakan hukum di bawah ini telah mendapat persetujuan dari ${data.pihak1StatusPersetujuan.toLowerCase()}nya yaitu ` },
-        { text: data.pihak1StatusPersetujuan === 'Suami' ? 'Tuan ' : 'Nyonya ' },
-        { text: data.suamiNama, bold: true },
-        { text: `, lahir di ${toTitleCase(data.suamiTempatLahir)}, pada tanggal ${tglLahirSuamiHuruf} (${tglLahirSuamiAngka}), Warga Negara Indonesia, ${toTitleCase(data.suamiPekerjaan)}, ` },
-        { text: data.suamiAlamatSama 
-            ? `bertempat tinggal sama dengan ${data.pihak1StatusPersetujuan === 'Suami' ? 'istrinya' : 'suaminya'} tersebut`
-            : `bertempat tinggal di ${toTitleCase(data.suamiKota)}, ${formatAddress(toTitleCase(data.suamiAlamatJalan))}, Rukun Tetangga ${data.suamiRT}, Rukun Warga ${data.suamiRW}, Kelurahan ${toTitleCase(data.suamiKelurahan)}, Kecamatan ${toTitleCase(data.suamiKecamatan)}` 
-        },
-        { text: `, pemegang Kartu Tanda Penduduk Nomor ${data.suamiNIK} berdasarkan Surat Persetujuan dan Kuasa yang dibuat dibawah tangan tertanggal ${tglPersetujuanSuamiHuruf} (${tglPersetujuanSuamiAngka}) yang aslinya dilekatkan pada minuta akta ini.` }
-      ] as FormatToken[] }
-    ].map(item => ({ ...item, type: 'list' as const, bullet: '-' })) : []),
+    ...((data.pihak1StatusPersetujuan === 'Suami' || data.pihak1StatusPersetujuan === 'Istri' || data.pihak1StatusPersetujuan === 'Kuasa' || data.appearer1Role === 'SelfAndProxy' || data.appearer1Role === 'Proxy') && data.suamiNama ? [
+      { 
+        type: 'list' as const, 
+        bullet: '-', 
+        runs: [
+          { 
+            text: `Dalam melakukan tindakan hukum di bawah ini bertindak untuk dirinya sendiri serta selaku kuasa berdasarkan Surat Persetujuan dan Kuasa yang dibuat di bawah tangan tertanggal ${tglPersetujuanSuamiHuruf} (${tglPersetujuanSuamiAngka}), yang asli suratnya dilekatkan pada minuta akta ini, dengan terlebih dahulu telah memperoleh persetujuan dari ${spouseRelation}, yaitu ` 
+          },
+          { text: spouseTitle },
+          { text: data.suamiNama, bold: true },
+          { text: `, lahir di ${toTitleCase(data.suamiTempatLahir)}, pada tanggal ${tglLahirSuamiHuruf} (${tglLahirSuamiAngka}), Warga Negara Indonesia, ${toTitleCase(data.suamiPekerjaan)}, ` },
+          { 
+            text: data.suamiAlamatSama 
+              ? `bertempat tinggal sama dengan ${spouseAddressRelation} tersebut`
+              : `bertempat tinggal di ${toTitleCase(data.suamiKota)}, ${formatAddress(toTitleCase(data.suamiAlamatJalan))}, Rukun Tetangga ${data.suamiRT}, Rukun Warga ${data.suamiRW}, Kelurahan ${toTitleCase(data.suamiKelurahan)}, Kecamatan ${toTitleCase(data.suamiKecamatan)}` 
+          },
+          { 
+            text: `, pemegang Kartu Tanda Penduduk Nomor ${data.suamiNIK}.`
+          }
+        ] as FormatToken[] 
+      }
+    ] : [
+      { type: 'list' as const, bullet: '-', runs: [{ text: `Dalam melakukan tindakan hukum di bawah ini bertindak untuk dirinya sendiri.` }] }
+    ]),
 
     ...(data.pihak1Kota.trim().toUpperCase() !== "KABUPATEN BANDUNG BARAT" ? [{ type: 'list', bullet: '-', runs: [{ text: `Untuk sementara berada di ${toTitleCase(data.notarisKedudukan)}.` }], spaceAfter: true } as Block] : []),
 

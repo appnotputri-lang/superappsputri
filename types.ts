@@ -526,6 +526,7 @@ export interface DeedAppearer {
   name: string;
   role?: 'Self' | 'Proxy' | 'Both' | 'SelfAndProxy';
   grantors?: DeedGrantor[];
+  bertindakSebagai?: string;
   birthCity?: string;
   birthDate?: string;
   nik?: string;

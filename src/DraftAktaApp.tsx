@@ -11,6 +11,7 @@ import { toTitleCase } from '../utils/formatters';
 
 interface DraftAktaAppProps {
   companyData?: CompanyData;
+  onUpdateShareTransfer?: (transferId: string, updatedFields: Record<string, any>) => void;
 }
 
 export interface DraftAktaAppRef {
@@ -97,6 +98,49 @@ export const getTransferData = (transfer: ShareTransfer, companyData: CompanyDat
     if ((transfer as any).toNik) nextData.pihak2NIK = (transfer as any).toNik;
   }
 
+  const getSpouseValue = (key: string, defVal: any = '') => {
+    if (transfer && (transfer as any)[key] !== undefined) return (transfer as any)[key];
+    if (companyData && (companyData as any)[key] !== undefined) return (companyData as any)[key];
+    if (baseData && (baseData as any)[key] !== undefined) return (baseData as any)[key];
+    return defVal;
+  };
+
+  // Spouse / Approval Status overrides from transfer or companyData or baseData if present
+  let statusPersetujuan = getSpouseValue('pihak1StatusPersetujuan', '');
+
+  const hasSpouseData = getSpouseValue('suamiNama', '') !== '';
+  if (!statusPersetujuan && hasSpouseData) {
+    if (getSpouseValue('tglSuratKuasa', '') !== '') {
+      statusPersetujuan = 'Kuasa';
+    } else {
+      const p1Gelar = nextData.pihak1Gelar || '';
+      if (p1Gelar === 'Nyonya' || p1Gelar === 'Nona') {
+        statusPersetujuan = 'Suami';
+      } else if (p1Gelar === 'Tuan') {
+        statusPersetujuan = 'Istri';
+      } else {
+        statusPersetujuan = 'Suami';
+      }
+    }
+  }
+
+  nextData.pihak1StatusPersetujuan = statusPersetujuan;
+  nextData.suamiNama = getSpouseValue('suamiNama', '');
+  nextData.suamiTempatLahir = getSpouseValue('suamiTempatLahir', '');
+  nextData.suamiTanggalLahir = getSpouseValue('suamiTanggalLahir', '');
+  nextData.suamiPekerjaan = getSpouseValue('suamiPekerjaan', '');
+  nextData.suamiNIK = getSpouseValue('suamiNIK', '');
+  nextData.suamiAlamatSama = getSpouseValue('suamiAlamatSama', true);
+  nextData.suamiAlamatJalan = getSpouseValue('suamiAlamatJalan', '');
+  nextData.suamiRT = getSpouseValue('suamiRT', '');
+  nextData.suamiRW = getSpouseValue('suamiRW', '');
+  nextData.suamiProvinsi = getSpouseValue('suamiProvinsi', '');
+  nextData.suamiKota = getSpouseValue('suamiKota', '');
+  nextData.suamiKecamatan = getSpouseValue('suamiKecamatan', '');
+  nextData.suamiKelurahan = getSpouseValue('suamiKelurahan', '');
+  nextData.tglPersetujuanSuami = getSpouseValue('tglPersetujuanSuami', '');
+  nextData.tglSuratKuasa = getSpouseValue('tglSuratKuasa', '');
+
   // Calculate harga jual if Jual Beli
   if (nextData.tipeAkta === 'Jual Beli') {
     const qty = parseFloat(nextData.jumlahSahamHibah) || 0;
@@ -107,7 +151,43 @@ export const getTransferData = (transfer: ShareTransfer, companyData: CompanyDat
   return nextData;
 };
 
-const DraftAktaApp = forwardRef<DraftAktaAppRef, DraftAktaAppProps>(({ companyData }, ref) => {
+export const getCompanyBaseData = (companyData: any, initialData: any) => {
+  return {
+    ...initialData,
+    notarisNama: companyData?.notaryName || initialData.notarisNama,
+    notarisKedudukan: companyData?.notaryDomicile || initialData.notarisKedudukan,
+    namaPT: companyData?.targetCompanyName || companyData?.companyName || initialData.namaPT,
+    kedudukanPT: toTitleCase(companyData?.newAddress?.city || companyData?.domicile || initialData.kedudukanPT || ''),
+    tglPendirianPT: companyData?.establishmentDeedDate || initialData.tglPendirianPT,
+    nomorPendirian: companyData?.establishmentDeedNumber || initialData.nomorPendirian,
+    notarisPT: companyData?.establishmentNotary || initialData.notarisPT,
+    notarisPTTitle: companyData?.establishmentNotaryTitle || initialData.notarisPTTitle,
+    kedudukanNotarisPT: companyData?.establishmentNotaryDomicile || initialData.kedudukanNotarisPT,
+    skPengesahan: companyData?.establishmentSkNumber || initialData.skPengesahan,
+    tglSKPengesahan: companyData?.establishmentSkDate || initialData.tglSKPengesahan,
+    jumlahSahamPT: companyData?.originalAuthorizedShares ? companyData.originalAuthorizedShares.toString() : (companyData?.originalTotalShares ? companyData.originalTotalShares.toString() : initialData.jumlahSahamPT),
+    nilaiNominalSaham: companyData?.originalSharePrice ? companyData.originalSharePrice.toString() : initialData.nilaiNominalSaham,
+    tglSirkuler: companyData?.signingDate || initialData.tglSirkuler,
+    aktaPerubahan: companyData?.amendmentDeeds && companyData.amendmentDeeds.length > 0 
+      ? (companyData.amendmentDeeds || []).map((deed: any) => {
+          const sk = deed.skSpDocuments?.[0];
+          return {
+            id: deed.id,
+            tglRapat: deed.date,
+            nomorRapat: deed.number,
+            notaris: deed.notary,
+            notarisTitle: deed.notaryTitle || '',
+            kedudukanNotaris: deed.notaryDomicile || '',
+            skPerubahan: sk?.number || deed.skNumber || '',
+            tglSKPerubahan: sk?.date || deed.skDate || '',
+            jenisSK: (sk?.type === 'SK' ? 'SK' : sk?.type === 'SP' ? 'SP' : 'Penerimaan Pemberitahuan') as any
+          }
+        })
+      : initialData.aktaPerubahan,
+  };
+};
+
+const DraftAktaApp = forwardRef<DraftAktaAppRef, DraftAktaAppProps>(({ companyData, onUpdateShareTransfer }, ref) => {
   const [transferDataMap, setTransferDataMap] = useState<Record<string, FormData>>({});
   const [previewTransferId, setPreviewTransferId] = useState<string | null>(null);
 
@@ -122,39 +202,7 @@ const DraftAktaApp = forwardRef<DraftAktaAppRef, DraftAktaAppProps>(({ companyDa
         let hasChanges = false;
         
         // Base structure from company
-        const baseCompanyData = {
-          ...initialData,
-          notarisNama: companyData.notaryName || initialData.notarisNama,
-          notarisKedudukan: companyData.notaryDomicile || initialData.notarisKedudukan,
-          namaPT: companyData.targetCompanyName || companyData.companyName || initialData.namaPT,
-          kedudukanPT: toTitleCase(companyData.newAddress?.city || companyData.domicile || initialData.kedudukanPT || ''),
-          tglPendirianPT: companyData.establishmentDeedDate || initialData.tglPendirianPT,
-          nomorPendirian: companyData.establishmentDeedNumber || initialData.nomorPendirian,
-          notarisPT: companyData.establishmentNotary || initialData.notarisPT,
-          notarisPTTitle: companyData.establishmentNotaryTitle || initialData.notarisPTTitle,
-          kedudukanNotarisPT: companyData.establishmentNotaryDomicile || initialData.kedudukanNotarisPT,
-          skPengesahan: companyData.establishmentSkNumber || initialData.skPengesahan,
-          tglSKPengesahan: companyData.establishmentSkDate || initialData.tglSKPengesahan,
-          jumlahSahamPT: companyData.originalAuthorizedShares ? companyData.originalAuthorizedShares.toString() : (companyData.originalTotalShares ? companyData.originalTotalShares.toString() : initialData.jumlahSahamPT),
-          nilaiNominalSaham: companyData.originalSharePrice ? companyData.originalSharePrice.toString() : initialData.nilaiNominalSaham,
-          tglSirkuler: companyData.signingDate || initialData.tglSirkuler,
-          aktaPerubahan: companyData.amendmentDeeds && companyData.amendmentDeeds.length > 0 
-            ? (companyData.amendmentDeeds || []).map((deed) => {
-                const sk = deed.skSpDocuments?.[0];
-                return {
-                  id: deed.id,
-                  tglRapat: deed.date,
-                  nomorRapat: deed.number,
-                  notaris: deed.notary,
-                  notarisTitle: deed.notaryTitle || '',
-                  kedudukanNotaris: deed.notaryDomicile || '',
-                  skPerubahan: sk?.number || deed.skNumber || '',
-                  tglSKPerubahan: sk?.date || deed.skDate || '',
-                  jenisSK: (sk?.type === 'SK' ? 'SK' : sk?.type === 'SP' ? 'SP' : 'Penerimaan Pemberitahuan') as any
-                }
-              })
-            : initialData.aktaPerubahan,
-        };
+        const baseCompanyData = getCompanyBaseData(companyData, initialData);
 
         for (const transfer of activeTransfers) {
           if (!newMap[transfer.id]) {
@@ -193,28 +241,59 @@ const DraftAktaApp = forwardRef<DraftAktaAppRef, DraftAktaAppProps>(({ companyDa
     }
   }, [companyData, activeTransfers]);
 
-  const handleChange = (transferId: string, e: { target: { name: string; value: any } }) => {
-    setTransferDataMap(prev => {
-      const currentData = prev[transferId];
-      if (!currentData) return prev;
+  const handleChange = (
+    transferId: string, 
+    e: { target: { name: string; value: any } },
+    batchUpdates?: Record<string, any>
+  ) => {
+    const currentData = transferDataMap[transferId] || initialData;
 
-      const nextData = {
-        ...currentData,
-        [e.target.name]: e.target.value
-      };
+    const updates: Record<string, any> = {
+      [e.target.name]: e.target.value,
+      ...(batchUpdates || {})
+    };
 
-      // Auto-calculate Harga Jual Beli Saham if in AJB mode
-      if (nextData.tipeAkta === 'Jual Beli' && (e.target.name === 'jumlahSahamHibah' || e.target.name === 'nilaiNominalSaham' || e.target.name === 'tipeAkta')) {
-        const qty = parseFloat(nextData.jumlahSahamHibah) || 0;
-        const price = parseFloat(nextData.nilaiNominalSaham) || 0;
-        nextData.hargaJualSaham = (qty * price).toString();
-      }
+    const nextData = {
+      ...currentData,
+      ...updates
+    };
 
-      return {
-        ...prev,
-        [transferId]: nextData
-      };
-    });
+    // Auto-calculate Harga Jual Beli Saham if in AJB mode
+    if (nextData.tipeAkta === 'Jual Beli' && (updates.jumlahSahamHibah !== undefined || updates.nilaiNominalSaham !== undefined || updates.tipeAkta !== undefined)) {
+      const qty = parseFloat(nextData.jumlahSahamHibah) || 0;
+      const price = parseFloat(nextData.nilaiNominalSaham) || 0;
+      nextData.hargaJualSaham = (qty * price).toString();
+    }
+
+    setTransferDataMap(prev => ({
+      ...prev,
+      [transferId]: nextData
+    }));
+
+    if (onUpdateShareTransfer) {
+      onUpdateShareTransfer(transferId, {
+        pihak1StatusPersetujuan: nextData.pihak1StatusPersetujuan,
+        suamiNama: nextData.suamiNama,
+        suamiTempatLahir: nextData.suamiTempatLahir,
+        suamiTanggalLahir: nextData.suamiTanggalLahir,
+        suamiPekerjaan: nextData.suamiPekerjaan,
+        suamiAlamatJalan: nextData.suamiAlamatJalan,
+        suamiRT: nextData.suamiRT,
+        suamiRW: nextData.suamiRW,
+        suamiProvinsi: nextData.suamiProvinsi,
+        suamiKota: nextData.suamiKota,
+        suamiKecamatan: nextData.suamiKecamatan,
+        suamiKelurahan: nextData.suamiKelurahan,
+        suamiNIK: nextData.suamiNIK,
+        suamiAlamatSama: nextData.suamiAlamatSama,
+        tglPersetujuanSuami: nextData.tglPersetujuanSuami,
+        tglSuratKuasa: nextData.tglSuratKuasa,
+        hargaJualSaham: nextData.hargaJualSaham,
+        jumlahSahamHibah: nextData.jumlahSahamHibah,
+        tipeAkta: nextData.tipeAkta,
+        transferType: nextData.tipeAkta === 'Hibah' ? 'HIBAH' : 'AJB'
+      });
+    }
   };
 
   const handleDownloadSingle = async (transferId: string) => {
@@ -290,7 +369,7 @@ const DraftAktaApp = forwardRef<DraftAktaAppRef, DraftAktaAppProps>(({ companyDa
             <div className="w-full max-w-4xl mx-auto pl-4">
               <FormContent 
                 data={currentData} 
-                onChange={(e) => handleChange(transfer.id, e)} 
+                onChange={(e, batchUpdates) => handleChange(transfer.id, e, batchUpdates)} 
                 integrated={true} 
                 companyData={companyData}
                 transferId={transfer.id}

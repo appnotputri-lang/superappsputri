@@ -10,7 +10,7 @@ import { syncToUtama, generateRandomId } from './lib/syncUtama';
 
 interface FormContentProps {
   data: FormData;
-  onChange: (e: { target: { name: string; value: any } }) => void;
+  onChange: (e: { target: { name: string; value: any } }, batchUpdates?: Record<string, any>) => void;
   integrated?: boolean;
   companyData?: CompanyData;
   transferId?: string;
@@ -133,14 +133,23 @@ export const FormContent: React.FC<FormContentProps> = ({ data, onChange, integr
 
       // Appearer 1: Pihak Pertama
       const p1Grantors = [];
-      if ((data.appearer1Role === 'Proxy' || data.appearer1Role === 'SelfAndProxy') && fromSh) {
+      const isP1SelfAndProxy = data.appearer1Role === 'SelfAndProxy' || data.pihak1StatusPersetujuan === 'Kuasa';
+      if ((data.appearer1Role === 'Proxy' || isP1SelfAndProxy) && fromSh) {
         p1Grantors.push({ id: generateRandomId(), name: fromSh.name });
       }
+      if (data.pihak1StatusPersetujuan === 'Kuasa' && data.suamiNama) {
+        if (!p1Grantors.some(g => g.name === data.suamiNama)) {
+          p1Grantors.push({ id: generateRandomId(), name: data.suamiNama });
+        }
+      }
+
+      const p1Role = isP1SelfAndProxy ? 'SelfAndProxy' : data.appearer1Role;
 
       appearers.push({
         id: generateRandomId(),
         name: data.pihak1Nama,
-        role: data.appearer1Role,
+        role: p1Role,
+        bertindakSebagai: p1Role === 'SelfAndProxy' ? 'Diri Sendiri & Kuasa' : (p1Role === 'Proxy' ? 'Kuasa' : 'Diri Sendiri'),
         grantors: p1Grantors
       });
 
@@ -157,14 +166,16 @@ export const FormContent: React.FC<FormContentProps> = ({ data, onChange, integr
         grantors: p2Grantors
       });
 
-      // Appearer 3: Spouse (if consent)
-      if (data.pihak1StatusPersetujuan === 'Suami' || data.pihak1StatusPersetujuan === 'Istri') {
-        appearers.push({
-          id: generateRandomId(),
-          name: data.suamiNama,
-          role: 'Self',
-          grantors: []
-        });
+      // Appearer 3: Spouse / Consent Provider / Proxy Grantor
+      if (data.pihak1StatusPersetujuan === 'Suami' || data.pihak1StatusPersetujuan === 'Istri' || data.pihak1StatusPersetujuan === 'Kuasa') {
+        if (data.suamiNama) {
+          appearers.push({
+            id: generateRandomId(),
+            name: data.suamiNama,
+            role: 'Self',
+            grantors: []
+          });
+        }
       }
 
       const syncPayload = {
@@ -191,15 +202,18 @@ export const FormContent: React.FC<FormContentProps> = ({ data, onChange, integr
     }
   };
 
-  const handleLocalChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+  const handleLocalChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement> | { target: { name: string; value: any } },
+    batchUpdates?: Record<string, any>
+  ) => {
     const { name, value } = e.target;
     let actualValue: any = value;
     
-    if (e.target instanceof HTMLInputElement && e.target.type === 'checkbox') {
-      actualValue = e.target.checked;
+    if ('type' in e.target && e.target.type === 'checkbox') {
+      actualValue = (e.target as HTMLInputElement).checked;
     }
 
-    onChange({ target: { name, value: actualValue } });
+    (onChange as any)(e, batchUpdates);
 
     // Sync logic for spouse address
     if (name === 'suamiAlamatSama' && actualValue === true) {
@@ -212,9 +226,7 @@ export const FormContent: React.FC<FormContentProps> = ({ data, onChange, integr
         suamiKecamatan: data.pihak1Kecamatan,
         suamiKelurahan: data.pihak1Kelurahan,
       };
-      Object.entries(syncFields).forEach(([fieldName, val]) => {
-        onChange({ target: { name: fieldName, value: val } });
-      });
+      (onChange as any)({ target: { name, value: actualValue } }, syncFields);
     }
 
     // Auto-update spouse address if sync is on and pihak1 address changes
@@ -493,20 +505,22 @@ export const FormContent: React.FC<FormContentProps> = ({ data, onChange, integr
 
           <div className={`${integrated ? 'mt-2' : 'mt-8'} border border-[#eab308]/30 rounded-lg overflow-hidden bg-[#fefce8]`}>
             <div className="px-4 py-3 border-b border-[#eab308]/30 flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <h3 className="font-bold text-sm text-[#854d0e]">Status Persetujuan Istri/Suami</h3>
-              <div className="w-full md:w-64">
-                <Select name="pihak1StatusPersetujuan" value={data.pihak1StatusPersetujuan} onChange={onChange}>
+              <h3 className="font-bold text-sm text-[#854d0e]">Status Persetujuan Istri/Suami / Kuasa</h3>
+              <div className="w-full md:w-80">
+                <Select name="pihak1StatusPersetujuan" value={data.pihak1StatusPersetujuan || ''} onChange={onChange}>
+                  <option value="">-- Pilih Status Persetujuan --</option>
                   <option value="Suami">Persetujuan Suami</option>
                   <option value="Istri">Persetujuan Istri</option>
+                  <option value="Kuasa">Kuasa (Surat Kuasa & Persetujuan)</option>
                   <option value="Tidak Ada">Tidak Ada (Berdiri Sendiri)</option>
                 </Select>
               </div>
             </div>
             
-            {(data.pihak1StatusPersetujuan === 'Suami' || data.pihak1StatusPersetujuan === 'Istri') && (
+            {(data.pihak1StatusPersetujuan === 'Suami' || data.pihak1StatusPersetujuan === 'Istri' || data.pihak1StatusPersetujuan === 'Kuasa') && (
               <div className="p-4">
                 <div className="flex flex-col">
-                  <FieldRow label="Nama Pasangan">
+                  <FieldRow label="Nama Pasangan / Pemberi Kuasa">
                     <Input name="suamiNama" value={data.suamiNama} onChange={onChange} />
                   </FieldRow>
                   <FieldRow label="Tempat Lahir">
@@ -557,8 +571,15 @@ export const FormContent: React.FC<FormContentProps> = ({ data, onChange, integr
                     </>
                   )}
                   
-                  <FieldRow label="Tanggal Persetujuan Bawah Tangan">
-                    <Input name="tglPersetujuanSuami" type="date" value={data.tglPersetujuanSuami} onChange={onChange} />
+                  <FieldRow label="Tanggal Surat Persetujuan dan Kuasa">
+                    <Input 
+                      name="tglPersetujuanSuami" 
+                      type="date" 
+                      value={data.tglPersetujuanSuami || data.tglSuratKuasa || ''} 
+                      onChange={(e) => {
+                        handleLocalChange(e, { tglSuratKuasa: e.target.value });
+                      }} 
+                    />
                   </FieldRow>
                 </div>
               </div>
@@ -695,7 +716,7 @@ export const FormContent: React.FC<FormContentProps> = ({ data, onChange, integr
             ) : (
               <Save size={20} />
             )}
-            SIMPAN KE APLIKASI UTAMA
+            SIMPAN KE BUKU DAFTAR AKTA
           </button>
         </div>
       )}

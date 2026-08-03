@@ -72,21 +72,22 @@ export const initialData = {
   pihak1NIK: '1171056306720001',
 
   // Pasangan Pihak 1
-  pihak1StatusPersetujuan: 'Suami', // Suami, Istri, Tidak Ada
+  pihak1StatusPersetujuan: '', // Suami, Istri, Kuasa, Tidak Ada (kosong jika belum disimpan)
   suamiAlamatSama: true,
-  suamiNama: 'FACHRURRAZI',
-  suamiTempatLahir: 'Kota Bakti',
-  suamiTanggalLahir: '1980-11-27',
-  suamiPekerjaan: 'Wiraswasta',
-  suamiAlamatJalan: 'Jalan Flamboyan Nomor 1 Kodam',
-  suamiRT: '001',
-  suamiRW: '006',
-  suamiProvinsi: 'DKI JAKARTA',
-  suamiKota: 'JAKARTA BARAT',
-  suamiKecamatan: 'KEBON JERUK',
-  suamiKelurahan: 'KEBON JERUK',
-  suamiNIK: '117105271180002',
-  tglPersetujuanSuami: '2026-05-06',
+  suamiNama: '',
+  suamiTempatLahir: '',
+  suamiTanggalLahir: '',
+  suamiPekerjaan: '',
+  suamiAlamatJalan: '',
+  suamiRT: '',
+  suamiRW: '',
+  suamiProvinsi: '',
+  suamiKota: '',
+  suamiKecamatan: '',
+  suamiKelurahan: '',
+  suamiNIK: '',
+  tglPersetujuanSuami: '',
+  tglSuratKuasa: '',
 
   // Pihak 2 (Penerima Hibah)
   pihak2Gelar: 'Tuan',

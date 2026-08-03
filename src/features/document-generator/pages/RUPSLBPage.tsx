@@ -2622,7 +2622,22 @@ export const RUPSLBPage: React.FC<RUPSLBPageProps> = ({
                  <AhuSection title="DRAFT AKTA PERALIHAN SAHAM (JUAL BELI / HIBAH)" isOpen={false}>
                    <div className="space-y-4">
                       <p className="text-[13px] text-slate-600 mb-4 font-normal">Terdapat agenda <strong>Peralihan Saham</strong>. Anda dapat melihat dan mengunduh Akta Peralihan di bawah ini.</p>
-                      <DraftAktaApp ref={draftAktaRef} companyData={mergedData} />
+                      <DraftAktaApp 
+                        ref={draftAktaRef} 
+                        companyData={mergedData} 
+                        onUpdateShareTransfer={(transferId, updatedFields) => {
+                          const currentTransfers = (mergedData.shareTransfersNew && mergedData.shareTransfersNew.length > 0)
+                            ? mergedData.shareTransfersNew
+                            : (mergedData.shareTransfers || []);
+                          const nextTransfers = currentTransfers.map(t =>
+                            t.id === transferId ? { ...t, ...updatedFields } : t
+                          );
+                          updateData({
+                            shareTransfersNew: nextTransfers,
+                            shareTransfers: nextTransfers
+                          });
+                        }}
+                      />
                    </div>
                  </AhuSection>
                )}
@@ -2885,7 +2900,9 @@ export const RUPSLBPage: React.FC<RUPSLBPageProps> = ({
                                                     const { getTransferData } = await import('../../../DraftAktaApp');
                                                     const { generateDocx } = await import('../../../lib/generateDocxJualBeli');
                                                     const initData = (await import('../../../constants')).initialData;
-                                                    const docData = getTransferData(transfer, { ...INITIAL_STATE, ...p } as any, initData);
+                                                    const { getCompanyBaseData } = await import("../../../DraftAktaApp");
+                                                     const companyObj = { ...INITIAL_STATE, ...p } as any;
+                                                     const docData = getTransferData(transfer, companyObj, getCompanyBaseData(companyObj, initData));
                                                     await generateDocx(docData);
                                                   } catch (err) {
                                                     console.error('Failed to generate Draft Akta Peralihan Saham:', err);

@@ -7,35 +7,67 @@ export const fetchLatestDeedNumbers = async (targetDate: string) => {
     let maxDeedNumber = 0;
     let maxOrderNumber = 0;
 
-    // targetDate is in YYYY-MM-DD format
-    const targetParts = targetDate.split('-');
-    const targetYear = parseInt(targetParts[0]);
-    const targetMonth = parseInt(targetParts[1]); // 1-12
+    let targetYear = new Date().getFullYear();
+    let targetMonth = new Date().getMonth() + 1;
+
+    if (targetDate) {
+      if (targetDate.includes('-')) {
+        const parts = targetDate.split('-');
+        if (parts.length >= 2) {
+          targetYear = parseInt(parts[0]);
+          targetMonth = parseInt(parts[1]);
+        }
+      } else if (targetDate.includes('/')) {
+        const parts = targetDate.split('/');
+        if (parts.length >= 3) {
+          targetYear = parseInt(parts[2]);
+          targetMonth = parseInt(parts[1]);
+        }
+      }
+    }
 
     querySnapshot.forEach((doc) => {
       const d = doc.data();
       const deedDateVal = d.deedDate || d.date;
       if (!deedDateVal) return;
 
-      let dYear: number;
-      let dMonth: number;
+      let dYear: number | null = null;
+      let dMonth: number | null = null;
 
       if (typeof deedDateVal === 'string') {
-        const parts = deedDateVal.split('-');
-        if (parts.length < 2) return;
-        dYear = parseInt(parts[0]);
-        dMonth = parseInt(parts[1]);
+        if (deedDateVal.includes('-')) {
+          const parts = deedDateVal.split('-');
+          if (parts.length >= 2) {
+            dYear = parseInt(parts[0]);
+            dMonth = parseInt(parts[1]);
+          }
+        } else if (deedDateVal.includes('/')) {
+          const parts = deedDateVal.split('/');
+          if (parts.length >= 3) {
+            dYear = parseInt(parts[2]);
+            dMonth = parseInt(parts[1]);
+          }
+        }
+        if (dYear === null || isNaN(dYear)) {
+          const dt = new Date(deedDateVal);
+          if (!isNaN(dt.getTime())) {
+            dYear = dt.getFullYear();
+            dMonth = dt.getMonth() + 1;
+          }
+        }
       } else if (deedDateVal && typeof deedDateVal.toDate === 'function') {
-        // Handle Firestore Timestamp
-        const date = deedDateVal.toDate();
-        dYear = date.getFullYear();
-        dMonth = date.getMonth() + 1; // 1-12
+        const dt = deedDateVal.toDate();
+        dYear = dt.getFullYear();
+        dMonth = dt.getMonth() + 1;
       } else {
-        const date = new Date(deedDateVal);
-        if (isNaN(date.getTime())) return;
-        dYear = date.getFullYear();
-        dMonth = date.getMonth() + 1;
+        const dt = new Date(deedDateVal);
+        if (!isNaN(dt.getTime())) {
+          dYear = dt.getFullYear();
+          dMonth = dt.getMonth() + 1;
+        }
       }
+
+      if (dYear === null || dMonth === null || isNaN(dYear) || isNaN(dMonth)) return;
 
       const deedNum = d.deedNumber || d.number;
 
@@ -52,8 +84,9 @@ export const fetchLatestDeedNumbers = async (targetDate: string) => {
 
       // For orderNumber: check same year
       if (dYear === targetYear) {
-        if (d.orderNumber) {
-          const matches = String(d.orderNumber).match(/\d+/g);
+        const orderNum = d.orderNumber;
+        if (orderNum) {
+          const matches = String(orderNum).match(/\d+/g);
           if (matches) {
             const docMax = Math.max(...matches.map(m => parseInt(m)));
             if (docMax > maxOrderNumber) maxOrderNumber = docMax;

@@ -215,11 +215,12 @@ export class DocumentGenerationService {
         const { generatePendirianDocx } = await import('../lib/generatePendirianDocx');
         genResult = await generatePendirianDocx(dataToUse, true);
       } else if (item.kind === 'peralihan_saham') {
-        const { getTransferData } = await import('../DraftAktaApp');
+        const { getTransferData, getCompanyBaseData } = await import('../DraftAktaApp');
         const { generateDocxBlob } = await import('../lib/generateDocxJualBeli');
         const { initialData } = await import('../constants');
 
-        const transferDocData = getTransferData(item.transferData, mergedData, initialData);
+        const baseCompanyData = getCompanyBaseData(mergedData, initialData);
+        const transferDocData = getTransferData(item.transferData, mergedData, baseCompanyData);
         const blob = await generateDocxBlob(transferDocData);
 
         const isHibah = transferDocData.tipeAkta === 'Hibah';

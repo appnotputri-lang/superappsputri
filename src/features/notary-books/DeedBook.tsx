@@ -410,7 +410,7 @@ export const DeedBook: React.FC = () => {
         alert(`Nama penghadap #${i + 1} wajib diisi!`);
         return;
       }
-      if (app.role === 'Proxy' || app.role === 'Both') {
+      if (app.role === 'Proxy' || app.role === 'Both' || (app.role as any) === 'SelfAndProxy') {
         const validGrantors = (app.grantors || []).filter((g) => g.name.trim() !== '');
         if (validGrantors.length === 0) {
           alert(`Untuk penghadap "${app.name}" (${app.role === 'Both' ? 'Diri Sendiri & Kuasa' : 'Kuasa'}), mohon isi minimal 1 nama pemberi kuasa.`);
