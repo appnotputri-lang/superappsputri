@@ -155,25 +155,49 @@ export class DocumentGenerationService {
 
     // 3. Determine document kinds to generate
     interface DocKindToGenerate {
-      kind: 'notulen' | 'pernyataan' | 'akta' | 'pendirian';
-      category: 'draft_akta' | 'notulen' | 'surat_pernyataan';
+      kind: 'notulen' | 'pernyataan' | 'akta' | 'pendirian' | 'peralihan_saham';
+      category: 'draft_akta' | 'notulen' | 'surat_pernyataan' | 'custom';
       label: string;
+      title?: string;
+      transferData?: any;
     }
+
+    const mergedData = { ...INITIAL_STATE, ...dataToUse } as any;
 
     let kinds: DocKindToGenerate[] = [];
     if (jobType === 'pendirian_pt') {
-      kinds = [{ kind: 'pendirian', category: 'draft_akta', label: 'Dokumen Pendirian' }];
+      kinds = [{ kind: 'pendirian', category: 'draft_akta', label: 'Dokumen Pendirian', title: 'Akta Pendirian' }];
     } else if (jobType === 'rups_t' || jobType === 'sirkuler') {
       kinds = [
-        { kind: 'notulen', category: 'notulen', label: 'Draft Notulen / Sirkuler' },
-        { kind: 'pernyataan', category: 'surat_pernyataan', label: 'Surat Pernyataan' },
-        { kind: 'akta', category: 'draft_akta', label: 'Draft Akta' },
+        { kind: 'notulen', category: 'notulen', label: 'Draft Notulen / Sirkuler', title: 'Draft Notulen / Sirkuler' },
+        { kind: 'pernyataan', category: 'surat_pernyataan', label: 'Surat Pernyataan', title: 'Surat Pernyataan' },
+        { kind: 'akta', category: 'draft_akta', label: 'Draft Akta', title: 'Draft Akta' },
       ];
     } else if (jobType === 'rups_lb' || jobType === 'sirkuler_rupslb') {
       kinds = [
-        { kind: 'notulen', category: 'notulen', label: 'Draft Notulen / Sirkuler' },
-        { kind: 'akta', category: 'draft_akta', label: 'Draft Akta' },
+        { kind: 'notulen', category: 'notulen', label: 'Draft Notulen / Sirkuler', title: 'Draft Notulen / Sirkuler' },
+        { kind: 'akta', category: 'draft_akta', label: 'Draft Akta', title: 'Draft Akta' },
       ];
+
+      // Include Akta Peralihan Saham / Akta Hibah Saham if present
+      const transfers = (mergedData.shareTransfersNew && mergedData.shareTransfersNew.length > 0)
+        ? mergedData.shareTransfersNew
+        : (mergedData.shareTransfers || []);
+
+      if (transfers.length > 0) {
+        transfers.forEach((t: any, idx: number) => {
+          const rawType = (t.type || t.transferType || '').toString().toLowerCase();
+          const isHibah = rawType.includes('hibah');
+          const title = isHibah ? `Akta Hibah Saham ${idx + 1}` : `Akta Jual Beli Saham ${idx + 1}`;
+          kinds.push({
+            kind: 'peralihan_saham',
+            category: 'draft_akta',
+            label: title,
+            title,
+            transferData: t
+          });
+        });
+      }
     }
 
     if (kinds.length === 0) {
@@ -190,9 +214,25 @@ export class DocumentGenerationService {
       if (item.kind === 'pendirian') {
         const { generatePendirianDocx } = await import('../lib/generatePendirianDocx');
         genResult = await generatePendirianDocx(dataToUse, true);
-      } else {
-        const mergedData = { ...INITIAL_STATE, ...dataToUse } as any;
+      } else if (item.kind === 'peralihan_saham') {
+        const { getTransferData } = await import('../DraftAktaApp');
+        const { generateDocxBlob } = await import('../lib/generateDocxJualBeli');
+        const { initialData } = await import('../constants');
 
+        const transferDocData = getTransferData(item.transferData, mergedData, initialData);
+        const blob = await generateDocxBlob(transferDocData);
+
+        const isHibah = transferDocData.tipeAkta === 'Hibah';
+        const fromName = transferDocData.pihak1Nama || 'Pemilik Saham';
+        const toName = transferDocData.pihak2Nama || 'Penerima Saham';
+        const company = mergedData.companyName || 'PT';
+
+        const filename = isHibah
+          ? `Akta Hibah Saham - ${fromName} ke ${toName} (${company}).docx`
+          : `Akta Jual Beli Saham - ${fromName} ke ${toName} (${company}).docx`;
+
+        genResult = { filename, blob };
+      } else {
         if (jobType === 'rups_t' || jobType === 'sirkuler') {
           if (item.kind === 'notulen') {
             if (mergedData.rupstType === 'sirkuler') {
@@ -227,14 +267,20 @@ export class DocumentGenerationService {
 
       const { filename, blob } = genResult;
 
-      // Check if documents with documentCategory == item.category and projectId == projectId already exist
+      // Check if documents with matching title or category already exist for this project
       const docQuery = query(
         collection(db, 'project_uploaded_documents'),
-        where('projectId', '==', projectId),
-        where('documentCategory', '==', item.category)
+        where('projectId', '==', projectId)
       );
       const docSnap = await getDocs(docQuery);
-      const existingDocList = !docSnap.empty ? docSnap.docs.map(d => ({ ref: d.ref, data: d.data() as UploadedDocument })) : [];
+      const allDocsForProject = !docSnap.empty ? docSnap.docs.map(d => ({ ref: d.ref, data: d.data() as UploadedDocument })) : [];
+      
+      const existingDocList = allDocsForProject.filter(d => {
+        if (item.title && d.data.title) {
+          return d.data.title === item.title;
+        }
+        return d.data.documentCategory === item.category;
+      });
       const existingDoc = existingDocList.length > 0 ? existingDocList[0].data : null;
 
       // Convert blob to base64
@@ -370,7 +416,7 @@ export class DocumentGenerationService {
           id: docId,
           companyId: project.clientId || '',
           projectId: projectId,
-          title: item.category === 'draft_akta' ? (jobType === 'pendirian_pt' ? 'Akta Pendirian' : 'Draft Akta') : (item.category === 'notulen' ? 'Draft Notulen / Sirkuler' : 'Surat Pernyataan'),
+          title: item.title || (item.category === 'draft_akta' ? (jobType === 'pendirian_pt' ? 'Akta Pendirian' : 'Draft Akta') : (item.category === 'notulen' ? 'Draft Notulen / Sirkuler' : 'Surat Pernyataan')),
           fileName: filename,
           mimeType: blob.type || 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
           size: blob.size,
