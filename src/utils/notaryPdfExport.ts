@@ -395,8 +395,8 @@ export function drawDeedReport(doc: jsPDF, data: {
     if (deed.appearers && deed.appearers.length > 0) {
       deed.appearers.forEach((app: any) => {
         const appNameUpper = (app.name || '').trim().toUpperCase();
-        const isBoth = app.role === 'Both';
-        const isProxy = app.role === 'Proxy';
+        const isBoth = app.role === 'Both' || app.role === 'SelfAndProxy' || (app.bertindakSebagai && app.bertindakSebagai.toLowerCase().includes('diri sendiri') && app.bertindakSebagai.toLowerCase().includes('kuasa'));
+        const isProxy = app.role === 'Proxy' || (app.bertindakSebagai && app.bertindakSebagai.toLowerCase().includes('kuasa') && !isBoth);
 
         const grantors = (app.grantors && app.grantors.length > 0)
           ? app.grantors

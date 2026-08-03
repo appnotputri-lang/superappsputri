@@ -63,7 +63,9 @@ export const AppShell: React.FC = () => {
     updateData,
     resetData,
     mergedData,
-    setAutosaveParams
+    setAutosaveParams,
+    isSyncing,
+    handleManualSync
   } = useDocumentRuntime();
 
   const companyCtx = useCompanyContext();
@@ -91,7 +93,6 @@ export const AppShell: React.FC = () => {
   const [currentTargetSharesPaid, setCurrentTargetSharesPaid] = useState<number | null>(null);
 
   const [isSaving, setIsSaving] = useState(false);
-  const [isSyncing, setIsSyncing] = useState(false);
   const [isRupsPreview, setIsRupsPreview] = useState(false);
   const [isRupslbDocDropdownOpen, setIsRupslbDocDropdownOpen] = useState(false);
   const [rupslbDropdownId, setRupslbDropdownId] = useState<string | null>(null);
@@ -606,27 +607,19 @@ export const AppShell: React.FC = () => {
   };
 
   const handleFetchLatestNumbers = async () => {
-    if (!data.companyName) {
-      alert("Silakan isi Nama Perseroan terlebih dahulu.");
+    const targetDate = data.draftAktaRupsDate;
+    if (!targetDate) {
+      alert("Silakan isi Tanggal Akta RUPST/RUPSLB terlebih dahulu.");
       return;
     }
     setIsFetchingNumbers(true);
     try {
-      const result = await fetchLatestDeedNumbers(data.companyName) as any;
-      if (result) {
+      const numbers = await fetchLatestDeedNumbers(targetDate) as any;
+      if (numbers) {
         updateData({
-          establishmentDeedNumber: result.establishmentDeedNumber || data.establishmentDeedNumber,
-          establishmentDeedDate: result.establishmentDeedDate || data.establishmentDeedDate,
-          establishmentNotary: result.establishmentNotary || data.establishmentNotary,
-          establishmentNotaryTitle: result.establishmentNotaryTitle || data.establishmentNotaryTitle,
-          establishmentNotaryDomicile: result.establishmentNotaryDomicile || data.establishmentNotaryDomicile,
-          establishmentSkNumber: result.establishmentSkNumber || data.establishmentSkNumber,
-          establishmentSkDate: result.establishmentSkDate || data.establishmentSkDate,
-          amendmentDeeds: result.amendmentDeeds && result.amendmentDeeds.length > 0 ? result.amendmentDeeds : data.amendmentDeeds
+          draftAktaRupsNumber: numbers.nextDeedNumber,
+          draftAktaRupsOrderNumber: numbers.nextOrderNumber
         });
-        alert(`Berhasil menemukan ${result.sourceCount || 1} dokumen sebelumnya! Data Akta Pendirian & Perubahan telah diperbarui.`);
-      } else {
-        alert("Tidak ditemukan riwayat akta/notulen sebelumnya untuk perseroan ini.");
       }
     } catch (error) {
       console.error("Error fetching latest deed numbers:", error);
@@ -713,18 +706,6 @@ export const AppShell: React.FC = () => {
         finalShareholders: newShs.filter((x: any) => x.id !== id),
         newShareholders: newShs.filter((x: any) => x.id !== id)
       } as any);
-    }
-  };
-
-  const handleManualSync = async () => {
-    setIsSyncing(true);
-    try {
-      alert('Data berhasil disinkronisasi!');
-    } catch (err) {
-      console.error('Error syncing data:', err);
-      alert('Gagal melakukan sinkronisasi data.');
-    } finally {
-      setIsSyncing(false);
     }
   };
 
@@ -965,7 +946,6 @@ export const AppShell: React.FC = () => {
         isSaving={isSaving}
         setIsSaving={setIsSaving}
         isSyncing={isSyncing}
-        handleManualSync={handleManualSync}
         recordNotification={recordNotification}
         saveCompany={saveCompany}
         deleteCompany={deleteCompany}

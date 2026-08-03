@@ -1,4 +1,4 @@
-import { dbUtama } from './firebaseUtama';
+import { db } from './firebase';
 import { collection, query, where, getDocs, setDoc, doc, addDoc } from 'firebase/firestore';
 import { CompanyData } from '../../types';
 import { PendirianData } from '../DraftAktaPendirian';
@@ -30,21 +30,25 @@ export const syncToUtama = async (data: SyncDeedData) => {
   }
 
   try {
-    const deedsRef = collection(dbUtama, "deeds");
-    // Use deedNumber as identifier
+    const deedsRef = collection(db, "deeds");
+    // Use deedNumber or number as identifier
     const q = query(deedsRef, where("deedNumber", "==", data.deedNumber));
     const querySnapshot = await getDocs(q);
 
     const payload = {
       ...data,
+      number: data.deedNumber,
+      date: data.deedDate,
+      title: data.deedTitle,
       clientId: "external_draft",
       syncAt: Date.now(),
-      createdAt: Date.now()
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     };
 
     if (!querySnapshot.empty) {
       const existingDoc = querySnapshot.docs[0];
-      const docRef = doc(dbUtama, "deeds", existingDoc.id);
+      const docRef = doc(db, "deeds", existingDoc.id);
       const existingData = existingDoc.data();
       
       const finalPayload = {
@@ -53,14 +57,14 @@ export const syncToUtama = async (data: SyncDeedData) => {
       };
       
       await setDoc(docRef, finalPayload, { merge: true });
-      console.log("Sync: Updated existing deed in dbUtama", data.deedNumber);
+      console.log("Sync: Updated existing deed in deeds collection", data.deedNumber);
     } else {
       await addDoc(deedsRef, payload);
-      console.log("Sync: Created new deed in dbUtama", data.deedNumber);
+      console.log("Sync: Created new deed in deeds collection", data.deedNumber);
     }
     return true;
   } catch (error) {
-    console.error("Sync to Utama failed:", error);
+    console.error("Sync to deeds failed:", error);
     throw error;
   }
 };

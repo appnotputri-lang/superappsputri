@@ -226,7 +226,14 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
       const updatedForm = {
         ...refreshFormData,
         shareholders: client.shareholders || [],
-        amendmentDeeds: client.amendmentDeeds || []
+        amendmentDeeds: client.amendmentDeeds || [],
+        establishmentDeedNumber: client.establishmentDeedNumber || '',
+        establishmentDeedDate: client.establishmentDeedDate || '',
+        establishmentNotary: client.establishmentNotary || '',
+        establishmentNotaryTitle: client.establishmentNotaryTitle || '',
+        establishmentNotaryDomicile: client.establishmentNotaryDomicile || '',
+        establishmentSkNumber: client.establishmentSkNumber || '',
+        establishmentSkDate: client.establishmentSkDate || '',
       };
 
       await updateDoc(doc(db, collectionName, refIdToUse), updatedForm);
@@ -4296,6 +4303,28 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
                         )}
                       </div>
 
+                      {/* Akta Pendirian */}
+                      <div>
+                        <h4 className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">Akta Pendirian</h4>
+                        {refreshFormData.establishmentDeedNumber || refreshFormData.establishmentNotary ? (
+                          <div className="p-2 bg-slate-50 border border-slate-100 rounded text-xs space-y-1">
+                            <div className="font-semibold text-slate-700">
+                              {refreshFormData.establishmentNotary ? `Dihadapan ${refreshFormData.establishmentNotary}` : 'Notaris belum diisi'}
+                            </div>
+                            <div className="text-slate-500">
+                              No. {refreshFormData.establishmentDeedNumber || '-'} Tgl {refreshFormData.establishmentDeedDate || '-'}
+                            </div>
+                            {refreshFormData.establishmentSkNumber && (
+                              <div className="text-slate-500 pt-1 border-t border-slate-200 mt-1">
+                                SK: {refreshFormData.establishmentSkNumber} Tgl {refreshFormData.establishmentSkDate || '-'}
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="text-xs text-slate-400 italic">Tidak ada data.</div>
+                        )}
+                      </div>
+
                       {/* Riwayat Akta */}
                       <div>
                         <h4 className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">Riwayat Akta (Legal History)</h4>
@@ -4336,6 +4365,28 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
                                 <span className="font-mono text-emerald-600">{sh.sharesOwned?.toLocaleString('id-ID')} lembar</span>
                               </div>
                             ))}
+                          </div>
+                        ) : (
+                          <div className="text-xs text-slate-400 italic">Tidak ada data.</div>
+                        )}
+                      </div>
+
+                      {/* Akta Pendirian */}
+                      <div>
+                        <h4 className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">Akta Pendirian</h4>
+                        {client.establishmentDeedNumber || client.establishmentNotary ? (
+                          <div className="p-2 bg-emerald-50/50 border border-emerald-100 rounded text-xs space-y-1">
+                            <div className="font-semibold text-slate-700">
+                              {client.establishmentNotary ? `Dihadapan ${client.establishmentNotary}` : 'Notaris belum diisi'}
+                            </div>
+                            <div className="text-slate-500">
+                              No. {client.establishmentDeedNumber || '-'} Tgl {client.establishmentDeedDate || '-'}
+                            </div>
+                            {client.establishmentSkNumber && (
+                              <div className="text-slate-500 pt-1 border-t border-emerald-200 mt-1">
+                                SK: {client.establishmentSkNumber} Tgl {client.establishmentSkDate || '-'}
+                              </div>
+                            )}
                           </div>
                         ) : (
                           <div className="text-xs text-slate-400 italic">Tidak ada data.</div>

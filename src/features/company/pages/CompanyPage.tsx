@@ -739,7 +739,7 @@ export const CompanyPage: React.FC<CompanyPageProps> = ({ setIsSidebarOpen, ...p
             <div className="flex items-center gap-3">
               <button
                 onClick={() => {
-                  const handler = setIsSidebarOpen || props.setIsSidebarOpen || outletCtx?.setIsSidebarOpen;
+                  const handler = setIsSidebarOpen || outletCtx?.setIsSidebarOpen;
                   if (handler) handler(true);
                 }}
                 className="p-1 -ml-1 text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer"

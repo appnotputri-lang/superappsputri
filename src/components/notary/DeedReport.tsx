@@ -306,8 +306,8 @@ export const DeedReport: React.FC<DeedReportProps> = ({
                       {deed.appearers && deed.appearers.length > 0 ? (
                         <div className="space-y-1.5">
                           {deed.appearers.map((app, i) => {
-                            const isBoth = app.role === 'Both';
-                            const isProxy = app.role === 'Proxy';
+                            const isBoth = app.role === 'Both' || app.role === 'SelfAndProxy' || (app.bertindakSebagai && app.bertindakSebagai.toLowerCase().includes('diri sendiri') && app.bertindakSebagai.toLowerCase().includes('kuasa'));
+                            const isProxy = app.role === 'Proxy' || (app.bertindakSebagai && app.bertindakSebagai.toLowerCase().includes('kuasa') && !isBoth);
 
                             const grantors = (app.grantors && app.grantors.length > 0)
                               ? app.grantors

@@ -3,7 +3,6 @@ import { FormData } from './constants';
 import { RegionSelects } from './components/RegionSelects';
 import { ChevronDown, ChevronUp, Trash2, Plus, Save, Loader2, RefreshCw } from 'lucide-react';
 import { formatNumber, parseNumber } from './lib/formatter';
-import { dbUtama } from './lib/firebaseUtama';
 import { collection, getDocs, addDoc } from 'firebase/firestore';
 import { CompanyData } from '../types';
 import { fetchLatestDeedNumbers } from './lib/deedUtils';
@@ -183,9 +182,9 @@ export const FormContent: React.FC<FormContentProps> = ({ data, onChange, integr
       onChange({ target: { name: 'nomorAkta', value: generatedDeedNumber } });
       onChange({ target: { name: 'nomorUrut', value: generatedOrderNumber } });
 
-      alert(`Data berhasil disimpan ke Aplikasi Utama!\nNomor Akta: ${generatedDeedNumber}\nNomor Urut: ${generatedOrderNumber}`);
+      alert(`Data berhasil disimpan ke Buku Daftar Akta!\nNomor Akta: ${generatedDeedNumber}\nNomor Urut: ${generatedOrderNumber}`);
     } catch (error) {
-      console.error("Error saving to dbUtama:", error);
+      console.error("Error saving to deeds:", error);
       alert("Gagal menyimpan data: " + (error instanceof Error ? error.message : "Terjadi kesalahan"));
     } finally {
       setIsSaving(false);

@@ -1,9 +1,9 @@
-import { dbUtama } from './firebaseUtama';
+import { db } from './firebase';
 import { collection, getDocs } from 'firebase/firestore';
 
 export const fetchLatestDeedNumbers = async (targetDate: string) => {
   try {
-    const querySnapshot = await getDocs(collection(dbUtama, "deeds"));
+    const querySnapshot = await getDocs(collection(db, "deeds"));
     let maxDeedNumber = 0;
     let maxOrderNumber = 0;
 
@@ -14,35 +14,36 @@ export const fetchLatestDeedNumbers = async (targetDate: string) => {
 
     querySnapshot.forEach((doc) => {
       const d = doc.data();
-      if (!d.deedDate) return;
+      const deedDateVal = d.deedDate || d.date;
+      if (!deedDateVal) return;
 
       let dYear: number;
       let dMonth: number;
 
-      if (typeof d.deedDate === 'string') {
-        const parts = d.deedDate.split('-');
+      if (typeof deedDateVal === 'string') {
+        const parts = deedDateVal.split('-');
         if (parts.length < 2) return;
         dYear = parseInt(parts[0]);
         dMonth = parseInt(parts[1]);
-      } else if (d.deedDate && typeof d.deedDate.toDate === 'function') {
+      } else if (deedDateVal && typeof deedDateVal.toDate === 'function') {
         // Handle Firestore Timestamp
-        const date = d.deedDate.toDate();
+        const date = deedDateVal.toDate();
         dYear = date.getFullYear();
         dMonth = date.getMonth() + 1; // 1-12
       } else {
-        const date = new Date(d.deedDate);
+        const date = new Date(deedDateVal);
         if (isNaN(date.getTime())) return;
         dYear = date.getFullYear();
         dMonth = date.getMonth() + 1;
       }
 
+      const deedNum = d.deedNumber || d.number;
+
       // For deedNumber: check same month AND same year
       if (dMonth === targetMonth && dYear === targetYear) {
-        if (d.deedNumber) {
-          const matches = String(d.deedNumber).match(/\d+/g);
+        if (deedNum) {
+          const matches = String(deedNum).match(/\d+/g);
           if (matches) {
-            // Find max within this specific document just in case it has multiple numbers, 
-            // though usually it's just one.
             const docMax = Math.max(...matches.map(m => parseInt(m)));
             if (docMax > maxDeedNumber) maxDeedNumber = docMax;
           }
@@ -70,7 +71,7 @@ export const fetchLatestDeedNumbers = async (targetDate: string) => {
       nextOrderNumber: nextOrder.toString().padStart(3, '0')
     };
   } catch (error) {
-    console.error("Error fetching latest numbers:", error);
+    console.error("Error fetching latest numbers from deeds:", error);
     throw error;
   }
 };

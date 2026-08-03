@@ -258,7 +258,9 @@ export const DeedBook: React.FC = () => {
         setAppearers(
           deed.appearers.map((a) => {
             const hasGrantors = a.grantors && a.grantors.length > 0;
-            const role = a.role || (hasGrantors ? 'Proxy' : 'Self');
+            const isBothRole = a.role === 'Both' || a.role === 'SelfAndProxy' || (a.bertindakSebagai && a.bertindakSebagai.toLowerCase().includes('diri sendiri') && a.bertindakSebagai.toLowerCase().includes('kuasa'));
+            const isProxyRole = a.role === 'Proxy' || (a.bertindakSebagai && a.bertindakSebagai.toLowerCase().includes('kuasa') && !isBothRole);
+            const role: 'Self' | 'Proxy' | 'Both' = isBothRole ? 'Both' : (isProxyRole ? 'Proxy' : (a.role as any || (hasGrantors ? 'Proxy' : 'Self')));
             return {
               ...a,
               role,

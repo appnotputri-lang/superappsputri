@@ -452,8 +452,8 @@ export const DeedAlphabeticalReport: React.FC<DeedAlphabeticalReportProps> = ({
           const htmlLines: string[] = [];
 
           matchingApps.forEach((app, appIdx) => {
-            const isBoth = app.role === 'Both' || app.role === 'SelfAndProxy';
-            const isProxy = app.role === 'Proxy';
+            const isBoth = app.role === 'Both' || app.role === 'SelfAndProxy' || (app.bertindakSebagai && app.bertindakSebagai.toLowerCase().includes('diri sendiri') && app.bertindakSebagai.toLowerCase().includes('kuasa'));
+            const isProxy = app.role === 'Proxy' || (app.bertindakSebagai && app.bertindakSebagai.toLowerCase().includes('kuasa') && !isBoth);
             const grantors = app.grantors || [];
             const appNameUpper = app.name?.trim().toUpperCase();
 
