@@ -235,7 +235,7 @@ async function startServer() {
       // 3. Fallback: Search drive directly if still missing
       if (!folderIdToDelete && targetName) {
         try {
-          const rootFolderId = process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID;
+          const rootFolderId = process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID || process.env.GOOGLE_DRIVE_REPORT_FOLDER_ID;
           if (rootFolderId) {
             const companyProfileFolderId = await DriveFolderService.getOrCreateFolderByName("COMPANY PROFILE", rootFolderId, process.env);
             const typeFolderMap: Record<string, string> = {
@@ -311,9 +311,9 @@ async function startServer() {
 
   app.post("/api/sync-drive-clients", authMiddleware, async (req, res) => {
     try {
-      const rootFolderId = process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID;
+      const rootFolderId = process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID || process.env.GOOGLE_DRIVE_REPORT_FOLDER_ID;
       if (!rootFolderId) {
-        return res.status(500).json({ error: "GOOGLE_DRIVE_ROOT_FOLDER_ID is not configured in settings." });
+        return res.status(500).json({ error: "GOOGLE_DRIVE_ROOT_FOLDER_ID or GOOGLE_DRIVE_REPORT_FOLDER_ID is not configured in settings." });
       }
 
       const clientTypeFilter = req.query.clientType as string;

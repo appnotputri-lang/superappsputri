@@ -6,7 +6,9 @@ import { DeedReport } from './DeedReport';
 import { DeedAlphabeticalReport } from './DeedAlphabeticalReport';
 import { PrivateDeedPrintView } from './PrivateDeedPrintView';
 import { ProtestChequeReport } from './ProtestChequeReport';
-import { BookOpen, FileText, ListOrdered, ShieldCheck, FileCheck, AlertCircle, Calendar, ExternalLink, Info } from 'lucide-react';
+import { saveReportToDrive } from '../../services/reportDriveService';
+import { exportAllNotaryReportsToPdf, buildAlphabeticalSections } from '../../utils/notaryPdfExport';
+import { BookOpen, FileText, ListOrdered, ShieldCheck, FileCheck, AlertCircle, Calendar, ExternalLink, Info, Download, CloudUpload, Loader2, CheckCircle2, FileCheck2 } from 'lucide-react';
 
 type NotaryReportSubTab =
   | 'surat_pengantar'
@@ -21,6 +23,11 @@ const MONTH_NAMES = [
   'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
 ];
 
+const getRomanMonth = (num: number): string => {
+  const roman = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'];
+  return roman[num - 1] || 'I';
+};
+
 export const NotaryReportHub: React.FC = () => {
   const currentDate = new Date();
   const [selectedMonth, setSelectedMonth] = useState<number>(currentDate.getMonth() + 1);
@@ -31,6 +38,12 @@ export const NotaryReportHub: React.FC = () => {
   const [showStamp, setShowStamp] = useState<boolean>(false);
 
   const [activeSubTab, setActiveSubTab] = useState<NotaryReportSubTab>('surat_pengantar');
+
+  // Drive & PDF Export States
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
+  const [isSavingDrive, setIsSavingDrive] = useState(false);
+  const [driveProgress, setDriveProgress] = useState('');
+  const [driveResult, setDriveResult] = useState<{ success: boolean; message: string; link?: string } | null>(null);
 
   // Firestore state
   const [deeds, setDeeds] = useState<Deed[]>([]);
@@ -85,6 +98,138 @@ export const NotaryReportHub: React.FC = () => {
     const dt = new Date(p.protestDate);
     return dt.getMonth() + 1 === selectedMonth && dt.getFullYear() === selectedYear;
   });
+
+  const buildCombinedReportPayload = () => {
+    const monthName = MONTH_NAMES[selectedMonth - 1];
+    const alphabeticalSections = buildAlphabeticalSections(currentDeeds);
+    const lastDay = new Date(selectedYear, selectedMonth, 0).getDate();
+
+    return {
+      coverLetter: {
+        notaryTitle: 'NOTARIS',
+        notaryName: 'Nukantini Putri Parincha, SH., MKn.',
+        skMenkumhamTitle: 'SK. MENTERI HUKUM DAN HAK ASASI MANUSIA REPUBLIK INDONESIA',
+        skMenkumhamNo: 'No. C-309.HT.03.01-Th. 2007, Tanggal 23 Januari 2007',
+        skBpnTitle: 'SK. KEPALA BADAN PERTANAHAN NASIONAL REPUBLIK INDONESIA',
+        skBpnNo: 'No. 1 – XVI - PPAT – 2009, Tanggal 12 Februari 2009',
+        officeAddress: 'Kantor : Komp. PPR-ITB Kav. F-5 Dago Bengkok, Lembang, Kab. Bandung Barat',
+        officePhone: 'Telp/Fax : 022-2504155, 08122174848',
+        letterNumber: `29/NPP-NOT/${getRomanMonth(selectedMonth)}/${selectedYear}`,
+        subject: 'Penyampaian Daftar Akta',
+        attachment: '1 (Satu) Berkas',
+        letterCity: 'Bandung',
+        formattedLetterDate: signatureDate,
+        recipientTitle: 'Kepada Yth.',
+        mpdLine1: 'Ketua Majelis Pengawas Daerah Notaris',
+        mpdLine2: 'Kabupaten Bandung Barat',
+        mpdLine3: 'di',
+        mpdLine4: 'Bandung',
+        notaryCityJurisdiction: 'Kabupaten Bandung Barat',
+        startDateStr: `1 ${monthName} ${selectedYear}`,
+        endDateStr: `${lastDay} ${monthName} ${selectedYear}`,
+        stampOffsetX: 0,
+        stampOffsetY: 0,
+        stampSize: 180,
+        showStamp
+      },
+      deedReport: {
+        monthName,
+        year: selectedYear,
+        deeds: currentDeeds,
+        signatureDate,
+        showStamp
+      },
+      deedAlphabeticalReport: {
+        monthName,
+        year: selectedYear,
+        filteredSections: alphabeticalSections,
+        notaryName: 'Nukantini Putri Parincha, SH., MKn.',
+        city: 'Bandung Barat',
+        showStamp
+      },
+      legalisasiReport: {
+        monthName,
+        year: selectedYear,
+        type: 'Legalisasi' as const,
+        items: currentLegalisasi,
+        signatureDate,
+        showStamp
+      },
+      waarmerkingReport: {
+        monthName,
+        year: selectedYear,
+        type: 'Waarmerking' as const,
+        items: currentWaarmerking,
+        signatureDate,
+        showStamp
+      },
+      protestChequeReport: {
+        monthName,
+        year: selectedYear,
+        items: currentProtest,
+        signatureDate,
+        showStamp
+      }
+    };
+  };
+
+  const handleExportAllPdf = async () => {
+    setIsExportingPdf(true);
+    try {
+      const monthName = MONTH_NAMES[selectedMonth - 1];
+      const payload = {
+        ...buildCombinedReportPayload(),
+        filename: `Laporan Notaris ${monthName} ${selectedYear}.pdf`
+      };
+      await exportAllNotaryReportsToPdf(payload, 'download');
+    } catch (err) {
+      console.error('Error exporting all PDF:', err);
+    } finally {
+      setIsExportingPdf(false);
+    }
+  };
+
+  const handleSaveAllToDrive = async () => {
+    setIsSavingDrive(true);
+    setDriveProgress('Mempersiapkan dokumen PDF gabungan...');
+    setDriveResult(null);
+
+    try {
+      const monthName = MONTH_NAMES[selectedMonth - 1];
+      const customFileName = `Laporan Notaris ${monthName} ${selectedYear}.pdf`;
+      const payload = {
+        ...buildCombinedReportPayload(),
+        filename: customFileName
+      };
+
+      const pdfBlob = await exportAllNotaryReportsToPdf(payload, 'blob');
+
+      if (!pdfBlob) throw new Error('Gagal membuat PDF Blob.');
+
+      const result = await saveReportToDrive(
+        pdfBlob as Blob,
+        { month: selectedMonth, year: selectedYear, signatureDate },
+        `Laporan Notaris ${monthName} ${selectedYear}`,
+        (msg) => setDriveProgress(msg),
+        customFileName
+      );
+
+      setDriveResult({
+        success: true,
+        message: `Semua laporan Notaris (${monthName} ${selectedYear}) berhasil digabung & disimpan ke Google Drive.`,
+        link: result.webViewLink
+      });
+    } catch (e: any) {
+      console.error(e);
+      setDriveResult({
+        success: false,
+        message: 'Gagal menyimpan laporan ke Google Drive.'
+      });
+    } finally {
+      setIsSavingDrive(false);
+      setDriveProgress('');
+    }
+  };
 
   const SUB_TABS: { id: NotaryReportSubTab; label: string; icon: React.FC<{ size?: number; className?: string }>; count?: number }[] = [
     { id: 'surat_pengantar', label: 'Surat Pengantar MPD', icon: FileText },
@@ -180,6 +325,77 @@ export const NotaryReportHub: React.FC = () => {
           </label>
         </div>
       </div>
+
+      {/* Global Export & Drive Save Bar for All Reports */}
+      <div className="bg-gradient-to-r from-sky-900 via-sky-800 to-indigo-900 p-4 rounded-2xl text-white shadow-md flex flex-col sm:flex-row items-center justify-between gap-4 print:hidden">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center shrink-0">
+            <FileCheck2 size={22} className="text-sky-300" />
+          </div>
+          <div>
+            <h2 className="font-bold text-sm text-white flex items-center gap-2">
+              Export Laporan Lengkap (6-in-1 PDF)
+            </h2>
+            <p className="text-xs text-sky-200">
+              Menggabungkan Surat Pengantar MPD, Laporan Akta, Klapper Akta, Legalisasi, Waarmerking, & Protest Cheque bulan {MONTH_NAMES[selectedMonth - 1]} {selectedYear}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
+          <button
+            type="button"
+            onClick={handleExportAllPdf}
+            disabled={isExportingPdf || isSavingDrive}
+            className="flex-1 sm:flex-initial px-4 py-2 bg-white/10 hover:bg-white/20 text-white font-medium text-xs rounded-xl transition-all flex items-center justify-center gap-2 border border-white/20 cursor-pointer disabled:opacity-50"
+          >
+            {isExportingPdf ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />}
+            <span>Download PDF Lengkap</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleSaveAllToDrive}
+            disabled={isSavingDrive || isExportingPdf}
+            className="flex-1 sm:flex-initial px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white font-semibold text-xs rounded-xl shadow-sm transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+          >
+            {isSavingDrive ? <Loader2 size={15} className="animate-spin" /> : <CloudUpload size={15} />}
+            <span>Simpan ke Google Drive</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Result Banner when Saving to Drive */}
+      {driveResult && (
+        <div className={`p-4 rounded-xl border flex items-center justify-between gap-3 text-xs shadow-sm transition-all ${
+          driveResult.success
+            ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+            : 'bg-rose-50 border-rose-200 text-rose-900'
+        }`}>
+          <div className="flex items-center gap-2.5">
+            {driveResult.success ? <CheckCircle2 size={18} className="text-emerald-600 shrink-0" /> : <AlertCircle size={18} className="text-rose-600 shrink-0" />}
+            <span className="font-medium">{driveResult.message}</span>
+          </div>
+          {driveResult.link && (
+            <a
+              href={driveResult.link}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg flex items-center gap-1.5 transition-colors text-xs shrink-0"
+            >
+              <ExternalLink size={13} />
+              Buka File di Drive
+            </a>
+          )}
+        </div>
+      )}
+
+      {driveProgress && (
+        <div className="bg-sky-50 border border-sky-200 text-sky-900 px-4 py-3 rounded-xl flex items-center gap-3 text-xs animate-pulse">
+          <Loader2 size={16} className="animate-spin text-sky-600 shrink-0" />
+          <span>{driveProgress}</span>
+        </div>
+      )}
 
       {/* Sub-menu Tabs */}
       <div className="bg-white p-2 rounded-xl border border-slate-200 shadow-sm overflow-x-auto print:hidden">

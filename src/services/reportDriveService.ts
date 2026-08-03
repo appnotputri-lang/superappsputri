@@ -21,25 +21,37 @@ export function parseReportDate(
   let monthIndex = new Date().getMonth();
   let day = new Date().getDate();
 
+  let hasExplicitYear = false;
+  let hasExplicitMonth = false;
+
   if (reportDate instanceof Date) {
     year = reportDate.getFullYear();
     monthIndex = reportDate.getMonth();
     day = reportDate.getDate();
   } else if (typeof reportDate === 'object' && reportDate !== null) {
-    if (reportDate.year) {
-      year = Number(reportDate.year) || year;
+    if (reportDate.year !== undefined && reportDate.year !== null && reportDate.year !== '') {
+      const yNum = Number(reportDate.year);
+      if (!isNaN(yNum) && yNum > 1900) {
+        year = yNum;
+        hasExplicitYear = true;
+      }
     }
-    if (reportDate.month !== undefined) {
+    if (reportDate.month !== undefined && reportDate.month !== null && reportDate.month !== '') {
       if (typeof reportDate.month === 'number') {
         monthIndex = Math.max(0, Math.min(11, reportDate.month - 1));
+        hasExplicitMonth = true;
       } else {
         const mStr = String(reportDate.month).trim();
         const mNum = parseInt(mStr, 10);
         if (!isNaN(mNum) && mNum >= 1 && mNum <= 12) {
           monthIndex = mNum - 1;
+          hasExplicitMonth = true;
         } else {
           const idx = INDONESIAN_MONTHS.findIndex(m => m.toLowerCase() === mStr.toLowerCase());
-          if (idx !== -1) monthIndex = idx;
+          if (idx !== -1) {
+            monthIndex = idx;
+            hasExplicitMonth = true;
+          }
         }
       }
     }
@@ -49,9 +61,13 @@ export function parseReportDate(
       const match = reportDate.signatureDate.match(/(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})/);
       if (match) {
         day = parseInt(match[1], 10) || day;
-        const monthMatchIdx = INDONESIAN_MONTHS.findIndex(m => m.toLowerCase() === match[2].toLowerCase());
-        if (monthMatchIdx !== -1) monthIndex = monthMatchIdx;
-        year = parseInt(match[3], 10) || year;
+        if (!hasExplicitMonth) {
+          const monthMatchIdx = INDONESIAN_MONTHS.findIndex(m => m.toLowerCase() === match[2].toLowerCase());
+          if (monthMatchIdx !== -1) monthIndex = monthMatchIdx;
+        }
+        if (!hasExplicitYear) {
+          year = parseInt(match[3], 10) || year;
+        }
       }
     }
   } else if (typeof reportDate === 'string') {
@@ -250,7 +266,8 @@ export async function saveReportToDrive(
   pdfBlob: Blob,
   reportDate: string | Date | { month?: number | string; year?: number | string; day?: number | string; signatureDate?: string },
   reportType: string,
-  onProgress?: (msg: string) => void
+  onProgress?: (msg: string) => void,
+  customFileName?: string
 ): Promise<{ fileId: string; fileName: string; webViewLink?: string }> {
   const dateInfo = parseReportDate(reportDate);
 
@@ -263,7 +280,7 @@ export async function saveReportToDrive(
   const ss = String(now.getSeconds()).padStart(2, '0');
   const timeStr = `${hh}.${min}.${ss}`;
 
-  const fileName = `${reportType} - ${dateInfo.formattedDate} ${timeStr}.pdf`;
+  const fileName = customFileName || `${reportType} - ${dateInfo.formattedDate} ${timeStr}.pdf`;
 
   const uploaded = await uploadPdf(pdfBlob, fileName, monthFolderId, onProgress);
 

@@ -40,7 +40,7 @@ export class DriveFolderService {
   }
 
   private static async _ensureCompanyFolderInternal(companyName: string, clientType: string, normalized: string, env: any = {}): Promise<{ folderId: string; folderUrl: string }> {
-    const rootDriveFolderId = getEnv(env, 'GOOGLE_DRIVE_ROOT_FOLDER_ID');
+    const rootDriveFolderId = getEnv(env, 'GOOGLE_DRIVE_ROOT_FOLDER_ID') || getEnv(env, 'GOOGLE_DRIVE_REPORT_FOLDER_ID');
 
     // 1. Check Firestore cache first
     const mapDoc = await firestoreRest.getDocument('drive_folder_map', normalized, env);
@@ -243,7 +243,7 @@ export class DriveFolderService {
 
     // 2. If not in cache, search in Google Drive under the parent type folder
     if (!folderId) {
-      const rootDriveFolderId = getEnv(env, 'GOOGLE_DRIVE_ROOT_FOLDER_ID');
+      const rootDriveFolderId = getEnv(env, 'GOOGLE_DRIVE_ROOT_FOLDER_ID') || getEnv(env, 'GOOGLE_DRIVE_REPORT_FOLDER_ID');
       const companyProfileFolderId = await this.getOrCreateFolderByName("COMPANY PROFILE", rootDriveFolderId || 'root', env);
       
       const typeFolderMap: Record<string, string> = {
