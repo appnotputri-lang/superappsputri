@@ -11,7 +11,7 @@ import { handleFirestoreError, OperationType } from '../../../lib/firebase';
 import { sanitizeForFirestore } from '../../../utils/sanitize';
 import { ProjectService } from '../../../services/ProjectService';
 import { DocumentGenerationService } from '../../../services/DocumentGenerationService';
-import { DocumentStatusBadge, documentStatusOptions } from '../../../../components/DocumentStatusBadge';
+import { DocumentStatusBadge } from '../../../../components/DocumentStatusBadge';
 import { AhuSection, AhuLabel, AhuInput, AhuSelect, AhuMasaJabatanSelector } from '../../../../App';
 import { INITIAL_STATE } from '../../../domain/company/initialCompanyData';
 
@@ -492,7 +492,6 @@ syncCompanyDataToRupst
                               const profileData = {
                                   ...data,
                                   id: newId,
-                                  documentStatus: isNewRupst ? 'DRAFTING' : (data.documentStatus || 'DRAFTING'),
                                   rupstStatus: isNewRupst ? 'Draft' : (data.rupstStatus || 'Draft'),
                                   updatedAt: new Date().toISOString()
                               };
@@ -661,24 +660,6 @@ syncCompanyDataToRupst
                   
                   <fieldset disabled={isRupstPreview} className="space-y-4">
 
-                        <AhuSection title="STATUS DOKUMEN">
-                          <div className="space-y-4">
-                            <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
-                              <AhuLabel label="Status Saat Ini" />
-                              <div className="md:col-span-3">
-                                <select
-                                  className="w-full border border-[#ccc] rounded-sm px-3 py-1.5 text-[13px] outline-none bg-white focus:border-[#66afe9]"
-                                  value={data.documentStatus || data.rupstStatus || "DRAFTING"}
-                                  onChange={e => updateData({ documentStatus: e.target.value as any, rupstStatus: (e.target.value === 'SELESAI' ? 'Final' : 'Draft') })}
-                                >
-                                  {documentStatusOptions.map(opt => (
-                                    <option key={opt} value={opt}>{opt}</option>
-                                  ))}
-                                </select>
-                              </div>
-                            </div>
-                          </div>
-                        </AhuSection>
                         <AhuSection title="PILIH PROFIL">
                           <div className="space-y-4">
                             {activeProjectContext ? (
@@ -1616,12 +1597,18 @@ syncCompanyDataToRupst
                                  <AhuInput type="date" value={data.signingDate || ''} onChange={e => updateData({ signingDate: e.target.value })} />
                               </div>
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
-                              <AhuLabel label="Waktu Rapat (Mulai)" />
-                              <div className="md:col-span-3">
-                                <div className="w-1/2">
-                                  <AhuInput type="time" value={data.meetingStartTime || ''} onChange={e => updateData({ meetingStartTime: e.target.value })} />
-                                </div>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                              <div>
+                                <AhuLabel label="Waktu Rapat (Mulai)" />
+                                <AhuInput type="time" value={data.meetingStartTime || ''} onChange={e => updateData({ meetingStartTime: e.target.value })} />
+                              </div>
+                              <div>
+                                <AhuLabel label="Waktu Selesai Rapat" required />
+                                <AhuInput type="time" value={data.meetingEndTime || data.rupstMeetingEndTime || ''} onChange={e => updateData({ meetingEndTime: e.target.value, rupstMeetingEndTime: e.target.value })} />
+                              </div>
+                              <div>
+                                <AhuLabel label="Tempat Penandatanganan / Penyelenggaraan" required />
+                                <AhuInput value={data.signingPlace || ''} onChange={e => updateData({ signingPlace: e.target.value })} placeholder="Contoh: Jakarta" />
                               </div>
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">

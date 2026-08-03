@@ -11,7 +11,7 @@ import { handleFirestoreError, OperationType } from '../../../lib/firebase';
 import { sanitizeForFirestore } from '../../../utils/sanitize';
 import { ProjectService } from '../../../services/ProjectService';
 import { DocumentGenerationService } from '../../../services/DocumentGenerationService';
-import { DocumentStatusBadge, documentStatusOptions } from '../../../../components/DocumentStatusBadge';
+import { DocumentStatusBadge } from '../../../../components/DocumentStatusBadge';
 import { AhuSection, AhuLabel, AhuInput, AhuSelect, AhuMasaJabatanSelector } from '../../../../App';
 import DraftAktaApp, { DraftAktaAppRef } from '../../../DraftAktaApp';
 import DraftAktaRUPS from '../../../DraftAktaRUPS';
@@ -578,7 +578,6 @@ export const RUPSLBPage: React.FC<RUPSLBPageProps> = ({
                                   ...data,
                                   id: newId,
                                   finalShareholders: calculatedFinal.length > 0 ? calculatedFinal : (data.finalShareholders || []),
-                                  documentStatus: isNew ? 'DRAFTING' : (data.documentStatus || 'DRAFTING'),
                                   updatedAt: new Date().toISOString()
                               };
                               
@@ -733,25 +732,6 @@ export const RUPSLBPage: React.FC<RUPSLBPageProps> = ({
                   </div>
                   
                   <fieldset disabled={isRupsPreview} className="space-y-4">
-
-            <AhuSection title="STATUS DOKUMEN">
-              <div className="space-y-4">
-                 <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
-                    <AhuLabel label="Status Saat Ini" />
-                    <div className="md:col-span-3">
-                      <select
-                        className="w-full border border-[#ccc] rounded-sm px-3 py-1.5 text-[13px] outline-none bg-white focus:border-[#66afe9]"
-                        value={data.documentStatus || "DRAFTING"}
-                        onChange={e => updateData({ documentStatus: e.target.value as any })}
-                      >
-                        {documentStatusOptions.map(opt => (
-                          <option key={opt} value={opt}>{opt}</option>
-                        ))}
-                      </select>
-                    </div>
-                 </div>
-              </div>
-            </AhuSection>
 
             {/* DATA PERSEROAN (Pilihan dari Profil) */}
             <AhuSection title="PILIH PROFIL">
@@ -1412,30 +1392,31 @@ export const RUPSLBPage: React.FC<RUPSLBPageProps> = ({
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
-                  <AhuLabel label="Waktu Akta (PKR)" />
-                  <div className="md:col-span-3">
-                    <div className="w-1/2">
+                {data.documentType === 'MINUTES' && (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                    <div>
+                      <AhuLabel label="Waktu Rapat (Mulai)" />
                       <AhuInput 
                         type="time" 
-                        value={data.aktaStartTime || ''} 
-                        onChange={e => updateData({ aktaStartTime: e.target.value })} 
+                        value={data.meetingStartTime || ''} 
+                        onChange={e => updateData({ meetingStartTime: e.target.value })} 
                       />
                     </div>
-                  </div>
-                </div>
-
-                {data.documentType === 'MINUTES' && (
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
-                    <AhuLabel label="Waktu Rapat (Mulai)" />
-                    <div className="md:col-span-3">
-                      <div className="w-1/2">
-                        <AhuInput 
-                          type="time" 
-                          value={data.meetingStartTime || ''} 
-                          onChange={e => updateData({ meetingStartTime: e.target.value })} 
-                        />
-                      </div>
+                    <div>
+                      <AhuLabel label="Waktu Selesai Rapat" required />
+                      <AhuInput 
+                        type="time" 
+                        value={data.meetingEndTime || data.rupstMeetingEndTime || ''} 
+                        onChange={e => updateData({ meetingEndTime: e.target.value, rupstMeetingEndTime: e.target.value })} 
+                      />
+                    </div>
+                    <div>
+                      <AhuLabel label="Tempat Penandatanganan / Penyelenggaraan" required />
+                      <AhuInput 
+                        value={data.signingPlace || ''} 
+                        onChange={e => updateData({ signingPlace: e.target.value })} 
+                        placeholder="Contoh: Jakarta" 
+                      />
                     </div>
                   </div>
                 )}

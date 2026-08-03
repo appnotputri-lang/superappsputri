@@ -96,36 +96,6 @@ export const MeetingFormShell: React.FC<MeetingFormShellProps> = ({
         openShareholderEditor={openShareholderEditor}
         deleteShareholder={deleteShareholder}
       />
-
-      {/* 3. Blok Penutup (Selesai + signingPlace) */}
-      {!isCircular && (
-        <div className="bg-slate-50 p-4 border border-slate-200 rounded-sm">
-          <h4 className="text-[12px] font-bold text-slate-600 uppercase mb-4 tracking-wider">
-            PENUTUP RAPAT
-          </h4>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <AhuLabel label="Waktu Selesai Rapat" required />
-              <AhuInput 
-                type="time" 
-                value={actualData.meetingEndTime || actualData.rupstMeetingEndTime || ''} 
-                onChange={e => updateData({ 
-                  meetingEndTime: e.target.value, 
-                  rupstMeetingEndTime: e.target.value 
-                })} 
-              />
-            </div>
-            <div>
-              <AhuLabel label="Tempat Penandatanganan / Penyelenggaraan" required />
-              <AhuInput 
-                value={actualData.signingPlace || ''} 
-                onChange={e => updateData({ signingPlace: e.target.value })} 
-                placeholder="Contoh: Jakarta" 
-              />
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
