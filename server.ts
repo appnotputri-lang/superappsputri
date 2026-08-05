@@ -543,7 +543,18 @@ async function startServer() {
 
   app.post("/api/send-whatsapp", async (req, res) => {
     const { target, message } = req.body;
-    const FONNTE_TOKEN = process.env.FONNTE_TOKEN;
+    let FONNTE_TOKEN = process.env.FONNTE_TOKEN;
+
+    if (!FONNTE_TOKEN) {
+      try {
+        const doc = await firestoreRest.getDocument('settings', 'whatsapp', process.env);
+        if (doc && doc.token && typeof doc.token === 'string' && doc.token.trim()) {
+          FONNTE_TOKEN = doc.token.trim();
+        }
+      } catch (err) {
+        console.warn('[Fonnte Server] Gagal baca settings/whatsapp dari Firestore:', err);
+      }
+    }
 
     if (!FONNTE_TOKEN) {
       return res.status(500).json({ error: "FONNTE_TOKEN is not configured" });
@@ -563,10 +574,138 @@ async function startServer() {
       });
 
       const data = await response.json();
-      res.json(data);
+      res.json({
+        success: data.status === true,
+        error: data.status === true ? undefined : (data.reason || data.detail || 'Gagal mengirim pesan.'),
+        detail: data.detail,
+        id: data.id,
+        target: data.target,
+        raw: data,
+      });
     } catch (error) {
       console.error("WhatsApp Send Error:", error);
       res.status(500).json({ error: "Failed to send WhatsApp message" });
+    }
+  });
+
+  app.post("/api/whatsapp-status", async (req, res) => {
+    const { token: reqToken } = req.body;
+    let FONNTE_TOKEN = reqToken;
+
+    if (!FONNTE_TOKEN) {
+      FONNTE_TOKEN = process.env.FONNTE_TOKEN;
+    }
+
+    if (!FONNTE_TOKEN) {
+      try {
+        const doc = await firestoreRest.getDocument('settings', 'whatsapp', process.env);
+        if (doc && doc.token && typeof doc.token === 'string' && doc.token.trim()) {
+          FONNTE_TOKEN = doc.token.trim();
+        }
+      } catch (err) {
+        console.warn('[Fonnte Server] Gagal baca settings/whatsapp dari Firestore:', err);
+      }
+    }
+
+    if (!FONNTE_TOKEN) {
+      return res.status(400).json({ error: "Token Fonnte belum diatur di Pengaturan." });
+    }
+
+    try {
+      const response = await fetch("https://api.fonnte.com/device", {
+        method: "POST",
+        headers: {
+          Authorization: FONNTE_TOKEN,
+        },
+      });
+
+      const data = await response.json();
+      if (data.status !== true) {
+        return res.json({
+          connected: false,
+          message: data.reason || 'Token tidak valid atau device tidak ditemukan.'
+        });
+      }
+
+      res.json({
+        connected: data.device_status === 'connect',
+        device_status: data.device_status,
+        message: data.device_status === 'connect'
+          ? `Terhubung sebagai ${data.device || data.name}`
+          : 'Device terputus, scan ulang QR di dashboard Fonnte.',
+      });
+    } catch (error) {
+      console.error("WhatsApp Status Error:", error);
+      res.status(500).json({ error: "Failed to check WhatsApp status" });
+    }
+  });
+
+  app.post("/api/whatsapp-groups", authMiddleware, async (req, res) => {
+    let FONNTE_TOKEN = process.env.FONNTE_TOKEN;
+
+    if (!FONNTE_TOKEN) {
+      try {
+        const doc = await firestoreRest.getDocument('settings', 'whatsapp', process.env);
+        if (doc && doc.token && typeof doc.token === 'string' && doc.token.trim()) {
+          FONNTE_TOKEN = doc.token.trim();
+        }
+      } catch (err) {
+        console.warn('[Fonnte Server] Gagal baca settings/whatsapp dari Firestore:', err);
+      }
+    }
+
+    if (!FONNTE_TOKEN) {
+      return res.status(400).json({ error: "Token Fonnte belum diatur di Pengaturan." });
+    }
+
+    try {
+      const response = await fetch('https://api.fonnte.com/get-whatsapp-group', {
+        method: 'POST',
+        headers: { Authorization: FONNTE_TOKEN },
+      });
+      const data = (await response.json()) as any;
+
+      res.json({ 
+        groups: data.status ? (data.data || []) : [] 
+      });
+    } catch (err: any) {
+      console.error('[WhatsApp Groups] Error:', err);
+      res.status(500).json({ error: 'Gagal menghubungi server Fonnte.' });
+    }
+  });
+
+  app.post("/api/whatsapp-groups-sync", authMiddleware, async (req, res) => {
+    let FONNTE_TOKEN = process.env.FONNTE_TOKEN;
+
+    if (!FONNTE_TOKEN) {
+      try {
+        const doc = await firestoreRest.getDocument('settings', 'whatsapp', process.env);
+        if (doc && doc.token && typeof doc.token === 'string' && doc.token.trim()) {
+          FONNTE_TOKEN = doc.token.trim();
+        }
+      } catch (err) {
+        console.warn('[Fonnte Server] Gagal baca settings/whatsapp dari Firestore:', err);
+      }
+    }
+
+    if (!FONNTE_TOKEN) {
+      return res.status(400).json({ error: "Token Fonnte belum diatur di Pengaturan." });
+    }
+
+    try {
+      const response = await fetch('https://api.fonnte.com/fetch-group', {
+        method: 'POST',
+        headers: { Authorization: FONNTE_TOKEN },
+      });
+      const data = (await response.json()) as any;
+
+      res.json({
+        success: data.status === true,
+        message: data.status === true ? 'Sinkronisasi berhasil.' : (data.detail || 'Sinkronisasi gagal.'),
+      });
+    } catch (err: any) {
+      console.error('[WhatsApp Groups Sync] Error:', err);
+      res.status(500).json({ error: 'Gagal menghubungi server Fonnte.' });
     }
   });
 

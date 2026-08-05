@@ -12,8 +12,8 @@ import { auth } from '../../lib/firebase';
 import {
   Plus, Edit2, Trash2, Printer, Search, X, Copy, ExternalLink,
   Check, CreditCard, DollarSign, Globe, CheckCircle2, AlertCircle, FileText, Share2,
-  Building2, Database, ArrowLeft, Download, Send, MessageSquare, ChevronLeft, ChevronRight, UserPlus,
-  MoreHorizontal, Calendar, Clock, ChevronUp, ChevronDown, MoreVertical
+  Building2, Database, ArrowLeft, Download, Send, SendHorizontal, Smartphone, MessageSquare, ChevronLeft, ChevronRight, UserPlus,
+  MoreHorizontal, Calendar, Clock, ChevronUp, ChevronDown, MoreVertical, RefreshCw
 } from 'lucide-react';
 
 interface ClientOption {
@@ -121,6 +121,11 @@ export const InvoiceGenerator: React.FC = () => {
   const [waSendSuccess, setWaSendSuccess] = useState<string | null>(null);
   const [waSendError, setWaSendError] = useState<string | null>(null);
   const [activeWaInvoice, setActiveWaInvoice] = useState<Invoice | null>(null);
+  const [waSendMode, setWaSendMode] = useState<'NUMBER' | 'GROUP'>('GROUP');
+  const [waGroups, setWaGroups] = useState<any[]>([]);
+  const [selectedWaGroupId, setSelectedWaGroupId] = useState('');
+  const [isLoadingWaGroups, setIsLoadingWaGroups] = useState(false);
+  const [isSyncingWaGroups, setIsSyncingWaGroups] = useState(false);
 
   const handleDownloadPDF = async (inv: Invoice) => {
     setDownloadingPdf(true);
@@ -245,7 +250,16 @@ export const InvoiceGenerator: React.FC = () => {
         CompanyService.getCvCompanies().catch(() => [])
       ]);
 
-      const allLocal: ClientOption[] = [...ptList, ...cvList].map(c => {
+      const seenIds = new Set<string>();
+      const uniqueLocal: any[] = [];
+      for (const c of [...ptList, ...cvList]) {
+        if (c && c.id && !seenIds.has(c.id)) {
+          seenIds.add(c.id);
+          uniqueLocal.push(c);
+        }
+      }
+
+      const allLocal: ClientOption[] = uniqueLocal.map(c => {
         let fullAddr = '';
         if (c.fullAddress) {
           fullAddr = c.fullAddress;
@@ -634,7 +648,8 @@ export const InvoiceGenerator: React.FC = () => {
   };
 
   const formatPhoneForFonnte = (phone: string): string => {
-    let cleaned = phone.replace(/[^0-9]/g, '');
+    if (!phone) return '';
+    let cleaned = String(phone).replace(/[^0-9]/g, '');
     if (cleaned.startsWith('0')) {
       cleaned = '62' + cleaned.slice(1);
     } else if (cleaned.startsWith('8')) {
@@ -644,8 +659,10 @@ export const InvoiceGenerator: React.FC = () => {
   };
 
   const formatInvoiceMessage = (inv: Invoice) => {
-    const itemsText = inv.items.map((item) => {
-      const lines = item.description.split('\n').map(l => l.trim()).filter(Boolean);
+    const itemsText = (inv.items || []).map((item) => {
+      if (!item) return '';
+      const desc = item.description || '';
+      const lines = desc.split('\n').map(l => l.trim()).filter(Boolean);
       if (lines.length === 0) return '';
       if (lines.length === 1) {
         return `•  ${lines[0]}: Rp ${formatCurrency(item.amount || (item.quantity * item.unitPrice))}`;
@@ -658,7 +675,7 @@ export const InvoiceGenerator: React.FC = () => {
     }).filter(Boolean).join('\n\n');
 
     const bName = inv.bankDetails?.bankName || 'BCA Cabang Dago - Bandung';
-    const bNumberRaw = inv.bankDetails?.accountNumber || '7770673016';
+    const bNumberRaw = String(inv.bankDetails?.accountNumber || '7770673016');
     const bNumber = bNumberRaw.replace(/Acc\.\s*/i, '').replace(/No\.\s*Rek\s*/i, '').trim();
     const bHolder = inv.bankDetails?.accountHolder || 'A.n Nukantini Putri Parincha';
     const bNpwp = inv.bankDetails?.npwp || '3217015610760002';
@@ -671,15 +688,15 @@ export const InvoiceGenerator: React.FC = () => {
     }
     const publicUrl = `https://notarisputri.web.id/INV/${cleanSlug}`;
 
-    return `Yth. ${inv.clientName},
+    return `Yth. ${inv.clientName || 'Klien'},
 Dengan hormat,
 
-Bersama ini kami sampaikan rincian tagihan Invoice ${inv.invoiceNumber} atas layanan di Kantor Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn:
+Bersama ini kami sampaikan rincian tagihan Invoice ${inv.invoiceNumber || ''} atas layanan di Kantor Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn:
 
 ${itemsText}
 
-Sub Total: Rp ${formatCurrency(inv.subtotal)}
-${inv.taxAmount > 0 ? `Potongan Pajak: Rp ${formatCurrency(inv.taxAmount)}\n` : ''}Total Tagihan: Rp ${formatCurrency(inv.totalAmount)}
+Sub Total: Rp ${formatCurrency(inv.subtotal || 0)}
+${(inv.taxAmount || 0) > 0 ? `Potongan Pajak: Rp ${formatCurrency(inv.taxAmount)}\n` : ''}Total Tagihan: Rp ${formatCurrency(inv.totalAmount || 0)}
 
 Informasi Pembayaran:
 ${bName}
@@ -698,26 +715,136 @@ Hormat kami,
 Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
   };
 
+  const fetchWaGroups = async () => {
+    setIsLoadingWaGroups(true);
+    try {
+      const userToken = await auth?.currentUser?.getIdToken();
+      const headers: any = { 'Content-Type': 'application/json' };
+      if (userToken) {
+        headers['Authorization'] = `Bearer ${userToken}`;
+      }
+      const response = await fetch(getApiUrl('/api/whatsapp-groups'), {
+        method: 'POST',
+        headers
+      });
+      const resText = await response.text();
+      let resData;
+      try {
+        resData = JSON.parse(resText);
+      } catch (e) {
+        throw new Error("Respon server tidak valid atau format data API terganggu. Pastikan integrasi Fonnte Anda aktif.");
+      }
+      if (response.ok && resData.groups) {
+        const fetchedGroups = resData.groups;
+        setWaGroups(fetchedGroups);
+        
+        // Auto search/select for 'KANTOR NOTARIS/PPAT' case-insensitively
+        const found = fetchedGroups.find((g: any) => 
+          g.name && g.name.toUpperCase().includes('KANTOR NOTARIS/PPAT')
+        ) || fetchedGroups.find((g: any) => 
+          g.name && (g.name.toUpperCase().includes('NOTARIS') || g.name.toUpperCase().includes('PPAT'))
+        );
+
+        if (found) {
+          setSelectedWaGroupId(found.id);
+          setWaSendMode('GROUP');
+        } else if (fetchedGroups.length > 0) {
+          setSelectedWaGroupId(fetchedGroups[0].id);
+          setWaSendMode('GROUP');
+        } else {
+          setWaSendMode('NUMBER');
+        }
+      } else {
+        console.warn("Gagal mendapatkan grup WhatsApp:", resData.error || "Format tidak sesuai.");
+      }
+    } catch (err: any) {
+      console.error("Gagal memuat daftar grup WhatsApp:", err);
+    } finally {
+      setIsLoadingWaGroups(false);
+    }
+  };
+
+  const handleSyncWaGroups = async () => {
+    setIsSyncingWaGroups(true);
+    try {
+      const userToken = await auth?.currentUser?.getIdToken();
+      const headers: any = { 'Content-Type': 'application/json' };
+      if (userToken) {
+        headers['Authorization'] = `Bearer ${userToken}`;
+      }
+      const response = await fetch(getApiUrl('/api/whatsapp-groups-sync'), {
+        method: 'POST',
+        headers
+      });
+      const resText = await response.text();
+      let resData;
+      try {
+        resData = JSON.parse(resText);
+      } catch (e) {
+        throw new Error("Respon sinkronisasi tidak valid dari server backend.");
+      }
+      if (response.ok && resData.success) {
+        setWaSendSuccess(resData.message || 'Sinkronisasi berhasil! Memuat ulang...');
+        await fetchWaGroups();
+      } else {
+        setWaSendError(resData.error || 'Sinkronisasi gagal.');
+      }
+    } catch (err: any) {
+      setWaSendError(err.message || 'Koneksi error saat menyinkronkan grup.');
+    } finally {
+      setIsSyncingWaGroups(false);
+    }
+  };
+
+  // Load Groups in Modal
+  useEffect(() => {
+    if (isWaModalOpen) {
+      fetchWaGroups();
+    }
+  }, [isWaModalOpen]);
+
   const handleShareWhatsApp = (inv: Invoice) => {
     setActiveWaInvoice(inv);
     setWaTargetPhone(inv.clientPhone ? formatPhoneForFonnte(inv.clientPhone) : '');
     setWaMessage(formatInvoiceMessage(inv));
     setWaSendSuccess(null);
     setWaSendError(null);
+    setWaSendMode('GROUP');
     setIsWaModalOpen(true);
   };
 
   const handleSendFonnteApi = async () => {
-    if (!waTargetPhone.trim()) {
-      setWaSendError('Nomor WhatsApp tujuan harus diisi.');
-      return;
+    let finalTarget = '';
+    let targetLabel = '';
+
+    if (waSendMode === 'GROUP') {
+      if (!selectedWaGroupId) {
+        setWaSendError('Silakan pilih WhatsApp Group tujuan terlebih dahulu.');
+        return;
+      }
+      finalTarget = selectedWaGroupId;
+      const matchedGroup = waGroups.find(g => g.id === selectedWaGroupId);
+      targetLabel = matchedGroup ? matchedGroup.name : 'WhatsApp Group';
+    } else {
+      if (!waTargetPhone.trim()) {
+        setWaSendError('Nomor WhatsApp tujuan harus diisi.');
+        return;
+      }
+      const cleanNum = waTargetPhone.replace(/[^0-9]/g, '');
+      if (!cleanNum.startsWith('62') && !cleanNum.startsWith('08') && !cleanNum.startsWith('8')) {
+        setWaSendError('Format nomor tujuan tidak valid. Masukkan nomor HP Indonesia yang valid.');
+        return;
+      }
+      finalTarget = cleanNum;
+      targetLabel = cleanNum;
     }
+
     setIsSendingWa(true);
     setWaSendSuccess(null);
     setWaSendError(null);
 
     try {
-      const userToken = await auth.currentUser?.getIdToken();
+      const userToken = await auth?.currentUser?.getIdToken();
       const headers: any = {
         'Content-Type': 'application/json'
       };
@@ -729,7 +856,7 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
         method: 'POST',
         headers,
         body: JSON.stringify({
-          target: waTargetPhone.trim(),
+          target: finalTarget,
           message: waMessage
         })
       });
@@ -743,7 +870,7 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
       }
 
       if (response.ok && (resData.status === true || resData.success === true || resData.status === 'success' || resData.status === 'sent')) {
-        setWaSendSuccess('Pesan WhatsApp tagihan berhasil dikirim via Fonnte!');
+        setWaSendSuccess(`Pesan WhatsApp tagihan berhasil dikirim ke ${targetLabel} via Fonnte!`);
       } else {
         setWaSendError(resData.message || resData.error || 'Gagal mengirim pesan via Fonnte. Silakan cek status WhatsApp Gateway.');
       }
@@ -2201,48 +2328,130 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
 
       {/* Modal Kirim Tagihan via WhatsApp */}
       {isWaModalOpen && activeWaInvoice && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-[200] flex items-center justify-center p-4">
-          <div className="bg-slate-50 border border-slate-300 rounded-lg shadow-2xl max-w-lg w-full p-5 space-y-4 max-h-[90vh] flex flex-col">
-            <div className="flex items-center justify-between border-b border-slate-200 pb-2.5 flex-shrink-0">
-              <h3 className="font-bold text-[#1e293b] text-sm uppercase tracking-wider flex items-center gap-1.5">
-                <MessageSquare size={18} className="text-emerald-600" />
-                Kirim Tagihan via WhatsApp
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-[200] flex items-center justify-center p-4">
+          <div className="bg-slate-50 border border-slate-300 rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] flex flex-col overflow-hidden animate-scale-up">
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-white shrink-0">
+              <h3 className="font-bold text-[#1e293b] text-sm uppercase tracking-widest flex items-center gap-2">
+                <Smartphone className="text-emerald-600 stroke-[2.5]" size={18} />
+                Kirim Tagihan via WhatsApp Gateway
               </h3>
               <button
                 onClick={() => setIsWaModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
+                className="text-slate-400 hover:text-slate-600 bg-white hover:bg-slate-100 border border-slate-200 rounded-lg p-1.5 transition-colors cursor-pointer"
               >
-                <X size={18} />
+                <X size={15} />
               </button>
             </div>
 
-            <div className="space-y-4 overflow-y-auto pr-1 flex-1 text-xs">
-              <div>
-                <label className="text-[10px] font-bold text-slate-600 block uppercase mb-1">
-                  Nomor WhatsApp Penerima *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={waTargetPhone}
-                  onChange={(e) => setWaTargetPhone(e.target.value)}
-                  placeholder="Contoh: 628123456789"
-                  className="w-full text-xs border border-slate-300 rounded-md p-2 font-medium focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all"
-                />
-                <p className="text-[10px] text-slate-500 mt-1">
-                  Format harus menggunakan kode negara, e.g. 628123456789.
-                </p>
+            {/* Modal Content */}
+            <div className="p-6 overflow-y-auto space-y-4 flex-1">
+              
+              {/* Recipient Mode Tab Switcher */}
+              <div className="flex bg-slate-100 p-1 rounded-lg border border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => setWaSendMode('GROUP')}
+                  className={`flex-1 text-center py-1.5 text-xs font-bold rounded-md uppercase tracking-wider transition-all duration-150 cursor-pointer ${
+                    waSendMode === 'GROUP' 
+                      ? 'bg-emerald-600 text-white shadow-sm' 
+                      : 'text-slate-600 hover:text-slate-800'
+                  }`}
+                >
+                  Grup WhatsApp
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setWaSendMode('NUMBER')}
+                  className={`flex-1 text-center py-1.5 text-xs font-bold rounded-md uppercase tracking-wider transition-all duration-150 cursor-pointer ${
+                    waSendMode === 'NUMBER' 
+                      ? 'bg-emerald-600 text-white shadow-sm' 
+                      : 'text-slate-600 hover:text-slate-800'
+                  }`}
+                >
+                  Nomor Pribadi
+                </button>
               </div>
 
-              <div>
-                <label className="text-[10px] font-bold text-slate-600 block uppercase mb-1">
-                  Isi Pesan WhatsApp
+              {waSendMode === 'GROUP' ? (
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-widest">
+                      Pilih Grup WhatsApp Tujuan
+                    </label>
+                    <button
+                      type="button"
+                      onClick={handleSyncWaGroups}
+                      disabled={isSyncingWaGroups || isLoadingWaGroups}
+                      className="flex items-center gap-1.5 text-[10px] text-emerald-600 hover:text-emerald-700 font-bold uppercase tracking-wider cursor-pointer bg-transparent border-none outline-none"
+                    >
+                      <RefreshCw size={11} className={`${isSyncingWaGroups ? 'animate-spin' : ''}`} />
+                      {isSyncingWaGroups ? 'Menyinkronkan...' : 'Sinkronkan Daftar Grup'}
+                    </button>
+                  </div>
+                  
+                  {isLoadingWaGroups ? (
+                    <div className="w-full py-4 text-center border border-dashed border-slate-200 rounded-lg flex items-center justify-center gap-2 text-slate-500 font-medium text-xs">
+                      <RefreshCw className="animate-spin w-4 h-4 text-emerald-500" />
+                      Memuat daftar grup WhatsApp dari Fonnte...
+                    </div>
+                  ) : waGroups.length === 0 ? (
+                    <div className="w-full p-4 text-center border border-dashed border-slate-200 bg-amber-50/30 text-amber-700 font-medium text-xs rounded-lg space-y-2">
+                      <p>Tidak ada grup WhatsApp yang ditemukan di akun Fonnte Anda.</p>
+                      <button
+                        type="button"
+                        onClick={handleSyncWaGroups}
+                        className="px-3 py-1.5 bg-[#4f1846] text-white hover:bg-[#68265d] active:scale-95 transition-all text-[10px] font-bold uppercase tracking-wider rounded-md cursor-pointer"
+                      >
+                        Mulai Sinkronisasi Fonnte
+                      </button>
+                    </div>
+                  ) : (
+                    <div>
+                      <select
+                        value={selectedWaGroupId}
+                        onChange={(e) => setSelectedWaGroupId(e.target.value)}
+                        className="w-full px-3 py-2.5 text-xs font-bold border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/15 focus:border-emerald-500 bg-white cursor-pointer placeholder-slate-400"
+                      >
+                        {waGroups.map((g) => (
+                          <option key={g.id} value={g.id}>
+                            {g.name} (ID: {g.id}) {g.member !== undefined ? ` - ${g.member} Anggota` : ''}
+                          </option>
+                        ))}
+                      </select>
+                      <p className="text-[9.5px] mt-1 text-slate-400 font-medium">
+                        * Secara otomatis mencari dan memprioritaskan grup <strong className="text-slate-700">KANTOR NOTARIS/PPAT</strong> jika tersedia.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-widest">
+                    Nomor WhatsApp Tujuan (Pribadi)
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={waTargetPhone}
+                    onChange={(e) => setWaTargetPhone(e.target.value)}
+                    placeholder="Contoh: 628123456789"
+                    className="w-full px-3 py-2.5 text-xs font-semibold border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/15 focus:border-emerald-500 bg-slate-50/50 focus:bg-white transition-all animate-fade-in"
+                  />
+                  <p className="text-[9.5px] text-slate-400 font-medium">Nomor harus diawali 62, 08, atau 8. Nomor default ditarik otomatis dari nomor hp klien.</p>
+                </div>
+              )}
+
+              {/* Message Format Preview */}
+              <div className="space-y-1">
+                <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-widest">
+                  Pratinjau Format Pesan WhatsApp
                 </label>
                 <textarea
                   value={waMessage}
                   onChange={(e) => setWaMessage(e.target.value)}
-                  rows={12}
-                  className="w-full text-xs border border-slate-300 rounded-md p-2.5 font-mono focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all resize-y"
+                  rows={10}
+                  className="w-full p-3.5 bg-slate-50/80 border border-slate-200 rounded-lg text-xs font-semibold font-mono text-slate-700 focus:outline-none resize-none"
                   placeholder="Isi pesan tagihan..."
                 />
               </div>
@@ -2262,32 +2471,44 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
               )}
             </div>
 
-            <div className="flex justify-between items-center pt-3 border-t border-slate-200 flex-shrink-0 gap-2">
-              <button
-                type="button"
-                onClick={handleSendManualWa}
-                className="px-3.5 py-2 bg-slate-100 border border-slate-200 hover:bg-slate-200 text-slate-700 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
-                title="Gunakan jika token Fonnte tidak diatur atau offline"
-              >
-                <ExternalLink size={14} /> Kirim Manual (wa.me)
-              </button>
-
+            {/* Modal Actions */}
+            <div className="px-6 py-4 border-t border-slate-150 bg-slate-50 flex items-center justify-between gap-2 shrink-0">
+              <div>
+                {waSendMode === 'NUMBER' && waTargetPhone && (
+                  <a
+                    href={`https://wa.me/${waTargetPhone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(waMessage || '')}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-slate-100 border border-slate-200 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold uppercase tracking-wide transition-all duration-150 cursor-pointer decoration-none shadow-xs"
+                    title="Kirim pesan langsung via web/app WhatsApp tanpa Fonnte"
+                  >
+                    <ExternalLink size={13} className="stroke-[2.5]" />
+                    Kirim Manual
+                  </a>
+                )}
+              </div>
+              
               <div className="flex gap-2">
                 <button
                   type="button"
                   onClick={() => setIsWaModalOpen(false)}
-                  className="px-3.5 py-2 bg-slate-200 text-slate-700 rounded-md text-xs font-semibold hover:bg-slate-300 transition-all cursor-pointer"
+                  className="px-4 py-2 border border-slate-200 rounded-lg text-slate-600 hover:text-slate-800 hover:bg-slate-100 text-xs font-bold uppercase tracking-wide transition-colors cursor-pointer"
                 >
                   Batal
                 </button>
+                
                 <button
                   type="button"
                   disabled={isSendingWa}
                   onClick={handleSendFonnteApi}
-                  className="px-4 py-2 bg-emerald-600 text-white rounded-md text-xs font-semibold hover:bg-emerald-700 transition-all cursor-pointer disabled:opacity-50 flex items-center gap-1.5 shadow-sm"
+                  className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 disabled:border-slate-300 border border-emerald-700 text-white font-bold text-xs px-5 py-2.5 rounded-lg shadow-sm transition-all duration-200 hover:-translate-y-0.5 cursor-pointer uppercase tracking-wider disabled:-translate-y-0"
                 >
-                  <Send size={14} />
-                  {isSendingWa ? 'Mengirim...' : 'Kirim via Fonnte'}
+                  {isSendingWa ? (
+                    <RefreshCw className="animate-spin w-4 h-4" />
+                  ) : (
+                    <SendHorizontal size={14} className="stroke-[2.5]" />
+                  )}
+                  Kirim Sekarang
                 </button>
               </div>
             </div>
