@@ -7,6 +7,8 @@ import { calculateInvoiceTotals, getItemSubtotal } from '../../services/taxCalcu
 import { formatInputNumber, parseFormattedNumber } from '../../../utils/formatters';
 import { InvoicePrintTemplate } from './InvoicePrintTemplate';
 import { printInvoice, downloadInvoicePdf } from '../../utils/invoiceHtmlGenerator';
+import { getApiUrl } from '../../lib/api';
+import { auth } from '../../lib/firebase';
 import {
   Plus, Edit2, Trash2, Printer, Search, X, Copy, ExternalLink,
   Check, CreditCard, DollarSign, Globe, CheckCircle2, AlertCircle, FileText, Share2,
@@ -110,6 +112,15 @@ export const InvoiceGenerator: React.FC = () => {
 
   // PDF Export State
   const [downloadingPdf, setDownloadingPdf] = useState(false);
+
+  // WhatsApp Share Modal States
+  const [isWaModalOpen, setIsWaModalOpen] = useState(false);
+  const [waTargetPhone, setWaTargetPhone] = useState('');
+  const [waMessage, setWaMessage] = useState('');
+  const [isSendingWa, setIsSendingWa] = useState(false);
+  const [waSendSuccess, setWaSendSuccess] = useState<string | null>(null);
+  const [waSendError, setWaSendError] = useState<string | null>(null);
+  const [activeWaInvoice, setActiveWaInvoice] = useState<Invoice | null>(null);
 
   const handleDownloadPDF = async (inv: Invoice) => {
     setDownloadingPdf(true);
@@ -622,11 +633,129 @@ export const InvoiceGenerator: React.FC = () => {
     setTimeout(() => setCopiedToken(null), 2000);
   };
 
+  const formatPhoneForFonnte = (phone: string): string => {
+    let cleaned = phone.replace(/[^0-9]/g, '');
+    if (cleaned.startsWith('0')) {
+      cleaned = '62' + cleaned.slice(1);
+    } else if (cleaned.startsWith('8')) {
+      cleaned = '62' + cleaned;
+    }
+    return cleaned;
+  };
+
+  const formatInvoiceMessage = (inv: Invoice) => {
+    const itemsText = inv.items.map((item) => {
+      const lines = item.description.split('\n').map(l => l.trim()).filter(Boolean);
+      if (lines.length === 0) return '';
+      if (lines.length === 1) {
+        return `•  ${lines[0]}: Rp ${formatCurrency(item.amount || (item.quantity * item.unitPrice))}`;
+      } else {
+        const firstLine = `•  ${lines[0]}`;
+        const middleLines = lines.slice(1, -1);
+        const lastLine = `${lines[lines.length - 1]}: Rp ${formatCurrency(item.amount || (item.quantity * item.unitPrice))}`;
+        return [firstLine, ...middleLines, lastLine].join('\n');
+      }
+    }).filter(Boolean).join('\n\n');
+
+    const bName = inv.bankDetails?.bankName || 'BCA Cabang Dago - Bandung';
+    const bNumberRaw = inv.bankDetails?.accountNumber || '7770673016';
+    const bNumber = bNumberRaw.replace(/Acc\.\s*/i, '').replace(/No\.\s*Rek\s*/i, '').trim();
+    const bHolder = inv.bankDetails?.accountHolder || 'A.n Nukantini Putri Parincha';
+    const bNpwp = inv.bankDetails?.npwp || '3217015610760002';
+
+    let cleanSlug = '';
+    if (inv.invoiceNumber) {
+      cleanSlug = inv.invoiceNumber.replace(/INV\//i, '').replace(/\//g, '');
+    } else {
+      cleanSlug = inv.publicToken || inv.id;
+    }
+    const publicUrl = `https://notarisputri.web.id/INV/${cleanSlug}`;
+
+    return `Yth. ${inv.clientName},
+Dengan hormat,
+
+Bersama ini kami sampaikan rincian tagihan Invoice ${inv.invoiceNumber} atas layanan di Kantor Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn:
+
+${itemsText}
+
+Sub Total: Rp ${formatCurrency(inv.subtotal)}
+${inv.taxAmount > 0 ? `Potongan Pajak: Rp ${formatCurrency(inv.taxAmount)}\n` : ''}Total Tagihan: Rp ${formatCurrency(inv.totalAmount)}
+
+Informasi Pembayaran:
+${bName}
+No. Rekening: ${bNumber}
+${bHolder}
+
+Informasi Pajak:
+NPWP 16 digit: ${bNpwp}
+
+Tautan Detail & PDF:
+${publicUrl}
+
+Atas perhatiannya, kami ucapkan terima kasih.
+
+Hormat kami,
+Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
+  };
+
   const handleShareWhatsApp = (inv: Invoice) => {
-    const token = inv.publicToken || inv.id;
-    const publicUrl = inv.legacyPublicUrl || `${window.location.origin}/${token}`;
-    const text = `Yth. Bapak/Ibu ${inv.clientName},\nBerikut adalah rincian Invoice Tagihan Nomor ${inv.invoiceNumber} sebesar Rp ${formatCurrency(inv.totalAmount)}.\n\nDetail tagihan dapat dilihat pada tautan berikut:\n${publicUrl}\n\nTerima kasih.`;
-    const waUrl = `https://wa.me/${inv.clientPhone ? inv.clientPhone.replace(/[^0-9]/g, '') : ''}?text=${encodeURIComponent(text)}`;
+    setActiveWaInvoice(inv);
+    setWaTargetPhone(inv.clientPhone ? formatPhoneForFonnte(inv.clientPhone) : '');
+    setWaMessage(formatInvoiceMessage(inv));
+    setWaSendSuccess(null);
+    setWaSendError(null);
+    setIsWaModalOpen(true);
+  };
+
+  const handleSendFonnteApi = async () => {
+    if (!waTargetPhone.trim()) {
+      setWaSendError('Nomor WhatsApp tujuan harus diisi.');
+      return;
+    }
+    setIsSendingWa(true);
+    setWaSendSuccess(null);
+    setWaSendError(null);
+
+    try {
+      const userToken = await auth.currentUser?.getIdToken();
+      const headers: any = {
+        'Content-Type': 'application/json'
+      };
+      if (userToken) {
+        headers['Authorization'] = `Bearer ${userToken}`;
+      }
+
+      const response = await fetch(getApiUrl('/api/send-whatsapp'), {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          target: waTargetPhone.trim(),
+          message: waMessage
+        })
+      });
+
+      const resText = await response.text();
+      let resData;
+      try {
+        resData = JSON.parse(resText);
+      } catch (e) {
+        throw new Error("Respon dari server tidak valid.");
+      }
+
+      if (response.ok && (resData.status === true || resData.success === true || resData.status === 'success' || resData.status === 'sent')) {
+        setWaSendSuccess('Pesan WhatsApp tagihan berhasil dikirim via Fonnte!');
+      } else {
+        setWaSendError(resData.message || resData.error || 'Gagal mengirim pesan via Fonnte. Silakan cek status WhatsApp Gateway.');
+      }
+    } catch (err: any) {
+      setWaSendError(err.message || 'Terjadi kesalahan saat menghubungi server.');
+    } finally {
+      setIsSendingWa(false);
+    }
+  };
+
+  const handleSendManualWa = () => {
+    const waUrl = `https://wa.me/${waTargetPhone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(waMessage)}`;
     window.open(waUrl, '_blank');
   };
 
@@ -2065,6 +2194,102 @@ export const InvoiceGenerator: React.FC = () => {
               >
                 Simpan & Gunakan Klien
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Kirim Tagihan via WhatsApp */}
+      {isWaModalOpen && activeWaInvoice && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-[200] flex items-center justify-center p-4">
+          <div className="bg-slate-50 border border-slate-300 rounded-lg shadow-2xl max-w-lg w-full p-5 space-y-4 max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-2.5 flex-shrink-0">
+              <h3 className="font-bold text-[#1e293b] text-sm uppercase tracking-wider flex items-center gap-1.5">
+                <MessageSquare size={18} className="text-emerald-600" />
+                Kirim Tagihan via WhatsApp
+              </h3>
+              <button
+                onClick={() => setIsWaModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="space-y-4 overflow-y-auto pr-1 flex-1 text-xs">
+              <div>
+                <label className="text-[10px] font-bold text-slate-600 block uppercase mb-1">
+                  Nomor WhatsApp Penerima *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={waTargetPhone}
+                  onChange={(e) => setWaTargetPhone(e.target.value)}
+                  placeholder="Contoh: 628123456789"
+                  className="w-full text-xs border border-slate-300 rounded-md p-2 font-medium focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all"
+                />
+                <p className="text-[10px] text-slate-500 mt-1">
+                  Format harus menggunakan kode negara, e.g. 628123456789.
+                </p>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-bold text-slate-600 block uppercase mb-1">
+                  Isi Pesan WhatsApp
+                </label>
+                <textarea
+                  value={waMessage}
+                  onChange={(e) => setWaMessage(e.target.value)}
+                  rows={12}
+                  className="w-full text-xs border border-slate-300 rounded-md p-2.5 font-mono focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all resize-y"
+                  placeholder="Isi pesan tagihan..."
+                />
+              </div>
+
+              {waSendError && (
+                <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-md text-[11px] flex items-start gap-2">
+                  <AlertCircle size={16} className="shrink-0 mt-0.5" />
+                  <span>{waSendError}</span>
+                </div>
+              )}
+
+              {waSendSuccess && (
+                <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-md text-[11px] flex items-start gap-2">
+                  <CheckCircle2 size={16} className="shrink-0 mt-0.5" />
+                  <span>{waSendSuccess}</span>
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-between items-center pt-3 border-t border-slate-200 flex-shrink-0 gap-2">
+              <button
+                type="button"
+                onClick={handleSendManualWa}
+                className="px-3.5 py-2 bg-slate-100 border border-slate-200 hover:bg-slate-200 text-slate-700 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
+                title="Gunakan jika token Fonnte tidak diatur atau offline"
+              >
+                <ExternalLink size={14} /> Kirim Manual (wa.me)
+              </button>
+
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsWaModalOpen(false)}
+                  className="px-3.5 py-2 bg-slate-200 text-slate-700 rounded-md text-xs font-semibold hover:bg-slate-300 transition-all cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="button"
+                  disabled={isSendingWa}
+                  onClick={handleSendFonnteApi}
+                  className="px-4 py-2 bg-emerald-600 text-white rounded-md text-xs font-semibold hover:bg-emerald-700 transition-all cursor-pointer disabled:opacity-50 flex items-center gap-1.5 shadow-sm"
+                >
+                  <Send size={14} />
+                  {isSendingWa ? 'Mengirim...' : 'Kirim via Fonnte'}
+                </button>
+              </div>
             </div>
           </div>
         </div>
