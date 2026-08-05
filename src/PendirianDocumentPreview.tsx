@@ -1,11 +1,12 @@
 import React, { useMemo } from 'react';
 import { PendirianData } from './DraftAktaPendirian';
 import { generatePendirianBlocks } from './lib/pendirianContentBlocks';
+import { generatePendirianCVBlocks } from './lib/cvContentBlocks';
 import { parseTextRuns, FormatToken } from './lib/notaryWrapper';
 import { Download, Loader2 } from 'lucide-react';
 
 interface PendirianDocumentPreviewProps {
-  data: PendirianData;
+  data: any;
   onExport: () => void;
   onClose: () => void;
   isExporting: boolean;
@@ -47,7 +48,13 @@ const WrappedText = ({ runs, isList = false, indent = false, indentTabs = 0, ali
 };
 
 export default function PendirianDocumentPreview({ data, onExport, onClose, isExporting }: PendirianDocumentPreviewProps) {
-  const blocks = useMemo(() => generatePendirianBlocks(data), [data]);
+  const isCV = Boolean(data && (data.namaCV || data.peseros || data.jobType === 'pendirian_cv'));
+  const blocks = useMemo(() => {
+    if (isCV) {
+      return generatePendirianCVBlocks(data);
+    }
+    return generatePendirianBlocks(data);
+  }, [data, isCV]);
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/50 flex justify-end">
@@ -162,6 +169,14 @@ export default function PendirianDocumentPreview({ data, onExport, onClose, isEx
                     indentTabs = 1;
                   } else if (block.type === 'shareholder') {
                     runs = [{ text: `- ${block.name} : ${block.sharesText}`, bold: false }];
+                  } else if (block.type === 'cv-name') {
+                    runs = [{ text: block.text, bold: true }];
+                    align = 'center';
+                  } else if (block.type === 'pesero-modal') {
+                    runs = [{ text: `- ${block.name} : ${block.amountText} (${block.rpText})`, bold: false }];
+                  } else if (block.type === 'pasal5-pengurus' || block.type === 'pasal5-komanditer') {
+                    runs = mapRunsWithTabs(block.runs);
+                    indentTabs = 1;
                   } else if (block.type === 'saksi') {
                     runs = [{ text: `${block.num}. `, bold: false }, ...mapRunsWithTabs(block.runs)];
                   }

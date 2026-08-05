@@ -135,6 +135,7 @@ export function generateSirkulerLaporanBlocks(data: CompanyData): Block[] {
 
   const companyEstStr = formatCompanyEstablishmentOnly(data, false, true);
   const hasAmendments = data.amendmentDeeds && data.amendmentDeeds.length > 0;
+  const isSingleAmendment = data.amendmentDeeds && data.amendmentDeeds.length === 1;
 
   blocks.push(
     {
@@ -143,8 +144,10 @@ export function generateSirkulerLaporanBlocks(data: CompanyData): Block[] {
         { text: finalCompanyName },
         { text: `, berkedudukan di ${domicile}${companyEstStr}${
           hasAmendments
-            ? ", dan telah mengalami beberapa kali perubahan berdasarkan akta-akta sebagai berikut :"
-            : ""
+            ? (isSingleAmendment
+                ? ", dan telah mengalami perubahan berdasarkan akta sebagai berikut :"
+                : ", dan telah mengalami beberapa kali perubahan berdasarkan akta-akta sebagai berikut :")
+            : "."
         }` }
       ]
     }
@@ -346,7 +349,9 @@ export function generateSirkulerLaporanBlocks(data: CompanyData): Block[] {
           let shDetails = formatPersonDetails(r.shareholder, "", "", false, false, true);
           let hasDeeds = checkIsBadanHukum(r.shareholder) && r.shareholder.amendmentDeeds && r.shareholder.amendmentDeeds.length > 0;
           if (hasDeeds) {
-            shDetails += ", dan telah mengalami beberapa kali perubahan berdasarkan akta-akta sebagai berikut :";
+            shDetails += r.shareholder.amendmentDeeds!.length === 1
+              ? ", dan telah mengalami perubahan berdasarkan akta sebagai berikut :"
+              : ", dan telah mengalami beberapa kali perubahan berdasarkan akta-akta sebagai berikut :";
           }
 
           const repName = `${entityPrefix}${getDisplayNameForDocx(r.shareholder)}`;
@@ -436,7 +441,9 @@ export function generateSirkulerLaporanBlocks(data: CompanyData): Block[] {
           let shDetails = formatPersonDetails(r.shareholder, "", "", false, false, true);
           let hasDeeds = checkIsBadanHukum(r.shareholder) && r.shareholder.amendmentDeeds && r.shareholder.amendmentDeeds.length > 0;
           if (hasDeeds) {
-            shDetails += ", dan telah mengalami beberapa kali perubahan berdasarkan akta-akta sebagai berikut :";
+            shDetails += r.shareholder.amendmentDeeds!.length === 1
+              ? ", dan telah mengalami perubahan berdasarkan akta sebagai berikut :"
+              : ", dan telah mengalami beberapa kali perubahan berdasarkan akta-akta sebagai berikut :";
           }
 
           const repName = `${entityPrefix}${getDisplayNameForDocx(r.shareholder)}`;

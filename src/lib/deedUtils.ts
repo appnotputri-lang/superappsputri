@@ -82,22 +82,25 @@ export const fetchLatestDeedNumbers = async (targetDate: string) => {
         }
       }
 
-      // For orderNumber: check same year
-      if (dYear === targetYear) {
-        const orderNum = d.orderNumber;
-        if (orderNum) {
-          const matches = String(orderNum).match(/\d+/g);
-          if (matches) {
-            const docMax = Math.max(...matches.map(m => parseInt(m)));
-            if (docMax > maxOrderNumber) maxOrderNumber = docMax;
-          }
+      // For orderNumber: check cumulatively across all years (do not reset at early year)
+      const orderNum = d.orderNumber;
+      if (orderNum) {
+        const matches = String(orderNum).match(/\d+/g);
+        if (matches) {
+          const docMax = Math.max(...matches.map(m => parseInt(m)));
+          if (docMax > maxOrderNumber) maxOrderNumber = docMax;
         }
       }
     });
 
     // Format results: deedNumber (2 digits), orderNumber (3 digits)
     const nextDeed = maxDeedNumber + 1;
-    const nextOrder = maxOrderNumber + 1;
+    let nextOrder = maxOrderNumber + 1;
+
+    // From 2025-11-01 onwards, numbering starts at 1300
+    if ((targetYear > 2025 || (targetYear === 2025 && targetMonth >= 11)) && nextOrder < 1300) {
+      nextOrder = 1300;
+    }
 
     return {
       nextDeedNumber: nextDeed.toString().padStart(2, '0'),

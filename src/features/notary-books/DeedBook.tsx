@@ -87,8 +87,8 @@ function calculateOrderNumber(
       }
     });
 
-    if (targetDateStr >= '2025-11-01' && maxOrderAll < 1316) {
-      candidate = 1316;
+    if (targetDateStr >= '2025-11-01' && maxOrderAll < 1300) {
+      candidate = 1300;
     } else {
       candidate = maxOrderAll + 1;
     }
@@ -551,27 +551,76 @@ export const DeedBook: React.FC = () => {
 
   // Rapikan Nomor Urut
   const handleReorder = async () => {
-    const yearToOrder = selectedYear === 'ALL' ? new Date().getFullYear().toString() : selectedYear;
-    if (!confirm(`Proses ini akan merapikan Nomor Urut (orderNumber) untuk semua Akta tahun ${yearToOrder} berdasarkan urutan tanggal. Lanjutkan?`)) {
+    const isAll = selectedYear === 'ALL';
+    const yearToOrder = isAll ? 'ALL' : selectedYear;
+    
+    const confirmMessage = isAll 
+      ? `Proses ini akan merapikan Nomor Urut (orderNumber) untuk SEMUA Akta secara kronologis lintas tahun (melanjut terus tanpa reset di awal tahun). Lanjutkan?`
+      : `Proses ini akan merapikan Nomor Urut (orderNumber) untuk Akta tahun ${yearToOrder} dengan MELANJUTKAN nomor urut dari tahun sebelumnya (tidak mereset ke 1). Lanjutkan?`;
+
+    if (!confirm(confirmMessage)) {
       return;
     }
 
     setIsOrdering(true);
     try {
-      const yearDeeds = deeds.filter((d) => d.date && d.date.startsWith(yearToOrder));
-      yearDeeds.sort((a, b) => {
-        if (a.date !== b.date) return a.date.localeCompare(b.date);
-        return (parseInt(a.number, 10) || 0) - (parseInt(b.number, 10) || 0);
-      });
+      if (isAll) {
+        // Tidy up all deeds in the database chronologically
+        const allSorted = [...deeds];
+        allSorted.sort((a, b) => {
+          if (a.date !== b.date) return a.date.localeCompare(b.date);
+          return (parseInt(a.number, 10) || 0) - (parseInt(b.number, 10) || 0);
+        });
 
-      for (let i = 0; i < yearDeeds.length; i++) {
-        const newOrder = String(i + 1);
-        if (yearDeeds[i].orderNumber !== newOrder) {
-          await NotaryService.updateDeed(yearDeeds[i].id, { orderNumber: newOrder });
+        let currentOrder = 1;
+        if (allSorted.length > 0 && allSorted[0].date && allSorted[0].date >= '2025-11-01') {
+          currentOrder = 1300;
         }
-      }
 
-      alert(`Berhasil merapikan nomor urut untuk ${yearDeeds.length} akta.`);
+        let updatedCount = 0;
+        for (let i = 0; i < allSorted.length; i++) {
+          const newOrder = String(currentOrder + i);
+          if (allSorted[i].orderNumber !== newOrder) {
+            await NotaryService.updateDeed(allSorted[i].id, { orderNumber: newOrder });
+            updatedCount++;
+          }
+        }
+        alert(`Berhasil merapikan nomor urut untuk ${allSorted.length} akta (diperbarui: ${updatedCount}).`);
+      } else {
+        // Tidy up only the selected year
+        const yearDeeds = deeds.filter((d) => d.date && d.date.startsWith(yearToOrder));
+        yearDeeds.sort((a, b) => {
+          if (a.date !== b.date) return a.date.localeCompare(b.date);
+          return (parseInt(a.number, 10) || 0) - (parseInt(b.number, 10) || 0);
+        });
+
+        // Find the maximum order number from previous deeds (dated before yearToOrder-01-01)
+        const priorDeeds = deeds.filter((d) => d.date && d.date < `${yearToOrder}-01-01`);
+        let maxPriorOrder = 0;
+        priorDeeds.forEach((d) => {
+          if (d.orderNumber) {
+            const ord = parseInt(d.orderNumber.replace(/\D/g, ''), 10);
+            if (!isNaN(ord) && ord > maxPriorOrder) {
+              maxPriorOrder = ord;
+            }
+          }
+        });
+
+        let startOrder = maxPriorOrder > 0 ? maxPriorOrder + 1 : 1;
+        if (maxPriorOrder === 0 && yearToOrder >= '2025') {
+          startOrder = 1300;
+        }
+
+        let updatedCount = 0;
+        for (let i = 0; i < yearDeeds.length; i++) {
+          const newOrder = String(startOrder + i);
+          if (yearDeeds[i].orderNumber !== newOrder) {
+            await NotaryService.updateDeed(yearDeeds[i].id, { orderNumber: newOrder });
+            updatedCount++;
+          }
+        }
+        alert(`Berhasil merapikan nomor urut untuk ${yearDeeds.length} akta tahun ${yearToOrder} (diperbarui: ${updatedCount}).`);
+      }
     } catch (err) {
       console.error('Failed to reorder deeds:', err);
       alert('Terjadi kesalahan saat merapikan nomor urut.');

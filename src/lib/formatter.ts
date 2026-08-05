@@ -593,9 +593,6 @@ export function formatCompanyEstablishment(data: Partial<CompanyData>, useAktaFo
       const lastDateStr = lastDeed.date ? (useAktaFormat ? formatAktaDate(lastDeed.date) : formatDateRupst(lastDeed.date)) : "................";
       baseString += `, dan anggaran dasarnya telah mengalami beberapa kali perubahan, terakhir dengan ${actaNumWord} ${lastDeed.number || "................"} tertanggal ${lastDateStr} dibuat dihadapan ${lastDeed.notary || "................"}, Notaris di ${lastDeed.notaryDomicile ? toTitleCase(lastDeed.notaryDomicile) : "................"}`;
     }
-  } else {
-    const actaNumWord = useAktaFormat ? "akta Nomor" : "Akta Nomor";
-    baseString += `, dan anggaran dasarnya telah mengalami beberapa kali perubahan, terakhir dengan ${actaNumWord} ................ tertanggal ................ dibuat dihadapan ................, Notaris di ................`;
   }
 
   return baseString;

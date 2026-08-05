@@ -256,6 +256,9 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
     ? `${tglSKPendirianHuruf} (${tglSKPendirianAngka})`
     : formatAktaDate(data.establishmentSkDate || "");
 
+  const hasAmendments = data.amendmentDeeds && data.amendmentDeeds.length > 0;
+  const isSingleAmendment = data.amendmentDeeds && data.amendmentDeeds.length === 1;
+
   if (isMinutes) {
     const meetingHari = getDayName(data.signingDate);
     const meetingTimeStr = data.meetingStartTime
@@ -274,7 +277,13 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
         },
         { text: formatCompanyName(data.companyName, data.clientType), bold: true },
         {
-          text: ` (selanjutnya disebut sebagai “Rapat”) Perseroan berkedudukan di ${toTitleCase(data.domicile || data.oldDomicile || data.kedudukanPT || (data as any).kotaKedudukan || (data as any).city || (data as any).kedudukan || data.newAddress?.city || data.oldAddress?.city || "...")}, demikian berdasarkan Akta Pendirian tertanggal ${formattedEstDeedDate}, Nomor ${data.establishmentDeedNumber}, telah mendapat pengesahan dari Menteri Hukum dan Hak Asasi Manusia Republik Indonesia tertanggal ${formattedEstSkDate}, Nomor ${data.establishmentSkNumber}, dibuat di hadapan ${checkNotaryWording(data.establishmentNotary, data.establishmentNotaryTitle, data.establishmentNotaryDomicile, { isAkta: true, currentNotaryName: "NUKANTINI PUTRI PARINCHA" })} dan telah mengalami perubahan berdasarkan akta sebagai berikut :-`,
+          text: ` (selanjutnya disebut sebagai “Rapat”) Perseroan berkedudukan di ${toTitleCase(data.domicile || data.oldDomicile || data.kedudukanPT || (data as any).kotaKedudukan || (data as any).city || (data as any).kedudukan || data.newAddress?.city || data.oldAddress?.city || "...")}, demikian berdasarkan Akta Pendirian tertanggal ${formattedEstDeedDate}, Nomor ${data.establishmentDeedNumber}, telah mendapat pengesahan dari Menteri Hukum dan Hak Asasi Manusia Republik Indonesia tertanggal ${formattedEstSkDate}, Nomor ${data.establishmentSkNumber}, dibuat di hadapan ${checkNotaryWording(data.establishmentNotary, data.establishmentNotaryTitle, data.establishmentNotaryDomicile, { isAkta: true, currentNotaryName: "NUKANTINI PUTRI PARINCHA" })}${
+            hasAmendments
+              ? (isSingleAmendment
+                  ? " dan telah mengalami perubahan berdasarkan akta sebagai berikut :-"
+                  : " dan telah mengalami beberapa kali perubahan berdasarkan akta-akta sebagai berikut :-")
+              : ";"
+          }`,
         },
       ],
     });
@@ -294,8 +303,20 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
         { text: formatCompanyName(data.companyName, data.clientType), bold: true },
         {
           text: isCircular 
-            ? `, perseroan berkedudukan di ${toTitleCase(data.domicile || data.oldDomicile || data.kedudukanPT || (data as any).kotaKedudukan || (data as any).city || (data as any).kedudukan || data.newAddress?.city || data.oldAddress?.city || "...")}, demikian berdasarkan Akta Pendirian tertanggal ${formatAktaDate(data.establishmentDeedDate || "")} Nomor ${data.establishmentDeedNumber} dibuat dihadapan ${checkNotaryWording(data.establishmentNotary, data.establishmentNotaryTitle, data.establishmentNotaryDomicile, { isAkta: true, currentNotaryName: "NUKANTINI PUTRI PARINCHA" })} dan telah mendapat pengesahan dari Menteri Hukum dan Hak Asasi Manusia Republik Indonesia berdasarkan Surat Keputusan Nomor ${data.establishmentSkNumber} tertanggal ${formatAktaDate(data.establishmentSkDate || "")} dan telah mengalami beberapa kali perubahan berdasarkan akta-akta sebagai berikut :`
-            : `, perseroan berkedudukan di ${toTitleCase(data.domicile || data.oldDomicile || data.kedudukanPT || (data as any).kotaKedudukan || (data as any).city || (data as any).kedudukan || data.newAddress?.city || data.oldAddress?.city || "...")}, demikian berdasarkan Akta Pendirian tertanggal ${formatAktaDate(data.establishmentDeedDate || "")}, Nomor ${data.establishmentDeedNumber} dibuat dihadapan ${checkNotaryWording(data.establishmentNotary, data.establishmentNotaryTitle, data.establishmentNotaryDomicile, { isAkta: true, currentNotaryName: "NUKANTINI PUTRI PARINCHA" })} dan telah mendapat pengesahan dari Menteri Hukum dan Hak Asasi Manusia Republik Indonesia berdasarkan Surat Keputusan Nomor ${data.establishmentSkNumber} tertanggal ${formatAktaDate(data.establishmentSkDate || "")} dan telah mengalami beberapa kali perubahan berdasarkan akta-akta sebagai berikut :`,
+            ? `, perseroan berkedudukan di ${toTitleCase(data.domicile || data.oldDomicile || data.kedudukanPT || (data as any).kotaKedudukan || (data as any).city || (data as any).kedudukan || data.newAddress?.city || data.oldAddress?.city || "...")}, demikian berdasarkan Akta Pendirian tertanggal ${formatAktaDate(data.establishmentDeedDate || "")} Nomor ${data.establishmentDeedNumber} dibuat dihadapan ${checkNotaryWording(data.establishmentNotary, data.establishmentNotaryTitle, data.establishmentNotaryDomicile, { isAkta: true, currentNotaryName: "NUKANTINI PUTRI PARINCHA" })} dan telah mendapat pengesahan dari Menteri Hukum dan Hak Asasi Manusia Republik Indonesia berdasarkan Surat Keputusan Nomor ${data.establishmentSkNumber} tertanggal ${formatAktaDate(data.establishmentSkDate || "")}${
+                hasAmendments
+                  ? (isSingleAmendment
+                      ? " dan telah mengalami perubahan berdasarkan akta sebagai berikut :"
+                      : " dan telah mengalami beberapa kali perubahan berdasarkan akta-akta sebagai berikut :")
+                  : ";"
+              }`
+            : `, perseroan berkedudukan di ${toTitleCase(data.domicile || data.oldDomicile || data.kedudukanPT || (data as any).kotaKedudukan || (data as any).city || (data as any).kedudukan || data.newAddress?.city || data.oldAddress?.city || "...")}, demikian berdasarkan Akta Pendirian tertanggal ${formatAktaDate(data.establishmentDeedDate || "")}, Nomor ${data.establishmentDeedNumber} dibuat dihadapan ${checkNotaryWording(data.establishmentNotary, data.establishmentNotaryTitle, data.establishmentNotaryDomicile, { isAkta: true, currentNotaryName: "NUKANTINI PUTRI PARINCHA" })} dan telah mendapat pengesahan dari Menteri Hukum dan Hak Asasi Manusia Republik Indonesia berdasarkan Surat Keputusan Nomor ${data.establishmentSkNumber} tertanggal ${formatAktaDate(data.establishmentSkDate || "")}${
+                hasAmendments
+                  ? (isSingleAmendment
+                      ? " dan telah mengalami perubahan berdasarkan akta sebagai berikut :"
+                      : " dan telah mengalami beberapa kali perubahan berdasarkan akta-akta sebagai berikut :")
+                  : ";"
+              }`,
         },
       ],
     });

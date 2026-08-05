@@ -22,6 +22,7 @@ import { Task } from "../domain/project/Task";
 import { StatusEngine } from "../domain/project/ProjectStatus";
 import { WorkflowService } from "./WorkflowService";
 import { AuthService } from "./AuthService";
+import { formatChangesSummary, FieldChange } from "../lib/diffUtils";
 
 export class ProjectService {
   private static projectsCol = "office_projects";
@@ -353,7 +354,7 @@ export class ProjectService {
    */
   static async addDocument(
     projectId: string,
-    docData: Omit<DocumentReference, "id" | "uploadedAt">
+    docData: Omit<DocumentReference, "id" | "uploadedAt"> & { changes?: FieldChange[] }
   ): Promise<DocumentReference> {
     const path = `${this.projectsCol}/${projectId}/documents`;
     let isUpdate = false;
@@ -381,8 +382,9 @@ export class ProjectService {
       }
 
       const now = new Date();
+      const { changes, ...docDataClean } = docData;
       const newDoc: DocumentReference = {
-        ...docData,
+        ...docDataClean,
         id: docId,
         uploadedAt: now
       };
@@ -396,13 +398,23 @@ export class ProjectService {
       });
 
       // Also create a timeline log for document registration
+      let timelineDescription = isUpdate 
+        ? `Berkas '${newDoc.name}' telah diperbarui dalam berkas proyek.`
+        : `Berkas '${newDoc.name}' berformat '${newDoc.type}' telah didaftarkan ke berkas proyek.`;
+
+      if (isUpdate && changes && changes.length > 0) {
+        const summary = formatChangesSummary(changes);
+        if (summary) {
+          timelineDescription = summary;
+        }
+      }
+
       await this.addTimeline(projectId, {
         status: isUpdate ? "document_updated" : "document_added",
         title: isUpdate ? `Dokumen diperbarui: ${newDoc.name}` : `Dokumen ditambahkan: ${newDoc.name}`,
-        description: isUpdate 
-          ? `Berkas '${newDoc.name}' telah diperbarui dalam berkas proyek.`
-          : `Berkas '${newDoc.name}' berformat '${newDoc.type}' telah didaftarkan ke berkas proyek.`,
-        createdBy: newDoc.uploadedBy || "system"
+        description: timelineDescription,
+        createdBy: newDoc.uploadedBy || "system",
+        changes: isUpdate && changes && changes.length > 0 ? changes : undefined
       });
 
       return newDoc;

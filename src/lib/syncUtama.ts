@@ -165,3 +165,14 @@ export const formatAppearersForPendirian = (data: PendirianData): SyncAppearer[]
     mewakili: [s.name]
   }));
 };
+
+export const formatAppearersForPendirianCV = (data: any): SyncAppearer[] => {
+  return (data.peseros || []).map((p: any) => ({
+    id: generateRandomId(),
+    name: p.salutation ? `${p.salutation} ${p.name}` : p.name,
+    role: 'Self' as const,
+    bertindakSebagai: 'Diri Sendiri',
+    grantors: [],
+    mewakili: [p.name]
+  }));
+};

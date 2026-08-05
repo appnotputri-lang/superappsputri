@@ -667,3 +667,66 @@ export interface IncomingMail {
 }
 
 export type SidebarTabId = 'beranda' | 'company_profile' | 'cv_profile' | 'notulen' | 'pendirian' | 'rupst' | 'perbaikan' | 'draft_akta_rups' | 'panduan' | 'kbli_mapping' | 'saran_kbli' | 'import_kbli' | 'laporan' | 'whatsapp_settings' | 'projects' | 'project_detail' | 'user_management' | 'notary_reports' | 'invoice' | 'deeds' | 'private_deeds' | 'protest_cheque' | 'outgoing_mail' | 'incoming_mail' | 'stamp_settings';
+
+// ==========================================
+// PENDIRIAN CV (PERSEKUTUAN KOMANDITER) TYPES
+// ==========================================
+
+export interface Pesero {
+  id: string;
+  salutation: 'Tuan' | 'Nyonya' | 'Nona';
+  name: string;
+  birthCity: string;
+  birthDate: string;
+  nationality?: string;
+  nationalityType?: 'WNI' | 'WNA';
+  occupation: string;
+  address: {
+    fullAddress: string;
+    rt?: string;
+    rw?: string;
+    kelurahan?: string;
+    kecamatan?: string;
+    city?: string;
+    province?: string;
+  } | string;
+  nik: string;
+  role: 'PENGURUS' | 'KOMANDITER';   // Pengurus = Komplementer/Direktur, Komanditer = Pesero Pasif
+  modalContribution: number;         // Nilai modal yang disetorkan pesero
+}
+
+export interface CVProfile {
+  id?: string;
+  updatedAt?: string;
+  selectedProfileId?: string;
+  nomorUrut?: string;
+  jobType?: string;
+  namaCV: string;                    // Nama CV (misal: "DWIJAYA TRIBAROKAH")
+  kotaKedudukan: string;             // Kota/Kabupaten kedudukan CV
+  alamatLengkapCV: string;          // Alamat lengkap kantor CV
+  modalTotal: number;                // Total modal perseroan
+  peseros: Pesero[];                 // Daftar pesero
+  nomorAkta?: string;                // Nomor akta pendirian
+  tanggal?: string;                  // Tanggal akta
+  waktu?: string;                    // Waktu/jam penandatanganan akta
+  notarisTempat?: string;            // Domicile / tempat kedudukan notaris
+  notaryName?: string;
+  notaryTitle?: string;
+  notaryDomicile?: string;
+  duration?: string;                 // Masa berdiri ("tidak terbatas")
+  kbliItems: KbliItem[];
+  mainActivityDescription?: string;
+  TutupBukuTanggal?: string;          // Tanggal tutup buku (misal: "31 Desember")
+  
+  // Data Saksi
+  saksi1Nama?: string;
+  saksi1Lahir?: string;
+  saksi1Alamat?: string;
+  saksi1NIK?: string;
+  saksi2Nama?: string;
+  saksi2Lahir?: string;
+  saksi2Alamat?: string;
+  saksi2NIK?: string;
+  
+  documentStatus?: 'DRAFTING' | 'SUDAH CETAK AKTA' | 'SELESAI';
+}

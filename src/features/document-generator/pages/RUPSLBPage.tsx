@@ -6,10 +6,11 @@ import {
   UserPlus, ShieldAlert, KeyRound, Building, PlusCircle
 } from 'lucide-react';
 import { db } from '../../../lib/firebase';
-import { doc, setDoc, deleteDoc } from 'firebase/firestore';
+import { doc, setDoc, deleteDoc, getDoc } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from '../../../lib/firebase';
 import { sanitizeForFirestore } from '../../../utils/sanitize';
 import { ProjectService } from '../../../services/ProjectService';
+import { compareCompanyDocumentDiff } from '../../../lib/diffUtils';
 import { DocumentGenerationService } from '../../../services/DocumentGenerationService';
 import { DocumentStatusBadge } from '../../../../components/DocumentStatusBadge';
 import { AhuSection, AhuLabel, AhuInput, AhuSelect, AhuMasaJabatanSelector } from '../../../../App';
@@ -590,6 +591,18 @@ export const RUPSLBPage: React.FC<RUPSLBPageProps> = ({
                                   profileData.id = newProjects[idx].id;
                               }
                               
+                              let changes: any[] = [];
+                              if (!isNew && profileData.id) {
+                                  try {
+                                      const oldSnap = await getDoc(doc(db, 'projects', profileData.id));
+                                      if (oldSnap.exists()) {
+                                          changes = compareCompanyDocumentDiff(oldSnap.data(), profileData);
+                                      }
+                                  } catch (err) {
+                                      console.warn("Gagal mengambil data lama RUPS LB untuk diffing:", err);
+                                  }
+                              }
+                              
                               try {
                                    await setDoc(doc(db, 'projects', profileData.id), sanitizeForFirestore(profileData));
                                    if (activeProjectContext) {
@@ -601,7 +614,8 @@ export const RUPSLBPage: React.FC<RUPSLBPageProps> = ({
                                            type: 'docx',
                                            url: `/rupslb`,
                                            refId: profileData.id,
-                                           uploadedBy: user?.email || 'staff_notaris'
+                                           uploadedBy: user?.email || 'staff_notaris',
+                                           changes: changes.length > 0 ? changes : undefined
                                        });
 
                                        await DocumentGenerationService.generateAndUploadAllForProject(

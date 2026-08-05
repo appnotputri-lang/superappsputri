@@ -1,8 +1,13 @@
-export const SUPER_ADMIN_EMAIL = 'rdyndi@gmail.com';
+export const SUPER_ADMIN_EMAILS = [
+  'rdyndi@gmail.com',
+  'appnotputri@gmail.com',
+  'notarisppatputri@gmail.com'
+];
 
 export const isSuperAdmin = (userEmail?: string | null): boolean => {
   if (!userEmail) return false;
-  return userEmail.toLowerCase().trim() === SUPER_ADMIN_EMAIL.toLowerCase();
+  const email = userEmail.toLowerCase().trim();
+  return SUPER_ADMIN_EMAILS.some(adminEmail => adminEmail.toLowerCase().trim() === email);
 };
 
 // Record terkunci setelah tanggal 20 bulan BERIKUTNYA dari tanggal record.

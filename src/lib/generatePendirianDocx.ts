@@ -774,36 +774,9 @@ export const generatePendirianDocx = async (data: any, returnBlob?: boolean): Pr
     throw new Error("Template tidak valid: <w:body> tidak ditemukan");
   }
 
-  // Preserve sectPr (page setup, margins, headers/footers)
+  // Preserve sectPr (page setup, margins, headers/footers) directly from template without modifying
   const sectPr = getSingleElement(body, "sectPr");
   const sectPrClone = sectPr ? (sectPr.cloneNode(true) as Element) : null;
-
-  if (sectPrClone) {
-    // Tiru page size dan margin agar identik dengan template PT. pendirian asli:
-    // Page size: width = 11906, height = 16838 (A4)
-    // Margins dari template master asli: top = 1418, bottom = 1418, left = 2268, right = 1134
-    let pgSz = getSingleElement(sectPrClone, "pgSz");
-    if (!pgSz) {
-      pgSz = sectPrClone.ownerDocument.createElementNS(W_NS, "w:pgSz");
-      sectPrClone.appendChild(pgSz);
-    }
-    pgSz.setAttribute("w:w", "11906");
-    pgSz.setAttribute("w:h", "16838");
-    pgSz.setAttribute("w:code", "9");
-
-    let pgMar = getSingleElement(sectPrClone, "pgMar");
-    if (!pgMar) {
-      pgMar = sectPrClone.ownerDocument.createElementNS(W_NS, "w:pgMar");
-      sectPrClone.appendChild(pgMar);
-    }
-    pgMar.setAttribute("w:top", "1418");
-    pgMar.setAttribute("w:bottom", "1418");
-    pgMar.setAttribute("w:left", "2268");
-    pgMar.setAttribute("w:right", "618");
-    pgMar.setAttribute("w:header", "720");
-    pgMar.setAttribute("w:footer", "578");
-    pgMar.setAttribute("w:gutter", "0");
-  }
 
   // Preserve any tables (e.g. signature blocks table at the end of DRAFT PENDIRIAN PT.docx)
   const tables = getElements(body, "tbl");
@@ -965,6 +938,13 @@ export const generatePendirianDocx = async (data: any, returnBlob?: boolean): Pr
 
     // Deep clone the entire paragraph (preserves ALL pPr, rPr, tabs, indents, etc.)
     const cloned = exemplar.cloneNode(true) as Element;
+    const pPrCloned = getSingleElement(cloned, "pPr");
+    if (pPrCloned) {
+      const innerSectPr = getSingleElement(pPrCloned, "sectPr");
+      if (innerSectPr) {
+        pPrCloned.removeChild(innerSectPr);
+      }
+    }
 
     // Adjust numbering if this is a list item
     adjustNumbering(cloned, block, activeNumId);

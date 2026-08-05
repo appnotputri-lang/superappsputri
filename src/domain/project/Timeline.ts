@@ -6,4 +6,5 @@ export interface Timeline {
   description?: string; // Optional detailed logs or comments
   createdBy?: string; // UID of the user who performed the action
   createdAt: any;    // Timestamp when the event occurred
+  changes?: { field: string; before: any; after: any }[];
 }

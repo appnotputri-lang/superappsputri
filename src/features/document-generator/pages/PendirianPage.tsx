@@ -1,11 +1,13 @@
 import React from 'react';
 import { db } from '../../../lib/firebase';
-import { doc, setDoc, deleteDoc } from 'firebase/firestore';
+import { doc, setDoc, deleteDoc, getDoc } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from '../../../lib/firebase';
 import { sanitizeForFirestore } from '../../../utils/sanitize';
 import { ProjectService } from '../../../services/ProjectService';
+import { compareCompanyDocumentDiff } from '../../../lib/diffUtils';
 import { DocumentGenerationService } from '../../../services/DocumentGenerationService';
 import DraftAktaPendirian from '../../../DraftAktaPendirian';
+import DraftAktaPendirianCV from '../../../DraftAktaPendirianCV';
 import PendirianList from '../../../components/PendirianList';
 import { INITIAL_STATE } from '../../../domain/company/initialCompanyData';
 
@@ -64,11 +66,159 @@ export const PendirianPage: React.FC<PendirianPageProps> = ({
   pendirianPreset,
   updateData
 }) => {
-  return (
-    editingPendirianId ? (
-      <DraftAktaPendirian 
+  const editingData = editingPendirianId === 'new' ? pendirianPreset : pendirianProjects.find(p => p.id === editingPendirianId) as any;
+  const isCVData = Boolean(editingData && (editingData.namaCV || editingData.peseros || editingData.jobType === 'pendirian_cv'));
+
+  if (!editingPendirianId) {
+    return (
+      <PendirianList 
+        onEdit={(rec) => {
+          setEditingPendirianId(rec.id);
+          updateData({ ...INITIAL_STATE, ...rec } as any);
+        }}
+        onAdd={() => {
+          setEditingPendirianId('new');
+          updateData({ ...INITIAL_STATE } as any);
+        }}
+        onDownload={(rec) => {
+          handlePendirianExportWord({ ...INITIAL_STATE, ...rec } as any);
+        }}
+      />
+    );
+  }
+
+  if (isCVData) {
+    return (
+      <DraftAktaPendirianCV 
         profiles={profiles}
-        initialData={editingPendirianId === 'new' ? pendirianPreset : pendirianProjects.find(p => p.id === editingPendirianId) as any}
+        initialData={editingData}
+        projectName={((projects.find(p => p.id === activeProjectContext) as any) || (rupstProjects.find(p => p.id === activeProjectContext) as any) || (pendirianProjects.find(p => p.id === activeProjectContext) as any))?.title}
+        activeProjectContext={activeProjectContext}
+        isSaving={isSaving}
+        isSyncing={isSyncing}
+        onSync={async (finalData) => {
+          const success = await handleManualSync('PENDIRIAN', finalData);
+          if (success) {
+            alert("Berhasil disimpan ke laporan!");
+          }
+        }}
+        onChange={setCurrentPendirianData}
+        autoSaveIndicator={<AutoSaveIndicatorComponent />}
+        onSave={async (cvData) => {
+          setIsSaving(true);
+          if (!user) {
+            setIsSaving(false);
+            return alert('Anda harus login terlebih dahulu!');
+          }
+          
+          const id = editingPendirianId === 'new' ? crypto.randomUUID() : editingPendirianId;
+          const finalData = {
+            ...cvData,
+            id,
+            jobType: 'pendirian_cv',
+            updatedAt: new Date().toISOString()
+          };
+
+          try {
+            const isNewPendirian = editingPendirianId === 'new';
+            let changes: any[] = [];
+            if (!isNewPendirian && id) {
+              try {
+                const oldSnap = await getDoc(doc(db, 'pendirian_projects', id));
+                if (oldSnap.exists()) {
+                  changes = compareCompanyDocumentDiff(oldSnap.data(), finalData);
+                }
+              } catch (err) {
+                console.warn("Gagal mengambil data lama Pendirian CV untuk diffing:", err);
+              }
+            }
+
+            await setDoc(doc(db, 'pendirian_projects', id), sanitizeForFirestore(finalData));
+             
+            if (activeProjectContext) {
+              await ProjectService.addDocument(activeProjectContext, {
+                name: `Draft Pendirian CV - ${finalData.namaCV ? 'CV. ' + finalData.namaCV : 'CV Baru'}`,
+                type: 'docx',
+                url: `/pendirian`,
+                refId: id,
+                uploadedBy: user?.email || 'staff_notaris',
+                changes: changes.length > 0 ? changes : undefined
+              });
+
+              await DocumentGenerationService.generateAndUploadAllForProject(
+                activeProjectContext,
+                finalData,
+                user?.email,
+                userProfile?.name
+              );
+            }
+
+            if (finalData.nomorAkta && finalData.tanggal) {
+              await handleManualSync('PENDIRIAN', finalData);
+            }
+
+            recordNotification(
+              isNewPendirian ? 'Pendirian CV Baru Dibuat' : 'Pendirian CV Diubah',
+              `Data Pendirian CV "${finalData.namaCV || 'CV'}" telah ${isNewPendirian ? 'berhasil didaftarkan' : 'diperbarui'} oleh ${user?.email || 'Admin'}.`,
+              isNewPendirian ? 'create_pendirian' : 'update_pendirian'
+            );
+            const returnToProjectId = activeProjectContext;
+            setEditingPendirianId(null);
+            setActiveProjectContext(null);
+            alert('✅ Data CV berhasil disimpan dan dokumen berhasil diperbarui.');
+            if (returnToProjectId) {
+              setSelectedProjectId(returnToProjectId);
+              setActiveSidebarTab('project_detail');
+            }
+          } catch (e: any) {
+            console.error("Save & Generate failed:", e);
+            alert('Gagal menyimpan atau memperbarui dokumen: ' + (e.message || e));
+          } finally {
+            setIsSaving(false);
+          }
+        }}
+        onCancel={() => {
+          setEditingPendirianId(null);
+          setActiveProjectContext(null);
+        }}
+        onDelete={async (id) => {
+          if (userProfile?.role !== 'Super Admin') return alert('Hanya Super Admin yang dapat menghapus proyek!');
+          if (confirm('Apakah Anda yakin ingin menghapus data pendirian CV ini?')) {
+            try {
+              await deleteDoc(doc(db, 'pendirian_projects', id));
+              recordNotification(
+                'Pendirian CV Dihapus',
+                `Data Pendirian CV "${currentPendirianData?.namaCV || 'CV'}" telah berhasil dihapus oleh ${user?.email || 'Admin'}.`,
+                'delete_pendirian'
+              );
+              setEditingPendirianId(null);
+              setActiveProjectContext(null);
+              alert('Data pendirian CV berhasil dihapus!');
+            } catch (e) {
+              handleFirestoreError(e, OperationType.DELETE, `pendirian_projects/${id}`);
+            }
+          }
+        }}
+        onShowPreview={(d) => {
+          setPendirianPreviewData(d); 
+          setShowPendirianPreview(true); 
+        }}
+        onExportWord={async (d) => {
+          try {
+            const { generatePendirianCVDocx } = await import('../../../lib/generatePendirianCVDocx');
+            await generatePendirianCVDocx(d);
+          } catch (e: any) {
+            alert('Gagal export dokumen CV: ' + e.message);
+          }
+        }}
+      />
+    );
+  }
+
+  return (
+    <DraftAktaPendirian 
+      profiles={profiles}
+      initialData={editingData}
         projectName={((projects.find(p => p.id === activeProjectContext) as any) || (rupstProjects.find(p => p.id === activeProjectContext) as any) || (pendirianProjects.find(p => p.id === activeProjectContext) as any))?.title}
         activeProjectContext={activeProjectContext}
         isSaving={isSaving}
@@ -97,6 +247,18 @@ export const PendirianPage: React.FC<PendirianPageProps> = ({
 
           try {
             const isNewPendirian = editingPendirianId === 'new';
+            let changes: any[] = [];
+            if (!isNewPendirian && id) {
+              try {
+                const oldSnap = await getDoc(doc(db, 'pendirian_projects', id));
+                if (oldSnap.exists()) {
+                  changes = compareCompanyDocumentDiff(oldSnap.data(), finalData);
+                }
+              } catch (err) {
+                console.warn("Gagal mengambil data lama Pendirian untuk diffing:", err);
+              }
+            }
+
              await setDoc(doc(db, 'pendirian_projects', id), sanitizeForFirestore(finalData));
              
              if (activeProjectContext) {
@@ -105,7 +267,8 @@ export const PendirianPage: React.FC<PendirianPageProps> = ({
                  type: 'docx',
                  url: `/pendirian`,
                  refId: id,
-                 uploadedBy: user?.email || 'staff_notaris'
+                 uploadedBy: user?.email || 'staff_notaris',
+                 changes: changes.length > 0 ? changes : undefined
                });
 
                await DocumentGenerationService.generateAndUploadAllForProject(
@@ -174,22 +337,7 @@ export const PendirianPage: React.FC<PendirianPageProps> = ({
         }}
         onExportWord={(d) => { handlePendirianExportWord(d); }}
       />
-    ) : (
-      <PendirianList 
-        onEdit={(rec) => {
-          setEditingPendirianId(rec.id);
-          updateData({ ...INITIAL_STATE, ...rec } as any);
-        }}
-        onAdd={() => {
-          setEditingPendirianId('new');
-          updateData({ ...INITIAL_STATE } as any);
-        }}
-        onDownload={(rec) => {
-          handlePendirianExportWord({ ...INITIAL_STATE, ...rec } as any);
-        }}
-      />
-    )
-  );
+    );
 };
 
 export default PendirianPage;

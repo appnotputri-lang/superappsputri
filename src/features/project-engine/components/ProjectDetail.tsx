@@ -11,16 +11,20 @@ import { Task } from '../../../domain/project/Task';
 import { db, cleanUndefined } from '../../../lib/firebase';
 import { collection, getDocs, setDoc, doc, deleteDoc, getDoc, query, where, updateDoc, getDocsFromCache } from 'firebase/firestore';
 import DraftAktaPendirian from '../../../DraftAktaPendirian';
+import DraftAktaPendirianCV from '../../../DraftAktaPendirianCV';
 import PendirianDocumentPreview from '../../../PendirianDocumentPreview';
-import { syncToUtama, getDeedTitle, formatAppearersForPendirian } from '../../../lib/syncUtama';
+import { syncToUtama, getDeedTitle, formatAppearersForPendirian, formatAppearersForPendirianCV } from '../../../lib/syncUtama';
 import LeaseAgreementDraft from '../../lease-agreement/components/LeaseAgreementDraft';
 import { mapCompanyProfileToPendirian } from '../../../domain/company/mappers/companyProfileToPendirian';
+import { mapCompanyProfileToCV } from '../../../domain/company/mappers/companyProfileToCV';
+import { generatePendirianCVDocx } from '../../../lib/generatePendirianCVDocx';
 import { mapPartiesToShareholdersAndManagement } from '../../../domain/project/mappers/partyToShareholder';
 import { ProjectDocumentUpload } from './ProjectDocumentUpload';
 import { SyncPreviewModal } from './SyncPreviewModal';
 import { formatCompanyName } from '../../../lib/formatter';
 import { AuthService } from '../../../services/AuthService';
 import { getApiUrl } from '../../../lib/api';
+import { compareCompanyDocumentDiff } from '../../../lib/diffUtils';
 
 interface UploadedDocument {
   id: string;
@@ -56,6 +60,7 @@ import {
   ExternalLink,
   ChevronRight,
   ChevronDown,
+  ChevronUp,
   Send,
   Trash2,
   Sparkles,
@@ -109,7 +114,15 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
   const [client, setClient] = useState<CompanyProfile | null>(null);
   const [workflow, setWorkflow] = useState<Workflow | null>(null);
   const [timelines, setTimelines] = useState<Timeline[]>([]);
+  const [expandedTimelineIds, setExpandedTimelineIds] = useState<Record<string, boolean>>({});
   const [tasks, setTasks] = useState<Task[]>([]);
+
+  const toggleExpandTimeline = (id: string) => {
+    setExpandedTimelineIds(prev => ({
+      ...prev,
+      [id]: !prev[id]
+    }));
+  };
   const [documents, setDocuments] = useState<DocumentReference[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -280,7 +293,7 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
   };
 
   // Pendirian Work Mode States
-  const [workMode, setWorkMode] = useState<'default' | 'pendirian' | 'sewa_menyewa'>('default');
+  const [workMode, setWorkMode] = useState<'default' | 'pendirian' | 'pendirian_cv' | 'sewa_menyewa'>('default');
   const [workingPendirianId, setWorkingPendirianId] = useState<string | null>(null);
   const [workingPendirianData, setWorkingPendirianData] = useState<any>(null);
   const [pendirianProfiles, setPendirianProfiles] = useState<any[]>([]);
@@ -727,6 +740,72 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
     } catch (e) {
       console.error(e);
       alert('Gagal memuat form pendirian.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleWorkHereCV = async () => {
+    setLoading(true);
+    try {
+      let profSnap;
+      try {
+        profSnap = await getDocsFromCache(collection(db, 'company_profiles'));
+        if (profSnap.empty) {
+          profSnap = await getDocs(collection(db, 'company_profiles'));
+        }
+      } catch (e) {
+        profSnap = await getDocs(collection(db, 'company_profiles'));
+      }
+      setPendirianProfiles(profSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+      
+      const pendirianDocRef = documents.find(d => d.url === '/pendirian');
+      
+      let existing: any = null;
+      if (pendirianDocRef && pendirianDocRef.refId) {
+        const docSnap = await getDoc(doc(db, 'pendirian_projects', pendirianDocRef.refId));
+        if (docSnap.exists()) {
+          existing = { id: docSnap.id, ...(docSnap.data() as any) };
+        }
+      } else {
+        const cleanTitle = project?.title.includes(' — ') 
+          ? project.title.split(' — ')[1].trim() 
+          : project?.title.includes(' - ') 
+            ? project.title.split(' - ')[1].trim() 
+            : project?.title || '';
+            
+        let qMatches: any[] = [];
+        if (project?.clientId) {
+          const q1 = query(collection(db, 'pendirian_projects'), where('selectedProfileId', '==', project.clientId));
+          const q1Snap = await getDocs(q1);
+          q1Snap.forEach(d => qMatches.push({ id: d.id, ...d.data() }));
+        }
+        if (cleanTitle && qMatches.length === 0) {
+          const q2 = query(collection(db, 'pendirian_projects'), where('namaCV', '==', cleanTitle));
+          const q2Snap = await getDocs(q2);
+          q2Snap.forEach(d => qMatches.push({ id: d.id, ...d.data() }));
+        }
+        
+        existing = qMatches[0] || null;
+      }
+      
+      if (existing) {
+        setWorkingPendirianId(existing.id);
+        setWorkingPendirianData(mapCompanyProfileToCV(existing));
+      } else {
+        setWorkingPendirianId('new');
+        if (client) {
+          const defaultCVData = mapCompanyProfileToCV(client);
+          setWorkingPendirianData(defaultCVData);
+        } else {
+          setWorkingPendirianData(null);
+        }
+      }
+      
+      setWorkMode('pendirian_cv');
+    } catch (e) {
+      console.error(e);
+      alert('Gagal memuat form pendirian CV.');
     } finally {
       setLoading(false);
     }
@@ -3018,6 +3097,15 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
                 )}
               </>
             )}
+            {(project.projectType === 'Pendirian CV' || project.jobType === 'pendirian_cv') && (
+              <button
+                onClick={handleWorkHereCV}
+                className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg text-[13px] flex items-center gap-2 transition-all shadow-sm"
+              >
+                <span>Draft Akta CV</span>
+                <Sparkles className="w-4 h-4" />
+              </button>
+            )}
             {currentUser.role === 'Super Admin' && (
               <button
                 onClick={handleDeleteProject}
@@ -3112,17 +3200,28 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
                     updatedAt: new Date().toISOString()
                   };
                   try {
+                    let changes: any[] = [];
+                    if (!isNew && id) {
+                      try {
+                        const oldSnap = await getDoc(doc(db, 'pendirian_projects', id as string));
+                        if (oldSnap.exists()) {
+                          changes = compareCompanyDocumentDiff(oldSnap.data(), finalData);
+                        }
+                      } catch (err) {
+                        console.warn("Gagal mengambil data lama pendirian untuk diff:", err);
+                      }
+                    }
+
                     await setDoc(doc(db, 'pendirian_projects', id as string), cleanUndefined(finalData));
                     
-                    if (isNew) {
-                      await ProjectService.addDocument(projectId, {
-                        name: `Draft Pendirian PT - ${finalData.namaPt || 'PT Baru'}`,
-                        type: 'docx',
-                        url: `/pendirian`,
-                        refId: id as string,
-                        uploadedBy: currentUserEmail
-                      });
-                    }
+                    await ProjectService.addDocument(projectId, {
+                      name: `Draft Pendirian PT - ${finalData.namaPt || 'PT Baru'}`,
+                      type: 'docx',
+                      url: `/pendirian`,
+                      refId: id as string,
+                      uploadedBy: currentUserEmail,
+                      changes: changes.length > 0 ? changes : undefined
+                    });
                     
                     alert('Data pendirian berhasil disimpan dan dilink ke proyek!');
                     fetchProjectFullDetails();
@@ -3167,6 +3266,156 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
               <PendirianDocumentPreview
                 data={pendirianPreviewData}
                 onExport={() => handlePendirianExportWord(pendirianPreviewData)}
+                onClose={() => setShowPendirianPreview(false)}
+                isExporting={isExportingPendirian}
+              />
+            )}
+          </div>
+        ) : workMode === 'pendirian_cv' ? (
+          <div className="mt-6">
+            <button 
+              onClick={() => setWorkMode('default')}
+              className="mb-4 flex items-center gap-2 text-slate-500 hover:text-slate-700 font-semibold text-sm transition-colors bg-white px-4 py-2 rounded-lg border border-slate-200 shadow-sm"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Kembali ke Detail Proyek
+            </button>
+            <DraftAktaPendirianCV
+              profiles={pendirianProfiles}
+              initialData={workingPendirianData}
+              isSaving={addingDoc}
+              isSyncing={false}
+              onSync={async (finalData) => {
+                const deedNumber = finalData.nomorAkta;
+                const deedDate = finalData.tanggal;
+                if (!deedNumber || !deedDate) {
+                  alert("Nomor Akta dan Tanggal Akta harus diisi sebelum sinkronisasi.");
+                  return;
+                }
+                let rawClientName = finalData.namaCV;
+                if (finalData.selectedProfileId) {
+                  const profile = pendirianProfiles.find(p => p.id === finalData.selectedProfileId);
+                  if (profile && profile.companyName) rawClientName = profile.companyName;
+                }
+                const clientName = (rawClientName || '').toUpperCase().startsWith('CV') 
+                  ? (rawClientName || '') : `CV. ${(rawClientName || '')}`;
+                const syncData = {
+                  deedNumber,
+                  orderNumber: finalData.nomorUrut || '02',
+                  deedDate,
+                  clientName,
+                  deedTitle: `PENDIRIAN PERSEROAN KOMANDITER CV. ${(finalData.namaCV || '').toUpperCase()}`,
+                  appearers: formatAppearersForPendirianCV(finalData)
+                };
+                try {
+                  const success = await syncToUtama(syncData);
+                  if (success) {
+                    alert("Berhasil disimpan ke laporan!");
+                  }
+                } catch (err: any) {
+                  console.error(err);
+                  alert("Gagal melakukan sinkronisasi: " + err.message);
+                }
+              }}
+              onChange={(d) => {
+                setWorkingPendirianData(d);
+              }}
+              autoSaveIndicator={<span className="text-xs text-slate-500">Mode Embed (Auto-save nonaktif)</span>}
+              onSave={async (cvData) => {
+                setAddingDoc(true);
+                if (!currentUserEmail) {
+                  setAddingDoc(false);
+                  return alert('Anda harus login terlebih dahulu!');
+                }
+                
+                const isNew = workingPendirianId === 'new';
+                const id = isNew ? crypto.randomUUID() : workingPendirianId;
+                const finalData = {
+                  ...cvData,
+                  id,
+                  jobType: 'pendirian_cv',
+                  updatedAt: new Date().toISOString()
+                };
+                try {
+                  let changes: any[] = [];
+                  if (!isNew && id) {
+                    try {
+                      const oldSnap = await getDoc(doc(db, 'pendirian_projects', id as string));
+                      if (oldSnap.exists()) {
+                        changes = compareCompanyDocumentDiff(oldSnap.data(), finalData);
+                      }
+                    } catch (err) {
+                      console.warn("Gagal mengambil data lama pendirian CV untuk diff:", err);
+                    }
+                  }
+
+                  await setDoc(doc(db, 'pendirian_projects', id as string), cleanUndefined(finalData));
+                  
+                  await ProjectService.addDocument(projectId, {
+                    name: `Draft Pendirian CV - ${finalData.namaCV ? 'CV. ' + finalData.namaCV : 'CV Baru'}`,
+                    type: 'docx',
+                    url: `/pendirian`,
+                    refId: id as string,
+                    uploadedBy: currentUserEmail,
+                    changes: changes.length > 0 ? changes : undefined
+                  });
+                  
+                  alert('Data pendirian CV berhasil disimpan dan dilink ke proyek!');
+                  fetchProjectFullDetails();
+                  setWorkingPendirianId(id as string);
+                  setWorkingPendirianData(finalData);
+                } catch (e: any) {
+                  console.error(e);
+                  alert("Error: " + e.message);
+                } finally {
+                  setAddingDoc(false);
+                }
+              }}
+              onCancel={() => {
+                setWorkMode('default');
+              }}
+              onDelete={async (id) => {
+                if (confirm('Apakah Anda yakin ingin menghapus data pendirian CV ini?')) {
+                  try {
+                    await deleteDoc(doc(db, 'pendirian_projects', id));
+                    await ProjectService.deleteDocumentByRefId(projectId, id);
+                    fetchProjectFullDetails();
+                    setWorkMode('default');
+                    alert('Data pendirian CV berhasil dihapus!');
+                  } catch (e: any) {
+                    console.error(e);
+                    alert(e.message);
+                  }
+                }
+              }}
+              onShowPreview={(d) => {
+                setPendirianPreviewData(d); 
+                setShowPendirianPreview(true); 
+              }}
+              onExportWord={async (d) => { 
+                setIsExportingPendirian(true);
+                try {
+                  await generatePendirianCVDocx(d);
+                } catch (e: any) {
+                  alert('Gagal export dokumen CV: ' + e.message);
+                } finally {
+                  setIsExportingPendirian(false);
+                }
+              }}
+            />
+            {showPendirianPreview && pendirianPreviewData && (
+              <PendirianDocumentPreview
+                data={pendirianPreviewData}
+                onExport={async () => {
+                  setIsExportingPendirian(true);
+                  try {
+                    await generatePendirianCVDocx(pendirianPreviewData);
+                  } catch (e: any) {
+                    alert('Gagal export: ' + e.message);
+                  } finally {
+                    setIsExportingPendirian(false);
+                  }
+                }}
                 onClose={() => setShowPendirianPreview(false)}
                 isExporting={isExportingPendirian}
               />
@@ -3915,7 +4164,48 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
                         <p className="text-xs text-slate-500 leading-normal">
                           {timeline.description}
                         </p>
-                        <span className="text-[10px] text-slate-400 font-semibold block">
+
+                        {timeline.changes && timeline.changes.length > 0 && (
+                          <div className="pt-2 mt-2 border-t border-slate-100 space-y-1.5">
+                            <span className="text-slate-400 font-bold text-[10px] uppercase tracking-wider block flex items-center gap-1">
+                              <FileText className="w-3 h-3 text-blue-500" />
+                              <span>Rincian Perubahan Dokumen ({timeline.changes.length}):</span>
+                            </span>
+                            <div className="space-y-1 font-mono text-[11px]">
+                              {(expandedTimelineIds[timeline.id] ? timeline.changes : timeline.changes.slice(0, 3)).map((ch, cidx) => (
+                                <div key={cidx} className="flex flex-col bg-slate-50 p-2 rounded border border-slate-100 gap-1">
+                                  <span className="font-bold text-blue-600">{ch.field}:</span>
+                                  <div className="flex items-center gap-2 flex-wrap text-xs">
+                                    <span className="text-red-500 line-through bg-red-50 px-1 py-0.5 rounded border border-red-100">{String(ch.before || 'KOSONG')}</span>
+                                    <ChevronRight className="w-3 h-3 text-slate-400" />
+                                    <span className="text-emerald-600 font-bold bg-emerald-50 px-1 py-0.5 rounded border border-emerald-100">{String(ch.after || 'KOSONG')}</span>
+                                  </div>
+                                </div>
+                              ))}
+                              {timeline.changes.length > 3 && (
+                                <button
+                                  type="button"
+                                  onClick={() => toggleExpandTimeline(timeline.id)}
+                                  className="text-[11px] font-bold text-blue-600 hover:text-blue-700 hover:underline pt-1 flex items-center gap-1 cursor-pointer"
+                                >
+                                  {expandedTimelineIds[timeline.id] ? (
+                                    <>
+                                      <ChevronUp className="w-3 h-3" />
+                                      Sembunyikan sebagian ({timeline.changes.length - 3} item)
+                                    </>
+                                  ) : (
+                                    <>
+                                      <ChevronDown className="w-3 h-3" />
+                                      Lihat {timeline.changes.length - 3} perubahan selengkapnya...
+                                    </>
+                                  )}
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        <span className="text-[10px] text-slate-400 font-semibold block pt-0.5">
                           Oleh: {timeline.createdBy}
                         </span>
                       </div>
