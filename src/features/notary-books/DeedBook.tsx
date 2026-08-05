@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Deed, DeedAppearer, DeedGrantor } from '../../../types';
 import { NotaryService } from '../../services/NotaryService';
-import { isRecordLocked, getLockDeadlineMessage } from '../../utils/lockUtils';
+import { isRecordLocked, getLockDeadlineMessage, isSuperAdmin } from '../../utils/lockUtils';
 import { useAuth } from '../../hooks/useAuth';
 import { Plus, Search, Edit2, Trash2, Lock, RefreshCw, X, FileText, Check, AlertTriangle } from 'lucide-react';
 
@@ -117,6 +117,7 @@ function calculateOrderNumber(
 
 export const DeedBook: React.FC = () => {
   const { user } = useAuth();
+  const superAdmin = isSuperAdmin(user?.email);
   const [deeds, setDeeds] = useState<Deed[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [searchTerm, setSearchTerm] = useState<string>('');
@@ -243,6 +244,10 @@ export const DeedBook: React.FC = () => {
 
   // Open Form Panel for Create / Edit
   const handleOpenModal = (deed?: Deed) => {
+    if (!superAdmin) {
+      alert('Hanya Super Admin yang dapat mengubah data akta.');
+      return;
+    }
     if (deed) {
       setEditingDeedId(deed.id);
       setDeedNumber(deed.number || '');
@@ -393,6 +398,10 @@ export const DeedBook: React.FC = () => {
   // Save Deed
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!superAdmin) {
+      alert('Hanya Super Admin yang dapat mengubah data akta.');
+      return;
+    }
     if (isRecordLocked(deedDate, user?.email)) {
       alert(`Data akta untuk tanggal ${deedDate} dalam keadaan terkunci (melewati tanggal 20 bulan berikutnya).`);
       return;
@@ -534,6 +543,10 @@ export const DeedBook: React.FC = () => {
 
   // Delete Deed
   const handleDelete = async (deed: Deed) => {
+    if (!superAdmin) {
+      alert('Hanya Super Admin yang dapat menghapus data akta.');
+      return;
+    }
     if (isRecordLocked(deed.date, user?.email)) {
       alert(`Record ini terkunci secara otomatis setelah tanggal ${getLockDeadlineMessage(deed.date)}.`);
       return;
@@ -551,6 +564,10 @@ export const DeedBook: React.FC = () => {
 
   // Rapikan Nomor Urut
   const handleReorder = async () => {
+    if (!superAdmin) {
+      alert('Hanya Super Admin yang dapat merapikan nomor urut.');
+      return;
+    }
     const isAll = selectedYear === 'ALL';
     const yearToOrder = isAll ? 'ALL' : selectedYear;
     
@@ -641,7 +658,7 @@ export const DeedBook: React.FC = () => {
     return dateStr;
   };
 
-  const isFormLocked = isRecordLocked(deedDate, user?.email);
+  const isFormLocked = !superAdmin || isRecordLocked(deedDate, user?.email);
 
   return (
     <div className="space-y-6">
@@ -658,7 +675,7 @@ export const DeedBook: React.FC = () => {
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">
-          {!isModalOpen && (
+          {!isModalOpen && superAdmin && (
             <>
               <button
                 onClick={handleReorder}
@@ -1086,8 +1103,10 @@ export const DeedBook: React.FC = () => {
                       </thead>
                       <tbody className="divide-y divide-slate-200">
                         {group.deeds.map((deed, idx) => {
-                          const locked = isRecordLocked(deed.date, user?.email);
-                          const lockMsg = locked ? `Terkunci otomatis setelah ${getLockDeadlineMessage(deed.date)}` : '';
+                          const locked = !superAdmin || isRecordLocked(deed.date, user?.email);
+                          const lockMsg = !superAdmin
+                            ? 'Hanya Super Admin yang dapat mengubah data'
+                            : (isRecordLocked(deed.date, user?.email) ? `Terkunci otomatis setelah ${getLockDeadlineMessage(deed.date)}` : '');
 
                           return (
                             <tr key={deed.id} className="hover:bg-slate-50/80 transition-colors">
