@@ -102,6 +102,19 @@ export const InvoiceGenerator: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
 
+  // Sorting State
+  const [sortField, setSortField] = useState<'date' | 'number'>('number');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+
+  const handleSort = (field: 'date' | 'number') => {
+    if (sortField === field) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortOrder('desc');
+    }
+  };
+
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
@@ -1061,12 +1074,26 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
   };
 
   // Filtered invoices for list view
-  const filteredInvoices = invoices.filter(inv => {
-    const matchSearch = inv.invoiceNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                        inv.clientName?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchStatus = statusFilter === 'ALL' || inv.status === statusFilter;
-    return matchSearch && matchStatus;
-  });
+  const filteredInvoices = invoices
+    .filter(inv => {
+      const matchSearch = inv.invoiceNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          inv.clientName?.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchStatus = statusFilter === 'ALL' || inv.status === statusFilter;
+      return matchSearch && matchStatus;
+    })
+    .sort((a, b) => {
+      if (sortField === 'date') {
+        const dateA = a.issueDate || '';
+        const dateB = b.issueDate || '';
+        return sortOrder === 'asc' ? dateA.localeCompare(dateB) : dateB.localeCompare(dateA);
+      } else {
+        const numA = a.invoiceNumber || '';
+        const numB = b.invoiceNumber || '';
+        return sortOrder === 'asc'
+          ? numA.localeCompare(numB, undefined, { numeric: true, sensitivity: 'base' })
+          : numB.localeCompare(numA, undefined, { numeric: true, sensitivity: 'base' });
+      }
+    });
 
   const totalItems = filteredInvoices.length;
   const totalPages = Math.ceil(totalItems / pageSize) || 1;
@@ -1296,7 +1323,7 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
               AZ
             </div>
           </div>
-          <div className="px-4 pt-3 pb-2">
+          <div className="px-4 pt-3 pb-2 space-y-2">
             <div className="relative">
               <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
@@ -1306,6 +1333,33 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm"
               />
+            </div>
+            <div className="flex items-center justify-between gap-2 pt-1">
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Urutkan:</span>
+              <div className="flex items-center gap-1 bg-slate-150 p-0.5 rounded-lg border border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => handleSort('number')}
+                  className={`px-2.5 py-1 text-[10px] font-bold rounded-md transition-all cursor-pointer ${
+                    sortField === 'number'
+                      ? 'bg-blue-600 text-white shadow-xs'
+                      : 'text-slate-600 hover:text-slate-800'
+                  }`}
+                >
+                  No. Invoice {sortField === 'number' && (sortOrder === 'asc' ? '↑' : '↓')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSort('date')}
+                  className={`px-2.5 py-1 text-[10px] font-bold rounded-md transition-all cursor-pointer ${
+                    sortField === 'date'
+                      ? 'bg-blue-600 text-white shadow-xs'
+                      : 'text-slate-600 hover:text-slate-800'
+                  }`}
+                >
+                  Tanggal {sortField === 'date' && (sortOrder === 'asc' ? '↑' : '↓')}
+                </button>
+              </div>
             </div>
           </div>
           <div className="divide-y divide-slate-100 bg-white">
@@ -1385,10 +1439,34 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
-                <tr className="bg-slate-50/80 text-slate-600 border-b border-slate-200/80 font-bold">
+                <tr className="bg-slate-50/80 text-slate-600 border-b border-slate-200/80 font-bold select-none">
                   <th className="p-3.5 w-12 text-center">No.</th>
-                  <th className="p-3.5">Tanggal</th>
-                  <th className="p-3.5">No. Invoice</th>
+                  <th
+                    className="p-3.5 cursor-pointer hover:bg-slate-100/80 transition-all"
+                    onClick={() => handleSort('date')}
+                  >
+                    <div className="flex items-center gap-1.5">
+                      Tanggal
+                      {sortField === 'date' ? (
+                        sortOrder === 'asc' ? <ChevronUp size={13} className="text-blue-600" /> : <ChevronDown size={13} className="text-blue-600" />
+                      ) : (
+                        <span className="text-slate-300 group-hover:text-slate-400">↕</span>
+                      )}
+                    </div>
+                  </th>
+                  <th
+                    className="p-3.5 cursor-pointer hover:bg-slate-100/80 transition-all"
+                    onClick={() => handleSort('number')}
+                  >
+                    <div className="flex items-center gap-1.5">
+                      No. Invoice
+                      {sortField === 'number' ? (
+                        sortOrder === 'asc' ? <ChevronUp size={13} className="text-blue-600" /> : <ChevronDown size={13} className="text-blue-600" />
+                      ) : (
+                        <span className="text-slate-300 group-hover:text-slate-400">↕</span>
+                      )}
+                    </div>
+                  </th>
                   <th className="p-3.5">Klien</th>
                   <th className="p-3.5 text-right">Total</th>
                   <th className="p-3.5 text-center">Status</th>
