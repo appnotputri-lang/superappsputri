@@ -2,13 +2,14 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Invoice, InvoiceItem, PaymentRecord } from '../../../types';
 import { InvoiceService } from '../../services/InvoiceService';
 import { CompanyService } from '../../services/CompanyService';
-import { SuperappsClientService } from '../../services/superappsClientService';
+import { SuperappsClientService, superappsDb } from '../../services/superappsClientService';
 import { calculateInvoiceTotals, getItemSubtotal } from '../../services/taxCalculator';
 import { formatInputNumber, parseFormattedNumber } from '../../../utils/formatters';
 import { InvoicePrintTemplate } from './InvoicePrintTemplate';
 import { printInvoice, downloadInvoicePdf } from '../../utils/invoiceHtmlGenerator';
 import { getApiUrl } from '../../lib/api';
-import { auth } from '../../lib/firebase';
+import { auth, db } from '../../lib/firebase';
+import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import {
   Plus, Edit2, Trash2, Printer, Search, X, Copy, ExternalLink,
   Check, CreditCard, DollarSign, Globe, CheckCircle2, AlertCircle, FileText, Share2,
@@ -210,6 +211,10 @@ export const InvoiceGenerator: React.FC = () => {
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const moreMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    loadClientOptions();
+  }, []);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -680,13 +685,8 @@ export const InvoiceGenerator: React.FC = () => {
     const bHolder = inv.bankDetails?.accountHolder || 'A.n Nukantini Putri Parincha';
     const bNpwp = inv.bankDetails?.npwp || '3217015610760002';
 
-    let cleanSlug = '';
-    if (inv.invoiceNumber) {
-      cleanSlug = inv.invoiceNumber.replace(/INV\//i, '').replace(/\//g, '');
-    } else {
-      cleanSlug = inv.publicToken || inv.id;
-    }
-    const publicUrl = `https://notarisputri.web.id/INV/${cleanSlug}`;
+    const token = inv.publicToken || inv.id;
+    const publicUrl = inv.legacyPublicUrl || `${window.location.origin}/${token}`;
 
     return `Yth. ${inv.clientName || 'Klien'},
 Dengan hormat,
@@ -747,12 +747,8 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
 
         if (found) {
           setSelectedWaGroupId(found.id);
-          setWaSendMode('GROUP');
         } else if (fetchedGroups.length > 0) {
           setSelectedWaGroupId(fetchedGroups[0].id);
-          setWaSendMode('GROUP');
-        } else {
-          setWaSendMode('NUMBER');
         }
       } else {
         console.warn("Gagal mendapatkan grup WhatsApp:", resData.error || "Format tidak sesuai.");
@@ -803,14 +799,173 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
     }
   }, [isWaModalOpen]);
 
-  const handleShareWhatsApp = (inv: Invoice) => {
-    setActiveWaInvoice(inv);
-    setWaTargetPhone(inv.clientPhone ? formatPhoneForFonnte(inv.clientPhone) : '');
+  const cleanNameForFuzzyMatch = (name: string): string => {
+    if (!name) return '';
+    return name
+      .toLowerCase()
+      .replace(/\b(pt|cv|tbk|pma|yayasan|koperasi|firma|perkumpulan|perseroan|perorangan)\b/gi, '')
+      .replace(/[^a-z0-9]/gi, '')
+      .trim();
+  };
+
+  const isFuzzyNameMatch = (name1: string, name2: string): boolean => {
+    const n1 = cleanNameForFuzzyMatch(name1);
+    const n2 = cleanNameForFuzzyMatch(name2);
+    if (!n1 || !n2) return false;
+    return n1 === n2 || n1.includes(n2) || n2.includes(n1);
+  };
+
+  const handleShareWhatsApp = async (inv: Invoice) => {
+    console.log('[WA DEBUG] handleShareWhatsApp START, inv:', inv, 'inv?.id:', inv?.id);
+    try {
+      setActiveWaInvoice(inv);
+      setWaSendSuccess(null);
+      setWaSendError(null);
+      setWaSendMode('NUMBER');
+      setIsWaModalOpen(true);
+      console.log('[WA DEBUG] setIsWaModalOpen(true) dipanggil');
+      setWaTargetPhone(''); // Reset first while loading
+
+    let phoneNum = inv.clientPhone || '';
+    if (!phoneNum) {
+      // 1. Try finding by ID in preloaded lists
+      let matchedClient = null;
+      if (inv.clientId) {
+        matchedClient = 
+          localClients.find(c => c.clientId === inv.clientId) || 
+          superappsClients.find(c => c.clientId === inv.clientId);
+      }
+      
+      // 2. Try finding by Name in preloaded lists (case-insensitive)
+      if (!matchedClient && inv.clientName) {
+        const targetName = inv.clientName.toLowerCase().trim();
+        matchedClient = 
+          localClients.find(c => c.name?.toLowerCase().trim() === targetName) || 
+          superappsClients.find(c => c.name?.toLowerCase().trim() === targetName);
+        
+        // 2b. Fuzzy name matching fallback
+        if (!matchedClient) {
+          matchedClient = 
+            localClients.find(c => isFuzzyNameMatch(c.name, inv.clientName)) || 
+            superappsClients.find(c => isFuzzyNameMatch(c.name, inv.clientName));
+        }
+      }
+
+      if (matchedClient && matchedClient.phone) {
+        phoneNum = matchedClient.phone;
+      } else {
+        // 3. Direct Firestore lookup by clientId if present
+        try {
+          if (inv.clientId) {
+            if (inv.clientSource === 'superapps') {
+              const clientDoc = await getDoc(doc(superappsDb, 'profiles', inv.clientId));
+              if (clientDoc.exists()) {
+                const clientData = clientDoc.data();
+                phoneNum = clientData.phoneNumber || clientData.contactNumber || clientData.phone || '';
+              }
+            } else {
+              // Local profiles
+              const clientDoc = await getDoc(doc(db, 'profiles', inv.clientId));
+              if (clientDoc.exists()) {
+                const clientData = clientDoc.data();
+                phoneNum = clientData.phoneNumber || clientData.phone || '';
+              } else {
+                // Legacy local company profiles
+                const companyDoc = await getDoc(doc(db, 'company_profiles', inv.clientId));
+                if (companyDoc.exists()) {
+                  const companyData = companyDoc.data();
+                  phoneNum = companyData.phoneNumber || companyData.phone || '';
+                }
+              }
+            }
+          }
+
+          // 4. Fallback to direct Firestore lookup by clientName if still not resolved
+          if (!phoneNum && inv.clientName) {
+            const targetName = inv.clientName.trim().toUpperCase();
+            
+            // Try local profiles companyName
+            const localSnap = await getDocs(query(collection(db, 'profiles'), where('companyName', '==', targetName)));
+            if (!localSnap.empty) {
+              const clientData = localSnap.docs[0].data();
+              phoneNum = clientData.phoneNumber || clientData.phone || '';
+            } else {
+              // Try local profiles name
+              const localSnap2 = await getDocs(query(collection(db, 'profiles'), where('name', '==', targetName)));
+              if (!localSnap2.empty) {
+                const clientData = localSnap2.docs[0].data();
+                phoneNum = clientData.phoneNumber || clientData.phone || '';
+              } else {
+                // Try superapps profiles companyName
+                const spSnap = await getDocs(query(collection(superappsDb, 'profiles'), where('companyName', '==', targetName)));
+                if (!spSnap.empty) {
+                  const clientData = spSnap.docs[0].data();
+                  phoneNum = clientData.phoneNumber || clientData.contactNumber || clientData.phone || '';
+                } else {
+                  // Try superapps profiles name
+                  const spSnap2 = await getDocs(query(collection(superappsDb, 'profiles'), where('name', '==', targetName)));
+                  if (!spSnap2.empty) {
+                    const clientData = spSnap2.docs[0].data();
+                    phoneNum = clientData.phoneNumber || clientData.contactNumber || clientData.phone || '';
+                  }
+                }
+              }
+            }
+
+            // 5. If still not resolved, load all profiles from Firestore and do fuzzy matching
+            if (!phoneNum) {
+              // Fuzzy search in local profiles
+              const localProfilesSnap = await getDocs(collection(db, 'profiles'));
+              let foundLocal = localProfilesSnap.docs.find(doc => {
+                const data = doc.data();
+                const name = data.companyName || data.name || '';
+                return isFuzzyNameMatch(name, inv.clientName);
+              });
+              if (foundLocal) {
+                const clientData = foundLocal.data();
+                phoneNum = clientData.phoneNumber || clientData.phone || '';
+              } else {
+                // Fuzzy search in superapps profiles
+                const spProfilesSnap = await getDocs(collection(superappsDb, 'profiles'));
+                let foundSp = spProfilesSnap.docs.find(doc => {
+                  const data = doc.data();
+                  const name = data.companyName || data.name || '';
+                  return isFuzzyNameMatch(name, inv.clientName);
+                });
+                if (foundSp) {
+                  const clientData = foundSp.data();
+                  phoneNum = clientData.phoneNumber || clientData.contactNumber || clientData.phone || '';
+                }
+              }
+            }
+          }
+        } catch (err) {
+          console.error('Failed to auto-fetch client phone number from Firestore:', err);
+        }
+      }
+    }
+
+    if (phoneNum) {
+      const cleanPhone = formatPhoneForFonnte(phoneNum);
+      setWaTargetPhone(cleanPhone);
+      
+      // Auto-sync/persist back to the Invoice document in Firestore so they never have to edit again!
+      if (cleanPhone && cleanPhone !== inv.clientPhone) {
+        try {
+          await InvoiceService.updateInvoice(inv.id, { clientPhone: cleanPhone });
+          console.log('[InvoiceGenerator] Auto-synced clientPhone back to invoice:', cleanPhone);
+        } catch (err) {
+          console.warn('[InvoiceGenerator] Failed to auto-sync clientPhone to invoice:', err);
+        }
+      }
+    } else {
+      setWaTargetPhone('');
+    }
     setWaMessage(formatInvoiceMessage(inv));
-    setWaSendSuccess(null);
-    setWaSendError(null);
-    setWaSendMode('GROUP');
-    setIsWaModalOpen(true);
+    console.log('[WA DEBUG] handleShareWhatsApp SELESAI, waMessage ter-set');
+    } catch (err) {
+      console.error('[WA DEBUG] ERROR di handleShareWhatsApp:', err);
+    }
   };
 
   const handleSendFonnteApi = async () => {
