@@ -78,6 +78,20 @@
       },
       "required": ["id", "invoiceNumber", "clientName", "issueDate", "status", "totalAmount"]
     },
+    "Quotation": {
+      "title": "Quotation",
+      "description": "Client quotations.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "quotationNumber": { "type": "string" },
+        "clientName": { "type": "string" },
+        "date": { "type": "string" },
+        "status": { "type": "string" },
+        "totalAmount": { "type": "number" }
+      },
+      "required": ["id", "quotationNumber", "clientName", "date", "status", "totalAmount"]
+    },
     "OutgoingMail": {
       "title": "Outgoing Mail",
       "description": "Surat Keluar / MPD.",
@@ -125,6 +139,10 @@
     "/invoices/{invoiceId}": {
       "schema": "Invoice",
       "description": "Invoices collection."
+    },
+    "/quotations/{quotationId}": {
+      "schema": "Quotation",
+      "description": "Quotations collection."
     },
     "/outgoing_mails/{outgoingMailId}": {
       "schema": "OutgoingMail",

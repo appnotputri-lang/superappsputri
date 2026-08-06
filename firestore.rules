@@ -197,6 +197,11 @@ service cloud.firestore {
       allow write: if isSignedIn();
     }
 
+    match /quotations/{id} {
+      allow read: if true; // Public read permitted for public quotation viewing
+      allow write: if isSignedIn();
+    }
+
     match /outgoing_mails/{id} {
       allow read: if isSignedIn();
       allow write: if isSignedIn();

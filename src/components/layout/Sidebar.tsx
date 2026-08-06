@@ -145,6 +145,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           { label: 'Surat Masuk', id: 'incoming_mail' as const, icon: Inbox, requiresAuth: true },
           { label: 'Laporan Notaris', id: 'notary_reports' as const, icon: BookMarked, requiresAuth: true },
           { label: 'Invoice', id: 'invoice' as const, icon: CreditCard, requiresAuth: true },
+          { label: 'Penawaran', id: 'quotation' as const, icon: FileText, requiresAuth: true },
         ].map((item) => {
           const isActive = activeSidebarTab === item.id;
           const acc = TAB_ACCENTS[item.id] || TAB_ACCENTS.beranda;

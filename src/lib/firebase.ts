@@ -1,16 +1,43 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithPopup, GoogleAuthProvider, signOut } from 'firebase/auth';
-import { initializeFirestore, collection, getDocs, persistentLocalCache, persistentMultipleTabManager, getDocsFromCache } from 'firebase/firestore';
+import { initializeFirestore, collection, getDocs, persistentLocalCache, persistentMultipleTabManager, getDocsFromCache, getFirestore } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
 
 const app = initializeApp(firebaseConfig);
-export const db = initializeFirestore(app, {
-  ignoreUndefinedProperties: true,
-  experimentalForceLongPolling: true,
-  localCache: persistentLocalCache({
-    tabManager: persistentMultipleTabManager()
-  })
-}, firebaseConfig.firestoreDatabaseId);
+
+// Detect if we are in an iframe or if storage is disabled to prevent persistentLocalCache crashes
+const isIframe = typeof window !== 'undefined' && window.self !== window.top;
+
+let dbInstance;
+try {
+  if (isIframe) {
+    // If inside an iframe, use a safe, non-persistent configuration to avoid IndexedDB / TabManager cross-origin issues
+    dbInstance = initializeFirestore(app, {
+      ignoreUndefinedProperties: true,
+      experimentalForceLongPolling: true,
+    }, firebaseConfig.firestoreDatabaseId);
+  } else {
+    dbInstance = initializeFirestore(app, {
+      ignoreUndefinedProperties: true,
+      experimentalForceLongPolling: true,
+      localCache: persistentLocalCache({
+        tabManager: persistentMultipleTabManager()
+      })
+    }, firebaseConfig.firestoreDatabaseId);
+  }
+} catch (e) {
+  console.warn("Firestore initialization error, falling back to simple initialization:", e);
+  try {
+    dbInstance = initializeFirestore(app, {
+      ignoreUndefinedProperties: true,
+      experimentalForceLongPolling: true,
+    }, firebaseConfig.firestoreDatabaseId);
+  } catch (e2) {
+    dbInstance = getFirestore(app);
+  }
+}
+
+export const db = dbInstance;
 export const auth = getAuth(app);
 
 export const searchShareholderByNIKClient = async (nik: string): Promise<any | null> => {

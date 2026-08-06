@@ -643,6 +643,29 @@ export interface Invoice {
   updatedAt?: string;
 }
 
+export interface Quotation {
+  id: string;
+  quotationNumber: string;
+  date: string; // YYYY-MM-DD
+  validUntil?: string; // YYYY-MM-DD
+  clientId: string;
+  clientName: string;
+  clientAddress: string;
+  clientPhone?: string;
+  clientEmail?: string;
+  clientSource?: 'local' | 'superapps';
+  items: InvoiceItem[];
+  subtotal: number;
+  taxAmount?: number;
+  totalAmount: number;
+  status: 'DRAFT' | 'SENT' | 'ACCEPTED' | 'REJECTED';
+  notes?: string;
+  jobTitle?: string;
+  publicToken?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface OutgoingMail {
   id: string;
   mailNumber: string;
@@ -666,7 +689,7 @@ export interface IncomingMail {
   updatedAt?: string;
 }
 
-export type SidebarTabId = 'beranda' | 'company_profile' | 'cv_profile' | 'notulen' | 'pendirian' | 'rupst' | 'perbaikan' | 'draft_akta_rups' | 'panduan' | 'kbli_mapping' | 'saran_kbli' | 'import_kbli' | 'laporan' | 'whatsapp_settings' | 'projects' | 'project_detail' | 'user_management' | 'notary_reports' | 'invoice' | 'deeds' | 'private_deeds' | 'protest_cheque' | 'outgoing_mail' | 'incoming_mail' | 'stamp_settings';
+export type SidebarTabId = 'beranda' | 'company_profile' | 'cv_profile' | 'notulen' | 'pendirian' | 'rupst' | 'perbaikan' | 'draft_akta_rups' | 'panduan' | 'kbli_mapping' | 'saran_kbli' | 'import_kbli' | 'laporan' | 'whatsapp_settings' | 'projects' | 'project_detail' | 'user_management' | 'notary_reports' | 'invoice' | 'quotation' | 'deeds' | 'private_deeds' | 'protest_cheque' | 'outgoing_mail' | 'incoming_mail' | 'stamp_settings';
 
 // ==========================================
 // PENDIRIAN CV (PERSEKUTUAN KOMANDITER) TYPES

@@ -140,6 +140,13 @@ export const TAB_ACCENTS: Record<SidebarTabId, {
     hoverBg: 'hover:bg-emerald-50/40 hover:text-emerald-950',
     indicatorBg: 'bg-emerald-600'
   },
+  quotation: {
+    iconColor: 'text-sky-600',
+    textColor: 'text-sky-900',
+    bgColor: 'bg-sky-50/70',
+    hoverBg: 'hover:bg-sky-50/40 hover:text-sky-950',
+    indicatorBg: 'bg-sky-600'
+  },
   deeds: {
     iconColor: 'text-blue-600',
     textColor: 'text-blue-900',
@@ -206,6 +213,7 @@ export const TAB_TO_PATH: Record<string, string> = {
   'user_management': '/user-management',
   'notary_reports': '/notary-reports',
   'invoice': '/invoice',
+  'quotation': '/quotation',
   'deeds': '/deeds',
   'private_deeds': '/private-deeds',
   'protest_cheque': '/protest-cheque',
@@ -226,9 +234,9 @@ export const RESERVED_PATHS = new Set([
   '/rupslb', '/pendirian', '/rupst', '/perbaikan', '/draft-akta', '/panduan',
   '/sirkuler', '/rupst-public', '/kbli-mapping', '/saran-kbli', '/import-kbli',
   '/laporan', '/whatsapp-gateway', '/projects', '/projects-detail',
-  '/user-management', '/notary-reports', '/invoice', '/deeds', '/private-deeds',
+  '/user-management', '/notary-reports', '/invoice', '/quotation', '/deeds', '/private-deeds',
   '/protest-cheque', '/surat-keluar', '/surat-masuk', '/stamp-settings',
-  '/invoice/public', // pola lama, tetap dikecualikan
+  '/invoice/public', '/q', // pola lama & quotation, tetap dikecualikan
 ]);
 
 export function isReservedPath(pathname: string): boolean {
