@@ -26,13 +26,37 @@ export function terbilang(n: number): string {
   return `# ${hasil} Rupiah #`;
 }
 
+export function numberToWordsEN(n: number): string {
+  const units = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", 
+                 "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"];
+  const tens = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
+
+  let num = Math.floor(Math.abs(n));
+  if (num === 0) return "# Zero Rupiah #";
+
+  function convert(x: number): string {
+    if (x < 20) return units[x];
+    if (x < 100) return tens[Math.floor(x / 10)] + (x % 10 ? " " + units[x % 10] : "");
+    if (x < 1000) return units[Math.floor(x / 100)] + " Hundred" + (x % 100 ? " " + convert(x % 100) : "");
+    if (x < 1000000) return convert(Math.floor(x / 1000)) + " Thousand" + (x % 1000 ? " " + convert(x % 1000) : "");
+    if (x < 1000000000) return convert(Math.floor(x / 1000000)) + " Million" + (x % 1000000 ? " " + convert(x % 1000000) : "");
+    if (x < 1000000000000) return convert(Math.floor(x / 1000000000)) + " Billion" + (x % 1000000000 ? " " + convert(x % 1000000000) : "");
+    return "";
+  }
+
+  const result = convert(num).replace(/\s+/g, ' ').trim();
+  return `# ${result} Rupiah #`;
+}
+
 interface InvoicePrintTemplateProps {
   invoice: Invoice;
   publicUrl?: string;
+  lang?: 'id' | 'en';
 }
 
-export const InvoicePrintTemplate: React.FC<InvoicePrintTemplateProps> = ({ invoice, publicUrl }) => {
+export const InvoicePrintTemplate: React.FC<InvoicePrintTemplateProps> = ({ invoice, publicUrl, lang = 'id' }) => {
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>('');
+  const isEn = lang === 'en';
 
   const token = invoice.publicToken || invoice.id;
   const actualPublicUrl = publicUrl || invoice.legacyPublicUrl || `${window.location.origin}/${token}`;
@@ -80,15 +104,15 @@ export const InvoicePrintTemplate: React.FC<InvoicePrintTemplateProps> = ({ invo
           <table className="text-xs text-right ml-auto border-collapse">
             <tbody>
               <tr>
-                <td className="text-slate-500 font-medium pr-3 py-0.5">Nomor</td>
+                <td className="text-slate-500 font-medium pr-3 py-0.5">{isEn ? 'Invoice No' : 'Nomor'}</td>
                 <td className="font-bold text-slate-900 py-0.5">{invoice.invoiceNumber}</td>
               </tr>
               <tr>
-                <td className="text-slate-500 font-medium pr-3 py-0.5">Tanggal</td>
+                <td className="text-slate-500 font-medium pr-3 py-0.5">{isEn ? 'Date' : 'Tanggal'}</td>
                 <td className="font-bold text-slate-900 py-0.5">{formatDate(invoice.issueDate)}</td>
               </tr>
               <tr>
-                <td className="text-slate-500 font-medium pr-3 py-0.5">Jatuh Tempo</td>
+                <td className="text-slate-500 font-medium pr-3 py-0.5">{isEn ? 'Due Date' : 'Jatuh Tempo'}</td>
                 <td className="font-bold text-slate-900 py-0.5">{formatDate(invoice.dueDate)}</td>
               </tr>
             </tbody>
@@ -100,7 +124,7 @@ export const InvoicePrintTemplate: React.FC<InvoicePrintTemplateProps> = ({ invo
       <div className="grid grid-cols-2 gap-8 mb-6 text-xs">
         <div>
           <div className="border-b-2 border-slate-800 pb-1 mb-2">
-            <span className="font-bold text-slate-900 uppercase">Dari</span>
+            <span className="font-bold text-slate-900 uppercase">{isEn ? 'From' : 'Dari'}</span>
           </div>
           <p className="font-bold text-[#1d4ed8] text-xs mb-0.5">Notaris/PPAT Nukantini Putri Parincha</p>
           <p className="text-slate-600 leading-snug">Komplek PPR ITB F5, Dago Giri, Mekarwangi, Lembang, Bandung Barat, 40391</p>
@@ -109,7 +133,7 @@ export const InvoicePrintTemplate: React.FC<InvoicePrintTemplateProps> = ({ invo
 
         <div>
           <div className="border-b-2 border-slate-800 pb-1 mb-2">
-            <span className="font-bold text-slate-900 uppercase">Tagihan Kepada</span>
+            <span className="font-bold text-slate-900 uppercase">{isEn ? 'Bill To' : 'Tagihan Kepada'}</span>
           </div>
           <p className="font-bold text-[#1d4ed8] text-xs mb-0.5">{invoice.clientName}</p>
           {invoice.clientAddress && (
@@ -122,8 +146,8 @@ export const InvoicePrintTemplate: React.FC<InvoicePrintTemplateProps> = ({ invo
       {/* 3. ITEMS TABLE */}
       <div className="mb-6">
         <div className="bg-[#1e293b] text-white px-4 py-2 rounded-t font-bold text-xs flex justify-between uppercase tracking-wider">
-          <span>DESKRIPSI</span>
-          <span>JUMLAH</span>
+          <span>{isEn ? 'DESCRIPTION' : 'DESKRIPSI'}</span>
+          <span>{isEn ? 'AMOUNT' : 'JUMLAH'}</span>
         </div>
         <div className="border-b border-slate-200 min-h-[120px]">
           {invoice.items && invoice.items.length > 0 ? (
@@ -144,7 +168,6 @@ export const InvoicePrintTemplate: React.FC<InvoicePrintTemplateProps> = ({ invo
                         </p>
                       );
                     })}
-                    {/* No tax note as requested */}
                   </div>
                   <div className="font-bold text-slate-900 text-right whitespace-nowrap align-top pt-1">
                     {formatNum(getItemSubtotal(it))}
@@ -154,7 +177,7 @@ export const InvoicePrintTemplate: React.FC<InvoicePrintTemplateProps> = ({ invo
             })
           ) : (
             <div className="p-4 text-center text-slate-400 italic text-xs">
-              Tidak ada rincian item.
+              {isEn ? 'No line items available.' : 'Tidak ada rincian item.'}
             </div>
           )}
         </div>
@@ -166,24 +189,26 @@ export const InvoicePrintTemplate: React.FC<InvoicePrintTemplateProps> = ({ invo
         <div className="col-span-7 space-y-4">
           {/* TERBILANG BOX */}
           <div className="bg-slate-100/90 p-3 rounded-lg border border-slate-200/50">
-            <p className="text-[10px] text-slate-500 font-semibold mb-0.5">Terbilang</p>
-            <p className="font-bold text-slate-900 text-xs italic">{terbilang(invoice.totalAmount)}</p>
+            <p className="text-[10px] text-slate-500 font-semibold mb-0.5">{isEn ? 'Amount in Words' : 'Terbilang'}</p>
+            <p className="font-bold text-slate-900 text-xs italic">
+              {isEn ? numberToWordsEN(invoice.totalAmount) : terbilang(invoice.totalAmount)}
+            </p>
           </div>
 
           {/* PEMBAYARAN DITRANSFER KE BOX */}
           <div className="border border-slate-200 bg-slate-50/50 p-3.5 rounded-xl space-y-1">
             <p className="font-bold text-slate-800 text-[11px] uppercase tracking-wider mb-1.5">
-              PEMBAYARAN DITRANSFER KE:
+              {isEn ? 'PAYMENT TRANSFERRED TO:' : 'PEMBAYARAN DITRANSFER KE:'}
             </p>
             <p className="font-bold text-slate-900">{invoice.bankDetails?.bankName || 'BCA Cabang Dago - Bandung'}</p>
             <p className="font-bold text-slate-900">{invoice.bankDetails?.accountNumber || 'Acc. 7770673016'}</p>
             <p className="font-bold text-slate-900">{invoice.bankDetails?.accountHolder || 'A.n Nukantini Putri Parincha'}</p>
             
             <p className="text-slate-700 pt-1">
-              NPWP 16 digit : <span className="font-semibold">{invoice.bankDetails?.npwp || '3217015610760002'}</span>
+              {isEn ? 'Tax ID (NPWP) 16 digits :' : 'NPWP 16 digit :'} <span className="font-semibold">{invoice.bankDetails?.npwp || '3217015610760002'}</span>
             </p>
             <p className="text-slate-700">
-              SWIFT BCA : <span className="font-semibold">{invoice.bankDetails?.swiftCode || 'CENAIDJA'}</span>
+              {isEn ? 'BCA SWIFT Code :' : 'SWIFT BCA :'} <span className="font-semibold">{invoice.bankDetails?.swiftCode || 'CENAIDJA'}</span>
             </p>
 
             {invoice.notes && (
@@ -205,7 +230,7 @@ export const InvoicePrintTemplate: React.FC<InvoicePrintTemplateProps> = ({ invo
 
             {invoice.taxAmount && invoice.taxAmount > 0 ? (
               <div className="flex justify-between text-red-600">
-                <span>Pajak (PPh 21)</span>
+                <span>{isEn ? 'Tax (PPh 21)' : 'Pajak (PPh 21)'}</span>
                 <span className="font-bold">({formatNum(invoice.taxAmount)})</span>
               </div>
             ) : null}
@@ -216,14 +241,14 @@ export const InvoicePrintTemplate: React.FC<InvoicePrintTemplateProps> = ({ invo
             </div>
 
             <div className="flex justify-between font-black text-sm text-red-600 pt-1.5">
-              <span>Sisa Tagihan</span>
+              <span>{isEn ? 'Balance Due' : 'Sisa Tagihan'}</span>
               <span>{formatNum(invoice.balanceDue ?? invoice.totalAmount)}</span>
             </div>
           </div>
 
           {/* SIGNATURE & QR CODE */}
           <div className="flex flex-col items-center justify-center pt-1 text-center">
-            <p className="text-xs font-semibold text-slate-800 mb-1">Hormat Kami,</p>
+            <p className="text-xs font-semibold text-slate-800 mb-1">{isEn ? 'Sincerely,' : 'Hormat Kami,'}</p>
             
             {/* QR CODE DISPLAY */}
             {qrCodeDataUrl ? (
@@ -247,3 +272,4 @@ export const InvoicePrintTemplate: React.FC<InvoicePrintTemplateProps> = ({ invo
     </div>
   );
 };
+

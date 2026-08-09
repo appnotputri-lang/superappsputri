@@ -195,7 +195,7 @@ export const PublicQuotationViewer: React.FC = () => {
                 <thead className="bg-slate-50 text-slate-500 font-medium">
                   <tr>
                     <th className="px-4 py-3 text-left">Deskripsi Layanan</th>
-                    <th className="px-4 py-3 text-right">Jumlah</th>
+                    <th className="px-4 py-3 text-right">Estimasi Biaya</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -217,6 +217,11 @@ export const PublicQuotationViewer: React.FC = () => {
                                 </p>
                               );
                             })}
+                            {item.isTaxed && (
+                              <p className="text-slate-400 font-medium pl-4 text-xs italic mt-1">
+                                (Termasuk PPh 21)
+                              </p>
+                            )}
                           </div>
                         </td>
                         <td className="px-4 py-3 text-right font-mono font-bold text-slate-800 align-top">
@@ -230,7 +235,23 @@ export const PublicQuotationViewer: React.FC = () => {
             </div>
 
             <div className="flex flex-col-reverse md:flex-row justify-between gap-8">
-              <div className="md:w-1/2">
+              <div className="md:w-1/2 space-y-6">
+                <div>
+                  <h3 className="text-sm font-bold text-slate-800 mb-2 flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-sky-500"></span>
+                    Informasi Pembayaran:
+                  </h3>
+                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 text-slate-600 text-xs sm:text-sm leading-relaxed">
+                    <p className="font-bold text-slate-800">BCA Cabang Dago - Bandung</p>
+                    <p className="font-bold text-slate-800 font-mono text-sm">Acc. 7770673016</p>
+                    <p className="font-bold text-slate-800">A.n Nukantini Putri Parincha</p>
+                    <div className="mt-2 pt-2 border-t border-slate-200 text-xs text-slate-500 space-y-0.5">
+                      <p>NPWP 16 digit: <strong className="text-slate-700">3217015610760002</strong></p>
+                      <p>SWIFT BCA: <strong className="text-slate-700">CENAIDJA</strong></p>
+                    </div>
+                  </div>
+                </div>
+
                 {quotation.notes && (
                   <div>
                     <h3 className="text-sm font-bold text-slate-800 mb-2 flex items-center gap-2">
@@ -252,12 +273,12 @@ export const PublicQuotationViewer: React.FC = () => {
                   </div>
                   {quotation.taxAmount && quotation.taxAmount > 0 ? (
                     <div className="flex justify-between text-red-500">
-                      <span>Pajak (PPh 21)</span>
+                      <span>Potongan PPh 21</span>
                       <span className="font-mono font-medium">({fmtCurrency(quotation.taxAmount)})</span>
                     </div>
                   ) : null}
                   <div className="flex justify-between text-slate-900 pt-3 border-t border-slate-200">
-                    <span className="font-bold">Total Penawaran</span>
+                    <span className="font-bold">Total Estimasi</span>
                     <span className="font-mono font-bold text-lg text-sky-700">{fmtCurrency(quotation.totalAmount)}</span>
                   </div>
                 </div>

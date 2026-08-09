@@ -31,7 +31,7 @@ export function calculateGrossUpByRate(net: number, rate: number = 0.05): { gros
   if (net <= 0) return { gross: 0, pph: 0, net: 0 };
 
   const normalizedRate = rate > 1 ? rate / 100 : rate;
-  const divisor = 1 - normalizedRate;
+  const divisor = 1 - (normalizedRate * 0.5);
 
   if (divisor <= 0) return { gross: net, pph: 0, net };
 

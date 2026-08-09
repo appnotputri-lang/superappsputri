@@ -639,6 +639,8 @@ export interface Invoice {
   paymentHistory?: PaymentRecord[];
   publicToken?: string;
   legacyPublicUrl?: string;
+  quotationId?: string;
+  quotationNumber?: string;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -662,6 +664,8 @@ export interface Quotation {
   notes?: string;
   jobTitle?: string;
   publicToken?: string;
+  invoiceId?: string;
+  invoiceNumber?: string;
   createdAt?: string;
   updatedAt?: string;
 }

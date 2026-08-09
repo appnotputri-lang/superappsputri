@@ -9,6 +9,7 @@ import { InvoicePrintTemplate } from './InvoicePrintTemplate';
 import { printInvoice, downloadInvoicePdf } from '../../utils/invoiceHtmlGenerator';
 import { getApiUrl } from '../../lib/api';
 import { auth, db } from '../../lib/firebase';
+import { resolveClientPhone, isFuzzyNameMatch } from '../../utils/clientPhoneResolver';
 import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import {
   Plus, Edit2, Trash2, Printer, Search, X, Copy, ExternalLink,
@@ -90,7 +91,12 @@ const MobileInvoiceRow: React.FC<{
   );
 };
 
-export const InvoiceGenerator: React.FC = () => {
+interface InvoiceGeneratorProps {
+  setActiveSidebarTab?: (tab: string) => void;
+  [key: string]: any;
+}
+
+export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = (props) => {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -124,8 +130,9 @@ export const InvoiceGenerator: React.FC = () => {
     setCurrentPage(1);
   }, [searchTerm, statusFilter]);
 
-  // PDF Export State
+  // PDF Export & Language State
   const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const [docLang, setDocLang] = useState<'id' | 'en'>('id');
 
   // WhatsApp Share Modal States
   const [isWaModalOpen, setIsWaModalOpen] = useState(false);
@@ -144,7 +151,7 @@ export const InvoiceGenerator: React.FC = () => {
   const handleDownloadPDF = async (inv: Invoice) => {
     setDownloadingPdf(true);
     try {
-      await downloadInvoicePdf(inv);
+      await downloadInvoicePdf(inv, undefined, docLang);
     } catch (err) {
       console.error('Error downloading PDF:', err);
       alert('Gagal mengunduh file PDF.');
@@ -256,6 +263,47 @@ export const InvoiceGenerator: React.FC = () => {
     });
     return () => unsub();
   }, [selectedInvoice?.id]);
+
+  // Listen for target invoice navigation from Quotation or URL / localStorage
+  useEffect(() => {
+    const checkTargetInvoice = () => {
+      const targetId = localStorage.getItem('selected_invoice_id');
+      if (targetId && invoices.length > 0) {
+        const found = invoices.find(i => i.id === targetId || i.invoiceNumber === targetId);
+        if (found) {
+          setSelectedInvoice(found);
+          setViewMode('detail');
+          localStorage.removeItem('selected_invoice_id');
+        }
+      }
+    };
+    checkTargetInvoice();
+
+    const handleCustomEvent = (e: any) => {
+      const invId = e.detail?.id;
+      if (invId && invoices.length > 0) {
+        const found = invoices.find(i => i.id === invId || i.invoiceNumber === invId);
+        if (found) {
+          setSelectedInvoice(found);
+          setViewMode('detail');
+        }
+      }
+    };
+
+    window.addEventListener('open_invoice_detail', handleCustomEvent);
+    return () => window.removeEventListener('open_invoice_detail', handleCustomEvent);
+  }, [invoices]);
+
+  // Navigation handler to open Quotation Detail
+  const handleNavigateToQuotation = (qIdOrNum: string) => {
+    localStorage.setItem('selected_quotation_id', qIdOrNum);
+    window.dispatchEvent(new CustomEvent('open_quotation_detail', { detail: { id: qIdOrNum } }));
+    if (props.setActiveSidebarTab) {
+      props.setActiveSidebarTab('quotation');
+    } else {
+      window.location.hash = '#/quotation';
+    }
+  };
 
   const loadClientOptions = async () => {
     setIsLoadingClients(true);
@@ -812,22 +860,6 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
     }
   }, [isWaModalOpen]);
 
-  const cleanNameForFuzzyMatch = (name: string): string => {
-    if (!name) return '';
-    return name
-      .toLowerCase()
-      .replace(/\b(pt|cv|tbk|pma|yayasan|koperasi|firma|perkumpulan|perseroan|perorangan)\b/gi, '')
-      .replace(/[^a-z0-9]/gi, '')
-      .trim();
-  };
-
-  const isFuzzyNameMatch = (name1: string, name2: string): boolean => {
-    const n1 = cleanNameForFuzzyMatch(name1);
-    const n2 = cleanNameForFuzzyMatch(name2);
-    if (!n1 || !n2) return false;
-    return n1 === n2 || n1.includes(n2) || n2.includes(n1);
-  };
-
   const handleShareWhatsApp = async (inv: Invoice) => {
     console.log('[WA DEBUG] handleShareWhatsApp START, inv:', inv, 'inv?.id:', inv?.id);
     try {
@@ -839,143 +871,32 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
       console.log('[WA DEBUG] setIsWaModalOpen(true) dipanggil');
       setWaTargetPhone(''); // Reset first while loading
 
-    let phoneNum = inv.clientPhone || '';
-    if (!phoneNum) {
-      // 1. Try finding by ID in preloaded lists
-      let matchedClient = null;
-      if (inv.clientId) {
-        matchedClient = 
-          localClients.find(c => c.clientId === inv.clientId) || 
-          superappsClients.find(c => c.clientId === inv.clientId);
-      }
-      
-      // 2. Try finding by Name in preloaded lists (case-insensitive)
-      if (!matchedClient && inv.clientName) {
-        const targetName = inv.clientName.toLowerCase().trim();
-        matchedClient = 
-          localClients.find(c => c.name?.toLowerCase().trim() === targetName) || 
-          superappsClients.find(c => c.name?.toLowerCase().trim() === targetName);
+      const resolvedPhone = await resolveClientPhone({
+        clientId: inv.clientId,
+        clientName: inv.clientName,
+        clientPhone: inv.clientPhone,
+        clientSource: inv.clientSource,
+        localClients,
+        superappsClients,
+      });
+
+      if (resolvedPhone) {
+        setWaTargetPhone(resolvedPhone);
         
-        // 2b. Fuzzy name matching fallback
-        if (!matchedClient) {
-          matchedClient = 
-            localClients.find(c => isFuzzyNameMatch(c.name, inv.clientName)) || 
-            superappsClients.find(c => isFuzzyNameMatch(c.name, inv.clientName));
+        // Auto-sync/persist back to the Invoice document in Firestore so they never have to edit again!
+        if (resolvedPhone !== inv.clientPhone) {
+          try {
+            await InvoiceService.updateInvoice(inv.id, { clientPhone: resolvedPhone });
+            console.log('[InvoiceGenerator] Auto-synced clientPhone back to invoice:', resolvedPhone);
+          } catch (err) {
+            console.warn('[InvoiceGenerator] Failed to auto-sync clientPhone to invoice:', err);
+          }
         }
-      }
-
-      if (matchedClient && matchedClient.phone) {
-        phoneNum = matchedClient.phone;
       } else {
-        // 3. Direct Firestore lookup by clientId if present
-        try {
-          if (inv.clientId) {
-            if (inv.clientSource === 'superapps') {
-              const clientDoc = await getDoc(doc(superappsDb, 'profiles', inv.clientId));
-              if (clientDoc.exists()) {
-                const clientData = clientDoc.data();
-                phoneNum = clientData.phoneNumber || clientData.contactNumber || clientData.phone || '';
-              }
-            } else {
-              // Local profiles
-              const clientDoc = await getDoc(doc(db, 'profiles', inv.clientId));
-              if (clientDoc.exists()) {
-                const clientData = clientDoc.data();
-                phoneNum = clientData.phoneNumber || clientData.phone || '';
-              } else {
-                // Legacy local company profiles
-                const companyDoc = await getDoc(doc(db, 'company_profiles', inv.clientId));
-                if (companyDoc.exists()) {
-                  const companyData = companyDoc.data();
-                  phoneNum = companyData.phoneNumber || companyData.phone || '';
-                }
-              }
-            }
-          }
-
-          // 4. Fallback to direct Firestore lookup by clientName if still not resolved
-          if (!phoneNum && inv.clientName) {
-            const targetName = inv.clientName.trim().toUpperCase();
-            
-            // Try local profiles companyName
-            const localSnap = await getDocs(query(collection(db, 'profiles'), where('companyName', '==', targetName)));
-            if (!localSnap.empty) {
-              const clientData = localSnap.docs[0].data();
-              phoneNum = clientData.phoneNumber || clientData.phone || '';
-            } else {
-              // Try local profiles name
-              const localSnap2 = await getDocs(query(collection(db, 'profiles'), where('name', '==', targetName)));
-              if (!localSnap2.empty) {
-                const clientData = localSnap2.docs[0].data();
-                phoneNum = clientData.phoneNumber || clientData.phone || '';
-              } else {
-                // Try superapps profiles companyName
-                const spSnap = await getDocs(query(collection(superappsDb, 'profiles'), where('companyName', '==', targetName)));
-                if (!spSnap.empty) {
-                  const clientData = spSnap.docs[0].data();
-                  phoneNum = clientData.phoneNumber || clientData.contactNumber || clientData.phone || '';
-                } else {
-                  // Try superapps profiles name
-                  const spSnap2 = await getDocs(query(collection(superappsDb, 'profiles'), where('name', '==', targetName)));
-                  if (!spSnap2.empty) {
-                    const clientData = spSnap2.docs[0].data();
-                    phoneNum = clientData.phoneNumber || clientData.contactNumber || clientData.phone || '';
-                  }
-                }
-              }
-            }
-
-            // 5. If still not resolved, load all profiles from Firestore and do fuzzy matching
-            if (!phoneNum) {
-              // Fuzzy search in local profiles
-              const localProfilesSnap = await getDocs(collection(db, 'profiles'));
-              let foundLocal = localProfilesSnap.docs.find(doc => {
-                const data = doc.data();
-                const name = data.companyName || data.name || '';
-                return isFuzzyNameMatch(name, inv.clientName);
-              });
-              if (foundLocal) {
-                const clientData = foundLocal.data();
-                phoneNum = clientData.phoneNumber || clientData.phone || '';
-              } else {
-                // Fuzzy search in superapps profiles
-                const spProfilesSnap = await getDocs(collection(superappsDb, 'profiles'));
-                let foundSp = spProfilesSnap.docs.find(doc => {
-                  const data = doc.data();
-                  const name = data.companyName || data.name || '';
-                  return isFuzzyNameMatch(name, inv.clientName);
-                });
-                if (foundSp) {
-                  const clientData = foundSp.data();
-                  phoneNum = clientData.phoneNumber || clientData.contactNumber || clientData.phone || '';
-                }
-              }
-            }
-          }
-        } catch (err) {
-          console.error('Failed to auto-fetch client phone number from Firestore:', err);
-        }
+        setWaTargetPhone('');
       }
-    }
-
-    if (phoneNum) {
-      const cleanPhone = formatPhoneForFonnte(phoneNum);
-      setWaTargetPhone(cleanPhone);
-      
-      // Auto-sync/persist back to the Invoice document in Firestore so they never have to edit again!
-      if (cleanPhone && cleanPhone !== inv.clientPhone) {
-        try {
-          await InvoiceService.updateInvoice(inv.id, { clientPhone: cleanPhone });
-          console.log('[InvoiceGenerator] Auto-synced clientPhone back to invoice:', cleanPhone);
-        } catch (err) {
-          console.warn('[InvoiceGenerator] Failed to auto-sync clientPhone to invoice:', err);
-        }
-      }
-    } else {
-      setWaTargetPhone('');
-    }
-    setWaMessage(formatInvoiceMessage(inv));
-    console.log('[WA DEBUG] handleShareWhatsApp SELESAI, waMessage ter-set');
+      setWaMessage(formatInvoiceMessage(inv));
+      console.log('[WA DEBUG] handleShareWhatsApp SELESAI, waMessage ter-set');
     } catch (err) {
       console.error('[WA DEBUG] ERROR di handleShareWhatsApp:', err);
     }
@@ -1650,6 +1571,26 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
             </div>
 
             <div className="px-4 py-4 space-y-4">
+              {/* Linked Quotation Banner (Mobile) */}
+              {(inv.quotationId || inv.quotationNumber) && (
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-sky-100 text-sky-700 rounded-lg shrink-0">
+                      <FileText size={18} />
+                    </div>
+                    <div>
+                      <span className="text-[10px] font-bold text-sky-600 uppercase tracking-wider block">Penawaran Terkait</span>
+                      <p className="font-mono font-bold text-slate-900 text-xs mt-0.5">{inv.quotationNumber || inv.quotationId}</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => handleNavigateToQuotation(inv.quotationId || inv.quotationNumber || '')}
+                    className="px-3 py-1.5 bg-sky-600 hover:bg-sky-700 text-white rounded-lg text-xs font-bold transition-all flex items-center gap-1 cursor-pointer shrink-0"
+                  >
+                    <ExternalLink size={12} /> Lihat
+                  </button>
+                </div>
+              )}
               <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
                 <div className="px-5 py-3 bg-[#f2f4f7] flex justify-between text-sm border-b border-gray-200">
                   <span className="font-medium text-[15px]">Jumlah Items</span>
@@ -1882,6 +1823,28 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
           </div>
 
           <div className="flex items-center gap-2 flex-wrap relative" ref={moreMenuRef}>
+            {/* Language Selector */}
+            <div className="inline-flex bg-slate-100 p-1 rounded-xl border border-slate-200/80 mr-1">
+              <button
+                type="button"
+                onClick={() => setDocLang('id')}
+                className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                  docLang === 'id' ? 'bg-white text-blue-600 shadow-xs' : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                ID
+              </button>
+              <button
+                type="button"
+                onClick={() => setDocLang('en')}
+                className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                  docLang === 'en' ? 'bg-white text-blue-600 shadow-xs' : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                EN
+              </button>
+            </div>
+
             <button
               onClick={() => handleShareWhatsApp(inv)}
               className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
@@ -1915,7 +1878,7 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
                     {copiedToken === inv.id ? 'Tersalin!' : 'Salin Link'}
                   </button>
                   <button
-                    onClick={() => { printInvoice(inv); setShowMoreMenu(false); }}
+                    onClick={() => { printInvoice(inv, undefined, docLang); setShowMoreMenu(false); }}
                     className="w-full text-left px-4 py-2.5 text-xs font-medium text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
                   >
                     <Printer size={14} /> Print
@@ -1939,11 +1902,32 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
           </div>
         </div>
 
+        {/* Linked Quotation Banner (Desktop) */}
+        {(inv.quotationId || inv.quotationNumber) && (
+          <div className="bg-sky-50/80 border border-sky-200/80 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs print:hidden">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-sky-600 text-white rounded-xl shadow-xs shrink-0">
+                <FileText size={18} />
+              </div>
+              <div>
+                <span className="text-[10px] font-bold text-sky-600 uppercase tracking-wider block">PENAWARAN TERKAIT</span>
+                <p className="font-mono font-bold text-slate-900 text-sm mt-0.5">{inv.quotationNumber || inv.quotationId}</p>
+              </div>
+            </div>
+            <button
+              onClick={() => handleNavigateToQuotation(inv.quotationId || inv.quotationNumber || '')}
+              className="px-3.5 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-xs whitespace-nowrap w-full sm:w-auto justify-center"
+            >
+              <ExternalLink size={14} /> Lihat Penawaran
+            </button>
+          </div>
+        )}
+
         {/* Main Content Layout (2 Columns) */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           {/* Left Column: Invoice Document Preview (8 Cols on desktop) */}
           <div className="lg:col-span-8 bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-x-auto print:border-none print:shadow-none print:p-0 print:overflow-visible">
-            <InvoicePrintTemplate invoice={inv} />
+            <InvoicePrintTemplate invoice={inv} lang={docLang} />
           </div>
 
           {/* Right Column: Payment Recording & History (4 Cols on desktop, hidden in print) */}

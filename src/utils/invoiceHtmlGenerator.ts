@@ -27,6 +27,28 @@ export function terbilang(n: number): string {
   return `# ${hasil} Rupiah #`;
 }
 
+export function numberToWordsEN(n: number): string {
+  const units = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", 
+                 "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"];
+  const tens = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
+
+  let num = Math.floor(Math.abs(n));
+  if (num === 0) return "# Zero Rupiah #";
+
+  function convert(x: number): string {
+    if (x < 20) return units[x];
+    if (x < 100) return tens[Math.floor(x / 10)] + (x % 10 ? " " + units[x % 10] : "");
+    if (x < 1000) return units[Math.floor(x / 100)] + " Hundred" + (x % 100 ? " " + convert(x % 100) : "");
+    if (x < 1000000) return convert(Math.floor(x / 1000)) + " Thousand" + (x % 1000 ? " " + convert(x % 1000) : "");
+    if (x < 1000000000) return convert(Math.floor(x / 1000000)) + " Million" + (x % 1000000 ? " " + convert(x % 1000000) : "");
+    if (x < 1000000000000) return convert(Math.floor(x / 1000000000)) + " Billion" + (x % 1000000000 ? " " + convert(x % 1000000000) : "");
+    return "";
+  }
+
+  const result = convert(num).replace(/\s+/g, ' ').trim();
+  return `# ${result} Rupiah #`;
+}
+
 export function formatDate(dateStr?: string): string {
   if (!dateStr) return '-';
   try {
@@ -74,7 +96,8 @@ export async function getQrCodeBase64(invoice: Invoice, publicUrl?: string): Pro
   return await urlToBase64(qrServerUrl);
 }
 
-export function generateInvoiceHTML(invoice: Invoice, qrBase64: string, autoPrint = false): string {
+export function generateInvoiceHTML(invoice: Invoice, qrBase64: string, autoPrint = false, lang: 'id' | 'en' = 'id'): string {
+  const isEn = lang === 'en';
   const bank = invoice.bankDetails || {
     bankName: 'BCA Cabang Dago - Bandung',
     accountNumber: 'Acc. 7770673016',
@@ -111,7 +134,7 @@ export function generateInvoiceHTML(invoice: Invoice, qrBase64: string, autoPrin
   }).join('');
 
   return `<!DOCTYPE html>
-<html lang="id">
+<html lang="${isEn ? 'en' : 'id'}">
 <head>
   <meta charset="utf-8">
   <title>Invoice ${invoice.invoiceNumber}</title>
@@ -343,15 +366,15 @@ export function generateInvoiceHTML(invoice: Invoice, qrBase64: string, autoPrin
           <div class="doc-title">INVOICE</div>
           <table class="meta-table">
             <tr>
-              <td class="meta-label">Nomor</td>
+              <td class="meta-label">${isEn ? 'Invoice No' : 'Nomor'}</td>
               <td class="meta-val">${invoice.invoiceNumber}</td>
             </tr>
             <tr>
-              <td class="meta-label">Tanggal</td>
+              <td class="meta-label">${isEn ? 'Date' : 'Tanggal'}</td>
               <td class="meta-val">${formatDate(invoice.issueDate)}</td>
             </tr>
             <tr>
-              <td class="meta-label">Jatuh Tempo</td>
+              <td class="meta-label">${isEn ? 'Due Date' : 'Jatuh Tempo'}</td>
               <td class="meta-val">${formatDate(invoice.dueDate)}</td>
             </tr>
           </table>
@@ -362,7 +385,7 @@ export function generateInvoiceHTML(invoice: Invoice, qrBase64: string, autoPrin
     <!-- Parties Grid -->
     <div class="section-grid">
       <div class="section-col">
-        <div class="section-header">Dari</div>
+        <div class="section-header">${isEn ? 'From' : 'Dari'}</div>
         <div class="party-name">Notaris/PPAT Nukantini Putri Parincha</div>
         <div class="party-detail">
           Komplek PPR ITB F5, Dago Giri, Mekarwangi, Lembang,<br />
@@ -371,7 +394,7 @@ export function generateInvoiceHTML(invoice: Invoice, qrBase64: string, autoPrin
         </div>
       </div>
       <div class="section-col">
-        <div class="section-header">Tagihan Kepada</div>
+        <div class="section-header">${isEn ? 'Bill To' : 'Tagihan Kepada'}</div>
         <div class="party-name">${invoice.clientName}</div>
         <div class="party-detail">
           ${invoice.clientAddress ? invoice.clientAddress.replace(/\n/g, '<br />') : ''}
@@ -382,8 +405,8 @@ export function generateInvoiceHTML(invoice: Invoice, qrBase64: string, autoPrin
 
     <!-- Items Table -->
     <div class="items-table-header">
-      <span>DESKRIPSI</span>
-      <span>JUMLAH</span>
+      <span>${isEn ? 'DESCRIPTION' : 'DESKRIPSI'}</span>
+      <span>${isEn ? 'AMOUNT' : 'JUMLAH'}</span>
     </div>
     <div class="items-container">
       ${itemsHtml}
@@ -394,21 +417,21 @@ export function generateInvoiceHTML(invoice: Invoice, qrBase64: string, autoPrin
       <div class="footer-left">
         <!-- Terbilang -->
         <div class="terbilang-box">
-          <div class="terbilang-title">Terbilang</div>
-          <div class="terbilang-value">${terbilang(invoice.totalAmount)}</div>
+          <div class="terbilang-title">${isEn ? 'Amount in Words' : 'Terbilang'}</div>
+          <div class="terbilang-value">${isEn ? numberToWordsEN(invoice.totalAmount) : terbilang(invoice.totalAmount)}</div>
         </div>
 
         <!-- Bank Details -->
         <div class="bank-box">
-          <div class="bank-title">PEMBAYARAN DITRANSFER KE:</div>
+          <div class="bank-title">${isEn ? 'PAYMENT TRANSFERRED TO:' : 'PEMBAYARAN DITRANSFER KE:'}</div>
           <div class="bank-item">${bank.bankName}</div>
           <div class="bank-item">${bank.accountNumber}</div>
           <div class="bank-item">${bank.accountHolder}</div>
           <div style="margin-top: 4px; color: #334155;">
-            NPWP 16 digit : <strong>${bank.npwp || '3217015610760002'}</strong>
+            ${isEn ? 'Tax ID (NPWP) 16 digits :' : 'NPWP 16 digit :'} <strong>${bank.npwp || '3217015610760002'}</strong>
           </div>
           <div style="color: #334155;">
-            SWIFT BCA : <strong>${bank.swiftCode || 'CENAIDJA'}</strong>
+            ${isEn ? 'BCA SWIFT Code :' : 'SWIFT BCA :'} <strong>${bank.swiftCode || 'CENAIDJA'}</strong>
           </div>
           ${notesText ? `<div class="notes-warn">* ${notesText}</div>` : ''}
         </div>
@@ -423,7 +446,7 @@ export function generateInvoiceHTML(invoice: Invoice, qrBase64: string, autoPrin
           </tr>
           ${invoice.taxAmount && invoice.taxAmount > 0 ? `
             <tr class="tax-row">
-              <td>Pajak (PPh 21)</td>
+              <td>${isEn ? 'Tax (PPh 21)' : 'Pajak (PPh 21)'}</td>
               <td>(${formatNum(invoice.taxAmount)})</td>
             </tr>
           ` : ''}
@@ -432,14 +455,14 @@ export function generateInvoiceHTML(invoice: Invoice, qrBase64: string, autoPrin
             <td>Rp ${formatNum(invoice.totalAmount)}</td>
           </tr>
           <tr class="due-row">
-            <td>Sisa Tagihan</td>
+            <td>${isEn ? 'Balance Due' : 'Sisa Tagihan'}</td>
             <td>${formatNum(invoice.balanceDue ?? invoice.totalAmount)}</td>
           </tr>
         </table>
 
         <!-- Signature & QR -->
         <div class="signature-container">
-          <div style="font-weight: 600; color: #1e293b; font-size: 12px;">Hormat Kami,</div>
+          <div style="font-weight: 600; color: #1e293b; font-size: 12px;">${isEn ? 'Sincerely,' : 'Hormat Kami,'}</div>
           ${qrBase64 ? `<img src="${qrBase64}" alt="QR" class="qr-img" />` : '<div style="height: 100px;"></div>'}
           <div style="font-weight: 800; font-size: 10px; color: #0f172a; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 4px;">
             NOTARIS/PPAT NUKANTINI PUTRI PARINCHA
@@ -452,9 +475,9 @@ export function generateInvoiceHTML(invoice: Invoice, qrBase64: string, autoPrin
 </html>`;
 }
 
-export async function printInvoice(invoice: Invoice, publicUrl?: string) {
+export async function printInvoice(invoice: Invoice, publicUrl?: string, lang: 'id' | 'en' = 'id') {
   const qrBase64 = await getQrCodeBase64(invoice, publicUrl);
-  const html = generateInvoiceHTML(invoice, qrBase64, true);
+  const html = generateInvoiceHTML(invoice, qrBase64, true, lang);
 
   const win = window.open('', '_blank');
   if (win) {
@@ -466,7 +489,8 @@ export async function printInvoice(invoice: Invoice, publicUrl?: string) {
   }
 }
 
-export async function downloadInvoicePdf(invoice: Invoice, publicUrl?: string) {
+export async function downloadInvoicePdf(invoice: Invoice, publicUrl?: string, lang: 'id' | 'en' = 'id') {
+  const isEn = lang === 'en';
   const qrBase64 = await getQrCodeBase64(invoice, publicUrl);
   const filename = `Invoice_${invoice.invoiceNumber.replace(/[\/\\]/g, '_')}.pdf`;
 
@@ -494,17 +518,17 @@ export async function downloadInvoicePdf(invoice: Invoice, publicUrl?: string) {
   doc.setTextColor(30, 41, 59); // Slate-800
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8.5);
-  doc.text('Nomor :', 155, 27, { align: 'right' });
+  doc.text(`${isEn ? 'Invoice No' : 'Nomor'} :`, 155, 27, { align: 'right' });
   doc.setFont('helvetica', 'bold');
   doc.text(invoice.invoiceNumber, 195, 27, { align: 'right' });
 
   doc.setFont('helvetica', 'normal');
-  doc.text('Tanggal :', 155, 31, { align: 'right' });
+  doc.text(`${isEn ? 'Date' : 'Tanggal'} :`, 155, 31, { align: 'right' });
   doc.setFont('helvetica', 'bold');
   doc.text(formatDate(invoice.issueDate), 195, 31, { align: 'right' });
 
   doc.setFont('helvetica', 'normal');
-  doc.text('Jatuh Tempo :', 155, 35, { align: 'right' });
+  doc.text(`${isEn ? 'Due Date' : 'Jatuh Tempo'} :`, 155, 35, { align: 'right' });
   doc.setFont('helvetica', 'bold');
   doc.text(formatDate(invoice.dueDate), 195, 35, { align: 'right' });
 
@@ -520,7 +544,7 @@ export async function downloadInvoicePdf(invoice: Invoice, publicUrl?: string) {
   doc.setTextColor(15, 23, 42); // slate-900
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(9);
-  doc.text('DARI', 15, partyY);
+  doc.text(isEn ? 'FROM' : 'DARI', 15, partyY);
   doc.setDrawColor(15, 23, 42);
   doc.setLineWidth(0.5);
   doc.line(15, partyY + 2, 100, partyY + 2);
@@ -541,7 +565,7 @@ export async function downloadInvoicePdf(invoice: Invoice, publicUrl?: string) {
   doc.setTextColor(15, 23, 42); // slate-900
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(9);
-  doc.text('TAGIHAN KEPADA', 110, partyY);
+  doc.text(isEn ? 'BILL TO' : 'TAGIHAN KEPADA', 110, partyY);
   doc.setDrawColor(15, 23, 42);
   doc.setLineWidth(0.5);
   doc.line(110, partyY + 2, 195, partyY + 2);
@@ -566,7 +590,7 @@ export async function downloadInvoicePdf(invoice: Invoice, publicUrl?: string) {
   const tableStartY = Math.max(partyY + 11 + (fromAddress.length * 4) + 6, toPhoneY + 6);
 
   // --- 3. ITEMS TABLE ---
-  const tableHeaders = [['DESKRIPSI', 'JUMLAH']];
+  const tableHeaders = [[isEn ? 'DESCRIPTION' : 'DESKRIPSI', isEn ? 'AMOUNT' : 'JUMLAH']];
   const tableBody = (invoice.items || []).map((it) => {
     const lines = (it.description || '').split('\n');
     const formattedDesc = lines.map(line => {
@@ -645,12 +669,12 @@ export async function downloadInvoicePdf(invoice: Invoice, publicUrl?: string) {
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7.5);
   doc.setTextColor(100, 116, 139); // #64748b
-  doc.text('Terbilang', 19, currentY + 5);
+  doc.text(isEn ? 'Amount in Words' : 'Terbilang', 19, currentY + 5);
 
   doc.setFont('helvetica', 'bolditalic');
   doc.setFontSize(8.5);
   doc.setTextColor(15, 23, 42); // #0f172a
-  const terbilangStr = terbilang(invoice.totalAmount);
+  const terbilangStr = isEn ? numberToWordsEN(invoice.totalAmount) : terbilang(invoice.totalAmount);
   const terbilangLines = doc.splitTextToSize(terbilangStr, 87);
   doc.text(terbilangLines, 19, currentY + 9);
 
@@ -666,7 +690,7 @@ export async function downloadInvoicePdf(invoice: Invoice, publicUrl?: string) {
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(8);
   doc.setTextColor(30, 41, 59); // #1e293b
-  doc.text('PEMBAYARAN DITRANSFER KE:', 19, bankY + 5);
+  doc.text(isEn ? 'PAYMENT TRANSFERRED TO:' : 'PEMBAYARAN DITRANSFER KE:', 19, bankY + 5);
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(8.5);
@@ -678,12 +702,12 @@ export async function downloadInvoicePdf(invoice: Invoice, publicUrl?: string) {
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
   doc.setTextColor(51, 65, 85); // #334155
-  doc.text('NPWP 16 digit :', 19, bankY + 23);
+  doc.text(isEn ? 'Tax ID (NPWP) 16 digits :' : 'NPWP 16 digit :', 19, bankY + 23);
   doc.setFont('helvetica', 'bold');
   doc.text(bank.npwp || '3217015610760002', 43, bankY + 23);
 
   doc.setFont('helvetica', 'normal');
-  doc.text('SWIFT BCA :', 19, bankY + 27);
+  doc.text(isEn ? 'BCA SWIFT Code :' : 'SWIFT BCA :', 19, bankY + 27);
   doc.setFont('helvetica', 'bold');
   doc.text(bank.swiftCode || 'CENAIDJA', 43, bankY + 27);
 
@@ -711,7 +735,7 @@ export async function downloadInvoicePdf(invoice: Invoice, publicUrl?: string) {
     rightY += 6;
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(220, 38, 38);
-    doc.text('Pajak (PPh 21)', 155, rightY, { align: 'right' });
+    doc.text(isEn ? 'Tax (PPh 21)' : 'Pajak (PPh 21)', 155, rightY, { align: 'right' });
     doc.setFont('helvetica', 'bold');
     doc.text(`(${formatNum(invoice.taxAmount)})`, 195, rightY, { align: 'right' });
   }
@@ -735,7 +759,7 @@ export async function downloadInvoicePdf(invoice: Invoice, publicUrl?: string) {
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(10.5);
   doc.setTextColor(220, 38, 38);
-  doc.text('Sisa Tagihan', 155, rightY, { align: 'right' });
+  doc.text(isEn ? 'Balance Due' : 'Sisa Tagihan', 155, rightY, { align: 'right' });
   doc.text(formatNum(invoice.balanceDue ?? invoice.totalAmount), 195, rightY, { align: 'right' });
 
   // Signature Section
@@ -743,7 +767,7 @@ export async function downloadInvoicePdf(invoice: Invoice, publicUrl?: string) {
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8.5);
   doc.setTextColor(30, 41, 59);
-  doc.text('Hormat Kami,', 157, sigY, { align: 'center' });
+  doc.text(isEn ? 'Sincerely,' : 'Hormat Kami,', 157, sigY, { align: 'center' });
 
   if (qrBase64) {
     doc.addImage(qrBase64, 'PNG', 143, sigY + 3, 28, 28);
