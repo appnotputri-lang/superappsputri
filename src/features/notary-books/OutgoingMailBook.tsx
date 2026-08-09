@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { PageHeader } from '../../components/ui/PageLayout';
 import { OutgoingMail } from '../../../types';
 import { NotaryService } from '../../services/NotaryService';
 import { isRecordLocked, getLockDeadlineMessage } from '../../utils/lockUtils';
@@ -211,25 +212,19 @@ export const OutgoingMailBook: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Top Header */}
-      <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-            <Send className="text-cyan-600" size={24} />
-            Buku Surat Keluar
-          </h1>
-          <p className="text-xs text-slate-500 mt-1">
-            Pencatatan korespondensi resmi surat keluar dari kantor Notaris / PPAT.
-          </p>
-        </div>
-
-        <button
-          onClick={() => handleOpenModal()}
-          className="px-4 py-2 text-xs font-semibold text-white bg-cyan-600 hover:bg-cyan-700 rounded-lg shadow-sm transition flex items-center gap-1.5 self-start md:self-auto"
-        >
-          <Plus size={16} />
-          Catat Surat Keluar
-        </button>
-      </div>
+      <PageHeader
+        title="Buku Surat Keluar"
+        description="Pencatatan korespondensi resmi surat keluar dari kantor Notaris / PPAT."
+        actions={
+          <button
+            onClick={() => handleOpenModal()}
+            className="px-4 py-2 text-xs font-semibold text-white bg-cyan-600 hover:bg-cyan-700 rounded-lg shadow-sm transition flex items-center gap-1.5 self-start md:self-auto"
+          >
+            <Plus size={16} />
+            Catat Surat Keluar
+          </button>
+        }
+      />
 
       {/* Filter & Search Bar */}
       <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3">

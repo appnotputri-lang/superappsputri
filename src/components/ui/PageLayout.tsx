@@ -29,27 +29,18 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
   className = '',
 }) => {
   return (
-    <div className={`bg-white rounded-xl border border-slate-200/80 p-5 sm:p-6 shadow-sm ${className}`}>
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-start sm:items-center gap-3.5">
-          {icon && (
-            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-lg bg-[#0c2444] text-white flex items-center justify-center shrink-0 shadow-sm">
-              {icon}
-            </div>
-          )}
-          <div>
-            <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">{title}</h1>
-            {description && (
-              <p className="text-xs sm:text-sm text-slate-500 mt-0.5 leading-relaxed">{description}</p>
-            )}
-          </div>
-        </div>
-        {actions && (
-          <div className="flex items-center gap-2 sm:self-center shrink-0">
-            {actions}
-          </div>
+    <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${className}`}>
+      <div>
+        <h1 className="text-xl font-bold text-slate-900 tracking-tight leading-normal">{title}</h1>
+        {description && (
+          <p className="text-xs sm:text-sm text-slate-500 mt-1 leading-relaxed">{description}</p>
         )}
       </div>
+      {actions && (
+        <div className="flex items-center gap-2 sm:self-center shrink-0 w-full sm:w-auto mt-2 sm:mt-0">
+          {actions}
+        </div>
+      )}
     </div>
   );
 };

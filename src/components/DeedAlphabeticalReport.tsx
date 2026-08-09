@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useRef } from 'react';
+import { PageHeader } from './ui/PageLayout';
 import { Deed, DeedAppearer, DeedGrantor } from '../types';
 import { printElement } from '../utils/printHelper';
 import { exportDeedAlphabeticalReportToPdf } from '../utils/notaryPdfExport';
@@ -764,66 +765,58 @@ export const DeedAlphabeticalReport: React.FC<DeedAlphabeticalReportProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* Action Header Controls (Print / Export / Back) */}
-      <div className="bg-white p-4 md:p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4 print:hidden">
-        <div className="flex items-center gap-3 w-full md:w-auto">
-          {onBack && (
+      <PageHeader
+        title="Daftar Klapper Akta (A - Z)"
+        description="Format resmi Salinan Daftar Klapper Akta Notaris sesuai standar Jabatan Notaris."
+        actions={
+          <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto justify-end">
+            {onBack && (
+              <button
+                onClick={onBack}
+                className="px-3.5 py-2 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-300 rounded-lg transition flex items-center gap-1.5 cursor-pointer shadow-sm"
+                title="Kembali"
+              >
+                <ArrowLeft size={16} />
+                Kembali
+              </button>
+            )}
             <button
-              onClick={onBack}
-              className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
-              title="Kembali"
+              onClick={handleDownloadPDF}
+              disabled={isExportingPDF}
+              className="px-3.5 py-2 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-300 rounded-lg transition flex items-center gap-1.5 disabled:opacity-50 cursor-pointer shadow-sm"
             >
-              <ArrowLeft size={20} />
+              {isExportingPDF ? <Loader2 size={16} className="animate-spin text-blue-600" /> : <Download size={16} />}
+              {isExportingPDF ? 'Membuat PDF...' : 'Export PDF'}
             </button>
-          )}
-          <div>
-            <h1 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-              <ListOrdered className="text-blue-600" size={22} />
-              Daftar Klapper Akta (A - Z)
-            </h1>
-            <p className="text-xs text-slate-500">
-              Format resmi Salinan Daftar Klapper Akta Notaris sesuai standar Jabatan Notaris.
-            </p>
+
+            <button
+              onClick={handleSaveDrive}
+              disabled={isSavingDrive}
+              className="px-3.5 py-2 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-sm transition flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+            >
+              {isSavingDrive ? <Loader2 size={16} className="animate-spin" /> : <span>📁</span>}
+              {isSavingDrive ? (driveProgress || 'Menyimpan...') : 'Simpan ke Drive'}
+            </button>
+
+            <button
+              onClick={handleShare}
+              className="px-3.5 py-2 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-lg transition flex items-center gap-1.5 cursor-pointer"
+              title="Bagikan Tautan Laporan"
+            >
+              {copiedShare ? <Check size={16} className="text-green-600" /> : <Share2 size={16} />}
+              {copiedShare ? 'Tautan Disalin!' : 'Bagikan'}
+            </button>
+
+            <button
+              onClick={handlePrint}
+              className="px-4 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm transition flex items-center gap-1.5 cursor-pointer"
+            >
+              <Printer size={16} />
+              Cetak Klapper
+            </button>
           </div>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto justify-end">
-          <button
-            onClick={handleDownloadPDF}
-            disabled={isExportingPDF}
-            className="px-3.5 py-2 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-300 rounded-lg transition flex items-center gap-1.5 disabled:opacity-50 cursor-pointer shadow-sm"
-          >
-            {isExportingPDF ? <Loader2 size={16} className="animate-spin text-blue-600" /> : <Download size={16} />}
-            {isExportingPDF ? 'Membuat PDF...' : 'Export PDF'}
-          </button>
-
-          <button
-            onClick={handleSaveDrive}
-            disabled={isSavingDrive}
-            className="px-3.5 py-2 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-sm transition flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
-          >
-            {isSavingDrive ? <Loader2 size={16} className="animate-spin" /> : <span>📁</span>}
-            {isSavingDrive ? (driveProgress || 'Menyimpan...') : 'Simpan Google Drive'}
-          </button>
-
-          <button
-            onClick={handleShare}
-            className="px-3.5 py-2 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-lg transition flex items-center gap-1.5 cursor-pointer"
-            title="Bagikan Tautan Laporan"
-          >
-            {copiedShare ? <Check size={16} className="text-green-600" /> : <Share2 size={16} />}
-            {copiedShare ? 'Tautan Disalin!' : 'Bagikan'}
-          </button>
-
-          <button
-            onClick={handlePrint}
-            className="px-4 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm transition flex items-center gap-1.5 cursor-pointer"
-          >
-            <Printer size={16} />
-            Cetak Klapper
-          </button>
-        </div>
-      </div>
+        }
+      />
 
       {driveResult && (
         <div className={`p-3.5 rounded-xl border flex items-center justify-between text-xs font-medium ${

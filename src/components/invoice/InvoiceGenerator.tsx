@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { PageHeader } from "../ui/PageLayout";
 import { Invoice, InvoiceItem, PaymentRecord } from '../../../types';
 import { InvoiceService } from '../../services/InvoiceService';
 import { CompanyService } from '../../services/CompanyService';
@@ -1310,22 +1311,21 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
         {/* ===== DESKTOP LIST (existing, md+) ===== */}
         <div className="hidden md:block p-4 md:p-6 max-w-7xl mx-auto space-y-6">
           {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-xl font-bold text-slate-900">Invoice Penagihan</h1>
-            <p className="text-xs text-slate-500 mt-0.5">Kelola dan lihat rincian tagihan klien</p>
-          </div>
+          <PageHeader
+            title="Invoice"
+            description="Kelola dan lihat rincian tagihan klien"
+            actions={
+              <button
+                onClick={openCreatePage}
+                className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold text-xs flex items-center gap-2 transition-all shadow-sm cursor-pointer self-start sm:self-auto"
+              >
+                <Plus size={16} />
+                Buat Invoice
+              </button>
+            }
+          />
 
-          <button
-            onClick={openCreatePage}
-            className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold text-xs flex items-center gap-2 transition-all shadow-sm cursor-pointer self-start sm:self-auto"
-          >
-            <Plus size={16} />
-            Buat Invoice
-          </button>
-        </div>
-
-        {/* Search & Filter Bar */}
+          {/* Search & Filter Bar */}
         <div className="bg-white p-3 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="relative flex-1 w-full">
             <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />

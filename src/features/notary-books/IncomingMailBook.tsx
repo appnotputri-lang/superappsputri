@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { PageHeader } from '../../components/ui/PageLayout';
 import { IncomingMail } from '../../../types';
 import { NotaryService } from '../../services/NotaryService';
 import { isRecordLocked, getLockDeadlineMessage } from '../../utils/lockUtils';
@@ -161,25 +162,19 @@ export const IncomingMailBook: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Top Header */}
-      <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-            <Inbox className="text-teal-600" size={24} />
-            Buku Surat Masuk
-          </h1>
-          <p className="text-xs text-slate-500 mt-1">
-            Pencatatan korespondensi resmi surat masuk ke kantor Notaris / PPAT.
-          </p>
-        </div>
-
-        <button
-          onClick={() => handleOpenModal()}
-          className="px-4 py-2 text-xs font-semibold text-white bg-teal-600 hover:bg-teal-700 rounded-lg shadow-sm transition flex items-center gap-1.5 self-start md:self-auto"
-        >
-          <Plus size={16} />
-          Catat Surat Masuk
-        </button>
-      </div>
+      <PageHeader
+        title="Buku Surat Masuk"
+        description="Pencatatan korespondensi resmi surat masuk ke kantor Notaris / PPAT."
+        actions={
+          <button
+            onClick={() => handleOpenModal()}
+            className="px-4 py-2 text-xs font-semibold text-white bg-teal-600 hover:bg-teal-700 rounded-lg shadow-sm transition flex items-center gap-1.5 self-start md:self-auto"
+          >
+            <Plus size={16} />
+            Catat Surat Masuk
+          </button>
+        }
+      />
 
       {/* Filter & Search Bar */}
       <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3">

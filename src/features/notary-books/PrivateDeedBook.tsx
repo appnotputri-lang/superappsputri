@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { PageHeader } from '../../components/ui/PageLayout';
 import { PrivateDeed } from '../../../types';
 import { NotaryService } from '../../services/NotaryService';
 import { isRecordLocked, getLockDeadlineMessage } from '../../utils/lockUtils';
@@ -220,25 +221,19 @@ export const PrivateDeedBook: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Top Header */}
-      <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-            <ShieldCheck className="text-indigo-600" size={24} />
-            Buku Legalisasi & Waarmerking
-          </h1>
-          <p className="text-xs text-slate-500 mt-1">
-            Pencatatan surat di bawah tangan yang dilegalisasi atau didaftarkan (waarmerking).
-          </p>
-        </div>
-
-        <button
-          onClick={() => handleOpenModal()}
-          className="px-4 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-sm transition flex items-center gap-1.5 self-start md:self-auto"
-        >
-          <Plus size={16} />
-          Catat Legalisasi / Waarmerking
-        </button>
-      </div>
+      <PageHeader
+        title="Buku Legalisasi & Waarmerking"
+        description="Pencatatan surat di bawah tangan yang dilegalisasi atau didaftarkan (waarmerking)."
+        actions={
+          <button
+            onClick={() => handleOpenModal()}
+            className="px-4 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-sm transition flex items-center gap-1.5 self-start md:self-auto"
+          >
+            <Plus size={16} />
+            Catat Legalisasi / Waarmerking
+          </button>
+        }
+      />
 
       {/* Filter & Search Bar */}
       <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3">

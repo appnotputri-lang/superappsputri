@@ -3,7 +3,7 @@ import { Quotation } from '../types';
 import { db } from '../lib/firebase';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 
-function generateShortPublicToken(length = 10): string {
+export function generateShortPublicToken(length = 10): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789'; // avoid confusing characters (0/O, 1/l/I)
   const array = new Uint8Array(length);
   crypto.getRandomValues(array);

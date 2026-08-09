@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { PageHeader } from "../ui/PageLayout";
 import { Quotation, InvoiceItem, Invoice } from '../../../types';
 import { QuotationService } from '../../services/QuotationService';
 import { InvoiceService } from '../../services/InvoiceService';
@@ -1018,19 +1019,19 @@ Notaris/PPAT Nukantini Putri Parincha, SH., M.Kn`;
       {viewMode === 'list' && (
         <>
           {/* Header */}
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <div>
-              <h1 className="text-xl font-bold text-slate-900">Surat Penawaran Harga</h1>
-              <p className="text-xs text-slate-500 mt-0.5">Kelola dan lihat rincian penawaran harga kepada klien</p>
-            </div>
-            <button
-              onClick={openCreatePage}
-              className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold text-xs flex items-center gap-2 transition-all shadow-sm cursor-pointer self-start sm:self-auto"
-            >
-              <Plus size={16} />
-              Buat Penawaran
-            </button>
-          </div>
+          <PageHeader
+            title="Penawaran"
+            description="Kelola penawaran layanan dan biaya kepada klien."
+            actions={
+              <button
+                onClick={openCreatePage}
+                className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold text-xs flex items-center gap-2 transition-all shadow-sm cursor-pointer self-start sm:self-auto"
+              >
+                <Plus size={16} />
+                Buat Penawaran
+              </button>
+            }
+          />
 
           {/* Search & Filter Bar */}
           <div className="bg-white p-3 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3">

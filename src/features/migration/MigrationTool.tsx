@@ -3,11 +3,12 @@ import { Database, Upload } from 'lucide-react';
 import { PageContainer, PageHeader } from '../../components/ui/PageLayout';
 import { db } from '../../lib/firebase';
 import { collection, getDocs, doc, writeBatch } from 'firebase/firestore';
+import { generateShortPublicToken } from '../../services/QuotationService';
 
 export default function MigrationTool() {
   const [logs, setLogs] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
-  const [importFiles, setImportFiles] = useState<{ deeds?: any[]; private_deeds?: any[]; outgoing_mails?: any[]; invoices?: any[]; documents?: any[] }>({});
+  const [importFiles, setImportFiles] = useState<{ deeds?: any[]; private_deeds?: any[]; outgoing_mails?: any[]; invoices?: any[]; documents?: any[]; quotations?: any[] }>({});
 
   const addLog = (msg: string) => {
     setLogs(prev => [...prev, msg]);
@@ -399,7 +400,7 @@ export default function MigrationTool() {
   // yang sama seperti aslinya supaya aman dijalankan ulang tanpa duplikat.
   // ============================================================================
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, key: 'deeds' | 'private_deeds' | 'outgoing_mails' | 'invoices' | 'documents') => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, key: 'deeds' | 'private_deeds' | 'outgoing_mails' | 'invoices' | 'documents' | 'quotations') => {
     const file = e.target.files?.[0];
     if (!file) return;
     try {
@@ -771,6 +772,102 @@ export default function MigrationTool() {
     }
   };
 
+  const runQuotationJsonImport = async (isDryRun: boolean) => {
+    setLoading(true);
+    setLogs([]);
+    addLog(`=== STARTING QUOTATION IMPORT (${isDryRun ? 'DRY RUN' : 'EXECUTE'}) ===`);
+
+    try {
+      if (!importFiles.quotations || importFiles.quotations.length === 0) {
+        addLog('Upload export_quotations.json dulu.');
+        return;
+      }
+
+      // Ambil semua profil klien sekali untuk pencocokan nama
+      const [profilesSnap, cvSnap] = await Promise.all([
+        getDocs(collection(db, 'profiles')),
+        getDocs(collection(db, 'cv_profiles')),
+      ]);
+      const normalize = (s: string) => (s || '').toUpperCase().trim().replace(/\s+/g, ' ');
+      const profileIndex = new Map<string, any>(); // normalizedName -> profile data
+      profilesSnap.docs.forEach((d) => {
+        const name = d.data().companyName || d.data().name || '';
+        if (name) profileIndex.set(normalize(name), { id: d.id, ...d.data() });
+      });
+      cvSnap.docs.forEach((d) => {
+        const name = d.data().companyName || d.data().name || '';
+        if (name) profileIndex.set(normalize(name), { id: d.id, ...d.data() });
+      });
+
+      const unmatchedClients = new Set<string>();
+      let batch = writeBatch(db);
+      let count = 0;
+      let imported = 0;
+
+      for (const raw of importFiles.quotations) {
+        const normalizedName = normalize(raw.clientName);
+        const matchedProfile = profileIndex.get(normalizedName);
+        if (!matchedProfile && raw.clientName) unmatchedClients.add(raw.clientName);
+
+        const createdAtIso = typeof raw.createdAt === 'number' 
+          ? new Date(raw.createdAt).toISOString() 
+          : (raw.createdAt || new Date().toISOString());
+
+        const items = raw.items || [];
+        const subtotal = items.reduce((sum: number, it: any) => sum + (it.amount || 0), 0);
+        const totalAmount = raw.totalAmount || 0;
+        const taxAmount = Math.max(0, totalAmount - subtotal);
+        const publicToken = generateShortPublicToken();
+
+        const newData: any = {
+          id: raw.id,
+          quotationNumber: raw.quotationNumber || '',
+          date: raw.date || '',
+          validUntil: raw.validUntil || '',
+          clientId: matchedProfile?.id || raw.clientId || undefined,
+          clientName: raw.clientName || '',
+          clientAddress: raw.clientAddress || '',
+          clientPhone: matchedProfile?.phone || matchedProfile?.picPhone || undefined,
+          clientEmail: matchedProfile?.email || undefined,
+          clientSource: matchedProfile ? 'superapps' : 'local',
+          items: items,
+          subtotal,
+          taxAmount,
+          totalAmount,
+          status: raw.status || 'DRAFT',
+          notes: raw.notes || '',
+          jobTitle: raw.jobTitle || '',
+          publicToken,
+          createdAt: createdAtIso,
+          updatedAt: createdAtIso,
+        };
+
+        if (isDryRun) {
+          if (imported < 3) {
+            addLog(`[DRY RUN] quotations/${raw.id}: ${newData.quotationNumber} - ${newData.clientName} (${matchedProfile ? 'klien cocok' : 'klien TIDAK cocok'}) - Total Rp${totalAmount.toLocaleString('id-ID')}`);
+          }
+        } else {
+          batch.set(doc(db, 'quotations', raw.id), newData);
+          count++;
+          if (count % 400 === 0) { await batch.commit(); batch = writeBatch(db); }
+        }
+        imported++;
+      }
+      if (!isDryRun) await batch.commit();
+
+      addLog(`\n${isDryRun ? '[DRY RUN] ' : ''}Imported ${imported} quotation(s).`);
+      if (unmatchedClients.size > 0) {
+        addLog(`\n=== Klien TIDAK ditemukan di daftar Klien superappsputri (${unmatchedClients.size}) ===`);
+        addLog('Penawaran-penawaran ini tetap terimpor dengan nama klien apa adanya (clientSource: local), hanya belum terhubung ke profil:');
+        Array.from(unmatchedClients).forEach((name) => addLog(`  - ${name}`));
+      }
+    } catch (err: any) {
+      addLog(`ERROR: ${err.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <PageContainer>
       <PageHeader
@@ -841,12 +938,12 @@ export default function MigrationTool() {
             dipertahankan sama seperti aslinya, jadi tidak akan dobel kalau diupload lagi.
           </p>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
-          {(['deeds', 'private_deeds', 'outgoing_mails', 'invoices', 'documents'] as const).map((key) => (
+        <div className="grid grid-cols-2 sm:grid-cols-6 gap-4">
+          {(['deeds', 'private_deeds', 'outgoing_mails', 'invoices', 'documents', 'quotations'] as const).map((key) => (
             <label key={key} className="flex flex-col items-center justify-center gap-2 border-2 border-dashed border-slate-300 rounded-lg p-4 text-center cursor-pointer hover:bg-slate-50 transition-all">
               <Upload size={18} className="text-slate-400" />
               <span className="text-xs font-semibold text-slate-700">
-                {key === 'deeds' ? 'export_deeds.json' : key === 'private_deeds' ? 'export_private_deeds.json' : key === 'outgoing_mails' ? 'export_outgoing_mails.json' : key === 'invoices' ? 'export_invoices.json' : 'export_documents.json'}
+                {key === 'deeds' ? 'export_deeds.json' : key === 'private_deeds' ? 'export_private_deeds.json' : key === 'outgoing_mails' ? 'export_outgoing_mails.json' : key === 'invoices' ? 'export_invoices.json' : key === 'documents' ? 'export_documents.json' : 'export_quotations.json'}
               </span>
               <span className="text-[11px] text-slate-500">
                 {importFiles[key] ? `${importFiles[key]!.length} dokumen dimuat` : 'Klik untuk upload'}
@@ -903,6 +1000,23 @@ export default function MigrationTool() {
             className="px-4 py-2 bg-[#0c2444] text-white rounded-lg hover:bg-[#16365f] text-xs font-bold transition-all cursor-pointer"
           >
             Execute Import (Documents)
+          </button>
+
+          <div className="w-px bg-slate-200 self-stretch my-1 hidden sm:block" />
+
+          <button
+            onClick={() => runQuotationJsonImport(true)}
+            disabled={loading}
+            className="px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50 text-xs font-bold transition-all cursor-pointer"
+          >
+            Run Dry Run (Import Quotations)
+          </button>
+          <button
+            onClick={() => runQuotationJsonImport(false)}
+            disabled={loading}
+            className="px-4 py-2 bg-[#0c2444] text-white rounded-lg hover:bg-[#16365f] text-xs font-bold transition-all cursor-pointer"
+          >
+            Execute Import (Quotations)
           </button>
         </div>
       </div>

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { PageHeader } from "../ui/PageLayout";
 import { 
   Package, FileCheck, Plus, Search, Filter, Calendar, User, 
   MapPin, Phone, Truck, FileText, Send, Printer, Download, 
@@ -496,45 +497,37 @@ export const GeneralDocumentGenerator: React.FC<GeneralDocumentGeneratorProps> =
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 pb-16">
       {/* HEADER BAR */}
-      <div className="bg-white border-b border-slate-200 sticky top-0 z-20 shadow-xs">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className={`p-2.5 rounded-xl border ${config.badgeColor}`}>
-                <config.badgeIcon size={24} />
-              </div>
-              <div>
-                <h1 className="text-xl font-bold text-slate-900 tracking-tight">{config.title}</h1>
-                <p className="text-xs text-slate-500 font-medium">
-                  {isDelivery ? 'Kelola pengiriman dokumen & berkas ke klien/pihak ketiga' : 'Kelola bukti tanda terima penyerahan berkas masuk'}
-                </p>
-              </div>
-            </div>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-2">
+        <PageHeader
+          title={config.title}
+          description={isDelivery ? 'Kelola pengiriman dokumen & berkas ke klien/pihak ketiga' : 'Kelola bukti tanda terima penyerahan berkas masuk'}
+          actions={
+            <>
+              {viewMode === 'list' && (
+                <button
+                  onClick={handleOpenCreateForm}
+                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-xs transition-all shadow-sm cursor-pointer self-start sm:self-auto ${config.primaryBtnColor}`}
+                >
+                  <Plus size={16} />
+                  <span>Buat {config.title}</span>
+                </button>
+              )}
 
-            {viewMode === 'list' && (
-              <button
-                onClick={handleOpenCreateForm}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm transition-all shadow-xs cursor-pointer ${config.primaryBtnColor}`}
-              >
-                <Plus size={18} />
-                <span>Buat {config.title} Baru</span>
-              </button>
-            )}
-
-            {viewMode !== 'list' && (
-              <button
-                onClick={() => setViewMode('list')}
-                className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs transition-all cursor-pointer"
-              >
-                <ArrowLeft size={16} />
-                <span>Kembali ke Daftar</span>
-              </button>
-            )}
-          </div>
-        </div>
+              {viewMode !== 'list' && (
+                <button
+                  onClick={() => setViewMode('list')}
+                  className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold text-xs transition-all cursor-pointer self-start sm:self-auto"
+                >
+                  <ArrowLeft size={16} />
+                  <span>Kembali ke Daftar</span>
+                </button>
+              )}
+            </>
+          }
+        />
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
         {/* ================= LIST VIEW ================= */}
         {viewMode === 'list' && (
           <div className="space-y-6">
