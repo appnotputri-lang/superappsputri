@@ -81,9 +81,14 @@ export const AppRoutes: React.FC<AppRoutesProps> = (props) => {
   const isPossibleTokenRoute = isSingleSegmentPath && !isReservedPath(location.pathname);
   const isLegacyInvRoute = /^\/inv\/[A-Za-z0-9_-]+\/?$/i.test(location.pathname);
   const isPublicQuotation = /^\/q\/[A-Za-z0-9_-]+\/?$/i.test(location.pathname);
+  const isPublicDoc = /^\/doc\/[A-Za-z0-9_-]+\/?$/i.test(location.pathname);
 
   if (isPublicQuotation) {
     return renderAppRoute('quotation', { ...props, isPublic: true });
+  }
+
+  if (isPublicDoc) {
+    return renderAppRoute('delivery', { ...props, isPublic: true });
   }
 
   const isPublicInvoice =

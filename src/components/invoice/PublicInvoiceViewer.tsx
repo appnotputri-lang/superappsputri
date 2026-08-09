@@ -185,7 +185,7 @@ export const PublicInvoiceViewer: React.FC = () => {
               <div className={`px-6 py-2 rounded-full border-2 text-sm font-bold uppercase tracking-wider ${
                 invoice.status === 'PAID' ? 'border-green-500 text-green-600 bg-green-50' : 'border-red-500 text-red-600 bg-red-50'
               }`}>
-                {invoice.status === 'PAID' ? 'LUNAS (PAID)' : 'BELUM LUNAS (UNPAID)'}
+                {invoice.status === 'PAID' ? 'LUNAS' : 'BELUM LUNAS'}
               </div>
             </div>
 

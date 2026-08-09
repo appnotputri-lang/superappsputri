@@ -693,7 +693,40 @@ export interface IncomingMail {
   updatedAt?: string;
 }
 
-export type SidebarTabId = 'beranda' | 'company_profile' | 'cv_profile' | 'notulen' | 'pendirian' | 'rupst' | 'perbaikan' | 'draft_akta_rups' | 'panduan' | 'kbli_mapping' | 'saran_kbli' | 'import_kbli' | 'laporan' | 'whatsapp_settings' | 'projects' | 'project_detail' | 'user_management' | 'notary_reports' | 'invoice' | 'quotation' | 'deeds' | 'private_deeds' | 'protest_cheque' | 'outgoing_mail' | 'incoming_mail' | 'stamp_settings';
+// ==========================================
+// GENERAL DOCUMENTS (SURAT JALAN & TANDA TERIMA) TYPES
+// ==========================================
+
+export type GeneralDocType = 'RECEIPT' | 'DELIVERY';
+
+export interface GeneralDocumentItem {
+  description: string;
+  type: 'Asli' | 'Copy';
+}
+
+export interface GeneralDocumentData {
+  id: string;
+  docType: GeneralDocType;
+  referenceNo: string;
+  date: string;
+  clientId: string;
+  clientName: string;
+  clientSource?: 'local' | 'superapps';
+  clientPic?: string;
+  clientAddress?: string;
+  clientContact?: string;
+  items: GeneralDocumentItem[];
+  officerName: string;
+  destination?: string;
+  deliveryMethod?: string;
+  trackingNumber?: string;
+  notes?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  publicToken?: string;
+}
+
+export type SidebarTabId = 'beranda' | 'company_profile' | 'cv_profile' | 'notulen' | 'pendirian' | 'rupst' | 'perbaikan' | 'draft_akta_rups' | 'panduan' | 'kbli_mapping' | 'saran_kbli' | 'import_kbli' | 'laporan' | 'whatsapp_settings' | 'projects' | 'project_detail' | 'user_management' | 'notary_reports' | 'invoice' | 'quotation' | 'deeds' | 'private_deeds' | 'protest_cheque' | 'outgoing_mail' | 'incoming_mail' | 'stamp_settings' | 'delivery' | 'receipt';
 
 // ==========================================
 // PENDIRIAN CV (PERSEKUTUAN KOMANDITER) TYPES

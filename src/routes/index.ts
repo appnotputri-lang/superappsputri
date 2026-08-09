@@ -11,8 +11,13 @@ import { renderNotaryReportRoute } from './notaryReport.routes';
 import { renderInvoiceRoute } from './invoice.routes';
 import { renderQuotationRoute } from './quotation.routes';
 import { renderNotaryBookRoute } from './notaryBooks.routes';
+import { renderGeneralDocumentRoute } from './generalDocument.routes';
 
 export const renderAppRoute = (currentTab: string, props: any) => {
+  if (currentTab === 'delivery' || currentTab === 'receipt') {
+    return renderGeneralDocumentRoute(currentTab, props);
+  }
+
   if (currentTab === 'deeds' || currentTab === 'private_deeds' || currentTab === 'outgoing_mail' || currentTab === 'incoming_mail') {
     return renderNotaryBookRoute(currentTab);
   }

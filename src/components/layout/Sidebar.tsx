@@ -19,7 +19,9 @@ import {
   ShieldCheck,
   Send,
   Inbox,
-  Image
+  Image,
+  Package,
+  FileCheck
 } from 'lucide-react';
 import { TAB_ACCENTS } from '../../constants/tabs';
 import { SidebarTabId, UserProfile } from '../../../types';
@@ -146,6 +148,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
           { label: 'Laporan Notaris', id: 'notary_reports' as const, icon: BookMarked, requiresAuth: true },
           { label: 'Invoice', id: 'invoice' as const, icon: CreditCard, requiresAuth: true },
           { label: 'Penawaran', id: 'quotation' as const, icon: FileText, requiresAuth: true },
+          { label: 'Surat Jalan', id: 'delivery' as const, icon: Package, requiresAuth: true },
+          { label: 'Tanda Terima', id: 'receipt' as const, icon: FileCheck, requiresAuth: true },
         ].map((item) => {
           const isActive = activeSidebarTab === item.id;
           const acc = TAB_ACCENTS[item.id] || TAB_ACCENTS.beranda;

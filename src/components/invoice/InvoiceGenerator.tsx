@@ -1339,17 +1339,22 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
           </div>
 
           <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0">
-            {['ALL', 'UNPAID', 'PAID', 'DRAFT', 'CANCELLED'].map(st => (
+            {[
+              { label: 'SEMUA', value: 'ALL' },
+              { label: 'BELUM LUNAS', value: 'UNPAID' },
+              { label: 'LUNAS', value: 'PAID' },
+              { label: 'DIBATALKAN', value: 'CANCELLED' }
+            ].map(tab => (
               <button
-                key={st}
-                onClick={() => setStatusFilter(st)}
+                key={tab.value}
+                onClick={() => setStatusFilter(tab.value)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
-                  statusFilter === st
+                  statusFilter === tab.value
                     ? 'bg-slate-900 text-white shadow-sm'
                     : 'bg-slate-100/80 text-slate-600 hover:bg-slate-200/80'
                 }`}
               >
-                {st}
+                {tab.label}
               </button>
             ))}
           </div>
@@ -1435,12 +1440,18 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
                         <td className="p-3.5 text-center whitespace-nowrap">
                           <span
                             className={`px-3 py-1 rounded-full text-[10px] font-bold tracking-wider ${
-                              isUnpaid
+                              inv.status === 'UNPAID'
                                 ? 'bg-red-100/80 text-red-600'
-                                : 'bg-emerald-100/80 text-emerald-700'
+                                : inv.status === 'PAID'
+                                ? 'bg-emerald-100/80 text-emerald-700'
+                                : inv.status === 'CANCELLED'
+                                ? 'bg-slate-100 text-slate-600'
+                                : 'bg-amber-100/80 text-amber-700'
                             }`}
                           >
-                            {inv.status}
+                            {inv.status === 'UNPAID' ? 'BELUM LUNAS' :
+                             inv.status === 'PAID' ? 'LUNAS' :
+                             inv.status === 'CANCELLED' ? 'DIBATALKAN' : inv.status}
                           </span>
                         </td>
                       </tr>
@@ -2544,10 +2555,9 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
                   onChange={(e) => setStatus(e.target.value as any)}
                   className="w-full p-2 border border-slate-200 rounded bg-white font-medium text-xs"
                 >
-                  <option value="UNPAID">UNPAID (Belum Lunas)</option>
-                  <option value="PAID">PAID (Lunas)</option>
-                  <option value="DRAFT">DRAFT</option>
-                  <option value="CANCELLED">CANCELLED</option>
+                  <option value="UNPAID">BELUM LUNAS</option>
+                  <option value="PAID">LUNAS</option>
+                  <option value="CANCELLED">DIBATALKAN</option>
                 </select>
               </div>
             </div>

@@ -173,9 +173,9 @@ export const PublicQuotationViewer: React.FC = () => {
                 'border-slate-400 text-slate-500 bg-slate-50'
               }`}>
                 Status: {
-                  quotation.status === 'ACCEPTED' ? 'DISETUJUI (ACCEPTED)' :
-                  quotation.status === 'REJECTED' ? 'DITOLAK (REJECTED)' :
-                  quotation.status === 'SENT' ? 'DIKIRIM (SENT)' : 'DRAFT'
+                  quotation.status === 'ACCEPTED' ? 'DISETUJUI' :
+                  quotation.status === 'REJECTED' ? 'DITOLAK' :
+                  'TERKIRIM'
                 }
               </div>
             </div>

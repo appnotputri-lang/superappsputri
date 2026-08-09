@@ -117,6 +117,19 @@
         "subject": { "type": "string" }
       },
       "required": ["id", "mailNumber", "date", "sender", "subject"]
+    },
+    "GeneralDocument": {
+      "title": "General Document",
+      "description": "Surat Jalan and Tanda Terima documents.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "docType": { "type": "string" },
+        "referenceNo": { "type": "string" },
+        "clientName": { "type": "string" },
+        "date": { "type": "string" }
+      },
+      "required": ["id", "docType", "referenceNo", "clientName", "date"]
     }
   },
   "firestore": {
@@ -151,6 +164,10 @@
     "/incoming_mails/{incomingMailId}": {
       "schema": "IncomingMail",
       "description": "Incoming mails collection."
+    },
+    "/general_documents/{documentId}": {
+      "schema": "GeneralDocument",
+      "description": "General documents (Surat Jalan and Tanda Terima) collection."
     }
   }
 }

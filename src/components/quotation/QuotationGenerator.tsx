@@ -156,7 +156,7 @@ export const QuotationGenerator: React.FC<QuotationGeneratorProps> = (props) => 
   const [clientAddress, setClientAddress] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [validUntil, setValidUntil] = useState('');
-  const [status, setStatus] = useState<'DRAFT' | 'SENT' | 'ACCEPTED' | 'REJECTED'>('DRAFT');
+  const [status, setStatus] = useState<'DRAFT' | 'SENT' | 'ACCEPTED' | 'REJECTED'>('SENT');
   const [notes, setNotes] = useState('Penawaran ini berlaku selama 14 hari sejak tanggal diterbitkan.\nPembayaran dilakukan sesuai dengan kesepakatan.');
 
   // Items Form
@@ -473,7 +473,7 @@ export const QuotationGenerator: React.FC<QuotationGeneratorProps> = (props) => 
     futureDate.setDate(futureDate.getDate() + 14);
     setValidUntil(futureDate.toISOString().split('T')[0]);
     
-    setStatus('DRAFT');
+    setStatus('SENT');
     setNotes('Penawaran ini berlaku selama 14 hari sejak tanggal diterbitkan.\nPembayaran dilakukan sesuai dengan kesepakatan.');
     setItems([]);
     setSelectedPresetProduct('-- Manual --');
@@ -1047,11 +1047,10 @@ Notaris/PPAT Nukantini Putri Parincha, SH., M.Kn`;
 
             <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0">
               {[
-                { label: 'ALL', value: 'ALL' },
-                { label: 'DRAFT', value: 'DRAFT' },
-                { label: 'SENT', value: 'SENT' },
-                { label: 'ACCEPTED', value: 'ACCEPTED' },
-                { label: 'REJECTED', value: 'REJECTED' }
+                { label: 'SEMUA', value: 'ALL' },
+                { label: 'TERKIRIM', value: 'SENT' },
+                { label: 'DISETUJUI', value: 'ACCEPTED' },
+                { label: 'DITOLAK', value: 'REJECTED' }
               ].map((tab) => (
                 <button
                   key={tab.value}
@@ -1168,7 +1167,9 @@ Notaris/PPAT Nukantini Putri Parincha, SH., M.Kn`;
                                 q.status === 'SENT' ? 'bg-blue-100/80 text-blue-700' :
                                 'bg-slate-100 text-slate-600'
                               }`}>
-                                {q.status}
+                                {q.status === 'ACCEPTED' ? 'DISETUJUI' :
+                                 q.status === 'REJECTED' ? 'DITOLAK' :
+                                 q.status === 'SENT' ? 'TERKIRIM' : q.status}
                               </span>
                             </td>
                           </tr>
@@ -1454,10 +1455,9 @@ Notaris/PPAT Nukantini Putri Parincha, SH., M.Kn`;
                   onChange={(e) => setStatus(e.target.value as any)}
                   className="w-full bg-slate-50 border border-slate-200 px-3 py-2 text-xs rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500 focus:bg-white transition-all"
                 >
-                  <option value="DRAFT">DRAFT</option>
-                  <option value="SENT">TERKIRIM (SENT)</option>
-                  <option value="ACCEPTED">DISETUJUI (ACCEPTED)</option>
-                  <option value="REJECTED">DITOLAK (REJECTED)</option>
+                  <option value="SENT">TERKIRIM</option>
+                  <option value="ACCEPTED">DISETUJUI</option>
+                  <option value="REJECTED">DITOLAK</option>
                 </select>
               </div>
 

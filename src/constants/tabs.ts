@@ -188,6 +188,20 @@ export const TAB_ACCENTS: Record<SidebarTabId, {
     bgColor: 'bg-indigo-50/70',
     hoverBg: 'hover:bg-indigo-50/40 hover:text-indigo-950',
     indicatorBg: 'bg-indigo-600'
+  },
+  delivery: {
+    iconColor: 'text-orange-600',
+    textColor: 'text-orange-900',
+    bgColor: 'bg-orange-50/70',
+    hoverBg: 'hover:bg-orange-50/40 hover:text-orange-950',
+    indicatorBg: 'bg-orange-600'
+  },
+  receipt: {
+    iconColor: 'text-emerald-600',
+    textColor: 'text-emerald-900',
+    bgColor: 'bg-emerald-50/70',
+    hoverBg: 'hover:bg-emerald-50/40 hover:text-emerald-950',
+    indicatorBg: 'bg-emerald-600'
   }
 };
 
@@ -219,7 +233,9 @@ export const TAB_TO_PATH: Record<string, string> = {
   'protest_cheque': '/protest-cheque',
   'outgoing_mail': '/surat-keluar',
   'incoming_mail': '/surat-masuk',
-  'stamp_settings': '/stamp-settings'
+  'stamp_settings': '/stamp-settings',
+  'delivery': '/surat-jalan',
+  'receipt': '/tanda-terima'
 };
 
 export const PATH_TO_TAB: Record<string, SidebarTabId> = {
@@ -236,6 +252,7 @@ export const RESERVED_PATHS = new Set([
   '/laporan', '/whatsapp-gateway', '/projects', '/projects-detail',
   '/user-management', '/notary-reports', '/invoice', '/quotation', '/deeds', '/private-deeds',
   '/protest-cheque', '/surat-keluar', '/surat-masuk', '/stamp-settings',
+  '/surat-jalan', '/tanda-terima', '/doc',
   '/invoice/public', '/q', // pola lama & quotation, tetap dikecualikan
 ]);
 

@@ -212,5 +212,10 @@ service cloud.firestore {
       allow write: if isSignedIn();
     }
 
+    match /general_documents/{id} {
+      allow read: if true; // Public read permitted for public token document viewing
+      allow write: if isSignedIn();
+    }
+
   }
 }
