@@ -15,6 +15,7 @@ export const ChatWidget: React.FC = () => {
   const [conversations, setConversations] = useState<any[]>([]);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [isNewChatOpen, setIsNewChatOpen] = useState(false);
+  const [selectedOpponent, setSelectedOpponent] = useState<{ uid: string; name: string } | null>(null);
 
   // 1. Subscribe to Auth changes
   useEffect(() => {
@@ -56,8 +57,6 @@ export const ChatWidget: React.FC = () => {
     (sum, conv) => sum + (conv.unreadCount?.[currentUid] || 0),
     0
   );
-
-  const [selectedOpponent, setSelectedOpponent] = useState<{ uid: string; name: string } | null>(null);
 
   // Derive active conversation or fallback object if not yet in snapshot list
   const activeConversation = conversations.find((c) => c.id === activeConversationId) || (
