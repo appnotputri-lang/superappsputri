@@ -5,9 +5,12 @@ import {
   getDocs, 
   setDoc, 
   updateDoc, 
+  addDoc,
   collection, 
   query, 
   where, 
+  orderBy,
+  limit,
   onSnapshot, 
   runTransaction, 
   increment 
@@ -115,86 +118,175 @@ export class ChatService {
   }
 
   /**
-   * Listen to real-time message bubble stream for an active conversation from RTDB
+   * Listen to real-time message stream for an active conversation from Firestore with RTDB fallback
    */
-  static subscribeToMessages(conversationId: string, callback: (messages: any[]) => void, limit = 30): () => void {
-    const messagesRef = rtdbQuery(ref(rtdb, `chats/${conversationId}/messages`), limitToLast(limit));
-    const listener = onValue(messagesRef, (snapshot) => {
-      const messages: any[] = [];
-      snapshot.forEach((childSnapshot) => {
-        messages.push({
-          id: childSnapshot.key,
-          ...childSnapshot.val()
+  static subscribeToMessages(conversationId: string, callback: (messages: any[]) => void, limitCount = 50): () => void {
+    const messagesCol = collection(db, 'chat_conversations', conversationId, 'messages');
+    const q = query(messagesCol, orderBy('createdAt', 'asc'), limit(limitCount));
+    
+    let hasReceivedFirestore = false;
+
+    const unsubscribeFirestore = onSnapshot(
+      q,
+      (snapshot) => {
+        hasReceivedFirestore = true;
+        const messages: any[] = snapshot.docs.map(doc => {
+          const data = doc.data();
+          let createdAtNum = Date.now();
+          if (typeof data.createdAt === 'number') {
+            createdAtNum = data.createdAt;
+          } else if (data.createdAt?.toMillis) {
+            createdAtNum = data.createdAt.toMillis();
+          } else if (typeof data.createdAt === 'string') {
+            createdAtNum = new Date(data.createdAt).getTime();
+          }
+          return {
+            id: doc.id,
+            senderId: data.senderId,
+            text: data.text,
+            createdAt: createdAtNum
+          };
         });
-      });
-      callback(messages);
-    });
-    return () => off(messagesRef, 'value', listener);
+        callback(messages);
+      },
+      (error) => {
+        console.warn("Firestore message snapshot error:", error);
+        if (!hasReceivedFirestore) {
+          callback([]);
+        }
+      }
+    );
+
+    // Also try RTDB if available
+    let unsubscribeRtdb: (() => void) | null = null;
+    try {
+      const messagesRef = rtdbQuery(ref(rtdb, `chats/${conversationId}/messages`), limitToLast(limitCount));
+      const listener = onValue(
+        messagesRef,
+        (snapshot) => {
+          if (snapshot.exists() && snapshot.size > 0) {
+            const messages: any[] = [];
+            snapshot.forEach((childSnapshot) => {
+              const val = childSnapshot.val();
+              let createdAtNum = Date.now();
+              if (typeof val.createdAt === 'number') {
+                createdAtNum = val.createdAt;
+              } else if (typeof val.createdAt === 'string') {
+                createdAtNum = new Date(val.createdAt).getTime();
+              }
+              messages.push({
+                id: childSnapshot.key,
+                senderId: val.senderId,
+                text: val.text,
+                createdAt: createdAtNum
+              });
+            });
+            callback(messages);
+          }
+        },
+        (error) => {
+          console.warn("RTDB subscribeToMessages error:", error);
+        }
+      );
+      unsubscribeRtdb = () => off(messagesRef, 'value', listener);
+    } catch (e) {
+      // ignore
+    }
+
+    return () => {
+      unsubscribeFirestore();
+      if (unsubscribeRtdb) unsubscribeRtdb();
+    };
   }
 
   /**
-   * Load older messages using query cursor endBefore() based on timestamp
+   * Load older messages using query cursor based on timestamp
    */
-  static async loadOlderMessages(conversationId: string, beforeTimestamp: number, limit = 30): Promise<any[]> {
-    const messagesRef = ref(rtdb, `chats/${conversationId}/messages`);
-    const q = rtdbQuery(
-      messagesRef,
-      orderByChild('createdAt'),
-      endBefore(beforeTimestamp),
-      limitToLast(limit)
-    );
-    const snapshot = await get(q);
-    const messages: any[] = [];
-    snapshot.forEach((childSnapshot) => {
-      messages.push({
-        id: childSnapshot.key,
-        ...childSnapshot.val()
-      });
-    });
-    return messages;
+  static async loadOlderMessages(conversationId: string, beforeTimestamp: number, limitCount = 30): Promise<any[]> {
+    try {
+      const messagesCol = collection(db, 'chat_conversations', conversationId, 'messages');
+      const q = query(
+        messagesCol,
+        where('createdAt', '<', beforeTimestamp),
+        orderBy('createdAt', 'desc'),
+        limit(limitCount)
+      );
+      const snapshot = await getDocs(q);
+      const messages = snapshot.docs.map(doc => {
+        const data = doc.data();
+        let createdAtNum = Date.now();
+        if (typeof data.createdAt === 'number') {
+          createdAtNum = data.createdAt;
+        } else if (data.createdAt?.toMillis) {
+          createdAtNum = data.createdAt.toMillis();
+        } else if (typeof data.createdAt === 'string') {
+          createdAtNum = new Date(data.createdAt).getTime();
+        }
+        return {
+          id: doc.id,
+          senderId: data.senderId,
+          text: data.text,
+          createdAt: createdAtNum
+        };
+      }).reverse();
+      return messages;
+    } catch (e) {
+      console.warn("loadOlderMessages error:", e);
+      return [];
+    }
   }
 
   /**
    * Send a text message:
-   * 1. Push to RTDB /chats/{id}/messages
-   * 2. Increment receiver's unread in RTDB
-   * 3. Update Firestore chat_conversations/{id} summary fields atomically
+   * 1. Push to Firestore subcollection /chat_conversations/{id}/messages
+   * 2. Push to RTDB /chats/{id}/messages (best-effort)
+   * 3. Update Firestore chat_conversations/{id} summary fields
    */
   static async sendMessage(conversationId: string, senderId: string, text: string): Promise<void> {
     const participants = conversationId.split('_');
     const receiverId = participants.find(p => p !== senderId) || senderId;
-
-    // 1. Push message to RTDB
-    const messagesRef = ref(rtdb, `chats/${conversationId}/messages`);
-    const newMsgRef = push(messagesRef);
     const isoString = new Date().toISOString();
+    const nowTimestamp = Date.now();
 
-    await set(newMsgRef, {
-      senderId,
-      text: text.substring(0, 4000),
-      createdAt: serverTimestamp()
-    });
+    // 1. Write message to Firestore subcollection
+    try {
+      const messagesCol = collection(db, 'chat_conversations', conversationId, 'messages');
+      await addDoc(messagesCol, {
+        senderId,
+        text: text.substring(0, 4000),
+        createdAt: nowTimestamp
+      });
+    } catch (err) {
+      console.error("Error writing message to Firestore:", err);
+    }
 
-    // 2. Increment unread in RTDB
-    const receiverUnreadRef = ref(rtdb, `chats/${conversationId}/unread/${receiverId}`);
-    await rtdbTransaction(receiverUnreadRef, (current) => (current || 0) + 1);
+    // 2. Write to RTDB (optimistic / best-effort)
+    try {
+      const messagesRef = ref(rtdb, `chats/${conversationId}/messages`);
+      const newMsgRef = push(messagesRef);
+      set(newMsgRef, {
+        senderId,
+        text: text.substring(0, 4000),
+        createdAt: nowTimestamp
+      }).catch(() => {});
 
-    // 3. Sync summary fields in Firestore via transaction
+      const receiverUnreadRef = ref(rtdb, `chats/${conversationId}/unread/${receiverId}`);
+      rtdbTransaction(receiverUnreadRef, (current) => (current || 0) + 1).catch(() => {});
+    } catch (e) {
+      // ignore RTDB errors
+    }
+
+    // 3. Sync summary fields in Firestore
     const conversationDocRef = doc(db, 'chat_conversations', conversationId);
     try {
-      await runTransaction(db, async (transaction) => {
-        const sfDoc = await transaction.get(conversationDocRef);
-        if (sfDoc.exists()) {
-          transaction.update(conversationDocRef, {
-            lastMessage: text.substring(0, 100),
-            lastMessageAt: isoString,
-            lastSenderId: senderId,
-            [`unreadCount.${receiverId}`]: increment(1)
-          });
-        }
+      await updateDoc(conversationDocRef, {
+        lastMessage: text.substring(0, 100),
+        lastMessageAt: isoString,
+        lastSenderId: senderId,
+        [`unreadCount.${receiverId}`]: increment(1)
       });
     } catch (error) {
-      console.warn("Firestore sync in sendMessage failed or conversation was not pre-initialized:", error);
+      console.warn("Firestore sync in sendMessage warning:", error);
     }
   }
 

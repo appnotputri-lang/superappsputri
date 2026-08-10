@@ -37,30 +37,37 @@ export function useChat(conversationId: string | null, currentUid: string | null
   useEffect(() => {
     if (!conversationId || !currentUid) {
       setMessages([]);
+      setLoading(false);
       return;
     }
 
     setLoading(true);
     setHasMore(true);
 
-    // Subscribe to last 30 messages
+    // Timeout safety fallback so loading indicator never hangs indefinitely
+    const timeoutId = setTimeout(() => {
+      setLoading(false);
+    }, 1500);
+
+    // Subscribe to last 50 messages
     const unsubscribeMessages = ChatService.subscribeToMessages(
       conversationId,
       (newMessages) => {
+        clearTimeout(timeoutId);
         setMessages(newMessages);
         setLoading(false);
-        // If we received fewer messages than the limit, there's no more history
         if (newMessages.length < 30) {
           setHasMore(false);
         }
       },
-      30
+      50
     );
 
     // Reset unread count upon opening conversation
     ChatService.markConversationAsRead(conversationId, currentUid);
 
     return () => {
+      clearTimeout(timeoutId);
       unsubscribeMessages();
     };
   }, [conversationId, currentUid]);
