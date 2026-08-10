@@ -633,6 +633,63 @@ export class ProjectService {
     }
   }
 
+  static subscribeProjects(callback: (data: Project[]) => void): () => void {
+    const colRef = collection(db, this.projectsCol);
+    const q = query(colRef, orderBy("updatedAt", "desc"));
+    return onSnapshot(
+      q,
+      (snapshot) => {
+        const list = snapshot.docs.map((docSnap) => {
+          const project = { ...docSnap.data(), projectId: docSnap.id } as Project;
+          
+          // Auto-populate for backward compatibility
+          if (!project.projectCategory) {
+            if (project.jobType === 'rups_lb' || project.jobType === 'sirkuler_rupslb') {
+              project.projectCategory = 'MEETING';
+              project.projectType = 'RUPS-LB';
+            } else if (project.jobType === 'rups_t' || project.jobType === 'sirkuler') {
+              project.projectCategory = 'MEETING';
+              project.projectType = 'RUPST';
+            } else if (project.jobType === 'pendirian_pt') {
+              project.projectCategory = 'BODY_LEGAL';
+              project.projectType = 'Pendirian';
+            } else {
+              project.projectCategory = 'BODY_LEGAL';
+              project.projectType = 'Pendirian';
+            }
+          }
+          return project;
+        });
+        
+        const getDocTime = (val: any) => {
+          if (!val) return 0;
+          if (typeof val === 'object' && val.seconds !== undefined) {
+            return val.seconds * 1000 + Math.floor(val.nanoseconds / 1000000);
+          }
+          if (val instanceof Date) {
+            return val.getTime();
+          }
+          if (typeof val.toDate === 'function') {
+            return val.toDate().getTime();
+          }
+          const parsed = Date.parse(val);
+          return isNaN(parsed) ? 0 : parsed;
+        };
+
+        const sorted = list.sort((a, b) => {
+          const timeA = Math.max(getDocTime(a.updatedAt), getDocTime(a.createdAt));
+          const timeB = Math.max(getDocTime(b.updatedAt), getDocTime(b.createdAt));
+          return timeB - timeA;
+        });
+
+        callback(sorted);
+      },
+      (error) => {
+        handleFirestoreError(error, OperationType.LIST, this.projectsCol);
+      }
+    );
+  }
+
   /**
    * Retrieves all projects from Firestore.
    */

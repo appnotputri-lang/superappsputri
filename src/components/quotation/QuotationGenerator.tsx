@@ -1,9 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { PageHeader } from "../ui/PageLayout";
-import { Quotation, InvoiceItem, Invoice } from '../../../types';
+import { Quotation, InvoiceItem, Invoice, Product } from '../../../types';
 import { QuotationService } from '../../services/QuotationService';
 import { InvoiceService } from '../../services/InvoiceService';
+import { ProductService } from '../../services/ProductService';
 import { CompanyService } from '../../services/CompanyService';
+import { ProjectService } from '../../services/ProjectService';
+import { Project } from '../../domain/project/Project';
 import { SuperappsClientService } from '../../services/superappsClientService';
 import { formatInputNumber, parseFormattedNumber } from '../../../utils/formatters';
 import { printQuotation, downloadQuotationPdf } from '../../utils/quotationHtmlGenerator';
@@ -15,7 +18,7 @@ import {
   Plus, Edit2, Trash2, Printer, Search, X, Copy, ExternalLink,
   Check, CreditCard, DollarSign, Globe, CheckCircle2, AlertCircle, FileText, Share2,
   Building2, Database, ArrowLeft, Download, Send, SendHorizontal, Smartphone, MessageSquare, ChevronLeft, ChevronRight, UserPlus,
-  MoreHorizontal, Calendar, Clock, ChevronUp, ChevronDown, MoreVertical, RefreshCw
+  MoreHorizontal, Calendar, Clock, ChevronUp, ChevronDown, MoreVertical, RefreshCw, FolderOpen, Briefcase
 } from 'lucide-react';
 
 interface ClientOption {
@@ -148,6 +151,9 @@ export const QuotationGenerator: React.FC<QuotationGeneratorProps> = (props) => 
 
   // Form Fields
   const [editingQuotationId, setEditingQuotationId] = useState<string | null>(null);
+  const [activeProjects, setActiveProjects] = useState<Project[]>([]);
+  const [selectedProjectId, setSelectedProjectId] = useState<string>('');
+  const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([]);
   const [quotationNumber, setQuotationNumber] = useState('');
   const [clientName, setClientName] = useState('');
   const [selectedClientId, setSelectedClientId] = useState<string>('');
@@ -164,6 +170,27 @@ export const QuotationGenerator: React.FC<QuotationGeneratorProps> = (props) => 
   const [items, setItems] = useState<InvoiceItem[]>([]);
 
   // Add Item Temp Inputs
+  const [dbProducts, setDbProducts] = useState<Product[]>([]);
+  useEffect(() => {
+    const unsubscribe = ProductService.subscribeProducts((data) => {
+      const sorted = [...data].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+      setDbProducts(sorted);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    const isProjectCompleted = (status: string) => {
+      const s = (status || '').toLowerCase();
+      return s === 'completed' || s === 'archived' || s === 'selesai';
+    };
+    const unsubscribe = ProjectService.subscribeProjects((data) => {
+      const active = data.filter(p => p && p.status && !isProjectCompleted(p.status));
+      setActiveProjects(active);
+    });
+    return () => unsubscribe();
+  }, []);
+
   const [selectedPresetProduct, setSelectedPresetProduct] = useState('-- Manual --');
   const [itemDescription, setItemDescription] = useState('');
   const [itemUnitPrice, setItemUnitPrice] = useState<number>(0);
@@ -460,6 +487,8 @@ export const QuotationGenerator: React.FC<QuotationGeneratorProps> = (props) => 
 
   const openCreatePage = () => {
     setEditingQuotationId(null);
+    setSelectedProjectId('');
+    setSelectedProjectIds([]);
     setQuotationNumber(generateSuggestedQuotationNumber());
     setClientName('');
     setSelectedClientId('');
@@ -487,6 +516,8 @@ export const QuotationGenerator: React.FC<QuotationGeneratorProps> = (props) => 
 
   const openEditPage = (q: Quotation) => {
     setEditingQuotationId(q.id);
+    setSelectedProjectId(q.projectId || '');
+    setSelectedProjectIds(q.projectIds || (q.projectId ? [q.projectId] : []));
     setQuotationNumber(q.quotationNumber);
     setClientName(q.clientName);
     setSelectedClientId(q.clientId);
@@ -516,9 +547,11 @@ export const QuotationGenerator: React.FC<QuotationGeneratorProps> = (props) => 
     setSelectedClientId(c.clientId);
     setSelectedClientSource(c.source);
     setClientName(c.name);
-    setClientEmail(c.email);
-    setClientPhone(c.phone);
-    setClientAddress(c.address);
+    setClientEmail(c.email || '');
+    setClientPhone(c.phone || '');
+    setClientAddress(c.address || '');
+    setSelectedProjectIds([]);
+    setSelectedProjectId('');
     setClientSearch('');
     setShowClientDropdown(false);
   };
@@ -625,22 +658,29 @@ export const QuotationGenerator: React.FC<QuotationGeneratorProps> = (props) => 
   const handlePresetSelect = (val: string) => {
     setSelectedPresetProduct(val);
     if (val !== '-- Manual --') {
-      setItemDescription(val);
-      if (val === 'AKTA PERUBAHAN PT SK') {
-        setItemDescription('1. Draft Notulen Sirkuler\n2. Akta RUPSLB\n3. Surat Keputusan (SK) AHU\n4. Surat Pelaporan AHU\n5. BNRI\n6. Akta Hibah Saham');
-        setItemUnitPrice(7435897);
-        setItemGrossUp(true);
-      } else if (val === 'Jasa Pembuatan Akta Notaris') {
-        setItemUnitPrice(5000000);
-        setItemGrossUp(false);
+      const dbProd = dbProducts.find(p => p.name === val);
+      if (dbProd) {
+        setItemDescription(dbProd.description || val);
+        setItemUnitPrice(dbProd.unitPrice || 0);
+        setItemGrossUp(!!dbProd.isTaxed);
       } else {
-        setItemGrossUp(false);
-        // Auto estimate cost or keep 0
-        if (val.includes('PERUBAHAN PT')) setItemUnitPrice(4500000);
-        else if (val.includes('Jasa Pembuatan Akta')) setItemUnitPrice(3000000);
-        else if (val.includes('Pendirian PT')) setItemUnitPrice(6500000);
-        else if (val.includes('Sirkuler')) setItemUnitPrice(1500000);
-        else setItemUnitPrice(0);
+        setItemDescription(val);
+        if (val === 'AKTA PERUBAHAN PT SK') {
+          setItemDescription('1. Draft Notulen Sirkuler\n2. Akta RUPSLB\n3. Surat Keputusan (SK) AHU\n4. Surat Pelaporan AHU\n5. BNRI\n6. Akta Hibah Saham');
+          setItemUnitPrice(7435897);
+          setItemGrossUp(true);
+        } else if (val === 'Jasa Pembuatan Akta Notaris') {
+          setItemUnitPrice(5000000);
+          setItemGrossUp(false);
+        } else {
+          setItemGrossUp(false);
+          // Auto estimate cost or keep 0
+          if (val.includes('PERUBAHAN PT')) setItemUnitPrice(4500000);
+          else if (val.includes('Jasa Pembuatan Akta')) setItemUnitPrice(3000000);
+          else if (val.includes('Pendirian PT')) setItemUnitPrice(6500000);
+          else if (val.includes('Sirkuler')) setItemUnitPrice(1500000);
+          else setItemUnitPrice(0);
+        }
       }
     } else {
       setItemDescription('');
@@ -655,7 +695,33 @@ export const QuotationGenerator: React.FC<QuotationGeneratorProps> = (props) => 
   const taxAmount = totals.taxAmount;
   const totalAmount = totals.netTotal;
 
+  const handleClearClient = () => {
+    setSelectedClientId('');
+    setSelectedClientSource(undefined);
+    setClientName('');
+    setClientEmail('');
+    setClientPhone('');
+    setClientAddress('');
+    setSelectedProjectIds([]);
+    setSelectedProjectId('');
+    setClientSearch('');
+  };
+
+  const handleToggleProject = (projectId: string) => {
+    setSelectedProjectIds(prev => {
+      const next = prev.includes(projectId)
+        ? prev.filter(id => id !== projectId)
+        : [...prev, projectId];
+      setSelectedProjectId(next[0] || '');
+      return next;
+    });
+  };
+
   const handleSaveQuotation = async () => {
+    if (selectedProjectIds.length === 0) {
+      alert('Mohon hubungkan setidaknya satu proyek aktif terlebih dahulu.');
+      return;
+    }
     if (!quotationNumber.trim()) {
       alert('Nomor penawaran wajib diisi.');
       return;
@@ -671,6 +737,18 @@ export const QuotationGenerator: React.FC<QuotationGeneratorProps> = (props) => 
 
     setLoading(true);
 
+    const projectTitles = selectedProjectIds.map(id => {
+      const p = activeProjects.find(proj => proj.projectId === id);
+      if (p) return p.title;
+      if (selectedQuotation && selectedQuotation.projectIds?.includes(id)) {
+        const idx = selectedQuotation.projectIds.indexOf(id);
+        if (selectedQuotation.projectTitles && selectedQuotation.projectTitles[idx]) {
+          return selectedQuotation.projectTitles[idx];
+        }
+      }
+      return 'Proyek';
+    });
+
     const quotationData: Omit<Quotation, 'id'> = {
       quotationNumber: quotationNumber.trim(),
       date,
@@ -681,6 +759,10 @@ export const QuotationGenerator: React.FC<QuotationGeneratorProps> = (props) => 
       clientPhone: clientPhone.trim() || undefined,
       clientEmail: clientEmail.trim() || undefined,
       clientSource: selectedClientSource,
+      projectId: selectedProjectIds[0] || '',
+      projectTitle: projectTitles.join(', '),
+      projectIds: selectedProjectIds,
+      projectTitles: projectTitles,
       items,
       subtotal,
       taxAmount,
@@ -994,11 +1076,7 @@ Notaris/PPAT Nukantini Putri Parincha, SH., M.Kn`;
   );
 
   // Client dropdown list filtered
-  const allClientsList = [...superappsClients, ...localClients].filter(c => {
-    if (clientSourceTab === 'local') return c.source === 'local';
-    if (clientSourceTab === 'superapps') return c.source === 'superapps';
-    return true;
-  }).filter(c => 
+  const filteredClientOptions = superappsClients.filter(c => 
     c.name.toLowerCase().includes(clientSearch.toLowerCase()) ||
     c.email.toLowerCase().includes(clientSearch.toLowerCase())
   );
@@ -1013,7 +1091,7 @@ Notaris/PPAT Nukantini Putri Parincha, SH., M.Kn`;
   }
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
+    <div className="p-4 sm:p-6 lg:p-8 w-[94%] xl:w-[92%] max-w-none mx-auto space-y-6">
       
       {/* 1. LIST VIEW */}
       {viewMode === 'list' && (
@@ -1095,7 +1173,7 @@ Notaris/PPAT Nukantini Putri Parincha, SH., M.Kn`;
               {/* ===== DESKTOP LIST (md+) ===== */}
               <div className="hidden md:block bg-white rounded-2xl border border-slate-200/80 overflow-hidden shadow-xs">
                 <div className="overflow-x-auto">
-                  <table className="w-full text-left border-collapse text-xs">
+                  <table className="min-w-[1000px] w-full text-left border-collapse text-xs">
                     <thead>
                       <tr className="bg-slate-50/80 text-slate-600 border-b border-slate-200/80 font-bold select-none">
                         <th className="p-3.5 w-12 text-center">No.</th>
@@ -1156,7 +1234,12 @@ Notaris/PPAT Nukantini Putri Parincha, SH., M.Kn`;
                               {q.quotationNumber}
                             </td>
                             <td className="p-3.5 font-semibold text-slate-800">
-                              {q.clientName}
+                              <div>{q.clientName}</div>
+                              {q.projectTitle && (
+                                <div className="text-[10px] text-blue-600 font-medium mt-0.5">
+                                  Proyek: {q.projectTitle}
+                                </div>
+                              )}
                             </td>
                             <td className="p-3.5 text-right font-bold text-slate-900 whitespace-nowrap">
                               {formatCurrency(q.totalAmount)}
@@ -1282,147 +1365,164 @@ Notaris/PPAT Nukantini Putri Parincha, SH., M.Kn`;
                 />
               </div>
 
-              {/* Client Selection */}
-              <div className="relative">
-                <div className="flex justify-between items-center mb-1.5">
-                  <label className="block text-xs font-bold text-slate-500 uppercase">Penerima Penawaran (Klien)</label>
-                  <button
-                    type="button"
-                    onClick={() => setIsNewClientModalOpen(true)}
-                    className="text-xs text-sky-600 hover:text-sky-700 font-bold flex items-center gap-1 cursor-pointer"
-                  >
-                    <UserPlus size={12} /> Tambah Klien Baru
-                  </button>
+              {/* Client Selection (Client-first flow) */}
+              <div className="space-y-3 bg-slate-50/50 p-4 rounded-2xl border border-slate-200/60 relative">
+                <div className="flex items-center gap-2 text-xs font-bold text-slate-800 uppercase mb-1">
+                  <FolderOpen size={14} className="text-blue-600" />
+                  Hubungkan Proyek & Klien <span className="text-red-500">* Wajib</span>
+                </div>
+                <p className="text-[10px] text-slate-500 leading-normal mb-2">
+                  Pilih Klien terlebih dahulu, kemudian hubungkan dengan satu atau lebih proyek aktif milik Klien tersebut.
+                </p>
+
+                {/* Client Searchable Dropdown */}
+                <div className="relative">
+                  <Search size={14} className="absolute left-3 top-2.5 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="Ketik nama klien, email, atau alamat..."
+                    value={clientSearch || clientName}
+                    onFocus={() => setShowClientDropdown(true)}
+                    onChange={(e) => {
+                      setClientSearch(e.target.value);
+                      setClientName(e.target.value);
+                      setShowClientDropdown(true);
+                      if (selectedClientId) {
+                        setSelectedClientId('');
+                        setSelectedClientSource(undefined);
+                        setSelectedProjectIds([]);
+                        setSelectedProjectId('');
+                      }
+                    }}
+                    className="w-full pl-9 pr-9 py-2 bg-white border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-sky-500"
+                  />
+                  {(clientName || clientSearch) && (
+                    <button
+                      type="button"
+                      onClick={handleClearClient}
+                      className="absolute right-3 top-2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                    >
+                      <X size={14} />
+                    </button>
+                  )}
+
+                  {showClientDropdown && (
+                    <div className="absolute left-0 right-0 top-full mt-1 bg-white rounded-xl border border-slate-200 shadow-lg z-50 max-h-48 overflow-y-auto p-1">
+                      {isLoadingClients ? (
+                        <div className="p-2.5 text-center text-slate-500 text-xs flex items-center justify-center gap-2">
+                          <div className="w-3 h-3 border-2 border-sky-600 border-t-transparent rounded-full animate-spin" />
+                          Memuat klien...
+                        </div>
+                      ) : filteredClientOptions.length === 0 ? (
+                        <div className="p-2.5 text-center text-slate-400 text-xs italic">
+                          Tidak ada klien yang cocok.
+                        </div>
+                      ) : (
+                        filteredClientOptions.map((c) => (
+                          <div
+                            key={`${c.source}_${c.clientId}`}
+                            onClick={() => handleSelectClient(c)}
+                            className="p-2 hover:bg-slate-50 rounded-lg cursor-pointer transition-colors flex items-center justify-between"
+                          >
+                            <div className="min-w-0 pr-2">
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-bold text-slate-800 text-xs truncate max-w-[160px] block">{c.name}</span>
+                                <span className={`text-[8px] px-1 py-0.1 rounded font-bold uppercase ${
+                                  c.source === 'superapps'
+                                    ? 'bg-indigo-100 text-indigo-700'
+                                    : 'bg-emerald-100 text-emerald-700'
+                                }`}>
+                                  {c.source === 'superapps' ? 'SA' : 'Lokal'}
+                                </span>
+                              </div>
+                            </div>
+                            {selectedClientId === c.clientId && (
+                              <Check size={14} className="text-sky-600 shrink-0" />
+                            )}
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  )}
                 </div>
 
-                <div className="flex gap-2">
-                  <div className="relative flex-1">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                    <input
-                      type="text"
-                      placeholder="Cari dari master klien PT/CV..."
-                      value={clientSearch || clientName}
-                      onFocus={() => setShowClientDropdown(true)}
-                      onChange={(e) => {
-                        setClientSearch(e.target.value);
-                        setClientName(e.target.value);
-                        // Clear selected client references if user types manually
-                        if (selectedClientId) {
-                          setSelectedClientId('');
-                          setSelectedClientSource(undefined);
-                        }
-                      }}
-                      className="w-full bg-slate-50 border border-slate-200 pl-9 pr-4 py-2 text-sm rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500 focus:bg-white transition-all"
-                    />
-                    {showClientDropdown && (
-                      <div className="absolute left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg z-30 max-h-60 overflow-y-auto p-1.5">
-                        <div className="flex border-b border-slate-100 mb-1 pb-1 text-[11px] font-bold text-slate-400 gap-2 px-2">
-                          <button
-                            type="button"
-                            onClick={(e) => { e.stopPropagation(); setClientSourceTab('all'); }}
-                            className={`pb-1 ${clientSourceTab === 'all' ? 'text-sky-600 border-b-2 border-sky-600' : ''}`}
-                          >
-                            Semua ({superappsClients.length + localClients.length})
-                          </button>
-                          <button
-                            type="button"
-                            onClick={(e) => { e.stopPropagation(); setClientSourceTab('local'); }}
-                            className={`pb-1 ${clientSourceTab === 'local' ? 'text-sky-600 border-b-2 border-sky-600' : ''}`}
-                          >
-                            Lokal ({localClients.length})
-                          </button>
-                          <button
-                            type="button"
-                            onClick={(e) => { e.stopPropagation(); setClientSourceTab('superapps'); }}
-                            className={`pb-1 ${clientSourceTab === 'superapps' ? 'text-sky-600 border-b-2 border-sky-600' : ''}`}
-                          >
-                            Superapps ({superappsClients.length})
-                          </button>
-                          <button
-                            type="button"
-                            onClick={(e) => { e.stopPropagation(); setShowClientDropdown(false); }}
-                            className="ml-auto text-red-500 hover:text-red-600"
-                          >
-                            Tutup
-                          </button>
-                        </div>
-                        {allClientsList.length === 0 ? (
-                          <div className="text-center py-4 text-xs text-slate-400">Klien tidak ditemukan</div>
-                        ) : (
-                          allClientsList.map((c) => (
-                            <button
-                              key={`${c.source}-${c.clientId}`}
-                              type="button"
-                              onClick={() => handleSelectClient(c)}
-                              className="w-full text-left px-3 py-2 text-xs rounded-lg hover:bg-slate-50 transition-colors flex justify-between items-center cursor-pointer"
+                {/* Client Contact Inputs (Editable when selected) */}
+                {selectedClientId && (
+                  <div className="space-y-3 pt-2 border-t border-slate-200/50 animate-fade-in">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-[9px] font-bold text-slate-500 uppercase mb-1">Email</label>
+                        <input
+                          type="email"
+                          value={clientEmail}
+                          onChange={(e) => setClientEmail(e.target.value)}
+                          className="w-full bg-white border border-slate-200 px-3 py-1.5 text-xs rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500 transition-all text-slate-800"
+                          placeholder="email@klien.com"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[9px] font-bold text-slate-500 uppercase mb-1">No. HP/WA</label>
+                        <input
+                          type="text"
+                          value={clientPhone}
+                          onChange={(e) => setClientPhone(e.target.value)}
+                          className="w-full bg-white border border-slate-200 px-3 py-1.5 text-xs rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500 transition-all text-slate-800"
+                          placeholder="08123456789"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-[9px] font-bold text-slate-500 uppercase mb-1">Alamat Penerima</label>
+                      <textarea
+                        value={clientAddress}
+                        onChange={(e) => setClientAddress(e.target.value)}
+                        className="w-full bg-white border border-slate-200 px-3 py-1.5 text-xs rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500 transition-all h-12 resize-none text-slate-800"
+                        placeholder="Alamat lengkap instansi/klien..."
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Project List Checkboxes */}
+                {selectedClientId && (
+                  <div className="pt-2 border-t border-slate-200/50 space-y-2">
+                    <label className="block text-[10px] font-bold text-slate-600 uppercase">
+                      Pilih Proyek Aktif ({activeProjects.filter(p => p.clientId === selectedClientId).length} Proyek) <span className="text-red-500">*</span>
+                    </label>
+                    {activeProjects.filter(p => p.clientId === selectedClientId).length === 0 ? (
+                      <p className="text-[10px] text-slate-500 italic">Klien ini tidak memiliki proyek aktif.</p>
+                    ) : (
+                      <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+                        {activeProjects.filter(p => p.clientId === selectedClientId).map((p) => {
+                          const isChecked = selectedProjectIds.includes(p.projectId);
+                          return (
+                            <div
+                              key={p.projectId}
+                              onClick={() => handleToggleProject(p.projectId)}
+                              className={`p-2 rounded-lg border transition-all cursor-pointer flex items-center gap-2 select-none ${
+                                isChecked 
+                                  ? 'border-sky-500 bg-sky-50/40 text-slate-900 font-medium' 
+                                  : 'border-slate-200 bg-white hover:border-slate-300 text-slate-600'
+                              }`}
                             >
-                              <div className="min-w-0">
-                                <p className="font-bold text-slate-800 truncate">{c.name}</p>
-                                <p className="text-slate-400 truncate mt-0.5">{c.email || c.phone || 'No Contact'}</p>
-                              </div>
-                              <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded ${
-                                c.source === 'superapps' ? 'bg-indigo-50 text-indigo-600' : 'bg-amber-50 text-amber-600'
-                              }`}>
-                                {c.source === 'superapps' ? 'Superapps' : 'Lokal'}
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={() => {}} // handled by click
+                                className="rounded border-slate-300 text-sky-600 focus:ring-sky-500/20"
+                              />
+                              <span className="text-[11px] truncate flex-1">{p.title}</span>
+                              <span className="bg-slate-100 text-slate-500 px-1.5 py-0.2 rounded text-[8px] uppercase shrink-0 font-semibold">
+                                {p.status}
                               </span>
-                            </button>
-                          ))
-                        )}
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
                   </div>
-                  {(clientSearch || clientName) && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setClientName('');
-                        setClientSearch('');
-                        setSelectedClientId('');
-                        setSelectedClientSource(undefined);
-                        setClientEmail('');
-                        setClientPhone('');
-                        setClientAddress('');
-                      }}
-                      className="p-2 border border-slate-200 hover:bg-slate-50 rounded-xl text-slate-400 hover:text-slate-600 cursor-pointer"
-                    >
-                      <X size={16} />
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* Phone, Email, Address info */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Email</label>
-                  <input
-                    type="email"
-                    value={clientEmail}
-                    onChange={(e) => setClientEmail(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 px-3 py-2 text-xs rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500 focus:bg-white transition-all"
-                    placeholder="email@klien.com"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">No. HP/WA</label>
-                  <input
-                    type="text"
-                    value={clientPhone}
-                    onChange={(e) => setClientPhone(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 px-3 py-2 text-xs rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500 focus:bg-white transition-all"
-                    placeholder="08123456789"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Alamat Penerima</label>
-                <textarea
-                  value={clientAddress}
-                  onChange={(e) => setClientAddress(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 px-3 py-2 text-xs rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500 focus:bg-white transition-all h-16 resize-none"
-                  placeholder="Alamat lengkap instansi/klien..."
-                />
+                )}
               </div>
             </div>
 
@@ -1488,9 +1588,19 @@ Notaris/PPAT Nukantini Putri Parincha, SH., M.Kn`;
                     onChange={(e) => handlePresetSelect(e.target.value)}
                     className="w-full bg-white border border-slate-200 px-3 py-2 text-xs rounded-xl focus:outline-none"
                   >
-                    {PRESET_PRODUCTS.map((prod) => (
-                      <option key={prod} value={prod}>{prod}</option>
-                    ))}
+                    <option value="-- Manual --">-- Manual --</option>
+                    {dbProducts.length > 0 && (
+                      <optgroup label="Produk & Layanan Anda">
+                        {dbProducts.map((p) => (
+                          <option key={p.id} value={p.name}>{p.name}</option>
+                        ))}
+                      </optgroup>
+                    )}
+                    <optgroup label="Template Default">
+                      {PRESET_PRODUCTS.filter(p => p !== '-- Manual --').map((prod) => (
+                        <option key={prod} value={prod}>{prod}</option>
+                      ))}
+                    </optgroup>
                   </select>
                 </div>
                 <div className="md:col-span-4">

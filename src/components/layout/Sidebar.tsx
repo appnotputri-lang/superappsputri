@@ -147,6 +147,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           { label: 'Surat Masuk', id: 'incoming_mail' as const, icon: Inbox, requiresAuth: true },
           { label: 'Laporan Notaris', id: 'notary_reports' as const, icon: BookMarked, requiresAuth: true },
           { label: 'Invoice', id: 'invoice' as const, icon: CreditCard, requiresAuth: true },
+          { label: 'Produk & Layanan', id: 'products' as const, icon: Package, requiresAuth: true },
           { label: 'Penawaran', id: 'quotation' as const, icon: FileText, requiresAuth: true },
           { label: 'Surat Jalan', id: 'delivery' as const, icon: Package, requiresAuth: true },
           { label: 'Tanda Terima', id: 'receipt' as const, icon: FileCheck, requiresAuth: true },

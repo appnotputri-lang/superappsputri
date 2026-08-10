@@ -389,7 +389,7 @@ export default function DraftAktaPendirian({
   };
 
   return (
-    <div className="max-w-5xl mx-auto space-y-4 pb-20">
+    <div className="w-[94%] xl:w-[92%] max-w-none mx-auto space-y-4 pb-20 pt-4 sm:pt-5">
       <div className="flex justify-between items-center bg-white p-4 rounded-sm shadow-sm border border-slate-200 sticky top-0 z-10">
         <div>
           <h2 className="text-[16px] font-bold flex items-center gap-2 text-slate-800 uppercase">

@@ -603,6 +603,7 @@ export interface InvoiceItem {
   amount: number;
   isTaxed?: boolean;
   taxRate?: number;
+  discount?: number;
 }
 
 export interface Invoice {
@@ -626,6 +627,10 @@ export interface Invoice {
   paidAmount: number;
   balanceDue: number;
   currency?: string;
+  projectId?: string;
+  projectTitle?: string;
+  projectIds?: string[];
+  projectTitles?: string[];
   language?: 'id' | 'en';
   notes?: string;
   terms?: string;
@@ -666,6 +671,10 @@ export interface Quotation {
   publicToken?: string;
   invoiceId?: string;
   invoiceNumber?: string;
+  projectId?: string;
+  projectTitle?: string;
+  projectIds?: string[];
+  projectTitles?: string[];
   createdAt?: string;
   updatedAt?: string;
 }
@@ -726,7 +735,7 @@ export interface GeneralDocumentData {
   publicToken?: string;
 }
 
-export type SidebarTabId = 'beranda' | 'company_profile' | 'cv_profile' | 'notulen' | 'pendirian' | 'rupst' | 'perbaikan' | 'draft_akta_rups' | 'panduan' | 'kbli_mapping' | 'saran_kbli' | 'import_kbli' | 'laporan' | 'whatsapp_settings' | 'projects' | 'project_detail' | 'user_management' | 'notary_reports' | 'invoice' | 'quotation' | 'deeds' | 'private_deeds' | 'protest_cheque' | 'outgoing_mail' | 'incoming_mail' | 'stamp_settings' | 'delivery' | 'receipt';
+export type SidebarTabId = 'beranda' | 'company_profile' | 'cv_profile' | 'notulen' | 'pendirian' | 'rupst' | 'perbaikan' | 'draft_akta_rups' | 'panduan' | 'kbli_mapping' | 'saran_kbli' | 'import_kbli' | 'laporan' | 'whatsapp_settings' | 'projects' | 'project_detail' | 'user_management' | 'notary_reports' | 'invoice' | 'quotation' | 'deeds' | 'private_deeds' | 'protest_cheque' | 'outgoing_mail' | 'incoming_mail' | 'stamp_settings' | 'delivery' | 'receipt' | 'products';
 
 // ==========================================
 // PENDIRIAN CV (PERSEKUTUAN KOMANDITER) TYPES
@@ -790,3 +799,14 @@ export interface CVProfile {
   
   documentStatus?: 'DRAFTING' | 'SUDAH CETAK AKTA' | 'SELESAI';
 }
+
+export interface Product {
+  id: string;
+  name: string;
+  unitPrice?: number;
+  description?: string;
+  isTaxed?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+

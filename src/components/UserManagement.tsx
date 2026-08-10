@@ -156,7 +156,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({ currentUser }) =
         </div>
 
         <div className="overflow-x-auto">
-          <table className="min-w-[600px] w-full text-left">
+          <table className="min-w-[1000px] w-full text-left">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-100">
                 <th className="px-6 py-4 text-[13px] font-bold text-slate-600 uppercase tracking-wider">User</th>

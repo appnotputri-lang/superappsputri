@@ -53,7 +53,8 @@ export function calculateGrossUpByRate(net: number, rate: number = 0.05): { gros
 export function getItemSubtotal(item: InvoiceItem): number {
   const qty = item.quantity || 1;
   const price = item.unitPrice || 0;
-  const net = qty * price;
+  const discount = item.discount || 0;
+  const net = Math.max(0, (qty * price) - discount);
   if (item.isTaxed) {
     const rate = item.taxRate !== undefined ? item.taxRate : 0.05;
     return calculateGrossUpByRate(net, rate).gross;
@@ -67,7 +68,8 @@ export function getItemSubtotal(item: InvoiceItem): number {
 export function getItemTax(item: InvoiceItem): number {
   const qty = item.quantity || 1;
   const price = item.unitPrice || 0;
-  const net = qty * price;
+  const discount = item.discount || 0;
+  const net = Math.max(0, (qty * price) - discount);
   if (item.isTaxed) {
     const rate = item.taxRate !== undefined ? item.taxRate : 0.05;
     return calculateGrossUpByRate(net, rate).pph;
@@ -81,7 +83,8 @@ export function getItemTax(item: InvoiceItem): number {
 export function getItemNet(item: InvoiceItem): number {
   const qty = item.quantity || 1;
   const price = item.unitPrice || 0;
-  return qty * price;
+  const discount = item.discount || 0;
+  return Math.max(0, (qty * price) - discount);
 }
 
 export interface InvoiceTaxSummary {

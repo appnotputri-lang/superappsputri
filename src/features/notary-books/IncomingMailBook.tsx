@@ -218,7 +218,7 @@ export const IncomingMailBook: React.FC = () => {
       ) : (
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
+            <table className="min-w-[1000px] w-full text-left text-xs border-collapse">
               <thead>
                 <tr className="bg-slate-50 text-slate-700 font-semibold border-b border-slate-200 uppercase text-[11px]">
                   <th className="p-3 w-12 text-center border-r border-slate-200">NO</th>

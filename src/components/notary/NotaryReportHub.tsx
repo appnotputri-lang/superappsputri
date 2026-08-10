@@ -241,7 +241,7 @@ export const NotaryReportHub: React.FC = () => {
   ];
 
   return (
-    <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-6">
+    <div className="p-4 md:p-6 w-[94%] xl:w-[92%] max-w-none mx-auto space-y-6">
       {/* Notice Banner for iFrame Printing */}
       {typeof window !== 'undefined' && window.self !== window.top && (
         <div className="bg-amber-50 border border-amber-200 text-amber-900 px-4 py-3 rounded-xl flex items-start sm:items-center justify-between gap-3 text-xs print:hidden shadow-sm">

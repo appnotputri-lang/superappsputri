@@ -3012,7 +3012,7 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
 
   return (
     <div className="flex-1 overflow-auto bg-slate-50 p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
+      <div className="w-[94%] xl:w-[92%] max-w-none mx-auto space-y-6">
         {/* Back and Title Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200/60 pb-5">
           <div className="flex items-start gap-4">

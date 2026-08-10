@@ -362,7 +362,7 @@ syncCompanyDataToRupst
             };
 
             return (
-              <div className="max-w-7xl mx-auto space-y-6 px-2 sm:px-4 py-4">
+              <div className="w-[94%] xl:w-[92%] max-w-none mx-auto space-y-6 px-2 sm:px-4 py-4">
                 <div className="flex justify-between items-center bg-white p-5 rounded-md shadow-sm border border-slate-200">
                   <div className="flex items-center gap-3">
                     <div className="bg-blue-50 p-2.5 rounded-full border border-blue-100 flex items-center justify-center shrink-0">

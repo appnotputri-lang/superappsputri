@@ -9,6 +9,7 @@ import { renderTrackingRoute } from './tracking.routes';
 import { renderSharedRoute } from './shared.routes';
 import { renderNotaryReportRoute } from './notaryReport.routes';
 import { renderInvoiceRoute } from './invoice.routes';
+import { renderProductRoute } from './products.routes';
 import { renderQuotationRoute } from './quotation.routes';
 import { renderNotaryBookRoute } from './notaryBooks.routes';
 import { renderGeneralDocumentRoute } from './generalDocument.routes';
@@ -28,6 +29,10 @@ export const renderAppRoute = (currentTab: string, props: any) => {
 
   if (currentTab === 'invoice') {
     return renderInvoiceRoute(props?.isPublic || false);
+  }
+
+  if (currentTab === 'products') {
+    return renderProductRoute();
   }
 
   if (currentTab === 'quotation') {

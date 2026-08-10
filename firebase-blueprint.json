@@ -130,6 +130,19 @@
         "date": { "type": "string" }
       },
       "required": ["id", "docType", "referenceNo", "clientName", "date"]
+    },
+    "Product": {
+      "title": "Product",
+      "description": "Products and services for invoices and quotations.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "unitPrice": { "type": "number" },
+        "description": { "type": "string" },
+        "isTaxed": { "type": "boolean" }
+      },
+      "required": ["id", "name"]
     }
   },
   "firestore": {
@@ -168,6 +181,10 @@
     "/general_documents/{documentId}": {
       "schema": "GeneralDocument",
       "description": "General documents (Surat Jalan and Tanda Terima) collection."
+    },
+    "/products/{productId}": {
+      "schema": "Product",
+      "description": "Products and services collection."
     }
   }
 }

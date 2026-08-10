@@ -115,6 +115,12 @@ export const InvoicePrintTemplate: React.FC<InvoicePrintTemplateProps> = ({ invo
                 <td className="text-slate-500 font-medium pr-3 py-0.5">{isEn ? 'Due Date' : 'Jatuh Tempo'}</td>
                 <td className="font-bold text-slate-900 py-0.5">{formatDate(invoice.dueDate)}</td>
               </tr>
+              {invoice.projectTitle && (
+                <tr>
+                  <td className="text-slate-500 font-medium pr-3 py-0.5">{isEn ? 'Project' : 'Proyek'}</td>
+                  <td className="font-bold text-slate-900 py-0.5">{invoice.projectTitle}</td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>

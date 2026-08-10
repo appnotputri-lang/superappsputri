@@ -152,7 +152,7 @@ export const CompanyList: React.FC<CompanyListProps> = ({
 
       {/* Desktop Table View */}
       <div className="hidden md:block overflow-x-auto">
-        <table className="min-w-[850px] w-full text-left text-xs border-collapse">
+        <table className="min-w-[1000px] w-full text-left text-xs border-collapse">
           <thead className="bg-[#f8fafc] border-b border-slate-200/80 font-bold uppercase text-slate-600 text-[11px] tracking-wider select-none">
             <tr>
               <th className="px-3.5 py-2.5 text-center border-r border-slate-200/60 w-12 text-[#0c2444]">NO</th>

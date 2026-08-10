@@ -1,8 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { PageHeader } from "../ui/PageLayout";
-import { Invoice, InvoiceItem, PaymentRecord } from '../../../types';
+import { Invoice, InvoiceItem, PaymentRecord, Product } from '../../../types';
 import { InvoiceService } from '../../services/InvoiceService';
+import { ProductService } from '../../services/ProductService';
 import { CompanyService } from '../../services/CompanyService';
+import { ProjectService } from '../../services/ProjectService';
+import { Project } from '../../domain/project/Project';
 import { SuperappsClientService, superappsDb } from '../../services/superappsClientService';
 import { calculateInvoiceTotals, getItemSubtotal } from '../../services/taxCalculator';
 import { formatInputNumber, parseFormattedNumber } from '../../../utils/formatters';
@@ -16,8 +19,41 @@ import {
   Plus, Edit2, Trash2, Printer, Search, X, Copy, ExternalLink,
   Check, CreditCard, DollarSign, Globe, CheckCircle2, AlertCircle, FileText, Share2,
   Building2, Database, ArrowLeft, Download, Send, SendHorizontal, Smartphone, MessageSquare, ChevronLeft, ChevronRight, UserPlus,
-  MoreHorizontal, Calendar, Clock, ChevronUp, ChevronDown, MoreVertical, RefreshCw
+  MoreHorizontal, Calendar, Clock, ChevronUp, ChevronDown, MoreVertical, RefreshCw, FolderOpen, Briefcase
 } from 'lucide-react';
+
+const AutoResizingTextarea = ({
+  value,
+  onChange,
+  className,
+  placeholder,
+}: {
+  value: string;
+  onChange: (val: string) => void;
+  className?: string;
+  placeholder?: string;
+}) => {
+  const textareaRef = React.useRef<HTMLTextAreaElement>(null);
+
+  React.useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
+    }
+  }, [value]);
+
+  return (
+    <textarea
+      ref={textareaRef}
+      rows={1}
+      value={value}
+      placeholder={placeholder}
+      onChange={(e) => onChange(e.target.value)}
+      className={`${className} resize-none overflow-y-hidden`}
+      style={{ minHeight: '34px' }}
+    />
+  );
+};
 
 interface ClientOption {
   clientId: string;
@@ -80,6 +116,11 @@ const MobileInvoiceRow: React.FC<{
         <div className="min-w-0">
           <p className="font-semibold text-slate-800 truncate">{invoice.clientName}</p>
           <div className="text-xs text-slate-500">{invoice.invoiceNumber}</div>
+          {invoice.projectTitle && (
+            <div className="text-[10px] text-blue-600 font-medium truncate mt-0.5">
+              Proyek: {invoice.projectTitle}
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-3 shrink-0">
           <div className="bg-emerald-400 text-white text-xs font-bold px-3 py-1.5 rounded-full">
@@ -163,6 +204,9 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = (props) => {
 
   // Form Fields
   const [editingInvoiceId, setEditingInvoiceId] = useState<string | null>(null);
+  const [activeProjects, setActiveProjects] = useState<Project[]>([]);
+  const [selectedProjectId, setSelectedProjectId] = useState<string>('');
+  const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([]);
   const [invoiceNumber, setInvoiceNumber] = useState('');
   const [clientName, setClientName] = useState('');
   const [selectedClientId, setSelectedClientId] = useState<string>('');
@@ -180,10 +224,34 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = (props) => {
 
   // Items Form
   const [items, setItems] = useState<InvoiceItem[]>([
-    { id: '1', description: 'Jasa Pembuatan Akta Notaris', quantity: 1, unitPrice: 5000000, amount: 5000000, isTaxed: false }
+    { id: '1', description: '', quantity: 1, unitPrice: 0, amount: 0, isTaxed: false }
   ]);
+  const [activeProductDropdownIdx, setActiveProductDropdownIdx] = useState<number | null>(null);
+  const [productSearchQueries, setProductSearchQueries] = useState<Record<number, string>>({});
 
   // Add Item Temp Inputs
+  const [dbProducts, setDbProducts] = useState<Product[]>([]);
+  useEffect(() => {
+    const unsubscribe = ProductService.subscribeProducts((data) => {
+      // Sort alphabetically
+      const sorted = [...data].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+      setDbProducts(sorted);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    const isProjectCompleted = (status: string) => {
+      const s = (status || '').toLowerCase();
+      return s === 'completed' || s === 'archived' || s === 'selesai';
+    };
+    const unsubscribe = ProjectService.subscribeProjects((data) => {
+      const active = data.filter(p => p && p.status && !isProjectCompleted(p.status));
+      setActiveProjects(active);
+    });
+    return () => unsubscribe();
+  }, []);
+
   const [selectedPresetProduct, setSelectedPresetProduct] = useState('-- Manual --');
   const [itemDescription, setItemDescription] = useState('');
   const [itemUnitPrice, setItemUnitPrice] = useState<number>(0);
@@ -409,16 +477,30 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = (props) => {
     setItems(prev => prev.filter((_, i) => i !== index));
   };
 
-  const handleItemChange = (index: number, field: keyof InvoiceItem, value: any) => {
-    const updated = [...items];
-    const item = { ...updated[index], [field]: value };
-    item.amount = (item.quantity || 1) * (item.unitPrice || 0);
-    updated[index] = item;
-    setItems(updated);
+  const handleItemChange = (
+    index: number,
+    fieldOrUpdates: keyof InvoiceItem | Partial<InvoiceItem>,
+    value?: any
+  ) => {
+    setItems((prevItems) => {
+      const updated = [...prevItems];
+      if (!updated[index]) return prevItems;
+      let item = { ...updated[index] };
+      if (typeof fieldOrUpdates === 'object') {
+        item = { ...item, ...fieldOrUpdates };
+      } else {
+        item = { ...item, [fieldOrUpdates]: value };
+      }
+      item.amount = (item.quantity || 1) * (item.unitPrice || 0);
+      updated[index] = item;
+      return updated;
+    });
   };
 
   const openCreatePage = () => {
     setEditingInvoiceId(null);
+    setSelectedProjectId('');
+    setSelectedProjectIds([]);
     const nextNum = (invoices.length + 1).toString().padStart(3, '0');
     const generatedNum = `INV/${new Date().getFullYear()}/${nextNum}`;
     
@@ -442,7 +524,9 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = (props) => {
     setCurrency('IDR');
     setNotes('Pemotongan pajak PPh Pasal 21 harus disetorkan paling lambat tanggal 10 bulan berikutnya, untuk mencegah sanksi Ditjen Pajak.');
     setTerms('Pembayaran dilakukan maksimal 14 hari setelah invoice diterbitkan.');
-    setItems([]);
+    setItems([
+      { id: '1', description: '', quantity: 1, unitPrice: 0, amount: 0, isTaxed: false }
+    ]);
     setItemDescription('');
     setItemUnitPrice(0);
     setItemGrossUp(false);
@@ -459,6 +543,8 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = (props) => {
   const openEditPage = (inv: Invoice) => {
     setEditingInvoiceId(inv.id);
     setSelectedInvoice(inv);
+    setSelectedProjectId(inv.projectId || '');
+    setSelectedProjectIds(inv.projectIds || (inv.projectId ? [inv.projectId] : []));
     setInvoiceNumber(inv.invoiceNumber || '');
     setClientName(inv.clientName || '');
     setSelectedClientId(inv.clientId || '');
@@ -508,8 +594,46 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = (props) => {
     setViewMode('detail');
   };
 
+  const handleSelectClient = (client: ClientOption) => {
+    setSelectedClientId(client.clientId);
+    setSelectedClientSource(client.source);
+    setClientName(client.name);
+    setClientEmail(client.email || '');
+    setClientPhone(client.phone || '');
+    setClientAddress(client.address || '');
+    setSelectedProjectIds([]);
+    setSelectedProjectId('');
+    setShowClientDropdown(false);
+  };
+
+  const handleClearClient = () => {
+    setSelectedClientId('');
+    setSelectedClientSource(undefined);
+    setClientName('');
+    setClientEmail('');
+    setClientPhone('');
+    setClientAddress('');
+    setSelectedProjectIds([]);
+    setSelectedProjectId('');
+    setClientSearch('');
+  };
+
+  const handleToggleProject = (projectId: string) => {
+    setSelectedProjectIds(prev => {
+      const next = prev.includes(projectId)
+        ? prev.filter(id => id !== projectId)
+        : [...prev, projectId];
+      setSelectedProjectId(next[0] || '');
+      return next;
+    });
+  };
+
   const handleSaveInvoice = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
+    if (selectedProjectIds.length === 0) {
+      alert('Mohon hubungkan setidaknya satu proyek aktif terlebih dahulu.');
+      return;
+    }
     if (!invoiceNumber || !clientName) {
       alert('Mohon isi Nomor Invoice dan Nama Klien.');
       return;
@@ -517,6 +641,18 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = (props) => {
 
     setIsSubmitting(true);
     try {
+      const projectTitles = selectedProjectIds.map(id => {
+        const p = activeProjects.find(proj => proj.projectId === id);
+        if (p) return p.title;
+        if (selectedInvoice && selectedInvoice.projectIds?.includes(id)) {
+          const idx = selectedInvoice.projectIds.indexOf(id);
+          if (selectedInvoice.projectTitles && selectedInvoice.projectTitles[idx]) {
+            return selectedInvoice.projectTitles[idx];
+          }
+        }
+        return 'Proyek';
+      });
+
       const { sub, tax, total } = calculateTotals(items);
       const existingPaid = selectedInvoice && editingInvoiceId === selectedInvoice.id ? selectedInvoice.paidAmount || 0 : 0;
       const balance = Math.max(0, total - existingPaid);
@@ -529,6 +665,10 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = (props) => {
         clientEmail,
         clientPhone,
         clientAddress,
+        projectId: selectedProjectIds[0] || '',
+        projectTitle: projectTitles.join(', '),
+        projectIds: selectedProjectIds,
+        projectTitles: projectTitles,
         issueDate,
         dueDate,
         status: balance <= 0 && total > 0 ? 'PAID' : status,
@@ -1025,11 +1165,7 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
     safeCurrentPage * pageSize
   );
 
-  const allClientsList = [...superappsClients, ...localClients].filter(c => {
-    if (clientSourceTab === 'local') return c.source === 'local';
-    if (clientSourceTab === 'superapps') return c.source === 'superapps';
-    return true;
-  });
+  const allClientsList = superappsClients;
 
   const filteredClientOptions = allClientsList.filter(c =>
     c.name.toLowerCase().includes(clientSearch.toLowerCase()) ||
@@ -1309,7 +1445,7 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
         </div>
 
         {/* ===== DESKTOP LIST (existing, md+) ===== */}
-        <div className="hidden md:block p-4 md:p-6 max-w-7xl mx-auto space-y-6">
+        <div className="hidden md:block p-4 md:p-6 w-[94%] xl:w-[92%] max-w-none mx-auto space-y-6">
           {/* Header */}
           <PageHeader
             title="Invoice"
@@ -1363,7 +1499,7 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
         {/* Invoice List Table */}
         <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
+            <table className="min-w-[1000px] w-full text-left text-xs border-collapse">
               <thead>
                 <tr className="bg-slate-50/80 text-slate-600 border-b border-slate-200/80 font-bold select-none">
                   <th className="p-3.5 w-12 text-center">No.</th>
@@ -1432,7 +1568,12 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
                           {inv.invoiceNumber}
                         </td>
                         <td className="p-3.5 font-semibold text-slate-800">
-                          {inv.clientName}
+                          <div>{inv.clientName}</div>
+                          {inv.projectTitle && (
+                            <div className="text-[10px] text-blue-600 font-medium mt-0.5">
+                              Proyek: {inv.projectTitle}
+                            </div>
+                          )}
                         </td>
                         <td className="p-3.5 text-right font-bold text-slate-900 whitespace-nowrap">
                           {formatCurrency(inv.totalAmount)}
@@ -1818,7 +1959,7 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
         </div>
 
         {/* ===== DESKTOP DETAIL (existing, md+) ===== */}
-        <div className="hidden md:block p-4 md:p-6 max-w-7xl mx-auto space-y-6 print:p-0 print:max-w-none">
+        <div className="hidden md:block p-4 md:p-6 w-[94%] xl:w-[92%] max-w-none mx-auto space-y-6 print:p-0 print:max-w-none">
           {/* Top Navigation & Action Header (Hidden during browser print) */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 print:hidden">
           <div className="flex items-center gap-3">
@@ -2062,8 +2203,37 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
   // =========================================================================
   // RENDER 3: FULL PAGE FORM ("Buat Invoice Baru" / "Edit Invoice")
   // =========================================================================
+  const allAvailableProducts = [
+    ...dbProducts.map(p => ({
+      name: p.name,
+      description: p.description || '',
+      unitPrice: p.unitPrice || 0,
+      isTaxed: !!p.isTaxed,
+      taxRate: 0.05
+    })),
+    ...PRESET_PRODUCTS.filter(p => p !== '-- Manual --').map(p => {
+      let description = '';
+      let unitPrice = 0;
+      let isTaxed = false;
+      if (p === 'AKTA PERUBAHAN PT SK') {
+        description = '1. Draft Notulen Sirkuler\n2. Akta RUPSLB\n3. Surat Keputusan (SK) AHU\n4. Surat Pelaporan AHU\n5. BNRI\n6. Akta Hibah Saham';
+        unitPrice = 7435897;
+        isTaxed = true;
+      } else if (p === 'Jasa Pembuatan Akta Notaris') {
+        unitPrice = 5000000;
+      }
+      return {
+        name: p,
+        description,
+        unitPrice,
+        isTaxed,
+        taxRate: 0.05
+      };
+    })
+  ];
+
   return (
-    <div className="p-4 md:p-6 max-w-5xl mx-auto space-y-6">
+    <div className="p-4 md:p-6 w-[94%] xl:w-[92%] max-w-none mx-auto space-y-4">
       {/* Top Header */}
       <div className="flex items-center gap-3">
         <button
@@ -2091,356 +2261,332 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
         </div>
       </div>
 
-      <form onSubmit={handleSaveInvoice} className="space-y-6 text-xs">
-        {/* Card 1: Pilih Klien */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
-            <label className="font-bold text-slate-900 text-xs">Pilih Klien</label>
-
-            {/* Source filter tabs */}
-            <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-xl">
-              <button
-                type="button"
-                onClick={() => setClientSourceTab('all')}
-                className={`px-3 py-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer ${
-                  clientSourceTab === 'all'
-                    ? 'bg-white text-slate-900 shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                Semua ({superappsClients.length + localClients.length})
-              </button>
-              <button
-                type="button"
-                onClick={() => setClientSourceTab('local')}
-                className={`px-3 py-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer ${
-                  clientSourceTab === 'local'
-                    ? 'bg-white text-slate-900 shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                Lokal ({localClients.length})
-              </button>
-              <button
-                type="button"
-                onClick={() => setClientSourceTab('superapps')}
-                className={`px-3 py-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer ${
-                  clientSourceTab === 'superapps'
-                    ? 'bg-white text-indigo-700 shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                Superapps ({superappsClients.length})
-              </button>
-            </div>
-          </div>
-
-          {/* Client Searchable Input / Dropdown */}
-          <div className="relative">
-            <div className="relative">
-              <Search size={15} className="absolute left-3.5 top-3 text-slate-400" />
-              <input
-                type="text"
-                placeholder="Ketik nama klien, email, atau alamat..."
-                value={clientName || clientSearch}
-                onFocus={() => setShowClientDropdown(true)}
-                onChange={(e) => {
-                  setClientName(e.target.value);
-                  setClientSearch(e.target.value);
-                  setShowClientDropdown(true);
-                }}
-                className="w-full pl-10 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/20"
-              />
-              {(clientName || clientSearch) && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setClientName('');
-                    setClientSearch('');
-                    setSelectedClientId('');
-                    setSelectedClientSource(undefined);
-                    setClientEmail('');
-                    setClientPhone('');
-                    setClientAddress('');
+      <form onSubmit={handleSaveInvoice} className="space-y-4 text-xs">
+        {/* Unified Compact Header: Client, Invoice No, Issue Date, Due Date */}
+        <div className="bg-white p-4 md:p-5 rounded-2xl border border-slate-200/80 shadow-sm space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-start">
+            {/* Klien */}
+            <div className="space-y-1 relative">
+              <label className="block font-bold text-slate-700 text-[10px] uppercase tracking-wide">Klien <span className="text-red-500">* Wajib</span></label>
+              <div className="relative">
+                <Search size={14} className="absolute left-3 top-2.5 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Cari atau pilih klien..."
+                  value={clientSearch || clientName}
+                  onFocus={() => setShowClientDropdown(true)}
+                  onChange={(e) => {
+                    setClientSearch(e.target.value);
+                    setClientName(e.target.value);
+                    setShowClientDropdown(true);
+                    if (selectedClientId) {
+                      setSelectedClientId('');
+                      setSelectedClientSource(undefined);
+                      setSelectedProjectIds([]);
+                      setSelectedProjectId('');
+                    }
                   }}
-                  className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 cursor-pointer"
-                >
-                  <X size={16} />
-                </button>
+                  className="w-full pl-8 pr-8 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/20"
+                />
+                {(clientName || clientSearch) && (
+                  <button
+                    type="button"
+                    onClick={handleClearClient}
+                    className="absolute right-3 top-2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                  >
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
+
+              {showClientDropdown && (
+                <div className="absolute left-0 right-0 top-full mt-1 bg-white rounded-xl border border-slate-200 shadow-lg z-50 max-h-56 overflow-y-auto p-1">
+                  {isLoadingClients ? (
+                    <div className="p-3 text-center text-slate-500 text-xs flex items-center justify-center gap-2">
+                      <div className="w-3.5 h-3.5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                      Memuat data klien...
+                    </div>
+                  ) : filteredClientOptions.length === 0 ? (
+                    <div className="p-3 text-center text-slate-400 text-xs italic">
+                      Tidak ada data klien yang cocok.
+                    </div>
+                  ) : (
+                    filteredClientOptions.map((c) => (
+                      <div
+                        key={`${c.source}_${c.clientId}`}
+                        onClick={() => handleSelectClient(c)}
+                        className="p-2 hover:bg-slate-50 rounded-lg cursor-pointer transition-colors flex items-center justify-between"
+                      >
+                        <div className="min-w-0 pr-2">
+                          <span className="font-bold text-slate-800 text-xs truncate max-w-[180px] block">{c.name}</span>
+                        </div>
+                        {selectedClientId === c.clientId && (
+                          <Check size={14} className="text-blue-600 shrink-0" />
+                        )}
+                      </div>
+                    ))
+                  )}
+                </div>
               )}
             </div>
 
-            {/* Dropdown Options */}
-            {showClientDropdown && (
-              <div className="absolute left-0 right-0 top-full mt-1 bg-white rounded-xl border border-slate-200 shadow-lg z-50 max-h-56 overflow-y-auto p-1">
-                {isLoadingClients ? (
-                  <div className="p-3 text-center text-slate-500 text-xs flex items-center justify-center gap-2">
-                    <div className="w-3.5 h-3.5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-                    Memuat data klien...
-                  </div>
-                ) : filteredClientOptions.length === 0 ? (
-                  <div className="p-3 text-center text-slate-400 text-xs italic">
-                    Tidak ada data klien yang cocok.
-                  </div>
-                ) : (
-                  filteredClientOptions.map((c) => (
-                    <div
-                      key={`${c.source}_${c.clientId}`}
-                      onClick={() => {
-                        setSelectedClientId(c.clientId);
-                        setSelectedClientSource(c.source);
-                        setClientName(c.name);
-                        setClientEmail(c.email);
-                        setClientPhone(c.phone);
-                        setClientAddress(c.address);
-                        setShowClientDropdown(false);
-                      }}
-                      className="p-2.5 hover:bg-slate-50 rounded-lg cursor-pointer transition-colors flex items-center justify-between"
-                    >
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-slate-800">{c.name}</span>
-                          <span className={`text-[9px] px-1.5 py-0.2 rounded font-bold uppercase ${
-                            c.source === 'superapps'
-                              ? 'bg-indigo-100 text-indigo-700'
-                              : 'bg-emerald-100 text-emerald-700'
-                          }`}>
-                            {c.source === 'superapps' ? 'Superapps' : 'Lokal'}
-                          </span>
-                        </div>
-                        {c.address && <p className="text-[10px] text-slate-500 mt-0.5">{c.address}</p>}
-                      </div>
-                      {selectedClientId === c.clientId && (
-                        <Check size={16} className="text-blue-600" />
-                      )}
-                    </div>
-                  ))
-                )}
+            {/* Nomor Invoice */}
+            <div className="space-y-1">
+              <label className="block font-bold text-slate-700 text-[10px] uppercase tracking-wide">Nomor Invoice</label>
+              <input
+                type="text"
+                required
+                value={invoiceNumber}
+                onChange={(e) => setInvoiceNumber(e.target.value)}
+                className="w-full p-1.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/20 text-xs"
+              />
+            </div>
+
+            {/* Tanggal */}
+            <div className="space-y-1">
+              <label className="block font-bold text-slate-700 text-[10px] uppercase tracking-wide">Tanggal</label>
+              <input
+                type="date"
+                required
+                value={issueDate}
+                onChange={(e) => setIssueDate(e.target.value)}
+                className="w-full p-1.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/20 text-xs font-semibold"
+              />
+            </div>
+
+            {/* Jatuh Tempo */}
+            <div className="space-y-1">
+              <label className="block font-bold text-slate-700 text-[10px] uppercase tracking-wide">Jatuh Tempo</label>
+              <input
+                type="date"
+                value={dueDate}
+                onChange={(e) => setDueDate(e.target.value)}
+                className="w-full p-1.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/20 text-xs font-semibold"
+              />
+            </div>
+          </div>
+
+          {/* Connected Active Projects (Compact & inline if client is selected) */}
+          {selectedClientId && (
+            <div className="pt-3 border-t border-slate-100 space-y-2">
+              <div className="flex items-center gap-1.5">
+                <Briefcase size={14} className="text-blue-600" />
+                <h4 className="font-bold text-slate-800 text-[10px] uppercase tracking-wide">
+                  Hubungkan Proyek Aktif ({activeProjects.filter(p => p.clientId === selectedClientId).length} Proyek) <span className="text-red-500">*</span>
+                </h4>
               </div>
-            )}
-          </div>
-
-          <div className="flex items-center justify-between">
-            <button
-              type="button"
-              onClick={() => setIsNewClientModalOpen(true)}
-              className="text-blue-600 hover:text-blue-700 font-semibold text-xs flex items-center gap-1 cursor-pointer"
-            >
-              <UserPlus size={14} /> + Input Klien Baru
-            </button>
-          </div>
-        </div>
-
-        {/* Card 2: Form Header Fields */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
-            <label className="block font-bold text-slate-700 mb-1">Nomor Invoice</label>
-            <input
-              type="text"
-              required
-              value={invoiceNumber}
-              onChange={(e) => setInvoiceNumber(e.target.value)}
-              className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/20"
-            />
-          </div>
-
-          <div>
-            <label className="block font-bold text-slate-700 mb-1">Tanggal</label>
-            <input
-              type="date"
-              required
-              value={issueDate}
-              onChange={(e) => setIssueDate(e.target.value)}
-              className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/20"
-            />
-          </div>
-
-          <div>
-            <label className="block font-bold text-slate-700 mb-1">Jatuh Tempo</label>
-            <input
-              type="date"
-              value={dueDate}
-              onChange={(e) => setDueDate(e.target.value)}
-              className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/20"
-            />
-          </div>
+              
+              {activeProjects.filter(p => p.clientId === selectedClientId).length === 0 ? (
+                <div className="p-2.5 text-slate-500 text-xs italic bg-slate-50 rounded-xl border border-slate-100">
+                  Klien ini tidak memiliki proyek aktif.
+                </div>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {activeProjects.filter(p => p.clientId === selectedClientId).map((p) => {
+                    const isChecked = selectedProjectIds.includes(p.projectId);
+                    return (
+                      <button
+                        type="button"
+                        key={p.projectId}
+                        onClick={() => handleToggleProject(p.projectId)}
+                        className={`px-3 py-1.5 rounded-xl border text-[11px] font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
+                          isChecked 
+                            ? 'border-blue-500 bg-blue-50 text-blue-700 font-bold shadow-xs' 
+                            : 'border-slate-200 bg-white hover:border-slate-300 text-slate-600'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => {}} // handled by button click
+                          className="rounded border-slate-300 text-blue-600 focus:ring-blue-500/10 w-3.5 h-3.5 cursor-pointer"
+                        />
+                        <span>{p.title}</span>
+                        <span className={`text-[8px] px-1 py-0.2 rounded font-bold uppercase ${
+                          p.status === 'ACTIVE' || p.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'
+                        }`}>
+                          {p.status}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Card 3: ITEM TAGIHAN */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm space-y-4">
-          <h3 className="font-bold text-slate-900 text-xs uppercase tracking-wide">ITEM TAGIHAN</h3>
-
-          {/* Add Item Form Controls */}
-          <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/80 space-y-3">
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
-              <div className="md:col-span-3">
-                <label className="block font-bold text-slate-700 mb-1">PILIH PRODUK</label>
-                <select
-                  value={selectedPresetProduct}
-                  onChange={(e) => {
-                    setSelectedPresetProduct(e.target.value);
-                    if (e.target.value === 'AKTA PERUBAHAN PT SK') {
-                      setItemDescription('1. Draft Notulen Sirkuler\n2. Akta RUPSLB\n3. Surat Keputusan (SK) AHU\n4. Surat Pelaporan AHU\n5. BNRI\n6. Akta Hibah Saham');
-                      setItemUnitPrice(7435897);
-                      setItemGrossUp(true);
-                    } else if (e.target.value === 'Jasa Pembuatan Akta Notaris') {
-                      setItemUnitPrice(5000000);
-                    }
-                  }}
-                  className="w-full p-2.5 bg-white border border-slate-200 rounded-xl font-medium text-slate-800 focus:outline-none"
-                >
-                  {PRESET_PRODUCTS.map((p) => (
-                    <option key={p} value={p}>{p}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="md:col-span-5">
-                <label className="block font-bold text-slate-700 mb-1">DESKRIPSI</label>
-                <input
-                  type="text"
-                  placeholder="Deskripsi rincian..."
-                  value={itemDescription}
-                  onChange={(e) => setItemDescription(e.target.value)}
-                  className="w-full p-2.5 bg-white border border-slate-200 rounded-xl text-slate-800 focus:outline-none"
-                />
-              </div>
-
-              <div className="md:col-span-2">
-                <label className="block font-bold text-slate-700 mb-1">HARGA (RP)</label>
-                <input
-                  type="text"
-                  placeholder="0"
-                  value={itemUnitPrice ? formatInputNumber(itemUnitPrice) : ''}
-                  onChange={(e) => setItemUnitPrice(parseFormattedNumber(e.target.value))}
-                  className="w-full p-2.5 bg-white border border-slate-200 rounded-xl font-bold text-slate-900 focus:outline-none"
-                />
-              </div>
-
-              <div className="md:col-span-2 flex flex-col justify-center gap-1.5 pb-1">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={itemGrossUp}
-                    onChange={(e) => setItemGrossUp(e.target.checked)}
-                    className="w-4 h-4 text-blue-600 rounded cursor-pointer"
-                  />
-                  <span className="font-semibold text-slate-700 text-xs whitespace-nowrap">Gross Up PPh 21</span>
-                </label>
-                {itemGrossUp && (
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[11px] text-slate-500 font-medium">Tarif:</span>
-                    <select
-                      value={itemTaxRate}
-                      onChange={(e) => setItemTaxRate(parseFloat(e.target.value))}
-                      className="text-xs font-bold p-1 border border-blue-200 bg-blue-50 text-blue-800 rounded focus:outline-none"
-                    >
-                      <option value={0.05}>Tarif 5%</option>
-                      <option value={0.15}>Tarif 15%</option>
-                      <option value={0.25}>Tarif 25%</option>
-                      <option value={0.30}>Tarif 30%</option>
-                      <option value={0.35}>Tarif 35%</option>
-                    </select>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="flex justify-end pt-1">
-              <button
-                type="button"
-                onClick={handleAddItemFromInput}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
-              >
-                <Plus size={15} /> Tambah Item
-              </button>
-            </div>
+        <div className="bg-white p-4 md:p-5 rounded-2xl border border-slate-200/80 shadow-sm space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+            <h3 className="font-bold text-slate-900 text-xs uppercase tracking-wide">ITEM TAGIHAN</h3>
           </div>
 
           {/* Items List Table */}
-          <div className="border border-slate-200/80 rounded-xl overflow-hidden">
-            <table className="w-full text-left text-xs">
+          <div className="border border-slate-200/80 rounded-xl overflow-x-auto md:overflow-visible">
+            <table className="w-full text-left text-xs table-fixed min-w-[950px] md:min-w-0 md:w-full">
               <thead className="bg-slate-100 text-slate-600 font-bold border-b border-slate-200">
                 <tr>
-                  <th className="p-3">Item / Deskripsi</th>
-                  <th className="p-3 w-20 text-center">Qty</th>
-                  <th className="p-3 w-32 text-right">Harga (Rp)</th>
-                  <th className="p-3 w-28 text-center">PPh 21</th>
-                  <th className="p-3 w-32 text-right">Subtotal</th>
-                  <th className="p-3 w-12 text-center"></th>
+                  <th className="p-3 w-[15%] min-w-[140px]">Produk / Layanan</th>
+                  <th className="p-3 w-[33%] min-w-[220px]">Deskripsi</th>
+                  <th className="p-3 w-[5%] min-w-[50px] text-center">Qty</th>
+                  <th className="p-3 w-[14%] min-w-[110px] text-right">Harga (Rp)</th>
+                  <th className="p-3 w-[11%] min-w-[100px] text-right">Discount (Rp)</th>
+                  <th className="p-3 w-[10%] min-w-[95px] text-center">PPh 21</th>
+                  <th className="p-3 w-[10%] min-w-[100px] text-right">Subtotal</th>
+                  <th className="p-3 w-[2%] min-w-[35px] text-center"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {items.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="p-8 text-center text-slate-400 italic">
-                      Belum ada item ditambahkan.
+                    <td colSpan={8} className="p-8 text-center text-slate-400 italic">
+                      Belum ada item ditambahkan. Silakan klik "+ Tambah Item".
                     </td>
                   </tr>
                 ) : (
                   items.map((it, idx) => (
-                    <tr key={it.id || idx}>
-                      <td className="p-3">
-                        <textarea
-                          rows={2}
+                    <tr key={it.id || idx} className="hover:bg-slate-50/40">
+                      {/* Produk */}
+                      <td className="p-3 relative align-top overflow-visible">
+                        <div className="relative">
+                          <input
+                            type="text"
+                            placeholder="Cari atau ketik produk..."
+                            value={productSearchQueries[idx] !== undefined ? productSearchQueries[idx] : (it.description.split('\n')[0] || '')}
+                            onFocus={() => setActiveProductDropdownIdx(idx)}
+                            onBlur={() => setTimeout(() => setActiveProductDropdownIdx(null), 250)}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setProductSearchQueries(prev => ({ ...prev, [idx]: val }));
+                              
+                              // Update first line of description
+                              const lines = it.description.split('\n');
+                              lines[0] = val;
+                              handleItemChange(idx, 'description', lines.join('\n'));
+                            }}
+                            className="product-combobox-input w-full p-2 border border-slate-200 rounded-xl font-bold text-slate-800 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 bg-white"
+                          />
+                          {activeProductDropdownIdx === idx && (
+                            <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 shadow-xl rounded-xl z-50 max-h-48 overflow-y-auto p-1 text-xs">
+                              {allAvailableProducts
+                                .filter(p => p.name.toLowerCase().includes((productSearchQueries[idx] || '').toLowerCase()))
+                                .map((p, pIdx) => (
+                                  <button
+                                    type="button"
+                                    key={pIdx}
+                                    onMouseDown={(e) => {
+                                      e.preventDefault();
+                                      const finalDesc = p.description ? `${p.name}\n${p.description}` : p.name;
+                                      handleItemChange(idx, {
+                                        description: finalDesc,
+                                        unitPrice: p.unitPrice,
+                                        isTaxed: p.isTaxed,
+                                        taxRate: p.isTaxed ? (p.taxRate || 0.05) : undefined
+                                      });
+                                      setProductSearchQueries(prev => {
+                                        const copy = { ...prev };
+                                        delete copy[idx];
+                                        return copy;
+                                      });
+                                      setActiveProductDropdownIdx(null);
+                                    }}
+                                    className="w-full text-left p-2 hover:bg-blue-50 rounded-lg cursor-pointer transition-colors block border-b border-slate-50 last:border-none"
+                                  >
+                                    <div className="font-bold text-slate-900">{p.name}</div>
+                                    {p.unitPrice > 0 && (
+                                      <div className="text-[10px] text-slate-500 font-medium">Rp {formatCurrency(p.unitPrice)}</div>
+                                    )}
+                                  </button>
+                                ))}
+                              {allAvailableProducts.filter(p => p.name.toLowerCase().includes((productSearchQueries[idx] || '').toLowerCase())).length === 0 && (
+                                <div className="p-2 text-center text-slate-400 italic text-[10px]">
+                                  Produk tidak ditemukan
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </td>
+
+                      {/* Deskripsi */}
+                      <td className="p-3 align-top">
+                        <AutoResizingTextarea
                           value={it.description}
-                          onChange={(e) => handleItemChange(idx, 'description', e.target.value)}
-                          className="w-full p-2 border border-slate-200 rounded-lg text-xs font-medium focus:outline-none"
+                          onChange={(val) => handleItemChange(idx, 'description', val)}
+                          className="w-full p-2 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20 bg-white animate-none duration-0"
+                          placeholder="Ketik rincian atau deskripsi di sini..."
                         />
                       </td>
-                      <td className="p-3 text-center">
+
+                      {/* Qty */}
+                      <td className="p-3 text-center align-top">
                         <input
                           type="number"
                           min={1}
                           value={it.quantity || 1}
                           onChange={(e) => handleItemChange(idx, 'quantity', Number(e.target.value))}
-                          className="w-14 p-1.5 border border-slate-200 rounded text-center font-bold"
+                          className="w-full p-2 border border-slate-200 rounded-xl text-center font-bold text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                         />
                       </td>
-                      <td className="p-3 text-right">
+
+                      {/* Harga */}
+                      <td className="p-3 text-right align-top">
                         <input
                           type="text"
                           value={formatInputNumber(it.unitPrice || 0)}
                           onChange={(e) => handleItemChange(idx, 'unitPrice', parseFormattedNumber(e.target.value))}
-                          className="w-28 p-1.5 border border-slate-200 rounded text-right font-bold"
+                          className="w-full p-2 border border-slate-200 rounded-xl text-right font-bold text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                         />
                       </td>
-                      <td className="p-3 text-center">
-                        <div className="flex flex-col items-center gap-1">
-                          <label className="flex items-center gap-1 cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={it.isTaxed || false}
-                              onChange={(e) => handleItemChange(idx, 'isTaxed', e.target.checked)}
-                              className="w-4 h-4 text-blue-600 rounded cursor-pointer"
-                            />
-                            <span className="text-[10px] text-slate-600 font-semibold">Gross Up</span>
-                          </label>
-                          {it.isTaxed && (
-                            <select
-                              value={it.taxRate !== undefined ? it.taxRate : 0.05}
-                              onChange={(e) => handleItemChange(idx, 'taxRate', parseFloat(e.target.value))}
-                              className="text-[10px] font-bold p-1 border border-blue-200 bg-blue-50 text-blue-800 rounded focus:outline-none cursor-pointer"
-                            >
-                              <option value={0.05}>5%</option>
-                              <option value={0.15}>15%</option>
-                              <option value={0.25}>25%</option>
-                              <option value={0.30}>30%</option>
-                              <option value={0.35}>35%</option>
-                            </select>
-                          )}
-                        </div>
+
+                      {/* Discount */}
+                      <td className="p-3 text-right align-top">
+                        <input
+                          type="text"
+                          placeholder="0"
+                          value={it.discount ? formatInputNumber(it.discount) : ''}
+                          onChange={(e) => handleItemChange(idx, 'discount', parseFormattedNumber(e.target.value))}
+                          className="w-full p-2 border border-slate-200 rounded-xl text-right font-bold text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                        />
                       </td>
-                      <td className="p-3 text-right font-bold text-slate-900">
+
+                      {/* PPh 21 */}
+                      <td className="p-3 text-center align-top">
+                        <select
+                          value={it.isTaxed ? (it.taxRate !== undefined ? it.taxRate : 0.05) : 0}
+                          onChange={(e) => {
+                            const val = parseFloat(e.target.value);
+                            if (val === 0) {
+                              handleItemChange(idx, { isTaxed: false, taxRate: undefined });
+                            } else {
+                              handleItemChange(idx, { isTaxed: true, taxRate: val });
+                            }
+                          }}
+                          className="w-full p-2 border border-slate-200 bg-white text-xs font-bold rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 cursor-pointer text-center"
+                        >
+                          <option value={0}>0% (Tanpa PPh)</option>
+                          <option value={0.05}>5%</option>
+                          <option value={0.15}>15%</option>
+                          <option value={0.25}>25%</option>
+                          <option value={0.30}>30%</option>
+                          <option value={0.35}>35%</option>
+                        </select>
+                      </td>
+
+                      {/* Subtotal */}
+                      <td className="p-3 text-right font-bold text-slate-900 align-top pt-4">
                         {formatCurrency(getItemSubtotal(it))}
                       </td>
-                      <td className="p-3 text-center">
+
+                      {/* Aksi */}
+                      <td className="p-3 text-center align-top pt-3">
                         <button
                           type="button"
                           onClick={() => handleRemoveItem(idx)}
-                          className="p-1 text-red-500 hover:text-red-700 cursor-pointer"
+                          className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg cursor-pointer transition-colors"
                         >
-                          <X size={16} />
+                          <X size={15} />
                         </button>
                       </td>
                     </tr>
@@ -2450,29 +2596,59 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
             </table>
           </div>
 
-          {/* Subtotal & Totals Summary */}
-          <div className="flex justify-end pt-2">
-            <div className="w-72 space-y-1.5 text-right font-medium text-slate-700">
-              <div className="flex justify-between">
+          {/* Add Item Trigger & Total summaries */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pt-1">
+            <button
+              type="button"
+              onClick={() => {
+                const newItem: InvoiceItem = {
+                  id: Date.now().toString(),
+                  description: '',
+                  quantity: 1,
+                  unitPrice: 0,
+                  amount: 0,
+                  isTaxed: false
+                };
+                setItems(prev => [...prev, newItem]);
+                
+                // Autofocus on the last product-combobox-input
+                setTimeout(() => {
+                  const inputs = document.querySelectorAll('.product-combobox-input');
+                  if (inputs && inputs.length > 0) {
+                    const lastInput = inputs[inputs.length - 1] as HTMLInputElement;
+                    if (lastInput) {
+                      lastInput.focus();
+                    }
+                  }
+                }, 100);
+              }}
+              className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer border border-slate-200"
+            >
+              <Plus size={15} /> Tambah Item
+            </button>
+
+            {/* Subtotal & Totals Summary */}
+            <div className="w-full sm:w-72 space-y-1.5 text-right font-medium text-slate-700 bg-slate-50 p-4 rounded-xl border border-slate-200/50">
+              <div className="flex justify-between text-xs">
                 <span>Sub Total:</span>
                 <span className="font-bold text-slate-900">{formatCurrency(currentSub)}</span>
               </div>
               {currentTax > 0 && (
-                <div className="flex justify-between text-red-600">
+                <div className="flex justify-between text-xs text-red-600">
                   <span>Potongan Pajak (PPh 21):</span>
                   <span className="font-bold">({formatCurrency(currentTax)})</span>
                 </div>
               )}
-              <div className="flex justify-between pt-2 border-t border-slate-200 text-sm">
+              <div className="flex justify-between pt-2 border-t border-slate-200 text-xs">
                 <span className="font-bold text-slate-900">Total Tagihan:</span>
-                <span className="font-bold text-blue-600">{formatCurrency(currentTotal)}</span>
+                <span className="font-bold text-blue-600 text-sm">{formatCurrency(currentTotal)}</span>
               </div>
             </div>
           </div>
         </div>
 
         {/* Card 4: Rekening, Catatan & Pengaturan */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="bg-white p-4 md:p-5 rounded-2xl border border-slate-200/80 shadow-sm grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2 p-3 bg-slate-50 rounded-xl border border-slate-200/80">
             <h4 className="font-bold text-slate-800 uppercase tracking-wide text-[11px]">Rekening Pembayaran & Pajak</h4>
             <div>

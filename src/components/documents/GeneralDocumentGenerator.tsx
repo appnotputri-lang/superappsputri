@@ -497,7 +497,7 @@ export const GeneralDocumentGenerator: React.FC<GeneralDocumentGeneratorProps> =
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 pb-16">
       {/* HEADER BAR */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-2">
+      <div className="w-[94%] xl:w-[92%] max-w-none mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-2">
         <PageHeader
           title={config.title}
           description={isDelivery ? 'Kelola pengiriman dokumen & berkas ke klien/pihak ketiga' : 'Kelola bukti tanda terima penyerahan berkas masuk'}
@@ -527,7 +527,7 @@ export const GeneralDocumentGenerator: React.FC<GeneralDocumentGeneratorProps> =
         />
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+      <div className="w-[94%] xl:w-[92%] max-w-none mx-auto px-4 sm:px-6 lg:px-8 py-4">
         {/* ================= LIST VIEW ================= */}
         {viewMode === 'list' && (
           <div className="space-y-6">
@@ -575,7 +575,7 @@ export const GeneralDocumentGenerator: React.FC<GeneralDocumentGeneratorProps> =
             ) : (
               <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
                 <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs border-collapse">
+                  <table className="min-w-[1000px] w-full text-left text-xs border-collapse">
                     <thead>
                       <tr className="bg-slate-50/80 text-slate-600 border-b border-slate-200/80 font-bold select-none">
                         <th className="p-3.5 w-12 text-center">No.</th>

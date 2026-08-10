@@ -349,7 +349,7 @@ export default function DraftAktaPendirianCV({
 
   return (
     <div className="bg-[#e9eef2] min-h-screen p-4 sm:p-6 font-sans">
-      <div className="max-w-6xl mx-auto space-y-4">
+      <div className="w-[94%] xl:w-[92%] max-w-none mx-auto space-y-4">
 
         {/* Top Header & Actions Bar */}
         <div className="bg-white border border-slate-200 rounded-sm p-4 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">

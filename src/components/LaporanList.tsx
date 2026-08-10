@@ -1108,7 +1108,7 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects: propsProject
 
         {/* TABLE */}
         <div className="overflow-x-auto rounded-lg border border-slate-200/80">
-          <table className="w-full text-left border-collapse min-w-[750px]">
+          <table className="w-full text-left border-collapse min-w-[1000px]">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
                 <th className="px-4 py-3 text-center w-12 border-r border-slate-200">No</th>
@@ -1424,7 +1424,7 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects: propsProject
 
         {/* Table list */}
         <div className="overflow-x-auto">
-          <table className="min-w-[800px] w-full text-left border-collapse border border-slate-300">
+          <table className="min-w-[1000px] w-full text-left border-collapse border border-slate-300">
             <thead>
               <tr className="bg-[#0c2444] text-white text-[11px] font-bold uppercase tracking-wider">
               <th className="px-4 py-4 text-center w-16 border border-slate-300">No</th>

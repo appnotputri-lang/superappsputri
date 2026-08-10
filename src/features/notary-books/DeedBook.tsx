@@ -1129,7 +1129,7 @@ export const DeedBook: React.FC = () => {
                     {/* Table */}
                     {!isCollapsed && (
                       <div className="overflow-x-auto">
-                        <table className="w-full text-left text-xs border-collapse table-fixed min-w-[900px]">
+                        <table className="w-full text-left text-xs border-collapse table-fixed min-w-[1000px]">
                           <colgroup>
                             <col className="w-[80px]" />
                             <col className="w-[85px]" />
