@@ -222,6 +222,11 @@ service cloud.firestore {
       allow write: if isSignedIn();
     }
 
+    match /user_presence/{uid} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && request.auth.uid == uid;
+    }
+
     match /chat_conversations/{conversationId} {
       allow read: if isSignedIn() && (resource == null || request.auth.uid in resource.data.participants);
       allow create: if isSignedIn() && request.auth.uid in request.resource.data.participants

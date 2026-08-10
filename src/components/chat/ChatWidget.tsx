@@ -33,7 +33,7 @@ export const ChatWidget: React.FC = () => {
     }
 
     // Set user online presence
-    ChatService.setOnlinePresence(currentUser.uid);
+    const cleanupPresence = ChatService.setOnlinePresence(currentUser.uid);
 
     // Listen to conversation index
     const unsubscribeConversations = ChatService.subscribeToConversationList(
@@ -44,6 +44,7 @@ export const ChatWidget: React.FC = () => {
     );
 
     return () => {
+      if (cleanupPresence) cleanupPresence();
       unsubscribeConversations();
     };
   }, [currentUser]);

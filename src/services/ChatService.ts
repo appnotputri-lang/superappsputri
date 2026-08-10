@@ -117,19 +117,46 @@ export class ChatService {
     );
   }
 
+  private static presenceIntervalMap: { [uid: string]: any } = {};
+
   /**
    * Listen to real-time message stream for an active conversation from Firestore with RTDB fallback
    */
   static subscribeToMessages(conversationId: string, callback: (messages: any[]) => void, limitCount = 50): () => void {
     const messagesCol = collection(db, 'chat_conversations', conversationId, 'messages');
     
-    let hasReceivedFirestore = false;
+    let firestoreMsgs: any[] = [];
+    let rtdbMsgs: any[] = [];
+
+    const emit = () => {
+      const msgMap = new Map<string, any>();
+      
+      // Add RTDB messages first
+      rtdbMsgs.forEach(m => {
+        const key = m.id || `${m.senderId}_${m.text}_${m.createdAt}`;
+        msgMap.set(key, m);
+      });
+
+      // Add Firestore messages (canonical, overwriting if needed)
+      firestoreMsgs.forEach(m => {
+        // Also check if matches an existing RTDB item by content
+        for (const [k, existing] of msgMap.entries()) {
+          if (existing.senderId === m.senderId && existing.text === m.text && Math.abs(existing.createdAt - m.createdAt) < 5000) {
+            msgMap.delete(k);
+          }
+        }
+        msgMap.set(m.id, m);
+      });
+
+      const combined = Array.from(msgMap.values());
+      combined.sort((a, b) => a.createdAt - b.createdAt);
+      callback(combined.slice(-limitCount));
+    };
 
     const unsubscribeFirestore = onSnapshot(
       messagesCol,
       (snapshot) => {
-        hasReceivedFirestore = true;
-        const rawMessages: any[] = snapshot.docs.map(doc => {
+        firestoreMsgs = snapshot.docs.map(doc => {
           const data = doc.data();
           let createdAtNum = Date.now();
           if (typeof data.createdAt === 'number') {
@@ -147,16 +174,11 @@ export class ChatService {
             createdAt: createdAtNum
           };
         });
-
-        rawMessages.sort((a, b) => a.createdAt - b.createdAt);
-        const messages = rawMessages.slice(-limitCount);
-        callback(messages);
+        emit();
       },
       (error) => {
-        console.warn("Firestore message snapshot error:", error);
-        if (!hasReceivedFirestore) {
-          callback([]);
-        }
+        console.warn("Firestore message snapshot warning:", error);
+        emit();
       }
     );
 
@@ -168,7 +190,7 @@ export class ChatService {
         messagesRef,
         (snapshot) => {
           if (snapshot.exists() && snapshot.size > 0) {
-            const messages: any[] = [];
+            const list: any[] = [];
             snapshot.forEach((childSnapshot) => {
               const val = childSnapshot.val();
               let createdAtNum = Date.now();
@@ -178,19 +200,19 @@ export class ChatService {
                 const parsed = new Date(val.createdAt).getTime();
                 if (!isNaN(parsed)) createdAtNum = parsed;
               }
-              messages.push({
+              list.push({
                 id: childSnapshot.key,
                 senderId: val.senderId,
                 text: val.text,
                 createdAt: createdAtNum
               });
             });
-            messages.sort((a, b) => a.createdAt - b.createdAt);
-            callback(messages);
+            rtdbMsgs = list;
+            emit();
           }
         },
         (error) => {
-          console.warn("RTDB subscribeToMessages error:", error);
+          console.warn("RTDB subscribeToMessages warning:", error);
         }
       );
       unsubscribeRtdb = () => off(messagesRef, 'value', listener);
@@ -356,39 +378,129 @@ export class ChatService {
   }
 
   /**
-   * Sets the user's online/offline presence in RTDB with robust disconnected detector
+   * Sets the user's online/offline presence in both Firestore and RTDB with interval heartbeat
    */
-  static setOnlinePresence(uid: string): void {
-    const connectedRef = ref(rtdb, '.info/connected');
-    const presenceRef = ref(rtdb, `presence/${uid}`);
+  static setOnlinePresence(uid: string): () => void {
+    if (this.presenceIntervalMap[uid]) {
+      clearInterval(this.presenceIntervalMap[uid]);
+      delete this.presenceIntervalMap[uid];
+    }
 
-    onValue(connectedRef, (snapshot) => {
-      if (snapshot.val() === true) {
-        set(presenceRef, {
-          online: true,
-          lastSeen: serverTimestamp()
-        });
-        onDisconnect(presenceRef).set({
-          online: false,
-          lastSeen: serverTimestamp()
-        });
+    const updateFirestorePresence = (online: boolean) => {
+      try {
+        const presenceDocRef = doc(db, 'user_presence', uid);
+        setDoc(presenceDocRef, {
+          online,
+          lastSeen: Date.now()
+        }, { merge: true }).catch(() => {});
+      } catch (e) {
+        // ignore
       }
-    });
+    };
+
+    // 1. Initial set online
+    updateFirestorePresence(true);
+
+    try {
+      const connectedRef = ref(rtdb, '.info/connected');
+      const presenceRef = ref(rtdb, `presence/${uid}`);
+
+      onValue(connectedRef, (snapshot) => {
+        if (snapshot.val() === true) {
+          set(presenceRef, {
+            online: true,
+            lastSeen: serverTimestamp()
+          }).catch(() => {});
+          onDisconnect(presenceRef).set({
+            online: false,
+            lastSeen: serverTimestamp()
+          }).catch(() => {});
+        }
+      });
+    } catch (e) {
+      // ignore
+    }
+
+    // 2. Set periodic heartbeat every 15s in Firestore
+    this.presenceIntervalMap[uid] = setInterval(() => {
+      updateFirestorePresence(true);
+    }, 15000);
+
+    const handleUnload = () => {
+      updateFirestorePresence(false);
+    };
+    window.addEventListener('beforeunload', handleUnload);
+
+    return () => {
+      if (this.presenceIntervalMap[uid]) {
+        clearInterval(this.presenceIntervalMap[uid]);
+        delete this.presenceIntervalMap[uid];
+      }
+      window.removeEventListener('beforeunload', handleUnload);
+      updateFirestorePresence(false);
+    };
   }
 
   /**
-   * Subscribes to another user's real-time online/offline presence status
+   * Subscribes to another user's real-time online/offline presence status from Firestore & RTDB
    */
   static subscribeToPresence(uid: string, callback: (presence: { online: boolean; lastSeen: number }) => void): () => void {
-    const presenceRef = ref(rtdb, `presence/${uid}`);
-    const listener = onValue(presenceRef, (snapshot) => {
-      if (snapshot.exists()) {
-        callback(snapshot.val());
-      } else {
-        callback({ online: false, lastSeen: 0 });
+    let firestoreOnline = false;
+    let rtdbOnline = false;
+    let lastSeenTime = 0;
+
+    const emit = () => {
+      const isRecentlyActive = lastSeenTime > 0 && (Date.now() - lastSeenTime) < 45000;
+      const isOnline = firestoreOnline || rtdbOnline || isRecentlyActive;
+      callback({
+        online: isOnline,
+        lastSeen: lastSeenTime
+      });
+    };
+
+    // 1. Firestore listener
+    const presenceDocRef = doc(db, 'user_presence', uid);
+    const unsubscribeFirestore = onSnapshot(
+      presenceDocRef,
+      (snap) => {
+        if (snap.exists()) {
+          const data = snap.data();
+          firestoreOnline = !!data.online;
+          if (data.lastSeen) {
+            lastSeenTime = Math.max(lastSeenTime, typeof data.lastSeen === 'number' ? data.lastSeen : 0);
+          }
+        }
+        emit();
+      },
+      () => {
+        emit();
       }
-    });
-    return () => off(presenceRef, 'value', listener);
+    );
+
+    // 2. RTDB listener
+    let unsubscribeRtdb: (() => void) | null = null;
+    try {
+      const presenceRef = ref(rtdb, `presence/${uid}`);
+      const listener = onValue(presenceRef, (snapshot) => {
+        if (snapshot.exists()) {
+          const val = snapshot.val();
+          rtdbOnline = !!val.online;
+          if (val.lastSeen) {
+            const ls = typeof val.lastSeen === 'number' ? val.lastSeen : 0;
+            lastSeenTime = Math.max(lastSeenTime, ls);
+          }
+        }
+        emit();
+      });
+      unsubscribeRtdb = () => off(presenceRef, 'value', listener);
+    } catch (e) {
+      // ignore
+    }
+
+    return () => {
+      unsubscribeFirestore();
+      if (unsubscribeRtdb) unsubscribeRtdb();
+    };
   }
 
   /**
