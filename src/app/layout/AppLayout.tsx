@@ -6,6 +6,7 @@ import { ALLOWED_EMAILS } from '../../constants/appConstants';
 import { UserProfile, SidebarTabId } from '../../../types';
 import { EmbedSsoWaitingView } from '../../components/auth/EmbedSsoWaitingView';
 import { isReservedPath } from '../../constants/tabs';
+import { UpdatePrompt } from '../../components/common/UpdatePrompt';
 
 export type { SidebarTabId };
 
@@ -141,6 +142,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
 
   return (
     <div className="flex h-screen bg-[#f8fafc] overflow-hidden">
+      <UpdatePrompt />
       {user && (
         <Sidebar
           user={user}
