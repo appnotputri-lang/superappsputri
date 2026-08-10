@@ -2,7 +2,6 @@ import React from 'react';
 import { Sidebar } from '../../components/layout/Sidebar';
 import { Header } from '../../components/layout/Header';
 import { BottomNav } from '../../components/layout/BottomNav';
-import { ChatWidget } from '../../components/chat/ChatWidget';
 import { ALLOWED_EMAILS } from '../../constants/appConstants';
 import { UserProfile, SidebarTabId } from '../../../types';
 import { EmbedSsoWaitingView } from '../../components/auth/EmbedSsoWaitingView';
@@ -176,7 +175,6 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
           {children}
         </main>
       </div>
-      {user && <ChatWidget />}
     </div>
   );
 };

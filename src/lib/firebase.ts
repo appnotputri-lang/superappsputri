@@ -1,7 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithPopup, GoogleAuthProvider, signOut } from 'firebase/auth';
 import { initializeFirestore, collection, getDocs, persistentLocalCache, persistentMultipleTabManager, getDocsFromCache, getFirestore } from 'firebase/firestore';
-import { getDatabase } from 'firebase/database';
 import firebaseConfig from '../../firebase-applet-config.json';
 
 const app = initializeApp(firebaseConfig);
@@ -20,7 +19,6 @@ try {
 
 export const db = dbInstance;
 export const auth = getAuth(app);
-export const rtdb = getDatabase(app);
 
 export const searchShareholderByNIKClient = async (nik: string): Promise<any | null> => {
   if (!nik || nik.trim().length !== 16) return null;
