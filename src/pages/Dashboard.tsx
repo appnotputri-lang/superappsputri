@@ -677,7 +677,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
             >
               <Bell size={22} />
               {unreadCount > 0 && (
-                <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-[#1e61c3]" />
+                <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 bg-red-500 text-[9px] font-extrabold text-white rounded-full flex items-center justify-center border border-[#1e61c3]">
+                  {unreadCount}
+                </span>
               )}
             </button>
           </div>

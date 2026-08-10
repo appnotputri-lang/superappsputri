@@ -103,7 +103,11 @@ export const Header: React.FC<HeaderProps> = ({
               aria-label="Notifications"
             >
               <Bell className="w-4 h-4" />
-              {unreadCount > 0 && <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border border-white"></span>}
+              {unreadCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 bg-red-500 text-[9px] font-extrabold text-white rounded-full flex items-center justify-center border border-white">
+                  {unreadCount}
+                </span>
+              )}
             </button>
             
             {/* Notification Dropdown */}
