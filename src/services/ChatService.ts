@@ -122,15 +122,14 @@ export class ChatService {
    */
   static subscribeToMessages(conversationId: string, callback: (messages: any[]) => void, limitCount = 50): () => void {
     const messagesCol = collection(db, 'chat_conversations', conversationId, 'messages');
-    const q = query(messagesCol, orderBy('createdAt', 'asc'), limit(limitCount));
     
     let hasReceivedFirestore = false;
 
     const unsubscribeFirestore = onSnapshot(
-      q,
+      messagesCol,
       (snapshot) => {
         hasReceivedFirestore = true;
-        const messages: any[] = snapshot.docs.map(doc => {
+        const rawMessages: any[] = snapshot.docs.map(doc => {
           const data = doc.data();
           let createdAtNum = Date.now();
           if (typeof data.createdAt === 'number') {
@@ -138,7 +137,8 @@ export class ChatService {
           } else if (data.createdAt?.toMillis) {
             createdAtNum = data.createdAt.toMillis();
           } else if (typeof data.createdAt === 'string') {
-            createdAtNum = new Date(data.createdAt).getTime();
+            const parsed = new Date(data.createdAt).getTime();
+            if (!isNaN(parsed)) createdAtNum = parsed;
           }
           return {
             id: doc.id,
@@ -147,6 +147,9 @@ export class ChatService {
             createdAt: createdAtNum
           };
         });
+
+        rawMessages.sort((a, b) => a.createdAt - b.createdAt);
+        const messages = rawMessages.slice(-limitCount);
         callback(messages);
       },
       (error) => {
@@ -172,7 +175,8 @@ export class ChatService {
               if (typeof val.createdAt === 'number') {
                 createdAtNum = val.createdAt;
               } else if (typeof val.createdAt === 'string') {
-                createdAtNum = new Date(val.createdAt).getTime();
+                const parsed = new Date(val.createdAt).getTime();
+                if (!isNaN(parsed)) createdAtNum = parsed;
               }
               messages.push({
                 id: childSnapshot.key,
@@ -181,6 +185,7 @@ export class ChatService {
                 createdAt: createdAtNum
               });
             });
+            messages.sort((a, b) => a.createdAt - b.createdAt);
             callback(messages);
           }
         },
@@ -276,15 +281,17 @@ export class ChatService {
       // ignore RTDB errors
     }
 
-    // 3. Sync summary fields in Firestore
+    // 3. Sync summary fields in Firestore (creates doc if not exists, updates if exists)
     const conversationDocRef = doc(db, 'chat_conversations', conversationId);
     try {
-      await updateDoc(conversationDocRef, {
+      await setDoc(conversationDocRef, {
+        id: conversationId,
+        participants: participants,
         lastMessage: text.substring(0, 100),
         lastMessageAt: isoString,
         lastSenderId: senderId,
         [`unreadCount.${receiverId}`]: increment(1)
-      });
+      }, { merge: true });
     } catch (error) {
       console.warn("Firestore sync in sendMessage warning:", error);
     }

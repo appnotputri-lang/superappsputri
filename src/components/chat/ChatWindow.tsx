@@ -33,8 +33,8 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   const [shouldAutoScroll, setShouldAutoScroll] = useState(true);
 
   // Derive opponent's name and ID
-  const opponentId = conversation.participants.find((p: string) => p !== currentUid) || '';
-  const opponentName = conversation.participantNames?.[opponentId] || 'User';
+  const opponentId = conversation?.participants?.find((p: string) => p !== currentUid) || (conversationId.split('_').find(p => p !== currentUid) || '');
+  const opponentName = conversation?.participantNames?.[opponentId] || 'User';
 
   // Format time for message bubbles
   const formatMsgTime = (timestamp?: number) => {

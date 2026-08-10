@@ -57,9 +57,24 @@ export const ChatWidget: React.FC = () => {
     0
   );
 
-  const activeConversation = conversations.find((c) => c.id === activeConversationId);
+  const [selectedOpponent, setSelectedOpponent] = useState<{ uid: string; name: string } | null>(null);
+
+  // Derive active conversation or fallback object if not yet in snapshot list
+  const activeConversation = conversations.find((c) => c.id === activeConversationId) || (
+    activeConversationId ? {
+      id: activeConversationId,
+      participants: activeConversationId.split('_'),
+      participantNames: selectedOpponent ? {
+        [currentUid]: currentUser.displayName || 'Staff',
+        [selectedOpponent.uid]: selectedOpponent.name
+      } : {
+        [currentUid]: currentUser.displayName || 'Staff'
+      }
+    } : null
+  );
 
   const handleSelectUser = async (opponent: { uid: string; name: string }) => {
+    setSelectedOpponent(opponent);
     setIsNewChatOpen(false);
     const convId = ChatService.getOrCreateConversationId(currentUid, opponent.uid);
 

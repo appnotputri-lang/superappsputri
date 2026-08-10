@@ -54,7 +54,15 @@ export function useChat(conversationId: string | null, currentUid: string | null
       conversationId,
       (newMessages) => {
         clearTimeout(timeoutId);
-        setMessages(newMessages);
+        setMessages(prev => {
+          // Keep unsynced optimistic messages
+          const unsyncedOptimistic = prev.filter(
+            m => m.id.startsWith('temp_') && !newMessages.some(nm => nm.senderId === m.senderId && nm.text === m.text)
+          );
+          const combined = [...newMessages, ...unsyncedOptimistic];
+          combined.sort((a, b) => a.createdAt - b.createdAt);
+          return combined;
+        });
         setLoading(false);
         if (newMessages.length < 30) {
           setHasMore(false);
@@ -147,7 +155,22 @@ export function useChat(conversationId: string | null, currentUid: string | null
     await ChatService.clearTyping(conversationId, currentUid);
     lastTypingTimeRef.current = 0;
 
-    await ChatService.sendMessage(conversationId, currentUid, cleanText);
+    // Optimistic local update
+    const tempId = 'temp_' + Date.now();
+    const optimisticMsg: Message = {
+      id: tempId,
+      senderId: currentUid,
+      text: cleanText,
+      createdAt: Date.now()
+    };
+    setMessages(prev => [...prev, optimisticMsg]);
+
+    try {
+      await ChatService.sendMessage(conversationId, currentUid, cleanText);
+    } catch (err) {
+      console.error("Failed to send message via ChatService:", err);
+      setMessages(prev => prev.filter(m => m.id !== tempId));
+    }
   }, [conversationId, currentUid]);
 
   // 6. Handle typing indicator triggers with smart 2s debounce and auto-clear
