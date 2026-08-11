@@ -9,6 +9,7 @@ import {
   addDoc,
   arrayUnion,
   getDocs,
+  getDocsFromCache,
   query,
   where,
   orderBy,
@@ -691,14 +692,24 @@ export class ProjectService {
   }
 
   /**
-   * Retrieves all projects from Firestore.
+   * Retrieves all projects from Firestore with cache prioritization for fast rendering.
    */
   static async listProjects(): Promise<Project[]> {
     const path = this.projectsCol;
     try {
       const colRef = collection(db, this.projectsCol);
       const q = query(colRef, orderBy("updatedAt", "desc"));
-      const querySnap = await getDocs(q);
+      
+      let querySnap;
+      try {
+        querySnap = await getDocsFromCache(q);
+        if (!querySnap || querySnap.empty) {
+          querySnap = await getDocs(q);
+        }
+      } catch (cacheErr) {
+        querySnap = await getDocs(q);
+      }
+
       const list = querySnap.docs.map((docSnap) => {
         const project = { ...docSnap.data(), projectId: docSnap.id } as Project;
         

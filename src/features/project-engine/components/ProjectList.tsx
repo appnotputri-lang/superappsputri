@@ -53,7 +53,7 @@ interface ProjectListProps {
 export default function ProjectList({ onSelectProject, currentUser }: ProjectListProps) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [profiles, setProfiles] = useState<CompanyProfile[]>([]);
-  const [workflows, setWorkflows] = useState<Workflow[]>([]);
+  const [workflows, setWorkflows] = useState<Workflow[]>(() => WorkflowService.getStaticWorkflows());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -167,13 +167,49 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
   };
 
   useEffect(() => {
-    const initData = async () => {
+    let isMounted = true;
+
+    const loadProjects = async () => {
+      console.time('[ProjectList] loadProjects');
       setLoading(true);
       setError(null);
       try {
-        // Ensure default workflows are seeded
-        await WorkflowService.seedDefaultWorkflows();
-        
+        const rawProjects = (await ProjectService.listProjects()) || [];
+        if (!isMounted) return;
+
+        // Apply in-memory jobType normalization without running Firestore write mutations on page mount
+        const normalizedProjects = rawProjects.map((proj) => {
+          if (proj.projectCategory === 'BODY_LEGAL') {
+            if (proj.projectType === 'Pendirian CV' && proj.jobType !== 'pendirian_cv') {
+              return { ...proj, jobType: 'pendirian_cv' };
+            }
+            if (proj.projectType === 'Perubahan CV' && proj.jobType !== 'perubahan_cv') {
+              return { ...proj, jobType: 'perubahan_cv' };
+            }
+            if (proj.projectType === 'Pembubaran CV' && proj.jobType !== 'pembubaran_cv') {
+              return { ...proj, jobType: 'pembubaran_cv' };
+            }
+          }
+          return proj;
+        });
+
+        setProjects(normalizedProjects);
+        setLoading(false);
+        console.timeEnd('[ProjectList] loadProjects');
+
+        // Asynchronously load secondary data (profiles & custom workflows) in background without blocking UI
+        loadSecondaryData();
+      } catch (err: any) {
+        console.error('[ProjectList] Error loading projects:', err);
+        if (isMounted) {
+          setError('Gagal memuat daftar proyek. Silakan coba lagi.');
+          setLoading(false);
+        }
+      }
+    };
+
+    const loadSecondaryData = async () => {
+      try {
         const profilesPromise = getDocsFromCache(collection(db, 'profiles'))
           .then(snapshot => snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as CompanyProfile[])
           .catch(async () => {
@@ -181,52 +217,25 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
             return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as CompanyProfile[];
           });
 
-        const [projList, profileList, wfList] = await Promise.all([
-          ProjectService.listProjects(),
-          profilesPromise,
-          WorkflowService.listWorkflows()
+        const [profileList, wfList] = await Promise.all([
+          profilesPromise.catch(() => [] as CompanyProfile[]),
+          WorkflowService.listWorkflows().catch(() => WorkflowService.getStaticWorkflows())
         ]);
 
-        const rawProjects = projList || [];
-        const migratedProjects = await Promise.all(
-          rawProjects.map(async (proj) => {
-            if (proj.projectCategory === 'BODY_LEGAL') {
-              let targetJobType = '';
-              if (proj.projectType === 'Pendirian CV' && proj.jobType !== 'pendirian_cv') {
-                targetJobType = 'pendirian_cv';
-              } else if (proj.projectType === 'Perubahan CV' && proj.jobType !== 'perubahan_cv') {
-                targetJobType = 'perubahan_cv';
-              } else if (proj.projectType === 'Pembubaran CV' && proj.jobType !== 'pembubaran_cv') {
-                targetJobType = 'pembubaran_cv';
-              }
-
-              if (targetJobType) {
-                try {
-                  await updateDoc(doc(db, 'office_projects', proj.projectId), {
-                    jobType: targetJobType
-                  });
-                  return { ...proj, jobType: targetJobType };
-                } catch (e) {
-                  console.error('Failed to auto-migrate CV project jobType:', proj.projectId, e);
-                }
-              }
-            }
-            return proj;
-          })
-        );
-
-        setProjects(migratedProjects);
-        setProfiles(profileList || []);
-        setWorkflows(wfList || []);
-      } catch (err: any) {
-        console.error(err);
-        setError('Gagal memuat data draf RUPS LB. Silakan coba lagi beberapa saat lagi.');
-      } finally {
-        setLoading(false);
+        if (isMounted) {
+          if (profileList && profileList.length > 0) setProfiles(profileList);
+          if (wfList && wfList.length > 0) setWorkflows(wfList);
+        }
+      } catch (e) {
+        console.warn('[ProjectList] Secondary data loading warning:', e);
       }
     };
 
-    initData();
+    loadProjects();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const getWorkflowJobType = (category: string, type: string): string => {
@@ -490,6 +499,26 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
     return isNaN(parsed) ? 0 : parsed;
   };
 
+  const getClientName = (clientId: string, project?: Project) => {
+    const profile = profiles.find((c) => c.id === clientId);
+    if (profile) {
+      return formatCompanyNameWithType(profile.companyName, profile.clientType);
+    }
+    if (project?.clientSnapshot?.companyName) {
+      return formatCompanyNameWithType(project.clientSnapshot.companyName, project.clientSnapshot.companyType);
+    }
+    if (project?.title) {
+      let clean = project.title;
+      if (clean.includes(' — ')) {
+        clean = clean.split(' — ').slice(1).join(' — ').trim();
+      } else if (clean.includes(' - ')) {
+        clean = clean.split(' - ').slice(1).join(' - ').trim();
+      }
+      if (clean) return clean;
+    }
+    return 'Klien Tidak Diketahui';
+  };
+
   const filteredProjects = projects.filter((project) => {
     // Tab Filter
     const isCompleted = isProjectCompleted(project.status);
@@ -497,7 +526,7 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
     if (activeTab === 'minuta' && !isCompleted) return false;
     if (activeTab === 'selesai') return false; // Selesai is reserved/empty for now
 
-    const clientName = profiles.find((c) => c.id === project.clientId)?.companyName || '';
+    const clientName = getClientName(project.clientId, project);
     const matchesSearch =
       project.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -513,12 +542,6 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
     const timeB = Math.max(getProjectTime(b.updatedAt), getProjectTime(b.createdAt));
     return timeB - timeA;
   });
-
-  const getClientName = (clientId: string) => {
-    const profile = profiles.find((c) => c.id === clientId);
-    if (!profile) return 'Klien Tidak Diketahui';
-    return formatCompanyNameWithType(profile.companyName, profile.clientType);
-  };
 
   const getWorkflowName = (jobType: string) => {
     return workflows.find((w) => w.id === jobType)?.name || jobType;
@@ -697,7 +720,7 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
                           {getCleanTitle(project.title, project.clientId)}
                         </div>
                         {(() => {
-                          const clientName = getClientName(project.clientId);
+                          const clientName = getClientName(project.clientId, project);
                           const isUnknown = clientName === 'Klien Tidak Diketahui';
                           const cleanTitle = getCleanTitle(project.title, project.clientId);
                           const isRedundant = cleanTitle.toLowerCase() === clientName.toLowerCase();
@@ -761,7 +784,7 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
             {/* Mobile Card View */}
             <div className="block md:hidden divide-y divide-slate-100">
               {filteredProjects.map((project, index) => {
-                const clientName = getClientName(project.clientId);
+                const clientName = getClientName(project.clientId, project);
                 const title = getCleanTitle(project.title, project.clientId);
                 const isUnknown = clientName === 'Klien Tidak Diketahui';
                 const lastComment = activeTab === 'minuta'

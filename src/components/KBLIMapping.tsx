@@ -15,6 +15,13 @@ import {
   ArrowLeft,
   Edit,
   LayoutGrid,
+  BarChart2,
+  CheckCircle2,
+  RefreshCw,
+  GitMerge,
+  Layers,
+  GitFork,
+  ClipboardList,
 } from "lucide-react";
 import mappingData from "../../KBLI_2020_vs_2025.json";
 import kbli2025Data from "../../kbli_2025.json";
@@ -77,6 +84,59 @@ interface SelectedMappingItem extends KBLIMappingItem {
   scopes: ScopeItem[];
   dpbScopes?: DpbScopeData[];
   catatan?: string;
+}
+
+export interface KbliCategoryCounts {
+  countTidakBerubah: number;
+  countRecoding: number;
+  countGabung: number;
+  countLebur: number;
+  countPecah: number;
+  totalKbli: number;
+}
+
+export function computeKbliCategoryCounts(mappings: SelectedMappingItem[]): KbliCategoryCounts {
+  let countTidakBerubah = 0;
+  let countRecoding = 0;
+  let countGabung = 0;
+  let countLebur = 0;
+  let countPecah = 0;
+
+  mappings.forEach((m) => {
+    const p = (m.jenis_perubahan || "").toLowerCase().trim();
+    if (p.includes("tidak berubah") || p.includes("tetap") || p.includes("sama")) {
+      countTidakBerubah++;
+    } else if (p.includes("pecah")) {
+      countPecah++;
+    } else if (p.includes("gabung")) {
+      countGabung++;
+    } else if (p.includes("lebur") || p.includes("dilebur")) {
+      countLebur++;
+    } else if (p.includes("recoding") || p.includes("pindah")) {
+      countRecoding++;
+    } else {
+      // Default fallback if unmapped
+      countRecoding++;
+    }
+  });
+
+  const totalKbli = mappings.length;
+
+  // Requirement 5 Assertion
+  const sumCategories = countTidakBerubah + countRecoding + countGabung + countLebur + countPecah;
+  console.assert(
+    sumCategories === totalKbli,
+    `[KBLI Mapping Validation] Sum of categories (${sumCategories}) does not match Total KBLI (${totalKbli})`
+  );
+
+  return {
+    countTidakBerubah,
+    countRecoding,
+    countGabung,
+    countLebur,
+    countPecah,
+    totalKbli,
+  };
 }
 
 const RISK_LEVELS = [
@@ -1017,21 +1077,14 @@ const KBLIMapping: React.FC = () => {
       });
     };
 
-    const unique2025 = new Set(activeSelectedMappings.map(s => s.kbli_2025?.kode).filter(Boolean));
-    
-    let countRecoding = 0;
-    let countPecah = 0;
-    let countGabung = 0;
-    let countLebur = 0;
-
-    activeSelectedMappings.forEach(m => {
-      const p = m.jenis_perubahan?.toLowerCase() || "";
-      if (p.includes("recoding") || p.includes("tetap") || p.includes("pindah") || p.includes("tidak berubah")) countRecoding++;
-      else if (p.includes("pecah")) countPecah++;
-      else if (p.includes("gabung")) countGabung++;
-      else if (p.includes("lebur")) countLebur++;
-      else countRecoding++;
-    });
+    const {
+      countTidakBerubah,
+      countRecoding,
+      countGabung,
+      countLebur,
+      countPecah,
+      totalKbli,
+    } = computeKbliCategoryCounts(activeSelectedMappings);
 
     const elements: any[] = [];
 
@@ -1124,6 +1177,10 @@ const KBLIMapping: React.FC = () => {
         new TableRow({
           children: [
             cell([
+              para([run(countTidakBerubah.toString(), { bold: true, size: 14, color: "10B981" })], { alignment: AlignmentType.CENTER }),
+              para([run("Unchanged KBLI", { size: 8, bold: true, color: "10B981" })], { alignment: AlignmentType.CENTER })
+            ], { fillColor: "ECFDF5" }),
+            cell([
               para([run(countRecoding.toString(), { bold: true, size: 14, color: "0084FF" })], { alignment: AlignmentType.CENTER }),
               para([run("Recoding / Move Code", { size: 8, bold: true, color: "0084FF" })], { alignment: AlignmentType.CENTER })
             ], { fillColor: "F0F9FF" }),
@@ -1140,7 +1197,7 @@ const KBLIMapping: React.FC = () => {
               para([run("Split Code", { size: 8, bold: true, color: "EF4444" })], { alignment: AlignmentType.CENTER })
             ], { fillColor: "FEF2F2" }),
             cell([
-              para([run(unique2025.size.toString(), { bold: true, size: 14, color: "64748B" })], { alignment: AlignmentType.CENTER }),
+              para([run(totalKbli.toString(), { bold: true, size: 14, color: "64748B" })], { alignment: AlignmentType.CENTER }),
               para([run("Total Active KBLI", { size: 8, bold: true, color: "64748B" })], { alignment: AlignmentType.CENTER })
             ], { fillColor: "F1F5F9" }),
           ]
@@ -1603,26 +1660,20 @@ const KBLIMapping: React.FC = () => {
     doc.text(isEn ? "MAPPING SUMMARY" : "RINGKASAN PEMETAAN", 18, currentY + 5.5);
     currentY += 12;
 
-    const unique2020 = new Set(activeSelectedMappings.map(s => s.kbli_2020.kode));
-    const unique2025 = new Set(activeSelectedMappings.map(s => s.kbli_2025?.kode).filter(Boolean));
-    
-    let countRecoding = 0;
-    let countPecah = 0;
-    let countGabung = 0;
-    let countLebur = 0;
-    
-    activeSelectedMappings.forEach(m => {
-      const p = m.jenis_perubahan?.toLowerCase() || "";
-      if (p.includes("recoding") || p.includes("tetap") || p.includes("pindah") || p.includes("tidak berubah")) countRecoding++;
-      else if (p.includes("pecah")) countPecah++;
-      else if (p.includes("gabung")) countGabung++;
-      else if (p.includes("lebur")) countLebur++;
-      else countRecoding++; // default
-    });
+    const {
+      countTidakBerubah,
+      countRecoding,
+      countGabung,
+      countLebur,
+      countPecah,
+      totalKbli,
+    } = computeKbliCategoryCounts(activeSelectedMappings);
 
-    // Draw Stats Boxes (5 boxes with beautiful custom vector icons)
-    const boxW = (pageWidth - 28 - 20) / 5;
+    // Draw Stats Boxes (6 boxes with custom vector icons)
+    const gap = 3.5;
+    const boxW = (pageWidth - 28 - (gap * 5)) / 6;
     const boxH = 22;
+
     const drawStatBoxOutline = (
       x: number,
       y: number,
@@ -1632,13 +1683,15 @@ const KBLIMapping: React.FC = () => {
       title1: string,
       title2: string,
       borderColor: number[],
-      iconType: "sync" | "chain" | "venn" | "fork" | "clipboard"
+      iconType: "check" | "sync" | "chain" | "venn" | "fork" | "clipboard"
     ) => {
       let fillColor = [248, 250, 252];
-      if (iconType === "sync") fillColor = [240, 249, 255];
+      if (iconType === "check") fillColor = [236, 253, 245];
+      else if (iconType === "sync") fillColor = [240, 249, 255];
       else if (iconType === "chain") fillColor = [240, 253, 244];
       else if (iconType === "venn") fillColor = [255, 247, 237];
       else if (iconType === "fork") fillColor = [254, 242, 242];
+      else if (iconType === "clipboard") fillColor = [241, 245, 249];
 
       // Draw background and border
       doc.setFillColor(fillColor[0], fillColor[1], fillColor[2]);
@@ -1646,95 +1699,103 @@ const KBLIMapping: React.FC = () => {
       doc.setLineWidth(0.4);
       doc.roundedRect(x, y, w, h, 2, 2, "FD");
 
-      const centerX = x + 5.5;
+      const centerX = x + 4.5;
       const centerY = y + h / 2;
 
       // Draw custom high-fidelity vector icons
-      if (iconType === "sync") {
-        doc.setDrawColor(15, 48, 87);
+      if (iconType === "check") {
+        doc.setDrawColor(16, 185, 129);
+        doc.setLineWidth(0.9);
+        doc.ellipse(centerX, centerY, 2.4, 2.4, "S");
+        doc.line(centerX - 1.2, centerY, centerX - 0.3, centerY + 0.8);
+        doc.line(centerX - 0.3, centerY + 0.8, centerX + 1.2, centerY - 0.8);
+      }
+      else if (iconType === "sync") {
+        doc.setDrawColor(14, 165, 233);
         doc.setLineWidth(0.8);
-        doc.ellipse(centerX, centerY, 2.6, 2.6, "S");
+        doc.ellipse(centerX, centerY, 2.4, 2.4, "S");
         
         doc.setFillColor(fillColor[0], fillColor[1], fillColor[2]);
-        doc.rect(centerX - 1.0, centerY - 3.4, 2.0, 1.2, "F");
-        doc.rect(centerX - 1.0, centerY + 2.2, 2.0, 1.2, "F");
+        doc.rect(centerX - 1.0, centerY - 3.2, 2.0, 1.2, "F");
+        doc.rect(centerX - 1.0, centerY + 2.0, 2.0, 1.2, "F");
         
-        doc.setFillColor(15, 48, 87);
-        doc.triangle(centerX + 0.2, centerY - 3.4, centerX + 1.8, centerY - 2.6, centerX + 0.2, centerY - 1.6, "F");
-        doc.triangle(centerX - 0.2, centerY + 3.4, centerX - 1.8, centerY + 2.6, centerX - 0.2, centerY + 1.6, "F");
+        doc.setFillColor(14, 165, 233);
+        doc.triangle(centerX + 0.2, centerY - 3.2, centerX + 1.8, centerY - 2.4, centerX + 0.2, centerY - 1.4, "F");
+        doc.triangle(centerX - 0.2, centerY + 3.2, centerX - 1.8, centerY + 2.4, centerX - 0.2, centerY + 1.4, "F");
       }
       else if (iconType === "chain") {
         doc.setDrawColor(21, 128, 61);
         doc.setLineWidth(1.0);
-        doc.ellipse(centerX - 1.1, centerY + 0.9, 1.8, 1.8, "S");
-        doc.ellipse(centerX + 1.1, centerY - 0.9, 1.8, 1.8, "S");
+        doc.ellipse(centerX - 1.0, centerY + 0.8, 1.6, 1.6, "S");
+        doc.ellipse(centerX + 1.0, centerY - 0.8, 1.6, 1.6, "S");
       }
       else if (iconType === "venn") {
         doc.setDrawColor(234, 88, 12);
         doc.setLineWidth(1.0);
-        doc.ellipse(centerX - 1.2, centerY, 2.2, 2.2, "S");
-        doc.ellipse(centerX + 1.2, centerY, 2.2, 2.2, "S");
+        doc.ellipse(centerX - 1.0, centerY, 2.0, 2.0, "S");
+        doc.ellipse(centerX + 1.0, centerY, 2.0, 2.0, "S");
       }
       else if (iconType === "fork") {
         doc.setDrawColor(185, 28, 28);
         doc.setLineWidth(0.8);
-        doc.line(centerX - 2.4, centerY, centerX + 1.8, centerY - 2.4);
-        doc.line(centerX - 2.4, centerY, centerX + 1.8, centerY + 2.4);
+        doc.line(centerX - 2.2, centerY, centerX + 1.6, centerY - 2.2);
+        doc.line(centerX - 2.2, centerY, centerX + 1.6, centerY + 2.2);
         
         doc.setFillColor(185, 28, 28);
-        doc.ellipse(centerX - 2.4, centerY, 0.8, 0.8, "FD");
-        doc.ellipse(centerX + 1.8, centerY - 2.4, 0.8, 0.8, "FD");
-        doc.ellipse(centerX + 1.8, centerY + 2.4, 0.8, 0.8, "FD");
+        doc.ellipse(centerX - 2.2, centerY, 0.7, 0.7, "FD");
+        doc.ellipse(centerX + 1.6, centerY - 2.2, 0.7, 0.7, "FD");
+        doc.ellipse(centerX + 1.6, centerY + 2.2, 0.7, 0.7, "FD");
       }
       else if (iconType === "clipboard") {
         doc.setDrawColor(15, 48, 87);
         doc.setLineWidth(0.6);
-        doc.rect(centerX - 2.6, centerY - 3.4, 5.2, 7.0, "S");
+        doc.rect(centerX - 2.4, centerY - 3.2, 4.8, 6.4, "S");
         
         doc.setFillColor(15, 48, 87);
-        doc.rect(centerX - 1.0, centerY - 4.2, 2.0, 1.1, "FD");
+        doc.rect(centerX - 0.9, centerY - 3.9, 1.8, 1.0, "FD");
         
-        doc.line(centerX - 0.6, centerY - 1.2, centerX + 1.4, centerY - 1.2);
-        doc.line(centerX - 0.6, centerY + 0.8, centerX + 1.4, centerY + 0.8);
-        doc.line(centerX - 0.6, centerY + 2.8, centerX + 1.4, centerY + 2.8);
+        doc.line(centerX - 0.5, centerY - 1.0, centerX + 1.3, centerY - 1.0);
+        doc.line(centerX - 0.5, centerY + 0.8, centerX + 1.3, centerY + 0.8);
+        doc.line(centerX - 0.5, centerY + 2.6, centerX + 1.3, centerY + 2.6);
         
-        doc.ellipse(centerX - 1.4, centerY - 1.2, 0.28, 0.28, "FD");
-        doc.ellipse(centerX - 1.4, centerY + 0.8, 0.28, 0.28, "FD");
-        doc.ellipse(centerX - 1.4, centerY + 2.8, 0.28, 0.28, "FD");
+        doc.ellipse(centerX - 1.3, centerY - 1.0, 0.25, 0.25, "FD");
+        doc.ellipse(centerX - 1.3, centerY + 0.8, 0.25, 0.25, "FD");
+        doc.ellipse(centerX - 1.3, centerY + 2.6, 0.25, 0.25, "FD");
       }
 
       // Draw texts (right-aligned to leave space for the icons)
       if (iconType === "clipboard") {
         doc.setTextColor(15, 48, 87);
         doc.setFont("helvetica", "bold");
-        doc.setFontSize(6.5);
-        doc.text(isEn ? "Total Active KBLI" : "Total KBLI Aktif", x + w - 2.5, y + 8, { align: "right" });
+        doc.setFontSize(5.8);
+        doc.text(isEn ? "Total Active KBLI" : "Total KBLI Aktif", x + w - 1.8, y + 8, { align: "right" });
 
-        doc.setFontSize(18);
-        doc.text(value, x + w - 2.5, y + 17, { align: "right" });
+        doc.setFontSize(15);
+        doc.text(value, x + w - 1.8, y + 17, { align: "right" });
       } else {
         doc.setTextColor(15, 48, 87);
         doc.setFont("helvetica", "bold");
-        doc.setFontSize(18);
-        doc.text(value, x + w - 2.5, y + 9, { align: "right" });
+        doc.setFontSize(15);
+        doc.text(value, x + w - 1.8, y + 9, { align: "right" });
 
         doc.setTextColor(15, 48, 87);
         doc.setFont("helvetica", "bold");
-        doc.setFontSize(6.5);
+        doc.setFontSize(5.5);
         if (title2) {
-          doc.text(title1, x + w - 2.5, y + 14, { align: "right" });
-          doc.text(title2, x + w - 2.5, y + 18, { align: "right" });
+          doc.text(title1, x + w - 1.8, y + 14, { align: "right" });
+          doc.text(title2, x + w - 1.8, y + 18, { align: "right" });
         } else {
-          doc.text(title1, x + w - 2.5, y + 16, { align: "right" });
+          doc.text(title1, x + w - 1.8, y + 16, { align: "right" });
         }
       }
     };
 
-    drawStatBoxOutline(14, currentY, boxW, boxH, countRecoding.toString(), isEn ? "Recoding /" : "Recoding /", isEn ? "Move Code" : "Pindah Kode", [14, 165, 233], "sync");
-    drawStatBoxOutline(14 + boxW + 5, currentY, boxW, boxH, countGabung.toString(), isEn ? "Merge" : "Gabung", isEn ? "Code" : "Kode", [34, 197, 94], "chain");
-    drawStatBoxOutline(14 + (boxW + 5) * 2, currentY, boxW, boxH, countLebur.toString(), isEn ? "Merge" : "Lebur", isEn ? "Scope" : "Cakupan", [245, 158, 11], "venn");
-    drawStatBoxOutline(14 + (boxW + 5) * 3, currentY, boxW, boxH, countPecah.toString(), isEn ? "Split" : "Pecah", isEn ? "Code" : "Kode", [239, 68, 68], "fork");
-    drawStatBoxOutline(14 + (boxW + 5) * 4, currentY, boxW, boxH, unique2025.size.toString(), isEn ? "Total Active" : "Total KBLI", isEn ? "KBLI" : "Aktif", [100, 116, 139], "clipboard");
+    drawStatBoxOutline(14 + (boxW + gap) * 0, currentY, boxW, boxH, countTidakBerubah.toString(), isEn ? "Unchanged" : "KBLI Tidak", isEn ? "KBLI" : "Berubah", [16, 185, 129], "check");
+    drawStatBoxOutline(14 + (boxW + gap) * 1, currentY, boxW, boxH, countRecoding.toString(), isEn ? "Recoding /" : "Recoding /", isEn ? "Move Code" : "Pindah Kode", [14, 165, 233], "sync");
+    drawStatBoxOutline(14 + (boxW + gap) * 2, currentY, boxW, boxH, countGabung.toString(), isEn ? "Merge" : "Gabung", isEn ? "Code" : "Kode", [34, 197, 94], "chain");
+    drawStatBoxOutline(14 + (boxW + gap) * 3, currentY, boxW, boxH, countLebur.toString(), isEn ? "Merge" : "Lebur", isEn ? "Scope" : "Cakupan", [245, 158, 11], "venn");
+    drawStatBoxOutline(14 + (boxW + gap) * 4, currentY, boxW, boxH, countPecah.toString(), isEn ? "Split" : "Pecah", isEn ? "Code" : "Kode", [239, 68, 68], "fork");
+    drawStatBoxOutline(14 + (boxW + gap) * 5, currentY, boxW, boxH, totalKbli.toString(), isEn ? "Total Active" : "Total KBLI", isEn ? "KBLI" : "Aktif", [100, 116, 139], "clipboard");
     
     currentY += 28;
 
@@ -2527,6 +2588,79 @@ const KBLIMapping: React.FC = () => {
 
       {selectedMappings.length > 0 && (
         <div className="space-y-6">
+          {/* Ringkasan Pemetaan KBLI Summary Cards */}
+          {(() => {
+            const counts = computeKbliCategoryCounts(selectedMappings);
+            return (
+              <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-4 shadow-sm space-y-3">
+                <div className="flex items-center justify-between border-b border-slate-200/60 pb-2">
+                  <h3 className="text-xs font-bold text-slate-700 tracking-wider uppercase flex items-center gap-2">
+                    <BarChart2 className="w-4 h-4 text-indigo-600" />
+                    Ringkasan Pemetaan KBLI
+                  </h3>
+                  <span className="text-xs font-semibold text-slate-500">
+                    Total: <strong className="text-slate-800 font-bold">{counts.totalKbli}</strong> KBLI
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
+                  {/* 1. KBLI Tidak Berubah */}
+                  <div className="bg-emerald-50/80 border border-emerald-200/80 rounded-lg p-3 flex flex-col justify-between shadow-2xs">
+                    <div className="flex items-center justify-between text-emerald-700 mb-1">
+                      <span className="text-[11px] font-bold">Tidak Berubah</span>
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    </div>
+                    <div className="text-xl font-black text-emerald-900">{counts.countTidakBerubah}</div>
+                  </div>
+
+                  {/* 2. Recoding / Pindah Kode */}
+                  <div className="bg-sky-50/80 border border-sky-200/80 rounded-lg p-3 flex flex-col justify-between shadow-2xs">
+                    <div className="flex items-center justify-between text-sky-700 mb-1">
+                      <span className="text-[11px] font-bold">Recoding / Pindah</span>
+                      <RefreshCw className="w-4 h-4 text-sky-600" />
+                    </div>
+                    <div className="text-xl font-black text-sky-900">{counts.countRecoding}</div>
+                  </div>
+
+                  {/* 3. Gabung Kode */}
+                  <div className="bg-green-50/80 border border-green-200/80 rounded-lg p-3 flex flex-col justify-between shadow-2xs">
+                    <div className="flex items-center justify-between text-green-700 mb-1">
+                      <span className="text-[11px] font-bold">Gabung Kode</span>
+                      <GitMerge className="w-4 h-4 text-green-600" />
+                    </div>
+                    <div className="text-xl font-black text-green-900">{counts.countGabung}</div>
+                  </div>
+
+                  {/* 4. Lebur Cakupan */}
+                  <div className="bg-amber-50/80 border border-amber-200/80 rounded-lg p-3 flex flex-col justify-between shadow-2xs">
+                    <div className="flex items-center justify-between text-amber-700 mb-1">
+                      <span className="text-[11px] font-bold">Lebur Cakupan</span>
+                      <Layers className="w-4 h-4 text-amber-600" />
+                    </div>
+                    <div className="text-xl font-black text-amber-900">{counts.countLebur}</div>
+                  </div>
+
+                  {/* 5. Pecah Kode */}
+                  <div className="bg-rose-50/80 border border-rose-200/80 rounded-lg p-3 flex flex-col justify-between shadow-2xs">
+                    <div className="flex items-center justify-between text-rose-700 mb-1">
+                      <span className="text-[11px] font-bold">Pecah Kode</span>
+                      <GitFork className="w-4 h-4 text-rose-600" />
+                    </div>
+                    <div className="text-xl font-black text-rose-900">{counts.countPecah}</div>
+                  </div>
+
+                  {/* 6. Total KBLI Aktif */}
+                  <div className="bg-slate-100 border border-slate-300/80 rounded-lg p-3 flex flex-col justify-between shadow-2xs">
+                    <div className="flex items-center justify-between text-slate-700 mb-1">
+                      <span className="text-[11px] font-bold">Total KBLI</span>
+                      <ClipboardList className="w-4 h-4 text-slate-600" />
+                    </div>
+                    <div className="text-xl font-black text-slate-900">{counts.totalKbli}</div>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+
           <div className="flex items-center justify-between py-2 border-b border-slate-100">
             <h2 className="text-lg font-bold text-slate-800">
               Daftar Pemetaan Terpilih
