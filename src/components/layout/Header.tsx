@@ -13,7 +13,9 @@ import {
   User, 
   Home, 
   Building2, 
-  Lock 
+  Lock,
+  Settings as SettingsIcon,
+  HelpCircle
 } from 'lucide-react';
 import { db } from '../../lib/firebase';
 import { doc, updateDoc, deleteDoc } from 'firebase/firestore';
@@ -227,97 +229,6 @@ export const Header: React.FC<HeaderProps> = ({
           <button className="hidden sm:flex w-11 h-11 items-center justify-center rounded-full hover:bg-slate-100 transition-colors">
             <Moon className="w-5 h-5 text-slate-500" />
           </button>
-        </div>
-
-        {/* Profile Logic */}
-        <div className="relative">
-          <button 
-            onClick={() => {
-              setIsUserDropdownOpen(!isUserDropdownOpen);
-              setIsNotificationOpen(false);
-            }}
-            className="flex items-center gap-3 text-left hover:bg-slate-50 p-1 rounded-lg transition-all cursor-pointer"
-          >
-            <div className="w-8 h-8 rounded-full bg-teal-500 text-white flex items-center justify-center text-xs font-bold shadow-inner">
-              {(userProfile?.name || 'AZ').substring(0, 2).toUpperCase()}
-            </div>
-            <div className="flex flex-col">
-              <span className="text-xs font-semibold text-slate-800">{userProfile?.name || 'Azizah'}</span>
-              <span className="text-[10px] text-slate-500 leading-none">{userProfile?.level || 'Staff Kantor'}</span>
-            </div>
-            <ChevronDown className="w-4 h-4 text-slate-400" />
-          </button>
-          
-          {/* User Profile Dropdown Menu */}
-          {isUserDropdownOpen && (
-            <div className="absolute right-0 mt-2.5 w-60 bg-white rounded-xl shadow-2xl border border-slate-100 py-1.5 z-50 animate-in fade-in slide-in-from-top-1 divide-y divide-slate-100">
-              <div className="px-4 py-2.5">
-                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Masuk Sebagai</p>
-                <p className="text-xs font-bold text-slate-800 truncate mt-1">{userProfile?.name || 'Azizah'}</p>
-                <p className="text-[10px] text-slate-505 truncate font-mono mt-0.5">{user?.email || 'admin@legalnotaris.id'}</p>
-              </div>
-              
-              <div className="py-1 text-left row">
-                <button 
-                  onClick={() => {
-                    setIsEditProfileModalOpen(true);
-                    setIsUserDropdownOpen(false);
-                  }}
-                  className="w-full px-4 py-2 text-left text-xs text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-2 cursor-pointer"
-                >
-                  <User className="w-3.5 h-3.5 text-slate-400" />
-                  <span>Edit Profil</span>
-                </button>
-
-                <button 
-                  onClick={() => {
-                    setActiveSidebarTab('beranda');
-                    setIsUserDropdownOpen(false);
-                  }}
-                  className="w-full px-4 py-2 text-left text-xs text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-2 cursor-pointer"
-                >
-                  <Home className="w-3.5 h-3.5 text-slate-400" />
-                  <span>Dashboard Utama</span>
-                </button>
-
-                <button 
-                  onClick={() => {
-                    if (!user) {
-                      if (confirm('Anda harus login terlebih dahulu untuk mengakses menu "Klien".')) {
-                        loginWithGoogle();
-                      }
-                    } else {
-                      setActiveSidebarTab('company_profile');
-                    }
-                    setIsUserDropdownOpen(false);
-                  }}
-                  className="w-full px-4 py-2 text-left text-xs text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-2 cursor-pointer"
-                >
-                  <Building2 className="w-3.5 h-3.5 text-slate-400" />
-                  <span>Database Klien</span>
-                </button>
-              </div>
-
-              <div className="py-1 text-left">
-                <button 
-                  onClick={() => {
-                    if (user) {
-                      logout();
-                    } else {
-                      loginWithGoogle();
-                    }
-                    setIsUserDropdownOpen(false);
-                  }}
-                  className={`w-full px-4 py-2 text-left text-xs font-bold transition-colors flex items-center gap-2 cursor-pointer ${
-                    user ? 'text-red-600 hover:bg-red-50/50' : 'text-blue-600 hover:bg-blue-50/55'
-                  }`}
-                >
-                  <Lock className="w-3.5 h-3.5" />
-                  <span>{user ? 'Keluar Aplikasi' : 'Login / Masuk Google'}</span>
-                </button>
-              </div>
-            </div>
-          )}
         </div>
       </div>
     </header>

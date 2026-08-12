@@ -119,6 +119,13 @@ export const TAB_ACCENTS: Record<SidebarTabId, {
     hoverBg: 'hover:bg-rose-50/40 hover:text-rose-950',
     indicatorBg: 'bg-rose-600'
   },
+  settings: {
+    iconColor: 'text-teal-600',
+    textColor: 'text-teal-900',
+    bgColor: 'bg-teal-50/70',
+    hoverBg: 'hover:bg-teal-50/40 hover:text-teal-950',
+    indicatorBg: 'bg-teal-600'
+  },
   user_management: {
     iconColor: 'text-violet-600',
     textColor: 'text-violet-900',
@@ -229,6 +236,7 @@ export const TAB_TO_PATH: Record<string, string> = {
   'import_kbli': '/import-kbli',
   'laporan': '/laporan',
   'whatsapp_settings': '/whatsapp-gateway',
+  'settings': '/settings',
   'projects': '/projects',
   'project_detail': '/projects-detail',
   'user_management': '/user-management',

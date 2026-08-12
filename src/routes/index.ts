@@ -39,7 +39,7 @@ export const renderAppRoute = (currentTab: string, props: any) => {
     return renderQuotationRoute(props?.isPublic || false);
   }
 
-  if (currentTab === 'user_management' || currentTab === 'whatsapp_settings' || currentTab === 'stamp_settings') {
+  if (currentTab === 'settings' || currentTab === 'user_management' || currentTab === 'whatsapp_settings' || currentTab === 'stamp_settings') {
     return renderSettingsRoute(currentTab, props);
   }
 

@@ -3,6 +3,7 @@ import React from 'react';
 export interface DataPoint {
   label: string;
   value: number;
+  isCurrentMonth?: boolean;
 }
 
 interface SimpleAreaChartProps {
@@ -19,7 +20,7 @@ export const SimpleAreaChart: React.FC<SimpleAreaChartProps> = ({ data, height =
     );
   }
 
-  const padding = { top: 25, right: 30, bottom: 25, left: 30 };
+  const padding = { top: 15, right: 30, bottom: 20, left: 30 };
   const width = 600; // SVG viewBox width
   const chartWidth = width - padding.left - padding.right;
   const chartHeight = height - padding.top - padding.bottom;
@@ -53,7 +54,7 @@ export const SimpleAreaChart: React.FC<SimpleAreaChartProps> = ({ data, height =
     <div className="w-full">
       <svg
         viewBox={`0 0 ${width} ${height}`}
-        className="w-full h-[180px] md:h-[220px] select-none"
+        className="w-full h-[175px] md:h-[200px] select-none"
         preserveAspectRatio="none"
       >
         <defs>
@@ -94,37 +95,61 @@ export const SimpleAreaChart: React.FC<SimpleAreaChartProps> = ({ data, height =
         />
 
         {/* Data points & Values */}
-        {points.map((pt, i) => (
-          <g key={i} className="group cursor-pointer">
-            {/* Value Label above point */}
-            <text
-              x={pt.x}
-              y={pt.y - 10}
-              textAnchor="middle"
-              className="text-[11px] font-bold fill-slate-800"
-            >
-              {pt.val}
-            </text>
+        {points.map((pt, i) => {
+          const isCurrentMonth = data[i].isCurrentMonth;
+          const r = 6;
+          const daysPassed = new Date().getDate();
+          return (
+            <g key={i} className="group cursor-pointer">
+              {/* Value Label above point */}
+              <text
+                x={pt.x}
+                y={pt.y - 12}
+                textAnchor="middle"
+                className="text-[11px] font-bold fill-slate-800"
+              >
+                {pt.val}
+              </text>
 
-            {/* Outer ring */}
-            <circle
-              cx={pt.x}
-              cy={pt.y}
-              r="6"
-              className="fill-white stroke-blue-600 stroke-[3] group-hover:scale-125 transition-transform"
-            />
+              {isCurrentMonth ? (
+                <>
+                  {/* Diamond shape for current month */}
+                  <polygon
+                    points={`${pt.x},${pt.y - r - 2} ${pt.x + r + 2},${pt.y} ${pt.x},${pt.y + r + 2} ${pt.x - r - 2},${pt.y}`}
+                    className="fill-white stroke-blue-600 stroke-[3] group-hover:scale-125 transition-transform"
+                  />
+                  {/* Small badge/label near the last running point */}
+                  <text
+                    x={pt.x - 24}
+                    y={pt.y + 16}
+                    textAnchor="middle"
+                    className="text-[9px] font-bold fill-blue-600 tracking-tight"
+                  >
+                    (berjalan: {daysPassed} hari)
+                  </text>
+                </>
+              ) : (
+                /* Outer ring */
+                <circle
+                  cx={pt.x}
+                  cy={pt.y}
+                  r={r}
+                  className="fill-white stroke-blue-600 stroke-[3] group-hover:scale-125 transition-transform"
+                />
+              )}
 
-            {/* X-axis Label */}
-            <text
-              x={pt.x}
-              y={height - 10}
-              textAnchor="middle"
-              className="text-[11px] font-medium fill-slate-500"
-            >
-              {data[i].label}
-            </text>
-          </g>
-        ))}
+              {/* X-axis Label */}
+              <text
+                x={pt.x}
+                y={height - 10}
+                textAnchor="middle"
+                className="text-[11px] font-medium fill-slate-500"
+              >
+                {data[i].label}
+              </text>
+            </g>
+          );
+        })}
       </svg>
     </div>
   );

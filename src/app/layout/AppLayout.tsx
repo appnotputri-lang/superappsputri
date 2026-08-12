@@ -82,16 +82,16 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-100 p-4">
         <div className="bg-white p-8 rounded-lg shadow-md max-w-md w-full text-center space-y-6">
-          <div className="w-16 h-16 bg-teal-50 text-teal-600 rounded-full flex items-center justify-center mx-auto text-2xl font-bold">
-            LD
+          <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto text-2xl font-bold">
+            NP
           </div>
           <div className="space-y-2">
-            <h1 className="text-xl font-bold text-slate-800">LegalDraft Engine</h1>
+            <h1 className="text-xl font-bold text-slate-800">Notaris Putri SuperApp</h1>
             <p className="text-xs text-slate-500">Silakan login menggunakan akun Google terdaftar untuk mengakses sistem.</p>
           </div>
           <button
             onClick={loginWithGoogle}
-            className="w-full bg-teal-600 hover:bg-teal-700 text-white py-2.5 px-4 rounded-md font-bold text-sm transition-all shadow-sm flex items-center justify-center gap-2"
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2.5 px-4 rounded-md font-bold text-sm transition-all shadow-sm flex items-center justify-center gap-2"
           >
             Masuk dengan Google
           </button>
@@ -152,6 +152,10 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
           setActiveSidebarTab={setActiveSidebarTab}
           userProfile={userProfile}
           loginWithGoogle={loginWithGoogle}
+          isUserDropdownOpen={isUserDropdownOpen}
+          setIsUserDropdownOpen={setIsUserDropdownOpen}
+          setIsEditProfileModalOpen={setIsEditProfileModalOpen}
+          logout={logout}
         />
       )}
 

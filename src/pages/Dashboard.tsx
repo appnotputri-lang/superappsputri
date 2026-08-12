@@ -47,6 +47,50 @@ const getActivityIcon = (type: 'proyek' | 'akta' | 'invoice' | 'surat') => {
   }
 };
 
+const getDetailedActivityStyles = (type: 'proyek' | 'akta' | 'invoice' | 'surat', desc: string) => {
+  const isInvoiceUnpaid = type === 'invoice' && desc.toLowerCase().includes('belum dibayar');
+  
+  if (isInvoiceUnpaid) {
+    return {
+      Icon: AlertTriangle,
+      bg: 'bg-amber-50',
+      color: 'text-amber-600',
+      subtitleColor: 'text-amber-600 font-medium'
+    };
+  }
+
+  switch (type) {
+    case 'surat':
+      return {
+        Icon: ArrowUpRight,
+        bg: 'bg-blue-50',
+        color: 'text-blue-600',
+        subtitleColor: 'text-slate-400'
+      };
+    case 'akta':
+      return {
+        Icon: FileCheck,
+        bg: 'bg-emerald-50',
+        color: 'text-emerald-600',
+        subtitleColor: 'text-slate-400'
+      };
+    case 'proyek':
+      return {
+        Icon: Briefcase,
+        bg: 'bg-indigo-50',
+        color: 'text-indigo-600',
+        subtitleColor: 'text-slate-400'
+      };
+    default:
+      return {
+        Icon: FileText,
+        bg: 'bg-slate-100',
+        color: 'text-slate-600',
+        subtitleColor: 'text-slate-400'
+      };
+  }
+};
+
 interface DashboardProps {
   profiles: any[];
   projects: any[];
@@ -320,9 +364,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
       const yVal = targetDate.getFullYear();
       const key = `${yVal}-${mIdx}`;
       
+      const isCurrentMonth = mIdx === now.getMonth() && yVal === now.getFullYear();
+      
       result.push({
         label: monthNames[mIdx],
-        value: countsByMonthYear[key] || 0
+        value: countsByMonthYear[key] || 0,
+        isCurrentMonth
       });
     }
     return result;
@@ -712,7 +759,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
               {recentActivitiesList.length === 0 ? (
                 <div className="p-6 text-center text-xs text-slate-400 font-medium">Belum ada aktivitas terbaru.</div>
               ) : recentActivitiesList.map((act) => {
-                const { Icon, bg, color } = getActivityIcon(act.type);
+                const { Icon, bg, color, subtitleColor } = getDetailedActivityStyles(act.type, act.desc);
                 return (
                   <div key={act.id} className="flex items-center gap-3 p-3.5">
                     <div className={`${bg} ${color} p-2 rounded-xl shrink-0`}>
@@ -720,7 +767,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="text-xs font-bold text-slate-800 truncate">{act.desc}</p>
-                      <p className="text-[11px] text-slate-400 truncate mt-0.5">{act.subtitle}</p>
+                      <p className={`text-[11px] truncate mt-0.5 ${subtitleColor}`}>{act.subtitle}</p>
                     </div>
                     <span className="text-[11px] text-slate-400 font-medium shrink-0">{act.time}</span>
                     <ChevronRight size={14} className="text-slate-300 shrink-0" />
@@ -736,340 +783,365 @@ export const Dashboard: React.FC<DashboardProps> = ({
       {/* ===== DESKTOP HOMESCREEN (existing, md+) ===== */}
       <div className="hidden md:block">
         <PageContainer>
-      {/* 1. Top Stats Row: 3 Gradient Cards + Ringkasan Hari Ini */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5">
-        
-        {/* Stat 1: Klien Aktif (Blue Gradient) */}
-        <div 
-          onClick={() => setActiveSidebarTab('company_profile')}
-          className="relative overflow-hidden rounded-xl p-5 bg-gradient-to-br from-[#1877f2] via-[#2563eb] to-[#1d4ed8] text-white shadow-md shadow-blue-500/10 hover:shadow-lg transition-all cursor-pointer group flex flex-col justify-between h-40"
-        >
-          <div className="absolute -right-3 -bottom-3 text-white/10 group-hover:scale-110 transition-transform duration-300">
-            <Users size={110} />
-          </div>
-          <div className="space-y-1 relative z-10">
-            <span className="text-xs font-semibold text-blue-100 uppercase tracking-wider">Klien Aktif</span>
-            <div className="text-3xl font-extrabold font-heading tracking-tight">
-              {activeClientsCount}
-            </div>
-            <p className="text-xs text-blue-100 font-medium">Total klien perusahaan</p>
-          </div>
-          
-          {profileGrowthInfo && (
-            <div className="relative z-10 flex items-center gap-1.5 text-[11px] font-bold text-emerald-300 bg-white/10 backdrop-blur-xs px-2.5 py-1 rounded-full w-fit">
-              <span>{profileGrowthInfo.text}</span>
-            </div>
-          )}
-        </div>
-
-        {/* Stat 2: Proyek Berjalan (Indigo Gradient) */}
-        <div 
-          onClick={() => setActiveSidebarTab('projects')}
-          className="relative overflow-hidden rounded-xl p-5 bg-gradient-to-br from-indigo-600 via-indigo-700 to-slate-800 text-white shadow-md shadow-indigo-500/10 hover:shadow-lg transition-all cursor-pointer group flex flex-col justify-between h-40"
-        >
-          <div className="absolute -right-3 -bottom-3 text-white/10 group-hover:scale-110 transition-transform duration-300">
-            <Briefcase size={110} />
-          </div>
-          <div className="space-y-1 relative z-10">
-            <span className="text-xs font-semibold text-indigo-100 uppercase tracking-wider">Proyek Berjalan</span>
-            <div className="text-3xl font-extrabold font-heading tracking-tight">
-              {runningProjectsCount}
-            </div>
-            <p className="text-xs text-indigo-100 font-medium">Proyek dalam proses</p>
-          </div>
-
-          {projectGrowthInfo && (
-            <div className="relative z-10 flex items-center gap-1.5 text-[11px] font-bold text-emerald-300 bg-white/10 backdrop-blur-xs px-2.5 py-1 rounded-full w-fit">
-              <span>{projectGrowthInfo.text}</span>
-            </div>
-          )}
-        </div>
-
-        {/* Stat 3: Dokumen Perlu Ditinjau (Orange Gradient) */}
-        <div 
-          onClick={() => setActiveSidebarTab('laporan')}
-          className="relative overflow-hidden rounded-xl p-5 bg-gradient-to-br from-orange-500 via-amber-600 to-amber-700 text-white shadow-md shadow-amber-500/10 hover:shadow-lg transition-all cursor-pointer group flex flex-col justify-between h-40"
-        >
-          <div className="absolute -right-3 -bottom-3 text-white/10 group-hover:scale-110 transition-transform duration-300">
-            <AlertCircle size={110} />
-          </div>
-          <div className="space-y-1 relative z-10">
-            <span className="text-xs font-semibold text-amber-100 uppercase tracking-wider">Dokumen Perlu Ditinjau</span>
-            <div className="text-3xl font-extrabold font-heading tracking-tight">
-              {pendingDocsCount}
-            </div>
-            <p className="text-xs text-amber-100 font-medium">Menunggu review</p>
-          </div>
-          <button 
-            onClick={(e) => { e.stopPropagation(); setActiveSidebarTab('laporan'); }}
-            className="relative z-10 flex items-center gap-1 text-xs font-bold bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 rounded-lg w-fit transition-colors cursor-pointer"
-          >
-            <span>Lihat Dokumen</span>
-            <ChevronRight size={14} />
-          </button>
-        </div>
-
-        {/* Stat 4: Ringkasan Hari Ini (White Card) */}
-        <div className="bg-white p-5 rounded-xl border border-slate-200/80 shadow-xs flex flex-col justify-between h-40">
-          <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider font-heading border-b border-slate-100 pb-2">
-            Ringkasan Hari Ini
-          </h3>
-          <div className="space-y-3 text-xs my-auto">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-slate-600">
-                <span className="p-1.5 bg-emerald-50 text-emerald-600 rounded-md">
-                  <Briefcase size={14} />
-                </span>
-                <span className="font-medium">Proyek Dibuat</span>
-              </div>
-              <span className="font-bold text-slate-900 font-mono text-sm">{todayProjectsCount}</span>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-slate-600">
-                <span className="p-1.5 bg-amber-50 text-amber-600 rounded-md">
-                  <CheckCircle2 size={14} />
-                </span>
-                <span className="font-medium">Laporan Diselesaikan</span>
-              </div>
-              <span className="font-bold text-slate-900 font-mono text-sm">{completedLaporanCount}</span>
-            </div>
-          </div>
-        </div>
-
-      </div>
-
-      {/* 3. Main Split Section: Chart Area + Agenda & Activities Column */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        {/* Left Column (2 Spans): Analisis Aktivitas Proyek Chart */}
-        <div className="lg:col-span-2 bg-white p-4 sm:p-5 rounded-xl border border-slate-200/80 shadow-xs space-y-3.5 flex flex-col justify-between">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-2.5">
-            <div className="flex items-center gap-2.5">
-              <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
-                <TrendingUp size={18} />
-              </div>
-              <div>
-                <h3 className="text-sm sm:text-base font-bold text-slate-900 font-heading">Analisis Aktivitas Proyek</h3>
-                <p className="text-[11px] sm:text-xs text-slate-500">Tren proyek baru dibuat per bulan</p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-1.5 text-[11px] sm:text-xs">
-              <div className="flex items-center gap-1 bg-slate-50 border border-slate-200/80 px-2 py-1 rounded-md text-slate-600 font-medium">
-                <Calendar size={12} className="text-slate-400" />
-                <span>{monthlyChartData[0]?.label} - {monthlyChartData[monthlyChartData.length - 1]?.label} {new Date().getFullYear()}</span>
-              </div>
-              <select
-                value={granularity}
-                onChange={(e) => setGranularity(e.target.value)}
-                className="bg-slate-50 border border-slate-200/80 rounded-md px-2 py-1 text-slate-700 font-medium focus:outline-none cursor-pointer"
+          <div className="space-y-6">
+            
+            {/* 1. Top Stats Row: 3 Flat Soft Tint Cards + Ringkasan Hari Ini */}
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5">
+              
+              {/* Stat 1: Klien Aktif (Blue Tint) */}
+              <div 
+                onClick={() => setActiveSidebarTab('company_profile')}
+                className="p-5 rounded-xl bg-blue-50/80 border border-blue-100 text-slate-800 hover:bg-blue-100/50 hover:border-blue-200 transition-all cursor-pointer flex flex-col justify-between h-32"
               >
-                <option value="Bulanan">Bulanan</option>
-                <option value="Mingguan">Mingguan</option>
-                <option value="Harian">Harian</option>
-              </select>
-            </div>
-          </div>
-
-          {/* SVG Area Chart */}
-          <div className="py-0.5">
-            <SimpleAreaChart data={monthlyChartData} height={220} />
-          </div>
-
-          {/* 4 Mini Cards under Chart */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 pt-1">
-            <div className="bg-slate-50/80 border border-slate-200/70 p-2 sm:p-2.5 rounded-lg flex items-center gap-2 h-[60px] sm:h-[64px]">
-              <div className="p-1.5 bg-blue-100 text-blue-600 rounded-lg shrink-0">
-                <RefreshCw size={14} />
-              </div>
-              <div className="min-w-0">
-                <p className="text-[10px] text-slate-400 font-medium truncate">Total Proyek</p>
-                <p className="text-xs sm:text-sm font-extrabold text-slate-800 font-heading leading-tight">{totalChartDocs}</p>
-              </div>
-            </div>
-
-            <div className="bg-slate-50/80 border border-slate-200/70 p-2 sm:p-2.5 rounded-lg flex items-center gap-2 h-[60px] sm:h-[64px]">
-              <div className="p-1.5 bg-emerald-100 text-emerald-600 rounded-lg shrink-0">
-                <BarChart2 size={14} />
-              </div>
-              <div className="min-w-0">
-                <p className="text-[10px] text-slate-400 font-medium truncate">Rata-rata/Bulan</p>
-                <p className="text-xs sm:text-sm font-extrabold text-slate-800 font-heading leading-tight">{avgChartDocs}</p>
-              </div>
-            </div>
-
-            <div className="bg-slate-50/80 border border-slate-200/70 p-2 sm:p-2.5 rounded-lg flex items-center gap-2 h-[60px] sm:h-[64px]">
-              <div className="p-1.5 bg-indigo-100 text-indigo-600 rounded-lg shrink-0">
-                <ShieldCheck size={14} />
-              </div>
-              <div className="min-w-0">
-                <p className="text-[10px] text-slate-400 font-medium truncate">Tertinggi</p>
-                <p className="text-xs sm:text-sm font-extrabold text-slate-800 font-heading leading-tight truncate">
-                  {highestMonth.value > 0 ? `${highestMonth.value} (${highestMonth.label})` : '0 (-)'}
-                </p>
-              </div>
-            </div>
-
-            <div className="bg-slate-50/80 border border-slate-200/70 p-2 sm:p-2.5 rounded-lg flex items-center gap-2 h-[60px] sm:h-[64px]">
-              <div className="p-1.5 bg-amber-100 text-amber-600 rounded-lg shrink-0">
-                <FileText size={14} />
-              </div>
-              <div className="min-w-0">
-                <p className="text-[10px] text-slate-400 font-medium truncate">Terendah</p>
-                <p className="text-xs sm:text-sm font-extrabold text-slate-800 font-heading leading-tight truncate">
-                  {lowestMonth.value > 0 ? `${lowestMonth.value} (${lowestMonth.label})` : '0 (-)'}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Right Column (1 Span): Agenda Prioritas Hari Ini & Aktivitas Terbaru */}
-        <div className="space-y-6 flex flex-col justify-between">
-          
-          {/* Card: Agenda Prioritas Hari Ini (Honest Empty State) */}
-          <div className="bg-white p-5 rounded-xl border border-slate-200/80 shadow-xs space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2 font-heading">
-                <Calendar size={15} className="text-blue-600" />
-                <span>Agenda Prioritas Hari Ini</span>
-              </h3>
-            </div>
-
-            <div className="p-6 text-center space-y-2.5 bg-slate-50/60 rounded-xl border border-dashed border-slate-200 my-auto">
-              <div className="w-10 h-10 rounded-full bg-blue-50 text-blue-500 flex items-center justify-center mx-auto">
-                <Calendar size={20} />
-              </div>
-              <p className="text-xs text-slate-500 font-medium max-w-xs mx-auto leading-relaxed">
-                Belum ada agenda terjadwal — fitur ini akan tersedia setelah modul Kalender dibangun.
-              </p>
-            </div>
-          </div>
-
-          {/* Card: Aktivitas Terbaru */}
-          <div className="bg-white p-5 rounded-xl border border-slate-200/80 shadow-xs space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2 font-heading">
-                <Clock size={15} className="text-emerald-600" />
-                <span>Aktivitas Terbaru</span>
-              </h3>
-              {recentActivitiesList.length > 0 && (
-                <button onClick={() => setActiveSidebarTab('projects')} className="text-[11px] font-bold text-blue-600 hover:underline cursor-pointer">Lihat Semua</button>
-              )}
-            </div>
-
-            {recentActivitiesList.length === 0 ? (
-              <div className="p-6 text-center space-y-2 bg-slate-50/60 rounded-xl border border-dashed border-slate-200">
-                <div className="w-10 h-10 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
-                  <Clock size={20} />
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-blue-800 uppercase tracking-wider">Klien Aktif</span>
+                  <Users size={18} className="text-blue-600" />
                 </div>
-                <p className="text-xs text-slate-500 font-medium">Belum ada aktivitas terbaru.</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {recentActivitiesList.map((act) => (
-                  <div key={act.id} className="flex items-start justify-between gap-2 p-2 rounded-lg hover:bg-slate-50 transition-colors">
-                    <div className="flex items-start gap-2.5 min-w-0">
-                      <div className="p-1.5 bg-slate-100 text-slate-600 rounded-lg shrink-0 mt-0.5">
-                        <FileText size={14} />
-                      </div>
-                      <div className="min-w-0">
-                        <h4 className="text-xs font-bold text-slate-800 truncate">{act.desc}</h4>
-                        <p className="text-[10px] text-slate-400 truncate">{act.subtitle}</p>
-                      </div>
-                    </div>
-                    <span className="text-[10px] font-medium text-slate-400 shrink-0 font-mono">{act.time}</span>
+                <div>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-[26px] font-medium tracking-tight text-slate-900 leading-none">
+                      {activeClientsCount !== null ? activeClientsCount : '—'}
+                    </span>
+                    {profileGrowthInfo && (
+                      <span className={`text-[11px] font-bold ${profileGrowthInfo.isPositive ? 'text-emerald-600' : 'text-rose-600'}`}>
+                        ({profileGrowthInfo.text})
+                      </span>
+                    )}
                   </div>
-                ))}
+                  <p className="text-[11px] text-slate-500 mt-1.5">Total klien perusahaan</p>
+                </div>
               </div>
-            )}
+
+              {/* Stat 2: Proyek Berjalan (Green Tint) */}
+              <div 
+                onClick={() => setActiveSidebarTab('projects')}
+                className="p-5 rounded-xl bg-emerald-50/80 border border-emerald-100 text-slate-800 hover:bg-emerald-100/50 hover:border-emerald-200 transition-all cursor-pointer flex flex-col justify-between h-32"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-emerald-800 uppercase tracking-wider">Proyek Berjalan</span>
+                  <Briefcase size={18} className="text-emerald-600" />
+                </div>
+                <div>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-[26px] font-medium tracking-tight text-slate-900 leading-none">
+                      {runningProjectsCount !== null ? runningProjectsCount : '—'}
+                    </span>
+                    {projectGrowthInfo && (
+                      <span className={`text-[11px] font-bold ${projectGrowthInfo.isPositive ? 'text-emerald-600' : 'text-rose-600'}`}>
+                        ({projectGrowthInfo.text})
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-slate-500 mt-1.5">Proyek dalam proses</p>
+                </div>
+              </div>
+
+              {/* Stat 3: Dokumen Perlu Ditinjau (Amber Tint) */}
+              <div 
+                onClick={() => setActiveSidebarTab('laporan')}
+                className="p-5 rounded-xl bg-amber-50/80 border border-amber-100 text-slate-800 hover:bg-amber-100/50 hover:border-amber-200 transition-all cursor-pointer flex flex-col justify-between h-32"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-amber-800 uppercase tracking-wider">Dokumen Perlu Ditinjau</span>
+                  <AlertCircle size={18} className="text-amber-600" />
+                </div>
+                <div>
+                  <div className="text-[26px] font-medium tracking-tight text-slate-900 leading-none">
+                    {pendingDocsCount !== null ? pendingDocsCount : '—'}
+                  </div>
+                  <p className="text-[11px] text-slate-500 mt-1.5">Menunggu review</p>
+                </div>
+              </div>
+
+              {/* Stat 4: Ringkasan Hari Ini (White Card) */}
+              <div className="bg-white border border-slate-200/80 p-5 rounded-xl shadow-xs flex flex-col justify-between h-32">
+                <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider font-heading border-b border-slate-100 pb-2">
+                  Ringkasan Hari Ini
+                </h3>
+                <div className="space-y-2 text-xs my-auto">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-slate-600">
+                      <span className="p-1.5 bg-emerald-50 text-emerald-600 rounded-md">
+                        <Briefcase size={12} />
+                      </span>
+                      <span className="font-medium">Proyek Dibuat</span>
+                    </div>
+                    <span className="font-bold text-slate-900 font-mono text-sm">{todayProjectsCount}</span>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-slate-600">
+                      <span className="p-1.5 bg-amber-50 text-amber-600 rounded-md">
+                        <CheckCircle2 size={12} />
+                      </span>
+                      <span className="font-medium">Laporan Diselesaikan</span>
+                    </div>
+                    <span className="font-bold text-slate-900 font-mono text-sm">{completedLaporanCount}</span>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
+            {/* 2. Akses Cepat */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 bg-blue-50 text-blue-600 rounded-lg">
+                  <Compass size={16} />
+                </div>
+                <h3 className="text-sm font-bold text-slate-900 font-heading">Akses Cepat</h3>
+              </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {/* Button 1: Tambah Klien */}
+                <button
+                  onClick={() => setActiveSidebarTab('company_profile')}
+                  className="p-4 bg-white border border-slate-200/80 hover:border-blue-500/50 hover:bg-slate-50/50 rounded-xl shadow-xs hover:shadow-sm transition-all text-center flex flex-col items-center justify-center gap-2 cursor-pointer h-24"
+                >
+                  <div className="w-[30px] h-[30px] flex items-center justify-center rounded-lg bg-blue-50 text-blue-600 shrink-0">
+                    <Users size={16} />
+                  </div>
+                  <span className="text-xs font-bold text-slate-800 truncate">Klien Baru</span>
+                </button>
+
+                {/* Button 2: Proyek Baru */}
+                <button
+                  onClick={() => setActiveSidebarTab('projects')}
+                  className="p-4 bg-white border border-slate-200/80 hover:border-emerald-500/50 hover:bg-slate-50/50 rounded-xl shadow-xs hover:shadow-sm transition-all text-center flex flex-col items-center justify-center gap-2 cursor-pointer h-24"
+                >
+                  <div className="w-[30px] h-[30px] flex items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 shrink-0">
+                    <FolderPlus size={16} />
+                  </div>
+                  <span className="text-xs font-bold text-slate-800 truncate">Proyek Baru</span>
+                </button>
+
+                {/* Button 3: Buat Akta */}
+                <button
+                  onClick={() => setActiveSidebarTab('deeds')}
+                  className="p-4 bg-white border border-slate-200/80 hover:border-cyan-500/50 hover:bg-slate-50/50 rounded-xl shadow-xs hover:shadow-sm transition-all text-center flex flex-col items-center justify-center gap-2 cursor-pointer h-24"
+                >
+                  <div className="w-[30px] h-[30px] flex items-center justify-center rounded-lg bg-cyan-50 text-cyan-600 shrink-0">
+                    <FileText size={16} />
+                  </div>
+                  <span className="text-xs font-bold text-slate-800 truncate">Buat Akta</span>
+                </button>
+
+                {/* Button 4: Buat Invoice */}
+                <button
+                  onClick={() => setActiveSidebarTab('invoice')}
+                  className="p-4 bg-white border border-slate-200/80 hover:border-purple-500/50 hover:bg-slate-50/50 rounded-xl shadow-xs hover:shadow-sm transition-all text-center flex flex-col items-center justify-center gap-2 cursor-pointer h-24"
+                >
+                  <div className="w-[30px] h-[30px] flex items-center justify-center rounded-lg bg-purple-50 text-purple-600 shrink-0">
+                    <CreditCard size={16} />
+                  </div>
+                  <span className="text-xs font-bold text-slate-800 truncate">Buat Invoice</span>
+                </button>
+
+                {/* Button 5: Surat Baru */}
+                <button
+                  onClick={() => setActiveSidebarTab('outgoing_mail')}
+                  className="p-4 bg-white border border-slate-200/80 hover:border-rose-500/50 hover:bg-slate-50/50 rounded-xl shadow-xs hover:shadow-sm transition-all text-center flex flex-col items-center justify-center gap-2 cursor-pointer h-24"
+                >
+                  <div className="w-[30px] h-[30px] flex items-center justify-center rounded-lg bg-rose-50 text-rose-600 shrink-0">
+                    <Mail size={16} />
+                  </div>
+                  <span className="text-xs font-bold text-slate-800 truncate">Surat Baru</span>
+                </button>
+
+                {/* Button 6: Mapping KBLI */}
+                <button
+                  onClick={() => setActiveSidebarTab('kbli_mapping')}
+                  className="p-4 bg-white border border-slate-200/80 hover:border-indigo-500/50 hover:bg-slate-50/50 rounded-xl shadow-xs hover:shadow-sm transition-all text-center flex flex-col items-center justify-center gap-2 cursor-pointer h-24"
+                >
+                  <div className="w-[30px] h-[30px] flex items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 shrink-0">
+                    <FileCheck size={16} />
+                  </div>
+                  <span className="text-xs font-bold text-slate-800 truncate">Mapping KBLI</span>
+                </button>
+
+                {/* Button 7: Legalisasi */}
+                <button
+                  onClick={() => setActiveSidebarTab('private_deeds')}
+                  className="p-4 bg-white border border-slate-200/80 hover:border-teal-500/50 hover:bg-slate-50/50 rounded-xl shadow-xs hover:shadow-sm transition-all text-center flex flex-col items-center justify-center gap-2 cursor-pointer h-24"
+                >
+                  <div className="w-[30px] h-[30px] flex items-center justify-center rounded-lg bg-teal-50 text-teal-600 shrink-0">
+                    <ShieldCheck size={16} />
+                  </div>
+                  <span className="text-xs font-bold text-slate-800 truncate">Legalisasi</span>
+                </button>
+
+                {/* Button 8: Laporan Proyek */}
+                <button
+                  onClick={() => setActiveSidebarTab('laporan')}
+                  className="p-4 bg-white border border-slate-200/80 hover:border-amber-500/50 hover:bg-slate-50/50 rounded-xl shadow-xs hover:shadow-sm transition-all text-center flex flex-col items-center justify-center gap-2 cursor-pointer h-24"
+                >
+                  <div className="w-[30px] h-[30px] flex items-center justify-center rounded-lg bg-amber-50 text-amber-600 shrink-0">
+                    <BarChart2 size={16} />
+                  </div>
+                  <span className="text-xs font-bold text-slate-800 truncate">Laporan Proyek</span>
+                </button>
+              </div>
+            </div>
+
+            {/* 3. Main Split Section: Chart Area + Agenda & Activities Column */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+              
+              {/* Left Column (2 Spans): Analisis Aktivitas Proyek Chart */}
+              <div className="lg:col-span-2 bg-white p-4 rounded-xl border border-slate-200/80 shadow-xs space-y-3 self-start">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-2">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-1.5 bg-blue-50 text-blue-600 rounded-lg">
+                      <TrendingUp size={16} />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-900 font-heading">Analisis Aktivitas Proyek</h3>
+                      <p className="text-[11px] text-slate-500">Tren proyek baru dibuat per bulan</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 text-[11px]">
+                    <div className="flex items-center gap-1 bg-slate-50 border border-slate-200/80 px-2 py-0.5 rounded text-slate-600 font-medium">
+                      <Calendar size={11} className="text-slate-400" />
+                      <span>{monthlyChartData[0]?.label} - {monthlyChartData[monthlyChartData.length - 1]?.label} {new Date().getFullYear()}</span>
+                    </div>
+                    <select
+                      value={granularity}
+                      onChange={(e) => setGranularity(e.target.value)}
+                      className="bg-slate-50 border border-slate-200/80 rounded px-1.5 py-0.5 text-slate-700 font-medium focus:outline-none cursor-pointer"
+                    >
+                      <option value="Bulanan">Bulanan</option>
+                      <option value="Mingguan">Mingguan</option>
+                      <option value="Harian">Harian</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* SVG Area Chart */}
+                <div className="py-2">
+                  <SimpleAreaChart data={monthlyChartData} height={200} />
+                </div>
+
+                {/* 4 Mini Cards under Chart */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
+                  <div className="bg-slate-50/80 border border-slate-200/70 p-2 rounded-lg flex items-center gap-2 h-[56px]">
+                    <div className="p-1 bg-blue-100 text-blue-600 rounded shrink-0">
+                      <RefreshCw size={12} />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-[9px] text-slate-400 font-medium truncate">Total Proyek</p>
+                      <p className="text-xs font-extrabold text-slate-800 font-heading leading-tight">{totalChartDocs}</p>
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-50/80 border border-slate-200/70 p-2 rounded-lg flex items-center gap-2 h-[56px]">
+                    <div className="p-1 bg-emerald-100 text-emerald-600 rounded shrink-0">
+                      <BarChart2 size={12} />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-[9px] text-slate-400 font-medium truncate">Rata-rata/Bulan</p>
+                      <p className="text-xs font-extrabold text-slate-800 font-heading leading-tight">{avgChartDocs}</p>
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-50/80 border border-slate-200/70 p-2 rounded-lg flex items-center gap-2 h-[56px]">
+                    <div className="p-1 bg-indigo-100 text-indigo-600 rounded shrink-0">
+                      <ShieldCheck size={12} />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-[9px] text-slate-400 font-medium truncate">Tertinggi</p>
+                      <p className="text-xs font-extrabold text-slate-800 font-heading leading-tight truncate">
+                        {highestMonth.value > 0 ? `${highestMonth.value} (${highestMonth.label})` : '0 (-)'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-50/80 border border-slate-200/70 p-2 rounded-lg flex items-center gap-2 h-[56px]">
+                    <div className="p-1 bg-amber-100 text-amber-600 rounded shrink-0">
+                      <FileText size={12} />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-[9px] text-slate-400 font-medium truncate">Terendah</p>
+                      <p className="text-xs font-extrabold text-slate-800 font-heading leading-tight truncate">
+                        {lowestMonth.value > 0 ? `${lowestMonth.value} (${lowestMonth.label})` : '0 (-)'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Right Column (1 Span): Agenda Prioritas Hari Ini & Aktivitas Terbaru */}
+              <div className="space-y-6 flex flex-col justify-start">
+                
+                {/* Card: Agenda Prioritas Hari Ini (Notice Compact) */}
+                <div className="bg-white p-5 rounded-xl border border-slate-200/80 shadow-xs space-y-3">
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
+                    <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2 font-heading">
+                      <Calendar size={15} className="text-blue-600" />
+                      <span>Agenda Prioritas Hari Ini</span>
+                    </h3>
+                  </div>
+
+                  {/* TODO: Ganti kembali ke daftar agenda penuh setelah modul Kalender selesai dibangun */}
+                  <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 text-slate-600 rounded-lg border border-slate-200/50 text-xs">
+                    <Calendar size={14} className="text-slate-400 shrink-0" />
+                    <span>Belum ada agenda terjadwal hari ini.</span>
+                  </div>
+                </div>
+
+                {/* Card: Aktivitas Terbaru */}
+                <div className="bg-white p-5 rounded-xl border border-slate-200/80 shadow-xs space-y-4">
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                    <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2 font-heading">
+                      <Clock size={15} className="text-emerald-600" />
+                      <span>Aktivitas Terbaru</span>
+                    </h3>
+                    {recentActivitiesList.length > 0 && (
+                      <button onClick={() => setActiveSidebarTab('projects')} className="text-[11px] font-bold text-blue-600 hover:underline cursor-pointer">Lihat Semua</button>
+                    )}
+                  </div>
+
+                  {recentActivitiesList.length === 0 ? (
+                    <div className="p-6 text-center space-y-2 bg-slate-50/60 rounded-xl border border-dashed border-slate-200">
+                      <div className="w-10 h-10 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
+                        <Clock size={20} />
+                      </div>
+                      <p className="text-xs text-slate-500 font-medium">Belum ada aktivitas terbaru.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {recentActivitiesList.map((act) => {
+                        const { Icon, bg, color, subtitleColor } = getDetailedActivityStyles(act.type, act.desc);
+                        return (
+                          <div key={act.id} className="flex items-start justify-between gap-2 p-2 rounded-lg hover:bg-slate-50 transition-colors">
+                            <div className="flex items-start gap-2.5 min-w-0">
+                              <div className={`p-1.5 ${bg} ${color} rounded-lg shrink-0 mt-0.5`}>
+                                <Icon size={14} />
+                              </div>
+                              <div className="min-w-0">
+                                <h4 className="text-xs font-bold text-slate-800 truncate">{act.desc}</h4>
+                                <p className={`text-[10px] truncate ${subtitleColor}`}>{act.subtitle}</p>
+                              </div>
+                            </div>
+                            <span className="text-[10px] font-medium text-slate-400 shrink-0 font-mono">{act.time}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+              </div>
+
+            </div>
+
           </div>
 
-        </div>
-
-      </div>
-
-      {/* 4. Akses Cepat (4 Column Cards) */}
-      <div className="space-y-3">
-        <div className="flex items-center gap-2">
-          <div className="p-1.5 bg-blue-50 text-blue-600 rounded-lg">
-            <Compass size={16} />
-          </div>
-          <h3 className="text-sm font-bold text-slate-900 font-heading">Akses Cepat</h3>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-          <button
-            onClick={() => setActiveSidebarTab('company_profile')}
-            className="group p-4 bg-white border border-slate-200/80 hover:border-blue-500/50 rounded-xl shadow-xs hover:shadow-md transition-all text-left flex items-start justify-between cursor-pointer"
-          >
-            <div className="space-y-2">
-              <div className="p-2.5 bg-blue-50 text-blue-600 rounded-xl w-fit group-hover:scale-110 transition-transform">
-                <Users size={20} />
-              </div>
-              <div>
-                <h4 className="text-xs font-bold text-slate-800 group-hover:text-blue-600 transition-colors">Tambah Klien Baru</h4>
-                <p className="text-[11px] text-slate-400 mt-0.5">Buat data klien perusahaan baru</p>
-              </div>
+          {/* 5. Migration Tool for Super Admin */}
+          {currentUser?.role === 'Super Admin' && (
+            <div className="mt-6">
+              <MigrationTool />
             </div>
-            <ArrowUpRight size={16} className="text-slate-300 group-hover:text-blue-600 transition-colors shrink-0" />
-          </button>
-
-          <button
-            onClick={() => setActiveSidebarTab('projects')}
-            className="group p-4 bg-white border border-slate-200/80 hover:border-emerald-500/50 rounded-xl shadow-xs hover:shadow-md transition-all text-left flex items-start justify-between cursor-pointer"
-          >
-            <div className="space-y-2">
-              <div className="p-2.5 bg-emerald-50 text-emerald-600 rounded-xl w-fit group-hover:scale-110 transition-transform">
-                <FolderPlus size={20} />
-              </div>
-              <div>
-                <h4 className="text-xs font-bold text-slate-800 group-hover:text-emerald-600 transition-colors">Buat Proyek Baru</h4>
-                <p className="text-[11px] text-slate-400 mt-0.5">Buat dan kelola proyek kerja</p>
-              </div>
-            </div>
-            <ArrowUpRight size={16} className="text-slate-300 group-hover:text-emerald-600 transition-colors shrink-0" />
-          </button>
-
-          <button
-            onClick={() => setActiveSidebarTab('kbli_mapping')}
-            className="group p-4 bg-white border border-slate-200/80 hover:border-indigo-500/50 rounded-xl shadow-xs hover:shadow-md transition-all text-left flex items-start justify-between cursor-pointer"
-          >
-            <div className="space-y-2">
-              <div className="p-2.5 bg-indigo-50 text-indigo-600 rounded-xl w-fit group-hover:scale-110 transition-transform">
-                <FileCheck size={20} />
-              </div>
-              <div>
-                <h4 className="text-xs font-bold text-slate-800 group-hover:text-indigo-600 transition-colors">Mapping KBLI</h4>
-                <p className="text-[11px] text-slate-400 mt-0.5">Kelola &amp; mapping KBLI 2020-2025</p>
-              </div>
-            </div>
-            <ArrowUpRight size={16} className="text-slate-300 group-hover:text-indigo-600 transition-colors shrink-0" />
-          </button>
-
-          <button
-            onClick={() => setActiveSidebarTab('laporan')}
-            className="group p-4 bg-white border border-slate-200/80 hover:border-amber-500/50 rounded-xl shadow-xs hover:shadow-md transition-all text-left flex items-start justify-between cursor-pointer"
-          >
-            <div className="space-y-2">
-              <div className="p-2.5 bg-amber-50 text-amber-600 rounded-xl w-fit group-hover:scale-110 transition-transform">
-                <FileText size={20} />
-              </div>
-              <div>
-                <h4 className="text-xs font-bold text-slate-800 group-hover:text-amber-600 transition-colors">Laporan Proyek</h4>
-                <p className="text-[11px] text-slate-400 mt-0.5">Lihat &amp; buat laporan proyek kerja</p>
-              </div>
-            </div>
-            <ArrowUpRight size={16} className="text-slate-300 group-hover:text-amber-600 transition-colors shrink-0" />
-          </button>
-        </div>
-      </div>
-
-      {/* 5. Migration Tool for Super Admin */}
-      {currentUser?.role === 'Super Admin' && (
-        <MigrationTool />
-      )}
+          )}
         </PageContainer>
       </div>
     </>

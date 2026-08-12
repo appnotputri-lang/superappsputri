@@ -740,7 +740,13 @@ export class CompanyService {
   /**
    * Fetch all PT (Company) Profiles
    */
-  static async getCompanies(): Promise<CompanyProfile[]> {
+  static async getCompanies(forceRefresh = false): Promise<CompanyProfile[]> {
+    if (CompanyService.profilesCache && CompanyService.profilesCache.length > 0 && !forceRefresh) {
+      console.log(`[QuotationPerformance] Cache HIT - getCompanies returned ${CompanyService.profilesCache.length} cached profiles.`);
+      return CompanyService.profilesCache;
+    }
+
+    const startTime = performance.now();
     try {
       const snap = await getDocs(collection(db, 'profiles'));
       const loaded: CompanyProfile[] = [];
@@ -748,6 +754,8 @@ export class CompanyService {
         loaded.push({ id: docSnap.id, ...docSnap.data() } as CompanyProfile);
       });
       CompanyService.profilesCache = loaded;
+      const duration = (performance.now() - startTime).toFixed(2);
+      console.log(`[QuotationPerformance] Network READ - getCompanies loaded ${loaded.length} profiles from network. Time: ${duration}ms. Reads: ${loaded.length}. Status: SUCCESS`);
       return loaded;
     } catch (error) {
       handleFirestoreError(error, OperationType.LIST, 'profiles');
@@ -758,7 +766,14 @@ export class CompanyService {
   /**
    * Fetch all CV Profiles (now loaded from profiles collection for backward compatibility)
    */
-  static async getCvCompanies(): Promise<CompanyProfile[]> {
+  static async getCvCompanies(forceRefresh = false): Promise<CompanyProfile[]> {
+    if (CompanyService.profilesCache && CompanyService.profilesCache.length > 0 && !forceRefresh) {
+      const loaded = CompanyService.profilesCache.filter(p => p.clientType === 'CV' || p.companyType === 'CV');
+      console.log(`[QuotationPerformance] Cache HIT - getCvCompanies filtered ${loaded.length} cached CV profiles.`);
+      return loaded;
+    }
+
+    const startTime = performance.now();
     try {
       const snap = await getDocs(collection(db, 'profiles'));
       const loaded: CompanyProfile[] = [];
@@ -768,6 +783,8 @@ export class CompanyService {
           loaded.push({ id: docSnap.id, ...data } as CompanyProfile);
         }
       });
+      const duration = (performance.now() - startTime).toFixed(2);
+      console.log(`[QuotationPerformance] Network READ - getCvCompanies loaded ${loaded.length} CV profiles from network. Time: ${duration}ms. Reads: ${loaded.length}. Status: SUCCESS`);
       return loaded;
     } catch (error) {
       handleFirestoreError(error, OperationType.LIST, 'profiles');

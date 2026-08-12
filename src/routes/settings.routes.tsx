@@ -1,19 +1,20 @@
 import React from 'react';
-import { WhatsAppSettings } from '../components/WhatsAppSettings';
-import { UserManagement } from '../components/UserManagement';
-import { StampSettings } from '../components/StampSettings';
+import { Settings } from '../components/Settings';
 
 export const renderSettingsRoute = (currentTab: string, props: any) => {
-  if (currentTab === 'user_management' && props.userProfile?.role === 'Super Admin') {
-    return <UserManagement currentUser={props.userProfile} />;
-  }
-
-  if (currentTab === 'whatsapp_settings') {
-    return <WhatsAppSettings />;
-  }
-
-  if (currentTab === 'stamp_settings') {
-    return <StampSettings />;
+  if (
+    currentTab === 'settings' ||
+    currentTab === 'whatsapp_settings' ||
+    currentTab === 'stamp_settings' ||
+    currentTab === 'user_management'
+  ) {
+    return (
+      <Settings 
+        currentUser={props.userProfile} 
+        activeSidebarTab={currentTab}
+        setActiveSidebarTab={props.setActiveSidebarTab}
+      />
+    );
   }
 
   return null;

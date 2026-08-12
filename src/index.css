@@ -4,6 +4,9 @@
   --color-brand-navy: #0c2444;
   --color-brand-navy-dark: #001529;
   --color-brand-accent: #2563eb;
+  --color-surface-sidebar: #fafbfc;
+  --color-surface-sidebar-hover: #f1f5f9;
+  --color-surface-sidebar-active: #e0f2fe;
 }
 
 @media print {

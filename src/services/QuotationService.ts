@@ -1,7 +1,7 @@
 import { FirestoreService } from './FirestoreService';
 import { Quotation } from '../types';
 import { db } from '../lib/firebase';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
 
 export function generateShortPublicToken(length = 10): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789'; // avoid confusing characters (0/O, 1/l/I)
@@ -11,8 +11,23 @@ export function generateShortPublicToken(length = 10): string {
 }
 
 export class QuotationService extends FirestoreService {
-  static subscribeQuotations(onNext: (data: Quotation[]) => void): () => void {
-    return this.listenToCollection<Quotation>('quotations', onNext);
+  static subscribeQuotations(onNext: (data: Quotation[]) => void, limitCount?: number): () => void {
+    const startTime = performance.now();
+    const constraints: any[] = [];
+    
+    // Sort by updatedAt desc to bring recent quotations to the top
+    constraints.push(orderBy('updatedAt', 'desc'));
+    
+    if (limitCount) {
+      constraints.push(limit(limitCount));
+    }
+    
+    console.log(`[QuotationPerformance] Cache MISS - subscribing to quotations (limit: ${limitCount || 'unlimited'})`);
+    return this.listenToCollection<Quotation>('quotations', (data) => {
+      const duration = (performance.now() - startTime).toFixed(2);
+      console.log(`[QuotationPerformance] Network READ - subscribeQuotations loaded ${data.length} quotations. Time: ${duration}ms. Reads: ${data.length}. Status: SUCCESS`);
+      onNext(data);
+    }, ...constraints);
   }
 
   static async getQuotationByPublicToken(publicToken: string): Promise<Quotation | null> {

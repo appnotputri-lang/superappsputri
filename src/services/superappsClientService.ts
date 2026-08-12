@@ -31,6 +31,8 @@ export interface SuperappsClientProfile {
 }
 
 export class SuperappsClientService {
+  private static cache: SuperappsClientProfile[] | null = null;
+
   /**
    * Fetch all profile documents from the superapps 'profiles' collection.
    * Maps fields:
@@ -42,12 +44,18 @@ export class SuperappsClientService {
    * - npwp -> npwp
    * Flagged with source: 'superapps'
    */
-  static async getSuperappsProfiles(): Promise<SuperappsClientProfile[]> {
+  static async getSuperappsProfiles(forceRefresh = false): Promise<SuperappsClientProfile[]> {
+    if (this.cache && !forceRefresh) {
+      console.log(`[QuotationPerformance] Cache HIT - getSuperappsProfiles returned ${this.cache.length} cached superapps client profiles.`);
+      return this.cache;
+    }
+
+    const startTime = performance.now();
     try {
       const colRef = collection(superappsDb, 'profiles');
       const snapshot = await getDocs(colRef);
 
-      return snapshot.docs.map((docSnap) => {
+      const data = snapshot.docs.map((docSnap) => {
         const data = docSnap.data();
 
         const companyName = data.companyName || data.name || 'Tanpa Nama';
@@ -74,10 +82,15 @@ export class SuperappsClientService {
           email: email,
           npwp: npwp,
           clientType: clientType,
-          source: 'superapps',
+          source: 'superapps' as const,
           rawProfile: { id: docSnap.id, ...data }
         };
       });
+
+      this.cache = data;
+      const duration = (performance.now() - startTime).toFixed(2);
+      console.log(`[QuotationPerformance] Network READ - getSuperappsProfiles loaded ${data.length} superapps profiles. Time: ${duration}ms. Reads: ${data.length}. Status: SUCCESS`);
+      return data;
     } catch (error) {
       console.error('[SuperappsClientService] Gagal mengambil data profiles superapps:', error);
       throw error;

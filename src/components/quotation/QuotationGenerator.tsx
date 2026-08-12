@@ -127,6 +127,7 @@ export const QuotationGenerator: React.FC<QuotationGeneratorProps> = (props) => 
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
+  const [quotationLimit, setQuotationLimit] = useState(50);
 
   // PDF Export & Language State
   const [downloadingPdf, setDownloadingPdf] = useState(false);
@@ -172,24 +173,36 @@ export const QuotationGenerator: React.FC<QuotationGeneratorProps> = (props) => 
   // Add Item Temp Inputs
   const [dbProducts, setDbProducts] = useState<Product[]>([]);
   useEffect(() => {
+    if (viewMode === 'list') {
+      return;
+    }
+    const startTime = performance.now();
     const unsubscribe = ProductService.subscribeProducts((data) => {
+      const duration = (performance.now() - startTime).toFixed(2);
       const sorted = [...data].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
       setDbProducts(sorted);
+      console.log(`[QuotationPerformance] Lazy load: products subscribed successfully. Items count: ${sorted.length}. Time: ${duration}ms. Source: Products Cache/Listener`);
     });
     return () => unsubscribe();
-  }, []);
+  }, [viewMode]);
 
   useEffect(() => {
+    if (viewMode === 'list') {
+      return;
+    }
+    const startTime = performance.now();
     const isProjectCompleted = (status: string) => {
       const s = (status || '').toLowerCase();
       return s === 'completed' || s === 'archived' || s === 'selesai';
     };
     const unsubscribe = ProjectService.subscribeProjects((data) => {
+      const duration = (performance.now() - startTime).toFixed(2);
       const active = data.filter(p => p && p.status && !isProjectCompleted(p.status));
       setActiveProjects(active);
+      console.log(`[QuotationPerformance] Lazy load: active projects subscribed. Active projects count: ${active.length}. Time: ${duration}ms.`);
     });
     return () => unsubscribe();
-  }, []);
+  }, [viewMode]);
 
   const [selectedPresetProduct, setSelectedPresetProduct] = useState('-- Manual --');
   const [itemDescription, setItemDescription] = useState('');
@@ -221,9 +234,11 @@ export const QuotationGenerator: React.FC<QuotationGeneratorProps> = (props) => 
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
   const [showMoreMenu, setShowMoreMenu] = useState<string | null>(null);
 
-  // Load Quotations
+  // Load Quotations with dynamic query limit & console reports
   useEffect(() => {
+    const startTime = performance.now();
     const unsub = QuotationService.subscribeQuotations((data) => {
+      const duration = (performance.now() - startTime).toFixed(2);
       setQuotations(data);
       if (selectedQuotation) {
         const updated = data.find(q => q.id === selectedQuotation.id);
@@ -232,17 +247,44 @@ export const QuotationGenerator: React.FC<QuotationGeneratorProps> = (props) => 
         }
       }
       setLoading(false);
-    });
+      
+      // Beautiful console-level performance instrumentation report
+      console.log(`
+[QuotationPerformance]
+====================================
+Initial / Updated Page Load Complete
+------------------------------------
+Quotation Reads Limit: ${quotationLimit}
+Quotations Loaded: ${data.length}
+Load Duration: ${duration}ms
+Database Network Request: YES (Realtime Listener Active)
+Active Tab View: ${viewMode}
+====================================`);
+    }, quotationLimit);
     return () => unsub();
-  }, [selectedQuotation?.id]);
+  }, [selectedQuotation?.id, quotationLimit, viewMode]);
 
-  // Load Invoices to check linked invoice relationships
+  // Expand the query-level limit when near or exceeding current loaded size
   useEffect(() => {
+    if (currentPage * pageSize >= quotationLimit) {
+      console.log(`[QuotationPerformance] Dynamic expansion triggered. Current index (${currentPage * pageSize}) matches/exceeds limit (${quotationLimit}). Upgrading query limit to ${quotationLimit + 50}.`);
+      setQuotationLimit(prev => prev + 50);
+    }
+  }, [currentPage, pageSize, quotationLimit]);
+
+  // Load Invoices lazily to check linked invoice relationships
+  useEffect(() => {
+    if (viewMode === 'list') {
+      return;
+    }
+    const startTime = performance.now();
     const unsub = InvoiceService.subscribeInvoices((data) => {
+      const duration = (performance.now() - startTime).toFixed(2);
       setInvoices(data);
+      console.log(`[QuotationPerformance] Lazy load: invoices subscribed successfully. Count: ${data.length}. Time: ${duration}ms.`);
     });
     return () => unsub();
-  }, []);
+  }, [viewMode]);
 
   // Listen for target quotation navigation from Invoice or URL / localStorage
   useEffect(() => {
@@ -458,8 +500,10 @@ export const QuotationGenerator: React.FC<QuotationGeneratorProps> = (props) => 
   };
 
   useEffect(() => {
-    loadClientOptions();
-  }, []);
+    if (viewMode !== 'list' || showClientDropdown) {
+      loadClientOptions();
+    }
+  }, [viewMode, showClientDropdown]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
