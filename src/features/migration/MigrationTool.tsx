@@ -40,6 +40,18 @@ export default function MigrationTool() {
     }
   };
 
+  const handleDuplicateLockBackfill = async (isDryRun: boolean) => {
+    setLoading(true);
+    setLogs([]);
+    try {
+      await CompanyService.runDuplicateAuditAndBackfill(isDryRun, addLog);
+    } catch (err: any) {
+      addLog(`ERROR: ${err.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const runMigration = async (isDryRun: boolean) => {
     setLoading(true);
     setLogs([]);
@@ -979,6 +991,35 @@ export default function MigrationTool() {
             className="px-4 py-2 bg-[#059669] text-white rounded-lg hover:bg-[#047857] text-xs font-bold transition-all cursor-pointer"
           >
             Execute Backfill (Live)
+          </button>
+        </div>
+      </div>
+
+      <div className="bg-white p-6 rounded-xl border border-slate-200/80 shadow-sm space-y-6 mt-6">
+        <div>
+          <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+            <Database className="w-4 h-4 text-indigo-600" />
+            Audit Duplikat & Backfill Unique Keys (Pencegahan Duplikat Klien)
+          </h3>
+          <p className="text-xs text-slate-500 mt-1">
+            Mendeteksi klien duplikat di Firestore, menggabungkan data/project/akta mereka secara aman (auto-merge),
+            dan melakukan backfill unique locks (<code>client_unique_keys</code>) untuk menjamin tidak akan ada duplikat baru.
+          </p>
+        </div>
+        <div className="flex gap-4">
+          <button
+            onClick={() => handleDuplicateLockBackfill(true)}
+            disabled={loading}
+            className="px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50 text-xs font-bold transition-all cursor-pointer"
+          >
+            Run Audit (Dry Run)
+          </button>
+          <button
+            onClick={() => handleDuplicateLockBackfill(false)}
+            disabled={loading}
+            className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-xs font-bold transition-all cursor-pointer"
+          >
+            Execute Audit & Auto-Merge (Live)
           </button>
         </div>
       </div>

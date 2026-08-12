@@ -17,11 +17,12 @@ import {
   startAfter,
   QueryConstraint,
   writeBatch,
-  getCountFromServer
+  getCountFromServer,
+  runTransaction
 } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from '../lib/firebase';
 import { CompanyProfile } from '../../types';
-import { sanitizeForFirestore } from '../utils/sanitize';
+import { sanitizeForFirestore, normalizeCompanyName, getUniqueClientKey } from '../utils/sanitize';
 
 export interface ClientDirectoryEntry {
   id: string;
@@ -840,32 +841,56 @@ export class CompanyService {
       };
 
       const docRef = doc(db, collectionName, companyId);
-      const docSnap = await getDoc(docRef);
-      const oldData = docSnap.exists() ? docSnap.data() as CompanyProfile : null;
-      const oldCompanyName = oldData?.companyName;
+      let oldCompanyName: string | undefined;
 
-      if (preparedData.companyName) {
-        const qName = preparedData.companyName.trim().toUpperCase();
-        const isNameUnchanged = oldCompanyName && oldCompanyName.trim().toUpperCase() === qName;
+      await runTransaction(db, async (transaction) => {
+        const docSnap = await transaction.get(docRef);
+        const oldData = docSnap.exists() ? docSnap.data() as CompanyProfile : null;
+        oldCompanyName = oldData?.companyName;
+        const oldClientType = oldData?.clientType || 'PT';
 
-        if (!isNameUnchanged) {
-          const profilesColl = collection(db, collectionName);
-          const q = query(profilesColl, where('companyName', '==', qName));
-          const querySnap = await getDocs(q);
-          
-          const duplicate = querySnap.docs.find(docSnap => {
-            if (docSnap.id === companyId) return false;
-            const docData = docSnap.data();
-            return docData.clientType === clientType;
-          });
+        const qName = preparedData.companyName ? preparedData.companyName.trim().toUpperCase() : '';
 
-          if (duplicate) {
-            throw new Error(`KLIEN_NAME_EXISTS:${preparedData.companyName}`);
+        if (qName) {
+          const isNameUnchanged = oldCompanyName && oldCompanyName.trim().toUpperCase() === qName && oldClientType === clientType;
+
+          if (!isNameUnchanged) {
+            const oldKey = oldCompanyName ? getUniqueClientKey(oldClientType, oldCompanyName) : '';
+            const newKey = getUniqueClientKey(clientType, qName);
+
+            // Fetch the new key's claim state
+            const keyDocRef = doc(db, 'client_unique_keys', newKey);
+            const keyDocSnap = await transaction.get(keyDocRef);
+
+            if (keyDocSnap.exists()) {
+              const keyData = keyDocSnap.data();
+              if (keyData.clientId !== companyId) {
+                throw new Error(`KLIEN_NAME_EXISTS:${preparedData.companyName}`);
+              }
+            } else {
+              // Lock the new key
+              transaction.set(keyDocRef, {
+                clientId: companyId,
+                clientType: clientType,
+                normalizedName: normalizeCompanyName(qName),
+                companyName: qName,
+                createdAt: new Date().toISOString()
+              });
+
+              // Release the old key if we were renaming
+              if (oldCompanyName && oldKey && oldKey !== newKey) {
+                const oldKeyDocRef = doc(db, 'client_unique_keys', oldKey);
+                transaction.delete(oldKeyDocRef);
+              }
+            }
           }
         }
-      }
 
-      await setDoc(docRef, sanitizeForFirestore(preparedData), { merge: true });
+        // Save company profile in transaction
+        transaction.set(docRef, sanitizeForFirestore(preparedData), { merge: true });
+      });
+
+      // After transaction commits successfully, sync directory and handle Drive
       await this.syncClientDirectoryEntry(companyId, preparedData);
       CompanyService.clearCache();
       
@@ -1020,13 +1045,11 @@ export class CompanyService {
       companyName: duplicatedName,
       updatedAt: new Date().toISOString()
     };
-    const collectionName = 'profiles';
     try {
-      await setDoc(doc(db, collectionName, newId), sanitizeForFirestore(duplicatedProfile));
-      await this.syncClientDirectoryEntry(newId, duplicatedProfile);
+      await this.saveCompany(newId, duplicatedProfile, isCv);
       return duplicatedProfile;
     } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, `${collectionName}/${newId}`);
+      handleFirestoreError(error, OperationType.WRITE, `profiles/${newId}`);
       throw error;
     }
   }
@@ -1164,7 +1187,11 @@ export class CompanyService {
         console.warn("[CompanyService] Error deleting Google Drive folder:", e);
       }
 
-      // 6. Delete client documents from Firestore
+      // 6. Delete client documents from Firestore and release unique locks
+      if (companyName) {
+        const key = getUniqueClientKey(clientType, companyName);
+        await deleteDoc(doc(db, 'client_unique_keys', key)).catch(() => {});
+      }
       await deleteDoc(doc(db, 'profiles', companyId)).catch(() => {});
       await deleteDoc(doc(db, 'company_profiles', companyId)).catch(() => {});
       await deleteDoc(doc(db, 'cv_profiles', companyId)).catch(() => {});
@@ -1337,6 +1364,22 @@ export class CompanyService {
       // 5. Delete source profile documents
       for (const sourceId of sourceIds) {
         if (sourceId === targetId) continue;
+        
+        try {
+          const sourceSnap = await getDoc(doc(db, collectionName, sourceId));
+          if (sourceSnap.exists()) {
+            const sData = sourceSnap.data();
+            const sName = sData.companyName;
+            const sType = sData.clientType || 'PT';
+            if (sName) {
+              const sKey = getUniqueClientKey(sType, sName);
+              await deleteDoc(doc(db, 'client_unique_keys', sKey)).catch(() => {});
+            }
+          }
+        } catch (e) {
+          console.warn(`[CompanyService] Failed to release unique key for source ${sourceId} during merge:`, e);
+        }
+
         await deleteDoc(doc(db, collectionName, sourceId)).catch(() => {});
         await deleteDoc(doc(db, 'company_profiles', sourceId)).catch(() => {});
         await deleteDoc(doc(db, 'cv_profiles', sourceId)).catch(() => {});
@@ -1349,5 +1392,130 @@ export class CompanyService {
       handleFirestoreError(error, OperationType.WRITE, `${collectionName}/${targetId}`);
       throw error;
     }
+  }
+
+  /**
+   * Find duplicate clients in the profiles collection.
+   * Returns an array of duplicate groups.
+   */
+  static async findDuplicateClients(): Promise<{ key: string; profiles: CompanyProfile[] }[]> {
+    const profilesColl = collection(db, 'profiles');
+    const snap = await getDocs(profilesColl);
+    const groups = new Map<string, CompanyProfile[]>();
+
+    snap.forEach((docSnap) => {
+      const data = docSnap.data() as CompanyProfile;
+      const profile = { id: docSnap.id, ...data };
+      if (profile.companyName) {
+        const key = getUniqueClientKey(profile.clientType || 'PT', profile.companyName);
+        if (!groups.has(key)) {
+          groups.set(key, []);
+        }
+        groups.get(key)!.push(profile);
+      }
+    });
+
+    const duplicates: { key: string; profiles: CompanyProfile[] }[] = [];
+    for (const [key, profiles] of groups.entries()) {
+      if (profiles.length > 1) {
+        duplicates.push({ key, profiles });
+      }
+    }
+    return duplicates;
+  }
+
+  /**
+   * Automatically resolve duplicates by merging them into the oldest profile.
+   */
+  static async resolveDuplicates(
+    duplicateGroups: { key: string; profiles: CompanyProfile[] }[],
+    isDryRun = false,
+    log?: (msg: string) => void
+  ): Promise<{ resolvedCount: number; mergedProjectsCount: number }> {
+    let resolvedCount = 0;
+    let mergedProjectsCount = 0;
+
+    for (const group of duplicateGroups) {
+      // Sort by createdAt ascending (oldest first). If createdAt is missing, fall back to id.
+      const sorted = [...group.profiles].sort((a, b) => {
+        const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return timeA - timeB;
+      });
+
+      const survivor = sorted[0];
+      const itemsToMerge = sorted.slice(1);
+      const sourceIds = itemsToMerge.map((p) => p.id);
+
+      const msg = `[Auto-Merge] Grup "${group.key}": Menetapkan survivor ${survivor.companyName} (${survivor.id}) dan me-merge ${itemsToMerge.length} duplikat: ${itemsToMerge.map(p => `${p.companyName} (${p.id})`).join(', ')}`;
+      if (log) log(msg);
+
+      if (!isDryRun) {
+        const res = await this.mergeCompanies(survivor.id, sourceIds);
+        mergedProjectsCount += res.projectsMerged;
+        resolvedCount += itemsToMerge.length;
+      }
+    }
+
+    return { resolvedCount, mergedProjectsCount };
+  }
+
+  /**
+   * Run the duplicate audit, merge duplicates, and backfill client_unique_keys for all remaining profiles.
+   */
+  static async runDuplicateAuditAndBackfill(isDryRun = false, log?: (msg: string) => void): Promise<void> {
+    const logger = log || console.log;
+    logger(`[Audit] Memulai proses audit duplikat & backfill unique locks...`);
+
+    // 1. Audit and resolve duplicates
+    const duplicates = await this.findDuplicateClients();
+    logger(`[Audit] Menemukan ${duplicates.length} grup klien duplikat.`);
+
+    if (duplicates.length > 0) {
+      if (isDryRun) {
+        logger(`[Dry Run] Akan me-merge otomatis ${duplicates.length} grup duplikat.`);
+        for (const group of duplicates) {
+          logger(`  - Grup "${group.key}": ${group.profiles.length} dokumen.`);
+        }
+      } else {
+        logger(`[Live] Menjalankan auto-merge untuk ${duplicates.length} grup duplikat...`);
+        const { resolvedCount, mergedProjectsCount } = await this.resolveDuplicates(duplicates, false, logger);
+        logger(`[Live] Auto-merge selesai. Berhasil me-merge ${resolvedCount} dokumen duplikat dan ${mergedProjectsCount} project.`);
+      }
+    }
+
+    // 2. Backfill client_unique_keys for all profiles
+    logger(`[Backfill] Memulai pengisian (backfill) client_unique_keys...`);
+    const profilesColl = collection(db, 'profiles');
+    const snap = await getDocs(profilesColl);
+    let backfillCount = 0;
+    let existingCount = 0;
+
+    for (const docSnap of snap.docs) {
+      const profile = docSnap.data() as CompanyProfile;
+      const pId = docSnap.id;
+      if (!profile.companyName) continue;
+
+      const key = getUniqueClientKey(profile.clientType || 'PT', profile.companyName);
+      const keyDocRef = doc(db, 'client_unique_keys', key);
+      const keySnap = await getDoc(keyDocRef);
+
+      if (keySnap.exists()) {
+        existingCount++;
+      } else {
+        if (!isDryRun) {
+          await setDoc(keyDocRef, {
+            clientId: pId,
+            clientType: profile.clientType || 'PT',
+            normalizedName: normalizeCompanyName(profile.companyName),
+            companyName: profile.companyName,
+            createdAt: profile.createdAt || new Date().toISOString()
+          });
+        }
+        backfillCount++;
+      }
+    }
+
+    logger(`[Backfill] Selesai. Pengisian berhasil untuk ${backfillCount} dokumen${isDryRun ? ' (Dry Run)' : ''}. ${existingCount} dokumen sudah memiliki kunci.`);
   }
 }

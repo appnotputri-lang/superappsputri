@@ -19,7 +19,7 @@ export const SimpleAreaChart: React.FC<SimpleAreaChartProps> = ({ data, height =
     );
   }
 
-  const padding = { top: 35, right: 30, bottom: 35, left: 30 };
+  const padding = { top: 25, right: 30, bottom: 25, left: 30 };
   const width = 600; // SVG viewBox width
   const chartWidth = width - padding.left - padding.right;
   const chartHeight = height - padding.top - padding.bottom;
@@ -50,10 +50,10 @@ export const SimpleAreaChart: React.FC<SimpleAreaChartProps> = ({ data, height =
   const areaPath = `${linePath} L ${points[points.length - 1].x} ${height - padding.bottom} L ${points[0].x} ${height - padding.bottom} Z`;
 
   return (
-    <div className="w-full overflow-x-auto">
+    <div className="w-full">
       <svg
         viewBox={`0 0 ${width} ${height}`}
-        className="w-full h-auto max-h-[260px] select-none"
+        className="w-full h-[180px] md:h-[220px] select-none"
         preserveAspectRatio="none"
       >
         <defs>

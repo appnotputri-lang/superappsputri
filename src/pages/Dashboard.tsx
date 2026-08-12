@@ -843,27 +843,27 @@ export const Dashboard: React.FC<DashboardProps> = ({
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
         {/* Left Column (2 Spans): Analisis Aktivitas Proyek Chart */}
-        <div className="lg:col-span-2 bg-white p-6 rounded-xl border border-slate-200/80 shadow-xs space-y-5 flex flex-col justify-between">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-blue-50 text-blue-600 rounded-xl">
-                <TrendingUp size={20} />
+        <div className="lg:col-span-2 bg-white p-4 sm:p-5 rounded-xl border border-slate-200/80 shadow-xs space-y-3.5 flex flex-col justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-2.5">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
+                <TrendingUp size={18} />
               </div>
               <div>
-                <h3 className="text-base font-bold text-slate-900 font-heading">Analisis Aktivitas Proyek</h3>
-                <p className="text-xs text-slate-500">Tren proyek baru dibuat per bulan</p>
+                <h3 className="text-sm sm:text-base font-bold text-slate-900 font-heading">Analisis Aktivitas Proyek</h3>
+                <p className="text-[11px] sm:text-xs text-slate-500">Tren proyek baru dibuat per bulan</p>
               </div>
             </div>
 
-            <div className="flex items-center gap-2 text-xs">
-              <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200/80 px-2.5 py-1.5 rounded-lg text-slate-600 font-medium">
-                <Calendar size={13} className="text-slate-400" />
+            <div className="flex items-center gap-1.5 text-[11px] sm:text-xs">
+              <div className="flex items-center gap-1 bg-slate-50 border border-slate-200/80 px-2 py-1 rounded-md text-slate-600 font-medium">
+                <Calendar size={12} className="text-slate-400" />
                 <span>{monthlyChartData[0]?.label} - {monthlyChartData[monthlyChartData.length - 1]?.label} {new Date().getFullYear()}</span>
               </div>
               <select
                 value={granularity}
                 onChange={(e) => setGranularity(e.target.value)}
-                className="bg-slate-50 border border-slate-200/80 rounded-lg px-2.5 py-1.5 text-slate-700 font-medium focus:outline-none cursor-pointer"
+                className="bg-slate-50 border border-slate-200/80 rounded-md px-2 py-1 text-slate-700 font-medium focus:outline-none cursor-pointer"
               >
                 <option value="Bulanan">Bulanan</option>
                 <option value="Mingguan">Mingguan</option>
@@ -873,51 +873,51 @@ export const Dashboard: React.FC<DashboardProps> = ({
           </div>
 
           {/* SVG Area Chart */}
-          <div className="py-2">
-            <SimpleAreaChart data={monthlyChartData} height={200} />
+          <div className="py-0.5">
+            <SimpleAreaChart data={monthlyChartData} height={220} />
           </div>
 
           {/* 4 Mini Cards under Chart */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
-            <div className="bg-slate-50/80 border border-slate-200/70 p-3 rounded-xl flex items-center gap-3">
-              <div className="p-2 bg-blue-100 text-blue-600 rounded-lg shrink-0">
-                <RefreshCw size={16} />
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 pt-1">
+            <div className="bg-slate-50/80 border border-slate-200/70 p-2 sm:p-2.5 rounded-lg flex items-center gap-2 h-[60px] sm:h-[64px]">
+              <div className="p-1.5 bg-blue-100 text-blue-600 rounded-lg shrink-0">
+                <RefreshCw size={14} />
               </div>
               <div className="min-w-0">
                 <p className="text-[10px] text-slate-400 font-medium truncate">Total Proyek</p>
-                <p className="text-sm font-extrabold text-slate-800 font-heading">{totalChartDocs}</p>
+                <p className="text-xs sm:text-sm font-extrabold text-slate-800 font-heading leading-tight">{totalChartDocs}</p>
               </div>
             </div>
 
-            <div className="bg-slate-50/80 border border-slate-200/70 p-3 rounded-xl flex items-center gap-3">
-              <div className="p-2 bg-emerald-100 text-emerald-600 rounded-lg shrink-0">
-                <BarChart2 size={16} />
+            <div className="bg-slate-50/80 border border-slate-200/70 p-2 sm:p-2.5 rounded-lg flex items-center gap-2 h-[60px] sm:h-[64px]">
+              <div className="p-1.5 bg-emerald-100 text-emerald-600 rounded-lg shrink-0">
+                <BarChart2 size={14} />
               </div>
               <div className="min-w-0">
                 <p className="text-[10px] text-slate-400 font-medium truncate">Rata-rata/Bulan</p>
-                <p className="text-sm font-extrabold text-slate-800 font-heading">{avgChartDocs}</p>
+                <p className="text-xs sm:text-sm font-extrabold text-slate-800 font-heading leading-tight">{avgChartDocs}</p>
               </div>
             </div>
 
-            <div className="bg-slate-50/80 border border-slate-200/70 p-3 rounded-xl flex items-center gap-3">
-              <div className="p-2 bg-indigo-100 text-indigo-600 rounded-lg shrink-0">
-                <ShieldCheck size={16} />
+            <div className="bg-slate-50/80 border border-slate-200/70 p-2 sm:p-2.5 rounded-lg flex items-center gap-2 h-[60px] sm:h-[64px]">
+              <div className="p-1.5 bg-indigo-100 text-indigo-600 rounded-lg shrink-0">
+                <ShieldCheck size={14} />
               </div>
               <div className="min-w-0">
                 <p className="text-[10px] text-slate-400 font-medium truncate">Tertinggi</p>
-                <p className="text-sm font-extrabold text-slate-800 font-heading truncate">
+                <p className="text-xs sm:text-sm font-extrabold text-slate-800 font-heading leading-tight truncate">
                   {highestMonth.value > 0 ? `${highestMonth.value} (${highestMonth.label})` : '0 (-)'}
                 </p>
               </div>
             </div>
 
-            <div className="bg-slate-50/80 border border-slate-200/70 p-3 rounded-xl flex items-center gap-3">
-              <div className="p-2 bg-amber-100 text-amber-600 rounded-lg shrink-0">
-                <FileText size={16} />
+            <div className="bg-slate-50/80 border border-slate-200/70 p-2 sm:p-2.5 rounded-lg flex items-center gap-2 h-[60px] sm:h-[64px]">
+              <div className="p-1.5 bg-amber-100 text-amber-600 rounded-lg shrink-0">
+                <FileText size={14} />
               </div>
               <div className="min-w-0">
                 <p className="text-[10px] text-slate-400 font-medium truncate">Terendah</p>
-                <p className="text-sm font-extrabold text-slate-800 font-heading truncate">
+                <p className="text-xs sm:text-sm font-extrabold text-slate-800 font-heading leading-tight truncate">
                   {lowestMonth.value > 0 ? `${lowestMonth.value} (${lowestMonth.label})` : '0 (-)'}
                 </p>
               </div>

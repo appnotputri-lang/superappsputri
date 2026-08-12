@@ -1,20 +1,11 @@
 import { firestoreRest } from '../lib/firestore-rest';
 import { driveRest } from '../lib/drive-rest';
 import { getEnv } from '../runtime/env';
+import { normalizeCompanyName } from '../utils/sanitize.js';
 
 export class DriveFolderService {
   static normalizeCompanyName(name: string): string {
-    if (!name) return 'unknown';
-    
-    // Normalize spaces and case for processing
-    let processed = name.toUpperCase().replace(/\s+/g, ' ').trim();
-    
-    // Strip common prefixes (case-insensitive via upperCase)
-    // Longest strings first to avoid partial matches
-    processed = processed.replace(/^(PERSEKUTUAN FIRMA|PERSEKUTUAN PERDATA)\.?\s+/g, '');
-    processed = processed.replace(/^(PT|CV|YAYASAN|PERKUMPULAN|KOPERASI|PMA|PERORANGAN)\.?\s+/g, '');
-
-    return processed.toLowerCase().trim();
+    return normalizeCompanyName(name);
   }
 
   private static companyFolderPromises = new Map<string, Promise<{ folderId: string; folderUrl: string }>>();

@@ -111,6 +111,28 @@ export const firestoreRest = {
     return result;
   },
 
+  async createDocumentIfMissing(collection: string, docId: string, data: any, env: any = {}) {
+    const headers = await getHeaders(env);
+    const fields = toFirestore(data);
+    const fullPath = `${collection}/${docId}`.split('/').map(encodeURIComponent).join('/');
+    const response = await fetch(`${BASE_URL}/${fullPath}?currentDocument.exists=false`, {
+      method: 'PATCH',
+      headers,
+      body: JSON.stringify({ fields })
+    });
+
+    if (response.status === 412 || response.status === 409) {
+      // Document already exists (atomic lock condition failed)
+      return null;
+    }
+
+    const result = await response.json() as any;
+    if (!response.ok) {
+      throw new Error(`Firestore createDocumentIfMissing failed: ${JSON.stringify(result)}`);
+    }
+    return result;
+  },
+
   async listDocuments(collection: string, pageSize = 100, pageToken?: string, env: any = {}) {
     const headers = await getHeaders(env);
     let url = `${BASE_URL}/${collection}?pageSize=${pageSize}`;

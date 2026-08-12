@@ -12,6 +12,7 @@ import { DriveController } from "./src/controllers/DriveController";
 import { DocumentController } from "./src/controllers/DocumentController";
 import { verifyForeignFirebaseIdToken } from "./src/lib/foreignTokenVerify";
 import { mintFirebaseCustomToken } from "./src/lib/customTokenSigner";
+import { normalizeCompanyName, getUniqueClientKey } from "./src/utils/sanitize";
 
 async function startServer() {
   const app = express();
@@ -364,7 +365,7 @@ async function startServer() {
         existingProfiles.map((p: any) => {
           const name = p.fields?.companyName?.stringValue || p.companyName || "";
           const type = p.fields?.clientType?.stringValue || p.clientType || "PT";
-          return `${type}:${DriveFolderService.normalizeCompanyName(name)}`;
+          return getUniqueClientKey(type, name);
         })
       );
 
@@ -391,43 +392,217 @@ async function startServer() {
         return clean;
       };
 
+      let createdCount = 0;
+      let existingCount = 0;
+      let skippedDuplicateCount = 0;
+      let errorCount = 0;
       const createdClients: string[] = [];
       const MAX_CREATION_PER_SYNC = 40; // Limit for dev server
 
-      // Iterate through folders and create missing clients
+      // Group existing profiles by key at the start of sync to support "Existing client tanpa unique lock"
+      const existingProfilesGroups = new Map<string, string[]>();
+      for (const p of existingProfiles) {
+        const name = p.companyName || "";
+        const type = p.clientType || "PT";
+        const pKey = getUniqueClientKey(type, name);
+        if (!existingProfilesGroups.has(pKey)) {
+          existingProfilesGroups.set(pKey, []);
+        }
+        existingProfilesGroups.get(pKey)!.push(p.id);
+      }
+
+      // Iterate through folders and create/sync clients atomically
       for (const folder of allFolders) {
-        if (createdClients.length >= MAX_CREATION_PER_SYNC) break;
+        try {
+          const folderName = folder.name.trim();
+          const clientType = folder.clientType;
+          const cleanCompanyName = stripTypePrefix(folderName, clientType);
+          const key = getUniqueClientKey(clientType, cleanCompanyName);
 
-        const folderName = folder.name.trim();
-        const clientType = folder.clientType;
-        const cleanCompanyName = stripTypePrefix(folderName, clientType);
-        const normFolderName = DriveFolderService.normalizeCompanyName(cleanCompanyName);
-        const key = `${clientType}:${normFolderName}`;
+          console.log(`[DriveSync] Processing folder "${folderName}" -> name: "${cleanCompanyName}", type: "${clientType}", uniqueKey: "${key}"`);
 
-        if (!existingKeys.has(key)) {
-          const newId = crypto.randomUUID();
-          
-          // Pre-fill only companyName (Nama Perseroan) and basic default values
-          const newProfile = {
-            id: newId,
-            companyName: cleanCompanyName,
-            clientType: clientType,
-            companyType: clientType === 'CV' ? 'CV' : 'SWASTA NASIONAL',
-            documentType: 'CIRCULAR',
-            duration: 'TIDAK TERBATAS',
-            status: 'AKTIF',
-            isArchived: false,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            updatedBy: (req as any).user?.email || 'System (Drive Sync)'
-          };
+          // 1. Check if unique lock already exists
+          let existingLock = await firestoreRest.getDocument("client_unique_keys", key, process.env);
+          let clientId: string | null = null;
 
-          console.log(`[Sync Drive Clients] Creating new ${clientType} client profile: ${cleanCompanyName}`);
-          await firestoreRest.setDocument("profiles", newId, newProfile, process.env);
-          createdClients.push(`${clientType} ${cleanCompanyName}`);
-          
-          // Add to set to prevent duplicate creation
-          existingKeys.add(key);
+          if (existingLock) {
+            clientId = existingLock.clientId;
+            console.log(`[DriveSync] uniqueKey "${key}" already locked. lock: EXISTING, clientId: "${clientId}"`);
+          } else {
+            console.log(`[DriveSync] uniqueKey "${key}" lock: NOT FOUND. Checking existing client without lock...`);
+            // Check if client exists in profiles database but has no lock yet
+            const matchIds = existingProfilesGroups.get(key) || [];
+            if (matchIds.length > 1) {
+              console.warn(`[DriveSync] DUPLICATE_CLIENT_REQUIRES_REVIEW for key: "${key}" (${matchIds.join(', ')}). Skipping.`);
+              skippedDuplicateCount++;
+              continue;
+            } else if (matchIds.length === 1) {
+              clientId = matchIds[0];
+              console.log(`[DriveSync] Existing client found without lock: "${clientId}". Creating atomic lock.`);
+              // Claim the lock atomically for this existing client
+              const uniqueKeyDoc = {
+                clientId: clientId,
+                clientType: clientType,
+                normalizedName: normalizeCompanyName(cleanCompanyName),
+                companyName: cleanCompanyName,
+                createdAt: new Date().toISOString()
+              };
+              const claimResult = await firestoreRest.createDocumentIfMissing("client_unique_keys", key, uniqueKeyDoc, process.env);
+              if (claimResult === null) {
+                console.log(`[DriveSync] Atomic lock conflict for key: "${key}" while locking existing client. Skipping.`);
+                skippedDuplicateCount++;
+                continue;
+              }
+              console.log(`[DriveSync] Successfully locked existing client: "${clientId}" under key: "${key}"`);
+            } else {
+              // Genuinely brand new client!
+              if (createdCount >= MAX_CREATION_PER_SYNC) {
+                console.log(`[DriveSync] MAX_CREATION_PER_SYNC (${MAX_CREATION_PER_SYNC}) reached. Skipping new client creation.`);
+                continue;
+              }
+
+              clientId = crypto.randomUUID();
+              console.log(`[DriveSync] Creating new client. Generated UUID: "${clientId}". Attempting atomic lock claim.`);
+
+              const uniqueKeyDoc = {
+                clientId: clientId,
+                clientType: clientType,
+                normalizedName: normalizeCompanyName(cleanCompanyName),
+                companyName: cleanCompanyName,
+                createdAt: new Date().toISOString()
+              };
+
+              // Try to create unique key atomically
+              const claimResult = await firestoreRest.createDocumentIfMissing("client_unique_keys", key, uniqueKeyDoc, process.env);
+
+              if (claimResult === null) {
+                console.log(`[DriveSync] Atomic lock conflict for key: "${key}". Skipping.`);
+                skippedDuplicateCount++;
+                continue;
+              }
+
+              console.log(`[DriveSync] lock: CLAIMED successfully for key: "${key}" and clientId: "${clientId}"`);
+
+              // Pre-fill only companyName (Nama Perseroan) and basic default values
+              const newProfile = {
+                id: clientId,
+                companyName: cleanCompanyName,
+                clientType: clientType,
+                companyType: clientType === 'CV' ? 'CV' : 'SWASTA NASIONAL',
+                documentType: 'CIRCULAR',
+                duration: 'TIDAK TERBATAS',
+                status: 'AKTIF',
+                isArchived: false,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+                updatedBy: (req as any).user?.email || 'System (Drive Sync)'
+              };
+
+              // Create directory entry
+              const searchTokens = CompanyService.generateSearchTokens(cleanCompanyName);
+              const newDirectoryEntry = {
+                id: clientId,
+                clientId: clientId,
+                companyName: cleanCompanyName,
+                searchName: cleanCompanyName.toLowerCase(),
+                searchTokens: searchTokens,
+                clientType: clientType,
+                companyType: clientType === 'CV' ? 'CV' : 'SWASTA NASIONAL',
+                domicile: '',
+                establishmentDeedDate: '',
+                establishmentYear: '',
+                updatedAt: new Date().toISOString(),
+                isArchived: false,
+                npwp: '',
+                kbliItems: []
+              };
+
+              // Create profile and directory atomically (1:1 with safe rollback)
+              try {
+                console.log(`[DriveSync] Creating profiles/${clientId}...`);
+                await firestoreRest.setDocument("profiles", clientId, newProfile, process.env);
+                console.log(`[DriveSync] Creating client_directory/${clientId}...`);
+                await firestoreRest.setDocument("client_directory", clientId, newDirectoryEntry, process.env);
+                
+                createdClients.push(`${clientType} ${cleanCompanyName}`);
+                createdCount++;
+                console.log(`[DriveSync] Client profile and directory created successfully for clientId: "${clientId}"`);
+              } catch (err) {
+                console.error(`[DriveSync] Failed to write profiles/directory for "${key}" with clientId: "${clientId}". Rolling back lock!`, err);
+                // Rollback / release unique lock
+                await firestoreRest.deleteDocument("client_unique_keys", key, process.env).catch((rollbackErr) => {
+                  console.error(`[DriveSync] CRITICAL: Failed to rollback/delete lock for key: "${key}"`, rollbackErr);
+                });
+                errorCount++;
+                continue;
+              }
+            }
+          }
+
+          if (clientId) {
+            // Check and ensure both profile and directory exist (1:1 synchronization & recovery)
+            const profileSnap = await firestoreRest.getDocument("profiles", clientId, process.env);
+            const directorySnap = await firestoreRest.getDocument("client_directory", clientId, process.env);
+
+            let profileUpdated = false;
+            let directoryUpdated = false;
+
+            if (!profileSnap) {
+              console.log(`[DriveSync] profiles/${clientId} missing during check. Backfilling...`);
+              const backfillProfile = {
+                id: clientId,
+                companyName: cleanCompanyName,
+                clientType: clientType,
+                companyType: clientType === 'CV' ? 'CV' : 'SWASTA NASIONAL',
+                documentType: 'CIRCULAR',
+                duration: 'TIDAK TERBATAS',
+                status: 'AKTIF',
+                isArchived: false,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+                updatedBy: (req as any).user?.email || 'System (Drive Sync)'
+              };
+              await firestoreRest.setDocument("profiles", clientId, backfillProfile, process.env);
+              profileUpdated = true;
+            }
+
+            if (!directorySnap) {
+              console.log(`[DriveSync] client_directory/${clientId} missing during check. Backfilling...`);
+              const searchTokens = CompanyService.generateSearchTokens(cleanCompanyName);
+              const backfillDirectory = {
+                id: clientId,
+                clientId: clientId,
+                companyName: cleanCompanyName,
+                searchName: cleanCompanyName.toLowerCase(),
+                searchTokens: searchTokens,
+                clientType: clientType,
+                companyType: clientType === 'CV' ? 'CV' : 'SWASTA NASIONAL',
+                domicile: '',
+                establishmentDeedDate: '',
+                establishmentYear: '',
+                updatedAt: new Date().toISOString(),
+                isArchived: false,
+                npwp: '',
+                kbliItems: []
+              };
+              await firestoreRest.setDocument("client_directory", clientId, backfillDirectory, process.env);
+              directoryUpdated = true;
+            }
+
+            if (profileUpdated || directoryUpdated) {
+              console.log(`[DriveSync] 1:1 sync recovery completed for clientId: "${clientId}"`);
+            }
+
+            // Since it's an existing client (and now fully synced), record it as existing
+            // If it wasn't just created in this request, it counts as existing
+            if (!createdClients.includes(`${clientType} ${cleanCompanyName}`)) {
+              existingCount++;
+            }
+          }
+
+        } catch (err: any) {
+          console.error(`[DriveSync] Error processing folder:`, err);
+          errorCount++;
         }
       }
 
@@ -435,8 +610,11 @@ async function startServer() {
         success: true,
         totalFoldersCount: allFolders.length,
         createdClients,
-        createdCount: createdClients.length,
-        message: createdClients.length === MAX_CREATION_PER_SYNC ? "Limit tercapai. Silakan klik lagi untuk sisa klien." : "Sinkronisasi selesai."
+        createdCount,
+        existingCount,
+        skippedDuplicateCount,
+        errorCount,
+        message: createdCount >= MAX_CREATION_PER_SYNC ? "Limit tercapai. Silakan klik lagi untuk sisa klien." : "Sinkronisasi selesai."
       });
 
     } catch (error: any) {
