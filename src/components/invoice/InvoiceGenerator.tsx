@@ -232,25 +232,26 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = (props) => {
   // Add Item Temp Inputs
   const [dbProducts, setDbProducts] = useState<Product[]>([]);
   useEffect(() => {
+    if (viewMode === 'list') return;
     const unsubscribe = ProductService.subscribeProducts((data) => {
       // Sort alphabetically
       const sorted = [...data].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
       setDbProducts(sorted);
     });
     return () => unsubscribe();
-  }, []);
+  }, [viewMode]);
 
   useEffect(() => {
-    const isProjectCompleted = (status: string) => {
-      const s = (status || '').toLowerCase();
-      return s === 'completed' || s === 'archived' || s === 'selesai';
-    };
-    const unsubscribe = ProjectService.subscribeProjects((data) => {
-      const active = data.filter(p => p && p.status && !isProjectCompleted(p.status));
-      setActiveProjects(active);
+    if (!selectedClientId) {
+      setActiveProjects([]);
+      return;
+    }
+    let isMounted = true;
+    ProjectService.getActiveProjectsForSelect({ clientId: selectedClientId, limitCount: 20 }).then(active => {
+      if (isMounted) setActiveProjects(active);
     });
-    return () => unsubscribe();
-  }, []);
+    return () => { isMounted = false; };
+  }, [selectedClientId]);
 
   const [selectedPresetProduct, setSelectedPresetProduct] = useState('-- Manual --');
   const [itemDescription, setItemDescription] = useState('');

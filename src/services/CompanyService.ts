@@ -23,6 +23,7 @@ import {
 import { handleFirestoreError, OperationType } from '../lib/firebase';
 import { CompanyProfile } from '../../types';
 import { sanitizeForFirestore, normalizeCompanyName, getUniqueClientKey } from '../utils/sanitize';
+import { FirestoreTracker } from '../lib/firestoreTracker';
 
 export interface ClientDirectoryEntry {
   id: string;
@@ -525,8 +526,10 @@ export class CompanyService {
     try {
       let items: ClientDirectoryEntry[] = [];
       if (CompanyService.directoryCache && CompanyService.directoryCache.length > 0) {
+        FirestoreTracker.logMenuOpen('Direktori Klien', 'HIT');
         items = [...CompanyService.directoryCache];
       } else {
+        FirestoreTracker.logMenuOpen('Direktori Klien', 'MISS', 'client_directory', 50);
         const colRef = collection(db, 'client_directory');
         const snap = await getDocs(colRef);
 
@@ -534,6 +537,7 @@ export class CompanyService {
           items.push({ id: docSnap.id, clientId: docSnap.id, ...docSnap.data() } as ClientDirectoryEntry);
         });
         CompanyService.directoryCache = items;
+        FirestoreTracker.logMenuOpen('Direktori Klien', 'MISS', 'client_directory', undefined, snap.size);
       }
 
       if (options?.clientType && options.clientType !== 'all') {

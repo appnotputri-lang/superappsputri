@@ -168,16 +168,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
     }
   ];
 
-  if (user) {
-    menuSections.push({
-      id: 'sistem',
-      title: 'Sistem',
-      items: [
-        { label: 'Pengaturan', id: 'settings', icon: SettingsIcon, requiresAuth: true }
-      ]
-    });
-  }
-
   return (
     <>
       {/* Dark backdrop overlay on Mobile */}
@@ -191,60 +181,118 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <aside className={`bg-surface-sidebar border-r border-slate-200/80 flex flex-col h-full shrink-0 transition-all duration-300 ease-in-out fixed md:relative top-0 bottom-0 left-0 ${
         isSidebarOpen 
           ? 'w-[260px] translate-x-0 z-[100] shadow-2xl md:shadow-none' 
-          : 'w-[260px] -translate-x-full md:w-0 md:translate-x-0 md:overflow-hidden z-0'
+          : 'w-[260px] -translate-x-full md:w-[68px] md:translate-x-0 z-0'
       }`}>
         
-        {/* Logo container at top left */}
-        <div className="h-16 px-5 flex items-center justify-between shrink-0 select-none border-b border-slate-100/80">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white shrink-0 shadow-sm">
-              <Gavel size={18} className="text-white shrink-0" />
+        {/* Logo container at top */}
+        {isSidebarOpen ? (
+          <div className="h-16 px-5 flex items-center justify-between shrink-0 select-none border-b border-slate-100/80">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white shrink-0 shadow-sm">
+                <Gavel size={18} className="text-white shrink-0" />
+              </div>
+              <div className="flex flex-col truncate">
+                <span className="text-[13px] tracking-tight font-extrabold text-slate-800 leading-tight">Notaris Putri</span>
+                <span className="text-[10px] tracking-wider font-semibold text-blue-600 leading-none">SuperApp</span>
+              </div>
             </div>
-            <div className="flex flex-col truncate">
-              <span className="text-[13px] tracking-tight font-extrabold text-slate-800 leading-tight">Notaris Putri</span>
-              <span className="text-[10px] tracking-wider font-semibold text-blue-600 leading-none">SuperApp</span>
-            </div>
+            {/* Close button for mobile drawer */}
+            <button 
+              onClick={() => setIsSidebarOpen?.(false)}
+              className="md:hidden p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+              aria-label="Close menu"
+            >
+              <X size={18} />
+            </button>
           </div>
-          {/* Close button for mobile drawer */}
-          <button 
-            onClick={() => setIsSidebarOpen?.(false)}
-            className="md:hidden p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
-            aria-label="Close menu"
-          >
-            <X size={18} />
-          </button>
-        </div>
+        ) : (
+          <div className="h-16 flex items-center justify-center shrink-0 border-b border-slate-100/80 px-2">
+            <button 
+              onClick={() => setIsSidebarOpen?.(true)}
+              className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shrink-0 shadow-xs hover:bg-blue-700 transition-colors cursor-pointer group relative"
+              title="Perluas Menu"
+            >
+              <Gavel size={20} className="text-white shrink-0" />
+              <div className="absolute left-full ml-3 px-2.5 py-1.5 bg-slate-900/90 backdrop-blur-xs text-white text-xs font-medium rounded-lg shadow-xl opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-50 whitespace-nowrap hidden md:block">
+                Notaris Putri SuperApp
+              </div>
+            </button>
+          </div>
+        )}
 
         {/* Scrollable Menu Items */}
-        <div className="flex-1 py-4 space-y-4 text-[13px] overflow-y-auto">
-          {menuSections.map((section) => {
+        <div className="flex-1 py-4 space-y-4 text-[13px] overflow-y-auto overflow-x-hidden custom-scrollbar">
+          {menuSections.map((section, idx) => {
             const isCollapsed = collapsedSections[section.id];
             
             return (
               <div key={section.id} className="space-y-1 px-3">
                 {/* Header category selector */}
-                <button
-                  onClick={() => {
-                    setCollapsedSections(prev => ({
-                      ...prev,
-                      [section.id]: !prev[section.id]
-                    }));
-                  }}
-                  className="w-full flex items-center justify-between px-3 py-1 text-[11px] font-bold text-slate-400 uppercase tracking-wider select-none hover:text-slate-600 transition-colors cursor-pointer"
-                >
-                  <span>{section.title}</span>
-                  {isCollapsed ? (
-                    <ChevronRight size={12} className="text-slate-400 shrink-0" />
-                  ) : (
-                    <ChevronDown size={12} className="text-slate-400 shrink-0" />
-                  )}
-                </button>
+                {isSidebarOpen ? (
+                  <button
+                    onClick={() => {
+                      setCollapsedSections(prev => ({
+                        ...prev,
+                        [section.id]: !prev[section.id]
+                      }));
+                    }}
+                    className="w-full flex items-center justify-between px-3 py-1 text-[11px] font-bold text-slate-400 uppercase tracking-wider select-none hover:text-slate-600 transition-colors cursor-pointer"
+                  >
+                    <span>{section.title}</span>
+                    {isCollapsed ? (
+                      <ChevronRight size={12} className="text-slate-400 shrink-0" />
+                    ) : (
+                      <ChevronDown size={12} className="text-slate-400 shrink-0" />
+                    )}
+                  </button>
+                ) : (
+                  idx > 0 && <div className="my-2 border-t border-slate-200/60 w-8 mx-auto" />
+                )}
 
                 {/* Items */}
-                {!isCollapsed && (
-                  <div className="space-y-0.5 mt-1 transition-all">
+                {(isSidebarOpen ? !isCollapsed : true) && (
+                  <div className="space-y-1 mt-1">
                     {section.items.map((item) => {
                       const isActive = checkIsActive(item.id);
+
+                      if (!isSidebarOpen) {
+                        // Collapsed mini-rail view
+                        return (
+                          <button 
+                            key={item.id} 
+                            title={item.label}
+                            onClick={() => {
+                              if (item.requiresAuth && !user) {
+                                if (confirm(`Anda harus login terlebih dahulu untuk mengakses menu "${item.label}".`)) {
+                                  loginWithGoogle();
+                                }
+                                return;
+                              }
+                              handleTabClick(item.id);
+                            }} 
+                            className={`relative group w-11 h-11 mx-auto rounded-xl transition-all flex items-center justify-center select-none cursor-pointer ${
+                              isActive 
+                                ? 'bg-surface-sidebar-active text-blue-600 shadow-xs' 
+                                : 'text-slate-500 hover:bg-surface-sidebar-hover hover:text-slate-900'
+                            }`}
+                          >
+                            {isActive && (
+                              <div className="absolute left-0 top-2 bottom-2 w-1 rounded-r-md bg-blue-600" />
+                            )}
+                            <item.icon 
+                              size={20} 
+                              strokeWidth={isActive ? 2.25 : 2.0}
+                              className={`shrink-0 transition-colors ${isActive ? 'text-blue-600' : 'text-slate-500'}`} 
+                            />
+                            {/* Hover tooltip */}
+                            <div className="absolute left-full ml-3 px-2.5 py-1.5 bg-slate-900/90 backdrop-blur-xs text-white text-xs font-medium rounded-lg shadow-xl opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-50 whitespace-nowrap hidden md:block">
+                              {item.label}
+                            </div>
+                          </button>
+                        );
+                      }
+
+                      // Expanded full view
                       return (
                         <button 
                           key={item.id} 
@@ -290,84 +338,168 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {/* Bottom Profile Container */}
         {user && (
           <div className="p-3 border-t border-slate-200/60 bg-surface-sidebar shrink-0 relative">
-            <button 
-              onClick={() => {
-                setIsUserDropdownOpen?.(!isUserDropdownOpen);
-              }}
-              className="flex items-center gap-3 text-left hover:bg-surface-sidebar-hover p-2 rounded-lg transition-all cursor-pointer w-full"
-            >
-              <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs font-bold shadow-sm">
-                {(userProfile?.name || 'AZ').substring(0, 2).toUpperCase()}
+            {isSidebarOpen ? (
+              /* Expanded Bottom Profile */
+              <div>
+                <button 
+                  onClick={() => {
+                    setIsUserDropdownOpen?.(!isUserDropdownOpen);
+                  }}
+                  className="flex items-center gap-3 text-left hover:bg-surface-sidebar-hover p-2 rounded-lg transition-all cursor-pointer w-full"
+                >
+                  <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs font-bold shadow-sm">
+                    {(userProfile?.name || 'AZ').substring(0, 2).toUpperCase()}
+                  </div>
+                  <div className="flex flex-col truncate">
+                    <span className="text-xs font-semibold text-slate-800 truncate">{userProfile?.name || 'Azizah'}</span>
+                    <span className="text-[10px] text-slate-400 leading-none truncate">{userProfile?.level || 'Staff Kantor'}</span>
+                  </div>
+                  <ChevronDown size={14} className="text-slate-400 ml-auto shrink-0" />
+                </button>
+
+                {/* Dropup Menu (Expanded Sidebar) */}
+                {isUserDropdownOpen && (
+                  <div className="absolute bottom-full left-3 right-3 mb-2 bg-white rounded-xl shadow-2xl border border-slate-100 py-1.5 z-50 animate-in fade-in slide-in-from-bottom-1 divide-y divide-slate-100">
+                    <div className="px-4 py-2.5">
+                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Masuk Sebagai</p>
+                      <p className="text-xs font-bold text-slate-800 truncate mt-1">{userProfile?.name || 'Azizah'}</p>
+                      <p className="text-[10px] text-slate-500 truncate font-mono mt-0.5">{user?.email || 'admin@legalnotaris.id'}</p>
+                    </div>
+                    
+                    <div className="py-1 text-left">
+                      <button 
+                        onClick={() => {
+                          setIsEditProfileModalOpen?.(true);
+                          setIsUserDropdownOpen?.(false);
+                        }}
+                        className="w-full px-4 py-2 text-left text-xs text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-2.5 cursor-pointer"
+                      >
+                        <User size={14} className="text-slate-400" />
+                        <span>Profil Saya</span>
+                      </button>
+
+                      <button 
+                        onClick={() => {
+                          setActiveSidebarTab('settings');
+                          setIsUserDropdownOpen?.(false);
+                        }}
+                        className="w-full px-4 py-2 text-left text-xs text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-2.5 cursor-pointer"
+                      >
+                        <SettingsIcon size={14} className="text-slate-400" />
+                        <span>Pengaturan</span>
+                      </button>
+
+                      <button 
+                        onClick={() => {
+                          setActiveSidebarTab('panduan');
+                          setIsUserDropdownOpen?.(false);
+                        }}
+                        className="w-full px-4 py-2 text-left text-xs text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-2.5 cursor-pointer"
+                      >
+                        <HelpCircle size={14} className="text-slate-400" />
+                        <span>Bantuan</span>
+                      </button>
+                    </div>
+
+                    <div className="py-1 text-left">
+                      <button 
+                        onClick={() => {
+                          if (user) {
+                            logout?.();
+                          } else {
+                            loginWithGoogle();
+                          }
+                          setIsUserDropdownOpen?.(false);
+                        }}
+                        className={`w-full px-4 py-2 text-left text-xs font-bold transition-colors flex items-center gap-2.5 cursor-pointer ${
+                          user ? 'text-red-600 hover:bg-red-50/50' : 'text-blue-600 hover:bg-blue-50/55'
+                        }`}
+                      >
+                        <Lock size={14} />
+                        <span>{user ? 'Keluar' : 'Login / Masuk Google'}</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
-              <div className="flex flex-col truncate">
-                <span className="text-xs font-semibold text-slate-800 truncate">{userProfile?.name || 'Azizah'}</span>
-                <span className="text-[10px] text-slate-400 leading-none truncate">{userProfile?.level || 'Staff Kantor'}</span>
-              </div>
-              <ChevronDown size={14} className="text-slate-400 ml-auto shrink-0" />
-            </button>
+            ) : (
+              /* Collapsed Mini-Rail Profile */
+              <div className="relative flex justify-center">
+                <button 
+                  onClick={() => setIsUserDropdownOpen?.(!isUserDropdownOpen)}
+                  className="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs font-bold shadow-sm hover:ring-2 hover:ring-blue-400/50 transition-all cursor-pointer group"
+                  title={userProfile?.name || 'Profil Saya'}
+                >
+                  {(userProfile?.name || 'AZ').substring(0, 2).toUpperCase()}
+                  <div className="absolute left-full ml-3 px-2.5 py-1.5 bg-slate-900/90 backdrop-blur-xs text-white text-xs font-medium rounded-lg shadow-xl opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-50 whitespace-nowrap hidden md:block">
+                    {userProfile?.name || 'Profil Saya'}
+                  </div>
+                </button>
 
-            {/* User Profile Dropup Menu */}
-            {isUserDropdownOpen && (
-              <div className="absolute bottom-full left-3 right-3 mb-2 bg-white rounded-xl shadow-2xl border border-slate-100 py-1.5 z-50 animate-in fade-in slide-in-from-bottom-1 divide-y divide-slate-100">
-                <div className="px-4 py-2.5">
-                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Masuk Sebagai</p>
-                  <p className="text-xs font-bold text-slate-800 truncate mt-1">{userProfile?.name || 'Azizah'}</p>
-                  <p className="text-[10px] text-slate-500 truncate font-mono mt-0.5">{user?.email || 'admin@legalnotaris.id'}</p>
-                </div>
-                
-                <div className="py-1 text-left">
-                  <button 
-                    onClick={() => {
-                      setIsEditProfileModalOpen?.(true);
-                      setIsUserDropdownOpen?.(false);
-                    }}
-                    className="w-full px-4 py-2 text-left text-xs text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-2.5 cursor-pointer"
-                  >
-                    <User size={14} className="text-slate-400" />
-                    <span>Profil Saya</span>
-                  </button>
+                {/* Floating Dropup Menu for Collapsed Sidebar */}
+                {isUserDropdownOpen && (
+                  <div className="absolute bottom-0 left-full ml-3 w-56 bg-white rounded-xl shadow-2xl border border-slate-100 py-1.5 z-50 animate-in fade-in slide-in-from-left-2 divide-y divide-slate-100">
+                    <div className="px-4 py-2.5">
+                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Masuk Sebagai</p>
+                      <p className="text-xs font-bold text-slate-800 truncate mt-1">{userProfile?.name || 'Azizah'}</p>
+                      <p className="text-[10px] text-slate-500 truncate font-mono mt-0.5">{user?.email || 'admin@legalnotaris.id'}</p>
+                    </div>
+                    
+                    <div className="py-1 text-left">
+                      <button 
+                        onClick={() => {
+                          setIsEditProfileModalOpen?.(true);
+                          setIsUserDropdownOpen?.(false);
+                        }}
+                        className="w-full px-4 py-2 text-left text-xs text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-2.5 cursor-pointer"
+                      >
+                        <User size={14} className="text-slate-400" />
+                        <span>Profil Saya</span>
+                      </button>
 
-                  <button 
-                    onClick={() => {
-                      setActiveSidebarTab('settings');
-                      setIsUserDropdownOpen?.(false);
-                    }}
-                    className="w-full px-4 py-2 text-left text-xs text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-2.5 cursor-pointer"
-                  >
-                    <SettingsIcon size={14} className="text-slate-400" />
-                    <span>Pengaturan</span>
-                  </button>
+                      <button 
+                        onClick={() => {
+                          setActiveSidebarTab('settings');
+                          setIsUserDropdownOpen?.(false);
+                        }}
+                        className="w-full px-4 py-2 text-left text-xs text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-2.5 cursor-pointer"
+                      >
+                        <SettingsIcon size={14} className="text-slate-400" />
+                        <span>Pengaturan</span>
+                      </button>
 
-                  <button 
-                    onClick={() => {
-                      setActiveSidebarTab('panduan');
-                      setIsUserDropdownOpen?.(false);
-                    }}
-                    className="w-full px-4 py-2 text-left text-xs text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-2.5 cursor-pointer"
-                  >
-                    <HelpCircle size={14} className="text-slate-400" />
-                    <span>Bantuan</span>
-                  </button>
-                </div>
+                      <button 
+                        onClick={() => {
+                          setActiveSidebarTab('panduan');
+                          setIsUserDropdownOpen?.(false);
+                        }}
+                        className="w-full px-4 py-2 text-left text-xs text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-2.5 cursor-pointer"
+                      >
+                        <HelpCircle size={14} className="text-slate-400" />
+                        <span>Bantuan</span>
+                      </button>
+                    </div>
 
-                <div className="py-1 text-left">
-                  <button 
-                    onClick={() => {
-                      if (user) {
-                        logout?.();
-                      } else {
-                        loginWithGoogle();
-                      }
-                      setIsUserDropdownOpen?.(false);
-                    }}
-                    className={`w-full px-4 py-2 text-left text-xs font-bold transition-colors flex items-center gap-2.5 cursor-pointer ${
-                      user ? 'text-red-600 hover:bg-red-50/50' : 'text-blue-600 hover:bg-blue-50/55'
-                    }`}
-                  >
-                    <Lock size={14} />
-                    <span>{user ? 'Keluar' : 'Login / Masuk Google'}</span>
-                  </button>
-                </div>
+                    <div className="py-1 text-left">
+                      <button 
+                        onClick={() => {
+                          if (user) {
+                            logout?.();
+                          } else {
+                            loginWithGoogle();
+                          }
+                          setIsUserDropdownOpen?.(false);
+                        }}
+                        className={`w-full px-4 py-2 text-left text-xs font-bold transition-colors flex items-center gap-2.5 cursor-pointer ${
+                          user ? 'text-red-600 hover:bg-red-50/50' : 'text-blue-600 hover:bg-blue-50/55'
+                        }`}
+                      >
+                        <Lock size={14} />
+                        <span>{user ? 'Keluar' : 'Login / Masuk Google'}</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>

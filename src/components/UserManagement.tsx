@@ -3,6 +3,7 @@ import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { collection, onSnapshot, doc, setDoc, deleteDoc, query, orderBy } from 'firebase/firestore';
 import { UserProfile, UserRole } from '../../types';
 import { PageContainer, PageHeader } from './ui/PageLayout';
+import { FirestoreTracker } from '../lib/firestoreTracker';
 import { 
   Users, 
   UserPlus, 
@@ -36,6 +37,8 @@ export const UserManagement: React.FC<UserManagementProps> = ({ currentUser }) =
   });
 
   useEffect(() => {
+    FirestoreTracker.logMenuOpen('Manajemen User', 'MISS', 'user_profiles', 20);
+    FirestoreTracker.logListenerStart('user_profiles');
     const q = query(collection(db, 'user_profiles'), orderBy('createdAt', 'desc'));
     const unsub = onSnapshot(q, (snapshot) => {
       const userData = snapshot.docs.map(doc => ({
@@ -44,12 +47,16 @@ export const UserManagement: React.FC<UserManagementProps> = ({ currentUser }) =
       })) as UserProfile[];
       setUsers(userData);
       setLoading(false);
+      FirestoreTracker.logMenuOpen('Manajemen User', 'MISS', 'user_profiles', undefined, snapshot.size);
     }, (error) => {
       handleFirestoreError(error, OperationType.LIST, 'user_profiles');
       setLoading(false);
     });
 
-    return () => unsub();
+    return () => {
+      FirestoreTracker.logListenerStop('user_profiles');
+      unsub();
+    };
   }, []);
 
   const filteredUsers = users.filter(user => 

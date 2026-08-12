@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { NotificationService } from '../services/NotificationService';
 import { useAuthContext } from '../contexts/AuthContext';
+import { FirestoreTracker } from '../lib/firestoreTracker';
 
 export function useNotifications() {
   const { user } = useAuthContext();
   const [notifications, setNotifications] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
@@ -16,12 +17,14 @@ export function useNotifications() {
     }
 
     setLoading(true);
+    FirestoreTracker.logListenerStart('notifications');
     const unsubscribe = NotificationService.listenNotifications((data) => {
       setNotifications(data);
       setLoading(false);
     });
 
     return () => {
+      FirestoreTracker.logListenerStop('notifications');
       unsubscribe();
     };
   }, [user]);

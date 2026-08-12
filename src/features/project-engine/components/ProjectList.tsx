@@ -4,7 +4,7 @@ import { Project, ClientSnapshot } from '../../../domain/project/Project';
 import { ProjectService } from '../../../services/ProjectService';
 import { UserProfile, CompanyProfile } from '../../../../types';
 import { db } from '../../../lib/firebase';
-import { collection, getDocs, doc, updateDoc, getDocsFromCache } from 'firebase/firestore';
+import { collection, getDocs, doc, updateDoc, getDocsFromCache, DocumentSnapshot } from 'firebase/firestore';
 import { Workflow } from '../../../domain/project/Workflow';
 import { WorkflowService } from '../../../services/WorkflowService';
 import { CompanyService } from '../../../services/CompanyService';
@@ -74,6 +74,11 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
   const [filterClient, setFilterClient] = useState('');
   const [filterJobType, setFilterJobType] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
+
+  // Pagination States (20 items per page limit)
+  const [currentPage, setCurrentPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
+  const [pageCursors, setPageCursors] = useState<(DocumentSnapshot | null)[]>([null]);
 
   // Form State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -197,103 +202,56 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
   useEffect(() => {
     let isMounted = true;
 
-    const loadActiveProjects = async () => {
-      console.time('[ProjectList] loadActiveProjects');
-      setActiveLoading(true);
+    const loadProjectsPage = async () => {
+      if (activeTab === 'aktif') setActiveLoading(true);
+      else if (activeTab === 'minuta') setMinutaLoading(true);
+      else setCompletedLoading(true);
+
       setError(null);
       try {
-        const rawProjects = (await ProjectService.listActiveProjects()) || [];
+        const startAfterDoc = pageCursors[currentPage - 1] || null;
+        const res = await ProjectService.getProjectsPaginated({
+          statusCategory: activeTab === 'aktif' ? 'active' : activeTab === 'minuta' ? 'minuta' : 'completed',
+          pageSize: 20,
+          startAfterDoc
+        });
+
         if (!isMounted) return;
 
-        const normalized = normalizeProjects(rawProjects);
-        setActiveProjects(normalized);
-        setActiveLoading(false);
-        console.timeEnd('[ProjectList] loadActiveProjects');
+        const normalized = normalizeProjects(res.projects);
+        if (activeTab === 'aktif') {
+          setActiveProjects(normalized);
+        } else if (activeTab === 'minuta') {
+          setMinutaProjects(normalized);
+        } else {
+          setCompletedProjects(normalized);
+        }
 
-        loadSecondaryData(normalized.length);
+        setHasMore(res.hasMore);
+
+        if (res.lastVisible && pageCursors.length <= currentPage) {
+          setPageCursors(prev => [...prev, res.lastVisible]);
+        }
       } catch (err: any) {
-        console.error('[ProjectList] Error loading active projects:', err);
+        console.error('[ProjectList] Error loading projects page:', err);
         if (isMounted) {
           setError('Gagal memuat daftar proyek. Silakan coba lagi.');
-          setActiveLoading(false);
         }
-      }
-    };
-
-    const loadSecondaryData = async (activeCount: number) => {
-      try {
-        const [profileList, wfList] = await Promise.all([
-          CompanyService.getCompaniesFast({ cacheOnly: true }),
-          WorkflowService.listWorkflows().catch(() => WorkflowService.getStaticWorkflows())
-        ]);
-
+      } finally {
         if (isMounted) {
-          if (profileList && profileList.length > 0) setProfiles(profileList);
-          if (wfList && wfList.length > 0) setWorkflows(wfList);
-
-          if (process.env.NODE_ENV !== 'production') {
-            console.log('[ProjectList Instrumentation]', {
-              activeProjectsCount: activeCount,
-              minutaProjectsCount: 'lazy',
-              completedProjectsCount: 'lazy',
-              profilesSource: profileList && profileList.length > 0 ? 'cache' : 'none/lazy',
-              workflowsSource: 'static/cache',
-              writes: 0
-            });
-          }
+          setActiveLoading(false);
+          setMinutaLoading(false);
+          setCompletedLoading(false);
         }
-      } catch (e) {
-        console.warn('[ProjectList] Secondary data loading warning:', e);
       }
     };
 
-    loadActiveProjects();
+    loadProjectsPage();
 
     return () => {
       isMounted = false;
     };
-  }, []);
-
-  // Lazy-load Minuta & Selesai tab datasets when user opens those tabs
-  useEffect(() => {
-    let isMounted = true;
-
-    if (activeTab === 'minuta' && !minutaLoaded) {
-      const loadMinuta = async () => {
-        setMinutaLoading(true);
-        try {
-          const { minuta, completed } = await ProjectService.listMinutaAndCompletedProjects();
-          if (!isMounted) return;
-          setMinutaProjects(normalizeProjects(minuta));
-          setCompletedProjects(normalizeProjects(completed));
-          setMinutaLoaded(true);
-          setCompletedLoaded(true);
-        } catch (e) {
-          console.error('[ProjectList] Error loading minuta projects:', e);
-        } finally {
-          if (isMounted) setMinutaLoading(false);
-        }
-      };
-      loadMinuta();
-    } else if (activeTab === 'selesai' && !completedLoaded) {
-      const loadCompleted = async () => {
-        setCompletedLoading(true);
-        try {
-          const { minuta, completed } = await ProjectService.listMinutaAndCompletedProjects();
-          if (!isMounted) return;
-          setMinutaProjects(normalizeProjects(minuta));
-          setCompletedProjects(normalizeProjects(completed));
-          setMinutaLoaded(true);
-          setCompletedLoaded(true);
-        } catch (e) {
-          console.error('[ProjectList] Error loading completed projects:', e);
-        } finally {
-          if (isMounted) setCompletedLoading(false);
-        }
-      };
-      loadCompleted();
-    }
-  }, [activeTab, minutaLoaded, completedLoaded]);
+  }, [activeTab, currentPage]);
 
   const getWorkflowJobType = (category: string, type: string): string => {
     // Legacy support
@@ -677,7 +635,11 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
           {(['aktif', 'minuta', 'selesai'] as const).map((tab) => (
             <button
               key={tab}
-              onClick={() => setActiveTab(tab)}
+              onClick={() => {
+                setActiveTab(tab);
+                setCurrentPage(1);
+                setPageCursors([null]);
+              }}
               className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 ${
                 activeTab === tab
                   ? 'border-blue-600 text-blue-600'
@@ -932,6 +894,29 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
                   </div>
                 );
               })}
+            </div>
+
+            {/* Pagination Controls */}
+            <div className="flex items-center justify-between px-4 py-3 bg-white border-t border-slate-200 text-xs text-slate-600">
+              <div className="flex items-center gap-2">
+                <span>Halaman <strong className="text-slate-800">{currentPage}</strong></span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1 || isCurrentTabLoading}
+                  className="px-3 py-1.5 border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed font-medium cursor-pointer"
+                >
+                  Sebelumnya
+                </button>
+                <button
+                  onClick={() => setCurrentPage(p => p + 1)}
+                  disabled={!hasMore || isCurrentTabLoading}
+                  className="px-3 py-1.5 border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed font-medium cursor-pointer"
+                >
+                  Selanjutnya
+                </button>
+              </div>
             </div>
           </div>
         )}

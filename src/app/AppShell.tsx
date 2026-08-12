@@ -220,29 +220,6 @@ export const AppShell: React.FC = () => {
     profiles,
     setAutosaveParams
   ]);
-  
-  useEffect(() => {
-    if (user) {
-      const loadStampSettingsOnBoot = async () => {
-        try {
-          const { doc, getDoc } = await import('firebase/firestore');
-          const { db } = await import('../lib/firebase');
-          const { setSignatureImage } = await import('../utils/signatureUtils');
-          const docRef = doc(db, 'settings', 'stamp_signature');
-          const docSnap = await getDoc(docRef);
-          if (docSnap.exists()) {
-            const data = docSnap.data();
-            if (data.signatureDataUrl) {
-              setSignatureImage(data.signatureDataUrl);
-            }
-          }
-        } catch (e) {
-          console.error('[AppShell] Failed to pre-load stamp settings:', e);
-        }
-      };
-      loadStampSettingsOnBoot();
-    }
-  }, [user]);
 
   const loadedDocIdRef = useRef<string | null>(null);
 

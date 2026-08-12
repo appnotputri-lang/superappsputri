@@ -9,7 +9,11 @@ export function getApiUrl(path: string): string {
   const cleanPath = path.startsWith('/') ? path : `/${path}`;
   
   // 1. Check if explicit API URL is configured
-  const envApiUrl = import.meta.env.VITE_API_URL;
+  let envApiUrl: string | undefined;
+  if (typeof process !== 'undefined' && process.env) {
+    envApiUrl = process.env.VITE_API_URL;
+  }
+
   if (envApiUrl) {
     const cleanBase = envApiUrl.endsWith('/') ? envApiUrl.slice(0, -1) : envApiUrl;
     return `${cleanBase}${cleanPath}`;

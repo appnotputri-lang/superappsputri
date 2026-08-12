@@ -11,7 +11,7 @@ import {
   QueryConstraint, 
   query 
 } from 'firebase/firestore';
-import { handleFirestoreError, OperationType } from '../lib/firebase';
+import { handleFirestoreError, OperationType, isQuotaExceeded } from '../lib/firebase';
 
 export const sanitizeForFirestore = (obj: any): any => {
   if (obj === undefined) return null;
@@ -116,6 +116,10 @@ export class FirestoreService {
         onNext(data);
       },
       (error) => {
+        if (isQuotaExceeded(error)) {
+          console.warn(`[FirestoreService] Quota exceeded on listener for ${collectionPath}`);
+          return;
+        }
         handleFirestoreError(error, OperationType.LIST, collectionPath);
       }
     );

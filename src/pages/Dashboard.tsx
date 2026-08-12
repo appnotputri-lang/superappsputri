@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { PageContainer, EmptyState } from '../components/ui/PageLayout';
 import { SimpleAreaChart, DataPoint } from '../components/ui/SimpleAreaChart';
-import MigrationTool from '../features/migration/MigrationTool';
 import { 
   Clock, 
   FileText, 
@@ -34,6 +33,7 @@ import { ProjectService, COMPLETED_STATUS_LIST } from '../services/ProjectServic
 import { Project } from '../domain/project/Project';
 import { CompanyService } from '../services/CompanyService';
 import { NotaryService } from '../services/NotaryService';
+import { FirestoreTracker } from '../lib/firestoreTracker';
 import { InvoiceService } from '../services/InvoiceService';
 import { Deed, Invoice, OutgoingMail } from '../../types';
 import { Mail, CreditCard } from 'lucide-react';
@@ -139,55 +139,68 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const [invoiceBelumDibayarCount, setInvoiceBelumDibayarCount] = useState<number | null>(null);
   const [completedProjectsCount, setCompletedProjectsCount] = useState<number | null>(null);
 
-  // Fetch count aggregations using getCountFromServer
+  // Fetch count aggregations using getCountFromServer with TTL Cache & Deduplication
   const fetchDashboardStats = async () => {
     try {
-      // 1. Klien Aktif Count
-      const activeClientsCountValue = await CompanyService.getActiveClientsCount();
-      setActiveClientsCount(activeClientsCountValue);
+      const stats = await FirestoreTracker.fetchCached<any>(
+        'dashboard_stats',
+        'Beranda (Stats)',
+        'office_projects, invoices, companies',
+        async () => {
+          const activeClientsCountValue = await CompanyService.getActiveClientsCount();
 
-      // 2. Proyek Berjalan Count (status not-in COMPLETED_STATUS_LIST)
-      const activeProjectsQuery = query(collection(db, 'office_projects'), where('status', 'not-in', COMPLETED_STATUS_LIST));
-      const activeProjectsSnap = await getCountFromServer(activeProjectsQuery);
-      const activeProjectsCountValue = activeProjectsSnap.data().count;
-      setRunningProjectsCount(activeProjectsCountValue);
+          const activeProjectsQuery = query(collection(db, 'office_projects'), where('status', 'not-in', COMPLETED_STATUS_LIST));
+          const activeProjectsSnap = await getCountFromServer(activeProjectsQuery);
+          const activeProjectsCountValue = activeProjectsSnap.data().count;
 
-      // 3. Dokumen Perlu Ditinjau Count (status in uniqueReviewStatuses)
-      const uniqueReviewStatuses = [
-        "Review Draft Notulen/Sirkuler",
-        "Review Notulen",
-        "Review Draft Akta",
-        "Review Draft Perjanjian",
-        "Review Draft Akta Pendirian CV",
-        "Review Draft",
-        "Review Draft Akta Pembubaran CV",
-        "Review Draft Akta PPAT",
-        "Akta Sedang di Review",
-        "AHU sedang di Tinjau",
-        "Review Draft Notulen/Sirkuler".toUpperCase(),
-        "Review Notulen".toUpperCase(),
-        "Review Draft Akta".toUpperCase(),
-        "Review Draft".toUpperCase(),
-        "Akta Sedang di Review".toUpperCase(),
-        "AHU sedang di Tinjau".toUpperCase()
-      ];
-      const pendingDocsQuery = query(collection(db, 'office_projects'), where('status', 'in', uniqueReviewStatuses));
-      const pendingDocsSnap = await getCountFromServer(pendingDocsQuery);
-      setPendingDocsCount(pendingDocsSnap.data().count);
+          const uniqueReviewStatuses = [
+            "Review Draft Notulen/Sirkuler",
+            "Review Notulen",
+            "Review Draft Akta",
+            "Review Draft Perjanjian",
+            "Review Draft Akta Pendirian CV",
+            "Review Draft",
+            "Review Draft Akta Pembubaran CV",
+            "Review Draft Akta PPAT",
+            "Akta Sedang di Review",
+            "AHU sedang di Tinjau",
+            "Review Draft Notulen/Sirkuler".toUpperCase(),
+            "Review Notulen".toUpperCase(),
+            "Review Draft Akta".toUpperCase(),
+            "Review Draft".toUpperCase(),
+            "Akta Sedang di Review".toUpperCase(),
+            "AHU sedang di Tinjau".toUpperCase()
+          ];
+          const pendingDocsQuery = query(collection(db, 'office_projects'), where('status', 'in', uniqueReviewStatuses));
+          const pendingDocsSnap = await getCountFromServer(pendingDocsQuery);
+          const pendingDocsCountValue = pendingDocsSnap.data().count;
 
-      // 4. Invoice Belum Dibayar Count
-      const unpaidInvoicesQuery = query(collection(db, 'invoices'), where('status', '==', 'UNPAID'));
-      const unpaidInvoicesSnap = await getCountFromServer(unpaidInvoicesQuery);
-      setInvoiceBelumDibayarCount(unpaidInvoicesSnap.data().count);
+          const unpaidInvoicesQuery = query(collection(db, 'invoices'), where('status', '==', 'UNPAID'));
+          const unpaidInvoicesSnap = await getCountFromServer(unpaidInvoicesQuery);
+          const unpaidInvoicesCountValue = unpaidInvoicesSnap.data().count;
 
-      // 5. Completed Projects Count (for Ringkasan Hari Ini)
-      const completedProjectsQuery = query(collection(db, 'office_projects'), where('status', 'in', ['Selesai', 'Selesai & Diserahkan', 'selesai', 'Selesai & Diserahkan'.toUpperCase()]));
-      const completedProjectsSnap = await getCountFromServer(completedProjectsQuery);
-      setCompletedProjectsCount(completedProjectsSnap.data().count);
+          const completedProjectsQuery = query(collection(db, 'office_projects'), where('status', 'in', ['Selesai', 'Selesai & Diserahkan', 'selesai', 'Selesai & Diserahkan'.toUpperCase()]));
+          const completedProjectsSnap = await getCountFromServer(completedProjectsQuery);
+          const completedProjectsCountValue = completedProjectsSnap.data().count;
 
+          return {
+            activeClientsCount: activeClientsCountValue,
+            runningProjectsCount: activeProjectsCountValue,
+            pendingDocsCount: pendingDocsCountValue,
+            invoiceBelumDibayarCount: unpaidInvoicesCountValue,
+            completedProjectsCount: completedProjectsCountValue
+          };
+        },
+        5 * 60 * 1000
+      );
+
+      setActiveClientsCount(stats.activeClientsCount);
+      setRunningProjectsCount(stats.runningProjectsCount);
+      setPendingDocsCount(stats.pendingDocsCount);
+      setInvoiceBelumDibayarCount(stats.invoiceBelumDibayarCount);
+      setCompletedProjectsCount(stats.completedProjectsCount);
     } catch (err) {
       console.error("Gagal memuat statistik dashboard:", err);
-      // Set to null to indicate loading/error fallback instead of showing false 0
       setActiveClientsCount(null);
       setRunningProjectsCount(null);
       setPendingDocsCount(null);
@@ -196,23 +209,42 @@ export const Dashboard: React.FC<DashboardProps> = ({
     }
   };
 
-  // Fetch secondary widget data (recent deeds, recent invoices, recent outgoing mails)
+  // Fetch secondary widget data (recent deeds, recent invoices, recent outgoing mails) with TTL Cache & Deduplication
   const fetchSecondaryWidgetData = async () => {
     try {
-      const [recentDeedsData, recentInvoicesData, recentMailsData] = await Promise.all([
-        NotaryService.getRecentDeeds(30),
-        InvoiceService.getRecentInvoices(10),
-        NotaryService.getRecentOutgoingMails(10)
-      ]);
+      const recentData = await FirestoreTracker.fetchCached<any>(
+        'dashboard_recent',
+        'Beranda (Recent)',
+        'office_projects, deeds, invoices, outgoing_mails',
+        async () => {
+          const [recentProjectsRes, recentDeedsData, recentInvoicesData, recentMailsData] = await Promise.all([
+            ProjectService.listRecentProjects(5),
+            NotaryService.getRecentDeeds(5),
+            InvoiceService.getRecentInvoices(5),
+            NotaryService.getRecentOutgoingMails(5)
+          ]);
 
-      setDeeds(recentDeedsData);
-      setRecentInvoices(recentInvoicesData);
-      setOutgoingMails(recentMailsData);
+          const recentProjectsList = recentProjectsRes || [];
+
+          return {
+            recentProjects: recentProjectsList,
+            recentDeeds: recentDeedsData,
+            recentInvoices: recentInvoicesData,
+            recentMails: recentMailsData
+          };
+        },
+        5 * 60 * 1000
+      );
+
+      setOfficeProjects(recentData.recentProjects || []);
+      setDeeds(recentData.recentDeeds || []);
+      setRecentInvoices(recentData.recentInvoices || []);
+      setOutgoingMails(recentData.recentMails || []);
 
       return {
-        deedsCount: recentDeedsData.length,
-        recentInvoicesCount: recentInvoicesData.length,
-        mailsCount: recentMailsData.length
+        deedsCount: recentData.recentDeeds?.length || 0,
+        recentInvoicesCount: recentData.recentInvoices?.length || 0,
+        mailsCount: recentData.recentMails?.length || 0
       };
     } catch (err) {
       console.error("Gagal memuat data sekunder dashboard:", err);
@@ -224,31 +256,18 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const fetchProjects = async () => {
     setLoadingStats(true);
     try {
-      let recentProjectsList: Project[] = [];
+      const statsCached = FirestoreTracker.cacheGet('dashboard_stats');
+      const recentCached = FirestoreTracker.cacheGet('dashboard_recent');
 
-      const [recentRes, secondaryCounts] = await Promise.all([
-        ProjectService.listRecentProjects(30),
-        fetchSecondaryWidgetData(),
-        fetchDashboardStats()
-      ]);
-
-      recentProjectsList = recentRes || [];
-      setOfficeProjects(recentProjectsList);
-
-      // Development instrumentation logging for read verification
-      if (process.env.NODE_ENV !== 'production') {
-        const recentReads = recentProjectsList.length;
-        const deedsReads = secondaryCounts.deedsCount;
-        const invoicesReads = secondaryCounts.recentInvoicesCount;
-        const mailsReads = secondaryCounts.mailsCount;
-        const totalReads = recentReads + deedsReads + invoicesReads + mailsReads;
-
-        console.log('📊 [Dashboard Firestore Read Instrumentation]');
-        console.log(` - Recent Projects: ${recentReads} docs`);
-        console.log(` - Deeds (Recent): ${deedsReads} docs`);
-        console.log(` - Recent Invoices: ${invoicesReads} docs`);
-        console.log(` - Outgoing Mails: ${mailsReads} docs`);
-        console.log(` 🚀 TOTAL DASHBOARD READS: ~${totalReads} docs`);
+      if (statsCached.hit && recentCached.hit) {
+        FirestoreTracker.logMenuOpen('Beranda', 'HIT');
+        await Promise.all([fetchSecondaryWidgetData(), fetchDashboardStats()]);
+      } else {
+        FirestoreTracker.logMenuOpen('Beranda', 'MISS', 'office_projects, deeds, invoices', 25);
+        await Promise.all([
+          fetchSecondaryWidgetData(),
+          fetchDashboardStats()
+        ]);
       }
     } catch (err) {
       console.error("Gagal memuat daftar proyek untuk statistik:", err);
@@ -986,93 +1005,92 @@ export const Dashboard: React.FC<DashboardProps> = ({
             {/* 3. Main Split Section: Chart Area + Agenda & Activities Column */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
               
-              {/* Left Column (2 Spans): Analisis Aktivitas Proyek Chart */}
-              <div className="lg:col-span-2 bg-white p-4 rounded-xl border border-slate-200/80 shadow-xs space-y-3 self-start">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-2">
-                  <div className="flex items-center gap-2.5">
-                    <div className="p-1.5 bg-blue-50 text-blue-600 rounded-lg">
-                      <TrendingUp size={16} />
+              {/* Left Column (2 Spans): Analisis Aktivitas Proyek Chart & Agenda Prioritas */}
+              <div className="lg:col-span-2 space-y-6 self-start">
+                {/* Card: Analisis Aktivitas Proyek */}
+                <div className="bg-white p-4 rounded-xl border border-slate-200/80 shadow-xs space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-2">
+                    <div className="flex items-center gap-2.5">
+                      <div className="p-1.5 bg-blue-50 text-blue-600 rounded-lg">
+                        <TrendingUp size={16} />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-bold text-slate-900 font-heading">Analisis Aktivitas Proyek</h3>
+                        <p className="text-[11px] text-slate-500">Tren proyek baru dibuat per bulan</p>
+                      </div>
                     </div>
-                    <div>
-                      <h3 className="text-sm font-bold text-slate-900 font-heading">Analisis Aktivitas Proyek</h3>
-                      <p className="text-[11px] text-slate-500">Tren proyek baru dibuat per bulan</p>
+
+                    <div className="flex items-center gap-1.5 text-[11px]">
+                      <div className="flex items-center gap-1 bg-slate-50 border border-slate-200/80 px-2 py-0.5 rounded text-slate-600 font-medium">
+                        <Calendar size={11} className="text-slate-400" />
+                        <span>{monthlyChartData[0]?.label} - {monthlyChartData[monthlyChartData.length - 1]?.label} {new Date().getFullYear()}</span>
+                      </div>
+                      <select
+                        value={granularity}
+                        onChange={(e) => setGranularity(e.target.value)}
+                        className="bg-slate-50 border border-slate-200/80 rounded px-1.5 py-0.5 text-slate-700 font-medium focus:outline-none cursor-pointer"
+                      >
+                        <option value="Bulanan">Bulanan</option>
+                        <option value="Mingguan">Mingguan</option>
+                        <option value="Harian">Harian</option>
+                      </select>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-1.5 text-[11px]">
-                    <div className="flex items-center gap-1 bg-slate-50 border border-slate-200/80 px-2 py-0.5 rounded text-slate-600 font-medium">
-                      <Calendar size={11} className="text-slate-400" />
-                      <span>{monthlyChartData[0]?.label} - {monthlyChartData[monthlyChartData.length - 1]?.label} {new Date().getFullYear()}</span>
+                  {/* SVG Area Chart */}
+                  <div className="py-2">
+                    <SimpleAreaChart data={monthlyChartData} height={200} />
+                  </div>
+
+                  {/* 4 Mini Cards under Chart */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
+                    <div className="bg-slate-50/80 border border-slate-200/70 p-2 rounded-lg flex items-center gap-2 h-[56px]">
+                      <div className="p-1 bg-blue-100 text-blue-600 rounded shrink-0">
+                        <RefreshCw size={12} />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-[9px] text-slate-400 font-medium truncate">Total Proyek</p>
+                        <p className="text-xs font-extrabold text-slate-800 font-heading leading-tight">{totalChartDocs}</p>
+                      </div>
                     </div>
-                    <select
-                      value={granularity}
-                      onChange={(e) => setGranularity(e.target.value)}
-                      className="bg-slate-50 border border-slate-200/80 rounded px-1.5 py-0.5 text-slate-700 font-medium focus:outline-none cursor-pointer"
-                    >
-                      <option value="Bulanan">Bulanan</option>
-                      <option value="Mingguan">Mingguan</option>
-                      <option value="Harian">Harian</option>
-                    </select>
+
+                    <div className="bg-slate-50/80 border border-slate-200/70 p-2 rounded-lg flex items-center gap-2 h-[56px]">
+                      <div className="p-1 bg-emerald-100 text-emerald-600 rounded shrink-0">
+                        <BarChart2 size={12} />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-[9px] text-slate-400 font-medium truncate">Rata-rata/Bulan</p>
+                        <p className="text-xs font-extrabold text-slate-800 font-heading leading-tight">{avgChartDocs}</p>
+                      </div>
+                    </div>
+
+                    <div className="bg-slate-50/80 border border-slate-200/70 p-2 rounded-lg flex items-center gap-2 h-[56px]">
+                      <div className="p-1 bg-indigo-100 text-indigo-600 rounded shrink-0">
+                        <ShieldCheck size={12} />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-[9px] text-slate-400 font-medium truncate">Tertinggi</p>
+                        <p className="text-xs font-extrabold text-slate-800 font-heading leading-tight truncate">
+                          {highestMonth.value > 0 ? `${highestMonth.value} (${highestMonth.label})` : '0 (-)'}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="bg-slate-50/80 border border-slate-200/70 p-2 rounded-lg flex items-center gap-2 h-[56px]">
+                      <div className="p-1 bg-amber-100 text-amber-600 rounded shrink-0">
+                        <FileText size={12} />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-[9px] text-slate-400 font-medium truncate">Terendah</p>
+                        <p className="text-xs font-extrabold text-slate-800 font-heading leading-tight truncate">
+                          {lowestMonth.value > 0 ? `${lowestMonth.value} (${lowestMonth.label})` : '0 (-)'}
+                        </p>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
-                {/* SVG Area Chart */}
-                <div className="py-2">
-                  <SimpleAreaChart data={monthlyChartData} height={200} />
-                </div>
-
-                {/* 4 Mini Cards under Chart */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
-                  <div className="bg-slate-50/80 border border-slate-200/70 p-2 rounded-lg flex items-center gap-2 h-[56px]">
-                    <div className="p-1 bg-blue-100 text-blue-600 rounded shrink-0">
-                      <RefreshCw size={12} />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-[9px] text-slate-400 font-medium truncate">Total Proyek</p>
-                      <p className="text-xs font-extrabold text-slate-800 font-heading leading-tight">{totalChartDocs}</p>
-                    </div>
-                  </div>
-
-                  <div className="bg-slate-50/80 border border-slate-200/70 p-2 rounded-lg flex items-center gap-2 h-[56px]">
-                    <div className="p-1 bg-emerald-100 text-emerald-600 rounded shrink-0">
-                      <BarChart2 size={12} />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-[9px] text-slate-400 font-medium truncate">Rata-rata/Bulan</p>
-                      <p className="text-xs font-extrabold text-slate-800 font-heading leading-tight">{avgChartDocs}</p>
-                    </div>
-                  </div>
-
-                  <div className="bg-slate-50/80 border border-slate-200/70 p-2 rounded-lg flex items-center gap-2 h-[56px]">
-                    <div className="p-1 bg-indigo-100 text-indigo-600 rounded shrink-0">
-                      <ShieldCheck size={12} />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-[9px] text-slate-400 font-medium truncate">Tertinggi</p>
-                      <p className="text-xs font-extrabold text-slate-800 font-heading leading-tight truncate">
-                        {highestMonth.value > 0 ? `${highestMonth.value} (${highestMonth.label})` : '0 (-)'}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="bg-slate-50/80 border border-slate-200/70 p-2 rounded-lg flex items-center gap-2 h-[56px]">
-                    <div className="p-1 bg-amber-100 text-amber-600 rounded shrink-0">
-                      <FileText size={12} />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-[9px] text-slate-400 font-medium truncate">Terendah</p>
-                      <p className="text-xs font-extrabold text-slate-800 font-heading leading-tight truncate">
-                        {lowestMonth.value > 0 ? `${lowestMonth.value} (${lowestMonth.label})` : '0 (-)'}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Right Column (1 Span): Agenda Prioritas Hari Ini & Aktivitas Terbaru */}
-              <div className="space-y-6 flex flex-col justify-start">
-                
-                {/* Card: Agenda Prioritas Hari Ini (Notice Compact) */}
+                {/* Card: Agenda Prioritas Hari Ini (Moved directly under Analisis Aktivitas Proyek) */}
                 <div className="bg-white p-5 rounded-xl border border-slate-200/80 shadow-xs space-y-3">
                   <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
                     <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2 font-heading">
@@ -1081,13 +1099,16 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     </h3>
                   </div>
 
-                  {/* TODO: Ganti kembali ke daftar agenda penuh setelah modul Kalender selesai dibangun */}
                   <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 text-slate-600 rounded-lg border border-slate-200/50 text-xs">
                     <Calendar size={14} className="text-slate-400 shrink-0" />
                     <span>Belum ada agenda terjadwal hari ini.</span>
                   </div>
                 </div>
+              </div>
 
+              {/* Right Column (1 Span): Aktivitas Terbaru */}
+              <div className="space-y-6 flex flex-col justify-start">
+                
                 {/* Card: Aktivitas Terbaru */}
                 <div className="bg-white p-5 rounded-xl border border-slate-200/80 shadow-xs space-y-4">
                   <div className="flex items-center justify-between border-b border-slate-100 pb-3">
@@ -1135,13 +1156,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
             </div>
 
           </div>
-
-          {/* 5. Migration Tool for Super Admin */}
-          {currentUser?.role === 'Super Admin' && (
-            <div className="mt-6">
-              <MigrationTool />
-            </div>
-          )}
         </PageContainer>
       </div>
     </>

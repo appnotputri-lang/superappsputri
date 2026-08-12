@@ -1,4 +1,5 @@
-import { db, handleFirestoreError, OperationType, cleanUndefined } from "../lib/firebase";
+import { db, handleFirestoreError, OperationType, cleanUndefined, isQuotaExceeded } from "../lib/firebase";
+import { FirestoreTracker } from "../lib/firestoreTracker";
 import { getApiUrl } from "../lib/api";
 import {
   collection,
@@ -14,6 +15,8 @@ import {
   where,
   orderBy,
   limit,
+  startAfter,
+  DocumentSnapshot,
   Timestamp,
   onSnapshot,
   deleteDoc
@@ -60,6 +63,9 @@ export class ProjectService {
     ProjectService.activeProjectsCache = null;
     ProjectService.minutaProjectsCache = null;
     ProjectService.completedProjectsCache = null;
+    FirestoreTracker.cacheInvalidate('dashboard_stats');
+    FirestoreTracker.cacheInvalidate('dashboard_recent');
+    FirestoreTracker.cacheInvalidate('active_projects');
   }
 
   /**
@@ -670,9 +676,11 @@ export class ProjectService {
     }
   }
 
-  static subscribeProjects(callback: (data: Project[]) => void): () => void {
+  static subscribeProjects(callback: (data: Project[]) => void, limitCount?: number): () => void {
     const colRef = collection(db, this.projectsCol);
-    const q = query(colRef, orderBy("updatedAt", "desc"));
+    const q = limitCount
+      ? query(colRef, orderBy("updatedAt", "desc"), limit(limitCount))
+      : query(colRef, orderBy("updatedAt", "desc"));
     return onSnapshot(
       q,
       (snapshot) => {
@@ -727,6 +735,10 @@ export class ProjectService {
     );
   }
 
+  static subscribeRecentProjects(limitCount = 10, callback: (data: Project[]) => void): () => void {
+    return this.subscribeProjects(callback, limitCount);
+  }
+
   private static parseProjectDoc(docSnap: any): Project {
     const project = { ...docSnap.data(), projectId: docSnap.id } as Project;
     if (!project.projectCategory) {
@@ -771,9 +783,129 @@ export class ProjectService {
   }
 
   /**
+   * Lightweight method for dropdowns/selectors: fetches limited active projects with deduplication and caching.
+   * Parameter-sensitive cache key prevents cross-parameter collision.
+   */
+  static async getActiveProjectsForSelect(options?: { limitCount?: number; search?: string; clientId?: string }): Promise<Project[]> {
+    const limitVal = options?.limitCount || 20;
+    const clientIdVal = options?.clientId?.trim() || '';
+    const searchVal = options?.search?.trim() || '';
+    const cacheKey = `active_projects_select:limit=${limitVal}&client=${clientIdVal}&search=${searchVal}`;
+
+    const list = await FirestoreTracker.fetchCached<Project[]>(
+      cacheKey,
+      'Project Selector',
+      this.projectsCol,
+      async () => {
+        const colRef = collection(db, this.projectsCol);
+        let q = clientIdVal
+          ? query(colRef, where('clientId', '==', clientIdVal), where('status', 'not-in', COMPLETED_STATUS_LIST), limit(limitVal))
+          : query(colRef, where('status', 'not-in', COMPLETED_STATUS_LIST), limit(limitVal));
+
+        let querySnap;
+        try {
+          querySnap = await getDocsFromCache(q);
+          if (!querySnap || querySnap.empty) {
+            querySnap = await getDocs(q);
+          }
+        } catch (err) {
+          querySnap = await getDocs(q);
+        }
+        if (!querySnap) return [];
+        const items = querySnap.docs.map((docSnap) => this.parseProjectDoc(docSnap));
+        return this.sortProjectsByDate(items);
+      },
+      5 * 60 * 1000
+    );
+
+    if (searchVal) {
+      const searchStr = searchVal.toLowerCase();
+      return list.filter(p =>
+        (p.title && p.title.toLowerCase().includes(searchStr)) ||
+        (p.clientSnapshot?.companyName && p.clientSnapshot.companyName.toLowerCase().includes(searchStr)) ||
+        (p.projectId && p.projectId.toLowerCase().includes(searchStr))
+      );
+    }
+
+    return list;
+  }
+
+  /**
+   * Cursor-based pagination for project lists (20 items per page).
+   */
+  static async getProjectsPaginated(options: {
+    statusCategory: 'active' | 'minuta' | 'completed';
+    pageSize?: number;
+    startAfterDoc?: DocumentSnapshot | null;
+  }): Promise<{ projects: Project[]; lastVisible: DocumentSnapshot | null; hasMore: boolean }> {
+    const pageSize = options.pageSize || 20;
+    const colRef = collection(db, this.projectsCol);
+
+    let q;
+    if (options.statusCategory === 'active') {
+      q = options.startAfterDoc
+        ? query(colRef, where('status', 'not-in', COMPLETED_STATUS_LIST), startAfter(options.startAfterDoc), limit(pageSize + 1))
+        : query(colRef, where('status', 'not-in', COMPLETED_STATUS_LIST), limit(pageSize + 1));
+    } else {
+      q = options.startAfterDoc
+        ? query(colRef, where('status', 'in', COMPLETED_STATUS_LIST), startAfter(options.startAfterDoc), limit(pageSize + 1))
+        : query(colRef, where('status', 'in', COMPLETED_STATUS_LIST), limit(pageSize + 1));
+    }
+
+    try {
+      let querySnap;
+      try {
+        querySnap = await getDocsFromCache(q);
+        if (!querySnap || querySnap.empty) {
+          querySnap = await getDocs(q);
+        }
+      } catch (err) {
+        querySnap = await getDocs(q);
+      }
+
+      if (!querySnap || querySnap.empty) {
+        return { projects: [], lastVisible: null, hasMore: false };
+      }
+
+      const docs = querySnap.docs;
+      const hasMore = docs.length > pageSize;
+      const resultDocs = hasMore ? docs.slice(0, pageSize) : docs;
+      const lastVisible = resultDocs.length > 0 ? resultDocs[resultDocs.length - 1] : null;
+
+      let items = resultDocs.map((docSnap) => this.parseProjectDoc(docSnap));
+
+      if (options.statusCategory === 'minuta') {
+        items = items.filter(p => p.metadata?.minutaCheckedAll === false || !p.metadata?.minutaCheckedAll);
+      } else if (options.statusCategory === 'completed') {
+        items = items.filter(p => p.metadata?.minutaCheckedAll === true);
+      }
+
+      items = this.sortProjectsByDate(items);
+
+      FirestoreTracker.logQuery({
+        collectionName: this.projectsCol,
+        operation: 'list',
+        limit: pageSize,
+        resultCount: items.length,
+        cacheStatus: 'MISS',
+        network: true
+      });
+
+      return {
+        projects: items,
+        lastVisible,
+        hasMore
+      };
+    } catch (error) {
+      handleFirestoreError(error, OperationType.LIST, this.projectsCol);
+      return { projects: [], lastVisible: null, hasMore: false };
+    }
+  }
+
+  /**
    * Retrieves active projects only (WHERE status NOT IN completed statuses).
    */
-  static async listActiveProjects(options?: { forceRefresh?: boolean }): Promise<Project[]> {
+  static async listActiveProjects(options?: { forceRefresh?: boolean; limitCount?: number }): Promise<Project[]> {
     if (!options?.forceRefresh && ProjectService.activeProjectsCache && ProjectService.activeProjectsCache.length > 0) {
       return ProjectService.activeProjectsCache;
     }
@@ -781,7 +913,10 @@ export class ProjectService {
     const path = this.projectsCol;
     try {
       const colRef = collection(db, this.projectsCol);
-      const q = query(colRef, where('status', 'not-in', COMPLETED_STATUS_LIST));
+      const limitVal = options?.limitCount;
+      const q = limitVal 
+        ? query(colRef, where('status', 'not-in', COMPLETED_STATUS_LIST), limit(limitVal))
+        : query(colRef, where('status', 'not-in', COMPLETED_STATUS_LIST));
 
       let querySnap;
       try {
@@ -813,7 +948,7 @@ export class ProjectService {
   /**
    * Retrieves N most recent projects ordered by createdAt desc.
    */
-  static async listRecentProjects(limitCount = 80): Promise<Project[]> {
+  static async listRecentProjects(limitCount = 10): Promise<Project[]> {
     const path = this.projectsCol;
     try {
       const colRef = collection(db, this.projectsCol);
@@ -822,6 +957,10 @@ export class ProjectService {
       try {
         snap = await getDocs(q);
       } catch (err) {
+        if (isQuotaExceeded(err)) {
+          console.warn('[ProjectService] Quota exceeded on listRecentProjects, skipping fallback');
+          return [];
+        }
         console.warn('[ProjectService] Error in listRecentProjects with orderBy, falling back:', err);
         const fallbackQ = query(colRef, limit(limitCount));
         snap = await getDocs(fallbackQ);

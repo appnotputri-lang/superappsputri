@@ -1,16 +1,21 @@
 import { FirestoreService } from './FirestoreService';
 import { db } from '../lib/firebase';
-import { updateDoc, doc, deleteDoc } from 'firebase/firestore';
+import { updateDoc, doc, deleteDoc, orderBy, limit } from 'firebase/firestore';
 
 export class NotificationService extends FirestoreService {
-  static listenNotifications(onNext: (notifications: any[]) => void): () => void {
-    return FirestoreService.listenToCollection('notifications', (data) => {
-      // Sort by timestamp descending
-      const sorted = [...data].sort((a: any, b: any) => 
-        (b.timestamp || '').localeCompare(a.timestamp || '')
-      );
-      onNext(sorted);
-    });
+  static listenNotifications(onNext: (notifications: any[]) => void, maxLimit = 10): () => void {
+    return FirestoreService.listenToCollection(
+      'notifications',
+      (data) => {
+        // Sort by timestamp descending
+        const sorted = [...data].sort((a: any, b: any) => 
+          (b.timestamp || '').localeCompare(a.timestamp || '')
+        );
+        onNext(sorted);
+      },
+      orderBy('timestamp', 'desc'),
+      limit(maxLimit)
+    );
   }
 
   static async sendNotification(user: any, title: string, description: string, type: string): Promise<void> {

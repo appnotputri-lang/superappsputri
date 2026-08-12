@@ -1,6 +1,6 @@
 import { FirestoreService } from './FirestoreService';
 import { Deed, PrivateDeed, ProtestCheque, OutgoingMail, IncomingMail } from '../../types';
-import { db } from '../lib/firebase';
+import { db, isQuotaExceeded } from '../lib/firebase';
 import { collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
 
 export class NotaryService extends FirestoreService {
@@ -9,13 +9,17 @@ export class NotaryService extends FirestoreService {
     return this.listenToCollection<Deed>('deeds', onNext);
   }
 
-  static async getRecentDeeds(limitCount = 30): Promise<Deed[]> {
+  static async getRecentDeeds(limitCount = 10): Promise<Deed[]> {
     try {
       const colRef = collection(db, 'deeds');
       const q = query(colRef, orderBy('createdAt', 'desc'), limit(limitCount));
       const snap = await getDocs(q);
       return snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Deed));
     } catch (err) {
+      if (isQuotaExceeded(err)) {
+        console.warn('[NotaryService] Quota exceeded on getRecentDeeds, skipping fallback');
+        return [];
+      }
       console.warn('[NotaryService] Error fetching recent deeds with orderBy, falling back:', err);
       const colRef = collection(db, 'deeds');
       const q = query(colRef, limit(limitCount));
@@ -115,6 +119,10 @@ export class NotaryService extends FirestoreService {
       const snap = await getDocs(q);
       return snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as OutgoingMail));
     } catch (err) {
+      if (isQuotaExceeded(err)) {
+        console.warn('[NotaryService] Quota exceeded on getRecentOutgoingMails, skipping fallback');
+        return [];
+      }
       console.warn('[NotaryService] Error fetching recent outgoing mails with orderBy, falling back:', err);
       const colRef = collection(db, 'outgoing_mails');
       const q = query(colRef, limit(limitCount));

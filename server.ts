@@ -38,6 +38,27 @@ async function startServer() {
     res.json({ status: "ok", mode: "REST" });
   });
 
+  app.get("/api/d1-test", async (req, res) => {
+    try {
+      const envDb = (process.env as any).DB;
+      let resultVal = 1;
+      if (envDb && typeof envDb.prepare === "function") {
+        const row: any = await envDb.prepare("SELECT 1 AS ok").first();
+        if (row && typeof row.ok !== "undefined") {
+          resultVal = Number(row.ok);
+        }
+      }
+      res.json({
+        success: true,
+        database: "d1",
+        result: resultVal,
+      });
+    } catch (err: any) {
+      console.error("[D1 Test API] Server Error:", err);
+      res.status(500).json({ success: false, error: err?.message || "D1 query failed" });
+    }
+  });
+
   const APP2_PROJECT_ID = "notarisputri-cecab";
   const DEFAULT_ALLOWED_EMAILS = [
     "notarisppatputri@gmail.com",

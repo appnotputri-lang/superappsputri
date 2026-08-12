@@ -187,22 +187,21 @@ export const QuotationGenerator: React.FC<QuotationGeneratorProps> = (props) => 
   }, [viewMode]);
 
   useEffect(() => {
-    if (viewMode === 'list') {
+    if (!selectedClientId) {
+      setActiveProjects([]);
       return;
     }
+    let isMounted = true;
     const startTime = performance.now();
-    const isProjectCompleted = (status: string) => {
-      const s = (status || '').toLowerCase();
-      return s === 'completed' || s === 'archived' || s === 'selesai';
-    };
-    const unsubscribe = ProjectService.subscribeProjects((data) => {
-      const duration = (performance.now() - startTime).toFixed(2);
-      const active = data.filter(p => p && p.status && !isProjectCompleted(p.status));
-      setActiveProjects(active);
-      console.log(`[QuotationPerformance] Lazy load: active projects subscribed. Active projects count: ${active.length}. Time: ${duration}ms.`);
+    ProjectService.getActiveProjectsForSelect({ clientId: selectedClientId, limitCount: 20 }).then((active) => {
+      if (isMounted) {
+        const duration = (performance.now() - startTime).toFixed(2);
+        setActiveProjects(active);
+        console.log(`[QuotationPerformance] Lazy load: active projects selector fetched for client ${selectedClientId}. Items: ${active.length}. Time: ${duration}ms.`);
+      }
     });
-    return () => unsubscribe();
-  }, [viewMode]);
+    return () => { isMounted = false; };
+  }, [selectedClientId]);
 
   const [selectedPresetProduct, setSelectedPresetProduct] = useState('-- Manual --');
   const [itemDescription, setItemDescription] = useState('');

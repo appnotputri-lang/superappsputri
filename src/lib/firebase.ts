@@ -118,6 +118,18 @@ interface FirestoreErrorInfo {
   }
 }
 
+export function isQuotaExceeded(error: unknown): boolean {
+  if (!error) return false;
+  const str = String(error).toLowerCase();
+  const msg = error instanceof Error ? error.message.toLowerCase() : '';
+  return (
+    str.includes('resource-exhausted') ||
+    str.includes('quota exceeded') ||
+    msg.includes('resource-exhausted') ||
+    msg.includes('quota exceeded')
+  );
+}
+
 export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
   const errInfo: FirestoreErrorInfo = {
     error: error instanceof Error ? error.message : String(error),

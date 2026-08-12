@@ -1,6 +1,6 @@
 import { FirestoreService } from './FirestoreService';
 import { Invoice, PaymentRecord } from '../../types';
-import { db } from '../lib/firebase';
+import { db, isQuotaExceeded } from '../lib/firebase';
 import { collection, query, where, orderBy, limit, getDocs } from 'firebase/firestore';
 
 function generateShortPublicToken(length = 10): string {
@@ -26,6 +26,10 @@ export class InvoiceService extends FirestoreService {
       const snap = await getDocs(q);
       return snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Invoice));
     } catch (err) {
+      if (isQuotaExceeded(err)) {
+        console.warn('[InvoiceService] Quota exceeded on getRecentInvoices, skipping fallback');
+        return [];
+      }
       console.warn('[InvoiceService] Error fetching recent invoices with orderBy, falling back:', err);
       const colRef = collection(db, 'invoices');
       const q = query(colRef, limit(limitCount));

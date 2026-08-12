@@ -3,6 +3,7 @@ import { AuthService } from '../services/AuthService';
 import { User as FirebaseUser } from 'firebase/auth';
 import { UserProfile } from '../../types';
 import { checkIsEmbedMode, requestSsoTokenFromParent } from '../utils/ssoEmbed';
+import { FirestoreTracker } from '../lib/firestoreTracker';
 
 export const useAuth = () => {
   const [user, setUser] = useState<FirebaseUser | null>(null);
@@ -145,12 +146,21 @@ export const useAuth = () => {
   // 3. Listen to user profile changes
   useEffect(() => {
     if (user) {
+      FirestoreTracker.logStartupInit();
+      FirestoreTracker.logStartupAuth(user.uid);
+      FirestoreTracker.logStartupAuthProfile(1);
+
+      let isInitial = true;
       const unsubProfile = AuthService.observeUserProfile(
         user.uid,
         user.email,
         user.displayName,
         (profile) => {
           setUserProfile(profile);
+          if (isInitial) {
+            FirestoreTracker.logStartupComplete();
+            isInitial = false;
+          }
         }
       );
       return () => unsubProfile();
