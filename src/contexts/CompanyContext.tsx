@@ -8,6 +8,8 @@ interface CompanyContextType {
   loading: boolean;
   error: Error | null;
   refresh: () => Promise<void>;
+  fetchDirectoryPage: (options?: import('../services/CompanyService').ClientDirectoryPageOptions) => Promise<import('../services/CompanyService').ClientDirectoryPageResult>;
+  getProfile: (companyId: string) => Promise<CompanyProfile | null>;
   save: (companyId: string, companyData: Partial<CompanyProfile>, isCv?: boolean) => Promise<void>;
   delete: (companyId: string, isCv?: boolean) => Promise<void>;
   archive: (companyId: string, currentStatus: boolean, isCv?: boolean) => Promise<boolean>;

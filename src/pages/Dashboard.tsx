@@ -10,8 +10,6 @@ import {
   Calendar,
   Users,
   Briefcase,
-  Globe,
-  Award,
   Loader2,
   RefreshCw,
   CheckCircle2,
@@ -19,8 +17,6 @@ import {
   TrendingUp,
   BarChart2,
   ShieldCheck,
-  ChevronDown,
-  ChevronUp,
   FolderPlus,
   Compass,
   ArrowUpRight,
@@ -33,9 +29,10 @@ import {
   X
 } from 'lucide-react';
 import { db } from '../lib/firebase';
-import { doc, updateDoc, deleteDoc } from 'firebase/firestore';
-import { ProjectService } from '../services/ProjectService';
-import { Project, Party } from '../domain/project/Project';
+import { doc, updateDoc, deleteDoc, collection, query, where, getCountFromServer } from 'firebase/firestore';
+import { ProjectService, COMPLETED_STATUS_LIST } from '../services/ProjectService';
+import { Project } from '../domain/project/Project';
+import { CompanyService } from '../services/CompanyService';
 import { NotaryService } from '../services/NotaryService';
 import { InvoiceService } from '../services/InvoiceService';
 import { Deed, Invoice, OutgoingMail } from '../../types';
@@ -85,34 +82,129 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const [loadingStats, setLoadingStats] = useState(true);
 
   const [deeds, setDeeds] = useState<Deed[]>([]);
-  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [recentInvoices, setRecentInvoices] = useState<Invoice[]>([]);
   const [outgoingMails, setOutgoingMails] = useState<OutgoingMail[]>([]);
-
-  useEffect(() => {
-    const unsubDeeds = NotaryService.subscribeDeeds(setDeeds);
-    const unsubInvoices = InvoiceService.subscribeInvoices(setInvoices);
-    const unsubMails = NotaryService.subscribeOutgoingMails(setOutgoingMails);
-    return () => {
-      unsubDeeds();
-      unsubInvoices();
-      unsubMails();
-    };
-  }, []);
-
-  // Date filter state for PMPJ
-  const [startDate, setStartDate] = useState<string>('');
-  const [endDate, setEndDate] = useState<string>('');
-  const [showPmpjStats, setShowPmpjStats] = useState<boolean>(true);
 
   // Granularity selection
   const [granularity, setGranularity] = useState<string>('Bulanan');
 
+  // Aggregated/Count states
+  const [activeClientsCount, setActiveClientsCount] = useState<number | null>(null);
+  const [runningProjectsCount, setRunningProjectsCount] = useState<number | null>(null);
+  const [pendingDocsCount, setPendingDocsCount] = useState<number | null>(null);
+  const [invoiceBelumDibayarCount, setInvoiceBelumDibayarCount] = useState<number | null>(null);
+  const [completedProjectsCount, setCompletedProjectsCount] = useState<number | null>(null);
+
+  // Fetch count aggregations using getCountFromServer
+  const fetchDashboardStats = async () => {
+    try {
+      // 1. Klien Aktif Count
+      const activeClientsCountValue = await CompanyService.getActiveClientsCount();
+      setActiveClientsCount(activeClientsCountValue);
+
+      // 2. Proyek Berjalan Count (status not-in COMPLETED_STATUS_LIST)
+      const activeProjectsQuery = query(collection(db, 'office_projects'), where('status', 'not-in', COMPLETED_STATUS_LIST));
+      const activeProjectsSnap = await getCountFromServer(activeProjectsQuery);
+      const activeProjectsCountValue = activeProjectsSnap.data().count;
+      setRunningProjectsCount(activeProjectsCountValue);
+
+      // 3. Dokumen Perlu Ditinjau Count (status in uniqueReviewStatuses)
+      const uniqueReviewStatuses = [
+        "Review Draft Notulen/Sirkuler",
+        "Review Notulen",
+        "Review Draft Akta",
+        "Review Draft Perjanjian",
+        "Review Draft Akta Pendirian CV",
+        "Review Draft",
+        "Review Draft Akta Pembubaran CV",
+        "Review Draft Akta PPAT",
+        "Akta Sedang di Review",
+        "AHU sedang di Tinjau",
+        "Review Draft Notulen/Sirkuler".toUpperCase(),
+        "Review Notulen".toUpperCase(),
+        "Review Draft Akta".toUpperCase(),
+        "Review Draft".toUpperCase(),
+        "Akta Sedang di Review".toUpperCase(),
+        "AHU sedang di Tinjau".toUpperCase()
+      ];
+      const pendingDocsQuery = query(collection(db, 'office_projects'), where('status', 'in', uniqueReviewStatuses));
+      const pendingDocsSnap = await getCountFromServer(pendingDocsQuery);
+      setPendingDocsCount(pendingDocsSnap.data().count);
+
+      // 4. Invoice Belum Dibayar Count
+      const unpaidInvoicesQuery = query(collection(db, 'invoices'), where('status', '==', 'UNPAID'));
+      const unpaidInvoicesSnap = await getCountFromServer(unpaidInvoicesQuery);
+      setInvoiceBelumDibayarCount(unpaidInvoicesSnap.data().count);
+
+      // 5. Completed Projects Count (for Ringkasan Hari Ini)
+      const completedProjectsQuery = query(collection(db, 'office_projects'), where('status', 'in', ['Selesai', 'Selesai & Diserahkan', 'selesai', 'Selesai & Diserahkan'.toUpperCase()]));
+      const completedProjectsSnap = await getCountFromServer(completedProjectsQuery);
+      setCompletedProjectsCount(completedProjectsSnap.data().count);
+
+    } catch (err) {
+      console.error("Gagal memuat statistik dashboard:", err);
+      // Set to null to indicate loading/error fallback instead of showing false 0
+      setActiveClientsCount(null);
+      setRunningProjectsCount(null);
+      setPendingDocsCount(null);
+      setInvoiceBelumDibayarCount(null);
+      setCompletedProjectsCount(null);
+    }
+  };
+
+  // Fetch secondary widget data (recent deeds, recent invoices, recent outgoing mails)
+  const fetchSecondaryWidgetData = async () => {
+    try {
+      const [recentDeedsData, recentInvoicesData, recentMailsData] = await Promise.all([
+        NotaryService.getRecentDeeds(30),
+        InvoiceService.getRecentInvoices(10),
+        NotaryService.getRecentOutgoingMails(10)
+      ]);
+
+      setDeeds(recentDeedsData);
+      setRecentInvoices(recentInvoicesData);
+      setOutgoingMails(recentMailsData);
+
+      return {
+        deedsCount: recentDeedsData.length,
+        recentInvoicesCount: recentInvoicesData.length,
+        mailsCount: recentMailsData.length
+      };
+    } catch (err) {
+      console.error("Gagal memuat data sekunder dashboard:", err);
+      return { deedsCount: 0, recentInvoicesCount: 0, mailsCount: 0 };
+    }
+  };
+
+  // Main project data fetcher for Dashboard widgets
   const fetchProjects = async () => {
     setLoadingStats(true);
     try {
-      const list = await ProjectService.listProjects();
-      if (list) {
-        setOfficeProjects(list);
+      let recentProjectsList: Project[] = [];
+
+      const [recentRes, secondaryCounts] = await Promise.all([
+        ProjectService.listRecentProjects(30),
+        fetchSecondaryWidgetData(),
+        fetchDashboardStats()
+      ]);
+
+      recentProjectsList = recentRes || [];
+      setOfficeProjects(recentProjectsList);
+
+      // Development instrumentation logging for read verification
+      if (process.env.NODE_ENV !== 'production') {
+        const recentReads = recentProjectsList.length;
+        const deedsReads = secondaryCounts.deedsCount;
+        const invoicesReads = secondaryCounts.recentInvoicesCount;
+        const mailsReads = secondaryCounts.mailsCount;
+        const totalReads = recentReads + deedsReads + invoicesReads + mailsReads;
+
+        console.log('📊 [Dashboard Firestore Read Instrumentation]');
+        console.log(` - Recent Projects: ${recentReads} docs`);
+        console.log(` - Deeds (Recent): ${deedsReads} docs`);
+        console.log(` - Recent Invoices: ${invoicesReads} docs`);
+        console.log(` - Outgoing Mails: ${mailsReads} docs`);
+        console.log(` 🚀 TOTAL DASHBOARD READS: ~${totalReads} docs`);
       }
     } catch (err) {
       console.error("Gagal memuat daftar proyek untuk statistik:", err);
@@ -125,70 +217,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
     fetchProjects();
   }, []);
 
-  // 1. Klien Aktif Count
-  const activeClientsCount = profiles.length;
+  // profileGrowthInfo is null as dashboard does not load full profiles collection
+  const profileGrowthInfo = null;
 
-  // Real client growth calculation (comparing created dates if present)
-  const profileGrowthInfo = useMemo(() => {
-    if (!profiles || profiles.length === 0) return null;
-    const now = new Date();
-    const thisMonthKey = `${now.getFullYear()}-${now.getMonth()}`;
-    const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const lastMonthKey = `${lastMonthDate.getFullYear()}-${lastMonthDate.getMonth()}`;
-    
-    let thisMonthCount = 0;
-    let lastMonthCount = 0;
-    let hasDates = false;
-
-    profiles.forEach(p => {
-      const dateVal = p.createdAt || p.created_at || p.tanggal;
-      if (dateVal) {
-        const d = new Date(dateVal);
-        if (!isNaN(d.getTime())) {
-          hasDates = true;
-          const key = `${d.getFullYear()}-${d.getMonth()}`;
-          if (key === thisMonthKey) thisMonthCount++;
-          if (key === lastMonthKey) lastMonthCount++;
-        }
-      }
-    });
-
-    if (!hasDates) return null;
-    const diff = thisMonthCount - lastMonthCount;
-    if (diff === 0) return null;
-
-    if (lastMonthCount < 5) {
-      const sign = diff > 0 ? '+' : '';
-      return {
-        text: `${sign}${diff} klien dari bulan lalu`,
-        isPositive: diff > 0
-      };
-    }
-
-    const pct = Math.round((diff / lastMonthCount) * 100);
-    if (pct > 200 || pct < -200) {
-      const sign = diff > 0 ? '+' : '';
-      return {
-        text: `${sign}${diff} klien dari bulan lalu`,
-        isPositive: diff > 0
-      };
-    }
-
-    return {
-      text: `${pct >= 0 ? `↑ ${pct}%` : `↓ ${Math.abs(pct)}%`} dari bulan lalu`,
-      isPositive: pct >= 0
-    };
-  }, [profiles]);
-
-  // 2. Proyek Berjalan Count
-  const runningProjectsCount = useMemo(() => {
-    if (officeProjects.length > 0) {
-      return officeProjects.filter(p => p.status !== 'Selesai' && p.status !== 'Selesai & Diserahkan').length;
-    }
-    return projects.length + rupstProjects.length + pendirianProjects.length;
-  }, [officeProjects, projects, rupstProjects, pendirianProjects]);
-
-  // Real project growth calculation
+  // projectGrowthInfo calculated from recent projects if available
   const projectGrowthInfo = useMemo(() => {
     if (!officeProjects || officeProjects.length === 0) return null;
     const now = new Date();
@@ -239,14 +271,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
     };
   }, [officeProjects]);
 
-  // 3. Dokumen Perlu Ditinjau Count (Filtered directly from projects in review/approval/proses stage)
-  const pendingDocsCount = useMemo(() => {
-    return officeProjects.filter(p => {
-      const s = (p.status || '').toLowerCase();
-      return s.includes('review') || s.includes('approval') || s.includes('proses');
-    }).length;
-  }, [officeProjects]);
-
   // 4. Ringkasan Hari Ini Stats
   const todayProjectsCount = useMemo(() => {
     const todayStr = new Date().toDateString();
@@ -254,10 +278,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
   }, [officeProjects]);
 
   const completedLaporanCount = useMemo(() => {
-    const completedProj = officeProjects.filter(p => p.status === 'Selesai' || p.status === 'Selesai & Diserahkan').length;
+    if (completedProjectsCount === null) return "—";
     const completedAct = compiledActivities.filter(a => a.status === 'Selesai').length;
-    return completedProj + completedAct;
-  }, [officeProjects, compiledActivities]);
+    return completedProjectsCount + completedAct;
+  }, [completedProjectsCount, compiledActivities]);
 
   const aktaBulanIniCount = useMemo(() => {
     const now = new Date();
@@ -268,10 +292,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
       return !isNaN(dt.getTime()) && dt.getMonth() === now.getMonth() && dt.getFullYear() === now.getFullYear();
     }).length;
   }, [deeds]);
-
-  const invoiceBelumDibayarCount = useMemo(() => {
-    return invoices.filter(inv => inv.status === 'UNPAID').length;
-  }, [invoices]);
 
   // 5. Monthly project creation trend chart data (Calculated from real officeProjects created dates)
   const monthlyChartData: DataPoint[] = useMemo(() => {
@@ -355,7 +375,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
       }
     });
 
-    invoices.forEach(inv => {
+    recentInvoices.forEach(inv => {
       const dateVal = inv.createdAt || inv.issueDate;
       if (dateVal) {
         const d = new Date(dateVal);
@@ -387,129 +407,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     });
 
     return items.sort((a, b) => b.timestamp - a.timestamp).slice(0, 6);
-  }, [officeProjects, deeds, invoices, outgoingMails]);
-
-  // PMPJ / SRA Data processing
-  const filteredProjectsForStats = useMemo(() => {
-    return officeProjects.filter(p => {
-      if (!p.createdAt) return true;
-      const createdTime = new Date(p.createdAt).getTime();
-      
-      if (startDate) {
-        const start = new Date(startDate).getTime();
-        if (createdTime < start) return false;
-      }
-      
-      if (endDate) {
-        const end = new Date(endDate);
-        end.setHours(23, 59, 59, 999);
-        if (createdTime > end.getTime()) return false;
-      }
-      
-      return true;
-    });
-  }, [officeProjects, startDate, endDate]);
-
-  const allParties = useMemo(() => {
-    const parties: Party[] = [];
-    filteredProjectsForStats.forEach(p => {
-      if (p.parties && Array.isArray(p.parties)) {
-        p.parties.forEach(party => {
-          parties.push(party);
-        });
-      }
-    });
-    return parties;
-  }, [filteredProjectsForStats]);
-
-  const totalParties = allParties.length;
-
-  const pekerjaanCounts = useMemo(() => {
-    const counts: Record<string, number> = {
-      'Pengusaha': 0,
-      'Pegawai Swasta': 0,
-      'PNS': 0,
-      'Profesional': 0,
-      'Pedagang': 0,
-      'Pengajar': 0,
-      'Petani': 0,
-      'Lainnya': 0
-    };
-    
-    allParties.forEach(p => {
-      if (!p.pekerjaan) {
-        counts['Lainnya']++;
-        return;
-      }
-      const job = p.pekerjaan.trim().toLowerCase();
-      if (job === 'pengusaha') {
-        counts['Pengusaha']++;
-      } else if (job.includes('swasta') || job.includes('karyawan')) {
-        counts['Pegawai Swasta']++;
-      } else if (job === 'pns' || job.includes('negeri') || job.includes('sipil')) {
-        counts['PNS']++;
-      } else if (job.includes('dokter') || job.includes('advokat') || job.includes('notaris') || job.includes('akuntan') || job.includes('profesional') || job.includes('spesialis') || job.includes('bidan')) {
-        counts['Profesional']++;
-      } else if (job.includes('pedagang') || job.includes('dagang')) {
-        counts['Pedagang']++;
-      } else if (job.includes('guru') || job.includes('dosen') || job.includes('pengajar')) {
-        counts['Pengajar']++;
-      } else if (job.includes('petani') || job.includes('tani')) {
-        counts['Petani']++;
-      } else {
-        counts['Lainnya']++;
-      }
-    });
-    
-    return Object.entries(counts)
-      .map(([name, value]) => ({ name, value }))
-      .sort((a, b) => b.value - a.value);
-  }, [allParties]);
-
-  const jabatanCounts = useMemo(() => {
-    const counts: Record<string, number> = {
-      'Direktur': 0,
-      'Komisaris': 0,
-      'Pemegang Saham': 0,
-      'Kuasa': 0,
-      'Lainnya': 0
-    };
-    
-    allParties.forEach(p => {
-      if (!p.jabatan) {
-        counts['Lainnya']++;
-        return;
-      }
-      const role = p.jabatan.trim().toLowerCase();
-      if (role.includes('direktur') || role.includes('director')) {
-        counts['Direktur']++;
-      } else if (role.includes('komisaris') || role.includes('commissioner')) {
-        counts['Komisaris']++;
-      } else if (role.includes('saham') || role.includes('shareholder')) {
-        counts['Pemegang Saham']++;
-      } else if (role.includes('kuasa') || role.includes('proxy')) {
-        counts['Kuasa']++;
-      } else {
-        counts['Lainnya']++;
-      }
-    });
-    
-    return Object.entries(counts)
-      .map(([name, value]) => ({ name, value }))
-      .sort((a, b) => b.value - a.value);
-  }, [allParties]);
-
-  const kewarganegaraanCounts = useMemo(() => {
-    const counts: Record<string, number> = {};
-    allParties.forEach(p => {
-      let warganegara = (p.kewarganegaraan || 'WNI').trim().toUpperCase();
-      if (warganegara === 'INDONESIA') warganegara = 'WNI';
-      counts[warganegara] = (counts[warganegara] || 0) + 1;
-    });
-    return Object.entries(counts)
-      .map(([name, value]) => ({ name, value }))
-      .sort((a, b) => b.value - a.value);
-  }, [allParties]);
+  }, [officeProjects, deeds, recentInvoices, outgoingMails]);
 
   const [isMobileNotifOpen, setIsMobileNotifOpen] = useState(false);
 
@@ -1168,174 +1066,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         </div>
       </div>
 
-      {/* 5. Collapsible Preserved PMPJ / SRA Analysis Section */}
-      <div className="bg-white border border-slate-200/80 rounded-xl p-6 shadow-xs space-y-5">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
-          <div className="space-y-1">
-            <h2 className="text-sm font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2 font-heading">
-              <Users className="w-4 h-4 text-blue-600" />
-              <span>Analisis &amp; Statistik PMPJ/SRA</span>
-            </h2>
-            <p className="text-xs text-slate-500">
-              Analisis profil, pekerjaan, jabatan, dan kewarganegaraan personil di seluruh PT yang terdaftar.
-            </p>
-          </div>
-
-          <div className="flex items-center gap-3">
-            {/* Date range filter */}
-            <div className="flex flex-wrap items-center gap-2 text-xs">
-              <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5">
-                <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                <input 
-                  type="date" 
-                  value={startDate} 
-                  onChange={(e) => setStartDate(e.target.value)}
-                  className="bg-transparent border-none outline-none text-slate-700 text-xs focus:ring-0 p-0"
-                  title="Tanggal Mulai"
-                />
-              </div>
-              <span className="text-slate-400 font-bold">s/d</span>
-              <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5">
-                <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                <input 
-                  type="date" 
-                  value={endDate} 
-                  onChange={(e) => setEndDate(e.target.value)}
-                  className="bg-transparent border-none outline-none text-slate-700 text-xs focus:ring-0 p-0"
-                  title="Tanggal Selesai"
-                />
-              </div>
-              {(startDate || endDate) && (
-                <button 
-                  onClick={() => { setStartDate(''); setEndDate(''); }}
-                  className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg font-bold transition-colors cursor-pointer"
-                >
-                  Reset
-                </button>
-              )}
-              <button 
-                onClick={fetchProjects}
-                className="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-50 border border-slate-200 rounded-lg transition-all cursor-pointer"
-                title="Refresh Data"
-              >
-                <RefreshCw className={`w-3.5 h-3.5 ${loadingStats ? 'animate-spin' : ''}`} />
-              </button>
-            </div>
-
-            <button
-              onClick={() => setShowPmpjStats(!showPmpjStats)}
-              className="p-2 text-slate-500 hover:bg-slate-100 rounded-lg border border-slate-200 transition-colors cursor-pointer"
-              title={showPmpjStats ? "Sembunyikan" : "Tampilkan"}
-            >
-              {showPmpjStats ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-            </button>
-          </div>
-        </div>
-
-        {showPmpjStats && (
-          <>
-            {loadingStats ? (
-              <div className="py-12 flex flex-col items-center justify-center gap-3 text-slate-400">
-                <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-                <span className="text-xs font-medium font-mono">Mengkalkulasi statistik personil...</span>
-              </div>
-            ) : totalParties === 0 ? (
-              <EmptyState
-                icon={<Users className="w-5 h-5 text-slate-400" />}
-                title="Belum ada data profil personil dalam periode ini"
-                description="Silakan tambahkan data direktur, komisaris, atau pemegang saham pada halaman detail proyek PT untuk mengaktifkan analisis otomatis."
-              />
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                
-                {/* Card 1: Pekerjaan */}
-                <div className="bg-slate-50/50 border border-slate-200/80 rounded-xl p-5 space-y-4">
-                  <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2 border-b border-slate-200/60 pb-2 font-heading">
-                    <Briefcase className="w-4 h-4 text-blue-600" />
-                    <span>Pekerjaan Orang Dalam PT</span>
-                  </h3>
-                  <div className="space-y-4">
-                    {pekerjaanCounts.map((item, idx) => (
-                      <div key={idx} className="space-y-1">
-                        <div className="flex items-end justify-between text-xs font-mono">
-                          <span className="font-bold text-slate-700 font-sans">{item.name}</span>
-                          <div className="flex-1 border-b border-dotted border-slate-300 mx-2 mb-1"></div>
-                          <span className="font-bold text-slate-900 bg-white px-2 py-0.5 border border-slate-200 rounded text-[11px] min-w-[2rem] text-center">
-                            {item.value}
-                          </span>
-                        </div>
-                        <div className="w-full h-1.5 bg-slate-200/60 rounded-full overflow-hidden">
-                          <div 
-                            className="h-full bg-blue-500 rounded-full transition-all duration-500" 
-                            style={{ width: `${Math.round((item.value / totalParties) * 100)}%` }}
-                          ></div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Card 2: Jabatan */}
-                <div className="bg-slate-50/50 border border-slate-200/80 rounded-xl p-5 space-y-4">
-                  <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2 border-b border-slate-200/60 pb-2 font-heading">
-                    <Award className="w-4 h-4 text-emerald-600" />
-                    <span>Statistik Jabatan</span>
-                  </h3>
-                  <div className="space-y-4">
-                    {jabatanCounts.map((item, idx) => (
-                      <div key={idx} className="space-y-1">
-                        <div className="flex items-end justify-between text-xs font-mono">
-                          <span className="font-bold text-slate-700 font-sans">{item.name}</span>
-                          <div className="flex-1 border-b border-dotted border-slate-300 mx-2 mb-1"></div>
-                          <span className="font-bold text-slate-900 bg-white px-2 py-0.5 border border-slate-200 rounded text-[11px] min-w-[2rem] text-center">
-                            {item.value}
-                          </span>
-                        </div>
-                        <div className="w-full h-1.5 bg-slate-200/60 rounded-full overflow-hidden">
-                          <div 
-                            className="h-full bg-emerald-500 rounded-full transition-all duration-500" 
-                            style={{ width: `${Math.round((item.value / totalParties) * 100)}%` }}
-                          ></div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Card 3: Kewarganegaraan */}
-                <div className="bg-slate-50/50 border border-slate-200/80 rounded-xl p-5 space-y-4">
-                  <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2 border-b border-slate-200/60 pb-2 font-heading">
-                    <Globe className="w-4 h-4 text-indigo-600" />
-                    <span>Kewarganegaraan Personil</span>
-                  </h3>
-                  <div className="space-y-4">
-                    {kewarganegaraanCounts.map((item, idx) => (
-                      <div key={idx} className="space-y-1">
-                        <div className="flex items-end justify-between text-xs font-mono">
-                          <span className="font-bold text-slate-700 font-sans">{item.name}</span>
-                          <div className="flex-1 border-b border-dotted border-slate-300 mx-2 mb-1"></div>
-                          <span className="font-bold text-slate-900 bg-white px-2 py-0.5 border border-slate-200 rounded text-[11px] min-w-[2rem] text-center">
-                            {item.value}
-                          </span>
-                        </div>
-                        <div className="w-full h-1.5 bg-slate-200/60 rounded-full overflow-hidden">
-                          <div 
-                            className="h-full bg-indigo-500 rounded-full transition-all duration-500" 
-                            style={{ width: `${Math.round((item.value / totalParties) * 100)}%` }}
-                          ></div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-              </div>
-            )}
-          </>
-        )}
-      </div>
-
-      {/* 6. Migration Tool for Super Admin */}
+      {/* 5. Migration Tool for Super Admin */}
       {currentUser?.role === 'Super Admin' && (
         <MigrationTool />
       )}

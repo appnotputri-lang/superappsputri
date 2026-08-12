@@ -216,7 +216,7 @@ export const PartiesManager: React.FC<PartiesManagerProps> = ({ parties = [], on
       <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 pb-3 gap-3">
         <h2 className="text-[14px] font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
           <Users className="w-4 h-4 text-blue-600" />
-          <span>Profil Personil PT (Pelaporan PMPJ / SRA)</span>
+          <span>Profil Personil PT</span>
         </h2>
         <div className="flex flex-wrap items-center gap-2">
           {onPullFromForm && (
@@ -449,7 +449,7 @@ export const PartiesManager: React.FC<PartiesManagerProps> = ({ parties = [], on
         <div className="text-center p-8 bg-slate-50 border border-dashed border-slate-200 rounded-xl">
           <Users className="w-8 h-8 text-slate-300 mx-auto mb-2" />
           <p className="text-xs font-medium text-slate-500">Belum ada profil personil yang ditambahkan.</p>
-          <p className="text-[10px] text-slate-400 mt-1">Tambahkan data Direktur, Komisaris, Pemegang Saham, dsb. untuk analisis SRA/PMPJ.</p>
+          <p className="text-[10px] text-slate-400 mt-1">Tambahkan data Direktur, Komisaris, Pemegang Saham, dsb.</p>
         </div>
       ) : (
         <div className="overflow-x-auto border border-slate-150 rounded-xl bg-slate-50/20">

@@ -13,6 +13,7 @@ import {
   query,
   where,
   orderBy,
+  limit,
   Timestamp,
   onSnapshot,
   deleteDoc
@@ -25,8 +26,41 @@ import { WorkflowService } from "./WorkflowService";
 import { AuthService } from "./AuthService";
 import { formatChangesSummary, FieldChange } from "../lib/diffUtils";
 
+export const COMPLETED_STATUS_LIST = [
+  'completed',
+  'selesai',
+  'SELESAI',
+  'Selesai',
+  'archived',
+  'Selesai & Diserahkan',
+  'selesai & diserahkan'
+];
+
+export const isProjectCompletedStatus = (status: string) => {
+  if (!status) return false;
+  const s = status.toLowerCase();
+  return (
+    s === 'completed' ||
+    s === 'archived' ||
+    s === 'selesai' ||
+    s === 'selesai & diserahkan' ||
+    s.includes('selesai')
+  );
+};
+
 export class ProjectService {
   private static projectsCol = "office_projects";
+  private static projectsCache: Project[] | null = null;
+  private static activeProjectsCache: Project[] | null = null;
+  private static minutaProjectsCache: Project[] | null = null;
+  private static completedProjectsCache: Project[] | null = null;
+
+  static clearCache(): void {
+    ProjectService.projectsCache = null;
+    ProjectService.activeProjectsCache = null;
+    ProjectService.minutaProjectsCache = null;
+    ProjectService.completedProjectsCache = null;
+  }
 
   /**
    * Helper to convert Firestore dates/timestamps to Date or standard ISO string format.
@@ -62,6 +96,7 @@ export class ProjectService {
 
       // Set document in Firestore
       await setDoc(docRef, cleanUndefined(newProject));
+      ProjectService.clearCache();
 
       // Automatically generate a "Project dibuat" timeline entry
       await this.addTimeline(projectId, {
@@ -161,6 +196,7 @@ export class ProjectService {
         updatedAt: now,
         lastTransitionComment: lastComment
       });
+      ProjectService.clearCache();
 
       // Generate a milestone timeline entry
       await this.addTimeline(projectId, {
@@ -691,10 +727,200 @@ export class ProjectService {
     );
   }
 
+  private static parseProjectDoc(docSnap: any): Project {
+    const project = { ...docSnap.data(), projectId: docSnap.id } as Project;
+    if (!project.projectCategory) {
+      if (project.jobType === 'rups_lb' || project.jobType === 'sirkuler_rupslb') {
+        project.projectCategory = 'MEETING';
+        project.projectType = 'RUPS-LB';
+      } else if (project.jobType === 'rups_t' || project.jobType === 'sirkuler') {
+        project.projectCategory = 'MEETING';
+        project.projectType = 'RUPST';
+      } else if (project.jobType === 'pendirian_pt') {
+        project.projectCategory = 'BODY_LEGAL';
+        project.projectType = 'Pendirian';
+      } else {
+        project.projectCategory = 'BODY_LEGAL';
+        project.projectType = 'Pendirian';
+      }
+    }
+    return project;
+  }
+
+  private static sortProjectsByDate(list: Project[]): Project[] {
+    const getDocTime = (val: any) => {
+      if (!val) return 0;
+      if (typeof val === 'object' && val.seconds !== undefined) {
+        return val.seconds * 1000 + Math.floor(val.nanoseconds / 1000000);
+      }
+      if (val instanceof Date) {
+        return val.getTime();
+      }
+      if (typeof val.toDate === 'function') {
+        return val.toDate().getTime();
+      }
+      const parsed = Date.parse(val);
+      return isNaN(parsed) ? 0 : parsed;
+    };
+
+    return list.sort((a, b) => {
+      const timeA = Math.max(getDocTime(a.updatedAt), getDocTime(a.createdAt));
+      const timeB = Math.max(getDocTime(b.updatedAt), getDocTime(b.createdAt));
+      return timeB - timeA;
+    });
+  }
+
   /**
-   * Retrieves all projects from Firestore with cache prioritization for fast rendering.
+   * Retrieves active projects only (WHERE status NOT IN completed statuses).
    */
-  static async listProjects(): Promise<Project[]> {
+  static async listActiveProjects(options?: { forceRefresh?: boolean }): Promise<Project[]> {
+    if (!options?.forceRefresh && ProjectService.activeProjectsCache && ProjectService.activeProjectsCache.length > 0) {
+      return ProjectService.activeProjectsCache;
+    }
+
+    const path = this.projectsCol;
+    try {
+      const colRef = collection(db, this.projectsCol);
+      const q = query(colRef, where('status', 'not-in', COMPLETED_STATUS_LIST));
+
+      let querySnap;
+      try {
+        querySnap = await getDocsFromCache(q);
+        if (!querySnap || querySnap.empty) {
+          if (options?.forceRefresh || !ProjectService.activeProjectsCache) {
+            querySnap = await getDocs(q);
+          }
+        }
+      } catch (cacheErr) {
+        querySnap = await getDocs(q);
+      }
+
+      if (!querySnap) {
+        return ProjectService.activeProjectsCache || [];
+      }
+
+      const list = querySnap.docs.map((docSnap) => this.parseProjectDoc(docSnap));
+      const sorted = this.sortProjectsByDate(list);
+
+      ProjectService.activeProjectsCache = sorted;
+      return sorted;
+    } catch (error) {
+      handleFirestoreError(error, OperationType.LIST, path);
+      return ProjectService.activeProjectsCache || [];
+    }
+  }
+
+  /**
+   * Retrieves N most recent projects ordered by createdAt desc.
+   */
+  static async listRecentProjects(limitCount = 80): Promise<Project[]> {
+    const path = this.projectsCol;
+    try {
+      const colRef = collection(db, this.projectsCol);
+      const q = query(colRef, orderBy('createdAt', 'desc'), limit(limitCount));
+      let snap;
+      try {
+        snap = await getDocs(q);
+      } catch (err) {
+        console.warn('[ProjectService] Error in listRecentProjects with orderBy, falling back:', err);
+        const fallbackQ = query(colRef, limit(limitCount));
+        snap = await getDocs(fallbackQ);
+      }
+      return snap.docs.map((docSnap) => this.parseProjectDoc(docSnap));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.LIST, path);
+      return [];
+    }
+  }
+
+  /**
+   * Retrieves finished projects (WHERE status IN completed statuses) and splits into Minuta & Selesai.
+   */
+  static async listMinutaAndCompletedProjects(options?: { forceRefresh?: boolean }): Promise<{ minuta: Project[]; completed: Project[] }> {
+    if (
+      !options?.forceRefresh &&
+      ProjectService.minutaProjectsCache !== null &&
+      ProjectService.completedProjectsCache !== null
+    ) {
+      return {
+        minuta: ProjectService.minutaProjectsCache,
+        completed: ProjectService.completedProjectsCache
+      };
+    }
+
+    const path = this.projectsCol;
+    try {
+      const colRef = collection(db, this.projectsCol);
+      const q = query(colRef, where('status', 'in', COMPLETED_STATUS_LIST));
+
+      let querySnap;
+      try {
+        querySnap = await getDocsFromCache(q);
+        if (!querySnap || querySnap.empty) {
+          querySnap = await getDocs(q);
+        }
+      } catch (cacheErr) {
+        querySnap = await getDocs(q);
+      }
+
+      if (!querySnap) {
+        return {
+          minuta: ProjectService.minutaProjectsCache || [],
+          completed: ProjectService.completedProjectsCache || []
+        };
+      }
+
+      const list = querySnap.docs.map((docSnap) => this.parseProjectDoc(docSnap));
+      const sorted = this.sortProjectsByDate(list);
+
+      const minuta: Project[] = [];
+      const completed: Project[] = [];
+
+      sorted.forEach((p) => {
+        if (p.metadata?.minutaCheckedAll === true) {
+          completed.push(p);
+        } else {
+          minuta.push(p);
+        }
+      });
+
+      ProjectService.minutaProjectsCache = minuta;
+      ProjectService.completedProjectsCache = completed;
+
+      return { minuta, completed };
+    } catch (error) {
+      handleFirestoreError(error, OperationType.LIST, path);
+      return {
+        minuta: ProjectService.minutaProjectsCache || [],
+        completed: ProjectService.completedProjectsCache || []
+      };
+    }
+  }
+
+  static async listMinutaProjects(options?: { forceRefresh?: boolean }): Promise<Project[]> {
+    if (!options?.forceRefresh && ProjectService.minutaProjectsCache !== null) {
+      return ProjectService.minutaProjectsCache;
+    }
+    const res = await this.listMinutaAndCompletedProjects(options);
+    return res.minuta;
+  }
+
+  static async listCompletedProjects(options?: { forceRefresh?: boolean }): Promise<Project[]> {
+    if (!options?.forceRefresh && ProjectService.completedProjectsCache !== null) {
+      return ProjectService.completedProjectsCache;
+    }
+    const res = await this.listMinutaAndCompletedProjects(options);
+    return res.completed;
+  }
+
+  /**
+   * Retrieves all projects from Firestore with multi-layer cache prioritization.
+   */
+  static async listProjects(options?: { forceRefresh?: boolean }): Promise<Project[]> {
+    if (!options?.forceRefresh && ProjectService.projectsCache && ProjectService.projectsCache.length > 0) {
+      return ProjectService.projectsCache;
+    }
+
     const path = this.projectsCol;
     try {
       const colRef = collection(db, this.projectsCol);
@@ -704,10 +930,16 @@ export class ProjectService {
       try {
         querySnap = await getDocsFromCache(q);
         if (!querySnap || querySnap.empty) {
-          querySnap = await getDocs(q);
+          if (options?.forceRefresh || !ProjectService.projectsCache) {
+            querySnap = await getDocs(q);
+          }
         }
       } catch (cacheErr) {
         querySnap = await getDocs(q);
+      }
+
+      if (!querySnap) {
+        return ProjectService.projectsCache || [];
       }
 
       const list = querySnap.docs.map((docSnap) => {
@@ -747,13 +979,17 @@ export class ProjectService {
         return isNaN(parsed) ? 0 : parsed;
       };
 
-      return list.sort((a, b) => {
+      const sorted = list.sort((a, b) => {
         const timeA = Math.max(getDocTime(a.updatedAt), getDocTime(a.createdAt));
         const timeB = Math.max(getDocTime(b.updatedAt), getDocTime(b.createdAt));
         return timeB - timeA;
       });
+
+      ProjectService.projectsCache = sorted;
+      return sorted;
     } catch (error) {
       handleFirestoreError(error, OperationType.LIST, path);
+      return ProjectService.projectsCache || [];
     }
   }
 
@@ -816,6 +1052,7 @@ export class ProjectService {
       } catch (e) {
         // ignore if already deleted
       }
+      ProjectService.clearCache();
 
       // 5. If driveFolderId exists, trash the Drive folder in Google Drive (non-blocking)
       if (driveFolderId) {

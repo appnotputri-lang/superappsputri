@@ -16,6 +16,7 @@ import { CompanyAvatar } from '../../../components/common/CompanyAvatar';
 import { CompanyListProps } from '../types/company.types';
 import { formatCompanyName } from '../../../lib/formatter';
 import { generateCompanyProfileSummaryPdf } from '../../../lib/generateCompanyProfileSummaryPdf';
+import { CompanyService } from '../../../services/CompanyService';
 
 const clientTypeBadgeStyles: Record<string, { bg: string; text: string; border: string; label: string }> = {
   PT: { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200/80', label: 'PT' },
@@ -31,9 +32,9 @@ const clientTypeBadgeStyles: Record<string, { bg: string; text: string; border: 
 };
 
 export const CompanyList: React.FC<CompanyListProps> = ({
-  profiles,
+  items = [],
   profileStartIndex,
-  paginatedProfileResults,
+  paginatedProfileResults = [],
   totalProfileItems,
   profileSortField,
   profileSortOrder,
@@ -121,7 +122,7 @@ export const CompanyList: React.FC<CompanyListProps> = ({
     return pages;
   };
 
-  if (profiles.length === 0) {
+  if (items.length === 0) {
     return (
       <div className="bg-white p-12 text-center rounded-2xl border border-dashed border-slate-300 text-slate-500 text-xs font-medium shadow-xs">
         Belum ada data klien. Klik <strong className="text-slate-800 font-bold">"TAMBAH KLIEN"</strong> untuk membuat.
@@ -201,7 +202,7 @@ export const CompanyList: React.FC<CompanyListProps> = ({
           <tbody className="divide-y divide-slate-100">
             {paginatedProfileResults.map((p, idx) => {
               const currentNo = profileStartIndex + idx + 1;
-              const city = p.domicile || p.newAddress?.city || '-';
+              const city = p.domicile || '-';
               const deedDate = p.establishmentDeedDate
                 ? new Date(p.establishmentDeedDate).toLocaleDateString('id-ID', {
                     day: 'numeric',
@@ -244,7 +245,7 @@ export const CompanyList: React.FC<CompanyListProps> = ({
                         </span>
                         {p.kbliItems.map((item) => (
                           <span
-                            key={item.id || item.code}
+                            key={item.code}
                             className="text-[9px] font-mono font-bold bg-slate-50 text-slate-600 px-1.5 py-0.5 rounded border border-slate-200 leading-none"
                             title={item.name}
                           >
@@ -343,10 +344,20 @@ export const CompanyList: React.FC<CompanyListProps> = ({
                           <span>Duplikat</span>
                         </button>
                         <button
-                          onClick={(e) => {
+                          onClick={async (e) => {
                             e.stopPropagation();
                             setOpenDropdownId(null);
-                            generateCompanyProfileSummaryPdf(p);
+                            try {
+                              const fullProfile = await CompanyService.getCompanyProfile(p.id);
+                              if (fullProfile) {
+                                generateCompanyProfileSummaryPdf(fullProfile);
+                              } else {
+                                alert('Gagal memuat profil lengkap klien.');
+                              }
+                            } catch (err) {
+                              console.error('Error generating PDF:', err);
+                              alert('Gagal membuat ringkasan PDF.');
+                            }
                           }}
                           className="w-full px-3.5 py-2 text-slate-700 hover:bg-slate-50 text-[11px] font-bold flex items-center gap-2 uppercase tracking-wide border-b border-slate-100 cursor-pointer"
                         >
@@ -406,7 +417,7 @@ export const CompanyList: React.FC<CompanyListProps> = ({
       {/* Mobile Card View */}
       <div className="block md:hidden space-y-3 pt-2">
         {paginatedProfileResults.map((p) => {
-          const city = p.domicile || p.newAddress?.city || '-';
+          const city = p.domicile || '-';
           const npwpText = p.npwp ? `NPWP ${p.npwp}` : 'NPWP -';
 
           return (

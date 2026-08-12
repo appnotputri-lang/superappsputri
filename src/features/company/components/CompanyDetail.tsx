@@ -198,8 +198,8 @@ export const CompanyDetail: React.FC<CompanyDetailProps> = ({
                   <tbody>
                     {(data.shareholders || [])
                       .filter((s: any) => (Number(s.sharesOwned) > 0) || Boolean(s.isManagement || (s.managementPosition && String(s.managementPosition).trim().length > 0)))
-                      .map((s: any) => (
-                        <tr key={s.id} className="border-b border-slate-200 last:border-0 hover:bg-slate-50 transition-colors text-[10px]">
+                      .map((s: any, sIdx: number) => (
+                        <tr key={s.id || `${s.name}-${sIdx}`} className="border-b border-slate-200 last:border-0 hover:bg-slate-50 transition-colors text-[10px]">
                           <td className="p-2 border-r border-slate-200 font-bold uppercase">{s.name}</td>
                           <td className="p-2 border-r border-slate-200">Tanpa Klasifikasi</td>
                           <td className="p-2 border-r border-slate-200">{formatInputNumber(s.sharesOwned)}</td>
@@ -644,7 +644,7 @@ export const CompanyDetail: React.FC<CompanyDetailProps> = ({
                       </thead>
                       <tbody className="divide-y divide-slate-100">
                         {(data.kbliItems || []).map((item: any, idx: number) => (
-                          <tr key={item.id} className="hover:bg-slate-50/40">
+                          <tr key={item.code || item.id || idx} className="hover:bg-slate-50/40">
                             <td className="px-4 py-3 text-center border-r border-slate-100 text-slate-500 font-bold align-top">{idx + 1}</td>
                             <td className="px-4 py-3 text-center border-r border-slate-100 font-mono text-slate-800 font-semibold align-top">{item.code}</td>
                             <td className="px-4 py-3 border-r border-slate-100 font-bold text-slate-800 align-top uppercase leading-tight">{item.name}</td>

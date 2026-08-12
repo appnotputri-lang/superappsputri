@@ -1,5 +1,7 @@
 import { CompanyProfile } from '../../../../types';
 
+import { ClientDirectoryEntry } from '../../../services/CompanyService';
+
 export interface CompanyHeaderProps {
   editingProfileId: string | null;
   setEditingProfileId: (id: string | null) => void;
@@ -12,7 +14,7 @@ export interface CompanyHeaderProps {
 }
 
 export interface CompanyToolbarProps {
-  profiles: CompanyProfile[];
+  items: ClientDirectoryEntry[];
   showArchivedProfiles: boolean;
   setShowArchivedProfiles: (val: boolean) => void;
   setProfileCurrentPage: (page: number) => void;
@@ -27,9 +29,9 @@ export interface CompanyToolbarProps {
 }
 
 export interface CompanyListProps {
-  profiles: CompanyProfile[];
+  items: ClientDirectoryEntry[];
   profileStartIndex: number;
-  paginatedProfileResults: CompanyProfile[];
+  paginatedProfileResults: ClientDirectoryEntry[];
   totalProfileItems: number;
   profileSortField: string;
   profileSortOrder: 'asc' | 'desc';
@@ -41,8 +43,8 @@ export interface CompanyListProps {
   setIsProfilePreview: (val: boolean) => void;
   updateData: (updates: any) => void;
   INITIAL_STATE: any;
-  handleDuplicateProfile: (profile: CompanyProfile) => void;
-  handleArchiveProfile: (profile: CompanyProfile) => void;
+  handleDuplicateProfile: (entry: ClientDirectoryEntry) => void;
+  handleArchiveProfile: (entry: ClientDirectoryEntry) => void;
   profileCurrentPage: number;
   setProfileCurrentPage: (page: number) => void;
   totalProfilePages: number;

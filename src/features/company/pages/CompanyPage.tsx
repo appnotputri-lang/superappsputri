@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { PageContainer } from '../../../components/ui/PageLayout';
 import { useLocation, useOutletContext } from 'react-router-dom';
 import { 
@@ -20,6 +20,7 @@ import { useCompanyContext } from '../../../hooks/useCompanyContext';
 import { useAuth } from '../../../hooks/useAuth';
 import { getApiUrl } from '../../../lib/api';
 import { handleFirestoreError, OperationType } from '../../../lib/firebase';
+import { CompanyService, ClientDirectoryEntry } from '../../../services/CompanyService';
 import { NotificationService } from '../../../services/NotificationService';
 import { ShareholderModal } from '../../../components/modals/ShareholderModal';
 import { KbliModal } from '../../../components/modals/KbliModal';
@@ -39,8 +40,8 @@ export const CompanyPage: React.FC<CompanyPageProps> = ({ setIsSidebarOpen, ...p
   // 1. Context & Auth Hooks
   const { user, userProfile } = useAuth();
   const { 
-    profiles: ptProfiles, 
-    cvProfiles, 
+    fetchDirectoryPage,
+    getProfile,
     save: saveCompanyInContext, 
     delete: deleteCompanyInContext, 
     archive: archiveCompanyInContext, 
@@ -49,10 +50,6 @@ export const CompanyPage: React.FC<CompanyPageProps> = ({ setIsSidebarOpen, ...p
     loading: isDataLoading,
   } = useCompanyContext();
 
-  const currentProfilesList = useMemo(() => {
-    return [...ptProfiles, ...cvProfiles];
-  }, [ptProfiles, cvProfiles]);
-
   // 2. Local State Management for Listing & View State
   const [selectedClientType, setSelectedClientType] = useState<string>('all');
   const [editingProfileId, setEditingProfileId] = useState<string | null>(null);
@@ -60,11 +57,46 @@ export const CompanyPage: React.FC<CompanyPageProps> = ({ setIsSidebarOpen, ...p
   const [showArchivedProfiles, setShowArchivedProfiles] = useState<boolean>(false);
   const [profileCurrentPage, setProfileCurrentPage] = useState<number>(1);
   const [profileSearchQuery, setProfileSearchQuery] = useState<string>('');
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState<string>('');
   const [selectedProfileYear, setSelectedProfileYear] = useState<string>('all');
   const [profileSortField, setProfileSortField] = useState<string>('companyName');
   const [profileSortOrder, setProfileSortOrder] = useState<'asc' | 'desc'>('asc');
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
   const [profileItemsPerPage, setProfileItemsPerPage] = useState<number>(10);
+
+  // Paginated directory state
+  const [pageDirectoryEntries, setPageDirectoryEntries] = useState<ClientDirectoryEntry[]>([]);
+  const pageCursorsRef = useRef<Map<string, Map<number, any>>>(new Map());
+  const [hasMorePageResults, setHasMorePageResults] = useState<boolean>(false);
+  const [isDirectoryLoading, setIsDirectoryLoading] = useState<boolean>(false);
+
+  // Merge modal profiles on-demand state
+  const [mergeProfiles, setMergeProfiles] = useState<ClientDirectoryEntry[]>([]);
+  const [isMergeProfilesLoading, setIsMergeProfilesLoading] = useState<boolean>(false);
+
+  // 5. State for Merge Clients Modal
+  const [isMergeModalOpen, setIsMergeModalOpen] = useState<boolean>(false);
+
+  // Load merge profiles on demand when the modal opens
+  useEffect(() => {
+    if (!isMergeModalOpen) return;
+    let isSubscribed = true;
+    const fetchAllForMerge = async () => {
+      setIsMergeProfilesLoading(true);
+      try {
+        const allEntries = await CompanyService.getClientDirectory({ clientType: isCv ? 'CV' : 'all' });
+        if (isSubscribed) {
+          setMergeProfiles(allEntries);
+        }
+      } catch (err) {
+        console.error('Error fetching profiles for merge:', err);
+      } finally {
+        if (isSubscribed) setIsMergeProfilesLoading(false);
+      }
+    };
+    fetchAllForMerge();
+    return () => { isSubscribed = false; };
+  }, [isMergeModalOpen, isCv]);
 
   // Mobile Filter Sheet & Mobile Sort Dropdown State
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState<boolean>(false);
@@ -86,9 +118,6 @@ export const CompanyPage: React.FC<CompanyPageProps> = ({ setIsSidebarOpen, ...p
   const [editMode, setEditMode] = useState<'lama' | 'baru' | 'pengganti' | 'pengganti_saham' | null>(null);
   const [editingShareholder, setEditingShareholder] = useState<any>(null);
   const [editingDismissalId, setEditingDismissalId] = useState<string | null>(null);
-
-  // 5. State for Merge Clients Modal
-  const [isMergeModalOpen, setIsMergeModalOpen] = useState<boolean>(false);
 
   const handleMergeCompanies = async (targetId: string, sourceIds: string[]) => {
     try {
@@ -135,11 +164,25 @@ export const CompanyPage: React.FC<CompanyPageProps> = ({ setIsSidebarOpen, ...p
   const [kbliCurrentPage, setKbliCurrentPage] = useState<number>(1);
   const [kbliCheckedKblis, setKbliCheckedKblis] = useState<string[]>([]);
 
-  // Update form data state when editingProfileId changes
+  const [isProfileLoading, setIsProfileLoading] = useState<boolean>(false);
+
+  // Refs to synchronize state across effects without causing re-runs
+  const pageDirectoryEntriesRef = useRef<ClientDirectoryEntry[]>([]);
   useEffect(() => {
+    pageDirectoryEntriesRef.current = pageDirectoryEntries;
+  }, [pageDirectoryEntries]);
+
+  const selectedClientTypeRef = useRef<string>('all');
+  useEffect(() => {
+    selectedClientTypeRef.current = selectedClientType;
+  }, [selectedClientType]);
+
+  // Update form data state when editingProfileId changes (fetches full profile on-demand)
+  useEffect(() => {
+    let active = true;
     if (editingProfileId) {
       if (editingProfileId === 'new') {
-        const defaultType = selectedClientType !== 'all' ? selectedClientType : 'PT';
+        const defaultType = selectedClientTypeRef.current !== 'all' ? selectedClientTypeRef.current : 'PT';
         setData({ 
           ...INITIAL_STATE, 
           id: crypto.randomUUID(),
@@ -147,20 +190,117 @@ export const CompanyPage: React.FC<CompanyPageProps> = ({ setIsSidebarOpen, ...p
           companyType: defaultType === 'CV' ? 'CV' : 'PT_LOKAL' 
         });
       } else {
-        const found = currentProfilesList.find(p => p.id === editingProfileId);
-        if (found) {
-          setData({ ...INITIAL_STATE, ...found });
-        }
+        setIsProfileLoading(true);
+        getProfile(editingProfileId).then(fullProfile => {
+          if (!active) return;
+          if (fullProfile) {
+            setData({ ...INITIAL_STATE, ...fullProfile });
+          } else {
+            const found = pageDirectoryEntriesRef.current.find(p => p.id === editingProfileId || p.clientId === editingProfileId);
+            if (found) setData({ ...INITIAL_STATE, ...found });
+          }
+          setIsProfileLoading(false);
+        }).catch(err => {
+          console.warn('[CompanyPage] Error loading full profile:', err);
+          if (active) setIsProfileLoading(false);
+        });
       }
     } else {
       setData({ ...INITIAL_STATE });
     }
-  }, [editingProfileId, currentProfilesList, selectedClientType]);
+    return () => { active = false; };
+  }, [editingProfileId, getProfile]);
 
-  // Reset pagination when searching/filtering
+  // Debounce search query
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(profileSearchQuery);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [profileSearchQuery]);
+
+  // Reset pagination when search/filter/sort/page size options change
   useEffect(() => {
     setProfileCurrentPage(1);
-  }, [profileSearchQuery, selectedProfileYear, showArchivedProfiles]);
+  }, [
+    debouncedSearchQuery, 
+    selectedClientType, 
+    showArchivedProfiles, 
+    selectedProfileYear,
+    profileSortField,
+    profileSortOrder,
+    profileItemsPerPage
+  ]);
+
+  // Server-side paginated query fetch for Client Menu
+  useEffect(() => {
+    let isSubscribed = true;
+    const queryKey = `${selectedClientType}_${showArchivedProfiles ? 'archived' : 'active'}_${debouncedSearchQuery}_${selectedProfileYear}_${profileSortField}_${profileSortOrder}_${profileItemsPerPage}`;
+    const currentQueryCursors = pageCursorsRef.current.get(queryKey) || new Map();
+    const prevCursor = profileCurrentPage > 1 ? currentQueryCursors.get(profileCurrentPage - 1) : null;
+
+    if (profileCurrentPage > 1 && !prevCursor) {
+      // Avoid executing query with stale page state while waiting for page reset
+      return;
+    }
+
+    const loadPage = async () => {
+      setIsDirectoryLoading(true);
+      try {
+        const res = await fetchDirectoryPage({
+          clientType: selectedClientType,
+          showArchived: showArchivedProfiles,
+          searchQuery: debouncedSearchQuery,
+          establishmentYear: selectedProfileYear,
+          sortField: profileSortField,
+          sortOrder: profileSortOrder,
+          pageSize: profileItemsPerPage,
+          lastDoc: prevCursor,
+          page: profileCurrentPage
+        });
+
+        if (!isSubscribed) return;
+
+        setPageDirectoryEntries(res.items);
+        setHasMorePageResults(res.hasMore);
+
+        if (res.lastDoc) {
+          const currentCursors = pageCursorsRef.current.get(queryKey) || new Map();
+          currentCursors.set(profileCurrentPage, res.lastDoc);
+          pageCursorsRef.current.set(queryKey, currentCursors);
+        }
+
+        // Instrumentation log
+        console.log(
+          `[ClientList]\n` +
+          `page: ${profileCurrentPage}\n` +
+          `pageSize: ${profileItemsPerPage}\n` +
+          `documents: ${res.items.length}\n` +
+          `cache: ${res.fromCache ? 'HIT' : 'MISS'}\n` +
+          `network: ${res.fromCache ? 'NO' : 'YES'}\n` +
+          `profileReads: 0\n` +
+          `writes: 0`
+        );
+      } catch (err) {
+        console.warn('[CompanyPage] Error fetching directory page:', err);
+      } finally {
+        if (isSubscribed) setIsDirectoryLoading(false);
+      }
+    };
+
+    loadPage();
+    return () => { isSubscribed = false; };
+  }, [
+    fetchDirectoryPage,
+    selectedClientType,
+    showArchivedProfiles,
+    debouncedSearchQuery,
+    selectedProfileYear,
+    profileSortField,
+    profileSortOrder,
+    profileCurrentPage,
+    profileItemsPerPage
+  ]);
 
   // Notification Helper
   const recordNotification = async (title: string, description: string, type: string) => {
@@ -551,7 +691,7 @@ export const CompanyPage: React.FC<CompanyPageProps> = ({ setIsSidebarOpen, ...p
       alert('Hanya Super Admin yang dapat menghapus data klien!');
       return null;
     }
-    const targetProfile = currentProfilesList.find(p => p.id === id);
+    const targetProfile = pageDirectoryEntries.find(p => p.id === id || p.clientId === id);
     const clientName = targetProfile?.companyName ? formatCompanyName(targetProfile.companyName, targetProfile.clientType) : id;
     if (confirm(`Apakah Anda yakin ingin menghapus profil "${clientName}", SELURUH PROYEK TERKAIT, DATA FIRESTORE, dan FOLDER GOOGLE DRIVE miliknya secara permanen?`)) {
       try {
@@ -571,7 +711,7 @@ export const CompanyPage: React.FC<CompanyPageProps> = ({ setIsSidebarOpen, ...p
     return null;
   };
 
-  const handleArchiveProfile = async (profile: CompanyProfile) => {
+  const handleArchiveProfile = async (profile: any) => {
     const toggleArchive = !profile.isArchived;
     try {
       await archiveCompanyInContext(profile.id, profile.isArchived || false, isCv);
@@ -586,9 +726,9 @@ export const CompanyPage: React.FC<CompanyPageProps> = ({ setIsSidebarOpen, ...p
     }
   };
 
-  const handleDuplicateProfile = async (profile: CompanyProfile) => {
+  const handleDuplicateProfile = async (profile: any) => {
     try {
-      const newProfile = await duplicateCompanyInContext(profile, isCv);
+      const newProfile = await duplicateCompanyInContext(profile as any, isCv);
       recordNotification(
         'Profil Diduplikasi', 
         `Profil ${profile.companyName} berhasil diduplikasi.`, 
@@ -619,82 +759,22 @@ export const CompanyPage: React.FC<CompanyPageProps> = ({ setIsSidebarOpen, ...p
     setData({ ...INITIAL_STATE });
   }, []);
 
-  // 9. Filtering and Sorting List Data
-  let filteredProfileResults = currentProfilesList.filter((p) => {
-    if (showArchivedProfiles) {
-      return !!p.isArchived;
-    } else {
-      return !p.isArchived;
-    }
-  });
+  // 9. Filtering and Sorting List Data from Paginated Directory Entries
+  const uniqueProfileYears = useMemo(() => {
+    return Array.from(
+      new Set(
+        pageDirectoryEntries
+          .map((p) => (p.establishmentDeedDate ? new Date(p.establishmentDeedDate).getFullYear().toString() : ''))
+          .filter(Boolean)
+      )
+    ).sort((a, b) => Number(b) - Number(a));
+  }, [pageDirectoryEntries]);
 
-  if (selectedClientType !== 'all') {
-    filteredProfileResults = filteredProfileResults.filter((p) => {
-      return (p.clientType || 'PT') === selectedClientType;
-    });
-  }
-
-  filteredProfileResults = filteredProfileResults.filter((p) => {
-    if (!profileSearchQuery) return true;
-    const q = profileSearchQuery.toLowerCase();
-    const formattedName = formatCompanyName(p.companyName, p.clientType).toLowerCase();
-    return (
-      (p.companyName || '').toLowerCase().includes(q) ||
-      formattedName.includes(q) ||
-      (p.domicile || '').toLowerCase().includes(q) ||
-      (p.newAddress?.city || '').toLowerCase().includes(q)
-    );
-  });
-
-  if (selectedProfileYear !== 'all') {
-    filteredProfileResults = filteredProfileResults.filter((p) => {
-      const year = p.establishmentDeedDate
-        ? new Date(p.establishmentDeedDate).getFullYear().toString()
-        : '';
-      return year === selectedProfileYear;
-    });
-  }
-
-  const uniqueProfileYears = Array.from(
-    new Set(
-      currentProfilesList
-        .map((p) => (p.establishmentDeedDate ? new Date(p.establishmentDeedDate).getFullYear().toString() : ''))
-        .filter(Boolean)
-    )
-  ).sort((a, b) => Number(b) - Number(a));
-
-  const sortedProfileResults = [...filteredProfileResults].sort((a, b) => {
-    let valA = '';
-    let valB = '';
-
-    if (profileSortField === 'companyName') {
-      valA = a.companyName || '';
-      valB = b.companyName || '';
-    } else if (profileSortField === 'domicile') {
-      valA = a.domicile || a.newAddress?.city || '';
-      valB = b.domicile || b.newAddress?.city || '';
-    } else if (profileSortField === 'establishmentDeedDate') {
-      valA = a.establishmentDeedDate || '';
-      valB = b.establishmentDeedDate || '';
-    } else if (profileSortField === 'updatedAt') {
-      valA = a.updatedAt || a.establishmentDeedDate || '';
-      valB = b.updatedAt || b.establishmentDeedDate || '';
-    }
-
-    if (valA < valB) return profileSortOrder === 'asc' ? -1 : 1;
-    if (valA > valB) return profileSortOrder === 'asc' ? 1 : -1;
-    return 0;
-  });
-
-  const totalProfileItems = sortedProfileResults.length;
-  const totalProfilePages = Math.ceil(totalProfileItems / profileItemsPerPage) || 1;
-
-  const safeProfileCurrentPage = Math.min(profileCurrentPage, totalProfilePages);
-  const profileStartIndex = (safeProfileCurrentPage - 1) * profileItemsPerPage;
-  const paginatedProfileResults = sortedProfileResults.slice(
-    profileStartIndex,
-    profileStartIndex + profileItemsPerPage
-  );
+  const paginatedProfileResults = pageDirectoryEntries;
+  const totalProfilePages = hasMorePageResults ? Math.max(profileCurrentPage + 1, 1) : Math.max(profileCurrentPage, 1);
+  const totalProfileItems = hasMorePageResults ? (profileCurrentPage * profileItemsPerPage) + 1 : ((profileCurrentPage - 1) * profileItemsPerPage) + paginatedProfileResults.length;
+  const safeProfileCurrentPage = profileCurrentPage;
+  const profileStartIndex = (profileCurrentPage - 1) * profileItemsPerPage;
 
   const handleProfileSort = (field: string) => {
     if (profileSortField === field) {
@@ -769,7 +849,7 @@ export const CompanyPage: React.FC<CompanyPageProps> = ({ setIsSidebarOpen, ...p
               <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
-                placeholder="Cari nama klien atau NPWP..."
+                placeholder="Cari nama klien..."
                 value={profileSearchQuery}
                 onChange={(e) => {
                   setProfileSearchQuery(e.target.value);
@@ -897,7 +977,7 @@ export const CompanyPage: React.FC<CompanyPageProps> = ({ setIsSidebarOpen, ...p
                       : 'text-slate-500'
                   }`}
                 >
-                  Arsip ({currentProfilesList.filter(p => p.isArchived).length})
+                  Arsip
                 </button>
               </div>
             </div>
@@ -1002,7 +1082,7 @@ export const CompanyPage: React.FC<CompanyPageProps> = ({ setIsSidebarOpen, ...p
           {/* DESKTOP TOOLBAR (HIDDEN ON MOBILE) */}
           <div className="hidden md:block">
             <CompanyToolbar
-              profiles={currentProfilesList}
+              items={pageDirectoryEntries}
               showArchivedProfiles={showArchivedProfiles}
               setShowArchivedProfiles={setShowArchivedProfiles}
               setProfileCurrentPage={setProfileCurrentPage}
@@ -1018,7 +1098,7 @@ export const CompanyPage: React.FC<CompanyPageProps> = ({ setIsSidebarOpen, ...p
           </div>
 
           <CompanyList
-            profiles={currentProfilesList}
+            items={pageDirectoryEntries}
             profileStartIndex={profileStartIndex}
             paginatedProfileResults={paginatedProfileResults}
             totalProfileItems={totalProfileItems}
@@ -1046,6 +1126,11 @@ export const CompanyPage: React.FC<CompanyPageProps> = ({ setIsSidebarOpen, ...p
             }}
           />
         </>
+      ) : isProfileLoading ? (
+        <div className="flex flex-col items-center justify-center min-h-[300px] bg-white rounded-2xl p-8 border border-slate-200 shadow-sm">
+          <div className="w-8 h-8 border-3 border-blue-600 border-t-transparent rounded-full animate-spin mb-3"></div>
+          <p className="text-xs font-semibold text-slate-600">Memuat Data Lengkap Profile Klien...</p>
+        </div>
       ) : isProfilePreview ? (
         <CompanyDetail
           data={data}
@@ -1115,7 +1200,7 @@ export const CompanyPage: React.FC<CompanyPageProps> = ({ setIsSidebarOpen, ...p
       <MergeClientsModal
         isOpen={isMergeModalOpen}
         onClose={() => setIsMergeModalOpen(false)}
-        profiles={currentProfilesList}
+        profiles={mergeProfiles as any[]}
         onMerge={handleMergeCompanies}
         onMergeMultiple={handleMergeMultipleCompanies}
       />

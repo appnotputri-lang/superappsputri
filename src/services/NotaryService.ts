@@ -1,10 +1,27 @@
 import { FirestoreService } from './FirestoreService';
 import { Deed, PrivateDeed, ProtestCheque, OutgoingMail, IncomingMail } from '../../types';
+import { db } from '../lib/firebase';
+import { collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
 
 export class NotaryService extends FirestoreService {
   // --- DEEDS (AKTA) ---
   static subscribeDeeds(onNext: (data: Deed[]) => void): () => void {
     return this.listenToCollection<Deed>('deeds', onNext);
+  }
+
+  static async getRecentDeeds(limitCount = 30): Promise<Deed[]> {
+    try {
+      const colRef = collection(db, 'deeds');
+      const q = query(colRef, orderBy('createdAt', 'desc'), limit(limitCount));
+      const snap = await getDocs(q);
+      return snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Deed));
+    } catch (err) {
+      console.warn('[NotaryService] Error fetching recent deeds with orderBy, falling back:', err);
+      const colRef = collection(db, 'deeds');
+      const q = query(colRef, limit(limitCount));
+      const snap = await getDocs(q);
+      return snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Deed));
+    }
   }
 
   static async addDeed(data: Omit<Deed, 'id'>): Promise<string> {
@@ -89,6 +106,21 @@ export class NotaryService extends FirestoreService {
   // --- OUTGOING MAILS ---
   static subscribeOutgoingMails(onNext: (data: OutgoingMail[]) => void): () => void {
     return this.listenToCollection<OutgoingMail>('outgoing_mails', onNext);
+  }
+
+  static async getRecentOutgoingMails(limitCount = 10): Promise<OutgoingMail[]> {
+    try {
+      const colRef = collection(db, 'outgoing_mails');
+      const q = query(colRef, orderBy('createdAt', 'desc'), limit(limitCount));
+      const snap = await getDocs(q);
+      return snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as OutgoingMail));
+    } catch (err) {
+      console.warn('[NotaryService] Error fetching recent outgoing mails with orderBy, falling back:', err);
+      const colRef = collection(db, 'outgoing_mails');
+      const q = query(colRef, limit(limitCount));
+      const snap = await getDocs(q);
+      return snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as OutgoingMail));
+    }
   }
 
   static async addOutgoingMail(data: Omit<OutgoingMail, 'id'>): Promise<string> {

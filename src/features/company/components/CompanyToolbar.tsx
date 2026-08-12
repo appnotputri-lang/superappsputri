@@ -32,7 +32,7 @@ const CLIENT_TYPE_CATEGORIES = [
 ];
 
 export const CompanyToolbar: React.FC<CompanyToolbarProps> = ({
-  profiles,
+  items = [],
   showArchivedProfiles,
   setShowArchivedProfiles,
   setProfileCurrentPage,
@@ -50,9 +50,7 @@ export const CompanyToolbar: React.FC<CompanyToolbarProps> = ({
     setProfileCurrentPage(1);
   };
 
-  const archivedCount = profiles.filter((p) => p.isArchived).length;
-
-  if (profiles.length === 0) return null;
+  const archivedCount = (items || []).filter((p) => p.isArchived).length;
 
   return (
     <div className="bg-white p-4 sm:p-4.5 rounded-xl shadow-xs border border-slate-200/80 space-y-3.5">
@@ -122,7 +120,7 @@ export const CompanyToolbar: React.FC<CompanyToolbarProps> = ({
             <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
-              placeholder="Cari berdasarkan nama PT, kedudukan, atau ID..."
+              placeholder="Cari nama klien..."
               value={profileSearchQuery}
               onChange={(e) => handleSearchChange(e.target.value)}
               className="w-full pl-8.5 pr-7 py-1.5 border border-slate-200/80 rounded-lg text-xs outline-none focus:border-[#1890ff] focus:ring-2 focus:ring-blue-50 bg-slate-50/50 focus:bg-white text-slate-800 placeholder-slate-400 transition-all"

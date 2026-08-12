@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { Database, Upload } from 'lucide-react';
+import { Database, Upload, Users } from 'lucide-react';
 import { PageContainer, PageHeader } from '../../components/ui/PageLayout';
 import { db } from '../../lib/firebase';
 import { collection, getDocs, doc, writeBatch } from 'firebase/firestore';
 import { generateShortPublicToken } from '../../services/QuotationService';
+import { CompanyService } from '../../services/CompanyService';
 
 export default function MigrationTool() {
   const [logs, setLogs] = useState<string[]>([]);
@@ -13,6 +14,30 @@ export default function MigrationTool() {
   const addLog = (msg: string) => {
     setLogs(prev => [...prev, msg]);
     console.log(msg);
+  };
+
+  const handleClientDirectoryMigration = async (isDryRun: boolean) => {
+    setLoading(true);
+    setLogs([]);
+    try {
+      await CompanyService.runClientDirectoryMigration(isDryRun, addLog);
+    } catch (err: any) {
+      addLog(`ERROR: ${err.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleBackfillSearchTokens = async (isDryRun: boolean) => {
+    setLoading(true);
+    setLogs([]);
+    try {
+      await CompanyService.backfillSearchTokens(isDryRun, addLog);
+    } catch (err: any) {
+      addLog(`ERROR: ${err.message}`);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const runMigration = async (isDryRun: boolean) => {
@@ -896,6 +921,65 @@ export default function MigrationTool() {
         
         <div className="bg-slate-900 text-green-400 p-4 rounded-lg font-mono text-sm h-96 overflow-y-auto whitespace-pre-wrap border border-slate-800">
           {logs.length === 0 ? "Click 'Run Dry Run' to preview changes..." : logs.join('\n')}
+        </div>
+      </div>
+
+      <div className="bg-white p-6 rounded-xl border border-slate-200/80 shadow-sm space-y-6 mt-6">
+        <div>
+          <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+            <Users className="w-4 h-4 text-blue-600" />
+            Sinkronisasi Client Directory (Optimasi Menu Klien)
+          </h3>
+          <p className="text-xs text-slate-500 mt-1">
+            Membangun/memperbarui koleksi ringan <code>client_directory</code> dari data master <code>profiles</code>.
+            Ini memastikan Menu Klien membaca daftar ringan tanpa melakukan read pada seluruh dokumen profile lengkap.
+          </p>
+        </div>
+        <div className="flex gap-4">
+          <button
+            onClick={() => handleClientDirectoryMigration(true)}
+            disabled={loading}
+            className="px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50 text-xs font-bold transition-all cursor-pointer"
+          >
+            Run Dry Run (Client Directory)
+          </button>
+          <button
+            onClick={() => handleClientDirectoryMigration(false)}
+            disabled={loading}
+            className="px-4 py-2 bg-[#0c2444] text-white rounded-lg hover:bg-[#16365f] text-xs font-bold transition-all cursor-pointer"
+          >
+            Execute Migration (Client Directory)
+          </button>
+        </div>
+      </div>
+
+      <div className="bg-white p-6 rounded-xl border border-slate-200/80 shadow-sm space-y-6 mt-6">
+        <div>
+          <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+            <Users className="w-4 h-4 text-emerald-600" />
+            Backfill Search Tokens (Optimasi Pencarian Kata Nama Klien)
+          </h3>
+          <p className="text-xs text-slate-500 mt-1">
+            Mengisi kembali field <code>searchTokens</code> pada seluruh dokumen <code>client_directory</code> yang sudah ada
+            agar pencarian kata di dalam nama (misal mencari "BETA" untuk menemukan "PT BETA INDONESIA") berfungsi untuk seluruh klien lama.
+            Proses ini 100% aman, idempotent, dan hanya mengubah dokumen yang memang belum memiliki token yang sesuai.
+          </p>
+        </div>
+        <div className="flex gap-4">
+          <button
+            onClick={() => handleBackfillSearchTokens(true)}
+            disabled={loading}
+            className="px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50 text-xs font-bold transition-all cursor-pointer"
+          >
+            Run Dry Run (Backfill Search Tokens)
+          </button>
+          <button
+            onClick={() => handleBackfillSearchTokens(false)}
+            disabled={loading}
+            className="px-4 py-2 bg-[#059669] text-white rounded-lg hover:bg-[#047857] text-xs font-bold transition-all cursor-pointer"
+          >
+            Execute Backfill (Live)
+          </button>
         </div>
       </div>
 

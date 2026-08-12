@@ -3885,7 +3885,7 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
               )}
             </div>
 
-            {/* Profil Personil PT (PMPJ/SRA) */}
+            {/* Profil Personil PT */}
             <PartiesManager 
               parties={project.parties || []} 
               onSaveParties={handleSaveParties} 

@@ -7,6 +7,7 @@ import { db } from '../../../lib/firebase';
 import { collection, getDocs, doc, updateDoc, getDocsFromCache } from 'firebase/firestore';
 import { Workflow } from '../../../domain/project/Workflow';
 import { WorkflowService } from '../../../services/WorkflowService';
+import { CompanyService } from '../../../services/CompanyService';
 import { Plus, Search, Filter, Briefcase, User, Calendar, ExternalLink, Loader2, ArrowRight, Trash2, AlertCircle } from 'lucide-react';
 import { SearchableClientSelect } from '../../../components/common/SearchableClientSelect';
 import { ProjectCategory, PROJECT_TYPES, MEETING_SUBJECTS } from '../../../constants/appConstants';
@@ -51,10 +52,20 @@ interface ProjectListProps {
 }
 
 export default function ProjectList({ onSelectProject, currentUser }: ProjectListProps) {
-  const [projects, setProjects] = useState<Project[]>([]);
+  // Per-tab Project States & Loading
+  const [activeProjects, setActiveProjects] = useState<Project[]>([]);
+  const [minutaProjects, setMinutaProjects] = useState<Project[]>([]);
+  const [completedProjects, setCompletedProjects] = useState<Project[]>([]);
+
+  const [activeLoading, setActiveLoading] = useState(true);
+  const [minutaLoading, setMinutaLoading] = useState(false);
+  const [completedLoading, setCompletedLoading] = useState(false);
+
+  const [minutaLoaded, setMinutaLoaded] = useState(false);
+  const [completedLoaded, setCompletedLoaded] = useState(false);
+
   const [profiles, setProfiles] = useState<CompanyProfile[]>([]);
   const [workflows, setWorkflows] = useState<Workflow[]>(() => WorkflowService.getStaticWorkflows());
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   // Filter States
@@ -166,77 +177,123 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
     return [];
   };
 
+  const normalizeProjects = (rawProjects: Project[]) => {
+    return rawProjects.map((proj) => {
+      if (proj.projectCategory === 'BODY_LEGAL') {
+        if (proj.projectType === 'Pendirian CV' && proj.jobType !== 'pendirian_cv') {
+          return { ...proj, jobType: 'pendirian_cv' };
+        }
+        if (proj.projectType === 'Perubahan CV' && proj.jobType !== 'perubahan_cv') {
+          return { ...proj, jobType: 'perubahan_cv' };
+        }
+        if (proj.projectType === 'Pembubaran CV' && proj.jobType !== 'pembubaran_cv') {
+          return { ...proj, jobType: 'pembubaran_cv' };
+        }
+      }
+      return proj;
+    });
+  };
+
   useEffect(() => {
     let isMounted = true;
 
-    const loadProjects = async () => {
-      console.time('[ProjectList] loadProjects');
-      setLoading(true);
+    const loadActiveProjects = async () => {
+      console.time('[ProjectList] loadActiveProjects');
+      setActiveLoading(true);
       setError(null);
       try {
-        const rawProjects = (await ProjectService.listProjects()) || [];
+        const rawProjects = (await ProjectService.listActiveProjects()) || [];
         if (!isMounted) return;
 
-        // Apply in-memory jobType normalization without running Firestore write mutations on page mount
-        const normalizedProjects = rawProjects.map((proj) => {
-          if (proj.projectCategory === 'BODY_LEGAL') {
-            if (proj.projectType === 'Pendirian CV' && proj.jobType !== 'pendirian_cv') {
-              return { ...proj, jobType: 'pendirian_cv' };
-            }
-            if (proj.projectType === 'Perubahan CV' && proj.jobType !== 'perubahan_cv') {
-              return { ...proj, jobType: 'perubahan_cv' };
-            }
-            if (proj.projectType === 'Pembubaran CV' && proj.jobType !== 'pembubaran_cv') {
-              return { ...proj, jobType: 'pembubaran_cv' };
-            }
-          }
-          return proj;
-        });
+        const normalized = normalizeProjects(rawProjects);
+        setActiveProjects(normalized);
+        setActiveLoading(false);
+        console.timeEnd('[ProjectList] loadActiveProjects');
 
-        setProjects(normalizedProjects);
-        setLoading(false);
-        console.timeEnd('[ProjectList] loadProjects');
-
-        // Asynchronously load secondary data (profiles & custom workflows) in background without blocking UI
-        loadSecondaryData();
+        loadSecondaryData(normalized.length);
       } catch (err: any) {
-        console.error('[ProjectList] Error loading projects:', err);
+        console.error('[ProjectList] Error loading active projects:', err);
         if (isMounted) {
           setError('Gagal memuat daftar proyek. Silakan coba lagi.');
-          setLoading(false);
+          setActiveLoading(false);
         }
       }
     };
 
-    const loadSecondaryData = async () => {
+    const loadSecondaryData = async (activeCount: number) => {
       try {
-        const profilesPromise = getDocsFromCache(collection(db, 'profiles'))
-          .then(snapshot => snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as CompanyProfile[])
-          .catch(async () => {
-            const snapshot = await getDocs(collection(db, 'profiles'));
-            return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as CompanyProfile[];
-          });
-
         const [profileList, wfList] = await Promise.all([
-          profilesPromise.catch(() => [] as CompanyProfile[]),
+          CompanyService.getCompaniesFast({ cacheOnly: true }),
           WorkflowService.listWorkflows().catch(() => WorkflowService.getStaticWorkflows())
         ]);
 
         if (isMounted) {
           if (profileList && profileList.length > 0) setProfiles(profileList);
           if (wfList && wfList.length > 0) setWorkflows(wfList);
+
+          if (process.env.NODE_ENV !== 'production') {
+            console.log('[ProjectList Instrumentation]', {
+              activeProjectsCount: activeCount,
+              minutaProjectsCount: 'lazy',
+              completedProjectsCount: 'lazy',
+              profilesSource: profileList && profileList.length > 0 ? 'cache' : 'none/lazy',
+              workflowsSource: 'static/cache',
+              writes: 0
+            });
+          }
         }
       } catch (e) {
         console.warn('[ProjectList] Secondary data loading warning:', e);
       }
     };
 
-    loadProjects();
+    loadActiveProjects();
 
     return () => {
       isMounted = false;
     };
   }, []);
+
+  // Lazy-load Minuta & Selesai tab datasets when user opens those tabs
+  useEffect(() => {
+    let isMounted = true;
+
+    if (activeTab === 'minuta' && !minutaLoaded) {
+      const loadMinuta = async () => {
+        setMinutaLoading(true);
+        try {
+          const { minuta, completed } = await ProjectService.listMinutaAndCompletedProjects();
+          if (!isMounted) return;
+          setMinutaProjects(normalizeProjects(minuta));
+          setCompletedProjects(normalizeProjects(completed));
+          setMinutaLoaded(true);
+          setCompletedLoaded(true);
+        } catch (e) {
+          console.error('[ProjectList] Error loading minuta projects:', e);
+        } finally {
+          if (isMounted) setMinutaLoading(false);
+        }
+      };
+      loadMinuta();
+    } else if (activeTab === 'selesai' && !completedLoaded) {
+      const loadCompleted = async () => {
+        setCompletedLoading(true);
+        try {
+          const { minuta, completed } = await ProjectService.listMinutaAndCompletedProjects();
+          if (!isMounted) return;
+          setMinutaProjects(normalizeProjects(minuta));
+          setCompletedProjects(normalizeProjects(completed));
+          setMinutaLoaded(true);
+          setCompletedLoaded(true);
+        } catch (e) {
+          console.error('[ProjectList] Error loading completed projects:', e);
+        } finally {
+          if (isMounted) setCompletedLoading(false);
+        }
+      };
+      loadCompleted();
+    }
+  }, [activeTab, minutaLoaded, completedLoaded]);
 
   const getWorkflowJobType = (category: string, type: string): string => {
     // Legacy support
@@ -428,8 +485,11 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
       await ProjectService.createProject(projectPayload);
 
       // Refresh list
-      const updatedProjects = await ProjectService.listProjects();
-      setProjects(updatedProjects || []);
+      ProjectService.clearCache();
+      const updatedActive = await ProjectService.listActiveProjects({ forceRefresh: true });
+      setActiveProjects(normalizeProjects(updatedActive || []));
+      setMinutaLoaded(false);
+      setCompletedLoaded(false);
       
       setIsModalOpen(false);
       setNewProjectData({
@@ -460,7 +520,9 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
 
     try {
       await ProjectService.deleteProject(projectId);
-      setProjects(prev => prev.filter(p => p.projectId !== projectId));
+      setActiveProjects(prev => prev.filter(p => p.projectId !== projectId));
+      setMinutaProjects(prev => prev.filter(p => p.projectId !== projectId));
+      setCompletedProjects(prev => prev.filter(p => p.projectId !== projectId));
       alert('Proyek berhasil dihapus.');
     } catch (err) {
       console.error(err);
@@ -519,13 +581,18 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
     return 'Klien Tidak Diketahui';
   };
 
-  const filteredProjects = projects.filter((project) => {
-    // Tab Filter
-    const isCompleted = isProjectCompleted(project.status);
-    if (activeTab === 'aktif' && isCompleted) return false;
-    if (activeTab === 'minuta' && !isCompleted) return false;
-    if (activeTab === 'selesai') return false; // Selesai is reserved/empty for now
+  const currentTabProjects = activeTab === 'aktif'
+    ? activeProjects
+    : activeTab === 'minuta'
+    ? minutaProjects
+    : completedProjects;
 
+  const isCurrentTabLoading =
+    (activeTab === 'aktif' && activeLoading) ||
+    (activeTab === 'minuta' && minutaLoading) ||
+    (activeTab === 'selesai' && completedLoading);
+
+  const filteredProjects = currentTabProjects.filter((project) => {
     const clientName = getClientName(project.clientId, project);
     const matchesSearch =
       project.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -576,6 +643,18 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
     return 'bg-slate-50 text-slate-700 border-slate-200';
   };
 
+  const handleOpenCreateModal = async () => {
+    setIsModalOpen(true);
+    if (profiles.length === 0) {
+      try {
+        const loaded = await CompanyService.getCompaniesFast();
+        if (loaded && loaded.length > 0) setProfiles(loaded);
+      } catch (e) {
+        console.warn("[ProjectList] Failed to load profiles for modal:", e);
+      }
+    }
+  };
+
   return (
     <PageContainer>
       <PageHeader
@@ -584,7 +663,7 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
         description="Pantau kemajuan alur kerja akta dan proses administrasi hukum di satu tempat."
         actions={
           <button
-            onClick={() => setIsModalOpen(true)}
+            onClick={handleOpenCreateModal}
             className="px-4 py-2 bg-[#0c2444] hover:bg-[#16365f] text-white font-bold rounded-lg text-xs transition-all flex items-center gap-2 shadow-sm shrink-0 cursor-pointer"
           >
             <Plus className="w-4 h-4" />
@@ -667,7 +746,7 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
         </div>
 
         {/* Project List / Cards */}
-        {loading ? (
+        {isCurrentTabLoading ? (
           <div className="h-64 flex flex-col items-center justify-center bg-white border border-slate-200/80 rounded-xl shadow-sm">
             <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
             <span className="text-[13px] text-slate-400 mt-2">Memuat daftar proyek...</span>

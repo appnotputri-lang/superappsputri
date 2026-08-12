@@ -113,6 +113,11 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    match /client_directory/{id} {
+      allow read: if true;
+      allow write: if true;
+    }
+
     match /cv_profiles/{id} {
       allow read: if true;
       allow create, update: if isSignedIn();

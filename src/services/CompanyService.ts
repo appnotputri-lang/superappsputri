@@ -5,16 +5,59 @@ import {
   doc, 
   getDoc,
   getDocs, 
+  getDocsFromCache,
   setDoc, 
   updateDoc, 
   deleteDoc, 
   onSnapshot,
   query,
-  where
+  where,
+  limit,
+  orderBy,
+  startAfter,
+  QueryConstraint,
+  writeBatch,
+  getCountFromServer
 } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from '../lib/firebase';
 import { CompanyProfile } from '../../types';
 import { sanitizeForFirestore } from '../utils/sanitize';
+
+export interface ClientDirectoryEntry {
+  id: string;
+  clientId: string;
+  companyName: string;
+  searchName: string;
+  searchTokens?: string[];
+  clientType: string;
+  companyType?: string;
+  domicile?: string;
+  establishmentDeedDate?: string;
+  establishmentYear?: string;
+  updatedAt?: string;
+  isArchived?: boolean;
+  npwp?: string;
+  kbliItems?: { code: string; name?: string }[];
+}
+
+export interface ClientDirectoryPageOptions {
+  clientType?: string;
+  showArchived?: boolean;
+  searchQuery?: string;
+  establishmentYear?: string;
+  sortField?: string;
+  sortOrder?: 'asc' | 'desc';
+  pageSize?: number;
+  lastDoc?: any;
+  page?: number;
+}
+
+export interface ClientDirectoryPageResult {
+  items: ClientDirectoryEntry[];
+  lastDoc: any;
+  hasMore: boolean;
+  fromCache: boolean;
+}
 
 export class CompanyService {
   /**
@@ -80,6 +123,619 @@ export class CompanyService {
     }
   }
 
+  private static profilesCache: CompanyProfile[] | null = null;
+  private static directoryCache: ClientDirectoryEntry[] | null = null;
+  private static pageCache = new Map<string, ClientDirectoryPageResult>();
+  private static profileDocsCache = new Map<string, CompanyProfile>();
+  private static activeClientsCountCache: number | null = null;
+
+  /**
+   * Resets in-memory profiles, directory, and page cache on mutation.
+   */
+  static clearCache(): void {
+    CompanyService.profilesCache = null;
+    CompanyService.directoryCache = null;
+    CompanyService.pageCache.clear();
+    CompanyService.profileDocsCache.clear();
+    CompanyService.activeClientsCountCache = null;
+  }
+
+  /**
+   * Generates search tokens for word-level substring matching in Firestore.
+   */
+  static generateSearchTokens(name: string): string[] {
+    if (!name) return [];
+    // Lowercase, remove punctuation and split by whitespace
+    const cleanName = name.toLowerCase().replace(/[.,\-/\(\)]/g, ' ');
+    const words = cleanName.split(/\s+/).filter(Boolean);
+    const tokens = new Set<string>();
+
+    for (const word of words) {
+      // Add exact word
+      tokens.add(word);
+      // Add word prefixes for partial typing support
+      for (let i = 1; i <= word.length; i++) {
+        tokens.add(word.substring(0, i));
+      }
+    }
+    return Array.from(tokens).filter(Boolean);
+  }
+
+  /**
+   * Retrieves active clients count using Firestore aggregation count on client_directory.
+   */
+  static async getActiveClientsCount(): Promise<number> {
+    if (CompanyService.activeClientsCountCache !== null) {
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('[Dashboard]');
+        console.log(`activeClients: ${CompanyService.activeClientsCountCache}`);
+        console.log('source: client_directory');
+        console.log('query: isArchived == false');
+        console.log('aggregation: count');
+        console.log('cache HIT: YES');
+        console.log('network: NO');
+        console.log('writes: 0');
+      }
+      return CompanyService.activeClientsCountCache;
+    }
+
+    try {
+      const colRef = collection(db, 'client_directory');
+      const q = query(colRef, where('isArchived', '==', false));
+      const snapshot = await getCountFromServer(q);
+      const count = snapshot.data().count;
+      CompanyService.activeClientsCountCache = count;
+
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('[Dashboard]');
+        console.log(`activeClients: ${count}`);
+        console.log('source: client_directory');
+        console.log('query: isArchived == false');
+        console.log('aggregation: count');
+        console.log('cache HIT: NO');
+        console.log('network: YES');
+        console.log('writes: 0');
+      }
+      return count;
+    } catch (error) {
+      console.error('[CompanyService] Error counting active clients:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Sync single lightweight directory document to client_directory/{clientId}
+   */
+  static async syncClientDirectoryEntry(clientId: string, data?: Partial<CompanyProfile>): Promise<void> {
+    try {
+      // Fetch complete, master profile document to build the directory entry
+      const docRef = doc(db, 'profiles', clientId);
+      const snap = await getDoc(docRef);
+      if (!snap.exists()) return;
+
+      const p = { id: snap.id, ...snap.data() } as CompanyProfile;
+
+      const isCv = p.clientType === 'CV' || p.companyType === 'CV';
+      const clientType = isCv ? 'CV' : (p.clientType || 'PT');
+      const companyName = p.companyName ? this.formatCompanyName(p.companyName, clientType) : '';
+      const searchName = companyName.toLowerCase().trim();
+      const city = p.domicile || p.newAddress?.city || '';
+
+      const establishmentYear = p.establishmentDeedDate
+        ? new Date(p.establishmentDeedDate).getFullYear().toString()
+        : ((p as any).establishmentYear || '');
+
+      const entry: ClientDirectoryEntry = {
+        id: clientId,
+        clientId: clientId,
+        companyName,
+        searchName,
+        searchTokens: CompanyService.generateSearchTokens(companyName),
+        clientType,
+        companyType: isCv ? 'CV' : (p.companyType || 'PT_LOKAL'),
+        domicile: city,
+        establishmentDeedDate: p.establishmentDeedDate || '',
+        establishmentYear,
+        updatedAt: p.updatedAt || new Date().toISOString(),
+        isArchived: !!p.isArchived,
+        npwp: p.npwp || '',
+        kbliItems: (p.kbliItems || []).map((k: any) => ({
+          code: k.code || k.kode || (typeof k === 'string' ? k : ''),
+          name: k.name || k.judul || ''
+        }))
+      };
+
+      await setDoc(doc(db, 'client_directory', clientId), sanitizeForFirestore(entry), { merge: true });
+      CompanyService.clearCache();
+    } catch (err) {
+      console.warn('[CompanyService] Error syncing client_directory entry:', err);
+    }
+  }
+
+  /**
+   * Fetch a single full company profile from profiles/{clientId}
+   */
+  static async getCompanyProfile(clientId: string): Promise<CompanyProfile | null> {
+    if (CompanyService.profileDocsCache.has(clientId)) {
+      console.log(
+        `[ClientProfile]\n` +
+        `clientId: ${clientId}\n` +
+        `cache: HIT\n` +
+        `network: NO\n` +
+        `reads: 0`
+      );
+      return CompanyService.profileDocsCache.get(clientId)!;
+    }
+
+    console.log(
+      `[ClientProfile]\n` +
+      `clientId: ${clientId}\n` +
+      `cache: MISS\n` +
+      `network: YES\n` +
+      `reads: 1`
+    );
+
+    try {
+      const ref = doc(db, 'profiles', clientId);
+      const snap = await getDoc(ref);
+      let profile: CompanyProfile | null = null;
+      if (snap.exists()) {
+        profile = { id: snap.id, ...snap.data() } as CompanyProfile;
+      } else {
+        const cpSnap = await getDoc(doc(db, 'company_profiles', clientId));
+        if (cpSnap.exists()) {
+          profile = { id: cpSnap.id, ...cpSnap.data() } as CompanyProfile;
+        }
+      }
+      if (profile) {
+        CompanyService.profileDocsCache.set(clientId, profile);
+      }
+      return profile;
+    } catch (err) {
+      handleFirestoreError(err, OperationType.GET, `profiles/${clientId}`);
+      return null;
+    }
+  }
+
+  /**
+   * Explicit migration tool runner for client_directory backfill
+   */
+  static async runClientDirectoryMigration(isDryRun: boolean = false, addLog?: (msg: string) => void): Promise<{
+    existingProfilesCount: number;
+    dirBeforeCount: number;
+    dirAfterCount: number;
+    syncedCount: number;
+  }> {
+    const log = (msg: string) => {
+      console.log(`[ClientDirectory Migration] ${msg}`);
+      if (addLog) addLog(msg);
+    };
+
+    log(`=== MIGRATION CLIENT DIRECTORY (${isDryRun ? 'DRY RUN' : 'EXECUTE'}) ===`);
+
+    const profilesSnap = await getDocs(collection(db, 'profiles'));
+    const existingProfilesCount = profilesSnap.size;
+    log(`Jumlah profile existing: ${existingProfilesCount}`);
+
+    const dirBeforeSnap = await getDocs(collection(db, 'client_directory'));
+    const dirBeforeCount = dirBeforeSnap.size;
+    log(`Jumlah client_directory sebelum migration: ${dirBeforeCount}`);
+
+    if (isDryRun) {
+      log(`[DRY RUN] Would sync ${existingProfilesCount} profiles to client_directory.`);
+      return {
+        existingProfilesCount,
+        dirBeforeCount,
+        dirAfterCount: dirBeforeCount,
+        syncedCount: existingProfilesCount
+      };
+    }
+
+    let syncedCount = 0;
+    const chunks: any[][] = [];
+    let currentChunk: any[] = [];
+
+    profilesSnap.forEach(d => {
+      currentChunk.push({ id: d.id, ...d.data() });
+      if (currentChunk.length >= 400) {
+        chunks.push(currentChunk);
+        currentChunk = [];
+      }
+    });
+    if (currentChunk.length > 0) chunks.push(currentChunk);
+
+    for (const chunk of chunks) {
+      const batch = writeBatch(db);
+      for (const p of chunk) {
+        const isCv = p.clientType === 'CV' || p.companyType === 'CV';
+        const clientType = isCv ? 'CV' : (p.clientType || 'PT');
+        const companyName = p.companyName ? this.formatCompanyName(p.companyName, clientType) : '';
+        const searchName = companyName.toLowerCase().trim();
+        const city = p.domicile || p.newAddress?.city || '';
+
+        const establishmentYear = p.establishmentDeedDate
+          ? new Date(p.establishmentDeedDate).getFullYear().toString()
+          : (p.establishmentYear || '');
+
+        const dirDocRef = doc(db, 'client_directory', p.id);
+        const entry: ClientDirectoryEntry = {
+          id: p.id,
+          clientId: p.id,
+          companyName,
+          searchName,
+          searchTokens: CompanyService.generateSearchTokens(companyName),
+          clientType,
+          companyType: isCv ? 'CV' : (p.companyType || 'PT_LOKAL'),
+          domicile: city,
+          establishmentDeedDate: p.establishmentDeedDate || '',
+          establishmentYear,
+          updatedAt: p.updatedAt || new Date().toISOString(),
+          isArchived: !!p.isArchived,
+          npwp: p.npwp || '',
+          kbliItems: (p.kbliItems || []).map((k: any) => ({
+            code: k.code || k.kode || (typeof k === 'string' ? k : ''),
+            name: k.name || k.judul || ''
+          }))
+        };
+
+        batch.set(dirDocRef, sanitizeForFirestore(entry), { merge: true });
+        syncedCount++;
+      }
+      await batch.commit();
+    }
+
+    const dirAfterSnap = await getDocs(collection(db, 'client_directory'));
+    const dirAfterCount = dirAfterSnap.size;
+
+    log(`Jumlah client_directory setelah migration: ${dirAfterCount}`);
+    log(`Jumlah data yang berhasil disinkronkan: ${syncedCount}`);
+
+    CompanyService.clearCache();
+    return {
+      existingProfilesCount,
+      dirBeforeCount,
+      dirAfterCount,
+      syncedCount
+    };
+  }
+
+  /**
+   * One-time backfill utility to populate searchTokens for existing client_directory entries.
+   */
+  static async backfillSearchTokens(isDryRun: boolean = false, addLog?: (msg: string) => void): Promise<{
+    total: number;
+    backfilled: number;
+    alreadyOk: number;
+    failed: number;
+  }> {
+    const log = (msg: string) => {
+      console.log(`[Backfill SearchTokens] ${msg}`);
+      if (addLog) addLog(msg);
+    };
+
+    log(`=== BACKFILL SEARCH TOKENS (${isDryRun ? 'DRY RUN' : 'EXECUTE'}) ===`);
+
+    try {
+      const colRef = collection(db, 'client_directory');
+      const snap = await getDocs(colRef);
+      const totalDocs = snap.size;
+      log(`Total documents in client_directory: ${totalDocs}`);
+
+      let alreadyOk = 0;
+      let backfilled = 0;
+      let failed = 0;
+
+      const docsToUpdate: { docId: string; tokens: string[]; name: string }[] = [];
+
+      snap.forEach(docSnap => {
+        const data = docSnap.data() as ClientDirectoryEntry;
+        const companyName = data.companyName || '';
+        const existingTokens = data.searchTokens;
+        const expectedTokens = CompanyService.generateSearchTokens(companyName);
+
+        let isCorrect = Array.isArray(existingTokens) && existingTokens.length === expectedTokens.length;
+        if (isCorrect && existingTokens) {
+          const existingSet = new Set(existingTokens);
+          for (const t of expectedTokens) {
+            if (!existingSet.has(t)) {
+              isCorrect = false;
+              break;
+            }
+          }
+        }
+
+        if (isCorrect) {
+          alreadyOk++;
+        } else {
+          docsToUpdate.push({
+            docId: docSnap.id,
+            tokens: expectedTokens,
+            name: companyName
+          });
+        }
+      });
+
+      log(`Documents already having correct searchTokens: ${alreadyOk}`);
+      log(`Documents needing backfill update: ${docsToUpdate.length}`);
+
+      if (isDryRun) {
+        log(`[DRY RUN] Would update ${docsToUpdate.length} documents.`);
+        if (docsToUpdate.length > 0) {
+          log(`Sample document backfill: ID ${docsToUpdate[0].docId} ("${docsToUpdate[0].name}") -> ${JSON.stringify(docsToUpdate[0].tokens.slice(0, 8))}...`);
+        }
+        return {
+          total: totalDocs,
+          backfilled: 0,
+          alreadyOk,
+          failed: 0
+        };
+      }
+
+      // Execute updates in batches of 400 (safe limit is 500)
+      const batchSize = 400;
+      for (let i = 0; i < docsToUpdate.length; i += batchSize) {
+        const chunk = docsToUpdate.slice(i, i + batchSize);
+        const batch = writeBatch(db);
+
+        for (const item of chunk) {
+          const docRef = doc(db, 'client_directory', item.docId);
+          batch.update(docRef, { searchTokens: item.tokens });
+        }
+
+        try {
+          await batch.commit();
+          backfilled += chunk.length;
+          log(`Successfully updated batch: ${backfilled} / ${docsToUpdate.length}`);
+        } catch (batchErr: any) {
+          console.error('[CompanyService] Batch commit failed during backfill:', batchErr);
+          failed += chunk.length;
+          log(`FAILED batch of ${chunk.length} documents. Error: ${batchErr?.message || batchErr}`);
+        }
+      }
+
+      log(`=== BACKFILL SUMMARY ===`);
+      log(`Total processed: ${totalDocs}`);
+      log(`Already correct: ${alreadyOk}`);
+      log(`Successfully backfilled: ${backfilled}`);
+      log(`Failed: ${failed}`);
+
+      CompanyService.clearCache();
+
+      return {
+        total: totalDocs,
+        backfilled,
+        alreadyOk,
+        failed
+      };
+    } catch (err: any) {
+      log(`FATAL ERROR during backfill: ${err?.message || err}`);
+      throw err;
+    }
+  }
+
+  /**
+   * Fetch lightweight client directory entries
+   */
+  static async getClientDirectory(options?: {
+    clientType?: string;
+    isArchived?: boolean;
+    searchQuery?: string;
+  }): Promise<ClientDirectoryEntry[]> {
+    try {
+      let items: ClientDirectoryEntry[] = [];
+      if (CompanyService.directoryCache && CompanyService.directoryCache.length > 0) {
+        items = [...CompanyService.directoryCache];
+      } else {
+        const colRef = collection(db, 'client_directory');
+        const snap = await getDocs(colRef);
+
+        snap.forEach(docSnap => {
+          items.push({ id: docSnap.id, clientId: docSnap.id, ...docSnap.data() } as ClientDirectoryEntry);
+        });
+        CompanyService.directoryCache = items;
+      }
+
+      if (options?.clientType && options.clientType !== 'all') {
+        items = items.filter(item => (item.clientType || 'PT') === options.clientType);
+      }
+
+      if (options?.isArchived !== undefined) {
+        items = items.filter(item => !!item.isArchived === options.isArchived);
+      }
+
+      if (options?.searchQuery) {
+        const q = options.searchQuery.toLowerCase().trim();
+        items = items.filter(item => {
+          const formatted = (item.companyName || '').toLowerCase();
+          const searchN = (item.searchName || '').toLowerCase();
+          return formatted.includes(q) || searchN.includes(q);
+        });
+      }
+
+      return items;
+    } catch (err) {
+      console.warn('[CompanyService] Error reading client_directory:', err);
+      return [];
+    }
+  }
+
+  /**
+   * Fetch paginated client directory entries using server-side queries and cache
+   */
+  static async getClientDirectoryPage(options?: ClientDirectoryPageOptions): Promise<ClientDirectoryPageResult> {
+    const clientType = options?.clientType || 'all';
+    const showArchived = !!options?.showArchived;
+    const searchQuery = (options?.searchQuery || '').trim().toLowerCase();
+    const establishmentYear = options?.establishmentYear || 'all';
+    const sortField = options?.sortField || 'companyName';
+    const sortOrder = options?.sortOrder || 'asc';
+    const pageSize = options?.pageSize || 50;
+    const cursorId = options?.lastDoc ? options.lastDoc.id : 'first';
+    const pageNum = options?.page || 1;
+
+    const cacheKey = `${clientType}_${showArchived ? 'archived' : 'active'}_${searchQuery}_${establishmentYear}_${sortField}_${sortOrder}_${pageSize}_${pageNum}_${cursorId}`;
+
+    if (CompanyService.pageCache.has(cacheKey)) {
+      const cached = CompanyService.pageCache.get(cacheKey)!;
+      return { ...cached, fromCache: true };
+    }
+
+    try {
+      const colRef = collection(db, 'client_directory');
+      const constraints: QueryConstraint[] = [];
+
+      // 1. Archive status filter
+      constraints.push(where('isArchived', '==', showArchived));
+
+      // 2. Client type filter if not 'all'
+      if (clientType !== 'all') {
+        constraints.push(where('clientType', '==', clientType));
+      }
+
+      // 3. Establishment year filter if not 'all'
+      if (establishmentYear !== 'all') {
+        constraints.push(where('establishmentYear', '==', establishmentYear));
+      }
+
+      // 4. Search query word tokens (array-contains)
+      let queryToken = '';
+      if (searchQuery !== '') {
+        const words = searchQuery.split(/\s+/).filter(Boolean);
+        // Take the first search word as the Firestore server-side filter token
+        queryToken = words[0] || '';
+        if (queryToken) {
+          constraints.push(where('searchTokens', 'array-contains', queryToken));
+        }
+      } else {
+        constraints.push(orderBy(sortField, sortOrder));
+      }
+
+      // 5. Cursor pagination
+      if (options?.lastDoc) {
+        constraints.push(startAfter(options.lastDoc));
+      }
+
+      // 6. Page size limit
+      constraints.push(limit(pageSize));
+
+      const q = query(colRef, ...constraints);
+      const snap = await getDocs(q);
+
+      const items: ClientDirectoryEntry[] = [];
+      let lastVisibleDoc: any = null;
+      let needsBackfill = false;
+      const backfillPromises: Promise<any>[] = [];
+
+      snap.forEach(docSnap => {
+        const data = docSnap.data() as ClientDirectoryEntry;
+        const companyName = data.companyName || '';
+        const searchTokens = data.searchTokens || CompanyService.generateSearchTokens(companyName);
+
+        if (!data.searchTokens && companyName) {
+          needsBackfill = true;
+          backfillPromises.push(
+            updateDoc(doc(db, 'client_directory', docSnap.id), {
+              searchTokens
+            }).catch(e => console.warn('[CompanyService] Lazy backfill failed:', e))
+          );
+        }
+
+        const entry: ClientDirectoryEntry = {
+          id: docSnap.id,
+          clientId: docSnap.id,
+          ...data,
+          searchTokens
+        };
+        items.push(entry);
+        lastVisibleDoc = docSnap;
+      });
+
+      if (needsBackfill) {
+        Promise.all(backfillPromises).then(() => {
+          CompanyService.clearCache();
+        });
+      }
+
+      // Additional client-side filtering if there are multiple search words
+      let resultItems = [...items];
+      if (searchQuery !== '') {
+        const searchWords = searchQuery.split(/\s+/).filter(Boolean);
+        resultItems = resultItems.filter(item => {
+          const name = (item.companyName || '').toLowerCase();
+          return searchWords.every(word => name.includes(word));
+        });
+
+        // In-memory sorting for search results (since Firestore query was index-free and did not order)
+        if (sortField) {
+          resultItems.sort((a, b) => {
+            const valA = String(a[sortField as keyof ClientDirectoryEntry] || '').toLowerCase();
+            const valB = String(b[sortField as keyof ClientDirectoryEntry] || '').toLowerCase();
+            if (sortOrder === 'desc') {
+              return valB.localeCompare(valA);
+            }
+            return valA.localeCompare(valB);
+          });
+        }
+      }
+
+      const result: ClientDirectoryPageResult = {
+        items: resultItems,
+        lastDoc: lastVisibleDoc,
+        hasMore: items.length >= pageSize,
+        fromCache: false
+      };
+
+      CompanyService.pageCache.set(cacheKey, result);
+
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('[ClientList]');
+        console.log(`search: ${searchQuery}`);
+        console.log(`normalizedSearch: ${queryToken}`);
+        console.log('queryType: searchTokens');
+        console.log(`documents: ${resultItems.length}`);
+        console.log('cache: MISS');
+        console.log('network: YES');
+        console.log('profileReads: 0');
+        console.log('writes: 0');
+      }
+
+      return result;
+    } catch (err: any) {
+      console.error('[CompanyService] Firestore query error in getClientDirectoryPage:', err?.message || err);
+      return { items: [], lastDoc: null, hasMore: false, fromCache: false };
+    }
+  }
+
+  /**
+   * Fast profiles loader prioritizing memory cache and Firestore SDK cache.
+   * Prevents unnecessary network collection scans.
+   */
+  static async getCompaniesFast(options?: { cacheOnly?: boolean }): Promise<CompanyProfile[]> {
+    if (CompanyService.profilesCache && CompanyService.profilesCache.length > 0) {
+      return CompanyService.profilesCache;
+    }
+
+    try {
+      const snap = await getDocsFromCache(collection(db, 'profiles'));
+      if (!snap.empty) {
+        const loaded: CompanyProfile[] = [];
+        snap.forEach(docSnap => {
+          loaded.push({ id: docSnap.id, ...docSnap.data() } as CompanyProfile);
+        });
+        CompanyService.profilesCache = loaded;
+        return loaded;
+      }
+    } catch (e) {
+      // SDK Cache miss
+    }
+
+    if (options?.cacheOnly) {
+      return CompanyService.profilesCache || [];
+    }
+
+    return CompanyService.getCompanies();
+  }
+
   /**
    * Fetch all PT (Company) Profiles
    */
@@ -90,6 +746,7 @@ export class CompanyService {
       snap.forEach(docSnap => {
         loaded.push({ id: docSnap.id, ...docSnap.data() } as CompanyProfile);
       });
+      CompanyService.profilesCache = loaded;
       return loaded;
     } catch (error) {
       handleFirestoreError(error, OperationType.LIST, 'profiles');
@@ -209,6 +866,8 @@ export class CompanyService {
       }
 
       await setDoc(docRef, sanitizeForFirestore(preparedData), { merge: true });
+      await this.syncClientDirectoryEntry(companyId, preparedData);
+      CompanyService.clearCache();
       
       // Ensure or Rename the Google Drive folder for this client
       if (preparedData.companyName) {
@@ -313,6 +972,7 @@ export class CompanyService {
       }
 
       await updateDoc(docRef, sanitizeForFirestore(updateData));
+      await this.syncClientDirectoryEntry(companyId, { ...currentData, ...updateData });
 
       if (updateData.companyName) {
         await this.handleRenameOrEnsureFolder(companyId, oldCompanyName, updateData.companyName, finalType);
@@ -336,6 +996,10 @@ export class CompanyService {
       await updateDoc(doc(db, collectionName, companyId), {
         isArchived: nextStatus
       });
+      await updateDoc(doc(db, 'client_directory', companyId), {
+        isArchived: nextStatus
+      }).catch(() => {});
+      CompanyService.clearCache();
       return nextStatus;
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, `${collectionName}/${companyId}`);
@@ -359,6 +1023,7 @@ export class CompanyService {
     const collectionName = 'profiles';
     try {
       await setDoc(doc(db, collectionName, newId), sanitizeForFirestore(duplicatedProfile));
+      await this.syncClientDirectoryEntry(newId, duplicatedProfile);
       return duplicatedProfile;
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, `${collectionName}/${newId}`);
@@ -503,6 +1168,8 @@ export class CompanyService {
       await deleteDoc(doc(db, 'profiles', companyId)).catch(() => {});
       await deleteDoc(doc(db, 'company_profiles', companyId)).catch(() => {});
       await deleteDoc(doc(db, 'cv_profiles', companyId)).catch(() => {});
+      await deleteDoc(doc(db, 'client_directory', companyId)).catch(() => {});
+      CompanyService.clearCache();
     } catch (error) {
       handleFirestoreError(error, OperationType.DELETE, `${collectionName}/${companyId}`);
       throw error;
@@ -575,6 +1242,7 @@ export class CompanyService {
       // Save updated Target profile
       if (Object.keys(mergedFields).length > 0) {
         await updateDoc(targetRef, sanitizeForFirestore(mergedFields));
+        await this.syncClientDirectoryEntry(targetId, { ...targetData, ...mergedFields });
       }
 
       // 3. Scan & Reassociate Project Collections
@@ -672,7 +1340,9 @@ export class CompanyService {
         await deleteDoc(doc(db, collectionName, sourceId)).catch(() => {});
         await deleteDoc(doc(db, 'company_profiles', sourceId)).catch(() => {});
         await deleteDoc(doc(db, 'cv_profiles', sourceId)).catch(() => {});
+        await deleteDoc(doc(db, 'client_directory', sourceId)).catch(() => {});
       }
+      CompanyService.clearCache();
 
       return { projectsMerged };
     } catch (error) {
