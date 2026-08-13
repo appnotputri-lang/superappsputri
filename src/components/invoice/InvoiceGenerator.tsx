@@ -11,7 +11,7 @@ import { calculateInvoiceTotals, getItemSubtotal } from '../../services/taxCalcu
 import { formatInputNumber, parseFormattedNumber } from '../../../utils/formatters';
 import { InvoicePrintTemplate } from './InvoicePrintTemplate';
 import { printInvoice, downloadInvoicePdf } from '../../utils/invoiceHtmlGenerator';
-import { getApiUrl } from '../../lib/api';
+import { getApiUrl, getAuthHeaders } from '../../lib/api';
 import { auth, db } from '../../lib/firebase';
 import { resolveClientPhone, isFuzzyNameMatch } from '../../utils/clientPhoneResolver';
 import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
@@ -267,13 +267,55 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = (props) => {
   const [bankSwift, setBankSwift] = useState('CENAIDJA');
 
   // Client Master Selection State
-  const [clientSourceTab, setClientSourceTab] = useState<'all' | 'local' | 'superapps'>('all');
+  const [clientSourceTab, setClientSourceTab] = useState<'all' | 'local' | 'superapps'>('local');
   const [localClients, setLocalClients] = useState<ClientOption[]>([]);
   const [superappsClients, setSuperappsClients] = useState<ClientOption[]>([]);
   const [isLoadingClients, setIsLoadingClients] = useState(false);
   const [superappsError, setSuperappsError] = useState<string | null>(null);
   const [clientSearch, setClientSearch] = useState('');
   const [showClientDropdown, setShowClientDropdown] = useState(false);
+
+  // Cache Refs and D1 Fetch helper
+  const localD1CacheRef = useRef<Record<string, ClientOption[]>>({});
+  const superappsCacheRef = useRef<Record<string, ClientOption[]>>({});
+
+  const fetchD1Clients = async (queryStr: string): Promise<ClientOption[]> => {
+    const cacheKey = queryStr.toLowerCase().trim();
+    if (localD1CacheRef.current[cacheKey]) {
+      return localD1CacheRef.current[cacheKey];
+    }
+
+    try {
+      const headers = await getAuthHeaders();
+      let url = getApiUrl('/api/clients?limit=15');
+      if (cacheKey) {
+        url = getApiUrl(`/api/clients/search?q=${encodeURIComponent(queryStr)}&limit=15`);
+      }
+
+      const response = await fetch(url, { headers });
+      if (!response.ok) {
+        throw new Error(`D1 API returned status ${response.status}`);
+      }
+      const data = await response.json() as any;
+      const results = data.clients || [];
+
+      const mapped: ClientOption[] = results.map((d: any) => ({
+        clientId: d.clientId || d.id,
+        name: d.companyName || 'Tanpa Nama',
+        email: d.email || '',
+        phone: d.phoneNumber || d.phone || '',
+        address: d.fullAddress || d.address || d.domicile || '',
+        source: 'local' as const,
+        clientType: d.clientType || 'PT'
+      }));
+
+      localD1CacheRef.current[cacheKey] = mapped;
+      return mapped;
+    } catch (err) {
+      console.error('[InvoiceGenerator] D1 fetch/search error:', err);
+      return [];
+    }
+  };
 
   // New Client Quick Modal
   const [isNewClientModalOpen, setIsNewClientModalOpen] = useState(false);
@@ -384,89 +426,115 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = (props) => {
     setIsLoadingClients(true);
     setSuperappsError(null);
 
-    // 1. Fetch Local Clients from lightweight client_directory
+    // Fetch Local Clients from Cloudflare D1 with limit 15 (0 Firestore reads)
     try {
-      const directoryEntries = await CompanyService.getClientDirectory({ isArchived: false }).catch(() => []);
-
-      const allLocal: ClientOption[] = directoryEntries.map(c => {
-        return {
-          clientId: c.clientId || c.id,
-          name: c.companyName || 'Tanpa Nama',
-          email: (c as any).email || '',
-          phone: (c as any).phoneNumber || (c as any).phone || '',
-          address: (c as any).fullAddress || (c as any).address || c.domicile || '',
-          source: 'local' as const,
-          clientType: c.clientType || 'PT'
-        };
-      });
+      const allLocal = await fetchD1Clients('');
       setLocalClients(allLocal);
     } catch (err) {
-      console.error('Error fetching local clients from client_directory:', err);
-    }
-
-    // 2. Fetch Initial Superapps Clients (Empty query, limited to 15)
-    try {
-      const spProfiles = await SuperappsClientService.getSuperappsProfiles('');
-      const mappedSp: ClientOption[] = spProfiles.map(p => ({
-        clientId: p.clientId,
-        name: p.name,
-        email: p.email,
-        phone: p.contactNumber,
-        address: p.address,
-        source: 'superapps' as const,
-        clientType: p.clientType || 'PT'
-      }));
-      setSuperappsClients(mappedSp);
-    } catch (err) {
-      console.warn('Gagal koneksi ke Superapps Firestore:', err);
-      setSuperappsError('Data klien superapps tidak tersedia');
-      setSuperappsClients([]);
+      console.error('Error fetching local clients from D1:', err);
     } finally {
       setIsLoadingClients(false);
     }
   };
 
-  // Debounced search for Superapps profiles as user types
+  // Unified debounced search for D1 (local) and Superapps as user types
   useEffect(() => {
-    if (clientSourceTab === 'local' || !clientSearch.trim()) {
-      if (!clientSearch.trim()) {
-        // Fallback to initial 15 cached profiles
-        SuperappsClientService.getSuperappsProfiles('').then(spProfiles => {
-          const mappedSp: ClientOption[] = spProfiles.map(p => ({
-            clientId: p.clientId,
-            name: p.name,
-            email: p.email,
-            phone: p.contactNumber,
-            address: p.address,
-            source: 'superapps' as const,
-            clientType: p.clientType || 'PT'
-          }));
-          setSuperappsClients(mappedSp);
-        }).catch(() => {});
-      }
-      return;
-    }
+    const trimmedQuery = clientSearch.trim();
 
-    const delayDebounceFn = setTimeout(async () => {
+    // Define async searches
+    const performSearch = async () => {
       setIsLoadingClients(true);
+      
+      const promises: Promise<any>[] = [];
+
+      // A. Local D1 search
+      if (clientSourceTab === 'local' || clientSourceTab === 'all') {
+        promises.push(
+          fetchD1Clients(trimmedQuery)
+            .then(res => setLocalClients(res))
+            .catch(err => console.error('D1 debounced search error:', err))
+        );
+      }
+
+      // B. Superapps Firestore search - ONLY executed when user switches to 'superapps' or 'all' tab
+      if (clientSourceTab === 'superapps' || clientSourceTab === 'all') {
+        const cachedKey = trimmedQuery.toLowerCase();
+        if (superappsCacheRef.current[cachedKey]) {
+          setSuperappsClients(superappsCacheRef.current[cachedKey]);
+        } else {
+          promises.push(
+            SuperappsClientService.getSuperappsProfiles(trimmedQuery)
+              .then(spProfiles => {
+                const mappedSp: ClientOption[] = spProfiles.map(p => ({
+                  clientId: p.clientId,
+                  name: p.name,
+                  email: p.email,
+                  phone: p.contactNumber,
+                  address: p.address,
+                  source: 'superapps' as const,
+                  clientType: p.clientType || 'PT'
+                }));
+                superappsCacheRef.current[cachedKey] = mappedSp;
+                setSuperappsClients(mappedSp);
+              })
+              .catch(err => {
+                console.warn('Superapps debounced search error:', err);
+                setSuperappsError('Data klien superapps tidak tersedia');
+              })
+          );
+        }
+      }
+
       try {
-        const spProfiles = await SuperappsClientService.getSuperappsProfiles(clientSearch);
-        const mappedSp: ClientOption[] = spProfiles.map(p => ({
-          clientId: p.clientId,
-          name: p.name,
-          email: p.email,
-          phone: p.contactNumber,
-          address: p.address,
-          source: 'superapps' as const,
-          clientType: p.clientType || 'PT'
-        }));
-        setSuperappsClients(mappedSp);
-      } catch (err) {
-        console.warn('Gagal koneksi ke Superapps Firestore:', err);
+        await Promise.all(promises);
       } finally {
         setIsLoadingClients(false);
       }
-    }, 400);
+    };
+
+    // If query is empty, load initial list lazily based on current tab
+    if (!trimmedQuery) {
+      setIsLoadingClients(true);
+      const promises: Promise<any>[] = [
+        fetchD1Clients('').then(res => setLocalClients(res))
+      ];
+
+      // Lazy load Superapps ONLY if user selected 'superapps' or 'all' tab
+      if (clientSourceTab === 'superapps' || clientSourceTab === 'all') {
+        if (superappsCacheRef.current['']) {
+          setSuperappsClients(superappsCacheRef.current['']);
+        } else {
+          promises.push(
+            SuperappsClientService.getSuperappsProfiles('')
+              .then(spProfiles => {
+                const mappedSp: ClientOption[] = spProfiles.map(p => ({
+                  clientId: p.clientId,
+                  name: p.name,
+                  email: p.email,
+                  phone: p.contactNumber,
+                  address: p.address,
+                  source: 'superapps' as const,
+                  clientType: p.clientType || 'PT'
+                }));
+                superappsCacheRef.current[''] = mappedSp;
+                setSuperappsClients(mappedSp);
+              })
+              .catch(() => {
+                setSuperappsError('Data klien superapps tidak tersedia');
+              })
+          );
+        }
+      }
+
+      Promise.all(promises).finally(() => {
+        setIsLoadingClients(false);
+      });
+      return;
+    }
+
+    const delayDebounceFn = setTimeout(() => {
+      performSearch();
+    }, 350);
 
     return () => clearTimeout(delayDebounceFn);
   }, [clientSearch, clientSourceTab]);
@@ -626,7 +694,7 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = (props) => {
     setViewMode('detail');
   };
 
-  const handleSelectClient = (client: ClientOption) => {
+  const handleSelectClient = async (client: ClientOption) => {
     setSelectedClientId(client.clientId);
     setSelectedClientSource(client.source);
     setClientName(client.name);
@@ -636,6 +704,22 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = (props) => {
     setSelectedProjectIds([]);
     setSelectedProjectId('');
     setShowClientDropdown(false);
+
+    // Sesuai Aturan 7: Jika local client dipilih dan membutuhkan info tambahan dari Firestore profiles secara targeted
+    if (client.source === 'local') {
+      try {
+        const docRef = doc(db, 'profiles', client.clientId);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          const profileData = docSnap.data();
+          setClientEmail(profileData.email || client.email || '');
+          setClientPhone(profileData.phoneNumber || profileData.phone || client.phone || '');
+          setClientAddress(profileData.fullAddress || profileData.address || profileData.domicile || client.address || '');
+        }
+      } catch (err) {
+        console.warn('[InvoiceGenerator] Gagal mengambil detail profil spesifik dari Firestore:', err);
+      }
+    }
   };
 
   const handleClearClient = () => {
