@@ -486,53 +486,61 @@ export const AppShell: React.FC = () => {
         try {
           const proj = await ProjectService.getProject(activeProjectContext);
           if (proj) {
-            let fullProfile: any = null;
-            
-            // Prioritize full clientSnapshot
-            if (proj.clientSnapshot && Object.keys(proj.clientSnapshot).length > 5) {
-              fullProfile = proj.clientSnapshot;
-            } else if (proj.clientId || (proj as any).selectedProfileId) {
-              // Targeted read if snapshot is not available
-              const idToFetch = proj.clientId || (proj as any).selectedProfileId;
-              try {
-                const docSnap = await getDoc(doc(db, 'profiles', idToFetch));
-                if (docSnap.exists()) {
-                  fullProfile = { id: docSnap.id, ...docSnap.data() };
-                } else {
-                  const cvSnap = await getDoc(doc(db, 'company_profiles', idToFetch));
-                  if (cvSnap.exists()) fullProfile = { id: cvSnap.id, ...cvSnap.data() };
-                }
-              } catch (e) {
-                console.warn("Failed to fetch full profile", e);
+            const profile = profiles.find((p: any) => p.id === proj.clientId || p.id === (proj as any).selectedProfileId || p.id === activeProjectContext || (p.companyName && proj.title && p.companyName.toLowerCase().trim() === proj.title.toLowerCase().trim()));
+            if (profile) {
+              updateData({
+                ...INITIAL_STATE,
+                ...profile,
+                selectedProfileId: profile.id,
+                companyName: profile.companyName,
+                kbliItems: normalizeKblis(profile.kbliItems),
+                shareholders: (profile.shareholders && profile.shareholders.length > 0) ? profile.shareholders : ((proj.clientSnapshot?.shareholders || []) as Shareholder[]),
+                oldManagementItems: profile.oldManagementItems || profile.newManagementItems || (profile as any).managementItems || proj.clientSnapshot?.managementItems || []
+              });
+              loadedDocIdRef.current = sessionKey;
+              setPresetLoadedForProject(activeProjectContext);
+              return;
+            } else if (profiles.length === 0) {
+              // Profiles not loaded yet from context! Fallback to available snapshot/parties/title, but DO NOT lock loadedDocIdRef.current so it retries when profiles loads
+              if (proj.clientSnapshot) {
+                const snap = proj.clientSnapshot as any;
+                updateData({
+                  ...INITIAL_STATE,
+                  ...snap,
+                  kbliItems: normalizeKblis(snap.kbliItems)
+                });
+              } else if (proj.parties && proj.parties.length > 0) {
+                const { shareholders: partySh, oldManagementItems: partyMgmt } = mapPartiesToShareholdersAndManagement(proj.parties);
+                updateData({
+                  ...INITIAL_STATE,
+                  companyName: proj.title,
+                  shareholders: partySh,
+                  oldManagementItems: partyMgmt
+                });
+              } else if (proj.title) {
+                updateData({ ...INITIAL_STATE, companyName: proj.title });
               }
-            }
-            
-            if (fullProfile) {
-              updateData({
-                ...INITIAL_STATE,
-                ...fullProfile, // Merge full profile fields
-                selectedProfileId: fullProfile.id,
-                companyName: fullProfile.companyName || fullProfile.companyName || proj.title,
-                kbliItems: normalizeKblis(fullProfile.kbliItems),
-                shareholders: (fullProfile.shareholders && fullProfile.shareholders.length > 0) ? fullProfile.shareholders : [],
-                oldManagementItems: fullProfile.oldManagementItems || fullProfile.newManagementItems || (fullProfile as any).managementItems || []
-              });
-              loadedDocIdRef.current = sessionKey;
-              setPresetLoadedForProject(activeProjectContext);
               return;
-            } else if (proj.parties && proj.parties.length > 0) {
-              const { shareholders: partySh, oldManagementItems: partyMgmt } = mapPartiesToShareholdersAndManagement(proj.parties);
-              updateData({
-                ...INITIAL_STATE,
-                companyName: proj.title,
-                shareholders: partySh,
-                oldManagementItems: partyMgmt
-              });
-              loadedDocIdRef.current = sessionKey;
-              setPresetLoadedForProject(activeProjectContext);
-              return;
-            } else if (proj.title) {
-              updateData({ ...INITIAL_STATE, companyName: proj.title });
+            } else {
+              // profiles is loaded (>0), but profile was not found in profiles list
+              if (proj.clientSnapshot) {
+                const snap = proj.clientSnapshot as any;
+                updateData({
+                  ...INITIAL_STATE,
+                  ...snap,
+                  kbliItems: normalizeKblis(snap.kbliItems)
+                });
+              } else if (proj.parties && proj.parties.length > 0) {
+                const { shareholders: partySh, oldManagementItems: partyMgmt } = mapPartiesToShareholdersAndManagement(proj.parties);
+                updateData({
+                  ...INITIAL_STATE,
+                  companyName: proj.title,
+                  shareholders: partySh,
+                  oldManagementItems: partyMgmt
+                });
+              } else if (proj.title) {
+                updateData({ ...INITIAL_STATE, companyName: proj.title });
+              }
               loadedDocIdRef.current = sessionKey;
               setPresetLoadedForProject(activeProjectContext);
               return;

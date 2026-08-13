@@ -363,7 +363,7 @@ export function DocumentRuntimeProvider({ children }: { children: ReactNode }) {
     return baseData;
   }, [data, profiles, activeSidebarTab]);
 
-  const syncCompanyDataToRupst = useCallback(async () => {
+  const syncCompanyDataToRupst = useCallback(() => {
     if (!data.selectedProfileId) {
       alert("Pilih Klien PT terlebih dahulu.");
       return;
@@ -372,24 +372,12 @@ export function DocumentRuntimeProvider({ children }: { children: ReactNode }) {
     if (!confirm("Sinkronkan data terbaru dari Klien PT?\n\nData manual RUPST tidak akan diubah.")) {
       return;
     }
-
+    const latestProfile = profiles.find(p => p.id === data.selectedProfileId);
+    if (!latestProfile) {
+      alert("Gagal mengambil data terbaru dari Klien PT.");
+      return;
+    }
     try {
-      let latestProfile: any = null;
-      const docSnap = await getDoc(doc(db, 'profiles', data.selectedProfileId));
-      if (docSnap.exists()) {
-        latestProfile = { id: docSnap.id, ...docSnap.data() };
-      } else {
-        const cvSnap = await getDoc(doc(db, 'company_profiles', data.selectedProfileId));
-        if (cvSnap.exists()) {
-          latestProfile = { id: cvSnap.id, ...cvSnap.data() };
-        }
-      }
-
-      if (!latestProfile) {
-        alert("Gagal mengambil data terbaru dari Klien PT.");
-        return;
-      }
-      
       const updates: any = {
         companyName: latestProfile.companyName,
         domicile: latestProfile.domicile,
