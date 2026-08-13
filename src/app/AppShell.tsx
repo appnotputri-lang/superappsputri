@@ -425,11 +425,10 @@ export const AppShell: React.FC = () => {
           }
         }
         if (found) {
-          const mergedFound = mergeWithMasterClient(found);
           updateData({
             ...INITIAL_STATE,
-            ...mergedFound,
-            kbliItems: normalizeKblis(mergedFound.kbliItems)
+            ...found,
+            kbliItems: normalizeKblis(found.kbliItems)
           });
           loadedDocIdRef.current = sessionKey;
           return;
@@ -448,11 +447,10 @@ export const AppShell: React.FC = () => {
           }
         }
         if (found) {
-          const mergedFound = mergeWithMasterClient(found);
           updateData({
             ...INITIAL_STATE,
-            ...mergedFound,
-            kbliItems: normalizeKblis(mergedFound.kbliItems)
+            ...found,
+            kbliItems: normalizeKblis(found.kbliItems)
           });
           loadedDocIdRef.current = sessionKey;
           return;

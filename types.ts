@@ -263,6 +263,7 @@ export interface CompanyProfile extends Partial<CompanyData> {
 
 export interface CompanyData {
   id?: string;
+  dontPullFromClient?: boolean;
   updatedAt?: string;
   documentType: DocumentType;
   companyName: string;

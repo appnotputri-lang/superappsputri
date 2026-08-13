@@ -768,7 +768,7 @@ export const RUPSLBPage: React.FC<RUPSLBPageProps> = ({
                   </div>
                 ) : (
                   <>
-                    <label className="block text-[13px] font-medium text-slate-700 mb-1">Pilih Profil Perseroan untuk mengisi data otomatis</label>
+                    <label className="block text-[13px] font-medium text-slate-700 mb-1">Pilih Profil Perseroan (Opsional)</label>
                     <select 
                       className="w-full border border-[#ccc] rounded-sm px-3 py-1.5 text-[13px] outline-none bg-white focus:border-[#66afe9]"
                       value={data.selectedProfileId || ''}
@@ -816,18 +816,27 @@ export const RUPSLBPage: React.FC<RUPSLBPageProps> = ({
                          }
                       }}
                     >
-                      <option value="">-- Pilih PT --</option>
+                      <option value="">-- Input Mandiri (Tanpa Tarik Data Klien) --</option>
                       {profiles.map(p => (
                         <option key={p.id} value={p.id}>{p.companyName}</option>
                       ))}
                     </select>
+                    <div className="flex items-center justify-between pt-1">
+                      <label className="flex items-center gap-2 text-[12px] text-slate-600 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={data.dontPullFromClient || false}
+                          onChange={(e) => updateData({ dontPullFromClient: e.target.checked })}
+                          className="w-3.5 h-3.5 text-[#3b5998] rounded border-slate-300"
+                        />
+                        <span>Data dokumen independen (jangan tarik otomatis dari data master klien)</span>
+                      </label>
+                    </div>
                   </>
                 )}
               </div>
             </AhuSection>
 
-            {false && (
-              <>
             <AhuSection title="DATA PERSEROAN">
               <div className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
@@ -1316,8 +1325,6 @@ export const RUPSLBPage: React.FC<RUPSLBPageProps> = ({
                   </button>
                 </div>
               </AhuSection>
-              </>
-            )}
 
             
 
