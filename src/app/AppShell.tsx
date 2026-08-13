@@ -309,31 +309,95 @@ export const AppShell: React.FC = () => {
         }
       }
 
+      const isSnapshotComplete = (snap: any): boolean => {
+        if (!snap || typeof snap !== 'object') return false;
+        if (!snap.companyName || typeof snap.companyName !== 'string' || !snap.companyName.trim()) return false;
+
+        // Domicile / Address presence
+        const hasAddress = !!(
+          snap.domicile ||
+          snap.oldDomicile ||
+          snap.fullAddress ||
+          snap.oldFullAddress ||
+          snap.address ||
+          snap.newAddress ||
+          snap.city
+        );
+        if (!hasAddress) return false;
+
+        // Must have shareholders array (even if empty, key must exist as an array)
+        if (!Array.isArray(snap.shareholders)) return false;
+
+        // Must have management array (even if empty, key must exist as an array)
+        const hasManagement = Array.isArray(snap.oldManagementItems) ||
+                              Array.isArray(snap.newManagementItems) ||
+                              Array.isArray(snap.managementItems);
+        if (!hasManagement) return false;
+
+        // Must have KBLI items array (even if empty, key must exist as an array)
+        if (!Array.isArray(snap.kbliItems)) return false;
+
+        // Must have capital structure fields defined (not undefined)
+        const hasCapitalBase = snap.originalCapitalBase !== undefined ||
+                               snap.authorizedCapital !== undefined ||
+                               snap.targetCapitalBase !== undefined ||
+                               snap.capitalBase !== undefined;
+        const hasCapitalPaid = snap.originalCapitalPaid !== undefined ||
+                               snap.paidUpCapital !== undefined ||
+                               snap.targetCapitalPaid !== undefined ||
+                               snap.capitalPaid !== undefined;
+        const hasSharePrice = snap.originalSharePrice !== undefined ||
+                              snap.shareValue !== undefined;
+        const hasSharesCount = snap.originalAuthorizedShares !== undefined ||
+                               snap.originalTotalShares !== undefined ||
+                               snap.authorizedShares !== undefined ||
+                               snap.totalShares !== undefined;
+
+        if (!hasCapitalBase || !hasCapitalPaid || !hasSharePrice || !hasSharesCount) return false;
+
+        return true;
+      };
+
       // 4. If creating a new document ('new') with an activeProjectContext
       if (activeProjectContext) {
         try {
           const proj = await ProjectService.getProject(activeProjectContext);
           if (proj) {
-            // PRIORITY 1: proj.clientSnapshot or proj.changeSnapshot (zero reads, full profile stored at project creation)
             const snap = (proj.clientSnapshot || proj.changeSnapshot?.after || proj.changeSnapshot?.before) as any;
-            if (snap && snap.companyName) {
+            const snapshotExists = !!(snap && (snap.companyName || snap.id));
+            const snapshotComplete = snapshotExists && isSnapshotComplete(snap);
+            const targetClientId = proj.clientId || (proj as any).selectedProfileId || (snap && snap.id) || '';
+
+            // PRIORITY 1: proj.clientSnapshot only if TRULY COMPLETE (zero reads)
+            if (snapshotComplete) {
+              console.log(`[DocumentHydration]
+projectId: ${activeProjectContext}
+clientId: ${targetClientId || 'none'}
+snapshotExists: ${snapshotExists}
+snapshotComplete: true
+profileFetch: skipped
+profileSource: clientSnapshot
+readCount: 0`);
+
               const currentManagement = snap.oldManagementItems || snap.newManagementItems || snap.managementItems || [];
               updateData({
                 ...INITIAL_STATE,
                 ...snap,
-                selectedProfileId: snap.id || proj.clientId || '',
+                selectedProfileId: snap.id || targetClientId || '',
                 companyName: snap.companyName || '',
-                domicile: snap.domicile || snap.oldDomicile || snap.city || '',
-                oldDomicile: snap.oldDomicile || snap.domicile || snap.city || '',
-                oldFullAddress: snap.fullAddress || snap.oldFullAddress || '',
+                companyType: snap.companyType || snap.clientType || 'PT',
+                domicile: snap.domicile || snap.oldDomicile || snap.newAddress?.city || snap.oldAddress?.city || snap.city || '',
+                oldDomicile: snap.domicile || snap.oldDomicile || snap.newAddress?.city || snap.oldAddress?.city || snap.city || '',
+                oldFullAddress: snap.fullAddress || snap.oldFullAddress || (snap.newAddress?.fullAddress ? `${snap.newAddress.fullAddress}, RT ${snap.newAddress.rt}/${snap.newAddress.rw}, Kel. ${snap.newAddress.kelurahan}, Kec. ${snap.newAddress.kecamatan}` : ''),
+                oldAddress: snap.newAddress || snap.oldAddress,
                 kbliItems: normalizeKblis(snap.kbliItems),
                 shareholders: (snap.shareholders && snap.shareholders.length > 0) ? snap.shareholders : [],
                 oldManagementItems: currentManagement,
-                originalCapitalBase: snap.originalCapitalBase || snap.authorizedCapital || 0,
-                originalCapitalPaid: snap.originalCapitalPaid || snap.paidUpCapital || 0,
-                originalSharePrice: snap.originalSharePrice || 0,
-                originalAuthorizedShares: snap.originalAuthorizedShares || 0,
-                originalTotalShares: snap.originalTotalShares || 0,
+                originalCapitalBase: snap.originalCapitalBase || snap.targetCapitalBase || snap.authorizedCapital || snap.capitalBase || 0,
+                originalCapitalPaid: snap.originalCapitalPaid || snap.targetCapitalPaid || snap.paidUpCapital || snap.capitalPaid || 0,
+                originalSharePrice: snap.originalSharePrice || snap.shareValue || 0,
+                originalAuthorizedShares: snap.originalAuthorizedShares || snap.authorizedShares || 0,
+                originalTotalShares: snap.originalTotalShares || snap.totalShares || 0,
                 establishmentDeedNumber: snap.establishmentDeedNumber || '',
                 establishmentDeedDate: snap.establishmentDeedDate || '',
                 establishmentNotary: snap.establishmentNotary || '',
@@ -348,9 +412,17 @@ export const AppShell: React.FC = () => {
               return;
             }
 
-            // PRIORITY 2: Targeted single getDoc for full profile via CompanyService
-            const targetClientId = proj.clientId || (proj as any).selectedProfileId;
+            // PRIORITY 2: Snapshot incomplete or missing -> Targeted single getDoc for full profile via CompanyService
             if (targetClientId) {
+              console.log(`[DocumentHydration]
+projectId: ${activeProjectContext}
+clientId: ${targetClientId}
+snapshotExists: ${snapshotExists}
+snapshotComplete: false
+profileFetch: targeted
+profileSource: Firestore profiles/${targetClientId}
+readCount: 1`);
+
               const fullProfile = await CompanyService.getCompanyProfile(targetClientId);
               if (fullProfile) {
                 const currentManagement = fullProfile.oldManagementItems || fullProfile.newManagementItems || (fullProfile as any).managementItems || [];
@@ -359,9 +431,10 @@ export const AppShell: React.FC = () => {
                   ...fullProfile,
                   selectedProfileId: fullProfile.id,
                   companyName: fullProfile.companyName || '',
+                  companyType: fullProfile.companyType || fullProfile.clientType || 'PT',
                   domicile: fullProfile.domicile || fullProfile.oldDomicile || fullProfile.newAddress?.city || fullProfile.oldAddress?.city || '',
                   oldDomicile: fullProfile.domicile || fullProfile.oldDomicile || fullProfile.newAddress?.city || fullProfile.oldAddress?.city || '',
-                  oldFullAddress: fullProfile.fullAddress || fullProfile.oldFullAddress || '',
+                  oldFullAddress: fullProfile.fullAddress || fullProfile.oldFullAddress || (fullProfile.newAddress?.fullAddress ? `${fullProfile.newAddress.fullAddress}, RT ${fullProfile.newAddress.rt}/${fullProfile.newAddress.rw}, Kel. ${fullProfile.newAddress.kelurahan}, Kec. ${fullProfile.newAddress.kecamatan}` : ''),
                   oldAddress: fullProfile.newAddress || fullProfile.oldAddress,
                   kbliItems: normalizeKblis(fullProfile.kbliItems),
                   shareholders: (fullProfile.shareholders && fullProfile.shareholders.length > 0) ? fullProfile.shareholders : [],
@@ -386,8 +459,45 @@ export const AppShell: React.FC = () => {
               }
             }
 
-            // PRIORITY 3: Fallback to project parties or title
-            if (proj.parties && proj.parties.length > 0) {
+            // PRIORITY 3: Fallback to partial snapshot, project parties or title
+            console.log(`[DocumentHydration]
+projectId: ${activeProjectContext}
+clientId: ${targetClientId || 'none'}
+snapshotExists: ${snapshotExists}
+snapshotComplete: false
+profileFetch: ${targetClientId ? 'attempted' : 'skipped'}
+profileSource: ${snap && snap.companyName ? 'clientSnapshot (partial fallback)' : 'project metadata'}
+readCount: ${targetClientId ? 1 : 0}`);
+
+            if (snap && snap.companyName) {
+              const currentManagement = snap.oldManagementItems || snap.newManagementItems || snap.managementItems || [];
+              updateData({
+                ...INITIAL_STATE,
+                ...snap,
+                selectedProfileId: snap.id || targetClientId || '',
+                companyName: snap.companyName || '',
+                companyType: snap.companyType || snap.clientType || 'PT',
+                domicile: snap.domicile || snap.oldDomicile || snap.city || '',
+                oldDomicile: snap.oldDomicile || snap.domicile || snap.city || '',
+                oldFullAddress: snap.fullAddress || snap.oldFullAddress || '',
+                kbliItems: normalizeKblis(snap.kbliItems),
+                shareholders: (snap.shareholders && snap.shareholders.length > 0) ? snap.shareholders : [],
+                oldManagementItems: currentManagement,
+                originalCapitalBase: snap.originalCapitalBase || snap.authorizedCapital || 0,
+                originalCapitalPaid: snap.originalCapitalPaid || snap.paidUpCapital || 0,
+                originalSharePrice: snap.originalSharePrice || 0,
+                originalAuthorizedShares: snap.originalAuthorizedShares || 0,
+                originalTotalShares: snap.originalTotalShares || 0,
+                establishmentDeedNumber: snap.establishmentDeedNumber || '',
+                establishmentDeedDate: snap.establishmentDeedDate || '',
+                establishmentNotary: snap.establishmentNotary || '',
+                establishmentNotaryTitle: snap.establishmentNotaryTitle || '',
+                establishmentNotaryDomicile: snap.establishmentNotaryDomicile || '',
+                establishmentSkNumber: snap.establishmentSkNumber || '',
+                establishmentSkDate: snap.establishmentSkDate || '',
+                amendmentDeeds: snap.amendmentDeeds || []
+              });
+            } else if (proj.parties && proj.parties.length > 0) {
               const { shareholders: partySh, oldManagementItems: partyMgmt } = mapPartiesToShareholdersAndManagement(proj.parties);
               updateData({
                 ...INITIAL_STATE,
