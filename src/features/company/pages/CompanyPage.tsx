@@ -21,7 +21,6 @@ import { useAuth } from '../../../hooks/useAuth';
 import { getApiUrl } from '../../../lib/api';
 import { handleFirestoreError, OperationType } from '../../../lib/firebase';
 import { CompanyService, ClientDirectoryEntry } from '../../../services/CompanyService';
-import { NotificationService } from '../../../services/NotificationService';
 import { ShareholderModal } from '../../../components/modals/ShareholderModal';
 import { KbliModal } from '../../../components/modals/KbliModal';
 import { MergeClientsModal } from '../../../components/modals/MergeClientsModal';
@@ -302,14 +301,9 @@ export const CompanyPage: React.FC<CompanyPageProps> = ({ setIsSidebarOpen, ...p
     profileItemsPerPage
   ]);
 
-  // Notification Helper
+  // Notification Helper (No-op: notification feature completely removed)
   const recordNotification = async (title: string, description: string, type: string) => {
-    try {
-      if (!user) return;
-      await NotificationService.sendNotification(user, title, description, type);
-    } catch (err) {
-      console.error("Gagal menambahkan notifikasi:", err);
-    }
+    // No-op
   };
 
   // 6. KBLI Modal Search Engine

@@ -759,6 +759,63 @@ export class ProjectService {
     return project;
   }
 
+  /**
+   * Lightweight parser for project lists (Table View).
+   * Strips out heavy nested objects like shareholders, managementItems, kbliItems,
+   * changeSnapshot, parties, documents, workflows, timelines, etc. to minimize
+   * memory footprint and initial payload size.
+   */
+  private static parseProjectListItem(docSnap: any): Project {
+    const data = docSnap.data() || {};
+    
+    // Extract only lightweight client snapshot info needed for client name & type display
+    let clientSnapshotLight: ClientSnapshot | undefined = undefined;
+    if (data.clientSnapshot) {
+      clientSnapshotLight = {
+        id: data.clientSnapshot.id || data.clientId || '',
+        companyName: data.clientSnapshot.companyName || '',
+        companyType: data.clientSnapshot.companyType || ''
+      };
+    }
+
+    const project: Project = {
+      projectId: docSnap.id,
+      clientId: data.clientId || '',
+      title: data.title || '',
+      jobType: data.jobType || '',
+      status: data.status || '',
+      currentStep: data.currentStep || '',
+      assignedTo: data.assignedTo || '',
+      createdAt: data.createdAt,
+      updatedAt: data.updatedAt,
+      lastTransitionComment: data.lastTransitionComment || '',
+      minutaNotes: data.minutaNotes || '',
+      projectCategory: data.projectCategory,
+      projectType: data.projectType,
+      meetingSubject: data.meetingSubject,
+      metadata: data.metadata,
+      clientSnapshot: clientSnapshotLight
+    };
+
+    if (!project.projectCategory) {
+      if (project.jobType === 'rups_lb' || project.jobType === 'sirkuler_rupslb') {
+        project.projectCategory = 'MEETING';
+        project.projectType = 'RUPS-LB';
+      } else if (project.jobType === 'rups_t' || project.jobType === 'sirkuler') {
+        project.projectCategory = 'MEETING';
+        project.projectType = 'RUPST';
+      } else if (project.jobType === 'pendirian_pt') {
+        project.projectCategory = 'BODY_LEGAL';
+        project.projectType = 'Pendirian';
+      } else {
+        project.projectCategory = 'BODY_LEGAL';
+        project.projectType = 'Pendirian';
+      }
+    }
+
+    return project;
+  }
+
   private static sortProjectsByDate(list: Project[]): Project[] {
     const getDocTime = (val: any) => {
       if (!val) return 0;
@@ -812,7 +869,7 @@ export class ProjectService {
           querySnap = await getDocs(q);
         }
         if (!querySnap) return [];
-        const items = querySnap.docs.map((docSnap) => this.parseProjectDoc(docSnap));
+        const items = querySnap.docs.map((docSnap) => this.parseProjectListItem(docSnap));
         return this.sortProjectsByDate(items);
       },
       5 * 60 * 1000
@@ -872,7 +929,7 @@ export class ProjectService {
       const resultDocs = hasMore ? docs.slice(0, pageSize) : docs;
       const lastVisible = resultDocs.length > 0 ? resultDocs[resultDocs.length - 1] : null;
 
-      let items = resultDocs.map((docSnap) => this.parseProjectDoc(docSnap));
+      let items = resultDocs.map((docSnap) => this.parseProjectListItem(docSnap));
 
       if (options.statusCategory === 'minuta') {
         items = items.filter(p => p.metadata?.minutaCheckedAll === false || !p.metadata?.minutaCheckedAll);
@@ -934,7 +991,7 @@ export class ProjectService {
         return ProjectService.activeProjectsCache || [];
       }
 
-      const list = querySnap.docs.map((docSnap) => this.parseProjectDoc(docSnap));
+      const list = querySnap.docs.map((docSnap) => this.parseProjectListItem(docSnap));
       const sorted = this.sortProjectsByDate(list);
 
       ProjectService.activeProjectsCache = sorted;
@@ -965,7 +1022,7 @@ export class ProjectService {
         const fallbackQ = query(colRef, limit(limitCount));
         snap = await getDocs(fallbackQ);
       }
-      return snap.docs.map((docSnap) => this.parseProjectDoc(docSnap));
+      return snap.docs.map((docSnap) => this.parseProjectListItem(docSnap));
     } catch (error) {
       handleFirestoreError(error, OperationType.LIST, path);
       return [];
@@ -1009,7 +1066,7 @@ export class ProjectService {
         };
       }
 
-      const list = querySnap.docs.map((docSnap) => this.parseProjectDoc(docSnap));
+      const list = querySnap.docs.map((docSnap) => this.parseProjectListItem(docSnap));
       const sorted = this.sortProjectsByDate(list);
 
       const minuta: Project[] = [];

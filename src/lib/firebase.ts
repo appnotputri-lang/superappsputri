@@ -131,6 +131,17 @@ export function isQuotaExceeded(error: unknown): boolean {
 }
 
 export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  const isQuota = isQuotaExceeded(error);
+  if (isQuota && typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('firestore_quota_exceeded', {
+      detail: {
+        path,
+        operationType,
+        message: error instanceof Error ? error.message : String(error)
+      }
+    }));
+  }
+
   const errInfo: FirestoreErrorInfo = {
     error: error instanceof Error ? error.message : String(error),
     authInfo: {
@@ -140,7 +151,7 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
     },
     operationType,
     path
-  }
+  };
   console.error('Firestore Error: ', JSON.stringify(errInfo));
   throw new Error(JSON.stringify(errInfo));
 }

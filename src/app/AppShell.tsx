@@ -12,10 +12,8 @@ import { AppRoutes } from './AppRoutes';
 import { useAuthContext } from '../contexts/AuthContext';
 import { useCompanyContext } from '../contexts/CompanyContext';
 import { useProjectContext } from '../contexts/ProjectContext';
-import { useNotificationContext } from '../contexts/NotificationContext';
 import { useProjectSession } from '../domain/project/useProjectSession';
 import { useDocumentRuntime } from '../domain/company/useDocumentRuntime';
-import { NotificationService } from '../services/NotificationService';
 import { ProjectService } from '../services/ProjectService';
 import { fetchLatestDeedNumbers } from '../lib/deedUtils';
 import { syncToUtama, getDeedTitle, formatAppearersForRups, formatAppearersForPendirian } from '../lib/syncUtama';
@@ -79,8 +77,6 @@ export const AppShell: React.FC = () => {
   const rupstProjects = projectCtx.rupstProjects;
   const pendirianProjects = projectCtx.pendirianProjects;
 
-  const { notifications } = useNotificationContext();
-
   const [editingCvProfileId, setEditingCvProfileId] = useState<string | null>(null);
   const [isProfilePreview, setIsProfilePreview] = useState(false);
   const [cvProfileSearchQuery, setCvProfileSearchQuery] = useState('');
@@ -120,7 +116,6 @@ export const AppShell: React.FC = () => {
   const [isExportingPendirian, setIsExportingPendirian] = useState(false);
 
   const [isEditProfileModalOpen, setIsEditProfileModalOpen] = useState(false);
-  const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
@@ -578,9 +573,7 @@ export const AppShell: React.FC = () => {
   ]);
 
   const recordNotification = (title: string, message: string, type: 'create_project' | 'update_project' | 'delete_project' | 'create_profile' | 'update_profile' | 'delete_profile' | 'system' = 'system') => {
-    if (user) {
-      NotificationService.sendNotification(user, title, message, type);
-    }
+    // No-op: notification feature completely removed
   };
 
   const handleFetchLatestNumbers = async () => {
@@ -867,9 +860,6 @@ export const AppShell: React.FC = () => {
       setIsSidebarOpen={setIsSidebarOpen}
       activeSidebarTab={activeSidebarTab}
       setActiveSidebarTab={setActiveSidebarTab}
-      notifications={notifications}
-      isNotificationOpen={isNotificationOpen}
-      setIsNotificationOpen={setIsNotificationOpen}
       isUserDropdownOpen={isUserDropdownOpen}
       setIsUserDropdownOpen={setIsUserDropdownOpen}
       setIsEditProfileModalOpen={setIsEditProfileModalOpen}
@@ -899,7 +889,6 @@ export const AppShell: React.FC = () => {
         user={user}
         userProfile={userProfile}
         setIsSidebarOpen={setIsSidebarOpen}
-        notifications={notifications}
         profiles={profiles}
         cvProfiles={cvProfiles}
         projects={projects}

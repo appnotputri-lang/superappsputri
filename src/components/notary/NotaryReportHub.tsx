@@ -45,21 +45,84 @@ export const NotaryReportHub: React.FC = () => {
   const [driveProgress, setDriveProgress] = useState('');
   const [driveResult, setDriveResult] = useState<{ success: boolean; message: string; link?: string } | null>(null);
 
-  // Firestore state
+  // Firestore state & month cache
+  const [cache, setCache] = useState<{
+    [periodKey: string]: {
+      deeds: Deed[];
+      privateDeeds: PrivateDeed[];
+      protestCheques: ProtestCheque[];
+      outgoingMails: OutgoingMail[];
+    };
+  }>({});
+
   const [deeds, setDeeds] = useState<Deed[]>([]);
   const [privateDeeds, setPrivateDeeds] = useState<PrivateDeed[]>([]);
   const [protestCheques, setProtestCheques] = useState<ProtestCheque[]>([]);
   const [outgoingMails, setOutgoingMails] = useState<OutgoingMail[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const periodKey = `${selectedYear}-${selectedMonth}`;
+
   useEffect(() => {
-    setLoading(true);
-    const unsubDeeds = NotaryService.subscribeDeeds(data => setDeeds(data));
-    const unsubPrivate = NotaryService.subscribePrivateDeeds(data => setPrivateDeeds(data));
-    const unsubProtest = NotaryService.subscribeProtestCheques(data => setProtestCheques(data));
-    const unsubMails = NotaryService.subscribeOutgoingMails(data => {
-      setOutgoingMails(data);
+    // If cached, display cached data immediately
+    if (cache[periodKey]) {
+      setDeeds(cache[periodKey].deeds);
+      setPrivateDeeds(cache[periodKey].privateDeeds);
+      setProtestCheques(cache[periodKey].protestCheques);
+      setOutgoingMails(cache[periodKey].outgoingMails);
       setLoading(false);
+    } else {
+      setLoading(true);
+    }
+
+    // Subscribe ONLY to the selected month/year in real-time
+    const unsubDeeds = NotaryService.subscribeDeedsByMonth(selectedYear, selectedMonth, (data) => {
+      const list = data || [];
+      setDeeds(list);
+      setCache((prev) => ({
+        ...prev,
+        [periodKey]: {
+          ...(prev[periodKey] || { deeds: [], privateDeeds: [], protestCheques: [], outgoingMails: [] }),
+          deeds: list
+        }
+      }));
+      setLoading(false);
+    });
+
+    const unsubPrivate = NotaryService.subscribePrivateDeedsByMonth(selectedYear, selectedMonth, (data) => {
+      const list = data || [];
+      setPrivateDeeds(list);
+      setCache((prev) => ({
+        ...prev,
+        [periodKey]: {
+          ...(prev[periodKey] || { deeds: [], privateDeeds: [], protestCheques: [], outgoingMails: [] }),
+          privateDeeds: list
+        }
+      }));
+    });
+
+    const unsubProtest = NotaryService.subscribeProtestChequesByMonth(selectedYear, selectedMonth, (data) => {
+      const list = data || [];
+      setProtestCheques(list);
+      setCache((prev) => ({
+        ...prev,
+        [periodKey]: {
+          ...(prev[periodKey] || { deeds: [], privateDeeds: [], protestCheques: [], outgoingMails: [] }),
+          protestCheques: list
+        }
+      }));
+    });
+
+    const unsubMails = NotaryService.subscribeOutgoingMailsByMonth(selectedYear, selectedMonth, (data) => {
+      const list = data || [];
+      setOutgoingMails(list);
+      setCache((prev) => ({
+        ...prev,
+        [periodKey]: {
+          ...(prev[periodKey] || { deeds: [], privateDeeds: [], protestCheques: [], outgoingMails: [] }),
+          outgoingMails: list
+        }
+      }));
     });
 
     return () => {
@@ -68,7 +131,7 @@ export const NotaryReportHub: React.FC = () => {
       unsubProtest();
       unsubMails();
     };
-  }, []);
+  }, [selectedYear, selectedMonth, periodKey]);
 
   // Filter counts for current selected month & year
   const currentDeeds = deeds.filter(d => {

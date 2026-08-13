@@ -19,7 +19,6 @@ export const renderDashboardRoute = (props: any) => {
       handleDownloadProject={props.handleDownloadProject || (() => {})}
       currentUser={props.userProfile || props.user}
       setIsSidebarOpen={props.setIsSidebarOpen}
-      notifications={props.notifications}
       userProfile={props.userProfile}
     />
   );

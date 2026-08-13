@@ -4,7 +4,8 @@ import {
   loginWithGoogle as firebaseLoginWithGoogle, 
   logout as firebaseLogout,
   handleFirestoreError,
-  OperationType
+  OperationType,
+  isQuotaExceeded
 } from '../lib/firebase';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 import { doc, onSnapshot, setDoc, updateDoc } from 'firebase/firestore';
@@ -144,7 +145,25 @@ export class AuthService {
         }
       }
     }, (error) => {
-      handleFirestoreError(error, OperationType.GET, `user_profiles/${uid}`);
+      if (isQuotaExceeded(error)) {
+        console.warn(`[AuthService] Quota exceeded on user_profiles/${uid}. Using local default user profile.`);
+        const isSuperAdmin = email === 'appnotputri@gmail.com';
+        onUpdate({
+          uid,
+          email: email || '',
+          name: displayName || 'User',
+          role: isSuperAdmin ? 'Super Admin' : 'Staff',
+          level: isSuperAdmin ? 'Super Admin' : 'Staff',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        } as UserProfile);
+        return;
+      }
+      try {
+        handleFirestoreError(error, OperationType.GET, `user_profiles/${uid}`);
+      } catch (err) {
+        console.error(`[AuthService] Error observing user_profiles/${uid}:`, err);
+      }
       if (onError) onError(error);
     });
   }

@@ -119,15 +119,21 @@ function calculateOrderNumber(
 export const DeedBook: React.FC = () => {
   const { user } = useAuth();
   const superAdmin = isSuperAdmin(user?.email);
-  const [deeds, setDeeds] = useState<Deed[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
+
+  const currentDate = useMemo(() => new Date(), []);
+  const currentYearNum = currentDate.getFullYear();
+  const currentMonthNum = currentDate.getMonth() + 1;
+  const currentMonthKey = `${currentYearNum}-${String(currentMonthNum).padStart(2, '0')}`;
+
+  const [selectedYear, setSelectedYear] = useState<string>(currentYearNum.toString());
+  const [monthCache, setMonthCache] = useState<Record<string, Deed[]>>({});
+  const [loadingMonths, setLoadingMonths] = useState<Record<string, boolean>>({});
+  const [openMonths, setOpenMonths] = useState<Record<string, boolean>>({ [currentMonthKey]: true });
   const [searchTerm, setSearchTerm] = useState<string>('');
-  const [selectedYear, setSelectedYear] = useState<string>(new Date().getFullYear().toString());
 
   // Form Panel State
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [editingDeedId, setEditingDeedId] = useState<string | null>(null);
-  const [collapsedMonths, setCollapsedMonths] = useState<Record<string, boolean>>({});
 
   // Form Fields
   const [deedNumber, setDeedNumber] = useState<string>('');
@@ -144,130 +150,130 @@ export const DeedBook: React.FC = () => {
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [isOrdering, setIsOrdering] = useState<boolean>(false);
 
-  // Subscribe to deeds collection
+  // Subscribe ONLY to the current month in real time
   useEffect(() => {
-    setLoading(true);
-    const unsubscribe = NotaryService.subscribeDeeds((data) => {
-      setDeeds(data || []);
-      setLoading(false);
+    setLoadingMonths((prev) => ({ ...prev, [currentMonthKey]: true }));
+    const unsubscribe = NotaryService.subscribeDeedsByMonth(currentYearNum, currentMonthNum, (data) => {
+      setMonthCache((prev) => ({ ...prev, [currentMonthKey]: data || [] }));
+      setLoadingMonths((prev) => ({ ...prev, [currentMonthKey]: false }));
     });
     return () => unsubscribe();
-  }, []);
+  }, [currentYearNum, currentMonthNum, currentMonthKey]);
 
-  // Available Years
+  // Combine all loaded deeds from monthCache into a single list for helper calculations
+  const allLoadedDeeds = useMemo(() => {
+    return Object.values(monthCache).flat();
+  }, [monthCache]);
+
+  // Available Years dropdown choices
   const availableYears = useMemo(() => {
     const yearsSet = new Set<string>();
-    const currentYr = new Date().getFullYear().toString();
-    yearsSet.add(currentYr);
-    deeds.forEach((d) => {
-      if (d.date && d.date.length >= 4) {
-        yearsSet.add(d.date.substring(0, 4));
-      }
+    yearsSet.add(currentYearNum.toString());
+    yearsSet.add((currentYearNum - 1).toString());
+    yearsSet.add((currentYearNum - 2).toString());
+    Object.keys(monthCache).forEach((k) => {
+      const y = k.split('-')[0];
+      if (y) yearsSet.add(y);
     });
     return Array.from(yearsSet).sort().reverse();
-  }, [deeds]);
+  }, [currentYearNum, monthCache]);
 
-  // Filtered Deeds
-  const filteredDeeds = useMemo(() => {
-    return deeds.filter((deed) => {
-      // Filter Year
-      if (selectedYear !== 'ALL') {
-        if (!deed.date || !deed.date.startsWith(selectedYear)) return false;
-      }
+  // Month groups to render for the selected year
+  const monthGroupsToDisplay = useMemo(() => {
+    const groups: { groupKey: string; year: number; month: number; monthName: string }[] = [];
 
-      // Filter Search
-      if (searchTerm.trim()) {
-        const query = searchTerm.toLowerCase();
-        const matchNumber = deed.number?.toLowerCase().includes(query);
-        const matchOrderNumber = deed.orderNumber?.toLowerCase().includes(query);
-        const matchTitle = deed.title?.toLowerCase().includes(query);
-        const matchCategory = deed.category?.toLowerCase().includes(query);
-        const matchClient = deed.clientName?.toLowerCase().includes(query);
-        const matchNotes = deed.notes?.toLowerCase().includes(query);
-        const matchAppearers = deed.appearers?.some(
-          (a) =>
-            a.name?.toLowerCase().includes(query) ||
-            a.position?.toLowerCase().includes(query) ||
-            a.grantors?.some((g) => g.name?.toLowerCase().includes(query))
-        );
-        const matchGrantors = deed.grantors?.some((g) => g.name?.toLowerCase().includes(query));
-
-        return matchNumber || matchOrderNumber || matchTitle || matchCategory || matchClient || matchNotes || matchAppearers || matchGrantors;
-      }
-
-      return true;
-    });
-  }, [deeds, selectedYear, searchTerm]);
-
-  // Grouped Deeds by Month
-  const groupedDeeds = useMemo(() => {
-    const groups: { [key: string]: { year: number; month: number; monthName: string; deeds: Deed[] } } = {};
-
-    filteredDeeds.forEach((deed) => {
-      if (!deed.date) return;
-      const parts = deed.date.split('-');
-      if (parts.length < 2) return;
-      const year = parseInt(parts[0], 10);
-      const month = parseInt(parts[1], 10);
-      const groupKey = `${year}-${String(month).padStart(2, '0')}`;
-
-      if (!groups[groupKey]) {
-        groups[groupKey] = {
-          year,
-          month,
-          monthName: MONTH_NAMES[month - 1] || `Bulan ${month}`,
-          deeds: []
-        };
-      }
-      groups[groupKey].deeds.push(deed);
-    });
-
-    const sortedKeys = Object.keys(groups).sort().reverse();
-
-    return sortedKeys.map((key) => {
-      const grp = groups[key];
-      grp.deeds.sort((a, b) => {
-        // Sort by date descending (latest date first)
-        if (a.date !== b.date) return b.date.localeCompare(a.date);
-        // Secondary sort: order number descending
-        const ordA = parseInt(a.orderNumber || '0', 10);
-        const ordB = parseInt(b.orderNumber || '0', 10);
-        if (!isNaN(ordA) && !isNaN(ordB) && ordA !== ordB) {
-          return ordB - ordA;
+    if (selectedYear !== 'ALL') {
+      const y = parseInt(selectedYear, 10);
+      if (!isNaN(y)) {
+        const maxM = y === currentYearNum ? currentMonthNum : 12;
+        for (let m = maxM; m >= 1; m--) {
+          const groupKey = `${y}-${String(m).padStart(2, '0')}`;
+          groups.push({
+            groupKey,
+            year: y,
+            month: m,
+            monthName: MONTH_NAMES[m - 1] || `Bulan ${m}`
+          });
         }
-        // Tertiary sort: deed number descending
-        const numA = parseInt(a.number, 10) || 0;
-        const numB = parseInt(b.number, 10) || 0;
-        return numB - numA;
-      });
-      return grp;
-    });
-  }, [filteredDeeds]);
+      }
+    } else {
+      const keysSet = new Set<string>();
+      Object.keys(monthCache).forEach((k) => keysSet.add(k));
+      keysSet.add(currentMonthKey);
 
-  // Auto collapse locked months by default
-  useEffect(() => {
-    if (groupedDeeds.length === 0) return;
-    setCollapsedMonths((prev) => {
-      let updated = false;
-      const next = { ...prev };
-      groupedDeeds.forEach((group) => {
-        const groupKey = `${group.year}-${String(group.month).padStart(2, '0')}`;
-        if (next[groupKey] === undefined) {
-          // Check if the month is locked (using first day of that month and passing null for userEmail so we check standard deadline)
-          const testDate = `${group.year}-${String(group.month).padStart(2, '0')}-01`;
-          const isLocked = isRecordLocked(testDate, null);
-          if (isLocked) {
-            next[groupKey] = true;
-            updated = true;
+      const sorted = Array.from(keysSet).sort().reverse();
+      sorted.forEach((key) => {
+        const parts = key.split('-');
+        if (parts.length === 2) {
+          const y = parseInt(parts[0], 10);
+          const m = parseInt(parts[1], 10);
+          if (!isNaN(y) && !isNaN(m)) {
+            groups.push({
+              groupKey: key,
+              year: y,
+              month: m,
+              monthName: MONTH_NAMES[m - 1] || `Bulan ${m}`
+            });
           }
         }
       });
-      return updated ? next : prev;
-    });
-  }, [groupedDeeds]);
+    }
+
+    return groups;
+  }, [selectedYear, currentYearNum, currentMonthNum, currentMonthKey, monthCache]);
+
+  // Toggle month accordion and lazy load from Firestore if not cached
+  const handleToggleMonth = async (groupKey: string) => {
+    const isOpen = !!openMonths[groupKey];
+    if (isOpen) {
+      setOpenMonths((prev) => ({ ...prev, [groupKey]: false }));
+      return;
+    }
+
+    setOpenMonths((prev) => ({ ...prev, [groupKey]: true }));
+
+    // If already cached, do not query Firestore again
+    if (groupKey in monthCache) {
+      return;
+    }
+
+    const parts = groupKey.split('-');
+    if (parts.length < 2) return;
+    const y = parseInt(parts[0], 10);
+    const m = parseInt(parts[1], 10);
+    if (isNaN(y) || isNaN(m)) return;
+
+    setLoadingMonths((prev) => ({ ...prev, [groupKey]: true }));
+    try {
+      const data = await NotaryService.getDeedsByMonth(y, m);
+      setMonthCache((prev) => ({ ...prev, [groupKey]: data || [] }));
+    } catch (err) {
+      console.error(`Error loading deeds for ${groupKey}:`, err);
+    } finally {
+      setLoadingMonths((prev) => ({ ...prev, [groupKey]: false }));
+    }
+  };
+
+  // Helper to ensure target date's month is loaded in cache
+  const ensureMonthLoaded = async (dateStr: string) => {
+    if (!dateStr || dateStr.length < 7) return;
+    const ymKey = dateStr.substring(0, 7);
+    if (ymKey in monthCache) return;
+    const parts = ymKey.split('-');
+    const y = parseInt(parts[0], 10);
+    const m = parseInt(parts[1], 10);
+    if (!isNaN(y) && !isNaN(m)) {
+      try {
+        const monthData = await NotaryService.getDeedsByMonth(y, m);
+        setMonthCache((prev) => ({ ...prev, [ymKey]: monthData || [] }));
+      } catch (err) {
+        console.error(`Error loading month data for ${ymKey}:`, err);
+      }
+    }
+  };
 
   // Open Form Panel for Create / Edit
-  const handleOpenModal = (deed?: Deed) => {
+  const handleOpenModal = async (deed?: Deed) => {
     if (!superAdmin) {
       alert('Hanya Super Admin yang dapat mengubah data akta.');
       return;
@@ -276,7 +282,10 @@ export const DeedBook: React.FC = () => {
       setEditingDeedId(deed.id);
       setDeedNumber(deed.number || '');
       setOrderNumber(deed.orderNumber || '');
-      setDeedDate(deed.date || new Date().toISOString().split('T')[0]);
+      const dDate = deed.date || new Date().toISOString().split('T')[0];
+      setDeedDate(dDate);
+      await ensureMonthLoaded(dDate);
+
       setDeedTitle(deed.title || '');
       setCategory(deed.category || '');
       setClientName(deed.clientName || '');
@@ -303,17 +312,18 @@ export const DeedBook: React.FC = () => {
         setAppearers([{ name: '', role: 'Self', position: '' }]);
       }
 
-      const { warning } = calculateOrderNumber(deed.number || '', deed.date || '', deed.id, deeds);
+      const { warning } = calculateOrderNumber(deed.number || '', dDate, deed.id, allLoadedDeeds);
       setOrderWarning(warning);
     } else {
       const defaultDate = new Date().toISOString().split('T')[0];
       setEditingDeedId(null);
       setDeedDate(defaultDate);
+      await ensureMonthLoaded(defaultDate);
 
-      const autoNum = getAutoDeedNumber(defaultDate, null, deeds);
+      const autoNum = getAutoDeedNumber(defaultDate, null, allLoadedDeeds);
       setDeedNumber(autoNum);
 
-      const { calculatedOrder, warning } = calculateOrderNumber(autoNum, defaultDate, null, deeds);
+      const { calculatedOrder, warning } = calculateOrderNumber(autoNum, defaultDate, null, allLoadedDeeds);
       setOrderNumber(calculatedOrder);
       setOrderWarning(warning);
 
@@ -328,14 +338,16 @@ export const DeedBook: React.FC = () => {
   };
 
   // Date Change Handler
-  const handleDateChange = (newDate: string) => {
+  const handleDateChange = async (newDate: string) => {
     setDeedDate(newDate);
     if (!newDate) return;
 
-    const autoNum = getAutoDeedNumber(newDate, editingDeedId, deeds);
+    await ensureMonthLoaded(newDate);
+
+    const autoNum = getAutoDeedNumber(newDate, editingDeedId, allLoadedDeeds);
     setDeedNumber(autoNum);
 
-    const { calculatedOrder, warning } = calculateOrderNumber(autoNum, newDate, editingDeedId, deeds);
+    const { calculatedOrder, warning } = calculateOrderNumber(autoNum, newDate, editingDeedId, allLoadedDeeds);
     setOrderNumber(calculatedOrder);
     setOrderWarning(warning);
   };
@@ -345,7 +357,7 @@ export const DeedBook: React.FC = () => {
     setDeedNumber(newNum);
     if (!deedDate) return;
 
-    const { calculatedOrder, warning } = calculateOrderNumber(newNum, deedDate, editingDeedId, deeds);
+    const { calculatedOrder, warning } = calculateOrderNumber(newNum, deedDate, editingDeedId, allLoadedDeeds);
     setOrderNumber(calculatedOrder);
     setOrderWarning(warning);
   };
@@ -398,7 +410,7 @@ export const DeedBook: React.FC = () => {
     if (!targetDate || targetDate.length < 7) return;
     const yearMonth = targetDate.substring(0, 7);
 
-    const sameMonthConflict = deeds.filter((d) => {
+    const sameMonthConflict = allLoadedDeeds.filter((d) => {
       if (d.id === excludeId) return false;
       if (!d.date || !d.date.startsWith(yearMonth)) return false;
       const n = parseInt(d.number, 10);
@@ -488,7 +500,7 @@ export const DeedBook: React.FC = () => {
       const yearMonth = deedDate.substring(0, 7);
       
       // Find deeds in the same month/year
-      const sameMonthDeeds = deeds.filter((d) => {
+      const sameMonthDeeds = allLoadedDeeds.filter((d) => {
         if (d.id === editingDeedId) return false;
         return d.date && d.date.startsWith(yearMonth);
       });
@@ -526,7 +538,7 @@ export const DeedBook: React.FC = () => {
       const targetNum = parseInt(deedNumber, 10);
       if (!isNaN(targetNum)) {
         const yearMonth = deedDate.substring(0, 7);
-        const hasCollision = deeds.some((d) => {
+        const hasCollision = allLoadedDeeds.some((d) => {
           if (d.id === editingDeedId) return false;
           if (!d.date || !d.date.startsWith(yearMonth)) return false;
           return parseInt(d.number, 10) === targetNum;
@@ -556,6 +568,16 @@ export const DeedBook: React.FC = () => {
         await NotaryService.addDeed(deedData);
       }
 
+      // Refresh cache for affected month
+      const ymKey = deedDate.substring(0, 7);
+      const [yS, mS] = ymKey.split('-');
+      const y = parseInt(yS, 10);
+      const m = parseInt(mS, 10);
+      if (!isNaN(y) && !isNaN(m)) {
+        const fresh = await NotaryService.getDeedsByMonth(y, m);
+        setMonthCache((prev) => ({ ...prev, [ymKey]: fresh || [] }));
+      }
+
       setIsModalOpen(false);
     } catch (err) {
       console.error('Failed to save deed:', err);
@@ -579,6 +601,17 @@ export const DeedBook: React.FC = () => {
     if (confirm(`Apakah Anda yakin ingin menghapus akta No. ${deed.number} - "${deed.title}"?`)) {
       try {
         await NotaryService.deleteDeed(deed.id);
+
+        if (deed.date && deed.date.length >= 7) {
+          const ymKey = deed.date.substring(0, 7);
+          const [yS, mS] = ymKey.split('-');
+          const y = parseInt(yS, 10);
+          const m = parseInt(mS, 10);
+          if (!isNaN(y) && !isNaN(m)) {
+            const fresh = await NotaryService.getDeedsByMonth(y, m);
+            setMonthCache((prev) => ({ ...prev, [ymKey]: fresh || [] }));
+          }
+        }
       } catch (err) {
         console.error('Failed to delete deed:', err);
         alert('Gagal menghapus data akta.');
@@ -607,7 +640,8 @@ export const DeedBook: React.FC = () => {
     try {
       if (isAll) {
         // Tidy up all deeds in the database chronologically
-        const allSorted = [...deeds];
+        const allDeeds = await NotaryService.getAllDeedsForReorder();
+        const allSorted = [...allDeeds];
         allSorted.sort((a, b) => {
           if (a.date !== b.date) return a.date.localeCompare(b.date);
           return (parseInt(a.number, 10) || 0) - (parseInt(b.number, 10) || 0);
@@ -629,14 +663,14 @@ export const DeedBook: React.FC = () => {
         alert(`Berhasil merapikan nomor urut untuk ${allSorted.length} akta (diperbarui: ${updatedCount}).`);
       } else {
         // Tidy up only the selected year
-        const yearDeeds = deeds.filter((d) => d.date && d.date.startsWith(yearToOrder));
+        const yearDeeds = await NotaryService.getDeedsByYear(parseInt(yearToOrder, 10));
         yearDeeds.sort((a, b) => {
           if (a.date !== b.date) return a.date.localeCompare(b.date);
           return (parseInt(a.number, 10) || 0) - (parseInt(b.number, 10) || 0);
         });
 
-        // Find the maximum order number from previous deeds (dated before yearToOrder-01-01)
-        const priorDeeds = deeds.filter((d) => d.date && d.date < `${yearToOrder}-01-01`);
+        const allForPrior = await NotaryService.getAllDeedsForReorder();
+        const priorDeeds = allForPrior.filter((d) => d.date && d.date < `${yearToOrder}-01-01`);
         let maxPriorOrder = 0;
         priorDeeds.forEach((d) => {
           if (d.orderNumber) {
@@ -661,6 +695,19 @@ export const DeedBook: React.FC = () => {
           }
         }
         alert(`Berhasil merapikan nomor urut untuk ${yearDeeds.length} akta tahun ${yearToOrder} (diperbarui: ${updatedCount}).`);
+      }
+
+      // Refresh currently open/cached months
+      for (const ymKey of Object.keys(monthCache)) {
+        const parts = ymKey.split('-');
+        if (parts.length === 2) {
+          const y = parseInt(parts[0], 10);
+          const m = parseInt(parts[1], 10);
+          if (!isNaN(y) && !isNaN(m)) {
+            const fresh = await NotaryService.getDeedsByMonth(y, m);
+            setMonthCache((prev) => ({ ...prev, [ymKey]: fresh || [] }));
+          }
+        }
       }
     } catch (err) {
       console.error('Failed to reorder deeds:', err);
@@ -1084,152 +1131,198 @@ export const DeedBook: React.FC = () => {
           </div>
 
           {/* Deed Book List */}
-          {loading ? (
-            <div className="bg-white p-12 text-center text-slate-400 rounded-xl border border-slate-200">
-              Memuat data buku akta...
-            </div>
-          ) : groupedDeeds.length === 0 ? (
+          {monthGroupsToDisplay.length === 0 ? (
             <div className="bg-white p-12 text-center text-slate-400 rounded-xl border border-slate-200 italic">
               Tidak ada data akta ditemukan.
             </div>
           ) : (
             <div className="space-y-6">
-              {groupedDeeds.map((group) => {
-                const groupKey = `${group.year}-${group.month}`;
-                const isCollapsed = collapsedMonths[groupKey];
-                const toggleCollapse = () => {
-                  setCollapsedMonths((prev) => ({
-                    ...prev,
-                    [groupKey]: !prev[groupKey],
-                  }));
-                };
+              {monthGroupsToDisplay.map((group) => {
+                const groupKey = group.groupKey;
+                const isOpen = !!openMonths[groupKey];
+                const isLoading = !!loadingMonths[groupKey];
+                const rawDeeds = monthCache[groupKey] || [];
+
+                // Filter deeds in this month by search term
+                const filtered = rawDeeds.filter((deed) => {
+                  if (!searchTerm.trim()) return true;
+                  const query = searchTerm.toLowerCase();
+                  const matchNumber = deed.number?.toLowerCase().includes(query);
+                  const matchOrderNumber = deed.orderNumber?.toLowerCase().includes(query);
+                  const matchTitle = deed.title?.toLowerCase().includes(query);
+                  const matchCategory = deed.category?.toLowerCase().includes(query);
+                  const matchClient = deed.clientName?.toLowerCase().includes(query);
+                  const matchNotes = deed.notes?.toLowerCase().includes(query);
+                  const matchAppearers = deed.appearers?.some(
+                    (a) =>
+                      a.name?.toLowerCase().includes(query) ||
+                      a.position?.toLowerCase().includes(query) ||
+                      a.grantors?.some((g) => g.name?.toLowerCase().includes(query))
+                  );
+                  const matchGrantors = deed.grantors?.some((g) => g.name?.toLowerCase().includes(query));
+
+                  return matchNumber || matchOrderNumber || matchTitle || matchCategory || matchClient || matchNotes || matchAppearers || matchGrantors;
+                });
+
+                // Sort deeds in this month
+                const deedsInMonth = [...filtered].sort((a, b) => {
+                  if (a.date !== b.date) return b.date.localeCompare(a.date);
+                  const ordA = parseInt(a.orderNumber || '0', 10);
+                  const ordB = parseInt(b.orderNumber || '0', 10);
+                  if (!isNaN(ordA) && !isNaN(ordB) && ordA !== ordB) {
+                    return ordB - ordA;
+                  }
+                  const numA = parseInt(a.number, 10) || 0;
+                  const numB = parseInt(b.number, 10) || 0;
+                  return numB - numA;
+                });
 
                 return (
                   <div key={groupKey} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
                     {/* Month Group Header */}
                     <div
-                      onClick={toggleCollapse}
+                      onClick={() => handleToggleMonth(groupKey)}
                       className="bg-slate-800 text-white px-5 py-3 flex items-center justify-between cursor-pointer hover:bg-slate-700 select-none transition-colors"
                     >
                       <div className="flex items-center gap-2.5">
-                        {isCollapsed ? (
-                          <ChevronRight size={18} className="text-slate-300" />
-                        ) : (
+                        {isOpen ? (
                           <ChevronDown size={18} className="text-slate-300" />
+                        ) : (
+                          <ChevronRight size={18} className="text-slate-300" />
                         )}
                         <span className="font-bold text-sm tracking-wide uppercase">
                           {group.monthName} {group.year}
                         </span>
                       </div>
-                      <span className="text-xs bg-slate-700/80 px-2.5 py-1 rounded-full text-slate-200 font-medium">
-                        {group.deeds.length} Akta
-                      </span>
+                      <div className="flex items-center gap-2">
+                        {groupKey in monthCache ? (
+                          <span className="text-xs bg-slate-700/80 px-2.5 py-1 rounded-full text-slate-200 font-medium">
+                            {deedsInMonth.length} Akta
+                          </span>
+                        ) : (
+                          <span className="text-xs bg-slate-700/40 px-2.5 py-1 rounded-full text-slate-400 font-normal italic">
+                            Klik untuk muat
+                          </span>
+                        )}
+                      </div>
                     </div>
 
-                    {/* Table */}
-                    {!isCollapsed && (
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-left text-xs border-collapse table-fixed min-w-[1000px]">
-                          <colgroup>
-                            <col className="w-[80px]" />
-                            <col className="w-[85px]" />
-                            <col className="w-[130px]" />
-                            <col className="w-[36%]" />
-                            <col className="w-[36%]" />
-                            <col className="w-[90px]" />
-                          </colgroup>
-                          <thead>
-                            <tr className="bg-slate-50 text-slate-700 font-semibold border-b border-slate-200 uppercase text-[11px]">
-                              <th className="p-3 text-center border-r border-slate-200">NO. URUT</th>
-                              <th className="p-3 text-center border-r border-slate-200">NO. AKTA</th>
-                              <th className="p-3 text-center border-r border-slate-200">TANGGAL</th>
-                              <th className="p-3 border-r border-slate-200">SIFAT / JUDUL AKTA</th>
-                              <th className="p-3 border-r border-slate-200">NAMA PENGHADAP / PARA PIHAK</th>
-                              <th className="p-3 text-center">AKSI</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-slate-200">
-                            {group.deeds.map((deed, idx) => {
-                              const locked = !superAdmin || isRecordLocked(deed.date, user?.email);
-                              const lockMsg = !superAdmin
-                                ? 'Hanya Super Admin yang dapat mengubah data'
-                                : (isRecordLocked(deed.date, user?.email) ? `Terkunci otomatis setelah ${getLockDeadlineMessage(deed.date)}` : '');
-
-                              return (
-                                <tr key={deed.id} className="hover:bg-slate-50/80 transition-colors">
-                                  <td className="p-3 text-center border-r border-slate-200 font-medium text-slate-600">
-                                    {deed.orderNumber || idx + 1}
-                                  </td>
-                                  <td className="p-3 text-center border-r border-slate-200 font-bold text-slate-900">
-                                    {deed.number}
-                                  </td>
-                                  <td className="p-3 text-center border-r border-slate-200 text-slate-600 whitespace-nowrap">
-                                    {formatDateIndo(deed.date)}
-                                  </td>
-                                  <td className="p-3 border-r border-slate-200 font-medium text-slate-900 leading-snug break-words">
-                                    {deed.title}
-                                    {deed.category && (
-                                      <span className="ml-2 inline-block px-1.5 py-0.5 text-[10px] bg-blue-50 text-blue-700 rounded border border-blue-200 font-normal">
-                                        {deed.category}
-                                      </span>
-                                    )}
-                                    {deed.clientName && (
-                                      <div className="text-[11px] text-slate-500 font-normal mt-0.5">
-                                        Klien: {deed.clientName}
-                                      </div>
-                                    )}
-                                  </td>
-                                  <td className="p-3 border-r border-slate-200 text-slate-800 leading-snug break-words">
-                                    {deed.appearers && deed.appearers.length > 0 ? (
-                                      <div className="space-y-1">
-                                        {deed.appearers.map((app, i) => (
-                                          <div key={i} className="text-slate-900 font-medium">
-                                            • {app.name}
-                                            {app.position && <span className="text-slate-500 font-normal text-[11px]"> ({app.position})</span>}
-                                            {(app.role === 'Proxy' || app.role === 'Both') && app.grantors && app.grantors.length > 0 && (
-                                              <div className="ml-3 text-[11px] text-slate-600 font-normal italic">
-                                                {app.role === 'Both'
-                                                  ? `Bertindak untuk diri sendiri dan selaku kuasa dari: ${app.grantors.map((g) => g.name).join(', ')}`
-                                                  : `Selaku kuasa dari: ${app.grantors.map((g) => g.name).join(', ')}`}
-                                              </div>
-                                            )}
-                                          </div>
-                                        ))}
-                                      </div>
-                                    ) : (
-                                      <span className="text-slate-400 italic">-</span>
-                                    )}
-                                  </td>
-                                  <td className="p-3 text-center">
-                                    {locked ? (
-                                      <div className="inline-flex items-center gap-1 text-slate-400 bg-slate-100 px-2 py-1 rounded text-[11px]" title={lockMsg}>
-                                        <Lock size={12} className="text-amber-600" />
-                                        <span>Terkunci</span>
-                                      </div>
-                                    ) : (
-                                      <div className="flex items-center justify-center gap-1">
-                                        <button
-                                          onClick={() => handleOpenModal(deed)}
-                                          className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition cursor-pointer"
-                                          title="Edit Akta"
-                                        >
-                                          <Edit2 size={14} />
-                                        </button>
-                                        <button
-                                          onClick={() => handleDelete(deed)}
-                                          className="p-1.5 text-red-600 hover:bg-red-50 rounded transition cursor-pointer"
-                                          title="Hapus Akta"
-                                        >
-                                          <Trash2 size={14} />
-                                        </button>
-                                      </div>
-                                    )}
-                                  </td>
+                    {/* Content Body when Open */}
+                    {isOpen && (
+                      <div>
+                        {isLoading ? (
+                          <div className="p-8 text-center text-slate-400 text-xs italic">
+                            Memuat data akta {group.monthName} {group.year}...
+                          </div>
+                        ) : deedsInMonth.length === 0 ? (
+                          <div className="p-8 text-center text-slate-400 text-xs italic">
+                            Belum ada data akta di bulan ini.
+                          </div>
+                        ) : (
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-left text-xs border-collapse table-fixed min-w-[1000px]">
+                              <colgroup>
+                                <col className="w-[80px]" />
+                                <col className="w-[85px]" />
+                                <col className="w-[130px]" />
+                                <col className="w-[36%]" />
+                                <col className="w-[36%]" />
+                                <col className="w-[90px]" />
+                              </colgroup>
+                              <thead>
+                                <tr className="bg-slate-50 text-slate-700 font-semibold border-b border-slate-200 uppercase text-[11px]">
+                                  <th className="p-3 text-center border-r border-slate-200">NO. URUT</th>
+                                  <th className="p-3 text-center border-r border-slate-200">NO. AKTA</th>
+                                  <th className="p-3 text-center border-r border-slate-200">TANGGAL</th>
+                                  <th className="p-3 border-r border-slate-200">SIFAT / JUDUL AKTA</th>
+                                  <th className="p-3 border-r border-slate-200">NAMA PENGHADAP / PARA PIHAK</th>
+                                  <th className="p-3 text-center">AKSI</th>
                                 </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
+                              </thead>
+                              <tbody className="divide-y divide-slate-200">
+                                {deedsInMonth.map((deed, idx) => {
+                                  const locked = !superAdmin || isRecordLocked(deed.date, user?.email);
+                                  const lockMsg = !superAdmin
+                                    ? 'Hanya Super Admin yang dapat mengubah data'
+                                    : (isRecordLocked(deed.date, user?.email) ? `Terkunci otomatis setelah ${getLockDeadlineMessage(deed.date)}` : '');
+
+                                  return (
+                                    <tr key={deed.id} className="hover:bg-slate-50/80 transition-colors">
+                                      <td className="p-3 text-center border-r border-slate-200 font-medium text-slate-600">
+                                        {deed.orderNumber || idx + 1}
+                                      </td>
+                                      <td className="p-3 text-center border-r border-slate-200 font-bold text-slate-900">
+                                        {deed.number}
+                                      </td>
+                                      <td className="p-3 text-center border-r border-slate-200 text-slate-600 whitespace-nowrap">
+                                        {formatDateIndo(deed.date)}
+                                      </td>
+                                      <td className="p-3 border-r border-slate-200 font-medium text-slate-900 leading-snug break-words">
+                                        {deed.title}
+                                        {deed.category && (
+                                          <span className="ml-2 inline-block px-1.5 py-0.5 text-[10px] bg-blue-50 text-blue-700 rounded border border-blue-200 font-normal">
+                                            {deed.category}
+                                          </span>
+                                        )}
+                                        {deed.clientName && (
+                                          <div className="text-[11px] text-slate-500 font-normal mt-0.5">
+                                            Klien: {deed.clientName}
+                                          </div>
+                                        )}
+                                      </td>
+                                      <td className="p-3 border-r border-slate-200 text-slate-800 leading-snug break-words">
+                                        {deed.appearers && deed.appearers.length > 0 ? (
+                                          <div className="space-y-1">
+                                            {deed.appearers.map((app, i) => (
+                                              <div key={i} className="text-slate-900 font-medium">
+                                                • {app.name}
+                                                {app.position && <span className="text-slate-500 font-normal text-[11px]"> ({app.position})</span>}
+                                                {(app.role === 'Proxy' || app.role === 'Both') && app.grantors && app.grantors.length > 0 && (
+                                                  <div className="ml-3 text-[11px] text-slate-600 font-normal italic">
+                                                    {app.role === 'Both'
+                                                      ? `Bertindak untuk diri sendiri dan selaku kuasa dari: ${app.grantors.map((g) => g.name).join(', ')}`
+                                                      : `Selaku kuasa dari: ${app.grantors.map((g) => g.name).join(', ')}`}
+                                                  </div>
+                                                )}
+                                              </div>
+                                            ))}
+                                          </div>
+                                        ) : (
+                                          <span className="text-slate-400 italic">-</span>
+                                        )}
+                                      </td>
+                                      <td className="p-3 text-center">
+                                        {locked ? (
+                                          <div className="inline-flex items-center gap-1 text-slate-400 bg-slate-100 px-2 py-1 rounded text-[11px]" title={lockMsg}>
+                                            <Lock size={12} className="text-amber-600" />
+                                            <span>Terkunci</span>
+                                          </div>
+                                        ) : (
+                                          <div className="flex items-center justify-center gap-1">
+                                            <button
+                                              onClick={() => handleOpenModal(deed)}
+                                              className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition cursor-pointer"
+                                              title="Edit Akta"
+                                            >
+                                              <Edit2 size={14} />
+                                            </button>
+                                            <button
+                                              onClick={() => handleDelete(deed)}
+                                              className="p-1.5 text-red-600 hover:bg-red-50 rounded transition cursor-pointer"
+                                              title="Hapus Akta"
+                                            >
+                                              <Trash2 size={14} />
+                                            </button>
+                                          </div>
+                                        )}
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>

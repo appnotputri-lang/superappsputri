@@ -520,12 +520,12 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
   };
 
   const getClientName = (clientId: string, project?: Project) => {
+    if (project?.clientSnapshot?.companyName) {
+      return formatCompanyNameWithType(project.clientSnapshot.companyName, project.clientSnapshot.companyType);
+    }
     const profile = profiles.find((c) => c.id === clientId);
     if (profile) {
       return formatCompanyNameWithType(profile.companyName, profile.clientType);
-    }
-    if (project?.clientSnapshot?.companyName) {
-      return formatCompanyNameWithType(project.clientSnapshot.companyName, project.clientSnapshot.companyType);
     }
     if (project?.title) {
       let clean = project.title;
@@ -549,6 +549,22 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
     (activeTab === 'aktif' && activeLoading) ||
     (activeTab === 'minuta' && minutaLoading) ||
     (activeTab === 'selesai' && completedLoading);
+
+  const clientOptions = React.useMemo(() => {
+    if (profiles.length > 0) return profiles;
+    const map = new Map<string, CompanyProfile>();
+    [...activeProjects, ...minutaProjects, ...completedProjects].forEach((p) => {
+      if (p.clientId && !map.has(p.clientId)) {
+        const name = p.clientSnapshot?.companyName || (p.title ? (p.title.includes(' — ') ? p.title.split(' — ').slice(1).join(' — ') : p.title) : '');
+        map.set(p.clientId, {
+          id: p.clientId,
+          companyName: name,
+          clientType: p.clientSnapshot?.companyType
+        } as CompanyProfile);
+      }
+    });
+    return Array.from(map.values());
+  }, [profiles, activeProjects, minutaProjects, completedProjects]);
 
   const filteredProjects = currentTabProjects.filter((project) => {
     const clientName = getClientName(project.clientId, project);
@@ -673,7 +689,7 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
               <SearchableClientSelect
                 value={filterClient}
                 onChange={setFilterClient}
-                options={profiles}
+                options={clientOptions}
                 placeholder="Semua Klien"
                 className="w-full sm:w-48"
                 selectClassName="w-full px-3 py-2.5 text-[13px] bg-slate-50 border border-slate-200 rounded-lg outline-none cursor-pointer hover:bg-slate-100/50 transition-colors flex items-center justify-between"

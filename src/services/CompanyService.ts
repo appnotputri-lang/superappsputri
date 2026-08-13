@@ -200,8 +200,11 @@ export class CompanyService {
       }
       return count;
     } catch (error) {
-      console.error('[CompanyService] Error counting active clients:', error);
-      throw error;
+      console.warn('[CompanyService] Error counting active clients:', error);
+      if (CompanyService.activeClientsCountCache !== null) {
+        return CompanyService.activeClientsCountCache;
+      }
+      return 0;
     }
   }
 

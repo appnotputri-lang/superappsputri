@@ -302,6 +302,8 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = (props) => {
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const moreMenuRef = useRef<HTMLDivElement>(null);
 
+  const clientDropdownRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     loadClientOptions();
   }, []);
@@ -310,6 +312,9 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = (props) => {
     const handleClickOutside = (event: MouseEvent) => {
       if (moreMenuRef.current && !moreMenuRef.current.contains(event.target as Node)) {
         setShowMoreMenu(false);
+      }
+      if (clientDropdownRef.current && !clientDropdownRef.current.contains(event.target as Node)) {
+        setShowClientDropdown(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -379,43 +384,24 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = (props) => {
     setIsLoadingClients(true);
     setSuperappsError(null);
 
-    // 1. Fetch Local Clients
+    // 1. Fetch Local Clients from lightweight client_directory
     try {
-      const [ptList, cvList] = await Promise.all([
-        CompanyService.getCompanies().catch(() => []),
-        CompanyService.getCvCompanies().catch(() => [])
-      ]);
+      const directoryEntries = await CompanyService.getClientDirectory({ isArchived: false }).catch(() => []);
 
-      const seenIds = new Set<string>();
-      const uniqueLocal: any[] = [];
-      for (const c of [...ptList, ...cvList]) {
-        if (c && c.id && !seenIds.has(c.id)) {
-          seenIds.add(c.id);
-          uniqueLocal.push(c);
-        }
-      }
-
-      const allLocal: ClientOption[] = uniqueLocal.map(c => {
-        let fullAddr = '';
-        if (c.fullAddress) {
-          fullAddr = c.fullAddress;
-        } else if (c.address) {
-          fullAddr = typeof c.address === 'string' ? c.address : c.address.fullAddress || '';
-        }
-
+      const allLocal: ClientOption[] = directoryEntries.map(c => {
         return {
-          clientId: c.id,
+          clientId: c.clientId || c.id,
           name: c.companyName || 'Tanpa Nama',
-          email: c.email || '',
-          phone: c.phoneNumber || '',
-          address: fullAddr,
-          source: 'local',
+          email: (c as any).email || '',
+          phone: (c as any).phoneNumber || (c as any).phone || '',
+          address: (c as any).fullAddress || (c as any).address || c.domicile || '',
+          source: 'local' as const,
           clientType: c.clientType || 'PT'
         };
       });
       setLocalClients(allLocal);
     } catch (err) {
-      console.error('Error fetching local clients:', err);
+      console.error('Error fetching local clients from client_directory:', err);
     }
 
     // 2. Fetch Superapps Clients
@@ -427,7 +413,7 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = (props) => {
         email: p.email,
         phone: p.contactNumber,
         address: p.address,
-        source: 'superapps',
+        source: 'superapps' as const,
         clientType: p.clientType || 'PT'
       }));
       setSuperappsClients(mappedSp);
@@ -1166,13 +1152,30 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
     safeCurrentPage * pageSize
   );
 
-  const allClientsList = superappsClients;
+  const allClientsList = React.useMemo(() => {
+    if (clientSourceTab === 'local') return localClients;
+    if (clientSourceTab === 'superapps') return superappsClients;
 
-  const filteredClientOptions = allClientsList.filter(c =>
-    c.name.toLowerCase().includes(clientSearch.toLowerCase()) ||
-    c.address.toLowerCase().includes(clientSearch.toLowerCase()) ||
-    c.email.toLowerCase().includes(clientSearch.toLowerCase())
-  );
+    const seen = new Set<string>();
+    const list: ClientOption[] = [];
+    for (const c of [...localClients, ...superappsClients]) {
+      if (c && c.clientId && !seen.has(`${c.source}_${c.clientId}`)) {
+        seen.add(`${c.source}_${c.clientId}`);
+        list.push(c);
+      }
+    }
+    return list;
+  }, [clientSourceTab, localClients, superappsClients]);
+
+  const filteredClientOptions = React.useMemo(() => {
+    if (!clientSearch) return allClientsList;
+    const q = clientSearch.toLowerCase().trim();
+    return allClientsList.filter(c =>
+      (c.name || '').toLowerCase().includes(q) ||
+      (c.address || '').toLowerCase().includes(q) ||
+      (c.email || '').toLowerCase().includes(q)
+    );
+  }, [allClientsList, clientSearch]);
 
   const { sub: currentSub, tax: currentTax, total: currentTotal } = calculateTotals(items);
 
@@ -2267,7 +2270,7 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
         <div className="bg-white p-4 md:p-5 rounded-2xl border border-slate-200/80 shadow-sm space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-start">
             {/* Klien */}
-            <div className="space-y-1 relative">
+            <div className="space-y-1 relative" ref={clientDropdownRef}>
               <label className="block font-bold text-slate-700 text-[10px] uppercase tracking-wide">Klien <span className="text-red-500">* Wajib</span></label>
               <div className="relative">
                 <Search size={14} className="absolute left-3 top-2.5 text-slate-400" />
@@ -2301,32 +2304,62 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
               </div>
 
               {showClientDropdown && (
-                <div className="absolute left-0 right-0 top-full mt-1 bg-white rounded-xl border border-slate-200 shadow-lg z-50 max-h-56 overflow-y-auto p-1">
-                  {isLoadingClients ? (
-                    <div className="p-3 text-center text-slate-500 text-xs flex items-center justify-center gap-2">
-                      <div className="w-3.5 h-3.5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-                      Memuat data klien...
-                    </div>
-                  ) : filteredClientOptions.length === 0 ? (
-                    <div className="p-3 text-center text-slate-400 text-xs italic">
-                      Tidak ada data klien yang cocok.
-                    </div>
-                  ) : (
-                    filteredClientOptions.map((c) => (
-                      <div
-                        key={`${c.source}_${c.clientId}`}
-                        onClick={() => handleSelectClient(c)}
-                        className="p-2 hover:bg-slate-50 rounded-lg cursor-pointer transition-colors flex items-center justify-between"
-                      >
-                        <div className="min-w-0 pr-2">
-                          <span className="font-bold text-slate-800 text-xs truncate max-w-[180px] block">{c.name}</span>
-                        </div>
-                        {selectedClientId === c.clientId && (
-                          <Check size={14} className="text-blue-600 shrink-0" />
-                        )}
+                <div className="absolute left-0 right-0 top-full mt-1 bg-white rounded-xl border border-slate-200 shadow-lg z-50 max-h-64 flex flex-col overflow-hidden p-1">
+                  {/* Source tabs */}
+                  <div className="flex border-b border-slate-100 p-1 mb-1 gap-1 shrink-0 bg-slate-50/50 rounded-lg">
+                    <button
+                      type="button"
+                      onClick={() => setClientSourceTab('all')}
+                      className={`flex-1 py-1 text-[10px] font-bold rounded-md transition-colors ${clientSourceTab === 'all' ? 'bg-white text-blue-600 shadow-xs' : 'text-slate-500 hover:text-slate-700'}`}
+                    >
+                      Semua ({localClients.length + superappsClients.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setClientSourceTab('local')}
+                      className={`flex-1 py-1 text-[10px] font-bold rounded-md transition-colors ${clientSourceTab === 'local' ? 'bg-white text-blue-600 shadow-xs' : 'text-slate-500 hover:text-slate-700'}`}
+                    >
+                      Lokal ({localClients.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setClientSourceTab('superapps')}
+                      className={`flex-1 py-1 text-[10px] font-bold rounded-md transition-colors ${clientSourceTab === 'superapps' ? 'bg-white text-blue-600 shadow-xs' : 'text-slate-500 hover:text-slate-700'}`}
+                    >
+                      Superapps ({superappsClients.length})
+                    </button>
+                  </div>
+
+                  <div className="overflow-y-auto flex-1">
+                    {isLoadingClients ? (
+                      <div className="p-3 text-center text-slate-500 text-xs flex items-center justify-center gap-2">
+                        <div className="w-3.5 h-3.5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                        Memuat data klien...
                       </div>
-                    ))
-                  )}
+                    ) : filteredClientOptions.length === 0 ? (
+                      <div className="p-3 text-center text-slate-400 text-xs italic">
+                        Tidak ada data klien yang cocok.
+                      </div>
+                    ) : (
+                      filteredClientOptions.map((c) => (
+                        <div
+                          key={`${c.source}_${c.clientId}`}
+                          onClick={() => handleSelectClient(c)}
+                          className="p-2 hover:bg-slate-50 rounded-lg cursor-pointer transition-colors flex items-center justify-between"
+                        >
+                          <div className="min-w-0 pr-2">
+                            <span className="font-bold text-slate-800 text-xs truncate max-w-[200px] block">{c.name}</span>
+                            <span className="text-[10px] text-slate-400 block truncate">
+                              {c.clientType ? `[${c.clientType}] ` : ''}{c.address || c.email || c.phone || (c.source === 'superapps' ? 'Superapps' : 'Lokal')}
+                            </span>
+                          </div>
+                          {selectedClientId === c.clientId && (
+                            <Check size={14} className="text-blue-600 shrink-0" />
+                          )}
+                        </div>
+                      ))
+                    )}
+                  </div>
                 </div>
               )}
             </div>
