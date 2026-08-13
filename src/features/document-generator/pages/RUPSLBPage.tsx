@@ -772,26 +772,43 @@ export const RUPSLBPage: React.FC<RUPSLBPageProps> = ({
                     <select 
                       className="w-full border border-[#ccc] rounded-sm px-3 py-1.5 text-[13px] outline-none bg-white focus:border-[#66afe9]"
                       value={data.selectedProfileId || ''}
-                      onChange={(e) => {
-                         const selected = profiles.find(p => p.id === e.target.value);
-                         if (selected) {
-                             const normalizeKblis = (items: any[]) => (items || []).map((k: any) => ({
-                               id: k.id || crypto.randomUUID(),
-                               code: k.code || k.kode || '',
-                               name: k.name || k.judul || k.title || '',
-                               description: k.description || k.uraian || '',
-                               categoryLetter: k.categoryLetter || '',
-                               categoryName: k.categoryName || '',
-                               uraian: k.uraian || k.description || ''
-                             }));
+                      onChange={async (e) => {
+                         const targetId = e.target.value;
+                         if (!targetId) {
+                            updateData({ selectedProfileId: '' });
+                            return;
+                         }
 
-                             const currentManagement = selected.oldManagementItems || selected.newManagementItems || (selected as any).managementItems || [];
+                         try {
+                            let selected: any = null;
+                            const docSnap = await getDoc(doc(db, 'profiles', targetId));
+                            if (docSnap.exists()) {
+                               selected = { id: docSnap.id, ...docSnap.data() };
+                            } else {
+                               const cvSnap = await getDoc(doc(db, 'company_profiles', targetId));
+                               if (cvSnap.exists()) {
+                                  selected = { id: cvSnap.id, ...cvSnap.data() };
+                               }
+                            }
 
-                             updateData({ 
-                               ...(selected as any), 
-                               selectedProfileId: selected.id,
-                               companyName: selected.companyName || '',
-                               domicile: selected.domicile || selected.oldDomicile || (selected as any).kedudukanPT || (selected as any).kotaKedudukan || (selected as any).city || selected.newAddress?.city || selected.oldAddress?.city || '',
+                            if (selected) {
+                               const normalizeKblis = (items: any[]) => (items || []).map((k: any) => ({
+                                 id: k.id || crypto.randomUUID(),
+                                 code: k.code || k.kode || '',
+                                 name: k.name || k.judul || k.title || '',
+                                 description: k.description || k.uraian || '',
+                                 categoryLetter: k.categoryLetter || '',
+                                 categoryName: k.categoryName || '',
+                                 uraian: k.uraian || k.description || ''
+                               }));
+
+                               const currentManagement = selected.oldManagementItems || selected.newManagementItems || (selected as any).managementItems || [];
+
+                               updateData({ 
+                                 ...(selected as any), 
+                                 selectedProfileId: selected.id,
+                                 companyName: selected.companyName || '',
+                                 domicile: selected.domicile || selected.oldDomicile || (selected as any).kedudukanPT || (selected as any).kotaKedudukan || (selected as any).city || selected.newAddress?.city || selected.oldAddress?.city || '',
                                oldFullAddress: selected.fullAddress || selected.oldFullAddress || (selected.newAddress?.fullAddress ? `${selected.newAddress.fullAddress}, RT ${selected.newAddress.rt}/${selected.newAddress.rw}, Kel. ${selected.newAddress.kelurahan}, Kec. ${selected.newAddress.kecamatan}` : ''),
                                oldAddress: selected.newAddress || selected.oldAddress,
                                oldDomicile: selected.domicile || selected.oldDomicile,
@@ -813,6 +830,10 @@ export const RUPSLBPage: React.FC<RUPSLBPageProps> = ({
                              } as any);
                          } else {
                              updateData({ selectedProfileId: '' });
+                         }
+                         } catch (e) {
+                            console.error("Error fetching profile", e);
+                            updateData({ selectedProfileId: '' });
                          }
                       }}
                     >

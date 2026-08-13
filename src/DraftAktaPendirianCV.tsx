@@ -511,12 +511,29 @@ export default function DraftAktaPendirianCV({
               <SearchableClientSelect
                 options={profiles}
                 value={data.selectedProfileId || ''}
-                onChange={(profId) => {
-                  const sel = profiles.find(p => p.id === profId);
-                  if (sel) {
-                    const mapped = mapCompanyProfileToCV(sel, data);
-                    setData(mapped);
-                  } else {
+                onChange={async (profId) => {
+                  if (!profId) {
+                    setData(p => ({ ...p, selectedProfileId: '' }));
+                    return;
+                  }
+                  try {
+                    const docSnap = await getDoc(doc(db, 'profiles', profId));
+                    if (docSnap.exists()) {
+                      const sel = { id: docSnap.id, ...docSnap.data() };
+                      const mapped = mapCompanyProfileToCV(sel as any, data);
+                      setData(mapped);
+                    } else {
+                      const cvSnap = await getDoc(doc(db, 'company_profiles', profId));
+                      if (cvSnap.exists()) {
+                        const sel = { id: cvSnap.id, ...cvSnap.data() };
+                        const mapped = mapCompanyProfileToCV(sel as any, data);
+                        setData(mapped);
+                      } else {
+                        setData(p => ({ ...p, selectedProfileId: '' }));
+                      }
+                    }
+                  } catch (e) {
+                    console.warn("Error fetching targeted profile:", e);
                     setData(p => ({ ...p, selectedProfileId: '' }));
                   }
                 }}

@@ -514,13 +514,29 @@ export default function DraftAktaPendirian({
                 ) : (
                   <SearchableClientSelect 
                       value={data.selectedProfileId || ''}
-                      onChange={(val) => {
+                      onChange={async (val) => {
                           const profileId = val;
-                          const profile = profiles.find(p => p.id === profileId);
-                          if (profile) {
-                              setData(prev => mapCompanyProfileToPendirian(profile, prev));
-                          } else {
+                          if (!profileId) {
                               setData(prev => ({ ...prev, selectedProfileId: '' }));
+                              return;
+                          }
+                          try {
+                            const docSnap = await getDoc(doc(db, 'profiles', profileId));
+                            if (docSnap.exists()) {
+                              const fullProfile = { id: docSnap.id, ...docSnap.data() };
+                              setData(prev => mapCompanyProfileToPendirian(fullProfile as any, prev));
+                            } else {
+                              const cvSnap = await getDoc(doc(db, 'company_profiles', profileId));
+                              if (cvSnap.exists()) {
+                                const fullProfile = { id: cvSnap.id, ...cvSnap.data() };
+                                setData(prev => mapCompanyProfileToPendirian(fullProfile as any, prev));
+                              } else {
+                                setData(prev => ({ ...prev, selectedProfileId: '' }));
+                              }
+                            }
+                          } catch (e) {
+                            console.warn("Error fetching targeted profile:", e);
+                            setData(prev => ({ ...prev, selectedProfileId: '' }));
                           }
                       }}
                       options={profiles}
