@@ -11,8 +11,9 @@ import { SuperappsClientService } from '../../services/superappsClientService';
 import { formatInputNumber, parseFormattedNumber } from '../../../utils/formatters';
 import { printQuotation, downloadQuotationPdf } from '../../utils/quotationHtmlGenerator';
 import { calculateInvoiceTotals, getItemSubtotal, getItemTax } from '../../services/taxCalculator';
-import { getApiUrl } from '../../lib/api';
-import { auth } from '../../lib/firebase';
+import { getApiUrl, getAuthHeaders } from '../../lib/api';
+import { auth, db } from '../../lib/firebase';
+import { doc, getDoc } from 'firebase/firestore';
 import { resolveClientPhone } from '../../utils/clientPhoneResolver';
 import {
   Plus, Edit2, Trash2, Printer, Search, X, Copy, ExternalLink,
@@ -210,13 +211,55 @@ export const QuotationGenerator: React.FC<QuotationGeneratorProps> = (props) => 
   const [itemTaxRate, setItemTaxRate] = useState(0.05);
 
   // Client Master Selection State
-  const [clientSourceTab, setClientSourceTab] = useState<'all' | 'local' | 'superapps'>('all');
+  const [clientSourceTab, setClientSourceTab] = useState<'all' | 'local' | 'superapps'>('local');
   const [localClients, setLocalClients] = useState<ClientOption[]>([]);
   const [superappsClients, setSuperappsClients] = useState<ClientOption[]>([]);
   const [isLoadingClients, setIsLoadingClients] = useState(false);
   const [superappsError, setSuperappsError] = useState<string | null>(null);
   const [clientSearch, setClientSearch] = useState('');
   const [showClientDropdown, setShowClientDropdown] = useState(false);
+
+  // Cache Refs and D1 Fetch helper
+  const localD1CacheRef = useRef<Record<string, ClientOption[]>>({});
+  const superappsCacheRef = useRef<Record<string, ClientOption[]>>({});
+
+  const fetchD1Clients = async (queryStr: string): Promise<ClientOption[]> => {
+    const cacheKey = queryStr.toLowerCase().trim();
+    if (localD1CacheRef.current[cacheKey]) {
+      return localD1CacheRef.current[cacheKey];
+    }
+
+    try {
+      const headers = await getAuthHeaders();
+      let url = getApiUrl('/api/clients?limit=15');
+      if (cacheKey) {
+        url = getApiUrl(`/api/clients/search?q=${encodeURIComponent(queryStr)}&limit=15`);
+      }
+
+      const response = await fetch(url, { headers });
+      if (!response.ok) {
+        throw new Error(`D1 API returned status ${response.status}`);
+      }
+      const data = await response.json() as any;
+      const results = data.clients || [];
+
+      const mapped: ClientOption[] = results.map((d: any) => ({
+        clientId: d.clientId || d.id,
+        name: d.companyName || 'Tanpa Nama',
+        email: d.email || '',
+        phone: d.phoneNumber || d.phone || '',
+        address: d.fullAddress || d.address || d.domicile || '',
+        source: 'local' as const,
+        clientType: d.clientType || 'PT'
+      }));
+
+      localD1CacheRef.current[cacheKey] = mapped;
+      return mapped;
+    } catch (err) {
+      console.error('[QuotationGenerator] D1 fetch/search error:', err);
+      return [];
+    }
+  };
 
   // New Client Quick Modal
   const [isNewClientModalOpen, setIsNewClientModalOpen] = useState(false);
@@ -437,89 +480,113 @@ Active Tab View: ${viewMode}
     setIsLoadingClients(true);
     setSuperappsError(null);
 
-    // 1. Fetch Local Clients from lightweight client_directory
+    // Fetch Local Clients from Cloudflare D1 with limit 15 (0 Firestore reads)
     try {
-      const directoryEntries = await CompanyService.getClientDirectory({ isArchived: false }).catch(() => []);
-
-      const allLocal: ClientOption[] = directoryEntries.map(c => {
-        return {
-          clientId: c.clientId || c.id,
-          name: c.companyName || 'Tanpa Nama',
-          email: (c as any).email || '',
-          phone: (c as any).phoneNumber || (c as any).phone || '',
-          address: (c as any).fullAddress || (c as any).address || c.domicile || '',
-          source: 'local' as const,
-          clientType: c.clientType || 'PT'
-        };
-      });
+      const allLocal = await fetchD1Clients('');
       setLocalClients(allLocal);
     } catch (err) {
-      console.error('Error fetching local clients from client_directory:', err);
-    }
-
-    // 2. Fetch Initial Superapps Clients (Empty query, limited to 15)
-    try {
-      const spProfiles = await SuperappsClientService.getSuperappsProfiles('');
-      const mappedSp: ClientOption[] = spProfiles.map(p => ({
-        clientId: p.clientId,
-        name: p.name,
-        email: p.email,
-        phone: p.contactNumber,
-        address: p.address,
-        source: 'superapps',
-        clientType: p.clientType || 'PT'
-      }));
-      setSuperappsClients(mappedSp);
-    } catch (err) {
-      console.warn('Gagal koneksi ke Superapps Firestore:', err);
-      setSuperappsError('Data klien superapps tidak tersedia');
-      setSuperappsClients([]);
+      console.error('Error fetching local clients from D1:', err);
     } finally {
       setIsLoadingClients(false);
     }
   };
 
-  // Debounced search for Superapps profiles as user types
+  // Unified debounced search for D1 (local) and Superapps as user types
   useEffect(() => {
-    if (clientSourceTab === 'local' || !clientSearch.trim()) {
-      if (!clientSearch.trim()) {
-        // Fallback to initial 15 cached profiles
-        SuperappsClientService.getSuperappsProfiles('').then(spProfiles => {
-          const mappedSp: ClientOption[] = spProfiles.map(p => ({
-            clientId: p.clientId,
-            name: p.name,
-            email: p.email,
-            phone: p.contactNumber,
-            address: p.address,
-            source: 'superapps' as const,
-            clientType: p.clientType || 'PT'
-          }));
-          setSuperappsClients(mappedSp);
-        }).catch(() => {});
-      }
-      return;
-    }
+    const trimmedQuery = clientSearch.trim();
 
-    const delayDebounceFn = setTimeout(async () => {
+    const performSearch = async () => {
       setIsLoadingClients(true);
+      const promises: Promise<any>[] = [];
+
+      // A. Local D1 search
+      if (clientSourceTab === 'local' || clientSourceTab === 'all') {
+        promises.push(
+          fetchD1Clients(trimmedQuery)
+            .then(res => setLocalClients(res))
+            .catch(err => console.error('D1 debounced search error:', err))
+        );
+      }
+
+      // B. Superapps Firestore search - ONLY executed when user switches to 'superapps' or 'all' tab
+      if (clientSourceTab === 'superapps' || clientSourceTab === 'all') {
+        const cachedKey = trimmedQuery.toLowerCase();
+        if (superappsCacheRef.current[cachedKey]) {
+          setSuperappsClients(superappsCacheRef.current[cachedKey]);
+        } else {
+          promises.push(
+            SuperappsClientService.getSuperappsProfiles(trimmedQuery)
+              .then(spProfiles => {
+                const mappedSp: ClientOption[] = spProfiles.map(p => ({
+                  clientId: p.clientId,
+                  name: p.name,
+                  email: p.email,
+                  phone: p.contactNumber,
+                  address: p.address,
+                  source: 'superapps' as const,
+                  clientType: p.clientType || 'PT'
+                }));
+                superappsCacheRef.current[cachedKey] = mappedSp;
+                setSuperappsClients(mappedSp);
+              })
+              .catch(err => {
+                console.warn('Superapps debounced search error:', err);
+                setSuperappsError('Data klien superapps tidak tersedia');
+              })
+          );
+        }
+      }
+
       try {
-        const spProfiles = await SuperappsClientService.getSuperappsProfiles(clientSearch);
-        const mappedSp: ClientOption[] = spProfiles.map(p => ({
-          clientId: p.clientId,
-          name: p.name,
-          email: p.email,
-          phone: p.contactNumber,
-          address: p.address,
-          source: 'superapps',
-          clientType: p.clientType || 'PT'
-        }));
-        setSuperappsClients(mappedSp);
-      } catch (err) {
-        console.warn('Gagal koneksi ke Superapps Firestore:', err);
+        await Promise.all(promises);
       } finally {
         setIsLoadingClients(false);
       }
-    }, 400);
+    };
+
+    // If query is empty, load initial list lazily based on current tab
+    if (!trimmedQuery) {
+      setIsLoadingClients(true);
+      const promises: Promise<any>[] = [
+        fetchD1Clients('').then(res => setLocalClients(res))
+      ];
+
+      // Lazy load Superapps ONLY if user selected 'superapps' or 'all' tab
+      if (clientSourceTab === 'superapps' || clientSourceTab === 'all') {
+        if (superappsCacheRef.current['']) {
+          setSuperappsClients(superappsCacheRef.current['']);
+        } else {
+          promises.push(
+            SuperappsClientService.getSuperappsProfiles('')
+              .then(spProfiles => {
+                const mappedSp: ClientOption[] = spProfiles.map(p => ({
+                  clientId: p.clientId,
+                  name: p.name,
+                  email: p.email,
+                  phone: p.contactNumber,
+                  address: p.address,
+                  source: 'superapps' as const,
+                  clientType: p.clientType || 'PT'
+                }));
+                superappsCacheRef.current[''] = mappedSp;
+                setSuperappsClients(mappedSp);
+              })
+              .catch(() => {
+                setSuperappsError('Data klien superapps tidak tersedia');
+              })
+          );
+        }
+      }
+
+      Promise.all(promises).finally(() => {
+        setIsLoadingClients(false);
+      });
+      return;
+    }
+
+    const delayDebounceFn = setTimeout(() => {
+      performSearch();
+    }, 350);
 
     return () => clearTimeout(delayDebounceFn);
   }, [clientSearch, clientSourceTab]);
@@ -612,7 +679,7 @@ Active Tab View: ${viewMode}
     setViewMode('edit');
   };
 
-  const handleSelectClient = (c: ClientOption) => {
+  const handleSelectClient = async (c: ClientOption) => {
     setSelectedClientId(c.clientId);
     setSelectedClientSource(c.source);
     setClientName(c.name);
@@ -623,6 +690,22 @@ Active Tab View: ${viewMode}
     setSelectedProjectId('');
     setClientSearch('');
     setShowClientDropdown(false);
+
+    // Targeted single profile read if local client is selected
+    if (c.source === 'local' && c.clientId) {
+      try {
+        const docRef = doc(db, 'profiles', c.clientId);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          const profileData = docSnap.data();
+          setClientEmail(profileData.email || c.email || '');
+          setClientPhone(profileData.phoneNumber || profileData.phone || c.phone || '');
+          setClientAddress(profileData.fullAddress || profileData.address || profileData.domicile || c.address || '');
+        }
+      } catch (err) {
+        console.warn('[QuotationGenerator] Gagal mengambil detail profil spesifik dari Firestore:', err);
+      }
+    }
   };
 
   const handleCreateQuickClient = async () => {
@@ -1144,11 +1227,31 @@ Notaris/PPAT Nukantini Putri Parincha, SH., M.Kn`;
     currentPage * pageSize
   );
 
-  // Client dropdown list filtered
-  const filteredClientOptions = superappsClients.filter(c => 
-    c.name.toLowerCase().includes(clientSearch.toLowerCase()) ||
-    c.email.toLowerCase().includes(clientSearch.toLowerCase())
-  );
+  // Client dropdown list filtered with source tab support
+  const allClientsList = React.useMemo(() => {
+    if (clientSourceTab === 'local') return localClients;
+    if (clientSourceTab === 'superapps') return superappsClients;
+
+    const seen = new Set<string>();
+    const list: ClientOption[] = [];
+    for (const c of [...localClients, ...superappsClients]) {
+      if (c && c.clientId && !seen.has(`${c.source}_${c.clientId}`)) {
+        seen.add(`${c.source}_${c.clientId}`);
+        list.push(c);
+      }
+    }
+    return list;
+  }, [clientSourceTab, localClients, superappsClients]);
+
+  const filteredClientOptions = React.useMemo(() => {
+    if (!clientSearch) return allClientsList;
+    const q = clientSearch.toLowerCase().trim();
+    return allClientsList.filter(c =>
+      (c.name || '').toLowerCase().includes(q) ||
+      (c.address || '').toLowerCase().includes(q) ||
+      (c.email || '').toLowerCase().includes(q)
+    );
+  }, [allClientsList, clientSearch]);
 
   if (loading && viewMode === 'list') {
     return (
@@ -1476,41 +1579,68 @@ Notaris/PPAT Nukantini Putri Parincha, SH., M.Kn`;
                   )}
 
                   {showClientDropdown && (
-                    <div className="absolute left-0 right-0 top-full mt-1 bg-white rounded-xl border border-slate-200 shadow-lg z-50 max-h-48 overflow-y-auto p-1">
-                      {isLoadingClients ? (
-                        <div className="p-2.5 text-center text-slate-500 text-xs flex items-center justify-center gap-2">
-                          <div className="w-3 h-3 border-2 border-sky-600 border-t-transparent rounded-full animate-spin" />
-                          Memuat klien...
-                        </div>
-                      ) : filteredClientOptions.length === 0 ? (
-                        <div className="p-2.5 text-center text-slate-400 text-xs italic">
-                          Tidak ada klien yang cocok.
-                        </div>
-                      ) : (
-                        filteredClientOptions.map((c) => (
-                          <div
-                            key={`${c.source}_${c.clientId}`}
-                            onClick={() => handleSelectClient(c)}
-                            className="p-2 hover:bg-slate-50 rounded-lg cursor-pointer transition-colors flex items-center justify-between"
-                          >
-                            <div className="min-w-0 pr-2">
-                              <div className="flex items-center gap-1.5">
-                                <span className="font-bold text-slate-800 text-xs truncate max-w-[160px] block">{c.name}</span>
-                                <span className={`text-[8px] px-1 py-0.1 rounded font-bold uppercase ${
-                                  c.source === 'superapps'
-                                    ? 'bg-indigo-100 text-indigo-700'
-                                    : 'bg-emerald-100 text-emerald-700'
-                                }`}>
-                                  {c.source === 'superapps' ? 'SA' : 'Lokal'}
-                                </span>
-                              </div>
-                            </div>
-                            {selectedClientId === c.clientId && (
-                              <Check size={14} className="text-sky-600 shrink-0" />
-                            )}
+                    <div className="absolute left-0 right-0 top-full mt-1 bg-white rounded-xl border border-slate-200 shadow-lg z-50 max-h-64 flex flex-col overflow-hidden p-1">
+                      {/* Source tabs */}
+                      <div className="flex border-b border-slate-100 p-1 mb-1 gap-1 shrink-0 bg-slate-50/50 rounded-lg">
+                        <button
+                          type="button"
+                          onClick={() => setClientSourceTab('all')}
+                          className={`flex-1 py-1 text-[10px] font-bold rounded-md transition-colors ${clientSourceTab === 'all' ? 'bg-white text-blue-600 shadow-xs' : 'text-slate-500 hover:text-slate-700'}`}
+                        >
+                          Semua ({localClients.length + superappsClients.length})
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setClientSourceTab('local')}
+                          className={`flex-1 py-1 text-[10px] font-bold rounded-md transition-colors ${clientSourceTab === 'local' ? 'bg-white text-blue-600 shadow-xs' : 'text-slate-500 hover:text-slate-700'}`}
+                        >
+                          Lokal ({localClients.length})
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setClientSourceTab('superapps')}
+                          className={`flex-1 py-1 text-[10px] font-bold rounded-md transition-colors ${clientSourceTab === 'superapps' ? 'bg-white text-blue-600 shadow-xs' : 'text-slate-500 hover:text-slate-700'}`}
+                        >
+                          Superapps ({superappsClients.length})
+                        </button>
+                      </div>
+
+                      <div className="overflow-y-auto max-h-48">
+                        {isLoadingClients ? (
+                          <div className="p-2.5 text-center text-slate-500 text-xs flex items-center justify-center gap-2">
+                            <div className="w-3 h-3 border-2 border-sky-600 border-t-transparent rounded-full animate-spin" />
+                            Memuat klien...
                           </div>
-                        ))
-                      )}
+                        ) : filteredClientOptions.length === 0 ? (
+                          <div className="p-2.5 text-center text-slate-400 text-xs italic">
+                            Tidak ada klien yang cocok.
+                          </div>
+                        ) : (
+                          filteredClientOptions.map((c) => (
+                            <div
+                              key={`${c.source}_${c.clientId}`}
+                              onClick={() => handleSelectClient(c)}
+                              className="p-2 hover:bg-slate-50 rounded-lg cursor-pointer transition-colors flex items-center justify-between"
+                            >
+                              <div className="min-w-0 pr-2">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="font-bold text-slate-800 text-xs truncate max-w-[160px] block">{c.name}</span>
+                                  <span className={`text-[8px] px-1 py-0.1 rounded font-bold uppercase ${
+                                    c.source === 'superapps'
+                                      ? 'bg-indigo-100 text-indigo-700'
+                                      : 'bg-emerald-100 text-emerald-700'
+                                  }`}>
+                                    {c.source === 'superapps' ? 'SA' : 'Lokal'}
+                                  </span>
+                                </div>
+                              </div>
+                              {selectedClientId === c.clientId && (
+                                <Check size={14} className="text-sky-600 shrink-0" />
+                              )}
+                            </div>
+                          ))
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>
