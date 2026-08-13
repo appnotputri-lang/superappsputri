@@ -4,9 +4,6 @@ import { Invoice, InvoiceItem, PaymentRecord, Product } from '../../../types';
 import { InvoiceService } from '../../services/InvoiceService';
 import { ProductService } from '../../services/ProductService';
 import { CompanyService } from '../../services/CompanyService';
-import { ProjectService } from '../../services/ProjectService';
-import { Project } from '../../domain/project/Project';
-import { SuperappsClientService, superappsDb } from '../../services/superappsClientService';
 import { calculateInvoiceTotals, getItemSubtotal } from '../../services/taxCalculator';
 import { formatInputNumber, parseFormattedNumber } from '../../../utils/formatters';
 import { InvoicePrintTemplate } from './InvoicePrintTemplate';
@@ -204,7 +201,6 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = (props) => {
 
   // Form Fields
   const [editingInvoiceId, setEditingInvoiceId] = useState<string | null>(null);
-  const [activeProjects, setActiveProjects] = useState<Project[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<string>('');
   const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([]);
   const [invoiceNumber, setInvoiceNumber] = useState('');
@@ -241,18 +237,6 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = (props) => {
     return () => unsubscribe();
   }, [viewMode]);
 
-  useEffect(() => {
-    if (!selectedClientId) {
-      setActiveProjects([]);
-      return;
-    }
-    let isMounted = true;
-    ProjectService.getActiveProjectsForSelect({ clientId: selectedClientId, limitCount: 20 }).then(active => {
-      if (isMounted) setActiveProjects(active);
-    });
-    return () => { isMounted = false; };
-  }, [selectedClientId]);
-
   const [selectedPresetProduct, setSelectedPresetProduct] = useState('-- Manual --');
   const [itemDescription, setItemDescription] = useState('');
   const [itemUnitPrice, setItemUnitPrice] = useState<number>(0);
@@ -267,17 +251,13 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = (props) => {
   const [bankSwift, setBankSwift] = useState('CENAIDJA');
 
   // Client Master Selection State
-  const [clientSourceTab, setClientSourceTab] = useState<'all' | 'local' | 'superapps'>('local');
   const [localClients, setLocalClients] = useState<ClientOption[]>([]);
-  const [superappsClients, setSuperappsClients] = useState<ClientOption[]>([]);
   const [isLoadingClients, setIsLoadingClients] = useState(false);
-  const [superappsError, setSuperappsError] = useState<string | null>(null);
   const [clientSearch, setClientSearch] = useState('');
   const [showClientDropdown, setShowClientDropdown] = useState(false);
 
-  // Cache Refs and D1 Fetch helper
+  // Cache Ref and D1 Fetch helper
   const localD1CacheRef = useRef<Record<string, ClientOption[]>>({});
-  const superappsCacheRef = useRef<Record<string, ClientOption[]>>({});
 
   const fetchD1Clients = async (queryStr: string): Promise<ClientOption[]> => {
     const cacheKey = queryStr.toLowerCase().trim();
@@ -424,9 +404,6 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = (props) => {
 
   const loadClientOptions = async () => {
     setIsLoadingClients(true);
-    setSuperappsError(null);
-
-    // Fetch Local Clients from Cloudflare D1 with limit 15 (0 Firestore reads)
     try {
       const allLocal = await fetchD1Clients('');
       setLocalClients(allLocal);
@@ -437,98 +414,24 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = (props) => {
     }
   };
 
-  // Unified debounced search for D1 (local) and Superapps as user types
+  // Debounced search for D1 clients as user types
   useEffect(() => {
     const trimmedQuery = clientSearch.trim();
 
-    // Define async searches
     const performSearch = async () => {
       setIsLoadingClients(true);
-      
-      const promises: Promise<any>[] = [];
-
-      // A. Local D1 search
-      if (clientSourceTab === 'local' || clientSourceTab === 'all') {
-        promises.push(
-          fetchD1Clients(trimmedQuery)
-            .then(res => setLocalClients(res))
-            .catch(err => console.error('D1 debounced search error:', err))
-        );
-      }
-
-      // B. Superapps Firestore search - ONLY executed when user switches to 'superapps' or 'all' tab
-      if (clientSourceTab === 'superapps' || clientSourceTab === 'all') {
-        const cachedKey = trimmedQuery.toLowerCase();
-        if (superappsCacheRef.current[cachedKey]) {
-          setSuperappsClients(superappsCacheRef.current[cachedKey]);
-        } else {
-          promises.push(
-            SuperappsClientService.getSuperappsProfiles(trimmedQuery)
-              .then(spProfiles => {
-                const mappedSp: ClientOption[] = spProfiles.map(p => ({
-                  clientId: p.clientId,
-                  name: p.name,
-                  email: p.email,
-                  phone: p.contactNumber,
-                  address: p.address,
-                  source: 'superapps' as const,
-                  clientType: p.clientType || 'PT'
-                }));
-                superappsCacheRef.current[cachedKey] = mappedSp;
-                setSuperappsClients(mappedSp);
-              })
-              .catch(err => {
-                console.warn('Superapps debounced search error:', err);
-                setSuperappsError('Data klien superapps tidak tersedia');
-              })
-          );
-        }
-      }
-
       try {
-        await Promise.all(promises);
+        const res = await fetchD1Clients(trimmedQuery);
+        setLocalClients(res);
+      } catch (err) {
+        console.error('D1 debounced search error:', err);
       } finally {
         setIsLoadingClients(false);
       }
     };
 
-    // If query is empty, load initial list lazily based on current tab
     if (!trimmedQuery) {
-      setIsLoadingClients(true);
-      const promises: Promise<any>[] = [
-        fetchD1Clients('').then(res => setLocalClients(res))
-      ];
-
-      // Lazy load Superapps ONLY if user selected 'superapps' or 'all' tab
-      if (clientSourceTab === 'superapps' || clientSourceTab === 'all') {
-        if (superappsCacheRef.current['']) {
-          setSuperappsClients(superappsCacheRef.current['']);
-        } else {
-          promises.push(
-            SuperappsClientService.getSuperappsProfiles('')
-              .then(spProfiles => {
-                const mappedSp: ClientOption[] = spProfiles.map(p => ({
-                  clientId: p.clientId,
-                  name: p.name,
-                  email: p.email,
-                  phone: p.contactNumber,
-                  address: p.address,
-                  source: 'superapps' as const,
-                  clientType: p.clientType || 'PT'
-                }));
-                superappsCacheRef.current[''] = mappedSp;
-                setSuperappsClients(mappedSp);
-              })
-              .catch(() => {
-                setSuperappsError('Data klien superapps tidak tersedia');
-              })
-          );
-        }
-      }
-
-      Promise.all(promises).finally(() => {
-        setIsLoadingClients(false);
-      });
+      loadClientOptions();
       return;
     }
 
@@ -537,7 +440,7 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = (props) => {
     }, 350);
 
     return () => clearTimeout(delayDebounceFn);
-  }, [clientSearch, clientSourceTab]);
+  }, [clientSearch]);
 
   const calculateTotals = (currentItems: InvoiceItem[]) => {
     const summary = calculateInvoiceTotals(currentItems);
@@ -746,10 +649,6 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = (props) => {
 
   const handleSaveInvoice = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (selectedProjectIds.length === 0) {
-      alert('Mohon hubungkan setidaknya satu proyek aktif terlebih dahulu.');
-      return;
-    }
     if (!invoiceNumber || !clientName) {
       alert('Mohon isi Nomor Invoice dan Nama Klien.');
       return;
@@ -758,16 +657,14 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = (props) => {
     setIsSubmitting(true);
     try {
       const projectTitles = selectedProjectIds.map(id => {
-        const p = activeProjects.find(proj => proj.projectId === id);
-        if (p) return p.title;
         if (selectedInvoice && selectedInvoice.projectIds?.includes(id)) {
           const idx = selectedInvoice.projectIds.indexOf(id);
           if (selectedInvoice.projectTitles && selectedInvoice.projectTitles[idx]) {
             return selectedInvoice.projectTitles[idx];
           }
         }
-        return 'Proyek';
-      });
+        return '';
+      }).filter(Boolean);
 
       const { sub, tax, total } = calculateTotals(items);
       const existingPaid = selectedInvoice && editingInvoiceId === selectedInvoice.id ? selectedInvoice.paidAmount || 0 : 0;
@@ -781,10 +678,10 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = (props) => {
         clientEmail,
         clientPhone,
         clientAddress,
-        projectId: selectedProjectIds[0] || '',
-        projectTitle: projectTitles.join(', '),
-        projectIds: selectedProjectIds,
-        projectTitles: projectTitles,
+        projectId: selectedProjectId || selectedProjectIds[0] || '',
+        projectTitle: projectTitles.join(', ') || '',
+        projectIds: selectedProjectIds || [],
+        projectTitles: projectTitles || [],
         issueDate,
         dueDate,
         status: balance <= 0 && total > 0 ? 'PAID' : status,
@@ -1134,7 +1031,6 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
         clientPhone: inv.clientPhone,
         clientSource: inv.clientSource,
         localClients,
-        superappsClients,
       });
 
       if (resolvedPhone) {
@@ -1281,30 +1177,15 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
     safeCurrentPage * pageSize
   );
 
-  const allClientsList = React.useMemo(() => {
-    if (clientSourceTab === 'local') return localClients;
-    if (clientSourceTab === 'superapps') return superappsClients;
-
-    const seen = new Set<string>();
-    const list: ClientOption[] = [];
-    for (const c of [...localClients, ...superappsClients]) {
-      if (c && c.clientId && !seen.has(`${c.source}_${c.clientId}`)) {
-        seen.add(`${c.source}_${c.clientId}`);
-        list.push(c);
-      }
-    }
-    return list;
-  }, [clientSourceTab, localClients, superappsClients]);
-
   const filteredClientOptions = React.useMemo(() => {
-    if (!clientSearch) return allClientsList;
+    if (!clientSearch) return localClients;
     const q = clientSearch.toLowerCase().trim();
-    return allClientsList.filter(c =>
+    return localClients.filter(c =>
       (c.name || '').toLowerCase().includes(q) ||
       (c.address || '').toLowerCase().includes(q) ||
       (c.email || '').toLowerCase().includes(q)
     );
-  }, [allClientsList, clientSearch]);
+  }, [localClients, clientSearch]);
 
   const { sub: currentSub, tax: currentTax, total: currentTotal } = calculateTotals(items);
 
@@ -2434,32 +2315,7 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
 
               {showClientDropdown && (
                 <div className="absolute left-0 right-0 top-full mt-1 bg-white rounded-xl border border-slate-200 shadow-lg z-50 max-h-64 flex flex-col overflow-hidden p-1">
-                  {/* Source tabs */}
-                  <div className="flex border-b border-slate-100 p-1 mb-1 gap-1 shrink-0 bg-slate-50/50 rounded-lg">
-                    <button
-                      type="button"
-                      onClick={() => setClientSourceTab('all')}
-                      className={`flex-1 py-1 text-[10px] font-bold rounded-md transition-colors ${clientSourceTab === 'all' ? 'bg-white text-blue-600 shadow-xs' : 'text-slate-500 hover:text-slate-700'}`}
-                    >
-                      Semua ({localClients.length + superappsClients.length})
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setClientSourceTab('local')}
-                      className={`flex-1 py-1 text-[10px] font-bold rounded-md transition-colors ${clientSourceTab === 'local' ? 'bg-white text-blue-600 shadow-xs' : 'text-slate-500 hover:text-slate-700'}`}
-                    >
-                      Lokal ({localClients.length})
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setClientSourceTab('superapps')}
-                      className={`flex-1 py-1 text-[10px] font-bold rounded-md transition-colors ${clientSourceTab === 'superapps' ? 'bg-white text-blue-600 shadow-xs' : 'text-slate-500 hover:text-slate-700'}`}
-                    >
-                      Superapps ({superappsClients.length})
-                    </button>
-                  </div>
-
-                  <div className="overflow-y-auto flex-1">
+                  <div className="overflow-y-auto flex-1 max-h-56">
                     {isLoadingClients ? (
                       <div className="p-3 text-center text-slate-500 text-xs flex items-center justify-center gap-2">
                         <div className="w-3.5 h-3.5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
@@ -2472,14 +2328,14 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
                     ) : (
                       filteredClientOptions.map((c) => (
                         <div
-                          key={`${c.source}_${c.clientId}`}
+                          key={c.clientId}
                           onClick={() => handleSelectClient(c)}
                           className="p-2 hover:bg-slate-50 rounded-lg cursor-pointer transition-colors flex items-center justify-between"
                         >
                           <div className="min-w-0 pr-2">
                             <span className="font-bold text-slate-800 text-xs truncate max-w-[200px] block">{c.name}</span>
                             <span className="text-[10px] text-slate-400 block truncate">
-                              {c.clientType ? `[${c.clientType}] ` : ''}{c.address || c.email || c.phone || (c.source === 'superapps' ? 'Superapps' : 'Lokal')}
+                              {c.clientType ? `[${c.clientType}] ` : ''}{c.address || c.email || c.phone || ''}
                             </span>
                           </div>
                           {selectedClientId === c.clientId && (
@@ -2528,55 +2384,6 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
               />
             </div>
           </div>
-
-          {/* Connected Active Projects (Compact & inline if client is selected) */}
-          {selectedClientId && (
-            <div className="pt-3 border-t border-slate-100 space-y-2">
-              <div className="flex items-center gap-1.5">
-                <Briefcase size={14} className="text-blue-600" />
-                <h4 className="font-bold text-slate-800 text-[10px] uppercase tracking-wide">
-                  Hubungkan Proyek Aktif ({activeProjects.filter(p => p.clientId === selectedClientId).length} Proyek) <span className="text-red-500">*</span>
-                </h4>
-              </div>
-              
-              {activeProjects.filter(p => p.clientId === selectedClientId).length === 0 ? (
-                <div className="p-2.5 text-slate-500 text-xs italic bg-slate-50 rounded-xl border border-slate-100">
-                  Klien ini tidak memiliki proyek aktif.
-                </div>
-              ) : (
-                <div className="flex flex-wrap gap-2">
-                  {activeProjects.filter(p => p.clientId === selectedClientId).map((p) => {
-                    const isChecked = selectedProjectIds.includes(p.projectId);
-                    return (
-                      <button
-                        type="button"
-                        key={p.projectId}
-                        onClick={() => handleToggleProject(p.projectId)}
-                        className={`px-3 py-1.5 rounded-xl border text-[11px] font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
-                          isChecked 
-                            ? 'border-blue-500 bg-blue-50 text-blue-700 font-bold shadow-xs' 
-                            : 'border-slate-200 bg-white hover:border-slate-300 text-slate-600'
-                        }`}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={() => {}} // handled by button click
-                          className="rounded border-slate-300 text-blue-600 focus:ring-blue-500/10 w-3.5 h-3.5 cursor-pointer"
-                        />
-                        <span>{p.title}</span>
-                        <span className={`text-[8px] px-1 py-0.2 rounded font-bold uppercase ${
-                          p.status === 'ACTIVE' || p.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'
-                        }`}>
-                          {p.status}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          )}
         </div>
 
         {/* Card 3: ITEM TAGIHAN */}

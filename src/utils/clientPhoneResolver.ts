@@ -1,6 +1,7 @@
 import { db } from '../lib/firebase';
 import { superappsDb, SuperappsClientService } from '../services/superappsClientService';
-import { doc, getDoc, getDocs, collection, query, where, limit } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
+import { getApiUrl, getAuthHeaders } from '../lib/api';
 
 export interface ClientOption {
   clientId: string;
@@ -45,7 +46,28 @@ export interface ResolvePhoneParams {
   clientPhone?: string;
   clientSource?: 'local' | 'superapps';
   localClients: ClientOption[];
-  superappsClients: ClientOption[];
+  superappsClients?: ClientOption[];
+}
+
+// Memory cache for phone resolver to prevent redundant requests
+const phoneResolverCache: Record<string, string> = {};
+
+async function searchD1ClientsForResolver(queryStr: string): Promise<Array<{ clientId: string; companyName: string }>> {
+  try {
+    const headers = await getAuthHeaders();
+    const url = getApiUrl(`/api/clients/search?q=${encodeURIComponent(queryStr)}&limit=15`);
+    const response = await fetch(url, { headers });
+    if (!response.ok) return [];
+    const data = await response.json() as any;
+    const results = data.clients || [];
+    return results.map((d: any) => ({
+      clientId: d.clientId || d.id,
+      companyName: d.companyName || ''
+    }));
+  } catch (err) {
+    console.warn('[clientPhoneResolver] D1 client search error:', err);
+    return [];
+  }
 }
 
 export async function resolveClientPhone({
@@ -56,125 +78,117 @@ export async function resolveClientPhone({
   localClients,
   superappsClients,
 }: ResolvePhoneParams): Promise<string> {
-  let phoneNum = clientPhone || '';
-  if (phoneNum) {
-    return formatPhoneForFonnte(phoneNum);
+  // 0. If clientPhone is explicitly provided, return formatted (0 DB reads)
+  if (clientPhone && clientPhone.trim()) {
+    return formatPhoneForFonnte(clientPhone);
   }
 
-  // 1. Try finding by ID in preloaded lists
-  let matchedClient = null;
+  // 1. Check preloaded localClients & superappsClients by clientId
   if (clientId) {
-    matchedClient =
-      localClients.find(c => c.clientId === clientId) ||
-      superappsClients.find(c => c.clientId === clientId);
-  }
+    const cached = phoneResolverCache[`id:${clientId}`];
+    if (cached) return formatPhoneForFonnte(cached);
 
-  // 2. Try finding by Name in preloaded lists (case-insensitive)
-  if (!matchedClient && clientName) {
-    const targetName = clientName.toLowerCase().trim();
-    matchedClient =
-      localClients.find(c => c.name?.toLowerCase().trim() === targetName) ||
-      superappsClients.find(c => c.name?.toLowerCase().trim() === targetName);
-
-    // 2b. Fuzzy name matching fallback
-    if (!matchedClient) {
-      matchedClient =
-        localClients.find(c => isFuzzyNameMatch(c.name, clientName)) ||
-        superappsClients.find(c => isFuzzyNameMatch(c.name, clientName));
+    const matched = (localClients || []).find(c => c.clientId === clientId) ||
+                    (superappsClients || []).find(c => c.clientId === clientId);
+    if (matched && matched.phone) {
+      phoneResolverCache[`id:${clientId}`] = matched.phone;
+      return formatPhoneForFonnte(matched.phone);
     }
   }
 
-  if (matchedClient && matchedClient.phone) {
-    phoneNum = matchedClient.phone;
-  } else {
-    // 3. Direct Firestore lookup by clientId if present
+  // 2. Check preloaded lists by clientName
+  if (clientName && clientName.trim()) {
+    const normName = cleanNameForFuzzyMatch(clientName);
+    const cached = phoneResolverCache[`name:${normName}`];
+    if (cached) return formatPhoneForFonnte(cached);
+
+    const targetName = clientName.toLowerCase().trim();
+    let matched = (localClients || []).find(c => (c.name || '').toLowerCase().trim() === targetName) ||
+                  (superappsClients || []).find(c => (c.name || '').toLowerCase().trim() === targetName);
+    if (!matched) {
+      matched = (localClients || []).find(c => isFuzzyNameMatch(c.name, clientName)) ||
+                (superappsClients || []).find(c => isFuzzyNameMatch(c.name, clientName));
+    }
+    if (matched && matched.phone) {
+      phoneResolverCache[`name:${normName}`] = matched.phone;
+      if (matched.clientId) phoneResolverCache[`id:${matched.clientId}`] = matched.phone;
+      return formatPhoneForFonnte(matched.phone);
+    }
+  }
+
+  let phoneNum = '';
+
+  // 3. Targeted read if clientId is available (Prioritize clientId)
+  if (clientId) {
     try {
-      if (clientId) {
-        if (clientSource === 'superapps') {
-          const clientDoc = await getDoc(doc(superappsDb, 'profiles', clientId));
-          if (clientDoc.exists()) {
-            const clientData = clientDoc.data();
-            phoneNum = clientData.phoneNumber || clientData.contactNumber || clientData.phone || '';
-          }
+      if (clientSource === 'superapps') {
+        const clientDoc = await getDoc(doc(superappsDb, 'profiles', clientId));
+        if (clientDoc.exists()) {
+          const clientData = clientDoc.data();
+          phoneNum = clientData.phoneNumber || clientData.contactNumber || clientData.phone || '';
+        }
+      } else {
+        const clientDoc = await getDoc(doc(db, 'profiles', clientId));
+        if (clientDoc.exists()) {
+          const clientData = clientDoc.data();
+          phoneNum = clientData.phoneNumber || clientData.phone || '';
         } else {
-          // Local profiles
-          const clientDoc = await getDoc(doc(db, 'profiles', clientId));
-          if (clientDoc.exists()) {
-            const clientData = clientDoc.data();
-            phoneNum = clientData.phoneNumber || clientData.phone || '';
-          } else {
-            // Legacy local company profiles
-            const companyDoc = await getDoc(doc(db, 'company_profiles', clientId));
-            if (companyDoc.exists()) {
-              const companyData = companyDoc.data();
-              phoneNum = companyData.phoneNumber || companyData.phone || '';
-            }
+          const companyDoc = await getDoc(doc(db, 'company_profiles', clientId));
+          if (companyDoc.exists()) {
+            const companyData = companyDoc.data();
+            phoneNum = companyData.phoneNumber || companyData.phone || '';
           }
         }
       }
 
-      // 4. Fallback to direct Firestore lookup by clientName if still not resolved
-      if (!phoneNum && clientName) {
-        const targetName = clientName.trim().toUpperCase();
+      if (phoneNum) {
+        phoneResolverCache[`id:${clientId}`] = phoneNum;
+        if (clientName) phoneResolverCache[`name:${cleanNameForFuzzyMatch(clientName)}`] = phoneNum;
+        return formatPhoneForFonnte(phoneNum);
+      }
+    } catch (err) {
+      console.warn('[clientPhoneResolver] Error targeted reading profile by clientId:', err);
+    }
+  }
 
-        // Try local profiles companyName
-        const localSnap = await getDocs(query(collection(db, 'profiles'), where('companyName', '==', targetName)));
-        if (!localSnap.empty) {
-          const clientData = localSnap.docs[0].data();
+  // 4. Search D1 by clientName if phone still not found
+  if (clientName && clientName.trim()) {
+    try {
+      const d1Candidates = await searchD1ClientsForResolver(clientName);
+      let matchedD1 = d1Candidates.find(c => (c.companyName || '').toLowerCase().trim() === clientName.toLowerCase().trim()) ||
+                      d1Candidates.find(c => isFuzzyNameMatch(c.companyName, clientName));
+
+      if (matchedD1 && matchedD1.clientId) {
+        // Targeted read profile from D1 matched clientId (1 Firestore read)
+        const clientDoc = await getDoc(doc(db, 'profiles', matchedD1.clientId));
+        if (clientDoc.exists()) {
+          const clientData = clientDoc.data();
           phoneNum = clientData.phoneNumber || clientData.phone || '';
-        } else {
-          // Try local profiles name
-          const localSnap2 = await getDocs(query(collection(db, 'profiles'), where('name', '==', targetName)));
-          if (!localSnap2.empty) {
-            const clientData = localSnap2.docs[0].data();
-            phoneNum = clientData.phoneNumber || clientData.phone || '';
-          } else {
-            // Try superapps profiles companyName
-            const spSnap = await getDocs(query(collection(superappsDb, 'profiles'), where('companyName', '==', targetName)));
-            if (!spSnap.empty) {
-              const clientData = spSnap.docs[0].data();
-              phoneNum = clientData.phoneNumber || clientData.contactNumber || clientData.phone || '';
-            } else {
-              // Try superapps profiles name
-              const spSnap2 = await getDocs(query(collection(superappsDb, 'profiles'), where('name', '==', targetName)));
-              if (!spSnap2.empty) {
-                const clientData = spSnap2.docs[0].data();
-                phoneNum = clientData.phoneNumber || clientData.contactNumber || clientData.phone || '';
-              }
-            }
-          }
         }
 
-        // 5. If still not resolved, load from lightweight directory and do fuzzy matching
-        if (!phoneNum) {
-          // Fuzzy search in local client_directory (extremely lightweight)
-          const localProfilesSnap = await getDocs(collection(db, 'client_directory'));
-          let foundLocal = localProfilesSnap.docs.find(docSnap => {
-            const data = docSnap.data();
-            const name = data.companyName || '';
-            return isFuzzyNameMatch(name, clientName);
-          });
-          if (foundLocal) {
-            const clientData = foundLocal.data();
-            phoneNum = clientData.phoneNumber || clientData.phone || '';
-          } else {
-            // Fuzzy search in superapps profiles (limited to matching candidates via service)
-            try {
-              const spProfiles = await SuperappsClientService.getSuperappsProfiles(clientName);
-              const foundSp = spProfiles.find(p => isFuzzyNameMatch(p.name, clientName));
-              if (foundSp) {
-                phoneNum = foundSp.contactNumber;
-              }
-            } catch (err) {
-              console.warn('Failed fuzzy search on superapps:', err);
-            }
-          }
+        if (phoneNum) {
+          phoneResolverCache[`id:${matchedD1.clientId}`] = phoneNum;
+          phoneResolverCache[`name:${cleanNameForFuzzyMatch(clientName)}`] = phoneNum;
+          return formatPhoneForFonnte(phoneNum);
+        }
+      }
+
+      // 5. Fallback to Superapps search
+      if (!phoneNum) {
+        const spProfiles = await SuperappsClientService.getSuperappsProfiles(clientName);
+        const foundSp = spProfiles.find(p => isFuzzyNameMatch(p.name, clientName));
+        if (foundSp && foundSp.contactNumber) {
+          phoneNum = foundSp.contactNumber;
+          phoneResolverCache[`name:${cleanNameForFuzzyMatch(clientName)}`] = phoneNum;
+          if (foundSp.clientId) phoneResolverCache[`id:${foundSp.clientId}`] = phoneNum;
+          return formatPhoneForFonnte(phoneNum);
         }
       }
     } catch (err) {
-      console.error('Failed to auto-fetch client phone number from Firestore:', err);
+      console.error('[clientPhoneResolver] Error searching client by name:', err);
     }
   }
 
   return formatPhoneForFonnte(phoneNum);
 }
+
