@@ -10,6 +10,7 @@ interface SearchableClientSelectProps {
   className?: string;
   selectClassName?: string;
   allowClear?: boolean;
+  onSearchChange?: (val: string) => void;
 }
 
 const formatCompanyNameWithType = (name: string, clientType?: string) => {
@@ -53,7 +54,8 @@ export const SearchableClientSelect: React.FC<SearchableClientSelectProps> = ({
   placeholder = "-- Pilih Klien Registrasi --",
   className = "w-full",
   selectClassName = "w-full px-3 py-2.5 text-[13px] bg-slate-50 border border-slate-200 hover:border-slate-300 focus:bg-white focus:ring-1 focus:ring-blue-500 rounded-lg outline-none transition-all flex items-center justify-between cursor-pointer",
-  allowClear = false
+  allowClear = false,
+  onSearchChange
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
@@ -69,12 +71,21 @@ export const SearchableClientSelect: React.FC<SearchableClientSelectProps> = ({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [wrapperRef]);
 
+  // Trigger onSearchChange when dropdown opens/closes to load initial list
+  useEffect(() => {
+    if (isOpen && onSearchChange) {
+      onSearchChange(search);
+    }
+  }, [isOpen, onSearchChange]);
+
   const selectedOption = options.find(opt => opt.id === value);
 
-  const filteredOptions = options.filter(opt => {
-    const formatted = formatCompanyNameWithType(opt.companyName || '', opt.clientType);
-    return formatted.toLowerCase().includes(search.toLowerCase());
-  });
+  const filteredOptions = onSearchChange
+    ? options
+    : options.filter(opt => {
+        const formatted = formatCompanyNameWithType(opt.companyName || '', opt.clientType);
+        return formatted.toLowerCase().includes(search.toLowerCase());
+      });
 
   return (
     <div ref={wrapperRef} className={`relative ${className}`}>
@@ -97,13 +108,24 @@ export const SearchableClientSelect: React.FC<SearchableClientSelectProps> = ({
               className="w-full outline-none text-[13px] bg-transparent"
               placeholder="Cari nama klien..."
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => {
+                const text = e.target.value;
+                setSearch(text);
+                if (onSearchChange) {
+                  onSearchChange(text);
+                }
+              }}
               autoFocus
             />
             {search && (
               <X
                 className="w-4 h-4 text-slate-400 cursor-pointer hover:text-slate-600"
-                onClick={() => setSearch('')}
+                onClick={() => {
+                  setSearch('');
+                  if (onSearchChange) {
+                    onSearchChange('');
+                  }
+                }}
               />
             )}
           </div>

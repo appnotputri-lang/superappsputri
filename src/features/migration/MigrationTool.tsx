@@ -5,15 +5,97 @@ import { db } from '../../lib/firebase';
 import { collection, getDocs, doc, writeBatch } from 'firebase/firestore';
 import { generateShortPublicToken } from '../../services/QuotationService';
 import { CompanyService } from '../../services/CompanyService';
+import { getApiUrl, getAuthHeaders } from '../../lib/api';
 
 export default function MigrationTool() {
   const [logs, setLogs] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [importFiles, setImportFiles] = useState<{ deeds?: any[]; private_deeds?: any[]; outgoing_mails?: any[]; invoices?: any[]; documents?: any[]; quotations?: any[] }>({});
 
+  const [d1MigrationResult, setD1MigrationResult] = useState<any>(null);
+  const [d1Loading, setD1Loading] = useState(false);
+  const [apiTestResults, setApiTestResults] = useState<any[]>([]);
+  const [apiTesting, setApiTesting] = useState(false);
+
   const addLog = (msg: string) => {
     setLogs(prev => [...prev, msg]);
     console.log(msg);
+  };
+
+  const runD1Migration = async () => {
+    setD1Loading(true);
+    setLogs([]);
+    addLog("=== STARTING CLOUDFLARE D1 MIGRATION ===");
+    addLog("Triggering Firestore to Cloudflare D1 migration API...");
+    try {
+      const headers = await getAuthHeaders();
+      const response = await fetch(getApiUrl('/api/clients/migrate'), {
+        method: 'POST',
+        headers
+      });
+      const result = await response.json() as any;
+      if (!response.ok) {
+        throw new Error(result.error || "Failed to execute migration API");
+      }
+      setD1MigrationResult(result);
+      addLog("=== CLOUDFLARE D1 MIGRATION SUCCESS ===");
+      addLog(`Firestore Count: ${result.firestoreCount}`);
+      addLog(`D1 Count: ${result.d1Count}`);
+      addLog(`Total Firestore Reads: ${result.firestoreReadCount}`);
+      addLog(`Is Identical? ${result.success ? "YES (Counts & Fields Match)" : "NO"}`);
+      if (result.sampleComparisons && result.sampleComparisons.length > 0) {
+        addLog(`Compared ${result.sampleComparisons.length} samples (first, random, last):`);
+        result.sampleComparisons.forEach((c: any) => {
+          addLog(`- [${c.type}] id: ${c.id}, match: ${c.match ? "OK" : "MISMATCH"}`);
+          if (!c.match && c.mismatches) {
+            c.mismatches.forEach((m: any) => {
+              addLog(`   * Field [${m.field}] Mismatch - Firestore: ${JSON.stringify(m.firestore)}, D1: ${JSON.stringify(m.d1)}`);
+            });
+          }
+        });
+      }
+    } catch (err: any) {
+      addLog(`ERROR: ${err.message}`);
+    } finally {
+      setD1Loading(false);
+    }
+  };
+
+  const runApiTests = async () => {
+    setApiTesting(true);
+    setLogs([]);
+    addLog("=== STARTING CLOUDFLARE D1 API ENDPOINT TEST ===");
+    const tests = [
+      { name: "GET /api/clients?limit=15", url: '/api/clients?limit=15' },
+      { name: "GET /api/clients/search?q=putri&limit=15", url: '/api/clients/search?q=putri&limit=15' },
+      { name: "GET /api/clients/search?q=pt&limit=15", url: '/api/clients/search?q=pt&limit=15' },
+      { name: "GET /api/clients?archived=false&limit=15", url: '/api/clients?archived=false&limit=15' },
+      { name: "GET /api/clients?clientType=PT&limit=15", url: '/api/clients?clientType=PT&limit=15' }
+    ];
+
+    const results: any[] = [];
+    try {
+      for (const test of tests) {
+        addLog(`Running: ${test.name}`);
+        const headers = await getAuthHeaders();
+        const response = await fetch(getApiUrl(test.url), { headers });
+        const data = await response.json() as any;
+        results.push({
+          name: test.name,
+          status: response.status,
+          ok: response.ok,
+          count: data.count || 0,
+          sampleData: data.clients ? data.clients.slice(0, 3) : []
+        });
+        addLog(`Result: status ${response.status}, count: ${data.count || 0}`);
+      }
+      setApiTestResults(results);
+      addLog("=== CLOUDFLARE D1 API TEST COMPLETED ===");
+    } catch (err: any) {
+      addLog(`API TEST ERROR: ${err.message}`);
+    } finally {
+      setApiTesting(false);
+    }
   };
 
   const handleClientDirectoryMigration = async (isDryRun: boolean) => {
@@ -934,6 +1016,88 @@ export default function MigrationTool() {
         <div className="bg-slate-900 text-green-400 p-4 rounded-lg font-mono text-sm h-96 overflow-y-auto whitespace-pre-wrap border border-slate-800">
           {logs.length === 0 ? "Click 'Run Dry Run' to preview changes..." : logs.join('\n')}
         </div>
+      </div>
+
+      <div className="bg-white p-6 rounded-xl border border-slate-200/80 shadow-sm space-y-6 mt-6">
+        <div>
+          <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+            <Database className="w-4 h-4 text-orange-600" />
+            Tahap 1: Migrasi Client Directory ke Cloudflare D1
+          </h3>
+          <p className="text-xs text-slate-500 mt-1">
+            Membangun fondasi migrasi <code>client_directory</code> dari Firestore ke Cloudflare D1 (SQLite). 
+            Ini memigrasikan data Firestore ke database Cloudflare D1, melakukan verifikasi jumlah data, 
+            dan menjalankan pencocokan sample data (10 data pertama, 10 data acak, dan 10 data terakhir). 
+            Firestore tetap menjadi SOURCE OF TRUTH utama aplikasi saat ini.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-4">
+          <button
+            onClick={runD1Migration}
+            disabled={d1Loading || apiTesting}
+            className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-xs font-bold transition-all cursor-pointer disabled:opacity-50"
+          >
+            {d1Loading ? "Migrating..." : "Jalankan Migrasi & Validasi D1"}
+          </button>
+          
+          <button
+            onClick={runApiTests}
+            disabled={d1Loading || apiTesting}
+            className="px-4 py-2 bg-[#0c2444] hover:bg-[#16365f] text-white rounded-lg text-xs font-bold transition-all cursor-pointer disabled:opacity-50"
+          >
+            {apiTesting ? "Testing..." : "Jalankan Pengujian API D1"}
+          </button>
+        </div>
+
+        {d1MigrationResult && (
+          <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 space-y-3">
+            <h4 className="text-xs font-bold text-slate-700">Hasil Migrasi & Validasi:</h4>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
+              <div className="bg-white p-3 rounded-md border border-slate-100 shadow-sm">
+                <span className="text-[11px] text-slate-500 block">Status Validasi</span>
+                <span className={`font-bold ${d1MigrationResult.success ? "text-emerald-600" : "text-rose-600"}`}>
+                  {d1MigrationResult.success ? "✓ IDENTIK / COCOK" : "✗ GAGAL / MISMATCH"}
+                </span>
+              </div>
+              <div className="bg-white p-3 rounded-md border border-slate-100 shadow-sm">
+                <span className="text-[11px] text-slate-500 block">Jumlah Data Firestore</span>
+                <span className="font-bold text-slate-700">{d1MigrationResult.firestoreCount}</span>
+              </div>
+              <div className="bg-white p-3 rounded-md border border-slate-100 shadow-sm">
+                <span className="text-[11px] text-slate-500 block">Jumlah Data Cloudflare D1</span>
+                <span className="font-bold text-slate-700">{d1MigrationResult.d1Count}</span>
+              </div>
+              <div className="bg-white p-3 rounded-md border border-slate-100 shadow-sm">
+                <span className="text-[11px] text-slate-500 block">Firestore Reads</span>
+                <span className="font-bold text-slate-700">{d1MigrationResult.firestoreReadCount}</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {apiTestResults.length > 0 && (
+          <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 space-y-3">
+            <h4 className="text-xs font-bold text-slate-700">Hasil Pengujian Endpoint API D1:</h4>
+            <div className="space-y-2">
+              {apiTestResults.map((res, i) => (
+                <div key={i} className="bg-white p-3 rounded-md border border-slate-100 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between text-xs gap-2">
+                  <div className="space-y-1">
+                    <span className="font-mono font-semibold text-[#0c2444]">{res.name}</span>
+                    <div className="flex gap-4 text-[11px] text-slate-500">
+                      <span>HTTP Status: <strong className={res.ok ? "text-emerald-600" : "text-rose-600"}>{res.status}</strong></span>
+                      <span>Returned Rows: <strong>{res.count}</strong></span>
+                    </div>
+                  </div>
+                  {res.sampleData && res.sampleData.length > 0 && (
+                    <div className="text-[11px] bg-slate-50 p-2 rounded border border-slate-100 font-mono text-slate-600 max-w-lg overflow-x-auto">
+                      Sample: {res.sampleData.map((c: any) => `${c.clientType} ${c.companyName}`).join(' | ')}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="bg-white p-6 rounded-xl border border-slate-200/80 shadow-sm space-y-6 mt-6">

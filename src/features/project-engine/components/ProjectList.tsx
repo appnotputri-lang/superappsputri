@@ -8,6 +8,7 @@ import { collection, getDocs, doc, updateDoc, getDocsFromCache, DocumentSnapshot
 import { Workflow } from '../../../domain/project/Workflow';
 import { WorkflowService } from '../../../services/WorkflowService';
 import { CompanyService } from '../../../services/CompanyService';
+import { getApiUrl, getAuthHeaders } from '../../../lib/api';
 import { Plus, Search, Filter, Briefcase, User, Calendar, ExternalLink, Loader2, ArrowRight, Trash2, AlertCircle } from 'lucide-react';
 import { SearchableClientSelect } from '../../../components/common/SearchableClientSelect';
 import { ProjectCategory, PROJECT_TYPES, MEETING_SUBJECTS } from '../../../constants/appConstants';
@@ -65,6 +66,7 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
   const [completedLoaded, setCompletedLoaded] = useState(false);
 
   const [profiles, setProfiles] = useState<CompanyProfile[]>([]);
+  const [modalProfiles, setModalProfiles] = useState<CompanyProfile[]>([]);
   const [workflows, setWorkflows] = useState<Workflow[]>(() => WorkflowService.getStaticWorkflows());
   const [error, setError] = useState<string | null>(null);
 
@@ -94,7 +96,116 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
   });
   const [submitting, setSubmitting] = useState(false);
 
-  const selectedClient = profiles.find((c) => c.id === newProjectData.clientId);
+  // Search client directory handlers
+  const searchTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+  const modalProfilesRef = React.useRef<CompanyProfile[]>([]);
+  const selectedClientIdRef = React.useRef<string>('');
+  const clientCacheRef = React.useRef<Record<string, CompanyProfile[]>>({});
+
+  // Sync refs with state
+  useEffect(() => {
+    modalProfilesRef.current = modalProfiles;
+  }, [modalProfiles]);
+
+  useEffect(() => {
+    selectedClientIdRef.current = newProjectData.clientId;
+  }, [newProjectData.clientId]);
+
+  const findCachedProfile = (clientId: string): CompanyProfile | undefined => {
+    // 1. Look in modalProfiles
+    const modalMatch = modalProfiles.find(p => p.id === clientId);
+    if (modalMatch) return modalMatch;
+
+    // 2. Look in clientCacheRef values
+    for (const cachedList of Object.values(clientCacheRef.current)) {
+      const match = cachedList.find(p => p.id === clientId);
+      if (match) return match;
+    }
+
+    return undefined;
+  };
+
+  const executeClientSearch = async (queryStr: string) => {
+    const cacheKey = queryStr.toLowerCase().trim();
+    if (clientCacheRef.current[cacheKey]) {
+      const cached = clientCacheRef.current[cacheKey];
+      const currentlySelected = modalProfilesRef.current.find(p => p.id === selectedClientIdRef.current);
+      const merged = [...cached];
+      if (currentlySelected && !cached.some(r => r.id === currentlySelected.id)) {
+        merged.unshift(currentlySelected);
+      }
+      setModalProfiles(merged);
+      return;
+    }
+
+    try {
+      const headers = await getAuthHeaders();
+      let url = getApiUrl('/api/clients?limit=15');
+      if (cacheKey) {
+        url = getApiUrl(`/api/clients/search?q=${encodeURIComponent(queryStr)}&limit=15`);
+      }
+
+      const response = await fetch(url, { headers });
+      if (!response.ok) {
+        throw new Error(`D1 API returned status ${response.status}`);
+      }
+      const data = await response.json() as any;
+      const results = data.clients || [];
+
+      const mapped = results.map((d: any) => ({
+        id: d.id,
+        companyName: d.companyName,
+        clientType: d.clientType,
+        companyType: d.companyType || d.clientType || 'PT_LOKAL',
+        domicile: d.domicile,
+        establishmentDeedDate: d.establishmentDeedDate,
+        updatedAt: d.updatedAt,
+        isArchived: d.isArchived,
+        npwp: d.npwp,
+        kbliItems: (d.kbliItems || []).map((k: any) => ({
+          id: k.code || k.id || Math.random().toString(),
+          code: k.code || '',
+          name: k.name || '',
+          description: k.description || '',
+          categoryLetter: k.categoryLetter || '',
+          categoryName: k.categoryName || ''
+        }))
+      } as CompanyProfile));
+
+      // Save to cache
+      clientCacheRef.current[cacheKey] = mapped;
+
+      // Preserve currently selected client to avoid layout/selection glitch
+      const currentlySelected = modalProfilesRef.current.find(p => p.id === selectedClientIdRef.current);
+      const merged = [...mapped];
+      if (currentlySelected && !mapped.some(r => r.id === currentlySelected.id)) {
+        merged.unshift(currentlySelected);
+      }
+
+      setModalProfiles(merged);
+    } catch (e) {
+      console.warn("[ProjectList] D1 client search error:", e);
+    }
+  };
+
+  const handleSearchClients = React.useCallback((queryStr: string) => {
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+
+    const trimmedQuery = queryStr.trim();
+
+    if (!trimmedQuery) {
+      executeClientSearch("");
+      return;
+    }
+
+    searchTimeoutRef.current = setTimeout(() => {
+      executeClientSearch(trimmedQuery);
+    }, 300);
+  }, []);
+
+  const selectedClient = modalProfiles.find((c) => c.id === newProjectData.clientId);
   const clientTypeRaw = selectedClient?.clientType;
 
   const getClientTypeGroup = (clientType?: string): 'PT' | 'CV' | 'FIRMA' | 'YAYASAN' | 'PERKUMPULAN' | 'PERSONAL' => {
@@ -322,9 +433,22 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
       return;
     }
 
-    const clientProfile = profiles.find((c) => c.id === clientId);
-    const clientName = clientProfile?.companyName || '';
-    const formattedClientName = formatCompanyNameWithType(clientName, clientProfile?.clientType);
+    setSubmitting(true);
+    let fullProfile: CompanyProfile | null = null;
+    try {
+      fullProfile = await CompanyService.getCompanyProfile(clientId);
+    } catch (e) {
+      console.warn("[ProjectList] Failed to fetch full company profile:", e);
+    }
+
+    if (!fullProfile) {
+      alert('Gagal mengambil detail profil klien untuk inisialisasi.');
+      setSubmitting(false);
+      return;
+    }
+
+    const clientName = fullProfile.companyName || '';
+    const formattedClientName = formatCompanyNameWithType(clientName, fullProfile.clientType);
     const title = `${projectType} — ${formattedClientName}`;
 
     const mapCompanyProfileToSnapshot = (profile: CompanyProfile): ClientSnapshot => {
@@ -408,7 +532,7 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
       };
     };
 
-    const initialSnapshot = clientProfile ? mapCompanyProfileToSnapshot(clientProfile) : undefined;
+    const initialSnapshot = mapCompanyProfileToSnapshot(fullProfile);
 
     setSubmitting(true);
     try {
@@ -523,7 +647,7 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
     if (project?.clientSnapshot?.companyName) {
       return formatCompanyNameWithType(project.clientSnapshot.companyName, project.clientSnapshot.companyType);
     }
-    const profile = profiles.find((c) => c.id === clientId);
+    const profile = findCachedProfile(clientId);
     if (profile) {
       return formatCompanyNameWithType(profile.companyName, profile.clientType);
     }
@@ -597,7 +721,7 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
     }
 
     if (clientId) {
-      const profile = profiles.find((c) => c.id === clientId);
+      const profile = findCachedProfile(clientId);
       if (profile) {
         return formatCompanyNameWithType(clean, profile.clientType);
       }
@@ -619,14 +743,6 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
 
   const handleOpenCreateModal = async () => {
     setIsModalOpen(true);
-    if (profiles.length === 0) {
-      try {
-        const loaded = await CompanyService.getCompaniesFast();
-        if (loaded && loaded.length > 0) setProfiles(loaded);
-      } catch (e) {
-        console.warn("[ProjectList] Failed to load profiles for modal:", e);
-      }
-    }
   };
 
   return (
@@ -968,7 +1084,8 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
                         status: ''
                       });
                     }}
-                    options={profiles}
+                    options={modalProfiles}
+                    onSearchChange={handleSearchClients}
                   />
                 </div>
 
@@ -1034,7 +1151,7 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
                     <label className="text-xs font-bold text-slate-600 uppercase tracking-wide block">Judul Proyek (Otomatis)</label>
                     <div className="text-[13px] font-bold text-slate-700 mt-1">
                       {newProjectData.projectType} — {(() => {
-                        const profile = profiles.find(c => c.id === newProjectData.clientId);
+                        const profile = modalProfiles.find(c => c.id === newProjectData.clientId);
                         return profile ? formatCompanyNameWithType(profile.companyName, profile.clientType) : '';
                       })()}
                     </div>

@@ -715,6 +715,52 @@ export class CompanyService {
   }
 
   /**
+   * Search client directory entries server-side using limit to keep reads extremely low.
+   */
+  static async searchClientDirectory(searchQuery: string, limitCount = 15): Promise<ClientDirectoryEntry[]> {
+    try {
+      const colRef = collection(db, 'client_directory');
+      const constraints: QueryConstraint[] = [
+        where('isArchived', '==', false)
+      ];
+
+      const q = searchQuery.trim().toLowerCase();
+      if (q) {
+        const words = q.split(/\s+/).filter(Boolean);
+        const firstToken = words[0] || '';
+        if (firstToken) {
+          constraints.push(where('searchTokens', 'array-contains', firstToken));
+        }
+      } else {
+        constraints.push(orderBy('companyName', 'asc'));
+      }
+
+      constraints.push(limit(limitCount));
+
+      const qQuery = query(colRef, ...constraints);
+      const snap = await getDocs(qQuery);
+      
+      const items: ClientDirectoryEntry[] = [];
+      snap.forEach(docSnap => {
+        items.push({ id: docSnap.id, clientId: docSnap.id, ...docSnap.data() } as ClientDirectoryEntry);
+      });
+
+      if (q) {
+        const searchWords = q.split(/\s+/).filter(Boolean);
+        return items.filter(item => {
+          const name = (item.companyName || '').toLowerCase();
+          return searchWords.every(word => name.includes(word));
+        });
+      }
+
+      return items;
+    } catch (err: any) {
+      console.warn('[CompanyService] Error in searchClientDirectory:', err);
+      return [];
+    }
+  }
+
+  /**
    * Fast profiles loader prioritizing memory cache and Firestore SDK cache.
    * Prevents unnecessary network collection scans.
    */
