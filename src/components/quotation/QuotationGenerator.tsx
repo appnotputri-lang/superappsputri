@@ -437,48 +437,29 @@ Active Tab View: ${viewMode}
     setIsLoadingClients(true);
     setSuperappsError(null);
 
-    // 1. Fetch Local Clients
+    // 1. Fetch Local Clients from lightweight client_directory
     try {
-      const [ptList, cvList] = await Promise.all([
-        CompanyService.getCompanies().catch(() => []),
-        CompanyService.getCvCompanies().catch(() => [])
-      ]);
+      const directoryEntries = await CompanyService.getClientDirectory({ isArchived: false }).catch(() => []);
 
-      const seenIds = new Set<string>();
-      const uniqueLocal: any[] = [];
-      for (const c of [...ptList, ...cvList]) {
-        if (c && c.id && !seenIds.has(c.id)) {
-          seenIds.add(c.id);
-          uniqueLocal.push(c);
-        }
-      }
-
-      const allLocal: ClientOption[] = uniqueLocal.map(c => {
-        let fullAddr = '';
-        if (c.fullAddress) {
-          fullAddr = c.fullAddress;
-        } else if (c.address) {
-          fullAddr = typeof c.address === 'string' ? c.address : c.address.fullAddress || '';
-        }
-
+      const allLocal: ClientOption[] = directoryEntries.map(c => {
         return {
-          clientId: c.id,
+          clientId: c.clientId || c.id,
           name: c.companyName || 'Tanpa Nama',
-          email: c.email || '',
-          phone: c.phoneNumber || '',
-          address: fullAddr,
-          source: 'local',
+          email: (c as any).email || '',
+          phone: (c as any).phoneNumber || (c as any).phone || '',
+          address: (c as any).fullAddress || (c as any).address || c.domicile || '',
+          source: 'local' as const,
           clientType: c.clientType || 'PT'
         };
       });
       setLocalClients(allLocal);
     } catch (err) {
-      console.error('Error fetching local clients:', err);
+      console.error('Error fetching local clients from client_directory:', err);
     }
 
-    // 2. Fetch Superapps Clients
+    // 2. Fetch Initial Superapps Clients (Empty query, limited to 15)
     try {
-      const spProfiles = await SuperappsClientService.getSuperappsProfiles();
+      const spProfiles = await SuperappsClientService.getSuperappsProfiles('');
       const mappedSp: ClientOption[] = spProfiles.map(p => ({
         clientId: p.clientId,
         name: p.name,
@@ -497,6 +478,51 @@ Active Tab View: ${viewMode}
       setIsLoadingClients(false);
     }
   };
+
+  // Debounced search for Superapps profiles as user types
+  useEffect(() => {
+    if (clientSourceTab === 'local' || !clientSearch.trim()) {
+      if (!clientSearch.trim()) {
+        // Fallback to initial 15 cached profiles
+        SuperappsClientService.getSuperappsProfiles('').then(spProfiles => {
+          const mappedSp: ClientOption[] = spProfiles.map(p => ({
+            clientId: p.clientId,
+            name: p.name,
+            email: p.email,
+            phone: p.contactNumber,
+            address: p.address,
+            source: 'superapps' as const,
+            clientType: p.clientType || 'PT'
+          }));
+          setSuperappsClients(mappedSp);
+        }).catch(() => {});
+      }
+      return;
+    }
+
+    const delayDebounceFn = setTimeout(async () => {
+      setIsLoadingClients(true);
+      try {
+        const spProfiles = await SuperappsClientService.getSuperappsProfiles(clientSearch);
+        const mappedSp: ClientOption[] = spProfiles.map(p => ({
+          clientId: p.clientId,
+          name: p.name,
+          email: p.email,
+          phone: p.contactNumber,
+          address: p.address,
+          source: 'superapps',
+          clientType: p.clientType || 'PT'
+        }));
+        setSuperappsClients(mappedSp);
+      } catch (err) {
+        console.warn('Gagal koneksi ke Superapps Firestore:', err);
+      } finally {
+        setIsLoadingClients(false);
+      }
+    }, 400);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [clientSearch, clientSourceTab]);
 
   useEffect(() => {
     if (viewMode !== 'list' || showClientDropdown) {

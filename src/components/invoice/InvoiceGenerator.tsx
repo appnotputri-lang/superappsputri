@@ -404,9 +404,9 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = (props) => {
       console.error('Error fetching local clients from client_directory:', err);
     }
 
-    // 2. Fetch Superapps Clients
+    // 2. Fetch Initial Superapps Clients (Empty query, limited to 15)
     try {
-      const spProfiles = await SuperappsClientService.getSuperappsProfiles();
+      const spProfiles = await SuperappsClientService.getSuperappsProfiles('');
       const mappedSp: ClientOption[] = spProfiles.map(p => ({
         clientId: p.clientId,
         name: p.name,
@@ -425,6 +425,51 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = (props) => {
       setIsLoadingClients(false);
     }
   };
+
+  // Debounced search for Superapps profiles as user types
+  useEffect(() => {
+    if (clientSourceTab === 'local' || !clientSearch.trim()) {
+      if (!clientSearch.trim()) {
+        // Fallback to initial 15 cached profiles
+        SuperappsClientService.getSuperappsProfiles('').then(spProfiles => {
+          const mappedSp: ClientOption[] = spProfiles.map(p => ({
+            clientId: p.clientId,
+            name: p.name,
+            email: p.email,
+            phone: p.contactNumber,
+            address: p.address,
+            source: 'superapps' as const,
+            clientType: p.clientType || 'PT'
+          }));
+          setSuperappsClients(mappedSp);
+        }).catch(() => {});
+      }
+      return;
+    }
+
+    const delayDebounceFn = setTimeout(async () => {
+      setIsLoadingClients(true);
+      try {
+        const spProfiles = await SuperappsClientService.getSuperappsProfiles(clientSearch);
+        const mappedSp: ClientOption[] = spProfiles.map(p => ({
+          clientId: p.clientId,
+          name: p.name,
+          email: p.email,
+          phone: p.contactNumber,
+          address: p.address,
+          source: 'superapps' as const,
+          clientType: p.clientType || 'PT'
+        }));
+        setSuperappsClients(mappedSp);
+      } catch (err) {
+        console.warn('Gagal koneksi ke Superapps Firestore:', err);
+      } finally {
+        setIsLoadingClients(false);
+      }
+    }, 400);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [clientSearch, clientSourceTab]);
 
   const calculateTotals = (currentItems: InvoiceItem[]) => {
     const summary = calculateInvoiceTotals(currentItems);

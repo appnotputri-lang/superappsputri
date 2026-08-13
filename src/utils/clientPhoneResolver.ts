@@ -1,6 +1,6 @@
 import { db } from '../lib/firebase';
-import { superappsDb } from '../services/superappsClientService';
-import { doc, getDoc, getDocs, collection, query, where } from 'firebase/firestore';
+import { superappsDb, SuperappsClientService } from '../services/superappsClientService';
+import { doc, getDoc, getDocs, collection, query, where, limit } from 'firebase/firestore';
 
 export interface ClientOption {
   clientId: string;
@@ -145,29 +145,28 @@ export async function resolveClientPhone({
           }
         }
 
-        // 5. If still not resolved, load all profiles from Firestore and do fuzzy matching
+        // 5. If still not resolved, load from lightweight directory and do fuzzy matching
         if (!phoneNum) {
-          // Fuzzy search in local profiles
-          const localProfilesSnap = await getDocs(collection(db, 'profiles'));
-          let foundLocal = localProfilesSnap.docs.find(doc => {
-            const data = doc.data();
-            const name = data.companyName || data.name || '';
+          // Fuzzy search in local client_directory (extremely lightweight)
+          const localProfilesSnap = await getDocs(collection(db, 'client_directory'));
+          let foundLocal = localProfilesSnap.docs.find(docSnap => {
+            const data = docSnap.data();
+            const name = data.companyName || '';
             return isFuzzyNameMatch(name, clientName);
           });
           if (foundLocal) {
             const clientData = foundLocal.data();
             phoneNum = clientData.phoneNumber || clientData.phone || '';
           } else {
-            // Fuzzy search in superapps profiles
-            const spProfilesSnap = await getDocs(collection(superappsDb, 'profiles'));
-            let foundSp = spProfilesSnap.docs.find(doc => {
-              const data = doc.data();
-              const name = data.companyName || data.name || '';
-              return isFuzzyNameMatch(name, clientName);
-            });
-            if (foundSp) {
-              const clientData = foundSp.data();
-              phoneNum = clientData.phoneNumber || clientData.contactNumber || clientData.phone || '';
+            // Fuzzy search in superapps profiles (limited to matching candidates via service)
+            try {
+              const spProfiles = await SuperappsClientService.getSuperappsProfiles(clientName);
+              const foundSp = spProfiles.find(p => isFuzzyNameMatch(p.name, clientName));
+              if (foundSp) {
+                phoneNum = foundSp.contactNumber;
+              }
+            } catch (err) {
+              console.warn('Failed fuzzy search on superapps:', err);
             }
           }
         }

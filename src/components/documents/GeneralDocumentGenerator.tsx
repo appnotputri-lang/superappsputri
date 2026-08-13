@@ -10,6 +10,7 @@ import {
 import { GeneralDocumentData, GeneralDocumentItem, GeneralDocType, SidebarTabId } from '../../../types';
 import { GeneralDocumentService } from '../../services/GeneralDocumentService';
 import { SuperappsClientService } from '../../services/superappsClientService';
+import { CompanyService } from '../../services/CompanyService';
 import { resolveClientPhone, ClientOption } from '../../utils/clientPhoneResolver';
 import { 
   printGeneralDocument, 
@@ -146,15 +147,34 @@ export const GeneralDocumentGenerator: React.FC<GeneralDocumentGeneratorProps> =
   useEffect(() => {
     const loadClients = async () => {
       setIsLoadingClients(true);
+
+      // 1. Fetch Local Clients from lightweight client_directory
       try {
-        const superappsProfiles = await SuperappsClientService.getSuperappsProfiles();
+        const directoryEntries = await CompanyService.getClientDirectory({ isArchived: false }).catch(() => []);
+        const allLocal: ClientOption[] = directoryEntries.map(c => ({
+          clientId: c.clientId || c.id,
+          name: c.companyName || 'Tanpa Nama',
+          email: (c as any).email || '',
+          phone: (c as any).phoneNumber || (c as any).phone || '',
+          address: (c as any).fullAddress || (c as any).address || c.domicile || '',
+          source: 'local' as const,
+          clientType: c.clientType || 'PT'
+        }));
+        setLocalClients(allLocal);
+      } catch (err) {
+        console.error('Failed to load local clients:', err);
+      }
+
+      // 2. Fetch Initial Superapps Clients (Empty query, limited to 15)
+      try {
+        const superappsProfiles = await SuperappsClientService.getSuperappsProfiles('');
         const mappedSuperapps: ClientOption[] = superappsProfiles.map(p => ({
           clientId: p.clientId,
           name: p.name,
           email: p.email || '',
           phone: p.contactNumber || '',
           address: p.address || '',
-          source: 'superapps',
+          source: 'superapps' as const,
           clientType: p.clientType
         }));
         setSuperappsClients(mappedSuperapps);
@@ -166,6 +186,49 @@ export const GeneralDocumentGenerator: React.FC<GeneralDocumentGeneratorProps> =
     };
     loadClients();
   }, []);
+
+  // Debounced search for Superapps profiles as user types
+  useEffect(() => {
+    if (!clientSearch.trim()) {
+      // Fallback to initial 15 cached profiles
+      SuperappsClientService.getSuperappsProfiles('').then(superappsProfiles => {
+        const mappedSuperapps: ClientOption[] = superappsProfiles.map(p => ({
+          clientId: p.clientId,
+          name: p.name,
+          email: p.email || '',
+          phone: p.contactNumber || '',
+          address: p.address || '',
+          source: 'superapps' as const,
+          clientType: p.clientType
+        }));
+        setSuperappsClients(mappedSuperapps);
+      }).catch(() => {});
+      return;
+    }
+
+    const delayDebounceFn = setTimeout(async () => {
+      setIsLoadingClients(true);
+      try {
+        const superappsProfiles = await SuperappsClientService.getSuperappsProfiles(clientSearch);
+        const mappedSuperapps: ClientOption[] = superappsProfiles.map(p => ({
+          clientId: p.clientId,
+          name: p.name,
+          email: p.email || '',
+          phone: p.contactNumber || '',
+          address: p.address || '',
+          source: 'superapps' as const,
+          clientType: p.clientType
+        }));
+        setSuperappsClients(mappedSuperapps);
+      } catch (err) {
+        console.warn('Failed to load superapps profiles:', err);
+      } finally {
+        setIsLoadingClients(false);
+      }
+    }, 400);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [clientSearch]);
 
   // Set default officer name from user profile
   useEffect(() => {

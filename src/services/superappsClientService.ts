@@ -1,5 +1,5 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getFirestore, collection, getDocs } from 'firebase/firestore';
+import { getFirestore, collection, getDocs, query, where, limit } from 'firebase/firestore';
 
 // Configuration for superapps project (read-only)
 const SUPERAPPS_PROJECT_ID = 'gen-lang-client-0780305709';
@@ -31,33 +31,83 @@ export interface SuperappsClientProfile {
 }
 
 export class SuperappsClientService {
-  private static cache: SuperappsClientProfile[] | null = null;
+  private static initialCache: SuperappsClientProfile[] | null = null;
+  private static searchCache: Record<string, SuperappsClientProfile[]> = {};
 
   /**
-   * Fetch all profile documents from the superapps 'profiles' collection.
-   * Maps fields:
-   * - doc.id -> clientId
-   * - companyName / name -> name
-   * - fullAddress / address -> address
-   * - phoneNumber / phone -> contactNumber
-   * - email -> email
-   * - npwp -> npwp
-   * Flagged with source: 'superapps'
+   * Fetch profiles from the superapps 'profiles' collection using optimized queries.
+   * Uses limit() to restrict reading and caches queries for session efficiency.
    */
-  static async getSuperappsProfiles(forceRefresh = false): Promise<SuperappsClientProfile[]> {
-    if (this.cache && !forceRefresh) {
-      console.log(`[QuotationPerformance] Cache HIT - getSuperappsProfiles returned ${this.cache.length} cached superapps client profiles.`);
-      return this.cache;
+  static async getSuperappsProfiles(searchQuery = '', forceRefresh = false): Promise<SuperappsClientProfile[]> {
+    const q = searchQuery.trim().toLowerCase();
+
+    // 1. Return cached results if available
+    if (!forceRefresh) {
+      if (!q && this.initialCache) {
+        console.log(`[QuotationPerformance] Cache HIT - empty search returned ${this.initialCache.length} cached profiles.`);
+        return this.initialCache;
+      }
+      if (q && this.searchCache[q]) {
+        console.log(`[QuotationPerformance] Cache HIT - search query "${q}" returned ${this.searchCache[q].length} cached profiles.`);
+        return this.searchCache[q];
+      }
     }
 
     const startTime = performance.now();
     try {
       const colRef = collection(superappsDb, 'profiles');
-      const snapshot = await getDocs(colRef);
+      const limitCount = 15;
+      let snapshotDocs: any[] = [];
 
-      const data = snapshot.docs.map((docSnap) => {
+      if (!q) {
+        // Query empty search -> limit to initial set of 15 documents
+        const firestoreQuery = query(colRef, limit(limitCount));
+        const snapshot = await getDocs(firestoreQuery);
+        snapshotDocs = snapshot.docs;
+        console.log(`[QuotationPerformance] Network READ - Loaded 15 default superapps profiles for empty search.`);
+      } else {
+        // Query with search term -> prefix queries with limit
+        const uppercaseTerm = searchQuery.trim().toUpperCase();
+        const lowercaseTerm = searchQuery.trim().toLowerCase();
+        const capitalizedTerm = searchQuery.trim().charAt(0).toUpperCase() + searchQuery.trim().slice(1);
+
+        // Run prefix queries on both 'companyName' and 'name'
+        const queriesToRun = [
+          // Upper case queries (very common for PT / CV names)
+          query(colRef, where('companyName', '>=', uppercaseTerm), where('companyName', '<=', uppercaseTerm + '\uf8ff'), limit(limitCount)),
+          query(colRef, where('name', '>=', uppercaseTerm), where('name', '<=', uppercaseTerm + '\uf8ff'), limit(limitCount)),
+          
+          // Capitalized queries (common for general names)
+          query(colRef, where('companyName', '>=', capitalizedTerm), where('companyName', '<=', capitalizedTerm + '\uf8ff'), limit(limitCount)),
+          query(colRef, where('name', '>=', capitalizedTerm), where('name', '<=', capitalizedTerm + '\uf8ff'), limit(limitCount)),
+
+          // Raw search query as-is
+          query(colRef, where('companyName', '>=', searchQuery.trim()), where('companyName', '<=', searchQuery.trim() + '\uf8ff'), limit(limitCount)),
+          query(colRef, where('name', '>=', searchQuery.trim()), where('name', '<=', searchQuery.trim() + '\uf8ff'), limit(limitCount))
+        ];
+
+        // Execute all queries in parallel
+        const snapshots = await Promise.all(queriesToRun.map(fq => getDocs(fq)));
+        
+        // Merge and deduplicate by document ID
+        const seenIds = new Set<string>();
+        for (const snap of snapshots) {
+          for (const docSnap of snap.docs) {
+            if (!seenIds.has(docSnap.id)) {
+              seenIds.add(docSnap.id);
+              snapshotDocs.push(docSnap);
+            }
+          }
+        }
+
+        // Limit final merged list size to limitCount
+        snapshotDocs = snapshotDocs.slice(0, limitCount);
+        console.log(`[QuotationPerformance] Network READ - Search query "${q}" loaded ${snapshotDocs.length} matching superapps profiles.`);
+      }
+
+      // Map document snapshots to profiles
+      const mappedProfiles: SuperappsClientProfile[] = snapshotDocs.map((docSnap) => {
         const data = docSnap.data();
-
         const companyName = data.companyName || data.name || 'Tanpa Nama';
 
         let addressStr = '';
@@ -87,10 +137,17 @@ export class SuperappsClientService {
         };
       });
 
-      this.cache = data;
+      // Save to cache
+      if (!q) {
+        this.initialCache = mappedProfiles;
+      } else {
+        this.searchCache[q] = mappedProfiles;
+      }
+
       const duration = (performance.now() - startTime).toFixed(2);
-      console.log(`[QuotationPerformance] Network READ - getSuperappsProfiles loaded ${data.length} superapps profiles. Time: ${duration}ms. Reads: ${data.length}. Status: SUCCESS`);
-      return data;
+      console.log(`[QuotationPerformance] Finished querying superapps profiles in ${duration}ms. Results count: ${mappedProfiles.length}`);
+      
+      return mappedProfiles;
     } catch (error) {
       console.error('[SuperappsClientService] Gagal mengambil data profiles superapps:', error);
       throw error;
