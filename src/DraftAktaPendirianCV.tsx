@@ -9,6 +9,7 @@ import {
 import { searchShareholderByNIKClient } from './lib/firebase';
 import { formatInputNumber, parseFormattedNumber, formatCurrency } from '../utils/formatters';
 import { mapCompanyProfileToCV } from './domain/company/mappers/companyProfileToCV';
+import { CompanyService } from './services/CompanyService';
 import { useProjectSession } from './domain/project/useProjectSession';
 import { SearchableClientSelect } from './components/common/SearchableClientSelect';
 
@@ -511,11 +512,15 @@ export default function DraftAktaPendirianCV({
               <SearchableClientSelect
                 options={profiles}
                 value={data.selectedProfileId || ''}
-                onChange={(profId) => {
-                  const sel = profiles.find(p => p.id === profId);
-                  if (sel) {
-                    const mapped = mapCompanyProfileToCV(sel, data);
-                    setData(mapped);
+                onChange={async (profId) => {
+                  if (profId) {
+                    const fullProfile = await CompanyService.getCompanyProfile(profId);
+                    if (fullProfile) {
+                      const mapped = mapCompanyProfileToCV(fullProfile, data);
+                      setData(mapped);
+                    } else {
+                      setData(p => ({ ...p, selectedProfileId: profId }));
+                    }
                   } else {
                     setData(p => ({ ...p, selectedProfileId: '' }));
                   }

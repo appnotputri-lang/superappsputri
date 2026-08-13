@@ -15,9 +15,17 @@ export interface ClientSnapshot {
   fullAddress?: string;
   province?: string;
   city?: string;
-  kbliItems?: { id: string; code: string; name: string; description?: string }[];
+  domicile?: string;
+  oldDomicile?: string;
+  npwp?: string;
+  kbliItems?: { id: string; code: string; name: string; description?: string; categoryLetter?: string; categoryName?: string; uraian?: string }[];
   authorizedCapital?: number; // Modal Dasar
   paidUpCapital?: number; // Modal Disetor
+  originalCapitalBase?: number;
+  originalCapitalPaid?: number;
+  originalSharePrice?: number;
+  originalAuthorizedShares?: number;
+  originalTotalShares?: number;
   shareholders?: {
     id: string;
     name: string;
@@ -35,6 +43,7 @@ export interface ClientSnapshot {
     isManagement?: boolean;
     passportNumber?: string;
     kitasNumber?: string;
+    shareholderType?: string;
     address?: {
       rt?: string;
       rw?: string;
@@ -71,12 +80,19 @@ export interface ClientSnapshot {
       fullAddress?: string;
     };
   }[];
+  oldManagementItems?: any[];
+  newManagementItems?: any[];
   establishmentDeedNumber?: string;
   establishmentDeedDate?: string;
   establishmentNotary?: string;
+  establishmentNotaryTitle?: string;
+  establishmentNotaryDomicile?: string;
+  establishmentSkNumber?: string;
+  establishmentSkDate?: string;
   latestAmendmentDeedNumber?: string;
   latestAmendmentDeedDate?: string;
   latestAmendmentNotary?: string;
+  amendmentDeeds?: any[];
 }
 
 export interface ProjectChangeSnapshot {

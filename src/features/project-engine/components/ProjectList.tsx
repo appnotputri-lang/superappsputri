@@ -459,6 +459,9 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
         fullAddress: profile.fullAddress || '',
         province: profile.newAddress?.province || profile.oldAddress?.province || '',
         city: profile.newAddress?.city || profile.oldAddress?.city || '',
+        domicile: profile.domicile || profile.oldDomicile || profile.newAddress?.city || profile.oldAddress?.city || '',
+        oldDomicile: profile.domicile || profile.oldDomicile || profile.newAddress?.city || profile.oldAddress?.city || '',
+        npwp: profile.npwp || '',
         kbliItems: (profile.kbliItems || []).map(k => ({
           id: k.id || Math.random().toString(36).substring(7),
           code: k.code || (k as any).kode || '',
@@ -470,6 +473,11 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
         })),
         authorizedCapital: profile.targetCapitalBase || profile.originalCapitalBase || 0,
         paidUpCapital: profile.targetCapitalPaid || profile.originalCapitalPaid || 0,
+        originalCapitalBase: profile.originalCapitalBase || profile.targetCapitalBase || 0,
+        originalCapitalPaid: profile.originalCapitalPaid || profile.targetCapitalPaid || 0,
+        originalSharePrice: profile.originalSharePrice || 0,
+        originalAuthorizedShares: profile.originalAuthorizedShares || 0,
+        originalTotalShares: profile.originalTotalShares || 0,
         shareholders: (profile.shareholders || []).map(s => ({
           id: s.id,
           salutation: s.salutation || 'Tuan',
@@ -487,6 +495,7 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
           npwp: s.npwp || '',
           passportNumber: s.passportNumber || '',
           kitasNumber: s.kitasNumber || '',
+          shareholderType: s.shareholderType || 'PERORANGAN',
           address: s.address ? {
             rt: s.address.rt || '',
             rw: s.address.rw || '',
@@ -523,12 +532,19 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
             fullAddress: (m as any).address.fullAddress || (typeof (m as any).address === 'string' ? (m as any).address : '')
           } : undefined
         })),
+        oldManagementItems: (profile.oldManagementItems || profile.newManagementItems || (profile as any).managementItems || []),
+        newManagementItems: profile.newManagementItems || [],
         establishmentDeedNumber: profile.establishmentDeedNumber || '',
         establishmentDeedDate: profile.establishmentDeedDate || '',
         establishmentNotary: profile.establishmentNotary || '',
+        establishmentNotaryTitle: profile.establishmentNotaryTitle || '',
+        establishmentNotaryDomicile: profile.establishmentNotaryDomicile || '',
+        establishmentSkNumber: profile.establishmentSkNumber || '',
+        establishmentSkDate: profile.establishmentSkDate || '',
         latestAmendmentDeedNumber: profile.latestAmendmentDeedNumber || '',
         latestAmendmentDeedDate: profile.latestAmendmentDeedDate || '',
-        latestAmendmentNotary: profile.latestAmendmentNotary || ''
+        latestAmendmentNotary: profile.latestAmendmentNotary || '',
+        amendmentDeeds: profile.amendmentDeeds || []
       };
     };
 
@@ -554,9 +570,10 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
         createdAt: customDate,
         updatedAt: customDate,
         lastTransitionComment: finalComment,
+        clientSnapshot: initialSnapshot,
         ...(jobType === 'rups_lb' 
           ? { changeSnapshot: initialSnapshot ? { before: initialSnapshot, after: initialSnapshot } : undefined }
-          : { clientSnapshot: initialSnapshot }
+          : {}
         )
       };
 

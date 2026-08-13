@@ -10,6 +10,7 @@ import { documentStatusOptions } from '../components/DocumentStatusBadge';
 import { formatInputNumber, parseFormattedNumber } from '../utils/formatters';
 import { fetchLatestDeedNumbers } from './lib/deedUtils';
 import { mapCompanyProfileToPendirian } from './domain/company/mappers/companyProfileToPendirian';
+import { CompanyService } from './services/CompanyService';
 import { useProjectSession } from './domain/project/useProjectSession';
 import { SearchableClientSelect } from './components/common/SearchableClientSelect';
 
@@ -514,11 +515,15 @@ export default function DraftAktaPendirian({
                 ) : (
                   <SearchableClientSelect 
                       value={data.selectedProfileId || ''}
-                      onChange={(val) => {
+                      onChange={async (val) => {
                           const profileId = val;
-                          const profile = profiles.find(p => p.id === profileId);
-                          if (profile) {
-                              setData(prev => mapCompanyProfileToPendirian(profile, prev));
+                          if (profileId) {
+                              const fullProfile = await CompanyService.getCompanyProfile(profileId);
+                              if (fullProfile) {
+                                  setData(prev => mapCompanyProfileToPendirian(fullProfile, prev));
+                              } else {
+                                  setData(prev => ({ ...prev, selectedProfileId: profileId }));
+                              }
                           } else {
                               setData(prev => ({ ...prev, selectedProfileId: '' }));
                           }

@@ -15,6 +15,7 @@ import { useProjectContext } from '../contexts/ProjectContext';
 import { useProjectSession } from '../domain/project/useProjectSession';
 import { useDocumentRuntime } from '../domain/company/useDocumentRuntime';
 import { ProjectService } from '../services/ProjectService';
+import { CompanyService } from '../services/CompanyService';
 import { fetchLatestDeedNumbers } from '../lib/deedUtils';
 import { syncToUtama, getDeedTitle, formatAppearersForRups, formatAppearersForPendirian } from '../lib/syncUtama';
 import { checkIsEmbedMode, requestSsoTokenFromParent } from '../utils/ssoEmbed';
@@ -242,177 +243,6 @@ export const AppShell: React.FC = () => {
         uraian: k.uraian || k.description || ''
       }));
 
-      
-      const mergeWithMasterClient = (docData: any) => {
-        const profileId = docData.selectedProfileId || docData.clientId;
-        if (!profileId) return docData;
-        const profile = profiles.find((p: any) => p.id === profileId || p.clientId === profileId);
-        if (!profile) return docData;
-
-        // Master lists from profile
-        const masterShareholders = profile.shareholders || profile.finalShareholders || [];
-        const masterManagement = profile.oldManagementItems || profile.newManagementItems || (profile as any).managementItems || [];
-
-        const hasDetails = (p: any) => {
-          return !!(p && (p.birthCity || p.birthDate || p.occupation || p.address?.fullAddress || p.address?.city));
-        };
-
-        // Helper to find matching profile person
-        const findMatchingPerson = (item: any, masterList: any[]) => {
-          if (!item || !Array.isArray(masterList) || masterList.length === 0) return null;
-          let candidates: any[] = [];
-          // Priority a: match by id
-          if (item.id) {
-            candidates.push(...masterList.filter((m: any) => m && m.id === item.id));
-          }
-          // Priority b: match by NIK (trim, exact)
-          if (item.nik && String(item.nik).trim()) {
-            const cleanNik = String(item.nik).trim();
-            candidates.push(...masterList.filter((m: any) => m && m.nik && String(m.nik).trim() === cleanNik));
-          }
-          // Priority c: match by name (trim + uppercase)
-          if (item.name && String(item.name).trim()) {
-            const cleanName = String(item.name).trim().toUpperCase();
-            candidates.push(...masterList.filter((m: any) => m && m.name && String(m.name).trim().toUpperCase() === cleanName));
-          }
-          if (candidates.length === 0) return null;
-          return candidates.find(c => hasDetails(c)) || candidates[0];
-        };
-
-        // Enrich individual shareholder items
-        let enrichedShareholders = docData.shareholders;
-        if (Array.isArray(docData.shareholders) && docData.shareholders.length > 0) {
-          enrichedShareholders = docData.shareholders.map((sh: any) => {
-            const profSh = findMatchingPerson(sh, masterShareholders);
-            if (!profSh) return sh;
-
-            const curAddr = sh.address || {};
-            const profAddr = profSh.address || {};
-
-            return {
-              ...sh,
-              birthCity: sh.birthCity || profSh.birthCity || '',
-              birthDate: sh.birthDate || profSh.birthDate || '',
-              occupation: sh.occupation || profSh.occupation || '',
-              salutation: profSh.salutation || sh.salutation || '',
-              nationalityType: sh.nationalityType || profSh.nationalityType || '',
-              nationality: sh.nationality || profSh.nationality || '',
-              passportNumber: sh.passportNumber || profSh.passportNumber || '',
-              kitasNumber: sh.kitasNumber || profSh.kitasNumber || '',
-              npwp: sh.npwp || profSh.npwp || '',
-              address: {
-                ...curAddr,
-                rt: curAddr.rt || profAddr.rt || '',
-                rw: curAddr.rw || profAddr.rw || '',
-                kelurahan: curAddr.kelurahan || profAddr.kelurahan || '',
-                kecamatan: curAddr.kecamatan || profAddr.kecamatan || '',
-                city: curAddr.city || profAddr.city || '',
-                province: curAddr.province || profAddr.province || '',
-                fullAddress: curAddr.fullAddress || profAddr.fullAddress || '',
-                postalCode: curAddr.postalCode || profAddr.postalCode || ''
-              }
-            };
-          });
-        } else if (masterShareholders.length > 0) {
-          enrichedShareholders = masterShareholders;
-        }
-
-        // Enrich individual oldManagementItems
-        let enrichedOldManagement = docData.oldManagementItems;
-        if (Array.isArray(docData.oldManagementItems) && docData.oldManagementItems.length > 0) {
-          enrichedOldManagement = docData.oldManagementItems.map((m: any) => {
-            const profM = findMatchingPerson(m, masterManagement) || findMatchingPerson(m, masterShareholders);
-            if (!profM) return m;
-
-            const curAddr = m.address || {};
-            const profAddr = profM.address || {};
-
-            return {
-              ...m,
-              birthCity: m.birthCity || profM.birthCity || '',
-              birthDate: m.birthDate || profM.birthDate || '',
-              occupation: m.occupation || profM.occupation || '',
-              salutation: profM.salutation || m.salutation || '',
-              nationalityType: m.nationalityType || profM.nationalityType || '',
-              nationality: m.nationality || profM.nationality || '',
-              passportNumber: m.passportNumber || profM.passportNumber || '',
-              kitasNumber: m.kitasNumber || profM.kitasNumber || '',
-              npwp: m.npwp || profM.npwp || '',
-              address: {
-                ...curAddr,
-                rt: curAddr.rt || profAddr.rt || '',
-                rw: curAddr.rw || profAddr.rw || '',
-                kelurahan: curAddr.kelurahan || profAddr.kelurahan || '',
-                kecamatan: curAddr.kecamatan || profAddr.kecamatan || '',
-                city: curAddr.city || profAddr.city || '',
-                province: curAddr.province || profAddr.province || '',
-                fullAddress: curAddr.fullAddress || profAddr.fullAddress || '',
-                postalCode: curAddr.postalCode || profAddr.postalCode || ''
-              }
-            };
-          });
-        } else if (masterManagement.length > 0) {
-          enrichedOldManagement = masterManagement;
-        }
-
-        // Enrich individual managementItems
-        let enrichedManagement = docData.managementItems;
-        if (Array.isArray(docData.managementItems) && docData.managementItems.length > 0) {
-          enrichedManagement = docData.managementItems.map((m: any) => {
-            const profM = findMatchingPerson(m, masterManagement) || findMatchingPerson(m, masterShareholders);
-            if (!profM) return m;
-
-            const curAddr = m.address || {};
-            const profAddr = profM.address || {};
-
-            return {
-              ...m,
-              birthCity: m.birthCity || profM.birthCity || '',
-              birthDate: m.birthDate || profM.birthDate || '',
-              occupation: m.occupation || profM.occupation || '',
-              salutation: profM.salutation || m.salutation || '',
-              nationalityType: m.nationalityType || profM.nationalityType || '',
-              nationality: m.nationality || profM.nationality || '',
-              passportNumber: m.passportNumber || profM.passportNumber || '',
-              kitasNumber: m.kitasNumber || profM.kitasNumber || '',
-              npwp: m.npwp || profM.npwp || '',
-              address: {
-                ...curAddr,
-                rt: curAddr.rt || profAddr.rt || '',
-                rw: curAddr.rw || profAddr.rw || '',
-                kelurahan: curAddr.kelurahan || profAddr.kelurahan || '',
-                kecamatan: curAddr.kecamatan || profAddr.kecamatan || '',
-                city: curAddr.city || profAddr.city || '',
-                province: curAddr.province || profAddr.province || '',
-                fullAddress: curAddr.fullAddress || profAddr.fullAddress || '',
-                postalCode: curAddr.postalCode || profAddr.postalCode || ''
-              }
-            };
-          });
-        } else if (masterManagement.length > 0) {
-          enrichedManagement = masterManagement;
-        }
-
-        return {
-          ...docData,
-          companyName: profile.companyName || docData.companyName,
-          companyShortName: profile.companyShortName || docData.companyShortName,
-          companyType: profile.companyType || docData.companyType,
-          npwp: profile.npwp || docData.npwp,
-          domicile: profile.domicile || profile.oldDomicile || docData.domicile,
-          oldDomicile: profile.oldDomicile || profile.domicile || docData.oldDomicile,
-          fullAddress: profile.fullAddress || profile.oldFullAddress || docData.fullAddress,
-          oldFullAddress: profile.oldFullAddress || profile.fullAddress || docData.oldFullAddress,
-          kbliItems: (docData.kbliItems && docData.kbliItems.length > 0) ? docData.kbliItems : profile.kbliItems,
-          shareholders: enrichedShareholders,
-          oldManagementItems: enrichedOldManagement,
-          managementItems: enrichedManagement,
-          capitalBase: (profile as any).targetCapitalBase || (profile as any).capitalBase || profile.originalCapitalBase || docData.capitalBase,
-          capitalPaid: (profile as any).targetCapitalPaid || (profile as any).capitalPaid || profile.originalCapitalPaid || docData.capitalPaid,
-          shareValue: (profile as any).shareValue || profile.originalSharePrice || docData.shareValue,
-        };
-      };
-
       // 1. If editing an existing RUPSLB document
       if (location.pathname === '/rupslb' && editingProjectId && editingProjectId !== 'new') {
         let found = projects.find((p: any) => p.id === editingProjectId || p.projectId === editingProjectId);
@@ -484,65 +314,93 @@ export const AppShell: React.FC = () => {
         try {
           const proj = await ProjectService.getProject(activeProjectContext);
           if (proj) {
-            const profile = profiles.find((p: any) => p.id === proj.clientId || p.id === (proj as any).selectedProfileId || p.id === activeProjectContext || (p.companyName && proj.title && p.companyName.toLowerCase().trim() === proj.title.toLowerCase().trim()));
-            if (profile) {
+            // PRIORITY 1: proj.clientSnapshot or proj.changeSnapshot (zero reads, full profile stored at project creation)
+            const snap = (proj.clientSnapshot || proj.changeSnapshot?.after || proj.changeSnapshot?.before) as any;
+            if (snap && snap.companyName) {
+              const currentManagement = snap.oldManagementItems || snap.newManagementItems || snap.managementItems || [];
               updateData({
                 ...INITIAL_STATE,
-                ...profile,
-                selectedProfileId: profile.id,
-                companyName: profile.companyName,
-                kbliItems: normalizeKblis(profile.kbliItems),
-                shareholders: (profile.shareholders && profile.shareholders.length > 0) ? profile.shareholders : ((proj.clientSnapshot?.shareholders || []) as Shareholder[]),
-                oldManagementItems: profile.oldManagementItems || profile.newManagementItems || (profile as any).managementItems || proj.clientSnapshot?.managementItems || []
+                ...snap,
+                selectedProfileId: snap.id || proj.clientId || '',
+                companyName: snap.companyName || '',
+                domicile: snap.domicile || snap.oldDomicile || snap.city || '',
+                oldDomicile: snap.oldDomicile || snap.domicile || snap.city || '',
+                oldFullAddress: snap.fullAddress || snap.oldFullAddress || '',
+                kbliItems: normalizeKblis(snap.kbliItems),
+                shareholders: (snap.shareholders && snap.shareholders.length > 0) ? snap.shareholders : [],
+                oldManagementItems: currentManagement,
+                originalCapitalBase: snap.originalCapitalBase || snap.authorizedCapital || 0,
+                originalCapitalPaid: snap.originalCapitalPaid || snap.paidUpCapital || 0,
+                originalSharePrice: snap.originalSharePrice || 0,
+                originalAuthorizedShares: snap.originalAuthorizedShares || 0,
+                originalTotalShares: snap.originalTotalShares || 0,
+                establishmentDeedNumber: snap.establishmentDeedNumber || '',
+                establishmentDeedDate: snap.establishmentDeedDate || '',
+                establishmentNotary: snap.establishmentNotary || '',
+                establishmentNotaryTitle: snap.establishmentNotaryTitle || '',
+                establishmentNotaryDomicile: snap.establishmentNotaryDomicile || '',
+                establishmentSkNumber: snap.establishmentSkNumber || '',
+                establishmentSkDate: snap.establishmentSkDate || '',
+                amendmentDeeds: snap.amendmentDeeds || []
               });
               loadedDocIdRef.current = sessionKey;
               setPresetLoadedForProject(activeProjectContext);
               return;
-            } else if (profiles.length === 0) {
-              // Profiles not loaded yet from context! Fallback to available snapshot/parties/title, but DO NOT lock loadedDocIdRef.current so it retries when profiles loads
-              if (proj.clientSnapshot) {
-                const snap = proj.clientSnapshot as any;
-                updateData({
-                  ...INITIAL_STATE,
-                  ...snap,
-                  kbliItems: normalizeKblis(snap.kbliItems)
-                });
-              } else if (proj.parties && proj.parties.length > 0) {
-                const { shareholders: partySh, oldManagementItems: partyMgmt } = mapPartiesToShareholdersAndManagement(proj.parties);
-                updateData({
-                  ...INITIAL_STATE,
-                  companyName: proj.title,
-                  shareholders: partySh,
-                  oldManagementItems: partyMgmt
-                });
-              } else if (proj.title) {
-                updateData({ ...INITIAL_STATE, companyName: proj.title });
-              }
-              return;
-            } else {
-              // profiles is loaded (>0), but profile was not found in profiles list
-              if (proj.clientSnapshot) {
-                const snap = proj.clientSnapshot as any;
-                updateData({
-                  ...INITIAL_STATE,
-                  ...snap,
-                  kbliItems: normalizeKblis(snap.kbliItems)
-                });
-              } else if (proj.parties && proj.parties.length > 0) {
-                const { shareholders: partySh, oldManagementItems: partyMgmt } = mapPartiesToShareholdersAndManagement(proj.parties);
-                updateData({
-                  ...INITIAL_STATE,
-                  companyName: proj.title,
-                  shareholders: partySh,
-                  oldManagementItems: partyMgmt
-                });
-              } else if (proj.title) {
-                updateData({ ...INITIAL_STATE, companyName: proj.title });
-              }
-              loadedDocIdRef.current = sessionKey;
-              setPresetLoadedForProject(activeProjectContext);
-              return;
             }
+
+            // PRIORITY 2: Targeted single getDoc for full profile via CompanyService
+            const targetClientId = proj.clientId || (proj as any).selectedProfileId;
+            if (targetClientId) {
+              const fullProfile = await CompanyService.getCompanyProfile(targetClientId);
+              if (fullProfile) {
+                const currentManagement = fullProfile.oldManagementItems || fullProfile.newManagementItems || (fullProfile as any).managementItems || [];
+                updateData({
+                  ...INITIAL_STATE,
+                  ...fullProfile,
+                  selectedProfileId: fullProfile.id,
+                  companyName: fullProfile.companyName || '',
+                  domicile: fullProfile.domicile || fullProfile.oldDomicile || fullProfile.newAddress?.city || fullProfile.oldAddress?.city || '',
+                  oldDomicile: fullProfile.domicile || fullProfile.oldDomicile || fullProfile.newAddress?.city || fullProfile.oldAddress?.city || '',
+                  oldFullAddress: fullProfile.fullAddress || fullProfile.oldFullAddress || '',
+                  oldAddress: fullProfile.newAddress || fullProfile.oldAddress,
+                  kbliItems: normalizeKblis(fullProfile.kbliItems),
+                  shareholders: (fullProfile.shareholders && fullProfile.shareholders.length > 0) ? fullProfile.shareholders : [],
+                  oldManagementItems: currentManagement,
+                  originalCapitalBase: fullProfile.originalCapitalBase || fullProfile.targetCapitalBase || 0,
+                  originalCapitalPaid: fullProfile.originalCapitalPaid || fullProfile.targetCapitalPaid || 0,
+                  originalSharePrice: fullProfile.originalSharePrice || 0,
+                  originalAuthorizedShares: fullProfile.originalAuthorizedShares || 0,
+                  originalTotalShares: fullProfile.originalTotalShares || 0,
+                  establishmentDeedNumber: fullProfile.establishmentDeedNumber || '',
+                  establishmentDeedDate: fullProfile.establishmentDeedDate || '',
+                  establishmentNotary: fullProfile.establishmentNotary || '',
+                  establishmentNotaryTitle: fullProfile.establishmentNotaryTitle || '',
+                  establishmentNotaryDomicile: fullProfile.establishmentNotaryDomicile || '',
+                  establishmentSkNumber: fullProfile.establishmentSkNumber || '',
+                  establishmentSkDate: fullProfile.establishmentSkDate || '',
+                  amendmentDeeds: fullProfile.amendmentDeeds || []
+                });
+                loadedDocIdRef.current = sessionKey;
+                setPresetLoadedForProject(activeProjectContext);
+                return;
+              }
+            }
+
+            // PRIORITY 3: Fallback to project parties or title
+            if (proj.parties && proj.parties.length > 0) {
+              const { shareholders: partySh, oldManagementItems: partyMgmt } = mapPartiesToShareholdersAndManagement(proj.parties);
+              updateData({
+                ...INITIAL_STATE,
+                companyName: proj.title || '',
+                shareholders: partySh,
+                oldManagementItems: partyMgmt
+              });
+            } else if (proj.title) {
+              updateData({ ...INITIAL_STATE, companyName: proj.title });
+            }
+            loadedDocIdRef.current = sessionKey;
+            setPresetLoadedForProject(activeProjectContext);
+            return;
           }
         } catch (err) {
           console.error("Error loading project session data:", err);

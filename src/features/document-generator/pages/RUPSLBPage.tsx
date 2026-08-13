@@ -10,6 +10,7 @@ import { doc, setDoc, deleteDoc, getDoc } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from '../../../lib/firebase';
 import { sanitizeForFirestore } from '../../../utils/sanitize';
 import { ProjectService } from '../../../services/ProjectService';
+import { CompanyService } from '../../../services/CompanyService';
 import { compareCompanyDocumentDiff } from '../../../lib/diffUtils';
 import { DocumentGenerationService } from '../../../services/DocumentGenerationService';
 import { DocumentStatusBadge } from '../../../../components/DocumentStatusBadge';
@@ -772,45 +773,51 @@ export const RUPSLBPage: React.FC<RUPSLBPageProps> = ({
                     <select 
                       className="w-full border border-[#ccc] rounded-sm px-3 py-1.5 text-[13px] outline-none bg-white focus:border-[#66afe9]"
                       value={data.selectedProfileId || ''}
-                      onChange={(e) => {
-                         const selected = profiles.find(p => p.id === e.target.value);
-                         if (selected) {
-                             const normalizeKblis = (items: any[]) => (items || []).map((k: any) => ({
-                               id: k.id || crypto.randomUUID(),
-                               code: k.code || k.kode || '',
-                               name: k.name || k.judul || k.title || '',
-                               description: k.description || k.uraian || '',
-                               categoryLetter: k.categoryLetter || '',
-                               categoryName: k.categoryName || '',
-                               uraian: k.uraian || k.description || ''
-                             }));
+                      onChange={async (e) => {
+                         const profileId = e.target.value;
+                         if (profileId) {
+                             const selected = await CompanyService.getCompanyProfile(profileId);
+                             if (selected) {
+                                 const normalizeKblis = (items: any[]) => (items || []).map((k: any) => ({
+                                   id: k.id || crypto.randomUUID(),
+                                   code: k.code || k.kode || '',
+                                   name: k.name || k.judul || k.title || '',
+                                   description: k.description || k.uraian || '',
+                                   categoryLetter: k.categoryLetter || '',
+                                   categoryName: k.categoryName || '',
+                                   uraian: k.uraian || k.description || ''
+                                 }));
 
-                             const currentManagement = selected.oldManagementItems || selected.newManagementItems || (selected as any).managementItems || [];
+                                 const currentManagement = selected.oldManagementItems || selected.newManagementItems || (selected as any).managementItems || [];
 
-                             updateData({ 
-                               ...(selected as any), 
-                               selectedProfileId: selected.id,
-                               companyName: selected.companyName || '',
-                               domicile: selected.domicile || selected.oldDomicile || (selected as any).kedudukanPT || (selected as any).kotaKedudukan || (selected as any).city || selected.newAddress?.city || selected.oldAddress?.city || '',
-                               oldFullAddress: selected.fullAddress || selected.oldFullAddress || (selected.newAddress?.fullAddress ? `${selected.newAddress.fullAddress}, RT ${selected.newAddress.rt}/${selected.newAddress.rw}, Kel. ${selected.newAddress.kelurahan}, Kec. ${selected.newAddress.kecamatan}` : ''),
-                               oldAddress: selected.newAddress || selected.oldAddress,
-                               oldDomicile: selected.domicile || selected.oldDomicile,
-                               kbliItems: normalizeKblis(selected.kbliItems),
-                               shareholders: selected.shareholders || [],
-                               oldManagementItems: currentManagement,
-                               originalCapitalBase: selected.originalCapitalBase || selected.targetCapitalBase || 0,
-                               originalCapitalPaid: selected.originalCapitalPaid || selected.targetCapitalPaid || 0,
-                               originalSharePrice: selected.originalSharePrice || 0,
-                               originalAuthorizedShares: selected.originalAuthorizedShares || 0,
-                               originalTotalShares: selected.originalTotalShares || 0,
-                               establishmentDeedNumber: selected.establishmentDeedNumber || '',
-                               establishmentDeedDate: selected.establishmentDeedDate || '',
-                               establishmentNotary: selected.establishmentNotary || '',
-                               establishmentNotaryDomicile: selected.establishmentNotaryDomicile || '',
-                               establishmentSkNumber: selected.establishmentSkNumber || '',
-                               establishmentSkDate: selected.establishmentSkDate || '',
-                               amendmentDeeds: selected.amendmentDeeds || []
-                             } as any);
+                                 updateData({ 
+                                   ...(selected as any), 
+                                   selectedProfileId: selected.id,
+                                   companyName: selected.companyName || '',
+                                   domicile: selected.domicile || selected.oldDomicile || (selected as any).kedudukanPT || (selected as any).kotaKedudukan || (selected as any).city || selected.newAddress?.city || selected.oldAddress?.city || '',
+                                   oldFullAddress: selected.fullAddress || selected.oldFullAddress || (selected.newAddress?.fullAddress ? `${selected.newAddress.fullAddress}, RT ${selected.newAddress.rt}/${selected.newAddress.rw}, Kel. ${selected.newAddress.kelurahan}, Kec. ${selected.newAddress.kecamatan}` : ''),
+                                   oldAddress: selected.newAddress || selected.oldAddress,
+                                   oldDomicile: selected.domicile || selected.oldDomicile,
+                                   kbliItems: normalizeKblis(selected.kbliItems),
+                                   shareholders: selected.shareholders || [],
+                                   oldManagementItems: currentManagement,
+                                   originalCapitalBase: selected.originalCapitalBase || selected.targetCapitalBase || 0,
+                                   originalCapitalPaid: selected.originalCapitalPaid || selected.targetCapitalPaid || 0,
+                                   originalSharePrice: selected.originalSharePrice || 0,
+                                   originalAuthorizedShares: selected.originalAuthorizedShares || 0,
+                                   originalTotalShares: selected.originalTotalShares || 0,
+                                   establishmentDeedNumber: selected.establishmentDeedNumber || '',
+                                   establishmentDeedDate: selected.establishmentDeedDate || '',
+                                   establishmentNotary: selected.establishmentNotary || '',
+                                   establishmentNotaryTitle: selected.establishmentNotaryTitle || '',
+                                   establishmentNotaryDomicile: selected.establishmentNotaryDomicile || '',
+                                   establishmentSkNumber: selected.establishmentSkNumber || '',
+                                   establishmentSkDate: selected.establishmentSkDate || '',
+                                   amendmentDeeds: selected.amendmentDeeds || []
+                                 } as any);
+                             } else {
+                                 updateData({ selectedProfileId: profileId });
+                             }
                          } else {
                              updateData({ selectedProfileId: '' });
                          }

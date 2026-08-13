@@ -5,6 +5,7 @@ import { toTitleCase } from '../../../utils/formatters';
 import { db, searchShareholderByNIKClient } from '../../lib/firebase';
 import { doc, setDoc } from 'firebase/firestore';
 import { syncToUtama, getDeedTitle, formatAppearersForRups, formatAppearersForPendirian } from '../../lib/syncUtama';
+import { CompanyService } from '../../services/CompanyService';
 
 interface DocumentRuntimeContextType {
   data: CompanyData;
@@ -27,7 +28,7 @@ interface DocumentRuntimeContextType {
   }) => void;
   isSyncing: boolean;
   mergedData: CompanyData;
-  syncCompanyDataToRupst: () => void;
+  syncCompanyDataToRupst: () => Promise<void> | void;
   handleManualSync: (type: 'PENDIRIAN' | 'RUPSLB' | 'RUPST', deedData: any) => Promise<boolean>;
   proxyModalOpenId: string | null;
   setProxyModalOpenId: (id: string | null) => void;
@@ -240,7 +241,7 @@ export function DocumentRuntimeProvider({ children }: { children: ReactNode }) {
     return baseData;
   }, [data, profiles, activeSidebarTab]);
 
-  const syncCompanyDataToRupst = useCallback(() => {
+  const syncCompanyDataToRupst = useCallback(async () => {
     if (!data.selectedProfileId) {
       alert("Pilih Klien PT terlebih dahulu.");
       return;
@@ -249,29 +250,49 @@ export function DocumentRuntimeProvider({ children }: { children: ReactNode }) {
     if (!confirm("Sinkronkan data terbaru dari Klien PT?\n\nData manual RUPST tidak akan diubah.")) {
       return;
     }
-    const latestProfile = profiles.find(p => p.id === data.selectedProfileId);
-    if (!latestProfile) {
-      alert("Gagal mengambil data terbaru dari Klien PT.");
-      return;
-    }
+
     try {
+      const latestProfile = await CompanyService.getCompanyProfile(data.selectedProfileId);
+      if (!latestProfile) {
+        alert("Gagal mengambil data terbaru dari Klien PT.");
+        return;
+      }
+
+      const normalizeKblis = (items: any[]) => (items || []).map((k: any) => ({
+        id: k.id || crypto.randomUUID(),
+        code: k.code || k.kode || '',
+        name: k.name || k.judul || k.title || '',
+        description: k.description || k.uraian || '',
+        categoryLetter: k.categoryLetter || '',
+        categoryName: k.categoryName || '',
+        uraian: k.uraian || k.description || ''
+      }));
+
+      const currentManagement = latestProfile.oldManagementItems || latestProfile.newManagementItems || (latestProfile as any).managementItems || [];
+
       const updates: any = {
-        companyName: latestProfile.companyName,
-        domicile: latestProfile.domicile,
-        establishmentDeedNumber: latestProfile.establishmentDeedNumber,
-        establishmentDeedDate: latestProfile.establishmentDeedDate,
-        establishmentNotary: latestProfile.establishmentNotary,
-        establishmentNotaryTitle: latestProfile.establishmentNotaryTitle,
-        establishmentNotaryDomicile: latestProfile.establishmentNotaryDomicile,
-        establishmentSkNumber: latestProfile.establishmentSkNumber,
-        establishmentSkDate: latestProfile.establishmentSkDate,
+        companyName: latestProfile.companyName || '',
+        domicile: latestProfile.domicile || latestProfile.oldDomicile || latestProfile.newAddress?.city || latestProfile.oldAddress?.city || '',
+        oldDomicile: latestProfile.domicile || latestProfile.oldDomicile || latestProfile.newAddress?.city || latestProfile.oldAddress?.city || '',
+        establishmentDeedNumber: latestProfile.establishmentDeedNumber || '',
+        establishmentDeedDate: latestProfile.establishmentDeedDate || '',
+        establishmentNotary: latestProfile.establishmentNotary || '',
+        establishmentNotaryTitle: latestProfile.establishmentNotaryTitle || '',
+        establishmentNotaryDomicile: latestProfile.establishmentNotaryDomicile || '',
+        establishmentSkNumber: latestProfile.establishmentSkNumber || '',
+        establishmentSkDate: latestProfile.establishmentSkDate || '',
         amendmentDeeds: latestProfile.amendmentDeeds || [],
         shareholders: latestProfile.shareholders || [],
-        kbliItems: latestProfile.kbliItems || [],
-        originalSharePrice: latestProfile.originalSharePrice,
-        oldFullAddress: latestProfile.fullAddress || latestProfile.oldFullAddress,
+        kbliItems: normalizeKblis(latestProfile.kbliItems),
+        oldManagementItems: currentManagement,
+        originalCapitalBase: latestProfile.originalCapitalBase || latestProfile.targetCapitalBase || 0,
+        originalCapitalPaid: latestProfile.originalCapitalPaid || latestProfile.targetCapitalPaid || 0,
+        originalSharePrice: latestProfile.originalSharePrice || 0,
+        originalAuthorizedShares: latestProfile.originalAuthorizedShares || 0,
+        originalTotalShares: latestProfile.originalTotalShares || 0,
+        oldFullAddress: latestProfile.fullAddress || latestProfile.oldFullAddress || (latestProfile.newAddress?.fullAddress ? `${latestProfile.newAddress.fullAddress}, RT ${latestProfile.newAddress.rt}/${latestProfile.newAddress.rw}, Kel. ${latestProfile.newAddress.kelurahan}, Kec. ${latestProfile.newAddress.kecamatan}` : ''),
         oldAddress: latestProfile.newAddress || latestProfile.oldAddress,
-        oldDomicile: latestProfile.domicile || latestProfile.oldDomicile,
+        npwp: latestProfile.npwp || '',
       };
 
       if (data.representativeType !== 'MANUAL') {
@@ -285,7 +306,7 @@ export function DocumentRuntimeProvider({ children }: { children: ReactNode }) {
     } catch (e) {
       alert("Gagal mengambil data terbaru dari Klien PT.");
     }
-  }, [data.selectedProfileId, data.representativeType, profiles, updateData]);
+  }, [data.selectedProfileId, data.representativeType, updateData]);
 
   const handleManualSync = useCallback(async (type: 'PENDIRIAN' | 'RUPSLB' | 'RUPST', deedData: any) => {
     const deedNumber = type === 'PENDIRIAN' ? deedData.nomorAkta : deedData.draftAktaRupsNumber;
@@ -299,8 +320,8 @@ export function DocumentRuntimeProvider({ children }: { children: ReactNode }) {
     setIsSyncing(true);
     try {
       let rawClientName = type === 'PENDIRIAN' ? (deedData as any).namaPt : (deedData as any).companyName;
-      if (deedData.selectedProfileId) {
-        const profile = profiles.find(p => p.id === deedData.selectedProfileId);
+      if (!rawClientName && deedData.selectedProfileId) {
+        const profile = await CompanyService.getCompanyProfile(deedData.selectedProfileId);
         if (profile && profile.companyName) {
           rawClientName = profile.companyName;
         }
@@ -325,7 +346,7 @@ export function DocumentRuntimeProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsSyncing(false);
     }
-  }, [profiles]);
+  }, []);
 
   // Async NIK lookup auto-enrichment for shareholders with missing personal details
   useEffect(() => {

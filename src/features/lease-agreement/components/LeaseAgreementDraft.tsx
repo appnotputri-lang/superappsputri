@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { formatCurrency, formatInputNumber, parseFormattedNumber, numberToWords, formatDateIndo } from '../../../../utils/formatters';
 import { generateLeaseDocx } from '../../../lib/generateLeaseDocx';
+import { CompanyService } from '../../../services/CompanyService';
 
 interface LeaseAgreementDraftProps {
   projectId: string;
@@ -31,17 +32,8 @@ export default function LeaseAgreementDraft({ projectId, project, currentUser, o
     const loadData = async () => {
       setLoading(true);
       try {
-        // Fetch Master Clients (profiles) - Cache first
-        let profileSnap;
-        try {
-          profileSnap = await getDocsFromCache(collection(db, 'profiles'));
-          if (profileSnap.empty) {
-            profileSnap = await getDocs(collection(db, 'profiles'));
-          }
-        } catch (e) {
-          profileSnap = await getDocs(collection(db, 'profiles'));
-        }
-        const clientProfiles = profileSnap.docs.map(d => ({ id: d.id, ...d.data() } as CompanyProfile));
+        // Fetch Master Clients (profiles) via CompanyService
+        const clientProfiles = await CompanyService.getCompaniesFast();
         setProfiles(clientProfiles);
 
         // Fetch existing Lease Agreement data from 'lease_projects'
@@ -55,7 +47,7 @@ export default function LeaseAgreementDraft({ projectId, project, currentUser, o
           const initData = getInitialLeaseData(projectId);
           // If project has client, pre-populate Pihak Kedua with project's client data
           if (project && project.clientId) {
-            const clientProf = clientProfiles.find(p => p.id === project.clientId);
+            const clientProf = await CompanyService.getCompanyProfile(project.clientId);
             if (clientProf) {
               initData.parties = initData.parties.map((p, idx) => {
                 if (idx === 1) { // Pihak Kedua
@@ -64,7 +56,7 @@ export default function LeaseAgreementDraft({ projectId, project, currentUser, o
                     clientId: clientProf.id,
                     name: clientProf.companyName || '',
                     clientType: clientProf.clientType || clientProf.companyType || 'PERORANGAN',
-                    alamat: clientProf.fullAddress || '',
+                    alamat: clientProf.fullAddress || (clientProf.newAddress?.fullAddress ? `${clientProf.newAddress.fullAddress}, RT ${clientProf.newAddress.rt}/${clientProf.newAddress.rw}, Kel. ${clientProf.newAddress.kelurahan}, Kec. ${clientProf.newAddress.kecamatan}` : '') || '',
                     nik: clientProf.establishmentDeedNumber || '', // default map
                     npwp: clientProf.npwp || ''
                   };
@@ -280,9 +272,27 @@ export default function LeaseAgreementDraft({ projectId, project, currentUser, o
     });
   };
 
-  const handlePartySelect = (partyIndex: number, clientProfileId: string) => {
+  const handlePartySelect = async (partyIndex: number, clientProfileId: string) => {
     if (!leaseData) return;
-    const clientProfile = profiles.find(p => p.id === clientProfileId);
+    if (!clientProfileId) {
+      setLeaseData(prev => {
+        if (!prev) return null;
+        const updatedParties = [...prev.parties];
+        updatedParties[partyIndex] = {
+          ...updatedParties[partyIndex],
+          clientId: '',
+          name: '',
+          clientType: 'PERORANGAN',
+          alamat: '',
+          nik: '',
+          npwp: ''
+        };
+        return { ...prev, parties: updatedParties };
+      });
+      return;
+    }
+
+    const clientProfile = await CompanyService.getCompanyProfile(clientProfileId);
     if (!clientProfile) return;
 
     setLeaseData(prev => {
@@ -293,7 +303,7 @@ export default function LeaseAgreementDraft({ projectId, project, currentUser, o
         clientId: clientProfile.id,
         name: clientProfile.companyName || '',
         clientType: clientProfile.clientType || clientProfile.companyType || 'PERORANGAN',
-        alamat: clientProfile.fullAddress || '',
+        alamat: clientProfile.fullAddress || (clientProfile.newAddress?.fullAddress ? `${clientProfile.newAddress.fullAddress}, RT ${clientProfile.newAddress.rt}/${clientProfile.newAddress.rw}, Kel. ${clientProfile.newAddress.kelurahan}, Kec. ${clientProfile.newAddress.kecamatan}` : '') || '',
         nik: clientProfile.establishmentDeedNumber || '',
         npwp: clientProfile.npwp || ''
       };

@@ -2,6 +2,7 @@ import React from 'react';
 import { X, UserCheck, FileText } from 'lucide-react';
 import { IndoRegionSelector } from '../../../components/AddressFields';
 import { Shareholder, CompanyProfile } from '../../../types';
+import { CompanyService } from '../../services/CompanyService';
 
 export interface ProxyData {
   salutation: 'Tuan' | 'Nyonya' | 'Nona';
@@ -101,6 +102,7 @@ const ProxyInputModal: React.FC<Props> = ({
 
   const [activeProfileId, setActiveProfileId] = React.useState<string>('');
   const [showManualCompanySearch, setShowManualCompanySearch] = React.useState<boolean>(false);
+  const [fullParentProfile, setFullParentProfile] = React.useState<CompanyProfile | null>(null);
 
   const autoParentProfile = React.useMemo(() => {
     if (!shareholder || !profiles) return null;
@@ -126,12 +128,23 @@ const ProxyInputModal: React.FC<Props> = ({
     }
   }, [autoParentProfile]);
 
-  const parentProfile = React.useMemo(() => {
+  React.useEffect(() => {
+    let isMounted = true;
     if (activeProfileId) {
-      return profiles.find(p => p.id === activeProfileId) || null;
+      CompanyService.getCompanyProfile(activeProfileId).then(p => {
+        if (isMounted) setFullParentProfile(p);
+      }).catch(err => {
+        console.error("Error fetching parent company profile:", err);
+      });
+    } else {
+      setFullParentProfile(null);
     }
-    return autoParentProfile;
-  }, [activeProfileId, autoParentProfile, profiles]);
+    return () => {
+      isMounted = false;
+    };
+  }, [activeProfileId]);
+
+  const parentProfile = fullParentProfile || (activeProfileId ? profiles.find(p => p.id === activeProfileId) || null : autoParentProfile);
 
   const parentManagementItems = React.useMemo(() => {
     if (!parentProfile) return [];
