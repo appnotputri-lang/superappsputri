@@ -9,8 +9,6 @@ import {
 } from 'lucide-react';
 import { GeneralDocumentData, GeneralDocumentItem, GeneralDocType, SidebarTabId } from '../../../types';
 import { GeneralDocumentService } from '../../services/GeneralDocumentService';
-import { SuperappsClientService } from '../../services/superappsClientService';
-import { CompanyService } from '../../services/CompanyService';
 import { resolveClientPhone, ClientOption } from '../../utils/clientPhoneResolver';
 import { 
   printGeneralDocument, 
@@ -19,6 +17,7 @@ import {
   formatDate,
   formatDateIndonesian 
 } from '../../utils/generalDocumentHtmlGenerator';
+import { getApiUrl, getAuthHeaders } from '../../lib/api';
 import { useAuthContext } from '../../contexts/AuthContext';
 
 const DELIVERY_METHOD_OPTIONS = [
@@ -109,7 +108,6 @@ export const GeneralDocumentGenerator: React.FC<GeneralDocumentGeneratorProps> =
 
   // Clients Master State
   const [localClients, setLocalClients] = useState<ClientOption[]>([]);
-  const [superappsClients, setSuperappsClients] = useState<ClientOption[]>([]);
   const [clientSearch, setClientSearch] = useState('');
   const [showClientDropdown, setShowClientDropdown] = useState(false);
   const [isLoadingClients, setIsLoadingClients] = useState(false);
@@ -143,89 +141,78 @@ export const GeneralDocumentGenerator: React.FC<GeneralDocumentGeneratorProps> =
     return () => unsub();
   }, [docType, selectedDoc?.id]);
 
-  // Load Client Masters
+  // Cache Ref and D1 Fetch helper
+  const localD1CacheRef = useRef<Record<string, ClientOption[]>>({});
+
+  const fetchD1Clients = async (queryStr: string): Promise<ClientOption[]> => {
+    const cacheKey = queryStr.trim().toLowerCase();
+    if (localD1CacheRef.current[cacheKey]) {
+      return localD1CacheRef.current[cacheKey];
+    }
+    
+    try {
+      const headers = await getAuthHeaders();
+      let url = getApiUrl('/api/clients?limit=15');
+      if (cacheKey) {
+        url = getApiUrl(`/api/clients/search?q=${encodeURIComponent(queryStr)}&limit=15`);
+      }
+
+      const response = await fetch(url, { headers });
+      if (!response.ok) {
+        throw new Error(`D1 API returned status ${response.status}`);
+      }
+      const data = await response.json() as any;
+      const results = data.clients || [];
+
+      const mapped: ClientOption[] = results.map((d: any) => ({
+        clientId: d.clientId || d.id,
+        name: d.companyName || 'Tanpa Nama',
+        email: d.email || '',
+        phone: d.phoneNumber || d.phone || '',
+        address: d.fullAddress || d.address || d.domicile || '',
+        source: 'local' as const,
+        clientType: d.clientType || 'PT'
+      }));
+
+      localD1CacheRef.current[cacheKey] = mapped;
+      return mapped;
+    } catch (err) {
+      console.error('[GeneralDocumentGenerator] D1 fetch/search error:', err);
+      return [];
+    }
+  };
+
+  const loadClientOptions = async () => {
+    setIsLoadingClients(true);
+    try {
+      const allLocal = await fetchD1Clients('');
+      setLocalClients(allLocal);
+    } catch (err) {
+      console.error('Error fetching local clients from D1:', err);
+    } finally {
+      setIsLoadingClients(false);
+    }
+  };
+
   useEffect(() => {
-    const loadClients = async () => {
-      setIsLoadingClients(true);
-
-      // 1. Fetch Local Clients from lightweight client_directory
-      try {
-        const directoryEntries = await CompanyService.getClientDirectory({ isArchived: false }).catch(() => []);
-        const allLocal: ClientOption[] = directoryEntries.map(c => ({
-          clientId: c.clientId || c.id,
-          name: c.companyName || 'Tanpa Nama',
-          email: (c as any).email || '',
-          phone: (c as any).phoneNumber || (c as any).phone || '',
-          address: (c as any).fullAddress || (c as any).address || c.domicile || '',
-          source: 'local' as const,
-          clientType: c.clientType || 'PT'
-        }));
-        setLocalClients(allLocal);
-      } catch (err) {
-        console.error('Failed to load local clients:', err);
-      }
-
-      // 2. Fetch Initial Superapps Clients (Empty query, limited to 15)
-      try {
-        const superappsProfiles = await SuperappsClientService.getSuperappsProfiles('');
-        const mappedSuperapps: ClientOption[] = superappsProfiles.map(p => ({
-          clientId: p.clientId,
-          name: p.name,
-          email: p.email || '',
-          phone: p.contactNumber || '',
-          address: p.address || '',
-          source: 'superapps' as const,
-          clientType: p.clientType
-        }));
-        setSuperappsClients(mappedSuperapps);
-      } catch (err) {
-        console.warn('Failed to load superapps profiles:', err);
-      } finally {
-        setIsLoadingClients(false);
-      }
-    };
-    loadClients();
+    loadClientOptions();
   }, []);
 
-  // Debounced search for Superapps profiles as user types
+  // Debounced search for D1 clients as user types
   useEffect(() => {
-    if (!clientSearch.trim()) {
-      // Fallback to initial 15 cached profiles
-      SuperappsClientService.getSuperappsProfiles('').then(superappsProfiles => {
-        const mappedSuperapps: ClientOption[] = superappsProfiles.map(p => ({
-          clientId: p.clientId,
-          name: p.name,
-          email: p.email || '',
-          phone: p.contactNumber || '',
-          address: p.address || '',
-          source: 'superapps' as const,
-          clientType: p.clientType
-        }));
-        setSuperappsClients(mappedSuperapps);
-      }).catch(() => {});
-      return;
-    }
-
+    const trimmedQuery = clientSearch.trim();
+    
     const delayDebounceFn = setTimeout(async () => {
       setIsLoadingClients(true);
       try {
-        const superappsProfiles = await SuperappsClientService.getSuperappsProfiles(clientSearch);
-        const mappedSuperapps: ClientOption[] = superappsProfiles.map(p => ({
-          clientId: p.clientId,
-          name: p.name,
-          email: p.email || '',
-          phone: p.contactNumber || '',
-          address: p.address || '',
-          source: 'superapps' as const,
-          clientType: p.clientType
-        }));
-        setSuperappsClients(mappedSuperapps);
+        const res = await fetchD1Clients(trimmedQuery);
+        setLocalClients(res);
       } catch (err) {
-        console.warn('Failed to load superapps profiles:', err);
+        console.warn('Failed to search D1 clients:', err);
       } finally {
         setIsLoadingClients(false);
       }
-    }, 400);
+    }, 350);
 
     return () => clearTimeout(delayDebounceFn);
   }, [clientSearch]);
@@ -421,8 +408,7 @@ export const GeneralDocumentGenerator: React.FC<GeneralDocumentGeneratorProps> =
       clientName: docData.clientName,
       clientPhone: docData.clientContact,
       clientSource: docData.clientSource,
-      localClients,
-      superappsClients
+      localClients
     });
 
     if (resolvedPhone) {
@@ -546,16 +532,7 @@ export const GeneralDocumentGenerator: React.FC<GeneralDocumentGeneratorProps> =
   );
 
   // Client dropdown items
-  const allClientsList = [...localClients, ...superappsClients];
-  const filteredClientsDropdown = allClientsList.filter(c => {
-    const q = clientSearch.toLowerCase().trim();
-    if (!q) return true;
-    return (
-      (c.name || '').toLowerCase().includes(q) ||
-      (c.phone || '').includes(q) ||
-      (c.address || '').toLowerCase().includes(q)
-    );
-  });
+  const filteredClientsDropdown = localClients;
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 pb-16">
@@ -915,9 +892,6 @@ export const GeneralDocumentGenerator: React.FC<GeneralDocumentGeneratorProps> =
                         >
                           <div className="flex items-center justify-between">
                             <span className="font-bold text-xs text-slate-900">{c.name}</span>
-                            <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded ${c.source === 'superapps' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
-                              {c.source}
-                            </span>
                           </div>
                           {c.phone && <div className="text-[10px] text-slate-500 mt-0.5">Telp: {c.phone}</div>}
                           {c.address && <div className="text-[10px] text-slate-400 truncate">{c.address}</div>}
