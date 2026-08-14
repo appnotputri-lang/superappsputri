@@ -105,7 +105,12 @@ export const FormContent: React.FC<FormContentProps> = ({ data, onChange, integr
       }
     } catch (error) {
       console.error("Error fetching latest numbers:", error);
-      if (!auto) alert("Gagal mengambil nomor terbaru.");
+      // Do NOT fall back to a hardcoded number here (auto or manual) — an
+      // unfilled field is an obvious, visible problem; a silently-wrong
+      // fallback number ('01'/'1300') is not, and risks duplicate deed
+      // numbering. Always surface the failure so the notary knows the
+      // suggested number was not actually verified against the database.
+      alert("Gagal mengambil nomor akta/urut terbaru dari server. Silakan coba lagi (tombol refresh nomor) sebelum menyimpan — jangan lanjut menyimpan dengan nomor yang belum terverifikasi.");
     } finally {
       setIsFetchingNumbers(false);
     }
@@ -114,9 +119,19 @@ export const FormContent: React.FC<FormContentProps> = ({ data, onChange, integr
   const simpanKeUtama = async () => {
     setIsSaving(true);
     try {
-      // Re-fetch latest numbers just in case to ensure accuracy before save
-      const numbers = await fetchLatestDeedNumbers(data.tanggalAkta);
-      
+      // Re-fetch latest numbers just in case to ensure accuracy before save.
+      // If this fails, we must NOT fall back to a fake number and save
+      // anyway — abort the save and let the notary retry instead.
+      let numbers;
+      try {
+        numbers = await fetchLatestDeedNumbers(data.tanggalAkta);
+      } catch (numberError) {
+        console.error("Error fetching latest numbers before save:", numberError);
+        alert("Gagal memverifikasi nomor akta/urut terbaru ke server. Dokumen TIDAK disimpan agar nomor akta tidak salah/dobel. Silakan coba simpan lagi.");
+        setIsSaving(false);
+        return;
+      }
+
       const generatedDeedNumber = numbers.nextDeedNumber;
       const generatedOrderNumber = numbers.nextOrderNumber;
 
