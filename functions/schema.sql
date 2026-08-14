@@ -166,36 +166,3 @@ CREATE INDEX IF NOT EXISTS idx_gen_docs_date ON general_documents(date);
 CREATE INDEX IF NOT EXISTS idx_gen_docs_public_token ON general_documents(public_token);
 CREATE INDEX IF NOT EXISTS idx_gen_docs_created_at ON general_documents(created_at);
 
--- ==========================================
--- GENERAL DOCUMENTS TABLE SCHEMA (Cloudflare D1)
--- ==========================================
-CREATE TABLE IF NOT EXISTS general_documents (
-  id TEXT PRIMARY KEY,
-  doc_type TEXT NOT NULL,
-  reference_no TEXT,
-  date TEXT,
-  client_id TEXT,
-  client_name TEXT,
-  client_source TEXT,
-  client_pic TEXT,
-  client_address TEXT,
-  client_contact TEXT,
-  officer_name TEXT,
-  destination TEXT,
-  delivery_method TEXT,
-  tracking_number TEXT,
-  notes TEXT,
-  items TEXT,                   -- JSON array of GeneralDocumentItem
-  public_token TEXT,
-  created_at TEXT,
-  updated_at TEXT,
-  raw_data TEXT                 -- Complete original JSON representation
-);
-
-CREATE INDEX IF NOT EXISTS idx_gen_docs_doc_type ON general_documents(doc_type);
-CREATE INDEX IF NOT EXISTS idx_gen_docs_reference_no ON general_documents(reference_no);
-CREATE INDEX IF NOT EXISTS idx_gen_docs_client_id ON general_documents(client_id);
-CREATE INDEX IF NOT EXISTS idx_gen_docs_date ON general_documents(date);
-CREATE INDEX IF NOT EXISTS idx_gen_docs_public_token ON general_documents(public_token);
-CREATE INDEX IF NOT EXISTS idx_gen_docs_created_at ON general_documents(created_at);
-

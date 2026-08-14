@@ -326,7 +326,7 @@ async function startServer() {
       const search = (req.query.search || req.query.q) ? String(req.query.search || req.query.q) : undefined;
       const type = (req.query.type || req.query.docType) ? String(req.query.type || req.query.docType) : undefined;
       const sortBy = req.query.sortBy ? String(req.query.sortBy) : undefined;
-      const order = (req.query.order || 'desc').toLowerCase() as 'asc' | 'desc';
+      const order = (String(req.query.order || 'desc')).toLowerCase() as 'asc' | 'desc';
 
       const result = await getAllGeneralDocumentsD1(db, { limit, offset, search, type, sortBy, order });
       res.json({ success: true, ...result });
