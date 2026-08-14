@@ -1,82 +1,119 @@
-import { FirestoreService } from './FirestoreService';
 import { Invoice, PaymentRecord } from '../../types';
-import { db, isQuotaExceeded } from '../lib/firebase';
-import { collection, query, where, orderBy, limit, getDocs } from 'firebase/firestore';
 
 function generateShortPublicToken(length = 10): string {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789'; // tanpa karakter yang gampang ketuker (0/O, 1/l/I)
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
   const array = new Uint8Array(length);
   crypto.getRandomValues(array);
   return Array.from(array, (b) => chars[b % chars.length]).join('');
 }
 
-export class InvoiceService extends FirestoreService {
+function getApiUrl(path: string): string {
+  if (path.startsWith('http://') || path.startsWith('https://')) return path;
+  if (typeof window !== 'undefined') {
+    return path;
+  }
+  const baseUrl = process.env.API_BASE_URL || 'http://localhost:3000';
+  return `${baseUrl}${path.startsWith('/') ? '' : '/'}${path}`;
+}
+
+export class InvoiceService {
+  private static listeners: Set<() => void> = new Set();
+
+  public static notifyListeners() {
+    this.listeners.forEach((listener) => {
+      try {
+        listener();
+      } catch (e) {
+        console.error('[InvoiceService] Error in listener callback:', e);
+      }
+    });
+  }
+
   static subscribeInvoices(onNext: (data: Invoice[]) => void): () => void {
-    return this.listenToCollection<Invoice>('invoices', onNext);
+    let active = true;
+
+    const fetchInvoices = async () => {
+      try {
+        const res = await fetch(getApiUrl('/api/invoices?limit=500'));
+        if (!res.ok) return;
+        const json = await res.json();
+        if (json.success && Array.isArray(json.invoices) && active) {
+          onNext(json.invoices);
+        }
+      } catch (err) {
+        console.warn('[InvoiceService] Error polling invoices:', err);
+      }
+    };
+
+    fetchInvoices();
+
+    // Polling every 15 seconds (non-aggressive)
+    const intervalId = setInterval(fetchInvoices, 15000);
+
+    const listener = () => {
+      fetchInvoices();
+    };
+    this.listeners.add(listener);
+
+    return () => {
+      active = false;
+      clearInterval(intervalId);
+      this.listeners.delete(listener);
+    };
   }
 
   static subscribeUnpaidInvoices(onNext: (data: Invoice[]) => void): () => void {
-    return this.listenToCollection<Invoice>('invoices', onNext, where('status', '==', 'UNPAID'));
+    let active = true;
+
+    const fetchUnpaid = async () => {
+      try {
+        const res = await fetch(getApiUrl('/api/invoices?status=UNPAID&limit=500'));
+        if (!res.ok) return;
+        const json = await res.json();
+        if (json.success && Array.isArray(json.invoices) && active) {
+          onNext(json.invoices);
+        }
+      } catch (err) {
+        console.warn('[InvoiceService] Error polling unpaid invoices:', err);
+      }
+    };
+
+    fetchUnpaid();
+
+    // Polling every 15 seconds (non-aggressive)
+    const intervalId = setInterval(fetchUnpaid, 15000);
+
+    const listener = () => {
+      fetchUnpaid();
+    };
+    this.listeners.add(listener);
+
+    return () => {
+      active = false;
+      clearInterval(intervalId);
+      this.listeners.delete(listener);
+    };
   }
 
   static async getRecentInvoices(limitCount = 10): Promise<Invoice[]> {
     try {
-      const colRef = collection(db, 'invoices');
-      const q = query(colRef, orderBy('createdAt', 'desc'), limit(limitCount));
-      const snap = await getDocs(q);
-      return snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Invoice));
+      const res = await fetch(getApiUrl(`/api/invoices?limit=${limitCount}`));
+      if (!res.ok) return [];
+      const json = await res.json();
+      return json.success && Array.isArray(json.invoices) ? json.invoices : [];
     } catch (err) {
-      if (isQuotaExceeded(err)) {
-        console.warn('[InvoiceService] Quota exceeded on getRecentInvoices, skipping fallback');
-        return [];
-      }
-      console.warn('[InvoiceService] Error fetching recent invoices with orderBy, falling back:', err);
-      const colRef = collection(db, 'invoices');
-      const q = query(colRef, limit(limitCount));
-      const snap = await getDocs(q);
-      return snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Invoice));
+      console.warn('[InvoiceService] Error fetching recent invoices:', err);
+      return [];
     }
   }
 
   static async getInvoiceByPublicToken(publicToken: string): Promise<Invoice | null> {
     try {
-      const ref = collection(db, 'invoices');
-      
-      // 1. Try publicToken
-      const q = query(ref, where('publicToken', '==', publicToken));
-      const snap = await getDocs(q);
-      if (!snap.empty) {
-        const docSnap = snap.docs[0];
-        return { id: docSnap.id, ...docSnap.data() } as Invoice;
-      }
-
-      // 2. Try legacyPublicUrl (https and http with exact or decoded slug)
-      const decoded = decodeURIComponent(publicToken);
-      const possibleUrls = [
-        `https://notarisputri.web.id/INV/${publicToken}`,
-        `https://notarisputri.web.id/INV/${decoded}`,
-        `http://notarisputri.web.id/INV/${publicToken}`,
-        `http://notarisputri.web.id/INV/${decoded}`
-      ];
-
-      for (const url of possibleUrls) {
-        const qUrl = query(ref, where('legacyPublicUrl', '==', url));
-        const snapUrl = await getDocs(qUrl);
-        if (!snapUrl.empty) {
-          const docSnap = snapUrl.docs[0];
-          return { id: docSnap.id, ...docSnap.data() } as Invoice;
-        }
-      }
-
-      // 3. Try document ID
-      const qId = query(ref, where('id', '==', publicToken));
-      const snapId = await getDocs(qId);
-      if (!snapId.empty) {
-        const docSnap = snapId.docs[0];
-        return { id: docSnap.id, ...docSnap.data() } as Invoice;
-      }
-
-      return null;
+      const encodedToken = encodeURIComponent(publicToken);
+      const res = await fetch(getApiUrl(`/api/invoices/public/${encodedToken}`));
+      if (!res.ok) return null;
+      const json = await res.json();
+      return json.success && json.invoice ? json.invoice : null;
     } catch (error) {
       console.error('[InvoiceService] Error fetching invoice by public token:', error);
       return null;
@@ -84,28 +121,68 @@ export class InvoiceService extends FirestoreService {
   }
 
   static async addInvoice(data: Omit<Invoice, 'id'>): Promise<string> {
-    const docId = `inv_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+    const docId = `inv_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
     const now = new Date().toISOString();
     const publicToken = data.publicToken || generateShortPublicToken();
-    await this.setDocument('invoices', docId, {
+
+    const payload: Invoice = {
       ...data,
       id: docId,
       publicToken,
-      createdAt: now,
+      createdAt: data.createdAt || now,
       updatedAt: now
+    };
+
+    const res = await fetch(getApiUrl('/api/invoices'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
     });
-    return docId;
+
+    if (!res.ok) {
+      const errJson = await res.json().catch(() => ({}));
+      throw new Error(errJson.error || `Failed to add invoice (${res.status})`);
+    }
+
+    const resJson = await res.json();
+    const createdId = resJson.id || docId;
+
+    this.notifyListeners();
+    return createdId;
   }
 
   static async updateInvoice(id: string, data: Partial<Invoice>): Promise<void> {
-    await this.updateDocument('invoices', id, {
+    const now = new Date().toISOString();
+    const payload = {
       ...data,
-      updatedAt: new Date().toISOString()
+      updatedAt: now
+    };
+
+    const res = await fetch(getApiUrl(`/api/invoices/${encodeURIComponent(id)}`), {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
     });
+
+    if (!res.ok) {
+      const errJson = await res.json().catch(() => ({}));
+      throw new Error(errJson.error || `Failed to update invoice (${res.status})`);
+    }
+
+    this.notifyListeners();
   }
 
   static async deleteInvoice(id: string): Promise<void> {
-    await this.deleteDocument('invoices', id);
+    const res = await fetch(getApiUrl(`/api/invoices/${encodeURIComponent(id)}`), {
+      method: 'DELETE'
+    });
+
+    if (!res.ok) {
+      const errJson = await res.json().catch(() => ({}));
+      throw new Error(errJson.error || `Failed to delete invoice (${res.status})`);
+    }
+
+    this.notifyListeners();
   }
 
   static async addPayment(invoiceId: string, currentInvoice: Invoice, payment: Omit<PaymentRecord, 'id'>): Promise<void> {

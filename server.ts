@@ -15,6 +15,14 @@ import { mintFirebaseCustomToken } from "./src/lib/customTokenSigner";
 import { normalizeCompanyName, getUniqueClientKey } from "./src/utils/sanitize";
 import { getLocalD1Database } from "./src/lib/sqlite-d1";
 import { processD1JsonMigration, ensureD1TablesExist } from "./src/services/d1MigrationService";
+import {
+  getAllInvoicesD1,
+  getInvoiceByIdD1,
+  getInvoiceByPublicTokenD1,
+  createInvoiceD1,
+  updateInvoiceD1,
+  deleteInvoiceD1
+} from "./src/lib/d1InvoiceRepository";
 
 async function startServer() {
   const app = express();
@@ -181,6 +189,109 @@ async function startServer() {
     } catch (err: any) {
       console.error("[Clients D1 API] Query failed:", err);
       res.status(500).json({ success: false, error: err?.message || "Query failed" });
+    }
+  });
+
+  // D1 Invoices Endpoints
+  app.get("/api/invoices", async (req, res) => {
+    try {
+      const db = getLocalD1Database();
+      const limit = req.query.limit ? parseInt(String(req.query.limit), 10) : undefined;
+      const offset = req.query.offset ? parseInt(String(req.query.offset), 10) : undefined;
+      const search = (req.query.search || req.query.q) ? String(req.query.search || req.query.q) : undefined;
+      const status = req.query.status ? String(req.query.status) : undefined;
+
+      const result = await getAllInvoicesD1(db, { limit, offset, search, status });
+      res.json(result);
+    } catch (err: any) {
+      console.error("[Invoices D1 API] Error fetching invoices:", err);
+      res.status(500).json({ success: false, error: err?.message || "Failed to fetch invoices" });
+    }
+  });
+
+  app.get("/api/invoices/public/:token", async (req, res) => {
+    try {
+      const db = getLocalD1Database();
+      const token = req.params.token;
+      if (!token) {
+        return res.status(400).json({ success: false, error: "Token is required" });
+      }
+
+      const result = await getInvoiceByPublicTokenD1(db, token);
+      if (!result.success) {
+        return res.status(404).json(result);
+      }
+      res.json(result);
+    } catch (err: any) {
+      console.error("[Invoices D1 API] Error fetching invoice by public token:", err);
+      res.status(500).json({ success: false, error: err?.message || "Failed to fetch invoice" });
+    }
+  });
+
+  app.get("/api/invoices/:id", async (req, res) => {
+    try {
+      const db = getLocalD1Database();
+      const id = req.params.id;
+      if (!id) {
+        return res.status(400).json({ success: false, error: "Invoice ID is required" });
+      }
+
+      const result = await getInvoiceByIdD1(db, id);
+      if (!result.success) {
+        return res.status(404).json(result);
+      }
+      res.json(result);
+    } catch (err: any) {
+      console.error("[Invoices D1 API] Error fetching invoice by ID:", err);
+      res.status(500).json({ success: false, error: err?.message || "Failed to fetch invoice" });
+    }
+  });
+
+  app.post("/api/invoices", async (req, res) => {
+    try {
+      const db = getLocalD1Database();
+      const payload = req.body || {};
+      const result = await createInvoiceD1(db, payload);
+      res.status(201).json(result);
+    } catch (err: any) {
+      console.error("[Invoices D1 API] Error creating invoice:", err);
+      res.status(500).json({ success: false, error: err?.message || "Failed to create invoice" });
+    }
+  });
+
+  app.put("/api/invoices/:id", async (req, res) => {
+    try {
+      const db = getLocalD1Database();
+      const id = req.params.id;
+      if (!id) {
+        return res.status(400).json({ success: false, error: "Invoice ID is required" });
+      }
+
+      const payload = req.body || {};
+      const result = await updateInvoiceD1(db, id, payload);
+      if (!result.success) {
+        return res.status(404).json(result);
+      }
+      res.json(result);
+    } catch (err: any) {
+      console.error("[Invoices D1 API] Error updating invoice:", err);
+      res.status(500).json({ success: false, error: err?.message || "Failed to update invoice" });
+    }
+  });
+
+  app.delete("/api/invoices/:id", async (req, res) => {
+    try {
+      const db = getLocalD1Database();
+      const id = req.params.id;
+      if (!id) {
+        return res.status(400).json({ success: false, error: "Invoice ID is required" });
+      }
+
+      const result = await deleteInvoiceD1(db, id);
+      res.json(result);
+    } catch (err: any) {
+      console.error("[Invoices D1 API] Error deleting invoice:", err);
+      res.status(500).json({ success: false, error: err?.message || "Failed to delete invoice" });
     }
   });
 
