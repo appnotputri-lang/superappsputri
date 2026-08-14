@@ -13,6 +13,8 @@ import { DocumentController } from "./src/controllers/DocumentController";
 import { verifyForeignFirebaseIdToken } from "./src/lib/foreignTokenVerify";
 import { mintFirebaseCustomToken } from "./src/lib/customTokenSigner";
 import { normalizeCompanyName, getUniqueClientKey } from "./src/utils/sanitize";
+import { getLocalD1Database } from "./src/lib/sqlite-d1";
+import { processD1JsonMigration, ensureD1TablesExist } from "./src/services/d1MigrationService";
 
 async function startServer() {
   const app = express();
@@ -56,6 +58,129 @@ async function startServer() {
     } catch (err: any) {
       console.error("[D1 Test API] Server Error:", err);
       res.status(500).json({ success: false, error: err?.message || "D1 query failed" });
+    }
+  });
+
+  // D1 JSON Migration Endpoint (Invoices, Quotations, Products)
+  app.post("/api/migration/d1-import", async (req, res) => {
+    try {
+      const db = getLocalD1Database();
+      const payload = req.body || {};
+      console.log(`[D1 Migration API] Received migration request: ${payload.invoices?.length || 0} invoices, ${payload.quotations?.length || 0} quotations, ${payload.products?.length || 0} products.`);
+      
+      const result = await processD1JsonMigration(db, payload);
+      res.json(result);
+    } catch (err: any) {
+      console.error("[D1 Migration API] Migration failed:", err);
+      res.status(500).json({ success: false, error: err?.message || "Migration process failed" });
+    }
+  });
+
+  // D1 Migration Stats Endpoint
+  app.get("/api/migration/d1-stats", async (req, res) => {
+    try {
+      const db = getLocalD1Database();
+      await ensureD1TablesExist(db);
+      
+      const invoicesCount = (await db.prepare("SELECT count(*) as cnt FROM invoices").first())?.cnt || 0;
+      const quotationsCount = (await db.prepare("SELECT count(*) as cnt FROM quotations").first())?.cnt || 0;
+      const productsCount = (await db.prepare("SELECT count(*) as cnt FROM products").first())?.cnt || 0;
+      const clientsCount = (await db.prepare("SELECT count(*) as cnt FROM client_directory").first())?.cnt || 0;
+
+      res.json({
+        success: true,
+        counts: {
+          invoices: Number(invoicesCount),
+          quotations: Number(quotationsCount),
+          products: Number(productsCount),
+          clients: Number(clientsCount)
+        }
+      });
+    } catch (err: any) {
+      console.error("[D1 Stats API] Failed to fetch stats:", err);
+      res.status(500).json({ success: false, error: err?.message || "Failed to fetch stats" });
+    }
+  });
+
+  // D1 Clients Endpoint (matching Cloudflare Pages function)
+  app.get("/api/clients", async (req, res) => {
+    try {
+      const db = getLocalD1Database();
+      await ensureD1TablesExist(db);
+
+      const limitVal = Math.min(Math.max(1, parseInt(String(req.query.limit || '15'))), 50);
+      const offsetVal = Math.max(0, parseInt(String(req.query.offset || '0')));
+      const clientType = req.query.clientType ? String(req.query.clientType) : null;
+      const archived = req.query.archived ? String(req.query.archived) : null;
+      const searchVal = (req.query.search || req.query.q) ? String(req.query.search || req.query.q) : null;
+
+      let sql = `SELECT * FROM client_directory`;
+      const conditions: string[] = [];
+      const params: any[] = [];
+
+      if (clientType) {
+        conditions.push(`client_type = ?`);
+        params.push(clientType);
+      }
+
+      if (archived === 'false') {
+        conditions.push(`is_archived = 0`);
+      } else if (archived === 'true') {
+        conditions.push(`is_archived = 1`);
+      }
+
+      if (searchVal) {
+        const words = searchVal.trim().toLowerCase().split(/\s+/).filter(Boolean);
+        for (const word of words) {
+          conditions.push(`(LOWER(company_name) LIKE ? OR LOWER(search_name) LIKE ? OR LOWER(client_type) LIKE ?)`);
+          params.push(`%${word}%`, `%${word}%`, `%${word}%`);
+        }
+      }
+
+      if (conditions.length > 0) {
+        sql += ` WHERE ` + conditions.join(' AND ');
+      }
+
+      sql += ` ORDER BY company_name ASC LIMIT ? OFFSET ?`;
+      params.push(limitVal, offsetVal);
+
+      const queryRes = await db.prepare(sql).bind(...params).all();
+      const rows = queryRes.results || [];
+
+      const formattedRows = rows.map((row: any) => {
+        let searchTokens = [];
+        try { if (row.search_tokens) searchTokens = JSON.parse(row.search_tokens); } catch (e) {}
+        let kbliItems = [];
+        try { if (row.kbli_items) kbliItems = JSON.parse(row.kbli_items); } catch (e) {}
+
+        return {
+          id: row.id,
+          clientId: row.client_id,
+          companyName: row.company_name,
+          searchName: row.search_name,
+          searchTokens,
+          clientType: row.client_type,
+          companyType: row.company_type,
+          domicile: row.domicile,
+          establishmentDeedDate: row.establishment_deed_date,
+          establishmentYear: row.establishment_year,
+          updatedAt: row.updated_at,
+          isArchived: row.is_archived === 1,
+          npwp: row.npwp,
+          kbliItems
+        };
+      });
+
+      res.json({
+        success: true,
+        count: formattedRows.length,
+        limit: limitVal,
+        offset: offsetVal,
+        clients: formattedRows
+      });
+    } catch (err: any) {
+      console.error("[Clients D1 API] Query failed:", err);
+      res.status(500).json({ success: false, error: err?.message || "Query failed" });
     }
   });
 

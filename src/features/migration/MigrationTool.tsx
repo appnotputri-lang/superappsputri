@@ -10,16 +10,165 @@ import { getApiUrl, getAuthHeaders } from '../../lib/api';
 export default function MigrationTool() {
   const [logs, setLogs] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
-  const [importFiles, setImportFiles] = useState<{ deeds?: any[]; private_deeds?: any[]; outgoing_mails?: any[]; invoices?: any[]; documents?: any[]; quotations?: any[] }>({});
+  const [importFiles, setImportFiles] = useState<{ deeds?: any[]; private_deeds?: any[]; outgoing_mails?: any[]; invoices?: any[]; documents?: any[]; quotations?: any[]; products?: any[] }>({});
 
   const [d1MigrationResult, setD1MigrationResult] = useState<any>(null);
+  const [d1JsonResult, setD1JsonResult] = useState<any>(null);
   const [d1Loading, setD1Loading] = useState(false);
+  const [d1JsonLoading, setD1JsonLoading] = useState(false);
   const [apiTestResults, setApiTestResults] = useState<any[]>([]);
   const [apiTesting, setApiTesting] = useState(false);
 
   const addLog = (msg: string) => {
     setLogs(prev => [...prev, msg]);
     console.log(msg);
+  };
+
+  const runD1JsonMigration = async () => {
+    setD1JsonLoading(true);
+    setLogs([]);
+    addLog("=== MEMULAI MIGRASI JSON -> CLOUDFLARE D1 (INVOICES, QUOTATIONS, PRODUCTS) ===");
+    addLog("Sumber data: JSON File Export (Firestore Read = 0)");
+    
+    try {
+      const invCount = importFiles.invoices?.length || 0;
+      const quoCount = importFiles.quotations?.length || 0;
+      const prodCount = importFiles.products?.length || 0;
+
+      if (invCount === 0 && quoCount === 0 && prodCount === 0) {
+        addLog("Peringatan: Belum ada file JSON (invoices, quotations, products) yang dimuat. Silakan upload file JSON atau klik 'Muat Contoh JSON'.");
+      }
+
+      addLog(`Mengirim payload ke API: ${invCount} invoices, ${quoCount} quotations, ${prodCount} products...`);
+      
+      const headers = await getAuthHeaders();
+      const response = await fetch(getApiUrl('/api/migration/d1-import'), {
+        method: 'POST',
+        headers: {
+          ...headers,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          invoices: importFiles.invoices || [],
+          quotations: importFiles.quotations || [],
+          products: importFiles.products || []
+        })
+      });
+
+      const result = await response.json() as any;
+      if (!response.ok) {
+        throw new Error(result.error || "Gagal menjalankan import D1");
+      }
+
+      setD1JsonResult(result);
+      addLog("\n=======================================================");
+      addLog("=== LAPORAN HASIL MIGRASI JSON -> CLOUDFLARE D1 ===");
+      addLog("=======================================================");
+      addLog(`Total Firestore Reads: ${result.firestoreReadCount} (GARANSI 0 READS)`);
+      
+      addLog("\n[INVOICES]");
+      addLog(`JSON count: ${result.invoices.jsonCount}`);
+      addLog(`D1 count: ${result.invoices.d1Count}`);
+      addLog(`Migrated: ${result.invoices.migrated}`);
+      addLog(`Failed: ${result.invoices.failed}`);
+      addLog(`Validated: ${result.invoices.validatedCount}`);
+
+      addLog("\n[QUOTATIONS]");
+      addLog(`JSON count: ${result.quotations.jsonCount}`);
+      addLog(`D1 count: ${result.quotations.d1Count}`);
+      addLog(`Migrated: ${result.quotations.migrated}`);
+      addLog(`Failed: ${result.quotations.failed}`);
+      addLog(`Validated: ${result.quotations.validatedCount}`);
+
+      addLog("\n[PRODUCTS]");
+      addLog(`JSON count: ${result.products.jsonCount}`);
+      addLog(`D1 count: ${result.products.d1Count}`);
+      addLog(`Migrated: ${result.products.migrated}`);
+      addLog(`Failed: ${result.products.failed}`);
+      addLog(`Validated: ${result.products.validatedCount}`);
+
+      addLog(`\nStatus Migrasi Keseluruhan: ${result.success ? "✓ SEMPURNA & VALID" : "✗ PERIKSA LOG/SAMPEL"}`);
+
+    } catch (err: any) {
+      addLog(`ERROR MIGRASI D1: ${err.message}`);
+    } finally {
+      setD1JsonLoading(false);
+    }
+  };
+
+  const loadSampleJsonData = () => {
+    const sampleProducts = Array.from({ length: 35 }, (_, i) => ({
+      id: `prod-sample-${i + 1}`,
+      name: `Produk Jasa Hukum ${i + 1}`,
+      unitPrice: 500000 + i * 150000,
+      description: `Deskripsi layanan hukum dan kenotariatan paket ${i + 1}`,
+      isTaxed: i % 2 === 0,
+      category: i % 3 === 0 ? 'Notaris' : i % 3 === 1 ? 'PPAT' : 'Konsultasi',
+      createdAt: new Date(Date.now() - (35 - i) * 86400000).toISOString(),
+      updatedAt: new Date(Date.now() - (35 - i) * 86400000).toISOString()
+    }));
+
+    const sampleQuotations = Array.from({ length: 35 }, (_, i) => ({
+      id: `quo-sample-${i + 1}`,
+      quotationNumber: `QUO-2025-${String(i + 1).padStart(4, '0')}`,
+      date: new Date(Date.now() - (35 - i) * 86400000).toISOString().split('T')[0],
+      validUntil: new Date(Date.now() + (30 + i) * 86400000).toISOString().split('T')[0],
+      clientId: `client-${(i % 10) + 1}`,
+      clientName: `PT Nusantara Sukses ${i + 1}`,
+      clientAddress: `Jl. Jenderal Sudirman No. ${i + 10}, Jakarta`,
+      clientPhone: `0812345678${String(i).padStart(2, '0')}`,
+      clientEmail: `info@nusantara${i + 1}.co.id`,
+      clientSource: 'local',
+      items: [
+        { id: `item-1`, description: `Akta Pendirian PT ${i + 1}`, quantity: 1, unitPrice: 7500000 + i * 500000, amount: 7500000 + i * 500000 }
+      ],
+      subtotal: 7500000 + i * 500000,
+      taxAmount: (7500000 + i * 500000) * 0.11,
+      taxRate: 0.11,
+      discount: 0,
+      totalAmount: (7500000 + i * 500000) * 1.11,
+      status: i % 4 === 0 ? 'DRAFT' : i % 4 === 1 ? 'SENT' : i % 4 === 2 ? 'ACCEPTED' : 'REJECTED',
+      notes: `Penawaran harga pekerjaan notariat ke-${i + 1}`,
+      jobTitle: `Pendirian PT Nusantara ${i + 1}`,
+      createdAt: new Date(Date.now() - (35 - i) * 86400000).toISOString(),
+      updatedAt: new Date(Date.now() - (35 - i) * 86400000).toISOString()
+    }));
+
+    const sampleInvoices = Array.from({ length: 35 }, (_, i) => ({
+      id: `inv-sample-${i + 1}`,
+      invoiceNumber: `INV-2025-${String(i + 1).padStart(4, '0')}`,
+      clientId: `client-${(i % 10) + 1}`,
+      clientName: `PT Nusantara Sukses ${i + 1}`,
+      clientSource: 'local',
+      clientEmail: `finance@nusantara${i + 1}.co.id`,
+      clientPhone: `0812345678${String(i).padStart(2, '0')}`,
+      clientAddress: `Jl. Jenderal Sudirman No. ${i + 10}, Jakarta`,
+      issueDate: new Date(Date.now() - (35 - i) * 86400000).toISOString().split('T')[0],
+      dueDate: new Date(Date.now() + 14 * 86400000).toISOString().split('T')[0],
+      status: i % 3 === 0 ? 'PAID' : i % 3 === 1 ? 'UNPAID' : 'PARTIALLY_PAID',
+      items: [
+        { id: `inv-item-1`, description: `Jasa Pembuatan Akta & SK Kemenkumham ${i + 1}`, quantity: 1, unitPrice: 7500000 + i * 500000, amount: 7500000 + i * 500000 }
+      ],
+      subtotal: 7500000 + i * 500000,
+      taxAmount: (7500000 + i * 500000) * 0.11,
+      taxRate: 0.11,
+      discount: 0,
+      totalAmount: (7500000 + i * 500000) * 1.11,
+      paidAmount: i % 3 === 0 ? (7500000 + i * 500000) * 1.11 : 0,
+      balanceDue: i % 3 === 0 ? 0 : (7500000 + i * 500000) * 1.11,
+      currency: 'IDR',
+      quotationNumber: `QUO-2025-${String(i + 1).padStart(4, '0')}`,
+      createdAt: new Date(Date.now() - (35 - i) * 86400000).toISOString(),
+      updatedAt: new Date(Date.now() - (35 - i) * 86400000).toISOString()
+    }));
+
+    setImportFiles(prev => ({
+      ...prev,
+      invoices: sampleInvoices,
+      quotations: sampleQuotations,
+      products: sampleProducts
+    }));
+    addLog("Berhasil memuat 35 Contoh Invoices, 35 Contoh Quotations, dan 35 Contoh Products untuk simulasi migrasi D1.");
   };
 
   const runD1Migration = async () => {
@@ -519,7 +668,7 @@ export default function MigrationTool() {
   // yang sama seperti aslinya supaya aman dijalankan ulang tanpa duplikat.
   // ============================================================================
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, key: 'deeds' | 'private_deeds' | 'outgoing_mails' | 'invoices' | 'documents' | 'quotations') => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, key: 'deeds' | 'private_deeds' | 'outgoing_mails' | 'invoices' | 'documents' | 'quotations' | 'products') => {
     const file = e.target.files?.[0];
     if (!file) return;
     try {
@@ -527,7 +676,7 @@ export default function MigrationTool() {
       const parsed = JSON.parse(text);
       if (!Array.isArray(parsed)) throw new Error('File harus berisi array JSON.');
       setImportFiles(prev => ({ ...prev, [key]: parsed }));
-      addLog(`File ${file.name} dimuat: ${parsed.length} dokumen.`);
+      addLog(`File ${file.name} dimuat: ${parsed.length} dokumen (${key}).`);
     } catch (err: any) {
       alert(`Gagal membaca file: ${err.message}`);
     }
@@ -1016,6 +1165,192 @@ export default function MigrationTool() {
         <div className="bg-slate-900 text-green-400 p-4 rounded-lg font-mono text-sm h-96 overflow-y-auto whitespace-pre-wrap border border-slate-800">
           {logs.length === 0 ? "Click 'Run Dry Run' to preview changes..." : logs.join('\n')}
         </div>
+      </div>
+
+      {/* D1 JSON MIGRATION CARD (INVOICES, QUOTATIONS, PRODUCTS) */}
+      <div className="bg-white p-6 rounded-xl border-2 border-indigo-200 shadow-sm space-y-6 mt-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <Database className="w-5 h-5 text-indigo-600" />
+              <h3 className="text-base font-bold text-slate-800">
+                Migrasi Invoices, Quotations, & Products ke Cloudflare D1
+              </h3>
+            </div>
+            <p className="text-xs text-slate-500 mt-1">
+              Sumber data <strong>murni dari file JSON</strong> (Bukan Firestore). Firestore Read saat migrasi = <strong>0</strong>. 
+              Menggunakan skema D1 (SQLite), memelihara ID dokumen asli dari JSON, dan mendukung Idempotent Upsert.
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+              Firestore Read: 0
+            </span>
+            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+              Cloudflare D1 Ready
+            </span>
+          </div>
+        </div>
+
+        {/* File Upload Slots */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <label className={`flex flex-col items-center justify-center p-4 border-2 border-dashed rounded-xl cursor-pointer transition-all text-center ${importFiles.invoices ? 'border-emerald-400 bg-emerald-50/40' : 'border-slate-300 hover:bg-slate-50'}`}>
+            <Upload className={`w-5 h-5 mb-2 ${importFiles.invoices ? 'text-emerald-600' : 'text-slate-400'}`} />
+            <span className="text-xs font-bold text-slate-800">export_invoices.json</span>
+            <span className="text-[11px] text-slate-500 mt-0.5">
+              {importFiles.invoices ? `✓ ${importFiles.invoices.length} invoices siap diimpor` : 'Klik untuk upload file JSON Invoices'}
+            </span>
+            <input type="file" accept=".json" className="hidden" onChange={(e) => handleFileUpload(e, 'invoices')} />
+          </label>
+
+          <label className={`flex flex-col items-center justify-center p-4 border-2 border-dashed rounded-xl cursor-pointer transition-all text-center ${importFiles.quotations ? 'border-emerald-400 bg-emerald-50/40' : 'border-slate-300 hover:bg-slate-50'}`}>
+            <Upload className={`w-5 h-5 mb-2 ${importFiles.quotations ? 'text-emerald-600' : 'text-slate-400'}`} />
+            <span className="text-xs font-bold text-slate-800">export_quotations.json</span>
+            <span className="text-[11px] text-slate-500 mt-0.5">
+              {importFiles.quotations ? `✓ ${importFiles.quotations.length} quotations siap diimpor` : 'Klik untuk upload file JSON Quotations'}
+            </span>
+            <input type="file" accept=".json" className="hidden" onChange={(e) => handleFileUpload(e, 'quotations')} />
+          </label>
+
+          <label className={`flex flex-col items-center justify-center p-4 border-2 border-dashed rounded-xl cursor-pointer transition-all text-center ${importFiles.products ? 'border-emerald-400 bg-emerald-50/40' : 'border-slate-300 hover:bg-slate-50'}`}>
+            <Upload className={`w-5 h-5 mb-2 ${importFiles.products ? 'text-emerald-600' : 'text-slate-400'}`} />
+            <span className="text-xs font-bold text-slate-800">export_products.json</span>
+            <span className="text-[11px] text-slate-500 mt-0.5">
+              {importFiles.products ? `✓ ${importFiles.products.length} products siap diimpor` : 'Klik untuk upload file JSON Products'}
+            </span>
+            <input type="file" accept=".json" className="hidden" onChange={(e) => handleFileUpload(e, 'products')} />
+          </label>
+        </div>
+
+        {/* Action Controls */}
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            onClick={runD1JsonMigration}
+            disabled={d1JsonLoading}
+            className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold shadow-sm transition-all cursor-pointer disabled:opacity-50 flex items-center gap-2"
+          >
+            <Database className="w-4 h-4" />
+            {d1JsonLoading ? "Memproses Migrasi & Validasi..." : "Jalankan Migrasi & Validasi D1 (JSON Source)"}
+          </button>
+
+          <button
+            onClick={loadSampleJsonData}
+            disabled={d1JsonLoading}
+            className="px-4 py-2.5 border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 rounded-lg text-xs font-semibold transition-all cursor-pointer"
+          >
+            Muat Contoh Data Uji (Demo / Testing)
+          </button>
+        </div>
+
+        {/* Report Output Box */}
+        {d1JsonResult && (
+          <div className="space-y-4 pt-2">
+            <div className="flex items-center justify-between bg-slate-900 text-white p-3.5 rounded-lg">
+              <div className="flex items-center gap-2">
+                <span className={`w-2.5 h-2.5 rounded-full ${d1JsonResult.success ? 'bg-emerald-400' : 'bg-rose-400'}`} />
+                <span className="text-xs font-bold">
+                  Status Migrasi: {d1JsonResult.success ? "BERHASIL & VALID 100%" : "PERINGATAN / GAGAL"}
+                </span>
+              </div>
+              <span className="text-[11px] font-mono text-emerald-400">
+                Firestore Reads: {d1JsonResult.firestoreReadCount}
+              </span>
+            </div>
+
+            {/* Summary Format Matrix */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Invoices Summary */}
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-2">
+                <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                  <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">INVOICES</span>
+                  <span className={`text-[11px] font-bold px-2 py-0.5 rounded ${d1JsonResult.invoices.isValid ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}`}>
+                    {d1JsonResult.invoices.isValid ? 'VALID' : 'INVALID'}
+                  </span>
+                </div>
+                <div className="text-xs font-mono space-y-1 text-slate-700">
+                  <div className="flex justify-between"><span>JSON count:</span> <strong className="font-bold">{d1JsonResult.invoices.jsonCount}</strong></div>
+                  <div className="flex justify-between"><span>D1 count:</span> <strong className="font-bold">{d1JsonResult.invoices.d1Count}</strong></div>
+                  <div className="flex justify-between text-emerald-700"><span>Migrated:</span> <strong>{d1JsonResult.invoices.migrated}</strong></div>
+                  <div className="flex justify-between text-rose-600"><span>Failed:</span> <strong>{d1JsonResult.invoices.failed}</strong></div>
+                  <div className="pt-1 border-t border-slate-200 text-[11px] text-slate-600">
+                    Validated: <strong>{d1JsonResult.invoices.validatedCount}</strong>
+                  </div>
+                </div>
+              </div>
+
+              {/* Quotations Summary */}
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-2">
+                <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                  <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">QUOTATIONS</span>
+                  <span className={`text-[11px] font-bold px-2 py-0.5 rounded ${d1JsonResult.quotations.isValid ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}`}>
+                    {d1JsonResult.quotations.isValid ? 'VALID' : 'INVALID'}
+                  </span>
+                </div>
+                <div className="text-xs font-mono space-y-1 text-slate-700">
+                  <div className="flex justify-between"><span>JSON count:</span> <strong className="font-bold">{d1JsonResult.quotations.jsonCount}</strong></div>
+                  <div className="flex justify-between"><span>D1 count:</span> <strong className="font-bold">{d1JsonResult.quotations.d1Count}</strong></div>
+                  <div className="flex justify-between text-emerald-700"><span>Migrated:</span> <strong>{d1JsonResult.quotations.migrated}</strong></div>
+                  <div className="flex justify-between text-rose-600"><span>Failed:</span> <strong>{d1JsonResult.quotations.failed}</strong></div>
+                  <div className="pt-1 border-t border-slate-200 text-[11px] text-slate-600">
+                    Validated: <strong>{d1JsonResult.quotations.validatedCount}</strong>
+                  </div>
+                </div>
+              </div>
+
+              {/* Products Summary */}
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-2">
+                <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                  <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">PRODUCTS</span>
+                  <span className={`text-[11px] font-bold px-2 py-0.5 rounded ${d1JsonResult.products.isValid ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}`}>
+                    {d1JsonResult.products.isValid ? 'VALID' : 'INVALID'}
+                  </span>
+                </div>
+                <div className="text-xs font-mono space-y-1 text-slate-700">
+                  <div className="flex justify-between"><span>JSON count:</span> <strong className="font-bold">{d1JsonResult.products.jsonCount}</strong></div>
+                  <div className="flex justify-between"><span>D1 count:</span> <strong className="font-bold">{d1JsonResult.products.d1Count}</strong></div>
+                  <div className="flex justify-between text-emerald-700"><span>Migrated:</span> <strong>{d1JsonResult.products.migrated}</strong></div>
+                  <div className="flex justify-between text-rose-600"><span>Failed:</span> <strong>{d1JsonResult.products.failed}</strong></div>
+                  <div className="pt-1 border-t border-slate-200 text-[11px] text-slate-600">
+                    Validated: <strong>{d1JsonResult.products.validatedCount}</strong>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Validation Breakdown Preview */}
+            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs">
+              <h5 className="font-bold text-slate-700 mb-2">Sampel Validasi Otomatis (10 Awal, 10 Acak, 10 Akhir):</h5>
+              <div className="space-y-1 font-mono text-[11px] max-h-48 overflow-y-auto bg-white p-3 rounded border border-slate-200">
+                <div className="font-bold text-indigo-700 mb-1">Invoices ({d1JsonResult.invoices.samples.length} sampel):</div>
+                {d1JsonResult.invoices.samples.map((s: any, idx: number) => (
+                  <div key={idx} className={`flex items-center gap-2 ${s.match ? 'text-emerald-700' : 'text-rose-600'}`}>
+                    <span>[{s.type}]</span>
+                    <span>ID: {s.id}</span>
+                    <span>- {s.match ? '✓ COCOK' : `✗ MISMATCH (${s.mismatches?.map((m: any) => m.field).join(', ')})`}</span>
+                  </div>
+                ))}
+
+                <div className="font-bold text-indigo-700 mt-2 mb-1">Quotations ({d1JsonResult.quotations.samples.length} sampel):</div>
+                {d1JsonResult.quotations.samples.map((s: any, idx: number) => (
+                  <div key={idx} className={`flex items-center gap-2 ${s.match ? 'text-emerald-700' : 'text-rose-600'}`}>
+                    <span>[{s.type}]</span>
+                    <span>ID: {s.id}</span>
+                    <span>- {s.match ? '✓ COCOK' : `✗ MISMATCH (${s.mismatches?.map((m: any) => m.field).join(', ')})`}</span>
+                  </div>
+                ))}
+
+                <div className="font-bold text-indigo-700 mt-2 mb-1">Products ({d1JsonResult.products.samples.length} sampel):</div>
+                {d1JsonResult.products.samples.map((s: any, idx: number) => (
+                  <div key={idx} className={`flex items-center gap-2 ${s.match ? 'text-emerald-700' : 'text-rose-600'}`}>
+                    <span>[{s.type}]</span>
+                    <span>ID: {s.id}</span>
+                    <span>- {s.match ? '✓ COCOK' : `✗ MISMATCH (${s.mismatches?.map((m: any) => m.field).join(', ')})`}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="bg-white p-6 rounded-xl border border-slate-200/80 shadow-sm space-y-6 mt-6">
