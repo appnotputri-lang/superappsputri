@@ -6,16 +6,8 @@ import { collection, getDocs, doc, writeBatch } from 'firebase/firestore';
 import { generateShortPublicToken } from '../../services/QuotationService';
 import { CompanyService } from '../../services/CompanyService';
 import { getApiUrl, getAuthHeaders } from '../../lib/api';
-import {
-  HISTORICAL_DEEDS,
-  HISTORICAL_PRIVATE_DEEDS,
-  HISTORICAL_INCOMING_MAILS,
-  HISTORICAL_OUTGOING_MAILS,
-  HISTORICAL_PROTEST_CHEQUES,
-  HISTORICAL_GENERAL_DOCUMENTS,
-  HISTORICAL_KBLI_MAPPINGS,
-  HISTORICAL_KBLI_SUGGESTIONS
-} from '../../data/historicalDataLoader';
+import { HISTORICAL_KBLI_MAPPINGS, HISTORICAL_KBLI_SUGGESTIONS } from '../../data/kbliHistoricalRecords';
+import { HISTORICAL_GENERAL_DOCUMENTS } from '../../data/generalDocumentsHistorical';
 
 export default function MigrationTool() {
   const [logs, setLogs] = useState<string[]>([]);
@@ -59,11 +51,11 @@ export default function MigrationTool() {
       const kbliMapCount = importFiles.kbliMappings?.length || HISTORICAL_KBLI_MAPPINGS.length;
       const kbliSuggCount = importFiles.kbliSuggestions?.length || HISTORICAL_KBLI_SUGGESTIONS.length;
 
-      const deedCount = importFiles.deeds?.length || HISTORICAL_DEEDS.length;
-      const pdeedCount = importFiles.private_deeds?.length || HISTORICAL_PRIVATE_DEEDS.length;
-      const inmailCount = importFiles.incoming_mails?.length || HISTORICAL_INCOMING_MAILS.length;
-      const outmailCount = importFiles.outgoing_mails?.length || HISTORICAL_OUTGOING_MAILS.length;
-      const chequeCount = HISTORICAL_PROTEST_CHEQUES.length;
+      const deedCount = importFiles.deeds?.length || 0;
+      const pdeedCount = importFiles.private_deeds?.length || 0;
+      const inmailCount = importFiles.incoming_mails?.length || 0;
+      const outmailCount = importFiles.outgoing_mails?.length || 0;
+      const chequeCount = importFiles.protest_cheques?.length || 0;
       const docCount = importFiles.documents?.length || HISTORICAL_GENERAL_DOCUMENTS.length;
 
       addLog(`Mengirim payload ke API: ${deedCount} Akta (deeds), ${pdeedCount} Akta Bawah Tangan (private_deeds), ${inmailCount} Surat Masuk, ${outmailCount} Surat Keluar, ${chequeCount} Protest Cheques, ${docCount} Dokumen Umum, ${invCount} invoices, ${quoCount} quotations, ${prodCount} products, ${kbliMapCount} KBLI mappings, ${kbliSuggCount} KBLI suggestions...`);
@@ -76,11 +68,11 @@ export default function MigrationTool() {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          deeds: importFiles.deeds || HISTORICAL_DEEDS,
-          private_deeds: importFiles.private_deeds || HISTORICAL_PRIVATE_DEEDS,
-          incoming_mails: importFiles.incoming_mails || HISTORICAL_INCOMING_MAILS,
-          outgoing_mails: importFiles.outgoing_mails || HISTORICAL_OUTGOING_MAILS,
-          protest_cheques: HISTORICAL_PROTEST_CHEQUES,
+          deeds: importFiles.deeds || [],
+          private_deeds: importFiles.private_deeds || [],
+          incoming_mails: importFiles.incoming_mails || [],
+          outgoing_mails: importFiles.outgoing_mails || [],
+          protest_cheques: importFiles.protest_cheques || [],
           general_documents: importFiles.documents || HISTORICAL_GENERAL_DOCUMENTS,
           invoices: importFiles.invoices || [],
           quotations: importFiles.quotations || [],
