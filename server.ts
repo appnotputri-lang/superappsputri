@@ -35,6 +35,14 @@ import {
   updateKbliSuggestionD1,
   deleteKbliSuggestionD1
 } from "./src/lib/d1KbliRepository";
+import {
+  getAllGeneralDocumentsD1,
+  getGeneralDocumentByIdD1,
+  getGeneralDocumentByPublicTokenD1,
+  createGeneralDocumentD1,
+  updateGeneralDocumentD1,
+  deleteGeneralDocumentD1
+} from "./src/lib/d1GeneralDocumentRepository";
 
 async function startServer() {
   const app = express();
@@ -304,6 +312,110 @@ async function startServer() {
     } catch (err: any) {
       console.error("[Invoices D1 API] Error deleting invoice:", err);
       res.status(500).json({ success: false, error: err?.message || "Failed to delete invoice" });
+    }
+  });
+
+  // ==================================================
+  // D1 GENERAL DOCUMENTS ENDPOINTS (Surat Jalan & Tanda Terima)
+  // ==================================================
+  app.get("/api/general-documents", async (req, res) => {
+    try {
+      const db = getLocalD1Database();
+      const limit = req.query.limit ? parseInt(String(req.query.limit), 10) : undefined;
+      const offset = req.query.offset ? parseInt(String(req.query.offset), 10) : undefined;
+      const search = (req.query.search || req.query.q) ? String(req.query.search || req.query.q) : undefined;
+      const type = (req.query.type || req.query.docType) ? String(req.query.type || req.query.docType) : undefined;
+      const sortBy = req.query.sortBy ? String(req.query.sortBy) : undefined;
+      const order = (req.query.order || 'desc').toLowerCase() as 'asc' | 'desc';
+
+      const result = await getAllGeneralDocumentsD1(db, { limit, offset, search, type, sortBy, order });
+      res.json({ success: true, ...result });
+    } catch (err: any) {
+      console.error("[General Documents D1 API] Error fetching documents:", err);
+      res.status(500).json({ success: false, error: err?.message || "Failed to fetch general documents" });
+    }
+  });
+
+  app.get("/api/general-documents/public/:token", async (req, res) => {
+    try {
+      const db = getLocalD1Database();
+      const token = req.params.token;
+      if (!token) {
+        return res.status(400).json({ success: false, error: "Token is required" });
+      }
+
+      const document = await getGeneralDocumentByPublicTokenD1(db, token);
+      if (!document) {
+        return res.status(404).json({ success: false, error: `Public document with token '${token}' not found.` });
+      }
+      res.json({ success: true, data: document });
+    } catch (err: any) {
+      console.error("[General Documents D1 API] Error fetching public document by token:", err);
+      res.status(500).json({ success: false, error: err?.message || "Failed to fetch public document" });
+    }
+  });
+
+  app.get("/api/general-documents/:id", async (req, res) => {
+    try {
+      const db = getLocalD1Database();
+      const id = req.params.id;
+      if (!id) {
+        return res.status(400).json({ success: false, error: "Document ID is required" });
+      }
+
+      const document = await getGeneralDocumentByIdD1(db, id);
+      if (!document) {
+        return res.status(404).json({ success: false, error: `General document with ID '${id}' not found.` });
+      }
+      res.json({ success: true, data: document });
+    } catch (err: any) {
+      console.error("[General Documents D1 API] Error fetching document by ID:", err);
+      res.status(500).json({ success: false, error: err?.message || "Failed to fetch document" });
+    }
+  });
+
+  app.post("/api/general-documents", async (req, res) => {
+    try {
+      const db = getLocalD1Database();
+      const payload = req.body || {};
+      const result = await createGeneralDocumentD1(db, payload);
+      res.status(201).json({ success: true, data: result });
+    } catch (err: any) {
+      console.error("[General Documents D1 API] Error creating document:", err);
+      res.status(500).json({ success: false, error: err?.message || "Failed to create document" });
+    }
+  });
+
+  app.put("/api/general-documents/:id", async (req, res) => {
+    try {
+      const db = getLocalD1Database();
+      const id = req.params.id;
+      if (!id) {
+        return res.status(400).json({ success: false, error: "Document ID is required" });
+      }
+
+      const payload = req.body || {};
+      const result = await updateGeneralDocumentD1(db, id, payload);
+      res.json({ success: true, data: result });
+    } catch (err: any) {
+      console.error("[General Documents D1 API] Error updating document:", err);
+      res.status(500).json({ success: false, error: err?.message || "Failed to update document" });
+    }
+  });
+
+  app.delete("/api/general-documents/:id", async (req, res) => {
+    try {
+      const db = getLocalD1Database();
+      const id = req.params.id;
+      if (!id) {
+        return res.status(400).json({ success: false, error: "Document ID is required" });
+      }
+
+      const result = await deleteGeneralDocumentD1(db, id);
+      res.json({ success: true, ...result });
+    } catch (err: any) {
+      console.error("[General Documents D1 API] Error deleting document:", err);
+      res.status(500).json({ success: false, error: err?.message || "Failed to delete document" });
     }
   });
 

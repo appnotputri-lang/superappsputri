@@ -142,6 +142,39 @@ async function ensureTablesExist(db: any) {
 
   await db.prepare(`CREATE INDEX IF NOT EXISTS idx_kbli_suggestion_nama ON kbli_suggestion_records(nama);`).run();
   await db.prepare(`CREATE INDEX IF NOT EXISTS idx_kbli_suggestion_updated_at ON kbli_suggestion_records(updated_at);`).run();
+
+  // General Documents table (Surat Jalan & Tanda Terima)
+  await db.prepare(`
+    CREATE TABLE IF NOT EXISTS general_documents (
+      id TEXT PRIMARY KEY,
+      doc_type TEXT NOT NULL,
+      reference_no TEXT,
+      date TEXT,
+      client_id TEXT,
+      client_name TEXT,
+      client_source TEXT,
+      client_pic TEXT,
+      client_address TEXT,
+      client_contact TEXT,
+      officer_name TEXT,
+      destination TEXT,
+      delivery_method TEXT,
+      tracking_number TEXT,
+      notes TEXT,
+      items TEXT,
+      public_token TEXT,
+      created_at TEXT,
+      updated_at TEXT,
+      raw_data TEXT
+    );
+  `).run();
+
+  await db.prepare(`CREATE INDEX IF NOT EXISTS idx_gen_docs_doc_type ON general_documents(doc_type);`).run();
+  await db.prepare(`CREATE INDEX IF NOT EXISTS idx_gen_docs_reference_no ON general_documents(reference_no);`).run();
+  await db.prepare(`CREATE INDEX IF NOT EXISTS idx_gen_docs_client_id ON general_documents(client_id);`).run();
+  await db.prepare(`CREATE INDEX IF NOT EXISTS idx_gen_docs_date ON general_documents(date);`).run();
+  await db.prepare(`CREATE INDEX IF NOT EXISTS idx_gen_docs_public_token ON general_documents(public_token);`).run();
+  await db.prepare(`CREATE INDEX IF NOT EXISTS idx_gen_docs_created_at ON general_documents(created_at);`).run();
 }
 
 function selectValidationIndices(totalCount: number): { index: number; type: 'FIRST' | 'RANDOM' | 'LAST' }[] {
@@ -197,6 +230,7 @@ export const onRequestPost = async (context: any) => {
       products?: any[];
       kbliMappings?: any[];
       kbliSuggestions?: any[];
+      generalDocuments?: any[];
     };
 
     const rawInvoices = Array.isArray(payload.invoices) ? payload.invoices : [];
@@ -204,6 +238,7 @@ export const onRequestPost = async (context: any) => {
     const rawProducts = Array.isArray(payload.products) ? payload.products : [];
     const rawKbliMappings = Array.isArray(payload.kbliMappings) ? payload.kbliMappings : [];
     const rawKbliSuggestions = Array.isArray(payload.kbliSuggestions) ? payload.kbliSuggestions : [];
+    const rawGeneralDocuments = Array.isArray(payload.generalDocuments) ? payload.generalDocuments : [];
 
     await ensureTablesExist(db);
 
@@ -571,6 +606,83 @@ export const onRequestPost = async (context: any) => {
       }
     }
 
+    // 3.7. GENERAL DOCUMENTS UPSERT
+    let generalDocsMigrated = 0;
+    let generalDocsFailed = 0;
+    const generalDocUpsertSql = `
+      INSERT INTO general_documents (
+        id, doc_type, reference_no, date, client_id, client_name, client_source,
+        client_pic, client_address, client_contact, officer_name, destination,
+        delivery_method, tracking_number, notes, items, public_token, created_at, updated_at, raw_data
+      ) VALUES (
+        ?, ?, ?, ?, ?, ?, ?,
+        ?, ?, ?, ?, ?,
+        ?, ?, ?, ?, ?, ?, ?, ?
+      )
+      ON CONFLICT(id) DO UPDATE SET
+        doc_type=excluded.doc_type,
+        reference_no=excluded.reference_no,
+        date=excluded.date,
+        client_id=excluded.client_id,
+        client_name=excluded.client_name,
+        client_source=excluded.client_source,
+        client_pic=excluded.client_pic,
+        client_address=excluded.client_address,
+        client_contact=excluded.client_contact,
+        officer_name=excluded.officer_name,
+        destination=excluded.destination,
+        delivery_method=excluded.delivery_method,
+        tracking_number=excluded.tracking_number,
+        notes=excluded.notes,
+        items=excluded.items,
+        public_token=excluded.public_token,
+        created_at=excluded.created_at,
+        updated_at=excluded.updated_at,
+        raw_data=excluded.raw_data
+    `;
+
+    for (let i = 0; i < rawGeneralDocuments.length; i += CHUNK_SIZE) {
+      const chunk = rawGeneralDocuments.slice(i, i + CHUNK_SIZE);
+      const stmts: any[] = [];
+
+      for (const item of chunk) {
+        const id = String(item.id || item._id || crypto.randomUUID());
+        const docType = String(item.docType || item.doc_type || 'RECEIPT').toUpperCase();
+        const referenceNo = String(item.referenceNo || item.reference_no || '');
+        const date = String(item.date || nowIso.split('T')[0]);
+        const clientId = item.clientId || item.client_id || '';
+        const clientName = String(item.clientName || item.client_name || '');
+        const clientSource = String(item.clientSource || item.client_source || 'local');
+        const clientPic = item.clientPic || item.client_pic || '';
+        const clientAddress = item.clientAddress || item.client_address || '';
+        const clientContact = item.clientContact || item.client_contact || '';
+        const officerName = String(item.officerName || item.officer_name || '');
+        const destination = item.destination || '';
+        const deliveryMethod = item.deliveryMethod || item.delivery_method || '';
+        const trackingNumber = item.trackingNumber || item.tracking_number || '';
+        const notes = item.notes || '';
+        const itemsJson = typeof item.items === 'string' ? item.items : JSON.stringify(item.items || []);
+        const publicToken = item.publicToken || item.public_token || '';
+        const createdAt = String(item.createdAt || item.created_at || nowIso);
+        const updatedAt = String(item.updatedAt || item.updated_at || nowIso);
+        const rawData = JSON.stringify(item);
+
+        stmts.push(db.prepare(generalDocUpsertSql).bind(
+          id, docType, referenceNo, date, clientId, clientName, clientSource,
+          clientPic, clientAddress, clientContact, officerName, destination,
+          deliveryMethod, trackingNumber, notes, itemsJson, publicToken, createdAt, updatedAt, rawData
+        ));
+      }
+
+      try {
+        await db.batch(stmts);
+        generalDocsMigrated += chunk.length;
+      } catch (err: any) {
+        console.error("[Migration] General Documents batch error:", err);
+        generalDocsFailed += chunk.length;
+      }
+    }
+
     // 4. FETCH D1 ALL ROWS & COUNTS FOR VALIDATION
     const d1InvoicesCountRes = await db.prepare("SELECT count(*) as cnt FROM invoices").first();
     const d1InvoicesCount = Number(d1InvoicesCountRes?.cnt || 0);
@@ -587,12 +699,16 @@ export const onRequestPost = async (context: any) => {
     const d1KbliSuggestionsCountRes = await db.prepare("SELECT count(*) as cnt FROM kbli_suggestion_records").first();
     const d1KbliSuggestionsCount = Number(d1KbliSuggestionsCountRes?.cnt || 0);
 
+    const d1GeneralDocsCountRes = await db.prepare("SELECT count(*) as cnt FROM general_documents").first();
+    const d1GeneralDocsCount = Number(d1GeneralDocsCountRes?.cnt || 0);
+
     // Fetch records for sample verification
     const d1InvoicesAll = (await db.prepare("SELECT * FROM invoices ORDER BY id ASC").all())?.results || [];
     const d1QuotationsAll = (await db.prepare("SELECT * FROM quotations ORDER BY id ASC").all())?.results || [];
     const d1ProductsAll = (await db.prepare("SELECT * FROM products ORDER BY id ASC").all())?.results || [];
     const d1KbliMappingsAll = (await db.prepare("SELECT * FROM kbli_mapping_records ORDER BY id ASC").all())?.results || [];
     const d1KbliSuggestionsAll = (await db.prepare("SELECT * FROM kbli_suggestion_records ORDER BY id ASC").all())?.results || [];
+    const d1GeneralDocsAll = (await db.prepare("SELECT * FROM general_documents ORDER BY id ASC").all())?.results || [];
 
     // Sort original JSON arrays deterministically by ID
     const sortedJsonInvoices = [...rawInvoices].sort((a, b) => String(a.id || a._id).localeCompare(String(b.id || b._id)));
@@ -600,6 +716,7 @@ export const onRequestPost = async (context: any) => {
     const sortedJsonProducts = [...rawProducts].sort((a, b) => String(a.id || a._id).localeCompare(String(b.id || b._id)));
     const sortedJsonKbliMappings = [...rawKbliMappings].sort((a, b) => String(a.id || a._id).localeCompare(String(b.id || b._id)));
     const sortedJsonKbliSuggestions = [...rawKbliSuggestions].sort((a, b) => String(a.id || a._id).localeCompare(String(b.id || b._id)));
+    const sortedJsonGeneralDocs = [...rawGeneralDocuments].sort((a, b) => String(a.id || a._id).localeCompare(String(b.id || b._id)));
 
     // Execute Sample Validation (10 First, 10 Random, 10 Last)
     // --- Invoices Validation ---
@@ -754,20 +871,52 @@ export const onRequestPost = async (context: any) => {
       };
     });
 
+    // --- General Documents Validation ---
+    const genDocSamples = selectValidationIndices(sortedJsonGeneralDocs.length);
+    const generalDocComparisons = genDocSamples.map(({ index, type }) => {
+      const jItem = sortedJsonGeneralDocs[index];
+      const jId = String(jItem.id || jItem._id);
+      const dRow = d1GeneralDocsAll.find((r: any) => r.id === jId);
+
+      if (!dRow) {
+        return { index, type, id: jId, match: false, reason: "Row not found in D1", mismatches: [{ field: 'id', json: jId, d1: 'MISSING' }] };
+      }
+
+      const diffs: any[] = [];
+      const checkField = (field: string, jVal: any, dVal: any) => {
+        if (String(jVal ?? '') !== String(dVal ?? '')) {
+          diffs.push({ field, json: jVal, d1: dVal });
+        }
+      };
+
+      checkField('referenceNo', jItem.referenceNo || jItem.reference_no, dRow.reference_no);
+      checkField('docType', String(jItem.docType || jItem.doc_type || 'RECEIPT').toUpperCase(), String(dRow.doc_type).toUpperCase());
+
+      return {
+        index,
+        type,
+        id: jId,
+        match: diffs.length === 0,
+        mismatches: diffs
+      };
+    });
+
     const invoicesValidated = invoiceComparisons.filter(c => c.match).length;
     const quotationsValidated = quotationComparisons.filter(c => c.match).length;
     const productsValidated = productComparisons.filter(c => c.match).length;
     const kbliMappingsValidated = kbliMappingComparisons.filter(c => c.match).length;
     const kbliSuggestionsValidated = kbliSuggestionComparisons.filter(c => c.match).length;
+    const generalDocsValidated = generalDocComparisons.filter(c => c.match).length;
 
     const invoicesValid = (rawInvoices.length === 0 || invoicesValidated === invoiceComparisons.length) && (rawInvoices.length <= d1InvoicesCount);
     const quotationsValid = (rawQuotations.length === 0 || quotationsValidated === quotationComparisons.length) && (rawQuotations.length <= d1QuotationsCount);
     const productsValid = (rawProducts.length === 0 || productsValidated === productComparisons.length) && (rawProducts.length <= d1ProductsCount);
     const kbliMappingsValid = (rawKbliMappings.length === 0 || kbliMappingsValidated === kbliMappingComparisons.length) && (rawKbliMappings.length <= d1KbliMappingsCount);
     const kbliSuggestionsValid = (rawKbliSuggestions.length === 0 || kbliSuggestionsValidated === kbliSuggestionComparisons.length) && (rawKbliSuggestions.length <= d1KbliSuggestionsCount);
+    const generalDocsValid = (rawGeneralDocuments.length === 0 || generalDocsValidated === generalDocComparisons.length) && (rawGeneralDocuments.length <= d1GeneralDocsCount);
 
-    const isAllSuccessful = invoicesValid && quotationsValid && productsValid && kbliMappingsValid && kbliSuggestionsValid &&
-      (invoicesFailed === 0 && quotationsFailed === 0 && productsFailed === 0 && kbliMappingsFailed === 0 && kbliSuggestionsFailed === 0);
+    const isAllSuccessful = invoicesValid && quotationsValid && productsValid && kbliMappingsValid && kbliSuggestionsValid && generalDocsValid &&
+      (invoicesFailed === 0 && quotationsFailed === 0 && productsFailed === 0 && kbliMappingsFailed === 0 && kbliSuggestionsFailed === 0 && generalDocsFailed === 0);
 
     return createJsonResponse({
       success: isAllSuccessful,
@@ -816,6 +965,15 @@ export const onRequestPost = async (context: any) => {
         validatedCount: `${kbliSuggestionsValidated} / ${kbliSuggestionComparisons.length} samples`,
         isValid: kbliSuggestionsValid,
         samples: kbliSuggestionComparisons
+      },
+      generalDocuments: {
+        jsonCount: rawGeneralDocuments.length,
+        d1Count: d1GeneralDocsCount,
+        migrated: generalDocsMigrated,
+        failed: generalDocsFailed,
+        validatedCount: `${generalDocsValidated} / ${generalDocComparisons.length} samples`,
+        isValid: generalDocsValid,
+        samples: generalDocComparisons
       }
     });
 
