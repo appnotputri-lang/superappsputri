@@ -4,6 +4,7 @@ import { Deed, DeedAppearer, DeedGrantor } from '../../../types';
 import { NotaryService } from '../../services/NotaryService';
 import { isRecordLocked, getLockDeadlineMessage, isSuperAdmin } from '../../utils/lockUtils';
 import { useAuth } from '../../hooks/useAuth';
+import { fetchLatestDeedNumbers } from '../../lib/deedUtils';
 import { Plus, Search, Edit2, Trash2, Lock, RefreshCw, X, FileText, Check, AlertTriangle, ChevronDown, ChevronRight } from 'lucide-react';
 
 // Global memory cache for deeds to enable instant page transitions
@@ -14,26 +15,13 @@ const MONTH_NAMES = [
   'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
 ];
 
-// Helper to auto-generate monthly deed number
-function getAutoDeedNumber(dateStr: string, excludeId: string | null, allDeeds: Deed[]): string {
-  if (!dateStr || dateStr.length < 7) return '01';
-  const yearMonth = dateStr.substring(0, 7);
-  const monthDeeds = allDeeds.filter(d => d.id !== excludeId && d.date && d.date.startsWith(yearMonth));
-
-  let maxNum = 0;
-  monthDeeds.forEach(d => {
-    const digits = d.number ? d.number.replace(/\D/g, '') : '';
-    if (digits) {
-      const val = parseInt(digits, 10);
-      if (!isNaN(val) && val > maxNum) {
-        maxNum = val;
-      }
-    }
-  });
-
-  const nextNum = maxNum + 1;
-  return nextNum < 10 ? `0${nextNum}` : `${nextNum}`;
-}
+// NOTE: the old client-side "auto-generate monthly deed number" helper that
+// used to live here was removed — it computed the default number for a NEW
+// deed from `allLoadedDeeds` (a partial, lazily-populated local cache), which
+// was both stale (read one render before an in-flight fetch resolved) and
+// incomplete (only ever held whichever months an admin had manually browsed).
+// New-deed defaults now come from the authoritative /api/deeds/next-numbers
+// endpoint via applyServerDeedNumbers(). See that function above.
 
 // Helper to calculate order number via "closest neighbor" algorithm
 function calculateOrderNumber(
@@ -157,6 +145,31 @@ export const DeedBook: React.FC = () => {
 
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [isOrdering, setIsOrdering] = useState<boolean>(false);
+  const [isFetchingNumber, setIsFetchingNumber] = useState<boolean>(false);
+
+  // Authoritative source of truth for "No. Akta" / "No. Urut" on a NEW deed —
+  // queries the D1-backed /api/deeds/next-numbers endpoint directly instead of
+  // computing from `allLoadedDeeds` (which is only ever a partial, lazily-loaded
+  // subset of months and — due to how React state updates work — was also being
+  // read one render too early, before the freshly-fetched month data had landed).
+  // That combination was why the field always defaulted to '01' / '1300'
+  // (the client-side fallback values) regardless of what was actually next.
+  const applyServerDeedNumbers = async (targetDate: string) => {
+    setIsFetchingNumber(true);
+    setDeedNumber('');
+    setOrderNumber('');
+    setOrderWarning(null);
+    try {
+      const numbers = await fetchLatestDeedNumbers(targetDate);
+      setDeedNumber(numbers.nextDeedNumber);
+      setOrderNumber(numbers.nextOrderNumber);
+    } catch (err) {
+      console.error('Error fetching next deed numbers from server:', err);
+      setOrderWarning('Gagal mengambil No. Akta/No. Urut berikutnya dari server. Klik tombol muat ulang atau ganti tanggal untuk mencoba lagi sebelum menyimpan.');
+    } finally {
+      setIsFetchingNumber(false);
+    }
+  };
 
   // Load deeds server-side with local memory cache fallback
   useEffect(() => {
@@ -366,14 +379,11 @@ export const DeedBook: React.FC = () => {
       const defaultDate = new Date().toISOString().split('T')[0];
       setEditingDeedId(null);
       setDeedDate(defaultDate);
-      await ensureMonthLoaded(defaultDate);
-
-      const autoNum = getAutoDeedNumber(defaultDate, null, allLoadedDeeds);
-      setDeedNumber(autoNum);
-
-      const { calculatedOrder, warning } = calculateOrderNumber(autoNum, defaultDate, null, allLoadedDeeds);
-      setOrderNumber(calculatedOrder);
-      setOrderWarning(warning);
+      // Fire-and-forget local cache warm-up (used only for the manual-edit
+      // sibling warning in handleNumberChange) — the actual default numbers
+      // now come from the authoritative server call below.
+      ensureMonthLoaded(defaultDate);
+      await applyServerDeedNumbers(defaultDate);
 
       setDeedTitle('');
       setCategory('');
@@ -390,13 +400,21 @@ export const DeedBook: React.FC = () => {
     setDeedDate(newDate);
     if (!newDate) return;
 
+    ensureMonthLoaded(newDate);
+
+    if (!editingDeedId) {
+      // New deed: ask the server for the authoritative next number for the
+      // new month/date, same as when the form first opens.
+      await applyServerDeedNumbers(newDate);
+      return;
+    }
+
+    // Editing an existing deed: keep the existing local "closest neighbor"
+    // consistency check against whatever siblings are currently loaded —
+    // this only drives an advisory warning, not the saved value, so it's
+    // fine for it to rely on the partial local cache.
     await ensureMonthLoaded(newDate);
-
-    const autoNum = getAutoDeedNumber(newDate, editingDeedId, allLoadedDeeds);
-    setDeedNumber(autoNum);
-
-    const { calculatedOrder, warning } = calculateOrderNumber(autoNum, newDate, editingDeedId, allLoadedDeeds);
-    setOrderNumber(calculatedOrder);
+    const { warning } = calculateOrderNumber(deedNumber, newDate, editingDeedId, allLoadedDeeds);
     setOrderWarning(warning);
   };
 
@@ -918,10 +936,10 @@ export const DeedBook: React.FC = () => {
                   <input
                     type="text"
                     required
-                    disabled={isFormLocked}
-                    value={deedNumber}
+                    disabled={isFormLocked || isFetchingNumber}
+                    value={isFetchingNumber ? '' : deedNumber}
                     onChange={(e) => handleNumberChange(e.target.value)}
-                    placeholder="Contoh: 01, 02, 10"
+                    placeholder={isFetchingNumber ? 'Memuat nomor...' : 'Contoh: 01, 02, 10'}
                     className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:outline-none disabled:bg-slate-100 disabled:text-slate-500 font-semibold text-xs sm:text-sm"
                   />
                   <p className="text-[11px] text-slate-500 mt-1">Otomatis reset ke 1 tiap ganti bulan.</p>
@@ -935,8 +953,8 @@ export const DeedBook: React.FC = () => {
                     type="text"
                     readOnly
                     disabled
-                    value={orderNumber}
-                    placeholder="Otomatis terhitung"
+                    value={isFetchingNumber ? '' : orderNumber}
+                    placeholder={isFetchingNumber ? 'Memuat nomor...' : 'Otomatis terhitung'}
                     className="w-full p-2.5 border border-slate-300 rounded-lg bg-slate-100 text-slate-600 cursor-not-allowed font-semibold text-xs sm:text-sm"
                   />
                   <p className="text-[11px] text-slate-500 mt-1">Otomatis mengikuti No. Akta &amp; Tanggal — tidak bisa diedit manual.</p>
@@ -1147,11 +1165,12 @@ export const DeedBook: React.FC = () => {
               </button>
               <button
                 type="submit"
-                disabled={isSaving || isFormLocked}
+                disabled={isSaving || isFormLocked || isFetchingNumber || !deedNumber || !orderNumber}
+                title={isFetchingNumber ? 'Menunggu verifikasi No. Akta/No. Urut dari server...' : (!deedNumber || !orderNumber) ? 'No. Akta/No. Urut belum terisi — coba ganti tanggal untuk memuat ulang.' : undefined}
                 className="px-5 py-2.5 text-white bg-blue-600 hover:bg-blue-700 rounded-lg font-semibold text-xs sm:text-sm flex items-center gap-2 shadow-sm disabled:opacity-50 cursor-pointer transition-colors"
               >
                 <Check size={18} />
-                {isSaving ? 'Menyimpan...' : 'Simpan Akta'}
+                {isSaving ? 'Menyimpan...' : isFetchingNumber ? 'Memuat nomor...' : 'Simpan Akta'}
               </button>
             </div>
           </form>
