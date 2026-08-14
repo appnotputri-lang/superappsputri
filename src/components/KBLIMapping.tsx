@@ -42,16 +42,8 @@ import {
   PageBreak,
 } from "docx";
 import { saveAs } from "file-saver";
-import { db, auth, cleanUndefined, handleFirestoreError, OperationType } from "../lib/firebase";
-import {
-  collection,
-  query,
-  where,
-  onSnapshot,
-  doc,
-  setDoc,
-  deleteDoc,
-} from "firebase/firestore";
+import { auth, cleanUndefined } from "../lib/firebase";
+import { KbliService } from "../services/KbliService";
 
 interface KBLIEntry {
   kode: string;
@@ -328,50 +320,17 @@ const KBLIMapping: React.FC = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [listSearch, setListSearch] = useState("");
 
-  useEffect(() => {
-    let localRecs: any[] = [];
+  const loadMappingRecords = async () => {
     try {
-      const stored = localStorage.getItem("kbli_mapping_local_records");
-      if (stored) {
-        localRecs = JSON.parse(stored);
-      }
+      const records = await KbliService.fetchMappingRecords();
+      setSavedRecords(records);
     } catch (e) {
-      console.warn("Storage reading error:", e);
+      console.error("Error loading mapping records from D1:", e);
     }
+  };
 
-    const q = query(
-      collection(db, "kbli_saved_records"),
-      where("type", "==", "mapping"),
-    );
-    const unsub = onSnapshot(
-      q,
-      (snapshot) => {
-        const dbRecords: any[] = [];
-        snapshot.forEach((doc) => {
-          dbRecords.push({ id: doc.id, ...doc.data() });
-        });
-
-        const combinedMap = new Map();
-        localRecs.forEach((r) => combinedMap.set(r.id, r));
-        dbRecords.forEach((r) => combinedMap.set(r.id, r));
-
-        const records = Array.from(combinedMap.values());
-        records.sort(
-          (a, b) =>
-            new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
-        );
-        setSavedRecords(records);
-      },
-      (error) => {
-        console.error("Error listening to saved mappings:", error);
-        localRecs.sort(
-          (a, b) =>
-            new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
-        );
-        setSavedRecords(localRecs);
-      },
-    );
-    return () => unsub();
+  useEffect(() => {
+    loadMappingRecords();
   }, []);
 
   const handleSaveToFirestore = async () => {
@@ -397,55 +356,23 @@ const KBLIMapping: React.FC = () => {
     const payload = cleanUndefined(rawPayload);
 
     try {
-      const stored = localStorage.getItem("kbli_mapping_local_records");
-      const currentLocals = stored ? JSON.parse(stored) : [];
-      const updatedLocals = [
-        payload,
-        ...currentLocals.filter((item: any) => item.id !== recordId),
-      ];
-      localStorage.setItem(
-        "kbli_mapping_local_records",
-        JSON.stringify(updatedLocals),
-      );
-    } catch (e) {
-      console.warn("Error saving to localStorage:", e);
-    }
-
-    try {
-      await setDoc(doc(db, "kbli_saved_records", recordId), payload);
+      await KbliService.saveMappingRecord(payload, Boolean(editingId));
       alert("Data Pemetaan KBLI berhasil disimpan!");
       setNamaPT("");
       setKelompokUsaha("Mikro");
       setSelectedMappings([]);
       setEditingId(null);
       setViewMode("list");
+      await loadMappingRecords();
     } catch (error) {
       console.error("Error saving mapping:", error);
-      alert(
-        "Data Pemetaan KBLI disimpan secara lokal di perangkat ini.",
-      );
+      alert("Data Pemetaan KBLI disimpan secara lokal di perangkat ini.");
       setNamaPT("");
       setKelompokUsaha("Mikro");
       setSelectedMappings([]);
       setEditingId(null);
       setViewMode("list");
-      try {
-        const stored = localStorage.getItem("kbli_mapping_local_records");
-        if (stored) {
-          const recs = JSON.parse(stored);
-          recs.sort(
-            (a: any, b: any) =>
-              new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
-          );
-          setSavedRecords(recs);
-        }
-      } catch (err) {}
-      // Call handleFirestoreError block to satisfy firebase integration skill diagnostic schema
-      try {
-        handleFirestoreError(error, OperationType.WRITE, `kbli_saved_records/${recordId}`);
-      } catch (e) {
-        console.warn('Handled firestore error logged:', e);
-      }
+      await loadMappingRecords();
     } finally {
       setIsSavingRecord(false);
     }
@@ -457,34 +384,13 @@ const KBLIMapping: React.FC = () => {
       return;
 
     try {
-      const stored = localStorage.getItem("kbli_mapping_local_records");
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        const filtered = parsed.filter((item: any) => item.id !== recordId);
-        localStorage.setItem(
-          "kbli_mapping_local_records",
-          JSON.stringify(filtered),
-        );
-      }
-    } catch (err) {
-      console.warn("LocalStorage delete error:", err);
-    }
-
-    try {
-      await deleteDoc(doc(db, "kbli_saved_records", recordId));
+      await KbliService.deleteMappingRecord(recordId);
       alert("Riwayat pemetaan berhasil dihapus.");
+      await loadMappingRecords();
     } catch (error) {
       console.error("Error deleting record:", error);
       alert("Riwayat pemetaan dihapus secara lokal dari perangkat ini.");
-      try {
-        const stored = localStorage.getItem("kbli_mapping_local_records");
-        const recs = stored ? JSON.parse(stored) : [];
-        recs.sort(
-          (a: any, b: any) =>
-            new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
-        );
-        setSavedRecords(recs);
-      } catch (err) {}
+      await loadMappingRecords();
     }
   };
 

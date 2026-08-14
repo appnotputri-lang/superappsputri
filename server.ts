@@ -23,6 +23,18 @@ import {
   updateInvoiceD1,
   deleteInvoiceD1
 } from "./src/lib/d1InvoiceRepository";
+import {
+  getAllKbliMappingD1,
+  getKbliMappingByIdD1,
+  createKbliMappingD1,
+  updateKbliMappingD1,
+  deleteKbliMappingD1,
+  getAllKbliSuggestionsD1,
+  getKbliSuggestionByIdD1,
+  createKbliSuggestionD1,
+  updateKbliSuggestionD1,
+  deleteKbliSuggestionD1
+} from "./src/lib/d1KbliRepository";
 
 async function startServer() {
   const app = express();
@@ -292,6 +304,176 @@ async function startServer() {
     } catch (err: any) {
       console.error("[Invoices D1 API] Error deleting invoice:", err);
       res.status(500).json({ success: false, error: err?.message || "Failed to delete invoice" });
+    }
+  });
+
+  // ==================================================
+  // D1 KBLI MAPPING ENDPOINTS
+  // ==================================================
+  app.get("/api/kbli/mapping", async (req, res) => {
+    try {
+      const db = getLocalD1Database();
+      const limit = req.query.limit ? parseInt(String(req.query.limit), 10) : undefined;
+      const offset = req.query.offset ? parseInt(String(req.query.offset), 10) : undefined;
+      const search = (req.query.search || req.query.q) ? String(req.query.search || req.query.q) : undefined;
+
+      const result = await getAllKbliMappingD1(db, { limit, offset, search });
+      res.json(result);
+    } catch (err: any) {
+      console.error("[KBLI Mapping D1 API] Error fetching mapping records:", err);
+      res.status(500).json({ success: false, error: err?.message || "Failed to fetch KBLI mapping records" });
+    }
+  });
+
+  app.get("/api/kbli/mapping/:id", async (req, res) => {
+    try {
+      const db = getLocalD1Database();
+      const id = req.params.id;
+      if (!id) {
+        return res.status(400).json({ success: false, error: "Record ID is required" });
+      }
+
+      const result = await getKbliMappingByIdD1(db, id);
+      if (!result.success) {
+        return res.status(404).json(result);
+      }
+      res.json(result);
+    } catch (err: any) {
+      console.error("[KBLI Mapping D1 API] Error fetching mapping record by ID:", err);
+      res.status(500).json({ success: false, error: err?.message || "Failed to fetch KBLI mapping record" });
+    }
+  });
+
+  app.post("/api/kbli/mapping", async (req, res) => {
+    try {
+      const db = getLocalD1Database();
+      const payload = req.body || {};
+      const result = await createKbliMappingD1(db, payload);
+      res.status(201).json(result);
+    } catch (err: any) {
+      console.error("[KBLI Mapping D1 API] Error creating mapping record:", err);
+      res.status(500).json({ success: false, error: err?.message || "Failed to create KBLI mapping record" });
+    }
+  });
+
+  app.put("/api/kbli/mapping/:id", async (req, res) => {
+    try {
+      const db = getLocalD1Database();
+      const id = req.params.id;
+      if (!id) {
+        return res.status(400).json({ success: false, error: "Record ID is required" });
+      }
+
+      const payload = req.body || {};
+      const result = await updateKbliMappingD1(db, id, payload);
+      if (!result.success) {
+        return res.status(404).json(result);
+      }
+      res.json(result);
+    } catch (err: any) {
+      console.error("[KBLI Mapping D1 API] Error updating mapping record:", err);
+      res.status(500).json({ success: false, error: err?.message || "Failed to update KBLI mapping record" });
+    }
+  });
+
+  app.delete("/api/kbli/mapping/:id", async (req, res) => {
+    try {
+      const db = getLocalD1Database();
+      const id = req.params.id;
+      if (!id) {
+        return res.status(400).json({ success: false, error: "Record ID is required" });
+      }
+
+      const result = await deleteKbliMappingD1(db, id);
+      res.json(result);
+    } catch (err: any) {
+      console.error("[KBLI Mapping D1 API] Error deleting mapping record:", err);
+      res.status(500).json({ success: false, error: err?.message || "Failed to delete KBLI mapping record" });
+    }
+  });
+
+  // ==================================================
+  // D1 KBLI SUGGESTIONS ENDPOINTS
+  // ==================================================
+  app.get("/api/kbli/suggestions", async (req, res) => {
+    try {
+      const db = getLocalD1Database();
+      const limit = req.query.limit ? parseInt(String(req.query.limit), 10) : undefined;
+      const offset = req.query.offset ? parseInt(String(req.query.offset), 10) : undefined;
+      const search = (req.query.search || req.query.q) ? String(req.query.search || req.query.q) : undefined;
+
+      const result = await getAllKbliSuggestionsD1(db, { limit, offset, search });
+      res.json(result);
+    } catch (err: any) {
+      console.error("[KBLI Suggestions D1 API] Error fetching suggestion records:", err);
+      res.status(500).json({ success: false, error: err?.message || "Failed to fetch KBLI suggestion records" });
+    }
+  });
+
+  app.get("/api/kbli/suggestions/:id", async (req, res) => {
+    try {
+      const db = getLocalD1Database();
+      const id = req.params.id;
+      if (!id) {
+        return res.status(400).json({ success: false, error: "Record ID is required" });
+      }
+
+      const result = await getKbliSuggestionByIdD1(db, id);
+      if (!result.success) {
+        return res.status(404).json(result);
+      }
+      res.json(result);
+    } catch (err: any) {
+      console.error("[KBLI Suggestions D1 API] Error fetching suggestion record by ID:", err);
+      res.status(500).json({ success: false, error: err?.message || "Failed to fetch KBLI suggestion record" });
+    }
+  });
+
+  app.post("/api/kbli/suggestions", async (req, res) => {
+    try {
+      const db = getLocalD1Database();
+      const payload = req.body || {};
+      const result = await createKbliSuggestionD1(db, payload);
+      res.status(201).json(result);
+    } catch (err: any) {
+      console.error("[KBLI Suggestions D1 API] Error creating suggestion record:", err);
+      res.status(500).json({ success: false, error: err?.message || "Failed to create KBLI suggestion record" });
+    }
+  });
+
+  app.put("/api/kbli/suggestions/:id", async (req, res) => {
+    try {
+      const db = getLocalD1Database();
+      const id = req.params.id;
+      if (!id) {
+        return res.status(400).json({ success: false, error: "Record ID is required" });
+      }
+
+      const payload = req.body || {};
+      const result = await updateKbliSuggestionD1(db, id, payload);
+      if (!result.success) {
+        return res.status(404).json(result);
+      }
+      res.json(result);
+    } catch (err: any) {
+      console.error("[KBLI Suggestions D1 API] Error updating suggestion record:", err);
+      res.status(500).json({ success: false, error: err?.message || "Failed to update KBLI suggestion record" });
+    }
+  });
+
+  app.delete("/api/kbli/suggestions/:id", async (req, res) => {
+    try {
+      const db = getLocalD1Database();
+      const id = req.params.id;
+      if (!id) {
+        return res.status(400).json({ success: false, error: "Record ID is required" });
+      }
+
+      const result = await deleteKbliSuggestionD1(db, id);
+      res.json(result);
+    } catch (err: any) {
+      console.error("[KBLI Suggestions D1 API] Error deleting suggestion record:", err);
+      res.status(500).json({ success: false, error: err?.message || "Failed to delete KBLI suggestion record" });
     }
   });
 

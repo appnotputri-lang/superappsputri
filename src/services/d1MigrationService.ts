@@ -125,6 +125,40 @@ export async function ensureD1TablesExist(db: any) {
       kbli_items TEXT
     );
   `).run();
+
+  // KBLI Mapping Records table
+  await db.prepare(`
+    CREATE TABLE IF NOT EXISTS kbli_mapping_records (
+      id TEXT PRIMARY KEY,
+      nama TEXT NOT NULL,
+      kelompok_usaha TEXT,
+      selected_items TEXT NOT NULL,
+      updated_at TEXT,
+      user_id TEXT,
+      created_at TEXT,
+      raw_data TEXT
+    );
+  `).run();
+
+  await db.prepare(`CREATE INDEX IF NOT EXISTS idx_kbli_mapping_nama ON kbli_mapping_records(nama);`).run();
+  await db.prepare(`CREATE INDEX IF NOT EXISTS idx_kbli_mapping_updated_at ON kbli_mapping_records(updated_at);`).run();
+
+  // KBLI Suggestion Records table
+  await db.prepare(`
+    CREATE TABLE IF NOT EXISTS kbli_suggestion_records (
+      id TEXT PRIMARY KEY,
+      nama TEXT NOT NULL,
+      kelompok_usaha TEXT,
+      selected_items TEXT NOT NULL,
+      updated_at TEXT,
+      user_id TEXT,
+      created_at TEXT,
+      raw_data TEXT
+    );
+  `).run();
+
+  await db.prepare(`CREATE INDEX IF NOT EXISTS idx_kbli_suggestion_nama ON kbli_suggestion_records(nama);`).run();
+  await db.prepare(`CREATE INDEX IF NOT EXISTS idx_kbli_suggestion_updated_at ON kbli_suggestion_records(updated_at);`).run();
 }
 
 export function selectValidationIndices(totalCount: number): { index: number; type: 'FIRST' | 'RANDOM' | 'LAST' }[] {

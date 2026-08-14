@@ -4,8 +4,8 @@ import { Search, Plus, Trash2, Info, LayoutGrid, Printer, FileDown, Loader2, Sav
 import kbli2025Data from '../../kbli_2025.json';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { db, auth, handleFirestoreError, OperationType, cleanUndefined } from '../lib/firebase';
-import { doc, getDoc, collection, query, where, onSnapshot, setDoc, deleteDoc } from 'firebase/firestore';
+import { auth, cleanUndefined } from '../lib/firebase';
+import { KbliService } from '../services/KbliService';
 
 interface RuangLingkupSkala {
   risiko: string;
@@ -134,40 +134,17 @@ const KBLISuggestions: React.FC = () => {
   const [savedRecords, setSavedRecords] = useState<any[]>([]);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
 
-  useEffect(() => {
-    let localRecs: any[] = [];
+  const loadSuggestionRecords = async () => {
     try {
-      const stored = localStorage.getItem('kbli_suggestions_local_records');
-      if (stored) {
-        localRecs = JSON.parse(stored);
-      }
-    } catch (e) {
-      console.warn("Storage reading error:", e);
-    }
-
-    const q = query(
-      collection(db, 'kbli_saved_records'),
-      where('type', '==', 'suggestion')
-    );
-    const unsub = onSnapshot(q, (snapshot) => {
-      const dbRecords: any[] = [];
-      snapshot.forEach((doc) => {
-        dbRecords.push({ id: doc.id, ...doc.data() });
-      });
-      
-      const combinedMap = new Map();
-      localRecs.forEach(r => combinedMap.set(r.id, r));
-      dbRecords.forEach(r => combinedMap.set(r.id, r));
-      
-      const records = Array.from(combinedMap.values());
-      records.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+      const records = await KbliService.fetchSuggestionRecords();
       setSavedRecords(records);
-    }, (error) => {
-      console.error("Error listening to saved suggestions:", error);
-      localRecs.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
-      setSavedRecords(localRecs);
-    });
-    return () => unsub();
+    } catch (e) {
+      console.error('Error loading suggestion records from D1:', e);
+    }
+  };
+
+  useEffect(() => {
+    loadSuggestionRecords();
   }, []);
 
   const handleSaveToFirestore = async () => {
@@ -190,23 +167,14 @@ const KBLISuggestions: React.FC = () => {
     const payload = cleanUndefined(rawPayload);
 
     try {
-      const stored = localStorage.getItem('kbli_suggestions_local_records');
-      const currentLocals = stored ? JSON.parse(stored) : [];
-      const updatedLocals = [payload, ...currentLocals.filter((item: any) => item.id !== recordId)];
-      localStorage.setItem('kbli_suggestions_local_records', JSON.stringify(updatedLocals));
-    } catch (e) {
-      console.warn('Error saving to localStorage:', e);
-    }
-
-    try {
-      await setDoc(doc(db, 'kbli_saved_records', recordId), payload);
+      await KbliService.saveSuggestionRecord(payload, Boolean(editingId));
       alert('Data Saran KBLI berhasil disimpan!');
-      // Reset and go back to list
       setNamaPT('');
       setKelompokUsaha('Mikro');
       setSelectedKblis([]);
       setEditingId(null);
       setViewMode('list');
+      await loadSuggestionRecords();
     } catch (error) {
       console.error('Error saving suggestion:', error);
       alert('Data Saran KBLI disimpan secara lokal di perangkat ini.');
@@ -215,20 +183,7 @@ const KBLISuggestions: React.FC = () => {
       setSelectedKblis([]);
       setEditingId(null);
       setViewMode('list');
-      try {
-        const stored = localStorage.getItem('kbli_suggestions_local_records');
-        if (stored) {
-          const recs = JSON.parse(stored);
-          recs.sort((a: any, b: any) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
-          setSavedRecords(recs);
-        }
-      } catch (err) {}
-      // Call handleFirestoreError to satisfy the firebase skill requirement and help build security compliance diagnostic context
-      try {
-        handleFirestoreError(error, OperationType.WRITE, `kbli_saved_records/${recordId}`);
-      } catch (e) {
-        console.warn('Handled firestore error logged:', e);
-      }
+      await loadSuggestionRecords();
     } finally {
       setIsSavingRecord(false);
     }
@@ -239,28 +194,13 @@ const KBLISuggestions: React.FC = () => {
     if (!confirm('Apakah Anda yakin ingin menghapus riwayat saran ini?')) return;
     
     try {
-      const stored = localStorage.getItem('kbli_suggestions_local_records');
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        const filtered = parsed.filter((item: any) => item.id !== recordId);
-        localStorage.setItem('kbli_suggestions_local_records', JSON.stringify(filtered));
-      }
-    } catch (err) {
-      console.warn('LocalStorage delete error:', err);
-    }
-
-    try {
-      await deleteDoc(doc(db, 'kbli_saved_records', recordId));
+      await KbliService.deleteSuggestionRecord(recordId);
       alert('Riwayat saran KBLI berhasil dihapus.');
+      await loadSuggestionRecords();
     } catch (error) {
       console.error('Error deleting record:', error);
       alert('Riwayat saran KBLI dihapus secara lokal dari perangkat ini.');
-      try {
-        const stored = localStorage.getItem('kbli_suggestions_local_records');
-        const recs = stored ? JSON.parse(stored) : [];
-        recs.sort((a: any, b: any) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
-        setSavedRecords(recs);
-      } catch (err) {}
+      await loadSuggestionRecords();
     }
   };
 
