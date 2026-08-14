@@ -11,7 +11,7 @@ import { printInvoice, downloadInvoicePdf } from '../../utils/invoiceHtmlGenerat
 import { getApiUrl, getAuthHeaders } from '../../lib/api';
 import { auth, db } from '../../lib/firebase';
 import { resolveClientPhone, isFuzzyNameMatch } from '../../utils/clientPhoneResolver';
-import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
 import {
   Plus, Edit2, Trash2, Printer, Search, X, Copy, ExternalLink,
   Check, CreditCard, DollarSign, Globe, CheckCircle2, AlertCircle, FileText, Share2,

@@ -666,6 +666,8 @@ export interface Quotation {
   items: InvoiceItem[];
   subtotal: number;
   taxAmount?: number;
+  taxRate?: number;
+  discount?: number;
   totalAmount: number;
   status: 'DRAFT' | 'SENT' | 'ACCEPTED' | 'REJECTED';
   notes?: string;
@@ -808,6 +810,7 @@ export interface Product {
   unitPrice?: number;
   description?: string;
   isTaxed?: boolean;
+  category?: string;
   createdAt?: string;
   updatedAt?: string;
 }

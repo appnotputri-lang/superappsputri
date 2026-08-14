@@ -101,8 +101,12 @@ interface QuotationGeneratorProps {
   [key: string]: any;
 }
 
+const quotationCache = new Map<string, { quotations: Quotation[]; total: number; timestamp: number }>();
+
 export const QuotationGenerator: React.FC<QuotationGeneratorProps> = (props) => {
   const [quotations, setQuotations] = useState<Quotation[]>([]);
+  const [totalQuotationsCount, setTotalQuotationsCount] = useState(0);
+  const [isBackgroundFetching, setIsBackgroundFetching] = useState(false);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -251,43 +255,66 @@ export const QuotationGenerator: React.FC<QuotationGeneratorProps> = (props) => 
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
   const [showMoreMenu, setShowMoreMenu] = useState<string | null>(null);
 
-  // Load Quotations with dynamic query limit & console reports
+  // Load Quotations with server-side pagination, caching, and debouncing
   useEffect(() => {
-    const startTime = performance.now();
-    const unsub = QuotationService.subscribeQuotations((data) => {
-      const duration = (performance.now() - startTime).toFixed(2);
-      setQuotations(data);
-      if (selectedQuotation) {
-        const updated = data.find(q => q.id === selectedQuotation.id);
-        if (updated) {
-          setSelectedQuotation(updated);
+    if (viewMode !== 'list') return;
+
+    let active = true;
+    const cleanSearch = searchTerm.trim();
+    const cacheKey = `quotations:page=${currentPage}:size=${pageSize}:search=${cleanSearch}:status=${statusFilter}`;
+    
+    const cached = quotationCache.get(cacheKey);
+    if (cached) {
+      setQuotations(cached.quotations);
+      setTotalQuotationsCount(cached.total);
+      setLoading(false);
+    } else {
+      setLoading(true);
+    }
+
+    const loadData = async () => {
+      if (cached) {
+        setIsBackgroundFetching(true);
+      }
+      try {
+        const res = await QuotationService.getQuotationsPaginated({
+          page: currentPage,
+          pageSize: pageSize,
+          search: cleanSearch,
+          status: statusFilter
+        });
+
+        if (active && res.success) {
+          const isDataChanged = !cached || JSON.stringify(cached.quotations) !== JSON.stringify(res.quotations) || cached.total !== res.total;
+          if (isDataChanged) {
+            setQuotations(res.quotations);
+            setTotalQuotationsCount(res.total);
+            quotationCache.set(cacheKey, {
+              quotations: res.quotations,
+              total: res.total,
+              timestamp: Date.now()
+            });
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load paginated quotations:', err);
+      } finally {
+        if (active) {
+          setLoading(false);
+          setIsBackgroundFetching(false);
         }
       }
-      setLoading(false);
-      
-      // Beautiful console-level performance instrumentation report
-      console.log(`
-[QuotationPerformance]
-====================================
-Initial / Updated Page Load Complete
-------------------------------------
-Quotation Reads Limit: ${quotationLimit}
-Quotations Loaded: ${data.length}
-Load Duration: ${duration}ms
-Database Network Request: YES (Realtime Listener Active)
-Active Tab View: ${viewMode}
-====================================`);
-    }, quotationLimit);
-    return () => unsub();
-  }, [selectedQuotation?.id, quotationLimit, viewMode]);
+    };
 
-  // Expand the query-level limit when near or exceeding current loaded size
-  useEffect(() => {
-    if (currentPage * pageSize >= quotationLimit) {
-      console.log(`[QuotationPerformance] Dynamic expansion triggered. Current index (${currentPage * pageSize}) matches/exceeds limit (${quotationLimit}). Upgrading query limit to ${quotationLimit + 50}.`);
-      setQuotationLimit(prev => prev + 50);
-    }
-  }, [currentPage, pageSize, quotationLimit]);
+    const delayDebounce = setTimeout(() => {
+      loadData();
+    }, cleanSearch ? 350 : 0);
+
+    return () => {
+      active = false;
+      clearTimeout(delayDebounce);
+    };
+  }, [currentPage, pageSize, searchTerm, statusFilter, viewMode]);
 
   // Load Invoices lazily to check linked invoice relationships
   useEffect(() => {
@@ -820,9 +847,11 @@ Active Tab View: ${viewMode}
     try {
       if (editingQuotationId) {
         await QuotationService.updateQuotation(editingQuotationId, quotationData);
+        quotationCache.clear();
         alert('Penawaran berhasil diperbarui.');
       } else {
         await QuotationService.addQuotation(quotationData);
+        quotationCache.clear();
         alert('Penawaran baru berhasil disimpan.');
       }
       setViewMode('list');
@@ -837,16 +866,27 @@ Active Tab View: ${viewMode}
 
   const handleDeleteQuotation = async (id: string) => {
     if (!confirm('Apakah Anda yakin ingin menghapus penawaran ini?')) return;
+    const backupQuotations = [...quotations];
+    const backupTotal = totalQuotationsCount;
+
+    // Optimistically update the UI list state
+    setQuotations(prev => prev.filter(q => q.id !== id));
+    setTotalQuotationsCount(prev => Math.max(0, prev - 1));
+
+    if (selectedQuotation?.id === id) {
+      setSelectedQuotation(null);
+      setViewMode('list');
+    }
+
     try {
       await QuotationService.deleteQuotation(id);
+      quotationCache.clear();
       alert('Penawaran telah dihapus.');
-      if (selectedQuotation?.id === id) {
-        setSelectedQuotation(null);
-        setViewMode('list');
-      }
     } catch (err) {
       console.error('Gagal menghapus penawaran:', err);
-      alert('Gagal menghapus penawaran.');
+      alert('Gagal menghapus penawaran. Mengembalikan data...');
+      setQuotations(backupQuotations);
+      setTotalQuotationsCount(backupTotal);
     }
   };
 
@@ -1092,33 +1132,10 @@ Notaris/PPAT Nukantini Putri Parincha, SH., M.Kn`;
     }
   };
 
-  // Filter & Search logic
-  const filteredQuotations = quotations.filter((q) => {
-    const matchesSearch =
-      q.clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      q.quotationNumber.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    if (statusFilter === 'ALL') return matchesSearch;
-    return matchesSearch && q.status === statusFilter;
-  });
-
-  // Sort logic
-  const sortedQuotations = [...filteredQuotations].sort((a, b) => {
-    let valA = sortField === 'date' ? a.date : a.quotationNumber;
-    let valB = sortField === 'date' ? b.date : b.quotationNumber;
-    
-    if (valA < valB) return sortOrder === 'asc' ? -1 : 1;
-    if (valA > valB) return sortOrder === 'asc' ? 1 : -1;
-    return 0;
-  });
-
-  // Pagination logic
-  const totalItems = sortedQuotations.length;
-  const totalPages = Math.ceil(totalItems / pageSize) || 1;
-  const paginatedQuotations = sortedQuotations.slice(
-    (currentPage - 1) * pageSize,
-    currentPage * pageSize
-  );
+  // In server-side pagination, sorting, search, and page boundaries are resolved by D1.
+  const paginatedQuotations = quotations;
+  const totalItems = totalQuotationsCount;
+  const totalPages = Math.ceil(totalItems / Number(pageSize)) || 1;
 
   const filteredClientOptions = React.useMemo(() => {
     if (!clientSearch) return localClients;

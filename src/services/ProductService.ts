@@ -1,95 +1,133 @@
-import { FirestoreService } from './FirestoreService';
-import { Product } from '../../types';
-import { db } from '../lib/firebase';
-import { collection, onSnapshot } from 'firebase/firestore';
+import { Product } from '../types';
 
-export class ProductService extends FirestoreService {
+function getApiUrl(path: string): string {
+  if (path.startsWith('http://') || path.startsWith('https://')) return path;
+  if (typeof window !== 'undefined') {
+    return path;
+  }
+  const baseUrl = process.env.API_BASE_URL || 'http://localhost:3000';
+  return `${baseUrl}${path.startsWith('/') ? '' : '/'}${path}`;
+}
+
+export class ProductService {
   private static cache: Product[] | null = null;
-  private static unsub: (() => void) | null = null;
-  private static listeners = new Set<(data: Product[]) => void>();
+  private static listeners: Set<(data: Product[]) => void> = new Set();
+
+  public static notifyListeners() {
+    if (this.cache) {
+      this.listeners.forEach((listener) => {
+        try {
+          listener(this.cache!);
+        } catch (e) {
+          console.error('[ProductService] Error in listener callback:', e);
+        }
+      });
+    }
+  }
 
   static subscribeProducts(onNext: (data: Product[]) => void): () => void {
     this.listeners.add(onNext);
-    
-    // If we already have cached data, fire immediately
-    if (this.cache) {
-      console.log(`[ProductPerformance] Cache HIT - subscribeProducts returned ${this.cache.length} cached items.`);
-      onNext(this.cache);
-    }
 
-    if (!this.unsub) {
-      const startTime = performance.now();
-      console.log(`[ProductPerformance] Cache MISS - starting realtime listener for "products"`);
-      this.unsub = onSnapshot(
-        collection(db, 'products'),
-        (snapshot) => {
-          const duration = (performance.now() - startTime).toFixed(2);
-          const data: Product[] = [];
-          snapshot.forEach(docSnap => {
-            data.push({ id: docSnap.id, ...docSnap.data() } as Product);
-          });
-          ProductService.cache = data;
-          console.log(`[ProductPerformance] Network READ - products listener updated: ${data.length} items. Time: ${duration}ms. Reads: ${data.length}. Status: SUCCESS`);
-          ProductService.listeners.forEach(listener => listener(data));
-        },
-        (error) => {
-          console.error(`[ProductPerformance] Network READ ERROR for products:`, error);
-        }
-      );
+    // If we have cached data, fire immediately
+    if (this.cache) {
+      onNext(this.cache);
+    } else {
+      this.getProducts(true).then((data) => {
+        onNext(data);
+      }).catch((err) => {
+        console.error('[ProductService] Error fetching products in subscriber:', err);
+      });
     }
 
     return () => {
       this.listeners.delete(onNext);
-      if (this.listeners.size === 0 && this.unsub) {
-        this.unsub();
-        this.unsub = null;
-      }
     };
   }
 
   static async getProducts(forceRefresh = false): Promise<Product[]> {
     if (this.cache && !forceRefresh) {
-      console.log(`[ProductPerformance] Cache HIT - getProducts returned ${this.cache.length} cached items.`);
       return this.cache;
     }
-    
-    const startTime = performance.now();
-    console.log(`[ProductPerformance] Cache MISS - getProducts fetching from network`);
+
     try {
-      const data = await this.getCollectionData<Product>('products');
-      const duration = (performance.now() - startTime).toFixed(2);
-      this.cache = data;
-      console.log(`[ProductPerformance] Network READ - getProducts loaded ${data.length} items. Time: ${duration}ms. Reads: ${data.length}. Status: SUCCESS`);
-      return data;
+      const res = await fetch(getApiUrl('/api/products?limit=500'));
+      if (!res.ok) throw new Error('Failed to fetch products');
+      const json = await res.json();
+      if (json.success && Array.isArray(json.products)) {
+        this.cache = json.products;
+        this.notifyListeners();
+        return json.products;
+      }
+      return [];
     } catch (error) {
-      console.error(`[ProductPerformance] Network READ ERROR for products:`, error);
-      throw error;
+      console.error('[ProductService] Error in getProducts:', error);
+      return this.cache || [];
     }
   }
 
   static async addProduct(data: Omit<Product, 'id'>): Promise<string> {
-    const docId = `prod_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+    const docId = `prod_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
     const now = new Date().toISOString();
-    await this.setDocument('products', docId, {
+    const payload: Product = {
       ...data,
       id: docId,
       createdAt: now,
       updatedAt: now
+    };
+
+    const res = await fetch(getApiUrl('/api/products'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
     });
-    this.cache = null; // Invalidate cache
-    return docId;
+
+    if (!res.ok) {
+      const errJson = await res.json().catch(() => ({}));
+      throw new Error(errJson.error || `Failed to add product (${res.status})`);
+    }
+
+    const resJson = await res.json();
+    const id = resJson.id || docId;
+
+    // Refresh cache background
+    await this.getProducts(true);
+
+    return id;
   }
 
   static async updateProduct(id: string, data: Partial<Product>): Promise<void> {
-    await this.updateDocument('products', id, {
+    const now = new Date().toISOString();
+    const payload = {
       ...data,
-      updatedAt: new Date().toISOString()
+      updatedAt: now
+    };
+
+    const res = await fetch(getApiUrl(`/api/products/${encodeURIComponent(id)}`), {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
     });
-    this.cache = null; // Invalidate cache
+
+    if (!res.ok) {
+      const errJson = await res.json().catch(() => ({}));
+      throw new Error(errJson.error || `Failed to update product (${res.status})`);
+    }
+
+    // Refresh cache background
+    await this.getProducts(true);
   }
 
   static async deleteProduct(id: string): Promise<void> {
-    await this.deleteDocument('products', id);
-    this.cache = null; // Invalidate cache
+    const res = await fetch(getApiUrl(`/api/products/${encodeURIComponent(id)}`), {
+      method: 'DELETE'
+    });
+
+    if (!res.ok) {
+      const errJson = await res.json().catch(() => ({}));
+      throw new Error(errJson.error || `Failed to delete product (${res.status})`);
+    }
+
+    // Refresh cache background
+    await this.getProducts(true);
   }
 }
