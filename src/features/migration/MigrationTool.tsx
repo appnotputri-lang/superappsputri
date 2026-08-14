@@ -28,6 +28,9 @@ import {
   FullNotaryExportResult 
 } from '../../services/firestoreExportService';
 
+import { InvoiceQuotationReconciliation } from './InvoiceQuotationReconciliation';
+
+
 export default function MigrationTool() {
   const [logs, setLogs] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
@@ -1410,6 +1413,10 @@ export default function MigrationTool() {
         title="Migration & Historical Export Tool"
         description="Firestore Read-Only JSON Exporter & Cloudflare D1 Migration Utility"
       />
+
+      <div className="mb-6">
+        <InvoiceQuotationReconciliation />
+      </div>
 
       {/* ============================================================================ */}
       {/* 1. TOOL EXPORT HISTORIS FIRESTORE -> JSON (6 MODUL NOTARIS)                 */}

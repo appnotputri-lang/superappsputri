@@ -1,4 +1,14 @@
+// In-memory guard so the (expensive, 51-statement) schema check only runs
+// once per worker isolate instead of on every single D1 request.
+// Cloudflare Workers/Pages Functions reuse the same isolate across many
+// requests, so this cache is genuinely effective in production — it just
+// resets on cold start, which is fine because a cold start is exactly when
+// we'd want to verify the schema anyway.
+let d1TablesEnsuredCache = false;
+
 export async function ensureD1TablesExist(db: any) {
+  if (d1TablesEnsuredCache) return;
+
   // 1. Invoices table
   await db.prepare(`
     CREATE TABLE IF NOT EXISTS invoices (
@@ -303,6 +313,8 @@ export async function ensureD1TablesExist(db: any) {
 
   await db.prepare(`CREATE INDEX IF NOT EXISTS idx_protest_cheques_date ON protest_cheques(protest_date);`).run();
   await db.prepare(`CREATE INDEX IF NOT EXISTS idx_protest_cheques_number ON protest_cheques(number);`).run();
+
+  d1TablesEnsuredCache = true;
 }
 
 export function selectValidationIndices(totalCount: number): { index: number; type: 'FIRST' | 'RANDOM' | 'LAST' }[] {
