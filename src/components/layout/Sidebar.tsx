@@ -178,7 +178,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         />
       )}
 
-      <aside className={`bg-surface-sidebar border-r border-slate-200/80 flex flex-col h-full shrink-0 transition-all duration-300 ease-in-out fixed md:relative top-0 bottom-0 left-0 ${
+      <aside className={`bg-white border-r border-slate-200/80 flex flex-col h-full shrink-0 transition-all duration-300 ease-in-out fixed md:relative top-0 bottom-0 left-0 ${
         isSidebarOpen 
           ? 'w-[260px] translate-x-0 z-[100] shadow-2xl md:shadow-none' 
           : 'w-[260px] -translate-x-full md:w-[68px] md:translate-x-0 z-0'
@@ -272,8 +272,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             }} 
                             className={`relative group w-11 h-11 mx-auto rounded-xl transition-all flex items-center justify-center select-none cursor-pointer ${
                               isActive 
-                                ? 'bg-surface-sidebar-active text-blue-600 shadow-xs' 
-                                : 'text-slate-500 hover:bg-surface-sidebar-hover hover:text-slate-900'
+                                ? 'bg-sky-100 text-blue-600 shadow-xs' 
+                                : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900'
                             }`}
                           >
                             {isActive && (
@@ -307,8 +307,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           }} 
                           className={`relative w-full text-left px-3 py-2 rounded-lg transition-all flex items-center justify-between select-none cursor-pointer ${
                             isActive 
-                              ? 'bg-surface-sidebar-active text-blue-600 font-semibold shadow-xs' 
-                              : 'text-slate-600 hover:bg-surface-sidebar-hover hover:text-slate-900'
+                              ? 'bg-sky-100 text-blue-600 font-semibold shadow-xs' 
+                              : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
                           }`}
                         >
                           {isActive && (
@@ -337,7 +337,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {/* Bottom Profile Container */}
         {user && (
-          <div className="p-3 border-t border-slate-200/60 bg-surface-sidebar shrink-0 relative">
+          <div className="p-3 border-t border-slate-200/60 bg-white shrink-0 relative">
             {isSidebarOpen ? (
               /* Expanded Bottom Profile */
               <div>
@@ -345,7 +345,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   onClick={() => {
                     setIsUserDropdownOpen?.(!isUserDropdownOpen);
                   }}
-                  className="flex items-center gap-3 text-left hover:bg-surface-sidebar-hover p-2 rounded-lg transition-all cursor-pointer w-full"
+                  className="flex items-center gap-3 text-left hover:bg-slate-100 p-2 rounded-lg transition-all cursor-pointer w-full"
                 >
                   <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs font-bold shadow-sm">
                     {(userProfile?.name || 'AZ').substring(0, 2).toUpperCase()}

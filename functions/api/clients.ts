@@ -66,16 +66,20 @@ export const onRequestGet = async (context: any) => {
       sql += ` WHERE ` + conditions.join(' AND ');
     }
 
+    const includeCount = url.searchParams.get('includeCount') === 'true';
+
     let totalCount = 0;
-    try {
-      let countSql = `SELECT COUNT(*) as total FROM client_directory`;
-      if (conditions.length > 0) {
-        countSql += ` WHERE ` + conditions.join(' AND ');
+    if (includeCount) {
+      try {
+        let countSql = `SELECT COUNT(*) as total FROM client_directory`;
+        if (conditions.length > 0) {
+          countSql += ` WHERE ` + conditions.join(' AND ');
+        }
+        const countRes = await db.prepare(countSql).bind(...params).first();
+        totalCount = countRes ? (countRes.total || 0) : 0;
+      } catch (countErr) {
+        console.error("[Clients API GET] Count query failed:", countErr);
       }
-      const countRes = await db.prepare(countSql).bind(...params).first();
-      totalCount = countRes ? (countRes.total || 0) : 0;
-    } catch (countErr) {
-      console.error("[Clients API GET] Count query failed:", countErr);
     }
 
     sql += ` ORDER BY company_name ASC LIMIT ? OFFSET ?`;

@@ -19,7 +19,7 @@ export function useCompanies() {
     setLoading(true);
     try {
       CompanyService.clearCache();
-      const directoryItems = await CompanyService.getClientDirectory();
+      const directoryItems = await CompanyService.getClientDirectory({ limit: 'all' });
       const mappedProfiles: CompanyProfile[] = directoryItems.map(d => ({
         id: d.clientId || d.id,
         companyName: d.companyName,

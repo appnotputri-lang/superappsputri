@@ -83,7 +83,7 @@ export const CompanyPage: React.FC<CompanyPageProps> = ({ setIsSidebarOpen, ...p
     const fetchAllForMerge = async () => {
       setIsMergeProfilesLoading(true);
       try {
-        const allEntries = await CompanyService.getClientDirectory({ clientType: isCv ? 'CV' : 'all' });
+        const allEntries = await CompanyService.getClientDirectory({ clientType: isCv ? 'CV' : 'all', limit: 'all' });
         if (isSubscribed) {
           setMergeProfiles(allEntries);
         }

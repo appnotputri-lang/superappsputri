@@ -183,7 +183,7 @@ export class CompanyService {
     }
 
     try {
-      const urlStr = getApiUrl('/api/clients') + '?archived=false&limit=1';
+      const urlStr = getApiUrl('/api/clients') + '?archived=false&limit=1&includeCount=true';
       const res = await fetch(urlStr);
       if (!res.ok) {
         throw new Error(`D1 getActiveClientsCount returned HTTP ${res.status}`);
@@ -204,11 +204,11 @@ export class CompanyService {
       }
       return count;
     } catch (error) {
-      console.warn('[CompanyService] Error counting active clients from D1:', error);
+      console.error('[CompanyService] Error counting active clients from D1:', error);
       if (CompanyService.activeClientsCountCache !== null) {
         return CompanyService.activeClientsCountCache;
       }
-      return 0;
+      throw error;
     }
   }
 
@@ -558,20 +558,28 @@ export class CompanyService {
     clientType?: string;
     isArchived?: boolean;
     searchQuery?: string;
+    limit?: number | 'all';
   }): Promise<ClientDirectoryEntry[]> {
     try {
       let items: ClientDirectoryEntry[] = [];
-      if (CompanyService.directoryCache && CompanyService.directoryCache.length > 0) {
+      const fetchLimit = options?.limit === 'all' ? 10000 : (options?.limit || 15);
+      
+      // Only use cache if we previously fetched everything (limit 10000)
+      if (CompanyService.directoryCache && CompanyService.directoryCache.length > 0 && fetchLimit === 10000) {
         items = [...CompanyService.directoryCache];
       } else {
-        const urlStr = getApiUrl('/api/clients') + '?limit=10000';
+        const urlStr = getApiUrl('/api/clients') + `?limit=${fetchLimit}`;
         const res = await fetch(urlStr);
         if (!res.ok) {
           throw new Error(`D1 getClientDirectory returned HTTP ${res.status}`);
         }
         const json = await res.json();
         items = json.clients || [];
-        CompanyService.directoryCache = items;
+        
+        // Cache only if we fetched the full list
+        if (fetchLimit === 10000) {
+          CompanyService.directoryCache = items;
+        }
       }
 
       if (options?.clientType && options.clientType !== 'all') {
@@ -593,8 +601,8 @@ export class CompanyService {
 
       return items;
     } catch (err) {
-      console.warn('[CompanyService] Error reading client_directory from D1:', err);
-      return [];
+      console.error('[CompanyService] Error reading client_directory from D1:', err);
+      throw err;
     }
   }
 
@@ -617,7 +625,7 @@ export class CompanyService {
 
     try {
       const queryParams = new URLSearchParams();
-      queryParams.set('limit', String(pageSize));
+      queryParams.set('limit', String(pageSize + 1));
       queryParams.set('offset', String((pageNum - 1) * pageSize));
       queryParams.set('archived', showArchived ? 'true' : 'false');
       if (clientType !== 'all') {
@@ -640,13 +648,16 @@ export class CompanyService {
         items = items.filter(item => item.establishmentYear === options.establishmentYear);
       }
 
+      const hasMore = items.length > pageSize;
+      const visibleItems = items.slice(0, pageSize);
+
       // Generate a dummy lastDoc so that CompanyPage's cursor navigation works seamlessly
       const dummyLastDoc = { id: 'page_' + pageNum };
 
       const result: ClientDirectoryPageResult = {
-        items,
+        items: visibleItems,
         lastDoc: dummyLastDoc,
-        hasMore: items.length >= pageSize,
+        hasMore,
         fromCache: false
       };
 
@@ -666,7 +677,7 @@ export class CompanyService {
       return result;
     } catch (err: any) {
       console.error('[CompanyService] D1 query error in getClientDirectoryPage:', err?.message || err);
-      return { items: [], lastDoc: null, hasMore: false, fromCache: false };
+      throw err;
     }
   }
 
@@ -689,7 +700,7 @@ export class CompanyService {
       return json.clients || [];
     } catch (err: any) {
       console.warn('[CompanyService] Error in D1 searchClientDirectory:', err);
-      return [];
+      throw err;
     }
   }
 
