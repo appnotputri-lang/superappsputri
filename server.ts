@@ -81,12 +81,12 @@ async function startServer() {
     }
   });
 
-  // D1 JSON Migration Endpoint (Invoices, Quotations, Products)
+  // D1 JSON Migration Endpoint (Invoices, Quotations, Products, KBLI Mappings, KBLI Suggestions)
   app.post("/api/migration/d1-import", async (req, res) => {
     try {
       const db = getLocalD1Database();
       const payload = req.body || {};
-      console.log(`[D1 Migration API] Received migration request: ${payload.invoices?.length || 0} invoices, ${payload.quotations?.length || 0} quotations, ${payload.products?.length || 0} products.`);
+      console.log(`[D1 Migration API] Received migration request: ${payload.invoices?.length || 0} invoices, ${payload.quotations?.length || 0} quotations, ${payload.products?.length || 0} products, ${payload.kbliMappings?.length || 0} KBLI mappings, ${payload.kbliSuggestions?.length || 0} KBLI suggestions.`);
       
       const result = await processD1JsonMigration(db, payload);
       res.json(result);

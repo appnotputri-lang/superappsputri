@@ -6,11 +6,22 @@ import { collection, getDocs, doc, writeBatch } from 'firebase/firestore';
 import { generateShortPublicToken } from '../../services/QuotationService';
 import { CompanyService } from '../../services/CompanyService';
 import { getApiUrl, getAuthHeaders } from '../../lib/api';
+import { HISTORICAL_KBLI_MAPPINGS, HISTORICAL_KBLI_SUGGESTIONS } from '../../data/kbliHistoricalRecords';
 
 export default function MigrationTool() {
   const [logs, setLogs] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
-  const [importFiles, setImportFiles] = useState<{ deeds?: any[]; private_deeds?: any[]; outgoing_mails?: any[]; invoices?: any[]; documents?: any[]; quotations?: any[]; products?: any[] }>({});
+  const [importFiles, setImportFiles] = useState<{
+    deeds?: any[];
+    private_deeds?: any[];
+    outgoing_mails?: any[];
+    invoices?: any[];
+    documents?: any[];
+    quotations?: any[];
+    products?: any[];
+    kbliMappings?: any[];
+    kbliSuggestions?: any[];
+  }>({});
 
   const [d1MigrationResult, setD1MigrationResult] = useState<any>(null);
   const [d1JsonResult, setD1JsonResult] = useState<any>(null);
@@ -34,12 +45,14 @@ export default function MigrationTool() {
       const invCount = importFiles.invoices?.length || 0;
       const quoCount = importFiles.quotations?.length || 0;
       const prodCount = importFiles.products?.length || 0;
+      const kbliMapCount = importFiles.kbliMappings?.length || HISTORICAL_KBLI_MAPPINGS.length;
+      const kbliSuggCount = importFiles.kbliSuggestions?.length || HISTORICAL_KBLI_SUGGESTIONS.length;
 
-      if (invCount === 0 && quoCount === 0 && prodCount === 0) {
-        addLog("Peringatan: Belum ada file JSON (invoices, quotations, products) yang dimuat. Silakan upload file JSON atau klik 'Muat Contoh JSON'.");
+      if (invCount === 0 && quoCount === 0 && prodCount === 0 && kbliMapCount === 0 && kbliSuggCount === 0) {
+        addLog("Peringatan: Belum ada file JSON (invoices, quotations, products, KBLI) yang dimuat. Silakan upload file JSON atau klik 'Muat Contoh JSON'.");
       }
 
-      addLog(`Mengirim payload ke API: ${invCount} invoices, ${quoCount} quotations, ${prodCount} products...`);
+      addLog(`Mengirim payload ke API: ${invCount} invoices, ${quoCount} quotations, ${prodCount} products, ${kbliMapCount} KBLI mappings, ${kbliSuggCount} KBLI suggestions...`);
       
       const headers = await getAuthHeaders();
       const response = await fetch(getApiUrl('/api/migration/d1-import'), {
@@ -51,7 +64,9 @@ export default function MigrationTool() {
         body: JSON.stringify({
           invoices: importFiles.invoices || [],
           quotations: importFiles.quotations || [],
-          products: importFiles.products || []
+          products: importFiles.products || [],
+          kbliMappings: importFiles.kbliMappings || HISTORICAL_KBLI_MAPPINGS,
+          kbliSuggestions: importFiles.kbliSuggestions || HISTORICAL_KBLI_SUGGESTIONS
         })
       });
 
@@ -67,25 +82,43 @@ export default function MigrationTool() {
       addLog(`Total Firestore Reads: ${result.firestoreReadCount} (GARANSI 0 READS)`);
       
       addLog("\n[INVOICES]");
-      addLog(`JSON count: ${result.invoices.jsonCount}`);
-      addLog(`D1 count: ${result.invoices.d1Count}`);
-      addLog(`Migrated: ${result.invoices.migrated}`);
-      addLog(`Failed: ${result.invoices.failed}`);
-      addLog(`Validated: ${result.invoices.validatedCount}`);
+      addLog(`JSON count: ${result.invoices?.jsonCount || 0}`);
+      addLog(`D1 count: ${result.invoices?.d1Count || 0}`);
+      addLog(`Migrated: ${result.invoices?.migrated || 0}`);
+      addLog(`Failed: ${result.invoices?.failed || 0}`);
+      addLog(`Validated: ${result.invoices?.validatedCount || 0}`);
 
       addLog("\n[QUOTATIONS]");
-      addLog(`JSON count: ${result.quotations.jsonCount}`);
-      addLog(`D1 count: ${result.quotations.d1Count}`);
-      addLog(`Migrated: ${result.quotations.migrated}`);
-      addLog(`Failed: ${result.quotations.failed}`);
-      addLog(`Validated: ${result.quotations.validatedCount}`);
+      addLog(`JSON count: ${result.quotations?.jsonCount || 0}`);
+      addLog(`D1 count: ${result.quotations?.d1Count || 0}`);
+      addLog(`Migrated: ${result.quotations?.migrated || 0}`);
+      addLog(`Failed: ${result.quotations?.failed || 0}`);
+      addLog(`Validated: ${result.quotations?.validatedCount || 0}`);
 
       addLog("\n[PRODUCTS]");
-      addLog(`JSON count: ${result.products.jsonCount}`);
-      addLog(`D1 count: ${result.products.d1Count}`);
-      addLog(`Migrated: ${result.products.migrated}`);
-      addLog(`Failed: ${result.products.failed}`);
-      addLog(`Validated: ${result.products.validatedCount}`);
+      addLog(`JSON count: ${result.products?.jsonCount || 0}`);
+      addLog(`D1 count: ${result.products?.d1Count || 0}`);
+      addLog(`Migrated: ${result.products?.migrated || 0}`);
+      addLog(`Failed: ${result.products?.failed || 0}`);
+      addLog(`Validated: ${result.products?.validatedCount || 0}`);
+
+      if (result.kbliMappings) {
+        addLog("\n[KBLI MAPPINGS]");
+        addLog(`JSON count: ${result.kbliMappings.jsonCount}`);
+        addLog(`D1 count: ${result.kbliMappings.d1Count}`);
+        addLog(`Migrated: ${result.kbliMappings.migrated}`);
+        addLog(`Failed: ${result.kbliMappings.failed}`);
+        addLog(`Validated: ${result.kbliMappings.validatedCount}`);
+      }
+
+      if (result.kbliSuggestions) {
+        addLog("\n[KBLI SUGGESTIONS]");
+        addLog(`JSON count: ${result.kbliSuggestions.jsonCount}`);
+        addLog(`D1 count: ${result.kbliSuggestions.d1Count}`);
+        addLog(`Migrated: ${result.kbliSuggestions.migrated}`);
+        addLog(`Failed: ${result.kbliSuggestions.failed}`);
+        addLog(`Validated: ${result.kbliSuggestions.validatedCount}`);
+      }
 
       addLog(`\nStatus Migrasi Keseluruhan: ${result.success ? "✓ SEMPURNA & VALID" : "✗ PERIKSA LOG/SAMPEL"}`);
 

@@ -193,10 +193,14 @@ export async function processD1JsonMigration(db: any, payload: {
   invoices?: any[];
   quotations?: any[];
   products?: any[];
+  kbliMappings?: any[];
+  kbliSuggestions?: any[];
 }) {
   const rawInvoices = Array.isArray(payload.invoices) ? payload.invoices : [];
   const rawQuotations = Array.isArray(payload.quotations) ? payload.quotations : [];
   const rawProducts = Array.isArray(payload.products) ? payload.products : [];
+  const rawKbliMappings = Array.isArray(payload.kbliMappings) ? payload.kbliMappings : [];
+  const rawKbliSuggestions = Array.isArray(payload.kbliSuggestions) ? payload.kbliSuggestions : [];
 
   await ensureD1TablesExist(db);
 
@@ -462,6 +466,108 @@ export async function processD1JsonMigration(db: any, payload: {
     }
   }
 
+  // 3.5. KBLI MAPPINGS UPSERT
+  let kbliMappingsMigrated = 0;
+  let kbliMappingsFailed = 0;
+  const kbliMappingUpsertSql = `
+    INSERT INTO kbli_mapping_records (
+      id, nama, kelompok_usaha, selected_items, updated_at, user_id, created_at, raw_data
+    ) VALUES (
+      ?, ?, ?, ?, ?, ?, ?, ?
+    )
+    ON CONFLICT(id) DO UPDATE SET
+      nama=excluded.nama,
+      kelompok_usaha=excluded.kelompok_usaha,
+      selected_items=excluded.selected_items,
+      updated_at=excluded.updated_at,
+      user_id=excluded.user_id,
+      created_at=excluded.created_at,
+      raw_data=excluded.raw_data
+  `;
+
+  for (let i = 0; i < rawKbliMappings.length; i += CHUNK_SIZE) {
+    const chunk = rawKbliMappings.slice(i, i + CHUNK_SIZE);
+    const stmts: any[] = [];
+
+    for (const item of chunk) {
+      const id = String(item.id || item._id || crypto.randomUUID());
+      const nama = String(item.nama || item.name || item.namaPT || item.nama_pt || 'TANPA NAMA');
+      const kelompokUsaha = item.kelompok_usaha || item.kelompokUsaha || null;
+      const selectedItemsJson = typeof item.selectedItems === 'string'
+        ? item.selectedItems
+        : (typeof item.selected_items === 'string'
+            ? item.selected_items
+            : JSON.stringify(item.selectedItems || item.selected_items || item.selectedMappings || item.selectedKblis || []));
+      const updatedAt = String(item.updatedAt || item.updated_at || nowIso);
+      const createdAt = String(item.createdAt || item.created_at || nowIso);
+      const userId = item.userId || item.user_id || null;
+      const rawData = JSON.stringify(item);
+
+      stmts.push(db.prepare(kbliMappingUpsertSql).bind(
+        id, nama, kelompokUsaha, selectedItemsJson, updatedAt, userId, createdAt, rawData
+      ));
+    }
+
+    try {
+      await db.batch(stmts);
+      kbliMappingsMigrated += chunk.length;
+    } catch (err: any) {
+      console.error("[Migration] KBLI Mappings batch error:", err);
+      kbliMappingsFailed += chunk.length;
+    }
+  }
+
+  // 3.6. KBLI SUGGESTIONS UPSERT
+  let kbliSuggestionsMigrated = 0;
+  let kbliSuggestionsFailed = 0;
+  const kbliSuggestionUpsertSql = `
+    INSERT INTO kbli_suggestion_records (
+      id, nama, kelompok_usaha, selected_items, updated_at, user_id, created_at, raw_data
+    ) VALUES (
+      ?, ?, ?, ?, ?, ?, ?, ?
+    )
+    ON CONFLICT(id) DO UPDATE SET
+      nama=excluded.nama,
+      kelompok_usaha=excluded.kelompok_usaha,
+      selected_items=excluded.selected_items,
+      updated_at=excluded.updated_at,
+      user_id=excluded.user_id,
+      created_at=excluded.created_at,
+      raw_data=excluded.raw_data
+  `;
+
+  for (let i = 0; i < rawKbliSuggestions.length; i += CHUNK_SIZE) {
+    const chunk = rawKbliSuggestions.slice(i, i + CHUNK_SIZE);
+    const stmts: any[] = [];
+
+    for (const item of chunk) {
+      const id = String(item.id || item._id || crypto.randomUUID());
+      const nama = String(item.nama || item.name || item.namaPT || item.nama_pt || 'TANPA NAMA');
+      const kelompokUsaha = item.kelompok_usaha || item.kelompokUsaha || null;
+      const selectedItemsJson = typeof item.selectedItems === 'string'
+        ? item.selectedItems
+        : (typeof item.selected_items === 'string'
+            ? item.selected_items
+            : JSON.stringify(item.selectedItems || item.selected_items || item.selectedMappings || item.selectedKblis || []));
+      const updatedAt = String(item.updatedAt || item.updated_at || nowIso);
+      const createdAt = String(item.createdAt || item.created_at || nowIso);
+      const userId = item.userId || item.user_id || null;
+      const rawData = JSON.stringify(item);
+
+      stmts.push(db.prepare(kbliSuggestionUpsertSql).bind(
+        id, nama, kelompokUsaha, selectedItemsJson, updatedAt, userId, createdAt, rawData
+      ));
+    }
+
+    try {
+      await db.batch(stmts);
+      kbliSuggestionsMigrated += chunk.length;
+    } catch (err: any) {
+      console.error("[Migration] KBLI Suggestions batch error:", err);
+      kbliSuggestionsFailed += chunk.length;
+    }
+  }
+
   // 4. QUERY COUNTS & PERFORM COMPARISONS
   const d1InvoicesCountRes = await db.prepare("SELECT count(*) as cnt FROM invoices").first();
   const d1InvoicesCount = Number(d1InvoicesCountRes?.cnt || 0);
@@ -472,13 +578,23 @@ export async function processD1JsonMigration(db: any, payload: {
   const d1ProductsCountRes = await db.prepare("SELECT count(*) as cnt FROM products").first();
   const d1ProductsCount = Number(d1ProductsCountRes?.cnt || 0);
 
+  const d1KbliMappingsCountRes = await db.prepare("SELECT count(*) as cnt FROM kbli_mapping_records").first();
+  const d1KbliMappingsCount = Number(d1KbliMappingsCountRes?.cnt || 0);
+
+  const d1KbliSuggestionsCountRes = await db.prepare("SELECT count(*) as cnt FROM kbli_suggestion_records").first();
+  const d1KbliSuggestionsCount = Number(d1KbliSuggestionsCountRes?.cnt || 0);
+
   const d1InvoicesAll = (await db.prepare("SELECT * FROM invoices ORDER BY id ASC").all())?.results || [];
   const d1QuotationsAll = (await db.prepare("SELECT * FROM quotations ORDER BY id ASC").all())?.results || [];
   const d1ProductsAll = (await db.prepare("SELECT * FROM products ORDER BY id ASC").all())?.results || [];
+  const d1KbliMappingsAll = (await db.prepare("SELECT * FROM kbli_mapping_records ORDER BY id ASC").all())?.results || [];
+  const d1KbliSuggestionsAll = (await db.prepare("SELECT * FROM kbli_suggestion_records ORDER BY id ASC").all())?.results || [];
 
   const sortedJsonInvoices = [...rawInvoices].sort((a, b) => String(a.id || a._id).localeCompare(String(b.id || b._id)));
   const sortedJsonQuotations = [...rawQuotations].sort((a, b) => String(a.id || a._id).localeCompare(String(b.id || b._id)));
   const sortedJsonProducts = [...rawProducts].sort((a, b) => String(a.id || a._id).localeCompare(String(b.id || b._id)));
+  const sortedJsonKbliMappings = [...rawKbliMappings].sort((a, b) => String(a.id || a._id).localeCompare(String(b.id || b._id)));
+  const sortedJsonKbliSuggestions = [...rawKbliSuggestions].sort((a, b) => String(a.id || a._id).localeCompare(String(b.id || b._id)));
 
   // --- Invoices Validation ---
   const invSamples = selectValidationIndices(sortedJsonInvoices.length);
@@ -574,15 +690,78 @@ export async function processD1JsonMigration(db: any, payload: {
     };
   });
 
+  // --- KBLI Mappings Validation ---
+  const kbliMapSamples = selectValidationIndices(sortedJsonKbliMappings.length);
+  const kbliMappingComparisons = kbliMapSamples.map(({ index, type }) => {
+    const jItem = sortedJsonKbliMappings[index];
+    const jId = String(jItem.id || jItem._id);
+    const dRow = d1KbliMappingsAll.find((r: any) => r.id === jId);
+
+    if (!dRow) {
+      return { index, type, id: jId, match: false, reason: "Row not found in D1", mismatches: [{ field: 'id', json: jId, d1: 'MISSING' }] };
+    }
+
+    const diffs: any[] = [];
+    const checkField = (field: string, jVal: any, dVal: any) => {
+      if (String(jVal ?? '') !== String(dVal ?? '')) {
+        diffs.push({ field, json: jVal, d1: dVal });
+      }
+    };
+
+    checkField('nama', String(jItem.nama || jItem.name || jItem.namaPT || '').trim().toUpperCase(), String(dRow.nama || '').trim().toUpperCase());
+
+    return {
+      index,
+      type,
+      id: jId,
+      match: diffs.length === 0,
+      mismatches: diffs
+    };
+  });
+
+  // --- KBLI Suggestions Validation ---
+  const kbliSuggSamples = selectValidationIndices(sortedJsonKbliSuggestions.length);
+  const kbliSuggestionComparisons = kbliSuggSamples.map(({ index, type }) => {
+    const jItem = sortedJsonKbliSuggestions[index];
+    const jId = String(jItem.id || jItem._id);
+    const dRow = d1KbliSuggestionsAll.find((r: any) => r.id === jId);
+
+    if (!dRow) {
+      return { index, type, id: jId, match: false, reason: "Row not found in D1", mismatches: [{ field: 'id', json: jId, d1: 'MISSING' }] };
+    }
+
+    const diffs: any[] = [];
+    const checkField = (field: string, jVal: any, dVal: any) => {
+      if (String(jVal ?? '') !== String(dVal ?? '')) {
+        diffs.push({ field, json: jVal, d1: dVal });
+      }
+    };
+
+    checkField('nama', String(jItem.nama || jItem.name || jItem.namaPT || '').trim().toUpperCase(), String(dRow.nama || '').trim().toUpperCase());
+
+    return {
+      index,
+      type,
+      id: jId,
+      match: diffs.length === 0,
+      mismatches: diffs
+    };
+  });
+
   const invoicesValidated = invoiceComparisons.filter(c => c.match).length;
   const quotationsValidated = quotationComparisons.filter(c => c.match).length;
   const productsValidated = productComparisons.filter(c => c.match).length;
+  const kbliMappingsValidated = kbliMappingComparisons.filter(c => c.match).length;
+  const kbliSuggestionsValidated = kbliSuggestionComparisons.filter(c => c.match).length;
 
   const invoicesValid = (rawInvoices.length === 0 || invoicesValidated === invoiceComparisons.length) && (rawInvoices.length <= d1InvoicesCount);
   const quotationsValid = (rawQuotations.length === 0 || quotationsValidated === quotationComparisons.length) && (rawQuotations.length <= d1QuotationsCount);
   const productsValid = (rawProducts.length === 0 || productsValidated === productComparisons.length) && (rawProducts.length <= d1ProductsCount);
+  const kbliMappingsValid = (rawKbliMappings.length === 0 || kbliMappingsValidated === kbliMappingComparisons.length) && (rawKbliMappings.length <= d1KbliMappingsCount);
+  const kbliSuggestionsValid = (rawKbliSuggestions.length === 0 || kbliSuggestionsValidated === kbliSuggestionComparisons.length) && (rawKbliSuggestions.length <= d1KbliSuggestionsCount);
 
-  const isAllSuccessful = invoicesValid && quotationsValid && productsValid && (invoicesFailed === 0 && quotationsFailed === 0 && productsFailed === 0);
+  const isAllSuccessful = invoicesValid && quotationsValid && productsValid && kbliMappingsValid && kbliSuggestionsValid &&
+    (invoicesFailed === 0 && quotationsFailed === 0 && productsFailed === 0 && kbliMappingsFailed === 0 && kbliSuggestionsFailed === 0);
 
   return {
     success: isAllSuccessful,
@@ -613,6 +792,24 @@ export async function processD1JsonMigration(db: any, payload: {
       validatedCount: `${productsValidated} / ${productComparisons.length} samples (${productComparisons.length} checked: 10 First, 10 Random, 10 Last)`,
       isValid: productsValid,
       samples: productComparisons
+    },
+    kbliMappings: {
+      jsonCount: rawKbliMappings.length,
+      d1Count: d1KbliMappingsCount,
+      migrated: kbliMappingsMigrated,
+      failed: kbliMappingsFailed,
+      validatedCount: `${kbliMappingsValidated} / ${kbliMappingComparisons.length} samples`,
+      isValid: kbliMappingsValid,
+      samples: kbliMappingComparisons
+    },
+    kbliSuggestions: {
+      jsonCount: rawKbliSuggestions.length,
+      d1Count: d1KbliSuggestionsCount,
+      migrated: kbliSuggestionsMigrated,
+      failed: kbliSuggestionsFailed,
+      validatedCount: `${kbliSuggestionsValidated} / ${kbliSuggestionComparisons.length} samples`,
+      isValid: kbliSuggestionsValid,
+      samples: kbliSuggestionComparisons
     }
   };
 }
