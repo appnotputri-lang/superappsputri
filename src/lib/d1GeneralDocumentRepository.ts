@@ -63,7 +63,7 @@ export async function getAllGeneralDocumentsD1(
 ): Promise<{ records: GeneralDocumentData[]; total: number; limit: number; offset: number }> {
   await ensureD1TablesExist(db);
 
-  let limit = options.limit ? Math.min(Math.max(1, options.limit), 50) : 20;
+  let limit = options.limit ? Math.min(Math.max(1, options.limit), 1000) : 50;
   let offset = options.offset ? Math.max(0, options.offset) : 0;
   let docType = options.type ? options.type.toUpperCase() : undefined;
   let search = options.search ? options.search.trim() : undefined;
@@ -74,7 +74,7 @@ export async function getAllGeneralDocumentsD1(
   let params: any[] = [];
 
   if (docType) {
-    whereConditions.push("doc_type = ?");
+    whereConditions.push("UPPER(doc_type) = ?");
     params.push(docType);
   }
 

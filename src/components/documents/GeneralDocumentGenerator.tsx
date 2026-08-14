@@ -339,18 +339,17 @@ export const GeneralDocumentGenerator: React.FC<GeneralDocumentGeneratorProps> =
 
     try {
       if (editingDocId) {
-        await GeneralDocumentService.updateDocumentData(editingDocId, payload);
-        const updatedDoc = { ...payload, id: editingDocId };
-        setSelectedDoc(updatedDoc as GeneralDocumentData);
+        const updated = await GeneralDocumentService.updateDocumentData(editingDocId, payload);
+        setSelectedDoc(updated);
       } else {
         const newId = await GeneralDocumentService.addDocument(payload);
         const newDoc = { ...payload, id: newId };
         setSelectedDoc(newDoc as GeneralDocumentData);
       }
       setViewMode('detail');
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to save document:', err);
-      alert('Gagal menyimpan dokumen. Silakan coba lagi.');
+      alert(`Gagal menyimpan dokumen: ${err?.message || 'Silakan coba lagi.'}`);
     }
   };
 
@@ -363,9 +362,9 @@ export const GeneralDocumentGenerator: React.FC<GeneralDocumentGeneratorProps> =
         setSelectedDoc(null);
         setViewMode('list');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to delete document:', err);
-      alert('Gagal menghapus dokumen.');
+      alert(`Gagal menghapus dokumen: ${err?.message || 'Terjadi kesalahan sistem.'}`);
     }
   };
 

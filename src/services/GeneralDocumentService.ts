@@ -1,10 +1,14 @@
-import { GeneralDocumentData } from '../types';
+import { GeneralDocumentData, GeneralDocType } from '../types';
 
 const listeners = new Set<() => void>();
 
 function notifyChange() {
   listeners.forEach(fn => {
-    try { fn(); } catch (e) { console.error('Error in GeneralDocumentService listener:', e); }
+    try {
+      fn();
+    } catch (e) {
+      console.error('[GeneralDocumentService] Error in change listener:', e);
+    }
   });
 }
 
@@ -16,18 +20,28 @@ function generateShortPublicToken(length = 10): string {
 }
 
 export class GeneralDocumentService {
-  static subscribeGeneralDocuments(onNext: (data: GeneralDocumentData[]) => void): () => void {
+  /**
+   * Subscribe to general documents updates from D1.
+   */
+  static subscribeGeneralDocuments(
+    onNext: (data: GeneralDocumentData[]) => void,
+    type?: GeneralDocType
+  ): () => void {
     let active = true;
     const fetcher = async () => {
       try {
-        const res = await fetch('/api/general-documents?limit=1000');
+        const queryParams = new URLSearchParams({ limit: '1000' });
+        if (type) {
+          queryParams.set('type', type);
+        }
+        const res = await fetch(`/api/general-documents?${queryParams.toString()}`);
         if (res.ok && active) {
           const json = await res.json();
-          const records = json.records || (Array.isArray(json) ? json : []);
+          const records: GeneralDocumentData[] = json.records || (Array.isArray(json) ? json : (json.data || []));
           onNext(records);
         }
       } catch (err) {
-        console.error('[GeneralDocumentService] Error subscribing to general documents:', err);
+        console.error('[GeneralDocumentService] Error fetching general documents:', err);
       }
     };
 
@@ -40,6 +54,26 @@ export class GeneralDocumentService {
     };
   }
 
+  /**
+   * Get a document by ID.
+   */
+  static async getDocumentById(id: string): Promise<GeneralDocumentData | null> {
+    try {
+      const res = await fetch(`/api/general-documents/${encodeURIComponent(id)}`);
+      if (res.ok) {
+        const json = await res.json();
+        return json.data || json;
+      }
+      return null;
+    } catch (error) {
+      console.error('[GeneralDocumentService] Error fetching document by ID:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Get a document by public token with fallback to ID.
+   */
   static async getDocumentByPublicToken(publicToken: string): Promise<GeneralDocumentData | null> {
     try {
       const res = await fetch(`/api/general-documents/public/${encodeURIComponent(publicToken)}`);
@@ -47,7 +81,7 @@ export class GeneralDocumentService {
         const json = await res.json();
         return json.data || json;
       }
-      
+
       // Fallback by ID
       const resId = await fetch(`/api/general-documents/${encodeURIComponent(publicToken)}`);
       if (resId.ok) {
@@ -62,53 +96,111 @@ export class GeneralDocumentService {
     }
   }
 
+  /**
+   * Add a new general document to Cloudflare D1.
+   */
   static async addDocument(data: Omit<GeneralDocumentData, 'id'> & { id?: string }): Promise<string> {
-    const docId = data.id || `doc_` + Date.now() + `_` + Math.random().toString(36).substr(2, 6);
+    const docId = data.id || `doc_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
     const now = new Date().toISOString();
     const publicToken = data.publicToken || generateShortPublicToken();
-    const payload = {
+    const payload: GeneralDocumentData = {
       ...data,
       id: docId,
+      docType: (data.docType || 'RECEIPT').toUpperCase() as GeneralDocType,
       publicToken,
-      createdAt: now,
-      updatedAt: now
+      createdAt: data.createdAt || now,
+      updatedAt: now,
     };
+
+    console.log('[GeneralDocument] CREATE', {
+      id: payload.id,
+      docType: payload.docType,
+      referenceNo: payload.referenceNo,
+      clientName: payload.clientName,
+      itemsCount: payload.items?.length || 0,
+    });
 
     const res = await fetch('/api/general-documents', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
+    });
+
+    console.log('[GeneralDocument] response status', res.status);
+    const resBody = await res.json().catch(() => ({}));
+    console.log('[GeneralDocument] response body', {
+      success: res.ok,
+      status: res.status,
+      id: resBody?.id || resBody?.data?.id || docId,
     });
 
     if (!res.ok) {
-      throw new Error('Failed to create general document in D1');
+      const errorMsg = resBody?.error || resBody?.message || `HTTP ${res.status}: Gagal menyimpan dokumen.`;
+      throw new Error(errorMsg);
     }
 
+    const savedDoc = resBody.data || resBody;
+    const finalId = savedDoc?.id || docId;
+
     notifyChange();
-    return docId;
+    return finalId;
   }
 
-  static async updateDocumentData(id: string, data: Partial<GeneralDocumentData>): Promise<void> {
+  /**
+   * Update an existing general document in Cloudflare D1.
+   */
+  static async updateDocumentData(id: string, data: Partial<GeneralDocumentData>): Promise<GeneralDocumentData> {
+    console.log('[GeneralDocument] UPDATE', {
+      id,
+      docType: data.docType,
+      referenceNo: data.referenceNo,
+      clientName: data.clientName,
+    });
+
     const res = await fetch(`/api/general-documents/${encodeURIComponent(id)}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
+      body: JSON.stringify(data),
+    });
+
+    console.log('[GeneralDocument] response status', res.status);
+    const resBody = await res.json().catch(() => ({}));
+    console.log('[GeneralDocument] response body', {
+      success: res.ok,
+      status: res.status,
+      id,
     });
 
     if (!res.ok) {
-      throw new Error(`Failed to update general document ${id} in D1`);
+      const errorMsg = resBody?.error || resBody?.message || `HTTP ${res.status}: Gagal memperbarui dokumen.`;
+      throw new Error(errorMsg);
     }
 
     notifyChange();
+    return resBody.data || resBody;
   }
 
+  /**
+   * Delete a general document from Cloudflare D1.
+   */
   static async deleteDocumentData(id: string): Promise<void> {
+    console.log('[GeneralDocument] DELETE', { id });
+
     const res = await fetch(`/api/general-documents/${encodeURIComponent(id)}`, {
-      method: 'DELETE'
+      method: 'DELETE',
+    });
+
+    console.log('[GeneralDocument] response status', res.status);
+    const resBody = await res.json().catch(() => ({}));
+    console.log('[GeneralDocument] response body', {
+      success: res.ok,
+      status: res.status,
+      id,
     });
 
     if (!res.ok) {
-      throw new Error(`Failed to delete general document ${id} from D1`);
+      const errorMsg = resBody?.error || resBody?.message || `HTTP ${res.status}: Gagal menghapus dokumen.`;
+      throw new Error(errorMsg);
     }
 
     notifyChange();
