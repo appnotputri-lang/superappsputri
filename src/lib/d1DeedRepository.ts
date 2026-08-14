@@ -94,19 +94,13 @@ export async function getAllDeedsD1(
 
   const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(" AND ")}` : "";
 
-  // Count query
-  const countSql = `SELECT COUNT(*) as total FROM deeds ${whereClause}`;
-  const countStmt = db.prepare(countSql);
-  const countRes = params.length > 0 ? await countStmt.bind(...params).first() : await countStmt.first();
-  const total = Number(countRes?.total || 0);
-
   let querySql = `SELECT * FROM deeds ${whereClause}`;
   let queryParams = [...params];
 
   // Sorting
   const sortBy = options.sortBy || 'date';
   const order = options.order === 'asc' ? 'ASC' : 'DESC';
-  
+
   if (sortBy === 'orderNumber' || sortBy === 'order_number') {
     querySql += ` ORDER BY CAST(order_number AS INTEGER) ${order}, date ${order}, created_at DESC`;
   } else if (sortBy === 'number') {
@@ -122,8 +116,19 @@ export async function getAllDeedsD1(
     queryParams.push(limit, offset);
   }
 
+  // Count query and the main page query are independent — run them in
+  // parallel instead of one-after-another to save a full network
+  // round-trip to D1 on every single list load.
+  const countSql = `SELECT COUNT(*) as total FROM deeds ${whereClause}`;
+  const countStmt = db.prepare(countSql);
   const queryStmt = db.prepare(querySql);
-  const queryRes = queryParams.length > 0 ? await queryStmt.bind(...queryParams).all() : await queryStmt.all();
+
+  const [countRes, queryRes] = await Promise.all([
+    params.length > 0 ? countStmt.bind(...params).first() : countStmt.first(),
+    queryParams.length > 0 ? queryStmt.bind(...queryParams).all() : queryStmt.all()
+  ]);
+
+  const total = Number((countRes as any)?.total || 0);
   const rows = queryRes?.results || [];
   const records = rows.map(formatD1RowToDeed);
 
@@ -336,10 +341,18 @@ export async function fetchLatestDeedNumbersD1(db: any, targetDate: string): Pro
   const nextMonth = targetMonth === 12 ? 1 : targetMonth + 1;
   const endStr = `${nextYear}-${String(nextMonth).padStart(2, '0')}-01`;
 
-  // Fetch month deeds
-  const monthDeedsRes = await db.prepare(
-    "SELECT number, raw_data FROM deeds WHERE date >= ? AND date < ?"
-  ).bind(startStr, endStr).all();
+  // Fetch month deeds and the global most-recent-order-number window in
+  // parallel — these two queries are independent of each other, so running
+  // them sequentially (as before) was paying for two full network
+  // round-trips to D1 back-to-back instead of one.
+  const [monthDeedsRes, recentDeedsRes] = await Promise.all([
+    db.prepare(
+      "SELECT number, raw_data FROM deeds WHERE date >= ? AND date < ?"
+    ).bind(startStr, endStr).all(),
+    db.prepare(
+      "SELECT order_number, raw_data FROM deeds ORDER BY CAST(order_number AS INTEGER) DESC LIMIT 50"
+    ).all()
+  ]);
 
   const monthRows = monthDeedsRes?.results || [];
   let maxDeedNumber = 0;
@@ -361,10 +374,6 @@ export async function fetchLatestDeedNumbersD1(db: any, targetDate: string): Pro
   }
 
   // Fetch recent deeds for max order number
-  const recentDeedsRes = await db.prepare(
-    "SELECT order_number, raw_data FROM deeds ORDER BY CAST(order_number AS INTEGER) DESC LIMIT 50"
-  ).all();
-
   const recentRows = recentDeedsRes?.results || [];
   let maxOrderNumber = 0;
   for (const row of recentRows) {

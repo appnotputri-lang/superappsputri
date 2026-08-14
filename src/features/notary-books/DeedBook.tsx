@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { PageHeader } from '../../components/ui/PageLayout';
 import { Deed, DeedAppearer, DeedGrantor } from '../../../types';
 import { NotaryService } from '../../services/NotaryService';
@@ -7,8 +7,63 @@ import { useAuth } from '../../hooks/useAuth';
 import { fetchLatestDeedNumbers } from '../../lib/deedUtils';
 import { Plus, Search, Edit2, Trash2, Lock, RefreshCw, X, FileText, Check, AlertTriangle, ChevronDown, ChevronRight } from 'lucide-react';
 
-// Global memory cache for deeds to enable instant page transitions
-const deedCache = new Map<string, { records: Deed[]; total: number }>();
+// Deeds list cache: kept in-memory for instant SPA tab-switches, and
+// mirrored to localStorage so the FIRST load of this page in a brand new
+// tab/session (or after a hard refresh) can also show the last-known data
+// immediately instead of a blank loading state — the list is still always
+// re-fetched from D1 in the background afterward, so this only affects how
+// fast something appears, never what ends up saved/shown as final truth.
+const DEED_LIST_CACHE_KEY = 'superapp:deedbook:list-cache:v1';
+const DEED_LIST_CACHE_MAX_ENTRIES = 12;
+const DEED_LIST_CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000; // 24h — purely a "don't show ancient data" cap, not a freshness guarantee
+
+type DeedCacheEntry = { records: Deed[]; total: number; ts: number };
+
+const deedCache = new Map<string, DeedCacheEntry>();
+
+// Hydrate the in-memory cache from localStorage once, at module load.
+try {
+  const raw = localStorage.getItem(DEED_LIST_CACHE_KEY);
+  if (raw) {
+    const parsed: Record<string, DeedCacheEntry> = JSON.parse(raw);
+    const now = Date.now();
+    Object.entries(parsed).forEach(([key, entry]) => {
+      if (entry && now - entry.ts < DEED_LIST_CACHE_MAX_AGE_MS) {
+        deedCache.set(key, entry);
+      }
+    });
+  }
+} catch (err) {
+  console.error('Failed to hydrate deed list cache from localStorage:', err);
+}
+
+function persistDeedCache() {
+  try {
+    // Cap how many entries we persist — keep the most recently written ones.
+    const entries = Array.from(deedCache.entries()).sort((a, b) => b[1].ts - a[1].ts);
+    const capped = entries.slice(0, DEED_LIST_CACHE_MAX_ENTRIES);
+    const obj: Record<string, DeedCacheEntry> = {};
+    capped.forEach(([key, val]) => { obj[key] = val; });
+    localStorage.setItem(DEED_LIST_CACHE_KEY, JSON.stringify(obj));
+  } catch (err) {
+    // Quota exceeded / privacy mode / etc. — non-fatal, in-memory cache still works.
+    console.error('Failed to persist deed list cache to localStorage:', err);
+  }
+}
+
+function setDeedCacheEntry(key: string, records: Deed[], total: number) {
+  deedCache.set(key, { records, total, ts: Date.now() });
+  persistDeedCache();
+}
+
+function clearDeedCache() {
+  deedCache.clear();
+  try {
+    localStorage.removeItem(DEED_LIST_CACHE_KEY);
+  } catch (err) {
+    console.error('Failed to clear persisted deed list cache:', err);
+  }
+}
 
 const MONTH_NAMES = [
   'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
@@ -147,6 +202,33 @@ export const DeedBook: React.FC = () => {
   const [isOrdering, setIsOrdering] = useState<boolean>(false);
   const [isFetchingNumber, setIsFetchingNumber] = useState<boolean>(false);
 
+  // Short-lived (15s) prefetch cache for the "next deed number" server call,
+  // keyed by date. Populated proactively as soon as this page mounts (for
+  // today's date, the overwhelmingly common case) so that opening "Tambah
+  // Akta Baru" can show a number instantly instead of always waiting for a
+  // fresh round-trip — closer to how the old Firestore-cached version felt.
+  // A background re-fetch still always runs to reconcile against the
+  // freshest data before the admin is allowed to save.
+  const numberPrefetchCache = useRef<{ date: string; numbers: { nextDeedNumber: string; nextOrderNumber: string }; ts: number } | null>(null);
+  const PREFETCH_TTL_MS = 15000;
+
+  const prefetchDeedNumbers = async (targetDate: string) => {
+    try {
+      const numbers = await fetchLatestDeedNumbers(targetDate);
+      numberPrefetchCache.current = { date: targetDate, numbers, ts: Date.now() };
+    } catch (err) {
+      // Silent — this is just a warm-up. applyServerDeedNumbers() below will
+      // surface a real error to the user if the on-demand fetch also fails.
+      console.error('Prefetch of next deed numbers failed (will retry on demand):', err);
+    }
+  };
+
+  // Warm the cache for today's date as soon as the page loads.
+  useEffect(() => {
+    prefetchDeedNumbers(new Date().toISOString().split('T')[0]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Authoritative source of truth for "No. Akta" / "No. Urut" on a NEW deed —
   // queries the D1-backed /api/deeds/next-numbers endpoint directly instead of
   // computing from `allLoadedDeeds` (which is only ever a partial, lazily-loaded
@@ -155,17 +237,39 @@ export const DeedBook: React.FC = () => {
   // That combination was why the field always defaulted to '01' / '1300'
   // (the client-side fallback values) regardless of what was actually next.
   const applyServerDeedNumbers = async (targetDate: string) => {
-    setIsFetchingNumber(true);
-    setDeedNumber('');
-    setOrderNumber('');
-    setOrderWarning(null);
+    const cached = numberPrefetchCache.current;
+    const hasFreshCache = cached && cached.date === targetDate && (Date.now() - cached.ts) < PREFETCH_TTL_MS;
+
+    if (hasFreshCache) {
+      // Show the recently-prefetched value immediately — no loading flicker.
+      setDeedNumber(cached!.numbers.nextDeedNumber);
+      setOrderNumber(cached!.numbers.nextOrderNumber);
+      setOrderWarning(null);
+    } else {
+      setIsFetchingNumber(true);
+      setDeedNumber('');
+      setOrderNumber('');
+      setOrderWarning(null);
+    }
+
     try {
+      // Always reconcile against the server, even when we showed a cached
+      // value instantly — this is what keeps the fast path safe: nothing
+      // is ever saved on the strength of the cache alone, only on this
+      // confirmed (or freshly-fetched) result.
       const numbers = await fetchLatestDeedNumbers(targetDate);
+      numberPrefetchCache.current = { date: targetDate, numbers, ts: Date.now() };
       setDeedNumber(numbers.nextDeedNumber);
       setOrderNumber(numbers.nextOrderNumber);
     } catch (err) {
       console.error('Error fetching next deed numbers from server:', err);
-      setOrderWarning('Gagal mengambil No. Akta/No. Urut berikutnya dari server. Klik tombol muat ulang atau ganti tanggal untuk mencoba lagi sebelum menyimpan.');
+      if (!hasFreshCache) {
+        setOrderWarning('Gagal mengambil No. Akta/No. Urut berikutnya dari server. Klik tombol muat ulang atau ganti tanggal untuk mencoba lagi sebelum menyimpan.');
+      }
+      // If we already showed a fresh cached value, leave it displayed — it
+      // was confirmed by the server only seconds ago — but don't silently
+      // treat it as re-verified for THIS save; isFetchingNumber below
+      // reflects whether a confirmed-fresh value is currently in hand.
     } finally {
       setIsFetchingNumber(false);
     }
@@ -197,7 +301,7 @@ export const DeedBook: React.FC = () => {
         if (active && res.success) {
           setDeeds(res.records);
           setTotalDeedsCount(res.total);
-          deedCache.set(cacheKey, { records: res.records, total: res.total });
+          setDeedCacheEntry(cacheKey, res.records, res.total);
         }
       } catch (err) {
         console.error('Failed to load paginated deeds:', err);
@@ -644,6 +748,36 @@ export const DeedBook: React.FC = () => {
         setMonthCache((prev) => ({ ...prev, [ymKey]: fresh || [] }));
       }
 
+      // The deed number(s) just used are now taken — drop the prefetch
+      // cache and warm it again in the background so the NEXT "Tambah
+      // Akta Baru" click (same session) reflects this save immediately
+      // instead of momentarily offering an already-used number.
+      numberPrefetchCache.current = null;
+      prefetchDeedNumbers(deedDate);
+
+      // The paginated list cache (including its localStorage mirror) is now
+      // stale for whichever page/filter combos include this deed — clear it,
+      // then refetch the currently-visible page so the table reflects this
+      // save immediately instead of only on the next full navigation.
+      clearDeedCache();
+      try {
+        const cleanSearch = searchTerm.trim();
+        const refreshed = await NotaryService.getDeedsPaginated({
+          page: currentPage,
+          pageSize,
+          search: cleanSearch,
+          year: selectedYear
+        });
+        if (refreshed.success) {
+          setDeeds(refreshed.records);
+          setTotalDeedsCount(refreshed.total);
+          const cacheKey = `deeds:page=${currentPage}:size=${pageSize}:search=${cleanSearch}:year=${selectedYear}`;
+          setDeedCacheEntry(cacheKey, refreshed.records, refreshed.total);
+        }
+      } catch (refreshErr) {
+        console.error('Failed to refresh deed list after save:', refreshErr);
+      }
+
       setIsModalOpen(false);
     } catch (err) {
       console.error('Failed to save deed:', err);
@@ -674,7 +808,7 @@ export const DeedBook: React.FC = () => {
 
       try {
         await NotaryService.deleteDeed(deed.id);
-        deedCache.clear();
+        clearDeedCache();
 
         if (deed.date && deed.date.length >= 7) {
           const ymKey = deed.date.substring(0, 7);
