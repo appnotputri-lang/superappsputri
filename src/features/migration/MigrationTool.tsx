@@ -6,15 +6,16 @@ import { collection, getDocs, doc, writeBatch } from 'firebase/firestore';
 import { generateShortPublicToken } from '../../services/QuotationService';
 import { CompanyService } from '../../services/CompanyService';
 import { getApiUrl, getAuthHeaders } from '../../lib/api';
-import { HISTORICAL_KBLI_MAPPINGS, HISTORICAL_KBLI_SUGGESTIONS } from '../../data/kbliHistoricalRecords';
 import {
   HISTORICAL_DEEDS,
   HISTORICAL_PRIVATE_DEEDS,
   HISTORICAL_INCOMING_MAILS,
   HISTORICAL_OUTGOING_MAILS,
   HISTORICAL_PROTEST_CHEQUES,
-  HISTORICAL_GENERAL_DOCUMENTS
-} from '../../data/notaryHistoricalRecords';
+  HISTORICAL_GENERAL_DOCUMENTS,
+  HISTORICAL_KBLI_MAPPINGS,
+  HISTORICAL_KBLI_SUGGESTIONS
+} from '../../data/historicalDataLoader';
 
 export default function MigrationTool() {
   const [logs, setLogs] = useState<string[]>([]);
