@@ -338,25 +338,35 @@ export async function processD1JsonMigration(db: any, payload: {
   quotations?: any[];
   products?: any[];
   kbliMappings?: any[];
+  kbli_mappings?: any[];
   kbliSuggestions?: any[];
+  kbli_suggestions?: any[];
   generalDocuments?: any[];
+  general_documents?: any[];
+  documents?: any[];
   deeds?: any[];
   privateDeeds?: any[];
+  private_deeds?: any[];
   incomingMails?: any[];
+  incoming_mails?: any[];
   outgoingMails?: any[];
+  outgoing_mails?: any[];
   protestCheques?: any[];
+  protest_cheques?: any[];
 }) {
   const rawInvoices = Array.isArray(payload.invoices) ? payload.invoices : [];
   const rawQuotations = Array.isArray(payload.quotations) ? payload.quotations : [];
   const rawProducts = Array.isArray(payload.products) ? payload.products : [];
-  const rawKbliMappings = Array.isArray(payload.kbliMappings) ? payload.kbliMappings : [];
-  const rawKbliSuggestions = Array.isArray(payload.kbliSuggestions) ? payload.kbliSuggestions : [];
-  const rawGeneralDocuments = Array.isArray(payload.generalDocuments) ? payload.generalDocuments : [];
+  const rawKbliMappings = Array.isArray(payload.kbliMappings) ? payload.kbliMappings : (Array.isArray(payload.kbli_mappings) ? payload.kbli_mappings : []);
+  const rawKbliSuggestions = Array.isArray(payload.kbliSuggestions) ? payload.kbliSuggestions : (Array.isArray(payload.kbli_suggestions) ? payload.kbli_suggestions : []);
+  const rawGeneralDocuments = Array.isArray(payload.generalDocuments) 
+    ? payload.generalDocuments 
+    : (Array.isArray(payload.general_documents) ? payload.general_documents : (Array.isArray(payload.documents) ? payload.documents : []));
   const rawDeeds = Array.isArray(payload.deeds) ? payload.deeds : [];
-  const rawPrivateDeeds = Array.isArray(payload.privateDeeds) ? payload.privateDeeds : [];
-  const rawIncomingMails = Array.isArray(payload.incomingMails) ? payload.incomingMails : [];
-  const rawOutgoingMails = Array.isArray(payload.outgoingMails) ? payload.outgoingMails : [];
-  const rawProtestCheques = Array.isArray(payload.protestCheques) ? payload.protestCheques : [];
+  const rawPrivateDeeds = Array.isArray(payload.privateDeeds) ? payload.privateDeeds : (Array.isArray(payload.private_deeds) ? payload.private_deeds : []);
+  const rawIncomingMails = Array.isArray(payload.incomingMails) ? payload.incomingMails : (Array.isArray(payload.incoming_mails) ? payload.incoming_mails : []);
+  const rawOutgoingMails = Array.isArray(payload.outgoingMails) ? payload.outgoingMails : (Array.isArray(payload.outgoing_mails) ? payload.outgoing_mails : []);
+  const rawProtestCheques = Array.isArray(payload.protestCheques) ? payload.protestCheques : (Array.isArray(payload.protest_cheques) ? payload.protest_cheques : []);
 
   await ensureD1TablesExist(db);
 

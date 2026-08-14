@@ -1,11 +1,32 @@
 import React, { useState } from 'react';
-import { Database, Upload, Users } from 'lucide-react';
+import { 
+  Database, 
+  Upload, 
+  Users, 
+  Download, 
+  FileJson, 
+  CheckCircle2, 
+  AlertCircle, 
+  Loader2, 
+  FileText, 
+  Mail, 
+  BookOpen, 
+  ShieldCheck, 
+  FolderDown,
+  ArrowRight
+} from 'lucide-react';
 import { PageContainer, PageHeader } from '../../components/ui/PageLayout';
 import { db } from '../../lib/firebase';
 import { collection, getDocs, doc, writeBatch } from 'firebase/firestore';
 import { generateShortPublicToken } from '../../services/QuotationService';
 import { CompanyService } from '../../services/CompanyService';
 import { getApiUrl, getAuthHeaders } from '../../lib/api';
+import { 
+  FirestoreExportService, 
+  NOTARY_EXPORT_COLLECTIONS, 
+  NotaryCollectionKey, 
+  FullNotaryExportResult 
+} from '../../services/firestoreExportService';
 
 export default function MigrationTool() {
   const [logs, setLogs] = useState<string[]>([]);
@@ -31,9 +52,140 @@ export default function MigrationTool() {
   const [apiTestResults, setApiTestResults] = useState<any[]>([]);
   const [apiTesting, setApiTesting] = useState(false);
 
+  // Firestore Export State
+  const [exportLoading, setExportLoading] = useState(false);
+  const [exportingCollection, setExportingCollection] = useState<string | null>(null);
+  const [exportProgress, setExportProgress] = useState<Record<string, { status: 'idle' | 'reading' | 'done' | 'error'; count?: number; errorMsg?: string }>>({
+    deeds: { status: 'idle' },
+    private_deeds: { status: 'idle' },
+    incoming_mails: { status: 'idle' },
+    outgoing_mails: { status: 'idle' },
+    general_documents: { status: 'idle' },
+    protest_cheques: { status: 'idle' },
+  });
+  const [exportedBundle, setExportedBundle] = useState<FullNotaryExportResult | null>(null);
+  const [exportedCollections, setExportedCollections] = useState<Record<string, any[]>>({});
+
   const addLog = (msg: string) => {
     setLogs(prev => [...prev, msg]);
     console.log(msg);
+  };
+
+  const runExportAllFirestore = async () => {
+    setExportLoading(true);
+    setLogs([]);
+    addLog("=== MEMULAI EXPORT READ-ONLY FIRESTORE -> JSON (6 MODUL NOTARIS) ===");
+    addLog("Garansi Keamanan: 100% Read-Only, 0 Modifikasi Firestore, Tepat 1 getDocs() per koleksi.");
+    
+    try {
+      const result = await FirestoreExportService.exportAllNotaryCollections((key, status, count, errorMsg) => {
+        setExportProgress(prev => ({
+          ...prev,
+          [key]: { status, count, errorMsg }
+        }));
+        if (status === 'reading') {
+          addLog(`[READING] Mengambil dokumen dari koleksi '${key}' (1x getDocs)...`);
+        } else if (status === 'done') {
+          addLog(`[BERHASIL] Koleksi '${key}' selesai: ${count} dokumen.`);
+        } else if (status === 'error') {
+          addLog(`[ERROR] Gagal membaca koleksi '${key}': ${errorMsg}`);
+        }
+      });
+
+      setExportedBundle(result);
+      setExportedCollections({
+        deeds: result.deeds,
+        private_deeds: result.private_deeds,
+        incoming_mails: result.incoming_mails,
+        outgoing_mails: result.outgoing_mails,
+        general_documents: result.general_documents,
+        protest_cheques: result.protest_cheques,
+      });
+
+      addLog("\n=======================================================");
+      addLog("=== RINGKASAN EXPORT FIRESTORE READ-ONLY KE JSON ===");
+      addLog("=======================================================");
+      addLog(`Total Dokumen Terbaca: ${result.totalRecords} dokumen dari 6 koleksi.`);
+      addLog(`- deeds: ${result.counts.deeds} dokumen`);
+      addLog(`- private_deeds: ${result.counts.private_deeds} dokumen`);
+      addLog(`- incoming_mails: ${result.counts.incoming_mails} dokumen`);
+      addLog(`- outgoing_mails: ${result.counts.outgoing_mails} dokumen`);
+      addLog(`- general_documents: ${result.counts.general_documents} dokumen`);
+      addLog(`- protest_cheques: ${result.counts.protest_cheques} dokumen`);
+      addLog("\n✓ Anda dapat mengunduh per-modul atau mendownload bundle All-in-One JSON.");
+      addLog("✓ Atau klik tombol 'Muat Langsung ke Form Migrasi D1' untuk mengisi form input D1 tanpa perlu upload ulang.");
+    } catch (err: any) {
+      addLog(`FATAL EXPORT ERROR: ${err?.message || String(err)}`);
+    } finally {
+      setExportLoading(false);
+    }
+  };
+
+  const runExportSingleFirestore = async (key: NotaryCollectionKey) => {
+    setExportingCollection(key);
+    setExportProgress(prev => ({
+      ...prev,
+      [key]: { status: 'reading' }
+    }));
+    addLog(`\n[EXPORT TUNGGAL] Membaca koleksi '${key}' (1x getDocs, Read-Only)...`);
+
+    try {
+      const res = await FirestoreExportService.exportSingleCollection(key);
+      setExportProgress(prev => ({
+        ...prev,
+        [key]: { status: 'done', count: res.count }
+      }));
+      setExportedCollections(prev => ({
+        ...prev,
+        [key]: res.records
+      }));
+      addLog(`✓ [EXPORT TUNGGAL] '${key}': Berhasil membaca ${res.count} dokumen.`);
+      FirestoreExportService.triggerJsonDownload(res.records, `export_${key}.json`);
+      addLog(`✓ File 'export_${key}.json' telah otomatis di-download ke komputer Anda.`);
+    } catch (err: any) {
+      setExportProgress(prev => ({
+        ...prev,
+        [key]: { status: 'error', errorMsg: err?.message || String(err) }
+      }));
+      addLog(`✗ Gagal membaca koleksi '${key}': ${err?.message || String(err)}`);
+    } finally {
+      setExportingCollection(null);
+    }
+  };
+
+  const handleDirectLoadToD1 = () => {
+    if (!exportedBundle && Object.keys(exportedCollections).length === 0) {
+      addLog("Peringatan: Jalankan Export Firestore terlebih dahulu sebelum memuat ke form D1.");
+      return;
+    }
+
+    const deedsData = exportedCollections.deeds || exportedBundle?.deeds || [];
+    const privateDeedsData = exportedCollections.private_deeds || exportedBundle?.private_deeds || [];
+    const inMailsData = exportedCollections.incoming_mails || exportedBundle?.incoming_mails || [];
+    const outMailsData = exportedCollections.outgoing_mails || exportedBundle?.outgoing_mails || [];
+    const genDocsData = exportedCollections.general_documents || exportedBundle?.general_documents || [];
+    const chequesData = exportedCollections.protest_cheques || exportedBundle?.protest_cheques || [];
+
+    setImportFiles(prev => ({
+      ...prev,
+      deeds: deedsData,
+      private_deeds: privateDeedsData,
+      incoming_mails: inMailsData,
+      outgoing_mails: outMailsData,
+      documents: genDocsData,
+      protest_cheques: chequesData,
+    }));
+
+    addLog("\n=======================================================");
+    addLog("=== BERHASIL MEMUAT DATA EXPORT KE FORM MIGRASI D1 ===");
+    addLog("=======================================================");
+    addLog(`✓ Deeds: ${deedsData.length} records`);
+    addLog(`✓ Private Deeds: ${privateDeedsData.length} records`);
+    addLog(`✓ Incoming Mails: ${inMailsData.length} records`);
+    addLog(`✓ Outgoing Mails: ${outMailsData.length} records`);
+    addLog(`✓ General Documents: ${genDocsData.length} records`);
+    addLog(`✓ Protest Cheques: ${chequesData.length} records`);
+    addLog("Slot form input migrasi D1 di bawah telah terisi otomatis.");
   };
 
   const runD1JsonMigration = async () => {
@@ -771,7 +923,10 @@ export default function MigrationTool() {
   // yang sama seperti aslinya supaya aman dijalankan ulang tanpa duplikat.
   // ============================================================================
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, key: 'deeds' | 'private_deeds' | 'outgoing_mails' | 'invoices' | 'documents' | 'quotations' | 'products') => {
+  const handleFileUpload = async (
+    e: React.ChangeEvent<HTMLInputElement>, 
+    key: 'deeds' | 'private_deeds' | 'incoming_mails' | 'outgoing_mails' | 'protest_cheques' | 'invoices' | 'documents' | 'quotations' | 'products'
+  ) => {
     const file = e.target.files?.[0];
     if (!file) return;
     try {
@@ -1243,45 +1398,217 @@ export default function MigrationTool() {
     <PageContainer>
       <PageHeader
         icon={<Database className="w-5 h-5 text-white" />}
-        title="Migration Tool"
-        description="Legacy Projects to Office Projects migration utility"
+        title="Migration & Historical Export Tool"
+        description="Firestore Read-Only JSON Exporter & Cloudflare D1 Migration Utility"
       />
 
-      <div className="bg-white p-6 rounded-xl border border-slate-200/80 shadow-sm space-y-6">
-        <div className="flex gap-4">
-          <button 
-            onClick={() => runMigration(true)} 
-            disabled={loading} 
-            className="px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50 text-xs font-bold transition-all cursor-pointer"
-          >
-            Run Dry Run
-          </button>
-          <button 
-            onClick={() => runMigration(false)} 
-            disabled={loading} 
-            className="px-4 py-2 bg-[#0c2444] text-white rounded-lg hover:bg-[#16365f] text-xs font-bold transition-all cursor-pointer"
-          >
-            Execute Migration
-          </button>
+      {/* ============================================================================ */}
+      {/* 1. TOOL EXPORT HISTORIS FIRESTORE -> JSON (6 MODUL NOTARIS)                 */}
+      {/* ============================================================================ */}
+      <div className="bg-white p-6 rounded-xl border-2 border-emerald-300 shadow-sm space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <FolderDown className="w-6 h-6 text-emerald-600" />
+              <h3 className="text-base font-bold text-slate-800">
+                Export Data Historis Firestore ke JSON (6 Modul Notaris & Dokumen)
+              </h3>
+            </div>
+            <p className="text-xs text-slate-500 mt-1 max-w-3xl">
+              Mengekstrak seluruh data historis dari 6 koleksi Firestore ke format file JSON yang bersih, terstandardisasi, 
+              dan siap di-upload ke Cloudflare D1. Document ID asli tetap dipertahankan dan tipe Firestore Timestamp 
+              dikonversi secara aman ke string ISO 8601.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+              100% Read-Only (0 Mutations)
+            </span>
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+              Single Read / Collection (6 Total)
+            </span>
+          </div>
         </div>
-        
-        <div className="bg-slate-900 text-green-400 p-4 rounded-lg font-mono text-sm h-96 overflow-y-auto whitespace-pre-wrap border border-slate-800">
-          {logs.length === 0 ? "Click 'Run Dry Run' to preview changes..." : logs.join('\n')}
+
+        {/* 6 Collection Status Cards Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {NOTARY_EXPORT_COLLECTIONS.map((col) => {
+            const progress = exportProgress[col.key] || { status: 'idle' };
+            const isColReading = exportingCollection === col.key || (exportLoading && progress.status === 'reading');
+            const isDone = progress.status === 'done';
+            const count = progress.count ?? (exportedCollections[col.key]?.length || 0);
+
+            return (
+              <div 
+                key={col.key} 
+                className={`p-4 rounded-xl border transition-all flex flex-col justify-between ${
+                  isDone 
+                    ? 'bg-emerald-50/40 border-emerald-300 shadow-xs' 
+                    : isColReading 
+                    ? 'bg-blue-50/50 border-blue-300 animate-pulse'
+                    : progress.status === 'error'
+                    ? 'bg-rose-50/50 border-rose-300'
+                    : 'bg-slate-50/60 border-slate-200 hover:border-slate-300'
+                }`}
+              >
+                <div>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      {col.key === 'deeds' && <BookOpen className="w-4 h-4 text-indigo-600" />}
+                      {col.key === 'private_deeds' && <FileText className="w-4 h-4 text-purple-600" />}
+                      {col.key === 'incoming_mails' && <Mail className="w-4 h-4 text-blue-600" />}
+                      {col.key === 'outgoing_mails' && <Mail className="w-4 h-4 text-emerald-600" />}
+                      {col.key === 'general_documents' && <FileText className="w-4 h-4 text-amber-600" />}
+                      {col.key === 'protest_cheques' && <AlertCircle className="w-4 h-4 text-rose-600" />}
+                      <span className="text-xs font-bold text-slate-800">{col.label}</span>
+                    </div>
+
+                    {isDone && (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-md">
+                        <CheckCircle2 className="w-3 h-3" />
+                        {count} data
+                      </span>
+                    )}
+                    {isColReading && (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-700 bg-blue-100 px-2 py-0.5 rounded-md">
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                        Membaca...
+                      </span>
+                    )}
+                    {progress.status === 'error' && (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-700 bg-rose-100 px-2 py-0.5 rounded-md">
+                        <AlertCircle className="w-3 h-3" />
+                        Error
+                      </span>
+                    )}
+                    {progress.status === 'idle' && (
+                      <span className="text-[11px] font-medium text-slate-400 bg-slate-100 px-2 py-0.5 rounded-md">
+                        Belum di-export
+                      </span>
+                    )}
+                  </div>
+
+                  <p className="text-[11px] text-slate-500 mt-1.5 line-clamp-2">
+                    {col.sublabel}
+                  </p>
+                  <p className="text-[10px] font-mono text-slate-400 mt-1">
+                    Target File: {col.defaultFilename}
+                  </p>
+                </div>
+
+                <div className="mt-4 pt-3 border-t border-slate-200/60 flex items-center justify-between gap-2">
+                  <button
+                    onClick={() => runExportSingleFirestore(col.key)}
+                    disabled={exportLoading || exportingCollection !== null}
+                    className="text-[11px] font-semibold text-slate-700 hover:text-emerald-700 flex items-center gap-1.5 px-2.5 py-1 rounded bg-white border border-slate-200 hover:border-emerald-300 transition-all cursor-pointer disabled:opacity-50"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    Export & Download
+                  </button>
+
+                  {isDone && exportedCollections[col.key] && (
+                    <button
+                      onClick={() => FirestoreExportService.triggerJsonDownload(exportedCollections[col.key], col.defaultFilename)}
+                      className="text-[11px] font-semibold text-emerald-700 hover:text-emerald-800 flex items-center gap-1 px-2 py-1 rounded hover:bg-emerald-100 transition-all cursor-pointer"
+                      title="Download ulang file JSON"
+                    >
+                      <FileJson className="w-3.5 h-3.5" />
+                      Unduh Lagi
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Export Master Action Bar */}
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              onClick={runExportAllFirestore}
+              disabled={exportLoading || exportingCollection !== null}
+              className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-sm transition-all cursor-pointer disabled:opacity-50 flex items-center gap-2"
+            >
+              {exportLoading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Mengekspor 6 Koleksi Firestore (1x Read)...
+                </>
+              ) : (
+                <>
+                  <Download className="w-4 h-4" />
+                  Export Semua 6 Koleksi Firestore ke JSON
+                </>
+              )}
+            </button>
+
+            {exportedBundle && (
+              <button
+                onClick={() => FirestoreExportService.triggerJsonDownload(exportedBundle, 'firestore_notary_historical_all.json')}
+                className="px-4 py-2.5 border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-2"
+              >
+                <FolderDown className="w-4 h-4 text-emerald-700" />
+                Download Bundle All-in-One (.json)
+              </button>
+            )}
+
+            {exportedBundle && (
+              <button
+                onClick={handleDirectLoadToD1}
+                className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-2 shadow-sm"
+              >
+                <ArrowRight className="w-4 h-4" />
+                Muat Langsung ke Form Migrasi D1 di Bawah
+              </button>
+            )}
+          </div>
+
+          {exportedBundle && (
+            <div className="text-xs text-slate-500 font-mono">
+              Total diexport: <strong className="text-emerald-700 font-bold">{exportedBundle.totalRecords}</strong> dokumen
+            </div>
+          )}
         </div>
       </div>
 
-      {/* D1 JSON MIGRATION CARD (INVOICES, QUOTATIONS, PRODUCTS) */}
-      <div className="bg-white p-6 rounded-xl border-2 border-indigo-200 shadow-sm space-y-6 mt-6">
+      {/* ============================================================================ */}
+      {/* 2. ACTIVITY & PROCESS LOGS PANEL                                             */}
+      {/* ============================================================================ */}
+      <div className="bg-white p-6 rounded-xl border border-slate-200/80 shadow-sm space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+            <FileText className="w-4 h-4 text-slate-600" />
+            Console & Log Aktivitas
+          </h3>
+          <button
+            onClick={() => setLogs([])}
+            className="text-[11px] text-slate-400 hover:text-slate-600 font-semibold cursor-pointer"
+          >
+            Bersihkan Log
+          </button>
+        </div>
+        
+        <div className="bg-slate-900 text-emerald-400 p-4 rounded-lg font-mono text-xs h-72 overflow-y-auto whitespace-pre-wrap border border-slate-800">
+          {logs.length === 0 ? "Pilih aksi di atas atau di bawah untuk memulai proses..." : logs.join('\n')}
+        </div>
+      </div>
+
+      {/* ============================================================================ */}
+      {/* 3. CLOUDFLARE D1 JSON MIGRATION CARD (ALL COLLECTIONS)                      */}
+      {/* ============================================================================ */}
+      <div className="bg-white p-6 rounded-xl border-2 border-indigo-200 shadow-sm space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-4">
           <div>
             <div className="flex items-center gap-2">
               <Database className="w-5 h-5 text-indigo-600" />
               <h3 className="text-base font-bold text-slate-800">
-                Migrasi Invoices, Quotations, & Products ke Cloudflare D1
+                Migrasi Data JSON ke Cloudflare D1 (6 Modul Notaris + Invoices & Quotations)
               </h3>
             </div>
             <p className="text-xs text-slate-500 mt-1">
-              Sumber data <strong>murni dari file JSON</strong> (Bukan Firestore). Firestore Read saat migrasi = <strong>0</strong>. 
+              Sumber data <strong>murni dari file JSON</strong>. Firestore Read saat migrasi ke D1 = <strong>0</strong>. 
               Menggunakan skema D1 (SQLite), memelihara ID dokumen asli dari JSON, dan mendukung Idempotent Upsert.
             </p>
           </div>
@@ -1295,31 +1622,88 @@ export default function MigrationTool() {
           </div>
         </div>
 
-        {/* File Upload Slots */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <label className={`flex flex-col items-center justify-center p-4 border-2 border-dashed rounded-xl cursor-pointer transition-all text-center ${importFiles.invoices ? 'border-emerald-400 bg-emerald-50/40' : 'border-slate-300 hover:bg-slate-50'}`}>
-            <Upload className={`w-5 h-5 mb-2 ${importFiles.invoices ? 'text-emerald-600' : 'text-slate-400'}`} />
+        {/* File Upload Slots Grid */}
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+          <label className={`flex flex-col items-center justify-center p-3 border-2 border-dashed rounded-xl cursor-pointer transition-all text-center ${importFiles.deeds ? 'border-emerald-400 bg-emerald-50/40' : 'border-slate-300 hover:bg-slate-50'}`}>
+            <Upload className={`w-4 h-4 mb-1.5 ${importFiles.deeds ? 'text-emerald-600' : 'text-slate-400'}`} />
+            <span className="text-[11px] font-bold text-slate-800 truncate max-w-[120px]">export_deeds.json</span>
+            <span className="text-[10px] text-slate-500 mt-0.5">
+              {importFiles.deeds ? `✓ ${importFiles.deeds.length} data` : 'Upload'}
+            </span>
+            <input type="file" accept=".json" className="hidden" onChange={(e) => handleFileUpload(e, 'deeds')} />
+          </label>
+
+          <label className={`flex flex-col items-center justify-center p-3 border-2 border-dashed rounded-xl cursor-pointer transition-all text-center ${importFiles.private_deeds ? 'border-emerald-400 bg-emerald-50/40' : 'border-slate-300 hover:bg-slate-50'}`}>
+            <Upload className={`w-4 h-4 mb-1.5 ${importFiles.private_deeds ? 'text-emerald-600' : 'text-slate-400'}`} />
+            <span className="text-[11px] font-bold text-slate-800 truncate max-w-[120px]">export_private_deeds.json</span>
+            <span className="text-[10px] text-slate-500 mt-0.5">
+              {importFiles.private_deeds ? `✓ ${importFiles.private_deeds.length} data` : 'Upload'}
+            </span>
+            <input type="file" accept=".json" className="hidden" onChange={(e) => handleFileUpload(e, 'private_deeds')} />
+          </label>
+
+          <label className={`flex flex-col items-center justify-center p-3 border-2 border-dashed rounded-xl cursor-pointer transition-all text-center ${importFiles.incoming_mails ? 'border-emerald-400 bg-emerald-50/40' : 'border-slate-300 hover:bg-slate-50'}`}>
+            <Upload className={`w-4 h-4 mb-1.5 ${importFiles.incoming_mails ? 'text-emerald-600' : 'text-slate-400'}`} />
+            <span className="text-[11px] font-bold text-slate-800 truncate max-w-[120px]">export_incoming_mails.json</span>
+            <span className="text-[10px] text-slate-500 mt-0.5">
+              {importFiles.incoming_mails ? `✓ ${importFiles.incoming_mails.length} data` : 'Upload'}
+            </span>
+            <input type="file" accept=".json" className="hidden" onChange={(e) => handleFileUpload(e, 'incoming_mails')} />
+          </label>
+
+          <label className={`flex flex-col items-center justify-center p-3 border-2 border-dashed rounded-xl cursor-pointer transition-all text-center ${importFiles.outgoing_mails ? 'border-emerald-400 bg-emerald-50/40' : 'border-slate-300 hover:bg-slate-50'}`}>
+            <Upload className={`w-4 h-4 mb-1.5 ${importFiles.outgoing_mails ? 'text-emerald-600' : 'text-slate-400'}`} />
+            <span className="text-[11px] font-bold text-slate-800 truncate max-w-[120px]">export_outgoing_mails.json</span>
+            <span className="text-[10px] text-slate-500 mt-0.5">
+              {importFiles.outgoing_mails ? `✓ ${importFiles.outgoing_mails.length} data` : 'Upload'}
+            </span>
+            <input type="file" accept=".json" className="hidden" onChange={(e) => handleFileUpload(e, 'outgoing_mails')} />
+          </label>
+
+          <label className={`flex flex-col items-center justify-center p-3 border-2 border-dashed rounded-xl cursor-pointer transition-all text-center ${importFiles.documents ? 'border-emerald-400 bg-emerald-50/40' : 'border-slate-300 hover:bg-slate-50'}`}>
+            <Upload className={`w-4 h-4 mb-1.5 ${importFiles.documents ? 'text-emerald-600' : 'text-slate-400'}`} />
+            <span className="text-[11px] font-bold text-slate-800 truncate max-w-[120px]">export_general_documents.json</span>
+            <span className="text-[10px] text-slate-500 mt-0.5">
+              {importFiles.documents ? `✓ ${importFiles.documents.length} data` : 'Upload'}
+            </span>
+            <input type="file" accept=".json" className="hidden" onChange={(e) => handleFileUpload(e, 'documents')} />
+          </label>
+
+          <label className={`flex flex-col items-center justify-center p-3 border-2 border-dashed rounded-xl cursor-pointer transition-all text-center ${importFiles.protest_cheques ? 'border-emerald-400 bg-emerald-50/40' : 'border-slate-300 hover:bg-slate-50'}`}>
+            <Upload className={`w-4 h-4 mb-1.5 ${importFiles.protest_cheques ? 'text-emerald-600' : 'text-slate-400'}`} />
+            <span className="text-[11px] font-bold text-slate-800 truncate max-w-[120px]">export_protest_cheques.json</span>
+            <span className="text-[10px] text-slate-500 mt-0.5">
+              {importFiles.protest_cheques ? `✓ ${importFiles.protest_cheques.length} data` : 'Upload'}
+            </span>
+            <input type="file" accept=".json" className="hidden" onChange={(e) => handleFileUpload(e, 'protest_cheques')} />
+          </label>
+        </div>
+
+        {/* Secondary Uploads (Invoices, Quotations, Products) */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-1">
+          <label className={`flex flex-col items-center justify-center p-3.5 border-2 border-dashed rounded-xl cursor-pointer transition-all text-center ${importFiles.invoices ? 'border-emerald-400 bg-emerald-50/40' : 'border-slate-300 hover:bg-slate-50'}`}>
+            <Upload className={`w-4 h-4 mb-1.5 ${importFiles.invoices ? 'text-emerald-600' : 'text-slate-400'}`} />
             <span className="text-xs font-bold text-slate-800">export_invoices.json</span>
             <span className="text-[11px] text-slate-500 mt-0.5">
-              {importFiles.invoices ? `✓ ${importFiles.invoices.length} invoices siap diimpor` : 'Klik untuk upload file JSON Invoices'}
+              {importFiles.invoices ? `✓ ${importFiles.invoices.length} invoices siap diimpor` : 'Klik untuk upload JSON Invoices'}
             </span>
             <input type="file" accept=".json" className="hidden" onChange={(e) => handleFileUpload(e, 'invoices')} />
           </label>
 
-          <label className={`flex flex-col items-center justify-center p-4 border-2 border-dashed rounded-xl cursor-pointer transition-all text-center ${importFiles.quotations ? 'border-emerald-400 bg-emerald-50/40' : 'border-slate-300 hover:bg-slate-50'}`}>
-            <Upload className={`w-5 h-5 mb-2 ${importFiles.quotations ? 'text-emerald-600' : 'text-slate-400'}`} />
+          <label className={`flex flex-col items-center justify-center p-3.5 border-2 border-dashed rounded-xl cursor-pointer transition-all text-center ${importFiles.quotations ? 'border-emerald-400 bg-emerald-50/40' : 'border-slate-300 hover:bg-slate-50'}`}>
+            <Upload className={`w-4 h-4 mb-1.5 ${importFiles.quotations ? 'text-emerald-600' : 'text-slate-400'}`} />
             <span className="text-xs font-bold text-slate-800">export_quotations.json</span>
             <span className="text-[11px] text-slate-500 mt-0.5">
-              {importFiles.quotations ? `✓ ${importFiles.quotations.length} quotations siap diimpor` : 'Klik untuk upload file JSON Quotations'}
+              {importFiles.quotations ? `✓ ${importFiles.quotations.length} quotations siap diimpor` : 'Klik untuk upload JSON Quotations'}
             </span>
             <input type="file" accept=".json" className="hidden" onChange={(e) => handleFileUpload(e, 'quotations')} />
           </label>
 
-          <label className={`flex flex-col items-center justify-center p-4 border-2 border-dashed rounded-xl cursor-pointer transition-all text-center ${importFiles.products ? 'border-emerald-400 bg-emerald-50/40' : 'border-slate-300 hover:bg-slate-50'}`}>
-            <Upload className={`w-5 h-5 mb-2 ${importFiles.products ? 'text-emerald-600' : 'text-slate-400'}`} />
+          <label className={`flex flex-col items-center justify-center p-3.5 border-2 border-dashed rounded-xl cursor-pointer transition-all text-center ${importFiles.products ? 'border-emerald-400 bg-emerald-50/40' : 'border-slate-300 hover:bg-slate-50'}`}>
+            <Upload className={`w-4 h-4 mb-1.5 ${importFiles.products ? 'text-emerald-600' : 'text-slate-400'}`} />
             <span className="text-xs font-bold text-slate-800">export_products.json</span>
             <span className="text-[11px] text-slate-500 mt-0.5">
-              {importFiles.products ? `✓ ${importFiles.products.length} products siap diimpor` : 'Klik untuk upload file JSON Products'}
+              {importFiles.products ? `✓ ${importFiles.products.length} products siap diimpor` : 'Klik untuk upload JSON Products'}
             </span>
             <input type="file" accept=".json" className="hidden" onChange={(e) => handleFileUpload(e, 'products')} />
           </label>
@@ -1333,7 +1717,7 @@ export default function MigrationTool() {
             className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold shadow-sm transition-all cursor-pointer disabled:opacity-50 flex items-center gap-2"
           >
             <Database className="w-4 h-4" />
-            {d1JsonLoading ? "Memproses Migrasi & Validasi..." : "Jalankan Migrasi & Validasi D1 (JSON Source)"}
+            {d1JsonLoading ? "Memproses Migrasi & Validasi D1..." : "Jalankan Migrasi & Validasi D1 (JSON Source)"}
           </button>
 
           <button
@@ -1366,17 +1750,17 @@ export default function MigrationTool() {
               <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-2">
                 <div className="flex items-center justify-between border-b border-slate-200 pb-2">
                   <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">INVOICES</span>
-                  <span className={`text-[11px] font-bold px-2 py-0.5 rounded ${d1JsonResult.invoices.isValid ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}`}>
-                    {d1JsonResult.invoices.isValid ? 'VALID' : 'INVALID'}
+                  <span className={`text-[11px] font-bold px-2 py-0.5 rounded ${d1JsonResult.invoices?.isValid ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}`}>
+                    {d1JsonResult.invoices?.isValid ? 'VALID' : 'INVALID'}
                   </span>
                 </div>
                 <div className="text-xs font-mono space-y-1 text-slate-700">
-                  <div className="flex justify-between"><span>JSON count:</span> <strong className="font-bold">{d1JsonResult.invoices.jsonCount}</strong></div>
-                  <div className="flex justify-between"><span>D1 count:</span> <strong className="font-bold">{d1JsonResult.invoices.d1Count}</strong></div>
-                  <div className="flex justify-between text-emerald-700"><span>Migrated:</span> <strong>{d1JsonResult.invoices.migrated}</strong></div>
-                  <div className="flex justify-between text-rose-600"><span>Failed:</span> <strong>{d1JsonResult.invoices.failed}</strong></div>
+                  <div className="flex justify-between"><span>JSON count:</span> <strong className="font-bold">{d1JsonResult.invoices?.jsonCount ?? 0}</strong></div>
+                  <div className="flex justify-between"><span>D1 count:</span> <strong className="font-bold">{d1JsonResult.invoices?.d1Count ?? 0}</strong></div>
+                  <div className="flex justify-between text-emerald-700"><span>Migrated:</span> <strong>{d1JsonResult.invoices?.migrated ?? 0}</strong></div>
+                  <div className="flex justify-between text-rose-600"><span>Failed:</span> <strong>{d1JsonResult.invoices?.failed ?? 0}</strong></div>
                   <div className="pt-1 border-t border-slate-200 text-[11px] text-slate-600">
-                    Validated: <strong>{d1JsonResult.invoices.validatedCount}</strong>
+                    Validated: <strong>{d1JsonResult.invoices?.validatedCount ?? 0}</strong>
                   </div>
                 </div>
               </div>
@@ -1385,17 +1769,17 @@ export default function MigrationTool() {
               <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-2">
                 <div className="flex items-center justify-between border-b border-slate-200 pb-2">
                   <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">QUOTATIONS</span>
-                  <span className={`text-[11px] font-bold px-2 py-0.5 rounded ${d1JsonResult.quotations.isValid ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}`}>
-                    {d1JsonResult.quotations.isValid ? 'VALID' : 'INVALID'}
+                  <span className={`text-[11px] font-bold px-2 py-0.5 rounded ${d1JsonResult.quotations?.isValid ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}`}>
+                    {d1JsonResult.quotations?.isValid ? 'VALID' : 'INVALID'}
                   </span>
                 </div>
                 <div className="text-xs font-mono space-y-1 text-slate-700">
-                  <div className="flex justify-between"><span>JSON count:</span> <strong className="font-bold">{d1JsonResult.quotations.jsonCount}</strong></div>
-                  <div className="flex justify-between"><span>D1 count:</span> <strong className="font-bold">{d1JsonResult.quotations.d1Count}</strong></div>
-                  <div className="flex justify-between text-emerald-700"><span>Migrated:</span> <strong>{d1JsonResult.quotations.migrated}</strong></div>
-                  <div className="flex justify-between text-rose-600"><span>Failed:</span> <strong>{d1JsonResult.quotations.failed}</strong></div>
+                  <div className="flex justify-between"><span>JSON count:</span> <strong className="font-bold">{d1JsonResult.quotations?.jsonCount ?? 0}</strong></div>
+                  <div className="flex justify-between"><span>D1 count:</span> <strong className="font-bold">{d1JsonResult.quotations?.d1Count ?? 0}</strong></div>
+                  <div className="flex justify-between text-emerald-700"><span>Migrated:</span> <strong>{d1JsonResult.quotations?.migrated ?? 0}</strong></div>
+                  <div className="flex justify-between text-rose-600"><span>Failed:</span> <strong>{d1JsonResult.quotations?.failed ?? 0}</strong></div>
                   <div className="pt-1 border-t border-slate-200 text-[11px] text-slate-600">
-                    Validated: <strong>{d1JsonResult.quotations.validatedCount}</strong>
+                    Validated: <strong>{d1JsonResult.quotations?.validatedCount ?? 0}</strong>
                   </div>
                 </div>
               </div>
@@ -1404,17 +1788,17 @@ export default function MigrationTool() {
               <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-2">
                 <div className="flex items-center justify-between border-b border-slate-200 pb-2">
                   <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">PRODUCTS</span>
-                  <span className={`text-[11px] font-bold px-2 py-0.5 rounded ${d1JsonResult.products.isValid ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}`}>
-                    {d1JsonResult.products.isValid ? 'VALID' : 'INVALID'}
+                  <span className={`text-[11px] font-bold px-2 py-0.5 rounded ${d1JsonResult.products?.isValid ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}`}>
+                    {d1JsonResult.products?.isValid ? 'VALID' : 'INVALID'}
                   </span>
                 </div>
                 <div className="text-xs font-mono space-y-1 text-slate-700">
-                  <div className="flex justify-between"><span>JSON count:</span> <strong className="font-bold">{d1JsonResult.products.jsonCount}</strong></div>
-                  <div className="flex justify-between"><span>D1 count:</span> <strong className="font-bold">{d1JsonResult.products.d1Count}</strong></div>
-                  <div className="flex justify-between text-emerald-700"><span>Migrated:</span> <strong>{d1JsonResult.products.migrated}</strong></div>
-                  <div className="flex justify-between text-rose-600"><span>Failed:</span> <strong>{d1JsonResult.products.failed}</strong></div>
+                  <div className="flex justify-between"><span>JSON count:</span> <strong className="font-bold">{d1JsonResult.products?.jsonCount ?? 0}</strong></div>
+                  <div className="flex justify-between"><span>D1 count:</span> <strong className="font-bold">{d1JsonResult.products?.d1Count ?? 0}</strong></div>
+                  <div className="flex justify-between text-emerald-700"><span>Migrated:</span> <strong>{d1JsonResult.products?.migrated ?? 0}</strong></div>
+                  <div className="flex justify-between text-rose-600"><span>Failed:</span> <strong>{d1JsonResult.products?.failed ?? 0}</strong></div>
                   <div className="pt-1 border-t border-slate-200 text-[11px] text-slate-600">
-                    Validated: <strong>{d1JsonResult.products.validatedCount}</strong>
+                    Validated: <strong>{d1JsonResult.products?.validatedCount ?? 0}</strong>
                   </div>
                 </div>
               </div>
@@ -1424,32 +1808,44 @@ export default function MigrationTool() {
             <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs">
               <h5 className="font-bold text-slate-700 mb-2">Sampel Validasi Otomatis (10 Awal, 10 Acak, 10 Akhir):</h5>
               <div className="space-y-1 font-mono text-[11px] max-h-48 overflow-y-auto bg-white p-3 rounded border border-slate-200">
-                <div className="font-bold text-indigo-700 mb-1">Invoices ({d1JsonResult.invoices.samples.length} sampel):</div>
-                {d1JsonResult.invoices.samples.map((s: any, idx: number) => (
-                  <div key={idx} className={`flex items-center gap-2 ${s.match ? 'text-emerald-700' : 'text-rose-600'}`}>
-                    <span>[{s.type}]</span>
-                    <span>ID: {s.id}</span>
-                    <span>- {s.match ? '✓ COCOK' : `✗ MISMATCH (${s.mismatches?.map((m: any) => m.field).join(', ')})`}</span>
-                  </div>
-                ))}
+                {d1JsonResult.invoices?.samples && (
+                  <>
+                    <div className="font-bold text-indigo-700 mb-1">Invoices ({d1JsonResult.invoices.samples.length} sampel):</div>
+                    {d1JsonResult.invoices.samples.map((s: any, idx: number) => (
+                      <div key={idx} className={`flex items-center gap-2 ${s.match ? 'text-emerald-700' : 'text-rose-600'}`}>
+                        <span>[{s.type}]</span>
+                        <span>ID: {s.id}</span>
+                        <span>- {s.match ? '✓ COCOK' : `✗ MISMATCH (${s.mismatches?.map((m: any) => m.field).join(', ')})`}</span>
+                      </div>
+                    ))}
+                  </>
+                )}
 
-                <div className="font-bold text-indigo-700 mt-2 mb-1">Quotations ({d1JsonResult.quotations.samples.length} sampel):</div>
-                {d1JsonResult.quotations.samples.map((s: any, idx: number) => (
-                  <div key={idx} className={`flex items-center gap-2 ${s.match ? 'text-emerald-700' : 'text-rose-600'}`}>
-                    <span>[{s.type}]</span>
-                    <span>ID: {s.id}</span>
-                    <span>- {s.match ? '✓ COCOK' : `✗ MISMATCH (${s.mismatches?.map((m: any) => m.field).join(', ')})`}</span>
-                  </div>
-                ))}
+                {d1JsonResult.quotations?.samples && (
+                  <>
+                    <div className="font-bold text-indigo-700 mt-2 mb-1">Quotations ({d1JsonResult.quotations.samples.length} sampel):</div>
+                    {d1JsonResult.quotations.samples.map((s: any, idx: number) => (
+                      <div key={idx} className={`flex items-center gap-2 ${s.match ? 'text-emerald-700' : 'text-rose-600'}`}>
+                        <span>[{s.type}]</span>
+                        <span>ID: {s.id}</span>
+                        <span>- {s.match ? '✓ COCOK' : `✗ MISMATCH (${s.mismatches?.map((m: any) => m.field).join(', ')})`}</span>
+                      </div>
+                    ))}
+                  </>
+                )}
 
-                <div className="font-bold text-indigo-700 mt-2 mb-1">Products ({d1JsonResult.products.samples.length} sampel):</div>
-                {d1JsonResult.products.samples.map((s: any, idx: number) => (
-                  <div key={idx} className={`flex items-center gap-2 ${s.match ? 'text-emerald-700' : 'text-rose-600'}`}>
-                    <span>[{s.type}]</span>
-                    <span>ID: {s.id}</span>
-                    <span>- {s.match ? '✓ COCOK' : `✗ MISMATCH (${s.mismatches?.map((m: any) => m.field).join(', ')})`}</span>
-                  </div>
-                ))}
+                {d1JsonResult.products?.samples && (
+                  <>
+                    <div className="font-bold text-indigo-700 mt-2 mb-1">Products ({d1JsonResult.products.samples.length} sampel):</div>
+                    {d1JsonResult.products.samples.map((s: any, idx: number) => (
+                      <div key={idx} className={`flex items-center gap-2 ${s.match ? 'text-emerald-700' : 'text-rose-600'}`}>
+                        <span>[{s.type}]</span>
+                        <span>ID: {s.id}</span>
+                        <span>- {s.match ? '✓ COCOK' : `✗ MISMATCH (${s.mismatches?.map((m: any) => m.field).join(', ')})`}</span>
+                      </div>
+                    ))}
+                  </>
+                )}
               </div>
             </div>
           </div>
