@@ -618,8 +618,8 @@ export const QuotationGenerator: React.FC<QuotationGeneratorProps> = (props) => 
     setClientSearch('');
     setShowClientDropdown(false);
 
-    // Targeted single profile read if local client is selected
-    if (c.source === 'local' && c.clientId) {
+    // Fetch additional profile details from Firestore profiles if available
+    if (c.clientId) {
       try {
         const docRef = doc(db, 'profiles', c.clientId);
         const docSnap = await getDoc(docRef);

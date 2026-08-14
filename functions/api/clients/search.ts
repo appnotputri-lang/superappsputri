@@ -33,7 +33,7 @@ export const onRequestGet = async (context: any) => {
 
     const url = new URL(request.url);
     const searchVal = url.searchParams.get('q') || url.searchParams.get('search') || '';
-    const limitVal = Math.min(Math.max(1, parseInt(url.searchParams.get('limit') || '15')), 50);
+    const limitVal = Math.min(Math.max(1, parseInt(url.searchParams.get('limit') || '15')), 10000);
     const offsetVal = Math.max(0, parseInt(url.searchParams.get('offset') || '0'));
     const clientType = url.searchParams.get('clientType');
     const archived = url.searchParams.get('archived');
@@ -63,6 +63,18 @@ export const onRequestGet = async (context: any) => {
 
     if (conditions.length > 0) {
       sql += ` WHERE ` + conditions.join(' AND ');
+    }
+
+    let totalCount = 0;
+    try {
+      let countSql = `SELECT COUNT(*) as total FROM client_directory`;
+      if (conditions.length > 0) {
+        countSql += ` WHERE ` + conditions.join(' AND ');
+      }
+      const countRes = await db.prepare(countSql).bind(...params).first();
+      totalCount = countRes ? (countRes.total || 0) : 0;
+    } catch (countErr) {
+      console.error("[Search API GET] Count query failed:", countErr);
     }
 
     sql += ` ORDER BY company_name ASC LIMIT ? OFFSET ?`;
@@ -107,6 +119,7 @@ export const onRequestGet = async (context: any) => {
     return createJsonResponse({
       success: true,
       count: formattedRows.length,
+      total: totalCount,
       limit: limitVal,
       offset: offsetVal,
       q: searchVal,

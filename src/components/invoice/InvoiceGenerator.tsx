@@ -658,20 +658,18 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = (props) => {
     setSelectedProjectId('');
     setShowClientDropdown(false);
 
-    // Sesuai Aturan 7: Jika local client dipilih dan membutuhkan info tambahan dari Firestore profiles secara targeted
-    if (client.source === 'local') {
-      try {
-        const docRef = doc(db, 'profiles', client.clientId);
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-          const profileData = docSnap.data();
-          setClientEmail(profileData.email || client.email || '');
-          setClientPhone(profileData.phoneNumber || profileData.phone || client.phone || '');
-          setClientAddress(profileData.fullAddress || profileData.address || profileData.domicile || client.address || '');
-        }
-      } catch (err) {
-        console.warn('[InvoiceGenerator] Gagal mengambil detail profil spesifik dari Firestore:', err);
+    // Fetch additional profile information from Firestore profiles if available
+    try {
+      const docRef = doc(db, 'profiles', client.clientId);
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        const profileData = docSnap.data();
+        setClientEmail(profileData.email || client.email || '');
+        setClientPhone(profileData.phoneNumber || profileData.phone || client.phone || '');
+        setClientAddress(profileData.fullAddress || profileData.address || profileData.domicile || client.address || '');
       }
+    } catch (err) {
+      console.warn('[InvoiceGenerator] Gagal mengambil detail profil spesifik dari Firestore:', err);
     }
   };
 

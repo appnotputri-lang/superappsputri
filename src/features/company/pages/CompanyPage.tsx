@@ -688,7 +688,11 @@ export const CompanyPage: React.FC<CompanyPageProps> = ({ setIsSidebarOpen, ...p
     const targetProfile = pageDirectoryEntries.find(p => p.id === id || p.clientId === id);
     const clientName = targetProfile?.companyName ? formatCompanyName(targetProfile.companyName, targetProfile.clientType) : id;
     if (confirm(`Apakah Anda yakin ingin menghapus profil "${clientName}", SELURUH PROYEK TERKAIT, DATA FIRESTORE, dan FOLDER GOOGLE DRIVE miliknya secara permanen?`)) {
+      const originalEntries = [...pageDirectoryEntries];
       try {
+        // Optimistically remove client from page list
+        setPageDirectoryEntries(prev => prev.filter(p => p.id !== id && p.clientId !== id));
+
         await deleteCompanyInContext(id, isCv);
         recordNotification(
           'Klien & Proyek Dihapus', 
@@ -698,7 +702,9 @@ export const CompanyPage: React.FC<CompanyPageProps> = ({ setIsSidebarOpen, ...p
         alert(`Profil klien "${clientName}", seluruh proyek terkait, data Firestore, dan folder Google Drive berhasil dihapus.`);
         setEditingProfileId(null);
       } catch (err: any) {
-        console.error("Gagal menghapus profil:", err);
+        console.error("Gagal menghapus profil, rolling back optimistic UI...", err);
+        // Rollback optimistic state
+        setPageDirectoryEntries(originalEntries);
         alert(`Gagal menghapus profil: ${err?.message || String(err)}`);
       }
     }

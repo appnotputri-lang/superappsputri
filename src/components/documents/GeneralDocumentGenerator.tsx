@@ -321,7 +321,7 @@ export const GeneralDocumentGenerator: React.FC<GeneralDocumentGeneratorProps> =
   const handleSelectClient = (c: ClientOption) => {
     setClientId(c.clientId);
     setClientName(c.name);
-    setClientSource(c.source);
+    setClientSource((c.source as any) || 'local');
     setClientAddress(c.address || '');
     setClientContact(c.phone || '');
     if (isDelivery && !destination) {

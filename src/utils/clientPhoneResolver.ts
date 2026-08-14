@@ -1,5 +1,4 @@
 import { db } from '../lib/firebase';
-import { superappsDb, SuperappsClientService } from '../services/superappsClientService';
 import { doc, getDoc } from 'firebase/firestore';
 import { getApiUrl, getAuthHeaders } from '../lib/api';
 
@@ -9,7 +8,7 @@ export interface ClientOption {
   email: string;
   phone: string;
   address: string;
-  source: 'local' | 'superapps';
+  source?: string;
   clientType?: string;
 }
 
@@ -44,9 +43,8 @@ export interface ResolvePhoneParams {
   clientId?: string;
   clientName?: string;
   clientPhone?: string;
-  clientSource?: 'local' | 'superapps';
+  clientSource?: string;
   localClients: ClientOption[];
-  superappsClients?: ClientOption[];
 }
 
 // Memory cache for phone resolver to prevent redundant requests
@@ -74,22 +72,19 @@ export async function resolveClientPhone({
   clientId,
   clientName,
   clientPhone,
-  clientSource,
   localClients,
-  superappsClients,
 }: ResolvePhoneParams): Promise<string> {
   // 0. If clientPhone is explicitly provided, return formatted (0 DB reads)
   if (clientPhone && clientPhone.trim()) {
     return formatPhoneForFonnte(clientPhone);
   }
 
-  // 1. Check preloaded localClients & superappsClients by clientId
+  // 1. Check preloaded localClients by clientId
   if (clientId) {
     const cached = phoneResolverCache[`id:${clientId}`];
     if (cached) return formatPhoneForFonnte(cached);
 
-    const matched = (localClients || []).find(c => c.clientId === clientId) ||
-                    (superappsClients || []).find(c => c.clientId === clientId);
+    const matched = (localClients || []).find(c => c.clientId === clientId);
     if (matched && matched.phone) {
       phoneResolverCache[`id:${clientId}`] = matched.phone;
       return formatPhoneForFonnte(matched.phone);
@@ -103,11 +98,9 @@ export async function resolveClientPhone({
     if (cached) return formatPhoneForFonnte(cached);
 
     const targetName = clientName.toLowerCase().trim();
-    let matched = (localClients || []).find(c => (c.name || '').toLowerCase().trim() === targetName) ||
-                  (superappsClients || []).find(c => (c.name || '').toLowerCase().trim() === targetName);
+    let matched = (localClients || []).find(c => (c.name || '').toLowerCase().trim() === targetName);
     if (!matched) {
-      matched = (localClients || []).find(c => isFuzzyNameMatch(c.name, clientName)) ||
-                (superappsClients || []).find(c => isFuzzyNameMatch(c.name, clientName));
+      matched = (localClients || []).find(c => isFuzzyNameMatch(c.name, clientName));
     }
     if (matched && matched.phone) {
       phoneResolverCache[`name:${normName}`] = matched.phone;
@@ -121,23 +114,15 @@ export async function resolveClientPhone({
   // 3. Targeted read if clientId is available (Prioritize clientId)
   if (clientId) {
     try {
-      if (clientSource === 'superapps') {
-        const clientDoc = await getDoc(doc(superappsDb, 'profiles', clientId));
-        if (clientDoc.exists()) {
-          const clientData = clientDoc.data();
-          phoneNum = clientData.phoneNumber || clientData.contactNumber || clientData.phone || '';
-        }
+      const clientDoc = await getDoc(doc(db, 'profiles', clientId));
+      if (clientDoc.exists()) {
+        const clientData = clientDoc.data();
+        phoneNum = clientData.phoneNumber || clientData.phone || '';
       } else {
-        const clientDoc = await getDoc(doc(db, 'profiles', clientId));
-        if (clientDoc.exists()) {
-          const clientData = clientDoc.data();
-          phoneNum = clientData.phoneNumber || clientData.phone || '';
-        } else {
-          const companyDoc = await getDoc(doc(db, 'company_profiles', clientId));
-          if (companyDoc.exists()) {
-            const companyData = companyDoc.data();
-            phoneNum = companyData.phoneNumber || companyData.phone || '';
-          }
+        const companyDoc = await getDoc(doc(db, 'company_profiles', clientId));
+        if (companyDoc.exists()) {
+          const companyData = companyDoc.data();
+          phoneNum = companyData.phoneNumber || companyData.phone || '';
         }
       }
 
@@ -172,18 +157,6 @@ export async function resolveClientPhone({
           return formatPhoneForFonnte(phoneNum);
         }
       }
-
-      // 5. Fallback to Superapps search
-      if (!phoneNum) {
-        const spProfiles = await SuperappsClientService.getSuperappsProfiles(clientName);
-        const foundSp = spProfiles.find(p => isFuzzyNameMatch(p.name, clientName));
-        if (foundSp && foundSp.contactNumber) {
-          phoneNum = foundSp.contactNumber;
-          phoneResolverCache[`name:${cleanNameForFuzzyMatch(clientName)}`] = phoneNum;
-          if (foundSp.clientId) phoneResolverCache[`id:${foundSp.clientId}`] = phoneNum;
-          return formatPhoneForFonnte(phoneNum);
-        }
-      }
     } catch (err) {
       console.error('[clientPhoneResolver] Error searching client by name:', err);
     }
@@ -191,4 +164,3 @@ export async function resolveClientPhone({
 
   return formatPhoneForFonnte(phoneNum);
 }
-

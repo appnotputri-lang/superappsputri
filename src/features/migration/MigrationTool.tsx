@@ -442,20 +442,29 @@ export default function MigrationTool() {
         throw new Error(result.error || "Failed to execute migration API");
       }
       setD1MigrationResult(result);
-      addLog("=== CLOUDFLARE D1 MIGRATION SUCCESS ===");
+      addLog("=== CLOUDFLARE D1 RECONCILIATION RESULT ===");
       addLog(`Firestore Count: ${result.firestoreCount}`);
       addLog(`D1 Count: ${result.d1Count}`);
       addLog(`Total Firestore Reads: ${result.firestoreReadCount}`);
-      addLog(`Is Identical? ${result.success ? "YES (Counts & Fields Match)" : "NO"}`);
-      if (result.sampleComparisons && result.sampleComparisons.length > 0) {
-        addLog(`Compared ${result.sampleComparisons.length} samples (first, random, last):`);
-        result.sampleComparisons.forEach((c: any) => {
-          addLog(`- [${c.type}] id: ${c.id}, match: ${c.match ? "OK" : "MISMATCH"}`);
-          if (!c.match && c.mismatches) {
-            c.mismatches.forEach((m: any) => {
-              addLog(`   * Field [${m.field}] Mismatch - Firestore: ${JSON.stringify(m.firestore)}, D1: ${JSON.stringify(m.d1)}`);
-            });
-          }
+      addLog(`Status: ${result.status === 'IN_SYNC' ? '✓ CLIENT DIRECTORY FULLY IN SYNC' : '✗ CLIENT DIRECTORY MISMATCH DETECTED'}`);
+      addLog(`Is Identical? ${result.success ? "YES" : "NO"}`);
+
+      if (result.onlyInFirestore && result.onlyInFirestore.length > 0) {
+        addLog(`- Only in Firestore (${result.onlyInFirestore.length}): ${result.onlyInFirestore.join(', ')}`);
+      }
+      if (result.onlyInD1 && result.onlyInD1.length > 0) {
+        addLog(`- Only in D1 (${result.onlyInD1.length}): ${result.onlyInD1.join(', ')}`);
+      }
+      if (result.idMismatches && result.idMismatches.length > 0) {
+        addLog(`- CLIENT ID MISMATCHES DETECTED (${result.idMismatches.length}):`);
+        result.idMismatches.forEach((m: any) => {
+          addLog(`  * id: ${m.id} (${m.type}) - ${m.detail}`);
+        });
+      }
+      if (result.fieldMismatches && result.fieldMismatches.length > 0) {
+        addLog(`- FIELD MISMATCHES DETECTED (${result.fieldMismatchesCount}):`);
+        result.fieldMismatches.forEach((m: any) => {
+          addLog(`  * id: ${m.id}, field: ${m.field} - Firestore: ${JSON.stringify(m.firestoreValue)}, D1: ${JSON.stringify(m.d1Value)}`);
         });
       }
     } catch (err: any) {

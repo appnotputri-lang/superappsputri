@@ -1,5 +1,5 @@
 import { db } from '../lib/firebase';
-import { getApiUrl } from '../lib/api';
+import { getApiUrl, getAuthHeaders } from '../lib/api';
 import { 
   collection, 
   doc, 
@@ -40,6 +40,7 @@ export interface ClientDirectoryEntry {
   isArchived?: boolean;
   npwp?: string;
   kbliItems?: { code: string; name?: string }[];
+  syncStatus?: 'SYNCED' | 'SYNC_FAILED';
 }
 
 export interface ClientDirectoryPageOptions {
@@ -164,14 +165,14 @@ export class CompanyService {
   }
 
   /**
-   * Retrieves active clients count using Firestore aggregation count on client_directory.
+   * Retrieves active clients count using Cloudflare D1 client_directory API.
    */
   static async getActiveClientsCount(): Promise<number> {
     if (CompanyService.activeClientsCountCache !== null) {
       if (process.env.NODE_ENV !== 'production') {
         console.log('[Dashboard]');
         console.log(`activeClients: ${CompanyService.activeClientsCountCache}`);
-        console.log('source: client_directory');
+        console.log('source: D1 client_directory');
         console.log('query: isArchived == false');
         console.log('aggregation: count');
         console.log('cache HIT: YES');
@@ -182,16 +183,19 @@ export class CompanyService {
     }
 
     try {
-      const colRef = collection(db, 'client_directory');
-      const q = query(colRef, where('isArchived', '==', false));
-      const snapshot = await getCountFromServer(q);
-      const count = snapshot.data().count;
+      const urlStr = getApiUrl('/api/clients') + '?archived=false&limit=1';
+      const res = await fetch(urlStr);
+      if (!res.ok) {
+        throw new Error(`D1 getActiveClientsCount returned HTTP ${res.status}`);
+      }
+      const json = await res.json();
+      const count = json.total || 0;
       CompanyService.activeClientsCountCache = count;
 
       if (process.env.NODE_ENV !== 'production') {
         console.log('[Dashboard]');
         console.log(`activeClients: ${count}`);
-        console.log('source: client_directory');
+        console.log('source: D1 client_directory');
         console.log('query: isArchived == false');
         console.log('aggregation: count');
         console.log('cache HIT: NO');
@@ -200,7 +204,7 @@ export class CompanyService {
       }
       return count;
     } catch (error) {
-      console.warn('[CompanyService] Error counting active clients:', error);
+      console.warn('[CompanyService] Error counting active clients from D1:', error);
       if (CompanyService.activeClientsCountCache !== null) {
         return CompanyService.activeClientsCountCache;
       }
@@ -209,7 +213,7 @@ export class CompanyService {
   }
 
   /**
-   * Sync single lightweight directory document to client_directory/{clientId}
+   * Sync single lightweight directory document to client_directory/{clientId} and D1 Database
    */
   static async syncClientDirectoryEntry(clientId: string, data?: Partial<CompanyProfile>): Promise<void> {
     try {
@@ -247,13 +251,42 @@ export class CompanyService {
         kbliItems: (p.kbliItems || []).map((k: any) => ({
           code: k.code || k.kode || (typeof k === 'string' ? k : ''),
           name: k.name || k.judul || ''
-        }))
+        })),
+        syncStatus: 'SYNC_FAILED' // assume fail initially until confirmed by D1
       };
 
+      // 1. Save to Firestore client_directory with temporary SYNC_FAILED state
       await setDoc(doc(db, 'client_directory', clientId), sanitizeForFirestore(entry), { merge: true });
-      CompanyService.clearCache();
-    } catch (err) {
-      console.warn('[CompanyService] Error syncing client_directory entry:', err);
+
+      // 2. Sync to Cloudflare D1
+      try {
+        const headers = await getAuthHeaders();
+        const response = await fetch(getApiUrl('/api/clients'), {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(entry)
+        });
+
+        if (!response.ok) {
+          const errText = await response.text();
+          throw new Error(`Cloudflare D1 sync HTTP ${response.status}: ${errText}`);
+        }
+
+        // 3. Update Firestore client_directory to SYNCED
+        entry.syncStatus = 'SYNCED';
+        await setDoc(doc(db, 'client_directory', clientId), sanitizeForFirestore(entry), { merge: true });
+        CompanyService.clearCache();
+      } catch (d1Err: any) {
+        console.error('[CompanyService] D1 Client Directory sync failed:', d1Err);
+        // Ensure Firestore remains marked as SYNC_FAILED
+        entry.syncStatus = 'SYNC_FAILED';
+        await setDoc(doc(db, 'client_directory', clientId), sanitizeForFirestore(entry), { merge: true });
+        CompanyService.clearCache();
+        throw new Error(`Gagal Sinkronisasi Database D1: ${d1Err?.message || d1Err}`);
+      }
+    } catch (err: any) {
+      console.warn('[CompanyService] Error in syncClientDirectoryEntry:', err);
+      throw err;
     }
   }
 
@@ -519,7 +552,7 @@ export class CompanyService {
   }
 
   /**
-   * Fetch lightweight client directory entries
+   * Fetch lightweight client directory entries from D1 Database.
    */
   static async getClientDirectory(options?: {
     clientType?: string;
@@ -529,18 +562,16 @@ export class CompanyService {
     try {
       let items: ClientDirectoryEntry[] = [];
       if (CompanyService.directoryCache && CompanyService.directoryCache.length > 0) {
-        FirestoreTracker.logMenuOpen('Direktori Klien', 'HIT');
         items = [...CompanyService.directoryCache];
       } else {
-        FirestoreTracker.logMenuOpen('Direktori Klien', 'MISS', 'client_directory', 50);
-        const colRef = collection(db, 'client_directory');
-        const snap = await getDocs(colRef);
-
-        snap.forEach(docSnap => {
-          items.push({ id: docSnap.id, clientId: docSnap.id, ...docSnap.data() } as ClientDirectoryEntry);
-        });
+        const urlStr = getApiUrl('/api/clients') + '?limit=10000';
+        const res = await fetch(urlStr);
+        if (!res.ok) {
+          throw new Error(`D1 getClientDirectory returned HTTP ${res.status}`);
+        }
+        const json = await res.json();
+        items = json.clients || [];
         CompanyService.directoryCache = items;
-        FirestoreTracker.logMenuOpen('Direktori Klien', 'MISS', 'client_directory', undefined, snap.size);
       }
 
       if (options?.clientType && options.clientType !== 'all') {
@@ -562,26 +593,22 @@ export class CompanyService {
 
       return items;
     } catch (err) {
-      console.warn('[CompanyService] Error reading client_directory:', err);
+      console.warn('[CompanyService] Error reading client_directory from D1:', err);
       return [];
     }
   }
 
   /**
-   * Fetch paginated client directory entries using server-side queries and cache
+   * Fetch paginated client directory entries using D1 server-side pagination.
    */
   static async getClientDirectoryPage(options?: ClientDirectoryPageOptions): Promise<ClientDirectoryPageResult> {
     const clientType = options?.clientType || 'all';
     const showArchived = !!options?.showArchived;
-    const searchQuery = (options?.searchQuery || '').trim().toLowerCase();
-    const establishmentYear = options?.establishmentYear || 'all';
-    const sortField = options?.sortField || 'companyName';
-    const sortOrder = options?.sortOrder || 'asc';
-    const pageSize = options?.pageSize || 50;
-    const cursorId = options?.lastDoc ? options.lastDoc.id : 'first';
+    const searchQuery = (options?.searchQuery || '').trim();
+    const pageSize = options?.pageSize || 10;
     const pageNum = options?.page || 1;
 
-    const cacheKey = `${clientType}_${showArchived ? 'archived' : 'active'}_${searchQuery}_${establishmentYear}_${sortField}_${sortOrder}_${pageSize}_${pageNum}_${cursorId}`;
+    const cacheKey = `${clientType}_${showArchived ? 'archived' : 'active'}_${searchQuery}_${pageSize}_${pageNum}`;
 
     if (CompanyService.pageCache.has(cacheKey)) {
       const cached = CompanyService.pageCache.get(cacheKey)!;
@@ -589,106 +616,36 @@ export class CompanyService {
     }
 
     try {
-      const colRef = collection(db, 'client_directory');
-      const constraints: QueryConstraint[] = [];
-
-      // 1. Archive status filter
-      constraints.push(where('isArchived', '==', showArchived));
-
-      // 2. Client type filter if not 'all'
+      const queryParams = new URLSearchParams();
+      queryParams.set('limit', String(pageSize));
+      queryParams.set('offset', String((pageNum - 1) * pageSize));
+      queryParams.set('archived', showArchived ? 'true' : 'false');
       if (clientType !== 'all') {
-        constraints.push(where('clientType', '==', clientType));
+        queryParams.set('clientType', clientType);
+      }
+      if (searchQuery) {
+        queryParams.set('q', searchQuery);
       }
 
-      // 3. Establishment year filter if not 'all'
-      if (establishmentYear !== 'all') {
-        constraints.push(where('establishmentYear', '==', establishmentYear));
+      const urlStr = getApiUrl('/api/clients') + '?' + queryParams.toString();
+      const res = await fetch(urlStr);
+      if (!res.ok) {
+        throw new Error(`D1 getClientDirectoryPage returned HTTP ${res.status}`);
+      }
+      const json = await res.json();
+      let items: ClientDirectoryEntry[] = json.clients || [];
+
+      // Local filtering for establishmentYear if present and not 'all'
+      if (options?.establishmentYear && options.establishmentYear !== 'all') {
+        items = items.filter(item => item.establishmentYear === options.establishmentYear);
       }
 
-      // 4. Search query word tokens (array-contains)
-      let queryToken = '';
-      if (searchQuery !== '') {
-        const words = searchQuery.split(/\s+/).filter(Boolean);
-        // Take the first search word as the Firestore server-side filter token
-        queryToken = words[0] || '';
-        if (queryToken) {
-          constraints.push(where('searchTokens', 'array-contains', queryToken));
-        }
-      } else {
-        constraints.push(orderBy(sortField, sortOrder));
-      }
-
-      // 5. Cursor pagination
-      if (options?.lastDoc) {
-        constraints.push(startAfter(options.lastDoc));
-      }
-
-      // 6. Page size limit
-      constraints.push(limit(pageSize));
-
-      const q = query(colRef, ...constraints);
-      const snap = await getDocs(q);
-
-      const items: ClientDirectoryEntry[] = [];
-      let lastVisibleDoc: any = null;
-      let needsBackfill = false;
-      const backfillPromises: Promise<any>[] = [];
-
-      snap.forEach(docSnap => {
-        const data = docSnap.data() as ClientDirectoryEntry;
-        const companyName = data.companyName || '';
-        const searchTokens = data.searchTokens || CompanyService.generateSearchTokens(companyName);
-
-        if (!data.searchTokens && companyName) {
-          needsBackfill = true;
-          backfillPromises.push(
-            updateDoc(doc(db, 'client_directory', docSnap.id), {
-              searchTokens
-            }).catch(e => console.warn('[CompanyService] Lazy backfill failed:', e))
-          );
-        }
-
-        const entry: ClientDirectoryEntry = {
-          id: docSnap.id,
-          clientId: docSnap.id,
-          ...data,
-          searchTokens
-        };
-        items.push(entry);
-        lastVisibleDoc = docSnap;
-      });
-
-      if (needsBackfill) {
-        Promise.all(backfillPromises).then(() => {
-          CompanyService.clearCache();
-        });
-      }
-
-      // Additional client-side filtering if there are multiple search words
-      let resultItems = [...items];
-      if (searchQuery !== '') {
-        const searchWords = searchQuery.split(/\s+/).filter(Boolean);
-        resultItems = resultItems.filter(item => {
-          const name = (item.companyName || '').toLowerCase();
-          return searchWords.every(word => name.includes(word));
-        });
-
-        // In-memory sorting for search results (since Firestore query was index-free and did not order)
-        if (sortField) {
-          resultItems.sort((a, b) => {
-            const valA = String(a[sortField as keyof ClientDirectoryEntry] || '').toLowerCase();
-            const valB = String(b[sortField as keyof ClientDirectoryEntry] || '').toLowerCase();
-            if (sortOrder === 'desc') {
-              return valB.localeCompare(valA);
-            }
-            return valA.localeCompare(valB);
-          });
-        }
-      }
+      // Generate a dummy lastDoc so that CompanyPage's cursor navigation works seamlessly
+      const dummyLastDoc = { id: 'page_' + pageNum };
 
       const result: ClientDirectoryPageResult = {
-        items: resultItems,
-        lastDoc: lastVisibleDoc,
+        items,
+        lastDoc: dummyLastDoc,
         hasMore: items.length >= pageSize,
         fromCache: false
       };
@@ -698,9 +655,8 @@ export class CompanyService {
       if (process.env.NODE_ENV !== 'production') {
         console.log('[ClientList]');
         console.log(`search: ${searchQuery}`);
-        console.log(`normalizedSearch: ${queryToken}`);
-        console.log('queryType: searchTokens');
-        console.log(`documents: ${resultItems.length}`);
+        console.log(`page: ${pageNum}`);
+        console.log(`documents: ${items.length}`);
         console.log('cache: MISS');
         console.log('network: YES');
         console.log('profileReads: 0');
@@ -709,53 +665,30 @@ export class CompanyService {
 
       return result;
     } catch (err: any) {
-      console.error('[CompanyService] Firestore query error in getClientDirectoryPage:', err?.message || err);
+      console.error('[CompanyService] D1 query error in getClientDirectoryPage:', err?.message || err);
       return { items: [], lastDoc: null, hasMore: false, fromCache: false };
     }
   }
 
   /**
-   * Search client directory entries server-side using limit to keep reads extremely low.
+   * Search client directory entries server-side using D1 database with limit to keep reads extremely low.
    */
   static async searchClientDirectory(searchQuery: string, limitCount = 15): Promise<ClientDirectoryEntry[]> {
     try {
-      const colRef = collection(db, 'client_directory');
-      const constraints: QueryConstraint[] = [
-        where('isArchived', '==', false)
-      ];
+      const queryParams = new URLSearchParams();
+      queryParams.set('q', searchQuery.trim());
+      queryParams.set('limit', String(limitCount));
+      queryParams.set('archived', 'false');
 
-      const q = searchQuery.trim().toLowerCase();
-      if (q) {
-        const words = q.split(/\s+/).filter(Boolean);
-        const firstToken = words[0] || '';
-        if (firstToken) {
-          constraints.push(where('searchTokens', 'array-contains', firstToken));
-        }
-      } else {
-        constraints.push(orderBy('companyName', 'asc'));
+      const urlStr = getApiUrl('/api/clients/search') + '?' + queryParams.toString();
+      const res = await fetch(urlStr);
+      if (!res.ok) {
+        throw new Error(`D1 searchClientDirectory returned HTTP ${res.status}`);
       }
-
-      constraints.push(limit(limitCount));
-
-      const qQuery = query(colRef, ...constraints);
-      const snap = await getDocs(qQuery);
-      
-      const items: ClientDirectoryEntry[] = [];
-      snap.forEach(docSnap => {
-        items.push({ id: docSnap.id, clientId: docSnap.id, ...docSnap.data() } as ClientDirectoryEntry);
-      });
-
-      if (q) {
-        const searchWords = q.split(/\s+/).filter(Boolean);
-        return items.filter(item => {
-          const name = (item.companyName || '').toLowerCase();
-          return searchWords.every(word => name.includes(word));
-        });
-      }
-
-      return items;
+      const json = await res.json();
+      return json.clients || [];
     } catch (err: any) {
-      console.warn('[CompanyService] Error in searchClientDirectory:', err);
+      console.warn('[CompanyService] Error in D1 searchClientDirectory:', err);
       return [];
     }
   }
@@ -1126,38 +1059,107 @@ export class CompanyService {
 
   /**
    * Delete a Profile, all associated projects and uploaded documents,
-   * all Firestore records, and its Google Drive folders.
+   * all Firestore records, and its Google Drive folders with detailed failure recovery rollback.
    */
   static async deleteCompany(companyId: string, isCv?: boolean): Promise<void> {
     const collectionName = 'profiles';
+    
+    // Snapshots for failure recovery
+    let clientDirectorySnapshot: any = null;
+    let profilesSnapshot: any = null;
+    let companyProfilesSnapshot: any = null;
+    let cvProfilesSnapshot: any = null;
+    let uniqueKeySnapshot: { key: string; data: any } | null = null;
+    const projectSnapshots: Array<{ collectionName: string; id: string; data: any }> = [];
+
     try {
-      // 1. Fetch profile to get driveFolderId, companyName, clientType
-      let companyName = '';
-      let clientType = 'PT';
-      let driveFolderId = '';
+      // 1. Take Snapshots of everything we intend to delete before performing destructive actions
+      // 1a. client_directory
       try {
-        const companySnap = await getDoc(doc(db, collectionName, companyId));
-        if (companySnap.exists()) {
-          const data = companySnap.data();
-          companyName = data.companyName || '';
-          clientType = data.clientType || (isCv ? 'CV' : 'PT');
-          driveFolderId = data.driveFolderId || '';
-        } else {
-          const cpSnap = await getDoc(doc(db, 'company_profiles', companyId));
-          if (cpSnap.exists()) {
-            const data = cpSnap.data();
-            companyName = data.companyName || '';
-            clientType = data.clientType || 'PT';
-            driveFolderId = data.driveFolderId || '';
-          }
+        const snap = await getDoc(doc(db, 'client_directory', companyId));
+        if (snap.exists()) {
+          clientDirectorySnapshot = snap.data();
         }
       } catch (e) {
-        console.warn("[CompanyService] Could not pre-fetch profile before delete:", e);
+        console.warn("[CompanyService] Error snapshotting client_directory:", e);
       }
 
-      // 2. Scan and gather ALL project IDs associated with this client
-      const projectIdsToDelete = new Set<string>();
-      
+      // 1b. profiles
+      try {
+        const snap = await getDoc(doc(db, 'profiles', companyId));
+        if (snap.exists()) {
+          profilesSnapshot = snap.data();
+        }
+      } catch (e) {
+        console.warn("[CompanyService] Error snapshotting profiles:", e);
+      }
+
+      // 1c. company_profiles
+      try {
+        const snap = await getDoc(doc(db, 'company_profiles', companyId));
+        if (snap.exists()) {
+          companyProfilesSnapshot = snap.data();
+        }
+      } catch (e) {
+        console.warn("[CompanyService] Error snapshotting company_profiles:", e);
+      }
+
+      // 1d. cv_profiles
+      try {
+        const snap = await getDoc(doc(db, 'cv_profiles', companyId));
+        if (snap.exists()) {
+          cvProfilesSnapshot = snap.data();
+        }
+      } catch (e) {
+        console.warn("[CompanyService] Error snapshotting cv_profiles:", e);
+      }
+
+      // Determine client info
+      const profileData = profilesSnapshot || companyProfilesSnapshot || cvProfilesSnapshot;
+      const companyName = profileData?.companyName || '';
+      const clientType = profileData?.clientType || (isCv ? 'CV' : 'PT');
+      const driveFolderId = profileData?.driveFolderId || '';
+
+      // 1e. unique key
+      if (companyName) {
+        const uniqueKey = getUniqueClientKey(clientType, companyName);
+        try {
+          const snap = await getDoc(doc(db, 'client_unique_keys', uniqueKey));
+          if (snap.exists()) {
+            uniqueKeySnapshot = { key: uniqueKey, data: snap.data() };
+          }
+        } catch (e) {
+          console.warn("[CompanyService] Error snapshotting unique key:", e);
+        }
+      }
+
+      // 1f. clientDirectorySnapshot fallback if not exists
+      if (!clientDirectorySnapshot && companyName) {
+        const isCvProfile = clientType === 'CV' || isCv;
+        const resolvedClientType = isCvProfile ? 'CV' : clientType;
+        const resolvedCompName = CompanyService.formatCompanyName(companyName, resolvedClientType);
+        const resolvedSearchName = resolvedCompName.toLowerCase().trim();
+
+        clientDirectorySnapshot = {
+          id: companyId,
+          clientId: companyId,
+          companyName: resolvedCompName,
+          searchName: resolvedSearchName,
+          searchTokens: CompanyService.generateSearchTokens(resolvedCompName),
+          clientType: resolvedClientType,
+          companyType: isCvProfile ? 'CV' : 'PT_LOKAL',
+          domicile: profileData?.domicile || '',
+          establishmentDeedDate: profileData?.establishmentDeedDate || '',
+          establishmentYear: '',
+          updatedAt: new Date().toISOString(),
+          isArchived: false,
+          npwp: profileData?.npwp || '',
+          kbliItems: [],
+          syncStatus: 'SYNC_FAILED'
+        };
+      }
+
+      // 2. Scan & Snapshot Project references before deletion
       const projectCollections = [
         'office_projects',
         'projects',
@@ -1165,11 +1167,11 @@ export class CompanyService {
         'rupst_public_projects',
         'pendirian_projects'
       ];
+      const projectIdsToDelete = new Set<string>();
 
       for (const colName of projectCollections) {
         try {
-          const colRef = collection(db, colName);
-          const snap = await getDocs(colRef);
+          const snap = await getDocs(collection(db, colName));
           snap.forEach(d => {
             const data = d.data();
             if (
@@ -1180,95 +1182,174 @@ export class CompanyService {
               data.metadata?.clientId === companyId
             ) {
               projectIdsToDelete.add(d.id);
+              projectSnapshots.push({ collectionName: colName, id: d.id, data });
             }
           });
         } catch (e) {
-          console.warn(`[CompanyService] Error scanning collection ${colName} for client projects:`, e);
+          console.warn(`[CompanyService] Error scanning/snapshotting projects in ${colName}:`, e);
         }
       }
 
-      // 3. Delete each associated project (and its subcollections, drive folders, uploaded docs)
-      const { ProjectService } = await import('./ProjectService');
-      for (const projId of projectIdsToDelete) {
-        try {
-          console.log(`[CompanyService] Deleting associated project ${projId} for client ${companyId}...`);
-          await ProjectService.deleteProject(projId);
-        } catch (projErr) {
-          console.warn(`[CompanyService] Error deleting project ${projId}:`, projErr);
-        }
-      }
+      // --- DESTRUCTIVE OPERATIONS BEGIN ---
 
-      // 4. Clean up any remaining records in project_uploaded_documents for this client ID
+      // 3. Delete from D1 Database first (SAFE: If it fails, no Firestore data is deleted yet!)
       try {
-        const uploadedDocsCol = collection(db, 'project_uploaded_documents');
-        const docRefsToDelete = new Set<string>();
-
-        // Query by clientId
-        const qClient = query(uploadedDocsCol, where('clientId', '==', companyId));
-        const qClientSnap = await getDocs(qClient);
-        qClientSnap.forEach(d => docRefsToDelete.add(d.id));
-
-        // Query by selectedProfileId
-        const qSel = query(uploadedDocsCol, where('selectedProfileId', '==', companyId));
-        const qSelSnap = await getDocs(qSel);
-        qSelSnap.forEach(d => docRefsToDelete.add(d.id));
-
-        // Query by companyId
-        const qComp = query(uploadedDocsCol, where('companyId', '==', companyId));
-        const qCompSnap = await getDocs(qComp);
-        qCompSnap.forEach(d => docRefsToDelete.add(d.id));
-
-        // Query for each projectId to delete
-        for (const projId of Array.from(projectIdsToDelete)) {
-          const qProj = query(uploadedDocsCol, where('projectId', '==', projId));
-          const qProjSnap = await getDocs(qProj);
-          qProjSnap.forEach(d => docRefsToDelete.add(d.id));
-        }
-
-        // Perform deletions
-        for (const docId of Array.from(docRefsToDelete)) {
-          await deleteDoc(doc(db, 'project_uploaded_documents', docId));
-        }
-      } catch (e) {
-        console.warn("[CompanyService] Error cleaning project_uploaded_documents for client:", e);
-      }
-
-      // 5. Call backend API to delete client folder from Google Drive
-      try {
-        const { auth } = await import('../lib/firebase');
-        let token = '';
-        if (auth.currentUser) {
-          token = await auth.currentUser.getIdToken();
-        }
-        await fetch(getApiUrl('/api/v2/drive/delete-client-folder'), {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({
-            clientId: companyId,
-            companyName,
-            clientType,
-            driveFolderId
-          })
+        const headers = await getAuthHeaders();
+        const response = await fetch(getApiUrl(`/api/clients?id=${companyId}`), {
+          method: 'DELETE',
+          headers
         });
-      } catch (e) {
-        console.warn("[CompanyService] Error deleting Google Drive folder:", e);
+        if (!response.ok) {
+          const errText = await response.text();
+          throw new Error(`D1 delete returned HTTP ${response.status}: ${errText}`);
+        }
+      } catch (d1Err: any) {
+        console.error('[CompanyService] D1 deletion failed before any Firestore action. Aborting.', d1Err);
+        throw new Error(`D1_DELETE_FAILED: Gagal menghapus dari D1 database. Operasi dihentikan secara aman tanpa merusak data Firestore. Detail: ${d1Err.message || d1Err}`);
       }
 
-      // 6. Delete client documents from Firestore and release unique locks
-      if (companyName) {
-        const key = getUniqueClientKey(clientType, companyName);
-        await deleteDoc(doc(db, 'client_unique_keys', key)).catch(() => {});
+      // 4. Delete Firestore records and related documents
+      try {
+        // Delete project documents from Firestore
+        const { ProjectService } = await import('./ProjectService');
+        for (const projId of projectIdsToDelete) {
+          console.log(`[CompanyService] Deleting associated project ${projId}...`);
+          await ProjectService.deleteProject(projId).catch(err => {
+            console.warn(`[CompanyService] Error during project deletion step:`, err);
+          });
+        }
+
+        // Clean up remaining records in project_uploaded_documents
+        try {
+          const uploadedDocsCol = collection(db, 'project_uploaded_documents');
+          const docRefsToDelete = new Set<string>();
+          const qClientSnap = await getDocs(query(uploadedDocsCol, where('clientId', '==', companyId)));
+          qClientSnap.forEach(d => docRefsToDelete.add(d.id));
+
+          const qSelSnap = await getDocs(query(uploadedDocsCol, where('selectedProfileId', '==', companyId)));
+          qSelSnap.forEach(d => docRefsToDelete.add(d.id));
+
+          const qCompSnap = await getDocs(query(uploadedDocsCol, where('companyId', '==', companyId)));
+          qCompSnap.forEach(d => docRefsToDelete.add(d.id));
+
+          for (const projId of Array.from(projectIdsToDelete)) {
+            const qProjSnap = await getDocs(query(uploadedDocsCol, where('projectId', '==', projId)));
+            qProjSnap.forEach(d => docRefsToDelete.add(d.id));
+          }
+
+          for (const docId of Array.from(docRefsToDelete)) {
+            await deleteDoc(doc(db, 'project_uploaded_documents', docId)).catch(() => {});
+          }
+        } catch (e) {
+          console.warn("[CompanyService] Error during uploaded docs clean-up:", e);
+        }
+
+        // Call backend API to delete client folder from Google Drive (non-blocking / best effort)
+        if (companyName) {
+          try {
+            const { auth } = await import('../lib/firebase');
+            let token = '';
+            if (auth.currentUser) {
+              token = await auth.currentUser.getIdToken();
+            }
+            await fetch(getApiUrl('/api/v2/drive/delete-client-folder'), {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+              },
+              body: JSON.stringify({
+                clientId: companyId,
+                companyName,
+                clientType,
+                driveFolderId
+              })
+            });
+          } catch (e) {
+            console.warn("[CompanyService] Error during Drive deletion step:", e);
+          }
+        }
+
+        // Delete profile keys and document entries
+        if (companyName) {
+          const key = getUniqueClientKey(clientType, companyName);
+          await deleteDoc(doc(db, 'client_unique_keys', key)).catch(() => {});
+        }
+        await deleteDoc(doc(db, 'profiles', companyId));
+        await deleteDoc(doc(db, 'company_profiles', companyId));
+        await deleteDoc(doc(db, 'cv_profiles', companyId));
+        await deleteDoc(doc(db, 'client_directory', companyId));
+
+        CompanyService.clearCache();
+      } catch (firestoreErr: any) {
+        console.error('[CompanyService] Deletion failed during Firestore operations, starting rollback...', firestoreErr);
+
+        // --- ROLLBACK / FAILURE RECOVERY ACTIONS ---
+        let rollbackD1Success = false;
+        let rollbackFirestoreSuccess = true;
+
+        // A. Restore Cloudflare D1
+        if (clientDirectorySnapshot) {
+          try {
+            const headers = await getAuthHeaders();
+            const restoreResponse = await fetch(getApiUrl('/api/clients'), {
+              method: 'POST',
+              headers,
+              body: JSON.stringify({
+                ...clientDirectorySnapshot,
+                syncStatus: 'SYNC_FAILED'
+              })
+            });
+            if (restoreResponse.ok) {
+              rollbackD1Success = true;
+            }
+          } catch (rErr) {
+            console.error('[CompanyService] Rollback D1 failed:', rErr);
+          }
+        }
+
+        // B. Restore Firestore client_directory and Profiles
+        try {
+          if (clientDirectorySnapshot) {
+            await setDoc(doc(db, 'client_directory', companyId), {
+              ...clientDirectorySnapshot,
+              syncStatus: 'DELETE_RECOVERY_REQUIRED'
+            }, { merge: true });
+          }
+          if (profilesSnapshot) {
+            await setDoc(doc(db, 'profiles', companyId), profilesSnapshot);
+          }
+          if (companyProfilesSnapshot) {
+            await setDoc(doc(db, 'company_profiles', companyId), companyProfilesSnapshot);
+          }
+          if (cvProfilesSnapshot) {
+            await setDoc(doc(db, 'cv_profiles', companyId), cvProfilesSnapshot);
+          }
+          if (uniqueKeySnapshot) {
+            await setDoc(doc(db, 'client_unique_keys', uniqueKeySnapshot.key), uniqueKeySnapshot.data);
+          }
+          // Restore projects
+          for (const proj of projectSnapshots) {
+            await setDoc(doc(db, proj.collectionName, proj.id), proj.data);
+          }
+        } catch (fsRollbackErr) {
+          console.error('[CompanyService] Rollback Firestore documents failed:', fsRollbackErr);
+          rollbackFirestoreSuccess = false;
+        }
+
+        CompanyService.clearCache();
+
+        if (!rollbackD1Success || !rollbackFirestoreSuccess) {
+          throw new Error('Penghapusan klien gagal di tengah jalan dan pemulihan data tidak lengkap. Status ditandai DELETE_RECOVERY_REQUIRED.');
+        } else {
+          throw new Error(`Gagal menyelesaikan penghapusan klien di Firestore: ${firestoreErr.message || firestoreErr}. Data berhasil dipulihkan (rollback) secara otomatis.`);
+        }
       }
-      await deleteDoc(doc(db, 'profiles', companyId)).catch(() => {});
-      await deleteDoc(doc(db, 'company_profiles', companyId)).catch(() => {});
-      await deleteDoc(doc(db, 'cv_profiles', companyId)).catch(() => {});
-      await deleteDoc(doc(db, 'client_directory', companyId)).catch(() => {});
-      CompanyService.clearCache();
-    } catch (error) {
-      handleFirestoreError(error, OperationType.DELETE, `${collectionName}/${companyId}`);
+    } catch (error: any) {
+      if (error.message && (error.message.startsWith('D1_DELETE_FAILED') || error.message.includes('DELETE_RECOVERY_REQUIRED') || error.message.includes('dipulihkan'))) {
+        throw error;
+      }
+      handleFirestoreError(error, OperationType.DELETE, `profiles/${companyId}`);
       throw error;
     }
   }
@@ -1454,6 +1535,17 @@ export class CompanyService {
         await deleteDoc(doc(db, 'company_profiles', sourceId)).catch(() => {});
         await deleteDoc(doc(db, 'cv_profiles', sourceId)).catch(() => {});
         await deleteDoc(doc(db, 'client_directory', sourceId)).catch(() => {});
+
+        // Delete source profile from D1
+        try {
+          const headers = await getAuthHeaders();
+          await fetch(getApiUrl(`/api/clients?id=${sourceId}`), {
+            method: 'DELETE',
+            headers
+          });
+        } catch (d1Err) {
+          console.warn(`[CompanyService] Failed to delete merged client ${sourceId} from D1:`, d1Err);
+        }
       }
       CompanyService.clearCache();
 
