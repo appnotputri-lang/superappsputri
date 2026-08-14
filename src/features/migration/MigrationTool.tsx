@@ -7,6 +7,14 @@ import { generateShortPublicToken } from '../../services/QuotationService';
 import { CompanyService } from '../../services/CompanyService';
 import { getApiUrl, getAuthHeaders } from '../../lib/api';
 import { HISTORICAL_KBLI_MAPPINGS, HISTORICAL_KBLI_SUGGESTIONS } from '../../data/kbliHistoricalRecords';
+import {
+  HISTORICAL_DEEDS,
+  HISTORICAL_PRIVATE_DEEDS,
+  HISTORICAL_INCOMING_MAILS,
+  HISTORICAL_OUTGOING_MAILS,
+  HISTORICAL_PROTEST_CHEQUES,
+  HISTORICAL_GENERAL_DOCUMENTS
+} from '../../data/notaryHistoricalRecords';
 
 export default function MigrationTool() {
   const [logs, setLogs] = useState<string[]>([]);
@@ -14,7 +22,9 @@ export default function MigrationTool() {
   const [importFiles, setImportFiles] = useState<{
     deeds?: any[];
     private_deeds?: any[];
+    incoming_mails?: any[];
     outgoing_mails?: any[];
+    protest_cheques?: any[];
     invoices?: any[];
     documents?: any[];
     quotations?: any[];
@@ -38,8 +48,8 @@ export default function MigrationTool() {
   const runD1JsonMigration = async () => {
     setD1JsonLoading(true);
     setLogs([]);
-    addLog("=== MEMULAI MIGRASI JSON -> CLOUDFLARE D1 (INVOICES, QUOTATIONS, PRODUCTS) ===");
-    addLog("Sumber data: JSON File Export (Firestore Read = 0)");
+    addLog("=== MEMULAI MIGRASI DATA LENGKAP -> CLOUDFLARE D1 (NOTARIS, SURAT, DOKUMEN, INVOICES, KBLI) ===");
+    addLog("Sumber data: JSON File Export + Historical Records (Firestore Read = 0)");
     
     try {
       const invCount = importFiles.invoices?.length || 0;
@@ -48,11 +58,14 @@ export default function MigrationTool() {
       const kbliMapCount = importFiles.kbliMappings?.length || HISTORICAL_KBLI_MAPPINGS.length;
       const kbliSuggCount = importFiles.kbliSuggestions?.length || HISTORICAL_KBLI_SUGGESTIONS.length;
 
-      if (invCount === 0 && quoCount === 0 && prodCount === 0 && kbliMapCount === 0 && kbliSuggCount === 0) {
-        addLog("Peringatan: Belum ada file JSON (invoices, quotations, products, KBLI) yang dimuat. Silakan upload file JSON atau klik 'Muat Contoh JSON'.");
-      }
+      const deedCount = importFiles.deeds?.length || HISTORICAL_DEEDS.length;
+      const pdeedCount = importFiles.private_deeds?.length || HISTORICAL_PRIVATE_DEEDS.length;
+      const inmailCount = importFiles.incoming_mails?.length || HISTORICAL_INCOMING_MAILS.length;
+      const outmailCount = importFiles.outgoing_mails?.length || HISTORICAL_OUTGOING_MAILS.length;
+      const chequeCount = HISTORICAL_PROTEST_CHEQUES.length;
+      const docCount = importFiles.documents?.length || HISTORICAL_GENERAL_DOCUMENTS.length;
 
-      addLog(`Mengirim payload ke API: ${invCount} invoices, ${quoCount} quotations, ${prodCount} products, ${kbliMapCount} KBLI mappings, ${kbliSuggCount} KBLI suggestions...`);
+      addLog(`Mengirim payload ke API: ${deedCount} Akta (deeds), ${pdeedCount} Akta Bawah Tangan (private_deeds), ${inmailCount} Surat Masuk, ${outmailCount} Surat Keluar, ${chequeCount} Protest Cheques, ${docCount} Dokumen Umum, ${invCount} invoices, ${quoCount} quotations, ${prodCount} products, ${kbliMapCount} KBLI mappings, ${kbliSuggCount} KBLI suggestions...`);
       
       const headers = await getAuthHeaders();
       const response = await fetch(getApiUrl('/api/migration/d1-import'), {
@@ -62,6 +75,12 @@ export default function MigrationTool() {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
+          deeds: importFiles.deeds || HISTORICAL_DEEDS,
+          private_deeds: importFiles.private_deeds || HISTORICAL_PRIVATE_DEEDS,
+          incoming_mails: importFiles.incoming_mails || HISTORICAL_INCOMING_MAILS,
+          outgoing_mails: importFiles.outgoing_mails || HISTORICAL_OUTGOING_MAILS,
+          protest_cheques: HISTORICAL_PROTEST_CHEQUES,
+          general_documents: importFiles.documents || HISTORICAL_GENERAL_DOCUMENTS,
           invoices: importFiles.invoices || [],
           quotations: importFiles.quotations || [],
           products: importFiles.products || [],
@@ -81,26 +100,86 @@ export default function MigrationTool() {
       addLog("=======================================================");
       addLog(`Total Firestore Reads: ${result.firestoreReadCount} (GARANSI 0 READS)`);
       
-      addLog("\n[INVOICES]");
-      addLog(`JSON count: ${result.invoices?.jsonCount || 0}`);
-      addLog(`D1 count: ${result.invoices?.d1Count || 0}`);
-      addLog(`Migrated: ${result.invoices?.migrated || 0}`);
-      addLog(`Failed: ${result.invoices?.failed || 0}`);
-      addLog(`Validated: ${result.invoices?.validatedCount || 0}`);
+      if (result.deeds) {
+        addLog("\n[BUKU DAFTAR AKTA (DEEDS)]");
+        addLog(`JSON count: ${result.deeds.jsonCount || 0}`);
+        addLog(`D1 count: ${result.deeds.d1Count || 0}`);
+        addLog(`Migrated: ${result.deeds.migrated || 0}`);
+        addLog(`Failed: ${result.deeds.failed || 0}`);
+        addLog(`Validated: ${result.deeds.validatedCount || 0}`);
+      }
 
-      addLog("\n[QUOTATIONS]");
-      addLog(`JSON count: ${result.quotations?.jsonCount || 0}`);
-      addLog(`D1 count: ${result.quotations?.d1Count || 0}`);
-      addLog(`Migrated: ${result.quotations?.migrated || 0}`);
-      addLog(`Failed: ${result.quotations?.failed || 0}`);
-      addLog(`Validated: ${result.quotations?.validatedCount || 0}`);
+      if (result.private_deeds) {
+        addLog("\n[BUKU AKTA DI BAWAH TANGAN (PRIVATE DEEDS)]");
+        addLog(`JSON count: ${result.private_deeds.jsonCount || 0}`);
+        addLog(`D1 count: ${result.private_deeds.d1Count || 0}`);
+        addLog(`Migrated: ${result.private_deeds.migrated || 0}`);
+        addLog(`Failed: ${result.private_deeds.failed || 0}`);
+        addLog(`Validated: ${result.private_deeds.validatedCount || 0}`);
+      }
 
-      addLog("\n[PRODUCTS]");
-      addLog(`JSON count: ${result.products?.jsonCount || 0}`);
-      addLog(`D1 count: ${result.products?.d1Count || 0}`);
-      addLog(`Migrated: ${result.products?.migrated || 0}`);
-      addLog(`Failed: ${result.products?.failed || 0}`);
-      addLog(`Validated: ${result.products?.validatedCount || 0}`);
+      if (result.incoming_mails) {
+        addLog("\n[BUKU SURAT MASUK (INCOMING MAILS)]");
+        addLog(`JSON count: ${result.incoming_mails.jsonCount || 0}`);
+        addLog(`D1 count: ${result.incoming_mails.d1Count || 0}`);
+        addLog(`Migrated: ${result.incoming_mails.migrated || 0}`);
+        addLog(`Failed: ${result.incoming_mails.failed || 0}`);
+        addLog(`Validated: ${result.incoming_mails.validatedCount || 0}`);
+      }
+
+      if (result.outgoing_mails) {
+        addLog("\n[BUKU SURAT KELUAR (OUTGOING MAILS)]");
+        addLog(`JSON count: ${result.outgoing_mails.jsonCount || 0}`);
+        addLog(`D1 count: ${result.outgoing_mails.d1Count || 0}`);
+        addLog(`Migrated: ${result.outgoing_mails.migrated || 0}`);
+        addLog(`Failed: ${result.outgoing_mails.failed || 0}`);
+        addLog(`Validated: ${result.outgoing_mails.validatedCount || 0}`);
+      }
+
+      if (result.protest_cheques) {
+        addLog("\n[BUKU PROTEST CHEQUES]");
+        addLog(`JSON count: ${result.protest_cheques.jsonCount || 0}`);
+        addLog(`D1 count: ${result.protest_cheques.d1Count || 0}`);
+        addLog(`Migrated: ${result.protest_cheques.migrated || 0}`);
+        addLog(`Failed: ${result.protest_cheques.failed || 0}`);
+        addLog(`Validated: ${result.protest_cheques.validatedCount || 0}`);
+      }
+
+      if (result.general_documents) {
+        addLog("\n[GENERAL DOCUMENTS / TANDA TERIMA]");
+        addLog(`JSON count: ${result.general_documents.jsonCount || 0}`);
+        addLog(`D1 count: ${result.general_documents.d1Count || 0}`);
+        addLog(`Migrated: ${result.general_documents.migrated || 0}`);
+        addLog(`Failed: ${result.general_documents.failed || 0}`);
+        addLog(`Validated: ${result.general_documents.validatedCount || 0}`);
+      }
+
+      if (result.invoices) {
+        addLog("\n[INVOICES]");
+        addLog(`JSON count: ${result.invoices?.jsonCount || 0}`);
+        addLog(`D1 count: ${result.invoices?.d1Count || 0}`);
+        addLog(`Migrated: ${result.invoices?.migrated || 0}`);
+        addLog(`Failed: ${result.invoices?.failed || 0}`);
+        addLog(`Validated: ${result.invoices?.validatedCount || 0}`);
+      }
+
+      if (result.quotations) {
+        addLog("\n[QUOTATIONS]");
+        addLog(`JSON count: ${result.quotations?.jsonCount || 0}`);
+        addLog(`D1 count: ${result.quotations?.d1Count || 0}`);
+        addLog(`Migrated: ${result.quotations?.migrated || 0}`);
+        addLog(`Failed: ${result.quotations?.failed || 0}`);
+        addLog(`Validated: ${result.quotations?.validatedCount || 0}`);
+      }
+
+      if (result.products) {
+        addLog("\n[PRODUCTS]");
+        addLog(`JSON count: ${result.products?.jsonCount || 0}`);
+        addLog(`D1 count: ${result.products?.d1Count || 0}`);
+        addLog(`Migrated: ${result.products?.migrated || 0}`);
+        addLog(`Failed: ${result.products?.failed || 0}`);
+        addLog(`Validated: ${result.products?.validatedCount || 0}`);
+      }
 
       if (result.kbliMappings) {
         addLog("\n[KBLI MAPPINGS]");

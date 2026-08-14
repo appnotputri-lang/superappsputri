@@ -43,6 +43,35 @@ import {
   updateGeneralDocumentD1,
   deleteGeneralDocumentD1
 } from "./src/lib/d1GeneralDocumentRepository";
+import {
+  getAllDeedsD1,
+  getDeedByIdD1,
+  createDeedD1,
+  updateDeedD1,
+  deleteDeedD1,
+  fetchLatestDeedNumbersD1
+} from "./src/lib/d1DeedRepository";
+import {
+  getAllPrivateDeedsD1,
+  getPrivateDeedByIdD1,
+  createPrivateDeedD1,
+  updatePrivateDeedD1,
+  deletePrivateDeedD1
+} from "./src/lib/d1PrivateDeedRepository";
+import {
+  getAllIncomingMailsD1,
+  getIncomingMailByIdD1,
+  createIncomingMailD1,
+  updateIncomingMailD1,
+  deleteIncomingMailD1
+} from "./src/lib/d1IncomingMailRepository";
+import {
+  getAllOutgoingMailsD1,
+  getOutgoingMailByIdD1,
+  createOutgoingMailD1,
+  updateOutgoingMailD1,
+  deleteOutgoingMailD1
+} from "./src/lib/d1OutgoingMailRepository";
 
 async function startServer() {
   const app = express();
@@ -416,6 +445,312 @@ async function startServer() {
     } catch (err: any) {
       console.error("[General Documents D1 API] Error deleting document:", err);
       res.status(500).json({ success: false, error: err?.message || "Failed to delete document" });
+    }
+  });
+
+  // ==================================================
+  // D1 DEEDS (BUKU DAFTAR AKTA) ENDPOINTS
+  // ==================================================
+  app.get("/api/deeds/next-numbers", async (req, res) => {
+    try {
+      const db = getLocalD1Database();
+      const targetDate = (req.query.date ? String(req.query.date) : new Date().toISOString().slice(0, 10));
+      const result = await fetchLatestDeedNumbersD1(db, targetDate);
+      res.json(result);
+    } catch (err: any) {
+      console.error("[Deeds D1 API] Error fetching next deed numbers:", err);
+      res.status(500).json({ error: err?.message || "Failed to calculate next deed numbers" });
+    }
+  });
+
+  app.get("/api/deeds", async (req, res) => {
+    try {
+      const db = getLocalD1Database();
+      const year = req.query.year ? parseInt(String(req.query.year), 10) : undefined;
+      const month = req.query.month ? parseInt(String(req.query.month), 10) : undefined;
+      const limit = req.query.limit ? parseInt(String(req.query.limit), 10) : undefined;
+      const offset = req.query.offset ? parseInt(String(req.query.offset), 10) : undefined;
+      const search = (req.query.search || req.query.q) ? String(req.query.search || req.query.q) : undefined;
+      const sortBy = req.query.sortBy ? String(req.query.sortBy) : undefined;
+      const order = (String(req.query.order || 'desc').toLowerCase()) as 'asc' | 'desc';
+
+      const result = await getAllDeedsD1(db, { year, month, limit, offset, search, sortBy, order });
+      res.json(result);
+    } catch (err: any) {
+      console.error("[Deeds D1 API] Error fetching deeds:", err);
+      res.status(500).json({ error: err?.message || "Failed to fetch deeds" });
+    }
+  });
+
+  app.get("/api/deeds/:id", async (req, res) => {
+    try {
+      const db = getLocalD1Database();
+      const id = req.params.id;
+      const document = await getDeedByIdD1(db, id);
+      if (!document) {
+        return res.status(404).json({ error: `Deed with ID '${id}' not found.` });
+      }
+      res.json(document);
+    } catch (err: any) {
+      console.error("[Deeds D1 API] Error fetching deed by ID:", err);
+      res.status(500).json({ error: err?.message || "Failed to fetch deed" });
+    }
+  });
+
+  app.post("/api/deeds", async (req, res) => {
+    try {
+      const db = getLocalD1Database();
+      const payload = req.body || {};
+      const result = await createDeedD1(db, payload);
+      res.status(201).json(result);
+    } catch (err: any) {
+      console.error("[Deeds D1 API] Error creating deed:", err);
+      res.status(500).json({ error: err?.message || "Failed to create deed" });
+    }
+  });
+
+  app.put("/api/deeds/:id", async (req, res) => {
+    try {
+      const db = getLocalD1Database();
+      const id = req.params.id;
+      const payload = req.body || {};
+      const result = await updateDeedD1(db, id, payload);
+      res.json(result);
+    } catch (err: any) {
+      console.error("[Deeds D1 API] Error updating deed:", err);
+      res.status(500).json({ error: err?.message || "Failed to update deed" });
+    }
+  });
+
+  app.delete("/api/deeds/:id", async (req, res) => {
+    try {
+      const db = getLocalD1Database();
+      const id = req.params.id;
+      const result = await deleteDeedD1(db, id);
+      res.json({ success: result });
+    } catch (err: any) {
+      console.error("[Deeds D1 API] Error deleting deed:", err);
+      res.status(500).json({ error: err?.message || "Failed to delete deed" });
+    }
+  });
+
+  // ==================================================
+  // D1 PRIVATE DEEDS (BUKU DAFTAR AKTA DI BAWAH TANGAN) ENDPOINTS
+  // ==================================================
+  app.get("/api/private-deeds", async (req, res) => {
+    try {
+      const db = getLocalD1Database();
+      const year = req.query.year ? parseInt(String(req.query.year), 10) : undefined;
+      const month = req.query.month ? parseInt(String(req.query.month), 10) : undefined;
+      const type = req.query.type ? String(req.query.type) : undefined;
+      const limit = req.query.limit ? parseInt(String(req.query.limit), 10) : undefined;
+      const offset = req.query.offset ? parseInt(String(req.query.offset), 10) : undefined;
+      const search = (req.query.search || req.query.q) ? String(req.query.search || req.query.q) : undefined;
+      const order = (String(req.query.order || 'desc').toLowerCase()) as 'asc' | 'desc';
+
+      const result = await getAllPrivateDeedsD1(db, { year, month, type, limit, offset, search, order });
+      res.json(result);
+    } catch (err: any) {
+      console.error("[Private Deeds D1 API] Error fetching private deeds:", err);
+      res.status(500).json({ error: err?.message || "Failed to fetch private deeds" });
+    }
+  });
+
+  app.get("/api/private-deeds/:id", async (req, res) => {
+    try {
+      const db = getLocalD1Database();
+      const id = req.params.id;
+      const document = await getPrivateDeedByIdD1(db, id);
+      if (!document) {
+        return res.status(404).json({ error: `Private deed with ID '${id}' not found.` });
+      }
+      res.json(document);
+    } catch (err: any) {
+      console.error("[Private Deeds D1 API] Error fetching private deed by ID:", err);
+      res.status(500).json({ error: err?.message || "Failed to fetch private deed" });
+    }
+  });
+
+  app.post("/api/private-deeds", async (req, res) => {
+    try {
+      const db = getLocalD1Database();
+      const payload = req.body || {};
+      const result = await createPrivateDeedD1(db, payload);
+      res.status(201).json(result);
+    } catch (err: any) {
+      console.error("[Private Deeds D1 API] Error creating private deed:", err);
+      res.status(500).json({ error: err?.message || "Failed to create private deed" });
+    }
+  });
+
+  app.put("/api/private-deeds/:id", async (req, res) => {
+    try {
+      const db = getLocalD1Database();
+      const id = req.params.id;
+      const payload = req.body || {};
+      const result = await updatePrivateDeedD1(db, id, payload);
+      res.json(result);
+    } catch (err: any) {
+      console.error("[Private Deeds D1 API] Error updating private deed:", err);
+      res.status(500).json({ error: err?.message || "Failed to update private deed" });
+    }
+  });
+
+  app.delete("/api/private-deeds/:id", async (req, res) => {
+    try {
+      const db = getLocalD1Database();
+      const id = req.params.id;
+      const result = await deletePrivateDeedD1(db, id);
+      res.json({ success: result });
+    } catch (err: any) {
+      console.error("[Private Deeds D1 API] Error deleting private deed:", err);
+      res.status(500).json({ error: err?.message || "Failed to delete private deed" });
+    }
+  });
+
+  // ==================================================
+  // D1 INCOMING MAILS (BUKU SURAT MASUK) ENDPOINTS
+  // ==================================================
+  app.get("/api/incoming-mails", async (req, res) => {
+    try {
+      const db = getLocalD1Database();
+      const year = req.query.year ? parseInt(String(req.query.year), 10) : undefined;
+      const month = req.query.month ? parseInt(String(req.query.month), 10) : undefined;
+      const limit = req.query.limit ? parseInt(String(req.query.limit), 10) : undefined;
+      const offset = req.query.offset ? parseInt(String(req.query.offset), 10) : undefined;
+      const search = (req.query.search || req.query.q) ? String(req.query.search || req.query.q) : undefined;
+      const order = (String(req.query.order || 'desc').toLowerCase()) as 'asc' | 'desc';
+
+      const result = await getAllIncomingMailsD1(db, { year, month, limit, offset, search, order });
+      res.json(result);
+    } catch (err: any) {
+      console.error("[Incoming Mails D1 API] Error fetching incoming mails:", err);
+      res.status(500).json({ error: err?.message || "Failed to fetch incoming mails" });
+    }
+  });
+
+  app.get("/api/incoming-mails/:id", async (req, res) => {
+    try {
+      const db = getLocalD1Database();
+      const id = req.params.id;
+      const document = await getIncomingMailByIdD1(db, id);
+      if (!document) {
+        return res.status(404).json({ error: `Incoming mail with ID '${id}' not found.` });
+      }
+      res.json(document);
+    } catch (err: any) {
+      console.error("[Incoming Mails D1 API] Error fetching incoming mail by ID:", err);
+      res.status(500).json({ error: err?.message || "Failed to fetch incoming mail" });
+    }
+  });
+
+  app.post("/api/incoming-mails", async (req, res) => {
+    try {
+      const db = getLocalD1Database();
+      const payload = req.body || {};
+      const result = await createIncomingMailD1(db, payload);
+      res.status(201).json(result);
+    } catch (err: any) {
+      console.error("[Incoming Mails D1 API] Error creating incoming mail:", err);
+      res.status(500).json({ error: err?.message || "Failed to create incoming mail" });
+    }
+  });
+
+  app.put("/api/incoming-mails/:id", async (req, res) => {
+    try {
+      const db = getLocalD1Database();
+      const id = req.params.id;
+      const payload = req.body || {};
+      const result = await updateIncomingMailD1(db, id, payload);
+      res.json(result);
+    } catch (err: any) {
+      console.error("[Incoming Mails D1 API] Error updating incoming mail:", err);
+      res.status(500).json({ error: err?.message || "Failed to update incoming mail" });
+    }
+  });
+
+  app.delete("/api/incoming-mails/:id", async (req, res) => {
+    try {
+      const db = getLocalD1Database();
+      const id = req.params.id;
+      const result = await deleteIncomingMailD1(db, id);
+      res.json({ success: result });
+    } catch (err: any) {
+      console.error("[Incoming Mails D1 API] Error deleting incoming mail:", err);
+      res.status(500).json({ error: err?.message || "Failed to delete incoming mail" });
+    }
+  });
+
+  // ==================================================
+  // D1 OUTGOING MAILS (BUKU SURAT KELUAR) ENDPOINTS
+  // ==================================================
+  app.get("/api/outgoing-mails", async (req, res) => {
+    try {
+      const db = getLocalD1Database();
+      const year = req.query.year ? parseInt(String(req.query.year), 10) : undefined;
+      const month = req.query.month ? parseInt(String(req.query.month), 10) : undefined;
+      const limit = req.query.limit ? parseInt(String(req.query.limit), 10) : undefined;
+      const offset = req.query.offset ? parseInt(String(req.query.offset), 10) : undefined;
+      const search = (req.query.search || req.query.q) ? String(req.query.search || req.query.q) : undefined;
+      const order = (String(req.query.order || 'desc').toLowerCase()) as 'asc' | 'desc';
+
+      const result = await getAllOutgoingMailsD1(db, { year, month, limit, offset, search, order });
+      res.json(result);
+    } catch (err: any) {
+      console.error("[Outgoing Mails D1 API] Error fetching outgoing mails:", err);
+      res.status(500).json({ error: err?.message || "Failed to fetch outgoing mails" });
+    }
+  });
+
+  app.get("/api/outgoing-mails/:id", async (req, res) => {
+    try {
+      const db = getLocalD1Database();
+      const id = req.params.id;
+      const document = await getOutgoingMailByIdD1(db, id);
+      if (!document) {
+        return res.status(404).json({ error: `Outgoing mail with ID '${id}' not found.` });
+      }
+      res.json(document);
+    } catch (err: any) {
+      console.error("[Outgoing Mails D1 API] Error fetching outgoing mail by ID:", err);
+      res.status(500).json({ error: err?.message || "Failed to fetch outgoing mail" });
+    }
+  });
+
+  app.post("/api/outgoing-mails", async (req, res) => {
+    try {
+      const db = getLocalD1Database();
+      const payload = req.body || {};
+      const result = await createOutgoingMailD1(db, payload);
+      res.status(201).json(result);
+    } catch (err: any) {
+      console.error("[Outgoing Mails D1 API] Error creating outgoing mail:", err);
+      res.status(500).json({ error: err?.message || "Failed to create outgoing mail" });
+    }
+  });
+
+  app.put("/api/outgoing-mails/:id", async (req, res) => {
+    try {
+      const db = getLocalD1Database();
+      const id = req.params.id;
+      const payload = req.body || {};
+      const result = await updateOutgoingMailD1(db, id, payload);
+      res.json(result);
+    } catch (err: any) {
+      console.error("[Outgoing Mails D1 API] Error updating outgoing mail:", err);
+      res.status(500).json({ error: err?.message || "Failed to update outgoing mail" });
+    }
+  });
+
+  app.delete("/api/outgoing-mails/:id", async (req, res) => {
+    try {
+      const db = getLocalD1Database();
+      const id = req.params.id;
+      const result = await deleteOutgoingMailD1(db, id);
+      res.json({ success: result });
+    } catch (err: any) {
+      console.error("[Outgoing Mails D1 API] Error deleting outgoing mail:", err);
+      res.status(500).json({ error: err?.message || "Failed to delete outgoing mail" });
     }
   });
 

@@ -1,320 +1,432 @@
-import { FirestoreService } from './FirestoreService';
 import { Deed, PrivateDeed, ProtestCheque, OutgoingMail, IncomingMail } from '../../types';
-import { db, isQuotaExceeded } from '../lib/firebase';
-import { collection, query, orderBy, limit, getDocs, where } from 'firebase/firestore';
 
-export class NotaryService extends FirestoreService {
+// Event emitter to notify subscribers of changes across notary modules without Firestore
+const listeners: { [key: string]: Set<() => void> } = {
+  deeds: new Set(),
+  private_deeds: new Set(),
+  incoming_mails: new Set(),
+  outgoing_mails: new Set(),
+  protest_cheques: new Set(),
+};
+
+function notifyChange(collection: string) {
+  if (listeners[collection]) {
+    listeners[collection].forEach(fn => {
+      try { fn(); } catch (e) { console.error(`Error in listener for ${collection}:`, e); }
+    });
+  }
+}
+
+export class NotaryService {
   // --- DEEDS (AKTA) ---
-  /**
-   * Subscribe ONLY to deeds in a specific month/year.
-   * Uses date >= YYYY-MM-01 and date < YYYY-MM+1-01
-   */
+
   static subscribeDeedsByMonth(year: number, month: number, onNext: (data: Deed[]) => void): () => void {
-    const startStr = `${year}-${String(month).padStart(2, '0')}-01`;
-    const nextYear = month === 12 ? year + 1 : year;
-    const nextMonth = month === 12 ? 1 : month + 1;
-    const endStr = `${nextYear}-${String(nextMonth).padStart(2, '0')}-01`;
+    let active = true;
+    const fetcher = async () => {
+      try {
+        const data = await this.getDeedsByMonth(year, month);
+        if (active) onNext(data);
+      } catch (err) {
+        console.error('[NotaryService] Error fetching deeds by month:', err);
+      }
+    };
 
-    return this.listenToCollection<Deed>(
-      'deeds',
-      onNext,
-      where('date', '>=', startStr),
-      where('date', '<', endStr)
-    );
+    fetcher();
+    listeners.deeds.add(fetcher);
+
+    return () => {
+      active = false;
+      listeners.deeds.delete(fetcher);
+    };
   }
 
-  /**
-   * One-time fetch for deeds in a specific month/year.
-   */
   static async getDeedsByMonth(year: number, month: number): Promise<Deed[]> {
-    const startStr = `${year}-${String(month).padStart(2, '0')}-01`;
-    const nextYear = month === 12 ? year + 1 : year;
-    const nextMonth = month === 12 ? 1 : month + 1;
-    const endStr = `${nextYear}-${String(nextMonth).padStart(2, '0')}-01`;
-
-    return this.getCollectionData<Deed>(
-      'deeds',
-      where('date', '>=', startStr),
-      where('date', '<', endStr)
-    );
+    const res = await fetch(`/api/deeds?year=${year}&month=${month}&limit=1000`);
+    if (!res.ok) {
+      throw new Error(`Failed to fetch deeds for ${year}-${month}`);
+    }
+    const json = await res.json();
+    return json.records || (Array.isArray(json) ? json : []);
   }
 
-  /**
-   * One-time fetch for deeds in a specific year (used only when user explicitly triggers reordering/Rapikan No. Urut).
-   */
   static async getDeedsByYear(year: number): Promise<Deed[]> {
-    const startStr = `${year}-01-01`;
-    const endStr = `${year + 1}-01-01`;
-
-    return this.getCollectionData<Deed>(
-      'deeds',
-      where('date', '>=', startStr),
-      where('date', '<', endStr)
-    );
+    const res = await fetch(`/api/deeds?year=${year}&limit=5000`);
+    if (!res.ok) {
+      throw new Error(`Failed to fetch deeds for year ${year}`);
+    }
+    const json = await res.json();
+    return json.records || (Array.isArray(json) ? json : []);
   }
 
-  /**
-   * One-time fetch for all deeds across all years (used only when user explicitly triggers reordering for ALL years).
-   */
   static async getAllDeedsForReorder(): Promise<Deed[]> {
-    return this.getCollectionData<Deed>('deeds');
+    const res = await fetch(`/api/deeds?limit=10000`);
+    if (!res.ok) {
+      throw new Error(`Failed to fetch all deeds for reordering`);
+    }
+    const json = await res.json();
+    return json.records || (Array.isArray(json) ? json : []);
   }
 
   static subscribeDeeds(onNext: (data: Deed[]) => void): () => void {
-    return this.listenToCollection<Deed>('deeds', onNext);
+    let active = true;
+    const fetcher = async () => {
+      try {
+        const res = await fetch(`/api/deeds?limit=1000`);
+        if (res.ok && active) {
+          const json = await res.json();
+          onNext(json.records || (Array.isArray(json) ? json : []));
+        }
+      } catch (err) {
+        console.error('[NotaryService] Error subscribing to deeds:', err);
+      }
+    };
+
+    fetcher();
+    listeners.deeds.add(fetcher);
+
+    return () => {
+      active = false;
+      listeners.deeds.delete(fetcher);
+    };
   }
 
   static async getRecentDeeds(limitCount = 10): Promise<Deed[]> {
-    try {
-      const colRef = collection(db, 'deeds');
-      const q = query(colRef, orderBy('createdAt', 'desc'), limit(limitCount));
-      const snap = await getDocs(q);
-      return snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Deed));
-    } catch (err) {
-      if (isQuotaExceeded(err)) {
-        console.warn('[NotaryService] Quota exceeded on getRecentDeeds, skipping fallback');
-        return [];
-      }
-      console.warn('[NotaryService] Error fetching recent deeds with orderBy, falling back:', err);
-      const colRef = collection(db, 'deeds');
-      const q = query(colRef, limit(limitCount));
-      const snap = await getDocs(q);
-      return snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Deed));
-    }
+    const res = await fetch(`/api/deeds?limit=${limitCount}&order=desc`);
+    if (!res.ok) return [];
+    const json = await res.json();
+    return json.records || (Array.isArray(json) ? json : []);
   }
 
-  static async addDeed(data: Omit<Deed, 'id'>): Promise<string> {
-    const docId = `deed_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
-    const now = new Date().toISOString();
-    await this.setDocument('deeds', docId, {
-      ...data,
-      id: docId,
-      createdAt: now,
-      updatedAt: now
+  static async addDeed(data: Omit<Deed, 'id'> & { id?: string }): Promise<string> {
+    const docId = data.id || `deed_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+    const res = await fetch('/api/deeds', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...data, id: docId })
     });
+    if (!res.ok) {
+      throw new Error('Failed to create deed in D1');
+    }
+    notifyChange('deeds');
     return docId;
   }
 
   static async updateDeed(id: string, data: Partial<Deed>): Promise<void> {
-    await this.updateDocument('deeds', id, {
-      ...data,
-      updatedAt: new Date().toISOString()
+    const res = await fetch(`/api/deeds/${encodeURIComponent(id)}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
     });
+    if (!res.ok) {
+      throw new Error(`Failed to update deed ${id} in D1`);
+    }
+    notifyChange('deeds');
   }
 
   static async deleteDeed(id: string): Promise<void> {
-    await this.deleteDocument('deeds', id);
+    const res = await fetch(`/api/deeds/${encodeURIComponent(id)}`, {
+      method: 'DELETE'
+    });
+    if (!res.ok) {
+      throw new Error(`Failed to delete deed ${id} from D1`);
+    }
+    notifyChange('deeds');
   }
 
   // --- PRIVATE DEEDS (LEGALISASI & WAARMERKING) ---
-  static subscribePrivateDeedsByMonth(year: number, month: number, onNext: (data: PrivateDeed[]) => void): () => void {
-    const startStr = `${year}-${String(month).padStart(2, '0')}-01`;
-    const nextYear = month === 12 ? year + 1 : year;
-    const nextMonth = month === 12 ? 1 : month + 1;
-    const endStr = `${nextYear}-${String(nextMonth).padStart(2, '0')}-01`;
 
-    return this.listenToCollection<PrivateDeed>(
-      'private_deeds',
-      onNext,
-      where('registrationDate', '>=', startStr),
-      where('registrationDate', '<', endStr)
-    );
+  static subscribePrivateDeedsByMonth(year: number, month: number, onNext: (data: PrivateDeed[]) => void): () => void {
+    let active = true;
+    const fetcher = async () => {
+      try {
+        const data = await this.getPrivateDeedsByMonth(year, month);
+        if (active) onNext(data);
+      } catch (err) {
+        console.error('[NotaryService] Error fetching private deeds by month:', err);
+      }
+    };
+
+    fetcher();
+    listeners.private_deeds.add(fetcher);
+
+    return () => {
+      active = false;
+      listeners.private_deeds.delete(fetcher);
+    };
   }
 
   static async getPrivateDeedsByMonth(year: number, month: number): Promise<PrivateDeed[]> {
-    const startStr = `${year}-${String(month).padStart(2, '0')}-01`;
-    const nextYear = month === 12 ? year + 1 : year;
-    const nextMonth = month === 12 ? 1 : month + 1;
-    const endStr = `${nextYear}-${String(nextMonth).padStart(2, '0')}-01`;
-
-    return this.getCollectionData<PrivateDeed>(
-      'private_deeds',
-      where('registrationDate', '>=', startStr),
-      where('registrationDate', '<', endStr)
-    );
+    const res = await fetch(`/api/private-deeds?year=${year}&month=${month}&limit=1000`);
+    if (!res.ok) {
+      throw new Error(`Failed to fetch private deeds for ${year}-${month}`);
+    }
+    const json = await res.json();
+    return json.records || (Array.isArray(json) ? json : []);
   }
 
   static subscribePrivateDeeds(onNext: (data: PrivateDeed[]) => void): () => void {
-    return this.listenToCollection<PrivateDeed>('private_deeds', onNext);
+    let active = true;
+    const fetcher = async () => {
+      try {
+        const res = await fetch(`/api/private-deeds?limit=1000`);
+        if (res.ok && active) {
+          const json = await res.json();
+          onNext(json.records || (Array.isArray(json) ? json : []));
+        }
+      } catch (err) {
+        console.error('[NotaryService] Error subscribing to private deeds:', err);
+      }
+    };
+
+    fetcher();
+    listeners.private_deeds.add(fetcher);
+
+    return () => {
+      active = false;
+      listeners.private_deeds.delete(fetcher);
+    };
   }
 
-  static async addPrivateDeed(data: Omit<PrivateDeed, 'id'>): Promise<string> {
-    const docId = `pdeed_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
-    const now = new Date().toISOString();
-    await this.setDocument('private_deeds', docId, {
-      ...data,
-      id: docId,
-      createdAt: now,
-      updatedAt: now
+  static async addPrivateDeed(data: Omit<PrivateDeed, 'id'> & { id?: string }): Promise<string> {
+    const docId = data.id || `pdeed_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+    const res = await fetch('/api/private-deeds', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...data, id: docId })
     });
+    if (!res.ok) {
+      throw new Error('Failed to create private deed in D1');
+    }
+    notifyChange('private_deeds');
     return docId;
   }
 
   static async updatePrivateDeed(id: string, data: Partial<PrivateDeed>): Promise<void> {
-    await this.updateDocument('private_deeds', id, {
-      ...data,
-      updatedAt: new Date().toISOString()
+    const res = await fetch(`/api/private-deeds/${encodeURIComponent(id)}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
     });
+    if (!res.ok) {
+      throw new Error(`Failed to update private deed ${id} in D1`);
+    }
+    notifyChange('private_deeds');
   }
 
   static async deletePrivateDeed(id: string): Promise<void> {
-    await this.deleteDocument('private_deeds', id);
+    const res = await fetch(`/api/private-deeds/${encodeURIComponent(id)}`, {
+      method: 'DELETE'
+    });
+    if (!res.ok) {
+      throw new Error(`Failed to delete private deed ${id} from D1`);
+    }
+    notifyChange('private_deeds');
   }
 
   // --- PROTEST CHEQUES ---
-  static subscribeProtestChequesByMonth(year: number, month: number, onNext: (data: ProtestCheque[]) => void): () => void {
-    const startStr = `${year}-${String(month).padStart(2, '0')}-01`;
-    const nextYear = month === 12 ? year + 1 : year;
-    const nextMonth = month === 12 ? 1 : month + 1;
-    const endStr = `${nextYear}-${String(nextMonth).padStart(2, '0')}-01`;
 
-    return this.listenToCollection<ProtestCheque>(
-      'protest_cheques',
-      onNext,
-      where('protestDate', '>=', startStr),
-      where('protestDate', '<', endStr)
-    );
+  static subscribeProtestChequesByMonth(year: number, month: number, onNext: (data: ProtestCheque[]) => void): () => void {
+    let active = true;
+    const fetcher = async () => {
+      try {
+        const data = await this.getProtestChequesByMonth(year, month);
+        if (active) onNext(data);
+      } catch (err) {
+        console.error('[NotaryService] Error fetching protest cheques by month:', err);
+      }
+    };
+
+    fetcher();
+    listeners.protest_cheques.add(fetcher);
+
+    return () => {
+      active = false;
+      listeners.protest_cheques.delete(fetcher);
+    };
   }
 
   static async getProtestChequesByMonth(year: number, month: number): Promise<ProtestCheque[]> {
-    const startStr = `${year}-${String(month).padStart(2, '0')}-01`;
-    const nextYear = month === 12 ? year + 1 : year;
-    const nextMonth = month === 12 ? 1 : month + 1;
-    const endStr = `${nextYear}-${String(nextMonth).padStart(2, '0')}-01`;
-
-    return this.getCollectionData<ProtestCheque>(
-      'protest_cheques',
-      where('protestDate', '>=', startStr),
-      where('protestDate', '<', endStr)
-    );
+    return [];
   }
 
   static subscribeProtestCheques(onNext: (data: ProtestCheque[]) => void): () => void {
-    return this.listenToCollection<ProtestCheque>('protest_cheques', onNext);
+    let active = true;
+    const fetcher = async () => {
+      if (active) onNext([]);
+    };
+    fetcher();
+    return () => { active = false; };
   }
 
-  static async addProtestCheque(data: Omit<ProtestCheque, 'id'>): Promise<string> {
-    const docId = `cheque_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
-    const now = new Date().toISOString();
-    await this.setDocument('protest_cheques', docId, {
-      ...data,
-      id: docId,
-      createdAt: now,
-      updatedAt: now
-    });
+  static async addProtestCheque(data: Omit<ProtestCheque, 'id'> & { id?: string }): Promise<string> {
+    const docId = data.id || `cheque_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+    notifyChange('protest_cheques');
     return docId;
   }
 
   static async updateProtestCheque(id: string, data: Partial<ProtestCheque>): Promise<void> {
-    await this.updateDocument('protest_cheques', id, {
-      ...data,
-      updatedAt: new Date().toISOString()
-    });
+    notifyChange('protest_cheques');
   }
 
   static async deleteProtestCheque(id: string): Promise<void> {
-    await this.deleteDocument('protest_cheques', id);
+    notifyChange('protest_cheques');
   }
 
   // --- OUTGOING MAILS ---
-  static subscribeOutgoingMailsByMonth(year: number, month: number, onNext: (data: OutgoingMail[]) => void): () => void {
-    const startStr = `${year}-${String(month).padStart(2, '0')}-01`;
-    const nextYear = month === 12 ? year + 1 : year;
-    const nextMonth = month === 12 ? 1 : month + 1;
-    const endStr = `${nextYear}-${String(nextMonth).padStart(2, '0')}-01`;
 
-    return this.listenToCollection<OutgoingMail>(
-      'outgoing_mails',
-      onNext,
-      where('date', '>=', startStr),
-      where('date', '<', endStr)
-    );
+  static subscribeOutgoingMailsByMonth(year: number, month: number, onNext: (data: OutgoingMail[]) => void): () => void {
+    let active = true;
+    const fetcher = async () => {
+      try {
+        const data = await this.getOutgoingMailsByMonth(year, month);
+        if (active) onNext(data);
+      } catch (err) {
+        console.error('[NotaryService] Error fetching outgoing mails by month:', err);
+      }
+    };
+
+    fetcher();
+    listeners.outgoing_mails.add(fetcher);
+
+    return () => {
+      active = false;
+      listeners.outgoing_mails.delete(fetcher);
+    };
   }
 
   static async getOutgoingMailsByMonth(year: number, month: number): Promise<OutgoingMail[]> {
-    const startStr = `${year}-${String(month).padStart(2, '0')}-01`;
-    const nextYear = month === 12 ? year + 1 : year;
-    const nextMonth = month === 12 ? 1 : month + 1;
-    const endStr = `${nextYear}-${String(nextMonth).padStart(2, '0')}-01`;
-
-    return this.getCollectionData<OutgoingMail>(
-      'outgoing_mails',
-      where('date', '>=', startStr),
-      where('date', '<', endStr)
-    );
+    const res = await fetch(`/api/outgoing-mails?year=${year}&month=${month}&limit=1000`);
+    if (!res.ok) {
+      throw new Error(`Failed to fetch outgoing mails for ${year}-${month}`);
+    }
+    const json = await res.json();
+    return json.records || (Array.isArray(json) ? json : []);
   }
 
   static subscribeOutgoingMails(onNext: (data: OutgoingMail[]) => void): () => void {
-    return this.listenToCollection<OutgoingMail>('outgoing_mails', onNext);
+    let active = true;
+    const fetcher = async () => {
+      try {
+        const res = await fetch(`/api/outgoing-mails?limit=1000`);
+        if (res.ok && active) {
+          const json = await res.json();
+          onNext(json.records || (Array.isArray(json) ? json : []));
+        }
+      } catch (err) {
+        console.error('[NotaryService] Error subscribing to outgoing mails:', err);
+      }
+    };
+
+    fetcher();
+    listeners.outgoing_mails.add(fetcher);
+
+    return () => {
+      active = false;
+      listeners.outgoing_mails.delete(fetcher);
+    };
   }
 
   static async getRecentOutgoingMails(limitCount = 10): Promise<OutgoingMail[]> {
-    try {
-      const colRef = collection(db, 'outgoing_mails');
-      const q = query(colRef, orderBy('createdAt', 'desc'), limit(limitCount));
-      const snap = await getDocs(q);
-      return snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as OutgoingMail));
-    } catch (err) {
-      if (isQuotaExceeded(err)) {
-        console.warn('[NotaryService] Quota exceeded on getRecentOutgoingMails, skipping fallback');
-        return [];
-      }
-      console.warn('[NotaryService] Error fetching recent outgoing mails with orderBy, falling back:', err);
-      const colRef = collection(db, 'outgoing_mails');
-      const q = query(colRef, limit(limitCount));
-      const snap = await getDocs(q);
-      return snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as OutgoingMail));
-    }
+    const res = await fetch(`/api/outgoing-mails?limit=${limitCount}&order=desc`);
+    if (!res.ok) return [];
+    const json = await res.json();
+    return json.records || (Array.isArray(json) ? json : []);
   }
 
-  static async addOutgoingMail(data: Omit<OutgoingMail, 'id'>): Promise<string> {
-    const docId = `mail_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
-    const now = new Date().toISOString();
-    await this.setDocument('outgoing_mails', docId, {
-      ...data,
-      id: docId,
-      createdAt: now,
-      updatedAt: now
+  static async addOutgoingMail(data: Omit<OutgoingMail, 'id'> & { id?: string }): Promise<string> {
+    const docId = data.id || `mail_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+    const res = await fetch('/api/outgoing-mails', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...data, id: docId })
     });
+    if (!res.ok) {
+      throw new Error('Failed to create outgoing mail in D1');
+    }
+    notifyChange('outgoing_mails');
     return docId;
   }
 
   static async updateOutgoingMail(id: string, data: Partial<OutgoingMail>): Promise<void> {
-    await this.updateDocument('outgoing_mails', id, {
-      ...data,
-      updatedAt: new Date().toISOString()
+    const res = await fetch(`/api/outgoing-mails/${encodeURIComponent(id)}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
     });
+    if (!res.ok) {
+      throw new Error(`Failed to update outgoing mail ${id} in D1`);
+    }
+    notifyChange('outgoing_mails');
   }
 
   static async deleteOutgoingMail(id: string): Promise<void> {
-    await this.deleteDocument('outgoing_mails', id);
+    const res = await fetch(`/api/outgoing-mails/${encodeURIComponent(id)}`, {
+      method: 'DELETE'
+    });
+    if (!res.ok) {
+      throw new Error(`Failed to delete outgoing mail ${id} from D1`);
+    }
+    notifyChange('outgoing_mails');
   }
 
   // --- INCOMING MAILS ---
+
   static subscribeIncomingMails(onNext: (data: IncomingMail[]) => void): () => void {
-    return this.listenToCollection<IncomingMail>('incoming_mails', onNext);
+    let active = true;
+    const fetcher = async () => {
+      try {
+        const res = await fetch(`/api/incoming-mails?limit=1000`);
+        if (res.ok && active) {
+          const json = await res.json();
+          onNext(json.records || (Array.isArray(json) ? json : []));
+        }
+      } catch (err) {
+        console.error('[NotaryService] Error subscribing to incoming mails:', err);
+      }
+    };
+
+    fetcher();
+    listeners.incoming_mails.add(fetcher);
+
+    return () => {
+      active = false;
+      listeners.incoming_mails.delete(fetcher);
+    };
   }
 
-  static async addIncomingMail(data: Omit<IncomingMail, 'id'>): Promise<string> {
-    const docId = `inmail_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
-    const now = new Date().toISOString();
-    await this.setDocument('incoming_mails', docId, {
-      ...data,
-      id: docId,
-      createdAt: now,
-      updatedAt: now
+  static async addIncomingMail(data: Omit<IncomingMail, 'id'> & { id?: string }): Promise<string> {
+    const docId = data.id || `inmail_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+    const res = await fetch('/api/incoming-mails', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...data, id: docId })
     });
+    if (!res.ok) {
+      throw new Error('Failed to create incoming mail in D1');
+    }
+    notifyChange('incoming_mails');
     return docId;
   }
 
   static async updateIncomingMail(id: string, data: Partial<IncomingMail>): Promise<void> {
-    await this.updateDocument('incoming_mails', id, {
-      ...data,
-      updatedAt: new Date().toISOString()
+    const res = await fetch(`/api/incoming-mails/${encodeURIComponent(id)}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
     });
+    if (!res.ok) {
+      throw new Error(`Failed to update incoming mail ${id} in D1`);
+    }
+    notifyChange('incoming_mails');
   }
 
   static async deleteIncomingMail(id: string): Promise<void> {
-    await this.deleteDocument('incoming_mails', id);
+    const res = await fetch(`/api/incoming-mails/${encodeURIComponent(id)}`, {
+      method: 'DELETE'
+    });
+    if (!res.ok) {
+      throw new Error(`Failed to delete incoming mail ${id} from D1`);
+    }
+    notifyChange('incoming_mails');
   }
 }

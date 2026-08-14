@@ -1,7 +1,6 @@
-import { db } from './firebase';
-import { collection, query, where, getDocs, setDoc, doc, addDoc } from 'firebase/firestore';
 import { CompanyData } from '../../types';
 import { PendirianData } from '../DraftAktaPendirian';
+import { NotaryService } from '../services/NotaryService';
 
 export interface SyncAppearer {
   id: string;
@@ -30,38 +29,35 @@ export const syncToUtama = async (data: SyncDeedData) => {
   }
 
   try {
-    const deedsRef = collection(db, "deeds");
-    // Use deedNumber or number as identifier
-    const q = query(deedsRef, where("deedNumber", "==", data.deedNumber));
-    const querySnapshot = await getDocs(q);
-
     const payload = {
-      ...data,
+      orderNumber: data.orderNumber || '',
+      deedNumber: data.deedNumber,
       number: data.deedNumber,
+      deedDate: data.deedDate,
       date: data.deedDate,
+      clientName: data.clientName,
+      deedTitle: data.deedTitle,
       title: data.deedTitle,
       clientId: "external_draft",
-      syncAt: Date.now(),
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      appearers: data.appearers as any,
+      grantors: []
     };
 
-    if (!querySnapshot.empty) {
-      const existingDoc = querySnapshot.docs[0];
-      const docRef = doc(db, "deeds", existingDoc.id);
-      const existingData = existingDoc.data();
-      
-      const finalPayload = {
-        ...payload,
-        createdAt: existingData.createdAt || payload.createdAt
-      };
-      
-      await setDoc(docRef, finalPayload, { merge: true });
-      console.log("Sync: Updated existing deed in deeds collection", data.deedNumber);
-    } else {
-      await addDoc(deedsRef, payload);
-      console.log("Sync: Created new deed in deeds collection", data.deedNumber);
+    // Check if deed with same number exists in D1
+    const res = await fetch(`/api/deeds?search=${encodeURIComponent(data.deedNumber)}`);
+    if (res.ok) {
+      const json = await res.json();
+      const records = json.records || [];
+      const match = records.find((r: any) => String(r.number || r.deedNumber).trim() === String(data.deedNumber).trim());
+      if (match) {
+        await NotaryService.updateDeed(match.id, payload);
+        console.log("Sync: Updated existing deed in D1 deeds collection", data.deedNumber);
+        return true;
+      }
     }
+
+    await NotaryService.addDeed(payload);
+    console.log("Sync: Created new deed in D1 deeds collection", data.deedNumber);
     return true;
   } catch (error) {
     console.error("Sync to deeds failed:", error);
@@ -92,7 +88,6 @@ export const getDeedTitle = (type: 'PENDIRIAN' | 'RUPSLB' | 'RUPST', data: any, 
     if (data.rupstType === 'sirkuler') {
       return `PERNYATAAN KEPUTUSAN PARA PEMEGANG SAHAM\n${ptName}`;
     }
-    // Match the requested format: PERNYATAAN KEPUTUSAN\nRAPAT UMUM PEMEGANG SAHAM TAHUNAN\nPT ...
     return `PERNYATAAN KEPUTUSAN\nRAPAT UMUM PEMEGANG SAHAM TAHUNAN\n${ptName}`;
   }
 

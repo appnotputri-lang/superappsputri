@@ -1,4 +1,8 @@
--- Schema for client_directory in Cloudflare D1
+-- ==========================================
+-- COMPLETE SCHEMA FOR CLOUDFLARE D1
+-- ==========================================
+
+-- 1. CLIENT DIRECTORY
 CREATE TABLE IF NOT EXISTS client_directory (
   id TEXT PRIMARY KEY,
   client_id TEXT NOT NULL,
@@ -16,15 +20,12 @@ CREATE TABLE IF NOT EXISTS client_directory (
   kbli_items TEXT
 );
 
--- Indexes for client_directory
 CREATE INDEX IF NOT EXISTS idx_client_dir_company_name ON client_directory(company_name);
 CREATE INDEX IF NOT EXISTS idx_client_dir_client_type ON client_directory(client_type);
 CREATE INDEX IF NOT EXISTS idx_client_dir_is_archived ON client_directory(is_archived);
 CREATE INDEX IF NOT EXISTS idx_client_dir_establishment_year ON client_directory(establishment_year);
 
--- ==========================================
--- INVOICES TABLE SCHEMA (Cloudflare D1)
--- ==========================================
+-- 2. INVOICES
 CREATE TABLE IF NOT EXISTS invoices (
   id TEXT PRIMARY KEY,
   invoice_number TEXT NOT NULL,
@@ -72,9 +73,7 @@ CREATE INDEX IF NOT EXISTS idx_invoices_issue_date ON invoices(issue_date);
 CREATE INDEX IF NOT EXISTS idx_invoices_project_id ON invoices(project_id);
 CREATE INDEX IF NOT EXISTS idx_invoices_quotation_id ON invoices(quotation_id);
 
--- ==========================================
--- QUOTATIONS TABLE SCHEMA (Cloudflare D1)
--- ==========================================
+-- 3. QUOTATIONS
 CREATE TABLE IF NOT EXISTS quotations (
   id TEXT PRIMARY KEY,
   quotation_number TEXT NOT NULL,
@@ -115,9 +114,7 @@ CREATE INDEX IF NOT EXISTS idx_quotations_date ON quotations(date);
 CREATE INDEX IF NOT EXISTS idx_quotations_invoice_id ON quotations(invoice_id);
 CREATE INDEX IF NOT EXISTS idx_quotations_project_id ON quotations(project_id);
 
--- ==========================================
--- PRODUCTS TABLE SCHEMA (Cloudflare D1)
--- ==========================================
+-- 4. PRODUCTS
 CREATE TABLE IF NOT EXISTS products (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
@@ -133,12 +130,40 @@ CREATE TABLE IF NOT EXISTS products (
 CREATE INDEX IF NOT EXISTS idx_products_name ON products(name);
 CREATE INDEX IF NOT EXISTS idx_products_category ON products(category);
 
--- ==========================================
--- GENERAL DOCUMENTS TABLE SCHEMA (Cloudflare D1)
--- ==========================================
+-- 5. KBLI MAPPING RECORDS
+CREATE TABLE IF NOT EXISTS kbli_mapping_records (
+  id TEXT PRIMARY KEY,
+  nama TEXT NOT NULL,
+  kelompok_usaha TEXT,
+  selected_items TEXT NOT NULL, -- JSON array of KbliItem
+  updated_at TEXT,
+  user_id TEXT,
+  created_at TEXT,
+  raw_data TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_kbli_mapping_nama ON kbli_mapping_records(nama);
+CREATE INDEX IF NOT EXISTS idx_kbli_mapping_updated_at ON kbli_mapping_records(updated_at);
+
+-- 6. KBLI SUGGESTION RECORDS
+CREATE TABLE IF NOT EXISTS kbli_suggestion_records (
+  id TEXT PRIMARY KEY,
+  nama TEXT NOT NULL,
+  kelompok_usaha TEXT,
+  selected_items TEXT NOT NULL, -- JSON array of KbliItem
+  updated_at TEXT,
+  user_id TEXT,
+  created_at TEXT,
+  raw_data TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_kbli_suggestion_nama ON kbli_suggestion_records(nama);
+CREATE INDEX IF NOT EXISTS idx_kbli_suggestion_updated_at ON kbli_suggestion_records(updated_at);
+
+-- 7. GENERAL DOCUMENTS (Surat Jalan & Tanda Terima)
 CREATE TABLE IF NOT EXISTS general_documents (
   id TEXT PRIMARY KEY,
-  doc_type TEXT NOT NULL,
+  doc_type TEXT NOT NULL,        -- 'RECEIPT' or 'DELIVERY'
   reference_no TEXT,
   date TEXT,
   client_id TEXT,
@@ -166,3 +191,103 @@ CREATE INDEX IF NOT EXISTS idx_gen_docs_date ON general_documents(date);
 CREATE INDEX IF NOT EXISTS idx_gen_docs_public_token ON general_documents(public_token);
 CREATE INDEX IF NOT EXISTS idx_gen_docs_created_at ON general_documents(created_at);
 
+-- 8. DEEDS (Buku Daftar Akta Notaris)
+CREATE TABLE IF NOT EXISTS deeds (
+  id TEXT PRIMARY KEY,
+  order_number TEXT,
+  number TEXT,
+  date TEXT,
+  title TEXT,
+  category TEXT,
+  client_id TEXT,
+  client_name TEXT,
+  job_name TEXT,
+  pic_name TEXT,
+  notes TEXT,
+  appearers TEXT,               -- JSON array of DeedAppearer
+  grantors TEXT,                -- JSON array of DeedGrantor
+  created_at TEXT,
+  updated_at TEXT,
+  raw_data TEXT                 -- Complete original JSON representation
+);
+
+CREATE INDEX IF NOT EXISTS idx_deeds_date ON deeds(date);
+CREATE INDEX IF NOT EXISTS idx_deeds_order_number ON deeds(order_number);
+CREATE INDEX IF NOT EXISTS idx_deeds_number ON deeds(number);
+CREATE INDEX IF NOT EXISTS idx_deeds_client_id ON deeds(client_id);
+CREATE INDEX IF NOT EXISTS idx_deeds_created_at ON deeds(created_at);
+
+-- 9. PRIVATE DEEDS (Buku Daftar Akta Di Bawah Tangan / Legalisasi & Waarmerking)
+CREATE TABLE IF NOT EXISTS private_deeds (
+  id TEXT PRIMARY KEY,
+  number TEXT,
+  registration_date TEXT,
+  type TEXT,                    -- 'Legalisasi' or 'Waarmerking'
+  description TEXT,
+  parties TEXT,                 -- JSON array of party names
+  pic_name TEXT,
+  notes TEXT,
+  created_at TEXT,
+  updated_at TEXT,
+  raw_data TEXT                 -- Complete original JSON representation
+);
+
+CREATE INDEX IF NOT EXISTS idx_private_deeds_reg_date ON private_deeds(registration_date);
+CREATE INDEX IF NOT EXISTS idx_private_deeds_number ON private_deeds(number);
+CREATE INDEX IF NOT EXISTS idx_private_deeds_type ON private_deeds(type);
+CREATE INDEX IF NOT EXISTS idx_private_deeds_created_at ON private_deeds(created_at);
+
+-- 10. INCOMING MAILS (Buku Surat Masuk)
+CREATE TABLE IF NOT EXISTS incoming_mails (
+  id TEXT PRIMARY KEY,
+  date TEXT,
+  mail_number TEXT,
+  sender TEXT,
+  subject TEXT,
+  notes TEXT,
+  created_at TEXT,
+  updated_at TEXT,
+  raw_data TEXT                 -- Complete original JSON representation
+);
+
+CREATE INDEX IF NOT EXISTS idx_incoming_mails_date ON incoming_mails(date);
+CREATE INDEX IF NOT EXISTS idx_incoming_mails_mail_number ON incoming_mails(mail_number);
+CREATE INDEX IF NOT EXISTS idx_incoming_mails_created_at ON incoming_mails(created_at);
+
+-- 11. OUTGOING MAILS (Buku Surat Keluar)
+CREATE TABLE IF NOT EXISTS outgoing_mails (
+  id TEXT PRIMARY KEY,
+  date TEXT,
+  mail_number TEXT,
+  recipient TEXT,
+  subject TEXT,
+  attachment_count INTEGER DEFAULT 0,
+  notes TEXT,
+  created_at TEXT,
+  updated_at TEXT,
+  raw_data TEXT                 -- Complete original JSON representation
+);
+
+CREATE INDEX IF NOT EXISTS idx_outgoing_mails_date ON outgoing_mails(date);
+CREATE INDEX IF NOT EXISTS idx_outgoing_mails_mail_number ON outgoing_mails(mail_number);
+CREATE INDEX IF NOT EXISTS idx_outgoing_mails_created_at ON outgoing_mails(created_at);
+
+-- 12. PROTEST CHEQUES (Buku Daftar Protes Wesel / Cek)
+CREATE TABLE IF NOT EXISTS protest_cheques (
+  id TEXT PRIMARY KEY,
+  number TEXT,
+  protest_date TEXT,
+  bank_name TEXT,
+  cheque_number TEXT,
+  amount REAL DEFAULT 0,
+  applicant_name TEXT,
+  drawer_name TEXT,
+  reason TEXT,
+  notes TEXT,
+  created_at TEXT,
+  updated_at TEXT,
+  raw_data TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_protest_cheques_date ON protest_cheques(protest_date);
+CREATE INDEX IF NOT EXISTS idx_protest_cheques_number ON protest_cheques(number);
