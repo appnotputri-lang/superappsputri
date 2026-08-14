@@ -62,6 +62,18 @@ export const GeneralDocumentGenerator: React.FC<GeneralDocumentGeneratorProps> =
   const [documents, setDocuments] = useState<GeneralDocumentData[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [isFetchingPage, setIsFetchingPage] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [deletingRowIds, setDeletingRowIds] = useState<Set<string>>(new Set());
+  const [toastMessage, setToastMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  const showToast = useCallback((type: 'success' | 'error', text: string) => {
+    setToastMessage({ type, text });
+    setTimeout(() => {
+      setToastMessage(prev => (prev?.text === text ? null : prev));
+    }, 3500);
+  }, []);
+
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [viewMode, setViewMode] = useState<'list' | 'detail' | 'form'>('list');
@@ -136,8 +148,14 @@ export const GeneralDocumentGenerator: React.FC<GeneralDocumentGeneratorProps> =
   const [isLoadingWaGroups, setIsLoadingWaGroups] = useState(false);
 
   // Load Documents from Cloudflare D1 with Server-Side Pagination
-  const fetchDocuments = useCallback(async () => {
-    setLoading(true);
+  const fetchDocuments = useCallback(async (options?: { silent?: boolean }) => {
+    if (!options?.silent) {
+      if (documents.length === 0) {
+        setLoading(true);
+      } else {
+        setIsFetchingPage(true);
+      }
+    }
     try {
       const limitVal = pageSize === 'all' ? -1 : pageSize;
       const offsetVal = pageSize === 'all' ? 0 : (currentPage - 1) * (pageSize as number);
@@ -162,19 +180,12 @@ export const GeneralDocumentGenerator: React.FC<GeneralDocumentGeneratorProps> =
       console.error('[GeneralDocumentGenerator] Failed to fetch documents:', err);
     } finally {
       setLoading(false);
+      setIsFetchingPage(false);
     }
   }, [docType, debouncedSearch, pageSize, currentPage, sortField, sortOrder, selectedDoc?.id]);
 
   useEffect(() => {
     fetchDocuments();
-  }, [fetchDocuments]);
-
-  // Re-fetch when mutations occur
-  useEffect(() => {
-    const unsub = GeneralDocumentService.addChangeListener(() => {
-      fetchDocuments();
-    });
-    return () => unsub();
   }, [fetchDocuments]);
 
   // Cache Ref and D1 Fetch helper
@@ -335,23 +346,23 @@ export const GeneralDocumentGenerator: React.FC<GeneralDocumentGeneratorProps> =
     setItems(updated);
   };
 
-  // Save Document
+  // Save Document (Instant UX)
   const handleSaveDocument = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!referenceNo.trim()) {
-      alert('Nomor Referensi harus diisi.');
+      showToast('error', 'Nomor Referensi harus diisi.');
       return;
     }
 
     if (!clientName.trim()) {
-      alert('Nama Klien / Penerima harus diisi.');
+      showToast('error', 'Nama Klien / Penerima harus diisi.');
       return;
     }
 
     const validItems = items.filter(it => it.description.trim() !== '');
     if (validItems.length === 0) {
-      alert('Mohon masukkan setidaknya 1 berkas/dokumen.');
+      showToast('error', 'Mohon masukkan setidaknya 1 berkas/dokumen.');
       return;
     }
 
@@ -373,34 +384,103 @@ export const GeneralDocumentGenerator: React.FC<GeneralDocumentGeneratorProps> =
       notes: notes.trim(),
     };
 
+    setIsSaving(true);
+
     try {
       if (editingDocId) {
         const updated = await GeneralDocumentService.updateDocumentData(editingDocId, payload);
+        // Instant update local list
+        setDocuments(prev => prev.map(d => d.id === editingDocId ? updated : d));
         setSelectedDoc(updated);
+        setViewMode('detail');
+        showToast('success', `${config.title} berhasil diperbarui.`);
       } else {
         const newId = await GeneralDocumentService.addDocument(payload);
-        const newDoc = { ...payload, id: newId };
-        setSelectedDoc(newDoc as GeneralDocumentData);
+        const newDoc: GeneralDocumentData = {
+          ...payload,
+          id: newId,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+        // Instant prepend to local state
+        const maxLen = pageSize === 'all' ? undefined : (pageSize as number);
+        setDocuments(prev => [newDoc, ...prev.slice(0, maxLen ? maxLen - 1 : prev.length)]);
+        setTotalCount(prev => prev + 1);
+        setSelectedDoc(newDoc);
+        setViewMode('detail');
+        showToast('success', `${config.title} berhasil disimpan.`);
       }
-      setViewMode('detail');
     } catch (err: any) {
       console.error('Failed to save document:', err);
-      alert(`Gagal menyimpan dokumen: ${err?.message || 'Silakan coba lagi.'}`);
+      showToast('error', `Gagal menyimpan dokumen: ${err?.message || 'Silakan coba lagi.'}`);
+    } finally {
+      setIsSaving(false);
     }
   };
 
-  // Delete Document
+  // Optimistic Delete Document
   const handleDeleteDocument = async (id: string, refNo: string) => {
+    // Double click protection
+    if (deletingRowIds.has(id)) return;
+
     if (!confirm(`Apakah Anda yakin ingin menghapus ${config.title} (${refNo})?`)) return;
+
+    // Save target doc and index for potential rollback
+    const targetIndex = documents.findIndex(d => d.id === id);
+    if (targetIndex === -1) return;
+    const targetDoc = documents[targetIndex];
+
+    // Mark row deleting
+    setDeletingRowIds(prev => new Set(prev).add(id));
+
+    // 1. FRONTEND OPTIMISTIC STATE UPDATE (INSTANT REMOVAL)
+    const nextDocs = documents.filter(d => d.id !== id);
+    setDocuments(nextDocs);
+    const newTotal = Math.max(0, totalCount - 1);
+    setTotalCount(newTotal);
+
+    if (selectedDoc?.id === id) {
+      setSelectedDoc(null);
+      setViewMode('list');
+    }
+
+    // Handle page overflow if last item on current page was deleted
+    const limitNum = pageSize === 'all' ? newTotal : (pageSize as number);
+    const newTotalPages = pageSize === 'all' ? 1 : Math.max(1, Math.ceil(newTotal / limitNum));
+    if (currentPage > newTotalPages && newTotalPages > 0) {
+      setCurrentPage(newTotalPages);
+    }
+
+    showToast('success', `${config.title} (${refNo}) berhasil dihapus.`);
+
+    // 2. BACKGROUND D1 API CALL
     try {
       await GeneralDocumentService.deleteDocumentData(id);
-      if (selectedDoc?.id === id) {
-        setSelectedDoc(null);
-        setViewMode('list');
+      setDeletingRowIds(prev => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+
+      // Silently revalidate page if current page became empty and items exist
+      if (nextDocs.length === 0 && newTotal > 0) {
+        fetchDocuments({ silent: true });
       }
     } catch (err: any) {
       console.error('Failed to delete document:', err);
-      alert(`Gagal menghapus dokumen: ${err?.message || 'Terjadi kesalahan sistem.'}`);
+      // ROLLBACK FRONTEND STATE
+      setDocuments(prev => {
+        const restored = [...prev];
+        restored.splice(targetIndex, 0, targetDoc);
+        return restored;
+      });
+      setTotalCount(prev => prev + 1);
+      setDeletingRowIds(prev => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+      showToast('error', `Gagal menghapus data. ${err?.message || ''} Data telah dikembalikan.`);
     }
   };
 
@@ -627,12 +707,10 @@ export const GeneralDocumentGenerator: React.FC<GeneralDocumentGeneratorProps> =
               </div>
             ) : (
               <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden relative">
-                {loading && (
-                  <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] z-10 flex items-center justify-center">
-                    <div className="bg-white px-4 py-2 rounded-xl shadow-lg border border-slate-200 flex items-center gap-2 text-xs font-semibold text-slate-700">
-                      <RefreshCw size={14} className="animate-spin text-blue-600" />
-                      <span>Memuat...</span>
-                    </div>
+                {isFetchingPage && (
+                  <div className="absolute top-2 right-4 z-20 bg-white/95 backdrop-blur-xs px-3 py-1 rounded-full border border-slate-200 text-[11px] font-semibold text-slate-600 shadow-xs flex items-center gap-1.5 animate-in fade-in">
+                    <RefreshCw size={12} className="animate-spin text-blue-600" />
+                    <span>Memperbarui data...</span>
                   </div>
                 )}
                 <div className="overflow-x-auto">
@@ -738,10 +816,15 @@ export const GeneralDocumentGenerator: React.FC<GeneralDocumentGeneratorProps> =
                                 </button>
                                 <button
                                   title="Hapus Dokumen"
+                                  disabled={deletingRowIds.has(docData.id)}
                                   onClick={() => handleDeleteDocument(docData.id, docData.referenceNo)}
-                                  className="p-1.5 rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-600 transition-colors cursor-pointer"
+                                  className="p-1.5 rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-600 transition-colors cursor-pointer disabled:opacity-40"
                                 >
-                                  <Trash2 size={16} />
+                                  {deletingRowIds.has(docData.id) ? (
+                                    <RefreshCw size={16} className="animate-spin text-red-500" />
+                                  ) : (
+                                    <Trash2 size={16} />
+                                  )}
                                 </button>
                               </div>
                             </td>
@@ -1186,16 +1269,19 @@ export const GeneralDocumentGenerator: React.FC<GeneralDocumentGeneratorProps> =
               <div className="flex items-center justify-end gap-3 border-t border-slate-100 pt-4">
                 <button
                   type="button"
+                  disabled={isSaving}
                   onClick={() => setViewMode('list')}
-                  className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-semibold text-xs hover:bg-slate-50 cursor-pointer"
+                  className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-semibold text-xs hover:bg-slate-50 cursor-pointer disabled:opacity-40"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
-                  className={`px-6 py-2.5 rounded-xl font-bold text-xs shadow-md transition-all cursor-pointer ${config.primaryBtnColor}`}
+                  disabled={isSaving}
+                  className={`px-6 py-2.5 rounded-xl font-bold text-xs shadow-md transition-all cursor-pointer ${config.primaryBtnColor} disabled:opacity-70 flex items-center gap-1.5`}
                 >
-                  {editingDocId ? 'Simpan Perubahan' : `Terbitkan ${config.title}`}
+                  {isSaving && <RefreshCw size={14} className="animate-spin" />}
+                  <span>{isSaving ? 'Menyimpan...' : (editingDocId ? 'Simpan Perubahan' : `Terbitkan ${config.title}`)}</span>
                 </button>
               </div>
             </form>
@@ -1468,6 +1554,24 @@ export const GeneralDocumentGenerator: React.FC<GeneralDocumentGeneratorProps> =
                 <span>{isSendingWa ? 'Mengirim...' : 'Kirim WhatsApp'}</span>
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* TOAST NOTIFICATION */}
+      {toastMessage && (
+        <div className="fixed bottom-6 right-6 z-50 animate-in slide-in-from-bottom-5 duration-200">
+          <div className={`flex items-center gap-2.5 px-4 py-3 rounded-2xl shadow-xl border text-xs font-bold ${
+            toastMessage.type === 'success'
+              ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+              : 'bg-red-50 border-red-200 text-red-800'
+          }`}>
+            {toastMessage.type === 'success' ? (
+              <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
+            ) : (
+              <AlertCircle size={16} className="text-red-600 shrink-0" />
+            )}
+            <span>{toastMessage.text}</span>
           </div>
         </div>
       )}

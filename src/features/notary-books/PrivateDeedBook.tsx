@@ -6,6 +6,9 @@ import { isRecordLocked, getLockDeadlineMessage } from '../../utils/lockUtils';
 import { useAuth } from '../../hooks/useAuth';
 import { Plus, Search, Edit2, Trash2, Lock, ShieldCheck, X, Check } from 'lucide-react';
 
+// Global memory cache for private deeds to enable instant page transitions
+const privateDeedCache = new Map<string, { records: PrivateDeed[]; total: number }>();
+
 const MONTH_NAMES = [
   'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
   'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
@@ -15,6 +18,9 @@ export const PrivateDeedBook: React.FC = () => {
   const { user } = useAuth();
   const [privateDeeds, setPrivateDeeds] = useState<PrivateDeed[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const [totalDeedsCount, setTotalDeedsCount] = useState<number>(0);
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number | string>(10);
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [selectedYear, setSelectedYear] = useState<string>(new Date().getFullYear().toString());
 
@@ -33,28 +39,68 @@ export const PrivateDeedBook: React.FC = () => {
 
   const [isSaving, setIsSaving] = useState<boolean>(false);
 
-  // Subscribe to private_deeds
+  // Fetch private deeds with server-side pagination, search, and local cache
   useEffect(() => {
-    setLoading(true);
-    const unsubscribe = NotaryService.subscribePrivateDeeds((data) => {
-      setPrivateDeeds(data || []);
-      setLoading(false);
-    });
-    return () => unsubscribe();
-  }, []);
+    let active = true;
+    const cleanSearch = searchTerm.trim();
+    const cacheKey = `private-deeds:page=${currentPage}:size=${pageSize}:search=${cleanSearch}:year=${selectedYear}`;
 
-  // Available Years
+    const cached = privateDeedCache.get(cacheKey);
+    if (cached) {
+      setPrivateDeeds(cached.records);
+      setTotalDeedsCount(cached.total);
+      setLoading(false);
+    } else {
+      setLoading(true);
+    }
+
+    const loadData = async () => {
+      try {
+        const res = await NotaryService.getPrivateDeedsPaginated({
+          page: currentPage,
+          pageSize,
+          search: cleanSearch,
+          year: selectedYear
+        });
+        if (active && res.success) {
+          setPrivateDeeds(res.records);
+          setTotalDeedsCount(res.total);
+          privateDeedCache.set(cacheKey, { records: res.records, total: res.total });
+        }
+      } catch (err) {
+        console.error('Failed to load paginated private deeds:', err);
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+
+    const debounceTimer = setTimeout(() => {
+      loadData();
+    }, cleanSearch ? 350 : 0);
+
+    return () => {
+      active = false;
+      clearTimeout(debounceTimer);
+    };
+  }, [currentPage, pageSize, searchTerm, selectedYear]);
+
+  // Reset page to 1 on filters or search change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, selectedYear]);
+
+  // Available Years - dynamic listing helper
   const availableYears = useMemo(() => {
     const yearsSet = new Set<string>();
     const currentYr = new Date().getFullYear().toString();
     yearsSet.add(currentYr);
-    privateDeeds.forEach((d) => {
-      if (d.registrationDate && d.registrationDate.length >= 4) {
-        yearsSet.add(d.registrationDate.substring(0, 4));
-      }
-    });
+    // Add adjacent years for selection
+    const yrNum = parseInt(currentYr, 10);
+    for (let i = -3; i <= 1; i++) {
+      yearsSet.add(String(yrNum + i));
+    }
     return Array.from(yearsSet).sort().reverse();
-  }, [privateDeeds]);
+  }, []);
 
   // Filtered
   const filteredDeeds = useMemo(() => {
@@ -165,6 +211,20 @@ export const PrivateDeedBook: React.FC = () => {
         await NotaryService.addPrivateDeed(deedData);
       }
 
+      privateDeedCache.clear();
+      // Reload current query trigger
+      const cleanSearch = searchTerm.trim();
+      const res = await NotaryService.getPrivateDeedsPaginated({
+        page: currentPage,
+        pageSize,
+        search: cleanSearch,
+        year: selectedYear
+      });
+      if (res.success) {
+        setPrivateDeeds(res.records);
+        setTotalDeedsCount(res.total);
+      }
+
       setIsModalOpen(false);
     } catch (err) {
       console.error('Failed to save private deed:', err);
@@ -181,11 +241,21 @@ export const PrivateDeedBook: React.FC = () => {
     }
 
     if (confirm(`Apakah Anda yakin ingin menghapus pencatatan ${deed.type} No. ${deed.number}?`)) {
+      const backupDeeds = [...privateDeeds];
+      const backupTotal = totalDeedsCount;
+
+      // Optimistic delete
+      setPrivateDeeds(prev => prev.filter(d => d.id !== deed.id));
+      setTotalDeedsCount(prev => Math.max(0, prev - 1));
+
       try {
         await NotaryService.deletePrivateDeed(deed.id);
+        privateDeedCache.clear();
       } catch (err) {
         console.error('Failed to delete private deed:', err);
-        alert('Gagal menghapus data.');
+        alert('Gagal menghapus data. Mengembalikan data...');
+        setPrivateDeeds(backupDeeds);
+        setTotalDeedsCount(backupTotal);
       }
     }
   };
@@ -267,109 +337,144 @@ export const PrivateDeedBook: React.FC = () => {
 
       {/* List */}
       {loading ? (
-        <div className="bg-white p-12 text-center text-slate-400 rounded-xl border border-slate-200">
-          Memuat data legalisasi & waarmerking...
+        <div className="bg-white p-12 text-center rounded-xl border border-slate-200">
+          <div className="flex flex-col items-center justify-center gap-3">
+            <div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+            <span className="text-xs text-slate-500 font-medium">Memuat data legalisasi & waarmerking...</span>
+          </div>
         </div>
-      ) : groupedDeeds.length === 0 ? (
+      ) : privateDeeds.length === 0 ? (
         <div className="bg-white p-12 text-center text-slate-400 rounded-xl border border-slate-200 italic">
           Tidak ada data legalisasi / waarmerking ditemukan.
         </div>
       ) : (
-        <div className="space-y-6">
-          {groupedDeeds.map((group) => (
-            <div key={`${group.year}-${group.month}`} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-              {/* Group Header */}
-              <div className="bg-indigo-900 text-white px-5 py-3 flex items-center justify-between">
-                <span className="font-bold text-sm tracking-wide uppercase">
-                  {group.monthName} {group.year}
-                </span>
-                <span className="text-xs bg-indigo-800/80 px-2.5 py-1 rounded-full text-indigo-100 font-medium">
-                  {group.deeds.length} Surat
-                </span>
-              </div>
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          {/* Table */}
+          <div className="overflow-x-auto">
+            <table className="min-w-[1000px] w-full text-left text-xs border-collapse">
+              <thead>
+                <tr className="bg-slate-50 text-slate-700 font-semibold border-b border-slate-200 uppercase text-[11px]">
+                  <th className="p-3 w-16 text-center border-r border-slate-200">NO. URUT</th>
+                  <th className="p-3 w-28 text-center border-r border-slate-200">NO. REGISTRASI</th>
+                  <th className="p-3 w-32 text-center border-r border-slate-200">TANGGAL</th>
+                  <th className="p-3 w-28 text-center border-r border-slate-200">JENIS</th>
+                  <th className="p-3 min-w-[220px] border-r border-slate-200">ISI SINGKAT / PERIHAL</th>
+                  <th className="p-3 min-w-[200px] border-r border-slate-200">YANG MENANDATANGANI</th>
+                  <th className="p-3 w-24 text-center">AKSI</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200">
+                {privateDeeds.map((deed, idx) => {
+                  const locked = isRecordLocked(deed.registrationDate, user?.email);
+                  const lockMsg = locked ? `Terkunci otomatis setelah ${getLockDeadlineMessage(deed.registrationDate)}` : '';
 
-              {/* Table */}
-              <div className="overflow-x-auto">
-                <table className="min-w-[1000px] w-full text-left text-xs border-collapse">
-                  <thead>
-                    <tr className="bg-slate-50 text-slate-700 font-semibold border-b border-slate-200 uppercase text-[11px]">
-                      <th className="p-3 w-16 text-center border-r border-slate-200">NO. URUT</th>
-                      <th className="p-3 w-28 text-center border-r border-slate-200">NO. REGISTRASI</th>
-                      <th className="p-3 w-32 text-center border-r border-slate-200">TANGGAL</th>
-                      <th className="p-3 w-28 text-center border-r border-slate-200">JENIS</th>
-                      <th className="p-3 min-w-[220px] border-r border-slate-200">ISI SINGKAT / PERIHAL</th>
-                      <th className="p-3 min-w-[200px] border-r border-slate-200">YANG MENANDATANGANI</th>
-                      <th className="p-3 w-24 text-center">AKSI</th>
+                  return (
+                    <tr key={deed.id} className="hover:bg-slate-50/80 transition-colors">
+                      <td className="p-3 text-center border-r border-slate-200 font-medium text-slate-600">
+                        {idx + 1 + (currentPage - 1) * (typeof pageSize === 'string' ? privateDeeds.length : pageSize)}
+                      </td>
+                      <td className="p-3 text-center border-r border-slate-200 font-bold text-slate-900">
+                        {deed.number || '-'}
+                      </td>
+                      <td className="p-3 text-center border-r border-slate-200 text-slate-600 whitespace-nowrap">
+                        {formatDateIndo(deed.registrationDate)}
+                      </td>
+                      <td className="p-3 text-center border-r border-slate-200">
+                        {getTypeBadge(deed.type)}
+                      </td>
+                      <td className="p-3 border-r border-slate-200 font-medium text-slate-900 leading-snug">
+                        {deed.description}
+                      </td>
+                      <td className="p-3 border-r border-slate-200 text-slate-800 leading-snug">
+                        {deed.parties && deed.parties.length > 0 ? (
+                          <div className="space-y-0.5">
+                            {deed.parties.map((party, i) => (
+                              <div key={i} className="text-slate-900 font-medium">
+                                • {party}
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-slate-400 italic">-</span>
+                        )}
+                      </td>
+                      <td className="p-3 text-center">
+                        {locked ? (
+                          <div className="inline-flex items-center gap-1 text-slate-400 bg-slate-100 px-2 py-1 rounded text-[11px]" title={lockMsg}>
+                            <Lock size={12} className="text-amber-600" />
+                            <span>Terkunci</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-center gap-1">
+                            <button
+                              onClick={() => handleOpenModal(deed)}
+                              className="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded transition"
+                              title="Edit"
+                            >
+                              <Edit2 size={14} />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(deed)}
+                              className="p-1.5 text-red-600 hover:bg-red-50 rounded transition"
+                              title="Hapus"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        )}
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-200">
-                    {group.deeds.map((deed, idx) => {
-                      const locked = isRecordLocked(deed.registrationDate, user?.email);
-                      const lockMsg = locked ? `Terkunci otomatis setelah ${getLockDeadlineMessage(deed.registrationDate)}` : '';
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
 
-                      return (
-                        <tr key={deed.id} className="hover:bg-slate-50/80 transition-colors">
-                          <td className="p-3 text-center border-r border-slate-200 font-medium text-slate-600">
-                            {idx + 1}
-                          </td>
-                          <td className="p-3 text-center border-r border-slate-200 font-bold text-slate-900">
-                            {deed.number || '-'}
-                          </td>
-                          <td className="p-3 text-center border-r border-slate-200 text-slate-600 whitespace-nowrap">
-                            {formatDateIndo(deed.registrationDate)}
-                          </td>
-                          <td className="p-3 text-center border-r border-slate-200">
-                            {getTypeBadge(deed.type)}
-                          </td>
-                          <td className="p-3 border-r border-slate-200 font-medium text-slate-900 leading-snug">
-                            {deed.description}
-                          </td>
-                          <td className="p-3 border-r border-slate-200 text-slate-800 leading-snug">
-                            {deed.parties && deed.parties.length > 0 ? (
-                              <div className="space-y-0.5">
-                                {deed.parties.map((party, i) => (
-                                  <div key={i} className="text-slate-900 font-medium">
-                                    • {party}
-                                  </div>
-                                ))}
-                              </div>
-                            ) : (
-                              <span className="text-slate-400 italic">-</span>
-                            )}
-                          </td>
-                          <td className="p-3 text-center">
-                            {locked ? (
-                              <div className="inline-flex items-center gap-1 text-slate-400 bg-slate-100 px-2 py-1 rounded text-[11px]" title={lockMsg}>
-                                <Lock size={12} className="text-amber-600" />
-                                <span>Terkunci</span>
-                              </div>
-                            ) : (
-                              <div className="flex items-center justify-center gap-1">
-                                <button
-                                  onClick={() => handleOpenModal(deed)}
-                                  className="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded transition"
-                                  title="Edit"
-                                >
-                                  <Edit2 size={14} />
-                                </button>
-                                <button
-                                  onClick={() => handleDelete(deed)}
-                                  className="p-1.5 text-red-600 hover:bg-red-50 rounded transition"
-                                  title="Hapus"
-                                >
-                                  <Trash2 size={14} />
-                                </button>
-                              </div>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+          {/* Pagination Footer */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 border-t border-slate-200 bg-slate-50/50 text-xs">
+            <div className="flex flex-wrap items-center gap-2 text-slate-500">
+              <span>Tampilkan</span>
+              <select
+                value={pageSize}
+                onChange={(e) => {
+                  const val = e.target.value === 'Semua' ? 'Semua' : Number(e.target.value);
+                  setPageSize(val);
+                  setCurrentPage(1);
+                }}
+                className="px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs font-semibold focus:outline-none cursor-pointer"
+              >
+                <option value={10}>10</option>
+                <option value={20}>20</option>
+                <option value={30}>30</option>
+                <option value={40}>40</option>
+                <option value={50}>50</option>
+                <option value="Semua">Semua</option>
+              </select>
+              <span>baris. Menampilkan {privateDeeds.length === 0 ? 0 : Math.min(totalDeedsCount, (currentPage - 1) * (typeof pageSize === 'string' ? totalDeedsCount : pageSize) + 1)}-{Math.min(totalDeedsCount, currentPage * (typeof pageSize === 'string' ? totalDeedsCount : pageSize))} dari {totalDeedsCount} surat.</span>
             </div>
-          ))}
+
+            {totalDeedsCount > 0 && (
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                  className="p-2 border border-slate-200 rounded-xl bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-white disabled:cursor-not-allowed transition-all cursor-pointer"
+                >
+                  Sebelumnya
+                </button>
+                <span className="text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-lg px-3 py-1.5">
+                  Halaman {currentPage} dari {Math.ceil(totalDeedsCount / (typeof pageSize === 'string' ? 500 : pageSize)) || 1}
+                </span>
+                <button
+                  onClick={() => setCurrentPage(prev => Math.min(Math.ceil(totalDeedsCount / (typeof pageSize === 'string' ? 500 : pageSize)) || 1, prev + 1))}
+                  disabled={currentPage >= (Math.ceil(totalDeedsCount / (typeof pageSize === 'string' ? 500 : pageSize)) || 1)}
+                  className="p-2 border border-slate-200 rounded-xl bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-white disabled:cursor-not-allowed transition-all cursor-pointer"
+                >
+                  Berikutnya
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       )}
 

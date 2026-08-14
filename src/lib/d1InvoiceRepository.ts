@@ -204,6 +204,7 @@ export async function getAllInvoicesD1(db: any, params: {
   const statusVal = params.status ? String(params.status).trim().toUpperCase() : 'ALL';
 
   let sql = `SELECT * FROM invoices`;
+  let countSql = `SELECT COUNT(*) as total FROM invoices`;
   const conditions: string[] = [];
   const queryParams: any[] = [];
 
@@ -225,19 +226,31 @@ export async function getAllInvoicesD1(db: any, params: {
   }
 
   if (conditions.length > 0) {
-    sql += ` WHERE ` + conditions.join(' AND ');
+    const whereClause = ` WHERE ` + conditions.join(' AND ');
+    sql += whereClause;
+    countSql += whereClause;
+  }
+
+  // Get total count first
+  let total = 0;
+  try {
+    const countRes = await db.prepare(countSql).bind(...queryParams).first();
+    total = countRes?.total || 0;
+  } catch (err) {
+    console.warn('[d1InvoiceRepository] Error counting invoices:', err);
   }
 
   sql += ` ORDER BY created_at DESC, updated_at DESC LIMIT ? OFFSET ?`;
-  queryParams.push(limitVal, offsetVal);
+  const selectParams = [...queryParams, limitVal, offsetVal];
 
-  const res = await db.prepare(sql).bind(...queryParams).all();
+  const res = await db.prepare(sql).bind(...selectParams).all();
   const rows = res.results || [];
   const invoices = rows.map((r: any) => formatD1RowToInvoice(r));
 
   return {
     success: true,
     count: invoices.length,
+    total,
     limit: limitVal,
     offset: offsetVal,
     invoices

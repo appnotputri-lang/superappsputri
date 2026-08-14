@@ -49,6 +49,32 @@ export class NotaryService {
     return json.records || (Array.isArray(json) ? json : []);
   }
 
+  static async getDeedsPaginated(params: {
+    page: number;
+    pageSize: number | string;
+    search?: string;
+    year?: string | number;
+  }): Promise<{ records: Deed[]; total: number; success: boolean }> {
+    try {
+      const limit = params.pageSize === 'Semua' || params.pageSize === 'ALL' || params.pageSize === 0 ? 500 : Number(params.pageSize);
+      const offset = (params.page - 1) * limit;
+      const searchParam = params.search ? `&search=${encodeURIComponent(params.search)}` : '';
+      const yearParam = params.year && params.year !== 'ALL' ? `&year=${encodeURIComponent(params.year)}` : '';
+      
+      const res = await fetch(`/api/deeds?limit=${limit}&offset=${offset}${searchParam}${yearParam}`);
+      if (!res.ok) throw new Error('Failed to fetch deeds');
+      const json = await res.json();
+      return {
+        success: true,
+        records: json.records || [],
+        total: typeof json.total !== 'undefined' ? json.total : (json.records?.length || 0)
+      };
+    } catch (err) {
+      console.error('[NotaryService] Error fetching paginated deeds:', err);
+      return { success: false, records: [], total: 0 };
+    }
+  }
+
   static async getDeedsByYear(year: number): Promise<Deed[]> {
     const res = await fetch(`/api/deeds?year=${year}&limit=5000`);
     if (!res.ok) {
@@ -162,6 +188,32 @@ export class NotaryService {
     }
     const json = await res.json();
     return json.records || (Array.isArray(json) ? json : []);
+  }
+
+  static async getPrivateDeedsPaginated(params: {
+    page: number;
+    pageSize: number | string;
+    search?: string;
+    year?: string | number;
+  }): Promise<{ records: PrivateDeed[]; total: number; success: boolean }> {
+    try {
+      const limit = params.pageSize === 'Semua' || params.pageSize === 'ALL' || params.pageSize === 0 ? 500 : Number(params.pageSize);
+      const offset = (params.page - 1) * limit;
+      const searchParam = params.search ? `&search=${encodeURIComponent(params.search)}` : '';
+      const yearParam = params.year && params.year !== 'ALL' ? `&year=${encodeURIComponent(params.year)}` : '';
+      
+      const res = await fetch(`/api/private-deeds?limit=${limit}&offset=${offset}${searchParam}${yearParam}`);
+      if (!res.ok) throw new Error('Failed to fetch private deeds');
+      const json = await res.json();
+      return {
+        success: true,
+        records: json.records || [],
+        total: typeof json.total !== 'undefined' ? json.total : (json.records?.length || 0)
+      };
+    } catch (err) {
+      console.error('[NotaryService] Error fetching paginated private deeds:', err);
+      return { success: false, records: [], total: 0 };
+    }
   }
 
   static subscribePrivateDeeds(onNext: (data: PrivateDeed[]) => void): () => void {
@@ -333,6 +385,32 @@ export class NotaryService {
     return json.records || (Array.isArray(json) ? json : []);
   }
 
+  static async getOutgoingMailsPaginated(params: {
+    page: number;
+    pageSize: number | string;
+    search?: string;
+    year?: string | number;
+  }): Promise<{ records: OutgoingMail[]; total: number; success: boolean }> {
+    try {
+      const limit = params.pageSize === 'Semua' || params.pageSize === 'ALL' || params.pageSize === 0 ? 500 : Number(params.pageSize);
+      const offset = (params.page - 1) * limit;
+      const searchParam = params.search ? `&search=${encodeURIComponent(params.search)}` : '';
+      const yearParam = params.year && params.year !== 'ALL' ? `&year=${encodeURIComponent(params.year)}` : '';
+      
+      const res = await fetch(`/api/outgoing-mails?limit=${limit}&offset=${offset}${searchParam}${yearParam}`);
+      if (!res.ok) throw new Error('Failed to fetch outgoing mails');
+      const json = await res.json();
+      return {
+        success: true,
+        records: json.records || [],
+        total: typeof json.total !== 'undefined' ? json.total : (json.records?.length || 0)
+      };
+    } catch (err) {
+      console.error('[NotaryService] Error fetching paginated outgoing mails:', err);
+      return { success: false, records: [], total: 0 };
+    }
+  }
+
   static async addOutgoingMail(data: Omit<OutgoingMail, 'id'> & { id?: string }): Promise<string> {
     const docId = data.id || `mail_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
     const res = await fetch('/api/outgoing-mails', {
@@ -392,6 +470,32 @@ export class NotaryService {
       active = false;
       listeners.incoming_mails.delete(fetcher);
     };
+  }
+
+  static async getIncomingMailsPaginated(params: {
+    page: number;
+    pageSize: number | string;
+    search?: string;
+    year?: string | number;
+  }): Promise<{ records: IncomingMail[]; total: number; success: boolean }> {
+    try {
+      const limit = params.pageSize === 'Semua' || params.pageSize === 'ALL' || params.pageSize === 0 ? 500 : Number(params.pageSize);
+      const offset = (params.page - 1) * limit;
+      const searchParam = params.search ? `&search=${encodeURIComponent(params.search)}` : '';
+      const yearParam = params.year && params.year !== 'ALL' ? `&year=${encodeURIComponent(params.year)}` : '';
+      
+      const res = await fetch(`/api/incoming-mails?limit=${limit}&offset=${offset}${searchParam}${yearParam}`);
+      if (!res.ok) throw new Error('Failed to fetch incoming mails');
+      const json = await res.json();
+      return {
+        success: true,
+        records: json.records || [],
+        total: typeof json.total !== 'undefined' ? json.total : (json.records?.length || 0)
+      };
+    } catch (err) {
+      console.error('[NotaryService] Error fetching paginated incoming mails:', err);
+      return { success: false, records: [], total: 0 };
+    }
   }
 
   static async addIncomingMail(data: Omit<IncomingMail, 'id'> & { id?: string }): Promise<string> {

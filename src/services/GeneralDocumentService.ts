@@ -193,7 +193,6 @@ export class GeneralDocumentService {
     const savedDoc = resBody.data || resBody;
     const finalId = savedDoc?.id || docId;
 
-    notifyChange();
     return finalId;
   }
 
@@ -227,7 +226,6 @@ export class GeneralDocumentService {
       throw new Error(errorMsg);
     }
 
-    notifyChange();
     return resBody.data || resBody;
   }
 
@@ -253,7 +251,5 @@ export class GeneralDocumentService {
       const errorMsg = resBody?.error || resBody?.message || `HTTP ${res.status}: Gagal menghapus dokumen.`;
       throw new Error(errorMsg);
     }
-
-    notifyChange();
   }
 }

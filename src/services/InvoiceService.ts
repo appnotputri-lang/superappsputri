@@ -34,21 +34,18 @@ export class InvoiceService {
 
     const fetchInvoices = async () => {
       try {
-        const res = await fetch(getApiUrl('/api/invoices?limit=500'));
+        const res = await fetch(getApiUrl('/api/invoices?limit=10'));
         if (!res.ok) return;
         const json = await res.json();
         if (json.success && Array.isArray(json.invoices) && active) {
           onNext(json.invoices);
         }
       } catch (err) {
-        console.warn('[InvoiceService] Error polling invoices:', err);
+        console.warn('[InvoiceService] Error fetching invoices:', err);
       }
     };
 
     fetchInvoices();
-
-    // Polling every 15 seconds (non-aggressive)
-    const intervalId = setInterval(fetchInvoices, 15000);
 
     const listener = () => {
       fetchInvoices();
@@ -57,7 +54,6 @@ export class InvoiceService {
 
     return () => {
       active = false;
-      clearInterval(intervalId);
       this.listeners.delete(listener);
     };
   }
@@ -67,21 +63,18 @@ export class InvoiceService {
 
     const fetchUnpaid = async () => {
       try {
-        const res = await fetch(getApiUrl('/api/invoices?status=UNPAID&limit=500'));
+        const res = await fetch(getApiUrl('/api/invoices?status=UNPAID&limit=10'));
         if (!res.ok) return;
         const json = await res.json();
         if (json.success && Array.isArray(json.invoices) && active) {
           onNext(json.invoices);
         }
       } catch (err) {
-        console.warn('[InvoiceService] Error polling unpaid invoices:', err);
+        console.warn('[InvoiceService] Error fetching unpaid invoices:', err);
       }
     };
 
     fetchUnpaid();
-
-    // Polling every 15 seconds (non-aggressive)
-    const intervalId = setInterval(fetchUnpaid, 15000);
 
     const listener = () => {
       fetchUnpaid();
@@ -90,9 +83,37 @@ export class InvoiceService {
 
     return () => {
       active = false;
-      clearInterval(intervalId);
       this.listeners.delete(listener);
     };
+  }
+
+  static async getInvoicesPaginated(params: {
+    page: number;
+    pageSize: number | string;
+    search?: string;
+    status?: string;
+  }): Promise<{ invoices: Invoice[]; total: number; success: boolean }> {
+    try {
+      const limit = params.pageSize === 'Semua' || params.pageSize === 'ALL' || params.pageSize === 0 ? 500 : Number(params.pageSize);
+      const offset = (params.page - 1) * limit;
+      const searchParam = params.search ? `&search=${encodeURIComponent(params.search)}` : '';
+      const statusParam = params.status && params.status !== 'ALL' ? `&status=${encodeURIComponent(params.status)}` : '';
+      
+      const res = await fetch(getApiUrl(`/api/invoices?limit=${limit}&offset=${offset}${searchParam}${statusParam}`));
+      if (!res.ok) throw new Error('Failed to fetch invoices');
+      const json = await res.json();
+      if (json.success && Array.isArray(json.invoices)) {
+        return {
+          success: true,
+          invoices: json.invoices,
+          total: typeof json.total !== 'undefined' ? json.total : (json.count || json.invoices.length)
+        };
+      }
+      return { success: false, invoices: [], total: 0 };
+    } catch (err) {
+      console.error('[InvoiceService] Error fetching paginated invoices:', err);
+      return { success: false, invoices: [], total: 0 };
+    }
   }
 
   static async getRecentInvoices(limitCount = 10): Promise<Invoice[]> {

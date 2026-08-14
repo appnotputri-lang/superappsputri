@@ -6,6 +6,9 @@ import { isRecordLocked, getLockDeadlineMessage } from '../../utils/lockUtils';
 import { useAuth } from '../../hooks/useAuth';
 import { Plus, Search, Edit2, Trash2, Lock, Inbox, X, Check } from 'lucide-react';
 
+// Global memory cache for incoming mails to enable instant page transitions
+const incomingMailCache = new Map<string, { records: IncomingMail[]; total: number }>();
+
 const MONTH_NAMES = [
   'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
   'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
@@ -15,6 +18,9 @@ export const IncomingMailBook: React.FC = () => {
   const { user } = useAuth();
   const [mails, setMails] = useState<IncomingMail[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const [totalMailsCount, setTotalMailsCount] = useState<number>(0);
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number | string>(10);
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [selectedYear, setSelectedYear] = useState<string>(new Date().getFullYear().toString());
 
@@ -31,54 +37,67 @@ export const IncomingMailBook: React.FC = () => {
 
   const [isSaving, setIsSaving] = useState<boolean>(false);
 
-  // Subscribe to incoming_mails
+  // Fetch incoming mails server-side with local cache fallback
   useEffect(() => {
-    setLoading(true);
-    const unsubscribe = NotaryService.subscribeIncomingMails((data) => {
-      setMails(data || []);
+    let active = true;
+    const cleanSearch = searchTerm.trim();
+    const cacheKey = `incoming-mails:page=${currentPage}:size=${pageSize}:search=${cleanSearch}:year=${selectedYear}`;
+
+    const cached = incomingMailCache.get(cacheKey);
+    if (cached) {
+      setMails(cached.records);
+      setTotalMailsCount(cached.total);
       setLoading(false);
-    });
-    return () => unsubscribe();
-  }, []);
+    } else {
+      setLoading(true);
+    }
+
+    const loadData = async () => {
+      try {
+        const res = await NotaryService.getIncomingMailsPaginated({
+          page: currentPage,
+          pageSize,
+          search: cleanSearch,
+          year: selectedYear
+        });
+        if (active && res.success) {
+          setMails(res.records);
+          setTotalMailsCount(res.total);
+          incomingMailCache.set(cacheKey, { records: res.records, total: res.total });
+        }
+      } catch (err) {
+        console.error('Failed to load paginated incoming mails:', err);
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+
+    const debounceTimer = setTimeout(() => {
+      loadData();
+    }, cleanSearch ? 350 : 0);
+
+    return () => {
+      active = false;
+      clearTimeout(debounceTimer);
+    };
+  }, [currentPage, pageSize, searchTerm, selectedYear]);
+
+  // Reset pagination on filter or search changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, selectedYear]);
 
   // Available Years
   const availableYears = useMemo(() => {
     const yearsSet = new Set<string>();
     const currentYr = new Date().getFullYear().toString();
     yearsSet.add(currentYr);
-    mails.forEach((m) => {
-      if (m.date && m.date.length >= 4) {
-        yearsSet.add(m.date.substring(0, 4));
-      }
-    });
+    const yrNum = parseInt(currentYr, 10);
+    for (let i = -3; i <= 1; i++) {
+      yearsSet.add(String(yrNum + i));
+    }
     return Array.from(yearsSet).sort().reverse();
-  }, [mails]);
-
-  // Filtered & Sorted
-  const filteredMails = useMemo(() => {
-    const list = mails.filter((m) => {
-      // Filter Year
-      if (selectedYear !== 'ALL') {
-        if (!m.date || !m.date.startsWith(selectedYear)) return false;
-      }
-
-      // Search
-      if (searchTerm.trim()) {
-        const query = searchTerm.toLowerCase();
-        const matchNum = m.mailNumber?.toLowerCase().includes(query);
-        const matchSender = m.sender?.toLowerCase().includes(query);
-        const matchSub = m.subject?.toLowerCase().includes(query);
-        const matchNotes = m.notes?.toLowerCase().includes(query);
-
-        return matchNum || matchSender || matchSub || matchNotes;
-      }
-
-      return true;
-    });
-
-    // Sort newest date first
-    return list.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
-  }, [mails, selectedYear, searchTerm]);
+  }, []);
 
   const handleOpenModal = (mail?: IncomingMail) => {
     if (mail) {
@@ -122,6 +141,20 @@ export const IncomingMailBook: React.FC = () => {
         await NotaryService.addIncomingMail(mailData);
       }
 
+      incomingMailCache.clear();
+      // Reload current query trigger
+      const cleanSearch = searchTerm.trim();
+      const res = await NotaryService.getIncomingMailsPaginated({
+        page: currentPage,
+        pageSize,
+        search: cleanSearch,
+        year: selectedYear
+      });
+      if (res.success) {
+        setMails(res.records);
+        setTotalMailsCount(res.total);
+      }
+
       setIsModalOpen(false);
     } catch (err) {
       console.error('Failed to save incoming mail:', err);
@@ -138,11 +171,21 @@ export const IncomingMailBook: React.FC = () => {
     }
 
     if (confirm(`Apakah Anda yakin ingin menghapus surat masuk dari ${mail.sender}?`)) {
+      const backupMails = [...mails];
+      const backupTotal = totalMailsCount;
+
+      // Optimistic delete
+      setMails(prev => prev.filter(m => m.id !== mail.id));
+      setTotalMailsCount(prev => Math.max(0, prev - 1));
+
       try {
         await NotaryService.deleteIncomingMail(mail.id);
+        incomingMailCache.clear();
       } catch (err) {
         console.error('Failed to delete incoming mail:', err);
-        alert('Gagal menghapus surat masuk.');
+        alert('Gagal menghapus surat masuk. Mengembalikan data...');
+        setMails(backupMails);
+        setTotalMailsCount(backupTotal);
       }
     }
   };
@@ -208,10 +251,13 @@ export const IncomingMailBook: React.FC = () => {
 
       {/* List */}
       {loading ? (
-        <div className="bg-white p-12 text-center text-slate-400 rounded-xl border border-slate-200">
-          Memuat data surat masuk...
+        <div className="bg-white p-12 text-center rounded-xl border border-slate-200">
+          <div className="flex flex-col items-center justify-center gap-3">
+            <div className="w-8 h-8 border-4 border-teal-600 border-t-transparent rounded-full animate-spin"></div>
+            <span className="text-xs text-slate-500 font-medium">Memuat data surat masuk...</span>
+          </div>
         </div>
-      ) : filteredMails.length === 0 ? (
+      ) : mails.length === 0 ? (
         <div className="bg-white p-12 text-center text-slate-400 rounded-xl border border-slate-200 italic">
           Tidak ada data surat masuk ditemukan.
         </div>
@@ -231,14 +277,14 @@ export const IncomingMailBook: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200">
-                {filteredMails.map((mail, idx) => {
+                {mails.map((mail, idx) => {
                   const locked = isRecordLocked(mail.date, user?.email);
                   const lockMsg = locked ? `Terkunci otomatis setelah ${getLockDeadlineMessage(mail.date)}` : '';
 
                   return (
                     <tr key={mail.id} className="hover:bg-slate-50/80 transition-colors">
                       <td className="p-3 text-center border-r border-slate-200 font-medium text-slate-600">
-                        {idx + 1}
+                        {idx + 1 + (currentPage - 1) * (typeof pageSize === 'string' ? mails.length : pageSize)}
                       </td>
                       <td className="p-3 text-center border-r border-slate-200 text-slate-600 whitespace-nowrap">
                         {formatDateIndo(mail.date)}
@@ -285,6 +331,52 @@ export const IncomingMailBook: React.FC = () => {
                 })}
               </tbody>
             </table>
+          </div>
+
+          {/* Pagination Footer */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 border-t border-slate-200 bg-slate-50/50 text-xs">
+            <div className="flex flex-wrap items-center gap-2 text-slate-500">
+              <span>Tampilkan</span>
+              <select
+                value={pageSize}
+                onChange={(e) => {
+                  const val = e.target.value === 'Semua' ? 'Semua' : Number(e.target.value);
+                  setPageSize(val);
+                  setCurrentPage(1);
+                }}
+                className="px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs font-semibold focus:outline-none cursor-pointer"
+              >
+                <option value={10}>10</option>
+                <option value={20}>20</option>
+                <option value={30}>30</option>
+                <option value={40}>40</option>
+                <option value={50}>50</option>
+                <option value="Semua">Semua</option>
+              </select>
+              <span>baris. Menampilkan {mails.length === 0 ? 0 : Math.min(totalMailsCount, (currentPage - 1) * (typeof pageSize === 'string' ? totalMailsCount : pageSize) + 1)}-{Math.min(totalMailsCount, currentPage * (typeof pageSize === 'string' ? totalMailsCount : pageSize))} dari {totalMailsCount} surat masuk.</span>
+            </div>
+
+            {totalMailsCount > 0 && (
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                  className="p-2 border border-slate-200 rounded-xl bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-white disabled:cursor-not-allowed transition-all cursor-pointer"
+                >
+                  Sebelumnya
+                </button>
+                <span className="text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-lg px-3 py-1.5">
+                  Halaman {currentPage} dari {Math.ceil(totalMailsCount / (typeof pageSize === 'string' ? 500 : pageSize)) || 1}
+                </span>
+                <button
+                  onClick={() => setCurrentPage(prev => Math.min(Math.ceil(totalMailsCount / (typeof pageSize === 'string' ? 500 : pageSize)) || 1, prev + 1))}
+                  disabled={currentPage >= (Math.ceil(totalMailsCount / (typeof pageSize === 'string' ? 500 : pageSize)) || 1)}
+                  className="p-2 border border-slate-200 rounded-xl bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-white disabled:cursor-not-allowed transition-all cursor-pointer"
+                >
+                  Berikutnya
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}

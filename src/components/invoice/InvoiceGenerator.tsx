@@ -130,6 +130,9 @@ const MobileInvoiceRow: React.FC<{
   );
 };
 
+// Global local memory cache for invoices to ensure instant page transitions
+const invoiceCache = new Map<string, { invoices: Invoice[]; total: number; timestamp: number }>();
+
 interface InvoiceGeneratorProps {
   setActiveSidebarTab?: (tab: string) => void;
   [key: string]: any;
@@ -138,6 +141,8 @@ interface InvoiceGeneratorProps {
 export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = (props) => {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
+  const [totalInvoicesCount, setTotalInvoicesCount] = useState(0);
+  const [isBackgroundFetching, setIsBackgroundFetching] = useState(false);
 
   // View mode: 'list' | 'create' | 'edit' | 'detail'
   const [viewMode, setViewMode] = useState<'list' | 'create' | 'edit' | 'detail'>('list');
@@ -160,9 +165,9 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = (props) => {
     }
   };
 
-  // Pagination State
+  // Pagination State (Default 10 rows per page as per criteria)
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(20);
+  const [pageSize, setPageSize] = useState<number | string>(10);
 
   // Reset pagination when search or status filter changes
   useEffect(() => {
@@ -345,21 +350,66 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = (props) => {
     };
   }, []);
 
+  // Server-side paginated loading with instant client-side cache fallback
   useEffect(() => {
-    setLoading(true);
-    const unsub = InvoiceService.subscribeInvoices((data) => {
-      setInvoices(data);
-      // Keep selectedInvoice synced if viewing detail
-      if (selectedInvoice) {
-        const updated = data.find(i => i.id === selectedInvoice.id);
-        if (updated) {
-          setSelectedInvoice(updated);
+    if (viewMode !== 'list') return;
+
+    let active = true;
+    const cleanSearch = searchTerm.trim();
+    const cacheKey = `invoices:page=${currentPage}:size=${pageSize}:search=${cleanSearch}:status=${statusFilter}`;
+    
+    const cached = invoiceCache.get(cacheKey);
+    if (cached) {
+      setInvoices(cached.invoices);
+      setTotalInvoicesCount(cached.total);
+      setLoading(false);
+    } else {
+      setLoading(true);
+    }
+
+    const loadData = async () => {
+      if (cached) {
+        setIsBackgroundFetching(true);
+      }
+      try {
+        const res = await InvoiceService.getInvoicesPaginated({
+          page: currentPage,
+          pageSize: pageSize,
+          search: cleanSearch,
+          status: statusFilter
+        });
+
+        if (active && res.success) {
+          const isDataChanged = !cached || JSON.stringify(cached.invoices) !== JSON.stringify(res.invoices) || cached.total !== res.total;
+          if (isDataChanged) {
+            setInvoices(res.invoices);
+            setTotalInvoicesCount(res.total);
+            invoiceCache.set(cacheKey, {
+              invoices: res.invoices,
+              total: res.total,
+              timestamp: Date.now()
+            });
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load paginated invoices:', err);
+      } finally {
+        if (active) {
+          setLoading(false);
+          setIsBackgroundFetching(false);
         }
       }
-      setLoading(false);
-    });
-    return () => unsub();
-  }, [selectedInvoice?.id]);
+    };
+
+    const delayDebounce = setTimeout(() => {
+      loadData();
+    }, cleanSearch ? 350 : 0);
+
+    return () => {
+      active = false;
+      clearTimeout(delayDebounce);
+    };
+  }, [viewMode, currentPage, pageSize, searchTerm, statusFilter]);
 
   // Listen for target invoice navigation from Quotation or URL / localStorage
   useEffect(() => {
@@ -730,15 +780,26 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = (props) => {
 
   const handleDeleteInvoice = async (id: string) => {
     if (confirm('Apakah Anda yakin ingin menghapus invoice ini?')) {
+      const backupInvoices = [...invoices];
+      const backupTotal = totalInvoicesCount;
+      
+      // Optimistically update the UI list state
+      setInvoices(prev => prev.filter(inv => inv.id !== id));
+      setTotalInvoicesCount(prev => Math.max(0, prev - 1));
+      
+      if (selectedInvoice?.id === id) {
+        setSelectedInvoice(null);
+        setViewMode('list');
+      }
+
       try {
         await InvoiceService.deleteInvoice(id);
-        if (selectedInvoice?.id === id) {
-          setSelectedInvoice(null);
-          setViewMode('list');
-        }
+        invoiceCache.clear();
       } catch (err) {
         console.error('Error deleting invoice:', err);
-        alert('Gagal menghapus invoice.');
+        alert('Gagal menghapus invoice. Mengembalikan data...');
+        setInvoices(backupInvoices);
+        setTotalInvoicesCount(backupTotal);
       }
     }
   };
@@ -751,6 +812,34 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = (props) => {
     }
 
     setIsSavingPayment(true);
+    const backupSelectedInvoice = { ...selectedInvoice };
+    const backupInvoices = [...invoices];
+
+    // Compute updated local state values
+    const newPaid = (selectedInvoice.paidAmount || 0) + payAmount;
+    const newBalance = Math.max(0, selectedInvoice.totalAmount - newPaid);
+    const updatedInv: Invoice = {
+      ...selectedInvoice,
+      paidAmount: newPaid,
+      balanceDue: newBalance,
+      status: newBalance <= 0 ? 'PAID' : 'UNPAID',
+      paymentHistory: [
+        ...(selectedInvoice.paymentHistory || []),
+        {
+          id: `pay_${Date.now()}`,
+          date: payDate,
+          amount: payAmount,
+          method: payMethod,
+          notes: payRefNumber ? `Ref: ${payRefNumber} ${payNotes}` : payNotes
+        }
+      ]
+    };
+
+    // Optimistically update the UI states
+    setSelectedInvoice(updatedInv);
+    setPayAmount(newBalance);
+    setInvoices(prev => prev.map(inv => inv.id === selectedInvoice.id ? updatedInv : inv));
+
     try {
       await InvoiceService.addPayment(selectedInvoice.id, selectedInvoice, {
         date: payDate || new Date().toISOString().split('T')[0],
@@ -759,34 +848,16 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = (props) => {
         notes: `${payRefNumber ? 'Ref: ' + payRefNumber + ' - ' : ''}${payNotes}`.trim(),
         recordedBy: 'Staff Kantor'
       });
-
-      // Update local selected state balance
-      const newPaid = (selectedInvoice.paidAmount || 0) + payAmount;
-      const newBalance = Math.max(0, selectedInvoice.totalAmount - newPaid);
-      const updatedInv: Invoice = {
-        ...selectedInvoice,
-        paidAmount: newPaid,
-        balanceDue: newBalance,
-        status: newBalance <= 0 ? 'PAID' : 'UNPAID',
-        paymentHistory: [
-          ...(selectedInvoice.paymentHistory || []),
-          {
-            id: `pay_${Date.now()}`,
-            date: payDate,
-            amount: payAmount,
-            method: payMethod,
-            notes: payRefNumber ? `Ref: ${payRefNumber} ${payNotes}` : payNotes
-          }
-        ]
-      };
-      setSelectedInvoice(updatedInv);
-      setPayAmount(newBalance);
+      invoiceCache.clear();
       const nextPayCount = (updatedInv.paymentHistory?.length || 0) + 1;
       setPayRefNumber(`KWT/${nextPayCount.toString().padStart(3, '0')}/VIII/${new Date().getFullYear()}`);
       setPayNotes('');
     } catch (err) {
       console.error('Error adding payment:', err);
-      alert('Gagal mencatat pembayaran.');
+      alert('Gagal mencatat pembayaran. Mengembalikan data...');
+      setSelectedInvoice(backupSelectedInvoice);
+      setPayAmount(backupSelectedInvoice.balanceDue);
+      setInvoices(backupInvoices);
     } finally {
       setIsSavingPayment(false);
     }
@@ -1147,15 +1218,9 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
     }).format(val || 0);
   };
 
-  // Filtered invoices for list view
-  const filteredInvoices = invoices
-    .filter(inv => {
-      const matchSearch = inv.invoiceNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          inv.clientName?.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchStatus = statusFilter === 'ALL' || inv.status === statusFilter;
-      return matchSearch && matchStatus;
-    })
-    .sort((a, b) => {
+  // Optimized fast sorting on current paginated list (maximum 10-50 rows, lightning fast)
+  const sortedInvoices = React.useMemo(() => {
+    return [...invoices].sort((a, b) => {
       if (sortField === 'date') {
         const dateA = a.issueDate || '';
         const dateB = b.issueDate || '';
@@ -1168,14 +1233,13 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
           : numB.localeCompare(numA, undefined, { numeric: true, sensitivity: 'base' });
       }
     });
+  }, [invoices, sortField, sortOrder]);
 
-  const totalItems = filteredInvoices.length;
-  const totalPages = Math.ceil(totalItems / pageSize) || 1;
+  const totalItems = totalInvoicesCount;
+  const totalPages = Math.ceil(totalItems / (pageSize === 'Semua' ? 500 : Number(pageSize))) || 1;
   const safeCurrentPage = Math.min(currentPage, totalPages);
-  const paginatedInvoices = filteredInvoices.slice(
-    (safeCurrentPage - 1) * pageSize,
-    safeCurrentPage * pageSize
-  );
+  const paginatedInvoices = sortedInvoices;
+  const filteredInvoices = sortedInvoices;
 
   const filteredClientOptions = React.useMemo(() => {
     if (!clientSearch) return localClients;
@@ -1565,7 +1629,8 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
                 ) : (
                   paginatedInvoices.map((inv, idx) => {
                     const isUnpaid = inv.status === 'UNPAID';
-                    const serialNumber = (safeCurrentPage - 1) * pageSize + idx + 1;
+                    const limitVal = typeof pageSize === 'string' ? totalItems : pageSize;
+                    const serialNumber = (safeCurrentPage - 1) * limitVal + idx + 1;
                     return (
                       <tr
                         key={inv.id}
@@ -1625,18 +1690,20 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
                 <select
                   value={pageSize}
                   onChange={(e) => {
-                    setPageSize(Number(e.target.value));
+                    const val = e.target.value === 'Semua' ? 'Semua' : Number(e.target.value);
+                    setPageSize(val);
                     setCurrentPage(1);
                   }}
                   className="px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
                 >
+                  <option value={10}>10</option>
                   <option value={20}>20</option>
                   <option value={30}>30</option>
                   <option value={40}>40</option>
                   <option value={50}>50</option>
-                  <option value={100}>100</option>
+                  <option value="Semua">Semua</option>
                 </select>
-                <span>baris. Menampilkan {Math.min(totalItems, (safeCurrentPage - 1) * pageSize + 1)}-{Math.min(totalItems, safeCurrentPage * pageSize)} dari {totalItems} invoice.</span>
+                <span>baris. Menampilkan {totalItems === 0 ? 0 : Math.min(totalItems, (safeCurrentPage - 1) * (typeof pageSize === 'string' ? totalItems : pageSize) + 1)}-{Math.min(totalItems, safeCurrentPage * (typeof pageSize === 'string' ? totalItems : pageSize))} dari {totalItems} invoice.</span>
               </div>
 
               <div className="flex items-center gap-1.5">

@@ -6,6 +6,9 @@ import { isRecordLocked, getLockDeadlineMessage, isSuperAdmin } from '../../util
 import { useAuth } from '../../hooks/useAuth';
 import { Plus, Search, Edit2, Trash2, Lock, RefreshCw, X, FileText, Check, AlertTriangle, ChevronDown, ChevronRight } from 'lucide-react';
 
+// Global memory cache for deeds to enable instant page transitions
+const deedCache = new Map<string, { records: Deed[]; total: number }>();
+
 const MONTH_NAMES = [
   'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
   'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
@@ -126,10 +129,15 @@ export const DeedBook: React.FC = () => {
   const currentMonthKey = `${currentYearNum}-${String(currentMonthNum).padStart(2, '0')}`;
 
   const [selectedYear, setSelectedYear] = useState<string>(currentYearNum.toString());
+  const [deeds, setDeeds] = useState<Deed[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [totalDeedsCount, setTotalDeedsCount] = useState<number>(0);
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number | string>(10);
+  const [searchTerm, setSearchTerm] = useState<string>('');
   const [monthCache, setMonthCache] = useState<Record<string, Deed[]>>({});
   const [loadingMonths, setLoadingMonths] = useState<Record<string, boolean>>({});
   const [openMonths, setOpenMonths] = useState<Record<string, boolean>>({ [currentMonthKey]: true });
-  const [searchTerm, setSearchTerm] = useState<string>('');
 
   // Form Panel State
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
@@ -150,15 +158,55 @@ export const DeedBook: React.FC = () => {
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [isOrdering, setIsOrdering] = useState<boolean>(false);
 
-  // Subscribe ONLY to the current month in real time
+  // Load deeds server-side with local memory cache fallback
   useEffect(() => {
-    setLoadingMonths((prev) => ({ ...prev, [currentMonthKey]: true }));
-    const unsubscribe = NotaryService.subscribeDeedsByMonth(currentYearNum, currentMonthNum, (data) => {
-      setMonthCache((prev) => ({ ...prev, [currentMonthKey]: data || [] }));
-      setLoadingMonths((prev) => ({ ...prev, [currentMonthKey]: false }));
-    });
-    return () => unsubscribe();
-  }, [currentYearNum, currentMonthNum, currentMonthKey]);
+    let active = true;
+    const cleanSearch = searchTerm.trim();
+    const cacheKey = `deeds:page=${currentPage}:size=${pageSize}:search=${cleanSearch}:year=${selectedYear}`;
+    
+    const cached = deedCache.get(cacheKey);
+    if (cached) {
+      setDeeds(cached.records);
+      setTotalDeedsCount(cached.total);
+      setLoading(false);
+    } else {
+      setLoading(true);
+    }
+
+    const loadData = async () => {
+      try {
+        const res = await NotaryService.getDeedsPaginated({
+          page: currentPage,
+          pageSize,
+          search: cleanSearch,
+          year: selectedYear
+        });
+        if (active && res.success) {
+          setDeeds(res.records);
+          setTotalDeedsCount(res.total);
+          deedCache.set(cacheKey, { records: res.records, total: res.total });
+        }
+      } catch (err) {
+        console.error('Failed to load paginated deeds:', err);
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+
+    const debounceTimer = setTimeout(() => {
+      loadData();
+    }, cleanSearch ? 350 : 0);
+
+    return () => {
+      active = false;
+      clearTimeout(debounceTimer);
+    };
+  }, [currentPage, pageSize, searchTerm, selectedYear]);
+
+  // Reset page to 1 when filters or search change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, selectedYear]);
 
   // Combine all loaded deeds from monthCache into a single list for helper calculations
   const allLoadedDeeds = useMemo(() => {
@@ -587,7 +635,7 @@ export const DeedBook: React.FC = () => {
     }
   };
 
-  // Delete Deed
+  // Delete Deed with Optimistic local state update and snapshot rollback
   const handleDelete = async (deed: Deed) => {
     if (!superAdmin) {
       alert('Hanya Super Admin yang dapat menghapus data akta.');
@@ -599,8 +647,16 @@ export const DeedBook: React.FC = () => {
     }
 
     if (confirm(`Apakah Anda yakin ingin menghapus akta No. ${deed.number} - "${deed.title}"?`)) {
+      const backupDeeds = [...deeds];
+      const backupTotal = totalDeedsCount;
+
+      // Optimistically update lists
+      setDeeds(prev => prev.filter(d => d.id !== deed.id));
+      setTotalDeedsCount(prev => Math.max(0, prev - 1));
+
       try {
         await NotaryService.deleteDeed(deed.id);
+        deedCache.clear();
 
         if (deed.date && deed.date.length >= 7) {
           const ymKey = deed.date.substring(0, 7);
@@ -614,7 +670,9 @@ export const DeedBook: React.FC = () => {
         }
       } catch (err) {
         console.error('Failed to delete deed:', err);
-        alert('Gagal menghapus data akta.');
+        alert('Gagal menghapus data akta. Mengembalikan data...');
+        setDeeds(backupDeeds);
+        setTotalDeedsCount(backupTotal);
       }
     }
   };
@@ -1130,204 +1188,169 @@ export const DeedBook: React.FC = () => {
             </div>
           </div>
 
-          {/* Deed Book List */}
-          {monthGroupsToDisplay.length === 0 ? (
+          {/* Deed Book List - Rendered as flat responsive paginated table */}
+          {loading ? (
+            <div className="bg-white p-12 text-center rounded-xl border border-slate-200">
+              <div className="flex flex-col items-center justify-center gap-3">
+                <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                <span className="text-xs text-slate-500 font-medium">Memuat data akta resmi...</span>
+              </div>
+            </div>
+          ) : deeds.length === 0 ? (
             <div className="bg-white p-12 text-center text-slate-400 rounded-xl border border-slate-200 italic">
               Tidak ada data akta ditemukan.
             </div>
           ) : (
-            <div className="space-y-6">
-              {monthGroupsToDisplay.map((group) => {
-                const groupKey = group.groupKey;
-                const isOpen = !!openMonths[groupKey];
-                const isLoading = !!loadingMonths[groupKey];
-                const rawDeeds = monthCache[groupKey] || [];
+            <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs border-collapse table-fixed min-w-[1000px]">
+                  <colgroup>
+                    <col className="w-[80px]" />
+                    <col className="w-[85px]" />
+                    <col className="w-[130px]" />
+                    <col className="w-[36%]" />
+                    <col className="w-[36%]" />
+                    <col className="w-[90px]" />
+                  </colgroup>
+                  <thead>
+                    <tr className="bg-slate-50 text-slate-700 font-semibold border-b border-slate-200 uppercase text-[11px]">
+                      <th className="p-3 text-center border-r border-slate-200">NO. URUT</th>
+                      <th className="p-3 text-center border-r border-slate-200">NO. AKTA</th>
+                      <th className="p-3 text-center border-r border-slate-200">TANGGAL</th>
+                      <th className="p-3 border-r border-slate-200">SIFAT / JUDUL AKTA</th>
+                      <th className="p-3 border-r border-slate-200">NAMA PENGHADAP / PARA PIHAK</th>
+                      <th className="p-3 text-center">AKSI</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200">
+                    {deeds.map((deed, idx) => {
+                      const locked = !superAdmin || isRecordLocked(deed.date, user?.email);
+                      const lockMsg = !superAdmin
+                        ? 'Hanya Super Admin yang dapat mengubah data'
+                        : (isRecordLocked(deed.date, user?.email) ? `Terkunci otomatis setelah ${getLockDeadlineMessage(deed.date)}` : '');
 
-                // Filter deeds in this month by search term
-                const filtered = rawDeeds.filter((deed) => {
-                  if (!searchTerm.trim()) return true;
-                  const query = searchTerm.toLowerCase();
-                  const matchNumber = deed.number?.toLowerCase().includes(query);
-                  const matchOrderNumber = deed.orderNumber?.toLowerCase().includes(query);
-                  const matchTitle = deed.title?.toLowerCase().includes(query);
-                  const matchCategory = deed.category?.toLowerCase().includes(query);
-                  const matchClient = deed.clientName?.toLowerCase().includes(query);
-                  const matchNotes = deed.notes?.toLowerCase().includes(query);
-                  const matchAppearers = deed.appearers?.some(
-                    (a) =>
-                      a.name?.toLowerCase().includes(query) ||
-                      a.position?.toLowerCase().includes(query) ||
-                      a.grantors?.some((g) => g.name?.toLowerCase().includes(query))
-                  );
-                  const matchGrantors = deed.grantors?.some((g) => g.name?.toLowerCase().includes(query));
+                      return (
+                        <tr key={deed.id} className="hover:bg-slate-50/80 transition-colors">
+                          <td className="p-3 text-center border-r border-slate-200 font-medium text-slate-600">
+                            {deed.orderNumber || idx + 1 + (currentPage - 1) * (typeof pageSize === 'string' ? deeds.length : pageSize)}
+                          </td>
+                          <td className="p-3 text-center border-r border-slate-200 font-bold text-slate-900">
+                            {deed.number}
+                          </td>
+                          <td className="p-3 text-center border-r border-slate-200 text-slate-600 whitespace-nowrap">
+                            {formatDateIndo(deed.date)}
+                          </td>
+                          <td className="p-3 border-r border-slate-200 font-medium text-slate-900 leading-snug break-words">
+                            {deed.title}
+                            {deed.category && (
+                              <span className="ml-2 inline-block px-1.5 py-0.5 text-[10px] bg-blue-50 text-blue-700 rounded border border-blue-200 font-normal">
+                                {deed.category}
+                              </span>
+                            )}
+                            {deed.clientName && (
+                              <div className="text-[11px] text-slate-500 font-normal mt-0.5">
+                                Klien: {deed.clientName}
+                              </div>
+                            )}
+                          </td>
+                          <td className="p-3 border-r border-slate-200 text-slate-800 leading-snug break-words">
+                            {deed.appearers && deed.appearers.length > 0 ? (
+                              <div className="space-y-1">
+                                {deed.appearers.map((app, i) => (
+                                  <div key={i} className="text-slate-900 font-medium">
+                                    • {app.name}
+                                    {app.position && <span className="text-slate-500 font-normal text-[11px]"> ({app.position})</span>}
+                                    {(app.role === 'Proxy' || app.role === 'Both') && app.grantors && app.grantors.length > 0 && (
+                                      <div className="ml-3 text-[11px] text-slate-600 font-normal italic">
+                                        {app.role === 'Both'
+                                          ? `Bertindak untuk diri sendiri dan selaku kuasa dari: ${app.grantors.map((g) => g.name).join(', ')}`
+                                          : `Selaku kuasa dari: ${app.grantors.map((g) => g.name).join(', ')}`}
+                                      </div>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <span className="text-slate-400 italic">-</span>
+                            )}
+                          </td>
+                          <td className="p-3 text-center">
+                            {locked ? (
+                              <div className="inline-flex items-center gap-1 text-slate-400 bg-slate-100 px-2 py-1 rounded text-[11px]" title={lockMsg}>
+                                <Lock size={12} className="text-amber-600" />
+                                <span>Terkunci</span>
+                              </div>
+                            ) : (
+                              <div className="flex items-center justify-center gap-1">
+                                <button
+                                  onClick={() => handleOpenModal(deed)}
+                                  className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition cursor-pointer"
+                                  title="Edit Akta"
+                                >
+                                  <Edit2 size={14} />
+                                </button>
+                                <button
+                                  onClick={() => handleDelete(deed)}
+                                  className="p-1.5 text-red-600 hover:bg-red-50 rounded transition cursor-pointer"
+                                  title="Hapus Akta"
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
 
-                  return matchNumber || matchOrderNumber || matchTitle || matchCategory || matchClient || matchNotes || matchAppearers || matchGrantors;
-                });
+              {/* Pagination Footer */}
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 border-t border-slate-200 bg-slate-50/50">
+                <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                  <span>Tampilkan</span>
+                  <select
+                    value={pageSize}
+                    onChange={(e) => {
+                      const val = e.target.value === 'Semua' ? 'Semua' : Number(e.target.value);
+                      setPageSize(val);
+                      setCurrentPage(1);
+                    }}
+                    className="px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs font-semibold focus:outline-none cursor-pointer"
+                  >
+                    <option value={10}>10</option>
+                    <option value={20}>20</option>
+                    <option value={30}>30</option>
+                    <option value={40}>40</option>
+                    <option value={50}>50</option>
+                    <option value="Semua">Semua</option>
+                  </select>
+                  <span>baris. Menampilkan {deeds.length === 0 ? 0 : Math.min(totalDeedsCount, (currentPage - 1) * (typeof pageSize === 'string' ? totalDeedsCount : pageSize) + 1)}-{Math.min(totalDeedsCount, currentPage * (typeof pageSize === 'string' ? totalDeedsCount : pageSize))} dari {totalDeedsCount} akta.</span>
+                </div>
 
-                // Sort deeds in this month
-                const deedsInMonth = [...filtered].sort((a, b) => {
-                  if (a.date !== b.date) return b.date.localeCompare(a.date);
-                  const ordA = parseInt(a.orderNumber || '0', 10);
-                  const ordB = parseInt(b.orderNumber || '0', 10);
-                  if (!isNaN(ordA) && !isNaN(ordB) && ordA !== ordB) {
-                    return ordB - ordA;
-                  }
-                  const numA = parseInt(a.number, 10) || 0;
-                  const numB = parseInt(b.number, 10) || 0;
-                  return numB - numA;
-                });
-
-                return (
-                  <div key={groupKey} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                    {/* Month Group Header */}
-                    <div
-                      onClick={() => handleToggleMonth(groupKey)}
-                      className="bg-slate-800 text-white px-5 py-3 flex items-center justify-between cursor-pointer hover:bg-slate-700 select-none transition-colors"
+                {totalDeedsCount > 0 && (
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                      disabled={currentPage === 1}
+                      className="p-2 border border-slate-200 rounded-xl bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-white disabled:cursor-not-allowed transition-all cursor-pointer"
                     >
-                      <div className="flex items-center gap-2.5">
-                        {isOpen ? (
-                          <ChevronDown size={18} className="text-slate-300" />
-                        ) : (
-                          <ChevronRight size={18} className="text-slate-300" />
-                        )}
-                        <span className="font-bold text-sm tracking-wide uppercase">
-                          {group.monthName} {group.year}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {groupKey in monthCache ? (
-                          <span className="text-xs bg-slate-700/80 px-2.5 py-1 rounded-full text-slate-200 font-medium">
-                            {deedsInMonth.length} Akta
-                          </span>
-                        ) : (
-                          <span className="text-xs bg-slate-700/40 px-2.5 py-1 rounded-full text-slate-400 font-normal italic">
-                            Klik untuk muat
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Content Body when Open */}
-                    {isOpen && (
-                      <div>
-                        {isLoading ? (
-                          <div className="p-8 text-center text-slate-400 text-xs italic">
-                            Memuat data akta {group.monthName} {group.year}...
-                          </div>
-                        ) : deedsInMonth.length === 0 ? (
-                          <div className="p-8 text-center text-slate-400 text-xs italic">
-                            Belum ada data akta di bulan ini.
-                          </div>
-                        ) : (
-                          <div className="overflow-x-auto">
-                            <table className="w-full text-left text-xs border-collapse table-fixed min-w-[1000px]">
-                              <colgroup>
-                                <col className="w-[80px]" />
-                                <col className="w-[85px]" />
-                                <col className="w-[130px]" />
-                                <col className="w-[36%]" />
-                                <col className="w-[36%]" />
-                                <col className="w-[90px]" />
-                              </colgroup>
-                              <thead>
-                                <tr className="bg-slate-50 text-slate-700 font-semibold border-b border-slate-200 uppercase text-[11px]">
-                                  <th className="p-3 text-center border-r border-slate-200">NO. URUT</th>
-                                  <th className="p-3 text-center border-r border-slate-200">NO. AKTA</th>
-                                  <th className="p-3 text-center border-r border-slate-200">TANGGAL</th>
-                                  <th className="p-3 border-r border-slate-200">SIFAT / JUDUL AKTA</th>
-                                  <th className="p-3 border-r border-slate-200">NAMA PENGHADAP / PARA PIHAK</th>
-                                  <th className="p-3 text-center">AKSI</th>
-                                </tr>
-                              </thead>
-                              <tbody className="divide-y divide-slate-200">
-                                {deedsInMonth.map((deed, idx) => {
-                                  const locked = !superAdmin || isRecordLocked(deed.date, user?.email);
-                                  const lockMsg = !superAdmin
-                                    ? 'Hanya Super Admin yang dapat mengubah data'
-                                    : (isRecordLocked(deed.date, user?.email) ? `Terkunci otomatis setelah ${getLockDeadlineMessage(deed.date)}` : '');
-
-                                  return (
-                                    <tr key={deed.id} className="hover:bg-slate-50/80 transition-colors">
-                                      <td className="p-3 text-center border-r border-slate-200 font-medium text-slate-600">
-                                        {deed.orderNumber || idx + 1}
-                                      </td>
-                                      <td className="p-3 text-center border-r border-slate-200 font-bold text-slate-900">
-                                        {deed.number}
-                                      </td>
-                                      <td className="p-3 text-center border-r border-slate-200 text-slate-600 whitespace-nowrap">
-                                        {formatDateIndo(deed.date)}
-                                      </td>
-                                      <td className="p-3 border-r border-slate-200 font-medium text-slate-900 leading-snug break-words">
-                                        {deed.title}
-                                        {deed.category && (
-                                          <span className="ml-2 inline-block px-1.5 py-0.5 text-[10px] bg-blue-50 text-blue-700 rounded border border-blue-200 font-normal">
-                                            {deed.category}
-                                          </span>
-                                        )}
-                                        {deed.clientName && (
-                                          <div className="text-[11px] text-slate-500 font-normal mt-0.5">
-                                            Klien: {deed.clientName}
-                                          </div>
-                                        )}
-                                      </td>
-                                      <td className="p-3 border-r border-slate-200 text-slate-800 leading-snug break-words">
-                                        {deed.appearers && deed.appearers.length > 0 ? (
-                                          <div className="space-y-1">
-                                            {deed.appearers.map((app, i) => (
-                                              <div key={i} className="text-slate-900 font-medium">
-                                                • {app.name}
-                                                {app.position && <span className="text-slate-500 font-normal text-[11px]"> ({app.position})</span>}
-                                                {(app.role === 'Proxy' || app.role === 'Both') && app.grantors && app.grantors.length > 0 && (
-                                                  <div className="ml-3 text-[11px] text-slate-600 font-normal italic">
-                                                    {app.role === 'Both'
-                                                      ? `Bertindak untuk diri sendiri dan selaku kuasa dari: ${app.grantors.map((g) => g.name).join(', ')}`
-                                                      : `Selaku kuasa dari: ${app.grantors.map((g) => g.name).join(', ')}`}
-                                                  </div>
-                                                )}
-                                              </div>
-                                            ))}
-                                          </div>
-                                        ) : (
-                                          <span className="text-slate-400 italic">-</span>
-                                        )}
-                                      </td>
-                                      <td className="p-3 text-center">
-                                        {locked ? (
-                                          <div className="inline-flex items-center gap-1 text-slate-400 bg-slate-100 px-2 py-1 rounded text-[11px]" title={lockMsg}>
-                                            <Lock size={12} className="text-amber-600" />
-                                            <span>Terkunci</span>
-                                          </div>
-                                        ) : (
-                                          <div className="flex items-center justify-center gap-1">
-                                            <button
-                                              onClick={() => handleOpenModal(deed)}
-                                              className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition cursor-pointer"
-                                              title="Edit Akta"
-                                            >
-                                              <Edit2 size={14} />
-                                            </button>
-                                            <button
-                                              onClick={() => handleDelete(deed)}
-                                              className="p-1.5 text-red-600 hover:bg-red-50 rounded transition cursor-pointer"
-                                              title="Hapus Akta"
-                                            >
-                                              <Trash2 size={14} />
-                                            </button>
-                                          </div>
-                                        )}
-                                      </td>
-                                    </tr>
-                                  );
-                                })}
-                              </tbody>
-                            </table>
-                          </div>
-                        )}
-                      </div>
-                    )}
+                      Sebelumnya
+                    </button>
+                    <span className="text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-lg px-3 py-1.5">
+                      Halaman {currentPage} dari {Math.ceil(totalDeedsCount / (typeof pageSize === 'string' ? 500 : pageSize)) || 1}
+                    </span>
+                    <button
+                      onClick={() => setCurrentPage(prev => Math.min(Math.ceil(totalDeedsCount / (typeof pageSize === 'string' ? 500 : pageSize)) || 1, prev + 1))}
+                      disabled={currentPage >= (Math.ceil(totalDeedsCount / (typeof pageSize === 'string' ? 500 : pageSize)) || 1)}
+                      className="p-2 border border-slate-200 rounded-xl bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-white disabled:cursor-not-allowed transition-all cursor-pointer"
+                    >
+                      Berikutnya
+                    </button>
                   </div>
-                );
-              })}
+                )}
+              </div>
             </div>
           )}
         </>
