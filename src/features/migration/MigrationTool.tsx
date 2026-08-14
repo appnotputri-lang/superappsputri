@@ -6,8 +6,6 @@ import { collection, getDocs, doc, writeBatch } from 'firebase/firestore';
 import { generateShortPublicToken } from '../../services/QuotationService';
 import { CompanyService } from '../../services/CompanyService';
 import { getApiUrl, getAuthHeaders } from '../../lib/api';
-import { HISTORICAL_KBLI_MAPPINGS, HISTORICAL_KBLI_SUGGESTIONS } from '../../data/kbliHistoricalRecords';
-import { HISTORICAL_GENERAL_DOCUMENTS } from '../../data/generalDocumentsHistorical';
 
 export default function MigrationTool() {
   const [logs, setLogs] = useState<string[]>([]);
@@ -48,15 +46,15 @@ export default function MigrationTool() {
       const invCount = importFiles.invoices?.length || 0;
       const quoCount = importFiles.quotations?.length || 0;
       const prodCount = importFiles.products?.length || 0;
-      const kbliMapCount = importFiles.kbliMappings?.length || HISTORICAL_KBLI_MAPPINGS.length;
-      const kbliSuggCount = importFiles.kbliSuggestions?.length || HISTORICAL_KBLI_SUGGESTIONS.length;
+      const kbliMapCount = importFiles.kbliMappings?.length || 0;
+      const kbliSuggCount = importFiles.kbliSuggestions?.length || 0;
 
       const deedCount = importFiles.deeds?.length || 0;
       const pdeedCount = importFiles.private_deeds?.length || 0;
       const inmailCount = importFiles.incoming_mails?.length || 0;
       const outmailCount = importFiles.outgoing_mails?.length || 0;
       const chequeCount = importFiles.protest_cheques?.length || 0;
-      const docCount = importFiles.documents?.length || HISTORICAL_GENERAL_DOCUMENTS.length;
+      const docCount = importFiles.documents?.length || 0;
 
       addLog(`Mengirim payload ke API: ${deedCount} Akta (deeds), ${pdeedCount} Akta Bawah Tangan (private_deeds), ${inmailCount} Surat Masuk, ${outmailCount} Surat Keluar, ${chequeCount} Protest Cheques, ${docCount} Dokumen Umum, ${invCount} invoices, ${quoCount} quotations, ${prodCount} products, ${kbliMapCount} KBLI mappings, ${kbliSuggCount} KBLI suggestions...`);
       
@@ -73,12 +71,12 @@ export default function MigrationTool() {
           incoming_mails: importFiles.incoming_mails || [],
           outgoing_mails: importFiles.outgoing_mails || [],
           protest_cheques: importFiles.protest_cheques || [],
-          general_documents: importFiles.documents || HISTORICAL_GENERAL_DOCUMENTS,
+          general_documents: importFiles.documents || [],
           invoices: importFiles.invoices || [],
           quotations: importFiles.quotations || [],
           products: importFiles.products || [],
-          kbliMappings: importFiles.kbliMappings || HISTORICAL_KBLI_MAPPINGS,
-          kbliSuggestions: importFiles.kbliSuggestions || HISTORICAL_KBLI_SUGGESTIONS
+          kbliMappings: importFiles.kbliMappings || [],
+          kbliSuggestions: importFiles.kbliSuggestions || []
         })
       });
 
