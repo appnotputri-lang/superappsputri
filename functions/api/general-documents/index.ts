@@ -13,8 +13,18 @@ export const onRequestGet = async (context: any) => {
 
   try {
     const url = new URL(request.url);
-    const limit = url.searchParams.get('limit') ? parseInt(url.searchParams.get('limit')!, 10) : undefined;
-    const offset = url.searchParams.get('offset') ? parseInt(url.searchParams.get('offset')!, 10) : undefined;
+    const limitParam = url.searchParams.get('limit');
+    let limit: number | undefined = undefined;
+    if (limitParam !== null && limitParam !== undefined) {
+      const lower = limitParam.toLowerCase();
+      if (lower === 'all' || lower === '-1' || lower === '0' || lower === 'semua') {
+        limit = -1;
+      } else {
+        const parsed = parseInt(limitParam, 10);
+        limit = isNaN(parsed) ? 10 : parsed;
+      }
+    }
+    const offset = url.searchParams.get('offset') ? parseInt(url.searchParams.get('offset')!, 10) : 0;
     const search = url.searchParams.get('search') || url.searchParams.get('q') || undefined;
     const type = url.searchParams.get('type') || url.searchParams.get('docType') || undefined;
     const sortBy = url.searchParams.get('sortBy') || undefined;

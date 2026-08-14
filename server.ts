@@ -350,8 +350,18 @@ async function startServer() {
   app.get("/api/general-documents", async (req, res) => {
     try {
       const db = getLocalD1Database();
-      const limit = req.query.limit ? parseInt(String(req.query.limit), 10) : undefined;
-      const offset = req.query.offset ? parseInt(String(req.query.offset), 10) : undefined;
+      const limitParam = req.query.limit !== undefined ? String(req.query.limit) : undefined;
+      let limit: number | undefined = undefined;
+      if (limitParam !== undefined) {
+        const lower = limitParam.toLowerCase();
+        if (lower === 'all' || lower === '-1' || lower === '0' || lower === 'semua') {
+          limit = -1;
+        } else {
+          const parsed = parseInt(limitParam, 10);
+          limit = isNaN(parsed) ? 10 : parsed;
+        }
+      }
+      const offset = req.query.offset ? parseInt(String(req.query.offset), 10) : 0;
       const search = (req.query.search || req.query.q) ? String(req.query.search || req.query.q) : undefined;
       const type = (req.query.type || req.query.docType) ? String(req.query.type || req.query.docType) : undefined;
       const sortBy = req.query.sortBy ? String(req.query.sortBy) : undefined;

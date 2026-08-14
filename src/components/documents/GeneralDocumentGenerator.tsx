@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { PageHeader } from "../ui/PageLayout";
 import { 
   Package, FileCheck, Plus, Search, Filter, Calendar, User, 
@@ -60,23 +60,33 @@ export const GeneralDocumentGenerator: React.FC<GeneralDocumentGeneratorProps> =
 
   // State
   const [documents, setDocuments] = useState<GeneralDocumentData[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [viewMode, setViewMode] = useState<'list' | 'detail' | 'form'>('list');
   const [selectedDoc, setSelectedDoc] = useState<GeneralDocumentData | null>(null);
 
   // Sorting State
-  const [sortField, setSortField] = useState<'date' | 'referenceNo'>('referenceNo');
+  const [sortField, setSortField] = useState<'date' | 'referenceNo'>('date');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
-  // Pagination State
+  // Pagination State - default 10 per page
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(20);
+  const [pageSize, setPageSize] = useState<number | 'all'>(10);
 
-  // Reset pagination when search query changes
+  // Debounce search input (300ms)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Reset pagination when search query or pageSize or docType changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery]);
+  }, [debouncedSearch, pageSize, docType]);
 
   const handleSort = (field: 'date' | 'referenceNo') => {
     if (sortField === field) {
@@ -85,6 +95,7 @@ export const GeneralDocumentGenerator: React.FC<GeneralDocumentGeneratorProps> =
       setSortField(field);
       setSortOrder('desc');
     }
+    setCurrentPage(1);
   };
 
   // Form States
@@ -124,22 +135,47 @@ export const GeneralDocumentGenerator: React.FC<GeneralDocumentGeneratorProps> =
   const [selectedWaGroupId, setSelectedWaGroupId] = useState('');
   const [isLoadingWaGroups, setIsLoadingWaGroups] = useState(false);
 
-  // Load Documents from Firestore
-  useEffect(() => {
+  // Load Documents from Cloudflare D1 with Server-Side Pagination
+  const fetchDocuments = useCallback(async () => {
     setLoading(true);
-    const unsub = GeneralDocumentService.subscribeGeneralDocuments((data) => {
-      // Filter for this docType
-      const filtered = data.filter(d => d.docType === docType);
-      setDocuments(filtered);
-      
+    try {
+      const limitVal = pageSize === 'all' ? -1 : pageSize;
+      const offsetVal = pageSize === 'all' ? 0 : (currentPage - 1) * (pageSize as number);
+
+      const res = await GeneralDocumentService.getDocuments({
+        type: docType,
+        search: debouncedSearch,
+        limit: limitVal,
+        offset: offsetVal,
+        sortBy: sortField,
+        order: sortOrder,
+      });
+
+      setDocuments(res.records);
+      setTotalCount(res.total);
+
       if (selectedDoc) {
-        const updated = filtered.find(d => d.id === selectedDoc.id);
+        const updated = res.records.find(d => d.id === selectedDoc.id);
         if (updated) setSelectedDoc(updated);
       }
+    } catch (err) {
+      console.error('[GeneralDocumentGenerator] Failed to fetch documents:', err);
+    } finally {
       setLoading(false);
+    }
+  }, [docType, debouncedSearch, pageSize, currentPage, sortField, sortOrder, selectedDoc?.id]);
+
+  useEffect(() => {
+    fetchDocuments();
+  }, [fetchDocuments]);
+
+  // Re-fetch when mutations occur
+  useEffect(() => {
+    const unsub = GeneralDocumentService.addChangeListener(() => {
+      fetchDocuments();
     });
     return () => unsub();
-  }, [docType, selectedDoc?.id]);
+  }, [fetchDocuments]);
 
   // Cache Ref and D1 Fetch helper
   const localD1CacheRef = useRef<Record<string, ClientOption[]>>({});
@@ -226,7 +262,7 @@ export const GeneralDocumentGenerator: React.FC<GeneralDocumentGeneratorProps> =
 
   // Helper to generate reference number (3 digits only)
   const generateAutoRefNo = () => {
-    const count = documents.length + 1;
+    const count = (totalCount || 0) + 1;
     return String(count).padStart(3, '0');
   };
 
@@ -494,41 +530,11 @@ export const GeneralDocumentGenerator: React.FC<GeneralDocumentGeneratorProps> =
     }
   };
 
-  // Filtered and sorted documents for list view
-  const filteredDocs = documents
-    .filter(docData => {
-      const q = searchQuery.toLowerCase().trim();
-      if (!q) return true;
-      return (
-        (docData.referenceNo || '').toLowerCase().includes(q) ||
-        (docData.clientName || '').toLowerCase().includes(q) ||
-        (docData.clientPic || '').toLowerCase().includes(q) ||
-        (docData.officerName || '').toLowerCase().includes(q) ||
-        (docData.deliveryMethod || '').toLowerCase().includes(q) ||
-        (docData.items || []).some(it => (it.description || '').toLowerCase().includes(q))
-      );
-    })
-    .sort((a, b) => {
-      if (sortField === 'date') {
-        const dateA = a.date || '';
-        const dateB = b.date || '';
-        return sortOrder === 'asc' ? dateA.localeCompare(dateB) : dateB.localeCompare(dateA);
-      } else {
-        const numA = a.referenceNo || '';
-        const numB = b.referenceNo || '';
-        return sortOrder === 'asc'
-          ? numA.localeCompare(numB, undefined, { numeric: true, sensitivity: 'base' })
-          : numB.localeCompare(numA, undefined, { numeric: true, sensitivity: 'base' });
-      }
-    });
-
-  const totalItems = filteredDocs.length;
-  const totalPages = Math.ceil(totalItems / pageSize) || 1;
+  const totalPages = pageSize === 'all' ? 1 : Math.max(1, Math.ceil(totalCount / (pageSize as number)));
   const safeCurrentPage = Math.min(currentPage, totalPages);
-  const paginatedDocs = filteredDocs.slice(
-    (safeCurrentPage - 1) * pageSize,
-    safeCurrentPage * pageSize
-  );
+
+  const startItem = totalCount === 0 ? 0 : (pageSize === 'all' ? 1 : (safeCurrentPage - 1) * (pageSize as number) + 1);
+  const endItem = pageSize === 'all' ? totalCount : Math.min(totalCount, safeCurrentPage * (pageSize as number));
 
   // Client dropdown items
   const filteredClientsDropdown = localClients;
@@ -584,24 +590,32 @@ export const GeneralDocumentGenerator: React.FC<GeneralDocumentGeneratorProps> =
               </div>
 
               <div className="text-xs font-semibold text-slate-500 whitespace-nowrap px-2">
-                Menampilkan <span className="text-slate-900 font-bold">{filteredDocs.length}</span> dari {documents.length} {config.title.toLowerCase()}
+                Menampilkan <span className="text-slate-900 font-bold">{totalCount > 0 ? `${startItem}–${endItem}` : '0'}</span> dari <span className="text-slate-900 font-bold">{totalCount}</span> {debouncedSearch.trim() ? 'hasil' : config.title.toLowerCase()}
               </div>
             </div>
 
             {/* TABLE LIST */}
-            {loading ? (
-              <div className="bg-white rounded-2xl border border-slate-200/80 p-12 text-center text-slate-400">
-                <RefreshCw size={24} className="animate-spin mx-auto mb-2 text-blue-500" />
-                <p className="text-xs font-medium">Memuat data {config.title.toLowerCase()}...</p>
+            {loading && documents.length === 0 ? (
+              <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden p-6">
+                <div className="space-y-3">
+                  <div className="h-8 bg-slate-100 rounded-lg animate-pulse w-full"></div>
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <div key={i} className="h-12 bg-slate-50 rounded-lg animate-pulse w-full"></div>
+                  ))}
+                </div>
+                <div className="text-center text-slate-400 mt-4 flex items-center justify-center gap-2 text-xs">
+                  <RefreshCw size={14} className="animate-spin text-blue-500" />
+                  <span>Memuat data {config.title.toLowerCase()}...</span>
+                </div>
               </div>
-            ) : filteredDocs.length === 0 ? (
+            ) : totalCount === 0 ? (
               <div className="bg-white rounded-2xl border border-slate-200/80 p-12 text-center">
                 <config.badgeIcon size={40} className="mx-auto text-slate-300 mb-3" />
                 <h3 className="text-base font-bold text-slate-800">Belum Ada {config.title}</h3>
                 <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
-                  {searchQuery ? 'Tidak ada data yang cocok dengan pencarian Anda.' : `Klik tombol "Buat ${config.title} Baru" untuk membuat dokumen pertama.`}
+                  {debouncedSearch ? 'Tidak ada data yang cocok dengan pencarian Anda.' : `Klik tombol "Buat ${config.title} Baru" untuk membuat dokumen pertama.`}
                 </p>
-                {!searchQuery && (
+                {!debouncedSearch && (
                   <button
                     onClick={handleOpenCreateForm}
                     className={`mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold shadow-xs cursor-pointer ${config.primaryBtnColor}`}
@@ -612,7 +626,15 @@ export const GeneralDocumentGenerator: React.FC<GeneralDocumentGeneratorProps> =
                 )}
               </div>
             ) : (
-              <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+              <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden relative">
+                {loading && (
+                  <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] z-10 flex items-center justify-center">
+                    <div className="bg-white px-4 py-2 rounded-xl shadow-lg border border-slate-200 flex items-center gap-2 text-xs font-semibold text-slate-700">
+                      <RefreshCw size={14} className="animate-spin text-blue-600" />
+                      <span>Memuat...</span>
+                    </div>
+                  </div>
+                )}
                 <div className="overflow-x-auto">
                   <table className="min-w-[1000px] w-full text-left text-xs border-collapse">
                     <thead>
@@ -652,8 +674,8 @@ export const GeneralDocumentGenerator: React.FC<GeneralDocumentGeneratorProps> =
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
-                      {paginatedDocs.map((docData, idx) => {
-                        const serialNumber = (safeCurrentPage - 1) * pageSize + idx + 1;
+                      {documents.map((docData, idx) => {
+                        const serialNumber = pageSize === 'all' ? idx + 1 : (safeCurrentPage - 1) * (pageSize as number) + idx + 1;
                         return (
                           <tr
                             key={docData.id}
@@ -731,70 +753,102 @@ export const GeneralDocumentGenerator: React.FC<GeneralDocumentGeneratorProps> =
                 </div>
 
                 {/* Pagination Footer */}
-                {totalItems > 0 && (
+                {totalCount > 0 && (
                   <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 border-t border-slate-200 bg-slate-50/50">
-                    <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
-                      <span>Tampilkan</span>
+                    <div className="flex flex-wrap items-center gap-2.5 text-xs text-slate-600 font-medium">
+                      <span className="font-semibold text-slate-700">Baris per halaman:</span>
                       <select
                         value={pageSize}
                         onChange={(e) => {
-                          setPageSize(Number(e.target.value));
+                          const val = e.target.value === 'all' ? 'all' : Number(e.target.value);
+                          setPageSize(val);
                           setCurrentPage(1);
                         }}
-                        className="px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
+                        className="px-2.5 py-1 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer shadow-xs"
                       >
+                        <option value={10}>10</option>
                         <option value={20}>20</option>
                         <option value={30}>30</option>
                         <option value={40}>40</option>
                         <option value={50}>50</option>
-                        <option value={100}>100</option>
+                        <option value="all">Semua</option>
                       </select>
-                      <span>baris. Menampilkan {Math.min(totalItems, (safeCurrentPage - 1) * pageSize + 1)}-{Math.min(totalItems, safeCurrentPage * pageSize)} dari {totalItems} {config.title.toLowerCase()}.</span>
+                      <span className="text-slate-500">
+                        Menampilkan <span className="font-bold text-slate-900">{totalCount > 0 ? `${startItem}–${endItem}` : '0'}</span> dari <span className="font-bold text-slate-900">{totalCount}</span> {debouncedSearch.trim() ? 'hasil' : config.title.toLowerCase()}
+                      </span>
                     </div>
 
                     <div className="flex items-center gap-1.5">
                       <button
                         onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                        disabled={safeCurrentPage === 1}
-                        className="p-2 border border-slate-200 rounded-xl bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-white disabled:cursor-not-allowed transition-all cursor-pointer"
+                        disabled={safeCurrentPage <= 1 || pageSize === 'all' || loading}
+                        className="flex items-center gap-1 px-3 py-1.5 border border-slate-200 rounded-xl bg-white text-slate-700 font-semibold hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-white disabled:cursor-not-allowed transition-all cursor-pointer shadow-xs text-xs"
                         title="Halaman Sebelumnya"
                       >
-                        <ChevronLeft size={14} />
+                        <span>← Sebelumnya</span>
                       </button>
 
                       <div className="flex items-center gap-1">
-                        {Array.from({ length: totalPages }, (_, i) => i + 1)
-                          .filter(page => {
-                            return page === 1 || page === totalPages || Math.abs(page - safeCurrentPage) <= 1;
-                          })
-                          .map((page, idx, arr) => {
-                            const prevPage = arr[idx - 1];
-                            const showEllipsis = prevPage && page - prevPage > 1;
-                            return (
-                              <React.Fragment key={page}>
-                                {showEllipsis && <span className="px-2 text-slate-400">...</span>}
+                        {totalPages <= 7 ? (
+                          Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                            <button
+                              key={page}
+                              onClick={() => setCurrentPage(page)}
+                              disabled={loading || pageSize === 'all'}
+                              className={`min-w-[32px] h-8 px-2 flex items-center justify-center rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                                safeCurrentPage === page && pageSize !== 'all'
+                                  ? 'bg-blue-600 text-white shadow-sm'
+                                  : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 shadow-xs'
+                              }`}
+                            >
+                              {page}
+                            </button>
+                          ))
+                        ) : (
+                          (() => {
+                            const pages: (number | string)[] = [];
+                            if (safeCurrentPage <= 4) {
+                              pages.push(1, 2, 3, 4, 5, '...', totalPages);
+                            } else if (safeCurrentPage >= totalPages - 3) {
+                              pages.push(1, '...', totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
+                            } else {
+                              pages.push(1, '...', safeCurrentPage - 1, safeCurrentPage, safeCurrentPage + 1, '...', totalPages);
+                            }
+                            return pages.map((page, idx) => {
+                              if (page === '...') {
+                                return (
+                                  <span key={`ellipsis-${idx}`} className="px-1 text-slate-400 font-semibold select-none">
+                                    ...
+                                  </span>
+                                );
+                              }
+                              const pageNum = Number(page);
+                              return (
                                 <button
-                                  onClick={() => setCurrentPage(page)}
-                                  className={`w-8 h-8 flex items-center justify-center rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-                                    safeCurrentPage === page
-                                      ? 'bg-blue-600 text-white shadow-md'
-                                      : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+                                  key={pageNum}
+                                  onClick={() => setCurrentPage(pageNum)}
+                                  disabled={loading}
+                                  className={`min-w-[32px] h-8 px-2 flex items-center justify-center rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                                    safeCurrentPage === pageNum
+                                      ? 'bg-blue-600 text-white shadow-sm'
+                                      : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 shadow-xs'
                                   }`}
                                 >
-                                  {page}
+                                  {pageNum}
                                 </button>
-                              </React.Fragment>
-                            );
-                          })}
+                              );
+                            });
+                          })()
+                        )}
                       </div>
 
                       <button
                         onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                        disabled={safeCurrentPage === totalPages}
-                        className="p-2 border border-slate-200 rounded-xl bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-white disabled:cursor-not-allowed transition-all cursor-pointer"
-                        title="Halaman Selanjutnya"
+                        disabled={safeCurrentPage >= totalPages || pageSize === 'all' || loading}
+                        className="flex items-center gap-1 px-3 py-1.5 border border-slate-200 rounded-xl bg-white text-slate-700 font-semibold hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-white disabled:cursor-not-allowed transition-all cursor-pointer shadow-xs text-xs"
+                        title="Halaman Berikutnya"
                       >
-                        <ChevronRight size={14} />
+                        <span>Berikutnya →</span>
                       </button>
                     </div>
                   </div>

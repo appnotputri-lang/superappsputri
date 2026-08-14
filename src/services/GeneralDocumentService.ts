@@ -21,6 +21,57 @@ function generateShortPublicToken(length = 10): string {
 
 export class GeneralDocumentService {
   /**
+   * Fetch documents with server-side pagination, search, and type filtering from D1.
+   */
+  static async getDocuments(options: {
+    type?: GeneralDocType;
+    search?: string;
+    limit?: number | 'all';
+    offset?: number;
+    sortBy?: string;
+    order?: 'asc' | 'desc';
+  } = {}): Promise<{ records: GeneralDocumentData[]; total: number; limit: number; offset: number }> {
+    try {
+      const queryParams = new URLSearchParams();
+      if (options.type) queryParams.set('type', options.type);
+      if (options.search) queryParams.set('search', options.search.trim());
+      if (options.limit !== undefined) {
+        queryParams.set('limit', String(options.limit));
+      }
+      if (options.offset !== undefined) {
+        queryParams.set('offset', String(options.offset));
+      }
+      if (options.sortBy) queryParams.set('sortBy', options.sortBy);
+      if (options.order) queryParams.set('order', options.order);
+
+      const res = await fetch(`/api/general-documents?${queryParams.toString()}`);
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}: Gagal mengambil data dokumen.`);
+      }
+      const json = await res.json();
+      return {
+        records: json.records || (Array.isArray(json) ? json : (json.data || [])),
+        total: typeof json.total === 'number' ? json.total : (json.records?.length || 0),
+        limit: typeof json.limit === 'number' ? json.limit : (options.limit === 'all' ? -1 : (options.limit || 10)),
+        offset: typeof json.offset === 'number' ? json.offset : (options.offset || 0),
+      };
+    } catch (error) {
+      console.error('[GeneralDocumentService] Error fetching documents with pagination:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Listen for local/mutational updates
+   */
+  static addChangeListener(fn: () => void): () => void {
+    listeners.add(fn);
+    return () => {
+      listeners.delete(fn);
+    };
+  }
+
+  /**
    * Subscribe to general documents updates from D1.
    */
   static subscribeGeneralDocuments(
@@ -30,7 +81,7 @@ export class GeneralDocumentService {
     let active = true;
     const fetcher = async () => {
       try {
-        const queryParams = new URLSearchParams({ limit: '1000' });
+        const queryParams = new URLSearchParams({ limit: '10' });
         if (type) {
           queryParams.set('type', type);
         }

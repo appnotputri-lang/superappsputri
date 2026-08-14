@@ -63,7 +63,8 @@ export async function getAllGeneralDocumentsD1(
 ): Promise<{ records: GeneralDocumentData[]; total: number; limit: number; offset: number }> {
   await ensureD1TablesExist(db);
 
-  let limit = options.limit ? Math.min(Math.max(1, options.limit), 1000) : 50;
+  const isAll = options.limit === -1 || options.limit === 0 || (options.limit !== undefined && options.limit >= 10000);
+  let limit = isAll ? 10000 : (options.limit !== undefined && options.limit > 0 ? Math.min(options.limit, 1000) : 10);
   let offset = options.offset ? Math.max(0, options.offset) : 0;
   let docType = options.type ? options.type.toUpperCase() : undefined;
   let search = options.search ? options.search.trim() : undefined;
@@ -79,9 +80,9 @@ export async function getAllGeneralDocumentsD1(
   }
 
   if (search) {
-    whereConditions.push("(reference_no LIKE ? OR client_name LIKE ? OR officer_name LIKE ? OR notes LIKE ?)");
+    whereConditions.push("(reference_no LIKE ? OR client_name LIKE ? OR client_pic LIKE ? OR officer_name LIKE ? OR delivery_method LIKE ? OR notes LIKE ? OR items LIKE ? OR raw_data LIKE ?)");
     const pattern = `%${search}%`;
-    params.push(pattern, pattern, pattern, pattern);
+    params.push(pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern);
   }
 
   const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(" AND ")}` : "";
@@ -104,7 +105,7 @@ export async function getAllGeneralDocumentsD1(
   return {
     records,
     total,
-    limit,
+    limit: isAll ? total : limit,
     offset,
   };
 }
