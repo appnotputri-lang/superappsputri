@@ -231,19 +231,21 @@ export async function getAllInvoicesD1(db: any, params: {
     countSql += whereClause;
   }
 
-  // Get total count first
-  let total = 0;
-  try {
-    const countRes = await db.prepare(countSql).bind(...queryParams).first();
-    total = countRes?.total || 0;
-  } catch (err) {
-    console.warn('[d1InvoiceRepository] Error counting invoices:', err);
-  }
-
   sql += ` ORDER BY created_at DESC, updated_at DESC LIMIT ? OFFSET ?`;
   const selectParams = [...queryParams, limitVal, offsetVal];
 
-  const res = await db.prepare(sql).bind(...selectParams).all();
+  // Count query and the page query are independent — run them in parallel
+  // instead of one after another to cut a full network round-trip to D1 off
+  // of every single invoice list load.
+  const [countRes, res] = await Promise.all([
+    db.prepare(countSql).bind(...queryParams).first().catch((err: any) => {
+      console.warn('[d1InvoiceRepository] Error counting invoices:', err);
+      return null;
+    }),
+    db.prepare(sql).bind(...selectParams).all()
+  ]);
+
+  const total = (countRes as any)?.total || 0;
   const rows = res.results || [];
   const invoices = rows.map((r: any) => formatD1RowToInvoice(r));
 
@@ -279,13 +281,12 @@ export async function getInvoiceByPublicTokenD1(db: any, token: string) {
     return { success: false, error: 'Token is required', invoice: null };
   }
 
-  // 1. Try public_token
-  let row = await db.prepare(`SELECT * FROM invoices WHERE public_token = ? LIMIT 1`).bind(cleanToken).first();
-  if (row) {
-    return { success: true, invoice: formatD1RowToInvoice(row) };
-  }
-
-  // 2. Try legacy_public_url
+  // Previously this tried public_token, then 4 legacy_public_url variants,
+  // then id — as up to 6 SEPARATE sequential round-trips to D1. For a
+  // migrated legacy invoice (the common case for old /INV/{slug} links),
+  // that meant paying for 5 network round-trips before ever finding a
+  // match. Collapsed into a single query with OR conditions instead — one
+  // round-trip regardless of which identifier actually matches.
   const decoded = decodeURIComponent(cleanToken);
   const possibleUrls = [
     `https://notarisputri.web.id/INV/${cleanToken}`,
@@ -294,15 +295,17 @@ export async function getInvoiceByPublicTokenD1(db: any, token: string) {
     `http://notarisputri.web.id/INV/${decoded}`
   ];
 
-  for (const url of possibleUrls) {
-    row = await db.prepare(`SELECT * FROM invoices WHERE legacy_public_url = ? LIMIT 1`).bind(url).first();
-    if (row) {
-      return { success: true, invoice: formatD1RowToInvoice(row) };
-    }
-  }
+  const row = await db.prepare(
+    `SELECT * FROM invoices
+     WHERE public_token = ?
+        OR legacy_public_url = ?
+        OR legacy_public_url = ?
+        OR legacy_public_url = ?
+        OR legacy_public_url = ?
+        OR id = ?
+     LIMIT 1`
+  ).bind(cleanToken, possibleUrls[0], possibleUrls[1], possibleUrls[2], possibleUrls[3], cleanToken).first();
 
-  // 3. Try ID fallback
-  row = await db.prepare(`SELECT * FROM invoices WHERE id = ? LIMIT 1`).bind(cleanToken).first();
   if (row) {
     return { success: true, invoice: formatD1RowToInvoice(row) };
   }

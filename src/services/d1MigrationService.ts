@@ -56,6 +56,11 @@ export async function ensureD1TablesExist(db: any) {
   await db.prepare(`CREATE INDEX IF NOT EXISTS idx_invoices_client_name ON invoices(client_name);`).run();
   await db.prepare(`CREATE INDEX IF NOT EXISTS idx_invoices_status ON invoices(status);`).run();
   await db.prepare(`CREATE INDEX IF NOT EXISTS idx_invoices_issue_date ON invoices(issue_date);`).run();
+  // public_token / legacy_public_url are looked up on every visit to a
+  // public invoice link (both new-format and migrated-legacy-format URLs) —
+  // without an index these were full table scans on a customer-facing page.
+  await db.prepare(`CREATE INDEX IF NOT EXISTS idx_invoices_public_token ON invoices(public_token);`).run();
+  await db.prepare(`CREATE INDEX IF NOT EXISTS idx_invoices_legacy_public_url ON invoices(legacy_public_url);`).run();
 
   // 2. Quotations table
   await db.prepare(`

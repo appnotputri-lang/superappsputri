@@ -130,8 +130,59 @@ const MobileInvoiceRow: React.FC<{
   );
 };
 
-// Global local memory cache for invoices to ensure instant page transitions
-const invoiceCache = new Map<string, { invoices: Invoice[]; total: number; timestamp: number }>();
+// Invoice list cache: kept in-memory for instant SPA tab-switches, and
+// mirrored to localStorage so the FIRST load of the invoice list in a new
+// tab/session (or after a hard refresh) can also show the last-known data
+// immediately instead of a blank loading state — the list is always
+// re-fetched from D1 in the background afterward regardless.
+const INVOICE_LIST_CACHE_KEY = 'superapp:invoices:list-cache:v1';
+const INVOICE_LIST_CACHE_MAX_ENTRIES = 12;
+const INVOICE_LIST_CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000; // 24h — just a "don't show ancient data" cap
+
+type InvoiceCacheEntry = { invoices: Invoice[]; total: number; timestamp: number };
+
+const invoiceCache = new Map<string, InvoiceCacheEntry>();
+
+try {
+  const raw = localStorage.getItem(INVOICE_LIST_CACHE_KEY);
+  if (raw) {
+    const parsed: Record<string, InvoiceCacheEntry> = JSON.parse(raw);
+    const now = Date.now();
+    Object.entries(parsed).forEach(([key, entry]) => {
+      if (entry && now - entry.timestamp < INVOICE_LIST_CACHE_MAX_AGE_MS) {
+        invoiceCache.set(key, entry);
+      }
+    });
+  }
+} catch (err) {
+  console.error('Failed to hydrate invoice list cache from localStorage:', err);
+}
+
+function persistInvoiceCache() {
+  try {
+    const entries = Array.from(invoiceCache.entries()).sort((a, b) => b[1].timestamp - a[1].timestamp);
+    const capped = entries.slice(0, INVOICE_LIST_CACHE_MAX_ENTRIES);
+    const obj: Record<string, InvoiceCacheEntry> = {};
+    capped.forEach(([key, val]) => { obj[key] = val; });
+    localStorage.setItem(INVOICE_LIST_CACHE_KEY, JSON.stringify(obj));
+  } catch (err) {
+    console.error('Failed to persist invoice list cache to localStorage:', err);
+  }
+}
+
+function setInvoiceCacheEntry(key: string, invoices: Invoice[], total: number) {
+  invoiceCache.set(key, { invoices, total, timestamp: Date.now() });
+  persistInvoiceCache();
+}
+
+function clearInvoiceCache() {
+  invoiceCache.clear();
+  try {
+    localStorage.removeItem(INVOICE_LIST_CACHE_KEY);
+  } catch (err) {
+    console.error('Failed to clear persisted invoice list cache:', err);
+  }
+}
 
 interface InvoiceGeneratorProps {
   setActiveSidebarTab?: (tab: string) => void;
@@ -384,11 +435,7 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = (props) => {
           if (isDataChanged) {
             setInvoices(res.invoices);
             setTotalInvoicesCount(res.total);
-            invoiceCache.set(cacheKey, {
-              invoices: res.invoices,
-              total: res.total,
-              timestamp: Date.now()
-            });
+            setInvoiceCacheEntry(cacheKey, res.invoices, res.total);
           }
         }
       } catch (err) {
@@ -792,7 +839,7 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = (props) => {
 
       try {
         await InvoiceService.deleteInvoice(id);
-        invoiceCache.clear();
+        clearInvoiceCache();
       } catch (err) {
         console.error('Error deleting invoice:', err);
         alert('Gagal menghapus invoice. Mengembalikan data...');
@@ -846,7 +893,7 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = (props) => {
         notes: `${payRefNumber ? 'Ref: ' + payRefNumber + ' - ' : ''}${payNotes}`.trim(),
         recordedBy: 'Staff Kantor'
       });
-      invoiceCache.clear();
+      clearInvoiceCache();
       const nextPayCount = (updatedInv.paymentHistory?.length || 0) + 1;
       setPayRefNumber(`KWT/${nextPayCount.toString().padStart(3, '0')}/VIII/${new Date().getFullYear()}`);
       setPayNotes('');
