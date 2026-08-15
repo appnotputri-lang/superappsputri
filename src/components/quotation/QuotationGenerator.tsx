@@ -453,7 +453,8 @@ export const QuotationGenerator: React.FC<QuotationGeneratorProps> = (props) => 
         updatedAt: new Date().toISOString()
       };
 
-      const newInvoiceId = await InvoiceService.addInvoice(newInvoiceData);
+      const created = await InvoiceService.addInvoice(newInvoiceData);
+      const newInvoiceId = created.id;
 
       await QuotationService.updateQuotation(selectedQuotation.id, {
         invoiceId: newInvoiceId,

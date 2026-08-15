@@ -160,7 +160,7 @@ export class InvoiceService {
     }
   }
 
-  static async addInvoice(data: Omit<Invoice, 'id'>): Promise<string> {
+  static async addInvoice(data: Omit<Invoice, 'id'>): Promise<{ id: string; publicToken: string }> {
     const docId = `inv_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
     const now = new Date().toISOString();
     const publicToken = data.publicToken || generateShortPublicToken();
@@ -186,9 +186,13 @@ export class InvoiceService {
 
     const resJson = await res.json();
     const createdId = resJson.id || docId;
+    // Prefer whatever publicToken the server actually persisted (it echoes
+    // back the created row) — falls back to the one we generated above,
+    // which is what actually got sent, so this should always be defined.
+    const createdPublicToken = resJson.invoice?.publicToken || publicToken;
 
     this.notifyListeners();
-    return createdId;
+    return { id: createdId, publicToken: createdPublicToken };
   }
 
   static async updateInvoice(id: string, data: Partial<Invoice>): Promise<void> {

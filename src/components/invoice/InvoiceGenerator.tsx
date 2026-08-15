@@ -820,20 +820,35 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = (props) => {
       };
 
       let targetId = editingInvoiceId;
+      let createdPublicToken: string | undefined;
       if (editingInvoiceId) {
         await InvoiceService.updateInvoice(editingInvoiceId, payload);
       } else {
-        targetId = await InvoiceService.addInvoice(payload);
+        const created = await InvoiceService.addInvoice(payload);
+        targetId = created.id;
+        createdPublicToken = created.publicToken;
       }
 
       // Switch to detail view of saved invoice
       const savedInvoice: Invoice = {
         ...payload,
-        id: targetId || `inv_${Date.now()}`
+        id: targetId || `inv_${Date.now()}`,
+        // Preserve the real publicToken that was actually persisted for a
+        // new invoice — without this, "Salin Link" / preview would fall
+        // back to using the raw invoice id as the public URL (an ugly,
+        // fragile substitute for the intended short random token) until
+        // the next full list refresh happened to pull the correct value
+        // back from D1.
+        publicToken: editingInvoiceId ? (selectedInvoice?.publicToken) : createdPublicToken
       };
       setSelectedInvoice(savedInvoice);
       setPayAmount(savedInvoice.balanceDue);
       setViewMode('detail');
+
+      // The invoice list cache (memory + localStorage) is now stale — clear
+      // it so the list reflects this create/edit on the next visit instead
+      // of showing outdated data.
+      clearInvoiceCache();
     } catch (err) {
       console.error('Error saving invoice:', err);
       alert('Gagal menyimpan invoice.');
