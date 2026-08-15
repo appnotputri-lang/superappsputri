@@ -128,6 +128,18 @@ export class InvoiceService {
     }
   }
 
+  static async getInvoiceById(id: string): Promise<Invoice | null> {
+    try {
+      const res = await fetch(getApiUrl(`/api/invoices/${encodeURIComponent(id)}`));
+      if (!res.ok) return null;
+      const json = await res.json();
+      return json.success && json.invoice ? json.invoice : (json.invoice || json.data || null);
+    } catch (err) {
+      console.error('[InvoiceService] Error in getInvoiceById:', err);
+      return null;
+    }
+  }
+
   /**
    * Authoritative next invoice number for a given year, computed server-side
    * from the actual D1 `invoices` table (highest existing INV/{year}/{seq}

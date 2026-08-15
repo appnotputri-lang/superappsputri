@@ -133,6 +133,18 @@ export class NotaryService {
     };
   }
 
+  static async getDeedById(id: string): Promise<Deed | null> {
+    try {
+      const res = await fetch(`/api/deeds/${encodeURIComponent(id)}`);
+      if (!res.ok) return null;
+      const json = await res.json();
+      return json.data || json.deed || json;
+    } catch (err) {
+      console.error('[NotaryService] Error fetching deed by ID:', err);
+      return null;
+    }
+  }
+
   static async getRecentDeeds(limitCount = 10): Promise<Deed[]> {
     const res = await fetch(`/api/deeds?limit=${limitCount}&order=desc`);
     if (!res.ok) return [];
@@ -280,6 +292,18 @@ export class NotaryService {
     } catch (err) {
       console.error('[NotaryService] Error fetching paginated private deeds:', err);
       return { success: false, records: [], total: 0 };
+    }
+  }
+
+  static async getPrivateDeedById(id: string): Promise<PrivateDeed | null> {
+    try {
+      const res = await fetch(`/api/private-deeds/${encodeURIComponent(id)}`);
+      if (!res.ok) return null;
+      const json = await res.json();
+      return json.data || json.record || json;
+    } catch (err) {
+      console.error('[NotaryService] Error fetching private deed by ID:', err);
+      return null;
     }
   }
 
@@ -489,6 +513,30 @@ export class NotaryService {
     } catch (err) {
       console.error('[NotaryService] Error fetching paginated outgoing mails:', err);
       return { success: false, records: [], total: 0 };
+    }
+  }
+
+  static async getIncomingMailById(id: string): Promise<IncomingMail | null> {
+    try {
+      const res = await fetch(`/api/incoming-mails/${encodeURIComponent(id)}`);
+      if (!res.ok) return null;
+      const json = await res.json();
+      return json.data || json.record || json;
+    } catch (err) {
+      console.error('[NotaryService] Error fetching incoming mail by ID:', err);
+      return null;
+    }
+  }
+
+  static async getOutgoingMailById(id: string): Promise<OutgoingMail | null> {
+    try {
+      const res = await fetch(`/api/outgoing-mails/${encodeURIComponent(id)}`);
+      if (!res.ok) return null;
+      const json = await res.json();
+      return json.data || json.record || json;
+    } catch (err) {
+      console.error('[NotaryService] Error fetching outgoing mail by ID:', err);
+      return null;
     }
   }
 

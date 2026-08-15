@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { PageContainer } from '../../../components/ui/PageLayout';
-import { useLocation, useOutletContext } from 'react-router-dom';
+import { useLocation, useNavigate, useOutletContext } from 'react-router-dom';
 import { 
   Menu, 
   Plus, 
@@ -107,6 +107,60 @@ export const CompanyPage: React.FC<CompanyPageProps> = ({ setIsSidebarOpen, ...p
       setSelectedClientType('CV');
     }
   }, [isCv]);
+
+  const navigate = useNavigate();
+
+  // Synchronize state from URL path (e.g. /clients/:id, /clients/new, /clients/:id/edit)
+  useEffect(() => {
+    const parts = location.pathname.split('/').filter(Boolean);
+    const lastPart = parts[parts.length - 1];
+    const basePath = isCv ? '/profile-cv' : '/clients';
+
+    if (lastPart === 'new') {
+      setEditingProfileId('new');
+      setIsProfilePreview(false);
+    } else if (parts.length >= 3 && lastPart === 'edit') {
+      const entityId = parts[parts.length - 2];
+      setEditingProfileId(entityId);
+      setIsProfilePreview(false);
+    } else if (parts.length >= 2 && !['clients', 'profile', 'profile-cv', 'new', 'edit'].includes(lastPart)) {
+      setEditingProfileId(lastPart);
+      setIsProfilePreview(true);
+    } else if (parts.length <= 1 || ['clients', 'profile', 'profile-cv'].includes(lastPart)) {
+      setEditingProfileId(null);
+      setIsProfilePreview(false);
+    }
+  }, [location.pathname, isCv]);
+
+  const handleSetEditingProfileId = useCallback((id: string | null | ((prev: string | null) => string | null)) => {
+    const nextId = typeof id === 'function' ? id(editingProfileId) : id;
+    const basePath = isCv ? '/profile-cv' : '/clients';
+    if (!nextId) {
+      navigate(basePath);
+    } else if (nextId === 'new') {
+      navigate(`${basePath}/new`);
+    } else if (isProfilePreview) {
+      navigate(`${basePath}/${nextId}`);
+    } else {
+      navigate(`${basePath}/${nextId}/edit`);
+    }
+  }, [editingProfileId, isProfilePreview, isCv, navigate]);
+
+  const handleSetIsProfilePreview = useCallback((preview: boolean | ((prev: boolean) => boolean)) => {
+    const nextPreview = typeof preview === 'function' ? preview(isProfilePreview) : preview;
+    const basePath = isCv ? '/profile-cv' : '/clients';
+    if (editingProfileId && editingProfileId !== 'new') {
+      if (nextPreview) {
+        navigate(`${basePath}/${editingProfileId}`);
+      } else {
+        navigate(`${basePath}/${editingProfileId}/edit`);
+      }
+    } else if (!nextPreview && editingProfileId === 'new') {
+      navigate(`${basePath}/new`);
+    } else {
+      navigate(basePath);
+    }
+  }, [editingProfileId, isProfilePreview, isCv, navigate]);
 
   const directActionHandledRef = useRef<string | null>(null);
 
@@ -1121,8 +1175,8 @@ export const CompanyPage: React.FC<CompanyPageProps> = ({ setIsSidebarOpen, ...p
             renderProfileSortArrows={renderProfileSortArrows}
             openDropdownId={openDropdownId}
             setOpenDropdownId={setOpenDropdownId}
-            setEditingProfileId={setEditingProfileId}
-            setIsProfilePreview={setIsProfilePreview}
+            setEditingProfileId={handleSetEditingProfileId}
+            setIsProfilePreview={handleSetIsProfilePreview}
             updateData={updateData}
             INITIAL_STATE={INITIAL_STATE}
             handleDuplicateProfile={handleDuplicateProfile}
@@ -1148,12 +1202,12 @@ export const CompanyPage: React.FC<CompanyPageProps> = ({ setIsSidebarOpen, ...p
         <CompanyDetail
           data={data}
           isProfilePreview={isProfilePreview}
-          setIsProfilePreview={setIsProfilePreview}
+          setIsProfilePreview={handleSetIsProfilePreview}
           user={user}
           userProfile={userProfile}
           deleteCompany={deleteCompany}
           editingProfileId={editingProfileId}
-          setEditingProfileId={setEditingProfileId}
+          setEditingProfileId={handleSetEditingProfileId}
           recordNotification={recordNotification}
           handleFirestoreError={handleFirestoreError}
           openShareholderEditor={openShareholderEditor}
@@ -1163,14 +1217,14 @@ export const CompanyPage: React.FC<CompanyPageProps> = ({ setIsSidebarOpen, ...p
         <CompanyForm
           data={data}
           isProfilePreview={isProfilePreview}
-          setIsProfilePreview={setIsProfilePreview}
+          setIsProfilePreview={handleSetIsProfilePreview}
           updateData={updateData}
           resetData={resetData}
           isSaving={isSaving}
           setIsSaving={setIsSaving}
           saveCompany={saveCompany}
           editingProfileId={editingProfileId}
-          setEditingProfileId={setEditingProfileId}
+          setEditingProfileId={handleSetEditingProfileId}
           user={user}
           recordNotification={recordNotification}
           handleFirestoreError={handleFirestoreError}

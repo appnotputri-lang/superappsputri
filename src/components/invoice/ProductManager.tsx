@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { PageContainer, PageHeader } from '../ui/PageLayout';
 import { Product } from '../../../types';
 import { ProductService } from '../../services/ProductService';
@@ -35,6 +36,9 @@ export const ProductManager: React.FC = () => {
     return () => unsubscribe();
   }, []);
 
+  const location = useLocation();
+  const navigate = useNavigate();
+
   const openAddModal = () => {
     setEditingProduct(null);
     setName('');
@@ -43,6 +47,9 @@ export const ProductManager: React.FC = () => {
     setIsTaxed(false);
     setError(null);
     setIsModalOpen(true);
+    if (window.location.pathname !== '/products/new') {
+      navigate('/products/new');
+    }
   };
 
   const openEditModal = (product: Product) => {
@@ -53,7 +60,41 @@ export const ProductManager: React.FC = () => {
     setIsTaxed(!!product.isTaxed);
     setError(null);
     setIsModalOpen(true);
+    if (!window.location.pathname.endsWith('/edit')) {
+      navigate(`/products/${encodeURIComponent(product.id)}/edit`);
+    }
   };
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setEditingProduct(null);
+    if (window.location.pathname !== '/products') {
+      navigate('/products');
+    }
+  };
+
+  useEffect(() => {
+    const parts = location.pathname.split('/').filter(Boolean);
+    const lastPart = parts[parts.length - 1];
+
+    if (lastPart === 'new') {
+      if (!isModalOpen || editingProduct) {
+        openAddModal();
+      }
+    } else if (parts.length >= 3 && lastPart === 'edit') {
+      const prodId = parts[parts.length - 2];
+      if (!editingProduct || editingProduct.id !== prodId) {
+        ProductService.getProductById(prodId).then(p => {
+          if (p) openEditModal(p);
+        });
+      }
+    } else if (parts.length <= 1 || lastPart === 'products') {
+      if (isModalOpen) {
+        setIsModalOpen(false);
+        setEditingProduct(null);
+      }
+    }
+  }, [location.pathname]);
 
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -238,7 +279,7 @@ export const ProductManager: React.FC = () => {
                 <span>{editingProduct ? 'Edit Produk / Layanan' : 'Tambah Produk Baru'}</span>
               </h3>
               <button 
-                onClick={() => setIsModalOpen(false)}
+                onClick={closeModal}
                 className="p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition cursor-pointer"
               >
                 <X size={16} />
@@ -327,7 +368,7 @@ export const ProductManager: React.FC = () => {
                 <button
                   type="button"
                   disabled={isSubmitting}
-                  onClick={() => setIsModalOpen(false)}
+                  onClick={closeModal}
                   className="px-4 py-2 border border-slate-300 text-slate-700 bg-white hover:bg-slate-50 rounded-lg font-semibold text-xs transition cursor-pointer"
                 >
                   Batal

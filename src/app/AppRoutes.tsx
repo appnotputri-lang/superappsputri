@@ -101,7 +101,8 @@ export const AppRoutes: React.FC<AppRoutesProps> = (props) => {
     return renderAppRoute('invoice', { ...props, isPublic: true });
   }
 
-  const currentTab = props.activeSidebarTab || PATH_TO_TAB[location.pathname] || 'beranda';
+  const firstSegment = '/' + location.pathname.split('/').filter(Boolean)[0];
+  const currentTab = props.activeSidebarTab || PATH_TO_TAB[location.pathname] || PATH_TO_TAB[firstSegment] || 'beranda';
 
   return renderAppRoute(currentTab, {
     ...props,

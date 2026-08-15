@@ -72,6 +72,20 @@ import {
   updateOutgoingMailD1,
   deleteOutgoingMailD1
 } from "./src/lib/d1OutgoingMailRepository";
+import {
+  getAllQuotationsD1,
+  getQuotationByIdD1,
+  createQuotationD1,
+  updateQuotationD1,
+  deleteQuotationD1
+} from "./src/lib/d1QuotationRepository";
+import {
+  getAllProductsD1,
+  getProductByIdD1,
+  createProductD1,
+  updateProductD1,
+  deleteProductD1
+} from "./src/lib/d1ProductRepository";
 
 async function startServer() {
   const app = express();
@@ -761,6 +775,148 @@ async function startServer() {
     } catch (err: any) {
       console.error("[Outgoing Mails D1 API] Error deleting outgoing mail:", err);
       res.status(500).json({ error: err?.message || "Failed to delete outgoing mail" });
+    }
+  });
+
+  // ==================================================
+  // D1 QUOTATIONS ENDPOINTS
+  // ==================================================
+  app.get("/api/quotations", async (req, res) => {
+    try {
+      const db = getLocalD1Database();
+      const limit = req.query.limit ? parseInt(String(req.query.limit), 10) : undefined;
+      const offset = req.query.offset ? parseInt(String(req.query.offset), 10) : undefined;
+      const search = (req.query.search || req.query.q) ? String(req.query.search || req.query.q) : undefined;
+      const status = req.query.status ? String(req.query.status) : undefined;
+
+      const result = await getAllQuotationsD1(db, { limit, offset, search, status });
+      res.json(result);
+    } catch (err: any) {
+      console.error("[Quotations D1 API] Error fetching quotations:", err);
+      res.status(500).json({ success: false, error: err?.message || "Failed to fetch quotations" });
+    }
+  });
+
+  app.get("/api/quotations/:id", async (req, res) => {
+    try {
+      const db = getLocalD1Database();
+      const id = req.params.id;
+      const quotation = await getQuotationByIdD1(db, id);
+      if (!quotation) {
+        return res.status(404).json({ success: false, error: `Quotation with ID '${id}' not found.` });
+      }
+      res.json({ success: true, quotation });
+    } catch (err: any) {
+      console.error("[Quotations D1 API] Error fetching quotation by ID:", err);
+      res.status(500).json({ success: false, error: err?.message || "Failed to fetch quotation" });
+    }
+  });
+
+  app.post("/api/quotations", async (req, res) => {
+    try {
+      const db = getLocalD1Database();
+      const payload = req.body || {};
+      const result = await createQuotationD1(db, payload);
+      res.status(201).json(result);
+    } catch (err: any) {
+      console.error("[Quotations D1 API] Error creating quotation:", err);
+      res.status(500).json({ success: false, error: err?.message || "Failed to create quotation" });
+    }
+  });
+
+  app.put("/api/quotations/:id", async (req, res) => {
+    try {
+      const db = getLocalD1Database();
+      const id = req.params.id;
+      const payload = req.body || {};
+      const result = await updateQuotationD1(db, id, payload);
+      res.json(result);
+    } catch (err: any) {
+      console.error("[Quotations D1 API] Error updating quotation:", err);
+      res.status(500).json({ success: false, error: err?.message || "Failed to update quotation" });
+    }
+  });
+
+  app.delete("/api/quotations/:id", async (req, res) => {
+    try {
+      const db = getLocalD1Database();
+      const id = req.params.id;
+      const result = await deleteQuotationD1(db, id);
+      res.json({ success: result });
+    } catch (err: any) {
+      console.error("[Quotations D1 API] Error deleting quotation:", err);
+      res.status(500).json({ success: false, error: err?.message || "Failed to delete quotation" });
+    }
+  });
+
+  // ==================================================
+  // D1 PRODUCTS ENDPOINTS
+  // ==================================================
+  app.get("/api/products", async (req, res) => {
+    try {
+      const db = getLocalD1Database();
+      const limit = req.query.limit ? parseInt(String(req.query.limit), 10) : undefined;
+      const offset = req.query.offset ? parseInt(String(req.query.offset), 10) : undefined;
+      const search = (req.query.search || req.query.q) ? String(req.query.search || req.query.q) : undefined;
+      const category = req.query.category ? String(req.query.category) : undefined;
+
+      const result = await getAllProductsD1(db, { limit, offset, search, category });
+      res.json(result);
+    } catch (err: any) {
+      console.error("[Products D1 API] Error fetching products:", err);
+      res.status(500).json({ success: false, error: err?.message || "Failed to fetch products" });
+    }
+  });
+
+  app.get("/api/products/:id", async (req, res) => {
+    try {
+      const db = getLocalD1Database();
+      const id = req.params.id;
+      const product = await getProductByIdD1(db, id);
+      if (!product) {
+        return res.status(404).json({ success: false, error: `Product with ID '${id}' not found.` });
+      }
+      res.json({ success: true, product });
+    } catch (err: any) {
+      console.error("[Products D1 API] Error fetching product by ID:", err);
+      res.status(500).json({ success: false, error: err?.message || "Failed to fetch product" });
+    }
+  });
+
+  app.post("/api/products", async (req, res) => {
+    try {
+      const db = getLocalD1Database();
+      const payload = req.body || {};
+      const result = await createProductD1(db, payload);
+      res.status(201).json(result);
+    } catch (err: any) {
+      console.error("[Products D1 API] Error creating product:", err);
+      res.status(500).json({ success: false, error: err?.message || "Failed to create product" });
+    }
+  });
+
+  app.put("/api/products/:id", async (req, res) => {
+    try {
+      const db = getLocalD1Database();
+      const id = req.params.id;
+      const payload = req.body || {};
+      const result = await updateProductD1(db, id, payload);
+      res.json(result);
+    } catch (err: any) {
+      console.error("[Products D1 API] Error updating product:", err);
+      res.status(500).json({ success: false, error: err?.message || "Failed to update product" });
+    }
+  });
+
+  app.delete("/api/products/:id", async (req, res) => {
+    try {
+      const db = getLocalD1Database();
+      const id = req.params.id;
+      const result = await deleteProductD1(db, id);
+      res.json({ success: result });
+    } catch (err: any) {
+      console.error("[Products D1 API] Error deleting product:", err);
+      res.status(500).json({ success: false, error: err?.message || "Failed to delete product" });
     }
   });
 

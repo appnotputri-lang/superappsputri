@@ -78,6 +78,27 @@ export class ProductService {
     }
   }
 
+  static async getProductById(id: string): Promise<Product | null> {
+    if (this.cache) {
+      const found = this.cache.find(p => p.id === id);
+      if (found) return found;
+    }
+    const cached = d1ClientCache.get<Product[]>(CACHE_KEY);
+    if (cached) {
+      const found = cached.find(p => p.id === id);
+      if (found) return found;
+    }
+    try {
+      const res = await fetch(getApiUrl(`/api/products/${encodeURIComponent(id)}`));
+      if (!res.ok) return null;
+      const json = await res.json();
+      return json.success && json.product ? json.product : (json.product || null);
+    } catch (err) {
+      console.error('[ProductService] Error in getProductById:', err);
+      return null;
+    }
+  }
+
   static async addProduct(data: Omit<Product, 'id'>): Promise<string> {
     const docId = `prod_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
     const now = new Date().toISOString();

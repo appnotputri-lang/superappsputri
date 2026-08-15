@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { PageHeader } from "../ui/PageLayout";
 import { Quotation, InvoiceItem, Invoice, Product } from '../../../types';
 import { QuotationService } from '../../services/QuotationService';
@@ -576,6 +577,9 @@ export const QuotationGenerator: React.FC<QuotationGeneratorProps> = (props) => 
     setItemGrossUp(false);
     setItemTaxRate(0.05);
     setViewMode('create');
+    if (window.location.pathname !== '/quotations/new' && window.location.pathname !== '/quotation/new') {
+      navigate('/quotations/new');
+    }
   };
 
   const openEditPage = (q: Quotation) => {
@@ -605,7 +609,56 @@ export const QuotationGenerator: React.FC<QuotationGeneratorProps> = (props) => 
     setItemGrossUp(false);
     setItemTaxRate(0.05);
     setViewMode('edit');
+    if (!window.location.pathname.endsWith('/edit')) {
+      navigate(`/quotations/${encodeURIComponent(q.id)}/edit`);
+    }
   };
+
+  const openDetailPage = (q: Quotation) => {
+    setSelectedQuotation(q);
+    setViewMode('detail');
+    if (window.location.pathname !== `/quotations/${encodeURIComponent(q.id)}` && window.location.pathname !== `/quotation/${encodeURIComponent(q.id)}`) {
+      navigate(`/quotations/${encodeURIComponent(q.id)}`);
+    }
+  };
+
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  // Sync state with URL path (/quotations/:id, /quotations/new, /quotations/:id/edit)
+  useEffect(() => {
+    const parts = location.pathname.split('/').filter(Boolean);
+    const lastPart = parts[parts.length - 1];
+
+    if (lastPart === 'new') {
+      if (viewMode !== 'create') {
+        openCreatePage();
+      }
+    } else if (parts.length >= 3 && lastPart === 'edit') {
+      const qId = parts[parts.length - 2];
+      if (!selectedQuotation || selectedQuotation.id !== qId) {
+        QuotationService.getQuotationById(qId).then(q => {
+          if (q) openEditPage(q);
+        });
+      } else if (viewMode !== 'edit') {
+        openEditPage(selectedQuotation);
+      }
+    } else if (parts.length >= 2 && !['quotations', 'quotation', 'new', 'edit'].includes(lastPart)) {
+      const qId = lastPart;
+      if (!selectedQuotation || selectedQuotation.id !== qId) {
+        QuotationService.getQuotationById(qId).then(q => {
+          if (q) openDetailPage(q);
+        });
+      } else if (viewMode !== 'detail') {
+        openDetailPage(selectedQuotation);
+      }
+    } else if (parts.length <= 1 || ['quotations', 'quotation'].includes(lastPart)) {
+      if (viewMode !== 'list') {
+        setViewMode('list');
+        setSelectedQuotation(null);
+      }
+    }
+  }, [location.pathname]);
 
   const handleSelectClient = async (c: ClientOption) => {
     setSelectedClientId(c.clientId);
@@ -1288,7 +1341,7 @@ Notaris/PPAT Nukantini Putri Parincha, SH., M.Kn`;
                         return (
                           <tr
                             key={q.id}
-                            onClick={() => { setSelectedQuotation(q); setViewMode('detail'); }}
+                            onClick={() => openDetailPage(q)}
                             className="hover:bg-blue-50/40 transition-colors cursor-pointer group"
                           >
                             <td className="p-3.5 text-center text-slate-500 font-semibold whitespace-nowrap">
@@ -1800,7 +1853,7 @@ Notaris/PPAT Nukantini Putri Parincha, SH., M.Kn`;
           <div className="flex justify-end gap-3 border-t border-slate-100 pt-5">
             <button
               type="button"
-              onClick={() => setViewMode('list')}
+              onClick={() => navigate('/quotations')}
               className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors cursor-pointer"
             >
               Batal
@@ -1827,7 +1880,7 @@ Notaris/PPAT Nukantini Putri Parincha, SH., M.Kn`;
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4 rounded-2xl border border-slate-200">
             <div className="flex items-center gap-3">
               <button
-                onClick={() => setViewMode('list')}
+                onClick={() => navigate('/quotations')}
                 className="p-2 hover:bg-slate-100 rounded-lg text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
               >
                 <ArrowLeft size={18} />

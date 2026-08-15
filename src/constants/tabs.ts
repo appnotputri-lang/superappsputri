@@ -258,18 +258,40 @@ export const PATH_TO_TAB: Record<string, SidebarTabId> = {
   ...Object.fromEntries(
     Object.entries(TAB_TO_PATH).map(([tab, path]) => [path, tab as SidebarTabId])
   ),
-  '/profile-cv': 'company_profile' as SidebarTabId
+  '/clients': 'company_profile',
+  '/profile': 'company_profile',
+  '/profile-cv': 'company_profile',
+  '/invoices': 'invoice',
+  '/invoice': 'invoice',
+  '/quotations': 'quotation',
+  '/quotation': 'quotation',
+  '/incoming-mails': 'incoming_mail',
+  '/surat-masuk': 'incoming_mail',
+  '/outgoing-mails': 'outgoing_mail',
+  '/surat-keluar': 'outgoing_mail',
+  '/general-documents': 'delivery',
+  '/surat-jalan': 'delivery',
+  '/tanda-terima': 'receipt',
+  '/receipt': 'receipt'
 };
 
 export const RESERVED_PATHS = new Set([
   ...Object.values(TAB_TO_PATH),
+  '/clients', '/profile', '/profile-cv',
+  '/projects', '/projects-detail',
+  '/invoices', '/invoice',
+  '/quotations', '/quotation',
+  '/deeds',
+  '/private-deeds',
+  '/incoming-mails', '/surat-masuk',
+  '/outgoing-mails', '/surat-keluar',
+  '/general-documents', '/surat-jalan',
+  '/tanda-terima', '/receipt',
+  '/products',
   '/rupslb', '/pendirian', '/rupst', '/perbaikan', '/draft-akta', '/panduan',
   '/sirkuler', '/rupst-public', '/kbli-mapping', '/saran-kbli', '/import-kbli',
-  '/laporan', '/whatsapp-gateway', '/projects', '/projects-detail',
-  '/user-management', '/notary-reports', '/invoice', '/products', '/quotation', '/deeds', '/private-deeds',
-  '/protest-cheque', '/surat-keluar', '/surat-masuk', '/stamp-settings',
-  '/surat-jalan', '/tanda-terima', '/doc',
-  '/invoice/public', '/q', // pola lama & quotation, tetap dikecualikan
+  '/laporan', '/whatsapp-gateway', '/user-management', '/notary-reports',
+  '/protest-cheque', '/stamp-settings', '/doc', '/q', '/invoice/public'
 ]);
 
 export function isReservedPath(pathname: string): boolean {

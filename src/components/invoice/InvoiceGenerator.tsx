@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { PageHeader } from "../ui/PageLayout";
 import { Invoice, InvoiceItem, PaymentRecord, Product } from '../../../types';
 import { InvoiceService } from '../../services/InvoiceService';
@@ -648,6 +648,9 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = (props) => {
     setBankSwift('CENAIDJA');
     loadClientOptions();
     setViewMode('create');
+    if (window.location.pathname !== '/invoices/new' && window.location.pathname !== '/invoice/new') {
+      navigate('/invoices/new');
+    }
 
     try {
       const nextNumber = await InvoiceService.getNextInvoiceNumber(today.getFullYear());
@@ -712,6 +715,9 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = (props) => {
     }
     loadClientOptions();
     setViewMode('edit');
+    if (!window.location.pathname.endsWith('/edit')) {
+      navigate(`/invoices/${encodeURIComponent(inv.id)}/edit`);
+    }
   };
 
   const openDetailPage = (inv: Invoice) => {
@@ -724,7 +730,47 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = (props) => {
     setPayRefNumber(refNum);
     setPayNotes('');
     setViewMode('detail');
+    if (window.location.pathname !== `/invoices/${encodeURIComponent(inv.id)}` && window.location.pathname !== `/invoice/${encodeURIComponent(inv.id)}`) {
+      navigate(`/invoices/${encodeURIComponent(inv.id)}`);
+    }
   };
+
+  const navigate = useNavigate();
+
+  // Sync state with URL path (/invoices/:id, /invoices/new, /invoices/:id/edit)
+  useEffect(() => {
+    const parts = location.pathname.split('/').filter(Boolean);
+    const lastPart = parts[parts.length - 1];
+
+    if (lastPart === 'new') {
+      if (viewMode !== 'create') {
+        openCreatePage();
+      }
+    } else if (parts.length >= 3 && lastPart === 'edit') {
+      const invId = parts[parts.length - 2];
+      if (!selectedInvoice || (selectedInvoice.id !== invId && selectedInvoice.invoiceNumber !== invId)) {
+        InvoiceService.getInvoiceById(invId).then(inv => {
+          if (inv) openEditPage(inv);
+        });
+      } else if (viewMode !== 'edit') {
+        openEditPage(selectedInvoice);
+      }
+    } else if (parts.length >= 2 && !['invoices', 'invoice', 'new', 'edit', 'public'].includes(lastPart)) {
+      const invId = lastPart;
+      if (!selectedInvoice || (selectedInvoice.id !== invId && selectedInvoice.invoiceNumber !== invId)) {
+        InvoiceService.getInvoiceById(invId).then(inv => {
+          if (inv) openDetailPage(inv);
+        });
+      } else if (viewMode !== 'detail') {
+        openDetailPage(selectedInvoice);
+      }
+    } else if (parts.length <= 1 || ['invoices', 'invoice'].includes(lastPart)) {
+      if (viewMode !== 'list') {
+        setViewMode('list');
+        setSelectedInvoice(null);
+      }
+    }
+  }, [location.pathname]);
 
   const handleSelectClient = async (client: ClientOption) => {
     setSelectedClientId(client.clientId);
@@ -1875,7 +1921,7 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
           <div className="flex-1 overflow-y-auto pb-[calc(140px+env(safe-area-inset-bottom))]">
             <div className="bg-[#1e61c3] text-white rounded-b-[2rem] pt-[calc(env(safe-area-inset-top)+16px)] pb-6 px-4 shadow-md">
               <div className="flex justify-between items-center mb-4">
-                <button onClick={() => { setViewMode('list'); setIsMobileActionSheetOpen(false); }} className="p-2 -ml-2 rounded-full active:bg-white/10">
+                <button onClick={() => { navigate('/invoices'); setIsMobileActionSheetOpen(false); }} className="p-2 -ml-2 rounded-full active:bg-white/10">
                   <ArrowLeft size={22} />
                 </button>
                 <h1 className="text-xl font-medium">Tagihan</h1>

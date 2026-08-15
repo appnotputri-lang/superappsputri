@@ -88,6 +88,18 @@ export class QuotationService {
     }
   }
 
+  static async getQuotationById(id: string): Promise<Quotation | null> {
+    try {
+      const res = await fetch(getApiUrl(`/api/quotations/${encodeURIComponent(id)}`));
+      if (!res.ok) return null;
+      const json = await res.json();
+      return json.success && json.quotation ? json.quotation : (json.quotation || null);
+    } catch (error) {
+      console.error('[QuotationService] Error fetching quotation by ID:', error);
+      return null;
+    }
+  }
+
   static async getQuotationByPublicToken(publicToken: string): Promise<Quotation | null> {
     try {
       const res = await fetch(getApiUrl(`/api/quotations/${encodeURIComponent(publicToken)}`));
