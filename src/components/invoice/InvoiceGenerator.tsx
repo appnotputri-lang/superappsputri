@@ -723,6 +723,14 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = (props) => {
     setSelectedProjectIds([]);
     setSelectedProjectId('');
     setShowClientDropdown(false);
+    // The search box's displayed value is `clientSearch || clientName` — if
+    // clientSearch (whatever the admin typed to find this client, e.g.
+    // "beta") isn't cleared here, it keeps winning that `||` forever, so the
+    // field visually shows the leftover search text instead of the actual
+    // selected client name even though selection succeeded correctly
+    // underneath (wrong number, wrong client on the saved invoice, etc. were
+    // never at risk — this was purely a display bug, but a confusing one).
+    setClientSearch('');
 
     // Fetch additional profile information from Firestore profiles if available
     try {
