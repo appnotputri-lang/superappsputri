@@ -61,11 +61,6 @@ export async function getAllProtestChequesD1(
 
   const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(" AND ")}` : "";
 
-  const countSql = `SELECT COUNT(*) as total FROM protest_cheques ${whereClause}`;
-  const countStmt = db.prepare(countSql);
-  const countRes = params.length > 0 ? await countStmt.bind(...params).first() : await countStmt.first();
-  const total = Number(countRes?.total || 0);
-
   let querySql = `SELECT * FROM protest_cheques ${whereClause} ORDER BY protest_date DESC, created_at DESC`;
   let queryParams = [...params];
 
@@ -74,8 +69,16 @@ export async function getAllProtestChequesD1(
     queryParams.push(options.limit, options.offset || 0);
   }
 
+  const countSql = `SELECT COUNT(*) as total FROM protest_cheques ${whereClause}`;
+  const countStmt = db.prepare(countSql);
   const queryStmt = db.prepare(querySql);
-  const queryRes = queryParams.length > 0 ? await queryStmt.bind(...queryParams).all() : await queryStmt.all();
+
+  const [countRes, queryRes] = await Promise.all([
+    params.length > 0 ? countStmt.bind(...params).first() : countStmt.first(),
+    queryParams.length > 0 ? queryStmt.bind(...queryParams).all() : queryStmt.all()
+  ]);
+
+  const total = Number((countRes as any)?.total || 0);
   const rows = queryRes?.results || [];
 
   return {

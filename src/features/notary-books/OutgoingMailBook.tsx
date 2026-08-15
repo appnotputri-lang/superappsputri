@@ -174,43 +174,54 @@ export const OutgoingMailBook: React.FC = () => {
       return;
     }
 
-    setIsSaving(true);
-    try {
-      const mailData: Omit<OutgoingMail, 'id'> = {
-        mailNumber: mailNumber.trim(),
-        date: mailDate,
-        recipient: recipient.trim(),
-        subject: subject.trim(),
-        attachmentCount: attachmentCount ? parseInt(attachmentCount, 10) : undefined,
-        notes: notes.trim() || undefined
-      };
+    const backupMails = [...mails];
+    const backupTotal = totalMailsCount;
 
+    const mailData: Omit<OutgoingMail, 'id'> = {
+      mailNumber: mailNumber.trim(),
+      date: mailDate,
+      recipient: recipient.trim(),
+      subject: subject.trim(),
+      attachmentCount: attachmentCount ? parseInt(attachmentCount, 10) : undefined,
+      notes: notes.trim() || undefined
+    };
+
+    // Optimistic UI Update: Close modal immediately and update state in 0ms
+    setIsModalOpen(false);
+
+    if (editingId) {
+      setMails(prev => prev.map(m => m.id === editingId ? { ...m, ...mailData } : m));
+    } else {
+      const tempId = `temp_${Date.now()}`;
+      setMails(prev => [{ ...mailData, id: tempId } as OutgoingMail, ...prev]);
+      setTotalMailsCount(prev => prev + 1);
+    }
+
+    try {
       if (editingId) {
         await NotaryService.updateOutgoingMail(editingId, mailData);
       } else {
         await NotaryService.addOutgoingMail(mailData);
       }
 
-      outgoingMailCache.clear();
-      // Reload current query trigger
+      // Background silent revalidation
       const cleanSearch = searchTerm.trim();
-      const res = await NotaryService.getOutgoingMailsPaginated({
+      NotaryService.getOutgoingMailsPaginated({
         page: currentPage,
         pageSize,
         search: cleanSearch,
         year: selectedYear
-      });
-      if (res.success) {
-        setMails(res.records);
-        setTotalMailsCount(res.total);
-      }
-
-      setIsModalOpen(false);
+      }).then(res => {
+        if (res.success) {
+          setMails(res.records);
+          setTotalMailsCount(res.total);
+        }
+      }).catch(() => {});
     } catch (err) {
       console.error('Failed to save outgoing mail:', err);
-      alert('Gagal menyimpan data surat keluar.');
-    } finally {
-      setIsSaving(false);
+      alert('Gagal menyimpan data surat keluar. Mengembalikan data...');
+      setMails(backupMails);
+      setTotalMailsCount(backupTotal);
     }
   };
 

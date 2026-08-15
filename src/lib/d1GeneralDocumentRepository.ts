@@ -87,18 +87,20 @@ export async function getAllGeneralDocumentsD1(
 
   const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(" AND ")}` : "";
 
-  // Count query
+  // Parallelize count and query
   const countSql = `SELECT COUNT(*) as total FROM general_documents ${whereClause}`;
-  const countStmt = db.prepare(countSql);
-  const countRes = params.length > 0 ? await countStmt.bind(...params).first() : await countStmt.first();
-  const total = Number(countRes?.total || 0);
-
-  // Data query
   const querySql = `SELECT * FROM general_documents ${whereClause} ORDER BY ${sortBy} ${order}, created_at DESC LIMIT ? OFFSET ?`;
+
+  const countStmt = db.prepare(countSql);
   const queryStmt = db.prepare(querySql);
   const queryParams = [...params, limit, offset];
-  const queryRes = await queryStmt.bind(...queryParams).all();
 
+  const [countRes, queryRes] = await Promise.all([
+    params.length > 0 ? countStmt.bind(...params).first() : countStmt.first(),
+    queryStmt.bind(...queryParams).all()
+  ]);
+
+  const total = Number((countRes as any)?.total || 0);
   const rows = queryRes?.results || [];
   const records = rows.map(formatD1RowToGeneralDocument);
 

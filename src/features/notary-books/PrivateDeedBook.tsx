@@ -192,45 +192,55 @@ export const PrivateDeedBook: React.FC = () => {
     }
 
     const cleanParties = parties.map((p) => p.trim()).filter((p) => p !== '');
+    const backupDeeds = [...privateDeeds];
+    const backupTotal = totalDeedsCount;
 
-    setIsSaving(true);
+    const deedData: Omit<PrivateDeed, 'id'> = {
+      number: number.trim(),
+      registrationDate,
+      type: type as any,
+      description: description.trim(),
+      parties: cleanParties,
+      picName: picName.trim() || undefined,
+      notes: notes.trim() || undefined
+    };
+
+    // Optimistic UI Update: Close modal immediately and update state in 0ms
+    setIsModalOpen(false);
+
+    if (editingId) {
+      setPrivateDeeds(prev => prev.map(d => d.id === editingId ? { ...d, ...deedData } : d));
+    } else {
+      const tempId = `temp_${Date.now()}`;
+      setPrivateDeeds(prev => [{ ...deedData, id: tempId } as PrivateDeed, ...prev]);
+      setTotalDeedsCount(prev => prev + 1);
+    }
+
     try {
-      const deedData: Omit<PrivateDeed, 'id'> = {
-        number: number.trim(),
-        registrationDate,
-        type: type as any,
-        description: description.trim(),
-        parties: cleanParties,
-        picName: picName.trim() || undefined,
-        notes: notes.trim() || undefined
-      };
-
       if (editingId) {
         await NotaryService.updatePrivateDeed(editingId, deedData);
       } else {
         await NotaryService.addPrivateDeed(deedData);
       }
 
-      privateDeedCache.clear();
-      // Reload current query trigger
+      // Background silent revalidation
       const cleanSearch = searchTerm.trim();
-      const res = await NotaryService.getPrivateDeedsPaginated({
+      NotaryService.getPrivateDeedsPaginated({
         page: currentPage,
         pageSize,
         search: cleanSearch,
         year: selectedYear
-      });
-      if (res.success) {
-        setPrivateDeeds(res.records);
-        setTotalDeedsCount(res.total);
-      }
-
-      setIsModalOpen(false);
+      }).then(res => {
+        if (res.success) {
+          setPrivateDeeds(res.records);
+          setTotalDeedsCount(res.total);
+        }
+      }).catch(() => {});
     } catch (err) {
       console.error('Failed to save private deed:', err);
-      alert('Gagal menyimpan data legalisasi/waarmerking.');
-    } finally {
-      setIsSaving(false);
+      alert('Gagal menyimpan data legalisasi/waarmerking. Mengembalikan data...');
+      setPrivateDeeds(backupDeeds);
+      setTotalDeedsCount(backupTotal);
     }
   };
 

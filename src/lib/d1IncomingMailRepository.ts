@@ -64,12 +64,6 @@ export async function getAllIncomingMailsD1(
 
   const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(" AND ")}` : "";
 
-  // Count query
-  const countSql = `SELECT COUNT(*) as total FROM incoming_mails ${whereClause}`;
-  const countStmt = db.prepare(countSql);
-  const countRes = params.length > 0 ? await countStmt.bind(...params).first() : await countStmt.first();
-  const total = Number(countRes?.total || 0);
-
   let querySql = `SELECT * FROM incoming_mails ${whereClause}`;
   let queryParams = [...params];
 
@@ -83,8 +77,17 @@ export async function getAllIncomingMailsD1(
     queryParams.push(limit, offset);
   }
 
+  // Parallelize count and query
+  const countSql = `SELECT COUNT(*) as total FROM incoming_mails ${whereClause}`;
+  const countStmt = db.prepare(countSql);
   const queryStmt = db.prepare(querySql);
-  const queryRes = queryParams.length > 0 ? await queryStmt.bind(...queryParams).all() : await queryStmt.all();
+
+  const [countRes, queryRes] = await Promise.all([
+    params.length > 0 ? countStmt.bind(...params).first() : countStmt.first(),
+    queryParams.length > 0 ? queryStmt.bind(...queryParams).all() : queryStmt.all()
+  ]);
+
+  const total = Number((countRes as any)?.total || 0);
   const rows = queryRes?.results || [];
   const records = rows.map(formatD1RowToIncomingMail);
 

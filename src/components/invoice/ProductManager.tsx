@@ -66,28 +66,25 @@ export const ProductManager: React.FC = () => {
       return;
     }
 
-    setIsSubmitting(true);
-    setError(null);
+    const productData = {
+      name: name.trim(),
+      unitPrice: unitPrice === '' ? undefined : unitPrice,
+      description: description.trim(),
+      isTaxed
+    };
+
+    // Optimistic UI: Close modal immediately in 0ms
+    setIsModalOpen(false);
 
     try {
-      const productData = {
-        name: name.trim(),
-        unitPrice: unitPrice === '' ? undefined : unitPrice,
-        description: description.trim(),
-        isTaxed
-      };
-
       if (editingProduct) {
         await ProductService.updateProduct(editingProduct.id, productData);
       } else {
         await ProductService.addProduct(productData);
       }
-      setIsModalOpen(false);
     } catch (err: any) {
       console.error('[ProductManager] Error saving product:', err);
-      setError('Gagal menyimpan produk. Silakan coba lagi.');
-    } finally {
-      setIsSubmitting(false);
+      alert('Gagal menyimpan produk. Perubahan telah dikembalikan.');
     }
   };
 

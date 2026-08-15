@@ -125,42 +125,53 @@ export const IncomingMailBook: React.FC = () => {
       return;
     }
 
-    setIsSaving(true);
-    try {
-      const mailData: Omit<IncomingMail, 'id'> = {
-        mailNumber: mailNumber.trim(),
-        date: mailDate,
-        sender: sender.trim(),
-        subject: subject.trim(),
-        notes: notes.trim() || undefined
-      };
+    const backupMails = [...mails];
+    const backupTotal = totalMailsCount;
 
+    const mailData: Omit<IncomingMail, 'id'> = {
+      mailNumber: mailNumber.trim(),
+      date: mailDate,
+      sender: sender.trim(),
+      subject: subject.trim(),
+      notes: notes.trim() || undefined
+    };
+
+    // Optimistic UI Update: Close modal immediately and update state in 0ms
+    setIsModalOpen(false);
+
+    if (editingId) {
+      setMails(prev => prev.map(m => m.id === editingId ? { ...m, ...mailData } : m));
+    } else {
+      const tempId = `temp_${Date.now()}`;
+      setMails(prev => [{ ...mailData, id: tempId } as IncomingMail, ...prev]);
+      setTotalMailsCount(prev => prev + 1);
+    }
+
+    try {
       if (editingId) {
         await NotaryService.updateIncomingMail(editingId, mailData);
       } else {
         await NotaryService.addIncomingMail(mailData);
       }
 
-      incomingMailCache.clear();
-      // Reload current query trigger
+      // Background silent revalidation
       const cleanSearch = searchTerm.trim();
-      const res = await NotaryService.getIncomingMailsPaginated({
+      NotaryService.getIncomingMailsPaginated({
         page: currentPage,
         pageSize,
         search: cleanSearch,
         year: selectedYear
-      });
-      if (res.success) {
-        setMails(res.records);
-        setTotalMailsCount(res.total);
-      }
-
-      setIsModalOpen(false);
+      }).then(res => {
+        if (res.success) {
+          setMails(res.records);
+          setTotalMailsCount(res.total);
+        }
+      }).catch(() => {});
     } catch (err) {
       console.error('Failed to save incoming mail:', err);
-      alert('Gagal menyimpan data surat masuk.');
-    } finally {
-      setIsSaving(false);
+      alert('Gagal menyimpan data surat masuk. Mengembalikan data...');
+      setMails(backupMails);
+      setTotalMailsCount(backupTotal);
     }
   };
 

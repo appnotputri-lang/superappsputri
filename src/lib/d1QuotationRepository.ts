@@ -111,19 +111,19 @@ export async function getAllQuotationsD1(db: any, params: {
     countSql += whereClause;
   }
 
-  let total = 0;
-  try {
-    const countRes = await db.prepare(countSql).bind(...queryParams).first();
-    total = countRes?.total || 0;
-  } catch (err) {
-    console.warn('[d1QuotationRepository] Error counting quotations:', err);
-  }
-
   sql += ` ORDER BY created_at DESC, updated_at DESC LIMIT ? OFFSET ?`;
   const selectParams = [...queryParams, limitVal, offsetVal];
 
-  const res = await db.prepare(sql).bind(...selectParams).all();
-  const rows = res.results || [];
+  const countStmt = db.prepare(countSql);
+  const selectStmt = db.prepare(sql);
+
+  const [countRes, selectRes] = await Promise.all([
+    queryParams.length > 0 ? countStmt.bind(...queryParams).first() : countStmt.first(),
+    selectStmt.bind(...selectParams).all()
+  ]);
+
+  const total = Number(countRes?.total || 0);
+  const rows = selectRes?.results || [];
   const quotations = rows.map((r: any) => formatD1RowToQuotation(r));
 
   return {
@@ -218,7 +218,7 @@ export async function createQuotationD1(db: any, data: Quotation): Promise<any> 
     invoiceId, invoiceNumber, projectId, projectTitle, projectIds, projectTitles, createdAt, updatedAt, rawData
   ).run();
 
-  return { success: true, id };
+  return { success: true, id, publicToken };
 }
 
 export async function updateQuotationD1(db: any, id: string, data: Partial<Quotation>): Promise<any> {

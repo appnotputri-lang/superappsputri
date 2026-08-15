@@ -31,7 +31,7 @@ export async function getAllProductsD1(db: any, params: {
 }) {
   await ensureD1TablesExist(db);
 
-  let limitVal = 100;
+  let limitVal = 10;
   if (typeof params.limit !== 'undefined') {
     const parsed = parseInt(String(params.limit), 10);
     if (!isNaN(parsed) && parsed > 0) {
@@ -64,19 +64,19 @@ export async function getAllProductsD1(db: any, params: {
     countSql += whereClause;
   }
 
-  let total = 0;
-  try {
-    const countRes = await db.prepare(countSql).bind(...queryParams).first();
-    total = countRes?.total || 0;
-  } catch (err) {
-    console.warn('[d1ProductRepository] Error counting products:', err);
-  }
-
   sql += ` ORDER BY name ASC LIMIT ? OFFSET ?`;
   const selectParams = [...queryParams, limitVal, offsetVal];
 
-  const res = await db.prepare(sql).bind(...selectParams).all();
-  const rows = res.results || [];
+  const countStmt = db.prepare(countSql);
+  const selectStmt = db.prepare(sql);
+
+  const [countRes, selectRes] = await Promise.all([
+    queryParams.length > 0 ? countStmt.bind(...queryParams).first() : countStmt.first(),
+    selectStmt.bind(...selectParams).all()
+  ]);
+
+  const total = Number(countRes?.total || 0);
+  const rows = selectRes?.results || [];
   const products = rows.map((r: any) => formatD1RowToProduct(r));
 
   return {
