@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { mapCompanyProfileToPendirian } from '../domain/company/mappers/companyProfileToPendirian';
 import { mapPartiesToShareholdersAndManagement } from '../domain/project/mappers/partyToShareholder';
 import { INITIAL_STATE, INITIAL_ADDRESS, INITIAL_MANUAL_REP, INITIAL_RESOLUTIONS } from "../domain/company/initialCompanyData";
-import { TAB_TO_PATH, PATH_TO_TAB } from "../constants/tabs";
+import { TAB_TO_PATH, PATH_TO_TAB, resolveSidebarTab } from "../constants/tabs";
 import { AppLayout, SidebarTabId } from './layout/AppLayout';
 import { AppBootstrap } from './bootstrap/AppBootstrap';
 import { AppEffects } from './effects/AppEffects';
@@ -188,7 +188,7 @@ export const AppShell: React.FC = () => {
         currentPath = rawHash;
       }
     }
-    return PATH_TO_TAB[currentPath] || 'beranda';
+    return resolveSidebarTab(currentPath) || 'beranda';
   }, [location.pathname, location.hash]);
 
   const setActiveSidebarTab = (tab: SidebarTabId, navOptions?: { search?: string; state?: any }) => {

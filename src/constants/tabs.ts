@@ -298,3 +298,30 @@ export function isReservedPath(pathname: string): boolean {
   const firstSegment = '/' + pathname.split('/').filter(Boolean)[0];
   return RESERVED_PATHS.has(firstSegment) || RESERVED_PATHS.has(pathname);
 }
+
+export function resolveSidebarTab(pathname: string): SidebarTabId | undefined {
+  if (!pathname) return undefined;
+
+  let cleanPath = pathname;
+  if (cleanPath.includes('#/')) {
+    cleanPath = cleanPath.substring(cleanPath.indexOf('#/') + 1).split('?')[0];
+  } else {
+    cleanPath = cleanPath.split('?')[0];
+  }
+
+  // 1. Exact match
+  if (PATH_TO_TAB[cleanPath]) {
+    return PATH_TO_TAB[cleanPath];
+  }
+
+  // 2. Dynamic route prefix match (e.g., /invoices/inv_123/edit -> /invoices)
+  const parts = cleanPath.split('/').filter(Boolean);
+  if (parts.length > 0) {
+    const firstSegment = '/' + parts[0];
+    if (PATH_TO_TAB[firstSegment]) {
+      return PATH_TO_TAB[firstSegment];
+    }
+  }
+
+  return undefined;
+}

@@ -516,18 +516,6 @@ export class NotaryService {
     }
   }
 
-  static async getIncomingMailById(id: string): Promise<IncomingMail | null> {
-    try {
-      const res = await fetch(`/api/incoming-mails/${encodeURIComponent(id)}`);
-      if (!res.ok) return null;
-      const json = await res.json();
-      return json.data || json.record || json;
-    } catch (err) {
-      console.error('[NotaryService] Error fetching incoming mail by ID:', err);
-      return null;
-    }
-  }
-
   static async getOutgoingMailById(id: string): Promise<OutgoingMail | null> {
     try {
       const res = await fetch(`/api/outgoing-mails/${encodeURIComponent(id)}`);
@@ -638,6 +626,18 @@ export class NotaryService {
     } catch (err) {
       console.error('[NotaryService] Error fetching paginated incoming mails:', err);
       return { success: false, records: [], total: 0 };
+    }
+  }
+
+  static async getIncomingMailById(id: string): Promise<IncomingMail | null> {
+    try {
+      const res = await fetch(`/api/incoming-mails/${encodeURIComponent(id)}`);
+      if (!res.ok) return null;
+      const json = await res.json();
+      return json.data || json.record || json;
+    } catch (err) {
+      console.error('[NotaryService] Error fetching incoming mail by ID:', err);
+      return null;
     }
   }
 

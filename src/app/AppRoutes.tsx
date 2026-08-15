@@ -1,6 +1,6 @@
 import React from 'react';
 import { useLocation } from 'react-router-dom';
-import { PATH_TO_TAB, isReservedPath } from '../constants/tabs';
+import { PATH_TO_TAB, isReservedPath, resolveSidebarTab } from '../constants/tabs';
 import { useAuthContext } from '../contexts/AuthContext';
 import { useCompanyContext } from '../contexts/CompanyContext';
 import { useProjectContext } from '../contexts/ProjectContext';
@@ -101,8 +101,8 @@ export const AppRoutes: React.FC<AppRoutesProps> = (props) => {
     return renderAppRoute('invoice', { ...props, isPublic: true });
   }
 
-  const firstSegment = '/' + location.pathname.split('/').filter(Boolean)[0];
-  const currentTab = props.activeSidebarTab || PATH_TO_TAB[location.pathname] || PATH_TO_TAB[firstSegment] || 'beranda';
+  const resolvedTab = resolveSidebarTab(location.pathname);
+  const currentTab = resolvedTab || props.activeSidebarTab || 'beranda';
 
   return renderAppRoute(currentTab, {
     ...props,
