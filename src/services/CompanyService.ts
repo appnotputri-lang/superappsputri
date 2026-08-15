@@ -735,6 +735,13 @@ export class CompanyService {
   }
 
   /**
+   * Alias for getCompaniesFast / getCompanies to load all company profiles
+   */
+  static async getAllCompanyProfiles(): Promise<CompanyProfile[]> {
+    return CompanyService.getCompaniesFast();
+  }
+
+  /**
    * Fetch all PT (Company) Profiles
    */
   static async getCompanies(forceRefresh = false): Promise<CompanyProfile[]> {

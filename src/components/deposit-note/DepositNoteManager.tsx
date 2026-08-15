@@ -115,7 +115,7 @@ export const DepositNoteManager: React.FC<DepositNoteManagerProps> = ({ setActiv
   // Fetch clients on mount
   useEffect(() => {
     setLoadingClients(true);
-    CompanyService.getAllCompanyProfiles()
+    CompanyService.getCompaniesFast()
       .then(profiles => {
         setClientOptions(profiles || []);
       })
