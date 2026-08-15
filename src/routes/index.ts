@@ -13,10 +13,15 @@ import { renderProductRoute } from './products.routes';
 import { renderQuotationRoute } from './quotation.routes';
 import { renderNotaryBookRoute } from './notaryBooks.routes';
 import { renderGeneralDocumentRoute } from './generalDocument.routes';
+import { renderDepositNoteRoute } from './depositNote.routes';
 
 export const renderAppRoute = (currentTab: string, props: any) => {
   if (currentTab === 'delivery' || currentTab === 'receipt') {
     return renderGeneralDocumentRoute(currentTab, props);
+  }
+
+  if (currentTab === 'deposit_note') {
+    return renderDepositNoteRoute(props);
   }
 
   if (currentTab === 'deeds' || currentTab === 'private_deeds' || currentTab === 'outgoing_mail' || currentTab === 'incoming_mail') {

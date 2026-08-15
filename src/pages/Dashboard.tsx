@@ -17,7 +17,8 @@ import {
   Info,
   CreditCard,
   Mail,
-  BarChart2
+  BarChart2,
+  Banknote
 } from 'lucide-react';
 import { ProjectService } from '../services/ProjectService';
 import { Project } from '../domain/project/Project';
@@ -100,6 +101,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     { label: 'Klien Baru', icon: Users, bg: 'bg-amber-50 text-amber-600', tab: 'company_profile', directAction: true },
     { label: 'Buat Akta', icon: FileText, bg: 'bg-emerald-50 text-emerald-600', tab: 'deeds', directAction: true },
     { label: 'Buat Invoice', icon: CreditCard, bg: 'bg-purple-50 text-purple-600', tab: 'invoice', directAction: true },
+    { label: 'Titipan Uang', icon: Banknote, bg: 'bg-emerald-50 text-emerald-600', tab: 'deposit_note', directAction: true },
     { label: 'Surat Baru', icon: Mail, bg: 'bg-rose-50 text-rose-600', tab: 'outgoing_mail', directAction: true },
     { label: 'Buku Akta', icon: BookOpen, bg: 'bg-cyan-50 text-cyan-600', tab: 'deeds', directAction: false },
     { label: 'Legalisasi', icon: ShieldCheck, bg: 'bg-teal-50 text-teal-600', tab: 'private_deeds', directAction: true },
@@ -108,11 +110,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
   const handleQuickAction = (qa: typeof QUICK_ACTIONS[0]) => {
     const basePath = TAB_TO_PATH[qa.tab] || `/${qa.tab}`;
-    if (qa.directAction) {
+    if (qa.tab === 'deposit_note' && qa.directAction) {
+      setActiveSidebarTab(qa.tab as any);
+      navigate('/deposit_note/new');
+    } else if (qa.directAction) {
       (setActiveSidebarTab as any)(qa.tab, { search: '?action=new', state: { openCreateModal: true, openNew: true } });
       navigate(`${basePath}?action=new`, { state: { openCreateModal: true, openNew: true } });
     } else {
-      setActiveSidebarTab(qa.tab);
+      setActiveSidebarTab(qa.tab as any);
       navigate(basePath);
     }
     if (setIsSidebarOpen && typeof window !== 'undefined' && window.innerWidth < 768) {

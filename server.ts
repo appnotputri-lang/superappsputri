@@ -44,6 +44,14 @@ import {
   deleteGeneralDocumentD1
 } from "./src/lib/d1GeneralDocumentRepository";
 import {
+  getAllDepositNotesD1,
+  getDepositNoteByIdD1,
+  createDepositNoteD1,
+  updateDepositNoteD1,
+  deleteDepositNoteD1,
+  fetchNextDepositNumberD1
+} from "./src/lib/d1DepositNoteRepository";
+import {
   getAllDeedsD1,
   getDeedByIdD1,
   createDeedD1,
@@ -469,6 +477,101 @@ async function startServer() {
     } catch (err: any) {
       console.error("[General Documents D1 API] Error deleting document:", err);
       res.status(500).json({ success: false, error: err?.message || "Failed to delete document" });
+    }
+  });
+
+  // ==================================================
+  // D1 DEPOSIT NOTES (PENITIPAN UANG) ENDPOINTS
+  // ==================================================
+  app.get("/api/deposit-notes", async (req, res) => {
+    try {
+      const db = getLocalD1Database();
+      const limit = req.query.limit ? parseInt(String(req.query.limit), 10) : 20;
+      const offset = req.query.offset ? parseInt(String(req.query.offset), 10) : 0;
+      const search = req.query.search ? String(req.query.search) : undefined;
+      const clientId = req.query.clientId ? String(req.query.clientId) : undefined;
+
+      const result = await getAllDepositNotesD1(db, { limit, offset, search, clientId });
+      res.json(result);
+    } catch (err: any) {
+      console.error("[Deposit Notes D1 API] Error fetching deposit notes:", err);
+      res.status(500).json({ success: false, error: err?.message || "Failed to fetch deposit notes" });
+    }
+  });
+
+  app.get("/api/deposit-notes/next-number", async (req, res) => {
+    try {
+      const db = getLocalD1Database();
+      const year = req.query.year ? parseInt(String(req.query.year), 10) : new Date().getFullYear();
+      const result = await fetchNextDepositNumberD1(db, year);
+      res.json(result);
+    } catch (err: any) {
+      console.error("[Deposit Notes D1 API] Error fetching next deposit number:", err);
+      res.status(500).json({ success: false, error: err?.message || "Failed to fetch next deposit number" });
+    }
+  });
+
+  app.get("/api/deposit-notes/:id", async (req, res) => {
+    try {
+      const db = getLocalD1Database();
+      const id = req.params.id;
+      if (!id) {
+        return res.status(400).json({ success: false, error: "Deposit note ID is required" });
+      }
+
+      const result = await getDepositNoteByIdD1(db, id);
+      if (!result.success) {
+        return res.status(404).json(result);
+      }
+      res.json(result);
+    } catch (err: any) {
+      console.error("[Deposit Notes D1 API] Error fetching deposit note:", err);
+      res.status(500).json({ success: false, error: err?.message || "Failed to fetch deposit note" });
+    }
+  });
+
+  app.post("/api/deposit-notes", async (req, res) => {
+    try {
+      const db = getLocalD1Database();
+      const payload = req.body || {};
+      const result = await createDepositNoteD1(db, payload);
+      res.json(result);
+    } catch (err: any) {
+      console.error("[Deposit Notes D1 API] Error creating deposit note:", err);
+      res.status(500).json({ success: false, error: err?.message || "Failed to create deposit note" });
+    }
+  });
+
+  app.put("/api/deposit-notes/:id", async (req, res) => {
+    try {
+      const db = getLocalD1Database();
+      const id = req.params.id;
+      if (!id) {
+        return res.status(400).json({ success: false, error: "Deposit note ID is required" });
+      }
+
+      const payload = req.body || {};
+      const result = await updateDepositNoteD1(db, id, payload);
+      res.json(result);
+    } catch (err: any) {
+      console.error("[Deposit Notes D1 API] Error updating deposit note:", err);
+      res.status(500).json({ success: false, error: err?.message || "Failed to update deposit note" });
+    }
+  });
+
+  app.delete("/api/deposit-notes/:id", async (req, res) => {
+    try {
+      const db = getLocalD1Database();
+      const id = req.params.id;
+      if (!id) {
+        return res.status(400).json({ success: false, error: "Deposit note ID is required" });
+      }
+
+      const result = await deleteDepositNoteD1(db, id);
+      res.json(result);
+    } catch (err: any) {
+      console.error("[Deposit Notes D1 API] Error deleting deposit note:", err);
+      res.status(500).json({ success: false, error: err?.message || "Failed to delete deposit note" });
     }
   });
 

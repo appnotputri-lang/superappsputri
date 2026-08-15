@@ -739,7 +739,33 @@ export interface GeneralDocumentData {
   publicToken?: string;
 }
 
-export type SidebarTabId = 'beranda' | 'company_profile' | 'cv_profile' | 'notulen' | 'pendirian' | 'rupst' | 'perbaikan' | 'draft_akta_rups' | 'panduan' | 'kbli_mapping' | 'saran_kbli' | 'import_kbli' | 'laporan' | 'whatsapp_settings' | 'projects' | 'project_detail' | 'user_management' | 'notary_reports' | 'invoice' | 'quotation' | 'deeds' | 'private_deeds' | 'protest_cheque' | 'outgoing_mail' | 'incoming_mail' | 'stamp_settings' | 'delivery' | 'receipt' | 'products' | 'settings';
+export interface DepositNoteItem {
+  id: string;
+  depositNoteId?: string;
+  description: string;
+  amount: number;
+  sortOrder?: number;
+  createdAt?: string;
+}
+
+export interface DepositNote {
+  id: string;
+  depositNumber: string;
+  date: string;
+  clientId?: string;
+  clientName: string;
+  clientAddress?: string;
+  recipientName?: string;
+  paymentMethod?: string;
+  totalAmount: number;
+  hideQr?: boolean;
+  notes?: string;
+  items: DepositNoteItem[];
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export type SidebarTabId = 'beranda' | 'company_profile' | 'cv_profile' | 'notulen' | 'pendirian' | 'rupst' | 'perbaikan' | 'draft_akta_rups' | 'panduan' | 'kbli_mapping' | 'saran_kbli' | 'import_kbli' | 'laporan' | 'whatsapp_settings' | 'projects' | 'project_detail' | 'user_management' | 'notary_reports' | 'invoice' | 'quotation' | 'deeds' | 'private_deeds' | 'protest_cheque' | 'outgoing_mail' | 'incoming_mail' | 'stamp_settings' | 'delivery' | 'receipt' | 'products' | 'settings' | 'deposit_note';
 
 // ==========================================
 // PENDIRIAN CV (PERSEKUTUAN KOMANDITER) TYPES

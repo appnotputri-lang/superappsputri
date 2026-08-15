@@ -291,3 +291,36 @@ CREATE TABLE IF NOT EXISTS protest_cheques (
 
 CREATE INDEX IF NOT EXISTS idx_protest_cheques_date ON protest_cheques(protest_date);
 CREATE INDEX IF NOT EXISTS idx_protest_cheques_number ON protest_cheques(number);
+
+-- 13. DEPOSIT NOTES (Penitipan Uang)
+CREATE TABLE IF NOT EXISTS deposit_notes (
+  id TEXT PRIMARY KEY,
+  deposit_number TEXT NOT NULL,
+  date TEXT NOT NULL,
+  client_id TEXT,
+  client_name TEXT NOT NULL,
+  client_address TEXT,
+  recipient_name TEXT,
+  payment_method TEXT,
+  total_amount REAL NOT NULL DEFAULT 0,
+  hide_qr INTEGER NOT NULL DEFAULT 0,
+  notes TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  raw_data TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_deposit_notes_number ON deposit_notes(deposit_number);
+CREATE INDEX IF NOT EXISTS idx_deposit_notes_client_id ON deposit_notes(client_id);
+CREATE INDEX IF NOT EXISTS idx_deposit_notes_date ON deposit_notes(date);
+
+CREATE TABLE IF NOT EXISTS deposit_note_items (
+  id TEXT PRIMARY KEY,
+  deposit_note_id TEXT NOT NULL,
+  description TEXT NOT NULL,
+  amount REAL NOT NULL DEFAULT 0,
+  sort_order INTEGER DEFAULT 0,
+  created_at TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_deposit_note_items_dn_id ON deposit_note_items(deposit_note_id);

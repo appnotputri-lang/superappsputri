@@ -18,6 +18,7 @@ import {
   Inbox,
   Package,
   FileCheck,
+  Banknote,
   Settings as SettingsIcon,
   ChevronDown,
   ChevronUp,
@@ -82,7 +83,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       return ['deeds', 'private_deeds', 'notary_reports', 'incoming_mail', 'outgoing_mail'].includes(activeTab);
     }
     if (sectionId === 'keuangan') {
-      return ['invoice', 'products', 'quotation', 'delivery', 'receipt'].includes(activeTab);
+      return ['invoice', 'products', 'quotation', 'delivery', 'receipt', 'deposit_note'].includes(activeTab);
     }
     if (sectionId === 'referensi_dan_alat') {
       return ['kbli_mapping', 'saran_kbli', 'perbaikan', 'panduan'].includes(activeTab);
@@ -175,6 +176,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         { label: 'Penawaran', id: 'quotation', icon: FileText, requiresAuth: true },
         { label: 'Surat Jalan', id: 'delivery', icon: Package, requiresAuth: true },
         { label: 'Tanda Terima', id: 'receipt', icon: FileCheck, requiresAuth: true },
+        { label: 'Penitipan Uang', id: 'deposit_note', icon: Banknote, requiresAuth: true },
       ]
     },
     {

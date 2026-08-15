@@ -319,6 +319,43 @@ export async function ensureD1TablesExist(db: any) {
   await db.prepare(`CREATE INDEX IF NOT EXISTS idx_protest_cheques_date ON protest_cheques(protest_date);`).run();
   await db.prepare(`CREATE INDEX IF NOT EXISTS idx_protest_cheques_number ON protest_cheques(number);`).run();
 
+  // 13. Deposit Notes table (Penitipan Uang)
+  await db.prepare(`
+    CREATE TABLE IF NOT EXISTS deposit_notes (
+      id TEXT PRIMARY KEY,
+      deposit_number TEXT NOT NULL,
+      date TEXT NOT NULL,
+      client_id TEXT,
+      client_name TEXT NOT NULL,
+      client_address TEXT,
+      recipient_name TEXT,
+      payment_method TEXT,
+      total_amount REAL NOT NULL DEFAULT 0,
+      hide_qr INTEGER NOT NULL DEFAULT 0,
+      notes TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      raw_data TEXT
+    );
+  `).run();
+
+  await db.prepare(`CREATE INDEX IF NOT EXISTS idx_deposit_notes_number ON deposit_notes(deposit_number);`).run();
+  await db.prepare(`CREATE INDEX IF NOT EXISTS idx_deposit_notes_client_id ON deposit_notes(client_id);`).run();
+  await db.prepare(`CREATE INDEX IF NOT EXISTS idx_deposit_notes_date ON deposit_notes(date);`).run();
+
+  await db.prepare(`
+    CREATE TABLE IF NOT EXISTS deposit_note_items (
+      id TEXT PRIMARY KEY,
+      deposit_note_id TEXT NOT NULL,
+      description TEXT NOT NULL,
+      amount REAL NOT NULL DEFAULT 0,
+      sort_order INTEGER DEFAULT 0,
+      created_at TEXT
+    );
+  `).run();
+
+  await db.prepare(`CREATE INDEX IF NOT EXISTS idx_deposit_note_items_dn_id ON deposit_note_items(deposit_note_id);`).run();
+
   d1TablesEnsuredCache = true;
 }
 

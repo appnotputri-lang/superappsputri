@@ -251,7 +251,8 @@ export const TAB_TO_PATH: Record<string, string> = {
   'incoming_mail': '/surat-masuk',
   'stamp_settings': '/stamp-settings',
   'delivery': '/surat-jalan',
-  'receipt': '/tanda-terima'
+  'receipt': '/tanda-terima',
+  'deposit_note': '/deposit_note'
 };
 
 export const PATH_TO_TAB: Record<string, SidebarTabId> = {
@@ -272,7 +273,10 @@ export const PATH_TO_TAB: Record<string, SidebarTabId> = {
   '/general-documents': 'delivery',
   '/surat-jalan': 'delivery',
   '/tanda-terima': 'receipt',
-  '/receipt': 'receipt'
+  '/receipt': 'receipt',
+  '/deposit_note': 'deposit_note',
+  '/deposit-notes': 'deposit_note',
+  '/deposit_notes': 'deposit_note'
 };
 
 export const RESERVED_PATHS = new Set([
@@ -287,6 +291,7 @@ export const RESERVED_PATHS = new Set([
   '/outgoing-mails', '/surat-keluar',
   '/general-documents', '/surat-jalan',
   '/tanda-terima', '/receipt',
+  '/deposit_note', '/deposit-notes', '/deposit_notes',
   '/products',
   '/rupslb', '/pendirian', '/rupst', '/perbaikan', '/draft-akta', '/panduan',
   '/sirkuler', '/rupst-public', '/kbli-mapping', '/saran-kbli', '/import-kbli',
