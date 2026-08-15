@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useLocation } from 'react-router-dom';
 import { PageHeader } from "../ui/PageLayout";
 import { Invoice, InvoiceItem, PaymentRecord, Product } from '../../../types';
 import { InvoiceService } from '../../services/InvoiceService';
@@ -658,6 +659,18 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = (props) => {
       setIsFetchingInvoiceNumber(false);
     }
   };
+
+  const location = useLocation();
+  const directActionHandledRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const isDirectAction = (location.state as any)?.openCreateModal || location.search.includes('action=new') || location.search.includes('create=true');
+    const actionKey = `${location.pathname}_${location.search}_${location.key}`;
+    if (isDirectAction && directActionHandledRef.current !== actionKey) {
+      directActionHandledRef.current = actionKey;
+      openCreatePage();
+    }
+  }, [location]);
 
   const openEditPage = (inv: Invoice) => {
     setEditingInvoiceId(inv.id);

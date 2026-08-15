@@ -107,6 +107,19 @@ export const CompanyPage: React.FC<CompanyPageProps> = ({ setIsSidebarOpen, ...p
       setSelectedClientType('CV');
     }
   }, [isCv]);
+
+  const directActionHandledRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const isDirectAction = (location.state as any)?.openNew || (location.state as any)?.openCreateModal || location.search.includes('action=new') || location.search.includes('create=true');
+    const actionKey = `${location.pathname}_${location.search}_${location.key}`;
+    if (isDirectAction && directActionHandledRef.current !== actionKey) {
+      directActionHandledRef.current = actionKey;
+      setEditingProfileId('new');
+      setIsProfilePreview(false);
+      setData({ ...INITIAL_STATE });
+    }
+  }, [location]);
   
   // 3. Local State Management for Current Edited Profile Form Data
   const [data, setData] = useState<any>({ ...INITIAL_STATE });

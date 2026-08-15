@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { useLocation } from 'react-router-dom';
 import { PageHeader } from '../../components/ui/PageLayout';
 import { Deed, DeedAppearer, DeedGrantor } from '../../../types';
 import { NotaryService } from '../../services/NotaryService';
@@ -498,6 +499,18 @@ export const DeedBook: React.FC = () => {
     }
     setIsModalOpen(true);
   };
+
+  const location = useLocation();
+  const directActionHandledRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const isDirectAction = (location.state as any)?.openCreateModal || location.search.includes('action=new') || location.search.includes('create=true');
+    const actionKey = `${location.pathname}_${location.search}_${location.key}`;
+    if (isDirectAction && directActionHandledRef.current !== actionKey) {
+      directActionHandledRef.current = actionKey;
+      handleOpenModal();
+    }
+  }, [location, superAdmin]);
 
   // Date Change Handler
   const handleDateChange = async (newDate: string) => {

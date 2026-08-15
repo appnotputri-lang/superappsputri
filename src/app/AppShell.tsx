@@ -118,7 +118,14 @@ export const AppShell: React.FC = () => {
 
   const [isEditProfileModalOpen, setIsEditProfileModalOpen] = useState(false);
   const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  // Responsive sidebar: Default to closed (false) on mobile (<768px), and open (true) on desktop (>=768px)
+  const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth >= 768;
+    }
+    return true;
+  });
+  const wasMobileRef = useRef<boolean>(typeof window !== 'undefined' ? window.innerWidth < 768 : false);
 
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [zoom, setZoom] = useState(100);
@@ -184,11 +191,39 @@ export const AppShell: React.FC = () => {
     return PATH_TO_TAB[currentPath] || 'beranda';
   }, [location.pathname, location.hash]);
 
-  const setActiveSidebarTab = (tab: SidebarTabId) => {
+  const setActiveSidebarTab = (tab: SidebarTabId, navOptions?: { search?: string; state?: any }) => {
     closeProject();
-    const path = TAB_TO_PATH[tab] || '/';
-    navigate(path);
+    const basePath = TAB_TO_PATH[tab] || '/';
+    const targetPath = navOptions?.search ? `${basePath}${navOptions.search}` : basePath;
+    navigate(targetPath, { state: navOptions?.state });
+    if (typeof window !== 'undefined' && window.innerWidth < 768) {
+      setIsSidebarOpen(false);
+    }
   };
+
+  // Auto-close sidebar on mobile viewport whenever location or active tab changes
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.innerWidth < 768) {
+      setIsSidebarOpen(false);
+    }
+  }, [location.pathname, location.hash, activeSidebarTab]);
+
+  // Responsive resize handler: close sidebar when entering mobile, open when entering desktop
+  useEffect(() => {
+    const handleResize = () => {
+      const isMobile = window.innerWidth < 768;
+      if (isMobile !== wasMobileRef.current) {
+        wasMobileRef.current = isMobile;
+        if (isMobile) {
+          setIsSidebarOpen(false);
+        } else {
+          setIsSidebarOpen(true);
+        }
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     setAutosaveParams({

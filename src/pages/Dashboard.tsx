@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { PageContainer } from '../components/ui/PageLayout';
 import { 
   Clock, 
@@ -21,6 +22,7 @@ import {
 import { ProjectService } from '../services/ProjectService';
 import { Project } from '../domain/project/Project';
 import { FirestoreTracker } from '../lib/firestoreTracker';
+import { TAB_TO_PATH } from '../constants/tabs';
 
 const getDetailedActivityStyles = (type: 'proyek' | 'akta' | 'invoice' | 'surat', desc: string) => {
   const isInvoiceUnpaid = type === 'invoice' && desc.toLowerCase().includes('belum dibayar');
@@ -90,7 +92,33 @@ export const Dashboard: React.FC<DashboardProps> = ({
   setIsSidebarOpen,
   userProfile
 }) => {
+  const navigate = useNavigate();
   const [recentProjects, setRecentProjects] = useState<Project[]>([]);
+
+  const QUICK_ACTIONS = useMemo(() => [
+    { label: 'Proyek Baru', icon: FolderPlus, bg: 'bg-blue-50 text-blue-600', tab: 'projects', directAction: true },
+    { label: 'Klien Baru', icon: Users, bg: 'bg-amber-50 text-amber-600', tab: 'company_profile', directAction: true },
+    { label: 'Buat Akta', icon: FileText, bg: 'bg-emerald-50 text-emerald-600', tab: 'deeds', directAction: true },
+    { label: 'Buat Invoice', icon: CreditCard, bg: 'bg-purple-50 text-purple-600', tab: 'invoice', directAction: true },
+    { label: 'Surat Baru', icon: Mail, bg: 'bg-rose-50 text-rose-600', tab: 'outgoing_mail', directAction: true },
+    { label: 'Buku Akta', icon: BookOpen, bg: 'bg-cyan-50 text-cyan-600', tab: 'deeds', directAction: false },
+    { label: 'Legalisasi', icon: ShieldCheck, bg: 'bg-teal-50 text-teal-600', tab: 'private_deeds', directAction: true },
+    { label: 'Laporan Proyek', icon: BarChart2, bg: 'bg-amber-50 text-amber-600', tab: 'laporan', directAction: false },
+  ], []);
+
+  const handleQuickAction = (qa: typeof QUICK_ACTIONS[0]) => {
+    const basePath = TAB_TO_PATH[qa.tab] || `/${qa.tab}`;
+    if (qa.directAction) {
+      (setActiveSidebarTab as any)(qa.tab, { search: '?action=new', state: { openCreateModal: true, openNew: true } });
+      navigate(`${basePath}?action=new`, { state: { openCreateModal: true, openNew: true } });
+    } else {
+      setActiveSidebarTab(qa.tab);
+      navigate(basePath);
+    }
+    if (setIsSidebarOpen && typeof window !== 'undefined' && window.innerWidth < 768) {
+      setIsSidebarOpen(false);
+    }
+  };
 
   // Fetch max 5 recent projects for activities section
   const fetchRecentData = async () => {
@@ -147,19 +175,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
         <div>
           <h3 className="text-sm font-bold text-slate-900 mb-3 px-1">Akses Cepat</h3>
             <div className="grid grid-cols-4 gap-2.5">
-              {[
-                { label: 'Proyek Baru', icon: FolderPlus, bg: 'bg-blue-50 text-blue-600', tab: 'projects' },
-                { label: 'Klien Baru', icon: Users, bg: 'bg-amber-50 text-amber-600', tab: 'company_profile' },
-                { label: 'Buat Akta', icon: FileText, bg: 'bg-emerald-50 text-emerald-600', tab: 'deeds' },
-                { label: 'Buat Invoice', icon: CreditCard, bg: 'bg-purple-50 text-purple-600', tab: 'invoice' },
-                { label: 'Surat Baru', icon: Mail, bg: 'bg-slate-100 text-slate-600', tab: 'outgoing_mail' },
-                { label: 'Buku Akta', icon: BookOpen, bg: 'bg-blue-50 text-blue-600', tab: 'deeds' },
-                { label: 'Legalisasi', icon: ShieldCheck, bg: 'bg-teal-50 text-teal-600', tab: 'private_deeds' },
-                { label: 'Laporan Proyek', icon: BarChart2, bg: 'bg-amber-50 text-amber-600', tab: 'laporan' },
-              ].map((qa, idx) => (
+              {QUICK_ACTIONS.map((qa, idx) => (
                 <button 
                   key={idx} 
-                  onClick={() => setActiveSidebarTab(qa.tab)} 
+                  onClick={() => handleQuickAction(qa)} 
                   className="bg-white rounded-2xl border border-slate-100 shadow-xs p-2.5 flex flex-col items-center justify-center text-center cursor-pointer hover:shadow-md active:scale-95 transition-all min-h-[92px]"
                 >
                   <div className={`${qa.bg} p-2.5 rounded-2xl mb-1 flex items-center justify-center`}>
@@ -216,85 +235,18 @@ export const Dashboard: React.FC<DashboardProps> = ({
               </div>
 
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <button
-                  onClick={() => setActiveSidebarTab('company_profile')}
-                  className="p-4 bg-white border border-slate-200/80 hover:border-blue-500/50 hover:bg-slate-50/50 rounded-xl shadow-xs hover:shadow-sm transition-all text-center flex flex-col items-center justify-center gap-2 cursor-pointer h-24"
-                >
-                  <div className="w-[30px] h-[30px] flex items-center justify-center rounded-lg bg-blue-50 text-blue-600 shrink-0">
-                    <Users size={16} />
-                  </div>
-                  <span className="text-xs font-bold text-slate-800 truncate">+ Klien Baru</span>
-                </button>
-
-                <button
-                  onClick={() => setActiveSidebarTab('projects')}
-                  className="p-4 bg-white border border-slate-200/80 hover:border-emerald-500/50 hover:bg-slate-50/50 rounded-xl shadow-xs hover:shadow-sm transition-all text-center flex flex-col items-center justify-center gap-2 cursor-pointer h-24"
-                >
-                  <div className="w-[30px] h-[30px] flex items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 shrink-0">
-                    <FolderPlus size={16} />
-                  </div>
-                  <span className="text-xs font-bold text-slate-800 truncate">+ Proyek Baru</span>
-                </button>
-
-                <button
-                  onClick={() => setActiveSidebarTab('invoice')}
-                  className="p-4 bg-white border border-slate-200/80 hover:border-purple-500/50 hover:bg-slate-50/50 rounded-xl shadow-xs hover:shadow-sm transition-all text-center flex flex-col items-center justify-center gap-2 cursor-pointer h-24"
-                >
-                  <div className="w-[30px] h-[30px] flex items-center justify-center rounded-lg bg-purple-50 text-purple-600 shrink-0">
-                    <CreditCard size={16} />
-                  </div>
-                  <span className="text-xs font-bold text-slate-800 truncate">+ Buat Invoice</span>
-                </button>
-
-                <button
-                  onClick={() => setActiveSidebarTab('deeds')}
-                  className="p-4 bg-white border border-slate-200/80 hover:border-cyan-500/50 hover:bg-slate-50/50 rounded-xl shadow-xs hover:shadow-sm transition-all text-center flex flex-col items-center justify-center gap-2 cursor-pointer h-24"
-                >
-                  <div className="w-[30px] h-[30px] flex items-center justify-center rounded-lg bg-cyan-50 text-cyan-600 shrink-0">
-                    <BookOpen size={16} />
-                  </div>
-                  <span className="text-xs font-bold text-slate-800 truncate">Buku Daftar Akta</span>
-                </button>
-
-                <button
-                  onClick={() => setActiveSidebarTab('outgoing_mail')}
-                  className="p-4 bg-white border border-slate-200/80 hover:border-rose-500/50 hover:bg-slate-50/50 rounded-xl shadow-xs hover:shadow-sm transition-all text-center flex flex-col items-center justify-center gap-2 cursor-pointer h-24"
-                >
-                  <div className="w-[30px] h-[30px] flex items-center justify-center rounded-lg bg-rose-50 text-rose-600 shrink-0">
-                    <Mail size={16} />
-                  </div>
-                  <span className="text-xs font-bold text-slate-800 truncate">Surat Keluar</span>
-                </button>
-
-                <button
-                  onClick={() => setActiveSidebarTab('private_deeds')}
-                  className="p-4 bg-white border border-slate-200/80 hover:border-teal-500/50 hover:bg-slate-50/50 rounded-xl shadow-xs hover:shadow-sm transition-all text-center flex flex-col items-center justify-center gap-2 cursor-pointer h-24"
-                >
-                  <div className="w-[30px] h-[30px] flex items-center justify-center rounded-lg bg-teal-50 text-teal-600 shrink-0">
-                    <ShieldCheck size={16} />
-                  </div>
-                  <span className="text-xs font-bold text-slate-800 truncate">Legalisasi & Waarmerking</span>
-                </button>
-
-                <button
-                  onClick={() => setActiveSidebarTab('kbli_mapping')}
-                  className="p-4 bg-white border border-slate-200/80 hover:border-indigo-500/50 hover:bg-slate-50/50 rounded-xl shadow-xs hover:shadow-sm transition-all text-center flex flex-col items-center justify-center gap-2 cursor-pointer h-24"
-                >
-                  <div className="w-[30px] h-[30px] flex items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 shrink-0">
-                    <FileCheck size={16} />
-                  </div>
-                  <span className="text-xs font-bold text-slate-800 truncate">Mapping KBLI</span>
-                </button>
-
-                <button
-                  onClick={() => setActiveSidebarTab('laporan')}
-                  className="p-4 bg-white border border-slate-200/80 hover:border-amber-500/50 hover:bg-slate-50/50 rounded-xl shadow-xs hover:shadow-sm transition-all text-center flex flex-col items-center justify-center gap-2 cursor-pointer h-24"
-                >
-                  <div className="w-[30px] h-[30px] flex items-center justify-center rounded-lg bg-amber-50 text-amber-600 shrink-0">
-                    <BarChart2 size={16} />
-                  </div>
-                  <span className="text-xs font-bold text-slate-800 truncate">Laporan Proyek</span>
-                </button>
+                {QUICK_ACTIONS.map((qa, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => handleQuickAction(qa)}
+                    className="p-4 bg-white border border-slate-200/80 hover:border-blue-500/50 hover:bg-slate-50/50 rounded-xl shadow-xs hover:shadow-sm transition-all text-center flex flex-col items-center justify-center gap-2 cursor-pointer h-24"
+                  >
+                    <div className={`w-[30px] h-[30px] flex items-center justify-center rounded-lg ${qa.bg} shrink-0`}>
+                      <qa.icon size={16} />
+                    </div>
+                    <span className="text-xs font-bold text-slate-800 truncate">{qa.label}</span>
+                  </button>
+                ))}
               </div>
             </div>
 

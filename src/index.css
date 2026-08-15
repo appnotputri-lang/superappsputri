@@ -9,6 +9,75 @@
   --color-surface-sidebar-active: #e0f2fe;
 }
 
+/* ==========================================================================
+   macOS Native Minimalist Scrollbar (Sidebar & Custom Containers)
+   ========================================================================== */
+
+.sidebar-macos-scroll,
+.custom-scrollbar {
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior-y: contain;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+  transition: scrollbar-color 0.3s ease;
+}
+
+/* Firefox scrollbar hover & active states */
+.sidebar-macos-scroll:hover,
+.sidebar-macos-scroll:focus-within,
+.sidebar-macos-scroll.is-scrolling,
+.custom-scrollbar:hover,
+.custom-scrollbar:focus-within,
+.custom-scrollbar.is-scrolling {
+  scrollbar-color: rgba(148, 163, 184, 0.45) transparent;
+}
+
+/* WebKit (Chrome, Safari, Edge, Electron) */
+.sidebar-macos-scroll::-webkit-scrollbar,
+.custom-scrollbar::-webkit-scrollbar {
+  width: 5px;
+  height: 0px;
+  background: transparent;
+}
+
+.sidebar-macos-scroll::-webkit-scrollbar-track,
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+  margin: 4px 0;
+}
+
+.sidebar-macos-scroll::-webkit-scrollbar-thumb,
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: transparent;
+  border-radius: 9999px;
+  border: 1px solid transparent;
+  background-clip: padding-box;
+  transition: background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Idle state: invisible. Active scrolling or hover: reveal subtle rounded pill */
+.sidebar-macos-scroll:hover::-webkit-scrollbar-thumb,
+.sidebar-macos-scroll:focus-within::-webkit-scrollbar-thumb,
+.sidebar-macos-scroll.is-scrolling::-webkit-scrollbar-thumb,
+.custom-scrollbar:hover::-webkit-scrollbar-thumb,
+.custom-scrollbar:focus-within::-webkit-scrollbar-thumb,
+.custom-scrollbar.is-scrolling::-webkit-scrollbar-thumb {
+  background-color: rgba(148, 163, 184, 0.45);
+}
+
+.sidebar-macos-scroll::-webkit-scrollbar-thumb:hover,
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(100, 116, 139, 0.75) !important;
+}
+
+.sidebar-macos-scroll::-webkit-scrollbar-corner,
+.custom-scrollbar::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
 @media print {
   body {
     background-color: white;
@@ -18,3 +87,4 @@
     margin: 0;
   }
 }
+

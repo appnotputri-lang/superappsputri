@@ -111,6 +111,27 @@ export const Sidebar: React.FC<SidebarProps> = ({
     sistem: !isSectionActive('sistem', activeSidebarTab),
   }));
 
+  const [isScrolling, setIsScrolling] = React.useState(false);
+  const scrollTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+
+  const handleScroll = React.useCallback(() => {
+    setIsScrolling(true);
+    if (scrollTimeoutRef.current) {
+      clearTimeout(scrollTimeoutRef.current);
+    }
+    scrollTimeoutRef.current = setTimeout(() => {
+      setIsScrolling(false);
+    }, 900);
+  }, []);
+
+  React.useEffect(() => {
+    return () => {
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+    };
+  }, []);
+
   React.useEffect(() => {
     setCollapsedSections(prev => {
       const next = { ...prev };
@@ -221,7 +242,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
         )}
 
         {/* Scrollable Menu Items */}
-        <div className="flex-1 py-4 space-y-4 text-[13px] overflow-y-auto overflow-x-hidden custom-scrollbar">
+        <div 
+          onScroll={handleScroll}
+          className={`flex-1 py-4 space-y-4 text-[13px] overflow-y-auto overflow-x-hidden sidebar-macos-scroll ${isScrolling ? 'is-scrolling' : ''}`}
+        >
           {menuSections.map((section, idx) => {
             const isCollapsed = collapsedSections[section.id];
             
@@ -371,6 +395,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         onClick={() => {
                           setIsEditProfileModalOpen?.(true);
                           setIsUserDropdownOpen?.(false);
+                          if (typeof window !== 'undefined' && window.innerWidth < 768) {
+                            setIsSidebarOpen?.(false);
+                          }
                         }}
                         className="w-full px-4 py-2 text-left text-xs text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-2.5 cursor-pointer"
                       >
@@ -382,6 +409,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         onClick={() => {
                           setActiveSidebarTab('settings');
                           setIsUserDropdownOpen?.(false);
+                          if (typeof window !== 'undefined' && window.innerWidth < 768) {
+                            setIsSidebarOpen?.(false);
+                          }
                         }}
                         className="w-full px-4 py-2 text-left text-xs text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-2.5 cursor-pointer"
                       >
@@ -393,6 +423,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         onClick={() => {
                           setActiveSidebarTab('panduan');
                           setIsUserDropdownOpen?.(false);
+                          if (typeof window !== 'undefined' && window.innerWidth < 768) {
+                            setIsSidebarOpen?.(false);
+                          }
                         }}
                         className="w-full px-4 py-2 text-left text-xs text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-2.5 cursor-pointer"
                       >
@@ -410,6 +443,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             loginWithGoogle();
                           }
                           setIsUserDropdownOpen?.(false);
+                          if (typeof window !== 'undefined' && window.innerWidth < 768) {
+                            setIsSidebarOpen?.(false);
+                          }
                         }}
                         className={`w-full px-4 py-2 text-left text-xs font-bold transition-colors flex items-center gap-2.5 cursor-pointer ${
                           user ? 'text-red-600 hover:bg-red-50/50' : 'text-blue-600 hover:bg-blue-50/55'
