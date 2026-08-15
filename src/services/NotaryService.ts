@@ -150,12 +150,48 @@ export class NotaryService {
   }
 
   static async deleteDeed(id: string): Promise<void> {
-    const res = await fetch(`/api/deeds/${encodeURIComponent(id)}`, {
-      method: 'DELETE'
-    });
-    if (!res.ok) {
-      throw new Error(`Failed to delete deed ${id} from D1`);
+    const url = `/api/deeds/${encodeURIComponent(id)}`;
+    console.log(`[D1 DELETE REQUEST]\nurl: ${url}\nid: ${id}`);
+    
+    let res: Response;
+    try {
+      res = await fetch(url, {
+        method: 'DELETE'
+      });
+    } catch (netErr: any) {
+      console.error('[D1 DELETE NETWORK ERROR]', netErr);
+      throw new Error(`Koneksi jaringan gagal: ${netErr?.message || 'Network error'}`);
     }
+
+    let responseBody = '';
+    try {
+      responseBody = await res.text();
+    } catch (_) {}
+
+    console.log(`[D1 DELETE RESPONSE]\nstatus: ${res.status}\nbody: ${responseBody}`);
+
+    if (!res.ok) {
+      let detailedMsg = `HTTP ${res.status}`;
+      try {
+        const json = JSON.parse(responseBody);
+        if (json?.error) detailedMsg = json.error;
+      } catch (_) {
+        if (responseBody) detailedMsg = responseBody.slice(0, 200);
+      }
+      throw new Error(`D1 delete gagal (${res.status}): ${detailedMsg}`);
+    }
+
+    try {
+      const json = JSON.parse(responseBody);
+      if (json && json.success === false) {
+        throw new Error(json.error || 'Server melaporkan penghapusan gagal.');
+      }
+    } catch (parseErr: any) {
+      if (responseBody.trim().startsWith('<')) {
+        throw new Error('Endpoint API mengembalikan respon HTML (route tidak ditemukan di worker/server).');
+      }
+    }
+
     notifyChange('deeds');
   }
 

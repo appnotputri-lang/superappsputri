@@ -799,32 +799,56 @@ export const DeedBook: React.FC = () => {
     }
 
     if (confirm(`Apakah Anda yakin ingin menghapus akta No. ${deed.number} - "${deed.title}"?`)) {
+      console.log(`[DEED DELETE START]\nid: ${deed.id}\ndeed number: ${deed.number || deed.deedNumber || '-'}`);
+
+      // 1. Take snapshot of current state for rollback
       const backupDeeds = [...deeds];
       const backupTotal = totalDeedsCount;
+      const backupMonthCache = { ...monthCache };
 
-      // Optimistically update lists
-      setDeeds(prev => prev.filter(d => d.id !== deed.id));
+      // 2. Optimistically update local UI state immediately
+      const remainingDeeds = deeds.filter(d => d.id !== deed.id);
+      setDeeds(remainingDeeds);
       setTotalDeedsCount(prev => Math.max(0, prev - 1));
 
+      // Optimistically update monthCache locally without re-fetching 1000 records
+      if (deed.date && deed.date.length >= 7) {
+        const ymKey = deed.date.substring(0, 7);
+        setMonthCache(prev => {
+          if (!prev[ymKey]) return prev;
+          return {
+            ...prev,
+            [ymKey]: prev[ymKey].filter(d => d.id !== deed.id)
+          };
+        });
+      }
+
+      // Invalidate caches
+      clearDeedCache();
+      numberPrefetchCache.current = null;
+      if (deed.date) {
+        prefetchDeedNumbers(deed.date);
+      }
+
+      // If the current page became empty after deleting the last item, adjust page
+      if (remainingDeeds.length === 0 && currentPage > 1) {
+        setCurrentPage(prev => Math.max(1, prev - 1));
+      }
+
+      // 3. Perform delete on backend in the background
       try {
         await NotaryService.deleteDeed(deed.id);
-        clearDeedCache();
+      } catch (err: any) {
+        console.log('[ROLLBACK START]');
+        const errMsg = err?.message || 'Terjadi kesalahan sistem saat menghapus akta.';
+        console.error(`[ROLLBACK RESULT]\nsuccess/failure: failure\nerror: ${errMsg}`);
 
-        if (deed.date && deed.date.length >= 7) {
-          const ymKey = deed.date.substring(0, 7);
-          const [yS, mS] = ymKey.split('-');
-          const y = parseInt(yS, 10);
-          const m = parseInt(mS, 10);
-          if (!isNaN(y) && !isNaN(m)) {
-            const fresh = await NotaryService.getDeedsByMonth(y, m);
-            setMonthCache((prev) => ({ ...prev, [ymKey]: fresh || [] }));
-          }
-        }
-      } catch (err) {
-        console.error('Failed to delete deed:', err);
-        alert('Gagal menghapus data akta. Mengembalikan data...');
+        // Restore state from snapshot (NO full refetch / sync)
         setDeeds(backupDeeds);
         setTotalDeedsCount(backupTotal);
+        setMonthCache(backupMonthCache);
+
+        alert(`Akta gagal dihapus: ${errMsg}`);
       }
     }
   };
