@@ -128,6 +128,25 @@ export class InvoiceService {
     }
   }
 
+  /**
+   * Authoritative next invoice number for a given year, computed server-side
+   * from the actual D1 `invoices` table (highest existing INV/{year}/{seq}
+   * in use, +1). Throws on failure instead of falling back to a guessed
+   * number — the caller must decide how to handle a failed lookup rather
+   * than silently offering a number that was never actually verified.
+   */
+  static async getNextInvoiceNumber(year: number): Promise<string> {
+    const res = await fetch(getApiUrl(`/api/invoices/next-number?year=${encodeURIComponent(String(year))}`));
+    if (!res.ok) {
+      throw new Error(`Gagal mengambil nomor invoice terbaru dari server (status ${res.status}).`);
+    }
+    const json = await res.json();
+    if (!json || !json.nextInvoiceNumber) {
+      throw new Error('Respon nomor invoice terbaru dari server tidak lengkap.');
+    }
+    return json.nextInvoiceNumber;
+  }
+
   static async getInvoiceByPublicToken(publicToken: string): Promise<Invoice | null> {
     try {
       const encodedToken = encodeURIComponent(publicToken);

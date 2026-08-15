@@ -260,6 +260,7 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = (props) => {
   const [selectedProjectId, setSelectedProjectId] = useState<string>('');
   const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([]);
   const [invoiceNumber, setInvoiceNumber] = useState('');
+  const [isFetchingInvoiceNumber, setIsFetchingInvoiceNumber] = useState(false);
   const [clientName, setClientName] = useState('');
   const [selectedClientId, setSelectedClientId] = useState<string>('');
   const [selectedClientSource, setSelectedClientSource] = useState<'local' | 'superapps' | undefined>(undefined);
@@ -597,19 +598,27 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = (props) => {
     });
   };
 
-  const openCreatePage = () => {
+  const openCreatePage = async () => {
     setEditingInvoiceId(null);
     setSelectedProjectId('');
     setSelectedProjectIds([]);
-    const nextNum = (invoices.length + 1).toString().padStart(3, '0');
-    const generatedNum = `INV/${new Date().getFullYear()}/${nextNum}`;
-    
+
     // Auto due date + 3 days
     const today = new Date();
     const due = new Date();
     due.setDate(today.getDate() + 3);
 
-    setInvoiceNumber(generatedNum);
+    // NOTE: this used to be `(invoices.length + 1).toString().padStart(3, '0')`
+    // — i.e. based on however many invoices happened to be loaded in the
+    // CURRENT paginated page of the browser's local state, not the real
+    // count in the database. That's why it always suggested a low/wrong
+    // number like INV/2026/011 regardless of how many invoices actually
+    // existed. The number now comes from the D1-backed
+    // /api/invoices/next-number endpoint (same authoritative pattern used
+    // for deed numbers) instead.
+    setInvoiceNumber('');
+    setIsFetchingInvoiceNumber(true);
+
     setClientName('');
     setSelectedClientId('');
     setSelectedClientSource(undefined);
@@ -638,6 +647,16 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = (props) => {
     setBankSwift('CENAIDJA');
     loadClientOptions();
     setViewMode('create');
+
+    try {
+      const nextNumber = await InvoiceService.getNextInvoiceNumber(today.getFullYear());
+      setInvoiceNumber(nextNumber);
+    } catch (err) {
+      console.error('Error fetching next invoice number:', err);
+      alert('Gagal mengambil nomor invoice terbaru dari server. Silakan isi nomor invoice secara manual, atau tutup dan buka lagi form ini untuk mencoba ulang.');
+    } finally {
+      setIsFetchingInvoiceNumber(false);
+    }
   };
 
   const openEditPage = (inv: Invoice) => {
@@ -2467,9 +2486,11 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
               <input
                 type="text"
                 required
+                disabled={isFetchingInvoiceNumber}
                 value={invoiceNumber}
                 onChange={(e) => setInvoiceNumber(e.target.value)}
-                className="w-full p-1.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/20 text-xs"
+                placeholder={isFetchingInvoiceNumber ? 'Memuat nomor...' : undefined}
+                className="w-full p-1.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/20 text-xs disabled:text-slate-400"
               />
             </div>
 
@@ -2848,10 +2869,11 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
 
           <button
             type="submit"
-            disabled={isSubmitting}
-            className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-xs shadow-sm cursor-pointer transition-all"
+            disabled={isSubmitting || isFetchingInvoiceNumber || !invoiceNumber}
+            title={isFetchingInvoiceNumber ? 'Menunggu nomor invoice dari server...' : (!invoiceNumber ? 'Nomor invoice belum terisi' : undefined)}
+            className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-xs shadow-sm cursor-pointer transition-all disabled:opacity-50"
           >
-            {isSubmitting ? 'Menyimpan...' : 'Simpan'}
+            {isSubmitting ? 'Menyimpan...' : isFetchingInvoiceNumber ? 'Memuat nomor...' : 'Simpan'}
           </button>
         </div>
       </form>

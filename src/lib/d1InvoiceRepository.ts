@@ -444,3 +444,36 @@ export async function deleteInvoiceD1(db: any, id: string) {
     message: 'Invoice deleted successfully'
   };
 }
+
+export async function fetchNextInvoiceNumberD1(db: any, year: number) {
+  await ensureD1TablesExist(db);
+
+  // Look at every invoice number for the given year (format INV/{year}/{seq})
+  // and take the highest sequence actually in use, +1. This mirrors the
+  // authoritative server-side approach already used for deed numbers — it
+  // reflects the real state of the `invoices` table in D1, not whatever
+  // partial/paginated page of results happens to be loaded in the browser
+  // (which is what the old client-side `invoices.length + 1` guess used).
+  const prefix = `INV/${year}/`;
+  const res = await db.prepare(
+    `SELECT invoice_number FROM invoices WHERE invoice_number LIKE ?`
+  ).bind(`${prefix}%`).all();
+
+  const rows = res?.results || [];
+  let maxSeq = 0;
+  for (const row of rows) {
+    const num = String(row.invoice_number || '');
+    if (!num.startsWith(prefix)) continue;
+    const suffix = num.slice(prefix.length);
+    const digits = suffix.match(/^\d+/);
+    if (digits) {
+      const val = parseInt(digits[0], 10);
+      if (!isNaN(val) && val > maxSeq) maxSeq = val;
+    }
+  }
+
+  const nextSeq = maxSeq + 1;
+  const nextInvoiceNumber = `${prefix}${String(nextSeq).padStart(3, '0')}`;
+
+  return { success: true, nextInvoiceNumber };
+}
