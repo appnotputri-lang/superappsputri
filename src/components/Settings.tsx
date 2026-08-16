@@ -23,6 +23,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { PageContainer, PageHeader } from './ui/PageLayout';
+import { MobileHeader } from './ui/MobileHeader';
 import { WhatsAppSettings } from './WhatsAppSettings';
 import { StampSettings } from './StampSettings';
 import { UserManagement } from './UserManagement';
@@ -111,10 +112,22 @@ export const Settings: React.FC<SettingsProps> = ({
 
   return (
     <PageContainer>
-      <PageHeader 
-        title="Pusat Pengaturan" 
-        description="Kelola konfigurasi, pengguna, integrasi, keamanan, dan pemeliharaan sistem dari satu kendali utama."
+      <MobileHeader
+        title="Pengaturan"
+        onOpenSidebar={() => {
+          if (typeof window !== 'undefined') {
+            const btn = document.querySelector('button[aria-label="Toggle sidebar"]') as HTMLButtonElement;
+            if (btn) btn.click();
+          }
+        }}
       />
+
+      <div className="hidden md:block">
+        <PageHeader 
+          title="Pusat Pengaturan" 
+          description="Kelola konfigurasi, pengguna, integrasi, keamanan, dan pemeliharaan sistem dari satu kendali utama."
+        />
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start mt-4">
         

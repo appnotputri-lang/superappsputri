@@ -64,21 +64,28 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({
 }) => {
   const [isSortOpen, setIsSortOpen] = useState(false);
 
+  const handleOpenSidebar = () => {
+    if (onOpenSidebar) {
+      onOpenSidebar();
+    } else if (typeof window !== 'undefined') {
+      const btn = document.querySelector('button[aria-label="Toggle sidebar"]') as HTMLButtonElement;
+      if (btn) btn.click();
+    }
+  };
+
   return (
     <div className="md:hidden bg-[#1e61c3] text-white rounded-b-[2rem] p-4.5 pt-5 pb-5 shadow-sm -mx-4 sm:-mx-6 -mt-4 sm:-mt-5 mb-4 space-y-3.5">
       {/* 1. Baris Atas: Hamburger Menu + Judul + Tombol Plus/Aksi */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          {onOpenSidebar && (
-            <button
-              onClick={onOpenSidebar}
-              className="p-1 -ml-1 text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer"
-              title="Buka Menu Sidebar"
-              type="button"
-            >
-              <Menu className="w-6 h-6" />
-            </button>
-          )}
+          <button
+            onClick={handleOpenSidebar}
+            className="p-1 -ml-1 text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer"
+            title="Buka Menu Sidebar"
+            type="button"
+          >
+            <Menu className="w-6 h-6" />
+          </button>
           <h1 className="text-xl font-bold text-white tracking-tight leading-tight">{title}</h1>
         </div>
 

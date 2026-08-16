@@ -156,7 +156,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
 
       <div className="flex-1 flex flex-col h-full overflow-hidden">
         <FirestoreQuotaBanner />
-        <div className={TABS_WITH_MOBILE_HERO.includes(activeSidebarTab) ? 'hidden md:block' : ''}>
+        <div className="hidden md:block">
           <Header
             user={user}
             isSidebarOpen={isSidebarOpen}

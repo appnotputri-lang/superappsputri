@@ -1,5 +1,6 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { PageContainer, PageHeader } from './ui/PageLayout';
+import { MobileHeader } from './ui/MobileHeader';
 import { Search, FileText, Download, Smartphone, Send, SendHorizontal, AlertCircle, CheckCircle2, RefreshCw, X, Image } from 'lucide-react';
 import { DocumentStatusBadge } from '../../components/DocumentStatusBadge';
 import { jsPDF } from 'jspdf';
@@ -958,51 +959,68 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects: propsProject
         </div>
       )}
 
-      {/* HEADER SECTION */}
-      <PageHeader
-        icon={<FileText className="w-5 h-5 text-white" />}
-        title="Laporan Proyek Kerja"
-        description="Daftar laporan seluruh pekerjaan dan status terakhir"
-        actions={
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              onClick={handleTestWhatsApp}
-              disabled={testingStatus}
-              className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 disabled:text-slate-400 font-bold text-xs px-3.5 py-2 rounded-lg border border-slate-200 shadow-sm transition-all cursor-pointer uppercase tracking-wider"
-              title="Klik untuk menguji konektivitas WhatsApp Gateway"
-            >
-              {testingStatus ? <RefreshCw className="animate-spin w-3.5 h-3.5" /> : <Smartphone size={14} />}
-              Test WA
-            </button>
-
-            <button
-              onClick={() => setModalOpen(true)}
-              disabled={filteredReports.length === 0}
-              className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 text-white font-bold text-xs px-3.5 py-2 rounded-lg shadow-sm transition-all cursor-pointer uppercase tracking-wider"
-            >
-              <Send size={14} />
-              Kirim WA ({filteredReports.length})
-            </button>
-
-            <button
-              onClick={handleExportPDF}
-              className="flex items-center gap-2 bg-[#0c2444] hover:bg-[#16365f] text-white font-bold text-xs px-3.5 py-2 rounded-lg shadow-sm transition-all cursor-pointer uppercase tracking-wider"
-            >
-              <Download size={14} />
-              PDF
-            </button>
-
-            <button
-              onClick={handleExportJPG}
-              disabled={isExportingJpg || filteredReports.length === 0}
-              className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 text-white font-bold text-xs px-3.5 py-2 rounded-lg shadow-sm transition-all cursor-pointer uppercase tracking-wider"
-            >
-              {isExportingJpg ? <RefreshCw className="animate-spin w-3.5 h-3.5" /> : <Image size={14} />}
-              {isExportingJpg ? 'JPG...' : 'JPG (HD)'}
-            </button>
-          </div>
-        }
+      <MobileHeader
+        title="Laporan Proyek"
+        onOpenSidebar={() => {
+          if (typeof window !== 'undefined') {
+            const btn = document.querySelector('button[aria-label="Toggle sidebar"]') as HTMLButtonElement;
+            if (btn) btn.click();
+          }
+        }}
+        searchValue={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Cari nama PT, pekerjaan..."
+        totalItems={filteredReports.length}
+        totalLabel="Laporan"
       />
+
+      {/* HEADER SECTION DESKTOP */}
+      <div className="hidden md:block">
+        <PageHeader
+          icon={<FileText className="w-5 h-5 text-white" />}
+          title="Laporan Proyek Kerja"
+          description="Daftar laporan seluruh pekerjaan dan status terakhir"
+          actions={
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={handleTestWhatsApp}
+                disabled={testingStatus}
+                className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 disabled:text-slate-400 font-bold text-xs px-3.5 py-2 rounded-lg border border-slate-200 shadow-sm transition-all cursor-pointer uppercase tracking-wider"
+                title="Klik untuk menguji konektivitas WhatsApp Gateway"
+              >
+                {testingStatus ? <RefreshCw className="animate-spin w-3.5 h-3.5" /> : <Smartphone size={14} />}
+                Test WA
+              </button>
+
+              <button
+                onClick={() => setModalOpen(true)}
+                disabled={filteredReports.length === 0}
+                className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 text-white font-bold text-xs px-3.5 py-2 rounded-lg shadow-sm transition-all cursor-pointer uppercase tracking-wider"
+              >
+                <Send size={14} />
+                Kirim WA ({filteredReports.length})
+              </button>
+
+              <button
+                onClick={handleExportPDF}
+                className="flex items-center gap-2 bg-[#0c2444] hover:bg-[#16365f] text-white font-bold text-xs px-3.5 py-2 rounded-lg shadow-sm transition-all cursor-pointer uppercase tracking-wider"
+              >
+                <Download size={14} />
+                PDF
+              </button>
+
+              <button
+                onClick={handleExportJPG}
+                disabled={isExportingJpg || filteredReports.length === 0}
+                className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 text-white font-bold text-xs px-3.5 py-2 rounded-lg shadow-sm transition-all cursor-pointer uppercase tracking-wider"
+              >
+                {isExportingJpg ? <RefreshCw className="animate-spin w-3.5 h-3.5" /> : <Image size={14} />}
+                {isExportingJpg ? 'JPG...' : 'JPG (HD)'}
+              </button>
+            </div>
+          }
+        />
+      </div>
 
       {/* TAB SELECTOR (PROYEK AKTIF & MINUTA) */}
       <div className="flex space-x-1 border-b border-slate-200 mt-4 select-none">

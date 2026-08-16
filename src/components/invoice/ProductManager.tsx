@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { PageContainer, PageHeader } from '../ui/PageLayout';
+import { MobileHeader } from '../ui/MobileHeader';
 import { Product } from '../../../types';
 import { ProductService } from '../../services/ProductService';
 import { 
@@ -157,19 +158,40 @@ export const ProductManager: React.FC = () => {
 
   return (
     <PageContainer>
-      <PageHeader
-        title="Daftar Produk & Layanan"
-        description="Kelola tarif standard dan jenis layanan untuk mempermudah pengisian Invoice dan Penawaran secara seragam."
-        actions={
-          <button
-            onClick={openAddModal}
-            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg text-xs flex items-center gap-2 transition shadow-sm cursor-pointer"
-          >
-            <Plus size={16} />
-            <span>Tambah Produk Baru</span>
-          </button>
-        }
-      />
+      {!isModalOpen && (
+        <MobileHeader
+          title="Produk & Layanan"
+          onOpenSidebar={() => {
+            if (typeof window !== 'undefined') {
+              const btn = document.querySelector('button[aria-label="Toggle sidebar"]') as HTMLButtonElement;
+              if (btn) btn.click();
+            }
+          }}
+          onAdd={openAddModal}
+          addTooltip="Tambah Produk Baru"
+          searchValue={searchQuery}
+          onSearchChange={setSearchQuery}
+          searchPlaceholder="Cari produk atau layanan..."
+          totalItems={products.length}
+          totalLabel="Produk"
+        />
+      )}
+
+      <div className="hidden md:block">
+        <PageHeader
+          title="Daftar Produk & Layanan"
+          description="Kelola tarif standard dan jenis layanan untuk mempermudah pengisian Invoice dan Penawaran secara seragam."
+          actions={
+            <button
+              onClick={openAddModal}
+              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg text-xs flex items-center gap-2 transition shadow-sm cursor-pointer"
+            >
+              <Plus size={16} />
+              <span>Tambah Produk Baru</span>
+            </button>
+          }
+        />
+      </div>
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden mt-6">
         {/* Search Bar */}

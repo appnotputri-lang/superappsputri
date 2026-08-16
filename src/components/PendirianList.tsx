@@ -4,6 +4,7 @@ import { collection, onSnapshot, query, doc, deleteDoc, updateDoc, setDoc } from
 import { db } from '../lib/firebase'; // Adjust if path is different
 import { DocumentStatusBadge } from '../../components/DocumentStatusBadge';
 import { PageContainer, PageHeader } from './ui/PageLayout';
+import { MobileHeader } from './ui/MobileHeader';
 
 const PendirianList: React.FC<{
   onEdit: (record: any) => void;
@@ -68,20 +69,39 @@ const PendirianList: React.FC<{
 
   return (
     <PageContainer>
-      <PageHeader
-        icon={<FileText className="w-5 h-5 text-white" />}
+      <MobileHeader
         title="Pendirian PT"
-        description="Kelola data pendirian PT secara terstruktur."
-        actions={
-          <button
-            onClick={onAdd}
-            className="px-4 py-2 bg-[#0c2444] hover:bg-[#16365f] text-white text-xs font-bold rounded-lg shadow-sm transition-all flex items-center justify-center gap-2 uppercase tracking-wide shrink-0 cursor-pointer"
-          >
-            <Plus className="w-4 h-4" />
-            Tambah Pendirian
-          </button>
-        }
+        onOpenSidebar={() => {
+          if (typeof window !== 'undefined') {
+            const btn = document.querySelector('button[aria-label="Toggle sidebar"]') as HTMLButtonElement;
+            if (btn) btn.click();
+          }
+        }}
+        onAdd={onAdd}
+        addTooltip="Buat Pendirian PT Baru"
+        searchValue={listSearch}
+        onSearchChange={setListSearch}
+        searchPlaceholder="Cari nama PT..."
+        totalItems={filtered.length}
+        totalLabel="Draft"
       />
+
+      <div className="hidden md:block">
+        <PageHeader
+          icon={<FileText className="w-5 h-5 text-white" />}
+          title="Pendirian PT"
+          description="Kelola data pendirian PT secara terstruktur."
+          actions={
+            <button
+              onClick={onAdd}
+              className="px-4 py-2 bg-[#0c2444] hover:bg-[#16365f] text-white text-xs font-bold rounded-lg shadow-sm transition-all flex items-center justify-center gap-2 uppercase tracking-wide shrink-0 cursor-pointer"
+            >
+              <Plus className="w-4 h-4" />
+              Tambah Pendirian
+            </button>
+          }
+        />
+      </div>
 
       <div className="bg-white border border-slate-200 rounded-sm p-6 shadow-sm space-y-4">
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pb-2 border-b border-slate-100">

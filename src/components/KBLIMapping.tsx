@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { PageContainer, PageHeader } from "./ui/PageLayout";
+import { MobileHeader } from "./ui/MobileHeader";
 import {
   Search,
   Info,
@@ -2134,29 +2135,49 @@ const KBLIMapping: React.FC = () => {
   };
   return (
     <PageContainer>
+      <MobileHeader
+        title="Pemetaan KBLI"
+        onOpenSidebar={() => {
+          if (typeof window !== 'undefined') {
+            const btn = document.querySelector('button[aria-label="Toggle sidebar"]') as HTMLButtonElement;
+            if (btn) btn.click();
+          }
+        }}
+        onAdd={viewMode === "list" ? () => {
+          setNamaPT("");
+          setKelompokUsaha("Mikro");
+          setSelectedMappings([]);
+          setEditingId(null);
+          setViewMode("form");
+        } : undefined}
+        addTooltip="Tambah Pemetaan KBLI"
+      />
+
       {viewMode === "list" ? (
         <div className="space-y-6">
           {/* List Mode Header */}
-          <PageHeader
-            icon={<LayoutGrid className="w-5 h-5 text-white" />}
-            title="Daftar Pemetaan KBLI 2020 - 2025"
-            description="Kelola pemetaan klasifikasi KBLI untuk klien PT secara terstruktur."
-            actions={
-              <button
-                onClick={() => {
-                  setNamaPT("");
-                  setKelompokUsaha("Mikro");
-                  setSelectedMappings([]);
-                  setEditingId(null);
-                  setViewMode("form");
-                }}
-                className="px-4 py-2 bg-[#0c2444] hover:bg-[#16365f] text-white text-xs sm:text-[13px] font-bold rounded-lg shadow-sm transition-all flex items-center justify-center gap-2 uppercase tracking-wide shrink-0 cursor-pointer"
-              >
-                <Plus className="w-4 h-4" />
-                Tambah Pemetaan KBLI
-              </button>
-            }
-          />
+          <div className="hidden md:block">
+            <PageHeader
+              icon={<LayoutGrid className="w-5 h-5 text-white" />}
+              title="Daftar Pemetaan KBLI 2020 - 2025"
+              description="Kelola pemetaan klasifikasi KBLI untuk klien PT secara terstruktur."
+              actions={
+                <button
+                  onClick={() => {
+                    setNamaPT("");
+                    setKelompokUsaha("Mikro");
+                    setSelectedMappings([]);
+                    setEditingId(null);
+                    setViewMode("form");
+                  }}
+                  className="px-4 py-2 bg-[#0c2444] hover:bg-[#16365f] text-white text-xs sm:text-[13px] font-bold rounded-lg shadow-sm transition-all flex items-center justify-center gap-2 uppercase tracking-wide shrink-0 cursor-pointer"
+                >
+                  <Plus className="w-4 h-4" />
+                  Tambah Pemetaan KBLI
+                </button>
+              }
+            />
+          </div>
 
           {/* Search Table Block */}
           <div className="bg-white border border-slate-200 rounded-sm p-6 shadow-sm space-y-4 animate-in fade-in slide-in-from-top-4 duration-300">

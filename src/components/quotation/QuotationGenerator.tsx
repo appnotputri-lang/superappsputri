@@ -1226,7 +1226,12 @@ Notaris/PPAT Nukantini Putri Parincha, SH., M.Kn`;
           <div className="md:hidden">
             <MobileHeader
               title="Penawaran"
-              onOpenSidebar={props.setActiveSidebarTab ? () => props.setActiveSidebarTab('quotations') : undefined}
+              onOpenSidebar={() => {
+                if (typeof window !== 'undefined') {
+                  const btn = document.querySelector('button[aria-label="Toggle sidebar"]') as HTMLButtonElement;
+                  if (btn) btn.click();
+                }
+              }}
               onAdd={openCreatePage}
               addTooltip="Buat Penawaran Baru"
               searchValue={searchTerm}

@@ -6,6 +6,7 @@ import {
   X, AlertCircle, RefreshCw, FileText, Building2, CheckCircle2
 } from 'lucide-react';
 import { DepositNote, DepositNoteItem, SidebarTabId, CompanyProfile } from '../../../types';
+import { MobileHeader } from '../ui/MobileHeader';
 import { DepositNoteService } from '../../services/DepositNoteService';
 import { CompanyService } from '../../services/CompanyService';
 import { SearchableClientSelect } from '../common/SearchableClientSelect';
@@ -319,31 +320,51 @@ export const DepositNoteManager: React.FC<DepositNoteManagerProps> = ({ setActiv
 
       {/* ==================== 1. LIST VIEW (/deposit_note) ==================== */}
       {routeMode === 'list' && (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          {/* Header */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-            <div>
-              <div className="flex items-center gap-2.5">
-                <div className="p-2 bg-emerald-100 text-emerald-700 rounded-lg">
-                  <Banknote className="w-5 h-5" />
-                </div>
-                <h1 className="text-2xl font-bold text-slate-900">Penitipan Uang</h1>
-              </div>
-              <p className="mt-1 text-sm text-slate-500 ml-10">
-                Kelola tanda terima titipan uang & titipan biaya notaris/PPAT
-              </p>
-            </div>
-            <button
-              onClick={() => navigate('/deposit_note/new')}
-              className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-medium text-sm rounded-lg shadow-sm transition-all cursor-pointer"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Catat Titipan</span>
-            </button>
+        <>
+          <div className="md:hidden px-4 pt-4">
+            <MobileHeader
+              title="Penitipan Uang"
+              onOpenSidebar={() => {
+                if (typeof window !== 'undefined') {
+                  const btn = document.querySelector('button[aria-label="Toggle sidebar"]') as HTMLButtonElement;
+                  if (btn) btn.click();
+                }
+              }}
+              onAdd={() => navigate('/deposit_note/new')}
+              addTooltip="Catat Titipan Baru"
+              searchValue={searchQuery}
+              onSearchChange={setSearchQuery}
+              searchPlaceholder="Cari no. TTP, klien, penerima..."
+              totalItems={totalCount}
+              totalLabel="Titipan"
+            />
           </div>
 
-          {/* Filters & Search */}
-          <div className="bg-white p-4 rounded-xl border border-slate-200/80 shadow-sm mb-6 flex flex-col sm:flex-row items-center justify-between gap-3">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
+            {/* Header DESKTOP */}
+            <div className="hidden md:flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+              <div>
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 bg-emerald-100 text-emerald-700 rounded-lg">
+                    <Banknote className="w-5 h-5" />
+                  </div>
+                  <h1 className="text-2xl font-bold text-slate-900">Penitipan Uang</h1>
+                </div>
+                <p className="mt-1 text-sm text-slate-500 ml-10">
+                  Kelola tanda terima titipan uang & titipan biaya notaris/PPAT
+                </p>
+              </div>
+              <button
+                onClick={() => navigate('/deposit_note/new')}
+                className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-medium text-sm rounded-lg shadow-sm transition-all cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Catat Titipan</span>
+              </button>
+            </div>
+
+            {/* Filters & Search DESKTOP */}
+            <div className="hidden md:flex bg-white p-4 rounded-xl border border-slate-200/80 shadow-sm mb-6 items-center justify-between gap-3">
             <div className="relative w-full sm:w-80">
               <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
@@ -507,6 +528,7 @@ export const DepositNoteManager: React.FC<DepositNoteManagerProps> = ({ setActiv
             )}
           </div>
         </div>
+        </>
       )}
 
       {/* ==================== 2. FORM VIEW (/deposit_note/new & /deposit_note/:id/edit) ==================== */}

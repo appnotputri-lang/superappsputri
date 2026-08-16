@@ -6,6 +6,10 @@
 // we'd want to verify the schema anyway.
 let d1TablesEnsuredCache = false;
 
+export function resetD1TablesEnsuredCache() {
+  d1TablesEnsuredCache = false;
+}
+
 export async function ensureD1TablesExist(db: any) {
   if (d1TablesEnsuredCache) return;
 

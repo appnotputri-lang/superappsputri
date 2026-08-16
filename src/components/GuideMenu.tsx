@@ -1,5 +1,6 @@
 import React from 'react';
 import { PageContainer, PageHeader } from './ui/PageLayout';
+import { MobileHeader } from './ui/MobileHeader';
 import { 
   Building2, 
   FileText, 
@@ -20,11 +21,23 @@ import {
 const GuideMenu = () => {
   return (
     <PageContainer>
-      <PageHeader
-        icon={<FileText className="w-5 h-5 text-white" />}
-        title="Panduan Penggunaan Aplikasi"
-        description="Ikuti langkah-langkah di bawah ini untuk memulai membuat draft Notulen, PKR LB, Peralihan Saham, dan Surat Kuasa dengan sistem yang terotomatisasi."
+      <MobileHeader
+        title="Panduan Aplikasi"
+        onOpenSidebar={() => {
+          if (typeof window !== 'undefined') {
+            const btn = document.querySelector('button[aria-label="Toggle sidebar"]') as HTMLButtonElement;
+            if (btn) btn.click();
+          }
+        }}
       />
+
+      <div className="hidden md:block">
+        <PageHeader
+          icon={<FileText className="w-5 h-5 text-white" />}
+          title="Panduan Penggunaan Aplikasi"
+          description="Ikuti langkah-langkah di bawah ini untuk memulai membuat draft Notulen, PKR LB, Peralihan Saham, dan Surat Kuasa dengan sistem yang terotomatisasi."
+        />
+      </div>
 
       <div className="space-y-8">
         {/* Step 1 */}

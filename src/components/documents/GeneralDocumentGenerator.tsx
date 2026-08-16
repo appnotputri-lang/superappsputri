@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { PageHeader } from "../ui/PageLayout";
+import { MobileHeader } from "../ui/MobileHeader";
 import { 
   Package, FileCheck, Plus, Search, Filter, Calendar, User, 
   MapPin, Phone, Truck, FileText, Send, Printer, Download, 
@@ -621,8 +622,29 @@ export const GeneralDocumentGenerator: React.FC<GeneralDocumentGeneratorProps> =
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 pb-16">
-      {/* HEADER BAR */}
-      <div className="w-[94%] xl:w-[92%] max-w-none mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-2">
+      {viewMode === 'list' && (
+        <div className="md:hidden px-4 pt-4">
+          <MobileHeader
+            title={config.title}
+            onOpenSidebar={() => {
+              if (typeof window !== 'undefined') {
+                const btn = document.querySelector('button[aria-label="Toggle sidebar"]') as HTMLButtonElement;
+                if (btn) btn.click();
+              }
+            }}
+            onAdd={handleOpenCreateForm}
+            addTooltip={`Buat ${config.title}`}
+            searchValue={searchQuery}
+            onSearchChange={setSearchQuery}
+            searchPlaceholder={`Cari nomor, klien, ${config.title.toLowerCase()}...`}
+            totalItems={totalCount}
+            totalLabel="Dokumen"
+          />
+        </div>
+      )}
+
+      {/* HEADER BAR DESKTOP */}
+      <div className="hidden md:block w-[94%] xl:w-[92%] max-w-none mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-2">
         <PageHeader
           title={config.title}
           description={isDelivery ? 'Kelola pengiriman dokumen & berkas ke klien/pihak ketiga' : 'Kelola bukti tanda terima penyerahan berkas masuk'}
