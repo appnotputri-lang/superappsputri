@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { PageHeader } from '../../components/ui/PageLayout';
 import { MobileHeader, MobileEmptyState } from '../../components/ui/MobileHeader';
+import { MobileDataCard } from '../../components/ui/MobileDataCard';
 import { Deed, DeedAppearer, DeedGrantor } from '../../../types';
 import { NotaryService } from '../../services/NotaryService';
 import { isRecordLocked, getLockDeadlineMessage, isSuperAdmin } from '../../utils/lockUtils';
@@ -1417,68 +1418,31 @@ export const DeedBook: React.FC = () => {
           ) : (
             <>
               {/* MOBILE CARDS VIEW */}
-              <div className="md:hidden space-y-3">
+              <div className="block md:hidden bg-white divide-y divide-slate-100 rounded-xl border border-slate-200 overflow-hidden shadow-xs">
                 {deeds.map((deed, idx) => {
                   const locked = !superAdmin || isRecordLocked(deed.date, user?.email);
+                  const appearersText = deed.appearers && deed.appearers.length > 0
+                    ? deed.appearers.map(a => `${a.name}${a.position ? ` (${a.position})` : ''}`).join(', ')
+                    : undefined;
+
                   return (
-                    <div
+                    <MobileDataCard
                       key={deed.id}
-                      className="p-4 bg-white rounded-2xl border border-slate-200/80 shadow-xs space-y-2.5"
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <span className="text-[10px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md">
-                            Akta No. {deed.number}
-                          </span>
-                          <h4 className="font-bold text-slate-900 text-sm mt-1 leading-snug">
-                            {deed.title}
-                          </h4>
-                          {deed.clientName && (
-                            <p className="text-xs font-medium text-slate-500 mt-0.5">
-                              Klien: {deed.clientName}
-                            </p>
-                          )}
-                        </div>
-                        <span className="text-[10px] font-mono text-slate-400 shrink-0 bg-slate-100 px-2 py-0.5 rounded-full">
-                          No. {deed.orderNumber || idx + 1}
-                        </span>
-                      </div>
-
-                      {deed.appearers && deed.appearers.length > 0 && (
-                        <div className="text-xs text-slate-600 bg-slate-50 p-2.5 rounded-xl border border-slate-100 space-y-1">
-                          <span className="block text-[9px] font-bold text-slate-400 uppercase tracking-wider">Penghadap:</span>
-                          {deed.appearers.map((app, i) => (
-                            <p key={i} className="text-xs font-medium text-slate-800">
-                              • {app.name} {app.position && <span className="text-slate-500 font-normal">({app.position})</span>}
-                            </p>
-                          ))}
-                        </div>
-                      )}
-
-                      <div className="flex items-center justify-between border-t border-slate-100 pt-2 text-xs">
-                        <span className="text-slate-400 font-mono text-[11px]">{formatDateIndo(deed.date)}</span>
-                        {locked ? (
-                          <span className="inline-flex items-center gap-1 text-slate-400 text-xs">
-                            <Lock size={12} className="text-amber-600" /> Terkunci
-                          </span>
-                        ) : (
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={() => handleOpenModal(deed)}
-                              className="px-2.5 py-1 text-xs font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition cursor-pointer"
-                            >
-                              Edit
-                            </button>
-                            <button
-                              onClick={() => handleDelete(deed)}
-                              className="px-2.5 py-1 text-xs font-bold text-red-600 hover:bg-red-50 rounded-lg transition cursor-pointer"
-                            >
-                              Hapus
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    </div>
+                      number={deed.orderNumber || idx + 1 + (currentPage - 1) * (typeof pageSize === 'string' ? deeds.length : pageSize)}
+                      title={deed.title}
+                      subtitle={deed.clientName ? `Klien: ${deed.clientName}` : undefined}
+                      badges={[
+                        `Akta No. ${deed.number}`,
+                        deed.category || null,
+                        locked ? 'Terkunci' : null,
+                      ]}
+                      noteLabel="PENGHADAP:"
+                      note={appearersText}
+                      date={formatDateIndo(deed.date)}
+                      onDetail={!locked ? () => handleOpenModal(deed) : undefined}
+                      detailLabel="Edit"
+                      onDelete={!locked ? () => handleDelete(deed) : undefined}
+                    />
                   );
                 })}
               </div>

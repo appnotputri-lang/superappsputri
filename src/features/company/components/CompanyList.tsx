@@ -13,6 +13,7 @@ import {
   MapPin,
 } from 'lucide-react';
 import { CompanyAvatar } from '../../../components/common/CompanyAvatar';
+import { MobileDataCard } from '../../../components/ui/MobileDataCard';
 import { CompanyListProps } from '../types/company.types';
 import { formatCompanyName } from '../../../lib/formatter';
 import { generateCompanyProfileSummaryPdf } from '../../../lib/generateCompanyProfileSummaryPdf';
@@ -415,48 +416,39 @@ export const CompanyList: React.FC<CompanyListProps> = ({
       </div>
 
       {/* Mobile Card View */}
-      <div className="block md:hidden space-y-3 pt-2">
-        {paginatedProfileResults.map((p) => {
+      <div className="block md:hidden bg-white divide-y divide-slate-100 border-t border-slate-100">
+        {paginatedProfileResults.map((p, idx) => {
+          const currentNo = profileStartIndex + idx + 1;
           const city = p.domicile || '-';
-          const npwpText = p.npwp ? `NPWP ${p.npwp}` : 'NPWP -';
+          const npwpText = p.npwp ? `NPWP: ${p.npwp}` : undefined;
+          const badge = clientTypeBadgeStyles[p.clientType || 'PT'] || clientTypeBadgeStyles.PT;
+          const deedDate = p.establishmentDeedDate
+            ? new Date(p.establishmentDeedDate).toLocaleDateString('id-ID', {
+                day: 'numeric',
+                month: 'short',
+                year: 'numeric',
+              })
+            : undefined;
 
           return (
-            <div 
-              key={p.id} 
-              className="bg-white rounded-2xl p-4 shadow-xs border border-slate-100 hover:border-slate-200 transition-all cursor-pointer"
-              onClick={() => {
+            <MobileDataCard
+              key={p.id}
+              number={currentNo}
+              title={formatCompanyName(p.companyName, p.clientType)}
+              subtitle={city !== '-' ? `Kedudukan: ${city}` : undefined}
+              badges={[
+                badge ? badge.label : (p.clientType || 'PT'),
+                npwpText || null,
+                (p as any).activeProjectsCount !== undefined ? `${(p as any).activeProjectsCount} Proyek` : null,
+              ]}
+              date={deedDate}
+              onDetail={() => {
                 setEditingProfileId(p.id);
                 setIsProfilePreview(true);
                 updateData({ ...INITIAL_STATE, ...p } as any);
               }}
-            >
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3 min-w-0">
-                  <CompanyAvatar name={p.companyName || ''} />
-                  <div className="flex flex-col min-w-0">
-                    <span className="font-bold text-slate-900 uppercase text-xs sm:text-sm tracking-tight leading-tight truncate">
-                      {formatCompanyName(p.companyName, p.clientType)}
-                    </span>
-                    <span className="text-[11px] text-slate-500 font-mono mt-0.5 block truncate">
-                      {npwpText}
-                    </span>
-                    <div className="flex items-center gap-1 text-[11px] text-slate-500 font-medium mt-1 uppercase">
-                      <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                      <span className="truncate">{city}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2 shrink-0">
-                  {(p as any).activeProjectsCount !== undefined && (
-                    <span className="bg-blue-50 text-[#1e61c3] px-2.5 py-1 rounded-full text-[11px] font-semibold whitespace-nowrap">
-                      {(p as any).activeProjectsCount} Proyek Aktif
-                    </span>
-                  )}
-                  <ChevronRight className="w-5 h-5 text-slate-400 shrink-0" />
-                </div>
-              </div>
-            </div>
+              onDelete={userProfile?.role === 'Super Admin' && deleteCompany ? () => deleteCompany(p.id, false) : undefined}
+            />
           );
         })}
       </div>

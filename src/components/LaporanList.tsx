@@ -1,6 +1,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { PageContainer, PageHeader } from './ui/PageLayout';
-import { MobileHeader } from './ui/MobileHeader';
+import { MobileHeader, MobileEmptyState } from './ui/MobileHeader';
+import { MobileDataCard } from './ui/MobileDataCard';
 import { Search, FileText, Download, Smartphone, Send, SendHorizontal, AlertCircle, CheckCircle2, RefreshCw, X, Image } from 'lucide-react';
 import { DocumentStatusBadge } from '../../components/DocumentStatusBadge';
 import { jsPDF } from 'jspdf';
@@ -967,11 +968,34 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects: propsProject
             if (btn) btn.click();
           }
         }}
+        onAdd={() => setModalOpen(true)}
+        addTooltip="Kirim Laporan WA"
+        addIcon={<Send size={16} />}
         searchValue={search}
         onSearchChange={setSearch}
-        searchPlaceholder="Cari nama PT, pekerjaan..."
+        searchPlaceholder="Cari PT atau pekerjaan..."
         totalItems={filteredReports.length}
         totalLabel="Laporan"
+        customSummary={
+          <div className="flex gap-1.5 pt-1">
+            {(['aktif', 'minuta'] as const).map((tab) => (
+              <button
+                key={tab}
+                type="button"
+                onClick={() => {
+                  setActiveReportTab(tab);
+                }}
+                className={`px-3 py-1 text-xs font-bold rounded-lg transition-colors cursor-pointer ${
+                  activeReportTab === tab
+                    ? 'bg-white text-blue-700 shadow-xs'
+                    : 'bg-white/10 hover:bg-white/20 text-white/90'
+                }`}
+              >
+                {tab === 'aktif' ? 'Proyek Aktif' : 'Minuta'}
+              </button>
+            ))}
+          </div>
+        }
       />
 
       {/* HEADER SECTION DESKTOP */}
@@ -1023,7 +1047,7 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects: propsProject
       </div>
 
       {/* TAB SELECTOR (PROYEK AKTIF & MINUTA) */}
-      <div className="flex space-x-1 border-b border-slate-200 mt-4 select-none">
+      <div className="hidden md:flex space-x-1 border-b border-slate-200 mt-4 select-none">
         {(['aktif', 'minuta'] as const).map((tab) => (
           <button
             key={tab}
@@ -1112,7 +1136,7 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects: propsProject
           </div>
 
           {/* Search Box */}
-          <div className="relative w-full md:w-80">
+          <div className="hidden md:block relative w-full md:w-80">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
             <input 
               type="text"
@@ -1124,8 +1148,8 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects: propsProject
           </div>
         </div>
 
-        {/* TABLE */}
-        <div className="overflow-x-auto rounded-lg border border-slate-200/80">
+        {/* DESKTOP TABLE */}
+        <div className="hidden md:block overflow-x-auto rounded-lg border border-slate-200/80">
           <table className="w-full text-left border-collapse min-w-[1000px]">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
@@ -1209,6 +1233,46 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects: propsProject
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* MOBILE CARD VIEW */}
+        <div className="block md:hidden">
+          {filteredReports.length === 0 ? (
+            <MobileEmptyState
+              message="Tidak ada laporan proyek yang ditemukan."
+            />
+          ) : (
+            <div className="bg-white rounded-xl border border-slate-200 divide-y divide-slate-100 overflow-hidden shadow-xs">
+              {getGroupedReports(filteredReports).map((rec, idx) => {
+                const firstItem = rec.items[0];
+                const dateStr = firstItem?.updatedAt || firstItem?.createdAt
+                  ? new Date(firstItem.updatedAt || firstItem.createdAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })
+                  : undefined;
+                const notes = rec.items
+                  .map((it: any) => getCleanTransitionComment(it.lastTransitionComment))
+                  .filter(Boolean)
+                  .join(' • ');
+
+                return (
+                  <MobileDataCard
+                    key={rec.id + '-' + idx}
+                    number={idx + 1}
+                    title={rec.namaPt}
+                    badges={rec.items.map((it: any) => (
+                      <span key={it.id || it.pekerjaan} className="inline-flex flex-wrap items-center gap-1.5">
+                        <span className="px-2 py-0.5 text-[9px] font-bold bg-slate-100 text-slate-600 rounded-full uppercase">
+                          {it.pekerjaan}
+                        </span>
+                        <DocumentStatusBadge status={getProjectStatusDisplay(it.status, it.metadata)} />
+                      </span>
+                    ))}
+                    note={notes || undefined}
+                    date={dateStr}
+                  />
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
 

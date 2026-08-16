@@ -3,6 +3,8 @@ import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { collection, onSnapshot, doc, setDoc, deleteDoc, query, orderBy } from 'firebase/firestore';
 import { UserProfile, UserRole } from '../../types';
 import { PageContainer, PageHeader } from './ui/PageLayout';
+import { MobileHeader, MobileEmptyState } from './ui/MobileHeader';
+import { MobileDataCard } from './ui/MobileDataCard';
 import { FirestoreTracker } from '../lib/firestoreTracker';
 import { 
   Users, 
@@ -162,7 +164,8 @@ export const UserManagement: React.FC<UserManagementProps> = ({ currentUser }) =
           </div>
         </div>
 
-        <div className="overflow-x-auto">
+        {/* DESKTOP TABLE VIEW */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="min-w-[1000px] w-full text-left">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-100">
@@ -232,6 +235,31 @@ export const UserManagement: React.FC<UserManagementProps> = ({ currentUser }) =
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* MOBILE CARD VIEW */}
+        <div className="block md:hidden">
+          {filteredUsers.length === 0 ? (
+            <MobileEmptyState message="Tidak ada user yang ditemukan." />
+          ) : (
+            <div className="divide-y divide-slate-100">
+              {filteredUsers.map((user, idx) => (
+                <MobileDataCard
+                  key={user.uid}
+                  number={idx + 1}
+                  title={user.name}
+                  subtitle={user.email}
+                  badges={[
+                    user.role,
+                    user.uid.startsWith('pre_') ? 'Menunggu Login' : 'Aktif',
+                  ]}
+                  onDetail={() => openEditModal(user)}
+                  detailLabel="Edit"
+                  onDelete={() => handleDeleteUser(user.uid, user.email)}
+                />
+              ))}
+            </div>
+          )}
         </div>
       </div>
 

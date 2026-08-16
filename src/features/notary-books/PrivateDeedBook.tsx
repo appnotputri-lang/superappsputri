@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { PageHeader } from '../../components/ui/PageLayout';
 import { MobileHeader, MobileEmptyState } from '../../components/ui/MobileHeader';
+import { MobileDataCard } from '../../components/ui/MobileDataCard';
 import { PrivateDeed } from '../../../types';
 import { NotaryService } from '../../services/NotaryService';
 import { isRecordLocked, getLockDeadlineMessage } from '../../utils/lockUtils';
@@ -397,54 +398,28 @@ export const PrivateDeedBook: React.FC = () => {
       ) : (
         <>
           {/* MOBILE LIST VIEW */}
-          <div className="md:hidden space-y-3">
-            {privateDeeds.map((deed) => {
+          <div className="block md:hidden bg-white divide-y divide-slate-100 rounded-xl border border-slate-200 overflow-hidden shadow-xs">
+            {privateDeeds.map((deed, idx) => {
               const locked = isRecordLocked(deed.registrationDate, user?.email);
+              const partiesText = deed.parties && deed.parties.length > 0 ? deed.parties.join(', ') : undefined;
+
               return (
-                <div key={deed.id} className="p-4 bg-white rounded-2xl border border-slate-200/80 shadow-xs space-y-2.5">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-1.5 mb-1">
-                        {getTypeBadge(deed.type)}
-                        <span className="text-xs font-mono font-bold text-slate-700">No. {deed.number || '-'}</span>
-                      </div>
-                      <h4 className="font-bold text-slate-900 text-sm leading-snug">{deed.description}</h4>
-                    </div>
-                  </div>
-
-                  {deed.parties && deed.parties.length > 0 && (
-                    <div className="text-xs text-slate-600 bg-slate-50 p-2.5 rounded-xl border border-slate-100 space-y-1">
-                      <span className="block text-[9px] font-bold text-slate-400 uppercase tracking-wider">Pihak:</span>
-                      {deed.parties.map((p, i) => (
-                        <p key={i} className="text-xs font-medium text-slate-800">• {p}</p>
-                      ))}
-                    </div>
-                  )}
-
-                  <div className="flex items-center justify-between border-t border-slate-100 pt-2 text-xs">
-                    <span className="text-slate-400 font-mono text-[11px]">{formatDateIndo(deed.registrationDate)}</span>
-                    {locked ? (
-                      <span className="inline-flex items-center gap-1 text-slate-400 text-xs">
-                        <Lock size={12} className="text-amber-600" /> Terkunci
-                      </span>
-                    ) : (
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => handleOpenModal(deed)}
-                          className="px-2.5 py-1 text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition cursor-pointer"
-                        >
-                          Edit
-                        </button>
-                        <button
-                          onClick={() => handleDelete(deed)}
-                          className="px-2.5 py-1 text-xs font-bold text-red-600 hover:bg-red-50 rounded-lg transition cursor-pointer"
-                        >
-                          Hapus
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
+                <MobileDataCard
+                  key={deed.id}
+                  number={idx + 1 + (currentPage - 1) * (typeof pageSize === 'string' ? privateDeeds.length : pageSize)}
+                  title={deed.description}
+                  subtitle={`No. Reg: ${deed.number || '-'}`}
+                  badges={[
+                    deed.type || 'WAARMERKING',
+                    locked ? 'Terkunci' : null,
+                  ]}
+                  noteLabel="PIHAK:"
+                  note={partiesText}
+                  date={formatDateIndo(deed.registrationDate)}
+                  onDetail={!locked ? () => handleOpenModal(deed) : undefined}
+                  detailLabel="Edit"
+                  onDelete={!locked ? () => handleDelete(deed) : undefined}
+                />
               );
             })}
           </div>

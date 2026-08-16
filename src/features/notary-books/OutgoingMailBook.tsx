@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { PageHeader } from '../../components/ui/PageLayout';
 import { MobileHeader, MobileEmptyState } from '../../components/ui/MobileHeader';
+import { MobileDataCard } from '../../components/ui/MobileDataCard';
 import { OutgoingMail } from '../../../types';
 import { NotaryService } from '../../services/NotaryService';
 import { isRecordLocked, getLockDeadlineMessage } from '../../utils/lockUtils';
@@ -362,45 +363,25 @@ export const OutgoingMailBook: React.FC = () => {
       ) : (
         <>
           {/* MOBILE LIST VIEW */}
-          <div className="md:hidden space-y-3">
-            {mails.map((mail) => {
+          <div className="block md:hidden bg-white divide-y divide-slate-100 rounded-xl border border-slate-200 overflow-hidden shadow-xs">
+            {mails.map((mail, idx) => {
               const locked = isRecordLocked(mail.date, user?.email);
               return (
-                <div key={mail.id} className="p-4 bg-white rounded-2xl border border-slate-200/80 shadow-xs space-y-2.5">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <span className="text-[10px] font-bold text-cyan-700 bg-cyan-50 px-2 py-0.5 rounded-md">
-                        {mail.mailNumber || 'Tanpa No. Surat'}
-                      </span>
-                      <h4 className="font-bold text-slate-900 text-sm mt-1 leading-snug">{mail.subject}</h4>
-                      <p className="text-xs font-medium text-slate-500 mt-0.5">Penerima: {mail.recipient}</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between border-t border-slate-100 pt-2 text-xs">
-                    <span className="text-slate-400 font-mono text-[11px]">{formatDateIndo(mail.date)}</span>
-                    {locked ? (
-                      <span className="inline-flex items-center gap-1 text-slate-400 text-xs">
-                        <Lock size={12} className="text-amber-600" /> Terkunci
-                      </span>
-                    ) : (
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => handleOpenModal(mail)}
-                          className="px-2.5 py-1 text-xs font-bold text-cyan-700 bg-cyan-50 hover:bg-cyan-100 rounded-lg transition cursor-pointer"
-                        >
-                          Edit
-                        </button>
-                        <button
-                          onClick={() => handleDelete(mail)}
-                          className="px-2.5 py-1 text-xs font-bold text-red-600 hover:bg-red-50 rounded-lg transition cursor-pointer"
-                        >
-                          Hapus
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
+                <MobileDataCard
+                  key={mail.id}
+                  number={idx + 1 + (currentPage - 1) * (typeof pageSize === 'string' ? mails.length : pageSize)}
+                  title={mail.subject}
+                  subtitle={mail.recipient ? `Penerima: ${mail.recipient}` : undefined}
+                  badges={[
+                    mail.mailNumber || 'Tanpa No. Surat',
+                    locked ? 'Terkunci' : null,
+                  ]}
+                  note={mail.notes || undefined}
+                  date={formatDateIndo(mail.date)}
+                  onDetail={!locked ? () => handleOpenModal(mail) : undefined}
+                  detailLabel="Edit"
+                  onDelete={!locked ? () => handleDelete(mail) : undefined}
+                />
               );
             })}
           </div>

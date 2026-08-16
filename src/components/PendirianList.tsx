@@ -4,7 +4,8 @@ import { collection, onSnapshot, query, doc, deleteDoc, updateDoc, setDoc } from
 import { db } from '../lib/firebase'; // Adjust if path is different
 import { DocumentStatusBadge } from '../../components/DocumentStatusBadge';
 import { PageContainer, PageHeader } from './ui/PageLayout';
-import { MobileHeader } from './ui/MobileHeader';
+import { MobileHeader, MobileEmptyState } from './ui/MobileHeader';
+import { MobileDataCard } from './ui/MobileDataCard';
 
 const PendirianList: React.FC<{
   onEdit: (record: any) => void;
@@ -118,7 +119,8 @@ const PendirianList: React.FC<{
           </div>
         </div>
 
-        <div className="w-full bg-white border border-slate-100 rounded-sm overflow-hidden">
+        {/* DESKTOP TABLE */}
+        <div className="hidden md:block w-full bg-white border border-slate-100 rounded-sm overflow-hidden">
           <div className="overflow-x-auto">
             <table className="min-w-[1000px] w-full text-left border-collapse text-[13px]">
               <thead>
@@ -211,6 +213,43 @@ const PendirianList: React.FC<{
               </tbody>
             </table>
           </div>
+        </div>
+
+        {/* MOBILE CARD VIEW */}
+        <div className="block md:hidden">
+          {filtered.length === 0 ? (
+            <MobileEmptyState message={listSearch ? 'Data tidak ditemukan.' : 'Belum ada data pendirian.'} />
+          ) : (
+            <div className="bg-white rounded-xl border border-slate-200 divide-y divide-slate-100 overflow-hidden shadow-xs">
+              {filtered.map((rec, idx) => (
+                <MobileDataCard
+                  key={rec.id}
+                  number={idx + 1}
+                  title={rec.namaPt || rec.companyName || '-'}
+                  subtitle={rec.kotaKedudukan || rec.domicile ? `Kedudukan: ${rec.kotaKedudukan || rec.domicile}` : undefined}
+                  badges={[
+                    <DocumentStatusBadge key="status" status={rec.documentStatus || "DRAFTING"} />
+                  ]}
+                  date={rec.updatedAt && !isNaN(new Date(rec.updatedAt).getTime()) ? new Date(rec.updatedAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : undefined}
+                  onDetail={() => onEdit(rec)}
+                  onDelete={() => handleDelete(rec.id)}
+                  extraFooterAction={
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDownload(rec);
+                      }}
+                      className="px-2.5 py-1 rounded bg-slate-100 text-slate-700 font-bold text-[10px] hover:bg-slate-200 transition-colors uppercase flex items-center gap-1 cursor-pointer"
+                    >
+                      <FileDown className="w-3 h-3 text-blue-600" />
+                      Docx
+                    </button>
+                  }
+                />
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </PageContainer>
