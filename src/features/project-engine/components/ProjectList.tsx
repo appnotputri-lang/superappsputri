@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { PageContainer, PageHeader } from '../../../components/ui/PageLayout';
+import { MobileHeader, MobileEmptyState } from '../../../components/ui/MobileHeader';
 import { Project, ClientSnapshot } from '../../../domain/project/Project';
 import { ProjectService } from '../../../services/ProjectService';
 import { UserProfile, CompanyProfile } from '../../../../types';
@@ -777,23 +778,68 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
 
   return (
     <PageContainer>
-      <PageHeader
-        icon={<Briefcase className="w-5 h-5 text-white" />}
-        title="Manajemen Proyek"
-        description="Pantau kemajuan alur kerja akta dan proses administrasi hukum di satu tempat."
-        actions={
-          <button
-            onClick={handleOpenCreateModal}
-            className="px-4 py-2 bg-[#0c2444] hover:bg-[#16365f] text-white font-bold rounded-lg text-xs transition-all flex items-center gap-2 shadow-sm shrink-0 cursor-pointer"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Buat Proyek Baru</span>
-          </button>
+      {/* MOBILE HEADER */}
+      <MobileHeader
+        title="Proyek Kerja"
+        onOpenSidebar={() => {
+          if (typeof window !== 'undefined') {
+            const btn = document.querySelector('button[aria-label="Toggle sidebar"]') as HTMLButtonElement;
+            if (btn) btn.click();
+          }
+        }}
+        onAdd={handleOpenCreateModal}
+        addTooltip="Buat Proyek Baru"
+        searchValue={searchTerm}
+        onSearchChange={setSearchTerm}
+        searchPlaceholder="Cari proyek, klien..."
+        totalItems={filteredProjects.length}
+        totalLabel="Proyek"
+        customSummary={
+          <div className="flex gap-1.5 pt-1">
+            {(['aktif', 'minuta', 'selesai'] as const).map((tab) => (
+              <button
+                key={tab}
+                type="button"
+                onClick={() => {
+                  setActiveTab(tab);
+                  setCurrentPage(1);
+                  setPageCursors([null]);
+                }}
+                className={`px-3 py-1 text-xs font-bold rounded-lg transition-colors cursor-pointer ${
+                  activeTab === tab
+                    ? 'bg-white text-blue-700 shadow-xs'
+                    : 'bg-white/10 hover:bg-white/20 text-white/90'
+                }`}
+              >
+                {tab === 'aktif' && 'Proyek Aktif'}
+                {tab === 'minuta' && 'Minuta'}
+                {tab === 'selesai' && 'Selesai'}
+              </button>
+            ))}
+          </div>
         }
       />
 
+      {/* DESKTOP PAGE HEADER */}
+      <div className="hidden md:block">
+        <PageHeader
+          icon={<Briefcase className="w-5 h-5 text-white" />}
+          title="Manajemen Proyek"
+          description="Pantau kemajuan alur kerja akta dan proses administrasi hukum di satu tempat."
+          actions={
+            <button
+              onClick={handleOpenCreateModal}
+              className="px-4 py-2 bg-[#0c2444] hover:bg-[#16365f] text-white font-bold rounded-lg text-xs transition-all flex items-center gap-2 shadow-sm shrink-0 cursor-pointer"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Buat Proyek Baru</span>
+            </button>
+          }
+        />
+      </div>
+
         {/* Tabs */}
-        <div className="flex space-x-1 border-b border-slate-200">
+        <div className="hidden md:flex space-x-1 border-b border-slate-200">
           {(['aktif', 'minuta', 'selesai'] as const).map((tab) => (
             <button
               key={tab}
@@ -816,7 +862,7 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
         </div>
 
         {/* Filters Panel */}
-        <div className="bg-white border border-slate-200/80 rounded-xl p-5 shadow-sm space-y-4">
+        <div className="hidden md:block bg-white border border-slate-200/80 rounded-xl p-5 shadow-sm space-y-4">
           <div className="flex flex-col md:flex-row gap-3">
             {/* Search */}
             <div className="relative flex-1">

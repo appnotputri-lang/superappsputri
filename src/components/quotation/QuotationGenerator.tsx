@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { PageHeader } from "../ui/PageLayout";
+import { MobileHeader, MobileEmptyState } from "../ui/MobileHeader";
 import { Quotation, InvoiceItem, Invoice, Product } from '../../../types';
 import { QuotationService } from '../../services/QuotationService';
 import { InvoiceService } from '../../services/InvoiceService';
@@ -67,7 +68,7 @@ const MobileQuotationRow: React.FC<{
   const handleTouchEnd = () => { setTranslateX(translateX < -40 ? -80 : 0); startX.current = null; };
 
   return (
-    <div className="relative overflow-hidden">
+    <div className="relative overflow-hidden rounded-2xl border border-slate-200/80 shadow-xs mb-3">
       <div
         className="absolute inset-y-0 right-0 w-20 bg-red-600 flex items-center justify-center text-white z-0 cursor-pointer"
         onClick={(e) => { e.stopPropagation(); onDelete(); }}
@@ -82,15 +83,20 @@ const MobileQuotationRow: React.FC<{
         onTouchEnd={handleTouchEnd}
         onClick={() => (translateX < -10 ? setTranslateX(0) : onClick())}
       >
-        <div className="min-w-0">
-          <p className="font-semibold text-slate-800 truncate">{quotation.clientName}</p>
-          <div className="text-xs text-slate-500">{quotation.quotationNumber}</div>
+        <div className="min-w-0 pr-2">
+          <p className="font-bold text-slate-800 text-sm truncate">{quotation.clientName || 'Tanpa Nama'}</p>
+          <div className="text-xs font-mono font-medium text-slate-500 mt-0.5">{quotation.quotationNumber}</div>
+          {quotation.projectTitle && (
+            <div className="text-[11px] text-blue-600 font-medium truncate mt-1">
+              {quotation.projectTitle}
+            </div>
+          )}
         </div>
-        <div className="flex items-center gap-3 shrink-0">
-          <div className="bg-emerald-400 text-white text-xs font-bold px-3 py-1.5 rounded-full">
+        <div className="flex items-center gap-2.5 shrink-0">
+          <div className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold px-3 py-1.5 rounded-xl">
             Rp {formatCurrency(quotation.totalAmount)}
           </div>
-          <ChevronRight size={16} className="text-slate-300" />
+          <ChevronRight size={16} className="text-slate-400" />
         </div>
       </div>
     </div>
@@ -1216,55 +1222,114 @@ Notaris/PPAT Nukantini Putri Parincha, SH., M.Kn`;
       {/* 1. LIST VIEW */}
       {viewMode === 'list' && (
         <>
-          {/* Header */}
-          <PageHeader
-            title="Penawaran"
-            description="Kelola penawaran layanan dan biaya kepada klien."
-            actions={
-              <button
-                onClick={openCreatePage}
-                className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold text-xs flex items-center gap-2 transition-all shadow-sm cursor-pointer self-start sm:self-auto"
-              >
-                <Plus size={16} />
-                Buat Penawaran
-              </button>
-            }
-          />
+          {/* MOBILE LIST HEADER (< md) */}
+          <div className="md:hidden">
+            <MobileHeader
+              title="Penawaran"
+              onOpenSidebar={props.setActiveSidebarTab ? () => props.setActiveSidebarTab('quotations') : undefined}
+              onAdd={openCreatePage}
+              addTooltip="Buat Penawaran Baru"
+              searchValue={searchTerm}
+              onSearchChange={setSearchTerm}
+              searchPlaceholder="Cari nomor, klien..."
+              totalItems={totalQuotationsCount}
+              totalLabel="Penawaran"
+              customSummary={
+                <div className="flex items-center gap-1 overflow-x-auto pb-1 pt-1">
+                  {[
+                    { label: 'SEMUA', value: 'ALL' },
+                    { label: 'TERKIRIM', value: 'SENT' },
+                    { label: 'DISETUJUI', value: 'ACCEPTED' },
+                    { label: 'DITOLAK', value: 'REJECTED' }
+                  ].map((tab) => (
+                    <button
+                      key={tab.value}
+                      type="button"
+                      onClick={() => setStatusFilter(tab.value)}
+                      className={`px-3 py-1 rounded-lg text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
+                        statusFilter === tab.value
+                          ? 'bg-white text-blue-700 shadow-xs'
+                          : 'bg-white/10 hover:bg-white/20 text-white/90'
+                      }`}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+              }
+            />
 
-          {/* Search & Filter Bar */}
-          <div className="bg-white p-3 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3">
-            <div className="relative flex-1 w-full">
-              <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
-                type="text"
-                placeholder="Cari nomor atau nama klien..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/20"
-              />
-            </div>
-
-            <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0">
-              {[
-                { label: 'SEMUA', value: 'ALL' },
-                { label: 'TERKIRIM', value: 'SENT' },
-                { label: 'DISETUJUI', value: 'ACCEPTED' },
-                { label: 'DITOLAK', value: 'REJECTED' }
-              ].map((tab) => (
-                <button
-                  key={tab.value}
-                  onClick={() => setStatusFilter(tab.value)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
-                    statusFilter === tab.value
-                      ? 'bg-slate-900 text-white shadow-sm'
-                      : 'bg-slate-100/80 text-slate-600 hover:bg-slate-200/80'
-                  }`}
-                >
-                  {tab.label}
-                </button>
+            <div className="space-y-3 mt-4">
+              {paginatedQuotations.map((q) => (
+                <MobileQuotationRow
+                  key={q.id}
+                  quotation={q}
+                  onClick={() => { setSelectedQuotation(q); setViewMode('detail'); }}
+                  onDelete={() => handleDeleteQuotation(q.id)}
+                  formatCurrency={formatCurrency}
+                />
               ))}
+              {paginatedQuotations.length === 0 && (
+                <MobileEmptyState
+                  message='Belum ada data penawaran. Klik "Buat Penawaran" untuk merancang penawaran pertama Anda.'
+                  actionText="Buat Penawaran"
+                  onAction={openCreatePage}
+                />
+              )}
             </div>
           </div>
+
+          {/* DESKTOP LIST VIEW (md+) */}
+          <div className="hidden md:block">
+            {/* Header */}
+            <PageHeader
+              title="Penawaran"
+              description="Kelola penawaran layanan dan biaya kepada klien."
+              actions={
+                <button
+                  onClick={openCreatePage}
+                  className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold text-xs flex items-center gap-2 transition-all shadow-sm cursor-pointer self-start sm:self-auto"
+                >
+                  <Plus size={16} />
+                  Buat Penawaran
+                </button>
+              }
+            />
+
+            {/* Search & Filter Bar */}
+            <div className="bg-white p-3 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3 mb-6">
+              <div className="relative flex-1 w-full">
+                <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Cari nomor atau nama klien..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/20"
+                />
+              </div>
+
+              <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0">
+                {[
+                  { label: 'SEMUA', value: 'ALL' },
+                  { label: 'TERKIRIM', value: 'SENT' },
+                  { label: 'DISETUJUI', value: 'ACCEPTED' },
+                  { label: 'DITOLAK', value: 'REJECTED' }
+                ].map((tab) => (
+                  <button
+                    key={tab.value}
+                    onClick={() => setStatusFilter(tab.value)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
+                      statusFilter === tab.value
+                        ? 'bg-slate-900 text-white shadow-sm'
+                        : 'bg-slate-100/80 text-slate-600 hover:bg-slate-200/80'
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+            </div>
 
           {/* Quotations List */}
           {paginatedQuotations.length === 0 ? (
@@ -1450,6 +1515,7 @@ Notaris/PPAT Nukantini Putri Parincha, SH., M.Kn`;
               </div>
             </>
           )}
+          </div>
         </>
       )}
 

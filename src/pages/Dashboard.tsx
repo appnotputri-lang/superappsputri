@@ -24,6 +24,7 @@ import { ProjectService } from '../services/ProjectService';
 import { Project } from '../domain/project/Project';
 import { FirestoreTracker } from '../lib/firestoreTracker';
 import { TAB_TO_PATH } from '../constants/tabs';
+import { MobileHeader } from '../components/ui/MobileHeader';
 
 const getDetailedActivityStyles = (type: 'proyek' | 'akta' | 'invoice' | 'surat', desc: string) => {
   const isInvoiceUnpaid = type === 'invoice' && desc.toLowerCase().includes('belum dibayar');
@@ -174,7 +175,16 @@ export const Dashboard: React.FC<DashboardProps> = ({
   return (
     <>
       {/* ===== MOBILE-ONLY HOMESCREEN (< md) ===== */}
-      <div className="md:hidden bg-[#f8fafc] px-4 py-5 pb-8 space-y-6 overflow-x-hidden">
+      <div className="md:hidden bg-[#f8fafc] px-4 pt-4 pb-8 space-y-5 overflow-x-hidden">
+        <MobileHeader
+          title="Beranda"
+          onOpenSidebar={setIsSidebarOpen ? () => setIsSidebarOpen(true) : undefined}
+          customSummary={
+            <div className="text-xs text-white/90 font-medium">
+              Selamat datang kembali, {userProfile?.name?.split(' ')[0] || 'ADMIN'} 👋
+            </div>
+          }
+        />
         
         {/* 2. QUICK ACTION */}
         <div>

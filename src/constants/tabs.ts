@@ -7,6 +7,13 @@ export const TAB_ACCENTS: Record<SidebarTabId, {
   hoverBg: string;        // Soft hover borders/backgrounds
   indicatorBg: string;    // Accent border colors
 }> = {
+  deposit_note: {
+    iconColor: 'text-amber-600',
+    textColor: 'text-amber-900',
+    bgColor: 'bg-amber-50/70',
+    hoverBg: 'hover:bg-amber-50/40 hover:text-amber-950',
+    indicatorBg: 'bg-amber-600'
+  },
   projects: {
     iconColor: 'text-emerald-600',
     textColor: 'text-emerald-900',

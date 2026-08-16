@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { PageHeader } from "../ui/PageLayout";
+import { MobileHeader, MobileEmptyState } from "../ui/MobileHeader";
 import { Invoice, InvoiceItem, PaymentRecord, Product } from '../../../types';
 import { InvoiceService } from '../../services/InvoiceService';
 import { ProductService } from '../../services/ProductService';
@@ -96,35 +97,35 @@ const MobileInvoiceRow: React.FC<{
   const handleTouchEnd = () => { setTranslateX(translateX < -40 ? -80 : 0); startX.current = null; };
 
   return (
-    <div className="relative overflow-hidden">
+    <div className="relative overflow-hidden rounded-2xl border border-slate-200/80 shadow-xs mb-3">
       <div
-        className="absolute inset-y-0 right-0 w-20 bg-red-600 flex items-center justify-center text-white z-0"
+        className="absolute inset-y-0 right-0 w-20 bg-red-600 flex items-center justify-center text-white z-0 cursor-pointer"
         onClick={(e) => { e.stopPropagation(); onDelete(); }}
       >
         <Trash2 size={18} />
       </div>
       <div
-        className="relative z-10 bg-white p-4 flex justify-between items-center active:bg-slate-50 transition-transform"
+        className="relative z-10 bg-white p-4 flex justify-between items-center active:bg-slate-50 transition-transform cursor-pointer"
         style={{ transform: `translateX(${translateX}px)` }}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
         onClick={() => (translateX < -10 ? setTranslateX(0) : onClick())}
       >
-        <div className="min-w-0">
-          <p className="font-semibold text-slate-800 truncate">{invoice.clientName}</p>
-          <div className="text-xs text-slate-500">{invoice.invoiceNumber}</div>
+        <div className="min-w-0 pr-2">
+          <p className="font-bold text-slate-800 text-sm truncate">{invoice.clientName || 'Tanpa Nama'}</p>
+          <div className="text-xs font-mono font-medium text-slate-500 mt-0.5">{invoice.invoiceNumber}</div>
           {invoice.projectTitle && (
-            <div className="text-[10px] text-blue-600 font-medium truncate mt-0.5">
-              Proyek: {invoice.projectTitle}
+            <div className="text-[11px] text-blue-600 font-medium truncate mt-1">
+              {invoice.projectTitle}
             </div>
           )}
         </div>
-        <div className="flex items-center gap-3 shrink-0">
-          <div className="bg-emerald-400 text-white text-xs font-bold px-3 py-1.5 rounded-full">
+        <div className="flex items-center gap-2.5 shrink-0">
+          <div className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold px-3 py-1.5 rounded-xl">
             {formatCurrency(invoice.totalAmount)}
           </div>
-          <ChevronRight size={16} className="text-slate-300" />
+          <ChevronRight size={16} className="text-slate-400" />
         </div>
       </div>
     </div>
@@ -1598,53 +1599,40 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
     return (
       <>
         {/* ===== MOBILE LIST (< md) ===== */}
-        <div className="md:hidden bg-slate-50 min-h-full">
-          <div className="sticky top-0 z-20 bg-white border-b border-slate-100 px-4 pt-4 pb-3 flex items-center justify-between">
-            <h1 className="text-2xl font-bold text-slate-900">Invoice</h1>
-            <div className="w-9 h-9 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs font-bold">
-              AZ
-            </div>
-          </div>
-          <div className="px-4 pt-3 pb-2 space-y-2">
-            <div className="relative">
-              <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
-                type="text"
-                placeholder="Cari invoice..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm"
-              />
-            </div>
-            <div className="flex items-center justify-between gap-2 pt-1">
-              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Urutkan:</span>
-              <div className="flex items-center gap-1 bg-slate-150 p-0.5 rounded-lg border border-slate-200">
-                <button
-                  type="button"
-                  onClick={() => handleSort('number')}
-                  className={`px-2.5 py-1 text-[10px] font-bold rounded-md transition-all cursor-pointer ${
-                    sortField === 'number'
-                      ? 'bg-blue-600 text-white shadow-xs'
-                      : 'text-slate-600 hover:text-slate-800'
-                  }`}
-                >
-                  No. Invoice {sortField === 'number' && (sortOrder === 'asc' ? '↑' : '↓')}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleSort('date')}
-                  className={`px-2.5 py-1 text-[10px] font-bold rounded-md transition-all cursor-pointer ${
-                    sortField === 'date'
-                      ? 'bg-blue-600 text-white shadow-xs'
-                      : 'text-slate-600 hover:text-slate-800'
-                  }`}
-                >
-                  Tanggal {sortField === 'date' && (sortOrder === 'asc' ? '↑' : '↓')}
-                </button>
-              </div>
-            </div>
-          </div>
-          <div className="divide-y divide-slate-100 bg-white">
+        <div className="md:hidden bg-slate-50 min-h-screen px-4 pt-4 pb-12">
+          <MobileHeader
+            title="Invoice"
+            onOpenSidebar={() => {
+              if (typeof window !== 'undefined') {
+                const btn = document.querySelector('button[aria-label="Toggle sidebar"]') as HTMLButtonElement;
+                if (btn) btn.click();
+              }
+            }}
+            onAdd={openCreatePage}
+            addTooltip="Buat Invoice Baru"
+            searchValue={searchTerm}
+            onSearchChange={setSearchTerm}
+            searchPlaceholder="Cari nomor invoice, klien..."
+            totalItems={filteredInvoices.length}
+            totalLabel="Invoice"
+            sortOptions={[
+              { field: 'date', order: 'desc', label: 'Terbaru' },
+              { field: 'number', order: 'asc', label: 'No. Invoice (A-Z)' },
+              { field: 'number', order: 'desc', label: 'No. Invoice (Z-A)' },
+              { field: 'date', order: 'asc', label: 'Terlama' },
+            ]}
+            currentSortLabel={
+              sortField === 'number'
+                ? (sortOrder === 'asc' ? 'No. Invoice A-Z' : 'No. Invoice Z-A')
+                : (sortOrder === 'desc' ? 'Terbaru' : 'Terlama')
+            }
+            onSelectSort={(opt) => {
+              setSortField(opt.field as any);
+              setSortOrder(opt.order);
+            }}
+          />
+
+          <div className="space-y-3">
             {filteredInvoices.map(inv => (
               <MobileInvoiceRow
                 key={inv.id}
@@ -1655,17 +1643,13 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
               />
             ))}
             {filteredInvoices.length === 0 && (
-              <div className="text-center py-8 text-slate-400 text-xs italic">
-                Belum ada invoice ditemukan.
-              </div>
+              <MobileEmptyState
+                message='Belum ada data invoice. Klik "TAMBAH INVOICE" untuk membuat.'
+                actionText="Buat Invoice"
+                onAction={openCreatePage}
+              />
             )}
           </div>
-          <button
-            onClick={openCreatePage}
-            className="fixed bottom-24 right-6 w-14 h-14 bg-blue-600 rounded-full text-white shadow-xl flex items-center justify-center active:scale-90 transition-all z-40"
-          >
-            <Plus size={26} />
-          </button>
         </div>
 
         {/* ===== DESKTOP LIST (existing, md+) ===== */}

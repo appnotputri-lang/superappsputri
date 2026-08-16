@@ -30,6 +30,7 @@ import { KBLI_2025_CATEGORIES } from '../../../lib/kbliConstants';
 import kbli2025Data from '../../../../kbli_2025.json';
 import { CompanyProfile, Shareholder, KbliItem } from '../../../../types';
 import { formatCompanyName } from '../../../lib/formatter';
+import { MobileHeader } from '../../../components/ui/MobileHeader';
 
 export const CompanyPage: React.FC<CompanyPageProps> = ({ setIsSidebarOpen, ...props }) => {
   const location = useLocation();
@@ -880,121 +881,42 @@ export const CompanyPage: React.FC<CompanyPageProps> = ({ setIsSidebarOpen, ...p
     <PageContainer>
       {/* 1. HERO HEADER BIRU KHUSUS MOBILE */}
       {!editingProfileId && (
-        <div className="md:hidden bg-[#1e61c3] text-white rounded-b-[2rem] p-4.5 pt-5 pb-5 shadow-sm -mx-4 -mt-4 mb-4 space-y-4">
-          {/* Baris Atas: Hamburger Menu + Judul Klien + Tombol Plus */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => {
-                  const handler = setIsSidebarOpen || outletCtx?.setIsSidebarOpen;
-                  if (handler) handler(true);
-                }}
-                className="p-1 -ml-1 text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer"
-                title="Buka Sidebar"
-              >
-                <Menu className="w-6 h-6" />
-              </button>
-              <h1 className="text-xl font-bold text-white tracking-tight">Klien</h1>
-            </div>
-
-            <button
-              onClick={() => {
-                setEditingProfileId('new');
-                setIsProfilePreview(false);
-                updateData({ ...INITIAL_STATE } as any);
-              }}
-              className="w-9 h-9 bg-white/20 hover:bg-white/30 text-white rounded-full flex items-center justify-center transition-all cursor-pointer"
-              title="Tambah Klien Baru"
-            >
-              <Plus className="w-5 h-5" />
-            </button>
-          </div>
-
-          {/* Search Bar + Filter Button */}
-          <div className="flex items-center gap-2">
-            <div className="relative flex-1">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                placeholder="Cari nama klien..."
-                value={profileSearchQuery}
-                onChange={(e) => {
-                  setProfileSearchQuery(e.target.value);
-                  setProfileCurrentPage(1);
-                }}
-                className="w-full pl-9.5 pr-8 py-2.5 bg-white text-slate-800 placeholder-slate-400 text-xs rounded-xl border-0 outline-none shadow-xs font-medium"
-              />
-              {profileSearchQuery && (
-                <button
-                  onClick={() => {
-                    setProfileSearchQuery('');
-                    setProfileCurrentPage(1);
-                  }}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 font-bold text-xs"
-                >
-                  ✕
-                </button>
-              )}
-            </div>
-
-            <button
-              onClick={() => setIsMobileFilterOpen(true)}
-              className="w-10 h-10 bg-white text-[#1e61c3] rounded-xl flex items-center justify-center shrink-0 shadow-xs cursor-pointer hover:bg-blue-50 transition-colors"
-              title="Filter Klien"
-            >
-              <SlidersHorizontal className="w-4.5 h-4.5" />
-            </button>
-          </div>
-
-          {/* Baris Ringkasan: Total Klien & Dropdown Urutkan */}
-          <div className="flex items-center justify-between pt-1">
-            <span className="text-xs font-medium text-white/90">
-              Total {totalProfileItems} Klien
-            </span>
-
-            <div className="relative">
-              <button
-                onClick={() => setIsMobileSortOpen(!isMobileSortOpen)}
-                className="flex items-center gap-1.5 text-xs font-medium text-white/90 hover:text-white cursor-pointer bg-white/10 hover:bg-white/20 px-2.5 py-1 rounded-lg transition-colors"
-              >
-                <span>Urutkan: {currentSortLabel}</span>
-                <ChevronDown className="w-3.5 h-3.5" />
-              </button>
-
-              {isMobileSortOpen && (
-                <div className="absolute right-0 mt-2 w-44 bg-white rounded-xl shadow-xl border border-slate-100 py-1.5 z-50 text-slate-800 animate-in fade-in zoom-in-95 duration-100">
-                  {[
-                    { field: 'updatedAt', order: 'desc', label: 'Terbaru' },
-                    { field: 'companyName', order: 'asc', label: 'Nama A-Z' },
-                    { field: 'companyName', order: 'desc', label: 'Nama Z-A' },
-                    { field: 'domicile', order: 'asc', label: 'Kedudukan' },
-                    { field: 'establishmentDeedDate', order: 'desc', label: 'Thn Pendirian' },
-                  ].map((opt) => (
-                    <button
-                      key={opt.label}
-                      onClick={() => {
-                        setProfileSortField(opt.field);
-                        setProfileSortOrder(opt.order as 'asc' | 'desc');
-                        setProfileCurrentPage(1);
-                        setIsMobileSortOpen(false);
-                      }}
-                      className={`w-full text-left px-3.5 py-2 text-xs font-semibold hover:bg-slate-50 flex items-center justify-between ${
-                        profileSortField === opt.field && profileSortOrder === opt.order
-                          ? 'text-[#1e61c3] bg-blue-50/50'
-                          : 'text-slate-700'
-                      }`}
-                    >
-                      <span>{opt.label}</span>
-                      {profileSortField === opt.field && profileSortOrder === opt.order && (
-                        <Check className="w-3.5 h-3.5 text-[#1e61c3]" />
-                      )}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
+        <MobileHeader
+          title="Klien"
+          onOpenSidebar={() => {
+            const handler = setIsSidebarOpen || outletCtx?.setIsSidebarOpen;
+            if (handler) handler(true);
+          }}
+          onAdd={() => {
+            setEditingProfileId('new');
+            setIsProfilePreview(false);
+            updateData({ ...INITIAL_STATE } as any);
+          }}
+          addTooltip="Tambah Klien Baru"
+          searchValue={profileSearchQuery}
+          onSearchChange={(val) => {
+            setProfileSearchQuery(val);
+            setProfileCurrentPage(1);
+          }}
+          searchPlaceholder="Cari nama klien..."
+          onOpenFilter={() => setIsMobileFilterOpen(true)}
+          hasActiveFilter={selectedClientType !== 'all' || selectedProfileYear !== 'all'}
+          totalItems={totalProfileItems}
+          totalLabel="Klien"
+          sortOptions={[
+            { field: 'updatedAt', order: 'desc', label: 'Terbaru' },
+            { field: 'companyName', order: 'asc', label: 'Nama A-Z' },
+            { field: 'companyName', order: 'desc', label: 'Nama Z-A' },
+            { field: 'domicile', order: 'asc', label: 'Kedudukan' },
+            { field: 'establishmentDeedDate', order: 'desc', label: 'Thn Pendirian' },
+          ]}
+          currentSortLabel={currentSortLabel}
+          onSelectSort={(opt) => {
+            setProfileSortField(opt.field);
+            setProfileSortOrder(opt.order as 'asc' | 'desc');
+            setProfileCurrentPage(1);
+          }}
+        />
       )}
 
       {/* MOBILE BOTTOM SHEET FILTER */}

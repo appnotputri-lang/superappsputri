@@ -159,7 +159,7 @@ export const DepositNoteManager: React.FC<DepositNoteManagerProps> = ({ setActiv
         });
     } else if (routeMode === 'new') {
       // Auto-fetch next deposit number for new form
-      const defaultUser = authCtx?.currentUser?.displayName || authCtx?.currentUser?.email?.split('@')[0] || 'Staff Notaris';
+      const defaultUser = authCtx?.user?.displayName || authCtx?.user?.email?.split('@')[0] || 'Staff Notaris';
       DepositNoteService.getNextDepositNumber()
         .then(nextNum => {
           setFormData({
@@ -199,7 +199,7 @@ export const DepositNoteManager: React.FC<DepositNoteManagerProps> = ({ setActiv
         ...prev,
         clientId: found.id,
         clientName: found.companyName || '',
-        clientAddress: found.address || ''
+        clientAddress: found.domicile || (found as any).address || ''
       }));
     } else {
       setFormData(prev => ({

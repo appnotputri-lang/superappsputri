@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { PageHeader } from '../../components/ui/PageLayout';
+import { MobileHeader, MobileEmptyState } from '../../components/ui/MobileHeader';
 import { PrivateDeed } from '../../../types';
 import { NotaryService } from '../../services/NotaryService';
 import { isRecordLocked, getLockDeadlineMessage } from '../../utils/lockUtils';
@@ -313,23 +314,44 @@ export const PrivateDeedBook: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Top Header */}
-      <PageHeader
-        title="Buku Legalisasi & Waarmerking"
-        description="Pencatatan surat di bawah tangan yang dilegalisasi atau didaftarkan (waarmerking)."
-        actions={
-          <button
-            onClick={() => handleOpenModal()}
-            className="px-4 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-sm transition flex items-center gap-1.5 self-start md:self-auto"
-          >
-            <Plus size={16} />
-            Catat Legalisasi / Waarmerking
-          </button>
-        }
-      />
+      {!isModalOpen && (
+        <MobileHeader
+          title="Legalisasi & Waarmerking"
+          onOpenSidebar={() => {
+            if (typeof window !== 'undefined') {
+              const btn = document.querySelector('button[aria-label="Toggle sidebar"]') as HTMLButtonElement;
+              if (btn) btn.click();
+            }
+          }}
+          onAdd={() => handleOpenModal()}
+          addTooltip="Catat Legalisasi / Waarmerking Baru"
+          searchValue={searchTerm}
+          onSearchChange={setSearchTerm}
+          searchPlaceholder="Cari nomor, perihal, nama..."
+          totalItems={totalDeedsCount}
+          totalLabel="Data"
+        />
+      )}
 
-      {/* Filter & Search Bar */}
-      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3">
+      {/* Top Header (DESKTOP) */}
+      <div className="hidden md:block">
+        <PageHeader
+          title="Buku Legalisasi & Waarmerking"
+          description="Pencatatan surat di bawah tangan yang dilegalisasi atau didaftarkan (waarmerking)."
+          actions={
+            <button
+              onClick={() => handleOpenModal()}
+              className="px-4 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-sm transition flex items-center gap-1.5 self-start md:self-auto cursor-pointer"
+            >
+              <Plus size={16} />
+              Catat Legalisasi / Waarmerking
+            </button>
+          }
+        />
+      </div>
+
+      {/* Filter & Search Bar (DESKTOP) */}
+      <div className="hidden md:flex bg-white p-4 rounded-xl border border-slate-200 shadow-sm items-center justify-between gap-3">
         <div className="relative w-full sm:w-80">
           <Search className="absolute left-3 top-2.5 text-slate-400" size={16} />
           <input
@@ -346,7 +368,7 @@ export const PrivateDeedBook: React.FC = () => {
           <select
             value={selectedYear}
             onChange={(e) => setSelectedYear(e.target.value)}
-            className="p-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 font-medium text-slate-700 bg-white"
+            className="p-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 font-medium text-slate-700 bg-white cursor-pointer"
           >
             <option value="ALL">Semua Tahun</option>
             {availableYears.map((yr) => (
@@ -367,11 +389,68 @@ export const PrivateDeedBook: React.FC = () => {
           </div>
         </div>
       ) : privateDeeds.length === 0 ? (
-        <div className="bg-white p-12 text-center text-slate-400 rounded-xl border border-slate-200 italic">
-          Tidak ada data legalisasi / waarmerking ditemukan.
-        </div>
+        <MobileEmptyState
+          message="Belum ada data legalisasi atau waarmerking."
+          actionText="Catat Data Baru"
+          onAction={() => handleOpenModal()}
+        />
       ) : (
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        <>
+          {/* MOBILE LIST VIEW */}
+          <div className="md:hidden space-y-3">
+            {privateDeeds.map((deed) => {
+              const locked = isRecordLocked(deed.registrationDate, user?.email);
+              return (
+                <div key={deed.id} className="p-4 bg-white rounded-2xl border border-slate-200/80 shadow-xs space-y-2.5">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5 mb-1">
+                        {getTypeBadge(deed.type)}
+                        <span className="text-xs font-mono font-bold text-slate-700">No. {deed.number || '-'}</span>
+                      </div>
+                      <h4 className="font-bold text-slate-900 text-sm leading-snug">{deed.description}</h4>
+                    </div>
+                  </div>
+
+                  {deed.parties && deed.parties.length > 0 && (
+                    <div className="text-xs text-slate-600 bg-slate-50 p-2.5 rounded-xl border border-slate-100 space-y-1">
+                      <span className="block text-[9px] font-bold text-slate-400 uppercase tracking-wider">Pihak:</span>
+                      {deed.parties.map((p, i) => (
+                        <p key={i} className="text-xs font-medium text-slate-800">• {p}</p>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-between border-t border-slate-100 pt-2 text-xs">
+                    <span className="text-slate-400 font-mono text-[11px]">{formatDateIndo(deed.registrationDate)}</span>
+                    {locked ? (
+                      <span className="inline-flex items-center gap-1 text-slate-400 text-xs">
+                        <Lock size={12} className="text-amber-600" /> Terkunci
+                      </span>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => handleOpenModal(deed)}
+                          className="px-2.5 py-1 text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition cursor-pointer"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleDelete(deed)}
+                          className="px-2.5 py-1 text-xs font-bold text-red-600 hover:bg-red-50 rounded-lg transition cursor-pointer"
+                        >
+                          Hapus
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* DESKTOP TABLE VIEW */}
+          <div className="hidden md:block bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
           {/* Table */}
           <div className="overflow-x-auto">
             <table className="min-w-[1000px] w-full text-left text-xs border-collapse">
@@ -499,6 +578,7 @@ export const PrivateDeedBook: React.FC = () => {
             )}
           </div>
         </div>
+        </>
       )}
 
       {/* Modal Form */}

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { PageHeader } from '../../components/ui/PageLayout';
+import { MobileHeader, MobileEmptyState } from '../../components/ui/MobileHeader';
 import { OutgoingMail } from '../../../types';
 import { NotaryService } from '../../services/NotaryService';
 import { isRecordLocked, getLockDeadlineMessage } from '../../utils/lockUtils';
@@ -278,23 +279,44 @@ export const OutgoingMailBook: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Top Header */}
-      <PageHeader
-        title="Buku Surat Keluar"
-        description="Pencatatan korespondensi resmi surat keluar dari kantor Notaris / PPAT."
-        actions={
-          <button
-            onClick={() => handleOpenModal()}
-            className="px-4 py-2 text-xs font-semibold text-white bg-cyan-600 hover:bg-cyan-700 rounded-lg shadow-sm transition flex items-center gap-1.5 self-start md:self-auto"
-          >
-            <Plus size={16} />
-            Catat Surat Keluar
-          </button>
-        }
-      />
+      {!isModalOpen && (
+        <MobileHeader
+          title="Surat Keluar"
+          onOpenSidebar={() => {
+            if (typeof window !== 'undefined') {
+              const btn = document.querySelector('button[aria-label="Toggle sidebar"]') as HTMLButtonElement;
+              if (btn) btn.click();
+            }
+          }}
+          onAdd={() => handleOpenModal()}
+          addTooltip="Catat Surat Keluar Baru"
+          searchValue={searchTerm}
+          onSearchChange={setSearchTerm}
+          searchPlaceholder="Cari penerima, nomor, perihal..."
+          totalItems={totalMailsCount}
+          totalLabel="Surat"
+        />
+      )}
 
-      {/* Filter & Search Bar */}
-      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3">
+      {/* Top Header (DESKTOP) */}
+      <div className="hidden md:block">
+        <PageHeader
+          title="Buku Surat Keluar"
+          description="Pencatatan korespondensi resmi surat keluar dari kantor Notaris / PPAT."
+          actions={
+            <button
+              onClick={() => handleOpenModal()}
+              className="px-4 py-2 text-xs font-semibold text-white bg-cyan-600 hover:bg-cyan-700 rounded-lg shadow-sm transition flex items-center gap-1.5 self-start md:self-auto cursor-pointer"
+            >
+              <Plus size={16} />
+              Catat Surat Keluar
+            </button>
+          }
+        />
+      </div>
+
+      {/* Filter & Search Bar (DESKTOP) */}
+      <div className="hidden md:flex bg-white p-4 rounded-xl border border-slate-200 shadow-sm items-center justify-between gap-3">
         <div className="relative w-full sm:w-80">
           <Search className="absolute left-3 top-2.5 text-slate-400" size={16} />
           <input
@@ -311,7 +333,7 @@ export const OutgoingMailBook: React.FC = () => {
           <select
             value={selectedYear}
             onChange={(e) => setSelectedYear(e.target.value)}
-            className="p-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500/20 font-medium text-slate-700 bg-white"
+            className="p-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500/20 font-medium text-slate-700 bg-white cursor-pointer"
           >
             <option value="ALL">Semua Tahun</option>
             {availableYears.map((yr) => (
@@ -332,11 +354,59 @@ export const OutgoingMailBook: React.FC = () => {
           </div>
         </div>
       ) : mails.length === 0 ? (
-        <div className="bg-white p-12 text-center text-slate-400 rounded-xl border border-slate-200 italic">
-          Tidak ada data surat keluar ditemukan.
-        </div>
+        <MobileEmptyState
+          message="Belum ada data surat keluar."
+          actionText="Catat Surat Keluar"
+          onAction={() => handleOpenModal()}
+        />
       ) : (
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        <>
+          {/* MOBILE LIST VIEW */}
+          <div className="md:hidden space-y-3">
+            {mails.map((mail) => {
+              const locked = isRecordLocked(mail.date, user?.email);
+              return (
+                <div key={mail.id} className="p-4 bg-white rounded-2xl border border-slate-200/80 shadow-xs space-y-2.5">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <span className="text-[10px] font-bold text-cyan-700 bg-cyan-50 px-2 py-0.5 rounded-md">
+                        {mail.mailNumber || 'Tanpa No. Surat'}
+                      </span>
+                      <h4 className="font-bold text-slate-900 text-sm mt-1 leading-snug">{mail.subject}</h4>
+                      <p className="text-xs font-medium text-slate-500 mt-0.5">Penerima: {mail.recipient}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between border-t border-slate-100 pt-2 text-xs">
+                    <span className="text-slate-400 font-mono text-[11px]">{formatDateIndo(mail.date)}</span>
+                    {locked ? (
+                      <span className="inline-flex items-center gap-1 text-slate-400 text-xs">
+                        <Lock size={12} className="text-amber-600" /> Terkunci
+                      </span>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => handleOpenModal(mail)}
+                          className="px-2.5 py-1 text-xs font-bold text-cyan-700 bg-cyan-50 hover:bg-cyan-100 rounded-lg transition cursor-pointer"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleDelete(mail)}
+                          className="px-2.5 py-1 text-xs font-bold text-red-600 hover:bg-red-50 rounded-lg transition cursor-pointer"
+                        >
+                          Hapus
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* DESKTOP TABLE VIEW */}
+          <div className="hidden md:block bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
             <table className="min-w-[1000px] w-full text-left text-xs border-collapse">
               <thead>
@@ -458,6 +528,7 @@ export const OutgoingMailBook: React.FC = () => {
             )}
           </div>
         </div>
+        </>
       )}
 
       {/* Modal Form */}

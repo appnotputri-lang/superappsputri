@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { PageHeader } from '../../components/ui/PageLayout';
+import { MobileHeader, MobileEmptyState } from '../../components/ui/MobileHeader';
 import { Deed, DeedAppearer, DeedGrantor } from '../../../types';
 import { NotaryService } from '../../services/NotaryService';
 import { isRecordLocked, getLockDeadlineMessage, isSuperAdmin } from '../../utils/lockUtils';
@@ -980,36 +981,57 @@ export const DeedBook: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Top Header & Actions */}
-      <PageHeader
-        title="Buku Daftar Akta Notaris"
-        description="Pencatatan harian akta-akta notaris resmi dan penomoran urut bulanan."
-        actions={
-          <div className="flex flex-wrap items-center gap-2.5">
-            {!isModalOpen && superAdmin && (
-              <>
-                <button
-                  onClick={handleReorder}
-                  disabled={isOrdering}
-                  className="px-3.5 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-lg transition flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
-                  title="Urutkan ulang nomor urut akta secara berurutan berdasarkan tanggal"
-                >
-                  <RefreshCw size={14} className={isOrdering ? 'animate-spin' : ''} />
-                  {isOrdering ? 'Merapikan...' : 'Rapikan No. Urut'}
-                </button>
+      {!isModalOpen && (
+        <MobileHeader
+          title="Buku Akta"
+          onOpenSidebar={() => {
+            if (typeof window !== 'undefined') {
+              const btn = document.querySelector('button[aria-label="Toggle sidebar"]') as HTMLButtonElement;
+              if (btn) btn.click();
+            }
+          }}
+          onAdd={() => handleOpenModal()}
+          addTooltip="Buat Akta Baru"
+          searchValue={searchTerm}
+          onSearchChange={setSearchTerm}
+          searchPlaceholder="Cari no. akta, judul, penghadap..."
+          totalItems={totalDeedsCount}
+          totalLabel="Akta"
+        />
+      )}
 
-                <button
-                  onClick={() => handleOpenModal()}
-                  className="px-4 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm transition flex items-center gap-1.5 cursor-pointer"
-                >
-                  <Plus size={16} />
-                  Buat Akta Baru
-                </button>
-              </>
-            )}
-          </div>
-        }
-      />
+      {/* Top Header & Actions (DESKTOP) */}
+      <div className="hidden md:block">
+        <PageHeader
+          title="Buku Daftar Akta Notaris"
+          description="Pencatatan harian akta-akta notaris resmi dan penomoran urut bulanan."
+          actions={
+            <div className="flex flex-wrap items-center gap-2.5">
+              {!isModalOpen && superAdmin && (
+                <>
+                  <button
+                    onClick={handleReorder}
+                    disabled={isOrdering}
+                    className="px-3.5 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-lg transition flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+                    title="Urutkan ulang nomor urut akta secara berurutan berdasarkan tanggal"
+                  >
+                    <RefreshCw size={14} className={isOrdering ? 'animate-spin' : ''} />
+                    {isOrdering ? 'Merapikan...' : 'Rapikan No. Urut'}
+                  </button>
+
+                  <button
+                    onClick={() => handleOpenModal()}
+                    className="px-4 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm transition flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Plus size={16} />
+                    Buat Akta Baru
+                  </button>
+                </>
+              )}
+            </div>
+          }
+        />
+      </div>
 
       {/* Main Content Area: Inline Form Panel OR Deed Book List */}
       {isModalOpen ? (
@@ -1348,8 +1370,8 @@ export const DeedBook: React.FC = () => {
         </div>
       ) : (
         <>
-          {/* Filter & Search Bar */}
-          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3">
+          {/* Filter & Search Bar (DESKTOP) */}
+          <div className="hidden md:flex bg-white p-4 rounded-xl border border-slate-200 shadow-sm items-center justify-between gap-3">
             <div className="relative w-full sm:w-80">
               <Search className="absolute left-3 top-2.5 text-slate-400" size={16} />
               <input
@@ -1378,7 +1400,7 @@ export const DeedBook: React.FC = () => {
             </div>
           </div>
 
-          {/* Deed Book List - Rendered as flat responsive paginated table */}
+          {/* Deed Book List */}
           {loading ? (
             <div className="bg-white p-12 text-center rounded-xl border border-slate-200">
               <div className="flex flex-col items-center justify-center gap-3">
@@ -1387,11 +1409,82 @@ export const DeedBook: React.FC = () => {
               </div>
             </div>
           ) : deeds.length === 0 ? (
-            <div className="bg-white p-12 text-center text-slate-400 rounded-xl border border-slate-200 italic">
-              Tidak ada data akta ditemukan.
-            </div>
+            <MobileEmptyState
+              message='Belum ada data akta ditemukan.'
+              actionText="Buat Akta Baru"
+              onAction={() => handleOpenModal()}
+            />
           ) : (
-            <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <>
+              {/* MOBILE CARDS VIEW */}
+              <div className="md:hidden space-y-3">
+                {deeds.map((deed, idx) => {
+                  const locked = !superAdmin || isRecordLocked(deed.date, user?.email);
+                  return (
+                    <div
+                      key={deed.id}
+                      className="p-4 bg-white rounded-2xl border border-slate-200/80 shadow-xs space-y-2.5"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <span className="text-[10px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md">
+                            Akta No. {deed.number}
+                          </span>
+                          <h4 className="font-bold text-slate-900 text-sm mt-1 leading-snug">
+                            {deed.title}
+                          </h4>
+                          {deed.clientName && (
+                            <p className="text-xs font-medium text-slate-500 mt-0.5">
+                              Klien: {deed.clientName}
+                            </p>
+                          )}
+                        </div>
+                        <span className="text-[10px] font-mono text-slate-400 shrink-0 bg-slate-100 px-2 py-0.5 rounded-full">
+                          No. {deed.orderNumber || idx + 1}
+                        </span>
+                      </div>
+
+                      {deed.appearers && deed.appearers.length > 0 && (
+                        <div className="text-xs text-slate-600 bg-slate-50 p-2.5 rounded-xl border border-slate-100 space-y-1">
+                          <span className="block text-[9px] font-bold text-slate-400 uppercase tracking-wider">Penghadap:</span>
+                          {deed.appearers.map((app, i) => (
+                            <p key={i} className="text-xs font-medium text-slate-800">
+                              • {app.name} {app.position && <span className="text-slate-500 font-normal">({app.position})</span>}
+                            </p>
+                          ))}
+                        </div>
+                      )}
+
+                      <div className="flex items-center justify-between border-t border-slate-100 pt-2 text-xs">
+                        <span className="text-slate-400 font-mono text-[11px]">{formatDateIndo(deed.date)}</span>
+                        {locked ? (
+                          <span className="inline-flex items-center gap-1 text-slate-400 text-xs">
+                            <Lock size={12} className="text-amber-600" /> Terkunci
+                          </span>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => handleOpenModal(deed)}
+                              className="px-2.5 py-1 text-xs font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition cursor-pointer"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => handleDelete(deed)}
+                              className="px-2.5 py-1 text-xs font-bold text-red-600 hover:bg-red-50 rounded-lg transition cursor-pointer"
+                            >
+                              Hapus
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* DESKTOP TABLE VIEW */}
+              <div className="hidden md:block bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs border-collapse table-fixed min-w-[1000px]">
                   <colgroup>
@@ -1542,6 +1635,7 @@ export const DeedBook: React.FC = () => {
                 )}
               </div>
             </div>
+            </>
           )}
         </>
       )}
