@@ -1,46 +1,109 @@
-import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
-import { AppLoader } from '../components/ui/AppLoader';
+import React, { createContext, useContext, useState, useCallback, useRef, ReactNode } from 'react';
+import { AppLoader, AppLoaderVariant } from '../components/ui/AppLoader';
+
+export interface LoadingState {
+  isLoading: boolean;
+  message: string | undefined;
+  variant: AppLoaderVariant;
+}
 
 interface LoadingContextType {
   isLoading: boolean;
   loadingMessage: string | undefined;
-  showLoading: (message?: string) => void;
+  loadingVariant: AppLoaderVariant;
+  startLoading: (message?: string, variant?: AppLoaderVariant) => number;
+  stopLoading: (tokenId?: number) => void;
+  showLoading: (message?: string, variant?: AppLoaderVariant) => void;
   hideLoading: () => void;
 }
 
 const LoadingContext = createContext<LoadingContextType | undefined>(undefined);
 
 export const LoadingProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [isLoading, setIsLoading] = useState(false);
-  const [loadingMessage, setLoadingMessage] = useState<string | undefined>(undefined);
+  const [loadingState, setLoadingState] = useState<LoadingState>({
+    isLoading: false,
+    message: undefined,
+    variant: 'fullscreen',
+  });
 
-  const showLoading = useCallback((msg?: string) => {
-    setLoadingMessage(msg);
-    setIsLoading(true);
+  const activeTokensRef = useRef<Set<number>>(new Set());
+  const tokenCounterRef = useRef<number>(0);
+
+  const startLoading = useCallback((msg?: string, variant: AppLoaderVariant = 'page') => {
+    tokenCounterRef.current += 1;
+    const newTokenId = tokenCounterRef.current;
+    activeTokensRef.current.add(newTokenId);
+
+    setLoadingState({
+      isLoading: true,
+      message: msg,
+      variant: variant,
+    });
+
+    return newTokenId;
   }, []);
+
+  const stopLoading = useCallback((tokenId?: number) => {
+    if (tokenId !== undefined) {
+      activeTokensRef.current.delete(tokenId);
+    } else {
+      // If no token passed, clear all
+      activeTokensRef.current.clear();
+    }
+
+    if (activeTokensRef.current.size === 0) {
+      setLoadingState((prev) => ({
+        ...prev,
+        isLoading: false,
+      }));
+    }
+  }, []);
+
+  const showLoading = useCallback((msg?: string, variant: AppLoaderVariant = 'page') => {
+    startLoading(msg, variant);
+  }, [startLoading]);
 
   const hideLoading = useCallback(() => {
-    setIsLoading(false);
-  }, []);
+    stopLoading();
+  }, [stopLoading]);
 
   return (
-    <LoadingContext.Provider value={{ isLoading, loadingMessage, showLoading, hideLoading }}>
+    <LoadingContext.Provider
+      value={{
+        isLoading: loadingState.isLoading,
+        loadingMessage: loadingState.message,
+        loadingVariant: loadingState.variant,
+        startLoading,
+        stopLoading,
+        showLoading,
+        hideLoading,
+      }}
+    >
       {children}
-      <AppLoader isLoading={isLoading} message={loadingMessage} delayMs={350} />
+      <AppLoader
+        isLoading={loadingState.isLoading}
+        message={loadingState.message}
+        variant={loadingState.variant}
+        delayMs={350}
+      />
     </LoadingContext.Provider>
   );
 };
 
-export const useLoading = (): LoadingContextType => {
+export const useGlobalLoading = (): LoadingContextType => {
   const context = useContext(LoadingContext);
   if (!context) {
-    // Return safe fallback if used outside provider
     return {
       isLoading: false,
       loadingMessage: undefined,
+      loadingVariant: 'page',
+      startLoading: () => 0,
+      stopLoading: () => {},
       showLoading: () => {},
-      hideLoading: () => {}
+      hideLoading: () => {},
     };
   }
   return context;
 };
+
+export const useLoading = useGlobalLoading;

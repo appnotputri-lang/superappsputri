@@ -12,6 +12,7 @@ import { WorkflowService } from '../../../services/WorkflowService';
 import { CompanyService } from '../../../services/CompanyService';
 import { getApiUrl, getAuthHeaders } from '../../../lib/api';
 import { Plus, Search, Filter, Briefcase, User, Calendar, ExternalLink, Loader2, ArrowRight, Trash2, AlertCircle } from 'lucide-react';
+import { AppLoader } from '../../../components/ui/AppLoader';
 import { SearchableClientSelect } from '../../../components/common/SearchableClientSelect';
 import { ProjectCategory, PROJECT_TYPES, MEETING_SUBJECTS } from '../../../constants/appConstants';
 
@@ -917,9 +918,8 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
 
         {/* Project List / Cards */}
         {isCurrentTabLoading ? (
-          <div className="h-64 flex flex-col items-center justify-center bg-white border border-slate-200/80 rounded-xl shadow-sm">
-            <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
-            <span className="text-[13px] text-slate-400 mt-2">Memuat daftar proyek...</span>
+          <div className="bg-white border border-slate-200/80 rounded-xl shadow-xs overflow-hidden">
+            <AppLoader variant="content" message="Memuat daftar proyek..." />
           </div>
         ) : error ? (
           <div className="p-6 bg-red-50 border border-red-200 rounded-xl text-center">

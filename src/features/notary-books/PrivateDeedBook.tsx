@@ -8,6 +8,7 @@ import { NotaryService } from '../../services/NotaryService';
 import { isRecordLocked, getLockDeadlineMessage } from '../../utils/lockUtils';
 import { useAuth } from '../../hooks/useAuth';
 import { Plus, Search, Edit2, Trash2, Lock, ShieldCheck, X, Check } from 'lucide-react';
+import { AppLoader } from '../../components/ui/AppLoader';
 
 // Global memory cache for private deeds to enable instant page transitions
 const privateDeedCache = new Map<string, { records: PrivateDeed[]; total: number }>();
@@ -383,11 +384,8 @@ export const PrivateDeedBook: React.FC = () => {
 
       {/* List */}
       {loading ? (
-        <div className="bg-white p-12 text-center rounded-xl border border-slate-200">
-          <div className="flex flex-col items-center justify-center gap-3">
-            <div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
-            <span className="text-xs text-slate-500 font-medium">Memuat data legalisasi & waarmerking...</span>
-          </div>
+        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs">
+          <AppLoader variant="content" message="Memuat data legalisasi & waarmerking..." />
         </div>
       ) : privateDeeds.length === 0 ? (
         <MobileEmptyState

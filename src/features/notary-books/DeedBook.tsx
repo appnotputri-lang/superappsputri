@@ -9,6 +9,7 @@ import { isRecordLocked, getLockDeadlineMessage, isSuperAdmin } from '../../util
 import { useAuth } from '../../hooks/useAuth';
 import { fetchLatestDeedNumbers } from '../../lib/deedUtils';
 import { Plus, Search, Edit2, Trash2, Lock, RefreshCw, X, FileText, Check, AlertTriangle, ChevronDown, ChevronRight } from 'lucide-react';
+import { AppLoader } from '../../components/ui/AppLoader';
 
 // Deeds list cache: kept in-memory for instant SPA tab-switches, and
 // mirrored to localStorage so the FIRST load of this page in a brand new
@@ -1403,11 +1404,8 @@ export const DeedBook: React.FC = () => {
 
           {/* Deed Book List */}
           {loading ? (
-            <div className="bg-white p-12 text-center rounded-xl border border-slate-200">
-              <div className="flex flex-col items-center justify-center gap-3">
-                <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                <span className="text-xs text-slate-500 font-medium">Memuat data akta resmi...</span>
-              </div>
+            <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs">
+              <AppLoader variant="content" message="Memuat data akta resmi..." />
             </div>
           ) : deeds.length === 0 ? (
             <MobileEmptyState

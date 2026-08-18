@@ -13,6 +13,7 @@ import { toJpeg } from 'html-to-image';
 import { useProjectContext } from '../contexts/ProjectContext';
 import { ProjectCategory, PROJECT_TYPES } from '../constants/appConstants';
 import { ProjectService } from '../services/ProjectService';
+import { AppLoader } from './ui/AppLoader';
 
 interface LaporanListProps {
   projects?: any[];
@@ -1185,11 +1186,8 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects: propsProject
             <tbody className="divide-y divide-slate-200 bg-white">
               {loadingProjects ? (
                 <tr>
-                  <td colSpan={5} className="text-center py-16 text-slate-500 font-medium bg-white">
-                    <div className="flex items-center justify-center gap-2">
-                      <div className="w-5 h-5 border-2 border-slate-300 border-t-fuchsia-600 rounded-full animate-spin" />
-                      <span>Memuat laporan proyek...</span>
-                    </div>
+                  <td colSpan={5} className="p-0 bg-white">
+                    <AppLoader variant="content" message="Memuat laporan proyek..." />
                   </td>
                 </tr>
               ) : filteredReports.length === 0 ? (
@@ -1269,11 +1267,8 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects: propsProject
         {/* MOBILE CARD VIEW */}
         <div className="block md:hidden">
           {loadingProjects ? (
-            <div className="py-16 text-center text-slate-500 font-medium bg-white rounded-xl border border-slate-200 p-8 shadow-xs">
-              <div className="flex items-center justify-center gap-2">
-                <div className="w-5 h-5 border-2 border-slate-300 border-t-fuchsia-600 rounded-full animate-spin" />
-                <span>Memuat laporan proyek...</span>
-              </div>
+            <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs">
+              <AppLoader variant="content" message="Memuat laporan proyek..." />
             </div>
           ) : filteredReports.length === 0 ? (
             <MobileEmptyState

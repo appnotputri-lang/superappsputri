@@ -8,6 +8,7 @@ import { NotaryService } from '../../services/NotaryService';
 import { isRecordLocked, getLockDeadlineMessage } from '../../utils/lockUtils';
 import { useAuth } from '../../hooks/useAuth';
 import { Plus, Search, Edit2, Trash2, Lock, Send, X, Check } from 'lucide-react';
+import { AppLoader } from '../../components/ui/AppLoader';
 
 // Global memory cache for outgoing mails to enable instant page transitions
 const outgoingMailCache = new Map<string, { records: OutgoingMail[]; total: number }>();
@@ -348,11 +349,8 @@ export const OutgoingMailBook: React.FC = () => {
 
       {/* List */}
       {loading ? (
-        <div className="bg-white p-12 text-center rounded-xl border border-slate-200">
-          <div className="flex flex-col items-center justify-center gap-3">
-            <div className="w-8 h-8 border-4 border-cyan-600 border-t-transparent rounded-full animate-spin"></div>
-            <span className="text-xs text-slate-500 font-medium">Memuat data surat keluar...</span>
-          </div>
+        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs">
+          <AppLoader variant="content" message="Memuat data surat keluar..." />
         </div>
       ) : mails.length === 0 ? (
         <MobileEmptyState

@@ -9,6 +9,7 @@ import {
   Plus, Search, Edit2, Trash2, X, Check, Loader2, AlertCircle, 
   Package, DollarSign, FileText, CheckSquare, Square
 } from 'lucide-react';
+import { AppLoader } from '../ui/AppLoader';
 
 export const ProductManager: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
@@ -207,9 +208,8 @@ export const ProductManager: React.FC = () => {
       {/* MOBILE LIST VIEW (< md) */}
       <div className="block md:hidden space-y-3 mt-4">
         {isLoading ? (
-          <div className="p-8 text-center text-slate-400 bg-white rounded-2xl border border-slate-200">
-            <Loader2 className="w-6 h-6 text-emerald-600 animate-spin mx-auto mb-2" />
-            <p className="text-xs font-semibold">Memuat daftar produk...</p>
+          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs">
+            <AppLoader variant="content" message="Memuat daftar produk..." />
           </div>
         ) : filteredProducts.length === 0 ? (
           <MobileEmptyState
@@ -273,9 +273,8 @@ export const ProductManager: React.FC = () => {
         {/* Content Table */}
         <div className="overflow-x-auto">
           {isLoading ? (
-            <div className="flex flex-col items-center justify-center py-20 gap-3">
-              <Loader2 className="w-8 h-8 text-emerald-600 animate-spin" />
-              <span className="text-xs font-semibold text-slate-500">Memuat daftar produk...</span>
+            <div className="bg-white rounded-xl overflow-hidden py-4">
+              <AppLoader variant="content" message="Memuat daftar produk..." />
             </div>
           ) : filteredProducts.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 text-center px-4">

@@ -23,6 +23,7 @@ import { handleFirestoreError, OperationType } from '../../../lib/firebase';
 import { CompanyService, ClientDirectoryEntry } from '../../../services/CompanyService';
 import { ShareholderModal } from '../../../components/modals/ShareholderModal';
 import { KbliModal } from '../../../components/modals/KbliModal';
+import { AppLoader } from '../../../components/ui/AppLoader';
 import { MergeClientsModal } from '../../../components/modals/MergeClientsModal';
 import { INITIAL_STATE, INITIAL_ADDRESS } from '../../../domain/company/initialCompanyData';
 import { KBLI_DATA } from '../../../../utils/kbliData';
@@ -1116,9 +1117,8 @@ export const CompanyPage: React.FC<CompanyPageProps> = ({ setIsSidebarOpen, ...p
           />
         </>
       ) : isProfileLoading ? (
-        <div className="flex flex-col items-center justify-center min-h-[300px] bg-white rounded-2xl p-8 border border-slate-200 shadow-sm">
-          <div className="w-8 h-8 border-3 border-blue-600 border-t-transparent rounded-full animate-spin mb-3"></div>
-          <p className="text-xs font-semibold text-slate-600">Memuat Data Lengkap Profile Klien...</p>
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+          <AppLoader variant="content" message="Memuat Data Lengkap Profile Klien..." />
         </div>
       ) : isProfilePreview ? (
         <CompanyDetail

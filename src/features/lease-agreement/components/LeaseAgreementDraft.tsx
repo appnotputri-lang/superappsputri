@@ -12,6 +12,7 @@ import {
 import { formatCurrency, formatInputNumber, parseFormattedNumber, numberToWords, formatDateIndo } from '../../../../utils/formatters';
 import { generateLeaseDocx } from '../../../lib/generateLeaseDocx';
 import { CompanyService } from '../../../services/CompanyService';
+import { AppLoader } from '../../../components/ui/AppLoader';
 
 interface LeaseAgreementDraftProps {
   projectId: string;
@@ -406,9 +407,8 @@ export default function LeaseAgreementDraft({ projectId, project, currentUser, o
 
   if (loading || !leaseData) {
     return (
-      <div className="flex flex-col items-center justify-center p-12 bg-white border border-slate-200 rounded-xl shadow-xs">
-        <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
-        <span className="text-slate-400 text-[13px] mt-2">Menyiapkan form draft Sewa Menyewa...</span>
+      <div className="bg-white border border-slate-200 rounded-xl shadow-xs overflow-hidden">
+        <AppLoader variant="content" message="Menyiapkan form draft Sewa Menyewa..." />
       </div>
     );
   }
