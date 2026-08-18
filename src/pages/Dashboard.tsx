@@ -18,13 +18,15 @@ import {
   CreditCard,
   Mail,
   BarChart2,
-  Banknote
+  Banknote,
+  Menu,
+  Bell,
+  ChevronRight
 } from 'lucide-react';
 import { ProjectService } from '../services/ProjectService';
 import { Project } from '../domain/project/Project';
 import { FirestoreTracker } from '../lib/firestoreTracker';
 import { TAB_TO_PATH } from '../constants/tabs';
-import { MobileHeader } from '../components/ui/MobileHeader';
 
 const getDetailedActivityStyles = (type: 'proyek' | 'akta' | 'invoice' | 'surat', desc: string) => {
   const isInvoiceUnpaid = type === 'invoice' && desc.toLowerCase().includes('belum dibayar');
@@ -70,6 +72,45 @@ const getDetailedActivityStyles = (type: 'proyek' | 'akta' | 'invoice' | 'surat'
   }
 };
 
+const getMobileShortcutLabel = (label: string): string => {
+  switch (label) {
+    case 'Proyek Baru': return 'Proyek Kerja';
+    case 'Klien Baru': return 'Klien';
+    case 'Buat Invoice': return 'Invoice';
+    case 'Laporan Proyek': return 'Laporan';
+    case 'Surat Baru': return 'Surat Baru';
+    default: return label;
+  }
+};
+
+const getMobileShortcutTileStyle = (label: string) => {
+  switch (label) {
+    case 'Klien Baru':
+    case 'Klien':
+      return { tileBg: 'bg-blue-50', textColor: 'text-blue-600' };
+    case 'Proyek Baru':
+    case 'Proyek Kerja':
+      return { tileBg: 'bg-purple-50', textColor: 'text-purple-600' };
+    case 'Buat Invoice':
+    case 'Invoice':
+      return { tileBg: 'bg-emerald-50', textColor: 'text-emerald-600' };
+    case 'Buat Akta':
+    case 'Buku Akta':
+      return { tileBg: 'bg-amber-50', textColor: 'text-amber-600' };
+    case 'Surat Baru':
+      return { tileBg: 'bg-rose-50', textColor: 'text-rose-600' };
+    case 'Titipan Uang':
+      return { tileBg: 'bg-teal-50', textColor: 'text-teal-600' };
+    case 'Laporan Proyek':
+    case 'Laporan':
+      return { tileBg: 'bg-violet-50', textColor: 'text-violet-600' };
+    case 'Legalisasi':
+      return { tileBg: 'bg-cyan-50', textColor: 'text-cyan-600' };
+    default:
+      return { tileBg: 'bg-blue-50', textColor: 'text-blue-600' };
+  }
+};
+
 interface DashboardProps {
   profiles?: any[];
   projects?: any[];
@@ -89,6 +130,12 @@ interface DashboardProps {
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({
+  profiles,
+  projects,
+  rupstProjects,
+  pendirianProjects,
+  compiledActivities,
+  compiledDocuments,
   setActiveSidebarTab,
   currentUser,
   setIsSidebarOpen,
@@ -172,67 +219,143 @@ export const Dashboard: React.FC<DashboardProps> = ({
     return items.sort((a, b) => b.timestamp - a.timestamp).slice(0, 5);
   }, [recentProjects]);
 
+  const firstName = useMemo(() => {
+    if (userProfile?.name) {
+      return userProfile.name.split(' ')[0].toUpperCase();
+    }
+    return 'ADMIN';
+  }, [userProfile]);
+
   return (
     <>
       {/* ===== MOBILE-ONLY HOMESCREEN (< md) ===== */}
-      <div className="md:hidden bg-[#f8fafc] px-4 pt-4 pb-8 space-y-5 overflow-x-hidden">
-        <MobileHeader
-          title="Beranda"
-          onOpenSidebar={setIsSidebarOpen ? () => setIsSidebarOpen(true) : undefined}
-          customSummary={
-            <div className="text-xs text-white/90 font-medium">
-              Selamat datang kembali, {userProfile?.name?.split(' ')[0] || 'ADMIN'} 👋
-            </div>
-          }
-        />
-        
-        {/* 2. QUICK ACTION */}
-        <div>
-          <h3 className="text-sm font-bold text-slate-900 mb-3 px-1">Akses Cepat</h3>
-            <div className="grid grid-cols-4 gap-2.5">
-              {QUICK_ACTIONS.map((qa, idx) => (
-                <button 
-                  key={idx} 
-                  onClick={() => handleQuickAction(qa)} 
-                  className="bg-white rounded-2xl border border-slate-100 shadow-xs p-2.5 flex flex-col items-center justify-center text-center cursor-pointer hover:shadow-md active:scale-95 transition-all min-h-[92px]"
-                >
-                  <div className={`${qa.bg} p-2.5 rounded-2xl mb-1 flex items-center justify-center`}>
-                    <qa.icon size={18} />
-                  </div>
-                  <span className="text-[10px] font-bold text-slate-800 leading-tight text-center">
-                    {qa.label}
-                  </span>
-                </button>
-              ))}
+      <div className="md:hidden bg-[#f8fafc] min-h-screen pb-12 overflow-x-hidden">
+        {/* HERO BIRU */}
+        <div className="relative bg-gradient-to-b from-[#1e61c3] to-[#174fa3] text-white pt-5 pb-16 px-5 rounded-b-[36px] shadow-md overflow-hidden">
+          {/* Subtle Decorative Blue-on-Blue Accents */}
+          <div className="absolute -top-12 -right-12 w-48 h-48 rounded-full bg-white/10 pointer-events-none blur-xs" />
+          <div className="absolute top-28 -left-16 w-36 h-36 rounded-full bg-white/5 pointer-events-none" />
+          <div className="absolute bottom-2 right-10 w-24 h-24 rounded-full bg-white/5 pointer-events-none" />
+
+          {/* HEADER HERO */}
+          <div className="relative z-10 flex items-center justify-between mb-6">
+            <button
+              type="button"
+              onClick={() => {
+                if (setIsSidebarOpen) setIsSidebarOpen(true);
+              }}
+              className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/15 hover:bg-white/25 active:scale-95 transition-all cursor-pointer text-white shadow-2xs"
+              aria-label="Buka Menu Sidebar"
+            >
+              <Menu size={20} />
+            </button>
+
+            <h1 className="text-base font-bold tracking-wide text-white font-heading">
+              Notaris Putri
+            </h1>
+
+            <div className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/15 text-white/90">
+              <Bell size={19} />
             </div>
           </div>
 
-          {/* 3. AKTIVITAS TERBARU (Maksimal 5) */}
-          <div className="pb-4">
-            <div className="flex items-center justify-between mb-3 px-1">
-              <h3 className="text-sm font-bold text-slate-900">Aktivitas Terbaru</h3>
-            </div>
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-xs divide-y divide-slate-100">
-              {recentActivitiesList.length === 0 ? (
-                <div className="p-6 text-center text-xs text-slate-400 font-medium">Belum ada aktivitas terbaru.</div>
-              ) : recentActivitiesList.map((act) => {
-                const { Icon, bg, color, subtitleColor } = getDetailedActivityStyles(act.type, act.desc);
+          {/* GREETING */}
+          <div className="relative z-10 space-y-1">
+            <h2 className="text-2xl font-extrabold tracking-tight text-white font-heading">
+              Hi {firstName}!
+            </h2>
+            <p className="text-xs font-medium text-white/90 leading-relaxed max-w-[280px]">
+              Kelola pekerjaan notaris Anda dengan mudah dan cepat.
+            </p>
+          </div>
+        </div>
+
+        {/* QUICK ACCESS FLOATING CARD (OVERLAPPING HERO) */}
+        <div className="px-4 -mt-10 relative z-20">
+          <div className="bg-white rounded-[28px] p-5 shadow-lg border border-slate-100/90">
+            <div className="grid grid-cols-4 gap-y-4 gap-x-2">
+              {QUICK_ACTIONS.map((qa, idx) => {
+                const displayLabel = getMobileShortcutLabel(qa.label);
+                const tileStyle = getMobileShortcutTileStyle(qa.label);
+
                 return (
-                  <div key={act.id} className="flex items-center gap-3 p-3.5">
-                    <div className={`${bg} ${color} p-2 rounded-xl shrink-0`}>
-                      <Icon size={16} />
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => handleQuickAction(qa)}
+                    className="flex flex-col items-center justify-start text-center cursor-pointer group active:scale-95 transition-all"
+                  >
+                    <div className={`w-12 h-12 rounded-2xl ${tileStyle.tileBg} ${tileStyle.textColor} flex items-center justify-center mb-1.5 shadow-2xs group-hover:scale-105 transition-transform shrink-0`}>
+                      <qa.icon size={22} />
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-xs font-bold text-slate-800 truncate">{act.desc}</p>
-                      <p className={`text-[11px] truncate mt-0.5 ${subtitleColor}`}>{act.subtitle}</p>
-                    </div>
-                    <span className="text-[11px] text-slate-400 font-medium shrink-0">{act.time}</span>
-                  </div>
+                    <span className="text-[10px] font-bold text-slate-700 leading-tight text-center px-0.5 max-w-full truncate">
+                      {displayLabel}
+                    </span>
+                  </button>
                 );
               })}
             </div>
           </div>
+        </div>
 
+        {/* CONTENT SECTION: AKTIVITAS TERBARU & RINGKASAN */}
+        <div className="px-4 mt-6 space-y-6">
+          {/* 1. AKTIVITAS TERBARU */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between px-1">
+              <h3 className="text-sm font-bold text-slate-900 font-heading">Aktivitas Terbaru</h3>
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveSidebarTab('projects');
+                  navigate(TAB_TO_PATH['projects'] || '/projects');
+                }}
+                className="text-xs font-bold text-[#1e61c3] hover:underline flex items-center gap-0.5 cursor-pointer"
+              >
+                <span>Lihat All</span>
+                <ChevronRight size={14} />
+              </button>
+            </div>
+
+            <div className="bg-white rounded-2xl border border-slate-100/90 shadow-2xs divide-y divide-slate-100 overflow-hidden">
+              {recentActivitiesList.length === 0 ? (
+                <div className="p-6 text-center text-xs font-medium text-slate-400">
+                  Belum ada aktivitas terbaru.
+                </div>
+              ) : (
+                recentActivitiesList.map((act) => {
+                  const { Icon, bg, color, subtitleColor } = getDetailedActivityStyles(act.type, act.desc);
+                  return (
+                    <div
+                      key={act.id}
+                      onClick={() => {
+                        if (act.type === 'proyek') {
+                          setActiveSidebarTab('projects');
+                          navigate(TAB_TO_PATH['projects'] || '/projects');
+                        }
+                      }}
+                      className="flex items-center justify-between gap-3 p-3.5 hover:bg-slate-50/80 active:bg-slate-100/80 transition-colors cursor-pointer"
+                    >
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
+                        <div className={`w-10 h-10 rounded-xl ${bg} ${color} flex items-center justify-center shrink-0`}>
+                          <Icon size={18} />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-bold text-slate-800 truncate leading-snug">{act.desc}</p>
+                          <p className={`text-[11px] truncate mt-0.5 ${subtitleColor}`}>{act.subtitle}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0 text-right">
+                        <span className="text-[10px] font-medium text-slate-400 font-mono">{act.time}</span>
+                        <ChevronRight size={14} className="text-slate-300" />
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* ===== DESKTOP HOMESCREEN (md+) ===== */}

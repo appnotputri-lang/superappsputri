@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { PageHeader } from '../../components/ui/PageLayout';
-import { MobileHeader, MobileEmptyState } from '../../components/ui/MobileHeader';
+import { MobileHeader, MobileEmptyState, MobilePagination } from '../../components/ui/MobileHeader';
 import { MobileDataCard } from '../../components/ui/MobileDataCard';
 import { Deed, DeedAppearer, DeedGrantor } from '../../../types';
 import { NotaryService } from '../../services/NotaryService';
@@ -1418,33 +1418,43 @@ export const DeedBook: React.FC = () => {
           ) : (
             <>
               {/* MOBILE CARDS VIEW */}
-              <div className="block md:hidden bg-white divide-y divide-slate-100 rounded-xl border border-slate-200 overflow-hidden shadow-xs">
-                {deeds.map((deed, idx) => {
-                  const locked = !superAdmin || isRecordLocked(deed.date, user?.email);
-                  const appearersText = deed.appearers && deed.appearers.length > 0
-                    ? deed.appearers.map(a => `${a.name}${a.position ? ` (${a.position})` : ''}`).join(', ')
-                    : undefined;
+              <div className="block md:hidden space-y-3">
+                <div className="bg-white divide-y divide-slate-100 rounded-xl border border-slate-200 overflow-hidden shadow-xs">
+                  {deeds.map((deed, idx) => {
+                    const locked = !superAdmin || isRecordLocked(deed.date, user?.email);
+                    const appearersText = deed.appearers && deed.appearers.length > 0
+                      ? deed.appearers.map(a => `${a.name}${a.position ? ` (${a.position})` : ''}`).join(', ')
+                      : undefined;
 
-                  return (
-                    <MobileDataCard
-                      key={deed.id}
-                      number={deed.orderNumber || idx + 1 + (currentPage - 1) * (typeof pageSize === 'string' ? deeds.length : pageSize)}
-                      title={deed.title}
-                      subtitle={deed.clientName ? `Klien: ${deed.clientName}` : undefined}
-                      badges={[
-                        `Akta No. ${deed.number}`,
-                        deed.category || null,
-                        locked ? 'Terkunci' : null,
-                      ]}
-                      noteLabel="PENGHADAP:"
-                      note={appearersText}
-                      date={formatDateIndo(deed.date)}
-                      onDetail={!locked ? () => handleOpenModal(deed) : undefined}
-                      detailLabel="Edit"
-                      onDelete={!locked ? () => handleDelete(deed) : undefined}
-                    />
-                  );
-                })}
+                    return (
+                      <MobileDataCard
+                        key={deed.id}
+                        number={deed.orderNumber || idx + 1 + (currentPage - 1) * (typeof pageSize === 'string' ? deeds.length : pageSize)}
+                        title={deed.title}
+                        subtitle={deed.clientName ? `Klien: ${deed.clientName}` : undefined}
+                        badges={[
+                          `Akta No. ${deed.number}`,
+                          deed.category || null,
+                          locked ? 'Terkunci' : null,
+                        ]}
+                        noteLabel="PENGHADAP:"
+                        note={appearersText}
+                        date={formatDateIndo(deed.date)}
+                        onDetail={!locked ? () => handleOpenModal(deed) : undefined}
+                        detailLabel="Edit"
+                        onDelete={!locked ? () => handleDelete(deed) : undefined}
+                      />
+                    );
+                  })}
+                </div>
+
+                <MobilePagination
+                  currentPage={currentPage}
+                  totalItems={totalDeedsCount}
+                  pageSize={typeof pageSize === 'number' ? pageSize : 10}
+                  onPageChange={(p) => setCurrentPage(p)}
+                  itemLabel="akta"
+                />
               </div>
 
               {/* DESKTOP TABLE VIEW */}

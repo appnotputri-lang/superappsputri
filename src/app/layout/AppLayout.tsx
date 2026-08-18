@@ -121,7 +121,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
 
   if (isEmbedMode) {
     return (
-      <div className="h-screen w-full overflow-y-auto bg-[#f8fafc]">
+      <div className="h-screen w-full overflow-y-auto bg-[#f8fafc] no-scrollbar">
         {children}
       </div>
     );
@@ -129,7 +129,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
 
   if (isPublicRoute) {
     return (
-      <div className="h-screen w-full overflow-y-auto bg-[#f8fafc]">
+      <div className="h-screen w-full overflow-y-auto bg-[#f8fafc] no-scrollbar">
         {children}
       </div>
     );
@@ -170,7 +170,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
             logout={logout}
           />
         </div>
-        <main className="flex-1 overflow-y-auto overflow-x-hidden bg-[#f8fafc] scroll-smooth pb-0">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden bg-[#f8fafc] scroll-smooth pb-0 no-scrollbar">
           {children}
         </main>
       </div>

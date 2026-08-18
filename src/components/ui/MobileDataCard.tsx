@@ -11,6 +11,7 @@ export interface MobileDataCardProps {
   number?: string | number;
   title: string;
   subtitle?: string;
+  amount?: string | React.ReactNode;
   badges?: (MobileDataCardBadge | string | React.ReactNode | null | undefined)[];
   noteLabel?: string;
   note?: React.ReactNode;
@@ -28,6 +29,7 @@ export const MobileDataCard: React.FC<MobileDataCardProps> = ({
   number,
   title,
   subtitle,
+  amount,
   badges = [],
   noteLabel = "CATATAN TERAKHIR:",
   note,
@@ -57,8 +59,17 @@ export const MobileDataCard: React.FC<MobileDataCardProps> = ({
             </p>
           )}
         </div>
-        {number !== undefined && (
-          <span className="text-[10px] text-slate-400 font-mono shrink-0">No. {number}</span>
+        {amount ? (
+          <div className="text-right shrink-0">
+            {number !== undefined && (
+              <span className="text-[10px] text-slate-400 font-mono block">No. {number}</span>
+            )}
+            <span className="text-[12px] font-bold text-slate-900 block mt-0.5">{amount}</span>
+          </div>
+        ) : (
+          number !== undefined && (
+            <span className="text-[10px] text-slate-400 font-mono shrink-0">No. {number}</span>
+          )
         )}
       </div>
 

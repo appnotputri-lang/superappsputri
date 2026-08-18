@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { PageHeader } from '../../components/ui/PageLayout';
-import { MobileHeader, MobileEmptyState } from '../../components/ui/MobileHeader';
+import { MobileHeader, MobileEmptyState, MobilePagination } from '../../components/ui/MobileHeader';
 import { MobileDataCard } from '../../components/ui/MobileDataCard';
 import { PrivateDeed } from '../../../types';
 import { NotaryService } from '../../services/NotaryService';
@@ -398,30 +398,40 @@ export const PrivateDeedBook: React.FC = () => {
       ) : (
         <>
           {/* MOBILE LIST VIEW */}
-          <div className="block md:hidden bg-white divide-y divide-slate-100 rounded-xl border border-slate-200 overflow-hidden shadow-xs">
-            {privateDeeds.map((deed, idx) => {
-              const locked = isRecordLocked(deed.registrationDate, user?.email);
-              const partiesText = deed.parties && deed.parties.length > 0 ? deed.parties.join(', ') : undefined;
+          <div className="block md:hidden space-y-3">
+            <div className="bg-white divide-y divide-slate-100 rounded-xl border border-slate-200 overflow-hidden shadow-xs">
+              {privateDeeds.map((deed, idx) => {
+                const locked = isRecordLocked(deed.registrationDate, user?.email);
+                const partiesText = deed.parties && deed.parties.length > 0 ? deed.parties.join(', ') : undefined;
 
-              return (
-                <MobileDataCard
-                  key={deed.id}
-                  number={idx + 1 + (currentPage - 1) * (typeof pageSize === 'string' ? privateDeeds.length : pageSize)}
-                  title={deed.description}
-                  subtitle={`No. Reg: ${deed.number || '-'}`}
-                  badges={[
-                    deed.type || 'WAARMERKING',
-                    locked ? 'Terkunci' : null,
-                  ]}
-                  noteLabel="PIHAK:"
-                  note={partiesText}
-                  date={formatDateIndo(deed.registrationDate)}
-                  onDetail={!locked ? () => handleOpenModal(deed) : undefined}
-                  detailLabel="Edit"
-                  onDelete={!locked ? () => handleDelete(deed) : undefined}
-                />
-              );
-            })}
+                return (
+                  <MobileDataCard
+                    key={deed.id}
+                    number={idx + 1 + (currentPage - 1) * (typeof pageSize === 'string' ? privateDeeds.length : pageSize)}
+                    title={deed.description}
+                    subtitle={`No. Reg: ${deed.number || '-'}`}
+                    badges={[
+                      deed.type || 'WAARMERKING',
+                      locked ? 'Terkunci' : null,
+                    ]}
+                    noteLabel="PIHAK:"
+                    note={partiesText}
+                    date={formatDateIndo(deed.registrationDate)}
+                    onDetail={!locked ? () => handleOpenModal(deed) : undefined}
+                    detailLabel="Edit"
+                    onDelete={!locked ? () => handleDelete(deed) : undefined}
+                  />
+                );
+              })}
+            </div>
+
+            <MobilePagination
+              currentPage={currentPage}
+              totalItems={totalDeedsCount}
+              pageSize={typeof pageSize === 'number' ? pageSize : 10}
+              onPageChange={(p) => setCurrentPage(p)}
+              itemLabel="data"
+            />
           </div>
 
           {/* DESKTOP TABLE VIEW */}

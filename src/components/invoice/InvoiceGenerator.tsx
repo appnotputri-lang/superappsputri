@@ -132,6 +132,19 @@ const MobileInvoiceRow: React.FC<{
   );
 };
 
+const getMobilePageNumbers = (current: number, total: number): (number | string)[] => {
+  if (total <= 5) {
+    return Array.from({ length: total }, (_, i) => i + 1);
+  }
+  if (current <= 3) {
+    return [1, 2, 3, '...', total];
+  }
+  if (current >= total - 2) {
+    return [1, '...', total - 2, total - 1, total];
+  }
+  return [1, '...', current - 1, current, current + 1, '...', total];
+};
+
 // Invoice list cache: kept in-memory for instant SPA tab-switches, and
 // mirrored to localStorage so the FIRST load of the invoice list in a new
 // tab/session (or after a hard refresh) can also show the last-known data
@@ -1613,8 +1626,31 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
             searchValue={searchTerm}
             onSearchChange={setSearchTerm}
             searchPlaceholder="Cari nomor invoice, klien..."
-            totalItems={filteredInvoices.length}
+            totalItems={totalItems}
             totalLabel="Invoice"
+            customSummary={
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
+                {[
+                  { label: 'SEMUA', value: 'ALL' },
+                  { label: 'BELUM LUNAS', value: 'UNPAID' },
+                  { label: 'LUNAS', value: 'PAID' },
+                  { label: 'DIBATALKAN', value: 'CANCELLED' }
+                ].map(tab => (
+                  <button
+                    key={tab.value}
+                    type="button"
+                    onClick={() => setStatusFilter(tab.value)}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-bold whitespace-nowrap transition-all cursor-pointer ${
+                      statusFilter === tab.value
+                        ? 'bg-white text-[#1e61c3] shadow-xs'
+                        : 'bg-white/15 text-white hover:bg-white/25'
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+            }
             sortOptions={[
               { field: 'date', order: 'desc', label: 'Terbaru' },
               { field: 'number', order: 'asc', label: 'No. Invoice (A-Z)' },
@@ -1633,23 +1669,88 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
           />
 
           <div className="space-y-3">
-            {filteredInvoices.map(inv => (
-              <MobileInvoiceRow
-                key={inv.id}
-                invoice={inv}
-                onClick={() => { setSelectedInvoice(inv); setViewMode('detail'); }}
-                onDelete={() => handleDeleteInvoice(inv.id)}
-                formatCurrency={formatCurrency}
-              />
-            ))}
-            {filteredInvoices.length === 0 && (
+            {loading ? (
+              <div className="p-8 text-center text-slate-400 bg-white rounded-2xl border border-slate-200/80">
+                <div className="inline-block w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mb-2" />
+                <p className="text-xs font-medium">Memuat data invoice...</p>
+              </div>
+            ) : filteredInvoices.length === 0 ? (
               <MobileEmptyState
                 message='Belum ada data invoice. Klik "TAMBAH INVOICE" untuk membuat.'
                 actionText="Buat Invoice"
                 onAction={openCreatePage}
               />
+            ) : (
+              filteredInvoices.map(inv => (
+                <MobileInvoiceRow
+                  key={inv.id}
+                  invoice={inv}
+                  onClick={() => { setSelectedInvoice(inv); setViewMode('detail'); }}
+                  onDelete={() => handleDeleteInvoice(inv.id)}
+                  formatCurrency={formatCurrency}
+                />
+              ))
             )}
           </div>
+
+          {/* MOBILE PAGINATION */}
+          {totalItems > 0 && totalPages > 1 && (
+            <div className="mt-6 mb-4 flex flex-col items-center gap-2.5">
+              <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                {/* Previous Button */}
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={safeCurrentPage === 1}
+                  className="w-9 h-9 flex items-center justify-center rounded-xl border border-slate-200/80 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-white disabled:cursor-not-allowed transition-all font-bold cursor-pointer shrink-0 shadow-2xs"
+                  title="Halaman Sebelumnya"
+                >
+                  <ChevronLeft size={16} />
+                </button>
+
+                {/* Page Numbers */}
+                {getMobilePageNumbers(safeCurrentPage, totalPages).map((pItem, idx) => {
+                  if (pItem === '...') {
+                    return (
+                      <span key={`dots-${idx}`} className="w-7 h-9 flex items-center justify-center text-slate-400 text-xs font-bold select-none">
+                        ...
+                      </span>
+                    );
+                  }
+                  const isCurrent = safeCurrentPage === pItem;
+                  return (
+                    <button
+                      key={`page-${pItem}`}
+                      type="button"
+                      onClick={() => setCurrentPage(Number(pItem))}
+                      className={`w-9 h-9 flex items-center justify-center rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 ${
+                        isCurrent
+                          ? 'bg-[#1e61c3] text-white shadow-xs'
+                          : 'border border-slate-200/80 bg-white hover:bg-slate-50 text-slate-700 shadow-2xs'
+                      }`}
+                    >
+                      {pItem}
+                    </button>
+                  );
+                })}
+
+                {/* Next Button */}
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  disabled={safeCurrentPage === totalPages}
+                  className="w-9 h-9 flex items-center justify-center rounded-xl border border-slate-200/80 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-white disabled:cursor-not-allowed transition-all font-bold cursor-pointer shrink-0 shadow-2xs"
+                  title="Halaman Selanjutnya"
+                >
+                  <ChevronRight size={16} />
+                </button>
+              </div>
+
+              <div className="text-[11px] font-medium text-slate-500 text-center">
+                Menampilkan {Math.min(totalItems, (safeCurrentPage - 1) * (typeof pageSize === 'string' ? totalItems : pageSize) + 1)}-{Math.min(totalItems, safeCurrentPage * (typeof pageSize === 'string' ? totalItems : pageSize))} dari {totalItems} invoice
+              </div>
+            </div>
+          )}
         </div>
 
         {/* ===== DESKTOP LIST (existing, md+) ===== */}

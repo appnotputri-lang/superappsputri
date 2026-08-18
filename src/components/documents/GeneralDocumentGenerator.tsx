@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { PageHeader } from "../ui/PageLayout";
-import { MobileHeader } from "../ui/MobileHeader";
+import { MobileHeader, MobileEmptyState, MobilePagination } from "../ui/MobileHeader";
+import { MobileDataCard } from "../ui/MobileDataCard";
 import { 
   Package, FileCheck, Plus, Search, Filter, Calendar, User, 
   MapPin, Phone, Truck, FileText, Send, Printer, Download, 
@@ -623,7 +624,7 @@ export const GeneralDocumentGenerator: React.FC<GeneralDocumentGeneratorProps> =
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 pb-16">
       {viewMode === 'list' && (
-        <div className="md:hidden px-4 pt-4">
+        <div className="md:hidden">
           <MobileHeader
             title={config.title}
             onOpenSidebar={() => {
@@ -635,7 +636,10 @@ export const GeneralDocumentGenerator: React.FC<GeneralDocumentGeneratorProps> =
             onAdd={handleOpenCreateForm}
             addTooltip={`Buat ${config.title}`}
             searchValue={searchQuery}
-            onSearchChange={setSearchQuery}
+            onSearchChange={(val) => {
+              setSearchQuery(val);
+              setCurrentPage(1);
+            }}
             searchPlaceholder={`Cari nomor, klien, ${config.title.toLowerCase()}...`}
             totalItems={totalCount}
             totalLabel="Dokumen"
@@ -678,15 +682,15 @@ export const GeneralDocumentGenerator: React.FC<GeneralDocumentGeneratorProps> =
         {/* ================= LIST VIEW ================= */}
         {viewMode === 'list' && (
           <div className="space-y-6">
-            {/* SEARCH & CONTROLS */}
-            <div className="bg-white p-3 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3">
+            {/* DESKTOP SEARCH & CONTROLS */}
+            <div className="hidden md:flex bg-white p-3 rounded-2xl border border-slate-200/80 shadow-sm flex-col sm:flex-row items-center justify-between gap-3">
               <div className="relative flex-1 w-full">
                 <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
                   type="text"
                   placeholder={`Cari nomor, nama klien, atau ${config.title.toLowerCase()}...`}
                   value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
                   className="w-full pl-10 pr-4 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/20"
                 />
               </div>
@@ -696,9 +700,58 @@ export const GeneralDocumentGenerator: React.FC<GeneralDocumentGeneratorProps> =
               </div>
             </div>
 
-            {/* TABLE LIST */}
+            {/* MOBILE LIST VIEW */}
+            <div className="block md:hidden space-y-3">
+              {loading && documents.length === 0 ? (
+                <div className="p-8 text-center text-slate-400 bg-white rounded-2xl border border-slate-200">
+                  <RefreshCw size={20} className="animate-spin mx-auto text-blue-600 mb-2" />
+                  <p className="text-xs font-medium">Memuat data dokumen...</p>
+                </div>
+              ) : documents.length === 0 ? (
+                <MobileEmptyState
+                  message={`Belum ada data ${config.title.toLowerCase()}. Klik "Buat ${config.title}" untuk membuat.`}
+                  actionText={`Buat ${config.title}`}
+                  onAction={handleOpenCreateForm}
+                  icon={<config.badgeIcon size={24} />}
+                />
+              ) : (
+                <>
+                  <div className="bg-white rounded-2xl border border-slate-200/80 divide-y divide-slate-100 overflow-hidden shadow-2xs">
+                    {documents.map((docData, idx) => {
+                      const serialNumber = pageSize === 'all' ? idx + 1 : (safeCurrentPage - 1) * (pageSize as number) + idx + 1;
+                      return (
+                        <MobileDataCard
+                          key={docData.id}
+                          number={serialNumber}
+                          title={docData.clientName || 'Tanpa Nama Klien'}
+                          subtitle={`No. Ref: ${docData.referenceNo}`}
+                          badges={[
+                            `${docData.items?.length || 0} Berkas`,
+                            docData.deliveryMethod ? `Pengiriman: ${docData.deliveryMethod}` : null,
+                            docData.officerName ? `Petugas: ${docData.officerName}` : null
+                          ]}
+                          date={formatDate(docData.date)}
+                          onDetail={() => { setSelectedDoc(docData); setViewMode('detail'); }}
+                          onDelete={() => handleDeleteDocument(docData.id, docData.referenceNo)}
+                        />
+                      );
+                    })}
+                  </div>
+
+                  <MobilePagination
+                    currentPage={safeCurrentPage}
+                    totalItems={totalCount}
+                    pageSize={typeof pageSize === 'number' ? pageSize : 10}
+                    onPageChange={(p) => setCurrentPage(p)}
+                    itemLabel="dokumen"
+                  />
+                </>
+              )}
+            </div>
+
+            {/* DESKTOP TABLE LIST */}
             {loading && documents.length === 0 ? (
-              <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden p-6">
+              <div className="hidden md:block bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden p-6">
                 <div className="space-y-3">
                   <div className="h-8 bg-slate-100 rounded-lg animate-pulse w-full"></div>
                   {Array.from({ length: 5 }).map((_, i) => (
@@ -711,7 +764,7 @@ export const GeneralDocumentGenerator: React.FC<GeneralDocumentGeneratorProps> =
                 </div>
               </div>
             ) : totalCount === 0 ? (
-              <div className="bg-white rounded-2xl border border-slate-200/80 p-12 text-center">
+              <div className="hidden md:block bg-white rounded-2xl border border-slate-200/80 p-12 text-center">
                 <config.badgeIcon size={40} className="mx-auto text-slate-300 mb-3" />
                 <h3 className="text-base font-bold text-slate-800">Belum Ada {config.title}</h3>
                 <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
@@ -728,7 +781,7 @@ export const GeneralDocumentGenerator: React.FC<GeneralDocumentGeneratorProps> =
                 )}
               </div>
             ) : (
-              <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden relative">
+              <div className="hidden md:block bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden relative">
                 {isFetchingPage && (
                   <div className="absolute top-2 right-4 z-20 bg-white/95 backdrop-blur-xs px-3 py-1 rounded-full border border-slate-200 text-[11px] font-semibold text-slate-600 shadow-xs flex items-center gap-1.5 animate-in fade-in">
                     <RefreshCw size={12} className="animate-spin text-blue-600" />

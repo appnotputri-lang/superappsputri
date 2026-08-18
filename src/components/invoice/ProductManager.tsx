@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { PageContainer, PageHeader } from '../ui/PageLayout';
-import { MobileHeader } from '../ui/MobileHeader';
+import { MobileHeader, MobileEmptyState, MobilePagination } from '../ui/MobileHeader';
+import { MobileDataCard } from '../ui/MobileDataCard';
 import { Product } from '../../../types';
 import { ProductService } from '../../services/ProductService';
 import { 
@@ -151,9 +152,19 @@ export const ProductManager: React.FC = () => {
     }).format(val);
   };
 
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const pageSize = 10;
+
   const filteredProducts = products.filter(p => 
     (p.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
     (p.description || '').toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const totalPages = Math.max(1, Math.ceil(filteredProducts.length / pageSize));
+  const safeCurrentPage = Math.min(Math.max(1, currentPage), totalPages);
+  const paginatedProducts = filteredProducts.slice(
+    (safeCurrentPage - 1) * pageSize,
+    safeCurrentPage * pageSize
   );
 
   return (
@@ -193,7 +204,55 @@ export const ProductManager: React.FC = () => {
         />
       </div>
 
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden mt-6">
+      {/* MOBILE LIST VIEW (< md) */}
+      <div className="block md:hidden space-y-3 mt-4">
+        {isLoading ? (
+          <div className="p-8 text-center text-slate-400 bg-white rounded-2xl border border-slate-200">
+            <Loader2 className="w-6 h-6 text-emerald-600 animate-spin mx-auto mb-2" />
+            <p className="text-xs font-semibold">Memuat daftar produk...</p>
+          </div>
+        ) : filteredProducts.length === 0 ? (
+          <MobileEmptyState
+            message="Belum ada produk atau layanan. Klik 'Tambah Produk Baru' untuk membuat."
+            actionText="Tambah Produk Baru"
+            onAction={openAddModal}
+            icon={<Package size={24} />}
+          />
+        ) : (
+          <>
+            <div className="bg-white rounded-2xl border border-slate-200/80 divide-y divide-slate-100 overflow-hidden shadow-2xs">
+              {paginatedProducts.map((product, index) => {
+                const serialNum = (safeCurrentPage - 1) * pageSize + index + 1;
+                return (
+                  <MobileDataCard
+                    key={product.id}
+                    number={serialNum}
+                    title={product.name}
+                    subtitle={product.description || undefined}
+                    amount={formatCurrency(product.unitPrice)}
+                    badges={[
+                      product.isTaxed ? 'Kena Pajak (PPN)' : 'Non-Pajak'
+                    ]}
+                    onDetail={() => openEditModal(product)}
+                    onDelete={() => handleDeleteProduct(product.id, product.name)}
+                  />
+                );
+              })}
+            </div>
+
+            <MobilePagination
+              currentPage={safeCurrentPage}
+              totalItems={filteredProducts.length}
+              pageSize={pageSize}
+              onPageChange={(p) => setCurrentPage(p)}
+              itemLabel="produk"
+            />
+          </>
+        )}
+      </div>
+
+      {/* DESKTOP TABLE VIEW (md+) */}
+      <div className="hidden md:block bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden mt-6">
         {/* Search Bar */}
         <div className="p-4 border-b border-slate-200 bg-slate-50/50 flex flex-col sm:flex-row gap-3 items-center justify-between">
           <div className="relative w-full max-w-md">

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { PageHeader } from "../ui/PageLayout";
-import { MobileHeader, MobileEmptyState } from "../ui/MobileHeader";
+import { MobileHeader, MobileEmptyState, MobilePagination } from "../ui/MobileHeader";
 import { Quotation, InvoiceItem, Invoice, Product } from '../../../types';
 import { QuotationService } from '../../services/QuotationService';
 import { InvoiceService } from '../../services/InvoiceService';
@@ -1281,6 +1281,14 @@ Notaris/PPAT Nukantini Putri Parincha, SH., M.Kn`;
                   onAction={openCreatePage}
                 />
               )}
+
+              <MobilePagination
+                currentPage={currentPage}
+                totalItems={quotations.length}
+                pageSize={pageSize}
+                onPageChange={(p) => setCurrentPage(p)}
+                itemLabel="penawaran"
+              />
             </div>
           </div>
 
@@ -1347,19 +1355,6 @@ Notaris/PPAT Nukantini Putri Parincha, SH., M.Kn`;
             </div>
           ) : (
             <>
-              {/* ===== MOBILE LIST (< md) ===== */}
-              <div className="md:hidden border border-slate-200 rounded-2xl overflow-hidden bg-white divide-y divide-slate-100 shadow-xs">
-                {paginatedQuotations.map((q) => (
-                  <MobileQuotationRow
-                    key={q.id}
-                    quotation={q}
-                    onClick={() => { setSelectedQuotation(q); setViewMode('detail'); }}
-                    onDelete={() => handleDeleteQuotation(q.id)}
-                    formatCurrency={formatCurrency}
-                  />
-                ))}
-              </div>
-
               {/* ===== DESKTOP LIST (md+) ===== */}
               <div className="hidden md:block bg-white rounded-2xl border border-slate-200/80 overflow-hidden shadow-xs">
                 <div className="overflow-x-auto">

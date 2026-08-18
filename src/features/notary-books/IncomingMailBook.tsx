@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { PageHeader } from '../../components/ui/PageLayout';
-import { MobileHeader, MobileEmptyState } from '../../components/ui/MobileHeader';
+import { MobileHeader, MobileEmptyState, MobilePagination } from '../../components/ui/MobileHeader';
 import { MobileDataCard } from '../../components/ui/MobileDataCard';
 import { IncomingMail } from '../../../types';
 import { NotaryService } from '../../services/NotaryService';
@@ -300,27 +300,37 @@ export const IncomingMailBook: React.FC = () => {
       ) : (
         <>
           {/* MOBILE LIST VIEW */}
-          <div className="block md:hidden bg-white divide-y divide-slate-100 rounded-xl border border-slate-200 overflow-hidden shadow-xs">
-            {mails.map((mail, idx) => {
-              const locked = isRecordLocked(mail.date, user?.email);
-              return (
-                <MobileDataCard
-                  key={mail.id}
-                  number={idx + 1 + (currentPage - 1) * (typeof pageSize === 'string' ? mails.length : pageSize)}
-                  title={mail.subject}
-                  subtitle={mail.sender ? `Pengirim: ${mail.sender}` : undefined}
-                  badges={[
-                    mail.mailNumber || 'Tanpa No. Surat',
-                    locked ? 'Terkunci' : null,
-                  ]}
-                  note={mail.notes || undefined}
-                  date={formatDateIndo(mail.date)}
-                  onDetail={!locked ? () => handleOpenModal(mail) : undefined}
-                  detailLabel="Edit"
-                  onDelete={!locked ? () => handleDelete(mail) : undefined}
-                />
-              );
-            })}
+          <div className="block md:hidden space-y-3">
+            <div className="bg-white divide-y divide-slate-100 rounded-xl border border-slate-200 overflow-hidden shadow-xs">
+              {mails.map((mail, idx) => {
+                const locked = isRecordLocked(mail.date, user?.email);
+                return (
+                  <MobileDataCard
+                    key={mail.id}
+                    number={idx + 1 + (currentPage - 1) * (typeof pageSize === 'string' ? mails.length : pageSize)}
+                    title={mail.subject}
+                    subtitle={mail.sender ? `Pengirim: ${mail.sender}` : undefined}
+                    badges={[
+                      mail.mailNumber || 'Tanpa No. Surat',
+                      locked ? 'Terkunci' : null,
+                    ]}
+                    note={mail.notes || undefined}
+                    date={formatDateIndo(mail.date)}
+                    onDetail={!locked ? () => handleOpenModal(mail) : undefined}
+                    detailLabel="Edit"
+                    onDelete={!locked ? () => handleDelete(mail) : undefined}
+                  />
+                );
+              })}
+            </div>
+
+            <MobilePagination
+              currentPage={currentPage}
+              totalItems={totalMailsCount}
+              pageSize={typeof pageSize === 'number' ? pageSize : 10}
+              onPageChange={(p) => setCurrentPage(p)}
+              itemLabel="surat masuk"
+            />
           </div>
 
           {/* DESKTOP TABLE VIEW */}

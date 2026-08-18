@@ -1245,8 +1245,9 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects: propsProject
             <div className="bg-white rounded-xl border border-slate-200 divide-y divide-slate-100 overflow-hidden shadow-xs">
               {getGroupedReports(filteredReports).map((rec, idx) => {
                 const firstItem = rec.items[0];
-                const dateStr = firstItem?.updatedAt || firstItem?.createdAt
-                  ? new Date(firstItem.updatedAt || firstItem.createdAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })
+                const itemAny = firstItem as any;
+                const dateStr = itemAny?.updatedAt || itemAny?.createdAt
+                  ? new Date(itemAny.updatedAt || itemAny.createdAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })
                   : undefined;
                 const notes = rec.items
                   .map((it: any) => getCleanTransitionComment(it.lastTransitionComment))

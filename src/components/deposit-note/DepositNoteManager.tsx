@@ -6,7 +6,8 @@ import {
   X, AlertCircle, RefreshCw, FileText, Building2, CheckCircle2
 } from 'lucide-react';
 import { DepositNote, DepositNoteItem, SidebarTabId, CompanyProfile } from '../../../types';
-import { MobileHeader } from '../ui/MobileHeader';
+import { MobileHeader, MobileEmptyState, MobilePagination } from '../ui/MobileHeader';
+import { MobileDataCard } from '../ui/MobileDataCard';
 import { DepositNoteService } from '../../services/DepositNoteService';
 import { CompanyService } from '../../services/CompanyService';
 import { SearchableClientSelect } from '../common/SearchableClientSelect';
@@ -401,8 +402,57 @@ export const DepositNoteManager: React.FC<DepositNoteManagerProps> = ({ setActiv
             </div>
           </div>
 
-          {/* Table */}
-          <div className="bg-white rounded-xl border border-slate-200/80 shadow-sm overflow-hidden">
+          {/* MOBILE LIST VIEW (< md) */}
+          <div className="block md:hidden space-y-3 mt-4">
+            {loading ? (
+              <div className="p-8 text-center text-slate-400 bg-white rounded-2xl border border-slate-200">
+                <RefreshCw className="w-6 h-6 text-emerald-600 animate-spin mx-auto mb-2" />
+                <p className="text-xs font-semibold">Memuat data titipan uang...</p>
+              </div>
+            ) : depositNotes.length === 0 ? (
+              <MobileEmptyState
+                message="Belum ada transaksi titipan uang yang dicatat."
+                actionText="Catat Titipan Baru"
+                onAction={() => navigate('/deposit_note/new')}
+                icon={<Banknote size={24} />}
+              />
+            ) : (
+              <>
+                <div className="bg-white rounded-2xl border border-slate-200/80 divide-y divide-slate-100 overflow-hidden shadow-2xs">
+                  {depositNotes.map((note, idx) => {
+                    const serialNum = (currentPage - 1) * pageSize + idx + 1;
+                    return (
+                      <MobileDataCard
+                        key={note.id}
+                        number={serialNum}
+                        title={note.clientName}
+                        subtitle={`No. TTP: ${note.depositNumber}`}
+                        amount={formatCurrencyIDR(note.totalAmount)}
+                        badges={[
+                          note.paymentMethod || 'Transfer'
+                        ]}
+                        date={formatDateIndonesian(note.date)}
+                        onDetail={() => navigate(`/deposit_note/${note.id}`)}
+                        detailLabel="Detail"
+                        onDelete={() => handleDelete(note.id)}
+                      />
+                    );
+                  })}
+                </div>
+
+                <MobilePagination
+                  currentPage={currentPage}
+                  totalItems={totalCount}
+                  pageSize={pageSize}
+                  onPageChange={(p) => setCurrentPage(p)}
+                  itemLabel="titipan"
+                />
+              </>
+            )}
+          </div>
+
+          {/* DESKTOP TABLE VIEW (md+) */}
+          <div className="hidden md:block bg-white rounded-xl border border-slate-200/80 shadow-sm overflow-hidden mt-6">
             {loading ? (
               <div className="py-20 text-center">
                 <RefreshCw className="w-6 h-6 animate-spin text-emerald-600 mx-auto mb-2" />
