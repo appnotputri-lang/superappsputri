@@ -8,6 +8,7 @@ import { EmbedSsoWaitingView } from '../../components/auth/EmbedSsoWaitingView';
 import { isReservedPath } from '../../constants/tabs';
 import { UpdatePrompt } from '../../components/common/UpdatePrompt';
 import { FirestoreQuotaBanner } from '../../components/common/FirestoreQuotaBanner';
+import { AppLoader } from '../../components/ui/AppLoader';
 
 export type { SidebarTabId };
 
@@ -62,11 +63,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
     if (isEmbedMode) {
       return <EmbedSsoWaitingView />;
     }
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 text-slate-600 font-medium text-sm">
-        Memuat aplikasi...
-      </div>
-    );
+    return <AppLoader isLoading={true} message="Memuat aplikasi Notaris..." delayMs={100} />;
   }
 
   if (isEmbedMode && !user) {

@@ -1,4 +1,5 @@
 import React from 'react';
+import { LoadingProvider } from '../contexts/LoadingContext';
 import { AuthProvider } from '../contexts/AuthContext';
 import { CompanyProvider } from '../contexts/CompanyContext';
 import { ProjectProvider } from '../contexts/ProjectContext';
@@ -12,19 +13,21 @@ export interface AppProvidersProps {
 
 export const AppProviders: React.FC<AppProvidersProps> = ({ children }) => {
   return (
-    <AuthProvider>
-      <CompanyProvider>
-        <ProjectProvider>
-          <ProjectSessionProvider>
-            <DocumentRuntimeProvider>
-              <ExportPipelineProvider>
-                {children}
-              </ExportPipelineProvider>
-            </DocumentRuntimeProvider>
-          </ProjectSessionProvider>
-        </ProjectProvider>
-      </CompanyProvider>
-    </AuthProvider>
+    <LoadingProvider>
+      <AuthProvider>
+        <CompanyProvider>
+          <ProjectProvider>
+            <ProjectSessionProvider>
+              <DocumentRuntimeProvider>
+                <ExportPipelineProvider>
+                  {children}
+                </ExportPipelineProvider>
+              </DocumentRuntimeProvider>
+            </ProjectSessionProvider>
+          </ProjectProvider>
+        </CompanyProvider>
+      </AuthProvider>
+    </LoadingProvider>
   );
 };
 
