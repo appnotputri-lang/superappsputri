@@ -1124,9 +1124,12 @@ export class ProjectService {
       
       let querySnap;
       try {
-        querySnap = await getDocsFromCache(q);
-        if (!querySnap || querySnap.empty) {
-          if (options?.forceRefresh || !ProjectService.projectsCache) {
+        if (options?.forceRefresh) {
+          querySnap = await getDocs(q);
+        } else {
+          querySnap = await getDocsFromCache(q);
+
+          if (!querySnap || querySnap.empty) {
             querySnap = await getDocs(q);
           }
         }

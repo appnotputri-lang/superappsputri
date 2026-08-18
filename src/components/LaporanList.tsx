@@ -122,6 +122,7 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects: propsProject
   const [selectedType, setSelectedType] = useState<string>('ALL');
   const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
   const [officeProjects, setOfficeProjects] = useState<any[]>([]);
+  const [loadingProjects, setLoadingProjects] = useState(true);
   const [activeReportTab, setActiveReportTab] = useState<'aktif' | 'minuta'>('aktif');
   const [projectCommentsMap, setProjectCommentsMap] = useState<Record<string, string>>({});
 
@@ -151,11 +152,20 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects: propsProject
     }
   }, [toast]);
 
-  // Load office_projects
+  // Load office_projects with forceRefresh and mount cleanup
   useEffect(() => {
+    let mounted = true;
+
     const loadOfficeProjects = async () => {
+      setLoadingProjects(true);
+
       try {
-        const list = await ProjectService.listProjects();
+        const list = await ProjectService.listProjects({
+          forceRefresh: true
+        });
+
+        if (!mounted) return;
+
         setOfficeProjects(list || []);
 
         // Fetch timelines for all projects in parallel to populate the custom comments map
@@ -179,12 +189,24 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects: propsProject
             }
           })
         );
-        setProjectCommentsMap(commentsMap);
+
+        if (mounted) {
+          setProjectCommentsMap(commentsMap);
+        }
       } catch (err) {
         console.error("Gagal memuat office_projects untuk laporan:", err);
+      } finally {
+        if (mounted) {
+          setLoadingProjects(false);
+        }
       }
     };
+
     loadOfficeProjects();
+
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   const showToast = (type: 'success' | 'error', message: string) => {
@@ -1161,7 +1183,16 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects: propsProject
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200 bg-white">
-              {filteredReports.length === 0 ? (
+              {loadingProjects ? (
+                <tr>
+                  <td colSpan={5} className="text-center py-16 text-slate-500 font-medium bg-white">
+                    <div className="flex items-center justify-center gap-2">
+                      <div className="w-5 h-5 border-2 border-slate-300 border-t-fuchsia-600 rounded-full animate-spin" />
+                      <span>Memuat laporan proyek...</span>
+                    </div>
+                  </td>
+                </tr>
+              ) : filteredReports.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="text-center py-12 text-slate-400 italic font-medium bg-slate-50/20">
                     Tidak ada laporan dokumen yang ditemukan sesuai filter/pencarian Anda.
@@ -1237,9 +1268,16 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects: propsProject
 
         {/* MOBILE CARD VIEW */}
         <div className="block md:hidden">
-          {filteredReports.length === 0 ? (
+          {loadingProjects ? (
+            <div className="py-16 text-center text-slate-500 font-medium bg-white rounded-xl border border-slate-200 p-8 shadow-xs">
+              <div className="flex items-center justify-center gap-2">
+                <div className="w-5 h-5 border-2 border-slate-300 border-t-fuchsia-600 rounded-full animate-spin" />
+                <span>Memuat laporan proyek...</span>
+              </div>
+            </div>
+          ) : filteredReports.length === 0 ? (
             <MobileEmptyState
-              message="Tidak ada laporan proyek yang ditemukan."
+              message="Tidak ada laporan dokumen yang ditemukan sesuai filter/pencarian Anda."
             />
           ) : (
             <div className="bg-white rounded-xl border border-slate-200 divide-y divide-slate-100 overflow-hidden shadow-xs">
