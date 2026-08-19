@@ -400,6 +400,7 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = (props) => {
   const moreMenuRef = useRef<HTMLDivElement>(null);
 
   const clientDropdownRef = useRef<HTMLDivElement>(null);
+  const mobileClientDropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     loadClientOptions();
@@ -410,7 +411,11 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = (props) => {
       if (moreMenuRef.current && !moreMenuRef.current.contains(event.target as Node)) {
         setShowMoreMenu(false);
       }
-      if (clientDropdownRef.current && !clientDropdownRef.current.contains(event.target as Node)) {
+      const target = event.target as Node;
+      const isInsideDesktopClientSelector = clientDropdownRef.current?.contains(target);
+      const isInsideMobileClientSelector = mobileClientDropdownRef.current?.contains(target);
+
+      if (!isInsideDesktopClientSelector && !isInsideMobileClientSelector) {
         setShowClientDropdown(false);
       }
     };
@@ -2941,7 +2946,7 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
             {/* Direct Header Fields (Full Bleed - No Inner Card Wrapper) */}
             <div className="space-y-3 pt-1">
               {/* Klien Selector */}
-              <div className="space-y-1 relative">
+              <div className="space-y-1 relative" ref={mobileClientDropdownRef}>
                 <label className="block font-bold text-blue-100 text-[10px] uppercase tracking-wide">
                   KLIEN <span className="text-amber-300">* WAJIB</span>
                 </label>
@@ -2992,7 +2997,12 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
                         filteredClientOptions.map((c) => (
                           <div
                             key={c.clientId}
-                            onClick={() => handleSelectClient(c)}
+                            role="button"
+                            tabIndex={0}
+                            onPointerDown={(e) => {
+                              e.preventDefault();
+                              handleSelectClient(c);
+                            }}
                             className="p-2 hover:bg-blue-50 rounded-lg cursor-pointer transition-colors flex items-center justify-between"
                           >
                             <div className="min-w-0 pr-2">
