@@ -112,6 +112,39 @@ export interface Party {
   status: string; // Aktif, Nonaktif, dsb
 }
 
+export type ProjectActivityType = 'comment' | 'task_created' | 'task_completed' | 'issue';
+
+export interface ProjectActivity {
+  id: string;
+  projectId: string;
+  type: ProjectActivityType;
+  message: string;
+  userId: string;
+  userName: string;
+  createdAt: any;
+  mentions?: string[];
+  taskId?: string;
+  taskTitle?: string;
+  assignedTo?: string;
+  assignedToName?: string;
+  deadline?: string;
+  status?: 'open' | 'completed' | 'resolved';
+}
+
+export interface ProjectTask {
+  id: string;
+  projectId: string;
+  title: string;
+  description?: string;
+  assignedTo?: string;
+  assignedToName?: string;
+  deadline?: string;
+  status: 'open' | 'completed';
+  createdBy?: string;
+  createdByName?: string;
+  createdAt: any;
+}
+
 export interface Project {
   projectId: string; // Unique Identifier (Document ID in Firestore)
   clientId: string;  // Reference to CompanyProfile document (profiles/{id})
@@ -132,4 +165,8 @@ export interface Project {
   projectType?: string;     // e.g. Pendirian, RUPS-LB, RUPST, Perjanjian Sewa Menyewa, etc.
   meetingSubject?: string;  // e.g. Perubahan AD, Perubahan Data, etc.
   minutaNotes?: string;     // Catatan khusus untuk proyek minuta
+  activities?: ProjectActivity[];
+  tasks?: ProjectTask[];
+  activitiesCount?: number;
+  activeTasksCount?: number;
 }

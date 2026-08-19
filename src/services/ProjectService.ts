@@ -21,7 +21,7 @@ import {
   onSnapshot,
   deleteDoc
 } from "firebase/firestore";
-import { Project, DocumentReference, ClientSnapshot, ProjectChangeSnapshot } from "../domain/project/Project";
+import { Project, DocumentReference, ClientSnapshot, ProjectChangeSnapshot, ProjectActivity, ProjectTask } from "../domain/project/Project";
 import { Timeline } from "../domain/project/Timeline";
 import { Task } from "../domain/project/Task";
 import { StatusEngine } from "../domain/project/ProjectStatus";
@@ -611,6 +611,202 @@ export class ProjectService {
       await deleteDoc(taskRef);
     } catch (error) {
       handleFirestoreError(error, OperationType.DELETE, path);
+    }
+  }
+
+  /**
+   * Adds an activity log/comment to projects/{projectId}/activities and updates the project document.
+   */
+  static async addProjectActivity(
+    projectId: string,
+    activityData: Omit<ProjectActivity, "id" | "projectId" | "createdAt">
+  ): Promise<ProjectActivity> {
+    const path = `${this.projectsCol}/${projectId}/activities`;
+    try {
+      const colRef = collection(db, this.projectsCol, projectId, "activities");
+      const newDocRef = doc(colRef);
+      const id = newDocRef.id;
+      const now = new Date().toISOString();
+
+      const newActivity: ProjectActivity = {
+        ...activityData,
+        id,
+        projectId,
+        createdAt: now
+      };
+
+      await setDoc(newDocRef, cleanUndefined(newActivity));
+
+      // Also update array and counter on parent project document
+      const projectRef = doc(db, this.projectsCol, projectId);
+      const projectSnap = await getDoc(projectRef);
+      if (projectSnap.exists()) {
+        const pData = projectSnap.data();
+        const currentActivities = pData.activities || [];
+        const updatedActivities = [newActivity, ...currentActivities].slice(0, 20);
+        const newCount = (pData.activitiesCount || currentActivities.length) + 1;
+
+        await updateDoc(projectRef, {
+          activities: updatedActivities,
+          activitiesCount: newCount,
+          updatedAt: now
+        });
+      }
+
+      return newActivity;
+    } catch (error) {
+      console.error('[ProjectService] Error adding project activity:', error);
+      // Return optimistic fallback object if Firestore error occurs
+      return {
+        ...activityData,
+        id: Math.random().toString(),
+        projectId,
+        createdAt: new Date().toISOString()
+      };
+    }
+  }
+
+  /**
+   * Adds a task to projects/{projectId}/tasks and generates a task_created activity.
+   */
+  static async addProjectTaskItem(
+    projectId: string,
+    taskData: {
+      title: string;
+      description?: string;
+      assignedTo?: string;
+      assignedToName?: string;
+      deadline?: string;
+      user: { uid: string; name: string };
+    }
+  ): Promise<ProjectTask> {
+    try {
+      const colRef = collection(db, this.projectsCol, projectId, "tasks");
+      const newDocRef = doc(colRef);
+      const id = newDocRef.id;
+      const now = new Date().toISOString();
+
+      const newTask: ProjectTask = {
+        id,
+        projectId,
+        title: taskData.title,
+        description: taskData.description || '',
+        assignedTo: taskData.assignedTo || '',
+        assignedToName: taskData.assignedToName || '',
+        deadline: taskData.deadline || '',
+        status: 'open',
+        createdBy: taskData.user.uid,
+        createdByName: taskData.user.name,
+        createdAt: now
+      };
+
+      await setDoc(newDocRef, cleanUndefined(newTask));
+
+      // Generate task_created activity
+      await this.addProjectActivity(projectId, {
+        type: 'task_created',
+        message: `Membuat tugas baru: "${newTask.title}"${newTask.assignedToName ? ` untuk ${newTask.assignedToName}` : ''}`,
+        userId: taskData.user.uid,
+        userName: taskData.user.name,
+        taskId: newTask.id,
+        taskTitle: newTask.title,
+        assignedTo: newTask.assignedTo,
+        assignedToName: newTask.assignedToName,
+        deadline: newTask.deadline
+      });
+
+      // Update tasks array on parent project
+      const projectRef = doc(db, this.projectsCol, projectId);
+      const projectSnap = await getDoc(projectRef);
+      if (projectSnap.exists()) {
+        const pData = projectSnap.data();
+        const currentTasks = pData.tasks || [];
+        const updatedTasks = [newTask, ...currentTasks];
+        const activeCount = updatedTasks.filter(t => t.status === 'open').length;
+
+        await updateDoc(projectRef, {
+          tasks: updatedTasks,
+          activeTasksCount: activeCount,
+          updatedAt: now
+        });
+      }
+
+      return newTask;
+    } catch (error) {
+      console.error('[ProjectService] Error adding task item:', error);
+      return {
+        id: Math.random().toString(),
+        projectId,
+        title: taskData.title,
+        description: taskData.description,
+        assignedTo: taskData.assignedTo,
+        assignedToName: taskData.assignedToName,
+        deadline: taskData.deadline,
+        status: 'open',
+        createdBy: taskData.user.uid,
+        createdByName: taskData.user.name,
+        createdAt: new Date().toISOString()
+      };
+    }
+  }
+
+  /**
+   * Toggles task status ('open' <-> 'completed') and creates task_completed activity when completed.
+   */
+  static async toggleProjectTaskItem(
+    projectId: string,
+    taskId: string,
+    currentStatus: 'open' | 'completed',
+    user: { uid: string; name: string }
+  ): Promise<'open' | 'completed'> {
+    const newStatus: 'open' | 'completed' = currentStatus === 'open' ? 'completed' : 'open';
+    const now = new Date().toISOString();
+
+    try {
+      const taskRef = doc(db, this.projectsCol, projectId, "tasks", taskId);
+      await updateDoc(taskRef, {
+        status: newStatus,
+        updatedAt: now
+      });
+
+      // Update project parent document
+      const projectRef = doc(db, this.projectsCol, projectId);
+      const projectSnap = await getDoc(projectRef);
+      let taskTitle = 'Tugas';
+      if (projectSnap.exists()) {
+        const pData = projectSnap.data();
+        const currentTasks: ProjectTask[] = pData.tasks || [];
+        const updatedTasks = currentTasks.map(t => {
+          if (t.id === taskId) {
+            taskTitle = t.title;
+            return { ...t, status: newStatus };
+          }
+          return t;
+        });
+
+        const activeCount = updatedTasks.filter(t => t.status === 'open').length;
+
+        await updateDoc(projectRef, {
+          tasks: updatedTasks,
+          activeTasksCount: activeCount,
+          updatedAt: now
+        });
+      }
+
+      if (newStatus === 'completed') {
+        await this.addProjectActivity(projectId, {
+          type: 'task_completed',
+          message: `Menyelesaikan tugas: "${taskTitle}"`,
+          userId: user.uid,
+          userName: user.name,
+          taskId
+        });
+      }
+
+      return newStatus;
+    } catch (error) {
+      console.error('[ProjectService] Error toggling task item:', error);
+      return newStatus;
     }
   }
 

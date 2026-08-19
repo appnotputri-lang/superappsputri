@@ -11,10 +11,16 @@ import { Workflow } from '../../../domain/project/Workflow';
 import { WorkflowService } from '../../../services/WorkflowService';
 import { CompanyService } from '../../../services/CompanyService';
 import { getApiUrl, getAuthHeaders } from '../../../lib/api';
-import { Plus, Search, Filter, Briefcase, User, Calendar, ExternalLink, Loader2, ArrowRight, Trash2, AlertCircle } from 'lucide-react';
+import { Plus, Search, Filter, Briefcase, User, Calendar, ExternalLink, Loader2, ArrowRight, Trash2, AlertCircle, MessageSquare, CheckSquare } from 'lucide-react';
 import { AppLoader } from '../../../components/ui/AppLoader';
 import { SearchableClientSelect } from '../../../components/common/SearchableClientSelect';
 import { ProjectCategory, PROJECT_TYPES, MEETING_SUBJECTS } from '../../../constants/appConstants';
+import {
+  ProjectActivityFeed,
+  AddActivityModal,
+  ActivityTimelineModal,
+  ProjectTasksModal
+} from './ProjectActivityComponents';
 
 const formatCompanyNameWithType = (name: string, clientType?: string) => {
   if (!name) return '';
@@ -84,6 +90,172 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
   const [currentPage, setCurrentPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
   const [pageCursors, setPageCursors] = useState<(DocumentSnapshot | null)[]>([null]);
+
+  // Activity / Tasks Modal States
+  const [selectedProjectForModal, setSelectedProjectForModal] = useState<Project | null>(null);
+  const [isAddActivityOpen, setIsAddActivityOpen] = useState(false);
+  const [isTimelineOpen, setIsTimelineOpen] = useState(false);
+  const [isTasksOpen, setIsTasksOpen] = useState(false);
+
+  const handleOpenAddActivity = (project: Project) => {
+    setSelectedProjectForModal(project);
+    setIsAddActivityOpen(true);
+  };
+
+  const handleOpenTimeline = (project: Project) => {
+    setSelectedProjectForModal(project);
+    setIsTimelineOpen(true);
+  };
+
+  const handleOpenTasks = (project: Project) => {
+    setSelectedProjectForModal(project);
+    setIsTasksOpen(true);
+  };
+
+  const updateLocalProjectState = (updatedProj: Project) => {
+    const updateList = (list: Project[]) => list.map(p => p.projectId === updatedProj.projectId ? updatedProj : p);
+    setActiveProjects(prev => updateList(prev));
+    setMinutaProjects(prev => updateList(prev));
+    setCompletedProjects(prev => updateList(prev));
+    if (selectedProjectForModal?.projectId === updatedProj.projectId) {
+      setSelectedProjectForModal(updatedProj);
+    }
+  };
+
+  const handleSubmitActivityComment = async (message: string, mentions: string[]) => {
+    if (!selectedProjectForModal) return;
+    const userName = currentUser?.name || currentUser?.email?.split('@')[0] || 'Staff Notaris';
+    const userId = currentUser?.uid || 'user-1';
+
+    const newAct = await ProjectService.addProjectActivity(selectedProjectForModal.projectId, {
+      type: 'comment',
+      message,
+      userId,
+      userName,
+      mentions
+    });
+
+    const currentActs = selectedProjectForModal.activities || [];
+    const updatedActivities = [newAct, ...currentActs];
+    const updatedCount = (selectedProjectForModal.activitiesCount || currentActs.length) + 1;
+
+    const updatedProject: Project = {
+      ...selectedProjectForModal,
+      activities: updatedActivities,
+      activitiesCount: updatedCount
+    };
+
+    updateLocalProjectState(updatedProject);
+  };
+
+  const handleSubmitActivityTask = async (taskData: { title: string; assignedTo: string; assignedToName: string; deadline: string; description: string }) => {
+    if (!selectedProjectForModal) return;
+    const userName = currentUser?.name || currentUser?.email?.split('@')[0] || 'Staff Notaris';
+    const userId = currentUser?.uid || 'user-1';
+
+    const newTask = await ProjectService.addProjectTaskItem(selectedProjectForModal.projectId, {
+      ...taskData,
+      user: { uid: userId, name: userName }
+    });
+
+    const currentTasks = selectedProjectForModal.tasks || [];
+    const updatedTasks = [newTask, ...currentTasks];
+    const activeCount = updatedTasks.filter(t => t.status === 'open').length;
+
+    const createdAct = {
+      id: Math.random().toString(),
+      projectId: selectedProjectForModal.projectId,
+      type: 'task_created' as const,
+      message: `Membuat tugas baru: "${newTask.title}"${newTask.assignedToName ? ` untuk ${newTask.assignedToName}` : ''}`,
+      userId,
+      userName,
+      createdAt: new Date().toISOString()
+    };
+
+    const currentActs = selectedProjectForModal.activities || [];
+    const updatedActivities = [createdAct, ...currentActs];
+    const updatedCount = (selectedProjectForModal.activitiesCount || currentActs.length) + 1;
+
+    const updatedProject: Project = {
+      ...selectedProjectForModal,
+      tasks: updatedTasks,
+      activeTasksCount: activeCount,
+      activities: updatedActivities,
+      activitiesCount: updatedCount
+    };
+
+    updateLocalProjectState(updatedProject);
+  };
+
+  const handleSubmitActivityIssue = async (message: string) => {
+    if (!selectedProjectForModal) return;
+    const userName = currentUser?.name || currentUser?.email?.split('@')[0] || 'Staff Notaris';
+    const userId = currentUser?.uid || 'user-1';
+
+    const newAct = await ProjectService.addProjectActivity(selectedProjectForModal.projectId, {
+      type: 'issue',
+      message,
+      userId,
+      userName
+    });
+
+    const currentActs = selectedProjectForModal.activities || [];
+    const updatedActivities = [newAct, ...currentActs];
+    const updatedCount = (selectedProjectForModal.activitiesCount || currentActs.length) + 1;
+
+    const updatedProject: Project = {
+      ...selectedProjectForModal,
+      activities: updatedActivities,
+      activitiesCount: updatedCount
+    };
+
+    updateLocalProjectState(updatedProject);
+  };
+
+  const handleToggleTaskStatus = async (taskId: string, currentStatus: 'open' | 'completed') => {
+    if (!selectedProjectForModal) return;
+    const userName = currentUser?.name || currentUser?.email?.split('@')[0] || 'Staff Notaris';
+    const userId = currentUser?.uid || 'user-1';
+
+    const newStatus = await ProjectService.toggleProjectTaskItem(
+      selectedProjectForModal.projectId,
+      taskId,
+      currentStatus,
+      { uid: userId, name: userName }
+    );
+
+    const currentTasks = selectedProjectForModal.tasks || [];
+    const updatedTasks = currentTasks.map(t => t.id === taskId ? { ...t, status: newStatus } : t);
+    const activeCount = updatedTasks.filter(t => t.status === 'open').length;
+
+    let updatedActivities = selectedProjectForModal.activities || [];
+    let updatedCount = selectedProjectForModal.activitiesCount || updatedActivities.length;
+
+    if (newStatus === 'completed') {
+      const taskObj = currentTasks.find(t => t.id === taskId);
+      const completeAct = {
+        id: Math.random().toString(),
+        projectId: selectedProjectForModal.projectId,
+        type: 'task_completed' as const,
+        message: `Menyelesaikan tugas: "${taskObj?.title || 'Tugas'}"`,
+        userId,
+        userName,
+        createdAt: new Date().toISOString()
+      };
+      updatedActivities = [completeAct, ...updatedActivities];
+      updatedCount += 1;
+    }
+
+    const updatedProject: Project = {
+      ...selectedProjectForModal,
+      tasks: updatedTasks,
+      activeTasksCount: activeCount,
+      activities: updatedActivities,
+      activitiesCount: updatedCount
+    };
+
+    updateLocalProjectState(updatedProject);
+  };
 
   // Form State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -938,100 +1110,9 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
             </p>
           </div>
         ) : (
-          <div className="bg-white border border-slate-200/80 rounded-xl shadow-sm overflow-hidden">
-            {/* Desktop Table View */}
-            <div className="hidden md:block overflow-x-auto">
-              <table className="min-w-[800px] w-full text-left">
-                <thead className="bg-[#f8fafc] border-b border-slate-200/80 font-bold uppercase text-slate-600 text-[11px] tracking-wider select-none">
-                  <tr>
-                    <th className="px-4 py-3 w-12 text-center">No</th>
-                    <th className="px-4 py-3">Judul Proyek / Klien</th>
-                    <th className="px-4 py-3">Jenis Pekerjaan</th>
-                    <th className="px-4 py-3">Status</th>
-                    <th className="px-4 py-3 max-w-[320px]">
-                      {activeTab === 'minuta' ? 'Catatan Minuta' : 'Catatan Transisi Terakhir'}
-                    </th>
-                    <th className="pl-4 pr-6 py-3 text-right">Aksi</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {filteredProjects.map((project, index) => (
-                    <tr
-                      key={project.projectId}
-                      onClick={() => onSelectProject(project.projectId)}
-                      className="hover:bg-slate-50/60 even:bg-slate-50/30 cursor-pointer transition-colors group"
-                    >
-                      <td className="px-4 py-3.5 text-[12px] font-medium text-slate-500 text-center">
-                        {index + 1}
-                      </td>
-                      <td className="px-4 py-3.5 max-w-[280px]">
-                        <div className="text-[13px] font-bold text-slate-900 truncate" title={getCleanTitle(project.title, project.clientId)}>
-                          {getCleanTitle(project.title, project.clientId)}
-                        </div>
-                        {(() => {
-                          const clientName = getClientName(project.clientId, project);
-                          const isUnknown = clientName === 'Klien Tidak Diketahui';
-                          const cleanTitle = getCleanTitle(project.title, project.clientId);
-                          const isRedundant = cleanTitle.toLowerCase() === clientName.toLowerCase();
-                          
-                          if (!isRedundant) {
-                            return (
-                              <div className="text-[11px] mt-0.5 truncate flex items-center gap-1" title={clientName}>
-                                {isUnknown ? (
-                                  <span className="italic text-slate-400 flex items-center gap-1">
-                                    <AlertCircle className="w-3 h-3" /> {clientName}
-                                  </span>
-                                ) : (
-                                  <span className="text-slate-500">{clientName}</span>
-                                )}
-                              </div>
-                            );
-                          }
-                          return null;
-                        })()}
-                      </td>
-                      <td className="px-4 py-3.5 text-[12px] text-slate-600">
-                        {getWorkflowName(project.jobType)}
-                      </td>
-                      <td className="px-4 py-3.5">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 text-[11px] font-bold rounded-full border uppercase tracking-wider ${getStatusColor(getProjectStatusDisplay(project))}`}>
-                          {getProjectStatusDisplay(project)}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3.5 text-[12px] text-slate-500 max-w-[320px] truncate" title={
-                        activeTab === 'minuta'
-                          ? (project.minutaNotes || 'Tidak ada catatan minuta.')
-                          : (project.lastTransitionComment || `Proyek '${getCleanTitle(project.title, project.clientId)}' telah berhasil diinisialisasi.`)
-                      }>
-                        {activeTab === 'minuta'
-                          ? (project.minutaNotes || 'Tidak ada catatan minuta.')
-                          : (project.lastTransitionComment || `Proyek '${getCleanTitle(project.title, project.clientId)}' telah berhasil diinisialisasi.`)}
-                      </td>
-                      <td className="pl-4 pr-6 py-3.5 text-right flex items-center justify-end gap-4">
-                        <button
-                          onClick={(e) => { e.stopPropagation(); onSelectProject(project.projectId); }}
-                          className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-700 font-semibold text-[12px]"
-                        >
-                          Detail <ArrowRight className="w-3.5 h-3.5" />
-                        </button>
-                        {currentUser?.role === 'Super Admin' && (
-                          <button
-                            onClick={(e) => handleDeleteProject(e, project.projectId, project.title)}
-                            className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
-                            title="Hapus Proyek"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Mobile Card View */}
-            <div className="block md:hidden divide-y divide-slate-100">
+          <div className="bg-slate-50/50 rounded-xl p-0.5">
+            {/* Card Grid View */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {filteredProjects.map((project, index) => {
                 const clientName = getClientName(project.clientId, project);
                 const title = getCleanTitle(project.title, project.clientId);
@@ -1044,55 +1125,99 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
                   <div 
                     key={project.projectId}
                     onClick={() => onSelectProject(project.projectId)}
-                    className="p-4 hover:bg-slate-50 cursor-pointer transition-colors"
+                    className="bg-white rounded-xl border border-slate-200/80 p-4 shadow-xs hover:shadow-md transition-all flex flex-col justify-between cursor-pointer group"
                   >
-                    <div className="flex items-start justify-between gap-3 mb-2">
-                      <div className="min-w-0">
-                        <h4 className="text-[13px] font-bold text-slate-900 leading-tight truncate uppercase" title={title}>
-                          {title}
-                        </h4>
-                        {!isUnknown && (
-                          <p className="text-[11px] text-slate-500 mt-0.5 truncate uppercase">
-                            {clientName}
-                          </p>
-                        )}
+                    <div>
+                      <div className="flex items-start justify-between gap-3 mb-1.5">
+                        <div className="min-w-0 flex-1">
+                          <h4 className="text-[13px] font-bold text-slate-900 leading-tight truncate uppercase" title={title}>
+                            {title}
+                          </h4>
+                          {!isUnknown && (
+                            <p className="text-[11px] text-slate-500 mt-0.5 truncate uppercase">
+                              {clientName}
+                            </p>
+                          )}
+                        </div>
+                        <span className="text-[10px] text-slate-400 font-mono shrink-0">No. {index + 1}</span>
                       </div>
-                      <span className="text-[10px] text-slate-400 font-mono shrink-0">No. {index + 1}</span>
+
+                      <div className="flex flex-wrap gap-1.5 items-center my-2.5">
+                        <span className="px-2 py-0.5 text-[9px] font-bold bg-slate-100 text-slate-600 rounded-full">
+                          {getWorkflowName(project.jobType)}
+                        </span>
+                        <span className={`inline-flex items-center px-2 py-0.5 text-[9px] font-bold rounded-full border uppercase tracking-wider ${getStatusColor(getProjectStatusDisplay(project))}`}>
+                          {getProjectStatusDisplay(project)}
+                        </span>
+                      </div>
+
+                      {lastComment && (
+                        <div className="text-[11.5px] text-slate-600 bg-slate-50 p-2.5 rounded-lg border border-slate-100/60 leading-relaxed my-2">
+                          <span className="block text-[8px] text-slate-400 font-extrabold uppercase tracking-widest mb-1">Catatan Terakhir:</span>
+                          <p className="line-clamp-2">{lastComment}</p>
+                        </div>
+                      )}
+
+                      {/* Section: UPDATE TERBARU */}
+                      <ProjectActivityFeed
+                        activities={project.activities}
+                        onOpenTimeline={() => handleOpenTimeline(project)}
+                      />
                     </div>
 
-                    <div className="flex flex-wrap gap-1.5 items-center my-3">
-                      <span className="px-2 py-0.5 text-[9px] font-bold bg-slate-100 text-slate-600 rounded-full">
-                        {getWorkflowName(project.jobType)}
-                      </span>
-                      <span className={`inline-flex items-center px-2 py-0.5 text-[9px] font-bold rounded-full border uppercase tracking-wider ${getStatusColor(getProjectStatusDisplay(project))}`}>
-                        {getProjectStatusDisplay(project)}
-                      </span>
-                    </div>
+                    {/* Footer Action Bar */}
+                    <div className="flex items-center justify-between border-t border-slate-100 pt-3 mt-3 gap-2 flex-wrap" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex items-center gap-2 text-[11px] text-slate-500 flex-wrap">
+                        <span className="text-[10px] text-slate-400 font-mono flex items-center gap-1" title="Tanggal Dibuat">
+                          <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                          {project.createdAt ? new Date(getProjectTime(project.createdAt)).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }) : '-'}
+                        </span>
 
-                    {lastComment && (
-                      <div className="text-[11.5px] text-slate-505 bg-slate-50 p-2.5 rounded-lg border border-slate-100/60 leading-relaxed mb-3">
-                        <span className="block text-[8px] text-slate-400 font-extrabold uppercase tracking-widest mb-1">Catatan Terakhir:</span>
-                        <p className="line-clamp-2">{lastComment}</p>
-                      </div>
-                    )}
-
-                    <div className="flex items-center justify-between border-t border-slate-50 pt-2.5 mt-2" onClick={(e) => e.stopPropagation()}>
-                      <span className="text-[10px] text-slate-450 font-mono flex items-center gap-1">
-                        <Calendar className="w-3.5 h-3.5 text-slate-300" />
-                        {project.createdAt ? new Date(getProjectTime(project.createdAt)).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }) : '-'}
-                      </span>
-                      
-                      <div className="flex gap-2">
                         <button 
+                          type="button"
+                          onClick={() => handleOpenTimeline(project)}
+                          className="flex items-center gap-1 px-2 py-1 bg-purple-50 hover:bg-purple-100 text-purple-700 font-bold rounded-lg text-[10.5px] transition-colors cursor-pointer"
+                          title="Lihat Aktivitas / Komentar"
+                        >
+                          <MessageSquare className="w-3.5 h-3.5" />
+                          <span>{project.activitiesCount || (project.activities ? project.activities.length : 0)}</span>
+                        </button>
+
+                        <button 
+                          type="button"
+                          onClick={() => handleOpenTasks(project)}
+                          className="flex items-center gap-1 px-2 py-1 bg-sky-50 hover:bg-sky-100 text-sky-700 font-bold rounded-lg text-[10.5px] transition-colors cursor-pointer"
+                          title="Lihat / Kelola Tugas Proyek"
+                        >
+                          <CheckSquare className="w-3.5 h-3.5" />
+                          <span>{project.activeTasksCount ?? (project.tasks ? project.tasks.filter(t => t.status === 'open').length : 0)}</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleOpenAddActivity(project)}
+                          className="p-1 bg-slate-100 hover:bg-blue-50 hover:text-blue-600 text-slate-600 rounded-lg transition-colors cursor-pointer"
+                          title="Tambah Aktivitas / Tugas / Kendala"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button 
+                          type="button"
                           onClick={() => onSelectProject(project.projectId)}
-                          className="px-2.5 py-1 rounded bg-blue-50 text-blue-700 font-bold text-[10px] hover:bg-blue-100 transition-colors uppercase flex items-center gap-1 cursor-pointer"
+                          className="px-2.5 py-1 rounded-lg bg-blue-50 text-blue-700 font-bold text-[10px] hover:bg-blue-100 transition-colors uppercase flex items-center gap-1 cursor-pointer"
                         >
                           Detail <ArrowRight className="w-3 h-3" />
                         </button>
+
                         {currentUser?.role === 'Super Admin' && (
                           <button 
+                            type="button"
                             onClick={(e) => handleDeleteProject(e, project.projectId, project.title)}
-                            className="p-1 text-slate-450 hover:text-red-600 hover:bg-red-50 rounded transition-colors cursor-pointer"
+                            className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                            title="Hapus Proyek"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -1287,6 +1412,36 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
             </div>
           </div>
         )}
+
+        {/* Modals for Activity Feed, Activity Timeline, and Project Tasks */}
+        <AddActivityModal
+          isOpen={isAddActivityOpen}
+          onClose={() => setIsAddActivityOpen(false)}
+          onSubmitComment={handleSubmitActivityComment}
+          onSubmitTask={handleSubmitActivityTask}
+          onSubmitIssue={handleSubmitActivityIssue}
+          currentUser={currentUser}
+        />
+
+        <ActivityTimelineModal
+          isOpen={isTimelineOpen}
+          onClose={() => setIsTimelineOpen(false)}
+          project={selectedProjectForModal}
+          activities={selectedProjectForModal?.activities}
+          onSubmitComment={handleSubmitActivityComment}
+        />
+
+        <ProjectTasksModal
+          isOpen={isTasksOpen}
+          onClose={() => setIsTasksOpen(false)}
+          project={selectedProjectForModal}
+          tasks={selectedProjectForModal?.tasks}
+          onToggleTask={handleToggleTaskStatus}
+          onOpenAddTask={() => {
+            setIsTasksOpen(false);
+            setIsAddActivityOpen(true);
+          }}
+        />
     </PageContainer>
   );
 }
