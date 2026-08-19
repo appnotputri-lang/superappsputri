@@ -15,7 +15,7 @@ import { auth, db } from '../../lib/firebase';
 import { resolveClientPhone, isFuzzyNameMatch } from '../../utils/clientPhoneResolver';
 import { doc, getDoc } from 'firebase/firestore';
 import {
-  Plus, Edit2, Trash2, Printer, Search, X, Copy, ExternalLink,
+  Plus, Edit2, Trash2, Printer, Search, X, Copy, ExternalLink, Save,
   Check, CreditCard, DollarSign, Globe, CheckCircle2, AlertCircle, FileText, Share2,
   Building2, Database, ArrowLeft, Download, Send, SendHorizontal, Smartphone, MessageSquare, ChevronLeft, ChevronRight, UserPlus,
   MoreHorizontal, Calendar, Clock, ChevronUp, ChevronDown, MoreVertical, RefreshCw, FolderOpen, Briefcase
@@ -324,6 +324,8 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = (props) => {
   const [bankNpwp, setBankNpwp] = useState('3217015610760002');
   const [bankSwift, setBankSwift] = useState('CENAIDJA');
   const [isBankDetailsExpanded, setIsBankDetailsExpanded] = useState(false);
+  const [isNotesExpanded, setIsNotesExpanded] = useState(false);
+  const [activeMobileItemIdx, setActiveMobileItemIdx] = useState<number | null>(null);
 
   // Client Master Selection State
   const [localClients, setLocalClients] = useState<ClientOption[]>([]);
@@ -2866,9 +2868,9 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
   ];
 
   return (
-    <div className="p-4 md:p-6 w-[94%] xl:w-[92%] max-w-none mx-auto space-y-4">
-      {/* Top Header */}
-      <div className="flex items-center gap-3">
+    <div className="p-4 md:p-6 w-[94%] xl:w-[92%] max-w-none mx-auto space-y-4 pb-24 md:pb-6">
+      {/* Top Header Desktop (hidden on mobile) */}
+      <div className="hidden md:flex items-center gap-3">
         <button
           onClick={() => {
             if (selectedInvoice && editingInvoiceId) {
@@ -2895,8 +2897,162 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
       </div>
 
       <form onSubmit={handleSaveInvoice} className="space-y-4 text-xs">
-        {/* Unified Compact Header: Client, Invoice No, Issue Date, Due Date */}
-        <div className="bg-white p-4 md:p-5 rounded-2xl border border-slate-200/80 shadow-sm space-y-4">
+        {/* Mobile Blue Header (block md:hidden) */}
+        <div className="block md:hidden bg-[#1e61c3] text-white rounded-b-[2rem] p-4.5 pt-5 pb-5 shadow-sm relative overflow-hidden -mx-4 sm:-mx-6 -mt-4 sm:-mt-5 mb-4">
+          {/* Decorative Circular Background Accents */}
+          <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-b-[2rem]" aria-hidden="true">
+            <div className="absolute -top-12 -right-12 w-44 h-44 rounded-full bg-white/10 blur-2xs" />
+            <div className="absolute -bottom-10 -left-10 w-36 h-36 rounded-full bg-white/5" />
+            <div className="absolute top-1/2 right-1/3 w-20 h-20 rounded-full bg-white/[0.04]" />
+          </div>
+
+          <div className="relative z-10 space-y-3.5">
+            {/* Top Bar: Back + Title & Status */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (selectedInvoice && editingInvoiceId) {
+                      setViewMode('detail');
+                    } else {
+                      setViewMode('list');
+                    }
+                  }}
+                  className="p-1 -ml-1 text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer"
+                  title="Kembali"
+                >
+                  <ArrowLeft className="w-5 h-5" />
+                </button>
+                <div>
+                  <h1 className="text-base font-extrabold text-white tracking-tight leading-tight">
+                    {editingInvoiceId ? `Edit Invoice` : 'Buat Invoice Baru'}
+                  </h1>
+                  <p className="text-[10px] text-blue-100/90 font-medium">Formulir penagihan biaya jasa</p>
+                </div>
+              </div>
+
+              <span className="bg-white/20 text-white font-extrabold text-[10px] uppercase px-2.5 py-1 rounded-full border border-white/30 backdrop-blur-2xs shadow-2xs">
+                {status === 'UNPAID' ? 'BELUM LUNAS' : status === 'PAID' ? 'LUNAS' : status === 'CANCELLED' ? 'BATAL' : 'DRAFT'}
+              </span>
+            </div>
+
+            {/* Embedded Invoice Info in Blue Header */}
+            <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-3 space-y-2.5 shadow-inner">
+              {/* Klien Selector */}
+              <div className="space-y-1 relative">
+                <label className="block font-bold text-blue-100 text-[10px] uppercase tracking-wide">
+                  KLIEN <span className="text-amber-300">* WAJIB</span>
+                </label>
+                <div className="relative">
+                  <Search size={14} className="absolute left-3 top-2.5 text-slate-400 z-10" />
+                  <input
+                    type="text"
+                    placeholder="Cari atau pilih klien..."
+                    value={clientSearch || clientName}
+                    onFocus={() => setShowClientDropdown(true)}
+                    onChange={(e) => {
+                      setClientSearch(e.target.value);
+                      setClientName(e.target.value);
+                      setShowClientDropdown(true);
+                      if (selectedClientId) {
+                        setSelectedClientId('');
+                        setSelectedClientSource(undefined);
+                        setSelectedProjectIds([]);
+                        setSelectedProjectId('');
+                      }
+                    }}
+                    className="w-full pl-8 pr-8 py-1.5 bg-white text-slate-900 rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-blue-400 shadow-xs"
+                  />
+                  {(clientName || clientSearch) && (
+                    <button
+                      type="button"
+                      onClick={handleClearClient}
+                      className="absolute right-2.5 top-2 text-slate-400 hover:text-slate-600 cursor-pointer z-10"
+                    >
+                      <X size={14} />
+                    </button>
+                  )}
+                </div>
+
+                {showClientDropdown && (
+                  <div className="absolute left-0 right-0 top-full mt-1 bg-white rounded-xl border border-slate-200 shadow-xl z-50 max-h-56 flex flex-col overflow-hidden p-1 text-slate-900">
+                    <div className="overflow-y-auto flex-1 max-h-48">
+                      {isLoadingClients ? (
+                        <div className="p-3 text-center text-slate-500 text-xs flex items-center justify-center gap-2">
+                          <div className="w-3.5 h-3.5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                          Memuat data klien...
+                        </div>
+                      ) : filteredClientOptions.length === 0 ? (
+                        <div className="p-3 text-center text-slate-400 text-xs italic">
+                          Tidak ada data klien yang cocok.
+                        </div>
+                      ) : (
+                        filteredClientOptions.map((c) => (
+                          <div
+                            key={c.clientId}
+                            onClick={() => handleSelectClient(c)}
+                            className="p-2 hover:bg-blue-50 rounded-lg cursor-pointer transition-colors flex items-center justify-between"
+                          >
+                            <div className="min-w-0 pr-2">
+                              <span className="font-bold text-slate-800 text-xs truncate max-w-[200px] block">{c.name}</span>
+                              <span className="text-[10px] text-slate-400 block truncate">
+                                {c.clientType ? `[${c.clientType}] ` : ''}{c.address || c.email || c.phone || ''}
+                              </span>
+                            </div>
+                            {selectedClientId === c.clientId && (
+                              <Check size={14} className="text-blue-600 shrink-0" />
+                            )}
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Grid: Nomor Invoice, Tanggal, Jatuh Tempo */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <div className="space-y-1">
+                  <label className="block font-bold text-blue-100 text-[10px] uppercase tracking-wide">NOMOR INVOICE</label>
+                  <input
+                    type="text"
+                    required
+                    disabled={isFetchingInvoiceNumber}
+                    value={invoiceNumber}
+                    onChange={(e) => setInvoiceNumber(e.target.value)}
+                    placeholder={isFetchingInvoiceNumber ? 'Memuat...' : undefined}
+                    className="w-full p-1.5 bg-white/20 border border-white/30 rounded-xl font-bold text-white placeholder-blue-200 text-xs focus:outline-none focus:bg-white/30"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="block font-bold text-blue-100 text-[10px] uppercase tracking-wide">TANGGAL INVOICE</label>
+                  <input
+                    type="date"
+                    required
+                    value={issueDate}
+                    onChange={(e) => setIssueDate(e.target.value)}
+                    className="w-full p-1.5 bg-white/20 border border-white/30 rounded-xl font-bold text-white text-xs focus:outline-none focus:bg-white/30"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="block font-bold text-blue-100 text-[10px] uppercase tracking-wide">JATUH TEMPO</label>
+                  <input
+                    type="date"
+                    value={dueDate}
+                    onChange={(e) => setDueDate(e.target.value)}
+                    className="w-full p-1.5 bg-white/20 border border-white/30 rounded-xl font-bold text-white text-xs focus:outline-none focus:bg-white/30"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Desktop Header Card (hidden on mobile) */}
+        <div className="hidden md:block bg-white p-4 md:p-5 rounded-2xl border border-slate-200/80 shadow-sm space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-start">
             {/* Klien */}
             <div className="space-y-1 relative" ref={clientDropdownRef}>
@@ -3011,11 +3167,39 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
         <div className="bg-white p-4 md:p-5 rounded-2xl border border-slate-200/80 shadow-sm space-y-4">
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
             <h3 className="font-bold text-slate-900 text-xs uppercase tracking-wide">ITEM TAGIHAN</h3>
+            <button
+              type="button"
+              onClick={() => {
+                const newItem: InvoiceItem = {
+                  id: Date.now().toString(),
+                  description: '',
+                  quantity: 1,
+                  unitPrice: 0,
+                  amount: 0,
+                  isTaxed: false
+                };
+                setItems(prev => [...prev, newItem]);
+                
+                // Autofocus on the last product-combobox-input
+                setTimeout(() => {
+                  const inputs = document.querySelectorAll('.product-combobox-input');
+                  if (inputs && inputs.length > 0) {
+                    const lastInput = inputs[inputs.length - 1] as HTMLInputElement;
+                    if (lastInput) {
+                      lastInput.focus();
+                    }
+                  }
+                }, 100);
+              }}
+              className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer border border-blue-100/80 shrink-0"
+            >
+              <Plus size={15} /> <span>Tambah Item</span>
+            </button>
           </div>
 
-          {/* Items List Table */}
-          <div className="border border-slate-200/80 rounded-xl overflow-x-auto md:overflow-visible">
-            <table className="w-full text-left text-xs table-fixed min-w-[950px] md:min-w-0 md:w-full">
+          {/* Desktop Table View (hidden on mobile) */}
+          <div className="hidden md:block border border-slate-200/80 rounded-xl overflow-x-auto">
+            <table className="w-full text-left text-xs table-fixed">
               <thead className="bg-slate-100 text-slate-600 font-bold border-b border-slate-200">
                 <tr>
                   <th className="p-3 w-[15%] min-w-[140px]">Produk / Layanan</th>
@@ -3187,54 +3371,64 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
             </table>
           </div>
 
-          {/* Add Item Trigger & Total summaries */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pt-1">
-            <button
-              type="button"
-              onClick={() => {
-                const newItem: InvoiceItem = {
-                  id: Date.now().toString(),
-                  description: '',
-                  quantity: 1,
-                  unitPrice: 0,
-                  amount: 0,
-                  isTaxed: false
-                };
-                setItems(prev => [...prev, newItem]);
-                
-                // Autofocus on the last product-combobox-input
-                setTimeout(() => {
-                  const inputs = document.querySelectorAll('.product-combobox-input');
-                  if (inputs && inputs.length > 0) {
-                    const lastInput = inputs[inputs.length - 1] as HTMLInputElement;
-                    if (lastInput) {
-                      lastInput.focus();
-                    }
-                  }
-                }, 100);
-              }}
-              className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer border border-slate-200"
-            >
-              <Plus size={15} /> Tambah Item
-            </button>
+          {/* Mobile Card Stack View (hidden on desktop) */}
+          <div className="block md:hidden space-y-2.5">
+            {items.length === 0 ? (
+              <div className="p-6 text-center text-slate-400 italic bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                Belum ada item ditambahkan. Silakan klik "+ Tambah Item".
+              </div>
+            ) : (
+              items.map((it, idx) => {
+                const lines = (it.description || '').split('\n').filter(Boolean);
+                const title = lines[0] || `Item ${idx + 1}`;
+                const subtitle = lines.slice(1).join(' ');
+                return (
+                  <div
+                    key={it.id || idx}
+                    onClick={() => setActiveMobileItemIdx(idx)}
+                    className="bg-white p-3.5 rounded-2xl border border-slate-200/90 hover:border-blue-300 shadow-2xs active:bg-blue-50/50 transition-all cursor-pointer flex items-center justify-between gap-3 group"
+                  >
+                    <div className="min-w-0 flex-1 space-y-1">
+                      <h4 className="font-bold text-slate-900 text-xs truncate uppercase tracking-tight">
+                        {title}
+                      </h4>
+                      {subtitle && (
+                        <p className="text-[11px] text-slate-500 truncate font-medium">
+                          {subtitle}
+                        </p>
+                      )}
+                      <p className="text-[11px] text-slate-500 font-semibold">
+                        {it.quantity || 1} Pcs × Rp {formatCurrency(it.unitPrice || 0)}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="bg-blue-50 text-blue-700 font-extrabold text-xs px-2.5 py-1.5 rounded-xl border border-blue-100/80">
+                        Rp {formatCurrency(getItemSubtotal(it))}
+                      </span>
+                      <ChevronRight size={18} className="text-slate-400 group-hover:text-blue-600 transition-colors" />
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
 
-            {/* Subtotal & Totals Summary */}
-            <div className="w-full sm:w-72 space-y-1.5 text-right font-medium text-slate-700 bg-slate-50 p-4 rounded-xl border border-slate-200/50">
-              <div className="flex justify-between text-xs">
-                <span>Sub Total:</span>
-                <span className="font-bold text-slate-900">{formatCurrency(currentSub)}</span>
-              </div>
-              {currentTax > 0 && (
-                <div className="flex justify-between text-xs text-red-600">
-                  <span>Potongan Pajak (PPh 21):</span>
-                  <span className="font-bold">({formatCurrency(currentTax)})</span>
-                </div>
-              )}
-              <div className="flex justify-between pt-2 border-t border-slate-200 text-xs">
-                <span className="font-bold text-slate-900">Total Tagihan:</span>
-                <span className="font-bold text-blue-600 text-sm">{formatCurrency(currentTotal)}</span>
-              </div>
+        {/* Ringkasan Tagihan Card */}
+        <div className="bg-white p-4 md:p-5 rounded-2xl border border-slate-200/80 shadow-sm space-y-2.5">
+          <div className="flex justify-between items-center text-xs text-slate-600">
+            <span className="font-medium">Subtotal</span>
+            <span className="font-bold text-slate-900">Rp {formatCurrency(currentSub)}</span>
+          </div>
+          {currentTax > 0 && (
+            <div className="flex justify-between items-center text-xs text-red-600">
+              <span className="font-medium">Potongan Pajak (PPh 21)</span>
+              <span className="font-bold">(Rp {formatCurrency(currentTax)})</span>
             </div>
+          )}
+          <div className="pt-3 border-t border-slate-200 flex justify-between items-center">
+            <span className="font-bold text-slate-900 text-xs uppercase tracking-wide">TOTAL TAGIHAN</span>
+            <span className="font-black text-blue-600 text-base md:text-lg">Rp {formatCurrency(currentTotal)}</span>
           </div>
         </div>
 
@@ -3346,84 +3540,144 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
           )}
         </div>
 
-        {/* Card 5: Catatan & Pengaturan Status */}
-        <div className="bg-white p-4 md:p-5 rounded-2xl border border-slate-200/80 shadow-sm space-y-3">
-          <h4 className="font-bold text-slate-900 text-xs uppercase tracking-wide">
-            Catatan & Pengaturan Status
-          </h4>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="md:col-span-2">
-              <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                Catatan Invoice (PPh 21 / Instruktur)
-              </label>
-              <textarea
-                rows={3}
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                className="w-full p-2.5 border border-slate-200 rounded-xl bg-slate-50 focus:bg-white text-xs font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                placeholder="Tambah catatan..."
-              />
-            </div>
-            <div className="space-y-3">
-              <div>
-                <label className="block text-[11px] font-bold text-slate-700 mb-1">Bahasa Invoice</label>
-                <select
-                  value={language}
-                  onChange={(e) => setLanguage(e.target.value as 'id' | 'en')}
-                  className="w-full p-2 border border-slate-200 rounded-xl bg-slate-50 focus:bg-white font-medium text-xs cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                >
-                  <option value="id">Bahasa Indonesia</option>
-                  <option value="en">English</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-[11px] font-bold text-slate-700 mb-1">Status Invoice</label>
-                <select
-                  value={status}
-                  onChange={(e) => setStatus(e.target.value as any)}
-                  className="w-full p-2 border border-slate-200 rounded-xl bg-slate-50 focus:bg-white font-medium text-xs cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                >
-                  <option value="UNPAID">BELUM LUNAS</option>
-                  <option value="PAID">LUNAS</option>
-                  <option value="CANCELLED">DIBATALKAN</option>
-                </select>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Bottom Actions Bar */}
-        <div className="flex items-center justify-end gap-3 pt-2">
-          <button
-            type="button"
-            onClick={() => {
-              if (selectedInvoice && editingInvoiceId) {
-                setViewMode('detail');
-              } else {
-                setViewMode('list');
+        {/* Card 5: Catatan & Pengaturan Status (Collapsible Section) */}
+        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden transition-all">
+          <div
+            onClick={() => setIsNotesExpanded(prev => !prev)}
+            tabIndex={0}
+            role="button"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                setIsNotesExpanded(prev => !prev);
               }
             }}
-            className="px-5 py-2.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl font-bold text-xs cursor-pointer"
+            className="p-4 md:p-5 flex items-center justify-between cursor-pointer hover:bg-slate-50/80 transition-colors select-none"
           >
-            Batal
-          </button>
+            <div className="flex items-center gap-3 min-w-0 flex-1">
+              <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 border border-blue-100/80">
+                <FileText size={18} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <h4 className="font-bold text-slate-900 text-xs uppercase tracking-wide">
+                    Catatan & Pengaturan Status
+                  </h4>
+                  {!isNotesExpanded && (
+                    <span className="text-[10px] font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200/60 shrink-0">
+                      Diciutkan
+                    </span>
+                  )}
+                </div>
+                {!isNotesExpanded && (
+                  <p className="text-[11px] text-slate-500 font-medium truncate mt-0.5">
+                    Catatan, Bahasa ({language === 'id' ? 'ID' : 'EN'}) & Status ({status === 'UNPAID' ? 'BELUM LUNAS' : status === 'PAID' ? 'LUNAS' : status})
+                  </p>
+                )}
+              </div>
+            </div>
+            <div className="flex items-center gap-2 text-slate-400 shrink-0">
+              <span className="text-xs font-semibold text-slate-500 hidden sm:inline">
+                {isNotesExpanded ? 'Sembunyikan' : 'Buka Catatan'}
+              </span>
+              {isNotesExpanded ? <ChevronUp size={20} className="text-slate-600" /> : <ChevronDown size={20} className="text-slate-600" />}
+            </div>
+          </div>
 
-          <button
-            type="button"
-            onClick={() => window.print()}
-            className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl font-bold text-xs flex items-center gap-1.5 cursor-pointer"
-          >
-            <Printer size={15} /> Cetak
-          </button>
+          {isNotesExpanded && (
+            <div className="p-4 md:p-5 pt-0 border-t border-slate-100 bg-slate-50/50 space-y-3">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-3">
+                <div className="md:col-span-2">
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                    Catatan Invoice (PPh 21 / Instruktur)
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    className="w-full p-2.5 border border-slate-200 rounded-xl bg-white text-xs font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                    placeholder="Tambah catatan..."
+                  />
+                </div>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">Bahasa Invoice</label>
+                    <select
+                      value={language}
+                      onChange={(e) => setLanguage(e.target.value as 'id' | 'en')}
+                      className="w-full p-2 border border-slate-200 rounded-xl bg-white font-medium text-xs cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                    >
+                      <option value="id">Bahasa Indonesia</option>
+                      <option value="en">English</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">Status Invoice</label>
+                    <select
+                      value={status}
+                      onChange={(e) => setStatus(e.target.value as any)}
+                      className="w-full p-2 border border-slate-200 rounded-xl bg-white font-medium text-xs cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                    >
+                      <option value="UNPAID">BELUM LUNAS</option>
+                      <option value="PAID">LUNAS</option>
+                      <option value="CANCELLED">DIBATALKAN</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
 
-          <button
-            type="submit"
-            disabled={isSubmitting || isFetchingInvoiceNumber || !invoiceNumber}
-            title={isFetchingInvoiceNumber ? 'Menunggu nomor invoice dari server...' : (!invoiceNumber ? 'Nomor invoice belum terisi' : undefined)}
-            className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-xs shadow-sm cursor-pointer transition-all disabled:opacity-50"
-          >
-            {isSubmitting ? 'Menyimpan...' : isFetchingInvoiceNumber ? 'Memuat nomor...' : 'Simpan'}
-          </button>
+        {/* Sticky Action Bar (Mobile Fixed / Desktop Static) */}
+        <div className="fixed bottom-0 left-0 right-0 p-3 bg-white/95 backdrop-blur-md border-t border-slate-200/90 shadow-xl z-40 md:static md:p-0 md:bg-transparent md:border-0 md:shadow-none">
+          <div className="flex items-center justify-end gap-2.5 max-w-5xl mx-auto">
+            <button
+              type="button"
+              onClick={() => {
+                if (selectedInvoice && editingInvoiceId) {
+                  setViewMode('detail');
+                } else {
+                  setViewMode('list');
+                }
+              }}
+              className="hidden md:inline-flex px-5 py-2.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl font-bold text-xs cursor-pointer"
+            >
+              Batal
+            </button>
+
+            <button
+              type="button"
+              onClick={() => window.print()}
+              className="hidden md:inline-flex px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl font-bold text-xs items-center gap-1.5 cursor-pointer"
+            >
+              <Printer size={15} /> Cetak
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setStatus('DRAFT');
+                setTimeout(() => {
+                  const form = document.querySelector('form');
+                  if (form) form.requestSubmit();
+                }, 50);
+              }}
+              className="flex-1 md:flex-initial px-4 py-3 md:py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-xs cursor-pointer transition-all text-center border border-slate-200/80 shadow-2xs"
+            >
+              Simpan Draft
+            </button>
+
+            <button
+              type="submit"
+              disabled={isSubmitting || isFetchingInvoiceNumber || !invoiceNumber}
+              title={isFetchingInvoiceNumber ? 'Menunggu nomor invoice dari server...' : (!invoiceNumber ? 'Nomor invoice belum terisi' : undefined)}
+              className="flex-1 md:flex-initial px-6 py-3 md:py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-2 cursor-pointer shadow-md active:scale-[0.98] transition-all text-center disabled:opacity-50"
+            >
+              <Save size={16} />
+              <span>{isSubmitting ? 'Menyimpan...' : isFetchingInvoiceNumber ? 'Memuat nomor...' : 'Simpan Invoice'}</span>
+            </button>
+          </div>
         </div>
       </form>
 
@@ -3575,6 +3829,245 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
           </div>
         </div>
       )}
+
+      {/* Mobile Item Detail Form Modal */}
+      {activeMobileItemIdx !== null && items[activeMobileItemIdx] && (() => {
+        const idx = activeMobileItemIdx;
+        const it = items[idx];
+        return (
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-[220] flex flex-col md:hidden animate-in fade-in duration-200">
+            {/* Header Modal */}
+            <div className="bg-[#1e61c3] text-white p-4 pt-5 pb-4 flex items-center justify-between shrink-0 shadow-md">
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setActiveMobileItemIdx(null)}
+                  className="p-1 -ml-1 text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer"
+                >
+                  <ArrowLeft className="w-5 h-5" />
+                </button>
+                <div>
+                  <h3 className="font-extrabold text-base text-white tracking-tight">
+                    {it.description || it.unitPrice ? 'Detail Item' : 'Tambah Item Baru'}
+                  </h3>
+                  <p className="text-[10px] text-blue-100/90 font-medium">Item {idx + 1} dari {items.length}</p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setActiveMobileItemIdx(null)}
+                className="px-3 py-1.5 bg-white/20 hover:bg-white/30 text-white rounded-xl text-xs font-bold border border-white/30 transition-all cursor-pointer flex items-center gap-1"
+              >
+                <Check size={14} /> Selesai
+              </button>
+            </div>
+
+            {/* Form Content */}
+            <div className="flex-1 bg-slate-50 overflow-y-auto p-4 space-y-4">
+              {/* Card Form */}
+              <div className="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-sm space-y-4">
+                {/* Produk / Layanan Combobox */}
+                <div className="space-y-1">
+                  <label className="block text-xs font-bold text-slate-800 uppercase tracking-wide">
+                    Produk / Layanan <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      placeholder="Cari atau pilih produk..."
+                      value={productSearchQueries[idx] !== undefined ? productSearchQueries[idx] : (it.description.split('\n')[0] || '')}
+                      onFocus={() => setActiveProductDropdownIdx(idx)}
+                      onBlur={() => setTimeout(() => setActiveProductDropdownIdx(null), 250)}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setProductSearchQueries(prev => ({ ...prev, [idx]: val }));
+                        const lines = it.description.split('\n');
+                        lines[0] = val;
+                        handleItemChange(idx, 'description', lines.join('\n'));
+                      }}
+                      className="product-combobox-input w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/20"
+                    />
+                    {activeProductDropdownIdx === idx && (
+                      <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 shadow-xl rounded-xl z-50 max-h-52 overflow-y-auto p-1 text-xs">
+                        {allAvailableProducts
+                          .filter(p => p.name.toLowerCase().includes((productSearchQueries[idx] || '').toLowerCase()))
+                          .map((p, pIdx) => (
+                            <button
+                              type="button"
+                              key={pIdx}
+                              onMouseDown={(e) => {
+                                e.preventDefault();
+                                const finalDesc = p.description ? `${p.name}\n${p.description}` : p.name;
+                                handleItemChange(idx, {
+                                  description: finalDesc,
+                                  unitPrice: p.unitPrice,
+                                  isTaxed: p.isTaxed,
+                                  taxRate: p.isTaxed ? (p.taxRate || 0.05) : undefined
+                                });
+                                setProductSearchQueries(prev => {
+                                  const copy = { ...prev };
+                                  delete copy[idx];
+                                  return copy;
+                                });
+                                setActiveProductDropdownIdx(null);
+                              }}
+                              className="w-full text-left p-2.5 hover:bg-blue-50 rounded-lg cursor-pointer transition-colors block border-b border-slate-50 last:border-none"
+                            >
+                              <div className="font-bold text-slate-900">{p.name}</div>
+                              {p.unitPrice > 0 && (
+                                <div className="text-[10px] text-slate-500 font-medium">
+                                  Rp {formatCurrency(p.unitPrice)}
+                                </div>
+                              )}
+                            </button>
+                          ))}
+                        {allAvailableProducts.filter(p => p.name.toLowerCase().includes((productSearchQueries[idx] || '').toLowerCase())).length === 0 && (
+                          <div className="p-3 text-center text-slate-400 italic text-xs">
+                            Produk tidak ditemukan
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Deskripsi Lengkap */}
+                <div className="space-y-1">
+                  <label className="block text-xs font-bold text-slate-800 uppercase tracking-wide">
+                    Deskripsi Detail
+                  </label>
+                  <AutoResizingTextarea
+                    value={it.description}
+                    onChange={(val) => handleItemChange(idx, 'description', val)}
+                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/20 min-h-[80px]"
+                    placeholder="Rincian deskripsi item tagihan..."
+                  />
+                </div>
+
+                {/* Qty & Harga Row */}
+                <div className="grid grid-cols-2 gap-3">
+                  {/* Qty Stepper */}
+                  <div className="space-y-1">
+                    <label className="block text-xs font-bold text-slate-800 uppercase tracking-wide">
+                      Qty <span className="text-red-500">*</span>
+                    </label>
+                    <div className="flex items-center border border-slate-200 rounded-xl bg-slate-50 overflow-hidden shadow-2xs">
+                      <button
+                        type="button"
+                        onClick={() => handleItemChange(idx, 'quantity', Math.max(1, (it.quantity || 1) - 1))}
+                        className="w-10 h-10 flex items-center justify-center font-black text-slate-700 bg-slate-100 hover:bg-slate-200 text-lg cursor-pointer select-none border-r border-slate-200 shrink-0"
+                      >
+                        −
+                      </button>
+                      <input
+                        type="number"
+                        min={1}
+                        value={it.quantity || 1}
+                        onChange={(e) => handleItemChange(idx, 'quantity', Math.max(1, Number(e.target.value)))}
+                        className="w-full text-center font-bold text-slate-900 bg-transparent text-sm focus:outline-none py-2"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleItemChange(idx, 'quantity', (it.quantity || 1) + 1)}
+                        className="w-10 h-10 flex items-center justify-center font-black text-slate-700 bg-slate-100 hover:bg-slate-200 text-lg cursor-pointer select-none border-l border-slate-200 shrink-0"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Harga (Rp) */}
+                  <div className="space-y-1">
+                    <label className="block text-xs font-bold text-slate-800 uppercase tracking-wide">
+                      Harga (Rp) <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={formatInputNumber(it.unitPrice || 0)}
+                      onChange={(e) => handleItemChange(idx, 'unitPrice', parseFormattedNumber(e.target.value))}
+                      className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 text-right text-xs focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/20"
+                    />
+                  </div>
+                </div>
+
+                {/* Diskon & PPh 21 Row */}
+                <div className="grid grid-cols-2 gap-3">
+                  {/* Diskon (Rp) */}
+                  <div className="space-y-1">
+                    <label className="block text-xs font-bold text-slate-800 uppercase tracking-wide">Diskon (Rp)</label>
+                    <input
+                      type="text"
+                      placeholder="0"
+                      value={it.discount ? formatInputNumber(it.discount) : ''}
+                      onChange={(e) => handleItemChange(idx, 'discount', parseFormattedNumber(e.target.value))}
+                      className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 text-right text-xs focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/20"
+                    />
+                  </div>
+
+                  {/* PPh 21 Dropdown */}
+                  <div className="space-y-1">
+                    <label className="block text-xs font-bold text-slate-800 uppercase tracking-wide">PPh 21</label>
+                    <select
+                      value={it.isTaxed ? (it.taxRate !== undefined ? it.taxRate : 0.05) : 0}
+                      onChange={(e) => {
+                        const val = parseFloat(e.target.value);
+                        if (val === 0) {
+                          handleItemChange(idx, { isTaxed: false, taxRate: undefined });
+                        } else {
+                          handleItemChange(idx, { isTaxed: true, taxRate: val });
+                        }
+                      }}
+                      className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-800 text-xs text-center focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/20 cursor-pointer"
+                    >
+                      <option value={0}>0% (Tanpa PPh)</option>
+                      <option value={0.05}>5%</option>
+                      <option value={0.15}>15%</option>
+                      <option value={0.25}>25%</option>
+                      <option value={0.30}>30%</option>
+                      <option value={0.35}>35%</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Subtotal Item Footer */}
+                <div className="pt-3 border-t border-slate-200 flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-600 uppercase tracking-wide">Subtotal Item</span>
+                  <span className="text-base font-black text-blue-600">
+                    Rp {formatCurrency(getItemSubtotal(it))}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Bottom Modal Actions */}
+            <div className="p-4 bg-white border-t border-slate-200 flex items-center justify-between gap-3 shrink-0 shadow-lg">
+              {items.length > 1 ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleRemoveItem(idx);
+                    setActiveMobileItemIdx(null);
+                  }}
+                  className="px-4 py-3 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl font-bold text-xs flex items-center gap-1.5 border border-red-200/80 cursor-pointer transition-all"
+                >
+                  <Trash2 size={16} /> Hapus
+                </button>
+              ) : (
+                <div />
+              )}
+
+              <button
+                type="button"
+                onClick={() => setActiveMobileItemIdx(null)}
+                className="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-2 shadow-md cursor-pointer transition-all"
+              >
+                <Check size={16} /> Simpan Item
+              </button>
+            </div>
+          </div>
+        );
+      })()}
 
       {renderWhatsAppModal()}
     </div>
