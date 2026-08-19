@@ -323,6 +323,7 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = (props) => {
   const [accountHolder, setAccountHolder] = useState('A.n Nukantini Putri Parincha');
   const [bankNpwp, setBankNpwp] = useState('3217015610760002');
   const [bankSwift, setBankSwift] = useState('CENAIDJA');
+  const [isBankDetailsExpanded, setIsBankDetailsExpanded] = useState(false);
 
   // Client Master Selection State
   const [localClients, setLocalClients] = useState<ClientOption[]>([]);
@@ -662,6 +663,7 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = (props) => {
     setAccountHolder('A.n Nukantini Putri Parincha');
     setBankNpwp('3217015610760002');
     setBankSwift('CENAIDJA');
+    setIsBankDetailsExpanded(false);
     loadClientOptions();
     setViewMode('create');
     if (window.location.pathname !== '/invoices/new' && window.location.pathname !== '/invoice/new') {
@@ -729,6 +731,7 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = (props) => {
       setBankNpwp('3217015610760002');
       setBankSwift('CENAIDJA');
     }
+    setIsBankDetailsExpanded(false);
     loadClientOptions();
     setViewMode('edit');
     if (!window.location.pathname.endsWith('/edit')) {
@@ -3235,89 +3238,150 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
           </div>
         </div>
 
-        {/* Card 4: Rekening, Catatan & Pengaturan */}
-        <div className="bg-white p-4 md:p-5 rounded-2xl border border-slate-200/80 shadow-sm grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="space-y-2 p-3 bg-slate-50 rounded-xl border border-slate-200/80">
-            <h4 className="font-bold text-slate-800 uppercase tracking-wide text-[11px]">Rekening Pembayaran & Pajak</h4>
-            <div>
-              <label className="block text-[11px] text-slate-600">Nama Bank</label>
-              <input
-                type="text"
-                value={bankName}
-                onChange={(e) => setBankName(e.target.value)}
-                className="w-full p-2 border border-slate-200 rounded bg-white font-medium"
-              />
-            </div>
-            <div>
-              <label className="block text-[11px] text-slate-600">Nomor Rekening</label>
-              <input
-                type="text"
-                value={accountNumber}
-                onChange={(e) => setAccountNumber(e.target.value)}
-                className="w-full p-2 border border-slate-200 rounded bg-white font-medium"
-              />
-            </div>
-            <div>
-              <label className="block text-[11px] text-slate-600">Atas Nama</label>
-              <input
-                type="text"
-                value={accountHolder}
-                onChange={(e) => setAccountHolder(e.target.value)}
-                className="w-full p-2 border border-slate-200 rounded bg-white font-medium"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="block text-[11px] text-slate-600">NPWP 16 Digit</label>
-                <input
-                  type="text"
-                  value={bankNpwp}
-                  onChange={(e) => setBankNpwp(e.target.value)}
-                  className="w-full p-2 border border-slate-200 rounded bg-white font-medium text-xs"
-                />
+        {/* Card 4: Rekening Pembayaran & Pajak (Collapsible Section) */}
+        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden transition-all">
+          <div
+            onClick={() => setIsBankDetailsExpanded(prev => !prev)}
+            tabIndex={0}
+            role="button"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                setIsBankDetailsExpanded(prev => !prev);
+              }
+            }}
+            className="p-4 md:p-5 flex items-center justify-between gap-3 cursor-pointer hover:bg-slate-50/80 transition-colors select-none"
+          >
+            <div className="flex items-center gap-3 min-w-0 flex-1">
+              <div className="w-9 h-9 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center shrink-0 border border-blue-100/80">
+                <Building2 size={18} />
               </div>
-              <div>
-                <label className="block text-[11px] text-slate-600">SWIFT BCA</label>
-                <input
-                  type="text"
-                  value={bankSwift}
-                  onChange={(e) => setBankSwift(e.target.value)}
-                  className="w-full p-2 border border-slate-200 rounded bg-white font-medium text-xs"
-                />
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <h4 className="font-bold text-slate-900 text-xs uppercase tracking-wide">
+                    Rekening Pembayaran & Pajak
+                  </h4>
+                  {!isBankDetailsExpanded && (
+                    <span className="text-[10px] font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200/60 shrink-0">
+                      Diciutkan
+                    </span>
+                  )}
+                </div>
+                {!isBankDetailsExpanded && (bankName || accountNumber) && (
+                  <p className="text-[11px] text-slate-500 font-medium truncate mt-0.5">
+                    {[bankName, accountNumber, accountHolder].filter(Boolean).join(' • ')}
+                  </p>
+                )}
               </div>
+            </div>
+            <div className="flex items-center gap-2 text-slate-400 shrink-0">
+              <span className="text-xs font-semibold text-slate-500 hidden sm:inline">
+                {isBankDetailsExpanded ? 'Sembunyikan' : 'Ubah Rekening'}
+              </span>
+              {isBankDetailsExpanded ? (
+                <ChevronUp size={20} className="text-slate-600 transition-transform duration-200" />
+              ) : (
+                <ChevronDown size={20} className="text-slate-600 transition-transform duration-200" />
+              )}
             </div>
           </div>
 
-          <div className="space-y-2 p-3 bg-slate-50 rounded-xl border border-slate-200/80">
-            <h4 className="font-bold text-slate-800 uppercase tracking-wide text-[11px]">Catatan & Pengaturan Status</h4>
-            <div>
-              <label className="block text-[11px] text-slate-600 mb-1 font-semibold">Catatan Invoice (PPh 21 / Instruktur)</label>
+          {isBankDetailsExpanded && (
+            <div className="p-4 md:p-5 pt-0 border-t border-slate-100 bg-slate-50/50 space-y-3">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-3">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">Nama Bank</label>
+                  <input
+                    type="text"
+                    value={bankName}
+                    onChange={(e) => setBankName(e.target.value)}
+                    placeholder="e.g. BCA Cabang Dago - Bandung"
+                    className="w-full p-2 border border-slate-200 rounded-xl bg-white font-medium text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">Nomor Rekening</label>
+                  <input
+                    type="text"
+                    value={accountNumber}
+                    onChange={(e) => setAccountNumber(e.target.value)}
+                    placeholder="e.g. Acc. 7770673016"
+                    className="w-full p-2 border border-slate-200 rounded-xl bg-white font-medium text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">Atas Nama</label>
+                  <input
+                    type="text"
+                    value={accountHolder}
+                    onChange={(e) => setAccountHolder(e.target.value)}
+                    placeholder="e.g. A.n Nukantini Putri Parincha"
+                    className="w-full p-2 border border-slate-200 rounded-xl bg-white font-medium text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">NPWP 16 Digit</label>
+                  <input
+                    type="text"
+                    value={bankNpwp}
+                    onChange={(e) => setBankNpwp(e.target.value)}
+                    placeholder="e.g. 3217015610760002"
+                    className="w-full p-2 border border-slate-200 rounded-xl bg-white font-medium text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">SWIFT BCA</label>
+                  <input
+                    type="text"
+                    value={bankSwift}
+                    onChange={(e) => setBankSwift(e.target.value)}
+                    placeholder="e.g. CENAIDJA"
+                    className="w-full p-2 border border-slate-200 rounded-xl bg-white font-medium text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Card 5: Catatan & Pengaturan Status */}
+        <div className="bg-white p-4 md:p-5 rounded-2xl border border-slate-200/80 shadow-sm space-y-3">
+          <h4 className="font-bold text-slate-900 text-xs uppercase tracking-wide">
+            Catatan & Pengaturan Status
+          </h4>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="md:col-span-2">
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                Catatan Invoice (PPh 21 / Instruktur)
+              </label>
               <textarea
                 rows={3}
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                className="w-full p-2 border border-slate-200 rounded bg-white text-xs font-medium focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="w-full p-2.5 border border-slate-200 rounded-xl bg-slate-50 focus:bg-white text-xs font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                 placeholder="Tambah catatan..."
               />
             </div>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="space-y-3">
               <div>
-                <label className="block text-[11px] text-slate-600">Bahasa Invoice</label>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">Bahasa Invoice</label>
                 <select
                   value={language}
                   onChange={(e) => setLanguage(e.target.value as 'id' | 'en')}
-                  className="w-full p-2 border border-slate-200 rounded bg-white font-medium text-xs"
+                  className="w-full p-2 border border-slate-200 rounded-xl bg-slate-50 focus:bg-white font-medium text-xs cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                 >
                   <option value="id">Bahasa Indonesia</option>
                   <option value="en">English</option>
                 </select>
               </div>
               <div>
-                <label className="block text-[11px] text-slate-600">Status Invoice</label>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">Status Invoice</label>
                 <select
                   value={status}
                   onChange={(e) => setStatus(e.target.value as any)}
-                  className="w-full p-2 border border-slate-200 rounded bg-white font-medium text-xs"
+                  className="w-full p-2 border border-slate-200 rounded-xl bg-slate-50 focus:bg-white font-medium text-xs cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                 >
                   <option value="UNPAID">BELUM LUNAS</option>
                   <option value="PAID">LUNAS</option>
