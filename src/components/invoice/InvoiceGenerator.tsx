@@ -293,9 +293,7 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = (props) => {
   const [terms, setTerms] = useState('Pembayaran dilakukan maksimal 14 hari setelah invoice diterbitkan.');
 
   // Items Form
-  const [items, setItems] = useState<InvoiceItem[]>([
-    { id: '1', description: '', quantity: 1, unitPrice: 0, amount: 0, isTaxed: false }
-  ]);
+  const [items, setItems] = useState<InvoiceItem[]>([]);
   const [activeProductDropdownIdx, setActiveProductDropdownIdx] = useState<number | null>(null);
   const [productSearchQueries, setProductSearchQueries] = useState<Record<number, string>>({});
 
@@ -653,9 +651,7 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = (props) => {
     setCurrency('IDR');
     setNotes('Pemotongan pajak PPh Pasal 21 harus disetorkan paling lambat tanggal 10 bulan berikutnya, untuk mencegah sanksi Ditjen Pajak.');
     setTerms('Pembayaran dilakukan maksimal 14 hari setelah invoice diterbitkan.');
-    setItems([
-      { id: '1', description: '', quantity: 1, unitPrice: 0, amount: 0, isTaxed: false }
-    ]);
+    setItems([]);
     setItemDescription('');
     setItemUnitPrice(0);
     setItemGrossUp(false);
@@ -2898,7 +2894,12 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
 
       <form onSubmit={handleSaveInvoice} className="space-y-4 text-xs">
         {/* Mobile Blue Header (block md:hidden) */}
-        <div className="block md:hidden bg-[#1e61c3] text-white rounded-b-[2rem] p-4.5 pt-5 pb-5 shadow-sm relative overflow-hidden -mx-4 sm:-mx-6 -mt-4 sm:-mt-5 mb-4">
+        <div 
+          className="block md:hidden bg-[#1e61c3] text-white rounded-b-[2rem] p-4.5 pb-5 shadow-sm relative overflow-hidden -mx-4 -mt-4 sm:-mx-6 sm:-mt-6 mb-4"
+          style={{
+            paddingTop: 'calc(env(safe-area-inset-top, 0px) + 1.25rem)'
+          }}
+        >
           {/* Decorative Circular Background Accents */}
           <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-b-[2rem]" aria-hidden="true">
             <div className="absolute -top-12 -right-12 w-44 h-44 rounded-full bg-white/10 blur-2xs" />
@@ -2937,8 +2938,8 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
               </span>
             </div>
 
-            {/* Embedded Invoice Info in Blue Header */}
-            <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-3 space-y-2.5 shadow-inner">
+            {/* Direct Header Fields (Full Bleed - No Inner Card Wrapper) */}
+            <div className="space-y-3 pt-1">
               {/* Klien Selector */}
               <div className="space-y-1 relative">
                 <label className="block font-bold text-blue-100 text-[10px] uppercase tracking-wide">
@@ -2962,13 +2963,13 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
                         setSelectedProjectId('');
                       }
                     }}
-                    className="w-full pl-8 pr-8 py-1.5 bg-white text-slate-900 rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-blue-400 shadow-xs"
+                    className="w-full pl-8 pr-8 py-2 bg-white text-slate-900 rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-blue-400 shadow-xs"
                   />
                   {(clientName || clientSearch) && (
                     <button
                       type="button"
                       onClick={handleClearClient}
-                      className="absolute right-2.5 top-2 text-slate-400 hover:text-slate-600 cursor-pointer z-10"
+                      className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600 cursor-pointer z-10"
                     >
                       <X size={14} />
                     </button>
@@ -3012,7 +3013,7 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
               </div>
 
               {/* Grid: Nomor Invoice, Tanggal, Jatuh Tempo */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                 <div className="space-y-1">
                   <label className="block font-bold text-blue-100 text-[10px] uppercase tracking-wide">NOMOR INVOICE</label>
                   <input
@@ -3022,7 +3023,7 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
                     value={invoiceNumber}
                     onChange={(e) => setInvoiceNumber(e.target.value)}
                     placeholder={isFetchingInvoiceNumber ? 'Memuat...' : undefined}
-                    className="w-full p-1.5 bg-white/20 border border-white/30 rounded-xl font-bold text-white placeholder-blue-200 text-xs focus:outline-none focus:bg-white/30"
+                    className="w-full p-2 bg-white/20 border border-white/30 rounded-xl font-bold text-white placeholder-blue-200 text-xs focus:outline-none focus:bg-white/30"
                   />
                 </div>
 
@@ -3033,7 +3034,7 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
                     required
                     value={issueDate}
                     onChange={(e) => setIssueDate(e.target.value)}
-                    className="w-full p-1.5 bg-white/20 border border-white/30 rounded-xl font-bold text-white text-xs focus:outline-none focus:bg-white/30"
+                    className="w-full p-2 bg-white/20 border border-white/30 rounded-xl font-bold text-white text-xs focus:outline-none focus:bg-white/30"
                   />
                 </div>
 
@@ -3043,7 +3044,7 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
                     type="date"
                     value={dueDate}
                     onChange={(e) => setDueDate(e.target.value)}
-                    className="w-full p-1.5 bg-white/20 border border-white/30 rounded-xl font-bold text-white text-xs focus:outline-none focus:bg-white/30"
+                    className="w-full p-2 bg-white/20 border border-white/30 rounded-xl font-bold text-white text-xs focus:outline-none focus:bg-white/30"
                   />
                 </div>
               </div>
@@ -3178,7 +3179,11 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
                   amount: 0,
                   isTaxed: false
                 };
-                setItems(prev => [...prev, newItem]);
+                setItems(prev => {
+                  const newIdx = prev.length;
+                  setActiveMobileItemIdx(newIdx);
+                  return [...prev, newItem];
+                });
                 
                 // Autofocus on the last product-combobox-input
                 setTimeout(() => {
@@ -3834,14 +3839,25 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
       {activeMobileItemIdx !== null && items[activeMobileItemIdx] && (() => {
         const idx = activeMobileItemIdx;
         const it = items[idx];
+        const handleCloseModal = () => {
+          if (!it.description && (!it.unitPrice || it.unitPrice === 0)) {
+            handleRemoveItem(idx);
+          }
+          setActiveMobileItemIdx(null);
+        };
         return (
           <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-[220] flex flex-col md:hidden animate-in fade-in duration-200">
             {/* Header Modal */}
-            <div className="bg-[#1e61c3] text-white p-4 pt-5 pb-4 flex items-center justify-between shrink-0 shadow-md">
+            <div 
+              className="bg-[#1e61c3] text-white p-4 pb-4 flex items-center justify-between shrink-0 shadow-md"
+              style={{
+                paddingTop: 'calc(env(safe-area-inset-top, 0px) + 1rem)'
+              }}
+            >
               <div className="flex items-center gap-3">
                 <button
                   type="button"
-                  onClick={() => setActiveMobileItemIdx(null)}
+                  onClick={handleCloseModal}
                   className="p-1 -ml-1 text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer"
                 >
                   <ArrowLeft className="w-5 h-5" />
@@ -3856,7 +3872,7 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
 
               <button
                 type="button"
-                onClick={() => setActiveMobileItemIdx(null)}
+                onClick={handleCloseModal}
                 className="px-3 py-1.5 bg-white/20 hover:bg-white/30 text-white rounded-xl text-xs font-bold border border-white/30 transition-all cursor-pointer flex items-center gap-1"
               >
                 <Check size={14} /> Selesai
@@ -4042,20 +4058,16 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
 
             {/* Bottom Modal Actions */}
             <div className="p-4 bg-white border-t border-slate-200 flex items-center justify-between gap-3 shrink-0 shadow-lg">
-              {items.length > 1 ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    handleRemoveItem(idx);
-                    setActiveMobileItemIdx(null);
-                  }}
-                  className="px-4 py-3 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl font-bold text-xs flex items-center gap-1.5 border border-red-200/80 cursor-pointer transition-all"
-                >
-                  <Trash2 size={16} /> Hapus
-                </button>
-              ) : (
-                <div />
-              )}
+              <button
+                type="button"
+                onClick={() => {
+                  handleRemoveItem(idx);
+                  setActiveMobileItemIdx(null);
+                }}
+                className="px-4 py-3 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl font-bold text-xs flex items-center gap-1.5 border border-red-200/80 cursor-pointer transition-all"
+              >
+                <Trash2 size={16} /> Hapus
+              </button>
 
               <button
                 type="button"

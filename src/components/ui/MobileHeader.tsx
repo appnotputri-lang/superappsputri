@@ -77,7 +77,12 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({
   };
 
   return (
-    <div className="md:hidden bg-[#1e61c3] text-white rounded-b-[2rem] p-4.5 pt-5 pb-5 shadow-sm -mx-4 sm:-mx-6 -mt-4 sm:-mt-5 mb-4 relative overflow-hidden">
+    <div 
+      className="md:hidden bg-[#1e61c3] text-white rounded-b-[2rem] p-4.5 pb-5 shadow-sm -mx-4 sm:-mx-6 -mt-4 sm:-mt-5 mb-4 relative overflow-hidden"
+      style={{
+        paddingTop: 'calc(env(safe-area-inset-top, 0px) + 1.25rem)'
+      }}
+    >
       {/* Decorative Blue-on-Blue Circular Background Accents */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-b-[2rem]" aria-hidden="true">
         <div className="absolute -top-12 -right-12 w-44 h-44 rounded-full bg-white/10 blur-2xs" />

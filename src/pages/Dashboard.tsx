@@ -231,7 +231,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
       {/* ===== MOBILE-ONLY HOMESCREEN (< md) ===== */}
       <div className="md:hidden bg-[#f8fafc] min-h-screen pb-12 overflow-x-hidden">
         {/* HERO BIRU */}
-        <div className="relative bg-gradient-to-b from-[#1e61c3] to-[#174fa3] text-white pt-5 pb-16 px-5 rounded-b-[36px] shadow-md overflow-hidden">
+        <div 
+          className="relative bg-gradient-to-b from-[#1e61c3] to-[#174fa3] text-white pb-16 px-5 rounded-b-[36px] shadow-md overflow-hidden"
+          style={{
+            paddingTop: 'calc(env(safe-area-inset-top, 0px) + 1.25rem)'
+          }}
+        >
           {/* Subtle Decorative Blue-on-Blue Accents */}
           <div className="absolute -top-12 -right-12 w-48 h-48 rounded-full bg-white/10 pointer-events-none blur-xs" />
           <div className="absolute top-28 -left-16 w-36 h-36 rounded-full bg-white/5 pointer-events-none" />
