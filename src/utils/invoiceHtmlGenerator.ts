@@ -1,5 +1,5 @@
 import QRCode from 'qrcode';
-import { Invoice } from '../types';
+import { Invoice, PaymentRecord } from '../types';
 import { getItemSubtotal } from '../services/taxCalculator';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -782,4 +782,420 @@ export async function downloadInvoicePdf(invoice: Invoice, publicUrl?: string, l
   doc.text(sigBrand, 157, sigY + 34, { align: 'center' });
 
   doc.save(filename);
+}
+
+export function generateKwitansiHTML(invoice: Invoice, payment: PaymentRecord, qrBase64: string, autoPrint = false): string {
+  const receiptNo = payment.refNumber || payment.id || (`KWT/${invoice.invoiceNumber}`);
+  const paymentDate = formatDate(payment.date);
+  const words = terbilang(payment.amount);
+  const clientName = invoice.clientName || 'Klien';
+  const description = invoice.projectTitle || (invoice.items?.[0]?.description ? invoice.items[0].description.split('\n')[0] : 'Pembayaran Tagihan');
+  const paymentMethod = payment.method || 'Transfer BCA';
+  const refText = payment.refNumber ? ` (Ref: ${payment.refNumber})` : '';
+
+  return `<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>Kwitansi ${receiptNo}</title>
+  <style>
+    @page { size: A4; margin: 0; }
+    body {
+      font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+      color: #1e293b;
+      background: #f8fafc;
+      margin: 0;
+      padding: 40px;
+      -webkit-print-color-adjust: exact;
+    }
+    .kwitansi-card {
+      max-width: 800px;
+      margin: 0 auto;
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+      padding: 40px;
+      border-radius: 8px;
+    }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      border-bottom: 2px solid #2563eb;
+      padding-bottom: 20px;
+      margin-bottom: 24px;
+    }
+    .notary-title {
+      color: #2563eb;
+      font-size: 16px;
+      font-weight: bold;
+      line-height: 1.3;
+    }
+    .notary-sub {
+      color: #64748b;
+      font-size: 11px;
+      margin-top: 4px;
+    }
+    .doc-title {
+      text-align: right;
+    }
+    .doc-title h1 {
+      margin: 0;
+      font-size: 26px;
+      color: #0f172a;
+      letter-spacing: 2px;
+    }
+    .doc-meta {
+      font-size: 12px;
+      color: #475569;
+      margin-top: 6px;
+    }
+    .content-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 24px;
+    }
+    .content-table td {
+      padding: 12px 8px;
+      vertical-align: top;
+      font-size: 13px;
+    }
+    .label {
+      width: 180px;
+      color: #64748b;
+      font-weight: 600;
+      text-transform: uppercase;
+      font-size: 11px;
+      letter-spacing: 0.5px;
+    }
+    .colon {
+      width: 15px;
+      font-weight: bold;
+    }
+    .value {
+      color: #0f172a;
+      font-weight: 500;
+    }
+    .amount-box {
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      color: #1e40af;
+      padding: 12px 18px;
+      border-radius: 6px;
+      display: inline-block;
+      font-size: 20px;
+      font-weight: bold;
+    }
+    .terbilang-box {
+      background: #f8fafc;
+      border-left: 4px solid #2563eb;
+      padding: 10px 14px;
+      font-style: italic;
+      color: #1e293b;
+      font-weight: bold;
+    }
+    .footer-section {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      margin-top: 40px;
+      padding-top: 20px;
+      border-top: 1px solid #e2e8f0;
+    }
+    .notes-side {
+      font-size: 11px;
+      color: #64748b;
+      max-width: 320px;
+    }
+    .sig-side {
+      text-align: center;
+      width: 240px;
+    }
+    .sig-date {
+      font-size: 12px;
+      color: #334155;
+      margin-bottom: 8px;
+    }
+    .sig-title {
+      font-size: 12px;
+      color: #334155;
+      margin-bottom: 12px;
+    }
+    .sig-qr {
+      width: 80px;
+      height: 80px;
+      margin: 0 auto 12px;
+    }
+    .sig-name {
+      font-weight: bold;
+      font-size: 12px;
+      color: #0f172a;
+      border-top: 1px solid #cbd5e1;
+      padding-top: 6px;
+    }
+  </style>
+  ${autoPrint ? `<script>window.onload = function() { window.print(); };</script>` : ''}
+</head>
+<body>
+  <div class="kwitansi-card">
+    <div class="header">
+      <div>
+        <div class="notary-title">NOTARIS / PPAT<br>NUKANTINI PUTRI PARINCHA, S.H., M.Kn.</div>
+        <div class="notary-sub">Jl. Dipatiukur No. 128, Bandung | Telp: (022) 2501234</div>
+      </div>
+      <div class="doc-title">
+        <h1>KWITANSI</h1>
+        <div class="doc-meta">
+          <div><strong>No. Kwitansi:</strong> ${receiptNo}</div>
+          <div><strong>Tanggal:</strong> ${paymentDate}</div>
+        </div>
+      </div>
+    </div>
+
+    <table class="content-table">
+      <tr>
+        <td class="label">Sudah Terima Dari</td>
+        <td class="colon">:</td>
+        <td class="value" style="font-size: 15px; font-weight: bold;">${clientName}</td>
+      </tr>
+      <tr>
+        <td class="label">Uang Sejumlah</td>
+        <td class="colon">:</td>
+        <td class="value">
+          <div class="amount-box">Rp ${formatNum(payment.amount)}</div>
+        </td>
+      </tr>
+      <tr>
+        <td class="label">Terbilang</td>
+        <td class="colon">:</td>
+        <td class="value">
+          <div class="terbilang-box">${words}</div>
+        </td>
+      </tr>
+      <tr>
+        <td class="label">Untuk Pembayaran</td>
+        <td class="colon">:</td>
+        <td class="value">
+          <strong>Invoice ${invoice.invoiceNumber}</strong>
+          ${description ? `<br><span style="color: #475569;">${description}</span>` : ''}
+        </td>
+      </tr>
+      <tr>
+        <td class="label">Metode Pembayaran</td>
+        <td class="colon">:</td>
+        <td class="value">${paymentMethod}${refText}</td>
+      </tr>
+      ${payment.notes ? `
+      <tr>
+        <td class="label">Catatan</td>
+        <td class="colon">:</td>
+        <td class="value" style="color: #64748b; font-style: italic;">${payment.notes}</td>
+      </tr>
+      ` : ''}
+    </table>
+
+    <div class="footer-section">
+      <div class="notes-side">
+        <div style="font-weight: bold; color: #0f172a; margin-bottom: 4px;">Informasi Dokumen:</div>
+        <div>Total Invoice: Rp ${formatNum(invoice.totalAmount)}</div>
+        <div>Sisa Tagihan: Rp ${formatNum(invoice.balanceDue ?? 0)}</div>
+        <div style="margin-top: 6px; font-size: 10px; color: #94a3b8;">* Kwitansi ini sah sebagai bukti pembayaran resmi kantor Notaris / PPAT.</div>
+      </div>
+      <div class="sig-side">
+        <div class="sig-date">Bandung, ${paymentDate}</div>
+        <div class="sig-title">Hormat Kami,</div>
+        ${qrBase64 ? `<img src="${qrBase64}" class="sig-qr" alt="QR Signature" />` : '<div style="height: 60px;"></div>'}
+        <div class="sig-name">NOTARIS / PPAT NUKANTINI PUTRI PARINCHA, S.H., M.Kn.</div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
+export async function downloadKwitansiPdf(invoice: Invoice, payment: PaymentRecord, publicUrl?: string) {
+  const qrBase64 = await getQrCodeBase64(invoice, publicUrl);
+  const receiptNo = payment.refNumber || payment.id || (`KWT_${invoice.invoiceNumber}`);
+  const filename = `Kwitansi_${receiptNo.replace(/[\/\\]/g, '_')}.pdf`;
+
+  const doc = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: 'a4'
+  });
+
+  // Top Header - Notaris
+  doc.setTextColor(37, 99, 235); // Blue #2563eb
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(13);
+  doc.text('NOTARIS/PPAT NUKANTINI PUTRI\nPARINCHA, SH., M.Kn', 15, 20);
+
+  // Title - KWITANSI
+  doc.setFontSize(22);
+  doc.text('KWITANSI', 195, 20, { align: 'right' });
+
+  // Meta details
+  doc.setTextColor(30, 41, 59);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8.5);
+  doc.text('No. Kwitansi :', 155, 27, { align: 'right' });
+  doc.setFont('helvetica', 'bold');
+  doc.text(payment.refNumber || payment.id || `KWT/${invoice.invoiceNumber}`, 195, 27, { align: 'right' });
+
+  doc.setFont('helvetica', 'normal');
+  doc.text('Tanggal :', 155, 31, { align: 'right' });
+  doc.setFont('helvetica', 'bold');
+  doc.text(formatDate(payment.date), 195, 31, { align: 'right' });
+
+  // Divider Line
+  doc.setDrawColor(226, 232, 240);
+  doc.setLineWidth(0.5);
+  doc.line(15, 38, 195, 38);
+
+  let currentY = 48;
+
+  // Helper to draw structured row
+  const drawRow = (label: string, valueRender: () => number) => {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(100, 116, 139); // slate-500
+    doc.text(label.toUpperCase(), 15, currentY);
+    doc.text(':', 55, currentY);
+    const nextY = valueRender();
+    currentY = nextY + 8;
+  };
+
+  // 1. Sudah terima dari
+  drawRow('Sudah Terima Dari', () => {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.setTextColor(15, 23, 42);
+    doc.text(invoice.clientName || '-', 60, currentY);
+    return currentY;
+  });
+
+  // 2. Uang sejumlah
+  drawRow('Uang Sejumlah', () => {
+    doc.setFillColor(239, 246, 255); // bg-blue-50
+    doc.setDrawColor(191, 219, 254); // border-blue-200
+    doc.roundedRect(60, currentY - 5, 80, 10, 2, 2, 'FD');
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(13);
+    doc.setTextColor(30, 64, 175); // blue-800
+    doc.text(`Rp ${formatNum(payment.amount)}`, 64, currentY + 2);
+    return currentY + 4;
+  });
+
+  // 3. Terbilang
+  drawRow('Terbilang', () => {
+    const wordsText = terbilang(payment.amount);
+    doc.setFillColor(248, 250, 252); // slate-50
+    doc.setDrawColor(37, 99, 235); // blue-600 left border
+    
+    // Draw left accent bar
+    doc.rect(60, currentY - 4, 1.5, 10, 'F');
+
+    doc.setFont('helvetica', 'bolditalic');
+    doc.setFontSize(9.5);
+    doc.setTextColor(30, 41, 59);
+    const splitWords = doc.splitTextToSize(wordsText, 125);
+    doc.text(splitWords, 64, currentY + 1);
+    return currentY + (splitWords.length * 4);
+  });
+
+  // 4. Untuk Pembayaran
+  drawRow('Untuk Pembayaran', () => {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.setTextColor(15, 23, 42);
+    doc.text(`Invoice ${invoice.invoiceNumber}`, 60, currentY);
+
+    const desc = invoice.projectTitle || (invoice.items?.[0]?.description ? invoice.items[0].description.split('\n')[0] : '');
+    let endY = currentY;
+    if (desc) {
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.setTextColor(71, 85, 105);
+      const splitDesc = doc.splitTextToSize(desc, 125);
+      doc.text(splitDesc, 60, currentY + 5);
+      endY = currentY + 5 + (splitDesc.length * 4);
+    }
+    return endY;
+  });
+
+  // 5. Metode Pembayaran
+  drawRow('Metode Pembayaran', () => {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9.5);
+    doc.setTextColor(15, 23, 42);
+    const methodStr = `${payment.method || 'Transfer BCA'}${payment.refNumber ? ` (Ref: ${payment.refNumber})` : ''}`;
+    doc.text(methodStr, 60, currentY);
+    return currentY;
+  });
+
+  // Catatan if present
+  if (payment.notes) {
+    drawRow('Catatan', () => {
+      doc.setFont('helvetica', 'italic');
+      doc.setFontSize(9);
+      doc.setTextColor(100, 116, 139);
+      doc.text(payment.notes || '', 60, currentY);
+      return currentY;
+    });
+  }
+
+  // Divider Line before footer
+  currentY += 5;
+  doc.setDrawColor(226, 232, 240);
+  doc.setLineWidth(0.4);
+  doc.line(15, currentY, 195, currentY);
+
+  // Footer / Signature
+  const footerY = currentY + 10;
+  
+  // Left: Summary info
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8.5);
+  doc.setTextColor(15, 23, 42);
+  doc.text('Ringkasan Tagihan:', 15, footerY);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  doc.setTextColor(71, 85, 105);
+  doc.text(`Total Invoice : Rp ${formatNum(invoice.totalAmount)}`, 15, footerY + 5);
+  doc.text(`Sisa Tagihan : Rp ${formatNum(invoice.balanceDue ?? 0)}`, 15, footerY + 9);
+
+  // Right: Signature
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8.5);
+  doc.setTextColor(30, 41, 59);
+  doc.text(`Bandung, ${formatDate(payment.date)}`, 157, footerY, { align: 'center' });
+  doc.text('Hormat Kami,', 157, footerY + 5, { align: 'center' });
+
+  if (qrBase64) {
+    doc.addImage(qrBase64, 'PNG', 143, footerY + 8, 28, 28);
+  }
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+  doc.setTextColor(15, 23, 42);
+  const sigBrand = doc.splitTextToSize('NOTARIS/PPAT NUKANTINI PUTRI PARINCHA, SH., M.Kn', 75);
+  doc.text(sigBrand, 157, footerY + 39, { align: 'center' });
+
+  doc.save(filename);
+}
+
+export async function printKwitansi(invoice: Invoice, payment: PaymentRecord, publicUrl?: string) {
+  const qrBase64 = await getQrCodeBase64(invoice, publicUrl);
+  const html = generateKwitansiHTML(invoice, payment, qrBase64, true);
+
+  const win = window.open('', '_blank');
+  if (win) {
+    win.document.open();
+    win.document.write(html);
+    win.document.close();
+  } else {
+    alert('Harap izinkan popup browser untuk membuka dialog cetak kwitansi.');
+  }
 }

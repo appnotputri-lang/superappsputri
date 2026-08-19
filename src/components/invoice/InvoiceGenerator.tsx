@@ -9,7 +9,7 @@ import { CompanyService } from '../../services/CompanyService';
 import { calculateInvoiceTotals, getItemSubtotal } from '../../services/taxCalculator';
 import { formatInputNumber, parseFormattedNumber } from '../../../utils/formatters';
 import { InvoicePrintTemplate } from './InvoicePrintTemplate';
-import { printInvoice, downloadInvoicePdf } from '../../utils/invoiceHtmlGenerator';
+import { printInvoice, downloadInvoicePdf, downloadKwitansiPdf, printKwitansi, terbilang } from '../../utils/invoiceHtmlGenerator';
 import { getApiUrl, getAuthHeaders } from '../../lib/api';
 import { auth, db } from '../../lib/firebase';
 import { resolveClientPhone, isFuzzyNameMatch } from '../../utils/clientPhoneResolver';
@@ -210,9 +210,11 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = (props) => {
   const [totalInvoicesCount, setTotalInvoicesCount] = useState(0);
   const [isBackgroundFetching, setIsBackgroundFetching] = useState(false);
 
-  // View mode: 'list' | 'create' | 'edit' | 'detail'
-  const [viewMode, setViewMode] = useState<'list' | 'create' | 'edit' | 'detail'>('list');
+  // View mode: 'list' | 'create' | 'edit' | 'detail' | 'kwitansi'
+  const [viewMode, setViewMode] = useState<'list' | 'create' | 'edit' | 'detail' | 'kwitansi'>('list');
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
+  const [selectedPayment, setSelectedPayment] = useState<PaymentRecord | null>(null);
+  const [downloadingKwitansiPdf, setDownloadingKwitansiPdf] = useState(false);
 
   // Filter & Search State
   const [searchTerm, setSearchTerm] = useState('');
@@ -749,9 +751,21 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = (props) => {
     }
   };
 
+  const openKwitansiDetail = (inv: Invoice, payment: PaymentRecord) => {
+    const payId = payment.id || `pay_${Date.now()}`;
+    const paymentWithId = { ...payment, id: payId };
+    setSelectedInvoice(inv);
+    setSelectedPayment(paymentWithId);
+    setViewMode('kwitansi');
+    const targetPath = `/invoices/${encodeURIComponent(inv.id)}/payments/${encodeURIComponent(payId)}`;
+    if (window.location.pathname !== targetPath) {
+      navigate(targetPath);
+    }
+  };
+
   const navigate = useNavigate();
 
-  // Sync state with URL path (/invoices/:id, /invoices/new, /invoices/:id/edit)
+  // Sync state with URL path (/invoices/:id, /invoices/new, /invoices/:id/edit, /invoices/:id/payments/:paymentId)
   useEffect(() => {
     const parts = location.pathname.split('/').filter(Boolean);
     const lastPart = parts[parts.length - 1];
@@ -759,6 +773,42 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = (props) => {
     if (lastPart === 'new') {
       if (viewMode !== 'create') {
         openCreatePage();
+      }
+    } else if (parts.length >= 4 && parts[parts.length - 2] === 'payments') {
+      const invId = parts[1];
+      const payId = parts[3];
+
+      const syncKwitansi = (inv: Invoice) => {
+        setSelectedInvoice(inv);
+        let foundPay = inv.paymentHistory?.find(p => p.id === payId);
+        if (!foundPay && inv.paymentHistory && inv.paymentHistory.length > 0) {
+          const idxMatch = payId.match(/^pay_(\d+)$/);
+          if (idxMatch) {
+            const idx = parseInt(idxMatch[1], 10);
+            if (inv.paymentHistory[idx]) {
+              foundPay = inv.paymentHistory[idx];
+            }
+          }
+          if (!foundPay) {
+            foundPay = inv.paymentHistory[0];
+          }
+        }
+
+        if (foundPay) {
+          const finalPay = { ...foundPay, id: foundPay.id || payId };
+          setSelectedPayment(finalPay);
+          setViewMode('kwitansi');
+        } else {
+          openDetailPage(inv);
+        }
+      };
+
+      if (!selectedInvoice || (selectedInvoice.id !== invId && selectedInvoice.invoiceNumber !== invId)) {
+        InvoiceService.getInvoiceById(invId).then(inv => {
+          if (inv) syncKwitansi(inv);
+        });
+      } else {
+        syncKwitansi(selectedInvoice);
       }
     } else if (parts.length >= 3 && lastPart === 'edit') {
       const invId = parts[parts.length - 2];
@@ -782,6 +832,7 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = (props) => {
       if (viewMode !== 'list') {
         setViewMode('list');
         setSelectedInvoice(null);
+        setSelectedPayment(null);
       }
     }
   }, [location.pathname]);
@@ -2250,17 +2301,60 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
 
                   {inv.paymentHistory && inv.paymentHistory.length > 0 && (
                     <div className="mt-8 pt-6 border-t border-slate-200">
-                      <h4 className="font-bold text-slate-800 mb-4">Riwayat</h4>
-                      <div className="space-y-3">
-                        {inv.paymentHistory.map((p, pIdx) => (
-                          <div key={p.id || pIdx} className="bg-white p-4 rounded-xl border border-slate-200 flex flex-col gap-1">
-                            <div className="flex justify-between items-center">
-                              <span className="font-bold text-slate-800">Rp {formatCurrency(p.amount)}</span>
-                              <span className="text-xs text-slate-500">{formatDateIndo(p.date)}</span>
+                      <div className="flex justify-between items-center mb-3">
+                        <h4 className="font-bold text-slate-800 text-sm flex items-center gap-2">
+                          <FileText size={16} className="text-blue-600" />
+                          Riwayat Pembayaran
+                        </h4>
+                        <span className="text-xs font-semibold text-slate-500 bg-slate-200/60 px-2 py-0.5 rounded-full">
+                          {inv.paymentHistory.length} Transaksi
+                        </span>
+                      </div>
+                      <div className="space-y-2.5">
+                        {inv.paymentHistory.map((p, pIdx) => {
+                          const payId = p.id || `pay_${pIdx}`;
+                          const refStr = p.refNumber || (p.notes?.match(/Ref:\s*([^\s-]+)/i)?.[1]);
+                          return (
+                            <div
+                              key={payId}
+                              onClick={() => {
+                                setIsMobilePaymentOpen(false);
+                                openKwitansiDetail(inv, { ...p, id: payId });
+                              }}
+                              tabIndex={0}
+                              role="button"
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                  e.preventDefault();
+                                  setIsMobilePaymentOpen(false);
+                                  openKwitansiDetail(inv, { ...p, id: payId });
+                                }
+                              }}
+                              className="group bg-white p-3.5 rounded-xl border border-slate-200/90 shadow-2xs hover:border-blue-400 hover:shadow-xs active:bg-slate-100/90 transition-all cursor-pointer flex items-center justify-between gap-3 text-xs"
+                            >
+                              <div className="space-y-1 min-w-0 flex-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-bold text-slate-900 text-sm">
+                                    Rp {formatCurrency(p.amount)}
+                                  </span>
+                                  <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold px-2 py-0.5 rounded-md">
+                                    {p.method || 'Transfer BCA'}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-3 text-slate-500 text-[11px] font-mono">
+                                  <span>{formatDateIndo(p.date)}</span>
+                                  {refStr && <span className="text-blue-600 font-medium truncate">Ref: {refStr}</span>}
+                                </div>
+                                {p.notes && !p.notes.startsWith('Ref:') && (
+                                  <p className="text-[11px] text-slate-500 italic truncate">{p.notes}</p>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-1 text-blue-600 font-semibold text-xs shrink-0">
+                                <ChevronRight size={18} className="text-slate-400 group-hover:text-blue-600 group-hover:translate-x-0.5 transition-transform" />
+                              </div>
                             </div>
-                            <p className="text-xs text-slate-500">{p.method || 'Transfer'}</p>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     </div>
                   )}
@@ -2480,28 +2574,62 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
 
             {/* Riwayat Pembayaran */}
             <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm space-y-3">
-              <h3 className="font-bold text-slate-900 text-xs flex items-center gap-2">
-                <FileText size={14} className="text-slate-500" />
-                Riwayat Pembayaran
-              </h3>
+              <div className="flex justify-between items-center">
+                <h3 className="font-bold text-slate-900 text-xs flex items-center gap-2">
+                  <FileText size={14} className="text-blue-600" />
+                  Riwayat Pembayaran
+                </h3>
+                {inv.paymentHistory && inv.paymentHistory.length > 0 && (
+                  <span className="text-[10px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-100">
+                    {inv.paymentHistory.length} Pembayaran
+                  </span>
+                )}
+              </div>
 
               {inv.paymentHistory && inv.paymentHistory.length > 0 ? (
-                <div className="space-y-2 max-h-60 overflow-y-auto">
-                  {inv.paymentHistory.map((p, pIdx) => (
-                    <div key={p.id || pIdx} className="p-3 bg-slate-50 rounded-xl border border-slate-100 text-xs space-y-1">
-                      <div className="flex items-center justify-between font-bold text-slate-900">
-                        <span>Rp {formatCurrency(p.amount)}</span>
-                        <span className="text-[10px] text-slate-500 font-normal">{formatDateIndo(p.date)}</span>
+                <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                  {inv.paymentHistory.map((p, pIdx) => {
+                    const payId = p.id || `pay_${pIdx}`;
+                    const refStr = p.refNumber || (p.notes?.match(/Ref:\s*([^\s-]+)/i)?.[1]);
+                    return (
+                      <div
+                        key={payId}
+                        onClick={() => openKwitansiDetail(inv, { ...p, id: payId })}
+                        tabIndex={0}
+                        role="button"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            openKwitansiDetail(inv, { ...p, id: payId });
+                          }
+                        }}
+                        className="group p-3 bg-slate-50/80 hover:bg-blue-50/50 rounded-xl border border-slate-200/80 hover:border-blue-300 text-xs space-y-1.5 transition-all cursor-pointer shadow-2xs hover:shadow-xs active:bg-blue-100/40"
+                      >
+                        <div className="flex items-center justify-between font-bold text-slate-900">
+                          <span className="text-slate-900 font-bold group-hover:text-blue-700 transition-colors">
+                            Rp {formatCurrency(p.amount)}
+                          </span>
+                          <span className="text-[10px] text-slate-500 font-normal">{formatDateIndo(p.date)}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-[11px] text-slate-600">
+                          <span className="font-medium text-slate-700">{p.method || 'Transfer'}</span>
+                          {refStr && <span className="text-[10px] font-mono text-blue-600 font-semibold">Ref: {refStr}</span>}
+                        </div>
+                        {p.notes && !p.notes.startsWith('Ref:') && (
+                          <p className="text-[10px] text-slate-500 italic truncate">{p.notes}</p>
+                        )}
+                        <div className="pt-1 flex items-center justify-end text-[10px] font-bold text-blue-600 group-hover:underline">
+                          <span>Buka Kwitansi</span>
+                          <ChevronRight size={12} className="ml-0.5 group-hover:translate-x-0.5 transition-transform" />
+                        </div>
                       </div>
-                      <p className="text-[11px] text-slate-600">{p.method || 'Transfer'}</p>
-                      {p.notes && <p className="text-[10px] text-slate-500 italic">{p.notes}</p>}
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
-                <p className="text-center text-slate-400 text-xs italic py-4">
-                  Belum ada pembayaran.
-                </p>
+                <div className="text-center py-6 text-slate-400 text-xs italic bg-slate-50/50 rounded-xl border border-dashed border-slate-200">
+                  Belum ada riwayat pembayaran
+                </div>
               )}
             </div>
           </div>
@@ -2509,6 +2637,196 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
         </div>
         {renderWhatsAppModal()}
       </>
+    );
+  }
+
+  // =========================================================================
+  // RENDER 2B: KWITANSI DETAIL VIEW
+  // =========================================================================
+  if (viewMode === 'kwitansi' && selectedInvoice && selectedPayment) {
+    const inv = selectedInvoice;
+    const pay = selectedPayment;
+    const receiptNo = pay.refNumber || pay.id || `KWT/${inv.invoiceNumber}`;
+    const paymentDateStr = formatDateIndo(pay.date);
+    const amountWords = terbilang(pay.amount);
+
+    return (
+      <div className="p-4 md:p-6 w-[94%] xl:w-[92%] max-w-4xl mx-auto space-y-6">
+        {/* Navigation & Action Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 print:hidden bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => {
+                setViewMode('detail');
+                navigate(`/invoices/${encodeURIComponent(inv.id)}`);
+              }}
+              className="p-2.5 bg-slate-50 hover:bg-slate-100 text-slate-700 rounded-xl border border-slate-200 transition-all cursor-pointer flex items-center gap-1.5 text-xs font-bold active:scale-[0.98]"
+            >
+              <ArrowLeft size={16} /> Kembali ke Tagihan
+            </button>
+            <div>
+              <h1 className="text-base sm:text-lg font-bold text-slate-900 flex items-center gap-2">
+                Kwitansi Pembayaran
+              </h1>
+              <p className="text-xs text-slate-500 font-mono">{receiptNo}</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2.5">
+            <button
+              onClick={() => printKwitansi(inv, pay)}
+              className="px-3.5 py-2.5 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs active:scale-[0.98]"
+            >
+              <Printer size={15} /> Cetak
+            </button>
+            <button
+              onClick={async () => {
+                setDownloadingKwitansiPdf(true);
+                try {
+                  await downloadKwitansiPdf(inv, pay);
+                } catch (e) {
+                  console.error('Error downloading kwitansi pdf:', e);
+                  alert('Gagal mengunduh Kwitansi PDF.');
+                } finally {
+                  setDownloadingKwitansiPdf(false);
+                }
+              }}
+              disabled={downloadingKwitansiPdf}
+              className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs disabled:opacity-50 active:scale-[0.98]"
+            >
+              <Download size={15} />
+              {downloadingKwitansiPdf ? 'Mengunduh...' : 'Download PDF Kwitansi'}
+            </button>
+          </div>
+        </div>
+
+        {/* Printable / Screen Kwitansi Document Card */}
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-10 space-y-6">
+          {/* Kop & Document Header */}
+          <div className="flex flex-col sm:flex-row justify-between items-start border-b-2 border-blue-600 pb-5 gap-4">
+            <div>
+              <h2 className="text-blue-600 font-bold text-base sm:text-lg leading-snug tracking-tight">
+                NOTARIS / PPAT<br />
+                NUKANTINI PUTRI PARINCHA, S.H., M.Kn.
+              </h2>
+              <p className="text-slate-500 text-xs mt-1">
+                Jl. Dipatiukur No. 128, Bandung | Telp: (022) 2501234
+              </p>
+            </div>
+            <div className="sm:text-right">
+              <h1 className="text-2xl font-black text-slate-900 tracking-wider">KWITANSI</h1>
+              <div className="text-xs text-slate-600 mt-1 font-mono space-y-0.5">
+                <div><span className="font-bold">No. Kwitansi:</span> {receiptNo}</div>
+                <div><span className="font-bold">Tanggal:</span> {paymentDateStr}</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Table Content */}
+          <div className="space-y-4 text-xs sm:text-sm text-slate-800">
+            <div className="grid grid-cols-1 sm:grid-cols-12 gap-1 sm:gap-4 items-start py-1">
+              <div className="sm:col-span-4 text-xs font-bold uppercase tracking-wider text-slate-500">
+                Sudah Terima Dari
+              </div>
+              <div className="sm:col-span-8 font-bold text-slate-900 text-sm sm:text-base">
+                {inv.clientName || '-'}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-12 gap-1 sm:gap-4 items-center py-1">
+              <div className="sm:col-span-4 text-xs font-bold uppercase tracking-wider text-slate-500">
+                Uang Sejumlah
+              </div>
+              <div className="sm:col-span-8">
+                <div className="inline-block bg-blue-50/80 text-blue-900 border border-blue-200 rounded-xl px-4 py-2 font-black text-lg sm:text-xl shadow-2xs">
+                  Rp {formatCurrency(pay.amount)}
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-12 gap-1 sm:gap-4 items-start py-1">
+              <div className="sm:col-span-4 text-xs font-bold uppercase tracking-wider text-slate-500">
+                Terbilang
+              </div>
+              <div className="sm:col-span-8">
+                <div className="bg-slate-50 border-l-4 border-blue-600 p-3 rounded-r-xl italic font-bold text-slate-800 text-xs sm:text-sm">
+                  {amountWords}
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-12 gap-1 sm:gap-4 items-start py-1">
+              <div className="sm:col-span-4 text-xs font-bold uppercase tracking-wider text-slate-500">
+                Untuk Pembayaran
+              </div>
+              <div className="sm:col-span-8 space-y-1">
+                <div className="font-bold text-slate-900 font-mono">
+                  Invoice {inv.invoiceNumber}
+                </div>
+                {inv.projectTitle && (
+                  <div className="text-xs text-slate-600 font-medium">
+                    Perihal: {inv.projectTitle}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-12 gap-1 sm:gap-4 items-start py-1">
+              <div className="sm:col-span-4 text-xs font-bold uppercase tracking-wider text-slate-500">
+                Metode Pembayaran
+              </div>
+              <div className="sm:col-span-8 font-medium text-slate-800">
+                {pay.method || 'Transfer BCA'}
+                {pay.refNumber && (
+                  <span className="ml-2 font-mono text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded border border-blue-200">
+                    Ref: {pay.refNumber}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {pay.notes && !pay.notes.startsWith('Ref:') && (
+              <div className="grid grid-cols-1 sm:grid-cols-12 gap-1 sm:gap-4 items-start py-1">
+                <div className="sm:col-span-4 text-xs font-bold uppercase tracking-wider text-slate-500">
+                  Catatan
+                </div>
+                <div className="sm:col-span-8 text-xs text-slate-600 italic">
+                  {pay.notes}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Footer & Signature Section */}
+          <div className="pt-6 border-t border-slate-200 flex flex-col sm:flex-row justify-between items-end gap-6">
+            <div className="text-xs text-slate-500 space-y-1">
+              <div className="font-bold text-slate-800">Ringkasan Tagihan:</div>
+              <div>Total Invoice: Rp {formatCurrency(inv.totalAmount)}</div>
+              <div>Sisa Tagihan Saat Ini: Rp {formatCurrency(inv.balanceDue)}</div>
+              <div className="text-[10px] text-slate-400 mt-2">
+                * Kwitansi ini diterbitkan resmi oleh Kantor Notaris / PPAT Nukantini Putri Parincha, S.H., M.Kn.
+              </div>
+            </div>
+
+            <div className="text-center sm:text-right shrink-0">
+              <div className="text-xs text-slate-600 mb-1">
+                Bandung, {paymentDateStr}
+              </div>
+              <div className="text-xs font-bold text-slate-800 mb-2">
+                Hormat kami,
+              </div>
+              <div className="py-2">
+                <div className="w-16 h-16 bg-blue-50 border border-blue-200 rounded-xl mx-auto sm:ml-auto flex items-center justify-center text-blue-600 font-bold text-[10px]">
+                  [ TTD / QR ]
+                </div>
+              </div>
+              <div className="text-xs font-bold text-slate-900 border-t border-slate-300 pt-1 mt-1">
+                NOTARIS / PPAT NUKANTINI PUTRI PARINCHA, S.H., M.Kn.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     );
   }
 

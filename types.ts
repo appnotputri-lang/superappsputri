@@ -593,6 +593,7 @@ export interface PaymentRecord {
   date: string; // YYYY-MM-DD
   amount: number;
   method?: string;
+  refNumber?: string;
   notes?: string;
   recordedBy?: string;
 }
