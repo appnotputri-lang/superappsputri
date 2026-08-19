@@ -238,7 +238,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
           }}
         >
           {/* Subtle Decorative Blue-on-Blue Accents */}
-          <div className="absolute -top-12 -right-12 w-48 h-48 rounded-full bg-white/10 pointer-events-none blur-xs" />
+          <div className="absolute -top-12 -right-12 w-48 h-48 rounded-full bg-white/10 pointer-events-none" />
           <div className="absolute top-28 -left-16 w-36 h-36 rounded-full bg-white/5 pointer-events-none" />
           <div className="absolute bottom-2 right-10 w-24 h-24 rounded-full bg-white/5 pointer-events-none" />
 

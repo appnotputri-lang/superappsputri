@@ -242,7 +242,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             }}
           >
             {/* Subtle Decorative Blue-on-Blue Circular Accents */}
-            <div className="absolute -top-8 -right-8 w-28 h-28 rounded-full bg-blue-500/10 pointer-events-none blur-2xs" aria-hidden="true" />
+            <div className="absolute -top-8 -right-8 w-28 h-28 rounded-full bg-blue-500/10 pointer-events-none" aria-hidden="true" />
             <div className="absolute -bottom-6 -left-6 w-20 h-20 rounded-full bg-blue-500/5 pointer-events-none" aria-hidden="true" />
 
             <div className="relative z-10 flex items-center justify-between">
