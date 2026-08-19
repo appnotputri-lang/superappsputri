@@ -21,6 +21,7 @@ import {
   ActivityTimelineModal,
   ProjectTasksModal
 } from './ProjectActivityComponents';
+import { ProjectHorizontalCard } from './ProjectHorizontalCard';
 
 const formatCompanyNameWithType = (name: string, clientType?: string) => {
   if (!name) return '';
@@ -1110,149 +1111,44 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
             </p>
           </div>
         ) : (
-          <div className="bg-slate-50/50 rounded-xl p-0.5">
-            {/* Card Grid View */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {filteredProjects.map((project, index) => {
-                const clientName = getClientName(project.clientId, project);
-                const title = getCleanTitle(project.title, project.clientId);
-                const isUnknown = clientName === 'Klien Tidak Diketahui';
-                const lastComment = activeTab === 'minuta'
-                  ? (project.minutaNotes || 'Tidak ada catatan minuta.')
-                  : (project.lastTransitionComment || `Proyek '${title}' telah berhasil diinisialisasi.`);
-
-                return (
-                  <div 
-                    key={project.projectId}
-                    onClick={() => onSelectProject(project.projectId)}
-                    className="bg-white rounded-xl border border-slate-200/80 p-4 shadow-xs hover:shadow-md transition-all flex flex-col justify-between cursor-pointer group"
-                  >
-                    <div>
-                      <div className="flex items-start justify-between gap-3 mb-1.5">
-                        <div className="min-w-0 flex-1">
-                          <h4 className="text-[13px] font-bold text-slate-900 leading-tight truncate uppercase" title={title}>
-                            {title}
-                          </h4>
-                          {!isUnknown && (
-                            <p className="text-[11px] text-slate-500 mt-0.5 truncate uppercase">
-                              {clientName}
-                            </p>
-                          )}
-                        </div>
-                        <span className="text-[10px] text-slate-400 font-mono shrink-0">No. {index + 1}</span>
-                      </div>
-
-                      <div className="flex flex-wrap gap-1.5 items-center my-2.5">
-                        <span className="px-2 py-0.5 text-[9px] font-bold bg-slate-100 text-slate-600 rounded-full">
-                          {getWorkflowName(project.jobType)}
-                        </span>
-                        <span className={`inline-flex items-center px-2 py-0.5 text-[9px] font-bold rounded-full border uppercase tracking-wider ${getStatusColor(getProjectStatusDisplay(project))}`}>
-                          {getProjectStatusDisplay(project)}
-                        </span>
-                      </div>
-
-                      {lastComment && (
-                        <div className="text-[11.5px] text-slate-600 bg-slate-50 p-2.5 rounded-lg border border-slate-100/60 leading-relaxed my-2">
-                          <span className="block text-[8px] text-slate-400 font-extrabold uppercase tracking-widest mb-1">Catatan Terakhir:</span>
-                          <p className="line-clamp-2">{lastComment}</p>
-                        </div>
-                      )}
-
-                      {/* Section: UPDATE TERBARU */}
-                      <ProjectActivityFeed
-                        activities={project.activities}
-                        onOpenTimeline={() => handleOpenTimeline(project)}
-                      />
-                    </div>
-
-                    {/* Footer Action Bar */}
-                    <div className="flex items-center justify-between border-t border-slate-100 pt-3 mt-3 gap-2 flex-wrap" onClick={(e) => e.stopPropagation()}>
-                      <div className="flex items-center gap-2 text-[11px] text-slate-500 flex-wrap">
-                        <span className="text-[10px] text-slate-400 font-mono flex items-center gap-1" title="Tanggal Dibuat">
-                          <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                          {project.createdAt ? new Date(getProjectTime(project.createdAt)).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }) : '-'}
-                        </span>
-
-                        <button 
-                          type="button"
-                          onClick={() => handleOpenTimeline(project)}
-                          className="flex items-center gap-1 px-2 py-1 bg-purple-50 hover:bg-purple-100 text-purple-700 font-bold rounded-lg text-[10.5px] transition-colors cursor-pointer"
-                          title="Lihat Aktivitas / Komentar"
-                        >
-                          <MessageSquare className="w-3.5 h-3.5" />
-                          <span>{project.activitiesCount || (project.activities ? project.activities.length : 0)}</span>
-                        </button>
-
-                        <button 
-                          type="button"
-                          onClick={() => handleOpenTasks(project)}
-                          className="flex items-center gap-1 px-2 py-1 bg-sky-50 hover:bg-sky-100 text-sky-700 font-bold rounded-lg text-[10.5px] transition-colors cursor-pointer"
-                          title="Lihat / Kelola Tugas Proyek"
-                        >
-                          <CheckSquare className="w-3.5 h-3.5" />
-                          <span>{project.activeTasksCount ?? (project.tasks ? project.tasks.filter(t => t.status === 'open').length : 0)}</span>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => handleOpenAddActivity(project)}
-                          className="p-1 bg-slate-100 hover:bg-blue-50 hover:text-blue-600 text-slate-600 rounded-lg transition-colors cursor-pointer"
-                          title="Tambah Aktivitas / Tugas / Kendala"
-                        >
-                          <Plus className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-
-                      <div className="flex items-center gap-2 shrink-0">
-                        <button 
-                          type="button"
-                          onClick={() => onSelectProject(project.projectId)}
-                          className="px-2.5 py-1 rounded-lg bg-blue-50 text-blue-700 font-bold text-[10px] hover:bg-blue-100 transition-colors uppercase flex items-center gap-1 cursor-pointer"
-                        >
-                          Detail <ArrowRight className="w-3 h-3" />
-                        </button>
-
-                        {currentUser?.role === 'Super Admin' && (
-                          <button 
-                            type="button"
-                            onClick={(e) => handleDeleteProject(e, project.projectId, project.title)}
-                            className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
-                            title="Hapus Proyek"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Pagination Controls */}
-            <div className="flex items-center justify-between px-4 py-3 bg-white border-t border-slate-200 text-xs text-slate-600">
-              <div className="flex items-center gap-2">
-                <span>Halaman <strong className="text-slate-800">{currentPage}</strong></span>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                  disabled={currentPage === 1 || isCurrentTabLoading}
-                  className="px-3 py-1.5 border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed font-medium cursor-pointer"
-                >
-                  Sebelumnya
-                </button>
-                <button
-                  onClick={() => setCurrentPage(p => p + 1)}
-                  disabled={!hasMore || isCurrentTabLoading}
-                  className="px-3 py-1.5 border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed font-medium cursor-pointer"
-                >
-                  Selanjutnya
-                </button>
-              </div>
-            </div>
+          <div className="space-y-3">
+            {filteredProjects.map((project, index) => (
+              <ProjectHorizontalCard
+                key={project.projectId}
+                project={project}
+                currentUser={currentUser}
+                onSelectProject={onSelectProject}
+                onDeleteProject={handleDeleteProject}
+                onOpenAddActivityModal={handleOpenAddActivity}
+                onOpenTasksModal={handleOpenTasks}
+                indexNumber={(currentPage - 1) * 20 + index + 1}
+              />
+            ))}
           </div>
         )}
+
+        {/* Pagination Controls */}
+        <div className="flex items-center justify-between px-4 py-3 bg-white border border-slate-200 rounded-xl text-xs text-slate-600 mt-3">
+          <div className="flex items-center gap-2">
+            <span>Halaman <strong className="text-slate-800">{currentPage}</strong></span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={currentPage === 1 || isCurrentTabLoading}
+              className="px-3 py-1.5 border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed font-medium cursor-pointer"
+            >
+              Sebelumnya
+            </button>
+            <button
+              onClick={() => setCurrentPage(p => p + 1)}
+              disabled={!hasMore || isCurrentTabLoading}
+              className="px-3 py-1.5 border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed font-medium cursor-pointer"
+            >
+              Selanjutnya
+            </button>
+          </div>
+        </div>
 
         {/* Create Project Modal */}
         {isModalOpen && (

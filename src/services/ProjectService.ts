@@ -830,8 +830,18 @@ export class ProjectService {
             const data = docSnap.data();
             list.push({ ...data, projectId: docSnap.id } as Project);
           });
+          // Filter to active projects only (exclude completed & minuta projects)
+          const activeProjectsOnly = list.filter((p) => {
+            if ((p as any).isArchived) return false;
+            const statusLower = (p.status || '').toLowerCase();
+            const categoryLower = ((p as any).statusCategory || '').toLowerCase();
+            if (statusLower === 'selesai' || statusLower === 'completed' || categoryLower === 'completed') return false;
+            if (statusLower === 'minuta' || categoryLower === 'minuta') return false;
+            return true;
+          });
+
           // Sort by lastActivityAt or updatedAt or createdAt descending
-          list.sort((a, b) => {
+          activeProjectsOnly.sort((a, b) => {
             const getTimeVal = (val: any) => {
               if (!val) return 0;
               if (typeof val.toDate === 'function') return val.toDate().getTime();
@@ -842,7 +852,7 @@ export class ProjectService {
             const timeB = getTimeVal(b.lastActivityAt) || getTimeVal(b.updatedAt) || getTimeVal(b.createdAt);
             return timeB - timeA;
           });
-          onUpdate(list);
+          onUpdate(activeProjectsOnly);
         },
         (error) => {
           console.error('[ProjectService] Error in subscribeTimelineProjects:', error);
@@ -868,8 +878,22 @@ export class ProjectService {
 
     const notifyCombined = () => {
       const combinedMap = new Map<string, ProjectActivity>();
-      [...currentActivities, ...currentComments].forEach(item => {
+      currentActivities.forEach(item => {
         if (item.id) combinedMap.set(item.id, item);
+      });
+      currentComments.forEach(item => {
+        if (item.id) {
+          const existing = combinedMap.get(item.id);
+          if (existing) {
+            combinedMap.set(item.id, {
+              ...existing,
+              ...item,
+              reactions: item.reactions || existing.reactions || {}
+            });
+          } else {
+            combinedMap.set(item.id, item);
+          }
+        }
       });
       const unified = Array.from(combinedMap.values());
       unified.sort((a, b) => {
@@ -923,6 +947,7 @@ export class ProjectService {
               parentCommentId: data.parentCommentId || null,
               attachmentUrl: data.attachmentUrl || undefined,
               attachmentName: data.attachmentName || undefined,
+              reactions: data.reactions || {},
               createdAt: data.createdAt,
               updatedAt: data.updatedAt
             } as ProjectActivity;
@@ -1027,6 +1052,98 @@ export class ProjectService {
     } catch (error) {
       console.error('[ProjectService] Error adding timeline comment:', error);
       handleFirestoreError(error, OperationType.WRITE, `${this.projectsCol}/${projectId}/comments`);
+      throw error;
+    }
+  }
+
+  /**
+   * Toggles a reaction emoji on a comment in Firestore.
+   */
+  static async toggleCommentReaction(
+    projectId: string,
+    commentId: string,
+    emoji: string,
+    userId: string
+  ): Promise<void> {
+    try {
+      const commentRef = doc(db, this.projectsCol, projectId, "comments", commentId);
+      const activityRef = doc(db, this.projectsCol, projectId, "activities", commentId);
+
+      const commentSnap = await getDoc(commentRef);
+      const activitySnap = await getDoc(activityRef);
+
+      if (!commentSnap.exists() && !activitySnap.exists()) return;
+
+      const data = commentSnap.exists() ? commentSnap.data() : activitySnap.data();
+      const reactions: Record<string, string[]> = data?.reactions || {};
+      const currentUsers: string[] = reactions[emoji] || [];
+
+      let updatedUsers: string[];
+      if (currentUsers.includes(userId)) {
+        updatedUsers = currentUsers.filter(u => u !== userId);
+      } else {
+        updatedUsers = [...currentUsers, userId];
+      }
+
+      const updatedReactions = { ...reactions };
+      if (updatedUsers.length > 0) {
+        updatedReactions[emoji] = updatedUsers;
+      } else {
+        delete updatedReactions[emoji];
+      }
+
+      const updatePayload = {
+        reactions: updatedReactions,
+        updatedAt: serverTimestamp()
+      };
+
+      if (commentSnap.exists()) {
+        await updateDoc(commentRef, updatePayload);
+      }
+      if (activitySnap.exists()) {
+        await updateDoc(activityRef, updatePayload);
+      }
+    } catch (error) {
+      console.error('[ProjectService] Error toggling reaction:', error);
+      handleFirestoreError(error, OperationType.WRITE, `${this.projectsCol}/${projectId}/comments/${commentId}`);
+    }
+  }
+
+  /**
+   * Deletes a comment/activity from Firestore (from both comments and activities subcollections).
+   */
+  static async deleteProjectComment(
+    projectId: string,
+    commentId: string
+  ): Promise<void> {
+    try {
+      const commentRef = doc(db, this.projectsCol, projectId, "comments", commentId);
+      const activityRef = doc(db, this.projectsCol, projectId, "activities", commentId);
+
+      const commentSnap = await getDoc(commentRef);
+      if (commentSnap.exists()) {
+        await deleteDoc(commentRef);
+      }
+
+      const activitySnap = await getDoc(activityRef);
+      if (activitySnap.exists()) {
+        await deleteDoc(activityRef);
+      }
+
+      // Decrement activities count in parent project doc if needed
+      const projectRef = doc(db, this.projectsCol, projectId);
+      const projectSnap = await getDoc(projectRef);
+      if (projectSnap.exists()) {
+        const pData = projectSnap.data();
+        const currentCount = pData.activitiesCount || 0;
+        await updateDoc(projectRef, {
+          activitiesCount: Math.max(0, currentCount - 1),
+          updatedAt: new Date().toISOString()
+        });
+      }
+    } catch (error) {
+      console.error('[ProjectService] Error deleting comment:', error);
+      handleFirestoreError(error, OperationType.DELETE, `${this.projectsCol}/${projectId}/comments/${commentId}`);
       throw error;
     }
   }

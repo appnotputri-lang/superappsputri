@@ -129,6 +129,7 @@ export interface ProjectActivity {
   parentCommentId?: string | null;
   attachmentUrl?: string;
   attachmentName?: string;
+  reactions?: Record<string, string[]>;
   taskId?: string;
   taskTitle?: string;
   assignedTo?: string;

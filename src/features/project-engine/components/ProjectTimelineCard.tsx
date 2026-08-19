@@ -15,8 +15,19 @@ import {
   FileText,
   Clock,
   Sparkles,
-  ArrowRight
+  ArrowRight,
+  Smile,
+  AtSign,
+  Trash2
 } from 'lucide-react';
+
+const EMOJI_CATEGORIES = {
+  smileys: ['😊', '😀', '😃', '😄', '😁', '😂', '🤣', '😭', '😢', '😡'],
+  reactions: ['👍', '👎', '🎉', '🔥', '🙏', '👀', '❤️', '👏', '✨', '💯'],
+  favorites: ['❤️', '👍', '🔥', '🎉', '😂', '🙏', '👀']
+};
+
+const DEFAULT_REACTIONS = ['👍', '❤️', '😂', '🎉', '🔥', '👀', '🙏'];
 
 interface ProjectTimelineCardProps {
   project: Project;
@@ -116,8 +127,28 @@ export const ProjectTimelineCard: React.FC<ProjectTimelineCardProps> = ({
   const [newComment, setNewComment] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedAttachment, setSelectedAttachment] = useState<{ url: string; name: string } | null>(null);
+  const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
+  const [activeEmojiCategory, setActiveEmojiCategory] = useState<'smileys' | 'reactions' | 'favorites'>('smileys');
+  const [activeReactionPickerCommentId, setActiveReactionPickerCommentId] = useState<string | null>(null);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const threadEndRef = useRef<HTMLDivElement>(null);
+  const emojiPickerRef = useRef<HTMLDivElement>(null);
+  const reactionPickerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (emojiPickerRef.current && !emojiPickerRef.current.contains(e.target as Node)) {
+        setIsEmojiPickerOpen(false);
+      }
+      if (reactionPickerRef.current && !reactionPickerRef.current.contains(e.target as Node)) {
+        setActiveReactionPickerCommentId(null);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Subscribe to real-time comments & activities when expanded
   useEffect(() => {
@@ -179,6 +210,7 @@ export const ProjectTimelineCard: React.FC<ProjectTimelineCardProps> = ({
 
       setNewComment('');
       setSelectedAttachment(null);
+      setIsEmojiPickerOpen(false);
 
       // Auto scroll to latest comment
       setTimeout(() => {
@@ -189,6 +221,44 @@ export const ProjectTimelineCard: React.FC<ProjectTimelineCardProps> = ({
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const currentUserId = currentUser?.uid || 'user-1';
+
+  const handleToggleReaction = async (commentId: string, emoji: string) => {
+    try {
+      await ProjectService.toggleCommentReaction(project.projectId, commentId, emoji, currentUserId);
+    } catch (err) {
+      console.error('Gagal mengubah reaksi:', err);
+    } finally {
+      setActiveReactionPickerCommentId(null);
+    }
+  };
+
+  const handleDeleteComment = async (commentId: string) => {
+    if (!window.confirm('Hapus komentar ini?')) return;
+    try {
+      await ProjectService.deleteProjectComment(project.projectId, commentId);
+    } catch (err) {
+      console.error('Gagal menghapus komentar:', err);
+    }
+  };
+
+  const handleInsertEmoji = (emoji: string) => {
+    if (!inputRef.current) {
+      setNewComment(prev => prev + emoji);
+      return;
+    }
+    const input = inputRef.current;
+    const start = input.selectionStart || newComment.length;
+    const end = input.selectionEnd || newComment.length;
+    const updated = newComment.substring(0, start) + emoji + newComment.substring(end);
+    setNewComment(updated);
+
+    setTimeout(() => {
+      input.focus();
+      input.setSelectionRange(start + emoji.length, start + emoji.length);
+    }, 10);
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -333,9 +403,21 @@ export const ProjectTimelineCard: React.FC<ProjectTimelineCardProps> = ({
                             {act.userName || 'Sistem'}
                           </span>
                         </div>
-                        <span className="text-[10px] font-medium text-slate-400 font-mono shrink-0">
-                          {formatThreadTime(act.createdAt)}
-                        </span>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <span className="text-[10px] font-medium text-slate-400 font-mono">
+                            {formatThreadTime(act.createdAt)}
+                          </span>
+                          {!isSystem && act.id && (
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteComment(act.id)}
+                              className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-600 transition-opacity p-0.5 rounded cursor-pointer"
+                              title="Hapus Komentar"
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          )}
+                        </div>
                       </div>
 
                       {/* TEXT CONTENT */}
@@ -350,6 +432,67 @@ export const ProjectTimelineCard: React.FC<ProjectTimelineCardProps> = ({
                           <span className="truncate max-w-[200px]">{act.attachmentName}</span>
                         </div>
                       )}
+
+                      {/* EMOJI REACTION BAR */}
+                      <div className="pt-2 flex items-center gap-1.5 flex-wrap relative">
+                        {Object.entries(act.reactions || {}).map(([emoji, uids]) => {
+                          const userList = Array.isArray(uids) ? uids : [];
+                          const count = userList.length;
+                          if (count === 0) return null;
+                          const hasReacted = userList.includes(currentUserId);
+
+                          return (
+                            <button
+                              key={emoji}
+                              type="button"
+                              onClick={() => handleToggleReaction(act.id, emoji)}
+                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold border transition-all cursor-pointer ${
+                                hasReacted
+                                  ? 'bg-blue-50 border-blue-300 text-blue-700 shadow-2xs'
+                                  : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                              }`}
+                            >
+                              <span>{emoji}</span>
+                              <span>{count}</span>
+                            </button>
+                          );
+                        })}
+
+                        {/* ADD REACTION EMOJI BUTTON */}
+                        <div className="relative">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setActiveReactionPickerCommentId(
+                                activeReactionPickerCommentId === act.id ? null : act.id
+                              );
+                            }}
+                            className="w-6 h-6 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center text-xs transition-colors cursor-pointer"
+                            title="Tambah Reaksi Emoji"
+                          >
+                            <Smile size={13} />
+                          </button>
+
+                          {/* REACTION EMOJI POPOVER */}
+                          {activeReactionPickerCommentId === act.id && (
+                            <div 
+                              ref={reactionPickerRef}
+                              className="absolute left-0 bottom-8 z-40 bg-white p-2 rounded-2xl shadow-xl border border-slate-200 flex items-center gap-1 animate-fade-in"
+                            >
+                              {DEFAULT_REACTIONS.map((emoji) => (
+                                <button
+                                  key={emoji}
+                                  type="button"
+                                  onClick={() => handleToggleReaction(act.id, emoji)}
+                                  className="w-7 h-7 rounded-lg hover:bg-slate-100 text-base flex items-center justify-center transition-transform hover:scale-125 cursor-pointer"
+                                >
+                                  {emoji}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   </div>
                 );
@@ -359,7 +502,7 @@ export const ProjectTimelineCard: React.FC<ProjectTimelineCardProps> = ({
           </div>
 
           {/* INPUT FORM DIRECTLY INSIDE CARD */}
-          <form onSubmit={handlePostComment} className="pt-2">
+          <form onSubmit={handlePostComment} className="pt-2 relative">
             {selectedAttachment && (
               <div className="mb-2 flex items-center justify-between px-3 py-1.5 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-700">
                 <div className="flex items-center gap-1.5 truncate">
@@ -384,13 +527,78 @@ export const ProjectTimelineCard: React.FC<ProjectTimelineCardProps> = ({
 
               {/* INPUT TEXTAREA */}
               <input
+                ref={inputRef}
                 type="text"
                 value={newComment}
                 onChange={(e) => setNewComment(e.target.value)}
-                placeholder="Tulis komentar... (gunakan @nama)"
+                placeholder="Tulis komentar... (gunakan @nama atau 😊)"
                 className="flex-1 text-xs text-slate-800 placeholder-slate-400 bg-transparent focus:outline-none border-none py-1"
                 disabled={isSubmitting}
               />
+
+              {/* EMOJI PICKER BUTTON */}
+              <div className="relative" ref={emojiPickerRef}>
+                <button
+                  type="button"
+                  onClick={() => setIsEmojiPickerOpen(!isEmojiPickerOpen)}
+                  className="p-1.5 text-slate-400 hover:text-blue-600 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+                  title="Pilih Emoji"
+                >
+                  <Smile size={17} />
+                </button>
+
+                {/* NON-BLOCKING EMOJI PICKER POPOVER */}
+                {isEmojiPickerOpen && (
+                  <div className="absolute right-0 bottom-10 z-50 w-60 bg-white rounded-2xl shadow-2xl border border-slate-200 p-3 space-y-2 animate-fade-in">
+                    <div className="flex items-center justify-between border-b border-slate-100 pb-1.5 text-[10px] font-bold text-slate-600">
+                      <button
+                        type="button"
+                        onClick={() => setActiveEmojiCategory('smileys')}
+                        className={`px-1.5 py-0.5 rounded-lg ${activeEmojiCategory === 'smileys' ? 'bg-blue-50 text-blue-700' : 'hover:bg-slate-50'}`}
+                      >
+                        😊 Smileys
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setActiveEmojiCategory('reactions')}
+                        className={`px-1.5 py-0.5 rounded-lg ${activeEmojiCategory === 'reactions' ? 'bg-blue-50 text-blue-700' : 'hover:bg-slate-50'}`}
+                      >
+                        👍 Reactions
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setActiveEmojiCategory('favorites')}
+                        className={`px-1.5 py-0.5 rounded-lg ${activeEmojiCategory === 'favorites' ? 'bg-blue-50 text-blue-700' : 'hover:bg-slate-50'}`}
+                      >
+                        ❤️ Favorites
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-5 gap-1 pt-1 max-h-32 overflow-y-auto">
+                      {EMOJI_CATEGORIES[activeEmojiCategory].map((emoji, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => handleInsertEmoji(emoji)}
+                          className="w-8 h-8 rounded-lg hover:bg-slate-100 text-base flex items-center justify-center transition-transform hover:scale-125 cursor-pointer"
+                        >
+                          {emoji}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* MENTION BUTTON */}
+              <button
+                type="button"
+                onClick={() => handleInsertEmoji(' @')}
+                className="p-1.5 text-slate-400 hover:text-blue-600 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+                title="Mention User"
+              >
+                <AtSign size={16} />
+              </button>
 
               {/* ATTACHMENT ACTION */}
               <input 

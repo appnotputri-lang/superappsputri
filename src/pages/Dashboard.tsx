@@ -147,6 +147,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
   // Filtered timeline projects
   const filteredProjects = useMemo(() => {
     return timelineProjects.filter((p) => {
+      if ((p as any).isArchived) return false;
+      const statusLower = (p.status || '').toLowerCase();
+      const categoryLower = ((p as any).statusCategory || '').toLowerCase();
+      if (statusLower === 'selesai' || statusLower === 'completed' || categoryLower === 'completed') return false;
+      if (statusLower === 'minuta' || categoryLower === 'minuta') return false;
+
       const titleMatch = (p.title || p.clientSnapshot?.companyName || '').toLowerCase().includes(searchQuery.toLowerCase());
       const jobMatch = (p.jobType || p.projectType || '').toLowerCase().includes(searchQuery.toLowerCase());
       const matchesSearch = titleMatch || jobMatch;
@@ -154,8 +160,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
       if (!matchesSearch) return false;
 
       if (selectedStatus === 'ALL') return true;
-      if (selectedStatus === 'PROCESS') return p.status !== 'completed' && p.status !== 'selesai';
-      if (selectedStatus === 'COMPLETED') return p.status === 'completed' || p.status === 'selesai';
+      if (selectedStatus === 'PROCESS') return true;
       if (selectedStatus === 'ISSUE') return p.status?.toLowerCase().includes('kendala') || p.status?.toLowerCase().includes('revisi');
 
       return true;
