@@ -19,9 +19,11 @@ import {
   DocumentSnapshot,
   Timestamp,
   onSnapshot,
-  deleteDoc
+  deleteDoc,
+  serverTimestamp,
+  increment
 } from "firebase/firestore";
-import { Project, DocumentReference, ClientSnapshot, ProjectChangeSnapshot, ProjectActivity, ProjectTask } from "../domain/project/Project";
+import { Project, DocumentReference, ClientSnapshot, ProjectChangeSnapshot, ProjectActivity, ProjectActivityType, ProjectTask } from "../domain/project/Project";
 import { Timeline } from "../domain/project/Timeline";
 import { Task } from "../domain/project/Task";
 import { StatusEngine } from "../domain/project/ProjectStatus";
@@ -807,6 +809,225 @@ export class ProjectService {
     } catch (error) {
       console.error('[ProjectService] Error toggling task item:', error);
       return newStatus;
+    }
+  }
+
+  /**
+   * Realtime listener for recent projects sorted by last activity / update.
+   */
+  static subscribeTimelineProjects(
+    onUpdate: (projects: Project[]) => void,
+    onError?: (error: unknown) => void
+  ): () => void {
+    try {
+      const colRef = collection(db, this.projectsCol);
+      const q = query(colRef, limit(30));
+      return onSnapshot(
+        q,
+        (snapshot) => {
+          const list: Project[] = [];
+          snapshot.forEach((docSnap) => {
+            const data = docSnap.data();
+            list.push({ ...data, projectId: docSnap.id } as Project);
+          });
+          // Sort by lastActivityAt or updatedAt or createdAt descending
+          list.sort((a, b) => {
+            const getTimeVal = (val: any) => {
+              if (!val) return 0;
+              if (typeof val.toDate === 'function') return val.toDate().getTime();
+              if (typeof val.seconds === 'number') return val.seconds * 1000;
+              return new Date(val).getTime() || 0;
+            };
+            const timeA = getTimeVal(a.lastActivityAt) || getTimeVal(a.updatedAt) || getTimeVal(a.createdAt);
+            const timeB = getTimeVal(b.lastActivityAt) || getTimeVal(b.updatedAt) || getTimeVal(b.createdAt);
+            return timeB - timeA;
+          });
+          onUpdate(list);
+        },
+        (error) => {
+          console.error('[ProjectService] Error in subscribeTimelineProjects:', error);
+          if (onError) onError(error);
+        }
+      );
+    } catch (error) {
+      console.error('[ProjectService] Error setting up timeline listener:', error);
+      return () => {};
+    }
+  }
+
+  /**
+   * Realtime listener for activities & comments of a specific project.
+   */
+  static subscribeProjectActivitiesAndComments(
+    projectId: string,
+    onUpdate: (activities: ProjectActivity[]) => void,
+    onError?: (error: unknown) => void
+  ): () => void {
+    let currentActivities: ProjectActivity[] = [];
+    let currentComments: ProjectActivity[] = [];
+
+    const notifyCombined = () => {
+      const combinedMap = new Map<string, ProjectActivity>();
+      [...currentActivities, ...currentComments].forEach(item => {
+        if (item.id) combinedMap.set(item.id, item);
+      });
+      const unified = Array.from(combinedMap.values());
+      unified.sort((a, b) => {
+        const getTimeVal = (val: any) => {
+          if (!val) return 0;
+          if (typeof val.toDate === 'function') return val.toDate().getTime();
+          if (typeof val.seconds === 'number') return val.seconds * 1000;
+          return new Date(val).getTime() || 0;
+        };
+        const timeA = getTimeVal(a.createdAt);
+        const timeB = getTimeVal(b.createdAt);
+        return timeA - timeB; // Ascending order (oldest to newest thread)
+      });
+      onUpdate(unified);
+    };
+
+    try {
+      const actRef = collection(db, this.projectsCol, projectId, "activities");
+      const unsubAct = onSnapshot(
+        actRef,
+        (snap) => {
+          currentActivities = snap.docs.map(docSnap => ({
+            ...docSnap.data(),
+            id: docSnap.id,
+            projectId
+          } as ProjectActivity));
+          notifyCombined();
+        },
+        (err) => {
+          console.error('[ProjectService] Activities listener error:', err);
+          if (onError) onError(err);
+        }
+      );
+
+      const commRef = collection(db, this.projectsCol, projectId, "comments");
+      const unsubComm = onSnapshot(
+        commRef,
+        (snap) => {
+          currentComments = snap.docs.map(docSnap => {
+            const data = docSnap.data();
+            return {
+              id: docSnap.id,
+              projectId,
+              type: (data.type || 'comment') as ProjectActivityType,
+              message: data.content || data.message || '',
+              content: data.content || data.message || '',
+              userId: data.userId || '',
+              userName: data.userName || 'User',
+              userInitials: data.userInitials || (data.userName ? data.userName.substring(0, 2).toUpperCase() : 'US'),
+              mentions: data.mentions || [],
+              parentCommentId: data.parentCommentId || null,
+              attachmentUrl: data.attachmentUrl || undefined,
+              attachmentName: data.attachmentName || undefined,
+              createdAt: data.createdAt,
+              updatedAt: data.updatedAt
+            } as ProjectActivity;
+          });
+          notifyCombined();
+        },
+        (err) => {
+          console.error('[ProjectService] Comments listener error:', err);
+          if (onError) onError(err);
+        }
+      );
+
+      return () => {
+        unsubAct();
+        unsubComm();
+      };
+    } catch (error) {
+      console.error('[ProjectService] Error setting up activities listener:', error);
+      return () => {};
+    }
+  }
+
+  /**
+   * Adds a permanent comment to both `comments` and `activities` subcollections
+   * and updates project's `lastActivityAt`, `lastActivityType`, `lastActivityText`.
+   */
+  static async addProjectTimelineComment(
+    projectId: string,
+    commentData: {
+      userId: string;
+      userName: string;
+      content: string;
+      mentions?: string[];
+      parentCommentId?: string | null;
+      attachmentUrl?: string;
+      attachmentName?: string;
+    }
+  ): Promise<ProjectActivity> {
+    const userInitials = commentData.userName
+      .split(' ')
+      .map(part => part[0])
+      .filter(Boolean)
+      .join('')
+      .toUpperCase()
+      .slice(0, 2) || 'US';
+
+    const commentPayload = {
+      projectId,
+      userId: commentData.userId,
+      userName: commentData.userName,
+      userInitials,
+      content: commentData.content,
+      type: 'comment',
+      parentCommentId: commentData.parentCommentId || null,
+      mentions: commentData.mentions || [],
+      attachmentUrl: commentData.attachmentUrl || null,
+      attachmentName: commentData.attachmentName || null,
+      createdAt: serverTimestamp(),
+      updatedAt: null
+    };
+
+    try {
+      // 1. Save into comments subcollection
+      const commRef = collection(db, this.projectsCol, projectId, "comments");
+      const newCommDoc = await addDoc(commRef, cleanUndefined(commentPayload));
+
+      // 2. Save into activities subcollection
+      const actRef = collection(db, this.projectsCol, projectId, "activities");
+      const actPayload: ProjectActivity = {
+        id: newCommDoc.id,
+        projectId,
+        type: 'comment',
+        message: commentData.content,
+        content: commentData.content,
+        userId: commentData.userId,
+        userName: commentData.userName,
+        userInitials,
+        mentions: commentData.mentions || [],
+        parentCommentId: commentData.parentCommentId || null,
+        attachmentUrl: commentData.attachmentUrl || undefined,
+        attachmentName: commentData.attachmentName || undefined,
+        createdAt: new Date().toISOString()
+      };
+      await setDoc(doc(actRef, newCommDoc.id), cleanUndefined(actPayload));
+
+      // 3. Update parent project document metadata
+      const projectRef = doc(db, this.projectsCol, projectId);
+      const projectSnap = await getDoc(projectRef);
+      if (projectSnap.exists()) {
+        const pData = projectSnap.data();
+        const currentCount = pData.activitiesCount || (pData.activities?.length || 0);
+        await updateDoc(projectRef, {
+          lastActivityAt: serverTimestamp(),
+          lastActivityType: 'comment',
+          lastActivityText: `${commentData.userName}: ${commentData.content}`,
+          activitiesCount: currentCount + 1,
+          updatedAt: new Date().toISOString()
+        });
+      }
+
+      return actPayload;
+    } catch (error) {
+      console.error('[ProjectService] Error adding timeline comment:', error);
+      handleFirestoreError(error, OperationType.WRITE, `${this.projectsCol}/${projectId}/comments`);
+      throw error;
     }
   }
 

@@ -112,17 +112,23 @@ export interface Party {
   status: string; // Aktif, Nonaktif, dsb
 }
 
-export type ProjectActivityType = 'comment' | 'task_created' | 'task_completed' | 'issue';
+export type ProjectActivityType = 'comment' | 'task_created' | 'task_completed' | 'issue' | 'file_added' | 'status_changed' | 'system' | 'mention';
 
 export interface ProjectActivity {
   id: string;
   projectId: string;
   type: ProjectActivityType;
   message: string;
+  content?: string; // Alias for content
   userId: string;
   userName: string;
+  userInitials?: string;
   createdAt: any;
+  updatedAt?: any;
   mentions?: string[];
+  parentCommentId?: string | null;
+  attachmentUrl?: string;
+  attachmentName?: string;
   taskId?: string;
   taskTitle?: string;
   assignedTo?: string;
@@ -169,4 +175,7 @@ export interface Project {
   tasks?: ProjectTask[];
   activitiesCount?: number;
   activeTasksCount?: number;
+  lastActivityAt?: any;
+  lastActivityType?: string;
+  lastActivityText?: string;
 }
