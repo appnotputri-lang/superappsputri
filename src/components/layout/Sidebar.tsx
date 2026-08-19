@@ -235,7 +235,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
         
         {/* Header Drawer */}
         {isSidebarOpen ? (
-          <div className="relative overflow-hidden border-b border-slate-100 bg-white p-4 shrink-0 select-none">
+          <div 
+            className="relative overflow-hidden border-b border-slate-100 bg-white p-4 shrink-0 select-none"
+            style={{
+              paddingTop: 'calc(env(safe-area-inset-top, 0px) + 1rem)'
+            }}
+          >
             {/* Subtle Decorative Blue-on-Blue Circular Accents */}
             <div className="absolute -top-8 -right-8 w-28 h-28 rounded-full bg-blue-500/10 pointer-events-none blur-2xs" aria-hidden="true" />
             <div className="absolute -bottom-6 -left-6 w-20 h-20 rounded-full bg-blue-500/5 pointer-events-none" aria-hidden="true" />
@@ -407,7 +412,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {/* Bottom Profile Container Sticky */}
         {user && (
-          <div className="p-3 border-t border-slate-100 bg-blue-50/40 shrink-0 relative sticky bottom-0 z-20">
+          <div className="p-3 pb-[calc(env(safe-area-inset-bottom,0px)+0.75rem)] border-t border-slate-100 bg-blue-50/40 shrink-0 relative sticky bottom-0 z-20">
             {isSidebarOpen ? (
               /* Expanded Bottom Profile */
               <div>
