@@ -59,13 +59,20 @@ export const CompanyDetail: React.FC<CompanyDetailProps> = ({
   handleFirestoreError,
   openShareholderEditor,
   deleteShareholder,
+  openProfile,
+  editProfile,
+  createProfile,
+  backToList,
 }) => {
   return (
     <div className="space-y-4 pb-20">
       <div className="flex flex-wrap items-center gap-2 bg-slate-50/50 p-2 rounded-md border border-slate-200">
         <button 
-          className="text-slate-500 hover:text-slate-800 flex items-center gap-1 font-bold text-[12px] uppercase bg-white px-3 py-2 rounded-sm border border-slate-200 shadow-sm" 
-          onClick={() => setEditingProfileId(null)}
+          className="text-slate-500 hover:text-slate-800 flex items-center gap-1 font-bold text-[12px] uppercase bg-white px-3 py-2 rounded-sm border border-slate-200 shadow-sm cursor-pointer" 
+          onClick={() => {
+            if (backToList) backToList();
+            else setEditingProfileId(null);
+          }}
         >
           <ArrowRight className="w-4 h-4 rotate-180" /> Kembali
         </button>
@@ -73,8 +80,15 @@ export const CompanyDetail: React.FC<CompanyDetailProps> = ({
         <div className="h-6 w-px bg-slate-300 mx-1"></div>
 
         <button 
-          onClick={(e) => { e.preventDefault(); setIsProfilePreview(false); }}
-          className="px-5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md text-[13px] font-bold transition-all border border-slate-200 shadow-sm flex items-center gap-2 uppercase"
+          onClick={(e) => {
+            e.preventDefault();
+            if (editProfile && (editingProfileId || data.id)) {
+              editProfile(editingProfileId || data.id);
+            } else {
+              setIsProfilePreview(false);
+            }
+          }}
+          className="px-5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md text-[13px] font-bold transition-all border border-slate-200 shadow-sm flex items-center gap-2 uppercase cursor-pointer"
         >
           <Edit className="w-4 h-4" /> Edit
         </button>
@@ -94,13 +108,14 @@ export const CompanyDetail: React.FC<CompanyDetailProps> = ({
                     'delete_profile'
                   );
                   alert('Profil klien, seluruh proyek terkait, data Firestore, dan folder Google Drive berhasil dihapus');
-                  setEditingProfileId(null);
+                  if (backToList) backToList();
+                  else setEditingProfileId(null);
                 } catch (err) {
                   handleFirestoreError(err, OperationType.DELETE, `profiles/${editingProfileId}`);
                 }
               }
             }}
-            className="px-5 py-2 bg-red-50 hover:bg-red-500 hover:text-white text-red-600 rounded-md font-bold transition-all text-[13px] border border-red-100 hover:border-red-500 shadow-sm flex items-center gap-2 uppercase"
+            className="px-5 py-2 bg-red-50 hover:bg-red-500 hover:text-white text-red-600 rounded-md font-bold transition-all text-[13px] border border-red-100 hover:border-red-500 shadow-sm flex items-center gap-2 uppercase cursor-pointer"
           >
             <Trash2 className="w-4 h-4" /> Hapus
           </button>

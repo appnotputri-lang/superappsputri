@@ -56,6 +56,10 @@ export const CompanyList: React.FC<CompanyListProps> = ({
   deleteCompany,
   itemsPerPage = 10,
   setItemsPerPage,
+  openProfile,
+  editProfile,
+  createProfile,
+  backToList,
 }) => {
   const [dropdownCoords, setDropdownCoords] = React.useState<{ top: number; left: number } | null>(null);
 
@@ -219,9 +223,13 @@ export const CompanyList: React.FC<CompanyListProps> = ({
                   key={p.id}
                   className="group hover:bg-blue-50/30 transition-colors cursor-pointer"
                   onClick={() => {
-                    setEditingProfileId(p.id);
-                    setIsProfilePreview(true);
-                    updateData({ ...INITIAL_STATE, ...p } as any);
+                    if (openProfile) {
+                      openProfile(p.id);
+                    } else {
+                      setEditingProfileId(p.id);
+                      setIsProfilePreview(true);
+                      updateData({ ...INITIAL_STATE, ...p } as any);
+                    }
                   }}
                 >
                   <td className="px-3.5 py-2.5 font-bold text-center border-r border-slate-100 text-slate-400 w-12">
@@ -311,9 +319,13 @@ export const CompanyList: React.FC<CompanyListProps> = ({
                           onClick={(e) => {
                             e.stopPropagation();
                             setOpenDropdownId(null);
-                            setEditingProfileId(p.id);
-                            setIsProfilePreview(true);
-                            updateData({ ...INITIAL_STATE, ...p } as any);
+                            if (openProfile) {
+                              openProfile(p.id);
+                            } else {
+                              setEditingProfileId(p.id);
+                              setIsProfilePreview(true);
+                              updateData({ ...INITIAL_STATE, ...p } as any);
+                            }
                           }}
                           className="w-full px-3.5 py-2 text-slate-700 hover:bg-slate-50 text-[11px] font-bold flex items-center gap-2 uppercase tracking-wide border-b border-slate-100 cursor-pointer"
                         >
@@ -324,9 +336,13 @@ export const CompanyList: React.FC<CompanyListProps> = ({
                           onClick={(e) => {
                             e.stopPropagation();
                             setOpenDropdownId(null);
-                            setEditingProfileId(p.id);
-                            setIsProfilePreview(false);
-                            updateData({ ...INITIAL_STATE, ...p } as any);
+                            if (editProfile) {
+                              editProfile(p.id);
+                            } else {
+                              setEditingProfileId(p.id);
+                              setIsProfilePreview(false);
+                              updateData({ ...INITIAL_STATE, ...p } as any);
+                            }
                           }}
                           className="w-full px-3.5 py-2 text-slate-700 hover:bg-slate-50 text-[11px] font-bold flex items-center gap-2 uppercase tracking-wide border-b border-slate-100 cursor-pointer"
                         >
@@ -443,9 +459,13 @@ export const CompanyList: React.FC<CompanyListProps> = ({
               ]}
               date={deedDate}
               onDetail={() => {
-                setEditingProfileId(p.id);
-                setIsProfilePreview(true);
-                updateData({ ...INITIAL_STATE, ...p } as any);
+                if (openProfile) {
+                  openProfile(p.id);
+                } else {
+                  setEditingProfileId(p.id);
+                  setIsProfilePreview(true);
+                  updateData({ ...INITIAL_STATE, ...p } as any);
+                }
               }}
               onDelete={userProfile?.role === 'Super Admin' && deleteCompany ? () => deleteCompany(p.id, false) : undefined}
             />

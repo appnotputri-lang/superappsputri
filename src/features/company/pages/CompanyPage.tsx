@@ -35,7 +35,7 @@ import { MobileHeader } from '../../../components/ui/MobileHeader';
 
 export const CompanyPage: React.FC<CompanyPageProps> = ({ setIsSidebarOpen, ...props }) => {
   const location = useLocation();
-  const isCv = location.pathname === '/profile-cv';
+  const isCv = location.pathname === '/profile-cv' || location.pathname.startsWith('/profile-cv/');
   const outletCtx = useOutletContext<{ setIsSidebarOpen?: (v: boolean) => void }>() || {};
 
   // 1. Context & Auth Hooks
@@ -112,11 +112,31 @@ export const CompanyPage: React.FC<CompanyPageProps> = ({ setIsSidebarOpen, ...p
 
   const navigate = useNavigate();
 
+  // Explicit route navigation handlers
+  const openProfile = useCallback((id: string) => {
+    const basePath = isCv ? '/profile-cv' : '/clients';
+    navigate(`${basePath}/${id}`);
+  }, [isCv, navigate]);
+
+  const editProfile = useCallback((id: string) => {
+    const basePath = isCv ? '/profile-cv' : '/clients';
+    navigate(`${basePath}/${id}/edit`);
+  }, [isCv, navigate]);
+
+  const createProfile = useCallback(() => {
+    const basePath = isCv ? '/profile-cv' : '/clients';
+    navigate(`${basePath}/new`);
+  }, [isCv, navigate]);
+
+  const backToList = useCallback(() => {
+    const basePath = isCv ? '/profile-cv' : '/clients';
+    navigate(basePath);
+  }, [isCv, navigate]);
+
   // Synchronize state from URL path (e.g. /clients/:id, /clients/new, /clients/:id/edit)
   useEffect(() => {
     const parts = location.pathname.split('/').filter(Boolean);
     const lastPart = parts[parts.length - 1];
-    const basePath = isCv ? '/profile-cv' : '/clients';
 
     if (lastPart === 'new') {
       setEditingProfileId('new');
@@ -136,33 +156,31 @@ export const CompanyPage: React.FC<CompanyPageProps> = ({ setIsSidebarOpen, ...p
 
   const handleSetEditingProfileId = useCallback((id: string | null | ((prev: string | null) => string | null)) => {
     const nextId = typeof id === 'function' ? id(editingProfileId) : id;
-    const basePath = isCv ? '/profile-cv' : '/clients';
     if (!nextId) {
-      navigate(basePath);
+      backToList();
     } else if (nextId === 'new') {
-      navigate(`${basePath}/new`);
+      createProfile();
     } else if (isProfilePreview) {
-      navigate(`${basePath}/${nextId}`);
+      openProfile(nextId);
     } else {
-      navigate(`${basePath}/${nextId}/edit`);
+      editProfile(nextId);
     }
-  }, [editingProfileId, isProfilePreview, isCv, navigate]);
+  }, [editingProfileId, isProfilePreview, backToList, createProfile, openProfile, editProfile]);
 
   const handleSetIsProfilePreview = useCallback((preview: boolean | ((prev: boolean) => boolean)) => {
     const nextPreview = typeof preview === 'function' ? preview(isProfilePreview) : preview;
-    const basePath = isCv ? '/profile-cv' : '/clients';
     if (editingProfileId && editingProfileId !== 'new') {
       if (nextPreview) {
-        navigate(`${basePath}/${editingProfileId}`);
+        openProfile(editingProfileId);
       } else {
-        navigate(`${basePath}/${editingProfileId}/edit`);
+        editProfile(editingProfileId);
       }
     } else if (!nextPreview && editingProfileId === 'new') {
-      navigate(`${basePath}/new`);
+      createProfile();
     } else {
-      navigate(basePath);
+      backToList();
     }
-  }, [editingProfileId, isProfilePreview, isCv, navigate]);
+  }, [editingProfileId, isProfilePreview, openProfile, editProfile, createProfile, backToList]);
 
   const directActionHandledRef = useRef<string | null>(null);
 
@@ -171,11 +189,10 @@ export const CompanyPage: React.FC<CompanyPageProps> = ({ setIsSidebarOpen, ...p
     const actionKey = `${location.pathname}_${location.search}_${location.key}`;
     if (isDirectAction && directActionHandledRef.current !== actionKey) {
       directActionHandledRef.current = actionKey;
-      setEditingProfileId('new');
-      setIsProfilePreview(false);
+      createProfile();
       setData({ ...INITIAL_STATE });
     }
-  }, [location]);
+  }, [location, createProfile]);
   
   // 3. Local State Management for Current Edited Profile Form Data
   const [data, setData] = useState<any>({ ...INITIAL_STATE });
@@ -889,8 +906,7 @@ export const CompanyPage: React.FC<CompanyPageProps> = ({ setIsSidebarOpen, ...p
             if (handler) handler(true);
           }}
           onAdd={() => {
-            setEditingProfileId('new');
-            setIsProfilePreview(false);
+            createProfile();
             updateData({ ...INITIAL_STATE } as any);
           }}
           addTooltip="Tambah Klien Baru"
@@ -1064,6 +1080,10 @@ export const CompanyPage: React.FC<CompanyPageProps> = ({ setIsSidebarOpen, ...p
           isCv={isCv}
           onSyncDrive={handleSyncDrive}
           isSyncing={isSyncing}
+          openProfile={openProfile}
+          editProfile={editProfile}
+          createProfile={createProfile}
+          backToList={backToList}
         />
       </div>
 
@@ -1114,6 +1134,10 @@ export const CompanyPage: React.FC<CompanyPageProps> = ({ setIsSidebarOpen, ...p
               setProfileItemsPerPage(n);
               setProfileCurrentPage(1);
             }}
+            openProfile={openProfile}
+            editProfile={editProfile}
+            createProfile={createProfile}
+            backToList={backToList}
           />
         </>
       ) : isProfileLoading ? (
@@ -1134,6 +1158,10 @@ export const CompanyPage: React.FC<CompanyPageProps> = ({ setIsSidebarOpen, ...p
           handleFirestoreError={handleFirestoreError}
           openShareholderEditor={openShareholderEditor}
           deleteShareholder={deleteShareholder}
+          openProfile={openProfile}
+          editProfile={editProfile}
+          createProfile={createProfile}
+          backToList={backToList}
         />
       ) : (
         <CompanyForm
@@ -1154,6 +1182,10 @@ export const CompanyPage: React.FC<CompanyPageProps> = ({ setIsSidebarOpen, ...p
           setIsAddKbliModalOpen={setIsAddKbliModalOpen}
           openShareholderEditor={openShareholderEditor}
           deleteShareholder={deleteShareholder}
+          openProfile={openProfile}
+          editProfile={editProfile}
+          createProfile={createProfile}
+          backToList={backToList}
         />
       )}
 

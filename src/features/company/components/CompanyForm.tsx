@@ -83,6 +83,10 @@ export const CompanyForm: React.FC<CompanyFormProps> = ({
   setIsAddKbliModalOpen,
   openShareholderEditor,
   deleteShareholder,
+  openProfile,
+  editProfile,
+  createProfile,
+  backToList,
 }) => {
   return (
     <div className="bg-slate-50 p-4 border border-slate-200 rounded-sm">
@@ -91,16 +95,23 @@ export const CompanyForm: React.FC<CompanyFormProps> = ({
           <button 
             onClick={() => {
               resetData();
-              setEditingProfileId(null);
+              if (backToList) backToList();
+              else setEditingProfileId(null);
             }} 
-            className="px-4 py-2 bg-slate-200 text-slate-700 rounded-md text-[13px] font-bold transition-all hover:bg-slate-300 uppercase shadow-sm"
+            className="px-4 py-2 bg-slate-200 text-slate-700 rounded-md text-[13px] font-bold transition-all hover:bg-slate-300 uppercase shadow-sm cursor-pointer"
           >
             Kembali
           </button>
           {!isProfilePreview && (
             <button 
-              onClick={() => setIsProfilePreview(true)} 
-              className="px-4 py-2 bg-[#222d32] text-white rounded-md text-[13px] font-bold transition-all hover:bg-black uppercase shadow-sm"
+              onClick={() => {
+                if (openProfile && (editingProfileId || data.id) && editingProfileId !== 'new') {
+                  openProfile(editingProfileId || data.id);
+                } else {
+                  setIsProfilePreview(true);
+                }
+              }} 
+              className="px-4 py-2 bg-[#222d32] text-white rounded-md text-[13px] font-bold transition-all hover:bg-black uppercase shadow-sm cursor-pointer"
             >
               Preview
             </button>
@@ -125,8 +136,14 @@ export const CompanyForm: React.FC<CompanyFormProps> = ({
                   'info'
                 );
                 
-                setEditingProfileId(null);
                 alert('Profil berhasil disimpan!');
+                if (openProfile && data.id) {
+                  openProfile(data.id);
+                } else if (backToList) {
+                  backToList();
+                } else {
+                  setEditingProfileId(null);
+                }
             } catch (e: any) {
                 if (e instanceof Error && e.message.startsWith('KLIEN_NAME_EXISTS:')) {
                   const dupName = e.message.split('KLIEN_NAME_EXISTS:')[1];

@@ -11,6 +11,10 @@ export interface CompanyHeaderProps {
   isCv?: boolean;
   onSyncDrive?: () => Promise<void>;
   isSyncing?: boolean;
+  openProfile?: (id: string) => void;
+  editProfile?: (id: string) => void;
+  createProfile?: () => void;
+  backToList?: () => void;
 }
 
 export interface CompanyToolbarProps {
@@ -52,6 +56,10 @@ export interface CompanyListProps {
   deleteCompany?: (id: string, redirect: boolean) => Promise<any>;
   itemsPerPage?: number;
   setItemsPerPage?: (num: number) => void;
+  openProfile?: (id: string) => void;
+  editProfile?: (id: string) => void;
+  createProfile?: () => void;
+  backToList?: () => void;
 }
 
 export interface CompanyDetailProps {
@@ -67,6 +75,10 @@ export interface CompanyDetailProps {
   handleFirestoreError: (err: any, type: any, path: string) => void;
   openShareholderEditor: (type: 'lama' | 'baru' | 'pengganti' | 'pengganti_saham', sh?: any, dismissalId?: string) => void;
   deleteShareholder: (id: string, type: 'lama' | 'baru' | 'pengganti' | 'pengganti_saham') => void;
+  openProfile?: (id: string) => void;
+  editProfile?: (id: string) => void;
+  createProfile?: () => void;
+  backToList?: () => void;
 }
 
 export interface CompanyFormProps {
@@ -87,6 +99,10 @@ export interface CompanyFormProps {
   setIsAddKbliModalOpen: (val: boolean) => void;
   openShareholderEditor: (type: 'lama' | 'baru' | 'pengganti' | 'pengganti_saham', sh?: any, dismissalId?: string) => void;
   deleteShareholder: (id: string, type: 'lama' | 'baru' | 'pengganti' | 'pengganti_saham') => void;
+  openProfile?: (id: string) => void;
+  editProfile?: (id: string) => void;
+  createProfile?: () => void;
+  backToList?: () => void;
 }
 
 export interface CompanyPageProps {

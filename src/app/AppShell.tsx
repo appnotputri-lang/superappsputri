@@ -192,13 +192,13 @@ export const AppShell: React.FC = () => {
   }, [location.pathname, location.hash]);
 
   const setActiveSidebarTab = (tab: SidebarTabId, navOptions?: { search?: string; state?: any }) => {
+    if (typeof window !== 'undefined' && window.innerWidth < 768) {
+      setIsSidebarOpen(false);
+    }
     closeProject();
     const basePath = TAB_TO_PATH[tab] || '/';
     const targetPath = navOptions?.search ? `${basePath}${navOptions.search}` : basePath;
     navigate(targetPath, { state: navOptions?.state });
-    if (typeof window !== 'undefined' && window.innerWidth < 768) {
-      setIsSidebarOpen(false);
-    }
   };
 
   // Auto-close sidebar on mobile viewport whenever location or active tab changes

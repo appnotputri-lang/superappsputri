@@ -12,6 +12,10 @@ export const CompanyHeader: React.FC<CompanyHeaderProps> = ({
   isCv,
   onSyncDrive,
   isSyncing,
+  openProfile,
+  editProfile,
+  createProfile,
+  backToList,
 }) => {
   return (
     <PageHeader
@@ -33,8 +37,12 @@ export const CompanyHeader: React.FC<CompanyHeaderProps> = ({
             )}
             <button
               onClick={() => {
-                setEditingProfileId('new');
-                setIsProfilePreview(false);
+                if (createProfile) {
+                  createProfile();
+                } else {
+                  setEditingProfileId('new');
+                  setIsProfilePreview(false);
+                }
                 updateData({ ...INITIAL_STATE } as any);
               }}
               className="bg-[#0c2444] hover:bg-slate-800 text-white px-3.5 py-2 rounded-lg font-bold text-xs flex items-center gap-2 transition-all uppercase shadow-xs cursor-pointer"

@@ -72,10 +72,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
   logout
 }) => {
   const handleTabClick = (tabId: SidebarTabId) => {
-    setActiveSidebarTab(tabId);
     if (typeof window !== 'undefined' && window.innerWidth < 768) {
       setIsSidebarOpen?.(false);
     }
+    setActiveSidebarTab(tabId);
   };
 
   const isSectionActive = (sectionId: string, activeTab: string) => {
@@ -221,8 +221,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* Dark backdrop overlay on Mobile */}
       {isSidebarOpen && (
         <div 
-          className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-[90] md:hidden transition-opacity duration-300"
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-[90] md:hidden"
           onClick={() => setIsSidebarOpen?.(false)}
+          aria-hidden="true"
         />
       )}
 
@@ -440,11 +441,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       <button 
                         type="button"
                         onClick={() => {
-                          setIsEditProfileModalOpen?.(true);
-                          setIsUserDropdownOpen?.(false);
                           if (typeof window !== 'undefined' && window.innerWidth < 768) {
                             setIsSidebarOpen?.(false);
                           }
+                          setIsEditProfileModalOpen?.(true);
+                          setIsUserDropdownOpen?.(false);
                         }}
                         className="w-full px-4 py-2 text-left text-xs text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-2.5 cursor-pointer font-medium"
                       >
@@ -455,11 +456,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       <button 
                         type="button"
                         onClick={() => {
-                          setActiveSidebarTab('settings');
-                          setIsUserDropdownOpen?.(false);
                           if (typeof window !== 'undefined' && window.innerWidth < 768) {
                             setIsSidebarOpen?.(false);
                           }
+                          setActiveSidebarTab('settings');
+                          setIsUserDropdownOpen?.(false);
                         }}
                         className="w-full px-4 py-2 text-left text-xs text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-2.5 cursor-pointer font-medium"
                       >
@@ -470,11 +471,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       <button 
                         type="button"
                         onClick={() => {
-                          setActiveSidebarTab('panduan');
-                          setIsUserDropdownOpen?.(false);
                           if (typeof window !== 'undefined' && window.innerWidth < 768) {
                             setIsSidebarOpen?.(false);
                           }
+                          setActiveSidebarTab('panduan');
+                          setIsUserDropdownOpen?.(false);
                         }}
                         className="w-full px-4 py-2 text-left text-xs text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-2.5 cursor-pointer font-medium"
                       >
@@ -487,15 +488,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       <button 
                         type="button"
                         onClick={() => {
+                          if (typeof window !== 'undefined' && window.innerWidth < 768) {
+                            setIsSidebarOpen?.(false);
+                          }
                           if (user) {
                             logout?.();
                           } else {
                             loginWithGoogle();
                           }
                           setIsUserDropdownOpen?.(false);
-                          if (typeof window !== 'undefined' && window.innerWidth < 768) {
-                            setIsSidebarOpen?.(false);
-                          }
                         }}
                         className={`w-full px-4 py-2 text-left text-xs font-bold transition-colors flex items-center gap-2.5 cursor-pointer ${
                           user ? 'text-rose-600 hover:bg-rose-50/50' : 'text-blue-600 hover:bg-blue-50/55'
