@@ -1,8 +1,23 @@
 @import "tailwindcss";
 
+html {
+  min-height: 100%;
+  background: #1e61c3;
+}
+
+body {
+  min-height: 100%;
+  margin: 0;
+  background: #1e61c3;
+}
+
+#root {
+  min-height: 100dvh;
+}
+
 @layer base {
   body {
-    @apply bg-slate-50 text-slate-900;
+    @apply text-slate-900;
     font-family: 'Inter', sans-serif;
   }
 }
