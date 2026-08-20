@@ -1,7 +1,8 @@
 export const SUPER_ADMIN_EMAILS = [
   'rdyndi@gmail.com',
   'appnotputri@gmail.com',
-  'notarisppatputri@gmail.com'
+  'notarisppatputri@gmail.com',
+  'pu3stan@gmail.com'
 ];
 
 export const isSuperAdmin = (userEmail?: string | null): boolean => {

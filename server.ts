@@ -1205,7 +1205,8 @@ async function startServer() {
   const DEFAULT_ALLOWED_EMAILS = [
     "notarisppatputri@gmail.com",
     "rdyndi@gmail.com",
-    "appnotputri@gmail.com"
+    "appnotputri@gmail.com",
+    "pu3stan@gmail.com"
   ];
   const envAllowedEmails = (process.env.ALLOWED_EMAILS || process.env.APP2_ALLOWED_EMAILS || "")
     .split(",")

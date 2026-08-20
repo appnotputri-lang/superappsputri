@@ -8,7 +8,6 @@
     "build": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
     "start": "node dist/server.cjs",
     "lint": "tsc",
-    "generate:vapid": "node scripts/generate-vapid.js",
     "seed-kbli": "node seed-kbli-firestore.cjs"
   },
   "dependencies": {
@@ -17,7 +16,6 @@
     "@types/express": "^5.0.6",
     "@types/qrcode": "^1.5.6",
     "@types/react-router-dom": "^5.3.3",
-    "@types/web-push": "^3.6.4",
     "@vitejs/plugin-react": "^5.0.0",
     "adm-zip": "^0.5.17",
     "autoprefixer": "^10.5.0",
@@ -44,8 +42,7 @@
     "tailwindcss": "^4.3.0",
     "tsx": "^4.22.4",
     "typescript": "~5.8.2",
-    "vite": "^6.2.0",
-    "web-push": "^3.6.7"
+    "vite": "^6.2.0"
   },
   "devDependencies": {
     "@firebase/eslint-plugin-security-rules": "^0.0.2",

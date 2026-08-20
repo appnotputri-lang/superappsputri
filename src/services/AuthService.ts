@@ -11,6 +11,7 @@ import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 import { doc, onSnapshot, setDoc, updateDoc } from 'firebase/firestore';
 import { UserProfile } from '../../types';
 import { AuthenticationError, NetworkError } from '../utils/errors';
+import { isSuperAdmin as checkIsSuperAdmin, SUPER_ADMIN_EMAILS } from '../utils/lockUtils';
 import firebaseConfig from '../../firebase-applet-config.json';
 
 interface JwksKey {
@@ -111,7 +112,7 @@ export class AuthService {
       if (snapshot.exists()) {
         const data = snapshot.data();
         // Ensure Super Admin logic for specific email
-        if (email === 'appnotputri@gmail.com' && data.role !== 'Super Admin') {
+        if (checkIsSuperAdmin(email) && data.role !== 'Super Admin') {
           try {
             await updateDoc(docRef, { role: 'Super Admin' });
           } catch (err) {
@@ -126,7 +127,7 @@ export class AuthService {
         } as UserProfile);
       } else {
         // Initial profile creation
-        const isSuperAdmin = email === 'appnotputri@gmail.com';
+        const isSuperAdmin = checkIsSuperAdmin(email);
         const initialProfile: UserProfile = {
           uid,
           email: email || '',
@@ -147,7 +148,7 @@ export class AuthService {
     }, (error) => {
       if (isQuotaExceeded(error)) {
         console.warn(`[AuthService] Quota exceeded on user_profiles/${uid}. Using local default user profile.`);
-        const isSuperAdmin = email === 'appnotputri@gmail.com';
+        const isSuperAdmin = checkIsSuperAdmin(email);
         onUpdate({
           uid,
           email: email || '',
@@ -268,11 +269,11 @@ export class AuthService {
       let resolvedRole = payload.role;
 
       if (!resolvedRole) {
-        const superAdminEmailsStr = process.env.SUPER_ADMIN_EMAILS || 'appnotputri@gmail.com';
+        const superAdminEmailsStr = process.env.SUPER_ADMIN_EMAILS || SUPER_ADMIN_EMAILS.join(',');
         const superAdmins = superAdminEmailsStr.split(',').map(email => email.trim().toLowerCase());
         const userEmail = payload.email?.trim().toLowerCase();
         
-        if (userEmail && superAdmins.includes(userEmail)) {
+        if (userEmail && (superAdmins.includes(userEmail) || checkIsSuperAdmin(userEmail))) {
           resolvedRole = 'Super Admin';
         }
       }

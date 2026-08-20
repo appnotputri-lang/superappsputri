@@ -12,7 +12,8 @@ export const onRequestPost = async (context: any) => {
     const DEFAULT_ALLOWED_EMAILS = [
       'notarisppatputri@gmail.com',
       'rdyndi@gmail.com',
-      'appnotputri@gmail.com'
+      'appnotputri@gmail.com',
+      'pu3stan@gmail.com'
     ];
     const envAllowedEmails = (env?.ALLOWED_EMAILS || env?.APP2_ALLOWED_EMAILS || '')
       .split(',')

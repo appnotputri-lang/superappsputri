@@ -92,7 +92,11 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
     );
   }
 
-  if (!isPublicRoute && !isEmbedMode && user && user.email && !ALLOWED_EMAILS.includes(user.email)) {
+  const isUserEmailAllowed = user?.email
+    ? ALLOWED_EMAILS.map(e => e.toLowerCase().trim()).includes(user.email.toLowerCase().trim())
+    : false;
+
+  if (!isPublicRoute && !isEmbedMode && user && user.email && !isUserEmailAllowed) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-100 p-4">
         <div className="bg-white p-8 rounded-lg shadow-md max-w-md w-full text-center space-y-6">

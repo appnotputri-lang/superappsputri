@@ -159,7 +159,7 @@ export async function verifyIdToken(idToken: string, env: any = {}): Promise<any
     let resolvedRole = payload.role;
 
     if (!resolvedRole) {
-      const superAdminEmailsStr = getEnv(env, 'SUPER_ADMIN_EMAILS', 'appnotputri@gmail.com');
+      const superAdminEmailsStr = getEnv(env, 'SUPER_ADMIN_EMAILS', 'appnotputri@gmail.com,pu3stan@gmail.com,rdyndi@gmail.com,notarisppatputri@gmail.com');
       const superAdmins = superAdminEmailsStr.split(',').map(email => email.trim().toLowerCase());
       const userEmail = payload.email?.trim().toLowerCase();
       

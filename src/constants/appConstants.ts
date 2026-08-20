@@ -181,7 +181,8 @@ export const INITIAL_STATE: CompanyData = {
 export const ALLOWED_EMAILS = [
   'appnotputri@gmail.com',
   'rdyndi@gmail.com',
-  'notarisppatputri@gmail.com'
+  'notarisppatputri@gmail.com',
+  'pu3stan@gmail.com'
 ];
 
 export enum ProjectCategory {
