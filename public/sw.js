@@ -1,5 +1,46 @@
 // Service Worker for Notaris Putri PWA & Web Push Notification
 
+import { precacheAndRoute, createHandlerBoundToURL } from 'workbox-precaching';
+import { registerRoute, NavigationRoute } from 'workbox-routing';
+import { CacheFirst, NetworkOnly } from 'workbox-strategies';
+import { ExpirationPlugin } from 'workbox-expiration';
+
+// 1. Workbox Precache Manifest Injection
+precacheAndRoute(self.__WB_MANIFEST || []);
+
+// 2. Runtime Caching Rules
+// Google Fonts Cache
+registerRoute(
+  /^https:\/\/fonts\.(googleapis|gstatic)\.com\/.*/i,
+  new CacheFirst({
+    cacheName: 'google-fonts-cache',
+    plugins: [
+      new ExpirationPlugin({
+        maxEntries: 20,
+        maxAgeSeconds: 60 * 60 * 24 * 365, // 1 year
+      }),
+    ],
+  })
+);
+
+// API routes: NetworkOnly (always fetch from network, never cache)
+registerRoute(
+  /^\/api\/.*/,
+  new NetworkOnly()
+);
+
+// SPA Navigation Fallback to /index.html except /api/
+try {
+  const handler = createHandlerBoundToURL('/index.html');
+  const navigationRoute = new NavigationRoute(handler, {
+    denylist: [/^\/api\//],
+  });
+  registerRoute(navigationRoute);
+} catch (e) {
+  console.warn('[SW] NavigationRoute registration warning:', e);
+}
+
+// 3. Service Worker Lifecycle Handlers
 self.addEventListener('install', (event) => {
   // Activate immediately without waiting
   self.skipWaiting();
@@ -48,7 +89,7 @@ self.addEventListener('push', (event) => {
   );
 });
 
-// 4. Service Worker Notification Click Handler
+// 5. Service Worker Notification Click Handler
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
 
