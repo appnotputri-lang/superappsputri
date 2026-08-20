@@ -197,16 +197,98 @@ export class PushNotificationClient {
   }
 
   /**
+   * Check status of active push subscriptions in Cloudflare D1 for current user.
+   */
+  static async checkStatus(endpoint?: string): Promise<{
+    active: boolean;
+    count: number;
+    subscriptions: { id: string; platform: string; updatedAt: string }[];
+  }> {
+    try {
+      const authHeaders = await getAuthHeaders();
+      const url = endpoint 
+        ? getApiUrl(`/api/push/status?endpoint=${encodeURIComponent(endpoint)}`)
+        : getApiUrl('/api/push/status');
+      const res = await fetch(url, { headers: authHeaders });
+      if (!res.ok) return { active: false, count: 0, subscriptions: [] };
+      return await res.json();
+    } catch (err) {
+      console.warn('[PushClient] Failed to check status from server:', err);
+      return { active: false, count: 0, subscriptions: [] };
+    }
+  }
+
+  /**
+   * Sends a self-test push notification to verify end-to-end delivery on current device.
+   */
+  static async sendTestNotification(): Promise<{
+    success: boolean;
+    message: string;
+    subscriptionsFound?: number;
+    dispatched?: number;
+    failed?: number;
+    error?: string;
+  }> {
+    if (!this.isSupported()) {
+      return { success: false, message: 'Web Push tidak didukung pada browser ini.' };
+    }
+
+    try {
+      const authHeaders = await getAuthHeaders();
+      const res = await fetch(getApiUrl('/api/push/test'), {
+        method: 'POST',
+        headers: {
+          ...authHeaders,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        return {
+          success: false,
+          message: data.message || data.error || 'Gagal mengirim notifikasi uji coba.',
+          subscriptionsFound: data.subscriptionsFound,
+          dispatched: data.dispatched,
+          failed: data.failed
+        };
+      }
+
+      return {
+        success: true,
+        message: data.message || 'Notifikasi uji coba berhasil dikirim!',
+        subscriptionsFound: data.subscriptionsFound,
+        dispatched: data.dispatched,
+        failed: data.failed
+      };
+    } catch (err: any) {
+      console.error('[PushClient] Error sending test notification:', err);
+      return {
+        success: false,
+        message: err.message || 'Gagal terhubung ke server notifikasi.'
+      };
+    }
+  }
+
+  /**
    * Triggers the backend push notification dispatcher after a comment is saved.
-   * Only sends { projectId, commentId } with Firebase Auth Token.
+   * Sends { projectId, commentId, fallbackData } with Firebase Auth Token.
    */
   static async triggerCommentPushNotification(payload: {
     projectId: string;
     commentId: string;
+    fallbackData?: {
+      projectTitle?: string;
+      commentContent?: string;
+      senderUserName?: string;
+      mentions?: string[];
+      parentCommentId?: string | null;
+      stakeholderUserIds?: string[];
+    };
   }): Promise<void> {
     try {
       const authHeaders = await getAuthHeaders();
-      await fetch(getApiUrl('/api/push/send-comment-notification'), {
+      const res = await fetch(getApiUrl('/api/push/send-comment-notification'), {
         method: 'POST',
         headers: {
           ...authHeaders,
@@ -214,9 +296,17 @@ export class PushNotificationClient {
         },
         body: JSON.stringify({
           projectId: payload.projectId,
-          commentId: payload.commentId
+          commentId: payload.commentId,
+          fallbackData: payload.fallbackData
         })
       });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        console.warn('[PushClient] Comment push dispatch returned status:', res.status, data);
+      } else {
+        console.log('[PushClient] Comment push notification successfully dispatched:', data);
+      }
     } catch (err) {
       console.warn('[PushClient] Non-blocking push notification trigger failed:', err);
     }

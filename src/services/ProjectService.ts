@@ -1055,7 +1055,14 @@ export class ProjectService {
         const { PushNotificationClient } = await import('./PushNotificationClient');
         PushNotificationClient.triggerCommentPushNotification({
           projectId,
-          commentId: newCommDoc.id
+          commentId: newCommDoc.id,
+          fallbackData: {
+            projectTitle,
+            commentContent: commentData.content,
+            senderUserName: commentData.userName,
+            mentions: commentData.mentions || [],
+            parentCommentId: commentData.parentCommentId || null
+          }
         }).catch(err => console.warn('[ProjectService] Push notification trigger warning:', err));
       } catch (pushErr) {
         console.warn('[ProjectService] Error triggering push notification:', pushErr);

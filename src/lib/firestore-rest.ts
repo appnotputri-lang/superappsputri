@@ -50,8 +50,18 @@ function toFirestore(data: any) {
   return fields;
 }
 
-const getHeaders = async (env: any = {}) => {
-  const token = await getFirestoreServiceAccountToken(env);
+const getHeaders = async (env: any = {}, userAuthToken?: string) => {
+  let token: string | null = null;
+  try {
+    token = await getFirestoreServiceAccountToken(env);
+  } catch (saErr) {
+    if (userAuthToken) {
+      token = userAuthToken;
+    } else {
+      throw saErr;
+    }
+  }
+
   return {
     Authorization: `Bearer ${token}`,
     'Content-Type': 'application/json',
@@ -60,8 +70,8 @@ const getHeaders = async (env: any = {}) => {
 };
 
 export const firestoreRest = {
-  async getDocument(collection: string, docId: string, env: any = {}) {
-    const headers = await getHeaders(env);
+  async getDocument(collection: string, docId: string, env: any = {}, userAuthToken?: string) {
+    const headers = await getHeaders(env, userAuthToken);
     const fullPath = `${collection}/${docId}`.split('/').map(encodeURIComponent).join('/');
     const response = await fetch(`${BASE_URL}/${fullPath}`, {
       headers
@@ -77,8 +87,8 @@ export const firestoreRest = {
     };
   },
 
-  async updateDocument(collection: string, docId: string, data: any, env: any = {}) {
-    const headers = await getHeaders(env);
+  async updateDocument(collection: string, docId: string, data: any, env: any = {}, userAuthToken?: string) {
+    const headers = await getHeaders(env, userAuthToken);
     const fields = toFirestore(data);
     
     // updateMask determines which fields are replaced

@@ -52,27 +52,31 @@ self.addEventListener('push', (event) => {
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
 
-  const url = event.notification.data?.url || '/';
+  const rawUrl = event.notification.data?.url || '/';
+  const targetUrl = rawUrl.startsWith('http') ? rawUrl : new URL(rawUrl, self.location.origin).href;
 
   event.waitUntil(
     self.clients.matchAll({
       type: 'window',
       includeUncontrolled: true
-    }).then((clientList) => {
-      // Check if there is already a window/tab open with the app
+    }).then(async (clientList) => {
+      // Check if there is already a window/tab open with the app origin
       for (const client of clientList) {
-        if ('focus' in client) {
-          if (client.url && client.url.includes(self.location.origin)) {
-            // Navigate existing client to the target URL and focus
-            client.navigate(url);
-            return client.focus();
+        if ('focus' in client && client.url && client.url.includes(self.location.origin)) {
+          try {
+            if ('navigate' in client) {
+              await client.navigate(targetUrl);
+            }
+            return await client.focus();
+          } catch (navErr) {
+            console.warn('[SW] Client navigation error:', navErr);
           }
         }
       }
 
-      // If no window is open, open a new window
+      // If no window is open or focusing failed, open a new window
       if (self.clients.openWindow) {
-        return self.clients.openWindow(url);
+        return self.clients.openWindow(targetUrl);
       }
     })
   );

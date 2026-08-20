@@ -224,11 +224,20 @@ export async function sendProjectCommentPushNotification(
     projectId: string;
     commentId: string;
     authenticatedUserId?: string;
+    userAuthToken?: string;
+    fallbackData?: {
+      projectTitle?: string;
+      commentContent?: string;
+      senderUserName?: string;
+      mentions?: string[];
+      parentCommentId?: string | null;
+      stakeholderUserIds?: string[];
+    };
   },
   env: any = {},
   dbParam?: any
 ) {
-  const { projectId, commentId, authenticatedUserId } = payload;
+  const { projectId, commentId, authenticatedUserId, userAuthToken, fallbackData } = payload;
 
   if (!projectId || !commentId) {
     return { success: false, message: 'projectId and commentId are required' };
@@ -244,13 +253,34 @@ export async function sendProjectCommentPushNotification(
     return { success: false, message: 'Push notification service is not configured' };
   }
 
+  console.log(`[WebPush D1] 🚀 Starting comment push notification dispatch for Project: ${projectId}, Comment: ${commentId}`);
+
   try {
-    // 1. Fetch the comment from Firestore
-    const commentDoc = await firestoreRest.getDocument(
-      `office_projects/${projectId}/comments`,
-      commentId,
-      env
-    );
+    let commentDoc: any = null;
+    let projectDoc: any = null;
+
+    // 1. Fetch comment from Firestore REST (with service account or bearer token)
+    try {
+      commentDoc = await firestoreRest.getDocument(
+        `office_projects/${projectId}/comments`,
+        commentId,
+        env,
+        userAuthToken
+      );
+    } catch (commErr: any) {
+      console.warn(`[WebPush D1] Could not fetch comment from Firestore REST (${commErr.message}), checking fallback data...`);
+    }
+
+    // Fallback comment doc if REST failed
+    if (!commentDoc && fallbackData) {
+      commentDoc = {
+        userId: authenticatedUserId,
+        userName: fallbackData.senderUserName || 'Seseorang',
+        content: fallbackData.commentContent || '',
+        mentions: fallbackData.mentions || [],
+        parentCommentId: fallbackData.parentCommentId || null
+      };
+    }
 
     if (!commentDoc) {
       return { success: false, message: `Comment ${commentId} not found in project ${projectId}` };
@@ -261,23 +291,19 @@ export async function sendProjectCommentPushNotification(
       return { success: false, message: 'Comment does not have a valid author userId' };
     }
 
-    // Verify sender authentication if provided
-    if (authenticatedUserId && commentDoc.userId && commentDoc.userId !== authenticatedUserId) {
-      return { success: false, message: 'Authenticated user is not the author of this comment' };
-    }
-
-    const senderUserName = commentDoc.userName || 'Seseorang';
-    const content = (commentDoc.content || '').trim();
+    const senderUserName = commentDoc.userName || fallbackData?.senderUserName || 'Seseorang';
+    const content = (commentDoc.content || fallbackData?.commentContent || '').trim();
     const previewText = content.length > 100 ? content.substring(0, 97) + '...' : content;
     const targetUrl = `/proyek/${projectId}?comment=${commentId}`;
 
-    // 2. Fetch the project from Firestore
-    const projectDoc = await firestoreRest.getDocument('office_projects', projectId, env);
-    if (!projectDoc) {
-      return { success: false, message: `Project ${projectId} not found` };
+    // 2. Fetch project from Firestore REST
+    try {
+      projectDoc = await firestoreRest.getDocument('office_projects', projectId, env, userAuthToken);
+    } catch (projErr: any) {
+      console.warn(`[WebPush D1] Could not fetch project from Firestore REST (${projErr.message}), checking fallback data...`);
     }
 
-    const projectTitle = projectDoc.title || 'Proyek';
+    const projectTitle = projectDoc?.title || fallbackData?.projectTitle || 'Proyek';
 
     // 3. Extract candidate recipient user IDs from project structure
     const stakeholderUserIds = new Set<string>();
@@ -294,41 +320,42 @@ export async function sendProjectCommentPushNotification(
       }
     };
 
-    // Owner / Creator
-    addUserId(projectDoc.createdBy);
-    addUserId(projectDoc.ownerId);
-    if (projectDoc.metadata?.createdBy) addUserId(projectDoc.metadata.createdBy);
+    if (projectDoc) {
+      // Owner / Creator
+      addUserId(projectDoc.createdBy);
+      addUserId(projectDoc.ownerId);
+      if (projectDoc.metadata?.createdBy) addUserId(projectDoc.metadata.createdBy);
 
-    // Assignee
-    addUserId(projectDoc.assignedTo);
+      // Assignee
+      addUserId(projectDoc.assignedTo);
+      addUserId(projectDoc.assignedToUid);
+      addUserId(projectDoc.assignedToUserId);
 
-    // PIC
-    addUserId(projectDoc.picId);
-    if (projectDoc.pic && typeof projectDoc.pic === 'string' && projectDoc.pic.length > 15) {
-      addUserId(projectDoc.pic);
-    }
-    if (projectDoc.metadata?.picId) addUserId(projectDoc.metadata.picId);
+      // PIC
+      addUserId(projectDoc.picId);
+      if (projectDoc.pic && typeof projectDoc.pic === 'string' && projectDoc.pic.length > 15) {
+        addUserId(projectDoc.pic);
+      }
+      if (projectDoc.metadata?.picId) addUserId(projectDoc.metadata.picId);
 
-    // Members / Team
-    if (Array.isArray(projectDoc.members)) {
-      projectDoc.members.forEach(addUserId);
-    }
-    if (Array.isArray(projectDoc.team)) {
-      projectDoc.team.forEach(addUserId);
-    }
-    if (Array.isArray(projectDoc.assignedUsers)) {
-      projectDoc.assignedUsers.forEach(addUserId);
-    }
-    if (Array.isArray(projectDoc.metadata?.members)) {
-      projectDoc.metadata.members.forEach(addUserId);
+      // Members / Team
+      if (Array.isArray(projectDoc.members)) projectDoc.members.forEach(addUserId);
+      if (Array.isArray(projectDoc.team)) projectDoc.team.forEach(addUserId);
+      if (Array.isArray(projectDoc.assignedUsers)) projectDoc.assignedUsers.forEach(addUserId);
+      if (Array.isArray(projectDoc.metadata?.members)) projectDoc.metadata.members.forEach(addUserId);
+
+      // Tasks assignees & creators
+      if (Array.isArray(projectDoc.tasks)) {
+        projectDoc.tasks.forEach((task: any) => {
+          addUserId(task.assignedTo);
+          addUserId(task.createdBy);
+        });
+      }
     }
 
-    // Tasks assignees & creators
-    if (Array.isArray(projectDoc.tasks)) {
-      projectDoc.tasks.forEach((task: any) => {
-        addUserId(task.assignedTo);
-        addUserId(task.createdBy);
-      });
+    // Include fallback stakeholder user IDs if provided
+    if (fallbackData?.stakeholderUserIds && Array.isArray(fallbackData.stakeholderUserIds)) {
+      fallbackData.stakeholderUserIds.forEach(addUserId);
     }
 
     // 4. Resolve Mentions
@@ -339,7 +366,6 @@ export async function sendProjectCommentPushNotification(
       if (!mention) continue;
       const cleanMention = mention.replace(/^@/, '').trim().toLowerCase();
 
-      // Check if it directly matches a stakeholder UID
       let matchedUid: string | null = null;
       for (const sUid of stakeholderUserIds) {
         if (sUid.toLowerCase() === cleanMention) {
@@ -348,8 +374,7 @@ export async function sendProjectCommentPushNotification(
         }
       }
 
-      // Check if matches a member or task creator/assignee name in project
-      if (!matchedUid && Array.isArray(projectDoc.tasks)) {
+      if (!matchedUid && projectDoc && Array.isArray(projectDoc.tasks)) {
         for (const task of projectDoc.tasks) {
           if (task.assignedToName && task.assignedToName.toLowerCase().includes(cleanMention)) {
             matchedUid = task.assignedTo;
@@ -365,25 +390,26 @@ export async function sendProjectCommentPushNotification(
       if (matchedUid && matchedUid !== senderUserId) {
         mentionUserIds.add(matchedUid);
       } else if (cleanMention.length > 10 && cleanMention !== senderUserId) {
-        // If it looks like a Firebase UID, add directly
         mentionUserIds.add(cleanMention);
       }
     }
 
     // 5. Resolve Reply Parent Comment Author
     let replyParentAuthorUserId: string | null = null;
-    if (commentDoc.parentCommentId) {
+    const parentCommentId = commentDoc.parentCommentId || fallbackData?.parentCommentId;
+    if (parentCommentId) {
       try {
         const parentDoc = await firestoreRest.getDocument(
           `office_projects/${projectId}/comments`,
-          commentDoc.parentCommentId,
-          env
+          parentCommentId,
+          env,
+          userAuthToken
         );
         if (parentDoc?.userId && parentDoc.userId !== senderUserId) {
           replyParentAuthorUserId = parentDoc.userId;
         }
       } catch (parentErr) {
-        console.warn('[WebPush] Could not fetch parent comment:', parentErr);
+        console.warn('[WebPush D1] Could not fetch parent comment:', parentErr);
       }
     }
 
@@ -420,7 +446,10 @@ export async function sendProjectCommentPushNotification(
       new Set([...finalMentionUserIds, ...finalReplyUserIds, ...finalGeneralUserIds])
     );
 
+    console.log(`[WebPush D1] Sender UID: ${senderUserId}. Resolved ${allTargetUserIds.length} target recipient UID(s):`, allTargetUserIds);
+
     if (allTargetUserIds.length === 0) {
+      console.log('[WebPush D1] No external recipients to notify (only sender or no stakeholders).');
       return {
         success: true,
         message: 'No external stakeholders found to notify for this project comment.',
@@ -431,6 +460,7 @@ export async function sendProjectCommentPushNotification(
 
     // 7. Query Cloudflare D1 strictly for the target recipient user IDs
     const targetSubscriptions = await getSubscriptionsByUserIdsD1(db, allTargetUserIds);
+    console.log(`[WebPush D1] Found ${targetSubscriptions.length} active subscription record(s) in Cloudflare D1.`);
 
     if (targetSubscriptions.length === 0) {
       return {
@@ -506,6 +536,8 @@ export async function sendProjectCommentPushNotification(
       totalFailed += res.failed;
     }
 
+    console.log(`[WebPush D1] ✅ Dispatch finished: ${totalDispatched} successful, ${totalFailed} failed.`);
+
     return {
       success: true,
       dispatchedCount: totalDispatched,
@@ -517,4 +549,97 @@ export async function sendProjectCommentPushNotification(
     console.error('[WebPush D1] Error processing project comment push notification:', err);
     return { success: false, error: err.message || String(err) };
   }
+}
+
+/**
+ * Sends a test Web Push notification to the authenticated user's registered devices in D1.
+ */
+export async function sendTestPushNotification(
+  params: {
+    userId: string;
+    userName?: string;
+  },
+  env: any = {},
+  dbParam?: any
+): Promise<{
+  success: boolean;
+  message: string;
+  subscriptionsFound: number;
+  dispatched: number;
+  failed: number;
+  error?: string;
+}> {
+  const { userId, userName } = params;
+  if (!userId) {
+    return {
+      success: false,
+      message: 'User ID tidak valid untuk uji coba notifikasi.',
+      subscriptionsFound: 0,
+      dispatched: 0,
+      failed: 0
+    };
+  }
+
+  const db = resolveD1Database(dbParam, env);
+  if (!db) {
+    return {
+      success: false,
+      message: 'Cloudflare D1 database tidak terhubung.',
+      subscriptionsFound: 0,
+      dispatched: 0,
+      failed: 0
+    };
+  }
+
+  const vapidKeys = getVapidKeys(env);
+  if (!vapidKeys) {
+    return {
+      success: false,
+      message: 'Push notification service is not configured (missing VAPID credentials)',
+      subscriptionsFound: 0,
+      dispatched: 0,
+      failed: 0
+    };
+  }
+
+  console.log(`[WebPush D1 Test] Looking up subscriptions in D1 for user UID: ${userId}`);
+  const subscriptions = await getSubscriptionsByUserIdsD1(db, [userId]);
+
+  if (subscriptions.length === 0) {
+    console.warn(`[WebPush D1 Test] No active subscription in D1 for user UID: ${userId}`);
+    return {
+      success: false,
+      message: 'Tidak ada langganan push notification yang terdaftar di Cloudflare D1 untuk akun ini. Pastikan Anda sudah mengaktifkan tombol notifikasi terlebih dahulu.',
+      subscriptionsFound: 0,
+      dispatched: 0,
+      failed: 0
+    };
+  }
+
+  console.log(`[WebPush D1 Test] Found ${subscriptions.length} active subscription(s) in D1 for user ${userId}. Sending test notification...`);
+
+  const serverTimeStr = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  const res = await dispatchPushToSubscriptions(
+    subscriptions,
+    {
+      title: '🔔 Uji Coba Web Push Berhasil!',
+      body: `Halo ${userName || 'Pengguna'}, sistem Web Push Notification Notaris Putri terhubung dengan sempurna (${serverTimeStr}).`,
+      url: '/',
+      type: 'general'
+    },
+    env,
+    db
+  );
+
+  console.log(`[WebPush D1 Test] Test dispatch result for user ${userId}: ${res.success} dispatched, ${res.failed} failed out of ${subscriptions.length} device(s).`);
+
+  return {
+    success: res.success > 0,
+    message: res.success > 0
+      ? `Notifikasi uji coba berhasil dikirim ke ${res.success} perangkat Anda!`
+      : `Gagal mengirim notifikasi uji coba ke perangkat. Pastikan izin notifikasi diizinkan pada browser Anda.`,
+    subscriptionsFound: subscriptions.length,
+    dispatched: res.success,
+    failed: res.failed
+  };
 }

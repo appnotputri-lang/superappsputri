@@ -99,7 +99,8 @@ import {
   savePushSubscription,
   deletePushSubscription,
   getPushSubscriptionStatus,
-  sendProjectCommentPushNotification
+  sendProjectCommentPushNotification,
+  sendTestPushNotification
 } from "./src/services/pushBackend";
 
 async function startServer() {
@@ -2146,7 +2147,9 @@ async function startServer() {
   app.post("/api/push/send-comment-notification", authMiddleware, async (req: AuthenticatedRequest, res) => {
     try {
       const authenticatedUid = req.user?.uid;
-      const { projectId, commentId } = req.body || {};
+      const { projectId, commentId, fallbackData } = req.body || {};
+      const authHeader = req.headers.authorization;
+      const userAuthToken = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : undefined;
 
       if (!projectId || !commentId) {
         return res.status(400).json({ error: "projectId and commentId are required" });
@@ -2156,7 +2159,9 @@ async function startServer() {
         {
           projectId,
           commentId,
-          authenticatedUserId: authenticatedUid
+          authenticatedUserId: authenticatedUid,
+          userAuthToken,
+          fallbackData
         },
         process.env,
         getLocalD1Database()
@@ -2170,6 +2175,34 @@ async function startServer() {
     } catch (err: any) {
       console.error("[Push API] Error dispatching push notification:", err);
       res.status(500).json({ error: err.message || "Failed to send push notification" });
+    }
+  });
+
+  // 6. Test Web Push notification (Self-test)
+  app.post("/api/push/test", authMiddleware, async (req: AuthenticatedRequest, res) => {
+    try {
+      const authenticatedUid = req.user?.uid;
+      if (!authenticatedUid) {
+        return res.status(401).json({ error: "Unauthorized: Missing user ID in token" });
+      }
+
+      const result = await sendTestPushNotification(
+        {
+          userId: authenticatedUid,
+          userName: req.user?.email || 'Pengguna'
+        },
+        process.env,
+        getLocalD1Database()
+      );
+
+      if (!result.success && result.subscriptionsFound === 0) {
+        return res.status(404).json(result);
+      }
+
+      res.json(result);
+    } catch (err: any) {
+      console.error("[Push API] Error sending test notification:", err);
+      res.status(500).json({ error: err.message || "Failed to send test push notification" });
     }
   });
 

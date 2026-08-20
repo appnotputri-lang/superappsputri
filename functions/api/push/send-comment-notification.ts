@@ -17,10 +17,12 @@ export const onRequestPost = async (context: any) => {
   }
 
   const authenticatedUid = authResult.user.uid;
+  const authHeader = request.headers.get('Authorization');
+  const userAuthToken = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : undefined;
 
   try {
     const payload = await request.json().catch(() => ({}));
-    const { projectId, commentId } = payload;
+    const { projectId, commentId, fallbackData } = payload;
 
     if (!projectId || !commentId) {
       return createErrorResponse("projectId and commentId are required", 400);
@@ -30,7 +32,9 @@ export const onRequestPost = async (context: any) => {
       {
         projectId,
         commentId,
-        authenticatedUserId: authenticatedUid
+        authenticatedUserId: authenticatedUid,
+        userAuthToken,
+        fallbackData
       },
       env,
       db
