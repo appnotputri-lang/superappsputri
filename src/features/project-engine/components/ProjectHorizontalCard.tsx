@@ -2,11 +2,12 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Project, ProjectActivity, ProjectActivityType } from '../../../domain/project/Project';
 import { ProjectService } from '../../../services/ProjectService';
 import { UserProfile } from '../../../../types';
+import { db } from '../../../lib/firebase';
+import { collection, onSnapshot } from 'firebase/firestore';
 import { 
   Calendar, 
   MessageSquare, 
   CheckSquare, 
-  Plus, 
   ArrowRight, 
   ChevronDown, 
   ChevronUp, 
@@ -111,19 +112,34 @@ export const ProjectHorizontalCard: React.FC<ProjectHorizontalCardProps> = ({
   const [isLoadingThread, setIsLoadingThread] = useState(false);
   const [newComment, setNewComment] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [selectedAttachment, setSelectedAttachment] = useState<{ name: string; url: string } | null>(null);
+  const [staffList, setStaffList] = useState<{ uid: string; name: string }[]>([]);
+  const [mentionedUsers, setMentionedUsers] = useState<{ uid: string; name: string }[]>([]);
 
   // Popover States
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
   const [activeEmojiCategory, setActiveEmojiCategory] = useState<'smileys' | 'reactions' | 'favorites'>('smileys');
-  const [isQuickMenuOpen, setIsQuickMenuOpen] = useState(false);
   const [activeReactionPickerCommentId, setActiveReactionPickerCommentId] = useState<string | null>(null);
 
   const inputRef = useRef<HTMLInputElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const quickMenuRef = useRef<HTMLDivElement>(null);
   const emojiPickerRef = useRef<HTMLDivElement>(null);
   const reactionPickerRef = useRef<HTMLDivElement>(null);
+
+  // Fetch staff list from user_profiles for mention autocomplete
+  useEffect(() => {
+    const unsub = onSnapshot(collection(db, 'user_profiles'), (snapshot) => {
+      const profiles = snapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          uid: doc.id,
+          name: data.name || data.displayName || data.email?.split('@')[0] || 'User'
+        };
+      });
+      setStaffList(profiles);
+    }, (err) => {
+      console.warn('Error fetching staff list for mentions:', err);
+    });
+    return () => unsub();
+  }, []);
 
   // Subscribe to real-time activities & comments when expanded
   useEffect(() => {
@@ -181,9 +197,6 @@ export const ProjectHorizontalCard: React.FC<ProjectHorizontalCardProps> = ({
   // Click outside listener for popovers
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (quickMenuRef.current && !quickMenuRef.current.contains(e.target as Node)) {
-        setIsQuickMenuOpen(false);
-      }
       if (emojiPickerRef.current && !emojiPickerRef.current.contains(e.target as Node)) {
         setIsEmojiPickerOpen(false);
       }
@@ -207,13 +220,54 @@ export const ProjectHorizontalCard: React.FC<ProjectHorizontalCardProps> = ({
   const currentUserName = currentUser?.name || (currentUser as any)?.displayName || 'Staff Notaris';
   const currentUserInitials = currentUserName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
 
+  const getActiveMentionQuery = () => {
+    const cursorPos = inputRef.current?.selectionStart ?? newComment.length;
+    const textBeforeCursor = newComment.slice(0, cursorPos);
+    const match = textBeforeCursor.match(/@([a-zA-Z0-9_\- ]*)$/);
+    if (!match) return null;
+    const q = match[1];
+    if (q.includes('  ')) return null;
+    return q;
+  };
+
+  const activeQuery = getActiveMentionQuery();
+  const mentionCandidates = activeQuery !== null
+    ? staffList.filter(s => s.name.toLowerCase().includes(activeQuery.toLowerCase())).slice(0, 5)
+    : [];
+
+  const handleSelectMention = (user: { uid: string; name: string }) => {
+    const cursorPos = inputRef.current?.selectionStart ?? newComment.length;
+    const textBeforeCursor = newComment.slice(0, cursorPos);
+    const textAfterCursor = newComment.slice(cursorPos);
+    const lastAtIdx = textBeforeCursor.lastIndexOf('@');
+    if (lastAtIdx !== -1) {
+      const replacement = `@${user.name} `;
+      const updated = textBeforeCursor.slice(0, lastAtIdx) + replacement + textAfterCursor;
+      setNewComment(updated);
+
+      setMentionedUsers(prev => {
+        if (prev.some(u => u.uid === user.uid)) return prev;
+        return [...prev, { uid: user.uid, name: user.name }];
+      });
+
+      setTimeout(() => {
+        if (inputRef.current) {
+          inputRef.current.focus();
+          const newCursor = lastAtIdx + replacement.length;
+          inputRef.current.setSelectionRange(newCursor, newCursor);
+        }
+      }, 10);
+    }
+  };
+
   // Add Comment Submission
   const handlePostComment = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (!newComment.trim() && !selectedAttachment) return;
+    if (!newComment.trim()) return;
 
-    const mentionsMatches = newComment.match(/@[a-zA-Z0-9_\-]+/g);
-    const mentions = mentionsMatches ? mentionsMatches.map(m => m.replace('@', '')) : [];
+    const mentions = mentionedUsers
+      .filter(u => newComment.includes(`@${u.name}`))
+      .map(u => u.uid);
 
     setIsSubmitting(true);
     try {
@@ -221,13 +275,11 @@ export const ProjectHorizontalCard: React.FC<ProjectHorizontalCardProps> = ({
         userId: currentUserId,
         userName: currentUserName,
         content: newComment.trim(),
-        mentions,
-        attachmentUrl: selectedAttachment?.url,
-        attachmentName: selectedAttachment?.name
+        mentions
       });
 
       setNewComment('');
-      setSelectedAttachment(null);
+      setMentionedUsers([]);
       setIsEmojiPickerOpen(false);
     } catch (err) {
       console.error('Gagal memposting komentar:', err);
@@ -273,16 +325,6 @@ export const ProjectHorizontalCard: React.FC<ProjectHorizontalCardProps> = ({
       input.focus();
       input.setSelectionRange(start + emoji.length, start + emoji.length);
     }, 10);
-  };
-
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setSelectedAttachment({
-        name: file.name,
-        url: URL.createObjectURL(file)
-      });
-    }
   };
 
   const renderContentWithMentions = (text: string) => {
@@ -452,72 +494,6 @@ export const ProjectHorizontalCard: React.FC<ProjectHorizontalCardProps> = ({
 
           {/* BOTTOM RIGHT ACTION BUTTONS */}
           <div className="flex items-center gap-2 relative">
-            {/* QUICK ACTION MENU BUTTON [+] */}
-            <div className="relative" ref={quickMenuRef}>
-              <button
-                type="button"
-                onClick={() => setIsQuickMenuOpen(!isQuickMenuOpen)}
-                className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center transition-colors cursor-pointer"
-                title="Aksi Cepat"
-              >
-                <Plus size={16} />
-              </button>
-
-              {/* QUICK ACTION POPOVER MENU */}
-              {isQuickMenuOpen && (
-                <div className="absolute right-0 bottom-10 z-30 w-48 bg-white rounded-xl shadow-xl border border-slate-200 py-1.5 space-y-0.5 animate-fade-in text-xs font-bold text-slate-700">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsQuickMenuOpen(false);
-                      setIsExpanded(true);
-                      setTimeout(() => inputRef.current?.focus(), 100);
-                    }}
-                    className="w-full px-3 py-2 text-left hover:bg-slate-50 flex items-center gap-2 transition-colors"
-                  >
-                    <MessageSquare size={14} className="text-purple-600" />
-                    <span>Tambah Komentar</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsQuickMenuOpen(false);
-                      onOpenAddActivityModal?.(project, 'task');
-                    }}
-                    className="w-full px-3 py-2 text-left hover:bg-slate-50 flex items-center gap-2 transition-colors"
-                  >
-                    <CheckSquare size={14} className="text-sky-600" />
-                    <span>Tambah Tugas</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsQuickMenuOpen(false);
-                      onOpenAddActivityModal?.(project, 'comment');
-                    }}
-                    className="w-full px-3 py-2 text-left hover:bg-slate-50 flex items-center gap-2 transition-colors"
-                  >
-                    <RefreshCw size={14} className="text-emerald-600" />
-                    <span>Tambah Update</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsQuickMenuOpen(false);
-                      onOpenAddActivityModal?.(project, 'issue');
-                    }}
-                    className="w-full px-3 py-2 text-left hover:bg-slate-50 flex items-center gap-2 text-amber-700 hover:bg-amber-50 transition-colors"
-                  >
-                    <AlertTriangle size={14} className="text-amber-600" />
-                    <span>Laporkan Kendala</span>
-                  </button>
-                </div>
-              )}
-            </div>
-
             {/* DETAIL BUTTON */}
             <button
               type="button"
@@ -593,7 +569,7 @@ export const ProjectHorizontalCard: React.FC<ProjectHorizontalCardProps> = ({
                           <button
                             type="button"
                             onClick={() => handleDeleteComment(act.id)}
-                            className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-600 transition-opacity p-0.5 rounded cursor-pointer"
+                            className="opacity-60 sm:opacity-0 sm:group-hover:opacity-100 text-slate-400 hover:text-red-600 active:text-red-700 transition-opacity p-1 -m-1 rounded cursor-pointer"
                             title="Hapus Komentar"
                           >
                             <Trash2 size={12} />
@@ -683,19 +659,25 @@ export const ProjectHorizontalCard: React.FC<ProjectHorizontalCardProps> = ({
 
           {/* INLINE COMMENT INPUT BAR */}
           <form onSubmit={handlePostComment} className="pt-2 relative">
-            {selectedAttachment && (
-              <div className="mb-2 flex items-center justify-between px-3 py-1.5 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-700">
-                <div className="flex items-center gap-1.5 truncate">
-                  <Paperclip size={13} />
-                  <span className="truncate">{selectedAttachment.name}</span>
+            {/* MENTION AUTOCOMPLETE DROPDOWN */}
+            {mentionCandidates.length > 0 && (
+              <div className="absolute left-10 bottom-14 z-50 w-60 bg-white rounded-xl shadow-xl border border-slate-200 py-1 space-y-0.5 animate-fade-in max-h-48 overflow-y-auto">
+                <div className="px-3 py-1 text-[10px] font-extrabold text-slate-400 uppercase tracking-wider border-b border-slate-100">
+                  Pilih Staf (@)
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setSelectedAttachment(null)}
-                  className="text-blue-500 hover:text-blue-800 text-xs font-bold ml-2"
-                >
-                  ✕
-                </button>
+                {mentionCandidates.map(u => (
+                  <button
+                    key={u.uid}
+                    type="button"
+                    onClick={() => handleSelectMention(u)}
+                    className="w-full px-3 py-1.5 text-left hover:bg-blue-50 text-xs font-semibold text-slate-800 flex items-center gap-2 transition-colors cursor-pointer"
+                  >
+                    <div className="w-5 h-5 rounded-full bg-blue-100 text-blue-700 font-bold text-[9px] flex items-center justify-center shrink-0">
+                      {u.name.substring(0, 2).toUpperCase()}
+                    </div>
+                    <span className="truncate">{u.name}</span>
+                  </button>
+                ))}
               </div>
             )}
 
@@ -710,6 +692,12 @@ export const ProjectHorizontalCard: React.FC<ProjectHorizontalCardProps> = ({
                 type="text"
                 value={newComment}
                 onChange={(e) => setNewComment(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handlePostComment();
+                  }
+                }}
                 placeholder="Tulis komentar... Gunakan @nama atau 😊"
                 className="flex-1 text-xs text-slate-800 placeholder-slate-400 bg-transparent focus:outline-none border-none py-1"
                 disabled={isSubmitting}
@@ -781,26 +769,10 @@ export const ProjectHorizontalCard: React.FC<ProjectHorizontalCardProps> = ({
                 <AtSign size={17} />
               </button>
 
-              {/* ATTACHMENT BUTTON */}
-              <input
-                type="file"
-                ref={fileInputRef}
-                onChange={handleFileSelect}
-                className="hidden"
-              />
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="p-1.5 text-slate-400 hover:text-blue-600 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
-                title="Lampirkan File"
-              >
-                <Paperclip size={17} />
-              </button>
-
               {/* SEND BUTTON */}
               <button
                 type="submit"
-                disabled={isSubmitting || (!newComment.trim() && !selectedAttachment)}
+                disabled={isSubmitting || !newComment.trim()}
                 className="px-3 py-1.5 rounded-xl bg-[#0c2444] hover:bg-[#16365f] text-white text-xs font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed shrink-0 shadow-2xs flex items-center gap-1 cursor-pointer"
               >
                 <span>Kirim</span>

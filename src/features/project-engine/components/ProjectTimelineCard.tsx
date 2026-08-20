@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Project, ProjectActivity, ProjectActivityType } from '../../../domain/project/Project';
 import { ProjectService } from '../../../services/ProjectService';
+import { db } from '../../../lib/firebase';
+import { collection, onSnapshot } from 'firebase/firestore';
 import { 
   ChevronDown, 
   ChevronUp, 
@@ -126,16 +128,33 @@ export const ProjectTimelineCard: React.FC<ProjectTimelineCardProps> = ({
   const [isLoadingThread, setIsLoadingThread] = useState(false);
   const [newComment, setNewComment] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [selectedAttachment, setSelectedAttachment] = useState<{ url: string; name: string } | null>(null);
+  const [staffList, setStaffList] = useState<{ uid: string; name: string }[]>([]);
+  const [mentionedUsers, setMentionedUsers] = useState<{ uid: string; name: string }[]>([]);
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
   const [activeEmojiCategory, setActiveEmojiCategory] = useState<'smileys' | 'reactions' | 'favorites'>('smileys');
   const [activeReactionPickerCommentId, setActiveReactionPickerCommentId] = useState<string | null>(null);
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const threadEndRef = useRef<HTMLDivElement>(null);
   const emojiPickerRef = useRef<HTMLDivElement>(null);
   const reactionPickerRef = useRef<HTMLDivElement>(null);
+
+  // Fetch staff list from user_profiles for mention autocomplete
+  useEffect(() => {
+    const unsub = onSnapshot(collection(db, 'user_profiles'), (snapshot) => {
+      const profiles = snapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          uid: doc.id,
+          name: data.name || data.displayName || data.email?.split('@')[0] || 'User'
+        };
+      });
+      setStaffList(profiles);
+    }, (err) => {
+      console.warn('Error fetching staff list for mentions:', err);
+    });
+    return () => unsub();
+  }, []);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -186,16 +205,57 @@ export const ProjectTimelineCard: React.FC<ProjectTimelineCardProps> = ({
     ? currentUser.name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
     : 'NE';
 
+  const getActiveMentionQuery = () => {
+    const cursorPos = inputRef.current?.selectionStart ?? newComment.length;
+    const textBeforeCursor = newComment.slice(0, cursorPos);
+    const match = textBeforeCursor.match(/@([a-zA-Z0-9_\- ]*)$/);
+    if (!match) return null;
+    const q = match[1];
+    if (q.includes('  ')) return null;
+    return q;
+  };
+
+  const activeQuery = getActiveMentionQuery();
+  const mentionCandidates = activeQuery !== null
+    ? staffList.filter(s => s.name.toLowerCase().includes(activeQuery.toLowerCase())).slice(0, 5)
+    : [];
+
+  const handleSelectMention = (user: { uid: string; name: string }) => {
+    const cursorPos = inputRef.current?.selectionStart ?? newComment.length;
+    const textBeforeCursor = newComment.slice(0, cursorPos);
+    const textAfterCursor = newComment.slice(cursorPos);
+    const lastAtIdx = textBeforeCursor.lastIndexOf('@');
+    if (lastAtIdx !== -1) {
+      const replacement = `@${user.name} `;
+      const updated = textBeforeCursor.slice(0, lastAtIdx) + replacement + textAfterCursor;
+      setNewComment(updated);
+
+      setMentionedUsers(prev => {
+        if (prev.some(u => u.uid === user.uid)) return prev;
+        return [...prev, { uid: user.uid, name: user.name }];
+      });
+
+      setTimeout(() => {
+        if (inputRef.current) {
+          inputRef.current.focus();
+          const newCursor = lastAtIdx + replacement.length;
+          inputRef.current.setSelectionRange(newCursor, newCursor);
+        }
+      }, 10);
+    }
+  };
+
   const handlePostComment = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (!newComment.trim() && !selectedAttachment) return;
+    if (!newComment.trim()) return;
 
     const userName = currentUser?.name || currentUser?.email?.split('@')[0] || 'Staff Notaris';
     const userId = currentUser?.uid || 'user-1';
 
-    // Extract @mentions from text
-    const mentionsMatches = newComment.match(/@[a-zA-Z0-9_\-]+/g);
-    const mentions = mentionsMatches ? mentionsMatches.map(m => m.replace('@', '')) : [];
+    // Extract mentions from mentionedUsers matching the typed text
+    const mentions = mentionedUsers
+      .filter(u => newComment.includes(`@${u.name}`))
+      .map(u => u.uid);
 
     setIsSubmitting(true);
     try {
@@ -203,13 +263,11 @@ export const ProjectTimelineCard: React.FC<ProjectTimelineCardProps> = ({
         userId,
         userName,
         content: newComment.trim(),
-        mentions,
-        attachmentUrl: selectedAttachment?.url,
-        attachmentName: selectedAttachment?.name
+        mentions
       });
 
       setNewComment('');
-      setSelectedAttachment(null);
+      setMentionedUsers([]);
       setIsEmojiPickerOpen(false);
 
       // Auto scroll to latest comment
@@ -259,16 +317,6 @@ export const ProjectTimelineCard: React.FC<ProjectTimelineCardProps> = ({
       input.focus();
       input.setSelectionRange(start + emoji.length, start + emoji.length);
     }, 10);
-  };
-
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setSelectedAttachment({
-        name: file.name,
-        url: URL.createObjectURL(file)
-      });
-    }
   };
 
   const renderContentWithMentions = (text: string) => {
@@ -488,7 +536,7 @@ export const ProjectTimelineCard: React.FC<ProjectTimelineCardProps> = ({
                             <button
                               type="button"
                               onClick={() => handleDeleteComment(act.id)}
-                              className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-600 transition-opacity p-0.5 rounded cursor-pointer"
+                              className="opacity-60 sm:opacity-0 sm:group-hover:opacity-100 text-slate-400 hover:text-red-600 active:text-red-700 transition-opacity p-1 -m-1 rounded cursor-pointer"
                               title="Hapus Komentar"
                             >
                               <Trash2 size={12} />
@@ -580,19 +628,25 @@ export const ProjectTimelineCard: React.FC<ProjectTimelineCardProps> = ({
 
           {/* INPUT FORM DIRECTLY INSIDE CARD */}
           <form onSubmit={handlePostComment} className="pt-2 relative">
-            {selectedAttachment && (
-              <div className="mb-2 flex items-center justify-between px-3 py-1.5 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-700">
-                <div className="flex items-center gap-1.5 truncate">
-                  <Paperclip size={13} />
-                  <span className="truncate">{selectedAttachment.name}</span>
+            {/* MENTION AUTOCOMPLETE DROPDOWN */}
+            {mentionCandidates.length > 0 && (
+              <div className="absolute left-10 bottom-14 z-50 w-60 bg-white rounded-xl shadow-xl border border-slate-200 py-1 space-y-0.5 animate-fade-in max-h-48 overflow-y-auto">
+                <div className="px-3 py-1 text-[10px] font-extrabold text-slate-400 uppercase tracking-wider border-b border-slate-100">
+                  Pilih Staf (@)
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setSelectedAttachment(null)}
-                  className="text-blue-500 hover:text-blue-800 text-xs font-bold ml-2"
-                >
-                  ✕
-                </button>
+                {mentionCandidates.map(u => (
+                  <button
+                    key={u.uid}
+                    type="button"
+                    onClick={() => handleSelectMention(u)}
+                    className="w-full px-3 py-1.5 text-left hover:bg-blue-50 text-xs font-semibold text-slate-800 flex items-center gap-2 transition-colors cursor-pointer"
+                  >
+                    <div className="w-5 h-5 rounded-full bg-blue-100 text-blue-700 font-bold text-[9px] flex items-center justify-center shrink-0">
+                      {u.name.substring(0, 2).toUpperCase()}
+                    </div>
+                    <span className="truncate">{u.name}</span>
+                  </button>
+                ))}
               </div>
             )}
 
@@ -608,6 +662,12 @@ export const ProjectTimelineCard: React.FC<ProjectTimelineCardProps> = ({
                 type="text"
                 value={newComment}
                 onChange={(e) => setNewComment(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handlePostComment();
+                  }
+                }}
                 placeholder="Tulis komentar... (gunakan @nama atau 😊)"
                 className="flex-1 text-xs text-slate-800 placeholder-slate-400 bg-transparent focus:outline-none border-none py-1"
                 disabled={isSubmitting}
@@ -677,27 +737,11 @@ export const ProjectTimelineCard: React.FC<ProjectTimelineCardProps> = ({
                 <AtSign size={16} />
               </button>
 
-              {/* ATTACHMENT ACTION */}
-              <input 
-                type="file" 
-                ref={fileInputRef} 
-                onChange={handleFileSelect} 
-                className="hidden" 
-              />
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="p-1.5 text-slate-400 hover:text-blue-600 rounded-lg hover:bg-slate-100 transition-colors"
-                title="Lampirkan File"
-              >
-                <Paperclip size={16} />
-              </button>
-
               {/* SUBMIT BUTTON */}
               <button
                 type="submit"
-                disabled={isSubmitting || (!newComment.trim() && !selectedAttachment)}
-                className="w-8 h-8 rounded-xl bg-[#1e61c3] hover:bg-[#174fa3] active:scale-95 text-white flex items-center justify-center transition-all disabled:opacity-40 disabled:cursor-not-allowed shrink-0 shadow-2xs"
+                disabled={isSubmitting || !newComment.trim()}
+                className="w-8 h-8 rounded-xl bg-[#1e61c3] hover:bg-[#174fa3] active:scale-95 text-white flex items-center justify-center transition-all disabled:opacity-40 disabled:cursor-not-allowed shrink-0 shadow-2xs cursor-pointer"
               >
                 <Send size={14} />
               </button>
