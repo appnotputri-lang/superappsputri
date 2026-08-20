@@ -2084,7 +2084,8 @@ async function startServer() {
         authenticatedUid,
         subscription,
         { platform, userAgent },
-        process.env
+        process.env,
+        getLocalD1Database()
       );
 
       res.status(201).json(result);
@@ -2103,7 +2104,7 @@ async function startServer() {
         return res.status(400).json({ error: "endpoint is required." });
       }
 
-      const result = await deletePushSubscription(authenticatedUid!, endpoint, process.env);
+      const result = await deletePushSubscription(authenticatedUid!, endpoint, process.env, getLocalD1Database());
       res.json(result);
     } catch (err: any) {
       console.error("[Push API] Error deleting subscription:", err);
@@ -2117,7 +2118,7 @@ async function startServer() {
       const authenticatedUid = req.user?.uid;
       const endpoint = (req.query.endpoint as string) || undefined;
 
-      const result = await getPushSubscriptionStatus({ userId: authenticatedUid, endpoint }, process.env);
+      const result = await getPushSubscriptionStatus({ userId: authenticatedUid, endpoint }, process.env, getLocalD1Database());
       res.json(result);
     } catch (err: any) {
       console.error("[Push API] Error getting push status:", err);
@@ -2133,7 +2134,7 @@ async function startServer() {
         return res.status(400).json({ error: "endpoint is required." });
       }
 
-      const result = await deletePushSubscription(authenticatedUid!, endpoint, process.env);
+      const result = await deletePushSubscription(authenticatedUid!, endpoint, process.env, getLocalD1Database());
       res.json(result);
     } catch (err: any) {
       console.error("[Push API] Error deleting subscription:", err);
@@ -2157,7 +2158,8 @@ async function startServer() {
           commentId,
           authenticatedUserId: authenticatedUid
         },
-        process.env
+        process.env,
+        getLocalD1Database()
       );
 
       if (!result.success) {

@@ -6,7 +6,6 @@ import {
   getPushSubscriptionStatusD1,
   PushSubscriptionRecord
 } from '../lib/d1PushSubscriptionRepository';
-import { getLocalD1Database } from '../lib/sqlite-d1';
 import { sendWebPushNotification } from '../lib/webPushWebCrypto';
 import { firestoreRest } from '../lib/firestore-rest';
 
@@ -31,17 +30,15 @@ export function getVapidKeys(env: any = {}): { publicKey: string; privateKey: st
 }
 
 /**
- * Helper to resolve D1 database instance from context env or local SQLite instance.
+ * Helper to resolve D1 database instance from context env or passed db.
  */
 export function resolveD1Database(db?: any, env?: any): any {
   if (db) return db;
   if (env?.DB) return env.DB;
-  try {
-    return getLocalD1Database();
-  } catch (err) {
-    console.warn('[WebPush] Could not resolve D1 database:', err);
-    return null;
+  if (typeof process !== 'undefined' && (process as any)?.env?.DB) {
+    return (process as any).env.DB;
   }
+  return null;
 }
 
 /**
