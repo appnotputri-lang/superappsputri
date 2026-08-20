@@ -360,6 +360,24 @@ export async function ensureD1TablesExist(db: any) {
 
   await db.prepare(`CREATE INDEX IF NOT EXISTS idx_deposit_note_items_dn_id ON deposit_note_items(deposit_note_id);`).run();
 
+  // 14. Push Subscriptions table (Web Push Notifications)
+  await db.prepare(`
+    CREATE TABLE IF NOT EXISTS push_subscriptions (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      endpoint TEXT NOT NULL UNIQUE,
+      p256dh TEXT NOT NULL,
+      auth TEXT NOT NULL,
+      platform TEXT DEFAULT 'Web',
+      user_agent TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+  `).run();
+
+  await db.prepare(`CREATE INDEX IF NOT EXISTS idx_push_sub_user_id ON push_subscriptions(user_id);`).run();
+  await db.prepare(`CREATE INDEX IF NOT EXISTS idx_push_sub_endpoint ON push_subscriptions(endpoint);`).run();
+
   d1TablesEnsuredCache = true;
 }
 

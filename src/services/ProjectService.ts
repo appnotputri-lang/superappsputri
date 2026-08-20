@@ -1036,8 +1036,10 @@ export class ProjectService {
       // 3. Update parent project document metadata
       const projectRef = doc(db, this.projectsCol, projectId);
       const projectSnap = await getDoc(projectRef);
+      let projectTitle = 'Proyek';
       if (projectSnap.exists()) {
         const pData = projectSnap.data();
+        projectTitle = pData.title || 'Proyek';
         const currentCount = pData.activitiesCount || (pData.activities?.length || 0);
         await updateDoc(projectRef, {
           lastActivityAt: serverTimestamp(),
@@ -1046,6 +1048,17 @@ export class ProjectService {
           activitiesCount: currentCount + 1,
           updatedAt: new Date().toISOString()
         });
+      }
+
+      // 4. Trigger Web Push Notification asynchronously (non-blocking)
+      try {
+        const { PushNotificationClient } = await import('./PushNotificationClient');
+        PushNotificationClient.triggerCommentPushNotification({
+          projectId,
+          commentId: newCommDoc.id
+        }).catch(err => console.warn('[ProjectService] Push notification trigger warning:', err));
+      } catch (pushErr) {
+        console.warn('[ProjectService] Error triggering push notification:', pushErr);
       }
 
       return actPayload;

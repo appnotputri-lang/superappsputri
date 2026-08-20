@@ -145,6 +145,39 @@ export const ProjectHorizontalCard: React.FC<ProjectHorizontalCardProps> = ({
     return () => unsubscribe();
   }, [isExpanded, project.projectId]);
 
+  // Deep Link Auto-expansion & Smooth Scroll to targeted comment
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const urlParams = new URLSearchParams(window.location.search);
+    const targetCommentId = urlParams.get('comment');
+    if (!targetCommentId) return;
+
+    const isCurrentProject = window.location.pathname.includes(project.projectId);
+    if (isCurrentProject && !isExpanded) {
+      setIsExpanded(true);
+    }
+  }, [project.projectId, isExpanded]);
+
+  useEffect(() => {
+    if (!isExpanded || activities.length === 0) return;
+    const urlParams = new URLSearchParams(window.location.search);
+    const targetCommentId = urlParams.get('comment');
+    if (!targetCommentId) return;
+
+    const timer = setTimeout(() => {
+      const el = document.getElementById(`comment-${targetCommentId}`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.classList.add('ring-2', 'ring-blue-500', 'bg-blue-50/80');
+        setTimeout(() => {
+          el.classList.remove('ring-2', 'ring-blue-500', 'bg-blue-50/80');
+        }, 4000);
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [isExpanded, activities]);
+
   // Click outside listener for popovers
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -535,7 +568,11 @@ export const ProjectHorizontalCard: React.FC<ProjectHorizontalCardProps> = ({
                 const reactions = act.reactions || {};
 
                 return (
-                  <div key={act.id} className="bg-white p-3 rounded-2xl border border-slate-200 shadow-2xs space-y-2">
+                  <div
+                    key={act.id}
+                    id={`comment-${act.id}`}
+                    className="bg-white p-3 rounded-2xl border border-slate-200 shadow-2xs space-y-2 transition-all duration-700"
+                  >
                     {/* COMMENT HEADER */}
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2">

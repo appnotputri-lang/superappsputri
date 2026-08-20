@@ -889,6 +889,7 @@ readCount: ${targetClientId ? 1 : 0}`);
         activeSidebarTab={activeSidebarTab}
         user={user}
         userProfile={userProfile}
+        isSidebarOpen={isSidebarOpen}
         setIsSidebarOpen={setIsSidebarOpen}
         profiles={profiles}
         cvProfiles={cvProfiles}

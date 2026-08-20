@@ -1,6 +1,6 @@
 {
   "name": "superappsputri",
-  "description": "A professional legal drafting application for Indonesian companies (PT). Features circular resolution generation, real-time document preview, and KBLI 2025 search with enriched details and PDF reporting.",
+  "description": "A professional legal drafting application for Indonesian companies (PT). Features circular resolution generation, real-time document preview, KBLI 2025 search, and Web Push Notifications for project comments, replies, and mentions.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

@@ -6,7 +6,7 @@ import { firestoreRest } from "./src/lib/firestore-rest";
 import { DriveFolderService } from "./src/services/DriveFolderService";
 import { CompanyService } from "./src/services/CompanyService";
 import { driveRest } from "./src/lib/drive-rest";
-import { authMiddleware } from "./src/middlewares/auth";
+import { authMiddleware, AuthenticatedRequest } from "./src/middlewares/auth";
 import { ProjectController } from "./src/controllers/ProjectController";
 import { DriveController } from "./src/controllers/DriveController";
 import { DocumentController } from "./src/controllers/DocumentController";
@@ -94,6 +94,13 @@ import {
   updateProductD1,
   deleteProductD1
 } from "./src/lib/d1ProductRepository";
+import {
+  getVapidKeys,
+  savePushSubscription,
+  deletePushSubscription,
+  getPushSubscriptionStatus,
+  sendProjectCommentPushNotification
+} from "./src/services/pushBackend";
 
 async function startServer() {
   const app = express();
@@ -2039,6 +2046,128 @@ async function startServer() {
     } catch (err: any) {
       console.error('[WhatsApp Groups Sync] Error:', err);
       res.status(500).json({ error: 'Gagal menghubungi server Fonnte.' });
+    }
+  });
+
+  // ==========================================
+  // WEB PUSH NOTIFICATION PWA ENDPOINTS
+  // ==========================================
+
+  // 1. Get VAPID Public Key for client subscription
+  app.get("/api/push/vapid-public-key", (req, res) => {
+    try {
+      const vapid = getVapidKeys(process.env);
+      if (!vapid?.publicKey) {
+        return res.status(500).json({ error: "Push notification service is not configured" });
+      }
+      res.json({ publicKey: vapid.publicKey });
+    } catch (err: any) {
+      console.error("[Push API] Error getting VAPID public key:", err);
+      res.status(500).json({ error: "Push notification service is not configured" });
+    }
+  });
+
+  // 2. Save Push Subscription (Requires Firebase Auth)
+  app.post("/api/push/subscribe", authMiddleware, async (req: AuthenticatedRequest, res) => {
+    try {
+      const authenticatedUid = req.user?.uid;
+      if (!authenticatedUid) {
+        return res.status(401).json({ error: "Unauthorized: Missing valid user ID in token" });
+      }
+
+      const { subscription, platform, userAgent } = req.body || {};
+      if (!subscription || !subscription.endpoint || !subscription.keys?.p256dh || !subscription.keys?.auth) {
+        return res.status(400).json({ error: "Valid push subscription object with keys is required." });
+      }
+
+      const result = await savePushSubscription(
+        authenticatedUid,
+        subscription,
+        { platform, userAgent },
+        process.env
+      );
+
+      res.status(201).json(result);
+    } catch (err: any) {
+      console.error("[Push API] Error saving subscription:", err);
+      res.status(500).json({ error: err.message || "Failed to save push subscription" });
+    }
+  });
+
+  // 3. Unsubscribe / Delete Push Subscription (Requires Firebase Auth)
+  app.post("/api/push/unsubscribe", authMiddleware, async (req: AuthenticatedRequest, res) => {
+    try {
+      const authenticatedUid = req.user?.uid;
+      const { endpoint } = req.body || {};
+      if (!endpoint) {
+        return res.status(400).json({ error: "endpoint is required." });
+      }
+
+      const result = await deletePushSubscription(authenticatedUid!, endpoint, process.env);
+      res.json(result);
+    } catch (err: any) {
+      console.error("[Push API] Error deleting subscription:", err);
+      res.status(500).json({ error: err.message || "Failed to unsubscribe" });
+    }
+  });
+
+  // 4. Status of Push Subscriptions (Requires Firebase Auth)
+  app.get("/api/push/status", authMiddleware, async (req: AuthenticatedRequest, res) => {
+    try {
+      const authenticatedUid = req.user?.uid;
+      const endpoint = (req.query.endpoint as string) || undefined;
+
+      const result = await getPushSubscriptionStatus({ userId: authenticatedUid, endpoint }, process.env);
+      res.json(result);
+    } catch (err: any) {
+      console.error("[Push API] Error getting push status:", err);
+      res.status(500).json({ error: err.message || "Failed to get push status" });
+    }
+  });
+
+  app.delete("/api/push/subscribe", authMiddleware, async (req: AuthenticatedRequest, res) => {
+    try {
+      const authenticatedUid = req.user?.uid;
+      const endpoint = (req.body?.endpoint || req.query?.endpoint) as string;
+      if (!endpoint) {
+        return res.status(400).json({ error: "endpoint is required." });
+      }
+
+      const result = await deletePushSubscription(authenticatedUid!, endpoint, process.env);
+      res.json(result);
+    } catch (err: any) {
+      console.error("[Push API] Error deleting subscription:", err);
+      res.status(500).json({ error: err.message || "Failed to unsubscribe" });
+    }
+  });
+
+  // 5. Trigger Web Push for project comments (Requires Firebase Auth and verifies comment author)
+  app.post("/api/push/send-comment-notification", authMiddleware, async (req: AuthenticatedRequest, res) => {
+    try {
+      const authenticatedUid = req.user?.uid;
+      const { projectId, commentId } = req.body || {};
+
+      if (!projectId || !commentId) {
+        return res.status(400).json({ error: "projectId and commentId are required" });
+      }
+
+      const result = await sendProjectCommentPushNotification(
+        {
+          projectId,
+          commentId,
+          authenticatedUserId: authenticatedUid
+        },
+        process.env
+      );
+
+      if (!result.success) {
+        return res.status(400).json({ error: result.message || result.error || "Failed to process push notification" });
+      }
+
+      res.json(result);
+    } catch (err: any) {
+      console.error("[Push API] Error dispatching push notification:", err);
+      res.status(500).json({ error: err.message || "Failed to send push notification" });
     }
   });
 

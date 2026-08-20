@@ -287,83 +287,160 @@ export const ProjectTimelineCard: React.FC<ProjectTimelineCardProps> = ({
   };
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden transition-all duration-200 hover:shadow-xs">
+    <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden transition-all duration-200 hover:shadow-xs hover:border-slate-300/80">
       {/* CARD HEADER (CLICKABLE TO EXPAND) */}
       <div 
         onClick={() => setIsExpanded(!isExpanded)}
-        className="p-4 cursor-pointer hover:bg-slate-50/70 transition-colors select-none"
+        className="cursor-pointer hover:bg-slate-50/70 transition-colors select-none group"
       >
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-center gap-2.5 min-w-0 flex-1">
-            <span className="text-base shrink-0 leading-none">{category.badge}</span>
-            <h3 className="text-sm font-extrabold text-slate-900 truncate tracking-tight font-heading">
-              {projectTitle}
-            </h3>
-          </div>
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              setIsExpanded(!isExpanded);
-            }}
-            className="w-7 h-7 flex items-center justify-center rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 transition-colors shrink-0"
-            aria-label={isExpanded ? "Tutup Thread" : "Buka Thread"}
-          >
-            {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-          </button>
-        </div>
-
-        {/* JOB TYPE & WORKFLOW STAGE */}
-        <div className="mt-1.5 flex items-center gap-2">
-          <span className="text-[10px] font-bold tracking-wider text-slate-500 uppercase bg-slate-100 px-2 py-0.5 rounded-md">
-            {jobStep}
-          </span>
-        </div>
-
-        {/* LATEST ACTIVITY PREVIEW (COLLAPSED VIEW) */}
-        {!isExpanded && (
-          <div className="mt-3 pt-3 border-t border-slate-100 flex items-start gap-2.5">
-            <div className="w-7 h-7 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-[10px] shrink-0 border border-blue-200/60">
-              {lastActivityUser.substring(0, 2).toUpperCase()}
+        {/* MOBILE VIEW (STACKED) */}
+        <div className="p-4 md:hidden">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-center gap-2.5 min-w-0 flex-1">
+              <span className="text-base shrink-0 leading-none">{category.badge}</span>
+              <h3 className="text-sm font-extrabold text-slate-900 truncate tracking-tight font-heading">
+                {projectTitle}
+              </h3>
             </div>
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-xs font-bold text-slate-800 truncate">{lastActivityUser}</span>
-                <span className="text-[10px] font-medium text-slate-400 shrink-0">{formatRelativeTime(lastActivityTime)}</span>
-              </div>
-              <p className="text-xs text-slate-600 line-clamp-1 mt-0.5">
-                {renderContentWithMentions(lastActivityText)}
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* FOOTER COUNTER & DETAIL LINK */}
-        <div className="mt-3 flex items-center justify-between pt-2 text-xs font-medium text-slate-500">
-          <div className="flex items-center gap-1.5 text-blue-600 font-bold">
-            <MessageSquare size={14} />
-            <span>{commentsCount} komentar</span>
-          </div>
-
-          {onNavigateToDetail && (
             <button
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
-                onNavigateToDetail(project.projectId);
+                setIsExpanded(!isExpanded);
               }}
-              className="text-slate-400 hover:text-blue-600 text-xs font-bold flex items-center gap-1 transition-colors"
+              className="w-7 h-7 flex items-center justify-center rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 transition-colors shrink-0"
+              aria-label={isExpanded ? "Tutup Thread" : "Buka Thread"}
             >
-              <span>Detail</span>
-              <ArrowRight size={13} />
+              {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
             </button>
+          </div>
+
+          {/* JOB TYPE & WORKFLOW STAGE */}
+          <div className="mt-1.5 flex items-center gap-2">
+            <span className="text-[10px] font-bold tracking-wider text-slate-500 uppercase bg-slate-100 px-2 py-0.5 rounded-md">
+              {jobStep}
+            </span>
+          </div>
+
+          {/* LATEST ACTIVITY PREVIEW (COLLAPSED VIEW) */}
+          {!isExpanded && (
+            <div className="mt-3 pt-3 border-t border-slate-100 flex items-start gap-2.5">
+              <div className="w-7 h-7 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-[10px] shrink-0 border border-blue-200/60">
+                {lastActivityUser.substring(0, 2).toUpperCase()}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs font-bold text-slate-800 truncate">{lastActivityUser}</span>
+                  <span className="text-[10px] font-medium text-slate-400 shrink-0">{formatRelativeTime(lastActivityTime)}</span>
+                </div>
+                <p className="text-xs text-slate-600 line-clamp-1 mt-0.5">
+                  {renderContentWithMentions(lastActivityText)}
+                </p>
+              </div>
+            </div>
           )}
+
+          {/* FOOTER COUNTER & DETAIL LINK */}
+          <div className="mt-3 flex items-center justify-between pt-2 text-xs font-medium text-slate-500">
+            <div className="flex items-center gap-1.5 text-blue-600 font-bold">
+              <MessageSquare size={14} />
+              <span>{commentsCount} komentar</span>
+            </div>
+
+            {onNavigateToDetail && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onNavigateToDetail(project.projectId);
+                }}
+                className="text-slate-400 hover:text-blue-600 text-xs font-bold flex items-center gap-1 transition-colors"
+              >
+                <span>Detail</span>
+                <ArrowRight size={13} />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* DESKTOP VIEW (HORIZONTAL TIMELINE CARD) */}
+        <div className="hidden md:flex items-center justify-between gap-4 p-4 lg:px-5 lg:py-3.5 min-h-[100px] max-h-[130px]">
+          {/* Kolom 1: Status & Title & Stage */}
+          <div className="w-[34%] lg:w-[32%] min-w-[250px] pr-4 border-r border-slate-100 flex flex-col gap-1.5 justify-center">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <span className={`w-2.5 h-2.5 rounded-full shrink-0 shadow-2xs ${
+                project.status?.toLowerCase().includes('kendala') || project.status?.toLowerCase().includes('revisi')
+                  ? 'bg-rose-500'
+                  : project.status?.toLowerCase().includes('selesai')
+                  ? 'bg-emerald-500'
+                  : 'bg-blue-500'
+              }`} />
+              <h3 className="text-sm font-extrabold text-slate-900 truncate tracking-tight font-heading group-hover:text-blue-600 transition-colors" title={projectTitle}>
+                {projectTitle}
+              </h3>
+            </div>
+            <div className="flex items-center gap-2 pl-5">
+              <span className="text-[10px] font-bold tracking-wider text-slate-500 uppercase bg-slate-100 px-2.5 py-0.5 rounded-md truncate max-w-full">
+                {project.projectType || project.jobType ? `${(project.projectType || project.jobType).toUpperCase()} • ${jobStep}` : jobStep}
+              </span>
+            </div>
+          </div>
+
+          {/* Kolom 2: Latest comment / activity preview */}
+          <div className="flex-1 px-3 lg:px-5 flex items-center gap-3 min-w-0">
+            <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-[11px] shrink-0 border border-blue-200/60 shadow-2xs">
+              {lastActivityUser.substring(0, 2).toUpperCase()}
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-slate-800 truncate">{lastActivityUser}</span>
+                <span className="text-[10px] font-medium text-slate-400 shrink-0">{formatRelativeTime(lastActivityTime)}</span>
+              </div>
+              <p className="text-xs text-slate-600 truncate mt-0.5">
+                {renderContentWithMentions(lastActivityText)}
+              </p>
+            </div>
+          </div>
+
+          {/* Kolom 3: Comments count, detail button, expand button */}
+          <div className="w-[230px] shrink-0 pl-4 border-l border-slate-100 flex items-center justify-end gap-3">
+            <div className="flex items-center gap-1.5 text-blue-600 font-bold text-xs shrink-0">
+              <MessageSquare size={14} />
+              <span>{commentsCount} komentar</span>
+            </div>
+
+            {onNavigateToDetail && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onNavigateToDetail(project.projectId);
+                }}
+                className="text-slate-600 hover:text-blue-600 bg-slate-50 hover:bg-blue-50 border border-slate-200/60 px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1 transition-all cursor-pointer shrink-0 shadow-2xs"
+              >
+                <span>Detail</span>
+                <ArrowRight size={13} />
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsExpanded(!isExpanded);
+              }}
+              className="w-8 h-8 flex items-center justify-center rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 transition-colors shrink-0 cursor-pointer shadow-2xs"
+              aria-label={isExpanded ? "Tutup Thread" : "Buka Thread"}
+            >
+              {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+            </button>
+          </div>
         </div>
       </div>
 
       {/* EXPANDED ACTIVITY THREAD SECTION */}
       {isExpanded && (
-        <div className="border-t border-slate-100 bg-slate-50/50 p-4 space-y-4">
+        <div className="border-t border-slate-100 bg-slate-50/50 p-4 md:p-5 space-y-4">
           <div className="flex items-center justify-between text-xs font-bold text-slate-700">
             <span>Thread Aktivitas Proyek</span>
             {isLoadingThread && (

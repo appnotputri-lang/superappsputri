@@ -10,6 +10,8 @@ export interface AppRoutesProps {
   activeSidebarTab?: string;
   userProfile?: any;
   user?: any;
+  isSidebarOpen?: boolean;
+  setIsSidebarOpen?: (v: boolean) => void;
   profiles?: any[];
   projects?: any[];
   rupstProjects?: any[];

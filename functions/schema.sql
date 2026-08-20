@@ -324,3 +324,19 @@ CREATE TABLE IF NOT EXISTS deposit_note_items (
 );
 
 CREATE INDEX IF NOT EXISTS idx_deposit_note_items_dn_id ON deposit_note_items(deposit_note_id);
+ 
+-- 14. PUSH SUBSCRIPTIONS (Web Push Notifications)
+CREATE TABLE IF NOT EXISTS push_subscriptions (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  endpoint TEXT NOT NULL UNIQUE,
+  p256dh TEXT NOT NULL,
+  auth TEXT NOT NULL,
+  platform TEXT DEFAULT 'Web',
+  user_agent TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_push_sub_user_id ON push_subscriptions(user_id);
+CREATE INDEX IF NOT EXISTS idx_push_sub_endpoint ON push_subscriptions(endpoint);

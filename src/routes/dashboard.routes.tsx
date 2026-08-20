@@ -18,6 +18,7 @@ export const renderDashboardRoute = (props: any) => {
       INITIAL_STATE={INITIAL_STATE}
       handleDownloadProject={props.handleDownloadProject || (() => {})}
       currentUser={props.userProfile || props.user}
+      isSidebarOpen={props.isSidebarOpen}
       setIsSidebarOpen={props.setIsSidebarOpen}
       userProfile={props.userProfile}
     />

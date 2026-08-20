@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { RealTimeClock } from '../RealTimeClock';
 import { SidebarTabId, UserProfile } from '../../../types';
+import { PushNotificationToggle } from '../common/PushNotificationToggle';
 
 interface HeaderProps {
   user: any;
@@ -53,17 +54,12 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
         )}
         <div className="flex flex-col">
-          <span className="font-bold text-xs md:text-[13px] text-slate-800 leading-tight">
-            {(() => {
-              const hour = new Date().getHours();
-              let greeting = 'Selamat malam';
-              if (hour >= 4 && hour < 11) greeting = 'Selamat pagi';
-              else if (hour >= 11 && hour < 15) greeting = 'Selamat siang';
-              else if (hour >= 15 && hour < 19) greeting = 'Selamat sore';
-              return greeting;
-            })()}, {userProfile?.name?.split(' ')[0] || 'ADMIN'} 👋
+          <span className="font-extrabold text-xs md:text-[13px] text-slate-800 tracking-tight font-heading">
+            NOTARIS PUTRI
           </span>
-          <span className="hidden sm:block text-[9.5px] text-slate-400 font-medium tracking-wide">PUSAT KENDALI KANTOR</span>
+          <span className="hidden sm:block text-[9.5px] text-slate-500 font-medium tracking-wide">
+            Sistem Administrasi & Kenotariatan
+          </span>
         </div>
       </div>
       
@@ -74,6 +70,7 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
 
         <div className="flex items-center gap-1 md:gap-1.5 pr-2 md:pr-3 border-r border-slate-200/80">
+          <PushNotificationToggle userId={user?.uid || userProfile?.uid} />
           <button className="hidden sm:flex w-11 h-11 items-center justify-center rounded-full hover:bg-slate-100 transition-colors">
             <Mail className="w-5 h-5 text-slate-500" />
           </button>

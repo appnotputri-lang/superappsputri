@@ -153,20 +153,22 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
 
       <div className="flex-1 flex flex-col h-full overflow-hidden">
         <FirestoreQuotaBanner />
-        <div className="hidden md:block">
-          <Header
-            user={user}
-            isSidebarOpen={isSidebarOpen}
-            setIsSidebarOpen={setIsSidebarOpen}
-            userProfile={userProfile}
-            isUserDropdownOpen={isUserDropdownOpen}
-            setIsUserDropdownOpen={setIsUserDropdownOpen}
-            setIsEditProfileModalOpen={setIsEditProfileModalOpen}
-            setActiveSidebarTab={setActiveSidebarTab}
-            loginWithGoogle={loginWithGoogle}
-            logout={logout}
-          />
-        </div>
+        {activeSidebarTab !== 'beranda' && (activeSidebarTab as string) !== 'dashboard' && (
+          <div className="hidden md:block">
+            <Header
+              user={user}
+              isSidebarOpen={isSidebarOpen}
+              setIsSidebarOpen={setIsSidebarOpen}
+              userProfile={userProfile}
+              isUserDropdownOpen={isUserDropdownOpen}
+              setIsUserDropdownOpen={setIsUserDropdownOpen}
+              setIsEditProfileModalOpen={setIsEditProfileModalOpen}
+              setActiveSidebarTab={setActiveSidebarTab}
+              loginWithGoogle={loginWithGoogle}
+              logout={logout}
+            />
+          </div>
+        )}
         <main className="flex-1 overflow-y-auto overflow-x-hidden bg-[#f8fafc] scroll-smooth pb-0 no-scrollbar">
           {children}
         </main>
