@@ -331,13 +331,13 @@ export class PushNotificationClient {
     if (data?.dispatchedCount > 0) {
       msg = `Notifikasi komentar terkirim ke ${data.dispatchedCount} perangkat`;
       isSuccess = true;
-    } else if (data?.failedCount > 0) {
+    } else if (data?.errorCode === 'PUSH_DELIVERY_FAILED' || data?.failedCount > 0) {
       msg = 'Push gagal dikirim. Periksa Cloudflare Function log.';
       isSuccess = false;
-    } else if (data?.subscriptionsCount === 0) {
+    } else if (data?.errorCode === 'NO_SUBSCRIPTIONS' || data?.subscriptionsCount === 0) {
       msg = 'Tidak ada subscription penerima';
       isSuccess = false;
-    } else if (data?.recipientUserIds?.length === 0 || data?.totalRecipients === 0) {
+    } else if (data?.errorCode === 'NO_RECIPIENTS' || data?.recipientUserIds?.length === 0 || data?.totalRecipients === 0) {
       msg = 'Tidak ada recipient notifikasi';
       isSuccess = false;
     } else if (data?.message) {

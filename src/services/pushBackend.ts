@@ -565,6 +565,7 @@ export async function sendProjectCommentPushNotification(
         subscriptionsCount: 0,
         dispatchedCount: 0,
         failedCount: 0,
+        errorCode: 'NO_RECIPIENTS',
         message: 'No recipients found'
       };
     }
@@ -591,6 +592,7 @@ export async function sendProjectCommentPushNotification(
         subscriptionsCount: 0,
         dispatchedCount: 0,
         failedCount: 0,
+        errorCode: 'NO_SUBSCRIPTIONS',
         message: 'No active push subscriptions registered in D1 for target project stakeholders.'
       };
     }
@@ -672,6 +674,7 @@ export async function sendProjectCommentPushNotification(
       subscriptionsCount: targetSubscriptions.length,
       dispatchedCount: totalDispatched,
       failedCount: totalFailed,
+      ...(totalDispatched === 0 && totalFailed > 0 ? { errorCode: 'PUSH_DELIVERY_FAILED' } : {}),
       message: totalDispatched > 0
         ? `Successfully dispatched push notification to ${totalDispatched} device(s)`
         : (totalFailed > 0 ? `Failed to deliver push notification to ${totalFailed} subscription(s)` : 'No notifications dispatched')
