@@ -287,7 +287,7 @@ export class PushNotificationClient {
       stakeholderUserIds?: string[];
       participantUserIds?: string[];
     };
-  }): Promise<void> {
+  }): Promise<any> {
     try {
       const authHeaders = await getAuthHeaders();
       const res = await fetch(getApiUrl('/api/push/send-comment-notification'), {
@@ -305,14 +305,74 @@ export class PushNotificationClient {
       });
 
       const data = await res.json().catch(() => ({}));
+
+      // Mandated console logs
       console.log('[Comment Push Debug]', data);
-      if (!res.ok) {
-        console.warn('[PushClient] Comment push dispatch returned status:', res.status, data);
-      } else {
-        console.log('[PushClient] Comment push notification successfully dispatched:', data);
+      if (data && typeof data === 'object' && data.dispatchedCount === 0) {
+        console.warn('[Comment Push FAILED]', data);
       }
+
+      // Show temporary visual debug toast
+      PushNotificationClient.showVisualDebugToast(data);
+
+      return data;
     } catch (err) {
       console.warn('[PushClient] Non-blocking push notification trigger failed:', err);
+      return { success: false, error: err };
     }
+  }
+
+  private static showVisualDebugToast(data: any) {
+    if (typeof document === 'undefined') return;
+
+    let msg = '';
+    let isSuccess = false;
+
+    if (data?.dispatchedCount > 0) {
+      msg = `Notifikasi komentar terkirim ke ${data.dispatchedCount} perangkat`;
+      isSuccess = true;
+    } else if (data?.failedCount > 0) {
+      msg = 'Push gagal dikirim. Periksa Cloudflare Function log.';
+      isSuccess = false;
+    } else if (data?.subscriptionsCount === 0) {
+      msg = 'Tidak ada subscription penerima';
+      isSuccess = false;
+    } else if (data?.recipientUserIds?.length === 0 || data?.totalRecipients === 0) {
+      msg = 'Tidak ada recipient notifikasi';
+      isSuccess = false;
+    } else if (data?.message) {
+      msg = data.message;
+      isSuccess = false;
+    } else {
+      msg = 'Push notification tidak terkirim';
+      isSuccess = false;
+    }
+
+    let toastEl = document.getElementById('push-debug-toast');
+    if (!toastEl) {
+      toastEl = document.createElement('div');
+      toastEl.id = 'push-debug-toast';
+      document.body.appendChild(toastEl);
+    }
+
+    toastEl.className = `fixed bottom-5 right-5 z-[99999] px-4 py-3 rounded-xl shadow-2xl text-xs font-semibold flex items-center gap-2.5 transition-all duration-300 ${
+      isSuccess
+        ? 'bg-emerald-900/95 text-emerald-100 border border-emerald-500/50 shadow-emerald-900/40'
+        : 'bg-amber-950/95 text-amber-100 border border-amber-600/50 shadow-amber-950/40'
+    }`;
+    toastEl.innerHTML = `
+      <span class="text-base">${isSuccess ? '🔔' : '⚠️'}</span>
+      <div class="flex flex-col">
+        <span class="font-bold">${isSuccess ? 'Push Sent' : 'Push Debug'}</span>
+        <span class="text-[11px] opacity-90">${msg}</span>
+      </div>
+    `;
+
+    setTimeout(() => {
+      const current = document.getElementById('push-debug-toast');
+      if (current && current.parentNode) {
+        current.parentNode.removeChild(current);
+      }
+    }, 5000);
   }
 }

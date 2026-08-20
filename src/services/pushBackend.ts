@@ -258,18 +258,56 @@ export async function sendProjectCommentPushNotification(
   const { projectId, commentId, authenticatedUserId, userAuthToken, fallbackData, debugNotifySelf } = payload;
   const allowSelf = Boolean(debugNotifySelf);
 
+  const authenticatedRecipientId =
+    authenticatedUserId && isValidFirebaseUid(authenticatedUserId)
+      ? authenticatedUserId
+      : null;
+
   if (!projectId || !commentId) {
-    return { success: false, message: 'projectId and commentId are required' };
+    return {
+      success: false,
+      debugNotifySelf: allowSelf,
+      authenticatedUserId: authenticatedUserId || null,
+      senderUserId: null,
+      participantUserIds: [],
+      recipientUserIds: [],
+      subscriptionsCount: 0,
+      dispatchedCount: 0,
+      failedCount: 0,
+      message: 'projectId and commentId are required'
+    };
   }
 
   const db = resolveD1Database(dbParam, env);
   if (!db) {
-    return { success: false, message: 'Cloudflare D1 database is not connected.' };
+    return {
+      success: false,
+      debugNotifySelf: allowSelf,
+      authenticatedUserId: authenticatedUserId || null,
+      senderUserId: null,
+      participantUserIds: [],
+      recipientUserIds: [],
+      subscriptionsCount: 0,
+      dispatchedCount: 0,
+      failedCount: 0,
+      message: 'Cloudflare D1 database is not connected.'
+    };
   }
 
   const vapidKeys = getVapidKeys(env);
   if (!vapidKeys) {
-    return { success: false, message: 'Push notification service is not configured' };
+    return {
+      success: false,
+      debugNotifySelf: allowSelf,
+      authenticatedUserId: authenticatedUserId || null,
+      senderUserId: null,
+      participantUserIds: [],
+      recipientUserIds: [],
+      subscriptionsCount: 0,
+      dispatchedCount: 0,
+      failedCount: 0,
+      message: 'Push notification service is not configured'
+    };
   }
 
   try {
@@ -300,13 +338,24 @@ export async function sendProjectCommentPushNotification(
     }
 
     if (!commentDoc) {
-      return { success: false, message: `Comment ${commentId} not found in project ${projectId}` };
+      return {
+        success: false,
+        debugNotifySelf: allowSelf,
+        authenticatedUserId: authenticatedUserId || null,
+        senderUserId: null,
+        participantUserIds: [],
+        recipientUserIds: [],
+        subscriptionsCount: 0,
+        dispatchedCount: 0,
+        failedCount: 0,
+        message: `Comment ${commentId} not found in project ${projectId}`
+      };
     }
 
-    const senderUserId = commentDoc.userId || authenticatedUserId;
-    if (!senderUserId) {
-      return { success: false, message: 'Comment does not have a valid author userId' };
-    }
+    const senderUserId =
+      authenticatedRecipientId ||
+      (commentDoc?.userId && isValidFirebaseUid(commentDoc.userId) ? commentDoc.userId : null) ||
+      'system';
 
     const senderUserName = commentDoc.userName || fallbackData?.senderUserName || 'Seseorang';
     const content = (commentDoc.content || fallbackData?.commentContent || '').trim();
@@ -466,27 +515,53 @@ export async function sendProjectCommentPushNotification(
         !finalMentionUserIds.includes(uid) &&
         !finalReplyUserIds.includes(uid)
       ) {
-        finalGeneralUserIds.push(uid);
+        if (!finalGeneralUserIds.includes(uid)) {
+          finalGeneralUserIds.push(uid);
+        }
       }
     });
 
-    const allTargetUserIds = Array.from(
-      new Set([...finalMentionUserIds, ...finalReplyUserIds, ...finalGeneralUserIds])
-    );
+    // Explicit self-test recipient injection when debugNotifySelf is true
+    if (allowSelf && authenticatedRecipientId) {
+      if (
+        !finalMentionUserIds.includes(authenticatedRecipientId) &&
+        !finalReplyUserIds.includes(authenticatedRecipientId) &&
+        !finalGeneralUserIds.includes(authenticatedRecipientId)
+      ) {
+        finalGeneralUserIds.push(authenticatedRecipientId);
+      }
+    }
 
-    // Logging strictly as requested
-    console.log('[Comment Push] Sender:', senderUserId);
-    console.log('[Comment Push] Project participants:', Array.from(stakeholderUserIds));
-    console.log('[Comment Push] Final recipients:', allTargetUserIds);
+    const recipientSet = new Set([
+      ...finalMentionUserIds,
+      ...finalReplyUserIds,
+      ...finalGeneralUserIds
+    ]);
+
+    if (allowSelf && authenticatedRecipientId) {
+      recipientSet.add(authenticatedRecipientId);
+      if (!finalGeneralUserIds.includes(authenticatedRecipientId)) {
+        finalGeneralUserIds.push(authenticatedRecipientId);
+      }
+    }
+
+    const allTargetUserIds = Array.from(recipientSet);
+
+    // Mandated Debug Console Logs
+    console.log('[Comment Push Debug] authenticatedUserId:', authenticatedUserId);
+    console.log('[Comment Push Debug] senderUserId:', senderUserId);
+    console.log('[Comment Push Debug] debugNotifySelf:', allowSelf);
+    console.log('[Comment Push Debug] final recipients:', allTargetUserIds);
 
     if (allTargetUserIds.length === 0) {
       console.log('[Comment Push] No recipients found to notify.');
       return {
         success: true,
-        senderUserId,
+        debugNotifySelf: allowSelf,
+        authenticatedUserId: authenticatedUserId || null,
+        senderUserId: senderUserId || null,
         participantUserIds: Array.from(stakeholderUserIds),
         recipientUserIds: [],
-        totalRecipients: 0,
         subscriptionsCount: 0,
         dispatchedCount: 0,
         failedCount: 0,
@@ -508,10 +583,11 @@ export async function sendProjectCommentPushNotification(
     if (targetSubscriptions.length === 0) {
       return {
         success: true,
-        senderUserId,
+        debugNotifySelf: allowSelf,
+        authenticatedUserId: authenticatedUserId || null,
+        senderUserId: senderUserId || null,
         participantUserIds: Array.from(stakeholderUserIds),
         recipientUserIds: allTargetUserIds,
-        totalRecipients: allTargetUserIds.length,
         subscriptionsCount: 0,
         dispatchedCount: 0,
         failedCount: 0,
@@ -587,18 +663,34 @@ export async function sendProjectCommentPushNotification(
     console.log(`[WebPush D1] ✅ Dispatch finished: ${totalDispatched} successful, ${totalFailed} failed.`);
 
     return {
-      success: true,
-      senderUserId,
+      success: totalDispatched > 0,
+      debugNotifySelf: allowSelf,
+      authenticatedUserId: authenticatedUserId || null,
+      senderUserId: senderUserId || null,
       participantUserIds: Array.from(stakeholderUserIds),
       recipientUserIds: allTargetUserIds,
-      totalRecipients: allTargetUserIds.length,
       subscriptionsCount: targetSubscriptions.length,
       dispatchedCount: totalDispatched,
-      failedCount: totalFailed
+      failedCount: totalFailed,
+      message: totalDispatched > 0
+        ? `Successfully dispatched push notification to ${totalDispatched} device(s)`
+        : (totalFailed > 0 ? `Failed to deliver push notification to ${totalFailed} subscription(s)` : 'No notifications dispatched')
     };
   } catch (err: any) {
     console.error('[WebPush D1] Error processing project comment push notification:', err);
-    return { success: false, error: err.message || String(err) };
+    return {
+      success: false,
+      debugNotifySelf: allowSelf,
+      authenticatedUserId: authenticatedUserId || null,
+      senderUserId: null,
+      participantUserIds: [],
+      recipientUserIds: [],
+      subscriptionsCount: 0,
+      dispatchedCount: 0,
+      failedCount: 0,
+      error: err.message || String(err),
+      message: err.message || 'Error processing push notification'
+    };
   }
 }
 
