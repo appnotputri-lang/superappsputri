@@ -212,10 +212,26 @@ export async function dispatchPushToSubscriptions(
 }
 
 /**
+ * Validates whether a candidate string is a valid Firebase Auth UID.
+ * Rejects display names, emails, empty values, and system keywords.
+ */
+export function isValidFirebaseUid(candidate: any): boolean {
+  if (!candidate || typeof candidate !== 'string') return false;
+  const trimmed = candidate.trim();
+  if (trimmed.length < 5) return false;
+  if (trimmed.includes('@') || trimmed.includes(' ') || trimmed.includes('/')) return false;
+  const lower = trimmed.toLowerCase();
+  if (['unassigned', 'system', 'admin', 'notaris', 'null', 'undefined', 'anonymous', 'someone', 'user'].includes(lower)) {
+    return false;
+  }
+  return true;
+}
+
+/**
  * Handles sending project comment push notifications:
  * 1. Verifies comment and project in Firestore.
  * 2. Determines exact recipients (Project Creator, PIC, Assignee, Members, Mentions, Parent Reply Author).
- * 3. Deduplicates recipients and removes sender.
+ * 3. Deduplicates recipients and removes sender (unless debugNotifySelf is true).
  * 4. Queries Cloudflare D1 strictly for the target recipients.
  * 5. Sends categorized notifications (mention > reply > general).
  */
@@ -225,6 +241,7 @@ export async function sendProjectCommentPushNotification(
     commentId: string;
     authenticatedUserId?: string;
     userAuthToken?: string;
+    debugNotifySelf?: boolean;
     fallbackData?: {
       projectTitle?: string;
       commentContent?: string;
@@ -232,12 +249,14 @@ export async function sendProjectCommentPushNotification(
       mentions?: string[];
       parentCommentId?: string | null;
       stakeholderUserIds?: string[];
+      participantUserIds?: string[];
     };
   },
   env: any = {},
   dbParam?: any
 ) {
-  const { projectId, commentId, authenticatedUserId, userAuthToken, fallbackData } = payload;
+  const { projectId, commentId, authenticatedUserId, userAuthToken, fallbackData, debugNotifySelf } = payload;
+  const allowSelf = Boolean(debugNotifySelf);
 
   if (!projectId || !commentId) {
     return { success: false, message: 'projectId and commentId are required' };
@@ -252,8 +271,6 @@ export async function sendProjectCommentPushNotification(
   if (!vapidKeys) {
     return { success: false, message: 'Push notification service is not configured' };
   }
-
-  console.log(`[WebPush D1] 🚀 Starting comment push notification dispatch for Project: ${projectId}, Comment: ${commentId}`);
 
   try {
     let commentDoc: any = null;
@@ -308,54 +325,59 @@ export async function sendProjectCommentPushNotification(
     // 3. Extract candidate recipient user IDs from project structure
     const stakeholderUserIds = new Set<string>();
 
-    const addUserId = (idCandidate: any) => {
+    const addValidUserId = (idCandidate: any) => {
       if (!idCandidate) return;
-      if (typeof idCandidate === 'string' && idCandidate.trim()) {
+      if (typeof idCandidate === 'string' && isValidFirebaseUid(idCandidate)) {
         stakeholderUserIds.add(idCandidate.trim());
       } else if (typeof idCandidate === 'object') {
         const id = idCandidate.uid || idCandidate.userId || idCandidate.id;
-        if (typeof id === 'string' && id.trim()) {
+        if (typeof id === 'string' && isValidFirebaseUid(id)) {
           stakeholderUserIds.add(id.trim());
         }
       }
     };
 
     if (projectDoc) {
-      // Owner / Creator
-      addUserId(projectDoc.createdBy);
-      addUserId(projectDoc.ownerId);
-      if (projectDoc.metadata?.createdBy) addUserId(projectDoc.metadata.createdBy);
-
-      // Assignee
-      addUserId(projectDoc.assignedTo);
-      addUserId(projectDoc.assignedToUid);
-      addUserId(projectDoc.assignedToUserId);
-
-      // PIC
-      addUserId(projectDoc.picId);
-      if (projectDoc.pic && typeof projectDoc.pic === 'string' && projectDoc.pic.length > 15) {
-        addUserId(projectDoc.pic);
+      // 1. Explicit project participants
+      if (Array.isArray(projectDoc.participantUserIds)) {
+        projectDoc.participantUserIds.forEach(addValidUserId);
       }
-      if (projectDoc.metadata?.picId) addUserId(projectDoc.metadata.picId);
 
-      // Members / Team
-      if (Array.isArray(projectDoc.members)) projectDoc.members.forEach(addUserId);
-      if (Array.isArray(projectDoc.team)) projectDoc.team.forEach(addUserId);
-      if (Array.isArray(projectDoc.assignedUsers)) projectDoc.assignedUsers.forEach(addUserId);
-      if (Array.isArray(projectDoc.metadata?.members)) projectDoc.metadata.members.forEach(addUserId);
+      // 2. Owner / Creator
+      addValidUserId(projectDoc.createdBy);
+      addValidUserId(projectDoc.ownerId);
+      if (projectDoc.metadata?.createdBy) addValidUserId(projectDoc.metadata.createdBy);
 
-      // Tasks assignees & creators
+      // 3. Assignee
+      addValidUserId(projectDoc.assignedToUid);
+      addValidUserId(projectDoc.assignedToUserId);
+      addValidUserId(projectDoc.assignedTo);
+
+      // 4. PIC
+      addValidUserId(projectDoc.picId);
+      if (projectDoc.metadata?.picId) addValidUserId(projectDoc.metadata.picId);
+
+      // 5. Members / Team / Assigned users
+      if (Array.isArray(projectDoc.members)) projectDoc.members.forEach(addValidUserId);
+      if (Array.isArray(projectDoc.team)) projectDoc.team.forEach(addValidUserId);
+      if (Array.isArray(projectDoc.assignedUsers)) projectDoc.assignedUsers.forEach(addValidUserId);
+      if (Array.isArray(projectDoc.metadata?.members)) projectDoc.metadata.members.forEach(addValidUserId);
+
+      // 6. Tasks assignees & creators
       if (Array.isArray(projectDoc.tasks)) {
         projectDoc.tasks.forEach((task: any) => {
-          addUserId(task.assignedTo);
-          addUserId(task.createdBy);
+          addValidUserId(task.assignedTo);
+          addValidUserId(task.createdBy);
         });
       }
     }
 
-    // Include fallback stakeholder user IDs if provided
-    if (fallbackData?.stakeholderUserIds && Array.isArray(fallbackData.stakeholderUserIds)) {
-      fallbackData.stakeholderUserIds.forEach(addUserId);
+    // 7. Include fallback stakeholder & participant user IDs if provided
+    if (Array.isArray(fallbackData?.participantUserIds)) {
+      fallbackData.participantUserIds.forEach(addValidUserId);
+    }
+    if (Array.isArray(fallbackData?.stakeholderUserIds)) {
+      fallbackData.stakeholderUserIds.forEach(addValidUserId);
     }
 
     // 4. Resolve Mentions
@@ -376,20 +398,20 @@ export async function sendProjectCommentPushNotification(
 
       if (!matchedUid && projectDoc && Array.isArray(projectDoc.tasks)) {
         for (const task of projectDoc.tasks) {
-          if (task.assignedToName && task.assignedToName.toLowerCase().includes(cleanMention)) {
+          if (task.assignedToName && task.assignedToName.toLowerCase().includes(cleanMention) && isValidFirebaseUid(task.assignedTo)) {
             matchedUid = task.assignedTo;
             break;
           }
-          if (task.createdByName && task.createdByName.toLowerCase().includes(cleanMention)) {
+          if (task.createdByName && task.createdByName.toLowerCase().includes(cleanMention) && isValidFirebaseUid(task.createdBy)) {
             matchedUid = task.createdBy;
             break;
           }
         }
       }
 
-      if (matchedUid && matchedUid !== senderUserId) {
+      if (matchedUid && (allowSelf || matchedUid !== senderUserId)) {
         mentionUserIds.add(matchedUid);
-      } else if (cleanMention.length > 10 && cleanMention !== senderUserId) {
+      } else if (isValidFirebaseUid(cleanMention) && (allowSelf || cleanMention !== senderUserId)) {
         mentionUserIds.add(cleanMention);
       }
     }
@@ -405,8 +427,10 @@ export async function sendProjectCommentPushNotification(
           env,
           userAuthToken
         );
-        if (parentDoc?.userId && parentDoc.userId !== senderUserId) {
-          replyParentAuthorUserId = parentDoc.userId;
+        if (parentDoc?.userId && isValidFirebaseUid(parentDoc.userId)) {
+          if (allowSelf || parentDoc.userId !== senderUserId) {
+            replyParentAuthorUserId = parentDoc.userId;
+          }
         }
       } catch (parentErr) {
         console.warn('[WebPush D1] Could not fetch parent comment:', parentErr);
@@ -420,21 +444,25 @@ export async function sendProjectCommentPushNotification(
 
     // Priority 1: Mentioned users
     mentionUserIds.forEach((uid) => {
-      if (uid && uid !== senderUserId) {
-        finalMentionUserIds.push(uid);
+      if (uid && (allowSelf || uid !== senderUserId)) {
+        if (!finalMentionUserIds.includes(uid)) {
+          finalMentionUserIds.push(uid);
+        }
       }
     });
 
     // Priority 2: Reply to parent comment author
-    if (replyParentAuthorUserId && !finalMentionUserIds.includes(replyParentAuthorUserId)) {
-      finalReplyUserIds.push(replyParentAuthorUserId);
+    if (replyParentAuthorUserId && (allowSelf || replyParentAuthorUserId !== senderUserId)) {
+      if (!finalMentionUserIds.includes(replyParentAuthorUserId) && !finalReplyUserIds.includes(replyParentAuthorUserId)) {
+        finalReplyUserIds.push(replyParentAuthorUserId);
+      }
     }
 
     // Priority 3: General project stakeholders
     stakeholderUserIds.forEach((uid) => {
       if (
         uid &&
-        uid !== senderUserId &&
+        (allowSelf || uid !== senderUserId) &&
         !finalMentionUserIds.includes(uid) &&
         !finalReplyUserIds.includes(uid)
       ) {
@@ -446,28 +474,48 @@ export async function sendProjectCommentPushNotification(
       new Set([...finalMentionUserIds, ...finalReplyUserIds, ...finalGeneralUserIds])
     );
 
-    console.log(`[WebPush D1] Sender UID: ${senderUserId}. Resolved ${allTargetUserIds.length} target recipient UID(s):`, allTargetUserIds);
+    // Logging strictly as requested
+    console.log('[Comment Push] Sender:', senderUserId);
+    console.log('[Comment Push] Project participants:', Array.from(stakeholderUserIds));
+    console.log('[Comment Push] Final recipients:', allTargetUserIds);
 
     if (allTargetUserIds.length === 0) {
-      console.log('[WebPush D1] No external recipients to notify (only sender or no stakeholders).');
+      console.log('[Comment Push] No recipients found to notify.');
       return {
         success: true,
-        message: 'No external stakeholders found to notify for this project comment.',
+        senderUserId,
+        participantUserIds: Array.from(stakeholderUserIds),
+        recipientUserIds: [],
+        totalRecipients: 0,
+        subscriptionsCount: 0,
         dispatchedCount: 0,
-        totalRecipients: 0
+        failedCount: 0,
+        message: 'No recipients found'
       };
     }
 
     // 7. Query Cloudflare D1 strictly for the target recipient user IDs
     const targetSubscriptions = await getSubscriptionsByUserIdsD1(db, allTargetUserIds);
-    console.log(`[WebPush D1] Found ${targetSubscriptions.length} active subscription record(s) in Cloudflare D1.`);
+    console.log(
+      '[Comment Push] D1 subscriptions found:',
+      targetSubscriptions.map(s => ({
+        userId: s.userId,
+        id: s.id,
+        platform: s.platform
+      }))
+    );
 
     if (targetSubscriptions.length === 0) {
       return {
         success: true,
-        message: 'No active push subscriptions registered in D1 for target project stakeholders.',
+        senderUserId,
+        participantUserIds: Array.from(stakeholderUserIds),
+        recipientUserIds: allTargetUserIds,
+        totalRecipients: allTargetUserIds.length,
+        subscriptionsCount: 0,
         dispatchedCount: 0,
-        totalRecipients: allTargetUserIds.length
+        failedCount: 0,
+        message: 'No active push subscriptions registered in D1 for target project stakeholders.'
       };
     }
 
@@ -540,10 +588,13 @@ export async function sendProjectCommentPushNotification(
 
     return {
       success: true,
-      dispatchedCount: totalDispatched,
-      failedCount: totalFailed,
+      senderUserId,
+      participantUserIds: Array.from(stakeholderUserIds),
+      recipientUserIds: allTargetUserIds,
       totalRecipients: allTargetUserIds.length,
-      subscriptionsCount: targetSubscriptions.length
+      subscriptionsCount: targetSubscriptions.length,
+      dispatchedCount: totalDispatched,
+      failedCount: totalFailed
     };
   } catch (err: any) {
     console.error('[WebPush D1] Error processing project comment push notification:', err);

@@ -172,6 +172,11 @@ export interface Project {
   projectType?: string;     // e.g. Pendirian, RUPS-LB, RUPST, Perjanjian Sewa Menyewa, etc.
   meetingSubject?: string;  // e.g. Perubahan AD, Perubahan Data, etc.
   minutaNotes?: string;     // Catatan khusus untuk proyek minuta
+  participantUserIds?: string[]; // Array of unique Firebase UIDs involved in this project
+  createdBy?: string;       // Firebase UID of project creator
+  ownerId?: string;         // Firebase UID of project owner
+  assignedToUid?: string;   // Firebase UID of assignee
+  assignedToUserId?: string;// Firebase UID of assignee
   activities?: ProjectActivity[];
   tasks?: ProjectTask[];
   activitiesCount?: number;

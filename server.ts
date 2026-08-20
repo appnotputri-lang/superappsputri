@@ -2148,7 +2148,7 @@ async function startServer() {
   app.post("/api/push/send-comment-notification", authMiddleware, async (req: AuthenticatedRequest, res) => {
     try {
       const authenticatedUid = req.user?.uid;
-      const { projectId, commentId, fallbackData } = req.body || {};
+      const { projectId, commentId, fallbackData, debugNotifySelf } = req.body || {};
       const authHeader = req.headers.authorization;
       const userAuthToken = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : undefined;
 
@@ -2162,7 +2162,8 @@ async function startServer() {
           commentId,
           authenticatedUserId: authenticatedUid,
           userAuthToken,
-          fallbackData
+          fallbackData,
+          debugNotifySelf: Boolean(debugNotifySelf)
         },
         process.env,
         getLocalD1Database()

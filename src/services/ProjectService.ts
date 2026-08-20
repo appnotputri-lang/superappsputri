@@ -30,6 +30,7 @@ import { StatusEngine } from "../domain/project/ProjectStatus";
 import { WorkflowService } from "./WorkflowService";
 import { AuthService } from "./AuthService";
 import { formatChangesSummary, FieldChange } from "../lib/diffUtils";
+import { isValidFirebaseUid } from "../utils/firebaseUidUtils";
 
 export const COMPLETED_STATUS_LIST = [
   'completed',
@@ -94,9 +95,42 @@ export class ProjectService {
       const projectId = docRef.id;
       const now = new Date();
 
+      // Resolve creator and initial participants
+      const { auth } = await import('../lib/firebase');
+      const currentUid = auth?.currentUser?.uid;
+
+      const initialParticipants = new Set<string>();
+      if (currentUid && isValidFirebaseUid(currentUid)) {
+        initialParticipants.add(currentUid);
+      }
+      if (projectData.createdBy && isValidFirebaseUid(projectData.createdBy)) {
+        initialParticipants.add(projectData.createdBy);
+      }
+      if (projectData.ownerId && isValidFirebaseUid(projectData.ownerId)) {
+        initialParticipants.add(projectData.ownerId);
+      }
+      if (projectData.assignedToUid && isValidFirebaseUid(projectData.assignedToUid)) {
+        initialParticipants.add(projectData.assignedToUid);
+      }
+      if (projectData.assignedToUserId && isValidFirebaseUid(projectData.assignedToUserId)) {
+        initialParticipants.add(projectData.assignedToUserId);
+      }
+      if (projectData.assignedTo && isValidFirebaseUid(projectData.assignedTo)) {
+        initialParticipants.add(projectData.assignedTo);
+      }
+      if (Array.isArray(projectData.participantUserIds)) {
+        projectData.participantUserIds.forEach(uid => {
+          if (isValidFirebaseUid(uid)) initialParticipants.add(uid);
+        });
+      }
+
+      const participantUserIds = Array.from(initialParticipants);
+
       const newProject: Project = {
         ...projectData,
         projectId,
+        createdBy: projectData.createdBy || currentUid || undefined,
+        participantUserIds,
         createdAt: now,
         updatedAt: now,
         lastTransitionComment: `Proyek '${projectData.title}' telah berhasil diinisialisasi.`
@@ -726,11 +760,20 @@ export class ProjectService {
         const updatedTasks = [newTask, ...currentTasks];
         const activeCount = updatedTasks.filter(t => t.status === 'open').length;
 
-        await updateDoc(projectRef, {
+        const updatePayload: any = {
           tasks: updatedTasks,
           activeTasksCount: activeCount,
           updatedAt: now
-        });
+        };
+
+        if (taskData.user.uid && isValidFirebaseUid(taskData.user.uid)) {
+          updatePayload.participantUserIds = arrayUnion(taskData.user.uid);
+        }
+        if (taskData.assignedTo && isValidFirebaseUid(taskData.assignedTo)) {
+          updatePayload.participantUserIds = arrayUnion(taskData.assignedTo);
+        }
+
+        await updateDoc(projectRef, updatePayload);
       }
 
       return newTask;
@@ -1037,17 +1080,42 @@ export class ProjectService {
       const projectRef = doc(db, this.projectsCol, projectId);
       const projectSnap = await getDoc(projectRef);
       let projectTitle = 'Proyek';
+      const existingParticipants: string[] = [];
+
       if (projectSnap.exists()) {
         const pData = projectSnap.data();
         projectTitle = pData.title || 'Proyek';
+        if (Array.isArray(pData.participantUserIds)) {
+          pData.participantUserIds.forEach((uid: string) => {
+            if (isValidFirebaseUid(uid) && !existingParticipants.includes(uid)) {
+              existingParticipants.push(uid);
+            }
+          });
+        }
+        if (pData.createdBy && isValidFirebaseUid(pData.createdBy) && !existingParticipants.includes(pData.createdBy)) {
+          existingParticipants.push(pData.createdBy);
+        }
+        if (pData.ownerId && isValidFirebaseUid(pData.ownerId) && !existingParticipants.includes(pData.ownerId)) {
+          existingParticipants.push(pData.ownerId);
+        }
+
         const currentCount = pData.activitiesCount || (pData.activities?.length || 0);
-        await updateDoc(projectRef, {
+        const updateFields: any = {
           lastActivityAt: serverTimestamp(),
           lastActivityType: 'comment',
           lastActivityText: `${commentData.userName}: ${commentData.content}`,
           activitiesCount: currentCount + 1,
           updatedAt: new Date().toISOString()
-        });
+        };
+
+        if (commentData.userId && isValidFirebaseUid(commentData.userId)) {
+          updateFields.participantUserIds = arrayUnion(commentData.userId);
+          if (!existingParticipants.includes(commentData.userId)) {
+            existingParticipants.push(commentData.userId);
+          }
+        }
+
+        await updateDoc(projectRef, updateFields);
       }
 
       // 4. Trigger Web Push Notification asynchronously (non-blocking)
@@ -1056,12 +1124,15 @@ export class ProjectService {
         PushNotificationClient.triggerCommentPushNotification({
           projectId,
           commentId: newCommDoc.id,
+          debugNotifySelf: true,
           fallbackData: {
             projectTitle,
             commentContent: commentData.content,
             senderUserName: commentData.userName,
             mentions: commentData.mentions || [],
-            parentCommentId: commentData.parentCommentId || null
+            parentCommentId: commentData.parentCommentId || null,
+            participantUserIds: existingParticipants,
+            stakeholderUserIds: existingParticipants
           }
         }).catch(err => console.warn('[ProjectService] Push notification trigger warning:', err));
       } catch (pushErr) {

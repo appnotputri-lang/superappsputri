@@ -22,7 +22,7 @@ export const onRequestPost = async (context: any) => {
 
   try {
     const payload = await request.json().catch(() => ({}));
-    const { projectId, commentId, fallbackData } = payload;
+    const { projectId, commentId, fallbackData, debugNotifySelf } = payload;
 
     if (!projectId || !commentId) {
       return createErrorResponse("projectId and commentId are required", 400);
@@ -34,7 +34,8 @@ export const onRequestPost = async (context: any) => {
         commentId,
         authenticatedUserId: authenticatedUid,
         userAuthToken,
-        fallbackData
+        fallbackData,
+        debugNotifySelf: Boolean(debugNotifySelf)
       },
       env,
       db

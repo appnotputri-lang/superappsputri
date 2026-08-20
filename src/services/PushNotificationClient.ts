@@ -272,11 +272,12 @@ export class PushNotificationClient {
 
   /**
    * Triggers the backend push notification dispatcher after a comment is saved.
-   * Sends { projectId, commentId, fallbackData } with Firebase Auth Token.
+   * Sends { projectId, commentId, fallbackData, debugNotifySelf } with Firebase Auth Token.
    */
   static async triggerCommentPushNotification(payload: {
     projectId: string;
     commentId: string;
+    debugNotifySelf?: boolean;
     fallbackData?: {
       projectTitle?: string;
       commentContent?: string;
@@ -284,6 +285,7 @@ export class PushNotificationClient {
       mentions?: string[];
       parentCommentId?: string | null;
       stakeholderUserIds?: string[];
+      participantUserIds?: string[];
     };
   }): Promise<void> {
     try {
@@ -297,11 +299,13 @@ export class PushNotificationClient {
         body: JSON.stringify({
           projectId: payload.projectId,
           commentId: payload.commentId,
-          fallbackData: payload.fallbackData
+          fallbackData: payload.fallbackData,
+          debugNotifySelf: payload.debugNotifySelf !== undefined ? payload.debugNotifySelf : true
         })
       });
 
       const data = await res.json().catch(() => ({}));
+      console.log('[Comment Push Debug]', data);
       if (!res.ok) {
         console.warn('[PushClient] Comment push dispatch returned status:', res.status, data);
       } else {
