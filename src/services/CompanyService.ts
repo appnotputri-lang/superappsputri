@@ -848,22 +848,28 @@ export class CompanyService {
   /**
     * Save (set with merge) a Company Profile
     */
-  static async saveCompany(companyId: string, data: Partial<CompanyProfile>, isCv?: boolean): Promise<void> {
+  static async saveCompany(companyId: string, data: Partial<CompanyProfile>, isCv?: boolean): Promise<{ d1Synced: boolean }> {
     const isCvCompany = isCv || data.clientType === 'CV' || data.companyType === 'CV';
     const collectionName = 'profiles';
+    const clientType = isCvCompany ? 'CV' : (data.clientType || 'PT');
+    const companyType = isCvCompany ? 'CV' : (data.companyType || 'PT_LOKAL');
+    const preparedData = {
+      ...data,
+      clientType,
+      companyType,
+      companyName: data.companyName ? this.formatCompanyName(data.companyName, clientType) : undefined
+    };
+
+    console.log('[Client Save] Starting save', {
+      companyId,
+      companyName: preparedData.companyName
+    });
+
+    const docRef = doc(db, collectionName, companyId);
+    let oldCompanyName: string | undefined;
+
     try {
-      const clientType = isCvCompany ? 'CV' : (data.clientType || 'PT');
-      const companyType = isCvCompany ? 'CV' : (data.companyType || 'PT_LOKAL');
-      const preparedData = {
-        ...data,
-        clientType,
-        companyType,
-        companyName: data.companyName ? this.formatCompanyName(data.companyName, clientType) : undefined
-      };
-
-      const docRef = doc(db, collectionName, companyId);
-      let oldCompanyName: string | undefined;
-
+      // 1. Save Firestore transaction
       await runTransaction(db, async (transaction) => {
         const docSnap = await transaction.get(docRef);
         const oldData = docSnap.exists() ? docSnap.data() as CompanyProfile : null;
@@ -911,20 +917,47 @@ export class CompanyService {
         transaction.set(docRef, sanitizeForFirestore(preparedData), { merge: true });
       });
 
-      // After transaction commits successfully, sync directory and handle Drive
-      await this.syncClientDirectoryEntry(companyId, preparedData);
+      console.log('[Client Save] Firestore transaction success');
+      console.log('[Client Save] Firestore profile saved');
+
+      // 2. Clear cache
       CompanyService.clearCache();
-      
-      // Ensure or Rename the Google Drive folder for this client
+
+      // 3. Sync directory secara terpisah
+      let d1Synced = true;
+      console.log('[Client Save] D1 directory sync starting');
+      try {
+        await this.syncClientDirectoryEntry(companyId, preparedData);
+        console.log('[Client Save] D1 directory sync success');
+      } catch (syncError) {
+        d1Synced = false;
+        console.error(
+          '[Client Save] Profile saved but D1 sync failed:',
+          syncError
+        );
+        // Jangan throw error yang membatalkan save profile
+      }
+
+      // 4. Drive folder juga tidak boleh membatalkan save profile
       if (preparedData.companyName) {
-        await this.handleRenameOrEnsureFolder(companyId, oldCompanyName, preparedData.companyName, clientType);
+        try {
+          await this.handleRenameOrEnsureFolder(companyId, oldCompanyName, preparedData.companyName, clientType);
+        } catch (driveError) {
+          console.warn(
+            '[Client Save] Profile saved but Drive sync failed:',
+            driveError
+          );
+        }
       }
-    } catch (error) {
-      if (error instanceof Error && error.message.startsWith('KLIEN_NAME_EXISTS:')) {
-        throw error;
+
+      return { d1Synced };
+    } catch (firestoreError: any) {
+      console.error('[Client Save] Failed at:', firestoreError);
+      if (firestoreError instanceof Error && firestoreError.message.startsWith('KLIEN_NAME_EXISTS:')) {
+        throw firestoreError;
       }
-      handleFirestoreError(error, OperationType.WRITE, `${collectionName}/${companyId}`);
-      throw error;
+      handleFirestoreError(firestoreError, OperationType.WRITE, `${collectionName}/${companyId}`);
+      throw firestoreError;
     }
   }
 
@@ -1018,10 +1051,19 @@ export class CompanyService {
       }
 
       await updateDoc(docRef, sanitizeForFirestore(updateData));
-      await this.syncClientDirectoryEntry(companyId, { ...currentData, ...updateData });
+
+      try {
+        await this.syncClientDirectoryEntry(companyId, { ...currentData, ...updateData });
+      } catch (syncError) {
+        console.error('[Client Save] Profile updated but D1 sync failed:', syncError);
+      }
 
       if (updateData.companyName) {
-        await this.handleRenameOrEnsureFolder(companyId, oldCompanyName, updateData.companyName, finalType);
+        try {
+          await this.handleRenameOrEnsureFolder(companyId, oldCompanyName, updateData.companyName, finalType);
+        } catch (driveError) {
+          console.warn('[Client Save] Profile updated but Drive sync failed:', driveError);
+        }
       }
     } catch (error) {
       if (error instanceof Error && error.message.startsWith('KLIEN_NAME_EXISTS:')) {

@@ -127,6 +127,10 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    match /client_unique_keys/{key} {
+      allow read, write: if isSignedIn();
+    }
+
     // ---------------------------------------------------------
     // NOTIFICATIONS
     // ---------------------------------------------------------

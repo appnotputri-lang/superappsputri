@@ -50,7 +50,7 @@ export function useCompanies() {
   }, []);
 
   const save = useCallback(async (companyId: string, companyData: Partial<CompanyProfile>, isCv?: boolean) => {
-    await CompanyService.saveCompany(companyId, companyData, isCv);
+    return await CompanyService.saveCompany(companyId, companyData, isCv);
   }, []);
 
   const remove = useCallback(async (companyId: string, isCv?: boolean) => {

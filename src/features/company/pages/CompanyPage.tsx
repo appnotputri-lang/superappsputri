@@ -725,8 +725,8 @@ export const CompanyPage: React.FC<CompanyPageProps> = ({ setIsSidebarOpen, ...p
 
   // 8. CRUD Actions using CompanyContext
   const saveCompany = async (id: string, companyData: any, redirect: boolean) => {
-    await saveCompanyInContext(id, companyData, isCv);
-    return companyData;
+    const res = await saveCompanyInContext(id, companyData, isCv);
+    return res;
   };
 
   const handleSyncDrive = async () => {

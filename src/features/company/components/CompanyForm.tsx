@@ -129,14 +129,18 @@ export const CompanyForm: React.FC<CompanyFormProps> = ({
                 };
                 
                 const isCvCompany = data.clientType === 'CV' || data.companyType === 'CV';
-                await saveCompany(data.id, profileData, isCvCompany);
+                const saveResult = await saveCompany(data.id, profileData, isCvCompany);
                 recordNotification(
                   'Profil Perusahaan Diperbarui', 
                   `Profil ${data.companyName} telah berhasil diperbarui.`, 
                   'info'
                 );
                 
-                alert('Profil berhasil disimpan!');
+                if (saveResult && saveResult.d1Synced === false) {
+                  alert('Profil berhasil disimpan, namun sinkronisasi direktori sedang bermasalah.');
+                } else {
+                  alert('Profil berhasil disimpan.');
+                }
                 if (openProfile && data.id) {
                   openProfile(data.id);
                 } else if (backToList) {

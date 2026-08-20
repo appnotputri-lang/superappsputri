@@ -36,7 +36,7 @@ export interface AppRoutesProps {
   isSyncing?: boolean;
   handleManualSync?: () => void;
   recordNotification?: (...args: any[]) => void;
-  saveCompany?: (...args: any[]) => Promise<void>;
+  saveCompany?: (...args: any[]) => Promise<any>;
   deleteCompany?: (...args: any[]) => Promise<void>;
   cvProfiles?: any[];
   cvProfileSearchQuery?: string;

@@ -10,7 +10,7 @@ interface CompanyContextType {
   refresh: () => Promise<void>;
   fetchDirectoryPage: (options?: import('../services/CompanyService').ClientDirectoryPageOptions) => Promise<import('../services/CompanyService').ClientDirectoryPageResult>;
   getProfile: (companyId: string) => Promise<CompanyProfile | null>;
-  save: (companyId: string, companyData: Partial<CompanyProfile>, isCv?: boolean) => Promise<void>;
+  save: (companyId: string, companyData: Partial<CompanyProfile>, isCv?: boolean) => Promise<{ d1Synced: boolean }>;
   delete: (companyId: string, isCv?: boolean) => Promise<void>;
   archive: (companyId: string, currentStatus: boolean, isCv?: boolean) => Promise<boolean>;
   duplicate: (company: CompanyProfile, isCv?: boolean) => Promise<CompanyProfile>;
