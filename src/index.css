@@ -1,5 +1,24 @@
 @import "tailwindcss";
 
+/* ==========================================================================
+   iOS / Mobile Typography & Viewport Normalization
+   ========================================================================== */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body, input, textarea, select, button {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
 @theme {
   --color-brand-navy: #0c2444;
   --color-brand-navy-dark: #001529;

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { PageHeader } from "../ui/PageLayout";
-import { MobileHeader, MobileEmptyState } from "../ui/MobileHeader";
+import { MobileHeader, MobileFormHeader, MobileEmptyState } from "../ui/MobileHeader";
 import { Invoice, InvoiceItem, PaymentRecord, Product } from '../../../types';
 import { InvoiceService } from '../../services/InvoiceService';
 import { ProductService } from '../../services/ProductService';

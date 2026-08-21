@@ -122,7 +122,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
 
   if (isEmbedMode) {
     return (
-      <div className="h-screen w-full overflow-y-auto bg-[#f8fafc] no-scrollbar">
+      <div className="h-[100dvh] w-full overflow-y-auto bg-[#f8fafc] no-scrollbar">
         <UpdatePrompt />
         {children}
       </div>
@@ -131,7 +131,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
 
   if (isPublicRoute) {
     return (
-      <div className="h-screen w-full overflow-y-auto bg-[#f8fafc] no-scrollbar">
+      <div className="h-[100dvh] w-full overflow-y-auto bg-[#f8fafc] no-scrollbar">
         <UpdatePrompt />
         {children}
       </div>
@@ -139,7 +139,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
   }
 
   return (
-    <div className="flex h-screen bg-[#f8fafc] overflow-hidden">
+    <div className="flex h-[100dvh] bg-[#f8fafc] overflow-hidden">
       <UpdatePrompt />
       {user && (
         <Sidebar

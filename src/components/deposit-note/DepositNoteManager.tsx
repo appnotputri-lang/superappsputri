@@ -6,7 +6,7 @@ import {
   X, AlertCircle, RefreshCw, FileText, Building2, CheckCircle2
 } from 'lucide-react';
 import { DepositNote, DepositNoteItem, SidebarTabId, CompanyProfile } from '../../../types';
-import { MobileHeader, MobileEmptyState, MobilePagination } from '../ui/MobileHeader';
+import { MobileHeader, MobileFormHeader, MobileEmptyState, MobilePagination } from '../ui/MobileHeader';
 import { MobileDataCard } from '../ui/MobileDataCard';
 import { DepositNoteService } from '../../services/DepositNoteService';
 import { CompanyService } from '../../services/CompanyService';
@@ -583,20 +583,28 @@ export const DepositNoteManager: React.FC<DepositNoteManagerProps> = ({ setActiv
 
       {/* ==================== 2. FORM VIEW (/deposit_note/new & /deposit_note/:id/edit) ==================== */}
       {(routeMode === 'new' || routeMode === 'edit') && (
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
-          {/* Top Bar */}
-          <div className="flex items-center justify-between mb-6">
-            <button
-              onClick={() => navigate('/deposit_note')}
-              className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors cursor-pointer"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              <span>Kembali ke Daftar</span>
-            </button>
-            <h1 className="text-xl font-bold text-slate-900">
-              {routeMode === 'edit' ? 'Edit Titipan Uang' : 'Catat Titipan Uang Baru'}
-            </h1>
+        <>
+          <div className="md:hidden px-4 pt-2">
+            <MobileFormHeader
+              title={routeMode === 'edit' ? 'Edit Titipan Uang' : 'Catat Titipan Baru'}
+              subtitle={formData.depositNumber}
+              onBack={() => navigate('/deposit_note')}
+            />
           </div>
+          <div className="max-w-4xl mx-auto px-4 sm:px-6 py-4 sm:py-8">
+            {/* Top Bar Desktop */}
+            <div className="hidden md:flex items-center justify-between mb-6">
+              <button
+                onClick={() => navigate('/deposit_note')}
+                className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors cursor-pointer"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                <span>Kembali ke Daftar</span>
+              </button>
+              <h1 className="text-xl font-bold text-slate-900">
+                {routeMode === 'edit' ? 'Edit Titipan Uang' : 'Catat Titipan Uang Baru'}
+              </h1>
+            </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Card 1: Data Titipan & Klien */}
@@ -850,20 +858,29 @@ export const DepositNoteManager: React.FC<DepositNoteManagerProps> = ({ setActiv
             </div>
           </form>
         </div>
+        </>
       )}
 
       {/* ==================== 3. DETAIL VIEW (/deposit_note/:id) ==================== */}
       {routeMode === 'detail' && (
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
-          {/* Action Bar */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-            <button
-              onClick={() => navigate('/deposit_note')}
-              className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors cursor-pointer"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              <span>Kembali ke Daftar</span>
-            </button>
+        <>
+          <div className="md:hidden px-4 pt-2">
+            <MobileFormHeader
+              title="Detail Titipan Uang"
+              subtitle={selectedNote?.depositNumber}
+              onBack={() => navigate('/deposit_note')}
+            />
+          </div>
+          <div className="max-w-4xl mx-auto px-4 sm:px-6 py-4 sm:py-8">
+            {/* Action Bar Desktop */}
+            <div className="hidden md:flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+              <button
+                onClick={() => navigate('/deposit_note')}
+                className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors cursor-pointer"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                <span>Kembali ke Daftar</span>
+              </button>
 
             {selectedNote && (
               <div className="flex items-center gap-2">
@@ -989,6 +1006,7 @@ export const DepositNoteManager: React.FC<DepositNoteManagerProps> = ({ setActiv
             </div>
           )}
         </div>
+        </>
       )}
     </div>
   );

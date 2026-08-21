@@ -6,7 +6,8 @@ import {
   SlidersHorizontal, 
   ChevronDown, 
   X,
-  FileText
+  FileText,
+  ArrowLeft
 } from 'lucide-react';
 
 export interface SortOption {
@@ -242,6 +243,60 @@ export const MobileEmptyState: React.FC<MobileEmptyStateProps> = ({
           {actionText}
         </button>
       )}
+    </div>
+  );
+};
+
+export interface MobileFormHeaderProps {
+  title: string;
+  subtitle?: string;
+  onBack: () => void;
+  backLabel?: string;
+  actions?: React.ReactNode;
+}
+
+export const MobileFormHeader: React.FC<MobileFormHeaderProps> = ({
+  title,
+  subtitle,
+  onBack,
+  backLabel = 'Kembali',
+  actions,
+}) => {
+  return (
+    <div 
+      className="md:hidden bg-[#1e61c3] text-white rounded-b-[2rem] p-4 pb-5 shadow-sm -mx-3 sm:-mx-6 -mt-3 sm:-mt-5 mb-4 relative overflow-hidden"
+      style={{
+        paddingTop: 'calc(env(safe-area-inset-top, 0px) + 1.25rem)'
+      }}
+    >
+      {/* Decorative Blue-on-Blue Circular Background Accents */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-b-[2rem]" aria-hidden="true">
+        <div className="absolute -top-12 -right-12 w-44 h-44 rounded-full bg-white/10" />
+        <div className="absolute -bottom-10 -left-10 w-36 h-36 rounded-full bg-white/5" />
+      </div>
+
+      <div className="relative z-10 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+          <button
+            type="button"
+            onClick={onBack}
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-white/15 hover:bg-white/25 active:bg-white/30 text-white font-semibold text-xs transition-all cursor-pointer shrink-0"
+            title={backLabel}
+          >
+            <ArrowLeft size={16} />
+            <span className="hidden sm:inline">{backLabel}</span>
+          </button>
+          <div className="min-w-0 flex-1">
+            <h1 className="text-base font-bold text-white truncate leading-tight">{title}</h1>
+            {subtitle && <p className="text-[11px] text-blue-100 truncate mt-0.5">{subtitle}</p>}
+          </div>
+        </div>
+        {actions && (
+          <div className="flex items-center gap-2 shrink-0">
+            {actions}
+          </div>
+        )}
+      </div>
     </div>
   );
 };

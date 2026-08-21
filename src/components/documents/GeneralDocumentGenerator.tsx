@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { PageHeader } from "../ui/PageLayout";
-import { MobileHeader, MobileEmptyState, MobilePagination } from "../ui/MobileHeader";
+import { MobileHeader, MobileFormHeader, MobileEmptyState, MobilePagination } from "../ui/MobileHeader";
 import { MobileDataCard } from "../ui/MobileDataCard";
 import { 
   Package, FileCheck, Plus, Search, Filter, Calendar, User, 
@@ -647,6 +647,25 @@ export const GeneralDocumentGenerator: React.FC<GeneralDocumentGeneratorProps> =
         </div>
       )}
 
+      {viewMode === 'form' && (
+        <div className="md:hidden">
+          <MobileFormHeader
+            title={editingDocId ? `Edit ${config.title}` : `Buat ${config.title} Baru`}
+            onBack={() => setViewMode('list')}
+          />
+        </div>
+      )}
+
+      {viewMode === 'detail' && (
+        <div className="md:hidden">
+          <MobileFormHeader
+            title={`Detail ${config.title}`}
+            subtitle={selectedDoc?.referenceNo}
+            onBack={() => setViewMode('list')}
+          />
+        </div>
+      )}
+
       {/* HEADER BAR DESKTOP */}
       <div className="hidden md:block w-[94%] xl:w-[92%] max-w-none mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-2">
         <PageHeader
@@ -1018,8 +1037,8 @@ export const GeneralDocumentGenerator: React.FC<GeneralDocumentGeneratorProps> =
 
         {/* ================= FORM VIEW (CREATE / EDIT) ================= */}
         {viewMode === 'form' && (
-          <div className="max-w-4xl mx-auto bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6 sm:p-8">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-6">
+          <div className="max-w-4xl min-w-0 w-full mx-auto bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4 sm:p-6 md:p-8 overflow-hidden">
+            <div className="hidden md:flex items-center justify-between border-b border-slate-100 pb-4 mb-6">
               <h2 className="text-lg font-bold text-slate-900">
                 {editingDocId ? `Edit ${config.title}` : `Buat ${config.title} Baru`}
               </h2>

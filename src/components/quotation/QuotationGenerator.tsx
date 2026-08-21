@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { PageHeader } from "../ui/PageLayout";
-import { MobileHeader, MobileEmptyState, MobilePagination } from "../ui/MobileHeader";
+import { MobileHeader, MobileFormHeader, MobileEmptyState, MobilePagination } from "../ui/MobileHeader";
 import { Quotation, InvoiceItem, Invoice, Product } from '../../../types';
 import { QuotationService } from '../../services/QuotationService';
 import { InvoiceService } from '../../services/InvoiceService';
@@ -1521,21 +1521,29 @@ Notaris/PPAT Nukantini Putri Parincha, SH., M.Kn`;
 
       {/* 2. CREATE / EDIT VIEW */}
       {(viewMode === 'create' || viewMode === 'edit') && (
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden space-y-6 p-6">
-          <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
-            <button
-              onClick={() => setViewMode('list')}
-              className="p-2 hover:bg-slate-100 rounded-lg text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
-            >
-              <ArrowLeft size={18} />
-            </button>
-            <div>
-              <h2 className="text-lg font-black text-slate-900 tracking-tight">
-                {viewMode === 'create' ? 'Buat Surat Penawaran Baru' : 'Edit Surat Penawaran'}
-              </h2>
-              <p className="text-xs text-slate-400">Rancang dan kalkulasikan rincian penawaran harga Anda.</p>
-            </div>
+        <>
+          <div className="md:hidden">
+            <MobileFormHeader
+              title={viewMode === 'create' ? 'Buat Penawaran Baru' : 'Edit Penawaran'}
+              subtitle={quotationNumber}
+              onBack={() => setViewMode('list')}
+            />
           </div>
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden space-y-6 p-4 sm:p-6 min-w-0 w-full">
+            <div className="hidden md:flex items-center gap-3 border-b border-slate-100 pb-4">
+              <button
+                onClick={() => setViewMode('list')}
+                className="p-2 hover:bg-slate-100 rounded-lg text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
+              >
+                <ArrowLeft size={18} />
+              </button>
+              <div>
+                <h2 className="text-lg font-black text-slate-900 tracking-tight">
+                  {viewMode === 'create' ? 'Buat Surat Penawaran Baru' : 'Edit Surat Penawaran'}
+                </h2>
+                <p className="text-xs text-slate-400">Rancang dan kalkulasikan rincian penawaran harga Anda.</p>
+              </div>
+            </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Left Column: Metadata */}
@@ -1935,6 +1943,7 @@ Notaris/PPAT Nukantini Putri Parincha, SH., M.Kn`;
             </button>
           </div>
         </div>
+        </>
       )}
 
       {/* 3. DETAIL VIEW */}
