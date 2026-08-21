@@ -522,8 +522,14 @@ export const OutgoingMailBook: React.FC = () => {
 
       {/* Modal Form */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white w-full max-w-lg rounded-xl shadow-xl border border-slate-200 my-8 overflow-hidden">
+        <div
+          className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto md:pt-0"
+          style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
+        >
+          <div
+            className="bg-white w-full max-w-lg rounded-xl shadow-xl border border-slate-200 my-8 overflow-hidden md:pt-0"
+            style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
+          >
             <div className="flex items-center justify-between p-4 border-b border-slate-200 bg-slate-50">
               <h3 className="font-bold text-slate-900 text-sm">
                 {editingId ? 'Edit Surat Keluar' : 'Catat Surat Keluar Baru'}
