@@ -3,16 +3,6 @@
 /* ==========================================================================
    iOS / Mobile Typography & Viewport Normalization
    ========================================================================== */
-:root {
-  --app-height: 100dvh;
-}
-
-@supports not (height: 100dvh) {
-  :root {
-    --app-height: 100vh;
-  }
-}
-
 html {
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
@@ -32,6 +22,7 @@ body,
   html,
   body,
   #root {
+    width: 100%;
     height: 100%;
     min-height: 0;
     overflow: hidden;
@@ -55,10 +46,28 @@ body {
 }
 
 .app-shell {
-  height: var(--app-height, 100dvh);
-  min-height: 0;
   width: 100%;
+  height: 100vh;
+  min-height: 0;
   overflow: hidden;
+}
+
+@supports (height: 100dvh) {
+  .app-shell {
+    height: 100dvh;
+  }
+}
+
+.full-app-height {
+  width: 100%;
+  height: 100vh;
+  min-height: 0;
+}
+
+@supports (height: 100dvh) {
+  .full-app-height {
+    height: 100dvh;
+  }
 }
 
 main {
