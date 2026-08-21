@@ -72,7 +72,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
 
   if (!isPublicRoute && !isEmbedMode && !user) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-100 p-4">
+      <div className="min-h-[100dvh] min-h-[var(--app-height)] flex items-center justify-center bg-slate-100 p-4">
         <div className="bg-white p-8 rounded-lg shadow-md max-w-md w-full text-center space-y-6">
           <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto text-2xl font-bold">
             NP
@@ -98,7 +98,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
 
   if (!isPublicRoute && !isEmbedMode && user && user.email && !isUserEmailAllowed) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-100 p-4">
+      <div className="min-h-[100dvh] min-h-[var(--app-height)] flex items-center justify-center bg-slate-100 p-4">
         <div className="bg-white p-8 rounded-lg shadow-md max-w-md w-full text-center space-y-6">
           <div className="w-16 h-16 bg-red-50 text-red-600 rounded-full flex items-center justify-center mx-auto text-2xl font-bold">
             !
@@ -122,7 +122,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
 
   if (isEmbedMode) {
     return (
-      <div className="h-[100dvh] w-full overflow-y-auto bg-[#f8fafc] no-scrollbar">
+      <div className="min-h-[100dvh] min-h-[var(--app-height)] w-full overflow-y-auto bg-[#f8fafc] no-scrollbar">
         <UpdatePrompt />
         {children}
       </div>
@@ -131,7 +131,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
 
   if (isPublicRoute) {
     return (
-      <div className="h-[100dvh] w-full overflow-y-auto bg-[#f8fafc] no-scrollbar">
+      <div className="min-h-[100dvh] min-h-[var(--app-height)] w-full overflow-y-auto bg-[#f8fafc] no-scrollbar">
         <UpdatePrompt />
         {children}
       </div>
@@ -139,7 +139,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
   }
 
   return (
-    <div className="flex h-[100dvh] bg-[#f8fafc] overflow-hidden">
+    <div className="app-shell flex h-[100dvh] h-[var(--app-height)] min-h-[100dvh] min-h-[var(--app-height)] w-full bg-[#f8fafc] overflow-hidden">
       <UpdatePrompt />
       {user && (
         <Sidebar
@@ -157,7 +157,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
         />
       )}
 
-      <div className="flex-1 flex flex-col h-full overflow-hidden">
+      <div className="flex-1 flex flex-col h-full min-h-0 overflow-hidden bg-[#f8fafc]">
         <FirestoreQuotaBanner />
         {activeSidebarTab !== 'beranda' && (activeSidebarTab as string) !== 'dashboard' && (
           <div className="hidden md:block">
@@ -175,9 +175,14 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
             />
           </div>
         )}
-        <main className="flex-1 overflow-y-auto overflow-x-hidden bg-[#f8fafc] scroll-smooth pb-0 no-scrollbar">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden bg-[#f8fafc] scroll-smooth no-scrollbar pb-16 md:pb-0">
           {children}
         </main>
+        <BottomNav
+          activeSidebarTab={activeSidebarTab}
+          setActiveSidebarTab={setActiveSidebarTab}
+          setIsSidebarOpen={setIsSidebarOpen}
+        />
       </div>
     </div>
   );

@@ -306,7 +306,7 @@ export const DepositNoteManager: React.FC<DepositNoteManagerProps> = ({ setActiv
   const totalPages = Math.ceil(totalCount / pageSize) || 1;
 
   return (
-    <div className="min-h-screen bg-slate-50/60 pb-16">
+    <div className="min-h-full bg-slate-50/60 pb-20 md:pb-8">
       {/* Toast Notification */}
       {toast && (
         <div className={`fixed bottom-5 right-5 z-50 flex items-center gap-2.5 px-4 py-3 rounded-xl shadow-lg border text-sm font-medium transition-all ${
