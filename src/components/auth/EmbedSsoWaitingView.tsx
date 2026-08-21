@@ -52,7 +52,7 @@ export const EmbedSsoWaitingView: React.FC<EmbedSsoWaitingViewProps> = ({ onRetr
   const currentRoute = `${window.location.pathname}${window.location.hash ? window.location.hash : ''}`;
 
   return (
-    <div className="min-h-[100dvh] min-h-[var(--app-height)] flex items-center justify-center bg-slate-50 p-4">
+    <div className="min-h-[100dvh] flex items-center justify-center bg-slate-50 p-4">
       <div className="bg-white p-8 rounded-xl shadow-lg border border-slate-200/80 max-w-md w-full text-center space-y-6">
         <div className="relative w-16 h-16 mx-auto flex items-center justify-center">
           <div className="absolute inset-0 rounded-full bg-teal-100 animate-ping opacity-30" />

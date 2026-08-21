@@ -36,7 +36,7 @@ export const renderClientRoute = (props: any) => {
       </div>
 
       {props.editingCvProfileId ? (
-        <div className="space-y-4 pb-20">
+        <div className="space-y-4 pb-6">
           <div className="flex flex-wrap items-center gap-2 bg-slate-50/50 p-2 rounded-md border border-slate-200">
             <button className="text-slate-500 hover:text-slate-800 flex items-center gap-1 font-bold text-[12px] uppercase bg-white px-3 py-2 rounded-sm border border-slate-200 shadow-sm" onClick={() => props.setEditingCvProfileId && props.setEditingCvProfileId(null)}>
               <ArrowRight className="w-4 h-4 rotate-180" /> Kembali
