@@ -2641,7 +2641,7 @@ export const RUPSLBPage: React.FC<RUPSLBPageProps> = ({
 
             
             {/* Added Previews section at the bottom of the project */}
-            <div className="space-y-6 pb-12">
+            <div className="space-y-6 pb-6">
                  <AhuSection title="DRAFT AKTA RUPS" isOpen={false}>
                    <DraftAktaRUPS companyData={mergedData} />
                  </AhuSection>

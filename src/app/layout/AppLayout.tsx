@@ -121,7 +121,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
 
   if (isEmbedMode) {
     return (
-      <div className="min-h-[100dvh] w-full overflow-y-auto bg-[#f8fafc] no-scrollbar">
+      <div className="h-[100dvh] w-full overflow-y-auto bg-[#f8fafc] no-scrollbar">
         <UpdatePrompt />
         {children}
       </div>
@@ -130,7 +130,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
 
   if (isPublicRoute) {
     return (
-      <div className="min-h-[100dvh] w-full overflow-y-auto bg-[#f8fafc] no-scrollbar">
+      <div className="h-[100dvh] w-full overflow-y-auto bg-[#f8fafc] no-scrollbar">
         <UpdatePrompt />
         {children}
       </div>
@@ -138,7 +138,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
   }
 
   return (
-    <div className="app-shell flex h-[100dvh] w-full bg-[#f8fafc] overflow-hidden">
+    <div className="app-shell flex h-[100dvh] min-h-[100dvh] w-full bg-[#f8fafc] overflow-hidden">
       <UpdatePrompt />
       {user && (
         <Sidebar
@@ -156,7 +156,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
         />
       )}
 
-      <div className="flex-1 flex flex-col h-full min-h-0 overflow-hidden bg-[#f8fafc]">
+      <div className="flex-1 flex flex-col h-full overflow-hidden">
         <FirestoreQuotaBanner />
         {activeSidebarTab !== 'beranda' && (activeSidebarTab as string) !== 'dashboard' && (
           <div className="hidden md:block">
@@ -174,7 +174,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
             />
           </div>
         )}
-        <main className="flex-1 overflow-y-auto overflow-x-hidden bg-[#f8fafc] scroll-smooth no-scrollbar">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden bg-[#f8fafc] scroll-smooth pb-0 no-scrollbar">
           {children}
         </main>
       </div>

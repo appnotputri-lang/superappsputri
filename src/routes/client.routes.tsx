@@ -18,7 +18,7 @@ export const renderClientRoute = (props: any) => {
   } = props;
 
   return (
-    <div className="w-[94%] xl:w-[92%] max-w-none mx-auto space-y-4 pt-4 sm:pt-5 pb-10 sm:pb-12">
+    <div className="w-[94%] xl:w-[92%] max-w-none mx-auto space-y-4 pt-4 sm:pt-5 pb-6">
       <div className="flex justify-between items-center bg-white p-4 rounded-sm shadow-sm border border-slate-200">
         <div>
           <h2 className="text-[16px] font-bold flex items-center gap-2 text-slate-800 uppercase"><Briefcase className="w-5 h-5 text-teal-600" /> Klien CV</h2>

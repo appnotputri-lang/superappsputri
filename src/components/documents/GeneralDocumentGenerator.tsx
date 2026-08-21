@@ -622,7 +622,7 @@ export const GeneralDocumentGenerator: React.FC<GeneralDocumentGeneratorProps> =
   const filteredClientsDropdown = localClients;
 
   return (
-    <div className="min-h-full bg-slate-50 text-slate-800 pb-8">
+    <div className="min-h-full bg-slate-50 text-slate-800 pb-6">
       {viewMode === 'list' && (
         <div className="md:hidden">
           <MobileHeader
