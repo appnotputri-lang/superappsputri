@@ -99,7 +99,7 @@ export const AddressSection: React.FC<AddressSectionProps> = ({ data, updateData
                 />
               </div>
             </div>
-            <div className="w-1/2 pr-1">
+            <div className="w-full sm:w-1/2 pr-0 sm:pr-1">
               <AhuLabel label="Kode Pos" />
               <AhuInput 
                 placeholder="40111" 

@@ -18,18 +18,18 @@ import {
 export const AhuSection = ({ title, children, isOpen = true }: { title: string, children: React.ReactNode, isOpen?: boolean }) => {
   const [open, setOpen] = useState(isOpen);
   return (
-    <div className="bg-white border border-slate-200 rounded-sm mb-4 shadow-sm">
+    <div className="bg-white border border-slate-200 rounded-sm mb-4 shadow-sm w-full max-w-full min-w-0 overflow-hidden">
       <div 
         onClick={() => setOpen(!open)}
-        className="bg-[#f5f5f5] px-4 py-2 flex justify-between items-center cursor-pointer border-b border-slate-200 group"
+        className="bg-[#f5f5f5] px-3 sm:px-4 py-2 flex justify-between items-center cursor-pointer border-b border-slate-200 group min-w-0"
       >
-        <span className="text-[12px] font-bold text-[#333] uppercase">{title}</span>
-        <span className="text-slate-400 group-hover:text-slate-600 text-xs">
+        <span className="text-[12px] font-bold text-[#333] uppercase truncate pr-2">{title}</span>
+        <span className="text-slate-400 group-hover:text-slate-600 text-xs shrink-0">
           {open ? '▲' : '▼'}
         </span>
       </div>
       {open && (
-        <div className="p-4 bg-white">
+        <div className="p-3 sm:p-4 bg-white w-full max-w-full min-w-0">
           {children}
         </div>
       )}
@@ -89,8 +89,8 @@ export const CompanyForm: React.FC<CompanyFormProps> = ({
   backToList,
 }) => {
   return (
-    <div className="bg-slate-50 p-4 border border-slate-200 rounded-sm">
-      <div className="flex justify-between items-center mb-6">
+    <div className="bg-slate-50 p-2 sm:p-4 border border-slate-200 rounded-sm w-full max-w-full min-w-0 overflow-hidden">
+      <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 mb-6">
         <div className="flex gap-2">
           <button 
             onClick={() => {
@@ -165,7 +165,7 @@ export const CompanyForm: React.FC<CompanyFormProps> = ({
         </button>
       </div>
       
-      <fieldset disabled={isProfilePreview} className="space-y-4">
+      <fieldset disabled={isProfilePreview} className="space-y-4 w-full max-w-full min-w-0">
         {/* 1. GENERAL INFORMATION */}
         <GeneralInformationSection data={data} updateData={updateData} />
 

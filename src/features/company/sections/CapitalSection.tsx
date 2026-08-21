@@ -51,14 +51,14 @@ export const CapitalSection: React.FC<CapitalSectionProps> = ({ data, updateData
         <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
           <AhuLabel label="Modal Dasar (Lembar)" required />
           <div className="md:col-span-3">
-            <div className="flex items-center gap-4">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-4">
               <div className="flex-1">
                 <AhuInput 
                   value={data.originalAuthorizedShares === 0 || !data.originalAuthorizedShares ? '' : formatInputNumber(data.originalAuthorizedShares)} 
                   onChange={e => updateData({ originalAuthorizedShares: parseFormattedNumber(e.target.value) })} 
                 />
               </div>
-              <div className="text-[13px] font-bold text-slate-500 w-48">
+              <div className="text-[13px] font-bold text-slate-500 w-full sm:w-48 shrink-0">
                 Rp. {formatInputNumber(data.targetCapitalBase || 0)}
               </div>
             </div>
@@ -67,14 +67,14 @@ export const CapitalSection: React.FC<CapitalSectionProps> = ({ data, updateData
         <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
           <AhuLabel label="Modal Ditempatkan & Disetor (Lembar)" required />
           <div className="md:col-span-3">
-            <div className="flex items-center gap-4">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-4">
               <div className="flex-1">
                 <AhuInput 
                   value={data.originalTotalShares === 0 || !data.originalTotalShares ? '' : formatInputNumber(data.originalTotalShares)} 
                   onChange={e => updateData({ originalTotalShares: parseFormattedNumber(e.target.value) })} 
                 />
               </div>
-              <div className="text-[13px] font-bold text-slate-500 w-48">
+              <div className="text-[13px] font-bold text-slate-500 w-full sm:w-48 shrink-0">
                 Rp. {formatInputNumber(data.targetCapitalPaid || 0)}
               </div>
             </div>

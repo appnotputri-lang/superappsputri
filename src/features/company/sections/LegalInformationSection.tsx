@@ -64,14 +64,14 @@ export const LegalInformationSection: React.FC<LegalInformationSectionProps> = (
           {data.establishmentNotary !== 'Nukantini Putri Parincha' && (
           <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
             <AhuLabel label="Nama Notaris" />
-            <div className="md:col-span-3 flex gap-2">
+            <div className="md:col-span-3 flex flex-col sm:flex-row gap-2">
               <AhuInput 
                 className="flex-1"
                 value={data.establishmentNotary || ''} 
                 onChange={e => updateData({ establishmentNotary: e.target.value })} 
                 placeholder="Nama notaris pendirian" 
               />
-              <div className="w-48 flex flex-col gap-1">
+              <div className="w-full sm:w-48 flex flex-col gap-1">
                 <AhuSelect
                   value={['Sarjana Hukum', 'Sarjana Hukum, Magister Kenotariatan'].includes(data.establishmentNotaryTitle || '') ? data.establishmentNotaryTitle : (data.establishmentNotaryTitle ? 'manual' : '')}
                   onChange={(e) => {
