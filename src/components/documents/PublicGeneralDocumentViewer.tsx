@@ -25,7 +25,7 @@ export const PublicGeneralDocumentViewer: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-[100dvh] bg-slate-100 flex items-center justify-center p-4">
+      <div className="min-h-[100dvh] min-h-[var(--app-height)] bg-slate-100 flex items-center justify-center p-4">
         <div className="text-center text-slate-500">
           <RefreshCw size={32} className="animate-spin mx-auto mb-2 text-blue-600" />
           <p className="text-xs font-semibold">Memuat dokumen...</p>
@@ -36,7 +36,7 @@ export const PublicGeneralDocumentViewer: React.FC = () => {
 
   if (!docData) {
     return (
-      <div className="min-h-[100dvh] bg-slate-100 flex items-center justify-center p-4">
+      <div className="min-h-[100dvh] min-h-[var(--app-height)] bg-slate-100 flex items-center justify-center p-4">
         <div className="bg-white p-8 rounded-2xl shadow-lg border border-slate-200 text-center max-w-md w-full">
           <FileX size={48} className="mx-auto text-slate-300 mb-3" />
           <h2 className="text-lg font-bold text-slate-800">Dokumen Tidak Ditemukan</h2>
@@ -51,7 +51,7 @@ export const PublicGeneralDocumentViewer: React.FC = () => {
   const rightBoxLabel = isDelivery ? 'UNTUK' : 'PENERIMA';
 
   return (
-    <div className="min-h-[100dvh] bg-slate-100 py-8 px-4 sm:px-6">
+    <div className="min-h-[100dvh] min-h-[var(--app-height)] bg-slate-100 py-8 px-4 sm:px-6">
       <div className="max-w-4xl mx-auto space-y-4">
         {/* Top Control Bar */}
         <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex items-center justify-between">

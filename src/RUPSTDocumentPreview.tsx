@@ -55,7 +55,7 @@ export const RUPSTDocumentPreview: React.FC<RUPSTDocumentPreviewProps> = ({ data
   const blocks = useMemo(() => isCircular ? generateSirkulerLaporanBlocks(data) : generateRupstBlocks(data), [isCircular, data]);
 
   return (
-    <div className="flex flex-col items-center w-full min-h-[100dvh] bg-slate-200/50 py-12 px-4 shadow-inner">
+    <div className="flex flex-col items-center w-full min-h-[100dvh] min-h-[var(--app-height)] bg-slate-200/50 py-12 px-4 shadow-inner">
       <div 
         className="preview-container bg-white shadow-[0_0_50px_rgba(0,0,0,0.15)] relative print:shadow-none paper-font transition-transform duration-200"
         style={{
