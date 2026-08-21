@@ -4,13 +4,7 @@
    iOS / Mobile Typography & Viewport Normalization
    ========================================================================== */
 :root {
-  --app-height: 100dvh;
-}
-
-@supports not (height: 100dvh) {
-  :root {
-    --app-height: 100vh;
-  }
+  /* iOS / Mobile Viewport Normalization */
 }
 
 html {
@@ -23,40 +17,21 @@ html,
 body,
 #root {
   width: 100%;
-  min-height: 100%;
-  min-height: 100dvh;
-  min-height: var(--app-height);
+  height: 100%;
   margin: 0;
   padding: 0;
-}
-
-/* For iOS mobile standalone PWA: root background on mobile matches header blue (#1e4f9a) 
-   so the translucent status bar at the top of iPhone screens seamlessly merges with the header */
-@media (max-width: 767px) {
-  html,
-  body,
-  #root {
-    background-color: #1e4f9a;
-  }
-}
-
-/* Desktop background */
-@media (min-width: 768px) {
-  html,
-  body,
-  #root {
-    background-color: #f8fafc;
-  }
+  background-color: #f8fafc;
 }
 
 body {
   overscroll-behavior-y: none;
+  background-color: #f8fafc;
 }
 
 .app-shell {
-  min-height: 100vh;
-  min-height: 100dvh;
-  min-height: var(--app-height);
+  height: 100dvh;
+  width: 100%;
+  background-color: #f8fafc;
 }
 
 body, input, textarea, select, button {
