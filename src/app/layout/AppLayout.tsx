@@ -8,6 +8,7 @@ import { isReservedPath } from '../../constants/tabs';
 import { UpdatePrompt } from '../../components/common/UpdatePrompt';
 import { FirestoreQuotaBanner } from '../../components/common/FirestoreQuotaBanner';
 import { AppLoader } from '../../components/ui/AppLoader';
+import { useViewportHeight } from '../../hooks/useViewportHeight';
 
 export type { SidebarTabId };
 
@@ -46,6 +47,9 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
   setIsEditProfileModalOpen,
   children
 }) => {
+  // Sync real-time viewport height for iOS standalone PWA / mobile browsers
+  useViewportHeight();
+
   const isSingleSegmentPath = /^\/[A-Za-z0-9_-]+\/?$/.test(window.location.pathname) && window.location.pathname !== '/';
   const isPossibleTokenRoute = isSingleSegmentPath && !isReservedPath(window.location.pathname);
   const isLegacyInvRoute = /^\/inv\/[A-Za-z0-9_-]+\/?$/i.test(window.location.pathname);
@@ -71,7 +75,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
 
   if (!isPublicRoute && !isEmbedMode && !user) {
     return (
-      <div className="min-h-[100dvh] min-h-[var(--app-height)] flex items-center justify-center bg-slate-100 p-4">
+      <div className="min-h-[var(--app-height,100dvh)] flex items-center justify-center bg-slate-100 p-4">
         <div className="bg-white p-8 rounded-lg shadow-md max-w-md w-full text-center space-y-6">
           <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto text-2xl font-bold">
             NP
@@ -97,7 +101,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
 
   if (!isPublicRoute && !isEmbedMode && user && user.email && !isUserEmailAllowed) {
     return (
-      <div className="min-h-[100dvh] min-h-[var(--app-height)] flex items-center justify-center bg-slate-100 p-4">
+      <div className="min-h-[var(--app-height,100dvh)] flex items-center justify-center bg-slate-100 p-4">
         <div className="bg-white p-8 rounded-lg shadow-md max-w-md w-full text-center space-y-6">
           <div className="w-16 h-16 bg-red-50 text-red-600 rounded-full flex items-center justify-center mx-auto text-2xl font-bold">
             !
@@ -121,7 +125,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
 
   if (isEmbedMode) {
     return (
-      <div className="min-h-[100dvh] min-h-[var(--app-height)] w-full overflow-y-auto bg-[#f8fafc] no-scrollbar">
+      <div className="h-[var(--app-height,100dvh)] min-h-0 w-full overflow-y-auto bg-[#f8fafc] no-scrollbar">
         <UpdatePrompt />
         {children}
       </div>
@@ -130,7 +134,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
 
   if (isPublicRoute) {
     return (
-      <div className="min-h-[100dvh] min-h-[var(--app-height)] w-full overflow-y-auto bg-[#f8fafc] no-scrollbar">
+      <div className="h-[var(--app-height,100dvh)] min-h-0 w-full overflow-y-auto bg-[#f8fafc] no-scrollbar">
         <UpdatePrompt />
         {children}
       </div>
@@ -138,7 +142,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
   }
 
   return (
-    <div className="app-shell flex h-[100dvh] h-[var(--app-height)] min-h-[100dvh] min-h-[var(--app-height)] w-full bg-[#1e4f9a] md:bg-[#f8fafc] overflow-hidden">
+    <div className="app-shell flex h-[var(--app-height,100dvh)] min-h-0 w-full bg-[#f8fafc] overflow-hidden">
       <UpdatePrompt />
       {user && (
         <Sidebar
@@ -156,7 +160,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
         />
       )}
 
-      <div className="flex-1 flex flex-col h-full min-h-0 overflow-hidden bg-[#1e4f9a] md:bg-[#f8fafc]">
+      <div className="flex-1 flex flex-col h-full min-h-0 overflow-hidden bg-[#f8fafc]">
         <FirestoreQuotaBanner />
         {activeSidebarTab !== 'beranda' && (activeSidebarTab as string) !== 'dashboard' && (
           <div className="hidden md:block">
@@ -174,7 +178,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
             />
           </div>
         )}
-        <main className="flex-1 overflow-y-auto overflow-x-hidden bg-[#f8fafc] scroll-smooth no-scrollbar">
+        <main className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden bg-[#f8fafc] scroll-smooth no-scrollbar">
           {children}
         </main>
       </div>
