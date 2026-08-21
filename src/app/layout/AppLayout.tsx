@@ -1,7 +1,6 @@
 import React from 'react';
 import { Sidebar } from '../../components/layout/Sidebar';
 import { Header } from '../../components/layout/Header';
-import { BottomNav } from '../../components/layout/BottomNav';
 import { ALLOWED_EMAILS } from '../../constants/appConstants';
 import { UserProfile, SidebarTabId } from '../../../types';
 import { EmbedSsoWaitingView } from '../../components/auth/EmbedSsoWaitingView';
@@ -175,14 +174,9 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
             />
           </div>
         )}
-        <main className="flex-1 overflow-y-auto overflow-x-hidden bg-[#f8fafc] scroll-smooth no-scrollbar pb-16 md:pb-0">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden bg-[#f8fafc] scroll-smooth no-scrollbar">
           {children}
         </main>
-        <BottomNav
-          activeSidebarTab={activeSidebarTab}
-          setActiveSidebarTab={setActiveSidebarTab}
-          setIsSidebarOpen={setIsSidebarOpen}
-        />
       </div>
     </div>
   );
