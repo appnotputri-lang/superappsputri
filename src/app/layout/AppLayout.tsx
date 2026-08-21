@@ -123,6 +123,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
   if (isEmbedMode) {
     return (
       <div className="h-screen w-full overflow-y-auto bg-[#f8fafc] no-scrollbar">
+        <UpdatePrompt />
         {children}
       </div>
     );
@@ -131,6 +132,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
   if (isPublicRoute) {
     return (
       <div className="h-screen w-full overflow-y-auto bg-[#f8fafc] no-scrollbar">
+        <UpdatePrompt />
         {children}
       </div>
     );

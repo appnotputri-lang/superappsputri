@@ -41,13 +41,15 @@ try {
 }
 
 // 3. Service Worker Lifecycle Handlers
-self.addEventListener('install', (event) => {
-  // Activate immediately without waiting
-  self.skipWaiting();
+// Handle SKIP_WAITING message sent when user clicks "Muat Ulang" (updateServiceWorker(true))
+self.addEventListener('message', (event) => {
+  if (event.data && (event.data.type === 'SKIP_WAITING' || event.data === 'skipWaiting')) {
+    self.skipWaiting();
+  }
 });
 
 self.addEventListener('activate', (event) => {
-  // Claim clients immediately
+  // Claim clients immediately upon activation
   event.waitUntil(self.clients.claim());
 });
 

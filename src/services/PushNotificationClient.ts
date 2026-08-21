@@ -65,11 +65,10 @@ export class PushNotificationClient {
   static async registerServiceWorker(): Promise<ServiceWorkerRegistration | null> {
     if (!('serviceWorker' in navigator)) return null;
     try {
-      const reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
-      await navigator.serviceWorker.ready;
+      const reg = await navigator.serviceWorker.ready;
       return reg;
     } catch (err) {
-      console.warn('[PushClient] Service Worker registration failed:', err);
+      console.warn('[PushClient] Service Worker ready failed:', err);
       return null;
     }
   }

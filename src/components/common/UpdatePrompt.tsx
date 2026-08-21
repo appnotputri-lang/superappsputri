@@ -10,10 +10,23 @@ export const UpdatePrompt: React.FC = () => {
     needRefresh: [needRefresh, setNeedRefresh],
     updateServiceWorker,
   } = useRegisterSW({
-    onRegistered(r) {
-      if (r) {
-        console.log('[PWA] Service Worker registered successfully.');
-      }
+    onRegisteredSW(swUrl, r) {
+      if (!r) return;
+      console.log('[PWA] Service Worker registered successfully:', swUrl);
+
+      const checkForUpdates = () => {
+        if (navigator.onLine && r && !r.installing) {
+          r.update().catch((err) => console.warn('[PWA] SW update check on focus failed:', err));
+        }
+      };
+
+      window.addEventListener('focus', checkForUpdates);
+      const handleVisibilityChange = () => {
+        if (document.visibilityState === 'visible') {
+          checkForUpdates();
+        }
+      };
+      document.addEventListener('visibilitychange', handleVisibilityChange);
     },
     onRegisterError(error) {
       console.error('[PWA] Service Worker registration failed:', error);
