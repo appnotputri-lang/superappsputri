@@ -7,7 +7,10 @@ interface PageContainerProps {
 
 export const PageContainer: React.FC<PageContainerProps> = ({ children, className = '' }) => {
   return (
-    <div className={`w-full max-w-full min-w-0 space-y-3.5 sm:space-y-4 px-3 sm:px-6 lg:px-8 pt-3 sm:pt-5 pb-10 sm:pb-12 ${className}`}>
+    <div
+      className={`w-full max-w-full min-w-0 space-y-3.5 sm:space-y-4 px-3 sm:px-6 lg:px-8 pt-3 sm:pt-5 ${className}`}
+      style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 2.5rem)' }}
+    >
       {children}
     </div>
   );
