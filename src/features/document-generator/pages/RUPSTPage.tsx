@@ -394,7 +394,7 @@ syncCompanyDataToRupst
                 </div>
 
               {currentEditingRupstId ? (
-                <div className="space-y-4 pb-6">
+                <div className="space-y-4 pb-20">
                   <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center bg-slate-50/50 p-2.5 rounded-xl border border-slate-200 gap-3">
                     <div className="flex flex-wrap items-center gap-2">
                       <button 

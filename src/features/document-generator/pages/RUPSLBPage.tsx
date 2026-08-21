@@ -474,7 +474,7 @@ export const RUPSLBPage: React.FC<RUPSLBPageProps> = ({
                 </div>
 
                {editingProjectId ? (
-                <div className="space-y-4 pb-6">
+                <div className="space-y-4 pb-20">
                   <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center bg-slate-50/50 p-2.5 rounded-xl border border-slate-200 gap-3">
                     <div className="flex flex-wrap items-center gap-2">
                       <button 
@@ -2641,7 +2641,7 @@ export const RUPSLBPage: React.FC<RUPSLBPageProps> = ({
 
             
             {/* Added Previews section at the bottom of the project */}
-            <div className="space-y-6 pb-6">
+            <div className="space-y-6 pb-12">
                  <AhuSection title="DRAFT AKTA RUPS" isOpen={false}>
                    <DraftAktaRUPS companyData={mergedData} />
                  </AhuSection>

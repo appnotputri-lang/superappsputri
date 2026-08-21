@@ -1669,7 +1669,7 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
     return (
       <>
         {/* ===== MOBILE LIST (< md) ===== */}
-        <div className="md:hidden bg-slate-50 min-h-full px-4 pt-4 pb-6">
+        <div className="md:hidden bg-slate-50 min-h-full px-4 pt-4 pb-20">
           <MobileHeader
             title="Invoice"
             onOpenSidebar={() => {
@@ -2869,7 +2869,7 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
   ];
 
   return (
-    <div className="p-4 md:p-6 w-[94%] xl:w-[92%] max-w-none mx-auto space-y-4 pb-6">
+    <div className="p-4 md:p-6 w-[94%] xl:w-[92%] max-w-none mx-auto space-y-4 pb-24 md:pb-6">
       {/* Top Header Desktop (hidden on mobile) */}
       <div className="hidden md:flex items-center gap-3">
         <button

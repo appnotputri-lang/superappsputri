@@ -24,7 +24,7 @@ export default defineConfig(({ mode }) => {
             name: 'SuperApps Putri - Notaris',
             short_name: 'SuperApps Putri',
             description: 'Aplikasi manajemen dokumen kantor notaris',
-            theme_color: '#f8fafc',
+            theme_color: '#1e61c3',
             background_color: '#f8fafc',
             display: 'standalone',
             start_url: '/',

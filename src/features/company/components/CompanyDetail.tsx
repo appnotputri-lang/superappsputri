@@ -65,7 +65,7 @@ export const CompanyDetail: React.FC<CompanyDetailProps> = ({
   backToList,
 }) => {
   return (
-    <div className="space-y-4 pb-6">
+    <div className="space-y-4 pb-20">
       <div className="flex flex-wrap items-center gap-2 bg-slate-50/50 p-2 rounded-md border border-slate-200">
         <button 
           className="text-slate-500 hover:text-slate-800 flex items-center gap-1 font-bold text-[12px] uppercase bg-white px-3 py-2 rounded-sm border border-slate-200 shadow-sm cursor-pointer" 
