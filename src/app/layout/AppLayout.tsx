@@ -139,7 +139,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
   }
 
   return (
-    <div className="app-shell flex h-[100dvh] h-[var(--app-height)] min-h-[100dvh] min-h-[var(--app-height)] w-full bg-[#f8fafc] overflow-hidden">
+    <div className="app-shell flex h-[100dvh] h-[var(--app-height)] min-h-[100dvh] min-h-[var(--app-height)] w-full bg-[#1e4f9a] md:bg-[#f8fafc] overflow-hidden">
       <UpdatePrompt />
       {user && (
         <Sidebar
@@ -157,7 +157,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
         />
       )}
 
-      <div className="flex-1 flex flex-col h-full min-h-0 overflow-hidden bg-[#f8fafc]">
+      <div className="flex-1 flex flex-col h-full min-h-0 overflow-hidden bg-[#1e4f9a] md:bg-[#f8fafc]">
         <FirestoreQuotaBanner />
         {activeSidebarTab !== 'beranda' && (activeSidebarTab as string) !== 'dashboard' && (
           <div className="hidden md:block">

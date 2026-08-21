@@ -17,7 +17,6 @@ html {
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
   height: 100%;
-  background-color: #f8fafc;
 }
 
 html,
@@ -29,7 +28,25 @@ body,
   min-height: var(--app-height);
   margin: 0;
   padding: 0;
-  background-color: #f8fafc;
+}
+
+/* For iOS mobile standalone PWA: root background on mobile matches header blue (#1e4f9a) 
+   so the translucent status bar at the top of iPhone screens seamlessly merges with the header */
+@media (max-width: 767px) {
+  html,
+  body,
+  #root {
+    background-color: #1e4f9a;
+  }
+}
+
+/* Desktop background */
+@media (min-width: 768px) {
+  html,
+  body,
+  #root {
+    background-color: #f8fafc;
+  }
 }
 
 body {
@@ -40,7 +57,6 @@ body {
   min-height: 100vh;
   min-height: 100dvh;
   min-height: var(--app-height);
-  background-color: #f8fafc;
 }
 
 body, input, textarea, select, button {
