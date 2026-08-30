@@ -16,6 +16,13 @@ body,
   min-height: 0;
   margin: 0;
   padding: 0;
+  background-color: #f8fafc;
+}
+
+#root {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 @media (max-width: 767px) {
@@ -26,7 +33,6 @@ body,
     height: 100%;
     min-height: 0;
     overflow: hidden;
-    background-color: #f8fafc;
   }
 }
 
@@ -37,7 +43,6 @@ body,
   #root {
     height: 100%;
     min-height: 0;
-    background-color: #f8fafc;
   }
 }
 
@@ -47,27 +52,21 @@ body {
 
 .app-shell {
   width: 100%;
-  height: 100vh;
+  height: 100%;
   min-height: 0;
+  flex: 1 1 0%;
+  display: flex;
   overflow: hidden;
-}
-
-@supports (height: 100dvh) {
-  .app-shell {
-    height: 100dvh;
-  }
+  background-color: #f8fafc;
 }
 
 .full-app-height {
   width: 100%;
-  height: 100vh;
+  height: 100%;
   min-height: 0;
-}
-
-@supports (height: 100dvh) {
-  .full-app-height {
-    height: 100dvh;
-  }
+  flex: 1 1 0%;
+  display: flex;
+  flex-direction: column;
 }
 
 main {
