@@ -1669,7 +1669,10 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
     return (
       <>
         {/* ===== MOBILE LIST (< md) ===== */}
-        <div className="md:hidden bg-slate-50 min-h-full px-4 pt-4 pb-6">
+        <div 
+          className="md:hidden bg-slate-50 min-h-full px-4 pt-4"
+          style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 2rem)' }}
+        >
           <MobileHeader
             title="Invoice"
             onOpenSidebar={() => {
