@@ -305,7 +305,7 @@ export const NotaryReportHub: React.FC = () => {
   ];
 
   return (
-    <div className="p-4 md:p-6 w-[94%] xl:w-[92%] max-w-none mx-auto space-y-6">
+    <div className="p-4 pt-0 md:pt-6 md:p-6 w-[94%] xl:w-[92%] max-w-none mx-auto space-y-6">
       <MobileHeader
         title="Laporan Notaris Bulanan"
         onOpenSidebar={() => {
