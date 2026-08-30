@@ -31,25 +31,16 @@ body {
 @media (max-width: 767px) {
   html,
   body {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
     width: 100%;
     height: 100%;
     overflow: hidden;
-    background-color: #1e61c3;
+    background-color: #f8fafc;
   }
 
   #root {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
     width: 100%;
     height: 100%;
+    min-height: 100%;
     overflow: hidden;
     background-color: #f8fafc;
   }
