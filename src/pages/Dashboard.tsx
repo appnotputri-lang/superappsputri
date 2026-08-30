@@ -260,10 +260,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
           paddingTop: 'calc(env(safe-area-inset-top, 0px) + 1rem)'
         }}
       >
-        {/* Abstract Translucent Decorative Shapes */}
-        <div className="absolute -top-16 -right-16 w-64 md:w-80 h-64 md:h-80 rounded-full bg-white/10 pointer-events-none blur-xs" />
-        <div className="absolute top-20 -left-16 w-44 md:w-56 h-44 md:h-56 rounded-full bg-white/5 pointer-events-none" />
-        <div className="absolute bottom-1 right-20 md:right-48 w-32 md:w-40 h-32 md:h-40 rounded-full bg-white/5 pointer-events-none" />
+        {/* Abstract Blue Decorative Shapes */}
+        <div className="absolute -top-16 -right-16 w-64 md:w-80 h-64 md:h-80 rounded-full bg-blue-400/15 pointer-events-none" />
+        <div className="absolute top-20 -left-16 w-44 md:w-56 h-44 md:h-56 rounded-full bg-blue-900/30 pointer-events-none" />
+        <div className="absolute bottom-1 right-20 md:right-48 w-32 md:w-40 h-32 md:h-40 rounded-full bg-blue-400/10 pointer-events-none" />
 
         {/* TOP NAVBAR ROW */}
         <div className="relative z-10 w-full max-w-[1280px] mx-auto flex items-center justify-between py-1.5 md:py-2">
