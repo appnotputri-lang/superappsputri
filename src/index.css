@@ -6,73 +6,40 @@
 html {
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
+  height: 100%;
+  min-height: 100%;
+  background-color: #082f6b; /* Top status bar matching color for seamless iOS PWA header */
 }
 
-html,
 body {
   width: 100%;
   height: 100%;
-  min-width: 0;
+  min-height: 100%;
+  min-height: -webkit-fill-available;
+  min-height: 100dvh;
   margin: 0;
   padding: 0;
   background-color: #f8fafc;
+  overscroll-behavior-y: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 #root {
   width: 100%;
   height: 100%;
   min-height: 100%;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
   background-color: #f8fafc;
 }
 
-@media (max-width: 767px) {
-  html,
-  body {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    width: 100%;
-    height: 100%;
-    overflow: hidden;
-    background-color: #f8fafc;
-  }
-
-  #root {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    width: 100%;
-    height: 100%;
-    overflow: hidden;
-    background-color: #f8fafc;
-  }
-}
-
-/* Desktop background */
-@media (min-width: 768px) {
-  html,
-  body,
-  #root {
-    height: 100%;
-    min-height: 100%;
-  }
-}
-
-body {
-  overscroll-behavior-y: none;
-}
-
 .app-shell {
   width: 100%;
   height: 100%;
   min-height: 100%;
+  min-height: 100dvh;
   flex: 1 1 0%;
   display: flex;
   overflow: hidden;
@@ -83,6 +50,7 @@ body {
   width: 100%;
   height: 100%;
   min-height: 100%;
+  min-height: 100dvh;
   flex: 1 1 0%;
   display: flex;
   flex-direction: column;

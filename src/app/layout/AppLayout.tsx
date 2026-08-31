@@ -174,7 +174,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
             />
           </div>
         )}
-        <main className="flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden bg-[#f8fafc] scroll-smooth no-scrollbar">
+        <main className="flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden bg-[#f8fafc] scroll-smooth no-scrollbar pb-[env(safe-area-inset-bottom,0px)]">
           {children}
         </main>
       </div>
