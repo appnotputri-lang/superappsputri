@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { PageContainer, PageHeader } from "../ui/PageLayout";
+import { PageHeader } from "../ui/PageLayout";
 import { MobileHeader, MobileFormHeader, MobileEmptyState } from "../ui/MobileHeader";
 import { Invoice, InvoiceItem, PaymentRecord, Product } from '../../../types';
 import { InvoiceService } from '../../services/InvoiceService';
@@ -1669,9 +1669,11 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
     return (
       <>
         {/* ===== MOBILE LIST (< md) ===== */}
-        <div className="md:hidden">
-          <PageContainer>
-            <MobileHeader
+        <div 
+          className="md:hidden bg-slate-50 min-h-full px-4 pt-4"
+          style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 2rem)' }}
+        >
+          <MobileHeader
             title="Invoice"
             onOpenSidebar={() => {
               if (typeof window !== 'undefined') {
@@ -1809,7 +1811,6 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
               </div>
             </div>
           )}
-          </PageContainer>
         </div>
 
         {/* ===== DESKTOP LIST (existing, md+) ===== */}
