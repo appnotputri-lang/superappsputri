@@ -249,7 +249,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
   return (
     <div 
-      className="bg-[#f8fafc] min-h-full"
+      className="bg-transparent min-h-full"
       style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 2.5rem)' }}
     >
       {/* 1. HEADER UTAMA FULL BIRU GRADIENT */}
