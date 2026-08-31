@@ -86,9 +86,9 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({
     >
       {/* Decorative Blue-on-Blue Circular Background Accents */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-b-[2rem]" aria-hidden="true">
-        <div className="absolute -top-12 -right-12 w-44 h-44 rounded-full bg-blue-400/20" />
-        <div className="absolute -bottom-10 -left-10 w-36 h-36 rounded-full bg-blue-900/30" />
-        <div className="absolute top-1/2 right-1/3 w-20 h-20 rounded-full bg-blue-300/10" />
+        <div className="absolute -top-12 -right-12 w-44 h-44 rounded-full bg-white/10" />
+        <div className="absolute -bottom-10 -left-10 w-36 h-36 rounded-full bg-white/5" />
+        <div className="absolute top-1/2 right-1/3 w-20 h-20 rounded-full bg-white/[0.04]" />
       </div>
 
       <div className="relative z-10 space-y-3.5">
@@ -271,8 +271,8 @@ export const MobileFormHeader: React.FC<MobileFormHeaderProps> = ({
     >
       {/* Decorative Blue-on-Blue Circular Background Accents */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-b-[2rem]" aria-hidden="true">
-        <div className="absolute -top-12 -right-12 w-44 h-44 rounded-full bg-blue-400/20" />
-        <div className="absolute -bottom-10 -left-10 w-36 h-36 rounded-full bg-blue-900/30" />
+        <div className="absolute -top-12 -right-12 w-44 h-44 rounded-full bg-white/10" />
+        <div className="absolute -bottom-10 -left-10 w-36 h-36 rounded-full bg-white/5" />
       </div>
 
       <div className="relative z-10 flex items-center justify-between gap-3">
