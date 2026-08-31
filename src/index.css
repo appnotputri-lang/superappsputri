@@ -13,15 +13,9 @@
 html {
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
-  height: 100%;
-  min-height: 100%;
-  min-height: -webkit-fill-available;
-  min-height: 100dvh;
-  background-color: #082f6b;
-  /* Dual background strategy: Top status bar is navy (#082f6b) and bottom home indicator is slate (#f8fafc) */
-  background-image: linear-gradient(to bottom, #082f6b 0%, #082f6b 35%, #f8fafc 35%, #f8fafc 100%);
-  background-repeat: no-repeat;
-  background-attachment: fixed;
+  height: calc(var(--app-vh, 1vh) * 100);
+  min-height: calc(var(--app-vh, 1vh) * 100);
+  background-color: #f8fafc;
 }
 
 body {
@@ -32,16 +26,17 @@ body {
   min-height: 100dvh;
   margin: 0;
   padding: 0;
-  background-color: transparent;
+  background-color: #f8fafc;
   overscroll-behavior-y: none;
   -webkit-tap-highlight-color: transparent;
 }
 
 #root {
   width: 100%;
-  height: 100%;
-  min-height: 100%;
+  height: 100dvh;
+  height: calc(var(--app-vh, 1vh) * 100);
   min-height: 100dvh;
+  min-height: calc(var(--app-vh, 1vh) * 100);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -50,9 +45,10 @@ body {
 
 .app-shell {
   width: 100%;
-  height: 100%;
-  min-height: 100%;
+  height: 100dvh;
+  height: calc(var(--app-vh, 1vh) * 100);
   min-height: 100dvh;
+  min-height: calc(var(--app-vh, 1vh) * 100);
   flex: 1 1 0%;
   display: flex;
   overflow: hidden;
@@ -61,9 +57,10 @@ body {
 
 .full-app-height {
   width: 100%;
-  height: 100%;
-  min-height: 100%;
+  height: 100dvh;
+  height: calc(var(--app-vh, 1vh) * 100);
   min-height: 100dvh;
+  min-height: calc(var(--app-vh, 1vh) * 100);
   flex: 1 1 0%;
   display: flex;
   flex-direction: column;
