@@ -81,7 +81,7 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({
     <div 
       className="md:hidden bg-[#1e61c3] text-white rounded-b-[2rem] p-4.5 pb-5 shadow-sm -mt-4 sm:-mt-6 lg:-mt-8 -mx-3 sm:-mx-6 mb-4 relative overflow-hidden"
       style={{
-        paddingTop: 'calc(env(safe-area-inset-top, 0px) + 1.25rem)'
+        paddingTop: 'calc(var(--ios-safe-top) + 1.25rem)'
       }}
     >
       {/* Decorative Blue-on-Blue Circular Background Accents */}
@@ -266,7 +266,7 @@ export const MobileFormHeader: React.FC<MobileFormHeaderProps> = ({
     <div 
       className="md:hidden bg-[#1e61c3] text-white rounded-b-[2rem] p-4 pb-5 shadow-sm -mt-4 sm:-mt-6 lg:-mt-8 -mx-3 sm:-mx-6 mb-4 relative overflow-hidden"
       style={{
-        paddingTop: 'calc(env(safe-area-inset-top, 0px) + 1.25rem)'
+        paddingTop: 'calc(var(--ios-safe-top) + 1.25rem)'
       }}
     >
       {/* Decorative Blue-on-Blue Circular Background Accents */}

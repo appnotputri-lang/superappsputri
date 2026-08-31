@@ -254,7 +254,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         className="relative text-white pb-14 md:pb-16 px-4 sm:px-6 lg:px-8 rounded-b-[32px] md:rounded-b-[40px] shadow-lg overflow-hidden flex flex-col justify-between"
         style={{
           background: 'linear-gradient(135deg, #1e4f9a 0%, #0f3f86 50%, #082f6b 100%)',
-          paddingTop: 'calc(max(env(safe-area-inset-top, 0px), 44px) + 0.625rem)'
+          paddingTop: 'calc(var(--ios-safe-top) + 0.625rem)'
         }}
       >
         {/* Abstract Translucent Decorative Shapes */}

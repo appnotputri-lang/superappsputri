@@ -2063,7 +2063,7 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
         {/* ===== MOBILE DETAIL (< md) ===== */}
         <div className="md:hidden fixed inset-0 z-[100] bg-[#eaeff3] flex flex-col">
           <div className="flex-1 overflow-y-auto pb-[calc(140px+env(safe-area-inset-bottom))]">
-            <div className="bg-[#1e61c3] text-white rounded-b-[2rem] pt-[calc(env(safe-area-inset-top)+16px)] pb-6 px-4 shadow-md">
+            <div className="bg-[#1e61c3] text-white rounded-b-[2rem] pt-[calc(var(--ios-safe-top)+16px)] pb-6 px-4 shadow-md">
               <div className="flex justify-between items-center mb-4">
                 <button onClick={() => { navigate('/invoices'); setIsMobileActionSheetOpen(false); }} className="p-2 -ml-2 rounded-full active:bg-white/10">
                   <ArrowLeft size={22} />
@@ -2904,7 +2904,7 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
         <div 
           className="block md:hidden bg-[#1e61c3] text-white rounded-b-[2rem] p-4.5 pb-5 shadow-sm relative overflow-hidden -mx-4 -mt-4 sm:-mx-6 sm:-mt-6 mb-4"
           style={{
-            paddingTop: 'calc(env(safe-area-inset-top, 0px) + 1.25rem)'
+            paddingTop: 'calc(var(--ios-safe-top) + 1.25rem)'
           }}
         >
           {/* Decorative Circular Background Accents */}
@@ -3863,7 +3863,7 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
             <div 
               className="bg-[#1e61c3] text-white p-4 pb-4 flex items-center justify-between shrink-0 shadow-md"
               style={{
-                paddingTop: 'calc(env(safe-area-inset-top, 0px) + 1rem)'
+                paddingTop: 'calc(var(--ios-safe-top) + 0.75rem)'
               }}
             >
               <div className="flex items-center gap-3">
