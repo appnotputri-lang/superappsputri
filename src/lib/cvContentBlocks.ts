@@ -65,7 +65,7 @@ export function createCvOpening(data: CVProfile): Block[] {
       type: 'p',
       runs: [
         {
-          text: `Pada hari ini, ${hari}, tanggal ${tglHuruf}.\nPukul ${waktuStr} (${waktuWords} Waktu Indonesia Bagian Barat).\nBerhadapan dengan saya, ${notarisNama}, Notaris di ${notarisTempat}, dengan dihadiri oleh saksi-saksi yang saya, Notaris kenal dan akan disebut pada bagian akhir akta ini :`,
+          text: `Pada hari ini, ${hari}, tanggal ${tglHuruf}. Pukul ${waktuStr} (${waktuWords} Waktu Indonesia Bagian Barat). Berhadapan dengan saya, ${notarisNama}, Notaris di ${notarisTempat}, dengan dihadiri oleh saksi-saksi yang saya, Notaris kenal dan akan disebut pada bagian akhir akta ini :`,
         },
       ],
     }
@@ -376,7 +376,7 @@ export function createCvPasal5(data: CVProfile): Block[] {
 
   const blocks: Block[] = [
     { type: 'divider', text: 'PESERO PENGURUS DAN PESERO KOMANDITER' },
-    { type: 'pasal-divider', text: 'Pasal 5' },
+    { type: 'pasal-divider', text: 'PASAL 5' },
     {
       type: 'pasal5-pengurus',
       runs: [
@@ -434,9 +434,10 @@ export function createCvPasal6(data: CVProfile): Block[] {
       type: 'divider',
       text: 'PENGURUSAN PERSEROAN\nSERTA HAK DAN WEWENANG PESERO PENGURUS',
     },
-    { type: 'pasal-divider', text: 'Pasal 6' },
+    { type: 'pasal-divider', text: 'PASAL 6' },
     {
       type: 'list',
+      bullet: '1.',
       runs: [
         {
           text: `Perseroan ini diurus dan dipimpin oleh ${pengurusText}, pesero pengurus dengan jabatan DIREKTUR;`,
@@ -445,6 +446,7 @@ export function createCvPasal6(data: CVProfile): Block[] {
     },
     {
       type: 'list',
+      bullet: '2.',
       runs: [
         {
           text: 'DIREKTUR, bertanggung jawab, berhak dan berkuasa mewakili perseroan dimanapun juga, baik di dalam maupun di luar Pengadilan, mengikat orang lain dengan perseroan atau sebaliknya, dan dalam menjalankan pekerjaan itu berhak melakukan untuk dan atas nama perseroan atas segala tindakan pengurusan dan segala tindakan pemilikan, tetapi dengan ketentuan bahwa untuk :',
@@ -481,6 +483,7 @@ export function createCvPasal6(data: CVProfile): Block[] {
     },
     {
       type: 'list',
+      bullet: '3.',
       runs: [
         {
           text: 'DIREKTUR tanpa mengurangi tanggung jawabnya, berhak pula mengangkat seseorang atau beberapa orang kuasa dengan memberikan kepadanya kekuasaan atau kekuasaan-kekuasaan yang dianggap perlu dengan surat kuasa.',
@@ -489,6 +492,7 @@ export function createCvPasal6(data: CVProfile): Block[] {
     },
     {
       type: 'list',
+      bullet: '4.',
       runs: [
         {
           text: 'Pesero pengurus dapat diberi gaji bulanan yang besarnya akan ditetapkan oleh para pesero bersama dan dapat diubah oleh mereka menurut keadaan. Dalam buku-buku perseroan gaji-gaji dan pengeluaran-pengeluaran lainnya untuk kepentingan perseroan akan dicatat  sebagai ongkos perseroan.',
@@ -497,6 +501,7 @@ export function createCvPasal6(data: CVProfile): Block[] {
     },
     {
       type: 'list',
+      bullet: '5.',
       runs: [
         {
           text: 'Persero pengurus tidak boleh mengikat diri sebagai Borg terkecuali dengan persetujuan persero lainnya.',
@@ -510,7 +515,7 @@ export function createCvPasal6(data: CVProfile): Block[] {
 export function createCvPasal7(): Block[] {
   return [
     { type: 'divider', text: 'WEWENANG PESERO KOMANDITER' },
-    { type: 'pasal-divider', text: 'Pasal 7' },
+    { type: 'pasal-divider', text: 'PASAL 7' },
     {
       type: 'p',
       runs: [
@@ -532,9 +537,10 @@ export function createCvPasal8(data: CVProfile): Block[] {
 
   return [
     { type: 'divider', text: 'TAHUN BUKU, NERACA, DAN PERHITUNGAN LABA RUGI' },
-    { type: 'pasal-divider', text: 'Pasal 8' },
+    { type: 'pasal-divider', text: 'PASAL 8' },
     {
       type: 'list',
+      bullet: '1.',
       runs: [
         {
           text: `Tahun buku perseroan berjalan dari tanggal 1 (satu) Januari sampai dengan tanggal 31 (tiga puluh satu) Desember. Pada akhir bulan Desember tiap-tiap tahun, buku-buku perseroan ditutup. Untuk pertama kalinya, buku-buku perseroan akan ditutup pada tanggal ${closingDateStr};`,
@@ -543,6 +549,7 @@ export function createCvPasal8(data: CVProfile): Block[] {
     },
     {
       type: 'list',
+      bullet: '2.',
       runs: [
         {
           text: 'Selambat-lambatnya dalam 3 (tiga) bulan setelah buku- buku perseroan ditutup, oleh pesero pengurus harus dibuat neraca dan perhitungan labarugi, dan setelah disetujui oleh segenap para pesero, neraca tersebut, ditandatangani oleh segenap pesero sebagai tanda pengesahan;',
@@ -551,6 +558,7 @@ export function createCvPasal8(data: CVProfile): Block[] {
     },
     {
       type: 'list',
+      bullet: '3.',
       runs: [
         {
           text: 'Pengesahan neraca dan perhitungan laba rugi itu membebaskan pesero pengurus dari tanggung jawab mereka atas nama segala tindakan yang telah mereka lakukan dalam tahun buku yang lampau, sepanjang tindakan-tindakan mereka itu ternyata dalam buku-buku perseroan;',
@@ -559,6 +567,7 @@ export function createCvPasal8(data: CVProfile): Block[] {
     },
     {
       type: 'list',
+      bullet: '4.',
       runs: [
         {
           text: 'Bilamana tentang pengesahan neraca dan perhitungan laba rugi terdapat perselisihan antara para pesero yang tidak dapat diselesaikan oleh mereka secara musyawarah, maka:',
@@ -595,9 +604,10 @@ export function createCvPasal8(data: CVProfile): Block[] {
 export function createCvPasal9(): Block[] {
   return [
     { type: 'divider', text: 'KEUNTUNGAN, DANA CADANGAN, DAN KERUGIAN' },
-    { type: 'pasal-divider', text: 'Pasal 9' },
+    { type: 'pasal-divider', text: 'PASAL 9' },
     {
       type: 'list',
+      bullet: '1.',
       runs: [
         {
           text: 'Keuntungan bersih dari perseroan setelah dipotong biaya-biaya eksploitasi dan biaya-biaya lainnya akan dibagikan antara para persero tersebut menurut pertimbangan modal mereka dalam perseroan.',
@@ -606,6 +616,7 @@ export function createCvPasal9(): Block[] {
     },
     {
       type: 'list',
+      bullet: '2.',
       runs: [
         {
           text: 'Bilamana dianggap perlu akan diadakan uang persediaan (reservefond) yang besarnya akan ditetapkan oleh semua persero.',
@@ -614,10 +625,12 @@ export function createCvPasal9(): Block[] {
     },
     {
       type: 'list',
+      bullet: '3.',
       runs: [{ text: 'Uang persediaan akan dianggap sebagai keuntungan yang belum dibagikan.' }],
     },
     {
       type: 'list',
+      bullet: '4.',
       runs: [
         {
           text: 'Pembagian keuntungan dilakukan dalam waktu sebulan setelah surat-surat yang dimaksud dalam pasal 8 disahkan.',
@@ -626,6 +639,7 @@ export function createCvPasal9(): Block[] {
     },
     {
       type: 'list',
+      bullet: '5.',
       runs: [
         {
           text: 'Kerugian perseroan dipikul oleh masing-masing pesero menurut perbandingan pemasukan mereka dalam modal perseroan, demikian dengan ketentuan bahwa para pesero komanditer tidak akan memikul rugi yang melebihi pemasukannya dalam modal perseroan.',
@@ -634,6 +648,7 @@ export function createCvPasal9(): Block[] {
     },
     {
       type: 'list',
+      bullet: '6.',
       runs: [
         {
           text: 'Jika ada kerugian, para persero tidak perlu menambah modalnya, cukup dikurangkan dari uang persediaan jika tidak cukup dari modalnya masing-masing, kecuali jika para persero dengan suara bulat  memutuskan untuk menambah modalnya guna menutupi kerugian tersebut.',
@@ -650,9 +665,10 @@ export function createCvPasal10(): Block[] {
       type: 'divider',
       text: 'MENINGGAL DUNIA, PAILIT, PENGAMPUAN\nATAU PENGUNDURAN DIRI PESERO',
     },
-    { type: 'pasal-divider', text: 'Pasal 10' },
+    { type: 'pasal-divider', text: 'PASAL 10' },
     {
       type: 'list',
+      bullet: '1.',
       runs: [
         {
           text: 'Bilamana salah seorang pesero meninggal dunia, perseroan tidak berakhir, akan tetapi diteruskan oleh para pesero lainnya bersama-sama dengan ahli waris pesero yang meninggal dunia yang setuju untuk melanjutkan perseroan ini :',
@@ -679,6 +695,7 @@ export function createCvPasal10(): Block[] {
     },
     {
       type: 'list',
+      bullet: '2.',
       runs: [
         {
           text: 'Bilamana yang meninggal adalan persero pengurus, maka (para) ahli warisnya dapat ikut serta dalam perseroan ini sebagai persero komanditer, kecuali apabila disetujui lain oleh persero lainnya;',
@@ -687,6 +704,7 @@ export function createCvPasal10(): Block[] {
     },
     {
       type: 'list',
+      bullet: '3.',
       runs: [
         {
           text: 'Bilamana salah seorang pesero dinyatakan pailit, diperkenankan menunda pembayaran atau ditaruh dibawah pengampunan (curatele) maka ia dianggap telah keluar dari perseroan sehari sebelum peristiwa itu terjadi, sampai waktu tersebut, buku perseroan harus ditutup dengan segera dan selekas mungkin dalam waktu 3 (tiga) bulan harus dibuat perhitungan tentang keadaan perseroan, perhitungan mana harus berdasarkan angka-angka dari daftar-daftar perhitungan yang berakhir dan harus diajukan dan diselesaikan (bagian dari yang keluar atau dianggap keluar dibayarkan).',
@@ -695,6 +713,7 @@ export function createCvPasal10(): Block[] {
     },
     {
       type: 'list',
+      bullet: '4.',
       runs: [
         {
           text: 'Perhitungan bagian sebagai dimaksud dalam ayat 1, 2, dan 3 pasal ini, harus berdasarkan atas angka-angka dan daftar perhitungan terakhir.',
@@ -711,9 +730,10 @@ export function createCvPasal11(): Block[] {
       type: 'divider',
       text: 'MELEPASKAN ATAU MEMBEBANI\nBAGIAN DALAM PERSEROAN',
     },
-    { type: 'pasal-divider', text: 'Pasal 11' },
+    { type: 'pasal-divider', text: 'PASAL 11' },
     {
       type: 'list',
+      bullet: '1.',
       runs: [
         {
           text: 'Masing-masing pesero dilarang untuk menjual atau melepaskan haknya atau dengan cara lain membebani bagian mereka dalam modal perseroan baik seluruhnya maupun sebagian, kecuali dengan persetujuan para pesero lainnya;',
@@ -722,6 +742,7 @@ export function createCvPasal11(): Block[] {
     },
     {
       type: 'list',
+      bullet: '2.',
       runs: [
         {
           text: 'Demikian pula mengenai penerimaan persero baru harus disetujui terlebih dahulu oleh semua persero dengan ketentuan bahwa yang dapat diterima dan boleh menjalankan hak-haknya sebagai persero dalam perseroan ini hanyalan Warga Negara Indonesia.',
@@ -735,7 +756,7 @@ export function createCvPasal11(): Block[] {
 export function createCvPasal12(): Block[] {
   return [
     { type: 'divider', text: 'PEMBUBARAN DAN LIKUIDASI' },
-    { type: 'pasal-divider', text: 'Pasal 12' },
+    { type: 'pasal-divider', text: 'PASAL 12' },
     {
       type: 'p',
       runs: [
@@ -751,7 +772,7 @@ export function createCvPasal12(): Block[] {
 export function createCvPasal13(): Block[] {
   return [
     { type: 'divider', text: 'PERATURAN PENUTUP' },
-    { type: 'pasal-divider', text: 'Pasal 13' },
+    { type: 'pasal-divider', text: 'PASAL 13' },
     {
       type: 'p',
       runs: [
@@ -769,7 +790,7 @@ export function createCvPasal14(data: CVProfile): Block[] {
 
   return [
     { type: 'divider', text: 'DOMISILI HUKUM' },
-    { type: 'pasal-divider', text: 'Pasal 14' },
+    { type: 'pasal-divider', text: 'PASAL 14' },
     {
       type: 'p',
       runs: [

@@ -3,13 +3,12 @@ import { saveAs } from "file-saver";
 import { CVProfile } from "../../types";
 import { generatePendirianCVBlocks, Block } from "./cvContentBlocks";
 import { preprocessBlocksForWordBullets, cleanCompanyName } from "./formatter";
-import { FormatToken, parseTextRuns } from "./notaryWrapper";
 import { mapCompanyProfileToCV } from "../domain/company/mappers/companyProfileToCV";
 
 const W_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
 
 // -------------------------------------------------------------------------------------
-// XML Helper Functions (namespace aware)
+// XML Helper Functions (namespace-aware)
 // -------------------------------------------------------------------------------------
 function getElements(parent: Element | Document, localName: string): Element[] {
   if (!parent) return [];
@@ -52,7 +51,6 @@ function replaceTextInNode(node: Node, search: string, replacement: string): voi
 
 // -------------------------------------------------------------------------------------
 // DYNAMIC EXEMPLAR SEARCH FOR public/template_pendirian_cv.docx
-// Dynamically finds matching paragraphs from template rather than hardcoding P[x] indices
 // -------------------------------------------------------------------------------------
 interface DynamicCVExemplars {
   titleCenter: Element;
@@ -62,13 +60,6 @@ interface DynamicCVExemplars {
   normalP: Element;
   divider: Element;
   pasalHeader: Element;
-  numbered: Element;
-  subNumbered: Element;
-  list: Element;
-  peseroModal: Element;
-  pasal5Pengurus: Element;
-  pasal5Komanditer: Element;
-  saksi: Element;
   notarisLocation: Element;
   notarisName: Element;
   kbliDesc: Element;
@@ -80,17 +71,6 @@ function buildDynamicExemplars(paragraphs: Element[]): DynamicCVExemplars {
     return jc ? jc.getAttribute("w:val") : null;
   }
 
-  function hasNumPr(p: Element): boolean {
-    return getSingleElement(p, "numPr") !== null;
-  }
-
-  function getIlvl(p: Element): string | null {
-    const numPr = getSingleElement(p, "numPr");
-    if (!numPr) return null;
-    const ilvl = getSingleElement(numPr, "ilvl");
-    return ilvl ? ilvl.getAttribute("w:val") : null;
-  }
-
   function hasTabLeader(p: Element): boolean {
     const tabs = getElements(p, "tab");
     return tabs.some((t) => t.getAttribute("w:leader") === "hyphen");
@@ -98,27 +78,43 @@ function buildDynamicExemplars(paragraphs: Element[]): DynamicCVExemplars {
 
   const fallback = paragraphs[0];
 
-  const titleCenter = paragraphs.find((p) => getJc(p) === "center" && p.textContent?.includes("PENDIRIAN PERSEROAN")) || fallback;
-  const cvNameCenter = paragraphs.find((p) => getJc(p) === "center" && (p.textContent?.includes("CV.") || p.textContent?.includes('"'))) || paragraphs[1] || titleCenter;
-  const nomor = paragraphs.find((p) => getJc(p) === "center" && p.textContent?.includes("Nomor")) || paragraphs[2] || titleCenter;
-  const br = paragraphs.find((p) => !p.textContent || p.textContent.trim() === "") || paragraphs[3] || titleCenter;
+  const titleCenter =
+    paragraphs.find((p) => getJc(p) === "center" && p.textContent?.includes("PENDIRIAN PERSEROAN")) ||
+    fallback;
+  const cvNameCenter =
+    paragraphs.find(
+      (p) => getJc(p) === "center" && (p.textContent?.includes("CV.") || p.textContent?.includes('"'))
+    ) || paragraphs[1] || titleCenter;
+  const nomor =
+    paragraphs.find((p) => getJc(p) === "center" && p.textContent?.includes("Nomor")) ||
+    paragraphs[2] ||
+    titleCenter;
+  const br =
+    paragraphs.find((p) => !p.textContent || p.textContent.trim() === "") ||
+    paragraphs[3] ||
+    titleCenter;
 
-  const divider = paragraphs.find((p) => hasTabLeader(p) && (p.textContent?.includes("NAMA DAN TEMPAT") || p.textContent?.includes("M O D A L"))) || titleCenter;
-  const pasalHeader = paragraphs.find((p) => hasTabLeader(p) && p.textContent?.includes("PASAL 1")) || divider;
+  const divider =
+    paragraphs.find(
+      (p) =>
+        hasTabLeader(p) &&
+        (p.textContent?.includes("NAMA DAN TEMPAT") || p.textContent?.includes("M O D A L"))
+    ) || titleCenter;
+  const pasalHeader =
+    paragraphs.find((p) => hasTabLeader(p) && p.textContent?.includes("PASAL 1")) || divider;
 
-  const normalP = paragraphs.find((p) => !getJc(p) && !hasNumPr(p) && p.textContent?.includes("Pada hari ini")) || paragraphs[4] || titleCenter;
+  const normalP =
+    paragraphs.find(
+      (p) => !getJc(p) && p.textContent?.includes("Pada hari ini")
+    ) || paragraphs[4] || titleCenter;
 
-  const numbered = paragraphs.find((p) => hasNumPr(p) && getIlvl(p) === "0") || titleCenter;
-  const list = paragraphs.find((p) => hasNumPr(p) || p.textContent?.includes("Maksud dan tujuan")) || normalP;
-  const subNumbered = list;
-
-  const peseroModal = paragraphs.find((p) => p.textContent?.includes("Rp.") && p.textContent?.includes("-")) || titleCenter;
-  const pasal5Pengurus = paragraphs.find((p) => p.textContent?.includes("Pesero Tuan") || p.textContent?.includes("Pesero Pengurus") || p.textContent?.includes("DIREKTUR")) || titleCenter;
-  const pasal5Komanditer = paragraphs.find((p) => p.textContent?.includes("tersebut di atas;") || p.textContent?.includes("Komanditer")) || titleCenter;
-  const saksi = paragraphs.find((p) => p.textContent?.includes("Nendi Suhendi") || p.textContent?.includes("lahir di Bandung")) || titleCenter;
-  const notarisLocation = paragraphs.find((p) => p.textContent?.includes("Notaris di")) || titleCenter;
-  const notarisName = paragraphs.find((p) => p.textContent?.includes("NUKANTINI")) || titleCenter;
-  const kbliDesc = paragraphs.find((p) => p.textContent?.includes("Mencakup usaha") || p.textContent?.includes("perdagangan")) || titleCenter;
+  const notarisLocation =
+    paragraphs.find((p) => p.textContent?.includes("Notaris di")) || titleCenter;
+  const notarisName =
+    paragraphs.find((p) => p.textContent?.includes("NUKANTINI")) || titleCenter;
+  const kbliDesc =
+    paragraphs.find((p) => p.textContent?.includes("Mencakup usaha") || p.textContent?.includes("perdagangan")) ||
+    normalP;
 
   return {
     titleCenter,
@@ -128,13 +124,6 @@ function buildDynamicExemplars(paragraphs: Element[]): DynamicCVExemplars {
     normalP,
     divider,
     pasalHeader,
-    numbered,
-    subNumbered,
-    list,
-    peseroModal,
-    pasal5Pengurus,
-    pasal5Komanditer,
-    saksi,
     notarisLocation,
     notarisName,
     kbliDesc,
@@ -168,107 +157,238 @@ function getExemplarNodeCV(exemplars: DynamicCVExemplars, block: Block): Element
       return exemplars.cvNameCenter;
 
     case "numbered":
-      return exemplars.numbered;
-
     case "sub-numbered":
-      return exemplars.subNumbered;
-
     case "list":
-      return exemplars.list;
-
     case "pesero-modal":
-      return exemplars.peseroModal;
-
     case "pasal5-pengurus":
-      return exemplars.pasal5Pengurus;
-
     case "pasal5-komanditer":
-      return exemplars.pasal5Komanditer;
-
     case "saksi":
-      return exemplars.saksi;
-
     default:
       return exemplars.normalP;
   }
 }
 
 // -------------------------------------------------------------------------------------
-// OOXML Schema Helpers
+// ADJUST PARAGRAPH PROPERTIES (pPr)
+// Ensures clean formatting, eliminates Word automatic numbering (numPr), and sets
+// precise hanging indents, margins, spacing, and justification without artificial wrapping.
 // -------------------------------------------------------------------------------------
+function adjustBlockProperties(xmlDoc: Document, pNode: Element, block: Block): void {
+  let pPr = getSingleElement(pNode, "pPr");
+  if (!pPr) {
+    pPr = xmlDoc.createElementNS(W_NS, "w:pPr");
+    pNode.insertBefore(pPr, pNode.firstChild);
+  }
 
+  // 1. CRITICAL: Remove all automatic numbering to prevent double numbering (e.g. "3. 1.")
+  const numPr = getSingleElement(pPr, "numPr");
+  if (numPr) {
+    pPr.removeChild(numPr);
+  }
 
-function getMaxWidthForBlock(block: any): number {
+  // 2. Remove pStyle if it conflicts (e.g. ListParagraph)
+  const pStyle = getSingleElement(pPr, "pStyle");
+  if (pStyle) {
+    const val = pStyle.getAttribute("w:val");
+    if (val === "ListParagraph" || (val === "Heading1" && block.type !== "cv-name")) {
+      pPr.removeChild(pStyle);
+    }
+  }
+
+  // 3. Remove inner sectPr if accidentally cloned
+  const innerSectPr = getSingleElement(pPr, "sectPr");
+  if (innerSectPr) {
+    pPr.removeChild(innerSectPr);
+  }
+
+  // 4. Line Spacing & Paragraph Spacing (Standard deed: 1.5 lines / line="360", 0 before, 0 after)
+  let spacing = getSingleElement(pPr, "spacing");
+  if (!spacing) {
+    spacing = xmlDoc.createElementNS(W_NS, "w:spacing");
+    pPr.appendChild(spacing);
+  }
+  spacing.setAttribute("w:line", "360");
+  spacing.setAttribute("w:lineRule", "auto");
+  if (block.type === "pasal-divider" || block.type === "divider") {
+    spacing.setAttribute("w:before", "120");
+    spacing.setAttribute("w:after", "60");
+  } else {
+    spacing.setAttribute("w:before", "0");
+    spacing.setAttribute("w:after", "0");
+  }
+
+  // 5. Text Alignment
+  let jc = getSingleElement(pPr, "jc");
+  if (!jc) {
+    jc = xmlDoc.createElementNS(W_NS, "w:jc");
+    pPr.appendChild(jc);
+  }
+
+  if (block.type === "p" && block.align === "center") {
+    jc.setAttribute("w:val", "center");
+  } else if (block.type === "cv-name") {
+    jc.setAttribute("w:val", "center");
+  } else if (block.type === "p" && block.align === "right-center") {
+    jc.setAttribute("w:val", "center");
+  } else if (block.type === "divider" || block.type === "pasal-divider") {
+    jc.setAttribute("w:val", "both");
+  } else {
+    jc.setAttribute("w:val", "both"); // Standard Justified alignment for deed body
+  }
+
+  // 6. Indentation and Tab Stops
+  let ind = getSingleElement(pPr, "ind");
+  if (!ind) {
+    ind = xmlDoc.createElementNS(W_NS, "w:ind");
+    pPr.appendChild(ind);
+  }
+  ind.removeAttribute("w:firstLine");
+
   switch (block.type) {
-    case "p":
-      if (block.align === "center" || block.align === "right-center") return 100;
-      if (block.kbliDesc) return 42.0;
-      return 45.5;
     case "numbered":
-      return 42.0;
-    case "sub-numbered":
-      return 40.0;
-    case "list":
-      return 42.0;
-    case "pesero-modal":
-      return 42.0;
-    case "pasal5-pengurus":
-    case "pasal5-komanditer":
-      return 42.0;
     case "saksi":
-      return 42.0;
+      ind.setAttribute("w:left", "851");
+      ind.setAttribute("w:hanging", "284");
+      break;
+
+    case "list":
+      if (block.bullet) {
+        ind.setAttribute("w:left", "851");
+        ind.setAttribute("w:hanging", "284");
+      } else if (block.indentTabs) {
+        const leftVal = 567 + Math.round(block.indentTabs * 284);
+        ind.setAttribute("w:left", String(leftVal));
+        ind.removeAttribute("w:hanging");
+      } else {
+        ind.setAttribute("w:left", "567");
+        ind.removeAttribute("w:hanging");
+      }
+      break;
+
+    case "sub-numbered":
+      ind.setAttribute("w:left", "1134");
+      ind.setAttribute("w:hanging", "284");
+      break;
+
+    case "pesero-modal":
+    case "pasal5-komanditer":
+      ind.setAttribute("w:left", "1134");
+      ind.setAttribute("w:hanging", "284");
+      break;
+
+    case "pasal5-pengurus":
+      ind.setAttribute("w:left", "567");
+      ind.removeAttribute("w:hanging");
+      break;
+
+    case "cv-name":
+      ind.removeAttribute("w:left");
+      ind.removeAttribute("w:hanging");
+      break;
+
+    case "p":
+      if (block.align === "center") {
+        ind.removeAttribute("w:left");
+        ind.removeAttribute("w:hanging");
+      } else if (block.align === "right-center") {
+        ind.setAttribute("w:left", "3600");
+        ind.removeAttribute("w:hanging");
+      } else if (block.kbliDesc) {
+        ind.setAttribute("w:left", "851");
+        ind.removeAttribute("w:hanging");
+      } else if (block.indentTabs) {
+        const leftVal = 567 + Math.round(block.indentTabs * 284);
+        ind.setAttribute("w:left", String(leftVal));
+        if (block.hanging) {
+          ind.setAttribute("w:hanging", String(block.hanging));
+        } else {
+          ind.removeAttribute("w:hanging");
+        }
+      } else {
+        ind.setAttribute("w:left", "567");
+        ind.removeAttribute("w:hanging");
+      }
+      break;
+
+    case "divider":
+    case "pasal-divider":
+      ind.setAttribute("w:left", "709");
+      ind.removeAttribute("w:hanging");
+      break;
+
     default:
-      return 45.5;
+      ind.setAttribute("w:left", "567");
+      ind.removeAttribute("w:hanging");
+      break;
   }
 }
 
+// -------------------------------------------------------------------------------------
+// POPULATE RUNS
+// Builds standard text runs without artificial w:br line breaks, allowing Word
+// to wrap text naturally and format hanging indents seamlessly.
+// -------------------------------------------------------------------------------------
 function populateRuns(xmlDoc: Document, pNode: Element, block: any): void {
-  const existingRuns = getElements(pNode, "r");
-  let runTemplate: Element | null = null;
-
-  if (existingRuns.length > 0) {
-    runTemplate = existingRuns[0].cloneNode(true) as Element;
-    const rPr = getSingleElement(runTemplate, "rPr");
-    removeAllChildren(runTemplate);
-    if (rPr) {
-      runTemplate.appendChild(rPr);
-    }
-    const t = xmlDoc.createElementNS(W_NS, "w:t");
-    t.setAttribute("xml:space", "preserve");
-    runTemplate.appendChild(t);
-  } else {
-    const fallbackXml =
-      `<w:r xmlns:w="${W_NS}"><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr><w:t xml:space="preserve"/></w:r>`;
-    const tmpDoc = new DOMParser().parseFromString(fallbackXml, "application/xml");
-    runTemplate = tmpDoc.documentElement.cloneNode(true) as Element;
-  }
-
-  const childNodes = Array.from(pNode.childNodes);
-  for (const child of childNodes) {
-    if (child.nodeType === 1) {
-      const el = child as Element;
-      const local = el.localName || el.tagName.replace(/^w:/, "");
-      if (local === "r") {
-        pNode.removeChild(el);
-      }
-    }
+  // Clear all children of pNode except pPr
+  const pPr = getSingleElement(pNode, "pPr");
+  removeAllChildren(pNode);
+  if (pPr) {
+    pNode.appendChild(pPr);
   }
 
   if (block.type === "br") {
+    const emptyRun = xmlDoc.createElementNS(W_NS, "w:r");
+    const tNode = xmlDoc.createElementNS(W_NS, "w:t");
+    tNode.setAttribute("xml:space", "preserve");
+    tNode.textContent = "";
+    emptyRun.appendChild(tNode);
+    pNode.appendChild(emptyRun);
     return;
   }
 
   let logicalRuns: { text: string; bold?: boolean }[] = [];
 
   if (block.type === "divider" || block.type === "pasal-divider") {
-    const displayText = block.type === "pasal-divider" ? block.text : block.text.toUpperCase();
+    const displayText = (block.text || "").toUpperCase().trim();
     logicalRuns = [
       { text: "\t" },
       { text: ` ${displayText} `, bold: true },
       { text: "\t" },
     ];
   } else if (block.type === "cv-name") {
-    logicalRuns = [{ text: block.text, bold: true }];
+    logicalRuns = [{ text: block.text || "", bold: true }];
+  } else if (block.type === "numbered") {
+    const numPrefix =
+      typeof block.num === "number"
+        ? `${block.num}.`
+        : block.num.endsWith(".")
+        ? block.num
+        : `${block.num}.`;
+    logicalRuns = [
+      { text: `${numPrefix}\t` },
+      ...(block.runs || []),
+    ];
+  } else if (block.type === "sub-numbered") {
+    const numPrefix =
+      typeof block.num === "number"
+        ? `${block.num}.`
+        : block.num.endsWith(".")
+        ? block.num
+        : `${block.num}.`;
+    logicalRuns = [
+      { text: `${numPrefix}\t` },
+      ...(block.runs || []),
+    ];
+  } else if (block.type === "list") {
+    if (block.bullet) {
+      const bulletPrefix = block.bullet.endsWith(".") ? block.bullet : `${block.bullet}.`;
+      logicalRuns = [
+        { text: `${bulletPrefix}\t` },
+        ...(block.runs || []),
+      ];
+    } else {
+      logicalRuns = block.runs && block.runs.length > 0 ? [...block.runs] : [{ text: "" }];
+    }
   } else if (block.type === "pesero-modal") {
     logicalRuns = [
       { text: "-\t" },
@@ -276,147 +396,89 @@ function populateRuns(xmlDoc: Document, pNode: Element, block: any): void {
       { text: `${block.rpText} (${block.amountText} rupiah);` },
     ];
   } else if (block.type === "pasal5-komanditer") {
-    logicalRuns = [{ text: "-\t" }, ...(block.runs || [])];
-  } else if (block.type === "list" && block.bullet) {
-    logicalRuns = [{ text: `${block.bullet}\t` }, ...(block.runs || [])];
-  } else if (block.type === "sub-numbered") {
-    logicalRuns = [{ text: `${block.num}\t` }, ...(block.runs || [])];
+    logicalRuns = [
+      { text: "-\t" },
+      ...(block.runs || []),
+    ];
+  } else if (block.type === "saksi") {
+    const numPrefix =
+      typeof block.num === "number"
+        ? `${block.num}.`
+        : block.num.endsWith(".")
+        ? block.num
+        : `${block.num}.`;
+    logicalRuns = [
+      { text: `${numPrefix}\t` },
+      ...(block.runs || []),
+    ];
   } else if (block.runs && block.runs.length > 0) {
     logicalRuns = JSON.parse(JSON.stringify(block.runs));
   } else {
     logicalRuns = [{ text: block.text || "" }];
   }
 
-  const needsTrailingTab =
-    (block.type === "p" && block.align !== "center") ||
-    block.type === "numbered" ||
-    block.type === "sub-numbered" ||
-    block.type === "list" ||
-    block.type === "pesero-modal" ||
-    block.type === "pasal5-pengurus" ||
-    block.type === "pasal5-komanditer" ||
-    block.type === "saksi";
+  // Create runs and tabs naturally
+  for (const logicalRun of logicalRuns) {
+    const rawText = logicalRun.text || "";
+    const isBold = !!logicalRun.bold;
 
-  if (needsTrailingTab) {
-    const tokens: FormatToken[] = logicalRuns.map((run) => ({
-      text: run.text || "",
-      bold: !!run.bold,
-    }));
+    const parts = rawText.split("\t");
+    for (let i = 0; i < parts.length; i++) {
+      if (i > 0) {
+        // Tab Run
+        const tabRun = xmlDoc.createElementNS(W_NS, "w:r");
+        const rPr = xmlDoc.createElementNS(W_NS, "w:rPr");
+        const rFonts = xmlDoc.createElementNS(W_NS, "w:rFonts");
+        rFonts.setAttribute("w:ascii", "Century Gothic");
+        rFonts.setAttribute("w:hAnsi", "Century Gothic");
+        rFonts.setAttribute("w:cs", "Century Gothic");
+        rPr.appendChild(rFonts);
 
-    const maxWidth = getMaxWidthForBlock(block);
-    const lines = parseTextRuns(tokens, maxWidth);
+        const sz = xmlDoc.createElementNS(W_NS, "w:sz");
+        sz.setAttribute("w:val", "20");
+        rPr.appendChild(sz);
+        const szCs = xmlDoc.createElementNS(W_NS, "w:szCs");
+        szCs.setAttribute("w:val", "20");
+        rPr.appendChild(szCs);
 
-    for (let lineIdx = 0; lineIdx < lines.length; lineIdx++) {
-      const lineTokens = lines[lineIdx];
-
-      for (const token of lineTokens) {
-        const newRun = runTemplate.cloneNode(true) as Element;
-        const rPr = getSingleElement(newRun, "rPr");
-        if (rPr) {
-          const hasB = getSingleElement(rPr, "b");
-          const hasBCs = getSingleElement(rPr, "bCs");
-
-          if (token.bold) {
-            if (!hasB) {
-              const b = xmlDoc.createElementNS(W_NS, "w:b");
-              rPr.appendChild(b);
-            }
-            if (!hasBCs) {
-              const bCs = xmlDoc.createElementNS(W_NS, "w:bCs");
-              rPr.appendChild(bCs);
-            }
-          } else {
-            if (hasB) rPr.removeChild(hasB);
-            if (hasBCs) rPr.removeChild(hasBCs);
-          }
-        }
-
-        const parts = token.text.split("\t");
-        for (let i = 0; i < parts.length; i++) {
-          if (parts[i]) {
-            const runClone = newRun.cloneNode(true) as Element;
-            let tNode = getSingleElement(runClone, "t");
-            if (!tNode) {
-              tNode = xmlDoc.createElementNS(W_NS, "w:t");
-              runClone.appendChild(tNode);
-            }
-            tNode.setAttribute("xml:space", "preserve");
-            tNode.textContent = parts[i];
-            pNode.appendChild(runClone);
-          }
-
-          if (i < parts.length - 1) {
-            const tabRun = xmlDoc.createElementNS(W_NS, "w:r");
-            if (rPr) {
-              tabRun.appendChild(rPr.cloneNode(true));
-            }
-            tabRun.appendChild(xmlDoc.createElementNS(W_NS, "w:tab"));
-            pNode.appendChild(tabRun);
-          }
-        }
+        tabRun.appendChild(rPr);
+        tabRun.appendChild(xmlDoc.createElementNS(W_NS, "w:tab"));
+        pNode.appendChild(tabRun);
       }
 
-      const tabRun = xmlDoc.createElementNS(W_NS, "w:r");
-      const rPrTab = getSingleElement(runTemplate, "rPr");
-      if (rPrTab) {
-        tabRun.appendChild(rPrTab.cloneNode(true));
+      const partText = parts[i];
+      if (partText.length === 0) continue;
+
+      const runEl = xmlDoc.createElementNS(W_NS, "w:r");
+      const rPr = xmlDoc.createElementNS(W_NS, "w:rPr");
+
+      const rFonts = xmlDoc.createElementNS(W_NS, "w:rFonts");
+      rFonts.setAttribute("w:ascii", "Century Gothic");
+      rFonts.setAttribute("w:hAnsi", "Century Gothic");
+      rFonts.setAttribute("w:cs", "Century Gothic");
+      rPr.appendChild(rFonts);
+
+      const sz = xmlDoc.createElementNS(W_NS, "w:sz");
+      sz.setAttribute("w:val", "20");
+      rPr.appendChild(sz);
+
+      const szCs = xmlDoc.createElementNS(W_NS, "w:szCs");
+      szCs.setAttribute("w:val", "20");
+      rPr.appendChild(szCs);
+
+      if (isBold) {
+        rPr.appendChild(xmlDoc.createElementNS(W_NS, "w:b"));
+        rPr.appendChild(xmlDoc.createElementNS(W_NS, "w:bCs"));
       }
-      tabRun.appendChild(xmlDoc.createElementNS(W_NS, "w:tab"));
-      pNode.appendChild(tabRun);
 
-      if (lineIdx < lines.length - 1) {
-        const brRun = xmlDoc.createElementNS(W_NS, "w:r");
-        const rPrBr = getSingleElement(runTemplate, "rPr");
-        if (rPrBr) {
-          brRun.appendChild(rPrBr.cloneNode(true));
-        }
-        brRun.appendChild(xmlDoc.createElementNS(W_NS, "w:br"));
-        pNode.appendChild(brRun);
-      }
-    }
-  } else {
-    for (const logicalRun of logicalRuns) {
-      const rawText = logicalRun.text || "";
-      const shouldBold = !!logicalRun.bold;
-      const parts = rawText.split("\t");
+      runEl.appendChild(rPr);
 
-      for (let i = 0; i < parts.length; i++) {
-        if (i > 0) {
-          const tabRun = xmlDoc.createElementNS(W_NS, "w:r");
-          const rPr = getSingleElement(runTemplate, "rPr");
-          if (rPr) {
-            tabRun.appendChild(rPr.cloneNode(true));
-          }
-          tabRun.appendChild(xmlDoc.createElementNS(W_NS, "w:tab"));
-          pNode.appendChild(tabRun);
-        }
+      const tNode = xmlDoc.createElementNS(W_NS, "w:t");
+      tNode.setAttribute("xml:space", "preserve");
+      tNode.textContent = partText;
+      runEl.appendChild(tNode);
 
-        const partText = parts[i];
-        if (!partText) continue;
-
-        const newRun = runTemplate.cloneNode(true) as Element;
-        const rPr = getSingleElement(newRun, "rPr");
-        if (rPr) {
-          const hasB = getSingleElement(rPr, "b");
-          const hasBCs = getSingleElement(rPr, "bCs");
-          if (shouldBold) {
-            if (!hasB) rPr.appendChild(xmlDoc.createElementNS(W_NS, "w:b"));
-            if (!hasBCs) rPr.appendChild(xmlDoc.createElementNS(W_NS, "w:bCs"));
-          } else {
-            if (hasB) rPr.removeChild(hasB);
-            if (hasBCs) rPr.removeChild(hasBCs);
-          }
-        }
-
-        let tNode = getSingleElement(newRun, "t");
-        if (!tNode) {
-          tNode = xmlDoc.createElementNS(W_NS, "w:t");
-          newRun.appendChild(tNode);
-        }
-        tNode.setAttribute("xml:space", "preserve");
-        tNode.textContent = partText;
-        pNode.appendChild(newRun);
-      }
+      pNode.appendChild(runEl);
     }
   }
 }
@@ -490,64 +552,23 @@ export const generatePendirianCVDocx = async (
   const rawBlocks = generatePendirianCVBlocks(data);
   const preprocessedBlocks = preprocessBlocksForWordBullets(rawBlocks);
 
-  // 6. Setup numbering restart dynamically in word/numbering.xml
-  let activeNumId = "15";
-  const numberingXmlFile = zip.file("word/numbering.xml");
-  let blocksWithNum = preprocessedBlocks;
-
-  if (numberingXmlFile) {
-    const numXmlText = await numberingXmlFile.async("text");
-    const numDoc = parser.parseFromString(numXmlText, "text/xml");
-    const numberingNode = getSingleElement(numDoc, "numbering") || numDoc.documentElement;
-
-    let nextNumId = 200;
-    const ABSTRACT_NUM_ID_DECIMAL = "12";
-
-    blocksWithNum = preprocessedBlocks.map((block: any) => {
-      if (block.type === "numbered") {
-        if (block.num === 1 || block.num === "1") {
-          activeNumId = String(nextNumId++);
-
-          const numNode = numDoc.createElementNS(W_NS, "w:num");
-          numNode.setAttribute("w:numId", activeNumId);
-
-          const abstractNumIdNode = numDoc.createElementNS(W_NS, "w:abstractNumId");
-          abstractNumIdNode.setAttribute("w:val", ABSTRACT_NUM_ID_DECIMAL);
-          numNode.appendChild(abstractNumIdNode);
-
-          const lvlOverrideNode = numDoc.createElementNS(W_NS, "w:lvlOverride");
-          lvlOverrideNode.setAttribute("w:ilvl", "0");
-          const startOverrideNode = numDoc.createElementNS(W_NS, "w:startOverride");
-          startOverrideNode.setAttribute(
-            "w:val",
-            String(block.num !== undefined ? block.num : "1")
-          );
-          lvlOverrideNode.appendChild(startOverrideNode);
-          numNode.appendChild(lvlOverrideNode);
-
-          numberingNode.appendChild(numNode);
+  // Expand multi-line dividers into separate divider blocks
+  const finalBlocks: Block[] = [];
+  for (const block of preprocessedBlocks) {
+    if (block.type === "divider" && block.text && block.text.includes("\n")) {
+      const lines = block.text.split("\n");
+      for (const line of lines) {
+        if (line.trim()) {
+          finalBlocks.push({ type: "divider", text: line.trim() });
         }
-        return { ...block, _numId: activeNumId };
       }
-      if (block.type === "sub-numbered") {
-        return { ...block, _numId: activeNumId };
-      }
-      if (block.type === "saksi") {
-        return { ...block, _numId: "13" };
-      }
-      return block;
-    });
-
-    const serializer = new XMLSerializer();
-    let finalNumXml = serializer.serializeToString(numDoc);
-    if (!finalNumXml.startsWith("<?xml")) {
-      finalNumXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' + finalNumXml;
+    } else {
+      finalBlocks.push(block);
     }
-    zip.file("word/numbering.xml", finalNumXml);
   }
 
-  // 7. Clone exemplars dynamically & populate runs
-  for (const block of blocksWithNum) {
+  // 6. Clone exemplars dynamically, adjust properties & populate runs
+  for (const block of finalBlocks) {
     const exemplar = getExemplarNodeCV(exemplars, block);
 
     if (!exemplar) {
@@ -556,14 +577,7 @@ export const generatePendirianCVDocx = async (
     }
 
     const cloned = exemplar.cloneNode(true) as Element;
-    const pPrCloned = getSingleElement(cloned, "pPr");
-    if (pPrCloned) {
-      const innerSectPr = getSingleElement(pPrCloned, "sectPr");
-      if (innerSectPr) {
-        pPrCloned.removeChild(innerSectPr);
-      }
-    }
-
+    adjustBlockProperties(xmlDoc, cloned, block);
     populateRuns(xmlDoc, cloned, block);
     body.appendChild(cloned);
   }
@@ -584,7 +598,7 @@ export const generatePendirianCVDocx = async (
     body.appendChild(sectPrClone);
   }
 
-  // 8. Serialize and return/download
+  // 7. Serialize and return/download
   const serializer = new XMLSerializer();
   let finalXml = serializer.serializeToString(xmlDoc);
   if (!finalXml.startsWith("<?xml")) {

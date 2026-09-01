@@ -238,7 +238,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <div 
             className="relative overflow-hidden border-b border-slate-100 bg-white p-4 shrink-0 select-none"
             style={{
-              paddingTop: 'calc(env(safe-area-inset-top, 0px) + 1rem)'
+              paddingTop: 'calc(var(--ios-safe-top) + 1rem)'
             }}
           >
             {/* Subtle Decorative Blue-on-Blue Circular Accents */}
