@@ -5,12 +5,14 @@
    ========================================================================== */
 :root {
   --app-height: 100lvh;
-  /* Default for Android & Desktop: normal 0px status bar offset (status bar is managed outside app viewport) */
-  --ios-safe-top: 0px;
-  --safe-area-inset-top: 0px;
+  /* Dynamic safe area top reading for Android PWA edge-to-edge & desktop */
+  --safe-area-inset-top: env(safe-area-inset-top, 0px);
   --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
   --safe-area-inset-left: env(safe-area-inset-left, 0px);
   --safe-area-inset-right: env(safe-area-inset-right, 0px);
+  
+  --ios-safe-top: env(safe-area-inset-top, 0px);
+  --app-safe-top: env(safe-area-inset-top, 0px);
 }
 
 @supports not (height: 100lvh) {
@@ -19,11 +21,21 @@
   }
 }
 
+/* Standalone PWA mode (Android & Desktop PWA installed app) */
+@media (display-mode: standalone) {
+  :root {
+    --ios-safe-top: max(env(safe-area-inset-top, 0px), 24px);
+    --app-safe-top: max(env(safe-area-inset-top, 0px), 24px);
+    --safe-area-inset-top: max(env(safe-area-inset-top, 0px), 24px);
+  }
+}
+
 /* iOS/iPadOS WebKit specific safe-area handling:
    Ensures notch, Dynamic Island, and translucent status bar are guarded without affecting Android */
 @supports (-webkit-touch-callout: none) {
   :root {
     --ios-safe-top: max(env(safe-area-inset-top, 0px), 47px);
+    --app-safe-top: max(env(safe-area-inset-top, 0px), 47px);
     --safe-area-inset-top: max(env(safe-area-inset-top, 0px), 47px);
   }
 }
@@ -32,7 +44,7 @@ html {
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
   min-height: 100%;
-  background-color: #082f6b;
+  background-color: #1e61c3; /* Match header blue so top status bar edge is seamless */
 }
 
 body {
@@ -40,7 +52,7 @@ body {
   min-height: 100%;
   margin: 0;
   padding: 0;
-  background-color: #f8fafc;
+  background-color: #1e61c3; /* Match header blue */
   overscroll-behavior-y: none;
   -webkit-tap-highlight-color: transparent;
 }

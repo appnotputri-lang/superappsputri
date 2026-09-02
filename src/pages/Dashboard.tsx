@@ -31,6 +31,7 @@ import { ProjectTimelineCard } from '../features/project-engine/components/Proje
 import { RealTimeClock } from '../components/RealTimeClock';
 import { PushNotificationToggle } from '../components/common/PushNotificationToggle';
 import { useAuthContext } from '../contexts/AuthContext';
+import { Menu3DIcon } from '../components/ui/Menu3DIcon';
 
 interface DashboardProps {
   profiles?: any[];
@@ -367,17 +368,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
             <div className="flex items-center justify-between gap-3 w-full">
               <div className="grid grid-cols-4 gap-3 flex-1">
                 {PRIMARY_QUICK_ACTIONS.map((qa, idx) => {
-                  const IconComponent = qa.icon;
                   return (
                     <button
                       key={idx}
                       type="button"
                       onClick={() => handleActionClick(qa)}
-                      className={`h-[68px] flex items-center gap-3.5 px-4 rounded-xl border border-slate-200/80 ${qa.hoverBorder} ${qa.hoverBg} bg-slate-50/60 hover:bg-white active:scale-[0.98] transition-all cursor-pointer group text-left shadow-2xs`}
+                      className={`h-[68px] flex items-center gap-3.5 px-4 rounded-2xl border border-slate-200/80 ${qa.hoverBorder} ${qa.hoverBg} bg-slate-50/60 hover:bg-white active:scale-[0.98] transition-all cursor-pointer group text-left shadow-2xs`}
                     >
-                      <div className={`w-10 h-10 rounded-xl ${qa.bg} flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition-transform`}>
-                        <IconComponent size={18} />
-                      </div>
+                      <Menu3DIcon tabId={qa.tab} size={40} className="group-hover:scale-105 transition-transform" />
                       <span className={`text-[13px] font-bold text-slate-800 ${qa.hoverText} truncate`}>
                         {qa.label}
                       </span>
@@ -412,7 +410,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
             >
               <div className="grid grid-cols-5 gap-2.5">
                 {SECONDARY_QUICK_ACTIONS.map((qa, idx) => {
-                  const IconComponent = qa.icon;
                   return (
                     <button
                       key={idx}
@@ -420,9 +417,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                       onClick={() => handleActionClick(qa)}
                       className={`h-[54px] flex items-center gap-2.5 px-3.5 rounded-xl border border-slate-200/80 ${qa.hoverBorder} ${qa.hoverBg} bg-slate-50/60 hover:bg-white active:scale-[0.98] transition-all cursor-pointer group text-left shadow-2xs`}
                     >
-                      <div className={`w-8 h-8 rounded-lg ${qa.bg} flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition-transform`}>
-                        <IconComponent size={15} />
-                      </div>
+                      <Menu3DIcon tabId={qa.tab} size={32} className="group-hover:scale-105 transition-transform" />
                       <span className={`text-xs font-bold text-slate-800 ${qa.hoverText} truncate`}>
                         {qa.label}
                       </span>
@@ -438,7 +433,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
             <div className="flex items-center justify-between gap-1 w-full">
               <div className="grid grid-cols-4 gap-1 flex-1">
                 {PRIMARY_QUICK_ACTIONS.map((qa, idx) => {
-                  const IconComponent = qa.icon;
                   return (
                     <button
                       key={idx}
@@ -446,8 +440,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
                       onClick={() => handleActionClick(qa)}
                       className="flex flex-col items-center justify-center text-center cursor-pointer group active:scale-95 transition-all py-1"
                     >
-                      <div className={`w-11 h-11 rounded-2xl ${qa.bg} flex items-center justify-center mb-1 shadow-2xs group-hover:scale-105 transition-transform shrink-0`}>
-                        <IconComponent size={19} />
+                      <div className="mb-1 group-hover:scale-105 transition-transform">
+                        <Menu3DIcon tabId={qa.tab} size={42} />
                       </div>
                       <span className="text-[10px] font-bold text-slate-800 leading-tight truncate max-w-[58px]">
                         {qa.label}
@@ -478,7 +472,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
             >
               <div className="grid grid-cols-5 gap-1 pt-0.5">
                 {SECONDARY_QUICK_ACTIONS.map((qa, idx) => {
-                  const IconComponent = qa.icon;
                   return (
                     <button
                       key={idx}
@@ -486,8 +479,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
                       onClick={() => handleActionClick(qa)}
                       className="flex flex-col items-center justify-center text-center cursor-pointer group active:scale-95 transition-all py-1"
                     >
-                      <div className={`w-9 h-9 rounded-xl ${qa.bg} flex items-center justify-center mb-1 shadow-2xs shrink-0`}>
-                        <IconComponent size={16} />
+                      <div className="mb-1">
+                        <Menu3DIcon tabId={qa.tab} size={36} />
                       </div>
                       <span className="text-[9px] font-bold text-slate-700 leading-tight truncate max-w-[52px]">
                         {qa.label}

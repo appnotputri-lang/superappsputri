@@ -27,6 +27,7 @@ import {
   User
 } from 'lucide-react';
 import { SidebarTabId, UserProfile } from '../../../types';
+import { Menu3DIcon } from '../ui/Menu3DIcon';
 
 interface SidebarProps {
   user: any;
@@ -303,9 +304,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     }`}
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
-                      <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 transition-transform ${section.badgeColor} ${section.badgeTextColor}`}>
-                        <section.groupIcon size={15} strokeWidth={2.2} />
-                      </div>
+                      <Menu3DIcon tabId={section.id} size={28} />
                       <span className="text-[11px] font-extrabold tracking-wider uppercase text-slate-800 truncate">
                         {section.title}
                       </span>
@@ -346,18 +345,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             }} 
                             className={`relative group w-10 h-10 mx-auto rounded-xl transition-all flex items-center justify-center select-none cursor-pointer ${
                               isActive 
-                                ? 'bg-blue-50 text-[#1e61c3] shadow-xs' 
-                                : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900'
+                                ? 'bg-blue-50/80 shadow-2xs' 
+                                : 'hover:bg-slate-100'
                             }`}
                           >
                             {isActive && (
                               <div className="absolute left-0 top-2 bottom-2 w-1 rounded-r-md bg-[#1e61c3]" />
                             )}
-                            <item.icon 
-                              size={18} 
-                              strokeWidth={isActive ? 2.25 : 2.0}
-                              className={`shrink-0 transition-colors ${isActive ? 'text-[#1e61c3]' : 'text-slate-500'}`} 
-                            />
+                            <Menu3DIcon tabId={item.id} size={26} active={isActive} />
                             {/* Hover tooltip */}
                             <div className="absolute left-full ml-3 px-2.5 py-1.5 bg-slate-900/90 backdrop-blur-xs text-white text-xs font-medium rounded-lg shadow-xl opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-50 whitespace-nowrap hidden md:block">
                               {item.label}
@@ -380,22 +375,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             }
                             handleTabClick(item.id);
                           }} 
-                          className={`relative w-full text-left px-3 py-2 rounded-xl transition-all flex items-center justify-between select-none cursor-pointer ${
+                          className={`relative w-full text-left px-2.5 py-1.5 rounded-2xl transition-all flex items-center justify-between select-none cursor-pointer ${
                             isActive 
-                              ? 'bg-[#eff6ff] text-[#1e61c3] font-bold shadow-2xs' 
-                              : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 font-medium'
+                              ? 'bg-blue-50/80 text-[#1e61c3] font-bold shadow-2xs ring-1 ring-blue-200/50' 
+                              : 'text-slate-700 hover:bg-slate-50 font-medium'
                           }`}
                         >
                           {isActive && (
                             <div className="absolute left-0 top-2 bottom-2 w-1 rounded-r-md bg-[#1e61c3]" />
                           )}
-                          <span className="flex items-center gap-2.5 min-w-0 pr-2">
-                            <item.icon 
-                              size={16} 
-                              strokeWidth={isActive ? 2.25 : 1.8}
-                              className={`shrink-0 transition-colors ${isActive ? 'text-[#1e61c3]' : 'text-slate-400'}`} 
-                            />
-                            <span className="text-[12.5px] truncate">{item.label}</span>
+                          <span className="flex items-center gap-3 min-w-0 pr-2">
+                            <Menu3DIcon tabId={item.id} size={28} active={isActive} />
+                            <span className="text-[13px] tracking-tight truncate">{item.label}</span>
                           </span>
                           {item.requiresAuth && !user && (
                             <Lock size={12} className="text-slate-400/50 shrink-0" />
