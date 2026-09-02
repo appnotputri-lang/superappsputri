@@ -27,6 +27,7 @@ export default defineConfig(({ mode }) => {
             theme_color: '#1e61c3',
             background_color: '#1e61c3',
             display: 'standalone',
+            display_override: ['window-controls-overlay', 'standalone'],
             start_url: '/',
             scope: '/',
             lang: 'id',

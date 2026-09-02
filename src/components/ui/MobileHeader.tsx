@@ -82,12 +82,12 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({
       className="md:hidden sticky top-0 z-30 bg-header-gradient-h text-white rounded-b-[2rem] p-4.5 pb-5 shadow-sm -mx-3 sm:-mx-6 mb-4 overflow-hidden"
       style={{
         background: 'var(--primary-header-gradient-h)',
-        paddingTop: 'calc(var(--ios-safe-top) + 1.25rem)'
+        paddingTop: 'calc(var(--header-safe-pt, 0px) + 0.875rem)'
       }}
     >
       {/* Decorative Blue-on-Blue Circular Background Accents */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-b-[2rem]" aria-hidden="true">
-        <div className="absolute -top-12 -right-12 w-44 h-44 rounded-full bg-white/10" />
+        <div className="absolute top-2 -right-12 w-44 h-44 rounded-full bg-white/10" />
         <div className="absolute -bottom-10 -left-10 w-36 h-36 rounded-full bg-white/5" />
         <div className="absolute top-1/2 right-1/3 w-20 h-20 rounded-full bg-white/[0.04]" />
       </div>
@@ -268,12 +268,12 @@ export const MobileFormHeader: React.FC<MobileFormHeaderProps> = ({
       className="md:hidden sticky top-0 z-30 bg-header-gradient-h text-white rounded-b-[2rem] p-4 pb-5 shadow-sm -mx-3 sm:-mx-6 mb-4 overflow-hidden"
       style={{
         background: 'var(--primary-header-gradient-h)',
-        paddingTop: 'calc(var(--ios-safe-top) + 1.25rem)'
+        paddingTop: 'calc(var(--header-safe-pt, 0px) + 0.875rem)'
       }}
     >
       {/* Decorative Blue-on-Blue Circular Background Accents */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-b-[2rem]" aria-hidden="true">
-        <div className="absolute -top-12 -right-12 w-44 h-44 rounded-full bg-white/10" />
+        <div className="absolute top-2 -right-12 w-44 h-44 rounded-full bg-white/10" />
         <div className="absolute -bottom-10 -left-10 w-36 h-36 rounded-full bg-white/5" />
       </div>
 

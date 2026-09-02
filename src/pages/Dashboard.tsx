@@ -270,16 +270,16 @@ export const Dashboard: React.FC<DashboardProps> = ({
         className="relative text-white bg-header-gradient pb-14 md:pb-16 px-4 sm:px-6 lg:px-8 rounded-b-[32px] md:rounded-b-[40px] shadow-lg overflow-hidden flex flex-col justify-between"
         style={{
           background: 'var(--primary-header-gradient)',
-          paddingTop: 'calc(var(--ios-safe-top) + 0.625rem)'
+          paddingTop: 'var(--header-safe-pt, 0px)'
         }}
       >
         {/* Abstract Translucent Decorative Shapes */}
-        <div className="absolute -top-16 -right-16 w-64 md:w-80 h-64 md:h-80 rounded-full bg-white/10 pointer-events-none blur-xs" />
+        <div className="absolute top-6 -right-16 w-64 md:w-80 h-64 md:h-80 rounded-full bg-white/10 pointer-events-none blur-xs" />
         <div className="absolute top-20 -left-16 w-44 md:w-56 h-44 md:h-56 rounded-full bg-white/5 pointer-events-none" />
         <div className="absolute bottom-1 right-20 md:right-48 w-32 md:w-40 h-32 md:h-40 rounded-full bg-white/5 pointer-events-none" />
 
         {/* TOP NAVBAR ROW */}
-        <div className="relative z-10 w-full max-w-[1280px] mx-auto flex items-center justify-between py-1.5 md:py-2">
+        <div className="relative z-10 w-full max-w-[1280px] mx-auto flex items-center justify-between pt-2 pb-1.5 md:pt-3 md:pb-2">
           {/* KIRI ATAS: Tombol hamburger rounded square */}
           <div className="flex items-center gap-2 relative z-30 pointer-events-auto">
             <button
