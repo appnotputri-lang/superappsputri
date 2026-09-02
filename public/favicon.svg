@@ -1,0 +1,21 @@
+<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="primaryGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1e61c3" />
+      <stop offset="40%" stop-color="#2475c5" />
+      <stop offset="75%" stop-color="#318ebf" />
+      <stop offset="100%" stop-color="#4a9fa8" />
+    </linearGradient>
+  </defs>
+  <rect x="0" y="0" width="64" height="64" rx="14" fill="url(#primaryGrad)" />
+  <text 
+    x="32" 
+    y="41" 
+    text-anchor="middle" 
+    font-family="'Plus Jakarta Sans', 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif" 
+    font-size="30" 
+    font-weight="900" 
+    letter-spacing="-2" 
+    fill="#ffffff"
+  >NP</text>
+</svg>

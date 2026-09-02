@@ -2063,7 +2063,7 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
         {/* ===== MOBILE DETAIL (< md) ===== */}
         <div className="md:hidden fixed inset-0 z-[100] bg-[#eaeff3] flex flex-col">
           <div className="flex-1 overflow-y-auto pb-[calc(140px+env(safe-area-inset-bottom))]">
-            <div className="bg-[#1e61c3] text-white rounded-b-[2rem] pt-[calc(var(--ios-safe-top)+16px)] pb-6 px-4 shadow-md">
+            <div className="bg-header-gradient text-white rounded-b-[2rem] pt-[calc(var(--ios-safe-top)+16px)] pb-6 px-4 shadow-md" style={{ background: 'var(--primary-header-gradient)' }}>
               <div className="flex justify-between items-center mb-4">
                 <button onClick={() => { navigate('/invoices'); setIsMobileActionSheetOpen(false); }} className="p-2 -ml-2 rounded-full active:bg-white/10">
                   <ArrowLeft size={22} />
@@ -2221,7 +2221,7 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
 
           {/* Trigger Bar */}
           {!isMobilePaymentOpen && (
-            <div className="fixed bottom-0 left-0 right-0 z-40 bg-[#1e61c3] rounded-t-3xl shadow-[0_-4px_20px_rgba(0,0,0,0.2)] pb-[env(safe-area-inset-bottom)]">
+            <div className="fixed bottom-0 left-0 right-0 z-40 bg-header-gradient rounded-t-3xl shadow-[0_-4px_20px_rgba(0,0,0,0.2)] pb-[env(safe-area-inset-bottom)]" style={{ background: 'var(--primary-header-gradient)' }}>
               <div className="w-12 h-1.5 bg-white/30 rounded-full mx-auto mt-3 mb-1"></div>
               <button onClick={() => setIsMobilePaymentOpen(true)} className="w-full flex justify-between items-center px-6 pb-6 pt-2 text-white">
                 <span className="font-bold text-lg">Terima pembayaran</span>
@@ -2235,7 +2235,7 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
             <div className="fixed inset-0 z-50 flex flex-col justify-end">
               <div className="absolute inset-0 bg-black/60" onClick={() => setIsMobilePaymentOpen(false)}></div>
               <div className="relative bg-white w-full max-h-[85vh] rounded-t-3xl flex flex-col shadow-2xl">
-                <div className="bg-[#1e61c3] text-white rounded-t-3xl shrink-0">
+                <div className="bg-header-gradient text-white rounded-t-3xl shrink-0" style={{ background: 'var(--primary-header-gradient)' }}>
                   <div className="w-12 h-1.5 bg-white/30 rounded-full mx-auto mt-3 mb-1"></div>
                   <button onClick={() => setIsMobilePaymentOpen(false)} className="w-full flex justify-between items-center px-6 pb-5 pt-2">
                     <span className="font-bold text-lg">Terima pembayaran</span>
@@ -2902,8 +2902,9 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
       <form onSubmit={handleSaveInvoice} className="space-y-4 text-xs">
         {/* Mobile Blue Header (block md:hidden) */}
         <div 
-          className="block md:hidden sticky top-0 z-30 bg-[#1e61c3] text-white rounded-b-[2rem] p-4.5 pb-5 shadow-sm overflow-hidden -mx-4 -mt-4 sm:-mx-6 sm:-mt-6 mb-4"
+          className="block md:hidden sticky top-0 z-30 bg-header-gradient-h text-white rounded-b-[2rem] p-4.5 pb-5 shadow-sm overflow-hidden -mx-4 -mt-4 sm:-mx-6 sm:-mt-6 mb-4"
           style={{
+            background: 'var(--primary-header-gradient-h)',
             paddingTop: 'calc(var(--ios-safe-top) + 1.25rem)'
           }}
         >
@@ -3861,8 +3862,9 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
           <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-[220] flex flex-col md:hidden animate-in fade-in duration-200">
             {/* Header Modal */}
             <div 
-              className="bg-[#1e61c3] text-white p-4 pb-4 flex items-center justify-between shrink-0 shadow-md"
+              className="bg-header-gradient text-white p-4 pb-4 flex items-center justify-between shrink-0 shadow-md"
               style={{
+                background: 'var(--primary-header-gradient)',
                 paddingTop: 'calc(var(--ios-safe-top) + 0.75rem)'
               }}
             >

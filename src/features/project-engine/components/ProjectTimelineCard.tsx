@@ -333,7 +333,7 @@ export const ProjectTimelineCard: React.FC<ProjectTimelineCardProps> = ({
   };
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden transition-all duration-200 hover:shadow-xs hover:border-slate-300/80">
+    <div className="glass-card glass-card-hover rounded-2xl overflow-hidden">
       {/* CARD HEADER (CLICKABLE TO EXPAND) */}
       <div 
         onClick={() => setIsExpanded(!isExpanded)}

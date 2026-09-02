@@ -19,7 +19,7 @@ export default defineConfig(({ mode }) => {
           srcDir: 'public',
           filename: 'sw.js',
           registerType: 'prompt',
-          includeAssets: ['favicon.ico', 'robots.txt'],
+          includeAssets: ['favicon.svg', 'favicon.png', 'apple-touch-icon.png', 'robots.txt'],
           manifest: {
             name: 'SuperApps Putri - Notaris',
             short_name: 'SuperApps Putri',

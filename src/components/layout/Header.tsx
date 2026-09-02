@@ -41,7 +41,9 @@ export const Header: React.FC<HeaderProps> = ({
   logout
 }) => {
   return (
-    <header className="hidden md:flex bg-white border-b border-slate-200/80 justify-between items-center px-4 md:px-6 sticky top-0 z-40 h-13 md:h-14 shrink-0 shadow-xs">
+    <header className="hidden md:flex bg-white border-b border-slate-200/80 justify-between items-center px-4 md:px-6 sticky top-0 z-40 h-13 md:h-14 shrink-0 shadow-xs relative">
+      {/* Top Brand Accent Gradient Line */}
+      <div className="absolute top-0 left-0 right-0 h-1 bg-header-gradient-h pointer-events-none" />
       {/* Left: Greeting + Sidebar toggle */}
       <div className="flex items-center gap-2 md:gap-3">
         {user && (

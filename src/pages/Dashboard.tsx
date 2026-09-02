@@ -62,10 +62,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
 }) => {
   const navigate = useNavigate();
 
-  // Realtime Timeline Projects State
+  // Real-time Timeline Projects State
   const [timelineProjects, setTimelineProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isShortcutsExpanded, setIsShortcutsExpanded] = useState(false);
+  const [isShortcutsExpanded, setIsShortcutsExpanded] = useState(true);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
 
   // Filter States
@@ -104,6 +104,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
       hoverBorder: 'hover:border-purple-300', 
       hoverBg: 'hover:bg-purple-50/40', 
       hoverText: 'group-hover:text-purple-900',
+      iconTab: 'projects',
       tab: 'projects', 
       directAction: true 
     },
@@ -114,6 +115,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
       hoverBorder: 'hover:border-blue-300', 
       hoverBg: 'hover:bg-blue-50/40', 
       hoverText: 'group-hover:text-blue-900',
+      iconTab: 'company_profile',
       tab: 'company_profile', 
       directAction: true 
     },
@@ -124,6 +126,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
       hoverBorder: 'hover:border-emerald-300', 
       hoverBg: 'hover:bg-emerald-50/40', 
       hoverText: 'group-hover:text-emerald-900',
+      iconTab: 'buat_akta',
       tab: 'deeds', 
       directAction: true 
     },
@@ -134,12 +137,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
       hoverBorder: 'hover:border-amber-300', 
       hoverBg: 'hover:bg-amber-50/40', 
       hoverText: 'group-hover:text-amber-900',
+      iconTab: 'invoice',
       tab: 'invoice', 
       directAction: true 
     }
   ];
 
-  // Secondary Quick Actions (Row 2: 5 Additional Actions shown upon expand)
+  // Secondary Quick Actions (Row 2: 4 Actions)
   const SECONDARY_QUICK_ACTIONS = [
     { 
       label: 'Titipan Uang', 
@@ -148,6 +152,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
       hoverBorder: 'hover:border-teal-300', 
       hoverBg: 'hover:bg-teal-50/40', 
       hoverText: 'group-hover:text-teal-900',
+      iconTab: 'deposit_note',
       tab: 'deposit_note', 
       directAction: true 
     },
@@ -158,6 +163,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
       hoverBorder: 'hover:border-rose-300', 
       hoverBg: 'hover:bg-rose-50/40', 
       hoverText: 'group-hover:text-rose-900',
+      iconTab: 'outgoing_mail',
       tab: 'outgoing_mail', 
       directAction: true 
     },
@@ -168,18 +174,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
       hoverBorder: 'hover:border-cyan-300', 
       hoverBg: 'hover:bg-cyan-50/40', 
       hoverText: 'group-hover:text-cyan-900',
+      iconTab: 'deeds',
       tab: 'deeds', 
       directAction: false 
-    },
-    { 
-      label: 'Legalisasi', 
-      icon: ShieldCheck, 
-      bg: 'bg-indigo-100/90 text-indigo-700', 
-      hoverBorder: 'hover:border-indigo-300', 
-      hoverBg: 'hover:bg-indigo-50/40', 
-      hoverText: 'group-hover:text-indigo-900',
-      tab: 'private_deeds', 
-      directAction: true 
     },
     { 
       label: 'Laporan', 
@@ -188,6 +185,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
       hoverBorder: 'hover:border-violet-300', 
       hoverBg: 'hover:bg-violet-50/40', 
       hoverText: 'group-hover:text-violet-900',
+      iconTab: 'laporan',
       tab: 'laporan', 
       directAction: false 
     }
@@ -269,9 +267,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
     <div className="bg-[#f8fafc] min-h-full pb-8">
       {/* 1. HEADER UTAMA FULL BIRU */}
       <div 
-        className="relative text-white bg-[#1e61c3] pb-14 md:pb-16 px-4 sm:px-6 lg:px-8 rounded-b-[32px] md:rounded-b-[40px] shadow-lg overflow-hidden flex flex-col justify-between"
+        className="relative text-white bg-header-gradient pb-14 md:pb-16 px-4 sm:px-6 lg:px-8 rounded-b-[32px] md:rounded-b-[40px] shadow-lg overflow-hidden flex flex-col justify-between"
         style={{
-          backgroundColor: '#1e61c3',
+          background: 'var(--primary-header-gradient)',
           paddingTop: 'calc(var(--ios-safe-top) + 0.625rem)'
         }}
       >
@@ -354,7 +352,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
       {/* 2. AKSES CEPAT MENUMPEL DI BAGIAN BAWAH HEADER (CARD OVERLAP) */}
       <div className="w-full max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 -mt-8 md:-mt-10 relative z-20">
-        <div className="bg-white rounded-2xl md:rounded-[24px] p-3.5 md:p-5 shadow-lg md:shadow-md border border-slate-200/80 transition-all duration-200">
+        <div className="glass-card rounded-2xl md:rounded-[24px] p-3.5 md:p-5 transition-all duration-200">
           
           {/* AKSES CEPAT HEADER BADGE */}
           <div className="flex items-center gap-1.5 mb-3 text-[11px] font-extrabold uppercase tracking-widest text-slate-500">
@@ -362,7 +360,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
             <span>AKSES CEPAT</span>
           </div>
 
-          {/* DESKTOP VIEW (MD & UP): 4 PRIMARY SHORTCUTS HORIZONTAL + CHEVRON TOGGLE */}
+          {/* DESKTOP VIEW (MD & UP): 4 COLUMNS X 2 ROWS */}
           <div className="hidden md:block">
             {/* ROW 1: 4 ACTIONS + EXPAND CHEVRON */}
             <div className="flex items-center justify-between gap-3 w-full">
@@ -373,9 +371,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
                       key={idx}
                       type="button"
                       onClick={() => handleActionClick(qa)}
-                      className={`h-[68px] flex items-center gap-3.5 px-4 rounded-2xl border border-slate-200/80 ${qa.hoverBorder} ${qa.hoverBg} bg-slate-50/60 hover:bg-white active:scale-[0.98] transition-all cursor-pointer group text-left shadow-2xs`}
+                      className={`h-[68px] flex items-center gap-3.5 px-4 rounded-2xl border border-white/80 ${qa.hoverBorder} ${qa.hoverBg} glass-item hover:bg-white active:scale-[0.98] transition-all cursor-pointer group text-left shadow-2xs`}
                     >
-                      <Menu3DIcon tabId={qa.tab} size={40} className="group-hover:scale-105 transition-transform" />
+                      <Menu3DIcon tabId={qa.iconTab || qa.tab} size={40} className="group-hover:scale-105 transition-transform" />
                       <span className={`text-[13px] font-bold text-slate-800 ${qa.hoverText} truncate`}>
                         {qa.label}
                       </span>
@@ -388,7 +386,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
               <button
                 type="button"
                 onClick={() => setIsShortcutsExpanded(!isShortcutsExpanded)}
-                className="h-[68px] w-12 flex items-center justify-center rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 border border-slate-200/70 active:scale-95 transition-all cursor-pointer shrink-0 shadow-2xs"
+                className="h-[68px] w-12 flex items-center justify-center rounded-xl glass-item hover:bg-white text-slate-600 hover:text-slate-900 border border-white/80 active:scale-95 transition-all cursor-pointer shrink-0 shadow-2xs"
                 aria-label={isShortcutsExpanded ? "Tutup Akses Cepat Tambahan" : "Buka Akses Cepat Tambahan"}
                 title={isShortcutsExpanded ? "Sembunyikan shortcut tambahan" : "Tampilkan shortcut tambahan"}
               >
@@ -400,36 +398,41 @@ export const Dashboard: React.FC<DashboardProps> = ({
               </button>
             </div>
 
-            {/* ROW 2: EXPANDED SECONDARY SHORTCUTS */}
+            {/* ROW 2: 4 SECONDARY SHORTCUTS */}
             <div 
               className={`transition-all duration-300 ease-in-out overflow-hidden ${
                 isShortcutsExpanded 
-                  ? 'max-h-24 opacity-100 mt-3 pt-3 border-t border-slate-100' 
+                  ? 'max-h-28 opacity-100 mt-3 pt-3 border-t border-slate-100/80' 
                   : 'max-h-0 opacity-0 mt-0 pt-0 border-t-0 pointer-events-none'
               }`}
             >
-              <div className="grid grid-cols-5 gap-2.5">
-                {SECONDARY_QUICK_ACTIONS.map((qa, idx) => {
-                  return (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => handleActionClick(qa)}
-                      className={`h-[54px] flex items-center gap-2.5 px-3.5 rounded-xl border border-slate-200/80 ${qa.hoverBorder} ${qa.hoverBg} bg-slate-50/60 hover:bg-white active:scale-[0.98] transition-all cursor-pointer group text-left shadow-2xs`}
-                    >
-                      <Menu3DIcon tabId={qa.tab} size={32} className="group-hover:scale-105 transition-transform" />
-                      <span className={`text-xs font-bold text-slate-800 ${qa.hoverText} truncate`}>
-                        {qa.label}
-                      </span>
-                    </button>
-                  );
-                })}
+              <div className="flex items-center justify-between gap-3 w-full">
+                <div className="grid grid-cols-4 gap-3 flex-1">
+                  {SECONDARY_QUICK_ACTIONS.map((qa, idx) => {
+                    return (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => handleActionClick(qa)}
+                        className={`h-[68px] flex items-center gap-3.5 px-4 rounded-2xl border border-white/80 ${qa.hoverBorder} ${qa.hoverBg} glass-item hover:bg-white active:scale-[0.98] transition-all cursor-pointer group text-left shadow-2xs`}
+                      >
+                        <Menu3DIcon tabId={qa.iconTab || qa.tab} size={40} className="group-hover:scale-105 transition-transform" />
+                        <span className={`text-[13px] font-bold text-slate-800 ${qa.hoverText} truncate`}>
+                          {qa.label}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+                {/* Spacer matching chevron width */}
+                <div className="w-12 shrink-0" />
               </div>
             </div>
           </div>
 
-          {/* MOBILE VIEW (SCREEN < MD): COMPACT GRID WITH EXPAND */}
+          {/* MOBILE VIEW (SCREEN < MD): COMPACT 4x2 GRID WITH EXPAND */}
           <div className="md:hidden">
+            {/* ROW 1: 4 ACTIONS + EXPAND TOGGLE */}
             <div className="flex items-center justify-between gap-1 w-full">
               <div className="grid grid-cols-4 gap-1 flex-1">
                 {PRIMARY_QUICK_ACTIONS.map((qa, idx) => {
@@ -441,7 +444,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                       className="flex flex-col items-center justify-center text-center cursor-pointer group active:scale-95 transition-all py-1"
                     >
                       <div className="mb-1 group-hover:scale-105 transition-transform">
-                        <Menu3DIcon tabId={qa.tab} size={42} />
+                        <Menu3DIcon tabId={qa.iconTab || qa.tab} size={42} />
                       </div>
                       <span className="text-[10px] font-bold text-slate-800 leading-tight truncate max-w-[58px]">
                         {qa.label}
@@ -455,39 +458,43 @@ export const Dashboard: React.FC<DashboardProps> = ({
               <button
                 type="button"
                 onClick={() => setIsShortcutsExpanded(!isShortcutsExpanded)}
-                className="w-8 h-11 flex items-center justify-center rounded-xl bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-600 transition-colors shrink-0"
+                className="w-8 h-11 flex items-center justify-center rounded-xl glass-item hover:bg-white active:scale-95 text-slate-600 transition-colors shrink-0"
                 aria-label={isShortcutsExpanded ? "Tutup Akses Cepat" : "Buka Akses Cepat"}
               >
                 {isShortcutsExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
               </button>
             </div>
 
-            {/* MOBILE SECONDARY ACTIONS EXPANDED */}
+            {/* ROW 2: 4 SECONDARY SHORTCUTS */}
             <div 
               className={`transition-all duration-300 ease-in-out overflow-hidden ${
                 isShortcutsExpanded 
-                  ? 'max-h-36 opacity-100 mt-2.5 pt-2.5 border-t border-slate-100' 
+                  ? 'max-h-36 opacity-100 mt-2 pt-2 border-t border-slate-100/80' 
                   : 'max-h-0 opacity-0 mt-0 pt-0 pointer-events-none'
               }`}
             >
-              <div className="grid grid-cols-5 gap-1 pt-0.5">
-                {SECONDARY_QUICK_ACTIONS.map((qa, idx) => {
-                  return (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => handleActionClick(qa)}
-                      className="flex flex-col items-center justify-center text-center cursor-pointer group active:scale-95 transition-all py-1"
-                    >
-                      <div className="mb-1">
-                        <Menu3DIcon tabId={qa.tab} size={36} />
-                      </div>
-                      <span className="text-[9px] font-bold text-slate-700 leading-tight truncate max-w-[52px]">
-                        {qa.label}
-                      </span>
-                    </button>
-                  );
-                })}
+              <div className="flex items-center justify-between gap-1 w-full">
+                <div className="grid grid-cols-4 gap-1 flex-1">
+                  {SECONDARY_QUICK_ACTIONS.map((qa, idx) => {
+                    return (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => handleActionClick(qa)}
+                        className="flex flex-col items-center justify-center text-center cursor-pointer group active:scale-95 transition-all py-1"
+                      >
+                        <div className="mb-1 group-hover:scale-105 transition-transform">
+                          <Menu3DIcon tabId={qa.iconTab || qa.tab} size={42} />
+                        </div>
+                        <span className="text-[10px] font-bold text-slate-800 leading-tight truncate max-w-[58px]">
+                          {qa.label}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+                {/* Spacer matching mobile chevron width */}
+                <div className="w-8 shrink-0" />
               </div>
             </div>
           </div>

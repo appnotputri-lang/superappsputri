@@ -79,8 +79,9 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({
 
   return (
     <div 
-      className="md:hidden sticky top-0 z-30 bg-[#1e61c3] text-white rounded-b-[2rem] p-4.5 pb-5 shadow-sm -mx-3 sm:-mx-6 mb-4 overflow-hidden"
+      className="md:hidden sticky top-0 z-30 bg-header-gradient-h text-white rounded-b-[2rem] p-4.5 pb-5 shadow-sm -mx-3 sm:-mx-6 mb-4 overflow-hidden"
       style={{
+        background: 'var(--primary-header-gradient-h)',
         paddingTop: 'calc(var(--ios-safe-top) + 1.25rem)'
       }}
     >
@@ -264,8 +265,9 @@ export const MobileFormHeader: React.FC<MobileFormHeaderProps> = ({
 }) => {
   return (
     <div 
-      className="md:hidden sticky top-0 z-30 bg-[#1e61c3] text-white rounded-b-[2rem] p-4 pb-5 shadow-sm -mx-3 sm:-mx-6 mb-4 overflow-hidden"
+      className="md:hidden sticky top-0 z-30 bg-header-gradient-h text-white rounded-b-[2rem] p-4 pb-5 shadow-sm -mx-3 sm:-mx-6 mb-4 overflow-hidden"
       style={{
+        background: 'var(--primary-header-gradient-h)',
         paddingTop: 'calc(var(--ios-safe-top) + 1.25rem)'
       }}
     >

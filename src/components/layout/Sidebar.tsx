@@ -249,7 +249,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <div className="relative z-10 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 {/* Monogram NP */}
-                <div className="w-10 h-10 rounded-xl bg-[#1e61c3] text-white flex items-center justify-center font-black text-sm tracking-tight shadow-xs shrink-0">
+                <div className="w-10 h-10 rounded-xl bg-header-gradient text-white flex items-center justify-center font-black text-sm tracking-tight shadow-xs shrink-0" style={{ background: 'var(--primary-header-gradient)' }}>
                   NP
                 </div>
                 <div className="flex flex-col truncate">
@@ -274,7 +274,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <button 
               type="button"
               onClick={() => setIsSidebarOpen?.(true)}
-              className="w-10 h-10 rounded-xl bg-[#1e61c3] flex items-center justify-center text-white shrink-0 shadow-xs hover:bg-blue-700 transition-colors cursor-pointer group relative"
+              className="w-10 h-10 rounded-xl bg-header-gradient flex items-center justify-center text-white shrink-0 shadow-xs hover:bg-blue-700 transition-colors cursor-pointer group relative"
+              style={{ background: 'var(--primary-header-gradient)' }}
               title="Perluas Menu"
             >
               <Gavel size={20} className="text-white shrink-0" />
