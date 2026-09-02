@@ -30,6 +30,7 @@ import { TAB_TO_PATH } from '../constants/tabs';
 import { ProjectTimelineCard } from '../features/project-engine/components/ProjectTimelineCard';
 import { RealTimeClock } from '../components/RealTimeClock';
 import { PushNotificationToggle } from '../components/common/PushNotificationToggle';
+import { useAuthContext } from '../contexts/AuthContext';
 
 interface DashboardProps {
   profiles?: any[];
@@ -214,15 +215,31 @@ export const Dashboard: React.FC<DashboardProps> = ({
     navigate(`/projects/${projectId}`);
   };
 
-  const firstName = useMemo(() => {
-    if (userProfile?.name) {
-      return userProfile.name.split(' ')[0].toUpperCase();
+  let authCtx: any = null;
+  try {
+    authCtx = useAuthContext();
+  } catch {
+    authCtx = null;
+  }
+
+  const activeUserProfile = userProfile || authCtx?.userProfile;
+  const activeUser = currentUser || authCtx?.user;
+
+  const profileDisplayName = useMemo(() => {
+    if (activeUserProfile?.name && activeUserProfile.name.trim() !== '') {
+      return activeUserProfile.name.toUpperCase();
     }
-    if (currentUser?.displayName) {
-      return currentUser.displayName.split(' ')[0].toUpperCase();
+    if (activeUser?.displayName && activeUser.displayName.trim() !== '') {
+      return activeUser.displayName.toUpperCase();
     }
-    return 'NENDI';
-  }, [userProfile, currentUser]);
+    if (activeUserProfile?.role && activeUserProfile.role.trim() !== '') {
+      return activeUserProfile.role.toUpperCase();
+    }
+    if (activeUser?.email) {
+      return activeUser.email.split('@')[0].toUpperCase();
+    }
+    return 'ADMIN';
+  }, [activeUserProfile, activeUser]);
 
   // Filtered timeline projects
   const filteredProjects = useMemo(() => {
@@ -249,11 +266,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
   return (
     <div className="bg-[#f8fafc] min-h-full pb-8">
-      {/* 1. HEADER UTAMA FULL BIRU GRADIENT */}
+      {/* 1. HEADER UTAMA FULL BIRU */}
       <div 
-        className="relative text-white pb-14 md:pb-16 px-4 sm:px-6 lg:px-8 rounded-b-[32px] md:rounded-b-[40px] shadow-lg overflow-hidden flex flex-col justify-between"
+        className="relative text-white bg-[#1e61c3] pb-14 md:pb-16 px-4 sm:px-6 lg:px-8 rounded-b-[32px] md:rounded-b-[40px] shadow-lg overflow-hidden flex flex-col justify-between"
         style={{
-          background: 'linear-gradient(135deg, #1e4f9a 0%, #0f3f86 50%, #082f6b 100%)',
+          backgroundColor: '#1e61c3',
           paddingTop: 'calc(var(--ios-safe-top) + 0.625rem)'
         }}
       >
@@ -326,7 +343,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         {/* HERO GREETING CONTENT */}
         <div className="relative z-10 w-full max-w-[1280px] mx-auto mt-5 md:mt-7 mb-4 md:mb-6 px-1">
           <h2 className="text-2xl md:text-3xl lg:text-4xl font-extrabold tracking-tight text-white font-heading">
-            Hi NOTARIS!
+            Hi {profileDisplayName}!
           </h2>
           <p className="text-xs md:text-sm font-medium text-white/85 leading-relaxed max-w-xl mt-1 md:mt-1.5">
             Pantau perkembangan proyek dan aktivitas tim Anda di sini.
