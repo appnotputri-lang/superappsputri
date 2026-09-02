@@ -322,7 +322,7 @@ export const DepositNoteManager: React.FC<DepositNoteManagerProps> = ({ setActiv
       {/* ==================== 1. LIST VIEW (/deposit_note) ==================== */}
       {routeMode === 'list' && (
         <>
-          <div className="md:hidden">
+          <div className="md:hidden sticky top-0 z-30">
             <MobileHeader
               title="Penitipan Uang"
               onOpenSidebar={() => {

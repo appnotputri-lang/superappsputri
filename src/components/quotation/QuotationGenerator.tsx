@@ -1223,7 +1223,7 @@ Notaris/PPAT Nukantini Putri Parincha, SH., M.Kn`;
       {viewMode === 'list' && (
         <>
           {/* MOBILE LIST HEADER (< md) */}
-          <div className="md:hidden">
+          <div className="md:hidden sticky top-0 z-30">
             <MobileHeader
               title="Penawaran"
               onOpenSidebar={() => {
@@ -1522,7 +1522,7 @@ Notaris/PPAT Nukantini Putri Parincha, SH., M.Kn`;
       {/* 2. CREATE / EDIT VIEW */}
       {(viewMode === 'create' || viewMode === 'edit') && (
         <>
-          <div className="md:hidden">
+          <div className="md:hidden sticky top-0 z-30">
             <MobileFormHeader
               title={viewMode === 'create' ? 'Buat Penawaran Baru' : 'Edit Penawaran'}
               subtitle={quotationNumber}

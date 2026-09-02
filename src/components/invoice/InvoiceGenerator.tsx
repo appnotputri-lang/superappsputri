@@ -2902,7 +2902,7 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
       <form onSubmit={handleSaveInvoice} className="space-y-4 text-xs">
         {/* Mobile Blue Header (block md:hidden) */}
         <div 
-          className="block md:hidden bg-[#1e61c3] text-white rounded-b-[2rem] p-4.5 pb-5 shadow-sm relative overflow-hidden -mx-4 -mt-4 sm:-mx-6 sm:-mt-6 mb-4"
+          className="block md:hidden sticky top-0 z-30 bg-[#1e61c3] text-white rounded-b-[2rem] p-4.5 pb-5 shadow-sm overflow-hidden -mx-4 -mt-4 sm:-mx-6 sm:-mt-6 mb-4"
           style={{
             paddingTop: 'calc(var(--ios-safe-top) + 1.25rem)'
           }}

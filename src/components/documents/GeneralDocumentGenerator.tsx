@@ -624,7 +624,7 @@ export const GeneralDocumentGenerator: React.FC<GeneralDocumentGeneratorProps> =
   return (
     <div className="min-h-full bg-slate-50 text-slate-800 pb-8">
       {viewMode === 'list' && (
-        <div className="md:hidden">
+        <div className="md:hidden sticky top-0 z-30">
           <MobileHeader
             title={config.title}
             onOpenSidebar={() => {
@@ -648,7 +648,7 @@ export const GeneralDocumentGenerator: React.FC<GeneralDocumentGeneratorProps> =
       )}
 
       {viewMode === 'form' && (
-        <div className="md:hidden">
+        <div className="md:hidden sticky top-0 z-30">
           <MobileFormHeader
             title={editingDocId ? `Edit ${config.title}` : `Buat ${config.title} Baru`}
             onBack={() => setViewMode('list')}
@@ -657,7 +657,7 @@ export const GeneralDocumentGenerator: React.FC<GeneralDocumentGeneratorProps> =
       )}
 
       {viewMode === 'detail' && (
-        <div className="md:hidden">
+        <div className="md:hidden sticky top-0 z-30">
           <MobileFormHeader
             title={`Detail ${config.title}`}
             subtitle={selectedDoc?.referenceNo}
