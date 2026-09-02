@@ -8,7 +8,6 @@ import {
   dateToWords,
   formatAktaDate,
   timeToWords,
-  cleanCompanyName,
   formatPersonDetails,
   toTitleCase,
 } from "./formatter";

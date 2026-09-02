@@ -1,8 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Project, ProjectActivity, ProjectActivityType } from '../../../domain/project/Project';
 import { ProjectService } from '../../../services/ProjectService';
-import { db } from '../../../lib/firebase';
-import { collection, onSnapshot } from 'firebase/firestore';
 import { 
   ChevronDown, 
   ChevronUp, 
@@ -14,13 +12,13 @@ import {
   AlertTriangle, 
   RefreshCw, 
   User, 
-  FileText,
-  Clock,
-  Sparkles,
-  ArrowRight,
-  Smile,
-  AtSign,
-  Trash2
+  FileText, 
+  Clock, 
+  Sparkles, 
+  ArrowRight, 
+  Smile, 
+  AtSign, 
+  Trash2 
 } from 'lucide-react';
 
 const EMOJI_CATEGORIES = {
@@ -36,6 +34,7 @@ interface ProjectTimelineCardProps {
   currentUser?: any;
   onNavigateToDetail?: (projectId: string) => void;
   defaultExpanded?: boolean;
+  staffList?: { uid: string; name: string }[];
 }
 
 const formatRelativeTime = (rawTime: any): string => {
@@ -121,14 +120,15 @@ export const ProjectTimelineCard: React.FC<ProjectTimelineCardProps> = ({
   project,
   currentUser,
   onNavigateToDetail,
-  defaultExpanded = false
+  defaultExpanded = false,
+  staffList: propStaffList
 }) => {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
   const [activities, setActivities] = useState<ProjectActivity[]>([]);
   const [isLoadingThread, setIsLoadingThread] = useState(false);
   const [newComment, setNewComment] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [staffList, setStaffList] = useState<{ uid: string; name: string }[]>([]);
+  const [staffList, setStaffList] = useState<{ uid: string; name: string }[]>(propStaffList || []);
   const [mentionedUsers, setMentionedUsers] = useState<{ uid: string; name: string }[]>([]);
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
   const [activeEmojiCategory, setActiveEmojiCategory] = useState<'smileys' | 'reactions' | 'favorites'>('smileys');
@@ -139,22 +139,20 @@ export const ProjectTimelineCard: React.FC<ProjectTimelineCardProps> = ({
   const emojiPickerRef = useRef<HTMLDivElement>(null);
   const reactionPickerRef = useRef<HTMLDivElement>(null);
 
-  // Fetch staff list from user_profiles for mention autocomplete
   useEffect(() => {
-    const unsub = onSnapshot(collection(db, 'user_profiles'), (snapshot) => {
-      const profiles = snapshot.docs.map(doc => {
-        const data = doc.data();
-        return {
-          uid: doc.id,
-          name: data.name || data.displayName || data.email?.split('@')[0] || 'User'
-        };
-      });
+    if (propStaffList) {
+      setStaffList(propStaffList);
+    }
+  }, [propStaffList]);
+
+  // Fetch staff list from user_profiles for mention autocomplete ONLY if expanded and not supplied via props
+  useEffect(() => {
+    if (propStaffList || !isExpanded) return;
+    const unsub = ProjectService.listenToUserProfiles((profiles) => {
       setStaffList(profiles);
-    }, (err) => {
-      console.warn('Error fetching staff list for mentions:', err);
     });
     return () => unsub();
-  }, []);
+  }, [propStaffList, isExpanded]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {

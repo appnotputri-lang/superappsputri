@@ -916,6 +916,11 @@ export class ProjectService {
     onUpdate: (activities: ProjectActivity[]) => void,
     onError?: (error: unknown) => void
   ): () => void {
+    if (process.env.NODE_ENV !== 'production') {
+      console.log(`[ProjectCard] activity listener START projectId=${projectId}`);
+      console.log(`[ProjectCard] comment listener START projectId=${projectId}`);
+    }
+
     let currentActivities: ProjectActivity[] = [];
     let currentComments: ProjectActivity[] = [];
 
@@ -1004,6 +1009,10 @@ export class ProjectService {
       );
 
       return () => {
+        if (process.env.NODE_ENV !== 'production') {
+          console.log(`[ProjectCard] activity listener STOP projectId=${projectId}`);
+          console.log(`[ProjectCard] comment listener STOP projectId=${projectId}`);
+        }
         unsubAct();
         unsubComm();
       };
@@ -1411,15 +1420,27 @@ export class ProjectService {
       status: data.status || '',
       currentStep: data.currentStep || '',
       assignedTo: data.assignedTo || '',
+      assignedToUid: data.assignedToUid,
+      assignedToUserId: data.assignedToUserId,
+      createdBy: data.createdBy,
+      ownerId: data.ownerId,
+      participantUserIds: data.participantUserIds,
       createdAt: data.createdAt,
       updatedAt: data.updatedAt,
+      lastActivityAt: data.lastActivityAt,
+      lastActivityType: data.lastActivityType,
+      lastActivityText: data.lastActivityText,
       lastTransitionComment: data.lastTransitionComment || '',
       minutaNotes: data.minutaNotes || '',
       projectCategory: data.projectCategory,
       projectType: data.projectType,
       meetingSubject: data.meetingSubject,
       metadata: data.metadata,
-      clientSnapshot: clientSnapshotLight
+      clientSnapshot: clientSnapshotLight,
+      tasks: data.tasks,
+      activeTasksCount: data.activeTasksCount,
+      activities: data.activities,
+      activitiesCount: data.activitiesCount
     };
 
     if (!project.projectCategory) {
@@ -1439,6 +1460,105 @@ export class ProjectService {
     }
 
     return project;
+  }
+
+  /**
+   * Realtime subscription for all office projects.
+   * Single Source of Truth for ProjectList.
+   */
+  static listenToOfficeProjects(
+    callback: (projects: Project[]) => void,
+    onError?: (error: unknown) => void
+  ): () => void {
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('[ProjectList] office_projects listener START');
+    }
+    try {
+      const colRef = collection(db, this.projectsCol);
+      const unsub = onSnapshot(
+        colRef,
+        (snapshot) => {
+          if (process.env.NODE_ENV !== 'production') {
+            console.log(`[ProjectList] office_projects snapshot received, total docs: ${snapshot.docs.length}`);
+            snapshot.docChanges().forEach((change) => {
+              const data = change.doc.data();
+              if (change.type === 'added') {
+                console.log(`[ProjectList] added: ${change.doc.id} - ${data?.title || 'Untitled'}`);
+              } else if (change.type === 'modified') {
+                console.log(`[ProjectList] modified: ${change.doc.id} - ${data?.title || 'Untitled'} (status: ${data?.status})`);
+              } else if (change.type === 'removed') {
+                console.log(`[ProjectList] removed: ${change.doc.id}`);
+              }
+            });
+          }
+
+          const items: Project[] = snapshot.docs.map((docSnap) => this.parseProjectListItem(docSnap));
+          const sorted = this.sortProjectsByDate(items);
+          callback(sorted);
+        },
+        (error) => {
+          console.error('[ProjectList] Error in listenToOfficeProjects:', error);
+          if (onError) {
+            onError(error);
+          } else {
+            handleFirestoreError(error, OperationType.LIST, this.projectsCol);
+          }
+        }
+      );
+
+      return () => {
+        if (process.env.NODE_ENV !== 'production') {
+          console.log('[ProjectList] office_projects listener STOP');
+        }
+        unsub();
+      };
+    } catch (error) {
+      console.error('[ProjectList] Error setting up listenToOfficeProjects listener:', error);
+      return () => {};
+    }
+  }
+
+  /**
+   * Single Realtime listener for user profiles / staff members.
+   * Eliminates duplicate listeners across individual project cards.
+   */
+  static listenToUserProfiles(
+    callback: (staffList: { uid: string; name: string }[]) => void,
+    onError?: (error: unknown) => void
+  ): () => void {
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('[ProjectList] user_profiles listener START');
+    }
+    try {
+      const colRef = collection(db, 'user_profiles');
+      const unsub = onSnapshot(
+        colRef,
+        (snapshot) => {
+          const profiles = snapshot.docs.map(docSnap => {
+            const data = docSnap.data();
+            return {
+              uid: docSnap.id,
+              name: data.name || data.displayName || data.email?.split('@')[0] || 'User'
+            };
+          });
+          callback(profiles);
+        },
+        (err) => {
+          console.error('[ProjectList] user_profiles listener error:', err);
+          if (onError) onError(err);
+        }
+      );
+
+      return () => {
+        if (process.env.NODE_ENV !== 'production') {
+          console.log('[ProjectList] user_profiles listener STOP');
+        }
+        unsub();
+      };
+    } catch (error) {
+      console.error('[ProjectList] Error setting up user_profiles listener:', error);
+      return () => {};
+    }
   }
 
   private static sortProjectsByDate(list: Project[]): Project[] {

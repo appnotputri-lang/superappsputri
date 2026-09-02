@@ -3,10 +3,8 @@ import { useLocation } from 'react-router-dom';
 import { PageContainer, PageHeader } from '../../../components/ui/PageLayout';
 import { MobileHeader, MobileEmptyState } from '../../../components/ui/MobileHeader';
 import { Project, ClientSnapshot } from '../../../domain/project/Project';
-import { ProjectService } from '../../../services/ProjectService';
+import { ProjectService, isProjectCompletedStatus } from '../../../services/ProjectService';
 import { UserProfile, CompanyProfile } from '../../../../types';
-import { db } from '../../../lib/firebase';
-import { collection, getDocs, doc, updateDoc, getDocsFromCache, DocumentSnapshot } from 'firebase/firestore';
 import { Workflow } from '../../../domain/project/Workflow';
 import { WorkflowService } from '../../../services/WorkflowService';
 import { CompanyService } from '../../../services/CompanyService';
@@ -63,22 +61,15 @@ interface ProjectListProps {
 }
 
 export default function ProjectList({ onSelectProject, currentUser }: ProjectListProps) {
-  // Per-tab Project States & Loading
-  const [activeProjects, setActiveProjects] = useState<Project[]>([]);
-  const [minutaProjects, setMinutaProjects] = useState<Project[]>([]);
-  const [completedProjects, setCompletedProjects] = useState<Project[]>([]);
-
-  const [activeLoading, setActiveLoading] = useState(true);
-  const [minutaLoading, setMinutaLoading] = useState(false);
-  const [completedLoading, setCompletedLoading] = useState(false);
-
-  const [minutaLoaded, setMinutaLoaded] = useState(false);
-  const [completedLoaded, setCompletedLoaded] = useState(false);
+  // Single Source of Truth Realtime Projects State
+  const [allProjects, setAllProjects] = useState<Project[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [staffList, setStaffList] = useState<{ uid: string; name: string }[]>([]);
 
   const [profiles, setProfiles] = useState<CompanyProfile[]>([]);
   const [modalProfiles, setModalProfiles] = useState<CompanyProfile[]>([]);
   const [workflows, setWorkflows] = useState<Workflow[]>(() => WorkflowService.getStaticWorkflows());
-  const [error, setError] = useState<string | null>(null);
 
   // Filter States
   const [activeTab, setActiveTab] = useState<'aktif' | 'minuta' | 'selesai'>('aktif');
@@ -88,9 +79,8 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
   const [filterStatus, setFilterStatus] = useState('');
 
   // Pagination States (20 items per page limit)
+  const PAGE_SIZE = 20;
   const [currentPage, setCurrentPage] = useState(1);
-  const [hasMore, setHasMore] = useState(false);
-  const [pageCursors, setPageCursors] = useState<(DocumentSnapshot | null)[]>([null]);
 
   // Activity / Tasks Modal States
   const [selectedProjectForModal, setSelectedProjectForModal] = useState<Project | null>(null);
@@ -114,10 +104,7 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
   };
 
   const updateLocalProjectState = (updatedProj: Project) => {
-    const updateList = (list: Project[]) => list.map(p => p.projectId === updatedProj.projectId ? updatedProj : p);
-    setActiveProjects(prev => updateList(prev));
-    setMinutaProjects(prev => updateList(prev));
-    setCompletedProjects(prev => updateList(prev));
+    setAllProjects(prev => prev.map(p => p.projectId === updatedProj.projectId ? updatedProj : p));
     if (selectedProjectForModal?.projectId === updatedProj.projectId) {
       setSelectedProjectForModal(updatedProj);
     }
@@ -499,58 +486,42 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
   };
 
   useEffect(() => {
-    let isMounted = true;
+    if (!currentUser?.uid) return;
 
-    const loadProjectsPage = async () => {
-      if (activeTab === 'aktif') setActiveLoading(true);
-      else if (activeTab === 'minuta') setMinutaLoading(true);
-      else setCompletedLoading(true);
+    setLoading(true);
+    setError(null);
 
-      setError(null);
-      try {
-        const startAfterDoc = pageCursors[currentPage - 1] || null;
-        const res = await ProjectService.getProjectsPaginated({
-          statusCategory: activeTab === 'aktif' ? 'active' : activeTab === 'minuta' ? 'minuta' : 'completed',
-          pageSize: 20,
-          startAfterDoc
-        });
-
-        if (!isMounted) return;
-
-        const normalized = normalizeProjects(res.projects);
-        if (activeTab === 'aktif') {
-          setActiveProjects(normalized);
-        } else if (activeTab === 'minuta') {
-          setMinutaProjects(normalized);
-        } else {
-          setCompletedProjects(normalized);
-        }
-
-        setHasMore(res.hasMore);
-
-        if (res.lastVisible && pageCursors.length <= currentPage) {
-          setPageCursors(prev => [...prev, res.lastVisible]);
-        }
-      } catch (err: any) {
-        console.error('[ProjectList] Error loading projects page:', err);
-        if (isMounted) {
-          setError('Gagal memuat daftar proyek. Silakan coba lagi.');
-        }
-      } finally {
-        if (isMounted) {
-          setActiveLoading(false);
-          setMinutaLoading(false);
-          setCompletedLoading(false);
-        }
+    const unsubscribeProjects = ProjectService.listenToOfficeProjects(
+      (projects) => {
+        const normalized = normalizeProjects(projects);
+        setAllProjects(normalized);
+        setLoading(false);
+      },
+      (err) => {
+        console.error('[ProjectList] Realtime error:', err);
+        setError('Gagal memuat daftar proyek secara realtime. Silakan periksa koneksi internet Anda.');
+        setLoading(false);
       }
-    };
+    );
 
-    loadProjectsPage();
+    const unsubscribeUsers = ProjectService.listenToUserProfiles(
+      (profiles) => {
+        setStaffList(profiles);
+      },
+      (err) => {
+        console.warn('[ProjectList] Error loading user profiles:', err);
+      }
+    );
 
     return () => {
-      isMounted = false;
+      unsubscribeProjects();
+      unsubscribeUsers();
     };
-  }, [activeTab, currentPage]);
+  }, [currentUser?.uid]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeTab, searchTerm, filterClient, filterJobType, filterStatus]);
 
   const getWorkflowJobType = (category: string, type: string): string => {
     // Legacy support
@@ -771,12 +742,8 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
 
       await ProjectService.createProject(projectPayload);
 
-      // Refresh list
+      // Invalidate cache if any
       ProjectService.clearCache();
-      const updatedActive = await ProjectService.listActiveProjects({ forceRefresh: true });
-      setActiveProjects(normalizeProjects(updatedActive || []));
-      setMinutaLoaded(false);
-      setCompletedLoaded(false);
       
       setIsModalOpen(false);
       setNewProjectData({
@@ -807,9 +774,7 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
 
     try {
       await ProjectService.deleteProject(projectId);
-      setActiveProjects(prev => prev.filter(p => p.projectId !== projectId));
-      setMinutaProjects(prev => prev.filter(p => p.projectId !== projectId));
-      setCompletedProjects(prev => prev.filter(p => p.projectId !== projectId));
+      setAllProjects(prev => prev.filter(p => p.projectId !== projectId));
       alert('Proyek berhasil dihapus.');
     } catch (err) {
       console.error(err);
@@ -819,9 +784,20 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
 
   // Filter logic
   const isProjectCompleted = (status: string) => {
-    const s = status.toLowerCase();
-    return s === 'completed' || s === 'archived' || s === 'selesai';
+    return isProjectCompletedStatus(status);
   };
+
+  const activeProjects = React.useMemo(() => {
+    return allProjects.filter((p) => !isProjectCompleted(p.status));
+  }, [allProjects]);
+
+  const minutaProjects = React.useMemo(() => {
+    return allProjects.filter((p) => isProjectCompleted(p.status) && (!p.metadata?.minutaCheckedAll || p.metadata?.minutaCheckedAll === false));
+  }, [allProjects]);
+
+  const completedProjects = React.useMemo(() => {
+    return allProjects.filter((p) => isProjectCompleted(p.status) && p.metadata?.minutaCheckedAll === true);
+  }, [allProjects]);
 
   const getProjectStatusDisplay = (project: Project) => {
     const isCompleted = isProjectCompleted(project.status);
@@ -874,15 +850,10 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
     ? minutaProjects
     : completedProjects;
 
-  const isCurrentTabLoading =
-    (activeTab === 'aktif' && activeLoading) ||
-    (activeTab === 'minuta' && minutaLoading) ||
-    (activeTab === 'selesai' && completedLoading);
-
   const clientOptions = React.useMemo(() => {
     if (profiles.length > 0) return profiles;
     const map = new Map<string, CompanyProfile>();
-    [...activeProjects, ...minutaProjects, ...completedProjects].forEach((p) => {
+    allProjects.forEach((p) => {
       if (p.clientId && !map.has(p.clientId)) {
         const name = p.clientSnapshot?.companyName || (p.title ? (p.title.includes(' — ') ? p.title.split(' — ').slice(1).join(' — ') : p.title) : '');
         map.set(p.clientId, {
@@ -893,25 +864,32 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
       }
     });
     return Array.from(map.values());
-  }, [profiles, activeProjects, minutaProjects, completedProjects]);
+  }, [profiles, allProjects]);
 
-  const filteredProjects = currentTabProjects.filter((project) => {
-    const clientName = getClientName(project.clientId, project);
-    const matchesSearch =
-      project.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      project.projectId.toLowerCase().includes(searchTerm.toLowerCase());
+  const filteredProjects = React.useMemo(() => {
+    return currentTabProjects.filter((project) => {
+      const clientName = getClientName(project.clientId, project);
+      const matchesSearch =
+        !searchTerm ||
+        project.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        project.projectId.toLowerCase().includes(searchTerm.toLowerCase());
 
-    const matchesClient = filterClient === '' || project.clientId === filterClient;
-    const matchesJobType = filterJobType === '' || project.jobType === filterJobType;
-    const matchesStatus = filterStatus === '' || project.status === filterStatus;
+      const matchesClient = filterClient === '' || project.clientId === filterClient;
+      const matchesJobType = filterJobType === '' || project.jobType === filterJobType;
+      const matchesStatus = filterStatus === '' || project.status === filterStatus;
 
-    return matchesSearch && matchesClient && matchesJobType && matchesStatus;
-  }).sort((a, b) => {
-    const timeA = Math.max(getProjectTime(a.updatedAt), getProjectTime(a.createdAt));
-    const timeB = Math.max(getProjectTime(b.updatedAt), getProjectTime(b.createdAt));
-    return timeB - timeA;
-  });
+      return matchesSearch && matchesClient && matchesJobType && matchesStatus;
+    }).sort((a, b) => {
+      const timeA = Math.max(getProjectTime(a.updatedAt), getProjectTime(a.createdAt));
+      const timeB = Math.max(getProjectTime(b.updatedAt), getProjectTime(b.createdAt));
+      return timeB - timeA;
+    });
+  }, [currentTabProjects, searchTerm, filterClient, filterJobType, filterStatus, modalProfiles]);
+
+  const totalPages = Math.ceil(filteredProjects.length / PAGE_SIZE) || 1;
+  const hasMore = currentPage < totalPages;
+  const paginatedProjects = filteredProjects.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   const getWorkflowName = (jobType: string) => {
     return workflows.find((w) => w.id === jobType)?.name || jobType;
@@ -977,7 +955,6 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
                 onClick={() => {
                   setActiveTab(tab);
                   setCurrentPage(1);
-                  setPageCursors([null]);
                 }}
                 className={`px-3 py-1 text-xs font-bold rounded-lg transition-colors cursor-pointer ${
                   activeTab === tab
@@ -1020,7 +997,6 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
               onClick={() => {
                 setActiveTab(tab);
                 setCurrentPage(1);
-                setPageCursors([null]);
               }}
               className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 ${
                 activeTab === tab
@@ -1090,7 +1066,7 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
         </div>
 
         {/* Project List / Cards */}
-        {isCurrentTabLoading ? (
+        {loading ? (
           <div className="bg-white border border-slate-200/80 rounded-xl shadow-xs overflow-hidden">
             <AppLoader variant="content" message="Memuat daftar proyek..." />
           </div>
@@ -1112,7 +1088,7 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
           </div>
         ) : (
           <div className="space-y-3">
-            {filteredProjects.map((project, index) => (
+            {paginatedProjects.map((project, index) => (
               <ProjectHorizontalCard
                 key={project.projectId}
                 project={project}
@@ -1121,7 +1097,8 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
                 onDeleteProject={handleDeleteProject}
                 onOpenAddActivityModal={handleOpenAddActivity}
                 onOpenTasksModal={handleOpenTasks}
-                indexNumber={(currentPage - 1) * 20 + index + 1}
+                indexNumber={(currentPage - 1) * PAGE_SIZE + index + 1}
+                staffList={staffList}
               />
             ))}
           </div>
@@ -1135,14 +1112,14 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
           <div className="flex items-center gap-2">
             <button
               onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-              disabled={currentPage === 1 || isCurrentTabLoading}
+              disabled={currentPage === 1 || loading}
               className="px-3 py-1.5 border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed font-medium cursor-pointer"
             >
               Sebelumnya
             </button>
             <button
               onClick={() => setCurrentPage(p => p + 1)}
-              disabled={!hasMore || isCurrentTabLoading}
+              disabled={!hasMore || loading}
               className="px-3 py-1.5 border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed font-medium cursor-pointer"
             >
               Selanjutnya

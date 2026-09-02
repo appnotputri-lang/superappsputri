@@ -2,8 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Project, ProjectActivity, ProjectActivityType } from '../../../domain/project/Project';
 import { ProjectService } from '../../../services/ProjectService';
 import { UserProfile } from '../../../../types';
-import { db } from '../../../lib/firebase';
-import { collection, onSnapshot } from 'firebase/firestore';
 import { 
   Calendar, 
   MessageSquare, 
@@ -33,6 +31,7 @@ interface ProjectHorizontalCardProps {
   onOpenAddActivityModal?: (project: Project, defaultType?: 'comment' | 'task' | 'issue') => void;
   onOpenTasksModal?: (project: Project) => void;
   indexNumber?: number;
+  staffList?: { uid: string; name: string }[];
 }
 
 const EMOJI_CATEGORIES = {
@@ -105,14 +104,14 @@ export const ProjectHorizontalCard: React.FC<ProjectHorizontalCardProps> = ({
   onDeleteProject,
   onOpenAddActivityModal,
   onOpenTasksModal,
-  indexNumber
+  indexNumber,
+  staffList = []
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [activities, setActivities] = useState<ProjectActivity[]>([]);
   const [isLoadingThread, setIsLoadingThread] = useState(false);
   const [newComment, setNewComment] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [staffList, setStaffList] = useState<{ uid: string; name: string }[]>([]);
   const [mentionedUsers, setMentionedUsers] = useState<{ uid: string; name: string }[]>([]);
 
   // Popover States
@@ -124,24 +123,7 @@ export const ProjectHorizontalCard: React.FC<ProjectHorizontalCardProps> = ({
   const emojiPickerRef = useRef<HTMLDivElement>(null);
   const reactionPickerRef = useRef<HTMLDivElement>(null);
 
-  // Fetch staff list from user_profiles for mention autocomplete
-  useEffect(() => {
-    const unsub = onSnapshot(collection(db, 'user_profiles'), (snapshot) => {
-      const profiles = snapshot.docs.map(doc => {
-        const data = doc.data();
-        return {
-          uid: doc.id,
-          name: data.name || data.displayName || data.email?.split('@')[0] || 'User'
-        };
-      });
-      setStaffList(profiles);
-    }, (err) => {
-      console.warn('Error fetching staff list for mentions:', err);
-    });
-    return () => unsub();
-  }, []);
-
-  // Subscribe to real-time activities & comments when expanded
+  // Subscribe to real-time activities & comments ONLY when expanded
   useEffect(() => {
     if (!isExpanded || !project.projectId) return;
 
