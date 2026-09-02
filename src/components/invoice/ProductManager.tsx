@@ -350,14 +350,8 @@ export const ProductManager: React.FC = () => {
 
       {/* CREATE / EDIT MODAL */}
       {isModalOpen && (
-        <div
-          className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-[200] flex items-center justify-center p-4 md:pt-0"
-          style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
-        >
-          <div
-            className="bg-white border border-slate-300 rounded-2xl shadow-2xl max-w-md w-full overflow-hidden animate-scale-up md:pt-0"
-            style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
-          >
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-[200] flex items-center justify-center p-4 pt-safe">
+          <div className="bg-white border border-slate-300 rounded-2xl shadow-2xl max-w-md w-full overflow-hidden animate-scale-up">
             {/* Header */}
             <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between bg-white shrink-0">
               <h3 className="font-extrabold text-slate-900 text-xs uppercase tracking-wider flex items-center gap-2">

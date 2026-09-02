@@ -5,8 +5,9 @@
    ========================================================================== */
 :root {
   --app-height: 100lvh;
-  --ios-safe-top: max(env(safe-area-inset-top, 0px), 47px);
-  --safe-area-inset-top: env(safe-area-inset-top, 0px);
+  /* Default for Android & Desktop: normal 0px status bar offset (status bar is managed outside app viewport) */
+  --ios-safe-top: 0px;
+  --safe-area-inset-top: 0px;
   --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
   --safe-area-inset-left: env(safe-area-inset-left, 0px);
   --safe-area-inset-right: env(safe-area-inset-right, 0px);
@@ -15,6 +16,15 @@
 @supports not (height: 100lvh) {
   :root {
     --app-height: 100vh;
+  }
+}
+
+/* iOS/iPadOS WebKit specific safe-area handling:
+   Ensures notch, Dynamic Island, and translucent status bar are guarded without affecting Android */
+@supports (-webkit-touch-callout: none) {
+  :root {
+    --ios-safe-top: max(env(safe-area-inset-top, 0px), 47px);
+    --safe-area-inset-top: max(env(safe-area-inset-top, 0px), 47px);
   }
 }
 
@@ -74,36 +84,36 @@ main {
    Safe Area Utility Classes for Edge-to-Edge iOS PWA Layouts
    ========================================================================== */
 .pt-safe {
-  padding-top: env(safe-area-inset-top, 0px);
+  padding-top: var(--safe-area-inset-top);
 }
 
 .pb-safe {
-  padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding-bottom: var(--safe-area-inset-bottom);
 }
 
 .py-safe {
-  padding-top: env(safe-area-inset-top, 0px);
-  padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding-top: var(--safe-area-inset-top);
+  padding-bottom: var(--safe-area-inset-bottom);
 }
 
 .pl-safe {
-  padding-left: env(safe-area-inset-left, 0px);
+  padding-left: var(--safe-area-inset-left);
 }
 
 .pr-safe {
-  padding-right: env(safe-area-inset-right, 0px);
+  padding-right: var(--safe-area-inset-right);
 }
 
 .px-safe {
-  padding-left: env(safe-area-inset-left, 0px);
-  padding-right: env(safe-area-inset-right, 0px);
+  padding-left: var(--safe-area-inset-left);
+  padding-right: var(--safe-area-inset-right);
 }
 
 .p-safe {
-  padding-top: env(safe-area-inset-top, 0px);
-  padding-bottom: env(safe-area-inset-bottom, 0px);
-  padding-left: env(safe-area-inset-left, 0px);
-  padding-right: env(safe-area-inset-right, 0px);
+  padding-top: var(--safe-area-inset-top);
+  padding-bottom: var(--safe-area-inset-bottom);
+  padding-left: var(--safe-area-inset-left);
+  padding-right: var(--safe-area-inset-right);
 }
 
 body, input, textarea, select, button {

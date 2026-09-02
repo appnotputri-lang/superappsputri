@@ -89,10 +89,7 @@ export const CompanyForm: React.FC<CompanyFormProps> = ({
   backToList,
 }) => {
   return (
-    <div
-      className="bg-slate-50 p-2 sm:p-4 border border-slate-200 rounded-sm w-full max-w-full min-w-0 overflow-hidden"
-      style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
-    >
+    <div className="bg-slate-50 p-2 sm:p-4 border border-slate-200 rounded-sm w-full max-w-full min-w-0 overflow-hidden">
       <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 mb-6">
         <div className="flex gap-2">
           <button 

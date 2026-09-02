@@ -1037,10 +1037,7 @@ export const DeedBook: React.FC = () => {
 
       {/* Main Content Area: Inline Form Panel OR Deed Book List */}
       {isModalOpen ? (
-        <div
-          className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden md:pt-0"
-          style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
-        >
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
           <div className="flex items-center justify-between p-5 border-b border-slate-200 bg-slate-50/80">
             <h3 className="font-bold text-slate-900 text-base">
               {editingDeedId ? 'Edit Data Akta' : 'Input Akta Baru'}
