@@ -354,48 +354,48 @@ export const Dashboard: React.FC<DashboardProps> = ({
       <div className="w-full max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 -mt-8 md:-mt-10 relative z-20">
         <div className="glass-card rounded-2xl md:rounded-[24px] p-3.5 md:p-5 transition-all duration-200">
           
-          {/* AKSES CEPAT HEADER BADGE */}
-          <div className="flex items-center gap-1.5 mb-3 text-[11px] font-extrabold uppercase tracking-widest text-slate-500">
-            <Zap size={13} className="text-amber-500 fill-amber-500" />
-            <span>AKSES CEPAT</span>
+          {/* AKSES CEPAT HEADER: BADGE DI KIRI & TOMBOL EXPAND/COLLAPSE DI KANAN ATAS */}
+          <div className="flex items-center justify-between mb-3.5">
+            <div className="flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-widest text-slate-500">
+              <Zap size={13} className="text-amber-500 fill-amber-500" />
+              <span>AKSES CEPAT</span>
+            </div>
+
+            {/* EXPAND / COLLAPSE BUTTON DI KANAN ATAS */}
+            <button
+              type="button"
+              onClick={() => setIsShortcutsExpanded(!isShortcutsExpanded)}
+              className="w-7 h-7 flex items-center justify-center rounded-lg glass-item hover:bg-white text-slate-500 hover:text-slate-900 border border-white/80 active:scale-95 transition-all cursor-pointer shadow-2xs"
+              aria-label={isShortcutsExpanded ? "Sembunyikan baris kedua" : "Tampilkan baris kedua"}
+              title={isShortcutsExpanded ? "Sembunyikan baris kedua" : "Tampilkan baris kedua"}
+            >
+              {isShortcutsExpanded ? (
+                <ChevronUp size={16} className="transition-transform duration-200" />
+              ) : (
+                <ChevronDown size={16} className="transition-transform duration-200" />
+              )}
+            </button>
           </div>
 
-          {/* DESKTOP VIEW (MD & UP): 4 COLUMNS X 2 ROWS */}
+          {/* DESKTOP VIEW (MD & UP): 4 COLUMNS X 2 ROWS (FULL WIDTH) */}
           <div className="hidden md:block">
-            {/* ROW 1: 4 ACTIONS + EXPAND CHEVRON */}
-            <div className="flex items-center justify-between gap-3 w-full">
-              <div className="grid grid-cols-4 gap-3 flex-1">
-                {PRIMARY_QUICK_ACTIONS.map((qa, idx) => {
-                  return (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => handleActionClick(qa)}
-                      className={`h-[68px] flex items-center gap-3.5 px-4 rounded-2xl border border-white/80 ${qa.hoverBorder} ${qa.hoverBg} glass-item hover:bg-white active:scale-[0.98] transition-all cursor-pointer group text-left shadow-2xs`}
-                    >
-                      <Menu3DIcon tabId={qa.iconTab || qa.tab} size={40} className="group-hover:scale-105 transition-transform" />
-                      <span className={`text-[13px] font-bold text-slate-800 ${qa.hoverText} truncate`}>
-                        {qa.label}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* EXPAND / COLLAPSE CHEVRON BUTTON */}
-              <button
-                type="button"
-                onClick={() => setIsShortcutsExpanded(!isShortcutsExpanded)}
-                className="h-[68px] w-12 flex items-center justify-center rounded-xl glass-item hover:bg-white text-slate-600 hover:text-slate-900 border border-white/80 active:scale-95 transition-all cursor-pointer shrink-0 shadow-2xs"
-                aria-label={isShortcutsExpanded ? "Tutup Akses Cepat Tambahan" : "Buka Akses Cepat Tambahan"}
-                title={isShortcutsExpanded ? "Sembunyikan shortcut tambahan" : "Tampilkan shortcut tambahan"}
-              >
-                {isShortcutsExpanded ? (
-                  <ChevronUp size={20} className="transition-transform duration-200" />
-                ) : (
-                  <ChevronDown size={20} className="transition-transform duration-200" />
-                )}
-              </button>
+            {/* ROW 1: 4 ACTIONS */}
+            <div className="grid grid-cols-4 gap-3.5 w-full">
+              {PRIMARY_QUICK_ACTIONS.map((qa, idx) => {
+                return (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => handleActionClick(qa)}
+                    className={`h-[72px] flex items-center gap-3.5 px-4 rounded-2xl border border-white/80 ${qa.hoverBorder} ${qa.hoverBg} glass-item hover:bg-white active:scale-[0.98] transition-all cursor-pointer group text-left shadow-2xs`}
+                  >
+                    <Menu3DIcon tabId={qa.iconTab || qa.tab} size={46} className="group-hover:scale-105 transition-transform shrink-0" />
+                    <span className={`text-[13.5px] font-bold text-slate-800 ${qa.hoverText} truncate`}>
+                      {qa.label}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
 
             {/* ROW 2: 4 SECONDARY SHORTCUTS */}
@@ -406,95 +406,75 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   : 'max-h-0 opacity-0 mt-0 pt-0 border-t-0 pointer-events-none'
               }`}
             >
-              <div className="flex items-center justify-between gap-3 w-full">
-                <div className="grid grid-cols-4 gap-3 flex-1">
-                  {SECONDARY_QUICK_ACTIONS.map((qa, idx) => {
-                    return (
-                      <button
-                        key={idx}
-                        type="button"
-                        onClick={() => handleActionClick(qa)}
-                        className={`h-[68px] flex items-center gap-3.5 px-4 rounded-2xl border border-white/80 ${qa.hoverBorder} ${qa.hoverBg} glass-item hover:bg-white active:scale-[0.98] transition-all cursor-pointer group text-left shadow-2xs`}
-                      >
-                        <Menu3DIcon tabId={qa.iconTab || qa.tab} size={40} className="group-hover:scale-105 transition-transform" />
-                        <span className={`text-[13px] font-bold text-slate-800 ${qa.hoverText} truncate`}>
-                          {qa.label}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-                {/* Spacer matching chevron width */}
-                <div className="w-12 shrink-0" />
-              </div>
-            </div>
-          </div>
-
-          {/* MOBILE VIEW (SCREEN < MD): COMPACT 4x2 GRID WITH EXPAND */}
-          <div className="md:hidden">
-            {/* ROW 1: 4 ACTIONS + EXPAND TOGGLE */}
-            <div className="flex items-center justify-between gap-1 w-full">
-              <div className="grid grid-cols-4 gap-1 flex-1">
-                {PRIMARY_QUICK_ACTIONS.map((qa, idx) => {
+              <div className="grid grid-cols-4 gap-3.5 w-full">
+                {SECONDARY_QUICK_ACTIONS.map((qa, idx) => {
                   return (
                     <button
                       key={idx}
                       type="button"
                       onClick={() => handleActionClick(qa)}
-                      className="flex flex-col items-center justify-center text-center cursor-pointer group active:scale-95 transition-all py-1"
+                      className={`h-[72px] flex items-center gap-3.5 px-4 rounded-2xl border border-white/80 ${qa.hoverBorder} ${qa.hoverBg} glass-item hover:bg-white active:scale-[0.98] transition-all cursor-pointer group text-left shadow-2xs`}
                     >
-                      <div className="mb-1 group-hover:scale-105 transition-transform">
-                        <Menu3DIcon tabId={qa.iconTab || qa.tab} size={42} />
-                      </div>
-                      <span className="text-[10px] font-bold text-slate-800 leading-tight truncate max-w-[58px]">
+                      <Menu3DIcon tabId={qa.iconTab || qa.tab} size={46} className="group-hover:scale-105 transition-transform shrink-0" />
+                      <span className={`text-[13.5px] font-bold text-slate-800 ${qa.hoverText} truncate`}>
                         {qa.label}
                       </span>
                     </button>
                   );
                 })}
               </div>
+            </div>
+          </div>
 
-              {/* MOBILE EXPAND TOGGLE */}
-              <button
-                type="button"
-                onClick={() => setIsShortcutsExpanded(!isShortcutsExpanded)}
-                className="w-8 h-11 flex items-center justify-center rounded-xl glass-item hover:bg-white active:scale-95 text-slate-600 transition-colors shrink-0"
-                aria-label={isShortcutsExpanded ? "Tutup Akses Cepat" : "Buka Akses Cepat"}
-              >
-                {isShortcutsExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-              </button>
+          {/* MOBILE VIEW (SCREEN < MD): COMPACT 4x2 GRID (FULL WIDTH) */}
+          <div className="md:hidden">
+            {/* ROW 1: 4 ACTIONS */}
+            <div className="grid grid-cols-4 gap-2 w-full">
+              {PRIMARY_QUICK_ACTIONS.map((qa, idx) => {
+                return (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => handleActionClick(qa)}
+                    className="flex flex-col items-center justify-center text-center cursor-pointer group active:scale-95 transition-all py-1.5 px-1 rounded-xl glass-item hover:bg-white border border-white/60 shadow-2xs"
+                  >
+                    <div className="mb-1.5 group-hover:scale-105 transition-transform">
+                      <Menu3DIcon tabId={qa.iconTab || qa.tab} size={46} />
+                    </div>
+                    <span className="text-[10.5px] font-bold text-slate-800 leading-tight truncate w-full px-0.5">
+                      {qa.label}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
 
             {/* ROW 2: 4 SECONDARY SHORTCUTS */}
             <div 
               className={`transition-all duration-300 ease-in-out overflow-hidden ${
                 isShortcutsExpanded 
-                  ? 'max-h-36 opacity-100 mt-2 pt-2 border-t border-slate-100/80' 
+                  ? 'max-h-36 opacity-100 mt-2.5 pt-2.5 border-t border-slate-100/80' 
                   : 'max-h-0 opacity-0 mt-0 pt-0 pointer-events-none'
               }`}
             >
-              <div className="flex items-center justify-between gap-1 w-full">
-                <div className="grid grid-cols-4 gap-1 flex-1">
-                  {SECONDARY_QUICK_ACTIONS.map((qa, idx) => {
-                    return (
-                      <button
-                        key={idx}
-                        type="button"
-                        onClick={() => handleActionClick(qa)}
-                        className="flex flex-col items-center justify-center text-center cursor-pointer group active:scale-95 transition-all py-1"
-                      >
-                        <div className="mb-1 group-hover:scale-105 transition-transform">
-                          <Menu3DIcon tabId={qa.iconTab || qa.tab} size={42} />
-                        </div>
-                        <span className="text-[10px] font-bold text-slate-800 leading-tight truncate max-w-[58px]">
-                          {qa.label}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-                {/* Spacer matching mobile chevron width */}
-                <div className="w-8 shrink-0" />
+              <div className="grid grid-cols-4 gap-2 w-full">
+                {SECONDARY_QUICK_ACTIONS.map((qa, idx) => {
+                  return (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => handleActionClick(qa)}
+                      className="flex flex-col items-center justify-center text-center cursor-pointer group active:scale-95 transition-all py-1.5 px-1 rounded-xl glass-item hover:bg-white border border-white/60 shadow-2xs"
+                    >
+                      <div className="mb-1.5 group-hover:scale-105 transition-transform">
+                        <Menu3DIcon tabId={qa.iconTab || qa.tab} size={46} />
+                      </div>
+                      <span className="text-[10.5px] font-bold text-slate-800 leading-tight truncate w-full px-0.5">
+                        {qa.label}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
           </div>
