@@ -503,6 +503,46 @@ export const PPATDocumentEditor: React.FC<PPATDocumentEditorProps> = ({
             </div>
           )}
 
+          {docItem.documentType === 'kuasa_pengecekan_sertipikat' && (
+            <div className="bg-indigo-50/60 rounded-2xl border border-indigo-200 p-6 shadow-xs space-y-3">
+              <h3 className="text-sm font-bold text-indigo-950 uppercase tracking-wider flex items-center gap-2 border-b border-indigo-200 pb-3">
+                <FileSignature className="w-4 h-4 text-indigo-700" />
+                <span>Ketentuan Template Master Docx — Surat Kuasa Pengecekan Sertipikat</span>
+              </h3>
+              <div className="text-xs text-indigo-900 leading-relaxed space-y-1.5">
+                <p className="font-semibold">
+                  ✓ Pemetaan Otomatis Dari Master Data Proyek:
+                </p>
+                <ul className="list-disc pl-5 space-y-1 text-slate-700">
+                  <li><strong>PIHAK PERTAMA (Pemberi Kuasa):</strong> Diisi otomatis dari Data Penjual (First Parties) pada Master Form PPAT.</li>
+                  <li><strong>PIHAK KEDUA (Penerima Kuasa):</strong> Static 100% mengikuti Template Master DOCX (R.A. NUKANTINI PUTRI PARINCHA, SH.,MKn).</li>
+                  <li><strong>DATA OBJEK:</strong> Nomor Sertipikat, Jenis Hak, Luas, Terbilang Luas, dan Alamat Objek diambil langsung dari Master Data Objek.</li>
+                  <li><strong>TUJUAN KUASA:</strong> "Untuk menghadap, mengurus dan menandatangani proses pengurusan Pengecekan Sertipikat".</li>
+                </ul>
+              </div>
+            </div>
+          )}
+
+          {docItem.documentType === 'kuasa_znt' && (
+            <div className="bg-emerald-50/60 rounded-2xl border border-emerald-200 p-6 shadow-xs space-y-3">
+              <h3 className="text-sm font-bold text-emerald-950 uppercase tracking-wider flex items-center gap-2 border-b border-emerald-200 pb-3">
+                <FileSignature className="w-4 h-4 text-emerald-700" />
+                <span>Ketentuan Template Master Docx — Surat Kuasa Pengecekan Zona Nilai Tanah (ZNT)</span>
+              </h3>
+              <div className="text-xs text-emerald-900 leading-relaxed space-y-1.5">
+                <p className="font-semibold">
+                  ✓ Pemetaan Otomatis Dari Master Data Proyek:
+                </p>
+                <ul className="list-disc pl-5 space-y-1 text-slate-700">
+                  <li><strong>PIHAK PERTAMA (Pemberi Kuasa):</strong> Diisi otomatis dari Data Penjual (First Parties) pada Master Form PPAT.</li>
+                  <li><strong>PIHAK KEDUA (Penerima Kuasa):</strong> Static 100% mengikuti Template Master DOCX (R.A. NUKANTINI PUTRI PARINCHA, SH.,MKn).</li>
+                  <li><strong>DATA OBJEK:</strong> Nomor Sertipikat, Jenis Hak, Luas, Terbilang Luas, dan Alamat Objek diambil langsung dari Master Data Objek.</li>
+                  <li><strong>TUJUAN KUASA:</strong> "Untuk menghadap, mengurus dan menandatangani proses pengurusan Pengecekan Zona Nilai Tanah (ZNT)".</li>
+                </ul>
+              </div>
+            </div>
+          )}
+
           {docItem.documentType === 'surat_kuasa_ppat' && (
             <div className="bg-blue-50/40 rounded-2xl border border-blue-200 p-6 shadow-xs space-y-4">
               <h3 className="text-sm font-bold text-blue-900 uppercase tracking-wider flex items-center gap-2 border-b border-blue-200 pb-3">

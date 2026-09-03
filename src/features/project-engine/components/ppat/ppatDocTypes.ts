@@ -22,6 +22,24 @@ export const PPAT_DOC_TYPES: PPATDocTypeConfig[] = [
     defaultTitle: 'Surat Kuasa Migrasi E-Sertipikat'
   },
   {
+    id: 'kuasa_pengecekan_sertipikat',
+    title: 'Surat Kuasa Pengecekan Sertipikat',
+    category: 'surat',
+    shortDesc: 'Surat kuasa khusus permohonan dan pengurusan pengecekan keabsahan/status sertipikat tanah di Kantor Pertanahan/BPN.',
+    recommendedFor: ['Pengecekan BPN', 'Validasi Sertipikat', 'Persiapan AJB'],
+    isAvailableForGeneration: true,
+    defaultTitle: 'Surat Kuasa Pengecekan Sertipikat'
+  },
+  {
+    id: 'kuasa_znt',
+    title: 'Surat Kuasa Pengecekan Zona Nilai Tanah (ZNT)',
+    category: 'surat',
+    shortDesc: 'Surat kuasa khusus permohonan dan pengurusan Pengecekan Zona Nilai Tanah (ZNT) di Kantor Pertanahan/BPN.',
+    recommendedFor: ['Pengecekan ZNT', 'Validasi ZNT BPN', 'Persiapan BPHTB/PBB'],
+    isAvailableForGeneration: true,
+    defaultTitle: 'Surat Kuasa Pengecekan Zona Nilai Tanah (ZNT)'
+  },
+  {
     id: 'surat_pernyataan',
     title: 'Surat Pernyataan Pemindahan Hak',
     category: 'surat',

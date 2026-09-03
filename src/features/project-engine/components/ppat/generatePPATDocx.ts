@@ -15,6 +15,7 @@ import {
   LeaderType
 } from "docx";
 import { saveAs } from "file-saver";
+import JSZip from "jszip";
 import { Project, PPATData, PPATParty, PPATDocumentItem } from "../../../../domain/project/Project";
 import { formatFullPartyAddress, isCityKota, formatCleanVillage, formatCleanDistrict } from "./ppatAddressUtils";
 
@@ -2662,21 +2663,35 @@ export const generateSuratKuasaPPATDocx = async (
   saveAs(blob, fileName);
 };
 
-// === SURAT KUASA MIGRASI E-SERTIPIKAT ===
-export const generateKuasaMigrasiDocx = async (
+// === SURAT KUASA MIGRASI E-SERTIPIKAT, KUASA PENGECEKAN SERTIPIKAT, & KUASA PENGECEKAN ZNT (SHARED BASE TEMPLATE) ===
+export const generateKuasaBaseDocx = async (
   project: Project,
   ppatData: PPATData,
-  docItem?: PPATDocumentItem
+  docItem: PPATDocumentItem | undefined,
+  targetDocType: 'kuasa_migrasi' | 'kuasa_pengecekan_sertipikat' | 'kuasa_znt' | string
 ): Promise<void> => {
-  // PIHAK PERTAMA = PEMBELI (secondParties from Master Form PPAT)
-  // Fallback to firstParties if secondParties is completely empty
-  const buyerParties = ppatData.secondParties && ppatData.secondParties.length > 0 && ppatData.secondParties[0]?.name
-    ? ppatData.secondParties
-    : (ppatData.firstParties && ppatData.firstParties.length > 0 ? ppatData.firstParties : [({} as PPATParty)]);
+  const isSellerFirstParty = targetDocType === 'kuasa_pengecekan_sertipikat' || targetDocType === 'kuasa_znt';
+
+  // PIHAK PERTAMA:
+  // For Kuasa Migrasi: Pembeli (secondParties from Master Form PPAT), fallback to firstParties
+  // For Kuasa Pengecekan Sertipikat & ZNT: Penjual (firstParties from Master Form PPAT), fallback to secondParties
+  const partyList = isSellerFirstParty
+    ? (ppatData.firstParties && ppatData.firstParties.length > 0 && ppatData.firstParties[0]?.name
+        ? ppatData.firstParties
+        : (ppatData.secondParties && ppatData.secondParties.length > 0 ? ppatData.secondParties : [({} as PPATParty)]))
+    : (ppatData.secondParties && ppatData.secondParties.length > 0 && ppatData.secondParties[0]?.name
+        ? ppatData.secondParties
+        : (ppatData.firstParties && ppatData.firstParties.length > 0 ? ppatData.firstParties : [({} as PPATParty)]));
 
   const obj = ppatData.object || {};
   const letterDate = docItem?.letterDate || new Date().toISOString();
   const letterLocation = docItem?.letterLocation || "Bandung Barat";
+
+  const purposeActionText = targetDocType === 'kuasa_znt'
+    ? "Untuk menghadap, mengurus dan menandatangani proses pengurusan Pengecekan Zona Nilai Tanah (ZNT)"
+    : targetDocType === 'kuasa_pengecekan_sertipikat'
+    ? "Untuk menghadap, mengurus dan menandatangani proses pengurusan Pengecekan Sertipikat"
+    : "Untuk menghadap, mengurus dan menandatangani proses pengurusan Migrasi Sertipikat Elektronik";
 
   const noBorder = {
     top: { style: BorderStyle.NONE, size: 0, color: "auto" },
@@ -2687,10 +2702,10 @@ export const generateKuasaMigrasiDocx = async (
     insideVertical: { style: BorderStyle.NONE, size: 0, color: "auto" }
   };
 
-  // PIHAK PERTAMA Table Rows (Dynamic from Data Pembeli)
+  // PIHAK PERTAMA Table Rows (Dynamic from Data Penjual / Pembeli)
   const firstPartyRows: TableRow[] = [];
-  buyerParties.forEach((p, idx) => {
-    const numPrefix = buyerParties.length > 1 ? `${idx + 1}. ` : "";
+  partyList.forEach((p, idx) => {
+    const numPrefix = partyList.length > 1 ? `${idx + 1}. ` : "";
     const birthStr = (p as any).birthPlaceAndDate || (p.birthPlace && p.birthDate 
       ? `${p.birthPlace}, ${formatDateIndo(p.birthDate)}`
       : (p.birthPlace || (p.birthDate ? formatDateIndo(p.birthDate) : "-")));
@@ -3085,7 +3100,7 @@ export const generateKuasaMigrasiDocx = async (
             ],
             children: [
               new TextRun({
-                text: `Untuk menghadap, mengurus dan menandatangani proses pengurusan Migrasi Sertipikat Elektronik untuk ${certType} ${certNum}/Desa ${villageName} seluas kurang lebih ${landArea} m2 ( ${landAreaInWords} ), yang terletak di :\t`,
+                text: `${purposeActionText} untuk ${certType} ${certNum}/Desa ${villageName} seluas kurang lebih ${landArea} m2 ( ${landAreaInWords} ), yang terletak di :\t`,
                 font: "Times New Roman",
                 size: 21
               })
@@ -3159,7 +3174,7 @@ export const generateKuasaMigrasiDocx = async (
                         alignment: AlignmentType.CENTER,
                         children: [
                           new TextRun({ text: "PIHAK PERTAMA", bold: true, font: "Times New Roman", size: 21 }),
-                          new TextRun({ break: 5, text: buyerParties[0]?.name || "-", bold: true, font: "Times New Roman", size: 21 })
+                          new TextRun({ break: 5, text: partyList[0]?.name || "-", bold: true, font: "Times New Roman", size: 21 })
                         ]
                       })
                     ]
@@ -3174,8 +3189,37 @@ export const generateKuasaMigrasiDocx = async (
   });
 
   const blob = await Packer.toBlob(doc);
-  const signerName = buyerParties[0]?.name || "Klien";
-  saveAs(blob, `Surat_Kuasa_Migrasi_E_Sertipikat_${signerName.replace(/[^a-zA-Z0-9]/g, '_')}.docx`);
+  const signerName = partyList[0]?.name || "Klien";
+  const docTitlePrefix = targetDocType === 'kuasa_znt'
+    ? "Surat_Kuasa_Pengecekan_ZNT"
+    : targetDocType === 'kuasa_pengecekan_sertipikat'
+    ? "Surat_Kuasa_Pengecekan_Sertipikat"
+    : "Surat_Kuasa_Migrasi_E_Sertipikat";
+  saveAs(blob, `${docTitlePrefix}_${signerName.replace(/[^a-zA-Z0-9]/g, '_')}.docx`);
+};
+
+export const generateKuasaMigrasiDocx = async (
+  project: Project,
+  ppatData: PPATData,
+  docItem?: PPATDocumentItem
+): Promise<void> => {
+  return generateKuasaBaseDocx(project, ppatData, docItem, 'kuasa_migrasi');
+};
+
+export const generateKuasaPengecekanSertipikatDocx = async (
+  project: Project,
+  ppatData: PPATData,
+  docItem?: PPATDocumentItem
+): Promise<void> => {
+  return generateKuasaBaseDocx(project, ppatData, docItem, 'kuasa_pengecekan_sertipikat');
+};
+
+export const generateKuasaZNTDocx = async (
+  project: Project,
+  ppatData: PPATData,
+  docItem?: PPATDocumentItem
+): Promise<void> => {
+  return generateKuasaBaseDocx(project, ppatData, docItem, 'kuasa_znt');
 };
 
 // === SURAT PERNYATAAN TANAH TIDAK SENGKETA ===
@@ -3588,182 +3632,135 @@ export const generateAktaAJBDocx = async (
   saveAs(blob, `Draf_Akta_AJB_${secondParty.name || "Klien"}.docx`);
 };
 
+// Helper to set paragraph text in XML DOM while preserving run properties
+function setParagraphText(p: Element, newText: string) {
+  const doc = p.ownerDocument;
+  const firstR = p.getElementsByTagName("w:r")[0];
+  const rPr = firstR ? firstR.getElementsByTagName("w:rPr")[0] : null;
+
+  const children = Array.from(p.childNodes);
+  children.forEach(child => {
+    if (child.nodeName !== "w:pPr") {
+      p.removeChild(child);
+    }
+  });
+
+  const newR = doc.createElementNS("http://schemas.openxmlformats.org/wordprocessingml/2006/main", "w:r");
+  if (rPr) {
+    newR.appendChild(rPr.cloneNode(true));
+  }
+  const newT = doc.createElementNS("http://schemas.openxmlformats.org/wordprocessingml/2006/main", "w:t");
+  newT.setAttribute("xml:space", "preserve");
+  newT.textContent = newText;
+  newR.appendChild(newT);
+  p.appendChild(newR);
+}
+
 // === GENERATE SURAT PERNYATAAN PASAL 99 ===
 export const generateSuratPasal99Docx = async (
   project: Project,
   ppatData: PPATData,
   docItem: PPATDocumentItem
 ): Promise<void> => {
-  const firstParty = ppatData.firstParties[0] || ({} as PPATParty);
-  const secondParty = ppatData.secondParties[0] || ({} as PPATParty);
-  const obj = ppatData.object || {};
-  const letterDate = formatDateIndo(docItem.letterDate);
-  const letterLoc = docItem.letterLocation || "Kabupaten Bandung Barat";
+  // Pihak Pertama di Pasal 99 = PEMBELI (secondParties)
+  // Pihak Kedua di Pasal 99 = PENJUAL (firstParties)
+  const pembeli = (ppatData.secondParties && ppatData.secondParties.length > 0 && ppatData.secondParties[0]?.name)
+    ? ppatData.secondParties[0]
+    : (ppatData.firstParties && ppatData.firstParties[0]) || ({} as PPATParty);
 
-  const doc = new Document({
-    sections: [
-      {
-        properties: {
-          page: {
-            margin: {
-              top: convertInchesToTwip(1),
-              bottom: convertInchesToTwip(1),
-              left: convertInchesToTwip(1),
-              right: convertInchesToTwip(1)
-            }
-          }
-        },
-        children: [
-          new Paragraph({
-            alignment: AlignmentType.CENTER,
-            spacing: { after: 60 },
-            children: [
-              new TextRun({
-                text: "SURAT PERNYATAAN",
-                bold: true,
-                size: 26,
-                font: "Times New Roman"
-              })
-            ]
-          }),
-          new Paragraph({
-            alignment: AlignmentType.CENTER,
-            spacing: { after: 200 },
-            children: [
-              new TextRun({
-                text: "MEMENUHI KETENTUAN PASAL 99 PMNA/Ka.BPN NO. 3 TAHUN 1997",
-                bold: true,
-                size: 22,
-                font: "Times New Roman"
-              })
-            ]
-          }),
-          new Paragraph({
-            spacing: { after: 120 },
-            children: [
-              new TextRun({
-                text: "Yang bertanda tangan di bawah ini:",
-                font: "Times New Roman",
-                size: 22
-              })
-            ]
-          }),
-          new Table({
-            width: { size: 100, type: WidthType.PERCENTAGE },
-            rows: [
-              createTableRow("Nama Lengkap", secondParty.name || "-"),
-              createTableRow("NIK / No. KTP", secondParty.nik || "-"),
-              createTableRow("Tempat / Tgl Lahir", secondParty.birthDate ? `${secondParty.birthPlace || "-"}, ${formatDateIndo(secondParty.birthDate)}` : "-"),
-              createTableRow("Pekerjaan", secondParty.job || "-"),
-              createTableRow("Alamat KTP", secondParty.address || "-")
-            ]
-          }),
-          new Paragraph({
-            spacing: { before: 140, after: 80 },
-            children: [
-              new TextRun({
-                text: `Dengan ini menyatakan dengan sebenarnya dan sanggup dituntut di muka pengadilan apabila di kemudian hari ternyata pernyataan ini tidak benar:`,
-                font: "Times New Roman",
-                size: 22
-              })
-            ]
-          }),
-          new Paragraph({
-            spacing: { after: 60 },
-            children: [
-              new TextRun({
-                text: `1. Bahwa dengan perolehan hak atas tanah ${obj.certificateType || "SHM"} No. ${obj.certificateNumber || "-"}, NIB: ${obj.nib || "-"}, seluas ${obj.landArea || 0} m², terletak di Desa/Kelurahan ${obj.village || "-"}, Kecamatan ${obj.district || "-"}, ${obj.regency || "Kabupaten Bandung Barat"}, pihak yang memperoleh hak TIDAK AKAN menjadi pemegang hak atas tanah yang melebihi batas maksimum penguasaan tanah menurut ketentuan peraturan perundang-undangan yang berlaku.`,
-                font: "Times New Roman",
-                size: 22
-              })
-            ]
-          }),
-          new Paragraph({
-            spacing: { after: 60 },
-            children: [
-              new TextRun({
-                text: `2. Bahwa perolehan hak atas tanah tersebut di atas BUKAN merupakan perolehan tanah secara absentee (guntai) yang dilarang oleh peraturan perundang-undangan agraria.`,
-                font: "Times New Roman",
-                size: 22
-              })
-            ]
-          }),
-          new Paragraph({
-            spacing: { after: 140 },
-            children: [
-              new TextRun({
-                text: `3. Bahwa surat pernyataan ini dibuat dengan itikad baik dan penuh tanggung jawab untuk dipergunakan sebagaimana mestinya dalam proses pendaftaran peralihan hak di Kantor Pertanahan setempat.`,
-                font: "Times New Roman",
-                size: 22
-              })
-            ]
-          }),
-          new Paragraph({
-            alignment: AlignmentType.RIGHT,
-            spacing: { before: 120, after: 200 },
-            children: [
-              new TextRun({
-                text: `${letterLoc}, ${letterDate}`,
-                font: "Times New Roman",
-                size: 22
-              })
-            ]
-          }),
-          new Table({
-            width: { size: 100, type: WidthType.PERCENTAGE },
-            rows: [
-              new TableRow({
-                children: [
-                  new TableCell({
-                    width: { size: 50, type: WidthType.PERCENTAGE },
-                    children: [
-                      new Paragraph({
-                        alignment: AlignmentType.CENTER,
-                        children: [new TextRun({ text: "Mengetahui / Menyetujui,", font: "Times New Roman", size: 22 })]
-                      }),
-                      new Paragraph({
-                        alignment: AlignmentType.CENTER,
-                        children: [new TextRun({ text: "PIHAK PERTAMA (PENJUAL)", bold: true, font: "Times New Roman", size: 22 })]
-                      }),
-                      new Paragraph({
-                        alignment: AlignmentType.CENTER,
-                        spacing: { before: 500 },
-                        children: [new TextRun({ text: `( ${firstParty.name || "..........................."} )`, bold: true, font: "Times New Roman", size: 22 })]
-                      })
-                    ]
-                  }),
-                  new TableCell({
-                    width: { size: 50, type: WidthType.PERCENTAGE },
-                    children: [
-                      new Paragraph({
-                        alignment: AlignmentType.CENTER,
-                        children: [new TextRun({ text: "Yang Membuat Pernyataan,", font: "Times New Roman", size: 22 })]
-                      }),
-                      new Paragraph({
-                        alignment: AlignmentType.CENTER,
-                        children: [new TextRun({ text: "PIHAK KEDUA (PEMBELI)", bold: true, font: "Times New Roman", size: 22 })]
-                      }),
-                      new Paragraph({
-                        alignment: AlignmentType.CENTER,
-                        spacing: { before: 500 },
-                        children: [
-                          new TextRun({ text: "Materai Rp 10.000\n", size: 16, font: "Times New Roman", italics: true }),
-                          new TextRun({ text: `( ${secondParty.name || "..........................."} )`, bold: true, font: "Times New Roman", size: 22 })
-                        ]
-                      })
-                    ]
-                  })
-                ]
-              })
-            ]
-          })
-        ]
+  const penjual = (ppatData.firstParties && ppatData.firstParties.length > 0 && ppatData.firstParties[0]?.name)
+    ? ppatData.firstParties[0]
+    : (ppatData.secondParties && ppatData.secondParties[0]) || ({} as PPATParty);
+
+  const obj = ppatData.object || {};
+  const letterDate = docItem.letterDate ? formatDateIndo(docItem.letterDate) : formatDateIndo(new Date().toISOString());
+  const letterLoc = docItem.letterLocation || "Bandung Barat";
+
+  const certType = obj.certificateType || "Hak Milik";
+  const certNo = obj.certificateNumber || "651";
+  const cleanVillage = formatCleanVillage(obj.village) || "Mekarwangi";
+  const landArea = obj.landArea || 167;
+  const terbilangArea = obj.landArea ? terbilang(Number(obj.landArea)).trim() + " meter persegi" : "seratus enam puluh tujuh meter persegi";
+  const province = obj.province || "Jawa Barat";
+  const regency = obj.regency || obj.city || "Bandung Barat";
+  const district = formatCleanDistrict(obj.district) || "Lembang";
+  const block = obj.blok || obj.persil || obj.kohir || "Bengkok";
+
+  const nomorAkta = ppatData.nomorAkta || "01";
+  const tahunAkta = ppatData.tahunAkta || String(new Date().getFullYear());
+  const tanggalAkta = ppatData.tanggalAkta ? formatDateIndo(ppatData.tanggalAkta) : formatDateIndo(new Date().toISOString());
+
+  // Fetch template PASAL 99 AJB.docx
+  const response = await fetch("/PASAL 99 AJB.docx");
+  if (!response.ok) {
+    throw new Error(`Gagal memuat template PASAL 99 AJB.docx: ${response.status}`);
+  }
+  const arrayBuffer = await response.arrayBuffer();
+  const zip = await JSZip.loadAsync(arrayBuffer);
+
+  const docXmlFile = zip.file("word/document.xml");
+  if (!docXmlFile) {
+    throw new Error("Template tidak valid: word/document.xml tidak ditemukan");
+  }
+  const xmlText = await docXmlFile.async("string");
+
+  const parser = new DOMParser();
+  const xmlDoc = parser.parseFromString(xmlText, "text/xml");
+  const ps = Array.from(xmlDoc.getElementsByTagName("w:p"));
+
+  let section = "";
+  ps.forEach(p => {
+    const text = p.textContent ? p.textContent.trim() : "";
+    if (text.includes("Yang bertandatangan di bawah ini")) { section = "P1"; return; }
+    if (text.includes("menerima peralihan hak")) { section = "P2"; return; }
+    if (text.startsWith("Atas")) { section = "OBJ"; return; }
+    if (text.includes("Yang membuat pernyataan")) { section = "SIGN"; return; }
+
+    if (section === "P1") {
+      if (text.startsWith("Nama:")) setParagraphText(p, `Nama: ${pembeli.name || "-"}`);
+      if (text.startsWith("Tempat/Tgl. Lahir:")) {
+        const ttl = pembeli.birthPlace
+          ? `${pembeli.birthPlace}, ${pembeli.birthDate ? formatDateIndo(pembeli.birthDate) : ""}`
+          : (pembeli.birthDate ? formatDateIndo(pembeli.birthDate) : "-");
+        setParagraphText(p, `Tempat/Tgl. Lahir: ${ttl}`);
       }
-    ]
+      if (text.startsWith("Pekerjaan:")) setParagraphText(p, `Pekerjaan: ${pembeli.job || "-"}`);
+      if (text.startsWith("Alamat:")) setParagraphText(p, `Alamat: ${formatFullPartyAddress(pembeli) || "-"}`);
+    } else if (section === "P2") {
+      if (text.startsWith("Nama:")) setParagraphText(p, `Nama: ${penjual.name || "-"}`);
+      if (text.startsWith("Tempat/Tgl. Lahir:")) {
+        const ttl = penjual.birthPlace
+          ? `${penjual.birthPlace}, ${penjual.birthDate ? formatDateIndo(penjual.birthDate) : ""}`
+          : (penjual.birthDate ? formatDateIndo(penjual.birthDate) : "-");
+        setParagraphText(p, `Tempat/Tgl. Lahir: ${ttl}`);
+      }
+      if (text.startsWith("Pekerjaan:")) setParagraphText(p, `Pekerjaan: ${penjual.job || "-"}`);
+      if (text.startsWith("Alamat:")) setParagraphText(p, `Alamat: ${formatFullPartyAddress(penjual) || "-"}`);
+    } else if (section === "OBJ") {
+      if (text.includes("Sebidang tanah")) {
+        setParagraphText(p, `Atas Sebidang tanah ${certType} ${certNo}/Desa ${cleanVillage} seluas kurang lebih ${landArea} m2 ( ${terbilangArea} ), yang terletak di :`);
+      }
+      if (text.startsWith("Propinsi:")) setParagraphText(p, `Propinsi: ${province};`);
+      if (text.startsWith("Kabupaten:")) setParagraphText(p, `Kabupaten: ${regency};`);
+      if (text.startsWith("Kecamatan:")) setParagraphText(p, `Kecamatan: ${district};`);
+      if (text.startsWith("Desa:")) setParagraphText(p, `Desa: ${cleanVillage};`);
+      if (text.startsWith("Blok:")) setParagraphText(p, `Blok: ${block};`);
+      if (text.startsWith("Berdasarkan:")) setParagraphText(p, `Berdasarkan: Akta Jual Beli Nomor ${nomorAkta} Tahun ${tahunAkta} tanggal ${tanggalAkta}.`);
+    } else if (section === "SIGN") {
+      if (text.includes("Bandung Barat") || text.includes(",")) {
+        setParagraphText(p, `${letterLoc}, ${letterDate}`);
+      } else if (text && !text.includes("Yang membuat")) {
+        setParagraphText(p, pembeli.name || "PEMBELI");
+      }
+    }
   });
 
-  const blob = await Packer.toBlob(doc);
-  saveAs(blob, `Surat_Pernyataan_Pasal_99_${secondParty.name || "Klien"}.docx`);
+  const serializer = new XMLSerializer();
+  const finalXml = serializer.serializeToString(xmlDoc);
+  zip.file("word/document.xml", finalXml);
+
+  const outBuf = await zip.generateAsync({ type: "blob" });
+  saveAs(outBuf, `Surat_Pernyataan_Pasal_99_${pembeli.name || "Klien"}.docx`);
 };
 
 // === GENERATE SURAT PERNYATAAN PASAL 100 ===
@@ -3772,150 +3769,105 @@ export const generateSuratPasal100Docx = async (
   ppatData: PPATData,
   docItem: PPATDocumentItem
 ): Promise<void> => {
-  const firstParty = ppatData.firstParties[0] || ({} as PPATParty);
-  const secondParty = ppatData.secondParties[0] || ({} as PPATParty);
-  const obj = ppatData.object || {};
-  const letterDate = formatDateIndo(docItem.letterDate);
-  const letterLoc = docItem.letterLocation || "Kabupaten Bandung Barat";
+  // Pihak Pertama di Pasal 100 = PENJUAL (firstParties)
+  // Pihak Kedua di Pasal 100 = PEMBELI (secondParties)
+  const penjual = (ppatData.firstParties && ppatData.firstParties.length > 0 && ppatData.firstParties[0]?.name)
+    ? ppatData.firstParties[0]
+    : (ppatData.secondParties && ppatData.secondParties[0]) || ({} as PPATParty);
 
-  const doc = new Document({
-    sections: [
-      {
-        properties: {
-          page: {
-            margin: {
-              top: convertInchesToTwip(1),
-              bottom: convertInchesToTwip(1),
-              left: convertInchesToTwip(1),
-              right: convertInchesToTwip(1)
-            }
-          }
-        },
-        children: [
-          new Paragraph({
-            alignment: AlignmentType.CENTER,
-            spacing: { after: 60 },
-            children: [
-              new TextRun({
-                text: "SURAT PERNYATAAN PENGUASAAN FISIK BIDANG TANAH",
-                bold: true,
-                size: 26,
-                font: "Times New Roman"
-              })
-            ]
-          }),
-          new Paragraph({
-            alignment: AlignmentType.CENTER,
-            spacing: { after: 200 },
-            children: [
-              new TextRun({
-                text: "MEMENUHI KETENTUAN PASAL 100 PMNA/Ka.BPN NO. 3 TAHUN 1997",
-                bold: true,
-                size: 22,
-                font: "Times New Roman"
-              })
-            ]
-          }),
-          new Paragraph({
-            spacing: { after: 120 },
-            children: [
-              new TextRun({
-                text: "Yang bertanda tangan di bawah ini:",
-                font: "Times New Roman",
-                size: 22
-              })
-            ]
-          }),
-          new Table({
-            width: { size: 100, type: WidthType.PERCENTAGE },
-            rows: [
-              createTableRow("Nama Lengkap", firstParty.name || "-"),
-              createTableRow("NIK / No. KTP", firstParty.nik || "-"),
-              createTableRow("Pekerjaan", firstParty.job || "-"),
-              createTableRow("Alamat KTP", firstParty.address || "-")
-            ]
-          }),
-          new Paragraph({
-            spacing: { before: 140, after: 80 },
-            children: [
-              new TextRun({
-                text: `Dengan ini menyatakan dengan sesungguhnya bahwa atas sebidang tanah:`,
-                font: "Times New Roman",
-                size: 22
-              })
-            ]
-          }),
-          new Table({
-            width: { size: 100, type: WidthType.PERCENTAGE },
-            rows: [
-              createTableRow("Jenis & Nomor Hak", `${obj.certificateType || "SHM"} Nomor ${obj.certificateNumber || "-"}`),
-              createTableRow("Nomor Identifikasi Bidang (NIB)", obj.nib || "-"),
-              createTableRow("Nomor Objek Pajak (NOP)", obj.nop || "-"),
-              createTableRow("Luas Tanah", `${obj.landArea || 0} m²`),
-              createTableRow("Letak / Alamat Tanah", `${obj.village ? "Desa/Kel. " + obj.village : ""}, Kec. ${obj.district || "-"}, ${obj.regency || "Kab. Bandung Barat"}`),
-              createTableRow("Batas Utara", obj.northBoundary || "-"),
-              createTableRow("Batas Timur", obj.eastBoundary || "-"),
-              createTableRow("Batas Selatan", obj.southBoundary || "-"),
-              createTableRow("Batas Barat", obj.westBoundary || "-")
-            ]
-          }),
-          new Paragraph({
-            spacing: { before: 120, after: 60 },
-            children: [
-              new TextRun({
-                text: `1. Bahwa tanah tersebut benar-benar dikuasai secara fisik dengan itikad baik secara terus menerus dan tidak ada keberatan atau klaim dari pihak manapun.`,
-                font: "Times New Roman",
-                size: 22
-              })
-            ]
-          }),
-          new Paragraph({
-            spacing: { after: 60 },
-            children: [
-              new TextRun({
-                text: `2. Bahwa tanah tersebut tidak dijadikan jaminan utang yang tidak tercatat, tidak tersangkut perkara/sengketa di Pengadilan, dan bebas dari sita jaminan (conservatoir beslag).`,
-                font: "Times New Roman",
-                size: 22
-              })
-            ]
-          }),
-          new Paragraph({
-            spacing: { after: 140 },
-            children: [
-              new TextRun({
-                text: `3. Surat pernyataan ini dibuat dengan penuh kesadaran dan tanggung jawab hukum untuk melengkapi pendaftaran akta PPAT dan peralihan hak di Kantor Pertanahan.`,
-                font: "Times New Roman",
-                size: 22
-              })
-            ]
-          }),
-          new Paragraph({
-            alignment: AlignmentType.RIGHT,
-            spacing: { before: 120, after: 200 },
-            children: [
-              new TextRun({
-                text: `${letterLoc}, ${letterDate}`,
-                font: "Times New Roman",
-                size: 22
-              })
-            ]
-          }),
-          new Paragraph({
-            alignment: AlignmentType.CENTER,
-            spacing: { before: 100 },
-            children: [
-              new TextRun({ text: "Yang Membuat Pernyataan,\n", font: "Times New Roman", size: 22 }),
-              new TextRun({ text: "Materai Rp 10.000\n\n\n\n", size: 16, font: "Times New Roman", italics: true }),
-              new TextRun({ text: `( ${firstParty.name || "..........................."} )`, bold: true, font: "Times New Roman", size: 22 })
-            ]
-          })
-        ]
+  const pembeli = (ppatData.secondParties && ppatData.secondParties.length > 0 && ppatData.secondParties[0]?.name)
+    ? ppatData.secondParties[0]
+    : (ppatData.firstParties && ppatData.firstParties[0]) || ({} as PPATParty);
+
+  const obj = ppatData.object || {};
+  const letterDate = docItem.letterDate ? formatDateIndo(docItem.letterDate) : formatDateIndo(new Date().toISOString());
+  const letterLoc = docItem.letterLocation || "Bandung Barat";
+
+  const certType = obj.certificateType || "Hak Milik";
+  const certNo = obj.certificateNumber || "651";
+  const cleanVillage = formatCleanVillage(obj.village) || "Mekarwangi";
+  const landArea = obj.landArea || 167;
+  const terbilangArea = obj.landArea ? terbilang(Number(obj.landArea)).trim() + " meter persegi" : "seratus enam puluh tujuh meter persegi";
+  const province = obj.province || "Jawa Barat";
+  const regency = obj.regency || obj.city || "Bandung Barat";
+  const district = formatCleanDistrict(obj.district) || "Lembang";
+  const block = obj.blok || obj.persil || obj.kohir || "Bengkok";
+
+  const nomorAkta = ppatData.nomorAkta || "01";
+  const tahunAkta = ppatData.tahunAkta || String(new Date().getFullYear());
+  const tanggalAkta = ppatData.tanggalAkta ? formatDateIndo(ppatData.tanggalAkta) : formatDateIndo(new Date().toISOString());
+
+  // Fetch template PASAL 100 AJB.docx
+  const response = await fetch("/PASAL 100 AJB.docx");
+  if (!response.ok) {
+    throw new Error(`Gagal memuat template PASAL 100 AJB.docx: ${response.status}`);
+  }
+  const arrayBuffer = await response.arrayBuffer();
+  const zip = await JSZip.loadAsync(arrayBuffer);
+
+  const docXmlFile = zip.file("word/document.xml");
+  if (!docXmlFile) {
+    throw new Error("Template tidak valid: word/document.xml tidak ditemukan");
+  }
+  const xmlText = await docXmlFile.async("string");
+
+  const parser = new DOMParser();
+  const xmlDoc = parser.parseFromString(xmlText, "text/xml");
+  const ps = Array.from(xmlDoc.getElementsByTagName("w:p"));
+
+  let section = "";
+  ps.forEach(p => {
+    const text = p.textContent ? p.textContent.trim() : "";
+    if (text.includes("Yang bertandatangan di bawah ini")) { section = "P1"; return; }
+    if (text.includes("mengalihkan hak")) { section = "P2"; return; }
+    if (text.startsWith("Atas")) { section = "OBJ"; return; }
+    if (text.includes("Yang membuat pernyataan")) { section = "SIGN"; return; }
+
+    if (section === "P1") {
+      if (text.startsWith("Nama:")) setParagraphText(p, `Nama: ${penjual.name || "-"}`);
+      if (text.startsWith("Tempat/Tgl. Lahir:")) {
+        const ttl = penjual.birthPlace
+          ? `${penjual.birthPlace}, ${penjual.birthDate ? formatDateIndo(penjual.birthDate) : ""}`
+          : (penjual.birthDate ? formatDateIndo(penjual.birthDate) : "-");
+        setParagraphText(p, `Tempat/Tgl. Lahir: ${ttl}`);
       }
-    ]
+      if (text.startsWith("Pekerjaan:")) setParagraphText(p, `Pekerjaan: ${penjual.job || "-"}`);
+      if (text.startsWith("Alamat:")) setParagraphText(p, `Alamat: ${formatFullPartyAddress(penjual) || "-"}`);
+    } else if (section === "P2") {
+      if (text.startsWith("Nama:")) setParagraphText(p, `Nama: ${pembeli.name || "-"}`);
+      if (text.startsWith("Tempat/Tgl. Lahir:")) {
+        const ttl = pembeli.birthPlace
+          ? `${pembeli.birthPlace}, ${pembeli.birthDate ? formatDateIndo(pembeli.birthDate) : ""}`
+          : (pembeli.birthDate ? formatDateIndo(pembeli.birthDate) : "-");
+        setParagraphText(p, `Tempat/Tgl. Lahir: ${ttl}`);
+      }
+      if (text.startsWith("Pekerjaan:")) setParagraphText(p, `Pekerjaan: ${pembeli.job || "-"}`);
+      if (text.startsWith("Alamat:")) setParagraphText(p, `Alamat: ${formatFullPartyAddress(pembeli) || "-"}`);
+    } else if (section === "OBJ") {
+      if (text.includes("Sebidang tanah")) {
+        setParagraphText(p, `Sebidang tanah Hak ${certType} ${certNo}/Desa ${cleanVillage} seluas kurang lebih ${landArea} m2 ( ${terbilangArea} ), yang terletak di :`);
+      }
+      if (text.startsWith("Propinsi:")) setParagraphText(p, `Propinsi: ${province};`);
+      if (text.startsWith("Kabupaten:")) setParagraphText(p, `Kabupaten: ${regency};`);
+      if (text.startsWith("Kecamatan:")) setParagraphText(p, `Kecamatan: ${district};`);
+      if (text.startsWith("Desa:")) setParagraphText(p, `Desa: ${cleanVillage};`);
+      if (text.startsWith("Blok:")) setParagraphText(p, `Blok: ${block};`);
+      if (text.startsWith("Berdasarkan:")) setParagraphText(p, `Berdasarkan: Akta Jual Beli Nomor ${nomorAkta} Tahun ${tahunAkta} tanggal ${tanggalAkta}`);
+    } else if (section === "SIGN") {
+      if (text.includes("Bandung Barat") || text.includes(",")) {
+        setParagraphText(p, `${letterLoc}, ${letterDate}`);
+      } else if (text && !text.includes("Yang membuat")) {
+        setParagraphText(p, penjual.name || "PENJUAL");
+      }
+    }
   });
 
-  const blob = await Packer.toBlob(doc);
-  saveAs(blob, `Surat_Pernyataan_Pasal_100_${firstParty.name || "Klien"}.docx`);
+  const serializer = new XMLSerializer();
+  const finalXml = serializer.serializeToString(xmlDoc);
+  zip.file("word/document.xml", finalXml);
+
+  const outBuf = await zip.generateAsync({ type: "blob" });
+  saveAs(outBuf, `Surat_Pernyataan_Pasal_100_${penjual.name || "Klien"}.docx`);
 };
 
 // === DISPATCHER UNTUK SETIAP DOKUMEN PPAT ===
@@ -3928,6 +3880,12 @@ export const generateAnyPPATDocx = async (
   switch (docType) {
     case 'kuasa_migrasi':
       await generateKuasaMigrasiDocx(project, ppatData, docItem);
+      break;
+    case 'kuasa_pengecekan_sertipikat':
+      await generateKuasaPengecekanSertipikatDocx(project, ppatData, docItem);
+      break;
+    case 'kuasa_znt':
+      await generateKuasaZNTDocx(project, ppatData, docItem);
       break;
     case 'pakta_integritas':
       await generatePaktaIntegritasDocx(project, ppatData, docItem);

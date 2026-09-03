@@ -563,10 +563,16 @@ export const PPATDocumentPreviewModal: React.FC<PPATDocumentPreviewModalProps> =
                   </div>
 
                   {/* KLAUSUL KHUSUS DOKUMEN */}
-                  {documentItem.documentType === 'kuasa_migrasi' && (
+                  {(documentItem.documentType === 'kuasa_migrasi' || documentItem.documentType === 'kuasa_pengecekan_sertipikat' || documentItem.documentType === 'kuasa_znt') && (
                     <div className="space-y-4 pt-2 font-serif text-slate-900 text-xs leading-relaxed">
                       <div className="bg-amber-50/50 border border-amber-200 rounded-lg p-3 text-[11px] font-sans text-amber-900 mb-2">
-                        <span className="font-bold">✓ Template Master Docx Kuasa Migrasi:</span> Pihak Pertama diisi otomatis dari Data Pembeli. Pihak Kedua tetap static 100% mengikuti template master.
+                        {documentItem.documentType === 'kuasa_znt' ? (
+                          <><span className="font-bold">✓ Template Master Docx Kuasa Pengecekan ZNT:</span> Pihak Pertama diisi otomatis dari Data Penjual. Pihak Kedua tetap static 100% mengikuti template master.</>
+                        ) : documentItem.documentType === 'kuasa_pengecekan_sertipikat' ? (
+                          <><span className="font-bold">✓ Template Master Docx Kuasa Pengecekan Sertipikat:</span> Pihak Pertama diisi otomatis dari Data Penjual. Pihak Kedua tetap static 100% mengikuti template master.</>
+                        ) : (
+                          <><span className="font-bold">✓ Template Master Docx Kuasa Migrasi:</span> Pihak Pertama diisi otomatis dari Data Pembeli. Pihak Kedua tetap static 100% mengikuti template master.</>
+                        )}
                       </div>
                       <p>Yang bertandatangan di bawah ini :</p>
                       
@@ -574,13 +580,17 @@ export const PPATDocumentPreviewModal: React.FC<PPATDocumentPreviewModalProps> =
                       <div className="pl-4 space-y-1">
                         <div className="grid grid-cols-12 gap-1 text-[12px]">
                           <span className="col-span-3">Nama</span>
-                          <span className="col-span-9 font-semibold">: {(secondParties[0]?.name || secondParty.name || firstParty.name || '-')}</span>
+                          <span className="col-span-9 font-semibold">: {(documentItem.documentType === 'kuasa_pengecekan_sertipikat' || documentItem.documentType === 'kuasa_znt') ? (firstParties[0]?.name || firstParty.name || '-') : (secondParties[0]?.name || secondParty.name || firstParty.name || '-')}</span>
                           <span className="col-span-3">Tempat/Tgl. Lahir</span>
-                          <span className="col-span-9">: {secondParties[0]?.birthPlace ? `${secondParties[0].birthPlace}, ${secondParties[0].birthDate ? formatDateIndo(secondParties[0].birthDate) : ''}` : '-'}</span>
+                          <span className="col-span-9">: {
+                            (documentItem.documentType === 'kuasa_pengecekan_sertipikat' || documentItem.documentType === 'kuasa_znt')
+                              ? (firstParties[0]?.birthPlace ? `${firstParties[0].birthPlace}, ${firstParties[0].birthDate ? formatDateIndo(firstParties[0].birthDate) : ''}` : (firstParty.birthPlace ? `${firstParty.birthPlace}, ${firstParty.birthDate ? formatDateIndo(firstParty.birthDate) : ''}` : '-'))
+                              : (secondParties[0]?.birthPlace ? `${secondParties[0].birthPlace}, ${secondParties[0].birthDate ? formatDateIndo(secondParties[0].birthDate) : ''}` : '-')
+                          }</span>
                           <span className="col-span-3">Pekerjaan</span>
-                          <span className="col-span-9">: {secondParties[0]?.job || secondParty.job || '-'}</span>
+                          <span className="col-span-9">: {(documentItem.documentType === 'kuasa_pengecekan_sertipikat' || documentItem.documentType === 'kuasa_znt') ? (firstParties[0]?.job || firstParty.job || '-') : (secondParties[0]?.job || secondParty.job || '-')}</span>
                           <span className="col-span-3">Alamat</span>
-                          <span className="col-span-9">: {formatFullPartyAddress(secondParties[0] || secondParty) || '-'}</span>
+                          <span className="col-span-9">: {formatFullPartyAddress((documentItem.documentType === 'kuasa_pengecekan_sertipikat' || documentItem.documentType === 'kuasa_znt') ? (firstParties[0] || firstParty) : (secondParties[0] || secondParty)) || '-'}</span>
                         </div>
                       </div>
                       <p className="font-mono text-[11px] text-slate-500 overflow-hidden whitespace-nowrap">
@@ -611,7 +621,7 @@ export const PPATDocumentPreviewModal: React.FC<PPATDocumentPreviewModalProps> =
                       </div>
 
                       <p className="text-justify leading-relaxed">
-                        Untuk menghadap, mengurus dan menandatangani proses pengurusan Migrasi Sertipikat Elektronik untuk {obj.certificateType || 'Sertipikat Hak Milik'} {obj.certificateNumber || '651'}/Desa {formatCleanVillage(obj.village) || 'Mekarwangi'} seluas kurang lebih {obj.landArea || 167} m2 ( {obj.landArea ? terbilang(Number(obj.landArea)).trim() + ' meter persegi' : 'seratus enam puluh tujuh meter persegi'} ), yang terletak di :
+                        Untuk menghadap, mengurus dan menandatangani proses pengurusan {documentItem.documentType === 'kuasa_znt' ? 'Pengecekan Zona Nilai Tanah (ZNT)' : documentItem.documentType === 'kuasa_pengecekan_sertipikat' ? 'Pengecekan Sertipikat' : 'Migrasi Sertipikat Elektronik'} untuk {obj.certificateType || 'Sertipikat Hak Milik'} {obj.certificateNumber || '651'}/Desa {formatCleanVillage(obj.village) || 'Mekarwangi'} seluas kurang lebih {obj.landArea || 167} m2 ( {obj.landArea ? terbilang(Number(obj.landArea)).trim() + ' meter persegi' : 'seratus enam puluh tujuh meter persegi'} ), yang terletak di :
                       </p>
 
                       <div className="pl-6 space-y-1 text-[12px]">
@@ -719,7 +729,7 @@ export const PPATDocumentPreviewModal: React.FC<PPATDocumentPreviewModalProps> =
                     </div>
                   )}
 
-                  {documentItem.documentType === 'kuasa_migrasi' ? (
+                  {(documentItem.documentType === 'kuasa_migrasi' || documentItem.documentType === 'kuasa_pengecekan_sertipikat' || documentItem.documentType === 'kuasa_znt') ? (
                     <>
                       {/* Tanggal dan Lokasi */}
                       <div className="text-right pt-4">
@@ -727,7 +737,7 @@ export const PPATDocumentPreviewModal: React.FC<PPATDocumentPreviewModalProps> =
                         <p className="mr-4">Yang membuat pernyataan;</p>
                       </div>
 
-                      {/* Kolom Tanda Tangan Kuasa Migrasi */}
+                      {/* Kolom Tanda Tangan Kuasa */}
                       <div className="grid grid-cols-2 gap-6 pt-4 text-center">
                         <div className="flex flex-col items-center">
                           <p className="font-bold">PIHAK KEDUA</p>
@@ -745,7 +755,7 @@ export const PPATDocumentPreviewModal: React.FC<PPATDocumentPreviewModalProps> =
                             (Meterai Rp 10.000)
                           </div>
                           <p className="font-bold underline decoration-1 underline-offset-4">
-                            ( {(secondParties[0]?.name || secondParty.name || firstParty.name || '-')} )
+                            ( {(documentItem.documentType === 'kuasa_pengecekan_sertipikat' || documentItem.documentType === 'kuasa_znt') ? (firstParties[0]?.name || firstParty.name || '-') : (secondParties[0]?.name || secondParty.name || firstParty.name || '-')} )
                           </p>
                         </div>
                       </div>

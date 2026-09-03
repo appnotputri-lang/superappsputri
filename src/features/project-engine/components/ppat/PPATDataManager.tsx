@@ -33,7 +33,11 @@ export const PPATDataManager: React.FC<PPATDataManagerProps> = ({
         firstParties: project.ppatData.firstParties?.length > 0 ? project.ppatData.firstParties : [createDefaultParty('Pihak Pertama')],
         secondParties: project.ppatData.secondParties?.length > 0 ? project.ppatData.secondParties : [createDefaultParty('Pihak Kedua')],
         object: project.ppatData.object || createDefaultObject(),
-        notes: project.ppatData.notes || ''
+        notes: project.ppatData.notes || '',
+        nomorAkta: project.ppatData.nomorAkta || '',
+        tahunAkta: project.ppatData.tahunAkta || String(new Date().getFullYear()),
+        tanggalAkta: project.ppatData.tanggalAkta || '',
+        documents: project.ppatData.documents || []
       };
     }
 
@@ -66,7 +70,10 @@ export const PPATDataManager: React.FC<PPATDataManagerProps> = ({
       firstParties: [initFirstParty],
       secondParties: [createDefaultParty('Pihak Kedua')],
       object: createDefaultObject(),
-      notes: ''
+      notes: '',
+      nomorAkta: '',
+      tahunAkta: String(new Date().getFullYear()),
+      tanggalAkta: ''
     };
   });
 
@@ -679,6 +686,51 @@ export const PPATDataManager: React.FC<PPATDataManagerProps> = ({
                   <p className="text-[10px] font-bold text-emerald-600">
                     Rp {(ppatData.object.transactionValue || 0).toLocaleString('id-ID')}
                   </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Data Akta PPAT */}
+            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2">
+                <FileText className="w-4 h-4 text-purple-600" />
+                Data Akta PPAT (Akta Jual Beli / Dasar Perolehan)
+              </h4>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-600">Nomor Akta</label>
+                  <input
+                    type="text"
+                    value={ppatData.nomorAkta || ''}
+                    onChange={(e) => setPpatData(prev => ({ ...prev, nomorAkta: e.target.value }))}
+                    placeholder="Contoh: 01"
+                    className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg focus:ring-1 focus:ring-purple-500 focus:bg-white font-semibold text-slate-900"
+                  />
+                  <p className="text-[10px] text-slate-500">
+                    Akta Jual Beli Nomor <span className="font-bold text-slate-800">{ppatData.nomorAkta || '...'}</span>
+                  </p>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-600">Tahun Akta</label>
+                  <input
+                    type="text"
+                    value={ppatData.tahunAkta || ''}
+                    onChange={(e) => setPpatData(prev => ({ ...prev, tahunAkta: e.target.value }))}
+                    placeholder="Contoh: 2026"
+                    className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg focus:ring-1 focus:ring-purple-500 focus:bg-white font-medium"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-600">Tanggal Akta</label>
+                  <input
+                    type="date"
+                    value={ppatData.tanggalAkta || ''}
+                    onChange={(e) => setPpatData(prev => ({ ...prev, tanggalAkta: e.target.value }))}
+                    className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg focus:ring-1 focus:ring-purple-500 focus:bg-white font-medium"
+                  />
                 </div>
               </div>
             </div>

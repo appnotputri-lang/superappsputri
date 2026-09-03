@@ -227,6 +227,9 @@ export interface PPATData {
   secondParties: PPATParty[]; // Pihak Kedua / Pembeli / Penerima Hak / Ahli Waris
   object: PPATObjectData;
   notes?: string;
+  nomorAkta?: string;
+  tahunAkta?: string;
+  tanggalAkta?: string;
   documents?: PPATDocumentItem[]; // Multi-document storage per PPAT project
   updatedAt?: string;
 }
