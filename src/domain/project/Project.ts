@@ -112,6 +112,123 @@ export interface Party {
   status: string; // Aktif, Nonaktif, dsb
 }
 
+export interface PPATParty {
+  id: string;
+  name: string;
+  nik?: string;
+  birthPlace?: string; // Tempat Lahir
+  birthDate?: string; // Tanggal Lahir
+  job?: string;
+  address?: string;
+  rt?: string;
+  rw?: string;
+  village?: string; // Kelurahan / Desa
+  district?: string; // Kecamatan
+  city?: string;
+  phone?: string;
+  isLegalEntity?: boolean; // If PT / CV / Yayasan / Badan Hukum
+  companyName?: string;
+  companyAddress?: string;
+  companyNib?: string;
+  companyNpwp?: string;
+  representativeName?: string;
+  representativeTitle?: string;
+  // Persetujuan Suami / Istri (Spouse Consent)
+  hasSpouseConsent?: boolean; // Pilihan persetujuan suami/istri
+  spouseConsentType?: 'suami' | 'istri' | string; // Persetujuan dari Suami / Istri
+  spouseName?: string; // Nama Suami / Istri
+  spouseNik?: string; // NIK KTP Suami / Istri
+  spouseBirthPlace?: string; // Tempat Lahir Suami / Istri
+  spouseBirthDate?: string; // Tanggal Lahir Suami / Istri
+  spouseJob?: string; // Pekerjaan Suami / Istri
+  spouseAddress?: string; // Alamat Suami / Istri
+  spousePhone?: string; // No. Telepon / HP Suami / Istri
+}
+
+export interface PPATObjectData {
+  nop?: string; // Nomor Objek Pajak (NOP)
+  nib?: string; // Nomor Identifikasi Bidang Tanah (NIB)
+  spptName?: string; // Nama yang tercantum pada SPPT PBB
+  holderName?: string; // Nama Pemegang Hak
+  location?: string; // Letak tanah dan/atau bangunan
+  rt?: string;
+  rw?: string;
+  village?: string; // Desa / Kelurahan
+  district?: string; // Kecamatan
+  city?: string; // Kabupaten / Kota (e.g. Bandung Barat)
+  regency?: string; // Kabupaten
+  documentType?: string; // SHM, HGB, Hak Pakai, Girik / Warkah, dll.
+  certificateType?: string; // SHM, HGB, Hak Pakai, Girik, dll.
+  certificateNumber?: string; // Nomor Sertifikat / Dokumen
+  // Surat Ukur / Gambar Situasi
+  measurementDocType?: 'Surat Ukur' | 'Gambar Situasi' | 'NIB / Peta Bidang' | string; // Pilihan Surat Ukur / Gambar Situasi
+  measurementDocNumber?: string; // Nomor Surat Ukur / Gambar Situasi
+  measurementDocDate?: string; // Tanggal Surat Ukur / Gambar Situasi
+  landArea?: number; // Luas Tanah (m2)
+  buildingArea?: number; // Luas Bangunan (m2)
+  njop?: number; // Nilai NJOP (Rp)
+  transactionDate?: string; // Tanggal Transaksi / Perolehan
+  transactionStatus?: 'telah' | 'akan' | string; // Status Transaksi (Telah / Akan)
+  transactionValue?: number; // Nilai Transaksi / Pengakuan Nilai Perolehan (Rp)
+  persil?: string; // Persil (Girik/Warkah)
+  kohir?: string; // Kohir (Girik/Warkah)
+  courtDecisionNumber?: string; // Nomor Putusan Pengadilan / Lelang / Surat Keputusan
+  courtDecisionDate?: string;
+  boundaries?: {
+    north?: string;
+    south?: string;
+    east?: string;
+    west?: string;
+  };
+  northBoundary?: string;
+  southBoundary?: string;
+  eastBoundary?: string;
+  westBoundary?: string;
+}
+
+export type PPATDocumentCategory = 'surat' | 'akta' | 'lainnya';
+
+export interface PPATDocumentItem {
+  id: string;
+  projectId?: string;
+  title: string;
+  category: PPATDocumentCategory;
+  documentType: string; // e.g. 'surat_pernyataan', 'pakta_integritas', 'surat_persetujuan_keluarga', 'surat_kuasa_ppat', 'surat_tidak_sengketa', 'surat_keterangan_nilai_pajak', 'akta_ajb', etc.
+  typeId?: string;
+  status: 'draft' | 'final';
+  createdAt: string;
+  updatedAt: string;
+  letterNumber?: string;
+  letterDate?: string;
+  letterLocation?: string;
+  notes?: string;
+  // Specific document custom metadata or clause overrides:
+  specificData?: {
+    purpose?: string;
+    specialClauses?: string;
+    agreedPrice?: number;
+    spouseConsentName?: string;
+    spouseConsentNik?: string;
+    spouseRelation?: string;
+    attorneyName?: string;
+    attorneyNik?: string;
+    attorneyAddress?: string;
+    witnesses?: Array<{ name: string; nik: string; address?: string }>;
+    customBodyText?: string;
+    [key: string]: any;
+  };
+}
+
+export interface PPATData {
+  transactionType: string; // Jual Beli, Hibah, Waris, Tukar-Menukar, Inbreng, dll.
+  firstParties: PPATParty[]; // Pihak Pertama / Penjual / Pelepas Hak / Pewaris
+  secondParties: PPATParty[]; // Pihak Kedua / Pembeli / Penerima Hak / Ahli Waris
+  object: PPATObjectData;
+  notes?: string;
+  documents?: PPATDocumentItem[]; // Multi-document storage per PPAT project
+  updatedAt?: string;
+}
+
 export type ProjectActivityType = 'comment' | 'task_created' | 'task_completed' | 'issue' | 'file_added' | 'status_changed' | 'system' | 'mention';
 
 export interface ProjectActivity {
@@ -184,4 +301,5 @@ export interface Project {
   lastActivityAt?: any;
   lastActivityType?: string;
   lastActivityText?: string;
+  ppatData?: PPATData;
 }

@@ -766,7 +766,7 @@ export interface DepositNote {
   updatedAt?: string;
 }
 
-export type SidebarTabId = 'beranda' | 'company_profile' | 'cv_profile' | 'notulen' | 'pendirian' | 'rupst' | 'perbaikan' | 'draft_akta_rups' | 'panduan' | 'kbli_mapping' | 'saran_kbli' | 'import_kbli' | 'laporan' | 'whatsapp_settings' | 'projects' | 'project_detail' | 'user_management' | 'notary_reports' | 'invoice' | 'quotation' | 'deeds' | 'private_deeds' | 'protest_cheque' | 'outgoing_mail' | 'incoming_mail' | 'stamp_settings' | 'delivery' | 'receipt' | 'products' | 'settings' | 'deposit_note';
+export type SidebarTabId = 'beranda' | 'company_profile' | 'cv_profile' | 'notulen' | 'pendirian' | 'rupst' | 'perbaikan' | 'draft_akta_rups' | 'panduan' | 'kbli_mapping' | 'saran_kbli' | 'import_kbli' | 'laporan' | 'whatsapp_settings' | 'projects' | 'project_detail' | 'user_management' | 'notary_reports' | 'invoice' | 'quotation' | 'deeds' | 'private_deeds' | 'protest_cheque' | 'outgoing_mail' | 'incoming_mail' | 'stamp_settings' | 'delivery' | 'receipt' | 'products' | 'settings' | 'deposit_note' | 'ppat';
 
 // ==========================================
 // PENDIRIAN CV (PERSEKUTUAN KOMANDITER) TYPES

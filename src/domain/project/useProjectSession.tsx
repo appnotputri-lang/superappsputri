@@ -8,6 +8,8 @@ export interface ProjectSessionContextType {
   setEditingRupstId: (id: string | null) => void;
   editingPendirianId: string | null;
   setEditingPendirianId: (id: string | null) => void;
+  editingPPATId: string | null;
+  setEditingPPATId: (id: string | null) => void;
   editingProfileId: string | null;
   setEditingProfileId: (id: string | null) => void;
   selectedProjectId: string | null;
@@ -31,6 +33,7 @@ export function ProjectSessionProvider({ children }: { children: ReactNode }) {
   const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
   const [editingRupstId, setEditingRupstId] = useState<string | null>(null);
   const [editingPendirianId, setEditingPendirianId] = useState<string | null>(null);
+  const [editingPPATId, setEditingPPATId] = useState<string | null>(null);
   const [editingProfileId, setEditingProfileId] = useState<string | null>(null);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [activeProjectContext, setActiveProjectContext] = useState<string | null>(null);
@@ -72,6 +75,8 @@ export function ProjectSessionProvider({ children }: { children: ReactNode }) {
       setEditingRupstId,
       editingPendirianId,
       setEditingPendirianId,
+      editingPPATId,
+      setEditingPPATId,
       editingProfileId,
       setEditingProfileId,
       selectedProjectId,

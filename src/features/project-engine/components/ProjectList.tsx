@@ -740,6 +740,56 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
         projectPayload.meetingSubject = meetingSubject;
       }
 
+      if (projectCategory === 'PPAT' || jobType === 'akta_ppat' || jobType === 'ppat') {
+        const isCorporate = fullProfile.clientType !== 'PERORANGAN';
+        const repItem = (fullProfile.newManagementItems && fullProfile.newManagementItems.length > 0)
+          ? fullProfile.newManagementItems[0]
+          : (fullProfile.oldManagementItems && fullProfile.oldManagementItems.length > 0
+            ? fullProfile.oldManagementItems[0]
+            : null);
+        const initialParty = {
+          id: 'party_1_' + Math.random().toString(36).substring(7),
+          name: fullProfile.companyName || '',
+          isLegalEntity: isCorporate,
+          companyName: isCorporate ? fullProfile.companyName : undefined,
+          companyAddress: isCorporate ? (fullProfile.fullAddress || '') : undefined,
+          companyNib: isCorporate ? (fullProfile.npwp || '') : undefined,
+          companyNpwp: isCorporate ? (fullProfile.npwp || '') : undefined,
+          address: fullProfile.fullAddress || '',
+          phone: fullProfile.phoneNumber || '',
+          rt: (fullProfile.newAddress as any)?.rt || (fullProfile.oldAddress as any)?.rt || '',
+          rw: (fullProfile.newAddress as any)?.rw || (fullProfile.oldAddress as any)?.rw || '',
+          village: (fullProfile.newAddress as any)?.kelurahan || (fullProfile.oldAddress as any)?.kelurahan || '',
+          district: (fullProfile.newAddress as any)?.kecamatan || (fullProfile.oldAddress as any)?.kecamatan || '',
+          city: fullProfile.domicile || (fullProfile.newAddress as any)?.city || (fullProfile.oldAddress as any)?.city || 'Bandung Barat',
+          representativeName: isCorporate && repItem ? repItem.name : '',
+          representativeTitle: isCorporate && repItem ? (repItem.position || 'Direktur') : ''
+        };
+
+        projectPayload.ppatData = {
+          transactionType: projectType || 'Akta Jual Beli (AJB)',
+          firstParties: [initialParty],
+          secondParties: [],
+          object: {
+            nop: '',
+            spptName: '',
+            location: '',
+            rt: '',
+            rw: '',
+            village: '',
+            district: '',
+            city: 'Bandung Barat',
+            documentType: 'SHM',
+            certificateNumber: '',
+            landArea: 0,
+            buildingArea: 0,
+            njop: 0,
+            transactionDate: projectDate || new Date().toISOString().split('T')[0],
+            transactionValue: 0
+          }
+        };
+      }
+
       await ProjectService.createProject(projectPayload);
 
       // Invalidate cache if any

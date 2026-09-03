@@ -70,6 +70,13 @@ export const TAB_ACCENTS: Record<SidebarTabId, {
     hoverBg: 'hover:bg-pink-50/40 hover:text-pink-950',
     indicatorBg: 'bg-pink-600'
   },
+  ppat: {
+    iconColor: 'text-amber-600',
+    textColor: 'text-amber-900',
+    bgColor: 'bg-amber-50/70',
+    hoverBg: 'hover:bg-amber-50/40 hover:text-amber-950',
+    indicatorBg: 'bg-amber-600'
+  },
   kbli_mapping: {
     iconColor: 'text-blue-900',
     textColor: 'text-blue-950',
@@ -259,13 +266,15 @@ export const TAB_TO_PATH: Record<string, string> = {
   'stamp_settings': '/stamp-settings',
   'delivery': '/surat-jalan',
   'receipt': '/tanda-terima',
-  'deposit_note': '/deposit_note'
+  'deposit_note': '/deposit_note',
+  'ppat': '/ppat'
 };
 
 export const PATH_TO_TAB: Record<string, SidebarTabId> = {
   ...Object.fromEntries(
     Object.entries(TAB_TO_PATH).map(([tab, path]) => [path, tab as SidebarTabId])
   ),
+  '/ppat': 'ppat',
   '/clients': 'company_profile',
   '/profile': 'company_profile',
   '/profile-cv': 'company_profile',

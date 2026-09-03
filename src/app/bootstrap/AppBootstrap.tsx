@@ -8,6 +8,7 @@ interface AppBootstrapProps {
   setEditingRupstId: (id: string | null) => void;
   setEditingProjectId: (id: string | null) => void;
   setEditingPendirianId: (id: string | null) => void;
+  setEditingPPATId?: (id: string | null) => void;
   setActiveProjectJobType: (jobType: string | null) => void;
   setPresetLoadedForProject: (id: string | null) => void;
 }
@@ -18,6 +19,7 @@ export const AppBootstrap: React.FC<AppBootstrapProps> = ({
   setEditingRupstId,
   setEditingProjectId,
   setEditingPendirianId,
+  setEditingPPATId,
   setActiveProjectJobType,
   setPresetLoadedForProject
 }) => {
@@ -42,6 +44,8 @@ export const AppBootstrap: React.FC<AppBootstrapProps> = ({
           setEditingProjectId(docId);
         } else if (location.pathname === '/pendirian') {
           setEditingPendirianId(docId);
+        } else if (location.pathname === '/ppat' && setEditingPPATId) {
+          setEditingPPATId(docId);
         }
       } else {
         if (location.pathname === '/rupst') {
@@ -50,12 +54,14 @@ export const AppBootstrap: React.FC<AppBootstrapProps> = ({
           setEditingProjectId('new');
         } else if (location.pathname === '/pendirian') {
           setEditingPendirianId('new');
+        } else if (location.pathname === '/ppat' && setEditingPPATId) {
+          setEditingPPATId('new');
         }
       }
       
       navigate(location.pathname, { replace: true });
     }
-  }, [location.search, location.pathname, navigate, setActiveProjectContext, setEditingRupstId, setEditingProjectId, setEditingPendirianId]);
+  }, [location.search, location.pathname, navigate, setActiveProjectContext, setEditingRupstId, setEditingProjectId, setEditingPendirianId, setEditingPPATId]);
 
   // 2. Preset reset listener
   useEffect(() => {

@@ -163,6 +163,31 @@ export class ProjectService {
         }
       }
 
+      // If PPAT, automatically create default task checklist for PPAT workflow
+      if (projectData.jobType === 'akta_ppat' || projectData.jobType === 'ppat' || projectData.projectCategory === 'PPAT') {
+        const defaultPPATTaskTitles = [
+          "Verifikasi Identitas & Data Para Pihak (KTP, KK, NPWP / NIB Badan Usaha)",
+          "Data Objek Pajak & PBB (NOP, SPPT, Bukti Lunas PBB)",
+          "Pemeriksaan Dokumen & Pengecekan Sertipikat BPN",
+          "Validasi Pajak Penghasilan (PPh Final Penjual / Pelepas Hak)",
+          "Validasi Pajak BPHTB (Pembeli / Penerima Hak)",
+          "Penyusunan Akta PPAT & Berkas Pendukung (Surat Pernyataan, Pakta Integritas)",
+          "Penandatanganan Akta di Hadapan PPAT & Saksi-Saksi",
+          "Pendaftaran Balik Nama / Peralihan Hak di Kantor Pertanahan",
+          "Penyelesaian & Penyerahan Sertipikat"
+        ];
+        for (const title of defaultPPATTaskTitles) {
+          try {
+            await this.createTask(projectId, {
+              title,
+              status: 'pending'
+            });
+          } catch (e) {
+            console.warn("[ProjectService] Failed to create default PPAT task during initialization:", title, e);
+          }
+        }
+      }
+
       // Ensure the project folder in Google Drive
       try {
         const { auth } = await import('../lib/firebase');

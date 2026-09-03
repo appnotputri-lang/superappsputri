@@ -60,7 +60,7 @@ export const renderAppRoute = (currentTab: string, props: any) => {
     return renderClientRoute(props);
   }
 
-  if (currentTab === 'notulen' || currentTab === 'rupst' || currentTab === 'pendirian' || currentTab === 'perbaikan') {
+  if (currentTab === 'notulen' || currentTab === 'rupst' || currentTab === 'pendirian' || currentTab === 'perbaikan' || currentTab === 'ppat') {
     return renderDocumentRoute(currentTab, props);
   }
 

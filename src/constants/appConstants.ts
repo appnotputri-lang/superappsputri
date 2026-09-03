@@ -24,6 +24,20 @@ export const INITIAL_RESOLUTIONS: ResolutionFlags = {
   companyNameChange: false
 };
 
+export const PPAT_TRANSACTION_TYPES = [
+  'Akta Jual Beli (AJB)',
+  'Akta Hibah',
+  'Akta Pembagian Hak Bersama (APHB)',
+  'Akta Pemberian Hak Tanggungan (APHT)',
+  'Surat Kuasa Membebankan Hak Tanggungan (SKMHT)',
+  'Akta Tukar Menukar',
+  'Akta Pemasukan ke Dalam Perusahaan (Inbreng)',
+  'Akta Pemberian Hak Pakai / Hak Guna Bangunan',
+  'Pengecekan Sertipikat BPN',
+  'Balik Nama Sertipikat',
+  'Roya Hak Tanggungan'
+];
+
 export const INITIAL_MANUAL_REP: Shareholder = {
   id: 'manual-rep',
   salutation: 'Tuan',
@@ -222,12 +236,23 @@ export const PROJECT_TYPES: Record<ProjectCategory, string[]> = {
   [ProjectCategory.MEETING]: ['RUPST', 'RUPS-LB', 'PKPS RUPST', 'PKPS RUPS-LB', 'Rapat Yayasan', 'Rapat Perkumpulan'],
   [ProjectCategory.PPAT]: [
     'Akta Jual Beli (AJB)',
-    'Akta Hibah',
     'Akta Tukar Menukar',
+    'Akta Hibah',
+    'Akta Hibah Wasiat',
+    'Akta Waris (Peralihan Hak Karena Waris)',
+    'Akta Pemasukan Ke Dalam Perusahaan (Inbreng)',
+    'Akta Pemisahan Hak Yang Mengakibatkan Peralihan',
+    'Akta Penggabungan Usaha (Merger)',
+    'Akta Peleburan Usaha (Konsolidasi)',
+    'Akta Pemekaran Usaha (Spin-off)',
+    'Akta Hadiah',
+    'Akta Penunjukan Pembeli Dalam Lelang',
+    'Akta Pelaksanaan Putusan Hakim Berkekuatan Hukum Tetap',
+    'Akta Pemberian Hak Baru Atas Tanah (Kelanjutan Pelepasan Hak)',
+    'Akta Pemberian Hak Baru Atas Tanah (Di Luar Pelepasan Hak)',
     'Akta Pembagian Hak Bersama (APHB)',
     'Akta Pemberian Hak Tanggungan (APHT)',
     'Akta Surat Kuasa Memasang Hak Tanggungan (SKMHT)',
-    'Akta Pemasukan Ke Dalam Perusahaan (Inbreng)',
     'Akta Pemberian HGB / Hak Pakai atas Tanah Hak Milik',
     'Akta Pelepasan Hak Atas Tanah',
     'Akta Kustom',

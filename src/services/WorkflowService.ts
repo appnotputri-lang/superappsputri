@@ -93,14 +93,14 @@ const DEFAULT_PEMBUBARAN_CV_STEPS = [
 ];
 
 const DEFAULT_PPAT_STEPS = [
-  "Pemeriksaan Sertipikat (Pengecekan BPN)",
-  "Verifikasi Pajak (PPH & BPHTB)",
-  "Drafting Akta PPAT",
-  "Review Draft Akta",
-  "ACC Draft Akta",
-  "Penandatanganan Akta",
-  "Proses Balik Nama / Pendaftaran BPN",
-  "Sertipikat & Berkas Selesai"
+  "Data Pihak",
+  "Data Objek",
+  "Pemeriksaan Dokumen",
+  "Pajak / BPHTB",
+  "Dokumen PPAT",
+  "Penandatanganan",
+  "Proses Balik Nama / Penyelesaian",
+  "Selesai"
 ];
 
 export const STATIC_DEFAULT_WORKFLOWS: Workflow[] = [
@@ -150,7 +150,13 @@ export const STATIC_DEFAULT_WORKFLOWS: Workflow[] = [
     id: "akta_ppat",
     name: "Akta PPAT",
     steps: DEFAULT_PPAT_STEPS,
-    description: "Alur kerja pembuatan Akta PPAT meliputi pengecekan sertipikat di BPN, validasi pajak PPH & BPHTB, penandatanganan akta, hingga pendaftaran balik nama."
+    description: "Alur kerja pembuatan Akta PPAT meliputi Data Pihak, Data Objek, Pemeriksaan Dokumen, Pajak / BPHTB, Dokumen PPAT, Penandatanganan, Proses Balik Nama / Penyelesaian, dan Selesai."
+  },
+  {
+    id: "ppat",
+    name: "Akta PPAT",
+    steps: DEFAULT_PPAT_STEPS,
+    description: "Alur kerja pembuatan Akta PPAT meliputi Data Pihak, Data Objek, Pemeriksaan Dokumen, Pajak / BPHTB, Dokumen PPAT, Penandatanganan, Proses Balik Nama / Penyelesaian, dan Selesai."
   },
   {
     id: "sirkuler",
@@ -180,7 +186,11 @@ export class WorkflowService {
    * Returns a static workflow definition by ID instantly from memory.
    */
   static getStaticWorkflow(workflowId: string): Workflow | null {
-    return STATIC_DEFAULT_WORKFLOWS.find((w) => w.id === workflowId) || null;
+    const id = (workflowId || '').toLowerCase().trim();
+    if (id === 'ppat' || id === 'akta_ppat' || id.includes('ppat')) {
+      return STATIC_DEFAULT_WORKFLOWS.find((w) => w.id === 'akta_ppat') || null;
+    }
+    return STATIC_DEFAULT_WORKFLOWS.find((w) => w.id.toLowerCase() === id) || null;
   }
 
   /**

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Project, DocumentReference, ClientSnapshot, ProjectChangeSnapshot, Party } from '../../../domain/project/Project';
+import { Project, DocumentReference, ClientSnapshot, ProjectChangeSnapshot, Party, PPATDocumentItem, PPATData } from '../../../domain/project/Project';
 import { ProjectService } from '../../../services/ProjectService';
 import { PartiesManager } from './PartiesManager';
 import { CompanyProfile, UserProfile, AmendmentDeed, SkSpDocument, CompanyRevision } from '../../../../types';
@@ -25,6 +25,12 @@ import { formatCompanyName } from '../../../lib/formatter';
 import { AuthService } from '../../../services/AuthService';
 import { getApiUrl } from '../../../lib/api';
 import { compareCompanyDocumentDiff } from '../../../lib/diffUtils';
+import { PPATWorkflowStepsBar } from './ppat/PPATWorkflowStepsBar';
+import { PPATDataManager } from './ppat/PPATDataManager';
+import { PPATDocumentGenerator } from './ppat/PPATDocumentGenerator';
+import { PPATProjectDocumentsSection } from './ppat/PPATProjectDocumentsSection';
+import { PPATDocumentEditor } from './ppat/PPATDocumentEditor';
+import { PPATDocTypeConfig } from './ppat/ppatDocTypes';
 
 interface UploadedDocument {
   id: string;
@@ -67,7 +73,9 @@ import {
   UploadCloud,
   RefreshCw,
   Ban,
-  FolderPlus
+  FolderPlus,
+  Landmark,
+  Edit3
 } from 'lucide-react';
 
 const getDocKinds = (jobType: string): { kind: 'notulen' | 'pernyataan' | 'akta' | 'pendirian'; label: string }[] => {
@@ -293,7 +301,95 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
   };
 
   // Pendirian Work Mode States
-  const [workMode, setWorkMode] = useState<'default' | 'pendirian' | 'pendirian_cv' | 'sewa_menyewa'>('default');
+  const [workMode, setWorkMode] = useState<'default' | 'pendirian' | 'pendirian_cv' | 'sewa_menyewa' | 'ppat_base_data' | 'ppat_doc_editor'>('default');
+  const [activePPATDoc, setActivePPATDoc] = useState<PPATDocumentItem | null>(null);
+  const [isPPATSelectDocOpen, setIsPPATSelectDocOpen] = useState(false);
+
+  const handleSavePPATDocument = async (savedDoc: PPATDocumentItem, updatedPPATData: PPATData) => {
+    if (!project) return;
+    try {
+      const existingDocs = updatedPPATData.documents || project.ppatData?.documents || [];
+      const docIndex = existingDocs.findIndex(d => d.id === savedDoc.id);
+      let newDocs: PPATDocumentItem[];
+      if (docIndex >= 0) {
+        newDocs = [...existingDocs];
+        newDocs[docIndex] = savedDoc;
+      } else {
+        newDocs = [savedDoc, ...existingDocs];
+      }
+
+      const finalPPATData: PPATData = {
+        ...updatedPPATData,
+        documents: newDocs,
+        updatedAt: new Date().toISOString()
+      };
+
+      const cleanedData = cleanUndefined(finalPPATData);
+
+      await updateDoc(doc(db, 'projects', projectId), {
+        ppatData: cleanedData,
+        updatedAt: new Date().toISOString()
+      });
+
+      await ProjectService.addTimeline(projectId, {
+        status: project.status,
+        title: `Dokumen ${savedDoc.title} Disimpan`,
+        description: `Dokumen PPAT "${savedDoc.title}" (${savedDoc.status.toUpperCase()}) berhasil disimpan oleh ${currentUser.name || currentUser.email}`,
+        createdBy: currentUser.email
+      });
+
+      setProject({
+        ...project,
+        ppatData: finalPPATData,
+        updatedAt: new Date().toISOString()
+      });
+      setActivePPATDoc(null);
+      setWorkMode('default');
+    } catch (err: any) {
+      console.error('Error saving PPAT document:', err);
+      alert('Gagal menyimpan dokumen: ' + (err.message || err));
+      throw err;
+    }
+  };
+
+  const handleDeletePPATDocument = async (docId: string) => {
+    if (!project || !project.ppatData) return;
+    if (!confirm('Apakah Anda yakin ingin menghapus dokumen ini dari proyek?')) return;
+    try {
+      const existingDocs = project.ppatData.documents || [];
+      const targetDoc = existingDocs.find(d => d.id === docId);
+      const filtered = existingDocs.filter(d => d.id !== docId);
+      const updatedPPATData: PPATData = {
+        ...project.ppatData,
+        documents: filtered,
+        updatedAt: new Date().toISOString()
+      };
+
+      await updateDoc(doc(db, 'projects', projectId), {
+        ppatData: cleanUndefined(updatedPPATData),
+        updatedAt: new Date().toISOString()
+      });
+
+      if (targetDoc) {
+        await ProjectService.addTimeline(projectId, {
+          status: project.status,
+          title: `Dokumen ${targetDoc.title} Dihapus`,
+          description: `Dokumen PPAT "${targetDoc.title}" dihapus dari proyek oleh ${currentUser.name || currentUser.email}`,
+          createdBy: currentUser.email
+        });
+      }
+
+      setProject({
+        ...project,
+        ppatData: updatedPPATData,
+        updatedAt: new Date().toISOString()
+      });
+    } catch (err: any) {
+      console.error('Error deleting PPAT document:', err);
+      alert('Gagal menghapus dokumen: ' + (err.message || err));
+    }
+  };
+
   const [workingPendirianId, setWorkingPendirianId] = useState<string | null>(null);
   const [workingPendirianData, setWorkingPendirianData] = useState<any>(null);
   const [pendirianProfiles, setPendirianProfiles] = useState<any[]>([]);
@@ -1014,7 +1110,32 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
           }
         }
       } else {
-        if (finalTasks.length === 0 && ['rups_lb', 'sirkuler_rupslb'].includes(proj.jobType)) {
+        if (finalTasks.length === 0 && (proj.jobType === 'akta_ppat' || proj.jobType === 'ppat' || proj.projectCategory === 'PPAT')) {
+          const defaultPPATTaskTitles = [
+            "Verifikasi Identitas & Data Para Pihak (KTP, KK, NPWP / NIB Badan Usaha)",
+            "Data Objek Pajak & PBB (NOP, SPPT, Bukti Lunas PBB)",
+            "Pemeriksaan Dokumen & Pengecekan Sertipikat BPN",
+            "Validasi Pajak Penghasilan (PPh Final Penjual / Pelepas Hak)",
+            "Validasi Pajak BPHTB (Pembeli / Penerima Hak)",
+            "Penyusunan Akta PPAT & Berkas Pendukung (Surat Pernyataan, Pakta Integritas)",
+            "Penandatanganan Akta di Hadapan PPAT & Saksi-Saksi",
+            "Pendaftaran Balik Nama / Peralihan Hak di Kantor Pertanahan",
+            "Penyelesaian & Penyerahan Sertipikat"
+          ];
+          const createdTasks: Task[] = [];
+          for (const title of defaultPPATTaskTitles) {
+            try {
+              const newTask = await ProjectService.createTask(projectId, {
+                title,
+                status: 'pending'
+              });
+              if (newTask) createdTasks.push(newTask);
+            } catch (e) {
+              console.error("Failed to create default PPAT task:", title, e);
+            }
+          }
+          finalTasks = createdTasks;
+        } else if (finalTasks.length === 0 && ['rups_lb', 'sirkuler_rupslb'].includes(proj.jobType)) {
           const defaultTaskTitles = ["NOTULEN", "AKTA RUPS LB", "SK/SP", "NPWP", "NIB"];
           const createdTasks: Task[] = [];
           for (const title of defaultTaskTitles) {
@@ -2467,6 +2588,9 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
   );
 
   const isProjectMinuta = (status: string) => {
+    if (project?.jobType === 'akta_ppat' || project?.jobType === 'ppat' || project?.projectCategory === 'PPAT') {
+      return false;
+    }
     const s = status.toLowerCase();
     return s === 'completed' || s === 'archived' || s === 'selesai';
   };
@@ -2499,6 +2623,9 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
 
   const getDisplayedTasks = () => {
     if (!project) return [];
+    if (project.jobType === 'akta_ppat' || project.jobType === 'ppat' || project.projectCategory === 'PPAT') {
+      return tasks;
+    }
     const isMinuta = isProjectMinuta(project.status);
     const MINUTA_TASK_TITLES = [
       "Copy KTP Para Pihak",
@@ -2969,6 +3096,9 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
         return '/rupslb';
       case 'pendirian_pt':
         return '/pendirian';
+      case 'akta_ppat':
+      case 'ppat':
+        return '/ppat';
       default:
         return '/';
     }
@@ -3005,6 +3135,7 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
   }
 
   const isPT = client?.clientType === 'PT' || project.clientSnapshot?.companyType === 'PT';
+  const isPPAT = project.jobType === 'akta_ppat' || project.jobType === 'ppat' || project.projectCategory === 'PPAT';
 
   const isFormType = project && ['rups_lb', 'sirkuler_rupslb', 'rups_t', 'sirkuler'].includes(project.jobType);
   const isFinal = project && (project.status === 'completed' || project.status === 'selesai' || !!project.clientSnapshot || !!project.changeSnapshot);
@@ -3027,9 +3158,16 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
                 <span className="text-xs font-mono font-bold text-slate-400 uppercase bg-slate-100 px-2 py-0.5 rounded">
                   ID: {project.projectId.substring(0, 10)}
                 </span>
-                <span className="px-2.5 py-0.5 text-[11px] font-bold rounded-full bg-blue-50 text-blue-700 border border-blue-200 uppercase tracking-wide">
-                  {workflow?.name || project.jobType}
-                </span>
+                {isPPAT ? (
+                  <span className="px-2.5 py-0.5 text-[11px] font-bold rounded-full bg-amber-50 text-amber-800 border border-amber-300 uppercase tracking-wide flex items-center gap-1.5 shadow-2xs">
+                    <Landmark className="w-3.5 h-3.5 text-amber-600" />
+                    <span>Akta PPAT • {project.projectType || 'Peralihan Hak'}</span>
+                  </span>
+                ) : (
+                  <span className="px-2.5 py-0.5 text-[11px] font-bold rounded-full bg-blue-50 text-blue-700 border border-blue-200 uppercase tracking-wide">
+                    {workflow?.name || project.jobType}
+                  </span>
+                )}
               </div>
               <h1 className="text-xl font-extrabold tracking-tight text-slate-900 mt-1.5 leading-snug">
                 {project.title}
@@ -3096,6 +3234,24 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
                   </button>
                 )}
               </>
+            )}
+            {isPPAT && (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setIsPPATSelectDocOpen(true)}
+                  className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold rounded-lg text-[13px] flex items-center gap-2 transition-all shadow-sm"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>+ Buat Dokumen</span>
+                </button>
+                <button
+                  onClick={() => setWorkMode('ppat_base_data')}
+                  className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg text-[13px] flex items-center gap-2 transition-all border border-slate-200 shadow-2xs"
+                >
+                  <Edit3 className="w-4 h-4 text-slate-600" />
+                  <span>Kelola Master Data PPAT</span>
+                </button>
+              </div>
             )}
             {(project.projectType === 'Pendirian CV' || project.jobType === 'pendirian_cv') && (
               <button
@@ -3421,8 +3577,40 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
               />
             )}
           </div>
+        ) : workMode === 'ppat_base_data' ? (
+          <div className="mt-6">
+            <PPATDataManager
+              project={project}
+              currentUser={currentUser}
+              onBack={() => setWorkMode('default')}
+              onUpdateProject={(updated) => setProject(updated)}
+            />
+          </div>
+        ) : workMode === 'ppat_doc_editor' && activePPATDoc ? (
+          <div className="mt-6">
+            <PPATDocumentEditor
+              project={project}
+              initialDoc={activePPATDoc}
+              currentUser={currentUser}
+              onBack={() => {
+                setActivePPATDoc(null);
+                setWorkMode('default');
+              }}
+              onSave={handleSavePPATDocument}
+            />
+          </div>
         ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="space-y-6">
+          {/* PPAT Workflow Steps Bar */}
+          {isPPAT && workflow?.steps && (
+            <PPATWorkflowStepsBar
+              currentStep={project.currentStep || project.status}
+              steps={workflow.steps}
+              onSelectStep={(step) => setTransitionStatus(step)}
+            />
+          )}
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Column 1 & 2: Main Details & Tasks */}
           <div className="lg:col-span-2 space-y-6">
             {/* Metadata Card */}
@@ -3518,181 +3706,203 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
 
             </div>
 
-            {/* Rule: Legacy Project Banner & Migration Wizard */}
-            {!project.clientSnapshot && !project.changeSnapshot ? (
-              <div className="bg-amber-50 border border-amber-200 rounded-xl p-6 shadow-xs space-y-4">
-                <div className="flex items-start gap-3">
-                  <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5 shrink-0" />
-                  <div>
-                    <h3 className="text-sm font-bold text-amber-900 uppercase tracking-wide">
-                      ⚠️ Proyek Legacy Detect — Snapshot Historis Belum Tersedia
-                    </h3>
-                    <p className="text-[13px] text-amber-700 mt-1 leading-relaxed">
-                      Sistem tidak boleh membuat snapshot historis secara otomatis menggunakan data Master Client saat ini guna melindungi integritas arsip sejarah hukum perusahaan.
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3 bg-white/60 p-3 rounded-lg border border-amber-100">
-                  <span className="text-xs font-mono text-slate-500 font-semibold">Tindakan Diperlukan:</span>
-                  <button
-                    onClick={() => {
-                      setManualName(client?.companyName || project.title);
-                      setManualAddress(client?.fullAddress || '');
-                      setManualCapital(client?.targetCapitalBase || 100000000);
-                      setShowMigrationModal(true);
-                    }}
-                    className="px-4 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-lg shadow-xs transition-colors animate-pulse"
-                  >
-                    Mulai Migration Wizard
-                  </button>
-                </div>
-              </div>
-            ) : null}
-
-            {/* Rule: Immutable Project Snapshot Section */}
-            {(project.clientSnapshot || project.changeSnapshot) ? (
-              <div className="bg-white border border-slate-200/80 rounded-xl p-6 shadow-sm space-y-5">
-                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                  <h2 className="text-[14px] font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
-                    <Briefcase className="w-4 h-4 text-blue-600" />
-                    <span>Snapshot Hukum Proyek (Arsip Immutable)</span>
-                  </h2>
-                  <span className="px-2 py-0.5 text-[10px] bg-slate-100 text-slate-500 border border-slate-200 rounded-full font-mono font-bold uppercase tracking-wider">
-                    Snapshot Active
-                  </span>
-                </div>
-
-                {project.jobType === 'rups_lb' && project.changeSnapshot ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* Before Snapshot */}
-                    <div className="space-y-3 bg-slate-50 p-4 rounded-xl border border-slate-100">
-                      <h3 className="text-xs font-extrabold text-slate-500 uppercase tracking-wider border-b border-slate-200 pb-1.5">
-                        Struktur Sebelum (Before)
-                      </h3>
-                      <div className="space-y-2 text-xs">
-                        <div>
-                          <span className="text-slate-400 font-semibold text-[10px] uppercase tracking-wider">Nama Perusahaan</span>
-                          <p className="font-bold text-slate-850 text-[13px]">{project.changeSnapshot.before.companyName}</p>
-                        </div>
-                        <div>
-                          <span className="text-slate-400 font-semibold text-[10px] uppercase tracking-wider">Alamat Lengkap</span>
-                          <p className="font-medium text-slate-700 text-[12px]">{project.changeSnapshot.before.fullAddress || '-'}</p>
-                        </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                          <div>
-                            <span className="text-slate-400 font-semibold text-[10px] uppercase tracking-wider">Modal Dasar</span>
-                            <p className="font-bold text-slate-800">Rp {project.changeSnapshot.before.authorizedCapital?.toLocaleString('id-ID') || '0'}</p>
-                          </div>
-                          <div>
-                            <span className="text-slate-400 font-semibold text-[10px] uppercase tracking-wider">Modal Disetor</span>
-                            <p className="font-bold text-slate-800">Rp {project.changeSnapshot.before.paidUpCapital?.toLocaleString('id-ID') || '0'}</p>
-                          </div>
-                        </div>
-                        {/* Shareholders before */}
-                        <div className="pt-2 border-t border-slate-150">
-                          <span className="text-slate-450 font-bold text-[10px] uppercase tracking-wider block mb-1">Daftar Pemegang Saham (Before)</span>
-                          {project.changeSnapshot.before.shareholders && project.changeSnapshot.before.shareholders.length > 0 ? (
-                            <div className="space-y-1 max-h-40 overflow-y-auto">
-                              {project.changeSnapshot.before.shareholders.map((sh, idx) => (
-                                <div key={sh.id || idx} className="flex justify-between p-1.5 bg-white border border-slate-100 rounded">
-                                  <span className="font-semibold text-slate-700">{sh.name}</span>
-                                  <span className="font-mono text-slate-600">{sh.sharesOwned?.toLocaleString('id-ID')} lembar</span>
-                                </div>
-                              ))}
-                            </div>
-                          ) : (
-                            <p className="text-slate-400 italic">Tidak ada data</p>
-                          )}
-                        </div>
+            {/* PPAT Custom Engine Sections OR Corporate Snapshot Sections */}
+            {isPPAT ? (
+              <PPATProjectDocumentsSection
+                project={project}
+                currentUser={currentUser}
+                isSelectModalOpenExternal={isPPATSelectDocOpen}
+                setIsSelectModalOpenExternal={setIsPPATSelectDocOpen}
+                onOpenCreateDocument={(docTypeConfig: PPATDocTypeConfig) => {
+                  window.location.href = `/ppat?projectId=${projectId}&type=${docTypeConfig.id}`;
+                }}
+                onEditDocument={(docItem) => {
+                  window.location.href = `/ppat?id=${docItem.id}&projectId=${projectId}`;
+                }}
+                onDeleteDocument={handleDeletePPATDocument}
+                onManageBaseData={() => {
+                  setWorkMode('ppat_base_data');
+                }}
+              />
+            ) : (
+              <>
+                {/* Rule: Legacy Project Banner & Migration Wizard */}
+                {!project.clientSnapshot && !project.changeSnapshot ? (
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-6 shadow-xs space-y-4">
+                    <div className="flex items-start gap-3">
+                      <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5 shrink-0" />
+                      <div>
+                        <h3 className="text-sm font-bold text-amber-900 uppercase tracking-wide">
+                          ⚠️ Proyek Legacy Detect — Snapshot Historis Belum Tersedia
+                        </h3>
+                        <p className="text-[13px] text-amber-700 mt-1 leading-relaxed">
+                          Sistem tidak boleh membuat snapshot historis secara otomatis menggunakan data Master Client saat ini guna melindungi integritas arsip sejarah hukum perusahaan.
+                        </p>
                       </div>
                     </div>
-
-                    {/* After Snapshot */}
-                    <div className="space-y-3 bg-blue-50/40 p-4 rounded-xl border border-blue-100">
-                      <h3 className="text-xs font-extrabold text-blue-600 uppercase tracking-wider border-b border-blue-100 pb-1.5">
-                        Struktur Sesudah (After)
-                      </h3>
-                      <div className="space-y-2 text-xs">
-                        <div>
-                          <span className="text-blue-400 font-semibold text-[10px] uppercase tracking-wider">Nama Perusahaan</span>
-                          <p className="font-bold text-slate-850 text-[13px]">{project.changeSnapshot.after.companyName}</p>
-                        </div>
-                        <div>
-                          <span className="text-blue-400 font-semibold text-[10px] uppercase tracking-wider">Alamat Lengkap</span>
-                          <p className="font-medium text-slate-700 text-[12px]">{project.changeSnapshot.after.fullAddress || '-'}</p>
-                        </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                          <div>
-                            <span className="text-blue-400 font-semibold text-[10px] uppercase tracking-wider">Modal Dasar</span>
-                            <p className="font-bold text-slate-800">Rp {project.changeSnapshot.after.authorizedCapital?.toLocaleString('id-ID') || '0'}</p>
-                          </div>
-                          <div>
-                            <span className="text-blue-400 font-semibold text-[10px] uppercase tracking-wider">Modal Disetor</span>
-                            <p className="font-bold text-slate-800">Rp {project.changeSnapshot.after.paidUpCapital?.toLocaleString('id-ID') || '0'}</p>
-                          </div>
-                        </div>
-                        {/* Shareholders after */}
-                        <div className="pt-2 border-t border-blue-100/60">
-                          <span className="text-blue-500 font-bold text-[10px] uppercase tracking-wider block mb-1">Daftar Pemegang Saham (After)</span>
-                          {project.changeSnapshot.after.shareholders && project.changeSnapshot.after.shareholders.length > 0 ? (
-                            <div className="space-y-1 max-h-40 overflow-y-auto">
-                              {project.changeSnapshot.after.shareholders.map((sh, idx) => (
-                                <div key={sh.id || idx} className="flex justify-between p-1.5 bg-white border border-blue-100/50 rounded animate-fade-in">
-                                  <span className="font-bold text-slate-800">{sh.name}</span>
-                                  <span className="font-mono text-slate-600 font-semibold">{sh.sharesOwned?.toLocaleString('id-ID')} lembar</span>
-                                </div>
-                              ))}
-                            </div>
-                          ) : (
-                            <p className="text-slate-400 italic">Tidak ada data</p>
-                          )}
-                        </div>
-                      </div>
+                    <div className="flex items-center gap-3 bg-white/60 p-3 rounded-lg border border-amber-100">
+                      <span className="text-xs font-mono text-slate-500 font-semibold">Tindakan Diperlukan:</span>
+                      <button
+                        onClick={() => {
+                          setManualName(client?.companyName || project.title);
+                          setManualAddress(client?.fullAddress || '');
+                          setManualCapital(client?.targetCapitalBase || 100000000);
+                          setShowMigrationModal(true);
+                        }}
+                        className="px-4 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-lg shadow-xs transition-colors animate-pulse"
+                      >
+                        Mulai Migration Wizard
+                      </button>
                     </div>
                   </div>
-                ) : (
-                  project.clientSnapshot && (
-                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 text-xs grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <div>
-                          <span className="text-slate-400 font-semibold text-[10px] uppercase tracking-wider">Nama Perusahaan</span>
-                          <p className="font-bold text-slate-850 text-[13px]">{project.clientSnapshot.companyName}</p>
-                        </div>
-                        <div>
-                          <span className="text-slate-400 font-semibold text-[10px] uppercase tracking-wider">Alamat Lengkap</span>
-                          <p className="font-medium text-slate-700">{project.clientSnapshot.fullAddress || '-'}</p>
-                        </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                          <div>
-                            <span className="text-slate-400 font-semibold text-[10px] uppercase tracking-wider">Modal Dasar</span>
-                            <p className="font-bold text-slate-800">Rp {project.clientSnapshot.authorizedCapital?.toLocaleString('id-ID') || '0'}</p>
-                          </div>
-                          <div>
-                            <span className="text-slate-400 font-semibold text-[10px] uppercase tracking-wider">Modal Disetor</span>
-                            <p className="font-bold text-slate-800">Rp {project.clientSnapshot.paidUpCapital?.toLocaleString('id-ID') || '0'}</p>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="space-y-2">
-                        <span className="text-slate-400 font-semibold text-[10px] uppercase tracking-wider block">Daftar Pemegang Saham</span>
-                        {project.clientSnapshot.shareholders && project.clientSnapshot.shareholders.length > 0 ? (
-                          <div className="space-y-1 max-h-40 overflow-y-auto">
-                            {project.clientSnapshot.shareholders.map((sh, idx) => (
-                              <div key={sh.id || idx} className="flex justify-between p-1.5 bg-white border border-slate-100 rounded">
-                                <span className="font-semibold text-slate-700">{sh.name}</span>
-                                <span className="font-mono text-slate-600">{sh.sharesOwned?.toLocaleString('id-ID')} lembar</span>
+                ) : null}
+
+                {/* Rule: Immutable Project Snapshot Section */}
+                {(project.clientSnapshot || project.changeSnapshot) ? (
+                  <div className="bg-white border border-slate-200/80 rounded-xl p-6 shadow-sm space-y-5">
+                    <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                      <h2 className="text-[14px] font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                        <Briefcase className="w-4 h-4 text-blue-600" />
+                        <span>Snapshot Hukum Proyek (Arsip Immutable)</span>
+                      </h2>
+                      <span className="px-2 py-0.5 text-[10px] bg-slate-100 text-slate-500 border border-slate-200 rounded-full font-mono font-bold uppercase tracking-wider">
+                        Snapshot Active
+                      </span>
+                    </div>
+
+                    {project.jobType === 'rups_lb' && project.changeSnapshot ? (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* Before Snapshot */}
+                        <div className="space-y-3 bg-slate-50 p-4 rounded-xl border border-slate-100">
+                          <h3 className="text-xs font-extrabold text-slate-500 uppercase tracking-wider border-b border-slate-200 pb-1.5">
+                            Struktur Sebelum (Before)
+                          </h3>
+                          <div className="space-y-2 text-xs">
+                            <div>
+                              <span className="text-slate-400 font-semibold text-[10px] uppercase tracking-wider">Nama Perusahaan</span>
+                              <p className="font-bold text-slate-850 text-[13px]">{project.changeSnapshot.before.companyName}</p>
+                            </div>
+                            <div>
+                              <span className="text-slate-400 font-semibold text-[10px] uppercase tracking-wider">Alamat Lengkap</span>
+                              <p className="font-medium text-slate-700 text-[12px]">{project.changeSnapshot.before.fullAddress || '-'}</p>
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                              <div>
+                                <span className="text-slate-400 font-semibold text-[10px] uppercase tracking-wider">Modal Dasar</span>
+                                <p className="font-bold text-slate-800">Rp {project.changeSnapshot.before.authorizedCapital?.toLocaleString('id-ID') || '0'}</p>
                               </div>
-                            ))}
+                              <div>
+                                <span className="text-slate-400 font-semibold text-[10px] uppercase tracking-wider">Modal Disetor</span>
+                                <p className="font-bold text-slate-800">Rp {project.changeSnapshot.before.paidUpCapital?.toLocaleString('id-ID') || '0'}</p>
+                              </div>
+                            </div>
+                            {/* Shareholders before */}
+                            <div className="pt-2 border-t border-slate-150">
+                              <span className="text-slate-450 font-bold text-[10px] uppercase tracking-wider block mb-1">Daftar Pemegang Saham (Before)</span>
+                              {project.changeSnapshot.before.shareholders && project.changeSnapshot.before.shareholders.length > 0 ? (
+                                <div className="space-y-1 max-h-40 overflow-y-auto">
+                                  {project.changeSnapshot.before.shareholders.map((sh, idx) => (
+                                    <div key={sh.id || idx} className="flex justify-between p-1.5 bg-white border border-slate-100 rounded">
+                                      <span className="font-semibold text-slate-700">{sh.name}</span>
+                                      <span className="font-mono text-slate-600">{sh.sharesOwned?.toLocaleString('id-ID')} lembar</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <p className="text-slate-400 italic">Tidak ada data</p>
+                              )}
+                            </div>
                           </div>
-                        ) : (
-                          <p className="text-slate-400 italic">Tidak ada data pemegang saham</p>
-                        )}
+                        </div>
+
+                        {/* After Snapshot */}
+                        <div className="space-y-3 bg-blue-50/40 p-4 rounded-xl border border-blue-100">
+                          <h3 className="text-xs font-extrabold text-blue-600 uppercase tracking-wider border-b border-blue-100 pb-1.5">
+                            Struktur Sesudah (After)
+                          </h3>
+                          <div className="space-y-2 text-xs">
+                            <div>
+                              <span className="text-blue-400 font-semibold text-[10px] uppercase tracking-wider">Nama Perusahaan</span>
+                              <p className="font-bold text-slate-850 text-[13px]">{project.changeSnapshot.after.companyName}</p>
+                            </div>
+                            <div>
+                              <span className="text-blue-400 font-semibold text-[10px] uppercase tracking-wider">Alamat Lengkap</span>
+                              <p className="font-medium text-slate-700 text-[12px]">{project.changeSnapshot.after.fullAddress || '-'}</p>
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                              <div>
+                                <span className="text-blue-400 font-semibold text-[10px] uppercase tracking-wider">Modal Dasar</span>
+                                <p className="font-bold text-slate-800">Rp {project.changeSnapshot.after.authorizedCapital?.toLocaleString('id-ID') || '0'}</p>
+                              </div>
+                              <div>
+                                <span className="text-blue-400 font-semibold text-[10px] uppercase tracking-wider">Modal Disetor</span>
+                                <p className="font-bold text-slate-800">Rp {project.changeSnapshot.after.paidUpCapital?.toLocaleString('id-ID') || '0'}</p>
+                              </div>
+                            </div>
+                            {/* Shareholders after */}
+                            <div className="pt-2 border-t border-blue-100/60">
+                              <span className="text-blue-500 font-bold text-[10px] uppercase tracking-wider block mb-1">Daftar Pemegang Saham (After)</span>
+                              {project.changeSnapshot.after.shareholders && project.changeSnapshot.after.shareholders.length > 0 ? (
+                                <div className="space-y-1 max-h-40 overflow-y-auto">
+                                  {project.changeSnapshot.after.shareholders.map((sh, idx) => (
+                                    <div key={sh.id || idx} className="flex justify-between p-1.5 bg-white border border-blue-100/50 rounded animate-fade-in">
+                                      <span className="font-bold text-slate-800">{sh.name}</span>
+                                      <span className="font-mono text-slate-600 font-semibold">{sh.sharesOwned?.toLocaleString('id-ID')} lembar</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <p className="text-slate-400 italic">Tidak ada data</p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  )
-                )}
-              </div>
-            ) : null}
+                    ) : (
+                      project.clientSnapshot && (
+                        <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 text-xs grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <div>
+                              <span className="text-slate-400 font-semibold text-[10px] uppercase tracking-wider">Nama Perusahaan</span>
+                              <p className="font-bold text-slate-850 text-[13px]">{project.clientSnapshot.companyName}</p>
+                            </div>
+                            <div>
+                              <span className="text-slate-400 font-semibold text-[10px] uppercase tracking-wider">Alamat Lengkap</span>
+                              <p className="font-medium text-slate-700">{project.clientSnapshot.fullAddress || '-'}</p>
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                              <div>
+                                <span className="text-slate-400 font-semibold text-[10px] uppercase tracking-wider">Modal Dasar</span>
+                                <p className="font-bold text-slate-800">Rp {project.clientSnapshot.authorizedCapital?.toLocaleString('id-ID') || '0'}</p>
+                              </div>
+                              <div>
+                                <span className="text-slate-400 font-semibold text-[10px] uppercase tracking-wider">Modal Disetor</span>
+                                <p className="font-bold text-slate-800">Rp {project.clientSnapshot.paidUpCapital?.toLocaleString('id-ID') || '0'}</p>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="space-y-2">
+                            <span className="text-slate-400 font-semibold text-[10px] uppercase tracking-wider block">Daftar Pemegang Saham</span>
+                            {project.clientSnapshot.shareholders && project.clientSnapshot.shareholders.length > 0 ? (
+                              <div className="space-y-1 max-h-40 overflow-y-auto">
+                                {project.clientSnapshot.shareholders.map((sh, idx) => (
+                                  <div key={sh.id || idx} className="flex justify-between p-1.5 bg-white border border-slate-100 rounded">
+                                    <span className="font-semibold text-slate-700">{sh.name}</span>
+                                    <span className="font-mono text-slate-600">{sh.sharesOwned?.toLocaleString('id-ID')} lembar</span>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="text-slate-400 italic">Tidak ada data pemegang saham</p>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    )}
+                  </div>
+                ) : null}
+              </>
+            )}
 
             {/* Task Checklist Section */}
             {(() => {
@@ -3885,13 +4095,15 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
               )}
             </div>
 
-            {/* Profil Personil PT */}
-            <PartiesManager 
-              parties={project.parties || []} 
-              onSaveParties={handleSaveParties} 
-              onPullFromForm={handlePullFromForm}
-              onPushToForm={handlePushPartiesToForm}
-            />
+            {/* Profil Personil PT (Hanya untuk non-PPAT) */}
+            {!isPPAT && (
+              <PartiesManager 
+                parties={project.parties || []} 
+                onSaveParties={handleSaveParties} 
+                onPullFromForm={handlePullFromForm}
+                onPushToForm={handlePushPartiesToForm}
+              />
+            )}
 
             {/* UPLOAD DOKUMEN PROYEK (New Feature) */}
             <ProjectDocumentUpload project={project} currentUser={currentUser} key={documentUploadKey} />
@@ -4264,6 +4476,7 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
               </div>
             ) : null}
           </div>
+        </div>
         </div>
         )}
 

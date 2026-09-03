@@ -41,6 +41,8 @@ export const AppShell: React.FC = () => {
     setEditingRupstId,
     editingPendirianId,
     setEditingPendirianId,
+    editingPPATId,
+    setEditingPPATId,
     editingProfileId,
     setEditingProfileId,
     selectedProjectId,
@@ -871,6 +873,7 @@ readCount: ${targetClientId ? 1 : 0}`);
         setEditingRupstId={setEditingRupstId}
         setEditingProjectId={setEditingProjectId}
         setEditingPendirianId={setEditingPendirianId}
+        setEditingPPATId={setEditingPPATId}
         setActiveProjectJobType={setActiveProjectJobType}
         setPresetLoadedForProject={setPresetLoadedForProject}
       />
@@ -902,6 +905,8 @@ readCount: ${targetClientId ? 1 : 0}`);
         setEditingProjectId={setEditingProjectId}
         setEditingRupstId={setEditingRupstId}
         setEditingPendirianId={setEditingPendirianId}
+        editingPPATId={editingPPATId}
+        setEditingPPATId={setEditingPPATId}
         editingCvProfileId={editingCvProfileId}
         setEditingCvProfileId={setEditingCvProfileId}
         isProfilePreview={isProfilePreview}
