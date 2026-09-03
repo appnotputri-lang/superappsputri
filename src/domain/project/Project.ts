@@ -157,6 +157,8 @@ export interface PPATObjectData {
   district?: string; // Kecamatan
   city?: string; // Kabupaten / Kota (e.g. Bandung Barat)
   regency?: string; // Kabupaten
+  province?: string; // Provinsi
+  blok?: string; // Blok
   documentType?: string; // SHM, HGB, Hak Pakai, Girik / Warkah, dll.
   certificateType?: string; // SHM, HGB, Hak Pakai, Girik, dll.
   certificateNumber?: string; // Nomor Sertifikat / Dokumen

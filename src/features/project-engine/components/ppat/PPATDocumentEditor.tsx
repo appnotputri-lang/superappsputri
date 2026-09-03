@@ -484,6 +484,25 @@ export const PPATDocumentEditor: React.FC<PPATDocumentEditorProps> = ({
             </div>
           )}
 
+          {docItem.documentType === 'kuasa_migrasi' && (
+            <div className="bg-amber-50/60 rounded-2xl border border-amber-200 p-6 shadow-xs space-y-3">
+              <h3 className="text-sm font-bold text-amber-950 uppercase tracking-wider flex items-center gap-2 border-b border-amber-200 pb-3">
+                <FileSignature className="w-4 h-4 text-amber-700" />
+                <span>Ketentuan Template Master Docx — Kuasa Migrasi E-Sertipikat</span>
+              </h3>
+              <div className="text-xs text-amber-900 leading-relaxed space-y-1.5">
+                <p className="font-semibold">
+                  ✓ Pemetaan Otomatis Dari Master Data Proyek:
+                </p>
+                <ul className="list-disc pl-5 space-y-1 text-slate-700">
+                  <li><strong>PIHAK PERTAMA (Pemberi Kuasa):</strong> Diisi otomatis dari Data Pembeli (Second Parties) pada Master Form PPAT.</li>
+                  <li><strong>PIHAK KEDUA (Penerima Kuasa):</strong> Static 100% mengikuti Template Master DOCX (R.A. NUKANTINI PUTRI PARINCHA, SH.,MKn).</li>
+                  <li><strong>DATA OBJEK:</strong> Nomor Sertipikat, Jenis Hak, Luas, Terbilang Luas, dan Alamat Objek diambil langsung dari Master Data Objek.</li>
+                </ul>
+              </div>
+            </div>
+          )}
+
           {docItem.documentType === 'surat_kuasa_ppat' && (
             <div className="bg-blue-50/40 rounded-2xl border border-blue-200 p-6 shadow-xs space-y-4">
               <h3 className="text-sm font-bold text-blue-900 uppercase tracking-wider flex items-center gap-2 border-b border-blue-200 pb-3">

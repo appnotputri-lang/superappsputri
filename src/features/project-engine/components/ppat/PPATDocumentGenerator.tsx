@@ -339,22 +339,22 @@ export const PPATDocumentGenerator: React.FC<PPATDocumentGeneratorProps> = ({
                           <tr>
                             <td className="w-44 py-0.5 text-slate-600">Nama Lengkap</td>
                             <td className="w-4">:</td>
-                            <td className="font-semibold">{firstParty.name || '...........................................'}</td>
+                            <td className="font-semibold">{firstParty.name || '-'}</td>
                           </tr>
                           <tr>
                             <td className="py-0.5 text-slate-600">NIK / Identitas</td>
                             <td>:</td>
-                            <td>{firstParty.nik || '...........................................'}</td>
+                            <td>{firstParty.nik || '-'}</td>
                           </tr>
                           <tr>
                             <td className="py-0.5 text-slate-600">Pekerjaan</td>
                             <td>:</td>
-                            <td>{firstParty.job || '...........................................'}</td>
+                            <td>{firstParty.job || '-'}</td>
                           </tr>
                           <tr>
                             <td className="py-0.5 text-slate-600">Alamat Lengkap</td>
                             <td>:</td>
-                            <td>{firstParty.address || '...........................................'}</td>
+                            <td>{firstParty.address || '-'}</td>
                           </tr>
                           <tr>
                             <td className="py-0.5 text-slate-600">Bertindak Untuk & Atas Nama</td>
@@ -377,22 +377,22 @@ export const PPATDocumentGenerator: React.FC<PPATDocumentGeneratorProps> = ({
                           <tr>
                             <td className="w-44 py-0.5 text-slate-600">Nama Lengkap</td>
                             <td className="w-4">:</td>
-                            <td className="font-semibold">{secondParty.name || '...........................................'}</td>
+                            <td className="font-semibold">{secondParty.name || '-'}</td>
                           </tr>
                           <tr>
                             <td className="py-0.5 text-slate-600">NIK / Identitas</td>
                             <td>:</td>
-                            <td>{secondParty.nik || '...........................................'}</td>
+                            <td>{secondParty.nik || '-'}</td>
                           </tr>
                           <tr>
                             <td className="py-0.5 text-slate-600">Pekerjaan</td>
                             <td>:</td>
-                            <td>{secondParty.job || '...........................................'}</td>
+                            <td>{secondParty.job || '-'}</td>
                           </tr>
                           <tr>
                             <td className="py-0.5 text-slate-600">Alamat Lengkap</td>
                             <td>:</td>
-                            <td>{secondParty.address || '...........................................'}</td>
+                            <td>{secondParty.address || '-'}</td>
                           </tr>
                           <tr>
                             <td className="py-0.5 text-slate-600">Bertindak Untuk & Atas Nama</td>
@@ -415,17 +415,17 @@ export const PPATDocumentGenerator: React.FC<PPATDocumentGeneratorProps> = ({
                           <tr>
                             <td className="w-44 py-0.5 text-slate-600">Nomor Objek Pajak (NOP)</td>
                             <td className="w-4">:</td>
-                            <td className="font-semibold">{obj.nop || '...........................................'}</td>
+                            <td className="font-semibold">{obj.nop || '-'}</td>
                           </tr>
                           <tr>
                             <td className="py-0.5 text-slate-600">SPPT PBB Atas Nama</td>
                             <td>:</td>
-                            <td>{obj.spptName || '...........................................'}</td>
+                            <td>{obj.spptName || '-'}</td>
                           </tr>
                           <tr>
                             <td className="py-0.5 text-slate-600">Letak Tanah / Bangunan</td>
                             <td>:</td>
-                            <td>{obj.location || '...........................................'}</td>
+                            <td>{obj.location || '-'}</td>
                           </tr>
                           <tr>
                             <td className="py-0.5 text-slate-600">RT / RW</td>
@@ -445,7 +445,7 @@ export const PPATDocumentGenerator: React.FC<PPATDocumentGeneratorProps> = ({
                           <tr>
                             <td className="py-0.5 text-slate-600">Dokumen Kepemilikan</td>
                             <td>:</td>
-                            <td>{obj.documentType || 'SHM'} Nomor {obj.certificateNumber || '................'}</td>
+                            <td>{obj.documentType || 'SHM'} Nomor {obj.certificateNumber || '-'}</td>
                           </tr>
                           <tr>
                             <td className="py-0.5 text-slate-600">Luas Tanah / Bangunan</td>
@@ -491,12 +491,12 @@ export const PPATDocumentGenerator: React.FC<PPATDocumentGeneratorProps> = ({
                         <div className="p-3">
                           <p className="font-bold">PIHAK KEDUA (PEMBELI)</p>
                           <p className="text-[10px] text-slate-500 mb-14">(Meterai Rp 10.000)</p>
-                          <p className="font-bold underline">{secondParty.name || '(...........................................)'}</p>
+                          <p className="font-bold underline">{secondParty.name || '(-)'}</p>
                         </div>
                         <div className="p-3">
                           <p className="font-bold">PIHAK PERTAMA (PENJUAL)</p>
                           <p className="text-[10px] text-slate-500 mb-14">(Meterai Rp 10.000)</p>
-                          <p className="font-bold underline">{firstParty.name || '(...........................................)'}</p>
+                          <p className="font-bold underline">{firstParty.name || '(-)'}</p>
                         </div>
                       </div>
                     </div>
@@ -521,22 +521,22 @@ export const PPATDocumentGenerator: React.FC<PPATDocumentGeneratorProps> = ({
                           <tr>
                             <td className="w-40 py-0.5 text-slate-600">Nama</td>
                             <td className="w-4">:</td>
-                            <td className="font-semibold">{firstParty.name || '...........................................'}</td>
+                            <td className="font-semibold">{firstParty.name || '-'}</td>
                           </tr>
                           <tr>
                             <td className="py-0.5 text-slate-600">NIK</td>
                             <td>:</td>
-                            <td>{firstParty.nik || '...........................................'}</td>
+                            <td>{firstParty.nik || '-'}</td>
                           </tr>
                           <tr>
                             <td className="py-0.5 text-slate-600">Pekerjaan</td>
                             <td>:</td>
-                            <td>{firstParty.job || '...........................................'}</td>
+                            <td>{firstParty.job || '-'}</td>
                           </tr>
                           <tr>
                             <td className="py-0.5 text-slate-600">Alamat</td>
                             <td>:</td>
-                            <td>{firstParty.address || '...........................................'}</td>
+                            <td>{firstParty.address || '-'}</td>
                           </tr>
                         </tbody>
                       </table>
@@ -550,22 +550,22 @@ export const PPATDocumentGenerator: React.FC<PPATDocumentGeneratorProps> = ({
                           <tr>
                             <td className="w-40 py-0.5 text-slate-600">Nama</td>
                             <td className="w-4">:</td>
-                            <td className="font-semibold">{secondParty.name || '...........................................'}</td>
+                            <td className="font-semibold">{secondParty.name || '-'}</td>
                           </tr>
                           <tr>
                             <td className="py-0.5 text-slate-600">NIK</td>
                             <td>:</td>
-                            <td>{secondParty.nik || '...........................................'}</td>
+                            <td>{secondParty.nik || '-'}</td>
                           </tr>
                           <tr>
                             <td className="py-0.5 text-slate-600">Pekerjaan</td>
                             <td>:</td>
-                            <td>{secondParty.job || '...........................................'}</td>
+                            <td>{secondParty.job || '-'}</td>
                           </tr>
                           <tr>
                             <td className="py-0.5 text-slate-600">Alamat</td>
                             <td>:</td>
-                            <td>{secondParty.address || '...........................................'}</td>
+                            <td>{secondParty.address || '-'}</td>
                           </tr>
                         </tbody>
                       </table>
@@ -589,12 +589,12 @@ export const PPATDocumentGenerator: React.FC<PPATDocumentGeneratorProps> = ({
                           <tr>
                             <td className="py-0.5 text-slate-600">Bukti Kepemilikan</td>
                             <td>:</td>
-                            <td>{obj.documentType || 'SHM'} Nomor: {obj.certificateNumber || '................'}</td>
+                            <td>{obj.documentType || 'SHM'} Nomor: {obj.certificateNumber || '-'}</td>
                           </tr>
                           <tr>
                             <td className="py-0.5 text-slate-600">Nomor Objek Pajak (NOP)</td>
                             <td>:</td>
-                            <td className="font-semibold">{obj.nop || '...........................................'}</td>
+                            <td className="font-semibold">{obj.nop || '-'}</td>
                           </tr>
                           <tr>
                             <td className="py-0.5 text-slate-600">Letak Objek Pajak</td>
@@ -604,7 +604,7 @@ export const PPATDocumentGenerator: React.FC<PPATDocumentGeneratorProps> = ({
                           <tr>
                             <td className="py-0.5 text-slate-600">SPPT PBB Atas Nama</td>
                             <td>:</td>
-                            <td>{obj.spptName || '...........................................'}</td>
+                            <td>{obj.spptName || '-'}</td>
                           </tr>
                           <tr>
                             <td className="py-0.5 text-slate-600">Tanggal Transaksi</td>
@@ -638,13 +638,13 @@ export const PPATDocumentGenerator: React.FC<PPATDocumentGeneratorProps> = ({
                           <p className="text-slate-600">Yang Membuat Pernyataan,</p>
                           <p className="font-bold">PIHAK KEDUA (PEMBELI)</p>
                           <p className="text-[10px] text-slate-500 mb-14">(Meterai Rp 10.000)</p>
-                          <p className="font-bold underline">{secondParty.name || '(...........................................)'}</p>
+                          <p className="font-bold underline">{secondParty.name || '(-)'}</p>
                         </div>
                         <div>
                           <p className="text-slate-600">Yang Membuat Pernyataan,</p>
                           <p className="font-bold">PIHAK PERTAMA (PENJUAL)</p>
                           <p className="text-[10px] text-slate-500 mb-14">(Meterai Rp 10.000)</p>
-                          <p className="font-bold underline">{firstParty.name || '(...........................................)'}</p>
+                          <p className="font-bold underline">{firstParty.name || '(-)'}</p>
                         </div>
                       </div>
 

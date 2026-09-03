@@ -13,6 +13,15 @@ export interface PPATDocTypeConfig {
 export const PPAT_DOC_TYPES: PPATDocTypeConfig[] = [
   // === KATEGORI SURAT (FOKUS UTAMA) ===
   {
+    id: 'kuasa_migrasi',
+    title: 'Surat Kuasa Migrasi E-Sertipikat',
+    category: 'surat',
+    shortDesc: 'Surat kuasa khusus permohonan dan pengurusan alih media (migrasi) sertipikat analog ke sertipikat elektronik di Kantor Pertanahan/BPN.',
+    recommendedFor: ['Migrasi E-Sertipikat', 'Alih Media BPN', 'Balik Nama'],
+    isAvailableForGeneration: true,
+    defaultTitle: 'Surat Kuasa Migrasi E-Sertipikat'
+  },
+  {
     id: 'surat_pernyataan',
     title: 'Surat Pernyataan Pemindahan Hak',
     category: 'surat',

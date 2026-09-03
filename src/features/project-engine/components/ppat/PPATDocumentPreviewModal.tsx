@@ -177,12 +177,9 @@ export const PPATDocumentPreviewModal: React.FC<PPATDocumentPreviewModalProps> =
                       <h2 className="text-sm font-bold tracking-wide uppercase text-slate-900">
                         PEMINDAHAN HAK KARENA
                       </h2>
-                      <h3 className="text-xs md:text-sm font-bold tracking-wide uppercase text-red-600 mt-0.5 leading-snug">
+                      <h3 className="text-xs md:text-sm font-bold tracking-wide uppercase text-slate-900 mt-0.5 leading-snug">
                         TUKAR-MENUKAR/ HIBAH/ HIBAH WASIAT/ PEMASUKAN DALAM PERSEROAN ATAU BADAN HUKUM LAINNYA/ PEMISAHAN HAK YANG MENGAKIBATKAN PERALIHAN/ PENGGABUNGAN USAHA/ PELEBURAN USAHA/ PEMEKARAN USAHA/ HADIAH
                       </h3>
-                      <p className="text-xs font-bold text-red-600 tracking-wider uppercase mt-0.5">
-                        (PILIH SALAH SATU)
-                      </p>
                     </div>
                   )}
 
@@ -206,12 +203,9 @@ export const PPATDocumentPreviewModal: React.FC<PPATDocumentPreviewModalProps> =
 
                   {paktaVariant === 'hak_baru' && (
                     <div className="mt-1 max-w-2xl mx-auto">
-                      <h2 className="text-xs md:text-sm font-bold tracking-wide uppercase text-red-600 leading-snug">
+                      <h2 className="text-xs md:text-sm font-bold tracking-wide uppercase text-slate-900 leading-snug">
                         PEMINDAHAN HAK KARENA PEMBERIAN HAK BARU ATAS TANAH SEBAGAI KELANJUTAN DARI PELEPASAN HAK/ PEMBERIAN HAK BARU ATAS TANAH DI LUAR PELEPASAN HAK
                       </h2>
-                      <p className="text-xs font-bold text-red-600 tracking-wider uppercase mt-0.5">
-                        (PILIH SALAH SATU)
-                      </p>
                     </div>
                   )}
 
@@ -242,7 +236,7 @@ export const PPATDocumentPreviewModal: React.FC<PPATDocumentPreviewModalProps> =
                             <span className="col-span-3 text-slate-800 font-medium">
                               {firstParties.length > 1 ? `${idx + 1}. ` : '1. '}Nama
                             </span>
-                            <span className="col-span-9 font-semibold">: {p.name || '............................................................................................................'}</span>
+                            <span className="col-span-9">: {p.name || '............................................................................................................'}</span>
                             
                             <span className="col-span-3 text-slate-800 pl-4 font-medium">NIK</span>
                             <span className="col-span-9">: {p.nik || '............................................................................................................'}</span>
@@ -257,7 +251,7 @@ export const PPATDocumentPreviewModal: React.FC<PPATDocumentPreviewModalProps> =
                             
                             <span className="col-span-3 text-slate-800 pl-4 font-medium">No. Tlp</span>
                             <span className="col-span-9">
-                              : {p.phone ? <span className="font-semibold">{p.phone}</span> : '............................................................................................................'}
+                              : {p.phone ? <span>{p.phone}</span> : '............................................................................................................'}
                             </span>
                           </div>
                         </div>
@@ -273,7 +267,7 @@ export const PPATDocumentPreviewModal: React.FC<PPATDocumentPreviewModalProps> =
                             <span className="col-span-3 text-slate-800 font-medium">
                               {secondParties.length > 1 ? `${idx + 1}. ` : '1. '}Nama
                             </span>
-                            <span className="col-span-9 font-semibold">: {p.name || '............................................................................................................'}</span>
+                            <span className="col-span-9">: {p.name || '............................................................................................................'}</span>
                             
                             <span className="col-span-3 text-slate-800 pl-4 font-medium">NIK</span>
                             <span className="col-span-9">: {p.nik || '............................................................................................................'}</span>
@@ -288,7 +282,7 @@ export const PPATDocumentPreviewModal: React.FC<PPATDocumentPreviewModalProps> =
                             
                             <span className="col-span-3 text-slate-800 pl-4 font-medium">No. Tlp</span>
                             <span className="col-span-9">
-                              : {p.phone ? <span className="font-semibold">{p.phone}</span> : '............................................................................................................'}
+                              : {p.phone ? <span>{p.phone}</span> : '............................................................................................................'}
                             </span>
                           </div>
                         </div>
@@ -303,7 +297,7 @@ export const PPATDocumentPreviewModal: React.FC<PPATDocumentPreviewModalProps> =
                           <span className="col-span-3 text-slate-800 font-medium">
                             {(secondParties.length > 0 && secondParties[0]?.name ? secondParties : firstParties).length > 1 ? `${idx + 1}. ` : '1. '}Nama
                           </span>
-                          <span className="col-span-9 font-semibold">: {p.name || '............................................................................................................'}</span>
+                          <span className="col-span-9">: {p.name || '............................................................................................................'}</span>
                           
                           <span className="col-span-3 text-slate-800 pl-4 font-medium">NIK</span>
                           <span className="col-span-9">: {p.nik || '............................................................................................................'}</span>
@@ -318,7 +312,7 @@ export const PPATDocumentPreviewModal: React.FC<PPATDocumentPreviewModalProps> =
                           
                           <span className="col-span-3 text-slate-800 pl-4 font-medium">No. Tlp</span>
                           <span className="col-span-9">
-                            : {p.phone ? <span className="font-semibold">{p.phone}</span> : '............................................................................................................'}
+                            : {p.phone ? <span>{p.phone}</span> : '............................................................................................................'}
                           </span>
                         </div>
                       </div>
@@ -458,22 +452,26 @@ export const PPATDocumentPreviewModal: React.FC<PPATDocumentPreviewModalProps> =
                       </div>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-2 gap-8 pt-8 text-center">
-                      <div className="flex flex-col items-center justify-between min-h-[190px]">
+                    <div className="grid grid-cols-3 gap-2 pt-8 text-center items-center">
+                      <div className="flex flex-col items-center justify-between min-h-[160px]">
                         <p className="font-bold">{labelP1},</p>
-                        <div className="h-20"></div>
+                        <div className="flex-1"></div>
                         <p className="font-bold">
                           ( {firstParty.name || '.....................................'} )
                         </p>
                       </div>
 
-                      <div className="flex flex-col items-center justify-between min-h-[190px]">
-                        <p className="font-bold">{labelP2},</p>
-                        <div className="border border-dashed border-slate-400 w-32 h-16 flex flex-col items-center justify-center text-[10px] text-slate-600 bg-slate-50/50 rounded my-2">
+                      <div className="flex flex-col items-center justify-center">
+                        <div className="border border-dashed border-slate-400 w-28 h-16 flex flex-col items-center justify-center text-[10px] text-slate-600 bg-slate-50/50 rounded">
                           <span>Meterai Rp</span>
                           <span className="font-bold text-slate-800">10.000</span>
                         </div>
-                        <p className="font-bold pt-2">
+                      </div>
+
+                      <div className="flex flex-col items-center justify-between min-h-[160px]">
+                        <p className="font-bold">{labelP2},</p>
+                        <div className="flex-1"></div>
+                        <p className="font-bold">
                           ( {secondParty.name || '........................................'} )
                         </p>
                       </div>
@@ -565,6 +563,78 @@ export const PPATDocumentPreviewModal: React.FC<PPATDocumentPreviewModalProps> =
                   </div>
 
                   {/* KLAUSUL KHUSUS DOKUMEN */}
+                  {documentItem.documentType === 'kuasa_migrasi' && (
+                    <div className="space-y-4 pt-2 font-serif text-slate-900 text-xs leading-relaxed">
+                      <div className="bg-amber-50/50 border border-amber-200 rounded-lg p-3 text-[11px] font-sans text-amber-900 mb-2">
+                        <span className="font-bold">✓ Template Master Docx Kuasa Migrasi:</span> Pihak Pertama diisi otomatis dari Data Pembeli. Pihak Kedua tetap static 100% mengikuti template master.
+                      </div>
+                      <p>Yang bertandatangan di bawah ini :</p>
+                      
+                      {/* PIHAK PERTAMA */}
+                      <div className="pl-4 space-y-1">
+                        <div className="grid grid-cols-12 gap-1 text-[12px]">
+                          <span className="col-span-3">Nama</span>
+                          <span className="col-span-9 font-semibold">: {(secondParties[0]?.name || secondParty.name || firstParty.name || '-')}</span>
+                          <span className="col-span-3">Tempat/Tgl. Lahir</span>
+                          <span className="col-span-9">: {secondParties[0]?.birthPlace ? `${secondParties[0].birthPlace}, ${secondParties[0].birthDate ? formatDateIndo(secondParties[0].birthDate) : ''}` : '-'}</span>
+                          <span className="col-span-3">Pekerjaan</span>
+                          <span className="col-span-9">: {secondParties[0]?.job || secondParty.job || '-'}</span>
+                          <span className="col-span-3">Alamat</span>
+                          <span className="col-span-9">: {formatFullPartyAddress(secondParties[0] || secondParty) || '-'}</span>
+                        </div>
+                      </div>
+                      <p className="font-mono text-[11px] text-slate-500 overflow-hidden whitespace-nowrap">
+                        Selanjutnya disebut sebagai PIHAK PERTAMA ---------------------------------------------------------------------------------------------
+                      </p>
+
+                      {/* PIHAK KEDUA (STATIC) */}
+                      <div className="pl-4 space-y-1 bg-slate-50/80 p-2.5 rounded border border-slate-200">
+                        <div className="grid grid-cols-12 gap-1 text-[12px]">
+                          <span className="col-span-3 font-semibold">Nama</span>
+                          <span className="col-span-9 font-bold text-slate-900">: R.A. NUKANTINI PUTRI PARINCHA, SH.,MKn</span>
+                          <span className="col-span-3 font-semibold">Alamat</span>
+                          <span className="col-span-9">: Jl Pertani III No.36 Kav 9A, Rt/Rw 009/003, Kelurahan Duren Tiga, Kecamatan Pancoran, Kota Jakarta Selatan</span>
+                          <span className="col-span-3 font-semibold">Pekerjaan</span>
+                          <span className="col-span-9">: Pejabat Pembuat Akta Tanah (PPAT)</span>
+                        </div>
+                      </div>
+                      <p className="font-mono text-[11px] text-slate-500 overflow-hidden whitespace-nowrap">
+                        Selanjutnya disebut sebagai PIHAK KEDUA ---------------------------------------------------------------------------------------------
+                      </p>
+
+                      <p className="font-mono text-[11px] text-slate-500 overflow-hidden whitespace-nowrap">
+                        Dengan ini Pihak Pertama memberi kuasa kepada Pihak Kedua ---------------------------------------------------------------------------------------------
+                      </p>
+
+                      <div className="text-center font-bold tracking-widest my-2">
+                        ----------------------------- KHUSUS ----------------------------
+                      </div>
+
+                      <p className="text-justify leading-relaxed">
+                        Untuk menghadap, mengurus dan menandatangani proses pengurusan Migrasi Sertipikat Elektronik untuk {obj.certificateType || 'Sertipikat Hak Milik'} {obj.certificateNumber || '651'}/Desa {formatCleanVillage(obj.village) || 'Mekarwangi'} seluas kurang lebih {obj.landArea || 167} m2 ( {obj.landArea ? terbilang(Number(obj.landArea)).trim() + ' meter persegi' : 'seratus enam puluh tujuh meter persegi'} ), yang terletak di :
+                      </p>
+
+                      <div className="pl-6 space-y-1 text-[12px]">
+                        <div className="grid grid-cols-12 gap-1">
+                          <span className="col-span-3">Propinsi</span>
+                          <span className="col-span-9">: {obj.province || 'Jawa Barat'};</span>
+                          <span className="col-span-3">Kabupaten</span>
+                          <span className="col-span-9">: {obj.regency || obj.city || 'Bandung Barat'};</span>
+                          <span className="col-span-3">Kecamatan</span>
+                          <span className="col-span-9">: {formatCleanDistrict(obj.district) || 'Lembang'};</span>
+                          <span className="col-span-3">Desa</span>
+                          <span className="col-span-9">: {formatCleanVillage(obj.village) || 'Mekarwangi'};</span>
+                          <span className="col-span-3">Blok</span>
+                          <span className="col-span-9">: {obj.blok || obj.persil || obj.kohir || '-'};</span>
+                        </div>
+                      </div>
+
+                      <p className="text-justify pt-2">
+                        Demikian surat kuasa ini kami buat tanpa paksaan dengan sebenarnya tanpa ada yang dikecualikan untuk dapat dipergunakan sebagaimana mestinya.
+                      </p>
+                    </div>
+                  )}
+
                   {documentItem.documentType === 'surat_persetujuan_keluarga' && (
                     <div className="space-y-2 pt-2">
                       <p>
@@ -649,48 +719,83 @@ export const PPATDocumentPreviewModal: React.FC<PPATDocumentPreviewModalProps> =
                     </div>
                   )}
 
-                  <p className="pt-2">
-                    Demikian surat ini dibuat dengan sebenarnya dan penuh tanggung jawab hukum untuk dipergunakan sebagaimana mestinya di hadapan Pejabat Pembuat Akta Tanah (PPAT).
-                  </p>
-
-                  {/* Tanggal dan Lokasi */}
-                  <div className="text-right pt-4">
-                    <p>{letterLocation}, {formatDateIndo(letterDate)}</p>
-                  </div>
-
-                  {/* Kolom Tanda Tangan */}
-                  <div className="grid grid-cols-2 gap-6 pt-4 text-center">
-                    <div className="flex flex-col items-center">
-                      <p className="font-bold">PIHAK KEDUA (PEMBELI)</p>
-                      <div className="h-20 flex items-center justify-center text-slate-400 text-[10px] font-sans">
-                        (Meterai Rp 10.000)
+                  {documentItem.documentType === 'kuasa_migrasi' ? (
+                    <>
+                      {/* Tanggal dan Lokasi */}
+                      <div className="text-right pt-4">
+                        <p>{letterLocation}, {formatDateIndo(letterDate)}</p>
+                        <p className="mr-4">Yang membuat pernyataan;</p>
                       </div>
-                      <p className="font-bold underline decoration-1 underline-offset-4">
-                        ( {secondParty.name || '...........................................'} )
-                      </p>
-                    </div>
 
-                    <div className="flex flex-col items-center">
-                      <p className="font-bold">PIHAK PERTAMA (PENJUAL)</p>
-                      <div className="h-20 flex items-center justify-center text-slate-400 text-[10px] font-sans">
-                        (Meterai Rp 10.000)
+                      {/* Kolom Tanda Tangan Kuasa Migrasi */}
+                      <div className="grid grid-cols-2 gap-6 pt-4 text-center">
+                        <div className="flex flex-col items-center">
+                          <p className="font-bold">PIHAK KEDUA</p>
+                          <div className="h-20 flex items-center justify-center text-slate-400 text-[10px] font-sans">
+                            (Meterai Rp 10.000)
+                          </div>
+                          <p className="font-bold underline decoration-1 underline-offset-4">
+                            R.A. NUKANTINI PUTRI PARINCHA, SH.,MKn
+                          </p>
+                        </div>
+
+                        <div className="flex flex-col items-center">
+                          <p className="font-bold">PIHAK PERTAMA</p>
+                          <div className="h-20 flex items-center justify-center text-slate-400 text-[10px] font-sans">
+                            (Meterai Rp 10.000)
+                          </div>
+                          <p className="font-bold underline decoration-1 underline-offset-4">
+                            ( {(secondParties[0]?.name || secondParty.name || firstParty.name || '-')} )
+                          </p>
+                        </div>
                       </div>
-                      <p className="font-bold underline decoration-1 underline-offset-4">
-                        ( {firstParty.name || '...........................................'} )
+                    </>
+                  ) : (
+                    <>
+                      <p className="pt-2">
+                        Demikian surat ini dibuat dengan sebenarnya dan penuh tanggung jawab hukum untuk dipergunakan sebagaimana mestinya di hadapan Pejabat Pembuat Akta Tanah (PPAT).
                       </p>
-                    </div>
-                  </div>
 
-                  {/* Mengetahui PPAT */}
-                  <div className="text-center pt-8">
-                    <p className="text-xs text-slate-600">Mengetahui,</p>
-                    <p className="font-bold text-xs uppercase">PEJABAT PEMBUAT AKTA TANAH (PPAT)</p>
-                    <div className="h-16"></div>
-                    <p className="font-extrabold uppercase underline decoration-1 underline-offset-4">
-                      NUKANTINI PUTRI PARINCHA, S.H., M.Kn.
-                    </p>
-                    <p className="text-[10px] text-slate-500 font-sans">Daerah Kerja: Kabupaten Bandung Barat</p>
-                  </div>
+                      {/* Tanggal dan Lokasi */}
+                      <div className="text-right pt-4">
+                        <p>{letterLocation}, {formatDateIndo(letterDate)}</p>
+                      </div>
+
+                      {/* Kolom Tanda Tangan */}
+                      <div className="grid grid-cols-2 gap-6 pt-4 text-center">
+                        <div className="flex flex-col items-center">
+                          <p className="font-bold">PIHAK KEDUA (PEMBELI)</p>
+                          <div className="h-20 flex items-center justify-center text-slate-400 text-[10px] font-sans">
+                            (Meterai Rp 10.000)
+                          </div>
+                          <p className="font-bold underline decoration-1 underline-offset-4">
+                            ( {secondParty.name || '-'} )
+                          </p>
+                        </div>
+
+                        <div className="flex flex-col items-center">
+                          <p className="font-bold">PIHAK PERTAMA (PENJUAL)</p>
+                          <div className="h-20 flex items-center justify-center text-slate-400 text-[10px] font-sans">
+                            (Meterai Rp 10.000)
+                          </div>
+                          <p className="font-bold underline decoration-1 underline-offset-4">
+                            ( {firstParty.name || '-'} )
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Mengetahui PPAT */}
+                      <div className="text-center pt-8">
+                        <p className="text-xs text-slate-600">Mengetahui,</p>
+                        <p className="font-bold text-xs uppercase">PEJABAT PEMBUAT AKTA TANAH (PPAT)</p>
+                        <div className="h-16"></div>
+                        <p className="font-extrabold uppercase underline decoration-1 underline-offset-4">
+                          NUKANTINI PUTRI PARINCHA, S.H., M.Kn.
+                        </p>
+                        <p className="text-[10px] text-slate-500 font-sans">Daerah Kerja: Kabupaten Bandung Barat</p>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
             )}
