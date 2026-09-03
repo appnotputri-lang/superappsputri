@@ -563,7 +563,7 @@ export const generatePaktaIntegritasDocx = async (
     createTableRow("Luas Bangunan", (obj.buildingArea !== undefined && obj.buildingArea !== null && obj.buildingArea !== 0 && String(obj.buildingArea).trim() !== "") ? `${obj.buildingArea} m²` : "-"),
     createTableRow("Nilai NJOP", obj.njop ? formatRupiah(obj.njop) : "........................................................................."),
     createTableRow(labelTanggal, obj.transactionDate ? formatDateIndo(obj.transactionDate) : "........................................................................."),
-    createTableRow(labelNilai, transactionVal ? formatRupiah(transactionVal) : ".........................................................................")
+    createTableRow(labelNilai, transactionVal ? `${formatRupiah(transactionVal)},- (${terbilang(transactionVal).trim()})` : ".........................................................................")
   ];
 
   childrenElements.push(
@@ -578,18 +578,6 @@ export const generatePaktaIntegritasDocx = async (
         insideVertical: { style: BorderStyle.NONE, size: 0, color: "auto" }
       },
       rows: objRows
-    }),
-    new Paragraph({
-      indent: { left: 400 },
-      spacing: { before: 30, after: 120 },
-      children: [
-        new TextRun({
-          text: `( ${transactionVal ? terbilang(transactionVal) : ".................................................................................."} )`,
-          italics: true,
-          font: "Times New Roman",
-          size: 20
-        })
-      ]
     })
   );
 
@@ -731,7 +719,7 @@ export const generatePaktaIntegritasDocx = async (
   childrenElements.push(
     new Paragraph({
       alignment: AlignmentType.RIGHT,
-      spacing: { before: 80, after: 100 },
+      spacing: { before: 240, after: 120 },
       children: [
         new TextRun({
           text: `${letterLoc}, ${letterDate}`,
@@ -776,7 +764,7 @@ export const generatePaktaIntegritasDocx = async (
                   }),
                   new Paragraph({
                     alignment: AlignmentType.CENTER,
-                    spacing: { before: 800, after: 0 },
+                    spacing: { before: 1200, after: 0 },
                     children: [
                       new TextRun({ text: `( ${firstPartyName} )`, font: "Times New Roman", size: 21, bold: true })
                     ]
@@ -823,7 +811,7 @@ export const generatePaktaIntegritasDocx = async (
                   }),
                   new Paragraph({
                     alignment: AlignmentType.CENTER,
-                    spacing: { before: 180 },
+                    spacing: { before: 280 },
                     children: [
                       new TextRun({ text: `( ${secondPartyName} )`, font: "Times New Roman", size: 21, bold: true })
                     ]
@@ -897,7 +885,7 @@ export const generatePaktaIntegritasDocx = async (
                   }),
                   new Paragraph({
                     alignment: AlignmentType.CENTER,
-                    spacing: { before: 180 },
+                    spacing: { before: 280 },
                     children: [
                       new TextRun({ text: `( ${signerName} )`, font: "Times New Roman", size: 21, bold: true })
                     ]

@@ -402,11 +402,8 @@ export const PPATDocumentPreviewModal: React.FC<PPATDocumentPreviewModalProps> =
                       <span className="col-span-7">: {obj.transactionDate ? formatDateIndo(obj.transactionDate) : '.........................................................................'}</span>
 
                       <span className="col-span-5 text-slate-800">{labelNilai}</span>
-                      <span className="col-span-7">: {transactionVal ? formatRupiah(transactionVal) : '.........................................................................'}</span>
+                      <span className="col-span-7">: {transactionVal ? `${formatRupiah(transactionVal)},- (${terbilang(transactionVal)})` : '.........................................................................'}</span>
                     </div>
-                    <p className="pl-6 italic text-[12px] text-slate-700">
-                      ( {transactionVal ? terbilang(transactionVal) : '..................................................................................'} )
-                    </p>
                   </div>
                 </div>
 
@@ -442,41 +439,41 @@ export const PPATDocumentPreviewModal: React.FC<PPATDocumentPreviewModalProps> =
                 </div>
 
                 {/* Lokasi, Tanggal & Tanda Tangan */}
-                <div className="pt-6">
+                <div className="pt-10">
                   <p className="text-right font-medium">
                     {letterLocation}, {documentItem.letterDate && documentItem.letterDate.trim() ? formatDateIndo(documentItem.letterDate) : '.......................................................'}
                   </p>
 
                   {!isDualParty ? (
-                    <div className="flex justify-end pt-4">
-                      <div className="text-center w-72 space-y-3">
+                    <div className="flex justify-end pt-6">
+                      <div className="text-center w-72 space-y-4">
                         <p className="font-bold">Penerima Hak,</p>
                         <div className="border border-dashed border-slate-400 w-32 h-16 mx-auto flex flex-col items-center justify-center text-[10px] text-slate-600 bg-slate-50/50 rounded">
                           <span>Meterai</span>
                           <span className="font-bold text-slate-800">Rp10.000</span>
                         </div>
-                        <p className="font-bold pt-4">
+                        <p className="font-bold pt-6">
                           ( {(secondParties.length > 0 && secondParties[0]?.name ? secondParties[0].name : firstParty.name) || '.....................................'} )
                         </p>
                       </div>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-2 gap-8 pt-6 text-center">
-                      <div className="flex flex-col items-center justify-between min-h-[160px]">
+                    <div className="grid grid-cols-2 gap-8 pt-8 text-center">
+                      <div className="flex flex-col items-center justify-between min-h-[190px]">
                         <p className="font-bold">{labelP1},</p>
-                        <div className="h-16"></div>
+                        <div className="h-20"></div>
                         <p className="font-bold">
                           ( {firstParty.name || '.....................................'} )
                         </p>
                       </div>
 
-                      <div className="flex flex-col items-center justify-between min-h-[160px]">
+                      <div className="flex flex-col items-center justify-between min-h-[190px]">
                         <p className="font-bold">{labelP2},</p>
-                        <div className="border border-dashed border-slate-400 w-32 h-16 flex flex-col items-center justify-center text-[10px] text-slate-600 bg-slate-50/50 rounded my-1">
+                        <div className="border border-dashed border-slate-400 w-32 h-16 flex flex-col items-center justify-center text-[10px] text-slate-600 bg-slate-50/50 rounded my-2">
                           <span>Meterai Rp</span>
                           <span className="font-bold text-slate-800">10.000</span>
                         </div>
-                        <p className="font-bold pt-1">
+                        <p className="font-bold pt-2">
                           ( {secondParty.name || '........................................'} )
                         </p>
                       </div>
