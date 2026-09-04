@@ -3,9 +3,9 @@ import {
   Users, Building2, MapPin, Landmark, Plus, Trash2, 
   Save, CheckCircle2, AlertCircle, FileText, ChevronDown, 
   ChevronUp, Edit3, UserCheck, Shield, ArrowLeft, Calendar,
-  Heart, Compass, FileCheck
+  Heart, Compass, FileCheck, ArrowUp, ArrowDown, Sparkles
 } from 'lucide-react';
-import { Project, PPATData, PPATParty, PPATObjectData } from '../../../../domain/project/Project';
+import { Project, PPATData, PPATParty, PPATObjectData, PPATAttachmentItem } from '../../../../domain/project/Project';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../../../lib/firebase';
 import { ProjectService } from '../../../../services/ProjectService';
@@ -37,6 +37,16 @@ export const PPATDataManager: React.FC<PPATDataManagerProps> = ({
         nomorAkta: project.ppatData.nomorAkta || '',
         tahunAkta: project.ppatData.tahunAkta || String(new Date().getFullYear()),
         tanggalAkta: project.ppatData.tanggalAkta || '',
+        nomorSuratKuasa: project.ppatData.nomorSuratKuasa || '',
+        tanggalSuratKuasa: project.ppatData.tanggalSuratKuasa || '',
+        permohonanNomor: project.ppatData.permohonanNomor || '',
+        permohonanLampiran: project.ppatData.permohonanLampiran || '',
+        permohonanPerihal: project.ppatData.permohonanPerihal || 'Permohonan PERALIHAN HAK',
+        permohonanTempat: project.ppatData.permohonanTempat || 'Padalarang',
+        permohonanTanggal: project.ppatData.permohonanTanggal || '',
+        tandaBatas: project.ppatData.tandaBatas || 'PATOK',
+        landUse: project.ppatData.landUse || 'TANAH KOSONG',
+        attachments: project.ppatData.attachments || [],
         documents: project.ppatData.documents || []
       };
     }
@@ -73,7 +83,17 @@ export const PPATDataManager: React.FC<PPATDataManagerProps> = ({
       notes: '',
       nomorAkta: '',
       tahunAkta: String(new Date().getFullYear()),
-      tanggalAkta: ''
+      tanggalAkta: '',
+      nomorSuratKuasa: '',
+      tanggalSuratKuasa: '',
+      permohonanNomor: '',
+      permohonanLampiran: '1 Berkas',
+      permohonanPerihal: 'Permohonan PERALIHAN HAK',
+      permohonanTempat: 'Padalarang',
+      permohonanTanggal: '',
+      tandaBatas: 'PATOK',
+      landUse: 'TANAH KOSONG',
+      attachments: []
     };
   });
 
@@ -82,7 +102,7 @@ export const PPATDataManager: React.FC<PPATDataManagerProps> = ({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // Active sub-tab
-  const [activeTab, setActiveTab] = useState<'parties' | 'object' | 'settings'>('parties');
+  const [activeTab, setActiveTab] = useState<'parties' | 'object' | 'permohonan' | 'settings'>('parties');
 
   // Handlers for first parties
   const handleAddFirstParty = () => {
@@ -137,6 +157,81 @@ export const PPATDataManager: React.FC<PPATDataManagerProps> = ({
     setPpatData(prev => ({
       ...prev,
       object: { ...prev.object, ...fields }
+    }));
+  };
+
+  // Handlers for dynamic attachments (Permohonan Lampiran 13)
+  const handleAddAttachment = () => {
+    const newAtt: PPATAttachmentItem = {
+      id: 'att_' + Date.now() + '_' + Math.random().toString(36).substring(7),
+      name: '',
+      documentNumber: '',
+      documentDate: ''
+    };
+    setPpatData(prev => ({
+      ...prev,
+      attachments: [...(prev.attachments || []), newAtt]
+    }));
+  };
+
+  const handleUpdateAttachment = (index: number, fields: Partial<PPATAttachmentItem>) => {
+    setPpatData(prev => {
+      const list = [...(prev.attachments || [])];
+      list[index] = { ...list[index], ...fields };
+      return { ...prev, attachments: list };
+    });
+  };
+
+  const handleDeleteAttachment = (index: number) => {
+    setPpatData(prev => {
+      const list = [...(prev.attachments || [])];
+      list.splice(index, 1);
+      return { ...prev, attachments: list };
+    });
+  };
+
+  const handleMoveAttachment = (index: number, direction: 'up' | 'down') => {
+    setPpatData(prev => {
+      const list = [...(prev.attachments || [])];
+      const targetIndex = direction === 'up' ? index - 1 : index + 1;
+      if (targetIndex < 0 || targetIndex >= list.length) return prev;
+      const temp = list[index];
+      list[index] = list[targetIndex];
+      list[targetIndex] = temp;
+      return { ...prev, attachments: list };
+    });
+  };
+
+  const handleLoadDefaultAttachments = () => {
+    const certTypeDisplay = ppatData.object.certificateType ? ppatData.object.certificateType.replace("Hak ", "M ").toUpperCase() : "M";
+    const certNo = ppatData.object.certificateNumber || "651";
+    const rawVillage = ppatData.object.village || "MEKARWANGI";
+    const certDesa = rawVillage.replace(/^(desa|kelurahan)\s+/i, '').toUpperCase();
+    
+    const defaults: PPATAttachmentItem[] = [
+      {
+        id: 'att_cert_' + Date.now(),
+        name: `ASLI ${certTypeDisplay} ${certNo}/DESA ${certDesa}`,
+        documentNumber: '',
+        documentDate: ''
+      },
+      {
+        id: 'att_kuasa_' + (Date.now() + 1),
+        name: 'ASLI SURAT KUASA',
+        documentNumber: ppatData.nomorSuratKuasa || '',
+        documentDate: ppatData.tanggalSuratKuasa || ''
+      },
+      {
+        id: 'att_ajb_' + (Date.now() + 2),
+        name: `AJB ${ppatData.nomorAkta ? `${ppatData.nomorAkta}/${ppatData.tahunAkta || new Date().getFullYear()}` : '01/2026'}`,
+        documentNumber: '',
+        documentDate: ppatData.tanggalAkta || ''
+      }
+    ];
+
+    setPpatData(prev => ({
+      ...prev,
+      attachments: defaults
     }));
   };
 
@@ -261,6 +356,23 @@ export const PPATDataManager: React.FC<PPATDataManagerProps> = ({
           <span>Data Objek & Transaksi</span>
           {ppatData.object.nop && (
             <span className="w-2 h-2 rounded-full bg-emerald-500" />
+          )}
+        </button>
+
+        <button
+          onClick={() => setActiveTab('permohonan')}
+          className={`py-3 px-4 text-xs font-bold border-b-2 transition-all flex items-center gap-2 ${
+            activeTab === 'permohonan'
+              ? 'border-amber-500 text-amber-600 bg-white'
+              : 'border-transparent text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          <FileText className="w-4 h-4" />
+          <span>Permohonan BPN (Lampiran 13)</span>
+          {ppatData.attachments && ppatData.attachments.length > 0 && (
+            <span className="bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded-full text-[10px]">
+              {ppatData.attachments.length}
+            </span>
           )}
         </button>
 
@@ -737,7 +849,371 @@ export const PPATDataManager: React.FC<PPATDataManagerProps> = ({
           </div>
         )}
 
-        {/* TAB 3: JENIS PERALIHAN HAK */}
+        {/* TAB 3: PERMOHONAN BPN (LAMPIRAN 13) */}
+        {activeTab === 'permohonan' && (
+          <div className="space-y-6">
+            {/* Informasi Aturan Template */}
+            <div className="p-4 rounded-xl bg-blue-50 border border-blue-200 text-xs text-blue-900 space-y-2">
+              <div className="flex items-center gap-2 font-bold text-blue-950">
+                <FileCheck className="w-4 h-4 text-blue-700" />
+                <span>Ketentuan Pemetaan Formulir Lampiran 13 – Peralihan Hak BPN</span>
+              </div>
+              <ul className="list-disc pl-5 space-y-1 text-slate-700 text-[11px]">
+                <li><strong>Pemohon Permohonan:</strong> Tetap 100% menggunakan data <strong>NENDI SUHENDI</strong> (Umur 32 Tahun, KTP 3217011507910016, Jl. Sukaresmi V No.17, Mekarwangi, Lembang, Bandung Barat, HP 08111301991).</li>
+                <li><strong>Bagian &quot;Selaku Kuasa&quot;:</strong> Diisi otomatis dari <strong>Data Pembeli</strong> (Pihak Kedua) pada tab Data Para Pihak.</li>
+                <li><strong>Data Tanah &amp; Sertipikat:</strong> Diisi otomatis dari <strong>Data Objek &amp; Transaksi</strong>.</li>
+                <li><strong>Daftar Lampiran:</strong> Bersifat dinamis, dapat ditambah, diubah nama/nomor/tanggal, diatur urutan, atau dimuat otomatis.</li>
+              </ul>
+            </div>
+
+            {/* 1. KARTU SURAT KUASA & AKTA */}
+            <div className="bg-slate-50 p-5 rounded-xl border border-slate-200 space-y-4">
+              <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2 border-b border-slate-200 pb-2.5">
+                <Shield className="w-4 h-4 text-amber-600" />
+                <span>Dasar Permohonan: Surat Kuasa</span>
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[11px] font-bold text-slate-600">Nomor Surat Kuasa</label>
+                  <input
+                    type="text"
+                    value={ppatData.nomorSuratKuasa || ''}
+                    onChange={(e) => setPpatData(prev => ({ ...prev, nomorSuratKuasa: e.target.value }))}
+                    placeholder="Contoh: 01/SK-PPAT/I/2026 (atau kosongkan untuk titik-titik)"
+                    className="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none"
+                  />
+                  <p className="text-[10px] text-slate-500">Jika dikosongkan, di dokumen akan tercetak garis titik-titik.</p>
+                </div>
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[11px] font-bold text-slate-600">Tanggal Surat Kuasa</label>
+                    {ppatData.tanggalSuratKuasa && (
+                      <button
+                        type="button"
+                        onClick={() => setPpatData(prev => ({ ...prev, tanggalSuratKuasa: '' }))}
+                        className="text-[10px] text-rose-600 hover:text-rose-800 font-semibold underline"
+                      >
+                        Kosongkan Tanggal (...)
+                      </button>
+                    )}
+                  </div>
+                  <input
+                    type="date"
+                    value={ppatData.tanggalSuratKuasa || ''}
+                    onChange={(e) => setPpatData(prev => ({ ...prev, tanggalSuratKuasa: e.target.value }))}
+                    className="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none"
+                  />
+                  <p className="text-[10px] text-slate-500">Jika dikosongkan, di formulir &amp; dokumen tercetak garis titik-titik (...................................................).</p>
+                </div>
+              </div>
+            </div>
+
+            {/* 2. KARTU SURAT PERMOHONAN */}
+            <div className="bg-slate-50 p-5 rounded-xl border border-slate-200 space-y-4">
+              <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2 border-b border-slate-200 pb-2.5">
+                <FileText className="w-4 h-4 text-amber-600" />
+                <span>Header Permohonan Kantor Pertanahan</span>
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[11px] font-bold text-slate-600">Nomor Permohonan</label>
+                  <input
+                    type="text"
+                    value={ppatData.permohonanNomor || ''}
+                    onChange={(e) => setPpatData(prev => ({ ...prev, permohonanNomor: e.target.value }))}
+                    placeholder="Contoh: 12/BPN-KBB/2026 (opsional)"
+                    className="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[11px] font-bold text-slate-600">Lampiran</label>
+                  <input
+                    type="text"
+                    value={ppatData.permohonanLampiran || ''}
+                    onChange={(e) => setPpatData(prev => ({ ...prev, permohonanLampiran: e.target.value }))}
+                    placeholder="Contoh: 1 Berkas"
+                    className="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[11px] font-bold text-slate-600">Perihal</label>
+                  <input
+                    type="text"
+                    value={ppatData.permohonanPerihal || ''}
+                    onChange={(e) => setPpatData(prev => ({ ...prev, permohonanPerihal: e.target.value }))}
+                    placeholder="Permohonan PERALIHAN HAK"
+                    className="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none font-semibold"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[11px] font-bold text-slate-600">Tempat Surat / Kantor BPN</label>
+                  <input
+                    type="text"
+                    value={ppatData.permohonanTempat || ''}
+                    onChange={(e) => setPpatData(prev => ({ ...prev, permohonanTempat: e.target.value }))}
+                    placeholder="Contoh: Padalarang"
+                    className="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[11px] font-bold text-slate-600">Tanggal Permohonan</label>
+                  <input
+                    type="date"
+                    value={ppatData.permohonanTanggal || ''}
+                    onChange={(e) => setPpatData(prev => ({ ...prev, permohonanTanggal: e.target.value }))}
+                    className="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[11px] font-bold text-slate-600">Tanda Batas Tanah</label>
+                  <input
+                    type="text"
+                    value={ppatData.tandaBatas || ''}
+                    onChange={(e) => setPpatData(prev => ({ ...prev, tandaBatas: e.target.value }))}
+                    placeholder="PATOK / PATOK BETON"
+                    className="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none"
+                  />
+                </div>
+                <div className="space-y-3 sm:col-span-2 lg:col-span-3 pt-1">
+                  <div className="flex items-center justify-between border-t border-slate-200 pt-3">
+                    <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+                      Penggunaan Tanah (Pilihan Coretan &amp; Uraian Berupa):
+                    </label>
+                    <span className="text-[10px] text-slate-500 italic">*) Coret yang tidak perlu</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setPpatData(prev => ({ ...prev, landUseType: 'non_pertanian' }))}
+                      className={`px-3 py-2 rounded-lg border text-left flex items-start gap-2.5 transition-all ${
+                        ppatData.landUseType !== 'pertanian'
+                          ? 'bg-blue-50 border-blue-400 text-blue-900 shadow-xs'
+                          : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="landUseTypeMaster"
+                        checked={ppatData.landUseType !== 'pertanian'}
+                        onChange={() => {}}
+                        className="mt-0.5 text-blue-600 focus:ring-blue-500"
+                      />
+                      <div>
+                        <p className="font-bold text-xs">Non Pertanian (Coret Pertanian)</p>
+                        <p className="text-[10px] text-slate-500 mt-0.5">
+                          Menyoret kata "Pertanian" sehingga berlaku "Non Pertanian".
+                        </p>
+                      </div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setPpatData(prev => ({ ...prev, landUseType: 'pertanian' }))}
+                      className={`px-3 py-2 rounded-lg border text-left flex items-start gap-2.5 transition-all ${
+                        ppatData.landUseType === 'pertanian'
+                          ? 'bg-blue-50 border-blue-400 text-blue-900 shadow-xs'
+                          : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="landUseTypeMaster"
+                        checked={ppatData.landUseType === 'pertanian'}
+                        onChange={() => {}}
+                        className="mt-0.5 text-blue-600 focus:ring-blue-500"
+                      />
+                      <div>
+                        <p className="font-bold text-xs">Pertanian (Coret Non Pertanian)</p>
+                        <p className="text-[10px] text-slate-500 mt-0.5">
+                          Menyoret kata "Non Pertanian" sehingga berlaku "Pertanian".
+                        </p>
+                      </div>
+                    </button>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                      Berupa (Uraian Fisik Objek):
+                    </label>
+                    <div className="flex flex-wrap items-center gap-1.5 mb-2">
+                      {[
+                        'TANAH KOSONG',
+                        'BANGUNAN RUMAH TINGGAL',
+                        'BANGUNAN RUMAH TOKO (RUKO)',
+                        'BANGUNAN GEDUNG / KANTOR',
+                        'KAVLING SIAP BANGUN'
+                      ].map(preset => (
+                        <button
+                          key={preset}
+                          type="button"
+                          onClick={() => setPpatData(prev => ({ ...prev, landUse: preset }))}
+                          className={`px-2.5 py-1 rounded-md text-[11px] font-semibold border transition-all ${
+                            (ppatData.landUse || 'TANAH KOSONG').toUpperCase() === preset
+                              ? 'bg-amber-100 border-amber-400 text-amber-900 shadow-xs'
+                              : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100'
+                          }`}
+                        >
+                          {preset}
+                        </button>
+                      ))}
+                    </div>
+                    <input
+                      type="text"
+                      value={ppatData.landUse || ''}
+                      onChange={(e) => setPpatData(prev => ({ ...prev, landUse: e.target.value.toUpperCase() }))}
+                      placeholder="Contoh: TANAH KOSONG / BANGUNAN RUMAH TINGGAL"
+                      className="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none font-bold uppercase"
+                    />
+                  </div>
+
+                  <div className="p-2.5 bg-white rounded-lg border border-slate-200 text-xs">
+                    <p className="text-[10px] font-bold text-slate-500 uppercase mb-0.5">Hasil Cetak di Dokumen:</p>
+                    <p className="text-slate-800 font-serif">
+                      Penggunaan Tanah : {ppatData.landUseType === 'pertanian' ? (
+                        <>Pertanian / <span className="line-through text-slate-400">Non Pertanian</span> *) berupa <strong className="uppercase">{ppatData.landUse || 'TANAH KOSONG'}</strong></>
+                      ) : (
+                        <><span className="line-through text-slate-400">Pertanian</span> / Non Pertanian *) berupa <strong className="uppercase">{ppatData.landUse || 'TANAH KOSONG'}</strong></>
+                      )}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* 3. DAFTAR LAMPIRAN PERMOHONAN DINAMIS */}
+            <div className="bg-slate-50 p-5 rounded-xl border border-slate-200 space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-3">
+                <div>
+                  <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                    <FileCheck className="w-4 h-4 text-emerald-600" />
+                    <span>Daftar Lampiran Berkas Permohonan (Dinamis)</span>
+                  </h4>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Berkas yang dilampirkan pada Lampiran 13. Anda dapat menambah, menghapus, mengubah, atau mengatur urutannya.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleLoadDefaultAttachments}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded-lg text-xs font-semibold transition-all shadow-xs"
+                    title="Muat rekomendasi lampiran otomatis berdasarkan Sertipikat, Surat Kuasa, dan Akta Jual Beli"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-amber-700" />
+                    <span>Muat Rekomendasi Otomatis</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleAddAttachment}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold transition-all shadow-xs"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Tambah Lampiran</span>
+                  </button>
+                </div>
+              </div>
+
+              {(!ppatData.attachments || ppatData.attachments.length === 0) ? (
+                <div className="p-6 text-center bg-white rounded-xl border border-dashed border-slate-300 text-slate-500 space-y-3">
+                  <FileText className="w-8 h-8 text-slate-400 mx-auto" />
+                  <div>
+                    <p className="text-xs font-semibold text-slate-700">Belum ada lampiran kustom yang ditambahkan.</p>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      Dokumen Lampiran 13 akan menggunakan 3 rekomendasi standar (Sertipikat Asli, Surat Kuasa, AJB) atau klik tombol di bawah.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleLoadDefaultAttachments}
+                    className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-lg transition-all"
+                  >
+                    <Sparkles className="w-4 h-4" />
+                    <span>Muat Rekomendasi Lampiran Standar</span>
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {ppatData.attachments.map((att, idx) => (
+                    <div
+                      key={att.id || idx}
+                      className="p-3 bg-white rounded-xl border border-slate-200 hover:border-slate-300 shadow-xs flex flex-wrap items-center gap-3 transition-all"
+                    >
+                      <div className="flex items-center gap-1">
+                        <span className="w-6 h-6 rounded-full bg-slate-100 text-slate-700 text-xs font-bold flex items-center justify-center">
+                          {idx + 1}
+                        </span>
+                        <div className="flex flex-col">
+                          <button
+                            type="button"
+                            disabled={idx === 0}
+                            onClick={() => handleMoveAttachment(idx, 'up')}
+                            className="p-0.5 text-slate-400 hover:text-slate-700 disabled:opacity-20"
+                            title="Pindah ke atas"
+                          >
+                            <ArrowUp className="w-3 h-3" />
+                          </button>
+                          <button
+                            type="button"
+                            disabled={idx === (ppatData.attachments?.length || 1) - 1}
+                            onClick={() => handleMoveAttachment(idx, 'down')}
+                            className="p-0.5 text-slate-400 hover:text-slate-700 disabled:opacity-20"
+                            title="Pindah ke bawah"
+                          >
+                            <ArrowDown className="w-3 h-3" />
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="flex-1 min-w-[200px] space-y-0.5">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase">Nama / Jenis Lampiran *</label>
+                        <input
+                          type="text"
+                          value={att.name}
+                          onChange={(e) => handleUpdateAttachment(idx, { name: e.target.value })}
+                          placeholder="Contoh: ASLI M 651/DESA MEKARWANGI atau ASLI SURAT KUASA"
+                          className="w-full px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:ring-1 focus:ring-amber-500 font-semibold"
+                        />
+                      </div>
+
+                      <div className="w-36 space-y-0.5">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase">No. Dokumen</label>
+                        <input
+                          type="text"
+                          value={att.documentNumber || ''}
+                          onChange={(e) => handleUpdateAttachment(idx, { documentNumber: e.target.value })}
+                          placeholder="Nomor (opsional)"
+                          className="w-full px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:ring-1 focus:ring-amber-500 font-mono"
+                        />
+                      </div>
+
+                      <div className="w-36 space-y-0.5">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase">Tanggal</label>
+                        <input
+                          type="date"
+                          value={att.documentDate || ''}
+                          onChange={(e) => handleUpdateAttachment(idx, { documentDate: e.target.value })}
+                          className="w-full px-2 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:ring-1 focus:ring-amber-500"
+                        />
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteAttachment(idx)}
+                        className="p-2 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition-all"
+                        title="Hapus lampiran ini"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* TAB 4: JENIS PERALIHAN HAK */}
         {activeTab === 'settings' && (
           <div className="space-y-4">
             <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">

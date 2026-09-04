@@ -94,6 +94,15 @@ export const PPAT_DOC_TYPES: PPATDocTypeConfig[] = [
     defaultTitle: 'Surat Pernyataan Memenuhi Ketentuan Pasal 100'
   },
   {
+    id: 'lampiran_13_peralihan_hak',
+    title: 'Lampiran 13 – Permohonan Peralihan Hak',
+    category: 'surat',
+    shortDesc: 'Formulir resmi Permohonan Peralihan Hak (Lampiran 13) ke Kantor Pertanahan / BPN dengan data pemohon, kuasa pembeli, sertipikat, dan lampiran berkas.',
+    recommendedFor: ['Peralihan Hak BPN', 'Balik Nama AJB', 'Pendaftaran BPN', 'Lampiran 13'],
+    isAvailableForGeneration: true,
+    defaultTitle: 'Permohonan Peralihan Hak (Lampiran 13)'
+  },
+  {
     id: 'surat_tidak_sengketa',
     title: 'Surat Pernyataan Tanah Tidak Sengketa & Penguasaan Fisik',
     category: 'surat',

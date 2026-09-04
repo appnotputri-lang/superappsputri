@@ -221,6 +221,13 @@ export interface PPATDocumentItem {
   };
 }
 
+export interface PPATAttachmentItem {
+  id: string;
+  name: string; // Nama / Jenis Lampiran
+  documentNumber?: string; // Nomor Dokumen (jika ada)
+  documentDate?: string; // Tanggal Dokumen (jika ada)
+}
+
 export interface PPATData {
   transactionType: string; // Jual Beli, Hibah, Waris, Tukar-Menukar, Inbreng, dll.
   firstParties: PPATParty[]; // Pihak Pertama / Penjual / Pelepas Hak / Pewaris
@@ -230,6 +237,18 @@ export interface PPATData {
   nomorAkta?: string;
   tahunAkta?: string;
   tanggalAkta?: string;
+  // Permohonan BPN (Lampiran 13) & Surat Kuasa
+  nomorSuratKuasa?: string;
+  tanggalSuratKuasa?: string;
+  permohonanNomor?: string;
+  permohonanLampiran?: string;
+  permohonanPerihal?: string;
+  permohonanTempat?: string;
+  permohonanTanggal?: string;
+  tandaBatas?: string;
+  landUse?: string;
+  landUseType?: 'non_pertanian' | 'pertanian' | string; // Opsi Pertanian / Non Pertanian (coret yang tidak perlu)
+  attachments?: PPATAttachmentItem[];
   documents?: PPATDocumentItem[]; // Multi-document storage per PPAT project
   updatedAt?: string;
 }
