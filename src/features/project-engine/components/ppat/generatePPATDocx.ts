@@ -17,7 +17,7 @@ import {
 import { saveAs } from "file-saver";
 import JSZip from "jszip";
 import { Project, PPATData, PPATParty, PPATDocumentItem } from "../../../../domain/project/Project";
-import { formatFullPartyAddress, isCityKota, formatCleanVillage, formatCleanDistrict, formatRtRw, formatVillageName, formatDistrictName, formatCityName } from "./ppatAddressUtils";
+import { formatFullPartyAddress, isCityKota, formatCleanVillage, formatCleanDistrict, formatRtRw, formatVillageName, formatDistrictName, formatCityName, getPersonHonorific, areNamesEqual } from "./ppatAddressUtils";
 
 const formatDateIndo = (dateStr?: string): string => {
   if (!dateStr) {
@@ -52,6 +52,26 @@ export const terbilang = (n: number): string => {
     return num.toString();
   };
   return bilang(n).trim() + " Rupiah";
+};
+
+export const terbilangAngka = (n: number): string => {
+  if (n <= 0 || isNaN(n)) return "nol";
+  const satuan = ["", "satu", "dua", "tiga", "empat", "lima", "enam", "tujuh", "delapan", "sembilan", "sepuluh", "sebelas"];
+  const bilang = (num: number): string => {
+    num = Math.floor(num);
+    if (num < 12) return satuan[num];
+    if (num < 20) return bilang(num - 10) + " belas";
+    if (num < 100) return bilang(Math.floor(num / 10)) + " puluh" + (num % 10 !== 0 ? " " + bilang(num % 10) : "");
+    if (num < 200) return "seratus" + (num % 100 !== 0 ? " " + bilang(num % 100) : "");
+    if (num < 1000) return bilang(Math.floor(num / 100)) + " ratus" + (num % 100 !== 0 ? " " + bilang(num % 100) : "");
+    if (num < 2000) return "seribu" + (num % 1000 !== 0 ? " " + bilang(num % 1000) : "");
+    if (num < 1000000) return bilang(Math.floor(num / 1000)) + " ribu" + (num % 1000 !== 0 ? " " + bilang(num % 1000) : "");
+    if (num < 1000000000) return bilang(Math.floor(num / 1000000)) + " juta" + (num % 1000000 !== 0 ? " " + bilang(num % 1000000) : "");
+    if (num < 1000000000000) return bilang(Math.floor(num / 1000000000)) + " milyar" + (num % 1000000000 !== 0 ? " " + bilang(num % 1000000000) : "");
+    if (num < 1000000000000000) return bilang(Math.floor(num / 1000000000000)) + " triliun" + (num % 1000000000000 !== 0 ? " " + bilang(num % 1000000000000) : "");
+    return num.toString();
+  };
+  return bilang(n).trim();
 };
 
 export const generatePaktaIntegritasDocx = async (
@@ -3525,7 +3545,7 @@ export const generateSuratNilaiPajakDocx = async (
   saveAs(blob, `Surat_Pernyataan_Nilai_Pajak_${secondParty.name || "Klien"}.docx`);
 };
 
-// === DRAF AKTA JUAL BELI (AJB) AWAL ===
+// === DRAF AKTA JUAL BELI (AJB) SESUAI BLANGKO STANDAR PPAT ===
 export const generateAktaAJBDocx = async (
   project: Project,
   ppatData: PPATData,
@@ -3534,102 +3554,462 @@ export const generateAktaAJBDocx = async (
   const firstParty = ppatData.firstParties[0] || ({} as PPATParty);
   const secondParty = ppatData.secondParties[0] || ({} as PPATParty);
   const obj = ppatData.object || {};
-  const letterDate = docItem?.letterDate || new Date().toISOString();
-  const transValue = docItem?.specificData?.agreedPrice || obj.transactionValue || 0;
 
-  const doc = new Document({
-    sections: [
-      {
-        properties: {
-          page: {
-            margin: {
-              top: convertInchesToTwip(1),
-              bottom: convertInchesToTwip(1),
-              left: convertInchesToTwip(1),
-              right: convertInchesToTwip(1)
-            }
-          }
-        },
-        children: [
-          new Paragraph({
-            alignment: AlignmentType.CENTER,
-            spacing: { after: 60 },
-            children: [
-              new TextRun({ text: "AKTA JUAL BELI", bold: true, size: 28, font: "Times New Roman" })
-            ]
-          }),
-          new Paragraph({
-            alignment: AlignmentType.CENTER,
-            spacing: { after: 200 },
-            children: [
-              new TextRun({ text: "Nomor : ......... / ............ / ..........", bold: true, size: 22, font: "Times New Roman" })
-            ]
-          }),
-          new Paragraph({
-            spacing: { after: 120 },
-            children: [
-              new TextRun({
-                text: "Pada hari ini, menghadap kepada saya, NUKANTINI PUTRI PARINCHA, Sarjana Hukum, Magister Kenotariatan, yang berdasarkan Surat Keputusan Kepala Badan Pertanahan Nasional Republik Indonesia diangkat sebagai Pejabat Pembuat Akta Tanah (PPAT), dengan daerah kerja Kabupaten Bandung Barat, dengan dihadiri oleh saksi-saksi:",
-                font: "Times New Roman",
-                size: 22
-              })
-            ]
-          }),
-          new Paragraph({
-            spacing: { before: 120, after: 60 },
-            children: [
-              new TextRun({ text: "I. PIHAK PERTAMA (PENJUAL):", bold: true, font: "Times New Roman", size: 22 })
-            ]
-          }),
-          new Table({
-            width: { size: 100, type: WidthType.PERCENTAGE },
-            rows: [
-              createTableRow("Nama", firstParty.name || "-"),
-              createTableRow("NIK", firstParty.nik || "-"),
-              createTableRow("Pekerjaan", firstParty.job || "-"),
-              createTableRow("Alamat", firstParty.address || "-")
-            ]
-          }),
-          new Paragraph({
-            spacing: { before: 120, after: 60 },
-            children: [
-              new TextRun({ text: "II. PIHAK KEDUA (PEMBELI):", bold: true, font: "Times New Roman", size: 22 })
-            ]
-          }),
-          new Table({
-            width: { size: 100, type: WidthType.PERCENTAGE },
-            rows: [
-              createTableRow("Nama", secondParty.name || "-"),
-              createTableRow("NIK", secondParty.nik || "-"),
-              createTableRow("Pekerjaan", secondParty.job || "-"),
-              createTableRow("Alamat", secondParty.address || "-")
-            ]
-          }),
-          new Paragraph({
-            spacing: { before: 120, after: 120 },
-            children: [
-              new TextRun({
-                text: `Pihak Pertama menjual kepada Pihak Kedua, dan Pihak Kedua membeli dari Pihak Pertama hak atas sebidang tanah: ${obj.certificateType || "SHM"} Nomor ${obj.certificateNumber || "-"}, terletak di ${obj.village || "-"}, Kec. ${obj.district || "-"}, ${obj.regency || "KBB"}, seluas ${obj.landArea || 0} m², dengan harga yang disepakati sebesar ${formatRupiah(transValue)}.`,
-                font: "Times New Roman",
-                size: 22
-              })
-            ]
-          }),
-          new Paragraph({
-            alignment: AlignmentType.CENTER,
-            spacing: { before: 240 },
-            children: [
-              new TextRun({ text: "PEJABAT PEMBUAT AKTA TANAH (PPAT)", bold: true, font: "Times New Roman", size: 22 }),
-              new TextRun({ break: 4, text: "NUKANTINI PUTRI PARINCHA, S.H., M.Kn.", bold: true, underline: {}, font: "Times New Roman", size: 22 })
-            ]
-          })
-        ]
+  const aktaNomor = docItem?.specificData?.nomorAkta || ppatData.nomorAkta || "01";
+  const letterDateRaw = docItem?.letterDate || new Date().toISOString().split("T")[0];
+  const aktaTahun = docItem?.specificData?.tahunAkta || (letterDateRaw ? new Date(letterDateRaw).getFullYear().toString() : new Date().getFullYear().toString());
+  const transValue = Number(docItem?.specificData?.agreedPrice || obj.transactionValue || 0);
+
+  const cleanVillage = formatCleanVillage(obj.village || "");
+  const cleanDistrict = formatCleanDistrict(obj.district || "");
+  const cleanRegency = formatCityName(obj.city || obj.regency || "Bandung Barat");
+  const cleanProvince = obj.province ? obj.province.trim() : "Jawa Barat";
+
+  // Ambil file template AJB.docx
+  let response = await fetch("/AJB.docx");
+  if (!response.ok) {
+    response = await fetch("/public/AJB.docx");
+  }
+  if (!response.ok) {
+    throw new Error(`Gagal memuat template AJB.docx: ${response.status}`);
+  }
+
+  const arrayBuffer = await response.arrayBuffer();
+  const zip = await JSZip.loadAsync(arrayBuffer);
+  const docXmlFile = zip.file("word/document.xml");
+  if (!docXmlFile) {
+    throw new Error("Template tidak valid: word/document.xml tidak ditemukan");
+  }
+
+  const xmlText = await docXmlFile.async("string");
+  const parser = new DOMParser();
+  const xmlDoc = parser.parseFromString(xmlText, "text/xml");
+  const paragraphs = Array.from(xmlDoc.getElementsByTagName("w:p"));
+
+  const formatDateParts = (dateStr?: string) => {
+    if (!dateStr) return { short: "-", spelled: "-", day: "", dayPad: "", month: "", year: "", dayName: "", dayTerbilang: "", yearTerbilang: "" };
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return { short: dateStr, spelled: dateStr, day: "", dayPad: "", month: "", year: "", dayName: "", dayTerbilang: "", yearTerbilang: "" };
+
+    const dayNames = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jum’at", "Sabtu"];
+    const months = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+
+    const day = d.getDate();
+    const dayPad = String(day).padStart(2, "0");
+    const month = months[d.getMonth()];
+    const monthPad = String(d.getMonth() + 1).padStart(2, "0");
+    const year = d.getFullYear();
+    const dayName = dayNames[d.getDay()];
+
+    const short = `${dayPad}-${monthPad}-${year}`;
+    const spelled = `${terbilangAngka(day)} ${month} ${terbilangAngka(year)}`;
+
+    return {
+      short,
+      spelled,
+      day,
+      dayPad,
+      dayName,
+      month,
+      year,
+      dayTerbilang: terbilangAngka(day),
+      yearTerbilang: terbilangAngka(year)
+    };
+  };
+
+  const createBookmanRun = (text: string, isBold: boolean = false): Element => {
+    const wNamespace = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+    const r = xmlDoc.createElementNS(wNamespace, "w:r");
+    const rPr = xmlDoc.createElementNS(wNamespace, "w:rPr");
+
+    const rFonts = xmlDoc.createElementNS(wNamespace, "w:rFonts");
+    rFonts.setAttribute("w:ascii", "Bookman Old Style");
+    rFonts.setAttribute("w:hAnsi", "Bookman Old Style");
+    rPr.appendChild(rFonts);
+
+    if (isBold) {
+      const b = xmlDoc.createElementNS(wNamespace, "w:b");
+      const bCs = xmlDoc.createElementNS(wNamespace, "w:bCs");
+      rPr.appendChild(b);
+      rPr.appendChild(bCs);
+    }
+
+    const sz = xmlDoc.createElementNS(wNamespace, "w:sz");
+    sz.setAttribute("w:val", "24");
+    rPr.appendChild(sz);
+
+    const szCs = xmlDoc.createElementNS(wNamespace, "w:szCs");
+    szCs.setAttribute("w:val", "24");
+    rPr.appendChild(szCs);
+
+    r.appendChild(rPr);
+
+    const t = xmlDoc.createElementNS(wNamespace, "w:t");
+    t.setAttribute("xml:space", "preserve");
+    t.textContent = text;
+    r.appendChild(t);
+
+    return r;
+  };
+
+  const createBookmanTabRun = (isBold: boolean = false): Element => {
+    const wNamespace = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+    const r = xmlDoc.createElementNS(wNamespace, "w:r");
+    const rPr = xmlDoc.createElementNS(wNamespace, "w:rPr");
+
+    const rFonts = xmlDoc.createElementNS(wNamespace, "w:rFonts");
+    rFonts.setAttribute("w:ascii", "Bookman Old Style");
+    rFonts.setAttribute("w:hAnsi", "Bookman Old Style");
+    rPr.appendChild(rFonts);
+
+    if (isBold) {
+      const b = xmlDoc.createElementNS(wNamespace, "w:b");
+      const bCs = xmlDoc.createElementNS(wNamespace, "w:bCs");
+      rPr.appendChild(b);
+      rPr.appendChild(bCs);
+    }
+
+    const sz = xmlDoc.createElementNS(wNamespace, "w:sz");
+    sz.setAttribute("w:val", "24");
+    rPr.appendChild(sz);
+
+    const szCs = xmlDoc.createElementNS(wNamespace, "w:szCs");
+    szCs.setAttribute("w:val", "24");
+    rPr.appendChild(szCs);
+
+    r.appendChild(rPr);
+
+    const tab = xmlDoc.createElementNS(wNamespace, "w:tab");
+    r.appendChild(tab);
+
+    return r;
+  };
+
+  const createBookmanRunWithTab = (text: string, isBold: boolean = false): Element => {
+    const wNamespace = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+    const r = xmlDoc.createElementNS(wNamespace, "w:r");
+    const rPr = xmlDoc.createElementNS(wNamespace, "w:rPr");
+
+    const rFonts = xmlDoc.createElementNS(wNamespace, "w:rFonts");
+    rFonts.setAttribute("w:ascii", "Bookman Old Style");
+    rFonts.setAttribute("w:hAnsi", "Bookman Old Style");
+    rPr.appendChild(rFonts);
+
+    if (isBold) {
+      const b = xmlDoc.createElementNS(wNamespace, "w:b");
+      const bCs = xmlDoc.createElementNS(wNamespace, "w:bCs");
+      rPr.appendChild(b);
+      rPr.appendChild(bCs);
+    }
+
+    const sz = xmlDoc.createElementNS(wNamespace, "w:sz");
+    sz.setAttribute("w:val", "24");
+    rPr.appendChild(sz);
+
+    const szCs = xmlDoc.createElementNS(wNamespace, "w:szCs");
+    szCs.setAttribute("w:val", "24");
+    rPr.appendChild(szCs);
+
+    r.appendChild(rPr);
+
+    const tab = xmlDoc.createElementNS(wNamespace, "w:tab");
+    r.appendChild(tab);
+
+    const t = xmlDoc.createElementNS(wNamespace, "w:t");
+    t.setAttribute("xml:space", "preserve");
+    t.textContent = text;
+    r.appendChild(t);
+
+    return r;
+  };
+
+  const setParagraphRuns = (p: Element, runs: Element[]) => {
+    const children = Array.from(p.childNodes);
+    children.forEach(c => {
+      if (c.nodeName !== "w:pPr") {
+        p.removeChild(c);
       }
-    ]
+    });
+    runs.forEach(r => p.appendChild(r));
+  };
+
+  // 1. Nomor Akta (P#11)
+  if (paragraphs[11]) {
+    setParagraphRuns(paragraphs[11], [
+      createBookmanRun("Nomor  "),
+      createBookmanRun(String(aktaNomor).padStart(2, "0"), true),
+      createBookmanRun("  /  "),
+      createBookmanRun(String(aktaTahun), true)
+    ]);
+  }
+
+  // 2. Hari & Tanggal (P#14)
+  const tglAkta = formatDateParts(letterDateRaw);
+  if (paragraphs[14]) {
+    setParagraphRuns(paragraphs[14], [
+      createBookmanRun("Pada hari ini, "),
+      createBookmanRun(tglAkta.dayName, true),
+      createBookmanRun(", tanggal "),
+      createBookmanRun(tglAkta.dayPad, true),
+      createBookmanRun(` ( ${tglAkta.dayTerbilang} ) bulan `),
+      createBookmanRun(tglAkta.month, true),
+      createBookmanRun(" tahun "),
+      createBookmanRun(String(tglAkta.year), true),
+      createBookmanRun(` ( ${tglAkta.yearTerbilang} )`),
+      createBookmanTabRun()
+    ]);
+  }
+
+  // 3. Pihak Pertama (P#16)
+  if (paragraphs[16]) {
+    const p1Birth = formatDateParts(firstParty.birthDate);
+    const p1Honorific = getPersonHonorific(firstParty);
+    const p1Prefix = firstParty.isLegalEntity ? "" : (p1Honorific ? `${p1Honorific} ` : "");
+
+    // Tentukan Nama Pokok/Sertipikat dan Nama di KTP (jika berbeda)
+    const certOwner = (obj.namaDalamSertipikat || (obj as any).ownerName || "").trim();
+    let mainName = (firstParty.name || "-").trim();
+    let ktpName = (firstParty.ktpName || (firstParty as any).ktpName || "").trim();
+
+    // Jika namaDalamSertipikat diisi dan berbeda dengan firstParty.name, jadikan nama sertipikat sebagai nama utama di komparisi
+    if (certOwner && !areNamesEqual(certOwner, firstParty.name)) {
+      mainName = certOwner;
+      if (!ktpName) {
+        ktpName = (firstParty.name || "").trim();
+      }
+    }
+
+    const p1Runs = [
+      createBookmanRun(p1Prefix),
+      createBookmanRun(mainName, true),
+      createBookmanRun(", ")
+    ];
+
+    if (ktpName && !areNamesEqual(mainName, ktpName)) {
+      p1Runs.push(createBookmanRun("tertulis di Kartu Tanda Penduduk "));
+      p1Runs.push(createBookmanRun(ktpName, true));
+      p1Runs.push(createBookmanRun(", "));
+    }
+
+    const p1Alamat = formatFullPartyAddress(firstParty) || firstParty.address || "-";
+    const p1Wn = firstParty.citizenship || (firstParty as any).kewarganegaraan || "Warga Negara Indonesia";
+    const p1Job = firstParty.job || "Karyawan Swasta";
+    const p1Nik = firstParty.nik || "-";
+    const p1Ttl = firstParty.birthPlace
+      ? `lahir di ${firstParty.birthPlace}, pada tanggal ${p1Birth.short} ( ${p1Birth.spelled} )`
+      : `pada tanggal ${p1Birth.short} ( ${p1Birth.spelled} )`;
+
+    p1Runs.push(
+      createBookmanRun(`${p1Ttl}, ${p1Wn}, ${p1Job}, bertempat tinggal di ${p1Alamat}, pemegang Kartu Tanda Penduduk Nomor ${p1Nik};`),
+      createBookmanTabRun()
+    );
+    setParagraphRuns(paragraphs[16], p1Runs);
+  }
+
+  // 4. Persetujuan Pasangan (P#17)
+  if (paragraphs[17]) {
+    const hasConsent = firstParty.hasSpouseConsent || (firstParty as any).spouseName || docItem?.specificData?.spouseConsentName;
+    if (hasConsent) {
+      const spName = firstParty.spouseName || docItem?.specificData?.spouseConsentName || "PASANGAN";
+      const spBirthPlace = firstParty.spouseBirthPlace || "Bandung";
+      const spBirthDate = firstParty.spouseBirthDate || "";
+      const spBirth = formatDateParts(spBirthDate);
+      const spJob = firstParty.spouseJob || "Mengurus Rumah Tangga";
+      const spNik = firstParty.spouseNik || docItem?.specificData?.spouseConsentNik || "-";
+      const spRelation = firstParty.spouseConsentType === "suami" ? "suami" : "istri";
+      const spPrefix = spRelation === "suami" ? "Tuan " : "Nyonya ";
+      const spPartnerPrefix = spRelation === "suami" ? "istri" : "suami";
+
+      const spRuns = [
+        createBookmanRun(`Dalam melakukan tindakan hukum di bawah ini telah mendapat persetujuan dari ${spRelation}nya yang turut hadir dan menandatangani akta ini, ${spPrefix}`),
+        createBookmanRun(spName, true),
+        createBookmanRun(`, lahir di ${spBirthPlace}, pada tanggal ${spBirth.short} ( ${spBirth.spelled} ), Warga Negara Indonesia, ${spJob}, bertempat tinggal sama dengan ${spPartnerPrefix}nya penghadap tersebut diatas, pemegang Kartu Tanda Penduduk Nomor ${spNik}.`),
+        createBookmanTabRun()
+      ];
+      setParagraphRuns(paragraphs[17], spRuns);
+    } else {
+      setParagraphRuns(paragraphs[17], [
+        createBookmanRun("- Dalam melakukan tindakan hukum di bawah ini penghadap menyatakan tidak terikat dalam perkawinan sehingga berhak bertindak mandiri sepenuhnya atas perbuatan hukum dalam akta ini; -"),
+        createBookmanTabRun()
+      ]);
+    }
+  }
+
+  // 5. Domisili Sementara (P#18)
+  if (paragraphs[18]) {
+    setParagraphRuns(paragraphs[18], [
+      createBookmanRun(`Untuk sementara keduanya berada di Kabupaten ${cleanRegency};`),
+      createBookmanTabRun()
+    ]);
+  }
+
+  // 6. Pihak Kedua (P#20)
+  if (paragraphs[20]) {
+    const p2Birth = formatDateParts(secondParty.birthDate);
+    const p2Alamat = formatFullPartyAddress(secondParty) || secondParty.address || "-";
+    const p2Wn = secondParty.citizenship || (secondParty as any).kewarganegaraan || "Warga Negara Indonesia";
+    const p2Job = secondParty.job || "Karyawan Swasta";
+    const p2Nik = secondParty.nik || "-";
+    const p2Ttl = secondParty.birthPlace
+      ? `lahir di ${secondParty.birthPlace}, pada tanggal ${p2Birth.short} ( ${p2Birth.spelled} )`
+      : `pada tanggal ${p2Birth.short} ( ${p2Birth.spelled} )`;
+
+    const p2Honorific = getPersonHonorific(secondParty);
+    const p2Prefix = secondParty.isLegalEntity ? "" : (p2Honorific ? `${p2Honorific} ` : "");
+    const p2MainName = (secondParty.name || "-").trim();
+    const p2KtpName = (secondParty.ktpName || (secondParty as any).ktpName || "").trim();
+
+    const p2Runs = [
+      createBookmanRun(p2Prefix),
+      createBookmanRun(p2MainName, true),
+      createBookmanRun(", ")
+    ];
+
+    if (p2KtpName && !areNamesEqual(p2MainName, p2KtpName)) {
+      p2Runs.push(createBookmanRun("tertulis di Kartu Tanda Penduduk "));
+      p2Runs.push(createBookmanRun(p2KtpName, true));
+      p2Runs.push(createBookmanRun(", "));
+    }
+
+    p2Runs.push(
+      createBookmanRun(`${p2Ttl}, ${p2Wn}, ${p2Job}, bertempat tinggal di ${p2Alamat}, pemegang Kartu Tanda Penduduk Nomor ${p2Nik};`),
+      createBookmanTabRun()
+    );
+    setParagraphRuns(paragraphs[20], p2Runs);
+  }
+
+  // 7. Jenis Hak (P#24)
+  if (paragraphs[24]) {
+    const certTypeRaw = obj.certificateType || obj.documentType || "Hak Milik";
+    const upper = certTypeRaw.toUpperCase().trim();
+    let certTypeTitle = "Hak Milik";
+    if (upper.includes("HGB") || upper.includes("GUNA BANGUNAN")) {
+      certTypeTitle = "Hak Guna Bangunan";
+    } else if (upper.includes("PAKAI")) {
+      certTypeTitle = "Hak Pakai";
+    } else if (upper.includes("GIRIK") || upper.includes("LETTER") || upper.includes("WARKAH")) {
+      certTypeTitle = "Tanpa Sertipikat (Girik / Letter C)";
+    } else {
+      certTypeTitle = "Hak Milik";
+    }
+    setParagraphRuns(paragraphs[24], [
+      createBookmanRun(`${certTypeTitle}:`, true),
+      createBookmanTabRun(true)
+    ]);
+  }
+
+  // 8. Detail Sertipikat (P#25)
+  if (paragraphs[25]) {
+    const certNo = obj.certificateNumber ? obj.certificateNumber.trim() : "-";
+    const suDateRaw = obj.measurementDocDate || (obj as any).tanggalSuratUkur || "";
+    const suBirth = formatDateParts(suDateRaw);
+    const suNo = obj.measurementDocNumber || (obj as any).nomorSuratUkur || "-";
+    const landAreaNum = Number(obj.landArea || 0);
+    const landAreaTerbilang = terbilangAngka(landAreaNum);
+    const nib = obj.nib || "-";
+    const nop = obj.nop || "-";
+
+    setParagraphRuns(paragraphs[25], [
+      createBookmanRun("Nomor ", true),
+      createBookmanRun(`${certNo}/Desa ${cleanVillage}`, true),
+      createBookmanRun(` atas sebidang tanah sebagaimana diuraikan dalam Surat Ukur tanggal ${suBirth.short} ( ${suBirth.spelled} ) Nomor ${suNo} seluas ${landAreaNum} m2 ( ${landAreaTerbilang} meter persegi ) dengan Nomor Identifikasi Bidang Tanah (NIB) `),
+      createBookmanRun(nib, true),
+      createBookmanRun(" dan Surat Pemberitahuan Pajak Terhutang Pajak Bumi dan Bangunan (SPPT PBB) Nomor Objek Pajak (NOP) "),
+      createBookmanRun(nop, true),
+      createBookmanTabRun()
+    ]);
+  }
+
+  // 9. Letak Tanah (P#27-30)
+  if (paragraphs[27]) {
+    setParagraphRuns(paragraphs[27], [
+      createBookmanRun("Provinsi"),
+      createBookmanRunWithTab(`: ${cleanProvince};`),
+      createBookmanTabRun()
+    ]);
+  }
+  if (paragraphs[28]) {
+    setParagraphRuns(paragraphs[28], [
+      createBookmanRun("Kabupaten"),
+      createBookmanRunWithTab(`: ${cleanRegency};`),
+      createBookmanTabRun()
+    ]);
+  }
+  if (paragraphs[29]) {
+    setParagraphRuns(paragraphs[29], [
+      createBookmanRun("Kecamatan"),
+      createBookmanRunWithTab(`: ${cleanDistrict};`),
+      createBookmanTabRun()
+    ]);
+  }
+  if (paragraphs[30]) {
+    setParagraphRuns(paragraphs[30], [
+      createBookmanRun("Desa"),
+      createBookmanRunWithTab(`: ${cleanVillage}; `),
+      createBookmanTabRun()
+    ]);
+  }
+
+  // 10. Pemegang Hak (P#31)
+  if (paragraphs[31]) {
+    const certOwner = (obj.namaDalamSertipikat || (obj as any).ownerName || (obj as any).namaPemilik || firstParty.name || "-").trim();
+    setParagraphRuns(paragraphs[31], [
+      createBookmanRun("Sertifikat mana tertulis dan tercatat atas nama "),
+      createBookmanRun(certOwner.toUpperCase(), true),
+      createBookmanRun("."),
+      createBookmanTabRun(true)
+    ]);
+  }
+
+  // 11. Harga Jual Beli (P#35)
+  if (paragraphs[35]) {
+    const priceFormatted = transValue.toLocaleString("id-ID");
+    const priceTerbilang = terbilangAngka(transValue);
+    setParagraphRuns(paragraphs[35], [
+      createBookmanRun("Jual beli ini dilakukan dengan harga "),
+      createBookmanRun(`Rp. ${priceFormatted},- ( ${priceTerbilang} rupiah ). `, true),
+      createBookmanTabRun()
+    ]);
+  }
+
+  // 12. Tanda Tangan Para Pihak & Persetujuan di Seluruh Dokumen (Menjaga tab stop dan layout asli)
+  const hasSpouse = Boolean(firstParty.hasSpouseConsent || (firstParty as any).spouseName || docItem?.specificData?.spouseConsentName);
+  const spRelation = firstParty.spouseConsentType === "suami" ? "Suami" : "Istri";
+  const spName = firstParty.spouseName || docItem?.specificData?.spouseConsentName || "PASANGAN";
+
+  paragraphs.forEach(p => {
+    const tElements = Array.from(p.getElementsByTagName("w:t"));
+    tElements.forEach(t => {
+      if (!t.textContent) return;
+      if (t.textContent.includes("Doktor SUKMADJAJA ASYARIE")) {
+        t.textContent = t.textContent.replace("Doktor SUKMADJAJA ASYARIE", (firstParty.name || "PIHAK PERTAMA").toUpperCase());
+      }
+      if (t.textContent.includes("ACIH SUARSIH")) {
+        t.textContent = t.textContent.replace("ACIH SUARSIH", (secondParty.name || "PIHAK KEDUA").toUpperCase());
+      }
+      if (t.textContent.includes("Persetujuan Istri") || t.textContent.includes("Persetujuan Suami")) {
+        if (hasSpouse) {
+          t.textContent = t.textContent.replace(/Persetujuan (?:Istri|Suami)/g, `Persetujuan ${spRel}`);
+        } else {
+          t.textContent = "";
+        }
+      }
+      if (t.textContent.includes("ROSIDAH")) {
+        if (hasSpouse) {
+          t.textContent = t.textContent.replace("ROSIDAH", spName.toUpperCase());
+        } else {
+          t.textContent = "";
+        }
+      }
+    });
   });
 
-  const blob = await Packer.toBlob(doc);
-  saveAs(blob, `Draf_Akta_AJB_${secondParty.name || "Klien"}.docx`);
+  const serializer = new XMLSerializer();
+  const finalXml = serializer.serializeToString(xmlDoc);
+  zip.file("word/document.xml", finalXml);
+
+  const outBlob = await zip.generateAsync({ type: "blob" });
+  saveAs(outBlob, `Akta_AJB_No_${aktaNomor}_${secondParty.name ? secondParty.name.replace(/\s+/g, "_") : "Pembeli"}.docx`);
 };
 
 // Helper to format party address into two lines (Line 1: Street, RT/RW, Desa/Kel, Line 2: Kec, Kab/Kota)
@@ -4615,6 +4995,568 @@ export const generateLampiran13PeralihanHakDocx = async (
   saveAs(blob, `Lampiran_13_Peralihan_Hak_${pembeli.name ? pembeli.name.replace(/\s+/g, "_") : "Pemohon"}.docx`);
 };
 
+// === SURAT PERNYATAAN KEASLIAN DOKUMEN PENGECEKAN (US LEGAL 8.5 x 14 inch) ===
+export const generateSuratPernyataanKeaslianDokumenPengecekanDocx = async (
+  project: Project,
+  ppatData: PPATData,
+  docItem?: PPATDocumentItem
+): Promise<void> => {
+  // 1. DATA PENJUAL (PIHAK PERTAMA) DARI MASTER DATA PPAT
+  const penjual = (ppatData.firstParties && ppatData.firstParties.length > 0)
+    ? ppatData.firstParties[0]
+    : ({} as PPATParty);
+
+  const namaPenjual = (penjual.name || "NAMA PENJUAL").toUpperCase();
+
+  // Format Tempat/Tgl. Lahir
+  let ttlPenjual = "-";
+  const birthPlace = penjual.birthPlace ? penjual.birthPlace.trim() : "";
+  const birthDate = penjual.birthDate ? formatDateIndo(penjual.birthDate) : "";
+  if (birthPlace && birthDate) {
+    ttlPenjual = `${birthPlace}, ${birthDate}`;
+  } else if (birthPlace) {
+    ttlPenjual = birthPlace;
+  } else if (birthDate) {
+    ttlPenjual = birthDate;
+  }
+
+  // Alamat Penjual
+  const alamatPenjual = formatFullPartyAddress(penjual) || penjual.address || "-";
+  const kewarganegaraanPenjual = penjual.citizenship || (penjual as any).kewarganegaraan || "Indonesia";
+  const pekerjaanPenjual = penjual.job || "Karyawan Swasta";
+
+  // 2. DATA SERTIPIKAT DARI MASTER DATA PPAT
+  const obj = ppatData.object || {};
+
+  // Jenis / Nomor Hak
+  const certTypeRaw = obj.certificateType || obj.documentType || "SHM";
+  const certTypeDisplay = certTypeRaw.toUpperCase().includes("HAK MILIK") ? "SHM" : certTypeRaw.toUpperCase();
+  const certNumber = obj.certificateNumber ? obj.certificateNumber.trim() : "";
+  const desaClean = formatCleanVillage(obj.village || "");
+  const kecClean = formatCleanDistrict(obj.district || "");
+  const kabClean = formatCityName(obj.city || obj.regency || "Bandung Barat");
+  const provClean = obj.province ? obj.province.trim() : "Jawa Barat";
+
+  let jenisNomorHak = "-";
+  if (certNumber) {
+    jenisNomorHak = `${certTypeDisplay} No. ${certNumber}${desaClean ? `/Desa ${desaClean}` : ""}`;
+  } else if (certTypeDisplay) {
+    jenisNomorHak = `${certTypeDisplay}${desaClean ? `/Desa ${desaClean}` : ""}`;
+  }
+
+  // Nomor Surat Ukur
+  const nomorSuratUkur = (obj.nomorSuratUkur && obj.nomorSuratUkur.trim())
+    ? obj.nomorSuratUkur.trim()
+    : (obj.measurementDocNumber && obj.measurementDocNumber.trim() ? obj.measurementDocNumber.trim() : "-");
+
+  // Luas & Terbilang
+  let luasDisplay = "-";
+  if (obj.landArea !== undefined && obj.landArea !== null && String(obj.landArea).trim() !== "" && Number(obj.landArea) > 0) {
+    const numArea = Number(obj.landArea);
+    const numFormatted = numArea.toLocaleString("id-ID");
+    const wordsArea = terbilangAngka(numArea).toLowerCase();
+    luasDisplay = `${numFormatted} m2 ( ${wordsArea} meter persegi )`;
+  }
+
+  // 3. TANGGAL & TEMPAT PENANDATANGANAN (DINAMIS)
+  const tempatTtd = docItem?.letterLocation || ppatData.tempatSuratPernyataanKeaslian || kabClean || "Bandung Barat";
+  const tanggalTtdRaw = docItem?.letterDate || ppatData.tanggalSuratPernyataanKeaslian || new Date().toISOString().split("T")[0];
+  const tanggalTtdDisplay = `${tempatTtd}, ${formatDateIndo(tanggalTtdRaw)}`;
+
+  const borderNone = {
+    top: { style: BorderStyle.NONE, size: 0, color: "auto" },
+    bottom: { style: BorderStyle.NONE, size: 0, color: "auto" },
+    left: { style: BorderStyle.NONE, size: 0, color: "auto" },
+    right: { style: BorderStyle.NONE, size: 0, color: "auto" },
+  };
+
+  const createTwoColRow = (label: string, value: string): TableRow => {
+    return new TableRow({
+      children: [
+        new TableCell({
+          width: { size: 26, type: WidthType.PERCENTAGE },
+          borders: borderNone,
+          children: [
+            new Paragraph({
+              spacing: { before: 20, after: 20, line: 240 },
+              children: [new TextRun({ text: label, font: "Times New Roman", size: 22 })]
+            })
+          ]
+        }),
+        new TableCell({
+          width: { size: 4, type: WidthType.PERCENTAGE },
+          borders: borderNone,
+          children: [
+            new Paragraph({
+              spacing: { before: 20, after: 20, line: 240 },
+              children: [new TextRun({ text: ":", font: "Times New Roman", size: 22 })]
+            })
+          ]
+        }),
+        new TableCell({
+          width: { size: 70, type: WidthType.PERCENTAGE },
+          borders: borderNone,
+          children: [
+            new Paragraph({
+              spacing: { before: 20, after: 20, line: 240 },
+              children: [new TextRun({ text: value || "-", font: "Times New Roman", size: 22 })]
+            })
+          ]
+        })
+      ]
+    });
+  };
+
+  // Sub-table for Letak Tanah: a) Desa/Kelurahan, b) Kecamatan, c) Kabupaten/Kota, d) Provinsi
+  const letakTanahCell = new TableCell({
+    width: { size: 70, type: WidthType.PERCENTAGE },
+    borders: borderNone,
+    children: [
+      new Table({
+        width: { size: 100, type: WidthType.PERCENTAGE },
+        borders: borderNone,
+        rows: [
+          new TableRow({
+            children: [
+              new TableCell({
+                width: { size: 38, type: WidthType.PERCENTAGE },
+                borders: borderNone,
+                children: [
+                  new Paragraph({
+                    spacing: { before: 15, after: 15, line: 240 },
+                    children: [new TextRun({ text: "a) Desa/Kelurahan", font: "Times New Roman", size: 22 })]
+                  })
+                ]
+              }),
+              new TableCell({
+                width: { size: 4, type: WidthType.PERCENTAGE },
+                borders: borderNone,
+                children: [
+                  new Paragraph({
+                    spacing: { before: 15, after: 15, line: 240 },
+                    children: [new TextRun({ text: ":", font: "Times New Roman", size: 22 })]
+                  })
+                ]
+              }),
+              new TableCell({
+                width: { size: 58, type: WidthType.PERCENTAGE },
+                borders: borderNone,
+                children: [
+                  new Paragraph({
+                    spacing: { before: 15, after: 15, line: 240 },
+                    children: [new TextRun({ text: desaClean || "-", font: "Times New Roman", size: 22 })]
+                  })
+                ]
+              })
+            ]
+          }),
+          new TableRow({
+            children: [
+              new TableCell({
+                width: { size: 38, type: WidthType.PERCENTAGE },
+                borders: borderNone,
+                children: [
+                  new Paragraph({
+                    spacing: { before: 15, after: 15, line: 240 },
+                    children: [new TextRun({ text: "b) Kecamatan", font: "Times New Roman", size: 22 })]
+                  })
+                ]
+              }),
+              new TableCell({
+                width: { size: 4, type: WidthType.PERCENTAGE },
+                borders: borderNone,
+                children: [
+                  new Paragraph({
+                    spacing: { before: 15, after: 15, line: 240 },
+                    children: [new TextRun({ text: ":", font: "Times New Roman", size: 22 })]
+                  })
+                ]
+              }),
+              new TableCell({
+                width: { size: 58, type: WidthType.PERCENTAGE },
+                borders: borderNone,
+                children: [
+                  new Paragraph({
+                    spacing: { before: 15, after: 15, line: 240 },
+                    children: [new TextRun({ text: kecClean || "-", font: "Times New Roman", size: 22 })]
+                  })
+                ]
+              })
+            ]
+          }),
+          new TableRow({
+            children: [
+              new TableCell({
+                width: { size: 38, type: WidthType.PERCENTAGE },
+                borders: borderNone,
+                children: [
+                  new Paragraph({
+                    spacing: { before: 15, after: 15, line: 240 },
+                    children: [new TextRun({ text: "c) Kabupaten/Kota", font: "Times New Roman", size: 22 })]
+                  })
+                ]
+              }),
+              new TableCell({
+                width: { size: 4, type: WidthType.PERCENTAGE },
+                borders: borderNone,
+                children: [
+                  new Paragraph({
+                    spacing: { before: 15, after: 15, line: 240 },
+                    children: [new TextRun({ text: ":", font: "Times New Roman", size: 22 })]
+                  })
+                ]
+              }),
+              new TableCell({
+                width: { size: 58, type: WidthType.PERCENTAGE },
+                borders: borderNone,
+                children: [
+                  new Paragraph({
+                    spacing: { before: 15, after: 15, line: 240 },
+                    children: [new TextRun({ text: kabClean || "-", font: "Times New Roman", size: 22 })]
+                  })
+                ]
+              })
+            ]
+          }),
+          new TableRow({
+            children: [
+              new TableCell({
+                width: { size: 38, type: WidthType.PERCENTAGE },
+                borders: borderNone,
+                children: [
+                  new Paragraph({
+                    spacing: { before: 15, after: 15, line: 240 },
+                    children: [new TextRun({ text: "d) Provinsi", font: "Times New Roman", size: 22 })]
+                  })
+                ]
+              }),
+              new TableCell({
+                width: { size: 4, type: WidthType.PERCENTAGE },
+                borders: borderNone,
+                children: [
+                  new Paragraph({
+                    spacing: { before: 15, after: 15, line: 240 },
+                    children: [new TextRun({ text: ":", font: "Times New Roman", size: 22 })]
+                  })
+                ]
+              }),
+              new TableCell({
+                width: { size: 58, type: WidthType.PERCENTAGE },
+                borders: borderNone,
+                children: [
+                  new Paragraph({
+                    spacing: { before: 15, after: 15, line: 240 },
+                    children: [new TextRun({ text: provClean || "-", font: "Times New Roman", size: 22 })]
+                  })
+                ]
+              })
+            ]
+          })
+        ]
+      })
+    ]
+  });
+
+  const rowLetakTanah = new TableRow({
+    children: [
+      new TableCell({
+        width: { size: 26, type: WidthType.PERCENTAGE },
+        borders: borderNone,
+        children: [
+          new Paragraph({
+            spacing: { before: 20, after: 20, line: 240 },
+            children: [new TextRun({ text: "Letak tanah", font: "Times New Roman", size: 22 })]
+          })
+        ]
+      }),
+      new TableCell({
+        width: { size: 4, type: WidthType.PERCENTAGE },
+        borders: borderNone,
+        children: [
+          new Paragraph({
+            spacing: { before: 20, after: 20, line: 240 },
+            children: [new TextRun({ text: ":", font: "Times New Roman", size: 22 })]
+          })
+        ]
+      }),
+      letakTanahCell
+    ]
+  });
+
+  // Signature Block (Table 2 cols: Left 50% empty, Right 50% text & materai)
+  const signatureTable = new Table({
+    width: { size: 100, type: WidthType.PERCENTAGE },
+    borders: borderNone,
+    rows: [
+      new TableRow({
+        children: [
+          new TableCell({
+            width: { size: 48, type: WidthType.PERCENTAGE },
+            borders: borderNone,
+            children: [new Paragraph({ children: [] })]
+          }),
+          new TableCell({
+            width: { size: 52, type: WidthType.PERCENTAGE },
+            borders: borderNone,
+            children: [
+              new Paragraph({
+                alignment: AlignmentType.CENTER,
+                spacing: { before: 60, after: 120, line: 240 },
+                children: [
+                  new TextRun({
+                    text: tanggalTtdDisplay,
+                    font: "Times New Roman",
+                    size: 22
+                  })
+                ]
+              }),
+              // Materai box area
+              new Table({
+                alignment: AlignmentType.CENTER,
+                rows: [
+                  new TableRow({
+                    children: [
+                      new TableCell({
+                        width: { size: convertInchesToTwip(1.3), type: WidthType.DXA },
+                        borders: {
+                          top: { style: BorderStyle.DASHED, size: 4, color: "999999" },
+                          bottom: { style: BorderStyle.DASHED, size: 4, color: "999999" },
+                          left: { style: BorderStyle.DASHED, size: 4, color: "999999" },
+                          right: { style: BorderStyle.DASHED, size: 4, color: "999999" },
+                        },
+                        children: [
+                          new Paragraph({
+                            alignment: AlignmentType.CENTER,
+                            spacing: { before: 120, after: 120 },
+                            children: [
+                              new TextRun({
+                                text: "METERAI\nTEMPEL\n10.000",
+                                font: "Times New Roman",
+                                size: 15,
+                                color: "777777"
+                              })
+                            ]
+                          })
+                        ]
+                      })
+                    ]
+                  })
+                ]
+              }),
+              // Space after materai
+              new Paragraph({
+                alignment: AlignmentType.CENTER,
+                spacing: { before: 120, after: 0 },
+                children: [
+                  new TextRun({
+                    text: namaPenjual,
+                    font: "Times New Roman",
+                    size: 22,
+                    bold: true
+                  })
+                ]
+              })
+            ]
+          })
+        ]
+      })
+    ]
+  });
+
+  const doc = new Document({
+    sections: [
+      {
+        properties: {
+          page: {
+            size: {
+              width: convertInchesToTwip(8.5),
+              height: convertInchesToTwip(14.0),
+            },
+            margin: {
+              top: convertInchesToTwip(1.0),
+              bottom: convertInchesToTwip(1.0),
+              left: convertInchesToTwip(1.0),
+              right: convertInchesToTwip(1.0)
+            }
+          }
+        },
+        children: [
+          // JUDUL DI TENGAH
+          new Paragraph({
+            alignment: AlignmentType.CENTER,
+            spacing: { before: 0, after: 280 },
+            children: [
+              new TextRun({
+                text: "SURAT PERNYATAAN",
+                font: "Times New Roman",
+                size: 24,
+                bold: true
+              })
+            ]
+          }),
+
+          // SAYA YANG BERTANDATANGAN DI BAWAH INI
+          new Paragraph({
+            spacing: { before: 0, after: 80, line: 240 },
+            children: [
+              new TextRun({
+                text: "Saya yang bertandatangan di bawah ini :",
+                font: "Times New Roman",
+                size: 22
+              })
+            ]
+          }),
+
+          // IDENTITAS PENJUAL
+          new Table({
+            width: { size: 100, type: WidthType.PERCENTAGE },
+            borders: borderNone,
+            rows: [
+              createTwoColRow("Nama", namaPenjual),
+              createTwoColRow("Tempat/Tgl. Lahir", ttlPenjual),
+              createTwoColRow("Alamat", alamatPenjual),
+              createTwoColRow("Kewarganegaraan", kewarganegaraanPenjual),
+              createTwoColRow("Pekerjaan", pekerjaanPenjual),
+            ]
+          }),
+
+          // ADALAH PEMILIK TANAH DENGAN
+          new Paragraph({
+            spacing: { before: 160, after: 80, line: 240 },
+            children: [
+              new TextRun({
+                text: "Adalah pemilik tanah dengan:",
+                font: "Times New Roman",
+                size: 22
+              })
+            ]
+          }),
+
+          // DATA SERTIPIKAT
+          new Table({
+            width: { size: 100, type: WidthType.PERCENTAGE },
+            borders: borderNone,
+            rows: [
+              createTwoColRow("Jenis/Nomor Hak", jenisNomorHak),
+              createTwoColRow("Nomor Surat Ukur", nomorSuratUkur),
+              rowLetakTanah,
+              createTwoColRow("Luas", luasDisplay),
+            ]
+          }),
+
+          // DENGAN INI MENYATAKAN
+          new Paragraph({
+            spacing: { before: 160, after: 80, line: 240 },
+            children: [
+              new TextRun({
+                text: "Dengan ini menyatakan:",
+                font: "Times New Roman",
+                size: 22
+              })
+            ]
+          }),
+
+          // ISI PERNYATAAN 1 & 2
+          new Table({
+            width: { size: 100, type: WidthType.PERCENTAGE },
+            borders: borderNone,
+            rows: [
+              new TableRow({
+                children: [
+                  new TableCell({
+                    width: { size: 4, type: WidthType.PERCENTAGE },
+                    borders: borderNone,
+                    children: [
+                      new Paragraph({
+                        spacing: { before: 30, after: 30, line: 260 },
+                        children: [new TextRun({ text: "1.", font: "Times New Roman", size: 22 })]
+                      })
+                    ]
+                  }),
+                  new TableCell({
+                    width: { size: 96, type: WidthType.PERCENTAGE },
+                    borders: borderNone,
+                    children: [
+                      new Paragraph({
+                        spacing: { before: 30, after: 30, line: 260 },
+                        children: [
+                          new TextRun({
+                            text: "Sertipikat tersebut adalah asli dan nama yang tercantum dalam sertipikat tersebut merupakan pemegang hak yang sebenarnya;",
+                            font: "Times New Roman",
+                            size: 22
+                          })
+                        ]
+                      })
+                    ]
+                  })
+                ]
+              }),
+              new TableRow({
+                children: [
+                  new TableCell({
+                    width: { size: 4, type: WidthType.PERCENTAGE },
+                    borders: borderNone,
+                    children: [
+                      new Paragraph({
+                        spacing: { before: 30, after: 30, line: 260 },
+                        children: [new TextRun({ text: "2.", font: "Times New Roman", size: 22 })]
+                      })
+                    ]
+                  }),
+                  new TableCell({
+                    width: { size: 96, type: WidthType.PERCENTAGE },
+                    borders: borderNone,
+                    children: [
+                      new Paragraph({
+                        spacing: { before: 30, after: 30, line: 260 },
+                        children: [
+                          new TextRun({
+                            text: "Beritikad baik serta bertanggung jawab sepenuhnya atas penggunaan data yang diakses.",
+                            font: "Times New Roman",
+                            size: 22
+                          })
+                        ]
+                      })
+                    ]
+                  })
+                ]
+              })
+            ]
+          }),
+
+          // DEMIKIAN SURAT PERNYATAAN & BERSAMA INI
+          new Paragraph({
+            spacing: { before: 160, after: 40, line: 260 },
+            children: [
+              new TextRun({
+                text: "Demikian Surat Pernyataan ini dibuat dengan sebenarnya untuk dapat dipergunakan sebagaimana mestinya.",
+                font: "Times New Roman",
+                size: 22
+              })
+            ]
+          }),
+          new Paragraph({
+            spacing: { before: 20, after: 160, line: 260 },
+            children: [
+              new TextRun({
+                text: "Bersama ini menyatakan dengan sesungguhnya dan bilamana perlu dapat diperkuat",
+                font: "Times New Roman",
+                size: 22
+              })
+            ]
+          }),
+
+          // TANDA TANGAN DI SEBELAH KANAN
+          signatureTable
+        ]
+      }
+    ]
+  });
+
+  const blob = await Packer.toBlob(doc);
+  saveAs(blob, `Surat_Pernyataan_Keaslian_Dokumen_Pengecekan_${penjual.name ? penjual.name.replace(/\s+/g, "_") : "Penjual"}.docx`);
+};
+
 // === DISPATCHER UNTUK SETIAP DOKUMEN PPAT ===
 export const generateAnyPPATDocx = async (
   docItem: PPATDocumentItem,
@@ -4652,6 +5594,9 @@ export const generateAnyPPATDocx = async (
       break;
     case 'lampiran_13_peralihan_hak':
       await generateLampiran13PeralihanHakDocx(project, ppatData, docItem);
+      break;
+    case 'surat_pernyataan_keaslian_dokumen_pengecekan':
+      await generateSuratPernyataanKeaslianDokumenPengecekanDocx(project, ppatData, docItem);
       break;
     case 'surat_tidak_sengketa':
       await generateSuratTidakSengketaDocx(project, ppatData, docItem);

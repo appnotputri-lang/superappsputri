@@ -103,6 +103,15 @@ export const PPAT_DOC_TYPES: PPATDocTypeConfig[] = [
     defaultTitle: 'Permohonan Peralihan Hak (Lampiran 13)'
   },
   {
+    id: 'surat_pernyataan_keaslian_dokumen_pengecekan',
+    title: 'Surat Pernyataan Keaslian Dokumen Pengecekan',
+    category: 'surat',
+    shortDesc: 'Surat Pernyataan keaslian sertipikat dan pemegang hak sebenarnya oleh pemilik tanah (penjual) untuk keperluan permohonan pengecekan ke Kantor Pertanahan (Kertas US Legal).',
+    recommendedFor: ['Pengecekan BPN', 'Pengecekan Sertipikat', 'Validasi Sertipikat', 'Peralihan Hak'],
+    isAvailableForGeneration: true,
+    defaultTitle: 'Surat Pernyataan Keaslian Dokumen Pengecekan'
+  },
+  {
     id: 'surat_tidak_sengketa',
     title: 'Surat Pernyataan Tanah Tidak Sengketa & Penguasaan Fisik',
     category: 'surat',

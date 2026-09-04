@@ -115,7 +115,10 @@ export interface Party {
 export interface PPATParty {
   id: string;
   name: string;
+  ktpName?: string; // Nama yang tertulis di KTP (jika berbeda dengan Sertipikat / Nama Pokok)
   nik?: string;
+  jenisKelamin?: 'Laki-laki' | 'Perempuan' | string; // Jenis Kelamin
+  statusPerkawinan?: 'Belum Menikah' | 'Menikah' | 'Cerai Hidup' | 'Cerai Mati' | string; // Status Perkawinan
   birthPlace?: string; // Tempat Lahir
   birthDate?: string; // Tanggal Lahir
   job?: string;
@@ -126,6 +129,7 @@ export interface PPATParty {
   district?: string; // Kecamatan
   city?: string;
   phone?: string;
+  citizenship?: string; // Kewarganegaraan (e.g. Indonesia / WNI)
   isLegalEntity?: boolean; // If PT / CV / Yayasan / Badan Hukum
   companyName?: string;
   companyAddress?: string;
@@ -146,6 +150,8 @@ export interface PPATParty {
 }
 
 export interface PPATObjectData {
+  namaDalamSertipikat?: string; // Nama Pemegang Hak / Pemilik yang tertulis pada Sertipikat
+  ownerName?: string; // Alias nama pemegang hak sertipikat
   nop?: string; // Nomor Objek Pajak (NOP)
   nib?: string; // Nomor Identifikasi Bidang Tanah (NIB)
   spptName?: string; // Nama yang tercantum pada SPPT PBB
@@ -165,6 +171,7 @@ export interface PPATObjectData {
   // Surat Ukur / Gambar Situasi
   measurementDocType?: 'Surat Ukur' | 'Gambar Situasi' | 'NIB / Peta Bidang' | string; // Pilihan Surat Ukur / Gambar Situasi
   measurementDocNumber?: string; // Nomor Surat Ukur / Gambar Situasi
+  nomorSuratUkur?: string; // Nomor Surat Ukur khusus (e.g. 00557/Cikahuripan/2019)
   measurementDocDate?: string; // Tanggal Surat Ukur / Gambar Situasi
   landArea?: number; // Luas Tanah (m2)
   buildingArea?: number; // Luas Bangunan (m2)
@@ -248,6 +255,9 @@ export interface PPATData {
   tandaBatas?: string;
   landUse?: string;
   landUseType?: 'non_pertanian' | 'pertanian' | string; // Opsi Pertanian / Non Pertanian (coret yang tidak perlu)
+  // Surat Pernyataan Keaslian Dokumen Pengecekan
+  tanggalSuratPernyataanKeaslian?: string;
+  tempatSuratPernyataanKeaslian?: string;
   attachments?: PPATAttachmentItem[];
   documents?: PPATDocumentItem[]; // Multi-document storage per PPAT project
   updatedAt?: string;

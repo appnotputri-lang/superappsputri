@@ -8,7 +8,7 @@ import {
 import { Project, PPATData, PPATDocumentItem, PPATParty, PPATObjectData } from '../../../../domain/project/Project';
 import { PPATDocumentPreviewModal } from './PPATDocumentPreviewModal';
 import { generateAnyPPATDocx } from './generatePPATDocx';
-import { formatFullPartyAddress, isCityKota } from './ppatAddressUtils';
+import { formatFullPartyAddress, isCityKota, getPersonHonorific, areNamesEqual } from './ppatAddressUtils';
 
 interface PPATDocumentEditorProps {
   project: Project;
@@ -1002,6 +1002,127 @@ export const PPATDocumentEditor: React.FC<PPATDocumentEditorProps> = ({
             </div>
           )}
 
+          {docItem.documentType === 'surat_pernyataan_keaslian_dokumen_pengecekan' && (
+            <div className="bg-emerald-50/60 rounded-2xl border border-emerald-200 p-6 shadow-xs space-y-6">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-emerald-200 pb-3">
+                <h3 className="text-sm font-bold text-emerald-950 uppercase tracking-wider flex items-center gap-2">
+                  <FileSignature className="w-4 h-4 text-emerald-700" />
+                  <span>Surat Pernyataan Keaslian Dokumen Pengecekan</span>
+                </h3>
+                <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-100/70 px-2.5 py-1 rounded-full border border-emerald-300">
+                  Ukuran Kertas: US LEGAL (8.5 × 14 Inci)
+                </span>
+              </div>
+
+              {/* Banner Aturan Dokumen */}
+              <div className="bg-white/95 p-4 rounded-xl border border-emerald-200 text-xs text-emerald-900 space-y-2 shadow-2xs">
+                <p className="font-bold text-emerald-950 flex items-center gap-1.5">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                  <span>Ketentuan Dokumen Sesuai Master Data PPAT:</span>
+                </p>
+                <ul className="list-disc pl-5 space-y-1 text-slate-700 text-[11px]">
+                  <li><strong>Identitas Pembuat Pernyataan:</strong> Diambil otomatis dari <strong>Master Data Penjual</strong> (Nama, TTL, Alamat, Kewarganegaraan, Pekerjaan). <em>Bukan data pembeli.</em></li>
+                  <li><strong>Data Sertipikat Tanah:</strong> Diambil otomatis dari <strong>Master Data Sertipikat</strong> (Jenis & Nomor Hak, Nomor Surat Ukur, Letak Tanah a/b/c/d, Luas dan Terbilang).</li>
+                  <li><strong>Tanda Tangan & Materai:</strong> Ditandatangani oleh <strong>Nama Penjual</strong> lengkap dengan area materai Rp 10.000.</li>
+                </ul>
+              </div>
+
+              {/* Form Konfirmasi & Penyesuaian Data */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Kolom 1: Data Identitas Penjual */}
+                <div className="bg-white p-4 rounded-xl border border-slate-200 space-y-3 shadow-2xs text-xs">
+                  <h4 className="font-bold text-slate-800 uppercase tracking-wider border-b border-slate-100 pb-1.5 flex items-center gap-1.5">
+                    <User className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Identitas Pembuat Pernyataan (Penjual)</span>
+                  </h4>
+                  <div className="space-y-2">
+                    <div>
+                      <span className="text-[10px] font-bold text-slate-500 uppercase">Nama Penjual (Pemilik Asli)</span>
+                      <p className="font-bold text-slate-900 uppercase">
+                        {(ppatData.firstParties && ppatData.firstParties[0]?.name) || '-'}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-[10px] font-bold text-slate-500 uppercase">Kewarganegaraan</span>
+                      <input
+                        type="text"
+                        value={(ppatData.firstParties && ppatData.firstParties[0]?.citizenship) || 'Indonesia'}
+                        onChange={(e) => {
+                          if (ppatData.firstParties && ppatData.firstParties.length > 0) {
+                            const updated = [...ppatData.firstParties];
+                            updated[0] = { ...updated[0], citizenship: e.target.value };
+                            setPpatData(prev => ({ ...prev, firstParties: updated }));
+                          }
+                        }}
+                        placeholder="Indonesia"
+                        className="w-full mt-0.5 px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:ring-1 focus:ring-emerald-500 focus:bg-white"
+                      />
+                    </div>
+                    <div>
+                      <span className="text-[10px] font-bold text-slate-500 uppercase">Pekerjaan</span>
+                      <input
+                        type="text"
+                        value={(ppatData.firstParties && ppatData.firstParties[0]?.job) || ''}
+                        onChange={(e) => {
+                          if (ppatData.firstParties && ppatData.firstParties.length > 0) {
+                            const updated = [...ppatData.firstParties];
+                            updated[0] = { ...updated[0], job: e.target.value };
+                            setPpatData(prev => ({ ...prev, firstParties: updated }));
+                          }
+                        }}
+                        placeholder="Karyawan Swasta"
+                        className="w-full mt-0.5 px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:ring-1 focus:ring-emerald-500 focus:bg-white"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Kolom 2: Data Objek / Sertipikat */}
+                <div className="bg-white p-4 rounded-xl border border-slate-200 space-y-3 shadow-2xs text-xs">
+                  <h4 className="font-bold text-slate-800 uppercase tracking-wider border-b border-slate-100 pb-1.5 flex items-center gap-1.5">
+                    <FileText className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Data Objek / Sertipikat Tanah</span>
+                  </h4>
+                  <div className="space-y-2">
+                    <div>
+                      <span className="text-[10px] font-bold text-slate-500 uppercase">Nomor Surat Ukur</span>
+                      <input
+                        type="text"
+                        value={ppatData.object?.nomorSuratUkur || ppatData.object?.measurementDocNumber || ''}
+                        onChange={(e) => {
+                          setPpatData(prev => ({
+                            ...prev,
+                            object: {
+                              ...prev.object,
+                              nomorSuratUkur: e.target.value,
+                              measurementDocNumber: e.target.value
+                            }
+                          }));
+                        }}
+                        placeholder="Contoh: 00123/Lembang/2023"
+                        className="w-full mt-0.5 px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:ring-1 focus:ring-emerald-500 focus:bg-white"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 pt-1">
+                      <div>
+                        <span className="text-[10px] font-bold text-slate-500 uppercase">Jenis & No. Hak</span>
+                        <p className="font-semibold text-slate-800 text-[11px] truncate">
+                          {ppatData.object?.certificateType || 'SHM'} No. {ppatData.object?.certificateNumber || '-'}
+                        </p>
+                      </div>
+                      <div>
+                        <span className="text-[10px] font-bold text-slate-500 uppercase">Luas Tanah</span>
+                        <p className="font-semibold text-slate-800 text-[11px]">
+                          {ppatData.object?.landArea ? `${Number(ppatData.object.landArea).toLocaleString('id-ID')} m²` : '-'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {docItem.documentType === 'surat_kuasa_ppat' && (
             <div className="bg-blue-50/40 rounded-2xl border border-blue-200 p-6 shadow-xs space-y-4">
               <h3 className="text-sm font-bold text-blue-900 uppercase tracking-wider flex items-center gap-2 border-b border-blue-200 pb-3">
@@ -1153,15 +1274,66 @@ export const PPATDocumentEditor: React.FC<PPATDocumentEditorProps> = ({
               <div className="space-y-3 text-xs">
                 <div>
                   <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1">
-                    Nama Lengkap *
+                    Nama Pokok / Sesuai Sertipikat *
                   </label>
                   <input
                     type="text"
                     value={firstParty.name || ''}
                     onChange={(e) => handleUpdateFirstParty('name', e.target.value)}
-                    placeholder="Nama sesuai KTP"
+                    placeholder="Nama lengkap / nama pada sertipikat"
                     className="w-full px-3 py-2 border border-slate-200 rounded-lg font-bold text-slate-850"
                   />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1">
+                    Nama di KTP <span className="text-[10px] font-normal text-slate-500 normal-case">(Jika berbeda dengan nama pokok/sertipikat)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={firstParty.ktpName || ''}
+                    onChange={(e) => handleUpdateFirstParty('ktpName', e.target.value)}
+                    placeholder="Contoh: SUKMADJAJA ASYARIE.DR"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-slate-800"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider">
+                        Jenis Kelamin
+                      </label>
+                      {getPersonHonorific(firstParty) && (
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800">
+                          {getPersonHonorific(firstParty)}
+                        </span>
+                      )}
+                    </div>
+                    <select
+                      value={firstParty.jenisKelamin || 'Laki-laki'}
+                      onChange={(e) => handleUpdateFirstParty('jenisKelamin', e.target.value)}
+                      className="w-full px-3 py-2 border border-slate-200 rounded-lg font-medium text-slate-800"
+                    >
+                      <option value="Laki-laki">Laki-laki (Tuan)</option>
+                      <option value="Perempuan">Perempuan (Nona / Nyonya)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1">
+                      Status Perkawinan
+                    </label>
+                    <select
+                      value={firstParty.statusPerkawinan || (firstParty.hasSpouseConsent ? 'Menikah' : 'Belum Menikah')}
+                      onChange={(e) => handleUpdateFirstParty('statusPerkawinan', e.target.value)}
+                      className="w-full px-3 py-2 border border-slate-200 rounded-lg font-medium text-slate-800"
+                    >
+                      <option value="Belum Menikah">Belum Menikah</option>
+                      <option value="Menikah">Menikah (Kawin)</option>
+                      <option value="Cerai Hidup">Cerai Hidup</option>
+                      <option value="Cerai Mati">Cerai Mati</option>
+                    </select>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
@@ -1354,15 +1526,66 @@ export const PPATDocumentEditor: React.FC<PPATDocumentEditorProps> = ({
               <div className="space-y-3 text-xs">
                 <div>
                   <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1">
-                    Nama Lengkap *
+                    Nama Pokok *
                   </label>
                   <input
                     type="text"
                     value={secondParty.name || ''}
                     onChange={(e) => handleUpdateSecondParty('name', e.target.value)}
-                    placeholder="Nama sesuai KTP"
+                    placeholder="Nama lengkap"
                     className="w-full px-3 py-2 border border-slate-200 rounded-lg font-bold text-slate-850"
                   />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1">
+                    Nama di KTP <span className="text-[10px] font-normal text-slate-500 normal-case">(Jika berbeda)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={secondParty.ktpName || ''}
+                    onChange={(e) => handleUpdateSecondParty('ktpName', e.target.value)}
+                    placeholder="Contoh: Nama sesuai KTP jika beda"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-slate-800"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider">
+                        Jenis Kelamin
+                      </label>
+                      {getPersonHonorific(secondParty) && (
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800">
+                          {getPersonHonorific(secondParty)}
+                        </span>
+                      )}
+                    </div>
+                    <select
+                      value={secondParty.jenisKelamin || 'Laki-laki'}
+                      onChange={(e) => handleUpdateSecondParty('jenisKelamin', e.target.value)}
+                      className="w-full px-3 py-2 border border-slate-200 rounded-lg font-medium text-slate-800"
+                    >
+                      <option value="Laki-laki">Laki-laki (Tuan)</option>
+                      <option value="Perempuan">Perempuan (Nona / Nyonya)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1">
+                      Status Perkawinan
+                    </label>
+                    <select
+                      value={secondParty.statusPerkawinan || (secondParty.hasSpouseConsent ? 'Menikah' : 'Belum Menikah')}
+                      onChange={(e) => handleUpdateSecondParty('statusPerkawinan', e.target.value)}
+                      className="w-full px-3 py-2 border border-slate-200 rounded-lg font-medium text-slate-800"
+                    >
+                      <option value="Belum Menikah">Belum Menikah</option>
+                      <option value="Menikah">Menikah (Kawin)</option>
+                      <option value="Cerai Hidup">Cerai Hidup</option>
+                      <option value="Cerai Mati">Cerai Mati</option>
+                    </select>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
@@ -1547,6 +1770,39 @@ export const PPATDocumentEditor: React.FC<PPATDocumentEditorProps> = ({
               <MapPin className="w-4 h-4 text-amber-600" />
               <span>Objek Hak Atas Tanah & Bangunan</span>
             </h4>
+
+            {/* Nama Dalam Sertipikat & Validasi Kesesuaian Nama */}
+            <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/80 space-y-2 text-xs">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+                  Nama Tercatat Dalam Sertipikat (Pemegang Hak) *
+                </label>
+                {obj.namaDalamSertipikat && (
+                  areNamesEqual(obj.namaDalamSertipikat, firstParty.name) ? (
+                    <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full flex items-center gap-1">
+                      <Check className="w-3 h-3 text-emerald-600" /> Sesuai dengan Nama Pihak I (KTP)
+                    </span>
+                  ) : (
+                    <span className="text-[10px] font-semibold text-amber-800 bg-amber-50 border border-amber-300 px-2 py-0.5 rounded-full flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3 text-amber-600" /> Beda Nama dengan KTP Pihak I (Klausul Khusus AJB Aktif)
+                    </span>
+                  )
+                )}
+              </div>
+              <input
+                type="text"
+                value={obj.namaDalamSertipikat || (obj as any).ownerName || ''}
+                onChange={(e) => {
+                  handleUpdateObject('namaDalamSertipikat', e.target.value);
+                  handleUpdateObject('ownerName', e.target.value);
+                }}
+                placeholder="Nama Pemilik Hak sesuai yang tertulis di Buku Tanah/Sertipikat"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg font-bold text-slate-800 bg-white"
+              />
+              <p className="text-[10px] text-slate-500 leading-relaxed">
+                Diisi sesuai tulisan di Sertipikat. Jika berbeda dengan nama KTP Pihak I, komparisi Pihak I pada Akta akan otomatis mencantumkan: <em>&quot;Tuan [Nama Sertipikat], tertulis di Kartu Tanda Penduduk [Nama KTP], lahir di...&quot;</em>
+              </p>
+            </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
               <div>

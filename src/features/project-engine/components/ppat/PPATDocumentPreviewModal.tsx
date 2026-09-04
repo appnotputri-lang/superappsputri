@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { X, Printer, Download, FileText, CheckCircle2, ShieldCheck } from 'lucide-react';
 import { Project, PPATData, PPATDocumentItem, PPATParty } from '../../../../domain/project/Project';
-import { generateAnyPPATDocx, terbilang } from './generatePPATDocx';
-import { formatFullPartyAddress, isCityKota, formatCleanVillage, formatCleanDistrict } from './ppatAddressUtils';
+import { generateAnyPPATDocx, terbilang, terbilangAngka } from './generatePPATDocx';
+import { formatFullPartyAddress, isCityKota, formatCleanVillage, formatCleanDistrict, formatCityName } from './ppatAddressUtils';
 
 interface PPATDocumentPreviewModalProps {
   isOpen: boolean;
@@ -166,9 +166,9 @@ export const PPATDocumentPreviewModal: React.FC<PPATDocumentPreviewModalProps> =
           </div>
         </div>
 
-        {/* Paper Container (Legal layout styling for Lampiran 13, A4 for others) */}
+        {/* Paper Container (Legal layout styling for Lampiran 13 and Surat Pernyataan Keaslian, A4 for others) */}
         <div className="p-6 md:p-10 overflow-y-auto bg-slate-100 flex justify-center print:bg-white print:p-0">
-          <div className={`bg-white w-full ${documentItem.documentType === 'lampiran_13_peralihan_hak' ? 'max-w-[216mm] min-h-[356mm]' : 'max-w-[210mm] min-h-[297mm]'} p-10 md:p-14 shadow-lg rounded-sm text-slate-900 font-serif text-[13px] leading-relaxed border border-slate-200 print:shadow-none print:border-none print:p-0 print:min-h-0 relative`}>
+          <div className={`bg-white w-full ${documentItem.documentType === 'lampiran_13_peralihan_hak' || documentItem.documentType === 'surat_pernyataan_keaslian_dokumen_pengecekan' ? 'max-w-[216mm] min-h-[356mm]' : 'max-w-[210mm] min-h-[297mm]'} p-10 md:p-14 shadow-lg rounded-sm text-slate-900 font-serif text-[13px] leading-relaxed border border-slate-200 print:shadow-none print:border-none print:p-0 print:min-h-0 relative`}>
             
             {/* === TAMPILAN KHUSUS: PAKTA INTEGRITAS SESUAI TEMPLATE PDF RESMI === */}
             {isPaktaIntegritas ? (
@@ -702,6 +702,178 @@ export const PPATDocumentPreviewModal: React.FC<PPATDocumentPreviewModalProps> =
                 {/* Catatan Kaki */}
                 <div className="pt-4 border-t border-slate-200 text-[10px] text-slate-500 italic">
                   *) Coret yang tidak perlu
+                </div>
+              </div>
+            ) : documentItem.documentType === 'surat_pernyataan_keaslian_dokumen_pengecekan' ? (
+              /* === SURAT PERNYATAAN KEASLIAN DOKUMEN PENGECEKAN (US LEGAL 8.5 x 14") === */
+              <div className="space-y-5 font-serif text-slate-900 text-[13px] leading-relaxed max-w-2xl mx-auto py-2">
+                {/* Header US Legal Indicator */}
+                <div className="flex justify-between items-center border-b border-slate-200 pb-2 print:hidden">
+                  <span className="text-[10px] font-sans font-semibold bg-emerald-50 text-emerald-700 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                    Format Dokumen: US Legal (8.5 × 14 Inci)
+                  </span>
+                  <span className="text-[11px] font-sans text-slate-500">
+                    Master Data: Penjual (Pemilik Asli)
+                  </span>
+                </div>
+
+                {/* Judul Surat */}
+                <div className="text-center pt-2 pb-1">
+                  <h1 className="text-base md:text-lg font-extrabold uppercase tracking-wide underline underline-offset-4 decoration-1">
+                    SURAT PERNYATAAN
+                  </h1>
+                </div>
+
+                {/* Pembuka */}
+                <div className="pt-1">
+                  <p>Saya yang bertandatangan di bawah ini :</p>
+                </div>
+
+                {/* Data Penjual (Diambil dari Master Data Penjual) */}
+                <div className="pl-4 space-y-1">
+                  <div className="grid grid-cols-12 gap-y-1 text-[13px]">
+                    <span className="col-span-4 font-normal">Nama</span>
+                    <span className="col-span-1">:</span>
+                    <span className="col-span-7 font-bold uppercase">{firstParty.name || 'NAMA PENJUAL'}</span>
+
+                    <span className="col-span-4 font-normal">Tempat/Tgl. Lahir</span>
+                    <span className="col-span-1">:</span>
+                    <span className="col-span-7">
+                      {firstParty.birthPlace && firstParty.birthDate
+                        ? `${firstParty.birthPlace}, ${formatDateIndo(firstParty.birthDate)}`
+                        : (firstParty.birthPlace || (firstParty.birthDate ? formatDateIndo(firstParty.birthDate) : '-'))}
+                    </span>
+
+                    <span className="col-span-4 font-normal">Alamat</span>
+                    <span className="col-span-1">:</span>
+                    <span className="col-span-7">{formatFullPartyAddress(firstParty) || firstParty.address || '-'}</span>
+
+                    <span className="col-span-4 font-normal">Kewarganegaraan</span>
+                    <span className="col-span-1">:</span>
+                    <span className="col-span-7">{firstParty.citizenship || (firstParty as any).kewarganegaraan || 'Indonesia'}</span>
+
+                    <span className="col-span-4 font-normal">Pekerjaan</span>
+                    <span className="col-span-1">:</span>
+                    <span className="col-span-7">{firstParty.job || 'Karyawan Swasta'}</span>
+                  </div>
+                </div>
+
+                {/* Pemilik Tanah */}
+                <div className="pt-2">
+                  <p>Adalah pemilik tanah dengan:</p>
+                </div>
+
+                {/* Data Sertipikat */}
+                <div className="pl-4 space-y-1">
+                  <div className="grid grid-cols-12 gap-y-1 text-[13px]">
+                    <span className="col-span-4 font-normal">Jenis/Nomor Hak</span>
+                    <span className="col-span-1">:</span>
+                    <span className="col-span-7 font-bold">
+                      {(() => {
+                        const certType = obj.certificateType || obj.documentType || 'SHM';
+                        const cleanType = certType.toUpperCase().includes('HAK MILIK') ? 'SHM' : certType.toUpperCase();
+                        const cNum = obj.certificateNumber ? obj.certificateNumber.trim() : '';
+                        const vName = formatCleanVillage(obj.village || '');
+                        if (cNum) {
+                          return `${cleanType} No. ${cNum}${vName ? `/Desa ${vName}` : ''}`;
+                        }
+                        return `${cleanType}${vName ? `/Desa ${vName}` : ''}`;
+                      })()}
+                    </span>
+
+                    <span className="col-span-4 font-normal">Nomor Surat Ukur</span>
+                    <span className="col-span-1">:</span>
+                    <span className="col-span-7">
+                      {obj.nomorSuratUkur || obj.measurementDocNumber || '-'}
+                    </span>
+
+                    <span className="col-span-4 font-normal">Letak tanah</span>
+                    <span className="col-span-1">:</span>
+                    <div className="col-span-7 space-y-0.5">
+                      <div className="grid grid-cols-12">
+                        <span className="col-span-5">a) Desa/Kelurahan</span>
+                        <span className="col-span-1">:</span>
+                        <span className="col-span-6 font-medium">{formatCleanVillage(obj.village || '') || '-'}</span>
+                      </div>
+                      <div className="grid grid-cols-12">
+                        <span className="col-span-5">b) Kecamatan</span>
+                        <span className="col-span-1">:</span>
+                        <span className="col-span-6 font-medium">{formatCleanDistrict(obj.district || '') || '-'}</span>
+                      </div>
+                      <div className="grid grid-cols-12">
+                        <span className="col-span-5">c) Kabupaten/Kota</span>
+                        <span className="col-span-1">:</span>
+                        <span className="col-span-6 font-medium">{formatCityName(obj.city || obj.regency || 'Bandung Barat')}</span>
+                      </div>
+                      <div className="grid grid-cols-12">
+                        <span className="col-span-5">d) Provinsi</span>
+                        <span className="col-span-1">:</span>
+                        <span className="col-span-6 font-medium">{obj.province || 'Jawa Barat'}</span>
+                      </div>
+                    </div>
+
+                    <span className="col-span-4 font-normal">Luas</span>
+                    <span className="col-span-1">:</span>
+                    <span className="col-span-7 font-medium">
+                      {(() => {
+                        if (obj.landArea && Number(obj.landArea) > 0) {
+                          const formatted = Number(obj.landArea).toLocaleString('id-ID');
+                          const words = terbilangAngka(Number(obj.landArea)).toLowerCase();
+                          return `${formatted} m2 ( ${words} meter persegi )`;
+                        }
+                        return '-';
+                      })()}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Pernyataan */}
+                <div className="pt-2">
+                  <p>Dengan ini menyatakan:</p>
+                </div>
+
+                <div className="space-y-2 text-justify text-[13px] pl-2">
+                  <div className="flex gap-2">
+                    <span className="w-5 shrink-0">1.</span>
+                    <p>
+                      Sertipikat tersebut adalah asli dan nama yang tercantum dalam sertipikat tersebut merupakan pemegang hak yang sebenarnya;
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <span className="w-5 shrink-0">2.</span>
+                    <p>
+                      Beritikad baik serta bertanggung jawab sepenuhnya atas penggunaan data yang diakses.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Penutup */}
+                <div className="pt-3 space-y-1.5 text-justify">
+                  <p>
+                    Demikian Surat Pernyataan ini dibuat dengan sebenarnya untuk dapat dipergunakan sebagaimana mestinya.
+                  </p>
+                  <p>
+                    Bersama ini menyatakan dengan sesungguhnya dan bilamana perlu dapat diperkuat
+                  </p>
+                </div>
+
+                {/* Tanda Tangan Penjual di Sebelah Kanan */}
+                <div className="pt-6 flex justify-end">
+                  <div className="w-64 text-center space-y-2">
+                    <p>
+                      {(documentItem.letterLocation || ppatData.tempatSuratPernyataanKeaslian || formatCityName(obj.city || obj.regency || 'Bandung Barat'))}, {formatDateIndo(documentItem.letterDate || ppatData.tanggalSuratPernyataanKeaslian || new Date().toISOString().split('T')[0])}
+                    </p>
+                    <div className="py-2 flex justify-center">
+                      <div className="border border-dashed border-slate-400 w-28 h-16 flex flex-col items-center justify-center text-[10px] text-slate-500 bg-slate-50 rounded">
+                        <span>METERAI</span>
+                        <span>TEMPEL</span>
+                        <span className="font-bold text-slate-700">10.000</span>
+                      </div>
+                    </div>
+                    <p className="font-bold uppercase tracking-wider text-[13px] pt-1 text-slate-900">
+                      {firstParty.name || 'NAMA PENJUAL'}
+                    </p>
+                  </div>
                 </div>
               </div>
             ) : (

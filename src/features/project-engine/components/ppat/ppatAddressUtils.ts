@@ -203,3 +203,78 @@ export function formatFullObjectAddress(obj?: PPATObjectData | null): string {
 
   return parts.join(', ');
 }
+
+/**
+ * Determines honorific ("Tuan", "Nyonya", "Nona") based on gender and marital status.
+ * Rules:
+ * - Legal Entity (Badan Hukum) -> ""
+ * - Laki-laki -> "Tuan"
+ * - Perempuan:
+ *   - Belum Menikah -> "Nona"
+ *   - Menikah / Cerai / Default -> "Nyonya"
+ * - Returns "" if unknown / entity
+ */
+export function getPersonHonorific(party?: Partial<PPATParty> | null): string {
+  if (!party) return '';
+  if (party.isLegalEntity) return '';
+
+  const rawGender = (party.jenisKelamin || (party as any).gender || '').trim().toLowerCase();
+  const rawStatus = (party.statusPerkawinan || (party as any).maritalStatus || '').trim().toLowerCase();
+
+  // Check Laki-laki
+  if (
+    rawGender === 'laki-laki' ||
+    rawGender === 'laki - laki' ||
+    rawGender === 'laki-laki (tuan)' ||
+    rawGender.includes('laki') ||
+    rawGender.includes('pria') ||
+    rawGender === 'male' ||
+    rawGender === 'l'
+  ) {
+    return 'Tuan';
+  }
+
+  // Check Perempuan
+  if (
+    rawGender === 'perempuan' ||
+    rawGender === 'perempuan (nona / nyonya)' ||
+    rawGender.includes('perempuan') ||
+    rawGender.includes('wanita') ||
+    rawGender === 'female' ||
+    rawGender === 'p'
+  ) {
+    if (
+      rawStatus.includes('belum') ||
+      rawStatus.includes('lajang') ||
+      rawStatus.includes('single') ||
+      rawStatus.includes('gadis')
+    ) {
+      return 'Nona';
+    }
+    return 'Nyonya';
+  }
+
+  // If party has spouse consent or spouse name defined
+  if (party.hasSpouseConsent || party.spouseName) {
+    if (party.spouseConsentType === 'suami') {
+      return 'Nyonya';
+    }
+    if (party.spouseConsentType === 'istri') {
+      return 'Tuan';
+    }
+  }
+
+  return '';
+}
+
+/**
+ * Compares two names safely by trimming whitespace, normalizing multiple spaces, and case-insensitivity.
+ */
+export function areNamesEqual(name1?: string, name2?: string): boolean {
+  if (!name1 && !name2) return true;
+  if (!name1 || !name2) return false;
+  const n1 = name1.trim().replace(/\s+/g, ' ').toLowerCase();
+  const n2 = name2.trim().replace(/\s+/g, ' ').toLowerCase();
+  return n1 === n2;
+}
+

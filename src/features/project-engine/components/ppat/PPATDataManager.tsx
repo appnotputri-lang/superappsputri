@@ -10,7 +10,7 @@ import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../../../lib/firebase';
 import { ProjectService } from '../../../../services/ProjectService';
 import { PPAT_TRANSACTION_TYPES } from '../../../../constants/appConstants';
-import { formatFullPartyAddress, isCityKota, formatFullObjectAddress } from './ppatAddressUtils';
+import { formatFullPartyAddress, isCityKota, formatFullObjectAddress, getPersonHonorific, areNamesEqual } from './ppatAddressUtils';
 
 interface PPATDataManagerProps {
   project: Project;
@@ -498,6 +498,48 @@ export const PPATDataManager: React.FC<PPATDataManagerProps> = ({
               </h4>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="sm:col-span-2 lg:col-span-3 space-y-1 bg-amber-50/60 p-3 rounded-lg border border-amber-200">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+                      Nama Pemegang Hak Sesuai Sertipikat / Buku Tanah *
+                    </label>
+                    {ppatData.object.namaDalamSertipikat && ppatData.firstParties?.[0]?.name && (
+                      areNamesEqual(ppatData.object.namaDalamSertipikat, ppatData.firstParties[0].name) ? (
+                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3" />
+                          Sesuai dengan nama Pihak Pertama (Penjual)
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-amber-200 text-amber-900 flex items-center gap-1">
+                          <AlertCircle className="w-3 h-3 text-amber-700" />
+                          Berbeda dari nama KTP Penjual ({ppatData.firstParties[0].name})
+                        </span>
+                      )
+                    )}
+                  </div>
+                  <input
+                    type="text"
+                    value={ppatData.object.namaDalamSertipikat || ''}
+                    onChange={(e) => handleUpdateObject({ namaDalamSertipikat: e.target.value, ownerName: e.target.value })}
+                    placeholder="Nama lengkap pemegang hak sebagaimana tertulis pada Sertipikat"
+                    className="w-full px-3 py-2 text-xs border border-amber-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:bg-white font-semibold text-slate-900 bg-white"
+                  />
+                  <p className="text-[10.5px] text-slate-600">
+                    {!ppatData.object.namaDalamSertipikat ? (
+                      <span className="text-slate-500 font-medium">Diisi sesuai tulisan di Sertipikat / Buku Tanah.</span>
+                    ) : !areNamesEqual(ppatData.object.namaDalamSertipikat, ppatData.firstParties?.[0]?.name) && ppatData.firstParties?.[0]?.name ? (
+                      <span className="text-amber-800">
+                        Komparisi Pihak I pada Akta akan otomatis mencantumkan: <em>&quot;{getPersonHonorific(ppatData.firstParties[0]) || 'Tuan'} <strong>{ppatData.object.namaDalamSertipikat}</strong>, tertulis di Kartu Tanda Penduduk <strong>{ppatData.firstParties[0].ktpName || ppatData.firstParties[0].name}</strong>, lahir di...&quot;</em>
+                      </span>
+                    ) : (
+                      <span className="text-slate-600">
+                        Nama sertipikat identik dengan KTP Penjual: <em>&quot;Sertifikat mana tertulis dan tercatat atas nama <strong>{(ppatData.object.namaDalamSertipikat || '').toUpperCase()}</strong>.&quot;</em>
+                      </span>
+                    )}
+                  </p>
+                </div>
+
                 <div className="space-y-1">
                   <label className="text-xs font-bold text-slate-600">Nomor Objek Pajak (NOP)</label>
                   <input
@@ -611,8 +653,8 @@ export const PPATDataManager: React.FC<PPATDataManagerProps> = ({
                   </label>
                   <input
                     type="text"
-                    value={ppatData.object.measurementDocNumber || ''}
-                    onChange={(e) => handleUpdateObject({ measurementDocNumber: e.target.value })}
+                    value={ppatData.object.nomorSuratUkur || ppatData.object.measurementDocNumber || ''}
+                    onChange={(e) => handleUpdateObject({ measurementDocNumber: e.target.value, nomorSuratUkur: e.target.value })}
                     placeholder="Contoh: 00123/Lembang/2023"
                     className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg focus:ring-1 focus:ring-indigo-500 focus:bg-white font-medium"
                   />
@@ -1378,13 +1420,26 @@ const PartyFormCard: React.FC<PartyFormCardProps> = ({
         /* Form Perorangan */
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 pt-2">
           <div className="space-y-1">
-            <label className="text-[11px] font-bold text-slate-600">Nama Lengkap (Sesuai KTP) *</label>
+            <label className="text-[11px] font-bold text-slate-600">Nama Pokok / Sesuai Sertipikat *</label>
             <input
               type="text"
               value={party.name || ''}
               onChange={(e) => onUpdate({ name: e.target.value })}
-              placeholder="Nama lengkap tanpa singkatan"
+              placeholder="Nama lengkap / nama pada sertipikat"
               className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:ring-1 focus:ring-amber-500 font-semibold"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-[11px] font-bold text-slate-600">
+              Nama di KTP <span className="text-[10px] font-normal text-slate-500">(Jika beda dg sertipikat)</span>
+            </label>
+            <input
+              type="text"
+              value={party.ktpName || ''}
+              onChange={(e) => onUpdate({ ktpName: e.target.value })}
+              placeholder="Contoh: SUKMADJAJA ASYARIE.DR"
+              className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:ring-1 focus:ring-amber-500"
             />
           </div>
 
@@ -1397,6 +1452,39 @@ const PartyFormCard: React.FC<PartyFormCardProps> = ({
               placeholder="16 digit NIK KTP"
               className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:ring-1 focus:ring-amber-500 font-mono"
             />
+          </div>
+
+          <div className="space-y-1">
+            <div className="flex items-center justify-between">
+              <label className="text-[11px] font-bold text-slate-600">Jenis Kelamin *</label>
+              {getPersonHonorific(party) && (
+                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800">
+                  {getPersonHonorific(party)}
+                </span>
+              )}
+            </div>
+            <select
+              value={party.jenisKelamin || 'Laki-laki'}
+              onChange={(e) => onUpdate({ jenisKelamin: e.target.value })}
+              className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:ring-1 focus:ring-amber-500 font-medium text-slate-800"
+            >
+              <option value="Laki-laki">Laki-laki (Tuan)</option>
+              <option value="Perempuan">Perempuan (Nona / Nyonya)</option>
+            </select>
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-[11px] font-bold text-slate-600">Status Perkawinan *</label>
+            <select
+              value={party.statusPerkawinan || (party.hasSpouseConsent ? 'Menikah' : 'Belum Menikah')}
+              onChange={(e) => onUpdate({ statusPerkawinan: e.target.value })}
+              className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:ring-1 focus:ring-amber-500 font-medium text-slate-800"
+            >
+              <option value="Belum Menikah">Belum Menikah</option>
+              <option value="Menikah">Menikah (Kawin)</option>
+              <option value="Cerai Hidup">Cerai Hidup</option>
+              <option value="Cerai Mati">Cerai Mati</option>
+            </select>
           </div>
 
           <div className="space-y-1">
@@ -1427,6 +1515,17 @@ const PartyFormCard: React.FC<PartyFormCardProps> = ({
               value={party.job || ''}
               onChange={(e) => onUpdate({ job: e.target.value })}
               placeholder="Karyawan Swasta / Wiraswasta / PNS"
+              className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:ring-1 focus:ring-amber-500"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-[11px] font-bold text-slate-600">Kewarganegaraan</label>
+            <input
+              type="text"
+              value={party.citizenship || 'Indonesia'}
+              onChange={(e) => onUpdate({ citizenship: e.target.value })}
+              placeholder="Indonesia"
               className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:ring-1 focus:ring-amber-500"
             />
           </div>
@@ -1672,6 +1771,8 @@ function createDefaultParty(name: string): PPATParty {
     id: 'party_' + Math.random().toString(36).substring(7),
     name: '',
     nik: '',
+    jenisKelamin: 'Laki-laki',
+    statusPerkawinan: 'Menikah',
     birthPlace: '',
     birthDate: '',
     job: '',
@@ -1697,6 +1798,7 @@ function createDefaultParty(name: string): PPATParty {
 
 function createDefaultObject(): PPATObjectData {
   return {
+    namaDalamSertipikat: '',
     nop: '',
     nib: '',
     spptName: '',
