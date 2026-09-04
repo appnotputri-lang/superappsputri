@@ -186,3 +186,19 @@ export const PPAT_DOC_TYPES: PPATDocTypeConfig[] = [
     defaultTitle: 'Draf Surat Kuasa Membebankan Hak Tanggungan (SKMHT)'
   }
 ];
+
+export const isPPATSurat = (docItem?: { category?: PPATDocumentCategory; documentType?: string; typeId?: string }): boolean => {
+  if (!docItem) return true;
+  const docType = docItem.documentType || docItem.typeId || '';
+  if (docType.startsWith('akta_')) {
+    return false;
+  }
+  if (docItem.category === 'akta') {
+    return false;
+  }
+  const config = PPAT_DOC_TYPES.find(d => d.id === docType);
+  if (config) {
+    return config.category === 'surat';
+  }
+  return true; // Default non-akta
+};

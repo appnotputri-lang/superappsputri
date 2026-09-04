@@ -40,6 +40,7 @@ export const PPATProjectDocumentsSection: React.FC<PPATProjectDocumentsSectionPr
 
   const documents: PPATDocumentItem[] = ppatData.documents || [];
 
+  const [docFilterCategory, setDocFilterCategory] = useState<'all' | 'surat' | 'akta'>('all');
   const [internalSelectModalOpen, setInternalSelectModalOpen] = useState(false);
   const isSelectTypeModalOpen = isSelectModalOpenExternal !== undefined ? isSelectModalOpenExternal : internalSelectModalOpen;
   const setIsSelectTypeModalOpen = (open: boolean) => {
@@ -57,6 +58,15 @@ export const PPATProjectDocumentsSection: React.FC<PPATProjectDocumentsSectionPr
   const obj = ppatData.object || {};
 
   const isBaseDataReady = Boolean(firstParty?.name && secondParty?.name && (obj.certificateNumber || obj.nop));
+
+  // Count docs by category
+  const suratDocsCount = documents.filter(d => (d.category || 'surat') === 'surat').length;
+  const aktaDocsCount = documents.filter(d => d.category === 'akta').length;
+
+  const displayedDocuments = documents.filter(d => {
+    if (docFilterCategory === 'all') return true;
+    return (d.category || 'surat') === docFilterCategory;
+  });
 
   const filteredDocTypes = PPAT_DOC_TYPES.filter(type => {
     if (selectedCategoryTab === 'all') return true;
@@ -191,121 +201,165 @@ export const PPATProjectDocumentsSection: React.FC<PPATProjectDocumentsSectionPr
           </button>
         </div>
 
+        {/* Category Filter Tabs */}
+        {documents.length > 0 && (
+          <div className="px-5 py-2.5 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between gap-3 flex-wrap">
+            <div className="bg-slate-200/70 p-1 rounded-xl flex items-center gap-1">
+              <button
+                onClick={() => setDocFilterCategory('all')}
+                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+                  docFilterCategory === 'all'
+                    ? 'bg-white text-slate-900 shadow-2xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Semua ({documents.length})
+              </button>
+              <button
+                onClick={() => setDocFilterCategory('surat')}
+                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+                  docFilterCategory === 'surat'
+                    ? 'bg-white text-blue-700 shadow-2xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Surat ({suratDocsCount})
+              </button>
+              <button
+                onClick={() => setDocFilterCategory('akta')}
+                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+                  docFilterCategory === 'akta'
+                    ? 'bg-white text-amber-700 shadow-2xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Akta ({aktaDocsCount})
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Empty State */}
         {documents.length === 0 ? (
-          <div className="p-12 text-center flex flex-col items-center justify-center space-y-4">
-            <div className="w-16 h-16 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-100 shadow-xs">
-              <FilePlus className="w-8 h-8" />
+          <div className="p-12 text-center flex flex-col items-center justify-center space-y-3">
+            <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-100">
+              <FilePlus className="w-6 h-6" />
             </div>
             <div className="max-w-md space-y-1">
-              <h3 className="text-base font-bold text-slate-800">
+              <h3 className="text-sm font-bold text-slate-800">
                 Belum ada dokumen
               </h3>
-              <p className="text-xs text-slate-500 leading-relaxed">
-                Buat dokumen pertama untuk proyek ini. Data pihak dan objek yang sudah dimasukkan akan otomatis digunakan bersama oleh seluruh dokumen.
+              <p className="text-xs text-slate-500">
+                Mulai buat dokumen PPAT dari Master Data proyek.
               </p>
             </div>
             <button
               onClick={() => setIsSelectTypeModalOpen(true)}
-              className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-xs transition-all flex items-center gap-2"
+              className="mt-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl transition-all flex items-center gap-2 shadow-xs"
             >
               <Plus className="w-4 h-4" />
-              <span>+ Buat Dokumen Pertama</span>
+              <span>+ Buat Dokumen</span>
             </button>
           </div>
+        ) : displayedDocuments.length === 0 ? (
+          <div className="p-8 text-center text-xs text-slate-500">
+            Tidak ada dokumen dalam kategori <strong>{docFilterCategory.toUpperCase()}</strong>.
+          </div>
         ) : (
-          /* List of Document Cards */
-          <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-4">
-            {documents.map((doc) => (
-              <div 
-                key={doc.id}
-                className="bg-white border border-slate-200 rounded-xl p-4 shadow-2xs hover:shadow-sm hover:border-blue-200 transition-all flex flex-col justify-between space-y-3"
-              >
-                <div>
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${
-                        doc.category === 'akta'
-                          ? 'bg-amber-50 text-amber-800 border-amber-200'
-                          : 'bg-blue-50 text-blue-800 border-blue-200'
-                      }`}>
-                        {doc.category.toUpperCase()}
-                      </span>
-                      <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${
-                        doc.status === 'final'
-                          ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                          : 'bg-slate-100 text-slate-600 border-slate-200'
-                      }`}>
-                        {doc.status === 'final' ? 'Selesai' : 'Draft'}
-                      </span>
+          /* List of Document Rows */
+          <div className="divide-y divide-slate-100 bg-white">
+            {displayedDocuments.map((doc) => {
+              const isAkta = doc.category === 'akta';
+              return (
+                <div 
+                  key={doc.id}
+                  className="px-5 py-3.5 hover:bg-slate-50/80 transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-3 group"
+                >
+                  {/* KIRI & TENGAH: Badge Tipe + Nama Dokumen + Metadata */}
+                  <div className="flex items-start sm:items-center gap-3.5 min-w-0 flex-1">
+                    <span className={`shrink-0 text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-md border ${
+                      isAkta
+                        ? 'bg-amber-50 text-amber-800 border-amber-200'
+                        : 'bg-blue-50 text-blue-700 border-blue-200'
+                    }`}>
+                      {isAkta ? 'AKTA' : 'SURAT'}
+                    </span>
+
+                    <div className="min-w-0 flex-1 space-y-0.5">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h4 className="font-bold text-xs sm:text-sm text-slate-900 group-hover:text-blue-600 transition-colors truncate">
+                          {doc.title}
+                        </h4>
+                        {doc.status && (
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border shrink-0 ${
+                            doc.status === 'final'
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                              : 'bg-slate-100 text-slate-600 border-slate-200'
+                          }`}>
+                            {doc.status === 'final' ? 'SELESAI' : 'DRAFT'}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-3 text-xs text-slate-500 flex-wrap">
+                        {doc.letterNumber && (
+                          <span className="font-mono text-slate-600 text-[11px] bg-slate-100 px-1.5 py-0.5 rounded">
+                            No: {doc.letterNumber}
+                          </span>
+                        )}
+                        <span className="flex items-center gap-1 text-[11px]">
+                          <Clock className="w-3 h-3 text-slate-400" />
+                          <span>Terakhir diubah: {formatDateIndo(doc.updatedAt || doc.createdAt)}</span>
+                        </span>
+                      </div>
                     </div>
-
-                    <button
-                      onClick={() => onDeleteDocument(doc.id)}
-                      className="text-slate-400 hover:text-red-600 p-1 rounded hover:bg-red-50 transition-colors"
-                      title="Hapus Dokumen"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
                   </div>
 
-                  <h4 className="font-bold text-sm text-slate-850 mt-2 line-clamp-1">
-                    {doc.title}
-                  </h4>
-
-                  <div className="text-[11px] text-slate-500 mt-1 space-y-0.5">
-                    {doc.letterNumber && (
-                      <p className="font-mono text-slate-600">No: {doc.letterNumber}</p>
-                    )}
-                    <p className="flex items-center gap-1.5">
-                      <Clock className="w-3 h-3 text-slate-400" />
-                      <span>Terakhir diubah: {formatDateIndo(doc.updatedAt || doc.createdAt)}</span>
-                    </p>
-                  </div>
-                </div>
-
-                {/* Actions row: [Edit] [Lihat] [Cetak] [Unduh Word] */}
-                <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2 flex-wrap">
-                  <div className="flex items-center gap-1.5">
+                  {/* KANAN: Action buttons */}
+                  <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-center">
                     <button
                       onClick={() => onEditDocument(doc)}
-                      className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold rounded-lg transition-colors flex items-center gap-1"
+                      className="px-2.5 py-1.5 bg-slate-100 hover:bg-blue-50 text-slate-700 hover:text-blue-700 text-xs font-semibold rounded-lg transition-colors flex items-center gap-1"
+                      title="Edit Dokumen"
                     >
-                      <Edit3 className="w-3.5 h-3.5" />
+                      <Edit3 className="w-3.5 h-3.5 text-slate-500 group-hover:text-blue-600" />
                       <span>Edit</span>
                     </button>
 
                     <button
                       onClick={() => setPreviewDoc(doc)}
-                      className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg transition-colors flex items-center gap-1"
+                      className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg transition-colors flex items-center gap-1"
+                      title="Lihat Dokumen"
                     >
                       <Eye className="w-3.5 h-3.5 text-slate-500" />
                       <span>Lihat</span>
-                    </button>
-                  </div>
-
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      onClick={() => setPreviewDoc(doc)}
-                      className="p-1.5 bg-slate-50 hover:bg-slate-100 text-slate-600 rounded-lg transition-colors border border-slate-200"
-                      title="Cetak Dokumen"
-                    >
-                      <Printer className="w-3.5 h-3.5" />
                     </button>
 
                     <button
                       onClick={() => handleDownloadDocx(doc)}
                       disabled={downloadingId === doc.id}
-                      className="px-2.5 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 text-xs font-semibold rounded-lg transition-colors flex items-center gap-1 border border-amber-200"
-                      title="Unduh File Word (.docx)"
+                      className="px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 text-xs font-semibold rounded-lg transition-colors flex items-center gap-1 border border-amber-300 shadow-2xs"
+                      title="Unduh File DOCX"
                     >
                       <Download className="w-3.5 h-3.5 text-amber-700" />
-                      <span>{downloadingId === doc.id ? '...' : '.docx'}</span>
+                      <span>{downloadingId === doc.id ? '...' : 'DOCX'}</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        if (window.confirm(`Hapus dokumen "${doc.title}"?`)) {
+                          onDeleteDocument(doc.id);
+                        }
+                      }}
+                      className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                      title="Hapus Dokumen"
+                    >
+                      <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

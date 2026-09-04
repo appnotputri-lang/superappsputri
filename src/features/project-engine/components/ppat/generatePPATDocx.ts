@@ -78,7 +78,7 @@ export const generatePaktaIntegritasDocx = async (
   project: Project,
   ppatData: PPATData,
   docItem?: PPATDocumentItem
-): Promise<void> => {
+): Promise<{ blob: Blob; fileName: string }> => {
   const transferType = docItem?.specificData?.transferType || ppatData.transactionType || "Jual Beli";
   const obj = ppatData.object || {};
   const statusTransaksi = docItem?.specificData?.transactionStatus || docItem?.specificData?.transferStatus || obj.transactionStatus || "telah"; // 'telah' | 'akan'
@@ -1004,14 +1004,15 @@ export const generatePaktaIntegritasDocx = async (
   });
 
   const blob = await Packer.toBlob(doc);
-  saveAs(blob, `Pakta_Integritas_${variant.toUpperCase()}_${secondPartyName.replace(/\./g, "").trim() || "Klien"}.docx`);
+  const fileName = `Pakta_Integritas_${variant.toUpperCase()}_${secondPartyName.replace(/\./g, "").trim() || "Klien"}.docx`;
+  return { blob, fileName };
 };
 
 export const generateSuratPernyataanDocx = async (
   project: Project,
   ppatData: PPATData,
   docItem?: PPATDocumentItem
-): Promise<void> => {
+): Promise<{ blob: Blob; fileName: string }> => {
   const transferType = docItem?.specificData?.transferType || ppatData.transactionType || "Jual Beli";
   const obj = ppatData.object || {};
   const statusTransaksi = docItem?.specificData?.transactionStatus || docItem?.specificData?.transferStatus || obj.transactionStatus || "telah";
@@ -1904,7 +1905,8 @@ export const generateSuratPernyataanDocx = async (
   });
 
   const blob = await Packer.toBlob(doc);
-  saveAs(blob, `Surat_Pernyataan_Pemindahan_Hak_${variant.toUpperCase()}_${secondPartyName.replace(/\./g, "").trim() || "Klien"}.docx`);
+  const fileName = `Surat_Pernyataan_Pemindahan_Hak_${variant.toUpperCase()}_${secondPartyName.replace(/\./g, "").trim() || "Klien"}.docx`;
+  return { blob, fileName };
 };
 
 function createTableRow(label: string, value: string): TableRow {
@@ -1981,7 +1983,7 @@ export const generateSuratPersetujuanDocx = async (
   project: Project,
   ppatData: PPATData,
   docItem?: PPATDocumentItem
-): Promise<void> => {
+): Promise<{ blob: Blob; fileName: string }> => {
   const transactionType = ppatData.transactionType || "Jual Beli";
   const firstParty = ppatData.firstParties[0] || ({} as PPATParty);
   const secondParty = ppatData.secondParties[0] || ({} as PPATParty);
@@ -2006,6 +2008,10 @@ export const generateSuratPersetujuanDocx = async (
       {
         properties: {
           page: {
+            size: {
+              width: convertInchesToTwip(8.5),
+              height: convertInchesToTwip(14)
+            },
             margin: {
               top: convertInchesToTwip(1),
               bottom: convertInchesToTwip(1),
@@ -2167,7 +2173,8 @@ export const generateSuratPersetujuanDocx = async (
   });
 
   const blob = await Packer.toBlob(doc);
-  saveAs(blob, `Surat_Persetujuan_${partyWithSpouse.name || "Penjual"}.docx`);
+  const fileName = `Surat_Persetujuan_${partyWithSpouse.name || "Penjual"}.docx`;
+  return { blob, fileName };
 };
 
 // === SURAT KUASA PPAT & BPN ===
@@ -2175,12 +2182,13 @@ export const generateSuratKuasaPPATDocx = async (
   project: Project,
   ppatData: PPATData,
   docItem?: PPATDocumentItem
-): Promise<void> => {
+): Promise<{ blob: Blob; fileName: string }> => {
+  const isSuratKuasaPPATDoc = true;
   const transactionType = ppatData.transactionType || "Jual Beli";
   const firstParties = ppatData.firstParties && ppatData.firstParties.length > 0 ? ppatData.firstParties : [({} as PPATParty)];
   const obj = ppatData.object || {};
   const attorneyName = docItem?.specificData?.attorneyName || "Nendi Suhendi";
-  const attorneyAddress = docItem?.specificData?.attorneyAddress || "Jl.Sukaresmi V No.12 RT 05/RW 05,Kecamatan Lembang,Desa Mekarwangi, Kabupaten Bandung Barat";
+  const skppatAttorneyAddress = docItem?.specificData?.attorneyAddress || "Jl.Sukaresmi V No.12 RT 05/RW 05,Kecamatan Lembang,Desa Mekarwangi, Kabupaten Bandung Barat";
   const attorneyJob = docItem?.specificData?.attorneyJob || "Karyawan PPAT";
   const letterDate = docItem?.letterDate || new Date().toISOString();
   const letterLocation = docItem?.letterLocation || "Bandung Barat";
@@ -2318,7 +2326,7 @@ export const generateSuratKuasaPPATDocx = async (
         new TableCell({
           width: { size: 68, type: WidthType.PERCENTAGE },
           borders: noBorder,
-          children: [new Paragraph({ children: [new TextRun({ text: attorneyAddress, font: "Times New Roman", size: 21 })] })]
+          children: [new Paragraph({ children: [new TextRun({ text: skppatAttorneyAddress, font: "Times New Roman", size: 21 })] })]
         })
       ]
     }),
@@ -2457,6 +2465,10 @@ export const generateSuratKuasaPPATDocx = async (
       {
         properties: {
           page: {
+            size: {
+              width: convertInchesToTwip(8.5),
+              height: convertInchesToTwip(14)
+            },
             margin: {
               top: convertInchesToTwip(1),
               bottom: convertInchesToTwip(1),
@@ -2680,7 +2692,7 @@ export const generateSuratKuasaPPATDocx = async (
 
   const blob = await Packer.toBlob(doc);
   const fileName = `Surat_Kuasa_${firstParties[0]?.name ? firstParties[0].name.replace(/\s+/g, "_") : "PPAT"}.docx`;
-  saveAs(blob, fileName);
+  return { blob, fileName };
 };
 
 // === SURAT KUASA MIGRASI E-SERTIPIKAT, KUASA PENGECEKAN SERTIPIKAT, & KUASA PENGECEKAN ZNT (SHARED BASE TEMPLATE) ===
@@ -2689,7 +2701,8 @@ export const generateKuasaBaseDocx = async (
   ppatData: PPATData,
   docItem: PPATDocumentItem | undefined,
   targetDocType: 'kuasa_migrasi' | 'kuasa_pengecekan_sertipikat' | 'kuasa_znt' | string
-): Promise<void> => {
+): Promise<{ blob: Blob; fileName: string }> => {
+  const isKuasaBaseDocMarker = true;
   const isSellerFirstParty = targetDocType === 'kuasa_pengecekan_sertipikat' || targetDocType === 'kuasa_znt';
 
   // PIHAK PERTAMA:
@@ -2987,6 +3000,10 @@ export const generateKuasaBaseDocx = async (
       {
         properties: {
           page: {
+            size: {
+              width: convertInchesToTwip(8.5),
+              height: convertInchesToTwip(14)
+            },
             margin: {
               top: convertInchesToTwip(1),
               bottom: convertInchesToTwip(1),
@@ -3215,14 +3232,15 @@ export const generateKuasaBaseDocx = async (
     : targetDocType === 'kuasa_pengecekan_sertipikat'
     ? "Surat_Kuasa_Pengecekan_Sertipikat"
     : "Surat_Kuasa_Migrasi_E_Sertipikat";
-  saveAs(blob, `${docTitlePrefix}_${signerName.replace(/[^a-zA-Z0-9]/g, '_')}.docx`);
+  const fileName = `${docTitlePrefix}_${signerName.replace(/[^a-zA-Z0-9]/g, '_')}.docx`;
+  return { blob, fileName };
 };
 
 export const generateKuasaMigrasiDocx = async (
   project: Project,
   ppatData: PPATData,
   docItem?: PPATDocumentItem
-): Promise<void> => {
+): Promise<{ blob: Blob; fileName: string }> => {
   return generateKuasaBaseDocx(project, ppatData, docItem, 'kuasa_migrasi');
 };
 
@@ -3230,7 +3248,7 @@ export const generateKuasaPengecekanSertipikatDocx = async (
   project: Project,
   ppatData: PPATData,
   docItem?: PPATDocumentItem
-): Promise<void> => {
+): Promise<{ blob: Blob; fileName: string }> => {
   return generateKuasaBaseDocx(project, ppatData, docItem, 'kuasa_pengecekan_sertipikat');
 };
 
@@ -3238,7 +3256,7 @@ export const generateKuasaZNTDocx = async (
   project: Project,
   ppatData: PPATData,
   docItem?: PPATDocumentItem
-): Promise<void> => {
+): Promise<{ blob: Blob; fileName: string }> => {
   return generateKuasaBaseDocx(project, ppatData, docItem, 'kuasa_znt');
 };
 
@@ -3247,7 +3265,7 @@ export const generateSuratTidakSengketaDocx = async (
   project: Project,
   ppatData: PPATData,
   docItem?: PPATDocumentItem
-): Promise<void> => {
+): Promise<{ blob: Blob; fileName: string }> => {
   const firstParty = ppatData.firstParties[0] || ({} as PPATParty);
   const obj = ppatData.object || {};
   const letterDate = docItem?.letterDate || new Date().toISOString();
@@ -3258,6 +3276,10 @@ export const generateSuratTidakSengketaDocx = async (
       {
         properties: {
           page: {
+            size: {
+              width: convertInchesToTwip(8.5),
+              height: convertInchesToTwip(14)
+            },
             margin: {
               top: convertInchesToTwip(1),
               bottom: convertInchesToTwip(1),
@@ -3382,7 +3404,8 @@ export const generateSuratTidakSengketaDocx = async (
   });
 
   const blob = await Packer.toBlob(doc);
-  saveAs(blob, `Surat_Pernyataan_Tidak_Sengketa_${firstParty.name || "Penjual"}.docx`);
+  const fileName = `Surat_Pernyataan_Tidak_Sengketa_${firstParty.name || "Penjual"}.docx`;
+  return { blob, fileName };
 };
 
 // === SURAT KETERANGAN NILAI TRANSAKSI (PAJAK) ===
@@ -3390,7 +3413,7 @@ export const generateSuratNilaiPajakDocx = async (
   project: Project,
   ppatData: PPATData,
   docItem?: PPATDocumentItem
-): Promise<void> => {
+): Promise<{ blob: Blob; fileName: string }> => {
   const transactionType = ppatData.transactionType || "Jual Beli";
   const firstParty = ppatData.firstParties[0] || ({} as PPATParty);
   const secondParty = ppatData.secondParties[0] || ({} as PPATParty);
@@ -3405,6 +3428,10 @@ export const generateSuratNilaiPajakDocx = async (
       {
         properties: {
           page: {
+            size: {
+              width: convertInchesToTwip(8.5),
+              height: convertInchesToTwip(14)
+            },
             margin: {
               top: convertInchesToTwip(1),
               bottom: convertInchesToTwip(1),
@@ -3542,7 +3569,8 @@ export const generateSuratNilaiPajakDocx = async (
   });
 
   const blob = await Packer.toBlob(doc);
-  saveAs(blob, `Surat_Pernyataan_Nilai_Pajak_${secondParty.name || "Klien"}.docx`);
+  const fileName = `Surat_Pernyataan_Nilai_Pajak_${secondParty.name || "Klien"}.docx`;
+  return { blob, fileName };
 };
 
 // === DRAF AKTA JUAL BELI (AJB) SESUAI BLANGKO STANDAR PPAT ===
@@ -3550,7 +3578,7 @@ export const generateAktaAJBDocx = async (
   project: Project,
   ppatData: PPATData,
   docItem?: PPATDocumentItem
-): Promise<void> => {
+): Promise<{ blob: Blob; fileName: string }> => {
   const firstParty = ppatData.firstParties[0] || ({} as PPATParty);
   const secondParty = ppatData.secondParties[0] || ({} as PPATParty);
   const obj = ppatData.object || {};
@@ -3585,6 +3613,7 @@ export const generateAktaAJBDocx = async (
   const parser = new DOMParser();
   const xmlDoc = parser.parseFromString(xmlText, "text/xml");
   const paragraphs = Array.from(xmlDoc.getElementsByTagName("w:p"));
+  const wNamespace = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
 
   const formatDateParts = (dateStr?: string) => {
     if (!dateStr) return { short: "-", spelled: "-", day: "", dayPad: "", month: "", year: "", dayName: "", dayTerbilang: "", yearTerbilang: "" };
@@ -3909,10 +3938,14 @@ export const generateAktaAJBDocx = async (
     const nib = obj.nib || "-";
     const nop = obj.nop || "-";
 
+    const docMeasurementTitle = (obj.measurementDocType && obj.measurementDocType.trim())
+      ? obj.measurementDocType.trim()
+      : "Surat Ukur";
+
     setParagraphRuns(paragraphs[25], [
       createBookmanRun("Nomor ", true),
       createBookmanRun(`${certNo}/Desa ${cleanVillage}`, true),
-      createBookmanRun(` atas sebidang tanah sebagaimana diuraikan dalam Surat Ukur tanggal ${suBirth.short} ( ${suBirth.spelled} ) Nomor ${suNo} seluas ${landAreaNum} m2 ( ${landAreaTerbilang} meter persegi ) dengan Nomor Identifikasi Bidang Tanah (NIB) `),
+      createBookmanRun(` atas sebidang tanah sebagaimana diuraikan dalam ${docMeasurementTitle} tanggal ${suBirth.short} ( ${suBirth.spelled} ) Nomor ${suNo} seluas ${landAreaNum} m2 ( ${landAreaTerbilang} meter persegi ) dengan Nomor Identifikasi Bidang Tanah (NIB) `),
       createBookmanRun(nib, true),
       createBookmanRun(" dan Surat Pemberitahuan Pajak Terhutang Pajak Bumi dan Bangunan (SPPT PBB) Nomor Objek Pajak (NOP) "),
       createBookmanRun(nop, true),
@@ -3972,11 +4005,106 @@ export const generateAktaAJBDocx = async (
     ]);
   }
 
-  // 12. Tanda Tangan Para Pihak & Persetujuan di Seluruh Dokumen (Menjaga tab stop dan layout asli)
+  // 12. Tanda Tangan Para Pihak (P#64)
+  if (paragraphs[64]) {
+    const p1SignName = (firstParty.name || "PIHAK PERTAMA").toUpperCase();
+    const p2SignName = (secondParty.name || "PIHAK KEDUA").toUpperCase();
+
+    let pPr = paragraphs[64].getElementsByTagName("w:pPr")[0];
+    if (!pPr) {
+      pPr = xmlDoc.createElementNS(wNamespace, "w:pPr");
+      paragraphs[64].insertBefore(pPr, paragraphs[64].firstChild);
+    }
+
+    // Remove unwanted indents / jc so names start exactly at tab stops
+    const existingInd = pPr.getElementsByTagName("w:ind")[0];
+    if (existingInd) pPr.removeChild(existingInd);
+    const existingJc = pPr.getElementsByTagName("w:jc")[0];
+    if (existingJc) pPr.removeChild(existingJc);
+
+    // Set precise tab stops matching P#63 dot lines (pos 284 & pos 5040)
+    const existingTabs = pPr.getElementsByTagName("w:tabs")[0];
+    if (existingTabs) pPr.removeChild(existingTabs);
+
+    const tabs = xmlDoc.createElementNS(wNamespace, "w:tabs");
+    const tab1 = xmlDoc.createElementNS(wNamespace, "w:tab");
+    tab1.setAttribute("w:val", "left");
+    tab1.setAttribute("w:pos", "284");
+    tabs.appendChild(tab1);
+
+    const tab2 = xmlDoc.createElementNS(wNamespace, "w:tab");
+    tab2.setAttribute("w:val", "left");
+    tab2.setAttribute("w:pos", "5040");
+    tabs.appendChild(tab2);
+
+    pPr.appendChild(tabs);
+
+    setParagraphRuns(paragraphs[64], [
+      createBookmanRunWithTab(p1SignName, true),
+      createBookmanRunWithTab(p2SignName, true)
+    ]);
+  }
+
+  // 13. Persetujuan Pasangan (P#67, P#70, P#71, P#72)
   const hasSpouse = Boolean(firstParty.hasSpouseConsent || (firstParty as any).spouseName || docItem?.specificData?.spouseConsentName);
   const spRelation = firstParty.spouseConsentType === "suami" ? "Suami" : "Istri";
-  const spName = firstParty.spouseName || docItem?.specificData?.spouseConsentName || "PASANGAN";
+  const spName = (firstParty.spouseName || docItem?.specificData?.spouseConsentName || "PASANGAN").trim();
 
+  // Handle Persetujuan Istri / Suami header (P#67)
+  if (paragraphs[67]) {
+    if (hasSpouse) {
+      setParagraphRuns(paragraphs[67], [
+        createBookmanRun(`Persetujuan ${spRelation}  :`)
+      ]);
+    } else {
+      setParagraphRuns(paragraphs[67], []);
+    }
+  }
+
+  // Handle Spouse Dot Line (P#70)
+  if (paragraphs[70] && !hasSpouse) {
+    setParagraphRuns(paragraphs[70], []);
+  }
+
+  // Handle Spouse Name (P#71)
+  if (paragraphs[71]) {
+    if (hasSpouse) {
+      let pPr = paragraphs[71].getElementsByTagName("w:pPr")[0];
+      if (!pPr) {
+        pPr = xmlDoc.createElementNS(wNamespace, "w:pPr");
+        paragraphs[71].insertBefore(pPr, paragraphs[71].firstChild);
+      }
+
+      const existingInd = pPr.getElementsByTagName("w:ind")[0];
+      if (existingInd) pPr.removeChild(existingInd);
+      const existingJc = pPr.getElementsByTagName("w:jc")[0];
+      if (existingJc) pPr.removeChild(existingJc);
+
+      const existingTabs = pPr.getElementsByTagName("w:tabs")[0];
+      if (existingTabs) pPr.removeChild(existingTabs);
+
+      const tabs = xmlDoc.createElementNS(wNamespace, "w:tabs");
+      const tab1 = xmlDoc.createElementNS(wNamespace, "w:tab");
+      tab1.setAttribute("w:val", "left");
+      tab1.setAttribute("w:pos", "284");
+      tabs.appendChild(tab1);
+
+      pPr.appendChild(tabs);
+
+      setParagraphRuns(paragraphs[71], [
+        createBookmanRunWithTab(spName.toUpperCase(), true)
+      ]);
+    } else {
+      setParagraphRuns(paragraphs[71], []);
+    }
+  }
+
+  // Handle empty trailing paragraph (P#72)
+  if (paragraphs[72]) {
+    setParagraphRuns(paragraphs[72], []);
+  }
+
+  // Global cleanup & text replacement for party names throughout the template
   paragraphs.forEach(p => {
     const tElements = Array.from(p.getElementsByTagName("w:t"));
     tElements.forEach(t => {
@@ -3987,19 +4115,18 @@ export const generateAktaAJBDocx = async (
       if (t.textContent.includes("ACIH SUARSIH")) {
         t.textContent = t.textContent.replace("ACIH SUARSIH", (secondParty.name || "PIHAK KEDUA").toUpperCase());
       }
-      if (t.textContent.includes("Persetujuan Istri") || t.textContent.includes("Persetujuan Suami")) {
-        if (hasSpouse) {
-          t.textContent = t.textContent.replace(/Persetujuan (?:Istri|Suami)/g, `Persetujuan ${spRel}`);
-        } else {
-          t.textContent = "";
-        }
-      }
       if (t.textContent.includes("ROSIDAH")) {
         if (hasSpouse) {
           t.textContent = t.textContent.replace("ROSIDAH", spName.toUpperCase());
         } else {
           t.textContent = "";
         }
+      }
+      if (t.textContent.includes("HARRY Z S")) {
+        t.textContent = "";
+      }
+      if (t.textContent.includes("RATIN")) {
+        t.textContent = "";
       }
     });
   });
@@ -4009,7 +4136,8 @@ export const generateAktaAJBDocx = async (
   zip.file("word/document.xml", finalXml);
 
   const outBlob = await zip.generateAsync({ type: "blob" });
-  saveAs(outBlob, `Akta_AJB_No_${aktaNomor}_${secondParty.name ? secondParty.name.replace(/\s+/g, "_") : "Pembeli"}.docx`);
+  const fileName = `Akta_AJB_No_${aktaNomor}_${secondParty.name ? secondParty.name.replace(/\s+/g, "_") : "Pembeli"}.docx`;
+  return { blob: outBlob, fileName };
 };
 
 // Helper to format party address into two lines (Line 1: Street, RT/RW, Desa/Kel, Line 2: Kec, Kab/Kota)
@@ -4168,7 +4296,7 @@ export const generateSuratPasal99Docx = async (
   project: Project,
   ppatData: PPATData,
   docItem: PPATDocumentItem
-): Promise<void> => {
+): Promise<{ blob: Blob; fileName: string }> => {
   // Pihak Pertama di Pasal 99 = PEMBELI (secondParties)
   // Pihak Kedua di Pasal 99 = PENJUAL (firstParties)
   const pembeli = (ppatData.secondParties && ppatData.secondParties.length > 0 && ppatData.secondParties[0]?.name)
@@ -4210,6 +4338,14 @@ export const generateSuratPasal99Docx = async (
 
   const parser = new DOMParser();
   const xmlDoc = parser.parseFromString(xmlText, "text/xml");
+
+  // Force US Legal page size (width: 12240, height: 20160 twips)
+  const pgSzs99 = Array.from(xmlDoc.getElementsByTagName("w:pgSz"));
+  pgSzs99.forEach(pg => {
+    pg.setAttribute("w:w", "12240");
+    pg.setAttribute("w:h", "20160");
+  });
+
   const ps = Array.from(xmlDoc.getElementsByTagName("w:p"));
 
   let section = "";
@@ -4270,7 +4406,8 @@ export const generateSuratPasal99Docx = async (
   zip.file("word/document.xml", finalXml);
 
   const outBuf = await zip.generateAsync({ type: "blob" });
-  saveAs(outBuf, `Surat_Pernyataan_Pasal_99_${pembeli.name || "Klien"}.docx`);
+  const fileName = `Surat_Pernyataan_Pasal_99_${pembeli.name || "Klien"}.docx`;
+  return { blob: outBuf, fileName };
 };
 
 // === GENERATE SURAT PERNYATAAN PASAL 100 ===
@@ -4278,7 +4415,7 @@ export const generateSuratPasal100Docx = async (
   project: Project,
   ppatData: PPATData,
   docItem: PPATDocumentItem
-): Promise<void> => {
+): Promise<{ blob: Blob; fileName: string }> => {
   // Pihak Pertama di Pasal 100 = PENJUAL (firstParties)
   // Pihak Kedua di Pasal 100 = PEMBELI (secondParties)
   const penjual = (ppatData.firstParties && ppatData.firstParties.length > 0 && ppatData.firstParties[0]?.name)
@@ -4320,6 +4457,14 @@ export const generateSuratPasal100Docx = async (
 
   const parser = new DOMParser();
   const xmlDoc = parser.parseFromString(xmlText, "text/xml");
+
+  // Force US Legal page size (width: 12240, height: 20160 twips)
+  const pgSzs100 = Array.from(xmlDoc.getElementsByTagName("w:pgSz"));
+  pgSzs100.forEach(pg => {
+    pg.setAttribute("w:w", "12240");
+    pg.setAttribute("w:h", "20160");
+  });
+
   const ps = Array.from(xmlDoc.getElementsByTagName("w:p"));
 
   let section = "";
@@ -4380,14 +4525,15 @@ export const generateSuratPasal100Docx = async (
   zip.file("word/document.xml", finalXml);
 
   const outBuf = await zip.generateAsync({ type: "blob" });
-  saveAs(outBuf, `Surat_Pernyataan_Pasal_100_${penjual.name || "Klien"}.docx`);
+  const fileName = `Surat_Pernyataan_Pasal_100_${penjual.name || "Klien"}.docx`;
+  return { blob: outBuf, fileName };
 };
 
 export const generateLampiran13PeralihanHakDocx = async (
   project: Project,
   ppatData: PPATData,
   docItem?: PPATDocumentItem
-): Promise<void> => {
+): Promise<{ blob: Blob; fileName: string }> => {
   // 1. DATA NENDI HARUS TETAP (Acuan template Lampiran 13)
   const nendi = {
     name: "NENDI SUHENDI",
@@ -4992,7 +5138,8 @@ export const generateLampiran13PeralihanHakDocx = async (
   });
 
   const blob = await Packer.toBlob(doc);
-  saveAs(blob, `Lampiran_13_Peralihan_Hak_${pembeli.name ? pembeli.name.replace(/\s+/g, "_") : "Pemohon"}.docx`);
+  const fileName = `Lampiran_13_Peralihan_Hak_${pembeli.name ? pembeli.name.replace(/\s+/g, "_") : "Pemohon"}.docx`;
+  return { blob, fileName };
 };
 
 // === SURAT PERNYATAAN KEASLIAN DOKUMEN PENGECEKAN (US LEGAL 8.5 x 14 inch) ===
@@ -5000,7 +5147,7 @@ export const generateSuratPernyataanKeaslianDokumenPengecekanDocx = async (
   project: Project,
   ppatData: PPATData,
   docItem?: PPATDocumentItem
-): Promise<void> => {
+): Promise<{ blob: Blob; fileName: string }> => {
   // 1. DATA PENJUAL (PIHAK PERTAMA) DARI MASTER DATA PPAT
   const penjual = (ppatData.firstParties && ppatData.firstParties.length > 0)
     ? ppatData.firstParties[0]
@@ -5438,7 +5585,7 @@ export const generateSuratPernyataanKeaslianDokumenPengecekanDocx = async (
             borders: borderNone,
             rows: [
               createTwoColRow("Jenis/Nomor Hak", jenisNomorHak),
-              createTwoColRow("Nomor Surat Ukur", nomorSuratUkur),
+              createTwoColRow(`Nomor ${obj.measurementDocType || "Surat Ukur"}`, nomorSuratUkur),
               rowLetakTanah,
               createTwoColRow("Luas", luasDisplay),
             ]
@@ -5554,67 +5701,66 @@ export const generateSuratPernyataanKeaslianDokumenPengecekanDocx = async (
   });
 
   const blob = await Packer.toBlob(doc);
-  saveAs(blob, `Surat_Pernyataan_Keaslian_Dokumen_Pengecekan_${penjual.name ? penjual.name.replace(/\s+/g, "_") : "Penjual"}.docx`);
+  const fileName = `Surat_Pernyataan_Keaslian_Dokumen_Pengecekan_${penjual.name ? penjual.name.replace(/\s+/g, "_") : "Penjual"}.docx`;
+  return { blob, fileName };
 };
 
-// === DISPATCHER UNTUK SETIAP DOKUMEN PPAT ===
-export const generateAnyPPATDocx = async (
+import { normalizePPATData } from "./ppatAddressUtils";
+
+// === CANONICAL GENERATOR DOCX BLOB UNTUK PREVIEW & DOWNLOAD ===
+export const generateAnyPPATDocxBlob = async (
   docItem: PPATDocumentItem,
   project: Project,
-  ppatData: PPATData
-): Promise<void> => {
+  rawPpatData: PPATData
+): Promise<{ blob: Blob; fileName: string }> => {
+  const ppatData = normalizePPATData(rawPpatData || project.ppatData);
   const docType = docItem.documentType || docItem.typeId || 'surat_pernyataan';
   switch (docType) {
     case 'kuasa_migrasi':
-      await generateKuasaMigrasiDocx(project, ppatData, docItem);
-      break;
+      return await generateKuasaMigrasiDocx(project, ppatData, docItem);
     case 'kuasa_pengecekan_sertipikat':
-      await generateKuasaPengecekanSertipikatDocx(project, ppatData, docItem);
-      break;
+      return await generateKuasaPengecekanSertipikatDocx(project, ppatData, docItem);
     case 'kuasa_znt':
-      await generateKuasaZNTDocx(project, ppatData, docItem);
-      break;
+      return await generateKuasaZNTDocx(project, ppatData, docItem);
     case 'pakta_integritas':
-      await generatePaktaIntegritasDocx(project, ppatData, docItem);
-      break;
+      return await generatePaktaIntegritasDocx(project, ppatData, docItem);
     case 'surat_pernyataan':
-      await generateSuratPernyataanDocx(project, ppatData, docItem);
-      break;
+      return await generateSuratPernyataanDocx(project, ppatData, docItem);
     case 'surat_persetujuan_keluarga':
-      await generateSuratPersetujuanDocx(project, ppatData, docItem);
-      break;
+      return await generateSuratPersetujuanDocx(project, ppatData, docItem);
     case 'surat_kuasa_ppat':
-      await generateSuratKuasaPPATDocx(project, ppatData, docItem);
-      break;
+      return await generateSuratKuasaPPATDocx(project, ppatData, docItem);
     case 'surat_pasal_99':
-      await generateSuratPasal99Docx(project, ppatData, docItem);
-      break;
+      return await generateSuratPasal99Docx(project, ppatData, docItem);
     case 'surat_pasal_100':
-      await generateSuratPasal100Docx(project, ppatData, docItem);
-      break;
+      return await generateSuratPasal100Docx(project, ppatData, docItem);
     case 'lampiran_13_peralihan_hak':
-      await generateLampiran13PeralihanHakDocx(project, ppatData, docItem);
-      break;
+      return await generateLampiran13PeralihanHakDocx(project, ppatData, docItem);
     case 'surat_pernyataan_keaslian_dokumen_pengecekan':
-      await generateSuratPernyataanKeaslianDokumenPengecekanDocx(project, ppatData, docItem);
-      break;
+      return await generateSuratPernyataanKeaslianDokumenPengecekanDocx(project, ppatData, docItem);
     case 'surat_tidak_sengketa':
-      await generateSuratTidakSengketaDocx(project, ppatData, docItem);
-      break;
+      return await generateSuratTidakSengketaDocx(project, ppatData, docItem);
     case 'surat_keterangan_nilai_pajak':
-      await generateSuratNilaiPajakDocx(project, ppatData, docItem);
-      break;
+      return await generateSuratNilaiPajakDocx(project, ppatData, docItem);
     case 'akta_ajb':
-      await generateAktaAJBDocx(project, ppatData, docItem);
-      break;
+      return await generateAktaAJBDocx(project, ppatData, docItem);
     default:
       if (docType === 'surat_kustom') {
-        await generateSuratPernyataanDocx(project, ppatData, docItem);
+        return await generateSuratPernyataanDocx(project, ppatData, docItem);
       } else {
         alert('Template dokumen PPAT tidak ditemukan.');
         throw new Error('Template dokumen PPAT tidak ditemukan.');
       }
-      break;
   }
+};
+
+// === DISPATCHER DOWNLOAD DOCX ===
+export const generateAnyPPATDocx = async (
+  docItem: PPATDocumentItem,
+  project: Project,
+  rawPpatData: PPATData
+): Promise<void> => {
+  const { blob, fileName } = await generateAnyPPATDocxBlob(docItem, project, rawPpatData);
+  saveAs(blob, fileName);
 };
 

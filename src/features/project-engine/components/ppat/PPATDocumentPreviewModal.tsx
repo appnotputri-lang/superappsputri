@@ -1,8 +1,11 @@
-import React, { useState } from 'react';
-import { X, Printer, Download, FileText, CheckCircle2, ShieldCheck } from 'lucide-react';
-import { Project, PPATData, PPATDocumentItem, PPATParty } from '../../../../domain/project/Project';
-import { generateAnyPPATDocx, terbilang, terbilangAngka } from './generatePPATDocx';
-import { formatFullPartyAddress, isCityKota, formatCleanVillage, formatCleanDistrict, formatCityName } from './ppatAddressUtils';
+import React, { useState, useEffect, useRef } from 'react';
+import { X, Printer, Download, FileText, Loader2, ZoomIn, ZoomOut, FileCheck } from 'lucide-react';
+import { renderAsync } from 'docx-preview';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
+import { Project, PPATData, PPATDocumentItem } from '../../../../domain/project/Project';
+import { generateAnyPPATDocx, generateAnyPPATDocxBlob } from './generatePPATDocx';
+import { isPPATSurat } from './ppatDocTypes';
 
 interface PPATDocumentPreviewModalProps {
   isOpen: boolean;
@@ -19,48 +22,61 @@ export const PPATDocumentPreviewModal: React.FC<PPATDocumentPreviewModalProps> =
   project,
   ppatData
 }) => {
-  const [downloading, setDownloading] = useState(false);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [downloading, setDownloading] = useState<boolean>(false);
+  const [downloadingPdf, setDownloadingPdf] = useState<boolean>(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [zoomLevel, setZoomLevel] = useState<number>(100);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const isSurat = isPPATSurat(documentItem);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    let isMounted = true;
+    setLoading(true);
+    setErrorMsg(null);
+
+    const renderDocument = async () => {
+      try {
+        const { blob } = await generateAnyPPATDocxBlob(documentItem, project, ppatData);
+
+        if (!isMounted) return;
+
+        if (containerRef.current) {
+          containerRef.current.innerHTML = '';
+          await renderAsync(blob, containerRef.current, undefined, {
+            className: 'docx-preview-content',
+            inWrapper: true,
+            ignoreWidth: false,
+            ignoreHeight: false,
+            ignoreFonts: false,
+            breakPages: true,
+            ignoreLastRenderedPageBreak: false,
+            useBase64URL: false
+          });
+        }
+      } catch (err: any) {
+        console.error('Error rendering document preview:', err);
+        if (isMounted) {
+          setErrorMsg(err?.message || 'Gagal merender pratinjau dokumen.');
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    renderDocument();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isOpen, documentItem, project, ppatData]);
 
   if (!isOpen) return null;
-
-  const firstParties: PPATParty[] = ppatData.firstParties && ppatData.firstParties.length > 0
-    ? ppatData.firstParties
-    : [{ id: '', name: '', nik: '', address: '', job: '', phone: '' }];
-  const secondParties: PPATParty[] = ppatData.secondParties && ppatData.secondParties.length > 0
-    ? ppatData.secondParties
-    : [{ id: '', name: '', nik: '', address: '', job: '', phone: '' }];
-
-  const firstParty = firstParties[0];
-  const secondParty = secondParties[0];
-  const obj = ppatData.object || {};
-  const transactionType = ppatData.transactionType || project.projectType || 'Jual Beli';
-
-  const formatDateIndo = (dateStr?: string) => {
-    if (!dateStr) {
-      return new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
-    }
-    const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return dateStr;
-    return d.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
-  };
-
-  const formatRupiah = (val?: number) => {
-    if (!val) return 'Rp 0';
-    return `Rp ${val.toLocaleString('id-ID')}`;
-  };
-
-  const computeAge = (birthDateStr?: string) => {
-    if (!birthDateStr) return '';
-    const birth = new Date(birthDateStr);
-    if (isNaN(birth.getTime())) return '';
-    const now = new Date();
-    let age = now.getFullYear() - birth.getFullYear();
-    const m = now.getMonth() - birth.getMonth();
-    if (m < 0 || (m === 0 && now.getDate() < birth.getDate())) {
-      age--;
-    }
-    return `${age} TAHUN`;
-  };
 
   const handleDownloadDocx = async () => {
     setDownloading(true);
@@ -74,1153 +90,202 @@ export const PPATDocumentPreviewModal: React.FC<PPATDocumentPreviewModalProps> =
     }
   };
 
+  const handleDownloadPdf = async () => {
+    if (!containerRef.current) return;
+    setDownloadingPdf(true);
+    try {
+      const sections = containerRef.current.querySelectorAll('section.docx');
+      if (!sections || sections.length === 0) {
+        alert('Dokumen belum selesai dimuat.');
+        return;
+      }
+
+      // Legal size: 8.5 in x 14 in = 215.9 mm x 355.6 mm
+      const pdfFormat: [number, number] | string = isSurat ? [215.9, 355.6] : 'a4';
+
+      const pdf = new jsPDF({
+        unit: 'mm',
+        format: pdfFormat,
+        orientation: 'portrait'
+      });
+
+      for (let i = 0; i < sections.length; i++) {
+        const sectionEl = sections[i] as HTMLElement;
+        const canvas = await html2canvas(sectionEl, {
+          scale: 2,
+          useCORS: true,
+          logging: false,
+          backgroundColor: '#ffffff'
+        });
+
+        const imgData = canvas.toDataURL('image/jpeg', 0.98);
+        if (i > 0) {
+          pdf.addPage(pdfFormat, 'portrait');
+        }
+
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = pdf.internal.pageSize.getHeight();
+        pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+      }
+
+      const cleanTitle = (documentItem.title || 'Dokumen_PPAT').replace(/[^a-zA-Z0-9_-]/g, '_');
+      pdf.save(`${cleanTitle}.pdf`);
+    } catch (err) {
+      console.error('Error generating PDF:', err);
+      alert('Gagal mengunduh file PDF.');
+    } finally {
+      setDownloadingPdf(false);
+    }
+  };
+
   const handlePrint = () => {
     window.print();
   };
 
-  const letterDate = documentItem.letterDate || new Date().toISOString();
-  const letterLocation = documentItem.letterLocation || 'Kabupaten Bandung Barat';
-  const isPaktaIntegritas = documentItem.documentType === 'pakta_integritas';
-  const transferType = documentItem.specificData?.transferType || transactionType || 'Jual Beli';
-  const statusTransaksi = documentItem.specificData?.transactionStatus || documentItem.specificData?.transferStatus || obj.transactionStatus || 'telah';
-  const transactionVal = Number(documentItem.specificData?.agreedPrice || obj.transactionValue || 0);
-
-  // Klasifikasi Varian Pakta Integritas
-  const tTypeLower = transferType.toLowerCase();
-  let paktaVariant: 'jual_beli' | 'tukar_hibah' | 'waris' | 'hibah_wasiat' | 'putusan_hakim' | 'hak_baru' | 'lelang' = 'jual_beli';
-  if (tTypeLower.includes('hibah wasiat')) {
-    paktaVariant = 'hibah_wasiat';
-  } else if (tTypeLower.includes('waris')) {
-    paktaVariant = 'waris';
-  } else if (tTypeLower.includes('putusan') || tTypeLower.includes('hakim')) {
-    paktaVariant = 'putusan_hakim';
-  } else if (tTypeLower.includes('hak baru') || tTypeLower.includes('pelepasan hak')) {
-    paktaVariant = 'hak_baru';
-  } else if (tTypeLower.includes('lelang')) {
-    paktaVariant = 'lelang';
-  } else if (
-    tTypeLower.includes('hibah') ||
-    tTypeLower.includes('tukar') ||
-    tTypeLower.includes('inbreng') ||
-    tTypeLower.includes('perseroan') ||
-    tTypeLower.includes('hadiah') ||
-    tTypeLower.includes('pemisahan') ||
-    tTypeLower.includes('penggabungan') ||
-    tTypeLower.includes('peleburan') ||
-    tTypeLower.includes('pemekaran')
-  ) {
-    paktaVariant = 'tukar_hibah';
-  } else {
-    paktaVariant = 'jual_beli';
-  }
-
-  const isDualParty = paktaVariant === 'jual_beli' || paktaVariant === 'tukar_hibah';
-  const labelP1 = paktaVariant === 'tukar_hibah' ? 'Pelepas Hak' : 'Penjual';
-  const labelP2 = paktaVariant === 'tukar_hibah' ? 'Penerima Hak' : 'Pembeli';
-  const isPerolehanLabel = paktaVariant === 'tukar_hibah' || paktaVariant === 'waris' || paktaVariant === 'hibah_wasiat';
-  const labelTanggal = isPerolehanLabel ? 'Tanggal Perolehan' : 'Tanggal Transaksi';
-  const labelNilai = paktaVariant === 'jual_beli' ? 'Nilai Transaksi' : 'Pengakuan Nilai Perolehan';
-  const statusWord = statusTransaksi === 'akan' ? 'akan' : 'telah';
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto print:p-0 print:bg-white print:fixed-none">
-      <div className="bg-white rounded-2xl max-w-4xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[92vh] print:max-h-none print:shadow-none print:w-full print:rounded-none">
-        {/* Header - Hidden on print */}
-        <div className="p-4 bg-slate-900 text-white flex items-center justify-between shrink-0 print:hidden">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center border border-amber-500/30">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-900/75 backdrop-blur-xs overflow-hidden print:p-0 print:bg-white print:fixed-none">
+      <div className="bg-slate-900 rounded-2xl max-w-5xl w-full shadow-2xl overflow-hidden flex flex-col h-[94vh] border border-slate-800 print:h-auto print:shadow-none print:w-full print:rounded-none">
+        
+        {/* Header Bar */}
+        <div className="p-4 bg-slate-900 text-white flex items-center justify-between shrink-0 border-b border-slate-800 print:hidden">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center border border-amber-500/30 shrink-0">
               <FileText className="w-5 h-5" />
             </div>
-            <div>
-              <h3 className="font-bold text-sm tracking-wide text-slate-100">
+            <div className="min-w-0">
+              <h3 className="font-bold text-sm tracking-wide text-slate-100 truncate">
                 Pratinjau Dokumen: {documentItem.title}
               </h3>
-              <p className="text-xs text-slate-400">
-                {isPaktaIntegritas ? 'Format Resmi Pakta Integritas (Perda KBB No. 1/2024)' : 'Format Resmi Kantor PPAT'} • Status: <span className="text-amber-400 font-semibold">{documentItem.status.toUpperCase()}</span>
+              <p className="text-xs text-slate-400 flex items-center gap-2">
+                <span>Dokumen Master PPAT ({isSurat ? 'Surat Legal 8.5"x14"' : 'Akta'})</span>
+                <span className="text-slate-600">•</span>
+                <span>Status: <strong className="text-amber-400 font-semibold">{documentItem.status ? documentItem.status.toUpperCase() : 'DRAFT'}</strong></span>
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
+            {/* Zoom Controls */}
+            <div className="hidden md:flex items-center bg-slate-800 border border-slate-700 rounded-lg p-0.5 mr-2">
+              <button
+                onClick={() => setZoomLevel((prev) => Math.max(prev - 10, 60))}
+                className="p-1 text-slate-300 hover:text-white hover:bg-slate-700 rounded transition-colors"
+                title="Perkecil"
+              >
+                <ZoomOut className="w-3.5 h-3.5" />
+              </button>
+              <span className="px-2 text-[11px] font-mono text-slate-300 min-w-[42px] text-center">
+                {zoomLevel}%
+              </span>
+              <button
+                onClick={() => setZoomLevel((prev) => Math.min(prev + 10, 150))}
+                className="p-1 text-slate-300 hover:text-white hover:bg-slate-700 rounded transition-colors"
+                title="Perbesar"
+              >
+                <ZoomIn className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
             <button
               onClick={handlePrint}
               className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors border border-slate-700"
             >
               <Printer className="w-3.5 h-3.5" />
-              Cetak Dokumen
+              <span>Cetak</span>
             </button>
+
+            <button
+              onClick={handleDownloadPdf}
+              disabled={downloadingPdf || loading}
+              className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white font-bold rounded-lg text-xs flex items-center gap-1.5 transition-colors shadow-xs disabled:opacity-50"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>{downloadingPdf ? 'Memproses PDF...' : 'Unduh PDF'}</span>
+            </button>
+
             <button
               onClick={handleDownloadDocx}
               disabled={downloading}
-              className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs"
+              className="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-slate-950 font-bold rounded-lg text-xs flex items-center gap-1.5 transition-colors shadow-xs"
             >
               <Download className="w-3.5 h-3.5" />
-              {downloading ? 'Mengunduh...' : 'Unduh Word (.docx)'}
+              <span>{downloading ? 'Mengunduh...' : 'Unduh Word (.docx)'}</span>
             </button>
+
             <button
               onClick={onClose}
-              className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors ml-2"
+              className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors ml-1"
+              title="Tutup Pratinjau"
             >
               <X className="w-5 h-5" />
             </button>
           </div>
         </div>
 
-        {/* Paper Container (Legal layout styling for Lampiran 13 and Surat Pernyataan Keaslian, A4 for others) */}
-        <div className="p-6 md:p-10 overflow-y-auto bg-slate-100 flex justify-center print:bg-white print:p-0">
-          <div className={`bg-white w-full ${documentItem.documentType === 'lampiran_13_peralihan_hak' || documentItem.documentType === 'surat_pernyataan_keaslian_dokumen_pengecekan' ? 'max-w-[216mm] min-h-[356mm]' : 'max-w-[210mm] min-h-[297mm]'} p-10 md:p-14 shadow-lg rounded-sm text-slate-900 font-serif text-[13px] leading-relaxed border border-slate-200 print:shadow-none print:border-none print:p-0 print:min-h-0 relative`}>
-            
-            {/* === TAMPILAN KHUSUS: PAKTA INTEGRITAS SESUAI TEMPLATE PDF RESMI === */}
-            {isPaktaIntegritas ? (
-              <div className="space-y-4">
-                {/* Header Pakta Integritas */}
-                <div className="text-center mb-6">
-                  <h1 className="text-base md:text-lg font-bold tracking-wide uppercase text-slate-900">
-                    PAKTA INTEGRITAS
-                  </h1>
-                  
-                  {paktaVariant === 'jual_beli' && (
-                    <h2 className="text-sm font-bold tracking-wide uppercase text-slate-900 mt-1 max-w-xl mx-auto">
-                      PEMINDAHAN HAK KARENA JUAL BELI
-                    </h2>
-                  )}
-
-                  {paktaVariant === 'tukar_hibah' && (
-                    <div className="mt-1 max-w-2xl mx-auto">
-                      <h2 className="text-sm font-bold tracking-wide uppercase text-slate-900">
-                        PEMINDAHAN HAK KARENA
-                      </h2>
-                      <h3 className="text-xs md:text-sm font-bold tracking-wide uppercase text-slate-900 mt-0.5 leading-snug">
-                        TUKAR-MENUKAR/ HIBAH/ HIBAH WASIAT/ PEMASUKAN DALAM PERSEROAN ATAU BADAN HUKUM LAINNYA/ PEMISAHAN HAK YANG MENGAKIBATKAN PERALIHAN/ PENGGABUNGAN USAHA/ PELEBURAN USAHA/ PEMEKARAN USAHA/ HADIAH
-                      </h3>
-                    </div>
-                  )}
-
-                  {paktaVariant === 'waris' && (
-                    <h2 className="text-sm font-bold tracking-wide uppercase text-slate-900 mt-1 max-w-xl mx-auto">
-                      PEMINDAHAN HAK KARENA WARIS
-                    </h2>
-                  )}
-
-                  {paktaVariant === 'hibah_wasiat' && (
-                    <h2 className="text-sm font-bold tracking-wide uppercase text-slate-900 mt-1 max-w-xl mx-auto">
-                      PEMINDAHAN HAK KARENA HIBAH WASIAT
-                    </h2>
-                  )}
-
-                  {paktaVariant === 'putusan_hakim' && (
-                    <h2 className="text-sm font-bold tracking-wide uppercase text-slate-900 mt-1 max-w-2xl mx-auto">
-                      PEMINDAHAN HAK KARENA PELAKSANAAN PUTUSAN HAKIM YANG MEMPUNYAI KEKUATAN HUKUM TETAP
-                    </h2>
-                  )}
-
-                  {paktaVariant === 'hak_baru' && (
-                    <div className="mt-1 max-w-2xl mx-auto">
-                      <h2 className="text-xs md:text-sm font-bold tracking-wide uppercase text-slate-900 leading-snug">
-                        PEMINDAHAN HAK KARENA PEMBERIAN HAK BARU ATAS TANAH SEBAGAI KELANJUTAN DARI PELEPASAN HAK/ PEMBERIAN HAK BARU ATAS TANAH DI LUAR PELEPASAN HAK
-                      </h2>
-                    </div>
-                  )}
-
-                  {paktaVariant === 'lelang' && (
-                    <div className="mt-1 max-w-xl mx-auto">
-                      <h2 className="text-sm font-bold tracking-wide uppercase text-slate-900">
-                        PEMINDAHAN HAK KARENA
-                      </h2>
-                      <h3 className="text-sm font-bold tracking-wide uppercase text-slate-900 mt-0.5">
-                        PENUNJUKAN PEMBELI DALAM LELANG
-                      </h3>
-                    </div>
-                  )}
-                </div>
-
-                <p className="text-justify text-[13px]">
-                  Sehubungan dengan adanya peralihan hak atas tanah dan/atau bangunan, dengan uraian sebagai berikut:
-                </p>
-
-                {/* Section I. Penjual / Pelepas Hak (jika dual party) atau Single list (jika waris/hibah wasiat/dll) */}
-                {isDualParty ? (
-                  <>
-                    <p className="font-bold text-slate-900 text-[13px]">I. {labelP1}</p>
-                    <div className="space-y-3">
-                      {firstParties.map((p, idx) => (
-                        <div key={p.id || idx} className="pl-4 space-y-1">
-                          <div className="grid grid-cols-12 gap-1 text-[13px]">
-                            <span className="col-span-3 text-slate-800 font-medium">
-                              {firstParties.length > 1 ? `${idx + 1}. ` : '1. '}Nama
-                            </span>
-                            <span className="col-span-9">: {p.name || '............................................................................................................'}</span>
-                            
-                            <span className="col-span-3 text-slate-800 pl-4 font-medium">NIK</span>
-                            <span className="col-span-9">: {p.nik || '............................................................................................................'}</span>
-                            
-                            <span className="col-span-3 text-slate-800 pl-4 font-medium">Tmpt/Tgl Lahir</span>
-                            <span className="col-span-9">
-                              : {p.birthPlace && p.birthDate ? `${p.birthPlace} / ${formatDateIndo(p.birthDate)}` : '................................. / ...................................................................'}
-                            </span>
-                            
-                            <span className="col-span-3 text-slate-800 pl-4 font-medium">Alamat</span>
-                            <span className="col-span-9">: {formatFullPartyAddress(p) || '............................................................................................................'}</span>
-                            
-                            <span className="col-span-3 text-slate-800 pl-4 font-medium">No. Tlp</span>
-                            <span className="col-span-9">
-                              : {p.phone ? <span>{p.phone}</span> : '............................................................................................................'}
-                            </span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* Section II. Pembeli / Penerima Hak */}
-                    <div className="space-y-3 pt-3">
-                      <p className="font-bold text-slate-900 text-[13px]">II. {labelP2}</p>
-                      {secondParties.map((p, idx) => (
-                        <div key={p.id || idx} className="pl-4 space-y-1">
-                          <div className="grid grid-cols-12 gap-1 text-[13px]">
-                            <span className="col-span-3 text-slate-800 font-medium">
-                              {secondParties.length > 1 ? `${idx + 1}. ` : '1. '}Nama
-                            </span>
-                            <span className="col-span-9">: {p.name || '............................................................................................................'}</span>
-                            
-                            <span className="col-span-3 text-slate-800 pl-4 font-medium">NIK</span>
-                            <span className="col-span-9">: {p.nik || '............................................................................................................'}</span>
-                            
-                            <span className="col-span-3 text-slate-800 pl-4 font-medium">Tmpt/Tgl Lahir</span>
-                            <span className="col-span-9">
-                              : {p.birthPlace && p.birthDate ? `${p.birthPlace} / ${formatDateIndo(p.birthDate)}` : '................................. / ...................................................................'}
-                            </span>
-                            
-                            <span className="col-span-3 text-slate-800 pl-4 font-medium">Alamat</span>
-                            <span className="col-span-9">: {formatFullPartyAddress(p) || '............................................................................................................'}</span>
-                            
-                            <span className="col-span-3 text-slate-800 pl-4 font-medium">No. Tlp</span>
-                            <span className="col-span-9">
-                              : {p.phone ? <span>{p.phone}</span> : '............................................................................................................'}
-                            </span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </>
-                ) : (
-                  <div className="space-y-3">
-                    {(secondParties.length > 0 && secondParties[0]?.name ? secondParties : firstParties).map((p, idx) => (
-                      <div key={p.id || idx} className="pl-4 space-y-1">
-                        <div className="grid grid-cols-12 gap-1 text-[13px]">
-                          <span className="col-span-3 text-slate-800 font-medium">
-                            {(secondParties.length > 0 && secondParties[0]?.name ? secondParties : firstParties).length > 1 ? `${idx + 1}. ` : '1. '}Nama
-                          </span>
-                          <span className="col-span-9">: {p.name || '............................................................................................................'}</span>
-                          
-                          <span className="col-span-3 text-slate-800 pl-4 font-medium">NIK</span>
-                          <span className="col-span-9">: {p.nik || '............................................................................................................'}</span>
-                          
-                          <span className="col-span-3 text-slate-800 pl-4 font-medium">Tmpt/Tgl Lahir</span>
-                          <span className="col-span-9">
-                            : {p.birthPlace && p.birthDate ? `${p.birthPlace} / ${formatDateIndo(p.birthDate)}` : '................................. / ...................................................................'}
-                          </span>
-                          
-                          <span className="col-span-3 text-slate-800 pl-4 font-medium">Alamat</span>
-                          <span className="col-span-9">: {formatFullPartyAddress(p) || '............................................................................................................'}</span>
-                          
-                          <span className="col-span-3 text-slate-800 pl-4 font-medium">No. Tlp</span>
-                          <span className="col-span-9">
-                            : {p.phone ? <span>{p.phone}</span> : '............................................................................................................'}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* Uraian Transaksi */}
-                <div className="pt-2">
-                  <div className="text-justify text-[13px]">
-                    {paktaVariant === 'jual_beli' && (
-                      <p>
-                        Kami {statusWord} melakukan transaksi jual beli, dengan uraian sebagai berikut:
-                      </p>
-                    )}
-                    {paktaVariant === 'tukar_hibah' && (
-                      <p>
-                        Kami {statusWord} melakukan pemindahan hak karena Tukar-Menukar/ Hibah/ Hibah Wasiat/ Pemasukan Dalam Perseroan Atau Badan Hukum Lainnya/ Pemisahan Hak Yang Mengakibatkan Peralihan/ Penggabungan Usaha/ Peleburan Usaha/ Pemekaran Usaha/ Hadiah, dengan uraian sebagai berikut:
-                      </p>
-                    )}
-                    {paktaVariant === 'waris' && (
-                      <p>
-                        Saya/Kami {statusWord} melakukan pemindahan hak karena Waris, dengan uraian sebagai berikut:
-                      </p>
-                    )}
-                    {paktaVariant === 'hibah_wasiat' && (
-                      <p>
-                        Saya/Kami {statusWord} melakukan pemindahan hak karena Hibah Wasiat, dengan uraian sebagai berikut:
-                      </p>
-                    )}
-                    {paktaVariant === 'putusan_hakim' && (
-                      <p>
-                        Saya/Kami {statusWord} melakukan pemindahan hak karena Pelaksanaan Putusan Hakim Yang Mempunyai Kekuatan Hukum Tetap, dengan uraian sebagai berikut:
-                      </p>
-                    )}
-                    {paktaVariant === 'hak_baru' && (
-                      <p>
-                        Saya/Kami {statusWord} melakukan pemindahan hak karena Pemberian Hak Baru Atas Tanah Sebagai Kelanjutan Dari Pelepasan Hak/ Pemberian Hak Baru Atas Tanah Di Luar Pelepasan Hak, dengan uraian sebagai berikut:
-                      </p>
-                    )}
-                    {paktaVariant === 'lelang' && (
-                      <p>
-                        Saya/Kami {statusWord} melakukan pemindahan hak karena Penunjukan Pembeli Dalam Lelang, dengan uraian sebagai berikut:
-                      </p>
-                    )}
-                  </div>
-                  
-                  <div className="mt-2 space-y-1 pl-4 text-[13px]">
-                    <div className="grid grid-cols-12 gap-1">
-                      <span className="col-span-5 text-slate-800">Nomor Objek Pajak (NOP)</span>
-                      <span className="col-span-7">: {obj.nop || '.........................................................................'}</span>
-
-                      <span className="col-span-5 text-slate-800">Dalam SPPT PBB tertulis atas nama</span>
-                      <span className="col-span-7">: {obj.spptName || '.........................................................................'}</span>
-
-                      <span className="col-span-5 text-slate-800">Letak Tanah dan/atau Bangunan</span>
-                      <span className="col-span-7">: {obj.location || '.........................................................................'}</span>
-
-                      <span className="col-span-5 text-slate-800 pl-6">RT/RW</span>
-                      <span className="col-span-7">: {obj.rt || obj.rw ? `${obj.rt || '-'}/${obj.rw || '-'}` : '.....................................................'}</span>
-
-                      <span className="col-span-5 text-slate-800 pl-6">{isCityKota(obj.city) ? 'Kelurahan' : 'Desa'}</span>
-                      <span className="col-span-7">: {formatCleanVillage(obj.village) || '.....................................................'}</span>
-
-                      <span className="col-span-5 text-slate-800 pl-6">Kecamatan</span>
-                      <span className="col-span-7">: {formatCleanDistrict(obj.district) || '.....................................................'}</span>
-
-                      <span className="col-span-5 text-slate-800">Dokumen Kepemilikan</span>
-                      <span className="col-span-7">: {obj.certificateNumber ? `${obj.certificateType || 'SHM'} No. ${obj.certificateNumber}` : '.........................................................................'}</span>
-
-                      <span className="col-span-5 text-slate-800">Luas Tanah</span>
-                      <span className="col-span-7">: {(obj.landArea !== undefined && obj.landArea !== null && obj.landArea !== 0 && String(obj.landArea).trim() !== '') ? `${obj.landArea} m²` : '-'}</span>
-
-                      <span className="col-span-5 text-slate-800">Luas Bangunan</span>
-                      <span className="col-span-7">: {(obj.buildingArea !== undefined && obj.buildingArea !== null && obj.buildingArea !== 0 && String(obj.buildingArea).trim() !== '') ? `${obj.buildingArea} m²` : '-'}</span>
-
-                      <span className="col-span-5 text-slate-800">Nilai NJOP</span>
-                      <span className="col-span-7">: {obj.njop ? formatRupiah(obj.njop) : '.........................................................................'}</span>
-
-                      <span className="col-span-5 text-slate-800">{labelTanggal}</span>
-                      <span className="col-span-7">: {obj.transactionDate ? formatDateIndo(obj.transactionDate) : '.........................................................................'}</span>
-
-                      <span className="col-span-5 text-slate-800">{labelNilai}</span>
-                      <span className="col-span-7">: {transactionVal ? `${formatRupiah(transactionVal)},- (${terbilang(transactionVal)})` : '.........................................................................'}</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* 5 Poin Pernyataan Resmi */}
-                <div className="pt-2 space-y-2 text-justify">
-                  {isDualParty ? (
-                    <p className="text-justify">Bersama ini kami menyatakan bahwa:</p>
-                  ) : (
-                    <p className="text-justify">Bersama ini saya/kami menyatakan bahwa:</p>
-                  )}
-                  <ol className="list-decimal list-outside pl-6 space-y-2 text-[12.5px] leading-relaxed text-justify">
-                    <li className="text-justify">
-                      status tanah dan/atau bangunan tersebut tidak dalam status sengketa dan kami menjamin tidak akan ada gugatan/tuntutan dari pihak manapun juga, dan bilamana dikemudian hari timbul permasalahan terkait pemalsuan data, kesalahan data atau gugatan/tuntutan berkaitan hal-hal tersebut di atas, maka sepenuhnya menjadi tanggung jawab kami;
-                    </li>
-                    <li className="text-justify">
-                      {paktaVariant === 'jual_beli' || paktaVariant === 'tukar_hibah'
-                        ? 'telah diberikan penjelasan oleh PPAT dan memahami ketentuan Peraturan Daerah Kabupaten Bandung Barat Nomor 1 Tahun 2024 tentang Pajak Daerah dan Retribusi Daerah;'
-                        : 'telah memahami ketentuan Peraturan Daerah Kabupaten Bandung Barat Nomor 1 Tahun 2024 tentang Pajak Daerah dan Retribusi Daerah;'}
-                    </li>
-                    <li className="text-justify">
-                      bersedia untuk hadir memberikan keterangan dan data pendukung atas peralihan hak dimaksud apabila dikemudian hari diperlukan;
-                    </li>
-                    <li className="text-justify">
-                      bersedia untuk melakukan pembayaran kembali atas kurang bayar dari jumlah pembayaran BPHTB yang seharusnya apabila dikemudian hari ditemukan selisih atau ketidaksesuaian pembayaran; dan
-                    </li>
-                    <li className="text-justify">
-                      apabila terbukti melanggar hal-hal yang telah kami nyatakan dalam pernyataan ini, kami bersedia diproses sesuai ketentuan peraturan perundang-undangan.
-                    </li>
-                  </ol>
-                  <p className="pt-2 text-justify">
-                    Demikian Pakta Integritas ini dibuat dengan sebenar-benarnya dan saya bersedia menerima segala konsekuensi hukum yang ditimbulkan apabila dikemudian hari terbukti pernyataan dalam Pakta Integritas ini tidak benar.
-                  </p>
-                </div>
-
-                {/* Lokasi, Tanggal & Tanda Tangan */}
-                <div className="pt-10">
-                  <p className="text-right font-medium">
-                    {letterLocation}, {documentItem.letterDate && documentItem.letterDate.trim() ? formatDateIndo(documentItem.letterDate) : '.......................................................'}
-                  </p>
-
-                  {!isDualParty ? (
-                    <div className="flex justify-end pt-6">
-                      <div className="text-center w-72 space-y-4">
-                        <p className="font-bold">Penerima Hak,</p>
-                        <div className="border border-dashed border-slate-400 w-32 h-16 mx-auto flex flex-col items-center justify-center text-[10px] text-slate-600 bg-slate-50/50 rounded">
-                          <span>Meterai</span>
-                          <span className="font-bold text-slate-800">Rp10.000</span>
-                        </div>
-                        <p className="font-bold pt-6">
-                          ( {(secondParties.length > 0 && secondParties[0]?.name ? secondParties[0].name : firstParty.name) || '.....................................'} )
-                        </p>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-3 gap-2 pt-8 text-center items-center">
-                      <div className="flex flex-col items-center justify-between min-h-[160px]">
-                        <p className="font-bold">{labelP1},</p>
-                        <div className="flex-1"></div>
-                        <p className="font-bold">
-                          ( {firstParty.name || '.....................................'} )
-                        </p>
-                      </div>
-
-                      <div className="flex flex-col items-center justify-center">
-                        <div className="border border-dashed border-slate-400 w-28 h-16 flex flex-col items-center justify-center text-[10px] text-slate-600 bg-slate-50/50 rounded">
-                          <span>Meterai Rp</span>
-                          <span className="font-bold text-slate-800">10.000</span>
-                        </div>
-                      </div>
-
-                      <div className="flex flex-col items-center justify-between min-h-[160px]">
-                        <p className="font-bold">{labelP2},</p>
-                        <div className="flex-1"></div>
-                        <p className="font-bold">
-                          ( {secondParty.name || '........................................'} )
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            ) : documentItem.documentType === 'lampiran_13_peralihan_hak' ? (
-              /* === LAMPIRAN 13 – PERALIHAN HAK (SESUAI TEMPLATE RESMI) === */
-              <div className="space-y-4 font-serif text-slate-900 text-xs leading-relaxed">
-                {/* Header Permohonan Lampiran 13 */}
-                <div className="flex justify-between items-start pt-2">
-                  <div className="space-y-1 text-xs">
-                    <div className="grid grid-cols-12 gap-y-1">
-                      <span className="col-span-3 font-semibold">Nomor</span>
-                      <span className="col-span-1">:</span>
-                      <span className="col-span-8">{ppatData.permohonanNomor || '...................................................'}</span>
-                      <span className="col-span-3 font-semibold">Lampiran</span>
-                      <span className="col-span-1">:</span>
-                      <span className="col-span-8">{ppatData.permohonanLampiran || '1 Berkas'}</span>
-                      <span className="col-span-3 font-semibold">Perihal</span>
-                      <span className="col-span-1">:</span>
-                      <span className="col-span-8 font-bold">{ppatData.permohonanPerihal || 'Permohonan PERALIHAN HAK'}</span>
-                    </div>
-                  </div>
-
-                  <div className="text-right text-xs">
-                    <p className="font-bold text-slate-800">LAMPIRAN 13</p>
-                    <p className="text-[10px] text-slate-500">SURAT PERMOHONAN</p>
-                    <span className="inline-block mt-1 text-[9px] font-sans font-semibold bg-blue-50 text-blue-700 px-2 py-0.5 rounded border border-blue-200">
-                      Format Legal (8.5 × 14")
-                    </span>
-                  </div>
-                </div>
-
-                {/* Tujuan Surat */}
-                <div className="pt-3 space-y-0.5 text-xs">
-                  <p>Kepada Yth.</p>
-                  <p className="font-bold">Bpk. Kepala Kantor Pertanahan</p>
-                  <p className="font-bold">{ppatData.object.regency?.toUpperCase().includes('KABUPATEN') ? ppatData.object.regency : `Kabupaten ${ppatData.object.regency || 'Bandung Barat'}`}</p>
-                  <p>di</p>
-                  <p className="pl-6 font-bold">{ppatData.permohonanTempat || 'Padalarang'}</p>
-                </div>
-
-                {/* Pembuka */}
-                <div className="pt-2 space-y-2 text-justify">
-                  <p>Dengan hormat,</p>
-                  <p>Yang bertanda tangan di bawah ini :</p>
-                </div>
-
-                {/* DATA NENDI SUHENDI (DATA TETAP MASTER TEMPLATE) */}
-                <div className="pl-4 space-y-1 bg-amber-50/40 p-3 rounded-lg border border-amber-200">
-                  <div className="text-[10px] font-sans font-bold text-amber-900 mb-1 flex items-center gap-1">
-                    <span>✓ DATA TETAP PEMOHON (Sesuai Template Lampiran 13):</span>
-                  </div>
-                  <div className="grid grid-cols-12 gap-1 text-xs">
-                    <span className="col-span-3">Nama</span>
-                    <span className="col-span-9 font-bold">: NENDI SUHENDI</span>
-                    <span className="col-span-3">Umur</span>
-                    <span className="col-span-9">: 32 TAHUN</span>
-                    <span className="col-span-3">Nomor KTP</span>
-                    <span className="col-span-9 font-mono">: 3217011507910016</span>
-                    <span className="col-span-3">Pekerjaan / Jabatan</span>
-                    <span className="col-span-9">: KARYAWAN SWASTA</span>
-                    <span className="col-span-3">Alamat</span>
-                    <span className="col-span-9">: JL. SUKARESMI V NO.17, MEKARWANGI, LEMBANG, BANDUNG BARAT</span>
-                    <span className="col-span-3">No. Telp</span>
-                    <span className="col-span-9 font-mono">: 08111301991</span>
-                  </div>
-                </div>
-
-                {/* SELAKU KUASA (DATA PEMBELI) */}
-                <div className="space-y-1 pt-1">
-                  <p className="font-semibold text-slate-800">
-                    Dalam hal ini bertindak untuk dan atas nama diri sendiri / selaku kuasa :
-                  </p>
-                  <div className="pl-4 space-y-1 bg-slate-50 p-3 rounded-lg border border-slate-200">
-                    <div className="text-[10px] font-sans font-bold text-blue-900 mb-1">
-                      <span>✓ DATA PEMBELI (Master Data PPAT):</span>
-                    </div>
-                    <div className="grid grid-cols-12 gap-1 text-xs">
-                      <span className="col-span-3">Nama</span>
-                      <span className="col-span-9 font-bold">: {secondParties[0]?.name || secondParty.name || '...................................................'}</span>
-                      <span className="col-span-3">Umur</span>
-                      <span className="col-span-9">: {secondParties[0]?.birthDate ? computeAge(secondParties[0].birthDate) : (secondParty.birthDate ? computeAge(secondParty.birthDate) : '...................................................')}</span>
-                      <span className="col-span-3">Nomor KTP</span>
-                      <span className="col-span-9 font-mono">: {secondParties[0]?.nik || secondParty.nik || '...................................................'}</span>
-                      <span className="col-span-3">Pekerjaan / Jabatan</span>
-                      <span className="col-span-9">: {secondParties[0]?.job || secondParty.job || 'WIRASWASTA'}</span>
-                      <span className="col-span-3">Alamat</span>
-                      <span className="col-span-9">: {formatFullPartyAddress(secondParties[0] || secondParty) || '...................................................'}</span>
-                      <span className="col-span-3">No. Telp</span>
-                      <span className="col-span-9 font-mono">: {secondParties[0]?.phone || secondParty.phone || '...................................................'}</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* DASAR SURAT KUASA */}
-                <div className="pt-1 text-xs">
-                  <p>
-                    Berdasarkan Surat Kuasa Nomor {ppatData.nomorSuratKuasa ? ppatData.nomorSuratKuasa : '...................................................'} tanggal {ppatData.tanggalSuratKuasa ? formatDateIndo(ppatData.tanggalSuratKuasa) : '...................................................'}, dengan ini mengajukan permohonan :
-                  </p>
-                </div>
-
-                {/* CHECKLIST PERMOHONAN */}
-                <div className="space-y-2 pt-2">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-1 text-[11px] pl-2">
-                    <div className="flex items-start gap-1.5"><span className="font-mono">[  ]</span><span>1. Pengukuran</span></div>
-                    <div className="flex items-start gap-1.5"><span className="font-mono">[  ]</span><span>8. Pemecahan/Pemisahan/Penggabungan</span></div>
-                    <div className="flex items-start gap-1.5"><span className="font-mono">[  ]</span><span>2. Konversi / Pendaftaran Hak</span></div>
-                    <div className="flex items-start gap-1.5"><span className="font-mono">[  ]</span><span>9. Pendaftaran Hak Tanggungan</span></div>
-                    <div className="flex items-start gap-1.5"><span className="font-mono">[  ]</span><span>3. Pendaftaran Hak Milik Sarusun</span></div>
-                    <div className="flex items-start gap-1.5"><span className="font-mono">[  ]</span><span>10. Roya atas Hak Tanggungan</span></div>
-                    <div className="flex items-start gap-1.5"><span className="font-mono">[  ]</span><span>4. Pendaftaran Tanah Wakaf</span></div>
-                    <div className="flex items-start gap-1.5"><span className="font-mono">[  ]</span><span>11. Penerbitan Sertipikat Pengganti</span></div>
-                    <div className="flex items-start gap-1.5 font-bold text-amber-950 bg-amber-50/60 px-1 py-0.5 rounded border border-amber-300">
-                      <span className="font-mono font-bold text-amber-700">[X]</span><span>5. Pendaftaran Peralihan Hak</span>
-                    </div>
-                    <div className="flex items-start gap-1.5"><span className="font-mono">[  ]</span><span>12. Surat Keterangan Pendaftaran Tanah</span></div>
-                    <div className="flex items-start gap-1.5"><span className="font-mono">[  ]</span><span>6. Pendaftaran Pemindahan Hak</span></div>
-                    <div className="flex items-start gap-1.5"><span className="font-mono">[  ]</span><span>13. Pengecekan Sertipikat</span></div>
-                    <div className="flex items-start gap-1.5"><span className="font-mono">[  ]</span><span>7. Pendaftaran Perubahan Hak</span></div>
-                    <div className="flex items-start gap-1.5"><span className="font-mono">[  ]</span><span>14. Pencatatan ..............................</span></div>
-                  </div>
-                </div>
-
-                {/* DETAIL OBJEK TANAH */}
-                <div className="space-y-1 pt-2">
-                  <p className="font-semibold">Atas bidang tanah hak / tanah Negara yang terletak di :</p>
-                  <div className="pl-4 space-y-0.5 text-xs bg-slate-50/60 p-2.5 rounded border border-slate-200">
-                    <div className="grid grid-cols-12 gap-1">
-                      <span className="col-span-3">Jalan / Blok</span>
-                      <span className="col-span-9 uppercase">: {obj.blok || obj.location || 'JL. SUKARESMI'}</span>
-                      <span className="col-span-3">Luas</span>
-                      <span className="col-span-9 font-bold">: {obj.landArea || 0} M²</span>
-                      <span className="col-span-3">Desa / Kelurahan</span>
-                      <span className="col-span-9 uppercase">: {obj.village ? obj.village.replace(/^(desa|kelurahan)\s+/i, '') : '-'}</span>
-                      <span className="col-span-3">Kecamatan</span>
-                      <span className="col-span-9 uppercase">: {obj.district ? obj.district.replace(/^kecamatan\s+/i, '') : '-'}</span>
-                      <span className="col-span-3">Kabupaten</span>
-                      <span className="col-span-9 uppercase">: {obj.regency ? obj.regency.replace(/^kabupaten\s+/i, '') : 'BANDUNG BARAT'}</span>
-                      <span className="col-span-3 font-semibold">Nomor Hak</span>
-                      <span className="col-span-9 font-bold">: {obj.certificateType ? obj.certificateType.replace('Hak ', 'M ').toUpperCase() : 'M'} {obj.certificateNumber || '-'}</span>
-                      <span className="col-span-3 font-semibold">Penggunaan Tanah</span>
-                      <span className="col-span-9">
-                        : {ppatData.landUseType === 'pertanian' ? (
-                          <>Pertanian / <span className="line-through text-slate-400">Non Pertanian</span> *) berupa <strong className="uppercase">{ppatData.landUse || 'TANAH KOSONG'}</strong></>
-                        ) : (
-                          <><span className="line-through text-slate-400">Pertanian</span> / Non Pertanian *) berupa <strong className="uppercase">{ppatData.landUse || 'TANAH KOSONG'}</strong></>
-                        )}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* PERNYATAAN (4 POIN) */}
-                <div className="space-y-1.5 pt-2 text-[11px] text-justify leading-relaxed">
-                  <p className="font-semibold text-xs">Berkaitan dengan permohonan ini saya menyatakan :</p>
-                  <ol className="list-decimal pl-5 space-y-1 text-slate-800">
-                    <li>
-                      Dalam bidang tanah yang dimaksud telah dipasang tanda batas berupa <strong>{ppatData.tandaBatas || 'PATOK'}</strong>
-                    </li>
-                    <li>
-                      Bahwa saya telah menguasai fisik tanah dimaksud.
-                    </li>
-                    <li>
-                      Bahwa atas bidang tanah yang dimohon tidak dalam sengketa ataupun perkara di pengadilan.
-                    </li>
-                    <li>
-                      Bahwa terhadap permohonan perubahan Hak Guna Bangunan ke Hak Milik, tanah tersebut tidak dalam keadaan kosong dan sudah berdiri bangunan rumah tinggal (bukan bangunan rumah toko)
-                    </li>
-                  </ol>
-                </div>
-
-                {/* DAFTAR LAMPIRAN BERKAS DINAMIS */}
-                <div className="space-y-1.5 pt-2">
-                  <p className="font-semibold text-xs">Untuk melengkapi permohonan dimaksud, bersama ini kami lampirkan :</p>
-                  <div className="pl-4 space-y-1 text-xs">
-                    {((ppatData.attachments && ppatData.attachments.length > 0) ? ppatData.attachments : [
-                      { id: '1', name: `ASLI ${obj.certificateType ? obj.certificateType.replace('Hak ', 'M ').toUpperCase() : 'M'} ${obj.certificateNumber || '651'}/DESA ${(obj.village || 'MEKARWANGI').replace(/^(desa|kelurahan)\s+/i, '').toUpperCase()}` },
-                      { id: '2', name: 'ASLI SURAT KUASA', documentNumber: ppatData.nomorSuratKuasa || '', documentDate: ppatData.tanggalSuratKuasa || '' },
-                      { id: '3', name: `AJB ${ppatData.nomorAkta ? `${ppatData.nomorAkta}/${ppatData.tahunAkta || new Date().getFullYear()}` : '01/2026'}`, documentDate: ppatData.tanggalAkta || '' }
-                    ]).map((att, idx) => (
-                      <div key={att.id || idx} className="flex items-start gap-2">
-                        <span className="w-5 font-bold">{idx + 1}.</span>
-                        <span className="font-medium uppercase">
-                          {att.name}
-                          {att.documentNumber ? ` NO. ${att.documentNumber}` : ''}
-                          {att.documentDate ? ` TGL ${formatDateIndo(att.documentDate).toUpperCase()}` : ''}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* TANDA TANGAN */}
-                <div className="pt-6 flex justify-end">
-                  <div className="text-center w-64 space-y-1">
-                    <p>
-                      {ppatData.permohonanTempat || 'Padalarang'}, {ppatData.permohonanTanggal ? formatDateIndo(ppatData.permohonanTanggal) : '................. 20 ....'}
-                    </p>
-                    <p className="font-bold">Hormat Kami,</p>
-                    <div className="my-4 flex justify-center">
-                      <div className="border border-dashed border-slate-400 w-24 h-12 flex flex-col items-center justify-center text-[9px] text-slate-500 bg-slate-50 rounded">
-                        <span>Meterai Rp</span>
-                        <span className="font-bold text-slate-700">10.000</span>
-                      </div>
-                    </div>
-                    <p className="font-bold underline uppercase tracking-wider text-xs text-slate-900">
-                      NENDI SUHENDI
-                    </p>
-                  </div>
-                </div>
-
-                {/* Catatan Kaki */}
-                <div className="pt-4 border-t border-slate-200 text-[10px] text-slate-500 italic">
-                  *) Coret yang tidak perlu
-                </div>
-              </div>
-            ) : documentItem.documentType === 'surat_pernyataan_keaslian_dokumen_pengecekan' ? (
-              /* === SURAT PERNYATAAN KEASLIAN DOKUMEN PENGECEKAN (US LEGAL 8.5 x 14") === */
-              <div className="space-y-5 font-serif text-slate-900 text-[13px] leading-relaxed max-w-2xl mx-auto py-2">
-                {/* Header US Legal Indicator */}
-                <div className="flex justify-between items-center border-b border-slate-200 pb-2 print:hidden">
-                  <span className="text-[10px] font-sans font-semibold bg-emerald-50 text-emerald-700 px-2.5 py-0.5 rounded-full border border-emerald-200">
-                    Format Dokumen: US Legal (8.5 × 14 Inci)
-                  </span>
-                  <span className="text-[11px] font-sans text-slate-500">
-                    Master Data: Penjual (Pemilik Asli)
-                  </span>
-                </div>
-
-                {/* Judul Surat */}
-                <div className="text-center pt-2 pb-1">
-                  <h1 className="text-base md:text-lg font-extrabold uppercase tracking-wide underline underline-offset-4 decoration-1">
-                    SURAT PERNYATAAN
-                  </h1>
-                </div>
-
-                {/* Pembuka */}
-                <div className="pt-1">
-                  <p>Saya yang bertandatangan di bawah ini :</p>
-                </div>
-
-                {/* Data Penjual (Diambil dari Master Data Penjual) */}
-                <div className="pl-4 space-y-1">
-                  <div className="grid grid-cols-12 gap-y-1 text-[13px]">
-                    <span className="col-span-4 font-normal">Nama</span>
-                    <span className="col-span-1">:</span>
-                    <span className="col-span-7 font-bold uppercase">{firstParty.name || 'NAMA PENJUAL'}</span>
-
-                    <span className="col-span-4 font-normal">Tempat/Tgl. Lahir</span>
-                    <span className="col-span-1">:</span>
-                    <span className="col-span-7">
-                      {firstParty.birthPlace && firstParty.birthDate
-                        ? `${firstParty.birthPlace}, ${formatDateIndo(firstParty.birthDate)}`
-                        : (firstParty.birthPlace || (firstParty.birthDate ? formatDateIndo(firstParty.birthDate) : '-'))}
-                    </span>
-
-                    <span className="col-span-4 font-normal">Alamat</span>
-                    <span className="col-span-1">:</span>
-                    <span className="col-span-7">{formatFullPartyAddress(firstParty) || firstParty.address || '-'}</span>
-
-                    <span className="col-span-4 font-normal">Kewarganegaraan</span>
-                    <span className="col-span-1">:</span>
-                    <span className="col-span-7">{firstParty.citizenship || (firstParty as any).kewarganegaraan || 'Indonesia'}</span>
-
-                    <span className="col-span-4 font-normal">Pekerjaan</span>
-                    <span className="col-span-1">:</span>
-                    <span className="col-span-7">{firstParty.job || 'Karyawan Swasta'}</span>
-                  </div>
-                </div>
-
-                {/* Pemilik Tanah */}
-                <div className="pt-2">
-                  <p>Adalah pemilik tanah dengan:</p>
-                </div>
-
-                {/* Data Sertipikat */}
-                <div className="pl-4 space-y-1">
-                  <div className="grid grid-cols-12 gap-y-1 text-[13px]">
-                    <span className="col-span-4 font-normal">Jenis/Nomor Hak</span>
-                    <span className="col-span-1">:</span>
-                    <span className="col-span-7 font-bold">
-                      {(() => {
-                        const certType = obj.certificateType || obj.documentType || 'SHM';
-                        const cleanType = certType.toUpperCase().includes('HAK MILIK') ? 'SHM' : certType.toUpperCase();
-                        const cNum = obj.certificateNumber ? obj.certificateNumber.trim() : '';
-                        const vName = formatCleanVillage(obj.village || '');
-                        if (cNum) {
-                          return `${cleanType} No. ${cNum}${vName ? `/Desa ${vName}` : ''}`;
-                        }
-                        return `${cleanType}${vName ? `/Desa ${vName}` : ''}`;
-                      })()}
-                    </span>
-
-                    <span className="col-span-4 font-normal">Nomor Surat Ukur</span>
-                    <span className="col-span-1">:</span>
-                    <span className="col-span-7">
-                      {obj.nomorSuratUkur || obj.measurementDocNumber || '-'}
-                    </span>
-
-                    <span className="col-span-4 font-normal">Letak tanah</span>
-                    <span className="col-span-1">:</span>
-                    <div className="col-span-7 space-y-0.5">
-                      <div className="grid grid-cols-12">
-                        <span className="col-span-5">a) Desa/Kelurahan</span>
-                        <span className="col-span-1">:</span>
-                        <span className="col-span-6 font-medium">{formatCleanVillage(obj.village || '') || '-'}</span>
-                      </div>
-                      <div className="grid grid-cols-12">
-                        <span className="col-span-5">b) Kecamatan</span>
-                        <span className="col-span-1">:</span>
-                        <span className="col-span-6 font-medium">{formatCleanDistrict(obj.district || '') || '-'}</span>
-                      </div>
-                      <div className="grid grid-cols-12">
-                        <span className="col-span-5">c) Kabupaten/Kota</span>
-                        <span className="col-span-1">:</span>
-                        <span className="col-span-6 font-medium">{formatCityName(obj.city || obj.regency || 'Bandung Barat')}</span>
-                      </div>
-                      <div className="grid grid-cols-12">
-                        <span className="col-span-5">d) Provinsi</span>
-                        <span className="col-span-1">:</span>
-                        <span className="col-span-6 font-medium">{obj.province || 'Jawa Barat'}</span>
-                      </div>
-                    </div>
-
-                    <span className="col-span-4 font-normal">Luas</span>
-                    <span className="col-span-1">:</span>
-                    <span className="col-span-7 font-medium">
-                      {(() => {
-                        if (obj.landArea && Number(obj.landArea) > 0) {
-                          const formatted = Number(obj.landArea).toLocaleString('id-ID');
-                          const words = terbilangAngka(Number(obj.landArea)).toLowerCase();
-                          return `${formatted} m2 ( ${words} meter persegi )`;
-                        }
-                        return '-';
-                      })()}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Pernyataan */}
-                <div className="pt-2">
-                  <p>Dengan ini menyatakan:</p>
-                </div>
-
-                <div className="space-y-2 text-justify text-[13px] pl-2">
-                  <div className="flex gap-2">
-                    <span className="w-5 shrink-0">1.</span>
-                    <p>
-                      Sertipikat tersebut adalah asli dan nama yang tercantum dalam sertipikat tersebut merupakan pemegang hak yang sebenarnya;
-                    </p>
-                  </div>
-                  <div className="flex gap-2">
-                    <span className="w-5 shrink-0">2.</span>
-                    <p>
-                      Beritikad baik serta bertanggung jawab sepenuhnya atas penggunaan data yang diakses.
-                    </p>
-                  </div>
-                </div>
-
-                {/* Penutup */}
-                <div className="pt-3 space-y-1.5 text-justify">
-                  <p>
-                    Demikian Surat Pernyataan ini dibuat dengan sebenarnya untuk dapat dipergunakan sebagaimana mestinya.
-                  </p>
-                  <p>
-                    Bersama ini menyatakan dengan sesungguhnya dan bilamana perlu dapat diperkuat
-                  </p>
-                </div>
-
-                {/* Tanda Tangan Penjual di Sebelah Kanan */}
-                <div className="pt-6 flex justify-end">
-                  <div className="w-64 text-center space-y-2">
-                    <p>
-                      {(documentItem.letterLocation || ppatData.tempatSuratPernyataanKeaslian || formatCityName(obj.city || obj.regency || 'Bandung Barat'))}, {formatDateIndo(documentItem.letterDate || ppatData.tanggalSuratPernyataanKeaslian || new Date().toISOString().split('T')[0])}
-                    </p>
-                    <div className="py-2 flex justify-center">
-                      <div className="border border-dashed border-slate-400 w-28 h-16 flex flex-col items-center justify-center text-[10px] text-slate-500 bg-slate-50 rounded">
-                        <span>METERAI</span>
-                        <span>TEMPEL</span>
-                        <span className="font-bold text-slate-700">10.000</span>
-                      </div>
-                    </div>
-                    <p className="font-bold uppercase tracking-wider text-[13px] pt-1 text-slate-900">
-                      {firstParty.name || 'NAMA PENJUAL'}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              /* === DOKUMEN PPAT LAINNYA (DENGAN KOP KANTOR PPAT) === */
-              <div>
-                {/* Kop / Header Instansi PPAT */}
-                <div className="text-center border-b-2 border-slate-800 pb-3 mb-6">
-                  <h2 className="text-sm font-bold tracking-widest uppercase text-slate-800">
-                    PEJABAT PEMBUAT AKTA TANAH (PPAT)
-                  </h2>
-                  <h1 className="text-base font-extrabold uppercase text-slate-900 tracking-wider">
-                    NUKANTINI PUTRI PARINCHA, S.H., M.Kn.
-                  </h1>
-                  <p className="text-[11px] text-slate-600 font-sans mt-0.5">
-                    Daerah Kerja: Kabupaten Bandung Barat • SK Kepala Badan Pertanahan Nasional RI
-                  </p>
-                </div>
-
-                {/* Judul Dokumen */}
-                <div className="text-center my-6">
-                  <h2 className="text-base font-extrabold tracking-wide uppercase underline decoration-1 underline-offset-4">
-                    {documentItem.title.toUpperCase()}
-                  </h2>
-                  {documentItem.letterNumber && (
-                    <p className="text-xs font-sans text-slate-600 mt-1">
-                      Nomor: {documentItem.letterNumber}
-                    </p>
-                  )}
-                </div>
-
-                {/* Body Content based on document type */}
-                <div className="space-y-4 text-justify">
-                  <p>Pada hari ini, bertempat di {letterLocation}, kami yang bertanda tangan di bawah ini:</p>
-
-                  {/* PIHAK PERTAMA */}
-                  <div className="pl-4 space-y-1">
-                    <p className="font-bold">I. PIHAK PERTAMA (PENJUAL / PELEPAS HAK):</p>
-                    <div className="grid grid-cols-12 gap-1 text-[12px]">
-                      <span className="col-span-3 text-slate-600">Nama Lengkap</span>
-                      <span className="col-span-9 font-semibold">: {firstParty.name || '-'}</span>
-                      <span className="col-span-3 text-slate-600">NIK / Paspor</span>
-                      <span className="col-span-9">: {firstParty.nik || '-'}</span>
-                      <span className="col-span-3 text-slate-600">Pekerjaan</span>
-                      <span className="col-span-9">: {firstParty.job || '-'}</span>
-                      <span className="col-span-3 text-slate-600">Alamat Lengkap</span>
-                      <span className="col-span-9">: {firstParty.address || '-'}</span>
-                    </div>
-                  </div>
-
-                  {/* PIHAK KEDUA */}
-                  <div className="pl-4 space-y-1">
-                    <p className="font-bold">II. PIHAK KEDUA (PEMBELI / PENERIMA HAK):</p>
-                    <div className="grid grid-cols-12 gap-1 text-[12px]">
-                      <span className="col-span-3 text-slate-600">Nama Lengkap</span>
-                      <span className="col-span-9 font-semibold">: {secondParty.name || '-'}</span>
-                      <span className="col-span-3 text-slate-600">NIK / Paspor</span>
-                      <span className="col-span-9">: {secondParty.nik || '-'}</span>
-                      <span className="col-span-3 text-slate-600">Pekerjaan</span>
-                      <span className="col-span-9">: {secondParty.job || '-'}</span>
-                      <span className="col-span-3 text-slate-600">Alamat Lengkap</span>
-                      <span className="col-span-9">: {secondParty.address || '-'}</span>
-                    </div>
-                  </div>
-
-                  {/* OBJEK TRANSAKSI */}
-                  <div className="space-y-1 pt-2">
-                    <p>
-                      Menerangkan bahwa berkenaan dengan rencana peralihan hak berupa <strong>{transactionType}</strong> atas sebidang tanah dan/atau bangunan berikut:
-                    </p>
-                    <div className="bg-slate-50 p-3 rounded border border-slate-200 text-[12px] space-y-1 font-sans">
-                      <div className="grid grid-cols-12 gap-1">
-                        <span className="col-span-4 text-slate-500">Nomor Sertipikat</span>
-                        <span className="col-span-8 font-bold">{obj.certificateType || 'SHM'} No. {obj.certificateNumber || '-'}</span>
-                        <span className="col-span-4 text-slate-500">Letak Tanah</span>
-                        <span className="col-span-8">{obj.village || '-'}, Kec. {obj.district || '-'}, {obj.regency || 'KBB'}</span>
-                        <span className="col-span-4 text-slate-500">Luas Tanah / Bangunan</span>
-                        <span className="col-span-8">{obj.landArea || 0} m² / {obj.buildingArea || 0} m²</span>
-                        <span className="col-span-4 text-slate-500">NOP PBB / NJOP</span>
-                        <span className="col-span-8 font-mono">{obj.nop || '-'} ({formatRupiah(obj.njop)})</span>
-                        <span className="col-span-4 text-slate-500">Nilai Transaksi</span>
-                        <span className="col-span-8 font-bold text-slate-900">{formatRupiah(documentItem.specificData?.agreedPrice || obj.transactionValue)}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* KLAUSUL KHUSUS DOKUMEN */}
-                  {(documentItem.documentType === 'kuasa_migrasi' || documentItem.documentType === 'kuasa_pengecekan_sertipikat' || documentItem.documentType === 'kuasa_znt') && (
-                    <div className="space-y-4 pt-2 font-serif text-slate-900 text-xs leading-relaxed">
-                      <div className="bg-amber-50/50 border border-amber-200 rounded-lg p-3 text-[11px] font-sans text-amber-900 mb-2">
-                        {documentItem.documentType === 'kuasa_znt' ? (
-                          <><span className="font-bold">✓ Template Master Docx Kuasa Pengecekan ZNT:</span> Pihak Pertama diisi otomatis dari Data Penjual. Pihak Kedua tetap static 100% mengikuti template master.</>
-                        ) : documentItem.documentType === 'kuasa_pengecekan_sertipikat' ? (
-                          <><span className="font-bold">✓ Template Master Docx Kuasa Pengecekan Sertipikat:</span> Pihak Pertama diisi otomatis dari Data Penjual. Pihak Kedua tetap static 100% mengikuti template master.</>
-                        ) : (
-                          <><span className="font-bold">✓ Template Master Docx Kuasa Migrasi:</span> Pihak Pertama diisi otomatis dari Data Pembeli. Pihak Kedua tetap static 100% mengikuti template master.</>
-                        )}
-                      </div>
-                      <p>Yang bertandatangan di bawah ini :</p>
-                      
-                      {/* PIHAK PERTAMA */}
-                      <div className="pl-4 space-y-1">
-                        <div className="grid grid-cols-12 gap-1 text-[12px]">
-                          <span className="col-span-3">Nama</span>
-                          <span className="col-span-9 font-semibold">: {(documentItem.documentType === 'kuasa_pengecekan_sertipikat' || documentItem.documentType === 'kuasa_znt') ? (firstParties[0]?.name || firstParty.name || '-') : (secondParties[0]?.name || secondParty.name || firstParty.name || '-')}</span>
-                          <span className="col-span-3">Tempat/Tgl. Lahir</span>
-                          <span className="col-span-9">: {
-                            (documentItem.documentType === 'kuasa_pengecekan_sertipikat' || documentItem.documentType === 'kuasa_znt')
-                              ? (firstParties[0]?.birthPlace ? `${firstParties[0].birthPlace}, ${firstParties[0].birthDate ? formatDateIndo(firstParties[0].birthDate) : ''}` : (firstParty.birthPlace ? `${firstParty.birthPlace}, ${firstParty.birthDate ? formatDateIndo(firstParty.birthDate) : ''}` : '-'))
-                              : (secondParties[0]?.birthPlace ? `${secondParties[0].birthPlace}, ${secondParties[0].birthDate ? formatDateIndo(secondParties[0].birthDate) : ''}` : '-')
-                          }</span>
-                          <span className="col-span-3">Pekerjaan</span>
-                          <span className="col-span-9">: {(documentItem.documentType === 'kuasa_pengecekan_sertipikat' || documentItem.documentType === 'kuasa_znt') ? (firstParties[0]?.job || firstParty.job || '-') : (secondParties[0]?.job || secondParty.job || '-')}</span>
-                          <span className="col-span-3">Alamat</span>
-                          <span className="col-span-9">: {formatFullPartyAddress((documentItem.documentType === 'kuasa_pengecekan_sertipikat' || documentItem.documentType === 'kuasa_znt') ? (firstParties[0] || firstParty) : (secondParties[0] || secondParty)) || '-'}</span>
-                        </div>
-                      </div>
-                      <p className="font-mono text-[11px] text-slate-500 overflow-hidden whitespace-nowrap">
-                        Selanjutnya disebut sebagai PIHAK PERTAMA ---------------------------------------------------------------------------------------------
-                      </p>
-
-                      {/* PIHAK KEDUA (STATIC) */}
-                      <div className="pl-4 space-y-1 bg-slate-50/80 p-2.5 rounded border border-slate-200">
-                        <div className="grid grid-cols-12 gap-1 text-[12px]">
-                          <span className="col-span-3 font-semibold">Nama</span>
-                          <span className="col-span-9 font-bold text-slate-900">: R.A. NUKANTINI PUTRI PARINCHA, SH.,MKn</span>
-                          <span className="col-span-3 font-semibold">Alamat</span>
-                          <span className="col-span-9">: Jl Pertani III No.36 Kav 9A, Rt/Rw 009/003, Kelurahan Duren Tiga, Kecamatan Pancoran, Kota Jakarta Selatan</span>
-                          <span className="col-span-3 font-semibold">Pekerjaan</span>
-                          <span className="col-span-9">: Pejabat Pembuat Akta Tanah (PPAT)</span>
-                        </div>
-                      </div>
-                      <p className="font-mono text-[11px] text-slate-500 overflow-hidden whitespace-nowrap">
-                        Selanjutnya disebut sebagai PIHAK KEDUA ---------------------------------------------------------------------------------------------
-                      </p>
-
-                      <p className="font-mono text-[11px] text-slate-500 overflow-hidden whitespace-nowrap">
-                        Dengan ini Pihak Pertama memberi kuasa kepada Pihak Kedua ---------------------------------------------------------------------------------------------
-                      </p>
-
-                      <div className="text-center font-bold tracking-widest my-2">
-                        ----------------------------- KHUSUS ----------------------------
-                      </div>
-
-                      <p className="text-justify leading-relaxed">
-                        Untuk menghadap, mengurus dan menandatangani proses pengurusan {documentItem.documentType === 'kuasa_znt' ? 'Pengecekan Zona Nilai Tanah (ZNT)' : documentItem.documentType === 'kuasa_pengecekan_sertipikat' ? 'Pengecekan Sertipikat' : 'Migrasi Sertipikat Elektronik'} untuk {obj.certificateType || 'Sertipikat Hak Milik'} {obj.certificateNumber || '651'}/Desa {formatCleanVillage(obj.village) || 'Mekarwangi'} seluas kurang lebih {obj.landArea || 167} m2 ( {obj.landArea ? terbilang(Number(obj.landArea)).trim() + ' meter persegi' : 'seratus enam puluh tujuh meter persegi'} ), yang terletak di :
-                      </p>
-
-                      <div className="pl-6 space-y-1 text-[12px]">
-                        <div className="grid grid-cols-12 gap-1">
-                          <span className="col-span-3">Propinsi</span>
-                          <span className="col-span-9">: {obj.province || 'Jawa Barat'};</span>
-                          <span className="col-span-3">Kabupaten</span>
-                          <span className="col-span-9">: {obj.regency || obj.city || 'Bandung Barat'};</span>
-                          <span className="col-span-3">Kecamatan</span>
-                          <span className="col-span-9">: {formatCleanDistrict(obj.district) || 'Lembang'};</span>
-                          <span className="col-span-3">Desa</span>
-                          <span className="col-span-9">: {formatCleanVillage(obj.village) || 'Mekarwangi'};</span>
-                          <span className="col-span-3">Blok</span>
-                          <span className="col-span-9">: {obj.blok || obj.persil || obj.kohir || '-'};</span>
-                        </div>
-                      </div>
-
-                      <p className="text-justify pt-2">
-                        Demikian surat kuasa ini kami buat tanpa paksaan dengan sebenarnya tanpa ada yang dikecualikan untuk dapat dipergunakan sebagaimana mestinya.
-                      </p>
-                    </div>
-                  )}
-
-                  {documentItem.documentType === 'surat_persetujuan_keluarga' && (
-                    <div className="space-y-2 pt-2">
-                      <p>
-                        Bahwa sehubungan dengan objek tersebut di atas adalah merupakan harta bersama, maka:
-                      </p>
-                      <div className="bg-amber-50/60 p-3 rounded border border-amber-200 text-[12px] font-sans">
-                        <p className="font-bold text-slate-800">
-                          Nama Pasangan: {documentItem.specificData?.spouseConsentName || '(Belum diisi)'} ({documentItem.specificData?.spouseRelation || 'Pasangan Sah'})
-                        </p>
-                        <p className="text-slate-600">
-                          NIK: {documentItem.specificData?.spouseConsentNik || '-'}
-                        </p>
-                        <p className="mt-1 text-slate-700 italic">
-                          Dengan sadar dan tanpa paksaan memberikan persetujuan sepenuhnya atas penjualan/pengalihan hak ini.
-                        </p>
-                      </div>
-                    </div>
-                  )}
-
-                  {documentItem.documentType === 'surat_kuasa_ppat' && (
-                    <div className="space-y-2 pt-2">
-                      <p>
-                        Memberikan kuasa penuh kepada:
-                      </p>
-                      <div className="bg-blue-50/60 p-3 rounded border border-blue-200 text-[12px] font-sans">
-                        <p className="font-bold text-slate-800">
-                          {documentItem.specificData?.attorneyName || 'STAF KANTOR PPAT NUKANTINI PUTRI PARINCHA, S.H., M.Kn.'}
-                        </p>
-                        <p className="text-slate-600">
-                          Alamat / Kantor: {documentItem.specificData?.attorneyAddress || 'Kantor PPAT Nukantini Putri Parincha, S.H., M.Kn.'}
-                        </p>
-                        <p className="mt-1 text-slate-700">
-                          Untuk melakukan pengurusan pengecekan sertipikat, validasi pajak daerah (BPHTB di Bapenda KBB), validasi PPh di KPP Pratama, dan pendaftaran peralihan hak di Kantor Pertanahan.
-                        </p>
-                      </div>
-                    </div>
-                  )}
-
-                  {documentItem.documentType === 'surat_pasal_99' && (
-                    <div className="space-y-2 pt-2">
-                      <p className="font-bold text-slate-800">
-                        Pernyataan Pemenuhan Ketentuan Batas Maksimum & Bukan Absentee (Pasal 99 PMNA/KaBPN 3/1997):
-                      </p>
-                      <ol className="list-decimal list-inside pl-2 space-y-1.5 text-[12px] bg-slate-50 p-3.5 rounded border border-slate-200">
-                        <li>Dengan perolehan hak atas tanah ini, pihak yang memperoleh hak TIDAK AKAN menjadi pemegang hak atas tanah yang melebihi batas maksimum penguasaan tanah menurut peraturan perundang-undangan yang berlaku.</li>
-                        <li>Perolehan hak atas tanah tersebut BUKAN merupakan perolehan tanah secara absentee (guntai).</li>
-                        <li>Pernyataan ini dibuat dengan itikad baik dan penuh tanggung jawab untuk keperluan pendaftaran peralihan hak di Kantor Pertanahan.</li>
-                      </ol>
-                    </div>
-                  )}
-
-                  {documentItem.documentType === 'surat_pasal_100' && (
-                    <div className="space-y-2 pt-2">
-                      <p className="font-bold text-slate-800">
-                        Pernyataan Penguasaan Fisik Bidang Tanah & Itikad Baik (Pasal 100 PMNA/KaBPN 3/1997):
-                      </p>
-                      <ol className="list-decimal list-inside pl-2 space-y-1.5 text-[12px] bg-slate-50 p-3.5 rounded border border-slate-200">
-                        <li>Bidang tanah tersebut secara nyata dikuasai secara fisik dengan itikad baik tanpa ada keberatan atau sengketa dari pihak manapun;</li>
-                        <li>Tanah tidak sedang menjadi jaminan utang tak tercatat, tidak tersangkut perkara di Pengadilan, dan bebas dari sita jaminan;</li>
-                        <li>Batas-batas tanah terpasang dengan patok tanda batas yang jelas dan disepakati oleh para pemilik tanah yang berbatasan secara damai.</li>
-                      </ol>
-                    </div>
-                  )}
-
-                  {documentItem.documentType === 'surat_tidak_sengketa' && (
-                    <div className="space-y-2 pt-2">
-                      <p>Menyatakan dengan sesungguhnya bahwa tanah tersebut:</p>
-                      <ol className="list-decimal list-inside pl-2 space-y-1 text-[12px]">
-                        <li>Dikuasai secara fisik secara beritikad baik tanpa ada gangguan pihak lain;</li>
-                        <li>Tidak sedang dalam keadaan sengketa, perkara perdata, maupun sita pengadilan;</li>
-                        <li>Batas-batas tanah telah disetujui oleh para pemilik tanah yang berbatasan secara damai.</li>
-                      </ol>
-                    </div>
-                  )}
-
-                  {documentItem.notes && (
-                    <div className="pt-2">
-                      <p className="font-semibold text-xs text-slate-700 font-sans">Keterangan / Klausul Tambahan:</p>
-                      <p className="text-[12px] italic text-slate-600 font-sans bg-slate-50 p-2.5 rounded border border-slate-200">
-                        {documentItem.notes}
-                      </p>
-                    </div>
-                  )}
-
-                  {(documentItem.documentType === 'kuasa_migrasi' || documentItem.documentType === 'kuasa_pengecekan_sertipikat' || documentItem.documentType === 'kuasa_znt') ? (
-                    <>
-                      {/* Tanggal dan Lokasi */}
-                      <div className="text-right pt-4">
-                        <p>{letterLocation}, {formatDateIndo(letterDate)}</p>
-                        <p className="mr-4">Yang membuat pernyataan;</p>
-                      </div>
-
-                      {/* Kolom Tanda Tangan Kuasa */}
-                      <div className="grid grid-cols-2 gap-6 pt-4 text-center">
-                        <div className="flex flex-col items-center">
-                          <p className="font-bold">PIHAK KEDUA</p>
-                          <div className="h-20 flex items-center justify-center text-slate-400 text-[10px] font-sans">
-                            (Meterai Rp 10.000)
-                          </div>
-                          <p className="font-bold underline decoration-1 underline-offset-4">
-                            R.A. NUKANTINI PUTRI PARINCHA, SH.,MKn
-                          </p>
-                        </div>
-
-                        <div className="flex flex-col items-center">
-                          <p className="font-bold">PIHAK PERTAMA</p>
-                          <div className="h-20 flex items-center justify-center text-slate-400 text-[10px] font-sans">
-                            (Meterai Rp 10.000)
-                          </div>
-                          <p className="font-bold underline decoration-1 underline-offset-4">
-                            ( {(documentItem.documentType === 'kuasa_pengecekan_sertipikat' || documentItem.documentType === 'kuasa_znt') ? (firstParties[0]?.name || firstParty.name || '-') : (secondParties[0]?.name || secondParty.name || firstParty.name || '-')} )
-                          </p>
-                        </div>
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <p className="pt-2">
-                        Demikian surat ini dibuat dengan sebenarnya dan penuh tanggung jawab hukum untuk dipergunakan sebagaimana mestinya di hadapan Pejabat Pembuat Akta Tanah (PPAT).
-                      </p>
-
-                      {/* Tanggal dan Lokasi */}
-                      <div className="text-right pt-4">
-                        <p>{letterLocation}, {formatDateIndo(letterDate)}</p>
-                      </div>
-
-                      {/* Kolom Tanda Tangan */}
-                      <div className="grid grid-cols-2 gap-6 pt-4 text-center">
-                        <div className="flex flex-col items-center">
-                          <p className="font-bold">PIHAK KEDUA (PEMBELI)</p>
-                          <div className="h-20 flex items-center justify-center text-slate-400 text-[10px] font-sans">
-                            (Meterai Rp 10.000)
-                          </div>
-                          <p className="font-bold underline decoration-1 underline-offset-4">
-                            ( {secondParty.name || '-'} )
-                          </p>
-                        </div>
-
-                        <div className="flex flex-col items-center">
-                          <p className="font-bold">PIHAK PERTAMA (PENJUAL)</p>
-                          <div className="h-20 flex items-center justify-center text-slate-400 text-[10px] font-sans">
-                            (Meterai Rp 10.000)
-                          </div>
-                          <p className="font-bold underline decoration-1 underline-offset-4">
-                            ( {firstParty.name || '-'} )
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Mengetahui PPAT */}
-                      <div className="text-center pt-8">
-                        <p className="text-xs text-slate-600">Mengetahui,</p>
-                        <p className="font-bold text-xs uppercase">PEJABAT PEMBUAT AKTA TANAH (PPAT)</p>
-                        <div className="h-16"></div>
-                        <p className="font-extrabold uppercase underline decoration-1 underline-offset-4">
-                          NUKANTINI PUTRI PARINCHA, S.H., M.Kn.
-                        </p>
-                        <p className="text-[10px] text-slate-500 font-sans">Daerah Kerja: Kabupaten Bandung Barat</p>
-                      </div>
-                    </>
-                  )}
-                </div>
-              </div>
-            )}
+        {/* Paper Container Body */}
+        <div className="flex-1 overflow-y-auto bg-slate-950/90 p-4 sm:p-8 flex justify-center print:bg-white print:p-0 print:overflow-visible relative ppat-docx-container">
+          
+          {loading && (
+            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-slate-900/90 text-white gap-3 backdrop-blur-xs">
+              <Loader2 className="w-8 h-8 text-amber-400 animate-spin" />
+              <p className="text-xs font-medium text-slate-300">
+                Menyiapkan pratinjau dari template DOCX resmi...
+              </p>
+            </div>
+          )}
+
+          {errorMsg && (
+            <div className="m-auto max-w-md p-6 bg-red-950/80 border border-red-800 rounded-xl text-center space-y-3 text-red-200">
+              <p className="text-sm font-bold">Gagal Menampilkan Pratinjau</p>
+              <p className="text-xs opacity-90">{errorMsg}</p>
+              <button
+                onClick={handleDownloadDocx}
+                className="px-4 py-2 bg-amber-500 text-slate-950 font-bold text-xs rounded-lg hover:bg-amber-400 transition-colors"
+              >
+                Unduh DOCX Langsung
+              </button>
+            </div>
+          )}
+
+          <div
+            style={{ transform: `scale(${zoomLevel / 100})`, transformOrigin: 'top center' }}
+            className="transition-transform duration-150 ease-out w-full flex flex-col items-center print:transform-none"
+          >
+            <div ref={containerRef} className="w-full flex flex-col items-center" />
           </div>
         </div>
-
-        {/* Footer info */}
-        <div className="p-3 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500 shrink-0 print:hidden">
-          <span>💡 Dokumen ini menggunakan data pihak dan objek dari Proyek PPAT.</span>
-          <button
-            onClick={onClose}
-            className="px-4 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold rounded-lg transition-colors"
-          >
-            Tutup
-          </button>
-        </div>
       </div>
+
+      {/* Embedded CSS for DOCX Preview Rendering */}
+      <style>{`
+        .ppat-docx-container .docx-wrapper {
+          background-color: transparent !important;
+          padding: 1rem 0 !important;
+          display: flex !important;
+          flex-direction: column !important;
+          align-items: center !important;
+          gap: 2rem !important;
+        }
+        .ppat-docx-container .docx-wrapper > section.docx {
+          box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.3) !important;
+          border: 1px solid #334155 !important;
+          border-radius: 4px !important;
+          background-color: #ffffff !important;
+          color: #0f172a !important;
+          margin-bottom: 0 !important;
+        }
+        @media print {
+          .ppat-docx-container {
+            background-color: #ffffff !important;
+            padding: 0 !important;
+          }
+          .ppat-docx-container .docx-wrapper > section.docx {
+            box-shadow: none !important;
+            border: none !important;
+            margin: 0 !important;
+          }
+        }
+      `}</style>
     </div>
   );
 };
-

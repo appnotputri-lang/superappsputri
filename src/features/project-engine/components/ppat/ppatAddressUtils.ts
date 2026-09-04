@@ -278,3 +278,265 @@ export function areNamesEqual(name1?: string, name2?: string): boolean {
   return n1 === n2;
 }
 
+/**
+ * Formats numeric value as Rupiah currency string.
+ */
+export function formatRupiah(val?: number): string {
+  if (!val || isNaN(val)) return 'Rp 0';
+  return `Rp ${val.toLocaleString('id-ID')},-`;
+}
+
+/**
+ * Converts a number to Indonesian word representation (Terbilang).
+ */
+export function terbilang(n: number): string {
+  if (n <= 0 || isNaN(n)) return "Nol Rupiah";
+  const satuan = ["", "Satu", "Dua", "Tiga", "Empat", "Lima", "Enam", "Tujuh", "Delapan", "Sembilan", "Sepuluh", "Sebelas"];
+  const bilang = (num: number): string => {
+    num = Math.floor(num);
+    if (num < 12) return satuan[num];
+    if (num < 20) return bilang(num - 10) + " Belas";
+    if (num < 100) return bilang(Math.floor(num / 10)) + " Puluh" + (num % 10 !== 0 ? " " + bilang(num % 10) : "");
+    if (num < 200) return "Seratus" + (num % 100 !== 0 ? " " + bilang(num % 100) : "");
+    if (num < 1000) return bilang(Math.floor(num / 100)) + " Ratus" + (num % 100 !== 0 ? " " + bilang(num % 100) : "");
+    if (num < 2000) return "Seribu" + (num % 1000 !== 0 ? " " + bilang(num % 1000) : "");
+    if (num < 1000000) return bilang(Math.floor(num / 1000)) + " Ribu" + (num % 1000 !== 0 ? " " + bilang(num % 1000) : "");
+    if (num < 1000000000) return bilang(Math.floor(num / 1000000)) + " Juta" + (num % 1000000 !== 0 ? " " + bilang(num % 1000000) : "");
+    if (num < 1000000000000) return bilang(Math.floor(num / 1000000000)) + " Milyar" + (num % 1000000000 !== 0 ? " " + bilang(num % 1000000000) : "");
+    if (num < 1000000000000000) return bilang(Math.floor(num / 1000000000000)) + " Triliun" + (num % 1000000000000 !== 0 ? " " + bilang(num % 1000000000000) : "");
+    return num.toString();
+  };
+  return bilang(n).trim() + " Rupiah";
+}
+
+/**
+ * Constructs clean generated formal address string for Property Location.
+ */
+export function formatFullObjectLocationString(loc?: any): string {
+  if (!loc) return '';
+  const parts: string[] = [];
+  if (loc.address?.trim()) parts.push(loc.address.trim());
+  const rtRw = formatRtRw(loc.rt, loc.rw);
+  if (rtRw) parts.push(rtRw);
+  if (loc.village?.trim()) parts.push(formatVillageName(loc.village, loc.city));
+  if (loc.district?.trim()) parts.push(formatDistrictName(loc.district));
+  if (loc.city?.trim()) parts.push(formatCityName(loc.city));
+  if (loc.province?.trim()) parts.push(loc.province.trim());
+  return parts.join(', ');
+}
+
+export function createDefaultParty(defaultNamePrefix: string = 'Pihak'): PPATParty {
+  return {
+    id: 'party_' + Date.now() + '_' + Math.random().toString(36).substring(7),
+    name: '',
+    ktpName: '',
+    nik: '',
+    jenisKelamin: 'Laki-laki',
+    statusPerkawinan: 'Menikah',
+    birthPlace: '',
+    birthDate: '',
+    job: 'Swasta',
+    address: '',
+    rt: '',
+    rw: '',
+    village: '',
+    district: '',
+    city: 'Bandung Barat',
+    province: 'Jawa Barat',
+    citizenship: 'Indonesia',
+    isLegalEntity: false
+  };
+}
+
+export function createDefaultObject(): PPATObjectData {
+  return {
+    namaDalamSertipikat: '',
+    certificateType: 'SHM',
+    certificateNumber: '',
+    measurementDocType: 'Surat Ukur',
+    measurementDocNumber: '',
+    nomorSuratUkur: '',
+    measurementDocDate: '',
+    landArea: 0,
+    buildingArea: 0,
+    nib: '',
+    nop: '',
+    spptName: '',
+    njop: 0,
+    location: '',
+    rt: '',
+    rw: '',
+    village: '',
+    district: '',
+    city: 'Bandung Barat',
+    province: 'Jawa Barat',
+    landUseType: 'non_pertanian',
+    landUse: 'TANAH KOSONG',
+    transactionStatus: 'telah',
+    transactionDate: new Date().toISOString().split('T')[0],
+    transactionValue: 0
+  };
+}
+
+/**
+ * Normalizes PPATData to guarantee all 7 structured sections exist
+ * while preserving complete two-way compatibility with legacy root properties.
+ */
+export function normalizePPATData(data?: any): any {
+  if (!data) data = {};
+
+  const rawObj = data.object || {};
+
+  const firstParties = data.firstParties?.length
+    ? data.firstParties
+    : (data.parties?.firstParties?.length ? data.parties.firstParties : [createDefaultParty('Pihak Pertama')]);
+
+  const secondParties = data.secondParties?.length
+    ? data.secondParties
+    : (data.parties?.secondParties?.length ? data.parties.secondParties : [createDefaultParty('Pihak Kedua')]);
+
+  // 1. DATA SERTIPIKAT
+  const certData = {
+    namaDalamSertipikat: data.certificate?.namaDalamSertipikat || rawObj.namaDalamSertipikat || rawObj.ownerName || rawObj.holderName || '',
+    certificateType: data.certificate?.certificateType || rawObj.certificateType || rawObj.documentType || 'SHM',
+    certificateNumber: data.certificate?.certificateNumber || rawObj.certificateNumber || '',
+    measurementDocType: data.certificate?.measurementDocType || rawObj.measurementDocType || 'Surat Ukur',
+    measurementDocNumber: data.certificate?.measurementDocNumber || rawObj.measurementDocNumber || rawObj.nomorSuratUkur || '',
+    nomorSuratUkur: data.certificate?.nomorSuratUkur || rawObj.nomorSuratUkur || rawObj.measurementDocNumber || '',
+    measurementDocDate: data.certificate?.measurementDocDate || rawObj.measurementDocDate || '',
+    landArea: Number(data.certificate?.landArea ?? rawObj.landArea ?? 0),
+    nib: data.certificate?.nib || rawObj.nib || '',
+    notes: data.certificate?.notes || ''
+  };
+
+  // 2. DATA PBB
+  const pbbData = {
+    nop: data.pbb?.nop || rawObj.nop || '',
+    spptName: data.pbb?.spptName || rawObj.spptName || certData.namaDalamSertipikat || '',
+    taxYear: data.pbb?.taxYear || data.pbbTaxYear || String(new Date().getFullYear()),
+    njopLand: Number(data.pbb?.njopLand ?? data.njopLand ?? 0),
+    njopBuilding: Number(data.pbb?.njopBuilding ?? data.njopBuilding ?? 0),
+    njop: Number(data.pbb?.njop ?? rawObj.njop ?? 0),
+    totalNjop: Number(data.pbb?.totalNjop ?? data.pbb?.njop ?? rawObj.njop ?? 0),
+    notes: data.pbb?.notes || ''
+  };
+
+  // 3. DATA LETAK OBJEK
+  const locData = {
+    address: data.propertyLocation?.address || rawObj.address || rawObj.location || '',
+    rt: data.propertyLocation?.rt || rawObj.rt || '',
+    rw: data.propertyLocation?.rw || rawObj.rw || '',
+    village: data.propertyLocation?.village || rawObj.village || '',
+    district: data.propertyLocation?.district || rawObj.district || '',
+    city: data.propertyLocation?.city || rawObj.city || 'Bandung Barat',
+    province: data.propertyLocation?.province || rawObj.province || 'Jawa Barat',
+    persil: data.propertyLocation?.persil || rawObj.persil || '',
+    kohir: data.propertyLocation?.kohir || rawObj.kohir || '',
+    landUseType: data.propertyLocation?.landUseType || rawObj.landUseType || data.landUseType || 'non_pertanian',
+    landUse: data.propertyLocation?.landUse || rawObj.landUse || data.landUse || 'TANAH KOSONG',
+    buildingArea: Number(data.propertyLocation?.buildingArea ?? rawObj.buildingArea ?? 0),
+    notes: data.propertyLocation?.notes || '',
+    formatAlamatAkta: ''
+  };
+  locData.formatAlamatAkta = formatFullObjectLocationString(locData);
+
+  // 4. DATA TRANSAKSI
+  const transData = {
+    transactionStatus: data.transaction?.transactionStatus || rawObj.transactionStatus || 'telah',
+    transactionDate: data.transaction?.transactionDate || rawObj.transactionDate || new Date().toISOString().split('T')[0],
+    transactionValue: Number(data.transaction?.transactionValue ?? rawObj.transactionValue ?? 0),
+    paymentMethod: data.transaction?.paymentMethod || 'Tunai',
+    notes: data.transaction?.notes || ''
+  };
+
+  // 5. DATA AKTA PPAT
+  const aktaData = {
+    jenisAkta: data.akta?.jenisAkta || data.transactionType || 'Akta Jual Beli (AJB)',
+    nomorAkta: data.akta?.nomorAkta || data.nomorAkta || '',
+    tahunAkta: data.akta?.tahunAkta || data.tahunAkta || String(new Date().getFullYear()),
+    tanggalAkta: data.akta?.tanggalAkta || data.tanggalAkta || '',
+    dasarPerolehan: data.akta?.dasarPerolehan || '',
+    notes: data.akta?.notes || ''
+  };
+
+  // 6. DATA BPN / PERMOHONAN
+  const bpnData = {
+    nomorSuratKuasa: data.bpnApplication?.nomorSuratKuasa || data.nomorSuratKuasa || '',
+    tanggalSuratKuasa: data.bpnApplication?.tanggalSuratKuasa || data.tanggalSuratKuasa || '',
+    jenisPermohonan: data.bpnApplication?.jenisPermohonan || data.permohonanPerihal || 'Permohonan PERALIHAN HAK',
+    permohonanNomor: data.bpnApplication?.permohonanNomor || data.permohonanNomor || '',
+    permohonanTempat: data.bpnApplication?.permohonanTempat || data.permohonanTempat || 'Padalarang',
+    permohonanTanggal: data.bpnApplication?.permohonanTanggal || data.permohonanTanggal || '',
+    tandaBatas: data.bpnApplication?.tandaBatas || data.tandaBatas || 'PATOK',
+    attachments: data.bpnApplication?.attachments || data.attachments || [],
+    notes: data.bpnApplication?.notes || ''
+  };
+
+  return {
+    ...data,
+    parties: {
+      firstParties,
+      secondParties
+    },
+    firstParties,
+    secondParties,
+    certificate: certData,
+    pbb: pbbData,
+    propertyLocation: locData,
+    transaction: transData,
+    akta: aktaData,
+    bpnApplication: bpnData,
+
+    // Legacy fallback getters
+    transactionType: aktaData.jenisAkta || data.transactionType || 'Akta Jual Beli (AJB)',
+    object: {
+      ...rawObj,
+      namaDalamSertipikat: certData.namaDalamSertipikat,
+      ownerName: certData.namaDalamSertipikat,
+      holderName: certData.namaDalamSertipikat,
+      certificateType: certData.certificateType,
+      documentType: certData.certificateType,
+      certificateNumber: certData.certificateNumber,
+      measurementDocType: certData.measurementDocType,
+      measurementDocNumber: certData.measurementDocNumber,
+      nomorSuratUkur: certData.nomorSuratUkur || certData.measurementDocNumber,
+      measurementDocDate: certData.measurementDocDate,
+      landArea: certData.landArea,
+      buildingArea: locData.buildingArea,
+      nib: certData.nib,
+      nop: pbbData.nop,
+      spptName: pbbData.spptName,
+      njop: pbbData.totalNjop || pbbData.njop,
+      location: locData.address,
+      address: locData.address,
+      rt: locData.rt,
+      rw: locData.rw,
+      village: locData.village,
+      district: locData.district,
+      city: locData.city,
+      province: locData.province,
+      persil: locData.persil,
+      kohir: locData.kohir,
+      landUseType: locData.landUseType,
+      landUse: locData.landUse,
+      transactionStatus: transData.transactionStatus,
+      transactionDate: transData.transactionDate,
+      transactionValue: transData.transactionValue,
+    },
+    nomorAkta: aktaData.nomorAkta,
+    tahunAkta: aktaData.tahunAkta,
+    tanggalAkta: aktaData.tanggalAkta,
+    nomorSuratKuasa: bpnData.nomorSuratKuasa,
+    tanggalSuratKuasa: bpnData.tanggalSuratKuasa,
+    permohonanNomor: bpnData.permohonanNomor,
+    permohonanPerihal: bpnData.jenisPermohonan,
+    permohonanTempat: bpnData.permohonanTempat,
+    permohonanTanggal: bpnData.permohonanTanggal,
+    tandaBatas: bpnData.tandaBatas,
+    landUse: locData.landUse,
+    landUseType: locData.landUseType,
+    attachments: bpnData.attachments,
+    documents: data.documents || []
+  };
+}
+

@@ -128,6 +128,7 @@ export interface PPATParty {
   village?: string; // Kelurahan / Desa
   district?: string; // Kecamatan
   city?: string;
+  province?: string;
   phone?: string;
   citizenship?: string; // Kewarganegaraan (e.g. Indonesia / WNI)
   isLegalEntity?: boolean; // If PT / CV / Yayasan / Badan Hukum
@@ -175,6 +176,8 @@ export interface PPATObjectData {
   measurementDocDate?: string; // Tanggal Surat Ukur / Gambar Situasi
   landArea?: number; // Luas Tanah (m2)
   buildingArea?: number; // Luas Bangunan (m2)
+  landUseType?: 'non_pertanian' | 'pertanian' | string;
+  landUse?: string;
   njop?: number; // Nilai NJOP (Rp)
   transactionDate?: string; // Tanggal Transaksi / Perolehan
   transactionStatus?: 'telah' | 'akan' | string; // Status Transaksi (Telah / Akan)
@@ -235,10 +238,105 @@ export interface PPATAttachmentItem {
   documentDate?: string; // Tanggal Dokumen (jika ada)
 }
 
+export interface PPATCertificateData {
+  namaDalamSertipikat?: string; // Nama pemegang hak sesuai Sertipikat / Buku Tanah (FIELD MASTER TERSENDIRI)
+  certificateType?: string; // SHM, HGB, Hak Pakai, Hak Pengelolaan, Girik / Warkah, dll.
+  certificateNumber?: string; // Nomor Sertipikat / Nomor Hak
+  measurementDocType?: 'Surat Ukur' | 'Gambar Situasi' | 'NIB / Peta Bidang' | string;
+  measurementDocNumber?: string; // Nomor Surat Ukur
+  nomorSuratUkur?: string;
+  measurementDocDate?: string; // Tanggal Surat Ukur
+  landArea?: number; // Luas Tanah (m2)
+  nib?: string; // NIB
+  notes?: string; // Catatan Sertipikat
+}
+
+export interface PPATPbbData {
+  nop?: string; // Nomor Objek Pajak (NOP)
+  spptName?: string; // SPPT PBB Atas Nama
+  taxYear?: string; // Tahun Pajak
+  njopLand?: number; // NJOP Tanah (Rp / m2)
+  njopBuilding?: number; // NJOP Bangunan (Rp / m2)
+  njop?: number; // Total NJOP (Rp)
+  totalNjop?: number; // Total Nilai NJOP
+  notes?: string; // Catatan PBB
+}
+
+export interface PPATPropertyLocationData {
+  address?: string; // Alamat / Jalan / Blok / No
+  rt?: string;
+  rw?: string;
+  village?: string; // Desa / Kelurahan
+  district?: string; // Kecamatan
+  city?: string; // Kabupaten / Kota
+  province?: string; // Provinsi
+  persil?: string; // Persil
+  kohir?: string; // Kohir
+  landUseType?: 'non_pertanian' | 'pertanian' | string; // Pertanian / Non Pertanian
+  landUse?: string; // Penggunaan Tanah (TANAH KOSONG, RUMAH TINGGAL, dll)
+  buildingArea?: number; // Luas Bangunan (m2)
+  notes?: string; // Keterangan Objek
+  formatAlamatAkta?: string; // Format Alamat Akta (Generated Display)
+}
+
+export interface PPATTransactionData {
+  transactionStatus?: 'telah' | 'akan' | string; // Status Transaksi PPAT
+  transactionDate?: string; // Tanggal Transaksi / Perolehan
+  transactionValue?: number; // Nilai Transaksi / Perolehan (Numeric)
+  paymentMethod?: string; // Metode / Cara Pembayaran
+  notes?: string; // Keterangan Transaksi
+}
+
+export interface PPATAktaData {
+  jenisAkta?: string; // Jenis Akta (Akta Jual Beli, Hibah, APHB, dll)
+  nomorAkta?: string; // Nomor Akta
+  tahunAkta?: string; // Tahun Akta
+  tanggalAkta?: string; // Tanggal Akta
+  dasarPerolehan?: string; // Dasar Perolehan
+  notes?: string; // Keterangan Akta
+}
+
+export interface PPATBpnApplicationData {
+  nomorSuratKuasa?: string; // Nomor Surat Kuasa
+  tanggalSuratKuasa?: string; // Tanggal Surat Kuasa
+  jenisPermohonan?: string; // Jenis Permohonan BPN
+  permohonanNomor?: string; // Nomor Permohonan
+  permohonanTempat?: string; // Tempat / Kota Kantor BPN
+  permohonanTanggal?: string; // Tanggal Permohonan
+  tandaBatas?: string; // Tanda Batas Fisik
+  attachments?: PPATAttachmentItem[]; // Daftar Berkas / Lampiran
+  notes?: string; // Keterangan Permohonan
+}
+
 export interface PPATData {
-  transactionType: string; // Jual Beli, Hibah, Waris, Tukar-Menukar, Inbreng, dll.
+  // 1. DATA PARA PIHAK
+  parties?: {
+    firstParties: PPATParty[];
+    secondParties: PPATParty[];
+  };
   firstParties: PPATParty[]; // Pihak Pertama / Penjual / Pelepas Hak / Pewaris
   secondParties: PPATParty[]; // Pihak Kedua / Pembeli / Penerima Hak / Ahli Waris
+
+  // 2. DATA SERTIPIKAT
+  certificate?: PPATCertificateData;
+
+  // 3. DATA PBB
+  pbb?: PPATPbbData;
+
+  // 4. DATA LETAK OBJEK
+  propertyLocation?: PPATPropertyLocationData;
+
+  // 5. DATA TRANSAKSI
+  transaction?: PPATTransactionData;
+
+  // 6. DATA AKTA PPAT
+  akta?: PPATAktaData;
+
+  // 7. DATA BPN / PERMOHONAN
+  bpnApplication?: PPATBpnApplicationData;
+
+  // Root & Legacy Compatibility Properties
+  transactionType: string; // Jual Beli, Hibah, Waris, Tukar-Menukar, Inbreng, dll.
   object: PPATObjectData;
   notes?: string;
   nomorAkta?: string;
@@ -254,7 +352,7 @@ export interface PPATData {
   permohonanTanggal?: string;
   tandaBatas?: string;
   landUse?: string;
-  landUseType?: 'non_pertanian' | 'pertanian' | string; // Opsi Pertanian / Non Pertanian (coret yang tidak perlu)
+  landUseType?: 'non_pertanian' | 'pertanian' | string; // Opsi Pertanian / Non Pertanian
   // Surat Pernyataan Keaslian Dokumen Pengecekan
   tanggalSuratPernyataanKeaslian?: string;
   tempatSuratPernyataanKeaslian?: string;

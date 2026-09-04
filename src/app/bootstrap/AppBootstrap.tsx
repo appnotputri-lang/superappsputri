@@ -59,7 +59,9 @@ export const AppBootstrap: React.FC<AppBootstrapProps> = ({
         }
       }
       
-      navigate(location.pathname, { replace: true });
+      if (location.pathname !== '/ppat') {
+        navigate(location.pathname, { replace: true });
+      }
     }
   }, [location.search, location.pathname, navigate, setActiveProjectContext, setEditingRupstId, setEditingProjectId, setEditingPendirianId, setEditingPPATId]);
 
