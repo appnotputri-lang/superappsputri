@@ -189,6 +189,7 @@ export const PPATDocumentPreviewModal: React.FC<PPATDocumentPreviewModalProps> =
             ignoreFonts: false,
             breakPages: true,
             ignoreLastRenderedPageBreak: false,
+            experimental: true,
             useBase64URL: false
           });
           if (isMounted) {
@@ -532,7 +533,7 @@ export const PPATDocumentPreviewModal: React.FC<PPATDocumentPreviewModalProps> =
           align-items: center !important;
           gap: 2rem !important;
         }
-        .ppat-docx-container .docx-wrapper > section.docx,
+        .ppat-docx-container .docx-wrapper > section,
         .ppat-docx-container div[class*="wrapper"] > section,
         .ppat-docx-container section {
           box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.3) !important;
@@ -541,13 +542,25 @@ export const PPATDocumentPreviewModal: React.FC<PPATDocumentPreviewModalProps> =
           background-color: #ffffff !important;
           color: #0f172a !important;
           margin-bottom: 0 !important;
+          overflow: visible !important;
+          box-sizing: border-box !important;
+        }
+        .ppat-docx-container section > article {
+          overflow: visible !important;
+        }
+        .ppat-docx-container table {
+          border-collapse: collapse !important;
+        }
+        .ppat-docx-container table td,
+        .ppat-docx-container table th {
+          vertical-align: top !important;
         }
         @media print {
           .ppat-docx-container {
             background-color: #ffffff !important;
             padding: 0 !important;
           }
-          .ppat-docx-container .docx-wrapper > section.docx,
+          .ppat-docx-container .docx-wrapper > section,
           .ppat-docx-container div[class*="wrapper"] > section,
           .ppat-docx-container section {
             box-shadow: none !important;

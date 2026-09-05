@@ -164,7 +164,13 @@ export class ProjectService {
       }
 
       // If PPAT, automatically create default task checklist for PPAT workflow
-      if (projectData.jobType === 'akta_ppat' || projectData.jobType === 'ppat' || projectData.projectCategory === 'PPAT') {
+      if (
+        projectData.jobType === 'akta_ppat' ||
+        projectData.jobType === 'ppat' ||
+        projectData.jobType === 'ajb' ||
+        projectData.jobType === 'akta_ajb' ||
+        projectData.projectCategory === 'PPAT'
+      ) {
         const defaultPPATTaskTitles = [
           "Verifikasi Identitas & Data Para Pihak (KTP, KK, NPWP / NIB Badan Usaha)",
           "Data Objek Pajak & PBB (NOP, SPPT, Bukti Lunas PBB)",
@@ -240,8 +246,18 @@ export class ProjectService {
       const project = projectSnap.data() as Project;
       const oldStatus = project.status;
 
+      // Detect AJB projects specifically to apply AJB workflow guard
+      const isAJB = 
+        project.jobType === 'ajb' ||
+        project.jobType === 'akta_ajb' ||
+        (project.projectType && (project.projectType.includes('AJB') || project.projectType.toLowerCase().includes('jual beli'))) ||
+        (project.title && project.title.toUpperCase().includes('AJB')) ||
+        (project.ppatData?.transactionType && (project.ppatData.transactionType.includes('AJB') || project.ppatData.transactionType.toLowerCase().includes('jual beli')));
+
+      const effectiveJobType = isAJB ? 'ajb' : project.jobType;
+
       // Try fetching the Workflow definition dynamically
-      const workflow = await WorkflowService.getWorkflow(project.jobType);
+      const workflow = await WorkflowService.getWorkflow(effectiveJobType, project.projectType, project.title);
       
       if (workflow) {
         // Run validations via status engine

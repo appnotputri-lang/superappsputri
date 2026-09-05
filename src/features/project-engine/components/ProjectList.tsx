@@ -481,6 +481,20 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
           return { ...proj, jobType: 'pembubaran_cv' };
         }
       }
+      if (
+        proj.projectCategory === 'PPAT' ||
+        proj.jobType === 'akta_ppat' ||
+        proj.jobType === 'ppat'
+      ) {
+        if (
+          proj.projectType === 'Akta Jual Beli (AJB)' ||
+          proj.projectType === 'AJB' ||
+          (proj.title && proj.title.toUpperCase().includes('AJB')) ||
+          (proj.projectType && (proj.projectType.includes('AJB') || proj.projectType.toLowerCase().includes('jual beli')))
+        ) {
+          return { ...proj, jobType: 'ajb' };
+        }
+      }
       return proj;
     });
   };
@@ -564,6 +578,14 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
     }
 
     if (category === 'PPAT') {
+      if (
+        type === 'Akta Jual Beli (AJB)' ||
+        type === 'AJB' ||
+        type.toLowerCase().includes('jual beli') ||
+        type.toLowerCase().includes('ajb')
+      ) {
+        return 'ajb';
+      }
       return 'akta_ppat';
     }
 
@@ -586,7 +608,7 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
     const jobType = getWorkflowJobType(projectCategory, projectType);
 
     // Get selected workflow to find steps
-    const selectedWorkflow = workflows.find((w) => w.id === jobType);
+    const selectedWorkflow = workflows.find((w) => w.id === jobType) || WorkflowService.getStaticWorkflow(jobType, projectType);
     if (!selectedWorkflow || !selectedWorkflow.steps || selectedWorkflow.steps.length === 0) {
       alert('Pencocokan alur kerja tidak ditemukan atau alur kerja kosong.');
       return;
@@ -740,7 +762,13 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
         projectPayload.meetingSubject = meetingSubject;
       }
 
-      if (projectCategory === 'PPAT' || jobType === 'akta_ppat' || jobType === 'ppat') {
+      if (
+        projectCategory === 'PPAT' ||
+        jobType === 'akta_ppat' ||
+        jobType === 'ppat' ||
+        jobType === 'ajb' ||
+        jobType === 'akta_ajb'
+      ) {
         const isCorporate = fullProfile.clientType !== 'PERORANGAN';
         const repItem = (fullProfile.newManagementItems && fullProfile.newManagementItems.length > 0)
           ? fullProfile.newManagementItems[0]

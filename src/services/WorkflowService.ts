@@ -103,7 +103,33 @@ const DEFAULT_PPAT_STEPS = [
   "Selesai"
 ];
 
+export const DEFAULT_AJB_STEPS = [
+  "Plotting & Validasi Sertipikat",
+  "Pengecekan ZNT",
+  "Verifikasi BPHTB",
+  "Pengecekan Sertipikat",
+  "Validasi BPHTB",
+  "Validasi PPH",
+  "Tanda Tangan AJB",
+  "Lapor AJB",
+  "Alih Media",
+  "Pendaftaran BN",
+  "Selesai"
+];
+
 export const STATIC_DEFAULT_WORKFLOWS: Workflow[] = [
+  {
+    id: "ajb",
+    name: "Akta Jual Beli (AJB)",
+    steps: DEFAULT_AJB_STEPS,
+    description: "Alur kerja pembuatan Akta Jual Beli (AJB) PPAT meliputi Plotting & Validasi Sertipikat, Pengecekan ZNT, Verifikasi BPHTB, Pengecekan Sertipikat, Validasi BPHTB, Validasi PPH, Tanda Tangan AJB, Lapor AJB, Alih Media, Pendaftaran BN, dan Selesai."
+  },
+  {
+    id: "akta_ajb",
+    name: "Akta Jual Beli (AJB)",
+    steps: DEFAULT_AJB_STEPS,
+    description: "Alur kerja pembuatan Akta Jual Beli (AJB) PPAT meliputi Plotting & Validasi Sertipikat, Pengecekan ZNT, Verifikasi BPHTB, Pengecekan Sertipikat, Validasi BPHTB, Validasi PPH, Tanda Tangan AJB, Lapor AJB, Alih Media, Pendaftaran BN, dan Selesai."
+  },
   {
     id: "rups_lb",
     name: "RUPS Luar Biasa",
@@ -184,9 +210,21 @@ export class WorkflowService {
 
   /**
    * Returns a static workflow definition by ID instantly from memory.
+   * Accurately routes AJB projects to AJB workflow definition.
    */
-  static getStaticWorkflow(workflowId: string): Workflow | null {
+  static getStaticWorkflow(workflowId?: string, projectType?: string, projectTitle?: string): Workflow | null {
     const id = (workflowId || '').toLowerCase().trim();
+    const pType = (projectType || '').toLowerCase().trim();
+    const title = (projectTitle || '').toLowerCase().trim();
+
+    const isAJB = id === 'ajb' || id === 'akta_ajb' || id.includes('ajb') || 
+                  pType.includes('ajb') || pType.includes('jual beli') ||
+                  title.includes('ajb') || title.includes('jual beli');
+
+    if (isAJB) {
+      return STATIC_DEFAULT_WORKFLOWS.find((w) => w.id === 'ajb') || null;
+    }
+
     if (id === 'ppat' || id === 'akta_ppat' || id.includes('ppat')) {
       return STATIC_DEFAULT_WORKFLOWS.find((w) => w.id === 'akta_ppat') || null;
     }
@@ -216,14 +254,14 @@ export class WorkflowService {
    * Retrieves a workflow definition by its unique ID (e.g., 'rups_lb').
    * Checks static memory defaults first to avoid network latency.
    */
-  static async getWorkflow(workflowId: string): Promise<Workflow | null> {
-    const staticWf = this.getStaticWorkflow(workflowId);
+  static async getWorkflow(workflowId?: string, projectType?: string, projectTitle?: string): Promise<Workflow | null> {
+    const staticWf = this.getStaticWorkflow(workflowId, projectType, projectTitle);
     if (staticWf) {
       return staticWf;
     }
-    const path = `${this.colName}/${workflowId}`;
+    const path = `${this.colName}/${workflowId || 'unknown'}`;
     try {
-      const docRef = doc(db, this.colName, workflowId);
+      const docRef = doc(db, this.colName, workflowId || 'unknown');
       const snap = await getDoc(docRef);
       if (!snap.exists()) {
         return null;

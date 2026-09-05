@@ -346,11 +346,7 @@ export const PPATProjectDocumentsSection: React.FC<PPATProjectDocumentsSectionPr
                     </button>
 
                     <button
-                      onClick={() => {
-                        if (window.confirm(`Hapus dokumen "${doc.title}"?`)) {
-                          onDeleteDocument(doc.id);
-                        }
-                      }}
+                      onClick={() => onDeleteDocument(doc.id)}
                       className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                       title="Hapus Dokumen"
                     >

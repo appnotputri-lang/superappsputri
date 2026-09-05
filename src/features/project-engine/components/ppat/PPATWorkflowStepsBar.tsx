@@ -12,8 +12,9 @@ export const PPATWorkflowStepsBar: React.FC<PPATWorkflowStepsBarProps> = ({
   steps,
   onSelectStep
 }) => {
+  const normalize = (s?: string) => (s || '').toLowerCase().trim().replace(/tanda tanga\b/i, 'tanda tangan');
   const currentIndex = steps.findIndex(
-    (s) => s.toLowerCase().trim() === (currentStep || '').toLowerCase().trim()
+    (s) => normalize(s) === normalize(currentStep)
   );
 
   return (
@@ -22,7 +23,7 @@ export const PPATWorkflowStepsBar: React.FC<PPATWorkflowStepsBarProps> = ({
         <div className="flex items-center gap-2">
           <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse" />
           <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
-            Alur Kerja Akta PPAT (8 Tahapan)
+            Alur Kerja PPAT ({steps.length} Tahapan)
           </h4>
         </div>
         <span className="text-xs font-medium text-slate-700 bg-amber-50 px-2.5 py-1 rounded-full border border-amber-200">
@@ -30,7 +31,11 @@ export const PPATWorkflowStepsBar: React.FC<PPATWorkflowStepsBarProps> = ({
         </span>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
+      <div className={`grid gap-1.5 ${
+        steps.length > 8 
+          ? 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-11' 
+          : 'grid-cols-2 sm:grid-cols-4 lg:grid-cols-8'
+      }`}>
         {steps.map((step, idx) => {
           const isCurrent = idx === currentIndex;
           const isPassed = currentIndex >= 0 && idx < currentIndex;
@@ -50,24 +55,24 @@ export const PPATWorkflowStepsBar: React.FC<PPATWorkflowStepsBarProps> = ({
             <button
               key={step}
               onClick={() => onSelectStep?.(step)}
-              className={`p-2.5 rounded-lg border text-left transition-all relative flex flex-col justify-between min-h-[64px] ${stepBg}`}
+              className={`p-2 rounded-lg border text-left transition-all relative flex flex-col justify-between min-h-[58px] ${stepBg}`}
             >
               <div className="flex items-center justify-between w-full mb-1">
                 <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${badgeBg}`}>
                   {idx + 1}
                 </span>
                 {isPassed ? (
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                 ) : isCurrent ? (
-                  <span className="text-[10px] font-bold uppercase tracking-tight bg-white/30 px-1 py-0.5 rounded text-white">
+                  <span className="text-[9px] font-bold uppercase tracking-tight bg-white/30 px-1 py-0.5 rounded text-white shrink-0">
                     Aktif
                   </span>
                 ) : (
-                  <Circle className="w-3.5 h-3.5 text-slate-300" />
+                  <Circle className="w-3.5 h-3.5 text-slate-300 shrink-0" />
                 )}
               </div>
               <p
-                className={`text-[11px] font-semibold leading-tight line-clamp-2 ${
+                className={`text-[10.5px] font-semibold leading-tight line-clamp-2 ${
                   isCurrent ? 'text-white' : isPassed ? 'text-emerald-900' : 'text-slate-700'
                 }`}
               >

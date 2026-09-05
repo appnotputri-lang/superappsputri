@@ -5,6 +5,7 @@ import { PartiesManager } from './PartiesManager';
 import { CompanyProfile, UserProfile, AmendmentDeed, SkSpDocument, CompanyRevision } from '../../../../types';
 import { INITIAL_STATE } from '../../../domain/company/initialCompanyData';
 import { Workflow } from '../../../domain/project/Workflow';
+import { StatusEngine } from '../../../domain/project/ProjectStatus';
 import { WorkflowService } from '../../../services/WorkflowService';
 import { Timeline } from '../../../domain/project/Timeline';
 import { Task } from '../../../domain/project/Task';
@@ -319,47 +320,73 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
       return;
     }
     try {
-      const existingDocs = updatedPPATData.documents || project.ppatData?.documents || [];
+      // 1. Ambil data project terbaru dari collection office_projects
+      const projectRef = doc(db, 'office_projects', targetProjectId);
+      const projectSnap = await getDoc(projectRef);
+      if (!projectSnap.exists()) {
+        throw new Error(`Dokumen proyek (${targetProjectId}) tidak ditemukan di database office_projects.`);
+      }
+
+      const remoteData = projectSnap.data() as any;
+      const currentPPATData: PPATData = remoteData?.ppatData || project.ppatData || updatedPPATData || {};
+
+      // 2. Ambil daftar dokumen terkini
+      const existingDocs: PPATDocumentItem[] = currentPPATData.documents || updatedPPATData.documents || project.ppatData?.documents || [];
       const docIndex = existingDocs.findIndex(d => d.id === savedDoc.id);
       let newDocs: PPATDocumentItem[];
       if (docIndex >= 0) {
+        // 3. Jika sudah ada -> update dokumen tersebut
         newDocs = [...existingDocs];
         newDocs[docIndex] = savedDoc;
       } else {
+        // 4. Jika belum ada -> tambahkan dokumen baru di awal
         newDocs = [savedDoc, ...existingDocs];
       }
 
+      // Pastikan tidak ada duplikasi ID dokumen
+      const seenIds = new Set<string>();
+      const dedupedDocs: PPATDocumentItem[] = [];
+      for (const d of newDocs) {
+        if (!seenIds.has(d.id)) {
+          seenIds.add(d.id);
+          dedupedDocs.push(d);
+        }
+      }
+
       const finalPPATData: PPATData = {
+        ...currentPPATData,
         ...updatedPPATData,
-        documents: newDocs,
+        documents: dedupedDocs,
         updatedAt: new Date().toISOString()
       };
 
       const cleanedData = cleanUndefined(finalPPATData);
 
-      const projectRef = doc(db, 'office_projects', targetProjectId);
-      const projectSnap = await getDoc(projectRef);
-      if (!projectSnap.exists()) {
-        throw new Error(`Dokumen proyek (${targetProjectId}) tidak ditemukan di database.`);
-      }
-
+      // 5. Simpan ke office_projects/{projectId} pada field ppatData
       await setDoc(projectRef, {
         ppatData: cleanedData,
         updatedAt: new Date().toISOString()
       }, { merge: true });
 
-      await ProjectService.addTimeline(targetProjectId, {
-        status: project.status,
-        title: `Dokumen ${savedDoc.title} Disimpan`,
-        description: `Dokumen PPAT "${savedDoc.title}" (${savedDoc.status.toUpperCase()}) berhasil disimpan oleh ${currentUser.name || currentUser.email}`,
-        createdBy: currentUser.email
-      });
+      // Catat timeline
+      try {
+        await ProjectService.addTimeline(targetProjectId, {
+          status: project.status,
+          title: `Dokumen ${savedDoc.title} Disimpan`,
+          description: `Dokumen PPAT "${savedDoc.title}" (${savedDoc.status.toUpperCase()}) berhasil disimpan oleh ${currentUser.name || currentUser.email}`,
+          createdBy: currentUser.email
+        });
+      } catch (tlErr) {
+        console.warn('Failed to add timeline:', tlErr);
+      }
 
-      setProject({
+      // 6. Update local state project sehingga PPATProjectDocumentsSection langsung menampilkan dokumen baru
+      const updatedProject: Project = {
         ...project,
         ppatData: finalPPATData,
         updatedAt: new Date().toISOString()
-      });
+      };
+      setProject(updatedProject);
       setActivePPATDoc(null);
       setWorkMode('default');
     } catch (err: any) {
@@ -370,7 +397,7 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
   };
 
   const handleDeletePPATDocument = async (docId: string) => {
-    if (!project || !project.ppatData) return;
+    if (!project) return;
     const targetProjectId = project.projectId || projectId;
     if (!targetProjectId) {
       alert('ID Proyek tidak valid.');
@@ -378,15 +405,6 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
     }
     if (!confirm('Apakah Anda yakin ingin menghapus dokumen ini dari proyek?')) return;
     try {
-      const existingDocs = project.ppatData.documents || [];
-      const targetDoc = existingDocs.find(d => d.id === docId);
-      const filtered = existingDocs.filter(d => d.id !== docId);
-      const updatedPPATData: PPATData = {
-        ...project.ppatData,
-        documents: filtered,
-        updatedAt: new Date().toISOString()
-      };
-
       const projectRef = doc(db, 'office_projects', targetProjectId);
       const projectSnap = await getDoc(projectRef);
       if (!projectSnap.exists()) {
@@ -394,18 +412,33 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
         return;
       }
 
+      const remoteData = projectSnap.data() as any;
+      const latestPPATData: PPATData = remoteData?.ppatData || project.ppatData || {};
+      const existingDocs = latestPPATData.documents || [];
+      const targetDoc = existingDocs.find(d => d.id === docId);
+      const filtered = existingDocs.filter(d => d.id !== docId);
+      const updatedPPATData: PPATData = {
+        ...latestPPATData,
+        documents: filtered,
+        updatedAt: new Date().toISOString()
+      };
+
       await setDoc(projectRef, {
         ppatData: cleanUndefined(updatedPPATData),
         updatedAt: new Date().toISOString()
       }, { merge: true });
 
       if (targetDoc) {
-        await ProjectService.addTimeline(targetProjectId, {
-          status: project.status,
-          title: `Dokumen ${targetDoc.title} Dihapus`,
-          description: `Dokumen PPAT "${targetDoc.title}" dihapus dari proyek oleh ${currentUser.name || currentUser.email}`,
-          createdBy: currentUser.email
-        });
+        try {
+          await ProjectService.addTimeline(targetProjectId, {
+            status: project.status,
+            title: `Dokumen ${targetDoc.title} Dihapus`,
+            description: `Dokumen PPAT "${targetDoc.title}" dihapus dari proyek oleh ${currentUser.name || currentUser.email}`,
+            createdBy: currentUser.email
+          });
+        } catch (tlErr) {
+          console.warn('Failed to add timeline on delete:', tlErr);
+        }
       }
 
       setProject({
@@ -1045,7 +1078,17 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
               return null;
             })
           : Promise.resolve(null),
-        WorkflowService.getWorkflow(proj.jobType),
+        WorkflowService.getWorkflow(
+          (
+            proj.jobType === 'ajb' ||
+            proj.jobType === 'akta_ajb' ||
+            (proj.projectType && (proj.projectType.includes('AJB') || proj.projectType.toLowerCase().includes('jual beli'))) ||
+            (proj.title && proj.title.toUpperCase().includes('AJB')) ||
+            (proj.ppatData?.transactionType && (proj.ppatData.transactionType.includes('AJB') || proj.ppatData.transactionType.toLowerCase().includes('jual beli')))
+          ) ? 'ajb' : proj.jobType,
+          proj.projectType,
+          proj.title
+        ),
         ProjectService.getProjectTimelines(projectId),
         ProjectService.getProjectTasks(projectId),
         ProjectService.getProjectDocuments(projectId),
@@ -1139,7 +1182,14 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
           }
         }
       } else {
-        if (finalTasks.length === 0 && (proj.jobType === 'akta_ppat' || proj.jobType === 'ppat' || proj.projectCategory === 'PPAT')) {
+        if (
+          finalTasks.length === 0 &&
+          (proj.jobType === 'akta_ppat' ||
+            proj.jobType === 'ppat' ||
+            proj.jobType === 'ajb' ||
+            proj.jobType === 'akta_ajb' ||
+            proj.projectCategory === 'PPAT')
+        ) {
           const defaultPPATTaskTitles = [
             "Verifikasi Identitas & Data Para Pihak (KTP, KK, NPWP / NIB Badan Usaha)",
             "Data Objek Pajak & PBB (NOP, SPPT, Bukti Lunas PBB)",
@@ -1196,8 +1246,8 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
       setRelatedProjects(relatedList);
 
       // Pre-populate status transition select
-      if (wf && wf.steps) {
-        const currentIndex = wf.steps.indexOf(proj.status);
+      if (wf && wf.steps && wf.steps.length > 0) {
+        const currentIndex = StatusEngine.findStepIndex(wf.steps, proj.status);
         if (currentIndex !== -1 && currentIndex + 1 < wf.steps.length) {
           setTransitionStatus(wf.steps[currentIndex + 1]);
         } else {
@@ -2628,7 +2678,13 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
   );
 
   const isProjectMinuta = (status: string) => {
-    if (project?.jobType === 'akta_ppat' || project?.jobType === 'ppat' || project?.projectCategory === 'PPAT') {
+    if (
+      project?.jobType === 'akta_ppat' ||
+      project?.jobType === 'ppat' ||
+      project?.jobType === 'ajb' ||
+      project?.jobType === 'akta_ajb' ||
+      project?.projectCategory === 'PPAT'
+    ) {
       return false;
     }
     const s = status.toLowerCase();
@@ -3161,6 +3217,8 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
         return '/pendirian';
       case 'akta_ppat':
       case 'ppat':
+      case 'ajb':
+      case 'akta_ajb':
         return '/ppat';
       default:
         return '/';
@@ -3198,7 +3256,7 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
   }
 
   const isPT = client?.clientType === 'PT' || project.clientSnapshot?.companyType === 'PT';
-  const isPPAT = project.jobType === 'akta_ppat' || project.jobType === 'ppat' || project.projectCategory === 'PPAT';
+  const isPPAT = project.jobType === 'akta_ppat' || project.jobType === 'ppat' || project.jobType === 'ajb' || project.jobType === 'akta_ajb' || project.projectCategory === 'PPAT';
 
   const isFormType = project && ['rups_lb', 'sirkuler_rupslb', 'rups_t', 'sirkuler'].includes(project.jobType);
   const isFinal = project && (project.status === 'completed' || project.status === 'selesai' || !!project.clientSnapshot || !!project.changeSnapshot);
@@ -3777,10 +3835,25 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
                 isSelectModalOpenExternal={isPPATSelectDocOpen}
                 setIsSelectModalOpenExternal={setIsPPATSelectDocOpen}
                 onOpenCreateDocument={(docTypeConfig: PPATDocTypeConfig) => {
-                  window.location.href = `/ppat?projectId=${projectId}&type=${docTypeConfig.id}`;
+                  const newDoc: PPATDocumentItem = {
+                    id: 'ppat_doc_' + Math.random().toString(36).substring(2, 9),
+                    documentType: docTypeConfig.id,
+                    typeId: docTypeConfig.id,
+                    title: docTypeConfig.defaultTitle || docTypeConfig.title,
+                    category: docTypeConfig.category,
+                    status: 'draft',
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString(),
+                    letterDate: new Date().toISOString().split('T')[0],
+                    letterLocation: project.ppatData?.object?.city || 'Kabupaten Bandung Barat',
+                    specificData: {}
+                  };
+                  setActivePPATDoc(newDoc);
+                  setWorkMode('ppat_doc_editor');
                 }}
                 onEditDocument={(docItem) => {
-                  window.location.href = `/ppat?id=${docItem.id}&projectId=${projectId}`;
+                  setActivePPATDoc(docItem);
+                  setWorkMode('ppat_doc_editor');
                 }}
                 onDeleteDocument={handleDeletePPATDocument}
                 onManageBaseData={() => {
@@ -4271,13 +4344,13 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
                         .filter((step) => {
                           if (isProjectMinuta(project.status)) return true;
                           if (!transitionStrict) return true;
-                          const currentIndex = workflow?.steps.indexOf(project.status) ?? -1;
-                          const stepIndex = workflow?.steps.indexOf(step) ?? -1;
+                          const currentIndex = StatusEngine.findStepIndex(workflow?.steps || [], project.status);
+                          const stepIndex = StatusEngine.findStepIndex(workflow?.steps || [], step);
                           return currentIndex === -1 || stepIndex === -1 || Math.abs(stepIndex - currentIndex) <= 1;
                         })
                         .map((step) => (
                           <option key={step} value={step}>
-                            {step.toUpperCase()} {step === project.status ? '(Aktif Saat Ini)' : ''}
+                            {step.toUpperCase()} {StatusEngine.normalizeStep(step) === StatusEngine.normalizeStep(project.status) ? '(Aktif Saat Ini)' : ''}
                           </option>
                         ))}
                     </select>
@@ -4307,8 +4380,8 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
                           const checked = e.target.checked;
                           setTransitionStrict(checked);
                           if (checked && workflow && workflow.steps) {
-                            const currentIndex = workflow.steps.indexOf(project.status);
-                            const targetIndex = workflow.steps.indexOf(transitionStatus);
+                            const currentIndex = StatusEngine.findStepIndex(workflow.steps, project.status);
+                            const targetIndex = StatusEngine.findStepIndex(workflow.steps, transitionStatus);
                             if (currentIndex !== -1 && targetIndex !== -1 && Math.abs(targetIndex - currentIndex) > 1) {
                               if (currentIndex + 1 < workflow.steps.length) {
                                 setTransitionStatus(workflow.steps[currentIndex + 1]);

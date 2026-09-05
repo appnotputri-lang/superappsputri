@@ -145,6 +145,26 @@ export const PPATDocumentEditor: React.FC<PPATDocumentEditorProps> = ({
       };
 
       const masterData = project.ppatData || ppatData;
+      const currentDocs = masterData.documents || [];
+      const docIndex = currentDocs.findIndex(d => d.id === updatedDoc.id);
+      let updatedDocsList: PPATDocumentItem[];
+      if (docIndex >= 0) {
+        updatedDocsList = [...currentDocs];
+        updatedDocsList[docIndex] = updatedDoc;
+      } else {
+        updatedDocsList = [updatedDoc, ...currentDocs];
+      }
+
+      // Deduplicate documents by id
+      const seenDocIds = new Set<string>();
+      const dedupedDocsList: PPATDocumentItem[] = [];
+      for (const d of updatedDocsList) {
+        if (!seenDocIds.has(d.id)) {
+          seenDocIds.add(d.id);
+          dedupedDocsList.push(d);
+        }
+      }
+
       const mergedPPATData: PPATData = {
         ...masterData,
         attachments: ppatData.attachments || masterData.attachments,
@@ -155,7 +175,8 @@ export const PPATDocumentEditor: React.FC<PPATDocumentEditorProps> = ({
         permohonanTempat: ppatData.permohonanTempat || masterData.permohonanTempat,
         tandaBatas: ppatData.tandaBatas || masterData.tandaBatas,
         landUse: ppatData.landUse || masterData.landUse,
-        landUseType: ppatData.landUseType || masterData.landUseType
+        landUseType: ppatData.landUseType || masterData.landUseType,
+        documents: dedupedDocsList
       };
 
       await onSave(updatedDoc, mergedPPATData);

@@ -8,6 +8,23 @@ import { Workflow } from "./Workflow";
  */
 export class StatusEngine {
   /**
+   * Normalizes step name for robust comparisons (handles casing, whitespace, and typos like 'tanda tanga' vs 'tanda tangan').
+   */
+  static normalizeStep(s?: string): string {
+    if (!s) return '';
+    return s.trim().toLowerCase().replace(/tanda tanga\b/i, 'tanda tangan');
+  }
+
+  /**
+   * Finds the 0-based index of a step in workflow.steps using robust normalized matching.
+   */
+  static findStepIndex(steps: string[], status?: string): number {
+    if (!status || !steps || steps.length === 0) return -1;
+    const target = this.normalizeStep(status);
+    return steps.findIndex((s) => this.normalizeStep(s) === target);
+  }
+
+  /**
    * Retrieves the current step/status of the project.
    */
   static currentStep(project: Project): string {
@@ -21,7 +38,7 @@ export class StatusEngine {
   static nextStatus(project: Project, workflow: Workflow): string | null {
     const steps = workflow.steps;
     const current = this.currentStep(project);
-    const index = steps.indexOf(current);
+    const index = this.findStepIndex(steps, current);
     if (index === -1 || index >= steps.length - 1) {
       return null;
     }
@@ -35,7 +52,7 @@ export class StatusEngine {
   static previousStatus(project: Project, workflow: Workflow): string | null {
     const steps = workflow.steps;
     const current = this.currentStep(project);
-    const index = steps.indexOf(current);
+    const index = this.findStepIndex(steps, current);
     if (index <= 0) {
       return null;
     }
@@ -55,8 +72,8 @@ export class StatusEngine {
   ): boolean {
     const steps = workflow.steps;
     const current = this.currentStep(project);
-    const currentIndex = steps.indexOf(current);
-    const targetIndex = steps.indexOf(targetStatus);
+    const currentIndex = this.findStepIndex(steps, current);
+    const targetIndex = this.findStepIndex(steps, targetStatus);
 
     // Target step must exist in the workflow
     if (targetIndex === -1) {

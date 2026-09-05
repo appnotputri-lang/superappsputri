@@ -275,8 +275,38 @@ export const PPATPage: React.FC<PPATPageProps> = ({
         alert(`Dokumen proyek (${effectiveProjectId}) tidak ditemukan di database.`);
         return;
       }
+
+      const remoteData = projectSnap.data() as any;
+      const currentPPATData: PPATData = remoteData?.ppatData || project?.ppatData || updatedPPATData || {};
+      const existingDocs: PPATDocumentItem[] = currentPPATData.documents || updatedPPATData.documents || [];
+      const docIndex = existingDocs.findIndex(d => d.id === savedDoc.id);
+      let newDocs: PPATDocumentItem[];
+      if (docIndex >= 0) {
+        newDocs = [...existingDocs];
+        newDocs[docIndex] = savedDoc;
+      } else {
+        newDocs = [savedDoc, ...existingDocs];
+      }
+
+      // Deduplicate
+      const seenIds = new Set<string>();
+      const dedupedDocs: PPATDocumentItem[] = [];
+      for (const d of newDocs) {
+        if (!seenIds.has(d.id)) {
+          seenIds.add(d.id);
+          dedupedDocs.push(d);
+        }
+      }
+
+      const finalPPATData: PPATData = {
+        ...currentPPATData,
+        ...updatedPPATData,
+        documents: dedupedDocs,
+        updatedAt: nowIso
+      };
+
       await setDoc(projectRef, sanitizeForFirestore({
-        ppatData: updatedPPATData,
+        ppatData: finalPPATData,
         updatedAt: nowIso
       }), { merge: true });
 
@@ -303,8 +333,9 @@ export const PPATPage: React.FC<PPATPageProps> = ({
         );
       }
 
-      setPpatData(updatedPPATData);
+      setPpatData(finalPPATData);
       setDocItem(savedDoc);
+      setProject(prev => prev ? ({ ...prev, ppatData: finalPPATData, updatedAt: nowIso }) : null);
     } catch (err: any) {
       console.error("Save PPAT Document Error:", err);
       alert('Gagal menyimpan dokumen PPAT: ' + (err.message || err));
