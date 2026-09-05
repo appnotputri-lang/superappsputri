@@ -257,7 +257,13 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
         establishmentSkDate: client.establishmentSkDate || '',
       };
 
-      await updateDoc(doc(db, collectionName, refIdToUse), updatedForm);
+      const formDocRef = doc(db, collectionName, refIdToUse);
+      const formSnap = await getDoc(formDocRef);
+      if (formSnap.exists()) {
+        await updateDoc(formDocRef, cleanUndefined(updatedForm));
+      } else {
+        await setDoc(formDocRef, cleanUndefined(updatedForm), { merge: true });
+      }
       setShowRefreshModal(false);
       alert('Data proyek berhasil diperbarui dari Profil Klien terbaru. Silakan regenerate (buat ulang) dokumen terkait agar perubahan masuk ke file Word.');
     } catch (e: any) {
@@ -307,6 +313,11 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
 
   const handleSavePPATDocument = async (savedDoc: PPATDocumentItem, updatedPPATData: PPATData) => {
     if (!project) return;
+    const targetProjectId = project.projectId || projectId;
+    if (!targetProjectId) {
+      alert('ID Proyek tidak valid.');
+      return;
+    }
     try {
       const existingDocs = updatedPPATData.documents || project.ppatData?.documents || [];
       const docIndex = existingDocs.findIndex(d => d.id === savedDoc.id);
@@ -326,12 +337,18 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
 
       const cleanedData = cleanUndefined(finalPPATData);
 
-      await updateDoc(doc(db, 'projects', projectId), {
+      const projectRef = doc(db, 'office_projects', targetProjectId);
+      const projectSnap = await getDoc(projectRef);
+      if (!projectSnap.exists()) {
+        throw new Error(`Dokumen proyek (${targetProjectId}) tidak ditemukan di database.`);
+      }
+
+      await setDoc(projectRef, {
         ppatData: cleanedData,
         updatedAt: new Date().toISOString()
-      });
+      }, { merge: true });
 
-      await ProjectService.addTimeline(projectId, {
+      await ProjectService.addTimeline(targetProjectId, {
         status: project.status,
         title: `Dokumen ${savedDoc.title} Disimpan`,
         description: `Dokumen PPAT "${savedDoc.title}" (${savedDoc.status.toUpperCase()}) berhasil disimpan oleh ${currentUser.name || currentUser.email}`,
@@ -354,6 +371,11 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
 
   const handleDeletePPATDocument = async (docId: string) => {
     if (!project || !project.ppatData) return;
+    const targetProjectId = project.projectId || projectId;
+    if (!targetProjectId) {
+      alert('ID Proyek tidak valid.');
+      return;
+    }
     if (!confirm('Apakah Anda yakin ingin menghapus dokumen ini dari proyek?')) return;
     try {
       const existingDocs = project.ppatData.documents || [];
@@ -365,13 +387,20 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
         updatedAt: new Date().toISOString()
       };
 
-      await updateDoc(doc(db, 'projects', projectId), {
+      const projectRef = doc(db, 'office_projects', targetProjectId);
+      const projectSnap = await getDoc(projectRef);
+      if (!projectSnap.exists()) {
+        alert(`Dokumen proyek (${targetProjectId}) tidak ditemukan di database.`);
+        return;
+      }
+
+      await setDoc(projectRef, {
         ppatData: cleanUndefined(updatedPPATData),
         updatedAt: new Date().toISOString()
-      });
+      }, { merge: true });
 
       if (targetDoc) {
-        await ProjectService.addTimeline(projectId, {
+        await ProjectService.addTimeline(targetProjectId, {
           status: project.status,
           title: `Dokumen ${targetDoc.title} Dihapus`,
           description: `Dokumen PPAT "${targetDoc.title}" dihapus dari proyek oleh ${currentUser.name || currentUser.email}`,
@@ -1101,9 +1130,9 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
             minutaCheckedAll: allChecked
           };
           try {
-            await updateDoc(doc(db, 'office_projects', projectId), {
+            await setDoc(doc(db, 'office_projects', projectId), {
               metadata: updatedMetadata
-            });
+            }, { merge: true });
             proj.metadata = updatedMetadata;
           } catch (e) {
             console.error("Failed to update initial metadata for minuta check:", e);
@@ -1559,14 +1588,19 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
       skSpDate: firstSkSp ? firstSkSp.date : (skSpEntries[0]?.date || '')
     };
 
-    await updateDoc(doc(db, 'office_projects', projectId), {
-      metadata: updatedMetadata
-    });
+    const targetProjectId = project?.projectId || projectId;
+    const projectRef = doc(db, 'office_projects', targetProjectId);
+    const projectSnap = await getDoc(projectRef);
+    if (projectSnap.exists()) {
+      await setDoc(projectRef, {
+        metadata: updatedMetadata
+      }, { merge: true });
+    }
 
     const syncedItems: string[] = [];
 
     const formDoc = documents.find(d => d.refId);
-    const refIdToUse = project.metadata?.refId || formDoc?.refId || projectId;
+    const refIdToUse = project.metadata?.refId || formDoc?.refId || targetProjectId;
     const formObj = await fetchDocRecordData({
       id: 'temp',
       name: project.title || '',
@@ -1587,6 +1621,8 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
 
     if (refIdToUse && targetCollection) {
       try {
+        const formDocRef = doc(db, targetCollection, refIdToUse);
+        const formSnap = await getDoc(formDocRef);
         const formUpdatePayload: any = {
           notaryNumber: deedNumber.trim(),
           notaryDate: deedDate,
@@ -1599,7 +1635,11 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
           formUpdatePayload.skNumber = firstSkSp.number;
           formUpdatePayload.skDate = firstSkSp.date || deedDate;
         }
-        await updateDoc(doc(db, targetCollection, refIdToUse), cleanUndefined(formUpdatePayload));
+        if (formSnap.exists()) {
+          await updateDoc(formDocRef, cleanUndefined(formUpdatePayload));
+        } else {
+          await setDoc(formDocRef, cleanUndefined(formUpdatePayload), { merge: true });
+        }
       } catch (e) {
         console.warn('Could not update form document in Firestore collection:', e);
       }
@@ -2607,13 +2647,18 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
 
     if (project.metadata?.minutaCheckedAll !== allChecked) {
       try {
+        const targetProjectId = project.projectId || projectId;
+        const projectRef = doc(db, 'office_projects', targetProjectId);
+        const projectSnap = await getDoc(projectRef);
         const updatedMetadata = {
           ...(project.metadata || {}),
           minutaCheckedAll: allChecked
         };
-        await updateDoc(doc(db, 'office_projects', project.projectId), {
-          metadata: updatedMetadata
-        });
+        if (projectSnap.exists()) {
+          await setDoc(projectRef, {
+            metadata: updatedMetadata
+          }, { merge: true });
+        }
         setProject(prev => prev ? { ...prev, metadata: updatedMetadata } : null);
       } catch (err) {
         console.error("Failed to sync minuta completion status:", err);
@@ -2649,9 +2694,15 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
     if (!project) return;
     setSavingNotes(true);
     try {
-      await updateDoc(doc(db, 'office_projects', project.projectId), {
+      const targetProjectId = project.projectId || projectId;
+      const projectRef = doc(db, 'office_projects', targetProjectId);
+      const projectSnap = await getDoc(projectRef);
+      if (!projectSnap.exists()) {
+        throw new Error(`Dokumen proyek (${targetProjectId}) tidak ditemukan.`);
+      }
+      await setDoc(projectRef, {
         minutaNotes: localMinutaNotes
-      });
+      }, { merge: true });
       setProject(prev => prev ? { ...prev, minutaNotes: localMinutaNotes } : null);
       alert('Catatan minuta berhasil disimpan.');
     } catch (err: any) {
@@ -2670,17 +2721,23 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
     }
     setSavingProjectNote(true);
     try {
+      const targetProjectId = project.projectId || projectId;
+      const projectRef = doc(db, 'office_projects', targetProjectId);
+      const projectSnap = await getDoc(projectRef);
+      if (!projectSnap.exists()) {
+        throw new Error(`Dokumen proyek (${targetProjectId}) tidak ditemukan.`);
+      }
       const now = new Date();
       const noteContent = projectNote.trim();
       
       // Update the project document on Firestore directly
-      await updateDoc(doc(db, 'office_projects', projectId), {
+      await setDoc(projectRef, {
         lastTransitionComment: noteContent,
         updatedAt: now
-      });
+      }, { merge: true });
 
       // Add to timeline log with current status and category as Catatan Tambahan
-      await ProjectService.addTimeline(projectId, {
+      await ProjectService.addTimeline(targetProjectId, {
         status: project.status,
         title: "Catatan Tambahan",
         description: noteContent,
@@ -3046,9 +3103,15 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
 
   const handleSaveParties = async (updatedParties: Party[]) => {
     try {
-      await updateDoc(doc(db, 'office_projects', projectId), {
+      const targetProjectId = project?.projectId || projectId;
+      const projectRef = doc(db, 'office_projects', targetProjectId);
+      const projectSnap = await getDoc(projectRef);
+      if (!projectSnap.exists()) {
+        throw new Error(`Dokumen proyek (${targetProjectId}) tidak ditemukan di database.`);
+      }
+      await setDoc(projectRef, {
         parties: updatedParties
-      });
+      }, { merge: true });
       setProject(prev => prev ? { ...prev, parties: updatedParties } : null);
     } catch (err: any) {
       console.error(err);

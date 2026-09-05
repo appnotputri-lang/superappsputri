@@ -4,7 +4,7 @@ import { Project, PPATData, PPATDocumentItem, PPATParty } from '../../../domain/
 import { ProjectService } from '../../../services/ProjectService';
 import { PPAT_DOC_TYPES } from '../../project-engine/components/ppat/ppatDocTypes';
 import { PPATDocumentEditor } from '../../project-engine/components/ppat/PPATDocumentEditor';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 import { sanitizeForFirestore } from '../../../utils/sanitize';
 
@@ -270,10 +270,15 @@ export const PPATPage: React.FC<PPATPageProps> = ({
     try {
       const nowIso = new Date().toISOString();
       const projectRef = doc(db, 'office_projects', effectiveProjectId);
-      await updateDoc(projectRef, sanitizeForFirestore({
+      const projectSnap = await getDoc(projectRef);
+      if (!projectSnap.exists()) {
+        alert(`Dokumen proyek (${effectiveProjectId}) tidak ditemukan di database.`);
+        return;
+      }
+      await setDoc(projectRef, sanitizeForFirestore({
         ppatData: updatedPPATData,
         updatedAt: nowIso
-      }));
+      }), { merge: true });
 
       // Register / Sync Document to Project's documents subcollection
       const clientName = clientProfile?.companyName || clientProfile?.namaCV || clientProfile?.name || project?.title || '';

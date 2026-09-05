@@ -416,6 +416,11 @@ export class ProjectService {
   ): Promise<void> {
     try {
       const projectRef = doc(db, this.projectsCol, projectId);
+      const projectSnap = await getDoc(projectRef);
+      if (!projectSnap.exists()) {
+        console.warn(`[ProjectService] Project ${projectId} not found when updating snapshots.`);
+        return;
+      }
       await updateDoc(projectRef, cleanUndefined(snapshots));
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `${this.projectsCol}/${projectId}`);
@@ -497,9 +502,12 @@ export class ProjectService {
 
       // Update project updatedAt timestamp
       const projectRef = doc(db, this.projectsCol, projectId);
-      await updateDoc(projectRef, {
-        updatedAt: now
-      });
+      const projectSnap = await getDoc(projectRef);
+      if (projectSnap.exists()) {
+        await updateDoc(projectRef, {
+          updatedAt: now
+        });
+      }
 
       // Also create a timeline log for document registration
       let timelineDescription = isUpdate 
@@ -539,9 +547,12 @@ export class ProjectService {
 
       const now = new Date();
       const projectRef = doc(db, this.projectsCol, projectId);
-      await updateDoc(projectRef, {
-        updatedAt: now
-      });
+      const projectSnap = await getDoc(projectRef);
+      if (projectSnap.exists()) {
+        await updateDoc(projectRef, {
+          updatedAt: now
+        });
+      }
 
       await this.addTimeline(projectId, {
         status: "Updated",
@@ -572,9 +583,12 @@ export class ProjectService {
 
         const now = new Date();
         const projectRef = doc(db, this.projectsCol, projectId);
-        await updateDoc(projectRef, {
-          updatedAt: now
-        });
+        const projectSnap = await getDoc(projectRef);
+        if (projectSnap.exists()) {
+          await updateDoc(projectRef, {
+            updatedAt: now
+          });
+        }
 
         await this.addTimeline(projectId, {
           status: "Updated",

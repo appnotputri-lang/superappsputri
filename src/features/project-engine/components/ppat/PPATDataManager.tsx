@@ -7,7 +7,7 @@ import {
   Receipt, DollarSign, FileSignature, Layers
 } from 'lucide-react';
 import { Project, PPATData, PPATParty, PPATAttachmentItem } from '../../../../domain/project/Project';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../../../../lib/firebase';
 import { ProjectService } from '../../../../services/ProjectService';
 import { PPAT_TRANSACTION_TYPES } from '../../../../constants/appConstants';
@@ -217,19 +217,27 @@ export const PPATDataManager: React.FC<PPATDataManagerProps> = ({
     setSaveSuccess(false);
 
     try {
+      const targetProjectId = project.projectId;
+      if (!targetProjectId) {
+        throw new Error('ID Proyek tidak valid.');
+      }
       const normalizedData = normalizePPATData(ppatData);
-      const projectRef = doc(db, 'office_projects', project.projectId);
+      const projectRef = doc(db, 'office_projects', targetProjectId);
+      const projectSnap = await getDoc(projectRef);
+      if (!projectSnap.exists()) {
+        throw new Error(`Dokumen proyek (${targetProjectId}) tidak ditemukan di database.`);
+      }
       const cleanData = JSON.parse(JSON.stringify(normalizedData));
 
-      await updateDoc(projectRef, {
+      await setDoc(projectRef, {
         ppatData: cleanData,
         projectType: normalizedData.transactionType || project.projectType || 'Akta Jual Beli (AJB)',
         updatedAt: new Date()
-      });
+      }, { merge: true });
 
       // Add timeline log
       try {
-        await ProjectService.addTimeline(project.projectId, {
+        await ProjectService.addTimeline(targetProjectId, {
           status: 'Updated',
           title: 'Master Data PPAT Diperbarui',
           description: `Master Data PPAT (${normalizedData.transactionType}) berhasil diperbarui dan disinkronkan.`,

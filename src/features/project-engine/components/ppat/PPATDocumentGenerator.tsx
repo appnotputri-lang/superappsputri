@@ -3,7 +3,7 @@ import {
   FileText, Download, Printer, Eye, CheckCircle2, 
   AlertTriangle, ShieldCheck, X, Copy, Check
 } from 'lucide-react';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../../../../lib/firebase';
 import { Project, PPATData, PPATParty } from '../../../../domain/project/Project';
 import { generatePaktaIntegritasDocx, generateSuratPernyataanDocx } from './generatePPATDocx';
@@ -90,14 +90,25 @@ export const PPATDocumentGenerator: React.FC<PPATDocumentGeneratorProps> = ({
 
       const updatedDocs = [...(project.documents || []), newDocRef];
 
-      const projectRef = doc(db, 'office_projects', project.projectId);
-      await updateDoc(projectRef, {
+      const targetProjectId = project.projectId;
+      if (!targetProjectId) {
+        alert('ID Proyek tidak valid.');
+        return;
+      }
+      const projectRef = doc(db, 'office_projects', targetProjectId);
+      const projectSnap = await getDoc(projectRef);
+      if (!projectSnap.exists()) {
+        alert(`Dokumen proyek (${targetProjectId}) tidak ditemukan di database.`);
+        return;
+      }
+
+      await setDoc(projectRef, {
         documents: updatedDocs,
         updatedAt: new Date()
-      });
+      }, { merge: true });
 
       try {
-        await ProjectService.addTimeline(project.projectId, {
+        await ProjectService.addTimeline(targetProjectId, {
           status: 'document_added',
           title: `Dokumen didaftarkan: ${newDocRef.name}`,
           description: `Dihasilkan melalui generator dokumen PPAT.`,
