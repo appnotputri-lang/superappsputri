@@ -34,6 +34,9 @@ import { generateWordDoc } from '../../../../utils/docxGenerator';
 import { fetchLatestDeedNumbers } from '../../../lib/deedUtils';
 import { CompanyProfile, ResolutionFlags } from '@/types';
 import { DomicileSelector } from '@/components/AddressFields';
+import { ClientProjectSyncService, ClientSyncSelection } from '../../../services/ClientProjectSyncService';
+import { PullClientDataModal } from '../../../components/common/PullClientDataModal';
+import { ToastNotification, ToastState } from '../../../components/common/ToastNotification';
 
 
 
@@ -283,6 +286,70 @@ export const RUPSLBPage: React.FC<RUPSLBPageProps> = ({
   isFetchingNumbers
 }) => {
   // Extract and inject the inline block
+  const [showPullModal, setShowPullModal] = useState(false);
+  const [isPullingClient, setIsPullingClient] = useState(false);
+  const [freshClientForModal, setFreshClientForModal] = useState<CompanyProfile | null>(null);
+  const [toast, setToast] = useState<ToastState | null>(null);
+
+  const handleOpenPullClientModal = async () => {
+    let targetClientId = data.selectedProfileId;
+    if (!targetClientId && activeProjectContext) {
+      const proj = projects.find(p => p.id === activeProjectContext) || (await ProjectService.getProject(activeProjectContext));
+      targetClientId = proj?.clientId;
+    }
+    if (!targetClientId) {
+      setToast({ type: 'error', message: 'ID Klien / Profil belum dipilih atau tidak ditemukan.' });
+      return;
+    }
+    setIsPullingClient(true);
+    try {
+      const fresh = await ClientProjectSyncService.getFreshClientProfile(targetClientId);
+      if (!fresh) throw new Error('Data Klien di Master Client tidak ditemukan.');
+      setFreshClientForModal(fresh);
+      setShowPullModal(true);
+    } catch (err: any) {
+      setToast({ type: 'error', message: err.message || 'Gagal memuat profil klien terbaru.' });
+    } finally {
+      setIsPullingClient(false);
+    }
+  };
+
+  const handleConfirmPullClient = async (selection: ClientSyncSelection) => {
+    let targetClientId = data.selectedProfileId;
+    if (!targetClientId && activeProjectContext) {
+      const proj = projects.find(p => p.id === activeProjectContext) || (await ProjectService.getProject(activeProjectContext));
+      targetClientId = proj?.clientId;
+    }
+    if (!targetClientId) return;
+
+    setIsPullingClient(true);
+    try {
+      const result = await ClientProjectSyncService.pullLatestClientData({
+        projectId: activeProjectContext || '',
+        clientId: targetClientId,
+        jobType: data.documentType === 'CIRCULAR' ? 'sirkuler_rupslb' : 'rups_lb',
+        currentFormData: data,
+        refId: editingProjectId || undefined,
+        selection
+      });
+
+      if (result.success) {
+        updateData(result.updatedFormData);
+        setShowPullModal(false);
+        setToast({
+          type: 'success',
+          message: 'Data Klien berhasil diperbarui dari Profil Klien terbaru.'
+        });
+      }
+    } catch (err: any) {
+      setToast({
+        type: 'error',
+        message: err.message || 'Gagal memperbarui data dari Master Client.'
+      });
+    } finally {
+      setIsPullingClient(false);
+    }
+  };
   
   const updateAddress = (type: 'oldAddress' | 'newAddress', updates: any) => {
     updateData({
@@ -651,6 +718,18 @@ export const RUPSLBPage: React.FC<RUPSLBPageProps> = ({
                           >
                             {isSaving ? 'MENYIMPAN...' : 'SIMPAN RUPS LB'}
                           </button>
+                          {(activeProjectContext || data.selectedProfileId) && (
+                            <button
+                              type="button"
+                              onClick={handleOpenPullClientModal}
+                              disabled={isPullingClient || isSaving}
+                              className="px-4 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-xl text-[12px] font-bold transition-all h-11 border border-blue-200 uppercase disabled:opacity-50 flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                              title="Tarik data terbaru dari Master Client ke Form ini"
+                            >
+                              <RefreshCw className={`w-3.5 h-3.5 ${isPullingClient ? 'animate-spin' : ''}`} />
+                              <span>🔄 Tarik Data Klien Terbaru</span>
+                            </button>
+                          )}
                         </>
                       )}
                     </div>
@@ -753,23 +832,49 @@ export const RUPSLBPage: React.FC<RUPSLBPageProps> = ({
               <div className="space-y-4">
                 {activeProjectContext ? (
                   <div className="bg-slate-50 border border-slate-200 rounded-sm p-4 text-[13px] text-slate-700 space-y-2">
-                    <div>
-                      <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Company</div>
-                      <div className="font-bold text-slate-800 text-[14px]">
-                        {profiles.find(p => p.id === data.selectedProfileId)?.companyName || data.companyName || ((projects.find(p => p.id === activeProjectContext) as any) || (rupstProjects.find(p => p.id === activeProjectContext) as any) || (pendirianProjects.find(p => p.id === activeProjectContext) as any))?.title || 'PT Belum Ditentukan'}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div>
+                        <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Company</div>
+                        <div className="font-bold text-slate-800 text-[14px]">
+                          {profiles.find(p => p.id === data.selectedProfileId)?.companyName || data.companyName || ((projects.find(p => p.id === activeProjectContext) as any) || (rupstProjects.find(p => p.id === activeProjectContext) as any) || (pendirianProjects.find(p => p.id === activeProjectContext) as any))?.title || 'PT Belum Ditentukan'}
+                        </div>
                       </div>
+                      <button
+                        type="button"
+                        onClick={handleOpenPullClientModal}
+                        disabled={isPullingClient}
+                        className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold border border-blue-200 rounded text-xs flex items-center gap-1.5 transition-colors self-start sm:self-auto cursor-pointer disabled:opacity-50"
+                        title="Tarik data terbaru dari Master Client ke Form ini"
+                      >
+                        <RefreshCw className={`w-3.5 h-3.5 ${isPullingClient ? 'animate-spin' : ''}`} />
+                        <span>🔄 Tarik Data Klien Terbaru</span>
+                      </button>
                     </div>
                     <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
                       <span>Source: Project Workspace</span>
                     </div>
                     <p className="text-[11px] text-slate-400 italic">
-                      This Company is locked because the document belongs to this Project.
+                      This Company is locked because the document belongs to this Project. Gunakan tombol di atas untuk menyinkronkan perubahan dari Master Client.
                     </p>
                   </div>
                 ) : (
                   <>
-                    <label className="block text-[13px] font-medium text-slate-700 mb-1">Pilih Profil Perseroan (Opsional)</label>
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <label className="block text-[13px] font-medium text-slate-700">Pilih Profil Perseroan (Opsional)</label>
+                      {data.selectedProfileId && (
+                        <button
+                          type="button"
+                          onClick={handleOpenPullClientModal}
+                          disabled={isPullingClient}
+                          className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold border border-blue-200 rounded text-[11px] flex items-center gap-1 transition-colors cursor-pointer disabled:opacity-50"
+                          title="Tarik data terbaru dari Master Client"
+                        >
+                          <RefreshCw className={`w-3 h-3 ${isPullingClient ? 'animate-spin' : ''}`} />
+                          <span>🔄 Tarik Data Klien Terbaru</span>
+                        </button>
+                      )}
+                    </div>
                     <select 
                       className="w-full border border-[#ccc] rounded-sm px-3 py-1.5 text-[13px] outline-none bg-white focus:border-[#66afe9]"
                       value={data.selectedProfileId || ''}
@@ -3015,6 +3120,23 @@ export const RUPSLBPage: React.FC<RUPSLBPageProps> = ({
                   </div>
                 </div>
               )}
+
+              {/* Tarik Data Klien Terbaru Modal */}
+              <PullClientDataModal
+                isOpen={showPullModal}
+                onClose={() => setShowPullModal(false)}
+                onConfirm={handleConfirmPullClient}
+                isLoading={isPullingClient}
+                clientName={data.companyName}
+                freshClient={freshClientForModal}
+                currentData={data}
+              />
+
+              {/* Toast Notification */}
+              <ToastNotification
+                toast={toast}
+                onClose={() => setToast(null)}
+              />
             </div>
             );
   })();

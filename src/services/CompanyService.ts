@@ -293,8 +293,8 @@ export class CompanyService {
   /**
    * Fetch a single full company profile from profiles/{clientId}
    */
-  static async getCompanyProfile(clientId: string): Promise<CompanyProfile | null> {
-    if (CompanyService.profileDocsCache.has(clientId)) {
+  static async getCompanyProfile(clientId: string, bypassCache: boolean = false): Promise<CompanyProfile | null> {
+    if (!bypassCache && CompanyService.profileDocsCache.has(clientId)) {
       console.log(
         `[ClientProfile]\n` +
         `clientId: ${clientId}\n` +
@@ -303,6 +303,10 @@ export class CompanyService {
         `reads: 0`
       );
       return CompanyService.profileDocsCache.get(clientId)!;
+    }
+
+    if (bypassCache) {
+      CompanyService.profileDocsCache.delete(clientId);
     }
 
     console.log(

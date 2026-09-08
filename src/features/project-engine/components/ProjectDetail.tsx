@@ -32,6 +32,8 @@ import { PPATDocumentGenerator } from './ppat/PPATDocumentGenerator';
 import { PPATProjectDocumentsSection } from './ppat/PPATProjectDocumentsSection';
 import { PPATDocumentEditor } from './ppat/PPATDocumentEditor';
 import { PPATDocTypeConfig } from './ppat/ppatDocTypes';
+import { isProjectFinal } from '../../../services/ClientProjectSyncService';
+import { ToastNotification, ToastState } from '../../../components/common/ToastNotification';
 
 interface UploadedDocument {
   id: string;
@@ -201,78 +203,7 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
   ]);
   const [savingDeedInfo, setSavingDeedInfo] = useState(false);
 
-  // States for Refresh from Client
-  const [showRefreshModal, setShowRefreshModal] = useState(false);
-  const [isRefreshingClient, setIsRefreshingClient] = useState(false);
-  const [refreshFormData, setRefreshFormData] = useState<any>(null);
-
-  const prepareRefreshFromClient = async () => {
-    setIsRefreshingClient(true);
-    try {
-      const formDoc = documents.find(d => d.refId);
-      const refIdToUse = formDoc?.refId || project?.metadata?.refId || projectId;
-      const formObj = await fetchDocRecordData({
-        id: 'temp',
-        name: project?.title || '',
-        type: 'form',
-        refId: refIdToUse,
-        uploadedAt: new Date().toISOString()
-      }, true);
-      
-      if (!formObj) {
-        throw new Error('Data form proyek tidak ditemukan.');
-      }
-      setRefreshFormData(formObj);
-      setShowRefreshModal(true);
-    } catch (e: any) {
-      alert(e.message || 'Gagal memuat data form proyek.');
-    } finally {
-      setIsRefreshingClient(false);
-    }
-  };
-
-  const confirmRefreshFromClient = async () => {
-    if (!refreshFormData || !client) return;
-    setIsRefreshingClient(true);
-    try {
-      const formDoc = documents.find(d => d.refId);
-      const refIdToUse = formDoc?.refId || project?.metadata?.refId || projectId;
-      let collectionName = '';
-      if (project?.jobType === 'rups_lb' || project?.jobType === 'sirkuler_rupslb') {
-        collectionName = 'projects';
-      } else if (project?.jobType === 'rups_t' || project?.jobType === 'sirkuler') {
-        collectionName = 'rupst_projects';
-      }
-      if (!collectionName) throw new Error('Tipe proyek tidak didukung.');
-
-      const updatedForm = {
-        ...refreshFormData,
-        shareholders: client.shareholders || [],
-        amendmentDeeds: client.amendmentDeeds || [],
-        establishmentDeedNumber: client.establishmentDeedNumber || '',
-        establishmentDeedDate: client.establishmentDeedDate || '',
-        establishmentNotary: client.establishmentNotary || '',
-        establishmentNotaryTitle: client.establishmentNotaryTitle || '',
-        establishmentNotaryDomicile: client.establishmentNotaryDomicile || '',
-        establishmentSkNumber: client.establishmentSkNumber || '',
-        establishmentSkDate: client.establishmentSkDate || '',
-      };
-
-      const formDocRef = doc(db, collectionName, refIdToUse);
-      const formSnap = await getDoc(formDocRef);
-      if (formSnap.exists()) {
-        await updateDoc(formDocRef, cleanUndefined(updatedForm));
-      } else {
-        await setDoc(formDocRef, cleanUndefined(updatedForm), { merge: true });
-      }
-      setShowRefreshModal(false);
-      alert('Data proyek berhasil diperbarui dari Profil Klien terbaru. Silakan regenerate (buat ulang) dokumen terkait agar perubahan masuk ke file Word.');
-    } catch (e: any) {
-      alert(e.message || 'Gagal menyimpan pembaruan.');
-    } finally {
-      setIsRefreshingClient(false);
-    }
-  };
+  const [toast, setToast] = useState<ToastState | null>(null);
 
   // New Task State
   const [newTaskTitle, setNewTaskTitle] = useState('');
@@ -3259,8 +3190,7 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
   const isPPAT = project.jobType === 'akta_ppat' || project.jobType === 'ppat' || project.jobType === 'ajb' || project.jobType === 'akta_ajb' || project.projectCategory === 'PPAT';
 
   const isFormType = project && ['rups_lb', 'sirkuler_rupslb', 'rups_t', 'sirkuler'].includes(project.jobType);
-  const isFinal = project && (project.status === 'completed' || project.status === 'selesai' || !!project.clientSnapshot || !!project.changeSnapshot);
-  const canRefreshFromClient = isFormType && !isFinal && !!client;
+  const isFinal = isProjectFinal(project);
 
   return (
     <div className="flex-1 overflow-auto bg-slate-50 p-6">
@@ -3298,16 +3228,6 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
 
           {/* Quick link buttons to existing forms */}
           <div className="flex items-center gap-2 flex-wrap shrink-0">
-            {canRefreshFromClient && (
-              <button
-                onClick={prepareRefreshFromClient}
-                disabled={isRefreshingClient}
-                className="px-4 py-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold rounded-lg text-[13px] flex items-center gap-2 transition-all shadow-sm border border-indigo-200"
-              >
-                {isRefreshingClient ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-                <span>Perbarui dari Profil Klien</span>
-              </button>
-            )}
             {project.jobType === 'sewa_menyewa' && (
               <button
                 onClick={() => setWorkMode('sewa_menyewa')}
@@ -3896,14 +3816,22 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
                 {/* Rule: Immutable Project Snapshot Section */}
                 {(project.clientSnapshot || project.changeSnapshot) ? (
                   <div className="bg-white border border-slate-200/80 rounded-xl p-6 shadow-sm space-y-5">
-                    <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                    <div className="flex items-center justify-between border-b border-slate-100 pb-3 flex-wrap gap-2">
                       <h2 className="text-[14px] font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
                         <Briefcase className="w-4 h-4 text-blue-600" />
-                        <span>Snapshot Hukum Proyek (Arsip Immutable)</span>
+                        <span>Snapshot Hukum Proyek</span>
                       </h2>
-                      <span className="px-2 py-0.5 text-[10px] bg-slate-100 text-slate-500 border border-slate-200 rounded-full font-mono font-bold uppercase tracking-wider">
-                        Snapshot Active
-                      </span>
+                      <div className="flex items-center gap-2">
+                        {isFinal ? (
+                          <span className="px-2.5 py-0.5 text-[10px] bg-slate-100 text-slate-600 border border-slate-200 rounded-full font-bold uppercase tracking-wider">
+                            🔒 Dokumen Final (Terkunci)
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 text-[10px] bg-slate-100 text-slate-500 border border-slate-200 rounded-full font-mono font-bold uppercase tracking-wider">
+                            Snapshot Active
+                          </span>
+                        )}
+                      </div>
                     </div>
 
                     {project.jobType === 'rups_lb' && project.changeSnapshot ? (
@@ -4897,186 +4825,11 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
           </div>
         )}
 
-        {/* Refresh From Client Modal */}
-        {showRefreshModal && refreshFormData && client && (
-          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-[60] p-4 animate-fadeIn">
-            <div className="bg-white rounded-xl shadow-xl border border-slate-200 max-w-4xl w-full max-h-[90vh] flex flex-col animate-slideUp overflow-hidden">
-              <div className="bg-slate-50 px-6 py-4 border-b border-slate-200 flex items-center justify-between shrink-0">
-                <div className="flex items-center gap-2 text-slate-900">
-                  <RefreshCw className="w-5 h-5 text-indigo-600" />
-                  <h3 className="font-bold text-sm uppercase tracking-wide">Perbarui Data Proyek dari Profil Klien</h3>
-                </div>
-                <button type="button" onClick={() => setShowRefreshModal(false)} className="text-slate-400 hover:text-slate-700">
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-              
-              <div className="flex-1 overflow-y-auto p-6 space-y-6">
-                <p className="text-[13px] text-slate-600">
-                  Data berikut akan <strong>ditimpa (overwrite)</strong> dari Profil Klien terbaru ke dalam form proyek ini. Pastikan Anda telah memeriksa perbedaan datanya.
-                </p>
-
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {/* Kiri: Data di Proyek (Sekarang) */}
-                  <div className="space-y-4">
-                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-center gap-2">
-                      <FileText className="w-4 h-4 text-amber-600" />
-                      <span className="text-xs font-bold text-amber-900 uppercase">Data di Proyek (Saat Ini)</span>
-                    </div>
-
-                    <div className="bg-white border border-slate-200 rounded-lg p-4 space-y-4">
-                      {/* Pemegang Saham */}
-                      <div>
-                        <h4 className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">Susunan Pemegang Saham</h4>
-                        {refreshFormData.shareholders && refreshFormData.shareholders.length > 0 ? (
-                          <div className="space-y-1.5">
-                            {refreshFormData.shareholders.map((sh: any, i: number) => (
-                              <div key={i} className="flex justify-between p-2 bg-slate-50 border border-slate-100 rounded text-xs">
-                                <span className="font-semibold text-slate-700">{sh.name}</span>
-                                <span className="font-mono text-slate-500">{sh.sharesOwned?.toLocaleString('id-ID')} lembar</span>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <div className="text-xs text-slate-400 italic">Tidak ada data.</div>
-                        )}
-                      </div>
-
-                      {/* Akta Pendirian */}
-                      <div>
-                        <h4 className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">Akta Pendirian</h4>
-                        {refreshFormData.establishmentDeedNumber || refreshFormData.establishmentNotary ? (
-                          <div className="p-2 bg-slate-50 border border-slate-100 rounded text-xs space-y-1">
-                            <div className="font-semibold text-slate-700">
-                              {refreshFormData.establishmentNotary ? `Dihadapan ${refreshFormData.establishmentNotary}` : 'Notaris belum diisi'}
-                            </div>
-                            <div className="text-slate-500">
-                              No. {refreshFormData.establishmentDeedNumber || '-'} Tgl {refreshFormData.establishmentDeedDate || '-'}
-                            </div>
-                            {refreshFormData.establishmentSkNumber && (
-                              <div className="text-slate-500 pt-1 border-t border-slate-200 mt-1">
-                                SK: {refreshFormData.establishmentSkNumber} Tgl {refreshFormData.establishmentSkDate || '-'}
-                              </div>
-                            )}
-                          </div>
-                        ) : (
-                          <div className="text-xs text-slate-400 italic">Tidak ada data.</div>
-                        )}
-                      </div>
-
-                      {/* Riwayat Akta */}
-                      <div>
-                        <h4 className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">Riwayat Akta (Legal History)</h4>
-                        {refreshFormData.amendmentDeeds && refreshFormData.amendmentDeeds.length > 0 ? (
-                          <div className="space-y-1.5">
-                            {refreshFormData.amendmentDeeds.map((deed: any, i: number) => (
-                              <div key={i} className="p-2 bg-slate-50 border border-slate-100 rounded text-xs space-y-1">
-                                <div className="font-semibold text-slate-700">
-                                  {deed.notary ? `Dihadapan ${deed.notary}` : 'Notaris belum diisi'}
-                                </div>
-                                <div className="text-slate-500">No. {deed.number || '-'} Tgl {deed.date || '-'}</div>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <div className="text-xs text-slate-400 italic">Tidak ada data.</div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Kanan: Data Klien (Terbaru) */}
-                  <div className="space-y-4">
-                    <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 flex items-center gap-2">
-                      <User className="w-4 h-4 text-emerald-600" />
-                      <span className="text-xs font-bold text-emerald-900 uppercase">Data Klien (Tujuan)</span>
-                    </div>
-
-                    <div className="bg-white border border-slate-200 rounded-lg p-4 space-y-4">
-                      {/* Pemegang Saham */}
-                      <div>
-                        <h4 className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">Susunan Pemegang Saham</h4>
-                        {client.shareholders && client.shareholders.length > 0 ? (
-                          <div className="space-y-1.5">
-                            {client.shareholders.map((sh: any, i: number) => (
-                              <div key={i} className="flex justify-between p-2 bg-emerald-50/50 border border-emerald-100 rounded text-xs">
-                                <span className="font-semibold text-slate-700">{sh.name}</span>
-                                <span className="font-mono text-emerald-600">{sh.sharesOwned?.toLocaleString('id-ID')} lembar</span>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <div className="text-xs text-slate-400 italic">Tidak ada data.</div>
-                        )}
-                      </div>
-
-                      {/* Akta Pendirian */}
-                      <div>
-                        <h4 className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">Akta Pendirian</h4>
-                        {client.establishmentDeedNumber || client.establishmentNotary ? (
-                          <div className="p-2 bg-emerald-50/50 border border-emerald-100 rounded text-xs space-y-1">
-                            <div className="font-semibold text-slate-700">
-                              {client.establishmentNotary ? `Dihadapan ${client.establishmentNotary}` : 'Notaris belum diisi'}
-                            </div>
-                            <div className="text-slate-500">
-                              No. {client.establishmentDeedNumber || '-'} Tgl {client.establishmentDeedDate || '-'}
-                            </div>
-                            {client.establishmentSkNumber && (
-                              <div className="text-slate-500 pt-1 border-t border-emerald-200 mt-1">
-                                SK: {client.establishmentSkNumber} Tgl {client.establishmentSkDate || '-'}
-                              </div>
-                            )}
-                          </div>
-                        ) : (
-                          <div className="text-xs text-slate-400 italic">Tidak ada data.</div>
-                        )}
-                      </div>
-
-                      {/* Riwayat Akta */}
-                      <div>
-                        <h4 className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">Riwayat Akta (Legal History)</h4>
-                        {client.amendmentDeeds && client.amendmentDeeds.length > 0 ? (
-                          <div className="space-y-1.5">
-                            {client.amendmentDeeds.map((deed: any, i: number) => (
-                              <div key={i} className="p-2 bg-emerald-50/50 border border-emerald-100 rounded text-xs space-y-1">
-                                <div className="font-semibold text-slate-700">
-                                  {deed.notary ? `Dihadapan ${deed.notary}` : 'Notaris belum diisi'}
-                                </div>
-                                <div className="text-slate-500">No. {deed.number || '-'} Tgl {deed.date || '-'}</div>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <div className="text-xs text-slate-400 italic">Tidak ada data.</div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-slate-50 px-6 py-4 border-t border-slate-200 flex justify-end gap-3 shrink-0">
-                <button
-                  type="button"
-                  onClick={() => setShowRefreshModal(false)}
-                  disabled={isRefreshingClient}
-                  className="px-4 py-2 bg-white hover:bg-slate-100 text-slate-700 font-bold border border-slate-200 rounded-lg text-xs transition-colors"
-                >
-                  Batal
-                </button>
-                <button
-                  type="button"
-                  onClick={confirmRefreshFromClient}
-                  disabled={isRefreshingClient}
-                  className="px-5 py-2 font-bold rounded-lg text-xs text-white bg-indigo-600 hover:bg-indigo-700 flex items-center gap-2 transition-colors disabled:opacity-50"
-                >
-                  {isRefreshingClient && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                  Terapkan Semua
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* Toast Notification */}
+        <ToastNotification
+          toast={toast}
+          onClose={() => setToast(null)}
+        />
 
         {/* Layar Preview Perubahan Data Klien — muncul sebelum commit ke koleksi profiles/company_profiles */}
         {syncPreviewData && (

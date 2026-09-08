@@ -77,17 +77,36 @@ export function mapCompanyProfileToPendirian(profile: any, prev?: any): any {
 
   return {
     ...baseData,
-    selectedProfileId: profile.id,
-    namaPt: (profile.companyName || '').toUpperCase(),
-    kotaKedudukan: profile.newAddress?.city || profile.oldAddress?.city || profile.domicile || profile.oldDomicile || '',
-    alamatLengkapPT: alamatLengkap || baseData.alamatLengkapPT,
-    modalDasar: profile.originalCapitalBase || baseData.modalDasar,
-    modalDasarLembar: profile.originalAuthorizedShares || baseData.modalDasarLembar,
-    modalDisetorLembar: profile.originalTotalShares || baseData.modalDisetorLembar,
-    nilaiPerLembar: profile.originalSharePrice || baseData.nilaiPerLembar,
+    selectedProfileId: profile.id || prev?.selectedProfileId,
+    namaPt: profile.companyName ? (profile.companyName || '').toUpperCase() : (prev?.namaPt || ''),
+    kotaKedudukan: profile.newAddress?.city || profile.oldAddress?.city || profile.domicile || profile.oldDomicile || prev?.kotaKedudukan || '',
+    alamatLengkapPT: alamatLengkap || prev?.alamatLengkapPT || baseData.alamatLengkapPT,
+    modalDasar: profile.originalCapitalBase ?? prev?.modalDasar ?? baseData.modalDasar,
+    modalDasarLembar: profile.originalAuthorizedShares ?? prev?.modalDasarLembar ?? baseData.modalDasarLembar,
+    modalDisetorLembar: profile.originalTotalShares ?? prev?.modalDisetorLembar ?? baseData.modalDisetorLembar,
+    nilaiPerLembar: profile.originalSharePrice ?? prev?.nilaiPerLembar ?? baseData.nilaiPerLembar,
     modalDisetorPersen: profile.originalCapitalBase ? 
-      Math.round((profile.originalCapitalPaid / profile.originalCapitalBase) * 100) : baseData.modalDisetorPersen,
-    kbliItems: mappedKblis.length > 0 ? mappedKblis : baseData.kbliItems,
-    shareholders: mappedShareholders.length > 0 ? mappedShareholders : baseData.shareholders
+      Math.round((profile.originalCapitalPaid / profile.originalCapitalBase) * 100) : (prev?.modalDisetorPersen ?? baseData.modalDisetorPersen),
+    kbliItems: profile.kbliItems !== undefined ? mappedKblis : (prev?.kbliItems || baseData.kbliItems),
+    shareholders: profile.shareholders !== undefined ? mappedShareholders : (prev?.shareholders || baseData.shareholders),
+    // Project-specific fields must strictly prioritize prev:
+    nomorAkta: prev?.nomorAkta ?? baseData.nomorAkta,
+    nomorUrut: prev?.nomorUrut ?? baseData.nomorUrut,
+    tanggal: prev?.tanggal ?? baseData.tanggal,
+    waktu: prev?.waktu ?? baseData.waktu,
+    notarisTempat: prev?.notarisTempat ?? baseData.notarisTempat,
+    notarisNamaSurat: prev?.notarisNamaSurat ?? baseData.notarisNamaSurat,
+    saksi1Nama: prev?.saksi1Nama ?? baseData.saksi1Nama,
+    saksi1LahirTempat: prev?.saksi1LahirTempat ?? baseData.saksi1LahirTempat,
+    saksi1LahirTanggal: prev?.saksi1LahirTanggal ?? baseData.saksi1LahirTanggal,
+    saksi1Pekerjaan: prev?.saksi1Pekerjaan ?? baseData.saksi1Pekerjaan,
+    saksi1Alamat: prev?.saksi1Alamat ?? baseData.saksi1Alamat,
+    saksi1NIK: prev?.saksi1NIK ?? baseData.saksi1NIK,
+    saksi2Nama: prev?.saksi2Nama ?? baseData.saksi2Nama,
+    saksi2LahirTempat: prev?.saksi2LahirTempat ?? baseData.saksi2LahirTempat,
+    saksi2LahirTanggal: prev?.saksi2LahirTanggal ?? baseData.saksi2LahirTanggal,
+    saksi2Pekerjaan: prev?.saksi2Pekerjaan ?? baseData.saksi2Pekerjaan,
+    saksi2Alamat: prev?.saksi2Alamat ?? baseData.saksi2Alamat,
+    saksi2NIK: prev?.saksi2NIK ?? baseData.saksi2NIK
   };
 }
