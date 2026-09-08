@@ -475,24 +475,46 @@ export function generateInvoiceHTML(invoice: Invoice, qrBase64: string, autoPrin
 </html>`;
 }
 
-export async function printInvoice(invoice: Invoice, publicUrl?: string, lang: 'id' | 'en' = 'id') {
-  const qrBase64 = await getQrCodeBase64(invoice, publicUrl);
-  const html = generateInvoiceHTML(invoice, qrBase64, true, lang);
-
-  const win = window.open('', '_blank');
-  if (win) {
-    win.document.open();
-    win.document.write(html);
-    win.document.close();
-  } else {
-    alert('Harap izinkan popup browser untuk membuka dialog cetak invoice.');
-  }
+export async function printInvoice(invoice: Invoice, publicUrl?: string, lang: 'id' | 'en' = 'id', existingBlob?: Blob) {
+  return printInvoicePdf(invoice, publicUrl, lang, existingBlob);
 }
 
-export async function downloadInvoicePdf(invoice: Invoice, publicUrl?: string, lang: 'id' | 'en' = 'id') {
+export async function printInvoicePdf(invoice: Invoice, publicUrl?: string, lang: 'id' | 'en' = 'id', existingBlob?: Blob) {
+  const blob = existingBlob || await generateInvoicePdfBlob(invoice, publicUrl, lang);
+  const blobUrl = URL.createObjectURL(blob);
+
+  // Hidden iframe to invoke print dialog for the exact PDF
+  const iframe = document.createElement('iframe');
+  iframe.style.position = 'fixed';
+  iframe.style.right = '0';
+  iframe.style.bottom = '0';
+  iframe.style.width = '0';
+  iframe.style.height = '0';
+  iframe.style.border = '0';
+  iframe.src = blobUrl;
+  document.body.appendChild(iframe);
+
+  iframe.onload = () => {
+    setTimeout(() => {
+      try {
+        iframe.focus();
+        iframe.contentWindow?.print();
+      } catch (err) {
+        console.warn('Iframe print error, falling back to window.open', err);
+        window.open(blobUrl, '_blank');
+      }
+      setTimeout(() => {
+        if (iframe.parentNode) {
+          iframe.parentNode.removeChild(iframe);
+        }
+      }, 60000);
+    }, 400);
+  };
+}
+
+export async function createInvoiceJsPdf(invoice: Invoice, publicUrl?: string, lang: 'id' | 'en' = 'id'): Promise<jsPDF> {
   const isEn = lang === 'en';
   const qrBase64 = await getQrCodeBase64(invoice, publicUrl);
-  const filename = `Invoice_${invoice.invoiceNumber.replace(/[\/\\]/g, '_')}.pdf`;
 
   const doc = new jsPDF({
     orientation: 'portrait',
@@ -781,6 +803,37 @@ export async function downloadInvoicePdf(invoice: Invoice, publicUrl?: string, l
   const sigBrand = doc.splitTextToSize('NOTARIS/PPAT NUKANTINI PUTRI PARINCHA', 75);
   doc.text(sigBrand, 157, sigY + 34, { align: 'center' });
 
+  return doc;
+}
+
+export async function generateInvoicePdfBlob(invoice: Invoice, publicUrl?: string, lang: 'id' | 'en' = 'id'): Promise<Blob> {
+  const doc = await createInvoiceJsPdf(invoice, publicUrl, lang);
+  return doc.output('blob');
+}
+
+export async function generateInvoicePdfArrayBuffer(invoice: Invoice, publicUrl?: string, lang: 'id' | 'en' = 'id'): Promise<ArrayBuffer> {
+  const doc = await createInvoiceJsPdf(invoice, publicUrl, lang);
+  return doc.output('arraybuffer');
+}
+
+export async function downloadInvoicePdf(invoice: Invoice, publicUrl?: string, lang: 'id' | 'en' = 'id', existingBlob?: Blob) {
+  const filename = `Invoice_${invoice.invoiceNumber.replace(/[\/\\]/g, '_')}.pdf`;
+  if (existingBlob) {
+    const url = URL.createObjectURL(existingBlob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+      if (a.parentNode) {
+        a.parentNode.removeChild(a);
+      }
+      URL.revokeObjectURL(url);
+    }, 1000);
+    return;
+  }
+  const doc = await createInvoiceJsPdf(invoice, publicUrl, lang);
   doc.save(filename);
 }
 
