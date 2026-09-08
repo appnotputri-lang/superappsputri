@@ -73,12 +73,13 @@ export const onRequest = async (context: any) => {
       return response;
     }
 
-    const origin = url.origin;
+    const isLocal = url.hostname.includes('localhost') || url.hostname.includes('127.0.0.1');
+    const origin = isLocal ? url.origin : 'https://app.notarisputri.web.id';
     const publicUrl = `${origin}/${token}`;
     const invoiceNumber = row.invoice_number || 'INV/...';
     const clientName = row.client_name || 'Klien';
     const version = encodeURIComponent(row.updated_at || row.created_at || String(row.total_amount || '1'));
-    const previewImageUrl = `${origin}/api/public/invoice/${token}/preview-image?v=${version}`;
+    const previewImageUrl = `${origin}/api/public/invoice/${token}/preview-image.png?v=${version}`;
 
     const ogTitle = `Invoice ${invoiceNumber}`;
     const ogDesc = clientName ? `Invoice untuk ${clientName}` : 'Invoice Notaris/PPAT Nukantini Putri Parincha';

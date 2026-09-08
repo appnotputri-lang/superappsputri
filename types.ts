@@ -647,6 +647,8 @@ export interface Invoice {
   paymentHistory?: PaymentRecord[];
   publicToken?: string;
   legacyPublicUrl?: string;
+  thumbnailBase64?: string;
+  previewImage?: string;
   quotationId?: string;
   quotationNumber?: string;
   createdAt?: string;

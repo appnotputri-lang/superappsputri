@@ -513,11 +513,21 @@ export async function printInvoicePdf(invoice: Invoice, publicUrl?: string, lang
   };
 }
 
+function getJsPdfInstance(options: any): jsPDF {
+  const Constructor: any = (jsPDF as any).jsPDF || (jsPDF as any).default || jsPDF;
+  return new Constructor(options);
+}
+
+function runAutoTable(doc: any, options: any) {
+  const atFn: any = (autoTable as any).default || (autoTable as any).autoTable || autoTable;
+  return atFn(doc, options);
+}
+
 export async function createInvoiceJsPdf(invoice: Invoice, publicUrl?: string, lang: 'id' | 'en' = 'id'): Promise<jsPDF> {
   const isEn = lang === 'en';
   const qrBase64 = await getQrCodeBase64(invoice, publicUrl);
 
-  const doc = new jsPDF({
+  const doc = getJsPdfInstance({
     orientation: 'portrait',
     unit: 'mm',
     format: 'a4'
@@ -627,7 +637,7 @@ export async function createInvoiceJsPdf(invoice: Invoice, publicUrl?: string, l
     return [formattedDesc, formatNum(getItemSubtotal(it))];
   });
 
-  autoTable(doc, {
+  runAutoTable(doc, {
     startY: tableStartY,
     head: tableHeaders,
     body: tableBody,

@@ -336,7 +336,8 @@ async function startServer() {
       const host = (Array.isArray(hostH) ? hostH[0] : hostH) || req.headers.host || "app.notarisputri.web.id";
       const protoH = req.headers["x-forwarded-proto"];
       const proto = (Array.isArray(protoH) ? protoH[0] : protoH) || req.protocol || "https";
-      const origin = `${proto}://${host}`;
+      const isLocal = host.includes("localhost") || host.includes("127.0.0.1");
+      const origin = isLocal ? `${proto}://${host}` : "https://app.notarisputri.web.id";
       const publicUrl = invoice.legacyPublicUrl || `${origin}/${token}`;
 
       const { buffer, contentType, fromCache } = await getOrGenerateInvoiceThumbnail(invoice, token, publicUrl);
@@ -350,7 +351,7 @@ async function startServer() {
       return res.end(buffer);
     } catch (err: any) {
       console.error("[Invoices Preview Image API] Error generating thumbnail:", err);
-      return res.status(500).json({ success: false, error: "Failed to generate preview image" });
+      return res.status(500).json({ success: false, error: "Failed to generate preview image: " + (err?.message || String(err)) });
     }
   };
 
@@ -2329,10 +2330,11 @@ async function startServer() {
       const host = (Array.isArray(hostH) ? hostH[0] : hostH) || req.headers.host || "app.notarisputri.web.id";
       const protoH = req.headers["x-forwarded-proto"];
       const proto = (Array.isArray(protoH) ? protoH[0] : protoH) || req.protocol || "https";
-      const origin = `${proto}://${host}`;
+      const isLocal = host.includes("localhost") || host.includes("127.0.0.1");
+      const origin = isLocal ? `${proto}://${host}` : "https://app.notarisputri.web.id";
       const publicUrl = invoice.legacyPublicUrl || `${origin}/${token}`;
       const version = encodeURIComponent(invoice.updatedAt || invoice.createdAt || String(invoice.totalAmount || "1"));
-      const previewImageUrl = `${origin}/api/public/invoice/${token}/preview-image?v=${version}`;
+      const previewImageUrl = `${origin}/api/public/invoice/${token}/preview-image.png?v=${version}`;
 
       const ogTitle = `Invoice ${invoice.invoiceNumber || ''}`.trim();
       const ogDesc = invoice.clientName

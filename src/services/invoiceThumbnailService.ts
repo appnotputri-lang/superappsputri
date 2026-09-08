@@ -48,89 +48,24 @@ export function invalidateInvoiceThumbnailCache(token?: string, invoiceId?: stri
 }
 
 /**
- * Generate a clean fallback PNG image if PDF page 1 rendering ever encounters an error.
- * Ensures WhatsApp preview never displays a broken image.
- */
-export function generateFallbackInvoiceImage(invoice: Invoice): Buffer {
-  const width = 1200;
-  const height = 630;
-  const c = canvas.createCanvas(width, height);
-  const ctx = c.getContext('2d');
-
-  // Background
-  ctx.fillStyle = '#f8fafc'; // slate-50
-  ctx.fillRect(0, 0, width, height);
-
-  // Top header bar
-  ctx.fillStyle = '#1e3a8a'; // blue-900
-  ctx.fillRect(0, 0, width, 110);
-
-  // Brand Name
-  ctx.fillStyle = '#ffffff';
-  ctx.font = 'bold 28px sans-serif';
-  ctx.fillText('NOTARIS/PPAT NUKANTINI PUTRI PARINCHA, SH., M.Kn', 50, 65);
-
-  // Main Card
-  ctx.fillStyle = '#ffffff';
-  ctx.strokeStyle = '#cbd5e1';
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.roundRect(50, 150, width - 100, height - 190, 16);
-  ctx.fill();
-  ctx.stroke();
-
-  // Invoice Title & Number
-  ctx.fillStyle = '#0f172a';
-  ctx.font = 'bold 38px sans-serif';
-  ctx.fillText('INVOICE TAGIHAN RESMI', 90, 220);
-
-  ctx.fillStyle = '#2563eb';
-  ctx.font = 'bold 30px monospace';
-  ctx.fillText(invoice.invoiceNumber || 'INV/2026/...', 90, 275);
-
-  // Client Name
-  ctx.fillStyle = '#64748b';
-  ctx.font = '22px sans-serif';
-  ctx.fillText('Tagihan Kepada:', 90, 335);
-
-  ctx.fillStyle = '#0f172a';
-  ctx.font = 'bold 28px sans-serif';
-  ctx.fillText(invoice.clientName || 'Klien', 90, 375);
-
-  // Date
-  ctx.fillStyle = '#64748b';
-  ctx.font = '20px sans-serif';
-  ctx.fillText(`Tanggal: ${formatDate(invoice.issueDate)}  •  Jatuh Tempo: ${formatDate(invoice.dueDate)}`, 90, 425);
-
-  // Total Amount Box
-  ctx.fillStyle = '#eff6ff';
-  ctx.strokeStyle = '#bfdbfe';
-  ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  ctx.roundRect(90, 465, width - 180, 85, 12);
-  ctx.fill();
-  ctx.stroke();
-
-  ctx.fillStyle = '#1e40af';
-  ctx.font = 'bold 20px sans-serif';
-  ctx.fillText('TOTAL TAGIHAN', 120, 505);
-
-  ctx.fillStyle = '#1e3a8a';
-  ctx.font = 'bold 34px sans-serif';
-  const totalText = `Rp ${formatNum(invoice.totalAmount)}`;
-  ctx.fillText(totalText, 120, 540);
-
-  return c.toBuffer('image/png');
-}
-
-/**
  * Generate Page 1 Thumbnail PNG directly from the exact same jsPDF document.
  * Single Source of Truth architecture: Invoice Data -> createInvoiceJsPdf -> Page 1 Canvas -> PNG.
+ * Strictly avoids alternative/fallback designs to ensure WhatsApp preview matches the actual PDF invoice.
  */
 export async function generateInvoicePage1Thumbnail(
   invoice: Invoice,
   publicUrl?: string
 ): Promise<{ buffer: Buffer; contentType: string }> {
+  // If the invoice already has a pre-rendered base64 thumbnail of Page 1, use it directly
+  const storedBase64 = invoice.thumbnailBase64 || (invoice as any).previewImage;
+  if (storedBase64 && typeof storedBase64 === 'string' && storedBase64.length > 100) {
+    const cleanBase64 = storedBase64.includes('base64,') ? storedBase64.split('base64,')[1] : storedBase64;
+    return {
+      buffer: Buffer.from(cleanBase64, 'base64'),
+      contentType: 'image/png',
+    };
+  }
+
   try {
     // 1. Generate the exact same jsPDF document (Single Source of Truth)
     const doc = await createInvoiceJsPdf(invoice, publicUrl, invoice.language || 'id');
@@ -157,7 +92,7 @@ export async function generateInvoicePage1Thumbnail(
     const pdfDoc = await loadingTask.promise;
     const page = await pdfDoc.getPage(1);
 
-    // Render page 1 at scale 1.8 for crisp high-DPI text on WhatsApp preview
+    // Render page 1 at scale 1.8 for crisp high-DPI text on WhatsApp preview (approx 1071 x 1515)
     const viewport = page.getViewport({ scale: 1.8 });
 
     const c = canvas.createCanvas(Math.round(viewport.width), Math.round(viewport.height));
@@ -178,14 +113,9 @@ export async function generateInvoicePage1Thumbnail(
       buffer: pngBuffer,
       contentType: 'image/png',
     };
-  } catch (err) {
+  } catch (err: any) {
     console.error('[InvoiceThumbnailService] Error generating PDF page 1 thumbnail:', err);
-    // Safe fallback: clean designed invoice card
-    const fallbackBuffer = generateFallbackInvoiceImage(invoice);
-    return {
-      buffer: fallbackBuffer,
-      contentType: 'image/png',
-    };
+    throw new Error(`Failed to generate PDF Page 1 thumbnail for invoice ${invoice.invoiceNumber || invoice.id}: ${err?.message || String(err)}`);
   }
 }
 
