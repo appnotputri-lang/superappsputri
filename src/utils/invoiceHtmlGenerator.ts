@@ -83,7 +83,8 @@ export async function urlToBase64(url: string): Promise<string> {
 
 export async function getQrCodeBase64(invoice: Invoice, publicUrl?: string): Promise<string> {
   const token = invoice.publicToken || invoice.id || invoice.invoiceNumber;
-  const targetUrl = publicUrl || invoice.legacyPublicUrl || `${window.location.origin}/${token}`;
+  const origin = typeof window !== 'undefined' && window.location ? window.location.origin : 'https://app.notarisputri.web.id';
+  const targetUrl = publicUrl || invoice.legacyPublicUrl || `${origin}/${token}`;
 
   try {
     const dataUrl = await QRCode.toDataURL(targetUrl, { width: 240, margin: 1 });

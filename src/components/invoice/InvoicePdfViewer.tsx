@@ -15,7 +15,8 @@ import {
   AlertCircle,
   MoreVertical,
   Check,
-  Search
+  Search,
+  Share2
 } from 'lucide-react';
 
 // Polyfill Promise.withResolvers if not present in older runtime
@@ -40,6 +41,7 @@ interface InvoicePdfViewerProps {
   fileName?: string;
   onDownload?: () => void;
   onPrint?: () => void;
+  onShare?: () => void;
   onBack?: () => void;
   isDownloading?: boolean;
   isLoading?: boolean;
@@ -143,6 +145,7 @@ export const InvoicePdfViewer: React.FC<InvoicePdfViewerProps> = ({
   fileName = 'Invoice.pdf',
   onDownload,
   onPrint,
+  onShare,
   onBack,
   isDownloading = false,
   isLoading = false,
@@ -467,6 +470,19 @@ export const InvoicePdfViewer: React.FC<InvoicePdfViewerProps> = ({
             </button>
           )}
 
+          {/* Share Button */}
+          {onShare && (
+            <button
+              onClick={onShare}
+              className="p-2 sm:px-3 sm:py-2 rounded-lg bg-slate-800 hover:bg-slate-700 active:bg-slate-600 text-slate-200 hover:text-white transition-colors cursor-pointer flex items-center gap-1.5 text-xs font-medium border border-slate-700/60 shadow-xs"
+              title="Bagikan Tautan Invoice"
+              aria-label="Share"
+            >
+              <Share2 className="w-4 h-4 text-slate-300" />
+              <span className="hidden sm:inline">Bagikan</span>
+            </button>
+          )}
+
           {/* Download Button */}
           {onDownload && (
             <button
@@ -528,6 +544,18 @@ export const InvoicePdfViewer: React.FC<InvoicePdfViewerProps> = ({
                     >
                       <Printer className="w-3.5 h-3.5 text-slate-400" />
                       <span>Cetak Dokumen</span>
+                    </button>
+                  )}
+                  {onShare && (
+                    <button
+                      onClick={() => {
+                        setShowMoreMenu(false);
+                        onShare();
+                      }}
+                      className="w-full text-left px-3.5 py-2 hover:bg-slate-800 flex items-center gap-2.5 cursor-pointer sm:hidden"
+                    >
+                      <Share2 className="w-3.5 h-3.5 text-slate-400" />
+                      <span>Bagikan Tautan</span>
                     </button>
                   )}
                   {onDownload && (

@@ -24,6 +24,12 @@ import {
   deleteInvoiceD1
 } from "./src/lib/d1InvoiceRepository";
 import {
+  getOrGenerateInvoiceThumbnail,
+  invalidateInvoiceThumbnailCache,
+  getInvoiceThumbnailCacheKey
+} from "./src/services/invoiceThumbnailService";
+import { isReservedPath } from "./src/constants/tabs";
+import {
   getAllKbliMappingD1,
   getKbliMappingByIdD1,
   createKbliMappingD1,
@@ -307,6 +313,52 @@ async function startServer() {
     }
   });
 
+  // ==================================================
+  // INVOICE PUBLIC PREVIEW IMAGE / WHATSAPP THUMBNAIL
+  // Generates crisp Page 1 PNG from actual jsPDF (Single Source of Truth)
+  // ==================================================
+  const handleInvoicePreviewImage = async (req: express.Request, res: express.Response) => {
+    try {
+      const db = getLocalD1Database();
+      const rawToken = req.params.token;
+      const token = Array.isArray(rawToken) ? rawToken[0] : rawToken;
+      if (!token) {
+        return res.status(400).json({ success: false, error: "Token is required" });
+      }
+
+      const result = await getInvoiceByPublicTokenD1(db, token);
+      if (!result.success || !result.invoice) {
+        return res.status(404).json({ success: false, error: "Invoice not found or invalid token" });
+      }
+
+      const invoice = result.invoice;
+      const hostH = req.headers["x-forwarded-host"];
+      const host = (Array.isArray(hostH) ? hostH[0] : hostH) || req.headers.host || "app.notarisputri.web.id";
+      const protoH = req.headers["x-forwarded-proto"];
+      const proto = (Array.isArray(protoH) ? protoH[0] : protoH) || req.protocol || "https";
+      const origin = `${proto}://${host}`;
+      const publicUrl = invoice.legacyPublicUrl || `${origin}/${token}`;
+
+      const { buffer, contentType, fromCache } = await getOrGenerateInvoiceThumbnail(invoice, token, publicUrl);
+      const cacheKey = getInvoiceThumbnailCacheKey(invoice, token);
+
+      res.setHeader("Content-Type", contentType);
+      res.setHeader("Cache-Control", "public, max-age=86400, s-maxage=86400, stale-while-revalidate=3600");
+      res.setHeader("ETag", `"${cacheKey}"`);
+      res.setHeader("X-Thumbnail-Cache", fromCache ? "HIT" : "MISS");
+      res.setHeader("Content-Length", buffer.length);
+      return res.end(buffer);
+    } catch (err: any) {
+      console.error("[Invoices Preview Image API] Error generating thumbnail:", err);
+      return res.status(500).json({ success: false, error: "Failed to generate preview image" });
+    }
+  };
+
+  app.get("/api/public/invoice/:token/preview-image", handleInvoicePreviewImage);
+  app.get("/api/public/invoice/:token/preview-image.png", handleInvoicePreviewImage);
+  app.get("/api/invoices/public/:token/preview-image", handleInvoicePreviewImage);
+  app.get("/api/invoices/public/:token/preview-image.png", handleInvoicePreviewImage);
+
   app.get("/api/invoices/:id", async (req, res) => {
     try {
       const db = getLocalD1Database();
@@ -331,6 +383,9 @@ async function startServer() {
       const db = getLocalD1Database();
       const payload = req.body || {};
       const result = await createInvoiceD1(db, payload);
+      if (result.success && result.invoice) {
+        invalidateInvoiceThumbnailCache(result.invoice.publicToken, result.invoice.id);
+      }
       res.status(201).json(result);
     } catch (err: any) {
       console.error("[Invoices D1 API] Error creating invoice:", err);
@@ -351,6 +406,9 @@ async function startServer() {
       if (!result.success) {
         return res.status(404).json(result);
       }
+      if (result.success && result.invoice) {
+        invalidateInvoiceThumbnailCache(result.invoice.publicToken, result.invoice.id);
+      }
       res.json(result);
     } catch (err: any) {
       console.error("[Invoices D1 API] Error updating invoice:", err);
@@ -366,6 +424,7 @@ async function startServer() {
         return res.status(400).json({ success: false, error: "Invoice ID is required" });
       }
 
+      invalidateInvoiceThumbnailCache(undefined, id);
       const result = await deleteInvoiceD1(db, id);
       res.json(result);
     } catch (err: any) {
@@ -2208,12 +2267,124 @@ async function startServer() {
     }
   });
 
-  // Vite middleware for development
+  function escapeHtml(str: string): string {
+    return String(str || "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
+
+  const isInvoiceHtmlPath = (reqPath: string): { isMatch: boolean; token: string } => {
+    if (!reqPath || reqPath === "/" || reqPath.startsWith("/api/")) {
+      return { isMatch: false, token: "" };
+    }
+    if (/\.(js|css|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|map|json|webp)$/i.test(reqPath)) {
+      return { isMatch: false, token: "" };
+    }
+    if (reqPath.startsWith("/invoice/public/")) {
+      const token = reqPath.replace("/invoice/public/", "").split("?")[0].split("/")[0];
+      return { isMatch: Boolean(token), token };
+    }
+    if (reqPath.startsWith("/invoices/public/")) {
+      const token = reqPath.replace("/invoices/public/", "").split("?")[0].split("/")[0];
+      return { isMatch: Boolean(token), token };
+    }
+    if (reqPath.startsWith("/inv/")) {
+      const token = reqPath.replace("/inv/", "").split("?")[0].split("/")[0];
+      return { isMatch: Boolean(token), token };
+    }
+    const trimmed = reqPath.replace(/^\/+|\/+$/g, "");
+    if (!trimmed.includes("/") && !isReservedPath("/" + trimmed)) {
+      return { isMatch: true, token: trimmed };
+    }
+    return { isMatch: false, token: "" };
+  };
+
+  let vite: any = null;
   if (process.env.NODE_ENV !== "production") {
-    const vite = await createViteServer({
+    vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
     });
+  }
+
+  // Intercept Public Invoice HTML page requests to dynamically inject Open Graph & Twitter Card tags
+  app.use(async (req, res, next) => {
+    if (req.method !== "GET") return next();
+
+    const { isMatch, token } = isInvoiceHtmlPath(req.path);
+    if (!isMatch || !token) return next();
+
+    try {
+      const db = getLocalD1Database();
+      const invoiceRes = await getInvoiceByPublicTokenD1(db, token);
+      if (!invoiceRes.success || !invoiceRes.invoice) {
+        return next();
+      }
+
+      const invoice = invoiceRes.invoice;
+      const hostH = req.headers["x-forwarded-host"];
+      const host = (Array.isArray(hostH) ? hostH[0] : hostH) || req.headers.host || "app.notarisputri.web.id";
+      const protoH = req.headers["x-forwarded-proto"];
+      const proto = (Array.isArray(protoH) ? protoH[0] : protoH) || req.protocol || "https";
+      const origin = `${proto}://${host}`;
+      const publicUrl = invoice.legacyPublicUrl || `${origin}/${token}`;
+      const version = encodeURIComponent(invoice.updatedAt || invoice.createdAt || String(invoice.totalAmount || "1"));
+      const previewImageUrl = `${origin}/api/public/invoice/${token}/preview-image?v=${version}`;
+
+      const ogTitle = `Invoice ${invoice.invoiceNumber || ''}`.trim();
+      const ogDesc = invoice.clientName
+        ? `Invoice untuk ${invoice.clientName}`
+        : "Invoice Notaris/PPAT Nukantini Putri Parincha";
+      const pageTitle = `${ogTitle} - ${invoice.clientName || 'Notaris Putri'}`;
+
+      let html = "";
+      const fs = await import("fs");
+      if (process.env.NODE_ENV !== "production") {
+        html = fs.readFileSync(path.join(process.cwd(), "index.html"), "utf-8");
+        if (vite) {
+          html = await vite.transformIndexHtml(req.originalUrl, html);
+        }
+      } else {
+        html = fs.readFileSync(path.join(process.cwd(), "dist", "index.html"), "utf-8");
+      }
+
+      const metaTags = `
+    <title>${escapeHtml(pageTitle)}</title>
+    <meta name="description" content="${escapeHtml(ogDesc)}" />
+    <!-- Open Graph / WhatsApp Preview -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="${publicUrl}" />
+    <meta property="og:title" content="${escapeHtml(ogTitle)}" />
+    <meta property="og:description" content="${escapeHtml(ogDesc)}" />
+    <meta property="og:image" content="${previewImageUrl}" />
+    <meta property="og:image:secure_url" content="${previewImageUrl}" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1190" />
+    <meta property="og:image:height" content="1684" />
+    <meta property="og:site_name" content="Notaris Putri SuperApp" />
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:url" content="${publicUrl}" />
+    <meta name="twitter:title" content="${escapeHtml(ogTitle)}" />
+    <meta name="twitter:description" content="${escapeHtml(ogDesc)}" />
+    <meta name="twitter:image" content="${previewImageUrl}" />`;
+
+      html = html.replace(/<title>.*?<\/title>/i, "");
+      html = html.replace("</head>", `${metaTags}\n</head>`);
+
+      res.setHeader("Content-Type", "text/html; charset=utf-8");
+      return res.send(html);
+    } catch (err) {
+      console.warn("[Invoice HTML Middleware] Error injecting meta tags:", err);
+      return next();
+    }
+  });
+
+  // Vite middleware for development
+  if (process.env.NODE_ENV !== "production") {
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), "dist");

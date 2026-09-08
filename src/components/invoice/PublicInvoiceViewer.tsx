@@ -67,6 +67,9 @@ export const PublicInvoiceViewer: React.FC = () => {
       if (data) {
         setInvoice(data);
 
+        // Update document title for browser tab
+        document.title = `Invoice ${data.invoiceNumber || ''} - ${data.clientName || 'Notaris Putri'}`;
+
         // Generate the PDF document (Single Source of Truth)
         try {
           const blob = await generateInvoicePdfBlob(data);
@@ -122,6 +125,33 @@ export const PublicInvoiceViewer: React.FC = () => {
     }
   };
 
+  const handleShare = async () => {
+    if (!invoice) return;
+    const token = invoice.publicToken || invoice.id;
+    const publicUrl = invoice.legacyPublicUrl || `${window.location.origin}/${token}`;
+    const shareText = `Invoice ${invoice.invoiceNumber || ''}\n${invoice.clientName || 'Klien'}\nLihat invoice:\n${publicUrl}`;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `Invoice ${invoice.invoiceNumber || ''}`,
+          text: shareText,
+          url: publicUrl,
+        });
+        return;
+      } catch (err: any) {
+        if (err?.name === 'AbortError') return;
+      }
+    }
+
+    try {
+      await navigator.clipboard.writeText(shareText);
+      alert(`Tautan invoice berhasil disalin:\n${publicUrl}`);
+    } catch {
+      prompt('Salin tautan invoice:', publicUrl);
+    }
+  };
+
   const fileName = invoice
     ? `Invoice_${invoice.invoiceNumber.replace(/[\/\\]/g, '_')}.pdf`
     : 'Invoice.pdf';
@@ -132,6 +162,7 @@ export const PublicInvoiceViewer: React.FC = () => {
       fileName={fileName}
       onDownload={handleDownloadPDF}
       onPrint={handlePrint}
+      onShare={handleShare}
       onBack={window.history.length > 1 ? handleBack : undefined}
       isDownloading={downloading}
       isLoading={loading}
