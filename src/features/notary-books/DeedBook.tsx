@@ -74,6 +74,36 @@ const MONTH_NAMES = [
   'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
 ];
 
+const MONTH_TABS = [
+  { num: 1, label: 'Jan' },
+  { num: 2, label: 'Feb' },
+  { num: 3, label: 'Mar' },
+  { num: 4, label: 'Apr' },
+  { num: 5, label: 'Mei' },
+  { num: 6, label: 'Jun' },
+  { num: 7, label: 'Jul' },
+  { num: 8, label: 'Agu' },
+  { num: 9, label: 'Sep' },
+  { num: 10, label: 'Okt' },
+  { num: 11, label: 'Nov' },
+  { num: 12, label: 'Des' }
+];
+
+const DEED_CATEGORIES = [
+  'Pendirian PT',
+  'Perubahan PT',
+  'Pendirian CV',
+  'Perubahan CV',
+  'Jual Beli',
+  'Hibah',
+  'APHT',
+  'SKMHT',
+  'Perjanjian Sewa',
+  'Kuasa',
+  'Waris',
+  'Lainnya'
+];
+
 // NOTE: the old client-side "auto-generate monthly deed number" helper that
 // used to live here was removed — it computed the default number for a NEW
 // deed from `allLoadedDeeds` (a partial, lazily-populated local cache), which
@@ -176,6 +206,8 @@ export const DeedBook: React.FC = () => {
   const currentMonthKey = `${currentYearNum}-${String(currentMonthNum).padStart(2, '0')}`;
 
   const [selectedYear, setSelectedYear] = useState<string>(currentYearNum.toString());
+  const [selectedMonth, setSelectedMonth] = useState<number | 'ALL'>(currentMonthNum);
+  const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
   const [deeds, setDeeds] = useState<Deed[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [totalDeedsCount, setTotalDeedsCount] = useState<number>(0);
@@ -279,11 +311,31 @@ export const DeedBook: React.FC = () => {
     }
   };
 
+  // Calculate deed number range for current view
+  const deedNumberRange = useMemo(() => {
+    if (!deeds || deeds.length === 0) return '-';
+    const nums = deeds
+      .map((d) => (d.number || d.deedNumber || '').trim())
+      .filter(Boolean);
+    if (nums.length === 0) return '-';
+
+    const sorted = [...nums].sort((a, b) => {
+      const nA = parseInt(a.replace(/\D/g, ''), 10) || 0;
+      const nB = parseInt(b.replace(/\D/g, ''), 10) || 0;
+      if (nA !== nB) return nA - nB;
+      return a.localeCompare(b);
+    });
+
+    const first = sorted[0];
+    const last = sorted[sorted.length - 1];
+    return first === last ? first : `${first} – ${last}`;
+  }, [deeds]);
+
   // Load deeds server-side with local memory cache fallback
   useEffect(() => {
     let active = true;
     const cleanSearch = searchTerm.trim();
-    const cacheKey = `deeds:page=${currentPage}:size=${pageSize}:search=${cleanSearch}:year=${selectedYear}`;
+    const cacheKey = `deeds:page=${currentPage}:size=${pageSize}:search=${cleanSearch}:year=${selectedYear}:month=${selectedMonth}:cat=${selectedCategory}`;
     
     const cached = deedCache.get(cacheKey);
     if (cached) {
@@ -300,7 +352,11 @@ export const DeedBook: React.FC = () => {
           page: currentPage,
           pageSize,
           search: cleanSearch,
-          year: selectedYear
+          year: selectedYear,
+          month: selectedMonth,
+          category: selectedCategory,
+          order: 'asc',
+          sortBy: 'date'
         });
         if (active && res.success) {
           setDeeds(res.records);
@@ -322,12 +378,12 @@ export const DeedBook: React.FC = () => {
       active = false;
       clearTimeout(debounceTimer);
     };
-  }, [currentPage, pageSize, searchTerm, selectedYear]);
+  }, [currentPage, pageSize, searchTerm, selectedYear, selectedMonth, selectedCategory]);
 
   // Reset page to 1 when filters or search change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, selectedYear]);
+  }, [searchTerm, selectedYear, selectedMonth, selectedCategory]);
 
   // Combine all loaded deeds from monthCache into a single list for helper calculations
   const allLoadedDeeds = useMemo(() => {
@@ -484,7 +540,14 @@ export const DeedBook: React.FC = () => {
       const { warning } = calculateOrderNumber(deed.number || '', dDate, deed.id, allLoadedDeeds);
       setOrderWarning(warning);
     } else {
-      const defaultDate = new Date().toISOString().split('T')[0];
+      let defaultDate = new Date().toISOString().split('T')[0];
+      if (selectedYear !== 'ALL' && typeof selectedMonth === 'number') {
+        const expectedPrefix = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}`;
+        if (!defaultDate.startsWith(expectedPrefix)) {
+          defaultDate = `${expectedPrefix}-01`;
+        }
+      }
+
       setEditingDeedId(null);
       setDeedDate(defaultDate);
       // Fire-and-forget local cache warm-up (used only for the manual-edit
@@ -782,12 +845,16 @@ export const DeedBook: React.FC = () => {
           page: currentPage,
           pageSize,
           search: cleanSearch,
-          year: selectedYear
+          year: selectedYear,
+          month: selectedMonth,
+          category: selectedCategory,
+          order: 'asc',
+          sortBy: 'date'
         });
         if (refreshed.success) {
           setDeeds(refreshed.records);
           setTotalDeedsCount(refreshed.total);
-          const cacheKey = `deeds:page=${currentPage}:size=${pageSize}:search=${cleanSearch}:year=${selectedYear}`;
+          const cacheKey = `deeds:page=${currentPage}:size=${pageSize}:search=${cleanSearch}:year=${selectedYear}:month=${selectedMonth}:cat=${selectedCategory}`;
           setDeedCacheEntry(cacheKey, refreshed.records, refreshed.total);
         }
       } catch (refreshErr) {
@@ -908,12 +975,16 @@ export const DeedBook: React.FC = () => {
         page: currentPage,
         pageSize,
         search: cleanSearch,
-        year: selectedYear
+        year: selectedYear,
+        month: selectedMonth,
+        category: selectedCategory,
+        order: 'asc',
+        sortBy: 'date'
       });
       if (refreshed.success) {
         setDeeds(refreshed.records);
         setTotalDeedsCount(refreshed.total);
-        const cacheKey = `deeds:page=${currentPage}:size=${pageSize}:search=${cleanSearch}:year=${selectedYear}`;
+        const cacheKey = `deeds:page=${currentPage}:size=${pageSize}:search=${cleanSearch}:year=${selectedYear}:month=${selectedMonth}:cat=${selectedCategory}`;
         setDeedCacheEntry(cacheKey, refreshed.records, refreshed.total);
       }
     } catch (err) {
@@ -1329,8 +1400,93 @@ export const DeedBook: React.FC = () => {
         </div>
       ) : (
         <>
-          {/* Filter & Search Bar (DESKTOP) */}
-          <div className="hidden md:flex bg-white p-4 rounded-xl border border-slate-200 shadow-sm items-center justify-between gap-3">
+          {/* 1. FILTER TAHUN & BULAN NAVIGATION */}
+          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Tahun:</span>
+                <select
+                  value={selectedYear}
+                  onChange={(e) => setSelectedYear(e.target.value)}
+                  className="px-3 py-1.5 text-xs border border-slate-300 rounded-lg font-semibold text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 cursor-pointer"
+                >
+                  <option value="ALL">Semua Tahun</option>
+                  {availableYears.map((yr) => (
+                    <option key={yr} value={yr}>
+                      {yr}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setSelectedMonth('ALL')}
+                  className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition cursor-pointer ${
+                    selectedMonth === 'ALL'
+                      ? 'bg-blue-600 text-white shadow-xs'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  Semua Bulan
+                </button>
+              </div>
+            </div>
+
+            {/* Monthly Tab Pills */}
+            <div className="grid grid-cols-6 sm:grid-cols-12 gap-1.5 pt-1">
+              {MONTH_TABS.map((tab) => {
+                const isActive = selectedMonth === tab.num;
+                return (
+                  <button
+                    key={tab.num}
+                    onClick={() => setSelectedMonth(tab.num)}
+                    className={`py-1.5 text-xs font-medium rounded-lg transition-all text-center cursor-pointer ${
+                      isActive
+                        ? 'bg-blue-600 text-white font-semibold shadow-xs'
+                        : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* 2. MONTHLY SUMMARY & TITLE */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
+            <div>
+              <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                <span>{selectedMonth === 'ALL' ? 'Semua Bulan' : MONTH_NAMES[selectedMonth - 1]} {selectedYear !== 'ALL' ? selectedYear : ''}</span>
+              </h2>
+              <p className="text-xs text-slate-500 mt-0.5">
+                {selectedMonth === 'ALL'
+                  ? `Menampilkan daftar seluruh akta resmi pada tahun ${selectedYear}.`
+                  : `Menampilkan daftar akta pada bulan ${MONTH_NAMES[selectedMonth - 1]} ${selectedYear}.`}
+              </p>
+            </div>
+
+            <div className="flex items-center gap-6 bg-blue-50/70 border border-blue-100 rounded-xl px-4 py-2.5 shadow-2xs">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-blue-100 rounded-lg text-blue-600">
+                  <FileText size={18} />
+                </div>
+                <div>
+                  <div className="text-[11px] text-slate-500 font-medium">Jumlah Akta</div>
+                  <div className="text-base font-bold text-blue-600">{totalDeedsCount}</div>
+                </div>
+              </div>
+              <div className="h-8 w-[1px] bg-blue-200/60" />
+              <div>
+                <div className="text-[11px] text-slate-500 font-medium">Nomor Akta</div>
+                <div className="text-base font-bold text-blue-600">{deedNumberRange}</div>
+              </div>
+            </div>
+          </div>
+
+          {/* 3. SEARCH & CATEGORY FILTER BAR */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white p-3 rounded-xl border border-slate-200 shadow-xs">
             <div className="relative w-full sm:w-80">
               <Search className="absolute left-3 top-2.5 text-slate-400" size={16} />
               <input
@@ -1343,30 +1499,45 @@ export const DeedBook: React.FC = () => {
             </div>
 
             <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-              <span className="text-xs text-slate-500 font-medium">Tahun:</span>
               <select
-                value={selectedYear}
-                onChange={(e) => setSelectedYear(e.target.value)}
-                className="p-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-medium text-slate-700 bg-white"
+                value={selectedCategory}
+                onChange={(e) => setSelectedCategory(e.target.value)}
+                className="p-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-medium text-slate-700 bg-white cursor-pointer"
               >
-                <option value="ALL">Semua Tahun</option>
-                {availableYears.map((yr) => (
-                  <option key={yr} value={yr}>
-                    {yr}
+                <option value="ALL">Semua Jenis Akta</option>
+                {DEED_CATEGORIES.map((cat) => (
+                  <option key={cat} value={cat}>
+                    {cat}
                   </option>
                 ))}
               </select>
+
+              {(searchTerm || selectedCategory !== 'ALL') && (
+                <button
+                  onClick={() => {
+                    setSearchTerm('');
+                    setSelectedCategory('ALL');
+                  }}
+                  className="px-3 py-2 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition cursor-pointer"
+                >
+                  Reset
+                </button>
+              )}
             </div>
           </div>
 
-          {/* Deed Book List */}
+          {/* 4. DEED BOOK LIST / TABLE */}
           {loading ? (
             <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs">
               <AppLoader variant="content" message="Memuat data akta resmi..." />
             </div>
           ) : deeds.length === 0 ? (
             <MobileEmptyState
-              message='Belum ada data akta ditemukan.'
+              message={
+                selectedMonth === 'ALL'
+                  ? `Belum ada data akta ditemukan untuk tahun ${selectedYear}.`
+                  : `Belum ada data akta pada bulan ${MONTH_NAMES[selectedMonth - 1]} ${selectedYear}.`
+              }
               actionText="Buat Akta Baru"
               onAction={() => handleOpenModal()}
             />
@@ -1414,156 +1585,156 @@ export const DeedBook: React.FC = () => {
 
               {/* DESKTOP TABLE VIEW */}
               <div className="hidden md:block bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs border-collapse table-fixed min-w-[1000px]">
-                  <colgroup>
-                    <col className="w-[80px]" />
-                    <col className="w-[85px]" />
-                    <col className="w-[130px]" />
-                    <col className="w-[36%]" />
-                    <col className="w-[36%]" />
-                    <col className="w-[90px]" />
-                  </colgroup>
-                  <thead>
-                    <tr className="bg-slate-50 text-slate-700 font-semibold border-b border-slate-200 uppercase text-[11px]">
-                      <th className="p-3 text-center border-r border-slate-200">NO. URUT</th>
-                      <th className="p-3 text-center border-r border-slate-200">NO. AKTA</th>
-                      <th className="p-3 text-center border-r border-slate-200">TANGGAL</th>
-                      <th className="p-3 border-r border-slate-200">SIFAT / JUDUL AKTA</th>
-                      <th className="p-3 border-r border-slate-200">NAMA PENGHADAP / PARA PIHAK</th>
-                      <th className="p-3 text-center">AKSI</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-200">
-                    {deeds.map((deed, idx) => {
-                      const locked = !superAdmin || isRecordLocked(deed.date, user?.email);
-                      const lockMsg = !superAdmin
-                        ? 'Hanya Super Admin yang dapat mengubah data'
-                        : (isRecordLocked(deed.date, user?.email) ? `Terkunci otomatis setelah ${getLockDeadlineMessage(deed.date)}` : '');
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs border-collapse table-fixed min-w-[1000px]">
+                    <colgroup>
+                      <col className="w-[80px]" />
+                      <col className="w-[85px]" />
+                      <col className="w-[130px]" />
+                      <col className="w-[36%]" />
+                      <col className="w-[36%]" />
+                      <col className="w-[90px]" />
+                    </colgroup>
+                    <thead>
+                      <tr className="bg-slate-50 text-slate-700 font-semibold border-b border-slate-200 uppercase text-[11px]">
+                        <th className="p-3 text-center border-r border-slate-200">NO. URUT</th>
+                        <th className="p-3 text-center border-r border-slate-200">NO. AKTA</th>
+                        <th className="p-3 text-center border-r border-slate-200">TANGGAL</th>
+                        <th className="p-3 border-r border-slate-200">SIFAT / JUDUL AKTA</th>
+                        <th className="p-3 border-r border-slate-200">NAMA PENGHADAP / PARA PIHAK</th>
+                        <th className="p-3 text-center">AKSI</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200">
+                      {deeds.map((deed, idx) => {
+                        const locked = !superAdmin || isRecordLocked(deed.date, user?.email);
+                        const lockMsg = !superAdmin
+                          ? 'Hanya Super Admin yang dapat mengubah data'
+                          : (isRecordLocked(deed.date, user?.email) ? `Terkunci otomatis setelah ${getLockDeadlineMessage(deed.date)}` : '');
 
-                      return (
-                        <tr key={deed.id} className="hover:bg-slate-50/80 transition-colors">
-                          <td className="p-3 text-center border-r border-slate-200 font-medium text-slate-600">
-                            {deed.orderNumber || idx + 1 + (currentPage - 1) * (typeof pageSize === 'string' ? deeds.length : pageSize)}
-                          </td>
-                          <td className="p-3 text-center border-r border-slate-200 font-bold text-slate-900">
-                            {deed.number}
-                          </td>
-                          <td className="p-3 text-center border-r border-slate-200 text-slate-600 whitespace-nowrap">
-                            {formatDateIndo(deed.date)}
-                          </td>
-                          <td className="p-3 border-r border-slate-200 font-medium text-slate-900 leading-snug break-words">
-                            {deed.title}
-                            {deed.category && (
-                              <span className="ml-2 inline-block px-1.5 py-0.5 text-[10px] bg-blue-50 text-blue-700 rounded border border-blue-200 font-normal">
-                                {deed.category}
-                              </span>
-                            )}
-                            {deed.clientName && (
-                              <div className="text-[11px] text-slate-500 font-normal mt-0.5">
-                                Klien: {deed.clientName}
-                              </div>
-                            )}
-                          </td>
-                          <td className="p-3 border-r border-slate-200 text-slate-800 leading-snug break-words">
-                            {deed.appearers && deed.appearers.length > 0 ? (
-                              <div className="space-y-1">
-                                {deed.appearers.map((app, i) => (
-                                  <div key={i} className="text-slate-900 font-medium">
-                                    • {app.name}
-                                    {app.position && <span className="text-slate-500 font-normal text-[11px]"> ({app.position})</span>}
-                                    {(app.role === 'Proxy' || app.role === 'Both') && app.grantors && app.grantors.length > 0 && (
-                                      <div className="ml-3 text-[11px] text-slate-600 font-normal italic">
-                                        {app.role === 'Both'
-                                          ? `Bertindak untuk diri sendiri dan selaku kuasa dari: ${app.grantors.map((g) => g.name).join(', ')}`
-                                          : `Selaku kuasa dari: ${app.grantors.map((g) => g.name).join(', ')}`}
-                                      </div>
-                                    )}
-                                  </div>
-                                ))}
-                              </div>
-                            ) : (
-                              <span className="text-slate-400 italic">-</span>
-                            )}
-                          </td>
-                          <td className="p-3 text-center">
-                            {locked ? (
-                              <div className="inline-flex items-center gap-1 text-slate-400 bg-slate-100 px-2 py-1 rounded text-[11px]" title={lockMsg}>
-                                <Lock size={12} className="text-amber-600" />
-                                <span>Terkunci</span>
-                              </div>
-                            ) : (
-                              <div className="flex items-center justify-center gap-1">
-                                <button
-                                  onClick={() => handleOpenModal(deed)}
-                                  className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition cursor-pointer"
-                                  title="Edit Akta"
-                                >
-                                  <Edit2 size={14} />
-                                </button>
-                                <button
-                                  onClick={() => handleDelete(deed)}
-                                  className="p-1.5 text-red-600 hover:bg-red-50 rounded transition cursor-pointer"
-                                  title="Hapus Akta"
-                                >
-                                  <Trash2 size={14} />
-                                </button>
-                              </div>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Pagination Footer */}
-              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 border-t border-slate-200 bg-slate-50/50">
-                <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
-                  <span>Tampilkan</span>
-                  <select
-                    value={pageSize}
-                    onChange={(e) => {
-                      const val = e.target.value === 'Semua' ? 'Semua' : Number(e.target.value);
-                      setPageSize(val);
-                      setCurrentPage(1);
-                    }}
-                    className="px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs font-semibold focus:outline-none cursor-pointer"
-                  >
-                    <option value={10}>10</option>
-                    <option value={20}>20</option>
-                    <option value={30}>30</option>
-                    <option value={40}>40</option>
-                    <option value={50}>50</option>
-                    <option value="Semua">Semua</option>
-                  </select>
-                  <span>baris. Menampilkan {deeds.length === 0 ? 0 : Math.min(totalDeedsCount, (currentPage - 1) * (typeof pageSize === 'string' ? totalDeedsCount : pageSize) + 1)}-{Math.min(totalDeedsCount, currentPage * (typeof pageSize === 'string' ? totalDeedsCount : pageSize))} dari {totalDeedsCount} akta.</span>
+                        return (
+                          <tr key={deed.id} className="hover:bg-slate-50/80 transition-colors">
+                            <td className="p-3 text-center border-r border-slate-200 font-medium text-slate-600">
+                              {deed.orderNumber || idx + 1 + (currentPage - 1) * (typeof pageSize === 'string' ? deeds.length : pageSize)}
+                            </td>
+                            <td className="p-3 text-center border-r border-slate-200 font-bold text-slate-900">
+                              {deed.number}
+                            </td>
+                            <td className="p-3 text-center border-r border-slate-200 text-slate-600 whitespace-nowrap">
+                              {formatDateIndo(deed.date)}
+                            </td>
+                            <td className="p-3 border-r border-slate-200 font-medium text-slate-900 leading-snug break-words">
+                              {deed.title}
+                              {deed.category && (
+                                <span className="ml-2 inline-block px-1.5 py-0.5 text-[10px] bg-blue-50 text-blue-700 rounded border border-blue-200 font-normal">
+                                  {deed.category}
+                                </span>
+                              )}
+                              {deed.clientName && (
+                                <div className="text-[11px] text-slate-500 font-normal mt-0.5">
+                                  Klien: {deed.clientName}
+                                </div>
+                              )}
+                            </td>
+                            <td className="p-3 border-r border-slate-200 text-slate-800 leading-snug break-words">
+                              {deed.appearers && deed.appearers.length > 0 ? (
+                                <div className="space-y-1">
+                                  {deed.appearers.map((app, i) => (
+                                    <div key={i} className="text-slate-900 font-medium">
+                                      • {app.name}
+                                      {app.position && <span className="text-slate-500 font-normal text-[11px]"> ({app.position})</span>}
+                                      {(app.role === 'Proxy' || app.role === 'Both') && app.grantors && app.grantors.length > 0 && (
+                                        <div className="ml-3 text-[11px] text-slate-600 font-normal italic">
+                                          {app.role === 'Both'
+                                            ? `Bertindak untuk diri sendiri dan selaku kuasa dari: ${app.grantors.map((g) => g.name).join(', ')}`
+                                            : `Selaku kuasa dari: ${app.grantors.map((g) => g.name).join(', ')}`}
+                                        </div>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <span className="text-slate-400 italic">-</span>
+                              )}
+                            </td>
+                            <td className="p-3 text-center">
+                              {locked ? (
+                                <div className="inline-flex items-center gap-1 text-slate-400 bg-slate-100 px-2 py-1 rounded text-[11px]" title={lockMsg}>
+                                  <Lock size={12} className="text-amber-600" />
+                                  <span>Terkunci</span>
+                                </div>
+                              ) : (
+                                <div className="flex items-center justify-center gap-1">
+                                  <button
+                                    onClick={() => handleOpenModal(deed)}
+                                    className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition cursor-pointer"
+                                    title="Edit Akta"
+                                  >
+                                    <Edit2 size={14} />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDelete(deed)}
+                                    className="p-1.5 text-red-600 hover:bg-red-50 rounded transition cursor-pointer"
+                                    title="Hapus Akta"
+                                  >
+                                    <Trash2 size={14} />
+                                  </button>
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 </div>
 
-                {totalDeedsCount > 0 && (
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                      disabled={currentPage === 1}
-                      className="p-2 border border-slate-200 rounded-xl bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-white disabled:cursor-not-allowed transition-all cursor-pointer"
+                {/* Pagination Footer */}
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 border-t border-slate-200 bg-slate-50/50">
+                  <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                    <span>Tampilkan</span>
+                    <select
+                      value={pageSize}
+                      onChange={(e) => {
+                        const val = e.target.value === 'Semua' ? 'Semua' : Number(e.target.value);
+                        setPageSize(val);
+                        setCurrentPage(1);
+                      }}
+                      className="px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs font-semibold focus:outline-none cursor-pointer"
                     >
-                      Sebelumnya
-                    </button>
-                    <span className="text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-lg px-3 py-1.5">
-                      Halaman {currentPage} dari {Math.ceil(totalDeedsCount / (typeof pageSize === 'string' ? 500 : pageSize)) || 1}
-                    </span>
-                    <button
-                      onClick={() => setCurrentPage(prev => Math.min(Math.ceil(totalDeedsCount / (typeof pageSize === 'string' ? 500 : pageSize)) || 1, prev + 1))}
-                      disabled={currentPage >= (Math.ceil(totalDeedsCount / (typeof pageSize === 'string' ? 500 : pageSize)) || 1)}
-                      className="p-2 border border-slate-200 rounded-xl bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-white disabled:cursor-not-allowed transition-all cursor-pointer"
-                    >
-                      Berikutnya
-                    </button>
+                      <option value={10}>10</option>
+                      <option value={20}>20</option>
+                      <option value={30}>30</option>
+                      <option value={40}>40</option>
+                      <option value={50}>50</option>
+                      <option value="Semua">Semua</option>
+                    </select>
+                    <span>baris. Menampilkan {deeds.length === 0 ? 0 : Math.min(totalDeedsCount, (currentPage - 1) * (typeof pageSize === 'string' ? totalDeedsCount : pageSize) + 1)}–{Math.min(totalDeedsCount, currentPage * (typeof pageSize === 'string' ? totalDeedsCount : pageSize))} dari {totalDeedsCount} akta ({selectedMonth === 'ALL' ? (selectedYear === 'ALL' ? 'Semua' : selectedYear) : `${MONTH_NAMES[selectedMonth - 1]} ${selectedYear}`}).</span>
                   </div>
-                )}
+
+                  {totalDeedsCount > 0 && (
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                        disabled={currentPage === 1}
+                        className="p-2 border border-slate-200 rounded-xl bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-white disabled:cursor-not-allowed transition-all cursor-pointer"
+                      >
+                        Sebelumnya
+                      </button>
+                      <span className="text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-lg px-3 py-1.5">
+                        Halaman {currentPage} dari {Math.ceil(totalDeedsCount / (typeof pageSize === 'string' ? 500 : pageSize)) || 1}
+                      </span>
+                      <button
+                        onClick={() => setCurrentPage(prev => Math.min(Math.ceil(totalDeedsCount / (typeof pageSize === 'string' ? 500 : pageSize)) || 1, prev + 1))}
+                        disabled={currentPage >= (Math.ceil(totalDeedsCount / (typeof pageSize === 'string' ? 500 : pageSize)) || 1)}
+                        className="p-2 border border-slate-200 rounded-xl bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-white disabled:cursor-not-allowed transition-all cursor-pointer"
+                      >
+                        Berikutnya
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
             </>
           )}
         </>

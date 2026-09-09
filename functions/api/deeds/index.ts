@@ -15,13 +15,14 @@ export const onRequestGet = async (context: any) => {
     const url = new URL(request.url);
     const year = url.searchParams.get('year') ? parseInt(url.searchParams.get('year')!, 10) : undefined;
     const month = url.searchParams.get('month') ? parseInt(url.searchParams.get('month')!, 10) : undefined;
+    const category = url.searchParams.get('category') || undefined;
     const limit = url.searchParams.get('limit') ? parseInt(url.searchParams.get('limit')!, 10) : undefined;
     const offset = url.searchParams.get('offset') ? parseInt(url.searchParams.get('offset')!, 10) : undefined;
     const search = url.searchParams.get('search') || url.searchParams.get('q') || undefined;
     const sortBy = url.searchParams.get('sortBy') || undefined;
-    const order = (url.searchParams.get('order') || 'desc').toLowerCase() as 'asc' | 'desc';
+    const order = (url.searchParams.get('order') || 'asc').toLowerCase() as 'asc' | 'desc';
 
-    const result = await getAllDeedsD1(db, { year, month, limit, offset, search, sortBy, order });
+    const result = await getAllDeedsD1(db, { year, month, category, limit, offset, search, sortBy, order });
     return createJsonResponse(result);
   } catch (error: any) {
     console.error("[CF Deeds API] Error fetching deeds:", error);

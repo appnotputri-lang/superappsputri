@@ -27,8 +27,8 @@ export function parseDeedNumber(val: any): { num: number; suffix: string; raw: s
 }
 
 export function compareDeedsChronologically(
-  a: { date?: string; number?: string; deedNumber?: string; createdAt?: string; id?: string },
-  b: { date?: string; number?: string; deedNumber?: string; createdAt?: string; id?: string }
+  a: { date?: string; number?: string; deedNumber?: string; createdAt?: string | number; id?: string },
+  b: { date?: string; number?: string; deedNumber?: string; createdAt?: string | number; id?: string }
 ): number {
   const dateA = (a.date || '').trim();
   const dateB = (b.date || '').trim();
@@ -182,6 +182,7 @@ export async function getAllDeedsD1(
   options: {
     year?: number;
     month?: number;
+    category?: string;
     search?: string;
     limit?: number;
     offset?: number;
@@ -209,10 +210,15 @@ export async function getAllDeedsD1(
     params.push(startStr, endStr);
   }
 
+  if (options.category && options.category !== 'ALL' && options.category !== 'Semua') {
+    whereConditions.push("category = ?");
+    params.push(options.category);
+  }
+
   if (options.search) {
-    whereConditions.push("(number LIKE ? OR title LIKE ? OR client_name LIKE ? OR order_number LIKE ? OR notes LIKE ?)");
+    whereConditions.push("(number LIKE ? OR title LIKE ? OR client_name LIKE ? OR order_number LIKE ? OR notes LIKE ? OR raw_data LIKE ?)");
     const pattern = `%${options.search.trim()}%`;
-    params.push(pattern, pattern, pattern, pattern, pattern);
+    params.push(pattern, pattern, pattern, pattern, pattern, pattern);
   }
 
   const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(" AND ")}` : "";

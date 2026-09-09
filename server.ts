@@ -675,13 +675,14 @@ async function startServer() {
       const db = getLocalD1Database();
       const year = req.query.year ? parseInt(String(req.query.year), 10) : undefined;
       const month = req.query.month ? parseInt(String(req.query.month), 10) : undefined;
+      const category = req.query.category ? String(req.query.category) : undefined;
       const limit = req.query.limit ? parseInt(String(req.query.limit), 10) : undefined;
       const offset = req.query.offset ? parseInt(String(req.query.offset), 10) : undefined;
       const search = (req.query.search || req.query.q) ? String(req.query.search || req.query.q) : undefined;
       const sortBy = req.query.sortBy ? String(req.query.sortBy) : undefined;
-      const order = (String(req.query.order || 'desc').toLowerCase()) as 'asc' | 'desc';
+      const order = (String(req.query.order || 'asc').toLowerCase()) as 'asc' | 'desc';
 
-      const result = await getAllDeedsD1(db, { year, month, limit, offset, search, sortBy, order });
+      const result = await getAllDeedsD1(db, { year, month, category, limit, offset, search, sortBy, order });
       res.json(result);
     } catch (err: any) {
       console.error("[Deeds D1 API] Error fetching deeds:", err);

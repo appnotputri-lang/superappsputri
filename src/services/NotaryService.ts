@@ -56,17 +56,25 @@ export class NotaryService {
     pageSize: number | string;
     search?: string;
     year?: string | number;
+    month?: string | number;
+    category?: string;
+    sortBy?: string;
+    order?: 'asc' | 'desc';
   }): Promise<{ records: Deed[]; total: number; success: boolean }> {
     const limit = params.pageSize === 'Semua' || params.pageSize === 'ALL' || params.pageSize === 0 ? 500 : Number(params.pageSize);
     const offset = (params.page - 1) * limit;
     const searchParam = params.search ? `&search=${encodeURIComponent(params.search)}` : '';
     const yearParam = params.year && params.year !== 'ALL' ? `&year=${encodeURIComponent(params.year)}` : '';
-    const cacheKey = `deeds:p${params.page}_s${limit}_q${params.search || ''}_y${params.year || ''}`;
+    const monthParam = params.month && params.month !== 'ALL' ? `&month=${encodeURIComponent(params.month)}` : '';
+    const categoryParam = params.category && params.category !== 'ALL' ? `&category=${encodeURIComponent(params.category)}` : '';
+    const sortParam = params.sortBy ? `&sortBy=${encodeURIComponent(params.sortBy)}` : '';
+    const orderParam = params.order ? `&order=${encodeURIComponent(params.order)}` : '';
+    const cacheKey = `deeds:p${params.page}_s${limit}_q${params.search || ''}_y${params.year || ''}_m${params.month || ''}_c${params.category || ''}_ord${params.order || ''}`;
 
     const cached = d1ClientCache.get<{ records: Deed[]; total: number; success: boolean }>(cacheKey);
 
     const fetcher = async () => {
-      const res = await fetch(`/api/deeds?limit=${limit}&offset=${offset}${searchParam}${yearParam}`);
+      const res = await fetch(`/api/deeds?limit=${limit}&offset=${offset}${searchParam}${yearParam}${monthParam}${categoryParam}${sortParam}${orderParam}`);
       if (!res.ok) throw new Error('Failed to fetch deeds');
       const json = await res.json();
       const result = {
