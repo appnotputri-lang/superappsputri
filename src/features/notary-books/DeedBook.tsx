@@ -8,7 +8,7 @@ import { NotaryService } from '../../services/NotaryService';
 import { isRecordLocked, getLockDeadlineMessage, isSuperAdmin } from '../../utils/lockUtils';
 import { useAuth } from '../../hooks/useAuth';
 import { fetchLatestDeedNumbers } from '../../lib/deedUtils';
-import { Plus, Search, Edit2, Trash2, Lock, RefreshCw, X, FileText, Check, AlertTriangle, ChevronDown, ChevronRight } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, Lock, RefreshCw, X, FileText, Check, AlertTriangle, ChevronDown, ChevronRight, ChevronLeft, Hash } from 'lucide-react';
 import { AppLoader } from '../../components/ui/AppLoader';
 
 // Deeds list cache: kept in-memory for instant SPA tab-switches, and
@@ -330,6 +330,36 @@ export const DeedBook: React.FC = () => {
     const last = sorted[sorted.length - 1];
     return first === last ? first : `${first} – ${last}`;
   }, [deeds]);
+
+  // Quick month navigation handlers
+  const handlePrevMonth = () => {
+    const y = selectedYear === 'ALL' ? currentYearNum : parseInt(selectedYear, 10);
+    const m = typeof selectedMonth === 'number' ? selectedMonth : currentMonthNum;
+    if (m === 1) {
+      setSelectedYear((y - 1).toString());
+      setSelectedMonth(12);
+    } else {
+      setSelectedYear(y.toString());
+      setSelectedMonth(m - 1);
+    }
+  };
+
+  const handleNextMonth = () => {
+    const y = selectedYear === 'ALL' ? currentYearNum : parseInt(selectedYear, 10);
+    const m = typeof selectedMonth === 'number' ? selectedMonth : currentMonthNum;
+    if (m === 12) {
+      setSelectedYear((y + 1).toString());
+      setSelectedMonth(1);
+    } else {
+      setSelectedYear(y.toString());
+      setSelectedMonth(m + 1);
+    }
+  };
+
+  const handleTodayMonth = () => {
+    setSelectedYear(currentYearNum.toString());
+    setSelectedMonth(currentMonthNum);
+  };
 
   // Load deeds server-side with local memory cache fallback
   useEffect(() => {
@@ -1400,17 +1430,17 @@ export const DeedBook: React.FC = () => {
         </div>
       ) : (
         <>
-          {/* 1. FILTER TAHUN & BULAN NAVIGATION */}
-          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs space-y-3">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Tahun:</span>
+          {/* 1. FILTER TAHUN + BULAN COMPACT BAR */}
+          <div className="bg-white px-3.5 py-2.5 rounded-xl border border-slate-200 shadow-2xs flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5 overflow-x-auto pb-1 sm:pb-0">
+              <div className="flex items-center gap-1.5 shrink-0">
+                <span className="text-xs text-slate-500 font-medium">Tahun:</span>
                 <select
                   value={selectedYear}
                   onChange={(e) => setSelectedYear(e.target.value)}
-                  className="px-3 py-1.5 text-xs border border-slate-300 rounded-lg font-semibold text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 cursor-pointer"
+                  className="px-2.5 py-1.5 text-xs border border-slate-300 rounded-lg font-semibold text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 cursor-pointer"
                 >
-                  <option value="ALL">Semua Tahun</option>
+                  <option value="ALL">Semua</option>
                   {availableYears.map((yr) => (
                     <option key={yr} value={yr}>
                       {yr}
@@ -1419,90 +1449,110 @@ export const DeedBook: React.FC = () => {
                 </select>
               </div>
 
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setSelectedMonth('ALL')}
-                  className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition cursor-pointer ${
-                    selectedMonth === 'ALL'
-                      ? 'bg-blue-600 text-white shadow-xs'
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                  }`}
-                >
-                  Semua Bulan
-                </button>
+              {/* Monthly Pills */}
+              <div className="flex items-center gap-1 shrink-0">
+                {MONTH_TABS.map((tab) => {
+                  const isActive = selectedMonth === tab.num;
+                  return (
+                    <button
+                      key={tab.num}
+                      onClick={() => setSelectedMonth(tab.num)}
+                      className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors cursor-pointer ${
+                        isActive
+                          ? 'bg-blue-600 text-white font-semibold shadow-2xs'
+                          : 'bg-slate-50 text-slate-700 hover:bg-slate-100 border border-slate-200/80'
+                      }`}
+                    >
+                      {tab.label}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
-            {/* Monthly Tab Pills */}
-            <div className="grid grid-cols-6 sm:grid-cols-12 gap-1.5 pt-1">
-              {MONTH_TABS.map((tab) => {
-                const isActive = selectedMonth === tab.num;
-                return (
-                  <button
-                    key={tab.num}
-                    onClick={() => setSelectedMonth(tab.num)}
-                    className={`py-1.5 text-xs font-medium rounded-lg transition-all text-center cursor-pointer ${
-                      isActive
-                        ? 'bg-blue-600 text-white font-semibold shadow-xs'
-                        : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
-                    }`}
-                  >
-                    {tab.label}
-                  </button>
-                );
-              })}
+            {/* Quick Month Navigation */}
+            <div className="flex items-center gap-1 shrink-0 ml-auto">
+              <button
+                onClick={handlePrevMonth}
+                className="p-1.5 text-slate-600 hover:bg-slate-100 border border-slate-200 rounded-lg transition cursor-pointer"
+                title="Bulan sebelumnya"
+              >
+                <ChevronLeft size={16} />
+              </button>
+              <button
+                onClick={handleTodayMonth}
+                className="px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100 border border-slate-200 rounded-lg transition cursor-pointer"
+              >
+                Hari ini
+              </button>
+              <button
+                onClick={handleNextMonth}
+                className="p-1.5 text-slate-600 hover:bg-slate-100 border border-slate-200 rounded-lg transition cursor-pointer"
+                title="Bulan berikutnya"
+              >
+                <ChevronRight size={16} />
+              </button>
             </div>
           </div>
 
-          {/* 2. MONTHLY SUMMARY & TITLE */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
-            <div>
-              <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                <span>{selectedMonth === 'ALL' ? 'Semua Bulan' : MONTH_NAMES[selectedMonth - 1]} {selectedYear !== 'ALL' ? selectedYear : ''}</span>
+          {/* 2. SUMMARY & SEARCH / CATEGORY FILTER ROW */}
+          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3.5 pt-0.5">
+            {/* Left: Month title & Quick stats */}
+            <div className="flex flex-wrap items-center gap-3 sm:gap-4">
+              <h2 className="text-xl font-bold text-slate-900 tracking-tight whitespace-nowrap">
+                {selectedMonth === 'ALL' ? 'Semua Bulan' : MONTH_NAMES[selectedMonth - 1]} {selectedYear !== 'ALL' ? selectedYear : ''}
               </h2>
-              <p className="text-xs text-slate-500 mt-0.5">
-                {selectedMonth === 'ALL'
-                  ? `Menampilkan daftar seluruh akta resmi pada tahun ${selectedYear}.`
-                  : `Menampilkan daftar akta pada bulan ${MONTH_NAMES[selectedMonth - 1]} ${selectedYear}.`}
-              </p>
-            </div>
 
-            <div className="flex items-center gap-6 bg-blue-50/70 border border-blue-100 rounded-xl px-4 py-2.5 shadow-2xs">
-              <div className="flex items-center gap-2.5">
-                <div className="p-2 bg-blue-100 rounded-lg text-blue-600">
+              <div className="hidden sm:block h-7 w-[1px] bg-slate-200" />
+
+              {/* Stat 1: Jumlah Akta */}
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 bg-blue-50 border border-blue-100 rounded-lg text-blue-600 flex items-center justify-center">
                   <FileText size={18} />
                 </div>
-                <div>
-                  <div className="text-[11px] text-slate-500 font-medium">Jumlah Akta</div>
-                  <div className="text-base font-bold text-blue-600">{totalDeedsCount}</div>
+                <div className="flex flex-col">
+                  <span className="text-[10px] text-slate-500 font-medium leading-none">Jumlah Akta</span>
+                  <span className="text-base font-bold text-blue-600 leading-tight mt-0.5">{totalDeedsCount}</span>
                 </div>
               </div>
-              <div className="h-8 w-[1px] bg-blue-200/60" />
-              <div>
-                <div className="text-[11px] text-slate-500 font-medium">Nomor Akta</div>
-                <div className="text-base font-bold text-blue-600">{deedNumberRange}</div>
+
+              <div className="hidden sm:block h-7 w-[1px] bg-slate-200" />
+
+              {/* Stat 2: Nomor Akta */}
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 bg-blue-50 border border-blue-100 rounded-lg text-blue-600 flex items-center justify-center">
+                  <Hash size={18} />
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-[10px] text-slate-500 font-medium leading-none">Nomor Akta</span>
+                  <span className="text-base font-bold text-blue-600 leading-tight mt-0.5">{deedNumberRange}</span>
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* 3. SEARCH & CATEGORY FILTER BAR */}
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white p-3 rounded-xl border border-slate-200 shadow-xs">
-            <div className="relative w-full sm:w-80">
-              <Search className="absolute left-3 top-2.5 text-slate-400" size={16} />
-              <input
-                type="text"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Cari nomor akta, judul, penghadap..."
-                className="w-full pl-9 pr-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-              />
-            </div>
+            {/* Right: Search & Category Filter */}
+            <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 w-full lg:w-auto">
+              <div className="relative w-full sm:w-80">
+                <Search className="absolute left-3 top-2.5 text-slate-400" size={15} />
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e) => {
+                    setSearchTerm(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  placeholder="Cari nomor akta, judul, penghadap..."
+                  className="w-full pl-9 pr-3 py-2 text-xs bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-slate-800 placeholder-slate-400 shadow-2xs"
+                />
+              </div>
 
-            <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
               <select
                 value={selectedCategory}
-                onChange={(e) => setSelectedCategory(e.target.value)}
-                className="p-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-medium text-slate-700 bg-white cursor-pointer"
+                onChange={(e) => {
+                  setSelectedCategory(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-medium text-slate-700 bg-white cursor-pointer shadow-2xs shrink-0"
               >
                 <option value="ALL">Semua Jenis Akta</option>
                 {DEED_CATEGORIES.map((cat) => (
@@ -1517,8 +1567,9 @@ export const DeedBook: React.FC = () => {
                   onClick={() => {
                     setSearchTerm('');
                     setSelectedCategory('ALL');
+                    setCurrentPage(1);
                   }}
-                  className="px-3 py-2 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition cursor-pointer"
+                  className="px-3 py-2 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition cursor-pointer shrink-0"
                 >
                   Reset
                 </button>
@@ -1526,7 +1577,7 @@ export const DeedBook: React.FC = () => {
             </div>
           </div>
 
-          {/* 4. DEED BOOK LIST / TABLE */}
+          {/* 3. DEED BOOK LIST / TABLE */}
           {loading ? (
             <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs">
               <AppLoader variant="content" message="Memuat data akta resmi..." />
@@ -1584,28 +1635,28 @@ export const DeedBook: React.FC = () => {
               </div>
 
               {/* DESKTOP TABLE VIEW */}
-              <div className="hidden md:block bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+              <div className="hidden md:block bg-white rounded-xl border border-slate-200 shadow-2xs overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs border-collapse table-fixed min-w-[1000px]">
                     <colgroup>
-                      <col className="w-[80px]" />
                       <col className="w-[85px]" />
-                      <col className="w-[130px]" />
-                      <col className="w-[36%]" />
-                      <col className="w-[36%]" />
                       <col className="w-[90px]" />
+                      <col className="w-[140px]" />
+                      <col className="w-[34%]" />
+                      <col className="w-[34%]" />
+                      <col className="w-[85px]" />
                     </colgroup>
                     <thead>
-                      <tr className="bg-slate-50 text-slate-700 font-semibold border-b border-slate-200 uppercase text-[11px]">
+                      <tr className="bg-slate-50 text-slate-700 font-bold border-b border-slate-200 uppercase text-[11px]">
                         <th className="p-3 text-center border-r border-slate-200">NO. URUT</th>
                         <th className="p-3 text-center border-r border-slate-200">NO. AKTA</th>
-                        <th className="p-3 text-center border-r border-slate-200">TANGGAL</th>
+                        <th className="p-3 border-r border-slate-200">TANGGAL</th>
                         <th className="p-3 border-r border-slate-200">SIFAT / JUDUL AKTA</th>
                         <th className="p-3 border-r border-slate-200">NAMA PENGHADAP / PARA PIHAK</th>
                         <th className="p-3 text-center">AKSI</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-200">
+                    <tbody className="divide-y divide-slate-100">
                       {deeds.map((deed, idx) => {
                         const locked = !superAdmin || isRecordLocked(deed.date, user?.email);
                         const lockMsg = !superAdmin
@@ -1613,22 +1664,24 @@ export const DeedBook: React.FC = () => {
                           : (isRecordLocked(deed.date, user?.email) ? `Terkunci otomatis setelah ${getLockDeadlineMessage(deed.date)}` : '');
 
                         return (
-                          <tr key={deed.id} className="hover:bg-slate-50/80 transition-colors">
-                            <td className="p-3 text-center border-r border-slate-200 font-medium text-slate-600">
+                          <tr key={deed.id} className="hover:bg-slate-50/70 transition-colors">
+                            <td className="p-3 text-center border-r border-slate-100 font-medium text-slate-600">
                               {deed.orderNumber || idx + 1 + (currentPage - 1) * (typeof pageSize === 'string' ? deeds.length : pageSize)}
                             </td>
-                            <td className="p-3 text-center border-r border-slate-200 font-bold text-slate-900">
+                            <td className="p-3 text-center border-r border-slate-100 font-bold text-slate-900">
                               {deed.number}
                             </td>
-                            <td className="p-3 text-center border-r border-slate-200 text-slate-600 whitespace-nowrap">
+                            <td className="p-3 border-r border-slate-100 text-slate-600 whitespace-nowrap">
                               {formatDateIndo(deed.date)}
                             </td>
-                            <td className="p-3 border-r border-slate-200 font-medium text-slate-900 leading-snug break-words">
-                              {deed.title}
+                            <td className="p-3 border-r border-slate-100 font-medium text-slate-900 leading-snug break-words">
+                              <div className="font-bold text-slate-900 text-xs">
+                                {deed.title}
+                              </div>
                               {deed.category && (
-                                <span className="ml-2 inline-block px-1.5 py-0.5 text-[10px] bg-blue-50 text-blue-700 rounded border border-blue-200 font-normal">
+                                <div className="text-[11px] text-slate-500 font-normal mt-0.5">
                                   {deed.category}
-                                </span>
+                                </div>
                               )}
                               {deed.clientName && (
                                 <div className="text-[11px] text-slate-500 font-normal mt-0.5">
@@ -1636,15 +1689,15 @@ export const DeedBook: React.FC = () => {
                                 </div>
                               )}
                             </td>
-                            <td className="p-3 border-r border-slate-200 text-slate-800 leading-snug break-words">
+                            <td className="p-3 border-r border-slate-100 text-slate-800 leading-snug break-words">
                               {deed.appearers && deed.appearers.length > 0 ? (
                                 <div className="space-y-1">
                                   {deed.appearers.map((app, i) => (
-                                    <div key={i} className="text-slate-900 font-medium">
-                                      • {app.name}
+                                    <div key={i} className="text-slate-900 font-medium text-xs">
+                                      {app.name}
                                       {app.position && <span className="text-slate-500 font-normal text-[11px]"> ({app.position})</span>}
                                       {(app.role === 'Proxy' || app.role === 'Both') && app.grantors && app.grantors.length > 0 && (
-                                        <div className="ml-3 text-[11px] text-slate-600 font-normal italic">
+                                        <div className="text-[11px] text-slate-600 font-normal italic mt-0.5">
                                           {app.role === 'Both'
                                             ? `Bertindak untuk diri sendiri dan selaku kuasa dari: ${app.grantors.map((g) => g.name).join(', ')}`
                                             : `Selaku kuasa dari: ${app.grantors.map((g) => g.name).join(', ')}`}
@@ -1664,20 +1717,20 @@ export const DeedBook: React.FC = () => {
                                   <span>Terkunci</span>
                                 </div>
                               ) : (
-                                <div className="flex items-center justify-center gap-1">
+                                <div className="flex items-center justify-center gap-1.5">
                                   <button
                                     onClick={() => handleOpenModal(deed)}
-                                    className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition cursor-pointer"
+                                    className="p-1.5 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition cursor-pointer"
                                     title="Edit Akta"
                                   >
-                                    <Edit2 size={14} />
+                                    <Edit2 size={15} />
                                   </button>
                                   <button
                                     onClick={() => handleDelete(deed)}
-                                    className="p-1.5 text-red-600 hover:bg-red-50 rounded transition cursor-pointer"
+                                    className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition cursor-pointer"
                                     title="Hapus Akta"
                                   >
-                                    <Trash2 size={14} />
+                                    <Trash2 size={15} />
                                   </button>
                                 </div>
                               )}
@@ -1690,9 +1743,12 @@ export const DeedBook: React.FC = () => {
                 </div>
 
                 {/* Pagination Footer */}
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 border-t border-slate-200 bg-slate-50/50">
-                  <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
-                    <span>Tampilkan</span>
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-4 py-3 border-t border-slate-200 bg-white">
+                  <div className="text-xs text-slate-500">
+                    Menampilkan {deeds.length === 0 ? 0 : (currentPage - 1) * (typeof pageSize === 'string' ? totalDeedsCount : pageSize) + 1} – {Math.min(totalDeedsCount, currentPage * (typeof pageSize === 'string' ? totalDeedsCount : pageSize))} dari {totalDeedsCount} akta ({selectedMonth === 'ALL' ? (selectedYear === 'ALL' ? 'Semua' : selectedYear) : `${MONTH_NAMES[selectedMonth - 1]} ${selectedYear}`})
+                  </div>
+
+                  <div className="flex items-center gap-3">
                     <select
                       value={pageSize}
                       onChange={(e) => {
@@ -1700,39 +1756,39 @@ export const DeedBook: React.FC = () => {
                         setPageSize(val);
                         setCurrentPage(1);
                       }}
-                      className="px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs font-semibold focus:outline-none cursor-pointer"
+                      className="px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-medium text-slate-700 focus:outline-none cursor-pointer"
                     >
-                      <option value={10}>10</option>
-                      <option value={20}>20</option>
-                      <option value={30}>30</option>
-                      <option value={40}>40</option>
-                      <option value={50}>50</option>
+                      <option value={10}>10 per halaman</option>
+                      <option value={20}>20 per halaman</option>
+                      <option value={30}>30 per halaman</option>
+                      <option value={50}>50 per halaman</option>
                       <option value="Semua">Semua</option>
                     </select>
-                    <span>baris. Menampilkan {deeds.length === 0 ? 0 : Math.min(totalDeedsCount, (currentPage - 1) * (typeof pageSize === 'string' ? totalDeedsCount : pageSize) + 1)}–{Math.min(totalDeedsCount, currentPage * (typeof pageSize === 'string' ? totalDeedsCount : pageSize))} dari {totalDeedsCount} akta ({selectedMonth === 'ALL' ? (selectedYear === 'ALL' ? 'Semua' : selectedYear) : `${MONTH_NAMES[selectedMonth - 1]} ${selectedYear}`}).</span>
-                  </div>
 
-                  {totalDeedsCount > 0 && (
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                        disabled={currentPage === 1}
-                        className="p-2 border border-slate-200 rounded-xl bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-white disabled:cursor-not-allowed transition-all cursor-pointer"
-                      >
-                        Sebelumnya
-                      </button>
-                      <span className="text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-lg px-3 py-1.5">
-                        Halaman {currentPage} dari {Math.ceil(totalDeedsCount / (typeof pageSize === 'string' ? 500 : pageSize)) || 1}
-                      </span>
-                      <button
-                        onClick={() => setCurrentPage(prev => Math.min(Math.ceil(totalDeedsCount / (typeof pageSize === 'string' ? 500 : pageSize)) || 1, prev + 1))}
-                        disabled={currentPage >= (Math.ceil(totalDeedsCount / (typeof pageSize === 'string' ? 500 : pageSize)) || 1)}
-                        className="p-2 border border-slate-200 rounded-xl bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-white disabled:cursor-not-allowed transition-all cursor-pointer"
-                      >
-                        Berikutnya
-                      </button>
-                    </div>
-                  )}
+                    {totalDeedsCount > 0 && (
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                          disabled={currentPage === 1}
+                          className="p-1.5 border border-slate-200 rounded-lg bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-white disabled:cursor-not-allowed transition cursor-pointer"
+                          title="Halaman sebelumnya"
+                        >
+                          <ChevronLeft size={16} />
+                        </button>
+                        <span className="text-xs font-bold text-white bg-blue-600 rounded-lg px-3 py-1.5">
+                          {currentPage}
+                        </span>
+                        <button
+                          onClick={() => setCurrentPage(prev => Math.min(Math.ceil(totalDeedsCount / (typeof pageSize === 'string' ? 500 : pageSize)) || 1, prev + 1))}
+                          disabled={currentPage >= (Math.ceil(totalDeedsCount / (typeof pageSize === 'string' ? 500 : pageSize)) || 1)}
+                          className="p-1.5 border border-slate-200 rounded-lg bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-white disabled:cursor-not-allowed transition cursor-pointer"
+                          title="Halaman berikutnya"
+                        >
+                          <ChevronRight size={16} />
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             </>
