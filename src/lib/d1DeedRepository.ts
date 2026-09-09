@@ -1,6 +1,62 @@
 import { Deed, DeedAppearer, DeedGrantor } from '../types';
 import { ensureD1TablesExist } from '../services/d1MigrationService';
 
+export function parseDeedNumber(val: any): { num: number; suffix: string; raw: string } {
+  const raw = String(val ?? '').trim();
+  if (!raw) return { num: 0, suffix: '', raw: '' };
+
+  const match = raw.match(/^(\d+)(.*)$/);
+  if (match) {
+    return {
+      num: parseInt(match[1], 10) || 0,
+      suffix: match[2].trim().toLowerCase(),
+      raw
+    };
+  }
+
+  const digits = raw.match(/\d+/);
+  if (digits) {
+    return {
+      num: parseInt(digits[0], 10) || 0,
+      suffix: raw,
+      raw
+    };
+  }
+
+  return { num: 0, suffix: raw, raw };
+}
+
+export function compareDeedsChronologically(
+  a: { date?: string; number?: string; deedNumber?: string; createdAt?: string; id?: string },
+  b: { date?: string; number?: string; deedNumber?: string; createdAt?: string; id?: string }
+): number {
+  const dateA = (a.date || '').trim();
+  const dateB = (b.date || '').trim();
+
+  if (dateA !== dateB) {
+    return dateA.localeCompare(dateB);
+  }
+
+  const numA = parseDeedNumber(a.number ?? a.deedNumber);
+  const numB = parseDeedNumber(b.number ?? b.deedNumber);
+
+  if (numA.num !== numB.num) {
+    return numA.num - numB.num;
+  }
+
+  if (numA.suffix !== numB.suffix) {
+    return numA.suffix.localeCompare(numB.suffix);
+  }
+
+  const createdA = String(a.createdAt || '');
+  const createdB = String(b.createdAt || '');
+  if (createdA !== createdB) {
+    return createdA.localeCompare(createdB);
+  }
+
+  return String(a.id || '').localeCompare(String(b.id || ''));
+}
+
 export function formatD1RowToDeed(row: any): Deed {
   if (!row) return null as any;
 
@@ -51,6 +107,73 @@ export function formatD1RowToDeed(row: any): Deed {
     grantors,
     createdAt: row.created_at || base.createdAt || new Date().toISOString(),
     updatedAt: row.updated_at || base.updatedAt || new Date().toISOString(),
+  };
+}
+
+export async function reconcileAllDeedsOrderNumbersD1(db: any): Promise<{
+  totalDeeds: number;
+  updatedCount: number;
+  baseStartOrder: number;
+  maxOrderNumber: number;
+}> {
+  await ensureD1TablesExist(db);
+
+  const res = await db.prepare("SELECT * FROM deeds").all();
+  const rows = res?.results || [];
+  if (rows.length === 0) {
+    return {
+      totalDeeds: 0,
+      updatedCount: 0,
+      baseStartOrder: 1300,
+      maxOrderNumber: 1300
+    };
+  }
+
+  const deeds: Deed[] = rows.map(formatD1RowToDeed);
+  deeds.sort(compareDeedsChronologically);
+
+  // Tentukan baseStartOrder
+  let minExistingOrder = 0;
+  for (const d of deeds) {
+    if (d.orderNumber) {
+      const parsed = parseInt(String(d.orderNumber).replace(/\D/g, ''), 10);
+      if (!isNaN(parsed) && parsed > 0) {
+        if (minExistingOrder === 0 || parsed < minExistingOrder) {
+          minExistingOrder = parsed;
+        }
+      }
+    }
+  }
+
+  const earliestDate = deeds[0].date || '';
+  let baseStartOrder = 1300;
+  if (earliestDate && earliestDate >= '2025-11-01') {
+    baseStartOrder = (minExistingOrder >= 1300 ? minExistingOrder : 1300);
+  } else if (minExistingOrder > 0) {
+    baseStartOrder = minExistingOrder;
+  } else {
+    baseStartOrder = 1;
+  }
+
+  let updatedCount = 0;
+  for (let i = 0; i < deeds.length; i++) {
+    const expectedOrder = String(baseStartOrder + i);
+    const deed = deeds[i];
+    if (String(deed.orderNumber).trim() !== expectedOrder) {
+      deed.orderNumber = expectedOrder;
+      const rawDataJson = JSON.stringify(deed);
+      await db.prepare(
+        "UPDATE deeds SET order_number = ?, raw_data = ?, updated_at = ? WHERE id = ?"
+      ).bind(expectedOrder, rawDataJson, new Date().toISOString(), deed.id).run();
+      updatedCount++;
+    }
+  }
+
+  return {
+    totalDeeds: deeds.length,
+    updatedCount,
+    baseStartOrder,
+    maxOrderNumber: baseStartOrder + deeds.length - 1
   };
 }
 
@@ -116,9 +239,6 @@ export async function getAllDeedsD1(
     queryParams.push(limit, offset);
   }
 
-  // Count query and the main page query are independent — run them in
-  // parallel instead of one-after-another to save a full network
-  // round-trip to D1 on every single list load.
   const countSql = `SELECT COUNT(*) as total FROM deeds ${whereClause}`;
   const countStmt = db.prepare(countSql);
   const queryStmt = db.prepare(querySql);
@@ -229,7 +349,11 @@ export async function createDeedD1(db: any, data: Partial<Deed>): Promise<Deed> 
     rawDataJson
   ).run();
 
-  return fullData;
+  // Otomatis lakukan rekonsiliasi nomor urut kronologis secara global
+  await reconcileAllDeedsOrderNumbersD1(db);
+
+  const refreshed = await getDeedByIdD1(db, id);
+  return refreshed || fullData;
 }
 
 export async function updateDeedD1(db: any, id: string, data: Partial<Deed>): Promise<Deed> {
@@ -295,14 +419,22 @@ export async function updateDeedD1(db: any, id: string, data: Partial<Deed>): Pr
     id
   ).run();
 
-  return merged;
+  // Otomatis rekonsiliasi nomor urut kronologis secara global
+  await reconcileAllDeedsOrderNumbersD1(db);
+
+  const refreshed = await getDeedByIdD1(db, id);
+  return refreshed || merged;
 }
 
 export async function deleteDeedD1(db: any, id: string): Promise<boolean> {
   await ensureD1TablesExist(db);
   const stmt = db.prepare("DELETE FROM deeds WHERE id = ?");
   const res = await stmt.bind(id).run();
-  return (res?.meta?.changes ?? 1) > 0;
+  const changes = (res?.meta?.changes ?? 1) > 0;
+  if (changes) {
+    await reconcileAllDeedsOrderNumbersD1(db);
+  }
+  return changes;
 }
 
 export async function fetchLatestDeedNumbersD1(db: any, targetDate: string): Promise<{
@@ -341,16 +473,13 @@ export async function fetchLatestDeedNumbersD1(db: any, targetDate: string): Pro
   const nextMonth = targetMonth === 12 ? 1 : targetMonth + 1;
   const endStr = `${nextYear}-${String(nextMonth).padStart(2, '0')}-01`;
 
-  // Fetch month deeds and the global most-recent-order-number window in
-  // parallel — these two queries are independent of each other, so running
-  // them sequentially (as before) was paying for two full network
-  // round-trips to D1 back-to-back instead of one.
-  const [monthDeedsRes, recentDeedsRes] = await Promise.all([
+  // Fetch month deeds & all deeds to calculate exact chronological order
+  const [monthDeedsRes, allDeedsRes] = await Promise.all([
     db.prepare(
       "SELECT number, raw_data FROM deeds WHERE date >= ? AND date < ?"
     ).bind(startStr, endStr).all(),
     db.prepare(
-      "SELECT order_number, raw_data FROM deeds ORDER BY CAST(order_number AS INTEGER) DESC LIMIT 50"
+      "SELECT id, order_number, number, date, title, raw_data, created_at FROM deeds"
     ).all()
   ]);
 
@@ -365,47 +494,62 @@ export async function fetchLatestDeedNumbersD1(db: any, targetDate: string): Pro
       } catch (e) {}
     }
     if (deedNum) {
-      const matches = String(deedNum).match(/\d+/g);
-      if (matches) {
-        const docMax = Math.max(...matches.map(m => parseInt(m, 10)));
-        if (docMax > maxDeedNumber) maxDeedNumber = docMax;
-      }
-    }
-  }
-
-  // Fetch recent deeds for max order number
-  const recentRows = recentDeedsRes?.results || [];
-  let maxOrderNumber = 0;
-  for (const row of recentRows) {
-    let orderNum = row.order_number;
-    if (!orderNum && row.raw_data) {
-      try {
-        const parsed = JSON.parse(row.raw_data);
-        orderNum = parsed.orderNumber;
-      } catch (e) {}
-    }
-    if (orderNum) {
-      const matches = String(orderNum).match(/\d+/g);
-      if (matches) {
-        const docMax = Math.max(...matches.map(m => parseInt(m, 10)));
-        if (docMax > maxOrderNumber) maxOrderNumber = docMax;
+      const parsed = parseDeedNumber(deedNum);
+      if (parsed.num > maxDeedNumber) {
+        maxDeedNumber = parsed.num;
       }
     }
   }
 
   const nextDeed = maxDeedNumber + 1;
-  let nextOrder = maxOrderNumber + 1;
+  const nextDeedNumber = nextDeed < 10 ? `0${nextDeed}` : `${nextDeed}`;
 
-  // From 2025-11-01 onwards, numbering starts at 1300
-  if ((targetYear > 2025 || (targetYear === 2025 && targetMonth >= 11)) && nextOrder < 1300) {
-    nextOrder = 1300;
+  const allRows = allDeedsRes?.results || [];
+  const existingDeeds: Deed[] = allRows.map(formatD1RowToDeed);
+  existingDeeds.sort(compareDeedsChronologically);
+
+  // Tentukan baseStartOrder
+  let minExistingOrder = 0;
+  for (const d of existingDeeds) {
+    if (d.orderNumber) {
+      const parsed = parseInt(String(d.orderNumber).replace(/\D/g, ''), 10);
+      if (!isNaN(parsed) && parsed > 0) {
+        if (minExistingOrder === 0 || parsed < minExistingOrder) {
+          minExistingOrder = parsed;
+        }
+      }
+    }
   }
+
+  const earliestDate = existingDeeds.length > 0 ? (existingDeeds[0].date || '') : targetDate;
+  let baseStartOrder = 1300;
+  if (earliestDate && earliestDate >= '2025-11-01') {
+    baseStartOrder = (minExistingOrder >= 1300 ? minExistingOrder : 1300);
+  } else if (minExistingOrder > 0) {
+    baseStartOrder = minExistingOrder;
+  } else {
+    baseStartOrder = 1;
+  }
+
+  // Hitung posisi kronologis akta baru jika disisipkan di targetDate
+  const dummyCandidate: Partial<Deed> = {
+    id: '__simulated_next__',
+    date: targetDate,
+    number: nextDeedNumber,
+    createdAt: new Date().toISOString()
+  };
+
+  const simulationList = [...existingDeeds, dummyCandidate as Deed];
+  simulationList.sort(compareDeedsChronologically);
+
+  const insertIndex = simulationList.findIndex(d => d.id === '__simulated_next__');
+  const nextOrderNumber = String(baseStartOrder + (insertIndex >= 0 ? insertIndex : existingDeeds.length));
 
   return {
     maxDeedNumber,
-    maxOrderNumber,
-    nextDeedNumber: nextDeed < 10 ? `0${nextDeed}` : `${nextDeed}`,
-    nextOrderNumber: `${nextOrder}`,
+    maxOrderNumber: baseStartOrder + existingDeeds.length,
+    nextDeedNumber,
+    nextOrderNumber,
     countInMonth: monthRows.length
   };
 }

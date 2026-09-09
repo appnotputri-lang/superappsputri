@@ -869,18 +869,14 @@ export const DeedBook: React.FC = () => {
     }
   };
 
-  // Rapikan Nomor Urut
+  // Rapikan Nomor Urut (Rekonsiliasi Kronologis Global)
   const handleReorder = async () => {
     if (!superAdmin) {
       alert('Hanya Super Admin yang dapat merapikan nomor urut.');
       return;
     }
-    const isAll = selectedYear === 'ALL';
-    const yearToOrder = isAll ? 'ALL' : selectedYear;
     
-    const confirmMessage = isAll 
-      ? `Proses ini akan merapikan Nomor Urut (orderNumber) untuk SEMUA Akta secara kronologis lintas tahun (melanjut terus tanpa reset di awal tahun). Lanjutkan?`
-      : `Proses ini akan merapikan Nomor Urut (orderNumber) untuk Akta tahun ${yearToOrder} dengan MELANJUTKAN nomor urut dari tahun sebelumnya (tidak mereset ke 1). Lanjutkan?`;
+    const confirmMessage = `Proses ini akan merapikan Nomor Urut (orderNumber) untuk SEMUA Akta secara kronologis (berdasarkan tanggal dan nomor akta) tanpa ada nomor urut duplikat. Lanjutkan?`;
 
     if (!confirm(confirmMessage)) {
       return;
@@ -888,64 +884,8 @@ export const DeedBook: React.FC = () => {
 
     setIsOrdering(true);
     try {
-      if (isAll) {
-        // Tidy up all deeds in the database chronologically
-        const allDeeds = await NotaryService.getAllDeedsForReorder();
-        const allSorted = [...allDeeds];
-        allSorted.sort((a, b) => {
-          if (a.date !== b.date) return a.date.localeCompare(b.date);
-          return (parseInt(a.number, 10) || 0) - (parseInt(b.number, 10) || 0);
-        });
-
-        let currentOrder = 1;
-        if (allSorted.length > 0 && allSorted[0].date && allSorted[0].date >= '2025-11-01') {
-          currentOrder = 1300;
-        }
-
-        let updatedCount = 0;
-        for (let i = 0; i < allSorted.length; i++) {
-          const newOrder = String(currentOrder + i);
-          if (allSorted[i].orderNumber !== newOrder) {
-            await NotaryService.updateDeed(allSorted[i].id, { orderNumber: newOrder });
-            updatedCount++;
-          }
-        }
-        alert(`Berhasil merapikan nomor urut untuk ${allSorted.length} akta (diperbarui: ${updatedCount}).`);
-      } else {
-        // Tidy up only the selected year
-        const yearDeeds = await NotaryService.getDeedsByYear(parseInt(yearToOrder, 10));
-        yearDeeds.sort((a, b) => {
-          if (a.date !== b.date) return a.date.localeCompare(b.date);
-          return (parseInt(a.number, 10) || 0) - (parseInt(b.number, 10) || 0);
-        });
-
-        const allForPrior = await NotaryService.getAllDeedsForReorder();
-        const priorDeeds = allForPrior.filter((d) => d.date && d.date < `${yearToOrder}-01-01`);
-        let maxPriorOrder = 0;
-        priorDeeds.forEach((d) => {
-          if (d.orderNumber) {
-            const ord = parseInt(d.orderNumber.replace(/\D/g, ''), 10);
-            if (!isNaN(ord) && ord > maxPriorOrder) {
-              maxPriorOrder = ord;
-            }
-          }
-        });
-
-        let startOrder = maxPriorOrder > 0 ? maxPriorOrder + 1 : 1;
-        if (maxPriorOrder === 0 && yearToOrder >= '2025') {
-          startOrder = 1300;
-        }
-
-        let updatedCount = 0;
-        for (let i = 0; i < yearDeeds.length; i++) {
-          const newOrder = String(startOrder + i);
-          if (yearDeeds[i].orderNumber !== newOrder) {
-            await NotaryService.updateDeed(yearDeeds[i].id, { orderNumber: newOrder });
-            updatedCount++;
-          }
-        }
-        alert(`Berhasil merapikan nomor urut untuk ${yearDeeds.length} akta tahun ${yearToOrder} (diperbarui: ${updatedCount}).`);
-      }
+      const res = await NotaryService.reconcileDeedOrderNumbers();
+      alert(`Berhasil merapikan nomor urut akta secara kronologis!\nTotal akta: ${res.totalDeeds}\nDiperbarui: ${res.updatedCount}\nNomor urut: ${res.baseStartOrder} s.d. ${res.maxOrderNumber}`);
 
       // Refresh currently open/cached months
       for (const ymKey of Object.keys(monthCache)) {
@@ -958,6 +898,23 @@ export const DeedBook: React.FC = () => {
             setMonthCache((prev) => ({ ...prev, [ymKey]: fresh || [] }));
           }
         }
+      }
+
+      // Invalidate paginated cache and refresh table
+      clearDeedCache();
+      numberPrefetchCache.current = null;
+      const cleanSearch = searchTerm.trim();
+      const refreshed = await NotaryService.getDeedsPaginated({
+        page: currentPage,
+        pageSize,
+        search: cleanSearch,
+        year: selectedYear
+      });
+      if (refreshed.success) {
+        setDeeds(refreshed.records);
+        setTotalDeedsCount(refreshed.total);
+        const cacheKey = `deeds:page=${currentPage}:size=${pageSize}:search=${cleanSearch}:year=${selectedYear}`;
+        setDeedCacheEntry(cacheKey, refreshed.records, refreshed.total);
       }
     } catch (err) {
       console.error('Failed to reorder deeds:', err);

@@ -63,7 +63,8 @@ import {
   createDeedD1,
   updateDeedD1,
   deleteDeedD1,
-  fetchLatestDeedNumbersD1
+  fetchLatestDeedNumbersD1,
+  reconcileAllDeedsOrderNumbersD1
 } from "./src/lib/d1DeedRepository";
 import {
   getAllPrivateDeedsD1,
@@ -646,6 +647,17 @@ async function startServer() {
   // ==================================================
   // D1 DEEDS (BUKU DAFTAR AKTA) ENDPOINTS
   // ==================================================
+  app.post(["/api/deeds/reconcile", "/api/deeds/reorder"], async (req, res) => {
+    try {
+      const db = getLocalD1Database();
+      const result = await reconcileAllDeedsOrderNumbersD1(db);
+      res.json({ success: true, ...result });
+    } catch (err: any) {
+      console.error("[Deeds D1 API] Error reconciling deed order numbers:", err);
+      res.status(500).json({ success: false, error: err?.message || "Failed to reconcile deed order numbers" });
+    }
+  });
+
   app.get("/api/deeds/next-numbers", async (req, res) => {
     try {
       const db = getLocalD1Database();

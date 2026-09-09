@@ -110,6 +110,25 @@ export class NotaryService {
     return json.records || (Array.isArray(json) ? json : []);
   }
 
+  static async reconcileDeedOrderNumbers(): Promise<{
+    success: boolean;
+    totalDeeds: number;
+    updatedCount: number;
+    baseStartOrder: number;
+    maxOrderNumber: number;
+  }> {
+    const res = await fetch('/api/deeds/reconcile', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    });
+    if (!res.ok) {
+      throw new Error('Failed to reconcile deed order numbers');
+    }
+    const json = await res.json();
+    notifyChange('deeds');
+    return json;
+  }
+
   static subscribeDeeds(onNext: (data: Deed[]) => void): () => void {
     let active = true;
     const fetcher = async () => {

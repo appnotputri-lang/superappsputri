@@ -8,7 +8,13 @@ let instance: any = null;
 function isCorruptError(err: any): boolean {
   if (!err) return false;
   const msg = String(err.message || err).toLowerCase();
-  return msg.includes('malformed') || msg.includes('corrupt') || err.code === 'ERR_SQLITE_ERROR';
+  return (
+    msg.includes('malformed') ||
+    msg.includes('corrupt') ||
+    msg.includes('file is not a database') ||
+    msg.includes('disk i/o error') ||
+    msg.includes('database disk image is malformed')
+  );
 }
 
 function cleanCorruptDatabaseFiles() {
