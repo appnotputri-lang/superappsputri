@@ -18,6 +18,10 @@ export function exportPpatReportToPdf(params: {
   const { month, year, rows, config, signatureDate } = params;
   const monthName = MONTH_NAMES[month - 1];
 
+  // Hitung total akta pada bulan ini untuk mengecek apakah laporan berstatus NIHIL
+  const totalDeeds = rows.reduce((acc, r) => acc + (r.deeds?.length || 0), 0);
+  const isNihilMonth = totalDeeds === 0;
+
   // Create A4 Landscape document (297mm x 210mm)
   const doc = new jsPDF({
     orientation: 'landscape',
@@ -27,44 +31,31 @@ export function exportPpatReportToPdf(params: {
 
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
-  const margin = 10;
+  const margin = 8; // Margin tepi kiri & kanan 8mm (lebar tabel 281mm)
 
   // Header Title
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(11);
-  doc.text('LAPORAN BULANAN PEMBUATAN AKTA PPAT', pageWidth / 2, 12, { align: 'center' });
+  doc.setFontSize(isNihilMonth ? 10.5 : 11);
+  doc.text('LAPORAN BULANAN PEMBUATAN AKTA PPAT', pageWidth / 2, isNihilMonth ? 8.5 : 10, { align: 'center' });
 
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9);
-  doc.text(`Bulan: ${monthName.toUpperCase()} ${year}`, pageWidth / 2, 16.5, { align: 'center' });
+  doc.setFontSize(isNihilMonth ? 8 : 8.5);
+  doc.text(`Bulan: ${monthName.toUpperCase()} ${year}`, pageWidth / 2, isNihilMonth ? 12 : 14, { align: 'center' });
 
-  // Sub-header PPAT info (Left) & Destination (Right)
-  doc.setFontSize(8);
-  doc.text(`Nama PPAT : ${config.ppatName}`, margin, 22);
-  doc.text(`Daerah Kerja : ${config.workingArea}`, margin, 25.5);
-  doc.text(`Alamat Kantor : ${config.officeAddress}`, margin, 29);
+  // Sub-header PPAT info (Kiri) & Instansi Tujuan (Kanan)
+  doc.setFontSize(isNihilMonth ? 7 : 7.5);
+  const subHeaderY = isNihilMonth ? 16 : 18.5;
+  const lineSpacing = isNihilMonth ? 3.0 : 3.4;
 
-  doc.text(`Kepada Yth:`, pageWidth - 80, 22);
-  doc.text(`1. Kepala Kantor Pertanahan ${config.workingArea}`, pageWidth - 80, 25.5);
-  doc.text(`2. Kepala Kantor Pelayanan Pajak Pratama`, pageWidth - 80, 29);
+  doc.text(`Nama PPAT : ${config.ppatName}`, margin, subHeaderY);
+  doc.text(`Daerah Kerja : ${config.workingArea}`, margin, subHeaderY + lineSpacing);
+  doc.text(`Alamat Kantor : ${config.officeAddress}${config.skNumber ? `  (SK: ${config.skNumber})` : ''}`, margin, subHeaderY + lineSpacing * 2);
+
+  doc.text(`Kepada Yth:`, pageWidth - 80, subHeaderY);
+  doc.text(`1. Kepala Kantor Pertanahan ${config.workingArea}`, pageWidth - 80, subHeaderY + lineSpacing);
+  doc.text(`2. Kepala Kantor Pelayanan Pajak Pratama`, pageWidth - 80, subHeaderY + lineSpacing * 2);
 
   // Build Table Data
-  // Columns:
-  // 1: NO. URUT
-  // 2: AKTA (NOMOR & TGL)
-  // 3: BENTUK PERBUATAN HUKUM
-  // 4: PIHAK MENGALIHKAN / MEMBERIKAN
-  // 5: PIHAK MENERIMA
-  // 6: JENIS & NO. HAK
-  // 7: LETAK TANAH & BANGUNAN
-  // 8: LUAS TANAH (M2)
-  // 9: LUAS BANGUNAN (M2)
-  // 10: HARGA TRANSAKSI (RP)
-  // 11: SPPT PBB (NOP & NJOP)
-  // 12: SSP (PPH)
-  // 13: SSB (BPHTB)
-  // 14: KET
-
   let currentDeedOrder = 0;
   const tableRows: any[] = [];
 
@@ -135,9 +126,13 @@ export function exportPpatReportToPdf(params: {
     }
   });
 
+  const tableStartY = isNihilMonth ? 24 : 27;
+
   autoTable(doc, {
-    startY: 32,
-    margin: { left: margin, right: margin, bottom: 35 },
+    startY: tableStartY,
+    margin: { left: margin, right: margin, top: 6, bottom: isNihilMonth ? 6 : 10 },
+    pageBreak: isNihilMonth ? 'avoid' : 'auto',
+    rowPageBreak: isNihilMonth ? 'avoid' : 'auto',
     head: [
       [
         { content: 'NO.\nTGL', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
@@ -182,9 +177,12 @@ export function exportPpatReportToPdf(params: {
     ]),
     theme: 'grid',
     styles: {
-      fontSize: 6.5,
-      cellPadding: 1.5,
-      lineColor: [100, 100, 100],
+      fontSize: isNihilMonth ? 5.5 : 6,
+      cellPadding: isNihilMonth 
+        ? { top: 0.45, bottom: 0.45, left: 0.6, right: 0.6 }
+        : { top: 0.9, bottom: 0.9, left: 1.0, right: 1.0 },
+      minCellHeight: isNihilMonth ? 2.5 : 3.2,
+      lineColor: [130, 130, 130],
       lineWidth: 0.1,
       textColor: [30, 30, 30]
     },
@@ -192,64 +190,97 @@ export function exportPpatReportToPdf(params: {
       fillColor: [240, 243, 246],
       textColor: [20, 20, 20],
       fontStyle: 'bold',
-      lineWidth: 0.15,
-      lineColor: [80, 80, 80],
-      fontSize: 6.5
+      lineWidth: 0.12,
+      lineColor: [90, 90, 90],
+      fontSize: isNihilMonth ? 5.5 : 6,
+      cellPadding: isNihilMonth
+        ? { top: 0.6, bottom: 0.6, left: 0.6, right: 0.6 }
+        : { top: 1.0, bottom: 1.0, left: 1.0, right: 1.0 }
     },
     columnStyles: {
       0: { cellWidth: 8, halign: 'center' },      // No/Tgl
-      1: { cellWidth: 20 },                       // Akta
-      2: { cellWidth: 20 },                       // Bentuk
-      3: { cellWidth: 32 },                       // Pengalih
-      4: { cellWidth: 32 },                       // Penerima
-      5: { cellWidth: 22 },                       // Jenis Hak
-      6: { cellWidth: 24 },                       // Letak
-      7: { cellWidth: 12, halign: 'right' },      // Luas T
-      8: { cellWidth: 12, halign: 'right' },      // Luas B
-      9: { cellWidth: 24, halign: 'right' },      // Harga
-      10: { cellWidth: 25 },                      // PBB
-      11: { cellWidth: 20, halign: 'right' },     // SSP
-      12: { cellWidth: 20, halign: 'right' },     // SSB
-      13: { cellWidth: 16, halign: 'center' }     // Ket
+      1: { cellWidth: 18, halign: 'center' },     // Akta
+      2: { cellWidth: 18, halign: isNihilMonth ? 'center' : 'left' },     // Bentuk
+      3: { cellWidth: 33, halign: isNihilMonth ? 'center' : 'left' },     // Pengalih
+      4: { cellWidth: 33, halign: isNihilMonth ? 'center' : 'left' },     // Penerima
+      5: { cellWidth: 22, halign: 'center' },     // Jenis Hak
+      6: { cellWidth: 25, halign: isNihilMonth ? 'center' : 'left' },     // Letak
+      7: { cellWidth: 12, halign: isNihilMonth ? 'center' : 'right' },    // Luas T
+      8: { cellWidth: 12, halign: isNihilMonth ? 'center' : 'right' },    // Luas B
+      9: { cellWidth: 24, halign: isNihilMonth ? 'center' : 'right' },    // Harga
+      10: { cellWidth: 24, halign: isNihilMonth ? 'center' : 'left' },    // PBB
+      11: { cellWidth: 18, halign: isNihilMonth ? 'center' : 'right' },   // SSP
+      12: { cellWidth: 18, halign: isNihilMonth ? 'center' : 'right' },   // SSB
+      13: { cellWidth: 16, halign: 'center' }    // Ket
     },
     didParseCell: function(data) {
       if (data.section === 'body') {
         const rawRow = tableRows[data.row.index];
         if (rawRow?.isHoliday) {
-          data.cell.styles.fillColor = [240, 240, 240];
+          data.cell.styles.fillColor = [245, 245, 245];
           data.cell.styles.textColor = [120, 120, 120];
         } else if (rawRow?.isNihil) {
           data.cell.styles.fillColor = [255, 255, 255];
+          if (data.column.index === 13) {
+            data.cell.styles.textColor = [70, 70, 70];
+            data.cell.styles.fontStyle = 'bold';
+          }
         }
       }
     }
   });
 
   // Footer / Signature Section
-  const lastY = (doc as any).lastAutoTable?.finalY || 160;
-  let signatureY = lastY + 8;
+  const lastY = (doc as any).lastAutoTable?.finalY || 115;
+  // Buat ruang tempat tanda tangan tinggi (28mm-30mm) agar leluasa dan pas ketika dicap stempel dinas PPAT
+  const stampHeight = isNihilMonth ? 28 : 26;
+  const neededHeight = stampHeight + 15;
   
-  if (signatureY + 28 > pageHeight) {
+  // Posisi vertikal tanda tangan: jika Nihil, tempatkan dengan seimbang di area bawah lembar
+  let signatureY = isNihilMonth 
+    ? Math.max(lastY + 10, pageHeight - 52) 
+    : lastY + 8;
+  
+  if (!isNihilMonth && signatureY + neededHeight > pageHeight - 8) {
     doc.addPage();
-    signatureY = 20;
+    signatureY = 22;
   }
 
   const signPlaceDate = signatureDate || `${config.city || 'Sleman'}, ${new Date(year, month, 0).getDate()} ${monthName} ${year}`;
   
-  doc.setFontSize(8);
+  doc.setFontSize(isNihilMonth ? 7.5 : 8);
   doc.setFont('helvetica', 'normal');
   doc.text(signPlaceDate, pageWidth - 65, signatureY, { align: 'center' });
   doc.text('Pejabat Pembuat Akta Tanah (PPAT)', pageWidth - 65, signatureY + 4, { align: 'center' });
   
+  // Ruang tanda tangan & cap stempel bulat PPAT setinggi stampHeight (~28mm)
+  const ppatNameY = signatureY + 4 + stampHeight;
   doc.setFont('helvetica', 'bold');
-  doc.text(config.ppatName, pageWidth - 65, signatureY + 22, { align: 'center' });
-  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(isNihilMonth ? 8.5 : 9);
+  doc.text(config.ppatName, pageWidth - 65, ppatNameY, { align: 'center' });
+
+  // Garis bawah nama PPAT
+  const nameWidth = doc.getTextWidth(config.ppatName);
+  doc.setLineWidth(0.2);
+  doc.line(pageWidth - 65 - nameWidth / 2, ppatNameY + 0.8, pageWidth - 65 + nameWidth / 2, ppatNameY + 0.8);
+
+  // Nomor SK PPAT (hindari duplikasi "SK. SK")
   if (config.skNumber) {
-    doc.setFontSize(7);
-    doc.text(config.skNumber, pageWidth - 65, signatureY + 25.5, { align: 'center' });
+    const rawSk = config.skNumber.trim();
+    const skDisplay = /^sk\b/i.test(rawSk) ? rawSk : `SK. ${rawSk}`;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(isNihilMonth ? 7 : 7.5);
+    doc.text(skDisplay, pageWidth - 65, ppatNameY + 4.5, { align: 'center' });
+  }
+
+  // Jika laporan Nihil, pastikan tidak ada halaman kedua yang dibuat secara tidak sengaja
+  if (isNihilMonth) {
+    while (doc.getNumberOfPages() > 1) {
+      doc.deletePage(doc.getNumberOfPages());
+    }
   }
 
   // Save PDF
-  const filename = `Laporan_PPAT_${monthName}_${year}.pdf`;
+  const filename = `Laporan_PPAT_${monthName}_${year}${isNihilMonth ? '_Nihil' : ''}.pdf`;
   doc.save(filename);
 }

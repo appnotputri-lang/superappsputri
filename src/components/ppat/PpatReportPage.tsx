@@ -127,7 +127,8 @@ export const PpatReportPage: React.FC = () => {
       const dayOfWeek = dateObj.getDay(); // 0 = Minggu, 6 = Sabtu
       const dateStr = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 
-      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+      // HANYA hari Minggu yang libur akhir pekan. Hari Sabtu tetap hari kerja (tidak libur).
+      const isWeekend = dayOfWeek === 0;
       const holidayInfo = holidayMap.get(dateStr);
       const isHoliday = !!holidayInfo;
       const dayDeeds = deedsByDate.get(dateStr) || [];
@@ -734,7 +735,7 @@ export const PpatReportPage: React.FC = () => {
               <div className="font-medium text-slate-700">
                 Pejabat Pembuat Akta Tanah (PPAT)
               </div>
-              <div className="h-20" /> {/* Space for physical signature/stamp */}
+              <div className="h-28" /> {/* Ruang fisik tanda tangan & cap stempel dinas PPAT dibuat tinggi agar pas saat dicap */}
               <div className="font-bold text-slate-900 text-sm underline">
                 {config.ppatName}
               </div>

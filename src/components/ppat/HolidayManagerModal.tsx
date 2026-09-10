@@ -128,7 +128,7 @@ export const HolidayManagerModal: React.FC<HolidayManagerModalProps> = ({
         {/* Sync Banner */}
         <div className="px-6 py-3 bg-indigo-50/70 border-b border-indigo-100 flex items-center justify-between">
           <div className="text-xs text-indigo-900">
-            Daftar hari libur akan otomatis ditandai abu-abu & tertulis nama libur di kolom KETERANGAN.
+            Libur resmi mencakup hari Minggu dan libur nasional (hari Sabtu tetap hari kerja). Ditandai abu-abu & tertulis di kolom KETERANGAN.
           </div>
           <button
             onClick={handleSyncOfficial}
