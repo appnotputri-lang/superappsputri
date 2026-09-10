@@ -378,6 +378,73 @@ export async function ensureD1TablesExist(db: any) {
   await db.prepare(`CREATE INDEX IF NOT EXISTS idx_push_sub_user_id ON push_subscriptions(user_id);`).run();
   await db.prepare(`CREATE INDEX IF NOT EXISTS idx_push_sub_endpoint ON push_subscriptions(endpoint);`).run();
 
+  // 15. Holidays table (Kalender Hari Libur Nasional & Custom)
+  await db.prepare(`
+    CREATE TABLE IF NOT EXISTS holidays (
+      id TEXT PRIMARY KEY,
+      date TEXT NOT NULL UNIQUE,
+      name TEXT NOT NULL,
+      type TEXT DEFAULT 'NATIONAL',
+      year INTEGER NOT NULL,
+      source TEXT DEFAULT 'OFFICIAL',
+      is_active INTEGER DEFAULT 1,
+      created_at TEXT,
+      updated_at TEXT
+    );
+  `).run();
+
+  await db.prepare(`CREATE INDEX IF NOT EXISTS idx_holidays_date ON holidays(date);`).run();
+  await db.prepare(`CREATE INDEX IF NOT EXISTS idx_holidays_year ON holidays(year);`).run();
+
+  // 16. PPAT Deeds table (Laporan Bulanan Akta PPAT)
+  await db.prepare(`
+    CREATE TABLE IF NOT EXISTS ppat_deeds (
+      id TEXT PRIMARY KEY,
+      order_number TEXT,
+      deed_number TEXT,
+      date TEXT NOT NULL,
+      legal_act_type TEXT,
+      grantor_name TEXT,
+      grantor_address TEXT,
+      grantor_npwp TEXT,
+      transferee_name TEXT,
+      transferee_address TEXT,
+      transferee_npwp TEXT,
+      right_type_and_number TEXT,
+      land_location TEXT,
+      land_area REAL DEFAULT 0,
+      building_area REAL DEFAULT 0,
+      transaction_value REAL DEFAULT 0,
+      sppt_pbb_nop_year TEXT,
+      sppt_pbb_njop REAL DEFAULT 0,
+      ssp_date TEXT,
+      ssp_amount REAL DEFAULT 0,
+      ssb_date TEXT,
+      ssb_amount REAL DEFAULT 0,
+      notes TEXT,
+      created_at TEXT,
+      updated_at TEXT,
+      raw_data TEXT
+    );
+  `).run();
+
+  await db.prepare(`CREATE INDEX IF NOT EXISTS idx_ppat_deeds_date ON ppat_deeds(date);`).run();
+  await db.prepare(`CREATE INDEX IF NOT EXISTS idx_ppat_deeds_number ON ppat_deeds(deed_number);`).run();
+
+  // 17. PPAT Settings table (Profil PPAT & Wilayah Kerja)
+  await db.prepare(`
+    CREATE TABLE IF NOT EXISTS ppat_settings (
+      id TEXT PRIMARY KEY,
+      ppat_name TEXT,
+      sk_number TEXT,
+      working_area TEXT,
+      office_address TEXT,
+      city TEXT,
+      phone TEXT,
+      updated_at TEXT
+    );
+  `).run();
+
   d1TablesEnsuredCache = true;
 }
 

@@ -19,6 +19,7 @@ import {
   Package,
   FileCheck,
   Banknote,
+  FileSpreadsheet,
   Settings as SettingsIcon,
   ChevronDown,
   ChevronRight,
@@ -84,7 +85,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       return ['beranda', 'company_profile', 'projects', 'project_detail', 'laporan'].includes(activeTab);
     }
     if (sectionId === 'notaris_dan_akta') {
-      return ['deeds', 'private_deeds', 'notary_reports', 'incoming_mail', 'outgoing_mail'].includes(activeTab);
+      return ['deeds', 'private_deeds', 'notary_reports', 'laporan_ppat', 'incoming_mail', 'outgoing_mail'].includes(activeTab);
     }
     if (sectionId === 'keuangan') {
       return ['invoice', 'products', 'quotation', 'delivery', 'receipt', 'deposit_note'].includes(activeTab);
@@ -173,6 +174,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         { label: 'Buku Daftar Akta', id: 'deeds', icon: BookOpen, requiresAuth: true },
         { label: 'Buku Legalisasi & Waarmerking', id: 'private_deeds', icon: ShieldCheck, requiresAuth: true },
         { label: 'Laporan Notaris', id: 'notary_reports', icon: BookMarked, requiresAuth: true },
+        { label: 'Laporan PPAT', id: 'laporan_ppat', icon: FileSpreadsheet, requiresAuth: true },
         { label: 'Surat Masuk', id: 'incoming_mail', icon: Inbox, requiresAuth: true },
         { label: 'Surat Keluar', id: 'outgoing_mail', icon: Send, requiresAuth: true },
       ]

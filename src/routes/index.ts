@@ -8,14 +8,20 @@ import { renderSettingsRoute } from './settings.routes';
 import { renderTrackingRoute } from './tracking.routes';
 import { renderSharedRoute } from './shared.routes';
 import { renderNotaryReportRoute } from './notaryReport.routes';
+import { renderPpatReportRoute } from './ppatReport.routes';
 import { renderInvoiceRoute } from './invoice.routes';
 import { renderProductRoute } from './products.routes';
 import { renderQuotationRoute } from './quotation.routes';
 import { renderNotaryBookRoute } from './notaryBooks.routes';
 import { renderGeneralDocumentRoute } from './generalDocument.routes';
 import { renderDepositNoteRoute } from './depositNote.routes';
+import { renderAgendaRoute } from './agenda.routes';
 
 export const renderAppRoute = (currentTab: string, props: any) => {
+  if (currentTab === 'agenda') {
+    return renderAgendaRoute(props);
+  }
+
   if (currentTab === 'delivery' || currentTab === 'receipt') {
     return renderGeneralDocumentRoute(currentTab, props);
   }
@@ -30,6 +36,10 @@ export const renderAppRoute = (currentTab: string, props: any) => {
 
   if (currentTab === 'notary_reports') {
     return renderNotaryReportRoute();
+  }
+
+  if (currentTab === 'laporan_ppat') {
+    return renderPpatReportRoute();
   }
 
   if (currentTab === 'invoice') {

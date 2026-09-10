@@ -6,6 +6,12 @@ export interface UserProfile {
   name: string;
   role: UserRole;
   level?: string;
+  avatarId?: string;
+  avatar_id?: string;
+  avatar_gender?: 'MALE' | 'FEMALE';
+  avatar_style?: string;
+  avatar_variant?: string;
+  avatar_image?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -768,7 +774,9 @@ export interface DepositNote {
   updatedAt?: string;
 }
 
-export type SidebarTabId = 'beranda' | 'company_profile' | 'cv_profile' | 'notulen' | 'pendirian' | 'rupst' | 'perbaikan' | 'draft_akta_rups' | 'panduan' | 'kbli_mapping' | 'saran_kbli' | 'import_kbli' | 'laporan' | 'whatsapp_settings' | 'projects' | 'project_detail' | 'user_management' | 'notary_reports' | 'invoice' | 'quotation' | 'deeds' | 'private_deeds' | 'protest_cheque' | 'outgoing_mail' | 'incoming_mail' | 'stamp_settings' | 'delivery' | 'receipt' | 'products' | 'settings' | 'deposit_note' | 'ppat';
+export * from './src/types/agenda';
+
+export type SidebarTabId = 'beranda' | 'agenda' | 'company_profile' | 'cv_profile' | 'notulen' | 'pendirian' | 'rupst' | 'perbaikan' | 'draft_akta_rups' | 'panduan' | 'kbli_mapping' | 'saran_kbli' | 'import_kbli' | 'laporan' | 'whatsapp_settings' | 'projects' | 'project_detail' | 'user_management' | 'notary_reports' | 'laporan_ppat' | 'invoice' | 'quotation' | 'deeds' | 'private_deeds' | 'protest_cheque' | 'outgoing_mail' | 'incoming_mail' | 'stamp_settings' | 'delivery' | 'receipt' | 'products' | 'settings' | 'deposit_note' | 'ppat';
 
 // ==========================================
 // PENDIRIAN CV (PERSEKUTUAN KOMANDITER) TYPES

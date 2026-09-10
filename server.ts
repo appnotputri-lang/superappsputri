@@ -102,6 +102,22 @@ import {
   deleteProductD1
 } from "./src/lib/d1ProductRepository";
 import {
+  getAllHolidaysD1,
+  createHolidayD1,
+  updateHolidayD1,
+  deleteHolidayD1,
+  seedOfficialHolidaysD1
+} from "./src/lib/d1HolidayRepository";
+import {
+  getAllPpatDeedsD1,
+  getPpatDeedByIdD1,
+  createPpatDeedD1,
+  updatePpatDeedD1,
+  deletePpatDeedD1,
+  getPpatSettingsD1,
+  updatePpatSettingsD1
+} from "./src/lib/d1PpatRepository";
+import {
   getVapidKeys,
   savePushSubscription,
   deletePushSubscription,
@@ -1101,6 +1117,171 @@ async function startServer() {
     } catch (err: any) {
       console.error("[Products D1 API] Error deleting product:", err);
       res.status(500).json({ success: false, error: err?.message || "Failed to delete product" });
+    }
+  });
+
+  // ==================================================
+  // D1 HOLIDAYS ENDPOINTS
+  // ==================================================
+  app.get("/api/holidays", async (req, res) => {
+    try {
+      const db = getLocalD1Database();
+      const year = req.query.year ? parseInt(String(req.query.year), 10) : undefined;
+      const records = await getAllHolidaysD1(db, year);
+      res.json({ success: true, records, total: records.length });
+    } catch (err: any) {
+      console.error("[Holidays D1 API] Error fetching holidays:", err);
+      res.status(500).json({ success: false, error: err?.message || "Failed to fetch holidays" });
+    }
+  });
+
+  app.post("/api/holidays", async (req, res) => {
+    try {
+      const db = getLocalD1Database();
+      const payload = req.body || {};
+      const record = await createHolidayD1(db, payload);
+      res.status(201).json({ success: true, record });
+    } catch (err: any) {
+      console.error("[Holidays D1 API] Error creating holiday:", err);
+      res.status(500).json({ success: false, error: err?.message || "Failed to create holiday" });
+    }
+  });
+
+  app.put("/api/holidays/:id", async (req, res) => {
+    try {
+      const db = getLocalD1Database();
+      const id = req.params.id;
+      const payload = req.body || {};
+      const record = await updateHolidayD1(db, id, payload);
+      if (!record) {
+        return res.status(404).json({ success: false, error: "Holiday not found" });
+      }
+      res.json({ success: true, record });
+    } catch (err: any) {
+      console.error("[Holidays D1 API] Error updating holiday:", err);
+      res.status(500).json({ success: false, error: err?.message || "Failed to update holiday" });
+    }
+  });
+
+  app.delete("/api/holidays/:id", async (req, res) => {
+    try {
+      const db = getLocalD1Database();
+      const id = req.params.id;
+      const success = await deleteHolidayD1(db, id);
+      res.json({ success });
+    } catch (err: any) {
+      console.error("[Holidays D1 API] Error deleting holiday:", err);
+      res.status(500).json({ success: false, error: err?.message || "Failed to delete holiday" });
+    }
+  });
+
+  app.post("/api/holidays/seed", async (req, res) => {
+    try {
+      const db = getLocalD1Database();
+      const year = req.body?.year ? parseInt(String(req.body.year), 10) : new Date().getFullYear();
+      const count = await seedOfficialHolidaysD1(db, year);
+      const records = await getAllHolidaysD1(db, year);
+      res.json({ success: true, count, records });
+    } catch (err: any) {
+      console.error("[Holidays D1 API] Error seeding holidays:", err);
+      res.status(500).json({ success: false, error: err?.message || "Failed to seed holidays" });
+    }
+  });
+
+  // ==================================================
+  // D1 PPAT DEEDS ENDPOINTS
+  // ==================================================
+  app.get("/api/ppat-deeds", async (req, res) => {
+    try {
+      const db = getLocalD1Database();
+      const year = req.query.year ? parseInt(String(req.query.year), 10) : undefined;
+      const month = req.query.month ? parseInt(String(req.query.month), 10) : undefined;
+      const records = await getAllPpatDeedsD1(db, { year, month });
+      res.json({ success: true, records, total: records.length });
+    } catch (err: any) {
+      console.error("[PPAT Deeds D1 API] Error fetching deeds:", err);
+      res.status(500).json({ success: false, error: err?.message || "Failed to fetch PPAT deeds" });
+    }
+  });
+
+  app.get("/api/ppat-deeds/:id", async (req, res) => {
+    try {
+      const db = getLocalD1Database();
+      const id = req.params.id;
+      const record = await getPpatDeedByIdD1(db, id);
+      if (!record) {
+        return res.status(404).json({ success: false, error: "Deed not found" });
+      }
+      res.json({ success: true, record });
+    } catch (err: any) {
+      console.error("[PPAT Deeds D1 API] Error fetching deed by ID:", err);
+      res.status(500).json({ success: false, error: err?.message || "Failed to fetch PPAT deed" });
+    }
+  });
+
+  app.post("/api/ppat-deeds", async (req, res) => {
+    try {
+      const db = getLocalD1Database();
+      const payload = req.body || {};
+      const record = await createPpatDeedD1(db, payload);
+      res.status(201).json({ success: true, record });
+    } catch (err: any) {
+      console.error("[PPAT Deeds D1 API] Error creating deed:", err);
+      res.status(500).json({ success: false, error: err?.message || "Failed to create PPAT deed" });
+    }
+  });
+
+  app.put("/api/ppat-deeds/:id", async (req, res) => {
+    try {
+      const db = getLocalD1Database();
+      const id = req.params.id;
+      const payload = req.body || {};
+      const record = await updatePpatDeedD1(db, id, payload);
+      if (!record) {
+        return res.status(404).json({ success: false, error: "Deed not found" });
+      }
+      res.json({ success: true, record });
+    } catch (err: any) {
+      console.error("[PPAT Deeds D1 API] Error updating deed:", err);
+      res.status(500).json({ success: false, error: err?.message || "Failed to update PPAT deed" });
+    }
+  });
+
+  app.delete("/api/ppat-deeds/:id", async (req, res) => {
+    try {
+      const db = getLocalD1Database();
+      const id = req.params.id;
+      const success = await deletePpatDeedD1(db, id);
+      res.json({ success });
+    } catch (err: any) {
+      console.error("[PPAT Deeds D1 API] Error deleting deed:", err);
+      res.status(500).json({ success: false, error: err?.message || "Failed to delete PPAT deed" });
+    }
+  });
+
+  // ==================================================
+  // D1 PPAT SETTINGS ENDPOINTS
+  // ==================================================
+  app.get("/api/ppat-settings", async (req, res) => {
+    try {
+      const db = getLocalD1Database();
+      const config = await getPpatSettingsD1(db);
+      res.json({ success: true, config });
+    } catch (err: any) {
+      console.error("[PPAT Settings D1 API] Error fetching settings:", err);
+      res.status(500).json({ success: false, error: err?.message || "Failed to fetch PPAT settings" });
+    }
+  });
+
+  app.post("/api/ppat-settings", async (req, res) => {
+    try {
+      const db = getLocalD1Database();
+      const payload = req.body || {};
+      const config = await updatePpatSettingsD1(db, payload);
+      res.json({ success: true, config });
+    } catch (err: any) {
+      console.error("[PPAT Settings D1 API] Error saving settings:", err);
+      res.status(500).json({ success: false, error: err?.message || "Failed to save PPAT settings" });
     }
   });
 

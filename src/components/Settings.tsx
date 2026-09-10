@@ -27,9 +27,11 @@ import { MobileHeader } from './ui/MobileHeader';
 import { WhatsAppSettings } from './WhatsAppSettings';
 import { StampSettings } from './StampSettings';
 import { UserManagement } from './UserManagement';
+import { MyProfileTab } from './profile/MyProfileTab';
 import ImportKBLI from './ImportKBLI';
 import MigrationTool from '../features/migration/MigrationTool';
 import { UserProfile } from '../types';
+import { UserCheck } from 'lucide-react';
 
 interface SettingsProps {
   currentUser: UserProfile | null;
@@ -37,7 +39,7 @@ interface SettingsProps {
   setActiveSidebarTab?: (tab: any) => void;
 }
 
-type TabType = 'general' | 'import_kbli' | 'whatsapp' | 'stamp' | 'users' | 'migration' | 'security';
+type TabType = 'my_profile' | 'general' | 'import_kbli' | 'whatsapp' | 'stamp' | 'users' | 'migration' | 'security';
 
 export const Settings: React.FC<SettingsProps> = ({ 
   currentUser, 
@@ -46,18 +48,20 @@ export const Settings: React.FC<SettingsProps> = ({
 }) => {
   // Determine initial subtab based on sidebar deep link
   const getInitialTab = (): TabType => {
+    if (activeSidebarTab === 'profile' || activeSidebarTab === 'my_profile') return 'my_profile';
     if (activeSidebarTab === 'whatsapp_settings') return 'whatsapp';
     if (activeSidebarTab === 'stamp_settings') return 'stamp';
     if (activeSidebarTab === 'user_management') return 'users';
     if (activeSidebarTab === 'import_kbli') return 'import_kbli';
-    return 'general';
+    return 'my_profile';
   };
 
   const [activeTab, setActiveTab] = useState<TabType>(getInitialTab());
 
   // Keep subtab in sync if deep link sidebar tab changes
   useEffect(() => {
-    if (activeSidebarTab === 'whatsapp_settings') setActiveTab('whatsapp');
+    if (activeSidebarTab === 'profile' || activeSidebarTab === 'my_profile') setActiveTab('my_profile');
+    else if (activeSidebarTab === 'whatsapp_settings') setActiveTab('whatsapp');
     else if (activeSidebarTab === 'stamp_settings') setActiveTab('stamp');
     else if (activeSidebarTab === 'user_management') setActiveTab('users');
     else if (activeSidebarTab === 'import_kbli') setActiveTab('import_kbli');
@@ -91,6 +95,7 @@ export const Settings: React.FC<SettingsProps> = ({
 
   // List of tabs with their labels, icons, and permissions
   const tabsList = [
+    { id: 'my_profile' as const, label: 'Profil Saya & Avatar 3D', icon: UserCheck, description: 'Identitas akun & pemilihan karakter avatar 3D', requiresSuperAdmin: false },
     { id: 'general' as const, label: 'Umum', icon: SettingsIcon, description: 'Informasi instansi dan preferensi sistem', requiresSuperAdmin: false },
     { id: 'import_kbli' as const, label: 'Import KBLI 2025', icon: RefreshCw, description: 'Sinkronisasi database klasifikasi KBLI terbaru', requiresSuperAdmin: true },
     { id: 'whatsapp' as const, label: 'WhatsApp Gateway', icon: Smartphone, description: 'Koneksi perangkat & template pesan', requiresSuperAdmin: true },
@@ -103,10 +108,10 @@ export const Settings: React.FC<SettingsProps> = ({
   // Filter tabs user has permission to access
   const visibleTabs = tabsList.filter(t => !t.requiresSuperAdmin || isSuperAdmin);
 
-  // If user somehow gets stuck on a tab they have no permission for, fallback to 'general'
+  // If user somehow gets stuck on a tab they have no permission for, fallback to 'my_profile'
   useEffect(() => {
-    if (activeTab !== 'general' && activeTab !== 'security' && !isSuperAdmin) {
-      setActiveTab('general');
+    if (activeTab !== 'general' && activeTab !== 'security' && activeTab !== 'my_profile' && !isSuperAdmin) {
+      setActiveTab('my_profile');
     }
   }, [activeTab, isSuperAdmin]);
 
@@ -206,6 +211,11 @@ export const Settings: React.FC<SettingsProps> = ({
         {/* Right column: Tab Content Panel */}
         <div className="lg:col-span-3 bg-white rounded-xl border border-slate-200/80 shadow-xs p-5">
           
+          {/* TAB 0: PROFIL SAYA & AVATAR 3D */}
+          {activeTab === 'my_profile' && (
+            <MyProfileTab currentUser={currentUser} />
+          )}
+
           {/* TAB 1: UMUM */}
           {activeTab === 'general' && (
             <div className="space-y-6">

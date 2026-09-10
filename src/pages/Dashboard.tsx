@@ -32,6 +32,11 @@ import { RealTimeClock } from '../components/RealTimeClock';
 import { PushNotificationToggle } from '../components/common/PushNotificationToggle';
 import { useAuthContext } from '../contexts/AuthContext';
 import { Menu3DIcon } from '../components/ui/Menu3DIcon';
+import { HeroAvatar } from '../components/dashboard/HeroAvatar';
+import { HeroTodayAgenda } from '../components/agenda/HeroTodayAgenda';
+import { AddAgendaModal } from '../components/agenda/AddAgendaModal';
+import { AgendaService } from '../services/AgendaService';
+import { AgendaItem } from '../types/agenda';
 
 interface DashboardProps {
   profiles?: any[];
@@ -67,6 +72,21 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const [isLoading, setIsLoading] = useState(true);
   const [isShortcutsExpanded, setIsShortcutsExpanded] = useState(true);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+
+  // Agenda States & Subscription
+  const [manualAgendas, setManualAgendas] = useState<AgendaItem[]>([]);
+  const [isAddAgendaOpen, setIsAddAgendaOpen] = useState(false);
+
+  useEffect(() => {
+    const unsubscribe = AgendaService.subscribeAgendas((items) => {
+      setManualAgendas(items);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const todayAgendas = useMemo(() => {
+    return AgendaService.getTodayAgendas(manualAgendas, timelineProjects);
+  }, [manualAgendas, timelineProjects]);
 
   // Filter States
   const [searchQuery, setSearchQuery] = useState('');
@@ -273,10 +293,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
           paddingTop: 'var(--header-safe-pt, 0px)'
         }}
       >
-        {/* Abstract Translucent Decorative Shapes */}
-        <div className="absolute top-6 -right-16 w-64 md:w-80 h-64 md:h-80 rounded-full bg-white/10 pointer-events-none blur-xs" />
-        <div className="absolute top-20 -left-16 w-44 md:w-56 h-44 md:h-56 rounded-full bg-white/5 pointer-events-none" />
-        <div className="absolute bottom-1 right-20 md:right-48 w-32 md:w-40 h-32 md:h-40 rounded-full bg-white/5 pointer-events-none" />
+        {/* Subtle Ambient Shapes (Clean and unobtrusive) */}
+        <div className="absolute -top-12 -right-12 w-64 md:w-80 h-64 md:h-80 rounded-full bg-white/10 pointer-events-none blur-sm" />
+        <div className="absolute top-12 left-1/4 w-[520px] h-[280px] bg-gradient-to-r from-sky-400/10 via-white/5 to-transparent rounded-full blur-2xl pointer-events-none" />
+        <div className="absolute top-16 -left-16 w-44 md:w-56 h-44 md:h-56 rounded-full bg-white/5 pointer-events-none" />
+        <div className="absolute bottom-0 right-16 md:right-36 w-48 md:w-64 h-48 md:h-64 rounded-full bg-sky-300/10 blur-2xl pointer-events-none" />
 
         {/* TOP NAVBAR ROW */}
         <div className="relative z-10 w-full max-w-[1280px] mx-auto flex items-center justify-between pt-2 pb-1.5 md:pt-3 md:pb-2">
@@ -339,14 +360,38 @@ export const Dashboard: React.FC<DashboardProps> = ({
           </div>
         </div>
 
-        {/* HERO GREETING CONTENT */}
-        <div className="relative z-10 w-full max-w-[1280px] mx-auto mt-5 md:mt-7 mb-4 md:mb-6 px-1">
-          <h2 className="text-2xl md:text-3xl lg:text-4xl font-extrabold tracking-tight text-white font-heading">
-            Hi {profileDisplayName}!
-          </h2>
-          <p className="text-xs md:text-sm font-medium text-white/85 leading-relaxed max-w-xl mt-1 md:mt-1.5">
-            Pantau perkembangan proyek dan aktivitas tim Anda di sini.
-          </p>
+        {/* HERO GREETING CONTENT & 3D CHARACTER */}
+        <div className="relative z-10 w-full max-w-[1280px] mx-auto mt-2 md:mt-3 mb-1 px-1 flex items-start justify-between gap-4 md:gap-8">
+          {/* SISI KIRI: GREETING, SUBTITLE, DAN AGENDA HARI INI */}
+          <div className="flex-1 max-w-xl lg:max-w-2xl self-start pt-1 text-left">
+            <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-[38px] font-extrabold tracking-tight text-white font-heading leading-tight">
+              Hi {profileDisplayName}!
+            </h2>
+            <p className="text-xs md:text-sm font-medium text-white/85 leading-relaxed mt-1">
+              Pantau perkembangan proyek dan aktivitas tim Anda di sini.
+            </p>
+
+            {/* AGENDA HARI INI */}
+            <div className="mt-3 sm:mt-3.5 max-w-lg lg:max-w-xl">
+              <HeroTodayAgenda
+                todayAgendas={todayAgendas}
+                onOpenAddModal={() => setIsAddAgendaOpen(true)}
+                onViewAll={() => {
+                  setActiveSidebarTab('agenda');
+                  navigate('/agenda');
+                }}
+              />
+            </div>
+          </div>
+
+          {/* SISI KANAN: 3D CHARACTER AVATAR */}
+          <div className="hidden md:flex items-start justify-end shrink-0 self-start pl-2">
+            <HeroAvatar
+              userProfile={activeUserProfile}
+              currentUser={currentUser}
+              onOpenAvatarSettings={() => setActiveSidebarTab('settings')}
+            />
+          </div>
         </div>
       </div>
 
@@ -683,6 +728,15 @@ export const Dashboard: React.FC<DashboardProps> = ({
           </div>
         </div>
       )}
+      {/* Add Agenda Modal */}
+      <AddAgendaModal
+        isOpen={isAddAgendaOpen}
+        onClose={() => setIsAddAgendaOpen(false)}
+        projects={timelineProjects}
+        onAgendaAdded={(item) => {
+          setManualAgendas((prev) => [item, ...prev]);
+        }}
+      />
     </div>
   );
 };

@@ -143,9 +143,30 @@
         "isTaxed": { "type": "boolean" }
       },
       "required": ["id", "name"]
+    },
+    "Agenda": {
+      "title": "Agenda",
+      "description": "Notary and PPAT office agendas and scheduled activities.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "date": { "type": "string" },
+        "time": { "type": "string" },
+        "type": { "type": "string" },
+        "clientOrProject": { "type": "string" },
+        "notes": { "type": "string" },
+        "status": { "type": "string" },
+        "source": { "type": "string" }
+      },
+      "required": ["id", "title", "date", "status"]
     }
   },
   "firestore": {
+    "/agendas/{agendaId}": {
+      "schema": "Agenda",
+      "description": "Notary office agendas collection."
+    },
     "/project_uploaded_documents/{documentId}": {
       "schema": "ProjectUploadedDocument",
       "description": "Collection of uploaded documents metadata."

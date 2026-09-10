@@ -120,20 +120,28 @@ export class AuthService {
           }
           return;
         }
+        const existingAvatarId = data.avatarId || data.avatar_id;
+        const defaultAvatarId = data.role === 'Super Admin' ? 'male_01' : data.role === 'Admin' ? 'male_02' : 'female_01';
         onUpdate({
           ...data,
+          avatarId: existingAvatarId || defaultAvatarId,
+          avatar_id: existingAvatarId || defaultAvatarId,
           uid,
           email: email || '',
         } as UserProfile);
       } else {
         // Initial profile creation
         const isSuperAdmin = checkIsSuperAdmin(email);
+        const role = isSuperAdmin ? 'Super Admin' : 'Staff';
+        const defaultAvatarId = isSuperAdmin ? 'male_01' : 'female_01';
         const initialProfile: UserProfile = {
           uid,
           email: email || '',
           name: displayName || 'User',
-          role: isSuperAdmin ? 'Super Admin' : 'Staff',
-          level: isSuperAdmin ? 'Super Admin' : 'Staff',
+          role,
+          level: role,
+          avatarId: defaultAvatarId,
+          avatar_id: defaultAvatarId,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         };
@@ -149,12 +157,16 @@ export class AuthService {
       if (isQuotaExceeded(error)) {
         console.warn(`[AuthService] Quota exceeded on user_profiles/${uid}. Using local default user profile.`);
         const isSuperAdmin = checkIsSuperAdmin(email);
+        const role = isSuperAdmin ? 'Super Admin' : 'Staff';
+        const defaultAvatarId = isSuperAdmin ? 'male_01' : 'female_01';
         onUpdate({
           uid,
           email: email || '',
           name: displayName || 'User',
-          role: isSuperAdmin ? 'Super Admin' : 'Staff',
-          level: isSuperAdmin ? 'Super Admin' : 'Staff',
+          role,
+          level: role,
+          avatarId: defaultAvatarId,
+          avatar_id: defaultAvatarId,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         } as UserProfile);
@@ -365,4 +377,54 @@ export class AuthService {
       refreshPromise = null;
     }
   }
+
+  /**
+   * Memperbarui avatar user di Firestore (user_profiles/{uid})
+   */
+  static async updateUserAvatar(
+    uid: string,
+    avatarData: {
+      avatarId?: string;
+      avatar_id?: string;
+      avatar_gender?: 'MALE' | 'FEMALE';
+      gender?: 'MALE' | 'FEMALE';
+      avatar_style?: string;
+      style?: string;
+      avatar_variant?: string;
+      variant?: string;
+      avatar_image?: string;
+      imageUrl?: string;
+    }
+  ): Promise<void> {
+    if (!uid) throw new Error('User ID diperlukan untuk update avatar');
+    const docRef = doc(db, 'user_profiles', uid);
+    const now = new Date().toISOString();
+    const effectiveAvatarId = avatarData.avatarId || avatarData.avatar_id;
+    if (!effectiveAvatarId) throw new Error('avatarId diperlukan untuk update avatar');
+    
+    await setDoc(
+      docRef,
+      {
+        avatarId: effectiveAvatarId,
+        avatar_id: effectiveAvatarId,
+        avatar_gender: avatarData.avatar_gender || avatarData.gender || 'MALE',
+        avatar_style: avatarData.avatar_style || avatarData.style || '3D Professional Corporate',
+        avatar_variant: avatarData.avatar_variant || avatarData.variant || '',
+        avatar_image: avatarData.avatar_image || avatarData.imageUrl || '',
+        updatedAt: now
+      },
+      { merge: true }
+    );
+  }
+
+  /**
+   * Memperbarui data profil pengguna secara umum
+   */
+  static async updateUserProfile(uid: string, updates: Partial<UserProfile>): Promise<void> {
+    if (!uid) throw new Error('User ID diperlukan');
+    const docRef = doc(db, 'user_profiles', uid);
+    const now = new Date().toISOString();
+    await setDoc(docRef, { ...updates, updatedAt: now }, { merge: true });
+  }
 }
+
