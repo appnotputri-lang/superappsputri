@@ -16,13 +16,35 @@ export function exportPpatReportToExcel(params: {
   const monthName = MONTH_NAMES[month - 1];
 
   // Header Rows
+  const nextMonthDate = new Date(year, month, 1);
+  const nextMonthName = MONTH_NAMES[nextMonthDate.getMonth()];
+  const nextMonthYear = nextMonthDate.getFullYear();
+  const defaultSignDate = `01 ${nextMonthName} ${nextMonthYear}`;
+  const signCity = (config.city && config.city !== 'Lembang' && config.city !== 'Sleman') ? config.city : 'Bandung Barat';
+  const npwp = (config.npwp && config.npwp !== '24.150.722.7-421.001') ? config.npwp : '3217015610760002';
+  const workingArea = (config.workingArea || 'KABUPATEN BANDUNG BARAT').toUpperCase();
+
+  const recipientLines = (config.reportRecipients && config.reportRecipients.trim())
+    ? config.reportRecipients.split('\n').map(l => l.trim()).filter(l => l.length > 0)
+    : [
+        '1) Kepala Kantor Wilayah BPN Propinsi Jawa Barat',
+        '2) Kepala Kantor Pertanahan Kabupaten Bandung Barat',
+        '3) Kepala Kantor Badan Pengelolaan Keuangan Daerah Kab. Bandung Barat',
+        '4) Kepala Kantor Pelayanan Pajak Pratama Cimahi'
+      ];
+
   const wsData: any[][] = [
-    ['LAPORAN BULANAN PEMBUATAN AKTA PPAT'],
-    [`BULAN: ${monthName.toUpperCase()} ${year}`],
+    ['Lampiran Keputusan Bersama Menteri Negara Agraria / Kepala Badan Pertanahan Nasional dan Direktur Jenderal Pajak'],
+    ['Nomor: SKB 2 Tahun 1998 KEP – 179/Pj/1998, Tanggal: 27 Agustus 1998'],
     [],
-    [`Nama PPAT: ${config.ppatName}`, '', '', '', '', '', '', `Kepada Yth:`],
-    [`Daerah Kerja: ${config.workingArea}`, '', '', '', '', '', '', `1. Kepala Kantor Pertanahan ${config.workingArea}`],
-    [`Alamat Kantor: ${config.officeAddress}`, '', '', '', '', '', '', `2. Kepala Kantor Pelayanan Pajak Pratama`],
+    [`Nama PPAT: ${config.ppatName}`, '', '', '', '', '', '', 'Kepada Yth:'],
+    [`Alamat: ${config.officeAddress}`, '', '', '', '', '', '', recipientLines[0] || ''],
+    [`NPWP: ${npwp}`, '', '', '', '', '', '', recipientLines[1] || ''],
+    [`Daerah Kerja: ${workingArea}`, '', '', '', '', '', '', recipientLines[2] || ''],
+    ['', '', '', '', '', '', '', recipientLines[3] || ''],
+    [],
+    ['LAPORAN BULANAN PEMBUATAN AKTA OLEH PPAT'],
+    [`Bulan: ${monthName.toUpperCase()}    Tahun: ${year}`],
     [],
     // Table Headers (Level 1)
     [
@@ -128,16 +150,12 @@ export function exportPpatReportToExcel(params: {
 
   // Footer Signature Space
   wsData.push([]);
-  wsData.push([]);
-  wsData.push(['', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', `${config.city || 'Sleman'}, ${new Date(year, month, 0).getDate()} ${monthName} ${year}`]);
-  wsData.push(['', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', 'Pejabat Pembuat Akta Tanah (PPAT)']);
-  wsData.push([]);
+  wsData.push([`${signCity}, ${defaultSignDate}`, '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', `Pejabat Pembuat Akta Tanah`]);
+  wsData.push(['', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', `di ${workingArea}`]);
   wsData.push([]);
   wsData.push([]);
-  wsData.push(['', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', config.ppatName]);
-  if (config.skNumber) {
-    wsData.push(['', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', config.skNumber]);
-  }
+  wsData.push([]);
+  wsData.push(['', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', `(${config.ppatName})`]);
 
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.aoa_to_sheet(wsData);

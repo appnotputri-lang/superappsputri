@@ -1,4 +1,4 @@
-import { PpatDeed, PpatProfileConfig } from '../types/ppat';
+import { PpatDeed, PpatProfileConfig, DEFAULT_PPAT_PROFILE } from '../types/ppat';
 
 export async function getAllPpatDeedsD1(db: any, options?: { year?: number; month?: number }): Promise<PpatDeed[]> {
   let query = 'SELECT * FROM ppat_deeds';
@@ -206,64 +206,143 @@ export async function deletePpatDeedD1(db: any, id: string): Promise<boolean> {
   return true;
 }
 
+export function ensurePpatTablesD1(db: any) {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS ppat_deeds (
+      id TEXT PRIMARY KEY,
+      order_number INTEGER,
+      deed_number TEXT,
+      deed_date TEXT,
+      legal_act_type TEXT,
+      first_party_name TEXT,
+      first_party_address TEXT,
+      first_party_npwp TEXT,
+      second_party_name TEXT,
+      second_party_address TEXT,
+      second_party_npwp TEXT,
+      land_right_type TEXT,
+      land_right_number TEXT,
+      location TEXT,
+      land_area REAL,
+      building_area REAL,
+      transaction_price REAL,
+      sppt_nop TEXT,
+      sppt_njop REAL,
+      ssp_date TEXT,
+      ssp_amount REAL,
+      ssb_date TEXT,
+      ssb_amount REAL,
+      notes TEXT,
+      created_at TEXT,
+      updated_at TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS ppat_settings (
+      id TEXT PRIMARY KEY,
+      ppat_name TEXT,
+      sk_number TEXT,
+      working_area TEXT,
+      office_address TEXT,
+      city TEXT,
+      phone TEXT,
+      npwp TEXT,
+      report_recipients TEXT,
+      updated_at TEXT
+    );
+  `);
+}
+
 export async function getPpatSettingsD1(db: any): Promise<PpatProfileConfig> {
+  // Ensure columns exist
+  try {
+    await db.prepare('ALTER TABLE ppat_settings ADD COLUMN npwp TEXT').run();
+  } catch (_) {}
+  try {
+    await db.prepare('ALTER TABLE ppat_settings ADD COLUMN report_recipients TEXT').run();
+  } catch (_) {}
+
   const row = await db.prepare('SELECT * FROM ppat_settings LIMIT 1').first();
   if (row) {
+    const rawSk = row.sk_number || '';
+    const cleanSk = rawSk.includes('12-X-2020') ? '' : rawSk;
+    const cleanNpwp = (!row.npwp || row.npwp === '24.150.722.7-421.001') ? '3217015610760002' : row.npwp;
+    const cleanCity = (!row.city || row.city === 'Sleman' || row.city === 'Lembang') ? 'Bandung Barat' : row.city;
+    const cleanWorkingArea = (!row.working_area || row.working_area === 'Kabupaten Sleman') ? 'KABUPATEN BANDUNG BARAT' : row.working_area;
+    const cleanOfficeAddress = (!row.office_address || row.office_address.includes('Kaliurang')) ? 'Komp. PPR-ITB Kav. F-5 Dago Bengkok, Lembang' : row.office_address;
+    const cleanPpatName = (!row.ppat_name || row.ppat_name.includes('PUTRI, S.H.')) ? 'R.A. NUKANTINI PUTRI PARINCHA, SH, M.Kn' : row.ppat_name;
+
     return {
       id: row.id,
-      ppatName: row.ppat_name || 'PUTRI, S.H., M.Kn.',
-      skNumber: row.sk_number || 'SK Kepala BPN RI No. 12-X-2020',
-      workingArea: row.working_area || 'Kabupaten Sleman',
-      officeAddress: row.office_address || 'Jl. Kaliurang Km 5.5 No. 88, Sleman, D.I. Yogyakarta',
-      city: row.city || 'Sleman',
-      phone: row.phone || '0274-889900',
+      ppatName: cleanPpatName,
+      skNumber: cleanSk,
+      workingArea: cleanWorkingArea,
+      officeAddress: cleanOfficeAddress,
+      city: cleanCity,
+      phone: row.phone || DEFAULT_PPAT_PROFILE.phone,
+      npwp: cleanNpwp,
+      reportRecipients: row.report_recipients || DEFAULT_PPAT_PROFILE.reportRecipients,
       updatedAt: row.updated_at
     };
   }
 
   // Default fallback
-  return {
-    ppatName: 'PUTRI, S.H., M.Kn.',
-    skNumber: 'SK Kepala BPN RI No. 12-X-2020',
-    workingArea: 'Kabupaten Sleman',
-    officeAddress: 'Jl. Kaliurang Km 5.5 No. 88, Sleman, D.I. Yogyakarta',
-    city: 'Sleman',
-    phone: '0274-889900'
-  };
+  return { ...DEFAULT_PPAT_PROFILE };
 }
 
 export async function updatePpatSettingsD1(db: any, config: Partial<PpatProfileConfig>): Promise<PpatProfileConfig> {
   const now = new Date().toISOString();
+  // Ensure columns exist
+  try {
+    await db.prepare('ALTER TABLE ppat_settings ADD COLUMN npwp TEXT').run();
+  } catch (_) {}
+  try {
+    await db.prepare('ALTER TABLE ppat_settings ADD COLUMN report_recipients TEXT').run();
+  } catch (_) {}
+
+  const rawSk = config.skNumber || '';
+  const cleanSk = rawSk.includes('12-X-2020') ? '' : rawSk;
+  const ppatName = config.ppatName || DEFAULT_PPAT_PROFILE.ppatName;
+  const workingArea = config.workingArea || DEFAULT_PPAT_PROFILE.workingArea;
+  const officeAddress = config.officeAddress || DEFAULT_PPAT_PROFILE.officeAddress;
+  const city = config.city || DEFAULT_PPAT_PROFILE.city;
+  const phone = config.phone || DEFAULT_PPAT_PROFILE.phone;
+  const npwp = config.npwp || DEFAULT_PPAT_PROFILE.npwp;
+  const reportRecipients = config.reportRecipients || DEFAULT_PPAT_PROFILE.reportRecipients;
+
   const existing = await db.prepare('SELECT id FROM ppat_settings LIMIT 1').first();
 
   if (existing) {
     await db.prepare(`
       UPDATE ppat_settings SET
-        ppat_name = ?, sk_number = ?, working_area = ?, office_address = ?, city = ?, phone = ?, updated_at = ?
+        ppat_name = ?, sk_number = ?, working_area = ?, office_address = ?, city = ?, phone = ?, npwp = ?, report_recipients = ?, updated_at = ?
       WHERE id = ?
     `).bind(
-      config.ppatName || '',
-      config.skNumber || '',
-      config.workingArea || '',
-      config.officeAddress || '',
-      config.city || '',
-      config.phone || '',
+      ppatName,
+      cleanSk,
+      workingArea,
+      officeAddress,
+      city,
+      phone,
+      npwp,
+      reportRecipients,
       now,
       existing.id
     ).run();
   } else {
     const id = `ppat_cfg_${Date.now()}`;
     await db.prepare(`
-      INSERT INTO ppat_settings (id, ppat_name, sk_number, working_area, office_address, city, phone, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO ppat_settings (id, ppat_name, sk_number, working_area, office_address, city, phone, npwp, report_recipients, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).bind(
       id,
-      config.ppatName || 'PUTRI, S.H., M.Kn.',
-      config.skNumber || 'SK Kepala BPN RI No. 12-X-2020',
-      config.workingArea || 'Kabupaten Sleman',
-      config.officeAddress || 'Jl. Kaliurang Km 5.5 No. 88, Sleman, D.I. Yogyakarta',
-      config.city || 'Sleman',
-      config.phone || '0274-889900',
+      ppatName,
+      cleanSk,
+      workingArea,
+      officeAddress,
+      city,
+      phone,
+      npwp,
+      reportRecipients,
       now
     ).run();
   }

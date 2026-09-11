@@ -67,15 +67,33 @@ export interface PpatDeed {
 export interface PpatProfileConfig {
   id?: string;
   ppatName: string;
-  skNumber: string;
+  skNumber?: string;
   workingArea: string;
   officeAddress: string;
   city: string;
   phone?: string;
   email?: string;
   nip?: string;
+  npwp?: string;
+  reportRecipients?: string;
   updatedAt?: string;
 }
+
+export const DEFAULT_PPAT_PROFILE: PpatProfileConfig = {
+  ppatName: 'R.A. NUKANTINI PUTRI PARINCHA, SH, M.Kn',
+  skNumber: '',
+  workingArea: 'KABUPATEN BANDUNG BARAT',
+  officeAddress: 'Komp. PPR-ITB Kav. F-5 Dago Bengkok, Lembang',
+  city: 'Bandung Barat',
+  phone: '0812-3456-7890',
+  npwp: '3217015610760002',
+  reportRecipients: [
+    '1) Kepala Kantor Wilayah BPN Propinsi Jawa Barat',
+    '2) Kepala Kantor Pertanahan Kabupaten Bandung Barat',
+    '3) Kepala Kantor Badan Pengelolaan Keuangan Daerah Kab. Bandung Barat',
+    '4) Kepala Kantor Pelayanan Pajak Pratama Cimahi'
+  ].join('\n')
+};
 
 export const LEGAL_ACT_TYPES = [
   'Jual Beli',

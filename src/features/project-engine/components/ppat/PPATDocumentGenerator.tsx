@@ -667,7 +667,7 @@ export const PPATDocumentGenerator: React.FC<PPATDocumentGeneratorProps> = ({
                         <p className="font-bold underline text-slate-900">
                           NUKANTINI PUTRI PARINCHA, S.H., M.Kn.
                         </p>
-                        <p className="text-[11px] text-slate-600">SK Kepala BPN RI / Daerah Kerja: Kab. Bandung Barat</p>
+                        <p className="text-[11px] text-slate-600">Daerah Kerja: Kabupaten Bandung Barat</p>
                       </div>
                     </div>
                   </div>

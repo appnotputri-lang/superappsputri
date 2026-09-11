@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { X, Save, Building, ShieldCheck, MapPin, Phone, User } from 'lucide-react';
-import { PpatProfileConfig } from '../../types/ppat';
+import { X, Save, Building, MapPin, Phone, User } from 'lucide-react';
+import { PpatProfileConfig, DEFAULT_PPAT_PROFILE } from '../../types/ppat';
 import { PpatService } from '../../services/PpatService';
 
 interface PpatProfileModalProps {
@@ -16,11 +16,21 @@ export const PpatProfileModal: React.FC<PpatProfileModalProps> = ({
   config,
   onSave
 }) => {
-  const [formData, setFormData] = useState<PpatProfileConfig>(config);
+  const [formData, setFormData] = useState<PpatProfileConfig>({
+    ...DEFAULT_PPAT_PROFILE,
+    ...config,
+    city: config.city || 'Bandung Barat',
+    npwp: config.npwp || '3217015610760002'
+  });
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    setFormData(config);
+    setFormData({
+      ...DEFAULT_PPAT_PROFILE,
+      ...config,
+      city: config.city || 'Bandung Barat',
+      npwp: config.npwp || '3217015610760002'
+    });
   }, [config, isOpen]);
 
   if (!isOpen) return null;
@@ -29,7 +39,14 @@ export const PpatProfileModal: React.FC<PpatProfileModalProps> = ({
     e.preventDefault();
     try {
       setSaving(true);
-      const updated = await PpatService.savePpatSettings(formData);
+      const submissionData = {
+        ...formData,
+        skNumber: '',
+        city: formData.city || 'Bandung Barat',
+        npwp: formData.npwp || '3217015610760002',
+        workingArea: formData.workingArea || 'KABUPATEN BANDUNG BARAT'
+      };
+      const updated = await PpatService.savePpatSettings(submissionData);
       onSave(updated);
       onClose();
     } catch (err: any) {
@@ -84,36 +101,34 @@ export const PpatProfileModal: React.FC<PpatProfileModalProps> = ({
             </div>
           </div>
 
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
-              Nomor SK Pengangkatan PPAT
-            </label>
-            <div className="relative">
-              <ShieldCheck className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                NPWP PPAT
+              </label>
               <input
                 type="text"
-                placeholder="Contoh: SK Kepala BPN RI No. 12-X-2020"
-                value={formData.skNumber}
-                onChange={(e) => setFormData({ ...formData, skNumber: e.target.value })}
-                className="w-full pl-9 pr-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                placeholder="3217015610760002"
+                value={formData.npwp || ''}
+                onChange={(e) => setFormData({ ...formData, npwp: e.target.value })}
+                className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none"
               />
             </div>
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
-              Daerah Kerja (Wilayah Jabatan PPAT)
-            </label>
-            <div className="relative">
-              <MapPin className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
-              <input
-                type="text"
-                required
-                placeholder="Contoh: Kabupaten Sleman"
-                value={formData.workingArea}
-                onChange={(e) => setFormData({ ...formData, workingArea: e.target.value })}
-                className="w-full pl-9 pr-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-              />
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                Daerah Kerja (Wilayah Jabatan PPAT)
+              </label>
+              <div className="relative">
+                <MapPin className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                <input
+                  type="text"
+                  required
+                  placeholder="KABUPATEN BANDUNG BARAT"
+                  value={formData.workingArea}
+                  onChange={(e) => setFormData({ ...formData, workingArea: e.target.value })}
+                  className="w-full pl-9 pr-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                />
+              </div>
             </div>
           </div>
 
@@ -132,10 +147,11 @@ export const PpatProfileModal: React.FC<PpatProfileModalProps> = ({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Kota Penandatanganan
+                Tempat Penandatanganan
               </label>
               <input
                 type="text"
+                placeholder="Bandung Barat"
                 value={formData.city}
                 onChange={(e) => setFormData({ ...formData, city: e.target.value })}
                 className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none"
@@ -155,6 +171,22 @@ export const PpatProfileModal: React.FC<PpatProfileModalProps> = ({
                 />
               </div>
             </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
+              Instansi Tujuan / Tembusan (Kepada Yth)
+            </label>
+            <textarea
+              rows={4}
+              placeholder={"1. Kepala Kantor Pertanahan...\n2. Kepala Kantor Pelayanan Pajak Pratama\n3) Kepala Kantor BPKAD...\n4) Kepala Kantor KPP Pratama..."}
+              value={formData.reportRecipients || ''}
+              onChange={(e) => setFormData({ ...formData, reportRecipients: e.target.value })}
+              className="w-full px-3 py-2 text-xs font-mono border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+            />
+            <p className="text-[10px] text-slate-400 mt-1">
+              Tulis 1 baris per instansi penerima. Jika dikosongkan, sistem otomatis memakai format baku sesuai wilayah kerja.
+            </p>
           </div>
 
           {/* Footer */}

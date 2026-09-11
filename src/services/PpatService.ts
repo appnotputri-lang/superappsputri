@@ -1,4 +1,4 @@
-import { PpatDeed, Holiday, PpatProfileConfig } from '../types/ppat';
+import { PpatDeed, Holiday, PpatProfileConfig, DEFAULT_PPAT_PROFILE } from '../types/ppat';
 import { d1ClientCache } from '../lib/d1ClientCache';
 
 const listeners: {
@@ -201,14 +201,7 @@ export class PpatService {
       const res = await fetch('/api/ppat-settings');
       if (!res.ok) throw new Error('Failed to fetch PPAT settings');
       const json = await res.json();
-      const config = json.config || {
-        ppatName: 'PUTRI, S.H., M.Kn.',
-        skNumber: 'SK Kepala BPN RI No. 12-X-2020',
-        workingArea: 'Kabupaten Sleman',
-        officeAddress: 'Jl. Kaliurang Km 5.5 No. 88, Sleman, D.I. Yogyakarta',
-        city: 'Sleman',
-        phone: '0274-889900'
-      };
+      const config = json.config || { ...DEFAULT_PPAT_PROFILE };
       d1ClientCache.set(cacheKey, config);
       return config;
     };

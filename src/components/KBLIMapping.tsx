@@ -1299,38 +1299,30 @@ const KBLIMapping: React.FC = () => {
           }));
         } else {
           scopes.forEach((s, sIdx) => {
-            const isFailedScope = !s?.ruangLingkup || 
-                                  s.ruangLingkup.includes("Gagal membaca") || 
-                                  s.ruangLingkup.includes("Belum tersedia") || 
-                                  s.ruangLingkup === "-";
-            
             let displayRisiko = translateRiskLevel(s.tingkatResiko || "-", true);
             let displayIzin = "-";
             let displayJenisIzin = "-";
 
-            if (isFailedScope) {
-              displayRisiko = "N/A";
-              displayIzin = "N/A";
-              displayJenisIzin = "N/A";
-            } else {
-              const izinText = s.izin || "";
-              if (izinText === "NIB") {
-                displayIzin = "NIB";
-                displayJenisIzin = "-";
-              } else if (izinText.toLowerCase().includes("sertifikat standar")) {
-                displayIzin = "Standard Certificate";
-                if (izinText.toLowerCase().includes("self declare")) {
-                  displayJenisIzin = "Standard Certificate (Self Declared)";
-                } else {
-                  displayJenisIzin = "Standard Certificate (Verified)";
-                }
-              } else if (izinText.toLowerCase().includes("izin")) {
-                displayIzin = "Permit";
-                displayJenisIzin = "Business / Operational Permit";
+            const izinText = s.izin || "";
+            if (izinText === "NIB") {
+              displayIzin = "NIB";
+              displayJenisIzin = "-";
+            } else if (izinText.toLowerCase().includes("sertifikat standar")) {
+              displayIzin = "Standard Certificate";
+              if (izinText.toLowerCase().includes("self declare")) {
+                displayJenisIzin = "Standard Certificate (Self Declared)";
               } else {
-                displayIzin = izinText;
-                displayJenisIzin = "-";
+                displayJenisIzin = "Standard Certificate (Verified)";
               }
+            } else if (izinText.toLowerCase().includes("izin")) {
+              displayIzin = "Permit";
+              displayJenisIzin = "Business / Operational Permit";
+            } else if (izinText) {
+              displayIzin = izinText;
+              displayJenisIzin = "-";
+            } else if (s.tingkatResiko) {
+              displayIzin = translateIzinValue(getAutoIzin(s.tingkatResiko), true);
+              displayJenisIzin = "-";
             }
 
             scopeRows.push(new TableRow({
@@ -1937,38 +1929,30 @@ const KBLIMapping: React.FC = () => {
           ]);
         } else {
           scopes.forEach((s, sIdx) => {
-            const isFailedScope = !s?.ruangLingkup || 
-                                  s.ruangLingkup.includes("Gagal membaca") || 
-                                  s.ruangLingkup.includes("Belum tersedia") || 
-                                  s.ruangLingkup === "-";
-            
             let displayRisiko = s.tingkatResiko || "-";
             let displayIzin = "-";
             let displayJenisIzin = "-";
 
-            if (isFailedScope) {
-              displayRisiko = "N/A";
-              displayIzin = "N/A";
-              displayJenisIzin = "N/A";
-            } else {
-              const izinText = s.izin || "";
-              if (izinText === "NIB") {
-                displayIzin = "NIB";
-                displayJenisIzin = "-";
-              } else if (izinText.toLowerCase().includes("sertifikat standar")) {
-                displayIzin = "Sertifikat Standar";
-                if (izinText.toLowerCase().includes("self declare")) {
-                  displayJenisIzin = "Sertifikat Standar (Self Declare)";
-                } else {
-                  displayJenisIzin = "Sertifikat Standar (Verifikasi)";
-                }
-              } else if (izinText.toLowerCase().includes("izin")) {
-                displayIzin = "Izin";
-                displayJenisIzin = "Izin Usaha / Operasional";
+            const izinText = s.izin || "";
+            if (izinText === "NIB") {
+              displayIzin = "NIB";
+              displayJenisIzin = "-";
+            } else if (izinText.toLowerCase().includes("sertifikat standar")) {
+              displayIzin = "Sertifikat Standar";
+              if (izinText.toLowerCase().includes("self declare")) {
+                displayJenisIzin = "Sertifikat Standar (Self Declare)";
               } else {
-                displayIzin = izinText;
-                displayJenisIzin = "-";
+                displayJenisIzin = "Sertifikat Standar (Verifikasi)";
               }
+            } else if (izinText.toLowerCase().includes("izin")) {
+              displayIzin = "Izin";
+              displayJenisIzin = "Izin Usaha / Operasional";
+            } else if (izinText) {
+              displayIzin = izinText;
+              displayJenisIzin = "-";
+            } else if (s.tingkatResiko) {
+              displayIzin = getAutoIzin(s.tingkatResiko);
+              displayJenisIzin = "-";
             }
 
             tableRows.push([

@@ -18,7 +18,7 @@ import {
   ChevronRight,
   Sparkles
 } from 'lucide-react';
-import { PpatDeed, Holiday, DailyReportRow, PpatProfileConfig } from '../../types/ppat';
+import { PpatDeed, Holiday, DailyReportRow, PpatProfileConfig, DEFAULT_PPAT_PROFILE } from '../../types/ppat';
 import { PpatService } from '../../services/PpatService';
 import { PpatDeedModal } from './PpatDeedModal';
 import { HolidayManagerModal } from './HolidayManagerModal';
@@ -48,14 +48,7 @@ export const PpatReportPage: React.FC = () => {
 
   const [deeds, setDeeds] = useState<PpatDeed[]>([]);
   const [holidays, setHolidays] = useState<Holiday[]>([]);
-  const [config, setConfig] = useState<PpatProfileConfig>({
-    ppatName: 'PUTRI, S.H., M.Kn.',
-    skNumber: 'SK Kepala BPN RI No. 12-X-2020',
-    workingArea: 'Kabupaten Sleman',
-    officeAddress: 'Jl. Kaliurang Km 5.5 No. 88, Sleman, D.I. Yogyakarta',
-    city: 'Sleman',
-    phone: '0274-889900'
-  });
+  const [config, setConfig] = useState<PpatProfileConfig>({ ...DEFAULT_PPAT_PROFILE });
 
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -236,6 +229,19 @@ export const PpatReportPage: React.FC = () => {
   };
 
   const currentMonthObj = MONTH_OPTIONS.find((m) => m.value === selectedMonth);
+  const nextMonthDate = new Date(selectedYear, selectedMonth, 1);
+  const nextMonthName = MONTH_OPTIONS.find((m) => m.value === nextMonthDate.getMonth() + 1)?.label || 'Bulan';
+  const nextMonthYear = nextMonthDate.getFullYear();
+  const defaultSignDate = `01 ${nextMonthName} ${nextMonthYear}`;
+  const signCity = (config.city && config.city !== 'Lembang' && config.city !== 'Sleman') ? config.city : 'Bandung Barat';
+  const recipientLines = (config.reportRecipients && config.reportRecipients.trim())
+    ? config.reportRecipients.split('\n').map((l) => l.trim()).filter((l) => l.length > 0)
+    : [
+        '1) Kepala Kantor Wilayah BPN Propinsi Jawa Barat',
+        '2) Kepala Kantor Pertanahan Kabupaten Bandung Barat',
+        '3) Kepala Kantor Badan Pengelolaan Keuangan Daerah Kab. Bandung Barat',
+        '4) Kepala Kantor Pelayanan Pajak Pratama Cimahi'
+      ];
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 pb-16 font-sans print:bg-white print:p-0">
@@ -252,11 +258,11 @@ export const PpatReportPage: React.FC = () => {
                   Laporan Bulanan Akta PPAT
                 </h1>
                 <span className="px-2 py-0.5 text-xs font-semibold bg-emerald-100 text-emerald-800 rounded-full">
-                  Format Resmi BPN
+                  Format Resmi SKB 1998
                 </span>
               </div>
               <p className="text-xs text-slate-500 mt-0.5">
-                Pembuatan Buku Laporan Bulanan Akta Tanah Pejabat Pembuat Akta Tanah (PPAT)
+                Buku Laporan Bulanan Pembuatan Akta Pejabat Pembuat Akta Tanah (PPAT)
               </p>
             </div>
 
@@ -364,151 +370,202 @@ export const PpatReportPage: React.FC = () => {
       </div>
 
       {/* Main Report Canvas */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6">
+      <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-6 mt-6">
         
         {/* Paper Document Container */}
-        <div className="bg-white rounded-xl shadow-md border border-slate-200/80 p-6 sm:p-8 print:shadow-none print:border-none print:p-0">
+        <div className="bg-white rounded-xl shadow-md border border-slate-300 p-4 sm:p-7 print:shadow-none print:border-none print:p-0">
           
-          {/* Header Formal PPAT */}
-          <div className="text-center mb-6 pb-4 border-b-2 border-slate-800">
-            <h2 className="text-base sm:text-lg font-bold text-slate-900 tracking-wider uppercase">
-              LAPORAN BULANAN PEMBUATAN AKTA PPAT
+          {/* Header Regulasi SKB (Bagian Atas Persis PDF) */}
+          <div className="mb-4 text-[10.5px] sm:text-[11px] text-black font-sans leading-tight">
+            <p className="font-medium">Lampiran Keputusan Bersama Menteri Negara Agraria / Kepala Badan Pertanahan Nasional</p>
+            <p className="font-medium">dan Direktur Jenderal Pajak.</p>
+            <p className="mt-0.5 font-medium">Nomor&nbsp;&nbsp;&nbsp;: SKB 2 Tahun 1998 KEP – 179/Pj/1998</p>
+            <p className="font-medium">Tanggal : 27 Agustus 1998</p>
+          </div>
+
+          {/* Dua Kolom Identitas PPAT (Kiri) & Instansi Penerima (Kanan) */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 text-[10.5px] sm:text-[11px] text-black font-sans leading-snug">
+            <div className="space-y-0.5">
+              <div className="flex">
+                <span className="w-28 font-medium">Nama PPAT</span>
+                <span className="font-bold">: {config.ppatName}</span>
+              </div>
+              <div className="flex">
+                <span className="w-28 font-medium">Alamat</span>
+                <span>: {config.officeAddress}</span>
+              </div>
+              <div className="flex">
+                <span className="w-28 font-medium">NPWP</span>
+                <span>: {config.npwp || '3217015610760002'}</span>
+              </div>
+              <div className="flex">
+                <span className="w-28 font-medium">Daerah Kerja</span>
+                <span className="font-bold">: {(config.workingArea || 'KABUPATEN BANDUNG BARAT').toUpperCase()}</span>
+              </div>
+            </div>
+
+            <div className="space-y-0.5 md:pl-8">
+              <p className="font-medium">Kepada Yth,</p>
+              {recipientLines.map((recipient, rIdx) => (
+                <p key={rIdx}>{recipient}</p>
+              ))}
+            </div>
+          </div>
+
+          {/* Judul Utama Laporan di Tengah */}
+          <div className="text-center my-5">
+            <h2 className="text-xs sm:text-sm md:text-base font-bold text-black uppercase tracking-wider">
+              LAPORAN BULANAN PEMBUATAN AKTA OLEH PPAT
             </h2>
-            <p className="text-xs sm:text-sm font-semibold text-slate-700 mt-0.5">
-              BULAN: {currentMonthObj?.label.toUpperCase()} {selectedYear}
+            <p className="text-[11px] sm:text-xs md:text-sm font-bold text-black mt-1">
+              Bulan : {currentMonthObj?.label.toUpperCase()} &nbsp;&nbsp;&nbsp;&nbsp; Tahun : {selectedYear}
             </p>
           </div>
 
-          {/* Sub Header (PPAT Info Left & Destination Right) */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 text-xs text-slate-800">
-            <div className="space-y-1">
-              <div className="grid grid-cols-3">
-                <span className="font-semibold text-slate-600">Nama PPAT</span>
-                <span className="col-span-2">: {config.ppatName}</span>
-              </div>
-              <div className="grid grid-cols-3">
-                <span className="font-semibold text-slate-600">Daerah Kerja</span>
-                <span className="col-span-2">: {config.workingArea}</span>
-              </div>
-              <div className="grid grid-cols-3">
-                <span className="font-semibold text-slate-600">Alamat Kantor</span>
-                <span className="col-span-2">: {config.officeAddress}</span>
-              </div>
-              {config.skNumber && (
-                <div className="grid grid-cols-3">
-                  <span className="font-semibold text-slate-600">Nomor SK</span>
-                  <span className="col-span-2">: {config.skNumber}</span>
-                </div>
-              )}
-            </div>
-
-            <div className="space-y-1 md:pl-8">
-              <div className="font-semibold text-slate-700">Kepada Yth:</div>
-              <div className="pl-3 space-y-0.5 text-slate-700">
-                <div>1. Kepala Kantor Pertanahan {config.workingArea}</div>
-                <div>2. Kepala Kantor Pelayanan Pajak Pratama</div>
-              </div>
-            </div>
-          </div>
-
-          {/* Table Report with multi-level headers */}
-          <div className="overflow-x-auto border border-slate-400 rounded-lg">
-            <table className="w-full border-collapse text-[11px] text-slate-800 leading-tight">
+          {/* Tabel Laporan 18 Kolom Persis PDF */}
+          <div className="overflow-x-auto border border-black shadow-xs">
+            <table className="w-full border-collapse text-[9.5px] sm:text-[10.5px] text-black font-sans leading-tight border border-black">
               
-              {/* Level 1 & Level 2 Headers */}
+              {/* Level 1, 2, & 3 Headers (18 Kolom Resmi SKB 1998) */}
               <thead>
-                <tr className="bg-slate-100 text-slate-900 font-bold border-b border-slate-400 text-center divide-x divide-slate-400">
-                  <th rowSpan={2} className="py-2.5 px-2 w-12 align-middle">
-                    NO.<br />TGL
+                {/* Level 1: 12 Header Utama */}
+                <tr className="border border-black font-bold text-center bg-white text-black">
+                  <th rowSpan={2} className="border border-black px-1.5 py-1.5 w-10 align-middle">
+                    NO.<br />URUT
                   </th>
-                  <th colSpan={1} className="py-1 px-2 min-w-[130px]">
+                  <th colSpan={2} className="border border-black px-1.5 py-1 align-middle">
                     AKTA
                   </th>
-                  <th rowSpan={2} className="py-2.5 px-2 min-w-[130px] align-middle">
-                    BENTUK<br />PERBUATAN HUKUM
+                  <th rowSpan={2} className="border border-black px-1.5 py-1.5 min-w-[85px] align-middle">
+                    BENTUK<br />PERBUATAN<br />HUKUM
                   </th>
-                  <th colSpan={2} className="py-1 px-2 min-w-[280px]">
-                    NAMA, ALAMAT & NPWP PARA PIHAK
+                  <th colSpan={2} className="border border-black px-1.5 py-1 min-w-[190px] align-middle">
+                    NAMA, ALAMAT DAN NPWP
                   </th>
-                  <th rowSpan={2} className="py-2.5 px-2 min-w-[140px] align-middle">
-                    JENIS &<br />NO. HAK
+                  <th rowSpan={2} className="border border-black px-1.5 py-1.5 min-w-[80px] align-middle">
+                    JENIS<br />DAN<br />NOMOR<br />HAK
                   </th>
-                  <th rowSpan={2} className="py-2.5 px-2 min-w-[150px] align-middle">
-                    LETAK TANAH<br />& BANGUNAN
+                  <th rowSpan={2} className="border border-black px-1.5 py-1.5 min-w-[90px] align-middle">
+                    LETAK<br />TANAH<br />DAN<br />BANGUNAN
                   </th>
-                  <th colSpan={2} className="py-1 px-2 min-w-[100px]">
-                    LUAS (M²)
+                  <th colSpan={2} className="border border-black px-1.5 py-1 min-w-[60px] align-middle">
+                    LUAS (M2)
                   </th>
-                  <th rowSpan={2} className="py-2.5 px-2 min-w-[120px] align-middle">
-                    HARGA TRANSAKSI<br />(RP)
+                  <th rowSpan={2} className="border border-black px-1.5 py-1.5 min-w-[100px] align-middle">
+                    HARGA<br />TRANSAKSI<br />PEROLEHAN<br />/ PENGALIHAN<br />HAK (RP.)
                   </th>
-                  <th colSpan={1} className="py-1 px-2 min-w-[130px]">
+                  <th colSpan={2} className="border border-black px-1.5 py-1 min-w-[90px] align-middle">
                     SPPT PBB
                   </th>
-                  <th colSpan={1} className="py-1 px-2 min-w-[110px]">
-                    SSP (PPH)
+                  <th colSpan={2} className="border border-black px-1.5 py-1 min-w-[80px] align-middle">
+                    SSP
                   </th>
-                  <th colSpan={1} className="py-1 px-2 min-w-[110px]">
-                    SSB (BPHTB)
+                  <th colSpan={2} className="border border-black px-1.5 py-1 min-w-[80px] align-middle">
+                    SSB
                   </th>
-                  <th rowSpan={2} className="py-2.5 px-2 min-w-[110px] align-middle">
+                  <th rowSpan={2} className="border border-black px-1.5 py-1.5 min-w-[60px] align-middle">
                     KET
                   </th>
-                  <th rowSpan={2} className="py-2.5 px-2 w-16 align-middle print:hidden">
+                  <th rowSpan={2} className="border border-black px-1.5 py-1.5 w-12 align-middle print:hidden bg-slate-100 text-slate-700">
                     AKSI
                   </th>
                 </tr>
 
-                {/* Sub-header row */}
-                <tr className="bg-slate-100 text-slate-800 font-bold border-b border-slate-400 text-center divide-x divide-slate-400 text-[10px]">
-                  <th className="py-1.5 px-2">NOMOR & TGL</th>
-                  <th className="py-1.5 px-2">PIHAK PENGALIH</th>
-                  <th className="py-1.5 px-2">PIHAK PENERIMA</th>
-                  <th className="py-1.5 px-2 w-12">TANAH</th>
-                  <th className="py-1.5 px-2 w-12">BGN</th>
-                  <th className="py-1.5 px-2">NOP / NJOP</th>
-                  <th className="py-1.5 px-2">TGL / RP</th>
-                  <th className="py-1.5 px-2">TGL / RP</th>
+                {/* Level 2: Sub-header Kolom Turunan */}
+                <tr className="border border-black font-bold text-center bg-white text-black text-[9px] sm:text-[9.5px]">
+                  {/* Under AKTA */}
+                  <th className="border border-black px-1 py-1 min-w-[45px] align-middle">NO.</th>
+                  <th className="border border-black px-1 py-1 min-w-[70px] align-middle">TANGGAL</th>
+
+                  {/* Under NAMA, ALAMAT DAN NPWP */}
+                  <th className="border border-black px-1.5 py-1 min-w-[95px] align-middle">
+                    PIHAK YANG<br />MENGALIHKAN/<br />MEMBERIKAN
+                  </th>
+                  <th className="border border-black px-1.5 py-1 min-w-[95px] align-middle">
+                    PIHAK YANG<br />MENERIMA
+                  </th>
+
+                  {/* Under LUAS */}
+                  <th className="border border-black px-1 py-1 w-9 align-middle">TNH</th>
+                  <th className="border border-black px-1 py-1 w-9 align-middle">BGN</th>
+
+                  {/* Under SPPT PBB */}
+                  <th className="border border-black px-1 py-1 min-w-[60px] align-middle">
+                    NOP<br />TAHUN
+                  </th>
+                  <th className="border border-black px-1 py-1 min-w-[55px] align-middle">
+                    NJOP<br />(RP.000)
+                  </th>
+
+                  {/* Under SSP */}
+                  <th className="border border-black px-1 py-1 min-w-[50px] align-middle">TANGGAL</th>
+                  <th className="border border-black px-1 py-1 min-w-[50px] align-middle">(Rp)</th>
+
+                  {/* Under SSB */}
+                  <th className="border border-black px-1 py-1 min-w-[50px] align-middle">TANGGAL</th>
+                  <th className="border border-black px-1 py-1 min-w-[50px] align-middle">(RP)</th>
+                </tr>
+
+                {/* Level 3: Baris Penomoran Kolom 1 s/d 18 */}
+                <tr className="border border-black font-bold text-center bg-white text-black text-[9px]">
+                  <th className="border border-black py-0.5">1</th>
+                  <th className="border border-black py-0.5">2</th>
+                  <th className="border border-black py-0.5">3</th>
+                  <th className="border border-black py-0.5">4</th>
+                  <th className="border border-black py-0.5">5</th>
+                  <th className="border border-black py-0.5">6</th>
+                  <th className="border border-black py-0.5">7</th>
+                  <th className="border border-black py-0.5">8</th>
+                  <th className="border border-black py-0.5">9</th>
+                  <th className="border border-black py-0.5">10</th>
+                  <th className="border border-black py-0.5">11</th>
+                  <th className="border border-black py-0.5">12</th>
+                  <th className="border border-black py-0.5">13</th>
+                  <th className="border border-black py-0.5">14</th>
+                  <th className="border border-black py-0.5">15</th>
+                  <th className="border border-black py-0.5">16</th>
+                  <th className="border border-black py-0.5">17</th>
+                  <th className="border border-black py-0.5">18</th>
+                  <th className="border border-black py-0.5 print:hidden bg-slate-100 text-slate-400">—</th>
                 </tr>
               </thead>
 
-              {/* Table Body */}
-              <tbody className="divide-y divide-slate-300">
+              {/* Table Body (Persis seperti baris dalam PDF) */}
+              <tbody className="divide-y divide-black">
                 {dailyReportRows.map((row) => {
                   const isLibur = row.isWeekend || row.isHoliday;
-                  const holidayLabel = row.holidayInfo?.name ? `LIBUR (${row.holidayInfo.name})` : 'LIBUR';
+                  const dateFormatted = `${String(row.dayNumber).padStart(2, '0')}-${String(selectedMonth).padStart(2, '0')}-${selectedYear}`;
 
+                  // BARIS HARI LIBUR: Abu-abu tegas, teks hitam tebal, kolom 4 NIHIL, kolom 18 LIBUR
                   if (isLibur) {
                     return (
                       <tr
                         key={row.dayNumber}
-                        className="bg-slate-100/90 text-slate-500 divide-x divide-slate-300"
+                        className="bg-[#bebebe] text-black font-bold border-b border-black text-center"
                       >
-                        <td className="py-2 px-2 text-center font-bold text-slate-700 bg-slate-200/60">
-                          {row.dayNumber}
-                        </td>
-                        <td className="py-2 px-2 text-center font-mono text-[10px]">
-                          {String(row.dayNumber).padStart(2, '0')}/{String(selectedMonth).padStart(2, '0')}/{selectedYear}
-                        </td>
-                        <td className="py-2 px-2 text-center">—</td>
-                        <td className="py-2 px-2 text-center">—</td>
-                        <td className="py-2 px-2 text-center">—</td>
-                        <td className="py-2 px-2 text-center">—</td>
-                        <td className="py-2 px-2 text-center">—</td>
-                        <td className="py-2 px-2 text-center">—</td>
-                        <td className="py-2 px-2 text-center">—</td>
-                        <td className="py-2 px-2 text-center">—</td>
-                        <td className="py-2 px-2 text-center">—</td>
-                        <td className="py-2 px-2 text-center">—</td>
-                        <td className="py-2 px-2 text-center">—</td>
-                        <td className="py-2 px-2 text-center font-semibold text-slate-600 bg-slate-200/50">
-                          {holidayLabel}
-                        </td>
-                        <td className="py-2 px-2 text-center print:hidden">
+                        <td className="border border-black py-1 px-1">{row.dayNumber}.</td>
+                        <td className="border border-black py-1 px-1">-</td>
+                        <td className="border border-black py-1 px-1 font-bold">{dateFormatted}</td>
+                        <td className="border border-black py-1 px-1 tracking-widest font-bold">N I H I L</td>
+                        <td className="border border-black py-1 px-1">-</td>
+                        <td className="border border-black py-1 px-1">-</td>
+                        <td className="border border-black py-1 px-1">-</td>
+                        <td className="border border-black py-1 px-1">-</td>
+                        <td className="border border-black py-1 px-1">-</td>
+                        <td className="border border-black py-1 px-1">-</td>
+                        <td className="border border-black py-1 px-1">-</td>
+                        <td className="border border-black py-1 px-1">-</td>
+                        <td className="border border-black py-1 px-1">-</td>
+                        <td className="border border-black py-1 px-1">-</td>
+                        <td className="border border-black py-1 px-1">-</td>
+                        <td className="border border-black py-1 px-1">-</td>
+                        <td className="border border-black py-1 px-1">-</td>
+                        <td className="border border-black py-1 px-1 font-bold">LIBUR</td>
+                        <td className="border border-black py-1 px-1 print:hidden bg-slate-300">
                           <button
                             onClick={() => handleCreateDeedForDay(row.date)}
-                            className="text-[10px] text-slate-400 hover:text-emerald-700 underline"
-                            title="Tetap tambah akta bila ada transaksi lembur"
+                            className="text-[9px] text-slate-800 hover:text-emerald-900 underline font-medium"
+                            title="Tambah akta lembur jika ada"
                           >
                             + Akta
                           </button>
@@ -517,36 +574,35 @@ export const PpatReportPage: React.FC = () => {
                     );
                   }
 
+                  // BARIS HARI KERJA NIHIL: Background putih, kolom 4 NIHIL, kolom 5-18 tanda '-'
                   if (row.isNihil || row.deeds.length === 0) {
                     return (
                       <tr
                         key={row.dayNumber}
-                        className="hover:bg-slate-50/70 divide-x divide-slate-300 transition-colors"
+                        className="bg-white hover:bg-slate-50 text-black border-b border-black text-center transition-colors"
                       >
-                        <td className="py-2 px-2 text-center font-semibold text-slate-800 bg-slate-50">
-                          {row.dayNumber}
-                        </td>
-                        <td className="py-2 px-2 text-center font-mono text-[10px] text-slate-500">
-                          {String(row.dayNumber).padStart(2, '0')}/{String(selectedMonth).padStart(2, '0')}/{selectedYear}
-                        </td>
-                        <td className="py-2 px-2 text-center text-slate-400">—</td>
-                        <td className="py-2 px-2 text-center text-slate-400">—</td>
-                        <td className="py-2 px-2 text-center text-slate-400">—</td>
-                        <td className="py-2 px-2 text-center text-slate-400">—</td>
-                        <td className="py-2 px-2 text-center text-slate-400">—</td>
-                        <td className="py-2 px-2 text-center text-slate-400">—</td>
-                        <td className="py-2 px-2 text-center text-slate-400">—</td>
-                        <td className="py-2 px-2 text-center text-slate-400">—</td>
-                        <td className="py-2 px-2 text-center text-slate-400">—</td>
-                        <td className="py-2 px-2 text-center text-slate-400">—</td>
-                        <td className="py-2 px-2 text-center text-slate-400">—</td>
-                        <td className="py-2 px-2 text-center font-medium text-slate-500">
-                          NIHIL
-                        </td>
-                        <td className="py-2 px-2 text-center print:hidden">
+                        <td className="border border-black py-1 px-1 font-bold">{row.dayNumber}.</td>
+                        <td className="border border-black py-1 px-1">-</td>
+                        <td className="border border-black py-1 px-1 font-bold">{dateFormatted}</td>
+                        <td className="border border-black py-1 px-1 tracking-widest font-bold">N I H I L</td>
+                        <td className="border border-black py-1 px-1">-</td>
+                        <td className="border border-black py-1 px-1">-</td>
+                        <td className="border border-black py-1 px-1">-</td>
+                        <td className="border border-black py-1 px-1">-</td>
+                        <td className="border border-black py-1 px-1">-</td>
+                        <td className="border border-black py-1 px-1">-</td>
+                        <td className="border border-black py-1 px-1">-</td>
+                        <td className="border border-black py-1 px-1">-</td>
+                        <td className="border border-black py-1 px-1">-</td>
+                        <td className="border border-black py-1 px-1">-</td>
+                        <td className="border border-black py-1 px-1">-</td>
+                        <td className="border border-black py-1 px-1">-</td>
+                        <td className="border border-black py-1 px-1">-</td>
+                        <td className="border border-black py-1 px-1 font-bold">-</td>
+                        <td className="border border-black py-1 px-1 print:hidden">
                           <button
                             onClick={() => handleCreateDeedForDay(row.date)}
-                            className="p-1 text-slate-500 hover:text-emerald-700 hover:bg-emerald-50 rounded transition-colors"
+                            className="p-0.5 text-slate-500 hover:text-emerald-700 hover:bg-emerald-50 rounded transition-colors"
                             title="Tambah Akta pada Tanggal ini"
                           >
                             <Plus className="w-3.5 h-3.5 mx-auto" />
@@ -556,144 +612,85 @@ export const PpatReportPage: React.FC = () => {
                     );
                   }
 
-                  // Day with Deeds
+                  // BARIS HARI BERISI AKTA
                   return row.deeds.map((deed, dIdx) => (
                     <tr
                       key={deed.id}
-                      className="hover:bg-emerald-50/40 divide-x divide-slate-300 transition-colors"
+                      className="bg-white hover:bg-emerald-50/40 text-black border-b border-black transition-colors"
                     >
-                      {dIdx === 0 ? (
-                        <td
-                          rowSpan={row.deeds.length}
-                          className="py-2 px-2 text-center font-bold text-slate-900 bg-emerald-100/30 align-top"
-                        >
-                          {row.dayNumber}
-                        </td>
-                      ) : null}
-
-                      {/* Akta No & Tgl */}
-                      <td className="py-2 px-2 align-top">
-                        <div className="font-bold text-slate-900">{deed.deedNumber}</div>
-                        <div className="text-[10px] text-slate-500">{deed.date}</div>
-                        {deed.orderNumber && (
-                          <div className="text-[9px] text-slate-400">Urut: {deed.orderNumber}</div>
-                        )}
+                      <td className="border border-black py-1 px-1 text-center font-bold">
+                        {dIdx === 0 ? `${row.dayNumber}.` : ''}
                       </td>
-
-                      {/* Bentuk Perbuatan Hukum */}
-                      <td className="py-2 px-2 font-medium text-slate-800 align-top">
-                        {deed.legalActType}
+                      <td className="border border-black py-1 px-1 text-center font-bold">
+                        {deed.deedNumber || '-'}
                       </td>
-
-                      {/* Pihak Pengalih */}
-                      <td className="py-2 px-2 align-top">
-                        <div className="font-semibold text-slate-900">{deed.grantorName || '—'}</div>
-                        {deed.grantorAddress && (
-                          <div className="text-[10px] text-slate-600 mt-0.5">{deed.grantorAddress}</div>
-                        )}
-                        {deed.grantorNpwp && (
-                          <div className="text-[9px] font-mono text-slate-500">NPWP: {deed.grantorNpwp}</div>
-                        )}
+                      <td className="border border-black py-1 px-1 text-center font-bold">
+                        {deed.date || dateFormatted}
                       </td>
-
-                      {/* Pihak Penerima */}
-                      <td className="py-2 px-2 align-top">
-                        <div className="font-semibold text-slate-900">{deed.transfereeName || '—'}</div>
-                        {deed.transfereeAddress && (
-                          <div className="text-[10px] text-slate-600 mt-0.5">{deed.transfereeAddress}</div>
-                        )}
-                        {deed.transfereeNpwp && (
-                          <div className="text-[9px] font-mono text-slate-500">NPWP: {deed.transfereeNpwp}</div>
-                        )}
+                      <td className="border border-black py-1 px-1 text-center font-bold">
+                        {deed.legalActType || 'Jual Beli'}
                       </td>
-
-                      {/* Jenis & No Hak */}
-                      <td className="py-2 px-2 font-medium text-slate-800 align-top">
-                        {deed.rightTypeAndNumber || '—'}
+                      <td className="border border-black py-1 px-1.5 text-left text-[9px] sm:text-[9.5px]">
+                        <div className="font-semibold">{deed.grantorName || '-'}</div>
+                        {deed.grantorAddress && <div className="text-slate-700 text-[8.5px]">{deed.grantorAddress}</div>}
+                        {deed.grantorNpwp && <div className="text-slate-600 font-mono text-[8px]">NPWP: {deed.grantorNpwp}</div>}
                       </td>
-
-                      {/* Letak Tanah */}
-                      <td className="py-2 px-2 text-slate-700 align-top">
-                        {deed.landLocation || '—'}
+                      <td className="border border-black py-1 px-1.5 text-left text-[9px] sm:text-[9.5px]">
+                        <div className="font-semibold">{deed.transfereeName || '-'}</div>
+                        {deed.transfereeAddress && <div className="text-slate-700 text-[8.5px]">{deed.transfereeAddress}</div>}
+                        {deed.transfereeNpwp && <div className="text-slate-600 font-mono text-[8px]">NPWP: {deed.transfereeNpwp}</div>}
                       </td>
-
-                      {/* Luas Tanah */}
-                      <td className="py-2 px-2 text-right font-mono align-top">
-                        {deed.landArea ? `${deed.landArea} m²` : '—'}
+                      <td className="border border-black py-1 px-1 text-center">
+                        {deed.rightTypeAndNumber || '-'}
                       </td>
-
-                      {/* Luas Bangunan */}
-                      <td className="py-2 px-2 text-right font-mono align-top">
-                        {deed.buildingArea ? `${deed.buildingArea} m²` : '—'}
+                      <td className="border border-black py-1 px-1 text-left text-[9px] sm:text-[9.5px]">
+                        {deed.landLocation || '-'}
                       </td>
-
-                      {/* Harga Transaksi */}
-                      <td className="py-2 px-2 text-right font-mono font-medium text-slate-900 align-top">
-                        {deed.transactionValue ? `Rp ${deed.transactionValue.toLocaleString('id-ID')}` : '—'}
+                      <td className="border border-black py-1 px-1 text-center font-mono">
+                        {deed.landArea ? `${deed.landArea}` : '-'}
                       </td>
-
-                      {/* SPPT PBB */}
-                      <td className="py-2 px-2 align-top">
-                        {deed.spptPbbNopYear && (
-                          <div className="text-[10px] font-mono">{deed.spptPbbNopYear}</div>
-                        )}
-                        {deed.spptPbbNjop ? (
-                          <div className="text-[10px] font-mono text-slate-600">
-                            NJOP: Rp {deed.spptPbbNjop.toLocaleString('id-ID')}
-                          </div>
-                        ) : null}
-                        {!deed.spptPbbNopYear && !deed.spptPbbNjop && '—'}
+                      <td className="border border-black py-1 px-1 text-center font-mono">
+                        {deed.buildingArea ? `${deed.buildingArea}` : '-'}
                       </td>
-
-                      {/* SSP (PPh) */}
-                      <td className="py-2 px-2 text-right align-top">
-                        {deed.sspAmount ? (
-                          <>
-                            <div className="font-mono text-emerald-800 font-medium">
-                              Rp {deed.sspAmount.toLocaleString('id-ID')}
-                            </div>
-                            {deed.sspDate && (
-                              <div className="text-[9px] text-slate-500">Tgl: {deed.sspDate}</div>
-                            )}
-                          </>
-                        ) : '—'}
+                      <td className="border border-black py-1 px-1 text-center font-mono font-medium">
+                        {deed.transactionValue ? deed.transactionValue.toLocaleString('id-ID') : '-'}
                       </td>
-
-                      {/* SSB (BPHTB) */}
-                      <td className="py-2 px-2 text-right align-top">
-                        {deed.ssbAmount ? (
-                          <>
-                            <div className="font-mono text-blue-800 font-medium">
-                              Rp {deed.ssbAmount.toLocaleString('id-ID')}
-                            </div>
-                            {deed.ssbDate && (
-                              <div className="text-[9px] text-slate-500">Tgl: {deed.ssbDate}</div>
-                            )}
-                          </>
-                        ) : '—'}
+                      <td className="border border-black py-1 px-1 text-center font-mono">
+                        {deed.spptPbbNopYear || '-'}
                       </td>
-
-                      {/* Keterangan */}
-                      <td className="py-2 px-2 text-center text-slate-600 align-top">
-                        {deed.notes || 'Lengkap'}
+                      <td className="border border-black py-1 px-1 text-center font-mono">
+                        {deed.spptPbbNjop ? deed.spptPbbNjop.toLocaleString('id-ID') : '-'}
                       </td>
-
-                      {/* Actions */}
-                      <td className="py-2 px-2 text-center align-top print:hidden">
+                      <td className="border border-black py-1 px-1 text-center font-mono">
+                        {deed.sspDate || '-'}
+                      </td>
+                      <td className="border border-black py-1 px-1 text-center font-mono">
+                        {deed.sspAmount ? deed.sspAmount.toLocaleString('id-ID') : '-'}
+                      </td>
+                      <td className="border border-black py-1 px-1 text-center font-mono">
+                        {deed.ssbDate || '-'}
+                      </td>
+                      <td className="border border-black py-1 px-1 text-center font-mono">
+                        {deed.ssbAmount ? deed.ssbAmount.toLocaleString('id-ID') : '-'}
+                      </td>
+                      <td className="border border-black py-1 px-1 text-center">
+                        {deed.notes || '-'}
+                      </td>
+                      <td className="border border-black py-1 px-1 text-center print:hidden">
                         <div className="flex items-center justify-center gap-1">
                           <button
                             onClick={() => handleEditDeed(deed)}
                             className="p-1 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded"
                             title="Edit Data Akta"
                           >
-                            <Edit2 className="w-3.5 h-3.5" />
+                            <Edit2 className="w-3 h-3" />
                           </button>
                           <button
                             onClick={() => handleDeleteDeed(deed.id, deed.deedNumber)}
                             className="p-1 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded"
                             title="Hapus Akta"
                           >
-                            <Trash2 className="w-3.5 h-3.5" />
+                            <Trash2 className="w-3 h-3" />
                           </button>
                         </div>
                       </td>
@@ -701,49 +698,24 @@ export const PpatReportPage: React.FC = () => {
                   ));
                 })}
               </tbody>
-
-              {/* Table Footer with Summaries */}
-              <tfoot>
-                <tr className="bg-slate-100 font-bold border-t-2 border-slate-400 text-slate-900 divide-x divide-slate-400">
-                  <td colSpan={9} className="py-2.5 px-3 text-right uppercase text-xs">
-                    JUMLAH TOTAL BULAN INI ({stats.totalDeeds} AKTA):
-                  </td>
-                  <td className="py-2.5 px-2 text-right font-mono text-xs text-slate-900">
-                    Rp {stats.totalTransaction.toLocaleString('id-ID')}
-                  </td>
-                  <td className="py-2.5 px-2 text-center text-slate-500">—</td>
-                  <td className="py-2.5 px-2 text-right font-mono text-xs text-emerald-800">
-                    Rp {stats.totalSsp.toLocaleString('id-ID')}
-                  </td>
-                  <td className="py-2.5 px-2 text-right font-mono text-xs text-blue-800">
-                    Rp {stats.totalSsb.toLocaleString('id-ID')}
-                  </td>
-                  <td colSpan={2} className="py-2.5 px-2 text-center text-slate-500 print:table-cell">
-                    —
-                  </td>
-                </tr>
-              </tfoot>
             </table>
           </div>
 
-          {/* Signature / Validation Footer */}
-          <div className="mt-12 flex justify-end">
-            <div className="text-center w-72 text-xs space-y-1">
-              <div>
-                {config.city || 'Sleman'}, {new Date(selectedYear, selectedMonth, 0).getDate()} {currentMonthObj?.label} {selectedYear}
+          {/* Bagian Bawah Persis PDF: Tempat Tanggal di Kiri Bawah, Tanda Tangan PPAT di Kanan Bawah */}
+          <div className="mt-8 flex flex-col sm:flex-row justify-between items-start text-xs text-black font-sans">
+            {/* Tempat dan Tanggal di Kiri Bawah (sejajar margin kiri tabel) */}
+            <div className="font-bold mb-4 sm:mb-0">
+              {signCity}, {defaultSignDate}
+            </div>
+
+            {/* Pejabat Pembuat Akta Tanah di Kanan Bawah */}
+            <div className="text-center w-72 space-y-0.5">
+              <div className="font-bold">Pejabat Pembuat Akta Tanah</div>
+              <div className="font-bold">di {(config.workingArea || 'KABUPATEN BANDUNG BARAT').toUpperCase()}</div>
+              <div className="h-24 sm:h-28" /> {/* Ruang fisik tanda tangan & cap stempel resmi PPAT */}
+              <div className="font-bold underline uppercase">
+                ({config.ppatName})
               </div>
-              <div className="font-medium text-slate-700">
-                Pejabat Pembuat Akta Tanah (PPAT)
-              </div>
-              <div className="h-28" /> {/* Ruang fisik tanda tangan & cap stempel dinas PPAT dibuat tinggi agar pas saat dicap */}
-              <div className="font-bold text-slate-900 text-sm underline">
-                {config.ppatName}
-              </div>
-              {config.skNumber && (
-                <div className="text-[10px] text-slate-600">
-                  {config.skNumber}
-                </div>
-              )}
             </div>
           </div>
 

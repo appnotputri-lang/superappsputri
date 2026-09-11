@@ -314,15 +314,21 @@ const KBLISuggestions: React.FC = () => {
   useEffect(() => {
     setSelectedKblis(prev => prev.map(kbli => {
       const currentScopes = kbli.scopes || [];
+      const dpb = dpbCache[kbli.kode];
+      if (!dpb || dpb.length === 0) return kbli;
+
       return {
         ...kbli,
         scopes: currentScopes.map((s) => {
-          const autoData = calculateScopeData(s?.ruangLingkup, kelompokUsaha, kbli.kode);
-          return {
-            ...s,
-            tingkatResiko: autoData.tingkatResiko,
-            izin: autoData.izin
-          };
+          if (s?.ruangLingkup && dpb.some(d => d.ruangLingkup.toLowerCase() === s.ruangLingkup.toLowerCase())) {
+            const autoData = calculateScopeData(s.ruangLingkup, kelompokUsaha, kbli.kode);
+            return {
+              ...s,
+              tingkatResiko: autoData.tingkatResiko || s.tingkatResiko,
+              izin: autoData.izin || s.izin
+            };
+          }
+          return s;
         })
       };
     }));
@@ -798,9 +804,15 @@ const KBLISuggestions: React.FC = () => {
         if (field === "tingkatResiko") {
           updatedScope.izin = getAutoIzin(value);
         } else if (field === "ruangLingkup") {
-          const autoData = calculateScopeData(value, kelompokUsaha, kbli.kode);
-          updatedScope.tingkatResiko = autoData.tingkatResiko;
-          updatedScope.izin = autoData.izin;
+          const dpb = dpbCache[kbliKode];
+          if (dpb && dpb.length > 0) {
+            const match = dpb.find(d => d.ruangLingkup.toLowerCase() === value.toLowerCase().trim());
+            if (match) {
+              const autoData = calculateScopeData(value, kelompokUsaha, kbli.kode);
+              updatedScope.tingkatResiko = autoData.tingkatResiko;
+              updatedScope.izin = autoData.izin;
+            }
+          }
         }
 
         newScopes[scopeIndex] = updatedScope;
@@ -1080,22 +1092,50 @@ const KBLISuggestions: React.FC = () => {
       doc.text(splitHeader, 14, currentY);
       currentY += (splitHeader.length * 5) + 3;
 
-      const body = (kbli.scopes || []).map((s, index) => {
-        const isFailedScope =
-          !s?.ruangLingkup ||
-          s.ruangLingkup.includes("Gagal membaca") ||
-          s.ruangLingkup.includes("Belum tersedia") ||
-          s.ruangLingkup === "-";
-        const displayRuangLingkup = s?.ruangLingkup || '-';
-        const displayRisiko = isFailedScope ? "N/A" : translateRiskLevel(s.tingkatResiko, isEn);
-        const autoIzin = isFailedScope ? "N/A" : (isEn ? getEnAutoIzin(s.tingkatResiko) : getAutoIzin(s.tingkatResiko));
-        const manualIzin = isFailedScope ? "N/A" : translateIzinValue(s.izin, isEn);
+      const rawScopes = (kbli.scopes && kbli.scopes.length > 0)
+        ? kbli.scopes
+        : [{
+            ruangLingkup: kbli.uraian ? (kbli.uraian.length > 120 ? kbli.uraian.substring(0, 120) + '...' : kbli.uraian) : '-',
+            tingkatResiko: 'Rendah',
+            izin: 'NIB'
+          }];
+
+      const body = rawScopes.map((s, index) => {
+        const rawRuangLingkup = (s?.ruangLingkup || '').trim();
+        const displayRuangLingkup = rawRuangLingkup || '-';
+
+        const rawRisiko = (s?.tingkatResiko || '').trim();
+        const displayRisiko = rawRisiko ? translateRiskLevel(rawRisiko, isEn) : (isEn ? 'Low' : 'Rendah');
+
+        const autoIzin = isEn ? getEnAutoIzin(rawRisiko || 'Rendah') : getAutoIzin(rawRisiko || 'Rendah');
+        const rawIzin = (s?.izin || '').trim();
+
+        let displayIzin = autoIzin;
+        let displayJenisIzin = rawIzin ? translateIzinValue(rawIzin, isEn) : autoIzin;
+
+        if (rawIzin) {
+          const normIzin = rawIzin.toLowerCase();
+          if (normIzin === 'nib') {
+            displayIzin = 'NIB';
+            displayJenisIzin = isEn ? 'Standard NIB' : 'NIB Standar';
+          } else if (normIzin.includes('sertifikat standar')) {
+            displayIzin = isEn ? 'Standard Certificate' : 'Sertifikat Standar';
+            displayJenisIzin = translateIzinValue(rawIzin, isEn);
+          } else if (normIzin.includes('izin')) {
+            displayIzin = isEn ? 'License' : 'Izin';
+            displayJenisIzin = translateIzinValue(rawIzin, isEn);
+          } else {
+            displayIzin = isEn ? (getEnAutoIzin(rawRisiko) || 'Permit') : (getAutoIzin(rawRisiko) || 'Perizinan');
+            displayJenisIzin = translateIzinValue(rawIzin, isEn);
+          }
+        }
+
         return [
           index + 1,
           displayRuangLingkup,
           displayRisiko,
-          autoIzin,
-          manualIzin
+          displayIzin,
+          displayJenisIzin
         ];
       });
 

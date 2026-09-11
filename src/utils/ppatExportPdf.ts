@@ -31,247 +31,338 @@ export function exportPpatReportToPdf(params: {
 
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
-  const margin = 8; // Margin tepi kiri & kanan 8mm (lebar tabel 281mm)
+  const margin = 8; // Margin kiri & kanan 8mm (lebar tabel 281mm di A4 landscape 297mm)
 
-  // Header Title
+  // 1. HEADER REGULASI SKB DI ATAS (Sesuai persis format resmi PPAT di screenshot referensi)
+  const skbStartX = 110;
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(isNihilMonth ? 10.5 : 11);
-  doc.text('LAPORAN BULANAN PEMBUATAN AKTA PPAT', pageWidth / 2, isNihilMonth ? 8.5 : 10, { align: 'center' });
+  doc.setFontSize(7.0);
+  doc.text('Lampiran Keputusan Bersama Menteri Negara Agraria / Kepala Badan Pertanahan Nasional', skbStartX, 6.0);
+  doc.text('dan Direktur Jenderal Pajak.', skbStartX, 9.2);
+  doc.text('Nomor   : SKB 2 Tahun 1998 KEP – 179/Pj/1998', skbStartX, 12.4);
+  doc.text('Tanggal : 27 Agustus 1998', skbStartX, 15.6);
+
+  // 2. IDENTITAS PPAT (KIRI) DAN KEPADA YTH (KANAN)
+  const ppatName = config.ppatName || 'R.A. NUKANTINI PUTRI PARINCHA, SH, M.Kn';
+  const officeAddress = config.officeAddress || 'Komp. PPR-ITB Kav. F-5 Dago Bengkok, Lembang';
+  const npwp = (config.npwp && config.npwp !== '24.150.722.7-421.001') ? config.npwp : '3217015610760002';
+  const workingArea = (config.workingArea || 'KABUPATEN BANDUNG BARAT').toUpperCase();
+
+  const recipientLines = (config.reportRecipients && config.reportRecipients.trim())
+    ? config.reportRecipients.split('\n').map(l => l.trim()).filter(l => l.length > 0)
+    : [
+        '1) Kepala Kantor Wilayah BPN Propinsi Jawa Barat',
+        '2) Kepala Kantor Pertanahan Kabupaten Bandung Barat',
+        '3) Kepala Kantor Badan Pengelolaan Keuangan Daerah Kab. Bandung Barat',
+        '4) Kepala Kantor Pelayanan Pajak Pratama Cimahi'
+      ];
+
+  const idStartY = 19.5;
+  const lineSpacing = 3.6;
+
+  // Sisi Kiri: Data PPAT
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(6.8);
+  doc.text('Nama PPAT', margin, idStartY);
+  doc.text(':', margin + 19, idStartY);
+  doc.text(ppatName, margin + 21, idStartY);
+
+  doc.text('Alamat', margin, idStartY + lineSpacing);
+  doc.text(':', margin + 19, idStartY + lineSpacing);
+  doc.setFont('helvetica', 'normal');
+  doc.text(officeAddress, margin + 21, idStartY + lineSpacing);
+
+  doc.setFont('helvetica', 'bold');
+  doc.text('NPWP', margin, idStartY + lineSpacing * 2);
+  doc.text(':', margin + 19, idStartY + lineSpacing * 2);
+  doc.text(npwp, margin + 21, idStartY + lineSpacing * 2);
+
+  doc.text('Daerah Kerja', margin, idStartY + lineSpacing * 3);
+  doc.text(':', margin + 19, idStartY + lineSpacing * 3);
+  doc.text(workingArea, margin + 21, idStartY + lineSpacing * 3);
+
+  // Sisi Kanan: Instansi Penerima / Kepada Yth
+  const recipientStartX = 168;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7.0);
+  doc.text('Kepada Yth,', recipientStartX, idStartY);
 
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(isNihilMonth ? 8 : 8.5);
-  doc.text(`Bulan: ${monthName.toUpperCase()} ${year}`, pageWidth / 2, isNihilMonth ? 12 : 14, { align: 'center' });
+  doc.setFontSize(6.8);
+  recipientLines.forEach((line, idx) => {
+    doc.text(line, recipientStartX, idStartY + 3.4 + idx * 3.3);
+  });
 
-  // Sub-header PPAT info (Kiri) & Instansi Tujuan (Kanan)
-  doc.setFontSize(isNihilMonth ? 7 : 7.5);
-  const subHeaderY = isNihilMonth ? 16 : 18.5;
-  const lineSpacing = isNihilMonth ? 3.0 : 3.4;
+  // 3. JUDUL LAPORAN DI TENGAH
+  const titleY = 37.0;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10.0);
+  doc.text('LAPORAN BULANAN PEMBUATAN AKTA OLEH PPAT', pageWidth / 2, titleY, { align: 'center' });
 
-  doc.text(`Nama PPAT : ${config.ppatName}`, margin, subHeaderY);
-  doc.text(`Daerah Kerja : ${config.workingArea}`, margin, subHeaderY + lineSpacing);
-  doc.text(`Alamat Kantor : ${config.officeAddress}${config.skNumber ? `  (SK: ${config.skNumber})` : ''}`, margin, subHeaderY + lineSpacing * 2);
+  doc.setFontSize(8.8);
+  doc.text(`Bulan : ${monthName} Tahun : ${year}`, pageWidth / 2, titleY + 4.5, { align: 'center' });
 
-  doc.text(`Kepada Yth:`, pageWidth - 80, subHeaderY);
-  doc.text(`1. Kepala Kantor Pertanahan ${config.workingArea}`, pageWidth - 80, subHeaderY + lineSpacing);
-  doc.text(`2. Kepala Kantor Pelayanan Pajak Pratama`, pageWidth - 80, subHeaderY + lineSpacing * 2);
-
-  // Build Table Data
+  // 4. DATA TABEL (18 Kolom sesuai format baku PPAT)
   let currentDeedOrder = 0;
   const tableRows: any[] = [];
 
   rows.forEach(dayRow => {
+    const dayStr = String(dayRow.dayNumber).padStart(2, '0');
+    const monthStr = String(month).padStart(2, '0');
+    const dateFormatted = `${dayStr}-${monthStr}-${year}`;
+
     if (dayRow.isWeekend || dayRow.isHoliday) {
-      const holidayLabel = dayRow.holidayInfo?.name ? `LIBUR (${dayRow.holidayInfo.name})` : 'LIBUR';
       tableRows.push({
-        no: dayRow.dayNumber,
-        akta: `${String(dayRow.dayNumber).padStart(2, '0')}/${String(month).padStart(2, '0')}/${year}`,
-        bentuk: '—',
-        pengalih: '—',
-        penerima: '—',
-        hak: '—',
-        letak: '—',
-        luasTanah: '—',
-        luasBgn: '—',
-        harga: '—',
-        pbb: '—',
-        ssp: '—',
-        ssb: '—',
-        ket: holidayLabel,
+        col1: `${dayRow.dayNumber}.`,
+        col2: '',
+        col3: dateFormatted,
+        col4: 'N I H I L',
+        col5: '-',
+        col6: '-',
+        col7: '-',
+        col8: '-',
+        col9: '-',
+        col10: '-',
+        col11: '-',
+        col12: '-',
+        col13: '-',
+        col14: '-',
+        col15: '-',
+        col16: '-',
+        col17: '-',
+        col18: 'LIBUR',
         isHoliday: true
       });
     } else if (dayRow.isNihil || dayRow.deeds.length === 0) {
       tableRows.push({
-        no: dayRow.dayNumber,
-        akta: `${String(dayRow.dayNumber).padStart(2, '0')}/${String(month).padStart(2, '0')}/${year}`,
-        bentuk: '—',
-        pengalih: '—',
-        penerima: '—',
-        hak: '—',
-        letak: '—',
-        luasTanah: '—',
-        luasBgn: '—',
-        harga: '—',
-        pbb: '—',
-        ssp: '—',
-        ssb: '—',
-        ket: 'NIHIL',
+        col1: `${dayRow.dayNumber}.`,
+        col2: '',
+        col3: dateFormatted,
+        col4: 'N I H I L',
+        col5: '-',
+        col6: '-',
+        col7: '-',
+        col8: '-',
+        col9: '-',
+        col10: '-',
+        col11: '-',
+        col12: '-',
+        col13: '-',
+        col14: '-',
+        col15: '-',
+        col16: '-',
+        col17: '-',
+        col18: '-',
         isNihil: true
       });
     } else {
-      // Day with deeds
+      // Hari yang memiliki akta
       dayRow.deeds.forEach((deed, dIdx) => {
         currentDeedOrder++;
-        const pbbStr = deed.spptPbbNopYear || (deed.spptPbbNjop ? `NJOP: Rp ${deed.spptPbbNjop.toLocaleString('id-ID')}` : '—');
-        const sspStr = deed.sspAmount ? `Rp ${deed.sspAmount.toLocaleString('id-ID')}\n(${deed.sspDate || '-'})` : '—';
-        const ssbStr = deed.ssbAmount ? `Rp ${deed.ssbAmount.toLocaleString('id-ID')}\n(${deed.ssbDate || '-'})` : '—';
-
         tableRows.push({
-          no: dIdx === 0 ? dayRow.dayNumber : '',
-          akta: `No: ${deed.deedNumber || '-'}\nTgl: ${deed.date || ''}`,
-          bentuk: deed.legalActType || 'Jual Beli',
-          pengalih: `${deed.grantorName || '-'}\n${deed.grantorAddress ? `${deed.grantorAddress}` : ''}${deed.grantorNpwp ? `\nNPWP: ${deed.grantorNpwp}` : ''}`,
-          penerima: `${deed.transfereeName || '-'}\n${deed.transfereeAddress ? `${deed.transfereeAddress}` : ''}${deed.transfereeNpwp ? `\nNPWP: ${deed.transfereeNpwp}` : ''}`,
-          hak: deed.rightTypeAndNumber || '—',
-          letak: deed.landLocation || '—',
-          luasTanah: deed.landArea ? `${deed.landArea} m²` : '—',
-          luasBgn: deed.buildingArea ? `${deed.buildingArea} m²` : '—',
-          harga: deed.transactionValue ? `Rp ${deed.transactionValue.toLocaleString('id-ID')}` : '—',
-          pbb: pbbStr,
-          ssp: sspStr,
-          ssb: ssbStr,
-          ket: deed.notes || 'Lengkap',
+          col1: dIdx === 0 ? `${dayRow.dayNumber}.` : '',
+          col2: deed.deedNumber || '-',
+          col3: deed.date || dateFormatted,
+          col4: deed.legalActType || 'Jual Beli',
+          col5: `${deed.grantorName || '-'}${deed.grantorNpwp ? `\nNPWP: ${deed.grantorNpwp}` : ''}`,
+          col6: `${deed.transfereeName || '-'}${deed.transfereeNpwp ? `\nNPWP: ${deed.transfereeNpwp}` : ''}`,
+          col7: deed.rightTypeAndNumber || '-',
+          col8: deed.landLocation || '-',
+          col9: deed.landArea ? `${deed.landArea}` : '-',
+          col10: deed.buildingArea ? `${deed.buildingArea}` : '-',
+          col11: deed.transactionValue ? `${deed.transactionValue.toLocaleString('id-ID')}` : '-',
+          col12: deed.spptPbbNopYear || '-',
+          col13: deed.spptPbbNjop ? `${deed.spptPbbNjop.toLocaleString('id-ID')}` : '-',
+          col14: deed.sspDate || '-',
+          col15: deed.sspAmount ? `${deed.sspAmount.toLocaleString('id-ID')}` : '-',
+          col16: deed.ssbDate || '-',
+          col17: deed.ssbAmount ? `${deed.ssbAmount.toLocaleString('id-ID')}` : '-',
+          col18: deed.notes || '-',
           isDeed: true
         });
       });
     }
   });
 
-  const tableStartY = isNihilMonth ? 24 : 27;
+  const rowCount = tableRows.length;
+  // Hitung minCellHeight agar 31 baris pas dan proporsional dalam 1 halaman tunggal A4
+  const rowHeight = isNihilMonth ? Math.min(2.85, Math.max(2.6, 85 / Math.max(rowCount, 28))) : 3.0;
+
+  // 5. HEADER 3 TINGKAT TABEL (18 Kolom persis seperti screenshot)
+  const headRows = [
+    [
+      { content: 'NO.\nURUT', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
+      { content: 'AKTA', colSpan: 2, styles: { halign: 'center', valign: 'middle' } },
+      { content: 'BENTUK\nPERBUATAN\nHUKUM', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
+      { content: 'NAMA, ALAMAT DAN NPWP', colSpan: 2, styles: { halign: 'center', valign: 'middle' } },
+      { content: 'JENIS\nDAN\nNOMOR\nHAK', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
+      { content: 'LETAK\nTANAH\nDAN\nBANGUNAN', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
+      { content: 'LUAS (M2)', colSpan: 2, styles: { halign: 'center', valign: 'middle' } },
+      { content: 'HARGA\nTRANSAKSI\nPEROLEHAN\n/ PENGALIHAN\nHAK (RP.)', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
+      { content: 'SPPT PBB', colSpan: 2, styles: { halign: 'center', valign: 'middle' } },
+      { content: 'SSP', colSpan: 2, styles: { halign: 'center', valign: 'middle' } },
+      { content: 'SSB', colSpan: 2, styles: { halign: 'center', valign: 'middle' } },
+      { content: 'KET', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } }
+    ],
+    [
+      { content: 'NO.', styles: { halign: 'center', valign: 'middle' } },
+      { content: 'TANGGAL', styles: { halign: 'center', valign: 'middle' } },
+      { content: 'PIHAK YANG\nMENGALIHKAN/\nMEMBERIKAN', styles: { halign: 'center', valign: 'middle' } },
+      { content: 'PIHAK YANG\nMENERIMA', styles: { halign: 'center', valign: 'middle' } },
+      { content: 'TNH', styles: { halign: 'center', valign: 'middle' } },
+      { content: 'BGN', styles: { halign: 'center', valign: 'middle' } },
+      { content: 'NOP\nTAHUN', styles: { halign: 'center', valign: 'middle' } },
+      { content: 'NJOP\n(RP.000)', styles: { halign: 'center', valign: 'middle' } },
+      { content: 'TANGGAL', styles: { halign: 'center', valign: 'middle' } },
+      { content: '(Rp)', styles: { halign: 'center', valign: 'middle' } },
+      { content: 'TANGGAL', styles: { halign: 'center', valign: 'middle' } },
+      { content: '(RP)', styles: { halign: 'center', valign: 'middle' } }
+    ],
+    // Baris penomoran kolom 1 - 18
+    [
+      { content: '1', styles: { halign: 'center', valign: 'middle' } },
+      { content: '2', styles: { halign: 'center', valign: 'middle' } },
+      { content: '3', styles: { halign: 'center', valign: 'middle' } },
+      { content: '4', styles: { halign: 'center', valign: 'middle' } },
+      { content: '5', styles: { halign: 'center', valign: 'middle' } },
+      { content: '6', styles: { halign: 'center', valign: 'middle' } },
+      { content: '7', styles: { halign: 'center', valign: 'middle' } },
+      { content: '8', styles: { halign: 'center', valign: 'middle' } },
+      { content: '9', styles: { halign: 'center', valign: 'middle' } },
+      { content: '10', styles: { halign: 'center', valign: 'middle' } },
+      { content: '11', styles: { halign: 'center', valign: 'middle' } },
+      { content: '12', styles: { halign: 'center', valign: 'middle' } },
+      { content: '13', styles: { halign: 'center', valign: 'middle' } },
+      { content: '14', styles: { halign: 'center', valign: 'middle' } },
+      { content: '15', styles: { halign: 'center', valign: 'middle' } },
+      { content: '16', styles: { halign: 'center', valign: 'middle' } },
+      { content: '17', styles: { halign: 'center', valign: 'middle' } },
+      { content: '18', styles: { halign: 'center', valign: 'middle' } }
+    ]
+  ];
 
   autoTable(doc, {
-    startY: tableStartY,
-    margin: { left: margin, right: margin, top: 6, bottom: isNihilMonth ? 6 : 10 },
+    startY: 45.0,
+    margin: { left: margin, right: margin, top: 5, bottom: isNihilMonth ? 5 : 10 },
     pageBreak: isNihilMonth ? 'avoid' : 'auto',
     rowPageBreak: isNihilMonth ? 'avoid' : 'auto',
-    head: [
-      [
-        { content: 'NO.\nTGL', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
-        { content: 'AKTA', colSpan: 1, styles: { halign: 'center' } },
-        { content: 'BENTUK\nPERBUATAN HUKUM', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
-        { content: 'NAMA, ALAMAT & NPWP PARA PIHAK', colSpan: 2, styles: { halign: 'center' } },
-        { content: 'JENIS &\nNO. HAK', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
-        { content: 'LETAK TANAH\n& BANGUNAN', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
-        { content: 'LUAS (M²)', colSpan: 2, styles: { halign: 'center' } },
-        { content: 'HARGA TRANSAKSI\n(RP)', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
-        { content: 'SPPT PBB', colSpan: 1, styles: { halign: 'center' } },
-        { content: 'SSP (PPH)', colSpan: 1, styles: { halign: 'center' } },
-        { content: 'SSB (BPHTB)', colSpan: 1, styles: { halign: 'center' } },
-        { content: 'KET', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } }
-      ],
-      [
-        { content: 'NOMOR & TGL', styles: { halign: 'center' } },
-        { content: 'PIHAK PENGALIH', styles: { halign: 'center' } },
-        { content: 'PIHAK PENERIMA', styles: { halign: 'center' } },
-        { content: 'TANAH', styles: { halign: 'center' } },
-        { content: 'BGN', styles: { halign: 'center' } },
-        { content: 'NOP / NJOP', styles: { halign: 'center' } },
-        { content: 'TGL / RP', styles: { halign: 'center' } },
-        { content: 'TGL / RP', styles: { halign: 'center' } }
-      ]
-    ],
+    head: headRows as any,
     body: tableRows.map(r => [
-      r.no,
-      r.akta,
-      r.bentuk,
-      r.pengalih,
-      r.penerima,
-      r.hak,
-      r.letak,
-      r.luasTanah,
-      r.luasBgn,
-      r.harga,
-      r.pbb,
-      r.ssp,
-      r.ssb,
-      r.ket
+      r.col1,
+      r.col2,
+      r.col3,
+      r.col4,
+      r.col5,
+      r.col6,
+      r.col7,
+      r.col8,
+      r.col9,
+      r.col10,
+      r.col11,
+      r.col12,
+      r.col13,
+      r.col14,
+      r.col15,
+      r.col16,
+      r.col17,
+      r.col18
     ]),
     theme: 'grid',
     styles: {
-      fontSize: isNihilMonth ? 5.5 : 6,
-      cellPadding: isNihilMonth 
-        ? { top: 0.45, bottom: 0.45, left: 0.6, right: 0.6 }
-        : { top: 0.9, bottom: 0.9, left: 1.0, right: 1.0 },
-      minCellHeight: isNihilMonth ? 2.5 : 3.2,
-      lineColor: [130, 130, 130],
-      lineWidth: 0.1,
-      textColor: [30, 30, 30]
+      fontSize: 5.8,
+      cellPadding: { top: 0.35, bottom: 0.35, left: 0.3, right: 0.3 },
+      minCellHeight: rowHeight,
+      valign: 'middle',
+      lineColor: [0, 0, 0],
+      lineWidth: 0.15,
+      textColor: [0, 0, 0]
     },
     headStyles: {
-      fillColor: [240, 243, 246],
-      textColor: [20, 20, 20],
+      fillColor: [255, 255, 255],
+      textColor: [0, 0, 0],
       fontStyle: 'bold',
-      lineWidth: 0.12,
-      lineColor: [90, 90, 90],
-      fontSize: isNihilMonth ? 5.5 : 6,
-      cellPadding: isNihilMonth
-        ? { top: 0.6, bottom: 0.6, left: 0.6, right: 0.6 }
-        : { top: 1.0, bottom: 1.0, left: 1.0, right: 1.0 }
+      lineWidth: 0.15,
+      lineColor: [0, 0, 0],
+      fontSize: 5.0,
+      cellPadding: { top: 0.5, bottom: 0.5, left: 0.3, right: 0.3 },
+      valign: 'middle'
     },
+    // Total lebar kolom = 281mm (margin kiri 8mm + 281mm + margin kanan 8mm = 297mm A4)
     columnStyles: {
-      0: { cellWidth: 8, halign: 'center' },      // No/Tgl
-      1: { cellWidth: 18, halign: 'center' },     // Akta
-      2: { cellWidth: 18, halign: isNihilMonth ? 'center' : 'left' },     // Bentuk
-      3: { cellWidth: 33, halign: isNihilMonth ? 'center' : 'left' },     // Pengalih
-      4: { cellWidth: 33, halign: isNihilMonth ? 'center' : 'left' },     // Penerima
-      5: { cellWidth: 22, halign: 'center' },     // Jenis Hak
-      6: { cellWidth: 25, halign: isNihilMonth ? 'center' : 'left' },     // Letak
-      7: { cellWidth: 12, halign: isNihilMonth ? 'center' : 'right' },    // Luas T
-      8: { cellWidth: 12, halign: isNihilMonth ? 'center' : 'right' },    // Luas B
-      9: { cellWidth: 24, halign: isNihilMonth ? 'center' : 'right' },    // Harga
-      10: { cellWidth: 24, halign: isNihilMonth ? 'center' : 'left' },    // PBB
-      11: { cellWidth: 18, halign: isNihilMonth ? 'center' : 'right' },   // SSP
-      12: { cellWidth: 18, halign: isNihilMonth ? 'center' : 'right' },   // SSB
-      13: { cellWidth: 16, halign: 'center' }    // Ket
+      0: { cellWidth: 10, halign: 'center', fontStyle: 'bold' },     // 1: NO. URUT
+      1: { cellWidth: 8, halign: 'center' },                         // 2: NO.
+      2: { cellWidth: 16, halign: 'center', fontStyle: 'bold' },     // 3: TANGGAL
+      3: { cellWidth: 18, halign: 'center', fontStyle: 'bold' },     // 4: BENTUK PERBUATAN HUKUM
+      4: { cellWidth: 32, halign: isNihilMonth ? 'center' : 'left' },// 5: PENGALIH
+      5: { cellWidth: 32, halign: isNihilMonth ? 'center' : 'left' },// 6: PENERIMA
+      6: { cellWidth: 16, halign: 'center' },                        // 7: JENIS DAN NOMOR HAK
+      7: { cellWidth: 18, halign: isNihilMonth ? 'center' : 'left' },// 8: LETAK TANAH
+      8: { cellWidth: 9, halign: 'center' },                         // 9: TNH
+      9: { cellWidth: 9, halign: 'center' },                         // 10: BGN
+      10: { cellWidth: 21, halign: 'center' },                       // 11: HARGA TRANSAKSI
+      11: { cellWidth: 15, halign: 'center' },                       // 12: NOP TAHUN
+      12: { cellWidth: 15, halign: 'center' },                       // 13: NJOP
+      13: { cellWidth: 13, halign: 'center' },                       // 14: SSP TGL
+      14: { cellWidth: 13, halign: 'center' },                       // 15: SSP RP
+      15: { cellWidth: 13, halign: 'center' },                       // 16: SSB TGL
+      16: { cellWidth: 13, halign: 'center' },                       // 17: SSB RP
+      17: { cellWidth: 10, halign: 'center', fontStyle: 'bold' }     // 18: KET
     },
     didParseCell: function(data) {
+      // Styling baris body: Libur diwarnai abu-abu tegas persis seperti screenshot
       if (data.section === 'body') {
         const rawRow = tableRows[data.row.index];
         if (rawRow?.isHoliday) {
-          data.cell.styles.fillColor = [245, 245, 245];
-          data.cell.styles.textColor = [120, 120, 120];
-        } else if (rawRow?.isNihil) {
+          data.cell.styles.fillColor = [190, 190, 190]; // Abu-abu tegas untuk baris libur
+          data.cell.styles.textColor = [0, 0, 0];
+          data.cell.styles.fontStyle = 'bold';
+        } else {
           data.cell.styles.fillColor = [255, 255, 255];
-          if (data.column.index === 13) {
-            data.cell.styles.textColor = [70, 70, 70];
-            data.cell.styles.fontStyle = 'bold';
-          }
+          data.cell.styles.textColor = [0, 0, 0];
         }
       }
     }
   });
 
-  // Footer / Signature Section
-  const lastY = (doc as any).lastAutoTable?.finalY || 115;
-  // Buat ruang tempat tanda tangan tinggi (28mm-30mm) agar leluasa dan pas ketika dicap stempel dinas PPAT
-  const stampHeight = isNihilMonth ? 28 : 26;
-  const neededHeight = stampHeight + 15;
-  
-  // Posisi vertikal tanda tangan: jika Nihil, tempatkan dengan seimbang di area bawah lembar
-  let signatureY = isNihilMonth 
-    ? Math.max(lastY + 10, pageHeight - 52) 
-    : lastY + 8;
-  
-  if (!isNihilMonth && signatureY + neededHeight > pageHeight - 8) {
-    doc.addPage();
-    signatureY = 22;
-  }
+  // 6. BAGIAN TANDA TANGAN & TEMPAT/TANGGAL (Persis seperti screenshot referensi)
+  const lastY = (doc as any).lastAutoTable?.finalY || 140;
+  const signatureY = lastY + 7;
 
-  const signPlaceDate = signatureDate || `${config.city || 'Sleman'}, ${new Date(year, month, 0).getDate()} ${monthName} ${year}`;
-  
-  doc.setFontSize(isNihilMonth ? 7.5 : 8);
-  doc.setFont('helvetica', 'normal');
-  doc.text(signPlaceDate, pageWidth - 65, signatureY, { align: 'center' });
-  doc.text('Pejabat Pembuat Akta Tanah (PPAT)', pageWidth - 65, signatureY + 4, { align: 'center' });
-  
-  // Ruang tanda tangan & cap stempel bulat PPAT setinggi stampHeight (~28mm)
-  const ppatNameY = signatureY + 4 + stampHeight;
+  // Tanggal di sebelah kiri bawah: contoh "Bandung Barat, 01 September 2026"
+  const nextMonthDate = new Date(year, month, 1);
+  const nextMonthName = MONTH_NAMES[nextMonthDate.getMonth()];
+  const nextMonthYear = nextMonthDate.getFullYear();
+  const defaultSignDate = `01 ${nextMonthName} ${nextMonthYear}`;
+  const displaySignDate = signatureDate || defaultSignDate;
+  const signCity = (config.city && config.city !== 'Lembang' && config.city !== 'Sleman') ? config.city : 'Bandung Barat';
+  const cityDateText = `${signCity}, ${displaySignDate}`;
+
+  // Teks Tempat dan Tanggal di Kiri Bawah (sejajar margin kiri tabel)
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(isNihilMonth ? 8.5 : 9);
-  doc.text(config.ppatName, pageWidth - 65, ppatNameY, { align: 'center' });
+  doc.setFontSize(8.5);
+  doc.text(cityDateText, margin, signatureY);
 
-  // Garis bawah nama PPAT
-  const nameWidth = doc.getTextWidth(config.ppatName);
-  doc.setLineWidth(0.2);
-  doc.line(pageWidth - 65 - nameWidth / 2, ppatNameY + 0.8, pageWidth - 65 + nameWidth / 2, ppatNameY + 0.8);
+  // Bagian Tanda Tangan PPAT di Kanan Bawah
+  const signCenterX = pageWidth - 60; // Posisi tengah blok tanda tangan kanan
+  const rawWorkingArea = (config.workingArea || 'Kabupaten Bandung Barat').trim();
+  const workingAreaText = rawWorkingArea.toLowerCase().startsWith('di ') ? rawWorkingArea : `di ${rawWorkingArea}`;
 
-  // Nomor SK PPAT (hindari duplikasi "SK. SK")
-  if (config.skNumber) {
-    const rawSk = config.skNumber.trim();
-    const skDisplay = /^sk\b/i.test(rawSk) ? rawSk : `SK. ${rawSk}`;
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(isNihilMonth ? 7 : 7.5);
-    doc.text(skDisplay, pageWidth - 65, ppatNameY + 4.5, { align: 'center' });
-  }
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8.5);
+  doc.text('Pejabat Pembuat Akta Tanah', signCenterX, signatureY, { align: 'center' });
+  doc.text(workingAreaText, signCenterX, signatureY + 4.0, { align: 'center' });
+
+  // Ruang tanda tangan dan stempel dinas PPAT (~19mm)
+  const ppatNameY = signatureY + 4.0 + 19;
+  const formattedPpatName = `(${ppatName})`;
+
+  doc.setFontSize(8.5);
+  doc.text(formattedPpatName, signCenterX, ppatNameY, { align: 'center' });
+
+  // Garis bawah nama PPAT persis seperti screenshot
+  const nameWidth = doc.getTextWidth(formattedPpatName);
+  doc.setLineWidth(0.25);
+  doc.line(signCenterX - nameWidth / 2, ppatNameY + 0.8, signCenterX + nameWidth / 2, ppatNameY + 0.8);
 
   // Jika laporan Nihil, pastikan tidak ada halaman kedua yang dibuat secara tidak sengaja
   if (isNihilMonth) {
@@ -284,3 +375,4 @@ export function exportPpatReportToPdf(params: {
   const filename = `Laporan_PPAT_${monthName}_${year}${isNihilMonth ? '_Nihil' : ''}.pdf`;
   doc.save(filename);
 }
+
