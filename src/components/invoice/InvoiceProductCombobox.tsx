@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, memo } from 'react';
+import { createPortal } from 'react-dom';
 import { Product } from '../../../types';
 import { ProductService } from '../../services/ProductService';
 
@@ -134,6 +135,10 @@ export const InvoiceProductCombobox: React.FC<InvoiceProductComboboxProps> = mem
   const [isSearching, setIsSearching] = useState<boolean>(false);
   const [searchResults, setSearchResults] = useState<AvailableProductItem[]>(() => PRESET_PRODUCT_ITEMS);
 
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const dropdownRef = useRef<HTMLDivElement | null>(null);
+  const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
+
   const debounceTimerRef = useRef<any>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const blurTimeoutRef = useRef<any>(null);
@@ -154,6 +159,115 @@ export const InvoiceProductCombobox: React.FC<InvoiceProductComboboxProps> = mem
       if (abortControllerRef.current) abortControllerRef.current.abort();
     };
   }, []);
+
+  // Calculate and update dropdown fixed positioning with auto-flip
+  const updatePosition = useCallback(() => {
+    if (!inputRef.current) return;
+    const rect = inputRef.current.getBoundingClientRect();
+
+    // If input is detached or invisible
+    if (rect.width === 0 && rect.height === 0) return;
+
+    const gap = 4;
+    const viewportHeight = window.innerHeight;
+    const viewportWidth = window.innerWidth;
+
+    const spaceBelow = viewportHeight - rect.bottom - gap;
+    const spaceAbove = rect.top - gap;
+
+    const PREFERRED_MAX_HEIGHT = isMobile ? 220 : 200;
+
+    let maxHeight = PREFERRED_MAX_HEIGHT;
+    let top = 0;
+    let transform: string | undefined = undefined;
+
+    // Auto flip: if space below is limited (< 170px) and above has more space
+    if (spaceBelow < 170 && spaceAbove > spaceBelow) {
+      maxHeight = Math.min(PREFERRED_MAX_HEIGHT, Math.max(100, spaceAbove - 12));
+      top = rect.top - gap;
+      transform = 'translateY(-100%)';
+    } else {
+      maxHeight = Math.min(PREFERRED_MAX_HEIGHT, Math.max(100, spaceBelow - 12));
+      top = rect.bottom + gap;
+    }
+
+    // Width: match input width, with minimum 240px on desktop table so product names are clear
+    let width = isMobile ? rect.width : Math.max(rect.width, 240);
+
+    // Keep horizontally within viewport boundaries
+    let left = rect.left;
+    if (left + width > viewportWidth - 8) {
+      left = Math.max(8, viewportWidth - width - 8);
+    }
+    if (left < 8) {
+      left = 8;
+    }
+    if (width > viewportWidth - 16) {
+      width = viewportWidth - 16;
+    }
+
+    setDropdownStyle({
+      position: 'fixed',
+      top: `${top}px`,
+      left: `${left}px`,
+      width: `${width}px`,
+      maxHeight: `${maxHeight}px`,
+      transform,
+      zIndex: 99999
+    });
+  }, [isMobile]);
+
+  // Recalculate position on scroll (capture: true for container/table scroll) and resize
+  useEffect(() => {
+    if (!isOpen) return;
+
+    updatePosition();
+
+    const handleScroll = () => {
+      updatePosition();
+    };
+    const handleResize = () => {
+      updatePosition();
+    };
+
+    window.addEventListener('scroll', handleScroll, true);
+    window.addEventListener('resize', handleResize);
+
+    return () => {
+      window.removeEventListener('scroll', handleScroll, true);
+      window.removeEventListener('resize', handleResize);
+    };
+  }, [isOpen, updatePosition]);
+
+  // Re-calculate position when search results or searching state change
+  useEffect(() => {
+    if (isOpen) {
+      updatePosition();
+    }
+  }, [searchResults, isSearching, isOpen, updatePosition]);
+
+  // Close dropdown on click / touch outside both input and portal dropdown
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handlePointerDownOutside = (e: MouseEvent | TouchEvent) => {
+      const target = e.target as Node;
+      if (
+        inputRef.current && !inputRef.current.contains(target) &&
+        dropdownRef.current && !dropdownRef.current.contains(target)
+      ) {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handlePointerDownOutside);
+    document.addEventListener('touchstart', handlePointerDownOutside);
+
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDownOutside);
+      document.removeEventListener('touchstart', handlePointerDownOutside);
+    };
+  }, [isOpen]);
 
   // Helper to execute search with debounce & abort
   const performSearch = useCallback((queryText: string) => {
@@ -235,12 +349,16 @@ export const InvoiceProductCombobox: React.FC<InvoiceProductComboboxProps> = mem
     performSearch(inputValue);
   };
 
-  const handleBlur = () => {
+  const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    // If the focus moved inside the dropdown, do not close
+    if (dropdownRef.current && dropdownRef.current.contains(e.relatedTarget as Node)) {
+      return;
+    }
     blurTimeoutRef.current = setTimeout(() => {
       if (isMountedRef.current) {
         setIsOpen(false);
       }
-    }, 250);
+    }, 200);
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -257,7 +375,7 @@ export const InvoiceProductCombobox: React.FC<InvoiceProductComboboxProps> = mem
     performSearch(val);
   };
 
-  const handleSelect = (e: React.MouseEvent, p: AvailableProductItem) => {
+  const handleSelect = (e: React.SyntheticEvent, p: AvailableProductItem) => {
     e.preventDefault();
     if (blurTimeoutRef.current) {
       clearTimeout(blurTimeoutRef.current);
@@ -274,47 +392,65 @@ export const InvoiceProductCombobox: React.FC<InvoiceProductComboboxProps> = mem
     setIsOpen(false);
   };
 
+  const portalDropdown = isOpen && typeof document !== 'undefined' ? createPortal(
+    <div
+      ref={dropdownRef}
+      style={dropdownStyle}
+      onMouseDown={(e) => {
+        // Prevent clicking inside dropdown from stealing focus or triggering blur on input
+        e.preventDefault();
+      }}
+      className="bg-white border border-slate-200 shadow-2xl rounded-xl overflow-y-auto p-1 text-xs select-none"
+    >
+      {searchResults.map((p, pIdx) => (
+        <button
+          type="button"
+          key={p.id ? `${p.id}-${pIdx}` : `preset-${pIdx}`}
+          onMouseDown={(e) => handleSelect(e, p)}
+          onClick={(e) => handleSelect(e, p)}
+          className={`w-full text-left rounded-lg cursor-pointer transition-colors block border-b border-slate-50 last:border-none ${
+            isMobile ? 'p-2.5 hover:bg-blue-50' : 'p-2 hover:bg-blue-50'
+          }`}
+        >
+          <div className="font-bold text-slate-900">{p.name}</div>
+          {p.unitPrice > 0 && (
+            <div className="text-[10px] text-slate-500 font-medium">
+              Rp {formatCurrency(p.unitPrice)}
+            </div>
+          )}
+        </button>
+      ))}
+      {searchResults.length === 0 && !isSearching && (
+        <div className={`p-2.5 text-center text-slate-400 italic ${isMobile ? 'text-xs' : 'text-[10px]'}`}>
+          Produk tidak ditemukan
+        </div>
+      )}
+      {isSearching && searchResults.length === 0 && (
+        <div className={`p-2.5 text-center text-slate-400 italic ${isMobile ? 'text-xs' : 'text-[10px]'}`}>
+          Mencari produk...
+        </div>
+      )}
+    </div>,
+    document.body
+  ) : null;
+
   if (isMobile) {
     return (
       <div className="relative">
         <input
+          ref={inputRef}
           type="text"
           placeholder="Cari atau pilih produk..."
           value={inputValue}
           onFocus={handleFocus}
           onBlur={handleBlur}
           onChange={handleChange}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') setIsOpen(false);
+          }}
           className="product-combobox-input w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/20"
         />
-        {isOpen && (
-          <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 shadow-xl rounded-xl z-50 max-h-52 overflow-y-auto p-1 text-xs">
-            {searchResults.map((p, pIdx) => (
-              <button
-                type="button"
-                key={p.id ? `${p.id}-${pIdx}` : `preset-${pIdx}`}
-                onMouseDown={(e) => handleSelect(e, p)}
-                className="w-full text-left p-2.5 hover:bg-blue-50 rounded-lg cursor-pointer transition-colors block border-b border-slate-50 last:border-none"
-              >
-                <div className="font-bold text-slate-900">{p.name}</div>
-                {p.unitPrice > 0 && (
-                  <div className="text-[10px] text-slate-500 font-medium">
-                    Rp {formatCurrency(p.unitPrice)}
-                  </div>
-                )}
-              </button>
-            ))}
-            {searchResults.length === 0 && !isSearching && (
-              <div className="p-3 text-center text-slate-400 italic text-xs">
-                Produk tidak ditemukan
-              </div>
-            )}
-            {isSearching && searchResults.length === 0 && (
-              <div className="p-3 text-center text-slate-400 italic text-xs">
-                Mencari produk...
-              </div>
-            )}
-          </div>
-        )}
+        {portalDropdown}
       </div>
     );
   }
@@ -322,41 +458,19 @@ export const InvoiceProductCombobox: React.FC<InvoiceProductComboboxProps> = mem
   return (
     <div className="relative">
       <input
+        ref={inputRef}
         type="text"
         placeholder="Cari atau ketik produk..."
         value={inputValue}
         onFocus={handleFocus}
         onBlur={handleBlur}
         onChange={handleChange}
+        onKeyDown={(e) => {
+          if (e.key === 'Escape') setIsOpen(false);
+        }}
         className="product-combobox-input w-full p-2 border border-slate-200 rounded-xl font-bold text-slate-800 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 bg-white"
       />
-      {isOpen && (
-        <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 shadow-xl rounded-xl z-50 max-h-48 overflow-y-auto p-1 text-xs">
-          {searchResults.map((p, pIdx) => (
-            <button
-              type="button"
-              key={p.id ? `${p.id}-${pIdx}` : `preset-${pIdx}`}
-              onMouseDown={(e) => handleSelect(e, p)}
-              className="w-full text-left p-2 hover:bg-blue-50 rounded-lg cursor-pointer transition-colors block border-b border-slate-50 last:border-none"
-            >
-              <div className="font-bold text-slate-900">{p.name}</div>
-              {p.unitPrice > 0 && (
-                <div className="text-[10px] text-slate-500 font-medium">Rp {formatCurrency(p.unitPrice)}</div>
-              )}
-            </button>
-          ))}
-          {searchResults.length === 0 && !isSearching && (
-            <div className="p-2 text-center text-slate-400 italic text-[10px]">
-              Produk tidak ditemukan
-            </div>
-          )}
-          {isSearching && searchResults.length === 0 && (
-            <div className="p-2 text-center text-slate-400 italic text-[10px]">
-              Mencari produk...
-            </div>
-          )}
-        </div>
-      )}
+      {portalDropdown}
     </div>
   );
 });

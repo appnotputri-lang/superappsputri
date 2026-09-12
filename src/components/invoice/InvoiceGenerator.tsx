@@ -3179,14 +3179,14 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
             <table className="w-full text-left text-xs table-fixed">
               <thead className="bg-slate-100 text-slate-600 font-bold border-b border-slate-200">
                 <tr>
-                  <th className="p-3 w-[15%] min-w-[140px]">Produk / Layanan</th>
-                  <th className="p-3 w-[33%] min-w-[220px]">Deskripsi</th>
-                  <th className="p-3 w-[5%] min-w-[50px] text-center">Qty</th>
-                  <th className="p-3 w-[14%] min-w-[110px] text-right">Harga (Rp)</th>
-                  <th className="p-3 w-[11%] min-w-[100px] text-right">Discount (Rp)</th>
-                  <th className="p-3 w-[10%] min-w-[95px] text-center">PPh 21</th>
-                  <th className="p-3 w-[10%] min-w-[100px] text-right">Subtotal</th>
-                  <th className="p-3 w-[2%] min-w-[35px] text-center"></th>
+                  <th className="px-2.5 py-3 w-[17%] min-w-[120px]">Produk / Layanan</th>
+                  <th className="px-2.5 py-3 w-[26%] min-w-[150px]">Deskripsi</th>
+                  <th className="px-1.5 py-3 w-[6%] min-w-[45px] text-center">Qty</th>
+                  <th className="px-2 py-3 w-[14%] min-w-[95px] text-right">Harga (Rp)</th>
+                  <th className="px-2 py-3 w-[12%] min-w-[85px] text-right">Discount (Rp)</th>
+                  <th className="px-2 py-3 w-[11%] min-w-[85px] text-center">PPh 21</th>
+                  <th className="px-2.5 py-3 w-[10%] min-w-[85px] text-right">Subtotal</th>
+                  <th className="px-1.5 py-3 w-10 min-w-[38px] text-center sticky right-0 bg-slate-100 z-10 shadow-[-3px_0_4px_-2px_rgba(0,0,0,0.06)]"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -3198,9 +3198,9 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
                   </tr>
                 ) : (
                   items.map((it, idx) => (
-                    <tr key={it.id || idx} className="hover:bg-slate-50/40">
+                    <tr key={it.id || idx} className="hover:bg-slate-50/40 group">
                       {/* Produk */}
-                      <td className="p-3 relative align-top overflow-visible">
+                      <td className="px-2.5 py-3 relative align-top overflow-visible">
                         <InvoiceProductCombobox
                           idx={idx}
                           description={it.description}
@@ -3221,7 +3221,7 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
                       </td>
 
                       {/* Deskripsi */}
-                      <td className="p-3 align-top">
+                      <td className="px-2.5 py-3 align-top">
                         <AutoResizingTextarea
                           value={it.description}
                           onChange={(val) => handleItemChange(idx, 'description', val)}
@@ -3231,7 +3231,7 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
                       </td>
 
                       {/* Qty */}
-                      <td className="p-3 text-center align-top">
+                      <td className="px-1.5 py-3 text-center align-top">
                         <input
                           type="number"
                           min={1}
@@ -3242,7 +3242,7 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
                       </td>
 
                       {/* Harga */}
-                      <td className="p-3 text-right align-top">
+                      <td className="px-2 py-3 text-right align-top">
                         <input
                           type="text"
                           value={formatInputNumber(it.unitPrice || 0)}
@@ -3252,7 +3252,7 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
                       </td>
 
                       {/* Discount */}
-                      <td className="p-3 text-right align-top">
+                      <td className="px-2 py-3 text-right align-top">
                         <input
                           type="text"
                           placeholder="0"
@@ -3263,7 +3263,7 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
                       </td>
 
                       {/* PPh 21 */}
-                      <td className="p-3 text-center align-top">
+                      <td className="px-2 py-3 text-center align-top">
                         <select
                           value={it.isTaxed ? (it.taxRate !== undefined ? it.taxRate : 0.05) : 0}
                           onChange={(e) => {
@@ -3276,7 +3276,7 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
                           }}
                           className="w-full p-2 border border-slate-200 bg-white text-xs font-bold rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 cursor-pointer text-center"
                         >
-                          <option value={0}>0% (Tanpa PPh)</option>
+                          <option value={0}>0%</option>
                           <option value={0.05}>5%</option>
                           <option value={0.15}>15%</option>
                           <option value={0.25}>25%</option>
@@ -3286,18 +3286,19 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
                       </td>
 
                       {/* Subtotal */}
-                      <td className="p-3 text-right font-bold text-slate-900 align-top pt-4">
+                      <td className="px-2.5 py-3 text-right font-bold text-slate-900 align-top pt-4 whitespace-nowrap">
                         {formatCurrency(getItemSubtotal(it))}
                       </td>
 
                       {/* Aksi */}
-                      <td className="p-3 text-center align-top pt-3">
+                      <td className="px-1.5 py-3 text-center align-top pt-3 sticky right-0 bg-white group-hover:bg-slate-50 z-10 shadow-[-3px_0_4px_-2px_rgba(0,0,0,0.06)]">
                         <button
                           type="button"
                           onClick={() => handleRemoveItem(idx)}
                           className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg cursor-pointer transition-colors"
+                          title="Hapus item"
                         >
-                          <X size={15} />
+                          <Trash2 size={15} />
                         </button>
                       </td>
                     </tr>
