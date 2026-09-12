@@ -31,12 +31,16 @@ export async function getAllProductsD1(db: any, params: {
 }) {
   await ensureD1TablesExist(db);
 
-  let limitVal = 10;
+  let limitVal = 20;
   if (typeof params.limit !== 'undefined') {
     const parsed = parseInt(String(params.limit), 10);
     if (!isNaN(parsed) && parsed > 0) {
       limitVal = Math.min(parsed, 500);
     }
+  } else if (!params.search) {
+    limitVal = 100;
+  } else {
+    limitVal = 30;
   }
 
   const offsetVal = Math.max(0, parseInt(String(params.offset || '0'), 10));
@@ -54,8 +58,9 @@ export async function getAllProductsD1(db: any, params: {
   }
 
   if (searchVal) {
-    conditions.push(`(LOWER(name) LIKE ? OR LOWER(description) LIKE ?)`);
-    queryParams.push(`%${searchVal}%`, `%${searchVal}%`);
+    conditions.push(`(LOWER(name) LIKE ? OR LOWER(id) LIKE ? OR LOWER(description) LIKE ? OR LOWER(category) LIKE ? OR LOWER(raw_data) LIKE ?)`);
+    const likePattern = `%${searchVal}%`;
+    queryParams.push(likePattern, likePattern, likePattern, likePattern, likePattern);
   }
 
   if (conditions.length > 0) {
@@ -64,8 +69,31 @@ export async function getAllProductsD1(db: any, params: {
     countSql += whereClause;
   }
 
-  sql += ` ORDER BY name ASC LIMIT ? OFFSET ?`;
-  const selectParams = [...queryParams, limitVal, offsetVal];
+  let selectParams: any[];
+  if (searchVal) {
+    const prefixPattern = `${searchVal}%`;
+    sql += ` ORDER BY 
+      CASE 
+        WHEN LOWER(id) = ? THEN 1
+        WHEN LOWER(name) = ? THEN 2
+        WHEN LOWER(id) LIKE ? THEN 3
+        WHEN LOWER(name) LIKE ? THEN 4
+        ELSE 5
+      END,
+      name ASC LIMIT ? OFFSET ?`;
+    selectParams = [
+      ...queryParams,
+      searchVal,
+      searchVal,
+      prefixPattern,
+      prefixPattern,
+      limitVal,
+      offsetVal
+    ];
+  } else {
+    sql += ` ORDER BY name ASC LIMIT ? OFFSET ?`;
+    selectParams = [...queryParams, limitVal, offsetVal];
+  }
 
   const countStmt = db.prepare(countSql);
   const selectStmt = db.prepare(sql);

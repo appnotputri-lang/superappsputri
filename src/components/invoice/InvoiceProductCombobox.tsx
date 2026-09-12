@@ -1,0 +1,364 @@
+import React, { useState, useEffect, useRef, useCallback, memo } from 'react';
+import { Product } from '../../../types';
+import { ProductService } from '../../services/ProductService';
+
+export interface AvailableProductItem {
+  id?: string;
+  name: string;
+  description: string;
+  unitPrice: number;
+  isTaxed: boolean;
+  taxRate?: number;
+  category?: string;
+}
+
+export const PRESET_PRODUCT_ITEMS: AvailableProductItem[] = [
+  {
+    name: 'AKTA PERUBAHAN PT SK',
+    description: '1. Draft Notulen Sirkuler\n2. Akta RUPSLB\n3. Surat Keputusan (SK) AHU\n4. Surat Pelaporan AHU\n5. BNRI\n6. Akta Hibah Saham',
+    unitPrice: 7435897,
+    isTaxed: true,
+    taxRate: 0.05
+  },
+  {
+    name: 'Jasa Pembuatan Akta Notaris',
+    description: '',
+    unitPrice: 5000000,
+    isTaxed: false,
+    taxRate: 0.05
+  },
+  {
+    name: 'Pendirian PT / CV',
+    description: '',
+    unitPrice: 0,
+    isTaxed: false,
+    taxRate: 0.05
+  },
+  {
+    name: 'Draft Notulen Sirkuler',
+    description: '',
+    unitPrice: 0,
+    isTaxed: false,
+    taxRate: 0.05
+  },
+  {
+    name: 'Akta RUPSLB',
+    description: '',
+    unitPrice: 0,
+    isTaxed: false,
+    taxRate: 0.05
+  },
+  {
+    name: 'Surat Keputusan (SK) AHU',
+    description: '',
+    unitPrice: 0,
+    isTaxed: false,
+    taxRate: 0.05
+  },
+  {
+    name: 'Surat Pelaporan AHU',
+    description: '',
+    unitPrice: 0,
+    isTaxed: false,
+    taxRate: 0.05
+  },
+  {
+    name: 'BNRI (Berita Negara RI)',
+    description: '',
+    unitPrice: 0,
+    isTaxed: false,
+    taxRate: 0.05
+  },
+  {
+    name: 'Akta Hibah Saham',
+    description: '',
+    unitPrice: 0,
+    isTaxed: false,
+    taxRate: 0.05
+  },
+  {
+    name: 'Perjanjian Sewa Menyewa',
+    description: '',
+    unitPrice: 0,
+    isTaxed: false,
+    taxRate: 0.05
+  },
+  {
+    name: 'Perjanjian Kerjasama',
+    description: '',
+    unitPrice: 0,
+    isTaxed: false,
+    taxRate: 0.05
+  },
+  {
+    name: 'Legalisasi Dokumen',
+    description: '',
+    unitPrice: 0,
+    isTaxed: false,
+    taxRate: 0.05
+  },
+  {
+    name: 'Warmerking Dokumen',
+    description: '',
+    unitPrice: 0,
+    isTaxed: false,
+    taxRate: 0.05
+  }
+];
+
+export interface InvoiceProductComboboxProps {
+  idx: number;
+  description: string;
+  onSelectProduct: (product: {
+    name: string;
+    description: string;
+    unitPrice: number;
+    isTaxed: boolean;
+    taxRate?: number;
+  }) => void;
+  onDescriptionChange: (description: string) => void;
+  formatCurrency: (val?: number) => string;
+  isMobile?: boolean;
+}
+
+export const InvoiceProductCombobox: React.FC<InvoiceProductComboboxProps> = memo(({
+  description,
+  onSelectProduct,
+  onDescriptionChange,
+  formatCurrency,
+  isMobile = false
+}) => {
+  const currentFirstLine = (description || '').split('\n')[0] || '';
+  const [inputValue, setInputValue] = useState<string>(currentFirstLine);
+  const [isOpen, setIsOpen] = useState<boolean>(false);
+  const [isSearching, setIsSearching] = useState<boolean>(false);
+  const [searchResults, setSearchResults] = useState<AvailableProductItem[]>(() => PRESET_PRODUCT_ITEMS);
+
+  const debounceTimerRef = useRef<any>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const blurTimeoutRef = useRef<any>(null);
+  const isMountedRef = useRef<boolean>(true);
+
+  // Sync input value if description changes externally
+  useEffect(() => {
+    const firstLine = (description || '').split('\n')[0] || '';
+    setInputValue(firstLine);
+  }, [description]);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+      if (blurTimeoutRef.current) clearTimeout(blurTimeoutRef.current);
+      if (abortControllerRef.current) abortControllerRef.current.abort();
+    };
+  }, []);
+
+  // Helper to execute search with debounce & abort
+  const performSearch = useCallback((queryText: string) => {
+    const trimmed = queryText.trim();
+    const qLower = trimmed.toLowerCase();
+
+    // 1. Instant match for presets
+    const matchedPresets = trimmed
+      ? PRESET_PRODUCT_ITEMS.filter(p => p.name.toLowerCase().includes(qLower))
+      : PRESET_PRODUCT_ITEMS;
+
+    // Show instant presets first while debounce is waiting
+    setSearchResults(matchedPresets);
+
+    // Cancel existing debounce timer
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+
+    // Abort existing in-flight request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+
+    // Debounce API search by ~250ms
+    debounceTimerRef.current = setTimeout(async () => {
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
+      setIsSearching(true);
+
+      try {
+        const apiProducts: Product[] = await ProductService.searchProducts(trimmed, {
+          limit: 25,
+          signal: controller.signal
+        });
+
+        if (!isMountedRef.current || abortControllerRef.current !== controller) {
+          return;
+        }
+
+        const seenNames = new Set(matchedPresets.map(p => p.name.toLowerCase()));
+        const mappedApi: AvailableProductItem[] = [];
+
+        for (const p of apiProducts) {
+          const pNameLower = (p.name || '').toLowerCase();
+          if (!seenNames.has(pNameLower)) {
+            seenNames.add(pNameLower);
+            mappedApi.push({
+              id: p.id,
+              name: p.name,
+              description: p.description || '',
+              unitPrice: p.unitPrice || 0,
+              isTaxed: !!p.isTaxed,
+              taxRate: 0.05,
+              category: p.category
+            });
+          }
+        }
+
+        setSearchResults([...matchedPresets, ...mappedApi]);
+      } catch (err: any) {
+        if (err?.name !== 'AbortError') {
+          console.error('[InvoiceProductCombobox] Search error:', err);
+        }
+      } finally {
+        if (isMountedRef.current && abortControllerRef.current === controller) {
+          setIsSearching(false);
+        }
+      }
+    }, 250);
+  }, []);
+
+  const handleFocus = () => {
+    if (blurTimeoutRef.current) {
+      clearTimeout(blurTimeoutRef.current);
+    }
+    setIsOpen(true);
+    performSearch(inputValue);
+  };
+
+  const handleBlur = () => {
+    blurTimeoutRef.current = setTimeout(() => {
+      if (isMountedRef.current) {
+        setIsOpen(false);
+      }
+    }, 250);
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setInputValue(val);
+    setIsOpen(true);
+
+    // Update parent's item description first line
+    const lines = (description || '').split('\n');
+    lines[0] = val;
+    onDescriptionChange(lines.join('\n'));
+
+    // Trigger debounced search
+    performSearch(val);
+  };
+
+  const handleSelect = (e: React.MouseEvent, p: AvailableProductItem) => {
+    e.preventDefault();
+    if (blurTimeoutRef.current) {
+      clearTimeout(blurTimeoutRef.current);
+    }
+    const finalDesc = p.description ? `${p.name}\n${p.description}` : p.name;
+    onSelectProduct({
+      name: p.name,
+      description: finalDesc,
+      unitPrice: p.unitPrice,
+      isTaxed: p.isTaxed,
+      taxRate: p.isTaxed ? (p.taxRate || 0.05) : undefined
+    });
+    setInputValue(p.name);
+    setIsOpen(false);
+  };
+
+  if (isMobile) {
+    return (
+      <div className="relative">
+        <input
+          type="text"
+          placeholder="Cari atau pilih produk..."
+          value={inputValue}
+          onFocus={handleFocus}
+          onBlur={handleBlur}
+          onChange={handleChange}
+          className="product-combobox-input w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/20"
+        />
+        {isOpen && (
+          <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 shadow-xl rounded-xl z-50 max-h-52 overflow-y-auto p-1 text-xs">
+            {searchResults.map((p, pIdx) => (
+              <button
+                type="button"
+                key={p.id ? `${p.id}-${pIdx}` : `preset-${pIdx}`}
+                onMouseDown={(e) => handleSelect(e, p)}
+                className="w-full text-left p-2.5 hover:bg-blue-50 rounded-lg cursor-pointer transition-colors block border-b border-slate-50 last:border-none"
+              >
+                <div className="font-bold text-slate-900">{p.name}</div>
+                {p.unitPrice > 0 && (
+                  <div className="text-[10px] text-slate-500 font-medium">
+                    Rp {formatCurrency(p.unitPrice)}
+                  </div>
+                )}
+              </button>
+            ))}
+            {searchResults.length === 0 && !isSearching && (
+              <div className="p-3 text-center text-slate-400 italic text-xs">
+                Produk tidak ditemukan
+              </div>
+            )}
+            {isSearching && searchResults.length === 0 && (
+              <div className="p-3 text-center text-slate-400 italic text-xs">
+                Mencari produk...
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative">
+      <input
+        type="text"
+        placeholder="Cari atau ketik produk..."
+        value={inputValue}
+        onFocus={handleFocus}
+        onBlur={handleBlur}
+        onChange={handleChange}
+        className="product-combobox-input w-full p-2 border border-slate-200 rounded-xl font-bold text-slate-800 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 bg-white"
+      />
+      {isOpen && (
+        <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 shadow-xl rounded-xl z-50 max-h-48 overflow-y-auto p-1 text-xs">
+          {searchResults.map((p, pIdx) => (
+            <button
+              type="button"
+              key={p.id ? `${p.id}-${pIdx}` : `preset-${pIdx}`}
+              onMouseDown={(e) => handleSelect(e, p)}
+              className="w-full text-left p-2 hover:bg-blue-50 rounded-lg cursor-pointer transition-colors block border-b border-slate-50 last:border-none"
+            >
+              <div className="font-bold text-slate-900">{p.name}</div>
+              {p.unitPrice > 0 && (
+                <div className="text-[10px] text-slate-500 font-medium">Rp {formatCurrency(p.unitPrice)}</div>
+              )}
+            </button>
+          ))}
+          {searchResults.length === 0 && !isSearching && (
+            <div className="p-2 text-center text-slate-400 italic text-[10px]">
+              Produk tidak ditemukan
+            </div>
+          )}
+          {isSearching && searchResults.length === 0 && (
+            <div className="p-2 text-center text-slate-400 italic text-[10px]">
+              Mencari produk...
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+});
+
+InvoiceProductCombobox.displayName = 'InvoiceProductCombobox';

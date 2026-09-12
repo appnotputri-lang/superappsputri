@@ -15,6 +15,13 @@ const CACHE_KEY = 'products:all';
 export class ProductService {
   private static cache: Product[] | null = null;
   private static listeners: Set<(data: Product[]) => void> = new Set();
+  private static lastFetchTime: number = 0;
+  private static inFlightFetch: Promise<Product[]> | null = null;
+  private static readonly CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+  // Server-side search cache (query::limit -> { products, timestamp })
+  private static searchCache: Map<string, { products: Product[]; timestamp: number }> = new Map();
+  private static readonly SEARCH_CACHE_TTL_MS = 3 * 60 * 1000; // 3 minutes
 
   public static notifyListeners() {
     if (this.cache) {
@@ -28,22 +35,29 @@ export class ProductService {
     }
   }
 
+  public static clearSearchCache() {
+    this.searchCache.clear();
+  }
+
   static subscribeProducts(onNext: (data: Product[]) => void): () => void {
     this.listeners.add(onNext);
 
     // If we have cached data in memory or localStorage, fire immediately
     const cached = this.cache || d1ClientCache.get<Product[]>(CACHE_KEY);
-    if (cached) {
+    if (cached && cached.length > 0) {
       this.cache = cached;
       onNext(cached);
     }
 
-    // Always trigger background revalidation
-    this.getProducts(true).then((data) => {
-      onNext(data);
-    }).catch((err) => {
-      console.error('[ProductService] Error fetching products in subscriber:', err);
-    });
+    // Only trigger background revalidation if cache is missing or stale
+    const isStale = !this.cache || (Date.now() - this.lastFetchTime >= this.CACHE_TTL_MS);
+    if (isStale) {
+      this.getProducts(false).then((data) => {
+        onNext(data);
+      }).catch((err) => {
+        console.error('[ProductService] Error fetching products in subscriber:', err);
+      });
+    }
 
     return () => {
       this.listeners.delete(onNext);
@@ -51,30 +65,113 @@ export class ProductService {
   }
 
   static async getProducts(forceRefresh = false): Promise<Product[]> {
-    if (!forceRefresh) {
-      if (this.cache) return this.cache;
+    const isFresh = Boolean(this.cache && (Date.now() - this.lastFetchTime < this.CACHE_TTL_MS));
+    if (!forceRefresh && isFresh) {
+      return this.cache!;
+    }
+
+    if (!forceRefresh && !this.cache) {
       const cached = d1ClientCache.get<Product[]>(CACHE_KEY);
-      if (cached) {
+      if (cached && cached.length > 0) {
         this.cache = cached;
         return cached;
       }
     }
 
-    try {
-      const res = await fetch(getApiUrl('/api/products?limit=500'));
-      if (!res.ok) throw new Error('Failed to fetch products');
-      const json = await res.json();
-      if (json.success && Array.isArray(json.products)) {
-        this.cache = json.products;
-        d1ClientCache.set(CACHE_KEY, json.products);
-        this.notifyListeners();
-        return json.products;
+    // Return active in-flight request if already running
+    if (this.inFlightFetch) {
+      return this.inFlightFetch;
+    }
+
+    this.inFlightFetch = (async () => {
+      try {
+        const res = await fetch(getApiUrl('/api/products?limit=500'));
+        if (!res.ok) throw new Error('Failed to fetch products');
+        const json = await res.json();
+        if (json.success && Array.isArray(json.products)) {
+          this.cache = json.products;
+          this.lastFetchTime = Date.now();
+          d1ClientCache.set(CACHE_KEY, json.products);
+          this.notifyListeners();
+          return json.products;
+        }
+        return this.cache || [];
+      } catch (error) {
+        console.error('[ProductService] Error in getProducts:', error);
+        return this.cache || d1ClientCache.get<Product[]>(CACHE_KEY) || [];
+      } finally {
+        this.inFlightFetch = null;
+      }
+    })();
+
+    return this.inFlightFetch;
+  }
+
+  /**
+   * Fast server-side product search with client-side caching and abortable requests.
+   * Returns top matched results (default 25-30) without loading all products.
+   */
+  static async searchProducts(
+    query: string,
+    options?: { limit?: number; signal?: AbortSignal; forceRefresh?: boolean }
+  ): Promise<Product[]> {
+    const limit = options?.limit || 25;
+    const trimmed = (query || '').trim();
+
+    // 1. Empty query: return initial cached items or lightweight fetch
+    if (!trimmed) {
+      const existing = this.cache || d1ClientCache.get<Product[]>(CACHE_KEY);
+      if (existing && existing.length > 0) {
+        return existing.slice(0, limit);
+      }
+      try {
+        const res = await fetch(getApiUrl(`/api/products?limit=${limit}`), { signal: options?.signal });
+        if (!res.ok) throw new Error('Failed to fetch initial products');
+        const json = await res.json();
+        if (json.success && Array.isArray(json.products)) {
+          return json.products;
+        }
+      } catch (err: any) {
+        if (err?.name === 'AbortError') throw err;
       }
       return [];
-    } catch (error) {
-      console.error('[ProductService] Error in getProducts:', error);
-      const fallback = this.cache || d1ClientCache.get<Product[]>(CACHE_KEY) || [];
-      return fallback;
+    }
+
+    // 2. Check query search cache
+    const cacheKey = `${trimmed.toLowerCase()}::${limit}`;
+    const now = Date.now();
+    const cached = this.searchCache.get(cacheKey);
+
+    if (!options?.forceRefresh && cached && (now - cached.timestamp < this.SEARCH_CACHE_TTL_MS)) {
+      return cached.products;
+    }
+
+    // 3. Perform server-side search
+    try {
+      const url = getApiUrl(`/api/products?search=${encodeURIComponent(trimmed)}&limit=${limit}`);
+      const res = await fetch(url, { signal: options?.signal });
+      if (!res.ok) throw new Error(`Search failed with status ${res.status}`);
+      const json = await res.json();
+      if (json.success && Array.isArray(json.products)) {
+        const results = json.products;
+        this.searchCache.set(cacheKey, { products: results, timestamp: now });
+        return results;
+      }
+      return [];
+    } catch (err: any) {
+      if (err?.name === 'AbortError') {
+        throw err;
+      }
+      console.warn('[ProductService] Server search failed, falling back to local memory cache:', err);
+      // Offline fallback: filter from client cache
+      const all = this.cache || d1ClientCache.get<Product[]>(CACHE_KEY) || [];
+      const lower = trimmed.toLowerCase();
+      return all.filter(p => 
+        (p.name && p.name.toLowerCase().includes(lower)) ||
+        (p.description && p.description.toLowerCase().includes(lower)) ||
+        (p.id && p.id.toLowerCase().includes(lower)) ||
+        (p.category && p.category.toLowerCase().includes(lower))
+      ).slice(0, limit);
     }
   }
 
@@ -114,6 +211,8 @@ export class ProductService {
 
     // 2. Optimistic UI update
     this.cache = [payload, ...previous];
+    this.clearSearchCache();
+    this.lastFetchTime = 0;
     d1ClientCache.set(CACHE_KEY, this.cache);
     this.notifyListeners();
 
@@ -152,6 +251,8 @@ export class ProductService {
     // Optimistic UI update
     if (this.cache) {
       this.cache = this.cache.map(p => p.id === id ? { ...p, ...data, updatedAt: now } : p);
+      this.clearSearchCache();
+      this.lastFetchTime = 0;
       d1ClientCache.set(CACHE_KEY, this.cache);
       this.notifyListeners();
     }
@@ -190,6 +291,8 @@ export class ProductService {
     // Optimistic UI update (immediate row removal)
     if (this.cache) {
       this.cache = this.cache.filter(p => p.id !== id);
+      this.clearSearchCache();
+      this.lastFetchTime = 0;
       d1ClientCache.set(CACHE_KEY, this.cache);
       this.notifyListeners();
     }

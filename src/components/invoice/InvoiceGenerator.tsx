@@ -5,6 +5,7 @@ import { MobileHeader, MobileFormHeader, MobileEmptyState } from "../ui/MobileHe
 import { Invoice, InvoiceItem, PaymentRecord, Product } from '../../../types';
 import { InvoiceService } from '../../services/InvoiceService';
 import { ProductService } from '../../services/ProductService';
+import { InvoiceProductCombobox } from './InvoiceProductCombobox';
 import { CompanyService } from '../../services/CompanyService';
 import { calculateInvoiceTotals, getItemSubtotal } from '../../services/taxCalculator';
 import { formatInputNumber, parseFormattedNumber } from '../../../utils/formatters';
@@ -294,20 +295,6 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = (props) => {
 
   // Items Form
   const [items, setItems] = useState<InvoiceItem[]>([]);
-  const [activeProductDropdownIdx, setActiveProductDropdownIdx] = useState<number | null>(null);
-  const [productSearchQueries, setProductSearchQueries] = useState<Record<number, string>>({});
-
-  // Add Item Temp Inputs
-  const [dbProducts, setDbProducts] = useState<Product[]>([]);
-  useEffect(() => {
-    if (viewMode === 'list') return;
-    const unsubscribe = ProductService.subscribeProducts((data) => {
-      // Sort alphabetically
-      const sorted = [...data].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-      setDbProducts(sorted);
-    });
-    return () => unsubscribe();
-  }, [viewMode]);
 
   const [selectedPresetProduct, setSelectedPresetProduct] = useState('-- Manual --');
   const [itemDescription, setItemDescription] = useState('');
@@ -2841,34 +2828,6 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
   // =========================================================================
   // RENDER 3: FULL PAGE FORM ("Buat Invoice Baru" / "Edit Invoice")
   // =========================================================================
-  const allAvailableProducts = [
-    ...dbProducts.map(p => ({
-      name: p.name,
-      description: p.description || '',
-      unitPrice: p.unitPrice || 0,
-      isTaxed: !!p.isTaxed,
-      taxRate: 0.05
-    })),
-    ...PRESET_PRODUCTS.filter(p => p !== '-- Manual --').map(p => {
-      let description = '';
-      let unitPrice = 0;
-      let isTaxed = false;
-      if (p === 'AKTA PERUBAHAN PT SK') {
-        description = '1. Draft Notulen Sirkuler\n2. Akta RUPSLB\n3. Surat Keputusan (SK) AHU\n4. Surat Pelaporan AHU\n5. BNRI\n6. Akta Hibah Saham';
-        unitPrice = 7435897;
-        isTaxed = true;
-      } else if (p === 'Jasa Pembuatan Akta Notaris') {
-        unitPrice = 5000000;
-      }
-      return {
-        name: p,
-        description,
-        unitPrice,
-        isTaxed,
-        taxRate: 0.05
-      };
-    })
-  ];
 
   return (
     <div className="p-4 md:p-6 w-[94%] xl:w-[92%] max-w-none mx-auto space-y-4 pb-24 md:pb-6">
@@ -3242,64 +3201,23 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
                     <tr key={it.id || idx} className="hover:bg-slate-50/40">
                       {/* Produk */}
                       <td className="p-3 relative align-top overflow-visible">
-                        <div className="relative">
-                          <input
-                            type="text"
-                            placeholder="Cari atau ketik produk..."
-                            value={productSearchQueries[idx] !== undefined ? productSearchQueries[idx] : (it.description.split('\n')[0] || '')}
-                            onFocus={() => setActiveProductDropdownIdx(idx)}
-                            onBlur={() => setTimeout(() => setActiveProductDropdownIdx(null), 250)}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              setProductSearchQueries(prev => ({ ...prev, [idx]: val }));
-                              
-                              // Update first line of description
-                              const lines = it.description.split('\n');
-                              lines[0] = val;
-                              handleItemChange(idx, 'description', lines.join('\n'));
-                            }}
-                            className="product-combobox-input w-full p-2 border border-slate-200 rounded-xl font-bold text-slate-800 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 bg-white"
-                          />
-                          {activeProductDropdownIdx === idx && (
-                            <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 shadow-xl rounded-xl z-50 max-h-48 overflow-y-auto p-1 text-xs">
-                              {allAvailableProducts
-                                .filter(p => p.name.toLowerCase().includes((productSearchQueries[idx] || '').toLowerCase()))
-                                .map((p, pIdx) => (
-                                  <button
-                                    type="button"
-                                    key={pIdx}
-                                    onMouseDown={(e) => {
-                                      e.preventDefault();
-                                      const finalDesc = p.description ? `${p.name}\n${p.description}` : p.name;
-                                      handleItemChange(idx, {
-                                        description: finalDesc,
-                                        unitPrice: p.unitPrice,
-                                        isTaxed: p.isTaxed,
-                                        taxRate: p.isTaxed ? (p.taxRate || 0.05) : undefined
-                                      });
-                                      setProductSearchQueries(prev => {
-                                        const copy = { ...prev };
-                                        delete copy[idx];
-                                        return copy;
-                                      });
-                                      setActiveProductDropdownIdx(null);
-                                    }}
-                                    className="w-full text-left p-2 hover:bg-blue-50 rounded-lg cursor-pointer transition-colors block border-b border-slate-50 last:border-none"
-                                  >
-                                    <div className="font-bold text-slate-900">{p.name}</div>
-                                    {p.unitPrice > 0 && (
-                                      <div className="text-[10px] text-slate-500 font-medium">Rp {formatCurrency(p.unitPrice)}</div>
-                                    )}
-                                  </button>
-                                ))}
-                              {allAvailableProducts.filter(p => p.name.toLowerCase().includes((productSearchQueries[idx] || '').toLowerCase())).length === 0 && (
-                                <div className="p-2 text-center text-slate-400 italic text-[10px]">
-                                  Produk tidak ditemukan
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </div>
+                        <InvoiceProductCombobox
+                          idx={idx}
+                          description={it.description}
+                          onSelectProduct={(productData) => {
+                            handleItemChange(idx, {
+                              description: productData.description,
+                              unitPrice: productData.unitPrice,
+                              isTaxed: productData.isTaxed,
+                              taxRate: productData.isTaxed ? (productData.taxRate || 0.05) : undefined
+                            });
+                          }}
+                          onDescriptionChange={(newDescription) => {
+                            handleItemChange(idx, 'description', newDescription);
+                          }}
+                          formatCurrency={formatCurrency}
+                          isMobile={false}
+                        />
                       </td>
 
                       {/* Deskripsi */}
@@ -3902,64 +3820,23 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
                   <label className="block text-xs font-bold text-slate-800 uppercase tracking-wide">
                     Produk / Layanan <span className="text-red-500">*</span>
                   </label>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      placeholder="Cari atau pilih produk..."
-                      value={productSearchQueries[idx] !== undefined ? productSearchQueries[idx] : (it.description.split('\n')[0] || '')}
-                      onFocus={() => setActiveProductDropdownIdx(idx)}
-                      onBlur={() => setTimeout(() => setActiveProductDropdownIdx(null), 250)}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setProductSearchQueries(prev => ({ ...prev, [idx]: val }));
-                        const lines = it.description.split('\n');
-                        lines[0] = val;
-                        handleItemChange(idx, 'description', lines.join('\n'));
-                      }}
-                      className="product-combobox-input w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/20"
-                    />
-                    {activeProductDropdownIdx === idx && (
-                      <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 shadow-xl rounded-xl z-50 max-h-52 overflow-y-auto p-1 text-xs">
-                        {allAvailableProducts
-                          .filter(p => p.name.toLowerCase().includes((productSearchQueries[idx] || '').toLowerCase()))
-                          .map((p, pIdx) => (
-                            <button
-                              type="button"
-                              key={pIdx}
-                              onMouseDown={(e) => {
-                                e.preventDefault();
-                                const finalDesc = p.description ? `${p.name}\n${p.description}` : p.name;
-                                handleItemChange(idx, {
-                                  description: finalDesc,
-                                  unitPrice: p.unitPrice,
-                                  isTaxed: p.isTaxed,
-                                  taxRate: p.isTaxed ? (p.taxRate || 0.05) : undefined
-                                });
-                                setProductSearchQueries(prev => {
-                                  const copy = { ...prev };
-                                  delete copy[idx];
-                                  return copy;
-                                });
-                                setActiveProductDropdownIdx(null);
-                              }}
-                              className="w-full text-left p-2.5 hover:bg-blue-50 rounded-lg cursor-pointer transition-colors block border-b border-slate-50 last:border-none"
-                            >
-                              <div className="font-bold text-slate-900">{p.name}</div>
-                              {p.unitPrice > 0 && (
-                                <div className="text-[10px] text-slate-500 font-medium">
-                                  Rp {formatCurrency(p.unitPrice)}
-                                </div>
-                              )}
-                            </button>
-                          ))}
-                        {allAvailableProducts.filter(p => p.name.toLowerCase().includes((productSearchQueries[idx] || '').toLowerCase())).length === 0 && (
-                          <div className="p-3 text-center text-slate-400 italic text-xs">
-                            Produk tidak ditemukan
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
+                  <InvoiceProductCombobox
+                    idx={idx}
+                    description={it.description}
+                    onSelectProduct={(productData) => {
+                      handleItemChange(idx, {
+                        description: productData.description,
+                        unitPrice: productData.unitPrice,
+                        isTaxed: productData.isTaxed,
+                        taxRate: productData.isTaxed ? (productData.taxRate || 0.05) : undefined
+                      });
+                    }}
+                    onDescriptionChange={(newDescription) => {
+                      handleItemChange(idx, 'description', newDescription);
+                    }}
+                    formatCurrency={formatCurrency}
+                    isMobile={true}
+                  />
                 </div>
 
                 {/* Deskripsi Lengkap */}
