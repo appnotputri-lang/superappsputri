@@ -358,16 +358,16 @@ const KBLIMapping: React.FC = () => {
 
     try {
       await KbliService.saveMappingRecord(payload, Boolean(editingId));
-      alert("Data Pemetaan KBLI berhasil disimpan!");
+      alert("Data Pemetaan KBLI berhasil disimpan ke database D1!");
       setNamaPT("");
       setKelompokUsaha("Mikro");
       setSelectedMappings([]);
       setEditingId(null);
       setViewMode("list");
       await loadMappingRecords();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error saving mapping:", error);
-      alert("Data Pemetaan KBLI disimpan secara lokal di perangkat ini.");
+      alert(`Gagal menyimpan ke database D1: ${error?.message || 'Terjadi kesalahan sistem'}`);
       setNamaPT("");
       setKelompokUsaha("Mikro");
       setSelectedMappings([]);
@@ -381,16 +381,16 @@ const KBLIMapping: React.FC = () => {
 
   const handleDeleteRecord = async (recordId: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!confirm("Apakah Anda yakin ingin menghapus riwayat pemetaan ini?"))
+    if (!confirm("Apakah Anda yakin ingin menghapus riwayat pemetaan ini dari database D1?"))
       return;
 
     try {
       await KbliService.deleteMappingRecord(recordId);
-      alert("Riwayat pemetaan berhasil dihapus.");
+      alert("Riwayat pemetaan KBLI berhasil dihapus dari database D1.");
       await loadMappingRecords();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error deleting record:", error);
-      alert("Riwayat pemetaan dihapus secara lokal dari perangkat ini.");
+      alert(`Gagal menghapus riwayat dari database D1: ${error?.message || 'Terjadi kesalahan sistem'}`);
       await loadMappingRecords();
     }
   };

@@ -50,9 +50,16 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
   const isPossibleTokenRoute = isSingleSegmentPath && !isReservedPath(window.location.pathname);
   const isLegacyInvRoute = /^\/inv\/[A-Za-z0-9_-]+\/?$/i.test(window.location.pathname);
 
+  const isSuratBoRoute =
+    window.location.pathname === '/surat-bo' ||
+    window.location.pathname === '/surat_bo' ||
+    window.location.pathname.startsWith('/surat-bo') ||
+    (window.location.hash && (window.location.hash.includes('/surat-bo') || window.location.hash.includes('/surat_bo')));
+
   const isPublicRoute = 
     window.location.pathname === '/rupst' || 
     (window.location.hash && window.location.hash.includes('/rupst')) ||
+    isSuratBoRoute ||
     window.location.pathname.includes('/invoice/public') ||
     (window.location.hash && window.location.hash.includes('/invoice/public')) ||
     isPossibleTokenRoute ||
@@ -128,7 +135,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
     );
   }
 
-  if (isPublicRoute) {
+  if (isPublicRoute && (!user || window.location.pathname.includes('/invoice/public') || isPossibleTokenRoute || isLegacyInvRoute)) {
     return (
       <div className="full-app-height min-h-0 w-full overflow-y-auto bg-[#f8fafc] no-scrollbar">
         <UpdatePrompt />

@@ -105,9 +105,12 @@ export const KbliService = {
   },
 
   // ==========================================
-  // KBLI SUGGESTIONS
+  // KBLI SUGGESTIONS (D1 PERSISTENT STORAGE)
   // ==========================================
   async fetchSuggestionRecords(search?: string): Promise<KbliRecord[]> {
+    let d1Records: KbliRecord[] = [];
+    let d1Success = false;
+
     try {
       const url = new URL('/api/kbli/suggestions', window.location.origin);
       if (search) {
@@ -117,14 +120,40 @@ export const KbliService = {
       if (res.ok) {
         const data = await res.json();
         if (data && data.success && Array.isArray(data.records)) {
-          return data.records;
+          d1Records = data.records;
+          d1Success = true;
+          // Update local cache from D1 source of truth
+          try {
+            localStorage.setItem('kbli_suggestions_local_records', JSON.stringify(d1Records));
+          } catch (_) {}
         }
       }
     } catch (e) {
       console.warn('[KbliService] D1 API fetch suggestions failed, falling back to local cache:', e);
     }
 
-    // Fallback to local storage
+    // If D1 succeeded, check if there are legacy local records that need to be synced to D1
+    if (d1Success) {
+      try {
+        const stored = localStorage.getItem('kbli_suggestions_local_records');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed)) {
+            const existingIds = new Set(d1Records.map(r => r.id));
+            const unsynced = parsed.filter((r: any) => r && r.id && !existingIds.has(r.id));
+            if (unsynced.length > 0) {
+              // Sync unsynced records to D1 in background
+              Promise.all(unsynced.map((r: any) => this.saveSuggestionRecord(r, false))).catch((err) => {
+                console.warn('[KbliService] Auto-sync legacy local records to D1 failed:', err);
+              });
+            }
+          }
+        }
+      } catch (_) {}
+      return d1Records;
+    }
+
+    // Fallback to local storage only if network / D1 API is unavailable
     try {
       const stored = localStorage.getItem('kbli_suggestions_local_records');
       if (stored) {
@@ -141,20 +170,7 @@ export const KbliService = {
   async saveSuggestionRecord(payload: any, isEdit = false): Promise<KbliRecord> {
     const recordId = payload.id;
 
-    // Save to local storage as fallback
-    try {
-      const stored = localStorage.getItem('kbli_suggestions_local_records');
-      const currentLocals = stored ? JSON.parse(stored) : [];
-      const updatedLocals = [
-        payload,
-        ...currentLocals.filter((item: any) => item.id !== recordId)
-      ];
-      localStorage.setItem('kbli_suggestions_local_records', JSON.stringify(updatedLocals));
-    } catch (e) {
-      console.warn('[KbliService] Error saving to localStorage:', e);
-    }
-
-    // Call D1 API
+    // Call D1 API directly as primary persistent storage
     const endpoint = isEdit ? `/api/kbli/suggestions/${encodeURIComponent(recordId)}` : '/api/kbli/suggestions';
     const method = isEdit ? 'PUT' : 'POST';
 
@@ -166,15 +182,40 @@ export const KbliService = {
 
     if (!res.ok) {
       const errData = await res.json().catch(() => ({}));
-      throw new Error(errData.error || `HTTP ${res.status}: Failed to save KBLI suggestion to D1`);
+      throw new Error(errData.error || `HTTP ${res.status}: Gagal menyimpan Saran KBLI ke database D1`);
     }
 
     const result = await res.json();
-    return result.record || payload;
+    const savedRecord = result.record || payload;
+
+    // Save to local cache as secondary backup
+    try {
+      const stored = localStorage.getItem('kbli_suggestions_local_records');
+      const currentLocals = stored ? JSON.parse(stored) : [];
+      const updatedLocals = [
+        savedRecord,
+        ...currentLocals.filter((item: any) => item.id !== recordId)
+      ];
+      localStorage.setItem('kbli_suggestions_local_records', JSON.stringify(updatedLocals));
+    } catch (e) {
+      console.warn('[KbliService] Error saving to localStorage cache:', e);
+    }
+
+    return savedRecord;
   },
 
   async deleteSuggestionRecord(id: string): Promise<boolean> {
-    // Remove from local storage
+    // Call D1 API
+    const res = await fetch(`/api/kbli/suggestions/${encodeURIComponent(id)}`, {
+      method: 'DELETE'
+    });
+
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(errData.error || `HTTP ${res.status}: Gagal menghapus Saran KBLI dari database D1`);
+    }
+
+    // Remove from local cache
     try {
       const stored = localStorage.getItem('kbli_suggestions_local_records');
       if (stored) {
@@ -183,16 +224,6 @@ export const KbliService = {
         localStorage.setItem('kbli_suggestions_local_records', JSON.stringify(filtered));
       }
     } catch (e) {}
-
-    // Call D1 API
-    const res = await fetch(`/api/kbli/suggestions/${encodeURIComponent(id)}`, {
-      method: 'DELETE'
-    });
-
-    if (!res.ok) {
-      const errData = await res.json().catch(() => ({}));
-      throw new Error(errData.error || `HTTP ${res.status}: Failed to delete KBLI suggestion from D1`);
-    }
 
     return true;
   }

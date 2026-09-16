@@ -16,8 +16,13 @@ import { renderNotaryBookRoute } from './notaryBooks.routes';
 import { renderGeneralDocumentRoute } from './generalDocument.routes';
 import { renderDepositNoteRoute } from './depositNote.routes';
 import { renderAgendaRoute } from './agenda.routes';
+import { renderSuratBoRoute } from './suratBo.routes';
 
 export const renderAppRoute = (currentTab: string, props: any) => {
+  if (currentTab === 'surat_bo') {
+    return renderSuratBoRoute(props);
+  }
+
   if (currentTab === 'agenda') {
     return renderAgendaRoute(props);
   }

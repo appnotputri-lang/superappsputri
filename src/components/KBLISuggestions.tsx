@@ -169,16 +169,16 @@ const KBLISuggestions: React.FC = () => {
 
     try {
       await KbliService.saveSuggestionRecord(payload, Boolean(editingId));
-      alert('Data Saran KBLI berhasil disimpan!');
+      alert('Data Saran KBLI berhasil disimpan ke database D1!');
       setNamaPT('');
       setKelompokUsaha('Mikro');
       setSelectedKblis([]);
       setEditingId(null);
       setViewMode('list');
       await loadSuggestionRecords();
-    } catch (error) {
-      console.error('Error saving suggestion:', error);
-      alert('Data Saran KBLI disimpan secara lokal di perangkat ini.');
+    } catch (error: any) {
+      console.error('Error saving suggestion to D1:', error);
+      alert(`Gagal menyimpan ke database D1: ${error?.message || 'Terjadi kesalahan sistem'}`);
       setNamaPT('');
       setKelompokUsaha('Mikro');
       setSelectedKblis([]);
@@ -192,15 +192,15 @@ const KBLISuggestions: React.FC = () => {
 
   const handleDeleteRecord = async (recordId: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!confirm('Apakah Anda yakin ingin menghapus riwayat saran ini?')) return;
+    if (!confirm('Apakah Anda yakin ingin menghapus riwayat saran ini dari database D1?')) return;
     
     try {
       await KbliService.deleteSuggestionRecord(recordId);
-      alert('Riwayat saran KBLI berhasil dihapus.');
+      alert('Riwayat saran KBLI berhasil dihapus dari database D1.');
       await loadSuggestionRecords();
-    } catch (error) {
-      console.error('Error deleting record:', error);
-      alert('Riwayat saran KBLI dihapus secara lokal dari perangkat ini.');
+    } catch (error: any) {
+      console.error('Error deleting record from D1:', error);
+      alert(`Gagal menghapus riwayat dari database D1: ${error?.message || 'Terjadi kesalahan sistem'}`);
       await loadSuggestionRecords();
     }
   };
@@ -1725,10 +1725,15 @@ const KBLISuggestions: React.FC = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-350">
           <div className="bg-white w-full max-w-lg rounded-xl shadow-xl overflow-hidden animate-in zoom-in-95 duration-200 border border-slate-200">
             <div className="px-6 py-4 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
-              <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
-                <History className="w-4 h-4 text-[#0c2444]" />
-                Riwayat Saran Tersimpan
-              </h3>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                  <History className="w-4 h-4 text-[#0c2444]" />
+                  Riwayat Saran Tersimpan
+                </h3>
+                <span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-full border border-emerald-200">
+                  Cloudflare D1
+                </span>
+              </div>
               <button 
                 onClick={() => setShowHistoryModal(false)}
                 className="text-slate-400 hover:text-slate-600 font-bold text-lg"
@@ -1739,7 +1744,7 @@ const KBLISuggestions: React.FC = () => {
             <div className="p-6 max-h-96 overflow-y-auto space-y-3">
               {savedRecords.length === 0 ? (
                 <div className="text-center py-8 text-slate-400 italic text-sm">
-                  Belum ada riwayat saran yang disimpan.
+                  Belum ada riwayat saran yang tersimpan di database D1.
                 </div>
               ) : (
                 savedRecords.map(rec => (
@@ -1755,8 +1760,8 @@ const KBLISuggestions: React.FC = () => {
                          <span>•</span>
                          <span>{rec.selectedItems?.length || 0} KBLI</span>
                        </div>
-                       <div className="text-[10px] text-slate-400 mt-1 font-mono">
-                         Disimpan: {new Date(rec.updatedAt).toLocaleString('id-ID')}
+                       <div className="text-[10px] text-emerald-700 mt-1 font-mono flex items-center gap-1">
+                         <span>Database D1 • {new Date(rec.updatedAt).toLocaleString('id-ID')}</span>
                        </div>
                      </div>
                      <button

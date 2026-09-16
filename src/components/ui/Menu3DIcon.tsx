@@ -520,6 +520,17 @@ export const Menu3DIcon: React.FC<Menu3DIconProps> = ({
           </>
         ));
 
+      case 'surat_bo':
+        return renderBaseIcon('#eff6ff', '#dbeafe', '#93c5fd', '#1e3a8a', (
+          <>
+            {/* Beneficial Owner Certificate / Stamp Shield */}
+            <path d="M24 10L33 14V22C33 28 29 33.5 24 35C19 33.5 15 28 15 22V14L24 10Z" fill="#1e40af" />
+            <path d="M24 12L31.5 15.3V21.8C31.5 26.8 28.2 31.4 24 32.8C19.8 31.4 16.5 26.8 16.5 21.8V15.3L24 12Z" fill="#3b82f6" />
+            <circle cx="24" cy="20" r="3" fill="#ffffff" />
+            <path d="M19.5 27C19.5 24.5 21.5 23 24 23C26.5 23 28.5 24.5 28.5 27" stroke="#ffffff" strokeWidth="2" strokeLinecap="round" />
+          </>
+        ));
+
       case 'stamp_settings':
       case 'stempel':
         return renderBaseIcon('#f3e8ff', '#ede9fe', '#ddd6fe', '#581c87', (

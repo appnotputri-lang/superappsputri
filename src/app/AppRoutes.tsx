@@ -93,6 +93,16 @@ export const AppRoutes: React.FC<AppRoutesProps> = (props) => {
     return renderAppRoute('delivery', { ...props, isPublic: true });
   }
 
+  const isSuratBoRoute =
+    location.pathname === '/surat-bo' ||
+    location.pathname === '/surat_bo' ||
+    location.pathname.startsWith('/surat-bo') ||
+    (window.location.hash && (window.location.hash.includes('/surat-bo') || window.location.hash.includes('/surat_bo')));
+
+  if (isSuratBoRoute) {
+    return renderAppRoute('surat_bo', { ...props, isPublic: !user });
+  }
+
   const isPublicInvoice =
     location.pathname.includes('/invoice/public') ||
     (window.location.hash && window.location.hash.includes('/invoice/public')) ||

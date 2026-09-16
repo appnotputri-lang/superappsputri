@@ -25,7 +25,8 @@ import {
   ChevronRight,
   ChevronUp,
   HelpCircle,
-  User
+  User,
+  UserCheck
 } from 'lucide-react';
 import { SidebarTabId, UserProfile } from '../../../types';
 import { Menu3DIcon } from '../ui/Menu3DIcon';
@@ -91,7 +92,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       return ['invoice', 'products', 'quotation', 'delivery', 'receipt', 'deposit_note'].includes(activeTab);
     }
     if (sectionId === 'referensi_dan_alat') {
-      return ['kbli_mapping', 'saran_kbli', 'perbaikan', 'panduan'].includes(activeTab);
+      return ['kbli_mapping', 'saran_kbli', 'perbaikan', 'panduan', 'surat_bo'].includes(activeTab);
     }
     if (sectionId === 'sistem') {
       return ['settings', 'whatsapp_settings', 'stamp_settings', 'user_management', 'import_kbli'].includes(activeTab);
@@ -201,6 +202,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       badgeColor: 'bg-amber-50 border border-amber-100',
       badgeTextColor: 'text-amber-600',
       items: [
+        { label: 'Surat BO', id: 'surat_bo', icon: UserCheck, requiresAuth: false },
         { label: 'Mapping KBLI 2020-2025', id: 'kbli_mapping', icon: ArrowRightLeft, requiresAuth: true },
         { label: 'Saran KBLI', id: 'saran_kbli', icon: Lightbulb, requiresAuth: true },
         { label: 'Surat Perbaikan Data', id: 'perbaikan', icon: Mail, requiresAuth: true },

@@ -188,14 +188,23 @@ export async function updateKbliMappingD1(db: any, id: string, payload: any) {
   const p = formatKbliToD1Params(merged, 'mapping');
 
   const sql = `
-    UPDATE kbli_mapping_records SET
-      nama=?, kelompok_usaha=?, selected_items=?, updated_at=?, user_id=?, created_at=?, raw_data=?
-    WHERE id=?
+    INSERT INTO kbli_mapping_records (
+      id, nama, kelompok_usaha, selected_items, updated_at, user_id, created_at, raw_data
+    ) VALUES (
+      ?, ?, ?, ?, ?, ?, ?, ?
+    )
+    ON CONFLICT(id) DO UPDATE SET
+      nama=excluded.nama,
+      kelompok_usaha=excluded.kelompok_usaha,
+      selected_items=excluded.selected_items,
+      updated_at=excluded.updated_at,
+      user_id=excluded.user_id,
+      created_at=excluded.created_at,
+      raw_data=excluded.raw_data
   `;
 
   await db.prepare(sql).bind(
-    p.nama, p.kelompok_usaha, p.selected_items, p.updated_at, p.user_id, p.created_at, p.raw_data,
-    id
+    p.id, p.nama, p.kelompok_usaha, p.selected_items, p.updated_at, p.user_id, p.created_at, p.raw_data
   ).run();
 
   const updatedRow = await db.prepare(`SELECT * FROM kbli_mapping_records WHERE id = ? LIMIT 1`).bind(id).first();
@@ -334,14 +343,23 @@ export async function updateKbliSuggestionD1(db: any, id: string, payload: any) 
   const p = formatKbliToD1Params(merged, 'suggestion');
 
   const sql = `
-    UPDATE kbli_suggestion_records SET
-      nama=?, kelompok_usaha=?, selected_items=?, updated_at=?, user_id=?, created_at=?, raw_data=?
-    WHERE id=?
+    INSERT INTO kbli_suggestion_records (
+      id, nama, kelompok_usaha, selected_items, updated_at, user_id, created_at, raw_data
+    ) VALUES (
+      ?, ?, ?, ?, ?, ?, ?, ?
+    )
+    ON CONFLICT(id) DO UPDATE SET
+      nama=excluded.nama,
+      kelompok_usaha=excluded.kelompok_usaha,
+      selected_items=excluded.selected_items,
+      updated_at=excluded.updated_at,
+      user_id=excluded.user_id,
+      created_at=excluded.created_at,
+      raw_data=excluded.raw_data
   `;
 
   await db.prepare(sql).bind(
-    p.nama, p.kelompok_usaha, p.selected_items, p.updated_at, p.user_id, p.created_at, p.raw_data,
-    id
+    p.id, p.nama, p.kelompok_usaha, p.selected_items, p.updated_at, p.user_id, p.created_at, p.raw_data
   ).run();
 
   const updatedRow = await db.prepare(`SELECT * FROM kbli_suggestion_records WHERE id = ? LIMIT 1`).bind(id).first();

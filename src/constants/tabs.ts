@@ -244,6 +244,13 @@ export const TAB_ACCENTS: Record<SidebarTabId, {
     bgColor: 'bg-emerald-50/70',
     hoverBg: 'hover:bg-emerald-50/40 hover:text-emerald-950',
     indicatorBg: 'bg-emerald-600'
+  },
+  surat_bo: {
+    iconColor: 'text-blue-700',
+    textColor: 'text-blue-950',
+    bgColor: 'bg-blue-50/70',
+    hoverBg: 'hover:bg-blue-50/40 hover:text-blue-950',
+    indicatorBg: 'bg-blue-700'
   }
 };
 
@@ -283,7 +290,8 @@ export const TAB_TO_PATH: Record<string, string> = {
   'receipt': '/tanda-terima',
   'deposit_note': '/deposit_note',
   'laporan_ppat': '/laporan-ppat',
-  'ppat': '/ppat'
+  'ppat': '/ppat',
+  'surat_bo': '/surat-bo'
 };
 
 export const PATH_TO_TAB: Record<string, SidebarTabId> = {
@@ -311,7 +319,9 @@ export const PATH_TO_TAB: Record<string, SidebarTabId> = {
   '/receipt': 'receipt',
   '/deposit_note': 'deposit_note',
   '/deposit-notes': 'deposit_note',
-  '/deposit_notes': 'deposit_note'
+  '/deposit_notes': 'deposit_note',
+  '/surat-bo': 'surat_bo',
+  '/surat_bo': 'surat_bo'
 };
 
 export const RESERVED_PATHS = new Set([
@@ -327,6 +337,7 @@ export const RESERVED_PATHS = new Set([
   '/general-documents', '/surat-jalan',
   '/tanda-terima', '/receipt',
   '/deposit_note', '/deposit-notes', '/deposit_notes',
+  '/surat-bo', '/surat_bo',
   '/products',
   '/rupslb', '/pendirian', '/rupst', '/perbaikan', '/draft-akta', '/panduan',
   '/sirkuler', '/rupst-public', '/kbli-mapping', '/saran-kbli', '/import-kbli',
