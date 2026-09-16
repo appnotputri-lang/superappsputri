@@ -62,18 +62,34 @@ export const KbliService = {
     }
 
     // Call D1 API
-    const endpoint = isEdit ? `/api/kbli/mapping/${encodeURIComponent(recordId)}` : '/api/kbli/mapping';
-    const method = isEdit ? 'PUT' : 'POST';
+    let res: Response;
+    if (isEdit) {
+      const endpoint = `/api/kbli/mapping/${encodeURIComponent(recordId)}`;
+      res = await fetch(endpoint, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
 
-    const res = await fetch(endpoint, {
-      method,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
+      // If PUT is not supported on older deployment (HTTP 405/404), fall back to POST upsert
+      if (res.status === 405 || res.status === 404) {
+        res = await fetch('/api/kbli/mapping', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+      }
+    } else {
+      res = await fetch('/api/kbli/mapping', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+    }
 
     if (!res.ok) {
       const errData = await res.json().catch(() => ({}));
-      throw new Error(errData.error || `HTTP ${res.status}: Failed to save KBLI mapping to D1`);
+      throw new Error(errData.error || `HTTP ${res.status}: Gagal menyimpan Pemetaan KBLI ke database D1`);
     }
 
     const result = await res.json();
@@ -81,6 +97,30 @@ export const KbliService = {
   },
 
   async deleteMappingRecord(id: string): Promise<boolean> {
+    // Call D1 API
+    let res = await fetch(`/api/kbli/mapping/${encodeURIComponent(id)}`, {
+      method: 'DELETE'
+    });
+
+    // If DELETE with param is not supported (HTTP 405/404), fall back to query or POST action
+    if (res.status === 405 || res.status === 404) {
+      res = await fetch(`/api/kbli/mapping?id=${encodeURIComponent(id)}`, {
+        method: 'DELETE'
+      });
+      if (res.status === 405 || res.status === 404) {
+        res = await fetch('/api/kbli/mapping', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'delete', id })
+        });
+      }
+    }
+
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(errData.error || `HTTP ${res.status}: Gagal menghapus Pemetaan KBLI dari database D1`);
+    }
+
     // Remove from local storage
     try {
       const stored = localStorage.getItem('kbli_mapping_local_records');
@@ -91,15 +131,7 @@ export const KbliService = {
       }
     } catch (e) {}
 
-    // Call D1 API
-    const res = await fetch(`/api/kbli/mapping/${encodeURIComponent(id)}`, {
-      method: 'DELETE'
-    });
-
-    if (!res.ok) {
-      const errData = await res.json().catch(() => ({}));
-      throw new Error(errData.error || `HTTP ${res.status}: Failed to delete KBLI mapping from D1`);
-    }
+    return true;
 
     return true;
   },
@@ -171,14 +203,30 @@ export const KbliService = {
     const recordId = payload.id;
 
     // Call D1 API directly as primary persistent storage
-    const endpoint = isEdit ? `/api/kbli/suggestions/${encodeURIComponent(recordId)}` : '/api/kbli/suggestions';
-    const method = isEdit ? 'PUT' : 'POST';
+    let res: Response;
+    if (isEdit) {
+      const endpoint = `/api/kbli/suggestions/${encodeURIComponent(recordId)}`;
+      res = await fetch(endpoint, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
 
-    const res = await fetch(endpoint, {
-      method,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
+      // If PUT is not supported on older deployment (HTTP 405/404), fall back to POST upsert
+      if (res.status === 405 || res.status === 404) {
+        res = await fetch('/api/kbli/suggestions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+      }
+    } else {
+      res = await fetch('/api/kbli/suggestions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+    }
 
     if (!res.ok) {
       const errData = await res.json().catch(() => ({}));
@@ -206,9 +254,23 @@ export const KbliService = {
 
   async deleteSuggestionRecord(id: string): Promise<boolean> {
     // Call D1 API
-    const res = await fetch(`/api/kbli/suggestions/${encodeURIComponent(id)}`, {
+    let res = await fetch(`/api/kbli/suggestions/${encodeURIComponent(id)}`, {
       method: 'DELETE'
     });
+
+    // If DELETE with param is not supported (HTTP 405/404), fall back to query or POST action
+    if (res.status === 405 || res.status === 404) {
+      res = await fetch(`/api/kbli/suggestions?id=${encodeURIComponent(id)}`, {
+        method: 'DELETE'
+      });
+      if (res.status === 405 || res.status === 404) {
+        res = await fetch('/api/kbli/suggestions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'delete', id })
+        });
+      }
+    }
 
     if (!res.ok) {
       const errData = await res.json().catch(() => ({}));

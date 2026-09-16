@@ -1455,6 +1455,17 @@ async function startServer() {
     }
   });
 
+  app.post("/api/kbli/sync-production", async (req, res) => {
+    try {
+      const { pullProductionD1Data } = await import("./scripts/pull_from_production_d1.js");
+      await pullProductionD1Data();
+      res.json({ success: true, message: "Data dari Cloudflare D1 Production berhasil disinkronkan ke Studio AI!" });
+    } catch (err: any) {
+      console.error("[KBLI Sync API] Error pulling production data:", err);
+      res.status(500).json({ success: false, error: err?.message || "Gagal sinkronisasi data dari production" });
+    }
+  });
+
   const APP2_PROJECT_ID = "notarisputri-cecab";
   const DEFAULT_ALLOWED_EMAILS = [
     "notarisppatputri@gmail.com",
