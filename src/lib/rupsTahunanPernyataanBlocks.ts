@@ -46,9 +46,9 @@ export const generateRupstPernyataanBlocks = (data: CompanyData): Block[] => {
     }
   }
 
-  // 1. Title — centered, bold, size 24 (12pt)
+  // 1. Title — centered, bold, size 22 (11pt)
   blocks.push(
-    { type: "p", align: "center", runs: [{ text: "SURAT PERNYATAAN", bold: true, size: 24 }] },
+    { type: "p", align: "center", runs: [{ text: "SURAT PERNYATAAN", bold: true, size: 22 }] },
     { type: "p", runs: [] }
   );
 

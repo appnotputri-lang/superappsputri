@@ -21,7 +21,7 @@ import { preprocessBlocksForWordBullets, formatCompanyName } from "./formatter";
 
 // ─── Constants (matching the DOCX exactly) ───────────────────────────────────
 const FONT = "Arial";
-const FONT_SIZE = 24;
+const FONT_SIZE = 22;
 
 // Margins: top=1440, right=1800, bottom=1440, left=1800 (from <w:pgMar> in XML)
 const PAGE_MARGIN_LEFT = 1800;
@@ -388,7 +388,7 @@ export const generateRUPSTPernyataanDocx = async (data: CompanyData, returnBlob?
               new Paragraph({
                 alignment: AlignmentType.CENTER,
                 children: [
-                  new TextRun({ text: "KOP SURAT PT", bold: true, font: FONT, size: 24, color: "E06666" }),
+                  new TextRun({ text: "KOP SURAT PT", bold: true, font: FONT, size: 22, color: "E06666" }),
                 ],
                 spacing: { after: 240 },
               }),
