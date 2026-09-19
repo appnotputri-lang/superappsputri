@@ -5,18 +5,18 @@ import { formatDateIndo } from '../../../utils/formatters';
 export const AhuSection = ({ title, children, isOpen = true }: { title: string, children: React.ReactNode, isOpen?: boolean }) => {
   const [open, setOpen] = useState(isOpen);
   return (
-    <div className="bg-white border border-slate-200 rounded-sm mb-4 shadow-sm">
+    <div className="bg-white border border-slate-200/90 rounded-xl mb-4 shadow-xs overflow-hidden transition-all">
       <div 
         onClick={() => setOpen(!open)}
-        className="bg-[#f5f5f5] px-4 py-2 flex justify-between items-center cursor-pointer border-b border-slate-200 group"
+        className="bg-slate-50/90 hover:bg-slate-100/80 px-4 py-2.5 min-h-[42px] flex justify-between items-center cursor-pointer border-b border-slate-200 group transition-colors select-none"
       >
-        <h3 className="text-[14px] font-bold text-slate-700 uppercase tracking-tight flex items-center gap-2">
-          <span className="w-1.5 h-4 bg-[#3b5998]"></span>
+        <h3 className="text-[13px] font-bold text-slate-800 uppercase tracking-tight flex items-center gap-2.5">
+          <span className="w-1.5 h-4.5 bg-[#1b449c] rounded-xs shrink-0"></span>
           {title}
         </h3>
-        {open ? <ChevronDown className="w-4 h-4 text-slate-400" /> : <ChevronRight className="w-4 h-4 text-slate-400" />}
+        {open ? <ChevronDown className="w-4 h-4 text-slate-400 group-hover:text-slate-600 transition-transform duration-150" /> : <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-slate-600 transition-transform duration-150" />}
       </div>
-      {open && <div className="p-5">{children}</div>}
+      {open && <div className="p-5 sm:p-6 bg-white">{children}</div>}
     </div>
   );
 };

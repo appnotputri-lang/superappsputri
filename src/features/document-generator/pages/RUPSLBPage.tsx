@@ -542,284 +542,294 @@ export const RUPSLBPage: React.FC<RUPSLBPageProps> = ({
 
                {editingProjectId ? (
                 <div className="space-y-4 pb-6">
-                  <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center bg-slate-50/50 p-2.5 rounded-xl border border-slate-200 gap-3">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <button 
-                        className="text-slate-600 hover:text-slate-900 bg-white border border-slate-200 hover:bg-slate-50 flex items-center justify-center gap-1.5 font-bold text-[12.5px] uppercase h-11 px-4 rounded-xl shadow-sm transition-all duration-150 shrink-0" 
-                        onClick={() => {
-                          const returnToProjectId = activeProjectContext;
-                          setIsRupsPreview(false);
-                          setEditingProjectId(null);
-                          setActiveProjectContext(null);
-                          if (returnToProjectId) {
-                            setSelectedProjectId(returnToProjectId);
-                            setActiveSidebarTab('project_detail');
-                          }
-                        }}
-                      >
-                        <ArrowRight className="w-5 h-5 rotate-180" /> Kembali
-                      </button>
-
-                      <button 
-                        className="bg-[#3b5998] hover:bg-[#2d4373] text-white flex items-center justify-center gap-1.5 font-bold text-[12.5px] uppercase h-11 px-4 rounded-xl shadow-sm transition-all duration-150 shrink-0 disabled:opacity-50" 
-                        onClick={async () => {
-                          const success = await handleManualSync('RUPSLB', data);
-                          if (success) {
-                            alert("Berhasil disimpan ke laporan!");
-                          }
-                        }}
-                        disabled={isSyncing}
-                      >
-                        {isSyncing ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
-                        Simpan ke laporan
-                      </button>
-                      
-                      <div className="h-6 w-px bg-slate-250 mx-1 hidden sm:block"></div>
-                      <AutoSaveIndicatorComponent />
-   
-                      {isRupsPreview ? (
-                        <>
-                          <button 
-                            onClick={(e) => { 
-                              e.preventDefault(); 
-                              setIsRupsPreview(false); 
-                            }}
-                            className="px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-[12.5px] font-bold transition-all border border-slate-200 h-11 flex items-center gap-2 uppercase shrink-0"
-                          >
-                            <Edit className="w-[18px] h-[18px]" /> Edit
-                          </button>
-                          {userProfile?.role === 'Super Admin' && (
-                            <button 
-                              onClick={async (e) => {
-                                e.preventDefault();
-                                if(confirm('Hapus RUPS LB ' + data.companyName + '?')) {
-                                if (!user) return alert('Anda harus login!');
-                                try {
-                                  const deletedName = data.companyName || 'PT Baru';
-                                  await deleteDoc(doc(db, 'projects', editingProjectId));
-                                  recordNotification(
-                                    'Draft RUPS LB Dihapus',
-                                    `Draft RUPS Luar Biasa untuk perusahaan "${deletedName}" telah berhasil dihapus oleh ${user?.email || 'Admin'}.`,
-                                    'delete_rupslb'
-                                  );
-                                  const returnToProjectId = activeProjectContext;
-                                  alert('RUPS LB berhasil dihapus');
-                                  setEditingProjectId(null);
-                                  setActiveProjectContext(null);
-                                  setIsRupsPreview(false);
-                                  if (returnToProjectId) {
-                                    setSelectedProjectId(returnToProjectId);
-                                    setActiveSidebarTab('project_detail');
-                                  }
-                                } catch (err) {
-                                  handleFirestoreError(err, OperationType.DELETE, `projects/${editingProjectId}`);
-                                }
-                              }
-                            }}
-                            className="px-4 bg-red-50 hover:bg-red-500 hover:text-white text-red-650 rounded-xl font-bold transition-all text-[12.5px] border border-red-100 hover:border-red-500 h-11 flex items-center gap-2 uppercase shrink-0"
-                          >
-                            <Trash2 className="w-[18px] h-[18px]" /> Hapus
-                          </button>
-                        )}
-                      </>
-                      ) : (
-                        <>
-                          <button 
-                            onClick={resetData} 
-                            className="px-4 bg-slate-50 border border-slate-200 hover:bg-slate-100 text-slate-650 hover:text-slate-800 rounded-xl text-[12.5px] font-bold transition-all h-11 uppercase"
-                          >
-                            RISET
-                          </button>
-                          <button 
-                            disabled={isSaving}
-                            onClick={async () => {
-                              if (!data.companyName) return alert('Nama perseroan harus diisi');
-                              setIsSaving(true);
-                              
-                              let newProjects = [...projects];
-                              const newId = editingProjectId && editingProjectId !== 'new' ? editingProjectId : crypto.randomUUID();
-                              const isNew = editingProjectId === 'new' || !editingProjectId;
-                              
-                              // Automatically calculate final shareholders right before saving to ensure consistency
-                              const calculatedFinal = calculateFinalShareholders(data);
-                              
-                              const profileData: CompanyProfile = {
-                                  ...data,
-                                  id: newId,
-                                  finalShareholders: calculatedFinal.length > 0 ? calculatedFinal : (data.finalShareholders || []),
-                                  updatedAt: new Date().toISOString()
-                              };
-                              
-                              if (!user) {
-                                  setIsSaving(false);
-                                  return alert('Anda harus login terlebih dahulu!');
-                              }
-                              const idx = newProjects.findIndex(p => p.id === editingProjectId);
-                              if (idx >= 0) {
-                                  profileData.id = newProjects[idx].id;
-                              }
-                              
-                              let changes: any[] = [];
-                              if (!isNew && profileData.id) {
-                                  try {
-                                      const oldSnap = await getDoc(doc(db, 'projects', profileData.id));
-                                      if (oldSnap.exists()) {
-                                          changes = compareCompanyDocumentDiff(oldSnap.data(), profileData);
-                                      }
-                                  } catch (err) {
-                                      console.warn("Gagal mengambil data lama RUPS LB untuk diffing:", err);
-                                  }
-                              }
-                              
-                              try {
-                                   await setDoc(doc(db, 'projects', profileData.id), sanitizeForFirestore(profileData));
-                                   if (activeProjectContext) {
-                                       const docName = profileData.documentType === 'CIRCULAR'
-                                         ? `Draft Sirkuler RUPS LB - ${profileData.companyName || 'PT Baru'}`
-                                         : `Draft RUPS LB - ${profileData.companyName || 'PT Baru'}`;
-                                       await ProjectService.addDocument(activeProjectContext, {
-                                           name: docName,
-                                           type: 'docx',
-                                           url: `/rupslb`,
-                                           refId: profileData.id,
-                                           uploadedBy: user?.email || 'staff_notaris',
-                                           changes: changes.length > 0 ? changes : undefined
-                                       });
-
-                                       await DocumentGenerationService.generateAndUploadAllForProject(
-                                           activeProjectContext,
-                                           profileData,
-                                           user?.email,
-                                           userProfile?.name
-                                       );
-                                   }
-                                   recordNotification(
-                                     isNew ? 'Draft RUPS LB Baru Dibuat' : 'Draft RUPS LB Diubah',
-                                     `Draft RUPS Luar Biasa untuk perusahaan "${profileData.companyName || 'PT Baru'}" telah ${isNew ? 'berhasil dibuat' : 'diperbarui'} oleh ${user?.email || 'Admin'}.`,
-                                     isNew ? 'create_rupslb' : 'update_rupslb'
-                                   );
-                                  const returnToProjectId = activeProjectContext;
-                                  setEditingProjectId(null);
-                                  setActiveProjectContext(null);
-                                  setIsRupsPreview(false);
-                                  alert('✅ Data berhasil disimpan dan dokumen berhasil diperbarui.');
-                                  if (returnToProjectId) {
-                                    setSelectedProjectId(returnToProjectId);
-                                    setActiveSidebarTab('project_detail');
-                                  }
-                              } catch (e: any) {
-                                  console.error("Save & Generate failed:", e);
-                                  alert('Gagal menyimpan atau memperbarui dokumen: ' + (e.message || e));
-                              } finally {
-                                  setIsSaving(false);
-                              }
-                           }} 
-                           className="px-5 bg-[#40bdae] hover:bg-[#349c8f] text-white rounded-xl text-[12.5px] font-bold transition-all h-11 uppercase disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            {isSaving ? 'MENYIMPAN...' : 'SIMPAN RUPS LB'}
-                          </button>
-                          {(activeProjectContext || data.selectedProfileId) && (
-                            <button
-                              type="button"
-                              onClick={handleOpenPullClientModal}
-                              disabled={isPullingClient || isSaving}
-                              className="px-4 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-xl text-[12px] font-bold transition-all h-11 border border-blue-200 uppercase disabled:opacity-50 flex items-center gap-1.5 cursor-pointer shadow-2xs"
-                              title="Tarik data terbaru dari Master Client ke Form ini"
-                            >
-                              <RefreshCw className={`w-3.5 h-3.5 ${isPullingClient ? 'animate-spin' : ''}`} />
-                              <span>🔄 Tarik Data Klien Terbaru</span>
-                            </button>
-                          )}
-                        </>
-                      )}
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-2">
-                      <div className="relative inline-block text-left" onClick={(e) => e.stopPropagation()}>
-                        <button
-                          onClick={() => setIsRupslbDocDropdownOpen(!isRupslbDocDropdownOpen)}
-                          className="w-full sm:w-auto h-11 px-5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold flex items-center justify-center gap-2 transition-all duration-150 hover:scale-[1.01] active:scale-[0.99] shadow-md shadow-indigo-100 uppercase text-[12px] tracking-wider select-none shrink-0"
+                  {/* ACTION BAR */}
+                  <div className="bg-white border border-slate-200/90 rounded-xl p-3 shadow-xs mb-5">
+                    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+                      {/* LEFT GROUP */}
+                      <div className="flex flex-wrap items-center gap-2.5">
+                        <button 
+                          type="button"
+                          className="bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-semibold text-[12.5px] uppercase h-10 px-4 rounded-lg shadow-xs transition-colors flex items-center justify-center gap-2 shrink-0 cursor-pointer" 
+                          onClick={() => {
+                            const returnToProjectId = activeProjectContext;
+                            setIsRupsPreview(false);
+                            setEditingProjectId(null);
+                            setActiveProjectContext(null);
+                            if (returnToProjectId) {
+                              setSelectedProjectId(returnToProjectId);
+                              setActiveSidebarTab('project_detail');
+                            }
+                          }}
                         >
-                          <Download className="w-[18px] h-[18px] stroke-[2.25px]" />
-                          <span>Dokumen</span>
-                          <ChevronDown className={`w-[14px] h-[14px] transition-transform duration-200 ${isRupslbDocDropdownOpen ? 'rotate-180' : ''}`} />
+                          <ArrowRight className="w-4 h-4 rotate-180" /> Kembali
                         </button>
 
-                        {isRupslbDocDropdownOpen && (
-                          <div className="absolute right-0 mt-2 bg-white border border-slate-200 shadow-xl rounded-2xl py-1 w-64 z-50 text-left overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150">
-                            {/* Notulen RUPS LB / SIRKULER RUPS LB */}
-                            <button
-                              onClick={async (e) => {
-                                e.stopPropagation();
-                                setIsRupslbDocDropdownOpen(false);
-                                await handleExportWord();
-                              }}
-                              className="w-full px-4.5 py-3 text-slate-700 hover:bg-slate-50 text-[12px] font-bold flex items-center gap-3 uppercase tracking-wide transition-colors border-b border-slate-100"
-                            >
-                              <FileText className="w-[18px] h-[18px] text-indigo-600 stroke-[2.25px] shrink-0" />
-                              <div className="flex flex-col text-left">
-                                <span className="font-bold text-slate-800 leading-tight">
-                                  {mergedData.documentType === 'CIRCULAR' ? 'SIRKULER RUPS LB' : 'Notulen RUPS LB'}
-                                </span>
-                                <span className="text-[10px] text-slate-400 lowercase mt-0.5 font-medium">format dokumen (.docx)</span>
-                              </div>
-                            </button>
+                        <button 
+                          type="button"
+                          className="bg-[#3b5998] hover:bg-[#2d4373] text-white font-semibold text-[12px] uppercase h-10 px-4 rounded-lg shadow-xs transition-colors flex items-center justify-center gap-1.5 shrink-0 disabled:opacity-50 cursor-pointer" 
+                          onClick={async () => {
+                            const success = await handleManualSync('RUPSLB', data);
+                            if (success) {
+                              alert("Berhasil disimpan ke laporan!");
+                            }
+                          }}
+                          disabled={isSyncing}
+                        >
+                          {isSyncing ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                          <span>Simpan ke Laporan</span>
+                        </button>
+                        
+                        <div className="h-5 w-px bg-slate-200 hidden sm:block mx-1"></div>
+                        <AutoSaveIndicatorComponent />
+                      </div>
 
-                            {/* Draft Akta RUPS LB / AKTA SIRKULER RUPS LB */}
-                            <button
-                              onClick={async (e) => {
-                                e.stopPropagation();
-                                setIsRupslbDocDropdownOpen(false);
-                                try {
-                                  const { generateRUPSDocx } = await import('../../../lib/generateRUPSDocx');
-                                  await generateRUPSDocx(mergedData);
-                                } catch (err) {
-                                  console.error('Failed to generate Draft Akta DOCX:', err);
-                                  alert('Gagal menghasilkan Draft Akta DOCX.');
-                                }
+                      {/* RIGHT GROUP */}
+                      <div className="flex flex-wrap items-center gap-2.5 justify-start lg:justify-end">
+                        {isRupsPreview ? (
+                          <>
+                            <button 
+                              type="button"
+                              onClick={(e) => { 
+                                e.preventDefault(); 
+                                setIsRupsPreview(false); 
                               }}
-                              className="w-full px-4.5 py-3 text-slate-700 hover:bg-slate-50 text-[12px] font-bold flex items-center gap-3 uppercase tracking-wide transition-colors border-b border-slate-100"
+                              className="bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-semibold text-[12.5px] uppercase h-10 px-4 rounded-lg shadow-xs transition-colors flex items-center gap-2 shrink-0 cursor-pointer"
                             >
-                              <FileCode className="w-[18px] h-[18px] text-blue-600 stroke-[2.25px] shrink-0" />
-                              <div className="flex flex-col text-left">
-                                <span className="font-bold text-slate-800 leading-tight">
-                                  {mergedData.documentType === 'CIRCULAR' ? 'AKTA SIRKULER RUPS LB' : 'AKTA RUPS LB'}
-                                </span>
-                                <span className="text-[10px] text-slate-400 lowercase mt-0.5 font-medium">format dokumen (.docx)</span>
-                              </div>
+                              <Edit className="w-4 h-4 text-slate-500" /> Edit
                             </button>
-
-                            {/* Akta Peralihan Saham (Multiple items) */}
-                            {mergedData.resolutions.shareholders && (mergedData.shareTransfers || mergedData.shareTransfersNew) && ((mergedData.shareTransfers || mergedData.shareTransfersNew || []).length > 0) && (
-                               ((mergedData.shareTransfersNew && mergedData.shareTransfersNew.length > 0 ? mergedData.shareTransfersNew : mergedData.shareTransfers) || []).map((transfer, index) => {
-                                 const fromName = transfer.fromName || mergedData.shareholders?.find(s => s.id === transfer.fromShareholderId)?.name || 'Pemilik Saham';
-                                 const toName = transfer.toName || mergedData.shareholders?.find(s => s.id === transfer.toShareholderId)?.name || mergedData.finalShareholders?.find(s => s.id === transfer.toShareholderId)?.name || 'Penerima Saham';
-                                 return (
-                                   <button
-                                     key={transfer.id}
-                                     onClick={async (e) => {
-                                       e.stopPropagation();
-                                       setIsRupslbDocDropdownOpen(false);
-                                       try {
-                                         await draftAktaRef.current?.handleDownloadSingle(transfer.id);
-                                       } catch (err) {
-                                         console.error('Failed to generate Draft Akta Peralihan Saham:', err);
-                                         alert('Gagal menghasilkan Akta Peralihan Saham.');
-                                       }
-                                     }}
-                                     className="w-full px-4.5 py-3 text-slate-700 hover:bg-slate-50 text-[12px] font-bold flex items-center gap-3 uppercase tracking-wide transition-colors border-b border-slate-100 last:border-0"
-                                   >
-                                     <FileCode className="w-[18px] h-[18px] text-emerald-600 stroke-[2.25px] shrink-0" />
-                                     <div className="flex flex-col text-left">
-                                       <span className="font-bold text-slate-800 leading-tight">Akta Peralihan Saham {index + 1}</span>
-                                       <span className="text-[10px] text-slate-400 lowercase mt-0.5 font-medium leading-tight">dari {fromName} ke {toName} (.docx)</span>
-                                     </div>
-                                   </button>
-                                 );
-                               })
+                            {userProfile?.role === 'Super Admin' && (
+                              <button 
+                                type="button"
+                                onClick={async (e) => {
+                                  e.preventDefault();
+                                  if(confirm('Hapus RUPS LB ' + data.companyName + '?')) {
+                                    if (!user) return alert('Anda harus login!');
+                                    try {
+                                      const deletedName = data.companyName || 'PT Baru';
+                                      await deleteDoc(doc(db, 'projects', editingProjectId));
+                                      recordNotification(
+                                        'Draft RUPS LB Dihapus',
+                                        `Draft RUPS Luar Biasa untuk perusahaan "${deletedName}" telah berhasil dihapus oleh ${user?.email || 'Admin'}.`,
+                                        'delete_rupslb'
+                                      );
+                                      const returnToProjectId = activeProjectContext;
+                                      alert('RUPS LB berhasil dihapus');
+                                      setEditingProjectId(null);
+                                      setActiveProjectContext(null);
+                                      setIsRupsPreview(false);
+                                      if (returnToProjectId) {
+                                        setSelectedProjectId(returnToProjectId);
+                                        setActiveSidebarTab('project_detail');
+                                      }
+                                    } catch (err) {
+                                      handleFirestoreError(err, OperationType.DELETE, `projects/${editingProjectId}`);
+                                    }
+                                  }
+                                }}
+                                className="bg-red-50 hover:bg-red-600 hover:text-white text-red-600 border border-red-200 hover:border-red-600 font-semibold text-[12.5px] uppercase h-10 px-4 rounded-lg shadow-xs transition-colors flex items-center gap-2 shrink-0 cursor-pointer"
+                              >
+                                <Trash2 className="w-4 h-4" /> Hapus
+                              </button>
                             )}
 
-                          </div>
+                            {/* Dokumen Dropdown in Preview Mode */}
+                            <div className="relative inline-block text-left" onClick={(e) => e.stopPropagation()}>
+                              <button
+                                type="button"
+                                onClick={() => setIsRupslbDocDropdownOpen(!isRupslbDocDropdownOpen)}
+                                className="h-10 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold text-[12px] flex items-center justify-center gap-2 transition-all shadow-xs uppercase tracking-wide select-none shrink-0 cursor-pointer"
+                              >
+                                <Download className="w-4 h-4" />
+                                <span>Dokumen</span>
+                                <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isRupslbDocDropdownOpen ? 'rotate-180' : ''}`} />
+                              </button>
+
+                              {isRupslbDocDropdownOpen && (
+                                <div className="absolute right-0 mt-2 bg-white border border-slate-200 shadow-xl rounded-xl py-1 w-64 z-50 text-left overflow-hidden animate-in fade-in zoom-in-95 duration-100">
+                                  {/* Notulen RUPS LB / SIRKULER RUPS LB */}
+                                  <button
+                                    type="button"
+                                    onClick={async (e) => {
+                                      e.stopPropagation();
+                                      setIsRupslbDocDropdownOpen(false);
+                                      await handleExportWord();
+                                    }}
+                                    className="w-full px-4 py-2.5 text-slate-700 hover:bg-slate-50 text-[12px] font-bold flex items-center gap-3 uppercase tracking-wide transition-colors border-b border-slate-100 cursor-pointer"
+                                  >
+                                    <FileText className="w-4 h-4 text-indigo-600 shrink-0" />
+                                    <div className="flex flex-col text-left">
+                                      <span className="font-bold text-slate-800 leading-tight">
+                                        {mergedData.documentType === 'CIRCULAR' ? 'SIRKULER RUPS LB' : 'Notulen RUPS LB'}
+                                      </span>
+                                      <span className="text-[10px] text-slate-400 lowercase mt-0.5 font-normal">format dokumen (.docx)</span>
+                                    </div>
+                                  </button>
+
+                                  {/* Draft Akta RUPS LB / AKTA SIRKULER RUPS LB */}
+                                  <button
+                                    type="button"
+                                    onClick={async (e) => {
+                                      e.stopPropagation();
+                                      setIsRupslbDocDropdownOpen(false);
+                                      try {
+                                        const { generateRUPSDocx } = await import('../../../lib/generateRUPSDocx');
+                                        await generateRUPSDocx(mergedData);
+                                      } catch (err) {
+                                        console.error('Failed to generate Draft Akta DOCX:', err);
+                                        alert('Gagal menghasilkan Draft Akta DOCX.');
+                                      }
+                                    }}
+                                    className="w-full px-4 py-2.5 text-slate-700 hover:bg-slate-50 text-[12px] font-bold flex items-center gap-3 uppercase tracking-wide transition-colors border-b border-slate-100 cursor-pointer"
+                                  >
+                                    <FileCode className="w-4 h-4 text-blue-600 shrink-0" />
+                                    <div className="flex flex-col text-left">
+                                      <span className="font-bold text-slate-800 leading-tight">
+                                        {mergedData.documentType === 'CIRCULAR' ? 'AKTA SIRKULER RUPS LB' : 'AKTA RUPS LB'}
+                                      </span>
+                                      <span className="text-[10px] text-slate-400 lowercase mt-0.5 font-normal">format dokumen (.docx)</span>
+                                    </div>
+                                  </button>
+
+                                  {/* Akta Peralihan Saham (Multiple items) */}
+                                  {mergedData.resolutions.shareholders && (mergedData.shareTransfers || mergedData.shareTransfersNew) && ((mergedData.shareTransfers || mergedData.shareTransfersNew || []).length > 0) && (
+                                     ((mergedData.shareTransfersNew && mergedData.shareTransfersNew.length > 0 ? mergedData.shareTransfersNew : mergedData.shareTransfers) || []).map((transfer, index) => {
+                                       const fromName = transfer.fromName || mergedData.shareholders?.find(s => s.id === transfer.fromShareholderId)?.name || 'Pemilik Saham';
+                                       const toName = transfer.toName || mergedData.shareholders?.find(s => s.id === transfer.toShareholderId)?.name || mergedData.finalShareholders?.find(s => s.id === transfer.toShareholderId)?.name || 'Penerima Saham';
+                                       return (
+                                         <button
+                                           type="button"
+                                           key={transfer.id}
+                                           onClick={async (e) => {
+                                             e.stopPropagation();
+                                             setIsRupslbDocDropdownOpen(false);
+                                             try {
+                                               await draftAktaRef.current?.handleDownloadSingle(transfer.id);
+                                             } catch (err) {
+                                               console.error('Failed to generate Draft Akta Peralihan Saham:', err);
+                                               alert('Gagal menghasilkan Akta Peralihan Saham.');
+                                             }
+                                           }}
+                                           className="w-full px-4 py-2.5 text-slate-700 hover:bg-slate-50 text-[12px] font-bold flex items-center gap-3 uppercase tracking-wide transition-colors border-b border-slate-100 last:border-0 cursor-pointer"
+                                         >
+                                           <FileCode className="w-4 h-4 text-emerald-600 shrink-0" />
+                                           <div className="flex flex-col text-left">
+                                             <span className="font-bold text-slate-800 leading-tight">Akta Peralihan Saham {index + 1}</span>
+                                             <span className="text-[10px] text-slate-400 lowercase mt-0.5 font-normal leading-tight">dari {fromName} ke {toName} (.docx)</span>
+                                           </div>
+                                         </button>
+                                       );
+                                     })
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <button 
+                              type="button"
+                              onClick={resetData} 
+                              className="bg-white hover:bg-slate-100 text-slate-600 hover:text-slate-800 border border-slate-200 font-semibold text-[12px] uppercase h-10 px-4 rounded-lg shadow-xs transition-colors shrink-0 cursor-pointer"
+                            >
+                              RISET
+                            </button>
+                            <button 
+                              type="button"
+                              disabled={isSaving}
+                              onClick={async () => {
+                                if (!data.companyName) return alert('Nama perseroan harus diisi');
+                                setIsSaving(true);
+                                
+                                let newProjects = [...projects];
+                                const newId = editingProjectId && editingProjectId !== 'new' ? editingProjectId : crypto.randomUUID();
+                                const isNew = editingProjectId === 'new' || !editingProjectId;
+                                
+                                // Automatically calculate final shareholders right before saving to ensure consistency
+                                const calculatedFinal = calculateFinalShareholders(data);
+                                
+                                const profileData: CompanyProfile = {
+                                    ...data,
+                                    id: newId,
+                                    finalShareholders: calculatedFinal.length > 0 ? calculatedFinal : (data.finalShareholders || []),
+                                    updatedAt: new Date().toISOString()
+                                };
+                                
+                                if (!user) {
+                                    setIsSaving(false);
+                                    return alert('Anda harus login terlebih dahulu!');
+                                }
+                                const idx = newProjects.findIndex(p => p.id === editingProjectId);
+                                if (idx >= 0) {
+                                    profileData.id = newProjects[idx].id;
+                                }
+                                
+                                let changes: any[] = [];
+                                if (!isNew && profileData.id) {
+                                    try {
+                                        const oldSnap = await getDoc(doc(db, 'projects', profileData.id));
+                                        if (oldSnap.exists()) {
+                                            changes = compareCompanyDocumentDiff(oldSnap.data(), profileData);
+                                        }
+                                    } catch (err) {
+                                        console.warn("Gagal mengambil data lama RUPS LB untuk diffing:", err);
+                                    }
+                                }
+                                
+                                try {
+                                     await setDoc(doc(db, 'projects', profileData.id), sanitizeForFirestore(profileData));
+                                     if (activeProjectContext) {
+                                         const docName = profileData.documentType === 'CIRCULAR'
+                                           ? `Draft Sirkuler RUPS LB - ${profileData.companyName || 'PT Baru'}`
+                                           : `Draft RUPS LB - ${profileData.companyName || 'PT Baru'}`;
+                                         await ProjectService.addDocument(activeProjectContext, {
+                                             name: docName,
+                                             type: 'docx',
+                                             url: `/rupslb`,
+                                             refId: profileData.id,
+                                             uploadedBy: user?.email || 'staff_notaris',
+                                             changes: changes.length > 0 ? changes : undefined
+                                         });
+
+                                         await DocumentGenerationService.generateAndUploadAllForProject(
+                                             activeProjectContext,
+                                             profileData,
+                                             user?.email,
+                                             userProfile?.name
+                                         );
+                                     }
+                                     recordNotification(
+                                       isNew ? 'Draft RUPS LB Baru Dibuat' : 'Draft RUPS LB Diubah',
+                                       `Draft RUPS Luar Biasa untuk perusahaan "${profileData.companyName || 'PT Baru'}" telah ${isNew ? 'berhasil dibuat' : 'diperbarui'} oleh ${user?.email || 'Admin'}.`,
+                                       isNew ? 'create_rupslb' : 'update_rupslb'
+                                     );
+                                    const returnToProjectId = activeProjectContext;
+                                    setEditingProjectId(null);
+                                    setActiveProjectContext(null);
+                                    setIsRupsPreview(false);
+                                    alert('✅ Data berhasil disimpan dan dokumen berhasil diperbarui.');
+                                    if (returnToProjectId) {
+                                      setSelectedProjectId(returnToProjectId);
+                                      setActiveSidebarTab('project_detail');
+                                    }
+                                } catch (e: any) {
+                                    console.error("Save & Generate failed:", e);
+                                    alert('Gagal menyimpan atau memperbarui dokumen: ' + (e.message || e));
+                                } finally {
+                                    setIsSaving(false);
+                                }
+                             }} 
+                             className="bg-[#1b449c] hover:bg-[#13327d] text-white font-bold text-[12.5px] uppercase h-10 px-5 rounded-lg shadow-sm transition-all flex items-center justify-center gap-2 shrink-0 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                            >
+                              {isSaving ? (
+                                <>
+                                  <Loader2 size={16} className="animate-spin" />
+                                  <span>MENYIMPAN...</span>
+                                </>
+                              ) : (
+                                <span>SIMPAN RUPS LB</span>
+                              )}
+                            </button>
+                          </>
                         )}
                       </div>
                     </div>
@@ -827,56 +837,59 @@ export const RUPSLBPage: React.FC<RUPSLBPageProps> = ({
                   
                   <fieldset disabled={isRupsPreview} className="space-y-4">
 
-            {/* DATA PERSEROAN (Pilihan dari Profil) */}
+            {/* PILIH PROFIL */}
             <AhuSection title="PILIH PROFIL">
-              <div className="space-y-4">
+              <div>
                 {activeProjectContext ? (
-                  <div className="bg-slate-50 border border-slate-200 rounded-sm p-4 text-[13px] text-slate-700 space-y-2">
+                  <div className="bg-slate-50/80 border border-slate-200 rounded-lg p-4 text-[13px] text-slate-700">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                       <div>
-                        <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Company</div>
-                        <div className="font-bold text-slate-800 text-[14px]">
+                        <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Company</span>
+                        <span className="text-[15px] font-extrabold text-slate-800 leading-tight block mt-0.5">
                           {profiles.find(p => p.id === data.selectedProfileId)?.companyName || data.companyName || ((projects.find(p => p.id === activeProjectContext) as any) || (rupstProjects.find(p => p.id === activeProjectContext) as any) || (pendirianProjects.find(p => p.id === activeProjectContext) as any))?.title || 'PT Belum Ditentukan'}
+                        </span>
+                        <div className="flex items-center gap-1.5 text-[11px] text-slate-500 font-medium mt-1">
+                          <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span>
+                          <span>Source: Project Workspace</span>
                         </div>
                       </div>
                       <button
                         type="button"
                         onClick={handleOpenPullClientModal}
                         disabled={isPullingClient}
-                        className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold border border-blue-200 rounded text-xs flex items-center gap-1.5 transition-colors self-start sm:self-auto cursor-pointer disabled:opacity-50"
+                        className="px-3.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold border border-blue-200 rounded-md text-xs flex items-center gap-1.5 transition-colors self-start sm:self-auto cursor-pointer disabled:opacity-50 shrink-0 shadow-xs"
                         title="Tarik data terbaru dari Master Client ke Form ini"
                       >
                         <RefreshCw className={`w-3.5 h-3.5 ${isPullingClient ? 'animate-spin' : ''}`} />
-                        <span>🔄 Tarik Data Klien Terbaru</span>
+                        <span>Tarik Data Klien</span>
                       </button>
                     </div>
-                    <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                      <span>Source: Project Workspace</span>
-                    </div>
-                    <p className="text-[11px] text-slate-400 italic">
+                    <div className="mt-3 pt-2.5 border-t border-slate-200/80 text-[11px] text-slate-400 italic">
                       This Company is locked because the document belongs to this Project. Gunakan tombol di atas untuk menyinkronkan perubahan dari Master Client.
-                    </p>
+                    </div>
                   </div>
                 ) : (
-                  <>
-                    <div className="flex items-center justify-between gap-2 mb-1">
-                      <label className="block text-[13px] font-medium text-slate-700">Pilih Profil Perseroan (Opsional)</label>
+                  <div className="bg-slate-50/80 border border-slate-200 rounded-lg p-4 text-[13px] text-slate-700 space-y-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div>
+                        <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Pilih Profil Perseroan (Opsional)</label>
+                        <p className="text-[11px] text-slate-500">Pilih dari Master Client untuk mengisi form secara otomatis</p>
+                      </div>
                       {data.selectedProfileId && (
                         <button
                           type="button"
                           onClick={handleOpenPullClientModal}
                           disabled={isPullingClient}
-                          className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold border border-blue-200 rounded text-[11px] flex items-center gap-1 transition-colors cursor-pointer disabled:opacity-50"
+                          className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold border border-blue-200 rounded-md text-xs flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50 shrink-0 shadow-xs"
                           title="Tarik data terbaru dari Master Client"
                         >
-                          <RefreshCw className={`w-3 h-3 ${isPullingClient ? 'animate-spin' : ''}`} />
-                          <span>🔄 Tarik Data Klien Terbaru</span>
+                          <RefreshCw className={`w-3.5 h-3.5 ${isPullingClient ? 'animate-spin' : ''}`} />
+                          <span>Tarik Data Klien</span>
                         </button>
                       )}
                     </div>
                     <select 
-                      className="w-full border border-[#ccc] rounded-sm px-3 py-1.5 text-[13px] outline-none bg-white focus:border-[#66afe9]"
+                      className="w-full border border-slate-300 rounded-md px-3 py-2 text-[13px] outline-none bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
                       value={data.selectedProfileId || ''}
                       onChange={async (e) => {
                          const profileId = e.target.value;
@@ -934,7 +947,7 @@ export const RUPSLBPage: React.FC<RUPSLBPageProps> = ({
                       ))}
                     </select>
                     <div className="flex items-center justify-between pt-1">
-                      <label className="flex items-center gap-2 text-[12px] text-slate-600 cursor-pointer">
+                      <label className="flex items-center gap-2 text-[12px] text-slate-600 cursor-pointer select-none">
                         <input
                           type="checkbox"
                           checked={data.dontPullFromClient || false}
@@ -944,69 +957,100 @@ export const RUPSLBPage: React.FC<RUPSLBPageProps> = ({
                         <span>Data dokumen independen (jangan tarik otomatis dari data master klien)</span>
                       </label>
                     </div>
-                  </>
+                  </div>
                 )}
               </div>
             </AhuSection>
 
+            {/* DATA PERSEROAN */}
             <AhuSection title="DATA PERSEROAN">
-              <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
-                  <AhuLabel label="Nama Perseroan" />
-                  <div className="md:col-span-3"><AhuInput value={data.companyName || ''} onChange={e => updateData({ companyName: e.target.value })} /></div>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
-                  <AhuLabel label="Kedudukan (Kab/Kota)" />
-                  <div className="md:col-span-3 flex gap-4 items-center">
-                    <div className="flex-1">
-                      <AhuInput 
-                        placeholder="Contoh: Kota Bandung atau Kabupaten Bandung Barat"
-                        value={data.domicile || ''}
-                        onChange={e => updateData({ domicile: e.target.value })}
-                      />
-                    </div>
+              <div className="space-y-3.5">
+                {/* Nama Perseroan */}
+                <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 sm:gap-4 items-center">
+                  <div className="sm:col-span-4 lg:col-span-3">
+                    <AhuLabel label="Nama Perseroan" required />
+                  </div>
+                  <div className="sm:col-span-8 lg:col-span-9">
+                    <AhuInput 
+                      value={data.companyName || ''} 
+                      onChange={e => updateData({ companyName: e.target.value })} 
+                      placeholder="Contoh: PT MAJU MUNDUR SEJAHTERA"
+                      className="h-10"
+                    />
                   </div>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
-                  <AhuLabel label="Harga per Lembar" />
-                  <div className="md:col-span-3">
+
+                {/* Kedudukan */}
+                <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 sm:gap-4 items-center">
+                  <div className="sm:col-span-4 lg:col-span-3">
+                    <AhuLabel label="Kedudukan (Kab/Kota)" required />
+                  </div>
+                  <div className="sm:col-span-8 lg:col-span-9">
+                    <AhuInput 
+                      placeholder="Contoh: Kota Bandung atau Kabupaten Bandung Barat"
+                      value={data.domicile || ''}
+                      onChange={e => updateData({ domicile: e.target.value })}
+                      className="h-10"
+                    />
+                  </div>
+                </div>
+
+                {/* Harga per Lembar */}
+                <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 sm:gap-4 items-center">
+                  <div className="sm:col-span-4 lg:col-span-3">
+                    <AhuLabel label="Harga per Lembar" />
+                  </div>
+                  <div className="sm:col-span-8 lg:col-span-9">
                     <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[13px]">Rp.</span>
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-semibold select-none">Rp.</span>
                       <AhuInput 
-                        className="pl-10"
+                        className="pl-10 h-10"
+                        placeholder="0"
                         value={data.originalSharePrice === 0 ? '' : formatInputNumber(data.originalSharePrice)} 
                         onChange={e => updateData({ originalSharePrice: parseFormattedNumber(e.target.value) })} 
                       />
                     </div>
                   </div>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
-                  <AhuLabel label="Modal Dasar (Lembar)" required />
-                  <div className="md:col-span-3">
-                    <div className="flex items-center gap-4">
+
+                {/* Modal Dasar */}
+                <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 sm:gap-4 items-center">
+                  <div className="sm:col-span-4 lg:col-span-3">
+                    <AhuLabel label="Modal Dasar (Lembar)" required />
+                  </div>
+                  <div className="sm:col-span-8 lg:col-span-9">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
                       <div className="flex-1">
                         <AhuInput 
+                          className="h-10"
+                          placeholder="0"
                           value={data.originalAuthorizedShares === 0 ? '' : formatInputNumber(data.originalAuthorizedShares)} 
                           onChange={e => updateData({ originalAuthorizedShares: parseFormattedNumber(e.target.value) })} 
                         />
                       </div>
-                      <div className="text-[13px] font-bold text-slate-500 w-48">
+                      <div className="h-10 px-3.5 bg-slate-100 border border-slate-200 rounded text-[13px] font-bold text-slate-700 flex items-center justify-end sm:min-w-[200px] shrink-0">
                         Rp. {formatInputNumber(data.targetCapitalBase)}
                       </div>
                     </div>
                   </div>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
-                  <AhuLabel label="Modal Ditempatkan & Disetor (Lembar)" required />
-                  <div className="md:col-span-3">
-                    <div className="flex items-center gap-4">
+
+                {/* Modal Ditempatkan & Disetor */}
+                <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 sm:gap-4 items-center">
+                  <div className="sm:col-span-4 lg:col-span-3">
+                    <AhuLabel label="Modal Ditempatkan & Disetor (Lembar)" required />
+                  </div>
+                  <div className="sm:col-span-8 lg:col-span-9">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
                       <div className="flex-1">
                         <AhuInput 
+                          className="h-10"
+                          placeholder="0"
                           value={data.originalTotalShares === 0 ? '' : formatInputNumber(data.originalTotalShares)} 
                           onChange={e => updateData({ originalTotalShares: parseFormattedNumber(e.target.value) })} 
                         />
                       </div>
-                      <div className="text-[13px] font-bold text-slate-500 w-48">
+                      <div className="h-10 px-3.5 bg-slate-100 border border-slate-200 rounded text-[13px] font-bold text-slate-700 flex items-center justify-end sm:min-w-[200px] shrink-0">
                         Rp. {formatInputNumber(data.targetCapitalPaid)}
                       </div>
                     </div>
