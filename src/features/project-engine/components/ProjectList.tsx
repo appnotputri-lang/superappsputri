@@ -405,7 +405,7 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
 
     if (category === 'BODY_LEGAL') {
       if (clientTypeGroup === 'PT') {
-        return ['Pendirian PT', 'RUPST', 'RUPS-LB', 'PKPS RUPST', 'PKPS RUPS-LB'];
+        return ['Pendirian PT', 'RUPS T', 'RUPS LB'];
       }
       if (clientTypeGroup === 'CV') {
         return ['Pendirian CV', 'Perubahan CV', 'Pembubaran CV'];
@@ -543,10 +543,10 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
   const getWorkflowJobType = (category: string, type: string): string => {
     // Legacy support
     if (category === 'MEETING') {
-      if (type === 'RUPS-LB' || type === 'PKPS RUPS-LB') {
+      if (type === 'RUPS LB' || type === 'RUPS-LB' || type === 'PKPS RUPS-LB') {
         return 'rups_lb';
       }
-      if (type === 'RUPST' || type === 'PKPS RUPST') {
+      if (type === 'RUPS T' || type === 'RUPST' || type === 'PKPS RUPST') {
         return 'rups_t';
       }
       return 'rups_lb';
@@ -568,10 +568,10 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
       if (type.startsWith('Pendirian')) {
         return 'pendirian_pt';
       }
-      if (type === 'RUPS-LB' || type === 'PKPS RUPS-LB') {
+      if (type === 'RUPS LB' || type === 'RUPS-LB' || type === 'PKPS RUPS-LB') {
         return 'rups_lb';
       }
-      if (type === 'RUPST' || type === 'PKPS RUPST') {
+      if (type === 'RUPS T' || type === 'RUPST' || type === 'PKPS RUPST') {
         return 'rups_t';
       }
       if (type.startsWith('Rapat ')) {
@@ -773,7 +773,7 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
         )
       };
 
-      if (projectCategory === 'MEETING' && (projectType === 'RUPS-LB' || projectType === 'PKPS RUPS-LB') && meetingSubject) {
+      if (projectCategory === 'MEETING' && (projectType === 'RUPS LB' || projectType === 'RUPS-LB' || projectType === 'PKPS RUPS-LB') && meetingSubject) {
         projectPayload.meetingSubject = meetingSubject;
       }
 
@@ -1320,12 +1320,12 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
                     >
                       <option value="">-- Pilih Kategori Pekerjaan --</option>
                       {clientTypeGroup !== 'PERSONAL' && (
-                        <option value="BODY_LEGAL">Badan Hukum / Usaha (BODY LEGAL)</option>
+                        <option value="BODY_LEGAL">Badan Hukum / Usaha</option>
                       )}
-                      <option value="PPAT">Akta PPAT (PPAT)</option>
-                      <option value="AGREEMENT">Perjanjian (AGREEMENT)</option>
-                      <option value="GENERAL_DEED">Akta Umum (GENERAL DEED)</option>
-                      <option value="LEGALIZATION">Legalisasi / Waarmerking (LEGALIZATION)</option>
+                      <option value="PPAT">Akta PPAT</option>
+                      <option value="AGREEMENT">Perjanjian</option>
+                      <option value="GENERAL_DEED">Akta Umum</option>
+                      <option value="LEGALIZATION">Legalisasi / Waarmerking</option>
                     </select>
                   </div>
                 )}

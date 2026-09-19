@@ -211,10 +211,8 @@ export enum ProjectCategory {
 export const PROJECT_TYPES: Record<ProjectCategory, string[]> = {
   [ProjectCategory.BODY_LEGAL]: [
     'Pendirian PT',
-    'RUPST',
-    'RUPS-LB',
-    'PKPS RUPST',
-    'PKPS RUPS-LB',
+    'RUPS T',
+    'RUPS LB',
     'Pendirian CV',
     'Perubahan CV',
     'Pembubaran CV',
@@ -233,7 +231,7 @@ export const PROJECT_TYPES: Record<ProjectCategory, string[]> = {
     'Rapat Anggota',
     'Rapat Pengurus'
   ],
-  [ProjectCategory.MEETING]: ['RUPST', 'RUPS-LB', 'PKPS RUPST', 'PKPS RUPS-LB', 'Rapat Yayasan', 'Rapat Perkumpulan'],
+  [ProjectCategory.MEETING]: ['RUPS T', 'RUPS LB', 'Rapat Yayasan', 'Rapat Perkumpulan'],
   [ProjectCategory.PPAT]: [
     'Akta Jual Beli (AJB)',
     'Akta Tukar Menukar',

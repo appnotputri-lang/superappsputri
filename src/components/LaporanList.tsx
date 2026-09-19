@@ -1106,12 +1106,12 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects: propsProject
                   className="px-3 py-1.5 text-xs font-bold border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-fuchsia-500/15 focus:border-fuchsia-500 bg-white cursor-pointer shadow-sm"
                 >
                   <option value="ALL">Semua Kategori</option>
-                  <option value="BODY_LEGAL">Badan Hukum (BODY_LEGAL)</option>
-                  <option value="MEETING">Rapat / RUPS (MEETING)</option>
-                  <option value="PPAT">Akta PPAT (PPAT)</option>
-                  <option value="AGREEMENT">Perjanjian (AGREEMENT)</option>
-                  <option value="GENERAL_DEED">Akta Umum (GENERAL_DEED)</option>
-                  <option value="LEGALIZATION">Legalisasi (LEGALIZATION)</option>
+                  <option value="BODY_LEGAL">Badan Hukum</option>
+                  <option value="MEETING">Rapat / RUPS</option>
+                  <option value="PPAT">Akta PPAT</option>
+                  <option value="AGREEMENT">Perjanjian</option>
+                  <option value="GENERAL_DEED">Akta Umum</option>
+                  <option value="LEGALIZATION">Legalisasi</option>
                 </select>
               </div>
               {/* Dynamic Project Type Dropdown */}
