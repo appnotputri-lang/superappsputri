@@ -450,7 +450,7 @@ syncCompanyDataToRupst
                     <button onClick={() => {
                       setCurrentEditingRupstId('new');
                       setIsRupstPreview(false);
-                      const defaultType = activeProjectJobType === 'sirkuler' ? 'sirkuler' : 'rapat';
+                      const defaultType = activeProjectJobType === 'rups_t' ? 'rapat' : 'sirkuler';
                       updateData({ 
                         ...INITIAL_STATE, 
                         rupstType: defaultType,
@@ -1011,11 +1011,11 @@ syncCompanyDataToRupst
                               <AhuLabel label="Bentuk Keputusan / RUPST" required />
                               <div className="md:col-span-3">
                                 <AhuSelect 
-                                  value={data.rupstType || 'rapat'} 
+                                  value={data.rupstType || 'sirkuler'} 
                                   onChange={e => updateData({ rupstType: e.target.value as any })}
                                 >
-                                  <option value="rapat">Rapat Umum Pemegang Saham Tahunan (RUPST Biasa / Fisik / Hibrid)</option>
                                   <option value="sirkuler">Keputusan Para Pemegang Saham Sebagai Pengganti RUPST (Sirkuler / Pasal 91 UU PT)</option>
+                                  <option value="rapat">Rapat Umum Pemegang Saham Tahunan (RUPST Biasa / Fisik / Hibrid)</option>
                                 </AhuSelect>
                               </div>
                             </div>
