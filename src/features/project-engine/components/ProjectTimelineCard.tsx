@@ -253,6 +253,13 @@ export const ProjectTimelineCard: React.FC<ProjectTimelineCardProps> = ({
 
   const displayPicName = formattedPicName || staffName;
 
+  // Pure PIC name for button label (e.g., "Priscillia", "Sari Wahyuni", "Andi Setiawan", "Rina Oktaviani")
+  const buttonPicName = (() => {
+    const raw = picNameState?.trim() || project.clientPic?.trim() || staffName?.trim() || 'PIC';
+    const clean = raw.replace(/^(Bapak|Ibu)\s+/i, '').trim();
+    return clean || raw;
+  })();
+
   const getCleanWaNumber = (phone: string): string => {
     let clean = phone.replace(/\D/g, '');
     if (!clean) return '';
@@ -497,8 +504,8 @@ export const ProjectTimelineCard: React.FC<ProjectTimelineCardProps> = ({
 
           {/* FOOTER COUNTER & DETAIL LINK */}
           <div className="mt-3 flex items-center justify-between pt-2 text-xs font-medium text-slate-500 border-t border-slate-100">
-            <div className="flex items-center gap-1.5 text-blue-600 font-bold">
-              <MessageSquare size={14} />
+            <div className="flex items-center gap-1.5 text-blue-600 font-bold text-xs shrink-0">
+              <MessageSquare size={14} className="shrink-0" />
               <span>{commentsCount} komentar</span>
             </div>
 
@@ -508,11 +515,11 @@ export const ProjectTimelineCard: React.FC<ProjectTimelineCardProps> = ({
                 target={cleanPhone && cleanPhone.length >= 7 ? "_blank" : undefined}
                 rel={cleanPhone && cleanPhone.length >= 7 ? "noopener noreferrer" : undefined}
                 onClick={handleOpenWhatsApp}
-                className="px-2 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold flex items-center gap-1 transition-colors cursor-pointer no-underline"
-                title={cleanPhone ? `WhatsApp direct wa.me: ${displayPicName || 'PIC'} (${picPhoneState})` : 'WhatsApp PIC'}
+                className="w-[110px] sm:w-[120px] h-7 px-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-[11px] font-bold flex items-center gap-1.5 transition-colors cursor-pointer no-underline shrink-0 shadow-2xs"
+                title={cleanPhone ? `WhatsApp direct wa.me: ${displayPicName || buttonPicName} (${picPhoneState})` : `Hubungi ${buttonPicName} via WhatsApp`}
               >
-                <WhatsAppIcon className="w-3 h-3 fill-current" />
-                <span>WA</span>
+                <WhatsAppIcon className="w-3 h-3 fill-current shrink-0" />
+                <span className="truncate flex-1 min-w-0 text-left leading-none">{buttonPicName}</span>
               </a>
 
               {onNavigateToDetail && (
@@ -522,10 +529,10 @@ export const ProjectTimelineCard: React.FC<ProjectTimelineCardProps> = ({
                     e.stopPropagation();
                     onNavigateToDetail(project.projectId);
                   }}
-                  className="text-slate-500 hover:text-blue-600 text-xs font-bold flex items-center gap-1 transition-colors"
+                  className="w-[62px] h-7 text-slate-600 hover:text-blue-600 bg-slate-50 hover:bg-blue-50 border border-slate-200/60 rounded-lg text-xs font-bold flex items-center justify-center gap-1 transition-colors shrink-0"
                 >
                   <span>Detail</span>
-                  <ArrowRight size={13} />
+                  <ArrowRight size={12} className="shrink-0" />
                 </button>
               )}
             </div>
@@ -535,7 +542,7 @@ export const ProjectTimelineCard: React.FC<ProjectTimelineCardProps> = ({
         {/* DESKTOP VIEW (HORIZONTAL TIMELINE CARD) */}
         <div className="hidden md:flex items-center justify-between gap-4 p-4 lg:px-5 lg:py-3.5 min-h-[100px] max-h-[130px]">
           {/* Kolom 1: Status & Title & Stage */}
-          <div className="w-[34%] lg:w-[32%] min-w-[250px] pr-4 border-r border-slate-100 flex flex-col gap-1.5 justify-center">
+          <div className="w-[30%] lg:w-[32%] min-w-[240px] pr-4 border-r border-slate-100 flex flex-col gap-1.5 justify-center">
             <div className="flex items-center gap-2.5 min-w-0">
               <span className={`w-2.5 h-2.5 rounded-full shrink-0 shadow-2xs ${
                 project.status?.toLowerCase().includes('kendala') || project.status?.toLowerCase().includes('revisi')
@@ -577,39 +584,47 @@ export const ProjectTimelineCard: React.FC<ProjectTimelineCardProps> = ({
             </div>
           </div>
 
-          {/* Kolom 3: Comments count, detail button, expand button */}
-          <div className="w-[230px] shrink-0 pl-4 border-l border-slate-100 flex items-center justify-end gap-3">
-            <div className="flex items-center gap-1.5 text-blue-600 font-bold text-xs shrink-0">
-              <MessageSquare size={14} />
-              <span>{commentsCount} komentar</span>
+          {/* Kolom 3: Action Area (Komentar → WhatsApp → Detail → Dropdown) */}
+          <div className="w-[356px] lg:w-[385px] shrink-0 pl-3 lg:pl-4 border-l border-slate-100 flex items-center justify-end gap-2.5 lg:gap-3">
+            {/* 1. Kolom Komentar (Fixed Width) */}
+            <div className="w-[88px] lg:w-[94px] shrink-0 flex items-center gap-1.5 text-blue-600 font-bold text-xs whitespace-nowrap">
+              <MessageSquare size={14} className="shrink-0" />
+              <span className="truncate">{commentsCount} komentar</span>
             </div>
 
+            {/* 2. Tombol WhatsApp (Fixed Width & Identical Across Cards) */}
             <a
               href={directWaUrl}
               target={cleanPhone && cleanPhone.length >= 7 ? "_blank" : undefined}
               rel={cleanPhone && cleanPhone.length >= 7 ? "noopener noreferrer" : undefined}
               onClick={handleOpenWhatsApp}
-              className="px-2.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer shrink-0 shadow-2xs no-underline"
-              title={cleanPhone ? `WhatsApp direct wa.me: ${displayPicName || 'PIC'} (${picPhoneState})` : 'Hubungi via WhatsApp'}
+              className="w-[124px] lg:w-[132px] h-8 px-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white flex items-center gap-1.5 shrink-0 shadow-2xs no-underline transition-all cursor-pointer"
+              title={cleanPhone ? `WhatsApp: ${displayPicName || buttonPicName} (${picPhoneState})` : `Hubungi ${buttonPicName} via WhatsApp`}
             >
-              <WhatsAppIcon className="w-3.5 h-3.5 fill-current" />
-              <span>WhatsApp</span>
+              <WhatsAppIcon className="w-3.5 h-3.5 fill-current shrink-0" />
+              <span className="truncate flex-1 min-w-0 text-xs font-bold text-left leading-none">
+                {buttonPicName}
+              </span>
             </a>
 
-            {onNavigateToDetail && (
+            {/* 3. Tombol Detail (Fixed Width) */}
+            {onNavigateToDetail ? (
               <button
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
                   onNavigateToDetail(project.projectId);
                 }}
-                className="text-slate-600 hover:text-blue-600 bg-slate-50 hover:bg-blue-50 border border-slate-200/60 px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1 transition-all cursor-pointer shrink-0 shadow-2xs"
+                className="w-[68px] lg:w-[72px] h-8 text-slate-600 hover:text-blue-600 bg-slate-50 hover:bg-blue-50 border border-slate-200/60 px-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1 transition-all cursor-pointer shrink-0 shadow-2xs"
               >
                 <span>Detail</span>
-                <ArrowRight size={13} />
+                <ArrowRight size={13} className="shrink-0" />
               </button>
+            ) : (
+              <div className="w-[68px] lg:w-[72px] shrink-0" />
             )}
 
+            {/* 4. Tombol Dropdown / Expand (Fixed Width) */}
             <button
               type="button"
               onClick={(e) => {
