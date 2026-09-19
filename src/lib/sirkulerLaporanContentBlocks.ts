@@ -865,10 +865,10 @@ export function generateSirkulerLaporanBlocks(data: CompanyData): Block[] {
       const subTextA = `Sebesar Rp${formatNumber(divAmt)},- (${terbilang(divAmt)} rupiah) dibagikan sebagai dividen tunai kepada para pemegang saham sesuai dengan porsi kepemilikan saham masing-masing, yaitu:`;
       blocks.push({
         type: "list",
-        bullet: "a.",
-        ref: "sirkuler-numbered-alpha-decision",
-        indentLeft: INDENT.ALPHA_BULLET,
-        indentHanging: INDENT.ALPHA_BULLET_HANGING,
+        bullet: "-",
+        ref: "sirkuler-bullet",
+        indentLeft: INDENT.BULLET_LEVEL_2,
+        indentHanging: INDENT.BULLET_LEVEL_2_HANGING,
         runs: [{ text: subTextA }]
       });
 
@@ -913,10 +913,10 @@ export function generateSirkulerLaporanBlocks(data: CompanyData): Block[] {
       blocks.push(
         {
           type: "list",
-          bullet: "b.",
-          ref: "sirkuler-numbered-alpha-decision",
-          indentLeft: INDENT.ALPHA_BULLET,
-          indentHanging: INDENT.ALPHA_BULLET_HANGING,
+          bullet: "-",
+          ref: "sirkuler-bullet",
+          indentLeft: INDENT.BULLET_LEVEL_2,
+          indentHanging: INDENT.BULLET_LEVEL_2_HANGING,
           runs: [{ text: remainderText }]
         },
         {
@@ -931,10 +931,10 @@ export function generateSirkulerLaporanBlocks(data: CompanyData): Block[] {
     } else {
       blocks.push({
         type: "list",
-        bullet: "a.",
-        ref: "sirkuler-numbered-alpha-decision",
-        indentLeft: INDENT.ALPHA_BULLET,
-        indentHanging: INDENT.ALPHA_BULLET_HANGING,
+        bullet: "-",
+        ref: "sirkuler-bullet",
+        indentLeft: INDENT.BULLET_LEVEL_2,
+        indentHanging: INDENT.BULLET_LEVEL_2_HANGING,
         runs: [{ text: "Perseroan tidak membagikan dividen kepada para pemegang saham;" }]
       });
 
@@ -955,10 +955,10 @@ export function generateSirkulerLaporanBlocks(data: CompanyData): Block[] {
       if (netProfitVal !== 0 || prevRetainedVal !== 0) {
         blocks.push({
           type: "list",
-          bullet: "b.",
-          ref: "sirkuler-numbered-alpha-decision",
-          indentLeft: INDENT.ALPHA_BULLET,
-          indentHanging: INDENT.ALPHA_BULLET_HANGING,
+          bullet: "-",
+          ref: "sirkuler-bullet",
+          indentLeft: INDENT.BULLET_LEVEL_2,
+          indentHanging: INDENT.BULLET_LEVEL_2_HANGING,
           runs: [{ text: retainedText }]
         });
       }
