@@ -267,7 +267,10 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
     projectDate: new Date().toISOString().substring(0, 10),
     assignedTo: '',
     status: '',
-    comment: ''
+    comment: '',
+    picTitle: 'Bapak',
+    picName: '',
+    picPhone: ''
   });
   const [submitting, setSubmitting] = useState(false);
 
@@ -725,7 +728,10 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
         latestAmendmentDeedNumber: profile.latestAmendmentDeedNumber || '',
         latestAmendmentDeedDate: profile.latestAmendmentDeedDate || '',
         latestAmendmentNotary: profile.latestAmendmentNotary || '',
-        amendmentDeeds: profile.amendmentDeeds || []
+        amendmentDeeds: profile.amendmentDeeds || [],
+        picName: newProjectData.picName?.trim() || profile.picName || (profile as any).pic || '',
+        picPhone: newProjectData.picPhone?.trim() || profile.picPhone || profile.phoneNumber || '',
+        phoneNumber: newProjectData.picPhone?.trim() || profile.phoneNumber || profile.picPhone || ''
       };
     };
 
@@ -737,6 +743,10 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
       const customDate = projectDate ? new Date(projectDate) : new Date();
       const finalComment = comment.trim() || `Proyek '${title}' telah berhasil diinisialisasi.`;
 
+      const picTitleVal = newProjectData.picTitle || fullProfile.picTitle || 'Bapak';
+      const picNameVal = newProjectData.picName?.trim() || fullProfile.picName || (fullProfile as any).pic || '';
+      const picPhoneVal = newProjectData.picPhone?.trim() || fullProfile.picPhone || fullProfile.phoneNumber || '';
+
       const projectPayload: any = {
         clientId,
         jobType,
@@ -744,6 +754,11 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
         status: startingStep,
         currentStep: startingStep,
         assignedTo: assignedTo.trim() || 'Unassigned',
+        picTitle: picTitleVal,
+        picName: picNameVal,
+        picPhone: picPhoneVal,
+        clientPic: picNameVal,
+        clientContact: picPhoneVal,
         metadata: {},
         projectCategory,
         projectType,
@@ -820,6 +835,16 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
 
       await ProjectService.createProject(projectPayload);
 
+      // Sinkronisasi info PIC ke data master klien jika diisi/diubah
+      if (clientId && (newProjectData.picName?.trim() || newProjectData.picPhone?.trim() || newProjectData.picTitle)) {
+        CompanyService.updateCompany(clientId, {
+          picTitle: picTitleVal,
+          picName: newProjectData.picName?.trim() || fullProfile.picName || '',
+          picPhone: newProjectData.picPhone?.trim() || fullProfile.picPhone || fullProfile.phoneNumber || '',
+          phoneNumber: newProjectData.picPhone?.trim() || fullProfile.phoneNumber || fullProfile.picPhone || ''
+        }).catch(err => console.warn('[ProjectList] Gagal sinkronisasi PIC ke master client:', err));
+      }
+
       // Invalidate cache if any
       ProjectService.clearCache();
       
@@ -832,7 +857,10 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
         projectDate: new Date().toISOString().substring(0, 10),
         assignedTo: '',
         status: '',
-        comment: ''
+        comment: '',
+        picTitle: 'Bapak',
+        picName: '',
+        picPhone: ''
       });
     } catch (err) {
       console.error(err);
@@ -1226,15 +1254,45 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
                   <SearchableClientSelect
                     value={newProjectData.clientId}
                     onChange={(val) => {
-                      // Reset other fields on client change
+                      const matchedClient = findCachedProfile(val);
+                      const initialPicTitle = matchedClient?.picTitle || (matchedClient?.picName?.startsWith('Ibu ') ? 'Ibu' : 'Bapak');
+                      let initialPicName = matchedClient?.picName || (matchedClient as any)?.pic || '';
+                      if (initialPicName.startsWith('Bapak ')) initialPicName = initialPicName.replace(/^Bapak\s+/, '');
+                      if (initialPicName.startsWith('Ibu ')) initialPicName = initialPicName.replace(/^Ibu\s+/, '');
+                      const initialPicPhone = matchedClient?.picPhone || matchedClient?.phoneNumber || (matchedClient as any)?.phone || '';
+                      // Reset other fields on client change, prefill PIC info
                       setNewProjectData({
                         ...newProjectData,
                         clientId: val,
                         projectCategory: '',
                         projectType: '',
                         meetingSubject: '',
-                        status: ''
+                        status: '',
+                        picTitle: initialPicTitle,
+                        picName: initialPicName,
+                        picPhone: initialPicPhone
                       });
+
+                      // Ambil PIC dari data master klien langsung jika di cache belum lengkap
+                      if (val && (!initialPicName || !initialPicPhone || !matchedClient?.picTitle)) {
+                        CompanyService.getCompanyProfile(val).then(fullP => {
+                          if (!fullP) return;
+                          const pTitle = fullP.picTitle || (fullP.picName?.startsWith('Ibu ') ? 'Ibu' : 'Bapak');
+                          let pName = fullP.picName || (fullP as any).pic || '';
+                          if (pName.startsWith('Bapak ')) pName = pName.replace(/^Bapak\s+/, '');
+                          if (pName.startsWith('Ibu ')) pName = pName.replace(/^Ibu\s+/, '');
+                          const pPhone = fullP.picPhone || fullP.phoneNumber || (fullP as any).phone || (fullP as any).telepon || '';
+                          setNewProjectData(prev => {
+                            if (prev.clientId !== val) return prev;
+                            return {
+                              ...prev,
+                              picTitle: prev.picTitle || pTitle,
+                              picName: prev.picName || pName,
+                              picPhone: prev.picPhone || pPhone
+                            };
+                          });
+                        }).catch(e => console.warn('[ProjectList] Gagal mengambil data PIC master klien:', e));
+                      }
                     }}
                     options={modalProfiles}
                     onSearchChange={handleSearchClients}
@@ -1322,7 +1380,63 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
                   />
                 </div>
 
+                {/* PIC dan WhatsApp Klien */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">
+                      Nama PIC Klien
+                    </label>
+                    <div className="flex gap-2">
+                      <select
+                        value={newProjectData.picTitle}
+                        onChange={(e) => setNewProjectData({ ...newProjectData, picTitle: e.target.value })}
+                        className="w-24 shrink-0 px-3 py-2.5 text-[13px] font-semibold bg-slate-50 border border-slate-200 hover:border-slate-300 focus:bg-white focus:ring-1 focus:ring-blue-500 rounded-lg outline-none transition-all cursor-pointer"
+                      >
+                        <option value="Bapak">Bapak</option>
+                        <option value="Ibu">Ibu</option>
+                      </select>
+                      <input
+                        type="text"
+                        value={newProjectData.picName}
+                        onChange={(e) => setNewProjectData({ ...newProjectData, picName: e.target.value })}
+                        placeholder="Contoh: Budi Santoso"
+                        className="flex-1 min-w-0 px-4 py-2.5 text-[13px] bg-slate-50 border border-slate-200 hover:border-slate-300 focus:bg-white focus:ring-1 focus:ring-blue-500 rounded-lg outline-none transition-all"
+                      />
+                    </div>
+                  </div>
 
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">
+                      No. WhatsApp PIC
+                    </label>
+                    <input
+                      type="tel"
+                      value={newProjectData.picPhone}
+                      onChange={(e) => setNewProjectData({ ...newProjectData, picPhone: e.target.value })}
+                      placeholder="Contoh: 081234567890"
+                      className="w-full px-4 py-2.5 text-[13px] bg-slate-50 border border-slate-200 hover:border-slate-300 focus:bg-white focus:ring-1 focus:ring-blue-500 rounded-lg outline-none transition-all font-mono"
+                    />
+                  </div>
+                </div>
+
+                {/* Staff Penanggung Jawab */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">
+                    Staff Penanggung Jawab (Assigned To)
+                  </label>
+                  <select
+                    value={newProjectData.assignedTo}
+                    onChange={(e) => setNewProjectData({ ...newProjectData, assignedTo: e.target.value })}
+                    className="w-full px-4 py-2.5 text-[13px] bg-slate-50 border border-slate-200 hover:border-slate-300 focus:bg-white focus:ring-1 focus:ring-blue-500 rounded-lg outline-none transition-all"
+                  >
+                    <option value="">-- Pilih Staff (Opsional) --</option>
+                    {staffList.map((staff) => (
+                      <option key={staff.uid} value={staff.uid}>
+                        {staff.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
                 {/* Catatan Inisialisasi */}
                 <div className="space-y-1.5">

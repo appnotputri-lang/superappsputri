@@ -281,7 +281,12 @@ export function mapCompanyProfileToSnapshot(profile: CompanyProfile): ClientSnap
     latestAmendmentDeedNumber: profile.latestAmendmentDeedNumber || '',
     latestAmendmentDeedDate: profile.latestAmendmentDeedDate || '',
     latestAmendmentNotary: profile.latestAmendmentNotary || '',
-    amendmentDeeds: profile.amendmentDeeds || []
+    amendmentDeeds: profile.amendmentDeeds || [],
+    picTitle: profile.picTitle || (profile.picName?.startsWith('Ibu ') ? 'Ibu' : (profile.picName?.startsWith('Bapak ') ? 'Bapak' : 'Bapak')),
+    picName: profile.picName || (profile as any).pic || '',
+    picPhone: profile.picPhone || profile.phoneNumber || '',
+    phoneNumber: profile.picPhone || profile.phoneNumber || '',
+    picEmail: profile.picEmail || profile.email || ''
   };
 }
 

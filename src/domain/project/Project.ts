@@ -12,6 +12,11 @@ export interface ClientSnapshot {
   id: string; // Master client ID
   companyName: string;
   companyType?: string; // PT, CV, etc.
+  picTitle?: 'Bapak' | 'Ibu' | string;
+  picName?: string;
+  picPhone?: string;
+  phoneNumber?: string;
+  picEmail?: string;
   fullAddress?: string;
   province?: string;
   city?: string;
@@ -433,5 +438,10 @@ export interface Project {
   lastActivityAt?: any;
   lastActivityType?: string;
   lastActivityText?: string;
+  picTitle?: 'Bapak' | 'Ibu' | string;
+  picName?: string;
+  picPhone?: string;
+  clientPic?: string;
+  clientContact?: string;
   ppatData?: PPATData;
 }

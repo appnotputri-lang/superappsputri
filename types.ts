@@ -341,6 +341,7 @@ export interface CompanyData {
   establishmentSkDate: string;
 
   // PIC Information
+  picTitle?: 'Bapak' | 'Ibu' | string;
   picName?: string;
   picPhone?: string;
   picEmail?: string;

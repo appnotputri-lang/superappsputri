@@ -444,6 +444,67 @@ export class ProjectService {
   }
 
   /**
+   * Update PIC information (Name and Phone) on a project and its client snapshot.
+   */
+  static async updateProjectPic(
+    projectId: string,
+    picData: { picTitle?: string; picName?: string; picPhone?: string }
+  ): Promise<void> {
+    try {
+      const projectRef = doc(db, this.projectsCol, projectId);
+      const projectSnap = await getDoc(projectRef);
+      if (!projectSnap.exists()) {
+        console.warn(`[ProjectService] Project ${projectId} not found when updating PIC.`);
+        return;
+      }
+
+      const existingData = projectSnap.data() || {};
+      const existingSnapshot = existingData.clientSnapshot || {};
+
+      const cleanPicTitle = picData.picTitle !== undefined ? picData.picTitle.trim() : (existingData.picTitle || existingSnapshot.picTitle || 'Bapak');
+      const cleanPicName = picData.picName !== undefined ? picData.picName.trim() : (existingData.picName || existingSnapshot.picName || '');
+      const cleanPicPhone = picData.picPhone !== undefined ? picData.picPhone.trim() : (existingData.picPhone || existingSnapshot.picPhone || '');
+
+      const updatedSnapshot: ClientSnapshot = {
+        ...existingSnapshot,
+        picTitle: cleanPicTitle,
+        picName: cleanPicName,
+        picPhone: cleanPicPhone,
+        phoneNumber: cleanPicPhone || existingSnapshot.phoneNumber || ''
+      };
+
+      const payload: any = {
+        picTitle: cleanPicTitle,
+        picName: cleanPicName,
+        picPhone: cleanPicPhone,
+        clientPic: cleanPicName,
+        clientContact: cleanPicPhone,
+        clientSnapshot: updatedSnapshot,
+        updatedAt: new Date().toISOString()
+      };
+
+      await updateDoc(projectRef, payload);
+
+      // Invalidate memory caches if any
+      if (this.activeProjectsCache) {
+        const found = this.activeProjectsCache.find(p => p.projectId === projectId);
+        if (found) {
+          found.picTitle = cleanPicTitle;
+          found.picName = cleanPicName;
+          found.picPhone = cleanPicPhone;
+          if (found.clientSnapshot) {
+            found.clientSnapshot.picTitle = cleanPicTitle;
+            found.clientSnapshot.picName = cleanPicName;
+            found.clientSnapshot.picPhone = cleanPicPhone;
+          }
+        }
+      }
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `${this.projectsCol}/${projectId}`);
+    }
+  }
+
+  /**
    * 3. addTimeline
    * Appends an event record under the project's subcollection: projects/{projectId}/timelines
    * Subcollections are highly scalable and securely guarded using relational access.
@@ -1457,13 +1518,19 @@ export class ProjectService {
   private static parseProjectListItem(docSnap: any): Project {
     const data = docSnap.data() || {};
     
-    // Extract only lightweight client snapshot info needed for client name & type display
+    const resolvedPicName = data.picName || data.clientSnapshot?.picName || data.metadata?.picName || data.clientPic || '';
+    const resolvedPicPhone = data.picPhone || data.clientSnapshot?.picPhone || data.clientSnapshot?.phoneNumber || data.metadata?.picPhone || data.phoneNumber || data.clientContact || '';
+
+    // Extract only lightweight client snapshot info needed for client name, type & PIC display
     let clientSnapshotLight: ClientSnapshot | undefined = undefined;
     if (data.clientSnapshot) {
       clientSnapshotLight = {
         id: data.clientSnapshot.id || data.clientId || '',
         companyName: data.clientSnapshot.companyName || '',
-        companyType: data.clientSnapshot.companyType || ''
+        companyType: data.clientSnapshot.companyType || '',
+        picName: data.clientSnapshot.picName || resolvedPicName,
+        picPhone: data.clientSnapshot.picPhone || resolvedPicPhone,
+        phoneNumber: data.clientSnapshot.phoneNumber || resolvedPicPhone
       };
     }
 
@@ -1492,6 +1559,10 @@ export class ProjectService {
       meetingSubject: data.meetingSubject,
       metadata: data.metadata,
       clientSnapshot: clientSnapshotLight,
+      picName: resolvedPicName,
+      picPhone: resolvedPicPhone,
+      clientPic: data.clientPic || resolvedPicName,
+      clientContact: data.clientContact || resolvedPicPhone,
       tasks: data.tasks,
       activeTasksCount: data.activeTasksCount,
       activities: data.activities,

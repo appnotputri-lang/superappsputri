@@ -392,7 +392,16 @@ export const CompanyDetail: React.FC<CompanyDetailProps> = ({
             <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
               <AhuLabel label="Nama PIC" />
               <div className="md:col-span-3">
-                <AhuInput value={data.picName || ''} readOnly />
+                <AhuInput 
+                  value={(() => {
+                    const rawName = data.picName || '';
+                    if (!rawName) return '';
+                    if (rawName.startsWith('Bapak ') || rawName.startsWith('Ibu ')) return rawName;
+                    const title = data.picTitle || 'Bapak';
+                    return `${title} ${rawName}`;
+                  })()} 
+                  readOnly 
+                />
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
