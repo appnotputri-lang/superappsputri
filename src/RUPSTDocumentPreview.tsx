@@ -243,6 +243,34 @@ export const RUPSTDocumentPreview: React.FC<RUPSTDocumentPreviewProps> = ({ data
               );
             }
 
+            if (block.type === 'signatures') {
+              const shList = block.shareholders && block.shareholders.length > 0 ? block.shareholders : [];
+              return (
+                <div key={`sigs-${bIdx}`} className="pt-6 space-y-6">
+                  <div className="font-bold text-slate-900 uppercase text-[11pt]">
+                    TANDA TANGAN PARA PEMEGANG SAHAM,
+                  </div>
+                  <div className="space-y-6">
+                    {shList.map((sh: any, idx: number) => (
+                      <div key={sh.id || idx} className="space-y-1">
+                        {idx === 0 && (
+                          <div className="text-[9pt] text-slate-400 italic mb-2">
+                            [ Meterai 10.000 + Cap ]
+                          </div>
+                        )}
+                        <div className="font-bold uppercase text-[11pt] text-slate-900">
+                          {(sh.name || '................').toUpperCase()}
+                        </div>
+                        <div className="text-[10pt] text-slate-500 pb-4">
+                          Tanggal: ....................
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            }
+
             return null;
           })}
         </div>

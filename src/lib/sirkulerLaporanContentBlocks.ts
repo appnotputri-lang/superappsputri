@@ -1004,13 +1004,12 @@ export function generateSirkulerLaporanBlocks(data: CompanyData): Block[] {
 
   blocks.push(
     { type: "br" },
-    { type: "p", runs: [{ text: "Demikian keputusan ini dibuat untuk dapat digunakan sebagaimana mestinya." }] },
-    { type: "br" },
-    { type: "p", runs: [{ text: "Yang Membuat Keputusan :" }] },
-    { type: "p", runs: [{ text: "Meterai Rp.10.000,- + cap perusahan", italic: true }] },
-    { type: "br" },
-    { type: "br" },
-    { type: "br" },
+    {
+      type: "p",
+      runs: [{
+        text: "Demikianlah keputusan para pemegang saham di luar rapat ini dibuat berdasarkan ketentuan pasal 91 Undang-Undang nomor 40 tahun 2007 tentang Perseroan Terbatas, mempunyai kekuatan yang sama yang diambil dengan sah dalam RUPS dan ditandatangani dengan sebenar-benarnya pada hari dan tanggal dimaksud pada keputusan diatas."
+      }]
+    },
     { type: "signatures", shareholders: shareholders }
   );
 

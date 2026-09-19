@@ -120,42 +120,44 @@ export class SirkulerTemplate {
         );
         this.lastBlockType = "numbered";
       } else if (block.type === "signatures") {
-        const table = new Table({
-          width: { size: 100, type: WidthType.PERCENTAGE },
-          borders: {
-            top: { style: BorderStyle.NONE, size: 0, color: "auto" },
-            bottom: { style: BorderStyle.NONE, size: 0, color: "auto" },
-            left: { style: BorderStyle.NONE, size: 0, color: "auto" },
-            right: { style: BorderStyle.NONE, size: 0, color: "auto" },
-            insideHorizontal: { style: BorderStyle.NONE, size: 0, color: "auto" },
-            insideVertical: { style: BorderStyle.NONE, size: 0, color: "auto" },
-          } as any,
-          rows: block.shareholders.map((sh: any) => {
-            return new TableRow({
-              children: [
-                new TableCell({
-                  width: { size: 50, type: WidthType.PERCENTAGE },
-                  children: [
-                    new Paragraph({
-                      children: [new TextRun({ text: sh.name, font: "Arial", size: 22, bold: true })],
-                      spacing: { line: 480, before: 1000 },
-                    }),
-                  ],
-                }),
-                new TableCell({
-                  width: { size: 50, type: WidthType.PERCENTAGE },
-                  children: [
-                    new Paragraph({
-                      children: [new TextRun({ text: "........................................................", font: "Arial", size: 22 })],
-                      spacing: { line: 480, before: 1000 },
-                    }),
-                  ],
-                }),
-              ],
-            });
-          }),
+        elements.push(
+          new Paragraph({
+            alignment: AlignmentType.LEFT,
+            spacing: { after: 480, line: 360, lineRule: "auto" },
+            children: [new TextRun({ text: "TANDA TANGAN PARA PEMEGANG SAHAM,", font: "Arial", size: 22, bold: true })],
+          })
+        );
+
+        const activeShareholders = block.shareholders && block.shareholders.length > 0
+          ? block.shareholders.filter((sh: any) => sh.sharesOwned === undefined || sh.sharesOwned > 0)
+          : [];
+
+        activeShareholders.forEach((sh: any, idx: number) => {
+          if (idx === 0) {
+            elements.push(
+              new Paragraph({
+                alignment: AlignmentType.LEFT,
+                spacing: { after: 480, line: 360, lineRule: "auto" },
+                children: [new TextRun({ text: "Meterai 10.000 + Cap", font: "Arial", size: 16, color: "bfbfbf" })],
+              })
+            );
+          } else {
+            elements.push(new Paragraph({ spacing: { before: 480 }, children: [] }));
+          }
+
+          elements.push(
+            new Paragraph({
+              alignment: AlignmentType.LEFT,
+              spacing: { after: 0, line: 360, lineRule: "auto" },
+              children: [new TextRun({ text: (sh.name || "................").toUpperCase(), font: "Arial", size: 22, bold: true })],
+            }),
+            new Paragraph({
+              alignment: AlignmentType.LEFT,
+              spacing: { after: 1200, line: 360, lineRule: "auto" },
+              children: [new TextRun({ text: "Tanggal: ....................", font: "Arial", size: 20 })],
+            })
+          );
         });
-        elements.push(table);
         this.lastBlockType = "signatures";
       } else if (block.type === "br") {
         elements.push(new Paragraph({ text: "", spacing: { line: 480 } }));
