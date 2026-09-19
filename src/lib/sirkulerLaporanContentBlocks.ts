@@ -1003,7 +1003,6 @@ export function generateSirkulerLaporanBlocks(data: CompanyData): Block[] {
   });
 
   blocks.push(
-    { type: "br" },
     {
       type: "p",
       runs: [{
