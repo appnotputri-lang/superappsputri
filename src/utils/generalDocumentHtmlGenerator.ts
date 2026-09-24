@@ -64,13 +64,15 @@ export async function getQrCodeBase64(docData: GeneralDocumentData, publicUrl?: 
 }
 
 export function getFooterText(docData: GeneralDocumentData): string {
-  return 'Saya yang bertandatangan dibawah ini, menyatakan telah menerima dokumen tersebut diatas, Tanda Terima ini mohon di tandatangani dan dikirim ke alamat KOMP PPR ITB Kav F-5, Mekarwangi, Lembang, Kabupaten Bandung Barat, atau dapat di scan dan dikirim melalui email ke alamat notarisppatputri@gmail.com, apabila Tanda Terima ini tidak dikirim kembali, maka Tanda Terima ini dinyatakan sah dan dianggap telah diterima apabila setatus dalam pengiriman expedisi dinyatakan telah diterima.';
+  if (docData.docType === 'RECEIPT') {
+    return 'Telah diterima berkas/dokumen tersebut di atas dalam keadaan baik dan lengkap untuk keperluan proses pengurusan di Kantor Notaris & PPAT Nukantini Putri Parincha, SH. M.Kn. Tanda terima ini merupakan bukti sah penyerahan dokumen dari Klien kepada Kantor Notaris/PPAT.';
+  }
+  return 'Saya yang bertandatangan dibawah ini, menyatakan telah menerima dokumen tersebut diatas, Tanda Terima / Surat Jalan ini mohon di tandatangani dan dikirim ke alamat KOMP PPR ITB Kav F-5, Mekarwangi, Lembang, Kabupaten Bandung Barat, atau dapat di scan dan dikirim melalui email ke alamat notarisppatputri@gmail.com, apabila dokumen ini tidak dikirim kembali, maka dinyatakan sah dan dianggap telah diterima apabila status dalam pengiriman expedisi dinyatakan telah diterima.';
 }
 
 export function generateGeneralDocumentHTML(docData: GeneralDocumentData, qrBase64: string, autoPrint = false): string {
   const isDelivery = docData.docType === 'DELIVERY';
   const docTitle = isDelivery ? 'SURAT JALAN DOKUMEN' : 'TANDA TERIMA BERKAS';
-  const rightBoxLabel = isDelivery ? 'UNTUK' : 'PENERIMA';
   const footerNote = getFooterText(docData);
 
   const itemsRows = (docData.items || []).map((item, idx) => `
@@ -84,6 +86,94 @@ export function generateGeneralDocumentHTML(docData: GeneralDocumentData, qrBase
       </td>
     </tr>
   `).join('');
+
+  // SENDER & RECEIVER BOXES CONFIG
+  const leftBoxTitle = isDelivery ? 'PENGIRIM' : 'YANG MENYERAHKAN';
+  const rightBoxTitle = isDelivery ? 'PENERIMA / UNTUK' : 'PENERIMA';
+
+  const leftBoxContent = isDelivery ? `
+    <div style="font-size: 13px; font-weight: 800; color: #0f172a; line-height: 1.3;">
+      Notaris/PPAT Nukantini Putri Parincha,SH.M.kn
+    </div>
+    <div style="font-size: 10px; color: #64748b; margin-top: 3px;">
+      Komplek PPR ITB F5, Mekarwangi, Lembang
+    </div>
+  ` : `
+    <div style="font-size: 13px; font-weight: 800; color: #0f172a; text-transform: uppercase; line-height: 1.3;">
+      ${docData.clientPic ? docData.clientPic.toUpperCase() : (docData.clientName ? docData.clientName.toUpperCase() : 'KLIEN')}
+    </div>
+    ${docData.clientPic && docData.clientName ? `
+      <div style="font-size: 11px; font-weight: 700; color: #475569; margin-top: 2px; text-transform: uppercase;">
+        (${docData.clientName})
+      </div>
+    ` : ''}
+    ${docData.clientAddress ? `
+      <div style="font-size: 10.5px; color: #64748b; margin-top: 3px;">
+        ${docData.clientAddress}
+      </div>
+    ` : ''}
+    ${docData.clientContact ? `
+      <div style="font-size: 10.5px; color: #64748b; margin-top: 2px;">
+        Telp: ${docData.clientContact}
+      </div>
+    ` : ''}
+    ${docData.deliveryMethod ? `
+      <div style="font-size: 10.5px; color: #64748b; margin-top: 2px;">
+        Via: ${docData.deliveryMethod}
+      </div>
+    ` : ''}
+  `;
+
+  const rightBoxContent = isDelivery ? `
+    <div style="font-size: 13px; font-weight: 800; color: #0f172a; text-transform: uppercase; line-height: 1.3;">
+      ${docData.clientPic ? docData.clientPic.toUpperCase() : docData.clientName.toUpperCase()}
+    </div>
+    ${docData.clientPic && docData.clientName ? `
+      <div style="font-size: 11px; font-weight: 700; color: #475569; margin-top: 2px; text-transform: uppercase;">
+        (${docData.clientName})
+      </div>
+    ` : ''}
+    ${docData.clientAddress ? `
+      <div style="font-size: 10.5px; color: #64748b; margin-top: 3px;">
+        ${docData.clientAddress}
+      </div>
+    ` : ''}
+    ${docData.clientContact ? `
+      <div style="font-size: 10.5px; color: #64748b; margin-top: 2px;">
+        Telp: ${docData.clientContact}
+      </div>
+    ` : ''}
+    ${docData.deliveryMethod ? `
+      <div style="font-size: 10.5px; color: #64748b; margin-top: 2px;">
+        Via: ${docData.deliveryMethod}
+      </div>
+    ` : ''}
+  ` : `
+    <div style="font-size: 13px; font-weight: 800; color: #0f172a; line-height: 1.3;">
+      Notaris/PPAT Nukantini Putri Parincha,SH.M.kn
+    </div>
+    <div style="font-size: 10.5px; color: #64748b; margin-top: 3px;">
+      Komplek PPR ITB F5, Dago Giri, Mekarwangi, Lembang, Bandung Barat
+    </div>
+    <div style="font-size: 10.5px; color: #64748b; margin-top: 2px;">
+      Email: notarisppatputri@gmail.com | Telp: 08112007061
+    </div>
+  `;
+
+  // SIGNATURES CONFIG
+  const leftSigLabel = isDelivery ? 'Diserahkan Oleh,' : 'Yang Menyerahkan,';
+  const leftSigName = isDelivery
+    ? (docData.officerName || 'SITI NUR AZIZAH').toUpperCase()
+    : (docData.clientPic ? docData.clientPic.toUpperCase() : (docData.clientName ? docData.clientName.toUpperCase() : 'KLIEN'));
+  const leftSigRole = isDelivery ? 'Petugas Pengantar / Kantor' : 'Tanda Tangan & Nama Terang (Klien)';
+
+  const rightSigLabel = isDelivery ? 'Diterima Oleh,' : 'Diterima Oleh,';
+  const rightSigName = isDelivery
+    ? ''
+    : (docData.officerName || 'SITI NUR AZIZAH').toUpperCase();
+  const rightSigRole = isDelivery
+    ? 'Tanda Tangan & Stempel (Penerima)'
+    : 'Petugas Penerima / Kantor Notaris & PPAT';
 
   return `
     <!DOCTYPE html>
@@ -230,28 +320,14 @@ export function generateGeneralDocumentHTML(docData: GeneralDocumentData, qrBase
           <tr>
             <td style="width: 50%; vertical-align: top;">
               <div class="info-box">
-                <div class="info-box-title">PENGIRIM</div>
-                <div style="font-size: 13px; font-weight: 800; color: #0f172a; line-height: 1.3;">
-                  Notaris/PPAT Nukantini Putri Parincha,SH.M.kn
-                </div>
+                <div class="info-box-title">${leftBoxTitle}</div>
+                ${leftBoxContent}
               </div>
             </td>
             <td style="width: 50%; vertical-align: top;">
               <div class="info-box">
-                <div class="info-box-title">${rightBoxLabel}</div>
-                <div style="font-size: 13px; font-weight: 800; color: #0f172a; text-transform: uppercase; line-height: 1.3;">
-                  ${docData.clientPic ? docData.clientPic.toUpperCase() : docData.clientName.toUpperCase()}
-                </div>
-                ${docData.clientPic && docData.clientName ? `
-                  <div style="font-size: 11px; font-weight: 700; color: #475569; margin-top: 2px; text-transform: uppercase;">
-                    (${docData.clientName})
-                  </div>
-                ` : ''}
-                ${docData.deliveryMethod ? `
-                  <div style="font-size: 11px; color: #64748b; margin-top: 6px;">
-                    Via: ${docData.deliveryMethod}
-                  </div>
-                ` : ''}
+                <div class="info-box-title">${rightBoxTitle}</div>
+                ${rightBoxContent}
               </div>
             </td>
           </tr>
@@ -286,20 +362,22 @@ export function generateGeneralDocumentHTML(docData: GeneralDocumentData, qrBase
         <table style="width: 100%; margin-top: 40px; border-collapse: collapse;">
           <tr>
             <td style="width: 50%; text-align: center; vertical-align: top; padding-right: 20px;">
-              <div style="font-size: 11px; color: #64748b; margin-bottom: 50px;">Diserahkan Oleh,</div>
-              <div style="border-bottom: 1px solid #0f172a; width: 70%; margin: 0 auto; padding-bottom: 2px; font-size: 11px; font-weight: 800; color: #0f172a; text-transform: uppercase;">
-                ${docData.officerName || 'SITI NUR AZIZAH'}
+              <div style="font-size: 11px; color: #64748b; margin-bottom: 50px;">${leftSigLabel}</div>
+              <div style="border-bottom: 1px solid #0f172a; width: 75%; margin: 0 auto; padding-bottom: 2px; font-size: 11px; font-weight: 800; color: #0f172a; text-transform: uppercase;">
+                ${leftSigName}
               </div>
               <div style="font-size: 10px; color: #64748b; margin-top: 4px;">
-                Tanda Tangan & Nama Terang
+                ${leftSigRole}
               </div>
             </td>
             <td style="width: 50%; text-align: center; vertical-align: top; padding-left: 20px;">
               <div style="font-size: 11px; color: #64748b;">${formatDateIndonesian(docData.date, false)}</div>
-              <div style="font-size: 11px; color: #64748b; margin-bottom: 50px;">Diterima Oleh,</div>
-              <div style="border-bottom: 1px solid #0f172a; width: 70%; margin: 0 auto; height: 16px;"></div>
+              <div style="font-size: 11px; color: #64748b; margin-bottom: ${rightSigName ? '50px' : '65px'};">${rightSigLabel}</div>
+              <div style="border-bottom: 1px solid #0f172a; width: 75%; margin: 0 auto; padding-bottom: 2px; font-size: 11px; font-weight: 800; color: #0f172a; text-transform: uppercase; min-height: 14px;">
+                ${rightSigName}
+              </div>
               <div style="font-size: 10px; color: #64748b; margin-top: 4px;">
-                Tanda Tangan & Stempel
+                ${rightSigRole}
               </div>
             </td>
           </tr>
@@ -377,43 +455,73 @@ export async function downloadGeneralDocumentPdf(docData: GeneralDocumentData, p
   doc.text(`Tanggal: ${formatDateIndonesian(docData.date, true)}`, 105, 44, { align: 'center' });
 
   // Boxes
+  const leftBoxLabel = isDelivery ? 'PENGIRIM' : 'YANG MENYERAHKAN';
   const rightBoxLabel = isDelivery ? 'UNTUK' : 'PENERIMA';
 
-  // Left Box (Pengirim)
+  // Left Box
   doc.setFillColor(248, 250, 252);
-  doc.rect(15, 49, 87, 24, 'F');
+  doc.rect(15, 49, 87, 26, 'F');
   doc.setFontSize(7.5);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(148, 163, 184);
-  doc.text('PENGIRIM', 18, 54);
-  doc.setFontSize(9.5);
-  doc.setTextColor(15, 23, 42);
-  doc.text('Notaris/PPAT Nukantini Putri\nParincha,SH.M.kn', 18, 60);
+  doc.text(leftBoxLabel, 18, 54);
 
-  // Right Box (Untuk)
+  if (isDelivery) {
+    doc.setFontSize(9.5);
+    doc.setTextColor(15, 23, 42);
+    doc.text('Notaris/PPAT Nukantini Putri\nParincha,SH.M.kn', 18, 60);
+  } else {
+    doc.setFontSize(9.5);
+    doc.setTextColor(15, 23, 42);
+    const clientDisplayName = docData.clientPic ? docData.clientPic.toUpperCase() : (docData.clientName ? docData.clientName.toUpperCase() : 'KLIEN');
+    doc.text(clientDisplayName, 18, 60);
+    let lY = 64;
+    if (docData.clientPic && docData.clientName) {
+      doc.setFontSize(8);
+      doc.setTextColor(71, 85, 105);
+      doc.text(`(${docData.clientName})`, 18, lY);
+      lY += 4;
+    }
+    if (docData.clientContact) {
+      doc.setFontSize(7.5);
+      doc.setTextColor(100, 116, 139);
+      doc.text(`Telp: ${docData.clientContact}`, 18, lY);
+    }
+  }
+
+  // Right Box
   doc.setFillColor(248, 250, 252);
-  doc.rect(108, 49, 87, 24, 'F');
+  doc.rect(108, 49, 87, 26, 'F');
   doc.setFontSize(7.5);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(148, 163, 184);
   doc.text(rightBoxLabel, 111, 54);
 
-  doc.setFontSize(9.5);
-  doc.setTextColor(15, 23, 42);
-  const recipientName = docData.clientPic ? docData.clientPic.toUpperCase() : docData.clientName.toUpperCase();
-  doc.text(recipientName, 111, 60);
+  if (isDelivery) {
+    doc.setFontSize(9.5);
+    doc.setTextColor(15, 23, 42);
+    const recipientName = docData.clientPic ? docData.clientPic.toUpperCase() : docData.clientName.toUpperCase();
+    doc.text(recipientName, 111, 60);
 
-  let rY = 64;
-  if (docData.clientPic && docData.clientName) {
-    doc.setFontSize(8);
-    doc.setTextColor(71, 85, 105);
-    doc.text(`(${docData.clientName})`, 111, rY);
-    rY += 4;
-  }
-  if (docData.deliveryMethod) {
-    doc.setFontSize(8);
+    let rY = 64;
+    if (docData.clientPic && docData.clientName) {
+      doc.setFontSize(8);
+      doc.setTextColor(71, 85, 105);
+      doc.text(`(${docData.clientName})`, 111, rY);
+      rY += 4;
+    }
+    if (docData.deliveryMethod) {
+      doc.setFontSize(8);
+      doc.setTextColor(100, 116, 139);
+      doc.text(`Via: ${docData.deliveryMethod}`, 111, rY);
+    }
+  } else {
+    doc.setFontSize(9.5);
+    doc.setTextColor(15, 23, 42);
+    doc.text('Notaris/PPAT Nukantini Putri\nParincha,SH.M.kn', 111, 60);
+    doc.setFontSize(7.5);
     doc.setTextColor(100, 116, 139);
-    doc.text(`Via: ${docData.deliveryMethod}`, 111, rY);
+    doc.text('Komplek PPR ITB F5, Lembang, KBB\nTelp: 08112007061', 111, 69);
   }
 
   // Items Table
@@ -424,7 +532,7 @@ export async function downloadGeneralDocumentPdf(docData: GeneralDocumentData, p
   ]);
 
   autoTable(doc, {
-    startY: 78,
+    startY: 80,
     head: [['No', 'Deskripsi Berkas / Barang', 'Keterangan']],
     body: tableData,
     theme: 'grid',
@@ -466,34 +574,54 @@ export async function downloadGeneralDocumentPdf(docData: GeneralDocumentData, p
   const sigY = finalY + boxHeight + 25;
 
   // Signatures
-  // Left: Diserahkan Oleh
+  // Left: Yang Menyerahkan / Diserahkan Oleh
+  const pdfLeftSigLabel = isDelivery ? 'Diserahkan Oleh,' : 'Yang Menyerahkan,';
+  const pdfLeftSigName = isDelivery
+    ? (docData.officerName || 'SITI NUR AZIZAH').toUpperCase()
+    : (docData.clientPic ? docData.clientPic.toUpperCase() : (docData.clientName ? docData.clientName.toUpperCase() : 'KLIEN'));
+  const pdfLeftSigSub = isDelivery ? 'Petugas Pengantar / Kantor' : 'Tanda Tangan & Nama Terang (Klien)';
+
   doc.setFontSize(8.5);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(100, 116, 139);
-  doc.text('Diserahkan Oleh,', 50, sigY, { align: 'center' });
+  doc.text(pdfLeftSigLabel, 50, sigY, { align: 'center' });
 
-  const officerName = docData.officerName || 'SITI NUR AZIZAH';
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(15, 23, 42);
-  doc.text(officerName.toUpperCase(), 50, sigY + 20, { align: 'center' });
+  doc.text(pdfLeftSigName, 50, sigY + 20, { align: 'center' });
   doc.setLineWidth(0.3);
   doc.setDrawColor(15, 23, 42);
-  doc.line(25, sigY + 21, 75, sigY + 21);
+  doc.line(20, sigY + 21, 80, sigY + 21);
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7.5);
   doc.setTextColor(100, 116, 139);
-  doc.text('Tanda Tangan & Nama Terang', 50, sigY + 25, { align: 'center' });
+  doc.text(pdfLeftSigSub, 50, sigY + 25, { align: 'center' });
 
   // Right: Diterima Oleh
+  const pdfRightSigLabel = 'Diterima Oleh,';
+  const pdfRightSigName = isDelivery
+    ? ''
+    : (docData.officerName || 'SITI NUR AZIZAH').toUpperCase();
+  const pdfRightSigSub = isDelivery
+    ? 'Tanda Tangan & Stempel (Penerima)'
+    : 'Petugas Penerima / Kantor Notaris & PPAT';
+
   doc.setFontSize(8.5);
   doc.setTextColor(100, 116, 139);
   doc.text(formatDateIndonesian(docData.date, false), 150, sigY - 5, { align: 'center' });
-  doc.text('Diterima Oleh,', 150, sigY, { align: 'center' });
+  doc.text(pdfRightSigLabel, 150, sigY, { align: 'center' });
 
-  doc.line(125, sigY + 21, 175, sigY + 21);
+  if (pdfRightSigName) {
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(15, 23, 42);
+    doc.text(pdfRightSigName, 150, sigY + 20, { align: 'center' });
+  }
+  doc.line(120, sigY + 21, 180, sigY + 21);
+  doc.setFont('helvetica', 'normal');
   doc.setFontSize(7.5);
-  doc.text('Tanda Tangan & Stempel', 150, sigY + 25, { align: 'center' });
+  doc.setTextColor(100, 116, 139);
+  doc.text(pdfRightSigSub, 150, sigY + 25, { align: 'center' });
 
   doc.save(filename);
 }

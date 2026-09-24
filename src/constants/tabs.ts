@@ -21,6 +21,20 @@ export const TAB_ACCENTS: Record<SidebarTabId, {
     hoverBg: 'hover:bg-emerald-50/40 hover:text-emerald-950',
     indicatorBg: 'bg-emerald-600'
   },
+  ppat_deeds: {
+    iconColor: 'text-teal-600',
+    textColor: 'text-teal-900',
+    bgColor: 'bg-teal-50/70',
+    hoverBg: 'hover:bg-teal-50/40 hover:text-teal-950',
+    indicatorBg: 'bg-teal-600'
+  },
+  kalkulator_ppat: {
+    iconColor: 'text-emerald-600',
+    textColor: 'text-emerald-900',
+    bgColor: 'bg-emerald-50/70',
+    hoverBg: 'hover:bg-emerald-50/40 hover:text-emerald-950',
+    indicatorBg: 'bg-emerald-600'
+  },
   projects: {
     iconColor: 'text-emerald-600',
     textColor: 'text-emerald-900',
@@ -290,6 +304,8 @@ export const TAB_TO_PATH: Record<string, string> = {
   'receipt': '/tanda-terima',
   'deposit_note': '/deposit_note',
   'laporan_ppat': '/laporan-ppat',
+  'ppat_deeds': '/daftar-akta-ppat',
+  'kalkulator_ppat': '/kalkulator-ppat',
   'ppat': '/ppat',
   'surat_bo': '/surat-bo'
 };
@@ -298,6 +314,13 @@ export const PATH_TO_TAB: Record<string, SidebarTabId> = {
   ...Object.fromEntries(
     Object.entries(TAB_TO_PATH).map(([tab, path]) => [path, tab as SidebarTabId])
   ),
+  '/kalkulator-ppat': 'kalkulator_ppat',
+  '/kalkulator_ppat': 'kalkulator_ppat',
+  '/ppat-calculator': 'kalkulator_ppat',
+  '/hitung-biaya-ppat': 'kalkulator_ppat',
+  '/daftar-akta-ppat': 'ppat_deeds',
+  '/ppat-deeds': 'ppat_deeds',
+  '/buku-akta-ppat': 'ppat_deeds',
   '/laporan-ppat': 'laporan_ppat',
   '/laporan_ppat': 'laporan_ppat',
   '/ppat-report': 'laporan_ppat',
@@ -335,6 +358,8 @@ export const RESERVED_PATHS = new Set([
   '/incoming-mails', '/surat-masuk',
   '/outgoing-mails', '/surat-keluar',
   '/general-documents', '/surat-jalan',
+  '/daftar-akta-ppat', '/ppat-deeds', '/buku-akta-ppat',
+  '/kalkulator-ppat', '/ppat-calculator',
   '/tanda-terima', '/receipt',
   '/deposit_note', '/deposit-notes', '/deposit_notes',
   '/surat-bo', '/surat_bo',

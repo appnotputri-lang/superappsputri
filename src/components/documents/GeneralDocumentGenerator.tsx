@@ -54,9 +54,12 @@ export const GeneralDocumentGenerator: React.FC<GeneralDocumentGeneratorProps> =
     badgeIcon: isDelivery ? Package : FileCheck,
     badgeColor: isDelivery ? 'text-orange-600 bg-orange-100/80 border-orange-200' : 'text-emerald-600 bg-emerald-100/80 border-emerald-200',
     primaryBtnColor: isDelivery ? 'bg-orange-600 hover:bg-orange-700 text-white' : 'bg-emerald-600 hover:bg-emerald-700 text-white',
+    leftBoxLabel: isDelivery ? 'PENGIRIM' : 'YANG MENYERAHKAN',
     rightBoxLabel: isDelivery ? 'UNTUK' : 'PENERIMA',
-    officerLabel: isDelivery ? 'Nama Petugas Pengantar' : 'Nama Petugas Penerima',
+    officerLabel: isDelivery ? 'Nama Petugas Pengantar' : 'Nama Petugas Penerima di Kantor',
     officerShortLabel: isDelivery ? 'Petugas Pengantar' : 'Petugas Penerima',
+    clientSectionTitle: isDelivery ? 'Data Klien & Tujuan Pengiriman' : 'Data Klien (Yang Menyerahkan Berkas)',
+    tableClientHeader: isDelivery ? 'Klien / Penerima' : 'Klien (Yang Menyerahkan)',
     refPrefix: isDelivery ? 'SJ' : 'TT',
   };
 
@@ -550,10 +553,10 @@ export const GeneralDocumentGenerator: React.FC<GeneralDocumentGeneratorProps> =
         `Hormat kami,\nNotaris/PPAT Nukantini Putri Parincha, SH. M.Kn`;
     } else {
       message = `Yth. ${docData.clientName},\n\n` +
-        `Berikut kami sampaikan *Tanda Terima Berkas* (No: ${docData.referenceNo}) atas penerimaan dokumen di Kantor Notaris/PPAT Nukantini Putri Parincha, SH. M.Kn:\n\n` +
+        `Berikut kami sampaikan *Tanda Terima Berkas* (No: ${docData.referenceNo}) atas berkas/dokumen yang diserahkan kepada Kantor Notaris/PPAT Nukantini Putri Parincha, SH. M.Kn:\n\n` +
         `*Daftar Berkas/Dokumen yang Diterima:*\n${itemsText}\n\n` +
-        `*Petugas Penerima:* ${docData.officerName || '-'}\n\n` +
-        `Detail dokumen PDF & bukti penerimaan resmi dapat diakses di:\n${publicUrl}\n\n` +
+        `*Petugas Penerima di Kantor:* ${docData.officerName || '-'}\n\n` +
+        `Detail dokumen PDF & bukti tanda terima resmi dapat diakses di:\n${publicUrl}\n\n` +
         `Atas perhatian dan kerja samanya, kami ucapkan terima kasih.\n\n` +
         `Hormat kami,\nNotaris/PPAT Nukantini Putri Parincha, SH. M.Kn`;
     }
@@ -838,7 +841,7 @@ export const GeneralDocumentGenerator: React.FC<GeneralDocumentGeneratorProps> =
                             )}
                           </div>
                         </th>
-                        <th className="p-3.5">Klien / Penerima</th>
+                        <th className="p-3.5">{config.tableClientHeader}</th>
                         <th className="p-3.5">{config.officerShortLabel}</th>
                         <th className="p-3.5 text-center">Jumlah Berkas</th>
                         {isDelivery && <th className="p-3.5">Metode Pengiriman</th>}
@@ -1086,7 +1089,7 @@ export const GeneralDocumentGenerator: React.FC<GeneralDocumentGeneratorProps> =
               {/* SECTION 2: KLIEN & PETUGAS */}
               <div className="bg-slate-50/80 p-4 rounded-xl border border-slate-200/80 space-y-4">
                 <div className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center justify-between">
-                  <span>Data Klien & Penerima</span>
+                  <span>{config.clientSectionTitle}</span>
                   <span className="text-[10px] text-slate-400 font-normal">Pilih master atau ketik manual</span>
                 </div>
 
@@ -1464,22 +1467,66 @@ export const GeneralDocumentGenerator: React.FC<GeneralDocumentGeneratorProps> =
               {/* SENDER & RECEIVER BOXES */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
                 <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
-                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">PENGIRIM</div>
-                  <div className="text-xs font-extrabold text-slate-900 leading-snug">
-                    Notaris/PPAT Nukantini Putri Parincha,SH.M.kn
-                  </div>
+                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">{config.leftBoxLabel}</div>
+                  {isDelivery ? (
+                    <div>
+                      <div className="text-xs font-extrabold text-slate-900 leading-snug">
+                        Notaris/PPAT Nukantini Putri Parincha,SH.M.kn
+                      </div>
+                      <div className="text-[11px] text-slate-500 mt-1">
+                        Komplek PPR ITB F5, Mekarwangi, Lembang
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                      <div className="text-xs font-extrabold text-slate-900 uppercase leading-snug">
+                        {selectedDoc.clientPic ? selectedDoc.clientPic.toUpperCase() : (selectedDoc.clientName ? selectedDoc.clientName.toUpperCase() : 'KLIEN')}
+                      </div>
+                      {selectedDoc.clientPic && selectedDoc.clientName && (
+                        <div className="text-xs font-bold text-slate-600 uppercase mt-0.5">({selectedDoc.clientName})</div>
+                      )}
+                      {selectedDoc.clientAddress && (
+                        <div className="text-[11px] text-slate-500 mt-1">{selectedDoc.clientAddress}</div>
+                      )}
+                      {selectedDoc.clientContact && (
+                        <div className="text-[11px] text-slate-500 mt-0.5">Telp: {selectedDoc.clientContact}</div>
+                      )}
+                      {selectedDoc.deliveryMethod && (
+                        <div className="text-[11px] text-slate-500 mt-0.5">Via: {selectedDoc.deliveryMethod}</div>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
                   <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">{config.rightBoxLabel}</div>
-                  <div className="text-xs font-extrabold text-slate-900 uppercase leading-snug">
-                    {selectedDoc.clientPic ? selectedDoc.clientPic.toUpperCase() : selectedDoc.clientName.toUpperCase()}
-                  </div>
-                  {selectedDoc.clientPic && selectedDoc.clientName && (
-                    <div className="text-xs font-bold text-slate-600 uppercase mt-0.5">({selectedDoc.clientName})</div>
-                  )}
-                  {selectedDoc.deliveryMethod && (
-                    <div className="text-xs text-slate-500 mt-1">Via: {selectedDoc.deliveryMethod}</div>
+                  {isDelivery ? (
+                    <div>
+                      <div className="text-xs font-extrabold text-slate-900 uppercase leading-snug">
+                        {selectedDoc.clientPic ? selectedDoc.clientPic.toUpperCase() : selectedDoc.clientName.toUpperCase()}
+                      </div>
+                      {selectedDoc.clientPic && selectedDoc.clientName && (
+                        <div className="text-xs font-bold text-slate-600 uppercase mt-0.5">({selectedDoc.clientName})</div>
+                      )}
+                      {selectedDoc.clientAddress && (
+                        <div className="text-[11px] text-slate-500 mt-1">{selectedDoc.clientAddress}</div>
+                      )}
+                      {selectedDoc.deliveryMethod && (
+                        <div className="text-xs text-slate-500 mt-1">Via: {selectedDoc.deliveryMethod}</div>
+                      )}
+                    </div>
+                  ) : (
+                    <div>
+                      <div className="text-xs font-extrabold text-slate-900 leading-snug">
+                        Notaris/PPAT Nukantini Putri Parincha,SH.M.kn
+                      </div>
+                      <div className="text-[11px] text-slate-500 mt-1">
+                        Komplek PPR ITB F5, Dago Giri, Mekarwangi, Lembang, Bandung Barat
+                      </div>
+                      <div className="text-[11px] text-slate-500 mt-0.5">
+                        Email: notarisppatputri@gmail.com | Telp: 08112007061
+                      </div>
+                    </div>
                   )}
                 </div>
               </div>
@@ -1514,18 +1561,28 @@ export const GeneralDocumentGenerator: React.FC<GeneralDocumentGeneratorProps> =
               {/* SIGNATURES */}
               <div className="grid grid-cols-2 gap-8 text-center pt-2">
                 <div>
-                  <div className="text-xs text-slate-500 mb-14">Diserahkan Oleh,</div>
-                  <div className="w-3/4 mx-auto border-b border-slate-900 pb-0.5 text-xs font-extrabold text-slate-900 uppercase">
-                    {selectedDoc.officerName || 'SITI NUR AZIZAH'}
+                  <div className="text-xs text-slate-500 mb-14">
+                    {isDelivery ? 'Diserahkan Oleh,' : 'Yang Menyerahkan,'}
                   </div>
-                  <div className="text-[10px] text-slate-400 mt-1">Tanda Tangan & Nama Terang</div>
+                  <div className="w-3/4 mx-auto border-b border-slate-900 pb-0.5 text-xs font-extrabold text-slate-900 uppercase">
+                    {isDelivery
+                      ? (selectedDoc.officerName || 'SITI NUR AZIZAH')
+                      : (selectedDoc.clientPic ? selectedDoc.clientPic.toUpperCase() : (selectedDoc.clientName ? selectedDoc.clientName.toUpperCase() : 'KLIEN'))}
+                  </div>
+                  <div className="text-[10px] text-slate-400 mt-1">
+                    {isDelivery ? 'Petugas Pengantar / Kantor' : 'Tanda Tangan & Nama Terang (Klien)'}
+                  </div>
                 </div>
 
                 <div>
                   <div className="text-xs text-slate-500">{formatDateIndonesian(selectedDoc.date, false)}</div>
                   <div className="text-xs text-slate-500 mb-14">Diterima Oleh,</div>
-                  <div className="w-3/4 mx-auto border-b border-slate-900 h-4"></div>
-                  <div className="text-[10px] text-slate-400 mt-1">Tanda Tangan & Stempel</div>
+                  <div className="w-3/4 mx-auto border-b border-slate-900 pb-0.5 text-xs font-extrabold text-slate-900 uppercase min-h-[20px]">
+                    {!isDelivery ? (selectedDoc.officerName || 'SITI NUR AZIZAH').toUpperCase() : ''}
+                  </div>
+                  <div className="text-[10px] text-slate-400 mt-1">
+                    {isDelivery ? 'Tanda Tangan & Stempel (Penerima)' : 'Petugas Penerima / Kantor Notaris & PPAT'}
+                  </div>
                 </div>
               </div>
             </div>

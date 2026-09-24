@@ -20,6 +20,9 @@ import {
   FileCheck,
   Banknote,
   FileSpreadsheet,
+  BookCheck,
+  Scale,
+  Calculator,
   Settings as SettingsIcon,
   ChevronDown,
   ChevronRight,
@@ -86,7 +89,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
       return ['beranda', 'company_profile', 'projects', 'project_detail', 'laporan'].includes(activeTab);
     }
     if (sectionId === 'notaris_dan_akta') {
-      return ['deeds', 'private_deeds', 'notary_reports', 'laporan_ppat', 'incoming_mail', 'outgoing_mail'].includes(activeTab);
+      return ['deeds', 'private_deeds', 'notary_reports', 'incoming_mail', 'outgoing_mail'].includes(activeTab);
+    }
+    if (sectionId === 'ppat') {
+      return ['ppat_deeds', 'laporan_ppat', 'kalkulator_ppat', 'ppat'].includes(activeTab);
     }
     if (sectionId === 'keuangan') {
       return ['invoice', 'products', 'quotation', 'delivery', 'receipt', 'deposit_note'].includes(activeTab);
@@ -113,6 +119,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [collapsedSections, setCollapsedSections] = React.useState<Record<string, boolean>>(() => ({
     menu_utama: !isSectionActive('menu_utama', activeSidebarTab),
     notaris_dan_akta: !isSectionActive('notaris_dan_akta', activeSidebarTab),
+    ppat: !isSectionActive('ppat', activeSidebarTab),
     keuangan: !isSectionActive('keuangan', activeSidebarTab),
     referensi_dan_alat: !isSectionActive('referensi_dan_alat', activeSidebarTab),
     sistem: !isSectionActive('sistem', activeSidebarTab),
@@ -123,6 +130,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       const next = { ...prev };
       if (isSectionActive('menu_utama', activeSidebarTab)) next.menu_utama = false;
       if (isSectionActive('notaris_dan_akta', activeSidebarTab)) next.notaris_dan_akta = false;
+      if (isSectionActive('ppat', activeSidebarTab)) next.ppat = false;
       if (isSectionActive('keuangan', activeSidebarTab)) next.keuangan = false;
       if (isSectionActive('referensi_dan_alat', activeSidebarTab)) next.referensi_dan_alat = false;
       if (isSectionActive('sistem', activeSidebarTab)) next.sistem = false;
@@ -137,6 +145,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         const next: Record<string, boolean> = {
           menu_utama: true,
           notaris_dan_akta: true,
+          ppat: true,
           keuangan: true,
           referensi_dan_alat: true,
           sistem: true,
@@ -175,9 +184,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
         { label: 'Buku Daftar Akta', id: 'deeds', icon: BookOpen, requiresAuth: true },
         { label: 'Buku Legalisasi & Waarmerking', id: 'private_deeds', icon: ShieldCheck, requiresAuth: true },
         { label: 'Laporan Notaris', id: 'notary_reports', icon: BookMarked, requiresAuth: true },
-        { label: 'Laporan PPAT', id: 'laporan_ppat', icon: FileSpreadsheet, requiresAuth: true },
         { label: 'Surat Masuk', id: 'incoming_mail', icon: Inbox, requiresAuth: true },
         { label: 'Surat Keluar', id: 'outgoing_mail', icon: Send, requiresAuth: true },
+      ]
+    },
+    {
+      id: 'ppat',
+      title: 'PPAT',
+      groupIcon: Scale,
+      badgeColor: 'bg-teal-50 border border-teal-100',
+      badgeTextColor: 'text-teal-700',
+      items: [
+        { label: 'Daftar Akta PPAT', id: 'ppat_deeds', icon: BookCheck, requiresAuth: true },
+        { label: 'Laporan PPAT', id: 'laporan_ppat', icon: FileSpreadsheet, requiresAuth: true },
+        { label: 'Kalkulator Biaya PPAT', id: 'kalkulator_ppat', icon: Calculator, requiresAuth: true },
       ]
     },
     {

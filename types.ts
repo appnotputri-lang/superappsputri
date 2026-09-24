@@ -777,7 +777,7 @@ export interface DepositNote {
 
 export * from './src/types/agenda';
 
-export type SidebarTabId = 'beranda' | 'agenda' | 'company_profile' | 'cv_profile' | 'notulen' | 'pendirian' | 'rupst' | 'perbaikan' | 'draft_akta_rups' | 'panduan' | 'kbli_mapping' | 'saran_kbli' | 'import_kbli' | 'laporan' | 'whatsapp_settings' | 'projects' | 'project_detail' | 'user_management' | 'notary_reports' | 'laporan_ppat' | 'invoice' | 'quotation' | 'deeds' | 'private_deeds' | 'protest_cheque' | 'outgoing_mail' | 'incoming_mail' | 'stamp_settings' | 'delivery' | 'receipt' | 'products' | 'settings' | 'deposit_note' | 'ppat' | 'surat_bo';
+export type SidebarTabId = 'beranda' | 'agenda' | 'company_profile' | 'cv_profile' | 'notulen' | 'pendirian' | 'rupst' | 'perbaikan' | 'draft_akta_rups' | 'panduan' | 'kbli_mapping' | 'saran_kbli' | 'import_kbli' | 'laporan' | 'whatsapp_settings' | 'projects' | 'project_detail' | 'user_management' | 'notary_reports' | 'laporan_ppat' | 'ppat_deeds' | 'kalkulator_ppat' | 'invoice' | 'quotation' | 'deeds' | 'private_deeds' | 'protest_cheque' | 'outgoing_mail' | 'incoming_mail' | 'stamp_settings' | 'delivery' | 'receipt' | 'products' | 'settings' | 'deposit_note' | 'ppat' | 'surat_bo';
 
 // ==========================================
 // PENDIRIAN CV (PERSEKUTUAN KOMANDITER) TYPES

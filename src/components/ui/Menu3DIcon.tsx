@@ -327,6 +327,69 @@ export const Menu3DIcon: React.FC<Menu3DIconProps> = ({
         ));
 
       // ==========================================
+      // 3.5. PPAT SUBITEMS & GROUP
+      // ==========================================
+      case 'ppat':
+      case 'ppat_group':
+        return renderBaseIcon('#ecfdf5', '#ccfbf1', '#99f6e4', '#065f46', (
+          <>
+            {/* Scale of Justice & Land Plot */}
+            <path d="M24 10V36M15 14H33M15 14L11 23H19L15 14ZM33 14L29 23H37L33 14Z" stroke="#0d9488" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M19 36H29" stroke="#0d9488" strokeWidth="2.5" strokeLinecap="round" />
+            <circle cx="24" cy="10" r="2.5" fill="#0f766e" />
+          </>
+        ));
+
+      case 'ppat_deeds':
+      case 'daftar_akta_ppat':
+        return renderBaseIcon('#f0fdf4', '#dcfce7', '#bbf7d0', '#14532d', (
+          <>
+            {/* Deed Document with Seal */}
+            <rect x="13" y="11" width="22" height="26" rx="3" fill="#15803d" />
+            <line x1="17" y1="16" x2="27" y2="16" stroke="#ffffff" strokeWidth="2" strokeLinecap="round" />
+            <line x1="17" y1="21" x2="29" y2="21" stroke="#bbf7d0" strokeWidth="1.5" strokeLinecap="round" />
+            <line x1="17" y1="25" x2="25" y2="25" stroke="#bbf7d0" strokeWidth="1.5" strokeLinecap="round" />
+            {/* Golden Land Seal Badge */}
+            <circle cx="28" cy="30" r="5" fill="#eab308" stroke="#ffffff" strokeWidth="1.5" />
+            <path d="M26 30L27.5 31.5L30 28.5" stroke="#713f12" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+          </>
+        ));
+
+      case 'laporan_ppat':
+      case 'ppat_report':
+        return renderBaseIcon('#ecfdf5', '#d1fae5', '#a7f3d0', '#064e3b', (
+          <>
+            {/* Spreadsheet Table Sheet */}
+            <rect x="12" y="12" width="24" height="24" rx="3" fill="#047857" />
+            <rect x="15" y="16" width="18" height="4" rx="1" fill="#10b981" />
+            <line x1="15" y1="23" x2="33" y2="23" stroke="#a7f3d0" strokeWidth="1.5" strokeLinecap="round" />
+            <line x1="15" y1="27" x2="33" y2="27" stroke="#a7f3d0" strokeWidth="1.5" strokeLinecap="round" />
+            <line x1="15" y1="31" x2="33" y2="31" stroke="#a7f3d0" strokeWidth="1.5" strokeLinecap="round" />
+            <line x1="21" y1="20" x2="21" y2="33" stroke="#a7f3d0" strokeWidth="1.5" strokeLinecap="round" />
+            <line x1="27" y1="20" x2="27" y2="33" stroke="#a7f3d0" strokeWidth="1.5" strokeLinecap="round" />
+          </>
+        ));
+
+      case 'kalkulator_ppat':
+      case 'ppat_calculator':
+        return renderBaseIcon('#f0fdfa', '#ccfbf1', '#99f6e4', '#0f766e', (
+          <>
+            {/* Calculator body with screen and buttons */}
+            <rect x="12" y="10" width="24" height="28" rx="4" fill="#0d9488" />
+            <rect x="15" y="13" width="18" height="6" rx="1.5" fill="#115e59" />
+            <line x1="17" y1="16" x2="29" y2="16" stroke="#5eead4" strokeWidth="1.5" strokeLinecap="round" />
+            {/* 6 grid keys */}
+            <rect x="15" y="22" width="4" height="3" rx="0.8" fill="#5eead4" />
+            <rect x="22" y="22" width="4" height="3" rx="0.8" fill="#5eead4" />
+            <rect x="29" y="22" width="4" height="3" rx="0.8" fill="#f59e0b" />
+            <rect x="15" y="28" width="4" height="3" rx="0.8" fill="#5eead4" />
+            <rect x="22" y="28" width="4" height="3" rx="0.8" fill="#5eead4" />
+            <rect x="29" y="28" width="4" height="7" rx="0.8" fill="#10b981" />
+            <rect x="15" y="33" width="11" height="3" rx="0.8" fill="#5eead4" />
+          </>
+        ));
+
+      // ==========================================
       // 4. KEUANGAN SUBITEMS
       // ==========================================
       case 'invoice':

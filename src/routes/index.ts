@@ -9,6 +9,8 @@ import { renderTrackingRoute } from './tracking.routes';
 import { renderSharedRoute } from './shared.routes';
 import { renderNotaryReportRoute } from './notaryReport.routes';
 import { renderPpatReportRoute } from './ppatReport.routes';
+import { renderPpatDeedBookRoute } from './ppatDeedBook.routes';
+import { renderPpatCalculatorRoute } from './ppatCalculator.routes';
 import { renderInvoiceRoute } from './invoice.routes';
 import { renderProductRoute } from './products.routes';
 import { renderQuotationRoute } from './quotation.routes';
@@ -45,6 +47,14 @@ export const renderAppRoute = (currentTab: string, props: any) => {
 
   if (currentTab === 'laporan_ppat') {
     return renderPpatReportRoute();
+  }
+
+  if (currentTab === 'ppat_deeds') {
+    return renderPpatDeedBookRoute(props);
+  }
+
+  if (currentTab === 'kalkulator_ppat') {
+    return renderPpatCalculatorRoute(props);
   }
 
   if (currentTab === 'invoice') {

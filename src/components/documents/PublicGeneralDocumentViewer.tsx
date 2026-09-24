@@ -48,6 +48,7 @@ export const PublicGeneralDocumentViewer: React.FC = () => {
 
   const isDelivery = docData.docType === 'DELIVERY';
   const docTitle = isDelivery ? 'SURAT JALAN DOKUMEN' : 'TANDA TERIMA BERKAS';
+  const leftBoxLabel = isDelivery ? 'PENGIRIM' : 'YANG MENYERAHKAN';
   const rightBoxLabel = isDelivery ? 'UNTUK' : 'PENERIMA';
 
   return (
@@ -105,22 +106,66 @@ export const PublicGeneralDocumentViewer: React.FC = () => {
           {/* BOXES */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
             <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
-              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">PENGIRIM</div>
-              <div className="text-xs font-extrabold text-slate-900 leading-snug">
-                Notaris/PPAT Nukantini Putri Parincha,SH.M.kn
-              </div>
+              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">{leftBoxLabel}</div>
+              {isDelivery ? (
+                <div>
+                  <div className="text-xs font-extrabold text-slate-900 leading-snug">
+                    Notaris/PPAT Nukantini Putri Parincha,SH.M.kn
+                  </div>
+                  <div className="text-[11px] text-slate-500 mt-1">
+                    Komplek PPR ITB F5, Mekarwangi, Lembang
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <div className="text-xs font-extrabold text-slate-900 uppercase leading-snug">
+                    {docData.clientPic ? docData.clientPic.toUpperCase() : (docData.clientName ? docData.clientName.toUpperCase() : 'KLIEN')}
+                  </div>
+                  {docData.clientPic && docData.clientName && (
+                    <div className="text-xs font-bold text-slate-600 uppercase mt-0.5">({docData.clientName})</div>
+                  )}
+                  {docData.clientAddress && (
+                    <div className="text-[11px] text-slate-500 mt-1">{docData.clientAddress}</div>
+                  )}
+                  {docData.clientContact && (
+                    <div className="text-[11px] text-slate-500 mt-0.5">Telp: {docData.clientContact}</div>
+                  )}
+                  {docData.deliveryMethod && (
+                    <div className="text-[11px] text-slate-500 mt-0.5">Via: {docData.deliveryMethod}</div>
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
               <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">{rightBoxLabel}</div>
-              <div className="text-xs font-extrabold text-slate-900 uppercase leading-snug">
-                {docData.clientPic ? docData.clientPic.toUpperCase() : docData.clientName.toUpperCase()}
-              </div>
-              {docData.clientPic && docData.clientName && (
-                <div className="text-xs font-bold text-slate-600 uppercase mt-0.5">({docData.clientName})</div>
-              )}
-              {docData.deliveryMethod && (
-                <div className="text-xs text-slate-500 mt-1">Via: {docData.deliveryMethod}</div>
+              {isDelivery ? (
+                <div>
+                  <div className="text-xs font-extrabold text-slate-900 uppercase leading-snug">
+                    {docData.clientPic ? docData.clientPic.toUpperCase() : docData.clientName.toUpperCase()}
+                  </div>
+                  {docData.clientPic && docData.clientName && (
+                    <div className="text-xs font-bold text-slate-600 uppercase mt-0.5">({docData.clientName})</div>
+                  )}
+                  {docData.clientAddress && (
+                    <div className="text-[11px] text-slate-500 mt-1">{docData.clientAddress}</div>
+                  )}
+                  {docData.deliveryMethod && (
+                    <div className="text-xs text-slate-500 mt-1">Via: {docData.deliveryMethod}</div>
+                  )}
+                </div>
+              ) : (
+                <div>
+                  <div className="text-xs font-extrabold text-slate-900 leading-snug">
+                    Notaris/PPAT Nukantini Putri Parincha,SH.M.kn
+                  </div>
+                  <div className="text-[11px] text-slate-500 mt-1">
+                    Komplek PPR ITB F5, Dago Giri, Mekarwangi, Lembang, Bandung Barat
+                  </div>
+                  <div className="text-[11px] text-slate-500 mt-0.5">
+                    Email: notarisppatputri@gmail.com | Telp: 08112007061
+                  </div>
+                </div>
               )}
             </div>
           </div>
@@ -155,18 +200,28 @@ export const PublicGeneralDocumentViewer: React.FC = () => {
           {/* SIGNATURES */}
           <div className="grid grid-cols-2 gap-8 text-center pt-2">
             <div>
-              <div className="text-xs text-slate-500 mb-14">Diserahkan Oleh,</div>
-              <div className="w-3/4 mx-auto border-b border-slate-900 pb-0.5 text-xs font-extrabold text-slate-900 uppercase">
-                {docData.officerName || 'SITI NUR AZIZAH'}
+              <div className="text-xs text-slate-500 mb-14">
+                {isDelivery ? 'Diserahkan Oleh,' : 'Yang Menyerahkan,'}
               </div>
-              <div className="text-[10px] text-slate-400 mt-1">Tanda Tangan & Nama Terang</div>
+              <div className="w-3/4 mx-auto border-b border-slate-900 pb-0.5 text-xs font-extrabold text-slate-900 uppercase">
+                {isDelivery
+                  ? (docData.officerName || 'SITI NUR AZIZAH')
+                  : (docData.clientPic ? docData.clientPic.toUpperCase() : (docData.clientName ? docData.clientName.toUpperCase() : 'KLIEN'))}
+              </div>
+              <div className="text-[10px] text-slate-400 mt-1">
+                {isDelivery ? 'Petugas Pengantar / Kantor' : 'Tanda Tangan & Nama Terang (Klien)'}
+              </div>
             </div>
 
             <div>
               <div className="text-xs text-slate-500">{formatDateIndonesian(docData.date, false)}</div>
               <div className="text-xs text-slate-500 mb-14">Diterima Oleh,</div>
-              <div className="w-3/4 mx-auto border-b border-slate-900 h-4"></div>
-              <div className="text-[10px] text-slate-400 mt-1">Tanda Tangan & Stempel</div>
+              <div className="w-3/4 mx-auto border-b border-slate-900 pb-0.5 text-xs font-extrabold text-slate-900 uppercase min-h-[20px]">
+                {!isDelivery ? (docData.officerName || 'SITI NUR AZIZAH').toUpperCase() : ''}
+              </div>
+              <div className="text-[10px] text-slate-400 mt-1">
+                {isDelivery ? 'Tanda Tangan & Stempel (Penerima)' : 'Petugas Penerima / Kantor Notaris & PPAT'}
+              </div>
             </div>
           </div>
         </div>

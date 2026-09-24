@@ -16,6 +16,8 @@ import {
   AlertTriangle,
   ChevronLeft,
   ChevronRight,
+  BookCheck,
+  ArrowUpRight,
   Sparkles
 } from 'lucide-react';
 import { PpatDeed, Holiday, DailyReportRow, PpatProfileConfig, DEFAULT_PPAT_PROFILE } from '../../types/ppat';
@@ -268,6 +270,14 @@ export const PpatReportPage: React.FC = () => {
 
             {/* Action Buttons */}
             <div className="flex flex-wrap items-center gap-2">
+              <a
+                href="/daftar-akta-ppat"
+                className="px-3.5 py-1.5 text-xs font-semibold text-teal-900 bg-teal-50 border border-teal-200 hover:bg-teal-100 rounded-lg shadow-xs flex items-center gap-1.5 transition-colors"
+                title="Buka Buku Daftar Akta PPAT"
+              >
+                <BookCheck className="w-4 h-4 text-teal-700" /> Buku Daftar Akta
+              </a>
+
               <button
                 onClick={() => {
                   setEditingDeed(null);

@@ -118,6 +118,13 @@ import {
   updatePpatSettingsD1
 } from "./src/lib/d1PpatRepository";
 import {
+  getAllPpatCalculationsD1,
+  getPpatCalculationByIdD1,
+  createPpatCalculationD1,
+  updatePpatCalculationD1,
+  deletePpatCalculationD1
+} from "./src/lib/d1PpatCalculatorRepository";
+import {
   getVapidKeys,
   savePushSubscription,
   deletePushSubscription,
@@ -1282,6 +1289,75 @@ async function startServer() {
     } catch (err: any) {
       console.error("[PPAT Settings D1 API] Error saving settings:", err);
       res.status(500).json({ success: false, error: err?.message || "Failed to save PPAT settings" });
+    }
+  });
+
+  // ==================================================
+  // D1 PPAT CALCULATOR ENDPOINTS
+  // ==================================================
+  app.get("/api/ppat-calculations", async (req, res) => {
+    try {
+      const db = getLocalD1Database();
+      const records = await getAllPpatCalculationsD1(db);
+      res.json({ success: true, records, total: records.length });
+    } catch (err: any) {
+      console.error("[PPAT Calculator D1 API] Error fetching calculations:", err);
+      res.status(500).json({ success: false, error: err?.message || "Failed to fetch PPAT calculations" });
+    }
+  });
+
+  app.get("/api/ppat-calculations/:id", async (req, res) => {
+    try {
+      const db = getLocalD1Database();
+      const id = req.params.id;
+      const record = await getPpatCalculationByIdD1(db, id);
+      if (!record) {
+        return res.status(404).json({ success: false, error: "Calculation not found" });
+      }
+      res.json({ success: true, record });
+    } catch (err: any) {
+      console.error("[PPAT Calculator D1 API] Error fetching calculation by ID:", err);
+      res.status(500).json({ success: false, error: err?.message || "Failed to fetch PPAT calculation" });
+    }
+  });
+
+  app.post("/api/ppat-calculations", async (req, res) => {
+    try {
+      const db = getLocalD1Database();
+      const payload = req.body || {};
+      const record = await createPpatCalculationD1(db, payload);
+      res.status(201).json({ success: true, record });
+    } catch (err: any) {
+      console.error("[PPAT Calculator D1 API] Error creating calculation:", err);
+      res.status(500).json({ success: false, error: err?.message || "Failed to create PPAT calculation" });
+    }
+  });
+
+  app.put("/api/ppat-calculations/:id", async (req, res) => {
+    try {
+      const db = getLocalD1Database();
+      const id = req.params.id;
+      const payload = req.body || {};
+      const record = await updatePpatCalculationD1(db, id, payload);
+      if (!record) {
+        return res.status(404).json({ success: false, error: "Calculation not found" });
+      }
+      res.json({ success: true, record });
+    } catch (err: any) {
+      console.error("[PPAT Calculator D1 API] Error updating calculation:", err);
+      res.status(500).json({ success: false, error: err?.message || "Failed to update PPAT calculation" });
+    }
+  });
+
+  app.delete("/api/ppat-calculations/:id", async (req, res) => {
+    try {
+      const db = getLocalD1Database();
+      const id = req.params.id;
+      const success = await deletePpatCalculationD1(db, id);
+      res.json({ success });
+    } catch (err: any) {
+      console.error("[PPAT Calculator D1 API] Error deleting calculation:", err);
+      res.status(500).json({ success: false, error: err?.message || "Failed to delete PPAT calculation" });
     }
   });
 

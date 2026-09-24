@@ -445,6 +445,36 @@ export async function ensureD1TablesExist(db: any) {
     );
   `).run();
 
+  // 18. PPAT Calculations table (Kalkulator Biaya PPAT D1)
+  await db.prepare(`
+    CREATE TABLE IF NOT EXISTS ppat_calculations (
+      id TEXT PRIMARY KEY,
+      title TEXT NOT NULL,
+      transaction_type TEXT NOT NULL DEFAULT 'AJB',
+      certificate_type TEXT,
+      certificate_number TEXT,
+      village TEXT,
+      nop TEXT,
+      land_area REAL DEFAULT 0,
+      land_njop_per_m2 REAL DEFAULT 0,
+      building_area REAL DEFAULT 0,
+      building_njop_per_m2 REAL DEFAULT 0,
+      use_market_estimation INTEGER DEFAULT 0,
+      transaction_value REAL DEFAULT 0,
+      party_count TEXT DEFAULT '1',
+      npoptkp REAL DEFAULT 80000000,
+      pph_rate REAL DEFAULT 2.5,
+      admin_costs TEXT,
+      grand_total REAL DEFAULT 0,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      raw_data TEXT
+    );
+  `).run();
+
+  await db.prepare(`CREATE INDEX IF NOT EXISTS idx_ppat_calc_created_at ON ppat_calculations(created_at);`).run();
+  await db.prepare(`CREATE INDEX IF NOT EXISTS idx_ppat_calc_title ON ppat_calculations(title);`).run();
+
   d1TablesEnsuredCache = true;
 }
 

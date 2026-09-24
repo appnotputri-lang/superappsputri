@@ -385,3 +385,25 @@ body, input, textarea, select, button {
   }
 }
 
+/* ==========================================================================
+   Print Stylesheet
+   ========================================================================== */
+@media print {
+  body, html, #root, .app-shell, .full-app-height {
+    background-color: #ffffff !important;
+    height: auto !important;
+    min-height: auto !important;
+    overflow: visible !important;
+  }
+
+  header, aside, nav, .print\:hidden {
+    display: none !important;
+  }
+
+  @page {
+    size: A4 portrait;
+    margin: 12mm 15mm;
+  }
+}
+
+
