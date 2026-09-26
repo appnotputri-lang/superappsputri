@@ -41,7 +41,7 @@ export const PublicWebinarPage: React.FC = () => {
   const [duration, setDuration] = useState<string>('Sampai selesai');
 
   const [companyNeed, setCompanyNeed] = useState<string>('Belum ada kebutuhan');
-  const [selectedTopics, setSelectedTopics] = useState<string[]>(['RUPST / RUPSLB', 'Perubahan Direksi / Komisaris']);
+  const [selectedTopics, setSelectedTopics] = useState<string[]>(['RUPST', 'Laporan Tahunan Perseroan']);
   const [otherTopicText, setOtherTopicText] = useState('');
 
   const [followUp, setFollowUp] = useState<'Ya, silakan hubungi saya' | 'Tidak untuk saat ini'>('Ya, silakan hubungi saya');
@@ -94,10 +94,12 @@ export const PublicWebinarPage: React.FC = () => {
     }
     const cleanWa = whatsapp.replace(/[^0-9]/g, '');
     if (!cleanWa || cleanWa.length < 8) {
-      setErrorMessage('Silakan isi Nomor WhatsApp yang valid (minimal 8 digit).');
+      setErrorMessage('Silakan isi Nomor WhatsApp yang valid (minimal 8 digit angka).');
       return;
     }
-    if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+
+    const cleanEmail = email.trim();
+    if (cleanEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
       setErrorMessage('Format email tidak valid.');
       return;
     }
@@ -113,7 +115,7 @@ export const PublicWebinarPage: React.FC = () => {
       const payload = {
         name: name.trim(),
         whatsapp: cleanWa,
-        email: email.trim() || undefined,
+        email: cleanEmail || undefined,
         company: company.trim() || undefined,
         position: position.trim() || undefined,
         city: city.trim() || undefined,
@@ -143,7 +145,11 @@ export const PublicWebinarPage: React.FC = () => {
       if (data.materialUrl) {
         setMaterialUrl(data.materialUrl);
       }
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      try {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } catch {
+        window.scrollTo(0, 0);
+      }
     } catch (err: any) {
       setErrorMessage(err.message || 'Terjadi kesalahan saat memproses pendaftaran.');
     } finally {
@@ -401,7 +407,7 @@ export const PublicWebinarPage: React.FC = () => {
                   </div>
                 )}
 
-                <form onSubmit={handleSubmit} className="space-y-7">
+                <form onSubmit={handleSubmit} noValidate className="space-y-7">
                   
                   {/* HONEYPOT ANTI-SPAM (Hidden) */}
                   <div className="hidden" aria-hidden="true">
@@ -439,7 +445,7 @@ export const PublicWebinarPage: React.FC = () => {
                           Nama Lengkap <span className="text-red-500">*</span>
                         </label>
                         <div className="relative">
-                          <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                          <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                           <input
                             type="text"
                             required
@@ -456,9 +462,10 @@ export const PublicWebinarPage: React.FC = () => {
                           Nomor WhatsApp <span className="text-red-500">*</span>
                         </label>
                         <div className="relative">
-                          <Phone className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                          <Phone className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                           <input
                             type="tel"
+                            inputMode="numeric"
                             required
                             placeholder="Contoh: 081234567890"
                             value={whatsapp}
@@ -474,9 +481,10 @@ export const PublicWebinarPage: React.FC = () => {
                           Email <span className="text-slate-400 font-normal text-[11px]">(opsional)</span>
                         </label>
                         <div className="relative">
-                          <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                          <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                           <input
-                            type="email"
+                            type="text"
+                            inputMode="email"
                             placeholder="email@perusahaan.com"
                             value={email}
                             onChange={e => setEmail(e.target.value)}
@@ -545,13 +553,13 @@ export const PublicWebinarPage: React.FC = () => {
                       <h3 className="text-xs sm:text-sm font-bold text-slate-900 tracking-wide uppercase">Kehadiran Webinar</h3>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5 items-start">
+                    <div className={`grid grid-cols-1 ${attendance === 'Ya, mengikuti' ? 'md:grid-cols-2' : ''} gap-4 md:gap-5 items-start`}>
                       {/* Left: Radio Kehadiran */}
                       <div>
                         <label className="block text-xs font-semibold text-slate-700 mb-2">
                           Apakah Anda mengikuti webinar ini? <span className="text-red-500">*</span>
                         </label>
-                        <div className="space-y-2">
+                        <div className="flex items-center gap-6">
                           {[
                             { val: 'Ya, mengikuti', label: 'Ya, mengikuti' },
                             { val: 'Tidak', label: 'Tidak' }
@@ -560,7 +568,7 @@ export const PublicWebinarPage: React.FC = () => {
                             return (
                               <label
                                 key={opt.val}
-                                className="flex items-center gap-2.5 cursor-pointer text-xs sm:text-sm text-slate-800 select-none py-1"
+                                className="flex items-center gap-2 cursor-pointer text-xs sm:text-sm text-slate-800 select-none py-1"
                               >
                                 <input
                                   type="radio"
@@ -568,7 +576,7 @@ export const PublicWebinarPage: React.FC = () => {
                                   value={opt.val}
                                   checked={isSelected}
                                   onChange={() => setAttendance(opt.val as any)}
-                                  className="w-4 h-4 text-[#0a2342] focus:ring-[#0a2342] border-slate-300"
+                                  className="w-4 h-4 text-[#0a2342] focus:ring-[#0a2342] border-slate-300 cursor-pointer"
                                 />
                                 <span>{opt.label}</span>
                               </label>
@@ -577,25 +585,27 @@ export const PublicWebinarPage: React.FC = () => {
                         </div>
                       </div>
 
-                      {/* Right: Dropdown Durasi */}
-                      <div>
-                        <label className="block text-xs font-semibold text-slate-700 mb-2">
-                          Berapa lama Anda mengikuti webinar?
-                        </label>
-                        <div className="relative">
-                          <Clock className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                          <select
-                            value={duration}
-                            onChange={e => setDuration(e.target.value)}
-                            className="w-full bg-white border border-slate-200 text-slate-900 rounded-xl pl-10 pr-9 py-2.5 text-xs sm:text-sm focus:outline-none focus:border-[#0a2342] focus:ring-1 focus:ring-[#0a2342] transition-all appearance-none cursor-pointer"
-                          >
-                            <option value="Sampai selesai">Sampai selesai</option>
-                            <option value="Lebih dari 1 jam">Lebih dari 1 jam</option>
-                            <option value="Kurang dari 1 jam">Kurang dari 1 jam</option>
-                          </select>
-                          <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      {/* Right: Dropdown Durasi (hanya muncul jika Ya, mengikuti) */}
+                      {attendance === 'Ya, mengikuti' && (
+                        <div className="animate-fade-in">
+                          <label className="block text-xs font-semibold text-slate-700 mb-2">
+                            Berapa lama Anda mengikuti webinar?
+                          </label>
+                          <div className="relative">
+                            <Clock className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                            <select
+                              value={duration}
+                              onChange={e => setDuration(e.target.value)}
+                              className="w-full bg-white border border-slate-200 text-slate-900 rounded-xl pl-10 pr-9 py-2.5 text-xs sm:text-sm focus:outline-none focus:border-[#0a2342] focus:ring-1 focus:ring-[#0a2342] transition-all appearance-none cursor-pointer"
+                            >
+                              <option value="Sampai selesai">Sampai selesai</option>
+                              <option value="Lebih dari 1 jam">Lebih dari 1 jam</option>
+                              <option value="Kurang dari 1 jam">Kurang dari 1 jam</option>
+                            </select>
+                            <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                          </div>
                         </div>
-                      </div>
+                      )}
                     </div>
                   </div>
 
@@ -633,7 +643,7 @@ export const PublicWebinarPage: React.FC = () => {
                                   value={need}
                                   checked={isSelected}
                                   onChange={() => setCompanyNeed(need)}
-                                  className="w-4 h-4 text-[#0a2342] focus:ring-[#0a2342] border-slate-300"
+                                  className="w-4 h-4 text-[#0a2342] focus:ring-[#0a2342] border-slate-300 cursor-pointer"
                                 />
                                 <span>{need}</span>
                               </label>
@@ -652,7 +662,8 @@ export const PublicWebinarPage: React.FC = () => {
                           {/* Column 1 */}
                           <div className="space-y-2">
                             {[
-                              'RUPST / RUPSLB',
+                              'RUPST',
+                              'RUPSLB',
                               'Laporan Tahunan Perseroan',
                               'Perubahan Direksi / Komisaris',
                               'Perubahan Pemegang Saham',
@@ -681,6 +692,7 @@ export const PublicWebinarPage: React.FC = () => {
                             {[
                               'Pendirian PT',
                               'PPAT / Pertanahan',
+                              'Pelaporan LKPM',
                               'Legalitas perusahaan lainnya',
                               'Lainnya'
                             ].map(topic => {
