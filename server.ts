@@ -135,6 +135,7 @@ import {
   deleteWebinarParticipantD1,
   getWebinarStatsD1
 } from "./src/lib/d1WebinarRepository";
+import { sendWebinarAdminNotification } from "./src/services/webinarNotificationService";
 import {
   getVapidKeys,
   savePushSubscription,
@@ -2684,10 +2685,28 @@ async function startServer() {
         userAgent: (req.headers['user-agent'] || '').slice(0, 255)
       });
 
+      // 3. Send server-side WhatsApp notification to Admin (Failure does not break user registration)
+      await sendWebinarAdminNotification({
+        name: participant.name,
+        whatsapp: participant.whatsapp,
+        email: participant.email,
+        company: participant.company,
+        position: participant.position,
+        city: participant.city,
+        attendance: participant.attendance,
+        duration: participant.duration,
+        companyNeed: participant.companyNeed,
+        topics: participant.topics,
+        followUp: participant.followUp,
+        preferredContactTime: participant.preferredContactTime,
+        createdAt: participant.createdAt
+      }, process.env);
+
       // Pure Safe Response: Never return participant lists or sensitive metadata to public
       res.json({
         success: true,
-        message: "Pendaftaran berhasil",
+        message: "Pendaftaran berhasil disimpan",
+        participantId: participant.id,
         materialUrl: settings.materialUrl || undefined
       });
     } catch (err: any) {

@@ -3,6 +3,7 @@ import {
   getWebinarSettingsD1,
   createWebinarParticipantD1
 } from '../../../../src/lib/d1WebinarRepository';
+import { sendWebinarAdminNotification } from '../../../_lib/webinarNotification';
 
 export const onRequestPost = async (context: any) => {
   const { request, env } = context;
@@ -71,6 +72,23 @@ export const onRequestPost = async (context: any) => {
       ipAddress: clientIp.slice(0, 60),
       userAgent: (request.headers.get('user-agent') || '').slice(0, 200)
     });
+
+    // 3. Send server-side WhatsApp notification to Admin (Failure does not break user registration)
+    await sendWebinarAdminNotification({
+      name: participant.name,
+      whatsapp: participant.whatsapp,
+      email: participant.email,
+      company: participant.company,
+      position: participant.position,
+      city: participant.city,
+      attendance: participant.attendance,
+      duration: participant.duration,
+      companyNeed: participant.companyNeed,
+      topics: participant.topics,
+      followUp: participant.followUp,
+      preferredContactTime: participant.preferredContactTime,
+      createdAt: participant.createdAt
+    }, env);
 
     const materialUrl = settings.materialUrl?.trim() || 'https://drive.google.com';
 
