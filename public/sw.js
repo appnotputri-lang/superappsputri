@@ -23,17 +23,32 @@ registerRoute(
   })
 );
 
-// API routes: NetworkOnly (always fetch from network, never cache)
+// API routes and Public Form routes: NetworkOnly (always fetch directly from network, never cache)
 registerRoute(
-  /^\/api\/.*/,
+  /^\/(api|webinar|delivery|tanda-terima|surat-bo|surat_bo|inv|invoice\/public|q|doc)\/.*/i,
+  new NetworkOnly()
+);
+registerRoute(
+  /^\/(webinar|surat-bo|surat_bo)$/i,
   new NetworkOnly()
 );
 
-// SPA Navigation Fallback to /index.html except /api/
+// SPA Navigation Fallback to /index.html for internal/admin PWA routes only (exclude public links)
 try {
   const handler = createHandlerBoundToURL('/index.html');
   const navigationRoute = new NavigationRoute(handler, {
-    denylist: [/^\/api\//],
+    denylist: [
+      /^\/api\//,
+      /^\/webinar(\/.*)?$/i,
+      /^\/delivery(\/.*)?$/i,
+      /^\/tanda-terima(\/.*)?$/i,
+      /^\/surat-bo(\/.*)?$/i,
+      /^\/surat_bo(\/.*)?$/i,
+      /^\/inv(\/.*)?$/i,
+      /^\/invoice\/public(\/.*)?$/i,
+      /^\/q(\/.*)?$/i,
+      /^\/doc(\/.*)?$/i
+    ],
   });
   registerRoute(navigationRoute);
 } catch (e) {

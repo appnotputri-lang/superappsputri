@@ -284,9 +284,9 @@ export const PublicWebinarPage: React.FC = () => {
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
             
             {/* ======================================================== */}
-            {/* LEFT PANEL — INFORMASI WEBINAR (35% on Desktop)          */}
+            {/* LEFT PANEL — INFORMASI WEBINAR (35% on Desktop, Hidden on Mobile) */}
             {/* ======================================================== */}
-            <div className="lg:col-span-4 lg:sticky lg:top-24 space-y-6">
+            <div className="hidden lg:block lg:col-span-4 lg:sticky lg:top-24 space-y-6">
               <div className="bg-white border border-slate-200/90 rounded-2xl md:rounded-3xl p-6 sm:p-7 md:p-8 shadow-sm relative overflow-hidden flex flex-col justify-between">
                 
                 <div className="space-y-5">
@@ -387,10 +387,10 @@ export const PublicWebinarPage: React.FC = () => {
                 {/* Form Header */}
                 <div>
                   <h1 className="font-serif text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight leading-snug">
-                    Pendaftaran & Absensi Webinar
+                    {info?.title || 'Absensi Webinar'}
                   </h1>
                   <p className="text-xs sm:text-sm text-slate-500 mt-1.5 leading-relaxed">
-                    Silakan isi data berikut untuk konfirmasi kehadiran dan mendapatkan materi webinar.
+                    {info?.subtitle || 'Silakan isi data berikut untuk konfirmasi kehadiran dan mendapatkan materi webinar.'}
                   </p>
                 </div>
 

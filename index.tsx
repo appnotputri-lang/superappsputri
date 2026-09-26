@@ -4,6 +4,12 @@ import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import './src/index.css';
 import App from './App';
+import { applyPwaRoutePolicy } from './src/utils/pwaRouteManager';
+
+// Immediately apply PWA route policy on initial script execution
+if (typeof window !== 'undefined') {
+  applyPwaRoutePolicy();
+}
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {

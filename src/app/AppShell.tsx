@@ -27,6 +27,7 @@ import { db } from '../lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { RefreshCw, CheckCircle2 } from 'lucide-react';
 import JSZip from 'jszip';
+import { applyPwaRoutePolicy } from '../utils/pwaRouteManager';
 
 type TabId = 'general' | 'shareholders' | 'shareholders_new' | 'representative' | 'agenda' | 'kbli' | 'domicile' | 'address' | 'capitalBase' | 'capitalPaid' | 'management' | 'reappointment';
 
@@ -181,6 +182,11 @@ export const AppShell: React.FC = () => {
   const draftAktaRef = useRef<DraftAktaAppRef>(null);
   const navigate = useNavigate();
   const location = useLocation();
+
+  // Dynamic PWA Policy: Public routes are non-PWA; internal app routes maintain full PWA
+  useEffect(() => {
+    applyPwaRoutePolicy(location.pathname, location.hash);
+  }, [location.pathname, location.hash]);
 
   const activeSidebarTab = useMemo(() => {
     let currentPath = location.pathname;

@@ -3,7 +3,7 @@ import { ensureD1TablesExist } from '../services/d1MigrationService';
 
 export const DEFAULT_WEBINAR_SETTINGS: WebinarSettings = {
   id: 'default',
-  title: 'Pendaftaran & Absensi Webinar',
+  title: 'Absensi Webinar',
   subtitle: 'Silakan isi data berikut untuk konfirmasi kehadiran dan mendapatkan materi webinar.',
   eventTitle: 'Tata Kelola Perusahaan, RUPS & Kepatuhan Hukum Notaris',
   speaker: 'Nukantini Putri Parincha, SH. M.Kn',
