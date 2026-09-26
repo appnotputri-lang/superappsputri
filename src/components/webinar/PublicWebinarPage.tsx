@@ -83,23 +83,27 @@ export const PublicWebinarPage: React.FC = () => {
     });
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (e?: React.FormEvent | React.MouseEvent) => {
+    if (e && typeof e.preventDefault === 'function') {
+      e.preventDefault();
+    }
     setErrorMessage(null);
 
     // Basic client validation
-    if (!name.trim()) {
+    const trimmedName = (name || '').trim();
+    if (!trimmedName) {
       setErrorMessage('Silakan isi Nama Lengkap Anda.');
       return;
     }
-    const cleanWa = whatsapp.replace(/[^0-9]/g, '');
+
+    const cleanWa = (whatsapp || '').replace(/\D/g, '');
     if (!cleanWa || cleanWa.length < 8) {
       setErrorMessage('Silakan isi Nomor WhatsApp yang valid (minimal 8 digit angka).');
       return;
     }
 
-    const cleanEmail = email.trim();
-    if (cleanEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+    const cleanEmail = (email || '').trim();
+    if (cleanEmail && (!cleanEmail.includes('@') || !cleanEmail.includes('.'))) {
       setErrorMessage('Format email tidak valid.');
       return;
     }
@@ -113,12 +117,12 @@ export const PublicWebinarPage: React.FC = () => {
     try {
       setSubmitting(true);
       const payload = {
-        name: name.trim(),
+        name: trimmedName,
         whatsapp: cleanWa,
         email: cleanEmail || undefined,
-        company: company.trim() || undefined,
-        position: position.trim() || undefined,
-        city: city.trim() || undefined,
+        company: (company || '').trim() || undefined,
+        position: (position || '').trim() || undefined,
+        city: (city || '').trim() || undefined,
         attendance,
         duration: attendance === 'Ya, mengikuti' ? duration : undefined,
         companyNeed,
@@ -132,11 +136,21 @@ export const PublicWebinarPage: React.FC = () => {
 
       const res = await fetch('/api/public/webinar/register', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
         body: JSON.stringify(payload)
       });
 
-      const data = await res.json();
+      const resText = await res.text();
+      let data: any = {};
+      try {
+        data = JSON.parse(resText);
+      } catch {
+        data = { success: res.ok, error: resText || 'Gagal memproses pendaftaran.' };
+      }
+
       if (!res.ok || !data.success) {
         throw new Error(data.error || 'Gagal mengirim pendaftaran.');
       }
@@ -146,12 +160,12 @@ export const PublicWebinarPage: React.FC = () => {
         setMaterialUrl(data.materialUrl);
       }
       try {
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      } catch {
         window.scrollTo(0, 0);
+      } catch {
+        // Ignore scroll errors
       }
     } catch (err: any) {
-      setErrorMessage(err.message || 'Terjadi kesalahan saat memproses pendaftaran.');
+      setErrorMessage(err?.message || 'Terjadi kesalahan saat memproses pendaftaran.');
     } finally {
       setSubmitting(false);
     }
@@ -407,7 +421,7 @@ export const PublicWebinarPage: React.FC = () => {
                   </div>
                 )}
 
-                <form onSubmit={handleSubmit} noValidate className="space-y-7">
+                <div className="space-y-7">
                   
                   {/* HONEYPOT ANTI-SPAM (Hidden) */}
                   <div className="hidden" aria-hidden="true">
@@ -448,7 +462,6 @@ export const PublicWebinarPage: React.FC = () => {
                           <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                           <input
                             type="text"
-                            required
                             placeholder="Masukkan nama lengkap peserta"
                             value={name}
                             onChange={e => setName(e.target.value)}
@@ -464,9 +477,8 @@ export const PublicWebinarPage: React.FC = () => {
                         <div className="relative">
                           <Phone className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                           <input
-                            type="tel"
+                            type="text"
                             inputMode="numeric"
-                            required
                             placeholder="Contoh: 081234567890"
                             value={whatsapp}
                             onChange={e => setWhatsapp(e.target.value)}
@@ -797,7 +809,8 @@ export const PublicWebinarPage: React.FC = () => {
                   {/* SUBMIT BUTTON */}
                   <div className="pt-2">
                     <button
-                      type="submit"
+                      type="button"
+                      onClick={() => handleSubmit()}
                       disabled={submitting}
                       className="w-full bg-[#0a2342] hover:bg-[#123966] text-white font-bold py-3.5 px-6 rounded-xl text-sm sm:text-base flex items-center justify-center gap-2 shadow-sm hover:shadow-md active:scale-[0.99] transition-all disabled:opacity-70 disabled:cursor-not-allowed cursor-pointer"
                     >
@@ -820,7 +833,7 @@ export const PublicWebinarPage: React.FC = () => {
                     </div>
                   </div>
 
-                </form>
+                </div>
               </div>
             </div>
 
