@@ -265,6 +265,27 @@ export const TAB_ACCENTS: Record<SidebarTabId, {
     bgColor: 'bg-blue-50/70',
     hoverBg: 'hover:bg-blue-50/40 hover:text-blue-950',
     indicatorBg: 'bg-blue-700'
+  },
+  webinar_dashboard: {
+    iconColor: 'text-amber-600',
+    textColor: 'text-amber-950',
+    bgColor: 'bg-amber-50/80',
+    hoverBg: 'hover:bg-amber-50/40 hover:text-amber-950',
+    indicatorBg: 'bg-amber-600'
+  },
+  webinar_participants: {
+    iconColor: 'text-indigo-600',
+    textColor: 'text-indigo-950',
+    bgColor: 'bg-indigo-50/80',
+    hoverBg: 'hover:bg-indigo-50/40 hover:text-indigo-950',
+    indicatorBg: 'bg-indigo-600'
+  },
+  webinar_settings: {
+    iconColor: 'text-slate-600',
+    textColor: 'text-slate-900',
+    bgColor: 'bg-slate-100',
+    hoverBg: 'hover:bg-slate-50 hover:text-slate-950',
+    indicatorBg: 'bg-slate-700'
   }
 };
 
@@ -307,13 +328,24 @@ export const TAB_TO_PATH: Record<string, string> = {
   'ppat_deeds': '/daftar-akta-ppat',
   'kalkulator_ppat': '/kalkulator-ppat',
   'ppat': '/ppat',
-  'surat_bo': '/surat-bo'
+  'surat_bo': '/surat-bo',
+  'webinar_dashboard': '/webinar-dashboard',
+  'webinar_participants': '/webinar-peserta',
+  'webinar_settings': '/webinar-pengaturan'
 };
 
 export const PATH_TO_TAB: Record<string, SidebarTabId> = {
   ...Object.fromEntries(
     Object.entries(TAB_TO_PATH).map(([tab, path]) => [path, tab as SidebarTabId])
   ),
+  '/webinar-dashboard': 'webinar_dashboard',
+  '/webinar/dashboard': 'webinar_dashboard',
+  '/webinar-peserta': 'webinar_participants',
+  '/webinar/peserta': 'webinar_participants',
+  '/webinar-participants': 'webinar_participants',
+  '/webinar-pengaturan': 'webinar_settings',
+  '/webinar/pengaturan': 'webinar_settings',
+  '/webinar-settings': 'webinar_settings',
   '/kalkulator-ppat': 'kalkulator_ppat',
   '/kalkulator_ppat': 'kalkulator_ppat',
   '/ppat-calculator': 'kalkulator_ppat',
@@ -349,6 +381,7 @@ export const PATH_TO_TAB: Record<string, SidebarTabId> = {
 
 export const RESERVED_PATHS = new Set([
   ...Object.values(TAB_TO_PATH),
+  '/webinar', '/webinar-dashboard', '/webinar-peserta', '/webinar-pengaturan',
   '/clients', '/profile', '/profile-cv',
   '/projects', '/projects-detail',
   '/invoices', '/invoice',

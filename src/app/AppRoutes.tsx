@@ -93,6 +93,15 @@ export const AppRoutes: React.FC<AppRoutesProps> = (props) => {
     return renderAppRoute('delivery', { ...props, isPublic: true });
   }
 
+  const isWebinarPublicRoute =
+    location.pathname === '/webinar' ||
+    (location.pathname.startsWith('/webinar/') && !location.pathname.startsWith('/webinar/dashboard') && !location.pathname.startsWith('/webinar/peserta') && !location.pathname.startsWith('/webinar/pengaturan')) ||
+    (window.location.hash && (window.location.hash.includes('/webinar') || window.location.hash.includes('#/webinar')) && !window.location.hash.includes('dashboard') && !window.location.hash.includes('peserta') && !window.location.hash.includes('pengaturan'));
+
+  if (isWebinarPublicRoute) {
+    return renderAppRoute('webinar_public', { ...props, isPublic: true });
+  }
+
   const isSuratBoRoute =
     location.pathname === '/surat-bo' ||
     location.pathname === '/surat_bo' ||

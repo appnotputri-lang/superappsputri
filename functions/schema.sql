@@ -340,3 +340,53 @@ CREATE TABLE IF NOT EXISTS push_subscriptions (
 
 CREATE INDEX IF NOT EXISTS idx_push_sub_user_id ON push_subscriptions(user_id);
 CREATE INDEX IF NOT EXISTS idx_push_sub_endpoint ON push_subscriptions(endpoint);
+
+-- 15. WEBINAR SETTINGS
+CREATE TABLE IF NOT EXISTS webinar_settings (
+  id TEXT PRIMARY KEY,
+  title TEXT NOT NULL,
+  subtitle TEXT,
+  event_title TEXT,
+  speaker TEXT,
+  date_time TEXT,
+  description TEXT,
+  material_url TEXT,
+  is_active INTEGER DEFAULT 1,
+  slug TEXT DEFAULT 'default',
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  raw_data TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_webinar_settings_slug ON webinar_settings(slug);
+
+-- 16. WEBINAR PARTICIPANTS
+CREATE TABLE IF NOT EXISTS webinar_participants (
+  id TEXT PRIMARY KEY,
+  webinar_id TEXT NOT NULL DEFAULT 'default',
+  name TEXT NOT NULL,
+  whatsapp TEXT NOT NULL,
+  email TEXT,
+  company TEXT,
+  position TEXT,
+  city TEXT,
+  attendance TEXT NOT NULL,
+  duration TEXT,
+  company_need TEXT,
+  topics TEXT,
+  follow_up TEXT,
+  preferred_contact_time TEXT,
+  lead_status TEXT NOT NULL DEFAULT 'baru',
+  notes TEXT,
+  ip_address TEXT,
+  user_agent TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  raw_data TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_webinar_part_webinar_id ON webinar_participants(webinar_id);
+CREATE INDEX IF NOT EXISTS idx_webinar_part_whatsapp ON webinar_participants(whatsapp);
+CREATE INDEX IF NOT EXISTS idx_webinar_part_lead_status ON webinar_participants(lead_status);
+CREATE INDEX IF NOT EXISTS idx_webinar_part_created_at ON webinar_participants(created_at);
+

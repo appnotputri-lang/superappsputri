@@ -125,6 +125,17 @@ import {
   deletePpatCalculationD1
 } from "./src/lib/d1PpatCalculatorRepository";
 import {
+  getWebinarSettingsD1,
+  getWebinarPublicInfoD1,
+  updateWebinarSettingsD1,
+  getAllWebinarParticipantsD1,
+  getWebinarParticipantByIdD1,
+  createWebinarParticipantD1,
+  updateWebinarParticipantD1,
+  deleteWebinarParticipantD1,
+  getWebinarStatsD1
+} from "./src/lib/d1WebinarRepository";
+import {
   getVapidKeys,
   savePushSubscription,
   deletePushSubscription,
@@ -2546,6 +2557,281 @@ async function startServer() {
     } catch (err: any) {
       console.error("[Push API] Error sending test notification:", err);
       res.status(500).json({ error: err.message || "Failed to send test push notification" });
+    }
+  });
+
+  // ==========================================
+  // WEBINAR MODULE API ROUTES
+  // ==========================================
+
+  // In-memory rate limiter for public webinar registration
+  const webinarRateLimitMap = new Map<string, { count: number; resetAt: number }>();
+  function checkWebinarRateLimit(ip: string, maxRequests = 15, windowMs = 5 * 60 * 1000): boolean {
+    const now = Date.now();
+    const entry = webinarRateLimitMap.get(ip);
+    if (!entry || now > entry.resetAt) {
+      webinarRateLimitMap.set(ip, { count: 1, resetAt: now + windowMs });
+      return true;
+    }
+    if (entry.count >= maxRequests) {
+      return false;
+    }
+    entry.count += 1;
+    return true;
+  }
+
+  // 1. PUBLIC: Get Webinar Public Info (No sensitive data / no participants)
+  app.get("/api/public/webinar/info", async (req, res) => {
+    try {
+      const db = getLocalD1Database();
+      const slug = String(req.query.slug || 'default').trim();
+      const info = await getWebinarPublicInfoD1(db, slug);
+      res.json({
+        success: true,
+        settings: info.settings,
+        materialUrl: info.materialUrl
+      });
+    } catch (err: any) {
+      console.error("[Webinar Public API] Error fetching webinar info:", err);
+      res.status(500).json({ success: false, error: "Gagal memuat informasi webinar" });
+    }
+  });
+
+  // 2. PUBLIC: Register / Absensi Webinar (Honeypot + Anti-Spam + Server Validation)
+  app.post("/api/public/webinar/register", async (req, res) => {
+    try {
+      const clientIp = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.socket.remoteAddress || 'unknown';
+
+      // Anti-Spam: Rate limiting
+      if (!checkWebinarRateLimit(clientIp)) {
+        return res.status(429).json({
+          success: false,
+          error: "Terlalu banyak pengiriman form dari koneksi ini. Silakan coba beberapa menit lagi."
+        });
+      }
+
+      const body = req.body || {};
+
+      // Anti-Spam: Honeypot trap check
+      if (body.website || body.fax || body.hp_check || body.address_extra || body.company_url_hp) {
+        console.warn(`[Webinar Public API] Honeypot triggered from IP: ${clientIp}`);
+        // Silent success response so bot thinks it succeeded
+        return res.json({
+          success: true,
+          message: "Pendaftaran berhasil"
+        });
+      }
+
+      // Server-side Validation
+      const name = String(body.name || '').trim();
+      if (!name || name.length < 2) {
+        return res.status(400).json({ success: false, error: "Nama lengkap wajib diisi (minimal 2 karakter)" });
+      }
+      if (name.length > 100) {
+        return res.status(400).json({ success: false, error: "Nama terlalu panjang (maksimal 100 karakter)" });
+      }
+
+      const rawWhatsapp = String(body.whatsapp || '').trim();
+      const cleanWhatsapp = rawWhatsapp.replace(/[^0-9]/g, '');
+      if (!cleanWhatsapp || cleanWhatsapp.length < 8 || cleanWhatsapp.length > 18) {
+        return res.status(400).json({ success: false, error: "Nomor WhatsApp tidak valid (minimal 8 digit angka)" });
+      }
+
+      const email = body.email ? String(body.email).trim() : undefined;
+      if (email) {
+        if (email.length > 120 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+          return res.status(400).json({ success: false, error: "Format email tidak valid" });
+        }
+      }
+
+      const attendance = String(body.attendance || '').trim();
+      if (!attendance) {
+        return res.status(400).json({ success: false, error: "Konfirmasi kehadiran wajib dipilih" });
+      }
+
+      const db = getLocalD1Database();
+      const webinarId = String(body.webinarId || 'default').trim();
+      const settings = await getWebinarSettingsD1(db, webinarId);
+
+      // Check if registration is open
+      if (!settings.isActive) {
+        return res.status(400).json({
+          success: false,
+          error: "Pendaftaran untuk webinar ini telah ditutup."
+        });
+      }
+
+      const topics = Array.isArray(body.topics) 
+        ? body.topics.map(t => String(t).slice(0, 100)).slice(0, 20)
+        : [];
+
+      const participant = await createWebinarParticipantD1(db, {
+        webinarId,
+        name: name.slice(0, 100),
+        whatsapp: cleanWhatsapp,
+        email: email ? email.slice(0, 120) : undefined,
+        company: body.company ? String(body.company).trim().slice(0, 150) : undefined,
+        position: body.position ? String(body.position).trim().slice(0, 100) : undefined,
+        city: body.city ? String(body.city).trim().slice(0, 100) : undefined,
+        attendance: attendance.slice(0, 50),
+        duration: body.duration ? String(body.duration).trim().slice(0, 50) : undefined,
+        companyNeed: body.companyNeed ? String(body.companyNeed).trim().slice(0, 100) : undefined,
+        topics,
+        followUp: body.followUp ? String(body.followUp).trim().slice(0, 50) : undefined,
+        preferredContactTime: body.preferredContactTime ? String(body.preferredContactTime).trim().slice(0, 50) : undefined,
+        leadStatus: 'baru',
+        ipAddress: clientIp,
+        userAgent: (req.headers['user-agent'] || '').slice(0, 255)
+      });
+
+      // Pure Safe Response: Never return participant lists or sensitive metadata to public
+      res.json({
+        success: true,
+        message: "Pendaftaran berhasil",
+        materialUrl: settings.materialUrl || undefined
+      });
+    } catch (err: any) {
+      console.error("[Webinar Public API] Error processing registration:", err);
+      res.status(500).json({ success: false, error: err?.message || "Terjadi kesalahan pada server saat memproses pendaftaran" });
+    }
+  });
+
+  // 3. ADMIN: Get Webinar Dashboard & Stats
+  app.get("/api/webinar/dashboard", authMiddleware, async (req: AuthenticatedRequest, res) => {
+    try {
+      const db = getLocalD1Database();
+      const webinarId = String(req.query.webinarId || 'default');
+      const stats = await getWebinarStatsD1(db, webinarId);
+      const recent = await getAllWebinarParticipantsD1(db, { webinarId, limit: 10 });
+
+      res.json({
+        success: true,
+        stats,
+        recentParticipants: recent.participants
+      });
+    } catch (err: any) {
+      console.error("[Webinar Admin API] Error fetching dashboard:", err);
+      res.status(500).json({ success: false, error: err?.message || "Gagal memuat dashboard webinar" });
+    }
+  });
+
+  // 4. ADMIN: Get Webinar Participants List (With Filtering & Search)
+  app.get("/api/webinar/participants", authMiddleware, async (req: AuthenticatedRequest, res) => {
+    try {
+      const db = getLocalD1Database();
+      const search = req.query.search ? String(req.query.search) : undefined;
+      const leadStatus = req.query.leadStatus ? String(req.query.leadStatus) : undefined;
+      const attendance = req.query.attendance ? String(req.query.attendance) : undefined;
+      const companyNeed = req.query.companyNeed ? String(req.query.companyNeed) : undefined;
+      const limit = req.query.limit ? Math.min(Math.max(1, parseInt(String(req.query.limit))), 500) : 100;
+      const offset = req.query.offset ? Math.max(0, parseInt(String(req.query.offset))) : 0;
+      const webinarId = req.query.webinarId ? String(req.query.webinarId) : undefined;
+
+      const result = await getAllWebinarParticipantsD1(db, {
+        webinarId,
+        search,
+        leadStatus,
+        attendance,
+        companyNeed,
+        limit,
+        offset
+      });
+
+      res.json({
+        success: true,
+        participants: result.participants,
+        total: result.total
+      });
+    } catch (err: any) {
+      console.error("[Webinar Admin API] Error fetching participants:", err);
+      res.status(500).json({ success: false, error: err?.message || "Gagal memuat data peserta webinar" });
+    }
+  });
+
+  // 5. ADMIN: Get Single Participant Detail
+  app.get("/api/webinar/participants/:id", authMiddleware, async (req: AuthenticatedRequest, res) => {
+    try {
+      const db = getLocalD1Database();
+      const id = String(req.params.id);
+      const participant = await getWebinarParticipantByIdD1(db, id);
+      if (!participant) {
+        return res.status(404).json({ success: false, error: "Data peserta tidak ditemukan" });
+      }
+      res.json({ success: true, participant });
+    } catch (err: any) {
+      console.error("[Webinar Admin API] Error fetching participant:", err);
+      res.status(500).json({ success: false, error: err?.message || "Gagal memuat detail peserta" });
+    }
+  });
+
+  // 6. ADMIN: Update Participant (Lead Status, Notes, Details)
+  app.patch("/api/webinar/participants/:id", authMiddleware, async (req: AuthenticatedRequest, res) => {
+    try {
+      const db = getLocalD1Database();
+      const id = String(req.params.id);
+      const updated = await updateWebinarParticipantD1(db, id, req.body || {});
+      if (!updated) {
+        return res.status(404).json({ success: false, error: "Data peserta tidak ditemukan" });
+      }
+      res.json({ success: true, participant: updated });
+    } catch (err: any) {
+      console.error("[Webinar Admin API] Error updating participant:", err);
+      res.status(500).json({ success: false, error: err?.message || "Gagal memperbarui data peserta" });
+    }
+  });
+
+  // 7. ADMIN: Delete Participant
+  app.delete("/api/webinar/participants/:id", authMiddleware, async (req: AuthenticatedRequest, res) => {
+    try {
+      const db = getLocalD1Database();
+      const id = String(req.params.id);
+      const success = await deleteWebinarParticipantD1(db, id);
+      if (!success) {
+        return res.status(404).json({ success: false, error: "Data peserta tidak ditemukan atau sudah dihapus" });
+      }
+      res.json({ success: true, message: "Data peserta berhasil dihapus" });
+    } catch (err: any) {
+      console.error("[Webinar Admin API] Error deleting participant:", err);
+      res.status(500).json({ success: false, error: err?.message || "Gagal menghapus data peserta" });
+    }
+  });
+
+  // 8. ADMIN: Get Webinar Settings
+  app.get("/api/webinar/settings", authMiddleware, async (req: AuthenticatedRequest, res) => {
+    try {
+      const db = getLocalD1Database();
+      const slug = String(req.query.slug || 'default');
+      const settings = await getWebinarSettingsD1(db, slug);
+      res.json({ success: true, settings });
+    } catch (err: any) {
+      console.error("[Webinar Admin API] Error fetching settings:", err);
+      res.status(500).json({ success: false, error: err?.message || "Gagal memuat pengaturan webinar" });
+    }
+  });
+
+  // 9. ADMIN: Update Webinar Settings
+  app.post("/api/webinar/settings", authMiddleware, async (req: AuthenticatedRequest, res) => {
+    try {
+      const db = getLocalD1Database();
+      const payload = req.body || {};
+      const updated = await updateWebinarSettingsD1(db, payload);
+      res.json({ success: true, settings: updated });
+    } catch (err: any) {
+      console.error("[Webinar Admin API] Error updating settings:", err);
+      res.status(500).json({ success: false, error: err?.message || "Gagal menyimpan pengaturan webinar" });
+    }
+  });
+
+  // 10. ADMIN: Export All Participants for CSV / Excel
+  app.get("/api/webinar/export", authMiddleware, async (req: AuthenticatedRequest, res) => {
+    try {
+      const db = getLocalD1Database();
+      const webinarId = req.query.webinarId ? String(req.query.webinarId) : undefined;
+      const result = await getAllWebinarParticipantsD1(db, { webinarId, limit: 10000 });
+      res.json({ success: true, participants: result.participants });
+    } catch (err: any) {
+      console.error("[Webinar Admin API] Error exporting participants:", err);
+      res.status(500).json({ success: false, error: err?.message || "Gagal mengekspor data peserta" });
     }
   });
 

@@ -475,6 +475,59 @@ export async function ensureD1TablesExist(db: any) {
   await db.prepare(`CREATE INDEX IF NOT EXISTS idx_ppat_calc_created_at ON ppat_calculations(created_at);`).run();
   await db.prepare(`CREATE INDEX IF NOT EXISTS idx_ppat_calc_title ON ppat_calculations(title);`).run();
 
+  // 19. Webinar Settings table
+  await db.prepare(`
+    CREATE TABLE IF NOT EXISTS webinar_settings (
+      id TEXT PRIMARY KEY,
+      title TEXT NOT NULL,
+      subtitle TEXT,
+      event_title TEXT,
+      speaker TEXT,
+      date_time TEXT,
+      description TEXT,
+      material_url TEXT,
+      is_active INTEGER DEFAULT 1,
+      slug TEXT DEFAULT 'default',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      raw_data TEXT
+    );
+  `).run();
+
+  await db.prepare(`CREATE INDEX IF NOT EXISTS idx_webinar_settings_slug ON webinar_settings(slug);`).run();
+
+  // 20. Webinar Participants table
+  await db.prepare(`
+    CREATE TABLE IF NOT EXISTS webinar_participants (
+      id TEXT PRIMARY KEY,
+      webinar_id TEXT NOT NULL DEFAULT 'default',
+      name TEXT NOT NULL,
+      whatsapp TEXT NOT NULL,
+      email TEXT,
+      company TEXT,
+      position TEXT,
+      city TEXT,
+      attendance TEXT NOT NULL,
+      duration TEXT,
+      company_need TEXT,
+      topics TEXT,
+      follow_up TEXT,
+      preferred_contact_time TEXT,
+      lead_status TEXT NOT NULL DEFAULT 'baru',
+      notes TEXT,
+      ip_address TEXT,
+      user_agent TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      raw_data TEXT
+    );
+  `).run();
+
+  await db.prepare(`CREATE INDEX IF NOT EXISTS idx_webinar_part_webinar_id ON webinar_participants(webinar_id);`).run();
+  await db.prepare(`CREATE INDEX IF NOT EXISTS idx_webinar_part_whatsapp ON webinar_participants(whatsapp);`).run();
+  await db.prepare(`CREATE INDEX IF NOT EXISTS idx_webinar_part_lead_status ON webinar_participants(lead_status);`).run();
+  await db.prepare(`CREATE INDEX IF NOT EXISTS idx_webinar_part_created_at ON webinar_participants(created_at);`).run();
+
   d1TablesEnsuredCache = true;
 }
 

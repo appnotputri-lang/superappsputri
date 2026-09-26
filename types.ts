@@ -777,7 +777,76 @@ export interface DepositNote {
 
 export * from './src/types/agenda';
 
-export type SidebarTabId = 'beranda' | 'agenda' | 'company_profile' | 'cv_profile' | 'notulen' | 'pendirian' | 'rupst' | 'perbaikan' | 'draft_akta_rups' | 'panduan' | 'kbli_mapping' | 'saran_kbli' | 'import_kbli' | 'laporan' | 'whatsapp_settings' | 'projects' | 'project_detail' | 'user_management' | 'notary_reports' | 'laporan_ppat' | 'ppat_deeds' | 'kalkulator_ppat' | 'invoice' | 'quotation' | 'deeds' | 'private_deeds' | 'protest_cheque' | 'outgoing_mail' | 'incoming_mail' | 'stamp_settings' | 'delivery' | 'receipt' | 'products' | 'settings' | 'deposit_note' | 'ppat' | 'surat_bo';
+export type SidebarTabId = 'beranda' | 'agenda' | 'company_profile' | 'cv_profile' | 'notulen' | 'pendirian' | 'rupst' | 'perbaikan' | 'draft_akta_rups' | 'panduan' | 'kbli_mapping' | 'saran_kbli' | 'import_kbli' | 'laporan' | 'whatsapp_settings' | 'projects' | 'project_detail' | 'user_management' | 'notary_reports' | 'laporan_ppat' | 'ppat_deeds' | 'kalkulator_ppat' | 'invoice' | 'quotation' | 'deeds' | 'private_deeds' | 'protest_cheque' | 'outgoing_mail' | 'incoming_mail' | 'stamp_settings' | 'delivery' | 'receipt' | 'products' | 'settings' | 'deposit_note' | 'ppat' | 'surat_bo' | 'webinar_dashboard' | 'webinar_participants' | 'webinar_settings';
+
+// ==========================================
+// WEBINAR MODULE TYPES
+// ==========================================
+
+export type WebinarLeadStatus = 'baru' | 'dihubungi' | 'follow_up' | 'prospek' | 'klien' | 'tidak_dilanjutkan';
+
+export interface WebinarParticipant {
+  id: string;
+  webinarId: string;
+  name: string;
+  whatsapp: string;
+  email?: string;
+  company?: string;
+  position?: string;
+  city?: string;
+  attendance: string; // 'Ya, mengikuti' | 'Tidak'
+  duration?: string;   // 'Sampai selesai' | 'Lebih dari 1 jam' | 'Kurang dari 1 jam'
+  companyNeed?: string; // 'Belum ada kebutuhan' | 'Ada kebutuhan dalam waktu dekat' | 'Sedang mencari solusi' | 'Ingin konsultasi terlebih dahulu'
+  topics?: string[];   // Array of strings
+  followUp?: string;   // 'Ya, silakan hubungi saya' | 'Tidak untuk saat ini'
+  preferredContactTime?: string; // 'Pagi' | 'Siang' | 'Sore' | 'Bebas'
+  leadStatus: WebinarLeadStatus;
+  notes?: string;
+  ipAddress?: string;
+  userAgent?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface WebinarSettings {
+  id: string;
+  title: string;
+  subtitle: string;
+  eventTitle: string;
+  speaker: string;
+  dateTime: string;
+  description: string;
+  materialUrl: string;
+  isActive: boolean;
+  slug: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface WebinarPublicInfo {
+  title: string;
+  subtitle: string;
+  eventTitle: string;
+  speaker: string;
+  dateTime: string;
+  description: string;
+  isActive: boolean;
+  slug: string;
+}
+
+export interface WebinarStats {
+  total: number;
+  hadir: number;
+  tidakHadir: number;
+  leads: number;
+  dihubungi: number;
+  prospek: number;
+  klien: number;
+  tidakDilanjutkan: number;
+  byNeed: Record<string, number>;
+  byTopic: Record<string, number>;
+  byContactTime: Record<string, number>;
+}
 
 // ==========================================
 // PENDIRIAN CV (PERSEKUTUAN KOMANDITER) TYPES

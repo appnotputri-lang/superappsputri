@@ -19,8 +19,13 @@ import { renderGeneralDocumentRoute } from './generalDocument.routes';
 import { renderDepositNoteRoute } from './depositNote.routes';
 import { renderAgendaRoute } from './agenda.routes';
 import { renderSuratBoRoute } from './suratBo.routes';
+import { renderWebinarRoute } from './webinar.routes';
 
 export const renderAppRoute = (currentTab: string, props: any) => {
+  if (currentTab === 'webinar' || currentTab === 'webinar_dashboard' || currentTab === 'webinar_participants' || currentTab === 'webinar_settings' || currentTab === 'webinar_public') {
+    return renderWebinarRoute(currentTab, props);
+  }
+
   if (currentTab === 'surat_bo') {
     return renderSuratBoRoute(props);
   }

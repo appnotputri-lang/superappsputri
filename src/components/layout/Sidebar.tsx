@@ -29,7 +29,10 @@ import {
   ChevronUp,
   HelpCircle,
   User,
-  UserCheck
+  UserCheck,
+  Video,
+  LayoutDashboard,
+  Users
 } from 'lucide-react';
 import { SidebarTabId, UserProfile } from '../../../types';
 import { Menu3DIcon } from '../ui/Menu3DIcon';
@@ -88,6 +91,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
     if (sectionId === 'menu_utama') {
       return ['beranda', 'company_profile', 'projects', 'project_detail', 'laporan'].includes(activeTab);
     }
+    if (sectionId === 'webinar') {
+      return ['webinar_dashboard', 'webinar_participants', 'webinar_settings'].includes(activeTab);
+    }
     if (sectionId === 'notaris_dan_akta') {
       return ['deeds', 'private_deeds', 'notary_reports', 'incoming_mail', 'outgoing_mail'].includes(activeTab);
     }
@@ -118,6 +124,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const [collapsedSections, setCollapsedSections] = React.useState<Record<string, boolean>>(() => ({
     menu_utama: !isSectionActive('menu_utama', activeSidebarTab),
+    webinar: !isSectionActive('webinar', activeSidebarTab),
     notaris_dan_akta: !isSectionActive('notaris_dan_akta', activeSidebarTab),
     ppat: !isSectionActive('ppat', activeSidebarTab),
     keuangan: !isSectionActive('keuangan', activeSidebarTab),
@@ -129,6 +136,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     setCollapsedSections(prev => {
       const next = { ...prev };
       if (isSectionActive('menu_utama', activeSidebarTab)) next.menu_utama = false;
+      if (isSectionActive('webinar', activeSidebarTab)) next.webinar = false;
       if (isSectionActive('notaris_dan_akta', activeSidebarTab)) next.notaris_dan_akta = false;
       if (isSectionActive('ppat', activeSidebarTab)) next.ppat = false;
       if (isSectionActive('keuangan', activeSidebarTab)) next.keuangan = false;
@@ -144,6 +152,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       if (typeof window !== 'undefined' && window.innerWidth < 768) {
         const next: Record<string, boolean> = {
           menu_utama: true,
+          webinar: true,
           notaris_dan_akta: true,
           ppat: true,
           keuangan: true,
@@ -172,6 +181,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
         { label: 'Klien', id: 'company_profile', icon: Building2, requiresAuth: true },
         { label: 'Proyek Kerja', id: 'projects', icon: Briefcase, requiresAuth: true },
         { label: 'Laporan Proyek Kerja', id: 'laporan', icon: FileText, requiresAuth: true },
+      ]
+    },
+    {
+      id: 'webinar',
+      title: 'WEBINAR',
+      groupIcon: Video,
+      badgeColor: 'bg-amber-50 border border-amber-200',
+      badgeTextColor: 'text-amber-800',
+      items: [
+        { label: 'Dashboard Webinar', id: 'webinar_dashboard', icon: LayoutDashboard, requiresAuth: true },
+        { label: 'Peserta Webinar', id: 'webinar_participants', icon: Users, requiresAuth: true },
+        { label: 'Pengaturan Webinar', id: 'webinar_settings', icon: SettingsIcon, requiresAuth: true },
       ]
     },
     {
