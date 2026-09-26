@@ -1,6 +1,6 @@
 import { firestoreRest } from '../lib/firestore-rest';
 
-export const WEBINAR_ADMIN_WHATSAPP_TARGET = '628111301991';
+export const WEBINAR_ADMIN_WHATSAPP_TARGET = '628122174848';
 
 export interface WebinarNotificationPayload {
   name: string;
