@@ -21,29 +21,41 @@ export async function getFonnteToken(env: Env): Promise<string | null> {
   return null;
 }
 
-export async function getAutomationRecipient(ruleRecipient: string | null | undefined, env: Env): Promise<string | null> {
+export const DEFAULT_WHATSAPP_GROUP_TARGET = '62831208301990@g.us';
+
+export async function getAutomationRecipient(ruleRecipient: string | null | undefined, env: Env): Promise<string> {
+  // 1. Priority: Worker Environment Variable / Secret (AUTOMATION_WHATSAPP_TARGET)
+  if (env.AUTOMATION_WHATSAPP_TARGET && env.AUTOMATION_WHATSAPP_TARGET.trim()) {
+    return env.AUTOMATION_WHATSAPP_TARGET.trim();
+  }
+
+  // 2. Specific recipient configured in automation_rules table
   if (ruleRecipient && ruleRecipient.trim()) {
     return ruleRecipient.trim();
   }
 
+  // 3. Fallback to Firestore settings/whatsapp if specifically configured
   try {
     const doc = await getDocumentFromFirestore('settings', 'whatsapp', env);
+    if (doc?.targetGroup && typeof doc.targetGroup === 'string' && doc.targetGroup.trim()) {
+      return doc.targetGroup.trim();
+    }
+    if (doc?.groupJid && typeof doc.groupJid === 'string' && doc.groupJid.trim()) {
+      return doc.groupJid.trim();
+    }
     if (doc?.nomorTujuanDefault && typeof doc.nomorTujuanDefault === 'string' && doc.nomorTujuanDefault.trim()) {
       return doc.nomorTujuanDefault.trim();
-    }
-    if (doc?.nomorAdmin && typeof doc.nomorAdmin === 'string' && doc.nomorAdmin.trim()) {
-      return doc.nomorAdmin.trim();
     }
   } catch (err) {
     console.warn('[WhatsAppService] Could not read recipient from settings/whatsapp:', err);
   }
 
-  return env.AUTOMATION_WHATSAPP_TARGET?.trim() || null;
+  // 4. Default target: Group WhatsApp "KANTOR NOTARIS/PPAT"
+  return DEFAULT_WHATSAPP_GROUP_TARGET;
 }
 
 /**
- * Builds formatted plain-text WhatsApp message with Google Drive PDF link
- * mengikuti format baku yang ditentukan.
+ * Builds formatted AI-assistant style WhatsApp message with Google Drive PDF link
  */
 export function buildWhatsAppReportMessage(
   reports: ProjectReportItem[],
@@ -58,21 +70,16 @@ export function buildWhatsAppReportMessage(
   const groupedClients = getGroupedReports(reports);
   const totalKlien = groupedClients.length;
 
-  let msg = `📋 LAPORAN PROYEK AKTIF\n\n`;
-  msg += `🏢 Kantor Notaris Nukantini Putri Parincha SH., M.Kn.\n\n`;
+  let msg = `🤖 Halo Team 👋\n\n`;
+  msg += `SuperApps Putri di sini. Saya baru saja menyelesaikan pengecekan proyek aktif kantor pagi ini.\n\n`;
   msg += `📅 ${todayStr}\n`;
   msg += `⏰ Update 08.00 WIB\n\n`;
-  msg += `📊 RINGKASAN\n`;
-  msg += `• ${totalKlien} Klien\n`;
-  msg += `• ${totalBerkas} Berkas\n\n`;
-  msg += `━━━━━━━━━━━━━━━━━━\n\n`;
-  msg += `📄 LAPORAN LENGKAP\n\n`;
-  msg += `Laporan proyek aktif hari ini sudah tersedia.\n\n`;
-  msg += `🔗 Buka PDF:\n`;
+  msg += `📊 Saat ini terdapat ${totalKlien} klien dengan ${totalBerkas} berkas yang sedang berjalan.\n\n`;
+  msg += `📄 Laporan lengkap sudah saya siapkan dan simpan di Google Drive.\n\n`;
+  msg += `🔗 Buka Laporan:\n`;
   msg += `${drivePdfUrl}\n\n`;
-  msg += `━━━━━━━━━━━━━━━━━━\n\n`;
-  msg += `🤖 Dikirim otomatis oleh\n`;
-  msg += `SuperApps Putri`;
+  msg += `Semoga harinya lancar.\n\n`;
+  msg += `— SuperApps Putri 🤖`;
 
   return msg.trim();
 }

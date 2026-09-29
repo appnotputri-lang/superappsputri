@@ -8,6 +8,9 @@
       "0 1 * * *" // Setiap hari pukul 01:00 UTC (08:00 WIB)
     ]
   },
+  "vars": {
+    "AUTOMATION_WHATSAPP_TARGET": "62831208301990@g.us"
+  },
   "d1_databases": [
     {
       "binding": "DB",

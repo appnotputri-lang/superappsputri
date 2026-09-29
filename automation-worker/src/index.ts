@@ -136,6 +136,11 @@ export async function runDailyProjectReportAutomation(
     console.log('[Automation] Step 3: Uploading PDF to Google Drive...');
     const driveResult = await uploadPdfToGoogleDrive(pdfResult.fileName, pdfResult.base64, env);
     drivePdfUrl = driveResult.webViewLink;
+
+    if (!drivePdfUrl || typeof drivePdfUrl !== 'string' || !drivePdfUrl.startsWith('http')) {
+      throw new Error(`Google Drive upload did not return a valid webViewLink (${drivePdfUrl}). WhatsApp delivery aborted.`);
+    }
+
     console.log(`[Automation] Uploaded to Google Drive successfully. Link: ${drivePdfUrl}`);
 
     // Step 4: Tentukan penerima WhatsApp
@@ -249,6 +254,7 @@ export default {
             timezone: 'Asia/Jakarta',
             todayWIB: getJakartaDateString(),
             timestampUTC: getNowIsoString(),
+            whatsappTargetGroup: '62831208301990@g.us (KANTOR NOTARIS/PPAT)',
             pipeline: [
               '1. Ambil data project dari Firestore (office_projects)',
               '2. Format laporan PROYEK AKTIF',
