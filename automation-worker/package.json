@@ -1,5 +1,5 @@
 {
-  "name": "superapps-putri-automation",
+  "name": "superappsputri",
   "version": "1.0.0",
   "description": "Background Cron Automation Worker for SuperApps Notaris Putri",
   "main": "src/index.ts",
