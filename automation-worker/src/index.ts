@@ -254,7 +254,7 @@ export default {
             timezone: 'Asia/Jakarta',
             todayWIB: getJakartaDateString(),
             timestampUTC: getNowIsoString(),
-            whatsappTargetGroup: '62831208301990@g.us (KANTOR NOTARIS/PPAT)',
+            whatsappTargetGroup: '120363295728301690@g.us (KANTOR NOTARIS/PPAT)',
             pipeline: [
               '1. Ambil data project dari Firestore (office_projects)',
               '2. Format laporan PROYEK AKTIF',

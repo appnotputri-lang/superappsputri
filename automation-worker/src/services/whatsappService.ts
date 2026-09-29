@@ -21,7 +21,7 @@ export async function getFonnteToken(env: Env): Promise<string | null> {
   return null;
 }
 
-export const DEFAULT_WHATSAPP_GROUP_TARGET = '62831208301990@g.us';
+export const DEFAULT_WHATSAPP_GROUP_TARGET = '120363295728301690@g.us';
 
 export async function getAutomationRecipient(ruleRecipient: string | null | undefined, env: Env): Promise<string> {
   // 1. Priority: Worker Environment Variable / Secret (AUTOMATION_WHATSAPP_TARGET)
