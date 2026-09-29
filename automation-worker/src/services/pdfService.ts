@@ -2,43 +2,9 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { ProjectReportItem } from '../types';
 import { getGroupedReports, formatAgendaLabel, getProjectStatusDisplay, getCleanTransitionComment } from './firestoreService';
+import { getJakartaDateString, formatJakartaPrintDate } from '../dateUtils';
 
-export function formatJakartaPrintDate(date: Date = new Date()): string {
-  const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
-  const months = [
-    'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-    'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
-  ];
-
-  // Format with Asia/Jakarta timezone
-  const formatter = new Intl.DateTimeFormat('en-US', {
-    timeZone: 'Asia/Jakarta',
-    weekday: 'short',
-    year: 'numeric',
-    month: 'numeric',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: 'numeric',
-    hour12: false
-  });
-
-  const parts = formatter.formatToParts(date);
-  const partMap: Record<string, string> = {};
-  parts.forEach(p => {
-    partMap[p.type] = p.value;
-  });
-
-  const dayOfWeek = date.getDay();
-  const dayName = days[dayOfWeek] || 'Senin';
-  const dayNum = partMap.day || String(date.getDate());
-  const monthNum = parseInt(partMap.month || '1', 10) - 1;
-  const monthName = months[monthNum] || 'Januari';
-  const year = partMap.year || String(date.getFullYear());
-  const hour = (partMap.hour || '08').padStart(2, '0');
-  const minute = (partMap.minute || '00').padStart(2, '0');
-
-  return `${dayName}, ${dayNum} ${monthName} ${year} pukul ${hour}.${minute} WIB`;
-}
+export { formatJakartaPrintDate };
 
 function mapStatusToDisplay(status: string, metadata?: any): string {
   const displayStatus = getProjectStatusDisplay(status, metadata);
@@ -335,12 +301,7 @@ export async function generateActiveProjectsPdf(
     doc.text('Tidak ada laporan dokumen pekerjaan aktif saat ini.', 14, currentY);
   }
 
-  const ymd = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Jakarta',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit'
-  }).format(date);
+  const ymd = getJakartaDateString(date);
 
   const fileName = `Laporan_Proyek_Aktif_${ymd}.pdf`;
   const arrayBuffer = doc.output('arraybuffer');

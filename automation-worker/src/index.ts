@@ -7,18 +7,17 @@ import {
   buildWhatsAppReportMessage,
   sendWhatsAppViaFonnte
 } from './services/whatsappService';
+import {
+  getJakartaDateString,
+  getJakartaFormattedDate,
+  formatJakartaPrintDate
+} from './dateUtils';
 
-/**
- * Mendapatkan tanggal dalam format YYYY-MM-DD berdasarkan timezone Asia/Jakarta (WIB)
- */
-export function getJakartaDateString(date: Date = new Date()): string {
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Jakarta',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit'
-  }).format(date);
-}
+export {
+  getJakartaDateString,
+  getJakartaFormattedDate,
+  formatJakartaPrintDate
+};
 
 /**
  * Mendapatkan waktu ISO lengkap dalam format string
@@ -74,7 +73,8 @@ export async function runDailyProjectReportAutomation(
   }
 
   // 3. Buat run_key berdasarkan ID automation + tanggal WIB (Asia/Jakarta)
-  const jakartaDate = getJakartaDateString();
+  const executionDate = new Date();
+  const jakartaDate = getJakartaDateString(executionDate);
   const runKey = `${rule.id}:${jakartaDate}`;
 
   console.log(`[Automation] Starting ${rule.id} (run_key: ${runKey}, force: ${force})`);
@@ -129,7 +129,7 @@ export async function runDailyProjectReportAutomation(
 
     // Step 2: Generate Landscape A4 PDF
     console.log('[Automation] Step 2: Generating official Landscape A4 PDF report...');
-    const pdfResult = await generateActiveProjectsPdf(activeReports);
+    const pdfResult = await generateActiveProjectsPdf(activeReports, executionDate);
     console.log(`[Automation] Generated PDF "${pdfResult.fileName}" (${pdfResult.arrayBuffer.byteLength} bytes, ${pdfResult.totalClients} clients).`);
 
     // Step 3: Upload PDF ke Google Drive
@@ -148,7 +148,7 @@ export async function runDailyProjectReportAutomation(
 
     // Step 5: Bangun pesan WhatsApp terstruktur dengan link PDF
     console.log(`[Automation] Step 5: Preparing WhatsApp message for recipient ${targetRecipient}...`);
-    sentMessageText = buildWhatsAppReportMessage(activeReports, drivePdfUrl);
+    sentMessageText = buildWhatsAppReportMessage(activeReports, drivePdfUrl, executionDate);
 
     // Step 6: Kirim WhatsApp melalui Fonnte Gateway
     console.log('[Automation] Step 6: Dispatching message via Fonnte Gateway...');

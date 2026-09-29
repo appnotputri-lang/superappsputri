@@ -1,5 +1,6 @@
 import { Env, ProjectReportItem } from '../types';
 import { getDocumentFromFirestore, getGroupedReports, getStatusCategory, formatAgendaLabel, getProjectStatusDisplay } from './firestoreService';
+import { getJakartaFormattedDate } from '../dateUtils';
 
 export async function getFonnteToken(env: Env): Promise<string | null> {
   // 1. Priority: Cloudflare Worker Secret (FONNTE_TOKEN)
@@ -49,18 +50,8 @@ export function buildWhatsAppReportMessage(
   drivePdfUrl: string,
   date: Date = new Date()
 ): string {
-  const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
-  const months = [
-    'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-    'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
-  ];
-
-  // Hitung tanggal WIB
-  const dayName = days[date.getDay()] || 'Senin';
-  const dayNum = date.getDate();
-  const monthName = months[date.getMonth()] || 'Januari';
-  const year = date.getFullYear();
-  const todayStr = `${dayName}, ${dayNum} ${monthName} ${year}`;
+  // Hitung tanggal WIB menggunakan sumber kebenaran timezone Asia/Jakarta
+  const todayStr = getJakartaFormattedDate(date);
 
   // Hitung jumlah berkas aktual & jumlah klien aktual
   const totalBerkas = reports.length;
