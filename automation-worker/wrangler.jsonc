@@ -1,14 +1,27 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "superapps-putri-automation",
+  "name": "superappsputri",
   "main": "src/index.ts",
   "compatibility_date": "2026-09-29",
   "triggers": {
     "crons": [
-      "0 1 * * *" // Setiap hari pukul 01:00 UTC (08:00 WIB)
+      "0 1 * * *"
+    ]
+  },
+  "secrets": {
+    "required": [
+      "FONNTE_TOKEN",
+      "GOOGLE_DRIVE_CLIENT_ID",
+      "GOOGLE_DRIVE_CLIENT_SECRET",
+      "GOOGLE_DRIVE_REFRESH_TOKEN",
+      "FIREBASE_SERVICE_ACCOUNT_EMAIL",
+      "FIREBASE_SERVICE_ACCOUNT_PRIVATE_KEY",
+      "CRON_SECRET"
     ]
   },
   "vars": {
+    "FIREBASE_PROJECT_ID": "gen-lang-client-0780305709",
+    "GOOGLE_DRIVE_ROOT_FOLDER_ID": "0B-My1uo45zLibWQyMVN3N3ZueEk",
     "AUTOMATION_WHATSAPP_TARGET": "62831208301990@g.us"
   },
   "d1_databases": [

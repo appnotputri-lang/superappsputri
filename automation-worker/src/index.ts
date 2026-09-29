@@ -228,7 +228,7 @@ export default {
     env: Env,
     ctx: ExecutionContext
   ): Promise<void> {
-    ctx.waitUntil(runDailyProjectReportAutomation(env));
+    ctx.waitUntil(runDailyProjectReportAutomation(env, false));
   },
 
   /**
