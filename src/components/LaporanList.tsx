@@ -55,7 +55,13 @@ export interface GroupedReport {
 
 export function getProjectPicName(p: any, clientProfile?: any): string {
   if (!p) return '-';
+
+  // 1. Determine raw PIC name (prioritizing the latest master client profile data)
   const rawPic = 
+    clientProfile?.picName ||
+    clientProfile?.pic ||
+    clientProfile?.namaPic ||
+    clientProfile?.contactPerson ||
     p.picName ||
     p.clientPic ||
     p.pic ||
@@ -72,10 +78,6 @@ export function getProjectPicName(p: any, clientProfile?: any): string {
     p.metadata?.clientSnapshot?.pic ||
     p.metadata?.clientSnapshot?.namaPic ||
     p.metadata?.clientSnapshot?.contactPerson ||
-    clientProfile?.picName ||
-    clientProfile?.pic ||
-    clientProfile?.namaPic ||
-    clientProfile?.contactPerson ||
     p.ppatData?.buyerName ||
     p.ppatData?.sellerName ||
     p.clientContact ||
@@ -83,18 +85,41 @@ export function getProjectPicName(p: any, clientProfile?: any): string {
     '';
   
   if (!rawPic || !String(rawPic).trim() || String(rawPic).trim() === '-') return '-';
-  const cleanPic = String(rawPic).trim();
-  const picTitle = 
+  let cleanPic = String(rawPic).trim();
+
+  // 2. Determine PIC Title / Sapaan (prioritizing master client profile where user explicitly selected Ibu/Bapak)
+  let picTitle = 
+    clientProfile?.picTitle || 
     p.picTitle || 
     p.clientSnapshot?.picTitle || 
     p.metadata?.picTitle || 
-    p.metadata?.clientSnapshot?.picTitle || 
-    clientProfile?.picTitle || 
-    (cleanPic.startsWith('Ibu ') ? 'Ibu' : (cleanPic.startsWith('Bapak ') ? 'Bapak' : ''));
+    p.metadata?.clientSnapshot?.picTitle;
 
-  if (picTitle && !cleanPic.toLowerCase().startsWith(picTitle.toLowerCase())) {
-    return `${picTitle} ${cleanPic}`.trim();
+  // If raw name already has an explicit "Ibu " or "Bapak " prefix
+  if (cleanPic.toLowerCase().startsWith('ibu ') || cleanPic.toLowerCase().startsWith('bu ')) {
+    picTitle = 'Ibu';
+    cleanPic = cleanPic.replace(/^(ibu|bu)\s+/i, '').trim();
+  } else if (cleanPic.toLowerCase().startsWith('bapak ') || cleanPic.toLowerCase().startsWith('pak ')) {
+    // If clientProfile explicitly says 'Ibu', override to 'Ibu'
+    if (clientProfile?.picTitle === 'Ibu') {
+      picTitle = 'Ibu';
+    } else {
+      picTitle = picTitle || 'Bapak';
+    }
+    cleanPic = cleanPic.replace(/^(bapak|pak)\s+/i, '').trim();
   }
+
+  // If other professional title (e.g. Dr., Dra., Drs., Hj., H., Ir., Sdr., Sdri.) is present
+  if (/^(sdr|sdri|dr|dra|drs|ir|h\.|hj\.)\b/i.test(cleanPic)) {
+    return cleanPic;
+  }
+
+  // 3. Format with final title if defined and not "Tanpa Sapaan"
+  if (picTitle && typeof picTitle === 'string' && picTitle.trim() !== '' && picTitle !== 'Tanpa Sapaan' && picTitle !== '-') {
+    const trimmedTitle = picTitle.trim();
+    return `${trimmedTitle} ${cleanPic}`.trim();
+  }
+
   return cleanPic;
 }
 
@@ -240,12 +265,12 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects: propsProject
 
         setOfficeProjects(list || []);
 
-        // Fetch client profiles for projects missing picName but having clientId
+        // Fetch client profiles for all projects to guarantee latest PIC name & sapaan (Ibu/Bapak) from Master Data Klien
         const clientIdsToFetch = Array.from(
           new Set(
             (list || [])
-              .filter(p => !p.picName && !p.clientPic && !p.clientSnapshot?.picName && p.clientId)
-              .map(p => p.clientId)
+              .map(p => p.clientId || p.clientSnapshot?.id)
+              .filter(Boolean)
           )
         );
 
@@ -254,7 +279,7 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects: propsProject
           await Promise.all(
             clientIdsToFetch.map(async (cid) => {
               try {
-                const profile = await CompanyService.getCompanyProfile(cid);
+                const profile = await CompanyService.getCompanyProfile(cid, true);
                 if (profile) {
                   profilesMap[cid] = profile;
                 }

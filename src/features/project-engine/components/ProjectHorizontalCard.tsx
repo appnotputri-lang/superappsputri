@@ -262,13 +262,15 @@ export const ProjectHorizontalCard: React.FC<ProjectHorizontalCardProps> = ({
     };
   }, [project.projectId, project.clientId, project.clientSnapshot, project.picTitle, project.picName, project.picPhone, project.metadata, clientId]);
 
-  // Formatted PIC name with Bapak/Ibu prefix
+  // Formatted PIC name with optional Bapak/Ibu prefix
   const formattedPicName = (() => {
     if (!picNameState) return '';
     const clean = picNameState.trim();
-    if (clean.startsWith('Bapak ') || clean.startsWith('Ibu ')) return clean;
-    const title = picTitleState || 'Bapak';
-    return `${title} ${clean}`;
+    if (/^(bapak|ibu|pak|bu|sdr|sdri|dr|dra|drs|ir|h\.|hj\.)\b/i.test(clean)) return clean;
+    if (picTitleState && picTitleState !== 'Tanpa Sapaan' && picTitleState.trim() !== '') {
+      return `${picTitleState.trim()} ${clean}`;
+    }
+    return clean;
   })();
 
   // Combined PIC display name: client PIC first, fallback to assigned staff
@@ -1072,8 +1074,9 @@ export const ProjectHorizontalCard: React.FC<ProjectHorizontalCardProps> = ({
                   <select
                     value={editPicTitle}
                     onChange={(e) => setEditPicTitle(e.target.value)}
-                    className="w-24 shrink-0 px-2.5 py-2 text-xs font-bold border border-slate-200 rounded-lg outline-none bg-slate-50 focus:bg-white text-slate-700 cursor-pointer"
+                    className="w-28 shrink-0 px-2 py-2 text-xs font-bold border border-slate-200 rounded-lg outline-none bg-slate-50 focus:bg-white text-slate-700 cursor-pointer"
                   >
+                    <option value="">Tanpa Sapaan</option>
                     <option value="Bapak">Bapak</option>
                     <option value="Ibu">Ibu</option>
                   </select>

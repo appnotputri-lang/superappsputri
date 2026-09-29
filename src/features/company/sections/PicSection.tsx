@@ -8,7 +8,7 @@ interface PicSectionProps {
 }
 
 export const PicSection: React.FC<PicSectionProps> = ({ data, updateData }) => {
-  const currentTitle = data.picTitle || (data.picName?.startsWith('Ibu ') ? 'Ibu' : 'Bapak');
+  const currentTitle = data.picTitle !== undefined ? data.picTitle : (data.picName?.startsWith('Ibu ') ? 'Ibu' : (data.picName?.startsWith('Bapak ') ? 'Bapak' : ''));
 
   const handleTitleChange = (newTitle: string) => {
     let cleanName = data.picName || '';
@@ -51,6 +51,7 @@ export const PicSection: React.FC<PicSectionProps> = ({ data, updateData }) => {
                 onChange={e => handleTitleChange(e.target.value)}
                 className="font-bold text-slate-700 bg-slate-50 cursor-pointer"
               >
+                <option value="">Tanpa Sapaan</option>
                 <option value="Bapak">Bapak</option>
                 <option value="Ibu">Ibu</option>
               </AhuSelect>

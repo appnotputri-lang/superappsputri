@@ -246,9 +246,11 @@ export const ProjectTimelineCard: React.FC<ProjectTimelineCardProps> = ({
   const formattedPicName = (() => {
     if (!picNameState) return '';
     const clean = picNameState.trim();
-    if (clean.startsWith('Bapak ') || clean.startsWith('Ibu ')) return clean;
-    const title = picTitleState || 'Bapak';
-    return `${title} ${clean}`;
+    if (/^(bapak|ibu|pak|bu|sdr|sdri|dr|dra|drs|ir|h\.|hj\.)\b/i.test(clean)) return clean;
+    if (picTitleState && picTitleState !== 'Tanpa Sapaan' && picTitleState.trim() !== '') {
+      return `${picTitleState.trim()} ${clean}`;
+    }
+    return clean;
   })();
 
   const displayPicName = formattedPicName || staffName;

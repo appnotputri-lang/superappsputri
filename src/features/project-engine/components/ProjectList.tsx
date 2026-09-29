@@ -270,7 +270,7 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
     assignedTo: '',
     status: '',
     comment: '',
-    picTitle: 'Bapak',
+    picTitle: '',
     picName: '',
     picPhone: ''
   });
@@ -745,7 +745,7 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
       const customDate = projectDate ? new Date(projectDate) : new Date();
       const finalComment = comment.trim() || `Proyek '${title}' telah berhasil diinisialisasi.`;
 
-      const picTitleVal = newProjectData.picTitle || fullProfile.picTitle || 'Bapak';
+      const picTitleVal = newProjectData.picTitle || fullProfile.picTitle || '';
       const picNameVal = newProjectData.picName?.trim() || fullProfile.picName || (fullProfile as any).pic || '';
       const picPhoneVal = newProjectData.picPhone?.trim() || fullProfile.picPhone || fullProfile.phoneNumber || '';
 
@@ -891,7 +891,7 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
         assignedTo: '',
         status: '',
         comment: '',
-        picTitle: 'Bapak',
+        picTitle: '',
         picName: '',
         picPhone: ''
       });
@@ -1288,7 +1288,7 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
                     value={newProjectData.clientId}
                     onChange={(val) => {
                       const matchedClient = findCachedProfile(val);
-                      const initialPicTitle = matchedClient?.picTitle || (matchedClient?.picName?.startsWith('Ibu ') ? 'Ibu' : 'Bapak');
+                      const initialPicTitle = matchedClient?.picTitle || (matchedClient?.picName?.startsWith('Ibu ') ? 'Ibu' : (matchedClient?.picName?.startsWith('Bapak ') ? 'Bapak' : ''));
                       let initialPicName = matchedClient?.picName || (matchedClient as any)?.pic || '';
                       if (initialPicName.startsWith('Bapak ')) initialPicName = initialPicName.replace(/^Bapak\s+/, '');
                       if (initialPicName.startsWith('Ibu ')) initialPicName = initialPicName.replace(/^Ibu\s+/, '');
@@ -1310,7 +1310,7 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
                       if (val && (!initialPicName || !initialPicPhone || !matchedClient?.picTitle)) {
                         CompanyService.getCompanyProfile(val).then(fullP => {
                           if (!fullP) return;
-                          const pTitle = fullP.picTitle || (fullP.picName?.startsWith('Ibu ') ? 'Ibu' : 'Bapak');
+                          const pTitle = fullP.picTitle || (fullP.picName?.startsWith('Ibu ') ? 'Ibu' : (fullP.picName?.startsWith('Bapak ') ? 'Bapak' : ''));
                           let pName = fullP.picName || (fullP as any).pic || '';
                           if (pName.startsWith('Bapak ')) pName = pName.replace(/^Bapak\s+/, '');
                           if (pName.startsWith('Ibu ')) pName = pName.replace(/^Ibu\s+/, '');
@@ -1542,8 +1542,9 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
                       <select
                         value={newProjectData.picTitle}
                         onChange={(e) => setNewProjectData({ ...newProjectData, picTitle: e.target.value })}
-                        className="w-24 shrink-0 px-3 py-2.5 text-[13px] font-semibold bg-slate-50 border border-slate-200 hover:border-slate-300 focus:bg-white focus:ring-1 focus:ring-blue-500 rounded-lg outline-none transition-all cursor-pointer"
+                        className="w-28 shrink-0 px-2.5 py-2.5 text-[12.5px] font-semibold bg-slate-50 border border-slate-200 hover:border-slate-300 focus:bg-white focus:ring-1 focus:ring-blue-500 rounded-lg outline-none transition-all cursor-pointer"
                       >
+                        <option value="">Tanpa Sapaan</option>
                         <option value="Bapak">Bapak</option>
                         <option value="Ibu">Ibu</option>
                       </select>
