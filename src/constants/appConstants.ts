@@ -294,3 +294,28 @@ export const MEETING_SUBJECTS = [
   'Pembubaran',
   'Lainnya'
 ];
+
+export interface RupsLbAgendaItem {
+  id: string;
+  label: string;
+  shortLabel: string;
+  badgeColor?: string;
+}
+
+export const RUPS_LB_AGENDAS: RupsLbAgendaItem[] = [
+  { id: 'pengurus', label: 'Perubahan Susunan Direksi / Dewan Komisaris', shortLabel: 'Perubahan Pengurus', badgeColor: 'bg-purple-50 text-purple-700 border-purple-200' },
+  { id: 'pemegang_saham', label: 'Peralihan Saham / Perubahan Pemegang Saham', shortLabel: 'Peralihan Saham', badgeColor: 'bg-blue-50 text-blue-700 border-blue-200' },
+  { id: 'peningkatan_modal_dasar', label: 'Peningkatan Modal Dasar', shortLabel: 'Tambah Modal Dasar', badgeColor: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+  { id: 'peningkatan_modal_disetor', label: 'Peningkatan Modal Ditempatkan & Disetor', shortLabel: 'Tambah Modal Disetor', badgeColor: 'bg-teal-50 text-teal-700 border-teal-200' },
+  { id: 'penurunan_modal', label: 'Penurunan Modal Perseroan', shortLabel: 'Penurunan Modal', badgeColor: 'bg-rose-50 text-rose-700 border-rose-200' },
+  { id: 'nama_perseroan', label: 'Perubahan Nama Perseroan', shortLabel: 'Ubah Nama PT', badgeColor: 'bg-amber-50 text-amber-700 border-amber-200' },
+  { id: 'kedudukan', label: 'Perubahan Tempat Kedudukan', shortLabel: 'Ubah Kedudukan', badgeColor: 'bg-indigo-50 text-indigo-700 border-indigo-200' },
+  { id: 'alamat', label: 'Perubahan Alamat Lengkap', shortLabel: 'Ubah Alamat', badgeColor: 'bg-cyan-50 text-cyan-700 border-cyan-200' },
+  { id: 'kbli', label: 'Perubahan Maksud & Tujuan (KBLI)', shortLabel: 'Ubah KBLI', badgeColor: 'bg-orange-50 text-orange-700 border-orange-200' },
+  { id: 'anggaran_dasar', label: 'Perubahan Anggaran Dasar Lainnya', shortLabel: 'Ubah Pasal AD', badgeColor: 'bg-violet-50 text-violet-700 border-violet-200' },
+  { id: 'pengangkatan_kembali', label: 'Pengangkatan Kembali Pengurus', shortLabel: 'Angkat Kembali', badgeColor: 'bg-sky-50 text-sky-700 border-sky-200' },
+  { id: 'perpanjangan_jangka_waktu', label: 'Perpanjangan Jangka Waktu Perseroan', shortLabel: 'Perpanjang Waktu', badgeColor: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+  { id: 'pelepasan_aset', label: 'Pelepasan / Penjaminan Aset Perseroan', shortLabel: 'Pelepasan Aset', badgeColor: 'bg-amber-50 text-amber-700 border-amber-200' },
+  { id: 'pemberian_kuasa', label: 'Pemberian Kuasa / Penegasan RUPS', shortLabel: 'Pemberian Kuasa', badgeColor: 'bg-slate-50 text-slate-700 border-slate-200' },
+  { id: 'lainnya', label: 'Agenda Perubahan Lainnya', shortLabel: 'Lainnya', badgeColor: 'bg-slate-50 text-slate-700 border-slate-200' }
+];

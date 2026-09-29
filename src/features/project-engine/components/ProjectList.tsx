@@ -12,7 +12,7 @@ import { getApiUrl, getAuthHeaders } from '../../../lib/api';
 import { Plus, Search, Filter, Briefcase, User, Calendar, ExternalLink, Loader2, ArrowRight, Trash2, AlertCircle, MessageSquare, CheckSquare } from 'lucide-react';
 import { AppLoader } from '../../../components/ui/AppLoader';
 import { SearchableClientSelect } from '../../../components/common/SearchableClientSelect';
-import { ProjectCategory, PROJECT_TYPES, MEETING_SUBJECTS } from '../../../constants/appConstants';
+import { ProjectCategory, PROJECT_TYPES, MEETING_SUBJECTS, RUPS_LB_AGENDAS } from '../../../constants/appConstants';
 import {
   ProjectActivityFeed,
   AddActivityModal,
@@ -264,6 +264,8 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
     projectCategory: '' as ProjectCategory | '',
     projectType: '',
     meetingSubject: '',
+    changeAgendas: [] as string[],
+    customAgendaText: '',
     projectDate: new Date().toISOString().substring(0, 10),
     assignedTo: '',
     status: '',
@@ -747,6 +749,29 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
       const picNameVal = newProjectData.picName?.trim() || fullProfile.picName || (fullProfile as any).pic || '';
       const picPhoneVal = newProjectData.picPhone?.trim() || fullProfile.picPhone || fullProfile.phoneNumber || '';
 
+      const isRupsLb = 
+        jobType === 'rups_lb' ||
+        projectType === 'RUPS LB' ||
+        projectType === 'RUPS-LB' ||
+        projectType === 'PKPS RUPS-LB';
+
+      // Format selected agendas
+      const finalChangeAgendas: string[] = [];
+      if (isRupsLb && newProjectData.changeAgendas.length > 0) {
+        newProjectData.changeAgendas.forEach(aId => {
+          if (aId === 'lainnya') {
+            if (newProjectData.customAgendaText.trim()) {
+              finalChangeAgendas.push(`Lainnya: ${newProjectData.customAgendaText.trim()}`);
+            } else {
+              finalChangeAgendas.push('Agenda Perubahan Lainnya');
+            }
+          } else {
+            const matched = RUPS_LB_AGENDAS.find(a => a.id === aId);
+            finalChangeAgendas.push(matched ? matched.label : aId);
+          }
+        });
+      }
+
       const projectPayload: any = {
         clientId,
         jobType,
@@ -759,7 +784,11 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
         picPhone: picPhoneVal,
         clientPic: picNameVal,
         clientContact: picPhoneVal,
-        metadata: {},
+        metadata: {
+          changeAgendas: finalChangeAgendas,
+          agendas: finalChangeAgendas
+        },
+        changeAgendas: finalChangeAgendas,
         projectCategory,
         projectType,
         projectDate,
@@ -773,7 +802,9 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
         )
       };
 
-      if (projectCategory === 'MEETING' && (projectType === 'RUPS LB' || projectType === 'RUPS-LB' || projectType === 'PKPS RUPS-LB') && meetingSubject) {
+      if (isRupsLb) {
+        projectPayload.meetingSubject = meetingSubject || finalChangeAgendas.join(', ') || 'Perubahan Data Perseroan';
+      } else if (projectCategory === 'MEETING' && meetingSubject) {
         projectPayload.meetingSubject = meetingSubject;
       }
 
@@ -854,6 +885,8 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
         projectCategory: '' as ProjectCategory | '',
         projectType: '',
         meetingSubject: '',
+        changeAgendas: [],
+        customAgendaText: '',
         projectDate: new Date().toISOString().substring(0, 10),
         assignedTo: '',
         status: '',
@@ -1352,6 +1385,125 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
                         <option key={type} value={type}>{type}</option>
                       ))}
                     </select>
+                  </div>
+                )}
+
+                {/* SECTION AGENDA PERUBAHAN KHUSUS RUPS LB */}
+                {(newProjectData.projectType === 'RUPS LB' || 
+                  newProjectData.projectType === 'PKPS RUPS-LB' || 
+                  newProjectData.projectType === 'RUPS-LB' ||
+                  (newProjectData.projectCategory === 'BODY_LEGAL' && newProjectData.projectType === 'RUPS LB') ||
+                  (newProjectData.projectCategory === 'MEETING' && newProjectData.projectType === 'RUPS LB')) && (
+                  <div className="space-y-3 bg-purple-50/70 p-4 rounded-xl border border-purple-200/90 animate-fade-in">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-purple-200/60 pb-2.5">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-purple-600"></span>
+                          <label className="text-xs font-black text-purple-950 uppercase tracking-wide">
+                            Agenda Perubahan RUPS LB
+                          </label>
+                        </div>
+                        <p className="text-[11px] text-purple-700 font-medium mt-0.5">
+                          Pilih agenda perubahan yang disetujui / diputuskan dalam proyek RUPS LB ini:
+                        </p>
+                      </div>
+
+                      {/* Quick Action Buttons */}
+                      <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setNewProjectData(prev => ({
+                              ...prev,
+                              changeAgendas: ['pengurus', 'pemegang_saham']
+                            }));
+                          }}
+                          className="px-2 py-1 text-[10px] font-bold bg-white text-purple-700 hover:bg-purple-100/70 border border-purple-200 rounded-md transition-colors shadow-2xs cursor-pointer"
+                        >
+                          Pengurus & Saham
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setNewProjectData(prev => ({
+                              ...prev,
+                              changeAgendas: RUPS_LB_AGENDAS.filter(a => a.id !== 'lainnya').map(a => a.id)
+                            }));
+                          }}
+                          className="px-2 py-1 text-[10px] font-bold bg-white text-purple-700 hover:bg-purple-100/70 border border-purple-200 rounded-md transition-colors shadow-2xs cursor-pointer"
+                        >
+                          Pilih Semua
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setNewProjectData(prev => ({
+                              ...prev,
+                              changeAgendas: [],
+                              customAgendaText: ''
+                            }));
+                          }}
+                          className="px-2 py-1 text-[10px] font-bold bg-white text-slate-500 hover:bg-slate-100 border border-slate-200 rounded-md transition-colors shadow-2xs cursor-pointer"
+                        >
+                          Reset
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Checkboxes Grid */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {RUPS_LB_AGENDAS.map(agenda => {
+                        const isChecked = newProjectData.changeAgendas.includes(agenda.id);
+                        return (
+                          <label 
+                            key={agenda.id} 
+                            className={`flex items-start gap-2.5 p-2.5 rounded-lg border transition-all cursor-pointer select-none text-[12px] font-semibold ${
+                              isChecked 
+                                ? 'bg-purple-100/90 border-purple-400 text-purple-950 shadow-2xs' 
+                                : 'bg-white/90 border-purple-100 text-slate-700 hover:bg-white hover:border-purple-300'
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={() => {
+                                setNewProjectData(prev => {
+                                  const exists = prev.changeAgendas.includes(agenda.id);
+                                  const updated = exists 
+                                    ? prev.changeAgendas.filter(id => id !== agenda.id)
+                                    : [...prev.changeAgendas, agenda.id];
+                                  return { ...prev, changeAgendas: updated };
+                                });
+                              }}
+                              className="mt-0.5 w-4 h-4 rounded text-purple-600 focus:ring-purple-500 border-purple-300"
+                            />
+                            <span className="leading-snug flex-1">{agenda.label}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+
+                    {/* Input Agenda Lainnya jika dicentang */}
+                    {newProjectData.changeAgendas.includes('lainnya') && (
+                      <div className="pt-2 animate-fade-in">
+                        <label className="text-[11px] font-bold text-purple-900 block mb-1">
+                          Rincian Agenda Perubahan Lainnya:
+                        </label>
+                        <input
+                          type="text"
+                          value={newProjectData.customAgendaText}
+                          onChange={(e) => setNewProjectData({ ...newProjectData, customAgendaText: e.target.value })}
+                          placeholder="Tuliskan agenda perubahan spesifik lainnya..."
+                          className="w-full px-3 py-2 text-xs bg-white border border-purple-300 rounded-lg focus:ring-2 focus:ring-purple-400 outline-none"
+                        />
+                      </div>
+                    )}
+
+                    {newProjectData.changeAgendas.length > 0 && (
+                      <div className="pt-1 text-[11px] font-bold text-purple-800 flex items-center gap-1.5">
+                        <span>✓ {newProjectData.changeAgendas.length} agenda perubahan dipilih</span>
+                      </div>
+                    )}
                   </div>
                 )}
 

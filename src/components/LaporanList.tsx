@@ -11,8 +11,9 @@ import { db, auth } from '../lib/firebase';
 import { getApiUrl } from '../lib/api';
 import { toJpeg } from 'html-to-image';
 import { useProjectContext } from '../contexts/ProjectContext';
-import { ProjectCategory, PROJECT_TYPES } from '../constants/appConstants';
+import { ProjectCategory, PROJECT_TYPES, RUPS_LB_AGENDAS } from '../constants/appConstants';
 import { ProjectService } from '../services/ProjectService';
+import { CompanyService } from '../services/CompanyService';
 import { AppLoader } from './ui/AppLoader';
 
 interface LaporanListProps {
@@ -23,6 +24,16 @@ interface LaporanListProps {
 
 type JobGroupFilter = 'ALL' | 'RUPS LB' | 'RUPS TAHUNAN' | 'PENDIRIAN PT';
 
+export function formatAgendaLabel(agendaIdOrLabel: string): string {
+  if (!agendaIdOrLabel) return '';
+  const found = RUPS_LB_AGENDAS.find(
+    a => a.id === agendaIdOrLabel || 
+         a.label.toLowerCase() === agendaIdOrLabel.toLowerCase() || 
+         a.shortLabel.toLowerCase() === agendaIdOrLabel.toLowerCase()
+  );
+  return found ? found.label : agendaIdOrLabel;
+}
+
 export interface GroupedReportItem {
   pekerjaan: string;
   status: string;
@@ -30,12 +41,61 @@ export interface GroupedReportItem {
   updatedAt: any;
   id: string;
   lastTransitionComment?: string;
+  picName?: string;
+  changeAgendas?: string[];
+  meetingSubject?: string;
 }
 
 export interface GroupedReport {
   id: string;
   namaPt: string;
+  picName: string;
   items: GroupedReportItem[];
+}
+
+export function getProjectPicName(p: any, clientProfile?: any): string {
+  if (!p) return '-';
+  const rawPic = 
+    p.picName ||
+    p.clientPic ||
+    p.pic ||
+    p.clientSnapshot?.picName ||
+    p.clientSnapshot?.pic ||
+    p.clientSnapshot?.namaPic ||
+    p.clientSnapshot?.contactPerson ||
+    p.metadata?.picName ||
+    p.metadata?.pic ||
+    p.metadata?.namaPic ||
+    p.metadata?.contactPerson ||
+    p.metadata?.clientPic ||
+    p.metadata?.clientSnapshot?.picName ||
+    p.metadata?.clientSnapshot?.pic ||
+    p.metadata?.clientSnapshot?.namaPic ||
+    p.metadata?.clientSnapshot?.contactPerson ||
+    clientProfile?.picName ||
+    clientProfile?.pic ||
+    clientProfile?.namaPic ||
+    clientProfile?.contactPerson ||
+    p.ppatData?.buyerName ||
+    p.ppatData?.sellerName ||
+    p.clientContact ||
+    p.contactPerson ||
+    '';
+  
+  if (!rawPic || !String(rawPic).trim() || String(rawPic).trim() === '-') return '-';
+  const cleanPic = String(rawPic).trim();
+  const picTitle = 
+    p.picTitle || 
+    p.clientSnapshot?.picTitle || 
+    p.metadata?.picTitle || 
+    p.metadata?.clientSnapshot?.picTitle || 
+    clientProfile?.picTitle || 
+    (cleanPic.startsWith('Ibu ') ? 'Ibu' : (cleanPic.startsWith('Bapak ') ? 'Bapak' : ''));
+
+  if (picTitle && !cleanPic.toLowerCase().startsWith(picTitle.toLowerCase())) {
+    return `${picTitle} ${cleanPic}`.trim();
+  }
+  return cleanPic;
 }
 
 export function getProjectStatusDisplay(status: string, metadata?: any): string {
@@ -66,12 +126,19 @@ export function getGroupedReports(reports: any[]): GroupedReport[] {
   
   reports.forEach(r => {
     const key = r.namaPt.trim().toUpperCase();
+    const pic = r.picName || '-';
     if (!groupedMap.has(key)) {
       groupedMap.set(key, {
         id: r.id,
         namaPt: r.namaPt,
+        picName: pic,
         items: []
       });
+    } else {
+      const existing = groupedMap.get(key)!;
+      if ((!existing.picName || existing.picName === '-') && pic && pic !== '-') {
+        existing.picName = pic;
+      }
     }
     groupedMap.get(key)!.items.push({
       pekerjaan: r.pekerjaan,
@@ -79,7 +146,10 @@ export function getGroupedReports(reports: any[]): GroupedReport[] {
       metadata: r.metadata,
       updatedAt: r.updatedAt,
       id: r.id,
-      lastTransitionComment: r.lastTransitionComment
+      lastTransitionComment: r.lastTransitionComment,
+      picName: pic,
+      changeAgendas: r.changeAgendas || r.metadata?.changeAgendas || r.metadata?.agendas,
+      meetingSubject: r.meetingSubject || r.metadata?.meetingSubject
     });
   });
   
@@ -126,6 +196,7 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects: propsProject
   const [loadingProjects, setLoadingProjects] = useState(true);
   const [activeReportTab, setActiveReportTab] = useState<'aktif' | 'minuta'>('aktif');
   const [projectCommentsMap, setProjectCommentsMap] = useState<Record<string, string>>({});
+  const [clientProfilesMap, setClientProfilesMap] = useState<Record<string, any>>({});
 
   // WhatsApp States
   const [modalOpen, setModalOpen] = useState(false);
@@ -169,6 +240,31 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects: propsProject
 
         setOfficeProjects(list || []);
 
+        // Fetch client profiles for projects missing picName but having clientId
+        const clientIdsToFetch = Array.from(
+          new Set(
+            (list || [])
+              .filter(p => !p.picName && !p.clientPic && !p.clientSnapshot?.picName && p.clientId)
+              .map(p => p.clientId)
+          )
+        );
+
+        const profilesMap: Record<string, any> = {};
+        if (clientIdsToFetch.length > 0) {
+          await Promise.all(
+            clientIdsToFetch.map(async (cid) => {
+              try {
+                const profile = await CompanyService.getCompanyProfile(cid);
+                if (profile) {
+                  profilesMap[cid] = profile;
+                }
+              } catch (err) {
+                console.warn(`Gagal memuat profil klien ${cid}:`, err);
+              }
+            })
+          );
+        }
+
         // Fetch timelines for all projects in parallel to populate the custom comments map
         const commentsMap: Record<string, string> = {};
         await Promise.all(
@@ -192,6 +288,7 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects: propsProject
         );
 
         if (mounted) {
+          setClientProfilesMap(profilesMap);
           setProjectCommentsMap(commentsMap);
         }
       } catch (err) {
@@ -228,17 +325,23 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects: propsProject
       }
 
       const customComment = projectCommentsMap[p.projectId] || p.lastTransitionComment || '-';
+      const clientProfile = p.clientId ? clientProfilesMap[p.clientId] : undefined;
+      const picName = getProjectPicName(p, clientProfile);
+      const agendas = p.changeAgendas || p.metadata?.changeAgendas || p.metadata?.agendas || [];
 
       list.push({
         id: p.projectId,
         namaPt: companyName || '-',
+        picName: picName,
         pekerjaan: p.projectType || 'Perubahan',
         projectCategory: p.projectCategory || 'BODY_LEGAL',
         projectType: p.projectType || 'Perubahan',
         status: p.status || 'DRAFT',
         metadata: p.metadata || {},
         updatedAt: p.updatedAt || p.createdAt || 0,
-        lastTransitionComment: customComment
+        lastTransitionComment: customComment,
+        changeAgendas: agendas,
+        meetingSubject: p.meetingSubject || ''
       });
     });
 
@@ -248,7 +351,7 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects: propsProject
       const timeB = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
       return timeB - timeA;
     });
-  }, [officeProjects, projectCommentsMap]);
+  }, [officeProjects, projectCommentsMap, clientProfilesMap]);
 
   // Apply grouping, search, and tab filters (Proyek Aktif vs Minuta)
   const filteredReports = useMemo(() => {
@@ -445,10 +548,16 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects: propsProject
 
       msg += `📁 STATUS: ${cat.label}\n`;
       groupedCatReports.forEach((g, idx) => {
-        msg += `${idx + 1}. ${g.namaPt.toUpperCase()}\n`;
+        const picSuffix = g.picName && g.picName !== '-' ? ` (PIC: ${g.picName})` : '';
+        msg += `${idx + 1}. ${g.namaPt.toUpperCase()}${picSuffix}\n`;
         g.items.forEach(it => {
           const displayStatus = getProjectStatusDisplay(it.status, it.metadata);
-          msg += `   - ${it.pekerjaan.toUpperCase()} (Status: ${displayStatus.toUpperCase()})\n`;
+          const isRups = it.pekerjaan.toUpperCase().includes('RUPS') || (it.changeAgendas && it.changeAgendas.length > 0);
+          let agendaStr = '';
+          if (isRups && it.changeAgendas && it.changeAgendas.length > 0) {
+            agendaStr = ` [Agenda: ${it.changeAgendas.map(formatAgendaLabel).join(', ')}]`;
+          }
+          msg += `   - ${it.pekerjaan.toUpperCase()}${agendaStr} (Status: ${displayStatus.toUpperCase()})\n`;
         });
       });
       msg += `\n`;
@@ -568,9 +677,9 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects: propsProject
     }
   };
 
-  // Export report to highly polished PDF Document
+  // Export report to highly polished Landscape PDF Document
   const handleExportPDF = () => {
-    const doc = new jsPDF('p', 'mm', 'a4');
+    const doc = new jsPDF('l', 'mm', 'a4');
     
     const formatPrintDate = () => {
       const d = new Date();
@@ -684,10 +793,10 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects: propsProject
     const statusLabelFilter = selectedStatus === 'ALL' ? 'Semua Status' : selectedStatus;
     doc.text(`Kategori: ${catLabel} | Jenis: ${typeLabel} | Status: ${statusLabelFilter} | Tanggal Cetak: ${formatPrintDate()}`, 14, 28);
     
-    // Separator line
+    // Separator line (Landscape width: 297mm - 14mm*2 = 269mm -> x2 = 283mm)
     doc.setDrawColor(226, 232, 240);
     doc.setLineWidth(0.5);
-    doc.line(14, 32, 196, 32);
+    doc.line(14, 32, 283, 32);
     
     let currentY = 40;
     
@@ -731,8 +840,8 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects: propsProject
     pdfGroups.forEach((group) => {
       const groupedCatReports = getGroupedReports(group.reports);
 
-      // Check page break for section header
-      if (currentY > 240) {
+      // Check page break for section header in Landscape mode (page height is 210mm)
+      if (currentY > 165) {
         doc.addPage();
         currentY = 20;
       }
@@ -747,64 +856,47 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects: propsProject
       doc.setTextColor(15, 23, 42); // Slate-900 (#0f172a)
       doc.text(`KATEGORI STATUS: ${group.label} (${groupedCatReports.length} Klien / ${group.reports.length} Berkas)`, 18.5, currentY);
       
-      // Draw status legend pills
-      const uniqueStatusInGroup = Array.from(
-        new Set(
-          group.reports.map(r => mapStatusToDisplay(r.status, r.metadata))
-        )
-      );
+      // Space table directly below category title
+      currentY = currentY + 4;
 
-      let pillX = 14;
-      const pillY = currentY + 4;
-      const pillHeight = 5.2;
-      const textPadding = 4.5;
-
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(7.5);
-
-      uniqueStatusInGroup.forEach(statusName => {
-        const colors = getStatusColors(statusName);
-        const textWidth = doc.getTextWidth(statusName);
-        const pillWidth = textWidth + textPadding * 2;
-
-        // Draw pill background
-        doc.setFillColor(colors.bg[0], colors.bg[1], colors.bg[2]);
-        doc.roundedRect(pillX, pillY, pillWidth, pillHeight, 1.2, 1.2, 'F');
-
-        // Draw text
-        doc.setTextColor(colors.text[0], colors.text[1], colors.text[2]);
-        doc.text(statusName, pillX + textPadding, pillY + 3.6);
-
-        pillX += pillWidth + 3.5; // gap between pills
-      });
-
-      // Space table below the legends
-      currentY = pillY + pillHeight + 5;
-
-      // PDF Columns
-      const tableColumn = ["No", "Nama PT / Klien", "Jenis Pekerjaan", "Status Terakhir", "Catatan Transisi"];
+      // PDF Columns in Landscape Mode
+      const tableColumn = ["No", "Nama PT / Klien", "Nama PIC", "Jenis Pekerjaan & Agenda Perubahan", "Status Terakhir", "Catatan Transisi"];
       
       // Build Rows
       const tableRows: any[] = [];
       groupedCatReports.forEach((rec, idx) => {
         const rowSpanVal = rec.items.length;
+        const picDisplay = rec.picName && rec.picName !== '-' ? rec.picName : '-';
         
         rec.items.forEach((item, itemIdx) => {
           const displayStatus = mapStatusToDisplay(item.status, item.metadata);
-          
           const noteText = getCleanTransitionComment(item.lastTransitionComment);
+
+          // Support RUPS LB Agenda Perubahan
+          let pekerjaanText = item.pekerjaan.toUpperCase();
+          const isRupsLb = 
+            item.pekerjaan.toUpperCase().includes('RUPS') ||
+            (item.changeAgendas && item.changeAgendas.length > 0);
+
+          if (isRupsLb && item.changeAgendas && item.changeAgendas.length > 0) {
+            const agendasFormatted = item.changeAgendas
+              .map((ag: string) => `• ${formatAgendaLabel(ag)}`)
+              .join('\n');
+            pekerjaanText = `${pekerjaanText}\n${agendasFormatted}`;
+          }
 
           if (itemIdx === 0) {
             tableRows.push([
               { content: (idx + 1).toString(), rowSpan: rowSpanVal, styles: { halign: 'center' as const, valign: 'middle' as const } },
               { content: rec.namaPt.toUpperCase(), rowSpan: rowSpanVal, styles: { valign: 'middle' as const } },
-              item.pekerjaan.toUpperCase(),
+              { content: picDisplay, rowSpan: rowSpanVal, styles: { valign: 'middle' as const } },
+              pekerjaanText,
               displayStatus.toUpperCase(),
               noteText
             ]);
           } else {
             tableRows.push([
-              item.pekerjaan.toUpperCase(),
+              pekerjaanText,
               displayStatus.toUpperCase(),
               noteText
             ]);
@@ -812,7 +904,7 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects: propsProject
         });
       });
 
-      // Generate Table for this category
+      // Generate Table for this category in Landscape mode (usable width 269mm)
       autoTable(doc, {
         startY: currentY,
         head: [tableColumn],
@@ -820,7 +912,7 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects: propsProject
         theme: 'grid',
         styles: {
           fontSize: 7.5,
-          cellPadding: { top: 3.5, bottom: 3.5, left: 4, right: 4 },
+          cellPadding: { top: 3.5, bottom: 3.5, left: 3.5, right: 3.5 },
           valign: 'middle',
           lineColor: [226, 232, 240], // slate-200 border lines
           lineWidth: 0.15,
@@ -831,41 +923,38 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects: propsProject
           fontStyle: 'bold',
           halign: 'left',
           fontSize: 8,
-          cellPadding: { top: 4, bottom: 4, left: 4, right: 4 },
+          cellPadding: { top: 4, bottom: 4, left: 3.5, right: 3.5 },
         },
         alternateRowStyles: {
           fillColor: [248, 250, 252], // slate-50 background for alternate rows
         },
         columnStyles: {
-          0: { cellWidth: 14, halign: 'center' },
-          1: { cellWidth: 46, fontStyle: 'bold', halign: 'left' },
-          2: { cellWidth: 34, halign: 'left' },
-          3: { cellWidth: 38, halign: 'center' },
-          4: { cellWidth: 50, halign: 'left' },
+          0: { cellWidth: 10, halign: 'center' },
+          1: { cellWidth: 48, fontStyle: 'bold', halign: 'left' },
+          2: { cellWidth: 32, halign: 'left' },
+          3: { cellWidth: 72, halign: 'left' },
+          4: { cellWidth: 38, halign: 'center' },
+          5: { cellWidth: 69, halign: 'left' },
         },
         willDrawCell: (data) => {
-          if (data.column.index === 3 && data.cell.section === 'body') {
+          if (data.column.index === 4 && data.cell.section === 'body') {
             (data.cell as any).rawStatusText = data.cell.text.join(' ') || '';
             data.cell.text = [];
           }
         },
         didDrawCell: (data) => {
-          if (data.column.index === 3 && data.cell.section === 'body') {
+          if (data.column.index === 4 && data.cell.section === 'body') {
             const statusText = (data.cell as any).rawStatusText || '';
             if (statusText) {
               const colors = getStatusColors(statusText);
               const cell = data.cell;
               
               doc.setFont('helvetica', 'bold');
-              // Use a smaller font size if the text is quite long to prevent overflow
               const fontSize = statusText.length > 20 ? 5.5 : 6.5;
               doc.setFontSize(fontSize);
               
-              // Let the pill occupy almost the full width of the cell, with 2mm margin on each side
               const maxPillWidth = cell.width - 4; // 34mm if cell is 38mm
-              
-              // Split text into lines that fit inside the pill with safety padding
-              const lines = doc.splitTextToSize(statusText, maxPillWidth - 5);
+              const lines = doc.splitTextToSize(statusText, maxPillWidth - 4);
               
               const lineHeight = fontSize === 5.5 ? 2.5 : 2.8;
               const pillHeight = Math.max(5, lines.length * lineHeight + 1.8);
@@ -894,18 +983,18 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects: propsProject
           // Draw thin footer separator line
           doc.setDrawColor(241, 245, 249); // slate-100
           doc.setLineWidth(0.3);
-          doc.line(14, pageHeight - 15, pageWidth - 14, pageHeight - 15);
+          doc.line(14, pageHeight - 14, pageWidth - 14, pageHeight - 14);
           
           // Footer page counter
           const pageStr = `Halaman ${data.pageNumber}`;
           doc.setFont('helvetica', 'normal');
           doc.setFontSize(8);
           doc.setTextColor(148, 163, 184); // slate-400
-          doc.text(pageStr, 14, pageHeight - 10);
+          doc.text(pageStr, 14, pageHeight - 9);
           
           // Footer branding
           const brandingStr = `SuperApps Putri \u2014 Sistem Manajemen Proyek Notaris`;
-          doc.text(brandingStr, pageWidth - 14, pageHeight - 10, { align: 'right' });
+          doc.text(brandingStr, pageWidth - 14, pageHeight - 9, { align: 'right' });
         }
       });
 
@@ -1218,21 +1307,44 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects: propsProject
                       {getGroupedReports(catReports).map((rec, idx) => (
                         <tr key={idx + '-' + rec.id} className="hover:bg-fuchsia-50/25 transition-colors group">
                           <td className="px-4 py-3.5 text-center border-r border-slate-200 text-slate-500 font-bold bg-slate-50/10">{idx + 1}</td>
-                          <td className="px-5 py-3.5 border-r border-slate-200 font-black text-[#0c2444] uppercase text-[13px] tracking-wide bg-slate-50/5 max-w-[250px] break-words">{rec.namaPt}</td>
+                          <td className="px-5 py-3.5 border-r border-slate-200 font-black text-[#0c2444] uppercase text-[13px] tracking-wide bg-slate-50/5 max-w-[250px] break-words">
+                            <div>{rec.namaPt}</div>
+                            {rec.picName && rec.picName !== '-' && (
+                              <div className="text-[11px] text-slate-500 font-semibold normal-case tracking-normal mt-0.5">
+                                <span className="text-slate-400 font-medium">PIC:</span> {rec.picName}
+                              </div>
+                            )}
+                          </td>
                           
                           {/* Aligned, identical size badges */}
                           <td className="border-r border-slate-200 p-0">
                             <div className="flex flex-col divide-y divide-slate-200/80 h-full justify-stretch">
-                              {rec.items.map((it, i) => (
-                                <div key={i} className="px-4 py-3 flex items-center justify-center sm:justify-start min-h-[48px] flex-1">
-                                  {rec.items.length > 1 && (
-                                    <span className="text-fuchsia-500 font-bold text-xs shrink-0 mr-1.5">•</span>
-                                  )}
-                                  <span className="inline-block px-2.5 py-1 text-[10px] sm:text-[11px] font-bold rounded-md bg-slate-100 text-slate-700 border border-slate-200 uppercase truncate w-[150px] sm:w-[185px] text-center shadow-xs">
-                                    {it.pekerjaan}
-                                  </span>
-                                </div>
-                              ))}
+                              {rec.items.map((it, i) => {
+                                const isRups = it.pekerjaan.toUpperCase().includes('RUPS') || (it.changeAgendas && it.changeAgendas.length > 0);
+                                const agendas = it.changeAgendas || [];
+
+                                return (
+                                  <div key={i} className="px-4 py-3 flex flex-col justify-center min-h-[48px] flex-1">
+                                    <div className="flex items-center gap-1.5">
+                                      {rec.items.length > 1 && (
+                                        <span className="text-fuchsia-500 font-bold text-xs shrink-0 mr-1.5">•</span>
+                                      )}
+                                      <span className="inline-block px-2.5 py-1 text-[10px] sm:text-[11px] font-bold rounded-md bg-slate-100 text-slate-700 border border-slate-200 uppercase truncate max-w-[200px] text-center shadow-xs">
+                                        {it.pekerjaan}
+                                      </span>
+                                    </div>
+                                    {isRups && agendas.length > 0 && (
+                                      <div className="mt-1.5 flex flex-wrap gap-1">
+                                        {agendas.map((ag: string, agIdx: number) => (
+                                          <span key={agIdx} className="px-1.5 py-0.5 text-[9px] font-semibold bg-purple-50 text-purple-700 border border-purple-200 rounded leading-tight">
+                                            • {formatAgendaLabel(ag)}
+                                          </span>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
                             </div>
                           </td>
                           <td className="border-r border-slate-200 p-0 text-center">
@@ -1292,6 +1404,7 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects: propsProject
                     key={rec.id + '-' + idx}
                     number={idx + 1}
                     title={rec.namaPt}
+                    subtitle={rec.picName && rec.picName !== '-' ? `PIC: ${rec.picName}` : undefined}
                     badges={rec.items.map((it: any) => (
                       <span key={it.id || it.pekerjaan} className="inline-flex flex-wrap items-center gap-1.5">
                         <span className="px-2 py-0.5 text-[9px] font-bold bg-slate-100 text-slate-600 rounded-full uppercase">
@@ -1573,7 +1686,14 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects: propsProject
                     {getGroupedReports(catReports).map((rec, idx) => (
                       <tr key={'highres-' + idx} className="text-slate-800 text-[12.5px]">
                         <td className="px-4 py-4 text-center border border-slate-300 font-bold bg-slate-50/50">{idx + 1}</td>
-                        <td className="px-6 py-4 border border-slate-300 font-black text-[#0c2444] uppercase tracking-wide bg-slate-50/5 max-w-[250px] break-words">{rec.namaPt}</td>
+                        <td className="px-6 py-4 border border-slate-300 font-black text-[#0c2444] uppercase tracking-wide bg-slate-50/5 max-w-[250px] break-words">
+                          <div>{rec.namaPt}</div>
+                          {rec.picName && rec.picName !== '-' && (
+                            <div className="text-[11px] text-slate-500 font-semibold normal-case tracking-normal mt-0.5">
+                              <span className="text-slate-400 font-medium">PIC:</span> {rec.picName}
+                            </div>
+                          )}
+                        </td>
                         <td className="border border-slate-300 p-0">
                           <div className="flex flex-col divide-y divide-slate-300 h-full justify-stretch">
                             {rec.items.map((it, i) => (

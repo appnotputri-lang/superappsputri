@@ -425,6 +425,7 @@ export interface Project {
   projectCategory?: string; // e.g. BODY_LEGAL, MEETING, AGREEMENT, GENERAL_DEED, LEGALIZATION
   projectType?: string;     // e.g. Pendirian, RUPS-LB, RUPST, Perjanjian Sewa Menyewa, etc.
   meetingSubject?: string;  // e.g. Perubahan AD, Perubahan Data, etc.
+  changeAgendas?: string[]; // Array of RUPS LB change agenda IDs / labels recorded for this project
   minutaNotes?: string;     // Catatan khusus untuk proyek minuta
   participantUserIds?: string[]; // Array of unique Firebase UIDs involved in this project
   createdBy?: string;       // Firebase UID of project creator

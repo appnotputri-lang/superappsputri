@@ -505,6 +505,24 @@ export class ProjectService {
   }
 
   /**
+   * Generic update method for a project document.
+   */
+  static async updateProject(projectId: string, updates: Partial<Project>): Promise<void> {
+    const path = `${this.projectsCol}/${projectId}`;
+    try {
+      const projectRef = doc(db, this.projectsCol, projectId);
+      const payload = cleanUndefined({
+        ...updates,
+        updatedAt: new Date()
+      });
+      await updateDoc(projectRef, payload);
+      ProjectService.clearCache();
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, path);
+    }
+  }
+
+  /**
    * 3. addTimeline
    * Appends an event record under the project's subcollection: projects/{projectId}/timelines
    * Subcollections are highly scalable and securely guarded using relational access.

@@ -539,6 +539,44 @@ export const ProjectHorizontalCard: React.FC<ProjectHorizontalCardProps> = ({
               </span>
             </div>
 
+            {/* RUPS LB AGENDA PERUBAHAN BADGES */}
+            {(() => {
+              const isRupsLb = 
+                project.jobType === 'rups_lb' ||
+                project.projectType === 'RUPS LB' ||
+                project.projectType === 'RUPS-LB' ||
+                project.projectType === 'PKPS RUPS-LB';
+              const rawAgendas: string[] = project.changeAgendas || project.metadata?.changeAgendas || project.metadata?.agendas || [];
+              
+              if (!isRupsLb || rawAgendas.length === 0) return null;
+              
+              return (
+                <div className="mt-2 flex flex-wrap gap-1 items-center bg-purple-50/50 p-1.5 rounded-lg border border-purple-100">
+                  <span className="text-[8.5px] font-black text-purple-800 uppercase tracking-wider flex items-center gap-1 shrink-0">
+                    <span className="w-1.5 h-1.5 rounded-full bg-purple-600"></span>
+                    Agenda:
+                  </span>
+                  {rawAgendas.slice(0, 2).map((ag, i) => (
+                    <span 
+                      key={i} 
+                      className="px-1.5 py-0.5 text-[9px] font-bold rounded bg-white text-purple-700 border border-purple-200 leading-tight truncate max-w-[130px] shadow-2xs"
+                      title={ag}
+                    >
+                      {ag}
+                    </span>
+                  ))}
+                  {rawAgendas.length > 2 && (
+                    <span 
+                      className="px-1 py-0.5 text-[8.5px] font-bold rounded bg-purple-200/70 text-purple-900 shrink-0"
+                      title={rawAgendas.slice(2).join(', ')}
+                    >
+                      +{rawAgendas.length - 2}
+                    </span>
+                  )}
+                </div>
+              );
+            })()}
+
             {/* PIC & TOMBOL WHATSAPP */}
             <div 
               onClick={(e) => e.stopPropagation()}

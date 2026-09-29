@@ -34,6 +34,7 @@ import { PPATDocumentEditor } from './ppat/PPATDocumentEditor';
 import { PPATDocTypeConfig } from './ppat/ppatDocTypes';
 import { isProjectFinal } from '../../../services/ClientProjectSyncService';
 import { ToastNotification, ToastState } from '../../../components/common/ToastNotification';
+import { RUPS_LB_AGENDAS } from '../../../constants/appConstants';
 
 interface UploadedDocument {
   id: string;
@@ -204,6 +205,88 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
   const [savingDeedInfo, setSavingDeedInfo] = useState(false);
 
   const [toast, setToast] = useState<ToastState | null>(null);
+
+  // Agenda Perubahan RUPS LB States
+  const [isAgendaModalOpen, setIsAgendaModalOpen] = useState(false);
+  const [selectedAgendasList, setSelectedAgendasList] = useState<string[]>([]);
+  const [customAgendaInput, setCustomAgendaInput] = useState('');
+  const [savingAgendas, setSavingAgendas] = useState(false);
+
+  // Sync initial agendas when project loads
+  useEffect(() => {
+    if (project) {
+      const raw: string[] = project.changeAgendas || project.metadata?.changeAgendas || project.metadata?.agendas || [];
+      const initialIds: string[] = [];
+      let customText = '';
+
+      raw.forEach(item => {
+        if (item.startsWith('Lainnya: ')) {
+          initialIds.push('lainnya');
+          customText = item.replace('Lainnya: ', '');
+        } else {
+          const matched = RUPS_LB_AGENDAS.find(a => a.id === item || a.label === item || a.shortLabel === item);
+          if (matched) {
+            initialIds.push(matched.id);
+          } else {
+            initialIds.push(item);
+          }
+        }
+      });
+      setSelectedAgendasList(initialIds);
+      setCustomAgendaInput(customText);
+    }
+  }, [project?.projectId, project?.changeAgendas, project?.metadata?.changeAgendas, project?.metadata?.agendas]);
+
+  const handleSaveAgendas = async () => {
+    if (!project) return;
+    setSavingAgendas(true);
+    try {
+      const finalAgendas: string[] = [];
+      selectedAgendasList.forEach(aId => {
+        if (aId === 'lainnya') {
+          if (customAgendaInput.trim()) {
+            finalAgendas.push(`Lainnya: ${customAgendaInput.trim()}`);
+          } else {
+            finalAgendas.push('Agenda Perubahan Lainnya');
+          }
+        } else {
+          const matched = RUPS_LB_AGENDAS.find(a => a.id === aId);
+          finalAgendas.push(matched ? matched.label : aId);
+        }
+      });
+
+      const updatedMeetingSubject = finalAgendas.join(', ') || 'Perubahan Data Perseroan';
+
+      await ProjectService.updateProject(project.projectId, {
+        changeAgendas: finalAgendas,
+        meetingSubject: updatedMeetingSubject,
+        metadata: {
+          ...(project.metadata || {}),
+          changeAgendas: finalAgendas,
+          agendas: finalAgendas
+        }
+      });
+
+      setProject(prev => prev ? {
+        ...prev,
+        changeAgendas: finalAgendas,
+        meetingSubject: updatedMeetingSubject,
+        metadata: {
+          ...(prev.metadata || {}),
+          changeAgendas: finalAgendas,
+          agendas: finalAgendas
+        }
+      } : null);
+
+      setIsAgendaModalOpen(false);
+      setToast({ type: 'success', message: 'Agenda Perubahan RUPS LB berhasil disimpan!' });
+    } catch (err: any) {
+      console.error(err);
+      setToast({ type: 'error', message: 'Gagal memperbarui Agenda Perubahan: ' + (err.message || 'Error') });
+    } finally {
+      setSavingAgendas(false);
+    }
+  };
 
   // New Task State
   const [newTaskTitle, setNewTaskTitle] = useState('');
@@ -3747,6 +3830,79 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
 
             </div>
 
+            {/* RUPS LB AGENDA PERUBAHAN SECTION */}
+            {(project.jobType === 'rups_lb' || 
+              project.projectType === 'RUPS LB' || 
+              project.projectType === 'RUPS-LB' || 
+              project.projectType === 'PKPS RUPS-LB') && (
+              <div className="bg-white border border-purple-200/90 rounded-xl p-6 shadow-sm space-y-4">
+                <div className="flex items-center justify-between gap-3 border-b border-purple-100 pb-3">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-purple-600"></span>
+                    <h2 className="text-[14px] font-bold text-purple-950 uppercase tracking-wide">
+                      Agenda Perubahan RUPS LB
+                    </h2>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setIsAgendaModalOpen(true)}
+                    className="px-3 py-1.5 bg-purple-50 text-purple-700 hover:bg-purple-100/80 font-bold text-xs rounded-lg border border-purple-200 transition-all flex items-center gap-1.5 shadow-2xs cursor-pointer"
+                  >
+                    <Edit3 size={13} />
+                    <span>Kelola Agenda Perubahan</span>
+                  </button>
+                </div>
+
+                {/* Agendas Display */}
+                {(() => {
+                  const agendas = project.changeAgendas || project.metadata?.changeAgendas || project.metadata?.agendas || [];
+                  if (agendas.length === 0) {
+                    return (
+                      <div className="p-4 bg-purple-50/50 rounded-xl border border-dashed border-purple-200 text-center space-y-2">
+                        <p className="text-xs text-purple-800 font-medium">
+                          Belum ada agenda perubahan yang dicatat untuk RUPS LB ini.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => setIsAgendaModalOpen(true)}
+                          className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-lg transition-all shadow-xs cursor-pointer inline-flex items-center gap-1.5"
+                        >
+                          <Plus size={13} />
+                          <span>Pilih Agenda Perubahan Sekarang</span>
+                        </button>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-slate-500 font-semibold">
+                          Daftar agenda perubahan yang diputuskan ({agendas.length} agenda):
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {agendas.map((ag: string, idx: number) => {
+                          const matched = RUPS_LB_AGENDAS.find(a => a.label === ag || a.shortLabel === ag || a.id === ag);
+                          const colorClass = matched?.badgeColor || 'bg-purple-50 text-purple-700 border-purple-200';
+                          return (
+                            <span
+                              key={idx}
+                              className={`px-3 py-1.5 rounded-lg border text-xs font-bold shadow-2xs flex items-center gap-1.5 ${colorClass}`}
+                            >
+                              <span className="w-1.5 h-1.5 rounded-full bg-purple-500"></span>
+                              <span>{ag}</span>
+                            </span>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
+
             {/* PPAT Custom Engine Sections OR Corporate Snapshot Sections */}
             {isPPAT ? (
               <PPATProjectDocumentsSection
@@ -4817,6 +4973,140 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
                         <RefreshCw className="w-3.5 h-3.5" />
                         <span>Eksekusi Migrasi Snapshot</span>
                       </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* MODAL KELOLA AGENDA PERUBAHAN RUPS LB */}
+        {isAgendaModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in">
+            <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl border border-purple-200 overflow-hidden flex flex-col max-h-[90vh]">
+              <div className="px-6 py-4 bg-gradient-to-r from-purple-900 to-indigo-900 text-white flex items-center justify-between shrink-0">
+                <div className="flex items-center gap-2.5">
+                  <span className="w-3 h-3 rounded-full bg-purple-400"></span>
+                  <h3 className="text-base font-extrabold tracking-wide uppercase font-heading">
+                    Kelola Agenda Perubahan RUPS LB
+                  </h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsAgendaModalOpen(false)}
+                  className="text-purple-200 hover:text-white p-1 rounded-lg transition-colors cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="p-6 overflow-y-auto space-y-4 flex-1">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 bg-purple-50 p-3 rounded-xl border border-purple-100">
+                  <p className="text-xs text-purple-900 font-semibold">
+                    Pilih agenda perubahan yang dicatat untuk proyek ini:
+                  </p>
+                  <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedAgendasList(['pengurus', 'pemegang_saham'])}
+                      className="px-2 py-1 text-[10px] font-bold bg-white text-purple-700 hover:bg-purple-100 border border-purple-200 rounded-md shadow-2xs cursor-pointer"
+                    >
+                      Pengurus & Saham
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedAgendasList(RUPS_LB_AGENDAS.filter(a => a.id !== 'lainnya').map(a => a.id))}
+                      className="px-2 py-1 text-[10px] font-bold bg-white text-purple-700 hover:bg-purple-100 border border-purple-200 rounded-md shadow-2xs cursor-pointer"
+                    >
+                      Pilih Semua
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedAgendasList([]);
+                        setCustomAgendaInput('');
+                      }}
+                      className="px-2 py-1 text-[10px] font-bold bg-white text-slate-500 hover:bg-slate-100 border border-slate-200 rounded-md shadow-2xs cursor-pointer"
+                    >
+                      Reset
+                    </button>
+                  </div>
+                </div>
+
+                {/* Checkboxes Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  {RUPS_LB_AGENDAS.map(agenda => {
+                    const isChecked = selectedAgendasList.includes(agenda.id);
+                    return (
+                      <label
+                        key={agenda.id}
+                        className={`flex items-start gap-3 p-3 rounded-xl border transition-all cursor-pointer select-none text-[12.5px] font-semibold ${
+                          isChecked
+                            ? 'bg-purple-50 border-purple-400 text-purple-950 shadow-xs'
+                            : 'bg-slate-50/70 border-slate-200 text-slate-700 hover:bg-white hover:border-slate-300'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => {
+                            setSelectedAgendasList(prev => {
+                              const exists = prev.includes(agenda.id);
+                              return exists ? prev.filter(id => id !== agenda.id) : [...prev, agenda.id];
+                            });
+                          }}
+                          className="mt-0.5 w-4 h-4 rounded text-purple-600 focus:ring-purple-500 border-purple-300"
+                        />
+                        <span className="leading-snug flex-1">{agenda.label}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+
+                {/* Custom Agenda Input */}
+                {selectedAgendasList.includes('lainnya') && (
+                  <div className="p-3.5 bg-purple-50/50 rounded-xl border border-purple-200 space-y-1.5 animate-fade-in">
+                    <label className="text-xs font-bold text-purple-900 block">
+                      Rincian Agenda Perubahan Lainnya:
+                    </label>
+                    <input
+                      type="text"
+                      value={customAgendaInput}
+                      onChange={(e) => setCustomAgendaInput(e.target.value)}
+                      placeholder="Contoh: Perubahan nama merek dagang perseroan..."
+                      className="w-full px-3 py-2 text-xs bg-white border border-purple-300 rounded-lg focus:ring-2 focus:ring-purple-400 outline-none"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Modal Footer */}
+              <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-3 shrink-0">
+                <span className="text-xs text-purple-900 font-bold">
+                  {selectedAgendasList.length} agenda dipilih
+                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsAgendaModalOpen(false)}
+                    className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-200/60 rounded-lg transition-colors cursor-pointer"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSaveAgendas}
+                    disabled={savingAgendas}
+                    className="px-5 py-2 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white font-bold text-xs rounded-lg transition-all shadow-sm cursor-pointer flex items-center gap-1.5"
+                  >
+                    {savingAgendas ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        <span>Menyimpan...</span>
+                      </>
+                    ) : (
+                      <span>Simpan Agenda Perubahan</span>
                     )}
                   </button>
                 </div>
