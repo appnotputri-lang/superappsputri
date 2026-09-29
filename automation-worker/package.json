@@ -1,0 +1,24 @@
+{
+  "name": "superapps-putri-automation",
+  "version": "1.0.0",
+  "description": "Background Cron Automation Worker for SuperApps Notaris Putri",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "wrangler dev",
+    "test-cron": "wrangler dev --test-scheduled",
+    "deploy": "wrangler deploy",
+    "tail": "wrangler tail",
+    "migrate:local": "wrangler d1 migrations apply DB --local",
+    "migrate:remote": "wrangler d1 migrations apply DB --remote"
+  },
+  "dependencies": {
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.8"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250224.0",
+    "typescript": "^5.8.2",
+    "wrangler": "^3.111.0"
+  },
+  "private": true
+}

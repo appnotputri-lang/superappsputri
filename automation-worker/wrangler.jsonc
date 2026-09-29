@@ -1,0 +1,19 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "superapps-putri-automation",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-29",
+  "triggers": {
+    "crons": [
+      "0 1 * * *" // Setiap hari pukul 01:00 UTC (08:00 WIB)
+    ]
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "notaris-putri-db",
+      "database_id": "915c7f3e-3f97-421a-b55d-3120d192d7d8",
+      "migrations_dir": "migrations"
+    }
+  ]
+}
