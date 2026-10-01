@@ -24,6 +24,7 @@ import { handleFirestoreError, OperationType } from '../lib/firebase';
 import { CompanyProfile } from '../../types';
 import { sanitizeForFirestore, normalizeCompanyName, getUniqueClientKey } from '../utils/sanitize';
 import { FirestoreTracker } from '../lib/firestoreTracker';
+import { formatCompanyName as formatCompanyNameHelper } from '../lib/formatter';
 
 export interface ClientDirectoryEntry {
   id: string;
@@ -844,9 +845,9 @@ export class CompanyService {
   /**
    * Helper to format company name: Uppercase and add type prefix if needed
    */
-  static formatCompanyName(name: string, clientType: string): string {
+  static formatCompanyName(name: string, clientType?: string): string {
     if (!name) return '';
-    return name.toUpperCase().trim();
+    return formatCompanyNameHelper(name, clientType);
   }
 
   /**

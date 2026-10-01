@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ChevronDown, Search, X } from 'lucide-react';
 import { CompanyProfile } from '../../../types';
+import { formatCompanyName } from '../../lib/formatter';
 
 interface SearchableClientSelectProps {
   value: string;
@@ -15,36 +16,7 @@ interface SearchableClientSelectProps {
 
 const formatCompanyNameWithType = (name: string, clientType?: string) => {
   if (!name) return '';
-  if (!clientType) return name;
-
-  const typeMap: Record<string, string> = {
-    PT: 'PT',
-    CV: 'CV',
-    YAYASAN: 'Yayasan',
-    PERKUMPULAN: 'Perkumpulan',
-    PERSEKUTUAN_FIRMA: 'Firma',
-    PERSEKUTUAN_PERDATA: 'Persekutuan Perdata',
-    KOPERASI: 'Koperasi',
-    PMA: 'PMA',
-    PERORANGAN: 'Perorangan',
-  };
-
-  const prefix = typeMap[clientType];
-  if (!prefix) return name;
-
-  const trimmedName = name.trim();
-  const lowerName = trimmedName.toLowerCase();
-  const lowerPrefix = prefix.toLowerCase();
-
-  if (
-    lowerName.startsWith(lowerPrefix + ' ') ||
-    lowerName.startsWith(lowerPrefix + '.') ||
-    lowerName === lowerPrefix
-  ) {
-    return trimmedName;
-  }
-
-  return `${prefix} ${trimmedName}`;
+  return formatCompanyName(name, clientType);
 };
 
 export const SearchableClientSelect: React.FC<SearchableClientSelectProps> = ({
