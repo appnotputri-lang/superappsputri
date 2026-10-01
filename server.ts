@@ -1,6 +1,7 @@
 import express from "express";
 import path from "path";
 import crypto from "crypto";
+import { GoogleGenAI, Type } from "@google/genai";
 import { createServer as createViteServer } from "vite";
 import { firestoreRest } from "./src/lib/firestore-rest";
 import { DriveFolderService } from "./src/services/DriveFolderService";
@@ -2163,6 +2164,130 @@ async function startServer() {
   });
   
   app.post("/api/v2/documents/upload", authMiddleware, DocumentController.uploadDocument);
+
+  // Endpoint OCR KTP menggunakan Gemini AI (Server-Side)
+  app.post("/api/ocr-ktp", async (req, res) => {
+    try {
+      const { imageBase64, mimeType } = req.body;
+      if (!imageBase64) {
+        return res.status(400).json({ success: false, error: "Foto KTP (base64) wajib dikirim" });
+      }
+
+      const apiKey = process.env.GEMINI_API_KEY;
+      if (!apiKey) {
+        return res.status(500).json({ 
+          success: false, 
+          error: "Layanan AI tidak dikonfigurasi di server. Silakan isi form KTP secara manual." 
+        });
+      }
+
+      const cleanBase64 = imageBase64.replace(/^data:image\/\w+;base64,/, "");
+      let cleanMime = mimeType || "image/jpeg";
+      const mimeMatch = imageBase64.match(/^data:(image\/\w+);base64,/);
+      if (mimeMatch && mimeMatch[1]) {
+        cleanMime = mimeMatch[1];
+      }
+
+      const ai = new GoogleGenAI({ apiKey });
+
+      const prompt = `Anda adalah sistem OCR cerdas untuk Ekstraksi Kartu Tanda Penduduk (KTP) Indonesia.
+Analisis foto KTP yang diberikan dan ekstrak data berikut dengan sangat teliti dan akurat:
+
+1. nik: 16 digit angka NIK KTP.
+2. name: Nama lengkap (tanpa gelar), huruf kapital semua.
+3. salutation: Jika jenis kelamin LAKI-LAKI gunakan "Tuan". Jika PEREMPUAN, gunakan "Nyonya" atau "Nona".
+4. birthCity: Kota/Kabupaten tempat lahir, huruf kapital (contoh: "JAKARTA", "BANDUNG").
+5. birthDate: Tanggal lahir format YYYY-MM-DD.
+6. occupation: Pekerjaan sesuai KTP, huruf kapital (contoh: "WIRASWASTA", "KARYAWAN SWASTA", "PEGAWAI NEGERI SIPIL").
+7. address:
+   - fullAddress: Alamat jalan/komplek/nomor rumah, huruf kapital.
+   - rt: Nomor RT (3 digit, contoh "001").
+   - rw: Nomor RW (3 digit, contoh "002").
+   - kelurahan: Kelurahan/Desa, huruf kapital.
+   - kecamatan: Kecamatan, huruf kapital.
+   - city: Kota/Kabupaten, huruf kapital (tanpa kata KOTA atau KABUPATEN jika ada, contoh "JAKARTA SELATAN", "BANDUNG").
+   - province: Provinsi, huruf kapital.
+
+Jika ada field yang tidak terbaca atau tidak jelas, kosongkan string-nya ("").`;
+
+      // Candidate models list for automatic fallback according to gemini-api skill
+      const candidateModels = ["gemini-flash-latest", "gemini-2.5-flash", "gemini-3.1-flash-lite"];
+      let response = null;
+      let lastError = null;
+
+      for (const modelName of candidateModels) {
+        try {
+          response = await ai.models.generateContent({
+            model: modelName,
+            contents: [
+              {
+                role: "user",
+                parts: [
+                  { inlineData: { mimeType: cleanMime, data: cleanBase64 } },
+                  { text: prompt },
+                ],
+              },
+            ],
+            config: {
+              responseMimeType: "application/json",
+              responseSchema: {
+                type: Type.OBJECT,
+                properties: {
+                  nik: { type: Type.STRING },
+                  name: { type: Type.STRING },
+                  salutation: { type: Type.STRING },
+                  birthCity: { type: Type.STRING },
+                  birthDate: { type: Type.STRING },
+                  occupation: { type: Type.STRING },
+                  address: {
+                    type: Type.OBJECT,
+                    properties: {
+                      fullAddress: { type: Type.STRING },
+                      rt: { type: Type.STRING },
+                      rw: { type: Type.STRING },
+                      kelurahan: { type: Type.STRING },
+                      kecamatan: { type: Type.STRING },
+                      city: { type: Type.STRING },
+                      province: { type: Type.STRING },
+                    },
+                  },
+                },
+              },
+            },
+          });
+          if (response) break;
+        } catch (mErr: any) {
+          lastError = mErr;
+          console.warn(`[OCR KTP] Model ${modelName} failed:`, mErr?.message || mErr);
+        }
+      }
+
+      if (!response) {
+        throw lastError || new Error("Gagal menghubungkan ke model AI OCR");
+      }
+
+      const responseText = response.text || "{}";
+      const parsedData = JSON.parse(responseText);
+
+      return res.json({
+        success: true,
+        data: parsedData,
+      });
+    } catch (err: any) {
+      const errStr = String(err?.message || err);
+      console.error("[OCR KTP] Error:", errStr);
+
+      let userMsg = "Layanan AI OCR KTP sedang tidak dapat diakses saat ini. Silakan isi data KTP secara manual.";
+      if (errStr.includes("403") || errStr.includes("PERMISSION_DENIED") || errStr.includes("denied access")) {
+        userMsg = "Layanan AI Gemini tidak memiliki akses (API Key tidak valid atau terbatas). Silakan isi data KTP secara manual.";
+      }
+
+      return res.status(200).json({
+        success: false,
+        error: userMsg,
+      });
+    }
+  });
 
   app.post("/api/upload-document", async (req, res) => {
     const { projectId, name, fileName, fileType, base64, uploadedBy } = req.body;

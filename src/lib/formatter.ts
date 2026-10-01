@@ -222,28 +222,51 @@ export function cleanDegrees(str: string): string {
 export function formatCompanyName(name: string, clientType: string = 'PT'): string {
   if (!name) return "";
   let cleanName = name.trim();
+
+  // Detect if name already starts with a recognized title prefix
+  const detectedPrefixMatch = cleanName.match(/^(PT|PT\.|P\.T\.|P\.T|PERSEROAN TERBATAS|CV|CV\.|C\.V\.|C\.V|COMMANDITAIRE VENNOOTSCHAP|YAYASAN|KOPERASI|FIRMA|PERKUMPULAN|PERSEKUTUAN PERDATA)\s+/i);
   
-  // Normalize types for mapping
-  const typeMap: Record<string, string> = {
-    'PT': 'PT',
-    'CV': 'CV',
-    'YAYASAN': 'YAYASAN',
-    'PERKUMPULAN': 'PERKUMPULAN',
-    'PERSEKUTUAN_FIRMA': 'FIRMA',
-    'PERSEKUTUAN_PERDATA': 'PERSEKUTUAN PERDATA',
-    'KOPERASI': 'KOPERASI',
-    'PMA': 'PT',
-    'PERORANGAN': 'PT',
-    'LAINNYA': ''
-  };
+  let prefix = '';
+  if (detectedPrefixMatch) {
+    const rawMatch = detectedPrefixMatch[1].toUpperCase();
+    if (rawMatch.startsWith('PT') || rawMatch.includes('PERSEROAN')) prefix = 'PT';
+    else if (rawMatch.startsWith('CV') || rawMatch.includes('COMMANDITAIRE')) prefix = 'CV';
+    else if (rawMatch.startsWith('YAYASAN')) prefix = 'YAYASAN';
+    else if (rawMatch.startsWith('KOPERASI')) prefix = 'KOPERASI';
+    else if (rawMatch.startsWith('PERKUMPULAN')) prefix = 'PERKUMPULAN';
+    else if (rawMatch.startsWith('FIRMA')) prefix = 'FIRMA';
+    else if (rawMatch.includes('PERDATA')) prefix = 'PERSEKUTUAN PERDATA';
+  } else if (clientType) {
+    const normalizedType = clientType.trim().toUpperCase();
+    const typeMap: Record<string, string> = {
+      'PT': 'PT',
+      'PT_LOKAL': 'PT',
+      'CV': 'CV',
+      'YAYASAN': 'YAYASAN',
+      'PERKUMPULAN': 'PERKUMPULAN',
+      'PERSEKUTUAN_FIRMA': 'FIRMA',
+      'FIRMA': 'FIRMA',
+      'PERSEKUTUAN_PERDATA': 'PERSEKUTUAN PERDATA',
+      'KOPERASI': 'KOPERASI',
+      'PMA': 'PT',
+      'PERORANGAN': '',
+      'INDIVIDUAL': '',
+      'LAINNYA': ''
+    };
+    if (normalizedType in typeMap) {
+      prefix = typeMap[normalizedType];
+    } else if (!['PERORANGAN', 'INDIVIDUAL', 'LAINNYA'].includes(normalizedType)) {
+      prefix = normalizedType;
+    }
+  } else {
+    prefix = 'PT';
+  }
 
-  const prefix = typeMap[clientType] || 'PT';
-
-  // Remove existing prefixes recursively to handle "PT PT name" or "PT. PT name" etc
+  // Remove existing prefixes recursively to handle duplicate prefixes
   const allPrefixes = [
     'PT', 'PT\\.', 'P\\.T\\.', 'P\\.T', 'PERSEROAN TERBATAS',
     'CV', 'CV\\.', 'C\\.V\\.', 'C\\.V', 'COMMANDITAIRE VENNOOTSCHAP',
-    'YAYASAN', 'KOPERASI', 'FIRMA', 'PERKUMPULAN'
+    'YAYASAN', 'KOPERASI', 'FIRMA', 'PERKUMPULAN', 'PERSEKUTUAN PERDATA'
   ];
   
   const prefixRegex = new RegExp(`^(${allPrefixes.join('|')})\\s*`, 'i');

@@ -345,7 +345,7 @@ const ProxyInputModal: React.FC<Props> = ({
               </label>
               <input
                 type="date"
-                value={form.proxyDeedDate}
+                value={form.proxyDeedDate || ''}
                 onChange={e => update({ proxyDeedDate: e.target.value })}
                 className="w-full px-3 py-2 border border-orange-300 rounded outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 text-sm bg-white"
               />
@@ -565,7 +565,7 @@ const ProxyInputModal: React.FC<Props> = ({
             </label>
             <div className="flex gap-2">
               <select
-                value={form.salutation}
+                value={form.salutation || 'Tuan'}
                 onChange={e => update({ salutation: e.target.value as ProxyData['salutation'] })}
                 className="w-24 px-3 py-2 border border-slate-300 rounded text-sm bg-white outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
               >
@@ -575,7 +575,7 @@ const ProxyInputModal: React.FC<Props> = ({
               </select>
               <input
                 type="text"
-                value={form.name}
+                value={form.name || ''}
                 onChange={e => update({ name: e.target.value.toUpperCase() })}
                 className="flex-1 px-3 py-2 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm font-bold"
                 placeholder="Nama lengkap penerima kuasa"
@@ -613,7 +613,7 @@ const ProxyInputModal: React.FC<Props> = ({
               </label>
               <input
                 type="text"
-                value={form.nik}
+                value={form.nik || ''}
                 onChange={e => update({ nik: e.target.value })}
                 className="w-full px-3 py-2 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm"
                 placeholder="Nomor Induk Kependudukan"
@@ -687,7 +687,7 @@ const ProxyInputModal: React.FC<Props> = ({
               </label>
               <input
                 type="text"
-                value={form.birthCity}
+                value={form.birthCity || ''}
                 onChange={e => update({ birthCity: e.target.value.toUpperCase() })}
                 className="w-full px-3 py-2 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm"
               />
@@ -698,7 +698,7 @@ const ProxyInputModal: React.FC<Props> = ({
               </label>
               <input
                 type="date"
-                value={form.birthDate}
+                value={form.birthDate || ''}
                 onChange={e => update({ birthDate: e.target.value })}
                 className="w-full px-3 py-2 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm bg-slate-50"
               />
@@ -712,7 +712,7 @@ const ProxyInputModal: React.FC<Props> = ({
             </label>
             <input
               type="text"
-              value={form.occupation}
+              value={form.occupation || ''}
               onChange={e => update({ occupation: e.target.value.toUpperCase() })}
               placeholder="CONTOH: WIRASWASTA"
               className="w-full px-3 py-2 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm"
@@ -725,7 +725,7 @@ const ProxyInputModal: React.FC<Props> = ({
               Alamat <span className="text-red-500">*</span>
             </label>
             <textarea
-              value={form.address.fullAddress}
+              value={form.address?.fullAddress || ''}
               onChange={e => updateAddress({ fullAddress: e.target.value.toUpperCase() })}
               className="w-full px-3 py-2 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm min-h-[72px]"
               placeholder="Nama jalan, nomor, dll."
@@ -738,7 +738,7 @@ const ProxyInputModal: React.FC<Props> = ({
               <label className="block text-xs font-bold text-slate-700 mb-1">RT</label>
               <input
                 type="text"
-                value={form.address.rt}
+                value={form.address?.rt || ''}
                 onChange={e => updateAddress({ rt: e.target.value })}
                 className="w-full px-3 py-2 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm"
               />
@@ -747,7 +747,7 @@ const ProxyInputModal: React.FC<Props> = ({
               <label className="block text-xs font-bold text-slate-700 mb-1">RW</label>
               <input
                 type="text"
-                value={form.address.rw}
+                value={form.address?.rw || ''}
                 onChange={e => updateAddress({ rw: e.target.value })}
                 className="w-full px-3 py-2 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm"
               />

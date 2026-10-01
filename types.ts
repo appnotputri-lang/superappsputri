@@ -620,6 +620,7 @@ export interface Invoice {
   id: string;
   invoiceNumber: string;
   clientName: string;
+  clientType?: string;
   clientId?: string;
   clientSource?: 'local' | 'superapps';
   clientEmail?: string;

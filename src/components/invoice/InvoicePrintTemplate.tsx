@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import QRCode from 'qrcode';
 import { Invoice } from '../../types';
 import { getItemSubtotal } from '../../services/taxCalculator';
+import { formatCompanyName } from '../../lib/formatter';
 
 export function terbilang(n: number): string {
   const angka = ["", "Satu", "Dua", "Tiga", "Empat", "Lima", "Enam", "Tujuh", "Delapan", "Sembilan", "Sepuluh", "Sebelas"];
@@ -141,7 +142,7 @@ export const InvoicePrintTemplate: React.FC<InvoicePrintTemplateProps> = ({ invo
           <div className="border-b-2 border-slate-800 pb-1 mb-2">
             <span className="font-bold text-slate-900 uppercase">{isEn ? 'Bill To' : 'Tagihan Kepada'}</span>
           </div>
-          <p className="font-bold text-[#1d4ed8] text-xs mb-0.5">{invoice.clientName}</p>
+          <p className="font-bold text-[#1d4ed8] text-xs mb-0.5">{formatCompanyName(invoice.clientName, invoice.clientType)}</p>
           {invoice.clientAddress && (
             <p className="text-slate-600 leading-snug whitespace-pre-line">{invoice.clientAddress}</p>
           )}

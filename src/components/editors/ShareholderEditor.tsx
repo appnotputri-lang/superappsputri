@@ -1,6 +1,6 @@
 import React from 'react';
 import { Shareholder, CompanyProfile } from '../../../types';
-import { User, Banknote, Globe, ShieldCheck, MapPin, Coins, History, Zap, Info, Briefcase, UserPlus, ArrowRightLeft, Users, Plus, Trash2 } from 'lucide-react';
+import { User, Banknote, Globe, ShieldCheck, MapPin, Coins, History, Zap, Info, Briefcase, UserPlus, ArrowRightLeft, Users, Plus, Trash2, Camera, Loader2 } from 'lucide-react';
 import { formatCurrency, numberToWords, formatInputNumber, parseFormattedNumber } from '../../../utils/formatters';
 import { IndoRegionSelector } from '../../../components/AddressFields';
 import { searchShareholderByNIKClient } from '../../lib/firebase';
@@ -56,6 +56,95 @@ const ShareholderEditor: React.FC<Props> = ({
   const [searchStatus, setSearchStatus] = React.useState('');
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = React.useState(false);
   const [profileSearchQuery, setProfileSearchQuery] = React.useState('');
+  const [ocrLoading, setOcrLoading] = React.useState(false);
+  const [ocrSuccessMsg, setOcrSuccessMsg] = React.useState('');
+  const [ocrErrorMsg, setOcrErrorMsg] = React.useState('');
+  const abortControllerRef = React.useRef<AbortController | null>(null);
+
+  const handleKtpOcrUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    e.target.value = '';
+
+    if (shareholder.isForeign || (shareholder.nationalityType as string) === 'WNA') {
+      return;
+    }
+
+    setOcrLoading(true);
+    setOcrSuccessMsg('');
+    setOcrErrorMsg('');
+
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
+    try {
+      const base64Data = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+
+      const res = await fetch('/api/ocr-ktp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imageBase64: base64Data, mimeType: file.type }),
+        signal: controller.signal
+      });
+
+      const json = await res.json();
+
+      if (shareholder.isForeign || (shareholder.nationalityType as string) === 'WNA') {
+        setOcrLoading(false);
+        return;
+      }
+
+      if (json.success && json.data) {
+        const d = json.data;
+        const updates: Partial<Shareholder> = {};
+
+        if (d.nik) updates.nik = String(d.nik).trim();
+        if (d.name) updates.name = String(d.name).toUpperCase().trim();
+        if (d.salutation) updates.salutation = d.salutation;
+        if (d.birthCity) updates.birthCity = String(d.birthCity).toUpperCase().trim();
+        if (d.birthDate) updates.birthDate = String(d.birthDate).trim();
+        if (d.occupation) updates.occupation = String(d.occupation).toUpperCase().trim();
+
+        if (d.address) {
+          const currentAddr = shareholder.address || {
+            fullAddress: '', rt: '', rw: '', kelurahan: '', kecamatan: '', city: '', province: ''
+          };
+          updates.address = {
+            fullAddress: d.address.fullAddress ? String(d.address.fullAddress).toUpperCase().trim() : currentAddr.fullAddress,
+            rt: d.address.rt ? String(d.address.rt).trim() : currentAddr.rt,
+            rw: d.address.rw ? String(d.address.rw).trim() : currentAddr.rw,
+            kelurahan: d.address.kelurahan ? String(d.address.kelurahan).toUpperCase().trim() : currentAddr.kelurahan,
+            kecamatan: d.address.kecamatan ? String(d.address.kecamatan).toUpperCase().trim() : currentAddr.kecamatan,
+            city: d.address.city ? String(d.address.city).toUpperCase().trim() : currentAddr.city,
+            province: d.address.province ? String(d.address.province).toUpperCase().trim() : currentAddr.province,
+            postalCode: currentAddr.postalCode || ''
+          };
+        }
+
+        onChange(updates);
+        setOcrSuccessMsg('✅ Data KTP berhasil diisi oleh AI!');
+      } else {
+        setOcrErrorMsg(json.error || 'Gagal membaca KTP. Silakan isi form secara manual.');
+      }
+    } catch (err: any) {
+      if (err.name !== 'AbortError') {
+        console.error('KTP OCR Error:', err);
+        setOcrErrorMsg('Terjadi kesalahan saat membaca KTP. Silakan isi form secara manual.');
+      }
+    } finally {
+      setOcrLoading(false);
+    }
+  };
+
   const maxPossible = totalSharesAllowed - otherAllocated;
   
   const searchShareholderByNIK = async (nik: string) => {
@@ -414,15 +503,74 @@ const ShareholderEditor: React.FC<Props> = ({
         <input 
           type="checkbox" 
           checked={!!shareholder.isForeign || isWna}
-          onChange={e => onChange({ 
-            isForeign: e.target.checked,
-            nationalityType: e.target.checked ? 'WNA' : 'WNI', 
-            nationality: e.target.checked ? '' : 'WNI' 
-          })}
+          onChange={e => {
+            const isChecked = e.target.checked;
+            if (isChecked) {
+              if (abortControllerRef.current) {
+                abortControllerRef.current.abort();
+              }
+              setOcrLoading(false);
+              setOcrSuccessMsg('');
+              setOcrErrorMsg('');
+            }
+            onChange({ 
+              isForeign: isChecked,
+              nationalityType: isChecked ? 'WNA' : 'WNI', 
+              nationality: isChecked ? '' : 'WNI' 
+            });
+          }}
           className="rounded border-slate-300 text-teal-500 focus:ring-teal-500"
         />
         <span className="text-sm text-slate-700 font-bold">Asing</span>
       </label>
+
+      {/* Fitur Upload KTP dengan AI - HANYA jika BUKAN ASING */}
+      {!isWna && !shareholder.isForeign && (
+        <div className="my-3 p-3.5 bg-gradient-to-r from-teal-50 via-cyan-50 to-emerald-50 rounded-lg border border-teal-200 shadow-sm transition-all">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-xs font-bold text-teal-900 flex items-center gap-1.5">
+              <Camera className="w-4 h-4 text-teal-600" /> Upload KTP dengan AI
+            </span>
+            {ocrLoading && (
+              <span className="text-[11px] text-teal-700 font-bold animate-pulse flex items-center gap-1">
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-teal-600" /> Memproses AI...
+              </span>
+            )}
+          </div>
+          <p className="text-[11px] text-slate-600 mb-2.5">
+            Upload foto KTP untuk mengisi data NIK, Nama, Tanggal Lahir, Pekerjaan, dan Alamat secara otomatis.
+          </p>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <label className={`inline-flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-md shadow-sm transition-all ${
+              ocrLoading 
+                ? 'bg-slate-200 text-slate-500 cursor-not-allowed' 
+                : 'bg-teal-600 hover:bg-teal-700 active:bg-teal-800 text-white cursor-pointer'
+            }`}>
+              <Camera className="w-4 h-4" />
+              <span>{ocrLoading ? 'Memproses KTP...' : '📷 Upload KTP dengan AI'}</span>
+              <input 
+                type="file" 
+                accept="image/*" 
+                disabled={ocrLoading}
+                onChange={handleKtpOcrUpload}
+                className="hidden" 
+              />
+            </label>
+
+            {ocrSuccessMsg && (
+              <span className="text-xs font-bold text-emerald-700 bg-emerald-100/90 px-2.5 py-1 rounded border border-emerald-300">
+                {ocrSuccessMsg}
+              </span>
+            )}
+            {ocrErrorMsg && (
+              <span className="text-xs font-bold text-red-700 bg-red-100/90 px-2.5 py-1 rounded border border-red-300">
+                {ocrErrorMsg}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
 
       <div>
         <label className="block text-xs font-bold text-slate-700 mb-1">Jenis Pemegang Saham</label>

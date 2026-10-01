@@ -36,7 +36,7 @@ export const onRequestPut = async (context: any) => {
   try {
     const body = await request.json();
     const id = body.id || 'default';
-    const updated = await updateWebinarSettingsD1(db, id, body);
+    const updated = await updateWebinarSettingsD1(db, { ...body, id });
 
     return createJsonResponse({
       success: true,

@@ -9,6 +9,7 @@ import { InvoiceProductCombobox } from './InvoiceProductCombobox';
 import { CompanyService } from '../../services/CompanyService';
 import { calculateInvoiceTotals, getItemSubtotal } from '../../services/taxCalculator';
 import { formatInputNumber, parseFormattedNumber } from '../../../utils/formatters';
+import { formatCompanyName } from '../../lib/formatter';
 import { InvoicePrintTemplate } from './InvoicePrintTemplate';
 import { printInvoice, downloadInvoicePdf, downloadKwitansiPdf, printKwitansi, terbilang } from '../../utils/invoiceHtmlGenerator';
 import { getApiUrl, getAuthHeaders } from '../../lib/api';
@@ -46,7 +47,7 @@ const AutoResizingTextarea = ({
     <textarea
       ref={textareaRef}
       rows={1}
-      value={value}
+      value={value || ''}
       placeholder={placeholder}
       onChange={(e) => onChange(e.target.value)}
       className={`${className} resize-none overflow-y-hidden`}
@@ -341,15 +342,19 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = (props) => {
       const data = await response.json() as any;
       const results = data.clients || [];
 
-      const mapped: ClientOption[] = results.map((d: any) => ({
-        clientId: d.clientId || d.id,
-        name: d.companyName || 'Tanpa Nama',
-        email: d.email || '',
-        phone: d.phoneNumber || d.phone || '',
-        address: d.fullAddress || d.address || d.domicile || '',
-        source: 'local' as const,
-        clientType: d.clientType || 'PT'
-      }));
+      const mapped: ClientOption[] = results.map((d: any) => {
+        const cType = d.clientType || d.companyType || 'PT';
+        const rawName = d.companyName || d.name || 'Tanpa Nama';
+        return {
+          clientId: d.clientId || d.id,
+          name: formatCompanyName(rawName, cType),
+          email: d.email || '',
+          phone: d.phoneNumber || d.phone || '',
+          address: d.fullAddress || d.address || d.domicile || '',
+          source: 'local' as const,
+          clientType: cType
+        };
+      });
 
       localD1CacheRef.current[cacheKey] = mapped;
       return mapped;
@@ -833,7 +838,7 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = (props) => {
   const handleSelectClient = async (client: ClientOption) => {
     setSelectedClientId(client.clientId);
     setSelectedClientSource(client.source);
-    setClientName(client.name);
+    setClientName(formatCompanyName(client.name, client.clientType));
     setClientEmail(client.email || '');
     setClientPhone(client.phone || '');
     setClientAddress(client.address || '');
@@ -911,7 +916,7 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = (props) => {
 
       const payload: Omit<Invoice, 'id'> = {
         invoiceNumber,
-        clientName,
+        clientName: formatCompanyName(clientName, localClients.find(c => c.clientId === selectedClientId)?.clientType || 'PT'),
         clientId: selectedClientId || undefined,
         clientSource: selectedClientSource || undefined,
         clientEmail,
@@ -1095,7 +1100,7 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = (props) => {
 
       const newOpt: ClientOption = {
         clientId: clientId,
-        name: companyData.companyName,
+        name: formatCompanyName(companyData.companyName, newClientTypeInput),
         email: companyData.email,
         phone: companyData.phoneNumber,
         address: companyData.fullAddress,

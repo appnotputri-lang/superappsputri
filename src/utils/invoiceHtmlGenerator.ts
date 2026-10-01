@@ -1,6 +1,7 @@
 import QRCode from 'qrcode';
 import { Invoice, PaymentRecord } from '../types';
 import { getItemSubtotal } from '../services/taxCalculator';
+import { formatCompanyName } from '../lib/formatter';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
@@ -396,7 +397,7 @@ export function generateInvoiceHTML(invoice: Invoice, qrBase64: string, autoPrin
       </div>
       <div class="section-col">
         <div class="section-header">${isEn ? 'Bill To' : 'Tagihan Kepada'}</div>
-        <div class="party-name">${invoice.clientName}</div>
+        <div class="party-name">${formatCompanyName(invoice.clientName, invoice.clientType)}</div>
         <div class="party-detail">
           ${invoice.clientAddress ? invoice.clientAddress.replace(/\n/g, '<br />') : ''}
           ${invoice.clientPhone ? `<br />${invoice.clientPhone}` : ''}
@@ -606,7 +607,7 @@ export async function createInvoiceJsPdf(invoice: Invoice, publicUrl?: string, l
   doc.setTextColor(29, 78, 216); // blue-700
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(9);
-  doc.text(invoice.clientName, 110, partyY + 7);
+  doc.text(formatCompanyName(invoice.clientName, invoice.clientType), 110, partyY + 7);
 
   doc.setTextColor(71, 85, 105); // slate-600
   doc.setFont('helvetica', 'normal');
@@ -852,7 +853,7 @@ export function generateKwitansiHTML(invoice: Invoice, payment: PaymentRecord, q
   const receiptNo = payment.refNumber || payment.id || (`KWT/${invoice.invoiceNumber}`);
   const paymentDate = formatDate(payment.date);
   const words = terbilang(payment.amount);
-  const clientName = invoice.clientName || 'Klien';
+  const clientName = formatCompanyName(invoice.clientName || 'Klien', invoice.clientType);
   const description = invoice.projectTitle || (invoice.items?.[0]?.description ? invoice.items[0].description.split('\n')[0] : 'Pembayaran Tagihan');
   const paymentMethod = payment.method || 'Transfer BCA';
   const refText = payment.refNumber ? ` (Ref: ${payment.refNumber})` : '';
@@ -1134,7 +1135,7 @@ export async function downloadKwitansiPdf(invoice: Invoice, payment: PaymentReco
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(11);
     doc.setTextColor(15, 23, 42);
-    doc.text(invoice.clientName || '-', 60, currentY);
+    doc.text(formatCompanyName(invoice.clientName, invoice.clientType) || '-', 60, currentY);
     return currentY;
   });
 
