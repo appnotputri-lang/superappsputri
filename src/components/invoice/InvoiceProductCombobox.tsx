@@ -11,7 +11,18 @@ export interface AvailableProductItem {
   isTaxed: boolean;
   taxRate?: number;
   category?: string;
+  isManualOption?: boolean;
 }
+
+export const MANUAL_PRODUCT_OPTION: AvailableProductItem = {
+  id: 'manual-custom-option',
+  name: '-- Manual (Ketik Sendiri) --',
+  description: '',
+  unitPrice: 0,
+  isTaxed: false,
+  taxRate: 0.05,
+  isManualOption: true
+};
 
 export const PRESET_PRODUCT_ITEMS: AvailableProductItem[] = [
   {
@@ -144,6 +155,26 @@ export const InvoiceProductCombobox: React.FC<InvoiceProductComboboxProps> = mem
   const blurTimeoutRef = useRef<any>(null);
   const isMountedRef = useRef<boolean>(true);
 
+  const [dbProducts, setDbProducts] = useState<AvailableProductItem[]>([]);
+
+  // Subscribe to Products & Services Menu from Database
+  useEffect(() => {
+    const unsubscribe = ProductService.subscribeProducts((prods) => {
+      if (!isMountedRef.current) return;
+      const mapped: AvailableProductItem[] = prods.map(p => ({
+        id: p.id,
+        name: p.name,
+        description: p.description || '',
+        unitPrice: p.unitPrice || 0,
+        isTaxed: !!p.isTaxed,
+        taxRate: 0.05,
+        category: p.category
+      }));
+      setDbProducts(mapped);
+    });
+    return () => unsubscribe();
+  }, []);
+
   // Sync input value if description changes externally
   useEffect(() => {
     const firstLine = (description || '').split('\n')[0] || '';
@@ -274,13 +305,22 @@ export const InvoiceProductCombobox: React.FC<InvoiceProductComboboxProps> = mem
     const trimmed = queryText.trim();
     const qLower = trimmed.toLowerCase();
 
-    // 1. Instant match for presets
-    const matchedPresets = trimmed
-      ? PRESET_PRODUCT_ITEMS.filter(p => p.name.toLowerCase().includes(qLower))
-      : PRESET_PRODUCT_ITEMS;
+    // Combine DB products + presets without duplicates
+    const combinedBase = [...dbProducts];
+    const seenNames = new Set(dbProducts.map(p => p.name.toLowerCase()));
+    for (const preset of PRESET_PRODUCT_ITEMS) {
+      if (!seenNames.has(preset.name.toLowerCase())) {
+        seenNames.add(preset.name.toLowerCase());
+        combinedBase.push(preset);
+      }
+    }
 
-    // Show instant presets first while debounce is waiting
-    setSearchResults(matchedPresets);
+    const filtered = trimmed
+      ? combinedBase.filter(p => p.name.toLowerCase().includes(qLower) || (p.description && p.description.toLowerCase().includes(qLower)))
+      : combinedBase;
+
+    // Always include MANUAL_PRODUCT_OPTION at the top
+    setSearchResults([MANUAL_PRODUCT_OPTION, ...filtered]);
 
     // Cancel existing debounce timer
     if (debounceTimerRef.current) {
@@ -309,7 +349,6 @@ export const InvoiceProductCombobox: React.FC<InvoiceProductComboboxProps> = mem
           return;
         }
 
-        const seenNames = new Set(matchedPresets.map(p => p.name.toLowerCase()));
         const mappedApi: AvailableProductItem[] = [];
 
         for (const p of apiProducts) {
@@ -328,7 +367,7 @@ export const InvoiceProductCombobox: React.FC<InvoiceProductComboboxProps> = mem
           }
         }
 
-        setSearchResults([...matchedPresets, ...mappedApi]);
+        setSearchResults([MANUAL_PRODUCT_OPTION, ...filtered, ...mappedApi]);
       } catch (err: any) {
         if (err?.name !== 'AbortError') {
           console.error('[InvoiceProductCombobox] Search error:', err);
@@ -339,7 +378,7 @@ export const InvoiceProductCombobox: React.FC<InvoiceProductComboboxProps> = mem
         }
       }
     }, 250);
-  }, []);
+  }, [dbProducts]);
 
   const handleFocus = () => {
     if (blurTimeoutRef.current) {
@@ -380,15 +419,26 @@ export const InvoiceProductCombobox: React.FC<InvoiceProductComboboxProps> = mem
     if (blurTimeoutRef.current) {
       clearTimeout(blurTimeoutRef.current);
     }
-    const finalDesc = p.description ? `${p.name}\n${p.description}` : p.name;
-    onSelectProduct({
-      name: p.name,
-      description: finalDesc,
-      unitPrice: p.unitPrice,
-      isTaxed: p.isTaxed,
-      taxRate: p.isTaxed ? (p.taxRate || 0.05) : undefined
-    });
-    setInputValue(p.name);
+    if (p.isManualOption || p.id === 'manual-custom-option') {
+      onSelectProduct({
+        name: 'Manual',
+        description: '',
+        unitPrice: 0,
+        isTaxed: false,
+        taxRate: undefined
+      });
+      setInputValue('');
+    } else {
+      const finalDesc = p.description ? `${p.name}\n${p.description}` : p.name;
+      onSelectProduct({
+        name: p.name,
+        description: finalDesc,
+        unitPrice: p.unitPrice,
+        isTaxed: p.isTaxed,
+        taxRate: p.isTaxed ? (p.taxRate || 0.05) : undefined
+      });
+      setInputValue(p.name);
+    }
     setIsOpen(false);
   };
 
@@ -402,24 +452,43 @@ export const InvoiceProductCombobox: React.FC<InvoiceProductComboboxProps> = mem
       }}
       className="bg-white border border-slate-200 shadow-2xl rounded-xl overflow-y-auto p-1 text-xs select-none"
     >
-      {searchResults.map((p, pIdx) => (
-        <button
-          type="button"
-          key={p.id ? `${p.id}-${pIdx}` : `preset-${pIdx}`}
-          onMouseDown={(e) => handleSelect(e, p)}
-          onClick={(e) => handleSelect(e, p)}
-          className={`w-full text-left rounded-lg cursor-pointer transition-colors block border-b border-slate-50 last:border-none ${
-            isMobile ? 'p-2.5 hover:bg-blue-50' : 'p-2 hover:bg-blue-50'
-          }`}
-        >
-          <div className="font-bold text-slate-900">{p.name}</div>
-          {p.unitPrice > 0 && (
-            <div className="text-[10px] text-slate-500 font-medium">
-              Rp {formatCurrency(p.unitPrice)}
-            </div>
-          )}
-        </button>
-      ))}
+      {searchResults.map((p, pIdx) => {
+        const isManual = p.isManualOption || p.id === 'manual-custom-option';
+        return (
+          <button
+            type="button"
+            key={p.id ? `${p.id}-${pIdx}` : `preset-${pIdx}`}
+            onMouseDown={(e) => handleSelect(e, p)}
+            onClick={(e) => handleSelect(e, p)}
+            className={`w-full text-left rounded-lg cursor-pointer transition-colors block border-b border-slate-100 last:border-none ${
+              isManual
+                ? 'bg-blue-50/80 hover:bg-blue-100 text-blue-900 p-2.5 my-0.5 border border-blue-200 font-bold'
+                : isMobile ? 'p-2.5 hover:bg-blue-50' : 'p-2 hover:bg-blue-50'
+            }`}
+          >
+            {isManual ? (
+              <div className="flex items-center justify-between">
+                <span className="font-extrabold text-blue-700 text-xs">-- Manual (Ketik Sendiri) --</span>
+                <span className="text-[10px] bg-blue-600 text-white px-2 py-0.5 rounded font-semibold">Custom</span>
+              </div>
+            ) : (
+              <>
+                <div className="font-bold text-slate-900">{p.name}</div>
+                {p.description && (
+                  <div className="text-[10px] text-slate-500 font-normal truncate mt-0.5">
+                    {p.description.split('\n')[0]}
+                  </div>
+                )}
+                {p.unitPrice > 0 && (
+                  <div className="text-[10px] text-slate-600 font-semibold mt-0.5">
+                    Rp {formatCurrency(p.unitPrice)}
+                  </div>
+                )}
+              </>
+            )}
+          </button>
+        );
+      })}
       {searchResults.length === 0 && !isSearching && (
         <div className={`p-2.5 text-center text-slate-400 italic ${isMobile ? 'text-xs' : 'text-[10px]'}`}>
           Produk tidak ditemukan

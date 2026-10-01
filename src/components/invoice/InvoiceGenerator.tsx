@@ -115,7 +115,7 @@ const MobileInvoiceRow: React.FC<{
         onClick={() => (translateX < -10 ? setTranslateX(0) : onClick())}
       >
         <div className="min-w-0 pr-2">
-          <p className="font-bold text-slate-800 text-sm truncate">{invoice.clientName || 'Tanpa Nama'}</p>
+          <p className="font-bold text-slate-800 text-sm truncate">{formatCompanyName(invoice.clientName || 'Tanpa Nama', invoice.clientType)}</p>
           <div className="text-xs font-mono font-medium text-slate-500 mt-0.5">{invoice.invoiceNumber}</div>
           {invoice.projectTitle && (
             <div className="text-[11px] text-blue-600 font-medium truncate mt-1">
@@ -648,7 +648,15 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = (props) => {
     setCurrency('IDR');
     setNotes('Pemotongan pajak PPh Pasal 21 harus disetorkan paling lambat tanggal 10 bulan berikutnya, untuk mencegah sanksi Ditjen Pajak.');
     setTerms('Pembayaran dilakukan maksimal 14 hari setelah invoice diterbitkan.');
-    setItems([]);
+    const initialItem: InvoiceItem = {
+      id: Date.now().toString(),
+      description: '',
+      quantity: 1,
+      unitPrice: 0,
+      amount: 0,
+      isTaxed: false
+    };
+    setItems([initialItem]);
     setItemDescription('');
     setItemUnitPrice(0);
     setItemGrossUp(false);
@@ -708,7 +716,14 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = (props) => {
     setCurrency(inv.currency || 'IDR');
     setNotes(inv.notes !== undefined ? inv.notes : 'Pemotongan pajak PPh Pasal 21 harus disetorkan paling lambat tanggal 10 bulan berikutnya, untuk mencegah sanksi Ditjen Pajak.');
     setTerms(inv.terms || '');
-    setItems(inv.items && inv.items.length > 0 ? inv.items : []);
+    setItems(inv.items && inv.items.length > 0 ? inv.items : [{
+      id: Date.now().toString(),
+      description: '',
+      quantity: 1,
+      unitPrice: 0,
+      amount: 0,
+      isTaxed: false
+    }]);
     setItemDescription('');
     setItemUnitPrice(0);
     setItemGrossUp(false);
@@ -891,6 +906,32 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = (props) => {
     });
   };
 
+  const handleAddNewRow = () => {
+    const newItem: InvoiceItem = {
+      id: Date.now().toString(),
+      description: '',
+      quantity: 1,
+      unitPrice: 0,
+      amount: 0,
+      isTaxed: false
+    };
+    setItems(prev => {
+      const newIdx = prev.length;
+      setActiveMobileItemIdx(newIdx);
+      return [...prev, newItem];
+    });
+
+    setTimeout(() => {
+      const inputs = document.querySelectorAll('.product-combobox-input');
+      if (inputs && inputs.length > 0) {
+        const lastInput = inputs[inputs.length - 1] as HTMLInputElement;
+        if (lastInput) {
+          lastInput.focus();
+        }
+      }
+    }, 100);
+  };
+
   const handleSaveInvoice = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!invoiceNumber || !clientName) {
@@ -910,7 +951,10 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = (props) => {
         return '';
       }).filter(Boolean);
 
-      const { sub, tax, total } = calculateTotals(items);
+      const validItems = items.filter(it => (it.description && it.description.trim() !== '') || (it.unitPrice && it.unitPrice > 0));
+      const itemsToSave = validItems.length > 0 ? validItems : items;
+
+      const { sub, tax, total } = calculateTotals(itemsToSave);
       const existingPaid = selectedInvoice && editingInvoiceId === selectedInvoice.id ? selectedInvoice.paidAmount || 0 : 0;
       const balance = Math.max(0, total - existingPaid);
 
@@ -929,7 +973,7 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = (props) => {
         issueDate,
         dueDate,
         status: balance <= 0 && total > 0 ? 'PAID' : status,
-        items,
+        items: itemsToSave,
         subtotal: sub,
         taxAmount: tax,
         totalAmount: total,
@@ -1183,7 +1227,7 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = (props) => {
     const token = inv.publicToken || inv.id;
     const publicUrl = inv.legacyPublicUrl || `${window.location.origin}/${token}`;
 
-    return `Yth. ${inv.clientName || 'Klien'},
+    return `Yth. ${formatCompanyName(inv.clientName, inv.clientType) || 'Klien'},
 Dengan hormat,
 
 Bersama ini kami sampaikan rincian tagihan Invoice ${inv.invoiceNumber || ''} atas layanan di Kantor Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn:
@@ -1929,7 +1973,7 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
                           {inv.invoiceNumber}
                         </td>
                         <td className="p-3.5 font-semibold text-slate-800">
-                          <div>{inv.clientName}</div>
+                          <div>{formatCompanyName(inv.clientName, inv.clientType)}</div>
                           {inv.projectTitle && (
                             <div className="text-[10px] text-blue-600 font-medium mt-0.5">
                               Proyek: {inv.projectTitle}
@@ -2067,7 +2111,7 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
               </div>
               <div className="text-center flex flex-col items-center mb-5">
                 <h2 className="text-2xl tracking-widest font-normal mb-2">{inv.invoiceNumber}</h2>
-                <h3 className="text-xl font-bold uppercase mb-4">{inv.clientName}</h3>
+                <h3 className="text-xl font-bold uppercase mb-4">{formatCompanyName(inv.clientName, inv.clientType)}</h3>
                 <div className="inline-flex items-center bg-white rounded-full pl-3 pr-5 py-2 text-slate-800">
                   <div className={`w-5 h-5 rounded-full mr-3 ${!isUnpaid ? 'bg-green-400' : 'bg-[#f7949d]'}`}></div>
                   <span className="font-medium text-[15px]">{!isUnpaid ? 'Lunas' : 'Belum Dibayar'}</span>
@@ -2729,7 +2773,7 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
                 Sudah Terima Dari
               </div>
               <div className="sm:col-span-8 font-bold text-slate-900 text-sm sm:text-base">
-                {inv.clientName || '-'}
+                {formatCompanyName(inv.clientName, inv.clientType) || '-'}
               </div>
             </div>
 
@@ -3145,38 +3189,6 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
         <div className="bg-white p-4 md:p-5 rounded-2xl border border-slate-200/80 shadow-sm space-y-4">
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
             <h3 className="font-bold text-slate-900 text-xs uppercase tracking-wide">ITEM TAGIHAN</h3>
-            <button
-              type="button"
-              onClick={() => {
-                const newItem: InvoiceItem = {
-                  id: Date.now().toString(),
-                  description: '',
-                  quantity: 1,
-                  unitPrice: 0,
-                  amount: 0,
-                  isTaxed: false
-                };
-                setItems(prev => {
-                  const newIdx = prev.length;
-                  setActiveMobileItemIdx(newIdx);
-                  return [...prev, newItem];
-                });
-                
-                // Autofocus on the last product-combobox-input
-                setTimeout(() => {
-                  const inputs = document.querySelectorAll('.product-combobox-input');
-                  if (inputs && inputs.length > 0) {
-                    const lastInput = inputs[inputs.length - 1] as HTMLInputElement;
-                    if (lastInput) {
-                      lastInput.focus();
-                    }
-                  }
-                }, 100);
-              }}
-              className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer border border-blue-100/80 shrink-0"
-            >
-              <Plus size={15} /> <span>Tambah Item</span>
-            </button>
           </div>
 
           {/* Desktop Table View (hidden on mobile) */}
@@ -3317,7 +3329,7 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
           <div className="block md:hidden space-y-2.5">
             {items.length === 0 ? (
               <div className="p-6 text-center text-slate-400 italic bg-slate-50 rounded-xl border border-dashed border-slate-200">
-                Belum ada item ditambahkan. Silakan klik "+ Tambah Item".
+                Belum ada item ditambahkan. Silakan klik "+ Tambah baris".
               </div>
             ) : (
               items.map((it, idx) => {
@@ -3353,6 +3365,18 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
                 );
               })
             )}
+          </div>
+
+          {/* Tombol Tambah Baris di Bawah Tabel */}
+          <div className="pt-2">
+            <button
+              type="button"
+              onClick={handleAddNewRow}
+              className="px-4 py-2.5 bg-slate-50 hover:bg-blue-50 text-blue-700 border border-slate-300 hover:border-blue-300 rounded-xl font-bold text-xs flex items-center gap-2 transition-all cursor-pointer shadow-2xs hover:shadow-xs active:bg-blue-100"
+            >
+              <Plus size={16} className="text-blue-600" />
+              <span>Tambah baris</span>
+            </button>
           </div>
         </div>
 
