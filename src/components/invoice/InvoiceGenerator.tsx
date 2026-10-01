@@ -281,6 +281,7 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = (props) => {
   const [invoiceNumber, setInvoiceNumber] = useState('');
   const [isFetchingInvoiceNumber, setIsFetchingInvoiceNumber] = useState(false);
   const [clientName, setClientName] = useState('');
+  const [selectedClientType, setSelectedClientType] = useState<string | undefined>(undefined);
   const [selectedClientId, setSelectedClientId] = useState<string>('');
   const [selectedClientSource, setSelectedClientSource] = useState<'local' | 'superapps' | undefined>(undefined);
   const [clientEmail, setClientEmail] = useState('');
@@ -635,6 +636,7 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = (props) => {
     setIsFetchingInvoiceNumber(true);
 
     setClientName('');
+    setSelectedClientType(undefined);
     setSelectedClientId('');
     setSelectedClientSource(undefined);
     setClientEmail('');
@@ -703,6 +705,7 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = (props) => {
     setSelectedProjectIds(inv.projectIds || (inv.projectId ? [inv.projectId] : []));
     setInvoiceNumber(inv.invoiceNumber || '');
     setClientName(inv.clientName || '');
+    setSelectedClientType(inv.clientType);
     setSelectedClientId(inv.clientId || '');
     setSelectedClientSource(inv.clientSource);
     setClientEmail(inv.clientEmail || '');
@@ -853,6 +856,7 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = (props) => {
   const handleSelectClient = async (client: ClientOption) => {
     setSelectedClientId(client.clientId);
     setSelectedClientSource(client.source);
+    setSelectedClientType(client.clientType);
     setClientName(formatCompanyName(client.name, client.clientType));
     setClientEmail(client.email || '');
     setClientPhone(client.phone || '');
@@ -887,6 +891,7 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = (props) => {
   const handleClearClient = () => {
     setSelectedClientId('');
     setSelectedClientSource(undefined);
+    setSelectedClientType(undefined);
     setClientName('');
     setClientEmail('');
     setClientPhone('');
@@ -958,9 +963,14 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = (props) => {
       const existingPaid = selectedInvoice && editingInvoiceId === selectedInvoice.id ? selectedInvoice.paidAmount || 0 : 0;
       const balance = Math.max(0, total - existingPaid);
 
+      const resolvedClientType = selectedClientType ||
+        localClients.find(c => c.clientId === selectedClientId)?.clientType ||
+        selectedInvoice?.clientType;
+
       const payload: Omit<Invoice, 'id'> = {
         invoiceNumber,
-        clientName: formatCompanyName(clientName, localClients.find(c => c.clientId === selectedClientId)?.clientType || 'PT'),
+        clientName: formatCompanyName(clientName, resolvedClientType),
+        clientType: resolvedClientType,
         clientId: selectedClientId || undefined,
         clientSource: selectedClientSource || undefined,
         clientEmail,

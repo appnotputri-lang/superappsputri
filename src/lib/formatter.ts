@@ -219,7 +219,7 @@ export function cleanDegrees(str: string): string {
   return res;
 }
 
-export function formatCompanyName(name: string, clientType: string = 'PT'): string {
+export function formatCompanyName(name: string, clientType?: string): string {
   if (!name) return "";
   let cleanName = name.trim();
 
@@ -258,8 +258,6 @@ export function formatCompanyName(name: string, clientType: string = 'PT'): stri
     } else if (!['PERORANGAN', 'INDIVIDUAL', 'LAINNYA'].includes(normalizedType)) {
       prefix = normalizedType;
     }
-  } else {
-    prefix = 'PT';
   }
 
   // Remove existing prefixes recursively to handle duplicate prefixes
