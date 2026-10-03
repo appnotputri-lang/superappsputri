@@ -30,17 +30,23 @@ export const onRequestPost = async (context: PagesFunctionContext<Env>) => {
   };
 
   try {
-    const apiKey = context.env.GEMINI_API_KEY || context.env.VITE_GEMINI_API_KEY || context.env.API_KEY;
+    const rawApiKey = (context.env.GEMINI_API_KEY || context.env.VITE_GEMINI_API_KEY || context.env.API_KEY || '').trim();
 
-    if (!apiKey || apiKey === 'dummy' || apiKey === 'your_gemini_api_key') {
+    if (!rawApiKey || rawApiKey === 'dummy' || rawApiKey === 'your_gemini_api_key') {
       return new Response(
         JSON.stringify({
           success: false,
-          error: 'GEMINI_API_KEY belum dikonfigurasi di Cloudflare environment variables.',
+          error: 'GEMINI_API_KEY belum dikonfigurasi pada Cloudflare Environment Variables.',
+          diagnostics: {
+            apiKeyConfigured: false,
+            apiKeyLength: 0,
+          },
         }),
         { status: 200, headers: corsHeaders }
       );
     }
+
+    const apiKey = rawApiKey;
 
     let cleanBase64 = '';
     let cleanMime = 'image/jpeg';
@@ -56,7 +62,11 @@ export const onRequestPost = async (context: PagesFunctionContext<Env>) => {
           return new Response(
             JSON.stringify({
               success: false,
-              error: 'Foto KTP tidak ditemukan dalam request upload.',
+              error: 'File gambar KTP tidak ditemukan dalam request upload.',
+              diagnostics: {
+                apiKeyConfigured: true,
+                apiKeyLength: apiKey.length,
+              },
             }),
             { status: 200, headers: corsHeaders }
           );
@@ -71,17 +81,24 @@ export const onRequestPost = async (context: PagesFunctionContext<Env>) => {
             JSON.stringify({
               success: false,
               error: 'Format file tidak valid. Silakan upload gambar KTP (JPG, PNG, atau WebP).',
+              diagnostics: {
+                apiKeyConfigured: true,
+                apiKeyLength: apiKey.length,
+              },
             }),
             { status: 200, headers: corsHeaders }
           );
         }
 
-        // Limit size to 12MB
         if (file.size > 12 * 1024 * 1024) {
           return new Response(
             JSON.stringify({
               success: false,
               error: 'Ukuran foto KTP terlalu besar (maksimal 12MB).',
+              diagnostics: {
+                apiKeyConfigured: true,
+                apiKeyLength: apiKey.length,
+              },
             }),
             { status: 200, headers: corsHeaders }
           );
@@ -91,7 +108,6 @@ export const onRequestPost = async (context: PagesFunctionContext<Env>) => {
         const arrayBuffer = await file.arrayBuffer();
         const uint8 = new Uint8Array(arrayBuffer);
 
-        // Convert Uint8Array to base64 chunk-by-chunk for memory safety
         let binary = '';
         const chunkSize = 0x8000;
         for (let i = 0; i < uint8.length; i += chunkSize) {
@@ -104,12 +120,15 @@ export const onRequestPost = async (context: PagesFunctionContext<Env>) => {
           JSON.stringify({
             success: false,
             error: 'Gagal memproses form data gambar KTP: ' + (err?.message || err),
+            diagnostics: {
+              apiKeyConfigured: true,
+              apiKeyLength: apiKey.length,
+            },
           }),
           { status: 200, headers: corsHeaders }
         );
       }
     } else {
-      // Parse JSON body
       try {
         const body = (await context.request.json()) as any;
         const rawBase64 = body.imageBase64 || body.file || body.image || body.base64;
@@ -119,12 +138,16 @@ export const onRequestPost = async (context: PagesFunctionContext<Env>) => {
             JSON.stringify({
               success: false,
               error: 'Foto KTP (base64) wajib dikirim dalam request JSON.',
+              diagnostics: {
+                apiKeyConfigured: true,
+                apiKeyLength: apiKey.length,
+              },
             }),
             { status: 200, headers: corsHeaders }
           );
         }
 
-        cleanBase64 = rawBase64.replace(/^data:image\/\w+;base64,/, '');
+        cleanBase64 = rawBase64.replace(/^data:image\/\w+;base64,/, '').trim();
         cleanMime = body.mimeType || 'image/jpeg';
         const mimeMatch = rawBase64.match(/^data:(image\/\w+);base64,/);
         if (mimeMatch && mimeMatch[1]) {
@@ -135,6 +158,10 @@ export const onRequestPost = async (context: PagesFunctionContext<Env>) => {
           JSON.stringify({
             success: false,
             error: 'Format request JSON tidak valid: ' + (err?.message || err),
+            diagnostics: {
+              apiKeyConfigured: true,
+              apiKeyLength: apiKey.length,
+            },
           }),
           { status: 200, headers: corsHeaders }
         );
@@ -146,85 +173,70 @@ export const onRequestPost = async (context: PagesFunctionContext<Env>) => {
         JSON.stringify({
           success: false,
           error: 'Foto KTP kosong atau tidak terbaca.',
+          diagnostics: {
+            apiKeyConfigured: true,
+            apiKeyLength: apiKey.length,
+          },
         }),
         { status: 200, headers: corsHeaders }
       );
     }
 
     const promptText = `Anda adalah sistem OCR cerdas untuk Ekstraksi Kartu Tanda Penduduk (KTP) Indonesia.
-Analisis foto KTP yang diberikan dan ekstrak data berikut dengan sangat teliti dan akurat:
+Analisis foto KTP yang diberikan dan kembalikan HANYA JSON murni tanpa pembungkus markdown dengan struktur berikut:
 
-1. nik: 16 digit angka NIK KTP.
-2. name: Nama lengkap (tanpa gelar), huruf kapital semua.
-3. salutation: Jika jenis kelamin LAKI-LAKI gunakan "Tuan". Jika PEREMPUAN, gunakan "Nyonya" atau "Nona".
-4. birthCity: Kota/Kabupaten tempat lahir, huruf kapital.
-5. birthDate: Tanggal lahir format YYYY-MM-DD.
-6. occupation: Pekerjaan sesuai KTP, huruf kapital.
-7. address:
-   - fullAddress: Alamat jalan/komplek/nomor rumah, huruf kapital.
-   - rt: Nomor RT (3 digit, contoh "001").
-   - rw: Nomor RW (3 digit, contoh "002").
-   - kelurahan: Kelurahan/Desa, huruf kapital.
-   - kecamatan: Kecamatan, huruf kapital.
-   - city: Kota/Kabupaten, huruf kapital (tanpa kata KOTA atau KABUPATEN jika ada).
-   - province: Provinsi, huruf kapital.
+{
+  "nik": "16 digit angka NIK KTP",
+  "name": "NAMA LENGKAP TANPA GELAR",
+  "salutation": "Tuan / Nyonya / Nona",
+  "birthCity": "KOTA / KABUPATEN LAHIR",
+  "birthDate": "YYYY-MM-DD",
+  "occupation": "PEKERJAAN",
+  "address": {
+    "fullAddress": "ALAMAT JALAN / KOMPLEK / NO",
+    "rt": "000",
+    "rw": "000",
+    "kelurahan": "KELURAHAN / DESA",
+    "kecamatan": "KECAMATAN",
+    "city": "KOTA / KABUPATEN",
+    "province": "PROVINSI"
+  }
+}
 
 Jika ada field yang tidak terbaca atau tidak jelas, kosongkan string-nya ("").`;
 
-    // Candidate Gemini Vision Models per gemini-api skill
-    const candidateModels = ['gemini-flash-latest', 'gemini-2.5-flash', 'gemini-3.1-flash-lite'];
-    let lastError: any = null;
+    // Priority Model Strategy: 'gemini-2.5-flash' first, then 'gemini-flash-latest', then 'gemini-3.1-flash-lite'
+    const candidateModels = ['gemini-2.5-flash', 'gemini-flash-latest', 'gemini-3.1-flash-lite'];
+    let lastErrorDiagnostics: any = null;
     let parsedData: any = null;
 
-    for (const modelName of candidateModels) {
-      try {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
+    for (let i = 0; i < candidateModels.length; i++) {
+      const modelName = candidateModels[i];
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
 
-        const payload = {
-          contents: [
-            {
-              role: 'user',
-              parts: [
-                {
-                  inlineData: {
-                    mimeType: cleanMime,
-                    data: cleanBase64,
-                  },
-                },
-                {
-                  text: promptText,
-                },
-              ],
-            },
-          ],
-          generationConfig: {
-            responseMimeType: 'application/json',
-            responseSchema: {
-              type: 'OBJECT',
-              properties: {
-                nik: { type: 'STRING' },
-                name: { type: 'STRING' },
-                salutation: { type: 'STRING' },
-                birthCity: { type: 'STRING' },
-                birthDate: { type: 'STRING' },
-                occupation: { type: 'STRING' },
-                address: {
-                  type: 'OBJECT',
-                  properties: {
-                    fullAddress: { type: 'STRING' },
-                    rt: { type: 'STRING' },
-                    rw: { type: 'STRING' },
-                    kelurahan: { type: 'STRING' },
-                    kecamatan: { type: 'STRING' },
-                    city: { type: 'STRING' },
-                    province: { type: 'STRING' },
-                  },
+      const payload = {
+        contents: [
+          {
+            role: 'user',
+            parts: [
+              {
+                inlineData: {
+                  mimeType: cleanMime,
+                  data: cleanBase64,
                 },
               },
-            },
+              {
+                text: promptText,
+              },
+            ],
           },
-        };
+        ],
+        generationConfig: {
+          responseMimeType: 'application/json',
+        },
+      };
 
+      try {
         const geminiRes = await fetch(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -232,11 +244,67 @@ Jika ada field yang tidak terbaca atau tidak jelas, kosongkan string-nya ("").`;
         });
 
         const resJson = (await geminiRes.json()) as any;
+        const status = geminiRes.status;
 
         if (!geminiRes.ok) {
-          const apiErrStr = JSON.stringify(resJson?.error || resJson);
-          lastError = new Error(`Gemini API HTTP ${geminiRes.status}: ${apiErrStr}`);
-          console.warn(`[OCR KTP Cloudflare] Model ${modelName} returned status ${geminiRes.status}:`, apiErrStr);
+          const apiErrObj = resJson?.error || {};
+          const geminiMsg = apiErrObj?.message || apiErrObj?.status || JSON.stringify(resJson);
+
+          lastErrorDiagnostics = {
+            apiKeyConfigured: true,
+            apiKeyLength: apiKey.length,
+            modelTried: modelName,
+            geminiStatus: status,
+            geminiMessage: geminiMsg,
+          };
+
+          // DO NOT fallback on 401, 403, 429, or 400 because changing models will not fix client/auth/payload errors!
+          if (status === 401) {
+            return new Response(
+              JSON.stringify({
+                success: false,
+                error: 'Gemini API menolak request (401 Unauthorized / GEMINI_API_KEY tidak valid).',
+                diagnostics: lastErrorDiagnostics,
+              }),
+              { status: 200, headers: corsHeaders }
+            );
+          }
+
+          if (status === 403) {
+            return new Response(
+              JSON.stringify({
+                success: false,
+                error: 'Gemini API menolak akses (403 Forbidden / API Key tidak memiliki izin atau Generative Language API belum diaktifkan di Google Cloud Console).',
+                diagnostics: lastErrorDiagnostics,
+              }),
+              { status: 200, headers: corsHeaders }
+            );
+          }
+
+          if (status === 429) {
+            return new Response(
+              JSON.stringify({
+                success: false,
+                error: 'Batas kuota Gemini API tercapai (429 Rate Limit / Resource Exhausted).',
+                diagnostics: lastErrorDiagnostics,
+              }),
+              { status: 200, headers: corsHeaders }
+            );
+          }
+
+          if (status === 400) {
+            return new Response(
+              JSON.stringify({
+                success: false,
+                error: 'Payload gambar KTP atau request ke Gemini API tidak valid (400 Bad Request).',
+                diagnostics: lastErrorDiagnostics,
+              }),
+              { status: 200, headers: corsHeaders }
+            );
+          }
+
+          // If 404 (Model not found) or 5xx (Server error), log warning and attempt fallback to next model
+          console.warn(`[OCR KTP Cloudflare] Model ${modelName} returned HTTP ${status}:`, geminiMsg);
           continue;
         }
 
@@ -250,31 +318,32 @@ Jika ada field yang tidak terbaca atau tidak jelas, kosongkan string-nya ("").`;
           if (parsedData) break;
         }
       } catch (err: any) {
-        lastError = err;
-        console.warn(`[OCR KTP Cloudflare] Model ${modelName} error:`, err?.message || err);
+        console.warn(`[OCR KTP Cloudflare] Exception calling Gemini model ${modelName}:`, err?.message || err);
+        lastErrorDiagnostics = {
+          apiKeyConfigured: true,
+          apiKeyLength: apiKey.length,
+          modelTried: modelName,
+          geminiStatus: 'EXCEPTION',
+          geminiMessage: err?.message || String(err),
+        };
       }
     }
 
     if (!parsedData) {
-      const errStr = String(lastError?.message || lastError || '');
-      let errorMsg = 'Gagal memproses OCR KTP. Silakan isi form KTP secara manual.';
-
-      if (errStr.includes('403') || errStr.includes('PERMISSION_DENIED') || errStr.includes('denied access')) {
-        errorMsg = 'Layanan AI Gemini tidak memiliki akses (API Key tidak valid atau terbatas). Silakan periksa environment variable GEMINI_API_KEY di Cloudflare Dashboard.';
-      } else if (errStr.includes('429') || errStr.includes('RESOURCE_EXHAUSTED')) {
-        errorMsg = 'Batas kuota Gemini API tercapai (Rate Limit). Silakan coba beberapa saat lagi atau isi form KTP secara manual.';
-      }
-
       return new Response(
         JSON.stringify({
           success: false,
-          error: errorMsg,
+          error: 'Gagal memproses OCR KTP melalui Gemini Vision API.',
+          diagnostics: lastErrorDiagnostics || {
+            apiKeyConfigured: true,
+            apiKeyLength: apiKey.length,
+          },
         }),
         { status: 200, headers: corsHeaders }
       );
     }
 
-    // Normalize output fields for frontend compatibility
+    // Normalize extracted JSON fields for frontend compatibility
     const normalized = {
       nik: String(parsedData.nik || parsedData.NIK || '').trim(),
       name: String(parsedData.name || parsedData.nama || parsedData.NAMA || '').toUpperCase().trim(),
@@ -301,11 +370,10 @@ Jika ada field yang tidak terbaca atau tidak jelas, kosongkan string-nya ("").`;
       { status: 200, headers: corsHeaders }
     );
   } catch (globalErr: any) {
-    console.error('[OCR KTP Cloudflare] Fatal error:', globalErr?.message || globalErr);
     return new Response(
       JSON.stringify({
         success: false,
-        error: 'Terjadi kesalahan sistem saat memproses OCR KTP. Silakan isi form KTP secara manual.',
+        error: 'Terjadi kesalahan sistem saat memproses OCR KTP: ' + (globalErr?.message || globalErr),
       }),
       { status: 200, headers: corsHeaders }
     );
