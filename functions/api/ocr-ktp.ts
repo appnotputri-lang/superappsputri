@@ -40,7 +40,7 @@ export const onRequestPost = async (context: PagesFunctionContext<Env>) => {
       return new Response(
         JSON.stringify({
           success: false,
-          error: 'GEMINI_API_KEY tidak tersedia pada Cloudflare Environment Variables.',
+          error: 'GEMINI_API_KEY belum dikonfigurasi pada Cloudflare Environment Variables.',
           diagnostics: {
             apiKeyConfigured: false,
             keyType: 'NONE',
@@ -203,20 +203,111 @@ export const onRequestPost = async (context: PagesFunctionContext<Env>) => {
       );
     }
 
-    // Google Gemini Developer API headers (DO NOT send Authorization: Bearer to avoid 401 OAuth error)
+    // Google Gemini Developer API headers (NO Authorization: Bearer to avoid OAuth2 principal error)
     const geminiHeaders: Record<string, string> = {
       'Content-Type': 'application/json',
       'x-goog-api-key': apiKey,
     };
 
     // =========================================================================
-    // STEP 3: MINIMAL PING TEST CALL TO VERIFY AUTHENTICATION
+    // STEP 3: DISCOVER AVAILABLE MODELS VIA GET /v1beta/models
     // =========================================================================
-    const testModel = 'gemini-2.5-flash';
-    const testUrl = `https://generativelanguage.googleapis.com/v1beta/models/${testModel}:generateContent?key=${encodeURIComponent(apiKey)}`;
+    const modelsListUrl = `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(apiKey)}`;
+    console.log('[OCR KTP Cloudflare] Requesting models list from: https://generativelanguage.googleapis.com/v1beta/models');
 
+    let availableModels: any[] = [];
     try {
-      const testRes = await fetch(testUrl, {
+      const modelsRes = await fetch(modelsListUrl, {
+        method: 'GET',
+        headers: geminiHeaders,
+      });
+
+      const modelsJson = (await modelsRes.json()) as any;
+      const modelsStatus = modelsRes.status;
+
+      if (!modelsRes.ok) {
+        const errObj = modelsJson?.error || {};
+        const msg = errObj?.message || errObj?.status || JSON.stringify(modelsJson);
+
+        console.warn(`[OCR KTP Cloudflare] GET /models returned HTTP ${modelsStatus}:`, msg);
+
+        let userError = `Pemeriksaan model Gemini gagal (HTTP ${modelsStatus}).`;
+        if (modelsStatus === 401) {
+          userError = `Gemini API menolak API key (HTTP 401 Unauthorized / Key tidak valid). Pesan Google: "${msg}".`;
+        } else if (modelsStatus === 403) {
+          userError = `Gemini API menolak akses (HTTP 403 Forbidden). Pesan Google: "${msg}". Pastikan Generative Language API diaktifkan di Google Cloud Console dan API key tidak dibatasi.`;
+        } else if (modelsStatus === 429) {
+          userError = `Batas kuota Gemini API tercapai (HTTP 429 Quota Exceeded / Rate Limit). Pesan Google: "${msg}".`;
+        } else if (modelsStatus === 404) {
+          userError = `Endpoint models Gemini tidak ditemukan (HTTP 404 Not Found). Pesan Google: "${msg}".`;
+        }
+
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: userError,
+            diagnostics: {
+              apiKeyConfigured: true,
+              keyType,
+              keyPrefix,
+              keyLength: apiKey.length,
+              status: modelsStatus,
+              geminiMessage: msg,
+              endpointTested: 'https://generativelanguage.googleapis.com/v1beta/models',
+            },
+          }),
+          { status: 200, headers: corsHeaders }
+        );
+      }
+
+      const allModels = Array.isArray(modelsJson?.models) ? modelsJson.models : [];
+      availableModels = allModels.filter((m: any) =>
+        Array.isArray(m?.supportedGenerationMethods) && m.supportedGenerationMethods.includes('generateContent')
+      );
+    } catch (modelsFetchErr: any) {
+      console.warn('[OCR KTP Cloudflare] Error calling GET /v1beta/models:', modelsFetchErr?.message || modelsFetchErr);
+    }
+
+    // Determine the best model available from the response
+    // Prefer flash models, avoid thinking/tts variants
+    let selectedModelClean = '';
+
+    if (availableModels.length > 0) {
+      const flashCandidates = availableModels.filter((m: any) => {
+        const n = String(m?.name || '').toLowerCase();
+        return n.includes('flash') && !n.includes('thinking') && !n.includes('tts') && !n.includes('live') && !n.includes('audio');
+      });
+
+      // Prefer gemini-2.5-flash or gemini-2.0-flash or gemini-1.5-flash or gemini-flash-latest
+      const bestFlash =
+        flashCandidates.find((m: any) => String(m.name).includes('2.5-flash')) ||
+        flashCandidates.find((m: any) => String(m.name).includes('2.0-flash')) ||
+        flashCandidates.find((m: any) => String(m.name).includes('1.5-flash')) ||
+        flashCandidates[0] ||
+        availableModels.find((m: any) => String(m.name).toLowerCase().includes('gemini')) ||
+        availableModels[0];
+
+      if (bestFlash && bestFlash.name) {
+        // Strip 'models/' prefix to avoid models/models/ duplicate
+        selectedModelClean = String(bestFlash.name).replace(/^models\//, '');
+      }
+    }
+
+    // Fallback if models list was empty or couldn't parse
+    if (!selectedModelClean) {
+      selectedModelClean = 'gemini-1.5-flash';
+    }
+
+    console.log(`[OCR KTP Cloudflare] Selected Model: ${selectedModelClean}`);
+    console.log(`[OCR KTP Cloudflare] Target Endpoint: https://generativelanguage.googleapis.com/v1beta/models/${selectedModelClean}:generateContent`);
+
+    const selectedEndpointUrl = `https://generativelanguage.googleapis.com/v1beta/models/${selectedModelClean}:generateContent?key=${encodeURIComponent(apiKey)}`;
+
+    // =========================================================================
+    // STEP 4: TEST GENERATECONTENT TEXT DULU
+    // =========================================================================
+    try {
+      const pingRes = await fetch(selectedEndpointUrl, {
         method: 'POST',
         headers: geminiHeaders,
         body: JSON.stringify({
@@ -228,50 +319,52 @@ export const onRequestPost = async (context: PagesFunctionContext<Env>) => {
         }),
       });
 
-      const testJson = (await testRes.json()) as any;
-      const testStatus = testRes.status;
+      const pingJson = (await pingRes.json()) as any;
+      const pingStatus = pingRes.status;
 
-      if (!testRes.ok) {
-        const errObj = testJson?.error || {};
-        const msg = errObj?.message || errObj?.status || JSON.stringify(testJson);
+      if (!pingRes.ok) {
+        const errObj = pingJson?.error || {};
+        const msg = errObj?.message || errObj?.status || JSON.stringify(pingJson);
 
-        const diag = {
-          apiKeyConfigured: true,
-          keyType,
-          keyPrefix,
-          keyLength: apiKey.length,
-          model: testModel,
-          status: testStatus,
-          geminiMessage: msg,
-        };
+        console.warn(`[OCR KTP Cloudflare] Text test generateContent returned HTTP ${pingStatus}:`, msg);
 
-        let userError = `Autentikasi Gemini API gagal (HTTP ${testStatus}).`;
-        if (testStatus === 401) {
+        let userError = `Test text generateContent gagal (HTTP ${pingStatus}).`;
+        if (pingStatus === 401) {
           userError = `Gemini API menolak API key (HTTP 401 Unauthorized / Key tidak valid). Pesan Google: "${msg}".`;
-        } else if (testStatus === 403) {
-          userError = `Gemini API menolak akses (HTTP 403 Forbidden). Pesan Google: "${msg}". Pastikan Generative Language API diaktifkan di Google Cloud Console dan API key tidak memiliki restriction berlebih.`;
-        } else if (testStatus === 429) {
+        } else if (pingStatus === 403) {
+          userError = `Gemini API menolak akses (HTTP 403 Forbidden). Pesan Google: "${msg}". Pastikan Generative Language API diaktifkan di Google Cloud Console.`;
+        } else if (pingStatus === 404) {
+          userError = `Model Gemini "${selectedModelClean}" tidak ditemukan (HTTP 404 Not Found). Pesan Google: "${msg}".`;
+        } else if (pingStatus === 429) {
           userError = `Batas kuota Gemini API tercapai (HTTP 429 Quota Exceeded / Rate Limit). Pesan Google: "${msg}".`;
-        } else if (testStatus === 400) {
-          userError = `Request ke Gemini API tidak valid (HTTP 400 Bad Request). Pesan Google: "${msg}".`;
+        } else if (pingStatus === 400) {
+          userError = `Request text generateContent tidak valid (HTTP 400 Bad Request). Pesan Google: "${msg}".`;
         }
 
         return new Response(
           JSON.stringify({
             success: false,
             error: userError,
-            diagnostics: diag,
+            diagnostics: {
+              apiKeyConfigured: true,
+              keyType,
+              keyPrefix,
+              keyLength: apiKey.length,
+              model: selectedModelClean,
+              status: pingStatus,
+              geminiMessage: msg,
+              geminiEndpoint: `https://generativelanguage.googleapis.com/v1beta/models/${selectedModelClean}:generateContent`,
+            },
           }),
           { status: 200, headers: corsHeaders }
         );
       }
-    } catch (testErr: any) {
-      console.warn('[OCR KTP Cloudflare] Test ping exception:', testErr?.message || testErr);
-      // Proceed to main OCR if test call had network glitch
+    } catch (pingErr: any) {
+      console.warn('[OCR KTP Cloudflare] Exception in text test generateContent:', pingErr?.message || pingErr);
     }
 
     // =========================================================================
-    // STEP 4: EXECUTE OCR WITH IMAGE PAYLOAD
+    // STEP 5: EXECUTE OCR WITH IMAGE PAYLOAD
     // =========================================================================
     const promptText = `Anda adalah sistem OCR cerdas untuk Ekstraksi Kartu Tanda Penduduk (KTP) Indonesia.
 Analisis foto KTP yang diberikan dan kembalikan HANYA JSON murni tanpa pembungkus markdown dengan struktur berikut:
@@ -296,123 +389,118 @@ Analisis foto KTP yang diberikan dan kembalikan HANYA JSON murni tanpa pembungku
 
 Jika ada field yang tidak terbaca atau tidak jelas, kosongkan string-nya ("").`;
 
-    const candidateModels = ['gemini-2.5-flash', 'gemini-flash-latest', 'gemini-3.1-flash-lite'];
-    let lastErrorDiagnostics: any = null;
-    let parsedData: any = null;
-
-    for (let i = 0; i < candidateModels.length; i++) {
-      const modelName = candidateModels[i];
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${encodeURIComponent(apiKey)}`;
-
-      const payload = {
-        contents: [
-          {
-            parts: [
-              {
-                text: promptText,
+    const ocrPayload = {
+      contents: [
+        {
+          parts: [
+            {
+              text: promptText,
+            },
+            {
+              inline_data: {
+                mime_type: cleanMime,
+                data: cleanBase64,
               },
-              {
-                inlineData: {
-                  mimeType: cleanMime,
-                  data: cleanBase64,
-                },
-              },
-            ],
-          },
-        ],
-        generationConfig: {
-          responseMimeType: 'application/json',
+            },
+          ],
         },
-      };
+      ],
+    };
 
-      try {
-        const geminiRes = await fetch(url, {
-          method: 'POST',
-          headers: geminiHeaders,
-          body: JSON.stringify(payload),
-        });
+    const ocrRes = await fetch(selectedEndpointUrl, {
+      method: 'POST',
+      headers: geminiHeaders,
+      body: JSON.stringify(ocrPayload),
+    });
 
-        const resJson = (await geminiRes.json()) as any;
-        const status = geminiRes.status;
+    const ocrJson = (await ocrRes.json()) as any;
+    const ocrStatus = ocrRes.status;
 
-        if (!geminiRes.ok) {
-          const apiErrObj = resJson?.error || {};
-          const geminiMsg = apiErrObj?.message || apiErrObj?.status || JSON.stringify(resJson);
+    if (!ocrRes.ok) {
+      const errObj = ocrJson?.error || {};
+      const msg = errObj?.message || errObj?.status || JSON.stringify(ocrJson);
 
-          lastErrorDiagnostics = {
-            apiKeyConfigured: true,
-            keyType,
-            keyPrefix,
-            keyLength: apiKey.length,
-            model: modelName,
-            status: status,
-            geminiMessage: geminiMsg,
-          };
+      console.warn(`[OCR KTP Cloudflare] Image OCR request returned HTTP ${ocrStatus}:`, msg);
 
-          // DO NOT fallback on auth/quota/client errors (401, 403, 429, 400)
-          if (status === 401 || status === 403 || status === 429 || status === 400) {
-            let msgText = `Gemini API HTTP ${status}: ${geminiMsg}`;
-            if (status === 401) {
-              msgText = `Gemini API menolak API key (HTTP 401 Unauthorized). Pesan Google: "${geminiMsg}".`;
-            } else if (status === 403) {
-              msgText = `Gemini API menolak akses (HTTP 403 Forbidden). Pesan Google: "${geminiMsg}".`;
-            } else if (status === 429) {
-              msgText = `Batas kuota Gemini API tercapai (HTTP 429 Rate Limit). Pesan Google: "${geminiMsg}".`;
-            }
-            return new Response(
-              JSON.stringify({
-                success: false,
-                error: msgText,
-                diagnostics: lastErrorDiagnostics,
-              }),
-              { status: 200, headers: corsHeaders }
-            );
-          }
-
-          console.warn(`[OCR KTP Cloudflare] Model ${modelName} returned HTTP ${status}:`, geminiMsg);
-          continue;
-        }
-
-        let rawText = resJson?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-        if (rawText) {
-          rawText = rawText.trim();
-          if (rawText.startsWith('```')) {
-            rawText = rawText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
-          }
-          parsedData = JSON.parse(rawText);
-          if (parsedData) break;
-        }
-      } catch (err: any) {
-        console.warn(`[OCR KTP Cloudflare] Exception calling Gemini model ${modelName}:`, err?.message || err);
-        lastErrorDiagnostics = {
-          apiKeyConfigured: true,
-          keyType,
-          keyPrefix,
-          keyLength: apiKey.length,
-          model: modelName,
-          status: 'EXCEPTION',
-          geminiMessage: err?.message || String(err),
-        };
+      let userError = `Pemrosesan gambar KTP gagal (HTTP ${ocrStatus}).`;
+      if (ocrStatus === 401) {
+        userError = `Gemini API menolak API key (HTTP 401 Unauthorized). Pesan Google: "${msg}".`;
+      } else if (ocrStatus === 403) {
+        userError = `Gemini API menolak akses (HTTP 403 Forbidden). Pesan Google: "${msg}".`;
+      } else if (ocrStatus === 404) {
+        userError = `Model atau endpoint tidak ditemukan (HTTP 404 Not Found). Pesan Google: "${msg}".`;
+      } else if (ocrStatus === 429) {
+        userError = `Batas kuota Gemini API tercapai (HTTP 429 Rate Limit). Pesan Google: "${msg}".`;
+      } else if (ocrStatus === 400) {
+        userError = `Format gambar atau payload tidak didukung oleh Gemini API (HTTP 400 Bad Request). Pesan Google: "${msg}".`;
       }
-    }
 
-    if (!parsedData) {
       return new Response(
         JSON.stringify({
           success: false,
-          error: 'Gagal memproses OCR KTP melalui Gemini Vision API.',
-          diagnostics: lastErrorDiagnostics || {
+          error: userError,
+          diagnostics: {
             apiKeyConfigured: true,
             keyType,
             keyPrefix,
             keyLength: apiKey.length,
+            model: selectedModelClean,
+            status: ocrStatus,
+            geminiMessage: msg,
+            geminiEndpoint: `https://generativelanguage.googleapis.com/v1beta/models/${selectedModelClean}:generateContent`,
           },
         }),
         { status: 200, headers: corsHeaders }
       );
     }
 
-    // Normalize extracted JSON fields for frontend compatibility
+    let rawText = ocrJson?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    if (!rawText) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Gemini tidak mengembalikan teks hasil OCR pada gambar KTP.',
+          diagnostics: {
+            apiKeyConfigured: true,
+            keyType,
+            keyPrefix,
+            keyLength: apiKey.length,
+            model: selectedModelClean,
+            status: ocrStatus,
+          },
+        }),
+        { status: 200, headers: corsHeaders }
+      );
+    }
+
+    rawText = rawText.trim();
+    if (rawText.startsWith('```')) {
+      rawText = rawText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
+    }
+
+    let parsedData: any = {};
+    try {
+      parsedData = JSON.parse(rawText);
+    } catch (parseErr: any) {
+      console.warn('[OCR KTP Cloudflare] JSON parse error from text:', rawText);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Format output dari Gemini tidak valid JSON.',
+          diagnostics: {
+            apiKeyConfigured: true,
+            keyType,
+            keyPrefix,
+            keyLength: apiKey.length,
+            model: selectedModelClean,
+            rawPreview: rawText.substring(0, 100),
+          },
+        }),
+        { status: 200, headers: corsHeaders }
+      );
+    }
+
+    // Normalize extracted JSON fields for frontend compatibility (ShareholderEditor.tsx)
     const normalized = {
       nik: String(parsedData.nik || parsedData.NIK || '').trim(),
       name: String(parsedData.name || parsedData.nama || parsedData.NAMA || '').toUpperCase().trim(),
