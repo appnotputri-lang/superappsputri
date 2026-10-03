@@ -17,7 +17,7 @@ export const onRequestOptions = async () => {
     headers: {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-goog-api-key',
+      'Access-Control-Allow-Headers': 'Content-Type, x-goog-api-key',
       'Access-Control-Max-Age': '86400',
     },
   });
@@ -30,7 +30,7 @@ export const onRequestPost = async (context: PagesFunctionContext<Env>) => {
   };
 
   try {
-    // Read raw key and trim quotes or outside whitespace if accidentally included
+    // 1. Read API key from Cloudflare environment
     let rawApiKey = (context.env.GEMINI_API_KEY || context.env.VITE_GEMINI_API_KEY || context.env.API_KEY || '').trim();
     if ((rawApiKey.startsWith('"') && rawApiKey.endsWith('"')) || (rawApiKey.startsWith("'") && rawApiKey.endsWith("'"))) {
       rawApiKey = rawApiKey.slice(1, -1).trim();
@@ -40,7 +40,7 @@ export const onRequestPost = async (context: PagesFunctionContext<Env>) => {
       return new Response(
         JSON.stringify({
           success: false,
-          error: 'GEMINI_API_KEY belum dikonfigurasi pada Cloudflare Environment Variables.',
+          error: 'GEMINI_API_KEY tidak tersedia pada Cloudflare Environment Variables.',
           diagnostics: {
             apiKeyConfigured: false,
             keyType: 'NONE',
@@ -55,7 +55,7 @@ export const onRequestPost = async (context: PagesFunctionContext<Env>) => {
     const keyType = apiKey.startsWith('AQ.') ? 'AQ' : apiKey.startsWith('AIza') ? 'AIza' : 'CUSTOM';
     const keyPrefix = apiKey.length >= 4 ? apiKey.substring(0, 4) + '...' : '***';
 
-    // Parse image payload from multipart or JSON
+    // 2. Parse image payload (multipart/form-data or application/json base64)
     let cleanBase64 = '';
     let cleanMime = 'image/jpeg';
     const contentType = context.request.headers.get('content-type') || '';
@@ -203,15 +203,14 @@ export const onRequestPost = async (context: PagesFunctionContext<Env>) => {
       );
     }
 
-    // Build headers that support BOTH traditional AIzaSy keys and Google AI Studio AQ keys
-    const authHeaders: Record<string, string> = {
+    // Google Gemini Developer API headers (DO NOT send Authorization: Bearer to avoid 401 OAuth error)
+    const geminiHeaders: Record<string, string> = {
       'Content-Type': 'application/json',
       'x-goog-api-key': apiKey,
-      'Authorization': `Bearer ${apiKey}`,
     };
 
     // =========================================================================
-    // STEP 1: TEST MINIMAL PING CALL TO GEMINI API FIRST
+    // STEP 3: MINIMAL PING TEST CALL TO VERIFY AUTHENTICATION
     // =========================================================================
     const testModel = 'gemini-2.5-flash';
     const testUrl = `https://generativelanguage.googleapis.com/v1beta/models/${testModel}:generateContent?key=${encodeURIComponent(apiKey)}`;
@@ -219,9 +218,13 @@ export const onRequestPost = async (context: PagesFunctionContext<Env>) => {
     try {
       const testRes = await fetch(testUrl, {
         method: 'POST',
-        headers: authHeaders,
+        headers: geminiHeaders,
         body: JSON.stringify({
-          contents: [{ parts: [{ text: 'Reply only with OK' }] }],
+          contents: [
+            {
+              parts: [{ text: 'Reply only with OK' }],
+            },
+          ],
         }),
       });
 
@@ -237,19 +240,18 @@ export const onRequestPost = async (context: PagesFunctionContext<Env>) => {
           keyType,
           keyPrefix,
           keyLength: apiKey.length,
-          testModel,
-          geminiStatus: testStatus,
+          model: testModel,
+          status: testStatus,
           geminiMessage: msg,
-          geminiDetails: errObj?.details || [],
         };
 
         let userError = `Autentikasi Gemini API gagal (HTTP ${testStatus}).`;
-        if (testStatus === 403) {
-          userError = `Gemini API menolak akses (HTTP 403 Forbidden). Pesan Google: "${msg}". Pastikan Generative Language API telah diaktifkan di Google Cloud Console dan Key tidak dibatasi (restricted).`;
-        } else if (testStatus === 401) {
-          userError = `Gemini API menolak Key (HTTP 401 Unauthorized). Pesan Google: "${msg}".`;
+        if (testStatus === 401) {
+          userError = `Gemini API menolak API key (HTTP 401 Unauthorized / Key tidak valid). Pesan Google: "${msg}".`;
+        } else if (testStatus === 403) {
+          userError = `Gemini API menolak akses (HTTP 403 Forbidden). Pesan Google: "${msg}". Pastikan Generative Language API diaktifkan di Google Cloud Console dan API key tidak memiliki restriction berlebih.`;
         } else if (testStatus === 429) {
-          userError = `Batas kuota Gemini API tercapai (HTTP 429 Rate Limit / Quota Exceeded). Pesan Google: "${msg}".`;
+          userError = `Batas kuota Gemini API tercapai (HTTP 429 Quota Exceeded / Rate Limit). Pesan Google: "${msg}".`;
         } else if (testStatus === 400) {
           userError = `Request ke Gemini API tidak valid (HTTP 400 Bad Request). Pesan Google: "${msg}".`;
         }
@@ -269,7 +271,7 @@ export const onRequestPost = async (context: PagesFunctionContext<Env>) => {
     }
 
     // =========================================================================
-    // STEP 2: PERFORM OCR WITH IMAGE PAYLOAD
+    // STEP 4: EXECUTE OCR WITH IMAGE PAYLOAD
     // =========================================================================
     const promptText = `Anda adalah sistem OCR cerdas untuk Ekstraksi Kartu Tanda Penduduk (KTP) Indonesia.
 Analisis foto KTP yang diberikan dan kembalikan HANYA JSON murni tanpa pembungkus markdown dengan struktur berikut:
@@ -305,16 +307,15 @@ Jika ada field yang tidak terbaca atau tidak jelas, kosongkan string-nya ("").`;
       const payload = {
         contents: [
           {
-            role: 'user',
             parts: [
+              {
+                text: promptText,
+              },
               {
                 inlineData: {
                   mimeType: cleanMime,
                   data: cleanBase64,
                 },
-              },
-              {
-                text: promptText,
               },
             ],
           },
@@ -327,7 +328,7 @@ Jika ada field yang tidak terbaca atau tidak jelas, kosongkan string-nya ("").`;
       try {
         const geminiRes = await fetch(url, {
           method: 'POST',
-          headers: authHeaders,
+          headers: geminiHeaders,
           body: JSON.stringify(payload),
         });
 
@@ -343,19 +344,18 @@ Jika ada field yang tidak terbaca atau tidak jelas, kosongkan string-nya ("").`;
             keyType,
             keyPrefix,
             keyLength: apiKey.length,
-            modelTried: modelName,
-            geminiStatus: status,
+            model: modelName,
+            status: status,
             geminiMessage: geminiMsg,
-            geminiDetails: apiErrObj?.details || [],
           };
 
-          // DO NOT fallback on 401, 403, 429, or 400!
+          // DO NOT fallback on auth/quota/client errors (401, 403, 429, 400)
           if (status === 401 || status === 403 || status === 429 || status === 400) {
             let msgText = `Gemini API HTTP ${status}: ${geminiMsg}`;
-            if (status === 403) {
+            if (status === 401) {
+              msgText = `Gemini API menolak API key (HTTP 401 Unauthorized). Pesan Google: "${geminiMsg}".`;
+            } else if (status === 403) {
               msgText = `Gemini API menolak akses (HTTP 403 Forbidden). Pesan Google: "${geminiMsg}".`;
-            } else if (status === 401) {
-              msgText = `Gemini API menolak Key (HTTP 401 Unauthorized). Pesan Google: "${geminiMsg}".`;
             } else if (status === 429) {
               msgText = `Batas kuota Gemini API tercapai (HTTP 429 Rate Limit). Pesan Google: "${geminiMsg}".`;
             }
@@ -389,8 +389,8 @@ Jika ada field yang tidak terbaca atau tidak jelas, kosongkan string-nya ("").`;
           keyType,
           keyPrefix,
           keyLength: apiKey.length,
-          modelTried: modelName,
-          geminiStatus: 'EXCEPTION',
+          model: modelName,
+          status: 'EXCEPTION',
           geminiMessage: err?.message || String(err),
         };
       }
