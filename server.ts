@@ -2211,7 +2211,7 @@ Analisis foto KTP yang diberikan dan ekstrak data berikut dengan sangat teliti d
 Jika ada field yang tidak terbaca atau tidak jelas, kosongkan string-nya ("").`;
 
       // Candidate models list for automatic fallback according to gemini-api skill
-      const candidateModels = ["gemini-flash-latest", "gemini-2.5-flash", "gemini-3.1-flash-lite"];
+      const candidateModels = ["gemini-3.8-flash", "gemini-3.1-flash-lite"];
       let response = null;
       let lastError = null;
 
