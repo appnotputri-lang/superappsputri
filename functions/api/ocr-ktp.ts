@@ -17,7 +17,7 @@ export const onRequestOptions = async () => {
     headers: {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-goog-api-key',
       'Access-Control-Max-Age': '86400',
     },
   });
@@ -30,7 +30,11 @@ export const onRequestPost = async (context: PagesFunctionContext<Env>) => {
   };
 
   try {
-    const rawApiKey = (context.env.GEMINI_API_KEY || context.env.VITE_GEMINI_API_KEY || context.env.API_KEY || '').trim();
+    // Read raw key and trim quotes or outside whitespace if accidentally included
+    let rawApiKey = (context.env.GEMINI_API_KEY || context.env.VITE_GEMINI_API_KEY || context.env.API_KEY || '').trim();
+    if ((rawApiKey.startsWith('"') && rawApiKey.endsWith('"')) || (rawApiKey.startsWith("'") && rawApiKey.endsWith("'"))) {
+      rawApiKey = rawApiKey.slice(1, -1).trim();
+    }
 
     if (!rawApiKey || rawApiKey === 'dummy' || rawApiKey === 'your_gemini_api_key') {
       return new Response(
@@ -39,7 +43,8 @@ export const onRequestPost = async (context: PagesFunctionContext<Env>) => {
           error: 'GEMINI_API_KEY belum dikonfigurasi pada Cloudflare Environment Variables.',
           diagnostics: {
             apiKeyConfigured: false,
-            apiKeyLength: 0,
+            keyType: 'NONE',
+            keyLength: 0,
           },
         }),
         { status: 200, headers: corsHeaders }
@@ -47,10 +52,12 @@ export const onRequestPost = async (context: PagesFunctionContext<Env>) => {
     }
 
     const apiKey = rawApiKey;
+    const keyType = apiKey.startsWith('AQ.') ? 'AQ' : apiKey.startsWith('AIza') ? 'AIza' : 'CUSTOM';
+    const keyPrefix = apiKey.length >= 4 ? apiKey.substring(0, 4) + '...' : '***';
 
+    // Parse image payload from multipart or JSON
     let cleanBase64 = '';
     let cleanMime = 'image/jpeg';
-
     const contentType = context.request.headers.get('content-type') || '';
 
     if (contentType.includes('multipart/form-data')) {
@@ -65,7 +72,9 @@ export const onRequestPost = async (context: PagesFunctionContext<Env>) => {
               error: 'File gambar KTP tidak ditemukan dalam request upload.',
               diagnostics: {
                 apiKeyConfigured: true,
-                apiKeyLength: apiKey.length,
+                keyType,
+                keyPrefix,
+                keyLength: apiKey.length,
               },
             }),
             { status: 200, headers: corsHeaders }
@@ -83,7 +92,9 @@ export const onRequestPost = async (context: PagesFunctionContext<Env>) => {
               error: 'Format file tidak valid. Silakan upload gambar KTP (JPG, PNG, atau WebP).',
               diagnostics: {
                 apiKeyConfigured: true,
-                apiKeyLength: apiKey.length,
+                keyType,
+                keyPrefix,
+                keyLength: apiKey.length,
               },
             }),
             { status: 200, headers: corsHeaders }
@@ -97,7 +108,9 @@ export const onRequestPost = async (context: PagesFunctionContext<Env>) => {
               error: 'Ukuran foto KTP terlalu besar (maksimal 12MB).',
               diagnostics: {
                 apiKeyConfigured: true,
-                apiKeyLength: apiKey.length,
+                keyType,
+                keyPrefix,
+                keyLength: apiKey.length,
               },
             }),
             { status: 200, headers: corsHeaders }
@@ -122,7 +135,9 @@ export const onRequestPost = async (context: PagesFunctionContext<Env>) => {
             error: 'Gagal memproses form data gambar KTP: ' + (err?.message || err),
             diagnostics: {
               apiKeyConfigured: true,
-              apiKeyLength: apiKey.length,
+              keyType,
+              keyPrefix,
+              keyLength: apiKey.length,
             },
           }),
           { status: 200, headers: corsHeaders }
@@ -140,7 +155,9 @@ export const onRequestPost = async (context: PagesFunctionContext<Env>) => {
               error: 'Foto KTP (base64) wajib dikirim dalam request JSON.',
               diagnostics: {
                 apiKeyConfigured: true,
-                apiKeyLength: apiKey.length,
+                keyType,
+                keyPrefix,
+                keyLength: apiKey.length,
               },
             }),
             { status: 200, headers: corsHeaders }
@@ -160,7 +177,9 @@ export const onRequestPost = async (context: PagesFunctionContext<Env>) => {
             error: 'Format request JSON tidak valid: ' + (err?.message || err),
             diagnostics: {
               apiKeyConfigured: true,
-              apiKeyLength: apiKey.length,
+              keyType,
+              keyPrefix,
+              keyLength: apiKey.length,
             },
           }),
           { status: 200, headers: corsHeaders }
@@ -175,13 +194,83 @@ export const onRequestPost = async (context: PagesFunctionContext<Env>) => {
           error: 'Foto KTP kosong atau tidak terbaca.',
           diagnostics: {
             apiKeyConfigured: true,
-            apiKeyLength: apiKey.length,
+            keyType,
+            keyPrefix,
+            keyLength: apiKey.length,
           },
         }),
         { status: 200, headers: corsHeaders }
       );
     }
 
+    // Build headers that support BOTH traditional AIzaSy keys and Google AI Studio AQ keys
+    const authHeaders: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'x-goog-api-key': apiKey,
+      'Authorization': `Bearer ${apiKey}`,
+    };
+
+    // =========================================================================
+    // STEP 1: TEST MINIMAL PING CALL TO GEMINI API FIRST
+    // =========================================================================
+    const testModel = 'gemini-2.5-flash';
+    const testUrl = `https://generativelanguage.googleapis.com/v1beta/models/${testModel}:generateContent?key=${encodeURIComponent(apiKey)}`;
+
+    try {
+      const testRes = await fetch(testUrl, {
+        method: 'POST',
+        headers: authHeaders,
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: 'Reply only with OK' }] }],
+        }),
+      });
+
+      const testJson = (await testRes.json()) as any;
+      const testStatus = testRes.status;
+
+      if (!testRes.ok) {
+        const errObj = testJson?.error || {};
+        const msg = errObj?.message || errObj?.status || JSON.stringify(testJson);
+
+        const diag = {
+          apiKeyConfigured: true,
+          keyType,
+          keyPrefix,
+          keyLength: apiKey.length,
+          testModel,
+          geminiStatus: testStatus,
+          geminiMessage: msg,
+          geminiDetails: errObj?.details || [],
+        };
+
+        let userError = `Autentikasi Gemini API gagal (HTTP ${testStatus}).`;
+        if (testStatus === 403) {
+          userError = `Gemini API menolak akses (HTTP 403 Forbidden). Pesan Google: "${msg}". Pastikan Generative Language API telah diaktifkan di Google Cloud Console dan Key tidak dibatasi (restricted).`;
+        } else if (testStatus === 401) {
+          userError = `Gemini API menolak Key (HTTP 401 Unauthorized). Pesan Google: "${msg}".`;
+        } else if (testStatus === 429) {
+          userError = `Batas kuota Gemini API tercapai (HTTP 429 Rate Limit / Quota Exceeded). Pesan Google: "${msg}".`;
+        } else if (testStatus === 400) {
+          userError = `Request ke Gemini API tidak valid (HTTP 400 Bad Request). Pesan Google: "${msg}".`;
+        }
+
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: userError,
+            diagnostics: diag,
+          }),
+          { status: 200, headers: corsHeaders }
+        );
+      }
+    } catch (testErr: any) {
+      console.warn('[OCR KTP Cloudflare] Test ping exception:', testErr?.message || testErr);
+      // Proceed to main OCR if test call had network glitch
+    }
+
+    // =========================================================================
+    // STEP 2: PERFORM OCR WITH IMAGE PAYLOAD
+    // =========================================================================
     const promptText = `Anda adalah sistem OCR cerdas untuk Ekstraksi Kartu Tanda Penduduk (KTP) Indonesia.
 Analisis foto KTP yang diberikan dan kembalikan HANYA JSON murni tanpa pembungkus markdown dengan struktur berikut:
 
@@ -205,14 +294,13 @@ Analisis foto KTP yang diberikan dan kembalikan HANYA JSON murni tanpa pembungku
 
 Jika ada field yang tidak terbaca atau tidak jelas, kosongkan string-nya ("").`;
 
-    // Priority Model Strategy: 'gemini-2.5-flash' first, then 'gemini-flash-latest', then 'gemini-3.1-flash-lite'
     const candidateModels = ['gemini-2.5-flash', 'gemini-flash-latest', 'gemini-3.1-flash-lite'];
     let lastErrorDiagnostics: any = null;
     let parsedData: any = null;
 
     for (let i = 0; i < candidateModels.length; i++) {
       const modelName = candidateModels[i];
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${encodeURIComponent(apiKey)}`;
 
       const payload = {
         contents: [
@@ -239,7 +327,7 @@ Jika ada field yang tidak terbaca atau tidak jelas, kosongkan string-nya ("").`;
       try {
         const geminiRes = await fetch(url, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: authHeaders,
           body: JSON.stringify(payload),
         });
 
@@ -252,58 +340,35 @@ Jika ada field yang tidak terbaca atau tidak jelas, kosongkan string-nya ("").`;
 
           lastErrorDiagnostics = {
             apiKeyConfigured: true,
-            apiKeyLength: apiKey.length,
+            keyType,
+            keyPrefix,
+            keyLength: apiKey.length,
             modelTried: modelName,
             geminiStatus: status,
             geminiMessage: geminiMsg,
+            geminiDetails: apiErrObj?.details || [],
           };
 
-          // DO NOT fallback on 401, 403, 429, or 400 because changing models will not fix client/auth/payload errors!
-          if (status === 401) {
+          // DO NOT fallback on 401, 403, 429, or 400!
+          if (status === 401 || status === 403 || status === 429 || status === 400) {
+            let msgText = `Gemini API HTTP ${status}: ${geminiMsg}`;
+            if (status === 403) {
+              msgText = `Gemini API menolak akses (HTTP 403 Forbidden). Pesan Google: "${geminiMsg}".`;
+            } else if (status === 401) {
+              msgText = `Gemini API menolak Key (HTTP 401 Unauthorized). Pesan Google: "${geminiMsg}".`;
+            } else if (status === 429) {
+              msgText = `Batas kuota Gemini API tercapai (HTTP 429 Rate Limit). Pesan Google: "${geminiMsg}".`;
+            }
             return new Response(
               JSON.stringify({
                 success: false,
-                error: 'Gemini API menolak request (401 Unauthorized / GEMINI_API_KEY tidak valid).',
+                error: msgText,
                 diagnostics: lastErrorDiagnostics,
               }),
               { status: 200, headers: corsHeaders }
             );
           }
 
-          if (status === 403) {
-            return new Response(
-              JSON.stringify({
-                success: false,
-                error: 'Gemini API menolak akses (403 Forbidden / API Key tidak memiliki izin atau Generative Language API belum diaktifkan di Google Cloud Console).',
-                diagnostics: lastErrorDiagnostics,
-              }),
-              { status: 200, headers: corsHeaders }
-            );
-          }
-
-          if (status === 429) {
-            return new Response(
-              JSON.stringify({
-                success: false,
-                error: 'Batas kuota Gemini API tercapai (429 Rate Limit / Resource Exhausted).',
-                diagnostics: lastErrorDiagnostics,
-              }),
-              { status: 200, headers: corsHeaders }
-            );
-          }
-
-          if (status === 400) {
-            return new Response(
-              JSON.stringify({
-                success: false,
-                error: 'Payload gambar KTP atau request ke Gemini API tidak valid (400 Bad Request).',
-                diagnostics: lastErrorDiagnostics,
-              }),
-              { status: 200, headers: corsHeaders }
-            );
-          }
-
-          // If 404 (Model not found) or 5xx (Server error), log warning and attempt fallback to next model
           console.warn(`[OCR KTP Cloudflare] Model ${modelName} returned HTTP ${status}:`, geminiMsg);
           continue;
         }
@@ -321,7 +386,9 @@ Jika ada field yang tidak terbaca atau tidak jelas, kosongkan string-nya ("").`;
         console.warn(`[OCR KTP Cloudflare] Exception calling Gemini model ${modelName}:`, err?.message || err);
         lastErrorDiagnostics = {
           apiKeyConfigured: true,
-          apiKeyLength: apiKey.length,
+          keyType,
+          keyPrefix,
+          keyLength: apiKey.length,
           modelTried: modelName,
           geminiStatus: 'EXCEPTION',
           geminiMessage: err?.message || String(err),
@@ -336,7 +403,9 @@ Jika ada field yang tidak terbaca atau tidak jelas, kosongkan string-nya ("").`;
           error: 'Gagal memproses OCR KTP melalui Gemini Vision API.',
           diagnostics: lastErrorDiagnostics || {
             apiKeyConfigured: true,
-            apiKeyLength: apiKey.length,
+            keyType,
+            keyPrefix,
+            keyLength: apiKey.length,
           },
         }),
         { status: 200, headers: corsHeaders }
