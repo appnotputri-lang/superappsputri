@@ -2173,7 +2173,7 @@ async function startServer() {
         return res.status(400).json({ success: false, error: "Foto KTP (base64) wajib dikirim" });
       }
 
-      const apiKey = process.env.GEMINI_API_KEY;
+      const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || process.env.API_KEY;
       if (!apiKey) {
         return res.status(500).json({ 
           success: false, 
