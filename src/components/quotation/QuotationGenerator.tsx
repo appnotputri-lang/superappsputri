@@ -8,7 +8,7 @@ import { InvoiceService } from '../../services/InvoiceService';
 import { ProductService } from '../../services/ProductService';
 import { CompanyService } from '../../services/CompanyService';
 import { formatInputNumber, parseFormattedNumber } from '../../../utils/formatters';
-import { printQuotation, downloadQuotationPdf } from '../../utils/quotationHtmlGenerator';
+import { printQuotation, downloadQuotationPdf, formatIndonesianDate, formatRupiahLetter } from '../../utils/quotationHtmlGenerator';
 import { calculateInvoiceTotals, getItemSubtotal, getItemTax } from '../../services/taxCalculator';
 import { getApiUrl, getAuthHeaders } from '../../lib/api';
 import { auth, db } from '../../lib/firebase';
@@ -208,6 +208,15 @@ export const QuotationGenerator: React.FC<QuotationGeneratorProps> = (props) => 
   const [validUntil, setValidUntil] = useState('');
   const [status, setStatus] = useState<'DRAFT' | 'SENT' | 'ACCEPTED' | 'REJECTED'>('SENT');
   const [notes, setNotes] = useState('Penawaran ini berlaku selama 14 hari sejak tanggal diterbitkan.\nPembayaran dilakukan sesuai dengan kesepakatan.');
+
+  // Letter Format Specific Fields
+  const [formatType, setFormatType] = useState<'standard' | 'letter'>('letter');
+  const [subject, setSubject] = useState('');
+  const [recipientHonorific, setRecipientHonorific] = useState('BAPAK');
+  const [sectionATitle, setSectionATitle] = useState('Jenis Pengurusan');
+  const [sectionBTitle, setSectionBTitle] = useState('Biaya Pengecekan');
+  const [closingNote, setClosingNote] = useState('HARGA TERSEBUT DIATAS UNTUK 1 BUAH AKTA');
+  const [detailPreviewFormat, setDetailPreviewFormat] = useState<'standard' | 'letter'>('letter');
 
   // Items Form
   const [items, setItems] = useState<InvoiceItem[]>([]);
@@ -611,6 +620,12 @@ export const QuotationGenerator: React.FC<QuotationGeneratorProps> = (props) => 
     
     setStatus('SENT');
     setNotes('Penawaran ini berlaku selama 14 hari sejak tanggal diterbitkan.\nPembayaran dilakukan sesuai dengan kesepakatan.');
+    setFormatType('letter');
+    setSubject('');
+    setRecipientHonorific('BAPAK');
+    setSectionATitle('Jenis Pengurusan');
+    setSectionBTitle('Biaya Pengecekan');
+    setClosingNote('HARGA TERSEBUT DIATAS UNTUK 1 BUAH AKTA');
     setItems([]);
     setActiveMobileItemIdx(null);
     setSelectedPresetProduct('-- Manual --');
@@ -639,6 +654,12 @@ export const QuotationGenerator: React.FC<QuotationGeneratorProps> = (props) => 
     setValidUntil(q.validUntil || '');
     setStatus(q.status);
     setNotes(q.notes || '');
+    setFormatType(q.formatType || 'letter');
+    setSubject(q.subject || '');
+    setRecipientHonorific(q.recipientHonorific || 'BAPAK');
+    setSectionATitle(q.sectionATitle || 'Jenis Pengurusan');
+    setSectionBTitle(q.sectionBTitle || 'Biaya Pengecekan');
+    setClosingNote(q.closingNote !== undefined ? q.closingNote : (q.notes || 'HARGA TERSEBUT DIATAS UNTUK 1 BUAH AKTA'));
     
     const itemsWithTax = q.items.map(it => ({
       ...it,
@@ -660,6 +681,7 @@ export const QuotationGenerator: React.FC<QuotationGeneratorProps> = (props) => 
 
   const openDetailPage = (q: Quotation) => {
     setSelectedQuotation(q);
+    setDetailPreviewFormat(q.formatType || 'letter');
     setViewMode('detail');
     if (window.location.pathname !== `/quotations/${encodeURIComponent(q.id)}` && window.location.pathname !== `/quotation/${encodeURIComponent(q.id)}`) {
       navigate(`/quotations/${encodeURIComponent(q.id)}`);
@@ -952,7 +974,13 @@ export const QuotationGenerator: React.FC<QuotationGeneratorProps> = (props) => 
       taxAmount,
       totalAmount,
       status,
-      notes: notes.trim()
+      notes: notes.trim(),
+      formatType,
+      subject: subject.trim() || undefined,
+      recipientHonorific: recipientHonorific.trim() || undefined,
+      sectionATitle: sectionATitle.trim() || undefined,
+      sectionBTitle: sectionBTitle.trim() || undefined,
+      closingNote: closingNote.trim() || undefined
     };
 
     try {
@@ -1012,7 +1040,7 @@ export const QuotationGenerator: React.FC<QuotationGeneratorProps> = (props) => 
   const handleDownloadPDF = async (q: Quotation) => {
     setDownloadingPdf(true);
     try {
-      await downloadQuotationPdf(q, undefined, docLang);
+      await downloadQuotationPdf(q, undefined, docLang, detailPreviewFormat);
     } catch (err) {
       console.error('Error downloading PDF:', err);
       alert('Gagal mengunduh file PDF.');
@@ -1596,6 +1624,117 @@ Notaris/PPAT Nukantini Putri Parincha, SH., M.Kn`;
               </div>
             </div>
 
+          {/* Bentuk / Format Penawaran Selector Card */}
+          <div className="bg-gradient-to-r from-blue-50/90 to-indigo-50/70 p-4 sm:p-5 rounded-2xl border border-blue-200/80 shadow-2xs space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <label className="block text-xs font-bold text-blue-900 uppercase tracking-wide flex items-center gap-1.5">
+                  <FileText size={15} className="text-blue-600" />
+                  Bentuk / Format Penawaran
+                </label>
+                <p className="text-[11px] text-blue-700/80 mt-0.5">
+                  Pilih bentuk surat resmi Notaris/PPAT sesuai standar lampiran atau format tabel penawaran modern.
+                </p>
+              </div>
+              <div className="flex items-center gap-1 bg-white p-1 rounded-xl border border-blue-200 shadow-2xs shrink-0 self-start sm:self-auto">
+                <button
+                  type="button"
+                  onClick={() => setFormatType('letter')}
+                  className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                    formatType === 'letter' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <FileText size={14} /> Surat Resmi
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFormatType('standard')}
+                  className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                    formatType === 'standard' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <Database size={14} /> Standar
+                </button>
+              </div>
+            </div>
+
+            {/* Letter Format Configuration Fields */}
+            {formatType === 'letter' && (
+              <div className="pt-3 border-t border-blue-200/60 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 text-xs animate-fade-in">
+                <div>
+                  <label className="block text-[10px] font-bold text-blue-950 uppercase mb-1">
+                    Sapaan Penerima
+                  </label>
+                  <select
+                    value={recipientHonorific}
+                    onChange={(e) => setRecipientHonorific(e.target.value)}
+                    className="w-full bg-white border border-blue-200 px-3 py-2 text-xs rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 font-bold text-slate-800"
+                  >
+                    <option value="BAPAK">BAPAK</option>
+                    <option value="IBU">IBU</option>
+                    <option value="YTH.">YTH.</option>
+                    <option value="PT">PT</option>
+                    <option value="CV">CV</option>
+                    <option value="YAYASAN">YAYASAN</option>
+                    <option value="">(Tanpa Sapaan)</option>
+                  </select>
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="block text-[10px] font-bold text-blue-950 uppercase mb-1">
+                    Perihal Surat
+                  </label>
+                  <input
+                    type="text"
+                    value={subject}
+                    onChange={(e) => setSubject(e.target.value)}
+                    placeholder="Contoh: Penawaran biaya pengurusan Akta Hibah Hak Cipta"
+                    className="w-full bg-white border border-blue-200 px-3 py-2 text-xs rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold text-blue-950 uppercase mb-1">
+                    Judul Bagian A
+                  </label>
+                  <input
+                    type="text"
+                    value={sectionATitle}
+                    onChange={(e) => setSectionATitle(e.target.value)}
+                    placeholder="Jenis Pengurusan"
+                    className="w-full bg-white border border-blue-200 px-3 py-2 text-xs rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold text-blue-950 uppercase mb-1">
+                    Judul Bagian B
+                  </label>
+                  <input
+                    type="text"
+                    value={sectionBTitle}
+                    onChange={(e) => setSectionBTitle(e.target.value)}
+                    placeholder="Biaya Pengecekan"
+                    className="w-full bg-white border border-blue-200 px-3 py-2 text-xs rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold text-blue-950 uppercase mb-1">
+                    Catatan Bawah Tabel (Note)
+                  </label>
+                  <input
+                    type="text"
+                    value={closingNote}
+                    onChange={(e) => setClosingNote(e.target.value)}
+                    placeholder="HARGA TERSEBUT DIATAS UNTUK 1 BUAH AKTA"
+                    className="w-full bg-white border border-blue-200 px-3 py-2 text-xs rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Left Column: Metadata */}
             <div className="space-y-4">
@@ -2099,7 +2238,7 @@ Notaris/PPAT Nukantini Putri Parincha, SH., M.Kn`;
                       {copiedToken === selectedQuotation.id ? 'Tersalin!' : 'Salin Link'}
                     </button>
                     <button
-                      onClick={() => { printQuotation(selectedQuotation, undefined, docLang); setShowDetailMoreMenu(false); }}
+                      onClick={() => { printQuotation(selectedQuotation, undefined, docLang, detailPreviewFormat); setShowDetailMoreMenu(false); }}
                       className="w-full text-left px-4 py-2.5 text-xs font-medium text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
                     >
                       <Printer size={14} /> Print
@@ -2153,137 +2292,371 @@ Notaris/PPAT Nukantini Putri Parincha, SH., M.Kn`;
             </div>
           )}
 
+          {/* Format Tampilan Selector */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3.5 rounded-2xl border border-slate-200 max-w-4xl mx-auto shadow-2xs">
+            <div className="flex items-center gap-2.5">
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">PILIHAN FORMAT:</span>
+              <div className="inline-flex bg-slate-100 p-1 rounded-xl border border-slate-200/80">
+                <button
+                  type="button"
+                  onClick={() => setDetailPreviewFormat('letter')}
+                  className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
+                    detailPreviewFormat === 'letter' ? 'bg-white text-blue-700 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <FileText size={14} /> Surat Resmi Notaris/PPAT
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDetailPreviewFormat('standard')}
+                  className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
+                    detailPreviewFormat === 'standard' ? 'bg-white text-blue-700 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <Database size={14} /> Format Standar (Modern)
+                </button>
+              </div>
+            </div>
+            <span className="text-[11px] text-slate-400 italic">
+              {detailPreviewFormat === 'letter' ? 'Format surat resmi sesuai standar kantor Notaris/PPAT' : 'Format tabel rincian biaya modern'}
+            </span>
+          </div>
+
           {/* Document Preview Frame */}
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden p-6 md:p-8 max-w-4xl mx-auto space-y-6">
-            <div className="flex flex-col md:flex-row justify-between items-start gap-6 pb-6 border-b border-slate-100">
-              <div>
-                <h1 className="text-lg md:text-xl font-black text-slate-950 uppercase tracking-tight text-sky-700 leading-tight">
-                  NOTARIS/PPAT NUKANTINI PUTRI PARINCHA, SH. M.Kn
-                </h1>
-                <p className="text-xs text-slate-500 mt-1 max-w-md">
-                  Komplek PPR ITB F5, Dago Giri, Mekarwangi, Lembang, Bandung Barat, 40391 | 08112007061
-                </p>
+          {detailPreviewFormat === 'letter' ? (
+            /* FORMAT SURAT RESMI NOTARIS/PPAT */
+            <div className="bg-white rounded-2xl border border-slate-300 shadow-sm p-6 sm:p-10 max-w-4xl mx-auto space-y-4 text-slate-950 font-serif text-xs sm:text-sm">
+              {/* KOP SURAT */}
+              <div className="space-y-0.5 text-left border-b-2 border-dashed border-black pb-3">
+                <h3 className="font-bold text-sm sm:text-base underline tracking-wide">NOTARIS/PPAT</h3>
+                <h2 className="font-bold text-sm sm:text-base mt-1">NUKANTINI PUTRI PARINCHA, SH., M.Kn.</h2>
+                <p className="font-bold text-[11px] sm:text-xs">SK MENTERI HUKUM DAN HAK ASASI MANUSIA REPUBLIK INDONESIA</p>
+                <p className="text-[11px] sm:text-xs">NO. C-309.HT 03.01-Th. 2007, Tanggal 23 Agustus 2007</p>
+                <p className="font-bold text-[11px] sm:text-xs mt-1">SK. KEPALA BADAN PERTANAHAN NASIONAL REPUBLIK INDONESIA</p>
+                <p className="text-[11px] sm:text-xs">NO. 1 – XVI I- PPAT – 2009, Tanggal 12 Februari 2009</p>
+                <div className="text-[11px] sm:text-xs pt-1 space-y-0.5">
+                  <div className="flex">
+                    <span className="w-20 font-medium shrink-0">Kantor</span>
+                    <span className="w-4 shrink-0">:</span>
+                    <span>Komp. PPR-ITB Kav. F-5 Dago Bengkok, Lembang, Kab. Bandung Barat</span>
+                  </div>
+                  <div className="flex">
+                    <span className="w-20 font-medium shrink-0">Telp/Fax</span>
+                    <span className="w-4 shrink-0">:</span>
+                    <span>022-2504155, 08122174848</span>
+                  </div>
+                </div>
               </div>
 
-              <div className="text-left md:text-right space-y-1">
-                <span className="px-2.5 py-1 bg-sky-50 text-sky-700 border border-sky-100 rounded-md text-[10px] font-black uppercase tracking-wider">
-                  SURAT PENAWARAN
-                </span>
-                <p className="text-sm font-mono font-bold text-slate-900 mt-1">{selectedQuotation.quotationNumber}</p>
-                <p className="text-xs text-slate-400">Tanggal: {new Date(selectedQuotation.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
-                {selectedQuotation.validUntil && (
-                  <p className="text-xs text-amber-600 font-semibold">Berlaku Hingga: {new Date(selectedQuotation.validUntil).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
-                )}
-              </div>
-            </div>
-
-            {/* Parties Section */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
-              <div className="space-y-1">
-                <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Dari</h4>
-                <p className="font-extrabold text-slate-800">Notaris/PPAT Nukantini Putri Parincha</p>
-                <p className="text-xs text-slate-500 leading-relaxed">
-                  Dago Giri, Mekarwangi, Lembang, Bandung Barat<br />
-                  Telp: 08112007061
-                </p>
+              {/* Tanggal */}
+              <div className="pt-2">
+                <strong>Tanggal : {formatIndonesianDate(selectedQuotation.date)}</strong>
               </div>
 
-              <div className="space-y-1">
-                <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Penawaran Kepada</h4>
-                <p className="font-extrabold text-slate-800">{selectedQuotation.clientName}</p>
+              {/* Kepada Yth. */}
+              <div className="space-y-0.5">
+                <div><strong>Kepada Yth. :</strong></div>
+                <div className="font-bold uppercase tracking-wide">
+                  {selectedQuotation.recipientHonorific ? `${selectedQuotation.recipientHonorific} ` : ''}{selectedQuotation.clientName}
+                </div>
                 {selectedQuotation.clientAddress && (
-                  <p className="text-xs text-slate-500 leading-relaxed whitespace-pre-wrap">{selectedQuotation.clientAddress}</p>
-                )}
-                {selectedQuotation.clientPhone && (
-                  <p className="text-xs text-slate-500">HP: {selectedQuotation.clientPhone}</p>
+                  <p className="text-xs text-slate-600 whitespace-pre-line">{selectedQuotation.clientAddress}</p>
                 )}
               </div>
-            </div>
 
-            {/* Items Table */}
-            <div className="border border-slate-100 rounded-2xl overflow-hidden shadow-xs">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-slate-50 text-slate-500 font-semibold text-xs border-b border-slate-100">
-                    <th className="p-4 text-left">DESKRIPSI RINCIAN LAYANAN</th>
-                    <th className="p-4 text-right w-36">JUMLAH</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 text-xs sm:text-sm">
-                  {selectedQuotation.items.map((it, idx) => {
-                    const lines = (it.description || '').split('\n');
-                    return (
-                      <tr key={it.id || idx}>
-                        <td className="p-4 text-slate-700">
-                          <div className="space-y-1 font-sans">
-                            {lines.map((line, lIdx) => {
-                              const trimmed = line.trim();
-                              const isHeader = /^[0-9]+\./.test(trimmed);
-                              return (
-                                <p
-                                  key={lIdx}
-                                  className={`${isHeader ? 'font-bold text-slate-900 text-xs sm:text-sm' : 'text-slate-600 pl-3 text-xs sm:text-sm'}`}
-                                >
-                                  {trimmed}
-                                </p>
-                              );
-                            })}
-                          </div>
-                        </td>
-                        <td className="p-4 text-right font-mono font-bold text-slate-800 align-top">
-                          Rp {formatCurrency(it.amount)}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+              {/* Perihal */}
+              <div className="font-bold pt-1">
+                Perihal : {selectedQuotation.subject || (selectedQuotation.items[0]?.description ? `Penawaran biaya pengurusan ${selectedQuotation.items[0].description.split('\n')[0].replace(/^[0-9]+\.\s*/, '').trim()}` : 'Penawaran biaya pengurusan Akta')}
+              </div>
 
-            {/* Bottom Footer Calculations & Terms */}
-            <div className="flex flex-col-reverse md:flex-row justify-between gap-8 pt-4">
-              <div className="md:w-1/2 space-y-4">
+              {/* Salam Pembuka */}
+              <div className="space-y-1 pt-1 leading-relaxed text-justify">
+                <div>Dengan Hormat,</div>
                 <div>
-                  <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-wider mb-2">Informasi Pembayaran:</h4>
-                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 text-slate-600 text-xs sm:text-sm leading-relaxed">
-                    <p className="font-bold text-slate-800">BCA Cabang Dago - Bandung</p>
-                    <p className="font-bold text-slate-800 font-mono text-sm">Acc. 7770673016</p>
-                    <p className="font-bold text-slate-800">A.n Nukantini Putri Parincha</p>
-                    <div className="mt-2 pt-2 border-t border-slate-200 text-[11px] text-slate-500 space-y-0.5">
-                      <p>NPWP 16 digit: <strong className="text-slate-700">3217015610760002</strong></p>
-                      <p>SWIFT BCA: <strong className="text-slate-700">CENAIDJA</strong></p>
+                  Bersama dengan ini kami bermaksud mengajukan penawaran kerja sama dengan <strong>{selectedQuotation.recipientHonorific ? `${selectedQuotation.recipientHonorific} ` : ''}{selectedQuotation.clientName}</strong> dalam pengurusan {selectedQuotation.subject || (selectedQuotation.items[0]?.description ? `pengurusan ${selectedQuotation.items[0].description.split('\n')[0].replace(/^[0-9]+\.\s*/, '').trim()}` : 'pengurusan Akta')}, Adapun detail sbb :
+                </div>
+              </div>
+
+              {/* Bagian A: Jenis Pengurusan */}
+              <div className="space-y-1.5 pt-1">
+                <div className="font-bold">A. {selectedQuotation.sectionATitle || 'Jenis Pengurusan'} :</div>
+                <ol className="list-decimal pl-6 space-y-1">
+                  {selectedQuotation.items.map((it, idx) => (
+                    <li key={idx}>
+                      pengurusan {it.description?.split('\n')[0]?.replace(/^[0-9]+\.\s*/, '').trim() || `Pekerjaan ${idx + 1}`}.
+                    </li>
+                  ))}
+                </ol>
+              </div>
+
+              {/* Bagian B: Biaya Pengecekan */}
+              <div className="space-y-2 pt-2">
+                <div className="font-bold">B. {selectedQuotation.sectionBTitle || 'Biaya Pengecekan'}</div>
+                <div className="overflow-x-auto">
+                  <table className="w-full border-collapse border border-black text-xs sm:text-sm">
+                    <thead>
+                      <tr className="bg-slate-50 border-b border-black">
+                        <th className="border border-black p-2 w-12 text-center">No</th>
+                        <th className="border border-black p-2 text-left">Detail Perijinan</th>
+                        <th className="border border-black p-2 w-44 text-right">Biaya</th>
+                        <th className="border border-black p-2 w-32 text-center">Catatan</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {selectedQuotation.items.map((it, idx) => {
+                        const lines = (it.description || '').split('\n').filter(Boolean);
+                        const mainDesc = lines[0] ? lines[0].replace(/^[0-9]+\.\s*/, '').trim() : '';
+                        const subDesc = lines.slice(1);
+                        return (
+                          <tr key={idx}>
+                            <td className="border border-black p-2 text-center align-top">{idx + 1}</td>
+                            <td className="border border-black p-2 align-top">
+                              <div className="font-medium">- {mainDesc}</div>
+                              {subDesc.map((s, sIdx) => (
+                                <div key={sIdx} className="pl-3 text-slate-600 text-xs">{s}</div>
+                              ))}
+                            </td>
+                            <td className="border border-black p-2 text-right align-top whitespace-nowrap">
+                              {formatRupiahLetter(getItemSubtotal(it))}
+                            </td>
+                            <td className="border border-black p-2 text-center align-top text-xs text-slate-500">
+                              {it.quantity && it.quantity > 1 ? `${it.quantity} Buah` : ''}
+                            </td>
+                          </tr>
+                        );
+                      })}
+
+                      {/* PPh 21 Row */}
+                      {selectedQuotation.taxAmount && selectedQuotation.taxAmount > 0 ? (
+                        <tr>
+                          <td className="border border-black p-2 text-center align-top">{selectedQuotation.items.length + 1}</td>
+                          <td className="border border-black p-2 align-top">
+                            Pph 21 {selectedQuotation.taxRate ? (selectedQuotation.taxRate * 100).toFixed(1).replace('.0', '') : '2,5'}%
+                          </td>
+                          <td className="border border-black p-2 text-right align-top whitespace-nowrap">
+                            {formatRupiahLetter(selectedQuotation.taxAmount, true)}
+                          </td>
+                          <td className="border border-black p-2 text-center align-top"></td>
+                        </tr>
+                      ) : null}
+
+                      {/* Total Row */}
+                      <tr className="font-bold bg-slate-50">
+                        <td colSpan={2} className="border border-black p-2.5 text-center tracking-wide">
+                          TOTAL BIAYA
+                        </td>
+                        <td className="border border-black p-2.5 text-right whitespace-nowrap font-bold">
+                          {formatRupiahLetter(selectedQuotation.totalAmount)}
+                        </td>
+                        <td className="border border-black p-2.5 text-center"></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="font-bold text-xs sm:text-sm pt-1">
+                  Note : {selectedQuotation.closingNote || selectedQuotation.notes || 'HARGA TERSEBUT DIATAS UNTUK 1 BUAH AKTA'}
+                </div>
+              </div>
+
+              {/* Bagian C: Detail Perusahaan & Bank */}
+              <div className="space-y-1.5 pt-2">
+                <div className="font-bold">C. Detail Perusahaan & Bank</div>
+                <div className="text-xs sm:text-sm leading-relaxed space-y-0.5">
+                  <div className="flex">
+                    <span className="w-52 shrink-0">Nama Perusahaan / Pribadi</span>
+                    <span className="w-4 shrink-0">:</span>
+                    <span>Notaris/PPAT Nukantini Putri Parincha, SH., M.Kn.</span>
+                  </div>
+                  <div className="flex">
+                    <span className="w-52 shrink-0">Contact Person</span>
+                    <span className="w-4 shrink-0">:</span>
+                    <span>Putri</span>
+                  </div>
+                  <div className="flex">
+                    <span className="w-52 shrink-0">Alamat Perusahaan</span>
+                    <span className="w-4 shrink-0">:</span>
+                    <span>Komplek PPR ITB Kav F5, Dago Giri, Desa Mekarwangi, Kecamatan Lembang, Kabupaten Bandung Barat</span>
+                  </div>
+                  <div className="flex">
+                    <span className="w-52 shrink-0">No Telepon / Handphone</span>
+                    <span className="w-4 shrink-0">:</span>
+                    <span>081-2217-4848</span>
+                  </div>
+                  <div className="flex">
+                    <span className="w-52 shrink-0">No. NPWP</span>
+                    <span className="w-4 shrink-0">:</span>
+                    <span>32.026.793.9.421.000</span>
+                  </div>
+                  <div className="flex">
+                    <span className="w-52 shrink-0">Nama Bank</span>
+                    <span className="w-4 shrink-0">:</span>
+                    <span>BCA</span>
+                  </div>
+                  <div className="flex">
+                    <span className="w-52 shrink-0">Cabang</span>
+                    <span className="w-4 shrink-0">:</span>
+                    <span>Dago - Bandung</span>
+                  </div>
+                  <div className="flex">
+                    <span className="w-52 shrink-0">Nama Pemilik Rekening</span>
+                    <span className="w-4 shrink-0">:</span>
+                    <span>Nukantini Putri Parincha</span>
+                  </div>
+                  <div className="flex">
+                    <span className="w-52 shrink-0">Nomor Rekening</span>
+                    <span className="w-4 shrink-0">:</span>
+                    <span className="font-bold">777-0673016</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Penutup */}
+              <div className="pt-2 leading-relaxed">
+                Demikian kami sampaikan Surat Penawaran untuk {selectedQuotation.subject || (selectedQuotation.items[0]?.description ? `biaya pengurusan ${selectedQuotation.items[0].description.split('\n')[0].replace(/^[0-9]+\.\s*/, '').trim()}` : 'biaya pengurusan Akta')}, atas perhatian dan kerjasamanya kami ucapkan terimakasih.
+              </div>
+
+              {/* Tanda Tangan */}
+              <div className="pt-4 space-y-12">
+                <div>Hormat Kami</div>
+                <div className="font-bold underline text-sm sm:text-base tracking-wide">
+                  NUKANTINI PUTRI PARINCHA, SH., M.Kn.
+                </div>
+              </div>
+            </div>
+          ) : (
+            /* FORMAT STANDAR (MODERN) */
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden p-6 md:p-8 max-w-4xl mx-auto space-y-6">
+              <div className="flex flex-col md:flex-row justify-between items-start gap-6 pb-6 border-b border-slate-100">
+                <div>
+                  <h1 className="text-lg md:text-xl font-black text-slate-950 uppercase tracking-tight text-sky-700 leading-tight">
+                    NOTARIS/PPAT NUKANTINI PUTRI PARINCHA, SH. M.Kn
+                  </h1>
+                  <p className="text-xs text-slate-500 mt-1 max-w-md">
+                    Komplek PPR ITB F5, Dago Giri, Mekarwangi, Lembang, Bandung Barat, 40391 | 08112007061
+                  </p>
+                </div>
+
+                <div className="text-left md:text-right space-y-1">
+                  <span className="px-2.5 py-1 bg-sky-50 text-sky-700 border border-sky-100 rounded-md text-[10px] font-black uppercase tracking-wider">
+                    SURAT PENAWARAN
+                  </span>
+                  <p className="text-sm font-mono font-bold text-slate-900 mt-1">{selectedQuotation.quotationNumber}</p>
+                  <p className="text-xs text-slate-400">Tanggal: {new Date(selectedQuotation.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                  {selectedQuotation.validUntil && (
+                    <p className="text-xs text-amber-600 font-semibold">Berlaku Hingga: {new Date(selectedQuotation.validUntil).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Parties Section */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
+                <div className="space-y-1">
+                  <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Dari</h4>
+                  <p className="font-extrabold text-slate-800">Notaris/PPAT Nukantini Putri Parincha</p>
+                  <p className="text-xs text-slate-500 leading-relaxed">
+                    Dago Giri, Mekarwangi, Lembang, Bandung Barat<br />
+                    Telp: 08112007061
+                  </p>
+                </div>
+
+                <div className="space-y-1">
+                  <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Penawaran Kepada</h4>
+                  <p className="font-extrabold text-slate-800">{selectedQuotation.clientName}</p>
+                  {selectedQuotation.clientAddress && (
+                    <p className="text-xs text-slate-500 leading-relaxed whitespace-pre-wrap">{selectedQuotation.clientAddress}</p>
+                  )}
+                  {selectedQuotation.clientPhone && (
+                    <p className="text-xs text-slate-500">HP: {selectedQuotation.clientPhone}</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Items Table */}
+              <div className="border border-slate-100 rounded-2xl overflow-hidden shadow-xs">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-slate-50 text-slate-500 font-semibold text-xs border-b border-slate-100">
+                      <th className="p-4 text-left">DESKRIPSI RINCIAN LAYANAN</th>
+                      <th className="p-4 text-right w-36">JUMLAH</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-xs sm:text-sm">
+                    {selectedQuotation.items.map((it, idx) => {
+                      const lines = (it.description || '').split('\n');
+                      return (
+                        <tr key={it.id || idx}>
+                          <td className="p-4 text-slate-700">
+                            <div className="space-y-1 font-sans">
+                              {lines.map((line, lIdx) => {
+                                const trimmed = line.trim();
+                                const isHeader = /^[0-9]+\./.test(trimmed);
+                                return (
+                                  <p
+                                    key={lIdx}
+                                    className={`${isHeader ? 'font-bold text-slate-900 text-xs sm:text-sm' : 'text-slate-600 pl-3 text-xs sm:text-sm'}`}
+                                  >
+                                    {trimmed}
+                                  </p>
+                                );
+                              })}
+                            </div>
+                          </td>
+                          <td className="p-4 text-right font-mono font-bold text-slate-800 align-top">
+                            Rp {formatCurrency(it.amount)}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Bottom Footer Calculations & Terms */}
+              <div className="flex flex-col-reverse md:flex-row justify-between gap-8 pt-4">
+                <div className="md:w-1/2 space-y-4">
+                  <div>
+                    <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-wider mb-2">Informasi Pembayaran:</h4>
+                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 text-slate-600 text-xs sm:text-sm leading-relaxed">
+                      <p className="font-bold text-slate-800">BCA Cabang Dago - Bandung</p>
+                      <p className="font-bold text-slate-800 font-mono text-sm">Acc. 7770673016</p>
+                      <p className="font-bold text-slate-800">A.n Nukantini Putri Parincha</p>
+                      <div className="mt-2 pt-2 border-t border-slate-200 text-[11px] text-slate-500 space-y-0.5">
+                        <p>NPWP 16 digit: <strong className="text-slate-700">3217015610760002</strong></p>
+                        <p>SWIFT BCA: <strong className="text-slate-700">CENAIDJA</strong></p>
+                      </div>
                     </div>
                   </div>
+
+                  {selectedQuotation.notes && (
+                    <div className="space-y-1">
+                      <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Catatan / Ketentuan:</h4>
+                      <p className="text-xs text-slate-600 leading-relaxed whitespace-pre-wrap bg-slate-50 p-4 rounded-xl border border-slate-100">
+                        {selectedQuotation.notes}
+                      </p>
+                    </div>
+                  )}
                 </div>
 
-                {selectedQuotation.notes && (
-                  <div className="space-y-1">
-                    <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Catatan / Ketentuan:</h4>
-                    <p className="text-xs text-slate-600 leading-relaxed whitespace-pre-wrap bg-slate-50 p-4 rounded-xl border border-slate-100">
-                      {selectedQuotation.notes}
-                    </p>
+                <div className="md:w-1/2 space-y-3">
+                  <div className="flex justify-between text-xs sm:text-sm text-slate-500 font-semibold">
+                    <span>Subtotal</span>
+                    <span className="font-mono">Rp {formatCurrency(selectedQuotation.subtotal || selectedQuotation.totalAmount)}</span>
                   </div>
-                )}
-              </div>
-
-              <div className="md:w-1/2 space-y-3">
-                <div className="flex justify-between text-xs sm:text-sm text-slate-500 font-semibold">
-                  <span>Subtotal</span>
-                  <span className="font-mono">Rp {formatCurrency(selectedQuotation.subtotal || selectedQuotation.totalAmount)}</span>
-                </div>
-                {selectedQuotation.taxAmount && selectedQuotation.taxAmount > 0 ? (
-                  <div className="flex justify-between text-xs sm:text-sm text-red-500 font-semibold">
-                    <span>Potongan PPh 21</span>
-                    <span className="font-mono">({formatCurrency(selectedQuotation.taxAmount)})</span>
+                  {selectedQuotation.taxAmount && selectedQuotation.taxAmount > 0 ? (
+                    <div className="flex justify-between text-xs sm:text-sm text-red-500 font-semibold">
+                      <span>Potongan PPh 21</span>
+                      <span className="font-mono">({formatCurrency(selectedQuotation.taxAmount)})</span>
+                    </div>
+                  ) : null}
+                  <div className="flex justify-between text-slate-950 font-black text-sm sm:text-base pt-3 border-t border-slate-100">
+                    <span>Total Estimasi</span>
+                    <span className="font-mono text-sky-700">Rp {formatCurrency(selectedQuotation.totalAmount)}</span>
                   </div>
-                ) : null}
-                <div className="flex justify-between text-slate-950 font-black text-sm sm:text-base pt-3 border-t border-slate-100">
-                  <span>Total Estimasi</span>
-                  <span className="font-mono text-sky-700">Rp {formatCurrency(selectedQuotation.totalAmount)}</span>
                 </div>
               </div>
             </div>
-          </div>
+          )}
         </div>
         );
       })()}

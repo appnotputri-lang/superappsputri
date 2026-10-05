@@ -66,20 +66,6 @@ interface ClientOption {
   clientType?: string;
 }
 
-const PRESET_PRODUCTS = [
-  '-- Manual --',
-  'AKTA PERUBAHAN PT SK',
-  'Jasa Pembuatan Akta Notaris',
-  'Pendirian PT / CV',
-  'Draft Notulen Sirkuler',
-  'Akta RUPSLB',
-  'Surat Keputusan (SK) AHU',
-  'Surat Pelaporan AHU',
-  'BNRI (Berita Negara RI)',
-  'Akta Hibah Saham',
-  'Legalisasi & Waarmerking',
-  'Sewa Ruangan Kantor'
-];
 
 const MobileInvoiceRow: React.FC<{
   invoice: Invoice;

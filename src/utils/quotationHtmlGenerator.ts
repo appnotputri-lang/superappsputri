@@ -66,6 +66,41 @@ export function formatNum(val?: number): string {
   return new Intl.NumberFormat('id-ID', { maximumFractionDigits: 0 }).format(val || 0);
 }
 
+export function formatIndonesianDate(dateStr?: string): string {
+  if (!dateStr) return '';
+  try {
+    const raw = dateStr.split('T')[0];
+    const parts = raw.split('-');
+    if (parts.length === 3) {
+      const year = parts[0];
+      const monthIdx = parseInt(parts[1], 10) - 1;
+      const day = parts[2].padStart(2, '0');
+      const months = [
+        'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+        'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+      ];
+      if (monthIdx >= 0 && monthIdx < 12) {
+        return `${day} ${months[monthIdx]} ${year}`;
+      }
+    }
+    const d = new Date(dateStr);
+    if (!isNaN(d.getTime())) {
+      return d.toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' });
+    }
+    return dateStr;
+  } catch {
+    return dateStr || '';
+  }
+}
+
+export function formatRupiahLetter(val: number, isDeduction = false): string {
+  const numStr = new Intl.NumberFormat('id-ID').format(Math.abs(val || 0));
+  if (isDeduction) {
+    return `(Rp. ${numStr},-)`;
+  }
+  return `Rp. ${numStr},-`;
+}
+
 export async function urlToBase64(url: string): Promise<string> {
   try {
     const res = await fetch(url);
@@ -96,7 +131,380 @@ export async function getQrCodeBase64(quotation: Quotation, publicUrl?: string):
   return await urlToBase64(qrServerUrl);
 }
 
-export function generateQuotationHTML(quotation: Quotation, qrBase64: string, autoPrint = false, lang: 'id' | 'en' = 'id'): string {
+export function generateQuotationLetterHTML(
+  quotation: Quotation,
+  qrBase64: string,
+  autoPrint = false
+): string {
+  const honorific = (quotation.recipientHonorific || 'BAPAK').trim();
+  const clientNameUpper = (quotation.clientName || '').toUpperCase();
+  const fullRecipient = honorific ? `${honorific} ${clientNameUpper}` : clientNameUpper;
+
+  const firstItem = quotation.items && quotation.items.length > 0 ? quotation.items[0] : null;
+  const firstItemTitle = firstItem ? (firstItem.description || '').split('\n')[0].replace(/^[0-9]+\.\s*/, '').trim() : '';
+  const workTitle = quotation.subject || (firstItemTitle ? `biaya pengurusan ${firstItemTitle}` : 'biaya pengurusan Akta');
+  const subjectText = quotation.subject?.startsWith('Penawaran') ? quotation.subject : `Penawaran ${workTitle}`;
+
+  const dateFormatted = formatIndonesianDate(quotation.date) || formatDate(quotation.date);
+  const closingNoteText = quotation.closingNote !== undefined
+    ? quotation.closingNote
+    : (quotation.notes || 'HARGA TERSEBUT DIATAS UNTUK 1 BUAH AKTA');
+
+  // Section A items list
+  const sectionAItems = (quotation.items || []).map((it, idx) => {
+    const rawFirstLine = (it.description || '').split('\n')[0].replace(/^[0-9]+\.\s*/, '').trim();
+    const cleanName = rawFirstLine || `Pekerjaan ${idx + 1}`;
+    return `<li style="margin-bottom: 4px;">pengurusan ${cleanName}.</li>`;
+  }).join('');
+
+  // Section B table rows
+  let rowIdx = 1;
+  const tableRows = (quotation.items || []).map((it) => {
+    const lines = (it.description || '').split('\n').filter(Boolean);
+    const mainTitle = lines[0] ? lines[0].replace(/^[0-9]+\.\s*/, '').trim() : '';
+    const subLines = lines.slice(1).map(l => `<div style="padding-left: 12px; color: #475569; font-size: 11px;">${l}</div>`).join('');
+    const subtotal = getItemSubtotal(it);
+    return `
+      <tr>
+        <td style="border: 1px solid #000; padding: 6px 8px; text-align: center; vertical-align: top;">${rowIdx++}</td>
+        <td style="border: 1px solid #000; padding: 6px 10px; vertical-align: top;">
+          <div style="font-weight: 500;">- ${mainTitle}</div>
+          ${subLines}
+        </td>
+        <td style="border: 1px solid #000; padding: 6px 10px; text-align: right; vertical-align: top; white-space: nowrap; font-family: 'Times New Roman', Times, serif; font-size: 13px;">
+          ${formatRupiahLetter(subtotal)}
+        </td>
+        <td style="border: 1px solid #000; padding: 6px 10px; text-align: center; vertical-align: top; font-size: 11px; color: #475569;">
+          ${it.quantity && it.quantity > 1 ? `${it.quantity} Buah` : ''}
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  // Tax row
+  const hasTax = quotation.taxAmount && quotation.taxAmount > 0;
+  const taxRatePercent = quotation.taxRate ? (quotation.taxRate * 100).toFixed(1).replace('.0', '') : '2,5';
+  const taxRowHtml = hasTax ? `
+    <tr>
+      <td style="border: 1px solid #000; padding: 6px 8px; text-align: center; vertical-align: top;">${rowIdx++}</td>
+      <td style="border: 1px solid #000; padding: 6px 10px; vertical-align: top;">Pph 21 ${taxRatePercent}%</td>
+      <td style="border: 1px solid #000; padding: 6px 10px; text-align: right; vertical-align: top; white-space: nowrap; font-family: 'Times New Roman', Times, serif; font-size: 13px;">
+        ${formatRupiahLetter(quotation.taxAmount!, true)}
+      </td>
+      <td style="border: 1px solid #000; padding: 6px 10px; text-align: center; vertical-align: top;"></td>
+    </tr>
+  ` : '';
+
+  return `<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <title>${quotation.quotationNumber} - Surat Penawaran</title>
+  <style>
+    @page {
+      size: A4 portrait;
+      margin: 12mm 18mm 12mm 18mm;
+    }
+    * {
+      box-sizing: border-box;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Times New Roman', Times, serif;
+      background: #ffffff;
+      color: #000000;
+      font-size: 13px;
+      line-height: 1.4;
+    }
+    .letter-container {
+      max-width: 210mm;
+      margin: 0 auto;
+      background: #ffffff;
+      padding: 4px 0;
+    }
+    .kop-header {
+      text-align: left;
+      margin-bottom: 4px;
+    }
+    .kop-title {
+      font-size: 14px;
+      font-weight: bold;
+      text-decoration: underline;
+      margin-bottom: 2px;
+      letter-spacing: 0.5px;
+    }
+    .kop-name {
+      font-size: 13px;
+      font-weight: bold;
+      margin-top: 3px;
+      margin-bottom: 2px;
+    }
+    .kop-sub {
+      font-size: 10.5px;
+      font-weight: bold;
+      line-height: 1.25;
+    }
+    .kop-sub-normal {
+      font-size: 10.5px;
+      font-weight: normal;
+      line-height: 1.25;
+    }
+    .kop-contact {
+      font-size: 10.5px;
+      margin-top: 2px;
+      line-height: 1.25;
+    }
+    .kop-divider {
+      border: 0;
+      border-top: 1.5px dashed #000000;
+      margin: 6px 0 12px 0;
+    }
+    .date-row {
+      margin-bottom: 12px;
+    }
+    .recipient-block {
+      margin-bottom: 12px;
+    }
+    .subject-row {
+      margin-bottom: 12px;
+      font-weight: bold;
+    }
+    .content-section {
+      margin-bottom: 12px;
+    }
+    .section-title {
+      font-weight: bold;
+      margin-bottom: 3px;
+    }
+    .custom-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 3px;
+      margin-bottom: 4px;
+    }
+    .custom-table th {
+      border: 1px solid #000;
+      padding: 5px 8px;
+      background-color: #f8fafc;
+      font-weight: bold;
+      text-align: center;
+      font-size: 12px;
+    }
+    .note-text {
+      font-weight: bold;
+      font-size: 11.5px;
+      margin-top: 4px;
+      margin-bottom: 10px;
+    }
+    .company-bank-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+    .company-bank-table td {
+      padding: 1.5px 0;
+      vertical-align: top;
+    }
+    .closing-text {
+      margin-top: 12px;
+      margin-bottom: 14px;
+      line-height: 1.35;
+    }
+    .signature-block {
+      margin-top: 8px;
+      display: inline-block;
+    }
+    .sig-qr {
+      width: 60px;
+      height: 60px;
+      margin: 6px 0;
+      display: block;
+    }
+  </style>
+  ${autoPrint ? `<script>setTimeout(() => { window.print(); }, 500);</script>` : ''}
+</head>
+<body>
+  <div class="letter-container">
+    <!-- KOP SURAT NOTARIS/PPAT -->
+    <div class="kop-header">
+      <div class="kop-title">NOTARIS/PPAT</div>
+      <div class="kop-name">NUKANTINI PUTRI PARINCHA, SH., M.Kn.</div>
+      <div class="kop-sub">SK MENTERI HUKUM DAN HAK ASASI MANUSIA REPUBLIK INDONESIA</div>
+      <div class="kop-sub-normal">NO. C-309.HT 03.01-Th. 2007, Tanggal 23 Agustus 2007</div>
+      <div class="kop-sub">SK. KEPALA BADAN PERTANAHAN NASIONAL REPUBLIK INDONESIA</div>
+      <div class="kop-sub-normal">NO. 1 – XVI I- PPAT – 2009, Tanggal 12 Februari 2009</div>
+      <div class="kop-contact">
+        <table style="font-size: 10.5px; border-collapse: collapse;">
+          <tr>
+            <td style="width: 70px; vertical-align: top;">Kantor</td>
+            <td style="width: 12px; vertical-align: top;">:</td>
+            <td>Komp. PPR-ITB Kav. F-5 Dago Bengkok, Lembang, Kab. Bandung Barat</td>
+          </tr>
+          <tr>
+            <td style="vertical-align: top;">Telp/Fax</td>
+            <td style="vertical-align: top;">:</td>
+            <td>022-2504155, 08122174848</td>
+          </tr>
+        </table>
+      </div>
+    </div>
+
+    <hr class="kop-divider" />
+
+    <!-- TANGGAL -->
+    <div class="date-row">
+      <strong>Tanggal : ${dateFormatted}</strong>
+    </div>
+
+    <!-- KEPADA -->
+    <div class="recipient-block">
+      <div><strong>Kepada Yth. :</strong></div>
+      <div style="margin-top: 3px; font-weight: bold; text-transform: uppercase;">
+        ${fullRecipient}
+      </div>
+      ${quotation.clientAddress ? `<div style="font-size: 11.5px; color: #333; margin-top: 2px;">${quotation.clientAddress}</div>` : ''}
+    </div>
+
+    <!-- PERIHAL -->
+    <div class="subject-row">
+      Perihal : ${subjectText}
+    </div>
+
+    <!-- SALAM PEMBUKA -->
+    <div class="content-section">
+      <div style="margin-bottom: 4px;">Dengan Hormat,</div>
+      <div style="text-align: justify;">
+        Bersama dengan ini kami bermaksud mengajukan penawaran kerja sama dengan ${fullRecipient} dalam pengurusan ${workTitle}, Adapun detail sbb :
+      </div>
+    </div>
+
+    <!-- BAGIAN A: JENIS PENGURUSAN -->
+    <div class="content-section">
+      <div class="section-title">A. ${quotation.sectionATitle || 'Jenis Pengurusan'} :</div>
+      <ol style="margin: 0; padding-left: 20px;">
+        ${sectionAItems || '<li>pengurusan Akta dan Dokumen Legalitas.</li>'}
+      </ol>
+    </div>
+
+    <!-- BAGIAN B: RINCIAN BIAYA -->
+    <div class="content-section">
+      <div class="section-title">B. ${quotation.sectionBTitle || 'Biaya Pengecekan'}</div>
+      <table class="custom-table">
+        <thead>
+          <tr>
+            <th style="width: 36px;">No</th>
+            <th>Detail Perijinan</th>
+            <th style="width: 140px;">Biaya</th>
+            <th style="width: 100px;">Catatan</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${tableRows}
+          ${taxRowHtml}
+          <tr style="font-weight: bold; background-color: #fafafa;">
+            <td colspan="2" style="border: 1px solid #000; padding: 6px 10px; text-align: center; font-size: 12.5px;">
+              TOTAL BIAYA
+            </td>
+            <td style="border: 1px solid #000; padding: 6px 10px; text-align: right; white-space: nowrap; font-family: 'Times New Roman', Times, serif; font-size: 12.5px;">
+              ${formatRupiahLetter(quotation.totalAmount)}
+            </td>
+            <td style="border: 1px solid #000; padding: 6px 10px;"></td>
+          </tr>
+        </tbody>
+      </table>
+
+      ${closingNoteText ? `<div class="note-text">Note : ${closingNoteText}</div>` : ''}
+    </div>
+
+    <!-- BAGIAN C: DETAIL PERUSAHAAN & BANK -->
+    <div class="content-section">
+      <div class="section-title">C. Detail Perusahaan & Bank</div>
+      <table class="company-bank-table">
+        <tr>
+          <td style="width: 210px;">Nama Perusahaan / Pribadi</td>
+          <td style="width: 14px;">:</td>
+          <td>Notaris/PPAT Nukantini Putri Parincha, SH., M.Kn.</td>
+        </tr>
+        <tr>
+          <td>Contact Person</td>
+          <td>:</td>
+          <td>Putri</td>
+        </tr>
+        <tr>
+          <td>Alamat Perusahaan</td>
+          <td>:</td>
+          <td>Komplek PPR ITB Kav F5, Dago Giri, Desa Mekarwangi, Kecamatan Lembang, Kabupaten Bandung Barat</td>
+        </tr>
+        <tr>
+          <td>No Telepon / Handphone</td>
+          <td>:</td>
+          <td>081-2217-4848</td>
+        </tr>
+        <tr>
+          <td>No. NPWP</td>
+          <td>:</td>
+          <td>32.026.793.9.421.000</td>
+        </tr>
+        <tr>
+          <td>Nama Bank</td>
+          <td>:</td>
+          <td>BCA</td>
+        </tr>
+        <tr>
+          <td>Cabang</td>
+          <td>:</td>
+          <td>Dago - Bandung</td>
+        </tr>
+        <tr>
+          <td>Nama Pemilik Rekening</td>
+          <td>:</td>
+          <td>Nukantini Putri Parincha</td>
+        </tr>
+        <tr>
+          <td>Nomor Rekening</td>
+          <td>:</td>
+          <td><strong>777-0673016</strong></td>
+        </tr>
+      </table>
+    </div>
+
+    <!-- PENUTUP -->
+    <div class="closing-text">
+      Demikian kami sampaikan Surat Penawaran untuk ${workTitle}, atas perhatian dan kerjasamanya kami ucapkan terimakasih.
+    </div>
+
+    <!-- TANDA TANGAN -->
+    <div class="signature-block">
+      <div>Hormat Kami</div>
+      ${qrBase64 ? `
+        <div style="margin: 5px 0;">
+          <img src="${qrBase64}" class="sig-qr" alt="QR Verifikasi" />
+        </div>
+      ` : '<div style="height: 50px;"></div>'}
+      <div style="font-weight: bold; text-decoration: underline; margin-top: 3px;">
+        NUKANTINI PUTRI PARINCHA, SH., M.Kn.
+      </div>
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
+export function generateQuotationHTML(
+  quotation: Quotation, 
+  qrBase64: string, 
+  autoPrint = false, 
+  lang: 'id' | 'en' = 'id',
+  formatOverride?: 'standard' | 'letter'
+): string {
+  const chosenFormat = formatOverride || quotation.formatType || 'standard';
+  if (chosenFormat === 'letter') {
+    return generateQuotationLetterHTML(quotation, qrBase64, autoPrint);
+  }
+
   const isEn = lang === 'en';
   const notesText = quotation.notes !== undefined
     ? quotation.notes
@@ -463,9 +871,265 @@ export function generateQuotationHTML(quotation: Quotation, qrBase64: string, au
 </html>`;
 }
 
-export async function printQuotation(quotation: Quotation, publicUrl?: string, lang: 'id' | 'en' = 'id') {
+export async function downloadQuotationLetterPdf(quotation: Quotation, publicUrl?: string) {
   const qrBase64 = await getQrCodeBase64(quotation, publicUrl);
-  const html = generateQuotationHTML(quotation, qrBase64, true, lang);
+  const filename = `Surat_Penawaran_${quotation.quotationNumber.replace(/[\/\\]/g, '_')}.pdf`;
+
+  const doc = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: 'a4'
+  });
+
+  const honorific = (quotation.recipientHonorific || 'BAPAK').trim();
+  const clientNameUpper = (quotation.clientName || '').toUpperCase();
+  const fullRecipient = honorific ? `${honorific} ${clientNameUpper}` : clientNameUpper;
+
+  const firstItem = quotation.items && quotation.items.length > 0 ? quotation.items[0] : null;
+  const firstItemTitle = firstItem ? (firstItem.description || '').split('\n')[0].replace(/^[0-9]+\.\s*/, '').trim() : '';
+  const workTitle = quotation.subject || (firstItemTitle ? `biaya pengurusan ${firstItemTitle}` : 'biaya pengurusan Akta');
+  const subjectText = quotation.subject?.startsWith('Penawaran') ? quotation.subject : `Penawaran ${workTitle}`;
+
+  const dateFormatted = formatIndonesianDate(quotation.date) || formatDate(quotation.date);
+  const closingNoteText = quotation.closingNote !== undefined
+    ? quotation.closingNote
+    : (quotation.notes || 'HARGA TERSEBUT DIATAS UNTUK 1 BUAH AKTA');
+
+  let currentY = 16;
+
+  // 1. KOP SURAT NOTARIS/PPAT
+  doc.setFont('times', 'bold');
+  doc.setFontSize(11);
+  doc.setTextColor(0, 0, 0);
+  doc.text('NOTARIS/PPAT', 18, currentY);
+  const titleWidth = doc.getTextWidth('NOTARIS/PPAT');
+  doc.setLineWidth(0.3);
+  doc.line(18, currentY + 0.8, 18 + titleWidth, currentY + 0.8);
+
+  currentY += 5.5;
+  doc.setFontSize(10.5);
+  doc.text('NUKANTINI PUTRI PARINCHA, SH., M.Kn.', 18, currentY);
+
+  currentY += 4.5;
+  doc.setFontSize(8.5);
+  doc.text('SK MENTERI HUKUM DAN HAK ASASI MANUSIA REPUBLIK INDONESIA', 18, currentY);
+
+  currentY += 3.8;
+  doc.setFont('times', 'normal');
+  doc.text('NO. C-309.HT 03.01-Th. 2007, Tanggal 23 Agustus 2007', 18, currentY);
+
+  currentY += 4.2;
+  doc.setFont('times', 'bold');
+  doc.text('SK. KEPALA BADAN PERTANAHAN NASIONAL REPUBLIK INDONESIA', 18, currentY);
+
+  currentY += 3.8;
+  doc.setFont('times', 'normal');
+  doc.text('NO. 1 – XVI I- PPAT – 2009, Tanggal 12 Februari 2009', 18, currentY);
+
+  currentY += 4.2;
+  doc.setFontSize(8);
+  doc.text('Kantor : Komp. PPR-ITB Kav. F-5 Dago Bengkok, Lembang, Kab. Bandung Barat', 18, currentY);
+
+  currentY += 3.8;
+  doc.text('Telp/Fax : 022-2504155, 08122174848', 18, currentY);
+
+  currentY += 3;
+  // Dotted line separator
+  doc.setLineDashPattern([1.5, 1.5], 0);
+  doc.setLineWidth(0.4);
+  doc.line(18, currentY, 192, currentY);
+  doc.setLineDashPattern([], 0);
+
+  currentY += 6;
+  // 2. TANGGAL
+  doc.setFont('times', 'bold');
+  doc.setFontSize(9.5);
+  doc.text(`Tanggal : ${dateFormatted}`, 18, currentY);
+
+  currentY += 6;
+  // 3. KEPADA YTH
+  doc.text('Kepada Yth. :', 18, currentY);
+  currentY += 4.5;
+  doc.text(fullRecipient, 18, currentY);
+
+  currentY += 6;
+  // 4. PERIHAL
+  doc.text(`Perihal : ${subjectText}`, 18, currentY);
+
+  currentY += 6;
+  // 5. PEMBUKA
+  doc.setFont('times', 'normal');
+  doc.text('Dengan Hormat,', 18, currentY);
+  currentY += 4.5;
+  const introStr = `Bersama dengan ini kami bermaksud mengajukan penawaran kerja sama dengan ${fullRecipient} dalam pengurusan ${workTitle}, Adapun detail sbb :`;
+  const introLines = doc.splitTextToSize(introStr, 174);
+  doc.text(introLines, 18, currentY);
+  currentY += (introLines.length * 4.2) + 2;
+
+  // 6. BAGIAN A: JENIS PENGURUSAN
+  doc.setFont('times', 'bold');
+  doc.text(`A. ${quotation.sectionATitle || 'Jenis Pengurusan'} :`, 18, currentY);
+  currentY += 4.5;
+  doc.setFont('times', 'normal');
+  (quotation.items || []).forEach((it, idx) => {
+    const rawLine = (it.description || '').split('\n')[0].replace(/^[0-9]+\.\s*/, '').trim() || `Pengurusan Pekerjaan ${idx + 1}`;
+    doc.text(`${idx + 1}. pengurusan ${rawLine}.`, 22, currentY);
+    currentY += 4.2;
+  });
+
+  currentY += 2;
+  // 7. BAGIAN B: BIAYA PENGECEKAN
+  doc.setFont('times', 'bold');
+  doc.text(`B. ${quotation.sectionBTitle || 'Biaya Pengecekan'}`, 18, currentY);
+  currentY += 2;
+
+  // Build table data
+  let rowNo = 1;
+  const tableData: any[] = [];
+  (quotation.items || []).forEach((it) => {
+    const lines = (it.description || '').split('\n').filter(Boolean);
+    const mainTitle = lines[0] ? `- ${lines[0].replace(/^[0-9]+\.\s*/, '').trim()}` : '';
+    const otherLines = lines.slice(1).map(l => `   ${l}`).join('\n');
+    const fullDesc = otherLines ? `${mainTitle}\n${otherLines}` : mainTitle;
+
+    tableData.push([
+      String(rowNo++),
+      fullDesc,
+      formatRupiahLetter(getItemSubtotal(it)),
+      it.quantity && it.quantity > 1 ? `${it.quantity} Buah` : ''
+    ]);
+  });
+
+  if (quotation.taxAmount && quotation.taxAmount > 0) {
+    const taxRatePercent = quotation.taxRate ? (quotation.taxRate * 100).toFixed(1).replace('.0', '') : '2,5';
+    tableData.push([
+      String(rowNo++),
+      `Pph 21 ${taxRatePercent}%`,
+      formatRupiahLetter(quotation.taxAmount, true),
+      ''
+    ]);
+  }
+
+  // Row TOTAL
+  tableData.push([
+    { content: 'TOTAL BIAYA', colSpan: 2, styles: { halign: 'center', fontStyle: 'bold' } },
+    { content: formatRupiahLetter(quotation.totalAmount), styles: { halign: 'right', fontStyle: 'bold' } },
+    { content: '', styles: { halign: 'center' } }
+  ]);
+
+  autoTable(doc, {
+    startY: currentY,
+    head: [['No', 'Detail Perijinan', 'Biaya', 'Catatan']],
+    body: tableData,
+    theme: 'plain',
+    headStyles: {
+      font: 'times',
+      fontStyle: 'bold',
+      fontSize: 8.5,
+      halign: 'center',
+      valign: 'middle',
+      textColor: [0, 0, 0],
+      lineWidth: 0.25,
+      lineColor: [0, 0, 0],
+      cellPadding: 2
+    },
+    styles: {
+      font: 'times',
+      fontSize: 8.5,
+      textColor: [0, 0, 0],
+      lineWidth: 0.25,
+      lineColor: [0, 0, 0],
+      cellPadding: 2.2
+    },
+    columnStyles: {
+      0: { cellWidth: 10, halign: 'center' },
+      1: { cellWidth: 'auto', halign: 'left' },
+      2: { cellWidth: 40, halign: 'right' },
+      3: { cellWidth: 28, halign: 'center' }
+    },
+    margin: { left: 18, right: 18 }
+  });
+
+  // @ts-ignore
+  currentY = doc.lastAutoTable.finalY + 3.5;
+
+  // Note text
+  if (closingNoteText) {
+    doc.setFont('times', 'bold');
+    doc.setFontSize(8.5);
+    doc.text(`Note : ${closingNoteText}`, 18, currentY);
+    currentY += 6;
+  } else {
+    currentY += 3;
+  }
+
+  // 8. BAGIAN C: DETAIL PERUSAHAAN & BANK
+  doc.setFont('times', 'bold');
+  doc.setFontSize(9);
+  doc.text('C. Detail Perusahaan & Bank', 18, currentY);
+  currentY += 4;
+
+  const bankData = [
+    ['Nama Perusahaan / Pribadi', ':', 'Notaris/PPAT Nukantini Putri Parincha, SH., M.Kn.'],
+    ['Contact Person', ':', 'Putri'],
+    ['Alamat Perusahaan', ':', 'Komplek PPR ITB Kav F5, Dago Giri, Desa Mekarwangi,\nKecamatan Lembang, Kabupaten Bandung Barat'],
+    ['No Telepon / Handphone', ':', '081-2217-4848'],
+    ['No. NPWP', ':', '32.026.793.9.421.000'],
+    ['Nama Bank', ':', 'BCA'],
+    ['Cabang', ':', 'Dago - Bandung'],
+    ['Nama Pemilik Rekening', ':', 'Nukantini Putri Parincha'],
+    ['Nomor Rekening', ':', '777-0673016']
+  ];
+
+  doc.setFont('times', 'normal');
+  doc.setFontSize(8);
+  bankData.forEach(([label, colon, val]) => {
+    doc.text(label, 22, currentY);
+    doc.text(colon, 65, currentY);
+    const valLines = doc.splitTextToSize(val, 120);
+    doc.text(valLines, 68, currentY);
+    currentY += (valLines.length * 3.5);
+  });
+
+  currentY += 3;
+  // 9. PENUTUP
+  const closingStr = `Demikian kami sampaikan Surat Penawaran untuk ${workTitle}, atas perhatian dan kerjasamanya kami ucapkan terimakasih.`;
+  const closingLines = doc.splitTextToSize(closingStr, 174);
+  doc.text(closingLines, 18, currentY);
+  currentY += (closingLines.length * 3.8) + 4;
+
+  // 10. TANDA TANGAN
+  doc.text('Hormat Kami', 18, currentY);
+  currentY += 4;
+
+  if (qrBase64) {
+    try {
+      doc.addImage(qrBase64, 'PNG', 18, currentY, 16, 16);
+      currentY += 18;
+    } catch {
+      currentY += 15;
+    }
+  } else {
+    currentY += 15;
+  }
+
+  doc.setFont('times', 'bold');
+  doc.text('NUKANTINI PUTRI PARINCHA, SH., M.Kn.', 18, currentY);
+  const nameWidth = doc.getTextWidth('NUKANTINI PUTRI PARINCHA, SH., M.Kn.');
+  doc.setLineWidth(0.3);
+  doc.line(18, currentY + 0.8, 18 + nameWidth, currentY + 0.8);
+
+  doc.save(filename);
+}
+
+export async function printQuotation(
+  quotation: Quotation, 
+  publicUrl?: string, 
+  lang: 'id' | 'en' = 'id',
+  formatOverride?: 'standard' | 'letter'
+) {
+  const qrBase64 = await getQrCodeBase64(quotation, publicUrl);
+  const html = generateQuotationHTML(quotation, qrBase64, true, lang, formatOverride);
 
   const win = window.open('', '_blank');
   if (win) {
@@ -477,10 +1141,21 @@ export async function printQuotation(quotation: Quotation, publicUrl?: string, l
   }
 }
 
-export async function downloadQuotationPdf(quotation: Quotation, publicUrl?: string, lang: 'id' | 'en' = 'id') {
+export async function downloadQuotationPdf(
+  quotation: Quotation, 
+  publicUrl?: string, 
+  lang: 'id' | 'en' = 'id',
+  formatOverride?: 'standard' | 'letter'
+) {
+  const chosenFormat = formatOverride || quotation.formatType || 'standard';
+  if (chosenFormat === 'letter') {
+    return downloadQuotationLetterPdf(quotation, publicUrl);
+  }
+
   const isEn = lang === 'en';
   const qrBase64 = await getQrCodeBase64(quotation, publicUrl);
   const filename = `Penawaran_${quotation.quotationNumber.replace(/[\/\\]/g, '_')}.pdf`;
+
 
   const doc = new jsPDF({
     orientation: 'portrait',

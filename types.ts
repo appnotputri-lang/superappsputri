@@ -690,6 +690,12 @@ export interface Quotation {
   projectTitle?: string;
   projectIds?: string[];
   projectTitles?: string[];
+  formatType?: 'standard' | 'letter';
+  subject?: string;
+  recipientHonorific?: string;
+  sectionATitle?: string;
+  sectionBTitle?: string;
+  closingNote?: string;
   createdAt?: string;
   updatedAt?: string;
 }
