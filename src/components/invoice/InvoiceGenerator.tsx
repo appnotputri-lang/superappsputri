@@ -600,10 +600,10 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = (props) => {
     });
   };
 
-  const openCreatePage = async () => {
+  const openCreatePage = async (params?: { projectId?: string; clientId?: string; clientName?: string; title?: string }) => {
     setEditingInvoiceId(null);
-    setSelectedProjectId('');
-    setSelectedProjectIds([]);
+    setSelectedProjectId(params?.projectId || '');
+    setSelectedProjectIds(params?.projectId ? [params.projectId] : []);
 
     // Auto due date + 3 days
     const today = new Date();
@@ -621,9 +621,9 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = (props) => {
     setInvoiceNumber('');
     setIsFetchingInvoiceNumber(true);
 
-    setClientName('');
+    setClientName(params?.clientName || '');
     setSelectedClientType(undefined);
-    setSelectedClientId('');
+    setSelectedClientId(params?.clientId || '');
     setSelectedClientSource(undefined);
     setClientEmail('');
     setClientPhone('');
@@ -638,7 +638,7 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = (props) => {
     setTerms('Pembayaran dilakukan maksimal 14 hari setelah invoice diterbitkan.');
     const initialItem: InvoiceItem = {
       id: Date.now().toString(),
-      description: '',
+      description: params?.title ? `Pengurusan ${params.title}` : '',
       quantity: 1,
       unitPrice: 0,
       amount: 0,
@@ -656,6 +656,23 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = (props) => {
     setBankSwift('CENAIDJA');
     setIsBankDetailsExpanded(false);
     loadClientOptions();
+
+    // If client name is provided from project, attempt quick D1 lookup to pre-fill address
+    if (params?.clientName) {
+      fetchD1Clients(params.clientName).then(clients => {
+        if (clients && clients.length > 0) {
+          const match = clients.find(c => c.name.toLowerCase() === params.clientName?.toLowerCase()) || clients[0];
+          if (match) {
+            setSelectedClientId(match.clientId);
+            if (match.address) setClientAddress(match.address);
+            if (match.phone) setClientPhone(match.phone);
+            if (match.email) setClientEmail(match.email);
+            if (match.clientType) setSelectedClientType(match.clientType);
+          }
+        }
+      }).catch(err => console.warn('D1 quick client match error:', err));
+    }
+
     setViewMode('create');
     if (window.location.pathname !== '/invoices/new' && window.location.pathname !== '/invoice/new') {
       navigate('/invoices/new');
@@ -676,11 +693,27 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = (props) => {
   const directActionHandledRef = useRef<string | null>(null);
 
   useEffect(() => {
-    const isDirectAction = (location.state as any)?.openCreateModal || location.search.includes('action=new') || location.search.includes('create=true');
-    const actionKey = `${location.pathname}_${location.search}_${location.key}`;
+    const rawSearch = location.search || (window.location.hash.includes('?') ? window.location.hash.split('?')[1] : '');
+    const searchParams = new URLSearchParams(rawSearch);
+    const isDirectAction = (location.state as any)?.openCreateModal || 
+      searchParams.get('action') === 'new' || 
+      searchParams.get('create') === 'true' ||
+      searchParams.get('new') === 'true' ||
+      searchParams.has('projectId');
+
+    const actionKey = `${location.pathname}_${rawSearch}_${location.key}`;
     if (isDirectAction && directActionHandledRef.current !== actionKey) {
       directActionHandledRef.current = actionKey;
-      openCreatePage();
+      const projId = searchParams.get('projectId') || '';
+      const clId = searchParams.get('clientId') || '';
+      const clName = searchParams.get('clientName') || '';
+      const title = searchParams.get('title') || '';
+      openCreatePage({
+        projectId: projId,
+        clientId: clId,
+        clientName: clName ? decodeURIComponent(clName) : '',
+        title: title ? decodeURIComponent(title) : ''
+      });
     }
   }, [location]);
 
@@ -1711,7 +1744,7 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
                 if (btn) btn.click();
               }
             }}
-            onAdd={openCreatePage}
+            onAdd={() => openCreatePage()}
             addTooltip="Buat Invoice Baru"
             searchValue={searchTerm}
             onSearchChange={setSearchTerm}
@@ -1768,7 +1801,7 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
               <MobileEmptyState
                 message='Belum ada data invoice. Klik "TAMBAH INVOICE" untuk membuat.'
                 actionText="Buat Invoice"
-                onAction={openCreatePage}
+                onAction={() => openCreatePage()}
               />
             ) : (
               filteredInvoices.map(inv => (
@@ -1852,7 +1885,7 @@ Notaris/PPAT Nukantini Putri Parincha.,SH.,M.Kn`;
             description="Kelola dan lihat rincian tagihan klien"
             actions={
               <button
-                onClick={openCreatePage}
+                onClick={() => openCreatePage()}
                 className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold text-xs flex items-center gap-2 transition-all shadow-sm cursor-pointer self-start sm:self-auto"
               >
                 <Plus size={16} />

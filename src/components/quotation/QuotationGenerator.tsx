@@ -600,13 +600,13 @@ export const QuotationGenerator: React.FC<QuotationGeneratorProps> = (props) => 
     return `Q/${year}/${month}/${seq}`;
   };
 
-  const openCreatePage = () => {
+  const openCreatePage = (params?: { projectId?: string; clientId?: string; clientName?: string; title?: string }) => {
     setEditingQuotationId(null);
-    setSelectedProjectId('');
-    setSelectedProjectIds([]);
+    setSelectedProjectId(params?.projectId || '');
+    setSelectedProjectIds(params?.projectId ? [params.projectId] : []);
     setQuotationNumber(generateSuggestedQuotationNumber());
-    setClientName('');
-    setSelectedClientId('');
+    setClientName(params?.clientName || '');
+    setSelectedClientId(params?.clientId || '');
     setSelectedClientSource(undefined);
     setClientEmail('');
     setClientPhone('');
@@ -621,18 +621,44 @@ export const QuotationGenerator: React.FC<QuotationGeneratorProps> = (props) => 
     setStatus('SENT');
     setNotes('Penawaran ini berlaku selama 14 hari sejak tanggal diterbitkan.\nPembayaran dilakukan sesuai dengan kesepakatan.');
     setFormatType('letter');
-    setSubject('');
+    setSubject(params?.title ? `Penawaran biaya pengurusan ${params.title}` : '');
     setRecipientHonorific('BAPAK');
     setSectionATitle('Jenis Pengurusan');
     setSectionBTitle('Biaya Pengecekan');
     setClosingNote('HARGA TERSEBUT DIATAS UNTUK 1 BUAH AKTA');
-    setItems([]);
+
+    const initialItem: InvoiceItem = params?.title ? {
+      id: Date.now().toString(),
+      description: `Pengurusan ${params.title}`,
+      quantity: 1,
+      unitPrice: 0,
+      amount: 0,
+      isTaxed: false
+    } : null as any;
+
+    setItems(initialItem ? [initialItem] : []);
     setActiveMobileItemIdx(null);
     setSelectedPresetProduct('-- Manual --');
     setItemDescription('');
     setItemUnitPrice(0);
     setItemGrossUp(false);
     setItemTaxRate(0.05);
+
+    // If client name is provided, attempt quick D1 lookup to pre-fill address and phone
+    if (params?.clientName) {
+      fetchD1Clients(params.clientName).then(clients => {
+        if (clients && clients.length > 0) {
+          const match = clients.find(c => c.name.toLowerCase() === params.clientName?.toLowerCase()) || clients[0];
+          if (match) {
+            setSelectedClientId(match.clientId);
+            if (match.address) setClientAddress(match.address);
+            if (match.phone) setClientPhone(match.phone);
+            if (match.email) setClientEmail(match.email);
+          }
+        }
+      }).catch(err => console.warn('D1 quick client lookup error in quotation:', err));
+    }
+
     setViewMode('create');
     if (window.location.pathname !== '/quotations/new' && window.location.pathname !== '/quotation/new') {
       navigate('/quotations/new');
@@ -696,9 +722,21 @@ export const QuotationGenerator: React.FC<QuotationGeneratorProps> = (props) => 
     const parts = location.pathname.split('/').filter(Boolean);
     const lastPart = parts[parts.length - 1];
 
+    const rawSearch = location.search || (window.location.hash.includes('?') ? window.location.hash.split('?')[1] : '');
+    const searchParams = new URLSearchParams(rawSearch);
+    const projId = searchParams.get('projectId') || '';
+    const clId = searchParams.get('clientId') || '';
+    const clName = searchParams.get('clientName') || '';
+    const title = searchParams.get('title') || '';
+
     if (lastPart === 'new') {
-      if (viewMode !== 'create') {
-        openCreatePage();
+      if (viewMode !== 'create' || projId || clId || clName) {
+        openCreatePage({
+          projectId: projId,
+          clientId: clId,
+          clientName: clName ? decodeURIComponent(clName) : '',
+          title: title ? decodeURIComponent(title) : ''
+        });
       }
     } else if (parts.length >= 3 && lastPart === 'edit') {
       const qId = parts[parts.length - 2];
@@ -1311,7 +1349,7 @@ Notaris/PPAT Nukantini Putri Parincha, SH., M.Kn`;
                   if (btn) btn.click();
                 }
               }}
-              onAdd={openCreatePage}
+              onAdd={() => openCreatePage()}
               addTooltip="Buat Penawaran Baru"
               searchValue={searchTerm}
               onSearchChange={setSearchTerm}
@@ -1357,7 +1395,7 @@ Notaris/PPAT Nukantini Putri Parincha, SH., M.Kn`;
                 <MobileEmptyState
                   message='Belum ada data penawaran. Klik "Buat Penawaran" untuk merancang penawaran pertama Anda.'
                   actionText="Buat Penawaran"
-                  onAction={openCreatePage}
+                  onAction={() => openCreatePage()}
                 />
               )}
 
@@ -1379,7 +1417,7 @@ Notaris/PPAT Nukantini Putri Parincha, SH., M.Kn`;
               description="Kelola penawaran layanan dan biaya kepada klien."
               actions={
                 <button
-                  onClick={openCreatePage}
+                  onClick={() => openCreatePage()}
                   className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold text-xs flex items-center gap-2 transition-all shadow-sm cursor-pointer self-start sm:self-auto"
                 >
                   <Plus size={16} />

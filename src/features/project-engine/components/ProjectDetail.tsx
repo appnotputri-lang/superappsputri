@@ -3311,6 +3311,56 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
 
           {/* Quick link buttons to existing forms */}
           <div className="flex items-center gap-2 flex-wrap shrink-0">
+            {/* Quick Actions: Buat Invoice & Buat Penawaran dari Proyek */}
+            <div className="flex items-center gap-1.5 bg-white p-1 rounded-xl border border-slate-200 shadow-2xs">
+              <button
+                type="button"
+                onClick={() => {
+                  const clientName = (project.clientSnapshot as any)?.name || project.clientSnapshot?.companyName || (project as any).clientName || '';
+                  const title = project.title || '';
+                  const targetHash = `#/invoice?new=true&projectId=${encodeURIComponent(project.projectId)}&clientId=${encodeURIComponent(project.clientId || '')}&clientName=${encodeURIComponent(clientName)}&title=${encodeURIComponent(title)}`;
+                  window.location.hash = targetHash;
+                }}
+                className="px-3 py-1.5 bg-blue-50 hover:bg-blue-600 hover:text-white text-blue-700 font-bold rounded-lg text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs"
+                title="Buat Tagihan / Invoice untuk Proyek ini"
+              >
+                <FileText size={13} />
+                <span>Buat Invoice</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  const clientName = (project.clientSnapshot as any)?.name || project.clientSnapshot?.companyName || (project as any).clientName || '';
+                  const title = project.title || '';
+                  const targetHash = `#/quotations/new?projectId=${encodeURIComponent(project.projectId)}&clientId=${encodeURIComponent(project.clientId || '')}&clientName=${encodeURIComponent(clientName)}&title=${encodeURIComponent(title)}`;
+                  window.location.hash = targetHash;
+                }}
+                className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-600 hover:text-white text-indigo-700 font-bold rounded-lg text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs"
+                title="Buat Surat Penawaran untuk Proyek ini"
+              >
+                <File size={13} />
+                <span>Buat Penawaran</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  const clientName = (project.clientSnapshot as any)?.name || project.clientSnapshot?.companyName || (project as any).clientName || '';
+                  const title = project.title || '';
+                  const prompt = `Saya sedang mengerjakan proyek '${title}' untuk klien '${clientName}' (Jenis Pekerjaan: ${project.jobType}). Tolong jelaskan alur dokumen, perkiraan rincian biaya penawaran, serta pajak yang perlu diperhitungkan.`;
+                  window.dispatchEvent(new CustomEvent('open-gemini-chat', {
+                    detail: { message: prompt, autoSend: true }
+                  }));
+                }}
+                className="px-2.5 py-1.5 bg-gradient-to-r from-amber-50 to-orange-50 hover:from-amber-100 hover:to-orange-100 text-amber-900 border border-amber-200/80 font-bold rounded-lg text-xs flex items-center gap-1 transition-all cursor-pointer shadow-2xs"
+                title="Tanya Asisten AI tentang Proyek ini"
+              >
+                <Sparkles size={13} className="text-amber-600" />
+                <span>Tanya AI</span>
+              </button>
+            </div>
+
             {project.jobType === 'sewa_menyewa' && (
               <button
                 onClick={() => setWorkMode('sewa_menyewa')}

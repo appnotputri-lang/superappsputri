@@ -8,6 +8,7 @@ import { isReservedPath } from '../../constants/tabs';
 import { UpdatePrompt } from '../../components/common/UpdatePrompt';
 import { FirestoreQuotaBanner } from '../../components/common/FirestoreQuotaBanner';
 import { AppLoader } from '../../components/ui/AppLoader';
+import { GeminiChatbot } from '../../components/chat/GeminiChatbot';
 
 export type { SidebarTabId };
 
@@ -190,6 +191,8 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
         <main className="flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden bg-[#f8fafc] scroll-smooth no-scrollbar">
           {children}
         </main>
+        {/* Gemini AI Multi-turn Chatbot Assistant */}
+        <GeminiChatbot />
       </div>
     </div>
   );

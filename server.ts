@@ -314,6 +314,88 @@ async function startServer() {
     }
   });
 
+  // D1 Client Search Endpoint
+  app.get("/api/clients/search", async (req, res) => {
+    try {
+      const db = getLocalD1Database();
+      await ensureD1TablesExist(db);
+
+      const limitVal = Math.min(Math.max(1, parseInt(String(req.query.limit || '15'))), 100);
+      const offsetVal = Math.max(0, parseInt(String(req.query.offset || '0')));
+      const clientType = req.query.clientType ? String(req.query.clientType) : null;
+      const archived = req.query.archived ? String(req.query.archived) : null;
+      const searchVal = (req.query.q || req.query.search) ? String(req.query.q || req.query.search) : '';
+
+      let sql = `SELECT * FROM client_directory`;
+      const conditions: string[] = [];
+      const params: any[] = [];
+
+      if (clientType) {
+        conditions.push(`client_type = ?`);
+        params.push(clientType);
+      }
+
+      if (archived === 'false') {
+        conditions.push(`is_archived = 0`);
+      } else if (archived === 'true') {
+        conditions.push(`is_archived = 1`);
+      }
+
+      if (searchVal) {
+        const words = searchVal.trim().toLowerCase().split(/\s+/).filter(Boolean);
+        for (const word of words) {
+          conditions.push(`(LOWER(company_name) LIKE ? OR LOWER(search_name) LIKE ? OR LOWER(client_type) LIKE ? OR LOWER(domicile) LIKE ?)`);
+          params.push(`%${word}%`, `%${word}%`, `%${word}%`, `%${word}%`);
+        }
+      }
+
+      if (conditions.length > 0) {
+        sql += ` WHERE ` + conditions.join(' AND ');
+      }
+
+      sql += ` ORDER BY company_name ASC LIMIT ? OFFSET ?`;
+      params.push(limitVal, offsetVal);
+
+      const queryRes = await db.prepare(sql).bind(...params).all();
+      const rows = queryRes.results || [];
+
+      const formattedRows = rows.map((row: any) => {
+        let searchTokens = [];
+        try { if (row.search_tokens) searchTokens = JSON.parse(row.search_tokens); } catch (e) {}
+        let kbliItems = [];
+        try { if (row.kbli_items) kbliItems = JSON.parse(row.kbli_items); } catch (e) {}
+
+        return {
+          id: row.id,
+          clientId: row.client_id,
+          companyName: row.company_name,
+          searchName: row.search_name,
+          searchTokens,
+          clientType: row.client_type,
+          companyType: row.company_type,
+          domicile: row.domicile,
+          establishmentDeedDate: row.establishment_deed_date,
+          establishmentYear: row.establishment_year,
+          updatedAt: row.updated_at,
+          isArchived: row.is_archived === 1,
+          npwp: row.npwp,
+          kbliItems
+        };
+      });
+
+      res.json({
+        success: true,
+        count: formattedRows.length,
+        limit: limitVal,
+        offset: offsetVal,
+        clients: formattedRows
+      });
+    } catch (err: any) {
+      console.error("[Clients Search D1 API] Search failed:", err);
+      res.status(500).json({ success: false, error: err?.message || "Search failed" });
+    }
+  });
+
   // D1 Invoices Endpoints
   app.get("/api/invoices", async (req, res) => {
     try {
@@ -2285,6 +2367,160 @@ Jika ada field yang tidak terbaca atau tidak jelas, kosongkan string-nya ("").`;
       return res.status(200).json({
         success: false,
         error: userMsg,
+      });
+    }
+  });
+
+  // Gemini AI Multi-Turn Chatbot Endpoint
+  app.post("/api/chat", async (req, res) => {
+    try {
+      const apiKey = process.env.GEMINI_API_KEY;
+      if (!apiKey) {
+        return res.status(200).json({
+          success: false,
+          error: "GEMINI_API_KEY belum dikonfigurasi di server environment."
+        });
+      }
+
+      const { messages, model: requestedModel, clientQuery } = req.body;
+      if (!messages || !Array.isArray(messages) || messages.length === 0) {
+        return res.status(400).json({ success: false, error: "Daftar pesan (messages) wajib diisi." });
+      }
+
+      const lastUserMsg = [...messages].reverse().find(m => m.role === 'user')?.content || '';
+
+      // Check if client search is requested or relevant in D1
+      let d1ClientsFound: any[] = [];
+      const searchTarget = clientQuery || (
+        lastUserMsg.toLowerCase().includes('klien') || 
+        lastUserMsg.toLowerCase().includes('pt ') || 
+        lastUserMsg.toLowerCase().includes('cv ') ||
+        lastUserMsg.toLowerCase().includes('cari')
+          ? lastUserMsg.replace(/^(tolong\s+)?(cari|carikan|siapa|data|klien|profil)\s+/i, '').trim()
+          : ''
+      );
+
+      if (searchTarget && searchTarget.length >= 2) {
+        try {
+          const db = getLocalD1Database();
+          await ensureD1TablesExist(db);
+          const words = searchTarget.toLowerCase().split(/\s+/).filter((w: string) => w.length > 2);
+          if (words.length > 0) {
+            let sql = `SELECT * FROM client_directory WHERE `;
+            const conds: string[] = [];
+            const p: any[] = [];
+            for (const word of words) {
+              conds.push(`(LOWER(company_name) LIKE ? OR LOWER(search_name) LIKE ? OR LOWER(client_type) LIKE ?)`);
+              p.push(`%${word}%`, `%${word}%`, `%${word}%`);
+            }
+            sql += conds.join(' OR ') + ` LIMIT 5`;
+            const qRes = await db.prepare(sql).bind(...p).all();
+            d1ClientsFound = (qRes.results || []).map((r: any) => ({
+              id: r.id,
+              clientId: r.client_id,
+              companyName: r.company_name,
+              clientType: r.client_type,
+              domicile: r.domicile,
+              npwp: r.npwp
+            }));
+          }
+        } catch (d1Err) {
+          console.warn("[Chat D1 Search] Error querying D1:", d1Err);
+        }
+      }
+
+      const ai = new GoogleGenAI({ apiKey });
+
+      let clientContextSection = "";
+      if (d1ClientsFound.length > 0) {
+        clientContextSection = `\n\n[DATA KLIEN DITEMUKAN DARI DATABASE CLOUDFLARE D1]:\n` +
+          JSON.stringify(d1ClientsFound, null, 2) +
+          `\nInformasikan data klien di atas secara ringkas dan tawarkan untuk membuat Surat Penawaran atau Invoice untuk klien ini.`;
+      }
+
+      const SYSTEM_INSTRUCTION = `Anda adalah Asisten Cerdas AI Kantor Notaris & PPAT Putri (SuperApps Putri).
+Anda menguasai:
+1. PROYEK KERJA NOTARIS & PPAT:
+   - Alur pekerjaan akta: Pendirian PT/CV, Perubahan Anggaran Dasar PT (RUPS-LB), RUPS Tahunan (RUPST), Jual Beli Tanah (AJB PPAT), Hibah Hak Cipta, Sewa Menyewa, APHT, Roya, SKMHT, Surat Keputusan Kemenkumham, Legalisasi, dan Waarmerking.
+   - Status & tahapan proyek kerja (Draft, Dokumen, Verifikasi, Tanda Tangan Penghadap, Pengesahan AHU/BPN, Selesai).
+2. PEMBUATAN INVOICE DAN PENAWARAN (QUOTATION):
+   - Memberikan perhitungan akurat dan rincian biaya: Jasa notaris, honorarium, PNBP Kemenkumham/BPN, biaya operasional.
+   - Pajak: PPh Pasal 21 atas jasa notaris (tarif efektif 2.5% ber-NPWP / 5% non-NPWP, metode Gross-Up), PPh Final PPAT (2.5% peralihan hak tanah/bangunan), BPHTB (5%), PPN (11%).
+   - Membantu menyusun draf rincian penawaran resmi standar Notaris/PPAT Nukantini Putri Parincha, SH., M.Kn.
+   - Memberikan petunjuk jelas: pengguna dapat langsung membuat Invoice atau Penawaran dari menu aplikasi atau halaman proyek terkait.
+3. DATA KLIEN DATABASE CLOUDFLARE D1:
+   - Anda terintegrasi dengan basis data direktori klien Cloudflare D1.
+   - Membantu mencari nama PT, CV, perorangan, nomor kontak, domisili, dan NPWP klien.
+
+Tanggapi pertanyaan pengguna dalam Bahasa Indonesia yang formal, solutif, ramah, dan ringkas. Gunakan pemformatan Markdown (poin-poin, bold, tabel jika relevan).` + clientContextSection;
+
+      // Select candidate models according to gemini-api skill instructions
+      // gemini-3.1-pro-preview for complex tasks, gemini-3.5-flash for general tasks, gemini-3.1-flash-lite for fast tasks
+      let candidateModels: string[];
+      if (requestedModel === 'gemini-3.1-pro-preview') {
+        candidateModels = ['gemini-3.1-pro-preview', 'gemini-3.8-flash', 'gemini-3.5-flash'];
+      } else if (requestedModel === 'gemini-3.1-flash-lite') {
+        candidateModels = ['gemini-3.1-flash-lite', 'gemini-3.8-flash', 'gemini-3.5-flash'];
+      } else {
+        candidateModels = ['gemini-3.8-flash', 'gemini-3.5-flash', 'gemini-3.1-flash-lite'];
+      }
+
+      // Format conversation history for Gemini API
+      // Ensure turns alternate between 'user' and 'model'
+      const formattedContents: any[] = [];
+      for (const msg of messages) {
+        const role = (msg.role === 'assistant' || msg.role === 'model') ? 'model' : 'user';
+        if (formattedContents.length > 0 && formattedContents[formattedContents.length - 1].role === role) {
+          formattedContents[formattedContents.length - 1].parts[0].text += `\n\n${msg.content}`;
+        } else {
+          formattedContents.push({
+            role,
+            parts: [{ text: msg.content }]
+          });
+        }
+      }
+
+      // Ensure first turn is from 'user'
+      if (formattedContents.length > 0 && formattedContents[0].role === 'model') {
+        formattedContents.shift();
+      }
+
+      let response = null;
+      let lastError = null;
+      let usedModel = candidateModels[0];
+
+      for (const mName of candidateModels) {
+        try {
+          usedModel = mName;
+          response = await ai.models.generateContent({
+            model: mName,
+            contents: formattedContents,
+            config: {
+              systemInstruction: SYSTEM_INSTRUCTION,
+            }
+          });
+          if (response && response.text) break;
+        } catch (err: any) {
+          lastError = err;
+          console.warn(`[Gemini Chat API] Model ${mName} failed:`, err?.message || err);
+        }
+      }
+
+      if (!response || !response.text) {
+        throw lastError || new Error("Gagal mendapatkan respons dari model AI Gemini.");
+      }
+
+      return res.json({
+        success: true,
+        reply: response.text,
+        model: usedModel,
+        d1Clients: d1ClientsFound
+      });
+    } catch (err: any) {
+      console.error("[Gemini Chat API] Error:", err);
+      return res.status(500).json({
+        success: false,
+        error: err?.message || "Terjadi kesalahan pada layanan AI Chatbot."
       });
     }
   });

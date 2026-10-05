@@ -746,7 +746,34 @@ export const ProjectHorizontalCard: React.FC<ProjectHorizontalCardProps> = ({
           </div>
 
           {/* BOTTOM RIGHT ACTION BUTTONS */}
-          <div className="flex items-center gap-2 relative">
+          <div className="flex items-center gap-1.5 relative">
+            {/* Quick Actions: Buat Invoice & Buat Penawaran */}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                const clientNameParam = (project.clientSnapshot as any)?.name || project.clientSnapshot?.companyName || (project as any).clientName || '';
+                window.location.hash = `#/invoice?new=true&projectId=${encodeURIComponent(project.projectId)}&clientId=${encodeURIComponent(project.clientId || '')}&clientName=${encodeURIComponent(clientNameParam)}&title=${encodeURIComponent(title)}`;
+              }}
+              className="p-1.5 text-blue-600 hover:text-white hover:bg-blue-600 bg-blue-50 rounded-lg transition-colors cursor-pointer border border-blue-200/60"
+              title="Buat Invoice Proyek Ini"
+            >
+              <FileText size={13} />
+            </button>
+
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                const clientNameParam = (project.clientSnapshot as any)?.name || project.clientSnapshot?.companyName || (project as any).clientName || '';
+                window.location.hash = `#/quotations/new?projectId=${encodeURIComponent(project.projectId)}&clientId=${encodeURIComponent(project.clientId || '')}&clientName=${encodeURIComponent(clientNameParam)}&title=${encodeURIComponent(title)}`;
+              }}
+              className="p-1.5 text-indigo-600 hover:text-white hover:bg-indigo-600 bg-indigo-50 rounded-lg transition-colors cursor-pointer border border-indigo-200/60"
+              title="Buat Penawaran Proyek Ini"
+            >
+              <Paperclip size={13} />
+            </button>
+
             {/* DETAIL BUTTON */}
             <button
               type="button"
