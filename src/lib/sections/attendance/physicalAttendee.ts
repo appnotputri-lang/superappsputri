@@ -84,23 +84,67 @@ export const buildAttendanceAttendees = (config: AttendanceConfig): PhysicalAtte
     } else {
       const shName = (sh.name || "").trim();
       if (checkIsBadanHukum(sh)) {
-        attendees.push({
-          type: "ENTITY_DIRECT",
-          name: shName,
-          salutation: "",
-          sourceObj: sh,
-          ownShares:
-            sh.sharesOwned > 0
-              ? {
-                  sharesOwned: sh.sharesOwned || 0,
-                  shareholder: sh,
-                }
+        const repName = (sh.guardianName || (sh as any).representativeName || (sh.isProxy && sh.proxyData?.name) || "").trim();
+        if (repName) {
+          const repSalutation = sh.guardianSalutation || (sh as any).representativeSalutation || (sh.isProxy && sh.proxyData?.salutation) || "Tuan";
+          const repPerson = {
+            id: sh.representativeId || (sh as any).guardianId || crypto.randomUUID(),
+            name: repName,
+            salutation: repSalutation,
+            nik: sh.guardianNik || (sh as any).representativeNik || sh.proxyData?.nik || "",
+            birthCity: sh.guardianBirthCity || (sh as any).representativeBirthCity || sh.proxyData?.birthCity || "",
+            birthDate: sh.guardianBirthDate || (sh as any).representativeBirthDate || sh.proxyData?.birthDate || "",
+            occupation: sh.guardianOccupation || (sh as any).representativeOccupation || sh.proxyData?.occupation || "",
+            address: sh.guardianAddress || (sh as any).representativeAddress || sh.proxyData?.address,
+            nationality: sh.guardianNationality || (sh as any).representativeNationality || "WNI",
+            nationalityType: sh.guardianNationalityType || (sh as any).representativeNationalityType || "WNI",
+            passportNumber: sh.guardianPassportNumber || (sh as any).representativePassportNumber || "",
+            kitasNumber: sh.guardianKitasNumber || (sh as any).representativeKitasNumber || "",
+          };
+
+          let att = attendees.find(
+            (a) => a.name.toUpperCase() === repName.toUpperCase(),
+          );
+          if (!att) {
+            att = {
+              type: "PERSON",
+              name: repName,
+              salutation: repSalutation,
+              sourceObj: repPerson,
+              ownShares: null,
+              management: null,
+              representations: [],
+            };
+            attendees.push(att);
+          }
+          att.representations.push({
+            sharesOwned: sh.sharesOwned || 0,
+            shareholder: sh,
+            proxyData: {
+              representationType: (sh as any).representativePosition === 'Kuasa Direksi' ? 'KUASA_DIREKSI' : 'DIREKTUR_PT_LAIN',
+              position: (sh as any).representativePosition || "Direktur",
+              ...repPerson,
+            },
+          });
+        } else {
+          attendees.push({
+            type: "ENTITY_DIRECT",
+            name: shName,
+            salutation: "",
+            sourceObj: sh,
+            ownShares:
+              sh.sharesOwned > 0
+                ? {
+                    sharesOwned: sh.sharesOwned || 0,
+                    shareholder: sh,
+                  }
+                : null,
+            management: sh.isManagement
+              ? { position: sh.managementPosition || "Direktur" }
               : null,
-          management: sh.isManagement
-            ? { position: sh.managementPosition || "Direktur" }
-            : null,
-          representations: [],
-        });
+            representations: [],
+          });
+        }
       } else {
         let att = attendees.find(
           (a) => a.name.toUpperCase() === shName.toUpperCase(),
@@ -197,12 +241,13 @@ const buildRepresentationBlocks = (
   omitSelaku?: boolean,
 ): Block[] => {
   const { originalSharePrice, useAktaFormat, isSirkuler } = config;
-  const isDirector = r.proxyData.representationType === "DIREKTUR_PT_LAIN";
+  const isDirector = r.proxyData.representationType === "DIREKTUR_PT_LAIN" || r.proxyData.representationType === "KUASA_DIREKSI";
+  const posName = r.proxyData.position || (r.proxyData.representationType === "KUASA_DIREKSI" ? "Kuasa Direksi" : "Direktur");
   const shareRp = (r.sharesOwned || 0) * originalSharePrice;
 
   const prefixRuns: FormatToken[] = [];
   if (isDirector) {
-    prefixRuns.push({ text: omitSelaku ? `Direktur dari ` : `selaku Direktur dari ` });
+    prefixRuns.push({ text: omitSelaku ? `${posName} dari ` : `selaku ${posName} dari ` });
   } else {
     const proxyDate = r.proxyData.proxyDeedDate
       ? useAktaFormat

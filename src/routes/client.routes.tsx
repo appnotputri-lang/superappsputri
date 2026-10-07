@@ -1,5 +1,5 @@
 import React from 'react';
-import { AhuSection, AhuLabel, AhuInput } from '../components/common/AhuComponents';
+import { AhuSection, AhuLabel, AhuInput, AhuSelect } from '../components/common/AhuComponents';
 import { Briefcase, Plus, ArrowRight, Edit, Trash2, Eye, MapPin, Search } from 'lucide-react';
 import { formatDateIndo, formatInputNumber, parseFormattedNumber } from '../../utils/formatters';
 import { INITIAL_STATE } from '../domain/company/initialCompanyData';
@@ -229,19 +229,36 @@ export const renderClientRoute = (props: any) => {
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
                       <AhuLabel label="Nama Notaris" />
-                      <div className="md:col-span-3 flex gap-2">
+                      <div className="md:col-span-3 flex flex-col sm:flex-row gap-2">
                         <AhuInput 
                           className="flex-1"
                           value={data.establishmentNotary || ''} 
                           onChange={e => updateData({ establishmentNotary: e.target.value })} 
                           placeholder="Nama notaris pendirian CV" 
                         />
-                        <AhuInput 
-                          className="w-48"
-                          value={data.establishmentNotaryTitle || ''} 
-                          onChange={e => updateData({ establishmentNotaryTitle: e.target.value })} 
-                          placeholder="Gelar (SH., M.Kn.)" 
-                        />
+                        <div className="w-full sm:w-48 flex flex-col gap-1">
+                          <AhuSelect
+                            value={['Sarjana Hukum', 'Sarjana Hukum, Magister Kenotariatan', 'SH.', 'SH., M.Kn.', 'S.H.', 'S.H., M.Kn.'].some(opt => opt.toLowerCase() === (data.establishmentNotaryTitle || '').toLowerCase()) ? data.establishmentNotaryTitle : (data.establishmentNotaryTitle ? 'manual' : '')}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (val !== 'manual') {
+                                updateData({ establishmentNotaryTitle: val });
+                              }
+                            }}
+                          >
+                            <option value="">-- Pilih Gelar --</option>
+                            <option value="Sarjana Hukum">SH.</option>
+                            <option value="Sarjana Hukum, Magister Kenotariatan">SH., M.Kn.</option>
+                            <option value="manual">Manual</option>
+                          </AhuSelect>
+                          {(!['Sarjana Hukum', 'Sarjana Hukum, Magister Kenotariatan', 'SH.', 'SH., M.Kn.', 'S.H.', 'S.H., M.Kn.'].some(opt => opt.toLowerCase() === (data.establishmentNotaryTitle || '').toLowerCase()) || data.establishmentNotaryTitle === 'manual') && data.establishmentNotaryTitle !== undefined && (
+                            <AhuInput 
+                              placeholder="Gelar manual..." 
+                              value={data.establishmentNotaryTitle === 'manual' ? '' : data.establishmentNotaryTitle}
+                              onChange={e => updateData({ establishmentNotaryTitle: e.target.value })}
+                            />
+                          )}
+                        </div>
                       </div>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
@@ -305,7 +322,7 @@ export const renderClientRoute = (props: any) => {
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
                         <AhuLabel label="Nama Notaris" />
-                        <div className="md:col-span-3 flex gap-2">
+                        <div className="md:col-span-3 flex flex-col sm:flex-row gap-2">
                           <AhuInput 
                             className="flex-1"
                             value={deed.notary || ''} 
@@ -316,16 +333,35 @@ export const renderClientRoute = (props: any) => {
                             }} 
                             placeholder="Nama Notaris Perubahan" 
                           />
-                          <AhuInput 
-                            className="w-48"
-                            value={deed.notaryTitle || ''} 
-                            onChange={e => {
-                              const newList = [...(data.amendmentDeeds || [])];
-                              newList[index] = { ...deed, notaryTitle: e.target.value };
-                              updateData({ amendmentDeeds: newList });
-                            }} 
-                            placeholder="Gelar (SH., M.Kn.)" 
-                          />
+                          <div className="w-full sm:w-48 flex flex-col gap-1">
+                            <AhuSelect
+                              value={['Sarjana Hukum', 'Sarjana Hukum, Magister Kenotariatan', 'SH.', 'SH., M.Kn.', 'S.H.', 'S.H., M.Kn.'].some(opt => opt.toLowerCase() === (deed.notaryTitle || '').toLowerCase()) ? deed.notaryTitle : (deed.notaryTitle ? 'manual' : '')}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                const newList = [...(data.amendmentDeeds || [])];
+                                if (val !== 'manual') {
+                                  newList[index] = { ...deed, notaryTitle: val };
+                                  updateData({ amendmentDeeds: newList });
+                                }
+                              }}
+                            >
+                              <option value="">-- Pilih Gelar --</option>
+                              <option value="Sarjana Hukum">SH.</option>
+                              <option value="Sarjana Hukum, Magister Kenotariatan">SH., M.Kn.</option>
+                              <option value="manual">Manual</option>
+                            </AhuSelect>
+                            {(!['Sarjana Hukum', 'Sarjana Hukum, Magister Kenotariatan', 'SH.', 'SH., M.Kn.', 'S.H.', 'S.H., M.Kn.'].some(opt => opt.toLowerCase() === (deed.notaryTitle || '').toLowerCase()) || deed.notaryTitle === 'manual') && deed.notaryTitle !== undefined && (
+                              <AhuInput 
+                                placeholder="Gelar manual..." 
+                                value={deed.notaryTitle === 'manual' ? '' : deed.notaryTitle}
+                                onChange={e => {
+                                  const newList = [...(data.amendmentDeeds || [])];
+                                  newList[index] = { ...deed, notaryTitle: e.target.value };
+                                  updateData({ amendmentDeeds: newList });
+                                }}
+                              />
+                            )}
+                          </div>
                         </div>
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">

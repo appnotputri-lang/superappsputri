@@ -421,7 +421,8 @@ export function formatPersonDetails(
       if (person.establishmentDeedNumber) {
         const estDateStr = person.establishmentDeedDate ? (useAktaFormat ? formatAktaDate(person.establishmentDeedDate) : (isSirkuler ? formatDateSimple(person.establishmentDeedDate) : formatDateRupst(person.establishmentDeedDate))) : "...";
         const estNotary = person.establishmentNotary || "...";
-        const estNotaryTitle = person.establishmentNotaryTitle ? `, ${person.establishmentNotaryTitle}` : "";
+        const rawEstTitle = person.establishmentNotaryTitle || (estNotary.toLowerCase().includes('nukantini') ? (useAktaFormat ? 'Sarjana Hukum, Magister Kenotariatan' : 'SH., M.Kn.') : '');
+        const estNotaryTitle = rawEstTitle ? `, ${rawEstTitle}` : "";
         const estNotaryDomicile = person.establishmentNotaryDomicile ? toTitleCase(person.establishmentNotaryDomicile) : "...";
         const estSkNumber = person.establishmentSkNumber || person.skNumber || "...";
         const estSkDateStr = person.establishmentSkDate ? (useAktaFormat ? formatAktaDate(person.establishmentSkDate) : formatDateRupst(person.establishmentSkDate)) : (person.skDate ? (useAktaFormat ? formatAktaDate(person.skDate) : formatDateRupst(person.skDate)) : "...");
@@ -442,13 +443,15 @@ export function formatPersonDetails(
           const amd = person.amendmentDeeds[0];
           const amdDateStr = amd.date ? (useAktaFormat ? formatAktaDate(amd.date) : formatDateRupst(amd.date)) : "...";
           const actaNumWord = useAktaFormat ? "akta Nomor" : "Akta Nomor";
-          const amdNotaryTitle = amd.notaryTitle ? `, ${amd.notaryTitle}` : "";
+          const rawAmdTitle = amd.notaryTitle || ((amd.notary && amd.notary.toLowerCase().includes('nukantini')) ? (useAktaFormat ? 'Sarjana Hukum, Magister Kenotariatan' : 'SH., M.Kn.') : '');
+          const amdNotaryTitle = rawAmdTitle ? `, ${rawAmdTitle}` : "";
           baseString += `, dan anggaran dasarnya telah mengalami perubahan berdasarkan ${actaNumWord} ${amd.number || "..."} tertanggal ${amdDateStr} dibuat dihadapan ${amd.notary || "..."}${amdNotaryTitle}, Notaris di ${amd.notaryDomicile ? toTitleCase(amd.notaryDomicile) : "..."}`;
         } else {
           const actaNumWord = useAktaFormat ? "akta Nomor" : "Akta Nomor";
           const lastDeed = person.amendmentDeeds[person.amendmentDeeds.length - 1];
           const lastDateStr = lastDeed.date ? (useAktaFormat ? formatAktaDate(lastDeed.date) : formatDateRupst(lastDeed.date)) : "...";
-          const lastNotaryTitle = lastDeed.notaryTitle ? `, ${lastDeed.notaryTitle}` : "";
+          const rawLastTitle = lastDeed.notaryTitle || ((lastDeed.notary && lastDeed.notary.toLowerCase().includes('nukantini')) ? (useAktaFormat ? 'Sarjana Hukum, Magister Kenotariatan' : 'SH., M.Kn.') : '');
+          const lastNotaryTitle = rawLastTitle ? `, ${rawLastTitle}` : "";
           baseString += `, dan anggaran dasarnya telah mengalami beberapa kali perubahan, terakhir dengan ${actaNumWord} ${lastDeed.number || "..."} tertanggal ${lastDateStr} dibuat dihadapan ${lastDeed.notary || "..."}${lastNotaryTitle}, Notaris di ${lastDeed.notaryDomicile ? toTitleCase(lastDeed.notaryDomicile) : "..."} berdasarkan akta-akta sebagai berikut:`;
 
           const groupedDeeds = getGroupedAmendmentDeeds(person.amendmentDeeds);
@@ -458,7 +461,8 @@ export function formatPersonDetails(
             group.forEach((amd, dIdx) => {
               const amdDateStr = amd.date ? (useAktaFormat ? formatAktaDate(amd.date) : formatDateRupst(amd.date)) : "...";
               const amdNotary = amd.notary || "...";
-              const amdNotaryTitle = amd.notaryTitle ? `, ${amd.notaryTitle}` : "";
+              const rawGroupTitle = amd.notaryTitle || ((amdNotary && amdNotary.toLowerCase().includes('nukantini')) ? (useAktaFormat ? 'Sarjana Hukum, Magister Kenotariatan' : 'SH., M.Kn.') : '');
+              const amdNotaryTitle = rawGroupTitle ? `, ${rawGroupTitle}` : "";
               const amdNotaryDomicile = amd.notaryDomicile ? toTitleCase(amd.notaryDomicile) : "...";
               const amdSkNumber = amd.skNumber || (amd.skSpDocuments && (amd.skSpDocuments[0]?.number || amd.skSpDocuments[0]?.skNumber)) || person.skNumber || "...";
               const amdSkDateStr = amd.skDate ? (useAktaFormat ? formatAktaDate(amd.skDate) : formatDateRupst(amd.skDate)) : (amd.skSpDocuments && (amd.skSpDocuments[0]?.date || amd.skSpDocuments[0]?.skDate) ? (useAktaFormat ? formatAktaDate(amd.skSpDocuments[0].date || amd.skSpDocuments[0].skDate) : formatDateRupst(amd.skSpDocuments[0].date || amd.skSpDocuments[0].skDate)) : (person.skDate ? (useAktaFormat ? formatAktaDate(person.skDate) : formatDateRupst(person.skDate)) : "..."));
@@ -536,7 +540,8 @@ export function formatCompanyEstablishmentOnly(data: Partial<CompanyData>, useAk
   const estDeedNumber = data.establishmentDeedNumber || "................";
   const estDateStr = data.establishmentDeedDate ? (useAktaFormat ? formatAktaDate(data.establishmentDeedDate) : (isSirkuler ? formatDateSimple(data.establishmentDeedDate) : formatDateRupst(data.establishmentDeedDate))) : "................";
   const estNotary = data.establishmentNotary || "................";
-  const estNotaryTitle = data.establishmentNotaryTitle ? `, ${data.establishmentNotaryTitle}` : "";
+  const rawEstTitle = data.establishmentNotaryTitle || (estNotary.toLowerCase().includes('nukantini') ? (useAktaFormat ? 'Sarjana Hukum, Magister Kenotariatan' : 'SH., M.Kn.') : '');
+  const estNotaryTitle = rawEstTitle ? `, ${rawEstTitle}` : "";
   const estNotaryDomicile = data.establishmentNotaryDomicile ? toTitleCase(data.establishmentNotaryDomicile) : "................";
   const estSkNumber = data.establishmentSkNumber || "................";
   const estSkDateStr = data.establishmentSkDate ? (useAktaFormat ? formatAktaDate(data.establishmentSkDate) : formatDateRupst(data.establishmentSkDate)) : "................";
@@ -554,7 +559,8 @@ export function formatAmendmentDeedSingle(deed: any, useAktaFormat: boolean = fa
   const dateStr = deed.date ? (useAktaFormat ? formatAktaDate(deed.date) : formatDateRupst(deed.date)) : "................";
   const numStr = deed.number || "................";
   const notaryStr = deed.notary || "................";
-  const notaryTitleStr = deed.notaryTitle ? `, ${deed.notaryTitle}` : "";
+  const rawTitle = deed.notaryTitle || ((notaryStr && notaryStr.toLowerCase().includes('nukantini')) ? (useAktaFormat ? 'Sarjana Hukum, Magister Kenotariatan' : 'SH., M.Kn.') : '');
+  const notaryTitleStr = rawTitle ? `, ${rawTitle}` : "";
   const notaryDomicileStr = deed.notaryDomicile ? toTitleCase(deed.notaryDomicile) : "................";
   
   let base = `Akta tertanggal ${dateStr} Nomor ${numStr}, yang dibuat di hadapan ${notaryStr}${notaryTitleStr}, Notaris di ${notaryDomicileStr}`;

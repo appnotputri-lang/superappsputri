@@ -988,17 +988,40 @@ const ShareholderEditor: React.FC<Props> = ({
                       type="text" 
                       value={shareholder.establishmentNotary || ''} 
                       onChange={e => onChange({ establishmentNotary: e.target.value })}
+                      placeholder="Nama Notaris Pendirian"
                       className="w-full px-2 py-1.5 border border-slate-300 rounded text-xs outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
                     />
                   </div>
                   <div>
-                    <label className="block text-[11px] font-bold text-slate-600 mb-1">Gelar Notaris (Contoh: S.H., M.Kn.)</label>
-                    <input 
-                      type="text" 
-                      value={shareholder.establishmentNotaryTitle || ''} 
-                      onChange={e => onChange({ establishmentNotaryTitle: e.target.value })}
-                      className="w-full px-2 py-1.5 border border-slate-300 rounded text-xs outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
-                    />
+                    <label className="block text-[11px] font-bold text-slate-600 mb-1">Gelar Notaris</label>
+                    <div className="flex flex-col gap-1">
+                      <select
+                        value={['Sarjana Hukum', 'Sarjana Hukum, Magister Kenotariatan', 'SH.', 'SH., M.Kn.', 'S.H.', 'S.H., M.Kn.'].some(opt => opt.toLowerCase() === (shareholder.establishmentNotaryTitle || '').toLowerCase()) ? shareholder.establishmentNotaryTitle : (shareholder.establishmentNotaryTitle ? 'manual' : '')}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val === 'manual') {
+                            // keep current or allow typing
+                          } else {
+                            onChange({ establishmentNotaryTitle: val });
+                          }
+                        }}
+                        className="w-full px-2 py-1.5 border border-slate-300 rounded text-xs outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 bg-white"
+                      >
+                        <option value="">-- Pilih Gelar --</option>
+                        <option value="Sarjana Hukum">SH.</option>
+                        <option value="Sarjana Hukum, Magister Kenotariatan">SH., M.Kn.</option>
+                        <option value="manual">Manual</option>
+                      </select>
+                      {(!['Sarjana Hukum', 'Sarjana Hukum, Magister Kenotariatan', 'SH.', 'SH., M.Kn.', 'S.H.', 'S.H., M.Kn.'].some(opt => opt.toLowerCase() === (shareholder.establishmentNotaryTitle || '').toLowerCase()) || shareholder.establishmentNotaryTitle === 'manual') && shareholder.establishmentNotaryTitle !== undefined && (
+                        <input 
+                          type="text" 
+                          placeholder="Gelar manual (contoh: S.H., M.Kn.)..." 
+                          value={shareholder.establishmentNotaryTitle === 'manual' ? '' : shareholder.establishmentNotaryTitle}
+                          onChange={e => onChange({ establishmentNotaryTitle: e.target.value })}
+                          className="w-full px-2 py-1.5 border border-slate-300 rounded text-xs outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
+                        />
+                      )}
+                    </div>
                   </div>
                   <div className="md:col-span-2">
                     <label className="block text-[11px] font-bold text-slate-600 mb-1">Kedudukan Notaris Pendirian</label>
@@ -1096,18 +1119,41 @@ const ShareholderEditor: React.FC<Props> = ({
                             />
                           </div>
                           <div>
-                            <label className="block text-[10px] font-bold text-slate-600 mb-1">Gelar Notaris (Contoh: S.H., M.Kn.)</label>
-                            <input 
-                              type="text" 
-                              value={deed.notaryTitle || ''} 
-                              onChange={e => {
-                                const newList = [...(shareholder.amendmentDeeds || [])];
-                                newList[index] = { ...deed, notaryTitle: e.target.value };
-                                onChange({ amendmentDeeds: newList });
-                              }} 
-                              className="w-full px-2 py-1.5 border border-slate-300 rounded text-xs outline-none focus:border-teal-500 bg-white"
-                              placeholder="Contoh: S.H., M.Kn."
-                            />
+                            <label className="block text-[10px] font-bold text-slate-600 mb-1">Gelar Notaris</label>
+                            <div className="flex flex-col gap-1">
+                              <select
+                                value={['Sarjana Hukum', 'Sarjana Hukum, Magister Kenotariatan', 'SH.', 'SH., M.Kn.', 'S.H.', 'S.H., M.Kn.'].some(opt => opt.toLowerCase() === (deed.notaryTitle || '').toLowerCase()) ? deed.notaryTitle : (deed.notaryTitle ? 'manual' : '')}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  const newList = [...(shareholder.amendmentDeeds || [])];
+                                  if (val === 'manual') {
+                                    // keep current or allow typing
+                                  } else {
+                                    newList[index] = { ...deed, notaryTitle: val };
+                                    onChange({ amendmentDeeds: newList });
+                                  }
+                                }}
+                                className="w-full px-2 py-1.5 border border-slate-300 rounded text-xs outline-none focus:border-teal-500 bg-white"
+                              >
+                                <option value="">-- Pilih Gelar --</option>
+                                <option value="Sarjana Hukum">SH.</option>
+                                <option value="Sarjana Hukum, Magister Kenotariatan">SH., M.Kn.</option>
+                                <option value="manual">Manual</option>
+                              </select>
+                              {(!['Sarjana Hukum', 'Sarjana Hukum, Magister Kenotariatan', 'SH.', 'SH., M.Kn.', 'S.H.', 'S.H., M.Kn.'].some(opt => opt.toLowerCase() === (deed.notaryTitle || '').toLowerCase()) || deed.notaryTitle === 'manual') && deed.notaryTitle !== undefined && (
+                                <input 
+                                  type="text" 
+                                  value={deed.notaryTitle === 'manual' ? '' : deed.notaryTitle} 
+                                  onChange={e => {
+                                    const newList = [...(shareholder.amendmentDeeds || [])];
+                                    newList[index] = { ...deed, notaryTitle: e.target.value };
+                                    onChange({ amendmentDeeds: newList });
+                                  }} 
+                                  className="w-full px-2 py-1.5 border border-slate-300 rounded text-xs outline-none focus:border-teal-500 bg-white"
+                                  placeholder="Gelar manual (contoh: S.H., M.Kn.)" 
+                                />
+                              )}
+                            </div>
                           </div>
                           <div className="md:col-span-2">
                             <label className="block text-[10px] font-bold text-slate-600 mb-1">Kedudukan Notaris Perubahan</label>
