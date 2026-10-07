@@ -468,7 +468,7 @@ export const generateWordDoc = async (data: CompanyData, returnBlob?: boolean) =
           mkRun(data.establishmentDeedNumber || "..........", true),
           mkRun(", yang dibuat dihadapan "),
           mkRun(`${data.establishmentNotary || ".........."}${data.establishmentNotaryTitle ? `, ${data.establishmentNotaryTitle}` : ""}`, true),
-          mkRun(`, Notaris di Kabupaten Bandung Barat dan telah mendapat pengesahan dari Menteri Hukum dan Hak Asasi Manusia Republik Indonesia tertanggal `),
+          mkRun(`, Notaris di ${data.establishmentNotaryDomicile || "Kabupaten Bandung Barat"} dan telah mendapat pengesahan dari Menteri Hukum dan Hak Asasi Manusia Republik Indonesia tertanggal `),
           mkRun(formatDateRupst(data.establishmentSkDate) || "..........", true),
           mkRun(", Nomor "),
           mkRun(data.establishmentSkNumber || "..........", true),

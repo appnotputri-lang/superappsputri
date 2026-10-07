@@ -442,12 +442,14 @@ export function formatPersonDetails(
           const amd = person.amendmentDeeds[0];
           const amdDateStr = amd.date ? (useAktaFormat ? formatAktaDate(amd.date) : formatDateRupst(amd.date)) : "...";
           const actaNumWord = useAktaFormat ? "akta Nomor" : "Akta Nomor";
-          baseString += `, dan anggaran dasarnya telah mengalami perubahan berdasarkan ${actaNumWord} ${amd.number || "..."} tertanggal ${amdDateStr} dibuat dihadapan ${amd.notary || "..."}, Notaris di ${amd.notaryDomicile ? toTitleCase(amd.notaryDomicile) : "..."}`;
+          const amdNotaryTitle = amd.notaryTitle ? `, ${amd.notaryTitle}` : "";
+          baseString += `, dan anggaran dasarnya telah mengalami perubahan berdasarkan ${actaNumWord} ${amd.number || "..."} tertanggal ${amdDateStr} dibuat dihadapan ${amd.notary || "..."}${amdNotaryTitle}, Notaris di ${amd.notaryDomicile ? toTitleCase(amd.notaryDomicile) : "..."}`;
         } else {
           const actaNumWord = useAktaFormat ? "akta Nomor" : "Akta Nomor";
           const lastDeed = person.amendmentDeeds[person.amendmentDeeds.length - 1];
           const lastDateStr = lastDeed.date ? (useAktaFormat ? formatAktaDate(lastDeed.date) : formatDateRupst(lastDeed.date)) : "...";
-          baseString += `, dan anggaran dasarnya telah mengalami beberapa kali perubahan, terakhir dengan ${actaNumWord} ${lastDeed.number || "..."} tertanggal ${lastDateStr} dibuat dihadapan ${lastDeed.notary || "..."}, Notaris di ${lastDeed.notaryDomicile ? toTitleCase(lastDeed.notaryDomicile) : "..."} berdasarkan akta-akta sebagai berikut:`;
+          const lastNotaryTitle = lastDeed.notaryTitle ? `, ${lastDeed.notaryTitle}` : "";
+          baseString += `, dan anggaran dasarnya telah mengalami beberapa kali perubahan, terakhir dengan ${actaNumWord} ${lastDeed.number || "..."} tertanggal ${lastDateStr} dibuat dihadapan ${lastDeed.notary || "..."}${lastNotaryTitle}, Notaris di ${lastDeed.notaryDomicile ? toTitleCase(lastDeed.notaryDomicile) : "..."} berdasarkan akta-akta sebagai berikut:`;
 
           const groupedDeeds = getGroupedAmendmentDeeds(person.amendmentDeeds);
           const keWord = ["", "", "kedua", "ketiga", "keempat", "kelima", "keenam", "ketujuh", "kedelapan", "kesembilan", "kesepuluh"];
@@ -607,12 +609,14 @@ export function formatCompanyEstablishment(data: Partial<CompanyData>, useAktaFo
       const amd = data.amendmentDeeds[0];
       const amdDateStr = amd.date ? (useAktaFormat ? formatAktaDate(amd.date) : formatDateRupst(amd.date)) : "................";
       const actaNumWord = useAktaFormat ? "akta Nomor" : "Akta Nomor";
-      baseString += `, dan anggaran dasarnya telah mengalami perubahan berdasarkan ${actaNumWord} ${amd.number || "................"} tertanggal ${amdDateStr} dibuat dihadapan ${amd.notary || "................"}, Notaris di ${amd.notaryDomicile ? toTitleCase(amd.notaryDomicile) : "................"}`;
+      const amdNotaryTitle = amd.notaryTitle ? `, ${amd.notaryTitle}` : "";
+      baseString += `, dan anggaran dasarnya telah mengalami perubahan berdasarkan ${actaNumWord} ${amd.number || "................"} tertanggal ${amdDateStr} dibuat dihadapan ${amd.notary || "................"}${amdNotaryTitle}, Notaris di ${amd.notaryDomicile ? toTitleCase(amd.notaryDomicile) : "................"}`;
     } else {
       const actaNumWord = useAktaFormat ? "akta Nomor" : "Akta Nomor";
       const lastDeed = data.amendmentDeeds[data.amendmentDeeds.length - 1];
       const lastDateStr = lastDeed.date ? (useAktaFormat ? formatAktaDate(lastDeed.date) : formatDateRupst(lastDeed.date)) : "................";
-      baseString += `, dan anggaran dasarnya telah mengalami beberapa kali perubahan, terakhir dengan ${actaNumWord} ${lastDeed.number || "................"} tertanggal ${lastDateStr} dibuat dihadapan ${lastDeed.notary || "................"}, Notaris di ${lastDeed.notaryDomicile ? toTitleCase(lastDeed.notaryDomicile) : "................"}`;
+      const lastNotaryTitle = lastDeed.notaryTitle ? `, ${lastDeed.notaryTitle}` : "";
+      baseString += `, dan anggaran dasarnya telah mengalami beberapa kali perubahan, terakhir dengan ${actaNumWord} ${lastDeed.number || "................"} tertanggal ${lastDateStr} dibuat dihadapan ${lastDeed.notary || "................"}${lastNotaryTitle}, Notaris di ${lastDeed.notaryDomicile ? toTitleCase(lastDeed.notaryDomicile) : "................"}`;
     }
   }
 
