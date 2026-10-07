@@ -303,6 +303,45 @@ export const renderClientRoute = (props: any) => {
                           />
                         </div>
                       </div>
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                        <AhuLabel label="Nama Notaris" />
+                        <div className="md:col-span-3 flex gap-2">
+                          <AhuInput 
+                            className="flex-1"
+                            value={deed.notary || ''} 
+                            onChange={e => {
+                              const newList = [...(data.amendmentDeeds || [])];
+                              newList[index] = { ...deed, notary: e.target.value };
+                              updateData({ amendmentDeeds: newList });
+                            }} 
+                            placeholder="Nama Notaris Perubahan" 
+                          />
+                          <AhuInput 
+                            className="w-48"
+                            value={deed.notaryTitle || ''} 
+                            onChange={e => {
+                              const newList = [...(data.amendmentDeeds || [])];
+                              newList[index] = { ...deed, notaryTitle: e.target.value };
+                              updateData({ amendmentDeeds: newList });
+                            }} 
+                            placeholder="Gelar (SH., M.Kn.)" 
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                        <AhuLabel label="Kedudukan Notaris" />
+                        <div className="md:col-span-3">
+                          <AhuInput 
+                            value={deed.notaryDomicile || ''} 
+                            onChange={e => {
+                              const newList = [...(data.amendmentDeeds || [])];
+                              newList[index] = { ...deed, notaryDomicile: e.target.value };
+                              updateData({ amendmentDeeds: newList });
+                            }} 
+                            placeholder="Contoh: Kota Bandung" 
+                          />
+                        </div>
+                      </div>
                     </div>
                   ))}
 

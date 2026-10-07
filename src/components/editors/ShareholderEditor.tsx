@@ -1096,6 +1096,20 @@ const ShareholderEditor: React.FC<Props> = ({
                             />
                           </div>
                           <div>
+                            <label className="block text-[10px] font-bold text-slate-600 mb-1">Gelar Notaris (Contoh: S.H., M.Kn.)</label>
+                            <input 
+                              type="text" 
+                              value={deed.notaryTitle || ''} 
+                              onChange={e => {
+                                const newList = [...(shareholder.amendmentDeeds || [])];
+                                newList[index] = { ...deed, notaryTitle: e.target.value };
+                                onChange({ amendmentDeeds: newList });
+                              }} 
+                              className="w-full px-2 py-1.5 border border-slate-300 rounded text-xs outline-none focus:border-teal-500 bg-white"
+                              placeholder="Contoh: S.H., M.Kn."
+                            />
+                          </div>
+                          <div className="md:col-span-2">
                             <label className="block text-[10px] font-bold text-slate-600 mb-1">Kedudukan Notaris Perubahan</label>
                             <input 
                               type="text" 
@@ -1218,7 +1232,7 @@ const ShareholderEditor: React.FC<Props> = ({
                     <button 
                       type="button"
                       onClick={() => {
-                        const newDeed = { id: crypto.randomUUID(), number: '', date: '', notary: '', notaryDomicile: '', skNumber: '', skDate: '', skSpDocuments: [] };
+                        const newDeed = { id: crypto.randomUUID(), number: '', date: '', notary: '', notaryTitle: '', notaryDomicile: '', skNumber: '', skDate: '', skSpDocuments: [] };
                         onChange({ amendmentDeeds: [...(shareholder.amendmentDeeds || []), newDeed] });
                       }}
                       className="w-full flex items-center justify-center gap-1.5 py-2 border border-dashed border-slate-300 rounded text-slate-500 hover:border-[#3b5998] hover:text-[#3b5998] hover:bg-slate-10/50 transition-all text-xs font-bold uppercase mt-1"
