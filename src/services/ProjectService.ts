@@ -28,6 +28,7 @@ import { Timeline } from "../domain/project/Timeline";
 import { Task } from "../domain/project/Task";
 import { StatusEngine } from "../domain/project/ProjectStatus";
 import { WorkflowService } from "./WorkflowService";
+import { ProjectNotificationService } from "./ProjectNotificationService";
 import { AuthService } from "./AuthService";
 import { formatChangesSummary, FieldChange } from "../lib/diffUtils";
 import { isValidFirebaseUid } from "../utils/firebaseUidUtils";
@@ -288,6 +289,20 @@ export class ProjectService {
         description: lastComment,
         createdBy: userId
       });
+
+      // Trigger automatic WhatsApp notification when project transitions from active to completed ("Selesai")
+      // Idempotency: Triggered ONLY on a fresh transition into completed status (Aktif -> Selesai)
+      const wasCompleted = isProjectCompletedStatus(oldStatus);
+      const isNowCompleted = isProjectCompletedStatus(newStatus);
+      if (!wasCompleted && isNowCompleted) {
+        ProjectNotificationService.notifyProjectCompleted({
+          ...project,
+          status: newStatus,
+          projectId: projectId
+        }).catch((waErr) => {
+          console.warn('[ProjectService] Gagal mengirim notifikasi WA proyek selesai:', waErr);
+        });
+      }
 
       // Master Client HANYA BOLEH berubah ketika workflow mencapai status AHU APPROVED (AHU Selesai, SP/SK Terbit, SP Terbit, atau NIB TERBIT)
       const isClientUpdateStatus = 

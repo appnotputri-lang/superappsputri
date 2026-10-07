@@ -448,26 +448,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
           })}
         </div>
 
-        {/* Asisten AI Gemini Quick Trigger */}
-        <div className="px-3 pb-2 pt-1 shrink-0">
-          <button
-            type="button"
-            onClick={() => {
-              if (typeof window !== 'undefined' && window.innerWidth < 768) {
-                setIsSidebarOpen?.(false);
-              }
-              window.dispatchEvent(new CustomEvent('open-gemini-chat'));
-            }}
-            className={`w-full flex items-center justify-center gap-2 p-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold text-xs shadow-xs transition-all cursor-pointer border border-blue-400/30 ${
-              !isSidebarOpen ? 'px-0' : ''
-            }`}
-            title="Buka Asisten AI Gemini SuperApps"
-          >
-            <Sparkles size={14} className="text-amber-300 animate-pulse shrink-0" />
-            {isSidebarOpen && <span>Asisten AI Gemini</span>}
-          </button>
-        </div>
-
         {/* Bottom Profile Container Sticky */}
         {user && (
           <div className="p-3 pb-[calc(env(safe-area-inset-bottom,0px)+0.75rem)] border-t border-slate-100 bg-blue-50/40 shrink-0 relative sticky bottom-0 z-20">

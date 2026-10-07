@@ -3342,23 +3342,6 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
                 <File size={13} />
                 <span>Buat Penawaran</span>
               </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  const clientName = (project.clientSnapshot as any)?.name || project.clientSnapshot?.companyName || (project as any).clientName || '';
-                  const title = project.title || '';
-                  const prompt = `Saya sedang mengerjakan proyek '${title}' untuk klien '${clientName}' (Jenis Pekerjaan: ${project.jobType}). Tolong jelaskan alur dokumen, perkiraan rincian biaya penawaran, serta pajak yang perlu diperhitungkan.`;
-                  window.dispatchEvent(new CustomEvent('open-gemini-chat', {
-                    detail: { message: prompt, autoSend: true }
-                  }));
-                }}
-                className="px-2.5 py-1.5 bg-gradient-to-r from-amber-50 to-orange-50 hover:from-amber-100 hover:to-orange-100 text-amber-900 border border-amber-200/80 font-bold rounded-lg text-xs flex items-center gap-1 transition-all cursor-pointer shadow-2xs"
-                title="Tanya Asisten AI tentang Proyek ini"
-              >
-                <Sparkles size={13} className="text-amber-600" />
-                <span>Tanya AI</span>
-              </button>
             </div>
 
             {project.jobType === 'sewa_menyewa' && (
