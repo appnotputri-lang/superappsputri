@@ -3353,7 +3353,7 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
                 <Sparkles className="w-4 h-4" />
               </button>
             )}
-            {isPT && (
+            {isPT && project.jobType !== 'pendirian_pt' && (
               <>
                 {(() => {
                   const path = getRedirectPath(project.jobType);
@@ -3381,16 +3381,16 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
                     </a>
                   );
                 })()}
-                {project.jobType === 'pendirian_pt' && (
-                  <button
-                    onClick={handleWorkHere}
-                    className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg text-[13px] flex items-center gap-2 transition-all shadow-sm"
-                  >
-                    <span>Kerjakan di Sini</span>
-                    <Sparkles className="w-4 h-4" />
-                  </button>
-                )}
               </>
+            )}
+            {project.jobType === 'pendirian_pt' && (
+              <button
+                onClick={handleWorkHere}
+                className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg text-[13px] flex items-center gap-2 transition-all shadow-sm"
+              >
+                <span>Kerjakan di Sini</span>
+                <Sparkles className="w-4 h-4" />
+              </button>
             )}
             {isPPAT && (
               <div className="flex items-center gap-2">

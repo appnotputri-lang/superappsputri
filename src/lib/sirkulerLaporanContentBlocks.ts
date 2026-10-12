@@ -215,9 +215,22 @@ export function generateSirkulerLaporanBlocks(data: CompanyData): Block[] {
     } else {
       const shName = (sh.name || "").trim();
       if (checkIsBadanHukum(sh)) {
-        const repName = (sh.guardianName || (sh as any).representativeName || (sh.isProxy && sh.proxyData?.name) || "").trim();
+        const repName = (
+          sh.guardianName || 
+          (sh as any).representativeName || 
+          (sh as any).wakilName || 
+          (sh as any).repName || 
+          (sh.isProxy && sh.proxyData?.name) || 
+          ""
+        ).trim();
         if (repName) {
-          const repSalutation = sh.guardianSalutation || (sh as any).representativeSalutation || (sh.isProxy && sh.proxyData?.salutation) || "Tuan";
+          const repSalutation = (
+            sh.guardianSalutation || 
+            (sh as any).representativeSalutation || 
+            (sh as any).wakilSalutation || 
+            (sh.isProxy && sh.proxyData?.salutation) || 
+            "Tuan"
+          );
           const repPerson = {
             id: sh.representativeId || (sh as any).guardianId || crypto.randomUUID(),
             name: repName,

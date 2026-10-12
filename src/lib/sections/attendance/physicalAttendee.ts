@@ -84,9 +84,22 @@ export const buildAttendanceAttendees = (config: AttendanceConfig): PhysicalAtte
     } else {
       const shName = (sh.name || "").trim();
       if (checkIsBadanHukum(sh)) {
-        const repName = (sh.guardianName || (sh as any).representativeName || (sh.isProxy && sh.proxyData?.name) || "").trim();
+        const repName = (
+          sh.guardianName || 
+          (sh as any).representativeName || 
+          (sh as any).wakilName || 
+          (sh as any).repName || 
+          (sh.isProxy && sh.proxyData?.name) || 
+          ""
+        ).trim();
         if (repName) {
-          const repSalutation = sh.guardianSalutation || (sh as any).representativeSalutation || (sh.isProxy && sh.proxyData?.salutation) || "Tuan";
+          const repSalutation = (
+            sh.guardianSalutation || 
+            (sh as any).representativeSalutation || 
+            (sh as any).wakilSalutation || 
+            (sh.isProxy && sh.proxyData?.salutation) || 
+            "Tuan"
+          );
           const repPerson = {
             id: sh.representativeId || (sh as any).guardianId || crypto.randomUUID(),
             name: repName,
@@ -261,7 +274,9 @@ const buildRepresentationBlocks = (
     });
   }
 
-  const suffixText = `, yang dalam hal ini merupakan pemilik dan pemegang saham sebanyak ${formatNumber(r.sharesOwned)} lembar saham atau senilai Rp. ${formatNumber(shareRp)},- berhak mengeluarkan suara ${formatNumber(r.sharesOwned)} suara dalam rapat${endingText}`;
+  const suffixText = isSirkuler
+    ? `, yang dalam hal ini selaku pemilik dan pemegang saham sebanyak ${formatNumber(r.sharesOwned)} lembar saham atau senilai Rp. ${formatNumber(shareRp)},-${endingText}`
+    : `, yang dalam hal ini merupakan pemilik dan pemegang saham sebanyak ${formatNumber(r.sharesOwned)} lembar saham atau senilai Rp. ${formatNumber(shareRp)},- berhak mengeluarkan suara ${formatNumber(r.sharesOwned)} suara dalam rapat${endingText}`;
 
   const hasDeeds =
     isDirector &&

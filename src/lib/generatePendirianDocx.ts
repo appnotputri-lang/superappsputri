@@ -369,13 +369,13 @@ function getDividerTabPos(text: string): number {
   const normalized = text.trim().toUpperCase().replace(/\s+/g, " ");
   const len = normalized.length;
 
-  // Center of the printable tab-stop area is exactly 4440 dxa (half of 8880 dxa)
+  // Center of the printable tab-stop area is 4252 dxa (half of 8504 dxa / 15 cm)
   // Century Gothic 10pt Bold has an average character width of ~125 dxa
   // Mathematically, the left tab stop = (center) - (text_length * character_width / 2)
-  const calculatedPos = Math.round(4440 - (len * 125) / 2);
+  const calculatedPos = Math.round(4252 - (len * 125) / 2);
 
-  // Safeguard: make sure there is at least 800 dxa on the left for hyphens, and at most 4200 dxa
-  return Math.min(4200, Math.max(800, calculatedPos));
+  // Safeguard: make sure there is at least 800 dxa on the left for hyphens, and at most 4000 dxa
+  return Math.min(4000, Math.max(800, calculatedPos));
 }
 
 // -------------------------------------------------------------------------------------
@@ -412,11 +412,11 @@ function adjustDividerTabStops(clonedP: Element, text: string, isPtName: boolean
   tab1.setAttribute("w:pos", pos1.toString());
   tabs.appendChild(tab1);
 
-  // Tab 2: Left-aligned at 8880, draws hyphens to exact right margin boundary
+  // Tab 2: Left-aligned at 8504 (15 cm), draws hyphens to exact right margin boundary
   const tab2 = clonedP.ownerDocument.createElementNS(W_NS, "w:tab");
   tab2.setAttribute("w:val", "left");
   tab2.setAttribute("w:leader", "hyphen");
-  tab2.setAttribute("w:pos", "8880");
+  tab2.setAttribute("w:pos", "8504");
   tabs.appendChild(tab2);
   
   insertTabsInOrder(pPr, tabs);
@@ -448,11 +448,11 @@ function adjustTabStops(clonedP: Element, blockType?: string): void {
     tabs.appendChild(roleTab);
   }
 
-  // Single left-aligned tab stop at 8880 (exact left tab stop alignment from the original notary PT. pendirian template)
+  // Single left-aligned tab stop at 8504 (15 cm tab stop alignment)
   const tab = clonedP.ownerDocument.createElementNS(W_NS, "w:tab");
   tab.setAttribute("w:val", "left");
   tab.setAttribute("w:leader", "hyphen");
-  tab.setAttribute("w:pos", "8880");
+  tab.setAttribute("w:pos", "8504");
   
   tabs.appendChild(tab);
   

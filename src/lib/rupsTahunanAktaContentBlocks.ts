@@ -179,6 +179,36 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
     rep = data.manualRepresentative;
   }
 
+  let repEntity: any = null;
+  if (rep && checkIsBadanHukum(rep)) {
+    const repWakilName = (
+      rep.guardianName || 
+      (rep as any).representativeName || 
+      (rep as any).wakilName || 
+      (rep.isProxy && rep.proxyData?.name) || 
+      ""
+    ).trim();
+    if (repWakilName) {
+      repEntity = rep;
+      const repSal = rep.guardianSalutation || (rep as any).representativeSalutation || (rep.isProxy && rep.proxyData?.salutation) || "Tuan";
+      rep = {
+        id: rep.representativeId || (rep as any).guardianId || crypto.randomUUID(),
+        name: repWakilName,
+        salutation: repSal,
+        nik: rep.guardianNik || (rep as any).representativeNik || rep.proxyData?.nik || "",
+        birthCity: rep.guardianBirthCity || (rep as any).representativeBirthCity || rep.proxyData?.birthCity || "",
+        birthDate: rep.guardianBirthDate || (rep as any).representativeBirthDate || rep.proxyData?.birthDate || "",
+        occupation: rep.guardianOccupation || (rep as any).representativeOccupation || rep.proxyData?.occupation || "",
+        address: rep.guardianAddress || (rep as any).representativeAddress || rep.proxyData?.address || rep.address,
+        nationality: rep.guardianNationality || (rep as any).representativeNationality || "WNI",
+        nationalityType: rep.guardianNationalityType || (rep as any).representativeNationalityType || "WNI",
+        passportNumber: rep.guardianPassportNumber || (rep as any).representativePassportNumber || "",
+        kitasNumber: rep.guardianKitasNumber || (rep as any).representativeKitasNumber || "",
+        sharesOwned: 0
+      };
+    }
+  }
+
   const fullyDescribedNames = new Set<string>();
 
   const expandAbbreviations = (str: string) => {
@@ -309,6 +339,20 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
         runs: [
           {
             text: `Untuk sementara berada di ${toTitleCase(data.notaryDomicile || "Kabupaten Bandung Barat")};`,
+          },
+        ],
+      });
+    }
+
+    if (repEntity) {
+      const pos = (repEntity as any).representativePosition || "Direktur Utama";
+      blocks.push({
+        type: "list",
+        bullet: "-",
+        indentTabs: 0.3,
+        runs: [
+          {
+            text: `Dalam hal ini bertindak dalam jabatannya selaku ${pos} dari dan oleh karena itu untuk dan atas nama ${formatCompanyName(repEntity.name, 'PT')}${formatPersonDetails(repEntity, "", "", true, false, false)};`,
           },
         ],
       });
@@ -776,6 +820,106 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
     );
   }
 
+  const renderRepresentationItem = (
+    r: any,
+    indentTabs: number,
+    bullet: string,
+    isSubLast: boolean,
+    omitSelaku?: boolean
+  ) => {
+    const isDirector =
+      r.proxyData.representationType === "DIREKTUR_PT_LAIN" ||
+      r.proxyData.representationType === "KUASA_DIREKSI";
+    const posName = r.proxyData.position || (r.proxyData.representationType === "KUASA_DIREKSI" ? "Kuasa Direksi" : "Direktur");
+    const shareRp =
+      (r.sharesOwned || 0) * (data.originalSharePrice || 10000000);
+    const formattedAmt = formatNumber(shareRp);
+    const terbilangAmt = terbilang(shareRp);
+    const endChar = isSubLast ? "." : ";";
+
+    const prefixText = isDirector
+      ? (omitSelaku ? `${posName} dari ` : `selaku ${posName} dari `)
+      : (omitSelaku
+          ? `kuasa berdasarkan Surat Kuasa tertanggal ${r.proxyData.proxyDeedDate ? formatAktaDate(r.proxyData.proxyDeedDate) : "__________ (__________)"}, dari dan oleh karena itu untuk dan atas nama `
+          : `selaku kuasa berdasarkan Surat Kuasa tertanggal ${r.proxyData.proxyDeedDate ? formatAktaDate(r.proxyData.proxyDeedDate) : "__________ (__________)"}, dari dan oleh karena itu untuk dan atas nama `);
+
+    const hasDeeds =
+      checkIsBadanHukum(r.shareholder) &&
+      r.shareholder.amendmentDeeds &&
+      r.shareholder.amendmentDeeds.length > 0;
+
+    const suffixRuns: FormatToken[] = [
+      {
+        text: `, selaku pemilik dan pemegang ${formatNumber(r.sharesOwned)} (${terbilang(r.sharesOwned)}) lembar saham atau senilai `,
+      },
+      {
+        text: `Rp. ${formattedAmt},- (${terbilangAmt} rupiah)${endChar}`,
+      },
+    ];
+
+    if (!hasDeeds) {
+      blocks.push({
+        type: "list",
+        bullet,
+        indentTabs,
+        runs: [
+          { text: prefixText },
+          ...getPersonDetailRuns(r.shareholder),
+          ...suffixRuns,
+        ],
+      });
+    } else {
+      const amdList = r.shareholder.amendmentDeeds;
+      const lastDeed = amdList[amdList.length - 1];
+      const lastDateStr = lastDeed.date ? formatAktaDate(lastDeed.date) : "...";
+      const transition = `, dan anggaran dasarnya telah mengalami ${amdList.length > 1 ? "beberapa kali " : ""}perubahan${amdList.length > 1 ? `, terakhir dengan akta Nomor ${lastDeed.number || "..."} tertanggal ${lastDateStr} dibuat dihadapan ${checkNotaryWording(lastDeed.notary || "...", lastDeed.notaryTitle, lastDeed.notaryDomicile)}` : ""} berdasarkan akta${amdList.length > 1 ? "-akta" : ""} sebagai berikut :`;
+
+      const baseRuns: FormatToken[] = [
+        { text: prefixText },
+        ...getPersonDetailRuns({ ...r.shareholder, amendmentDeeds: [] }),
+      ];
+      if (baseRuns.length > 0) {
+        baseRuns[baseRuns.length - 1] = {
+          ...baseRuns[baseRuns.length - 1],
+          text: baseRuns[baseRuns.length - 1].text + transition,
+        };
+      }
+
+      blocks.push({
+        type: "list",
+        bullet,
+        indentTabs,
+        runs: baseRuns,
+      });
+
+      amdList.forEach((deed: any, dIdx: number) => {
+        const isLastDeed = dIdx === amdList.length - 1;
+        const deedDateStr = deed.date ? formatAktaDate(deed.date) : "...";
+        const skText = getDeedSkText(deed);
+        const deedBase = `Akta tertanggal ${deedDateStr} Nomor ${deed.number || "..."} yang dibuat di hadapan ${checkNotaryWording(deed.notary, deed.notaryTitle, deed.notaryDomicile)}${skText ? " yang " + skText : ""}`;
+
+        if (isLastDeed) {
+          blocks.push({
+            type: "list",
+            bullet: "-",
+            indentTabs: indentTabs + 0.5,
+            runs: [
+              { text: deedBase },
+              ...suffixRuns,
+            ],
+          });
+        } else {
+          blocks.push({
+            type: "list",
+            bullet: "-",
+            indentTabs: indentTabs + 0.5,
+            runs: [{ text: `${deedBase};` }],
+          });
+        }
+      });
+    }
+  };
+
   finalAttendees.forEach((att, idx) => {
     // Lookup and attach company management role if they are a person and don't have one set yet
     if (
@@ -880,42 +1024,9 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
           ],
         });
       }
-      att.representations.forEach((r) => {
-        const isDirector =
-          r.proxyData.representationType === "DIREKTUR_PT_LAIN";
-        const shareRp =
-          (r.sharesOwned || 0) * (data.originalSharePrice || 10000000);
-        const formattedAmt = formatNumber(shareRp);
-        const terbilangAmt = terbilang(shareRp);
-
-        let repTextRuns: FormatToken[] = [];
-        if (isDirector) {
-          repTextRuns.push({ text: "selaku Direktur dari " });
-          repTextRuns.push(...getPersonDetailRuns(r.shareholder));
-        } else {
-          const proxyDate = r.proxyData.proxyDeedDate
-            ? formatAktaDate(r.proxyData.proxyDeedDate)
-            : "__________ (__________)";
-          repTextRuns.push({ text: "selaku Kuasa dari " });
-          repTextRuns.push(...getPersonDetailRuns(r.shareholder));
-          repTextRuns.push({
-            text: ` berdasarkan Surat Kuasa tertanggal ${proxyDate}`,
-          });
-        }
-
-        repTextRuns.push({
-          text: `, selaku pemilik dan pemegang ${formatNumber(r.sharesOwned)} (${terbilang(r.sharesOwned)}) lembar saham atau senilai `,
-        });
-        repTextRuns.push({
-          text: `Rp. ${formattedAmt},- (${terbilangAmt} rupiah).`,
-        });
-
-        blocks.push({
-          type: "list",
-          bullet: "-",
-          indentTabs: 1.5,
-          runs: repTextRuns,
-        });
+      att.representations.forEach((r, rIdx) => {
+        const isLastRep = rIdx === att.representations.length - 1;
+        renderRepresentationItem(r, 1.5, "-", isLastRep, false);
       });
     }
 
@@ -964,41 +1075,7 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
         });
       } else if (att.representations.length === 1) {
         const r = att.representations[0];
-        const isDirector =
-          r.proxyData.representationType === "DIREKTUR_PT_LAIN";
-        const shareRp =
-          (r.sharesOwned || 0) * (data.originalSharePrice || 10000000);
-        const formattedAmt = formatNumber(shareRp);
-        const terbilangAmt = terbilang(shareRp);
-
-        let repTextRuns: FormatToken[] = [];
-        if (isDirector) {
-          repTextRuns.push({ text: "Selaku Direktur dari " });
-          repTextRuns.push(...getPersonDetailRuns(r.shareholder));
-        } else {
-          const proxyDate = r.proxyData.proxyDeedDate
-            ? formatAktaDate(r.proxyData.proxyDeedDate)
-            : "__________ (__________)";
-          repTextRuns.push({ text: "Selaku Kuasa dari " });
-          repTextRuns.push(...getPersonDetailRuns(r.shareholder));
-          repTextRuns.push({
-            text: ` berdasarkan Surat Kuasa tertanggal ${proxyDate}`,
-          });
-        }
-
-        repTextRuns.push({
-          text: `, selaku pemilik dan pemegang ${formatNumber(r.sharesOwned)} (${terbilang(r.sharesOwned)}) lembar saham atau senilai `,
-        });
-        repTextRuns.push({
-          text: `Rp. ${formattedAmt},- (${terbilangAmt} rupiah).`,
-        });
-
-        blocks.push({
-          type: "list",
-          bullet: "-",
-          indentTabs: 1.5,
-          runs: repTextRuns,
-        });
+        renderRepresentationItem(r, 1.5, "-", true, false);
       }
     } else if (totalSubBullets > 1) {
       blocks.push({
@@ -1055,41 +1132,13 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
       att.representations.forEach((r) => {
         bulletIdx++;
         const isLast = bulletIdx === totalSubBullets;
-        const isDirector =
-          r.proxyData.representationType === "DIREKTUR_PT_LAIN";
-        const shareRp =
-          (r.sharesOwned || 0) * (data.originalSharePrice || 10000000);
-        const formattedAmt = formatNumber(shareRp);
-        const terbilangAmt = terbilang(shareRp);
-
-        let repTextRuns: FormatToken[] = [];
-        if (isDirector) {
-          repTextRuns.push({ text: `Direktur dari ` });
-          repTextRuns.push(...getPersonDetailRuns(r.shareholder));
-        } else {
-          const proxyDate = r.proxyData.proxyDeedDate
-            ? formatAktaDate(r.proxyData.proxyDeedDate)
-            : "__________ (__________)";
-          repTextRuns.push({ text: `Kuasa dari ` });
-          repTextRuns.push(...getPersonDetailRuns(r.shareholder));
-          repTextRuns.push({
-            text: ` berdasarkan Surat Kuasa tertanggal ${proxyDate}`,
-          });
-        }
-
-        repTextRuns.push({
-          text: `, selaku pemilik dan pemegang ${formatNumber(r.sharesOwned)} (${terbilang(r.sharesOwned)}) lembar saham atau senilai `,
-        });
-        repTextRuns.push({
-          text: `Rp. ${formattedAmt},- (${terbilangAmt} rupiah)${isLast ? "." : ";"}`,
-        });
-
-        blocks.push({
-          type: "list",
-          bullet: String.fromCharCode(subBulletCode + bulletIdx - 1) + ".",
-          indentTabs: 2.0,
-          runs: repTextRuns,
-        });
+        renderRepresentationItem(
+          r,
+          2.0,
+          String.fromCharCode(subBulletCode + bulletIdx - 1) + ".",
+          isLast,
+          true
+        );
       });
     }
   }

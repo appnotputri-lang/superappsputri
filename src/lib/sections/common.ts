@@ -24,8 +24,9 @@ export function checkNotaryWording(
     }
   }
   
-  const cleanName = cleanDegrees(name || "");
-  const cleanTitle = cleanDegrees(title || "");
+  const rawTitle = title || (norm.includes("NUKANTINI") ? (options?.isAkta ? "Sarjana Hukum, Magister Kenotariatan" : "SH., M.Kn.") : "");
+  const cleanName = options?.isAkta ? cleanDegrees(name || "") : (name || "");
+  const cleanTitle = options?.isAkta ? cleanDegrees(rawTitle) : rawTitle;
   return `${cleanName}${cleanTitle ? `, ${cleanTitle}` : ""}, Notaris di ${toTitleCase(domicile || "...")}`;
 }
 

@@ -142,6 +142,36 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
       data.shareholders[0];
   }
 
+  let repEntity: any = null;
+  if (rep && checkIsBadanHukum(rep)) {
+    const repWakilName = (
+      rep.guardianName || 
+      (rep as any).representativeName || 
+      (rep as any).wakilName || 
+      (rep.isProxy && rep.proxyData?.name) || 
+      ""
+    ).trim();
+    if (repWakilName) {
+      repEntity = rep;
+      const repSal = rep.guardianSalutation || (rep as any).representativeSalutation || (rep.isProxy && rep.proxyData?.salutation) || "Tuan";
+      rep = {
+        id: rep.representativeId || (rep as any).guardianId || crypto.randomUUID(),
+        name: repWakilName,
+        salutation: repSal,
+        nik: rep.guardianNik || (rep as any).representativeNik || rep.proxyData?.nik || "",
+        birthCity: rep.guardianBirthCity || (rep as any).representativeBirthCity || rep.proxyData?.birthCity || "",
+        birthDate: rep.guardianBirthDate || (rep as any).representativeBirthDate || rep.proxyData?.birthDate || "",
+        occupation: rep.guardianOccupation || (rep as any).representativeOccupation || rep.proxyData?.occupation || "",
+        address: rep.guardianAddress || (rep as any).representativeAddress || rep.proxyData?.address || rep.address,
+        nationality: rep.guardianNationality || (rep as any).representativeNationality || "WNI",
+        nationalityType: rep.guardianNationalityType || (rep as any).representativeNationalityType || "WNI",
+        passportNumber: rep.guardianPassportNumber || (rep as any).representativePassportNumber || "",
+        kitasNumber: rep.guardianKitasNumber || (rep as any).representativeKitasNumber || "",
+        sharesOwned: 0
+      };
+    }
+  }
+
   const tglLahirRepHuruf = rep ? dateToWords(rep.birthDate) : "";
   const tglLahirRepAngka = rep ? formatDateStr(rep.birthDate) : "";
 
@@ -180,6 +210,20 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
       fullyDescribedNames,
       rep
     });
+
+    if (repEntity) {
+      const pos = (repEntity as any).representativePosition || "Direktur Utama";
+      blocks.push({
+        type: "list",
+        bullet: "-",
+        indentTabs: 0.5,
+        runs: [
+          {
+            text: `Dalam hal ini bertindak dalam jabatannya selaku ${pos} dari dan oleh karena itu untuk dan atas nama ${formatCompanyName(repEntity.name, 'PT')}${formatPersonDetails(repEntity, "", "", true, false, false)};`,
+          },
+        ],
+      });
+    }
   } else {
     blocks.push({
       type: "p",
