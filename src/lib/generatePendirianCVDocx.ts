@@ -537,6 +537,40 @@ function setPasal8TutupBukuSlots(
 // -------------------------------------------------------------------------------------
 // TEMPLATE-DRIVEN CV DEED GENERATOR (SINGLE SOURCE OF TRUTH MASTER TEMPLATE)
 // -------------------------------------------------------------------------------------
+async function loadTemplateBuffer(filename: string): Promise<ArrayBuffer> {
+  try {
+    const response = await fetch(`/${filename}`);
+    if (response.ok) {
+      const contentType = response.headers.get("content-type") || "";
+      if (!contentType.includes("text/html")) {
+        const buf = await response.arrayBuffer();
+        if (buf.byteLength > 4) {
+          const view = new Uint8Array(buf);
+          if (view[0] === 0x50 && view[1] === 0x4B) {
+            return buf;
+          }
+        }
+      }
+    }
+  } catch (e) {
+    // fallback
+  }
+
+  try {
+    const fs = await import("fs");
+    const path = await import("path");
+    const filePath = path.join(process.cwd(), "public", filename);
+    if (fs.existsSync(filePath)) {
+      const nodeBuf = fs.readFileSync(filePath);
+      return nodeBuf.buffer.slice(nodeBuf.byteOffset, nodeBuf.byteOffset + nodeBuf.byteLength);
+    }
+  } catch (e) {
+    // fallback
+  }
+
+  throw new Error(`Gagal memuat template master ${filename}`);
+}
+
 export const generatePendirianCVDocx = async (
   inputData: any,
   returnBlob: boolean = false
@@ -550,12 +584,8 @@ export const generatePendirianCVDocx = async (
   const cleanName = cleanCompanyName(data.namaCV || "").toUpperCase();
   const cvTitleFormatted = `"CV. ${cleanName}”`;
 
-  // 2. Fetch master template_pendirian_cv.docx
-  const response = await fetch("/template_pendirian_cv.docx");
-  if (!response.ok) {
-    throw new Error(`Gagal mengunduh template_pendirian_cv.docx: ${response.statusText}`);
-  }
-  const arrayBuffer = await response.arrayBuffer();
+  // 2. Load master template buffer (robust browser/node fallback)
+  const arrayBuffer = await loadTemplateBuffer("template_pendirian_cv.docx");
 
   // 3. Load OOXML as ZIP and parse word/document.xml
   const zip = await JSZip.loadAsync(arrayBuffer);

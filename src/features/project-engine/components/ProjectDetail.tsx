@@ -25,6 +25,7 @@ import { SyncPreviewModal } from './SyncPreviewModal';
 import { formatCompanyName } from '../../../lib/formatter';
 import { AuthService } from '../../../services/AuthService';
 import { getApiUrl } from '../../../lib/api';
+import { DocumentVersioningService } from '../../../services/DocumentVersioningService';
 import { compareCompanyDocumentDiff } from '../../../lib/diffUtils';
 import { PPATWorkflowStepsBar } from './ppat/PPATWorkflowStepsBar';
 import { PPATDataManager } from './ppat/PPATDataManager';
@@ -614,6 +615,31 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
     const base64 = await toBase64(blob);
     const token = await AuthService.getToken();
 
+    const isRups = project?.jobType === 'rups_t' || project?.jobType === 'sirkuler' || project?.jobType === 'rups_lb' || project?.jobType === 'sirkuler_rupslb';
+    if (isRups) {
+      let titleLabel = '';
+      if (category === 'draft_akta') {
+        titleLabel = (project?.jobType === 'rups_t' || project?.jobType === 'sirkuler') ? 'Draft Akta RUPST' : 'Draft Akta RUPS LB';
+      } else if (category === 'notulen') {
+        titleLabel = (project?.jobType === 'rups_t' || project?.jobType === 'sirkuler') ? 'Notulen / Sirkuler RUPST' : 'Draft Notulen / Sirkuler';
+      } else if (category === 'surat_pernyataan') {
+        titleLabel = 'Surat Pernyataan';
+      }
+
+      return await DocumentVersioningService.saveDocumentWithVersioning({
+        projectId,
+        companyId: project?.clientId || '',
+        driveFolderId,
+        category,
+        title: titleLabel,
+        baseFileName: filename,
+        blob,
+        jobType: project?.jobType || '',
+        userName: currentUser?.name || 'Sistem',
+        token
+      });
+    }
+
     // Query if documents with documentCategory == category and projectId == projectId already exist
     const docQuery = query(
       collection(db, 'project_uploaded_documents'),
@@ -824,13 +850,14 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
         }
 
         // Upload to Drive and save metadata
-        await uploadGeneratedDocument(filename, blob, category);
+        const savedRecord = await uploadGeneratedDocument(filename, blob, category);
+        const finalDownloadName = savedRecord?.fileName || filename;
 
         // Download locally to browser
         const downloadUrl = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = downloadUrl;
-        a.download = filename;
+        a.download = finalDownloadName;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -839,7 +866,7 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
         // Trigger ProjectDocumentUpload refresh
         setDocumentUploadKey(prev => prev + 1);
 
-        alert(`Dokumen "${filename}" berhasil di-generate, diunduh, dan disimpan ke Google Drive!`);
+        alert(`Dokumen "${finalDownloadName}" berhasil di-generate, diunduh, dan disimpan ke Google Drive!`);
       }
     } catch (err: any) {
       console.error(err);

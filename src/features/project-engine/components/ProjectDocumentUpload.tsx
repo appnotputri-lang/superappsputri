@@ -1,11 +1,12 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Project } from '../../../domain/project/Project';
 import { db, handleFirestoreError, OperationType } from '../../../lib/firebase';
-import { collection, query, where, getDocs, doc, setDoc, deleteDoc } from 'firebase/firestore';
-import { Upload, FileText, Image as FileImage, File, Trash2, Download, RefreshCw, X, Loader2, Eye, Replace, ExternalLink, MoreVertical, Share2, Copy, Send } from 'lucide-react';
+import { collection, query, where, getDocs, doc, setDoc, deleteDoc, updateDoc } from 'firebase/firestore';
+import { Upload, FileText, Image as FileImage, File, Trash2, Download, RefreshCw, X, Loader2, Eye, Replace, ExternalLink, MoreVertical, Share2, Copy, Send, History, ChevronDown, ChevronUp, CheckCircle2 } from 'lucide-react';
 import { UserProfile } from '../../../../types';
 import { AuthService } from '../../../services/AuthService';
 import { getApiUrl } from '../../../lib/api';
+import { DocumentVersioningService } from '../../../services/DocumentVersioningService';
 
 interface ProjectDocumentUploadProps {
   project: Project;
@@ -25,9 +26,15 @@ interface UploadedDocument {
   driveFolderId: string;
   uploadedBy: string;
   uploadedAt: string;
+  savedAt?: string;
   createdAt: string;
   documentSource?: 'generated' | 'manual' | 'drive_sync';
   documentCategory?: 'draft_akta' | 'notulen' | 'surat_pernyataan' | 'scan_akta' | 'scan_notulen' | 'sksp' | 'custom';
+  parentDocumentId?: string;
+  revisionNumber?: number;
+  versionStatus?: 'versi awal' | 'revisi';
+  isLatest?: boolean;
+  documentType?: 'RUPST' | 'RUPSLB';
 }
 
 interface DriveFileItem {
@@ -75,6 +82,54 @@ export function ProjectDocumentUpload({ project, currentUser }: ProjectDocumentU
   const [shareSuccess, setShareSuccess] = useState('');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [expandedRevisions, setExpandedRevisions] = useState<Record<string, boolean>>({});
+
+  const toggleRevisions = (key: string) => {
+    setExpandedRevisions(prev => ({
+      ...prev,
+      [key]: !prev[key]
+    }));
+  };
+
+  // Group documents into families by parentDocumentId or fallback category/title
+  const documentFamilies = useMemo(() => {
+    const familiesMap = new Map<string, UploadedDocument[]>();
+
+    documents.forEach(doc => {
+      // Group by parentDocumentId if present, else fallback to category for generated docs, or doc.id
+      const familyKey = doc.parentDocumentId || (doc.documentCategory && doc.documentSource === 'generated' ? `cat_${doc.documentCategory}` : doc.id);
+      if (!familiesMap.has(familyKey)) {
+        familiesMap.set(familyKey, []);
+      }
+      familiesMap.get(familyKey)!.push(doc);
+    });
+
+    const families = Array.from(familiesMap.entries()).map(([key, list]) => {
+      // Sort: highest revisionNumber first, then newest uploadedAt
+      const sorted = [...list].sort((a, b) => {
+        const revA = typeof a.revisionNumber === 'number' ? a.revisionNumber : 0;
+        const revB = typeof b.revisionNumber === 'number' ? b.revisionNumber : 0;
+        if (revB !== revA) return revB - revA;
+        return new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime();
+      });
+
+      // Active/latest document: prefer isLatest === true, else highest revision
+      const activeDoc = sorted.find(d => d.isLatest) || sorted[0];
+
+      return {
+        key,
+        activeDoc,
+        allVersions: sorted,
+        hasRevisions: sorted.length > 1
+      };
+    });
+
+    // Sort families by activeDoc uploadedAt descending
+    families.sort((a, b) => new Date(b.activeDoc.uploadedAt).getTime() - new Date(a.activeDoc.uploadedAt).getTime());
+
+    return families;
+  }, [documents]);
 
   const handleShareWhatsApp = async () => {
     if (!shareDoc || shareNumber === ' ') return;
@@ -337,6 +392,29 @@ export function ProjectDocumentUpload({ project, currentUser }: ProjectDocumentU
 
     setUploading(true);
     try {
+      const isRupsDoc = project.jobType === 'rups_t' || project.jobType === 'sirkuler' ||
+                        project.jobType === 'rups_lb' || project.jobType === 'sirkuler_rupslb' ||
+                        replaceDoc?.documentType === 'RUPST' || replaceDoc?.documentType === 'RUPSLB';
+
+      const rootParentId = replaceDoc ? (replaceDoc.parentDocumentId || replaceDoc.id) : undefined;
+      let nextRevNum = 0;
+      if (isReplace && replaceDoc && isRupsDoc) {
+        const family = documents.filter(d => (d.parentDocumentId === rootParentId || d.id === rootParentId));
+        const storedRevs = family.map(d => {
+          if (typeof d.revisionNumber === 'number') return d.revisionNumber;
+          const match = d.fileName.match(/\s+Revisi\s+(\d+)\.docx$/i);
+          return match ? parseInt(match[1], 10) : 0;
+        });
+        const maxStoredRev = Math.max(0, ...storedRevs);
+        nextRevNum = maxStoredRev + 1;
+      } else {
+        nextRevNum = replaceDoc?.revisionNumber ?? 0;
+      }
+
+      const targetFileName = (isReplace && replaceDoc && isRupsDoc)
+        ? DocumentVersioningService.getRevisionFileName(replaceDoc.fileName || file.name, nextRevNum)
+        : file.name;
+
       const token = await AuthService.getToken();
       const base64 = await toBase64(file);
       
@@ -347,7 +425,7 @@ export function ProjectDocumentUpload({ project, currentUser }: ProjectDocumentU
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
-          fileName: file.name,
+          fileName: targetFileName,
           mimeType: file.type,
           parentFolderId: driveFolderId,
           base64
@@ -396,25 +474,38 @@ export function ProjectDocumentUpload({ project, currentUser }: ProjectDocumentU
         }
       };
 
-      const docId = replaceDoc ? replaceDoc.id : crypto.randomUUID();
+      const docId = (isReplace && replaceDoc && isRupsDoc)
+        ? crypto.randomUUID()
+        : (replaceDoc ? replaceDoc.id : crypto.randomUUID());
+
+      const parentDocId = (isReplace && replaceDoc && isRupsDoc)
+        ? rootParentId
+        : undefined;
+
       const now = new Date().toISOString();
 
       const newDoc: UploadedDocument = {
         id: docId,
+        parentDocumentId: parentDocId,
         companyId: project.clientId,
         projectId: project.projectId,
         type: (replaceDoc ? replaceDoc.type : selectedType) as any,
         title: replaceDoc ? replaceDoc.title : title,
-        fileName: file.name,
+        fileName: targetFileName,
         mimeType: file.type,
         size: file.size,
         driveFileId,
         driveFolderId: driveFolderId,
         uploadedBy: currentUser?.name || 'Unknown',
         uploadedAt: now,
-        createdAt: replaceDoc ? replaceDoc.createdAt : now,
-        documentSource: 'manual',
-        documentCategory: replaceDoc ? (replaceDoc.documentCategory || mapTypeToCategory(replaceDoc.type || 'custom')) : mapTypeToCategory(selectedType)
+        savedAt: now,
+        createdAt: (isReplace && replaceDoc && !isRupsDoc) ? replaceDoc.createdAt : now,
+        documentSource: replaceDoc?.documentSource || 'manual',
+        documentCategory: replaceDoc ? (replaceDoc.documentCategory || mapTypeToCategory(replaceDoc.type || 'custom')) : mapTypeToCategory(selectedType),
+        revisionNumber: isRupsDoc ? nextRevNum : undefined,
+        versionStatus: isRupsDoc ? (nextRevNum === 0 ? 'versi awal' : 'revisi') : undefined,
+        isLatest: isRupsDoc ? true : undefined,
+        documentType: isRupsDoc ? (replaceDoc?.documentType || DocumentVersioningService.getDocumentType(project.jobType) || 'RUPST') : undefined
       };
 
       try {
@@ -424,48 +515,66 @@ export function ProjectDocumentUpload({ project, currentUser }: ProjectDocumentU
       }
       
       if (isReplace && replaceDoc) {
-        // Delete the replaced document's drive file
-        try {
-          await fetch(getApiUrl(`/api/v2/drive/delete-file/${replaceDoc.driveFileId}`), {
-            method: 'DELETE',
-            headers: { 'Authorization': `Bearer ${token}` }
-          });
-        } catch (e) {
-          console.warn("Could not delete old file from drive:", e);
-        }
-
-        // Clean up any duplicate records in project_uploaded_documents for this category/type
-        if (replaceDoc.documentCategory || replaceDoc.type) {
+        if (!isRupsDoc) {
+          // Delete the replaced document's drive file for non-RUPST documents
           try {
-            const catOrType = replaceDoc.documentCategory || mapTypeToCategory(replaceDoc.type || 'custom');
-            const dupQuery = query(
-              collection(db, 'project_uploaded_documents'),
-              where('projectId', '==', project.projectId),
-              where('documentCategory', '==', catOrType)
-            );
-            const dupSnap = await getDocs(dupQuery);
-            for (const dDoc of dupSnap.docs) {
-              if (dDoc.id !== replaceDoc.id) {
-                const dData = dDoc.data() as UploadedDocument;
-                if (dData.driveFileId) {
+            await fetch(getApiUrl(`/api/v2/drive/delete-file/${replaceDoc.driveFileId}`), {
+              method: 'DELETE',
+              headers: { 'Authorization': `Bearer ${token}` }
+            });
+          } catch (e) {
+            console.warn("Could not delete old file from drive:", e);
+          }
+
+          // Clean up any duplicate records in project_uploaded_documents for this category/type
+          if (replaceDoc.documentCategory || replaceDoc.type) {
+            try {
+              const catOrType = replaceDoc.documentCategory || mapTypeToCategory(replaceDoc.type || 'custom');
+              const dupQuery = query(
+                collection(db, 'project_uploaded_documents'),
+                where('projectId', '==', project.projectId),
+                where('documentCategory', '==', catOrType)
+              );
+              const dupSnap = await getDocs(dupQuery);
+              for (const dDoc of dupSnap.docs) {
+                if (dDoc.id !== replaceDoc.id) {
+                  const dData = dDoc.data() as UploadedDocument;
+                  if (dData.driveFileId) {
+                    try {
+                      await fetch(getApiUrl(`/api/v2/drive/delete-file/${dData.driveFileId}`), {
+                        method: 'DELETE',
+                        headers: { 'Authorization': `Bearer ${token}` }
+                      });
+                    } catch (e) {
+                      console.warn(`Could not delete duplicate file from drive for ${dData.driveFileId}:`, e);
+                    }
+                  }
                   try {
-                    await fetch(getApiUrl(`/api/v2/drive/delete-file/${dData.driveFileId}`), {
-                      method: 'DELETE',
-                      headers: { 'Authorization': `Bearer ${token}` }
-                    });
+                    await deleteDoc(dDoc.ref);
                   } catch (e) {
-                    console.warn(`Could not delete duplicate file from drive for ${dData.driveFileId}:`, e);
+                    console.warn(`Could not delete duplicate document record ${dDoc.id}:`, e);
                   }
                 }
-                try {
-                  await deleteDoc(dDoc.ref);
-                } catch (e) {
-                  console.warn(`Could not delete duplicate document record ${dDoc.id}:`, e);
-                }
               }
+            } catch (e) {
+              console.warn("Error cleaning up duplicate document records:", e);
             }
-          } catch (e) {
-            console.warn("Error cleaning up duplicate document records:", e);
+          }
+        } else {
+          // For RUPST/RUPSLB: PRESERVE old Drive file! PRESERVE old Firestore record!
+          // Mark all previous versions in this family as isLatest: false
+          const familyToUpdate = documents.filter(d => (d.parentDocumentId === rootParentId || d.id === rootParentId));
+          for (const prevDoc of familyToUpdate) {
+            try {
+              await updateDoc(doc(db, 'project_uploaded_documents', prevDoc.id), {
+                isLatest: false,
+                parentDocumentId: rootParentId,
+                revisionNumber: typeof prevDoc.revisionNumber === 'number' ? prevDoc.revisionNumber : 0,
+                versionStatus: (prevDoc.revisionNumber && prevDoc.revisionNumber > 0) ? 'revisi' : 'versi awal'
+              });
+            } catch (e) {
+              console.warn("Could not update old record isLatest in Firestore:", e);
+            }
           }
         }
       }
@@ -654,198 +763,310 @@ export function ProjectDocumentUpload({ project, currentUser }: ProjectDocumentU
           </div>
         ) : (
           <div className="divide-y divide-slate-100/70">
-            {documents.map(docObj => {
+            {documentFamilies.map(fam => {
+              const docObj = fam.activeDoc;
               const isMenuOpen = activeMenuId === docObj.id;
               const canPreview = docObj.mimeType.includes('pdf') || docObj.mimeType.includes('image');
+              const isHistoryOpen = !!expandedRevisions[fam.key];
 
               return (
-                <div 
-                  key={docObj.id} 
-                  className="group relative p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-slate-50/50 transition-colors"
-                >
-                  {/* Left: Icon & File Info */}
-                  <div className="flex items-start gap-4 min-w-0 flex-1">
-                    <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 border transition-all group-hover:scale-102 ${getFileIconBgClass(docObj.mimeType)}`}>
-                      {getFileIcon(docObj.mimeType)}
+                <div key={docObj.id} className="divide-y divide-slate-100/40">
+                  <div 
+                    className="group relative p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-slate-50/50 transition-colors"
+                  >
+                    {/* Left: Icon & File Info */}
+                    <div className="flex items-start gap-4 min-w-0 flex-1">
+                      <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 border transition-all group-hover:scale-102 ${getFileIconBgClass(docObj.mimeType)}`}>
+                        {getFileIcon(docObj.mimeType)}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2.5 flex-wrap">
+                          <h4 
+                            className="font-bold text-slate-800 text-[13.5px] leading-snug tracking-tight hover:text-blue-600 transition-colors cursor-pointer"
+                            onClick={() => canPreview ? setPreviewDoc(docObj) : window.open(`https://drive.google.com/file/d/${docObj.driveFileId}/view`, '_blank')}
+                          >
+                            {docObj.title}
+                          </h4>
+
+                          {/* Version Badge */}
+                          {typeof docObj.revisionNumber === 'number' && docObj.revisionNumber > 0 ? (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-100 text-blue-800 border border-blue-200 uppercase tracking-wider">
+                              Revisi {docObj.revisionNumber} (Terbaru)
+                            </span>
+                          ) : (docObj.versionStatus === 'versi awal' || docObj.revisionNumber === 0) ? (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/60 uppercase tracking-wider">
+                              Versi Awal
+                            </span>
+                          ) : null}
+
+                          {docObj.documentSource === 'generated' ? (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold bg-slate-100 text-slate-600 border border-slate-200/50 uppercase tracking-wider">
+                              Hasil Generate
+                            </span>
+                          ) : docObj.documentSource === 'drive_sync' ? (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200/60 uppercase tracking-wider">
+                              Sync Drive
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold bg-slate-50 text-slate-500 border border-slate-200/30 uppercase tracking-wider">
+                              Upload Manual
+                            </span>
+                          )}
+
+                          {/* Revision History Toggle */}
+                          {fam.hasRevisions && (
+                            <button
+                              type="button"
+                              onClick={() => toggleRevisions(fam.key)}
+                              className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200/60 transition-colors cursor-pointer"
+                              title="Tampilkan riwayat semua revisi sebelumnya"
+                            >
+                              <History className="w-3.5 h-3.5 text-indigo-600" />
+                              <span>Riwayat Revisi ({fam.allVersions.length} versi)</span>
+                              {isHistoryOpen ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                            </button>
+                          )}
+                        </div>
+                        <p className="text-[11px] text-slate-400 font-mono mt-1 truncate max-w-lg" title={docObj.fileName}>
+                          {docObj.fileName}
+                        </p>
+                        <div className="text-[11px] text-slate-400/90 mt-1.5 flex items-center gap-2 flex-wrap font-medium">
+                          <span className="text-slate-500">{(docObj.size / 1024 / 1024).toFixed(2)} MB</span>
+                          <span className="text-slate-300">•</span>
+                          <span>{new Date(docObj.uploadedAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                          <span className="text-slate-300">•</span>
+                          <span className="inline-flex items-center gap-1">
+                            Oleh: {docObj.uploadedBy}
+                          </span>
+                        </div>
+                      </div>
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2.5 flex-wrap">
-                        <h4 
-                          className="font-bold text-slate-800 text-[13.5px] leading-snug tracking-tight hover:text-blue-600 transition-colors cursor-pointer"
-                          onClick={() => canPreview ? setPreviewDoc(docObj) : window.open(`https://drive.google.com/file/d/${docObj.driveFileId}/view`, '_blank')}
+
+                    {/* Right: Actions */}
+                    <div className="flex items-center justify-end gap-1.5 shrink-0">
+                      {canPreview && (
+                        <button
+                          onClick={() => setPreviewDoc(docObj)}
+                          className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50/80 rounded-lg transition-all duration-150"
+                          title="Preview Versi Terbaru"
                         >
-                          {docObj.title}
-                        </h4>
-                        {docObj.documentSource === 'generated' ? (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold bg-slate-100 text-slate-600 border border-slate-200/50 uppercase tracking-wider">
-                            Hasil Generate
-                          </span>
-                        ) : docObj.documentSource === 'drive_sync' ? (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200/60 uppercase tracking-wider">
-                            Sync Drive
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold bg-slate-50 text-slate-500 border border-slate-200/30 uppercase tracking-wider">
-                            Upload Manual
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-[11px] text-slate-400 font-mono mt-1 truncate max-w-lg" title={docObj.fileName}>
-                        {docObj.fileName}
-                      </p>
-                      <div className="text-[11px] text-slate-400/90 mt-1.5 flex items-center gap-2 flex-wrap font-medium">
-                        <span className="text-slate-500">{(docObj.size / 1024 / 1024).toFixed(2)} MB</span>
-                        <span className="text-slate-300">•</span>
-                        <span>{new Date(docObj.uploadedAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
-                        <span className="text-slate-300">•</span>
-                        <span className="inline-flex items-center gap-1">
-                          Oleh: {docObj.uploadedBy}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Right: Actions */}
-                  <div className="flex items-center justify-end gap-1.5 shrink-0">
-                    {canPreview && (
-                      <button
-                        onClick={() => setPreviewDoc(docObj)}
-                        className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50/80 rounded-lg transition-all duration-150"
-                        title="Preview"
-                      >
-                        <Eye className="w-4 h-4" />
-                      </button>
-                    )}
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setShareDoc(docObj);
-                      }}
-                      className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50/80 rounded-lg transition-all duration-150"
-                      title="Kirim via WhatsApp"
-                    >
-                      <Share2 className="w-4 h-4" />
-                    </button>
-                    <a
-                      href={`https://drive.google.com/uc?export=download&id=${docObj.driveFileId}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50/80 rounded-lg transition-all duration-150"
-                      title="Download"
-                    >
-                      <Download className="w-4 h-4" />
-                    </a>
-
-                    <div className="relative">
+                          <Eye className="w-4 h-4" />
+                        </button>
+                      )}
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          setActiveMenuId(isMenuOpen ? null : docObj.id);
+                          setShareDoc(docObj);
                         }}
-                        className={`p-2 rounded-lg transition-all duration-150 ${isMenuOpen ? 'bg-slate-100 text-slate-700' : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100'}`}
-                        title="Menu Aksi"
+                        className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50/80 rounded-lg transition-all duration-150"
+                        title="Kirim via WhatsApp"
                       >
-                        <MoreVertical className="w-4 h-4" />
+                        <Share2 className="w-4 h-4" />
                       </button>
+                      <a
+                        href={`https://drive.google.com/uc?export=download&id=${docObj.driveFileId}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50/80 rounded-lg transition-all duration-150"
+                        title="Unduh Dokumen Terbaru"
+                      >
+                        <Download className="w-4 h-4" />
+                      </a>
 
-                      {isMenuOpen && (
-                        <>
-                          <div 
-                            className="fixed inset-0 z-40 cursor-default" 
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setActiveMenuId(null);
-                            }} 
-                          />
-                          <div className="absolute right-0 mt-2 w-48 rounded-xl bg-white border border-slate-200/80 shadow-lg ring-1 ring-black/5 z-50 py-1.5 divide-y divide-slate-100 origin-top-right animate-in fade-in duration-100">
-                            <div className="py-1">
-                              {canPreview && (
+                      <div className="relative">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActiveMenuId(isMenuOpen ? null : docObj.id);
+                          }}
+                          className={`p-2 rounded-lg transition-all duration-150 ${isMenuOpen ? 'bg-slate-100 text-slate-700' : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100'}`}
+                          title="Menu Aksi"
+                        >
+                          <MoreVertical className="w-4 h-4" />
+                        </button>
+
+                        {isMenuOpen && (
+                          <>
+                            <div 
+                              className="fixed inset-0 z-40 cursor-default" 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setActiveMenuId(null);
+                              }} 
+                            />
+                            <div className="absolute right-0 mt-2 w-48 rounded-xl bg-white border border-slate-200/80 shadow-lg ring-1 ring-black/5 z-50 py-1.5 divide-y divide-slate-100 origin-top-right animate-in fade-in duration-100">
+                              <div className="py-1">
+                                {canPreview && (
+                                  <button
+                                    onClick={() => {
+                                      setPreviewDoc(docObj);
+                                      setActiveMenuId(null);
+                                    }}
+                                    className="w-full text-left px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2.5 transition-colors"
+                                  >
+                                    <Eye className="w-4 h-4 text-slate-400" />
+                                    <span>Preview</span>
+                                  </button>
+                                )}
+                                <a
+                                  href={`https://drive.google.com/file/d/${docObj.driveFileId}/view`}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  onClick={() => setActiveMenuId(null)}
+                                  className="w-full text-left px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2.5 transition-colors"
+                                >
+                                  <ExternalLink className="w-4 h-4 text-slate-400" />
+                                  <span>Buka di Drive</span>
+                                </a>
+                                <a
+                                  href={`https://drive.google.com/uc?export=download&id=${docObj.driveFileId}`}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  onClick={() => setActiveMenuId(null)}
+                                  className="w-full text-left px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2.5 transition-colors"
+                                >
+                                  <Download className="w-4 h-4 text-slate-400" />
+                                  <span>Unduh Berkas</span>
+                                </a>
                                 <button
                                   onClick={() => {
-                                    setPreviewDoc(docObj);
+                                    setShareDoc(docObj);
                                     setActiveMenuId(null);
                                   }}
                                   className="w-full text-left px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2.5 transition-colors"
                                 >
-                                  <Eye className="w-4 h-4 text-slate-400" />
-                                  <span>Preview</span>
+                                  <Share2 className="w-4 h-4 text-slate-400" />
+                                  <span>Kirim via WhatsApp</span>
                                 </button>
-                              )}
-                              <a
-                                href={`https://drive.google.com/file/d/${docObj.driveFileId}/view`}
-                                target="_blank"
-                                rel="noreferrer"
-                                onClick={() => setActiveMenuId(null)}
-                                className="w-full text-left px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2.5 transition-colors"
-                              >
-                                <ExternalLink className="w-4 h-4 text-slate-400" />
-                                <span>Buka di Drive</span>
-                              </a>
-                              <a
-                                href={`https://drive.google.com/uc?export=download&id=${docObj.driveFileId}`}
-                                target="_blank"
-                                rel="noreferrer"
-                                onClick={() => setActiveMenuId(null)}
-                                className="w-full text-left px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2.5 transition-colors"
-                              >
-                                <Download className="w-4 h-4 text-slate-400" />
-                                <span>Unduh Berkas</span>
-                              </a>
-                              <button
-                                onClick={() => {
-                                  setShareDoc(docObj);
-                                  setActiveMenuId(null);
-                                }}
-                                className="w-full text-left px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2.5 transition-colors"
-                              >
-                                <Share2 className="w-4 h-4 text-slate-400" />
-                                <span>Kirim via WhatsApp</span>
-                              </button>
 
-                              <button
-                                onClick={() => {
-                                  const link = `https://drive.google.com/file/d/${docObj.driveFileId}/view`;
-                                  navigator.clipboard.writeText(link);
-                                  alert('Link Google Drive disalin ke clipboard!');
-                                  setActiveMenuId(null);
-                                }}
-                                className="w-full text-left px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2.5 transition-colors"
-                              >
-                                <Copy className="w-4 h-4 text-slate-400" />
-                                <span>Salin Link</span>
-                              </button>
+                                <button
+                                  onClick={() => {
+                                    const link = `https://drive.google.com/file/d/${docObj.driveFileId}/view`;
+                                    navigator.clipboard.writeText(link);
+                                    alert('Link Google Drive disalin ke clipboard!');
+                                    setActiveMenuId(null);
+                                  }}
+                                  className="w-full text-left px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2.5 transition-colors"
+                                >
+                                  <Copy className="w-4 h-4 text-slate-400" />
+                                  <span>Salin Link</span>
+                                </button>
 
-                              <button
-                                onClick={() => {
-                                  setDocumentToReplace(docObj);
-                                  setActiveMenuId(null);
-                                  if (fileInputRef.current) {
-                                    fileInputRef.current.click();
-                                  }
-                                }}
-                                className="w-full text-left px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2.5 transition-colors"
-                              >
-                                <RefreshCw className="w-4 h-4 text-slate-400" />
-                                <span>Ganti Berkas</span>
-                              </button>
+                                <button
+                                  onClick={() => {
+                                    setDocumentToReplace(docObj);
+                                    setActiveMenuId(null);
+                                    if (fileInputRef.current) {
+                                      fileInputRef.current.click();
+                                    }
+                                  }}
+                                  className="w-full text-left px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2.5 transition-colors"
+                                >
+                                  <RefreshCw className="w-4 h-4 text-slate-400" />
+                                  <span>Ganti Berkas</span>
+                                </button>
+                              </div>
+                              <div className="py-1">
+                                <button
+                                  onClick={() => {
+                                    handleDelete(docObj);
+                                    setActiveMenuId(null);
+                                  }}
+                                  className="w-full text-left px-3.5 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 flex items-center gap-2.5 transition-colors"
+                                >
+                                  <Trash2 className="w-4 h-4 text-red-500" />
+                                  <span>Hapus Dokumen</span>
+                                </button>
+                              </div>
                             </div>
-                            <div className="py-1">
-                              <button
-                                onClick={() => {
-                                  handleDelete(docObj);
-                                  setActiveMenuId(null);
-                                }}
-                                className="w-full text-left px-3.5 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 flex items-center gap-2.5 transition-colors"
-                              >
-                                <Trash2 className="w-4 h-4 text-red-500" />
-                                <span>Hapus Dokumen</span>
-                              </button>
-                            </div>
-                          </div>
-                        </>
-                      )}
+                          </>
+                        )}
+                      </div>
                     </div>
                   </div>
+
+                  {/* Collapsible Revision History Sub-list */}
+                  {fam.hasRevisions && isHistoryOpen && (
+                    <div className="bg-slate-50/70 p-4 pl-6 sm:pl-16 border-t border-slate-100 animate-in fade-in duration-150 space-y-2">
+                      <div className="flex items-center gap-2 text-xs font-bold text-slate-700 mb-2">
+                        <History className="w-4 h-4 text-indigo-600" />
+                        <span>Riwayat Lengkap Versi Dokumen ({fam.allVersions.length} Versi Tersimpan):</span>
+                      </div>
+                      <div className="space-y-2">
+                        {fam.allVersions.map((rev) => {
+                          const isCurrentActive = rev.id === docObj.id;
+                          const revCanPreview = rev.mimeType.includes('pdf') || rev.mimeType.includes('image');
+                          return (
+                            <div 
+                              key={rev.id}
+                              className={`flex flex-col sm:flex-row sm:items-center justify-between p-3 rounded-lg border text-xs gap-3 ${isCurrentActive ? 'bg-blue-50/60 border-blue-200' : 'bg-white border-slate-200 hover:bg-slate-50'}`}
+                            >
+                              <div className="flex items-center gap-3 min-w-0 flex-1">
+                                <div className="shrink-0 flex items-center gap-1.5">
+                                  {typeof rev.revisionNumber === 'number' && rev.revisionNumber > 0 ? (
+                                    <span className="px-2 py-0.5 rounded font-bold text-[10px] bg-blue-100 text-blue-800 border border-blue-200">
+                                      Revisi {rev.revisionNumber}
+                                    </span>
+                                  ) : (
+                                    <span className="px-2 py-0.5 rounded font-bold text-[10px] bg-slate-100 text-slate-700 border border-slate-200">
+                                      Versi Awal
+                                    </span>
+                                  )}
+                                  {isCurrentActive && (
+                                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded font-bold text-[9px] bg-emerald-100 text-emerald-800">
+                                      <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                      Aktif
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <p className="font-semibold text-slate-800 truncate" title={rev.fileName}>
+                                    {rev.fileName}
+                                  </p>
+                                  <div className="text-[10.5px] text-slate-400 mt-0.5 flex items-center gap-2">
+                                    <span>{(rev.size / 1024 / 1024).toFixed(2)} MB</span>
+                                    <span>•</span>
+                                    <span>{new Date(rev.uploadedAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                                    <span>•</span>
+                                    <span>Oleh: {rev.uploadedBy}</span>
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="flex items-center gap-2 shrink-0">
+                                {revCanPreview && (
+                                  <button
+                                    onClick={() => setPreviewDoc(rev)}
+                                    className="px-2.5 py-1 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded font-medium border border-slate-200 text-[11px] transition-colors"
+                                  >
+                                    Preview
+                                  </button>
+                                )}
+                                <a
+                                  href={`https://drive.google.com/file/d/${rev.driveFileId}/view`}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="px-2.5 py-1 text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 rounded font-medium border border-slate-200 text-[11px] flex items-center gap-1 transition-colors"
+                                >
+                                  <ExternalLink className="w-3 h-3" />
+                                  <span>Buka Drive</span>
+                                </a>
+                                <a
+                                  href={`https://drive.google.com/uc?export=download&id=${rev.driveFileId}`}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded font-medium text-[11px] flex items-center gap-1 transition-colors shadow-xs"
+                                >
+                                  <Download className="w-3 h-3" />
+                                  <span>Unduh</span>
+                                </a>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
               );
             })}

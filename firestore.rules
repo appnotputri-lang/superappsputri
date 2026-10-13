@@ -53,7 +53,13 @@ service cloud.firestore {
         && data.uploadedAt is string && data.uploadedAt.size() <= 128
         && data.createdAt is string && data.createdAt.size() <= 128
         && (!('documentSource' in data) || (data.documentSource is string && (data.documentSource == 'generated' || data.documentSource == 'manual' || data.documentSource == 'drive_sync')))
-        && (!('documentCategory' in data) || (data.documentCategory is string && (data.documentCategory == 'draft_akta' || data.documentCategory == 'notulen' || data.documentCategory == 'surat_pernyataan' || data.documentCategory == 'scan_akta' || data.documentCategory == 'scan_notulen' || data.documentCategory == 'sksp' || data.documentCategory == 'custom')));
+        && (!('documentCategory' in data) || (data.documentCategory is string && (data.documentCategory == 'draft_akta' || data.documentCategory == 'notulen' || data.documentCategory == 'surat_pernyataan' || data.documentCategory == 'scan_akta' || data.documentCategory == 'scan_notulen' || data.documentCategory == 'sksp' || data.documentCategory == 'custom')))
+        && (!('parentDocumentId' in data) || (data.parentDocumentId is string && data.parentDocumentId.size() <= 128))
+        && (!('revisionNumber' in data) || (data.revisionNumber is number && data.revisionNumber >= 0))
+        && (!('versionStatus' in data) || (data.versionStatus is string && (data.versionStatus == 'versi awal' || data.versionStatus == 'revisi')))
+        && (!('isLatest' in data) || (data.isLatest is bool))
+        && (!('documentType' in data) || (data.documentType is string && (data.documentType == 'RUPST' || data.documentType == 'RUPSLB')))
+        && (!('savedAt' in data) || (data.savedAt is string && data.savedAt.size() <= 128));
     }
 
     // ---------------------------------------------------------

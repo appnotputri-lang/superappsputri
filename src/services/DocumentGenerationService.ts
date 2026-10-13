@@ -4,6 +4,7 @@ import { doc, getDoc, setDoc, getDocs, collection, query, where, deleteDoc } fro
 import { AuthService } from './AuthService';
 import { Project, DocumentReference } from '../domain/project/Project';
 import { INITIAL_STATE } from '../domain/company/initialCompanyData';
+import { DocumentVersioningService } from './DocumentVersioningService';
 
 export interface UploadedDocument {
   id: string;
@@ -268,169 +269,182 @@ export class DocumentGenerationService {
 
       const { filename, blob } = genResult;
 
-      // Check if documents with matching title or category already exist for this project
-      const docQuery = query(
-        collection(db, 'project_uploaded_documents'),
-        where('projectId', '==', projectId)
-      );
-      const docSnap = await getDocs(docQuery);
-      const allDocsForProject = !docSnap.empty ? docSnap.docs.map(d => ({ ref: d.ref, data: d.data() as UploadedDocument })) : [];
-      
-      const existingDocList = allDocsForProject.filter(d => {
-        if (item.title && d.data.title) {
-          return d.data.title === item.title;
-        }
-        return d.data.documentCategory === item.category;
-      });
-      const existingDoc = existingDocList.length > 0 ? existingDocList[0].data : null;
+      const isRups = jobType === 'rups_t' || jobType === 'sirkuler' || jobType === 'rups_lb' || jobType === 'sirkuler_rupslb';
 
-      // Convert blob to base64
-      const toBase64 = (b: Blob): Promise<string> => {
-        return new Promise((resolve, reject) => {
-          const reader = new FileReader();
-          reader.readAsDataURL(b);
-          reader.onload = () => {
-            const result = reader.result as string;
-            resolve(result.split(',')[1]);
-          };
-          reader.onerror = error => reject(error);
-        });
-      };
-
-      const base64 = await toBase64(blob);
-
-      let response;
-      if (existingDoc) {
-        // Replace file in Google Drive
-        response = await fetch(getApiUrl('/api/v2/drive/upload-file'), {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({
-            fileName: filename,
-            mimeType: blob.type || 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-            parentFolderId: driveFolderId,
-            base64
-          })
-        });
-
-        if (!response.ok) {
-          let errMsg = `Gagal mengunggah file hasil generate ${item.label} baru ke Google Drive. Status: ${response.status}`;
-          try {
-            const errData = await response.json();
-            errMsg = errData.error || errMsg;
-          } catch (e) {
-            try {
-              const textMsg = await response.text();
-              if (textMsg) errMsg = `${errMsg}. Detail: ${textMsg.substring(0, 200)}`;
-            } catch (_) {}
-          }
-          throw new Error(errMsg);
-        }
-
-        let driveData;
-        try {
-          driveData = await response.json();
-        } catch (e) {
-          throw new Error(`Respons dari Google Drive upload tidak valid (bukan JSON).`);
-        }
-        const newDriveFileId = driveData.file.id;
-
-        // Delete ALL old files matching this category from Drive & delete extra Firestore records if duplicates exist
-        for (let i = 0; i < existingDocList.length; i++) {
-          const docItem = existingDocList[i];
-          if (docItem.data.driveFileId) {
-            try {
-              await fetch(getApiUrl(`/api/v2/drive/delete-file/${docItem.data.driveFileId}`), {
-                method: 'DELETE',
-                headers: { 'Authorization': `Bearer ${token}` }
-              });
-            } catch (e) {
-              console.warn(`Could not delete old file from drive for ${docItem.data.driveFileId}:`, e);
-            }
-          }
-          if (i > 0) {
-            try {
-              await deleteDoc(docItem.ref);
-            } catch (e) {
-              console.warn(`Could not delete duplicate document record ${docItem.data.id}:`, e);
-            }
-          }
-        }
-
-        // Update metadata in project_uploaded_documents
-        const updatedDoc: UploadedDocument = {
-          ...existingDoc,
-          fileName: filename,
-          mimeType: blob.type || 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-          size: blob.size,
-          driveFileId: newDriveFileId,
-          uploadedBy: nameToUse,
-          uploadedAt: new Date().toISOString()
-        };
-
-        await setDoc(doc(db, 'project_uploaded_documents', existingDoc.id), updatedDoc);
-      } else {
-        // Create new document in Google Drive and project_uploaded_documents
-        response = await fetch(getApiUrl('/api/v2/drive/upload-file'), {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({
-            fileName: filename,
-            mimeType: blob.type || 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-            parentFolderId: driveFolderId,
-            base64
-          })
-        });
-
-        if (!response.ok) {
-          let errMsg = `Gagal mengunggah file hasil generate ${item.label} ke Google Drive. Status: ${response.status}`;
-          try {
-            const errData = await response.json();
-            errMsg = errData.error || errMsg;
-          } catch (e) {
-            try {
-              const textMsg = await response.text();
-              if (textMsg) errMsg = `${errMsg}. Detail: ${textMsg.substring(0, 200)}`;
-            } catch (_) {}
-          }
-          throw new Error(errMsg);
-        }
-
-        let driveData;
-        try {
-          driveData = await response.json();
-        } catch (e) {
-          throw new Error(`Respons dari Google Drive upload tidak valid (bukan JSON).`);
-        }
-        const driveFileId = driveData.file.id;
-
-        const docId = crypto.randomUUID();
-        const nowStr = new Date().toISOString();
-
-        const newDoc: UploadedDocument = {
-          id: docId,
+      if (isRups) {
+        // Apply non-destructive revision versioning system for RUPST & RUPSLB
+        await DocumentVersioningService.saveDocumentWithVersioning({
+          projectId,
           companyId: project.clientId || '',
-          projectId: projectId,
-          title: item.title || (item.category === 'draft_akta' ? (jobType === 'pendirian_pt' ? 'Akta Pendirian' : 'Draft Akta') : (item.category === 'notulen' ? 'Draft Notulen / Sirkuler' : 'Surat Pernyataan')),
-          fileName: filename,
-          mimeType: blob.type || 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-          size: blob.size,
-          driveFileId,
           driveFolderId,
-          uploadedBy: nameToUse,
-          uploadedAt: nowStr,
-          createdAt: nowStr,
-          documentSource: 'generated',
-          documentCategory: item.category
+          category: item.category,
+          title: item.title || (item.category === 'draft_akta' ? (jobType === 'rups_t' || jobType === 'sirkuler' ? 'Draft Akta RUPST' : 'Draft Akta RUPS LB') : (item.category === 'notulen' ? (jobType === 'rups_t' || jobType === 'sirkuler' ? 'Notulen / Sirkuler RUPST' : 'Draft Notulen / Sirkuler') : 'Surat Pernyataan')),
+          baseFileName: filename,
+          blob,
+          jobType,
+          userName: nameToUse,
+          token
+        });
+      } else {
+        // Fallback for non-RUPST/RUPSLB documents (e.g. pendirian_pt): existing workflow preserved
+        const docQuery = query(
+          collection(db, 'project_uploaded_documents'),
+          where('projectId', '==', projectId)
+        );
+        const docSnap = await getDocs(docQuery);
+        const allDocsForProject = !docSnap.empty ? docSnap.docs.map(d => ({ ref: d.ref, data: d.data() as UploadedDocument })) : [];
+        
+        const existingDocList = allDocsForProject.filter(d => {
+          if (item.title && d.data.title) {
+            return d.data.title === item.title;
+          }
+          return d.data.documentCategory === item.category;
+        });
+        const existingDoc = existingDocList.length > 0 ? existingDocList[0].data : null;
+
+        const toBase64 = (b: Blob): Promise<string> => {
+          return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(b);
+            reader.onload = () => {
+              const result = reader.result as string;
+              resolve(result.split(',')[1]);
+            };
+            reader.onerror = error => reject(error);
+          });
         };
 
-        await setDoc(doc(db, 'project_uploaded_documents', docId), newDoc);
+        const base64 = await toBase64(blob);
+
+        let response;
+        if (existingDoc) {
+          response = await fetch(getApiUrl('/api/v2/drive/upload-file'), {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+              fileName: filename,
+              mimeType: blob.type || 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+              parentFolderId: driveFolderId,
+              base64
+            })
+          });
+
+          if (!response.ok) {
+            let errMsg = `Gagal mengunggah file hasil generate ${item.label} baru ke Google Drive. Status: ${response.status}`;
+            try {
+              const errData = await response.json();
+              errMsg = errData.error || errMsg;
+            } catch (e) {
+              try {
+                const textMsg = await response.text();
+                if (textMsg) errMsg = `${errMsg}. Detail: ${textMsg.substring(0, 200)}`;
+              } catch (_) {}
+            }
+            throw new Error(errMsg);
+          }
+
+          let driveData;
+          try {
+            driveData = await response.json();
+          } catch (e) {
+            throw new Error(`Respons dari Google Drive upload tidak valid (bukan JSON).`);
+          }
+          const newDriveFileId = driveData.file.id;
+
+          for (let i = 0; i < existingDocList.length; i++) {
+            const docItem = existingDocList[i];
+            if (docItem.data.driveFileId) {
+              try {
+                await fetch(getApiUrl(`/api/v2/drive/delete-file/${docItem.data.driveFileId}`), {
+                  method: 'DELETE',
+                  headers: { 'Authorization': `Bearer ${token}` }
+                });
+              } catch (e) {
+                console.warn(`Could not delete old file from drive for ${docItem.data.driveFileId}:`, e);
+              }
+            }
+            if (i > 0) {
+              try {
+                await deleteDoc(docItem.ref);
+              } catch (e) {
+                console.warn(`Could not delete duplicate document record ${docItem.data.id}:`, e);
+              }
+            }
+          }
+
+          const updatedDoc: UploadedDocument = {
+            ...existingDoc,
+            fileName: filename,
+            mimeType: blob.type || 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            size: blob.size,
+            driveFileId: newDriveFileId,
+            uploadedBy: nameToUse,
+            uploadedAt: new Date().toISOString()
+          };
+
+          await setDoc(doc(db, 'project_uploaded_documents', existingDoc.id), updatedDoc);
+        } else {
+          response = await fetch(getApiUrl('/api/v2/drive/upload-file'), {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+              fileName: filename,
+              mimeType: blob.type || 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+              parentFolderId: driveFolderId,
+              base64
+            })
+          });
+
+          if (!response.ok) {
+            let errMsg = `Gagal mengunggah file hasil generate ${item.label} ke Google Drive. Status: ${response.status}`;
+            try {
+              const errData = await response.json();
+              errMsg = errData.error || errMsg;
+            } catch (e) {
+              try {
+                const textMsg = await response.text();
+                if (textMsg) errMsg = `${errMsg}. Detail: ${textMsg.substring(0, 200)}`;
+              } catch (_) {}
+            }
+            throw new Error(errMsg);
+          }
+
+          let driveData;
+          try {
+            driveData = await response.json();
+          } catch (e) {
+            throw new Error(`Respons dari Google Drive upload tidak valid (bukan JSON).`);
+          }
+          const driveFileId = driveData.file.id;
+
+          const docId = crypto.randomUUID();
+          const nowStr = new Date().toISOString();
+
+          const newDoc: UploadedDocument = {
+            id: docId,
+            companyId: project.clientId || '',
+            projectId: projectId,
+            title: item.title || (item.category === 'draft_akta' ? (jobType === 'pendirian_pt' ? 'Akta Pendirian' : 'Draft Akta') : (item.category === 'notulen' ? 'Draft Notulen / Sirkuler' : 'Surat Pernyataan')),
+            fileName: filename,
+            mimeType: blob.type || 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            size: blob.size,
+            driveFileId,
+            driveFolderId,
+            uploadedBy: nameToUse,
+            uploadedAt: nowStr,
+            createdAt: nowStr,
+            documentSource: 'generated',
+            documentCategory: item.category
+          };
+
+          await setDoc(doc(db, 'project_uploaded_documents', docId), newDoc);
+        }
       }
     }
   }

@@ -19,7 +19,13 @@
         "uploadedAt": { "type": "string" },
         "createdAt": { "type": "string" },
         "documentSource": { "type": "string", "enum": ["generated", "manual"] },
-        "documentCategory": { "type": "string", "enum": ["draft_akta", "notulen", "surat_pernyataan", "scan_akta", "scan_notulen", "sksp", "custom"] }
+        "documentCategory": { "type": "string", "enum": ["draft_akta", "notulen", "surat_pernyataan", "scan_akta", "scan_notulen", "sksp", "custom"] },
+        "parentDocumentId": { "type": "string" },
+        "revisionNumber": { "type": "number" },
+        "versionStatus": { "type": "string", "enum": ["versi awal", "revisi"] },
+        "isLatest": { "type": "boolean" },
+        "documentType": { "type": "string", "enum": ["RUPST", "RUPSLB"] },
+        "savedAt": { "type": "string" }
       },
       "required": ["id", "companyId", "projectId", "title", "fileName", "mimeType", "size", "driveFileId", "driveFolderId", "uploadedBy", "uploadedAt", "createdAt"]
     },

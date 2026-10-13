@@ -3,10 +3,10 @@ import {
   Plus, ChevronDown, ChevronRight, Loader2, Save, Download, Trash2, Edit, Eye, 
   FileText, FileCode, ArrowRight, Info, AlertCircle, Trash, Check, X,
   SlidersHorizontal, ChevronLeft, HelpCircle, RefreshCw, Send, CheckCircle2, AlertTriangle, Briefcase, FileBadge,
-  UserPlus, ShieldAlert, KeyRound, Building, PlusCircle
+  UserPlus, ShieldAlert, KeyRound, Building, PlusCircle, ExternalLink, ArrowLeft
 } from 'lucide-react';
 import { db } from '../../../lib/firebase';
-import { doc, setDoc, deleteDoc, getDoc } from 'firebase/firestore';
+import { doc, setDoc, deleteDoc, getDoc, collection, onSnapshot, query } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from '../../../lib/firebase';
 import { sanitizeForFirestore } from '../../../utils/sanitize';
 import { ProjectService } from '../../../services/ProjectService';
@@ -16,6 +16,8 @@ import { DocumentGenerationService } from '../../../services/DocumentGenerationS
 import { DocumentStatusBadge } from '../../../../components/DocumentStatusBadge';
 import { AhuSection, AhuLabel, AhuInput, AhuSelect, AhuMasaJabatanSelector } from '../../../../App';
 import { INITIAL_STATE } from '../../../domain/company/initialCompanyData';
+import { DocumentDraftService, UnifiedDraftItem } from '../../../services/DocumentDraftService';
+import { DocumentDraftListView, DownloadOption } from '../components/DocumentDraftListView';
 
 import { History, Archive, Coins, Users, FileSignature, CheckSquare, XCircle, Search, Calendar, Play, ArrowRightLeft, TrendingUp, MapPin } from 'lucide-react';
 import JSZip from 'jszip';
