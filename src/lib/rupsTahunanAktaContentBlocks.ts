@@ -136,11 +136,18 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
     return 10;
   };
 
+  const isSirkuler = data.rupstType === "sirkuler";
+
   // Total shares and attending shares
   const totalShares =
     data.shareholders.reduce((sum, s) => sum + (s.sharesOwned || 0), 0) || 1010;
+
+  const validShareholders = isSirkuler
+    ? data.shareholders.filter((s) => (Number(s.sharesOwned) || 0) > 0)
+    : data.shareholders;
+
   const attendingShareholders =
-    data.shareholders.filter((s) => s.isPresent !== false) || [];
+    validShareholders.filter((s) => s.isPresent !== false) || [];
 
   attendingShareholders.sort((a, b) => {
     const rankA = a.isManagement ? getPosRank(a.managementPosition) : 99;
@@ -159,13 +166,13 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
   // Rep details (Usually the person appearing before the Notary to state the resolutions)
   let rep: any;
   if (data.representativeType === "EXISTING") {
-    const found = data.shareholders.find(
+    const found = validShareholders.find(
       (s) => s.id === data.authorizedRepresentativeId,
     );
     if (found) {
       rep = found.isProxy && found.proxyData ? found.proxyData : found;
     } else {
-      const chairSh = data.shareholders.find(
+      const chairSh = validShareholders.find(
         (s) =>
           (s.name || "").toUpperCase() ===
           (data.meetingChair || "").toUpperCase(),
@@ -173,7 +180,7 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
       rep =
         chairSh?.isProxy && chairSh.proxyData
           ? chairSh.proxyData
-          : chairSh || data.shareholders[0];
+          : chairSh || validShareholders[0] || data.shareholders[0];
     }
   } else {
     rep = data.manualRepresentative;
@@ -812,11 +819,12 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
     finalAttendees.forEach((att) => {
       att.management = null;
     });
-    // Remove attendees that have no roles left
+    // Remove attendees that have no roles left or 0 shares
     finalAttendees = finalAttendees.filter(
       (att) =>
-        att.ownShares ||
-        (att.representations && att.representations.length > 0),
+        (att.ownShares && (Number(att.ownShares.sharesOwned) || 0) > 0) ||
+        (att.representations &&
+          att.representations.some((r) => (Number(r.sharesOwned) || 0) > 0)),
     );
   }
 

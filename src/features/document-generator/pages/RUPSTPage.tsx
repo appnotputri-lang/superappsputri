@@ -1907,7 +1907,9 @@ syncCompanyDataToRupst
                             </h4>
                             <button 
                               onClick={() => {
-                                const newList = data.shareholders.map(s => ({ ...s, isPresent: true }));
+                                const newList = data.shareholders.map(s => 
+                                  (Number(s.sharesOwned) || 0) > 0 ? { ...s, isPresent: true } : s
+                                );
                                 updateData({ shareholders: newList });
                               }}
                               className="text-[10px] bg-[#3b5998] text-white px-3 py-1 rounded-sm hover:bg-black transition-colors font-bold shadow-sm"
@@ -1927,7 +1929,7 @@ syncCompanyDataToRupst
                                 </tr>
                               </thead>
                               <tbody>
-                                {data.shareholders.map(s => (
+                                {data.shareholders.filter(s => (Number(s.sharesOwned) || 0) > 0).map(s => (
                                   <tr key={s.id} className="border-b border-slate-200 last:border-0 hover:bg-slate-50 transition-colors">
                                     <td className="p-2 border-r border-slate-200 font-medium uppercase">{s.name}</td>
                                     <td className="p-2 border-r border-slate-200">{formatInputNumber(s.sharesOwned)} Saham</td>
@@ -1992,9 +1994,9 @@ syncCompanyDataToRupst
                                     </td>
                                   </tr>
                                 ))}
-                                {data.shareholders.length === 0 && (
+                                {data.shareholders.filter(s => (Number(s.sharesOwned) || 0) > 0).length === 0 && (
                                   <tr>
-                                    <td colSpan={5} className="p-4 text-center text-slate-400 italic">Belum ada data pemegang saham. Silakan isi di bagian DATA PERSEROAN.</td>
+                                    <td colSpan={5} className="p-4 text-center text-slate-400 italic">Belum ada data pemegang saham yang memiliki saham. Silakan isi di bagian DATA PERSEROAN.</td>
                                   </tr>
                                 )}
                               </tbody>
@@ -2044,8 +2046,10 @@ syncCompanyDataToRupst
                                   onChange={e => updateData({ authorizedRepresentativeId: e.target.value })}
                                 >
                                   <option value="">-- Pilih --</option>
-                                  {data.shareholders.map(s => (
-                                    <option key={s.id} value={s.id}>{s.name}</option>
+                                  {data.shareholders
+                                    .filter(s => data.rupstType !== 'sirkuler' || (Number(s.sharesOwned) || 0) > 0)
+                                    .map(s => (
+                                      <option key={s.id} value={s.id}>{s.name}</option>
                                   ))}
                                 </AhuSelect>
                               </div>

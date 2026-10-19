@@ -194,7 +194,6 @@ export const buildDividendBlocks = (
 export const generateRupstBlocks = (data: CompanyData): Block[] => {
   const blocks: Block[] = [];
   const isSirkuler = data.rupstType === "sirkuler";
-
   const fiscalYear = data.rupstFiscalYear || "2025";
   const signingDate = data.signingDate || "";
   const tglRapatHari = getDayName(signingDate) || "...";
@@ -205,11 +204,15 @@ export const generateRupstBlocks = (data: CompanyData): Block[] => {
   const jamRapatWords = timeToWords(stTime || "00:00");
   const isTimeDefault = !stTime;
 
-  const totalShares = data.shareholders.reduce(
+  const validShareholders = isSirkuler
+    ? (data.shareholders || []).filter((s) => (Number(s.sharesOwned) || 0) > 0)
+    : (data.shareholders || []);
+
+  const totalShares = validShareholders.reduce(
     (sum, s) => sum + (s.sharesOwned || 0),
     0,
   );
-  const attendingShareholders = getPhysicallyPresentShareholders(data.shareholders);
+  const attendingShareholders = getPhysicallyPresentShareholders(validShareholders);
 
   attendingShareholders.sort((a, b) => {
     const rankA = a.isManagement ? getPosRank(a.managementPosition) : 99;
@@ -1147,7 +1150,7 @@ export const generateRupstBlocks = (data: CompanyData): Block[] => {
     return sh.name.toUpperCase();
   };
 
-  const participants = data.shareholders.filter(
+  const participants = validShareholders.filter(
     (sh) => sh.isPresent !== false && sh.name.toUpperCase() !== tandaTanganChairName,
   );
   blocks.push({
@@ -1187,7 +1190,7 @@ export const generateRupstBlocks = (data: CompanyData): Block[] => {
     type: "table",
     headers: ["NO", "NAMA", "KEDUDUKAN", "TANDATANGAN"],
     widths: [800, 3000, 3000, 1704],
-    rows: data.shareholders
+    rows: validShareholders
       .filter((sh) => sh.isPresent !== false)
       .map((sh, idx) => {
         const positions = [];

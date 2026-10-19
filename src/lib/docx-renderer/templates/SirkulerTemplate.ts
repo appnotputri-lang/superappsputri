@@ -129,7 +129,7 @@ export class SirkulerTemplate {
         );
 
         const activeShareholders = block.shareholders && block.shareholders.length > 0
-          ? block.shareholders.filter((sh: any) => sh.sharesOwned === undefined || sh.sharesOwned > 0)
+          ? block.shareholders.filter((sh: any) => (Number(sh.sharesOwned) || 0) > 0)
           : [];
 
         activeShareholders.forEach((sh: any, idx: number) => {
