@@ -174,7 +174,17 @@ const getKbli2025Uraian = (kode: string): string => {
 const expandKblis = (items: KBLIMappingItem[]): KBLIMappingItem[] => {
   const expanded: KBLIMappingItem[] = [];
   for (const item of items) {
-    const targetKode = item.kbli_2025?.kode;
+    if (!item) continue;
+    if (Array.isArray(item.kbli_2025)) {
+      (item.kbli_2025 as any[]).forEach((subK25: any) => {
+        expanded.push(...expandKblis([{
+          ...item,
+          kbli_2025: subK25,
+        }]));
+      });
+      continue;
+    }
+    const targetKode = item.kbli_2025?.kode || "";
     if (targetKode && (targetKode.includes(",") || targetKode.includes(";"))) {
       const parts = targetKode
         .split(/[,;]+/)
@@ -538,74 +548,102 @@ const KBLIMapping: React.FC = () => {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!searchTerm.trim()) {
+    const sTerm = searchTerm.trim().toLowerCase();
+    if (!sTerm) {
       setResults([]);
       setHasSearched(false);
       return;
     }
 
-    const allData = (mappingData as any).data as KBLIMappingItem[];
-    const filtered = allData.filter(
-      (item) =>
-        item.kbli_2020.kode.includes(searchTerm) ||
-        item.kbli_2020.judul.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.kbli_2025?.kode.includes(searchTerm) ||
-        item.kbli_2025?.judul.toLowerCase().includes(searchTerm.toLowerCase()),
-    );
+    try {
+      const allData = ((mappingData as any).data || []) as KBLIMappingItem[];
+      const filtered = allData.filter((item) => {
+        if (!item) return false;
+        const k20Kode = (item.kbli_2020?.kode || "").toLowerCase();
+        const k20Judul = (item.kbli_2020?.judul || "").toLowerCase();
 
-    const matchingKodes = new Set(filtered.map((item) => item.kbli_2020.kode));
-    const fullGroupedResults = expandKblis(
-      allData.filter((item) => matchingKodes.has(item.kbli_2020.kode)),
-    );
+        const check25 = (entry?: any): boolean => {
+          if (!entry) return false;
+          if (Array.isArray(entry)) {
+            return entry.some(
+              (e) =>
+                (e?.kode || "").toLowerCase().includes(sTerm) ||
+                (e?.judul || "").toLowerCase().includes(sTerm)
+            );
+          }
+          return (
+            (entry.kode || "").toLowerCase().includes(sTerm) ||
+            (entry.judul || "").toLowerCase().includes(sTerm)
+          );
+        };
 
-    // Look for matches in kbli2025Data
-    const kbli2025List = ((kbli2025Data as any).data || []) as {
-      kode: string;
-      judul: string;
-      uraian?: string;
-      level?: string;
-    }[];
+        return (
+          k20Kode.includes(sTerm) ||
+          k20Judul.includes(sTerm) ||
+          check25(item.kbli_2025)
+        );
+      });
 
-    const matching2025 = kbli2025List.filter(
-      (k) =>
-        k.kode === searchTerm ||
-        k.kode.includes(searchTerm) ||
-        k.judul.toLowerCase().includes(searchTerm.toLowerCase()),
-    );
-
-    const syntheticItems: KBLIMappingItem[] = [];
-    matching2025.forEach((k) => {
-      // Check if this code is already represented in fullGroupedResults as kbli_2020.kode
-      const alreadyHas = fullGroupedResults.some(
-        (item) => item.kbli_2020.kode === k.kode,
+      const matchingKodes = new Set(
+        filtered.map((item) => item.kbli_2020?.kode).filter(Boolean)
       );
-      if (!alreadyHas) {
-        syntheticItems.push({
-          kbli_2020: {
-            kode: k.kode,
-            judul: k.judul,
-            uraian: k.uraian,
-          },
-          kbli_2025: {
-            kode: k.kode,
-            judul: k.judul,
-            uraian: k.uraian,
-          },
-          jenis_perubahan: "KBLI tidak berubah",
-        });
-      }
-    });
+      const fullGroupedResults = expandKblis(
+        allData.filter((item) => item.kbli_2020?.kode && matchingKodes.has(item.kbli_2020.kode)),
+      );
 
-    const finalResults = [...fullGroupedResults, ...syntheticItems];
-    setResults(finalResults);
-    setHasSearched(true);
+      // Look for matches in kbli2025Data
+      const kbli2025List = ((kbli2025Data as any).data || []) as {
+        kode: string;
+        judul: string;
+        uraian?: string;
+        level?: string;
+      }[];
+
+      const matching2025 = kbli2025List.filter(
+        (k) =>
+          (k.kode || "").toLowerCase() === sTerm ||
+          (k.kode || "").toLowerCase().includes(sTerm) ||
+          (k.judul || "").toLowerCase().includes(sTerm),
+      );
+
+      const syntheticItems: KBLIMappingItem[] = [];
+      matching2025.forEach((k) => {
+        // Check if this code is already represented in fullGroupedResults as kbli_2020.kode
+        const alreadyHas = fullGroupedResults.some(
+          (item) => item.kbli_2020?.kode === k.kode,
+        );
+        if (!alreadyHas) {
+          syntheticItems.push({
+            kbli_2020: {
+              kode: k.kode,
+              judul: k.judul,
+              uraian: k.uraian,
+            },
+            kbli_2025: {
+              kode: k.kode,
+              judul: k.judul,
+              uraian: k.uraian,
+            },
+            jenis_perubahan: "KBLI tidak berubah",
+          });
+        }
+      });
+
+      const finalResults = [...fullGroupedResults, ...syntheticItems];
+      setResults(finalResults);
+      setHasSearched(true);
+    } catch (err) {
+      console.error("Error during KBLI search:", err);
+      setResults([]);
+      setHasSearched(true);
+    }
   };
 
   const addMappingGroup = async (kode2020: string) => {
-    const allData = (mappingData as any).data as KBLIMappingItem[];
-    let group = allData.filter((item) => item.kbli_2020.kode === kode2020);
+    const allData = ((mappingData as any).data || []) as KBLIMappingItem[];
+    let group = allData.filter((item) => item.kbli_2020?.kode === kode2020);
     if (group.length === 0) {
-      group = results.filter((item) => item.kbli_2020.kode === kode2020);
+      group = results.filter((item) => item.kbli_2020?.kode === kode2020);
     }
     const expandedGroup = expandKblis(group);
 
