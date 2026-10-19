@@ -4866,11 +4866,11 @@
     },
     {
       "kbli_2020": {
-        "kode": "4665",
+        "kode": "46651",
         "judul": "Perdagangan Besar Bahan Dan Barang Kimia"
       },
       "kbli_2025": {
-        "kode": "4675",
+        "kode": "46751",
         "judul": "Perdagangan Besar Bahan dan Barang Kimia"
       },
       "jenis_perubahan": "Recoding/Pindah Kode"
@@ -5024,7 +5024,7 @@
         "judul": "Perdagangan Besar Berbagai Macam Barang 4690"
       },
       "kbli_2025": {
-        "kode": "2",
+        "kode": "46902",
         "judul": "Perdagangan Besar Berbagai Macam Barang Selain di Grosir/Perkulakan Swalayan"
       },
       "jenis_perubahan": "Pecah Kode"
@@ -13455,5 +13455,22 @@
       },
       "jenis_perubahan": "Recoding/Pindah Kode"
     }
+{
+  "kbli_2020": {
+    "kode": "96990",
+    "judul": "Aktivitas Jasa Perorangan Lainnya YTDL"
+  },
+  "kbli_2025": [
+    {
+      "kode": "96400",
+      "judul": "Aktivitas Jasa Intermediasi untuk Jasa Perorangan"
+    },
+    {
+      "kode": "96900",
+      "judul": "Aktivitas Jasa Perorangan Lainnya YTDL"
+    }
+  ],
+  "jenis_perubahan": "Pemecahan Kode"
+}
   ]
 }
