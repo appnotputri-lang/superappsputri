@@ -51,10 +51,12 @@ export interface AttendanceConfig {
 }
 
 export const buildAttendanceAttendees = (config: AttendanceConfig): PhysicalAttendee[] => {
-  const { shareholders, isMinutes, newManagementItems, oldManagementItems } = config;
-  const attendingShareholders = isMinutes
-    ? shareholders.filter((s) => s.isPresent !== false)
-    : shareholders.filter((s) => (s.sharesOwned || 0) > 0);
+  const { shareholders, isMinutes, newManagementItems, oldManagementItems, isSirkuler } = config;
+  const attendingShareholders = isSirkuler
+    ? shareholders.filter((s) => (Number(s.sharesOwned) || 0) > 0)
+    : (isMinutes
+        ? shareholders.filter((s) => s.isPresent !== false)
+        : shareholders.filter((s) => (Number(s.sharesOwned) || 0) > 0));
 
   const attendees: PhysicalAttendee[] = [];
 
@@ -228,6 +230,18 @@ export const buildAttendanceAttendees = (config: AttendanceConfig): PhysicalAtte
       }
     }
   });
+
+  if (isSirkuler) {
+    attendees.forEach((att) => {
+      att.management = null;
+    });
+    return attendees.filter(
+      (att) =>
+        (att.ownShares && (Number(att.ownShares.sharesOwned) || 0) > 0) ||
+        (att.representations &&
+          att.representations.some((r) => (Number(r.sharesOwned) || 0) > 0)),
+    );
+  }
 
   attendees.sort((a, b) => {
     const rankA = a.management ? getPosRank(a.management.position) : 99;

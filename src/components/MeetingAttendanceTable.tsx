@@ -27,8 +27,11 @@ export const MeetingAttendanceTable: React.FC<MeetingAttendanceTableProps> = ({
   deleteShareholder,
 }) => {
   const { data, mergedData, updateData, setProxyModalOpenId } = useDocumentRuntime();
-  const actualData = mergedData || data;
-  const shareholders = actualData.shareholders || [];
+  const actualData = (mergedData || data) as any;
+  const isCircular = actualData.rupstType === 'sirkuler' || actualData.documentType === 'CIRCULAR' || actualData.jobType === 'sirkuler' || actualData.jobType === 'sirkuler_rupslb';
+  const shareholders = isCircular
+    ? (actualData.shareholders || []).filter((s: any) => (Number(s.sharesOwned) || 0) > 0)
+    : (actualData.shareholders || []);
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center mb-3">

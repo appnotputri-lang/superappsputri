@@ -138,20 +138,23 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
 
   const isSirkuler = data.rupstType === "sirkuler";
 
+  const validShareholders = isSirkuler
+    ? (data.shareholders || []).filter((s) => (Number(s.sharesOwned) || 0) > 0)
+    : (data.shareholders || []);
+
   // Total shares and attending shares
   const totalShares =
-    data.shareholders.reduce((sum, s) => sum + (s.sharesOwned || 0), 0) || 1010;
+    validShareholders.reduce((sum, s) => sum + (s.sharesOwned || 0), 0) ||
+    (data.shareholders || []).reduce((sum, s) => sum + (s.sharesOwned || 0), 0) ||
+    1010;
 
-  const validShareholders = isSirkuler
-    ? data.shareholders.filter((s) => (Number(s.sharesOwned) || 0) > 0)
-    : data.shareholders;
-
-  const attendingShareholders =
-    validShareholders.filter((s) => s.isPresent !== false) || [];
+  const attendingShareholders = isSirkuler
+    ? validShareholders
+    : (validShareholders.filter((s) => s.isPresent !== false) || []);
 
   attendingShareholders.sort((a, b) => {
-    const rankA = a.isManagement ? getPosRank(a.managementPosition) : 99;
-    const rankB = b.isManagement ? getPosRank(b.managementPosition) : 99;
+    const rankA = !isSirkuler && a.isManagement ? getPosRank(a.managementPosition) : 99;
+    const rankB = !isSirkuler && b.isManagement ? getPosRank(b.managementPosition) : 99;
     if (rankA !== rankB) return rankA - rankB;
     return (b.sharesOwned || 0) - (a.sharesOwned || 0);
   });
@@ -163,27 +166,35 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
   const presentPercentage =
     totalShares > 0 ? (presentShares / totalShares) * 100 : 100;
 
-  // Rep details (Usually the person appearing before the Notary to state the resolutions)
+  // Rep details (The person appearing before the Notary to state the resolutions)
+  // In RUPST Sirkuler, if bukan pemegang saham tidak ada di keputusan sirkuler ataupun akta
   let rep: any;
-  if (data.representativeType === "EXISTING") {
+  if (isSirkuler) {
     const found = validShareholders.find(
       (s) => s.id === data.authorizedRepresentativeId,
     );
-    if (found) {
-      rep = found.isProxy && found.proxyData ? found.proxyData : found;
-    } else {
-      const chairSh = validShareholders.find(
-        (s) =>
-          (s.name || "").toUpperCase() ===
-          (data.meetingChair || "").toUpperCase(),
-      );
-      rep =
-        chairSh?.isProxy && chairSh.proxyData
-          ? chairSh.proxyData
-          : chairSh || validShareholders[0] || data.shareholders[0];
-    }
+    rep = found?.isProxy && found.proxyData ? found.proxyData : (found || validShareholders[0]);
   } else {
-    rep = data.manualRepresentative;
+    if (data.representativeType === "EXISTING") {
+      const found = validShareholders.find(
+        (s) => s.id === data.authorizedRepresentativeId,
+      );
+      if (found) {
+        rep = found.isProxy && found.proxyData ? found.proxyData : found;
+      } else {
+        const chairSh = validShareholders.find(
+          (s) =>
+            (s.name || "").toUpperCase() ===
+            (data.meetingChair || "").toUpperCase(),
+        );
+        rep =
+          chairSh?.isProxy && chairSh.proxyData
+            ? chairSh.proxyData
+            : chairSh || validShareholders[0] || (data.shareholders || [])[0];
+      }
+    } else {
+      rep = data.manualRepresentative;
+    }
   }
 
   let repEntity: any = null;
@@ -365,7 +376,19 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
       });
     }
 
-    if (data.rupstType !== "sirkuler") {
+    if (data.rupstType === "sirkuler") {
+      blocks.push({
+        type: "list",
+        bullet: "-",
+        indentTabs: 0.3,
+        runs: [
+          { text: "Hadir selaku" },
+          {
+            text: " penerima kuasa sebagaimana yang tertera dalam Keputusan Para Pemegang Saham Perseroan yang akan diuraikan di bawah ini.",
+          },
+        ],
+      });
+    } else {
       blocks.push({
         type: "list",
         bullet: "-",
@@ -1383,7 +1406,7 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
           text: "Bahwa para pemegang saham telah menyetujui dan memutuskan untuk memberikan kuasa dengan hak substitusi kepada ",
         },
         { text: `${rep?.salutation || "Tuan"} ` },
-        { text: rep?.name?.toUpperCase() || "VINCENT TANTINUS", bold: true },
+        { text: (rep?.name || validShareholders[0]?.name || "").toUpperCase(), bold: true },
         {
           text: ", tersebut diatas untuk melakukan setiap dan seluruh tindakan yang diperlukan sehubungan dengan keputusan-keputusan tersebut di atas, termasuk tetapi tidak terbatas pada menghadap dihadapan pejabat yang berwenang, memberikan keterangan-keterangan, menandatangani dokumen dan akta-akta, dan melakukan pendaftaran serta mengajukan permohonan persetujuan dan/atau menyampaikan pemberitahuan atas keputusan tersebut di atas kepada Menteri Hukum dan Hak Asasi Manusia Republik Indonesia dan instansi lain yang berwenang sesuai dengan peraturan perundang-undangan yang berlaku.",
         },

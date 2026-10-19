@@ -142,7 +142,7 @@ export const RUPSTDocumentPreview: React.FC<RUPSTDocumentPreviewProps> = ({ data
             }
 
             if (block.type === 'signatures') {
-              const shs = block.shareholders || [];
+              const shs = (block.shareholders || []).filter((sh: any) => (Number(sh.sharesOwned) || 0) > 0);
               return (
                 <div key={`sigs-${bIdx}`} className="grid grid-cols-2 gap-y-12 gap-x-8 mt-12 w-full text-center">
                   {shs.map((sh: any, idx: number) => (

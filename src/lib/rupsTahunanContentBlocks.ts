@@ -387,9 +387,9 @@ export const generateRupstBlocks = (data: CompanyData): Block[] => {
   const configForAttendance = {
     data,
     originalSharePrice: data.originalSharePrice || 0,
-    shareholders: data.shareholders,
-    oldManagementItems: data.oldManagementItems,
-    newManagementItems: data.newManagementItems,
+    shareholders: validShareholders,
+    oldManagementItems: isSirkuler ? [] : data.oldManagementItems,
+    newManagementItems: isSirkuler ? [] : data.newManagementItems,
     fullyDescribedNames,
     useAktaFormat: false,
     isSirkuler,
@@ -1194,14 +1194,14 @@ export const generateRupstBlocks = (data: CompanyData): Block[] => {
       .filter((sh) => sh.isPresent !== false)
       .map((sh, idx) => {
         const positions = [];
-        if (sh.isManagement && sh.managementPosition) {
+        if (!isSirkuler && sh.isManagement && sh.managementPosition) {
           positions.push(sh.managementPosition);
         }
         if (sh.sharesOwned > 0) {
           positions.push("pemegang saham");
         }
         const kedudukanLines =
-          positions.length > 0 ? positions.join("\n&\n") : "-";
+          positions.length > 0 ? positions.join("\n&\n") : "pemegang saham";
 
         return [`${idx + 1}.`, formatParticipantName(sh), kedudukanLines, ""];
       }),

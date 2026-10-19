@@ -13454,23 +13454,23 @@
         "judul": "Pendidikan Kesehatan Swasta"
       },
       "jenis_perubahan": "Recoding/Pindah Kode"
-    }
-{
-  "kbli_2020": {
-    "kode": "96990",
-    "judul": "Aktivitas Jasa Perorangan Lainnya YTDL"
-  },
-  "kbli_2025": [
-    {
-      "kode": "96400",
-      "judul": "Aktivitas Jasa Intermediasi untuk Jasa Perorangan"
     },
     {
-      "kode": "96900",
-      "judul": "Aktivitas Jasa Perorangan Lainnya YTDL"
+      "kbli_2020": {
+        "kode": "96990",
+        "judul": "Aktivitas Jasa Perorangan Lainnya YTDL"
+      },
+      "kbli_2025": [
+        {
+          "kode": "96400",
+          "judul": "Aktivitas Jasa Intermediasi untuk Jasa Perorangan"
+        },
+        {
+          "kode": "96900",
+          "judul": "Aktivitas Jasa Perorangan Lainnya YTDL"
+        }
+      ],
+      "jenis_perubahan": "Pemecahan Kode"
     }
-  ],
-  "jenis_perubahan": "Pemecahan Kode"
-}
   ]
 }

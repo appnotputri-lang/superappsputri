@@ -1519,8 +1519,8 @@ syncCompanyDataToRupst
                             <div className="space-y-3">
                               {data.rupstDividends.map((divItem, idx) => {
                                 const rupsShareholders = Array.from(new Set([
-                                  ...(data.shareholders || []).map(s => s.name.trim()),
-                                  ...(data.finalShareholders || []).map(s => s.name.trim())
+                                  ...(data.shareholders || []).filter(s => (Number(s.sharesOwned) || 0) > 0).map(s => s.name.trim()),
+                                  ...(data.finalShareholders || []).filter(s => (Number(s.sharesOwned) || 0) > 0).map(s => s.name.trim())
                                 ].filter(Boolean))).sort();
 
                                 return (
@@ -1643,12 +1643,13 @@ syncCompanyDataToRupst
                                     <button
                                       type="button"
                                       onClick={() => {
-                                        const count = data.shareholders.length;
+                                        const validShs = (data.shareholders || []).filter(s => (Number(s.sharesOwned) || 0) > 0);
+                                        const count = validShs.length;
                                         if (count === 0) return;
-                                        const totalOriginalShares = data.shareholders.reduce((sum, s) => sum + s.sharesOwned, 0);
+                                        const totalOriginalShares = validShs.reduce((sum, s) => sum + s.sharesOwned, 0);
                                         if (totalOriginalShares === 0) return;
 
-                                        const autoDividends = (data.shareholders || []).map(s => {
+                                        const autoDividends = validShs.map(s => {
                                           const pct = parseFloat(((s.sharesOwned / totalOriginalShares) * 100).toFixed(4));
                                           const amt = Math.round((pct / 100) * (data.rupstDividendAmount || 0));
                                           return {
@@ -2019,52 +2020,74 @@ syncCompanyDataToRupst
                           {/* Pemberian Kuasa Notaril */}
                           <div>
                             <AhuLabel label="Pemberian Kuasa Notaril" required />
-                            <div className="flex gap-4 mt-2">
-                               <label className="flex items-center gap-2 text-[13px] cursor-pointer">
-                                 <input 
-                                   type="radio" 
-                                   checked={data.representativeType === 'EXISTING'} 
-                                   onChange={() => updateData({ representativeType: 'EXISTING' })} 
-                                 />
-                                 <span>Dari Pemegang Saham</span>
-                               </label>
-                               <label className="flex items-center gap-2 text-[13px] cursor-pointer">
-                                 <input 
-                                   type="radio" 
-                                   checked={data.representativeType === 'MANUAL'} 
-                                   onChange={() => updateData({ representativeType: 'MANUAL' })} 
-                                 />
-                                 <span>Input Manual</span>
-                               </label>
-                            </div>
-
-                            {data.representativeType === 'EXISTING' ? (
+                            {data.rupstType === 'sirkuler' ? (
                               <div className="mt-3">
-                                <AhuLabel label="Pilih Pemegang Saham" />
+                                <p className="text-[11px] text-slate-500 mb-2 italic">
+                                  * Pada RUPST Sirkuler, penerima kuasa wajib dari pemegang saham yang memiliki saham.
+                                </p>
+                                <AhuLabel label="Pilih Pemegang Saham Penerima Kuasa" required />
                                 <AhuSelect 
                                   value={data.authorizedRepresentativeId || ''} 
-                                  onChange={e => updateData({ authorizedRepresentativeId: e.target.value })}
+                                  onChange={e => updateData({ authorizedRepresentativeId: e.target.value, representativeType: 'EXISTING' })}
                                 >
-                                  <option value="">-- Pilih --</option>
+                                  <option value="">-- Pilih Pemegang Saham --</option>
                                   {data.shareholders
-                                    .filter(s => data.rupstType !== 'sirkuler' || (Number(s.sharesOwned) || 0) > 0)
+                                    .filter(s => (Number(s.sharesOwned) || 0) > 0)
                                     .map(s => (
-                                      <option key={s.id} value={s.id}>{s.name}</option>
+                                      <option key={s.id} value={s.id}>{s.name} ({formatInputNumber(s.sharesOwned)} Saham)</option>
                                   ))}
                                 </AhuSelect>
                               </div>
                             ) : (
-                              <div className="mt-4 p-4 border border-slate-200 rounded bg-slate-50">
-                                <h4 className="text-[12px] font-bold text-slate-500 uppercase mb-3">Data Kuasa (Manual)</h4>
-                                <ShareholderEditor 
-                                  shareholder={data.manualRepresentative!}
-                                  onChange={updates => updateManualRep(updates)}
-                                  hideManagement
-                                  hideFinancials
-                                  totalSharesAllowed={0}
-                                  otherAllocated={0}
-                                />
-                              </div>
+                              <>
+                                <div className="flex gap-4 mt-2">
+                                   <label className="flex items-center gap-2 text-[13px] cursor-pointer">
+                                     <input 
+                                       type="radio" 
+                                       checked={data.representativeType === 'EXISTING'} 
+                                       onChange={() => updateData({ representativeType: 'EXISTING' })} 
+                                     />
+                                     <span>Dari Pemegang Saham</span>
+                                   </label>
+                                   <label className="flex items-center gap-2 text-[13px] cursor-pointer">
+                                     <input 
+                                       type="radio" 
+                                       checked={data.representativeType === 'MANUAL'} 
+                                       onChange={() => updateData({ representativeType: 'MANUAL' })} 
+                                     />
+                                     <span>Input Manual</span>
+                                   </label>
+                                </div>
+
+                                {data.representativeType === 'EXISTING' ? (
+                                  <div className="mt-3">
+                                    <AhuLabel label="Pilih Pemegang Saham" />
+                                    <AhuSelect 
+                                      value={data.authorizedRepresentativeId || ''} 
+                                      onChange={e => updateData({ authorizedRepresentativeId: e.target.value })}
+                                    >
+                                      <option value="">-- Pilih --</option>
+                                      {data.shareholders
+                                        .filter(s => (Number(s.sharesOwned) || 0) > 0)
+                                        .map(s => (
+                                          <option key={s.id} value={s.id}>{s.name}</option>
+                                      ))}
+                                    </AhuSelect>
+                                  </div>
+                                ) : (
+                                  <div className="mt-4 p-4 border border-slate-200 rounded bg-slate-50">
+                                    <h4 className="text-[12px] font-bold text-slate-500 uppercase mb-3">Data Kuasa (Manual)</h4>
+                                    <ShareholderEditor 
+                                      shareholder={data.manualRepresentative!}
+                                      onChange={updates => updateManualRep(updates)}
+                                      hideManagement
+                                      hideFinancials
+                                      totalSharesAllowed={0}
+                                      otherAllocated={0}
+                                    />
+                                  </div>
+                                )}
+                              </>
                             )}
                           </div>
                        </div>

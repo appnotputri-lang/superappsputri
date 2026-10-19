@@ -81,10 +81,9 @@ export function generateSirkulerLaporanBlocks(data: CompanyData): Block[] {
     : "Kota ............................";
 
   const rawShareholders = (data.shareholders || []).filter(s => (Number(s.sharesOwned) || 0) > 0);
-  const presentShareholders = rawShareholders.filter(s => s.isPresent !== false);
   const rawFinal = (data.finalShareholders || []).filter(s => (Number(s.sharesOwned) || 0) > 0);
   const fallbackShareholders = rawFinal.length > 0 ? rawFinal : rawShareholders;
-  const shareholders = presentShareholders.length > 0 ? presentShareholders : fallbackShareholders;
+  const shareholders = rawShareholders.length > 0 ? rawShareholders : fallbackShareholders;
 
   const fiscalYear = data.rupstFiscalYear || data.fiscalYear || "2025";
   const resolvedHari = data.slHari || (data.signingDate ? getDayName(data.signingDate) : "..............");
@@ -314,13 +313,7 @@ export function generateSirkulerLaporanBlocks(data: CompanyData): Block[] {
   });
 
   attendees.forEach(att => {
-    if (att.type === 'PERSON' && !att.management) {
-      const pxNameUpper = att.name.toUpperCase().trim();
-      const matchedMgmt = data.shareholders?.find((s: any) => (s.name || "").toUpperCase().trim() === pxNameUpper && s.isManagement);
-      if (matchedMgmt) {
-        att.management = { position: matchedMgmt.managementPosition || "Direktur" };
-      }
-    }
+    att.management = null;
   });
 
   const getCleanDisplayName = (name: string): string => {
@@ -1115,21 +1108,16 @@ export function generateSirkulerLaporanBlocks(data: CompanyData): Block[] {
   currentDecisionIdx++;
 
   // 6. Kuasa
-  const rep = data.representativeType === "MANUAL" ? data.manualRepresentative : (data.shareholders || []).find((s) => s.id === data.authorizedRepresentativeId);
-  let repText = "";
-  const repName = rep ? (rep.name || "").toUpperCase() : (data.meetingChair || (shareholders.length > 0 ? shareholders[0].name : "...")).toUpperCase();
-  const foundSh = shareholders.find(s => (s.name || "").toUpperCase().trim() === repName.trim());
-  const salutation = rep?.salutation || foundSh?.salutation || "Tuan";
+  // Di RUPST Sirkuler, apabila bukan pemegang saham tidak ada di keputusan sirkuler ataupun akta
+  const validShs = (data.shareholders || []).filter(s => (Number(s.sharesOwned) || 0) > 0);
+  const foundSh = validShs.find((s) => s.id === data.authorizedRepresentativeId) ||
+                  validShs[0] ||
+                  shareholders[0];
 
-  if (foundSh) {
-    repText = `Memberikan kuasa kepada ${salutation} ${repName} tersebut diatas, untuk melakukan segala tindakan yang diperlukan sehubungan dengan hasil keputusan ini, termasuk namun tidak terbatas pada pengurusan pelaporan kepada instansi yang berwenang.`;
-  } else if (rep) {
-    const tglAngka = rep.birthDate ? formatDateRupst(rep.birthDate) : "...";
-    const details = formatPersonDetails(rep, tglAngka, "");
-    repText = `Memberikan kuasa kepada ${salutation} ${repName}${details}, untuk melakukan segala tindakan yang diperlukan sehubungan dengan hasil keputusan ini, termasuk namun tidak terbatas pada pengurusan pelaporan kepada instansi yang berwenang.`;
-  } else {
-    repText = `Memberikan kuasa kepada Direksi Perseroan, untuk melakukan segala tindakan yang diperlukan sehubungan dengan hasil keputusan ini, termasuk namun tidak terbatas pada pengurusan pelaporan kepada instansi yang berwenang.`;
-  }
+  const repName = (foundSh?.name || "............................").toUpperCase();
+  const salutation = foundSh?.salutation || "Tuan";
+
+  const repText = `Memberikan kuasa kepada ${salutation} ${repName} tersebut diatas, untuk melakukan segala tindakan yang diperlukan sehubungan dengan hasil keputusan ini, termasuk namun tidak terbatas pada pengurusan pelaporan kepada instansi yang berwenang.`;
 
   blocks.push({
     type: "numbered",
