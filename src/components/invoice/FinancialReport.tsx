@@ -36,7 +36,10 @@ import {
   History,
   FileCheck,
   ShieldCheck,
-  Info
+  Info,
+  ArrowLeft,
+  ChevronLeft,
+  LayoutGrid
 } from 'lucide-react';
 import { Invoice, PaymentRecord } from '../../../types';
 import { InvoiceService } from '../../services/InvoiceService';
@@ -77,7 +80,8 @@ const formatIndonesianDate = (dateStr?: string): string => {
   return dateStr;
 };
 
-export type FinancialTabType = 
+export type ReportViewType = 
+  | 'hub'
   | 'overview' 
   | 'rekap_invoice' 
   | 'laporan_pembayaran' 
@@ -95,8 +99,8 @@ export const FinancialReport: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
 
-  // Active Tab
-  const [activeTab, setActiveTab] = useState<FinancialTabType>('overview');
+  // Selected Dedicated Report View ('hub' = Main Cards Dashboard)
+  const [activeReportView, setActiveReportView] = useState<ReportViewType>('hub');
 
   // Filter States
   const [selectedYear, setSelectedYear] = useState<string>(new Date().getFullYear().toString());
@@ -130,10 +134,7 @@ export const FinancialReport: React.FC = () => {
   const [pdfOrientation, setPdfOrientation] = useState<'portrait' | 'landscape'>('portrait');
   
   // Single Tab PDF Preview Modal
-  const [previewTabModal, setPreviewTabModal] = useState<FinancialTabType | null>(null);
-
-  // Monthly breakdown expansion state in Unpaid/Paid per month views
-  const [expandedMonths, setExpandedMonths] = useState<Record<string, boolean>>({});
+  const [previewTabModal, setPreviewTabModal] = useState<ReportViewType | null>(null);
 
   // Fetch invoices
   const loadInvoices = async () => {
@@ -562,16 +563,6 @@ export const FinancialReport: React.FC = () => {
     }
   };
 
-  // WhatsApp Reminder Link
-  const getWhatsAppReminderUrl = (inv: Invoice) => {
-    const phone = inv.clientPhone ? inv.clientPhone.replace(/[^0-9]/g, '') : '';
-    const formattedPhone = phone.startsWith('0') ? '62' + phone.substring(1) : phone;
-    const balance = inv.balanceDue !== undefined ? inv.balanceDue : ((inv.totalAmount || 0) - (inv.paidAmount || 0));
-    const msg = `Halo Bapak/Ibu ${inv.clientName},\n\nKami menginformasikan mengenai Invoice *#${inv.invoiceNumber}* sebesar *${formatCurrency(inv.totalAmount)}* dengan sisa tagihan *${formatCurrency(balance)}* yang jatuh tempo pada *${formatIndonesianDate(inv.dueDate)}*.\n\nMohon konfirmasinya jika telah melakukan pembayaran. Terima kasih!\n\n_Salam, Notaris & PPAT_`;
-    
-    return `https://wa.me/${formattedPhone}?text=${encodeURIComponent(msg)}`;
-  };
-
   // Reset All Filters
   const handleResetFilters = () => {
     setSelectedYear(new Date().getFullYear().toString());
@@ -628,11 +619,14 @@ export const FinancialReport: React.FC = () => {
 
     let sectionsHTML = '';
 
+    // Determine target sections based on active single preview or multi-selection
+    const targetSelection = previewTabModal ? { [previewTabModal]: true } : selectedReportsForPDF;
+
     // 1. REKAP INVOICE
-    if (selectedReportsForPDF.rekap_invoice) {
+    if (targetSelection.rekap_invoice) {
       sectionsHTML += `
         <div class="report-section">
-          <div class="section-title">1. REKAPITULASI INVOICE</div>
+          <div class="section-title">REKAPITULASI INVOICE TERBIT (${filteredInvoices.length} DOKUMEN)</div>
           <table>
             <thead>
               <tr>
@@ -680,10 +674,10 @@ export const FinancialReport: React.FC = () => {
     }
 
     // 2. LAPORAN PEMBAYARAN
-    if (selectedReportsForPDF.laporan_pembayaran) {
+    if (targetSelection.laporan_pembayaran) {
       sectionsHTML += `
         <div class="report-section">
-          <div class="section-title">2. LAPORAN PEMBAYARAN MASUK (${paymentRecordsLog.length} TRANSAKSI)</div>
+          <div class="section-title">LAPORAN PEMBAYARAN MASUK (${paymentRecordsLog.length} TRANSAKSI)</div>
           <table>
             <thead>
               <tr>
@@ -720,10 +714,10 @@ export const FinancialReport: React.FC = () => {
     }
 
     // 3. LAPORAN PIUTANG
-    if (selectedReportsForPDF.laporan_piutang) {
+    if (targetSelection.laporan_piutang) {
       sectionsHTML += `
         <div class="report-section">
-          <div class="section-title">3. LAPORAN PIUTANG INVOICE BELUM LUNAS (${unpaidInvoices.length} DOKUMEN)</div>
+          <div class="section-title">LAPORAN PIUTANG INVOICE BELUM LUNAS (${unpaidInvoices.length} DOKUMEN)</div>
           <table>
             <thead>
               <tr>
@@ -773,10 +767,10 @@ export const FinancialReport: React.FC = () => {
     }
 
     // 4. REKAP PENDAPATAN
-    if (selectedReportsForPDF.rekap_pendapatan) {
+    if (targetSelection.rekap_pendapatan) {
       sectionsHTML += `
         <div class="report-section">
-          <div class="section-title">4. REKAPITULASI PENDAPATAN PER KATEGORI JASA / PRODUK</div>
+          <div class="section-title">REKAPITULASI PENDAPATAN PER KATEGORI JASA / PRODUK</div>
           <table>
             <thead>
               <tr>
@@ -804,10 +798,10 @@ export const FinancialReport: React.FC = () => {
     }
 
     // 5. LAPORAN BULANAN
-    if (selectedReportsForPDF.laporan_bulanan) {
+    if (targetSelection.laporan_bulanan || targetSelection.laporan_tahunan || targetSelection.overview) {
       sectionsHTML += `
         <div class="report-section">
-          <div class="section-title">5. LAPORAN REKAPITULASI PER BULAN (${selectedYear === 'all' ? 'SEMUA TAHUN' : 'TAHUN ' + selectedYear})</div>
+          <div class="section-title">LAPORAN REKAPITULASI PER BULAN (${selectedYear === 'all' ? 'SEMUA TAHUN' : 'TAHUN ' + selectedYear})</div>
           <table>
             <thead>
               <tr>
@@ -840,10 +834,10 @@ export const FinancialReport: React.FC = () => {
     }
 
     // 6. LAPORAN KLIEN
-    if (selectedReportsForPDF.laporan_klien) {
+    if (targetSelection.laporan_klien) {
       sectionsHTML += `
         <div class="report-section">
-          <div class="section-title">6. LAPORAN REKAPITULASI PER KLIEN (${clientFinancialSummaries.length} KLIEN)</div>
+          <div class="section-title">LAPORAN REKAPITULASI PER KLIEN (${clientFinancialSummaries.length} KLIEN)</div>
           <table>
             <thead>
               <tr>
@@ -873,10 +867,10 @@ export const FinancialReport: React.FC = () => {
     }
 
     // 7. RIWAYAT TRANSAKSI ITEM
-    if (selectedReportsForPDF.riwayat_transaksi) {
+    if (targetSelection.riwayat_transaksi) {
       sectionsHTML += `
         <div class="report-section">
-          <div class="section-title">7. RIWAYAT TRANSAKSI & DETAIL INVOICE ITEM</div>
+          <div class="section-title">RIWAYAT TRANSAKSI & DETAIL INVOICE ITEM</div>
           ${filteredInvoices.map((inv, idx) => {
             const balance = inv.balanceDue !== undefined ? inv.balanceDue : ((inv.totalAmount || 0) - (inv.paidAmount || 0));
             const isP = balance <= 0;
@@ -1097,32 +1091,7 @@ export const FinancialReport: React.FC = () => {
   };
 
   // Single Tab PDF Preview Handler
-  const openSingleTabPreview = (tab: FinancialTabType) => {
-    // Enable only this tab in selectedReportsForPDF
-    const newSelected: Record<string, boolean> = {
-      rekap_invoice: false,
-      laporan_pembayaran: false,
-      laporan_piutang: false,
-      rekap_pendapatan: false,
-      laporan_bulanan: false,
-      laporan_klien: false,
-      riwayat_transaksi: false
-    };
-
-    if (tab === 'rekap_invoice') newSelected.rekap_invoice = true;
-    else if (tab === 'laporan_pembayaran') newSelected.laporan_pembayaran = true;
-    else if (tab === 'laporan_piutang') newSelected.laporan_piutang = true;
-    else if (tab === 'rekap_pendapatan') newSelected.rekap_pendapatan = true;
-    else if (tab === 'laporan_bulanan' || tab === 'laporan_tahunan') newSelected.laporan_bulanan = true;
-    else if (tab === 'laporan_klien') newSelected.laporan_klien = true;
-    else if (tab === 'riwayat_transaksi') newSelected.riwayat_transaksi = true;
-    else {
-      newSelected.rekap_invoice = true;
-      newSelected.laporan_pembayaran = true;
-      newSelected.laporan_piutang = true;
-    }
-
-    setSelectedReportsForPDF(newSelected);
+  const openSingleTabPreview = (tab: ReportViewType) => {
     setPreviewTabModal(tab);
   };
 
@@ -1135,29 +1104,159 @@ export const FinancialReport: React.FC = () => {
     );
   }
 
+  // Define Report Metadata Cards for the Main Hub
+  const reportCards = [
+    {
+      id: 'overview',
+      title: 'Ringkasan Keuangan',
+      icon: BarChart3,
+      badgeColor: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+      badgeText: 'Dashboard Utama',
+      desc: 'Ikhtisar eksekutif omset tagihan, realisasi penerimaan kas, sisa piutang, dan tingkat pelunasan.',
+      statLabel: 'Total Omset',
+      statVal: formatCurrency(metrics.totalInvoiced)
+    },
+    {
+      id: 'rekap_invoice',
+      title: 'Rekap Invoice',
+      icon: FileText,
+      badgeColor: 'bg-blue-100 text-blue-800 border-blue-200',
+      badgeText: `${filteredInvoices.length} Invoice`,
+      desc: 'Seluruh daftar invoice yang diterbitkan, tanggal jatuh tempo, total tagihan, dan sisa piutang.',
+      statLabel: 'Jumlah Invoice',
+      statVal: `${filteredInvoices.length} Dokumen`
+    },
+    {
+      id: 'laporan_pembayaran',
+      title: 'Pembayaran Masuk',
+      icon: CheckCircle2,
+      badgeColor: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+      badgeText: `${paymentRecordsLog.length} Transaksi`,
+      desc: 'Laporan kas penerimaan pembayaran aktual berdasarkan tanggal transaksi penerimaan uang.',
+      statLabel: 'Kas Diterima',
+      statVal: formatCurrency(totalActualPaymentsReceived)
+    },
+    {
+      id: 'laporan_piutang',
+      title: 'Laporan Piutang',
+      icon: Clock,
+      badgeColor: 'bg-rose-100 text-rose-800 border-rose-200',
+      badgeText: `${unpaidInvoices.length} Tunggakan`,
+      desc: 'Daftar invoice belum lunas atau dibayar sebagian beserta analisis status keterlambatan jatuh tempo.',
+      statLabel: 'Total Sisa Piutang',
+      statVal: formatCurrency(metrics.totalUnpaid)
+    },
+    {
+      id: 'laporan_bulanan',
+      title: 'Rekap Per Bulan',
+      icon: Calendar,
+      badgeColor: 'bg-amber-100 text-amber-800 border-amber-200',
+      badgeText: '12 Bulan',
+      desc: 'Matriks perbandingan kinerja keuangan, nilai penerbitan invoice, dan kas diterima per bulan.',
+      statLabel: 'Tahun Aktif',
+      statVal: selectedYear === 'all' ? 'Semua Tahun' : `Tahun ${selectedYear}`
+    },
+    {
+      id: 'laporan_tahunan',
+      title: 'Rekap Tahunan',
+      icon: TrendingUp,
+      badgeColor: 'bg-sky-100 text-sky-800 border-sky-200',
+      badgeText: 'Multi-Tahun',
+      desc: 'Perbandingan pertumbuhan total omset tagihan, penerimaan kas, dan piutang antar tahun.',
+      statLabel: 'Total Tahun',
+      statVal: `${yearlyDataMatrix.length} Tahun Record`
+    },
+    {
+      id: 'laporan_klien',
+      title: 'Rekap Per Klien',
+      icon: Users,
+      badgeColor: 'bg-purple-100 text-purple-800 border-purple-200',
+      badgeText: `${clientFinancialSummaries.length} Klien`,
+      desc: 'Analisis rekapitulasi jumlah invoice, total tagihan, dan sisa piutang dikelompokkan per nama klien.',
+      statLabel: 'Klien Aktif',
+      statVal: `${clientFinancialSummaries.length} Klien`
+    },
+    {
+      id: 'rekap_pendapatan',
+      title: 'Rekap Kategori Jasa',
+      icon: PieChart,
+      badgeColor: 'bg-indigo-100 text-indigo-800 border-indigo-200',
+      badgeText: `${revenueByServices.length} Kategori`,
+      desc: 'Rincian omset dan estimasi kas diterima berdasarkan klasifikasi layanan kenotariatan & PPAT.',
+      statLabel: 'Kategori Layanan',
+      statVal: `${revenueByServices.length} Kategori`
+    },
+    {
+      id: 'riwayat_transaksi',
+      title: 'Riwayat Transaksi Item',
+      icon: History,
+      badgeColor: 'bg-slate-100 text-slate-800 border-slate-200',
+      badgeText: 'Itemized Details',
+      desc: 'Rincian detail produk/layanan per invoice beserta log histori angsuran pembayaran.',
+      statLabel: 'Total Itemized',
+      statVal: `${filteredInvoices.length} Invoice`
+    },
+    {
+      id: 'pdf_merger',
+      title: 'Pusat Cetak & Merger PDF',
+      icon: Layers,
+      badgeColor: 'bg-teal-100 text-teal-800 border-teal-200',
+      badgeText: 'PDF Custom',
+      desc: 'Fitur penggabungan beberapa laporan terpilih menjadi satu dokumen PDF A4 siap cetak.',
+      statLabel: 'Multi-Report',
+      statVal: 'A4 Portrait/Landscape'
+    }
+  ];
+
+  // Helper for rendered report title / subtitle
+  const currentReportMeta = reportCards.find(c => c.id === activeReportView);
+
   return (
     <div className="p-3 sm:p-6 md:p-8 max-w-7xl mx-auto space-y-6">
       
-      {/* PAGE HEADER */}
+      {/* GLOBAL HEADER BAR */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
         <div className="flex items-center gap-3.5">
-          <div className="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 flex items-center justify-center shrink-0">
-            <TrendingUp className="w-6 h-6" />
-          </div>
+          {activeReportView !== 'hub' ? (
+            <button
+              onClick={() => setActiveReportView('hub')}
+              className="w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center shrink-0 transition-colors cursor-pointer"
+              title="Kembali ke Utama Laporan"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+          ) : (
+            <div className="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 flex items-center justify-center shrink-0">
+              <TrendingUp className="w-6 h-6" />
+            </div>
+          )}
+
           <div>
             <h1 className="text-xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
-              Modul Laporan Keuangan Notaris & PPAT
+              {activeReportView === 'hub' ? 'Laporan Keuangan Notaris & PPAT' : currentReportMeta?.title || 'Laporan Keuangan'}
               <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
                 Data Real
               </span>
             </h1>
             <p className="text-xs text-slate-500 mt-0.5">
-              Sistem laporan keuangan komprehensif berdasarkan transaksi invoice & pembayaran aktual.
+              {activeReportView === 'hub' 
+                ? 'Pilih jenis laporan keuangan yang ingin diakses, ditinjau, atau diekspor ke PDF.' 
+                : currentReportMeta?.desc || 'Sistem laporan keuangan berdasarkan transaksi invoice & pembayaran aktual.'}
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+          {activeReportView !== 'hub' && (
+            <button
+              onClick={() => setActiveReportView('hub')}
+              className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all cursor-pointer"
+            >
+              <LayoutGrid className="w-3.5 h-3.5" />
+              <span>Semua Laporan</span>
+            </button>
+          )}
+
           <button
             onClick={loadInvoices}
             disabled={refreshing}
@@ -1176,13 +1275,15 @@ export const FinancialReport: React.FC = () => {
             <span>Export CSV</span>
           </button>
 
-          <button
-            onClick={() => setActiveTab('pdf_merger')}
-            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs flex items-center gap-2 transition-all shadow-xs cursor-pointer"
-          >
-            <Printer className="w-3.5 h-3.5" />
-            <span>Cetak / Ekspor PDF</span>
-          </button>
+          {activeReportView !== 'hub' && activeReportView !== 'pdf_merger' && (
+            <button
+              onClick={() => openSingleTabPreview(activeReportView)}
+              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs flex items-center gap-2 transition-all shadow-xs cursor-pointer"
+            >
+              <Printer className="w-3.5 h-3.5" />
+              <span>Pratinjau / Cetak PDF</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -1214,7 +1315,7 @@ export const FinancialReport: React.FC = () => {
         <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
           <div className="flex items-center gap-2 text-xs font-extrabold text-slate-800 uppercase tracking-wider">
             <Filter className="w-4 h-4 text-emerald-600" />
-            <span>Filter Laporan Keuangan</span>
+            <span>Filter Periode & Klien</span>
           </div>
 
           <button
@@ -1299,7 +1400,7 @@ export const FinancialReport: React.FC = () => {
             </select>
           </div>
 
-          {/* Status Invoice */}
+          {/* Status Pembayaran */}
           <div>
             <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">
               Status Pembayaran
@@ -1407,536 +1508,534 @@ export const FinancialReport: React.FC = () => {
 
       </div>
 
-      {/* MAIN NAVIGATION TABS */}
-      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
-        
-        {/* Navigation Bar */}
-        <div className="border-b border-slate-200/80 bg-slate-50/50 p-2 sm:p-3 flex items-center gap-1 sm:gap-2 overflow-x-auto">
-          
-          <button
-            onClick={() => setActiveTab('overview')}
-            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shrink-0 ${
-              activeTab === 'overview'
-                ? 'bg-white text-emerald-700 shadow-xs border border-slate-200'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-            }`}
-          >
-            <BarChart3 className="w-4 h-4" />
-            <span>Ikhtisar</span>
-          </button>
+      {/* VIEW 1: MAIN HUB VIEW (CARD GRID) */}
+      {activeReportView === 'hub' && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-base font-extrabold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+              <LayoutGrid className="w-5 h-5 text-emerald-600" />
+              Pilih Jenis Laporan Keuangan
+            </h2>
+            <span className="text-xs text-slate-500">
+              Klik salah satu kartu untuk membuka halaman laporan khusus
+            </span>
+          </div>
 
-          <button
-            onClick={() => setActiveTab('rekap_invoice')}
-            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shrink-0 ${
-              activeTab === 'rekap_invoice'
-                ? 'bg-white text-blue-700 shadow-xs border border-slate-200'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-            }`}
-          >
-            <FileText className="w-4 h-4 text-blue-600" />
-            <span>Rekap Invoice</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('laporan_pembayaran')}
-            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shrink-0 ${
-              activeTab === 'laporan_pembayaran'
-                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-xs'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-            }`}
-          >
-            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-            <span>Pembayaran Masuk</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('laporan_piutang')}
-            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shrink-0 ${
-              activeTab === 'laporan_piutang'
-                ? 'bg-rose-50 text-rose-700 border border-rose-200 shadow-xs'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-            }`}
-          >
-            <Clock className="w-4 h-4 text-rose-500" />
-            <span>Laporan Piutang</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('rekap_pendapatan')}
-            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shrink-0 ${
-              activeTab === 'rekap_pendapatan'
-                ? 'bg-white text-indigo-700 shadow-xs border border-slate-200'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-            }`}
-          >
-            <PieChart className="w-4 h-4 text-indigo-600" />
-            <span>Pendapatan Jasa</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('laporan_bulanan')}
-            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shrink-0 ${
-              activeTab === 'laporan_bulanan'
-                ? 'bg-white text-slate-900 shadow-xs border border-slate-200'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-            }`}
-          >
-            <Calendar className="w-4 h-4 text-amber-600" />
-            <span>Per Bulan</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('laporan_klien')}
-            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shrink-0 ${
-              activeTab === 'laporan_klien'
-                ? 'bg-white text-purple-700 shadow-xs border border-slate-200'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-            }`}
-          >
-            <Users className="w-4 h-4 text-purple-600" />
-            <span>Laporan Klien</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('riwayat_transaksi')}
-            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shrink-0 ${
-              activeTab === 'riwayat_transaksi'
-                ? 'bg-white text-slate-900 shadow-xs border border-slate-200'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-            }`}
-          >
-            <History className="w-4 h-4 text-slate-600" />
-            <span>Riwayat Transaksi</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('pdf_merger')}
-            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shrink-0 ${
-              activeTab === 'pdf_merger'
-                ? 'bg-emerald-600 text-white shadow-xs'
-                : 'bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-200'
-            }`}
-          >
-            <Layers className="w-4 h-4 text-emerald-200" />
-            <span>Cetak PDF & Merger</span>
-          </button>
-
-        </div>
-
-        {/* TAB 1: OVERVIEW */}
-        {activeTab === 'overview' && (
-          <div className="p-4 sm:p-6 space-y-6">
-            
-            {/* Visual Progress Bar */}
-            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/80 space-y-2">
-              <div className="flex justify-between text-xs font-bold text-slate-700">
-                <span>Realisasi Kas Pembayaran Diterima</span>
-                <span>{formatCurrency(metrics.totalPaid)} dari {formatCurrency(metrics.totalInvoiced)} ({metrics.collectionRate.toFixed(1)}%)</span>
-              </div>
-              <div className="w-full bg-slate-200 rounded-full h-3 overflow-hidden flex">
-                <div 
-                  className="bg-emerald-500 h-full transition-all duration-500"
-                  style={{ width: `${Math.min(100, metrics.collectionRate)}%` }}
-                />
-                <div 
-                  className="bg-rose-400 h-full transition-all duration-500"
-                  style={{ width: `${Math.min(100, 100 - metrics.collectionRate)}%` }}
-                />
-              </div>
-              <div className="flex justify-between items-center text-[11px] text-slate-500 font-medium pt-1">
-                <span className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" /> Kas Diterima: <b>{formatCurrency(metrics.totalPaid)}</b>
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-rose-400" /> Belum Dibayar: <b>{formatCurrency(metrics.totalUnpaid)}</b>
-                </span>
-              </div>
-            </div>
-
-            {/* Monthly Summary Table */}
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
-                  <Calendar className="w-4 h-4 text-emerald-600" />
-                  Rekapitulasi Keuangan Per Bulan ({selectedYear === 'all' ? 'Semua Tahun' : selectedYear})
-                </h3>
-
-                <button
-                  onClick={() => openSingleTabPreview('overview')}
-                  className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg text-xs flex items-center gap-1.5 cursor-pointer"
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {reportCards.map((card) => {
+              const IconComp = card.icon;
+              return (
+                <div
+                  key={card.id}
+                  onClick={() => setActiveReportView(card.id as ReportViewType)}
+                  className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs hover:shadow-md hover:border-emerald-300 transition-all cursor-pointer group flex flex-col justify-between"
                 >
-                  <Eye className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>Pratinjau PDF</span>
-                </button>
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="w-10 h-10 rounded-xl bg-slate-100 group-hover:bg-emerald-50 text-slate-700 group-hover:text-emerald-700 flex items-center justify-center transition-colors">
+                        <IconComp className="w-5 h-5" />
+                      </div>
+                      <span className={`text-[10px] font-extrabold px-2.5 py-1 rounded-full border ${card.badgeColor}`}>
+                        {card.badgeText}
+                      </span>
+                    </div>
+
+                    <h3 className="font-extrabold text-base text-slate-900 group-hover:text-emerald-700 transition-colors">
+                      {card.title}
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                      {card.desc}
+                    </p>
+                  </div>
+
+                  <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
+                    <div>
+                      <span className="text-[10px] text-slate-400 font-bold uppercase block">{card.statLabel}</span>
+                      <span className="font-bold text-slate-800">{card.statVal}</span>
+                    </div>
+
+                    <div className="flex items-center gap-1 font-bold text-emerald-600 group-hover:translate-x-1 transition-transform">
+                      <span>Buka Laporan</span>
+                      <ChevronRight className="w-4 h-4" />
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* VIEW 2: DEDICATED REPORT VIEWS WITH BACK BUTTON */}
+      {activeReportView !== 'hub' && (
+        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+          
+          {/* Top Back Navigation Banner */}
+          <div className="bg-slate-50 border-b border-slate-200 p-3 sm:p-4 flex items-center justify-between">
+            <button
+              type="button"
+              onClick={() => setActiveReportView('hub')}
+              className="px-3.5 py-1.5 bg-white hover:bg-slate-100 text-slate-800 font-bold border border-slate-200 rounded-xl text-xs flex items-center gap-2 transition-all cursor-pointer shadow-2xs"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>Kembali ke Utama Laporan</span>
+            </button>
+
+            <span className="text-xs font-bold text-slate-600 hidden sm:block">
+              Halaman Khusus: <b>{currentReportMeta?.title}</b>
+            </span>
+          </div>
+
+          {/* DEDICATED VIEW: RINGKASAN KEUANGAN */}
+          {activeReportView === 'overview' && (
+            <div className="p-4 sm:p-6 space-y-6">
+              
+              {/* Visual Progress Bar */}
+              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/80 space-y-2">
+                <div className="flex justify-between text-xs font-bold text-slate-700">
+                  <span>Realisasi Kas Pembayaran Diterima</span>
+                  <span>{formatCurrency(metrics.totalPaid)} dari {formatCurrency(metrics.totalInvoiced)} ({metrics.collectionRate.toFixed(1)}%)</span>
+                </div>
+                <div className="w-full bg-slate-200 rounded-full h-3 overflow-hidden flex">
+                  <div 
+                    className="bg-emerald-500 h-full transition-all duration-500"
+                    style={{ width: `${Math.min(100, metrics.collectionRate)}%` }}
+                  />
+                  <div 
+                    className="bg-rose-400 h-full transition-all duration-500"
+                    style={{ width: `${Math.min(100, 100 - metrics.collectionRate)}%` }}
+                  />
+                </div>
+                <div className="flex justify-between items-center text-[11px] text-slate-500 font-medium pt-1">
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" /> Kas Diterima: <b>{formatCurrency(metrics.totalPaid)}</b>
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-rose-400" /> Belum Dibayar: <b>{formatCurrency(metrics.totalUnpaid)}</b>
+                  </span>
+                </div>
+              </div>
+
+              {/* Monthly Summary Table */}
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                    <Calendar className="w-4 h-4 text-emerald-600" />
+                    Rekapitulasi Keuangan Per Bulan ({selectedYear === 'all' ? 'Semua Tahun' : selectedYear})
+                  </h3>
+                </div>
+
+                <div className="overflow-x-auto rounded-xl border border-slate-200/80">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-slate-100 text-slate-700 font-bold uppercase tracking-wider border-b border-slate-200">
+                      <tr>
+                        <th className="p-3">Bulan</th>
+                        <th className="p-3 text-center">Jumlah Invoice</th>
+                        <th className="p-3 text-right">Total Tagihan</th>
+                        <th className="p-3 text-right">Kas Diterima</th>
+                        <th className="p-3 text-right">Sisa Piutang</th>
+                        <th className="p-3 text-center">Tingkat Pelunasan</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200 bg-white">
+                      {monthlyDataMatrix.map((m) => {
+                        const rate = m.totalInvoiced > 0 ? (m.totalPaid / m.totalInvoiced) * 100 : 0;
+                        return (
+                          <tr key={m.monthIndex} className="hover:bg-slate-50/80 transition-colors">
+                            <td className="p-3 font-bold text-slate-800">{m.monthName}</td>
+                            <td className="p-3 text-center font-semibold text-slate-600">{m.invoiceCount}</td>
+                            <td className="p-3 text-right font-medium text-slate-800">{formatCurrency(m.totalInvoiced)}</td>
+                            <td className="p-3 text-right font-bold text-emerald-600">{formatCurrency(m.totalPaid)}</td>
+                            <td className="p-3 text-right font-bold text-rose-600">
+                              {m.totalUnpaid > 0 ? formatCurrency(m.totalUnpaid) : '-'}
+                            </td>
+                            <td className="p-3 text-center">
+                              {m.invoiceCount > 0 ? (
+                                <div className="flex items-center justify-center gap-2">
+                                  <div className="w-16 bg-slate-100 rounded-full h-2 overflow-hidden">
+                                    <div className="bg-emerald-500 h-full" style={{ width: `${Math.min(100, rate)}%` }} />
+                                  </div>
+                                  <span className="text-[11px] font-bold text-slate-700">{rate.toFixed(0)}%</span>
+                                </div>
+                              ) : (
+                                <span className="text-slate-400 italic text-[11px]">-</span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+            </div>
+          )}
+
+          {/* DEDICATED VIEW: REKAP INVOICE */}
+          {activeReportView === 'rekap_invoice' && (
+            <div className="p-4 sm:p-6 space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-blue-600" />
+                  Daftar Rekapitulasi Invoice ({filteredInvoices.length} Dokumen)
+                </h3>
               </div>
 
               <div className="overflow-x-auto rounded-xl border border-slate-200/80">
                 <table className="w-full text-left text-xs">
                   <thead className="bg-slate-100 text-slate-700 font-bold uppercase tracking-wider border-b border-slate-200">
                     <tr>
-                      <th className="p-3">Bulan</th>
-                      <th className="p-3 text-center">Jumlah Invoice</th>
+                      <th className="p-3">No. Invoice</th>
+                      <th className="p-3">Klien</th>
+                      <th className="p-3">Proyek / Layanan</th>
+                      <th className="p-3">Tgl Issue</th>
+                      <th className="p-3">Jatuh Tempo</th>
                       <th className="p-3 text-right">Total Tagihan</th>
                       <th className="p-3 text-right">Kas Diterima</th>
                       <th className="p-3 text-right">Sisa Piutang</th>
-                      <th className="p-3 text-center">Tingkat Pelunasan</th>
+                      <th className="p-3 text-center">Status</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200 bg-white">
-                    {monthlyDataMatrix.map((m) => {
-                      const rate = m.totalInvoiced > 0 ? (m.totalPaid / m.totalInvoiced) * 100 : 0;
+                    {filteredInvoices.map((inv) => {
+                      const balance = inv.balanceDue !== undefined ? inv.balanceDue : ((inv.totalAmount || 0) - (inv.paidAmount || 0));
+                      const isP = balance <= 0;
+                      const isPart = (inv.paidAmount || 0) > 0 && balance > 0;
                       return (
-                        <tr key={m.monthIndex} className="hover:bg-slate-50/80 transition-colors">
-                          <td className="p-3 font-bold text-slate-800">{m.monthName}</td>
-                          <td className="p-3 text-center font-semibold text-slate-600">{m.invoiceCount}</td>
-                          <td className="p-3 text-right font-medium text-slate-800">{formatCurrency(m.totalInvoiced)}</td>
-                          <td className="p-3 text-right font-bold text-emerald-600">{formatCurrency(m.totalPaid)}</td>
-                          <td className="p-3 text-right font-bold text-rose-600">
-                            {m.totalUnpaid > 0 ? formatCurrency(m.totalUnpaid) : '-'}
-                          </td>
+                        <tr key={inv.id} className="hover:bg-slate-50 transition-colors">
+                          <td className="p-3 font-bold text-slate-900">{inv.invoiceNumber}</td>
+                          <td className="p-3 font-semibold text-slate-800">{inv.clientName}</td>
+                          <td className="p-3 text-slate-600">{inv.projectTitle || '-'}</td>
+                          <td className="p-3 text-slate-600">{formatIndonesianDate(inv.issueDate)}</td>
+                          <td className="p-3 text-slate-600">{formatIndonesianDate(inv.dueDate)}</td>
+                          <td className="p-3 text-right font-medium text-slate-900">{formatCurrency(inv.totalAmount)}</td>
+                          <td className="p-3 text-right font-bold text-emerald-600">{formatCurrency(inv.paidAmount)}</td>
+                          <td className="p-3 text-right font-bold text-rose-600">{formatCurrency(balance)}</td>
                           <td className="p-3 text-center">
-                            {m.invoiceCount > 0 ? (
-                              <div className="flex items-center justify-center gap-2">
-                                <div className="w-16 bg-slate-100 rounded-full h-2 overflow-hidden">
-                                  <div className="bg-emerald-500 h-full" style={{ width: `${Math.min(100, rate)}%` }} />
-                                </div>
-                                <span className="text-[11px] font-bold text-slate-700">{rate.toFixed(0)}%</span>
-                              </div>
-                            ) : (
-                              <span className="text-slate-400 italic text-[11px]">-</span>
-                            )}
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
+                              isP ? 'bg-emerald-100 text-emerald-800' : isPart ? 'bg-amber-100 text-amber-800' : 'bg-rose-100 text-rose-800'
+                            }`}>
+                              {isP ? 'LUNAS' : isPart ? 'SEBAGIAN' : 'BELUM BAYAR'}
+                            </span>
                           </td>
                         </tr>
                       );
                     })}
+                    {filteredInvoices.length === 0 && (
+                      <tr>
+                        <td colSpan={9} className="p-8 text-center text-slate-400 italic">Tidak ada invoice sesuai filter.</td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>
             </div>
+          )}
 
-          </div>
-        )}
+          {/* DEDICATED VIEW: LAPORAN PEMBAYARAN */}
+          {activeReportView === 'laporan_pembayaran' && (
+            <div className="p-4 sm:p-6 space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                  Laporan Kas Pembayaran Diterima ({paymentRecordsLog.length} Transaksi)
+                </h3>
 
-        {/* TAB 2: REKAP INVOICE */}
-        {activeTab === 'rekap_invoice' && (
-          <div className="p-4 sm:p-6 space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
-                <FileText className="w-4 h-4 text-blue-600" />
-                Daftar Rekapitulasi Invoice ({filteredInvoices.length} Dokumen)
-              </h3>
-
-              <button
-                onClick={() => openSingleTabPreview('rekap_invoice')}
-                className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg text-xs flex items-center gap-1.5 cursor-pointer"
-              >
-                <Eye className="w-3.5 h-3.5 text-blue-600" />
-                <span>Pratinjau PDF</span>
-              </button>
-            </div>
-
-            <div className="overflow-x-auto rounded-xl border border-slate-200/80">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-slate-100 text-slate-700 font-bold uppercase tracking-wider border-b border-slate-200">
-                  <tr>
-                    <th className="p-3">No. Invoice</th>
-                    <th className="p-3">Klien</th>
-                    <th className="p-3">Proyek / Layanan</th>
-                    <th className="p-3">Tgl Issue</th>
-                    <th className="p-3">Jatuh Tempo</th>
-                    <th className="p-3 text-right">Total Tagihan</th>
-                    <th className="p-3 text-right">Kas Diterima</th>
-                    <th className="p-3 text-right">Sisa Piutang</th>
-                    <th className="p-3 text-center">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200 bg-white">
-                  {filteredInvoices.map((inv) => {
-                    const balance = inv.balanceDue !== undefined ? inv.balanceDue : ((inv.totalAmount || 0) - (inv.paidAmount || 0));
-                    const isP = balance <= 0;
-                    const isPart = (inv.paidAmount || 0) > 0 && balance > 0;
-                    return (
-                      <tr key={inv.id} className="hover:bg-slate-50 transition-colors">
-                        <td className="p-3 font-bold text-slate-900">{inv.invoiceNumber}</td>
-                        <td className="p-3 font-semibold text-slate-800">{inv.clientName}</td>
-                        <td className="p-3 text-slate-600">{inv.projectTitle || '-'}</td>
-                        <td className="p-3 text-slate-600">{formatIndonesianDate(inv.issueDate)}</td>
-                        <td className="p-3 text-slate-600">{formatIndonesianDate(inv.dueDate)}</td>
-                        <td className="p-3 text-right font-medium text-slate-900">{formatCurrency(inv.totalAmount)}</td>
-                        <td className="p-3 text-right font-bold text-emerald-600">{formatCurrency(inv.paidAmount)}</td>
-                        <td className="p-3 text-right font-bold text-rose-600">{formatCurrency(balance)}</td>
-                        <td className="p-3 text-center">
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
-                            isP ? 'bg-emerald-100 text-emerald-800' : isPart ? 'bg-amber-100 text-amber-800' : 'bg-rose-100 text-rose-800'
-                          }`}>
-                            {isP ? 'LUNAS' : isPart ? 'SEBAGIAN' : 'BELUM BAYAR'}
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                  {filteredInvoices.length === 0 && (
-                    <tr>
-                      <td colSpan={9} className="p-8 text-center text-slate-400 italic">Tidak ada invoice sesuai filter.</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {/* TAB 3: LAPORAN PEMBAYARAN */}
-        {activeTab === 'laporan_pembayaran' && (
-          <div className="p-4 sm:p-6 space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                Laporan Kas Pembayaran Diterima ({paymentRecordsLog.length} Transaksi)
-              </h3>
-
-              <div className="flex items-center gap-2">
                 <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-3 py-1 rounded-lg border border-emerald-200">
                   Kas Diterima: {formatCurrency(totalActualPaymentsReceived)}
                 </span>
-                <button
-                  onClick={() => openSingleTabPreview('laporan_pembayaran')}
-                  className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg text-xs flex items-center gap-1.5 cursor-pointer"
-                >
-                  <Eye className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>Pratinjau PDF</span>
-                </button>
+              </div>
+
+              <div className="overflow-x-auto rounded-xl border border-slate-200/80">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-100 text-slate-700 font-bold uppercase tracking-wider border-b border-slate-200">
+                    <tr>
+                      <th className="p-3">Tgl Pembayaran</th>
+                      <th className="p-3">No. Invoice</th>
+                      <th className="p-3">Nama Klien</th>
+                      <th className="p-3">Metode Bayar</th>
+                      <th className="p-3">No. Referensi / Bukti</th>
+                      <th className="p-3">Catatan</th>
+                      <th className="p-3 text-right">Jumlah Diterima (Rp)</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200 bg-white">
+                    {paymentRecordsLog.map((item, idx) => (
+                      <tr key={item.record.id || idx} className="hover:bg-slate-50 transition-colors">
+                        <td className="p-3 font-semibold text-slate-800">{formatIndonesianDate(item.record.date)}</td>
+                        <td className="p-3 font-bold text-slate-900">{item.invoice.invoiceNumber}</td>
+                        <td className="p-3 font-semibold text-slate-800">{item.invoice.clientName}</td>
+                        <td className="p-3">
+                          <span className="px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 font-bold text-[10px] border border-emerald-200">
+                            {item.record.method || 'Transfer Bank'}
+                          </span>
+                        </td>
+                        <td className="p-3 text-slate-600 font-mono">{item.record.refNumber || '-'}</td>
+                        <td className="p-3 text-slate-500 italic">{item.record.notes || '-'}</td>
+                        <td className="p-3 text-right font-black text-emerald-600 text-sm">
+                          {formatCurrency(item.record.amount)}
+                        </td>
+                      </tr>
+                    ))}
+                    {paymentRecordsLog.length === 0 && (
+                      <tr>
+                        <td colSpan={7} className="p-8 text-center text-slate-400 italic">Belum ada riwayat transaksi pembayaran masuk.</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
               </div>
             </div>
+          )}
 
-            <div className="overflow-x-auto rounded-xl border border-slate-200/80">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-slate-100 text-slate-700 font-bold uppercase tracking-wider border-b border-slate-200">
-                  <tr>
-                    <th className="p-3">Tgl Pembayaran</th>
-                    <th className="p-3">No. Invoice</th>
-                    <th className="p-3">Nama Klien</th>
-                    <th className="p-3">Metode Bayar</th>
-                    <th className="p-3">No. Referensi / Bukti</th>
-                    <th className="p-3">Catatan</th>
-                    <th className="p-3 text-right">Jumlah Diterima (Rp)</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200 bg-white">
-                  {paymentRecordsLog.map((item, idx) => (
-                    <tr key={item.record.id || idx} className="hover:bg-slate-50 transition-colors">
-                      <td className="p-3 font-semibold text-slate-800">{formatIndonesianDate(item.record.date)}</td>
-                      <td className="p-3 font-bold text-slate-900">{item.invoice.invoiceNumber}</td>
-                      <td className="p-3 font-semibold text-slate-800">{item.invoice.clientName}</td>
-                      <td className="p-3">
-                        <span className="px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 font-bold text-[10px] border border-emerald-200">
-                          {item.record.method || 'Transfer Bank'}
-                        </span>
-                      </td>
-                      <td className="p-3 text-slate-600 font-mono">{item.record.refNumber || '-'}</td>
-                      <td className="p-3 text-slate-500 italic">{item.record.notes || '-'}</td>
-                      <td className="p-3 text-right font-black text-emerald-600 text-sm">
-                        {formatCurrency(item.record.amount)}
-                      </td>
-                    </tr>
-                  ))}
-                  {paymentRecordsLog.length === 0 && (
-                    <tr>
-                      <td colSpan={7} className="p-8 text-center text-slate-400 italic">Belum ada riwayat transaksi pembayaran masuk.</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
+          {/* DEDICATED VIEW: LAPORAN PIUTANG */}
+          {activeReportView === 'laporan_piutang' && (
+            <div className="p-4 sm:p-6 space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-bold text-rose-800 uppercase tracking-wider flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-rose-600" />
+                  Laporan Piutang Invoice Belum Lunas ({unpaidInvoices.length} Dokumen)
+                </h3>
 
-        {/* TAB 4: LAPORAN PIUTANG */}
-        {activeTab === 'laporan_piutang' && (
-          <div className="p-4 sm:p-6 space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-bold text-rose-800 uppercase tracking-wider flex items-center gap-2">
-                <Clock className="w-4 h-4 text-rose-600" />
-                Laporan Piutang Invoice Belum Lunas ({unpaidInvoices.length} Dokumen)
-              </h3>
-
-              <div className="flex items-center gap-2">
                 <span className="text-xs font-bold text-rose-700 bg-rose-50 px-3 py-1 rounded-lg border border-rose-200">
                   Total Sisa Piutang: {formatCurrency(metrics.totalUnpaid)}
                 </span>
-                <button
-                  onClick={() => openSingleTabPreview('laporan_piutang')}
-                  className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg text-xs flex items-center gap-1.5 cursor-pointer"
-                >
-                  <Eye className="w-3.5 h-3.5 text-rose-600" />
-                  <span>Pratinjau PDF</span>
-                </button>
               </div>
-            </div>
 
-            <div className="overflow-x-auto rounded-xl border border-slate-200/80">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-slate-100 text-slate-700 font-bold uppercase tracking-wider border-b border-slate-200">
-                  <tr>
-                    <th className="p-3">No. Invoice & Klien</th>
-                    <th className="p-3">Tgl Issue</th>
-                    <th className="p-3">Jatuh Tempo</th>
-                    <th className="p-3 text-right">Total Tagihan</th>
-                    <th className="p-3 text-right">Sudah Dibayar</th>
-                    <th className="p-3 text-right">Sisa Piutang</th>
-                    <th className="p-3 text-center">Aging Status</th>
-                    <th className="p-3 text-center">Aksi</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200 bg-white">
-                  {unpaidInvoices.map((inv) => {
-                    const balance = inv.balanceDue !== undefined ? inv.balanceDue : ((inv.totalAmount || 0) - (inv.paidAmount || 0));
-                    const overdue = isOverdue(inv);
-                    const agingDays = getAgingDays(inv.dueDate);
+              <div className="overflow-x-auto rounded-xl border border-slate-200/80">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-100 text-slate-700 font-bold uppercase tracking-wider border-b border-slate-200">
+                    <tr>
+                      <th className="p-3">No. Invoice & Klien</th>
+                      <th className="p-3">Tgl Issue</th>
+                      <th className="p-3">Jatuh Tempo</th>
+                      <th className="p-3 text-right">Total Tagihan</th>
+                      <th className="p-3 text-right">Sudah Dibayar</th>
+                      <th className="p-3 text-right">Sisa Piutang</th>
+                      <th className="p-3 text-center">Aging Status</th>
+                      <th className="p-3 text-center">Aksi</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200 bg-white">
+                    {unpaidInvoices.map((inv) => {
+                      const balance = inv.balanceDue !== undefined ? inv.balanceDue : ((inv.totalAmount || 0) - (inv.paidAmount || 0));
+                      const overdue = isOverdue(inv);
+                      const agingDays = getAgingDays(inv.dueDate);
 
-                    return (
-                      <tr key={inv.id} className="hover:bg-rose-50/30 transition-colors">
-                        <td className="p-3">
-                          <div className="font-bold text-slate-900">{inv.invoiceNumber}</div>
-                          <div className="text-slate-600 font-semibold">{inv.clientName}</div>
-                        </td>
-                        <td className="p-3 text-slate-600">{formatIndonesianDate(inv.issueDate)}</td>
-                        <td className="p-3 font-medium">
-                          <div className={overdue ? 'text-rose-600 font-bold' : 'text-slate-700'}>
-                            {formatIndonesianDate(inv.dueDate)}
-                          </div>
-                        </td>
-                        <td className="p-3 text-right font-medium text-slate-800">{formatCurrency(inv.totalAmount)}</td>
-                        <td className="p-3 text-right font-bold text-emerald-600">{formatCurrency(inv.paidAmount)}</td>
-                        <td className="p-3 text-right font-black text-rose-600 text-sm">{formatCurrency(balance)}</td>
-                        <td className="p-3 text-center">
-                          {overdue ? (
-                            <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-100 text-rose-800 border border-rose-200">
-                              Terlambat {agingDays} Hari
-                            </span>
-                          ) : (
-                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
-                              Akan Jatuh Tempo
-                            </span>
-                          )}
-                        </td>
-                        <td className="p-3 text-center">
-                          <button
-                            onClick={() => openPaymentModal(inv)}
-                            className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-[11px] flex items-center gap-1 transition-all cursor-pointer shadow-2xs"
-                          >
-                            <CreditCard className="w-3 h-3" />
-                            <span>Bayar</span>
-                          </button>
+                      return (
+                        <tr key={inv.id} className="hover:bg-rose-50/30 transition-colors">
+                          <td className="p-3">
+                            <div className="font-bold text-slate-900">{inv.invoiceNumber}</div>
+                            <div className="text-slate-600 font-semibold">{inv.clientName}</div>
+                          </td>
+                          <td className="p-3 text-slate-600">{formatIndonesianDate(inv.issueDate)}</td>
+                          <td className="p-3 font-medium">
+                            <div className={overdue ? 'text-rose-600 font-bold' : 'text-slate-700'}>
+                              {formatIndonesianDate(inv.dueDate)}
+                            </div>
+                          </td>
+                          <td className="p-3 text-right font-medium text-slate-800">{formatCurrency(inv.totalAmount)}</td>
+                          <td className="p-3 text-right font-bold text-emerald-600">{formatCurrency(inv.paidAmount)}</td>
+                          <td className="p-3 text-right font-black text-rose-600 text-sm">{formatCurrency(balance)}</td>
+                          <td className="p-3 text-center">
+                            {overdue ? (
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-100 text-rose-800 border border-rose-200">
+                                Terlambat {agingDays} Hari
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                                Akan Jatuh Tempo
+                              </span>
+                            )}
+                          </td>
+                          <td className="p-3 text-center">
+                            <button
+                              onClick={() => openPaymentModal(inv)}
+                              className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-[11px] flex items-center gap-1 transition-all cursor-pointer shadow-2xs"
+                            >
+                              <CreditCard className="w-3 h-3" />
+                              <span>Bayar</span>
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    {unpaidInvoices.length === 0 && (
+                      <tr>
+                        <td colSpan={8} className="p-8 text-center text-emerald-700 font-bold bg-emerald-50">
+                          Tidak ada tunggakan piutang! Semua invoice telah dilunasi.
                         </td>
                       </tr>
-                    );
-                  })}
-                  {unpaidInvoices.length === 0 && (
-                    <tr>
-                      <td colSpan={8} className="p-8 text-center text-emerald-700 font-bold bg-emerald-50">
-                        Tidak ada tunggakan piutang! Semua invoice telah dilunasi.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* TAB 5: REKAP PENDAPATAN JASA */}
-        {activeTab === 'rekap_pendapatan' && (
-          <div className="p-4 sm:p-6 space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
-                <PieChart className="w-4 h-4 text-indigo-600" />
-                Rekapitulasi Omset & Kas Diterima Per Kategori Layanan
-              </h3>
-
-              <button
-                onClick={() => openSingleTabPreview('rekap_pendapatan')}
-                className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg text-xs flex items-center gap-1.5 cursor-pointer"
-              >
-                <Eye className="w-3.5 h-3.5 text-indigo-600" />
-                <span>Pratinjau PDF</span>
-              </button>
-            </div>
-
-            <div className="overflow-x-auto rounded-xl border border-slate-200/80">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-slate-100 text-slate-700 font-bold uppercase tracking-wider border-b border-slate-200">
-                  <tr>
-                    <th className="p-3 text-center w-12">No</th>
-                    <th className="p-3">Kategori / Deskripsi Layanan</th>
-                    <th className="p-3 text-center">Frekuensi (Item)</th>
-                    <th className="p-3 text-right">Nilai Tagihan (Omset)</th>
-                    <th className="p-3 text-right">Estimasi Kas Diterima</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200 bg-white">
-                  {revenueByServices.map((srv, idx) => (
-                    <tr key={idx} className="hover:bg-slate-50 transition-colors">
-                      <td className="p-3 text-center text-slate-500">{idx + 1}</td>
-                      <td className="p-3 font-bold text-slate-800">{srv.serviceName}</td>
-                      <td className="p-3 text-center font-semibold text-slate-600">{srv.count}x</td>
-                      <td className="p-3 text-right font-medium text-slate-900">{formatCurrency(srv.totalInvoiced)}</td>
-                      <td className="p-3 text-right font-bold text-emerald-600">{formatCurrency(srv.totalPaid)}</td>
-                    </tr>
-                  ))}
-                  {revenueByServices.length === 0 && (
-                    <tr>
-                      <td colSpan={5} className="p-8 text-center text-slate-400 italic">Tidak ada data klasifikasi layanan.</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {/* TAB 6: LAPORAN BULANAN & TAHUNAN */}
-        {activeTab === 'laporan_bulanan' && (
-          <div className="p-4 sm:p-6 space-y-6">
-            <div>
-              <div className="flex items-center justify-between mb-3">
+          {/* DEDICATED VIEW: REKAP PENDAPATAN */}
+          {activeReportView === 'rekap_pendapatan' && (
+            <div className="p-4 sm:p-6 space-y-4">
+              <div className="flex items-center justify-between">
                 <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                  <PieChart className="w-4 h-4 text-indigo-600" />
+                  Rekapitulasi Omset & Kas Diterima Per Kategori Layanan
+                </h3>
+              </div>
+
+              <div className="overflow-x-auto rounded-xl border border-slate-200/80">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-100 text-slate-700 font-bold uppercase tracking-wider border-b border-slate-200">
+                    <tr>
+                      <th className="p-3 text-center w-12">No</th>
+                      <th className="p-3">Kategori / Deskripsi Layanan</th>
+                      <th className="p-3 text-center">Frekuensi (Item)</th>
+                      <th className="p-3 text-right">Nilai Tagihan (Omset)</th>
+                      <th className="p-3 text-right">Estimasi Kas Diterima</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200 bg-white">
+                    {revenueByServices.map((srv, idx) => (
+                      <tr key={idx} className="hover:bg-slate-50 transition-colors">
+                        <td className="p-3 text-center text-slate-500">{idx + 1}</td>
+                        <td className="p-3 font-bold text-slate-800">{srv.serviceName}</td>
+                        <td className="p-3 text-center font-semibold text-slate-600">{srv.count}x</td>
+                        <td className="p-3 text-right font-medium text-slate-900">{formatCurrency(srv.totalInvoiced)}</td>
+                        <td className="p-3 text-right font-bold text-emerald-600">{formatCurrency(srv.totalPaid)}</td>
+                      </tr>
+                    ))}
+                    {revenueByServices.length === 0 && (
+                      <tr>
+                        <td colSpan={5} className="p-8 text-center text-slate-400 italic">Tidak ada data klasifikasi layanan.</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* DEDICATED VIEW: REKAP BULANAN */}
+          {activeReportView === 'laporan_bulanan' && (
+            <div className="p-4 sm:p-6 space-y-6">
+              <div>
+                <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider mb-3 flex items-center gap-2">
                   <Calendar className="w-4 h-4 text-amber-600" />
                   Laporan Per Bulan ({selectedYear === 'all' ? 'Semua Tahun' : selectedYear})
                 </h3>
 
-                <button
-                  onClick={() => openSingleTabPreview('laporan_bulanan')}
-                  className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg text-xs flex items-center gap-1.5 cursor-pointer"
-                >
-                  <Eye className="w-3.5 h-3.5 text-amber-600" />
-                  <span>Pratinjau PDF</span>
-                </button>
+                <div className="overflow-x-auto rounded-xl border border-slate-200/80">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-slate-100 text-slate-700 font-bold uppercase tracking-wider border-b border-slate-200">
+                      <tr>
+                        <th className="p-3">Bulan</th>
+                        <th className="p-3 text-center">Total Inv</th>
+                        <th className="p-3 text-right">Nilai Tagihan</th>
+                        <th className="p-3 text-right">Kas Diterima</th>
+                        <th className="p-3 text-right">Sisa Piutang</th>
+                        <th className="p-3 text-center">Rasio Lunas</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200 bg-white">
+                      {monthlyDataMatrix.map((m) => {
+                        const rate = m.totalInvoiced > 0 ? (m.totalPaid / m.totalInvoiced) * 100 : 0;
+                        return (
+                          <tr key={m.monthIndex} className="hover:bg-slate-50 transition-colors">
+                            <td className="p-3 font-bold text-slate-800">{m.monthName}</td>
+                            <td className="p-3 text-center font-semibold text-slate-600">{m.invoiceCount}</td>
+                            <td className="p-3 text-right font-medium text-slate-800">{formatCurrency(m.totalInvoiced)}</td>
+                            <td className="p-3 text-right font-bold text-emerald-600">{formatCurrency(m.totalPaid)}</td>
+                            <td className="p-3 text-right font-bold text-rose-600">{m.totalUnpaid > 0 ? formatCurrency(m.totalUnpaid) : '-'}</td>
+                            <td className="p-3 text-center font-bold text-slate-700">{rate.toFixed(0)}%</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* DEDICATED VIEW: REKAP TAHUNAN */}
+          {activeReportView === 'laporan_tahunan' && (
+            <div className="p-4 sm:p-6 space-y-6">
+              <div>
+                <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider mb-3 flex items-center gap-2">
+                  <TrendingUp className="w-4 h-4 text-blue-600" />
+                  Laporan Tahunan (Multi-Tahun)
+                </h3>
+
+                <div className="overflow-x-auto rounded-xl border border-slate-200/80">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-slate-100 text-slate-700 font-bold uppercase tracking-wider border-b border-slate-200">
+                      <tr>
+                        <th className="p-3">Tahun</th>
+                        <th className="p-3 text-center">Total Invoice</th>
+                        <th className="p-3 text-right">Total Omset Tagihan</th>
+                        <th className="p-3 text-right">Total Kas Diterima</th>
+                        <th className="p-3 text-right">Total Sisa Piutang</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200 bg-white">
+                      {yearlyDataMatrix.map((yItem) => (
+                        <tr key={yItem.year} className="hover:bg-slate-50 transition-colors">
+                          <td className="p-3 font-extrabold text-slate-900 text-sm">Tahun {yItem.year}</td>
+                          <td className="p-3 text-center font-bold text-slate-700">{yItem.invoiceCount}</td>
+                          <td className="p-3 text-right font-medium text-slate-900">{formatCurrency(yItem.totalInvoiced)}</td>
+                          <td className="p-3 text-right font-bold text-emerald-600">{formatCurrency(yItem.totalPaid)}</td>
+                          <td className="p-3 text-right font-bold text-rose-600">{formatCurrency(yItem.totalUnpaid)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* DEDICATED VIEW: LAPORAN KLIEN */}
+          {activeReportView === 'laporan_klien' && (
+            <div className="p-4 sm:p-6 space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                  <Users className="w-4 h-4 text-purple-600" />
+                  Laporan Keuangan & Piutang Per Klien ({clientFinancialSummaries.length} Klien)
+                </h3>
               </div>
 
               <div className="overflow-x-auto rounded-xl border border-slate-200/80">
                 <table className="w-full text-left text-xs">
                   <thead className="bg-slate-100 text-slate-700 font-bold uppercase tracking-wider border-b border-slate-200">
                     <tr>
-                      <th className="p-3">Bulan</th>
-                      <th className="p-3 text-center">Total Inv</th>
-                      <th className="p-3 text-right">Nilai Tagihan</th>
-                      <th className="p-3 text-right">Kas Diterima</th>
+                      <th className="p-3 text-center w-12">No</th>
+                      <th className="p-3">Nama Klien</th>
+                      <th className="p-3 text-center">Jumlah Invoice</th>
+                      <th className="p-3 text-right">Total Tagihan</th>
+                      <th className="p-3 text-right">Total Sudah Dibayar</th>
                       <th className="p-3 text-right">Sisa Piutang</th>
-                      <th className="p-3 text-center">Rasio Lunas</th>
+                      <th className="p-3 text-center">Status</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200 bg-white">
-                    {monthlyDataMatrix.map((m) => {
-                      const rate = m.totalInvoiced > 0 ? (m.totalPaid / m.totalInvoiced) * 100 : 0;
+                    {clientFinancialSummaries.map((cli, idx) => {
+                      const isAllPaid = cli.totalUnpaid <= 0;
                       return (
-                        <tr key={m.monthIndex} className="hover:bg-slate-50 transition-colors">
-                          <td className="p-3 font-bold text-slate-800">{m.monthName}</td>
-                          <td className="p-3 text-center font-semibold text-slate-600">{m.invoiceCount}</td>
-                          <td className="p-3 text-right font-medium text-slate-800">{formatCurrency(m.totalInvoiced)}</td>
-                          <td className="p-3 text-right font-bold text-emerald-600">{formatCurrency(m.totalPaid)}</td>
-                          <td className="p-3 text-right font-bold text-rose-600">{m.totalUnpaid > 0 ? formatCurrency(m.totalUnpaid) : '-'}</td>
-                          <td className="p-3 text-center font-bold text-slate-700">{rate.toFixed(0)}%</td>
+                        <tr key={idx} className="hover:bg-slate-50 transition-colors">
+                          <td className="p-3 text-center text-slate-500">{idx + 1}</td>
+                          <td className="p-3 font-bold text-slate-900">{cli.clientName}</td>
+                          <td className="p-3 text-center font-semibold text-slate-600">{cli.invoiceCount} Inv</td>
+                          <td className="p-3 text-right font-medium text-slate-900">{formatCurrency(cli.totalInvoiced)}</td>
+                          <td className="p-3 text-right font-bold text-emerald-600">{formatCurrency(cli.totalPaid)}</td>
+                          <td className="p-3 text-right font-bold text-rose-600">{cli.totalUnpaid > 0 ? formatCurrency(cli.totalUnpaid) : '-'}</td>
+                          <td className="p-3 text-center">
+                            <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                              isAllPaid ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
+                            }`}>
+                              {isAllPaid ? 'LUNAS SEMUA' : 'MEMILIKI PIUTANG'}
+                            </span>
+                          </td>
                         </tr>
                       );
                     })}
@@ -1944,281 +2043,181 @@ export const FinancialReport: React.FC = () => {
                 </table>
               </div>
             </div>
+          )}
 
-            <div>
-              <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider mb-3 flex items-center gap-2">
-                <TrendingUp className="w-4 h-4 text-blue-600" />
-                Laporan Tahunan (Multi-Tahun)
-              </h3>
-
-              <div className="overflow-x-auto rounded-xl border border-slate-200/80">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-100 text-slate-700 font-bold uppercase tracking-wider border-b border-slate-200">
-                    <tr>
-                      <th className="p-3">Tahun</th>
-                      <th className="p-3 text-center">Total Invoice</th>
-                      <th className="p-3 text-right">Total Omset Tagihan</th>
-                      <th className="p-3 text-right">Total Kas Diterima</th>
-                      <th className="p-3 text-right">Total Sisa Piutang</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-200 bg-white">
-                    {yearlyDataMatrix.map((yItem) => (
-                      <tr key={yItem.year} className="hover:bg-slate-50 transition-colors">
-                        <td className="p-3 font-extrabold text-slate-900 text-sm">Tahun {yItem.year}</td>
-                        <td className="p-3 text-center font-bold text-slate-700">{yItem.invoiceCount}</td>
-                        <td className="p-3 text-right font-medium text-slate-900">{formatCurrency(yItem.totalInvoiced)}</td>
-                        <td className="p-3 text-right font-bold text-emerald-600">{formatCurrency(yItem.totalPaid)}</td>
-                        <td className="p-3 text-right font-bold text-rose-600">{formatCurrency(yItem.totalUnpaid)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* TAB 7: LAPORAN KLIEN */}
-        {activeTab === 'laporan_klien' && (
-          <div className="p-4 sm:p-6 space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
-                <Users className="w-4 h-4 text-purple-600" />
-                Laporan Keuangan & Piutang Per Klien ({clientFinancialSummaries.length} Klien)
-              </h3>
-
-              <button
-                onClick={() => openSingleTabPreview('laporan_klien')}
-                className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg text-xs flex items-center gap-1.5 cursor-pointer"
-              >
-                <Eye className="w-3.5 h-3.5 text-purple-600" />
-                <span>Pratinjau PDF</span>
-              </button>
-            </div>
-
-            <div className="overflow-x-auto rounded-xl border border-slate-200/80">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-slate-100 text-slate-700 font-bold uppercase tracking-wider border-b border-slate-200">
-                  <tr>
-                    <th className="p-3 text-center w-12">No</th>
-                    <th className="p-3">Nama Klien</th>
-                    <th className="p-3 text-center">Jumlah Invoice</th>
-                    <th className="p-3 text-right">Total Tagihan</th>
-                    <th className="p-3 text-right">Total Sudah Dibayar</th>
-                    <th className="p-3 text-right">Sisa Piutang</th>
-                    <th className="p-3 text-center">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200 bg-white">
-                  {clientFinancialSummaries.map((cli, idx) => {
-                    const isAllPaid = cli.totalUnpaid <= 0;
-                    return (
-                      <tr key={idx} className="hover:bg-slate-50 transition-colors">
-                        <td className="p-3 text-center text-slate-500">{idx + 1}</td>
-                        <td className="p-3 font-bold text-slate-900">{cli.clientName}</td>
-                        <td className="p-3 text-center font-semibold text-slate-600">{cli.invoiceCount} Inv</td>
-                        <td className="p-3 text-right font-medium text-slate-900">{formatCurrency(cli.totalInvoiced)}</td>
-                        <td className="p-3 text-right font-bold text-emerald-600">{formatCurrency(cli.totalPaid)}</td>
-                        <td className="p-3 text-right font-bold text-rose-600">{cli.totalUnpaid > 0 ? formatCurrency(cli.totalUnpaid) : '-'}</td>
-                        <td className="p-3 text-center">
-                          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
-                            isAllPaid ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
-                          }`}>
-                            {isAllPaid ? 'LUNAS SEMUA' : 'MEMILIKI PIUTANG'}
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {/* TAB 8: RIWAYAT TRANSAKSI */}
-        {activeTab === 'riwayat_transaksi' && (
-          <div className="p-4 sm:p-6 space-y-4">
-            <div className="flex items-center justify-between">
+          {/* DEDICATED VIEW: RIWAYAT TRANSAKSI */}
+          {activeReportView === 'riwayat_transaksi' && (
+            <div className="p-4 sm:p-6 space-y-4">
               <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
                 <History className="w-4 h-4 text-slate-700" />
                 Riwayat Transaksi Detail Invoice & Angsuran Pembayaran
               </h3>
 
-              <button
-                onClick={() => openSingleTabPreview('riwayat_transaksi')}
-                className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg text-xs flex items-center gap-1.5 cursor-pointer"
-              >
-                <Eye className="w-3.5 h-3.5 text-slate-700" />
-                <span>Pratinjau PDF</span>
-              </button>
-            </div>
+              <div className="space-y-4">
+                {filteredInvoices.map((inv) => {
+                  const balance = inv.balanceDue !== undefined ? inv.balanceDue : ((inv.totalAmount || 0) - (inv.paidAmount || 0));
+                  const items = Array.isArray(inv.items) ? inv.items : [];
+                  const history = Array.isArray(inv.paymentHistory) ? inv.paymentHistory : [];
 
-            <div className="space-y-4">
-              {filteredInvoices.map((inv) => {
-                const balance = inv.balanceDue !== undefined ? inv.balanceDue : ((inv.totalAmount || 0) - (inv.paidAmount || 0));
-                const items = Array.isArray(inv.items) ? inv.items : [];
-                const history = Array.isArray(inv.paymentHistory) ? inv.paymentHistory : [];
-
-                return (
-                  <div key={inv.id} className="p-4 rounded-xl border border-slate-200/80 bg-white space-y-3 shadow-2xs">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-extrabold text-sm text-slate-900">#{inv.invoiceNumber}</span>
-                          <span className="font-semibold text-xs text-slate-700">— {inv.clientName}</span>
-                        </div>
-                        {inv.projectTitle && <p className="text-xs text-slate-500">{inv.projectTitle}</p>}
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-slate-500">Issue: <b>{formatIndonesianDate(inv.issueDate)}</b></span>
-                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold ${
-                          balance <= 0 ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
-                        }`}>
-                          {balance <= 0 ? 'LUNAS' : 'SISA PIUTANG'}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Itemized list */}
-                    <div className="bg-slate-50 p-3 rounded-lg border border-slate-100 text-xs">
-                      <span className="font-bold text-slate-700 block mb-1.5 uppercase text-[10px]">Rincian Item Invoice:</span>
-                      <div className="space-y-1">
-                        {items.map((it, iIdx) => (
-                          <div key={iIdx} className="flex justify-between text-slate-700">
-                            <span>• {it.description || (it as any).name} (x{it.quantity || 1})</span>
-                            <span className="font-medium">{formatCurrency(it.amount || ((it.quantity || 1) * (it.unitPrice || 0)))}</span>
+                  return (
+                    <div key={inv.id} className="p-4 rounded-xl border border-slate-200/80 bg-white space-y-3 shadow-2xs">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-extrabold text-sm text-slate-900">#{inv.invoiceNumber}</span>
+                            <span className="font-semibold text-xs text-slate-700">— {inv.clientName}</span>
                           </div>
-                        ))}
-                      </div>
-                    </div>
+                          {inv.projectTitle && <p className="text-xs text-slate-500">{inv.projectTitle}</p>}
+                        </div>
 
-                    {/* Payments Log */}
-                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 text-xs pt-1">
-                      <div>
-                        <span className="font-bold text-slate-700 text-[11px] block">Angsuran Pembayaran ({history.length}x):</span>
-                        {history.map((h, hIdx) => (
-                          <span key={hIdx} className="text-slate-600 text-[11px] mr-3">
-                            [{formatIndonesianDate(h.date)}: <b>{formatCurrency(h.amount)}</b> via {h.method || 'Transfer'}]
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-slate-500">Issue: <b>{formatIndonesianDate(inv.issueDate)}</b></span>
+                          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold ${
+                            balance <= 0 ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
+                          }`}>
+                            {balance <= 0 ? 'LUNAS' : 'SISA PIUTANG'}
                           </span>
-                        ))}
-                        {history.length === 0 && <span className="text-slate-400 italic text-[11px]">Belum ada angsuran.</span>}
+                        </div>
                       </div>
 
-                      <div className="text-right shrink-0">
-                        <span className="text-slate-500 text-[11px]">Total: {formatCurrency(inv.totalAmount)} | </span>
-                        <span className="text-emerald-600 font-bold text-[11px]">Terbayar: {formatCurrency(inv.paidAmount)} | </span>
-                        <span className="text-rose-600 font-black text-xs">Sisa: {formatCurrency(balance)}</span>
+                      {/* Itemized list */}
+                      <div className="bg-slate-50 p-3 rounded-lg border border-slate-100 text-xs">
+                        <span className="font-bold text-slate-700 block mb-1.5 uppercase text-[10px]">Rincian Item Invoice:</span>
+                        <div className="space-y-1">
+                          {items.map((it, iIdx) => (
+                            <div key={iIdx} className="flex justify-between text-slate-700">
+                              <span>• {it.description || (it as any).name} (x{it.quantity || 1})</span>
+                              <span className="font-medium">{formatCurrency(it.amount || ((it.quantity || 1) * (it.unitPrice || 0)))}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Payments Log */}
+                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 text-xs pt-1">
+                        <div>
+                          <span className="font-bold text-slate-700 text-[11px] block">Angsuran Pembayaran ({history.length}x):</span>
+                          {history.map((h, hIdx) => (
+                            <span key={hIdx} className="text-slate-600 text-[11px] mr-3">
+                              [{formatIndonesianDate(h.date)}: <b>{formatCurrency(h.amount)}</b> via {h.method || 'Transfer'}]
+                            </span>
+                          ))}
+                          {history.length === 0 && <span className="text-slate-400 italic text-[11px]">Belum ada angsuran.</span>}
+                        </div>
+
+                        <div className="text-right shrink-0">
+                          <span className="text-slate-500 text-[11px]">Total: {formatCurrency(inv.totalAmount)} | </span>
+                          <span className="text-emerald-600 font-bold text-[11px]">Terbayar: {formatCurrency(inv.paidAmount)} | </span>
+                          <span className="text-rose-600 font-black text-xs">Sisa: {formatCurrency(balance)}</span>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* TAB 9: CETAK PDF & MERGER MULTI-REPORT */}
-        {activeTab === 'pdf_merger' && (
-          <div className="p-4 sm:p-6 space-y-6">
-            <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div>
-                <h3 className="text-base font-extrabold text-emerald-900 flex items-center gap-2">
-                  <Layers className="w-5 h-5 text-emerald-600" />
-                  Pusat Cetak & Penggabungan Laporan PDF
-                </h3>
-                <p className="text-xs text-emerald-800 mt-0.5">
-                  Pilih beberapa jenis laporan untuk digabungkan menjadi satu dokumen PDF siap cetak berukuran A4.
-                </p>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setPdfOrientation(pdfOrientation === 'portrait' ? 'landscape' : 'portrait')}
-                  className="px-3.5 py-2 bg-white text-slate-800 font-bold border border-slate-300 rounded-xl text-xs flex items-center gap-1.5 cursor-pointer shadow-2xs"
-                >
-                  <span>Orientasi: <b>{pdfOrientation === 'portrait' ? 'Portrait' : 'Landscape'}</b></span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleDirectPrintPDF}
-                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs flex items-center gap-2 transition-all cursor-pointer shadow-xs"
-                >
-                  <Printer className="w-4 h-4" />
-                  <span>Cetak / Ekspor PDF sekarang</span>
-                </button>
+                  );
+                })}
               </div>
             </div>
+          )}
 
-            {/* Checkbox Multi-Report Selector */}
-            <div className="bg-white p-4 rounded-xl border border-slate-200 space-y-3">
-              <label className="block text-xs font-extrabold text-slate-800 uppercase tracking-wider">
-                Pilih Jenis Laporan yang Digabungkan:
-              </label>
+          {/* DEDICATED VIEW: CETAK PDF & MERGER MULTI-REPORT */}
+          {activeReportView === 'pdf_merger' && (
+            <div className="p-4 sm:p-6 space-y-6">
+              <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                  <h3 className="text-base font-extrabold text-emerald-900 flex items-center gap-2">
+                    <Layers className="w-5 h-5 text-emerald-600" />
+                    Pusat Cetak & Penggabungan Laporan PDF
+                  </h3>
+                  <p className="text-xs text-emerald-800 mt-0.5">
+                    Pilih beberapa jenis laporan untuk digabungkan menjadi satu dokumen PDF siap cetak berukuran A4.
+                  </p>
+                </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
-                {[
-                  { id: 'rekap_invoice', label: '1. Rekap Invoice' },
-                  { id: 'laporan_pembayaran', label: '2. Laporan Pembayaran' },
-                  { id: 'laporan_piutang', label: '3. Laporan Piutang' },
-                  { id: 'rekap_pendapatan', label: '4. Rekap Pendapatan' },
-                  { id: 'laporan_bulanan', label: '5. Laporan Bulanan' },
-                  { id: 'laporan_klien', label: '6. Laporan Klien' },
-                  { id: 'riwayat_transaksi', label: '7. Riwayat Transaksi Item' },
-                ].map(rep => (
-                  <label 
-                    key={rep.id}
-                    className={`p-3 rounded-xl border flex items-center gap-2.5 cursor-pointer transition-all ${
-                      selectedReportsForPDF[rep.id] 
-                        ? 'border-emerald-500 bg-emerald-50/40 text-emerald-950 font-bold' 
-                        : 'border-slate-200 text-slate-600 hover:bg-slate-50'
-                    }`}
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setPdfOrientation(pdfOrientation === 'portrait' ? 'landscape' : 'portrait')}
+                    className="px-3.5 py-2 bg-white text-slate-800 font-bold border border-slate-300 rounded-xl text-xs flex items-center gap-1.5 cursor-pointer shadow-2xs"
                   >
-                    <input
-                      type="checkbox"
-                      checked={!!selectedReportsForPDF[rep.id]}
-                      onChange={(e) => setSelectedReportsForPDF(prev => ({ ...prev, [rep.id]: e.target.checked }))}
-                      className="w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500"
-                    />
-                    <span className="text-xs">{rep.label}</span>
-                  </label>
-                ))}
+                    <span>Orientasi: <b>{pdfOrientation === 'portrait' ? 'Portrait' : 'Landscape'}</b></span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleDirectPrintPDF}
+                    className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs flex items-center gap-2 transition-all cursor-pointer shadow-xs"
+                  >
+                    <Printer className="w-4 h-4" />
+                    <span>Cetak / Ekspor PDF sekarang</span>
+                  </button>
+                </div>
               </div>
+
+              {/* Checkbox Multi-Report Selector */}
+              <div className="bg-white p-4 rounded-xl border border-slate-200 space-y-3">
+                <label className="block text-xs font-extrabold text-slate-800 uppercase tracking-wider">
+                  Pilih Jenis Laporan yang Digabungkan:
+                </label>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                  {[
+                    { id: 'rekap_invoice', label: '1. Rekap Invoice' },
+                    { id: 'laporan_pembayaran', label: '2. Laporan Pembayaran' },
+                    { id: 'laporan_piutang', label: '3. Laporan Piutang' },
+                    { id: 'rekap_pendapatan', label: '4. Rekap Pendapatan' },
+                    { id: 'laporan_bulanan', label: '5. Laporan Bulanan' },
+                    { id: 'laporan_klien', label: '6. Laporan Klien' },
+                    { id: 'riwayat_transaksi', label: '7. Riwayat Transaksi Item' },
+                  ].map(rep => (
+                    <label 
+                      key={rep.id}
+                      className={`p-3 rounded-xl border flex items-center gap-2.5 cursor-pointer transition-all ${
+                        selectedReportsForPDF[rep.id] 
+                          ? 'border-emerald-500 bg-emerald-50/40 text-emerald-950 font-bold' 
+                          : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={!!selectedReportsForPDF[rep.id]}
+                        onChange={(e) => setSelectedReportsForPDF(prev => ({ ...prev, [rep.id]: e.target.checked }))}
+                        className="w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500"
+                      />
+                      <span className="text-xs">{rep.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Live In-App Document Preview Sheet */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                    <Eye className="w-4 h-4 text-emerald-600" />
+                    Pratinjau Dokumen PDF (Live Preview)
+                  </span>
+                  <span className="text-xs text-slate-500">
+                    Ukuran Kertas: <b>A4 ({pdfOrientation.toUpperCase()})</b>
+                  </span>
+                </div>
+
+                <div className="bg-slate-100 p-4 sm:p-8 rounded-2xl border border-slate-300 overflow-x-auto flex justify-center">
+                  <div 
+                    className="bg-white text-slate-900 shadow-2xl p-6 sm:p-10 rounded-sm border border-slate-200"
+                    style={{
+                      width: pdfOrientation === 'portrait' ? '210mm' : '297mm',
+                      minHeight: '297mm',
+                      fontSize: '11px'
+                    }}
+                    dangerouslySetInnerHTML={{ __html: buildCombinedReportHTML() }}
+                  />
+                </div>
+              </div>
+
             </div>
+          )}
 
-            {/* Live In-App Document Preview Sheet */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-                  <Eye className="w-4 h-4 text-emerald-600" />
-                  Pratinjau Dokumen PDF (Live Preview)
-                </span>
-                <span className="text-xs text-slate-500">
-                  Ukuran Kertas: <b>A4 ({pdfOrientation.toUpperCase()})</b>
-                </span>
-              </div>
-
-              <div className="bg-slate-100 p-4 sm:p-8 rounded-2xl border border-slate-300 overflow-x-auto flex justify-center">
-                <div 
-                  className="bg-white text-slate-900 shadow-2xl p-6 sm:p-10 rounded-sm border border-slate-200"
-                  style={{
-                    width: pdfOrientation === 'portrait' ? '210mm' : '297mm',
-                    minHeight: '297mm',
-                    fontSize: '11px'
-                  }}
-                  dangerouslySetInnerHTML={{ __html: buildCombinedReportHTML() }}
-                />
-              </div>
-            </div>
-
-          </div>
-        )}
-
-      </div>
+        </div>
+      )}
 
       {/* MODAL: SINGLE TAB PDF PREVIEW MODAL */}
       {previewTabModal && (
@@ -2245,7 +2244,7 @@ export const FinancialReport: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setPdfOrientation(pdfOrientation === 'portrait' ? 'landscape' : 'portrait')}
-                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold rounded-lg text-xs flex items-center gap-1 transition-colors"
+                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold rounded-lg text-xs flex items-center gap-1 transition-colors cursor-pointer"
                 >
                   <span>{pdfOrientation === 'portrait' ? 'Portrait' : 'Landscape'}</span>
                 </button>
@@ -2283,7 +2282,7 @@ export const FinancialReport: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setPreviewTabModal(null)}
-                  className="px-4 py-2 bg-white hover:bg-slate-200 text-slate-700 font-bold border border-slate-300 rounded-xl text-xs transition-colors"
+                  className="px-4 py-2 bg-white hover:bg-slate-200 text-slate-700 font-bold border border-slate-300 rounded-xl text-xs transition-colors cursor-pointer"
                 >
                   Tutup
                 </button>
