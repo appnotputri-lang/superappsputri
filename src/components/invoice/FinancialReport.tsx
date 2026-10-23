@@ -27,7 +27,9 @@ import {
   ArrowDownRight,
   PieChart,
   Tag,
-  Check
+  Check,
+  FileText,
+  ListFilter
 } from 'lucide-react';
 import { Invoice, PaymentRecord } from '../../../types';
 import { InvoiceService } from '../../services/InvoiceService';
@@ -38,6 +40,35 @@ const MONTH_NAMES = [
   'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
   'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
 ];
+
+/**
+ * Helper to format date strings into Indonesian format (e.g., "1 Januari 2026")
+ */
+const formatIndonesianDate = (dateStr?: string): string => {
+  if (!dateStr || dateStr.trim() === '') return '-';
+  
+  // Handle ISO string or YYYY-MM-DD
+  const cleanStr = dateStr.split('T')[0];
+  const parts = cleanStr.split('-');
+  
+  if (parts.length === 3) {
+    const y = parts[0];
+    const mIdx = parseInt(parts[1], 10) - 1;
+    const d = parseInt(parts[2], 10);
+    
+    if (!isNaN(d) && mIdx >= 0 && mIdx < 12 && y.length === 4) {
+      return `${d} ${MONTH_NAMES[mIdx]} ${y}`;
+    }
+  }
+
+  // Fallback to standard Date parsing
+  const dt = new Date(dateStr);
+  if (!isNaN(dt.getTime())) {
+    return `${dt.getDate()} ${MONTH_NAMES[dt.getMonth()]} ${dt.getFullYear()}`;
+  }
+
+  return dateStr;
+};
 
 export const FinancialReport: React.FC = () => {
   const navigate = useNavigate();
@@ -56,7 +87,7 @@ export const FinancialReport: React.FC = () => {
   const [selectedYear, setSelectedYear] = useState<string>(new Date().getFullYear().toString());
   const [selectedMonth, setSelectedMonth] = useState<string>('all'); // 'all' or '0' - '11'
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [statusFilter, setStatusFilter] = useState<string>('all'); // for unpaid view (e.g. ALL, UNPAID, OVERDUE)
+  const [statusFilter, setStatusFilter] = useState<string>('all'); // for unpaid view
 
   // Payment Modal State
   const [paymentModalInvoice, setPaymentModalInvoice] = useState<Invoice | null>(null);
@@ -66,6 +97,11 @@ export const FinancialReport: React.FC = () => {
   const [paymentRefNumber, setPaymentRefNumber] = useState<string>('');
   const [paymentNotes, setPaymentNotes] = useState<string>('');
   const [isSubmittingPayment, setIsSubmittingPayment] = useState<boolean>(false);
+
+  // Print Modal Options
+  const [isPrintModalOpen, setIsPrintModalOpen] = useState<boolean>(false);
+  const [printType, setPrintType] = useState<'summary' | 'detailed'>('summary'); // 'summary' vs 'detailed'
+  const [printScope, setPrintScope] = useState<'all' | 'unpaid' | 'paid'>('all');
 
   // Monthly breakdown expansion state in Unpaid/Paid per month views
   const [expandedMonths, setExpandedMonths] = useState<Record<string, boolean>>({});
@@ -116,7 +152,7 @@ export const FinancialReport: React.FC = () => {
     return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(val);
   };
 
-  // Helper date parsing
+  // Helper date parsing for overdue
   const isOverdue = (invoice: Invoice) => {
     if (invoice.status === 'PAID' || invoice.status === 'CANCELLED') return false;
     const balance = invoice.balanceDue !== undefined ? invoice.balanceDue : (invoice.totalAmount - (invoice.paidAmount || 0));
@@ -135,7 +171,7 @@ export const FinancialReport: React.FC = () => {
     today.setHours(0,0,0,0);
     const due = new Date(dueDateStr);
     const diffTime = today.getTime() - due.getTime();
-    return Math.floor(diffTime / (1000 * 3600 * 24));
+    return Math.max(0, Math.floor(diffTime / (1000 * 3600 * 24)));
   };
 
   // Filtered Invoices according to Year & Month & Search Query
@@ -362,7 +398,7 @@ export const FinancialReport: React.FC = () => {
     const phone = inv.clientPhone ? inv.clientPhone.replace(/[^0-9]/g, '') : '';
     const formattedPhone = phone.startsWith('0') ? '62' + phone.substring(1) : phone;
     const balance = inv.balanceDue !== undefined ? inv.balanceDue : (inv.totalAmount - (inv.paidAmount || 0));
-    const msg = `Halo Bapak/Ibu ${inv.clientName},\n\nKami menginformasikan mengenai Invoice *#${inv.invoiceNumber}* sebesar *${formatCurrency(inv.totalAmount)}* dengan sisa tagihan *${formatCurrency(balance)}* yang jatuh tempo pada *${inv.dueDate || '-'}*.\n\nMohon konfirmasinya jika telah melakukan pembayaran. Terima kasih!\n\n_Salam, Notaris & PPAT_`;
+    const msg = `Halo Bapak/Ibu ${inv.clientName},\n\nKami menginformasikan mengenai Invoice *#${inv.invoiceNumber}* sebesar *${formatCurrency(inv.totalAmount)}* dengan sisa tagihan *${formatCurrency(balance)}* yang jatuh tempo pada *${formatIndonesianDate(inv.dueDate)}*.\n\nMohon konfirmasinya jika telah melakukan pembayaran. Terima kasih!\n\n_Salam, Notaris & PPAT_`;
     
     return `https://wa.me/${formattedPhone}?text=${encodeURIComponent(msg)}`;
   };
@@ -378,8 +414,8 @@ export const FinancialReport: React.FC = () => {
         `"${inv.invoiceNumber || ''}"`,
         `"${(inv.clientName || '').replace(/"/g, '""')}"`,
         `"${(inv.projectTitle || '').replace(/"/g, '""')}"`,
-        `"${inv.issueDate || ''}"`,
-        `"${inv.dueDate || ''}"`,
+        `"${formatIndonesianDate(inv.issueDate)}"`,
+        `"${formatIndonesianDate(inv.dueDate)}"`,
         `"${statusStr}"`,
         inv.totalAmount || 0,
         inv.paidAmount || 0,
@@ -398,45 +434,29 @@ export const FinancialReport: React.FC = () => {
     document.body.removeChild(link);
   };
 
-  // Print Report Window
-  const handlePrintReport = () => {
+  // Print Executer with Ringkasan or Detail Seluruh Invoice
+  const executePrintReport = () => {
+    setIsPrintModalOpen(false);
+
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
-    const htmlContent = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Laporan Keuangan Invoice - ${selectedYear}</title>
-        <style>
-          body { font-family: Arial, sans-serif; padding: 20px; color: #1e293b; font-size: 12px; }
-          .header { text-align: center; border-bottom: 2px solid #0f172a; padding-bottom: 12px; margin-bottom: 20px; }
-          .header h1 { margin: 0; font-size: 18px; text-transform: uppercase; letter-spacing: 1px; color: #0f172a; }
-          .header p { margin: 4px 0 0 0; color: #64748b; font-size: 11px; }
-          .summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px; }
-          .summary-card { border: 1px solid #cbd5e1; padding: 10px; border-radius: 6px; background: #f8fafc; }
-          .summary-card .title { font-size: 10px; color: #64748b; font-weight: bold; text-transform: uppercase; }
-          .summary-card .value { font-size: 14px; font-weight: bold; margin-top: 4px; color: #0f172a; }
-          table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-          th { background: #1e293b; color: white; text-align: left; padding: 8px; font-size: 10px; text-transform: uppercase; }
-          td { border-bottom: 1px solid #e2e8f0; padding: 8px; }
-          .text-right { text-align: right; }
-          .badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 9px; font-weight: bold; }
-          .badge-paid { background: #dcfce7; color: #15803d; }
-          .badge-unpaid { background: #fee2e2; color: #b91c1c; }
-          .badge-partial { background: #fef3c7; color: #b45309; }
-          .footer { margin-top: 30px; text-align: right; font-size: 10px; color: #64748b; }
-          @media print {
-            body { padding: 0; }
-          }
-        </style>
-      </head>
-      <body>
-        <div class="header">
-          <h1>LAPORAN KEUANGAN INVOICE & PEMBAYARAN</h1>
-          <p>Periode Tahun: ${selectedYear} ${selectedMonth !== 'all' ? '| Bulan: ' + MONTH_NAMES[parseInt(selectedMonth, 10)] : ''} | Dicetak: ${new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
-        </div>
+    // Filter scope
+    let targetInvoices = filteredInvoices;
+    if (printScope === 'unpaid') {
+      targetInvoices = unpaidInvoices;
+    } else if (printScope === 'paid') {
+      targetInvoices = paidInvoices;
+    }
 
+    const todayStr = formatIndonesianDate(new Date().toISOString().split('T')[0]);
+    const periodText = `${selectedYear === 'all' ? 'Semua Tahun' : 'Tahun ' + selectedYear}${selectedMonth !== 'all' ? ' — Bulan ' + MONTH_NAMES[parseInt(selectedMonth, 10)] : ''}`;
+
+    let printBodyHTML = '';
+
+    if (printType === 'summary') {
+      // RINGKASAN HTML
+      printBodyHTML = `
         <div class="summary-grid">
           <div class="summary-card">
             <div class="title">Total Tagihan (Omset)</div>
@@ -456,12 +476,12 @@ export const FinancialReport: React.FC = () => {
           </div>
         </div>
 
-        <h3>Daftar Rincian Invoice</h3>
+        <h3>REKAPITULASI INVOICE (${targetInvoices.length} DOKUMEN)</h3>
         <table>
           <thead>
             <tr>
               <th>No. Invoice</th>
-              <th>Nama Klien</th>
+              <th>Nama Klien & Proyek</th>
               <th>Tgl Issue</th>
               <th>Jatuh Tempo</th>
               <th>Status</th>
@@ -471,32 +491,196 @@ export const FinancialReport: React.FC = () => {
             </tr>
           </thead>
           <tbody>
-            ${filteredInvoices.map(inv => {
+            ${targetInvoices.map(inv => {
               const balance = inv.balanceDue !== undefined ? inv.balanceDue : (inv.totalAmount - (inv.paidAmount || 0));
               const isP = balance <= 0;
               const isPart = (inv.paidAmount || 0) > 0 && balance > 0;
               return `
                 <tr>
                   <td><b>${inv.invoiceNumber}</b></td>
-                  <td>${inv.clientName}</td>
-                  <td>${inv.issueDate || '-'}</td>
-                  <td>${inv.dueDate || '-'}</td>
+                  <td>
+                    <b>${inv.clientName}</b>
+                    ${inv.projectTitle ? '<br/><span style="font-size: 10px; color: #64748b;">Proyek: ' + inv.projectTitle + '</span>' : ''}
+                  </td>
+                  <td>${formatIndonesianDate(inv.issueDate)}</td>
+                  <td>${formatIndonesianDate(inv.dueDate)}</td>
                   <td>
                     <span class="badge ${isP ? 'badge-paid' : isPart ? 'badge-partial' : 'badge-unpaid'}">
                       ${isP ? 'LUNAS' : isPart ? 'SEBAGIAN' : 'BELUM BAYAR'}
                     </span>
                   </td>
                   <td class="text-right">${formatCurrency(inv.totalAmount)}</td>
-                  <td class="text-right">${formatCurrency(inv.paidAmount)}</td>
-                  <td class="text-right"><b>${formatCurrency(balance)}</b></td>
+                  <td class="text-right" style="color: #16a34a; font-weight: bold;">${formatCurrency(inv.paidAmount)}</td>
+                  <td class="text-right" style="color: #dc2626; font-weight: bold;">${formatCurrency(balance)}</td>
                 </tr>
               `;
             }).join('')}
           </tbody>
         </table>
+      `;
+    } else {
+      // DETAIL SELURUH INVOICE HTML (Full Line Items Breakdown)
+      printBodyHTML = `
+        <div class="summary-grid">
+          <div class="summary-card">
+            <div class="title">Total Tagihan (Omset)</div>
+            <div class="value">${formatCurrency(metrics.totalInvoiced)}</div>
+          </div>
+          <div class="summary-card">
+            <div class="title">Sudah Dibayar</div>
+            <div class="value" style="color: #16a34a;">${formatCurrency(metrics.totalPaid)}</div>
+          </div>
+          <div class="summary-card">
+            <div class="title">Sisa Piutang (Belum Dibayar)</div>
+            <div class="value" style="color: #dc2626;">${formatCurrency(metrics.totalUnpaid)}</div>
+          </div>
+          <div class="summary-card">
+            <div class="title">Total Invoice Dicetak</div>
+            <div class="value" style="color: #2563eb;">${targetInvoices.length} Invoice</div>
+          </div>
+        </div>
+
+        <h3 style="border-bottom: 2px solid #0f172a; padding-bottom: 6px; margin-top: 24px;">DETAIL RINCIAN ITEM SELURUH INVOICE</h3>
+
+        ${targetInvoices.map((inv, idx) => {
+          const balance = inv.balanceDue !== undefined ? inv.balanceDue : (inv.totalAmount - (inv.paidAmount || 0));
+          const isP = balance <= 0;
+          const isPart = (inv.paidAmount || 0) > 0 && balance > 0;
+          const items = Array.isArray(inv.items) ? inv.items : [];
+          const history = Array.isArray(inv.paymentHistory) ? inv.paymentHistory : [];
+
+          return `
+            <div class="invoice-detail-card">
+              <div class="invoice-header">
+                <div>
+                  <div class="inv-num">#${idx + 1}. INVOICE: ${inv.invoiceNumber}</div>
+                  <div class="inv-client"><b>Klien:</b> ${inv.clientName} ${inv.clientPhone ? '(' + inv.clientPhone + ')' : ''}</div>
+                  ${inv.clientAddress ? '<div class="inv-sub">Alamat: ' + inv.clientAddress + '</div>' : ''}
+                  ${inv.projectTitle ? '<div class="inv-sub">Proyek: ' + inv.projectTitle + '</div>' : ''}
+                </div>
+                <div style="text-align: right;">
+                  <span class="badge ${isP ? 'badge-paid' : isPart ? 'badge-partial' : 'badge-unpaid'}" style="font-size: 11px; padding: 4px 8px;">
+                    ${isP ? 'LUNAS' : isPart ? 'BELUM LUNAS (SEBAGIAN)' : 'BELUM DIBAYAR'}
+                  </span>
+                  <div style="margin-top: 6px; font-size: 11px; color: #475569;">
+                    Issue: <b>${formatIndonesianDate(inv.issueDate)}</b><br/>
+                    Jatuh Tempo: <b>${formatIndonesianDate(inv.dueDate)}</b>
+                  </div>
+                </div>
+              </div>
+
+              <!-- ITEMS TABLE -->
+              <table className="items-table" style="margin-top: 10px;">
+                <thead>
+                  <tr>
+                    <th style="width: 40px; text-align: center;">No</th>
+                    <th>Deskripsi Produk / Layanan</th>
+                    <th style="width: 60px; text-align: center;">Qty</th>
+                    <th style="text-align: right; width: 110px;">Harga Satuan</th>
+                    <th style="text-align: right; width: 120px;">Subtotal</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${items.map((it, iIdx) => `
+                    <tr>
+                      <td style="text-align: center;">${iIdx + 1}</td>
+                      <td>${it.description || (it as any).name || '-'}</td>
+                      <td style="text-align: center;">${it.quantity || 1}</td>
+                      <td style="text-align: right;">${formatCurrency(it.unitPrice)}</td>
+                      <td style="text-align: right; font-weight: bold;">${formatCurrency(it.amount || ((it.quantity || 1) * (it.unitPrice || 0)))}</td>
+                    </tr>
+                  `).join('')}
+                  ${items.length === 0 ? '<tr><td colspan="5" style="text-align:center; color:#94a3b8; italic;">Tidak ada rincian item.</td></tr>' : ''}
+                </tbody>
+              </table>
+
+              <!-- INVOICE TOTAL & PAYMENTS -->
+              <div class="invoice-summary-box">
+                <div style="width: 50%;">
+                  ${history.length > 0 ? `
+                    <div style="font-weight: bold; font-size: 10px; color: #475569; text-transform: uppercase; margin-bottom: 4px;">Riwayat Angsuran Pembayaran:</div>
+                    <ul style="margin: 0; padding-left: 14px; font-size: 10px; color: #334155;">
+                      ${history.map(h => `
+                        <li><b>${formatIndonesianDate(h.date)}</b>: ${formatCurrency(h.amount)} (${h.method || 'Transfer'}${h.refNumber ? ' - Ref: ' + h.refNumber : ''})</li>
+                      `).join('')}
+                    </ul>
+                  ` : '<span style="font-size:10px; color:#94a3b8; italic;">Belum ada riwayat angsuran.</span>'}
+                </div>
+
+                <div style="width: 45%; text-align: right; font-size: 11px;">
+                  <div>Subtotal: <b>${formatCurrency(inv.subtotal || inv.totalAmount)}</b></div>
+                  ${inv.taxAmount ? `<div>Pajak: ${formatCurrency(inv.taxAmount)}</div>` : ''}
+                  ${inv.discount ? `<div>Diskon: -${formatCurrency(inv.discount)}</div>` : ''}
+                  <div style="font-size: 12px; font-weight: bold; margin-top: 4px; border-top: 1px border #cbd5e1; padding-top: 4px;">
+                    Total Tagihan: ${formatCurrency(inv.totalAmount)}
+                  </div>
+                  <div style="color: #16a34a; font-weight: bold;">
+                    Sudah Dibayar: ${formatCurrency(inv.paidAmount || 0)}
+                  </div>
+                  <div style="color: #dc2626; font-size: 13px; font-weight: 900; margin-top: 2px;">
+                    Sisa Piutang: ${formatCurrency(balance)}
+                  </div>
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('')}
+      `;
+    }
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Laporan Keuangan - ${printType === 'detailed' ? 'Detail Seluruh Invoice' : 'Ringkasan'}</title>
+        <style>
+          body { font-family: 'Helvetica Neue', Arial, sans-serif; padding: 24px; color: #0f172a; font-size: 12px; line-height: 1.4; }
+          .header { text-align: center; border-bottom: 2px solid #0f172a; padding-bottom: 12px; margin-bottom: 20px; }
+          .header h1 { margin: 0; font-size: 20px; text-transform: uppercase; letter-spacing: 1px; color: #0f172a; font-weight: 900; }
+          .header p { margin: 4px 0 0 0; color: #475569; font-size: 11px; font-weight: bold; }
+          
+          .summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+          .summary-card { border: 1px solid #cbd5e1; padding: 10px 12px; border-radius: 8px; background: #f8fafc; }
+          .summary-card .title { font-size: 10px; color: #64748b; font-weight: bold; text-transform: uppercase; }
+          .summary-card .value { font-size: 15px; font-weight: 900; margin-top: 4px; color: #0f172a; }
+
+          table { width: 100%; border-collapse: collapse; margin-top: 8px; margin-bottom: 12px; }
+          th { background: #0f172a; color: white; text-align: left; padding: 8px; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
+          td { border-bottom: 1px solid #e2e8f0; padding: 8px; font-size: 11px; }
+          .text-right { text-align: right; }
+          
+          .badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 9px; font-weight: bold; }
+          .badge-paid { background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; }
+          .badge-unpaid { background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; }
+          .badge-partial { background: #fef3c7; color: #b45309; border: 1px solid #fde68a; }
+
+          .invoice-detail-card { border: 1px solid #cbd5e1; border-radius: 8px; padding: 14px; margin-bottom: 16px; background: #ffffff; page-break-inside: avoid; }
+          .invoice-header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px; }
+          .inv-num { font-size: 14px; font-weight: 900; color: #0f172a; }
+          .inv-client { font-size: 12px; color: #334155; margin-top: 2px; }
+          .inv-sub { font-size: 10px; color: #64748b; }
+          .invoice-summary-box { display: flex; justify-content: space-between; background: #f8fafc; padding: 10px; border-radius: 6px; border: 1px solid #e2e8f0; margin-top: 8px; }
+
+          .footer { margin-top: 30px; border-top: 1px solid #cbd5e1; padding-top: 10px; display: flex; justify-content: space-between; font-size: 10px; color: #64748b; }
+
+          @media print {
+            body { padding: 0; }
+            .invoice-detail-card { page-break-inside: avoid; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>LAPORAN KEUANGAN NOTARIS & PPAT</h1>
+          <p>${printType === 'detailed' ? 'DOKUMEN DETAIL RINCIAN SELURUH INVOICE' : 'DOKUMEN RINGKASAN KEUANGAN INVOICE'} | Periode: ${periodText}</p>
+          <p style="font-weight: normal; font-size: 10px; color: #64748b; margin-top: 2px;">Tanggal Cetak Laporan: ${todayStr}</p>
+        </div>
+
+        ${printBodyHTML}
 
         <div class="footer">
-          <p>Laporan Keuangan Notaris & PPAT — Hak Cipta Dilindungi</p>
+          <span>Laporan Resmi Kantor Notaris & PPAT — Hak Cipta Dilindungi</span>
+          <span>Halaman Cetak Otomatis Sistem</span>
         </div>
 
         <script>
@@ -561,11 +745,11 @@ export const FinancialReport: React.FC = () => {
           </button>
 
           <button
-            onClick={handlePrintReport}
+            onClick={() => setIsPrintModalOpen(true)}
             className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs flex items-center gap-2 transition-all shadow-xs cursor-pointer"
           >
             <Printer className="w-3.5 h-3.5" />
-            <span>Cetak Laporan</span>
+            <span>Cetak PDF / Print</span>
           </button>
         </div>
       </div>
@@ -935,10 +1119,10 @@ export const FinancialReport: React.FC = () => {
                                   <div className="text-[10px] text-slate-400 italic">{inv.projectTitle}</div>
                                 )}
                               </td>
-                              <td className="p-3 text-slate-600 font-medium">{inv.issueDate || '-'}</td>
+                              <td className="p-3 text-slate-600 font-medium">{formatIndonesianDate(inv.issueDate)}</td>
                               <td className="p-3 font-medium">
                                 <div className={overdue ? 'text-rose-600 font-bold' : 'text-slate-700'}>
-                                  {inv.dueDate || '-'}
+                                  {formatIndonesianDate(inv.dueDate)}
                                 </div>
                               </td>
                               <td className="p-3 text-right font-medium text-slate-800">{formatCurrency(inv.totalAmount)}</td>
@@ -1038,7 +1222,7 @@ export const FinancialReport: React.FC = () => {
                                       <span className="text-xs text-slate-600 font-semibold">{inv.clientName}</span>
                                     </div>
                                     <div className="text-[11px] text-slate-500 mt-0.5">
-                                      Jatuh Tempo: <b>{inv.dueDate || '-'}</b> | Total: {formatCurrency(inv.totalAmount)} | Terbayar: {formatCurrency(inv.paidAmount)}
+                                      Jatuh Tempo: <b>{formatIndonesianDate(inv.dueDate)}</b> | Total: {formatCurrency(inv.totalAmount)} | Terbayar: {formatCurrency(inv.paidAmount)}
                                     </div>
                                   </div>
 
@@ -1144,7 +1328,7 @@ export const FinancialReport: React.FC = () => {
                                 <div className="font-bold text-slate-900">{inv.invoiceNumber}</div>
                                 <div className="text-slate-600 font-semibold">{inv.clientName}</div>
                               </td>
-                              <td className="p-3 text-slate-600 font-medium">{inv.issueDate || '-'}</td>
+                              <td className="p-3 text-slate-600 font-medium">{formatIndonesianDate(inv.issueDate)}</td>
                               <td className="p-3 text-right font-medium text-slate-800">{formatCurrency(inv.totalAmount)}</td>
                               <td className="p-3 text-right font-bold text-emerald-600">{formatCurrency(inv.paidAmount)}</td>
                               <td className="p-3 text-center">
@@ -1210,7 +1394,7 @@ export const FinancialReport: React.FC = () => {
                                     <span className="text-xs text-slate-600 font-semibold">{inv.clientName}</span>
                                   </div>
                                   <div className="text-[11px] text-slate-500 mt-0.5">
-                                    Issue: {inv.issueDate} | Total: {formatCurrency(inv.totalAmount)}
+                                    Issue: {formatIndonesianDate(inv.issueDate)} | Total: {formatCurrency(inv.totalAmount)}
                                   </div>
                                 </div>
                                 <div className="text-right">
@@ -1251,7 +1435,7 @@ export const FinancialReport: React.FC = () => {
                   <tbody className="divide-y divide-slate-200 bg-white">
                     {allPaymentHistoryRecords.map((item, idx) => (
                       <tr key={item.record.id || idx} className="hover:bg-slate-50 transition-colors">
-                        <td className="p-3 font-semibold text-slate-800">{item.record.date}</td>
+                        <td className="p-3 font-semibold text-slate-800">{formatIndonesianDate(item.record.date)}</td>
                         <td className="p-3">
                           <div className="font-bold text-slate-900">{item.invoice.invoiceNumber}</div>
                           <div className="text-slate-600">{item.invoice.clientName}</div>
@@ -1335,6 +1519,164 @@ export const FinancialReport: React.FC = () => {
 
       </div>
 
+      {/* MODAL: OPSI CETAK PDF / PRINT */}
+      {isPrintModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-[150] flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            
+            {/* Modal Header */}
+            <div className="bg-emerald-700 text-white p-5 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center font-bold">
+                  <Printer className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-base leading-tight">Opsi Cetak Laporan Keuangan</h3>
+                  <p className="text-xs text-emerald-100 mt-0.5">
+                    Pilih format cetak ringkasan atau detail seluruh invoice
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsPrintModalOpen(false)}
+                className="text-emerald-200 hover:text-white p-1 rounded-lg transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 space-y-5">
+              
+              {/* Format Tipe Laporan */}
+              <div className="space-y-2">
+                <label className="block text-xs font-extrabold text-slate-700 uppercase tracking-wider">
+                  1. Format Format Cetak Laporan PDF:
+                </label>
+                <div className="grid grid-cols-1 gap-2.5">
+                  <label 
+                    onClick={() => setPrintType('summary')}
+                    className={`p-3.5 rounded-xl border-2 flex items-start gap-3 cursor-pointer transition-all ${
+                      printType === 'summary' 
+                        ? 'border-emerald-600 bg-emerald-50/50 shadow-xs' 
+                        : 'border-slate-200 hover:border-slate-300 bg-white'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="printType"
+                      checked={printType === 'summary'}
+                      onChange={() => setPrintType('summary')}
+                      className="mt-0.5 text-emerald-600 focus:ring-emerald-500"
+                    />
+                    <div>
+                      <div className="font-bold text-xs text-slate-900 flex items-center gap-1.5">
+                        <FileText className="w-4 h-4 text-emerald-600" />
+                        Laporan Ringkasan (Summary)
+                      </div>
+                      <p className="text-[11px] text-slate-500 mt-0.5 leading-snug">
+                        Menampilkan tabel rekapitulasi ringkas, total KPI keuangan, dan status pelunasan invoice.
+                      </p>
+                    </div>
+                  </label>
+
+                  <label 
+                    onClick={() => setPrintType('detailed')}
+                    className={`p-3.5 rounded-xl border-2 flex items-start gap-3 cursor-pointer transition-all ${
+                      printType === 'detailed' 
+                        ? 'border-emerald-600 bg-emerald-50/50 shadow-xs' 
+                        : 'border-slate-200 hover:border-slate-300 bg-white'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="printType"
+                      checked={printType === 'detailed'}
+                      onChange={() => setPrintType('detailed')}
+                      className="mt-0.5 text-emerald-600 focus:ring-emerald-500"
+                    />
+                    <div>
+                      <div className="font-bold text-xs text-slate-900 flex items-center gap-1.5">
+                        <ListFilter className="w-4 h-4 text-emerald-600" />
+                        Laporan Detail Seluruh Invoice
+                      </div>
+                      <p className="text-[11px] text-slate-500 mt-0.5 leading-snug">
+                        Menampilkan rincian item layanan/produk, harga per item, pajak/diskon, serta riwayat angsuran pembayaran per invoice.
+                      </p>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              {/* Scope Scope Filter */}
+              <div className="space-y-2">
+                <label className="block text-xs font-extrabold text-slate-700 uppercase tracking-wider">
+                  2. Cakupan Invoice Yang Dicetak:
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setPrintScope('all')}
+                    className={`py-2 px-2.5 rounded-xl text-xs font-bold border transition-all text-center cursor-pointer ${
+                      printScope === 'all'
+                        ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
+                        : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                    }`}
+                  >
+                    Semua ({filteredInvoices.length})
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setPrintScope('unpaid')}
+                    className={`py-2 px-2.5 rounded-xl text-xs font-bold border transition-all text-center cursor-pointer ${
+                      printScope === 'unpaid'
+                        ? 'bg-rose-600 text-white border-rose-600 shadow-xs'
+                        : 'bg-rose-50 text-rose-800 border-rose-200 hover:bg-rose-100'
+                    }`}
+                  >
+                    Belum Lunas ({unpaidInvoices.length})
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setPrintScope('paid')}
+                    className={`py-2 px-2.5 rounded-xl text-xs font-bold border transition-all text-center cursor-pointer ${
+                      printScope === 'paid'
+                        ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                        : 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100'
+                    }`}
+                  >
+                    Lunas ({paidInvoices.length})
+                  </button>
+                </div>
+              </div>
+
+            </div>
+
+            {/* Modal Footer */}
+            <div className="bg-slate-50 p-4 border-t border-slate-200 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setIsPrintModalOpen(false)}
+                className="px-4 py-2 bg-white hover:bg-slate-100 text-slate-700 font-bold border border-slate-200 rounded-xl text-xs transition-colors cursor-pointer"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={executePrintReport}
+                className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs transition-all flex items-center gap-2 cursor-pointer shadow-xs"
+              >
+                <Printer className="w-3.5 h-3.5" />
+                <span>Cetak PDF Sekarang</span>
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
       {/* MODAL: CATAT PEMBAYARAN INVOICE */}
       {paymentModalInvoice && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-[150] flex items-center justify-center p-4 overflow-y-auto">
@@ -1412,7 +1754,7 @@ export const FinancialReport: React.FC = () => {
                       const remaining = paymentModalInvoice.balanceDue !== undefined ? paymentModalInvoice.balanceDue : (paymentModalInvoice.totalAmount - (paymentModalInvoice.paidAmount || 0));
                       setPaymentAmount(remaining.toString());
                     }}
-                    className="text-[11px] font-bold text-emerald-700 hover:bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 transition-colors"
+                    className="text-[11px] font-bold text-emerald-700 hover:bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 transition-colors cursor-pointer"
                   >
                     Pelunasan Penuh ({formatCurrency(paymentModalInvoice.balanceDue !== undefined ? paymentModalInvoice.balanceDue : (paymentModalInvoice.totalAmount - (paymentModalInvoice.paidAmount || 0)))})
                   </button>
