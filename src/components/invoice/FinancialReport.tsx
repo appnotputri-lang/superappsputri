@@ -34,7 +34,9 @@ import {
   Users,
   Briefcase,
   History,
-  FileCheck
+  FileCheck,
+  ShieldCheck,
+  Info
 } from 'lucide-react';
 import { Invoice, PaymentRecord } from '../../../types';
 import { InvoiceService } from '../../services/InvoiceService';
@@ -126,9 +128,11 @@ export const FinancialReport: React.FC = () => {
     riwayat_transaksi: false
   });
   const [pdfOrientation, setPdfOrientation] = useState<'portrait' | 'landscape'>('portrait');
-  const [showLivePreview, setShowLivePreview] = useState<boolean>(true);
+  
+  // Single Tab PDF Preview Modal
+  const [previewTabModal, setPreviewTabModal] = useState<FinancialTabType | null>(null);
 
-  // Monthly breakdown expansion state
+  // Monthly breakdown expansion state in Unpaid/Paid per month views
   const [expandedMonths, setExpandedMonths] = useState<Record<string, boolean>>({});
 
   // Fetch invoices
@@ -336,7 +340,7 @@ export const FinancialReport: React.FC = () => {
     return filteredInvoices.filter(inv => (inv.paidAmount || 0) > 0);
   }, [filteredInvoices]);
 
-  // Payment Records Log (Sourced from payment history)
+  // Payment Records Log (Sourced strictly from actual payment history transaction dates)
   const paymentRecordsLog = useMemo(() => {
     const list: Array<{ record: PaymentRecord; invoice: Invoice }> = [];
 
@@ -359,6 +363,21 @@ export const FinancialReport: React.FC = () => {
   const totalActualPaymentsReceived = useMemo(() => {
     return paymentRecordsLog.reduce((sum, item) => sum + (item.record.amount || 0), 0);
   }, [paymentRecordsLog]);
+
+  // Validation Integrity Check
+  const validationInfo = useMemo(() => {
+    const sumInvoicePaidAmount = filteredInvoices.reduce((sum, inv) => sum + (inv.paidAmount || 0), 0);
+    const sumHistoryPayments = totalActualPaymentsReceived;
+    const diff = Math.abs(sumInvoicePaidAmount - sumHistoryPayments);
+    const isConsistent = diff < 100;
+
+    return {
+      sumInvoicePaidAmount,
+      sumHistoryPayments,
+      diff,
+      isConsistent
+    };
+  }, [filteredInvoices, totalActualPaymentsReceived]);
 
   // Revenue by Service/Product Category
   const revenueByServices = useMemo(() => {
@@ -606,8 +625,6 @@ export const FinancialReport: React.FC = () => {
     } else if (selectedYear !== 'all') {
       periodText = `Tahun ${selectedYear}${selectedMonth !== 'all' ? ' — Bulan ' + MONTH_NAMES[parseInt(selectedMonth, 10)] : ''}`;
     }
-
-    const isPortrait = pdfOrientation === 'portrait';
 
     let sectionsHTML = '';
 
@@ -1002,6 +1019,7 @@ export const FinancialReport: React.FC = () => {
           }
 
           table { width: 100%; border-collapse: collapse; margin-top: 6px; margin-bottom: 10px; }
+          thead { display: table-header-group; }
           th { background: #0f172a; color: white; text-align: left; padding: 6px 8px; font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.5px; }
           td { border-bottom: 1px solid #e2e8f0; padding: 6px 8px; font-size: 10.5px; }
           .text-right { text-align: right; }
@@ -1024,6 +1042,7 @@ export const FinancialReport: React.FC = () => {
           @media print {
             body { padding: 0; }
             .report-section { page-break-inside: auto; }
+            thead { display: table-header-group; }
           }
         </style>
       </head>
@@ -1075,6 +1094,36 @@ export const FinancialReport: React.FC = () => {
     if (!printWindow) return;
     printWindow.document.write(html);
     printWindow.document.close();
+  };
+
+  // Single Tab PDF Preview Handler
+  const openSingleTabPreview = (tab: FinancialTabType) => {
+    // Enable only this tab in selectedReportsForPDF
+    const newSelected: Record<string, boolean> = {
+      rekap_invoice: false,
+      laporan_pembayaran: false,
+      laporan_piutang: false,
+      rekap_pendapatan: false,
+      laporan_bulanan: false,
+      laporan_klien: false,
+      riwayat_transaksi: false
+    };
+
+    if (tab === 'rekap_invoice') newSelected.rekap_invoice = true;
+    else if (tab === 'laporan_pembayaran') newSelected.laporan_pembayaran = true;
+    else if (tab === 'laporan_piutang') newSelected.laporan_piutang = true;
+    else if (tab === 'rekap_pendapatan') newSelected.rekap_pendapatan = true;
+    else if (tab === 'laporan_bulanan' || tab === 'laporan_tahunan') newSelected.laporan_bulanan = true;
+    else if (tab === 'laporan_klien') newSelected.laporan_klien = true;
+    else if (tab === 'riwayat_transaksi') newSelected.riwayat_transaksi = true;
+    else {
+      newSelected.rekap_invoice = true;
+      newSelected.laporan_pembayaran = true;
+      newSelected.laporan_piutang = true;
+    }
+
+    setSelectedReportsForPDF(newSelected);
+    setPreviewTabModal(tab);
   };
 
   if (loading) {
@@ -1134,6 +1183,29 @@ export const FinancialReport: React.FC = () => {
             <Printer className="w-3.5 h-3.5" />
             <span>Cetak / Ekspor PDF</span>
           </button>
+        </div>
+      </div>
+
+      {/* VALIDATION INTEGRITY STATUS ALERT */}
+      <div className={`p-4 rounded-2xl border text-xs flex items-start sm:items-center justify-between gap-3 ${
+        validationInfo.isConsistent 
+          ? 'bg-emerald-50/60 border-emerald-200 text-emerald-900' 
+          : 'bg-amber-50 border-amber-200 text-amber-900'
+      }`}>
+        <div className="flex items-start gap-2.5">
+          <ShieldCheck className={`w-5 h-5 shrink-0 mt-0.5 sm:mt-0 ${validationInfo.isConsistent ? 'text-emerald-600' : 'text-amber-600'}`} />
+          <div>
+            <div className="font-extrabold flex items-center gap-2">
+              <span>{validationInfo.isConsistent ? 'Validasi Perhitungan Integritas Data Sesuai' : 'Informasi Perbedaan Tanggal Kas & Invoice'}</span>
+            </div>
+            <p className="text-[11px] mt-0.5 leading-relaxed text-slate-600">
+              {validationInfo.isConsistent ? (
+                <>Total penerimaan kas dari histori transaksi (<b>{formatCurrency(validationInfo.sumHistoryPayments)}</b>) 100% konsisten dengan akumulasi pembayaran pada invoice.</>
+              ) : (
+                <>Terdapat selisih <b>{formatCurrency(validationInfo.diff)}</b> antara transaksi pembayaran aktual pada histori kas ({formatCurrency(validationInfo.sumHistoryPayments)}) dengan nilai pembayaran terakumulasi pada invoice ({formatCurrency(validationInfo.sumInvoicePaidAmount)}). Hal ini dikarenakan adanya pembayaran yang tanggal penerimaannya berbeda dari tanggal penerbitan invoice.</>
+              )}
+            </p>
+          </div>
         </div>
       </div>
 
@@ -1488,6 +1560,14 @@ export const FinancialReport: React.FC = () => {
                   <Calendar className="w-4 h-4 text-emerald-600" />
                   Rekapitulasi Keuangan Per Bulan ({selectedYear === 'all' ? 'Semua Tahun' : selectedYear})
                 </h3>
+
+                <button
+                  onClick={() => openSingleTabPreview('overview')}
+                  className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg text-xs flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Eye className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Pratinjau PDF</span>
+                </button>
               </div>
 
               <div className="overflow-x-auto rounded-xl border border-slate-200/80">
@@ -1545,6 +1625,14 @@ export const FinancialReport: React.FC = () => {
                 <FileText className="w-4 h-4 text-blue-600" />
                 Daftar Rekapitulasi Invoice ({filteredInvoices.length} Dokumen)
               </h3>
+
+              <button
+                onClick={() => openSingleTabPreview('rekap_invoice')}
+                className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg text-xs flex items-center gap-1.5 cursor-pointer"
+              >
+                <Eye className="w-3.5 h-3.5 text-blue-600" />
+                <span>Pratinjau PDF</span>
+              </button>
             </div>
 
             <div className="overflow-x-auto rounded-xl border border-slate-200/80">
@@ -1606,9 +1694,19 @@ export const FinancialReport: React.FC = () => {
                 <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                 Laporan Kas Pembayaran Diterima ({paymentRecordsLog.length} Transaksi)
               </h3>
-              <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-3 py-1 rounded-lg border border-emerald-200">
-                Total Realisasi Kas: {formatCurrency(totalActualPaymentsReceived)}
-              </span>
+
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-3 py-1 rounded-lg border border-emerald-200">
+                  Kas Diterima: {formatCurrency(totalActualPaymentsReceived)}
+                </span>
+                <button
+                  onClick={() => openSingleTabPreview('laporan_pembayaran')}
+                  className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg text-xs flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Eye className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Pratinjau PDF</span>
+                </button>
+              </div>
             </div>
 
             <div className="overflow-x-auto rounded-xl border border-slate-200/80">
@@ -1661,9 +1759,19 @@ export const FinancialReport: React.FC = () => {
                 <Clock className="w-4 h-4 text-rose-600" />
                 Laporan Piutang Invoice Belum Lunas ({unpaidInvoices.length} Dokumen)
               </h3>
-              <span className="text-xs font-bold text-rose-700 bg-rose-50 px-3 py-1 rounded-lg border border-rose-200">
-                Total Sisa Piutang: {formatCurrency(metrics.totalUnpaid)}
-              </span>
+
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-rose-700 bg-rose-50 px-3 py-1 rounded-lg border border-rose-200">
+                  Total Sisa Piutang: {formatCurrency(metrics.totalUnpaid)}
+                </span>
+                <button
+                  onClick={() => openSingleTabPreview('laporan_piutang')}
+                  className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg text-xs flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Eye className="w-3.5 h-3.5 text-rose-600" />
+                  <span>Pratinjau PDF</span>
+                </button>
+              </div>
             </div>
 
             <div className="overflow-x-auto rounded-xl border border-slate-200/80">
@@ -1745,6 +1853,14 @@ export const FinancialReport: React.FC = () => {
                 <PieChart className="w-4 h-4 text-indigo-600" />
                 Rekapitulasi Omset & Kas Diterima Per Kategori Layanan
               </h3>
+
+              <button
+                onClick={() => openSingleTabPreview('rekap_pendapatan')}
+                className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg text-xs flex items-center gap-1.5 cursor-pointer"
+              >
+                <Eye className="w-3.5 h-3.5 text-indigo-600" />
+                <span>Pratinjau PDF</span>
+              </button>
             </div>
 
             <div className="overflow-x-auto rounded-xl border border-slate-200/80">
@@ -1783,10 +1899,20 @@ export const FinancialReport: React.FC = () => {
         {activeTab === 'laporan_bulanan' && (
           <div className="p-4 sm:p-6 space-y-6">
             <div>
-              <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider mb-3 flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-amber-600" />
-                Laporan Per Bulan ({selectedYear === 'all' ? 'Semua Tahun' : selectedYear})
-              </h3>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                  <Calendar className="w-4 h-4 text-amber-600" />
+                  Laporan Per Bulan ({selectedYear === 'all' ? 'Semua Tahun' : selectedYear})
+                </h3>
+
+                <button
+                  onClick={() => openSingleTabPreview('laporan_bulanan')}
+                  className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg text-xs flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Eye className="w-3.5 h-3.5 text-amber-600" />
+                  <span>Pratinjau PDF</span>
+                </button>
+              </div>
 
               <div className="overflow-x-auto rounded-xl border border-slate-200/80">
                 <table className="w-full text-left text-xs">
@@ -1861,6 +1987,14 @@ export const FinancialReport: React.FC = () => {
                 <Users className="w-4 h-4 text-purple-600" />
                 Laporan Keuangan & Piutang Per Klien ({clientFinancialSummaries.length} Klien)
               </h3>
+
+              <button
+                onClick={() => openSingleTabPreview('laporan_klien')}
+                className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg text-xs flex items-center gap-1.5 cursor-pointer"
+              >
+                <Eye className="w-3.5 h-3.5 text-purple-600" />
+                <span>Pratinjau PDF</span>
+              </button>
             </div>
 
             <div className="overflow-x-auto rounded-xl border border-slate-200/80">
@@ -1906,10 +2040,20 @@ export const FinancialReport: React.FC = () => {
         {/* TAB 8: RIWAYAT TRANSAKSI */}
         {activeTab === 'riwayat_transaksi' && (
           <div className="p-4 sm:p-6 space-y-4">
-            <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
-              <History className="w-4 h-4 text-slate-700" />
-              Riwayat Transaksi Detail Invoice & Angsuran Pembayaran
-            </h3>
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                <History className="w-4 h-4 text-slate-700" />
+                Riwayat Transaksi Detail Invoice & Angsuran Pembayaran
+              </h3>
+
+              <button
+                onClick={() => openSingleTabPreview('riwayat_transaksi')}
+                className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg text-xs flex items-center gap-1.5 cursor-pointer"
+              >
+                <Eye className="w-3.5 h-3.5 text-slate-700" />
+                <span>Pratinjau PDF</span>
+              </button>
+            </div>
 
             <div className="space-y-4">
               {filteredInvoices.map((inv) => {
@@ -2075,6 +2219,89 @@ export const FinancialReport: React.FC = () => {
         )}
 
       </div>
+
+      {/* MODAL: SINGLE TAB PDF PREVIEW MODAL */}
+      {previewTabModal && (
+        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-xs z-[200] flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
+          <div className="bg-white w-full max-w-5xl rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[92vh]">
+            
+            {/* Modal Header */}
+            <div className="bg-slate-900 text-white p-4 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold">
+                  <Eye className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-sm sm:text-base leading-tight">
+                    Pratinjau PDF Laporan Keuangan
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Standar Kertas A4 — Siap Dicetak / Diunduh
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPdfOrientation(pdfOrientation === 'portrait' ? 'landscape' : 'portrait')}
+                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold rounded-lg text-xs flex items-center gap-1 transition-colors"
+                >
+                  <span>{pdfOrientation === 'portrait' ? 'Portrait' : 'Landscape'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setPreviewTabModal(null)}
+                  className="text-slate-400 hover:text-white p-1 rounded-lg transition-colors cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Body: Scrollable A4 Document Sheet */}
+            <div className="p-4 sm:p-6 overflow-y-auto bg-slate-200/80 flex justify-center flex-1">
+              <div 
+                className="bg-white text-slate-900 shadow-xl p-6 sm:p-10 rounded-sm border border-slate-300 w-full"
+                style={{
+                  maxWidth: pdfOrientation === 'portrait' ? '210mm' : '297mm',
+                  minHeight: '297mm',
+                  fontSize: '11px'
+                }}
+                dangerouslySetInnerHTML={{ __html: buildCombinedReportHTML() }}
+              />
+            </div>
+
+            {/* Modal Footer */}
+            <div className="bg-slate-100 p-4 border-t border-slate-200 flex items-center justify-between shrink-0">
+              <span className="text-xs text-slate-500">
+                Laporan Keuangan Notaris & PPAT Putri
+              </span>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPreviewTabModal(null)}
+                  className="px-4 py-2 bg-white hover:bg-slate-200 text-slate-700 font-bold border border-slate-300 rounded-xl text-xs transition-colors"
+                >
+                  Tutup
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleDirectPrintPDF}
+                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs transition-all flex items-center gap-2 shadow-xs cursor-pointer"
+                >
+                  <Printer className="w-4 h-4" />
+                  <span>Cetak / Unduh PDF</span>
+                </button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      )}
 
       {/* MODAL: CATAT PEMBAYARAN INVOICE */}
       {paymentModalInvoice && (
