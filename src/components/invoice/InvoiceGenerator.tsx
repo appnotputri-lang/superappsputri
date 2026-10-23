@@ -1234,18 +1234,14 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = (props) => {
   const formatInvoiceMessage = (inv: Invoice) => {
     const itemsText = (inv.items || []).map((item) => {
       if (!item) return '';
-      const desc = item.description || '';
+      const desc = item.description || item.name || '';
       const lines = desc.split('\n').map(l => l.trim()).filter(Boolean);
       if (lines.length === 0) return '';
-      if (lines.length === 1) {
-        return `•  ${lines[0]}: Rp ${formatCurrency(item.amount || (item.quantity * item.unitPrice))}`;
-      } else {
-        const firstLine = `•  ${lines[0]}`;
-        const middleLines = lines.slice(1, -1);
-        const lastLine = `${lines[lines.length - 1]}: Rp ${formatCurrency(item.amount || (item.quantity * item.unitPrice))}`;
-        return [firstLine, ...middleLines, lastLine].join('\n');
-      }
-    }).filter(Boolean).join('\n\n');
+      return lines.map(line => {
+        const cleaned = line.replace(/^[\s\u200B-\u200D\uFEFF\u2060•\-\*–—]+\s*/u, '').trim();
+        return `•  ${cleaned || line}`;
+      }).join('\n');
+    }).filter(Boolean).join('\n');
 
     const bName = inv.bankDetails?.bankName || 'BCA Cabang Dago - Bandung';
     const bNumberRaw = String(inv.bankDetails?.accountNumber || '7770673016');
