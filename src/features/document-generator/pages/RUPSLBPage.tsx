@@ -467,6 +467,14 @@ export const RUPSLBPage: React.FC<RUPSLBPageProps> = ({
     }
   };
 
+  // Auto-open form view when activeProjectContext is present
+  useEffect(() => {
+    if (activeProjectContext && !editingProjectId) {
+      setEditingProjectId('new');
+      setIsRupsPreview(false);
+    }
+  }, [activeProjectContext, editingProjectId, setEditingProjectId, setIsRupsPreview]);
+
   // Sync to Google Drive
   const handleSyncToDrive = async (draftId: string, payload: any) => {
     setIsDriveSyncing(true);
@@ -491,8 +499,8 @@ export const RUPSLBPage: React.FC<RUPSLBPageProps> = ({
     }
   };
 
-  // 1. LIST VIEW (Default state when not editing)
-  if (!editingProjectId) {
+  // 1. LIST VIEW (Default state when not editing and not in active project context)
+  if (!editingProjectId && !activeProjectContext) {
     return (
       <DocumentDraftListView
         title="RUPS LUAR BIASA (RUPS LB)"
@@ -503,7 +511,9 @@ export const RUPSLBPage: React.FC<RUPSLBPageProps> = ({
         onAdd={() => {
           setEditingProjectId('new');
           setIsRupsPreview(false);
-          updateData({ ...INITIAL_STATE } as any);
+          if (!activeProjectContext) {
+            updateData({ ...INITIAL_STATE } as any);
+          }
         }}
         onEdit={(item) => {
           setEditingProjectId(item.id);

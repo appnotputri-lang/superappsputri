@@ -1234,7 +1234,7 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = (props) => {
   const formatInvoiceMessage = (inv: Invoice) => {
     const itemsText = (inv.items || []).map((item) => {
       if (!item) return '';
-      const desc = item.description || item.name || '';
+      const desc = item.description || (item as any).name || '';
       const lines = desc.split('\n').map(l => l.trim()).filter(Boolean);
       if (lines.length === 0) return '';
       return lines.map(line => {

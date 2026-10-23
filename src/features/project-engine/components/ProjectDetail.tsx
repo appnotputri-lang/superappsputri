@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Project, DocumentReference, ClientSnapshot, ProjectChangeSnapshot, Party, PPATDocumentItem, PPATData } from '../../../domain/project/Project';
 import { ProjectService } from '../../../services/ProjectService';
 import { PartiesManager } from './PartiesManager';
@@ -122,6 +123,7 @@ interface ProjectDetailProps {
 }
 
 export default function ProjectDetail({ projectId, onBack, currentUser }: ProjectDetailProps) {
+  const navigate = useNavigate();
   const currentUserEmail = currentUser.email;
   const [project, setProject] = useState<Project | null>(null);
   const [client, setClient] = useState<CompanyProfile | null>(null);
@@ -3296,7 +3298,11 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
     );
   }
 
-  const isPT = client?.clientType === 'PT' || project.clientSnapshot?.companyType === 'PT';
+  const isPT = client?.clientType === 'PT' ||
+    project.clientSnapshot?.companyType === 'PT' ||
+    ['rups_lb', 'sirkuler_rupslb', 'rups_t', 'sirkuler', 'pendirian_pt'].includes(project.jobType) ||
+    Boolean(client?.clientType && client.clientType.startsWith('PT')) ||
+    Boolean(project.clientSnapshot?.companyType && project.clientSnapshot.companyType.startsWith('PT'));
   const isPPAT = project.jobType === 'akta_ppat' || project.jobType === 'ppat' || project.jobType === 'ajb' || project.jobType === 'akta_ajb' || project.projectCategory === 'PPAT';
 
   const isFormType = project && ['rups_lb', 'sirkuler_rupslb', 'rups_t', 'sirkuler'].includes(project.jobType);
@@ -3388,24 +3394,26 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
                   
                   if (existingDoc && existingDoc.refId) {
                     return (
-                      <a
-                        href={`${path}?id=${existingDoc.refId}&projectId=${project.projectId}`}
-                        className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg text-[13px] flex items-center gap-2 transition-all shadow-sm"
+                      <button
+                        type="button"
+                        onClick={() => navigate(`${path}?id=${encodeURIComponent(existingDoc.refId)}&projectId=${encodeURIComponent(project.projectId)}`)}
+                        className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg text-[13px] flex items-center gap-2 transition-all shadow-sm cursor-pointer"
                       >
                         <span>Edit Dokumen</span>
                         <FileText className="w-4 h-4" />
-                      </a>
+                      </button>
                     );
                   }
 
                   return (
-                    <a
-                      href={`${path}?projectId=${project.projectId}`}
-                      className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg text-[13px] flex items-center gap-2 transition-all shadow-sm"
+                    <button
+                      type="button"
+                      onClick={() => navigate(`${path}?projectId=${encodeURIComponent(project.projectId)}`)}
+                      className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg text-[13px] flex items-center gap-2 transition-all shadow-sm cursor-pointer"
                     >
                       <span>Buat Dokumen Baru</span>
                       <Plus className="w-4 h-4" />
-                    </a>
+                    </button>
                   );
                 })()}
               </>
