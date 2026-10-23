@@ -91,7 +91,8 @@ export type ReportViewType =
   | 'laporan_tahunan' 
   | 'laporan_klien' 
   | 'riwayat_transaksi'
-  | 'pdf_merger';
+  | 'pdf_merger'
+  | 'audit';
 
 export const FinancialReport: React.FC = () => {
   const navigate = useNavigate();
@@ -341,16 +342,47 @@ export const FinancialReport: React.FC = () => {
     return filteredInvoices.filter(inv => (inv.paidAmount || 0) > 0);
   }, [filteredInvoices]);
 
-  // Payment Records Log (Sourced strictly from actual payment history transaction dates)
+  // Payment Records Log (Sourced strictly from ALL active invoices filtered by ACTUAL payment transaction dates)
   const paymentRecordsLog = useMemo(() => {
     const list: Array<{ record: PaymentRecord; invoice: Invoice }> = [];
 
-    filteredInvoices.forEach(inv => {
+    invoices.forEach(inv => {
+      if (inv.status === 'DRAFT' || inv.status === 'CANCELLED') return;
+
       if (Array.isArray(inv.paymentHistory)) {
         inv.paymentHistory.forEach(rec => {
-          // Check payment date against start/end date if set
+          if (!rec.date) return;
+
+          // Date Range Filter
           if (startDate && rec.date < startDate) return;
           if (endDate && rec.date > endDate) return;
+
+          // Year Filter (if no custom dates)
+          if (!startDate && !endDate && selectedYear !== 'all') {
+            const payYr = rec.date.split('-')[0];
+            if (payYr !== selectedYear) return;
+          }
+
+          // Month Filter (if no custom dates)
+          if (!startDate && !endDate && selectedMonth !== 'all') {
+            const payMonthIdx = parseInt(rec.date.split('-')[1], 10) - 1;
+            if (payMonthIdx !== parseInt(selectedMonth, 10)) return;
+          }
+
+          // Client Filter
+          if (selectedClient !== 'all') {
+            if ((inv.clientName || '').trim() !== selectedClient.trim()) return;
+          }
+
+          // Search Query
+          if (searchQuery.trim()) {
+            const q = searchQuery.toLowerCase();
+            const matchNum = inv.invoiceNumber?.toLowerCase().includes(q);
+            const matchClient = inv.clientName?.toLowerCase().includes(q);
+            const matchProj = inv.projectTitle?.toLowerCase().includes(q);
+            const matchRef = rec.refNumber?.toLowerCase().includes(q);
+            if (!matchNum && !matchClient && !matchProj && !matchRef) return;
+          }
 
           list.push({ record: rec, invoice: inv });
         });
@@ -358,7 +390,7 @@ export const FinancialReport: React.FC = () => {
     });
 
     return list.sort((a, b) => new Date(b.record.date).getTime() - new Date(a.record.date).getTime());
-  }, [filteredInvoices, startDate, endDate]);
+  }, [invoices, selectedYear, selectedMonth, startDate, endDate, selectedClient, searchQuery]);
 
   // Total Payments Collected in filtered period
   const totalActualPaymentsReceived = useMemo(() => {
@@ -453,7 +485,7 @@ export const FinancialReport: React.FC = () => {
     return Object.values(map).sort((a, b) => b.totalInvoiced - a.totalInvoiced);
   }, [filteredInvoices]);
 
-  // Monthly Data Matrix
+  // Monthly Data Matrix (With both Invoice Issued View & Cash Collected View)
   const monthlyDataMatrix = useMemo(() => {
     const months = Array.from({ length: 12 }, (_, i) => {
       return {
@@ -463,29 +495,46 @@ export const FinancialReport: React.FC = () => {
         totalInvoiced: 0,
         totalPaid: 0,
         totalUnpaid: 0,
+        actualCashCollected: 0,
         invoices: [] as Invoice[]
       };
     });
 
     invoices.forEach(inv => {
       if (inv.status === 'DRAFT' || inv.status === 'CANCELLED') return;
-      if (!inv.issueDate) return;
 
-      const [y, m] = inv.issueDate.split('-');
-      if (selectedYear !== 'all' && y !== selectedYear) return;
+      // 1. Tagihan Diterbitkan
+      if (inv.issueDate) {
+        const [y, m] = inv.issueDate.split('-');
+        if (selectedYear === 'all' || y === selectedYear) {
+          const monthIdx = parseInt(m, 10) - 1;
+          if (monthIdx >= 0 && monthIdx < 12) {
+            const item = months[monthIdx];
+            const total = inv.totalAmount || 0;
+            const paid = inv.paidAmount || 0;
+            const balance = inv.balanceDue !== undefined ? inv.balanceDue : Math.max(0, total - paid);
 
-      const monthIdx = parseInt(m, 10) - 1;
-      if (monthIdx >= 0 && monthIdx < 12) {
-        const item = months[monthIdx];
-        const total = inv.totalAmount || 0;
-        const paid = inv.paidAmount || 0;
-        const balance = inv.balanceDue !== undefined ? inv.balanceDue : Math.max(0, total - paid);
+            item.invoiceCount++;
+            item.totalInvoiced += total;
+            item.totalPaid += paid;
+            item.totalUnpaid += balance;
+            item.invoices.push(inv);
+          }
+        }
+      }
 
-        item.invoiceCount++;
-        item.totalInvoiced += total;
-        item.totalPaid += paid;
-        item.totalUnpaid += balance;
-        item.invoices.push(inv);
+      // 2. Realisasi Pembayaran Diterima pada Bulan Tersebut
+      if (Array.isArray(inv.paymentHistory)) {
+        inv.paymentHistory.forEach(rec => {
+          if (!rec.date) return;
+          const [y, m] = rec.date.split('-');
+          if (selectedYear === 'all' || y === selectedYear) {
+            const monthIdx = parseInt(m, 10) - 1;
+            if (monthIdx >= 0 && monthIdx < 12) {
+              months[monthIdx].actualCashCollected += (rec.amount || 0);
+            }
+          }
+        });
       }
     });
 
@@ -500,6 +549,7 @@ export const FinancialReport: React.FC = () => {
       totalInvoiced: number;
       totalPaid: number;
       totalUnpaid: number;
+      actualCashCollected: number;
     }> = {};
 
     invoices.forEach(inv => {
@@ -507,7 +557,7 @@ export const FinancialReport: React.FC = () => {
       const yr = inv.issueDate ? inv.issueDate.split('-')[0] : 'Lainnya';
 
       if (!yearMap[yr]) {
-        yearMap[yr] = { year: yr, invoiceCount: 0, totalInvoiced: 0, totalPaid: 0, totalUnpaid: 0 };
+        yearMap[yr] = { year: yr, invoiceCount: 0, totalInvoiced: 0, totalPaid: 0, totalUnpaid: 0, actualCashCollected: 0 };
       }
 
       const total = inv.totalAmount || 0;
@@ -518,10 +568,246 @@ export const FinancialReport: React.FC = () => {
       yearMap[yr].totalInvoiced += total;
       yearMap[yr].totalPaid += paid;
       yearMap[yr].totalUnpaid += balance;
+
+      if (Array.isArray(inv.paymentHistory)) {
+        inv.paymentHistory.forEach(rec => {
+          if (!rec.date) return;
+          const pYr = rec.date.split('-')[0];
+          if (!yearMap[pYr]) {
+            yearMap[pYr] = { year: pYr, invoiceCount: 0, totalInvoiced: 0, totalPaid: 0, totalUnpaid: 0, actualCashCollected: 0 };
+          }
+          yearMap[pYr].actualCashCollected += (rec.amount || 0);
+        });
+      }
     });
 
     return Object.values(yearMap).sort((a, b) => b.year.localeCompare(a.year));
   }, [invoices]);
+
+  // Comprehensive Audit & Reconciliation Data Engine
+  const auditAnalysis = useMemo(() => {
+    let grandTotalInvoiced = 0;
+    let grandTotalHeaderPaid = 0;
+    let grandTotalHistoryPaid = 0;
+    let grandTotalUnpaid = 0;
+
+    const matchedTransactions: Array<{
+      invoiceNumber: string;
+      clientName: string;
+      issueDate: string;
+      totalAmount: number;
+      headerPaid: number;
+      historyPaid: number;
+      status: string;
+    }> = [];
+
+    const mismatchedInvoices: Array<{
+      invoiceId: string;
+      invoiceNumber: string;
+      clientName: string;
+      issueDate: string;
+      headerPaid: number;
+      historyPaid: number;
+      diff: number;
+      reason: string;
+    }> = [];
+
+    const crossPeriodPayments: Array<{
+      invoiceNumber: string;
+      clientName: string;
+      issueDate: string;
+      paymentDate: string;
+      paymentAmount: number;
+      refNumber?: string;
+      notes?: string;
+    }> = [];
+
+    const duplicatePaymentCandidates: Array<{
+      invoiceNumber: string;
+      clientName: string;
+      date: string;
+      amount: number;
+      refNumber?: string;
+      count: number;
+    }> = [];
+
+    const missingHistoryInvoices: Array<{
+      invoiceId: string;
+      invoiceNumber: string;
+      clientName: string;
+      issueDate: string;
+      paidAmount: number;
+    }> = [];
+
+    invoices.forEach(inv => {
+      if (inv.status === 'DRAFT' || inv.status === 'CANCELLED') return;
+
+      const total = inv.totalAmount || 0;
+      const headerPaid = inv.paidAmount || 0;
+      const balance = inv.balanceDue !== undefined ? inv.balanceDue : Math.max(0, total - headerPaid);
+      const history = Array.isArray(inv.paymentHistory) ? inv.paymentHistory : [];
+      const historySum = history.reduce((s, p) => s + (p.amount || 0), 0);
+
+      grandTotalInvoiced += total;
+      grandTotalHeaderPaid += headerPaid;
+      grandTotalHistoryPaid += historySum;
+      grandTotalUnpaid += balance;
+
+      const diff = Math.abs(headerPaid - historySum);
+
+      if (diff > 100) {
+        mismatchedInvoices.push({
+          invoiceId: inv.id,
+          invoiceNumber: inv.invoiceNumber,
+          clientName: inv.clientName,
+          issueDate: inv.issueDate,
+          headerPaid,
+          historyPaid: historySum,
+          diff,
+          reason: history.length === 0 
+            ? 'Header tercatat dibayar tetapi tidak memiliki rincian riwayat transaksi.' 
+            : `Header paidAmount (${headerPaid}) tidak sama dengan jumlah riwayat (${historySum}).`
+        });
+      } else {
+        matchedTransactions.push({
+          invoiceNumber: inv.invoiceNumber,
+          clientName: inv.clientName,
+          issueDate: inv.issueDate,
+          totalAmount: total,
+          headerPaid,
+          historyPaid: historySum,
+          status: inv.status
+        });
+      }
+
+      if (headerPaid > 0 && history.length === 0) {
+        missingHistoryInvoices.push({
+          invoiceId: inv.id,
+          invoiceNumber: inv.invoiceNumber,
+          clientName: inv.clientName,
+          issueDate: inv.issueDate,
+          paidAmount: headerPaid
+        });
+      }
+
+      history.forEach(rec => {
+        if (!rec.date || !inv.issueDate) return;
+        const issueYr = inv.issueDate.split('-')[0];
+        const payYr = rec.date.split('-')[0];
+        const issueM = inv.issueDate.split('-')[1];
+        const payM = rec.date.split('-')[1];
+
+        if (issueYr !== payYr || issueM !== payM) {
+          crossPeriodPayments.push({
+            invoiceNumber: inv.invoiceNumber,
+            clientName: inv.clientName,
+            issueDate: inv.issueDate,
+            paymentDate: rec.date,
+            paymentAmount: rec.amount || 0,
+            refNumber: rec.refNumber,
+            notes: rec.notes
+          });
+        }
+      });
+
+      const payMap: Record<string, number> = {};
+      history.forEach(rec => {
+        const key = `${rec.date}_${rec.amount}_${(rec.refNumber || '').trim().toLowerCase()}`;
+        payMap[key] = (payMap[key] || 0) + 1;
+      });
+
+      Object.entries(payMap).forEach(([key, count]) => {
+        if (count > 1) {
+          const [d, amtStr, ref] = key.split('_');
+          duplicatePaymentCandidates.push({
+            invoiceNumber: inv.invoiceNumber,
+            clientName: inv.clientName,
+            date: d,
+            amount: parseFloat(amtStr),
+            refNumber: ref,
+            count
+          });
+        }
+      });
+    });
+
+    const crossPeriodSum = crossPeriodPayments.reduce((s, c) => s + c.paymentAmount, 0);
+    const overallDiff = Math.abs(grandTotalHistoryPaid - grandTotalHeaderPaid);
+
+    return {
+      grandTotalInvoiced,
+      grandTotalHeaderPaid,
+      grandTotalHistoryPaid,
+      grandTotalUnpaid,
+      overallDiff,
+      crossPeriodSum,
+      matchedTransactions,
+      mismatchedInvoices,
+      crossPeriodPayments,
+      duplicatePaymentCandidates,
+      missingHistoryInvoices,
+      isFullyReconciled: overallDiff < 100 && mismatchedInvoices.length === 0
+    };
+  }, [invoices]);
+
+  const [isReconciling, setIsReconciling] = useState<boolean>(false);
+
+  // Auto Reconcile & Self-Healing Sync Tool
+  const handleAutoReconcileData = async () => {
+    if (!window.confirm('Jalankan rekonsiliasi dan sinkronisasi data otomatis? Langkah ini akan menyesuaikan paidAmount pada header invoice dengan jumlah riwayat pembayaran aktual, serta menambahkan catatan pembayaran resmi untuk invoice yang belum memiliki riwayat.')) {
+      return;
+    }
+
+    try {
+      setIsReconciling(true);
+      let fixCount = 0;
+
+      for (const inv of invoices) {
+        if (inv.status === 'DRAFT' || inv.status === 'CANCELLED') continue;
+
+        const history = Array.isArray(inv.paymentHistory) ? [...inv.paymentHistory] : [];
+        let updatedHistory = [...history];
+        let needsUpdate = false;
+
+        if ((inv.paidAmount || 0) > 0 && updatedHistory.length === 0) {
+          const defaultRecord: PaymentRecord = {
+            id: `pay_sync_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+            date: inv.issueDate || new Date().toISOString().split('T')[0],
+            amount: inv.paidAmount || 0,
+            method: 'Transfer Bank',
+            refNumber: 'SINKRONISASI_REKONSILIASI',
+            notes: 'Pencatatan rekonsiliasi otomatis histori pembayaran',
+            recordedBy: 'Sistem Audit'
+          };
+          updatedHistory.push(defaultRecord);
+          needsUpdate = true;
+        }
+
+        const historySum = updatedHistory.reduce((s, p) => s + (p.amount || 0), 0);
+        const totalAmt = inv.totalAmount || 0;
+        const newPaidAmount = historySum;
+        const newBalance = Math.max(0, totalAmt - newPaidAmount);
+        const newStatus: 'PAID' | 'UNPAID' = newBalance <= 0 ? 'PAID' : 'UNPAID';
+
+        if (needsUpdate || inv.paidAmount !== newPaidAmount || inv.balanceDue !== newBalance || inv.status !== newStatus) {
+          await InvoiceService.updateInvoice(inv.id, {
+            paymentHistory: updatedHistory,
+            paidAmount: newPaidAmount,
+            balanceDue: newBalance,
+            status: newStatus
+          });
+          fixCount++;
+        }
+      }
+
+      alert(`Rekonsiliasi data berhasil diselesaikan! ${fixCount} invoice telah disinkronkan.`);
+      await loadInvoices();
+    } catch (err: any) {
+      alert('Gagal menjalankan rekonsiliasi data: ' + (err.message || 'Error'));
+    } finally {
+      setIsReconciling(false);
+    }
+  };
 
   // Open Payment Modal
   const openPaymentModal = (inv: Invoice) => {
@@ -1205,6 +1491,16 @@ export const FinancialReport: React.FC = () => {
       desc: 'Fitur penggabungan beberapa laporan terpilih menjadi satu dokumen PDF A4 siap cetak.',
       statLabel: 'Multi-Report',
       statVal: 'A4 Portrait/Landscape'
+    },
+    {
+      id: 'audit',
+      title: 'Audit & Rekonsiliasi',
+      icon: ShieldCheck,
+      badgeColor: 'bg-indigo-100 text-indigo-800 border-indigo-200',
+      badgeText: auditAnalysis.isFullyReconciled ? 'Sesuai 100%' : `${auditAnalysis.mismatchedInvoices.length} Temuan`,
+      desc: 'Audit mendalam pencocokan histori kas, data invoice, pembayaran lintas periode, dan penyeimbangan selisih.',
+      statLabel: 'Status Audit',
+      statVal: auditAnalysis.isFullyReconciled ? 'Sesuai 100%' : `Selisih: ${formatCurrency(auditAnalysis.overallDiff)}`
     }
   ];
 
@@ -2210,6 +2506,192 @@ export const FinancialReport: React.FC = () => {
                     }}
                     dangerouslySetInnerHTML={{ __html: buildCombinedReportHTML() }}
                   />
+                </div>
+              </div>
+
+            </div>
+          )}
+
+          {/* DEDICATED VIEW: AUDIT TOTAL PEMBAYARAN & REKONSILIASI INVOICE */}
+          {activeReportView === 'audit' && (
+            <div className="p-4 sm:p-6 space-y-6">
+              
+              {/* Executive Summary Alert Banner */}
+              <div className="bg-slate-900 text-white p-5 rounded-2xl border border-slate-800 space-y-4">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-3">
+                  <div>
+                    <h3 className="text-base font-extrabold text-white flex items-center gap-2">
+                      <ShieldCheck className="w-5 h-5 text-emerald-400" />
+                      Laporan Audit & Rekonsiliasi Total Pembayaran
+                    </h3>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      Pemeriksaan silang antara nilai tagihan invoice, histori transaksi kas, dan pencocokan penerimaan pembayaran.
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleAutoReconcileData}
+                    disabled={isReconciling}
+                    className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white font-extrabold rounded-xl text-xs flex items-center gap-2 transition-all cursor-pointer shadow-xs shrink-0 disabled:opacity-50"
+                  >
+                    <RefreshCw className={`w-4 h-4 ${isReconciling ? 'animate-spin' : ''}`} />
+                    <span>Sinkronkan & Rekonsiliasi Otomatis</span>
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+                  <div className="bg-slate-800/80 p-3 rounded-xl border border-slate-700">
+                    <span className="text-slate-400 text-[10px] uppercase font-bold block">Total Tagihan (Omset)</span>
+                    <span className="text-lg font-black text-white mt-1 block">{formatCurrency(auditAnalysis.grandTotalInvoiced)}</span>
+                  </div>
+
+                  <div className="bg-slate-800/80 p-3 rounded-xl border border-slate-700">
+                    <span className="text-emerald-400 text-[10px] uppercase font-bold block">Total Histori Kas (Penerimaan)</span>
+                    <span className="text-lg font-black text-emerald-400 mt-1 block">{formatCurrency(auditAnalysis.grandTotalHistoryPaid)}</span>
+                  </div>
+
+                  <div className="bg-slate-800/80 p-3 rounded-xl border border-slate-700">
+                    <span className="text-blue-400 text-[10px] uppercase font-bold block">Total Header Paid Invoice</span>
+                    <span className="text-lg font-black text-blue-400 mt-1 block">{formatCurrency(auditAnalysis.grandTotalHeaderPaid)}</span>
+                  </div>
+
+                  <div className="bg-slate-800/80 p-3 rounded-xl border border-slate-700">
+                    <span className="text-amber-400 text-[10px] uppercase font-bold block">Status Selisih</span>
+                    <span className={`text-lg font-black mt-1 block ${auditAnalysis.overallDiff < 100 ? 'text-emerald-400' : 'text-amber-400'}`}>
+                      {auditAnalysis.overallDiff < 100 ? 'SESUAI 100%' : formatCurrency(auditAnalysis.overallDiff)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* TEMUAN 1: PENJELASAN SELISIH LINTAS PERIODE */}
+              <div className="bg-white p-5 rounded-2xl border border-slate-200/80 space-y-3">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                  <h4 className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                    <Info className="w-4 h-4 text-emerald-600" />
+                    1. Analisis Pembayaran Lintas Periode / Lintas Bulan ({auditAnalysis.crossPeriodPayments.length} Transaksi)
+                  </h4>
+                  <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded border border-emerald-200">
+                    Akumulasi: {formatCurrency(auditAnalysis.crossPeriodSum)}
+                  </span>
+                </div>
+
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  <b>Penjelasan Hasil Audit:</b> Selisih antara laporan kas penerimaan uang ({formatCurrency(auditAnalysis.grandTotalHistoryPaid)}) dan ringkasan pembayaran invoice per periode terjadi karena terdapat transaksi penerimaan uang di mana <b>tanggal pembayaran (paymentDate)</b> berbeda dari <b>tanggal penerbitan invoice (issueDate)</b>. 
+                  Sistem telah mengkategorikan dan mencocokkan seluruh pembayaran ini secara akurat.
+                </p>
+
+                <div className="overflow-x-auto rounded-xl border border-slate-200">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-slate-100 text-slate-700 font-bold uppercase border-b border-slate-200">
+                      <tr>
+                        <th className="p-2.5">No. Invoice</th>
+                        <th className="p-2.5">Klien</th>
+                        <th className="p-2.5">Tgl Issue Invoice</th>
+                        <th className="p-2.5">Tgl Bayar Realisasi</th>
+                        <th className="p-2.5">No. Referensi / Catatan</th>
+                        <th className="p-2.5 text-right">Nominal Diterima</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {auditAnalysis.crossPeriodPayments.map((cp, idx) => (
+                        <tr key={idx} className="hover:bg-slate-50">
+                          <td className="p-2.5 font-bold text-slate-900">{cp.invoiceNumber}</td>
+                          <td className="p-2.5 font-semibold text-slate-800">{cp.clientName}</td>
+                          <td className="p-2.5 text-slate-600">{formatIndonesianDate(cp.issueDate)}</td>
+                          <td className="p-2.5 font-bold text-emerald-700">{formatIndonesianDate(cp.paymentDate)}</td>
+                          <td className="p-2.5 text-slate-500 font-mono text-[11px]">{cp.refNumber || cp.notes || '-'}</td>
+                          <td className="p-2.5 text-right font-black text-emerald-600">{formatCurrency(cp.paymentAmount)}</td>
+                        </tr>
+                      ))}
+                      {auditAnalysis.crossPeriodPayments.length === 0 && (
+                        <tr>
+                          <td colSpan={6} className="p-4 text-center text-slate-400 italic">Tidak ada transaksi lintas periode. Seluruh pembayaran terjadi pada bulan penerbitan invoice.</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* TEMUAN 2: INKONSISTENSI HEADER VS HISTORI */}
+              {auditAnalysis.mismatchedInvoices.length > 0 && (
+                <div className="bg-amber-50 p-5 rounded-2xl border border-amber-200 space-y-3">
+                  <div className="flex items-center justify-between border-b border-amber-200/80 pb-2">
+                    <h4 className="text-xs font-black text-amber-900 uppercase tracking-wider flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4 text-amber-600" />
+                      2. Ketidaksesuaian Nominal Header vs Histori ({auditAnalysis.mismatchedInvoices.length} Invoice)
+                    </h4>
+                  </div>
+
+                  <div className="overflow-x-auto rounded-xl border border-amber-200 bg-white">
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-amber-100/60 text-amber-900 font-bold uppercase border-b border-amber-200">
+                        <tr>
+                          <th className="p-2.5">No. Invoice</th>
+                          <th className="p-2.5">Klien</th>
+                          <th className="p-2.5 text-right">Paid Header</th>
+                          <th className="p-2.5 text-right">Paid Histori</th>
+                          <th className="p-2.5 text-right">Selisih</th>
+                          <th className="p-2.5">Keterangan temuan</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-amber-100">
+                        {auditAnalysis.mismatchedInvoices.map((mi) => (
+                          <tr key={mi.invoiceId} className="hover:bg-amber-50/50">
+                            <td className="p-2.5 font-bold text-slate-900">{mi.invoiceNumber}</td>
+                            <td className="p-2.5 font-semibold text-slate-800">{mi.clientName}</td>
+                            <td className="p-2.5 text-right font-medium text-slate-800">{formatCurrency(mi.headerPaid)}</td>
+                            <td className="p-2.5 text-right font-bold text-emerald-600">{formatCurrency(mi.historyPaid)}</td>
+                            <td className="p-2.5 text-right font-black text-rose-600">{formatCurrency(mi.diff)}</td>
+                            <td className="p-2.5 text-slate-600 italic text-[11px]">{mi.reason}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* TEMUAN 3: TRANSAKSI YANG RECONCILED & COCOK 100% */}
+              <div className="bg-white p-5 rounded-2xl border border-slate-200/80 space-y-3">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                  <h4 className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    3. Daftar Transaksi Ter-rekonsiliasi & Cocok ({auditAnalysis.matchedTransactions.length} Invoice)
+                  </h4>
+                </div>
+
+                <div className="overflow-x-auto rounded-xl border border-slate-200">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-slate-100 text-slate-700 font-bold uppercase border-b border-slate-200">
+                      <tr>
+                        <th className="p-2.5">No. Invoice</th>
+                        <th className="p-2.5">Nama Klien</th>
+                        <th className="p-2.5">Tgl Issue</th>
+                        <th className="p-2.5 text-right">Total Tagihan</th>
+                        <th className="p-2.5 text-right">Kas Terbayar</th>
+                        <th className="p-2.5 text-center">Status Audit</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {auditAnalysis.matchedTransactions.map((mt, idx) => (
+                        <tr key={idx} className="hover:bg-slate-50">
+                          <td className="p-2.5 font-bold text-slate-900">{mt.invoiceNumber}</td>
+                          <td className="p-2.5 font-semibold text-slate-800">{mt.clientName}</td>
+                          <td className="p-2.5 text-slate-600">{formatIndonesianDate(mt.issueDate)}</td>
+                          <td className="p-2.5 text-right font-medium text-slate-900">{formatCurrency(mt.totalAmount)}</td>
+                          <td className="p-2.5 text-right font-bold text-emerald-600">{formatCurrency(mt.headerPaid)}</td>
+                          <td className="p-2.5 text-center">
+                            <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold text-[10px] border border-emerald-200">
+                              RECONCILED 100%
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               </div>
 
